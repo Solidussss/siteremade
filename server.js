@@ -118,5 +118,7 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
+app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.listen(PORT, '0.0.0.0', () => console.log(`SiteRemade running on port ${PORT}`));
