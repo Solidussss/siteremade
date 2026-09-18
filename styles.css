@@ -548,3 +548,84 @@ html,body{max-width:100%;overflow-x:hidden}
     box-shadow:none;
   }
 }
+
+
+/* Mobile scroll-performance pass */
+@media(max-width:720px){
+  /* Do not keep the entire long landing page rendered in memory at once. */
+  .modes-section,
+  .builder-section,
+  .handoff-section,
+  .why-section,
+  .pricing-section,
+  .ownership-section,
+  footer{
+    content-visibility:auto;
+    contain-intrinsic-size:auto 900px;
+  }
+
+  /* Mobile reveal should not create extra compositing work while scrolling. */
+  .reveal{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+
+  /* Expensive effects removed only on phones. */
+  .page-glow{
+    display:none!important;
+  }
+  .hero-browser,
+  .mode-browser,
+  .builder-shell,
+  .pricing-card{
+    box-shadow:none!important;
+  }
+  .art-stat,
+  .floating-card{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  .art-core,
+  .status-dot{
+    box-shadow:none!important;
+  }
+
+  /* Avoid animating huge preview surfaces while scrolling. */
+  .mode-stage,
+  .mode-preview,
+  .builder-site,
+  .builder-site *,
+  .button,
+  .mode-tab{
+    transition:none!important;
+  }
+
+  /* Keep the builder isolated so style changes don't repaint the whole page. */
+  .builder-shell,
+  .builder-preview-wrap,
+  .builder-device,
+  .builder-site,
+  .mode-stage,
+  .mode-preview{
+    contain:layout paint;
+  }
+
+  /* Large background grids are visually minor but costly on mobile. */
+  .hero-demo-grid,
+  .visual-grid{
+    background-size:56px 56px;
+    opacity:.55;
+  }
+}
+@media(max-width:430px){
+  .modes-section,
+  .builder-section,
+  .handoff-section,
+  .why-section,
+  .pricing-section,
+  .ownership-section,
+  footer{
+    contain-intrinsic-size:auto 760px;
+  }
+}
