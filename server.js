@@ -8,7 +8,15 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 app.disable('x-powered-by');
 app.use(express.json({ limit: '900kb' }));
 app.use(express.urlencoded({ extended: false, limit: '900kb' }));
-app.use(express.static(__dirname));
+app.use(express.static(__dirname,{
+  setHeaders(res,filePath){
+    if(/\.(?:png|jpg|jpeg|webp|svg|ico)$/i.test(filePath)){
+      res.setHeader('Cache-Control','public, max-age=604800, stale-while-revalidate=86400');
+    }else if(/\.(?:css|js)$/i.test(filePath)){
+      res.setHeader('Cache-Control','public, max-age=3600, stale-while-revalidate=86400');
+    }
+  }
+}));
 
 function escapeHtml(value = '') {
   return String(value)
