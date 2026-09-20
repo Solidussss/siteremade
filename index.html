@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SiteRemade — Describe Your Business, Get a Generated Website Direction</title>
-  <meta name="description" content="Describe your service business in one sentence and SiteRemade generates a real website direction: style, copy, colours and layout. Refine it, then we build and deliver the finished site." />
+  <meta name="description" content="Describe your business in one sentence and SiteRemade generates a real website direction: style, copy, colours and layout. Refine it, then we build and deliver the finished site." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="preload" href="styles.css" as="style" />
@@ -17,7 +17,7 @@
   <header class="nav" id="top">
     <a href="#top" class="brand brand-logo" aria-label="SiteRemade home"><img src="siteremade-logo-black.png" alt="SiteRemade" decoding="async" fetchpriority="high" /></a>
     <nav class="nav-links">
-      <a href="#modes">See the directions</a>
+      <a href="#stylePicker">Browse styles</a>
       <a href="#why">Why it works</a>
       <a href="#pricing">Pricing</a>
     </nav>
@@ -32,7 +32,7 @@
       <div class="hero-copy">
         <p class="eyebrow">START WITH ONE SENTENCE</p>
         <h1>Describe your business.<span>Watch a direction appear.</span></h1>
-        <p class="hero-description">Tell us what you do and where. SiteRemade reads it, matches it to a website direction built for service businesses, and shows you a real preview — not a questionnaire.</p>
+        <p class="hero-description">Tell us what your business does and where. SiteRemade reads it, matches it to a real website direction — style, copy, colours and layout — and shows you a real preview, not a questionnaire.</p>
 
         <form class="generator-form" id="generatorForm">
           <label class="generator-label" for="generatorInput">Describe your business</label>
@@ -47,6 +47,13 @@
           </div>
         </form>
 
+        <div class="style-picker" id="stylePicker">
+          <span class="style-picker-label">Style (optional)</span>
+          <div class="style-swatch-row" id="styleSwatchRow">
+            <button type="button" class="style-swatch active" data-style="auto" aria-pressed="true"><span class="swatch-dot swatch-auto"></span>Auto</button>
+          </div>
+        </div>
+
         <div class="hero-meta">
           <span>Starting at $750 CAD</span>
           <span>Full ownership</span>
@@ -55,7 +62,7 @@
       </div>
 
       <div class="hero-machine" aria-label="Animated SiteRemade preview" id="heroMachine">
-        <div class="machine-topline"><span id="heroTopline">LIVE DESIGN SYSTEM</span><span id="heroTopcount">01 / 06</span></div>
+        <div class="machine-topline"><span id="heroTopline">LIVE PREVIEW</span></div>
         <div class="hero-browser">
           <div class="browser-top">
             <div class="browser-dots"><span></span><span></span><span></span></div>
@@ -67,7 +74,7 @@
             <div class="hero-demo-copy" id="heroDemoCopy">
               <p id="heroKicker">YOUR BUSINESS</p>
               <h2 id="heroHeadline">Built to look worth calling.</h2>
-              <div class="hero-demo-actions"><span>View work</span><strong>Request a quote ↗</strong></div>
+              <div class="hero-demo-actions"><span>View work</span><strong>Get started ↗</strong></div>
             </div>
             <div class="generation-progress" id="generationProgress" hidden>
               <p class="generation-eyebrow">GENERATING YOUR DIRECTION</p>
@@ -81,52 +88,7 @@
             </div>
             <div class="floating-card card-one"><small>STYLE</small><strong id="heroCardStyle">Precision</strong></div>
             <div class="floating-card card-two"><small>BRAND</small><strong id="heroCardBrand">#315CFF</strong></div>
-            <div class="floating-card card-three"><small>INDUSTRY</small><strong id="heroCardIndustry">Service</strong></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="modes-section reveal" id="modes">
-      <div class="section-heading split-heading">
-        <div>
-          <p class="eyebrow">01 — WHAT THE GENERATOR CAN PRODUCE</p>
-          <h2>Six directions, before you write a word.</h2>
-        </div>
-        <p>Every mode is modern. Every mode is professional. The difference is the design language — not the quality. Describe your business above and the generator picks one; browse them here and jump straight in with any of them.</p>
-      </div>
-
-      <div class="mode-showcase" id="modeShowcase">
-        <div class="mode-rail" id="modeRail" role="tablist" aria-label="Website styles">
-          <button class="mode-tab active" data-mode="luminous"><span>01</span><strong>Luminous</strong><small>Glow / interface / cinematic</small></button>
-          <button class="mode-tab" data-mode="editorial"><span>02</span><strong>Editorial</strong><small>Publication / serif / structured</small></button>
-          <button class="mode-tab" data-mode="precision"><span>03</span><strong>Precision</strong><small>Minimal / clean / product-led</small></button>
-          <button class="mode-tab" data-mode="studio"><span>04</span><strong>Studio</strong><small>Creative / expressive / modern</small></button>
-          <button class="mode-tab" data-mode="executive"><span>05</span><strong>Executive</strong><small>Premium / trusted / established</small></button>
-          <button class="mode-tab" data-mode="impact"><span>06</span><strong>Impact</strong><small>Bold / direct / commercial</small></button>
-        </div>
-
-        <div class="mode-stage-wrap">
-          <div class="mode-stage" id="modeStage" data-mode="luminous">
-            <div class="mode-stage-header">
-              <div><span id="modeNumber">01</span><strong id="modeName">Luminous</strong></div>
-              <p id="modeTagline">Modern UI with controlled glow and depth.</p>
-            </div>
-            <div class="mode-browser">
-              <div class="mode-window-bar"><span></span><span></span><span></span><em id="modeDomain">northlineelectric.ca</em></div>
-              <div class="mode-preview" id="modePreview">
-                <div class="preview-nav"><strong id="previewBrand">NORTHLINE</strong><div><span>Services</span><span>Work</span><span>About</span></div><button>Get a Quote</button></div>
-                <div class="preview-hero">
-                  <div class="preview-copy"><p id="previewKicker">ELECTRICAL SERVICES</p><h3 id="previewHeadline">Powering better spaces.</h3><p class="preview-sub">Clear service. Clean work. A website built to match.</p><div class="preview-cta"><button>Request a Quote</button><span>View recent work ↗</span></div></div>
-                  <div class="preview-art" aria-hidden="true"><div class="art-orbit orbit-a"></div><div class="art-orbit orbit-b"></div><div class="art-core"></div><div class="art-stat stat-a"><small>PROJECTS</small><strong>184</strong></div><div class="art-stat stat-b"><small>RATING</small><strong>4.9</strong></div></div>
-                </div>
-                <div class="preview-strip"><span>Residential</span><span>Commercial</span><span>Service</span><span>Renovation</span></div>
-              </div>
-            </div>
-            <div class="mode-stage-footer">
-              <div class="mode-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i><i></i></div>
-              <button type="button" class="button use-direction-button" id="useThisDirection" data-mode="luminous">Use this direction</button>
-            </div>
+            <div class="floating-card card-three"><small>CATEGORY</small><strong id="heroCardIndustry">Business</strong></div>
           </div>
         </div>
       </div>
@@ -141,134 +103,135 @@
 
       <div class="builder-shell locked" id="builderShell">
         <div class="refine-lock" id="refineLock">
-          <p><strong>Generate a direction first.</strong><br />Describe your business above to unlock refinement — or pick a direction from the six above.</p>
+          <p><strong>Generate a direction first.</strong><br />Describe your business above to unlock refinement.</p>
           <button type="button" class="button button-small" id="refineLockCta">Start generating</button>
         </div>
-        <aside class="builder-controls">
-          <div class="builder-progress"><span class="active">STYLE</span><span>BUSINESS</span><span>LOOK</span><span>PREVIEW</span></div>
 
-          <div class="control-block suggestions-block" id="suggestionsBlock" hidden>
-            <label class="control-label">Suggested for your business</label>
-            <div class="suggestion-chips" id="suggestionChips"></div>
-          </div>
-
-          <div class="control-block">
-            <label class="control-label">Website style</label>
-            <div class="select-wrap"><select id="builderMode">
-              <option value="luminous">Luminous</option>
-              <option value="editorial">Editorial</option>
-              <option value="precision">Precision</option>
-              <option value="studio">Studio</option>
-              <option value="executive">Executive</option>
-              <option value="impact">Impact</option>
-            </select></div>
-          </div>
-
-          <div class="control-block">
-            <label class="control-label">Copy tone</label>
+        <div class="result-actions" id="resultActions">
+          <div class="result-actions-primary">
+            <div class="quick-edit">
+              <input id="businessName" type="text" value="Your Business" maxlength="60" aria-label="Business name" />
+              <div class="select-wrap"><select id="industrySelect" aria-label="Business category">
+                <option value="electrical">Electrical</option>
+                <option value="plumbing">Plumbing</option>
+                <option value="landscaping">Landscaping</option>
+                <option value="painting">Painting</option>
+                <option value="roofing">Roofing</option>
+                <option value="automotive">Automotive</option>
+                <option value="cleaning">Cleaning</option>
+                <option value="renovation">Renovation</option>
+                <option value="retail">Retail</option>
+                <option value="professional">Professional Services</option>
+                <option value="hospitality">Food &amp; Hospitality</option>
+                <option value="creative">Creative Studio</option>
+                <option value="wellness">Health &amp; Wellness</option>
+                <option value="tech">Technology</option>
+                <option value="realestate">Real Estate</option>
+                <option value="fitness">Fitness</option>
+                <option value="education">Education</option>
+                <option value="nonprofit">Community &amp; Nonprofit</option>
+                <option value="other">General Business</option>
+              </select></div>
+            </div>
             <div class="tone-toggle" id="toneToggle">
               <button type="button" class="active" data-tone="professional">Professional</button>
               <button type="button" data-tone="bold">Bold</button>
               <button type="button" data-tone="friendly">Friendly</button>
             </div>
+            <button type="button" class="button button-small" id="regenerateButton">Regenerate</button>
           </div>
-
-          <div class="control-block two-col-control">
-            <label><span class="control-label">Business name</span><input id="businessName" type="text" value="Northline Electric" maxlength="60" /></label>
-            <label><span class="control-label">Business type</span><select id="industrySelect">
-              <option value="electrical">Electrical</option>
-              <option value="plumbing">Plumbing</option>
-              <option value="landscaping">Landscaping</option>
-              <option value="painting">Painting</option>
-              <option value="roofing">Roofing</option>
-              <option value="automotive">Automotive</option>
-              <option value="cleaning">Cleaning</option>
-              <option value="renovation">Renovation</option>
-              <option value="other">Other</option>
-            </select></label>
+          <div class="control-block suggestions-block" id="suggestionsBlock" hidden>
+            <label class="control-label">Try another style</label>
+            <div class="suggestion-chips" id="suggestionChips"></div>
           </div>
+        </div>
 
-          <div class="control-block logo-control-block">
-            <label class="control-label">Business logo</label>
-            <div class="logo-uploader" id="logoUploader">
-              <input id="businessLogo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-              <div class="logo-upload-preview">
-                <div class="logo-preview-box" id="logoPreviewBox">
-                  <span id="logoPlaceholder">Add logo</span>
-                  <img id="logoPreviewImage" alt="Your business logo preview" />
-                </div>
-                <div class="logo-upload-copy">
-                  <strong>Use your real logo</strong>
-                  <small>PNG, JPG, WEBP or SVG. We’ll fit it cleanly without stretching it.</small>
-                  <div class="logo-upload-actions">
-                    <button type="button" class="logo-upload-button" id="chooseLogo">Choose Logo</button>
-                    <button type="button" class="logo-remove-button" id="removeLogo" hidden>Remove</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="control-block color-block">
-            <label class="control-label">Website colours</label>
-            <div class="full-color-grid">
-              <label class="mini-color-control">
-                <span>Main colour</span>
-                <div><input id="brandColor" type="color" value="#315cff" /><output id="brandColorHex">#315CFF</output></div>
-              </label>
-              <label class="mini-color-control">
-                <span>Background</span>
-                <div><input id="backgroundColor" type="color" value="#0c1120" /><output id="backgroundColorHex">#0C1120</output></div>
-              </label>
-              <label class="mini-color-control">
-                <span>Text</span>
-                <div><input id="textColor" type="color" value="#ffffff" /><output id="textColorHex">#FFFFFF</output></div>
-              </label>
-            </div>
-            <div class="color-swatch-preview"><span></span><span></span><span></span><span></span></div>
-            <button type="button" class="reset-colors" id="resetColors">Reset style colours</button>
-          </div>
-
-          <div class="control-block">
-            <label class="control-label">Top section</label>
-            <div class="layout-options">
-              <button type="button" class="layout-choice active" data-layout="split"><span class="layout-mini mini-split"><i></i><i></i></span><strong>Layout 1</strong></button>
-              <button type="button" class="layout-choice" data-layout="center"><span class="layout-mini mini-center"><i></i><i></i></span><strong>Layout 2</strong></button>
-              <button type="button" class="layout-choice" data-layout="poster"><span class="layout-mini mini-poster"><i></i><i></i></span><strong>Layout 3</strong></button>
-            </div>
-          </div>
-
-          <div class="control-block">
-            <label class="control-label">Sections to include</label>
-            <div class="section-toggles">
-              <label><input type="checkbox" value="services" checked /> Services</label>
-              <label><input type="checkbox" value="projects" checked /> Projects</label>
-              <label><input type="checkbox" value="reviews" checked /> Reviews</label>
-              <label><input type="checkbox" value="faq" /> FAQ</label>
-              <label><input type="checkbox" value="service-area" checked /> Service Area</label>
-              <label><input type="checkbox" value="quote" checked /> Quote Form</label>
-            </div>
-            <button type="button" class="reset-colors" id="shuffleServices">Regenerate section order</button>
-          </div>
-        </aside>
-
-        <div class="builder-preview-wrap">
+        <div class="builder-preview-wrap dominant">
           <div class="preview-toolbar">
             <div><span class="status-dot"></span><span>YOUR LIVE DIRECTION</span></div>
             <div class="device-toggle"><button type="button" class="active" data-device="desktop">Desktop</button><button type="button" data-device="mobile">Mobile</button></div>
           </div>
           <div class="builder-device" id="builderDevice">
-            <div class="builder-site" id="builderSite" data-mode="luminous" data-layout="split">
-              <div class="site-nav"><div class="site-brand-lockup"><img id="siteLogo" alt="" /><strong id="siteBusiness">NORTHLINE ELECTRIC</strong></div><div><span>Services</span><span>Projects</span><span>About</span></div><button>Get a Quote</button></div>
+            <div class="builder-site" id="builderSite" data-style="precision" data-layout="split">
+              <div class="site-nav"><div class="site-brand-lockup"><img id="siteLogo" alt="" /><strong id="siteBusiness">YOUR BUSINESS</strong></div><div><span>Services</span><span>Projects</span><span>About</span></div><button>Get Started</button></div>
               <div class="site-hero">
-                <div class="site-copy"><p id="siteKicker">ELECTRICAL SERVICES</p><h3 id="siteHeadline">Powering better spaces.</h3><p id="siteSub">Residential and commercial electrical work delivered with clarity, care and zero runaround.</p><div class="site-actions"><button>Request a Quote</button><span>See our work ↗</span></div></div>
-                <div class="site-visual"><div class="visual-grid"></div><div class="visual-mark">N</div><div class="visual-card"><small>LOCAL RATING</small><strong>4.9 / 5</strong></div></div>
+                <div class="site-copy"><p id="siteKicker">YOUR BUSINESS</p><h3 id="siteHeadline">Built to make a strong first impression.</h3><p id="siteSub">A modern website that makes the quality of your business obvious before anyone reaches out.</p><div class="site-actions"><button>Get Started</button><span>See our work ↗</span></div></div>
+                <div class="site-visual"><div class="visual-grid"></div><div class="visual-mark">Y</div><div class="visual-card"><small>LOCAL RATING</small><strong>4.9 / 5</strong></div></div>
               </div>
-              <div class="site-sections" id="siteSections"><div><small>01</small><strong>Residential</strong></div><div><small>02</small><strong>Commercial</strong></div><div><small>03</small><strong>Service Calls</strong></div></div>
+              <p class="site-pattern-note" id="sitePatternNote" hidden></p>
+              <div class="site-sections" id="siteSections"><div><small>01</small><strong>Overview</strong></div><div><small>02</small><strong>What We Do</strong></div><div><small>03</small><strong>Get in Touch</strong></div></div>
             </div>
           </div>
-          <div class="preview-summary"><span id="summaryMode">Luminous</span><span id="summaryColor">#315CFF</span><span id="summaryLayout">Split</span><span id="summaryIndustry">Electrical</span></div>
+          <div class="preview-summary"><span id="summaryMode">Precision</span><span id="summaryColor">#315CFF</span><span id="summaryLayout">Split</span><span id="summaryIndustry">General Business</span></div>
         </div>
+
+        <details class="advanced-panel" id="advancedPanel">
+          <summary>Advanced customization</summary>
+          <div class="advanced-grid">
+            <div class="control-block logo-control-block">
+              <label class="control-label">Business logo</label>
+              <div class="logo-uploader" id="logoUploader">
+                <input id="businessLogo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+                <div class="logo-upload-preview">
+                  <div class="logo-preview-box" id="logoPreviewBox">
+                    <span id="logoPlaceholder">Add logo</span>
+                    <img id="logoPreviewImage" alt="Your business logo preview" />
+                  </div>
+                  <div class="logo-upload-copy">
+                    <strong>Use your real logo</strong>
+                    <small>PNG, JPG, WEBP or SVG. We’ll fit it cleanly without stretching it.</small>
+                    <div class="logo-upload-actions">
+                      <button type="button" class="logo-upload-button" id="chooseLogo">Choose Logo</button>
+                      <button type="button" class="logo-remove-button" id="removeLogo" hidden>Remove</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-block color-block">
+              <label class="control-label">Website colours</label>
+              <div class="full-color-grid">
+                <label class="mini-color-control">
+                  <span>Main colour</span>
+                  <div><input id="brandColor" type="color" value="#315cff" /><output id="brandColorHex">#315CFF</output></div>
+                </label>
+                <label class="mini-color-control">
+                  <span>Background</span>
+                  <div><input id="backgroundColor" type="color" value="#fafafa" /><output id="backgroundColorHex">#FAFAFA</output></div>
+                </label>
+                <label class="mini-color-control">
+                  <span>Text</span>
+                  <div><input id="textColor" type="color" value="#111111" /><output id="textColorHex">#111111</output></div>
+                </label>
+              </div>
+              <div class="color-swatch-preview"><span></span><span></span><span></span><span></span></div>
+              <button type="button" class="reset-colors" id="resetColors">Reset style colours</button>
+            </div>
+
+            <div class="control-block">
+              <label class="control-label">Top section</label>
+              <div class="layout-options">
+                <button type="button" class="layout-choice active" data-layout="split"><span class="layout-mini mini-split"><i></i><i></i></span><strong>Layout 1</strong></button>
+                <button type="button" class="layout-choice" data-layout="center"><span class="layout-mini mini-center"><i></i><i></i></span><strong>Layout 2</strong></button>
+                <button type="button" class="layout-choice" data-layout="poster"><span class="layout-mini mini-poster"><i></i><i></i></span><strong>Layout 3</strong></button>
+              </div>
+            </div>
+
+            <div class="control-block">
+              <label class="control-label">Sections to include</label>
+              <div class="section-toggles">
+                <label><input type="checkbox" value="services" checked /> Services</label>
+                <label><input type="checkbox" value="projects" checked /> Projects</label>
+                <label><input type="checkbox" value="reviews" checked /> Reviews</label>
+                <label><input type="checkbox" value="faq" /> FAQ</label>
+                <label><input type="checkbox" value="service-area" checked /> Service Area</label>
+                <label><input type="checkbox" value="quote" checked /> Quote Form</label>
+              </div>
+              <button type="button" class="reset-colors" id="shuffleServices">Regenerate section order</button>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -315,7 +278,7 @@
         <p>You don't need to explain “modern but not too modern.” Pick what feels right, make it yours, and we start from something both of us can actually see.</p>
       </div>
       <div class="why-grid">
-        <article><span>01</span><h3>See it first.</h3><p>Pick from six strong directions instead of buying blind.</p></article>
+        <article><span>01</span><h3>See it first.</h3><p>Generate a real direction instead of buying blind.</p></article>
         <article><span>02</span><h3>Make it yours.</h3><p>Your business, colour and layout update live as you choose what you like.</p></article>
         <article><span>03</span><h3>Send the exact brief.</h3><p>We receive the direction you created so the first conversation starts further ahead.</p></article>
       </div>
@@ -332,7 +295,7 @@
   <footer>
     <a href="#top" class="brand brand-logo footer-logo" aria-label="SiteRemade home"><img src="siteremade-logo-black.png" alt="SiteRemade" /></a>
     <p>Build the direction. We'll build the website.</p>
-    <div><a href="#build">Customizer</a><a href="#pricing">Pricing</a><a href="https://app.siteremade.com">Client Login</a></div>
+    <div><a href="#build">Generator</a><a href="#pricing">Pricing</a><a href="https://app.siteremade.com">Client Login</a></div>
     <p>© <span id="year"></span> SiteRemade</p>
   </footer>
 

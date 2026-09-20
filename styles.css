@@ -712,3 +712,204 @@ html,body{max-width:100%;overflow-x:hidden}
   .refine-lock{padding:22px;inset:8px}
   .refine-lock p{font-size:13px}
 }
+
+/* ==========================================================================
+   STYLE SYSTEM V3 -- dimension-based architecture.
+   A style is now a *combination* of reusable design dimensions (hero
+   treatment / typography / navigation / cards / imagery / CTA / colour
+   behaviour / motion / spacing / section pattern) plus a palette, applied
+   as data-* attributes on .builder-site (see script.js "STYLE REGISTRY").
+   Each dimension below is one shared rule-set reused by every style that
+   selects it -- a new style is a ~10-line registry entry, not a new CSS
+   block. See STYLE-SYSTEM-V3.md for the full architecture writeup.
+
+   This also replaces the old six-mode "browse and pick a finished output"
+   showcase (.mode-showcase/.mode-tab/.mode-stage, now removed from the
+   markup) with a compact optional style picker next to the generator input,
+   and turns the refine panel into: a slim result-actions row, the generated
+   preview as the dominant element, and an Advanced panel collapsed by
+   default. Rules below for classes that no longer exist in the markup
+   (the old .builder-controls two-column layout, .mode-* showcase styles)
+   are simply inert and can be pruned in a future pass -- nothing here
+   depends on them.
+   ========================================================================== */
+
+/* ---- Builder shell: vertical stack, each child owns its own frame ---- */
+.builder-shell{margin-top:68px;display:flex;flex-direction:column;gap:18px;background:transparent;padding:0;border-radius:0;box-shadow:none;position:relative}
+.builder-shell.locked .result-actions,
+.builder-shell.locked .builder-preview-wrap,
+.builder-shell.locked .advanced-panel{filter:blur(7px);pointer-events:none;user-select:none}
+
+/* ---- Style picker (hero, optional, compact -- not a browse-heavy showcase) ---- */
+.style-picker{margin-top:20px;max-width:600px}
+.style-picker-label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;font-weight:750}
+.style-swatch-row{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.style-swatch-row::-webkit-scrollbar{display:none}
+.style-swatch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px 7px 7px;font-size:11px;color:var(--text);cursor:pointer;transition:border-color .18s ease}
+.style-swatch:hover{border-color:#111}
+.style-swatch.active{border-color:#111;background:#111;color:#fff}
+.swatch-dot{width:16px;height:16px;border-radius:50%;background:var(--swatch-color,#999);flex:0 0 auto;border:1px solid rgba(0,0,0,.08)}
+.swatch-auto{background:conic-gradient(from 0deg,#315cff,#8c5cff,#ff6b3d,#e8ff43,#315cff)}
+
+/* ---- Result actions: light, primary refine controls above the preview ---- */
+.result-actions{background:#f7f7f8;border-radius:22px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.result-actions-primary{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.quick-edit{display:flex;gap:8px;flex:1 1 320px;min-width:0}
+.quick-edit input[type="text"],.quick-edit select{height:44px;border:1px solid #d8dae0;background:#fff;border-radius:10px;padding:0 12px;font-size:13px;min-width:0;flex:1;outline:none}
+.quick-edit input[type="text"]:focus,.quick-edit select:focus{border-color:#8c93a0}
+.result-actions-primary .tone-toggle{margin-top:0;width:220px;flex:0 0 auto}
+#regenerateButton{white-space:nowrap;flex:0 0 auto}
+.result-actions .suggestions-block{padding:0}
+
+/* ---- Preview: dominant, full-width element ---- */
+.builder-preview-wrap.dominant{width:100%}
+
+/* ---- Advanced panel: collapsed by default, secondary ---- */
+.advanced-panel{background:#f7f7f8;border-radius:22px;overflow:hidden}
+.advanced-panel summary{cursor:pointer;list-style:none;padding:18px 20px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#525660;display:flex;align-items:center;justify-content:space-between}
+.advanced-panel summary::-webkit-details-marker{display:none}
+.advanced-panel summary:after{content:"Show ▾";font-weight:700;letter-spacing:0;text-transform:none;font-size:12px}
+.advanced-panel[open] summary:after{content:"Hide ▴"}
+.advanced-panel[open] summary{border-bottom:1px solid #e2e3e7}
+.advanced-grid{padding:20px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.advanced-grid .control-block{border-top:0;padding:16px;background:#fff;border:1px solid #dddfe4;border-radius:14px}
+
+@media(max-width:900px){
+  .advanced-grid{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+  .result-actions-primary{flex-direction:column;align-items:stretch}
+  .quick-edit{flex-direction:column}
+  .result-actions-primary .tone-toggle{width:100%}
+  #regenerateButton{width:100%}
+  .style-picker{margin-top:16px}
+}
+
+/* ---- Typography presets ---- */
+.builder-site[data-type="geo-sans"]{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.builder-site[data-type="geo-sans"] .site-copy h3{font-weight:800}
+.builder-site[data-type="serif-editorial"]{font-family:Georgia,"Times New Roman",serif}
+.builder-site[data-type="serif-editorial"] .site-nav,.builder-site[data-type="serif-editorial"] .site-sections,.builder-site[data-type="serif-editorial"] .site-actions{font-family:Inter,sans-serif}
+.builder-site[data-type="serif-editorial"] .site-copy h3{font-weight:400;letter-spacing:-.02em!important}
+.builder-site[data-type="display-condensed"] .site-copy h3{font-weight:900;letter-spacing:-.06em!important}
+.builder-site[data-type="classic-serif-mix"] .site-copy h3{font-family:Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:-.03em!important}
+.builder-site[data-type="classic-serif-mix"] .site-nav,.builder-site[data-type="classic-serif-mix"] .site-actions{font-family:Inter,sans-serif}
+.builder-site[data-type="humanist"] .site-copy h3{font-weight:700}
+.builder-site[data-type="mono-technical"] .site-nav strong,.builder-site[data-type="mono-technical"] .visual-card strong,.builder-site[data-type="mono-technical"] .site-sections small{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* ---- Hero treatment variants ---- */
+.builder-site[data-hero="centered"] .site-hero{grid-template-columns:1fr;text-align:center}
+.builder-site[data-hero="centered"] .site-copy{max-width:760px;margin:0 auto}
+.builder-site[data-hero="centered"] .site-actions{justify-content:center}
+.builder-site[data-hero="centered"] .site-visual{display:none}
+
+.builder-site[data-hero="stacked-image-below"] .site-hero{grid-template-columns:1fr;text-align:left}
+.builder-site[data-hero="stacked-image-below"] .site-copy{max-width:640px}
+.builder-site[data-hero="stacked-image-below"] .site-visual{margin-top:8px;height:220px}
+
+.builder-site[data-hero="asymmetric-offset"] .site-hero{grid-template-columns:1.4fr .6fr;align-items:start;padding-top:64px}
+.builder-site[data-hero="asymmetric-offset"] .site-visual{margin-top:40px;height:260px}
+
+.builder-site[data-hero="fullbleed-image"] .site-hero{grid-template-columns:1fr;min-height:520px;align-items:flex-end}
+.builder-site[data-hero="fullbleed-image"] .site-copy{max-width:640px;position:relative;z-index:2}
+.builder-site[data-hero="fullbleed-image"] .site-visual{position:absolute;inset:0;height:auto;border-radius:0;z-index:1;opacity:.9}
+
+.builder-site[data-hero="minimal-text-only"] .site-hero{grid-template-columns:1fr;padding-top:70px;padding-bottom:70px}
+.builder-site[data-hero="minimal-text-only"] .site-copy{max-width:720px}
+.builder-site[data-hero="minimal-text-only"] .site-visual{display:none}
+
+/* ---- Navigation variants ---- */
+.builder-site[data-nav="boxed-pill"] .site-nav{margin:14px;border-radius:999px;border-bottom:0;background:color-mix(in srgb,var(--site-bg) 90%,var(--site-text) 10%)}
+.builder-site[data-nav="minimal-until-scroll"] .site-nav{border-bottom:0;background:transparent}
+.builder-site[data-nav="minimal-until-scroll"] .site-nav div{opacity:.7}
+.builder-site[data-nav="sidebar"] .site-nav{flex-direction:column;align-items:flex-start;height:auto!important;padding:22px!important;gap:16px;border-bottom:0;border-right:1px solid color-mix(in srgb,var(--site-text) 18%,transparent)}
+.builder-site[data-nav="sidebar"] .site-nav div{flex-direction:column;gap:12px}
+.builder-site[data-nav="centered-logo"] .site-nav{justify-content:center;flex-direction:column;gap:10px;height:auto!important;padding:22px 0!important}
+.builder-site[data-nav="centered-logo"] .site-nav div{order:2}
+.builder-site[data-nav="centered-logo"] .site-brand-lockup{order:1}
+.builder-site[data-nav="centered-logo"] .site-nav button{order:3}
+
+/* ---- Card / section-block variants ---- */
+.builder-site[data-card="flat"] .site-sections>div{background:transparent}
+.builder-site[data-card="bordered"] .site-sections>div{border-right-width:1px}
+.builder-site[data-card="elevated-shadow"] .site-sections>div{box-shadow:inset 0 1px 0 color-mix(in srgb,var(--site-text) 10%,transparent)}
+.builder-site[data-card="image-led"] .site-sections>div{background:linear-gradient(160deg,color-mix(in srgb,var(--site-accent) 16%,var(--site-bg)),var(--site-bg))}
+.builder-site[data-card="numbered-editorial"] .site-sections>div small{font-size:11px;letter-spacing:.14em}
+.builder-site[data-card="outline-ghost"] .site-sections>div{border-right-style:dashed}
+
+/* ---- CTA treatment variants ---- */
+.builder-site[data-cta="sharp-block"] .site-nav button,.builder-site[data-cta="sharp-block"] .site-actions button{border-radius:0}
+.builder-site[data-cta="outline-ghost"] .site-nav button,.builder-site[data-cta="outline-ghost"] .site-actions button{background:transparent!important;border:1.5px solid var(--site-accent);color:var(--site-accent)!important}
+.builder-site[data-cta="underline-link"] .site-nav button,.builder-site[data-cta="underline-link"] .site-actions button{background:transparent!important;color:var(--site-text)!important;border:0;border-bottom:2px solid var(--site-accent);border-radius:0;padding-left:3px;padding-right:3px}
+.builder-site[data-cta="floating-badge"] .site-actions button{border-radius:999px;box-shadow:0 10px 30px color-mix(in srgb,var(--site-accent) 45%,transparent)}
+
+/* ---- Colour behaviour variants ---- */
+.builder-site[data-color-behavior="warm-earth-multi-tone"] .site-hero{background:radial-gradient(circle at 80% 20%,color-mix(in srgb,var(--site-accent-2) 30%,transparent),transparent 32%),linear-gradient(150deg,var(--site-bg-light),var(--site-bg))!important}
+.builder-site[data-color-behavior="dark-luxury-metallic"] .visual-mark{background:linear-gradient(135deg,var(--site-accent),var(--site-accent-2));-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none}
+.builder-site[data-color-behavior="neutral-single-accent"] .site-visual{background:color-mix(in srgb,var(--site-bg) 92%,var(--site-text) 8%)!important}
+.builder-site[data-color-behavior="high-contrast-mono-accent"] .visual-mark{text-shadow:0 0 50px color-mix(in srgb,var(--site-accent) 60%,transparent)}
+
+/* ---- Motion variants (always overridden to none under reduced-motion, set in JS too) ---- */
+.builder-site[data-motion="none"] .site-visual,.builder-site[data-motion="none"] .site-nav button,.builder-site[data-motion="none"] .site-actions button{transition:none!important}
+.builder-site[data-motion="expressive"] .site-visual{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.builder-site[data-motion="expressive"]:hover .site-visual{transform:translateY(-4px) rotate(-1deg)}
+.builder-site[data-motion="expressive"] .site-nav button,.builder-site[data-motion="expressive"] .site-actions button{transition:transform .25s ease}
+.builder-site[data-motion="expressive"] .site-actions button:hover{transform:translateY(-2px)}
+
+/* ---- Spacing scale ---- */
+.builder-site[data-spacing="compact"] .site-hero{padding:32px}
+.builder-site[data-spacing="compact"] .site-nav{height:64px;padding:0 22px}
+.builder-site[data-spacing="standard"] .site-hero{padding:48px}
+.builder-site[data-spacing="airy"] .site-hero{padding:64px}
+.builder-site[data-spacing="airy"] .site-nav{height:84px}
+.builder-site[data-spacing="generous"] .site-hero{padding:80px 64px}
+.builder-site[data-spacing="generous"] .site-nav{height:92px}
+
+/* ---- Imagery direction (no image-generation backend -- always an honest,
+   art-directed placeholder treatment, never a fabricated photo) ---- */
+.builder-site[data-imagery="photo-led-placeholder"] .site-visual{background:linear-gradient(160deg,color-mix(in srgb,var(--site-accent) 30%,var(--site-bg)),color-mix(in srgb,var(--site-accent-2) 20%,var(--site-bg-dark)))}
+.builder-site[data-imagery="photo-led-placeholder"] .visual-mark{display:none}
+.builder-site[data-imagery="photo-led-placeholder"] .site-visual:after{content:"Photography direction";position:absolute;left:16px;bottom:16px;font-size:9px;letter-spacing:.14em;color:color-mix(in srgb,var(--site-text) 75%,transparent);text-transform:uppercase}
+.builder-site[data-imagery="illustration"] .visual-mark{border-radius:50%;background:color-mix(in srgb,var(--site-accent) 70%,transparent);width:150px;height:150px;display:flex;align-items:center;justify-content:center;font-size:52px;left:auto;right:24px;top:24px;transform:none}
+.builder-site[data-imagery="illustration"] .site-visual{background:color-mix(in srgb,var(--site-bg) 96%,var(--site-accent) 4%)}
+.builder-site[data-imagery="texture-organic"] .site-visual{background:radial-gradient(circle at 30% 30%,color-mix(in srgb,var(--site-accent) 22%,transparent),transparent 55%),radial-gradient(circle at 75% 70%,color-mix(in srgb,var(--site-accent-2) 20%,transparent),transparent 55%),var(--site-bg)}
+.builder-site[data-imagery="texture-organic"] .visual-mark{opacity:.6}
+.builder-site[data-imagery="grid-mosaic"] .site-visual{background-image:linear-gradient(color-mix(in srgb,var(--site-text) 8%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-text) 8%,transparent) 1px,transparent 1px);background-size:26px 26px;background-color:var(--site-bg)}
+.builder-site[data-imagery="grid-mosaic"] .visual-mark{font-size:90px}
+
+/* ---- Section pattern note (portfolio-first / proof-first / story-first) ---- */
+.site-pattern-note{margin:0;padding:14px 22px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--site-muted)}
+
+/* ---- Per-style flourishes: a handful of lines each for the one or two
+   truly signature details a dimension combination alone can't express.
+   This is the whole "custom" surface per style -- everything else above
+   is shared. ---- */
+.builder-site[data-style="studio"] .site-visual{box-shadow:14px 14px 0 var(--site-text)}
+.builder-site[data-style="impact"] .site-copy h3{text-transform:uppercase;line-height:.86!important}
+.builder-site[data-style="impact"] .site-visual{box-shadow:16px 16px 0 var(--site-text)}
+.builder-site[data-style="monolith"] .site-copy h3{font-size:clamp(52px,6vw,92px)!important}
+.builder-site[data-style="paper"] .site-nav{border-bottom-width:2px}
+.builder-site[data-style="kinetic"] .site-hero{background:linear-gradient(115deg,var(--site-bg) 55%,color-mix(in srgb,var(--site-accent) 20%,var(--site-bg)) 55%)!important}
+.builder-site[data-style="foundry"] .site-visual{border-radius:4px}
+.builder-site[data-style="civic"] .site-nav{border-bottom-width:2px;border-color:color-mix(in srgb,var(--site-accent-2) 60%,transparent)!important}
+.builder-site[data-style="ledger"] .site-sections>div{border-right-style:dotted}
+.builder-site[data-style="aviator"] .site-nav{border-bottom-color:color-mix(in srgb,var(--site-accent-2) 55%,transparent)}
+
+/* ---- Mobile: hero already collapses to one column everywhere (existing
+   rule above), these cover the variants that need an extra nudge. ---- */
+@media(max-width:720px){
+  .builder-site[data-hero="fullbleed-image"] .site-visual{position:relative;inset:auto;height:200px;order:-1}
+  .builder-site[data-nav="sidebar"] .site-nav{flex-direction:row;align-items:center;border-right:0}
+  .builder-site[data-nav="sidebar"] .site-nav div{flex-direction:row}
+  .builder-site[data-nav="centered-logo"] .site-nav{flex-direction:row}
+  .builder-site[data-nav="centered-logo"] .site-nav div,.builder-site[data-nav="centered-logo"] .site-brand-lockup,.builder-site[data-nav="centered-logo"] .site-nav button{order:0}
+  .builder-site[data-spacing="generous"] .site-hero,.builder-site[data-spacing="airy"] .site-hero{padding:28px 20px!important}
+  .style-swatch{font-size:10px;padding:6px 11px 6px 6px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .builder-site[data-motion="expressive"] .site-visual,
+  .builder-site[data-motion="expressive"] .site-nav button,
+  .builder-site[data-motion="expressive"] .site-actions button{transition:none}
+  .builder-site[data-motion="expressive"]:hover .site-visual{transform:none}
+}
