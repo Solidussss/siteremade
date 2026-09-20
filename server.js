@@ -107,7 +107,7 @@ app.post('/api/checkout', async (req, res) => {
         quantity: 1,
         price_data: {
           currency: 'cad',
-          unit_amount: 75000,
+          unit_amount: 35000,
           product_data: {
             name: `SiteRemade website — ${businessName}`,
             description: `${industry} · ${sectionsSummary || 'Generated website'}`.slice(0, 300),

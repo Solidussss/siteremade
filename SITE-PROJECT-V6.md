@@ -101,7 +101,7 @@ generator/refine panel:
 
 - Shows the actual generated project (business name, palette/layout/
   category summary, the original description) in a card, alongside a
-  **Buy this website** button and the $750 CAD price.
+  **Buy this website** button and the $350 CAD price.
 - The button is disabled with the caption "Generate a direction above to
   enable checkout" until a real generation has happened (`markGenerated()`
   enables it) — a small, honest affordance rather than the old giant lock
