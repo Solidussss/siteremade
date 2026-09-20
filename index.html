@@ -36,12 +36,11 @@
 
         <form class="generator-form" id="generatorForm">
           <label class="generator-label" for="generatorInput">Describe your business</label>
-          <textarea id="generatorInput" name="generatorInput" rows="3" maxlength="280" placeholder="Landscaping company in Calgary specializing in luxury backyard builds" required></textarea>
+          <textarea id="generatorInput" name="generatorInput" rows="3" maxlength="280" placeholder="A modern AI software company in Los Angeles building tools for creative teams" required></textarea>
           <div class="generator-row">
             <div class="generator-examples">
               <span>Try:</span>
-              <button type="button" class="example-chip" data-example="Electrician in Edmonton focused on fast residential service calls">Electrician in Edmonton</button>
-              <button type="button" class="example-chip" data-example="Boutique house painting company in Victoria, high-end finishes">Painter in Victoria, high-end</button>
+              <div class="example-chip-row" id="exampleChipRow"></div>
             </div>
             <button class="button generator-submit" type="submit"><span class="btn-label">Generate my website</span></button>
           </div>
@@ -49,8 +48,12 @@
 
         <div class="style-picker" id="stylePicker">
           <span class="style-picker-label">Style (optional)</span>
-          <div class="style-swatch-row" id="styleSwatchRow">
-            <button type="button" class="style-swatch active" data-style="auto" aria-pressed="true"><span class="swatch-dot swatch-auto"></span>Auto</button>
+          <div class="style-swatch-scroller">
+            <button type="button" class="swatch-scroll-btn swatch-scroll-prev" id="swatchScrollPrev" aria-label="Scroll styles left">‹</button>
+            <div class="style-swatch-row" id="styleSwatchRow">
+              <button type="button" class="style-swatch active" data-style="auto" aria-pressed="true"><span class="swatch-dot swatch-auto"></span>Auto</button>
+            </div>
+            <button type="button" class="swatch-scroll-btn swatch-scroll-next" id="swatchScrollNext" aria-label="Scroll styles right">›</button>
           </div>
         </div>
 
@@ -112,6 +115,18 @@
             <div class="quick-edit">
               <input id="businessName" type="text" value="Your Business" maxlength="60" aria-label="Business name" />
               <div class="select-wrap"><select id="industrySelect" aria-label="Business category">
+                <option value="tech">Technology</option>
+                <option value="finance">Finance</option>
+                <option value="fashion">Fashion</option>
+                <option value="hospitality">Food &amp; Hospitality</option>
+                <option value="creative">Creative Studio</option>
+                <option value="fitness">Fitness</option>
+                <option value="realestate">Real Estate</option>
+                <option value="wellness">Health &amp; Wellness</option>
+                <option value="retail">Retail</option>
+                <option value="nonprofit">Community &amp; Nonprofit</option>
+                <option value="professional">Professional Services</option>
+                <option value="education">Education</option>
                 <option value="electrical">Electrical</option>
                 <option value="plumbing">Plumbing</option>
                 <option value="landscaping">Landscaping</option>
@@ -120,17 +135,7 @@
                 <option value="automotive">Automotive</option>
                 <option value="cleaning">Cleaning</option>
                 <option value="renovation">Renovation</option>
-                <option value="retail">Retail</option>
-                <option value="professional">Professional Services</option>
-                <option value="hospitality">Food &amp; Hospitality</option>
-                <option value="creative">Creative Studio</option>
-                <option value="wellness">Health &amp; Wellness</option>
-                <option value="tech">Technology</option>
-                <option value="realestate">Real Estate</option>
-                <option value="fitness">Fitness</option>
-                <option value="education">Education</option>
-                <option value="nonprofit">Community &amp; Nonprofit</option>
-                <option value="other">General Business</option>
+                <option value="other" selected>General Business</option>
               </select></div>
             </div>
             <div class="tone-toggle" id="toneToggle">

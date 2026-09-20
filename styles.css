@@ -651,6 +651,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .generator-form textarea:focus{border-color:#8c93a0;box-shadow:0 12px 30px rgba(0,0,0,.07)}
 .generator-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;flex-wrap:wrap}
 .generator-examples{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.example-chip-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .example-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px;font-size:11px;color:var(--text);cursor:pointer;transition:border-color .18s ease,transform .18s ease}
 .example-chip:hover{border-color:#111;transform:translateY(-1px)}
 .generator-submit{min-width:210px}
@@ -743,13 +744,30 @@ html,body{max-width:100%;overflow-x:hidden}
 /* ---- Style picker (hero, optional, compact -- not a browse-heavy showcase) ---- */
 .style-picker{margin-top:20px;max-width:600px}
 .style-picker-label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;font-weight:750}
-.style-swatch-row{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+
+/* V4: the row alone gave desktop mouse users no visible/discoverable way to
+   scroll horizontally (overflow-x:auto + scrollbar-width:none hides the only
+   affordance). The scroller wraps the row with prev/next buttons, and the
+   row itself also supports wheel-to-horizontal and click-drag (see script.js). */
+.style-swatch-scroller{display:flex;align-items:center;gap:6px}
+.style-swatch-row{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;flex:1 1 auto;min-width:0;cursor:grab;scroll-behavior:smooth}
 .style-swatch-row::-webkit-scrollbar{display:none}
+.style-swatch-row.dragging{cursor:grabbing;scroll-behavior:auto;user-select:none}
+.style-swatch-row.dragging .style-swatch{pointer-events:none}
+.swatch-scroll-btn{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--text);font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .18s ease,opacity .18s ease}
+.swatch-scroll-btn:hover:not(:disabled){border-color:#111}
+.swatch-scroll-btn:disabled{opacity:.32;cursor:default}
 .style-swatch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px 7px 7px;font-size:11px;color:var(--text);cursor:pointer;transition:border-color .18s ease}
 .style-swatch:hover{border-color:#111}
 .style-swatch.active{border-color:#111;background:#111;color:#fff}
 .swatch-dot{width:16px;height:16px;border-radius:50%;background:var(--swatch-color,#999);flex:0 0 auto;border:1px solid rgba(0,0,0,.08)}
 .swatch-auto{background:conic-gradient(from 0deg,#315cff,#8c5cff,#ff6b3d,#e8ff43,#315cff)}
+
+/* Short-height desktop windows: the picker's own margins/padding shouldn't
+   eat vertical space the generator and preview need more. */
+@media(max-width:1120px) and (max-height:760px){
+  .style-picker{margin-top:14px}
+}
 
 /* ---- Result actions: light, primary refine controls above the preview ---- */
 .result-actions{background:#f7f7f8;border-radius:22px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
@@ -905,6 +923,8 @@ html,body{max-width:100%;overflow-x:hidden}
   .builder-site[data-nav="centered-logo"] .site-nav div,.builder-site[data-nav="centered-logo"] .site-brand-lockup,.builder-site[data-nav="centered-logo"] .site-nav button{order:0}
   .builder-site[data-spacing="generous"] .site-hero,.builder-site[data-spacing="airy"] .site-hero{padding:28px 20px!important}
   .style-swatch{font-size:10px;padding:6px 11px 6px 6px}
+  .style-swatch-scroller{gap:4px}
+  .swatch-scroll-btn{width:26px;height:26px;font-size:13px}
 }
 
 @media(prefers-reduced-motion:reduce){
