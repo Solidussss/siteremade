@@ -17,7 +17,7 @@
   <header class="nav" id="top">
     <a href="#top" class="brand brand-logo" aria-label="SiteRemade home"><img src="siteremade-logo-black.png" alt="SiteRemade" decoding="async" fetchpriority="high" /></a>
     <nav class="nav-links">
-      <a href="#stylePicker">Browse styles</a>
+      <a href="#build">See it generate</a>
       <a href="#why">Why it works</a>
       <a href="#pricing">Pricing</a>
     </nav>
@@ -45,17 +45,6 @@
             <button class="button generator-submit" type="submit"><span class="btn-label">Generate my website</span></button>
           </div>
         </form>
-
-        <div class="style-picker" id="stylePicker">
-          <span class="style-picker-label">Style (optional)</span>
-          <div class="style-swatch-scroller">
-            <button type="button" class="swatch-scroll-btn swatch-scroll-prev" id="swatchScrollPrev" aria-label="Scroll styles left">‹</button>
-            <div class="style-swatch-row" id="styleSwatchRow">
-              <button type="button" class="style-swatch active" data-style="auto" aria-pressed="true"><span class="swatch-dot swatch-auto"></span>Auto</button>
-            </div>
-            <button type="button" class="swatch-scroll-btn swatch-scroll-next" id="swatchScrollNext" aria-label="Scroll styles right">›</button>
-          </div>
-        </div>
 
         <div class="hero-meta">
           <span>Starting at $750 CAD</span>
@@ -89,7 +78,7 @@
                 <li data-step="preview"><i></i><span>Building preview</span><small></small></li>
               </ul>
             </div>
-            <div class="floating-card card-one"><small>STYLE</small><strong id="heroCardStyle">Precision</strong></div>
+            <div class="floating-card card-one"><small>SECTIONS</small><strong id="heroCardSections">5 planned</strong></div>
             <div class="floating-card card-two"><small>BRAND</small><strong id="heroCardBrand">#315CFF</strong></div>
             <div class="floating-card card-three"><small>CATEGORY</small><strong id="heroCardIndustry">Business</strong></div>
           </div>
@@ -108,6 +97,8 @@
         <div class="refine-lock" id="refineLock">
           <p><strong>Generate a direction first.</strong><br />Describe your business above to unlock refinement.</p>
           <button type="button" class="button button-small" id="refineLockCta">Start generating</button>
+          <button type="button" class="button button-small button-secondary" id="loadProjectButtonLock">Load my last saved project</button>
+          <p class="project-data-status lock-status" id="projectDataStatusLock"></p>
         </div>
 
         <div class="result-actions" id="resultActions">
@@ -143,11 +134,7 @@
               <button type="button" data-tone="bold">Bold</button>
               <button type="button" data-tone="friendly">Friendly</button>
             </div>
-            <button type="button" class="button button-small" id="regenerateButton">Regenerate</button>
-          </div>
-          <div class="control-block suggestions-block" id="suggestionsBlock" hidden>
-            <label class="control-label">Try another style</label>
-            <div class="suggestion-chips" id="suggestionChips"></div>
+            <button type="button" class="button button-small" id="regenerateButton">Try another direction</button>
           </div>
         </div>
 
@@ -158,16 +145,11 @@
           </div>
           <div class="builder-device" id="builderDevice">
             <div class="builder-site" id="builderSite" data-style="precision" data-layout="split">
-              <div class="site-nav"><div class="site-brand-lockup"><img id="siteLogo" alt="" /><strong id="siteBusiness">YOUR BUSINESS</strong></div><div><span>Services</span><span>Projects</span><span>About</span></div><button>Get Started</button></div>
-              <div class="site-hero">
-                <div class="site-copy"><p id="siteKicker">YOUR BUSINESS</p><h3 id="siteHeadline">Built to make a strong first impression.</h3><p id="siteSub">A modern website that makes the quality of your business obvious before anyone reaches out.</p><div class="site-actions"><button>Get Started</button><span>See our work ↗</span></div></div>
-                <div class="site-visual"><div class="visual-grid"></div><div class="visual-mark">Y</div><div class="visual-card"><small>LOCAL RATING</small><strong>4.9 / 5</strong></div></div>
-              </div>
-              <p class="site-pattern-note" id="sitePatternNote" hidden></p>
-              <div class="site-sections" id="siteSections"><div><small>01</small><strong>Overview</strong></div><div><small>02</small><strong>What We Do</strong></div><div><small>03</small><strong>Get in Touch</strong></div></div>
+              <div class="site-nav" id="siteNav"><div class="site-brand-lockup"><img id="siteLogo" alt="" /><strong id="siteBusiness">YOUR BUSINESS</strong></div><div id="siteNavLinks"><span>Services</span><span>About</span></div><button id="siteNavCta">Get Started</button></div>
+              <div id="siteSectionsRoot"></div>
             </div>
           </div>
-          <div class="preview-summary"><span id="summaryMode">Precision</span><span id="summaryColor">#315CFF</span><span id="summaryLayout">Split</span><span id="summaryIndustry">General Business</span></div>
+          <div class="preview-summary"><span id="summaryMode">5 sections · Composed</span><span id="summaryColor">#315CFF</span><span id="summaryLayout">Split</span><span id="summaryIndustry">General Business</span></div>
         </div>
 
         <details class="advanced-panel" id="advancedPanel">
@@ -190,6 +172,28 @@
                       <button type="button" class="logo-remove-button" id="removeLogo" hidden>Remove</button>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-block asset-control-block">
+              <label class="control-label">Your images (optional)</label>
+              <p class="asset-block-note">Add real photos and SiteRemade uses them where they make sense — a hero image, gallery/product images, or a team photo. Anything you don't provide falls back to an honest placeholder treatment, never a fabricated photo.</p>
+              <div class="asset-uploader-grid">
+                <div class="asset-uploader" data-asset-type="hero">
+                  <input type="file" id="heroAssetInput" accept="image/png,image/jpeg,image/webp" hidden />
+                  <button type="button" class="asset-add-button" id="heroAssetAdd">+ Hero image</button>
+                  <div class="asset-thumb-row" id="heroAssetThumbs"></div>
+                </div>
+                <div class="asset-uploader" data-asset-type="gallery">
+                  <input type="file" id="galleryAssetInput" accept="image/png,image/jpeg,image/webp" multiple hidden />
+                  <button type="button" class="asset-add-button" id="galleryAssetAdd">+ Gallery / product images</button>
+                  <div class="asset-thumb-row" id="galleryAssetThumbs"></div>
+                </div>
+                <div class="asset-uploader" data-asset-type="team">
+                  <input type="file" id="teamAssetInput" accept="image/png,image/jpeg,image/webp" hidden />
+                  <button type="button" class="asset-add-button" id="teamAssetAdd">+ Team / founder photo</button>
+                  <div class="asset-thumb-row" id="teamAssetThumbs"></div>
                 </div>
               </div>
             </div>
@@ -225,15 +229,25 @@
 
             <div class="control-block">
               <label class="control-label">Sections to include</label>
-              <div class="section-toggles">
-                <label><input type="checkbox" value="services" checked /> Services</label>
-                <label><input type="checkbox" value="projects" checked /> Projects</label>
-                <label><input type="checkbox" value="reviews" checked /> Reviews</label>
-                <label><input type="checkbox" value="faq" /> FAQ</label>
-                <label><input type="checkbox" value="service-area" checked /> Service Area</label>
-                <label><input type="checkbox" value="quote" checked /> Quote Form</label>
+              <div class="section-toggles" id="sectionToggles">
+                <label><input type="checkbox" value="proof" /> Proof / stats strip</label>
+                <label><input type="checkbox" value="services" /> Services</label>
+                <label><input type="checkbox" value="gallery" /> Gallery</label>
+                <label><input type="checkbox" value="about" /> About / team</label>
+                <label><input type="checkbox" value="testimonial" /> Testimonial</label>
+                <label><input type="checkbox" value="ctaBanner" /> Closing call-to-action</label>
               </div>
-              <button type="button" class="reset-colors" id="shuffleServices">Regenerate section order</button>
+              <p class="asset-block-note">Hero and footer are always included. SiteRemade chooses a sensible starting set for you — toggle any of these on or off.</p>
+            </div>
+
+            <div class="control-block project-data-block">
+              <label class="control-label">Project data</label>
+              <p class="asset-block-note">This generated direction is a real, structured project object, not just a rendered preview — it can be saved and reloaded exactly as it was, including any images you added.</p>
+              <div class="project-data-actions">
+                <button type="button" class="reset-colors" id="saveProjectButton">Save project</button>
+                <button type="button" class="reset-colors" id="loadProjectButton">Load saved project</button>
+              </div>
+              <p class="project-data-status" id="projectDataStatus"></p>
             </div>
           </div>
         </details>
@@ -247,7 +261,7 @@
         <p>The generator gets you a real starting direction, not a finished production website. Send it and SiteRemade builds the actual site from it, handles revisions, and delivers it through the same Website Projects workflow that runs the rest of your account. No commitment just for sending it.</p>
         <div class="handoff-preview-card">
           <span>YOUR DIRECTION</span>
-          <strong id="handoffTitle">Northline Electric — Luminous</strong>
+          <strong id="handoffTitle">Northline Electric</strong>
           <p id="handoffMeta">#315CFF · Split · Electrical</p>
           <p id="handoffDescriptionNote" class="handoff-description-note" hidden></p>
         </div>

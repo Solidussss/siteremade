@@ -1,13 +1,20 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
 
 // ==========================================================================
-// STYLE SEEDS -- these 20 named combinations are fallbacks/anchors, not the
-// ceiling of what the generator can produce (see the COMPOSITIONAL LAYER
-// below and GENERATOR-V4.md). Each is a combination of reusable design
-// dimensions (hero/type/nav/card/imagery/cta/colorBehavior/motion/spacing/
-// pattern) plus a palette. Shared CSS rules key off these data-* values --
-// adding a seed means adding an entry here, not a bespoke CSS block.
+// STYLE SEEDS -- internal only as of V5. These 20 named combinations are
+// fallbacks/anchors/tested design references, never shown to a visitor by
+// name anywhere in the UI, the generation-progress copy, or the customer-
+// facing confirmation email (see SITE-PROJECT-V5.md, part 5). Each is a
+// combination of reusable design dimensions (hero/type/nav/card/imagery/
+// cta/colorBehavior/motion/spacing/pattern) plus a palette. Shared CSS
+// rules key off these data-* values -- adding a seed means adding an entry
+// here, not a bespoke CSS block.
 // ==========================================================================
 const styles = {
   luminous:  { name:'Luminous',  tagline:'Modern UI with controlled glow and depth.',
@@ -241,8 +248,7 @@ function analyzeDescription(text) {
 // analyzeDescription above). So a generated result can -- and often will --
 // diverge from every one of the 20 named presets. Palette still comes from
 // the seed for coherence (real independent colour generation is future
-// work, not built here); every other dimension can diverge freely. See
-// GENERATOR-V4.md.
+// work, not built here); every other dimension can diverge freely.
 // ==========================================================================
 const dimensionKeywords = {
   hero: {
@@ -317,6 +323,16 @@ function composeStyleFromAnalysis(text, seedKey) {
   });
   return composed;
 }
+// A short, plain-language descriptor of a composed result for the
+// generation-progress UI -- deliberately not the seed's internal name.
+function describeComposition(composed) {
+  const energy = composed.motion === 'expressive' ? 'energetic'
+    : (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'spacious' : 'clean';
+  const tone = composed.colorBehavior === 'dark-luxury-metallic' ? 'premium'
+    : composed.colorBehavior === 'warm-earth-multi-tone' ? 'warm'
+    : composed.colorBehavior === 'high-contrast-mono-accent' ? 'bold' : 'balanced';
+  return `${tone.charAt(0).toUpperCase() + tone.slice(1)}, ${energy} composition`;
+}
 
 // Tone is a deterministic copy swap, not a live rewrite -- three real,
 // pre-written templates per tone, generalized so they read naturally across
@@ -330,12 +346,6 @@ function toneSub(tone, category, location) {
 function prefersReducedMotion() {
   return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
-const patternNotes = {
-  standard: '',
-  'portfolio-first': 'Selected work',
-  'proof-first': 'Trusted by real customers',
-  'story-first': 'A quick word about us first'
-};
 
 // ==========================================================================
 // EXAMPLE PROMPTS -- broad and varied on purpose. These are illustrative
@@ -378,7 +388,460 @@ function pickExamples(n) {
   return chosen;
 }
 
-// ---- DOM refs ----
+// ==========================================================================
+// V5 -- WEBSITE PROJECT MODEL. See SITE-PROJECT-V5.md for the full write-up.
+// `project` (declared further down) is the single source of truth for the
+// generated result. Every control mutates a field on it and then calls
+// renderProject(project); nothing else writes to the preview DOM directly.
+// ==========================================================================
+
+// ---- Nav / section label helpers (category-aware, never a seed name) ----
+const sectionNavLabelOverrides = {
+  services: { tech:'Product', fashion:'Collection', hospitality:'Menu', creative:'Work', fitness:'Programs', realestate:'Listings', wellness:'Treatments', retail:'Shop', nonprofit:'Get Involved', education:'Programs' },
+  gallery: { creative:'Work', fashion:'Lookbook', hospitality:'Gallery', realestate:'Listings', retail:'Shop' }
+};
+function navLabelFor(type, categoryKey) {
+  if (type === 'about') return 'About';
+  const overrides = sectionNavLabelOverrides[type] || {};
+  if (overrides[categoryKey]) return overrides[categoryKey];
+  return type === 'gallery' ? 'Gallery' : 'Services';
+}
+
+// ---- Compositional section system --------------------------------------
+// The old "site-sections" was one fixed 3-box grid every result shared.
+// V5 assembles an ordered list of section *types*, scored per result from
+// the composed dimensions + detected category + which assets are actually
+// available -- so two results in the same category can end up with a
+// genuinely different section count and order, not just different labels
+// inside the same shape. See SITE-PROJECT-V5.md part 4 for the full table.
+function composeSections(category, composed, assetPlan, categoryKey) {
+  const trustHeavy = ['finance','professional','realestate','tech','education','civic'];
+  const portfolioish = ['creative','fashion','hospitality','retail','realestate'];
+  const personalTrust = ['nonprofit','creative','wellness','professional','education'];
+  const consumerTrust = ['wellness','fitness','professional','hospitality','realestate','education'];
+
+  const scores = {
+    proof: (composed.pattern === 'proof-first' ? 2 : 0) + (trustHeavy.includes(categoryKey) ? 1 : 0),
+    gallery: (composed.pattern === 'portfolio-first' ? 2 : 0) + (portfolioish.includes(categoryKey) ? 1 : 0) + ((assetPlan.gallery || []).length ? 2 : 0),
+    about: (composed.pattern === 'story-first' ? 2 : 0) + (personalTrust.includes(categoryKey) ? 1 : 0) + (assetPlan.about ? 2 : 0),
+    testimonial: (composed.pattern === 'proof-first' ? 1 : 0) + (consumerTrust.includes(categoryKey) ? 1 : 0)
+  };
+  let chosen = Object.keys(scores).filter(k => scores[k] >= 2);
+  if (!chosen.length) {
+    const best = Object.keys(scores).reduce((a, b) => (scores[a] >= scores[b] ? a : b));
+    chosen = [best];
+  }
+
+  const middle = [];
+  if (composed.pattern === 'story-first' && chosen.includes('about')) middle.push('about');
+  middle.push('services'); // baseline content every result gets
+  ['proof', 'gallery', 'about', 'testimonial'].forEach(k => { if (chosen.includes(k) && !middle.includes(k)) middle.push(k); });
+  if (composed.spacing === 'airy' || composed.spacing === 'generous') middle.push('ctaBanner');
+
+  return ['hero', ...middle, 'footer'];
+}
+// Variant choice is tied to an existing composed dimension rather than
+// independently random, so a result still reads as one coherent design
+// system rather than mismatched parts bolted together.
+function pickVariant(type, composed) {
+  switch (type) {
+    case 'services': return ['image-led', 'elevated-shadow', 'numbered-editorial'].includes(composed.card) ? 'described' : 'numbered';
+    case 'gallery': return ['asymmetric-offset', 'fullbleed-image'].includes(composed.hero) ? 'featured' : 'grid';
+    case 'testimonial': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'centered' : 'card';
+    case 'about': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'split' : 'statement';
+    case 'ctaBanner': return ['high-contrast-mono-accent', 'dark-luxury-metallic'].includes(composed.colorBehavior) ? 'accent' : 'plain';
+    case 'proof': return ['mono-technical', 'geo-sans'].includes(composed.type) ? 'stats' : 'statement';
+    case 'footer': return ['sidebar', 'centered-logo'].includes(composed.nav) ? 'columns' : 'simple';
+    default: return 'default';
+  }
+}
+
+// ---- Asset model + placement --------------------------------------------
+// One entry per uploaded image. `source` is always 'user' today -- the
+// model has room for a future 'generated' source without changing shape.
+function createAsset(type, dataUrl, name) {
+  return { id: 'asset_' + Math.random().toString(36).slice(2, 9), source: 'user', type, dataUrl, name: name || '', alt: '', addedAt: new Date().toISOString() };
+}
+function readImageAsDataUrl(file, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.type)) { reject(new Error('Please choose a PNG, JPG, WEBP or SVG image.')); return; }
+    if (file.size > 6 * 1024 * 1024) { reject(new Error('Please use an image smaller than 6 MB.')); return; }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const original = reader.result;
+      if (file.type === 'image/svg+xml') { resolve(original); return; }
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not read that image.'));
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width, maxH / img.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png', 0.88));
+      };
+      img.src = original;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// Not a hard-wired "upload #1 -> slot #1" -- role assignment. A dedicated
+// hero upload wins the hero slot; otherwise the first gallery/product
+// upload is borrowed for the hero and the rest stay in the gallery plan
+// (matches the brief's own example: logo -> nav/footer, strongest product
+// photo -> hero, remaining product photos -> gallery, founder photo -> about).
+function planAssets(assets) {
+  const items = (assets && assets.items) || [];
+  const logo = items.find(a => a.type === 'logo');
+  const heroUploads = items.filter(a => a.type === 'hero');
+  const galleryUploads = items.filter(a => a.type === 'gallery');
+  const teamUploads = items.filter(a => a.type === 'team');
+  let heroId = null;
+  let galleryIds = galleryUploads.map(a => a.id);
+  if (heroUploads.length) {
+    heroId = heroUploads[0].id;
+  } else if (galleryUploads.length) {
+    heroId = galleryUploads[0].id;
+    galleryIds = galleryUploads.slice(1).map(a => a.id);
+  }
+  return { logo: logo ? logo.id : null, hero: heroId, gallery: galleryIds, about: teamUploads.length ? teamUploads[0].id : null };
+}
+
+// ---- Section HTML renderers ----------------------------------------------
+// Every generated/placeholder image uses the same honest, art-directed CSS
+// treatment as V3/V4 (no fabricated photos, ever) via the `imagery`
+// composed dimension -- these functions only decide *whether* a role has a
+// real user asset to show instead.
+function renderHero(project, category) {
+  const composed = project.design.dimensions;
+  const plan = project.assets.plan;
+  const heroAsset = plan.hero ? project.assets.items.find(a => a.id === plan.hero) : null;
+  const businessName = (project.business.name || 'Your Business').trim();
+  const kicker = escapeHtml(category.kicker);
+  const headline = escapeHtml(category.headline);
+  const sub = escapeHtml(toneSub(project.business.tone, category, project.source.location));
+  const cta = escapeHtml(category.cta);
+  const initial = escapeHtml((businessName.charAt(0) || 'Y').toUpperCase());
+  const visualInner = heroAsset
+    ? `<img class="site-visual-img" src="${heroAsset.dataUrl}" alt="${escapeHtml(heroAsset.alt || businessName + ' photo')}" />`
+    : `<div class="visual-grid"></div><div class="visual-mark">${initial}</div><div class="visual-card"><small>LOCAL RATING</small><strong>4.9 / 5</strong></div>`;
+  return `<div class="site-hero">
+    <div class="site-copy">
+      <p>${kicker}</p>
+      <h3>${headline}</h3>
+      <p>${sub}</p>
+      <div class="site-actions"><button>${cta}</button><span>See our work ↗</span></div>
+    </div>
+    <div class="site-visual">${visualInner}</div>
+  </div>`;
+}
+function renderServices(project, category, variant) {
+  const labels = category.services;
+  if (variant === 'described') {
+    return `<div class="site-section site-section-services" data-variant="described">
+      <div class="site-services-cards">${labels.map(l => `<div class="service-card"><strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p></div>`).join('')}</div>
+    </div>`;
+  }
+  return `<div class="site-section site-section-services" data-variant="numbered">
+    <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
+  </div>`;
+}
+function renderProof(project, category, variant) {
+  if (variant === 'stats') {
+    const stats = [{ n: '10+', l: 'Years' }, { n: '4.9★', l: 'Avg. rating' }, { n: '100%', l: category.noun.charAt(0).toUpperCase() + category.noun.slice(1) }];
+    return `<div class="site-section site-section-proof" data-variant="stats">
+      <div class="site-proof-stats">${stats.map(s => `<div><strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
+    </div>`;
+  }
+  return `<div class="site-section site-section-proof" data-variant="statement">
+    <p class="site-proof-statement">Trusted by people who need real ${escapeHtml(category.noun)}, not just a nice website.</p>
+  </div>`;
+}
+function renderGallery(project, category, variant) {
+  const plan = project.assets.plan;
+  const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
+  const label = escapeHtml(navLabelFor('gallery', project.business.categoryKey));
+  const tileCount = variant === 'featured' ? 3 : 4;
+  const tiles = [];
+  for (let i = 0; i < tileCount; i++) {
+    const asset = galleryAssets[i];
+    const featuredClass = (i === 0 && variant === 'featured') ? ' gallery-tile-featured' : '';
+    if (asset) tiles.push(`<div class="gallery-tile has-image${featuredClass}"><img src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || label + ' photo')}" /></div>`);
+    else tiles.push(`<div class="gallery-tile gallery-tile-placeholder${featuredClass}"></div>`);
+  }
+  return `<div class="site-section site-section-gallery" data-variant="${variant}">
+    <p class="site-section-label">${label}</p>
+    <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
+  </div>`;
+}
+function renderTestimonial(project, category, variant) {
+  const quote = `“Working with a ${escapeHtml(category.label.toLowerCase())} team that actually explains things clearly made this easy.”`;
+  const attribution = `— Verified ${escapeHtml(category.label)} client`;
+  if (variant === 'card') {
+    return `<div class="site-section site-section-testimonial" data-variant="card">
+      <div class="testimonial-card"><p>${quote}</p><span>${attribution}</span></div>
+    </div>`;
+  }
+  return `<div class="site-section site-section-testimonial" data-variant="centered">
+    <blockquote>${quote}<cite>${attribution}</cite></blockquote>
+  </div>`;
+}
+function renderAbout(project, category, variant) {
+  const plan = project.assets.plan;
+  const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
+  const businessName = (project.business.name || 'Your Business').trim();
+  const statement = `We're a ${escapeHtml(category.label.toLowerCase())} team focused on getting the details right, from the first conversation to the finished result.`;
+  if (variant === 'split' || aboutAsset) {
+    const visual = aboutAsset
+      ? `<img src="${aboutAsset.dataUrl}" alt="${escapeHtml(aboutAsset.alt || 'Team photo')}" />`
+      : `<div class="about-avatar-placeholder">${escapeHtml((businessName.charAt(0) || 'Y').toUpperCase())}</div>`;
+    return `<div class="site-section site-section-about" data-variant="split">
+      <div class="about-visual">${visual}</div>
+      <div class="about-copy"><p class="site-section-label">About</p><p>${statement}</p></div>
+    </div>`;
+  }
+  return `<div class="site-section site-section-about" data-variant="statement">
+    <p class="site-section-label">About</p>
+    <p class="about-statement-text">${statement}</p>
+  </div>`;
+}
+function renderCtaBanner(project, category, variant) {
+  const heading = 'Ready to see this as your real website?';
+  const cta = escapeHtml(category.cta);
+  return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
+    <p>${escapeHtml(heading)}</p><button>${cta}</button>
+  </div>`;
+}
+function renderSiteFooter(project, category, variant) {
+  const plan = project.assets.plan;
+  const logoAsset = plan.logo ? project.assets.items.find(a => a.id === plan.logo) : null;
+  const businessName = escapeHtml((project.business.name || 'Your Business').trim());
+  const brandInner = logoAsset ? `<img class="site-footer-logo-img" src="${logoAsset.dataUrl}" alt="${businessName} logo" />` : `<strong>${businessName}</strong>`;
+  const year = new Date().getFullYear();
+  if (variant === 'columns') {
+    const cols = [
+      { title: navLabelFor('services', project.business.categoryKey), items: category.services },
+      { title: 'Company', items: ['About', 'Contact'] }
+    ];
+    return `<div class="site-section site-footer" data-variant="columns">
+      <div class="site-footer-brand">${brandInner}</div>
+      <div class="site-footer-columns">${cols.map(c => `<div><small>${escapeHtml(c.title)}</small>${c.items.map(i => `<span>${escapeHtml(i)}</span>`).join('')}</div>`).join('')}</div>
+      <p class="site-footer-copy">© ${year} ${businessName}</p>
+    </div>`;
+  }
+  return `<div class="site-section site-footer" data-variant="simple">
+    <div class="site-footer-brand">${brandInner}</div>
+    <p class="site-footer-copy">© ${year} ${businessName}</p>
+  </div>`;
+}
+function renderSectionHTML(project, section, category) {
+  switch (section.type) {
+    case 'hero': return renderHero(project, category);
+    case 'proof': return renderProof(project, category, section.variant);
+    case 'services': return renderServices(project, category, section.variant);
+    case 'gallery': return renderGallery(project, category, section.variant);
+    case 'about': return renderAbout(project, category, section.variant);
+    case 'testimonial': return renderTestimonial(project, category, section.variant);
+    case 'ctaBanner': return renderCtaBanner(project, category, section.variant);
+    case 'footer': return renderSiteFooter(project, category, section.variant);
+    default: return '';
+  }
+}
+function insertSection(proj, type) {
+  const variant = pickVariant(type, proj.design.dimensions);
+  const section = { id: type + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, variant };
+  const footerIdx = proj.sections.findIndex(s => s.type === 'footer');
+  const insertAt = footerIdx === -1 ? proj.sections.length : footerIdx;
+  proj.sections.splice(insertAt, 0, section);
+}
+// Asset availability can add a section the composition didn't already
+// include -- not just fill a slot inside a fixed template.
+function ensureAssetDrivenSections(proj) {
+  const plan = proj.assets.plan;
+  const types = proj.sections.map(s => s.type);
+  if ((plan.gallery || []).length && !types.includes('gallery')) insertSection(proj, 'gallery');
+  if (plan.about && !types.includes('about')) insertSection(proj, 'about');
+}
+
+// ---- WebsiteProject construction + rendering -----------------------------
+function createProject(analysis, preserved) {
+  const category = categories[analysis.categoryKey] || categories.other;
+  const seedKey = analysis.styleKey;
+  const composed = composeStyleFromAnalysis(analysis.text, seedKey);
+  const assets = (preserved && preserved.assets) ? { items: preserved.assets.items.slice() } : { items: [] };
+  assets.plan = planAssets(assets);
+  const dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+  const sections = composeSections(category, dimensions, assets.plan, analysis.categoryKey)
+    .map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions) }));
+  const proj = {
+    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v5' },
+    source: { text: analysis.text, location: analysis.location },
+    business: {
+      name: (preserved && preserved.business && preserved.business.name) || 'Your Business',
+      categoryKey: analysis.categoryKey,
+      tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
+    },
+    intent: { seedKey, styleAlternates: analysis.styleAlternates },
+    design: { palette: { ...composed.palette }, dimensions, heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split' },
+    sections,
+    assets,
+    responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
+  };
+  ensureAssetDrivenSections(proj);
+  return proj;
+}
+function mix(hex, target, amount) { const a = hexToRgb(hex), b = hexToRgb(target); return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount); }
+function hexToRgb(hex) { const n = parseInt(hex.replace('#', ''), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }; }
+function rgbToHex(r, g, b) { return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+function updatePaletteFromProject(proj) {
+  const { main, background, text, accent2 } = proj.design.palette;
+  const dark = mix(main, '#000000', .55);
+  const light = mix(main, '#ffffff', .76);
+  const soft = mix(main, '#ffffff', .91);
+  const bgDark = mix(background, '#000000', .18);
+  const bgLight = mix(background, '#ffffff', .12);
+  const textMuted = mix(text, background, .38);
+  builderSite.style.setProperty('--site-accent', main);
+  builderSite.style.setProperty('--site-accent-2', accent2 || main);
+  builderSite.style.setProperty('--site-accent-dark', dark);
+  builderSite.style.setProperty('--site-accent-light', light);
+  builderSite.style.setProperty('--site-bg', background);
+  builderSite.style.setProperty('--site-bg-dark', bgDark);
+  builderSite.style.setProperty('--site-bg-light', bgLight);
+  builderSite.style.setProperty('--site-text', text);
+  builderSite.style.setProperty('--site-muted', textMuted);
+  document.documentElement.style.setProperty('--picker-primary', main);
+  document.documentElement.style.setProperty('--picker-dark', background);
+  document.documentElement.style.setProperty('--picker-light', text);
+  document.documentElement.style.setProperty('--picker-soft', soft);
+}
+const LAYOUT_LABELS = { split: 'Layout 1', center: 'Layout 2', poster: 'Layout 3' };
+
+// renderProject is the ONLY function that writes to the live preview DOM.
+// Every control listener mutates `project` and then calls this.
+function renderProject(proj) {
+  const category = categories[proj.business.categoryKey] || categories.other;
+  const composed = proj.design.dimensions;
+  proj.assets.plan = planAssets(proj.assets);
+
+  builderSite.dataset.style = proj.intent.seedKey;
+  builderSite.dataset.hero = composed.hero;
+  builderSite.dataset.type = composed.type;
+  builderSite.dataset.nav = composed.nav;
+  builderSite.dataset.card = composed.card;
+  builderSite.dataset.imagery = composed.imagery;
+  builderSite.dataset.cta = composed.cta;
+  builderSite.dataset.colorBehavior = composed.colorBehavior;
+  builderSite.dataset.motion = prefersReducedMotion() ? 'none' : composed.motion;
+  builderSite.dataset.spacing = composed.spacing;
+  builderSite.dataset.pattern = composed.pattern;
+  builderSite.dataset.layout = proj.design.heroLayout;
+
+  updatePaletteFromProject(proj);
+
+  const logoAsset = proj.assets.plan.logo ? proj.assets.items.find(a => a.id === proj.assets.plan.logo) : null;
+  const businessDisplay = (proj.business.name || 'Your Business').trim().toUpperCase();
+  siteBusiness.textContent = businessDisplay;
+  if (logoAsset) {
+    siteLogo.src = logoAsset.dataUrl;
+    siteLogo.alt = `${proj.business.name} logo`;
+    siteLogo.classList.add('active');
+    siteBusiness.classList.add('logo-active');
+  } else {
+    siteLogo.removeAttribute('src');
+    siteLogo.alt = '';
+    siteLogo.classList.remove('active');
+    siteBusiness.classList.remove('logo-active');
+  }
+  const navTypes = proj.sections.map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
+  if (siteNavLinks) siteNavLinks.innerHTML = navTypes.map(t => `<span>${escapeHtml(navLabelFor(t, proj.business.categoryKey))}</span>`).join('');
+  if (siteNavCta) siteNavCta.textContent = category.cta;
+
+  if (siteSectionsRoot) siteSectionsRoot.innerHTML = proj.sections.map(s => renderSectionHTML(proj, s, category)).join('');
+
+  const layoutLabel = LAYOUT_LABELS[proj.design.heroLayout] || 'Layout 1';
+  summaryMode.textContent = `${proj.sections.length} sections · Composed`;
+  summaryColor.textContent = proj.design.palette.main.toUpperCase();
+  summaryLayout.textContent = layoutLabel;
+  summaryIndustry.textContent = category.label;
+
+  handoffTitle.textContent = proj.business.name || 'Your Business';
+  handoffMeta.textContent = `${proj.design.palette.main.toUpperCase()} main · ${proj.design.palette.background.toUpperCase()} background · ${proj.design.palette.text.toUpperCase()} text · ${layoutLabel} · ${category.label}`;
+  if (proj.source.text) {
+    handoffDescriptionNote.hidden = false;
+    handoffDescriptionNote.textContent = `Based on: "${proj.source.text}"`;
+  } else {
+    handoffDescriptionNote.hidden = true;
+    handoffDescriptionNote.textContent = '';
+  }
+
+  formBusiness.value = proj.business.name || 'Your Business';
+  formDescription.value = proj.source.text || '';
+  formDesignMode.value = (styles[proj.intent.seedKey] || {}).name || proj.intent.seedKey; // internal reference only, never shown to the customer
+  formBrandColor.value = proj.design.palette.main.toUpperCase();
+  formBackgroundColor.value = proj.design.palette.background.toUpperCase();
+  formTextColor.value = proj.design.palette.text.toUpperCase();
+  formLogoName.value = logoAsset ? (logoAsset.name || '') : '';
+  formLogoData.value = logoAsset ? logoAsset.dataUrl : '';
+  formLayout.value = layoutLabel;
+  formIndustry.value = category.label;
+  formSections.value = proj.sections.map(s => s.type).join(', ');
+
+  // Mirror controls to project state (covers programmatic changes, e.g. Load project)
+  businessName.value = proj.business.name || '';
+  industrySelect.value = (proj.business.categoryKey in categories) ? proj.business.categoryKey : 'other';
+  brandColor.value = proj.design.palette.main;
+  backgroundColor.value = proj.design.palette.background;
+  textColor.value = proj.design.palette.text;
+  brandColorHex.textContent = proj.design.palette.main.toUpperCase();
+  backgroundColorHex.textContent = proj.design.palette.background.toUpperCase();
+  textColorHex.textContent = proj.design.palette.text.toUpperCase();
+  $$('.layout-choice').forEach(b => b.classList.toggle('active', b.dataset.layout === proj.design.heroLayout));
+  $$('#toneToggle button').forEach(b => b.classList.toggle('active', b.dataset.tone === proj.business.tone));
+  if (sectionToggles) $$('input', sectionToggles).forEach(input => { input.checked = proj.sections.some(s => s.type === input.value); });
+  builderDevice.classList.toggle('mobile', proj.responsive.device === 'mobile');
+  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b.dataset.device === proj.responsive.device));
+
+  renderAssetPanels(proj);
+}
+function renderAssetPanels(proj) {
+  const byType = t => proj.assets.items.filter(a => a.type === t);
+  const thumbHtml = a => `<div class="asset-thumb"><img src="${a.dataUrl}" alt="" /><button type="button" class="asset-thumb-remove" data-asset-id="${a.id}" aria-label="Remove image">×</button></div>`;
+  if (heroAssetThumbs) heroAssetThumbs.innerHTML = byType('hero').map(thumbHtml).join('');
+  if (galleryAssetThumbs) galleryAssetThumbs.innerHTML = byType('gallery').map(thumbHtml).join('');
+  if (teamAssetThumbs) teamAssetThumbs.innerHTML = byType('team').map(thumbHtml).join('');
+}
+
+// ---- Serialization / persistence (client-side this pass -- see SITE-PROJECT-V5.md part 6) ----
+function serializeProject(proj) { return JSON.stringify(proj); }
+function setProjectStatus(msg) {
+  if (projectDataStatus) projectDataStatus.textContent = msg;
+  if (projectDataStatusLock) projectDataStatusLock.textContent = msg;
+}
+function saveProjectToStorage() {
+  if (!project) { setProjectStatus('Generate a direction first.'); return; }
+  try {
+    localStorage.setItem('siteremade:lastProject', serializeProject(project));
+    setProjectStatus('Saved — this exact project (including your images) can be reloaded anytime.');
+  } catch (e) { setProjectStatus('Could not save (storage may be full or unavailable).'); }
+}
+function loadProjectFromStorage() {
+  let raw;
+  try { raw = localStorage.getItem('siteremade:lastProject'); } catch (e) { raw = null; }
+  if (!raw) { setProjectStatus('No saved project found yet.'); return; }
+  try {
+    project = JSON.parse(raw);
+    hasGenerated = true;
+    unlockRefine();
+    renderProject(project);
+    setProjectStatus('Loaded your last saved project from stored data.');
+  } catch (e) { setProjectStatus('Saved project could not be read.'); }
+}
+
+// ---- DOM refs -------------------------------------------------------------
 const businessName = $('#businessName');
 const industrySelect = $('#industrySelect');
 const brandColor = $('#brandColor');
@@ -398,11 +861,9 @@ const siteLogo = $('#siteLogo');
 const builderSite = $('#builderSite');
 const builderDevice = $('#builderDevice');
 const siteBusiness = $('#siteBusiness');
-const siteKicker = $('#siteKicker');
-const siteHeadline = $('#siteHeadline');
-const siteSub = $('#siteSub');
-const siteSections = $('#siteSections');
-const sitePatternNote = $('#sitePatternNote');
+const siteNavLinks = $('#siteNavLinks');
+const siteNavCta = $('#siteNavCta');
+const siteSectionsRoot = $('#siteSectionsRoot');
 const summaryMode = $('#summaryMode');
 const summaryColor = $('#summaryColor');
 const summaryLayout = $('#summaryLayout');
@@ -434,403 +895,197 @@ const heroMachine = $('#heroMachine');
 const heroDemoCopy = $('#heroDemoCopy');
 const heroKicker = $('#heroKicker');
 const heroHeadline = $('#heroHeadline');
-const heroCardStyle = $('#heroCardStyle');
+const heroCardSections = $('#heroCardSections');
 const heroCardBrand = $('#heroCardBrand');
 const heroCardIndustry = $('#heroCardIndustry');
 const generationProgress = $('#generationProgress');
 const generationSteps = $('#generationSteps');
-const styleSwatchRow = $('#styleSwatchRow');
-const swatchScrollPrev = $('#swatchScrollPrev');
-const swatchScrollNext = $('#swatchScrollNext');
 const exampleChipRow = $('#exampleChipRow');
 
 // Refine-panel elements
 const builderShell = $('#builderShell');
 const refineLock = $('#refineLock');
 const refineLockCta = $('#refineLockCta');
-const suggestionsBlock = $('#suggestionsBlock');
-const suggestionChips = $('#suggestionChips');
 const toneToggle = $('#toneToggle');
-const shuffleServices = $('#shuffleServices');
 const regenerateButton = $('#regenerateButton');
+const sectionToggles = $('#sectionToggles');
 
-let currentStyleObject = styles.precision;
-let currentSeedKey = 'precision';
-let selectedStyleOverride = null; // set when the visitor explicitly picks a style
-let selectedLayout = 'split';
-let selectedTone = 'professional';
-let uploadedLogoData = '';
-let uploadedLogoName = '';
-let currentAnalysis = null;
+// Asset upload elements
+const heroAssetInput = $('#heroAssetInput'); const heroAssetAdd = $('#heroAssetAdd'); const heroAssetThumbs = $('#heroAssetThumbs');
+const galleryAssetInput = $('#galleryAssetInput'); const galleryAssetAdd = $('#galleryAssetAdd'); const galleryAssetThumbs = $('#galleryAssetThumbs');
+const teamAssetInput = $('#teamAssetInput'); const teamAssetAdd = $('#teamAssetAdd'); const teamAssetThumbs = $('#teamAssetThumbs');
+
+// Project data elements
+const saveProjectButton = $('#saveProjectButton');
+const loadProjectButton = $('#loadProjectButton');
+const loadProjectButtonLock = $('#loadProjectButtonLock');
+const projectDataStatus = $('#projectDataStatus');
+const projectDataStatusLock = $('#projectDataStatusLock');
+
+// ---- Module state: the project itself is the only real state -----------
+let project = null;
 let hasGenerated = false;
 
-function hexToRgb(hex) { const n = parseInt(hex.replace('#',''),16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
-function rgbToHex(r,g,b){ return '#' + [r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
-function mix(hex, target, amount){ const a=hexToRgb(hex), b=hexToRgb(target); return rgbToHex(a.r+(b.r-a.r)*amount,a.g+(b.g-a.g)*amount,a.b+(b.b-a.b)*amount); }
-
-// ---- Populate the style swatch row from the seed registry (20 buttons + Auto) ----
-if (styleSwatchRow) {
-  styleKeys.forEach(key => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'style-swatch';
-    btn.dataset.style = key;
-    btn.setAttribute('aria-pressed', 'false');
-    btn.innerHTML = `<span class="swatch-dot" style="--swatch-color:${styles[key].palette.main}"></span>${styles[key].name}`;
-    styleSwatchRow.appendChild(btn);
-  });
-}
-function setStyleSwatchActive(key) {
-  $$('.style-swatch', styleSwatchRow || document).forEach(btn => {
-    const active = (key === null && btn.dataset.style === 'auto') || btn.dataset.style === key;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-pressed', String(active));
-  });
-}
-if (styleSwatchRow) {
-  styleSwatchRow.addEventListener('click', event => {
-    const btn = event.target.closest('.style-swatch');
-    if (!btn) return;
-    selectedStyleOverride = btn.dataset.style === 'auto' ? null : btn.dataset.style;
-    setStyleSwatchActive(selectedStyleOverride);
-    if (hasGenerated) {
-      const seedKey = selectedStyleOverride || (currentAnalysis ? currentAnalysis.styleKey : 'precision');
-      applyComposed(seedKey, currentAnalysis ? currentAnalysis.text : '');
-      updateBuilder();
-    }
-  });
-}
-
-// ---- Style-picker scroll fix: mouse wheel now scrolls the row horizontally
-// (it previously only worked with touch/trackpad drag, which reads as
-// "broken" with a normal desktop mouse -- particularly on short windows,
-// where the picker takes up a larger share of the visible viewport). Wheel
-// input hands back to normal page scroll once the row hits either edge. ----
-if (styleSwatchRow) {
-  styleSwatchRow.addEventListener('wheel', (event) => {
-    if (styleSwatchRow.scrollWidth <= styleSwatchRow.clientWidth) return;
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-    const atStart = styleSwatchRow.scrollLeft <= 0;
-    const atEnd = styleSwatchRow.scrollLeft + styleSwatchRow.clientWidth >= styleSwatchRow.scrollWidth - 1;
-    if ((atStart && event.deltaY < 0) || (atEnd && event.deltaY > 0)) return;
-    styleSwatchRow.scrollLeft += event.deltaY;
-    event.preventDefault();
-  }, { passive: false });
-
-  // Click-and-drag for desktop mouse users (touch/trackpad already scroll natively).
-  // Important: the 'dragging' class (which disables pointer-events on the swatch
-  // buttons via CSS, so a drag gesture doesn't also click one) is only added once
-  // real movement past a small threshold is detected -- never on pointerdown alone,
-  // or a plain single click would be swallowed by its own mousedown.
-  let dragActive = false, dragStartX = 0, dragStartScroll = 0, dragMoved = false;
-  styleSwatchRow.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'touch') return;
-    dragActive = true; dragMoved = false;
-    dragStartX = event.clientX;
-    dragStartScroll = styleSwatchRow.scrollLeft;
-  });
-  window.addEventListener('pointermove', event => {
-    if (!dragActive) return;
-    const delta = event.clientX - dragStartX;
-    if (Math.abs(delta) > 4) {
-      if (!dragMoved) styleSwatchRow.classList.add('dragging');
-      dragMoved = true;
-    }
-    if (dragMoved) styleSwatchRow.scrollLeft = dragStartScroll - delta;
-  });
-  window.addEventListener('pointerup', () => {
-    if (!dragActive) return;
-    dragActive = false;
-    styleSwatchRow.classList.remove('dragging');
-    if (dragMoved) {
-      // swallow the click that follows a real drag so it doesn't also select a swatch
-      const suppress = e => { e.stopPropagation(); styleSwatchRow.removeEventListener('click', suppress, true); };
-      styleSwatchRow.addEventListener('click', suppress, true);
-    }
-  });
-}
-function updateScrollButtons() {
-  if (!styleSwatchRow || !swatchScrollPrev || !swatchScrollNext) return;
-  swatchScrollPrev.disabled = styleSwatchRow.scrollLeft <= 0;
-  swatchScrollNext.disabled = styleSwatchRow.scrollLeft + styleSwatchRow.clientWidth >= styleSwatchRow.scrollWidth - 1;
-}
-if (swatchScrollPrev) swatchScrollPrev.addEventListener('click', () => styleSwatchRow.scrollBy({ left: -220, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
-if (swatchScrollNext) swatchScrollNext.addEventListener('click', () => styleSwatchRow.scrollBy({ left: 220, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
-if (styleSwatchRow) {
-  styleSwatchRow.addEventListener('scroll', updateScrollButtons);
-  window.addEventListener('resize', updateScrollButtons);
-  setTimeout(updateScrollButtons, 0);
-}
-
-// ---- Apply a style object (named seed or composed) to the live preview ----
-function applyStyleDimensions(styleObj, seedKey) {
-  builderSite.dataset.style = seedKey;
-  builderSite.dataset.hero = styleObj.hero;
-  builderSite.dataset.type = styleObj.type;
-  builderSite.dataset.nav = styleObj.nav;
-  builderSite.dataset.card = styleObj.card;
-  builderSite.dataset.imagery = styleObj.imagery;
-  builderSite.dataset.cta = styleObj.cta;
-  builderSite.dataset.colorBehavior = styleObj.colorBehavior;
-  builderSite.dataset.motion = prefersReducedMotion() ? 'none' : styleObj.motion;
-  builderSite.dataset.spacing = styleObj.spacing;
-  builderSite.dataset.pattern = styleObj.pattern;
-}
-// text === '' (nothing generated yet) shows the pure named seed, unmixed;
-// once there's a description, the seed becomes a fallback for whichever
-// dimensions the text doesn't itself signal (see composeStyleFromAnalysis).
-function applyComposed(seedKey, text) {
-  currentSeedKey = seedKey;
-  currentStyleObject = text ? composeStyleFromAnalysis(text, seedKey) : styles[seedKey];
-  applyStyleDimensions(currentStyleObject, seedKey);
-  applyStyleDefaults(seedKey);
-}
-
-function updatePalette(main, background, text, accent2) {
-  const dark = mix(main, '#000000', .55);
-  const light = mix(main, '#ffffff', .76);
-  const soft = mix(main, '#ffffff', .91);
-  const bgDark = mix(background, '#000000', .18);
-  const bgLight = mix(background, '#ffffff', .12);
-  const textMuted = mix(text, background, .38);
-
-  builderSite.style.setProperty('--site-accent', main);
-  builderSite.style.setProperty('--site-accent-2', accent2 || main);
-  builderSite.style.setProperty('--site-accent-dark', dark);
-  builderSite.style.setProperty('--site-accent-light', light);
-  builderSite.style.setProperty('--site-bg', background);
-  builderSite.style.setProperty('--site-bg-dark', bgDark);
-  builderSite.style.setProperty('--site-bg-light', bgLight);
-  builderSite.style.setProperty('--site-text', text);
-  builderSite.style.setProperty('--site-muted', textMuted);
-
-  document.documentElement.style.setProperty('--picker-primary', main);
-  document.documentElement.style.setProperty('--picker-dark', background);
-  document.documentElement.style.setProperty('--picker-light', text);
-  document.documentElement.style.setProperty('--picker-soft', soft);
-
-  brandColorHex.textContent = main.toUpperCase();
-  backgroundColorHex.textContent = background.toUpperCase();
-  textColorHex.textContent = text.toUpperCase();
-}
-
-function applyStyleDefaults(seedKey) {
-  const palette = (styles[seedKey] || styles.precision).palette;
-  brandColor.value = palette.main;
-  backgroundColor.value = palette.background;
-  textColor.value = palette.text;
-}
-
-function selectedSections(){ return $$('.section-toggles input:checked').map(input=>input.value); }
-
-function updateBuilder() {
-  const business = (businessName.value || 'Your Business').trim();
-  const category = categories[industrySelect.value] || categories.other;
-  const color = brandColor.value;
-  const bgColor = backgroundColor.value;
-  const txtColor = textColor.value;
-  const accent2 = currentStyleObject ? currentStyleObject.palette.accent2 : color;
-  const displayBusiness = business.toUpperCase();
-  siteBusiness.textContent = displayBusiness;
-  if (uploadedLogoData) {
-    siteLogo.src = uploadedLogoData;
-    siteLogo.alt = `${business} logo`;
-    siteLogo.classList.add('active');
-    siteBusiness.classList.add('logo-active');
-  } else {
-    siteLogo.removeAttribute('src');
-    siteLogo.alt = '';
-    siteLogo.classList.remove('active');
-    siteBusiness.classList.remove('logo-active');
-  }
-  siteKicker.textContent = category.kicker;
-  siteHeadline.textContent = category.headline;
-  siteSub.textContent = toneSub(selectedTone, category, currentAnalysis ? currentAnalysis.location : '');
-  applyStyleDimensions(currentStyleObject, currentSeedKey);
-  builderSite.dataset.layout = selectedLayout;
-  updatePalette(color, bgColor, txtColor, accent2);
-
-  const sections = selectedSections();
-  const serviceLabels = category.services;
-  siteSections.innerHTML = serviceLabels.map((label,i)=>`<div><small>0${i+1}</small><strong>${label}</strong></div>`).join('');
-  siteSections.style.display = sections.includes('services') ? 'grid' : 'none';
-
-  const patternKey = currentStyleObject ? currentStyleObject.pattern : 'standard';
-  if (sitePatternNote) {
-    const note = patternNotes[patternKey];
-    sitePatternNote.hidden = !note;
-    sitePatternNote.textContent = note;
-  }
-
-  const navButton = builderSite.querySelector('.site-nav button');
-  const actionsButton = builderSite.querySelector('.site-actions button');
-  if (navButton) navButton.textContent = category.cta;
-  if (actionsButton) actionsButton.textContent = category.cta;
-
-  const styleName = currentStyleObject ? currentStyleObject.name : currentSeedKey;
-  summaryMode.textContent = styleName;
-  summaryColor.textContent = color.toUpperCase();
-  summaryLayout.textContent = ({split:'Layout 1', center:'Layout 2', poster:'Layout 3'}[selectedLayout] || 'Layout 1');
-  summaryIndustry.textContent = category.label;
-  handoffTitle.textContent = `${business} — ${styleName}`;
-  handoffMeta.textContent = `${color.toUpperCase()} main · ${bgColor.toUpperCase()} background · ${txtColor.toUpperCase()} text · ${{split:'Layout 1', center:'Layout 2', poster:'Layout 3'}[selectedLayout] || 'Layout 1'} · ${category.label}`;
-  if (currentAnalysis && currentAnalysis.text) {
-    handoffDescriptionNote.hidden = false;
-    handoffDescriptionNote.textContent = `Based on: "${currentAnalysis.text}"`;
-  } else {
-    handoffDescriptionNote.hidden = true;
-    handoffDescriptionNote.textContent = '';
-  }
-  formBusiness.value = business;
-  formDescription.value = currentAnalysis ? currentAnalysis.text : '';
-  formDesignMode.value = styleName;
-  formBrandColor.value = color.toUpperCase();
-  formBackgroundColor.value = bgColor.toUpperCase();
-  formTextColor.value = txtColor.toUpperCase();
-  formLogoName.value = uploadedLogoName;
-  formLogoData.value = uploadedLogoData;
-  formLayout.value = ({split:'Layout 1', center:'Layout 2', poster:'Layout 3'}[selectedLayout] || 'Layout 1');
-  formIndustry.value = category.label;
-  formSections.value = sections.join(', ');
-}
-
-[businessName, industrySelect, brandColor, backgroundColor, textColor].forEach(el => el.addEventListener('input', updateBuilder));
+// ---- Refinement controls: mutate `project`, then re-render --------------
+[businessName].forEach(el => el.addEventListener('input', () => { if (!project) return; project.business.name = businessName.value; renderProject(project); }));
+industrySelect.addEventListener('input', () => { if (!project) return; project.business.categoryKey = industrySelect.value; renderProject(project); });
+[brandColor, backgroundColor, textColor].forEach(el => el.addEventListener('input', () => {
+  if (!project) return;
+  project.design.palette.main = brandColor.value;
+  project.design.palette.background = backgroundColor.value;
+  project.design.palette.text = textColor.value;
+  renderProject(project);
+}));
 
 chooseLogo.addEventListener('click', () => businessLogo.click());
 logoPreviewBox.addEventListener('click', () => businessLogo.click());
-
 function clearLogo() {
-  uploadedLogoData = '';
-  uploadedLogoName = '';
+  if (project) { project.assets.items = project.assets.items.filter(a => a.type !== 'logo'); }
   businessLogo.value = '';
   logoPreviewImage.removeAttribute('src');
   logoPreviewImage.classList.remove('active');
   logoPlaceholder.hidden = false;
   removeLogo.hidden = true;
-  updateBuilder();
+  if (project) renderProject(project);
 }
-
 removeLogo.addEventListener('click', clearLogo);
-
 businessLogo.addEventListener('change', event => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
-
-  const allowed = ['image/png','image/jpeg','image/webp','image/svg+xml'];
-  if (!allowed.includes(file.type)) {
-    alert('Please choose a PNG, JPG, WEBP or SVG logo.');
-    clearLogo();
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    alert('Please use a logo smaller than 4 MB.');
-    clearLogo();
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    const original = reader.result;
-
-    if (file.type === 'image/svg+xml') {
-      uploadedLogoData = original;
-      uploadedLogoName = file.name;
-      logoPreviewImage.src = original;
-      logoPreviewImage.classList.add('active');
-      logoPlaceholder.hidden = true;
-      removeLogo.hidden = false;
-      updateBuilder();
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      const maxW = 720, maxH = 360;
-      const scale = Math.min(1, maxW / img.width, maxH / img.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(img.width * scale));
-      canvas.height = Math.max(1, Math.round(img.height * scale));
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      uploadedLogoData = canvas.toDataURL('image/png', 0.92);
-      uploadedLogoName = file.name.replace(/\.[^.]+$/, '') + '.png';
-      logoPreviewImage.src = uploadedLogoData;
-      logoPreviewImage.classList.add('active');
-      logoPlaceholder.hidden = true;
-      removeLogo.hidden = false;
-      updateBuilder();
-    };
-    img.src = original;
-  };
-  reader.readAsDataURL(file);
+  readImageAsDataUrl(file, 720, 360).then(dataUrl => {
+    if (!project) return;
+    project.assets.items = project.assets.items.filter(a => a.type !== 'logo');
+    project.assets.items.push(createAsset('logo', dataUrl, file.name));
+    logoPreviewImage.src = dataUrl;
+    logoPreviewImage.classList.add('active');
+    logoPlaceholder.hidden = true;
+    removeLogo.hidden = false;
+    renderProject(project);
+  }).catch(err => { alert(err.message); clearLogo(); });
 });
+
+function afterAssetsChanged() {
+  if (!project) return;
+  project.assets.plan = planAssets(project.assets);
+  ensureAssetDrivenSections(project);
+  renderProject(project);
+}
+if (heroAssetAdd) heroAssetAdd.addEventListener('click', () => heroAssetInput.click());
+if (heroAssetInput) heroAssetInput.addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  heroAssetInput.value = '';
+  if (!file || !project) return;
+  readImageAsDataUrl(file, 1200, 900).then(dataUrl => {
+    project.assets.items = project.assets.items.filter(a => a.type !== 'hero');
+    project.assets.items.push(createAsset('hero', dataUrl, file.name));
+    afterAssetsChanged();
+  }).catch(err => alert(err.message));
+});
+if (teamAssetAdd) teamAssetAdd.addEventListener('click', () => teamAssetInput.click());
+if (teamAssetInput) teamAssetInput.addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  teamAssetInput.value = '';
+  if (!file || !project) return;
+  readImageAsDataUrl(file, 700, 700).then(dataUrl => {
+    project.assets.items = project.assets.items.filter(a => a.type !== 'team');
+    project.assets.items.push(createAsset('team', dataUrl, file.name));
+    afterAssetsChanged();
+  }).catch(err => alert(err.message));
+});
+if (galleryAssetAdd) galleryAssetAdd.addEventListener('click', () => galleryAssetInput.click());
+if (galleryAssetInput) galleryAssetInput.addEventListener('change', e => {
+  const files = e.target.files;
+  const fileList = files ? Array.from(files) : [];
+  galleryAssetInput.value = '';
+  if (!fileList.length || !project) return;
+  const existing = project.assets.items.filter(a => a.type === 'gallery').length;
+  const room = Math.max(0, 4 - existing);
+  const toAdd = fileList.slice(0, room);
+  if (!toAdd.length) { alert('Up to 4 gallery images.'); return; }
+  Promise.all(toAdd.map(f => readImageAsDataUrl(f, 1000, 1000).then(dataUrl => createAsset('gallery', dataUrl, f.name))))
+    .then(newAssets => { project.assets.items.push(...newAssets); afterAssetsChanged(); })
+    .catch(err => alert(err.message));
+});
+function wireThumbRemoval(container) {
+  if (!container) return;
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('.asset-thumb-remove');
+    if (!btn || !project) return;
+    project.assets.items = project.assets.items.filter(a => a.id !== btn.dataset.assetId);
+    afterAssetsChanged();
+  });
+}
+[heroAssetThumbs, galleryAssetThumbs, teamAssetThumbs].forEach(wireThumbRemoval);
 
 $$('.layout-choice').forEach(button => button.addEventListener('click', () => {
-  selectedLayout = button.dataset.layout;
-  $$('.layout-choice').forEach(b => b.classList.toggle('active', b === button));
-  updateBuilder();
+  if (!project) return;
+  project.design.heroLayout = button.dataset.layout;
+  renderProject(project);
 }));
 resetColors.addEventListener('click', () => {
-  applyStyleDefaults(currentSeedKey);
-  updateBuilder();
+  if (!project) return;
+  const palette = (styles[project.intent.seedKey] || styles.precision).palette;
+  project.design.palette = { main: palette.main, background: palette.background, text: palette.text, accent2: palette.accent2 };
+  renderProject(project);
 });
-$$('.section-toggles input').forEach(input => input.addEventListener('change', updateBuilder));
+function toggleSection(type, on) {
+  if (!project) return;
+  if (on) { if (!project.sections.some(s => s.type === type)) insertSection(project, type); }
+  else { project.sections = project.sections.filter(s => s.type !== type); }
+  renderProject(project);
+}
+if (sectionToggles) {
+  sectionToggles.addEventListener('change', event => {
+    const input = event.target.closest('input[type="checkbox"]');
+    if (!input) return;
+    toggleSection(input.value, input.checked);
+  });
+}
 $$('.device-toggle button').forEach(button => button.addEventListener('click', () => {
   $$('.device-toggle button').forEach(b => b.classList.toggle('active', b === button));
   builderDevice.classList.toggle('mobile', button.dataset.device === 'mobile');
+  if (project) project.responsive.device = button.dataset.device;
 }));
 
-// ---- Refinement controls (tone, regenerate, alternate styles) ----
+// ---- Refinement controls: tone + regenerate (no named styles anywhere) ----
 if (toneToggle) {
   $$('#toneToggle button').forEach(btn => btn.addEventListener('click', () => {
-    selectedTone = btn.dataset.tone;
-    $$('#toneToggle button').forEach(b => b.classList.toggle('active', b === btn));
-    updateBuilder();
-  }));
-}
-if (shuffleServices) {
-  shuffleServices.addEventListener('click', () => {
-    const category = categories[industrySelect.value] || categories.other;
-    category.services.push(category.services.shift());
-    updateBuilder();
-  });
-}
-function renderSuggestions(analysis) {
-  if (!suggestionsBlock || !suggestionChips) return;
-  const alts = (analysis.styleAlternates || []).filter(s => s && s !== analysis.styleKey);
-  if (!alts.length) { suggestionsBlock.hidden = true; suggestionChips.innerHTML = ''; return; }
-  suggestionsBlock.hidden = false;
-  suggestionChips.innerHTML = alts.map(key => `<button type="button" class="suggestion-chip" data-style="${key}">${styles[key].name}</button>`).join('');
-  $$('.suggestion-chip', suggestionChips).forEach(btn => btn.addEventListener('click', () => {
-    selectedStyleOverride = btn.dataset.style;
-    setStyleSwatchActive(selectedStyleOverride);
-    applyComposed(btn.dataset.style, currentAnalysis ? currentAnalysis.text : '');
-    updateBuilder();
+    if (!project) return;
+    project.business.tone = btn.dataset.tone;
+    renderProject(project);
   }));
 }
 if (regenerateButton) {
   regenerateButton.addEventListener('click', () => {
-    if (!currentAnalysis) return;
-    // Regenerate = cycle to the next real ranked seed (not random) and
-    // reorder the services strip, then recompose against that seed. Any
-    // dimension the description signalled strongly stays put; only the
-    // seed-derived fallback dimensions actually change -- so this reads as
-    // "the ambiguous parts get a fresh take," not a random reshuffle.
-    const candidates = [currentAnalysis.styleKey, ...(currentAnalysis.styleAlternates || [])].filter(Boolean);
-    const pool = selectedStyleOverride ? [selectedStyleOverride, ...candidates.filter(k => k !== selectedStyleOverride)] : candidates;
-    const currentIndex = pool.indexOf(currentSeedKey);
+    if (!project) return;
+    // Cycle to the next real ranked seed from the ORIGINAL analysis (not
+    // random), recompose design dimensions + section variants against it,
+    // and reorder the services strip -- reads as "the ambiguous parts get
+    // a fresh take," never named to the visitor.
+    const candidates = [project.intent.seedKey, ...(project.intent.styleAlternates || [])].filter(Boolean);
+    const pool = candidates.length ? candidates : [project.intent.seedKey];
+    const currentIndex = pool.indexOf(project.intent.seedKey);
     const nextKey = pool[(currentIndex + 1) % pool.length] || pool[0];
-    const category = categories[industrySelect.value] || categories.other;
+    const composed = composeStyleFromAnalysis(project.source.text, nextKey);
+    project.intent.seedKey = nextKey;
+    project.design.palette = { ...composed.palette };
+    project.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+    project.sections.forEach(s => { s.variant = pickVariant(s.type, project.design.dimensions); });
+    const category = categories[project.business.categoryKey] || categories.other;
     category.services.push(category.services.shift());
-    applyComposed(nextKey, currentAnalysis.text);
-    updateBuilder();
+    renderProject(project);
   });
 }
+if (saveProjectButton) saveProjectButton.addEventListener('click', saveProjectToStorage);
+if (loadProjectButton) loadProjectButton.addEventListener('click', loadProjectFromStorage);
+// This one lives in the pre-generation lock overlay (not inside the
+// Advanced panel, which is blurred/non-interactive until hasGenerated is
+// true) -- otherwise a returning visitor could never reach it at all.
+if (loadProjectButtonLock) loadProjectButtonLock.addEventListener('click', loadProjectFromStorage);
 
 // ---- Hero live micro-preview: updates as the visitor types, before they
-// ever press Generate, so the hero already feels alive. Text-only changes,
-// deliberately cheap (no theme/color recompute on every keystroke). ----
+// ever press Generate. Text-only + a live "sections planned" count so the
+// compositional system feels alive pre-generation too. ----
 let heroLiveTimer;
 if (generatorInput) {
   generatorInput.addEventListener('input', () => {
@@ -840,11 +1095,13 @@ if (generatorInput) {
       if (!text) return;
       const analysis = analyzeDescription(text);
       const category = categories[analysis.categoryKey] || categories.other;
-      const seedKey = selectedStyleOverride || analysis.styleKey;
-      const composed = composeStyleFromAnalysis(text, seedKey);
+      const composed = composeStyleFromAnalysis(text, analysis.styleKey);
+      const dims = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+      const plan = planAssets(project ? project.assets : { items: [] });
+      const previewSections = composeSections(category, dims, plan, analysis.categoryKey);
       if (heroKicker) heroKicker.textContent = category.kicker;
       if (heroHeadline) heroHeadline.textContent = category.headline;
-      if (heroCardStyle) heroCardStyle.textContent = composed.name;
+      if (heroCardSections) heroCardSections.textContent = `${previewSections.length} planned`;
       if (heroCardBrand) heroCardBrand.textContent = composed.palette.main.toUpperCase();
       if (heroCardIndustry) heroCardIndustry.textContent = category.label;
     }, 220);
@@ -856,7 +1113,7 @@ function wireExampleChip(btn) {
     generatorInput.dispatchEvent(new Event('input'));
     generatorInput.focus();
     if (generatorForm.requestSubmit) generatorForm.requestSubmit();
-    else generatorForm.dispatchEvent(new Event('submit', {cancelable: true}));
+    else generatorForm.dispatchEvent(new Event('submit', { cancelable: true }));
   });
 }
 if (exampleChipRow) {
@@ -865,7 +1122,6 @@ if (exampleChipRow) {
     btn.type = 'button';
     btn.className = 'example-chip';
     btn.dataset.example = example.text;
-    // Short label: first ~4 words, so the chip stays compact.
     const words = example.text.replace(/^A(n)?\s+/i, '').split(' ');
     btn.textContent = words.slice(0, 4).join(' ') + (words.length > 4 ? '…' : '');
     wireExampleChip(btn);
@@ -883,24 +1139,14 @@ function setStepState(li, state, note) {
     if (small) small.textContent = note;
   }
 }
-
 function unlockRefine() {
   if (refineLock) refineLock.hidden = true;
   if (builderShell) builderShell.classList.remove('locked');
 }
-
 function finishGeneration(analysis) {
   hasGenerated = true;
-  currentAnalysis = analysis;
-
-  const seedKey = selectedStyleOverride || analysis.styleKey;
-  applyComposed(seedKey, analysis.text);
-  industrySelect.value = (analysis.categoryKey in categories) ? analysis.categoryKey : 'other';
-  if (!businessName.value.trim() || businessName.value === 'Your Business') {
-    businessName.value = 'Your Business';
-  }
-  updateBuilder();
-  renderSuggestions(analysis);
+  project = createProject(analysis, project);
+  renderProject(project);
 
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
@@ -912,7 +1158,6 @@ function finishGeneration(analysis) {
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 }
-
 function runGeneration(text) {
   if (!text || !text.trim()) return;
   const analysis = analyzeDescription(text);
@@ -923,15 +1168,16 @@ function runGeneration(text) {
   }
 
   const category = categories[analysis.categoryKey] || categories.other;
-  const seedKey = selectedStyleOverride || analysis.styleKey;
-  const composed = composeStyleFromAnalysis(analysis.text, seedKey);
-  const sectionCount = selectedSections().length || 4;
+  const composed = composeStyleFromAnalysis(analysis.text, analysis.styleKey);
+  const dims = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+  const plan = planAssets(project ? project.assets : { items: [] });
+  const previewSections = composeSections(category, dims, plan, analysis.categoryKey);
 
   const steps = [
     ['understand', `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`],
-    ['structure', `${sectionCount} sections selected for your site`],
+    ['structure', `${previewSections.length} sections selected for your site`],
     ['content', `Headline + copy matched to ${category.label}`],
-    ['style', `${composed.name} — ${composed.tagline}`],
+    ['style', describeComposition(composed)],
     ['preview', 'Desktop + mobile preview ready']
   ];
 
@@ -979,7 +1225,11 @@ if ('IntersectionObserver' in window) {
 
 leadForm.addEventListener('submit', async event => {
   event.preventDefault();
-  updateBuilder();
+  // Note: the visible "Business name" field in this form shares the
+  // generator's business name via #formBusiness, kept in sync by every
+  // renderProject() call already -- deliberately NOT re-synced here, or a
+  // visitor's manual edit to this field made right before submitting would
+  // get silently overwritten (a real bug caught in V5 lead-handoff testing).
   const submitButton = leadForm.querySelector('button[type="submit"]');
   const originalLabel = submitButton.textContent;
   submitButton.disabled = true;
@@ -989,8 +1239,8 @@ leadForm.addEventListener('submit', async event => {
   try {
     const formData = new FormData(leadForm);
     const payload = Object.fromEntries(formData.entries());
-    const response = await fetch('/api/lead', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    const result = await response.json().catch(()=>({}));
+    const response = await fetch('/api/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) throw new Error(result.message || 'Unable to send your design.');
     formStatus.className = 'form-status success';
     formStatus.textContent = result.message || 'Design received. We’ll review it and get back to you.';
@@ -1003,6 +1253,10 @@ leadForm.addEventListener('submit', async event => {
   }
 });
 
-applyComposed('precision', '');
-updateBuilder();
+// ---- Bootstrap: an initial placeholder project so the (locked/blurred)
+// preview shows sensible generic content before the first real generation,
+// same as V3/V4's static markup used to, but now built the same way any
+// other project is. ----
+project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null);
+renderProject(project);
 year.textContent = new Date().getFullYear();
