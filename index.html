@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SiteRemade — Build Your Website Direction</title>
-  <meta name="description" content="Build a website direction that actually feels like your business. Choose a style, set your brand colour, shape the layout and send the exact concept to SiteRemade." />
+  <title>SiteRemade — Describe Your Business, Get a Generated Website Direction</title>
+  <meta name="description" content="Describe your service business in one sentence and SiteRemade generates a real website direction: style, copy, colours and layout. Refine it, then we build and deliver the finished site." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="preload" href="styles.css" as="style" />
@@ -17,26 +17,36 @@
   <header class="nav" id="top">
     <a href="#top" class="brand brand-logo" aria-label="SiteRemade home"><img src="siteremade-logo-black.png" alt="SiteRemade" decoding="async" fetchpriority="high" /></a>
     <nav class="nav-links">
-      <a href="#build">Build yours</a>
+      <a href="#modes">See the directions</a>
       <a href="#why">Why it works</a>
       <a href="#pricing">Pricing</a>
     </nav>
     <div class="nav-actions">
       <a href="https://app.siteremade.com/" class="button button-small button-secondary client-login" id="clientLoginLink" aria-label="Open SiteRemade client login" onclick="window.location.assign('https://app.siteremade.com/'); return false;">Client Login</a>
-      <a href="#build" class="button button-small">Build Your Look</a>
+      <a href="#generatorInput" class="button button-small">Generate my website</a>
     </div>
   </header>
 
   <main>
     <section class="hero reveal">
       <div class="hero-copy">
-        <p class="eyebrow">WEBSITES THAT FEEL LIKE YOUR BUSINESS</p>
-        <h1>Don't pick a template.<span>Build a direction.</span></h1>
-        <p class="hero-description">Choose one of six polished website styles, make it yours, and send us the exact website direction you want. No guessing. No generic contractor template.</p>
-        <div class="hero-actions">
-          <a href="#build" class="button">Build Your Website</a>
-          <a href="#modes" class="button button-secondary">See the 6 modes</a>
-        </div>
+        <p class="eyebrow">START WITH ONE SENTENCE</p>
+        <h1>Describe your business.<span>Watch a direction appear.</span></h1>
+        <p class="hero-description">Tell us what you do and where. SiteRemade reads it, matches it to a website direction built for service businesses, and shows you a real preview — not a questionnaire.</p>
+
+        <form class="generator-form" id="generatorForm">
+          <label class="generator-label" for="generatorInput">Describe your business</label>
+          <textarea id="generatorInput" name="generatorInput" rows="3" maxlength="280" placeholder="Landscaping company in Calgary specializing in luxury backyard builds" required></textarea>
+          <div class="generator-row">
+            <div class="generator-examples">
+              <span>Try:</span>
+              <button type="button" class="example-chip" data-example="Electrician in Edmonton focused on fast residential service calls">Electrician in Edmonton</button>
+              <button type="button" class="example-chip" data-example="Boutique house painting company in Victoria, high-end finishes">Painter in Victoria, high-end</button>
+            </div>
+            <button class="button generator-submit" type="submit"><span class="btn-label">Generate my website</span></button>
+          </div>
+        </form>
+
         <div class="hero-meta">
           <span>Starting at $750 CAD</span>
           <span>Full ownership</span>
@@ -44,24 +54,34 @@
         </div>
       </div>
 
-      <div class="hero-machine" aria-label="Animated SiteRemade preview">
-        <div class="machine-topline"><span>LIVE DESIGN SYSTEM</span><span>01 / 06</span></div>
+      <div class="hero-machine" aria-label="Animated SiteRemade preview" id="heroMachine">
+        <div class="machine-topline"><span id="heroTopline">LIVE DESIGN SYSTEM</span><span id="heroTopcount">01 / 06</span></div>
         <div class="hero-browser">
           <div class="browser-top">
             <div class="browser-dots"><span></span><span></span><span></span></div>
-            <div class="browser-address">yourbusiness.com</div>
+            <div class="browser-address" id="heroAddress">yourbusiness.com</div>
             <div class="browser-status">LIVE</div>
           </div>
           <div class="hero-demo" id="heroDemo">
             <div class="hero-demo-grid"></div>
-            <div class="hero-demo-copy">
-              <p>YOUR BUSINESS</p>
-              <h2>Built to look worth calling.</h2>
+            <div class="hero-demo-copy" id="heroDemoCopy">
+              <p id="heroKicker">YOUR BUSINESS</p>
+              <h2 id="heroHeadline">Built to look worth calling.</h2>
               <div class="hero-demo-actions"><span>View work</span><strong>Request a quote ↗</strong></div>
             </div>
-            <div class="floating-card card-one"><small>STYLE</small><strong>Precision</strong></div>
-            <div class="floating-card card-two"><small>BRAND</small><strong>#315CFF</strong></div>
-            <div class="floating-card card-three"><small>TOP SECTION</small><strong>Layout 3</strong></div>
+            <div class="generation-progress" id="generationProgress" hidden>
+              <p class="generation-eyebrow">GENERATING YOUR DIRECTION</p>
+              <ul id="generationSteps">
+                <li data-step="understand"><i></i><span>Understanding your business</span><small></small></li>
+                <li data-step="structure"><i></i><span>Choosing site structure</span><small></small></li>
+                <li data-step="content"><i></i><span>Creating content direction</span><small></small></li>
+                <li data-step="style"><i></i><span>Selecting visual style</span><small></small></li>
+                <li data-step="preview"><i></i><span>Building preview</span><small></small></li>
+              </ul>
+            </div>
+            <div class="floating-card card-one"><small>STYLE</small><strong id="heroCardStyle">Precision</strong></div>
+            <div class="floating-card card-two"><small>BRAND</small><strong id="heroCardBrand">#315CFF</strong></div>
+            <div class="floating-card card-three"><small>INDUSTRY</small><strong id="heroCardIndustry">Service</strong></div>
           </div>
         </div>
       </div>
@@ -70,10 +90,10 @@
     <section class="modes-section reveal" id="modes">
       <div class="section-heading split-heading">
         <div>
-          <p class="eyebrow">01 — CHOOSE A DIRECTION</p>
-          <h2>Six ways your business can feel.</h2>
+          <p class="eyebrow">01 — WHAT THE GENERATOR CAN PRODUCE</p>
+          <h2>Six directions, before you write a word.</h2>
         </div>
-        <p>Every mode is modern. Every mode is professional. The difference is the design language — not the quality.</p>
+        <p>Every mode is modern. Every mode is professional. The difference is the design language — not the quality. Describe your business above and the generator picks one; browse them here and jump straight in with any of them.</p>
       </div>
 
       <div class="mode-showcase" id="modeShowcase">
@@ -105,7 +125,7 @@
             </div>
             <div class="mode-stage-footer">
               <div class="mode-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i><i></i></div>
-              <a href="#build" class="button">Customize this direction</a>
+              <button type="button" class="button use-direction-button" id="useThisDirection" data-mode="luminous">Use this direction</button>
             </div>
           </div>
         </div>
@@ -114,14 +134,23 @@
 
     <section class="builder-section reveal" id="build">
       <div class="builder-intro">
-        <p class="eyebrow">02 — MAKE IT YOURS</p>
-        <h2>Build the base. We'll make it real.</h2>
-        <p>Choose what you like and watch it update live. Pick a style, add your business, choose a colour and select the sections you want. We handle the web-design part.</p>
+        <p class="eyebrow" id="refineEyebrow">02 — YOUR GENERATED DIRECTION</p>
+        <h2 id="refineHeading">Refine it until it's exactly right.</h2>
+        <p>This is the direction SiteRemade generated from what you described. Adjust the style, tone or business details and watch it update live — nothing here is a freeform editor, just the real controls behind the direction.</p>
       </div>
 
-      <div class="builder-shell">
+      <div class="builder-shell locked" id="builderShell">
+        <div class="refine-lock" id="refineLock">
+          <p><strong>Generate a direction first.</strong><br />Describe your business above to unlock refinement — or pick a direction from the six above.</p>
+          <button type="button" class="button button-small" id="refineLockCta">Start generating</button>
+        </div>
         <aside class="builder-controls">
           <div class="builder-progress"><span class="active">STYLE</span><span>BUSINESS</span><span>LOOK</span><span>PREVIEW</span></div>
+
+          <div class="control-block suggestions-block" id="suggestionsBlock" hidden>
+            <label class="control-label">Suggested for your business</label>
+            <div class="suggestion-chips" id="suggestionChips"></div>
+          </div>
 
           <div class="control-block">
             <label class="control-label">Website style</label>
@@ -133,6 +162,15 @@
               <option value="executive">Executive</option>
               <option value="impact">Impact</option>
             </select></div>
+          </div>
+
+          <div class="control-block">
+            <label class="control-label">Copy tone</label>
+            <div class="tone-toggle" id="toneToggle">
+              <button type="button" class="active" data-tone="professional">Professional</button>
+              <button type="button" data-tone="bold">Bold</button>
+              <button type="button" data-tone="friendly">Friendly</button>
+            </div>
           </div>
 
           <div class="control-block two-col-control">
@@ -210,6 +248,7 @@
               <label><input type="checkbox" value="service-area" checked /> Service Area</label>
               <label><input type="checkbox" value="quote" checked /> Quote Form</label>
             </div>
+            <button type="button" class="reset-colors" id="shuffleServices">Regenerate section order</button>
           </div>
         </aside>
 
@@ -235,18 +274,20 @@
 
     <section class="handoff-section reveal" id="send">
       <div class="handoff-copy">
-        <p class="eyebrow">03 — SEND YOUR DIRECTION</p>
-        <h2>Show us exactly what you want.</h2>
-        <p>Send the direction you built. We'll review it against your real business and get back to you with what we'd recommend. No commitment just for sending it.</p>
+        <p class="eyebrow">03 — SITEREMADE TAKES IT FROM HERE</p>
+        <h2>Your direction. Our production build.</h2>
+        <p>The generator gets you a real starting direction, not a finished production website. Send it and SiteRemade builds the actual site from it, handles revisions, and delivers it through the same Website Projects workflow that runs the rest of your account. No commitment just for sending it.</p>
         <div class="handoff-preview-card">
           <span>YOUR DIRECTION</span>
           <strong id="handoffTitle">Northline Electric — Luminous</strong>
           <p id="handoffMeta">#315CFF · Split · Electrical</p>
+          <p id="handoffDescriptionNote" class="handoff-description-note" hidden></p>
         </div>
       </div>
 
       <form class="lead-form" id="leadForm">
         <div class="hp-field" aria-hidden="true"><label>Company website<input type="text" name="companyWebsite" tabindex="-1" autocomplete="off" /></label></div>
+        <input type="hidden" name="description" id="formDescription" />
         <input type="hidden" name="designMode" id="formDesignMode" />
         <input type="hidden" name="brandColor" id="formBrandColor" />
         <input type="hidden" name="backgroundColor" id="formBackgroundColor" />

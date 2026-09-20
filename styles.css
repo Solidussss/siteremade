@@ -637,3 +637,78 @@ html,body{max-width:100%;overflow-x:hidden}
   .builder-preview-wrap{order:1}
   .builder-controls{order:2}
 }
+
+/* ==========================================================================
+   GENERATOR V2 -- hero generator input, generation progress, refine lock,
+   and the new refinement controls (tone / suggestions / regenerate).
+   Additive only: nothing above this block is modified.
+   ========================================================================== */
+
+/* ---- Hero generator form ---- */
+.generator-form{margin-top:36px;max-width:600px}
+.generator-label{display:block;font-size:11px;letter-spacing:.13em;font-weight:850;margin-bottom:10px;color:var(--muted);text-transform:uppercase}
+.generator-form textarea{width:100%;min-height:104px;resize:vertical;border:1px solid var(--line);background:#fff;border-radius:18px;padding:16px 18px;font-size:16px;line-height:1.5;outline:none;box-shadow:0 12px 30px rgba(0,0,0,.04);transition:border-color .2s ease,box-shadow .2s ease}
+.generator-form textarea:focus{border-color:#8c93a0;box-shadow:0 12px 30px rgba(0,0,0,.07)}
+.generator-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;flex-wrap:wrap}
+.generator-examples{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.example-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px;font-size:11px;color:var(--text);cursor:pointer;transition:border-color .18s ease,transform .18s ease}
+.example-chip:hover{border-color:#111;transform:translateY(-1px)}
+.generator-submit{min-width:210px}
+.generator-submit:disabled{opacity:.6;cursor:wait;transform:none}
+
+/* ---- Hero live micro-preview + generation progress overlay ---- */
+.hero-demo-copy{transition:opacity .3s ease}
+.generation-progress{position:absolute;left:50px;right:50px;bottom:54px;z-index:4;color:#fff}
+.generation-eyebrow{margin:0 0 16px;font-size:9px;letter-spacing:.18em;font-weight:850;color:#9aa8d0}
+#generationSteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+#generationSteps li{display:grid;grid-template-columns:16px 1fr;gap:5px 12px;align-items:baseline;opacity:.4;transition:opacity .3s ease}
+#generationSteps li i{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);grid-row:1/3;align-self:center;position:relative}
+#generationSteps li span{font-size:15px;letter-spacing:-.01em}
+#generationSteps li small{grid-column:2;font-size:11px;color:#9aa8d0;min-height:14px}
+#generationSteps li.active{opacity:1}
+#generationSteps li.active i{border-color:#fff;background:conic-gradient(#fff 0turn,transparent 0turn);animation:spin .9s linear infinite}
+#generationSteps li.done{opacity:.85}
+#generationSteps li.done i{border-color:#71f1a3;background:#71f1a3}
+@keyframes spin{to{transform:rotate(1turn)}}
+
+/* ---- Refine lock (shown until a direction has been generated) ---- */
+.builder-shell{position:relative}
+.refine-lock{display:none}
+.builder-shell.locked .refine-lock{
+  display:flex;flex-direction:column;align-items:flex-start;gap:14px;
+  position:absolute;inset:14px;z-index:10;border-radius:26px;
+  background:rgba(13,14,17,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  color:#fff;padding:32px;justify-content:center;
+}
+.refine-lock p{margin:0;font-size:15px;line-height:1.6;max-width:360px;color:#dfe1e6}
+.refine-lock strong{font-size:18px;color:#fff}
+.builder-shell.locked .builder-controls,
+.builder-shell.locked .builder-preview-wrap{filter:blur(7px);pointer-events:none;user-select:none}
+
+/* ---- Refine-panel additions: suggestions, tone toggle, regenerate ---- */
+.suggestions-block{padding-top:0!important}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:7px}
+.suggestion-chip{border:1px solid #d8dae0;background:#fff;border-radius:999px;padding:9px 14px;font-size:11px;cursor:pointer;transition:border-color .18s ease}
+.suggestion-chip:hover{border-color:#111}
+#shuffleServices{margin-top:12px}
+
+/* ---- Handoff description note ---- */
+.handoff-description-note{margin-top:10px!important;font-size:11px!important;color:var(--muted);font-style:italic;line-height:1.5}
+
+@media(prefers-reduced-motion:reduce){
+  .hero-demo-copy{transition:none}
+  #generationSteps li{transition:none}
+  #generationSteps li.active i{animation:none}
+}
+
+@media(max-width:720px){
+  .generator-form{margin-top:26px;max-width:100%}
+  .generator-form textarea{border-radius:16px;padding:14px 15px}
+  .generator-row{flex-direction:column;align-items:stretch}
+  .generator-submit{width:100%;min-width:0}
+  .generator-examples{gap:6px}
+  .generation-progress{left:20px;right:20px;bottom:22px}
+  #generationSteps li span{font-size:13px}
+  .refine-lock{padding:22px;inset:8px}
+  .refine-lock p{font-size:13px}
+}

@@ -49,6 +49,7 @@ app.post('/api/lead', async (req, res) => {
     const email = clean(req.body.email, 254);
     const phone = clean(req.body.phone, 80);
     const message = clean(req.body.message, 4000);
+    const description = clean(req.body.description, 400);
     const designMode = clean(req.body.designMode, 80);
     const brandColor = clean(req.body.brandColor, 30);
     const backgroundColor = clean(req.body.backgroundColor, 30);
@@ -66,6 +67,7 @@ app.post('/api/lead', async (req, res) => {
     const safe = {
       name: escapeHtml(name), business: escapeHtml(business), website: escapeHtml(website || 'Not provided'),
       email: escapeHtml(email), phone: escapeHtml(phone || 'Not provided'), message: escapeHtml(message || 'No additional notes'),
+      description: escapeHtml(description || 'Not provided'),
       designMode: escapeHtml(designMode || 'Not provided'), brandColor: escapeHtml(brandColor || 'Not provided'),
       backgroundColor: escapeHtml(backgroundColor || 'Not provided'), textColor: escapeHtml(textColor || 'Not provided'),
       logoName: escapeHtml(logoName || 'Not provided'),
@@ -82,6 +84,7 @@ app.post('/api/lead', async (req, res) => {
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Email</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.email}</td></tr>
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Phone</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.phone}</td></tr>
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Website</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.website}</td></tr>
+          <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Described as</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.description}</td></tr>
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Website style</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.designMode}</td></tr>
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Main colour</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.brandColor}</td></tr>
           <tr><td style="padding:12px 0;border-bottom:1px solid #ddd;font-weight:700">Background</td><td style="padding:12px 0;border-bottom:1px solid #ddd">${safe.backgroundColor}</td></tr>
