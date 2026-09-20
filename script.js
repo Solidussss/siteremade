@@ -216,6 +216,23 @@ function extractLocation(text) {
   const match = text.match(/\bin\s+([A-Z][a-zA-Z'.-]+(?:\s[A-Z][a-zA-Z'.-]+){0,2})/);
   return match ? match[1].trim().replace(/[.,]+$/, '') : '';
 }
+// V6: real (non-AI) business-name capture -- "...called X" / "...named X".
+// Deliberately conservative (only fires on an explicit naming phrase) so it
+// never guesses wrong; when it finds nothing, the caller falls back to
+// whatever name already exists, then to a neutral "Your Business" -- the
+// site's identity is never left blank. See SITE-PROJECT-V6.md part 2.
+function extractBusinessName(text) {
+  if (!text) return '';
+  const patterns = [
+    /\bcalled\s+([A-Z][A-Za-z0-9&'.-]*(?:\s+(?:&\s+)?[A-Z][A-Za-z0-9&'.-]*){0,3})/,
+    /\bnamed\s+([A-Z][A-Za-z0-9&'.-]*(?:\s+(?:&\s+)?[A-Z][A-Za-z0-9&'.-]*){0,3})/
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return match[1].trim().replace(/[.,]+$/, '');
+  }
+  return '';
+}
 // Real (non-AI) analysis: keyword-scores the description against the
 // categories/styles dictionaries above, adds a small affinity bonus toward
 // seeds that suit the detected category, and pulls a location if one reads
@@ -676,11 +693,19 @@ function createProject(analysis, preserved) {
   const dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
   const sections = composeSections(category, dimensions, assets.plan, analysis.categoryKey)
     .map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions) }));
+  // V6: prefer a name explicitly captured from THIS description (a fresh
+  // Generate submission describing a different business should not keep
+  // showing the previous one's name); otherwise keep whatever name already
+  // existed (manual edits survive regeneration); otherwise a neutral
+  // fallback -- the site identity is never left empty. See part 2 of
+  // SITE-PROJECT-V6.md.
+  const extractedName = extractBusinessName(analysis.text);
+  const priorName = preserved && preserved.business && preserved.business.name;
   const proj = {
-    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v5' },
+    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v6' },
     source: { text: analysis.text, location: analysis.location },
     business: {
-      name: (preserved && preserved.business && preserved.business.name) || 'Your Business',
+      name: extractedName || priorName || 'Your Business',
       categoryKey: analysis.categoryKey,
       tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
     },
@@ -720,13 +745,17 @@ function updatePaletteFromProject(proj) {
 }
 const LAYOUT_LABELS = { split: 'Layout 1', center: 'Layout 2', poster: 'Layout 3' };
 
-// renderProject is the ONLY function that writes to the live preview DOM.
-// Every control listener mutates `project` and then calls this.
-function renderProject(proj) {
-  const category = categories[proj.business.categoryKey] || categories.other;
+// V6: renderProject is now a thin composition of three real, independently
+// callable phases -- applyDesignDataset (palette/typography-level CSS),
+// renderSections (section HTML/content/imagery) and renderChrome (nav,
+// summary chips, handoff + purchase cards, form/control mirrors). Ordinary
+// refinement controls still just call renderProject(project) once, same as
+// V5. The generation pipeline below calls the three phases separately,
+// across real animation frames, so the *labelled progress steps correspond
+// to real function calls* instead of a decorative timer -- see
+// SITE-PROJECT-V6.md part 1.
+function applyDesignDataset(proj) {
   const composed = proj.design.dimensions;
-  proj.assets.plan = planAssets(proj.assets);
-
   builderSite.dataset.style = proj.intent.seedKey;
   builderSite.dataset.hero = composed.hero;
   builderSite.dataset.type = composed.type;
@@ -739,9 +768,9 @@ function renderProject(proj) {
   builderSite.dataset.spacing = composed.spacing;
   builderSite.dataset.pattern = composed.pattern;
   builderSite.dataset.layout = proj.design.heroLayout;
-
   updatePaletteFromProject(proj);
-
+}
+function renderSections(proj, category) {
   const logoAsset = proj.assets.plan.logo ? proj.assets.items.find(a => a.id === proj.assets.plan.logo) : null;
   const businessDisplay = (proj.business.name || 'Your Business').trim().toUpperCase();
   siteBusiness.textContent = businessDisplay;
@@ -759,23 +788,29 @@ function renderProject(proj) {
   const navTypes = proj.sections.map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
   if (siteNavLinks) siteNavLinks.innerHTML = navTypes.map(t => `<span>${escapeHtml(navLabelFor(t, proj.business.categoryKey))}</span>`).join('');
   if (siteNavCta) siteNavCta.textContent = category.cta;
-
   if (siteSectionsRoot) siteSectionsRoot.innerHTML = proj.sections.map(s => renderSectionHTML(proj, s, category)).join('');
-
+}
+function renderChrome(proj, category) {
+  const logoAsset = proj.assets.plan.logo ? proj.assets.items.find(a => a.id === proj.assets.plan.logo) : null;
   const layoutLabel = LAYOUT_LABELS[proj.design.heroLayout] || 'Layout 1';
   summaryMode.textContent = `${proj.sections.length} sections · Composed`;
   summaryColor.textContent = proj.design.palette.main.toUpperCase();
   summaryLayout.textContent = layoutLabel;
   summaryIndustry.textContent = category.label;
 
-  handoffTitle.textContent = proj.business.name || 'Your Business';
+  const businessDisplayName = proj.business.name || 'Your Business';
+  handoffTitle.textContent = businessDisplayName;
   handoffMeta.textContent = `${proj.design.palette.main.toUpperCase()} main · ${proj.design.palette.background.toUpperCase()} background · ${proj.design.palette.text.toUpperCase()} text · ${layoutLabel} · ${category.label}`;
+  if (purchaseTitle) purchaseTitle.textContent = businessDisplayName;
+  if (purchaseMeta) purchaseMeta.textContent = `${proj.design.palette.main.toUpperCase()} · ${layoutLabel} · ${category.label}`;
   if (proj.source.text) {
     handoffDescriptionNote.hidden = false;
     handoffDescriptionNote.textContent = `Based on: "${proj.source.text}"`;
+    if (purchaseDescriptionNote) { purchaseDescriptionNote.hidden = false; purchaseDescriptionNote.textContent = `Based on: "${proj.source.text}"`; }
   } else {
     handoffDescriptionNote.hidden = true;
     handoffDescriptionNote.textContent = '';
+    if (purchaseDescriptionNote) { purchaseDescriptionNote.hidden = true; purchaseDescriptionNote.textContent = ''; }
   }
 
   formBusiness.value = proj.business.name || 'Your Business';
@@ -807,6 +842,17 @@ function renderProject(proj) {
 
   renderAssetPanels(proj);
 }
+// renderProject is what every ordinary refinement control calls -- it runs
+// all three real phases in one synchronous pass (they're each cheap; this
+// is unchanged from V5 behaviour for anything other than the generation
+// pipeline itself, which calls the phases separately -- see runGeneration).
+function renderProject(proj) {
+  const category = categories[proj.business.categoryKey] || categories.other;
+  proj.assets.plan = planAssets(proj.assets);
+  applyDesignDataset(proj);
+  renderSections(proj, category);
+  renderChrome(proj, category);
+}
 function renderAssetPanels(proj) {
   const byType = t => proj.assets.items.filter(a => a.type === t);
   const thumbHtml = a => `<div class="asset-thumb"><img src="${a.dataUrl}" alt="" /><button type="button" class="asset-thumb-remove" data-asset-id="${a.id}" aria-label="Remove image">×</button></div>`;
@@ -834,9 +880,8 @@ function loadProjectFromStorage() {
   if (!raw) { setProjectStatus('No saved project found yet.'); return; }
   try {
     project = JSON.parse(raw);
-    hasGenerated = true;
-    unlockRefine();
     renderProject(project);
+    markGenerated();
     setProjectStatus('Loaded your last saved project from stored data.');
   } catch (e) { setProjectStatus('Saved project could not be read.'); }
 }
@@ -871,6 +916,11 @@ const summaryIndustry = $('#summaryIndustry');
 const handoffTitle = $('#handoffTitle');
 const handoffMeta = $('#handoffMeta');
 const handoffDescriptionNote = $('#handoffDescriptionNote');
+const purchaseTitle = $('#purchaseTitle');
+const purchaseMeta = $('#purchaseMeta');
+const purchaseDescriptionNote = $('#purchaseDescriptionNote');
+const buyButton = $('#buyButton');
+const purchaseStatus = $('#purchaseStatus');
 const formBusiness = $('#formBusiness');
 const formDescription = $('#formDescription');
 const formDesignMode = $('#formDesignMode');
@@ -904,8 +954,6 @@ const exampleChipRow = $('#exampleChipRow');
 
 // Refine-panel elements
 const builderShell = $('#builderShell');
-const refineLock = $('#refineLock');
-const refineLockCta = $('#refineLockCta');
 const toneToggle = $('#toneToggle');
 const regenerateButton = $('#regenerateButton');
 const sectionToggles = $('#sectionToggles');
@@ -1078,9 +1126,11 @@ if (regenerateButton) {
 }
 if (saveProjectButton) saveProjectButton.addEventListener('click', saveProjectToStorage);
 if (loadProjectButton) loadProjectButton.addEventListener('click', loadProjectFromStorage);
-// This one lives in the pre-generation lock overlay (not inside the
-// Advanced panel, which is blurred/non-interactive until hasGenerated is
-// true) -- otherwise a returning visitor could never reach it at all.
+// V6: the builder panel is no longer blurred/locked pre-generation (the old
+// full-panel lock overlay is gone -- see SITE-PROJECT-V6.md part 1), but a
+// returning visitor still needs a quick way to load a saved project without
+// scrolling into the Advanced panel first, so a small link stays next to
+// the builder intro copy, wired to the same loader.
 if (loadProjectButtonLock) loadProjectButtonLock.addEventListener('click', loadProjectFromStorage);
 
 // ---- Hero live micro-preview: updates as the visitor types, before they
@@ -1129,7 +1179,16 @@ if (exampleChipRow) {
   });
 }
 
-// ---- Generation sequence ----
+// ---- Generation sequence ------------------------------------------------
+// V6: each labelled step below IS a real function call that mutates the
+// in-progress project, not a decorative timer running alongside an
+// already-finished computation (that was the V5 bug: steps were pre-scored
+// text taking a fixed 500ms each while the actual generation had already
+// completed). The whole pipeline is synchronous/deterministic and normally
+// finishes in well under a millisecond of real work; pacing comes only from
+// a requestAnimationFrame between steps (so the browser actually paints
+// each step's state), never from an artificial setTimeout hold. See
+// SITE-PROJECT-V6.md part 1.
 function setStepState(li, state, note) {
   if (!li) return;
   li.classList.remove('done', 'active');
@@ -1139,47 +1198,101 @@ function setStepState(li, state, note) {
     if (small) small.textContent = note;
   }
 }
-function unlockRefine() {
-  if (refineLock) refineLock.hidden = true;
-  if (builderShell) builderShell.classList.remove('locked');
-}
-function finishGeneration(analysis) {
+function markGenerated() {
   hasGenerated = true;
-  project = createProject(analysis, project);
+  if (buyButton) buyButton.disabled = false;
+  if (purchaseStatus && !purchaseStatus.dataset.sticky) purchaseStatus.textContent = 'Ready — this is the project that will be purchased.';
+}
+// Builds the initial (already-real) shell of a WebsiteProject: business
+// identity + category + a seed design, enough to render a meaningful first
+// paint (the hero, with the right name/category/palette) immediately, then
+// returns the ordered list of remaining real phases that progressively
+// refine it into the finished project. Nothing here is fake -- it is
+// createProject's own logic, exposed as separate steps instead of one
+// opaque call, so the UI can reflect each one as it actually runs.
+function buildGenerationPlan(text, preserved) {
+  const analysis = analyzeDescription(text);
+  const category = categories[analysis.categoryKey] || categories.other;
+  const seed = styles[analysis.styleKey] || styles.precision;
+  const extractedName = extractBusinessName(analysis.text);
+  const priorName = preserved && preserved.business && preserved.business.name;
+
+  const proj = {
+    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v6' },
+    source: { text: analysis.text, location: analysis.location },
+    business: { name: extractedName || priorName || 'Your Business', categoryKey: analysis.categoryKey, tone: (preserved && preserved.business && preserved.business.tone) || 'professional' },
+    intent: { seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates },
+    design: {
+      palette: { ...seed.palette },
+      dimensions: { hero: seed.hero, type: seed.type, nav: seed.nav, card: seed.card, imagery: seed.imagery, cta: seed.cta, colorBehavior: seed.colorBehavior, motion: seed.motion, spacing: seed.spacing, pattern: seed.pattern },
+      heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split'
+    },
+    sections: [{ id: 'hero-seed-' + Date.now().toString(36), type: 'hero', variant: 'default' }],
+    assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {} } : { items: [], plan: {} },
+    responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
+  };
+  proj.assets.plan = planAssets(proj.assets);
+
+  let composed = null;
+  const steps = [
+    { key: 'understand', run() {
+        // Real work already happened above (analyzeDescription + the shell
+        // build) -- this step announces that real result rather than
+        // recomputing it.
+        return `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`;
+      } },
+    { key: 'structure', run() {
+        composed = composeStyleFromAnalysis(analysis.text, analysis.styleKey);
+        const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey);
+        proj.sections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
+        return `${proj.sections.length} sections planned`;
+      } },
+    { key: 'typography', run() {
+        proj.design.palette = { ...composed.palette };
+        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+        return describeComposition(composed);
+      } },
+    { key: 'sections', run() {
+        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions); });
+        return `Content matched to ${category.label}`;
+      } },
+    { key: 'imagery', run() {
+        proj.assets.plan = planAssets(proj.assets);
+        ensureAssetDrivenSections(proj);
+        const n = proj.assets.items.length;
+        return n ? `${n} of your images placed` : 'Placeholder imagery matched to your brand';
+      } },
+    { key: 'build', run() {
+        return 'Desktop + mobile preview ready';
+      } }
+  ];
+  return { proj, category, steps };
+}
+function finishGeneration(proj) {
+  project = proj;
   renderProject(project);
+  markGenerated();
 
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
   if (heroDemoCopy) heroDemoCopy.style.removeProperty('opacity');
   if (generatorSubmitButton) generatorSubmitButton.disabled = false;
-  if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generate my website';
+  if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generate website';
 
-  unlockRefine();
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 }
 function runGeneration(text) {
   if (!text || !text.trim()) return;
-  const analysis = analyzeDescription(text);
+  const { proj, steps } = buildGenerationPlan(text, project);
 
   if (prefersReducedMotion() || !generationProgress || !generationSteps) {
-    finishGeneration(analysis);
+    // Real work still runs in full -- only the frame-by-frame reveal is
+    // skipped, matching the person's reduced-motion preference.
+    steps.forEach(s => s.run());
+    finishGeneration(proj);
     return;
   }
-
-  const category = categories[analysis.categoryKey] || categories.other;
-  const composed = composeStyleFromAnalysis(analysis.text, analysis.styleKey);
-  const dims = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
-  const plan = planAssets(project ? project.assets : { items: [] });
-  const previewSections = composeSections(category, dims, plan, analysis.categoryKey);
-
-  const steps = [
-    ['understand', `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`],
-    ['structure', `${previewSections.length} sections selected for your site`],
-    ['content', `Headline + copy matched to ${category.label}`],
-    ['style', describeComposition(composed)],
-    ['preview', 'Desktop + mobile preview ready']
-  ];
 
   if (generatorSubmitButton) generatorSubmitButton.disabled = true;
   if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generating…';
@@ -1187,16 +1300,28 @@ function runGeneration(text) {
   if (heroDemoCopy) heroDemoCopy.style.opacity = '0';
   generationProgress.hidden = false;
 
-  const stepEls = steps.map(([key]) => generationSteps.querySelector(`[data-step="${key}"]`));
+  const stepEls = steps.map(s => generationSteps.querySelector(`[data-step="${s.key}"]`));
   stepEls.forEach(li => setStepState(li, null, ''));
+
+  // First paint: the real shell built above (business name, category,
+  // seed palette, hero section) is already meaningful -- show it now
+  // instead of waiting for every later step. This is the "begin appearing
+  // as soon as enough project state exists" progressive render.
+  project = proj;
+  renderProject(project);
 
   let i = 0;
   function nextStep() {
     if (i > 0) setStepState(stepEls[i - 1], 'done');
-    if (i >= steps.length) { finishGeneration(analysis); return; }
-    setStepState(stepEls[i], 'active', steps[i][1]);
+    if (i >= steps.length) { finishGeneration(project); return; }
+    const note = steps[i].run(); // the real work for this step happens here
+    setStepState(stepEls[i], 'active', note);
+    renderProject(project); // reflect exactly what that real work just changed
     i++;
-    setTimeout(nextStep, 500);
+    // One requestAnimationFrame guarantees a paint has happened before the
+    // next step runs -- not a fixed-duration stall. On a typical display
+    // the whole 6-step pipeline finishes in well under 150ms.
+    requestAnimationFrame(nextStep);
   }
   nextStep();
 }
@@ -1207,13 +1332,83 @@ if (generatorForm) {
     runGeneration(generatorInput.value);
   });
 }
-if (refineLockCta) {
-  refineLockCta.addEventListener('click', () => {
-    if (generatorInput) generatorInput.focus({ preventScroll: false });
-    const hero = document.querySelector('.hero');
-    if (hero) hero.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+
+// ---- V6: purchase flow ---------------------------------------------------
+// Buying always purchases the CURRENT in-memory `project` state (whatever
+// was last refined), never a stale snapshot from when the page loaded. See
+// SITE-PROJECT-V6.md for the full architecture writeup, including what
+// backend work this intentionally does not yet do.
+//
+// The compact payload sent to the server is deliberately NOT the full
+// WebsiteProject -- Stripe Checkout metadata is capped (500 chars/value,
+// 50 keys) and would reject a project containing uploaded-image data URLs
+// anyway. The full project is kept in the browser (localStorage, tagged by
+// project id) so a return visit in the same browser can reunite a
+// completed payment with the exact project that was bought; reliably
+// recovering it from a different device or cleared storage needs the
+// backend persistence work documented in SITE-PROJECT-V6.md.
+function purchaseSummaryPayload(proj) {
+  return {
+    projectId: proj.meta.id,
+    businessName: proj.business.name || 'Your Business',
+    industry: (categories[proj.business.categoryKey] || categories.other).label,
+    sectionsSummary: proj.sections.map(s => s.type).join(', '),
+    brandColor: proj.design.palette.main
+  };
+}
+if (buyButton) {
+  buyButton.addEventListener('click', async () => {
+    if (!project) return;
+    buyButton.disabled = true;
+    if (purchaseStatus) { purchaseStatus.dataset.sticky = '1'; purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Starting checkout…'; }
+    try {
+      try { localStorage.setItem('siteremade:purchase:' + project.meta.id, serializeProject(project)); } catch (e) { /* best-effort only */ }
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(purchaseSummaryPayload(project))
+      });
+      const result = await response.json().catch(() => ({}));
+      if (result.ok && result.url) {
+        if (purchaseStatus) purchaseStatus.textContent = 'Redirecting to checkout…';
+        window.location.href = result.url;
+        return;
+      }
+      if (purchaseStatus) {
+        purchaseStatus.className = 'purchase-status error';
+        purchaseStatus.textContent = result.configured === false
+          ? 'Checkout isn’t live in this environment yet. Use "Get in Touch" below and we’ll set up your purchase directly.'
+          : (result.message || 'Could not start checkout. Please try again shortly.');
+      }
+    } catch (error) {
+      if (purchaseStatus) { purchaseStatus.className = 'purchase-status error'; purchaseStatus.textContent = 'Could not reach checkout. Please try again shortly.'; }
+    } finally {
+      buyButton.disabled = false;
+    }
   });
 }
+// A completed (or cancelled) Checkout redirects back here with a query
+// param -- reflect that honestly using whatever this browser still has for
+// that project id, rather than pretending a fully synced order record
+// exists (it doesn't yet; see the persistence gap in SITE-PROJECT-V6.md).
+(function handlePurchaseReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (!purchaseStatus) return;
+  if (params.get('purchased') === '1') {
+    const id = params.get('project');
+    let recovered = null;
+    if (id) { try { recovered = localStorage.getItem('siteremade:purchase:' + id); } catch (e) { /* ignore */ } }
+    purchaseStatus.dataset.sticky = '1';
+    purchaseStatus.className = 'purchase-status success';
+    purchaseStatus.textContent = recovered
+      ? 'Payment received — this exact project is on file and SiteRemade will follow up to start delivery.'
+      : 'Payment received — SiteRemade will follow up by email to start delivery.';
+  } else if (params.get('purchase_cancelled') === '1') {
+    purchaseStatus.dataset.sticky = '1';
+    purchaseStatus.className = 'purchase-status';
+    purchaseStatus.textContent = 'Checkout was cancelled — your project is unchanged and still here whenever you’re ready.';
+  }
+})();
 
 const revealItems = $$('.reveal');
 if ('IntersectionObserver' in window) {

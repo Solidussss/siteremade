@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SiteRemade — Describe Your Business, Get a Generated Website Direction</title>
-  <meta name="description" content="Describe your business in one sentence and SiteRemade generates a real website direction: style, copy, colours and layout. Refine it, then we build and deliver the finished site." />
+  <meta name="description" content="Describe your business in one sentence and SiteRemade generates a real website: copy, colours, layout and sections. Inspect it, refine it, then buy it and we'll prepare it for delivery." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="favicon.png" />
   <link rel="preload" href="styles.css" as="style" />
@@ -37,12 +37,10 @@
         <form class="generator-form" id="generatorForm">
           <label class="generator-label" for="generatorInput">Describe your business</label>
           <textarea id="generatorInput" name="generatorInput" rows="3" maxlength="280" placeholder="A modern AI software company in Los Angeles building tools for creative teams" required></textarea>
-          <div class="generator-row">
-            <div class="generator-examples">
-              <span>Try:</span>
-              <div class="example-chip-row" id="exampleChipRow"></div>
-            </div>
-            <button class="button generator-submit" type="submit"><span class="btn-label">Generate my website</span></button>
+          <button class="button generator-submit" type="submit"><span class="btn-label">Generate website</span></button>
+          <div class="generator-examples-secondary">
+            <span>Need inspiration?</span>
+            <div class="example-chip-row" id="exampleChipRow"></div>
           </div>
         </form>
 
@@ -72,10 +70,11 @@
               <p class="generation-eyebrow">GENERATING YOUR DIRECTION</p>
               <ul id="generationSteps">
                 <li data-step="understand"><i></i><span>Understanding your business</span><small></small></li>
-                <li data-step="structure"><i></i><span>Choosing site structure</span><small></small></li>
-                <li data-step="content"><i></i><span>Creating content direction</span><small></small></li>
-                <li data-step="style"><i></i><span>Selecting visual style</span><small></small></li>
-                <li data-step="preview"><i></i><span>Building preview</span><small></small></li>
+                <li data-step="structure"><i></i><span>Planning site structure</span><small></small></li>
+                <li data-step="typography"><i></i><span>Choosing typography and visual direction</span><small></small></li>
+                <li data-step="sections"><i></i><span>Composing sections</span><small></small></li>
+                <li data-step="imagery"><i></i><span>Planning/placing imagery</span><small></small></li>
+                <li data-step="build"><i></i><span>Building your website</span><small></small></li>
               </ul>
             </div>
             <div class="floating-card card-one"><small>SECTIONS</small><strong id="heroCardSections">5 planned</strong></div>
@@ -91,16 +90,10 @@
         <p class="eyebrow" id="refineEyebrow">02 — YOUR GENERATED DIRECTION</p>
         <h2 id="refineHeading">Refine it until it's exactly right.</h2>
         <p>This is the direction SiteRemade generated from what you described. Adjust the style, tone or business details and watch it update live — nothing here is a freeform editor, just the real controls behind the direction.</p>
+        <p class="load-project-hint">Have a project saved from before? <button type="button" class="link-button" id="loadProjectButtonLock">Load it</button><span class="project-data-status lock-status" id="projectDataStatusLock"></span></p>
       </div>
 
-      <div class="builder-shell locked" id="builderShell">
-        <div class="refine-lock" id="refineLock">
-          <p><strong>Generate a direction first.</strong><br />Describe your business above to unlock refinement.</p>
-          <button type="button" class="button button-small" id="refineLockCta">Start generating</button>
-          <button type="button" class="button button-small button-secondary" id="loadProjectButtonLock">Load my last saved project</button>
-          <p class="project-data-status lock-status" id="projectDataStatusLock"></p>
-        </div>
-
+      <div class="builder-shell" id="builderShell">
         <div class="result-actions" id="resultActions">
           <div class="result-actions-primary">
             <div class="quick-edit">
@@ -254,13 +247,37 @@
       </div>
     </section>
 
-    <section class="handoff-section reveal" id="send">
+    <section class="purchase-section reveal" id="buy">
+      <div class="purchase-shell">
+        <div class="purchase-copy">
+          <p class="eyebrow">03 — LIKE THIS WEBSITE?</p>
+          <h2>Buy this website. We'll prepare it for delivery.</h2>
+          <p>This is the actual project you just generated — the copy, layout, colours, sections and any images you added, not a summary of it. Buying moves this exact project into SiteRemade's delivery process. Keep refining above for as long as you want first; buying always uses the latest version.</p>
+          <ul class="purchase-points">
+            <li>You inspect it first — what you see here is what gets built.</li>
+            <li>Regenerate, change colours, add images or try another direction any time before you buy.</li>
+            <li>Full ownership and no lock-in, same as every SiteRemade site.</li>
+          </ul>
+        </div>
+        <div class="purchase-card">
+          <span>YOUR PROJECT</span>
+          <strong id="purchaseTitle">Your Business</strong>
+          <p id="purchaseMeta">#315CFF · Split · General Business</p>
+          <p id="purchaseDescriptionNote" class="handoff-description-note" hidden></p>
+          <div class="purchase-price"><span>$750</span><small>CAD, starting</small></div>
+          <button type="button" class="button full-width" id="buyButton" disabled>Buy this website</button>
+          <p class="purchase-status" id="purchaseStatus" aria-live="polite">Generate a direction above to enable checkout.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="handoff-section reveal secondary-contact" id="send">
       <div class="handoff-copy">
-        <p class="eyebrow">03 — SITEREMADE TAKES IT FROM HERE</p>
-        <h2>Your direction. Our production build.</h2>
-        <p>The generator gets you a real starting direction, not a finished production website. Send it and SiteRemade builds the actual site from it, handles revisions, and delivers it through the same Website Projects workflow that runs the rest of your account. No commitment just for sending it.</p>
+        <p class="eyebrow">PREFER TO TALK FIRST?</p>
+        <h2>Talk to us before you buy.</h2>
+        <p>Want to discuss changes, ask about custom functionality, or you're just not ready to buy yet? Send us your details and a real person will follow up — no commitment, no cost.</p>
         <div class="handoff-preview-card">
-          <span>YOUR DIRECTION</span>
+          <span>YOUR PROJECT</span>
           <strong id="handoffTitle">Northline Electric</strong>
           <p id="handoffMeta">#315CFF · Split · Electrical</p>
           <p id="handoffDescriptionNote" class="handoff-description-note" hidden></p>
@@ -286,7 +303,7 @@
         <label>Email<input type="email" name="email" required /></label>
         <label>Phone<input type="tel" name="phone" /></label>
         <label class="full-width">Anything you want us to know?<textarea name="message" rows="4" placeholder="Optional — services, pages, features, anything you want changed."></textarea></label>
-        <button class="button full-width" type="submit">Send My Design</button>
+        <button class="button full-width" type="submit">Get in Touch</button>
         <p class="form-status" id="formStatus" aria-live="polite"></p>
       </form>
     </section>
@@ -299,7 +316,7 @@
       <div class="why-grid">
         <article><span>01</span><h3>See it first.</h3><p>Generate a real direction instead of buying blind.</p></article>
         <article><span>02</span><h3>Make it yours.</h3><p>Your business, colour and layout update live as you choose what you like.</p></article>
-        <article><span>03</span><h3>Send the exact brief.</h3><p>We receive the direction you created so the first conversation starts further ahead.</p></article>
+        <article><span>03</span><h3>Buy the exact version.</h3><p>No separate brief or reply to wait on — buying moves the project you inspected straight into delivery.</p></article>
       </div>
     </section>
 
@@ -313,7 +330,7 @@
 
   <footer>
     <a href="#top" class="brand brand-logo footer-logo" aria-label="SiteRemade home"><img src="siteremade-logo-black.png" alt="SiteRemade" /></a>
-    <p>Build the direction. We'll build the website.</p>
+    <p>Generate it. Inspect it. Buy it.</p>
     <div><a href="#build">Generator</a><a href="#pricing">Pricing</a><a href="https://app.siteremade.com">Client Login</a></div>
     <p>© <span id="year"></span> SiteRemade</p>
   </footer>

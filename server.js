@@ -4,6 +4,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 8080;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '900kb' }));
@@ -38,6 +39,100 @@ async function sendEmail(payload) {
   if (!response.ok) throw new Error(data?.message || `Resend returned ${response.status}`);
   return data;
 }
+
+// ---- V6: real Checkout Session creation, honestly scoped -----------------
+// Mirrors the raw-fetch-to-api.stripe.com convention already used elsewhere
+// in SiteRemade's production app (no stripe npm package required, which
+// also can't be installed in every environment this repo runs in). This
+// intentionally receives and stores nothing beyond a small summary --
+// see SITE-PROJECT-V6.md for why, and for the backend persistence work
+// (a public endpoint to store a purchased WebsiteProject server-side) that
+// still needs to be built before a purchase can be reliably recovered from
+// a different browser/device.
+function flattenForStripe(obj, prefix, out) {
+  out = out || {};
+  Object.keys(obj || {}).forEach(key => {
+    const value = obj[key];
+    const paramKey = prefix ? `${prefix}[${key}]` : key;
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => {
+        if (item && typeof item === 'object') flattenForStripe(item, `${paramKey}[${i}]`, out);
+        else out[`${paramKey}[${i}]`] = item;
+      });
+    } else if (typeof value === 'object') {
+      flattenForStripe(value, paramKey, out);
+    } else {
+      out[paramKey] = value;
+    }
+  });
+  return out;
+}
+async function stripeRequest(endpoint, params) {
+  const flat = flattenForStripe(params);
+  const body = new URLSearchParams();
+  Object.keys(flat).forEach(k => body.append(k, String(flat[k])));
+  const response = await fetch(`https://api.stripe.com/v1/${endpoint}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error((data && data.error && data.error.message) || `Stripe returned ${response.status}`);
+  return data;
+}
+
+app.post('/api/checkout', async (req, res) => {
+  try {
+    if (!STRIPE_SECRET_KEY) {
+      // Real, honest state: the architecture is wired end-to-end (this
+      // route, the client call, metadata shape) but no live key is
+      // configured in this environment. We do not fake a successful
+      // checkout -- see SITE-PROJECT-V6.md.
+      return res.status(200).json({ ok: false, configured: false, message: 'Checkout is not yet configured on this environment.' });
+    }
+    const projectId = clean(req.body.projectId, 60);
+    const businessName = clean(req.body.businessName, 160) || 'Your Business';
+    const industry = clean(req.body.industry, 120) || 'General Business';
+    const sectionsSummary = clean(req.body.sectionsSummary, 200);
+    const brandColor = clean(req.body.brandColor, 20);
+    if (!projectId) return res.status(400).json({ ok: false, message: 'Missing project reference.' });
+
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const session = await stripeRequest('checkout/sessions', {
+      mode: 'payment',
+      success_url: `${origin}/?purchased=1&project=${encodeURIComponent(projectId)}#buy`,
+      cancel_url: `${origin}/?purchase_cancelled=1#buy`,
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: 'cad',
+          unit_amount: 75000,
+          product_data: {
+            name: `SiteRemade website — ${businessName}`,
+            description: `${industry} · ${sectionsSummary || 'Generated website'}`.slice(0, 300),
+          },
+        },
+      }],
+      // metadata.kind follows the same dispatch convention as SiteRemade's
+      // main app's Stripe webhook (metadata.kind === 'website_purchase' is
+      // a new kind that app doesn't handle yet -- documented as required
+      // next-step backend work, not built here).
+      metadata: {
+        kind: 'website_purchase',
+        projectId,
+        businessName: businessName.slice(0, 90),
+        industry: industry.slice(0, 90),
+        brandColor,
+      },
+    });
+
+    return res.json({ ok: true, url: session.url });
+  } catch (error) {
+    console.error('Checkout session failed:', error);
+    return res.status(500).json({ ok: false, message: 'Could not start checkout. Please try again shortly.' });
+  }
+});
 
 app.post('/api/lead', async (req, res) => {
   try {

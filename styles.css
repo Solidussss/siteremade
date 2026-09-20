@@ -1030,3 +1030,62 @@ html,body{max-width:100%;overflow-x:hidden}
 .project-data-actions{display:flex;gap:8px;flex-wrap:wrap}
 .project-data-status{margin:9px 0 0;font-size:11px;color:#525660;min-height:14px}
 
+/* ==========================================================================
+   V6 -- Generate -> Inspect -> Buy. Additive only, same convention as the
+   V5 block above: nothing before this point is modified. See
+   SITE-PROJECT-V6.md for the full writeup.
+   ========================================================================== */
+
+/* ---- Hero form: Generate button directly under the textarea, "Try:" row
+   demoted to a small secondary line below it instead of sharing the primary
+   row. ---- */
+.generator-form .generator-submit{width:100%;margin-top:14px;min-width:0}
+.generator-examples-secondary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px;font-size:11px;color:var(--muted)}
+.generator-examples-secondary .example-chip{padding:6px 11px;font-size:10.5px}
+
+/* ---- Builder intro: small, always-reachable "load saved project" link
+   replacing the old full-panel dead-looking lock overlay. ---- */
+.load-project-hint{margin:14px 0 0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.link-button{border:0;background:none;padding:0;font:inherit;color:var(--text);text-decoration:underline;cursor:pointer}
+.link-button:hover{color:var(--accent)}
+.load-project-hint .project-data-status{margin:0;font-size:11px;color:var(--muted)}
+
+/* ---- Purchase section: the primary ending. Same structural idiom as
+   .handoff-section/.pricing-section (two-column, card on the right) but its
+   own classes so nothing shared with the demoted contact section below. ---- */
+.purchase-section{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:125px 0;border-top:1px solid var(--line)}
+.purchase-shell{display:grid;grid-template-columns:.82fr 1fr;gap:90px;align-items:start}
+.purchase-copy h2{margin:0;font-size:clamp(50px,6vw,92px);line-height:.94;letter-spacing:-.07em}
+.purchase-copy>p:not(.eyebrow){color:var(--muted);font-size:17px;line-height:1.65;max-width:560px;margin:20px 0 0}
+.purchase-points{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;max-width:520px}
+.purchase-points li{padding-left:22px;position:relative;color:var(--muted);font-size:14px;line-height:1.55}
+.purchase-points li:before{content:"→";position:absolute;left:0;color:var(--text)}
+.purchase-card{border:1px solid var(--line);background:#fff;padding:28px;border-radius:22px;box-shadow:0 16px 60px rgba(0,0,0,.06)}
+.purchase-card>span{font-size:9px;letter-spacing:.14em;color:var(--muted)}
+.purchase-card strong{display:block;font-size:23px;margin:10px 0 5px}
+.purchase-card>p{margin:0!important;font-size:12px!important}
+.purchase-price{display:flex;align-items:baseline;gap:8px;margin:22px 0}
+.purchase-price span{font-size:40px;font-weight:800;letter-spacing:-.04em}
+.purchase-price small{color:var(--muted);font-size:12px}
+#buyButton:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.purchase-status{margin:12px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+.purchase-status.success{color:#17733a}
+.purchase-status.error{color:#b42318}
+
+/* ---- Demoted "talk to a human first" contact section: same markup/class
+   as before (.handoff-section) so all existing responsive rules keep
+   working untouched; this only lightens its visual weight now that it is
+   no longer the primary ending. ---- */
+.handoff-section.secondary-contact{padding-top:80px;padding-bottom:80px}
+.handoff-section.secondary-contact .handoff-copy h2{font-size:clamp(34px,4vw,52px)}
+
+@media(max-width:1120px){
+  .purchase-shell{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+  .purchase-section{padding:70px 0}
+  .purchase-shell{gap:30px}
+  .purchase-card{padding:20px;border-radius:18px}
+  .generator-examples-secondary{gap:6px}
+}
+
