@@ -82,6 +82,69 @@ async function stripeRequest(endpoint, params) {
   return data;
 }
 
+// ---- V7: image-provider abstraction ---------------------------------------
+// Audited before writing any of this (SITE-PROJECT-V7.md part 2/10): this
+// environment has no image-generation API key configured, and this
+// sandbox's own outbound network is restricted to package registries and
+// GitHub -- confirmed by a direct connectivity check to the two most likely
+// providers, both rejected by the egress policy. So `configured` is
+// honestly false here, and the client falls back to the art-directed CSS
+// "designed" tier (see script.js renderVisualSlot/buildImagePlan) -- no
+// image generation is faked. The interface below is real and ready to
+// activate wherever a provider *is* reachable: set OPENAI_API_KEY on the
+// server and no client code needs to change. The key is read from the
+// server environment only, used only in this server-side fetch, and is
+// never sent to or readable by the browser.
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const imageProviders = {
+  openai: {
+    name: 'openai',
+    configured: () => !!OPENAI_API_KEY,
+    async generate(prompt, { aspectRatio } = {}) {
+      const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, n: 1 }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((data && data.error && data.error.message) || `Image provider returned ${response.status}`);
+      const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
+      if (!b64) throw new Error('Image provider returned no image data');
+      return { dataUrl: `data:image/png;base64,${b64}` };
+    }
+  }
+  // Add another provider here (same {name, configured(), generate()} shape)
+  // and point `activeImageProvider` at it -- nothing else in this file or
+  // in script.js needs to change to swap providers.
+};
+const activeImageProvider = imageProviders.openai;
+
+app.get('/api/image-provider-status', (req, res) => {
+  const configured = activeImageProvider.configured();
+  res.json({
+    configured,
+    provider: configured ? activeImageProvider.name : null,
+    reason: configured ? undefined : 'No server-side image-generation API key is configured in this environment.'
+  });
+});
+
+app.post('/api/generate-image', async (req, res) => {
+  try {
+    if (!activeImageProvider.configured()) {
+      return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
+    }
+    const prompt = clean(req.body.prompt, 600);
+    const aspectRatio = clean(req.body.aspectRatio, 10);
+    if (!prompt) return res.status(400).json({ ok: false, message: 'Missing prompt.' });
+    const result = await activeImageProvider.generate(prompt, { aspectRatio });
+    return res.json({ ok: true, dataUrl: result.dataUrl });
+  } catch (error) {
+    console.error('Image generation failed:', error);
+    return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
+  }
+});
+
 app.post('/api/checkout', async (req, res) => {
   try {
     if (!STRIPE_SECRET_KEY) {

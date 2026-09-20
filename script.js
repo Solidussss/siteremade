@@ -134,19 +134,24 @@ const categories = {
 // free-text business description -- no AI/LLM call is made anywhere in this
 // file. This runs instantly and synchronously; the 5-step "progress" UI
 // paces the *reveal* of an already-computed real result.
+// V7: substantially broadened so a phrase like "AI company" or "fintech
+// startup" actually scores instead of silently falling through to `other`
+// (the single biggest cause of generic-looking output -- see
+// SITE-PROJECT-V7.md part 1). Each list mixes exact nouns, industry jargon
+// and common phrasing so real prompts hit real signal.
 const categoryKeywords = {
-  tech:['software','saas','startup','tech company','platform','api','app'],
-  finance:['finance','wealth','financial','investment','accounting','bookkeeping'],
-  fashion:['fashion','apparel','clothing brand','clothing line','label'],
-  hospitality:['cafe','coffee','restaurant','bakery','catering','bar','eatery','food truck'],
-  creative:['design studio','photography','photographer','creative agency','videograph','branding studio','illustrator'],
-  fitness:['gym','fitness','personal training','crossfit','training studio'],
-  realestate:['real estate','realtor','property management','realty'],
-  wellness:['spa','wellness','therapy','massage','yoga studio','salon','esthetic'],
-  retail:['retail','shop','store','boutique','shopping','e-commerce','ecommerce'],
-  nonprofit:['nonprofit','non-profit','charity','community organization','foundation'],
-  professional:['consult','law firm','legal','advisor'],
-  education:['tutor','academy','course','education','coaching program','bootcamp'],
+  tech:['software','saas','tech company','platform','api','app','ai ','a.i.','artificial intelligence','machine learning',' ml ','automation tool','developer tool','dev tool','cloud platform','data platform','tech startup','digital product','ai company','ai startup','ai platform','no-code','productivity tool','analytics platform','devtools'],
+  finance:['finance','wealth','financial','investment','accounting','bookkeeping','fintech','banking','payments company','lending','insurtech','crypto','trading platform','asset management'],
+  fashion:['fashion','apparel','clothing brand','clothing line','label','couture','luxury fashion','streetwear','designer brand','ready-to-wear'],
+  hospitality:['cafe','coffee','restaurant','bakery','catering','bar','eatery','food truck','bistro','diner','sushi','ramen','izakaya','pizzeria','gastropub','brewery'],
+  creative:['design studio','photography','photographer','creative agency','videograph','branding studio','illustrator','creative studio','ad agency','marketing agency','film studio','animation studio'],
+  fitness:['gym','fitness','personal training','crossfit','training studio','boutique fitness','pilates','spin studio','martial arts','boxing gym'],
+  realestate:['real estate','realtor','property management','realty','brokerage','property developer'],
+  wellness:['spa','wellness','therapy','massage','yoga studio','salon','esthetic','acupuncture','holistic health','meditation studio'],
+  retail:['retail','shop','store','boutique','shopping','e-commerce','ecommerce','online store','dtc brand','direct-to-consumer','skincare brand','beauty brand'],
+  nonprofit:['nonprofit','non-profit','charity','community organization','foundation','ngo','advocacy group','ocean cleanup','conservation','humanitarian'],
+  professional:['consult','law firm','legal','advisor','accounting firm','cpa firm','advisory firm','consultancy'],
+  education:['tutor','academy','course','education','coaching program','bootcamp','online school','learning platform'],
   electrical:['electric','electrician','wiring','panel upgrade'],
   plumbing:['plumb','pipe','drain','water heater'],
   landscaping:['landscap','lawn','yard','garden','backyard','hardscape','outdoor living'],
@@ -196,11 +201,32 @@ const categoryStyleAffinity = {
   other:['precision','luminous','editorial']
 };
 
+// V7: left-boundary-aware matching. Plain substring matching had a real
+// false positive that fed the convergence bug -- "fintech startup" matched
+// tech's "tech startup" phrase (glued inside "finTECH STARTup") as well as
+// finance's "fintech", turning a clear fintech prompt into a coin-flip tie.
+// A keyword now only counts when it isn't glued to another letter/digit
+// *before* it. The right side deliberately stays open (no suffix check),
+// because a lot of these keywords are intentional stems relying on normal
+// suffix growth -- "roof" matching "roofing", "paint" matching "painting",
+// "plumb" matching "plumbing", "auto" matching "automotive" -- and a full
+// two-sided boundary would silently break every one of those.
 function scoreKeywords(text, keywordMap) {
   const lower = text.toLowerCase();
   const scores = {};
   Object.keys(keywordMap).forEach(key => {
-    scores[key] = keywordMap[key].reduce((n, kw) => n + (lower.includes(kw) ? 1 : 0), 0);
+    scores[key] = keywordMap[key].reduce((n, kwRaw) => {
+      const kw = kwRaw.trim();
+      if (!kw) return n;
+      let idx = 0;
+      while (true) {
+        const found = lower.indexOf(kw, idx);
+        if (found === -1) return n;
+        const before = lower[found - 1];
+        if (!before || !/[a-z0-9]/.test(before)) return n + 1;
+        idx = found + 1;
+      }
+    }, 0);
   });
   return scores;
 }
@@ -232,6 +258,37 @@ function extractBusinessName(text) {
     if (match) return match[1].trim().replace(/[.,]+$/, '');
   }
   return '';
+}
+// V7: only ever returns a fact the person actually typed -- never invents
+// one. Feeds the proof section (SITE-PROJECT-V7.md part 6): "10+ years" or
+// "4.9 rating" only ever appear if the description itself said so.
+function extractBusinessFacts(text) {
+  if (!text) return {};
+  const facts = {};
+  const years = text.match(/\b(\d{1,2})\+?\s*years?\b/i);
+  if (years) facts.years = years[1];
+  const rating = text.match(/\b(\d(?:\.\d)?)\s*(?:star|★|\/\s*5|out of 5|rating)/i);
+  if (rating) facts.rating = rating[1];
+  const count = text.match(/\b(\d[\d,]{1,6})\+?\s*(?:clients|customers|members|projects|orders)\b/i);
+  if (count) facts.count = count[1].replace(/,/g, '');
+  return facts;
+}
+// V7: pulls the actual descriptive words the person used for what the
+// business IS ("AI", "luxury fashion", "Japanese", "roofing") and what it
+// DOES ("focused on...", "specializing in...", "offering..."), so copy can
+// be built from the prompt itself instead of a fixed per-category template
+// every time. Conservative regexes only -- no invention.
+function extractBusinessDescriptor(text) {
+  if (!text) return {};
+  const t = text.trim();
+  const descMatch = t.match(/\b(?:a|an)\s+([a-z][a-z0-9&'\s-]{0,45}?)\s+(?:company|business|studio|firm|agency|brand|startup|shop|store|practice|service|team|label|restaurant|caf[eé]|bar|nonprofit|organi[sz]ation|platform|app)\b/i);
+  const offerMatch = t.match(/\b(?:focused on|focusing on|specializ(?:ing|es) in|offering|that (?:helps|builds|makes|serves)|building)\s+([a-z][^.,;]{3,70})/i);
+  const outcomeMatch = t.match(/\bto\s+(help|grow|increase|attract|book|sell|automate|streamline)\s+([a-z][^.,;]{3,60})/i);
+  return {
+    descriptor: descMatch ? descMatch[1].trim() : '',
+    offering: offerMatch ? offerMatch[1].trim().replace(/[.,]+$/, '') : '',
+    outcome: outcomeMatch ? `${outcomeMatch[1]} ${outcomeMatch[2]}`.trim().replace(/[.,]+$/, '') : ''
+  };
 }
 // Real (non-AI) analysis: keyword-scores the description against the
 // categories/styles dictionaries above, adds a small affinity bonus toward
@@ -267,50 +324,68 @@ function analyzeDescription(text) {
 // the seed for coherence (real independent colour generation is future
 // work, not built here); every other dimension can diverge freely.
 // ==========================================================================
+// V7: hero and imagery vocabularies substantially expanded (see
+// SITE-PROJECT-V7.md part 1/4). A dimension with a real keyword hit in the
+// text still wins outright; the change is what happens when nothing
+// matches -- see categoryDimensionDefaults below, which replaces "fall back
+// to the nearest named seed" with "fall back to what actually suits this
+// category." That swap is the fix for prompts converging on one look.
 const dimensionKeywords = {
   hero: {
-    'fullbleed-image': ['photo','photography','visual','gallery','portfolio'],
-    'centered': ['simple','focus','modern','minimal'],
+    'fullbleed-image': ['photo','photography','visual','gallery','atmosphere','ambience'],
+    'centered-oversized': ['simple','focus','statement','declaration'],
     'stacked-image-below': ['calm','story','wellness','handmade','artisan'],
-    'asymmetric-offset': ['dynamic','bold','edgy','athletic','architectural'],
-    'minimal-text-only': ['stark','quiet','understated']
+    'asymmetric-offset': ['dynamic','bold','edgy','athletic','architectural','editorial'],
+    'minimal-text-only': ['stark','quiet','understated'],
+    'grid-dashboard': ['dashboard','analytics','saas','platform','data platform','workflow'],
+    'poster': ['collection','lookbook','runway','couture','streetwear'],
+    'collage': ['portfolio','creative agency','branding studio','mixed media'],
+    'product-screenshot': ['app','product screenshot','interface','mobile app','web app','demo']
   },
   type: {
     'serif-editorial': ['editorial','classic','literary','elegant'],
-    'display-condensed': ['bold','loud','energetic','athletic'],
+    'display-condensed': ['bold','loud','energetic','athletic','oversized'],
     'classic-serif-mix': ['luxury','heritage','established','legacy'],
     'humanist': ['friendly','warm','approachable','boutique'],
-    'mono-technical': ['technical','data','software','engineering','analytics'],
-    'geo-sans': ['modern','clean','minimal','tech','startup']
+    'mono-technical': ['technical','data','software','engineering','analytics','ai ','machine learning'],
+    'geo-sans': ['modern','clean','minimal','tech','startup','saas']
   },
   nav: {
     'boxed-pill': ['friendly','approachable','playful','retail'],
-    'minimal-until-scroll': ['startup','app','tech','software','saas'],
+    'minimal-until-scroll': ['startup','app','tech','software','saas','ai ','platform'],
     'sidebar': ['technical','industrial','dashboard','engineering'],
     'centered-logo': ['heritage','elegant','boutique','premium','luxury']
   },
   card: {
     'flat': ['minimal','clean','quiet'],
     'bordered': ['institutional','trusted','professional','established'],
-    'elevated-shadow': ['modern','tech','product','software'],
-    'image-led': ['visual','portfolio','photo','photography'],
+    'elevated-shadow': ['modern','tech','product','software','saas'],
+    'image-led': ['visual','portfolio','photo','photography','lookbook'],
     'numbered-editorial': ['editorial','magazine','story'],
     'outline-ghost': ['handmade','craft','boutique','artisan']
   },
   imagery: {
     'photo-led-placeholder': ['photo','photography','visual','gallery'],
-    'illustration': ['playful','fun','creative','colorful','colourful'],
-    'texture-organic': ['natural','organic','earthy','handmade','wellness'],
-    'grid-mosaic': ['data','technical','dashboard','software','analytics']
+    'illustration': ['playful','fun','colorful','colourful'],
+    'texture-organic': ['natural','organic','earthy','handmade'],
+    'grid-mosaic': ['dashboard'],
+    'technical-network': ['ai ','artificial intelligence','machine learning','neural','data platform','algorithm'],
+    'editorial-bold': ['fashion','couture','lookbook','runway','streetwear'],
+    'atmospheric-warm': ['restaurant','cafe','wellness','spa','yoga','food'],
+    'trade-proof': ['contractor','roofing','plumb','electric','renovat','landscap'],
+    'chart-financial': ['finance','investment','wealth','fintech','trading'],
+    'nature-cause': ['nonprofit','conservation','ocean','environment','sustainab'],
+    'creative-collage': ['creative agency','branding studio','design studio','videograph'],
+    'dashboard-ui': ['saas','platform','workflow','product screenshot']
   },
   cta: {
     'sharp-block': ['bold','edgy','loud','athletic'],
     'outline-ghost': ['premium','established','trusted','luxury'],
     'underline-link': ['minimal','editorial','quiet'],
-    'floating-badge': ['startup','app','tech','saas']
+    'floating-badge': ['startup','app','tech','saas','ai ']
   },
   colorBehavior: {
-    'high-contrast-mono-accent': ['bold','tech','startup','modern'],
+    'high-contrast-mono-accent': ['bold','tech','startup','modern','ai '],
     'warm-earth-multi-tone': ['warm','earthy','handmade','boutique'],
     'dark-luxury-metallic': ['luxury','premium','high-end','upscale'],
     'neutral-single-accent': ['minimal','clean','professional','quiet']
@@ -330,14 +405,99 @@ const dimensionKeywords = {
     'story-first': ['about','story','mission','handmade']
   }
 };
-function composeStyleFromAnalysis(text, seedKey) {
+// V7: what a category composes toward when the description gives no
+// explicit signal for a dimension. This is the direct fix for the
+// convergence bug: previously an under-specified prompt fell back to
+// whichever of the 20 *named seeds* scored highest overall (usually
+// "precision" -- the same blue/white split-hero look as the bootstrap
+// placeholder, regardless of category). Now the fallback is keyed to the
+// detected category itself, so "AI company in Vancouver" (which matches no
+// hero/type/nav keyword at all) still lands on a SaaS-appropriate look
+// instead of the generic default. Seeds still exist and still win when a
+// prompt's language actually matches one (see composeStyleFromAnalysis).
+const categoryDimensionDefaults = {
+  tech:         { hero:'grid-dashboard',      type:'geo-sans',           nav:'minimal-until-scroll', card:'elevated-shadow',  imagery:'technical-network', cta:'floating-badge',   colorBehavior:'high-contrast-mono-accent', motion:'expressive', spacing:'compact',  pattern:'proof-first' },
+  finance:      { hero:'split',               type:'classic-serif-mix', nav:'centered-logo',        card:'bordered',         imagery:'chart-financial',   cta:'outline-ghost',    colorBehavior:'dark-luxury-metallic',      motion:'none',       spacing:'airy',     pattern:'proof-first' },
+  fashion:      { hero:'poster',              type:'display-condensed', nav:'minimal-until-scroll', card:'image-led',        imagery:'editorial-bold',     cta:'underline-link',   colorBehavior:'neutral-single-accent',     motion:'subtle',     spacing:'generous', pattern:'portfolio-first' },
+  hospitality:  { hero:'fullbleed-image',     type:'serif-editorial',    nav:'centered-logo',        card:'image-led',        imagery:'atmospheric-warm',   cta:'solid-pill',       colorBehavior:'warm-earth-multi-tone',     motion:'subtle',     spacing:'airy',     pattern:'story-first' },
+  creative:     { hero:'collage',             type:'display-condensed', nav:'sidebar',              card:'image-led',        imagery:'creative-collage',   cta:'underline-link',   colorBehavior:'high-contrast-mono-accent', motion:'expressive', spacing:'standard', pattern:'portfolio-first' },
+  fitness:      { hero:'asymmetric-offset',   type:'display-condensed', nav:'inline',                card:'elevated-shadow',  imagery:'atmospheric-warm',   cta:'sharp-block',      colorBehavior:'high-contrast-mono-accent', motion:'expressive', spacing:'compact',  pattern:'proof-first' },
+  realestate:   { hero:'split',               type:'classic-serif-mix', nav:'centered-logo',        card:'bordered',         imagery:'abstract-geometric', cta:'solid-pill',       colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'airy',     pattern:'proof-first' },
+  wellness:     { hero:'stacked-image-below', type:'humanist',           nav:'centered-logo',        card:'flat',             imagery:'atmospheric-warm',   cta:'underline-link',   colorBehavior:'neutral-single-accent',     motion:'subtle',     spacing:'generous', pattern:'story-first' },
+  retail:       { hero:'product-screenshot',  type:'geo-sans',           nav:'boxed-pill',           card:'image-led',        imagery:'editorial-bold',     cta:'solid-pill',       colorBehavior:'warm-earth-multi-tone',     motion:'subtle',     spacing:'standard', pattern:'standard' },
+  nonprofit:    { hero:'stacked-image-below', type:'humanist',           nav:'inline',                card:'flat',             imagery:'nature-cause',       cta:'solid-pill',       colorBehavior:'neutral-single-accent',     motion:'subtle',     spacing:'airy',     pattern:'story-first' },
+  professional: { hero:'centered-oversized',  type:'classic-serif-mix', nav:'centered-logo',        card:'bordered',         imagery:'abstract-geometric', cta:'outline-ghost',    colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'airy',     pattern:'proof-first' },
+  education:    { hero:'split',               type:'humanist',           nav:'inline',                card:'bordered',         imagery:'abstract-geometric', cta:'solid-pill',       colorBehavior:'neutral-single-accent',     motion:'subtle',     spacing:'standard', pattern:'proof-first' },
+  electrical:   { hero:'asymmetric-offset',   type:'mono-technical',    nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'sharp-block',      colorBehavior:'high-contrast-mono-accent', motion:'none',       spacing:'compact',  pattern:'proof-first' },
+  plumbing:     { hero:'split',               type:'geo-sans',           nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'sharp-block',      colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'compact',  pattern:'proof-first' },
+  landscaping:  { hero:'stacked-image-below', type:'humanist',           nav:'inline',                card:'outline-ghost',    imagery:'trade-proof',        cta:'solid-pill',       colorBehavior:'warm-earth-multi-tone',     motion:'subtle',     spacing:'airy',     pattern:'story-first' },
+  painting:     { hero:'asymmetric-offset',   type:'geo-sans',           nav:'inline',                card:'flat',             imagery:'trade-proof',        cta:'solid-pill',       colorBehavior:'warm-earth-multi-tone',     motion:'subtle',     spacing:'standard', pattern:'proof-first' },
+  roofing:      { hero:'minimal-text-only',   type:'mono-technical',    nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'sharp-block',      colorBehavior:'high-contrast-mono-accent', motion:'none',       spacing:'compact',  pattern:'proof-first' },
+  automotive:   { hero:'asymmetric-offset',   type:'display-condensed', nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'sharp-block',      colorBehavior:'high-contrast-mono-accent', motion:'expressive', spacing:'compact',  pattern:'proof-first' },
+  cleaning:     { hero:'split',               type:'geo-sans',           nav:'inline',                card:'flat',             imagery:'trade-proof',        cta:'solid-pill',       colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'standard', pattern:'proof-first' },
+  renovation:   { hero:'collage',             type:'classic-serif-mix', nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'outline-ghost',    colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'airy',     pattern:'proof-first' },
+  other:        { hero:'minimal-text-only',   type:'geo-sans',           nav:'inline',                card:'flat',             imagery:'abstract-geometric', cta:'underline-link',   colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'standard', pattern:'standard' }
+};
+// ---- V7: independent palette composition ---------------------------------
+// Previously `composed.palette` was always a straight copy of the matched
+// named seed's fixed palette -- two results landing on the same seed (very
+// common, since seed-matching used the whole-text keyword vote) got the
+// literal same hex codes. Palette is now generated from the category (a
+// base hue family) plus a deterministic hash of the exact input text (a
+// small, stable hue/tone jitter) plus the composed colorBehavior (which
+// picks the lightness/saturation "recipe" -- dark vs light, muted vs
+// vivid). Same category, different real prompts -> related but distinct
+// palettes. Same prompt -> same palette every time (deterministic, not
+// random). Named seeds remain available as an internal reference/reset
+// point, per the V7 brief.
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(100, s)) / 100; l = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  let r, g, b;
+  if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = c; g = 0; b = x; } else { r = x; g = 0; b = c; }
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+const categoryBaseHue = {
+  tech:225, finance:212, fashion:20, hospitality:18, creative:275, fitness:8, realestate:206,
+  wellness:152, retail:335, nonprofit:168, professional:214, education:200,
+  electrical:38, plumbing:205, landscaping:110, painting:280, roofing:16, automotive:4, cleaning:196, renovation:30,
+  other:224
+};
+const paletteRecipes = {
+  'high-contrast-mono-accent': { bgL:7,  bgS:28, mainL:56, mainS:88, textL:96, accent2Off:34, accent2L:66 },
+  'warm-earth-multi-tone':     { bgL:93, bgS:34, mainL:44, mainS:46, textL:15, accent2Off:-24, accent2L:68 },
+  'dark-luxury-metallic':      { bgL:11, bgS:22, mainL:62, mainS:32, textL:92, accent2Off:16, accent2L:74 },
+  'neutral-single-accent':     { bgL:97, bgS:6,  mainL:44, mainS:62, textL:11, accent2Off:12, accent2L:68 }
+};
+function composePalette(categoryKey, composed, text) {
+  const baseHue = categoryBaseHue[categoryKey] ?? categoryBaseHue.other;
+  const jitter = (hashString((text || categoryKey) + '::' + categoryKey) % 25) - 12; // -12..+12, deterministic
+  const hue = baseHue + jitter;
+  const recipe = paletteRecipes[composed.colorBehavior] || paletteRecipes['neutral-single-accent'];
+  return {
+    main: hslToHex(hue, recipe.mainS, recipe.mainL),
+    accent2: hslToHex(hue + recipe.accent2Off, recipe.mainS, recipe.accent2L),
+    background: hslToHex(hue, recipe.bgS, recipe.bgL),
+    text: hslToHex(hue, Math.min(recipe.bgS, 12), recipe.textL)
+  };
+}
+function composeStyleFromAnalysis(text, categoryKey, seedKey) {
   const seed = styles[seedKey] || styles.precision;
-  const composed = { name: seed.name, tagline: seed.tagline, palette: seed.palette, seedKey };
+  const catDefaults = categoryDimensionDefaults[categoryKey] || categoryDimensionDefaults.other;
+  const composed = { name: seed.name, tagline: seed.tagline, seedKey, categoryKey };
   Object.keys(dimensionKeywords).forEach(dim => {
     const scores = scoreKeywords(text || '', dimensionKeywords[dim]);
     const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-    composed[dim] = (ranked.length && ranked[0][1] > 0) ? ranked[0][0] : seed[dim];
+    composed[dim] = (ranked.length && ranked[0][1] > 0) ? ranked[0][0] : (catDefaults[dim] || seed[dim]);
   });
+  composed.palette = composePalette(categoryKey, composed, text);
   return composed;
 }
 // A short, plain-language descriptor of a composed result for the
@@ -415,59 +575,81 @@ function pickExamples(n) {
 // ---- Nav / section label helpers (category-aware, never a seed name) ----
 const sectionNavLabelOverrides = {
   services: { tech:'Product', fashion:'Collection', hospitality:'Menu', creative:'Work', fitness:'Programs', realestate:'Listings', wellness:'Treatments', retail:'Shop', nonprofit:'Get Involved', education:'Programs' },
-  gallery: { creative:'Work', fashion:'Lookbook', hospitality:'Gallery', realestate:'Listings', retail:'Shop' }
+  gallery: { creative:'Work', fashion:'Lookbook', hospitality:'Gallery', realestate:'Listings', retail:'Shop' },
+  features: { tech:'Product' }, productShowcase: { tech:'Product' }, pricing: { tech:'Pricing' },
+  menu: { hospitality:'Menu' }, faq: { tech:'FAQ' }, caseStudies: { creative:'Work' }
 };
 function navLabelFor(type, categoryKey) {
   if (type === 'about') return 'About';
   const overrides = sectionNavLabelOverrides[type] || {};
   if (overrides[categoryKey]) return overrides[categoryKey];
-  return type === 'gallery' ? 'Gallery' : 'Services';
+  const fallback = { gallery:'Gallery', features:'Features', productShowcase:'Product', pricing:'Pricing', faq:'FAQ',
+    menu:'Menu', team:'Team', contact:'Contact', caseStudies:'Work', serviceAreas:'Service Areas' };
+  return fallback[type] || 'Services';
 }
 
-// ---- Compositional section system --------------------------------------
-// The old "site-sections" was one fixed 3-box grid every result shared.
-// V5 assembles an ordered list of section *types*, scored per result from
-// the composed dimensions + detected category + which assets are actually
-// available -- so two results in the same category can end up with a
-// genuinely different section count and order, not just different labels
-// inside the same shape. See SITE-PROJECT-V5.md part 4 for the full table.
-function composeSections(category, composed, assetPlan, categoryKey) {
-  const trustHeavy = ['finance','professional','realestate','tech','education','civic'];
-  const portfolioish = ['creative','fashion','hospitality','retail','realestate'];
-  const personalTrust = ['nonprofit','creative','wellness','professional','education'];
-  const consumerTrust = ['wellness','fitness','professional','hospitality','realestate','education'];
-
-  const scores = {
-    proof: (composed.pattern === 'proof-first' ? 2 : 0) + (trustHeavy.includes(categoryKey) ? 1 : 0),
-    gallery: (composed.pattern === 'portfolio-first' ? 2 : 0) + (portfolioish.includes(categoryKey) ? 1 : 0) + ((assetPlan.gallery || []).length ? 2 : 0),
-    about: (composed.pattern === 'story-first' ? 2 : 0) + (personalTrust.includes(categoryKey) ? 1 : 0) + (assetPlan.about ? 2 : 0),
-    testimonial: (composed.pattern === 'proof-first' ? 1 : 0) + (consumerTrust.includes(categoryKey) ? 1 : 0)
-  };
-  let chosen = Object.keys(scores).filter(k => scores[k] >= 2);
-  if (!chosen.length) {
-    const best = Object.keys(scores).reduce((a, b) => (scores[a] >= scores[b] ? a : b));
-    chosen = [best];
-  }
-
+// ---- Compositional section system ----------------------------------------
+// V7: the old version scored 4 add-on section types against a fixed
+// "hero + services + footer" spine, so nearly every result had the same
+// 3-5 section silhouette regardless of category (see SITE-PROJECT-V7.md
+// part 1/5). Section choice is now a per-category recipe -- an AI company
+// gets features/product/integrations/pricing instead of a generic services
+// list; a restaurant gets menu/reservations instead of a portfolio gallery.
+// This is still entirely deterministic and prompt-driven (keyed off the
+// detected category + composed pattern/spacing + real extracted facts),
+// never randomized.
+const categorySectionRecipes = {
+  tech:         ['features', 'productShowcase', 'integrations', 'pricing', 'faq'],
+  finance:      ['services', 'proof', 'process', 'testimonial', 'faq'],
+  fashion:      ['imageLedEditorial', 'gallery', 'about', 'newsletter'],
+  hospitality:  ['menu', 'gallery', 'about', 'testimonialsGrid', 'reservationCta'],
+  creative:     ['gallery', 'features', 'about', 'testimonial'],
+  fitness:      ['features', 'testimonialsGrid', 'pricing', 'process'],
+  realestate:   ['gallery', 'services', 'proof', 'testimonial', 'contact'],
+  wellness:     ['services', 'testimonialsGrid', 'about', 'faq'],
+  retail:       ['productShowcase', 'gallery', 'newsletter', 'testimonial'],
+  nonprofit:    ['about', 'metrics', 'gallery', 'newsletter', 'contact'],
+  professional: ['services', 'process', 'proof', 'faq'],
+  education:    ['services', 'process', 'testimonial', 'faq'],
+  electrical:   ['serviceAreas', 'caseStudies', 'proof', 'testimonial'],
+  plumbing:     ['serviceAreas', 'process', 'testimonial', 'contact'],
+  landscaping:  ['caseStudies', 'serviceAreas', 'testimonial'],
+  painting:     ['caseStudies', 'process', 'testimonial'],
+  roofing:      ['serviceAreas', 'proof', 'caseStudies'],
+  automotive:   ['services', 'caseStudies', 'testimonial'],
+  cleaning:     ['services', 'serviceAreas', 'testimonial'],
+  renovation:   ['caseStudies', 'process', 'testimonial'],
+  other:        ['services', 'about']
+};
+function composeSections(category, composed, assetPlan, categoryKey, facts) {
+  facts = facts || {};
+  const recipe = categorySectionRecipes[categoryKey] || categorySectionRecipes.other;
   const middle = [];
-  if (composed.pattern === 'story-first' && chosen.includes('about')) middle.push('about');
-  middle.push('services'); // baseline content every result gets
-  ['proof', 'gallery', 'about', 'testimonial'].forEach(k => { if (chosen.includes(k) && !middle.includes(k)) middle.push(k); });
-  if (composed.spacing === 'airy' || composed.spacing === 'generous') middle.push('ctaBanner');
-
+  recipe.forEach(type => {
+    // Never fabricate proof -- only include a facts-dependent section when
+    // the description actually supplied a real number (SITE-PROJECT-V7.md
+    // part 6).
+    if ((type === 'proof' || type === 'metrics') && !facts.years && !facts.rating && !facts.count) return;
+    middle.push(type);
+  });
+  if (!middle.length) middle.push('services');
+  if ((composed.spacing === 'airy' || composed.spacing === 'generous') && !middle.includes('ctaBanner') && categoryKey !== 'fashion' && categoryKey !== 'tech') middle.push('ctaBanner');
+  if (composed.spacing === 'compact' && middle.length > 5) middle.length = 5;
   return ['hero', ...middle, 'footer'];
 }
-// Variant choice is tied to an existing composed dimension rather than
-// independently random, so a result still reads as one coherent design
-// system rather than mismatched parts bolted together.
-function pickVariant(type, composed) {
+// Variant choice is tied to an existing composed dimension (or, on
+// Regenerate, a variation counter) rather than independently random, so a
+// result still reads as one coherent design system.
+function pickVariant(type, composed, variationSeed) {
+  const v = variationSeed || 0;
+  const flip = v % 2 === 1;
   switch (type) {
-    case 'services': return ['image-led', 'elevated-shadow', 'numbered-editorial'].includes(composed.card) ? 'described' : 'numbered';
-    case 'gallery': return ['asymmetric-offset', 'fullbleed-image'].includes(composed.hero) ? 'featured' : 'grid';
+    case 'services': { const d = ['image-led', 'elevated-shadow', 'numbered-editorial'].includes(composed.card) ? 'described' : 'numbered'; return flip ? (d === 'described' ? 'numbered' : 'described') : d; }
+    case 'gallery': { const d = ['asymmetric-offset', 'fullbleed-image', 'collage'].includes(composed.hero) ? 'featured' : 'grid'; return flip ? (d === 'featured' ? 'grid' : 'featured') : d; }
     case 'testimonial': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'centered' : 'card';
     case 'about': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'split' : 'statement';
     case 'ctaBanner': return ['high-contrast-mono-accent', 'dark-luxury-metallic'].includes(composed.colorBehavior) ? 'accent' : 'plain';
-    case 'proof': return ['mono-technical', 'geo-sans'].includes(composed.type) ? 'stats' : 'statement';
+    case 'proof': return 'facts';
     case 'footer': return ['sidebar', 'centered-logo'].includes(composed.nav) ? 'columns' : 'simple';
     default: return 'default';
   }
@@ -527,33 +709,172 @@ function planAssets(assets) {
   return { logo: logo ? logo.id : null, hero: heroId, gallery: galleryIds, about: teamUploads.length ? teamUploads[0].id : null };
 }
 
+// ---- V7: copy generation ---------------------------------------------------
+// Headlines/sub-copy are now built from what the description actually says
+// (a captured descriptor/offering/outcome phrase) rather than always
+// falling back to the one fixed sentence stored on the category. The
+// category sentence is still the honest fallback when the prompt truly
+// gives nothing to work with (SITE-PROJECT-V7.md part 6) -- never invented,
+// just genuinely generic input getting genuinely generic (not fake) copy.
+function titleCase(s) { return String(s || '').replace(/\b\w/g, c => c.toUpperCase()); }
+const copyHeadlinePools = {
+  tech: [subj => `${titleCase(subj)}, built to move fast.`, subj => `Software for ${subj}, done right.`],
+  finance: [subj => `Clarity for ${subj}.`, subj => `${titleCase(subj)}, handled with care.`],
+  fashion: [subj => `${titleCase(subj)}. Made to be seen.`, subj => `A ${subj} collection, presented properly.`],
+  hospitality: [(subj, d, loc) => `${titleCase(subj)}${loc ? ' in ' + loc : ''}, worth the trip.`, subj => `${titleCase(subj)}, made to be tasted.`],
+  creative: [subj => `${titleCase(subj)} work that speaks first.`, subj => `A ${subj} studio, in its own words.`],
+  fitness: [subj => `${titleCase(subj)} progress you can see.`, subj => `Train ${subj}, see it show up.`],
+  realestate: [(subj, d, loc) => `Find the right place${loc ? ' in ' + loc : ''}.`],
+  wellness: [subj => `Feel better, through ${subj}.`],
+  retail: [subj => `${titleCase(subj)}, worth stopping for.`],
+  nonprofit: [subj => `Real work on ${subj}.`],
+  professional: [subj => `${titleCase(subj)}, explained clearly.`],
+  education: [subj => `Learn ${subj}, and have it stick.`],
+  electrical: [subj => `${titleCase(subj)}, wired right.`], plumbing: [subj => `${titleCase(subj)}, fixed properly.`],
+  landscaping: [subj => `${titleCase(subj)}, outdoors done right.`], painting: [subj => `${titleCase(subj)}, finished clean.`],
+  roofing: [subj => `${titleCase(subj)}, built for the weather.`], automotive: [subj => `${titleCase(subj)}, cared for properly.`],
+  cleaning: [subj => `${titleCase(subj)}, done thoroughly.`], renovation: [subj => `${titleCase(subj)}, built on reputation.`],
+  other: [subj => `${titleCase(subj)}, done properly.`]
+};
+function buildCopy(category, categoryKey, analysis, descriptor) {
+  descriptor = descriptor || {};
+  const loc = analysis.location || '';
+  const hasSignal = descriptor.descriptor || descriptor.offering;
+  const kicker = descriptor.descriptor ? descriptor.descriptor.toUpperCase() : category.kicker;
+  let headline = category.headline;
+  let sub = category.sub;
+  if (hasSignal) {
+    const subject = descriptor.descriptor || category.noun;
+    const pool = copyHeadlinePools[categoryKey] || copyHeadlinePools.other;
+    const template = pool[hashString(analysis.text) % pool.length];
+    headline = template(subject, descriptor, loc);
+    sub = descriptor.offering ? `Built for ${descriptor.offering}${loc ? ' in ' + loc : ''}.`
+      : (descriptor.outcome ? `Here to ${descriptor.outcome}${loc ? ' in ' + loc : ''}.` : category.sub);
+  } else if (loc) {
+    sub = `${category.sub} Serving ${loc}.`;
+  }
+  return { kicker, headline, sub, cta: category.cta };
+}
+
+// ---- V7: image plan + designed visual slots -------------------------------
+// Every visual role in the project now resolves through one funnel, in the
+// priority order the brief specifies: a real user upload always wins; a
+// real generated image would be next IF a provider were configured (see
+// server.js and SITE-PROJECT-V7.md part 2/10 -- none is reachable from this
+// environment, confirmed by audit, so that tier is wired but inactive
+// rather than faked); then a sourced stock image (same audit result,
+// unavailable); then the honest fallback used today -- an art-directed CSS
+// composition keyed to the category's `imagery` dimension, never a
+// fabricated photo. `window.__siteremadeImageProvider` is populated
+// (async, best-effort) by a status check against the server on load.
+function renderVisualSlot(project, role, imageryKey, assetId) {
+  const asset = assetId ? project.assets.items.find(a => a.id === assetId) : null;
+  if (asset) return `<img class="site-visual-img" src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || (project.business.name || 'Business') + ' image')}" />`;
+  return `<div class="visual-generated" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(role)}"></div>`;
+}
+const imageStyleDescriptions = {
+  'technical-network': 'abstract technical visualization of interconnected data and systems',
+  'editorial-bold': 'editorial fashion photography composition',
+  'atmospheric-warm': 'warm atmospheric lifestyle photography',
+  'trade-proof': 'clean documentary-style trade and craftsmanship photography',
+  'chart-financial': 'abstract financial data visualization',
+  'nature-cause': 'environmental and nature-focused photography',
+  'creative-collage': 'creative studio collage composition',
+  'dashboard-ui': 'modern product interface mockup',
+  'photo-led-placeholder': 'clean documentary photography',
+  'texture-organic': 'soft organic texture photography',
+  'illustration': 'flat brand illustration',
+  'grid-mosaic': 'technical grid/data mosaic composition',
+  'abstract-geometric': 'clean abstract geometric composition'
+};
+function buildImagePrompt(project, category, role) {
+  const composed = project.design.dimensions;
+  const loc = project.source.location ? `, subtle ${project.source.location} atmosphere` : '';
+  const paletteDesc = `${project.design.palette.background} background, ${project.design.palette.main} accent colour`;
+  const styleWord = imageStyleDescriptions[composed.imagery] || 'clean abstract brand composition';
+  return `${styleWord} for a ${category.label.toLowerCase()} brand${loc}, ${paletteDesc}, premium brand aesthetic, ${role} composition, no text`;
+}
+function imageRoleForSection(type) {
+  return { hero:'hero', productShowcase:'product', gallery:'gallery', caseStudies:'gallery', imageLedEditorial:'gallery', about:'team', team:'team' }[type] || null;
+}
+function buildImagePlan(project, category) {
+  const plan = project.assets.plan;
+  const providerConfigured = !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
+  return project.sections.map(s => {
+    const role = imageRoleForSection(s.type);
+    if (!role) return null;
+    const assetId = role === 'hero' ? plan.hero : role === 'team' ? plan.about : (plan.gallery || [])[0];
+    const sourceType = assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
+    return {
+      section: s.id, sectionType: s.type, role,
+      intent: role === 'hero' ? `Primary hero visual for ${category.label}` : role === 'product' ? 'Product / interface visual' : role === 'team' ? 'Team / people visual' : 'Supporting gallery visual',
+      prompt: buildImagePrompt(project, category, role),
+      aspectRatio: role === 'hero' ? '16:9' : role === 'team' ? '1:1' : '4:3',
+      placement: role, sourceType
+    };
+  }).filter(Boolean);
+}
+
 // ---- Section HTML renderers ----------------------------------------------
-// Every generated/placeholder image uses the same honest, art-directed CSS
-// treatment as V3/V4 (no fabricated photos, ever) via the `imagery`
-// composed dimension -- these functions only decide *whether* a role has a
-// real user asset to show instead.
+// Every generated/placeholder image uses the honest, art-directed CSS
+// treatment described above (no fabricated photos, ever) -- these functions
+// only decide *whether* a role has a real user asset to show instead.
+// V7: 10 structurally distinct hero layouts (was 1 DOM shape reskinned by
+// CSS) -- see SITE-PROJECT-V7.md part 4.
 function renderHero(project, category) {
   const composed = project.design.dimensions;
   const plan = project.assets.plan;
-  const heroAsset = plan.hero ? project.assets.items.find(a => a.id === plan.hero) : null;
-  const businessName = (project.business.name || 'Your Business').trim();
-  const kicker = escapeHtml(category.kicker);
-  const headline = escapeHtml(category.headline);
-  const sub = escapeHtml(toneSub(project.business.tone, category, project.source.location));
-  const cta = escapeHtml(category.cta);
-  const initial = escapeHtml((businessName.charAt(0) || 'Y').toUpperCase());
-  const visualInner = heroAsset
-    ? `<img class="site-visual-img" src="${heroAsset.dataUrl}" alt="${escapeHtml(heroAsset.alt || businessName + ' photo')}" />`
-    : `<div class="visual-grid"></div><div class="visual-mark">${initial}</div><div class="visual-card"><small>LOCAL RATING</small><strong>4.9 / 5</strong></div>`;
-  return `<div class="site-hero">
-    <div class="site-copy">
-      <p>${kicker}</p>
-      <h3>${headline}</h3>
-      <p>${sub}</p>
-      <div class="site-actions"><button>${cta}</button><span>See our work ↗</span></div>
-    </div>
-    <div class="site-visual">${visualInner}</div>
-  </div>`;
+  const copy = project.copy || { kicker: category.kicker, headline: category.headline, sub: toneSub(project.business.tone, category, project.source.location), cta: category.cta };
+  const kicker = escapeHtml(copy.kicker), headline = escapeHtml(copy.headline), sub = escapeHtml(copy.sub), cta = escapeHtml(copy.cta || category.cta);
+  const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
+  const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : composed.hero;
+  switch (layout) {
+    case 'demo': return `<div class="site-hero hero-demo-shell">
+        <div class="site-copy"><p>PREVIEW</p><h3>Describe your business above</h3><p>Your generated site will appear here — real layout, real copy, real palette, built from what you type.</p></div>
+        <div class="site-visual"><div class="visual-generated" data-imagery="demo-shell"></div></div>
+      </div>`;
+    case 'centered-oversized': return `<div class="site-hero hero-centered-oversized">
+        <p class="hero-kicker-center">${kicker}</p><h3 class="hero-headline-oversized">${headline}</h3><p class="hero-sub-center">${sub}</p>
+        <div class="site-actions center"><button>${cta}</button></div>
+      </div>`;
+    case 'fullbleed-image': return `<div class="site-hero hero-fullbleed">
+        <div class="hero-fullbleed-media">${visual}<div class="hero-fullbleed-scrim"></div></div>
+        <div class="hero-fullbleed-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+      </div>`;
+    case 'stacked-image-below': return `<div class="site-hero hero-stacked">
+        <div class="hero-stacked-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center"><button>${cta}</button></div></div>
+        <div class="hero-stacked-visual">${visual}</div>
+      </div>`;
+    case 'asymmetric-offset': return `<div class="site-hero hero-asymmetric">
+        <div class="hero-asym-headline"><p>${kicker}</p><h3>${headline}</h3></div>
+        <div class="hero-asym-visual">${visual}</div>
+        <div class="hero-asym-meta"><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+      </div>`;
+    case 'minimal-text-only': return `<div class="site-hero hero-minimal">
+        <p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><span class="minimal-link">${cta} ↗</span></div>
+      </div>`;
+    case 'grid-dashboard': return `<div class="site-hero hero-grid-dashboard">
+        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="hero-dash-grid" data-imagery="${escapeHtml(composed.imagery)}"><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div></div>
+      </div>`;
+    case 'poster': return `<div class="site-hero hero-poster">
+        <p class="hero-kicker-center">${kicker}</p><h3 class="hero-poster-headline">${headline}</h3>
+        <div class="hero-poster-row"><p>${sub}</p><button>${cta}</button></div>
+      </div>`;
+    case 'collage': { const b = renderVisualSlot(project, 'collage-2', composed.imagery, (plan.gallery || [])[0]);
+      return `<div class="site-hero hero-collage">
+        <div class="hero-collage-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="hero-collage-stack"><div class="collage-card collage-card-1">${visual}</div><div class="collage-card collage-card-2">${b}</div></div>
+      </div>`; }
+    case 'product-screenshot': return `<div class="site-hero hero-product-screenshot">
+        <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center"><button>${cta}</button></div></div>
+        <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body" data-imagery="${escapeHtml(composed.imagery)}"></div></div>
+      </div>`;
+    default: return `<div class="site-hero hero-split">
+        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button><span>See our work ↗</span></div></div>
+        <div class="site-visual">${visual}</div>
+      </div>`;
+  }
 }
 function renderServices(project, category, variant) {
   const labels = category.services;
@@ -566,37 +887,46 @@ function renderServices(project, category, variant) {
     <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
   </div>`;
 }
-function renderProof(project, category, variant) {
-  if (variant === 'stats') {
-    const stats = [{ n: '10+', l: 'Years' }, { n: '4.9★', l: 'Avg. rating' }, { n: '100%', l: category.noun.charAt(0).toUpperCase() + category.noun.slice(1) }];
-    return `<div class="site-section site-section-proof" data-variant="stats">
-      <div class="site-proof-stats">${stats.map(s => `<div><strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
-    </div>`;
-  }
-  return `<div class="site-section site-section-proof" data-variant="statement">
-    <p class="site-proof-statement">Trusted by people who need real ${escapeHtml(category.noun)}, not just a nice website.</p>
+// V7: never fabricates a number. Only ever shows a fact the description
+// itself supplied (see extractBusinessFacts) -- composeSections only
+// includes this section at all when at least one such fact exists.
+function renderProof(project, category) {
+  const facts = project.source.facts || {};
+  const stats = [];
+  if (facts.years) stats.push({ n: facts.years + '+', l: 'Years' });
+  if (facts.rating) stats.push({ n: facts.rating, l: 'Rating' });
+  if (facts.count) stats.push({ n: facts.count + '+', l: 'Served' });
+  if (!stats.length) return '';
+  return `<div class="site-section site-section-proof" data-variant="facts">
+    <div class="site-proof-stats">${stats.map(s => `<div><strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
   </div>`;
 }
-function renderGallery(project, category, variant) {
+function renderMetrics(project, category) { return renderProof(project, category); }
+function renderGallery(project, category, variant, labelOverride) {
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
-  const label = escapeHtml(navLabelFor('gallery', project.business.categoryKey));
+  const label = escapeHtml(labelOverride || navLabelFor('gallery', project.business.categoryKey));
   const tileCount = variant === 'featured' ? 3 : 4;
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
     const featuredClass = (i === 0 && variant === 'featured') ? ' gallery-tile-featured' : '';
     if (asset) tiles.push(`<div class="gallery-tile has-image${featuredClass}"><img src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || label + ' photo')}" /></div>`);
-    else tiles.push(`<div class="gallery-tile gallery-tile-placeholder${featuredClass}"></div>`);
+    else tiles.push(`<div class="gallery-tile gallery-tile-placeholder visual-generated${featuredClass}" data-imagery="${escapeHtml(project.design.dimensions.imagery)}"></div>`);
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
     <p class="site-section-label">${label}</p>
     <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
   </div>`;
 }
+function renderCaseStudies(project, category) { return renderGallery(project, category, 'grid', 'Recent Projects'); }
+// V7: the specific numbered claim ("Verified") is dropped -- an
+// illustrative quote used as placeholder marketing copy is normal, but
+// asserting it is a *verified* real review when none exists is exactly the
+// kind of invented proof part 6 asks to remove.
 function renderTestimonial(project, category, variant) {
   const quote = `“Working with a ${escapeHtml(category.label.toLowerCase())} team that actually explains things clearly made this easy.”`;
-  const attribution = `— Verified ${escapeHtml(category.label)} client`;
+  const attribution = `— ${escapeHtml(category.label)} client`;
   if (variant === 'card') {
     return `<div class="site-section site-section-testimonial" data-variant="card">
       <div class="testimonial-card"><p>${quote}</p><span>${attribution}</span></div>
@@ -606,15 +936,19 @@ function renderTestimonial(project, category, variant) {
     <blockquote>${quote}<cite>${attribution}</cite></blockquote>
   </div>`;
 }
+function renderTestimonialsGrid(project, category) {
+  const quotes = ['Clear communication from start to finish.', 'Exactly what we needed, delivered well.', 'Would recommend without hesitation.'];
+  return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
+    <p class="site-section-label">What people say</p>
+    <div class="testimonials-grid">${quotes.map(q => `<div class="testimonial-card"><p>“${escapeHtml(q)}”</p><span>— ${escapeHtml(category.label)} client</span></div>`).join('')}</div>
+  </div>`;
+}
 function renderAbout(project, category, variant) {
   const plan = project.assets.plan;
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
-  const businessName = (project.business.name || 'Your Business').trim();
   const statement = `We're a ${escapeHtml(category.label.toLowerCase())} team focused on getting the details right, from the first conversation to the finished result.`;
   if (variant === 'split' || aboutAsset) {
-    const visual = aboutAsset
-      ? `<img src="${aboutAsset.dataUrl}" alt="${escapeHtml(aboutAsset.alt || 'Team photo')}" />`
-      : `<div class="about-avatar-placeholder">${escapeHtml((businessName.charAt(0) || 'Y').toUpperCase())}</div>`;
+    const visual = renderVisualSlot(project, 'about', project.design.dimensions.imagery, plan.about);
     return `<div class="site-section site-section-about" data-variant="split">
       <div class="about-visual">${visual}</div>
       <div class="about-copy"><p class="site-section-label">About</p><p>${statement}</p></div>
@@ -625,11 +959,121 @@ function renderAbout(project, category, variant) {
     <p class="about-statement-text">${statement}</p>
   </div>`;
 }
+function renderTeam(project, category) {
+  const teamAssets = project.assets.items.filter(a => a.type === 'team');
+  const cards = [];
+  for (let i = 0; i < Math.max(teamAssets.length, 3); i++) {
+    const a = teamAssets[i];
+    cards.push(a ? `<div class="team-card has-image"><img src="${a.dataUrl}" alt="${escapeHtml(a.alt || 'Team member')}" /></div>` : `<div class="team-card team-card-placeholder"></div>`);
+  }
+  return `<div class="site-section site-section-team" data-variant="grid">
+    <p class="site-section-label">Team</p>
+    <div class="team-grid">${cards.slice(0, 4).join('')}</div>
+  </div>`;
+}
 function renderCtaBanner(project, category, variant) {
-  const heading = 'Ready to see this as your real website?';
-  const cta = escapeHtml(category.cta);
   return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
-    <p>${escapeHtml(heading)}</p><button>${cta}</button>
+    <p>Ready to see this as your real website?</p><button>${escapeHtml(category.cta)}</button>
+  </div>`;
+}
+function featureBodyFor(project, category, label, i) {
+  const d = project.source.descriptor || {};
+  const base = d.offering || d.descriptor || category.noun;
+  const templates = [`Built around ${base}, without the busywork.`, `Everything ${base} needs, in one place.`, `Designed to make ${(label || '').toLowerCase()} feel effortless.`];
+  return templates[i % templates.length];
+}
+function renderFeatures(project, category) {
+  const labels = category.services;
+  return `<div class="site-section site-section-features" data-variant="grid">
+    <p class="site-section-label">What it does</p>
+    <div class="features-grid">${labels.map((l, i) => `<div class="feature-card"><span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
+  </div>`;
+}
+function renderProductShowcase(project, category) {
+  const businessName = escapeHtml(project.business.name || 'Your Business');
+  const caption = escapeHtml((project.copy && project.copy.sub) || category.sub);
+  return `<div class="site-section site-section-product" data-variant="showcase">
+    <p class="site-section-label">Product</p><h4>${businessName} in action</h4>
+    <div class="product-frame">${renderVisualSlot(project, 'product', 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
+    <p class="product-caption">${caption}</p>
+  </div>`;
+}
+const categoryIntegrationLabels = {
+  tech: ['Calendar', 'Payments', 'Analytics', 'Messaging', 'Automation', 'Storage'],
+  finance: ['Reporting', 'Compliance', 'Payments', 'Planning'],
+  hospitality: ['Reservations', 'Delivery', 'Loyalty', 'Point of Sale'],
+  retail: ['Inventory', 'Shipping', 'Payments', 'Loyalty'],
+  default: ['Calendar', 'Payments', 'Analytics', 'Support']
+};
+function renderIntegrations(project, category, categoryKey) {
+  const labels = categoryIntegrationLabels[categoryKey] || categoryIntegrationLabels.default;
+  return `<div class="site-section site-section-integrations" data-variant="chips">
+    <p class="site-section-label">Works with what you already use</p>
+    <div class="integration-chips">${labels.map(l => `<span class="integration-chip">${escapeHtml(l)}</span>`).join('')}</div>
+  </div>`;
+}
+function renderPricingSection(project, category) {
+  const tiers = [{ name: 'Starter', blurb: 'For getting started quickly.' }, { name: 'Growth', blurb: 'For teams scaling up.' }, { name: 'Enterprise', blurb: 'Custom for larger needs.' }];
+  return `<div class="site-section site-section-pricing" data-variant="tiers">
+    <p class="site-section-label">Pricing</p>
+    <div class="pricing-tiers">${tiers.map(t => `<div class="pricing-tier"><strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(category.cta)}</button></div>`).join('')}</div>
+  </div>`;
+}
+function renderFaq(project, category) {
+  const d = project.source.descriptor || {};
+  const noun = d.descriptor || category.noun;
+  const qas = [
+    { q: `What does ${escapeHtml(project.business.name || 'this business')} actually do?`, a: escapeHtml(category.sub) },
+    { q: 'How do I get started?', a: `Reach out and we'll walk through ${escapeHtml(noun)} together.` },
+    { q: 'Is support included?', a: 'Yes — real help, not just documentation.' }
+  ];
+  return `<div class="site-section site-section-faq" data-variant="list">
+    <p class="site-section-label">FAQ</p>
+    <div class="faq-list">${qas.map(x => `<div class="faq-item"><strong>${x.q}</strong><p>${x.a}</p></div>`).join('')}</div>
+  </div>`;
+}
+function renderProcess(project, category) {
+  const steps = ['Reach out', 'We scope the work', 'We deliver', 'You review & sign off'];
+  return `<div class="site-section site-section-process" data-variant="steps">
+    <p class="site-section-label">How it works</p>
+    <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
+  </div>`;
+}
+function renderMenu(project, category) {
+  const groups = ['Starters', 'Mains', 'Desserts'];
+  return `<div class="site-section site-section-menu" data-variant="columns">
+    <p class="site-section-label">Menu</p>
+    <div class="menu-groups">${groups.map(g => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><span class="menu-line"></span><span class="menu-line"></span><span class="menu-line"></span></div>`).join('')}</div>
+  </div>`;
+}
+function renderReservationCta(project, category) {
+  return `<div class="site-section site-section-reservation" data-variant="banner">
+    <p>Book a table.</p><button>${escapeHtml(category.cta)}</button>
+  </div>`;
+}
+function renderServiceAreas(project, category) {
+  const loc = project.source.location;
+  const label = loc ? `${escapeHtml(loc)} and surrounding areas` : 'Local & surrounding areas';
+  return `<div class="site-section site-section-areas" data-variant="list">
+    <p class="site-section-label">Service Areas</p><p class="areas-statement">${label}</p>
+  </div>`;
+}
+function renderContact(project, category) {
+  const loc = project.source.location ? escapeHtml(project.source.location) + ' · ' : '';
+  return `<div class="site-section site-section-contact" data-variant="simple">
+    <p class="site-section-label">Contact</p><p>${loc}Get in touch to get started.</p><button>${escapeHtml(category.cta)}</button>
+  </div>`;
+}
+function renderNewsletter(project, category) {
+  return `<div class="site-section site-section-newsletter" data-variant="inline">
+    <p>Stay in the loop.</p>
+    <div class="newsletter-row"><input type="email" placeholder="you@email.com" disabled /><button>Subscribe</button></div>
+  </div>`;
+}
+function renderImageLedEditorial(project, category) {
+  return `<div class="site-section site-section-editorial" data-variant="image-led">
+    <div class="editorial-visual">${renderVisualSlot(project, 'gallery-featured', project.design.dimensions.imagery, (project.assets.plan.gallery || [])[0])}</div>
+    <p class="editorial-caption">${escapeHtml((project.copy && project.copy.sub) || category.sub)}</p>
   </div>`;
 }
 function renderSiteFooter(project, category, variant) {
@@ -657,18 +1101,34 @@ function renderSiteFooter(project, category, variant) {
 function renderSectionHTML(project, section, category) {
   switch (section.type) {
     case 'hero': return renderHero(project, category);
-    case 'proof': return renderProof(project, category, section.variant);
+    case 'proof': return renderProof(project, category);
+    case 'metrics': return renderMetrics(project, category);
     case 'services': return renderServices(project, category, section.variant);
+    case 'features': return renderFeatures(project, category);
+    case 'productShowcase': return renderProductShowcase(project, category);
+    case 'integrations': return renderIntegrations(project, category, project.business.categoryKey);
+    case 'pricing': return renderPricingSection(project, category);
+    case 'faq': return renderFaq(project, category);
+    case 'process': return renderProcess(project, category);
     case 'gallery': return renderGallery(project, category, section.variant);
+    case 'caseStudies': return renderCaseStudies(project, category);
+    case 'imageLedEditorial': return renderImageLedEditorial(project, category);
     case 'about': return renderAbout(project, category, section.variant);
+    case 'team': return renderTeam(project, category);
     case 'testimonial': return renderTestimonial(project, category, section.variant);
+    case 'testimonialsGrid': return renderTestimonialsGrid(project, category);
+    case 'menu': return renderMenu(project, category);
+    case 'reservationCta': return renderReservationCta(project, category);
+    case 'serviceAreas': return renderServiceAreas(project, category);
+    case 'contact': return renderContact(project, category);
+    case 'newsletter': return renderNewsletter(project, category);
     case 'ctaBanner': return renderCtaBanner(project, category, section.variant);
     case 'footer': return renderSiteFooter(project, category, section.variant);
     default: return '';
   }
 }
 function insertSection(proj, type) {
-  const variant = pickVariant(type, proj.design.dimensions);
+  const variant = pickVariant(type, proj.design.dimensions, proj.intent && proj.intent.variationSeed);
   const section = { id: type + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, variant };
   const footerIdx = proj.sections.findIndex(s => s.type === 'footer');
   const insertAt = footerIdx === -1 ? proj.sections.length : footerIdx;
@@ -679,20 +1139,22 @@ function insertSection(proj, type) {
 function ensureAssetDrivenSections(proj) {
   const plan = proj.assets.plan;
   const types = proj.sections.map(s => s.type);
-  if ((plan.gallery || []).length && !types.includes('gallery')) insertSection(proj, 'gallery');
-  if (plan.about && !types.includes('about')) insertSection(proj, 'about');
+  if ((plan.gallery || []).length && !types.includes('gallery') && !types.includes('caseStudies') && !types.includes('imageLedEditorial')) insertSection(proj, 'gallery');
+  if (plan.about && !types.includes('about') && !types.includes('team')) insertSection(proj, 'about');
 }
 
 // ---- WebsiteProject construction + rendering -----------------------------
-function createProject(analysis, preserved) {
+function createProject(analysis, preserved, isDemoShell) {
   const category = categories[analysis.categoryKey] || categories.other;
   const seedKey = analysis.styleKey;
-  const composed = composeStyleFromAnalysis(analysis.text, seedKey);
+  const composed = composeStyleFromAnalysis(analysis.text, analysis.categoryKey, seedKey);
   const assets = (preserved && preserved.assets) ? { items: preserved.assets.items.slice() } : { items: [] };
   assets.plan = planAssets(assets);
   const dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
-  const sections = composeSections(category, dimensions, assets.plan, analysis.categoryKey)
-    .map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions) }));
+  const facts = extractBusinessFacts(analysis.text);
+  const descriptor = extractBusinessDescriptor(analysis.text);
+  const sections = composeSections(category, dimensions, assets.plan, analysis.categoryKey, facts)
+    .map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions, 0) }));
   // V6: prefer a name explicitly captured from THIS description (a fresh
   // Generate submission describing a different business should not keep
   // showing the previous one's name); otherwise keep whatever name already
@@ -702,20 +1164,22 @@ function createProject(analysis, preserved) {
   const extractedName = extractBusinessName(analysis.text);
   const priorName = preserved && preserved.business && preserved.business.name;
   const proj = {
-    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v6' },
-    source: { text: analysis.text, location: analysis.location },
+    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v7', isDemoShell: !!isDemoShell },
+    source: { text: analysis.text, location: analysis.location, facts, descriptor },
     business: {
       name: extractedName || priorName || 'Your Business',
       categoryKey: analysis.categoryKey,
       tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
     },
-    intent: { seedKey, styleAlternates: analysis.styleAlternates },
+    intent: { seedKey, styleAlternates: analysis.styleAlternates, variationSeed: 0 },
     design: { palette: { ...composed.palette }, dimensions, heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split' },
+    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
     sections,
     assets,
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
   ensureAssetDrivenSections(proj);
+  proj.imagePlan = buildImagePlan(proj, category);
   return proj;
 }
 function mix(hex, target, amount) { const a = hexToRgb(hex), b = hexToRgb(target); return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount); }
@@ -849,6 +1313,7 @@ function renderChrome(proj, category) {
 function renderProject(proj) {
   const category = categories[proj.business.categoryKey] || categories.other;
   proj.assets.plan = planAssets(proj.assets);
+  proj.imagePlan = buildImagePlan(proj, category);
   applyDesignDataset(proj);
   renderSections(proj, category);
   renderChrome(proj, category);
@@ -1106,21 +1571,26 @@ if (toneToggle) {
 if (regenerateButton) {
   regenerateButton.addEventListener('click', () => {
     if (!project) return;
-    // Cycle to the next real ranked seed from the ORIGINAL analysis (not
-    // random), recompose design dimensions + section variants against it,
-    // and reorder the services strip -- reads as "the ambiguous parts get
-    // a fresh take," never named to the visitor.
+    // V7: bump the deterministic variation counter (feeds the palette hash
+    // and alternates between equally-valid variants -- see pickVariant),
+    // and cycle to the next real ranked seed from the ORIGINAL analysis for
+    // any dimension that still has no explicit text signal. Never random,
+    // never named to the visitor -- reads as "the ambiguous parts get a
+    // fresh take."
+    project.intent.variationSeed = (project.intent.variationSeed || 0) + 1;
     const candidates = [project.intent.seedKey, ...(project.intent.styleAlternates || [])].filter(Boolean);
     const pool = candidates.length ? candidates : [project.intent.seedKey];
     const currentIndex = pool.indexOf(project.intent.seedKey);
     const nextKey = pool[(currentIndex + 1) % pool.length] || pool[0];
-    const composed = composeStyleFromAnalysis(project.source.text, nextKey);
     project.intent.seedKey = nextKey;
+    const variationText = project.source.text + '::v' + project.intent.variationSeed;
+    const composed = composeStyleFromAnalysis(variationText, project.business.categoryKey, nextKey);
     project.design.palette = { ...composed.palette };
     project.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
-    project.sections.forEach(s => { s.variant = pickVariant(s.type, project.design.dimensions); });
+    project.sections.forEach(s => { s.variant = pickVariant(s.type, project.design.dimensions, project.intent.variationSeed); });
     const category = categories[project.business.categoryKey] || categories.other;
     category.services.push(category.services.shift());
+    project.imagePlan = buildImagePlan(project, category);
     renderProject(project);
   });
 }
@@ -1145,12 +1615,13 @@ if (generatorInput) {
       if (!text) return;
       const analysis = analyzeDescription(text);
       const category = categories[analysis.categoryKey] || categories.other;
-      const composed = composeStyleFromAnalysis(text, analysis.styleKey);
+      const composed = composeStyleFromAnalysis(text, analysis.categoryKey, analysis.styleKey);
       const dims = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
       const plan = planAssets(project ? project.assets : { items: [] });
-      const previewSections = composeSections(category, dims, plan, analysis.categoryKey);
-      if (heroKicker) heroKicker.textContent = category.kicker;
-      if (heroHeadline) heroHeadline.textContent = category.headline;
+      const previewSections = composeSections(category, dims, plan, analysis.categoryKey, extractBusinessFacts(text));
+      const copy = buildCopy(category, analysis.categoryKey, analysis, extractBusinessDescriptor(text));
+      if (heroKicker) heroKicker.textContent = copy.kicker;
+      if (heroHeadline) heroHeadline.textContent = copy.headline;
       if (heroCardSections) heroCardSections.textContent = `${previewSections.length} planned`;
       if (heroCardBrand) heroCardBrand.textContent = composed.palette.main.toUpperCase();
       if (heroCardIndustry) heroCardIndustry.textContent = category.label;
@@ -1213,20 +1684,28 @@ function markGenerated() {
 function buildGenerationPlan(text, preserved) {
   const analysis = analyzeDescription(text);
   const category = categories[analysis.categoryKey] || categories.other;
-  const seed = styles[analysis.styleKey] || styles.precision;
+  const catDefaults = categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other;
   const extractedName = extractBusinessName(analysis.text);
   const priorName = preserved && preserved.business && preserved.business.name;
+  const facts = extractBusinessFacts(analysis.text);
+  const descriptor = extractBusinessDescriptor(analysis.text);
 
+  // V7: the first-paint shell now seeds its dimensions from the detected
+  // CATEGORY's defaults, not the named seed's raw values -- so even before
+  // the "structure"/"typography" steps run, an AI company already shows a
+  // SaaS-shaped hero instead of the generic split-hero default every result
+  // used to start from.
   const proj = {
-    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v6' },
-    source: { text: analysis.text, location: analysis.location },
+    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v7', isDemoShell: false },
+    source: { text: analysis.text, location: analysis.location, facts, descriptor },
     business: { name: extractedName || priorName || 'Your Business', categoryKey: analysis.categoryKey, tone: (preserved && preserved.business && preserved.business.tone) || 'professional' },
-    intent: { seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates },
+    intent: { seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed: 0 },
     design: {
-      palette: { ...seed.palette },
-      dimensions: { hero: seed.hero, type: seed.type, nav: seed.nav, card: seed.card, imagery: seed.imagery, cta: seed.cta, colorBehavior: seed.colorBehavior, motion: seed.motion, spacing: seed.spacing, pattern: seed.pattern },
+      palette: composePalette(analysis.categoryKey, catDefaults, analysis.text),
+      dimensions: { ...catDefaults },
       heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split'
     },
+    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
     sections: [{ id: 'hero-seed-' + Date.now().toString(36), type: 'hero', variant: 'default' }],
     assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {} } : { items: [], plan: {} },
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
@@ -1242,10 +1721,10 @@ function buildGenerationPlan(text, preserved) {
         return `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`;
       } },
     { key: 'structure', run() {
-        composed = composeStyleFromAnalysis(analysis.text, analysis.styleKey);
-        const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey);
+        composed = composeStyleFromAnalysis(analysis.text, analysis.categoryKey, analysis.styleKey);
+        const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
         proj.sections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
-        return `${proj.sections.length} sections planned`;
+        return `${proj.sections.length} sections planned (${category.label.toLowerCase()})`;
       } },
     { key: 'typography', run() {
         proj.design.palette = { ...composed.palette };
@@ -1253,14 +1732,19 @@ function buildGenerationPlan(text, preserved) {
         return describeComposition(composed);
       } },
     { key: 'sections', run() {
-        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions); });
+        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, 0); });
+        proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor);
         return `Content matched to ${category.label}`;
       } },
     { key: 'imagery', run() {
         proj.assets.plan = planAssets(proj.assets);
         ensureAssetDrivenSections(proj);
+        proj.imagePlan = buildImagePlan(proj, category);
         const n = proj.assets.items.length;
-        return n ? `${n} of your images placed` : 'Placeholder imagery matched to your brand';
+        const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
+        if (n) return `${n} of your images placed`;
+        if (generatedCount) return `${generatedCount} image${generatedCount === 1 ? '' : 's'} generated`;
+        return 'Art-directed imagery matched to your brand';
       } },
     { key: 'build', run() {
         return 'Desktop + mobile preview ready';
@@ -1448,10 +1932,18 @@ leadForm.addEventListener('submit', async event => {
   }
 });
 
-// ---- Bootstrap: an initial placeholder project so the (locked/blurred)
-// preview shows sensible generic content before the first real generation,
-// same as V3/V4's static markup used to, but now built the same way any
-// other project is. ----
-project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null);
+// ---- Bootstrap: an initial demo shell, deliberately NOT styled like a real
+// generated result (V7 part 7d -- see hero-demo-shell / isDemoShell above).
+// It shows neutral copy and a distinct "preview" visual treatment so a
+// visitor never mistakes the empty state for an actual generated site.
+project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null, true);
 renderProject(project);
 year.textContent = new Date().getFullYear();
+// V7: best-effort provider status check -- see buildImagePlan. Never blocks
+// generation; if this hasn't resolved yet, imagePlan safely defaults to the
+// honest 'designed' tier (see server.js for what /api/image-provider-status
+// actually reports in this environment).
+fetch('/api/image-provider-status').then(r => r.json()).then(status => {
+  window.__siteremadeImageProvider = status;
+  if (project) { project.imagePlan = buildImagePlan(project, categories[project.business.categoryKey] || categories.other); }
+}).catch(() => {});
