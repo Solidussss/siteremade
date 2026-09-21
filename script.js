@@ -756,21 +756,34 @@ function buildCopy(category, categoryKey, analysis, descriptor) {
   return { kicker, headline, sub, cta: category.cta };
 }
 
-// ---- V7: image plan + designed visual slots -------------------------------
-// Every visual role in the project now resolves through one funnel, in the
+// ---- V7.1: image plan + designed visual slots + real async generation ----
+// Every visual role in the project resolves through one funnel, in the
 // priority order the brief specifies: a real user upload always wins; a
-// real generated image would be next IF a provider were configured (see
-// server.js and SITE-PROJECT-V7.md part 2/10 -- none is reachable from this
-// environment, confirmed by audit, so that tier is wired but inactive
-// rather than faked); then a sourced stock image (same audit result,
-// unavailable); then the honest fallback used today -- an art-directed CSS
-// composition keyed to the category's `imagery` dimension, never a
-// fabricated photo. `window.__siteremadeImageProvider` is populated
-// (async, best-effort) by a status check against the server on load.
-function renderVisualSlot(project, role, imageryKey, assetId) {
+// real generated image is shown next, but ONLY once resolveImagePlanAssets
+// (below) has actually asked the server for it and gotten a dataUrl back --
+// never merely because a provider is configured; then the honest fallback
+// used today -- an art-directed CSS composition keyed to the category's
+// `imagery` dimension, never a fabricated photo. `window.__siteremadeImageProvider`
+// is populated (async, best-effort) by a status check against the server on load.
+function renderVisualSlot(project, slot, imageryKey, assetId) {
   const asset = assetId ? project.assets.items.find(a => a.id === assetId) : null;
   if (asset) return `<img class="site-visual-img" src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || (project.business.name || 'Business') + ' image')}" />`;
-  return `<div class="visual-generated" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(role)}"></div>`;
+  const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
+  const generated = project.assets.generated && project.assets.generated[slot];
+  // A cached generated image is only shown if it matches the CURRENT plan
+  // entry's cache key. If the business/category/imagery direction changed
+  // since it was generated, the stale image is never displayed -- the slot
+  // just falls back to the designed CSS treatment until a fresh request
+  // (fired elsewhere, see resolveImagePlanAssets) resolves.
+  const cacheMatches = !!(generated && planEntry && generated.cacheKey === planEntry.cacheKey);
+  if (cacheMatches && generated.status === 'ready' && generated.dataUrl) {
+    return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}" alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
+  }
+  const generating = cacheMatches && generated.status === 'pending';
+  return `<div class="visual-generated${generating ? ' visual-generating' : ''}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
+}
+function imageSlotLabel(slot) {
+  return { hero: 'hero image', 'collage-2': 'hero image', about: 'team image', product: 'product visual', 'gallery-featured': 'gallery image' }[slot] || 'image';
 }
 const imageStyleDescriptions = {
   'technical-network': 'abstract technical visualization of interconnected data and systems',
@@ -794,25 +807,115 @@ function buildImagePrompt(project, category, role) {
   const styleWord = imageStyleDescriptions[composed.imagery] || 'clean abstract brand composition';
   return `${styleWord} for a ${category.label.toLowerCase()} brand${loc}, ${paletteDesc}, premium brand aesthetic, ${role} composition, no text`;
 }
-function imageRoleForSection(type) {
-  return { hero:'hero', productShowcase:'product', gallery:'gallery', caseStudies:'gallery', imageLedEditorial:'gallery', about:'team', team:'team' }[type] || null;
+// One entry per real, currently-rendered visual slot (the same slot ids
+// renderHero/renderAbout/renderProductShowcase/renderImageLedEditorial pass
+// to renderVisualSlot) -- not one per section -- so the plan matches
+// exactly what renderProject is about to put on screen. Each entry carries
+// a stable `cacheKey` that only changes when the business itself changes
+// (category, imagery direction, or the source description) -- deliberately
+// NOT when palette/tone/hero-layout-preview/device are tweaked, so ordinary
+// refinement never invalidates an already-generated image. See
+// resolveImagePlanAssets below and SITE-PROJECT-V7.1.md.
+function computeImageCacheKey(project, role, slot) {
+  const composed = project.design.dimensions;
+  return hashString(`${project.business.categoryKey}::${composed.imagery}::${role}::${slot}::${project.source.text || ''}`).toString(36);
 }
 function buildImagePlan(project, category) {
+  if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
+  const composed = project.design.dimensions;
   const providerConfigured = !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
-  return project.sections.map(s => {
-    const role = imageRoleForSection(s.type);
-    if (!role) return null;
-    const assetId = role === 'hero' ? plan.hero : role === 'team' ? plan.about : (plan.gallery || [])[0];
-    const sourceType = assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
-    return {
-      section: s.id, sectionType: s.type, role,
-      intent: role === 'hero' ? `Primary hero visual for ${category.label}` : role === 'product' ? 'Product / interface visual' : role === 'team' ? 'Team / people visual' : 'Supporting gallery visual',
-      prompt: buildImagePrompt(project, category, role),
-      aspectRatio: role === 'hero' ? '16:9' : role === 'team' ? '1:1' : '4:3',
-      placement: role, sourceType
-    };
-  }).filter(Boolean);
+  const slots = [];
+  const heroSection = project.sections.find(s => s.type === 'hero');
+  // centered-oversized/minimal-text-only/poster are deliberately text-only
+  // hero treatments -- renderHero never calls renderVisualSlot for them, so
+  // planning (and generating) a hero image for those layouts would pay for
+  // an image nothing ever displays.
+  const heroHasVisual = heroSection && !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
+  if (heroHasVisual) {
+    slots.push({ slot: 'hero', role: 'hero', section: heroSection.id, sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}` });
+    // The collage hero layout uses a second image-bearing card -- only real
+    // when that layout is actually selected, so we never plan/generate an
+    // image for a slot that won't be on screen.
+    if (composed.hero === 'collage') {
+      slots.push({ slot: 'collage-2', role: 'hero', section: heroSection.id, sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}` });
+    }
+  }
+  const productSection = project.sections.find(s => s.type === 'productShowcase');
+  if (productSection) {
+    slots.push({ slot: 'product', role: 'product', section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual' });
+  }
+  // renderAbout only ever shows a visual for the 'split' variant (or when a
+  // real upload exists) -- matching that here avoids planning/generating an
+  // image the 'statement' variant would never display.
+  const aboutSection = project.sections.find(s => s.type === 'about');
+  if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
+    slots.push({ slot: 'about', role: 'team', section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual' });
+  }
+  const editorialSection = project.sections.find(s => s.type === 'imageLedEditorial');
+  if (editorialSection) {
+    slots.push({ slot: 'gallery-featured', role: 'gallery', section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
+  }
+  return slots.map(s => {
+    const sourceType = s.assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
+    return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
+  });
+}
+
+// ---- V7.1: real async image generation ------------------------------------
+// The ONLY function that calls POST /api/generate-image. It is invoked from
+// explicit "the image-relevant identity of the project just changed" points
+// (finished a Generate, hit Regenerate, uploaded/removed an asset, toggled a
+// section, changed industry, restored a save, or the provider status just
+// came back) -- never from renderProject/renderVisualSlot, which stay pure
+// and synchronous. That split is what makes a color tweak, tone toggle or
+// device-preview switch free to call renderProject as often as it wants
+// without ever re-requesting an image. Per-slot state lives in
+// project.assets.generated -- plain JSON, so it travels through
+// save/restore for free, the same as a user upload.
+const imageRequestsInFlight = new Set();
+function resolveImagePlanAssets(proj) {
+  if (!proj || (proj.meta && proj.meta.isDemoShell)) return;
+  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) return;
+  proj.assets.generated = proj.assets.generated || {};
+  (proj.imagePlan || []).forEach(entry => {
+    if (entry.sourceType !== 'generated') return; // a user asset covers this slot, or the provider isn't configured
+    const slot = entry.slot;
+    const existing = proj.assets.generated[slot];
+    // Already have this exact image, or already asked for it -- an ordinary
+    // re-render (color/tone/layout/device) must never cause a second paid
+    // request for a slot whose identity hasn't changed.
+    if (existing && existing.cacheKey === entry.cacheKey && (existing.status === 'ready' || existing.status === 'pending')) return;
+    const reqKey = `${proj.meta.id}::${slot}::${entry.cacheKey}`;
+    if (imageRequestsInFlight.has(reqKey)) return; // de-dupe concurrent triggers for the same request
+    imageRequestsInFlight.add(reqKey);
+    proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'pending', prompt: entry.prompt };
+    if (proj === project) renderProject(project); // shows the honest "Generating…" state right away, without blocking anything else on the page
+    fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role })
+    })
+      .then(r => r.json().catch(() => ({})))
+      .then(data => {
+        imageRequestsInFlight.delete(reqKey);
+        const current = proj.assets.generated[slot];
+        if (!current || current.cacheKey !== entry.cacheKey) return; // superseded by a newer plan before this returned
+        if (!data || data.ok !== true || !data.dataUrl) {
+          // Honest failure path: fall back cleanly to the designed CSS visual.
+          proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
+        } else {
+          proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: data.dataUrl, prompt: entry.prompt };
+        }
+        if (proj === project) renderProject(project);
+      })
+      .catch(() => {
+        imageRequestsInFlight.delete(reqKey);
+        const current = proj.assets.generated[slot];
+        if (current && current.cacheKey === entry.cacheKey) proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
+        if (proj === project) renderProject(project);
+      });
+  });
 }
 
 // ---- Section HTML renderers ----------------------------------------------
@@ -855,7 +958,7 @@ function renderHero(project, category) {
       </div>`;
     case 'grid-dashboard': return `<div class="site-hero hero-grid-dashboard">
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
-        <div class="hero-dash-grid" data-imagery="${escapeHtml(composed.imagery)}"><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div></div>
+        <div class="hero-dash-grid"><div class="dash-panel dash-panel-visual">${visual}</div><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div></div>
       </div>`;
     case 'poster': return `<div class="site-hero hero-poster">
         <p class="hero-kicker-center">${kicker}</p><h3 class="hero-poster-headline">${headline}</h3>
@@ -868,7 +971,7 @@ function renderHero(project, category) {
       </div>`; }
     case 'product-screenshot': return `<div class="site-hero hero-product-screenshot">
         <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center"><button>${cta}</button></div></div>
-        <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body" data-imagery="${escapeHtml(composed.imagery)}"></div></div>
+        <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body">${visual}</div></div>
       </div>`;
     default: return `<div class="site-hero hero-split">
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button><span>See our work ↗</span></div></div>
@@ -1148,7 +1251,7 @@ function createProject(analysis, preserved, isDemoShell) {
   const category = categories[analysis.categoryKey] || categories.other;
   const seedKey = analysis.styleKey;
   const composed = composeStyleFromAnalysis(analysis.text, analysis.categoryKey, seedKey);
-  const assets = (preserved && preserved.assets) ? { items: preserved.assets.items.slice() } : { items: [] };
+  const assets = (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), generated: {} } : { items: [], generated: {} };
   assets.plan = planAssets(assets);
   const dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
   const facts = extractBusinessFacts(analysis.text);
@@ -1345,8 +1448,11 @@ function loadProjectFromStorage() {
   if (!raw) { setProjectStatus('No saved project found yet.'); return; }
   try {
     project = JSON.parse(raw);
+    project.assets = project.assets || {};
+    project.assets.generated = project.assets.generated || {}; // restore generated imagery same as user uploads
     renderProject(project);
     markGenerated();
+    resolveImagePlanAssets(project); // covers any slot that was still pending/errored when it was saved
     setProjectStatus('Loaded your last saved project from stored data.');
   } catch (e) { setProjectStatus('Saved project could not be read.'); }
 }
@@ -1441,7 +1547,7 @@ let hasGenerated = false;
 
 // ---- Refinement controls: mutate `project`, then re-render --------------
 [businessName].forEach(el => el.addEventListener('input', () => { if (!project) return; project.business.name = businessName.value; renderProject(project); }));
-industrySelect.addEventListener('input', () => { if (!project) return; project.business.categoryKey = industrySelect.value; renderProject(project); });
+industrySelect.addEventListener('input', () => { if (!project) return; project.business.categoryKey = industrySelect.value; renderProject(project); resolveImagePlanAssets(project); });
 [brandColor, backgroundColor, textColor].forEach(el => el.addEventListener('input', () => {
   if (!project) return;
   project.design.palette.main = brandColor.value;
@@ -1482,6 +1588,11 @@ function afterAssetsChanged() {
   project.assets.plan = planAssets(project.assets);
   ensureAssetDrivenSections(project);
   renderProject(project);
+  // Uploading a real image always outranks a generated one (no request
+  // needed); removing one can newly leave a slot needing a generated image.
+  // Either way this recomputes what's actually still missing -- it never
+  // re-requests a slot a user asset already covers.
+  resolveImagePlanAssets(project);
 }
 if (heroAssetAdd) heroAssetAdd.addEventListener('click', () => heroAssetInput.click());
 if (heroAssetInput) heroAssetInput.addEventListener('change', e => {
@@ -1546,6 +1657,7 @@ function toggleSection(type, on) {
   if (on) { if (!project.sections.some(s => s.type === type)) insertSection(project, type); }
   else { project.sections = project.sections.filter(s => s.type !== type); }
   renderProject(project);
+  resolveImagePlanAssets(project); // switching on an image-bearing section (e.g. Product) may newly need a generated image
 }
 if (sectionToggles) {
   sectionToggles.addEventListener('change', event => {
@@ -1592,6 +1704,7 @@ if (regenerateButton) {
     category.services.push(category.services.shift());
     project.imagePlan = buildImagePlan(project, category);
     renderProject(project);
+    resolveImagePlanAssets(project); // imagery direction may have changed -- no-ops if the cache key is unchanged
   });
 }
 if (saveProjectButton) saveProjectButton.addEventListener('click', saveProjectToStorage);
@@ -1707,7 +1820,13 @@ function buildGenerationPlan(text, preserved) {
     },
     copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
     sections: [{ id: 'hero-seed-' + Date.now().toString(36), type: 'hero', variant: 'default' }],
-    assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {} } : { items: [], plan: {} },
+    // A fresh Generate submission describes a business that may be entirely
+    // different from the last one -- uploaded images still carry over (the
+    // person's own asset didn't stop being relevant), but any previously
+    // generated images did belong to the old imagePlan's cache keys and are
+    // deliberately not carried forward; a real new imagePlan will ask for
+    // whatever it actually needs.
+    assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {}, generated: {} } : { items: [], plan: {}, generated: {} },
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
   proj.assets.plan = planAssets(proj.assets);
@@ -1756,6 +1875,7 @@ function finishGeneration(proj) {
   project = proj;
   renderProject(project);
   markGenerated();
+  resolveImagePlanAssets(project); // fire real image requests for this freshly-built plan, async, non-blocking
 
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
@@ -1945,5 +2065,9 @@ year.textContent = new Date().getFullYear();
 // actually reports in this environment).
 fetch('/api/image-provider-status').then(r => r.json()).then(status => {
   window.__siteremadeImageProvider = status;
-  if (project) { project.imagePlan = buildImagePlan(project, categories[project.business.categoryKey] || categories.other); }
+  if (project) {
+    project.imagePlan = buildImagePlan(project, categories[project.business.categoryKey] || categories.other);
+    renderProject(project);
+    resolveImagePlanAssets(project); // provider may have just become configured -- fires real requests for whatever the current plan needs
+  }
 }).catch(() => {});

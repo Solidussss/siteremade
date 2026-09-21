@@ -1139,6 +1139,11 @@ html,body{max-width:100%;overflow-x:hidden}
 .hero-dash-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:320px}
 .dash-panel{border-radius:12px;background:color-mix(in srgb,var(--site-accent) 10%,var(--site-bg-dark));border:1px solid color-mix(in srgb,var(--site-text) 10%,transparent)}
 .dash-panel:first-child{background:color-mix(in srgb,var(--site-accent) 24%,var(--site-bg-dark))}
+/* The primary dashboard panel carries the real hero visual (user upload,
+   generated image, or the designed CSS fallback) -- see renderHero's
+   'grid-dashboard' case in script.js. */
+.dash-panel-visual{padding:0;overflow:hidden}
+.dash-panel-visual .visual-generated,.dash-panel-visual .site-visual-img{width:100%;height:100%}
 
 .builder-site .site-hero.hero-poster{grid-template-columns:1fr;padding:70px 40px;text-align:center;background:linear-gradient(160deg,color-mix(in srgb,var(--site-accent) 16%,var(--site-bg)),var(--site-bg))!important}
 .hero-poster-headline{font-size:clamp(64px,9vw,150px);line-height:.84;letter-spacing:-.085em;margin:14px 0 26px}
@@ -1155,7 +1160,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .hero-product-frame{margin:32px -48px 0;border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 -20px 60px rgba(0,0,0,.2);background:var(--site-bg-dark)}
 .hero-product-chrome{display:flex;gap:6px;padding:12px 16px;background:color-mix(in srgb,var(--site-bg-dark) 80%,#000)}
 .hero-product-chrome span{width:9px;height:9px;border-radius:50%;background:color-mix(in srgb,var(--site-text) 30%,transparent)}
-.hero-product-body{height:280px}
+.hero-product-body{height:280px;overflow:hidden}
+/* Carries the real hero visual, same as .dash-panel-visual above -- see
+   renderHero's 'product-screenshot' case in script.js. */
+.hero-product-body .visual-generated,.hero-product-body .site-visual-img{width:100%;height:100%}
 
 .builder-site .site-hero.hero-demo-shell{background:linear-gradient(150deg,#151821,#0c0d10)!important}
 .builder-site .site-hero.hero-demo-shell .site-copy>p:first-child{color:#6c7180;letter-spacing:.22em}
@@ -1169,6 +1177,19 @@ html,body{max-width:100%;overflow-x:hidden}
    renderVisualSlot / buildImagePlan in script.js and the provider audit in
    SITE-PROJECT-V7.md part 2/10. */
 .visual-generated{position:relative;width:100%;height:100%;min-height:140px;border-radius:inherit;overflow:hidden;background:linear-gradient(145deg,color-mix(in srgb,var(--site-accent) 14%,var(--site-bg-dark)),var(--site-bg-dark))}
+.site-visual-generated-img{animation:visualGeneratedIn .5s ease both}
+@keyframes visualGeneratedIn{from{opacity:0;transform:scale(1.02)}to{opacity:1;transform:scale(1)}}
+/* V7.1: an in-flight real image request. Shown only while
+   resolveImagePlanAssets (script.js) is actually waiting on
+   POST /api/generate-image for this exact slot -- an honest progress state,
+   not decorative loading chrome, and it's automatically removed the moment
+   the request resolves (to the real image) or fails (back to the plain
+   designed treatment above). */
+.visual-generated.visual-generating{animation:visualGeneratingPulse 1.8s ease-in-out infinite}
+@keyframes visualGeneratingPulse{0%,100%{opacity:.85}50%{opacity:1}}
+.visual-generating-label{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font-size:.72rem;letter-spacing:.02em;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--site-bg-dark) 78%,transparent);color:var(--site-text);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.visual-generating-label::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--site-accent);animation:visualGeneratingDot 1s ease-in-out infinite}
+@keyframes visualGeneratingDot{0%,100%{opacity:.3}50%{opacity:1}}
 .visual-generated[data-imagery="technical-network"]{background:radial-gradient(circle at 30% 30%,color-mix(in srgb,var(--site-accent) 35%,transparent),transparent 45%),radial-gradient(circle at 75% 65%,color-mix(in srgb,var(--site-accent-2) 30%,transparent),transparent 45%),var(--site-bg-dark);background-image:linear-gradient(color-mix(in srgb,var(--site-accent) 22%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-accent) 22%,transparent) 1px,transparent 1px),radial-gradient(circle at 30% 30%,color-mix(in srgb,var(--site-accent) 35%,transparent),transparent 45%),var(--site-bg-dark);background-size:34px 34px,34px 34px,auto,auto}
 .visual-generated[data-imagery="editorial-bold"]{background:linear-gradient(115deg,var(--site-bg) 0 55%,color-mix(in srgb,var(--site-accent) 65%,var(--site-bg)) 55%)}
 .visual-generated[data-imagery="atmospheric-warm"]{background:radial-gradient(circle at 25% 25%,color-mix(in srgb,var(--site-accent) 40%,transparent),transparent 55%),radial-gradient(circle at 80% 75%,color-mix(in srgb,var(--site-accent-2) 32%,transparent),transparent 55%),var(--site-bg-light)}
