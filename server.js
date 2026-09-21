@@ -242,6 +242,18 @@ const PATTERN_KEYS = ['standard','proof-first','story-first','portfolio-first'];
 const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
 const IMAGE_ROLE_KEYS = ['hero','product','team','gallery'];
 const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
+// V8.4: the module vocabulary a section may optionally carry -- kept in
+// exact sync with script.js's own MODULE_TYPE_KEYS/MODULE_FIELD_ALLOWLIST/
+// INTEGRATION_PROVIDER_KEYS, the same one-for-one mirroring convention the
+// HERO_KEYS/SECTION_TYPE_KEYS lists above already use. The schema only ever
+// lets Claude pick a module TYPE and which of a fixed, already-safe field
+// KEY to include -- never a field's label, input kind, validation, or any
+// live credential/webhook/price/address; script.js's own
+// normalizeSectionModuleFromClaude re-validates everything here again,
+// independently, before any of it becomes real project state.
+const MODULE_TYPE_KEYS = ['contact','quote','newsletter','booking','location','action','product'];
+const MODULE_FIELD_KEYS = ['name','email','phone','message','service','description','preferredContact','date','time','partySize','notes'];
+const INTEGRATION_PROVIDER_KEYS = ['calendly','shopify','square','stripe','mailchimp','google-maps'];
 
 const WEBSITE_PLAN_TOOL = {
   name: 'submit_website_plan',
@@ -326,6 +338,37 @@ const WEBSITE_PLAN_TOOL = {
                       type: 'object', additionalProperties: false, required: ['text', 'sourced'],
                       properties: { text: { type: 'string' }, sourced: { type: 'boolean' } }
                     }
+                  },
+                  // V8.4: an optional REAL, working functionality module for
+                  // this section -- contact/quote forms, a newsletter
+                  // signup, a booking/reservation request, a location
+                  // placeholder, a direct call/email/directions/external-
+                  // link action, or a product CTA. Only include this when
+                  // it is genuinely compatible with this section's own
+                  // type (a contact-style module on a contact/ctaBanner/
+                  // serviceAreas section, a booking module on a
+                  // reservationCta/contact section, etc.) -- SiteRemade
+                  // independently re-validates the pairing and silently
+                  // drops anything incompatible, so an incorrect guess here
+                  // never breaks the render, it just does nothing.
+                  module: {
+                    type: 'object', additionalProperties: false, required: ['type'],
+                    description: 'A real, working module -- never a description of one. Omit this field entirely for a section that should stay static/decorative.',
+                    properties: {
+                      type: { type: 'string', enum: MODULE_TYPE_KEYS },
+                      fields: {
+                        type: 'array', maxItems: 8,
+                        description: 'Which optional field KEYS to include, beyond the type\'s own always-included essentials (e.g. name/email). Only keys relevant to this module type are used; anything else is ignored.',
+                        items: { type: 'string', enum: MODULE_FIELD_KEYS }
+                      },
+                      requiredFields: {
+                        type: 'array', maxItems: 8,
+                        description: 'Which of the included field keys should be marked required, beyond the type\'s own always-required essentials.',
+                        items: { type: 'string', enum: MODULE_FIELD_KEYS }
+                      },
+                      successMessage: { type: 'string', description: 'A short, real message shown after a real (or preview) submission -- never a claim of something that does not exist, e.g. do not promise a specific response time unless the business actually stated one.' },
+                      integrationProvider: { type: 'string', enum: INTEGRATION_PROVIDER_KEYS, description: 'Only a plausible FUTURE integration for this module (e.g. booking -> calendly) -- never a claim that it is actually connected today; it never will be, from this field alone.' }
+                    }
                   }
                 }
               }
@@ -348,7 +391,7 @@ const WEBSITE_PLAN_TOOL = {
       },
       functionalityPlan: {
         type: 'array', maxItems: 8,
-        description: 'What this business would reasonably need the site to DO. Only "supportedNow" for a contact/lead form and static content -- anything needing a live backend, payments, real bookings/reservations or logins is plannedIntegration or requiresCustomBuild. Never claim a system exists that does not.',
+        description: 'A short honest NARRATIVE of what this business would reasonably need the site to DO -- separate from the real, working `module` fields above. A module you actually placed on a section is "supportedNow" (it really works, as a labeled preview submission). Payments, real bookings against a live calendar, logins, or anything needing a live backend/API key this app does not have is plannedIntegration or requiresCustomBuild. Never claim a system exists that does not.',
         items: {
           type: 'object', additionalProperties: false, required: ['feature', 'status'],
           properties: {
@@ -369,7 +412,8 @@ Rules:
 2. Reason about the actual business -- do not default to a generic template or a fixed page/section count. A premium AI logistics company, a neighborhood roofer, and an editorial fashion label should end up structurally different: different pages, different section choices and order, different density, different hero, different motion.
 3. Every enum field must be a real, considered choice, not a random pick -- explain your visual direction in one sentence (rationale).
 4. functionalityPlan must be honest: SiteRemade can render a contact/lead form and static content today. Booking, payments, ecommerce, portals, and live integrations do not exist yet -- mark them plannedIntegration or requiresCustomBuild, never supportedNow.
-5. Keep copy concise and genuinely specific to this business -- avoid generic filler like "a modern website that makes your business obvious" unless the input truly gives you nothing else to work with.`;
+5. Keep copy concise and genuinely specific to this business -- avoid generic filler like "a modern website that makes your business obvious" unless the input truly gives you nothing else to work with.
+6. Where it genuinely fits, give ONE relevant section a real, working module (module.type) -- a restaurant's reservation section gets a booking module, a contractor's services/contact section gets a quote module, a retail product section gets a product module, and so on. Only choose a module type that's actually compatible with that section (a booking module belongs on a reservation/contact section, not on a pricing table). Do not invent a phone number, email address, physical address, price, checkout link, or "connected" integration for it -- leave a config-level fact out entirely rather than guess; SiteRemade renders an honest empty/placeholder state for anything you don't supply. A module you place is a REAL, working preview form, not a description of a future feature -- that's what functionalityPlan is for.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [

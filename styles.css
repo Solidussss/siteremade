@@ -1361,3 +1361,81 @@ html,body{max-width:100%;overflow-x:hidden}
   .editor-section-card-row{grid-template-columns:1fr}
 }
 
+/* ---- V8.4: functionality module rendering + CTA targeting ----------------
+   Module widgets render inside the normal .site-section flow (see
+   renderFormModuleWidget/renderLocationModuleWidget/renderActionModuleWidget/
+   renderProductModuleWidget in script.js) -- real, interactive form/CTA
+   elements, not decorative content, so they use the same --site-accent/
+   --site-text theme tokens every other section already uses rather than a
+   separate visual style bolted on top. This is a functionality pass, not a
+   visual-direction pass: module widgets get one consistent, accessible
+   treatment across every generated visual direction rather than 21
+   direction-specific skins. */
+.site-section-module{max-width:560px}
+.module-form{display:flex;flex-direction:column;gap:16px;margin-top:10px}
+.module-field{display:flex;flex-direction:column;gap:5px}
+.module-field label{font-size:11px;color:color-mix(in srgb,var(--site-text) 72%,transparent)}
+.module-required-mark{color:#ff7a7a}
+.module-field input,.module-field select,.module-field textarea{
+  width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.03);
+  color:inherit;border-radius:9px;padding:12px 13px;font-size:13px;font-family:inherit;outline:none
+}
+.module-field textarea{resize:vertical;min-height:90px}
+.module-field input:focus,.module-field select:focus,.module-field textarea:focus{border-color:var(--site-accent)}
+.module-field-error input,.module-field-error select,.module-field-error textarea{border-color:#ff6b6b}
+.module-field-err{font-size:11px;color:#ff9a9a;min-height:14px}
+.module-field-err:empty{display:none}
+.module-submit-btn{align-self:flex-start;border:0;border-radius:999px;padding:13px 22px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer}
+.module-submit-btn:disabled{opacity:.6;cursor:default}
+.module-submit-error{font-size:12px;color:#ff9a9a;margin:0}
+.module-success{padding:22px 0}
+.module-success p{margin:0 0 8px;font-size:15px}
+.module-success .module-preview-note{font-size:11px!important;color:color-mix(in srgb,var(--site-text) 55%,transparent)!important;margin:0!important}
+.module-map-placeholder{min-height:160px;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;margin-top:12px;background:color-mix(in srgb,var(--site-accent) 10%,var(--site-bg-dark));border:1px solid rgba(255,255,255,.08)}
+.module-map-note{font-size:13px;color:color-mix(in srgb,var(--site-text) 82%,transparent)}
+.module-empty-note{font-size:11px;color:color-mix(in srgb,var(--site-text) 55%,transparent);margin:10px 0 0}
+.module-cta-btn{border:0;border-radius:999px;padding:13px 20px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.module-cta-btn:disabled,.module-cta-btn[disabled]{opacity:.5;cursor:default}
+.module-product-cta{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.module-product-price{margin:0;font-size:14px;font-weight:700}
+/* The hero CTA and the minimal-hero text link can now render as a real
+   <a href="tel:/mailto:/https:"> instead of a plain <button> once a CTA
+   target is configured (see renderCtaButton) -- these two rules give that
+   link the same base pill/underline treatment the existing per-direction
+   `.site-actions button` / `.minimal-link` rules already give the button
+   form. Direction-specific ornamental variants (sharp-block corners,
+   outline-ghost, underline-link, floating-badge shadow, hover motion) stay
+   scoped to `button` as before -- reproducing every one of those for an
+   <a> element too is a visual-polish concern outside this pass's scope,
+   noted here deliberately rather than silently left inconsistent. */
+a.hero-cta-btn{text-decoration:none}
+a.minimal-link{cursor:pointer}
+button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;color:inherit}
+
+/* ---- V8.4: module + CTA editor controls -----------------------------------
+   Lives inside the same editor-section-card as V8.3's copy/variant fields
+   (see renderModuleEditorHtml/renderCtaTargetEditorHtml) -- reuses that
+   card's own spacing/border conventions rather than introducing a new
+   container style. */
+.editor-module-block{margin-top:12px;padding-top:12px;border-top:1px solid #e4e6ea}
+.editor-module-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.editor-module-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:#40444d}
+.editor-module-header select{height:34px;border:1px solid #d8dae0;background:#fff;border-radius:8px;padding:0 8px;font-size:11px}
+.editor-module-fields{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.editor-module-field-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f7f7f8;border-radius:8px;padding:6px 8px}
+.editor-module-field-row .editor-module-field-label{flex:1;min-width:100px;height:30px;border:1px solid #d8dae0;background:#fff;border-radius:6px;padding:0 8px;font-size:11px}
+.editor-module-field-required{display:flex;align-items:center;gap:4px;font-size:10px;color:#6b6f78;white-space:nowrap}
+.editor-module-field-row button{border:1px solid #d8dae0;background:#fff;border-radius:6px;font-size:10px;min-height:26px;min-width:26px;padding:0 6px;cursor:pointer}
+.editor-module-field-row button:disabled{opacity:.35;cursor:default}
+.editor-module-block>label,.editor-module-block>.editor-module-config-row>label{display:block;font-size:10px;color:#6b6f78;margin-top:8px}
+.editor-module-block textarea,.editor-module-block input[type="text"],.editor-module-block select{
+  width:100%;border:1px solid #d8dae0;background:#fbfbfc;border-radius:8px;margin-top:4px;padding:7px 9px;font-size:12px;font-family:inherit;resize:vertical
+}
+.editor-cta-target{margin-top:12px;padding-top:12px;border-top:1px solid #e4e6ea;display:grid;gap:8px}
+.editor-cta-target label{font-size:10px;color:#6b6f78;display:block}
+.editor-cta-target select,.editor-cta-target input{width:100%;height:36px;border:1px solid #d8dae0;background:#fff;border-radius:8px;margin-top:4px;padding:0 9px;font-size:11px}
+@media (max-width:720px){
+  .editor-module-field-row{flex-direction:column;align-items:stretch}
+  .editor-module-field-row .editor-module-field-label{width:100%}
+}
+

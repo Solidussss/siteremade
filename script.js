@@ -993,6 +993,12 @@ function renderHero(project, category) {
   const plan = project.assets.plan;
   const copy = project.copy || { kicker: category.kicker, headline: category.headline, sub: toneSub(project.business.tone, category, project.source.location), cta: category.cta };
   const kicker = escapeHtml(copy.kicker), headline = escapeHtml(copy.headline), sub = escapeHtml(copy.sub), cta = escapeHtml(copy.cta || category.cta);
+  // V8.4: the hero's primary CTA can target a page/section/tel/mailto/
+  // external URL (see normalizeCtaTarget) instead of being permanently
+  // decorative -- unset (the common case for a fresh direction) renders the
+  // exact same plain button it always has.
+  const ctaBtn = renderCtaButton(copy.ctaTarget, cta, 'hero-cta-btn');
+  const ctaMinimal = renderCtaButton(copy.ctaTarget, cta + ' ↗', 'minimal-link');
   const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
   const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : composed.hero;
   switch (layout) {
@@ -1002,48 +1008,54 @@ function renderHero(project, category) {
       </div>`;
     case 'centered-oversized': return `<div class="site-hero hero-centered-oversized">
         <p class="hero-kicker-center">${kicker}</p><h3 class="hero-headline-oversized">${headline}</h3><p class="hero-sub-center">${sub}</p>
-        <div class="site-actions center"><button>${cta}</button></div>
+        <div class="site-actions center">${ctaBtn}</div>
       </div>`;
     case 'fullbleed-image': return `<div class="site-hero hero-fullbleed">
         <div class="hero-fullbleed-media">${visual}<div class="hero-fullbleed-scrim"></div></div>
-        <div class="hero-fullbleed-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="hero-fullbleed-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
       </div>`;
     case 'stacked-image-below': return `<div class="site-hero hero-stacked">
-        <div class="hero-stacked-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center"><button>${cta}</button></div></div>
+        <div class="hero-stacked-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center">${ctaBtn}</div></div>
         <div class="hero-stacked-visual">${visual}</div>
       </div>`;
     case 'asymmetric-offset': return `<div class="site-hero hero-asymmetric">
         <div class="hero-asym-headline"><p>${kicker}</p><h3>${headline}</h3></div>
         <div class="hero-asym-visual">${visual}</div>
-        <div class="hero-asym-meta"><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="hero-asym-meta"><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
       </div>`;
     case 'minimal-text-only': return `<div class="site-hero hero-minimal">
-        <p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><span class="minimal-link">${cta} ↗</span></div>
+        <p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaMinimal}</div>
       </div>`;
     case 'grid-dashboard': return `<div class="site-hero hero-grid-dashboard">
-        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
         <div class="hero-dash-grid"><div class="dash-panel dash-panel-visual">${visual}</div><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div></div>
       </div>`;
     case 'poster': return `<div class="site-hero hero-poster">
         <p class="hero-kicker-center">${kicker}</p><h3 class="hero-poster-headline">${headline}</h3>
-        <div class="hero-poster-row"><p>${sub}</p><button>${cta}</button></div>
+        <div class="hero-poster-row"><p>${sub}</p>${ctaBtn}</div>
       </div>`;
     case 'collage': { const b = renderVisualSlot(project, 'collage-2', composed.imagery, (plan.gallery || [])[0]);
       return `<div class="site-hero hero-collage">
-        <div class="hero-collage-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button></div></div>
+        <div class="hero-collage-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
         <div class="hero-collage-stack"><div class="collage-card collage-card-1">${visual}</div><div class="collage-card collage-card-2">${b}</div></div>
       </div>`; }
     case 'product-screenshot': return `<div class="site-hero hero-product-screenshot">
-        <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center"><button>${cta}</button></div></div>
+        <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center">${ctaBtn}</div></div>
         <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body">${visual}</div></div>
       </div>`;
     default: return `<div class="site-hero hero-split">
-        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions"><button>${cta}</button><span>See our work ↗</span></div></div>
+        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}<span>See our work ↗</span></div></div>
         <div class="site-visual">${visual}</div>
       </div>`;
   }
 }
 function renderServices(project, category, section) {
+  // V8.4: a 'quote' module enabled on a services section renders the real
+  // quote-request form directly beneath the static services content --
+  // never replacing it, since the list of services is still real, useful
+  // information a quote module doesn't duplicate.
+  const moduleHtml = (section && section.module && section.module.enabled && section.module.type === 'quote')
+    ? renderFormModuleWidget(project, section, 'Request a quote') : '';
   const variant = section && section.variant;
   const labels = category.services;
   const headline = sectionCopyField(section, 'headline', '');
@@ -1054,11 +1066,13 @@ function renderServices(project, category, section) {
     return `<div class="site-section site-section-services" data-variant="described">
       ${labelHtml}${introHtml}
       <div class="site-services-cards">${labels.map(l => `<div class="service-card"><strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p></div>`).join('')}</div>
+      ${moduleHtml}
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
     ${labelHtml}${introHtml}
     <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
+    ${moduleHtml}
   </div>`;
 }
 // V7: never fabricates a number. Only ever shows a fact the description
@@ -1165,11 +1179,24 @@ function renderTeam(project, category, section) {
   </div>`;
 }
 function renderCtaBanner(project, category, section) {
+  // V8.4: a ctaBanner is the most generically-compatible host (see
+  // MODULE_SECTION_COMPATIBILITY) -- any of contact/quote/newsletter/
+  // booking/action can land here when Claude or the deterministic fallback
+  // picks it, or when the editor moves a module onto it.
+  if (section && section.module && section.module.enabled) {
+    switch (section.module.type) {
+      case 'contact': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Contact'));
+      case 'quote': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Request a quote'));
+      case 'newsletter': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Stay in the loop.'));
+      case 'booking': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Request a booking'));
+      case 'action': return renderActionModuleWidget(project, section);
+    }
+  }
   const variant = section && section.variant;
   const message = sectionCopyField(section, 'headline', 'Ready to see this as your real website?');
-  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
   return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
-    <p>${escapeHtml(message)}</p><button>${escapeHtml(cta)}</button>
+    <p>${escapeHtml(message)}</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function featureBodyFor(project, category, label, i) {
@@ -1193,10 +1220,14 @@ function renderProductShowcase(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Product');
   const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
   const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'product';
+  const moduleHtml = section && section.module && section.module.enabled
+    ? (section.module.type === 'product' ? renderProductModuleWidget(project, section) : (section.module.type === 'action' ? renderActionModuleWidget(project, section) : ''))
+    : '';
   return `<div class="site-section site-section-product" data-variant="showcase">
     <p class="site-section-label">${escapeHtml(label)}</p><h4>${businessName} in action</h4>
     <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
     <p class="product-caption">${escapeHtml(caption)}</p>
+    ${moduleHtml}
   </div>`;
 }
 const categoryIntegrationLabels = {
@@ -1262,13 +1293,28 @@ function renderMenu(project, category, section) {
   </div>`;
 }
 function renderReservationCta(project, category, section) {
+  // V8.4: 'booking' is the real, functional replacement for the static
+  // banner; 'action' (e.g. an external booking link) renders as a single
+  // real CTA in its place. Neither type invents a live calendar/scheduler
+  // -- see the booking module's own honest "preview" submission state.
+  if (section && section.module && section.module.enabled) {
+    if (section.module.type === 'booking') return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Request a booking'));
+    if (section.module.type === 'action') return renderActionModuleWidget(project, section);
+  }
   const message = sectionCopyField(section, 'headline', 'Book a table.');
-  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
   return `<div class="site-section site-section-reservation" data-variant="banner">
-    <p>${escapeHtml(message)}</p><button>${escapeHtml(cta)}</button>
+    <p>${escapeHtml(message)}</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function renderServiceAreas(project, category, section) {
+  // V8.4: a 'location' module enabled here renders the real (never
+  // fabricated) address/placeholder widget in place of the decorative
+  // areas statement; 'contact' renders a real contact form instead.
+  if (section && section.module && section.module.enabled) {
+    if (section.module.type === 'location') return renderLocationModuleWidget(project, section);
+    if (section.module.type === 'contact') return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Contact'));
+  }
   const label = sectionCopyField(section, 'headline', 'Service Areas');
   const loc = project.source.location;
   const areasText = loc ? `${loc} and surrounding areas` : 'Local & surrounding areas';
@@ -1277,14 +1323,36 @@ function renderServiceAreas(project, category, section) {
   </div>`;
 }
 function renderContact(project, category, section) {
+  // V8.4: contact/quote/booking/location/action modules all render a real,
+  // functional widget here in place of the decorative static block --
+  // exactly the module types requirement #8's compatibility map allows on
+  // a 'contact' section (see MODULE_SECTION_COMPATIBILITY -- every one of
+  // those five module types lists 'contact' as a valid target, so this
+  // switch must handle all five or a legitimately-compatible, enabled
+  // module would silently fall through to the static block instead of
+  // rendering at all). An unrecognized/incompatible module.type is never
+  // reached (setSectionModuleType/normalizeSectionModuleFromClaude already
+  // refuse it), so this always has a real renderer for whatever is here.
+  if (section && section.module && section.module.enabled) {
+    switch (section.module.type) {
+      case 'contact': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Contact'));
+      case 'quote': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Request a quote'));
+      case 'booking': return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Request a booking'));
+      case 'location': return renderLocationModuleWidget(project, section);
+      case 'action': return renderActionModuleWidget(project, section);
+    }
+  }
   const label = sectionCopyField(section, 'headline', 'Contact');
-  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
   const loc = project.source.location ? escapeHtml(project.source.location) + ' · ' : '';
   return `<div class="site-section site-section-contact" data-variant="simple">
-    <p class="site-section-label">${escapeHtml(label)}</p><p>${loc}Get in touch to get started.</p><button>${escapeHtml(cta)}</button>
+    <p class="site-section-label">${escapeHtml(label)}</p><p>${loc}Get in touch to get started.</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function renderNewsletter(project, category, section) {
+  if (section && section.module && section.module.enabled && section.module.type === 'newsletter') {
+    return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Stay in the loop.'));
+  }
   const message = sectionCopyField(section, 'headline', 'Stay in the loop.');
   return `<div class="site-section site-section-newsletter" data-variant="inline">
     <p>${escapeHtml(message)}</p>
@@ -1320,6 +1388,164 @@ function renderSiteFooter(project, category, variant) {
     <div class="site-footer-brand">${brandInner}</div>
     <p class="site-footer-copy">© ${year} ${businessName}</p>
   </div>`;
+}
+
+// ---- V8.4: functionality module rendering ----------------------------------
+// Renders a CTA button/link from a normalized CTA target (see
+// normalizeCtaTarget). `escapedLabel` must already be escapeHtml()'d by the
+// caller, exactly like every other piece of text this file interpolates --
+// never escaped twice, never left unescaped. tel:/mailto:/external targets
+// are real <a href> elements the browser handles natively; page/section
+// targets are <button> elements picked up by the single delegated listener
+// on siteSectionsRoot (see handleCtaTargetClick) -- neither path ever
+// creates a direction, calls Claude, or requests an image.
+function renderCtaButton(target, escapedLabel, extraClass) {
+  const cls = `module-cta-btn${extraClass ? ' ' + extraClass : ''}`;
+  if (!target) return `<button type="button" class="${cls}">${escapedLabel}</button>`;
+  switch (target.kind) {
+    case 'tel': return `<a class="${cls}" href="tel:${escapeHtml(target.value.replace(/[^\d+]/g, ''))}" data-cta-kind="tel">${escapedLabel}</a>`;
+    case 'mailto': return `<a class="${cls}" href="mailto:${escapeHtml(target.value)}" data-cta-kind="mailto">${escapedLabel}</a>`;
+    case 'external': return `<a class="${cls}" href="${escapeHtml(target.value)}" target="_blank" rel="noopener noreferrer" data-cta-kind="external">${escapedLabel}</a>`;
+    case 'page': return `<button type="button" class="${cls}" data-cta-kind="page" data-cta-page-id="${escapeHtml(target.pageId)}">${escapedLabel}</button>`;
+    case 'section': return `<button type="button" class="${cls}" data-cta-kind="section" data-cta-page-id="${escapeHtml(target.pageId)}" data-cta-section-id="${escapeHtml(target.sectionId)}">${escapedLabel}</button>`;
+    default: return `<button type="button" class="${cls}">${escapedLabel}</button>`;
+  }
+}
+// Live, in-preview, per-VISITOR form state -- deliberately NOT part of the
+// WebsiteProject model. This is the exact split requirement #7/#9 draw
+// between "editor configuration" (what fields exist, are they required,
+// the success message -- real model state, undoable, persisted) and
+// "someone typing into the live preview" (ephemeral, never undoable, never
+// saved, never able to trigger a re-render of its own -- see the
+// siteSectionsRoot 'input' listener, which updates this map directly
+// without ever calling renderProject, so typing never loses focus).
+const moduleRuntimeState = new Map();
+function getModuleRuntime(sectionId) {
+  if (!moduleRuntimeState.has(sectionId)) moduleRuntimeState.set(sectionId, { status: 'idle', values: {}, errors: {}, message: '' });
+  return moduleRuntimeState.get(sectionId);
+}
+function moduleFieldInputHtml(section, field, runtime) {
+  const rawValue = (runtime.values && runtime.values[field.key]) || '';
+  const value = escapeHtml(rawValue);
+  const id = `mf-${section.id}-${field.key}`;
+  const errId = `${id}-err`;
+  const err = runtime.errors && runtime.errors[field.key];
+  const reqAttr = field.required ? ' required aria-required="true"' : '';
+  const invalidAttr = err ? ' aria-invalid="true"' : '';
+  const describedBy = ` aria-describedby="${errId}"`;
+  let input;
+  if (field.kind === 'textarea') {
+    input = `<textarea id="${id}" data-field-key="${field.key}" maxlength="1000"${reqAttr}${invalidAttr}${describedBy}>${value}</textarea>`;
+  } else if (field.kind === 'select') {
+    const opts = (field.options || []).map(o => `<option value="${escapeHtml(o)}"${rawValue === o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
+    input = `<select id="${id}" data-field-key="${field.key}"${reqAttr}${invalidAttr}${describedBy}><option value="">Select…</option>${opts}</select>`;
+  } else {
+    const type = ['email', 'tel', 'date', 'time'].includes(field.kind) ? field.kind : 'text';
+    input = `<input id="${id}" type="${type}" data-field-key="${field.key}" maxlength="200" value="${value}"${reqAttr}${invalidAttr}${describedBy} />`;
+  }
+  return `<div class="module-field${err ? ' module-field-error' : ''}">
+    <label for="${id}">${escapeHtml(field.label)}${field.required ? ' <span class="module-required-mark" aria-hidden="true">*</span>' : ''}</label>
+    ${input}
+    <span class="module-field-err" id="${errId}" role="alert">${err ? escapeHtml(err) : ''}</span>
+  </div>`;
+}
+// A real, functional form -- shared by the contact/quote/newsletter/booking
+// module types (renderContact/renderServices/renderNewsletter/
+// renderReservationCta/renderCtaBanner below all call this once a
+// compatible module is enabled). Field rendering, required/email/phone/
+// select validation, disabled/submitting state and success/failure state
+// are handled by the shared siteSectionsRoot listeners (input/focusout/
+// submit) further down this file -- this function only ever renders the
+// CURRENT runtime snapshot, exactly like every other renderer in this file
+// is a pure function of state.
+function renderFormModuleWidget(project, section, headingFallback) {
+  const module = section.module;
+  const runtime = getModuleRuntime(section.id);
+  const heading = sectionCopyField(section, 'headline', headingFallback);
+  const ctaLabel = escapeHtml(sectionCopyField(section, 'ctaLabel', defaultModuleCtaLabel(module.type)));
+  if (runtime.status === 'success') {
+    const preview = resolveModuleProvider(module).name === 'preview';
+    return `<div class="site-section site-section-module module-${module.type}" data-variant="module" id="module-${section.id}">
+      <div class="module-success" role="status" tabindex="-1">
+        <p>${escapeHtml((module.successState && module.successState.message) || defaultSuccessMessage(module.type))}</p>
+        ${preview ? '<p class="module-preview-note">Preview mode — this form isn’t connected to a live inbox yet.</p>' : ''}
+      </div>
+    </div>`;
+  }
+  return `<div class="site-section site-section-module module-${module.type}" data-variant="module" id="module-${section.id}">
+    <form class="module-form" data-module-form data-section-id="${section.id}" novalidate>
+      <p class="site-section-label">${escapeHtml(heading)}</p>
+      ${(module.fields || []).map(f => moduleFieldInputHtml(section, f, runtime)).join('')}
+      ${runtime.status === 'error' ? `<p class="module-submit-error" role="alert">${escapeHtml(runtime.message || 'Something went wrong. Please try again.')}</p>` : ''}
+      <button type="submit" class="module-submit-btn" data-idle-label="${ctaLabel}"${runtime.status === 'submitting' ? ' disabled' : ''}>${runtime.status === 'submitting' ? 'Sending…' : ctaLabel}</button>
+    </form>
+  </div>`;
+}
+// Structured location data only -- never a fabricated address (see
+// defaultModuleConfig). No live map embed is ever rendered (no provider is
+// configured in this environment, and no key is or could be sent to the
+// browser) -- an honest, art-directed placeholder stands in for one, the
+// same convention every other unconfigured visual slot in this app uses.
+function renderLocationModuleWidget(project, section) {
+  const module = section.module;
+  const address = (module.config && module.config.address) || '';
+  const heading = sectionCopyField(section, 'headline', 'Find us');
+  return `<div class="site-section site-section-module module-location" data-variant="module">
+    <p class="site-section-label">${escapeHtml(heading)}</p>
+    <div class="module-map-placeholder visual-generated" data-imagery="abstract-geometric">
+      <span class="module-map-note">${address ? escapeHtml(address) : 'No address on file yet'}</span>
+    </div>
+    ${!address ? '<p class="module-empty-note">Add a real address in the editor — nothing is ever invented here.</p>' : ''}
+  </div>`;
+}
+function googleMapsSearchUrl(address) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+function defaultActionLabel(actionKind) {
+  switch (actionKind) {
+    case 'call': return 'Call us';
+    case 'email': return 'Email us';
+    case 'directions': return 'Get directions';
+    case 'external-booking': return 'Book now';
+    case 'external-store': return 'Shop now';
+    default: return 'Learn more';
+  }
+}
+// Turns an action module's own config into the same CTA target shape every
+// other CTA uses, so it renders through the exact same renderCtaButton path
+// -- one real target model, not two.
+function actionModuleTarget(project, section) {
+  const cfg = (section.module && section.module.config) || {};
+  if (cfg.actionKind === 'call') return cfg.target ? { kind: 'tel', value: cfg.target } : null;
+  if (cfg.actionKind === 'email') return cfg.target ? { kind: 'mailto', value: cfg.target } : null;
+  if (cfg.actionKind === 'directions') {
+    const address = cfg.target || (section.module.config && section.module.config.address) || project.source.location || '';
+    return address ? { kind: 'external', value: googleMapsSearchUrl(address) } : null;
+  }
+  if (cfg.actionKind === 'external-booking' || cfg.actionKind === 'external-store') return cfg.target ? { kind: 'external', value: cfg.target } : null;
+  return null;
+}
+function renderActionModuleWidget(project, section) {
+  const module = section.module;
+  const label = escapeHtml(sectionCopyField(section, 'ctaLabel', defaultActionLabel(module.config && module.config.actionKind)));
+  const target = actionModuleTarget(project, section);
+  return `<div class="site-section site-section-module module-action" data-variant="module">
+    ${target ? renderCtaButton(target, label) : `<p class="module-empty-note">Add a phone number, email or link in the editor to make this button real.</p><button type="button" class="module-cta-btn" disabled>${label}</button>`}
+  </div>`;
+}
+// Structured architecture for a future real ecommerce/payment integration --
+// never a full commerce platform in this pass (see SITE-PROJECT-V8.4.md).
+// An unconfigured checkout target renders an honest disabled state rather
+// than a button that would silently do nothing.
+function renderProductModuleWidget(project, section) {
+  const module = section.module;
+  const cfg = module.config || {};
+  const name = escapeHtml(cfg.name || project.business.name || 'Product');
+  const priceHtml = cfg.priceLabel ? `<p class="module-product-price">${escapeHtml(cfg.priceLabel)}</p>` : '';
+  const ctaLabel = escapeHtml(cfg.ctaLabel || 'View product');
+  const target = cfg.checkoutUrl ? { kind: 'external', value: cfg.checkoutUrl } : null;
+  const button = target ? renderCtaButton(target, ctaLabel) : `<button type="button" class="module-cta-btn module-product-btn-disabled" disabled>${ctaLabel} — not connected yet</button>`;
+  return `<div class="module-product-cta"><strong>${name}</strong>${priceHtml}${button}</div>`;
 }
 function renderSectionHTML(project, section, category) {
   switch (section.type) {
@@ -1447,7 +1673,8 @@ function buildClaudePages(claudePages, variationSeed, dimensions) {
       id: `${s.type}-${slug || 'home'}-${si}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       type: s.type,
       variant: pickVariant(s.type, dimensions, variationSeed),
-      copy: s.copy || null
+      copy: s.copy || null,
+      module: s.module || null // already fully validated by normalizeSectionModuleFromClaude -- carried through as-is
     }));
     pages.push({ slug, label: labelRaw.slice(0, 40), purpose: (p.purpose && String(p.purpose).slice(0, 200)) || '', sections });
   });
@@ -1561,7 +1788,16 @@ function findSectionById(page, sectionId) {
 // be plain, serializable data (see normalizeClaudePlan/buildClaudePages).
 function cloneSectionForInsert(source) {
   const copy = source.copy ? JSON.parse(JSON.stringify(source.copy)) : null;
-  return { id: newSectionId(source.type), type: source.type, variant: source.variant, copy };
+  // V8.4: a section's functionality module and CTA target are real
+  // configuration, exactly like `copy` -- deep-cloned (never a shared
+  // reference) so duplicateSection/importSectionFromDirection (both of
+  // which call this) carry them along instead of silently dropping them,
+  // and so editing the COPY afterward can never mutate the original's
+  // module/ctaTarget by reference (see requirement #8/#15 and the
+  // cross-direction-import independence tests).
+  const module = source.module ? JSON.parse(JSON.stringify(source.module)) : null;
+  const ctaTarget = source.ctaTarget ? JSON.parse(JSON.stringify(source.ctaTarget)) : null;
+  return { id: newSectionId(source.type), type: source.type, variant: source.variant, copy, module, ctaTarget };
 }
 
 // ---- Section operations ----------------------------------------------------
@@ -1810,6 +2046,517 @@ function editSectionCopy(proj, pageId, sectionId, field, value) {
   if (!section.copy) section.copy = { headline: '', subhead: '', body: '', ctaLabel: '', claims: [] };
   section.copy[field] = String(value == null ? '' : value).slice(0, EDITOR_COPY_FIELD_LIMITS[field]);
   return true;
+}
+
+// ==========================================================================
+// V8.4: functionality module model -----------------------------------------
+// A controlled, structured "does something real" layer on top of the exact
+// V8.3 model -- a module lives on `section.module`, one more plain field on
+// the same section object every editor/undo/save-restore path already
+// carries, never a second parallel document. Claude may only ever choose a
+// module TYPE and which of a fixed, developer-authored field set to include
+// (see MODULE_FIELD_ALLOWLIST) -- it never invents a field's label/kind/
+// validation, an API key, a webhook, a price, an address or a booking slot.
+// Every module type is rendered by a real, hand-written SiteRemade
+// renderer; there is no path from a module object to arbitrary HTML/CSS/JS.
+// ==========================================================================
+const MODULE_TYPE_KEYS = ['contact', 'quote', 'newsletter', 'booking', 'location', 'action', 'product'];
+// Which section TYPES a module type is allowed to attach to -- the
+// compatibility map IS the safety mechanism requirement #8 asks for: it is
+// kept in exact sync with the section renderers that actually know how to
+// draw a given module (renderContact/renderCtaBanner/renderServiceAreas/
+// renderServices/renderNewsletter/renderReservationCta/renderProductShowcase
+// below), so an incompatible pairing is always rejected before it can ever
+// reach a renderer that wouldn't know what to do with it.
+const MODULE_SECTION_COMPATIBILITY = {
+  contact: ['contact', 'ctaBanner', 'serviceAreas'],
+  quote: ['services', 'contact', 'ctaBanner'],
+  newsletter: ['newsletter', 'ctaBanner'],
+  // 'ctaBanner' is included here (not just 'reservationCta'/'contact')
+  // because CATEGORY_MODULE_RECIPE already places a booking module there
+  // for the fitness/wellness/professional deterministic fallbacks, and
+  // renderCtaBanner already has a real 'booking' case -- this map has to
+  // agree with what's actually wired up, or the editor/Claude-planning
+  // path would refuse a pairing the deterministic path (and the renderer)
+  // already rely on working.
+  booking: ['reservationCta', 'contact', 'ctaBanner'],
+  location: ['contact', 'serviceAreas'],
+  action: ['contact', 'ctaBanner', 'reservationCta', 'productShowcase'],
+  product: ['productShowcase']
+};
+function moduleCompatibleTypesForSection(sectionType) {
+  return MODULE_TYPE_KEYS.filter(t => (MODULE_SECTION_COMPATIBILITY[t] || []).includes(sectionType));
+}
+// The full catalogue of fields a module TYPE could ever expose -- labels and
+// input kinds are fixed here (developer-authored), never supplied by Claude
+// and never freely typed by the editor beyond a capped label string (see
+// setModuleFieldLabel). `removable:false` marks a field no module of that
+// type can ever be left without (name/email on a contact-style form, the
+// requested date on a booking) -- enforced by removeModuleField/
+// setModuleFieldRequired below, not just by the editor UI.
+const MODULE_FIELD_ALLOWLIST = {
+  contact: [
+    { key: 'name', label: 'Name', kind: 'text', removable: false },
+    { key: 'email', label: 'Email', kind: 'email', removable: false },
+    { key: 'phone', label: 'Phone', kind: 'tel', removable: true },
+    { key: 'message', label: 'Message', kind: 'textarea', removable: true }
+  ],
+  quote: [
+    { key: 'name', label: 'Name', kind: 'text', removable: false },
+    { key: 'email', label: 'Email', kind: 'email', removable: false },
+    { key: 'phone', label: 'Phone', kind: 'tel', removable: true },
+    { key: 'service', label: 'Service', kind: 'text', removable: true },
+    { key: 'description', label: 'Project description', kind: 'textarea', removable: true },
+    { key: 'preferredContact', label: 'Preferred contact method', kind: 'select', removable: true, options: ['Email', 'Phone'] }
+  ],
+  newsletter: [
+    { key: 'email', label: 'Email', kind: 'email', removable: false },
+    { key: 'name', label: 'Name', kind: 'text', removable: true }
+  ],
+  booking: [
+    { key: 'name', label: 'Name', kind: 'text', removable: false },
+    { key: 'email', label: 'Email', kind: 'email', removable: false },
+    { key: 'phone', label: 'Phone', kind: 'tel', removable: true },
+    { key: 'date', label: 'Requested date', kind: 'date', removable: false },
+    { key: 'time', label: 'Requested time', kind: 'time', removable: true },
+    { key: 'partySize', label: 'Party size / service', kind: 'text', removable: true },
+    { key: 'notes', label: 'Notes', kind: 'textarea', removable: true }
+  ],
+  location: [], action: [], product: []
+};
+function getModuleFieldAllowlist(moduleType) { return MODULE_FIELD_ALLOWLIST[moduleType] || []; }
+// The sane, real default subset (and order) a fresh module of each type
+// starts with -- everything else in the allowlist is available as an
+// addable optional field through the editor (addModuleField) or a
+// Claude-planned `fields` list (see normalizeSectionModuleFromClaude).
+const MODULE_DEFAULT_FIELD_KEYS = {
+  contact: ['name', 'email', 'phone', 'message'],
+  quote: ['name', 'email', 'phone', 'service', 'description'],
+  newsletter: ['email', 'name'],
+  booking: ['name', 'email', 'date', 'time', 'partySize', 'notes'],
+  location: [], action: [], product: []
+};
+function defaultModuleFieldsFor(type) {
+  const allow = getModuleFieldAllowlist(type);
+  return (MODULE_DEFAULT_FIELD_KEYS[type] || []).map(k => {
+    const def = allow.find(f => f.key === k);
+    return def ? { key: def.key, label: def.label, kind: def.kind, options: def.options, required: def.removable === false } : null;
+  }).filter(Boolean);
+}
+function defaultModuleCtaLabel(type) {
+  switch (type) {
+    case 'contact': return 'Send message';
+    case 'quote': return 'Request a quote';
+    case 'newsletter': return 'Subscribe';
+    case 'booking': return 'Request booking';
+    default: return 'Submit';
+  }
+}
+// Never a claim that a message was actually delivered anywhere real -- see
+// the 'preview' submission provider below, whose UI always appends an
+// honest "preview mode" note alongside whatever message is configured here.
+function defaultSuccessMessage(type) {
+  switch (type) {
+    case 'contact': return "Thanks — we've got your message and will be in touch soon.";
+    case 'quote': return "Thanks — we'll review this and follow up with a quote.";
+    case 'newsletter': return "You're subscribed.";
+    case 'booking': return "Thanks — we'll confirm your request shortly.";
+    default: return 'Thanks — we received that.';
+  }
+}
+function defaultModuleConfig(type, proj) {
+  switch (type) {
+    // Grounded reuse of a REAL declared fact already on the project (see
+    // extractLocation) -- never a fabricated address. Empty when the
+    // business description never named a location; the location module
+    // renders an honest, editable empty state in that case (see
+    // renderLocationModuleWidget), not an invented placeholder address.
+    case 'location': return { address: (proj && proj.source && proj.source.location) || '' };
+    case 'action': return { actionKind: 'call', target: '' };
+    case 'product': return { name: '', priceLabel: '', ctaLabel: 'View product', checkoutUrl: '' };
+    default: return {};
+  }
+}
+// A controlled, honest "not connected yet" record for a future real
+// integration -- `connected` is never anything but false in this pass
+// (there is no OAuth/API-key flow to actually connect one), so this is
+// documentation of INTENT for a later pass, never a claim of a live wire-up.
+const MODULE_INTEGRATION_DEFAULTS = { booking: 'calendly', product: 'shopify', location: 'google-maps', newsletter: 'mailchimp' };
+const INTEGRATION_PROVIDER_KEYS = ['calendly', 'shopify', 'square', 'stripe', 'mailchimp', 'google-maps'];
+function defaultIntegration(type) {
+  const provider = MODULE_INTEGRATION_DEFAULTS[type] || null;
+  return { provider, connected: false, note: provider ? `Connect ${humanizeEditorLabel(provider)} later to make this live.` : '' };
+}
+function createDefaultModule(type, proj) {
+  return {
+    type,
+    enabled: true,
+    fields: defaultModuleFieldsFor(type),
+    config: defaultModuleConfig(type, proj),
+    submitBehavior: { provider: 'preview' },
+    successState: { message: defaultSuccessMessage(type) },
+    integration: defaultIntegration(type)
+  };
+}
+
+// ---- Module editor operations (all pure functions of the model, exactly
+// like the V8.3 section/page operations above -- called only through
+// runEditorAction) ----------------------------------------------------------
+function setSectionModuleType(proj, pageId, sectionId, moduleType) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section) return false;
+  if (!moduleCompatibleTypesForSection(section.type).includes(moduleType)) return false;
+  section.module = createDefaultModule(moduleType, proj);
+  return true;
+}
+function setSectionModuleEnabled(proj, pageId, sectionId, enabled) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section) return false;
+  if (enabled) {
+    if (section.module) { section.module.enabled = true; return true; }
+    const compatible = moduleCompatibleTypesForSection(section.type);
+    if (!compatible.length) return false;
+    section.module = createDefaultModule(compatible[0], proj);
+    return true;
+  }
+  if (!section.module) return false;
+  section.module.enabled = false;
+  return true;
+}
+function addModuleField(proj, pageId, sectionId, fieldKey) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const def = getModuleFieldAllowlist(section.module.type).find(f => f.key === fieldKey);
+  if (!def) return false;
+  if (section.module.fields.some(f => f.key === fieldKey)) return false;
+  if (section.module.fields.length >= 8) return false;
+  section.module.fields.push({ key: def.key, label: def.label, kind: def.kind, options: def.options, required: false });
+  return true;
+}
+function removeModuleField(proj, pageId, sectionId, fieldKey) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const def = getModuleFieldAllowlist(section.module.type).find(f => f.key === fieldKey);
+  if (def && def.removable === false) return false;
+  const idx = section.module.fields.findIndex(f => f.key === fieldKey);
+  if (idx === -1) return false;
+  if (section.module.fields.length <= 1) return false; // never leave a module with zero fields
+  section.module.fields.splice(idx, 1);
+  return true;
+}
+function moveModuleField(proj, pageId, sectionId, fieldKey, direction) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const idx = section.module.fields.findIndex(f => f.key === fieldKey);
+  if (idx === -1) return false;
+  const target = idx + (direction === 'up' ? -1 : 1);
+  if (target < 0 || target >= section.module.fields.length) return false;
+  const [item] = section.module.fields.splice(idx, 1);
+  section.module.fields.splice(target, 0, item);
+  return true;
+}
+function setModuleFieldRequired(proj, pageId, sectionId, fieldKey, required) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const field = section.module.fields.find(f => f.key === fieldKey);
+  if (!field) return false;
+  const def = getModuleFieldAllowlist(section.module.type).find(f => f.key === fieldKey);
+  if (def && def.removable === false && !required) return false; // an essential field can't be made optional
+  field.required = !!required;
+  return true;
+}
+function setModuleFieldLabel(proj, pageId, sectionId, fieldKey, label) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const field = section.module.fields.find(f => f.key === fieldKey);
+  if (!field) return false;
+  const safe = String(label || '').trim().slice(0, 60);
+  if (!safe) return false;
+  field.label = safe;
+  return true;
+}
+function setModuleSuccessMessage(proj, pageId, sectionId, message) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  section.module.successState = { message: String(message || '').trim().slice(0, 200) || defaultSuccessMessage(section.module.type) };
+  return true;
+}
+const MODULE_CONFIG_KEYS = { location: ['address'], action: ['actionKind', 'target'], product: ['name', 'priceLabel', 'ctaLabel', 'checkoutUrl'] };
+const ACTION_KIND_KEYS = ['call', 'email', 'directions', 'external-booking', 'external-store'];
+function setModuleConfigValue(proj, pageId, sectionId, key, value) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const allowed = MODULE_CONFIG_KEYS[section.module.type] || [];
+  if (!allowed.includes(key)) return false;
+  const safeValue = String(value == null ? '' : value).trim();
+  if (key === 'actionKind') {
+    if (!ACTION_KIND_KEYS.includes(safeValue)) return false;
+    section.module.config.actionKind = safeValue;
+    // A phone number left over from 'call' is meaningless (and not
+    // re-validated) as an email or URL once the kind changes -- clearing it
+    // forces a deliberate re-entry for the new kind rather than letting
+    // actionModuleTarget render a stale, wrong-shaped value as if it were
+    // real (e.g. a "mailto:" link whose value is actually a phone number).
+    section.module.config.target = '';
+    return true;
+  }
+  if (key === 'target') {
+    const kind = section.module.config.actionKind;
+    if (kind === 'call' && safeValue && !validatePhone(safeValue)) return false;
+    if (kind === 'email' && safeValue && !validateEmail(safeValue)) return false;
+    if ((kind === 'external-booking' || kind === 'external-store') && safeValue && !validateUrl(safeValue)) return false;
+    section.module.config.target = safeValue.slice(0, 300);
+    return true;
+  }
+  if (key === 'checkoutUrl') {
+    if (safeValue && !validateUrl(safeValue)) return false;
+    section.module.config.checkoutUrl = safeValue.slice(0, 500);
+    return true;
+  }
+  if (key === 'address') { section.module.config.address = safeValue.slice(0, 200); return true; }
+  if (key === 'name' || key === 'priceLabel' || key === 'ctaLabel') { section.module.config[key] = safeValue.slice(0, key === 'name' ? 80 : 40); return true; }
+  return false;
+}
+function setModuleIntegrationProvider(proj, pageId, sectionId, provider) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section || !section.module) return false;
+  const safe = provider === '' || provider == null ? null : provider;
+  if (safe !== null && !INTEGRATION_PROVIDER_KEYS.includes(safe)) return false;
+  section.module.integration = { provider: safe, connected: false, note: safe ? `Connect ${humanizeEditorLabel(safe)} later to make this live.` : '' };
+  return true;
+}
+
+// ---- CTA targeting ----------------------------------------------------------
+// A structured target for a CTA button -- page/section navigation inside the
+// current direction, or a real tel:/mailto:/external link -- so a CTA never
+// has to overload an ambiguous raw string. Clicking any of these is always a
+// pure client-side action (page switch, scroll, or a native <a href> the
+// browser itself handles): never a new direction, never a Claude call, never
+// an image request. See handleCtaTargetClick / the siteSectionsRoot listener.
+const CTA_TARGET_KINDS = ['page', 'section', 'tel', 'mailto', 'external'];
+function validateEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim()); }
+function validatePhone(v) { const d = String(v || '').replace(/[^\d]/g, ''); return d.length >= 7 && d.length <= 15; }
+function validateUrl(v) { try { const u = new URL(String(v || '').trim()); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; } }
+function normalizeCtaTarget(proj, raw) {
+  if (!raw || typeof raw !== 'object' || !raw.kind) return null;
+  if (!CTA_TARGET_KINDS.includes(raw.kind)) return null;
+  if (raw.kind === 'page') { const page = findPageById(proj, raw.pageId); return page ? { kind: 'page', pageId: page.id } : null; }
+  if (raw.kind === 'section') {
+    const page = findPageById(proj, raw.pageId);
+    const section = page && findSectionById(page, raw.sectionId);
+    return section ? { kind: 'section', pageId: page.id, sectionId: section.id } : null;
+  }
+  if (raw.kind === 'tel') return validatePhone(raw.value) ? { kind: 'tel', value: String(raw.value).trim().slice(0, 40) } : null;
+  if (raw.kind === 'mailto') return validateEmail(raw.value) ? { kind: 'mailto', value: String(raw.value).trim().slice(0, 180) } : null;
+  if (raw.kind === 'external') return validateUrl(raw.value) ? { kind: 'external', value: String(raw.value).trim().slice(0, 500) } : null;
+  return null;
+}
+function setSectionCtaTarget(proj, pageId, sectionId, rawTarget) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section) return false;
+  if (!rawTarget || !rawTarget.kind) { section.ctaTarget = null; return true; }
+  const normalized = normalizeCtaTarget(proj, rawTarget);
+  if (!normalized) return false;
+  section.ctaTarget = normalized;
+  return true;
+}
+function setHeroCtaTarget(proj, rawTarget) {
+  if (!rawTarget || !rawTarget.kind) { proj.copy.ctaTarget = null; return true; }
+  const normalized = normalizeCtaTarget(proj, rawTarget);
+  if (!normalized) return false;
+  proj.copy.ctaTarget = normalized;
+  return true;
+}
+
+// ---- Field-level validation (shared by the live preview form and, in
+// spirit, by whatever real backend eventually receives this payload) -------
+const MODULE_FIELD_MAX_LEN = { text: 120, email: 180, tel: 40, textarea: 1000, select: 60, date: 20, time: 20 };
+function validateModuleField(field, rawValue) {
+  const maxLen = MODULE_FIELD_MAX_LEN[field.kind] || 200;
+  const value = String(rawValue == null ? '' : rawValue).slice(0, maxLen);
+  if (field.required && !value.trim()) return { valid: false, error: `${field.label} is required.` };
+  if (!value.trim()) return { valid: true, value: '' };
+  if (field.kind === 'email' && !validateEmail(value)) return { valid: false, error: 'Enter a valid email address.' };
+  if (field.kind === 'tel' && !validatePhone(value)) return { valid: false, error: 'Enter a valid phone number.' };
+  if (field.kind === 'select' && field.options && !field.options.includes(value)) return { valid: false, error: 'Choose a valid option.' };
+  return { valid: true, value };
+}
+// Rejects unexpected keys by construction -- only ever iterates the
+// module's OWN configured fields, so a payload can never carry more than
+// what the form itself declared.
+function validateModuleSubmission(module, rawValues) {
+  const errors = {}, values = {};
+  (module.fields || []).forEach(f => {
+    const r = validateModuleField(f, rawValues ? rawValues[f.key] : '');
+    if (!r.valid) errors[f.key] = r.error; else values[f.key] = r.value;
+  });
+  return { valid: Object.keys(errors).length === 0, errors, values };
+}
+
+// ---- Submission provider abstraction ---------------------------------------
+// Renderers only ever display a module; submission behavior is isolated
+// here, behind the same {name, ...} shape the image/Claude-plan providers
+// in server.js already use, so a future real backend or external
+// integration provider can register alongside 'preview' without any
+// renderer or editor code changing. Today only 'preview' exists -- see
+// SITE-PROJECT-V8.4.md for why a mock, clearly-labeled client-side
+// provider was chosen over standing up a new server endpoint this pass
+// (no real inbox/backend exists yet to receive a submission honestly).
+const MODULE_SUBMIT_PROVIDERS = {
+  preview: {
+    name: 'preview',
+    async submit(module, payload) {
+      await new Promise(resolve => setTimeout(resolve, 450)); // real async boundary, not an instant fake
+      return { ok: true, preview: true };
+    }
+  }
+};
+function resolveModuleProvider(module) {
+  const key = (module.submitBehavior && module.submitBehavior.provider) || 'preview';
+  return MODULE_SUBMIT_PROVIDERS[key] || MODULE_SUBMIT_PROVIDERS.preview;
+}
+// The one function that ever "sends" a module submission. Never fakes a
+// success it didn't get from the resolved provider, and never throws.
+async function submitModule(module, payload, projectContext) {
+  const provider = resolveModuleProvider(module);
+  try {
+    const result = await provider.submit(module, payload, projectContext);
+    return result && typeof result === 'object' ? result : { ok: false, message: 'Submission failed.' };
+  } catch (e) {
+    return { ok: false, message: 'Could not submit right now.' };
+  }
+}
+
+// ---- Deterministic functionality fallback ----------------------------------
+// If Claude is unavailable, misconfigured, times out, or its module plan is
+// invalid/empty, SiteRemade still ships a real, working, category-aware
+// functionality module -- conservative by construction: it only ever
+// attaches to a section type that's already compatible (see
+// MODULE_SECTION_COMPATIBILITY), and the only section type this pass will
+// ever CREATE from scratch is 'contact' (a business asking to be reached is
+// never an invented fact); it never invents a menu/reservation/product
+// section that would imply business facts nothing here has evidence for.
+const CATEGORY_MODULE_RECIPE = {
+  tech: [{ module: 'newsletter', into: ['newsletter', 'ctaBanner'] }, { module: 'contact', into: ['contact', 'ctaBanner'], createSectionType: 'contact' }],
+  finance: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  fashion: [{ module: 'newsletter', into: ['newsletter', 'ctaBanner'] }],
+  // A hospitality direction's own deterministic section recipe (menu/
+  // gallery/about/testimonialsGrid/reservationCta -- see
+  // categorySectionRecipes.hospitality) never includes 'serviceAreas' or
+  // 'contact', so a location entry with no createSectionType of its own
+  // would be permanently dead here (same class of bug as the quote/booking
+  // fix above) -- a real business's address is exactly the kind of grounded,
+  // non-fabricated fact worth a fresh section for, so 'location' carries
+  // createSectionType here instead of a separate trailing 'contact' entry.
+  hospitality: [{ module: 'booking', into: ['reservationCta', 'contact'] }, { module: 'location', into: ['serviceAreas', 'contact'], createSectionType: 'contact' }],
+  creative: [{ module: 'contact', into: ['contact', 'ctaBanner'], createSectionType: 'contact' }],
+  fitness: [{ module: 'booking', into: ['ctaBanner', 'contact'], createSectionType: 'contact' }],
+  realestate: [{ module: 'contact', into: ['contact'], createSectionType: 'contact' }],
+  wellness: [{ module: 'booking', into: ['ctaBanner', 'contact'], createSectionType: 'contact' }],
+  retail: [{ module: 'newsletter', into: ['newsletter', 'ctaBanner'] }, { module: 'product', into: ['productShowcase'] }],
+  nonprofit: [{ module: 'contact', into: ['contact'], createSectionType: 'contact' }, { module: 'newsletter', into: ['newsletter', 'ctaBanner'] }],
+  professional: [{ module: 'booking', into: ['ctaBanner', 'contact'], createSectionType: 'contact' }],
+  education: [{ module: 'contact', into: ['contact'], createSectionType: 'contact' }],
+  electrical: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  plumbing: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  landscaping: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  painting: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  roofing: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  automotive: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  cleaning: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  renovation: [{ module: 'quote', into: ['services', 'ctaBanner', 'contact'], createSectionType: 'contact' }],
+  other: [{ module: 'contact', into: ['contact', 'ctaBanner'], createSectionType: 'contact' }]
+};
+function findFirstCompatibleSection(proj, intoTypes) {
+  for (const page of proj.pages) {
+    for (const section of page.sections) {
+      if (intoTypes.includes(section.type) && !(section.module && section.module.enabled)) return section;
+    }
+  }
+  return null;
+}
+// Called once per generated direction (both the Claude-planned and
+// deterministic paths -- see buildGenerationPlan's 'sections' step). A
+// no-op whenever a real module already exists anywhere on the site (Claude
+// successfully planned one, or a prior pass already did) -- this never
+// overrides real planned functionality with the generic fallback.
+// Turns Claude's raw, already-schema-constrained section.module payload
+// (see server.js WEBSITE_PLAN_TOOL) into a real module object -- or null,
+// silently dropped, if it names an unknown type, a type incompatible with
+// this section (defense in depth on top of the JSON Schema enum), or ends
+// up with no usable fields. Field LABELS/KINDS always come from this
+// file's own MODULE_FIELD_ALLOWLIST, never from Claude -- it only ever
+// picks which allowlisted keys to include and which of those to mark
+// required, plus a success-message string and a "someday" integration
+// provider hint, all independently re-validated here.
+function normalizeSectionModuleFromClaude(raw, sectionType) {
+  if (!raw || typeof raw !== 'object') return null;
+  const type = claudeEnum(raw.type, MODULE_TYPE_KEYS, null);
+  if (!type) return null;
+  if (!(MODULE_SECTION_COMPATIBILITY[type] || []).includes(sectionType)) return null;
+  const allowlist = getModuleFieldAllowlist(type);
+  const allowedKeys = allowlist.map(f => f.key);
+  const requestedKeys = Array.isArray(raw.fields) ? raw.fields.filter(k => typeof k === 'string' && allowedKeys.includes(k)) : [];
+  const requiredKeys = Array.isArray(raw.requiredFields) ? raw.requiredFields.filter(k => typeof k === 'string' && allowedKeys.includes(k)) : [];
+  const mustHave = allowlist.filter(f => f.removable === false).map(f => f.key);
+  const finalKeys = Array.from(new Set([...mustHave, ...requestedKeys])).slice(0, 8);
+  const fields = finalKeys.length
+    ? finalKeys.map(k => {
+        const def = allowlist.find(f => f.key === k);
+        return { key: k, label: def.label, kind: def.kind, options: def.options, required: def.removable === false ? true : requiredKeys.includes(k) };
+      })
+    : defaultModuleFieldsFor(type);
+  const successMessage = claudeStr(raw.successMessage, 200) || defaultSuccessMessage(type);
+  const integrationProvider = claudeEnum(raw.integrationProvider, INTEGRATION_PROVIDER_KEYS, MODULE_INTEGRATION_DEFAULTS[type] || null);
+  return {
+    type,
+    enabled: true,
+    fields,
+    config: {}, // deterministic per-type defaults (address/actionKind/product fields) are filled in once the real project object exists -- see ensureFunctionalityDefaults' hasAnyModule skip and createDefaultModule's own callers; a Claude-planned module never fabricates config values itself
+    submitBehavior: { provider: 'preview' },
+    successState: { message: successMessage },
+    integration: { provider: integrationProvider, connected: false, note: integrationProvider ? `Connect ${humanizeEditorLabel(integrationProvider)} later to make this live.` : '' }
+  };
+}
+function ensureFunctionalityDefaults(proj, categoryKey) {
+  if (!proj || !Array.isArray(proj.pages) || !proj.pages.length) return;
+  // Backfill grounded config defaults (e.g. a location module's real,
+  // already-declared address) for any module a Claude plan already created
+  // -- normalizeSectionModuleFromClaude runs before the real project object
+  // exists, so it always leaves config empty; this is the one place that
+  // can safely reuse a real declared fact. Never overwrites a config that
+  // already has values (an editor edit, or a prior call here).
+  proj.pages.forEach(p => (p.sections || []).forEach(s => {
+    if (s.module && s.module.enabled && s.module.config && Object.keys(s.module.config).length === 0) {
+      const filled = defaultModuleConfig(s.module.type, proj);
+      if (Object.keys(filled).length) s.module.config = filled;
+    }
+  }));
+  const recipe = CATEGORY_MODULE_RECIPE[categoryKey] || CATEGORY_MODULE_RECIPE.other;
+  const hasAnyModule = proj.pages.some(p => (p.sections || []).some(s => s.module && s.module.enabled));
+  if (hasAnyModule) return;
+  const homePage = proj.pages[0];
+  recipe.forEach(entry => {
+    const targetSection = findFirstCompatibleSection(proj, entry.into);
+    if (targetSection) { targetSection.module = createDefaultModule(entry.module, proj); return; }
+    if (entry.createSectionType) {
+      const type = entry.createSectionType;
+      if (homePage.sections.some(s => s.type === type)) return; // already has one, just not compatible/available (shouldn't happen, defensive)
+      const variant = pickVariant(type, proj.design.dimensions, (proj.intent && proj.intent.variationSeed) || 0);
+      homePage.sections.push({ id: newSectionId(type), type, variant, copy: null, module: createDefaultModule(entry.module, proj) });
+    }
+  });
 }
 
 // ---- Undo / redo -------------------------------------------------------------
@@ -2137,7 +2884,13 @@ function renderAssetPanels(proj) {
 // ---- V8.3: editor panel rendering ------------------------------------------
 // A friendly display label for a section type / variant key -- editor UI
 // only, never shown anywhere in the generated site itself.
-const EDITOR_TYPE_LABEL_OVERRIDES = { faq: 'FAQ', ctaBanner: 'CTA Banner', productShowcase: 'Product Showcase', imageLedEditorial: 'Editorial', testimonialsGrid: 'Testimonials Grid', reservationCta: 'Reservation CTA', serviceAreas: 'Service Areas', headline: 'Headline', subhead: 'Subheading', body: 'Body text', ctaLabel: 'Button label' };
+const EDITOR_TYPE_LABEL_OVERRIDES = {
+  faq: 'FAQ', ctaBanner: 'CTA Banner', productShowcase: 'Product Showcase', imageLedEditorial: 'Editorial', testimonialsGrid: 'Testimonials Grid', reservationCta: 'Reservation CTA', serviceAreas: 'Service Areas', headline: 'Headline', subhead: 'Subheading', body: 'Body text', ctaLabel: 'Button label',
+  // V8.4: module type / action-kind / integration-provider labels
+  contact: 'Contact form', quote: 'Quote request', newsletter: 'Newsletter signup', booking: 'Booking request', location: 'Location / map', action: 'Direct action', product: 'Product',
+  call: 'Call', email: 'Email', directions: 'Directions', 'external-booking': 'External booking link', 'external-store': 'External store link',
+  calendly: 'Calendly', shopify: 'Shopify', square: 'Square', stripe: 'Stripe', mailchimp: 'Mailchimp', 'google-maps': 'Google Maps'
+};
 function humanizeEditorLabel(key) {
   if (EDITOR_TYPE_LABEL_OVERRIDES[key]) return EDITOR_TYPE_LABEL_OVERRIDES[key];
   const spaced = String(key || '').replace(/-/g, ' ').replace(/([A-Z])/g, ' $1').trim();
@@ -2147,6 +2900,88 @@ function humanizeEditorLabel(key) {
 // rebuilds the whole panel's innerHTML from proj every render; all
 // interaction is delegated (see the pageSectionEditor listeners below), so
 // nothing here needs to re-attach a single event handler.
+// ---- V8.4: functionality module + CTA-target editor UI ---------------------
+// A phone/email/URL target's KIND is auto-detected from the value itself
+// (rather than a separate kind selector the visitor would have to keep in
+// sync) -- simple, unambiguous, and avoids a two-step "pick a kind, THEN
+// see the right input appear" UI that would need extra transient state.
+function detectCtaKindFromValue(v) {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return 'external';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return 'mailto';
+  return 'tel';
+}
+// Section types whose static fallback renders a single primary CTA button
+// (see renderContact/renderCtaBanner/renderReservationCta) -- only these
+// ever show the CTA-target editor, and only while no form/action module is
+// enabled on them (a module renders its own submit button / action button
+// instead, which isn't what ctaTarget points at).
+const CTA_TARGET_SECTION_TYPES = ['contact', 'ctaBanner', 'reservationCta'];
+function renderCtaTargetEditorHtml(pages, ownerAttr, cur) {
+  return `<div class="editor-cta-target">
+    <label>Button links to<select data-action="editor-cta-page" ${ownerAttr}>
+      <option value="">Not linked (decorative)</option>
+      ${pages.map(p => `<option value="${p.id}"${cur && cur.kind === 'page' && cur.pageId === p.id ? ' selected' : ''}>${escapeHtml(p.label)}</option>`).join('')}
+    </select></label>
+    <label>Or a phone / email / link<input type="text" placeholder="(555) 123-4567, you@business.com, https://…" data-action="editor-cta-value" ${ownerAttr} value="${cur && cur.kind !== 'page' && cur.kind !== 'section' ? escapeHtml(cur.value || '') : ''}" maxlength="200" /></label>
+  </div>`;
+}
+// Everything needed to enable/disable a module, swap its type (among
+// whatever's compatible with this section -- see MODULE_SECTION_COMPATIBILITY),
+// edit its fields/success message/type-specific config, and set a future
+// integration hint. Every control here mutates the model through
+// runEditorAction (see the pageSectionEditor listeners below) -- nothing
+// here writes to the DOM directly.
+function renderModuleEditorHtml(section) {
+  const compatible = moduleCompatibleTypesForSection(section.type);
+  if (!compatible.length) return '';
+  const module = section.module;
+  const enabled = !!(module && module.enabled);
+  let detail = '';
+  if (enabled) {
+    const isForm = ['contact', 'quote', 'newsletter', 'booking'].includes(module.type);
+    const allowlist = getModuleFieldAllowlist(module.type);
+    const fieldsHtml = isForm ? `
+      <div class="editor-module-fields">${module.fields.map((f, i) => {
+        const def = allowlist.find(d => d.key === f.key);
+        const removable = !def || def.removable !== false;
+        return `<div class="editor-module-field-row">
+          <input type="text" class="editor-module-field-label" data-action="editor-module-field-label" data-section-id="${section.id}" data-field-key="${f.key}" value="${escapeHtml(f.label)}" maxlength="60" />
+          <label class="editor-module-field-required"><input type="checkbox" data-action="editor-module-field-required" data-section-id="${section.id}" data-field-key="${f.key}"${f.required ? ' checked' : ''}${!removable ? ' disabled' : ''} /> Required</label>
+          <button type="button" data-action="editor-module-field-up" data-section-id="${section.id}" data-field-key="${f.key}" aria-label="Move field up"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button type="button" data-action="editor-module-field-down" data-section-id="${section.id}" data-field-key="${f.key}" aria-label="Move field down"${i === module.fields.length - 1 ? ' disabled' : ''}>↓</button>
+          <button type="button" class="editor-danger" data-action="editor-module-field-remove" data-section-id="${section.id}" data-field-key="${f.key}"${(!removable || module.fields.length <= 1) ? ' disabled' : ''}>Remove</button>
+        </div>`;
+      }).join('')}</div>
+      ${(() => {
+        const addable = allowlist.filter(d => !module.fields.some(f => f.key === d.key));
+        return addable.length ? `<label>Add field<select data-action="editor-module-field-add" data-section-id="${section.id}"><option value="">Choose…</option>${addable.map(d => `<option value="${d.key}">${escapeHtml(d.label)}</option>`).join('')}</select></label>` : '';
+      })()}
+      <label>Success message<textarea rows="2" maxlength="200" data-action="editor-module-success" data-section-id="${section.id}">${escapeHtml((module.successState && module.successState.message) || '')}</textarea></label>` : '';
+    const cfg = module.config || {};
+    const configHtml = module.type === 'location'
+      ? `<label>Address<input type="text" maxlength="200" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="address" value="${escapeHtml(cfg.address || '')}" /></label>`
+      : module.type === 'action'
+      ? `<label>Action<select data-action="editor-module-config" data-section-id="${section.id}" data-config-key="actionKind">${ACTION_KIND_KEYS.map(k => `<option value="${k}"${cfg.actionKind === k ? ' selected' : ''}>${humanizeEditorLabel(k)}</option>`).join('')}</select></label>
+         <label>${cfg.actionKind === 'call' ? 'Phone number' : cfg.actionKind === 'email' ? 'Email address' : cfg.actionKind === 'directions' ? 'Address (optional — uses business location if blank)' : 'Link URL'}<input type="text" maxlength="300" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="target" value="${escapeHtml(cfg.target || '')}" /></label>`
+      : module.type === 'product'
+      ? `<label>Product name<input type="text" maxlength="80" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="name" value="${escapeHtml(cfg.name || '')}" /></label>
+         <label>Price (optional)<input type="text" maxlength="40" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="priceLabel" value="${escapeHtml(cfg.priceLabel || '')}" /></label>
+         <label>Button label<input type="text" maxlength="40" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="ctaLabel" value="${escapeHtml(cfg.ctaLabel || '')}" /></label>
+         <label>Checkout URL<input type="text" maxlength="500" data-action="editor-module-config" data-section-id="${section.id}" data-config-key="checkoutUrl" value="${escapeHtml(cfg.checkoutUrl || '')}" /></label>`
+      : '';
+    const integrationHtml = `<label>Connect later via<select data-action="editor-module-integration" data-section-id="${section.id}"><option value="">None</option>${INTEGRATION_PROVIDER_KEYS.map(p => `<option value="${p}"${module.integration && module.integration.provider === p ? ' selected' : ''}>${humanizeEditorLabel(p)}</option>`).join('')}</select></label>`;
+    detail = `${fieldsHtml}${configHtml}${integrationHtml}`;
+  }
+  return `<div class="editor-module-block">
+    <div class="editor-module-header">
+      <label class="editor-module-toggle"><input type="checkbox" data-action="editor-module-toggle" data-section-id="${section.id}"${enabled ? ' checked' : ''} /> Functionality module</label>
+      ${enabled ? `<select data-action="editor-module-type" data-section-id="${section.id}">${compatible.map(t => `<option value="${t}"${module.type === t ? ' selected' : ''}>${humanizeEditorLabel(t)}</option>`).join('')}</select>` : ''}
+    </div>
+    ${detail}
+  </div>`;
+}
 function renderEditorPanel(proj, category) {
   if (!editorPageTabs || !proj || !Array.isArray(proj.pages)) return;
   const pages = proj.pages;
@@ -2188,6 +3023,9 @@ function renderEditorPanel(proj, category) {
   if (editorHeroSelect) {
     editorHeroSelect.innerHTML = CLAUDE_HERO_KEYS.map(k => `<option value="${k}"${proj.design.dimensions.hero === k ? ' selected' : ''}>${humanizeEditorLabel(k)}</option>`).join('');
   }
+  if (editorHeroCta) {
+    editorHeroCta.innerHTML = renderCtaTargetEditorHtml(pages, 'data-owner="hero"', proj.copy && proj.copy.ctaTarget);
+  }
 
   const sections = activePage ? (activePage.sections || []) : [];
   if (editorSectionList) {
@@ -2216,6 +3054,8 @@ function renderEditorPanel(proj, category) {
             ? `<label>${humanizeEditorLabel(f)}<textarea rows="2" data-action="editor-section-copy" data-section-id="${s.id}" data-field="${f}" maxlength="${EDITOR_COPY_FIELD_LIMITS[f]}">${escapeHtml(sectionCopyField(s, f, ''))}</textarea></label>`
             : `<label>${humanizeEditorLabel(f)}<input type="text" data-action="editor-section-copy" data-section-id="${s.id}" data-field="${f}" maxlength="${EDITOR_COPY_FIELD_LIMITS[f]}" value="${escapeHtml(sectionCopyField(s, f, ''))}" /></label>`
           ).join('')}</div>` : ''}
+          ${renderModuleEditorHtml(s)}
+          ${(!s.module || !s.module.enabled) && CTA_TARGET_SECTION_TYPES.includes(s.type) ? renderCtaTargetEditorHtml(pages, `data-owner="section" data-section-id="${s.id}"`, s.ctaTarget) : ''}
         </div>`;
       }).join('');
     }
@@ -2370,9 +3210,148 @@ if (siteNav) {
     const brand = event.target.closest('.site-brand-lockup');
     if (brand) { switchPage(0); return; }
     if (siteNavCta && (event.target === siteNavCta || siteNavCta.contains(event.target))) {
+      if (project.copy && project.copy.ctaTarget) { handleCtaTargetClick(project.copy.ctaTarget); return; }
       const target = findCtaTargetPage(project);
       if (target !== -1) switchPage(target);
     }
+  });
+}
+
+// ---- V8.4: CTA targeting + live module-form interaction --------------------
+// A page/section CTA target is resolved here, the one place both the nav
+// CTA (above) and any in-page CTA button share. tel:/mailto:/external
+// targets are real <a href> elements the browser already handles -- there
+// is nothing for this function to do for those, by design.
+function handleCtaTargetClick(target) {
+  if (!target || !project) return;
+  if (target.kind === 'page') { const idx = findPageIndexById(project, target.pageId); if (idx !== -1) switchPage(idx); return; }
+  if (target.kind === 'section') {
+    const idx = findPageIndexById(project, target.pageId);
+    if (idx === -1) return;
+    const scrollToSection = () => { const el = document.getElementById(`module-${target.sectionId}`); if (el) el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }); };
+    if (idx !== project.activePageIndex) { switchPage(idx); requestAnimationFrame(scrollToSection); } else scrollToSection();
+  }
+}
+// Directly patches one field's inline error (no full renderProject -- see
+// moduleRuntimeState's own comment for why: a full re-render would wipe
+// whatever the visitor is mid-typing elsewhere in the form).
+function patchModuleFieldError(form, fieldKey, error) {
+  const field = form.querySelector(`[data-field-key="${fieldKey}"]`);
+  if (!field) return;
+  const errEl = document.getElementById(field.getAttribute('aria-describedby'));
+  // aria-invalid is a tristate ARIA attribute (screen readers read its
+  // STRING value), not a boolean HTML attribute like `disabled`/`required`
+  // -- toggleAttribute would leave it present-but-empty (aria-invalid="")
+  // on error, which is not the same as aria-invalid="true" to assistive
+  // tech. Matches the string the initial render already uses (see
+  // moduleFieldInputHtml's invalidAttr) so a live-patched error state is
+  // exactly as accessible as a freshly-rendered one.
+  if (error) field.setAttribute('aria-invalid', 'true'); else field.removeAttribute('aria-invalid');
+  if (errEl) errEl.textContent = error || '';
+  const wrapper = field.closest('.module-field');
+  if (wrapper) wrapper.classList.toggle('module-field-error', !!error);
+}
+function patchModuleSubmittingState(form, isSubmitting) {
+  form.querySelectorAll('input, select, textarea, button').forEach(el => { el.disabled = isSubmitting; });
+  const btn = form.querySelector('.module-submit-btn');
+  if (btn) btn.textContent = isSubmitting ? 'Sending…' : btn.dataset.idleLabel || btn.textContent;
+}
+function patchModuleErrorBanner(form, message) {
+  let banner = form.querySelector('.module-submit-error');
+  if (!banner) {
+    banner = document.createElement('p');
+    banner.className = 'module-submit-error';
+    banner.setAttribute('role', 'alert');
+    form.insertBefore(banner, form.querySelector('.module-submit-btn'));
+  }
+  banner.textContent = message;
+}
+function patchModuleSuccessState(form, module) {
+  const wrapper = form.closest('.site-section-module');
+  if (!wrapper) return;
+  const preview = resolveModuleProvider(module).name === 'preview';
+  wrapper.innerHTML = `<div class="module-success" role="status" tabindex="-1">
+    <p>${escapeHtml((module.successState && module.successState.message) || defaultSuccessMessage(module.type))}</p>
+    ${preview ? '<p class="module-preview-note">Preview mode — this form isn’t connected to a live inbox yet.</p>' : ''}
+  </div>`;
+  const successEl = wrapper.querySelector('.module-success');
+  if (successEl) successEl.focus();
+}
+async function handleModuleFormSubmit(form) {
+  if (!project) return;
+  const sectionId = form.dataset.sectionId;
+  const activePage = project.pages[project.activePageIndex];
+  const section = activePage && findSectionById(activePage, sectionId);
+  if (!section || !section.module) return;
+  const runtime = getModuleRuntime(sectionId);
+  const raw = {};
+  (section.module.fields || []).forEach(f => {
+    const el = form.querySelector(`[data-field-key="${f.key}"]`);
+    raw[f.key] = el ? el.value : '';
+  });
+  const { valid, errors, values } = validateModuleSubmission(section.module, raw);
+  runtime.values = { ...runtime.values, ...raw };
+  runtime.errors = errors;
+  (section.module.fields || []).forEach(f => patchModuleFieldError(form, f.key, errors[f.key] || ''));
+  if (!valid) {
+    const firstBadKey = (section.module.fields || []).map(f => f.key).find(k => errors[k]);
+    if (firstBadKey) { const el = form.querySelector(`[data-field-key="${firstBadKey}"]`); if (el) el.focus(); }
+    return;
+  }
+  runtime.status = 'submitting';
+  patchModuleSubmittingState(form, true);
+  const result = await submitModule(section.module, values, { businessName: project.business.name, categoryKey: project.business.categoryKey, projectId: project.meta.id });
+  // Guard against a slow response landing after the visitor navigated away
+  // from this page/direction/section entirely -- never patches stale DOM.
+  if (!project || project.pages[project.activePageIndex] !== activePage || !document.body.contains(form)) return;
+  if (result && result.ok) {
+    runtime.status = 'success';
+    patchModuleSuccessState(form, section.module);
+  } else {
+    runtime.status = 'error';
+    runtime.message = (result && result.message) || 'Something went wrong. Please try again.';
+    patchModuleSubmittingState(form, false);
+    patchModuleErrorBanner(form, runtime.message);
+  }
+}
+if (siteSectionsRoot) {
+  // Page/section CTA clicks (tel/mailto/external are native <a href>
+  // elements -- the browser handles those with no JS at all).
+  siteSectionsRoot.addEventListener('click', event => {
+    const cta = event.target.closest('[data-cta-kind]');
+    if (cta && (cta.dataset.ctaKind === 'page' || cta.dataset.ctaKind === 'section')) {
+      handleCtaTargetClick({ kind: cta.dataset.ctaKind, pageId: cta.dataset.ctaPageId, sectionId: cta.dataset.ctaSectionId });
+    }
+  });
+  // Typing into a module field only ever updates the ephemeral runtime map
+  // -- never calls renderProject, so focus/caret position are never lost.
+  siteSectionsRoot.addEventListener('input', event => {
+    const field = event.target.closest('[data-field-key]');
+    const form = field && field.closest('[data-module-form]');
+    if (!form) return;
+    const runtime = getModuleRuntime(form.dataset.sectionId);
+    runtime.values[field.dataset.fieldKey] = field.value;
+  });
+  // Validate a field once the visitor leaves it -- patches only that one
+  // field's error text/aria-invalid, never a full re-render.
+  siteSectionsRoot.addEventListener('focusout', event => {
+    const field = event.target.closest('[data-field-key]');
+    const form = field && field.closest('[data-module-form]');
+    if (!form || !project) return;
+    const activePage = project.pages[project.activePageIndex];
+    const section = activePage && findSectionById(activePage, form.dataset.sectionId);
+    const fieldDef = section && section.module && (section.module.fields || []).find(f => f.key === field.dataset.fieldKey);
+    if (!fieldDef) return;
+    const result = validateModuleField(fieldDef, field.value);
+    const runtime = getModuleRuntime(section.id);
+    if (!result.valid) runtime.errors[fieldDef.key] = result.error; else delete runtime.errors[fieldDef.key];
+    patchModuleFieldError(form, fieldDef.key, result.valid ? '' : result.error);
+  });
+  siteSectionsRoot.addEventListener('submit', event => {
+    const form = event.target.closest('[data-module-form]');
+    if (!form) return;
+    event.preventDefault();
+    handleModuleFormSubmit(form);
   });
 }
 
@@ -2423,6 +3402,7 @@ const editorUndoBtn = $('#editorUndoBtn');
 const editorRedoBtn = $('#editorRedoBtn');
 const editorAddPageBtn = $('#editorAddPageBtn');
 const editorHeroSelect = $('#editorHeroSelect');
+const editorHeroCta = $('#editorHeroCta');
 const editorPageTabs = $('#editorPageTabs');
 const editorPageDetail = $('#editorPageDetail');
 const editorSectionList = $('#editorSectionList');
@@ -2486,6 +3466,17 @@ if (pageSectionEditor) {
       case 'editor-import-section':
         runEditorAction(() => !!importSectionFromDirection(Number(btn.dataset.sourceDirection), btn.dataset.sourcePageId, sectionId, activePage.id, activePage.sections.length), true);
         return;
+      // V8.4: module field reordering/removal -- module edits never affect
+      // images (see requirement #13), so these always pass `false`.
+      case 'editor-module-field-up':
+        runEditorAction(() => moveModuleField(project, activePage.id, sectionId, btn.dataset.fieldKey, 'up'), false);
+        return;
+      case 'editor-module-field-down':
+        runEditorAction(() => moveModuleField(project, activePage.id, sectionId, btn.dataset.fieldKey, 'down'), false);
+        return;
+      case 'editor-module-field-remove':
+        runEditorAction(() => removeModuleField(project, activePage.id, sectionId, btn.dataset.fieldKey), false);
+        return;
     }
   });
   pageSectionEditor.addEventListener('change', event => {
@@ -2523,6 +3514,49 @@ if (pageSectionEditor) {
         editorImportPanel.dataset.selectedDirection = el.value;
         renderEditorPanel(project, categories[project.business.categoryKey] || categories.other);
         return;
+      // V8.4: functionality module editing -- all model mutations, all
+      // through runEditorAction (undo/redo + persist + never an image
+      // request), exactly like every V8.3 editor control above.
+      case 'editor-module-toggle':
+        runEditorAction(() => setSectionModuleEnabled(project, activePage.id, sectionId, el.checked), false);
+        return;
+      case 'editor-module-type':
+        runEditorAction(() => setSectionModuleType(project, activePage.id, sectionId, el.value), false);
+        return;
+      case 'editor-module-field-label':
+        runEditorAction(() => setModuleFieldLabel(project, activePage.id, sectionId, el.dataset.fieldKey, el.value), false);
+        return;
+      case 'editor-module-field-required':
+        runEditorAction(() => setModuleFieldRequired(project, activePage.id, sectionId, el.dataset.fieldKey, el.checked), false);
+        return;
+      case 'editor-module-field-add':
+        if (!el.value) return;
+        runEditorAction(() => addModuleField(project, activePage.id, sectionId, el.value), false);
+        return;
+      case 'editor-module-success':
+        runEditorAction(() => setModuleSuccessMessage(project, activePage.id, sectionId, el.value), false);
+        return;
+      case 'editor-module-config':
+        runEditorAction(() => setModuleConfigValue(project, activePage.id, sectionId, el.dataset.configKey, el.value), false);
+        return;
+      case 'editor-module-integration':
+        runEditorAction(() => setModuleIntegrationProvider(project, activePage.id, sectionId, el.value), false);
+        return;
+      // V8.4: CTA targeting -- shared between the hero (data-owner="hero")
+      // and a compatible section's own primary CTA (data-owner="section").
+      case 'editor-cta-page': {
+        const target = el.value ? { kind: 'page', pageId: el.value } : null;
+        if (el.dataset.owner === 'hero') runEditorAction(() => setHeroCtaTarget(project, target), false);
+        else runEditorAction(() => setSectionCtaTarget(project, activePage.id, el.dataset.sectionId, target), false);
+        return;
+      }
+      case 'editor-cta-value': {
+        const kind = detectCtaKindFromValue(el.value);
+        const target = kind ? { kind, value: el.value } : null;
+        if (el.dataset.owner === 'hero') runEditorAction(() => setHeroCtaTarget(project, target), false);
+        else runEditorAction(() => setSectionCtaTarget(project, activePage.id, el.dataset.sectionId, target), false);
+        return;
+      }
     }
   });
 }
@@ -2597,6 +3631,19 @@ try {
         sectionIds: activePage ? (activePage.sections || []).map(s => s.id) : [],
         pageIds: (project && Array.isArray(project.pages)) ? project.pages.map(p => p.id) : []
       };
+    }
+  });
+  // V8.4: read-only -- every section on the active page that carries a
+  // module, plus its enabled state/type/field keys, so a test can assert on
+  // functionality-module state without reaching into module-private state.
+  Object.defineProperty(window, '__siteremadeModules', {
+    get: () => {
+      if (!project || !Array.isArray(project.pages)) return { modules: [], heroCtaTarget: null };
+      const modules = [];
+      project.pages.forEach(p => (p.sections || []).forEach(s => {
+        if (s.module) modules.push({ pageId: p.id, sectionId: s.id, sectionType: s.type, type: s.module.type, enabled: s.module.enabled, fieldKeys: (s.module.fields || []).map(f => f.key), requiredKeys: (s.module.fields || []).filter(f => f.required).map(f => f.key) });
+      }));
+      return { modules, heroCtaTarget: (project.copy && project.copy.ctaTarget) || null };
     }
   });
 } catch (e) { /* ignore in environments where this isn't definable */ }
@@ -2924,7 +3971,17 @@ function normalizeClaudePlan(raw, catDefaults) {
           claims: Array.isArray(s.claims)
             ? s.claims.filter(c => c && typeof c.text === 'string').slice(0, 6).map(c => ({ text: c.text.slice(0, 200), sourced: !!c.sourced }))
             : []
-        }
+        },
+        // V8.4: Claude may choose a functionality module (and which of the
+        // fixed allowlisted fields to include) for this section -- never a
+        // freeform shape. normalizeSectionModuleFromClaude independently
+        // re-validates every field against MODULE_SECTION_COMPATIBILITY/
+        // MODULE_FIELD_ALLOWLIST regardless of what the schema already
+        // constrained server-side, and returns null (silently dropped, never
+        // a broken render) for anything unusable -- exactly the same
+        // "never trust the network, degrade field-by-field" posture the
+        // copy fields above already use.
+        module: normalizeSectionModuleFromClaude(s.module, s.type)
       }));
     if (!sections.length) return null;
     return {
@@ -3262,8 +4319,16 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
             sub: claudePlan.heroCopy.sub || proj.copy.sub,
             cta: claudePlan.heroCopy.ctaLabel || proj.copy.cta
           };
+          // V8.4: whether or not Claude itself planned real functionality
+          // (module) on any section, this is the one place both paths
+          // always pass through -- ensureFunctionalityDefaults is a no-op
+          // the moment a real enabled module already exists anywhere on
+          // the site, and otherwise applies the conservative,
+          // category-aware deterministic default (see its own comment).
+          ensureFunctionalityDefaults(proj, analysis.categoryKey);
           return 'Copy written for this exact business';
         }
+        ensureFunctionalityDefaults(proj, analysis.categoryKey);
         return `Content matched to ${category.label}`;
       } },
     { key: 'imagery', run() {
