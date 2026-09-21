@@ -400,6 +400,7 @@ const anthropicProvider = {
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
           max_tokens: 4096,
+          thinking: { type: 'disabled' },
           system: PLANNER_SYSTEM_PROMPT,
           messages: [{ role: 'user', content: buildPlannerUserPrompt(brief) }],
           tools: [WEBSITE_PLAN_TOOL],
