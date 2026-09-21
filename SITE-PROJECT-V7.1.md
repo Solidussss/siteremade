@@ -106,6 +106,28 @@ so `serializeProject` (a straight `JSON.stringify`) carries it through
 save/restore automatically, the same as uploaded assets — confirmed by
 test (part 4).
 
+## 2a. A second latent bug the fix itself exposed
+
+Verifying part 2 with a real (mocked) generated `<img>` — not just checking
+`sourceType`, per the request — turned up a second, unrelated CSS bug:
+`.product-frame` (the container for the `productShowcase` section's visual)
+only ever had `min-height: 220px`, never a real `height`. The old CSS-only
+fallback (a plain `<div>`) happened to collapse to that minimum harmlessly.
+A real `<img>`, being a replaced element, instead computed its own height
+from its intrinsic aspect ratio against the frame's full content-column
+width whenever no ancestor had a definite height — ballooning a full-bleed
+section to roughly **its own width** (~930px tall on a typical desktop,
+confirmed by measuring the live DOM, not by inspection). This means: a
+real user-uploaded product image would have hit this exact bug already, in
+plain V7, independent of anything in this pass — it just never showed up
+because no test had put a real `<img>` into that slot before. Fixed with a
+real `height: 340px` + `object-fit: cover`, the same pattern every other
+working visual container here already uses (`.site-visual`,
+`.editorial-visual`, `.hero-stacked-visual`). A `git log` note: this
+landed as its own commit (`V7.1 fix: give .product-frame a real height...`)
+rather than folded into the first, so the two are easy to tell apart in
+review.
+
 ## 3. Files changed this pass
 
 - `script.js` — `renderVisualSlot`, `buildImagePlan` (rebuilt per-slot,
@@ -161,6 +183,14 @@ All run against the mock server on `localhost:8099`, headless Chromium at
    no mobile overflow, 0 console errors, unchanged from V7.
 7. **V7 structural-diversity suite** (`v7-diversity.js`) — still 8/8 unique
    structural signatures after the hero-layout fixes.
+8. **Container-sizing audit** (`v7-1-container-sizing-audit.js`) — the test
+   that caught part 2a: measures every visual-slot container's real
+   rendered height, with a real (mocked) generated `<img>` in place, across
+   all 8 diversity prompts. Found `.product-frame` at 932px before the
+   fix; confirms every container (`.site-visual`, `.about-visual`,
+   `.product-frame`, `.editorial-visual`, `.hero-stacked-visual`,
+   `.hero-asym-visual`, `.dash-panel-visual`, `.hero-product-body`,
+   `.collage-card`) renders at its intended size afterward.
 
 ## 5. Not deployed
 
