@@ -3198,6 +3198,7 @@ function renderProject(proj) {
   renderSections(proj, category);
   renderChrome(proj, category);
   renderEditorPanel(proj, category);
+  lifecycle.projectKind = isDemoProject(proj) ? 'demo' : 'real';
 }
 function renderAssetPanels(proj) {
   const byType = t => proj.assets.items.filter(a => a.type === t);
@@ -3448,7 +3449,6 @@ function saveProjectToStorage() {
 // activeDirectionIndex} state came from, so there is exactly one place
 // that ever "becomes" a loaded project.
 async function applyDirectionsState(restoredDirections, restoredIndex) {
-  showGenerationGate('finalizing', 'restore');
   const activeCandidate = restoredDirections[Math.max(0, Math.min(restoredDirections.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0))];
   const restoreKey = activeCandidate && activeCandidate.source
     ? (activeCandidate.source.generationKey || hashString(String(activeCandidate.source.text || '').trim().toLowerCase()))
@@ -3465,11 +3465,20 @@ async function applyDirectionsState(restoredDirections, restoredIndex) {
   activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0));
   project = directions[activeDirectionIndex];
   generationSession = project && project.source ? createGenerationSource(project.source.text) : null;
+  if (isDemoProject(project)) {
+    lifecycle.waitingForProvider = false;
+    setLifecycleState('idle', project);
+    return;
+  }
+  lifecycle.waitingForProvider = !window.__siteremadeImageProvider;
+  const preparationToken = ++lifecycle.preparationToken;
+  setLifecycleState('restoring', project);
+  showGenerationGate('finalizing', 'restore');
   renderDirectionSwitcher();
   updateDirectionControls();
   revealPreparationInFlight = true;
   try {
-    await prepareProjectForReveal(project, 'restore');
+    await prepareProjectForReveal(project, 'restore', preparationToken);
   } finally {
     revealPreparationInFlight = false;
   }
@@ -3976,6 +3985,34 @@ let refinementInFlight = false;
 let revealPreparationInFlight = false;
 let imageProviderStatusResolve;
 const imageProviderStatusReady = new Promise(resolve => { imageProviderStatusResolve = resolve; });
+const lifecycle = {
+  state: 'idle',
+  projectKind: 'demo',
+  waitingForProvider: false,
+  gateVisible: false,
+  websiteVisible: false,
+  preparationToken: 0
+};
+
+function isDemoProject(proj) { return !!(proj && proj.meta && proj.meta.isDemoShell === true); }
+function setLifecycleState(state, proj = project) {
+  lifecycle.state = state;
+  generationState = state;
+  lifecycle.projectKind = isDemoProject(proj) ? 'demo' : (proj ? 'real' : 'none');
+  lifecycle.gateVisible = !!(generationGate && !generationGate.hidden);
+  lifecycle.websiteVisible = !!(proj && !isDemoProject(proj) && builderSite && getComputedStyle(builderSite).visibility !== 'hidden' && !builderShell.classList.contains('generation-building'));
+}
+function lifecycleDiagnostics() {
+  const active = project && !isDemoProject(project) ? project : null;
+  return {
+    projectType: isDemoProject(project) ? 'demo' : (project ? 'real' : 'none'),
+    state: lifecycle.state,
+    gateVisible: !!(generationGate && !generationGate.hidden),
+    websiteVisible: !!(active && builderSite && getComputedStyle(builderSite).visibility !== 'hidden' && !builderShell.classList.contains('generation-building')),
+    unresolvedImageCount: active ? (active.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(active.assets.generated && active.assets.generated[entry.slot] && ['ready', 'error'].includes(active.assets.generated[entry.slot].status))).length : 0,
+    activeDirection: activeDirectionIndex
+  };
+}
 // V8.2: the real product rule one level down -- a direction is now a real,
 // potentially multi-page site, not always one page. `proj.pages` holds
 // every page of the CURRENT direction (in nav order, never more than
@@ -3999,11 +4036,12 @@ try {
       activeIndex: activeDirectionIndex,
       max: MAX_DIRECTIONS,
       inFlight: generationInFlight,
-      state: generationState,
+      state: lifecycle.state,
       categories: directions.map(d => d.business && d.business.categoryKey),
       sourceKeys: directions.map(d => d.source && d.source.generationKey)
     })
   });
+  Object.defineProperty(window, '__siteremadeLifecycle', { get: lifecycleDiagnostics });
   Object.defineProperty(window, '__siteremadePages', {
     get: () => ({
       count: (project && Array.isArray(project.pages)) ? project.pages.length : 0,
@@ -4553,14 +4591,17 @@ function switchDirection(index) {
   const previousIndex = activeDirectionIndex;
   activeDirectionIndex = index;
   project = directions[activeDirectionIndex];
+  const preparationToken = ++lifecycle.preparationToken;
+  setLifecycleState('switching', project);
   renderDirectionSwitcher();
   revealPreparationInFlight = true;
-  prepareProjectForReveal(project, 'switch').then(ready => {
+  prepareProjectForReveal(project, 'switch', preparationToken).then(ready => {
     if (ready) persistDirectionsSilently();
     else {
       activeDirectionIndex = previousIndex;
       project = directions[activeDirectionIndex];
-      prepareProjectForReveal(project, 'switch');
+      const rollbackToken = ++lifecycle.preparationToken;
+      prepareProjectForReveal(project, 'switch', rollbackToken);
       renderDirectionSwitcher();
     }
   }).finally(() => { revealPreparationInFlight = false; });
@@ -4833,11 +4874,13 @@ function updateGenerationGate(step, note) {
 }
 function showGenerationGate(state, mode = 'generation') {
   if (!generationGate || !builderShell) return;
+  if (isDemoProject(project) && mode !== 'generation') return;
   builderShell.classList.add('generation-building');
   generationGate.hidden = false;
   if (generationGateRetry) generationGateRetry.hidden = true;
   if (generationGateStatus) generationGateStatus.textContent = mode === 'restore' ? 'Preparing your website...' : mode === 'switch' ? 'Preparing this direction...' : 'Creating a custom website for your business...';
   updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : state === 'generating_images' ? 'imagery' : 'copy');
+  lifecycle.gateVisible = true;
 }
 function prepareProjectImagePlan(proj) {
   if (!proj || (proj.meta && proj.meta.isDemoShell)) return;
@@ -4847,10 +4890,12 @@ function prepareProjectImagePlan(proj) {
   const category = categories[proj.business && proj.business.categoryKey] || categories.other;
   proj.imagePlan = buildImagePlan(proj, category);
 }
-async function prepareProjectForReveal(proj, mode = 'restore') {
-  if (!proj) return false;
+async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle.preparationToken) {
+  if (!proj || isDemoProject(proj)) return false;
   if (mode !== 'generation') showGenerationGate('generating_images', mode);
   if (!window.__siteremadeImageProvider && mode !== 'generation') await imageProviderStatusReady;
+  if (token !== lifecycle.preparationToken || project !== proj) return false;
+  lifecycle.waitingForProvider = false;
   prepareProjectImagePlan(proj);
   if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) {
     (proj.imagePlan || []).forEach(entry => {
@@ -4866,31 +4911,35 @@ async function prepareProjectForReveal(proj, mode = 'restore') {
     markGenerated();
     completeGenerationGate();
     if (conversationRefinement) conversationRefinement.hidden = false;
+    setLifecycleState('ready', proj);
     return true;
   }
 
-  generationState = mode === 'switch' ? 'generating_images' : 'finalizing';
+  setLifecycleState(mode === 'switch' ? 'generating_images' : 'finalizing', proj);
   updateGenerationGate('imagery', `${imageProgressNote(proj)}${mode === 'restore' ? ' — restoring' : ''}`);
   await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)), { suppressRender: true });
+  if (token !== lifecycle.preparationToken || project !== proj) return false;
   updateGenerationGate('finalizing');
   const quality = validateProjectQuality(proj);
   if (!quality.ready) {
     failGenerationGate();
+    setLifecycleState('failed', proj);
     return false;
   }
   renderProject(proj);
   markGenerated();
   completeGenerationGate();
   if (conversationRefinement) conversationRefinement.hidden = false;
-  generationState = 'ready';
+  setLifecycleState('ready', proj);
   return true;
 }
 function failGenerationGate() {
-  if (!generationGate) return;
+  if (!generationGate || isDemoProject(project)) return;
   builderShell.classList.add('generation-building');
   generationGate.hidden = false;
   if (generationGateStatus) generationGateStatus.textContent = 'The website could not be completed. Your previous version is safe.';
   if (generationGateRetry) generationGateRetry.hidden = false;
+  lifecycle.gateVisible = true;
   generationGateOrder.forEach(key => {
     const item = generationGateSteps && generationGateSteps.querySelector(`[data-gate-step="${key}"]`);
     if (item) item.classList.remove('active');
@@ -4901,6 +4950,7 @@ function completeGenerationGate() {
   updateGenerationGate('finalizing', 'Ready to reveal');
   generationGate.hidden = true;
   builderShell.classList.remove('generation-building');
+  lifecycle.gateVisible = false;
 }
 function imageProgressNote(proj) {
   const generated = (proj && proj.imagePlan || []).filter(entry => entry.sourceType === 'generated');
@@ -4996,14 +5046,16 @@ async function runGeneration(text) {
   const previousProject = project;
   let admitted = false; // set true only by a successful finishGeneration call below
   generationInFlight = true;
-  generationState = 'analyzing';
+  lifecycle.waitingForProvider = false;
+  lifecycle.preparationToken++;
+  setLifecycleState('analyzing', project);
   showGenerationGate('analyzing');
   setGenerationControlsDisabled(true);
   try {
     let claudePlan = null;
     const meter = window.__siteremadePlanMeter;
     if (meter && meter.planConfigured) {
-      generationState = 'planning';
+      setLifecycleState('planning', project);
       updateGenerationGate('creative');
       if (generatorSubmitButton) generatorSubmitButton.disabled = true;
       if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
@@ -5032,17 +5084,17 @@ async function runGeneration(text) {
     }
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
-    generationState = 'composing';
+    setLifecycleState('composing', proj);
     updateGenerationGate('pages');
 
     if (prefersReducedMotion() || !generationGateSteps) {
       // Real work still runs in full -- only the frame-by-frame reveal is
       // skipped, matching the person's reduced-motion preference.
       steps.forEach(s => s.run());
-      generationState = 'generating_images';
+      setLifecycleState('generating_images', proj);
       updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
       await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)));
-      generationState = 'finalizing';
+      setLifecycleState('finalizing', proj);
       updateGenerationGate('finalizing');
       const quality = validateProjectQuality(proj);
       if (!quality.ready) throw new Error('Generated project failed its deterministic quality gate');
@@ -5080,10 +5132,10 @@ async function runGeneration(text) {
       function nextStep() {
         try {
           if (i >= steps.length) {
-            generationState = 'generating_images';
+            setLifecycleState('generating_images', proj);
             updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
             resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(() => {
-              generationState = 'finalizing';
+              setLifecycleState('finalizing', proj);
               updateGenerationGate('finalizing');
               const quality = validateProjectQuality(proj);
               if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
@@ -5121,7 +5173,7 @@ async function runGeneration(text) {
     // exactly this state, so it's a no-op, never a second admission or a
     // second image request.
     generationInFlight = false;
-    generationState = admitted ? 'ready' : 'failed';
+    setLifecycleState(admitted ? 'ready' : 'failed', project);
     setGenerationControlsDisabled(false);
     resetGenerationChromeUI();
     updateDirectionControls();
@@ -5743,6 +5795,9 @@ if (!restoredDirectionsOnBoot) {
   // It shows neutral copy and a distinct "preview" visual treatment so a
   // visitor never mistakes the empty state for an actual generated site.
   project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null, true);
+  lifecycle.waitingForProvider = false;
+  lifecycle.preparationToken++;
+  setLifecycleState('idle', project);
   renderProject(project);
 }
 year.textContent = new Date().getFullYear();
@@ -5759,9 +5814,10 @@ refreshAuthState();
 fetch('/api/image-provider-status').then(r => r.json()).then(status => {
   window.__siteremadeImageProvider = status;
   imageProviderStatusResolve();
-  if (project) {
+  if (project && !isDemoProject(project) && lifecycle.waitingForProvider && !revealPreparationInFlight) {
+    const preparationToken = ++lifecycle.preparationToken;
     revealPreparationInFlight = true;
-    prepareProjectForReveal(project, 'restore').finally(() => { revealPreparationInFlight = false; });
+    prepareProjectForReveal(project, 'restore', preparationToken).finally(() => { revealPreparationInFlight = false; });
   }
 }).catch(() => { imageProviderStatusResolve(); });
 // V8: best-effort AI-planning status + remaining-credits check -- same
