@@ -2,12 +2,36 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 
+// V8.5: durable account/project/purchase persistence -- see
+// SITE-PROJECT-V8.5.md part 1 for why this is a real, hand-rolled,
+// no-npm-dependency backend (auth, SQLite via node:sqlite, purchase-intent
+// binding, hand-rolled Stripe webhook verification) scoped to THIS sandbox
+// app, rather than wired to the separate, real production SiteRemade app's
+// own Supabase project -- the same "don't touch the production app/
+// database casually" boundary V8/V6 already established for the anonymous
+// generation ledger below.
+const { getDb } = require('./lib/db.js');
+const auth = require('./lib/auth.js');
+const projectStore = require('./lib/project-store.js');
+const purchase = require('./lib/purchase.js');
+const entitlement = require('./lib/entitlement.js');
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// A real file-backed database by default (durable across restarts, which
+// is the entire point) -- DB_PATH lets a test harness point this at a
+// throwaway file or ':memory:' instead, without touching this file.
+const db = getDb(process.env.SITEREMADE_DB_PATH);
 
 app.disable('x-powered-by');
+// V8.5's Stripe webhook route needs the EXACT raw request bytes to verify
+// Stripe's HMAC signature (JSON.stringify(JSON.parse(raw)) is not
+// guaranteed byte-identical to what Stripe actually sent) -- mounted
+// before the generic JSON parser below so it claims that one route first.
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '2mb' }));
 app.use(express.json({ limit: '900kb' }));
 app.use(express.urlencoded({ extended: false, limit: '900kb' }));
 app.use(express.static(__dirname,{
@@ -87,6 +111,58 @@ function getDirectionsLedgerEntry(anonId) {
   let entry = directionsLedger.get(anonId);
   if (!entry) { entry = { claudeDirectionsUsed: 0, signatures: [], history: [] }; directionsLedger.set(anonId, entry); }
   return entry;
+}
+
+// ---- V8.5: authenticated identity -------------------------------------
+// The ONLY place a request's account identity is ever established --
+// every ownership check downstream reads `req.accountId`, which is always
+// either null (anonymous, unauthenticated) or a real, server-verified
+// account id resolved from a signed, HttpOnly session cookie. Nothing
+// downstream of this ever trusts a client-supplied user/owner id from a
+// request body, header, or query string (see SITE-PROJECT-V8.5.md
+// "security" / "ownership invariant").
+function getSessionAccount(req) {
+  const cookies = auth.parseCookies(req.headers.cookie);
+  const token = cookies[auth.SESSION_COOKIE];
+  return token ? auth.resolveSession(db, token) : null;
+}
+// Attaches req.accountId/req.accountEmail (or null) without refusing the
+// request -- used on routes that behave differently for anonymous vs.
+// authenticated callers (e.g. /api/plan-website's entitlement branch)
+// without making auth mandatory for them.
+function withOptionalAuth(req, res, next) {
+  const session = getSessionAccount(req);
+  req.accountId = session ? session.accountId : null;
+  req.accountEmail = session ? session.email : null;
+  next();
+}
+// Refuses outright (401) when no valid session is present -- used on every
+// route that only makes sense for an owned resource.
+function requireAuth(req, res, next) {
+  const session = getSessionAccount(req);
+  if (!session) return res.status(401).json({ ok: false, message: 'Sign in required.' });
+  req.accountId = session.accountId;
+  req.accountEmail = session.email;
+  next();
+}
+// A lightweight, real same-origin check for every state-changing
+// authenticated route -- the CSRF strategy appropriate to this session
+// model (an HttpOnly, SameSite=Lax cookie plus a JSON-only API with no
+// CORS headers ever exposing it cross-origin -- see
+// SITE-PROJECT-V8.5.md "security"). SameSite=Lax already blocks the classic
+// cross-site form-POST case; this adds a second, independent check: a
+// present Origin (or, failing that, Referer) header must match this
+// server's own origin. Genuinely absent on both (some legitimate same-
+// origin fetches in older browsers) is allowed through, matching a
+// pragmatic, documented, non-bank-grade posture -- not a claim of
+// completeness beyond what's stated in the report.
+function requireSameOrigin(req, res, next) {
+  const expected = `${req.protocol}://${req.get('host')}`;
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
+  if (origin && origin !== expected) return res.status(403).json({ ok: false, message: 'Cross-origin request refused.' });
+  if (!origin && referer && !referer.startsWith(expected)) return res.status(403).json({ ok: false, message: 'Cross-origin request refused.' });
+  next();
 }
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
@@ -489,13 +565,30 @@ app.get('/api/generation-status', (req, res) => {
   });
 });
 
-app.post('/api/plan-website', async (req, res) => {
+// V8.5: authenticated visitors get a DURABLE, server-authoritative
+// entitlement (lib/entitlement.js's reserve/commit/release, keyed by
+// account_id in SQLite) instead of the anonymous in-memory cookie ledger
+// below -- a refresh or a second device can never reset or exceed it. The
+// two paths are deliberately kept separate (never merged/double-counted),
+// per the spec's own "explicitly separate anonymous protection from
+// authenticated durable entitlement."
+app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const entry = getDirectionsLedgerEntry(anonId);
+  const authed = !!req.accountId;
+  const remainingFor = () => authed
+    ? entitlement.getEntitlement(db, req.accountId, MAX_DIRECTIONS).remaining
+    : Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed);
   if (!anthropicProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed) });
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor() });
   }
-  if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
+  let reservation = null;
+  if (authed) {
+    reservation = entitlement.reserveDirection(db, req.accountId, MAX_DIRECTIONS);
+    if (!reservation.ok) {
+      return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This account has used its Claude-planned directions for now.' });
+    }
+  } else if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
     // Enforced here, server-side, BEFORE any model call -- a real brake on
     // Claude usage specifically for this anonymous visitor, independent of
     // (and in addition to) the client's own overall 3-direction-total cap.
@@ -505,7 +598,10 @@ app.post('/api/plan-website', async (req, res) => {
     return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This visitor has used their Claude-planned directions for now.' });
   }
   const text = clean(req.body.text, 600);
-  if (!text) return res.status(400).json({ ok: false, message: 'Missing business description.' });
+  if (!text) {
+    if (authed) entitlement.releaseDirection(db, req.accountId); // never charged for a request that never reached Claude
+    return res.status(400).json({ ok: false, message: 'Missing business description.' });
+  }
   const brief = {
     text,
     location: clean(req.body.location, 120),
@@ -517,45 +613,74 @@ app.post('/api/plan-website', async (req, res) => {
   try {
     const { plan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
-    entry.claudeDirectionsUsed += 1;
+    if (authed) entitlement.commitDirection(db, req.accountId); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed), meta: { model, latencyMs } });
+    if (!authed) entry.claudeDirectionsUsed += 1; // anonymous path unchanged from V8/V8.1
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
+    if (authed) entitlement.releaseDirection(db, req.accountId); // a failed attempt never permanently consumes a direction
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
     // A failed attempt does NOT consume one of this visitor's Claude
     // attempts -- only a real returned plan does. The direction itself
     // still gets created by the client's deterministic fallback.
-    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed) });
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: remainingFor() });
   }
 });
 
-app.post('/api/checkout', async (req, res) => {
+// V8.5: checkout now requires an authenticated account and an OWNED
+// project id -- a stable purchase_intents row (account, exact project,
+// pending) is created server-side BEFORE the Stripe Checkout Session
+// exists, and the session is created with that intent id as its
+// client_reference_id/success_url token. The browser's return from
+// checkout is only ever a UX trigger to ask the server for VERIFIED status
+// (GET /api/purchase-intents/:id) -- the query string itself is never
+// trusted (see SITE-PROJECT-V8.5.md part 6).
+app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
   try {
-    if (!STRIPE_SECRET_KEY) {
-      // Real, honest state: the architecture is wired end-to-end (this
-      // route, the client call, metadata shape) but no live key is
-      // configured in this environment. We do not fake a successful
-      // checkout -- see SITE-PROJECT-V6.md.
-      return res.status(200).json({ ok: false, configured: false, message: 'Checkout is not yet configured on this environment.' });
-    }
-    const projectId = clean(req.body.projectId, 60);
+    const projectId = clean(req.body.projectId, 120);
+    if (!projectId) return res.status(400).json({ ok: false, message: 'Missing project reference.' });
+    const owned = projectStore.getOwnedProject(db, req.accountId, projectId);
+    // A missing/not-owned project is indistinguishable from the caller's
+    // point of view -- never confirms whether some OTHER account's project
+    // id exists (see SITE-PROJECT-V8.5.md "security").
+    if (!owned) return res.status(404).json({ ok: false, message: 'Project not found.' });
+
     const businessName = clean(req.body.businessName, 160) || 'Your Business';
     const industry = clean(req.body.industry, 120) || 'General Business';
     const sectionsSummary = clean(req.body.sectionsSummary, 200);
     const brandColor = clean(req.body.brandColor, 20);
-    if (!projectId) return res.status(400).json({ ok: false, message: 'Missing project reference.' });
+
+    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: 35000, currency: 'cad' });
+    if (!intentResult.ok) {
+      if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
+      return res.status(404).json({ ok: false, message: 'Project not found.' });
+    }
+    const intentId = intentResult.intent.id;
+
+    if (!STRIPE_SECRET_KEY) {
+      // Real, honest state: the architecture is wired end-to-end (intent
+      // creation, this route, the client call, metadata shape) but no live
+      // key is configured in this environment. We do not fake a successful
+      // checkout -- see SITE-PROJECT-V6.md. The intent row created above is
+      // harmless left in 'pending' -- a later real checkout attempt for the
+      // same project creates its own fresh intent.
+      return res.status(200).json({ ok: false, configured: false, message: 'Checkout is not yet configured on this environment.' });
+    }
 
     const origin = `${req.protocol}://${req.get('host')}`;
     const session = await stripeRequest('checkout/sessions', {
       mode: 'payment',
-      success_url: `${origin}/?purchased=1&project=${encodeURIComponent(projectId)}#buy`,
-      cancel_url: `${origin}/?purchase_cancelled=1#buy`,
+      // The success URL carries the INTENT id, never the raw project id --
+      // the client asks the server to verify that intent's real status
+      // rather than trusting this query string directly.
+      success_url: `${origin}/?purchased=1&intent=${encodeURIComponent(intentId)}#buy`,
+      cancel_url: `${origin}/?purchase_cancelled=1&intent=${encodeURIComponent(intentId)}#buy`,
       line_items: [{
         quantity: 1,
         price_data: {
@@ -570,20 +695,52 @@ app.post('/api/checkout', async (req, res) => {
       // metadata.kind follows the same dispatch convention as SiteRemade's
       // main app's Stripe webhook (metadata.kind === 'website_purchase' is
       // a new kind that app doesn't handle yet -- documented as required
-      // next-step backend work, not built here).
+      // next-step backend work, not built here). intentId is what THIS
+      // app's own /api/stripe/webhook reconciles fulfillment against.
       metadata: {
         kind: 'website_purchase',
+        intentId,
         projectId,
         businessName: businessName.slice(0, 90),
         industry: industry.slice(0, 90),
         brandColor,
       },
     });
+    purchase.attachStripeSession(db, intentId, session.id);
 
-    return res.json({ ok: true, url: session.url });
+    return res.json({ ok: true, url: session.url, intentId });
   } catch (error) {
     console.error('Checkout session failed:', error);
     return res.status(500).json({ ok: false, message: 'Could not start checkout. Please try again shortly.' });
+  }
+});
+
+// Stripe fires this server-to-server (never trusted without a verified
+// signature) on Checkout Session lifecycle events. Idempotent by
+// construction (lib/purchase.js's fulfillBySessionId/markIntentTerminal)
+// -- a duplicate delivery of the same event is always a safe no-op.
+app.post('/api/stripe/webhook', (req, res) => {
+  if (!STRIPE_WEBHOOK_SECRET) return res.status(503).json({ ok: false, message: 'Webhook is not configured on this environment.' });
+  const signature = req.headers['stripe-signature'];
+  const rawBody = req.body; // Buffer, thanks to the express.raw() mount above
+  if (!purchase.verifyStripeWebhookSignature(rawBody, signature, STRIPE_WEBHOOK_SECRET)) {
+    return res.status(400).json({ ok: false, message: 'Invalid signature.' });
+  }
+  let event;
+  try { event = JSON.parse(rawBody.toString('utf8')); } catch (e) { return res.status(400).json({ ok: false, message: 'Malformed event body.' }); }
+  const session = event && event.data && event.data.object;
+  try {
+    if (event.type === 'checkout.session.completed' && session && session.id) {
+      purchase.fulfillBySessionId(db, session.id);
+    } else if ((event.type === 'checkout.session.expired') && session && session.id) {
+      purchase.markIntentTerminal(db, session.id, 'cancelled');
+    }
+    // Any other event type is acknowledged (200) without action -- Stripe
+    // retries on non-2xx, and this app only cares about the two above.
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('Webhook fulfillment failed:', error);
+    return res.status(500).json({ ok: false, message: 'Fulfillment failed.' });
   }
 });
 
@@ -675,6 +832,101 @@ app.post('/api/lead', async (req, res) => {
     console.error('Lead submission failed:', error);
     return res.status(500).json({ ok: false, message: 'Something went wrong sending your design. Please email hello@siteremade.com.' });
   }
+});
+
+// ============================================================================
+// V8.5: auth + owned-project API
+// ============================================================================
+// A project's serialized directions state can be several MB once it
+// contains a few generated images (dedup/internalization happens AFTER
+// validation -- see lib/project-store.js), so POST/PUT /api/projects use
+// their own raised-limit JSON parser rather than blanket-raising the
+// 900kb default every other route still uses.
+const projectJsonParser = express.json({ limit: '35mb' });
+
+app.post('/api/auth/signup', requireSameOrigin, (req, res) => {
+  const result = auth.createAccount(db, req.body && req.body.email, req.body && req.body.password);
+  if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
+  const { token } = auth.createSession(db, result.account.id);
+  res.setHeader('Set-Cookie', auth.sessionCookieHeader(token));
+  return res.json({ ok: true, account: result.account });
+});
+app.post('/api/auth/signin', requireSameOrigin, (req, res) => {
+  const result = auth.signIn(db, req.body && req.body.email, req.body && req.body.password);
+  if (!result.ok) return res.status(401).json({ ok: false, message: result.error });
+  const { token } = auth.createSession(db, result.account.id);
+  res.setHeader('Set-Cookie', auth.sessionCookieHeader(token));
+  return res.json({ ok: true, account: result.account });
+});
+app.post('/api/auth/signout', requireSameOrigin, (req, res) => {
+  const cookies = auth.parseCookies(req.headers.cookie);
+  const token = cookies[auth.SESSION_COOKIE];
+  if (token) auth.deleteSession(db, token);
+  res.setHeader('Set-Cookie', auth.sessionCookieHeader(null, { clear: true }));
+  return res.json({ ok: true });
+});
+app.get('/api/auth/me', withOptionalAuth, (req, res) => {
+  if (!req.accountId) return res.json({ authenticated: false });
+  return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail } });
+});
+
+// Create (or idempotently resolve, via sourceLocalId) an owned project.
+// This is also the anonymous -> account migration endpoint: the client
+// sends the EXACT in-browser directions state, unmodified, tagged with the
+// browser-local project's own meta.id as sourceLocalId (see
+// SITE-PROJECT-V8.5.md "anonymous -> account migration").
+app.post('/api/projects', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const result = projectStore.createProject(db, req.accountId, {
+    name: req.body && req.body.name,
+    directionsState: req.body && req.body.directionsState,
+    sourceLocalId: req.body && req.body.sourceLocalId,
+  });
+  if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
+  return res.status(result.alreadyExisted ? 200 : 201).json({ ok: true, project: result.project, migrated: result.migrated, alreadyExisted: result.alreadyExisted });
+});
+app.get('/api/projects', requireAuth, (req, res) => {
+  return res.json({ ok: true, projects: projectStore.listOwnedProjects(db, req.accountId) });
+});
+app.get('/api/projects/:id', requireAuth, (req, res) => {
+  const project = projectStore.getOwnedProject(db, req.accountId, req.params.id);
+  // A missing project and one owned by someone else are the SAME response
+  // -- this endpoint never confirms another account's project exists (see
+  // SITE-PROJECT-V8.5.md "security" / IDOR).
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  return res.json({ ok: true, project });
+});
+app.put('/api/projects/:id', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const body = req.body || {};
+  const result = projectStore.updateOwnedProject(db, req.accountId, req.params.id, {
+    name: body.name, directionsState: body.directionsState,
+    expectedRevision: Number.isInteger(body.expectedRevision) ? body.expectedRevision : undefined,
+  });
+  if (!result.ok) {
+    if (result.reason === 'not_found') return res.status(404).json({ ok: false, message: 'Project not found.' });
+    if (result.reason === 'conflict') return res.status(409).json({ ok: false, reason: 'conflict', current: result.current });
+    return res.status(400).json({ ok: false, message: result.error || 'Invalid project state.' });
+  }
+  return res.json({ ok: true, project: result.project });
+});
+app.delete('/api/projects/:id', requireAuth, requireSameOrigin, (req, res) => {
+  const result = projectStore.archiveProject(db, req.accountId, req.params.id);
+  if (!result.ok) {
+    if (result.reason === 'not_found') return res.status(404).json({ ok: false, message: 'Project not found.' });
+    return res.status(409).json({ ok: false, message: 'Only a draft project can be archived.' });
+  }
+  return res.json({ ok: true });
+});
+app.get('/api/projects/:id/purchase-status', requireAuth, (req, res) => {
+  const status = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);
+  if (!status) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  return res.json({ ok: true, status });
+});
+// Verified-purchase polling target for the post-checkout-return UX
+// trigger -- see the /api/checkout and /api/stripe/webhook comments above.
+app.get('/api/purchase-intents/:id', requireAuth, (req, res) => {
+  const intent = purchase.getOwnedPurchaseIntent(db, req.accountId, req.params.id);
+  if (!intent) return res.status(404).json({ ok: false, message: 'Purchase intent not found.' });
+  return res.json({ ok: true, intent });
 });
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));

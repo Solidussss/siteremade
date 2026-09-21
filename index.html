@@ -245,6 +245,41 @@
               <p class="project-data-status" id="projectDataStatus"></p>
             </div>
 
+            <!-- V8.5: this account is SiteRemade's own sandbox account system for
+                 THIS generator, separate from the real "Client Login" link above
+                 (app.siteremade.com) -- signing in here lets the exact project
+                 you're editing survive a browser/device change and be tied to a
+                 real purchase. -->
+            <div class="control-block account-block" id="accountBlock">
+              <label class="control-label">Account &amp; sync</label>
+              <div id="accountSignedOut" class="account-signed-out">
+                <p class="asset-block-note">Sign in to save this project to your account, sync it across devices, and buy it.</p>
+                <div class="account-auth-fields">
+                  <input type="email" id="accountEmailInput" placeholder="Email" autocomplete="email" />
+                  <input type="password" id="accountPasswordInput" placeholder="Password (min 8 characters)" autocomplete="current-password" />
+                </div>
+                <div class="account-auth-actions">
+                  <button type="button" class="reset-colors" id="accountSignInBtn">Sign in</button>
+                  <button type="button" class="reset-colors" id="accountSignUpBtn">Create account</button>
+                </div>
+                <p class="account-status" id="accountAuthStatus" aria-live="polite"></p>
+              </div>
+              <div id="accountSignedIn" class="account-signed-in" hidden>
+                <p class="account-identity">Signed in as <strong id="accountEmailLabel"></strong> · <button type="button" class="link-button" id="accountSignOutBtn">Sign out</button></p>
+                <label class="account-project-name-label">Project name<input type="text" id="accountProjectNameInput" maxlength="200" /></label>
+                <p class="account-save-status" id="accountSaveStatus" aria-live="polite">Not saved to your account yet.</p>
+                <div class="account-conflict" id="accountConflictBlock" hidden>
+                  <p>This project changed on another device since your last save here.</p>
+                  <button type="button" class="reset-colors" id="accountKeepMineBtn">Keep my version</button>
+                  <button type="button" class="reset-colors" id="accountLoadTheirsBtn">Load their version</button>
+                </div>
+                <label class="account-owned-projects-label">Your saved projects
+                  <select id="accountProjectsSelect"><option value="">— select a project —</option></select>
+                </label>
+                <button type="button" class="reset-colors" id="accountLoadProjectBtn">Load selected project</button>
+              </div>
+            </div>
+
             <div class="control-block editor-control-block" id="pageSectionEditor">
               <label class="control-label">Pages &amp; sections</label>
               <p class="asset-block-note">Reorder, duplicate, move or remove sections, edit their text, swap a layout, or bring in a section from another direction — every change here is a real edit to this direction, made instantly, with no new AI generation.</p>
@@ -283,6 +318,7 @@
           <p id="purchaseMeta">#315CFF · Split · General Business</p>
           <p id="purchaseDescriptionNote" class="handoff-description-note" hidden></p>
           <div class="purchase-price"><span>$350</span><small>CAD</small></div>
+          <p class="purchase-ownership-badge" id="purchaseOwnershipBadge" hidden></p>
           <button type="button" class="button full-width" id="buyButton" disabled>Buy this website</button>
           <p class="purchase-status" id="purchaseStatus" aria-live="polite">Generate a direction above to enable checkout.</p>
         </div>

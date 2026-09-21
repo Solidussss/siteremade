@@ -3099,6 +3099,14 @@ function setProjectStatus(msg) {
 // cookie itself (SITE-PROJECT-V8.md part 7/8).
 function persistDirectionsSilently() {
   try { localStorage.setItem('siteremade:lastProject', serializeDirectionsState()); } catch (e) { /* best-effort only */ }
+  // V8.5: this is the single chokepoint every mutation path already routes
+  // through (runEditorAction, generation completion, direction switching --
+  // see this function's own call sites) -- reusing it here, rather than
+  // wiring a server-save call into each of those individually, is exactly
+  // the "hook durable persistence into the centralized mutation
+  // architecture" the spec asks for. A no-op whenever there's no signed-in
+  // account or no server-side project yet (see scheduleServerAutosave).
+  scheduleServerAutosave();
 }
 function saveProjectToStorage() {
   if (!directions.length) { setProjectStatus('Generate a direction first.'); return; }
@@ -3106,6 +3114,28 @@ function saveProjectToStorage() {
     localStorage.setItem('siteremade:lastProject', serializeDirectionsState());
     setProjectStatus(`Saved — all ${directions.length} direction${directions.length === 1 ? '' : 's'} (including images) can be reloaded anytime.`);
   } catch (e) { setProjectStatus('Could not save (storage may be full or unavailable).'); }
+}
+// V8.5: shared by loadProjectFromStorage (localStorage) below and the
+// owned-project restore / conflict-resolution paths further down (the
+// server) -- the exact same real, tested migration/render/resolve
+// sequence applies regardless of where the {directions,
+// activeDirectionIndex} state came from, so there is exactly one place
+// that ever "becomes" a loaded project.
+function applyDirectionsState(restoredDirections, restoredIndex) {
+  const sliced = restoredDirections.slice(0, MAX_DIRECTIONS);
+  sliced.forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; }); // restore generated imagery same as user uploads
+  // V8.2: every restored direction gets migrated into the page-aware
+  // shape -- a real pages[] for one already saved that way, or a real
+  // single Home page split back out of a legacy flat sections[] for one
+  // that isn't (see migrateProjectPages).
+  directions = sliced.map(migrateProjectPages);
+  activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0));
+  project = directions[activeDirectionIndex];
+  renderProject(project);
+  markGenerated();
+  renderDirectionSwitcher();
+  updateDirectionControls();
+  resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots -- matches "switching never generates images"; inactive directions are left exactly as saved until switched to
 }
 function loadProjectFromStorage() {
   let raw;
@@ -3126,19 +3156,7 @@ function loadProjectFromStorage() {
     } else {
       throw new Error('Unrecognized saved format');
     }
-    restored.slice(0, MAX_DIRECTIONS).forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; }); // restore generated imagery same as user uploads
-    // V8.2: every restored direction gets migrated into the page-aware
-    // shape -- a real pages[] for one already saved that way, or a real
-    // single Home page split back out of a legacy flat sections[] for one
-    // that isn't (see migrateProjectPages).
-    directions = restored.slice(0, MAX_DIRECTIONS).map(migrateProjectPages);
-    activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, restoredIndex));
-    project = directions[activeDirectionIndex];
-    renderProject(project);
-    markGenerated();
-    renderDirectionSwitcher();
-    updateDirectionControls();
-    resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots -- matches "switching never generates images"; inactive directions are left exactly as saved until switched to
+    applyDirectionsState(restored, restoredIndex);
     setProjectStatus(`Loaded your saved project${directions.length > 1 ? ` (${directions.length} directions)` : ''}.`);
   } catch (e) { setProjectStatus('Saved project could not be read.'); }
 }
@@ -3388,6 +3406,25 @@ const loadProjectButton = $('#loadProjectButton');
 const loadProjectButtonLock = $('#loadProjectButtonLock');
 const projectDataStatus = $('#projectDataStatus');
 const projectDataStatusLock = $('#projectDataStatusLock');
+
+// V8.5: account / durable-sync elements
+const accountSignedOut = $('#accountSignedOut');
+const accountSignedIn = $('#accountSignedIn');
+const accountEmailInput = $('#accountEmailInput');
+const accountPasswordInput = $('#accountPasswordInput');
+const accountSignInBtn = $('#accountSignInBtn');
+const accountSignUpBtn = $('#accountSignUpBtn');
+const accountAuthStatus = $('#accountAuthStatus');
+const accountEmailLabel = $('#accountEmailLabel');
+const accountSignOutBtn = $('#accountSignOutBtn');
+const accountProjectNameInput = $('#accountProjectNameInput');
+const accountSaveStatus = $('#accountSaveStatus');
+const accountConflictBlock = $('#accountConflictBlock');
+const accountKeepMineBtn = $('#accountKeepMineBtn');
+const accountLoadTheirsBtn = $('#accountLoadTheirsBtn');
+const accountProjectsSelect = $('#accountProjectsSelect');
+const accountLoadProjectBtn = $('#accountLoadProjectBtn');
+const purchaseOwnershipBadge = $('#purchaseOwnershipBadge');
 
 // V8.3: editor/remix panel elements -- a compact control-block inside the
 // same collapsible "Advanced customization" drawer the color/layout/section
@@ -4578,6 +4615,387 @@ if (generatorForm) {
   });
 }
 
+// ---- V8.5: account / durable project sync ---------------------------------
+// After this pass, localStorage is a CACHE/recovery mechanism, never the
+// authority for who owns a purchased project -- authentication identifies
+// the user, the server/database identifies the project, and verified
+// payment binds that exact project to that exact owner (see
+// SITE-PROJECT-V8.5.md). Anonymous generation (everything above this block)
+// is left completely unaffected: every function here is a no-op until a
+// visitor signs in, and even then only ever ADDS a durable server copy on
+// top of the existing localStorage behavior, never replaces it.
+let currentAccount = null; // {id, email} | null
+let serverProjectId = null; // the owned server project this browser is synced to, once signed in + migrated/loaded
+let serverProjectRevision = null; // last-known revision, for optimistic-concurrency PUTs (see lib/project-store.js updateOwnedProject)
+let ownedProjectsCache = [];
+let pendingConflictServerProject = null; // the server's project while accountConflictBlock is asking the visitor to choose
+let autosaveTimer = null;
+let currentFlushPromise = null; // the in-flight PUT, if any -- see flushServerAutosave
+let autosavePendingWhileInFlight = false;
+let autosaveRequestSeq = 0;
+let autosaveHighestAppliedSeq = 0; // a response is only ever applied if no NEWER request has already completed -- see doAutosaveSave
+let autosaveState = 'idle'; // idle | dirty | saving | saved | failed | conflict
+const AUTOSAVE_DEBOUNCE_MS = 1500;
+const AUTOSAVE_RETRY_MS = 5000;
+let resolveAuthReady;
+// handlePurchaseReturn (below) can run before this module's own
+// refreshAuthState() call has resolved -- it awaits this so a purchase-
+// intent poll is never sent unauthenticated and misread as "not found."
+const authReadyPromise = new Promise(resolve => { resolveAuthReady = resolve; });
+
+async function apiFetch(path, options = {}) {
+  let response;
+  try {
+    response = await fetch(path, {
+      method: options.method || 'GET',
+      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      credentials: 'same-origin',
+    });
+  } catch (e) {
+    return { ok: false, status: 0, data: { ok: false, message: 'Could not reach the server.' } };
+  }
+  let data = {};
+  try { data = await response.json(); } catch (e) { /* non-JSON error page etc. -- data stays {} */ }
+  return { ok: response.ok, status: response.status, data };
+}
+
+function setAccountAuthStatus(msg, isError) {
+  if (accountAuthStatus) accountAuthStatus.textContent = msg;
+  if (accountAuthStatus) accountAuthStatus.className = 'account-status' + (isError ? ' error' : '');
+}
+function setAutosaveState(state, detail) {
+  autosaveState = state;
+  if (!accountSaveStatus) return;
+  const labels = {
+    idle: 'Not saved to your account yet.',
+    dirty: 'Unsaved changes…',
+    saving: 'Saving…',
+    saved: 'Saved to your account.',
+    failed: 'Could not save — will retry automatically.',
+    conflict: 'This project changed on another device — choose a version below.',
+  };
+  accountSaveStatus.textContent = detail || labels[state] || '';
+  accountSaveStatus.dataset.state = state;
+}
+function updatePurchaseOwnershipBadge() {
+  if (!purchaseOwnershipBadge) return;
+  const summary = serverProjectId ? ownedProjectsCache.find(p => p.id === serverProjectId) : null;
+  const status = summary ? summary.status : null;
+  if (status === 'purchased') {
+    purchaseOwnershipBadge.hidden = false;
+    purchaseOwnershipBadge.dataset.status = 'purchased';
+    purchaseOwnershipBadge.textContent = 'Purchased — owned by your account';
+  } else if (status === 'checkout_pending') {
+    purchaseOwnershipBadge.hidden = false;
+    purchaseOwnershipBadge.dataset.status = 'checkout_pending';
+    purchaseOwnershipBadge.textContent = 'Checkout in progress for this project…';
+  } else {
+    purchaseOwnershipBadge.hidden = true;
+  }
+}
+function updateAccountUI() {
+  const signedIn = !!currentAccount;
+  if (accountSignedOut) accountSignedOut.hidden = signedIn;
+  if (accountSignedIn) accountSignedIn.hidden = !signedIn;
+  if (signedIn && accountEmailLabel) accountEmailLabel.textContent = currentAccount.email;
+  if (signedIn && accountProjectNameInput && !accountProjectNameInput.value && project) {
+    accountProjectNameInput.value = (project.business && project.business.name) || 'My website';
+  }
+  if (accountProjectsSelect) {
+    const previousValue = accountProjectsSelect.value;
+    accountProjectsSelect.innerHTML = '<option value="">— select a project —</option>' +
+      ownedProjectsCache.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (${escapeHtml(p.status)})</option>`).join('');
+    if (previousValue && ownedProjectsCache.some(p => p.id === previousValue)) accountProjectsSelect.value = previousValue;
+  }
+  updatePurchaseOwnershipBadge();
+}
+async function refreshServerProjectStatus() {
+  if (!currentAccount || !serverProjectId) return;
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/purchase-status`);
+  if (!ok || !data.ok) return;
+  const idx = ownedProjectsCache.findIndex(p => p.id === serverProjectId);
+  const patch = { id: data.status.id, status: data.status.status, purchaseRef: data.status.purchaseRef, updatedAt: data.status.updatedAt };
+  if (idx === -1) ownedProjectsCache.push({ name: (accountProjectNameInput && accountProjectNameInput.value) || 'Untitled project', ...patch });
+  else ownedProjectsCache[idx] = { ...ownedProjectsCache[idx], ...patch };
+  updatePurchaseOwnershipBadge();
+}
+
+// A one-time anonymous -> account migration marker, persisted so a visitor
+// who signs in, gets migrated, then reloads (or signs out and back in on
+// the same browser) is reattached to the SAME server project rather than
+// creating a second one -- the server's own sourceLocalId unique index
+// (per owner) is the real guarantee; this is a client-side fast path that
+// avoids even attempting a redundant create call.
+function readMigrationMap() {
+  try { return JSON.parse(localStorage.getItem('siteremade:migrationMap') || '{}'); } catch (e) { return {}; }
+}
+function writeMigrationMapEntry(localId, serverId) {
+  try {
+    const map = readMigrationMap();
+    map[localId] = serverId;
+    localStorage.setItem('siteremade:migrationMap', JSON.stringify(map));
+  } catch (e) { /* best-effort only */ }
+}
+
+function showConflict(serverProject) {
+  pendingConflictServerProject = serverProject;
+  serverProjectId = serverProject.id;
+  if (accountConflictBlock) accountConflictBlock.hidden = false;
+  setAutosaveState('conflict');
+}
+function hideConflict() {
+  pendingConflictServerProject = null;
+  if (accountConflictBlock) accountConflictBlock.hidden = true;
+}
+
+// The single place a loaded server project's directionsState "becomes" the
+// live browser state -- reuses applyDirectionsState (shared with
+// loadProjectFromStorage above) so there is exactly one restore/migrate/
+// render sequence regardless of where the state came from.
+function adoptServerProject(serverProject) {
+  serverProjectId = serverProject.id;
+  serverProjectRevision = serverProject.revision;
+  applyDirectionsState(serverProject.directionsState.directions, serverProject.directionsState.activeDirectionIndex);
+  if (accountProjectNameInput) accountProjectNameInput.value = serverProject.name;
+  try { localStorage.setItem('siteremade:lastProject', serializeDirectionsState()); } catch (e) { /* best-effort only */ }
+}
+
+// Loads an owned project by id. If the browser already has unsaved local
+// directions that differ from the server's copy, this does NOT silently
+// pick a winner (last-write-wins) -- it surfaces the conflict block and
+// waits for an explicit choice (see resolveConflictKeepMine/LoadTheirs),
+// per the spec's explicit "prefer explicit conflict detection" instruction.
+async function loadSelectedOwnedProjectById(id) {
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(id)}`);
+  if (!ok || !data.ok) { setAutosaveState('failed', 'Could not load that project from your account.'); return; }
+  const serverProject = data.project;
+  const hasLocalContent = directions.length > 0;
+  const localMatchesServer = hasLocalContent && serializeDirectionsState() === JSON.stringify(serverProject.directionsState);
+  if (hasLocalContent && !localMatchesServer) { showConflict(serverProject); return; }
+  adoptServerProject(serverProject);
+  setAutosaveState('saved', 'Loaded your saved project.');
+  setProjectStatus('Loaded your account project.');
+  updateAccountUI();
+}
+async function resolveConflictKeepMine() {
+  if (!pendingConflictServerProject) return;
+  const serverProject = pendingConflictServerProject;
+  hideConflict();
+  serverProjectId = serverProject.id;
+  serverProjectRevision = serverProject.revision;
+  setAutosaveState('saving');
+  const keepName = accountProjectNameInput && accountProjectNameInput.value.trim() ? accountProjectNameInput.value.trim() : undefined;
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProject.id)}`, {
+    method: 'PUT',
+    body: { directionsState: { directions, activeDirectionIndex }, expectedRevision: serverProjectRevision, ...(keepName ? { name: keepName } : {}) },
+  });
+  if (ok && data.ok) {
+    serverProjectRevision = data.project.revision;
+    setAutosaveState('saved', 'Kept your local version and saved it to your account.');
+    await loadOwnedProjectsList();
+  } else if (data && data.reason === 'conflict' && data.current) {
+    // Something else saved again in the window between showing this
+    // conflict and resolving it -- re-present rather than blindly
+    // overwriting a version the visitor never actually saw.
+    showConflict(data.current);
+  } else {
+    setAutosaveState('failed', 'Could not save your version — will retry automatically.');
+  }
+}
+function resolveConflictLoadTheirs() {
+  if (!pendingConflictServerProject) return;
+  const serverProject = pendingConflictServerProject;
+  hideConflict();
+  adoptServerProject(serverProject);
+  setAutosaveState('saved', 'Loaded your account’s version.');
+  setProjectStatus('Loaded your account project.');
+  updateAccountUI();
+}
+
+async function loadOwnedProjectsList() {
+  if (!currentAccount) return;
+  const { ok, data } = await apiFetch('/api/projects');
+  if (ok && data.ok) { ownedProjectsCache = data.projects; updateAccountUI(); }
+}
+
+// The exact in-browser project a visitor built pre-auth becomes account-
+// owned here, unmodified -- never regenerated, never a semantically
+// different project (see SITE-PROJECT-V8.5.md "anonymous -> account
+// migration"). A no-op once serverProjectId is already set (this session,
+// or reattached via the migration map below) -- never creates a duplicate.
+async function migrateLocalProjectToAccount() {
+  if (!currentAccount || serverProjectId) return;
+  if (!directions.length || !directions[0] || !directions[0].meta) return; // nothing local worth migrating (demo shell only)
+  const localId = directions[0].meta.id;
+  const migrationMap = readMigrationMap();
+  if (migrationMap[localId]) { await loadSelectedOwnedProjectById(migrationMap[localId]); return; }
+  const name = (project && project.business && project.business.name) || 'My website';
+  const { ok, data } = await apiFetch('/api/projects', {
+    method: 'POST',
+    body: { name, directionsState: { directions, activeDirectionIndex }, sourceLocalId: localId },
+  });
+  if (ok && data.ok) {
+    serverProjectId = data.project.id;
+    serverProjectRevision = data.project.revision;
+    writeMigrationMapEntry(localId, serverProjectId);
+    if (accountProjectNameInput) accountProjectNameInput.value = data.project.name;
+    setAutosaveState('saved', data.migrated ? 'Your saved project is now on your account.' : 'Saved to your account.');
+    await loadOwnedProjectsList();
+  } else {
+    setAutosaveState('failed', (data && data.message) || 'Could not sync to your account yet — your local copy is safe.');
+  }
+}
+
+async function refreshAuthState() {
+  const { ok, data } = await apiFetch('/api/auth/me');
+  if (ok && data.authenticated) {
+    currentAccount = data.account;
+    setAccountAuthStatus(`Signed in as ${data.account.email}.`);
+    updateAccountUI();
+    await onSignedIn();
+  } else {
+    currentAccount = null;
+  }
+  updateAccountUI();
+  if (resolveAuthReady) { resolveAuthReady(); resolveAuthReady = null; }
+}
+async function onSignedIn() {
+  await loadOwnedProjectsList();
+  await migrateLocalProjectToAccount();
+  updateAccountUI();
+}
+
+// Sends the CURRENT directions/activeDirectionIndex now, coalescing any
+// edit that arrives while a save is already in flight into exactly ONE
+// follow-up flush after the current one resolves (never two overlapping
+// PUTs, and never more than one queued behind an in-flight one) -- see
+// SITE-PROJECT-V8.5.md "autosave". Callers that need a hard guarantee the
+// state on screen right now reached the server (checkout) should `await`
+// this function's returned promise.
+function flushServerAutosave() {
+  if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+  if (!currentAccount || !serverProjectId) return Promise.resolve(false);
+  if (currentFlushPromise) { autosavePendingWhileInFlight = true; return currentFlushPromise; }
+  currentFlushPromise = doAutosaveSave().finally(() => {
+    currentFlushPromise = null;
+    if (autosavePendingWhileInFlight) { autosavePendingWhileInFlight = false; flushServerAutosave(); }
+  });
+  return currentFlushPromise;
+}
+async function doAutosaveSave() {
+  setAutosaveState('saving');
+  // Read at send time, not schedule time -- a coalesced follow-up flush
+  // (above) always sends whatever `directions`/`activeDirectionIndex` look
+  // like the moment it actually fires, never a stale queued snapshot. The
+  // project-name field (below) deliberately does NOT PUT on its own -- it
+  // just schedules a flush like any other edit, so a name edit and a
+  // content edit can never race each other with two independent PUTs each
+  // carrying their own stale expectedRevision (this file's ONE save path,
+  // matching runEditorAction's own "one chokepoint" precedent).
+  const mySeq = ++autosaveRequestSeq;
+  const name = accountProjectNameInput && accountProjectNameInput.value.trim() ? accountProjectNameInput.value.trim() : undefined;
+  const payload = { directionsState: { directions, activeDirectionIndex }, expectedRevision: serverProjectRevision, ...(name ? { name } : {}) };
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}`, { method: 'PUT', body: payload });
+  // A later flush's response may already have landed and been applied
+  // while this one was in flight (shouldn't happen given the in-flight
+  // guard above, but this is real defense in depth, not decorative) -- a
+  // stale response is never allowed to overwrite newer applied state.
+  if (mySeq <= autosaveHighestAppliedSeq) return false;
+  autosaveHighestAppliedSeq = mySeq;
+  if (ok && data.ok) { serverProjectRevision = data.project.revision; setAutosaveState('saved'); return true; }
+  if (data && data.reason === 'conflict' && data.current) { showConflict(data.current); return false; }
+  setAutosaveState('failed', (data && data.message) || 'Could not save — will retry automatically.');
+  autosaveTimer = setTimeout(() => { autosaveTimer = null; flushServerAutosave(); }, AUTOSAVE_RETRY_MS);
+  return false;
+}
+function scheduleServerAutosave() {
+  // No-op until signed in AND synced to a server project (migration/load
+  // handles that) -- and paused entirely while a conflict is being shown,
+  // so further local edits don't spam repeat conflicts against a revision
+  // the visitor hasn't yet chosen to keep or discard.
+  if (!currentAccount || !serverProjectId || autosaveState === 'conflict') return;
+  setAutosaveState('dirty');
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => { autosaveTimer = null; flushServerAutosave(); }, AUTOSAVE_DEBOUNCE_MS);
+}
+// Guarantees the exact on-screen project state reaches the server before
+// checkout binds a purchase intent to it (spec: "payment must grant
+// ownership of the EXACT project intended") -- waits out any in-flight/
+// coalesced save rather than trusting a save that may already be stale by
+// the time this is called.
+async function forceSyncBeforeCheckout() {
+  if (!currentAccount) return false;
+  if (!serverProjectId) { await migrateLocalProjectToAccount(); }
+  if (!serverProjectId) return false;
+  for (let guard = 0; guard < 6 && (currentFlushPromise || autosavePendingWhileInFlight || autosaveState === 'dirty'); guard++) {
+    await flushServerAutosave();
+  }
+  return autosaveState === 'saved';
+}
+
+if (accountSignInBtn) accountSignInBtn.addEventListener('click', () => submitAuthForm('signin'));
+if (accountSignUpBtn) accountSignUpBtn.addEventListener('click', () => submitAuthForm('signup'));
+async function submitAuthForm(mode) {
+  const email = accountEmailInput ? accountEmailInput.value.trim() : '';
+  const password = accountPasswordInput ? accountPasswordInput.value : '';
+  if (!email || !password) { setAccountAuthStatus('Enter an email and password.', true); return; }
+  const btn = mode === 'signin' ? accountSignInBtn : accountSignUpBtn;
+  const otherBtn = mode === 'signin' ? accountSignUpBtn : accountSignInBtn;
+  if (btn) btn.disabled = true;
+  if (otherBtn) otherBtn.disabled = true;
+  setAccountAuthStatus(mode === 'signin' ? 'Signing in…' : 'Creating your account…');
+  const { ok, data } = await apiFetch(`/api/auth/${mode}`, { method: 'POST', body: { email, password } });
+  if (ok && data.ok) {
+    currentAccount = data.account;
+    if (accountPasswordInput) accountPasswordInput.value = '';
+    setAccountAuthStatus(`Signed in as ${data.account.email}.`);
+    updateAccountUI();
+    await onSignedIn();
+  } else {
+    setAccountAuthStatus((data && data.message) || 'Could not sign in.', true);
+  }
+  if (btn) btn.disabled = false;
+  if (otherBtn) otherBtn.disabled = false;
+}
+if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
+  await apiFetch('/api/auth/signout', { method: 'POST' });
+  currentAccount = null;
+  serverProjectId = null;
+  serverProjectRevision = null;
+  ownedProjectsCache = [];
+  hideConflict();
+  if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+  setAutosaveState('idle');
+  setAccountAuthStatus('Signed out.');
+  updateAccountUI();
+});
+// Renaming schedules a flush through the SAME sequenced/coalesced save
+// path as any other edit (see doAutosaveSave, which reads this field's own
+// current value at send time) -- never a second, independent PUT that
+// could race a content autosave and conflict against a stale revision.
+if (accountProjectNameInput) accountProjectNameInput.addEventListener('change', () => {
+  if (!currentAccount || !serverProjectId) return;
+  flushServerAutosave().then(() => loadOwnedProjectsList());
+});
+if (accountLoadProjectBtn) accountLoadProjectBtn.addEventListener('click', () => {
+  const id = accountProjectsSelect ? accountProjectsSelect.value : '';
+  if (id) loadSelectedOwnedProjectById(id);
+});
+if (accountKeepMineBtn) accountKeepMineBtn.addEventListener('click', resolveConflictKeepMine);
+if (accountLoadTheirsBtn) accountLoadTheirsBtn.addEventListener('click', resolveConflictLoadTheirs);
+
+// Read-only test hook, matching the existing window.__siteremade* convention.
+Object.defineProperty(window, '__siteremadeAccount', {
+  get: () => ({
+    signedIn: !!currentAccount,
+    email: currentAccount ? currentAccount.email : null,
+    serverProjectId, serverProjectRevision, autosaveState,
+    conflict: !!pendingConflictServerProject,
+    ownedProjects: ownedProjectsCache,
+  })
+});
+
 // ---- V6: purchase flow ---------------------------------------------------
 // Buying always purchases the CURRENT in-memory `project` state (whatever
 // was last refined), never a stale snapshot from when the page loaded. See
@@ -4612,29 +5030,49 @@ function purchaseSummaryPayload(proj) {
     brandColor: proj.design.palette.main
   };
 }
+// V8.5: purchasing is now auth-gated -- payment grants ownership of the
+// EXACT server-side project, so there has to BE one before Stripe is ever
+// involved (see SITE-PROJECT-V8.5.md part 6). Anonymous visitors are asked
+// to sign in first rather than silently buying something that can't yet be
+// durably owned; everything else about the flow (compact Stripe metadata,
+// never the full WebsiteProject) is unchanged from V6.
 if (buyButton) {
   buyButton.addEventListener('click', async () => {
     if (!project) return;
+    if (!currentAccount) {
+      if (purchaseStatus) { purchaseStatus.dataset.sticky = '1'; purchaseStatus.className = 'purchase-status error'; purchaseStatus.textContent = 'Sign in (or create a free account) above to buy this exact project — purchases are tied to your account, not just this browser.'; }
+      if (accountSignedOut) accountSignedOut.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+      return;
+    }
     buyButton.disabled = true;
-    if (purchaseStatus) { purchaseStatus.dataset.sticky = '1'; purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Starting checkout…'; }
+    if (purchaseStatus) { purchaseStatus.dataset.sticky = '1'; purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Preparing checkout…'; }
     try {
-      try { localStorage.setItem('siteremade:purchase:' + project.meta.id, JSON.stringify(project)); } catch (e) { /* best-effort only */ }
-      const response = await fetch('/api/checkout', {
+      // Buying always purchases the CURRENT in-memory project -- guarantee
+      // the server-side project this checkout will bind to reflects that
+      // exact state before creating the purchase intent (never buy a stale
+      // server snapshot; see forceSyncBeforeCheckout).
+      const synced = await forceSyncBeforeCheckout();
+      if (autosaveState === 'conflict') {
+        purchaseStatus.className = 'purchase-status error';
+        purchaseStatus.textContent = 'Resolve the version conflict above before buying.';
+        return;
+      }
+      if (!synced || !serverProjectId) throw new Error('sync-failed');
+      if (purchaseStatus) purchaseStatus.textContent = 'Starting checkout…';
+      const { ok, data } = await apiFetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(purchaseSummaryPayload(project))
+        body: { ...purchaseSummaryPayload(project), projectId: serverProjectId },
       });
-      const result = await response.json().catch(() => ({}));
-      if (result.ok && result.url) {
+      if (ok && data.ok && data.url) {
         if (purchaseStatus) purchaseStatus.textContent = 'Redirecting to checkout…';
-        window.location.href = result.url;
+        window.location.href = data.url;
         return;
       }
       if (purchaseStatus) {
         purchaseStatus.className = 'purchase-status error';
-        purchaseStatus.textContent = result.configured === false
+        purchaseStatus.textContent = data.configured === false
           ? 'Checkout isn’t live in this environment yet. Use "Get in Touch" below and we’ll set up your purchase directly.'
-          : (result.message || 'Could not start checkout. Please try again shortly.');
+          : (data.message || 'Could not start checkout. Please try again shortly.');
       }
     } catch (error) {
       if (purchaseStatus) { purchaseStatus.className = 'purchase-status error'; purchaseStatus.textContent = 'Could not reach checkout. Please try again shortly.'; }
@@ -4643,22 +5081,49 @@ if (buyButton) {
     }
   });
 }
-// A completed (or cancelled) Checkout redirects back here with a query
-// param -- reflect that honestly using whatever this browser still has for
-// that project id, rather than pretending a fully synced order record
-// exists (it doesn't yet; see the persistence gap in SITE-PROJECT-V6.md).
+// A completed (or cancelled) Checkout redirects back here carrying the
+// purchase-INTENT id, never the raw project id or a trusted "it worked"
+// flag -- the query string is only ever a UX trigger to ask the server for
+// the intent's real, verified status (see SITE-PROJECT-V8.5.md part 6). The
+// webhook that actually fulfils the intent may land before or after this
+// return, so this polls briefly rather than treating "not fulfilled yet" on
+// the first check as failure.
 (function handlePurchaseReturn() {
   const params = new URLSearchParams(window.location.search);
   if (!purchaseStatus) return;
-  if (params.get('purchased') === '1') {
-    const id = params.get('project');
-    let recovered = null;
-    if (id) { try { recovered = localStorage.getItem('siteremade:purchase:' + id); } catch (e) { /* ignore */ } }
+  const intentId = params.get('intent');
+  if (params.get('purchased') === '1' && intentId) {
     purchaseStatus.dataset.sticky = '1';
-    purchaseStatus.className = 'purchase-status success';
-    purchaseStatus.textContent = recovered
-      ? 'Payment received — this exact project is on file and SiteRemade will follow up to start delivery.'
-      : 'Payment received — SiteRemade will follow up by email to start delivery.';
+    purchaseStatus.className = 'purchase-status';
+    purchaseStatus.textContent = 'Confirming your payment…';
+    (async () => {
+      await authReadyPromise; // never poll unauthenticated -- would be misread as "not found"
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const { ok, data } = await apiFetch(`/api/purchase-intents/${encodeURIComponent(intentId)}`);
+        if (ok && data.ok) {
+          if (data.intent.status === 'fulfilled') {
+            purchaseStatus.className = 'purchase-status success';
+            purchaseStatus.textContent = 'Payment received — this exact project is now owned by your account.';
+            serverProjectId = data.intent.projectId;
+            await loadOwnedProjectsList();
+            await refreshServerProjectStatus();
+            return;
+          }
+          if (data.intent.status === 'cancelled' || data.intent.status === 'failed') {
+            purchaseStatus.className = 'purchase-status error';
+            purchaseStatus.textContent = 'This checkout was not completed — your project is unchanged.';
+            return;
+          }
+        } else if (ok === false && !currentAccount) {
+          purchaseStatus.className = 'purchase-status';
+          purchaseStatus.textContent = 'Sign in to see your payment status for this project.';
+          return;
+        }
+        await new Promise(r => setTimeout(r, 1200));
+      }
+      purchaseStatus.className = 'purchase-status';
+      purchaseStatus.textContent = 'Payment is still being confirmed — this will update shortly, or you can reload the page.';
+    })();
   } else if (params.get('purchase_cancelled') === '1') {
     purchaseStatus.dataset.sticky = '1';
     purchaseStatus.className = 'purchase-status';
@@ -4721,11 +5186,11 @@ try {
   if (raw) {
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
-      directions = parsed.directions.slice(0, MAX_DIRECTIONS);
-      directions.forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; });
-      directions = directions.map(migrateProjectPages); // V8.2: migrate any legacy flat-sections save into the page-aware shape
-      activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(parsed.activeDirectionIndex) ? parsed.activeDirectionIndex : 0));
-      project = directions[activeDirectionIndex];
+      // V8.5: reuses the exact same restore/migrate/render sequence
+      // loadProjectFromStorage uses (see applyDirectionsState above) -- one
+      // real, tested "become a loaded {directions, activeDirectionIndex}
+      // state" path, not a second hand-duplicated copy of it here.
+      applyDirectionsState(parsed.directions, parsed.activeDirectionIndex);
       restoredDirectionsOnBoot = true;
     }
   }
@@ -4736,15 +5201,15 @@ if (!restoredDirectionsOnBoot) {
   // It shows neutral copy and a distinct "preview" visual treatment so a
   // visitor never mistakes the empty state for an actual generated site.
   project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null, true);
-}
-renderProject(project);
-if (restoredDirectionsOnBoot) {
-  markGenerated();
-  renderDirectionSwitcher();
-  updateDirectionControls();
-  resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots, same as loadProjectFromStorage
+  renderProject(project);
 }
 year.textContent = new Date().getFullYear();
+// V8.5: resolve signed-in state (and, if signed in, load owned projects and
+// migrate whatever local project just got restored above) -- fire-and-
+// forget from bootstrap's own synchronous flow; authReadyPromise is how the
+// purchase-return handler above waits for this without blocking first
+// paint on it.
+refreshAuthState();
 // V7: best-effort provider status check -- see buildImagePlan. Never blocks
 // generation; if this hasn't resolved yet, imagePlan safely defaults to the
 // honest 'designed' tier (see server.js for what /api/image-provider-status
