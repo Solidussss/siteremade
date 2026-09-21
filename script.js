@@ -2303,6 +2303,11 @@ function resetGenerationChromeUI() {
   if (generatorSubmitButton) generatorSubmitButton.disabled = false;
   if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generate website';
 }
+// V8.1.2: returns whether `proj` was actually admitted (true) or not
+// (false), so callers can tell runGeneration's `finally` block whether
+// global `project` -- reassigned to the transient `proj` for progressive
+// first-paint -- needs to be restored to what was actually active before
+// this attempt. Nothing about admission itself changes.
 function finishGeneration(proj, expectedDirectionIndex) {
   const admissible = generationInFlight
     && directions.length < MAX_DIRECTIONS
@@ -2315,7 +2320,7 @@ function finishGeneration(proj, expectedDirectionIndex) {
     // direction; just recover the UI so nothing looks stuck.
     resetGenerationChromeUI();
     updateDirectionControls();
-    return;
+    return false;
   }
   directions.push(proj);
   activeDirectionIndex = expectedDirectionIndex;
@@ -2331,6 +2336,7 @@ function finishGeneration(proj, expectedDirectionIndex) {
 
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  return true;
 }
 // V8.1: the ONLY function that creates a new WebsiteProject. Used by both
 // the main Generate form and "Try another direction" (before the limit) --
@@ -2360,6 +2366,15 @@ async function runGeneration(text) {
   }
   const expectedDirectionIndex = directions.length; // the exact slot this transaction is reserved for
   const variationSeed = expectedDirectionIndex; // 0, 1, 2 -- which direction this attempt will become if it succeeds
+  // V8.1.2: this transaction's own pre-generation project, captured before
+  // `project` is ever reassigned to the transient `proj` below. `project`
+  // cannot change out from under this capture -- switchDirection refuses
+  // outright while generationInFlight is true, and nothing else touches it
+  // -- so it stays valid as the exact thing to restore to if this attempt
+  // never ends up admitting `proj`: either the direction that was active
+  // (if any exist yet), or the pre-generation/demo shell (if none do).
+  const previousProject = project;
+  let admitted = false; // set true only by a successful finishGeneration call below
   generationInFlight = true;
   setGenerationControlsDisabled(true);
   try {
@@ -2398,7 +2413,7 @@ async function runGeneration(text) {
       // Real work still runs in full -- only the frame-by-frame reveal is
       // skipped, matching the person's reduced-motion preference.
       steps.forEach(s => s.run());
-      finishGeneration(proj, expectedDirectionIndex);
+      admitted = finishGeneration(proj, expectedDirectionIndex);
       return;
     }
 
@@ -2438,7 +2453,7 @@ async function runGeneration(text) {
       function nextStep() {
         try {
           if (i > 0) setStepState(stepEls[i - 1], 'done');
-          if (i >= steps.length) { finishGeneration(proj, expectedDirectionIndex); resolve(); return; }
+          if (i >= steps.length) { admitted = finishGeneration(proj, expectedDirectionIndex); resolve(); return; }
           const note = steps[i].run(); // the real work for this step happens here
           setStepState(stepEls[i], 'active', note);
           renderProject(proj); // reflect exactly what that real work just changed, on the transaction's own object
@@ -2470,6 +2485,22 @@ async function runGeneration(text) {
     setGenerationControlsDisabled(false);
     resetGenerationChromeUI();
     updateDirectionControls();
+    // V8.1.2: if this transaction did NOT end up admitting `proj` --
+    // whether finishGeneration refused it, a genuine exception was caught
+    // mid-rAF-step above, or anything else in this transaction threw --
+    // global `project` must not keep pointing at that orphaned transient
+    // object. Restore it to whatever direction is actually active
+    // (directions/activeDirectionIndex are untouched by a failed
+    // transaction, so directions[activeDirectionIndex] is exactly right),
+    // or to the pre-generation/demo project captured above if no direction
+    // has been admitted yet at all. This only re-renders an already-built
+    // project -- it never calls resolveImagePlanAssets, so restoring can't
+    // cause a new image request.
+    if (!admitted) {
+      project = directions.length ? directions[activeDirectionIndex] : previousProject;
+      renderProject(project);
+      renderDirectionSwitcher();
+    }
   }
 }
 
