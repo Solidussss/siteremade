@@ -1201,6 +1201,12 @@ html,body{max-width:100%;overflow-x:hidden}
 .load-project-hint .link-button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font-size:11px;color:var(--muted);cursor:pointer;transition:border-color .2s ease,color .2s ease}
 .load-project-hint .link-button:hover{border-color:#8c93a0;color:var(--text)}
 .purchase-shell{max-width:1180px;margin:0 auto}
+.conversation-refinement{margin:0 auto 22px;max-width:900px;padding:18px 20px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);background:color-mix(in srgb,#fff 92%,var(--accent) 8%);border-radius:12px}
+.conversation-refinement label{display:block;font-size:11px;font-weight:750;margin-bottom:8px}
+.refinement-row{display:flex;gap:10px;align-items:flex-end}
+.refinement-row textarea{flex:1;min-height:52px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;font-size:13px}
+.refinement-status{min-height:16px;margin:8px 0 0;font-size:11px;color:var(--muted)}
+@media(max-width:720px){.refinement-row{display:block}.refinement-row button{width:100%;margin-top:8px}}
 .purchase-price{gap:10px}
 .purchase-price span{letter-spacing:-.03em}
 .purchase-price small{letter-spacing:.04em}
@@ -1339,6 +1345,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .process-steps strong{font-size:13px}
 .menu-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:22px}
 .menu-group strong{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.menu-group p{margin:0;color:color-mix(in srgb,var(--site-text) 66%,transparent);font-size:12px;line-height:1.5}
 .menu-line{display:block;height:9px;border-radius:5px;background:color-mix(in srgb,var(--site-text) 12%,transparent);margin-bottom:9px;width:88%}
 .menu-line:nth-child(3){width:65%}
 .site-section-reservation{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}

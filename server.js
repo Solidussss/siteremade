@@ -362,6 +362,11 @@ const HEADING_WIDTH_KEYS = ['narrow','balanced','wide'];
 const CARD_DENSITY_KEYS = ['airy','compact','mixed'];
 const CARD_SHAPE_KEYS = ['square','soft','pill'];
 const SPLIT_RATIO_KEYS = ['even','text-heavy','media-heavy'];
+const CREATIVE_CONCEPT_KEYS = ['institutional-editorial','private-client-luxury','founder-focused','product-led-technical','expressive-creative-technology','enterprise-systems','intimate-editorial','chef-led-premium','portfolio-led','methodology-led','conversion-first','technical-product'];
+const CREATIVE_MOOD_KEYS = ['restrained','warm','cinematic','energetic','precise','expressive','quiet-luxury'];
+const CREATIVE_NARRATIVE_KEYS = ['editorial','expertise-first','portfolio-led','product-demo-led','credibility-first','conversion-first','founder-story-led','methodology-led','technical-product'];
+const CREATIVE_IMAGE_STRATEGY_KEYS = ['photography-led','sparse-premium','editorial-lifestyle','people-team','product-ui','architecture-interior','macro-detail','project-portfolio','abstract-branded','mostly-typographic'];
+const CREATIVE_SIGNATURE_KEYS = ['oversized-manifesto','asymmetric-index','editorial-image-rail','large-type-break','case-study-band','split-story','staggered-mosaic','media-interruption','process-timeline','visual-philosophy','product-showcase'];
 const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
 const IMAGE_ROLE_KEYS = ['hero','product','team','gallery'];
 const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
@@ -384,7 +389,7 @@ const WEBSITE_PLAN_TOOL = {
   input_schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['business', 'heroCopy', 'visualDirection', 'pages', 'imagePlan', 'functionalityPlan'],
+    required: ['business', 'heroCopy', 'visualDirection', 'creativeDirection', 'pages', 'imagePlan', 'functionalityPlan'],
     properties: {
       heroCopy: {
         type: 'object', additionalProperties: false,
@@ -443,6 +448,17 @@ const WEBSITE_PLAN_TOOL = {
           cardShape: { type: 'string', enum: CARD_SHAPE_KEYS },
           splitRatio: { type: 'string', enum: SPLIT_RATIO_KEYS },
           rationale: { type: 'string', description: 'One sentence: why this direction suits this business.' }
+        }
+      },
+      creativeDirection: {
+        type: 'object', additionalProperties: false,
+        required: ['concept', 'visualMood', 'narrativeStrategy', 'imageStrategy', 'signatureMotif'],
+        properties: {
+          concept: { type: 'string', enum: CREATIVE_CONCEPT_KEYS },
+          visualMood: { type: 'string', enum: CREATIVE_MOOD_KEYS },
+          narrativeStrategy: { type: 'string', enum: CREATIVE_NARRATIVE_KEYS },
+          imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS },
+          signatureMotif: { type: 'string', enum: CREATIVE_SIGNATURE_KEYS }
         }
       },
       pages: {
@@ -510,7 +526,7 @@ const WEBSITE_PLAN_TOOL = {
         }
       },
       imagePlan: {
-        type: 'array', maxItems: 8,
+        type: 'array', maxItems: 64,
         items: {
           type: 'object', additionalProperties: false,
           required: ['role', 'intent', 'prompt', 'aspectRatio'],
@@ -534,6 +550,25 @@ const WEBSITE_PLAN_TOOL = {
           }
         }
       }
+    }
+  }
+};
+
+const REFINEMENT_TOOL = {
+  name: 'submit_website_refinement',
+  description: 'Return a narrowly scoped structured mutation plan for the existing SiteRemade project. Never return HTML, CSS, or arbitrary code.',
+  input_schema: {
+    type: 'object', additionalProperties: false,
+    required: ['scope', 'operations', 'imageActions', 'explanation'],
+    properties: {
+      scope: { type: 'string', enum: ['section', 'page', 'site'] },
+      operations: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['action'], properties: {
+        action: { type: 'string', enum: ['edit-copy', 'change-design', 'change-variant', 'move-section', 'remove-section', 'insert-section', 'add-page', 'change-image-strategy'] },
+        targetId: { type: 'string' }, sectionType: { type: 'string', enum: SECTION_TYPE_KEYS }, beforeId: { type: 'string' },
+        changes: { type: 'object', additionalProperties: false, properties: { headline: { type: 'string' }, body: { type: 'string' }, ctaLabel: { type: 'string' }, hero: { type: 'string', enum: HERO_KEYS }, imagery: { type: 'string', enum: IMAGERY_KEYS }, colorBehavior: { type: 'string', enum: COLOR_BEHAVIOR_KEYS }, spacing: { type: 'string', enum: SPACING_KEYS }, imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS } } }
+      } } },
+      imageActions: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['action'], properties: { action: { type: 'string', enum: ['regenerate', 'add'] }, slot: { type: 'string' }, role: { type: 'string', enum: IMAGE_ROLE_KEYS } } } },
+      explanation: { type: 'string' }
     }
   }
 };
@@ -606,8 +641,9 @@ function planSignature(plan) {
   // (never shown to the visitor) so the next direction can deliberately
   // diverge from it, and kept short to stay cost-aware.
   const vd = plan.visualDirection || {};
+  const cd = plan.creativeDirection || {};
   const pageSummary = (plan.pages || []).map(p => `${p.id}:[${(p.sections || []).map(s => s.type).join(',')}]`).join(' ');
-  return `hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 400);
+  return `concept=${cd.concept} mood=${cd.visualMood} narrative=${cd.narrativeStrategy} signature=${cd.signatureMotif} hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 500);
 }
 
 // V8.1: field names describe exactly what this server actually observes --
@@ -633,6 +669,36 @@ app.get('/api/planner-status', (req, res) => {
     model: ANTHROPIC_MODEL,
     lastAttempt: plannerDiagnostics.lastAttempt
   });
+});
+
+app.post('/api/refine-website', async (req, res) => {
+  if (!anthropicProvider.configured()) return res.status(200).json({ ok: false, configured: false });
+  const request = clean(req.body.request, 600);
+  const context = req.body.context && typeof req.body.context === 'object' ? req.body.context : {};
+  if (!request) return res.status(400).json({ ok: false, message: 'Missing refinement request.' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL, max_tokens: 2500, thinking: { type: 'disabled' },
+        system: 'You are SiteRemade refinement intelligence. Interpret the user request against the supplied structured project and return only submit_website_refinement. Preserve unrelated content and facts. Never invent business facts, HTML, CSS, or arbitrary operations.',
+        messages: [{ role: 'user', content: `Canonical business and current structured project context:\n${JSON.stringify(context).slice(0, 120000)}\n\nRefinement request:\n${request}` }],
+        tools: [REFINEMENT_TOOL], tool_choice: { type: 'tool', name: 'submit_website_refinement' }
+      }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return res.status(200).json({ ok: false, configured: true });
+    const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
+    return res.json(toolUse && toolUse.input ? { ok: true, plan: toolUse.input } : { ok: false, configured: true });
+  } catch (error) {
+    return res.status(200).json({ ok: false, configured: true });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 // V8.5: authenticated visitors get a DURABLE, server-authoritative

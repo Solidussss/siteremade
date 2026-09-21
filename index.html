@@ -133,6 +133,15 @@
           </div>
         </div>
 
+        <div class="conversation-refinement" id="conversationRefinement" hidden>
+          <label for="refinementInput">What would you like to change?</label>
+          <div class="refinement-row">
+            <textarea id="refinementInput" rows="2" maxlength="600" placeholder="Make this feel more premium, move About above Services, or add more imagery..."></textarea>
+            <button type="button" class="button button-small" id="refinementSubmit">Apply change</button>
+          </div>
+          <p class="refinement-status" id="refinementStatus" aria-live="polite"></p>
+        </div>
+
         <div class="builder-preview-wrap dominant">
           <div class="preview-toolbar">
             <div><span class="status-dot"></span><span>YOUR LIVE DIRECTION</span></div>

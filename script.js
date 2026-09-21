@@ -487,6 +487,32 @@ const extendedDimensionDefaults = {
   sectionRhythm: 'steady', sectionAlignment: 'left', typographyScale: 'standard',
   headingWidth: 'balanced', cardDensity: 'airy', cardShape: 'soft', splitRatio: 'even'
 };
+function composeCreativeDirection(categoryKey, variationSeed, claudeDirection) {
+  if (claudeDirection) return { ...claudeDirection };
+  const byCategory = {
+    finance: [
+      { concept: 'private-client-luxury', visualMood: 'quiet-luxury', narrativeStrategy: 'credibility-first', imageStrategy: 'sparse-premium', signatureMotif: 'large-type-break' },
+      { concept: 'institutional-editorial', visualMood: 'restrained', narrativeStrategy: 'expertise-first', imageStrategy: 'mostly-typographic', signatureMotif: 'asymmetric-index' },
+      { concept: 'founder-focused', visualMood: 'precise', narrativeStrategy: 'founder-story-led', imageStrategy: 'people-team', signatureMotif: 'split-story' }
+    ],
+    hospitality: [
+      { concept: 'chef-led-premium', visualMood: 'cinematic', narrativeStrategy: 'editorial', imageStrategy: 'editorial-lifestyle', signatureMotif: 'media-interruption' },
+      { concept: 'intimate-editorial', visualMood: 'warm', narrativeStrategy: 'conversion-first', imageStrategy: 'photography-led', signatureMotif: 'editorial-image-rail' },
+      { concept: 'conversion-first', visualMood: 'energetic', narrativeStrategy: 'expertise-first', imageStrategy: 'architecture-interior', signatureMotif: 'staggered-mosaic' }
+    ],
+    tech: [
+      { concept: 'product-led-technical', visualMood: 'precise', narrativeStrategy: 'product-demo-led', imageStrategy: 'product-ui', signatureMotif: 'product-showcase' },
+      { concept: 'expressive-creative-technology', visualMood: 'expressive', narrativeStrategy: 'editorial', imageStrategy: 'abstract-branded', signatureMotif: 'oversized-manifesto' },
+      { concept: 'enterprise-systems', visualMood: 'restrained', narrativeStrategy: 'technical-product', imageStrategy: 'mostly-typographic', signatureMotif: 'large-type-break' }
+    ]
+  };
+  const fallback = [
+    { concept: 'methodology-led', visualMood: 'precise', narrativeStrategy: 'expertise-first', imageStrategy: 'abstract-branded', signatureMotif: 'process-timeline' },
+    { concept: 'portfolio-led', visualMood: 'cinematic', narrativeStrategy: 'portfolio-led', imageStrategy: 'project-portfolio', signatureMotif: 'staggered-mosaic' },
+    { concept: 'conversion-first', visualMood: 'warm', narrativeStrategy: 'conversion-first', imageStrategy: 'photography-led', signatureMotif: 'editorial-image-rail' }
+  ];
+  return (byCategory[categoryKey] || fallback)[variationSeed % 3];
+}
 // ---- V7: independent palette composition ---------------------------------
 // Previously `composed.palette` was always a straight copy of the matched
 // named seed's fixed palette -- two results landing on the same seed (very
@@ -820,6 +846,7 @@ function buildCopy(category, categoryKey, analysis, descriptor) {
 // `imagery` dimension, never a fabricated photo. `window.__siteremadeImageProvider`
 // is populated (async, best-effort) by a status check against the server on load.
 function renderVisualSlot(project, slot, imageryKey, assetId) {
+  if (project && Array.isArray(project._visibleImageSlots) && !project._visibleImageSlots.includes(slot)) project._visibleImageSlots.push(slot);
   const asset = assetId ? project.assets.items.find(a => a.id === assetId) : null;
   if (asset) return `<img class="site-visual-img" src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || (project.business.name || 'Business') + ' image')}" />`;
   const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
@@ -887,7 +914,8 @@ function buildImagePrompt(project, category, role) {
 // resolveImagePlanAssets below and SITE-PROJECT-V7.1.md.
 function computeImageCacheKey(project, role, slot) {
   const composed = project.design.dimensions;
-  return hashString(`${project.business.categoryKey}::${composed.imagery}::${role}::${slot}::${project.source.text || ''}`).toString(36);
+  const revision = project.intent && project.intent.imageRevisions && project.intent.imageRevisions[slot] || 0;
+  return hashString(`${project.business.categoryKey}::${composed.imagery}::${role}::${slot}::${revision}::${project.source.text || ''}`).toString(36);
 }
 // V8.2: page-qualified slot naming -- a slug prefix for every page except
 // Home (slug ''), whose slots keep their original bare names ('product',
@@ -982,27 +1010,36 @@ function buildImagePlan(project, category) {
 // project.assets.generated -- plain JSON, so it travels through
 // save/restore for free, the same as a user upload.
 const imageRequestsInFlight = new Set();
-function resolveImagePlanAssets(proj) {
-  if (!proj || (proj.meta && proj.meta.isDemoShell)) return;
-  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) return;
+const imageRequestPromises = new Map();
+const IMAGE_REQUEST_TIMEOUT_MS = 30000;
+function resolveImagePlanAssets(proj, onProgress) {
+  if (!proj || (proj.meta && proj.meta.isDemoShell)) return Promise.resolve();
+  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) return Promise.resolve();
   proj.assets.generated = proj.assets.generated || {};
+  const requests = [];
   (proj.imagePlan || []).forEach(entry => {
-    if (entry.sourceType !== 'generated') return; // a user asset covers this slot, or the provider isn't configured
+    if (entry.sourceType !== 'generated') return;
     const slot = entry.slot;
     const existing = proj.assets.generated[slot];
     // Already have this exact image, or already asked for it -- an ordinary
     // re-render (color/tone/layout/device) must never cause a second paid
     // request for a slot whose identity hasn't changed.
-    if (existing && existing.cacheKey === entry.cacheKey && (existing.status === 'ready' || existing.status === 'pending')) return;
+    if (existing && existing.cacheKey === entry.cacheKey && (existing.status === 'ready' || existing.status === 'error')) return;
     const reqKey = `${proj.meta.id}::${slot}::${entry.cacheKey}`;
-    if (imageRequestsInFlight.has(reqKey)) return; // de-dupe concurrent triggers for the same request
+    if (imageRequestsInFlight.has(reqKey)) {
+      requests.push(imageRequestPromises.get(reqKey) || Promise.resolve());
+      return;
+    }
     imageRequestsInFlight.add(reqKey);
     proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'pending', prompt: entry.prompt };
-    if (proj === project) renderProject(project); // shows the honest "Generating…" state right away, without blocking anything else on the page
-    fetch('/api/generate-image', {
+    if (proj === project) renderProject(project);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_REQUEST_TIMEOUT_MS);
+    const request = fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role })
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role }),
+      signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
       .then(data => {
@@ -1016,14 +1053,46 @@ function resolveImagePlanAssets(proj) {
           proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: data.dataUrl, prompt: entry.prompt };
         }
         if (proj === project) renderProject(project);
+        if (onProgress) onProgress();
       })
       .catch(() => {
         imageRequestsInFlight.delete(reqKey);
         const current = proj.assets.generated[slot];
         if (current && current.cacheKey === entry.cacheKey) proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
         if (proj === project) renderProject(project);
-      });
+        if (onProgress) onProgress();
+      })
+      .finally(() => { clearTimeout(timer); imageRequestsInFlight.delete(reqKey); imageRequestPromises.delete(reqKey); });
+    imageRequestPromises.set(reqKey, request);
+    requests.push(request);
   });
+  return Promise.all(requests).then(() => undefined);
+}
+
+function imagePlanIsTerminal(proj) {
+  return (proj.imagePlan || []).every(entry => entry.sourceType !== 'generated' || (
+    proj.assets.generated && proj.assets.generated[entry.slot] &&
+    proj.assets.generated[entry.slot].cacheKey === entry.cacheKey &&
+    ['ready', 'error'].includes(proj.assets.generated[entry.slot].status)
+  ));
+}
+
+function validateProjectQuality(proj) {
+  const slots = (proj.imagePlan || []).map(entry => entry.slot);
+  const uniqueSlots = new Set(slots);
+  const sectionIds = (proj.pages || []).flatMap(page => (page.sections || []).map(section => section.id));
+  return {
+    ready: imagePlanIsTerminal(proj) && slots.length === uniqueSlots.size && sectionIds.length === new Set(sectionIds).size && !!(proj.business && proj.business.name) && proj.business.name !== 'Your Business',
+    unresolvedImageSlots: (proj.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(proj.assets.generated && proj.assets.generated[entry.slot] && ['ready', 'error'].includes(proj.assets.generated[entry.slot].status))).map(entry => entry.slot),
+    duplicateImageSlots: slots.filter((slot, index) => slots.indexOf(slot) !== index),
+    duplicateSectionIds: sectionIds.filter((id, index) => sectionIds.indexOf(id) !== index)
+  };
+}
+
+function imageSlotDiagnostic(proj) {
+  const planned = new Set((proj && proj.imagePlan || []).map(entry => entry.slot));
+  const visible = new Set(proj && proj._visibleImageSlots || []);
+  return { missing: [...visible].filter(slot => !planned.has(slot)), orphaned: [...planned].filter(slot => !visible.has(slot)) };
 }
 
 // ---- Section HTML renderers ----------------------------------------------
@@ -1196,8 +1265,8 @@ function renderCaseStudies(project, category, section) { return renderGallery(pr
 // the section label is eligible (see sectionCopyField note above).
 function renderTestimonial(project, category, section) {
   const variant = section && section.variant;
-  const quote = `“Working with a ${escapeHtml(category.label.toLowerCase())} team that actually explains things clearly made this easy.”`;
-  const attribution = `— ${escapeHtml(category.label)} client`;
+  const quote = `A clear ${escapeHtml(category.label.toLowerCase())} approach, explained in plain language.`;
+  const attribution = 'Service principle';
   if (variant === 'card') {
     return `<div class="site-section site-section-testimonial" data-variant="card">
       <div class="testimonial-card"><p>${quote}</p><span>${attribution}</span></div>
@@ -1208,11 +1277,11 @@ function renderTestimonial(project, category, section) {
   </div>`;
 }
 function renderTestimonialsGrid(project, category, section) {
-  const label = sectionCopyField(section, 'headline', 'What people say');
-  const quotes = ['Clear communication from start to finish.', 'Exactly what we needed, delivered well.', 'Would recommend without hesitation.'];
+  const label = sectionCopyField(section, 'headline', 'How we work');
+  const quotes = ['Clear communication from start to finish.', 'A considered process, from first conversation to final delivery.', 'Useful expertise without unnecessary complexity.'];
   return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
     <p class="site-section-label">${escapeHtml(label)}</p>
-    <div class="testimonials-grid">${quotes.map(q => `<div class="testimonial-card"><p>“${escapeHtml(q)}”</p><span>— ${escapeHtml(category.label)} client</span></div>`).join('')}</div>
+    <div class="testimonials-grid">${quotes.map(q => `<div class="testimonial-card"><p>${escapeHtml(q)}</p><span>Service principle</span></div>`).join('')}</div>
   </div>`;
 }
 // V8.2: the example the spec itself gives -- a valid Claude heading with a
@@ -1357,11 +1426,15 @@ function renderProcess(project, category, section) {
 function renderMenu(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Menu');
   const intro = sectionCopyField(section, 'body', '');
-  const groups = ['Starters', 'Mains', 'Desserts'];
+  const descriptor = project.source.descriptor || {};
+  const subject = descriptor.offering || descriptor.descriptor || category.noun;
+  const groups = category === categories.hospitality
+    ? [`Seasonal ${subject}`, 'Shared plates', 'Something sweet']
+    : ['Featured offerings', 'Popular choices', 'Seasonal selection'];
   return `<div class="site-section site-section-menu" data-variant="columns">
     <p class="site-section-label">${escapeHtml(label)}</p>
     ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
-    <div class="menu-groups">${groups.map(g => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><span class="menu-line"></span><span class="menu-line"></span><span class="menu-line"></span></div>`).join('')}</div>
+    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? `A considered take on ${subject}.` : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
   </div>`;
 }
 function renderReservationCta(project, category, section) {
@@ -1662,6 +1735,19 @@ function ensureAssetDrivenSections(proj) {
   const types = proj.sections.map(s => s.type);
   if ((plan.gallery || []).length && !types.includes('gallery') && !types.includes('caseStudies') && !types.includes('imageLedEditorial')) insertSection(proj, 'gallery');
   if (plan.about && !types.includes('about') && !types.includes('team')) insertSection(proj, 'about');
+}
+
+function ensureSignatureSection(proj, creativeDirection) {
+  if (!proj || !creativeDirection || !Array.isArray(proj.sections)) return;
+  const motifToType = {
+    'oversized-manifesto': 'ctaBanner', 'asymmetric-index': 'services', 'editorial-image-rail': 'imageLedEditorial',
+    'large-type-break': 'ctaBanner', 'case-study-band': 'caseStudies', 'split-story': 'about',
+    'staggered-mosaic': 'gallery', 'media-interruption': 'imageLedEditorial', 'process-timeline': 'process',
+    'visual-philosophy': 'about', 'product-showcase': 'productShowcase'
+  };
+  const type = motifToType[creativeDirection.signatureMotif] || 'ctaBanner';
+  if (proj.sections.some(section => section.type === type)) return;
+  insertSection(proj, type);
 }
 
 // ---- V8.2: multi-page model ------------------------------------------------
@@ -2730,6 +2816,153 @@ function runEditorAction(mutateFn, imagesMayChange) {
   return true;
 }
 
+function buildLocalRefinementPlan(request) {
+  const text = String(request || '').toLowerCase();
+  const page = project && project.pages && project.pages[project.activePageIndex];
+  const operations = [];
+  const imageActions = [];
+  if (/premium|luxury|elevated/.test(text)) operations.push({ action: 'change-design', changes: { colorBehavior: 'dark-luxury-metallic', spacing: 'airy', card: 'bordered' } });
+  if (/darker|darken|less blue|less corporate/.test(text)) operations.push({ action: 'change-design', changes: { colorBehavior: /less blue/.test(text) ? 'warm-earth-multi-tone' : 'dark-luxury-metallic' } });
+  if (/hero.*(boring|visual|dramatic)|more visual/.test(text)) {
+    operations.push({ action: 'change-design', changes: { hero: 'fullbleed-image', imageDominance: 'dominant', imageStrategy: 'photography-led' } });
+    imageActions.push({ action: 'regenerate', slot: 'hero' });
+  }
+  if (/more (photo|imagery|images)|add.*imagery/.test(text)) {
+    operations.push({ action: 'add-section', sectionType: 'gallery' });
+    operations.push({ action: 'change-design', changes: { imageArrangement: 'mosaic', imageDominance: 'dominant' } });
+    imageActions.push({ action: 'plan-new-slots', role: 'gallery' });
+  }
+  if (/replace.*(testimonial|weakest)|don't like.*section/.test(text)) {
+    const target = page && page.sections.find(section => /testimonial/.test(section.type));
+    if (target) operations.push({ action: 'replace-section', targetId: target.id, sectionType: 'features' });
+  }
+  if (/about.*above.*services|move.*about/.test(text) && page) {
+    const about = page.sections.find(section => section.type === 'about');
+    const services = page.sections.find(section => section.type === 'services');
+    if (about && services) operations.push({ action: 'move-section', targetId: about.id, beforeId: services.id });
+  }
+  if (/add.*(services )?page/.test(text)) operations.push({ action: 'add-page', label: 'Services' });
+  if (/about.*editorial|editorial.*about/.test(text)) {
+    const about = page && page.sections.find(section => section.type === 'about');
+    if (about) operations.push({ action: 'change-variant', targetId: about.id, variant: 'split' });
+  }
+  if (/footer.*(refined|better)/.test(text)) operations.push({ action: 'change-footer', variant: 'columns' });
+  return { scope: operations.length > 1 ? 'site' : 'section', operations, imageActions, explanation: operations.length ? 'Applied a scoped structured refinement to the current direction.' : 'No supported scoped change was detected.' };
+}
+
+function applyLocalRefinementPlan(plan) {
+  if (!project || !plan || !Array.isArray(plan.operations)) return false;
+  let imagesMayChange = false;
+  const changed = runEditorAction(() => {
+    const page = project.pages[project.activePageIndex];
+    for (const operation of plan.operations) {
+      if (operation.action === 'change-design') {
+        project.design.dimensions = { ...project.design.dimensions, ...operation.changes };
+        if (operation.changes.imageStrategy || operation.changes.imageDominance) {
+          project.intent.creativeDirection = { ...(project.intent.creativeDirection || {}), imageStrategy: operation.changes.imageStrategy || project.intent.creativeDirection.imageStrategy };
+          project.intent.imageRevisions = project.intent.imageRevisions || {};
+          project.intent.imageRevisions.hero = (project.intent.imageRevisions.hero || 0) + 1;
+          imagesMayChange = true;
+        }
+      } else if (operation.action === 'add-section') {
+        if (!page.sections.some(section => section.type === operation.sectionType)) insertSection(project, operation.sectionType);
+        imagesMayChange = true;
+      } else if (operation.action === 'replace-section') {
+        const target = findSectionById(page, operation.targetId);
+        if (!target) return false;
+        target.type = operation.sectionType;
+        target.variant = pickVariant(operation.sectionType, project.design.dimensions, project.intent.variationSeed);
+        target.copy = null;
+        imagesMayChange = true;
+      } else if (operation.action === 'remove-section') {
+        if (!removeSection(project, page.id, operation.targetId)) return false;
+        imagesMayChange = true;
+      } else if (operation.action === 'edit-copy') {
+        const target = findSectionById(page, operation.targetId);
+        if (!target) return false;
+        target.copy = { ...(target.copy || {}), ...operation.changes };
+      } else if (operation.action === 'move-section') {
+        const targetIndex = findSectionIndex(page, operation.beforeId);
+        if (!moveSection(project, page.id, operation.targetId, targetIndex)) return false;
+      } else if (operation.action === 'change-variant') {
+        const target = findSectionById(page, operation.targetId);
+        if (!target) return false;
+        target.variant = operation.variant;
+      } else if (operation.action === 'add-page') {
+        const added = addPage(project, operation.label);
+        if (!added) return false;
+        added.sections.push({ id: newSectionId('services'), type: 'services', variant: 'described', copy: null });
+      } else if (operation.action === 'change-footer') {
+        project.footerVariant = operation.variant;
+      } else return false;
+    }
+    return true;
+  }, imagesMayChange);
+  return changed;
+}
+
+function refinementContext() {
+  if (!project) return {};
+  return {
+    source: { text: project.source.text, location: project.source.location, facts: project.source.facts },
+    business: project.business,
+    creativeDirection: project.intent && project.intent.creativeDirection,
+    design: project.design.dimensions,
+    pages: (project.pages || []).map(page => ({ id: page.id, slug: page.slug, label: page.label, sections: (page.sections || []).map(section => ({ id: section.id, type: section.type, variant: section.variant, copy: section.copy })) })),
+    imagePlan: (project.imagePlan || []).map(entry => ({ slot: entry.slot, role: entry.role, page: entry.page, section: entry.section, aspectRatio: entry.aspectRatio, sourceType: entry.sourceType, status: project.assets.generated && project.assets.generated[entry.slot] && project.assets.generated[entry.slot].status }))
+  };
+}
+
+function normalizeRefinementPlan(plan) {
+  if (!plan || !Array.isArray(plan.operations)) return null;
+  return {
+    ...plan,
+    operations: plan.operations.map(operation => {
+      if (operation.action === 'insert-section') return { action: 'add-section', sectionType: operation.sectionType };
+      if (operation.action === 'remove-section') return { action: 'remove-section', targetId: operation.targetId };
+      if (operation.action === 'edit-copy') return { action: 'edit-copy', targetId: operation.targetId, changes: operation.changes || {} };
+      if (operation.action === 'change-image-strategy') return { action: 'change-design', changes: { imageStrategy: operation.changes && operation.changes.imageStrategy, imageDominance: 'dominant' } };
+      return operation;
+    })
+  };
+}
+
+async function applyRefinementRequest(request) {
+  if (!project || generationInFlight || refinementInFlight || !String(request || '').trim()) return false;
+  refinementInFlight = true;
+  generationState = 'refining';
+  try {
+    if (refinementStatus) refinementStatus.textContent = 'Understanding request…';
+    let plan = null;
+    if (window.__siteremadePlanMeter && window.__siteremadePlanMeter.planConfigured) {
+      try {
+        const response = await fetch('/api/refine-website', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request, context: refinementContext() }) });
+        const data = await response.json().catch(() => ({}));
+        plan = normalizeRefinementPlan(data && data.ok ? data.plan : null);
+      } catch (error) { plan = null; }
+    }
+    plan = plan || buildLocalRefinementPlan(request);
+    if (!plan.operations.length) {
+      if (refinementStatus) refinementStatus.textContent = 'That request needs a more specific supported change.';
+      return false;
+    }
+    if (refinementStatus) refinementStatus.textContent = 'Updating your website…';
+    const changed = applyLocalRefinementPlan(plan);
+    if (!changed) return false;
+    generationState = plan.imageActions && plan.imageActions.length ? 'refinement_images' : 'refinement_finalizing';
+    await resolveImagePlanAssets(project);
+    renderProject(project);
+    if (refinementStatus) refinementStatus.textContent = 'Updated. Your next refinement can build on this version.';
+    return true;
+  } catch (error) {
+    if (refinementStatus) refinementStatus.textContent = 'The refinement could not be applied.';
+    return false;
+  } finally {
+    refinementInFlight = false;
+    generationState = 'ready';
+  }
+}
+
 // ---- WebsiteProject construction + rendering -----------------------------
 function createProject(analysis, preserved, isDemoShell) {
   const category = categories[analysis.categoryKey] || categories.other;
@@ -2948,6 +3181,7 @@ function renderProject(proj) {
   // site that covers every existing project-construction path for free.
   ensureEditorIds(proj);
   const category = categories[proj.business.categoryKey] || categories.other;
+  proj._visibleImageSlots = [];
   proj.assets.plan = planAssets(proj.assets);
   proj.imagePlan = buildImagePlan(proj, category);
   applyDesignDataset(proj);
@@ -3220,6 +3454,8 @@ function applyDirectionsState(restoredDirections, restoredIndex) {
   activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0));
   project = directions[activeDirectionIndex];
   generationSession = project && project.source ? createGenerationSource(project.source.text) : null;
+  if (builderShell) builderShell.hidden = false;
+  if (conversationRefinement) conversationRefinement.hidden = false;
   renderProject(project);
   markGenerated();
   renderDirectionSwitcher();
@@ -3483,6 +3719,10 @@ const builderShell = $('#builderShell');
 const toneToggle = $('#toneToggle');
 const regenerateButton = $('#regenerateButton');
 const sectionToggles = $('#sectionToggles');
+const conversationRefinement = $('#conversationRefinement');
+const refinementInput = $('#refinementInput');
+const refinementSubmit = $('#refinementSubmit');
+const refinementStatus = $('#refinementStatus');
 
 // Asset upload elements
 const heroAssetInput = $('#heroAssetInput'); const heroAssetAdd = $('#heroAssetAdd'); const heroAssetThumbs = $('#heroAssetThumbs');
@@ -3715,6 +3955,8 @@ let hasGenerated = false;
 // before anything else, at the very top of runGeneration() and
 // switchDirection() -- see SITE-PROJECT-V8.1.1.md.
 let generationInFlight = false;
+let generationState = 'idle';
+let refinementInFlight = false;
 // V8.2: the real product rule one level down -- a direction is now a real,
 // potentially multi-page site, not always one page. `proj.pages` holds
 // every page of the CURRENT direction (in nav order, never more than
@@ -3738,6 +3980,7 @@ try {
       activeIndex: activeDirectionIndex,
       max: MAX_DIRECTIONS,
       inFlight: generationInFlight,
+      state: generationState,
       categories: directions.map(d => d.business && d.business.categoryKey),
       sourceKeys: directions.map(d => d.source && d.source.generationKey)
     })
@@ -3752,6 +3995,9 @@ try {
   });
   Object.defineProperty(window, '__siteremadeImagePlan', {
     get: () => project ? (project.imagePlan || []).map(entry => ({ slot: entry.slot, sectionType: entry.sectionType, aspectRatio: entry.aspectRatio, sourceType: entry.sourceType })) : []
+  });
+  Object.defineProperty(window, '__siteremadeImageDiagnostics', {
+    get: () => project ? imageSlotDiagnostic(project) : { missing: [], orphaned: [] }
   });
   // V8.3: read-only, same pattern as the two hooks above -- lets tests
   // observe the ACTIVE direction's own undo/redo depth (and, for
@@ -3940,6 +4186,15 @@ if (regenerateButton) {
     runGeneration(project.source.text);
   });
 }
+if (conversationRefinement) conversationRefinement.hidden = true;
+if (refinementSubmit) refinementSubmit.addEventListener('click', async () => {
+  const request = refinementInput && refinementInput.value.trim();
+  if (!request) return;
+  refinementSubmit.disabled = true;
+  await applyRefinementRequest(request);
+  refinementSubmit.disabled = false;
+  if (refinementInput) refinementInput.value = '';
+});
 if (saveProjectButton) saveProjectButton.addEventListener('click', saveProjectToStorage);
 if (loadProjectButton) loadProjectButton.addEventListener('click', loadProjectFromStorage);
 // V6: the builder panel is no longer blurred/locked pre-generation (the old
@@ -4060,6 +4315,11 @@ const CLAUDE_HEADING_WIDTH_KEYS = ['narrow', 'balanced', 'wide'];
 const CLAUDE_CARD_DENSITY_KEYS = ['airy', 'compact', 'mixed'];
 const CLAUDE_CARD_SHAPE_KEYS = ['square', 'soft', 'pill'];
 const CLAUDE_SPLIT_RATIO_KEYS = ['even', 'text-heavy', 'media-heavy'];
+const CREATIVE_CONCEPT_KEYS = ['institutional-editorial','private-client-luxury','founder-focused','product-led-technical','expressive-creative-technology','enterprise-systems','intimate-editorial','chef-led-premium','portfolio-led','methodology-led','conversion-first','technical-product'];
+const CREATIVE_MOOD_KEYS = ['restrained','warm','cinematic','energetic','precise','expressive','quiet-luxury'];
+const CREATIVE_NARRATIVE_KEYS = ['editorial','expertise-first','portfolio-led','product-demo-led','credibility-first','conversion-first','founder-story-led','methodology-led','technical-product'];
+const CREATIVE_IMAGE_STRATEGY_KEYS = ['photography-led','sparse-premium','editorial-lifestyle','people-team','product-ui','architecture-interior','macro-detail','project-portfolio','abstract-branded','mostly-typographic'];
+const CREATIVE_SIGNATURE_KEYS = ['oversized-manifesto','asymmetric-index','editorial-image-rail','large-type-break','case-study-band','split-story','staggered-mosaic','media-interruption','process-timeline','visual-philosophy','product-showcase'];
 const CLAUDE_SECTION_TYPE_KEYS = ['proof', 'metrics', 'services', 'features', 'productShowcase', 'integrations', 'pricing', 'faq', 'process', 'gallery', 'caseStudies', 'imageLedEditorial', 'about', 'team', 'testimonial', 'testimonialsGrid', 'menu', 'reservationCta', 'serviceAreas', 'contact', 'newsletter', 'ctaBanner'];
 const CLAUDE_IMAGE_ROLE_KEYS = ['hero', 'product', 'team', 'gallery'];
 const CLAUDE_FUNCTIONALITY_STATUS_KEYS = ['supportedNow', 'plannedIntegration', 'requiresCustomBuild'];
@@ -4100,6 +4360,14 @@ function normalizeClaudePlan(raw, catDefaults) {
     cardDensity: claudeEnum(vd.cardDensity, CLAUDE_CARD_DENSITY_KEYS, dimensionDefaults.cardDensity),
     cardShape: claudeEnum(vd.cardShape, CLAUDE_CARD_SHAPE_KEYS, dimensionDefaults.cardShape),
     splitRatio: claudeEnum(vd.splitRatio, CLAUDE_SPLIT_RATIO_KEYS, dimensionDefaults.splitRatio)
+  };
+  const cd = (raw.creativeDirection && typeof raw.creativeDirection === 'object') ? raw.creativeDirection : {};
+  const creativeDirection = {
+    concept: claudeEnum(cd.concept, CREATIVE_CONCEPT_KEYS, 'methodology-led'),
+    visualMood: claudeEnum(cd.visualMood, CREATIVE_MOOD_KEYS, 'precise'),
+    narrativeStrategy: claudeEnum(cd.narrativeStrategy, CREATIVE_NARRATIVE_KEYS, 'expertise-first'),
+    imageStrategy: claudeEnum(cd.imageStrategy, CREATIVE_IMAGE_STRATEGY_KEYS, 'abstract-branded'),
+    signatureMotif: claudeEnum(cd.signatureMotif, CREATIVE_SIGNATURE_KEYS, 'large-type-break')
   };
 
   // A page/section survives only if it is structurally real. A page left
@@ -4177,6 +4445,7 @@ function normalizeClaudePlan(raw, catDefaults) {
 
   return {
     dimensions,
+    creativeDirection,
     pages,
     heroCopy,
     businessName: claudeStr(businessRaw.name, 60) || null,
@@ -4335,6 +4604,8 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   // SITE-PROJECT-V8.md part 14.1/14.2 made concrete.
   const usingClaude = !!claudePlan;
   const dimensions = usingClaude ? claudePlan.dimensions : { ...catDefaults };
+  const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null);
+  const previewName = source.extractedName || `${category.label} Studio`;
 
   // V7: the first-paint shell now seeds its dimensions from the detected
   // CATEGORY's defaults, not the named seed's raw values -- so even before
@@ -4347,11 +4618,11 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     meta: {
       id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(),
       version: usingClaude ? 'v8' : 'v7', isDemoShell: false,
-      planSource: usingClaude ? 'anthropic' : 'deterministic'
+      planSource: usingClaude ? 'anthropic' : 'deterministic', previewBrandName: !source.extractedName
     },
     source: { text: source.text, location: analysis.location, facts, descriptor, generationKey: source.key },
     business: {
-      name: source.extractedName || 'Your Business',
+      name: previewName,
       categoryKey: analysis.categoryKey,
       tone: (sameSource && preserved.business && preserved.business.tone) || 'professional'
     },
@@ -4362,7 +4633,8 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       // image (buildImagePrompt/buildImagePlan/resolveImagePlanAssets are
       // completely unchanged by this). See SITE-PROJECT-V8.md part 9.
       claudeImagePrompts: usingClaude ? claudePlan.imagePromptsByRole : null,
-      brief: usingClaude ? { understanding: claudePlan.understanding, rationale: claudePlan.rationale } : null
+      brief: usingClaude ? { understanding: claudePlan.understanding, rationale: claudePlan.rationale } : null,
+      creativeDirection
     },
     design: {
       palette: composePalette(analysis.categoryKey, dimensions, analysis.text),
@@ -4466,6 +4738,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       } },
     { key: 'sections', run() {
         proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed); });
+      ensureSignatureSection(proj, creativeDirection);
         proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor);
         if (usingClaude) {
           // Deterministic copy above is still computed first so every
@@ -4552,7 +4825,8 @@ function finishGeneration(proj, expectedDirectionIndex) {
   project = directions[activeDirectionIndex];
   renderProject(project);
   markGenerated();
-  resolveImagePlanAssets(project); // fire real image requests for this freshly-admitted direction, exactly once, async, non-blocking
+  if (builderShell) builderShell.hidden = false;
+  if (conversationRefinement) conversationRefinement.hidden = false;
   renderDirectionSwitcher();
   updateDirectionControls();
   persistDirectionsSilently(); // so a plain page refresh can't reset the 3-direction cap -- see SITE-PROJECT-V8.1.md part "closing the reload loophole"
@@ -4603,11 +4877,14 @@ async function runGeneration(text) {
   const previousProject = project;
   let admitted = false; // set true only by a successful finishGeneration call below
   generationInFlight = true;
+  generationState = 'analyzing';
+  if (builderShell) builderShell.hidden = true;
   setGenerationControlsDisabled(true);
   try {
     let claudePlan = null;
     const meter = window.__siteremadePlanMeter;
     if (meter && meter.planConfigured) {
+      generationState = 'planning';
       if (generatorSubmitButton) generatorSubmitButton.disabled = true;
       if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
       const result = await requestClaudePlan(text);
@@ -4635,11 +4912,17 @@ async function runGeneration(text) {
     }
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
+    generationState = 'composing';
 
     if (prefersReducedMotion() || !generationProgress || !generationSteps) {
       // Real work still runs in full -- only the frame-by-frame reveal is
       // skipped, matching the person's reduced-motion preference.
       steps.forEach(s => s.run());
+      generationState = 'generating_images';
+      await resolveImagePlanAssets(proj);
+      generationState = 'finalizing';
+      const quality = validateProjectQuality(proj);
+      if (!quality.ready) throw new Error('Generated project failed its deterministic quality gate');
       admitted = finishGeneration(proj, expectedDirectionIndex);
       return;
     }
@@ -4680,7 +4963,17 @@ async function runGeneration(text) {
       function nextStep() {
         try {
           if (i > 0) setStepState(stepEls[i - 1], 'done');
-          if (i >= steps.length) { admitted = finishGeneration(proj, expectedDirectionIndex); resolve(); return; }
+          if (i >= steps.length) {
+            generationState = 'generating_images';
+            resolveImagePlanAssets(proj).then(() => {
+              generationState = 'finalizing';
+              const quality = validateProjectQuality(proj);
+              if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
+              else resetGenerationChromeUI();
+              resolve();
+            }).catch(() => { resetGenerationChromeUI(); resolve(); });
+            return;
+          }
           const note = steps[i].run(); // the real work for this step happens here
           setStepState(stepEls[i], 'active', note);
           renderProject(proj); // reflect exactly what that real work just changed, on the transaction's own object
@@ -4709,6 +5002,7 @@ async function runGeneration(text) {
     // exactly this state, so it's a no-op, never a second admission or a
     // second image request.
     generationInFlight = false;
+    generationState = admitted ? 'ready' : 'failed';
     setGenerationControlsDisabled(false);
     resetGenerationChromeUI();
     updateDirectionControls();
@@ -4725,6 +5019,7 @@ async function runGeneration(text) {
     // cause a new image request.
     if (!admitted) {
       project = directions.length ? directions[activeDirectionIndex] : previousProject;
+      if (builderShell) builderShell.hidden = false;
       renderProject(project);
       renderDirectionSwitcher();
     }
