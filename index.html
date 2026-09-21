@@ -325,6 +325,35 @@
       </div>
     </section>
 
+    <section class="purchase-section reveal" id="exportPanel" hidden>
+      <div class="purchase-shell">
+        <div class="purchase-copy">
+          <p class="eyebrow">04 — EXPORT &amp; DEPLOY</p>
+          <h2>Your website, ready to leave SiteRemade.</h2>
+          <p>Once purchased, export compiles this exact project revision into a real, standalone website package — no SiteRemade editor, account system or generator code included.</p>
+          <p id="exportRuntimeLine">—</p>
+          <ul class="purchase-points" id="exportRuntimeReasons"></ul>
+          <p id="exportRevisionNote" class="handoff-description-note" hidden></p>
+        </div>
+        <div class="purchase-card">
+          <span>DELIVERY</span>
+          <strong id="exportStatusHeadline">Not exported yet</strong>
+          <p id="exportHostingRecommendation">—</p>
+          <button type="button" class="button full-width" id="exportButton" disabled>Export this website</button>
+          <p class="purchase-status" id="exportStatus" aria-live="polite">Purchase this project to enable export.</p>
+          <a href="#" id="exportDownloadLink" class="button full-width" hidden download>Download .zip</a>
+
+          <div id="domainHandoff" hidden>
+            <label>Custom domain<input type="text" id="domainInput" placeholder="yourbusiness.com" maxlength="253" /></label>
+            <button type="button" class="button full-width" id="domainSubmitButton">Get DNS instructions</button>
+            <div id="domainRecords"></div>
+            <button type="button" class="button full-width" id="domainVerifyButton" hidden>Check if it's live</button>
+            <p id="domainStatus" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="handoff-section reveal secondary-contact" id="send">
       <div class="handoff-copy">
         <p class="eyebrow">PREFER TO TALK FIRST?</p>

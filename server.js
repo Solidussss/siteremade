@@ -15,6 +15,16 @@ const auth = require('./lib/auth.js');
 const projectStore = require('./lib/project-store.js');
 const purchase = require('./lib/purchase.js');
 const entitlement = require('./lib/entitlement.js');
+// V8.6: export + deployment packaging + hosting/domain handoff -- see
+// SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
+// (no parallel backend), exactly like V8.5's own modules above.
+const fs = require('fs');
+const exportCompiler = require('./lib/export-compiler.js');
+const deploymentStore = require('./lib/deployment-store.js');
+const hosting = require('./lib/hosting.js');
+const runtimeClassifier = require('./lib/runtime-classifier.js');
+const domainLib = require('./lib/domain.js');
+const { zipDirectory } = require('./lib/archive.js');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -927,6 +937,154 @@ app.get('/api/purchase-intents/:id', requireAuth, (req, res) => {
   const intent = purchase.getOwnedPurchaseIntent(db, req.accountId, req.params.id);
   if (!intent) return res.status(404).json({ ok: false, message: 'Purchase intent not found.' });
   return res.json({ ok: true, intent });
+});
+
+// ---- V8.6: export / deployment / hosting / domain handoff ------------------
+// Export/deploy is an ownership boundary exactly like the project routes
+// above: every route here does its own explicit ownership-scoped lookup
+// (never trusts a client-supplied owner/project id alone), requireAuth on
+// every route, requireSameOrigin on every state-changing one (spec §28).
+const EXPORTS_DIR = path.join(__dirname, 'data', 'exports'); // gitignored under /data/, exactly like the sqlite db and asset-store
+function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
+
+// Compiles + archives + records a new deployment for an owned, PURCHASED
+// project. Never trusts localStorage/UI badges/client-supplied status --
+// `project.status` is read straight from the authoritative row (spec §4).
+// Binds to the EXACT revision the client says it has (§3): the caller must
+// have already flushed its latest autosave and pass that resulting
+// revision number, or this refuses with a stale-revision conflict rather
+// than silently exporting whatever the server happens to have.
+app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const projectId = req.params.id;
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  if (project.status !== 'purchased') return res.status(403).json({ ok: false, message: 'This project has not been purchased yet.' });
+  const body = req.body || {};
+  const expectedRevision = Number.isInteger(body.expectedRevision) ? body.expectedRevision : null;
+  if (expectedRevision === null) return res.status(400).json({ ok: false, message: 'expectedRevision is required -- save your latest changes first.' });
+  if (expectedRevision !== project.revision) {
+    return res.status(409).json({ ok: false, reason: 'stale_revision', message: 'Your local copy is behind the saved project. Reload and try again.', currentRevision: project.revision });
+  }
+  const directionIndex = Number.isInteger(body.directionIndex) ? body.directionIndex : (project.directionsState.activeDirectionIndex || 0);
+  ensureExportsDir();
+  const deploymentId = deploymentStore.genId('dep');
+  const workDir = path.join(EXPORTS_DIR, deploymentId);
+  let result;
+  try {
+    result = exportCompiler.compileExport(db, { project, directionIndex, workDir });
+  } catch (e) {
+    const failed = deploymentStore.recordFailedDeployment(db, {
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+      target: 'local', failureReason: (e && e.message) || 'Export failed.',
+    });
+    return res.status(400).json({ ok: false, message: (e && e.message) || 'Export failed.', deployment: failed });
+  }
+  try {
+    zipDirectory(result.workDir, workDir + '.zip');
+  } catch (e) {
+    const failed = deploymentStore.recordFailedDeployment(db, {
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+      target: 'local', failureReason: 'Could not build a downloadable archive: ' + ((e && e.message) || 'unknown error'),
+      runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, manifest: result.manifest,
+      artifactHash: result.artifactHash, compilerVersion: exportCompiler.COMPILER_VERSION,
+    });
+    return res.status(500).json({ ok: false, message: 'Could not build a downloadable archive.', deployment: failed });
+  }
+  const deployment = deploymentStore.createReadyDeployment(db, {
+    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+    compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
+    runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
+    manifest: result.manifest, artifactPath: workDir + '.zip',
+  });
+  return res.status(201).json({ ok: true, deployment, manifest: result.manifest });
+});
+app.get('/api/projects/:id/deployments', requireAuth, (req, res) => {
+  const project = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  return res.json({ ok: true, deployments: deploymentStore.listOwnedDeployments(db, req.accountId, req.params.id) });
+});
+app.get('/api/deployments/:id', requireAuth, (req, res) => {
+  const deployment = deploymentStore.getOwnedDeployment(db, req.accountId, req.params.id);
+  if (!deployment) return res.status(404).json({ ok: false, message: 'Deployment not found.' });
+  return res.json({ ok: true, deployment });
+});
+// The real downloadable artifact (spec §18) -- ownership-checked, only
+// ever serves a deployment that actually finished packaging (a 'failed'
+// row has no artifact). Filename is built from sanitized, server-known
+// values only, never from raw request input.
+app.get('/api/deployments/:id/download', requireAuth, (req, res) => {
+  const deployment = deploymentStore.getOwnedDeployment(db, req.accountId, req.params.id);
+  if (!deployment || !['ready', 'live'].includes(deployment.state)) return res.status(404).json({ ok: false, message: 'Export not available.' });
+  const zipPath = path.join(EXPORTS_DIR, `${req.params.id}.zip`);
+  if (!fs.existsSync(zipPath)) return res.status(404).json({ ok: false, message: 'Export artifact missing.' });
+  const safeName = `siteremade-export-${req.params.id}.zip`.replace(/[^a-zA-Z0-9._-]/g, '');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+  res.setHeader('Content-Type', 'application/zip');
+  return res.sendFile(zipPath);
+});
+// Redeploy-to-target (spec §15/§26/§29): attempts to hand an EXISTING,
+// already-packaged deployment off to a named hosting target. 'local' is
+// the only real one (already satisfied by the export itself); every other
+// target honestly fails with a real, specific reason rather than faking
+// success -- and always as a NEW row, so a failed redeploy attempt can
+// never destroy or hide whatever the last good deployment was.
+app.post('/api/deployments/:id/deploy-to', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const source = deploymentStore.getOwnedDeployment(db, req.accountId, req.params.id);
+  if (!source || !['ready', 'live'].includes(source.state)) return res.status(404).json({ ok: false, message: 'No ready export to deploy.' });
+  const targetKey = String((req.body && req.body.target) || '').trim();
+  const target = hosting.getTarget(targetKey);
+  if (!target) return res.status(400).json({ ok: false, message: 'Unknown hosting target.' });
+  if (targetKey === 'local') return res.json({ ok: true, deployment: source }); // already satisfied -- no-op, not a new row
+  const failed = deploymentStore.recordFailedDeployment(db, {
+    ownerId: req.accountId, projectId: source.projectId, projectRevision: source.projectRevision, directionIndex: source.directionIndex,
+    target: targetKey, failureReason: target.available ? 'This target is not yet wired up in this environment.' : target.reason,
+    runtimeType: source.runtimeType, runtimeReasons: source.runtimeReasons, manifest: source.manifest,
+    artifactHash: source.artifactHash, compilerVersion: source.compilerVersion,
+  });
+  return res.status(200).json({ ok: true, deployment: failed });
+});
+// A structured, technical-fit hosting recommendation (spec §16) -- reads
+// current project state directly (classifyRuntime), so it works even
+// before a first export exists.
+app.get('/api/projects/:id/hosting-recommendation', requireAuth, (req, res) => {
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, req.params.id);
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  const directionIndex = Number.isInteger(Number(req.query.directionIndex)) ? Number(req.query.directionIndex) : (project.directionsState.activeDirectionIndex || 0);
+  const direction = project.directionsState.directions[directionIndex];
+  if (!direction) return res.status(400).json({ ok: false, message: 'Invalid direction index.' });
+  const classification = runtimeClassifier.classifyRuntime(direction);
+  return res.json({ ok: true, recommendation: hosting.recommend(classification) });
+});
+app.get('/api/hosting-providers', (req, res) => res.json({ ok: true, providers: hosting.listProviders() }));
+
+// ---- V8.6: custom-domain handoff -------------------------------------------
+app.post('/api/projects/:id/domain', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const project = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  const check = domainLib.validateDomain(req.body && req.body.domain);
+  if (!check.valid) return res.status(400).json({ ok: false, message: check.error });
+  const target = hosting.getTarget((req.body && req.body.target) || 'local') ? (req.body && req.body.target) || 'local' : 'local';
+  const dnsRecords = domainLib.buildDnsInstructions(target, check.domain);
+  const domain = deploymentStore.upsertDomain(db, { ownerId: req.accountId, projectId: req.params.id, domain: check.domain, target, dnsRecords });
+  return res.json({ ok: true, domain });
+});
+app.get('/api/projects/:id/domains', requireAuth, (req, res) => {
+  const project = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);
+  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  return res.json({ ok: true, domains: deploymentStore.listOwnedDomains(db, req.accountId, req.params.id) });
+});
+// A real, narrow, SSRF-safe reachability check (spec §21) -- never
+// presents a domain as verified merely because instructions were
+// generated (§20); only a real DNS+HTTP(S) check advances the state.
+app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, res) => {
+  const domain = deploymentStore.getOwnedDomain(db, req.accountId, req.params.id);
+  if (!domain) return res.status(404).json({ ok: false, message: 'Domain not found.' });
+  const result = await domainLib.verifyDomainReachable(domain.domain);
+  let nextState = domain.state;
+  if (result.ok) nextState = result.usedHttps ? 'live' : 'verified';
+  else if (domain.state === 'not_configured' || domain.state === 'instructions_generated') nextState = 'dns_pending';
+  const updated = deploymentStore.setDomainState(db, req.accountId, req.params.id, nextState, { verified: !!result.ok });
+  return res.json({ ok: true, check: result, domain: updated });
 });
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));

@@ -4709,6 +4709,10 @@ function updateAccountUI() {
     if (previousValue && ownedProjectsCache.some(p => p.id === previousValue)) accountProjectsSelect.value = previousValue;
   }
   updatePurchaseOwnershipBadge();
+  // V8.6: re-render the export/deploy panel from the same account/ownership
+  // chokepoint every other account-dependent UI already re-renders from
+  // (see this function's own call sites) -- see refreshExportPanel below.
+  if (typeof refreshExportPanel === 'function') refreshExportPanel();
 }
 async function refreshServerProjectStatus() {
   if (!currentAccount || !serverProjectId) return;
@@ -4719,6 +4723,7 @@ async function refreshServerProjectStatus() {
   if (idx === -1) ownedProjectsCache.push({ name: (accountProjectNameInput && accountProjectNameInput.value) || 'Untitled project', ...patch });
   else ownedProjectsCache[idx] = { ...ownedProjectsCache[idx], ...patch };
   updatePurchaseOwnershipBadge();
+  if (typeof refreshExportPanel === 'function') refreshExportPanel();
 }
 
 // A one-time anonymous -> account migration marker, persisted so a visitor
@@ -5234,3 +5239,150 @@ fetch('/api/generation-status').then(r => r.json()).then(meter => {
     updateDirectionControls(); // refreshes the hint's "(AI-planned when available)" note; the direction COUNT it shows always comes from directions.length, never from this
   }
 }).catch(() => {});
+
+// ==========================================================================
+// V8.6: export + deployment packaging + hosting/domain handoff -- minimum
+// delivery UI (spec §27). Purely additive: reads serverProjectId/
+// serverProjectRevision/apiFetch/ownedProjectsCache, all established by
+// V8.5 above, and never mutates the in-memory `project`/`directions` model
+// -- export is read-only from the client's perspective (the server compiles
+// from ITS OWN persisted copy, never from anything this panel sends).
+// ==========================================================================
+const exportPanel = $('#exportPanel');
+const exportRuntimeLine = $('#exportRuntimeLine');
+const exportRuntimeReasons = $('#exportRuntimeReasons');
+const exportRevisionNote = $('#exportRevisionNote');
+const exportStatusHeadline = $('#exportStatusHeadline');
+const exportHostingRecommendation = $('#exportHostingRecommendation');
+const exportButton = $('#exportButton');
+const exportStatus = $('#exportStatus');
+const exportDownloadLink = $('#exportDownloadLink');
+const domainHandoff = $('#domainHandoff');
+const domainInput = $('#domainInput');
+const domainSubmitButton = $('#domainSubmitButton');
+const domainRecords = $('#domainRecords');
+const domainVerifyButton = $('#domainVerifyButton');
+const domainStatus = $('#domainStatus');
+
+let exportPanelLoaded = false; // avoids refetching hosting-recommendation/deployments on every unrelated updateAccountUI() call
+let latestDeployment = null;
+let latestDomainId = null;
+
+const RUNTIME_REASON_LABELS = {
+  contact_form_submission: 'a contact form that really needs to receive submissions',
+  quote_request: 'a quote-request form',
+  booking_request: 'a booking-request form',
+  newsletter_submission: 'a newsletter signup',
+};
+function humanizeRuntimeReason(reason) { return RUNTIME_REASON_LABELS[reason] || reason; }
+
+async function refreshExportPanel() {
+  if (!exportPanel) return;
+  const summary = serverProjectId ? ownedProjectsCache.find(p => p.id === serverProjectId) : null;
+  const purchased = summary && summary.status === 'purchased';
+  exportPanel.hidden = !purchased;
+  if (!purchased) return;
+  if (exportButton) exportButton.disabled = false;
+  if (exportStatus) exportStatus.textContent = 'Ready to export this exact project.';
+  if (exportPanelLoaded) return; // one-time load per purchased-project view -- exportButton's own click handler refreshes after a real export
+  exportPanelLoaded = true;
+  const [{ ok: recOk, data: recData }, { ok: depOk, data: depData }] = await Promise.all([
+    apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/hosting-recommendation`),
+    apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/deployments`),
+  ]);
+  if (recOk && recData.ok) {
+    const rec = recData.recommendation;
+    if (exportRuntimeLine) exportRuntimeLine.textContent = rec.runtimeType === 'static'
+      ? 'This site needs no server -- static/shared hosting is enough.'
+      : 'This site needs a real backend -- it has:';
+    if (exportRuntimeReasons) exportRuntimeReasons.innerHTML = (rec.runtimeReasons || [])
+      .map(reason => `<li>${escapeHtml(humanizeRuntimeReason(reason))}</li>`).join('');
+    if (exportHostingRecommendation) {
+      const names = rec.recommendedTargets.map(k => k).join(', ');
+      exportHostingRecommendation.textContent = `Fits: ${names || 'local export'}. ${rec.reasoning}`;
+    }
+  }
+  if (depOk && depData.ok && depData.deployments.length) {
+    const goodOne = depData.deployments.find(d => d.state === 'ready' || d.state === 'live') || null;
+    latestDeployment = goodOne || depData.deployments[0];
+    applyDeploymentToUi(latestDeployment, depData.deployments[0]);
+  }
+}
+function applyDeploymentToUi(goodDeployment, mostRecent) {
+  if (!goodDeployment) return;
+  if (exportStatusHeadline) exportStatusHeadline.textContent = `Exported (revision ${goodDeployment.projectRevision})`;
+  if (exportDownloadLink) {
+    exportDownloadLink.hidden = false;
+    exportDownloadLink.href = `/api/deployments/${encodeURIComponent(goodDeployment.id)}/download`;
+  }
+  if (domainHandoff) domainHandoff.hidden = false;
+  if (exportRevisionNote && serverProjectRevision != null) {
+    if (mostRecent && mostRecent.id !== goodDeployment.id && mostRecent.state === 'failed') {
+      exportRevisionNote.hidden = false;
+      exportRevisionNote.textContent = `A more recent export attempt failed (${mostRecent.failureReason || 'unknown error'}) -- the version above is still the last good one.`;
+    } else if (serverProjectRevision > goodDeployment.projectRevision) {
+      exportRevisionNote.hidden = false;
+      exportRevisionNote.textContent = `You have unpublished changes since revision ${goodDeployment.projectRevision} -- export again to publish revision ${serverProjectRevision}.`;
+    } else {
+      exportRevisionNote.hidden = true;
+    }
+  }
+}
+if (exportButton) {
+  exportButton.addEventListener('click', async () => {
+    if (!serverProjectId) return;
+    exportButton.disabled = true;
+    if (exportStatus) exportStatus.textContent = 'Saving your latest changes…';
+    // §3: force/verify the latest autosave before export -- refuses to
+    // export a stale in-memory snapshot the server hasn't actually seen.
+    if (typeof flushServerAutosave === 'function') await flushServerAutosave();
+    if (exportStatus) exportStatus.textContent = 'Compiling your export…';
+    const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/export`, {
+      method: 'POST', body: { expectedRevision: serverProjectRevision },
+    });
+    exportButton.disabled = false;
+    if (!ok || !data.ok) {
+      if (data && data.reason === 'stale_revision') {
+        if (exportStatus) exportStatus.textContent = 'Your project changed since this page loaded -- reloading and trying again may help.';
+      } else {
+        if (exportStatus) exportStatus.textContent = (data && data.message) || 'Export failed.';
+      }
+      return;
+    }
+    latestDeployment = data.deployment;
+    if (exportStatus) exportStatus.textContent = 'Export ready.';
+    applyDeploymentToUi(data.deployment, data.deployment);
+  });
+}
+if (domainSubmitButton) {
+  domainSubmitButton.addEventListener('click', async () => {
+    if (!serverProjectId || !domainInput) return;
+    domainSubmitButton.disabled = true;
+    const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/domain`, {
+      method: 'POST', body: { domain: domainInput.value, target: 'local' },
+    });
+    domainSubmitButton.disabled = false;
+    if (!ok || !data.ok) { if (domainStatus) domainStatus.textContent = (data && data.message) || 'Enter a valid domain.'; return; }
+    latestDomainId = data.domain.id;
+    if (domainRecords) {
+      domainRecords.innerHTML = '<p>Add these DNS records with your domain registrar:</p><ul>' +
+        data.domain.dnsRecords.map(r => `<li>${escapeHtml(r.type)} · ${escapeHtml(r.hostName)} → ${escapeHtml(r.valueTarget)} (TTL ${r.ttl})<br><small>${escapeHtml(r.note || '')}</small></li>`).join('') +
+        '</ul>';
+    }
+    if (domainVerifyButton) domainVerifyButton.hidden = false;
+    if (domainStatus) domainStatus.textContent = 'Instructions generated -- not verified yet.';
+  });
+}
+if (domainVerifyButton) {
+  domainVerifyButton.addEventListener('click', async () => {
+    if (!latestDomainId) return;
+    domainVerifyButton.disabled = true;
+    if (domainStatus) domainStatus.textContent = 'Checking…';
+    const { ok, data } = await apiFetch(`/api/domains/${encodeURIComponent(latestDomainId)}/verify`, { method: 'POST' });
+    domainVerifyButton.disabled = false;
+    if (!ok || !data.ok) { if (domainStatus) domainStatus.textContent = 'Could not run the check.'; return; }
+    if (domainStatus) domainStatus.textContent = data.check.ok
+      ? `Reachable (${data.domain.state}).`
+      : `Not live yet: ${data.check.message}`;
+  });
+}
