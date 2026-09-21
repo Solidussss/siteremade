@@ -254,10 +254,11 @@ async function stripeRequest(endpoint, params) {
 // server environment only, used only in this server-side fetch, and is
 // never sent to or readable by the browser.
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SITEREMADE_PAID_IMAGES = String(process.env.SITEREMADE_PAID_IMAGES || '').toLowerCase() === 'true';
 const imageProviders = {
   openai: {
     name: 'openai',
-    configured: () => !!OPENAI_API_KEY,
+    configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
     async generate(prompt, { aspectRatio } = {}) {
       const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
       const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -283,7 +284,11 @@ app.get('/api/image-provider-status', (req, res) => {
   res.json({
     configured,
     provider: configured ? activeImageProvider.name : null,
-    reason: configured ? undefined : 'No server-side image-generation API key is configured in this environment.'
+    reason: configured
+      ? undefined
+      : (!OPENAI_API_KEY
+        ? 'No server-side image-generation API key is configured in this environment.'
+        : 'Paid image generation is disabled for this environment.')
   });
 });
 
