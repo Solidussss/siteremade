@@ -1012,10 +1012,20 @@ function buildImagePlan(project, category) {
 const imageRequestsInFlight = new Set();
 const imageRequestPromises = new Map();
 const IMAGE_REQUEST_TIMEOUT_MS = 30000;
-function resolveImagePlanAssets(proj, onProgress) {
+function resolveImagePlanAssets(proj, onProgress, options = {}) {
   if (!proj || (proj.meta && proj.meta.isDemoShell)) return Promise.resolve();
-  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) return Promise.resolve();
   proj.assets.generated = proj.assets.generated || {};
+  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) {
+    (proj.imagePlan || []).forEach(entry => {
+      if (entry.sourceType !== 'generated') return;
+      const current = proj.assets.generated[entry.slot];
+      if (!current || current.cacheKey !== entry.cacheKey || !['ready', 'error'].includes(current.status)) {
+        proj.assets.generated[entry.slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
+        if (onProgress) onProgress();
+      }
+    });
+    return Promise.resolve();
+  }
   const requests = [];
   (proj.imagePlan || []).forEach(entry => {
     if (entry.sourceType !== 'generated') return;
@@ -1032,7 +1042,7 @@ function resolveImagePlanAssets(proj, onProgress) {
     }
     imageRequestsInFlight.add(reqKey);
     proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'pending', prompt: entry.prompt };
-    if (proj === project) renderProject(project);
+    if (proj === project && !options.suppressRender) renderProject(project);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), IMAGE_REQUEST_TIMEOUT_MS);
     const request = fetch('/api/generate-image', {
@@ -1052,14 +1062,14 @@ function resolveImagePlanAssets(proj, onProgress) {
         } else {
           proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: data.dataUrl, prompt: entry.prompt };
         }
-        if (proj === project) renderProject(project);
+        if (proj === project && !options.suppressRender) renderProject(project);
         if (onProgress) onProgress();
       })
       .catch(() => {
         imageRequestsInFlight.delete(reqKey);
         const current = proj.assets.generated[slot];
         if (current && current.cacheKey === entry.cacheKey) proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
-        if (proj === project) renderProject(project);
+        if (proj === project && !options.suppressRender) renderProject(project);
         if (onProgress) onProgress();
       })
       .finally(() => { clearTimeout(timer); imageRequestsInFlight.delete(reqKey); imageRequestPromises.delete(reqKey); });
@@ -3437,7 +3447,8 @@ function saveProjectToStorage() {
 // sequence applies regardless of where the {directions,
 // activeDirectionIndex} state came from, so there is exactly one place
 // that ever "becomes" a loaded project.
-function applyDirectionsState(restoredDirections, restoredIndex) {
+async function applyDirectionsState(restoredDirections, restoredIndex) {
+  showGenerationGate('finalizing', 'restore');
   const activeCandidate = restoredDirections[Math.max(0, Math.min(restoredDirections.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0))];
   const restoreKey = activeCandidate && activeCandidate.source
     ? (activeCandidate.source.generationKey || hashString(String(activeCandidate.source.text || '').trim().toLowerCase()))
@@ -3454,13 +3465,14 @@ function applyDirectionsState(restoredDirections, restoredIndex) {
   activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0));
   project = directions[activeDirectionIndex];
   generationSession = project && project.source ? createGenerationSource(project.source.text) : null;
-  if (builderShell) builderShell.hidden = false;
-  if (conversationRefinement) conversationRefinement.hidden = false;
-  renderProject(project);
-  markGenerated();
   renderDirectionSwitcher();
   updateDirectionControls();
-  resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots -- matches "switching never generates images"; inactive directions are left exactly as saved until switched to
+  revealPreparationInFlight = true;
+  try {
+    await prepareProjectForReveal(project, 'restore');
+  } finally {
+    revealPreparationInFlight = false;
+  }
 }
 function loadProjectFromStorage() {
   let raw;
@@ -3961,6 +3973,9 @@ let hasGenerated = false;
 let generationInFlight = false;
 let generationState = 'idle';
 let refinementInFlight = false;
+let revealPreparationInFlight = false;
+let imageProviderStatusResolve;
+const imageProviderStatusReady = new Promise(resolve => { imageProviderStatusResolve = resolve; });
 // V8.2: the real product rule one level down -- a direction is now a real,
 // potentially multi-page site, not always one page. `proj.pages` holds
 // every page of the CURRENT direction (in nav order, never more than
@@ -4531,19 +4546,24 @@ function switchDirection(index) {
   // visitor was looking at got replaced. This check is authoritative even
   // if switchDirection is called programmatically, not just from the
   // (also disabled, for UX) pill buttons.
-  if (generationInFlight) return;
+  if (generationInFlight || revealPreparationInFlight) return;
   if (!directions.length) return;
   index = Math.max(0, Math.min(directions.length - 1, index));
   if (index === activeDirectionIndex) return;
+  const previousIndex = activeDirectionIndex;
   activeDirectionIndex = index;
   project = directions[activeDirectionIndex];
-  renderProject(project);
   renderDirectionSwitcher();
-  markGenerated();
-  persistDirectionsSilently();
-  // Deliberately NO resolveImagePlanAssets() call here -- switching must
-  // never trigger a new image request. Each direction owns its own
-  // assets.generated cache and renders exactly as it was left.
+  revealPreparationInFlight = true;
+  prepareProjectForReveal(project, 'switch').then(ready => {
+    if (ready) persistDirectionsSilently();
+    else {
+      activeDirectionIndex = previousIndex;
+      project = directions[activeDirectionIndex];
+      prepareProjectForReveal(project, 'switch');
+      renderDirectionSwitcher();
+    }
+  }).finally(() => { revealPreparationInFlight = false; });
 }
 directionSwitcherEl && directionSwitcherEl.addEventListener('click', event => {
   const pill = event.target.closest('.direction-pill');
@@ -4811,13 +4831,59 @@ function updateGenerationGate(step, note) {
     if (small && index === currentIndex) small.textContent = note || '';
   });
 }
-function showGenerationGate(state) {
+function showGenerationGate(state, mode = 'generation') {
   if (!generationGate || !builderShell) return;
   builderShell.classList.add('generation-building');
   generationGate.hidden = false;
   if (generationGateRetry) generationGateRetry.hidden = true;
-  if (generationGateStatus) generationGateStatus.textContent = 'Creating a custom website for your business...';
-  updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : 'copy');
+  if (generationGateStatus) generationGateStatus.textContent = mode === 'restore' ? 'Preparing your website...' : mode === 'switch' ? 'Preparing this direction...' : 'Creating a custom website for your business...';
+  updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : state === 'generating_images' ? 'imagery' : 'copy');
+}
+function prepareProjectImagePlan(proj) {
+  if (!proj || (proj.meta && proj.meta.isDemoShell)) return;
+  proj.assets = proj.assets || { items: [], generated: {} };
+  proj.assets.generated = proj.assets.generated || {};
+  proj.assets.plan = planAssets(proj.assets);
+  const category = categories[proj.business && proj.business.categoryKey] || categories.other;
+  proj.imagePlan = buildImagePlan(proj, category);
+}
+async function prepareProjectForReveal(proj, mode = 'restore') {
+  if (!proj) return false;
+  if (mode !== 'generation') showGenerationGate('generating_images', mode);
+  if (!window.__siteremadeImageProvider && mode !== 'generation') await imageProviderStatusReady;
+  prepareProjectImagePlan(proj);
+  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) {
+    (proj.imagePlan || []).forEach(entry => {
+      if (entry.sourceType !== 'generated') return;
+      const current = proj.assets.generated[entry.slot];
+      if (!current || current.cacheKey !== entry.cacheKey || !['ready', 'error'].includes(current.status)) {
+        proj.assets.generated[entry.slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
+      }
+    });
+  }
+  if (imagePlanIsTerminal(proj)) {
+    renderProject(proj);
+    markGenerated();
+    completeGenerationGate();
+    if (conversationRefinement) conversationRefinement.hidden = false;
+    return true;
+  }
+
+  generationState = mode === 'switch' ? 'generating_images' : 'finalizing';
+  updateGenerationGate('imagery', `${imageProgressNote(proj)}${mode === 'restore' ? ' — restoring' : ''}`);
+  await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)), { suppressRender: true });
+  updateGenerationGate('finalizing');
+  const quality = validateProjectQuality(proj);
+  if (!quality.ready) {
+    failGenerationGate();
+    return false;
+  }
+  renderProject(proj);
+  markGenerated();
+  completeGenerationGate();
+  if (conversationRefinement) conversationRefinement.hidden = false;
+  generationState = 'ready';
+  return true;
 }
 function failGenerationGate() {
   if (!generationGate) return;
@@ -5692,12 +5758,12 @@ refreshAuthState();
 // actually reports in this environment).
 fetch('/api/image-provider-status').then(r => r.json()).then(status => {
   window.__siteremadeImageProvider = status;
+  imageProviderStatusResolve();
   if (project) {
-    project.imagePlan = buildImagePlan(project, categories[project.business.categoryKey] || categories.other);
-    renderProject(project);
-    resolveImagePlanAssets(project); // provider may have just become configured -- fires real requests for whatever the current plan needs
+    revealPreparationInFlight = true;
+    prepareProjectForReveal(project, 'restore').finally(() => { revealPreparationInFlight = false; });
   }
-}).catch(() => {});
+}).catch(() => { imageProviderStatusResolve(); });
 // V8: best-effort AI-planning status + remaining-credits check -- same
 // never-blocks contract as the image-provider check above. If this hasn't
 // resolved yet (or fails outright), window.__siteremadePlanMeter keeps its
