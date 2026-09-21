@@ -96,22 +96,6 @@
       </div>
 
       <div class="builder-shell" id="builderShell">
-        <div class="generation-gate" id="generationGate" hidden aria-live="polite">
-          <div class="generation-gate-inner">
-            <p class="generation-gate-eyebrow">SITEREMADE / BUILDING</p>
-            <h2>Building your website</h2>
-            <ul class="generation-gate-steps" id="generationGateSteps">
-              <li data-gate-step="understand"><i></i><span>Understanding your business</span><small></small></li>
-              <li data-gate-step="creative"><i></i><span>Choosing creative direction</span><small></small></li>
-              <li data-gate-step="pages"><i></i><span>Writing pages and sections</span><small></small></li>
-              <li data-gate-step="copy"><i></i><span>Composing website copy</span><small></small></li>
-              <li data-gate-step="imagery"><i></i><span>Generating imagery</span><small></small></li>
-              <li data-gate-step="finalizing"><i></i><span>Checking final composition</span><small></small></li>
-            </ul>
-            <p class="generation-gate-status" id="generationGateStatus">Creating a custom website for your business...</p>
-            <button type="button" class="button button-small generation-gate-retry" id="generationGateRetry" hidden>Return to previous version</button>
-          </div>
-        </div>
         <div class="result-actions" id="resultActions">
           <div class="result-actions-primary">
             <div class="quick-edit">
@@ -167,6 +151,28 @@
             <div class="builder-site" id="builderSite" data-style="precision" data-layout="split">
               <div class="site-nav" id="siteNav"><div class="site-brand-lockup"><img id="siteLogo" alt="" /><strong id="siteBusiness">YOUR BUSINESS</strong></div><div id="siteNavLinks"><span>Services</span><span>About</span></div><button id="siteNavCta">Get Started</button></div>
               <div id="siteSectionsRoot"></div>
+            </div>
+            <div class="generation-gate" id="generationGate" hidden aria-live="polite">
+              <div class="generation-gate-inner generation-gate-idle" id="generationGateIdle">
+                <p class="generation-gate-eyebrow">SITEREMADE</p>
+                <h2>Generate your website</h2>
+                <p class="generation-gate-idle-copy">This preview will be replaced with a real website generated from the business description above.</p>
+                <button type="button" class="button generation-gate-cta" id="generationGateCta">Generate website</button>
+              </div>
+              <div class="generation-gate-inner generation-gate-building" id="generationGateBuilding" hidden>
+                <p class="generation-gate-eyebrow">SITEREMADE / BUILDING</p>
+                <h2>Building your website</h2>
+                <ul class="generation-gate-steps" id="generationGateSteps">
+                  <li data-gate-step="understand"><i></i><span>Understanding your business</span><small></small></li>
+                  <li data-gate-step="creative"><i></i><span>Choosing creative direction</span><small></small></li>
+                  <li data-gate-step="pages"><i></i><span>Writing pages and sections</span><small></small></li>
+                  <li data-gate-step="copy"><i></i><span>Composing website copy</span><small></small></li>
+                  <li data-gate-step="imagery"><i></i><span>Generating imagery</span><small></small></li>
+                  <li data-gate-step="finalizing"><i></i><span>Checking final composition</span><small></small></li>
+                </ul>
+                <p class="generation-gate-status" id="generationGateStatus">Creating a custom website for your business...</p>
+                <button type="button" class="button button-small generation-gate-retry" id="generationGateRetry" hidden>Return to previous version</button>
+              </div>
             </div>
           </div>
           <div class="preview-summary"><span id="summaryMode">5 sections · Composed</span><span id="summaryColor">#315CFF</span><span id="summaryLayout">Split</span><span id="summaryIndustry">General Business</span></div>
