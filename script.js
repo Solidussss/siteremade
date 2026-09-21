@@ -3468,6 +3468,8 @@ async function applyDirectionsState(restoredDirections, restoredIndex) {
   if (isDemoProject(project)) {
     lifecycle.waitingForProvider = false;
     setLifecycleState('idle', project);
+    renderProject(project);
+    showIdleGenerationGate();
     return;
   }
   lifecycle.waitingForProvider = !window.__siteremadeImageProvider;
@@ -3734,6 +3736,9 @@ const heroCardIndustry = $('#heroCardIndustry');
 const generationProgress = $('#generationProgress');
 const generationSteps = $('#generationSteps');
 const generationGate = $('#generationGate');
+const generationGateIdle = $('#generationGateIdle');
+const generationGateBuilding = $('#generationGateBuilding');
+const generationGateCta = $('#generationGateCta');
 const generationGateSteps = $('#generationGateSteps');
 const generationGateStatus = $('#generationGateStatus');
 const generationGateRetry = $('#generationGateRetry');
@@ -4000,7 +4005,11 @@ function setLifecycleState(state, proj = project) {
   generationState = state;
   lifecycle.projectKind = isDemoProject(proj) ? 'demo' : (proj ? 'real' : 'none');
   lifecycle.gateVisible = !!(generationGate && !generationGate.hidden);
-  lifecycle.websiteVisible = !!(proj && !isDemoProject(proj) && builderSite && getComputedStyle(builderSite).visibility !== 'hidden' && !builderShell.classList.contains('generation-building'));
+  // The site DOM is never actually hidden anymore (see the preview blur/
+  // overlay redesign) -- it stays rendered underneath, blurred, whenever
+  // the gate is active. "Visible" here means genuinely visible/usable to
+  // the visitor, i.e. a real project with the gate NOT covering it.
+  lifecycle.websiteVisible = !!(proj && !isDemoProject(proj) && builderSite && !(generationGate && !generationGate.hidden));
 }
 function lifecycleDiagnostics() {
   const active = project && !isDemoProject(project) ? project : null;
@@ -4008,7 +4017,7 @@ function lifecycleDiagnostics() {
     projectType: isDemoProject(project) ? 'demo' : (project ? 'real' : 'none'),
     state: lifecycle.state,
     gateVisible: !!(generationGate && !generationGate.hidden),
-    websiteVisible: !!(active && builderSite && getComputedStyle(builderSite).visibility !== 'hidden' && !builderShell.classList.contains('generation-building')),
+    websiteVisible: !!(active && builderSite && !(generationGate && !generationGate.hidden)),
     unresolvedImageCount: active ? (active.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(active.assets.generated && active.assets.generated[entry.slot] && ['ready', 'error'].includes(active.assets.generated[entry.slot].status))).length : 0,
     activeDirection: activeDirectionIndex
   };
@@ -4873,14 +4882,43 @@ function updateGenerationGate(step, note) {
   });
 }
 function showGenerationGate(state, mode = 'generation') {
-  if (!generationGate || !builderShell) return;
+  if (!generationGate || !builderDevice) return;
   if (isDemoProject(project) && mode !== 'generation') return;
-  builderShell.classList.add('generation-building');
+  builderDevice.classList.add('gate-active');
+  if (generationGateIdle) generationGateIdle.hidden = true;
+  if (generationGateBuilding) generationGateBuilding.hidden = false;
   generationGate.hidden = false;
   if (generationGateRetry) generationGateRetry.hidden = true;
   if (generationGateStatus) generationGateStatus.textContent = mode === 'restore' ? 'Preparing your website...' : mode === 'switch' ? 'Preparing this direction...' : 'Creating a custom website for your business...';
   updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : state === 'generating_images' ? 'imagery' : 'copy');
   lifecycle.gateVisible = true;
+}
+// Idle-demo state: the demo/example site renders underneath but blurred,
+// with this same gate showing a "Generate your website" blocker instead of
+// the building checklist -- reuses the identical gate element/positioning,
+// just a different inner panel (see index.html). Only meaningful for the
+// demo shell; a real project always either has a finished, ungated preview
+// or is actively gated by showGenerationGate/failGenerationGate above.
+function showIdleGenerationGate() {
+  if (!generationGate || !builderDevice) return;
+  if (generationGateIdle) generationGateIdle.hidden = false;
+  if (generationGateBuilding) generationGateBuilding.hidden = true;
+  generationGate.hidden = false;
+  builderDevice.classList.add('gate-active');
+  lifecycle.gateVisible = true;
+}
+if (generationGateCta) {
+  generationGateCta.addEventListener('click', () => {
+    // Reuses the exact same input + validation + generation path as the
+    // hero form's own submit button (see wireExampleChip above) -- no
+    // second input system, no duplicated generation logic. If
+    // #generatorInput is empty, its native `required` attribute blocks the
+    // submit and shows the browser's own validation prompt, exactly like
+    // pressing the hero Generate button on an empty description.
+    if (generatorInput) generatorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (generatorForm && generatorForm.requestSubmit) generatorForm.requestSubmit();
+    else if (generatorForm) generatorForm.dispatchEvent(new Event('submit', { cancelable: true }));
+  });
 }
 function prepareProjectImagePlan(proj) {
   if (!proj || (proj.meta && proj.meta.isDemoShell)) return;
@@ -4934,8 +4972,15 @@ async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle
   return true;
 }
 function failGenerationGate() {
-  if (!generationGate || isDemoProject(project)) return;
-  builderShell.classList.add('generation-building');
+  // No isDemoProject bail here (unlike showGenerationGate's restore/switch
+  // guard): a failed FIRST attempt reverts `project` back to the demo
+  // shell (see runGeneration's finally block), and that failure/retry
+  // state must still show -- the demo must never sit fully exposed after
+  // a failed generation, only ever idle-gated or failure-gated.
+  if (!generationGate || !builderDevice) return;
+  builderDevice.classList.add('gate-active');
+  if (generationGateIdle) generationGateIdle.hidden = true;
+  if (generationGateBuilding) generationGateBuilding.hidden = false;
   generationGate.hidden = false;
   if (generationGateStatus) generationGateStatus.textContent = 'The website could not be completed. Your previous version is safe.';
   if (generationGateRetry) generationGateRetry.hidden = false;
@@ -4946,10 +4991,10 @@ function failGenerationGate() {
   });
 }
 function completeGenerationGate() {
-  if (!generationGate || !builderShell) return;
+  if (!generationGate || !builderDevice) return;
   updateGenerationGate('finalizing', 'Ready to reveal');
   generationGate.hidden = true;
-  builderShell.classList.remove('generation-building');
+  builderDevice.classList.remove('gate-active');
   lifecycle.gateVisible = false;
 }
 function imageProgressNote(proj) {
@@ -4958,9 +5003,16 @@ function imageProgressNote(proj) {
   return `${terminal} / ${generated.length}`;
 }
 if (generationGateRetry) generationGateRetry.addEventListener('click', () => {
-  generationGate.hidden = true;
-  builderShell.classList.remove('generation-building');
   if (generationGateStatus) generationGateStatus.textContent = 'Creating a custom website for your business...';
+  // Dismissing a failure always reveals whatever is actually safe/finished
+  // underneath (see runGeneration's finally block: `project` is already the
+  // last good direction, or the demo shell if none exists yet). A demo
+  // shell must stay gated -- swap straight back to the idle-demo blocker
+  // instead of leaving the raw demo exposed; a real previous direction is
+  // already finished, so just dismiss the gate.
+  if (isDemoProject(project)) { showIdleGenerationGate(); return; }
+  generationGate.hidden = true;
+  builderDevice.classList.remove('gate-active');
 });
 
 function resetGenerationChromeUI() {
@@ -5799,6 +5851,7 @@ if (!restoredDirectionsOnBoot) {
   lifecycle.preparationToken++;
   setLifecycleState('idle', project);
   renderProject(project);
+  showIdleGenerationGate();
 }
 year.textContent = new Date().getFullYear();
 // V8.5: resolve signed-in state (and, if signed in, load owned projects and
