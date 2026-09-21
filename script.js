@@ -3712,6 +3712,10 @@ const heroCardBrand = $('#heroCardBrand');
 const heroCardIndustry = $('#heroCardIndustry');
 const generationProgress = $('#generationProgress');
 const generationSteps = $('#generationSteps');
+const generationGate = $('#generationGate');
+const generationGateSteps = $('#generationGateSteps');
+const generationGateStatus = $('#generationGateStatus');
+const generationGateRetry = $('#generationGateRetry');
 const exampleChipRow = $('#exampleChipRow');
 
 // Refine-panel elements
@@ -4794,6 +4798,55 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
 // generation-step error guard below -- whatever ends a transaction
 // (success, a rejected admission, or a genuine runtime exception mid-step)
 // must leave Generate/progress UI in the same clean, usable state.
+const generationGateOrder = ['understand', 'creative', 'pages', 'copy', 'imagery', 'finalizing'];
+function updateGenerationGate(step, note) {
+  if (!generationGateSteps) return;
+  const currentIndex = generationGateOrder.indexOf(step);
+  generationGateOrder.forEach((key, index) => {
+    const item = generationGateSteps.querySelector(`[data-gate-step="${key}"]`);
+    if (!item) return;
+    item.classList.toggle('done', currentIndex > -1 && index < currentIndex);
+    item.classList.toggle('active', index === currentIndex);
+    const small = item.querySelector('small');
+    if (small && index === currentIndex) small.textContent = note || '';
+  });
+}
+function showGenerationGate(state) {
+  if (!generationGate || !builderShell) return;
+  builderShell.classList.add('generation-building');
+  generationGate.hidden = false;
+  if (generationGateRetry) generationGateRetry.hidden = true;
+  if (generationGateStatus) generationGateStatus.textContent = 'Creating a custom website for your business...';
+  updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : 'copy');
+}
+function failGenerationGate() {
+  if (!generationGate) return;
+  builderShell.classList.add('generation-building');
+  generationGate.hidden = false;
+  if (generationGateStatus) generationGateStatus.textContent = 'The website could not be completed. Your previous version is safe.';
+  if (generationGateRetry) generationGateRetry.hidden = false;
+  generationGateOrder.forEach(key => {
+    const item = generationGateSteps && generationGateSteps.querySelector(`[data-gate-step="${key}"]`);
+    if (item) item.classList.remove('active');
+  });
+}
+function completeGenerationGate() {
+  if (!generationGate || !builderShell) return;
+  updateGenerationGate('finalizing', 'Ready to reveal');
+  generationGate.hidden = true;
+  builderShell.classList.remove('generation-building');
+}
+function imageProgressNote(proj) {
+  const generated = (proj && proj.imagePlan || []).filter(entry => entry.sourceType === 'generated');
+  const terminal = generated.filter(entry => proj.assets.generated && proj.assets.generated[entry.slot] && ['ready', 'error'].includes(proj.assets.generated[entry.slot].status)).length;
+  return `${terminal} / ${generated.length}`;
+}
+if (generationGateRetry) generationGateRetry.addEventListener('click', () => {
+  generationGate.hidden = true;
+  builderShell.classList.remove('generation-building');
+  if (generationGateStatus) generationGateStatus.textContent = 'Creating a custom website for your business...';
+});
+
 function resetGenerationChromeUI() {
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
@@ -4825,7 +4878,7 @@ function finishGeneration(proj, expectedDirectionIndex) {
   project = directions[activeDirectionIndex];
   renderProject(project);
   markGenerated();
-  if (builderShell) builderShell.hidden = false;
+  completeGenerationGate();
   if (conversationRefinement) conversationRefinement.hidden = false;
   renderDirectionSwitcher();
   updateDirectionControls();
@@ -4878,13 +4931,14 @@ async function runGeneration(text) {
   let admitted = false; // set true only by a successful finishGeneration call below
   generationInFlight = true;
   generationState = 'analyzing';
-  if (builderShell) builderShell.hidden = true;
+  showGenerationGate('analyzing');
   setGenerationControlsDisabled(true);
   try {
     let claudePlan = null;
     const meter = window.__siteremadePlanMeter;
     if (meter && meter.planConfigured) {
       generationState = 'planning';
+      updateGenerationGate('creative');
       if (generatorSubmitButton) generatorSubmitButton.disabled = true;
       if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
       const result = await requestClaudePlan(text);
@@ -4913,14 +4967,17 @@ async function runGeneration(text) {
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
     generationState = 'composing';
+    updateGenerationGate('pages');
 
-    if (prefersReducedMotion() || !generationProgress || !generationSteps) {
+    if (prefersReducedMotion() || !generationGateSteps) {
       // Real work still runs in full -- only the frame-by-frame reveal is
       // skipped, matching the person's reduced-motion preference.
       steps.forEach(s => s.run());
       generationState = 'generating_images';
-      await resolveImagePlanAssets(proj);
+      updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+      await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)));
       generationState = 'finalizing';
+      updateGenerationGate('finalizing');
       const quality = validateProjectQuality(proj);
       if (!quality.ready) throw new Error('Generated project failed its deterministic quality gate');
       admitted = finishGeneration(proj, expectedDirectionIndex);
@@ -4929,12 +4986,6 @@ async function runGeneration(text) {
 
     if (generatorSubmitButton) generatorSubmitButton.disabled = true;
     if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generating…';
-    if (heroMachine) heroMachine.classList.add('generating');
-    if (heroDemoCopy) heroDemoCopy.style.opacity = '0';
-    generationProgress.hidden = false;
-
-    const stepEls = steps.map(s => generationSteps.querySelector(`[data-step="${s.key}"]`));
-    stepEls.forEach(li => setStepState(li, null, ''));
 
     // First paint: the real shell built above (business name, category,
     // seed palette, hero section) is already meaningful -- show it now
@@ -4962,11 +5013,12 @@ async function runGeneration(text) {
       let i = 0;
       function nextStep() {
         try {
-          if (i > 0) setStepState(stepEls[i - 1], 'done');
           if (i >= steps.length) {
             generationState = 'generating_images';
-            resolveImagePlanAssets(proj).then(() => {
+            updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+            resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(() => {
               generationState = 'finalizing';
+              updateGenerationGate('finalizing');
               const quality = validateProjectQuality(proj);
               if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
               else resetGenerationChromeUI();
@@ -4975,7 +5027,8 @@ async function runGeneration(text) {
             return;
           }
           const note = steps[i].run(); // the real work for this step happens here
-          setStepState(stepEls[i], 'active', note);
+          const gateStep = { understand: 'understand', structure: 'pages', typography: 'creative', sections: 'copy', imagery: 'imagery', build: 'finalizing' }[steps[i].key] || 'copy';
+          updateGenerationGate(gateStep, note);
           renderProject(proj); // reflect exactly what that real work just changed, on the transaction's own object
           i++;
           // One requestAnimationFrame guarantees a paint has happened before the
@@ -5019,9 +5072,9 @@ async function runGeneration(text) {
     // cause a new image request.
     if (!admitted) {
       project = directions.length ? directions[activeDirectionIndex] : previousProject;
-      if (builderShell) builderShell.hidden = false;
       renderProject(project);
       renderDirectionSwitcher();
+      failGenerationGate();
     }
   }
 }
