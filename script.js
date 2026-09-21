@@ -313,6 +313,19 @@ function analyzeDescription(text) {
   };
 }
 
+function createGenerationSource(text) {
+  const normalizedText = String(text || '').trim();
+  const analysis = analyzeDescription(normalizedText);
+  return Object.freeze({
+    key: hashString(normalizedText.toLowerCase()),
+    text: analysis.text,
+    analysis,
+    facts: extractBusinessFacts(analysis.text),
+    descriptor: extractBusinessDescriptor(analysis.text),
+    extractedName: extractBusinessName(analysis.text)
+  });
+}
+
 // ==========================================================================
 // COMPOSITIONAL LAYER -- the 20 named seeds above are fallbacks/anchors, not
 // the ceiling of what the generator can produce. Each dimension is scored
@@ -340,7 +353,8 @@ const dimensionKeywords = {
     'grid-dashboard': ['dashboard','analytics','saas','platform','data platform','workflow'],
     'poster': ['collection','lookbook','runway','couture','streetwear'],
     'collage': ['portfolio','creative agency','branding studio','mixed media'],
-    'product-screenshot': ['app','product screenshot','interface','mobile app','web app','demo']
+    'product-screenshot': ['app','product screenshot','interface','mobile app','web app','demo'],
+    'editorial-rail': ['magazine','editorial rail','longform']
   },
   type: {
     'serif-editorial': ['editorial','classic','literary','elegant'],
@@ -403,6 +417,36 @@ const dimensionKeywords = {
     'portfolio-first': ['portfolio','photography','creative'],
     'proof-first': ['trusted','established','data','enterprise'],
     'story-first': ['about','story','mission','handmade']
+  },
+  contentWidth: {
+    contained: ['focused','intimate','local'], wide: ['broad','scale','enterprise'], 'edge-to-edge': ['immersive','full bleed','cinematic']
+  },
+  imageDominance: {
+    supporting: ['minimal','quiet','technical'], balanced: ['balanced','modern','clean'], dominant: ['visual','photography','editorial','immersive']
+  },
+  imageArrangement: {
+    single: ['focused','single'], stacked: ['stacked','layered'], mosaic: ['mosaic','collage','mixed media'], rail: ['rail','showcase','carousel']
+  },
+  sectionRhythm: {
+    steady: ['clear','direct','efficient'], alternating: ['alternating','contrast','dynamic'], 'feature-band': ['feature','campaign','bold'], editorial: ['editorial','story','magazine']
+  },
+  sectionAlignment: {
+    left: ['direct','technical','practical'], center: ['ceremonial','premium','wellness'], split: ['asymmetric','editorial','architectural']
+  },
+  typographyScale: {
+    compact: ['dense','precise','technical'], standard: ['clear','professional','balanced'], display: ['bold','editorial','expressive']
+  },
+  headingWidth: {
+    narrow: ['focused','intimate','quiet'], balanced: ['clear','balanced','modern'], wide: ['declaration','bold','large']
+  },
+  cardDensity: {
+    airy: ['spacious','premium','calm'], compact: ['dense','efficient','dashboard'], mixed: ['editorial','varied','layered']
+  },
+  cardShape: {
+    square: ['sharp','architectural','technical'], soft: ['friendly','warm','approachable'], pill: ['playful','rounded','wellness']
+  },
+  splitRatio: {
+    even: ['balanced','equal'], 'text-heavy': ['copy-led','explanation','story'], 'media-heavy': ['visual-led','photography','showcase']
   }
 };
 // V7: what a category composes toward when the description gives no
@@ -437,6 +481,11 @@ const categoryDimensionDefaults = {
   cleaning:     { hero:'split',               type:'geo-sans',           nav:'inline',                card:'flat',             imagery:'trade-proof',        cta:'solid-pill',       colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'standard', pattern:'proof-first' },
   renovation:   { hero:'collage',             type:'classic-serif-mix', nav:'inline',                card:'bordered',         imagery:'trade-proof',        cta:'outline-ghost',    colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'airy',     pattern:'proof-first' },
   other:        { hero:'minimal-text-only',   type:'geo-sans',           nav:'inline',                card:'flat',             imagery:'abstract-geometric', cta:'underline-link',   colorBehavior:'neutral-single-accent',     motion:'none',       spacing:'standard', pattern:'standard' }
+};
+const extendedDimensionDefaults = {
+  contentWidth: 'contained', imageDominance: 'balanced', imageArrangement: 'single',
+  sectionRhythm: 'steady', sectionAlignment: 'left', typographyScale: 'standard',
+  headingWidth: 'balanced', cardDensity: 'airy', cardShape: 'soft', splitRatio: 'even'
 };
 // ---- V7: independent palette composition ---------------------------------
 // Previously `composed.palette` was always a straight copy of the matched
@@ -490,7 +539,7 @@ function composePalette(categoryKey, composed, text) {
 }
 function composeStyleFromAnalysis(text, categoryKey, seedKey) {
   const seed = styles[seedKey] || styles.precision;
-  const catDefaults = categoryDimensionDefaults[categoryKey] || categoryDimensionDefaults.other;
+  const catDefaults = { ...extendedDimensionDefaults, ...(categoryDimensionDefaults[categoryKey] || categoryDimensionDefaults.other) };
   const composed = { name: seed.name, tagline: seed.tagline, seedKey, categoryKey };
   Object.keys(dimensionKeywords).forEach(dim => {
     const scores = scoreKeywords(text || '', dimensionKeywords[dim]);
@@ -788,7 +837,11 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
   return `<div class="visual-generated${generating ? ' visual-generating' : ''}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
 }
 function imageSlotLabel(slot) {
-  return { hero: 'hero image', 'collage-2': 'hero image', about: 'team image', product: 'product visual', 'gallery-featured': 'gallery image' }[slot] || 'image';
+  if (slot === 'hero' || slot === 'collage-2') return 'hero image';
+  if (slot.includes('product')) return 'product visual';
+  if (slot.includes('about') || slot.includes('team-')) return 'team image';
+  if (slot.includes('gallery')) return 'gallery image';
+  return 'image';
 }
 const imageStyleDescriptions = {
   'technical-network': 'abstract technical visualization of interconnected data and systems',
@@ -850,6 +903,9 @@ function computeImageCacheKey(project, role, slot) {
 function pageSlotPrefix(page) {
   return (page && page.slug) ? `${page.slug}::` : '';
 }
+function galleryTileCount(variant) { return variant === 'featured' ? 3 : 4; }
+function galleryTileSlot(section, index) { return `${section.id}::gallery-${index + 1}`; }
+function teamTileSlot(section, index) { return `${section.id}::team-${index + 1}`; }
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -895,6 +951,18 @@ function buildImagePlan(project, category) {
     if (editorialSection) {
       slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
     }
+    pageSections.filter(s => s.type === 'gallery' || s.type === 'caseStudies').forEach(gallerySection => {
+      const count = galleryTileCount(gallerySection.variant);
+      for (let i = 0; i < count; i++) {
+        slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: gallerySection.variant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}` });
+      }
+    });
+    pageSections.filter(s => s.type === 'team').forEach(teamSection => {
+      const teamCount = Math.max((project.assets.items || []).filter(a => a.type === 'team').length, 3);
+      for (let i = 0; i < Math.min(teamCount, 4); i++) {
+        slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}` });
+      }
+    });
   });
   return slots.map(s => {
     const sourceType = s.assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
@@ -1043,6 +1111,10 @@ function renderHero(project, category) {
         <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center">${ctaBtn}</div></div>
         <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body">${visual}</div></div>
       </div>`;
+    case 'editorial-rail': return `<div class="site-hero hero-editorial-rail">
+        <div class="hero-editorial-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
+        <div class="hero-editorial-visual">${visual}</div>
+      </div>`;
     default: return `<div class="site-hero hero-split">
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}<span>See our work ↗</span></div></div>
         <div class="site-visual">${visual}</div>
@@ -1098,13 +1170,13 @@ function renderGallery(project, category, section, labelOverride) {
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
   const label = escapeHtml(sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey)));
   const caption = sectionCopyField(section, 'body', '');
-  const tileCount = variant === 'featured' ? 3 : 4;
+  const tileCount = galleryTileCount(variant);
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
     const featuredClass = (i === 0 && variant === 'featured') ? ' gallery-tile-featured' : '';
-    if (asset) tiles.push(`<div class="gallery-tile has-image${featuredClass}"><img src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || label + ' photo')}" /></div>`);
-    else tiles.push(`<div class="gallery-tile gallery-tile-placeholder visual-generated${featuredClass}" data-imagery="${escapeHtml(project.design.dimensions.imagery)}"></div>`);
+    const slot = galleryTileSlot(section, i);
+    tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
     <p class="site-section-label">${label}</p>
@@ -1171,7 +1243,7 @@ function renderTeam(project, category, section) {
   const cards = [];
   for (let i = 0; i < Math.max(teamAssets.length, 3); i++) {
     const a = teamAssets[i];
-    cards.push(a ? `<div class="team-card has-image"><img src="${a.dataUrl}" alt="${escapeHtml(a.alt || 'Team member')}" /></div>` : `<div class="team-card team-card-placeholder"></div>`);
+    cards.push(`<div class="team-card">${renderVisualSlot(project, teamTileSlot(section, i), project.design.dimensions.imagery, a && a.id)}</div>`);
   }
   return `<div class="site-section site-section-team" data-variant="grid">
     <p class="site-section-label">${escapeHtml(label)}</p>
@@ -2757,6 +2829,16 @@ function applyDesignDataset(proj) {
   builderSite.dataset.motion = prefersReducedMotion() ? 'none' : composed.motion;
   builderSite.dataset.spacing = composed.spacing;
   builderSite.dataset.pattern = composed.pattern;
+  builderSite.dataset.contentWidth = composed.contentWidth || 'contained';
+  builderSite.dataset.imageDominance = composed.imageDominance || 'balanced';
+  builderSite.dataset.imageArrangement = composed.imageArrangement || 'single';
+  builderSite.dataset.sectionRhythm = composed.sectionRhythm || 'steady';
+  builderSite.dataset.sectionAlignment = composed.sectionAlignment || 'left';
+  builderSite.dataset.typographyScale = composed.typographyScale || 'standard';
+  builderSite.dataset.headingWidth = composed.headingWidth || 'balanced';
+  builderSite.dataset.cardDensity = composed.cardDensity || 'airy';
+  builderSite.dataset.cardShape = composed.cardShape || 'soft';
+  builderSite.dataset.splitRatio = composed.splitRatio || 'even';
   builderSite.dataset.layout = proj.design.heroLayout;
   updatePaletteFromProject(proj);
 }
@@ -3122,7 +3204,13 @@ function saveProjectToStorage() {
 // activeDirectionIndex} state came from, so there is exactly one place
 // that ever "becomes" a loaded project.
 function applyDirectionsState(restoredDirections, restoredIndex) {
-  const sliced = restoredDirections.slice(0, MAX_DIRECTIONS);
+  const activeCandidate = restoredDirections[Math.max(0, Math.min(restoredDirections.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0))];
+  const restoreKey = activeCandidate && activeCandidate.source
+    ? (activeCandidate.source.generationKey || hashString(String(activeCandidate.source.text || '').trim().toLowerCase()))
+    : null;
+  const sliced = restoredDirections
+    .filter(d => !restoreKey || !d.source || (d.source.generationKey || hashString(String(d.source.text || '').trim().toLowerCase())) === restoreKey)
+    .slice(0, MAX_DIRECTIONS);
   sliced.forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; }); // restore generated imagery same as user uploads
   // V8.2: every restored direction gets migrated into the page-aware
   // shape -- a real pages[] for one already saved that way, or a real
@@ -3131,6 +3219,7 @@ function applyDirectionsState(restoredDirections, restoredIndex) {
   directions = sliced.map(migrateProjectPages);
   activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(restoredIndex) ? restoredIndex : 0));
   project = directions[activeDirectionIndex];
+  generationSession = project && project.source ? createGenerationSource(project.source.text) : null;
   renderProject(project);
   markGenerated();
   renderDirectionSwitcher();
@@ -3613,6 +3702,7 @@ const MAX_DIRECTIONS = 3;
 let directions = [];
 let activeDirectionIndex = -1;
 let project = null;
+let generationSession = null;
 let hasGenerated = false;
 // V8.1.1: a generation transaction lock. `directions.length` is not
 // incremented until finishGeneration() admits a finished project, so
@@ -3643,7 +3733,14 @@ const MAX_PAGES = 6;
 // sensitive, not written to, and harmless to ship.
 try {
   Object.defineProperty(window, '__siteremadeDirections', {
-    get: () => ({ count: directions.length, activeIndex: activeDirectionIndex, max: MAX_DIRECTIONS, inFlight: generationInFlight })
+    get: () => ({
+      count: directions.length,
+      activeIndex: activeDirectionIndex,
+      max: MAX_DIRECTIONS,
+      inFlight: generationInFlight,
+      categories: directions.map(d => d.business && d.business.categoryKey),
+      sourceKeys: directions.map(d => d.source && d.source.generationKey)
+    })
   });
   Object.defineProperty(window, '__siteremadePages', {
     get: () => ({
@@ -3652,6 +3749,9 @@ try {
       slugs: (project && Array.isArray(project.pages)) ? project.pages.map(p => p.slug) : [],
       max: MAX_PAGES
     })
+  });
+  Object.defineProperty(window, '__siteremadeImagePlan', {
+    get: () => project ? (project.imagePlan || []).map(entry => ({ slot: entry.slot, sectionType: entry.sectionType, aspectRatio: entry.aspectRatio, sourceType: entry.sourceType })) : []
   });
   // V8.3: read-only, same pattern as the two hooks above -- lets tests
   // observe the ACTIVE direction's own undo/redo depth (and, for
@@ -3940,7 +4040,7 @@ function markGenerated() {
 // PATTERN_KEYS/SECTION_TYPE_KEYS one-for-one and MUST stay in sync with
 // them (and with dimensionKeywords/categoryDimensionDefaults above, which
 // remain this file's own source of truth for what the renderer supports).
-const CLAUDE_HERO_KEYS = ['split', 'fullbleed-image', 'centered-oversized', 'stacked-image-below', 'asymmetric-offset', 'minimal-text-only', 'grid-dashboard', 'poster', 'collage', 'product-screenshot'];
+const CLAUDE_HERO_KEYS = ['split', 'fullbleed-image', 'centered-oversized', 'stacked-image-below', 'asymmetric-offset', 'minimal-text-only', 'grid-dashboard', 'poster', 'collage', 'product-screenshot', 'editorial-rail'];
 const CLAUDE_TYPE_KEYS = ['geo-sans', 'serif-editorial', 'display-condensed', 'classic-serif-mix', 'mono-technical', 'humanist'];
 const CLAUDE_NAV_KEYS = ['inline', 'boxed-pill', 'minimal-until-scroll', 'sidebar', 'centered-logo'];
 const CLAUDE_CARD_KEYS = ['flat', 'bordered', 'elevated-shadow', 'image-led', 'numbered-editorial', 'outline-ghost'];
@@ -3950,6 +4050,16 @@ const CLAUDE_COLOR_BEHAVIOR_KEYS = ['neutral-single-accent', 'high-contrast-mono
 const CLAUDE_MOTION_KEYS = ['none', 'subtle', 'expressive'];
 const CLAUDE_SPACING_KEYS = ['standard', 'compact', 'airy', 'generous'];
 const CLAUDE_PATTERN_KEYS = ['standard', 'proof-first', 'story-first', 'portfolio-first'];
+const CLAUDE_CONTENT_WIDTH_KEYS = ['contained', 'wide', 'edge-to-edge'];
+const CLAUDE_IMAGE_DOMINANCE_KEYS = ['supporting', 'balanced', 'dominant'];
+const CLAUDE_IMAGE_ARRANGEMENT_KEYS = ['single', 'stacked', 'mosaic', 'rail'];
+const CLAUDE_SECTION_RHYTHM_KEYS = ['steady', 'alternating', 'feature-band', 'editorial'];
+const CLAUDE_SECTION_ALIGNMENT_KEYS = ['left', 'center', 'split'];
+const CLAUDE_TYPOGRAPHY_SCALE_KEYS = ['compact', 'standard', 'display'];
+const CLAUDE_HEADING_WIDTH_KEYS = ['narrow', 'balanced', 'wide'];
+const CLAUDE_CARD_DENSITY_KEYS = ['airy', 'compact', 'mixed'];
+const CLAUDE_CARD_SHAPE_KEYS = ['square', 'soft', 'pill'];
+const CLAUDE_SPLIT_RATIO_KEYS = ['even', 'text-heavy', 'media-heavy'];
 const CLAUDE_SECTION_TYPE_KEYS = ['proof', 'metrics', 'services', 'features', 'productShowcase', 'integrations', 'pricing', 'faq', 'process', 'gallery', 'caseStudies', 'imageLedEditorial', 'about', 'team', 'testimonial', 'testimonialsGrid', 'menu', 'reservationCta', 'serviceAreas', 'contact', 'newsletter', 'ctaBanner'];
 const CLAUDE_IMAGE_ROLE_KEYS = ['hero', 'product', 'team', 'gallery'];
 const CLAUDE_FUNCTIONALITY_STATUS_KEYS = ['supportedNow', 'plannedIntegration', 'requiresCustomBuild'];
@@ -3968,17 +4078,28 @@ function normalizeClaudePlan(raw, catDefaults) {
   if (!raw || typeof raw !== 'object') return null;
 
   const vd = (raw.visualDirection && typeof raw.visualDirection === 'object') ? raw.visualDirection : {};
+  const dimensionDefaults = { ...extendedDimensionDefaults, ...(catDefaults || {}) };
   const dimensions = {
-    hero: claudeEnum(vd.hero, CLAUDE_HERO_KEYS, catDefaults.hero),
-    type: claudeEnum(vd.typography, CLAUDE_TYPE_KEYS, catDefaults.type),
-    nav: claudeEnum(vd.nav, CLAUDE_NAV_KEYS, catDefaults.nav),
-    card: claudeEnum(vd.card, CLAUDE_CARD_KEYS, catDefaults.card),
-    imagery: claudeEnum(vd.imagery, CLAUDE_IMAGERY_KEYS, catDefaults.imagery),
-    cta: claudeEnum(vd.cta, CLAUDE_CTA_KEYS, catDefaults.cta),
-    colorBehavior: claudeEnum(vd.colorBehavior, CLAUDE_COLOR_BEHAVIOR_KEYS, catDefaults.colorBehavior),
-    motion: claudeEnum(vd.motion, CLAUDE_MOTION_KEYS, catDefaults.motion),
-    spacing: claudeEnum(vd.spacing, CLAUDE_SPACING_KEYS, catDefaults.spacing),
-    pattern: claudeEnum(vd.pattern, CLAUDE_PATTERN_KEYS, catDefaults.pattern)
+    hero: claudeEnum(vd.hero, CLAUDE_HERO_KEYS, dimensionDefaults.hero),
+    type: claudeEnum(vd.typography, CLAUDE_TYPE_KEYS, dimensionDefaults.type),
+    nav: claudeEnum(vd.nav, CLAUDE_NAV_KEYS, dimensionDefaults.nav),
+    card: claudeEnum(vd.card, CLAUDE_CARD_KEYS, dimensionDefaults.card),
+    imagery: claudeEnum(vd.imagery, CLAUDE_IMAGERY_KEYS, dimensionDefaults.imagery),
+    cta: claudeEnum(vd.cta, CLAUDE_CTA_KEYS, dimensionDefaults.cta),
+    colorBehavior: claudeEnum(vd.colorBehavior, CLAUDE_COLOR_BEHAVIOR_KEYS, dimensionDefaults.colorBehavior),
+    motion: claudeEnum(vd.motion, CLAUDE_MOTION_KEYS, dimensionDefaults.motion),
+    spacing: claudeEnum(vd.spacing, CLAUDE_SPACING_KEYS, dimensionDefaults.spacing),
+    pattern: claudeEnum(vd.pattern, CLAUDE_PATTERN_KEYS, dimensionDefaults.pattern),
+    contentWidth: claudeEnum(vd.contentWidth, CLAUDE_CONTENT_WIDTH_KEYS, dimensionDefaults.contentWidth),
+    imageDominance: claudeEnum(vd.imageDominance, CLAUDE_IMAGE_DOMINANCE_KEYS, dimensionDefaults.imageDominance),
+    imageArrangement: claudeEnum(vd.imageArrangement, CLAUDE_IMAGE_ARRANGEMENT_KEYS, dimensionDefaults.imageArrangement),
+    sectionRhythm: claudeEnum(vd.sectionRhythm, CLAUDE_SECTION_RHYTHM_KEYS, dimensionDefaults.sectionRhythm),
+    sectionAlignment: claudeEnum(vd.sectionAlignment, CLAUDE_SECTION_ALIGNMENT_KEYS, dimensionDefaults.sectionAlignment),
+    typographyScale: claudeEnum(vd.typographyScale, CLAUDE_TYPOGRAPHY_SCALE_KEYS, dimensionDefaults.typographyScale),
+    headingWidth: claudeEnum(vd.headingWidth, CLAUDE_HEADING_WIDTH_KEYS, dimensionDefaults.headingWidth),
+    cardDensity: claudeEnum(vd.cardDensity, CLAUDE_CARD_DENSITY_KEYS, dimensionDefaults.cardDensity),
+    cardShape: claudeEnum(vd.cardShape, CLAUDE_CARD_SHAPE_KEYS, dimensionDefaults.cardShape),
+    splitRatio: claudeEnum(vd.splitRatio, CLAUDE_SPLIT_RATIO_KEYS, dimensionDefaults.splitRatio)
   };
 
   // A page/section survives only if it is structurally real. A page left
@@ -4192,16 +4313,16 @@ function announceDirectionLimitReached() {
 // refine it into the finished project. Nothing here is fake -- it is
 // createProject's own logic, exposed as separate steps instead of one
 // opaque call, so the UI can reflect each one as it actually runs.
-function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
+function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonicalSource) {
   variationSeed = variationSeed || 0;
   const directionNumber = variationSeed + 1;
-  const analysis = analyzeDescription(text);
+  const source = canonicalSource || createGenerationSource(text);
+  const analysis = source.analysis;
   const category = categories[analysis.categoryKey] || categories.other;
-  const catDefaults = categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other;
-  const extractedName = extractBusinessName(analysis.text);
-  const priorName = preserved && preserved.business && preserved.business.name;
-  const facts = extractBusinessFacts(analysis.text);
-  const descriptor = extractBusinessDescriptor(analysis.text);
+  const catDefaults = { ...extendedDimensionDefaults, ...(categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other) };
+  const sameSource = !!(preserved && preserved.source && preserved.source.generationKey === source.key);
+  const facts = source.facts;
+  const descriptor = source.descriptor;
 
   // V8: categoryKey/category detection itself STAYS fully deterministic
   // even for an AI-planned direction -- it's what the renderer's fixed
@@ -4228,11 +4349,11 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
       version: usingClaude ? 'v8' : 'v7', isDemoShell: false,
       planSource: usingClaude ? 'anthropic' : 'deterministic'
     },
-    source: { text: analysis.text, location: analysis.location, facts, descriptor },
+    source: { text: source.text, location: analysis.location, facts, descriptor, generationKey: source.key },
     business: {
-      name: (usingClaude && claudePlan.businessName) || extractedName || priorName || 'Your Business',
+      name: source.extractedName || 'Your Business',
       categoryKey: analysis.categoryKey,
-      tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
+      tone: (sameSource && preserved.business && preserved.business.tone) || 'professional'
     },
     intent: {
       seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed,
@@ -4246,7 +4367,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
     design: {
       palette: composePalette(analysis.categoryKey, dimensions, analysis.text),
       dimensions: { ...dimensions },
-      heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split'
+      heroLayout: (sameSource && preserved.design && preserved.design.heroLayout) || 'split'
     },
     copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
     // V8.2: the real page-aware shape from the very first paint -- an empty
@@ -4263,8 +4384,8 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
     // generated images did belong to the old imagePlan's cache keys and are
     // deliberately not carried forward; a real new imagePlan will ask for
     // whatever it actually needs.
-    assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {}, generated: {} } : { items: [], plan: {}, generated: {} },
-    responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
+    assets: (sameSource && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {}, generated: {} } : { items: [], plan: {}, generated: {} },
+    responsive: { device: (sameSource && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
   proj.sections = proj.pages[0].sections; // same array reference -- see syncActivePageSections
   proj.assets.plan = planAssets(proj.assets);
@@ -4340,7 +4461,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
           return claudePlan.rationale || describeComposition(proj.design.dimensions);
         }
         proj.design.palette = { ...composed.palette };
-        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
+        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio };
         return describeComposition(composed);
       } },
     { key: 'sections', run() {
@@ -4470,6 +4591,8 @@ async function runGeneration(text) {
   }
   const expectedDirectionIndex = directions.length; // the exact slot this transaction is reserved for
   const variationSeed = expectedDirectionIndex; // 0, 1, 2 -- which direction this attempt will become if it succeeds
+  const submittedSource = createGenerationSource(text);
+  if (!generationSession || generationSession.key !== submittedSource.key) generationSession = submittedSource;
   // V8.1.2: this transaction's own pre-generation project, captured before
   // `project` is ever reassigned to the transient `proj` below. `project`
   // cannot change out from under this capture -- switchDirection refuses
@@ -4511,7 +4634,7 @@ async function runGeneration(text) {
       // attempt's place in the 3-direction budget before any network call.
     }
 
-    const { proj, steps } = buildGenerationPlan(text, project, claudePlan, variationSeed);
+    const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
 
     if (prefersReducedMotion() || !generationProgress || !generationSteps) {
       // Real work still runs in full -- only the frame-by-frame reveal is

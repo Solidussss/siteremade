@@ -342,7 +342,7 @@ function recordPlannerAttempt(attempt) {
   };
 }
 
-const HERO_KEYS = ['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot'];
+const HERO_KEYS = ['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
 const TYPE_KEYS = ['geo-sans','serif-editorial','display-condensed','classic-serif-mix','mono-technical','humanist'];
 const NAV_KEYS = ['inline','boxed-pill','minimal-until-scroll','sidebar','centered-logo'];
 const CARD_KEYS = ['flat','bordered','elevated-shadow','image-led','numbered-editorial','outline-ghost'];
@@ -352,6 +352,16 @@ const COLOR_BEHAVIOR_KEYS = ['neutral-single-accent','high-contrast-mono-accent'
 const MOTION_KEYS = ['none','subtle','expressive'];
 const SPACING_KEYS = ['standard','compact','airy','generous'];
 const PATTERN_KEYS = ['standard','proof-first','story-first','portfolio-first'];
+const CONTENT_WIDTH_KEYS = ['contained','wide','edge-to-edge'];
+const IMAGE_DOMINANCE_KEYS = ['supporting','balanced','dominant'];
+const IMAGE_ARRANGEMENT_KEYS = ['single','stacked','mosaic','rail'];
+const SECTION_RHYTHM_KEYS = ['steady','alternating','feature-band','editorial'];
+const SECTION_ALIGNMENT_KEYS = ['left','center','split'];
+const TYPOGRAPHY_SCALE_KEYS = ['compact','standard','display'];
+const HEADING_WIDTH_KEYS = ['narrow','balanced','wide'];
+const CARD_DENSITY_KEYS = ['airy','compact','mixed'];
+const CARD_SHAPE_KEYS = ['square','soft','pill'];
+const SPLIT_RATIO_KEYS = ['even','text-heavy','media-heavy'];
 const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
 const IMAGE_ROLE_KEYS = ['hero','product','team','gallery'];
 const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
@@ -410,7 +420,7 @@ const WEBSITE_PLAN_TOOL = {
       },
       visualDirection: {
         type: 'object', additionalProperties: false,
-        required: ['hero', 'typography', 'nav', 'card', 'imagery', 'cta', 'colorBehavior', 'motion', 'spacing', 'pattern', 'rationale'],
+        required: ['hero', 'typography', 'nav', 'card', 'imagery', 'cta', 'colorBehavior', 'motion', 'spacing', 'pattern', 'contentWidth', 'imageDominance', 'imageArrangement', 'sectionRhythm', 'sectionAlignment', 'typographyScale', 'headingWidth', 'cardDensity', 'cardShape', 'splitRatio', 'rationale'],
         properties: {
           hero: { type: 'string', enum: HERO_KEYS },
           typography: { type: 'string', enum: TYPE_KEYS },
@@ -422,6 +432,16 @@ const WEBSITE_PLAN_TOOL = {
           motion: { type: 'string', enum: MOTION_KEYS, description: 'Depend on business/mood/page -- restrained for finance/legal/trades, soft for restaurant/wellness, editorial for fashion/creative, potentially expressive for technology. "none" is a valid, often correct choice.' },
           spacing: { type: 'string', enum: SPACING_KEYS },
           pattern: { type: 'string', enum: PATTERN_KEYS },
+          contentWidth: { type: 'string', enum: CONTENT_WIDTH_KEYS },
+          imageDominance: { type: 'string', enum: IMAGE_DOMINANCE_KEYS },
+          imageArrangement: { type: 'string', enum: IMAGE_ARRANGEMENT_KEYS },
+          sectionRhythm: { type: 'string', enum: SECTION_RHYTHM_KEYS },
+          sectionAlignment: { type: 'string', enum: SECTION_ALIGNMENT_KEYS },
+          typographyScale: { type: 'string', enum: TYPOGRAPHY_SCALE_KEYS },
+          headingWidth: { type: 'string', enum: HEADING_WIDTH_KEYS },
+          cardDensity: { type: 'string', enum: CARD_DENSITY_KEYS },
+          cardShape: { type: 'string', enum: CARD_SHAPE_KEYS },
+          splitRatio: { type: 'string', enum: SPLIT_RATIO_KEYS },
           rationale: { type: 'string', description: 'One sentence: why this direction suits this business.' }
         }
       },
@@ -526,7 +546,8 @@ Rules:
 3. Every enum field must be a real, considered choice, not a random pick -- explain your visual direction in one sentence (rationale).
 4. functionalityPlan must be honest: SiteRemade can render a contact/lead form and static content today. Booking, payments, ecommerce, portals, and live integrations do not exist yet -- mark them plannedIntegration or requiresCustomBuild, never supportedNow.
 5. Keep copy concise and genuinely specific to this business -- avoid generic filler like "a modern website that makes your business obvious" unless the input truly gives you nothing else to work with.
-6. Where it genuinely fits, give ONE relevant section a real, working module (module.type) -- a restaurant's reservation section gets a booking module, a contractor's services/contact section gets a quote module, a retail product section gets a product module, and so on. Only choose a module type that's actually compatible with that section (a booking module belongs on a reservation/contact section, not on a pricing table). Do not invent a phone number, email address, physical address, price, checkout link, or "connected" integration for it -- leave a config-level fact out entirely rather than guess; SiteRemade renders an honest empty/placeholder state for anything you don't supply. A module you place is a REAL, working preview form, not a description of a future feature -- that's what functionalityPlan is for.`;
+6. Where it genuinely fits, give ONE relevant section a real, working module (module.type) -- a restaurant's reservation section gets a booking module, a contractor's services/contact section gets a quote module, a retail product section gets a product module, and so on. Only choose a module type that's actually compatible with that section (a booking module belongs on a reservation/contact section, not on a pricing table). Do not invent a phone number, email address, physical address, price, checkout link, or "connected" integration for it -- leave a config-level fact out entirely rather than guess; SiteRemade renders an honest empty/placeholder state for anything you don't supply. A module you place is a REAL, working preview form, not a description of a future feature -- that's what functionalityPlan is for.
+7. Choose every visualDirection field deliberately, including contentWidth, imageDominance, imageArrangement, sectionRhythm, sectionAlignment, typographyScale, headingWidth, cardDensity, cardShape, and splitRatio. These are controlled renderer values, not CSS or HTML.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [
