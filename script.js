@@ -1600,12 +1600,23 @@ let directions = [];
 let activeDirectionIndex = -1;
 let project = null;
 let hasGenerated = false;
+// V8.1.1: a generation transaction lock. `directions.length` is not
+// incremented until finishGeneration() admits a finished project, so
+// checking only `directions.length >= MAX_DIRECTIONS` at the top of
+// runGeneration() (V8.1's guard) left a real race: two overlapping calls
+// (a double-click, or two independent runGeneration() invocations) can
+// both read the same pre-increment length, both pass the gate, and both
+// eventually push -- defeating the cap. `generationInFlight` closes that:
+// it is set synchronously, before any await, and checked synchronously,
+// before anything else, at the very top of runGeneration() and
+// switchDirection() -- see SITE-PROJECT-V8.1.1.md.
+let generationInFlight = false;
 // Read-only test hook (no setter) -- lets Playwright tests observe the real
-// direction count/active index without reaching into module-private state.
-// Not sensitive, not written to, and harmless to ship.
+// direction count/active index/lock state without reaching into
+// module-private state. Not sensitive, not written to, and harmless to ship.
 try {
   Object.defineProperty(window, '__siteremadeDirections', {
-    get: () => ({ count: directions.length, activeIndex: activeDirectionIndex, max: MAX_DIRECTIONS })
+    get: () => ({ count: directions.length, activeIndex: activeDirectionIndex, max: MAX_DIRECTIONS, inFlight: generationInFlight })
   });
 } catch (e) { /* ignore in environments where this isn't definable */ }
 
@@ -2044,6 +2055,14 @@ function renderDirectionSwitcher() {
   ).join('');
 }
 function switchDirection(index) {
+  // V8.1.1: refuse while a generation transaction owns `directions`/
+  // `project` -- otherwise switching mid-generation could reassign global
+  // `project` out from under the in-flight transaction (see runGeneration/
+  // finishGeneration) or let a stale click land after a direction the
+  // visitor was looking at got replaced. This check is authoritative even
+  // if switchDirection is called programmatically, not just from the
+  // (also disabled, for UX) pill buttons.
+  if (generationInFlight) return;
   if (!directions.length) return;
   index = Math.max(0, Math.min(directions.length - 1, index));
   if (index === activeDirectionIndex) return;
@@ -2069,6 +2088,20 @@ function updateDirectionControls() {
   const atLimit = directions.length >= MAX_DIRECTIONS;
   regenerateButton.textContent = atLimit ? 'Switch direction' : 'Try another direction';
   updateGeneratorAiHint();
+}
+// V8.1.1: UX-only -- visually/interactively disables the controls that
+// could otherwise start or interrupt a generation while one is already in
+// flight (main Generate, "Try another direction"/"Switch direction", and
+// the direction pills). This is NOT the enforcement mechanism: it exists
+// so a visitor doesn't see a button appear to do nothing when they
+// double-click it, but generationInFlight (checked inside runGeneration
+// and switchDirection themselves) is what actually makes a concurrent
+// call impossible, including a programmatic one that never touches these
+// elements at all.
+function setGenerationControlsDisabled(disabled) {
+  if (generatorSubmitButton) generatorSubmitButton.disabled = disabled;
+  if (regenerateButton) regenerateButton.disabled = disabled;
+  if (directionSwitcherEl) directionSwitcherEl.classList.toggle('direction-switcher-locked', disabled);
 }
 function announceDirectionLimitReached() {
   updateGeneratorAiHint();
@@ -2252,22 +2285,49 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
 // finished -- this is also where the hard 3-direction cap becomes real:
 // nothing before this point has touched `directions`, so a run that never
 // reaches here (blocked earlier by the cap) has created nothing at all.
-function finishGeneration(proj) {
-  directions.push(proj);
-  activeDirectionIndex = directions.length - 1;
-  project = proj;
-  renderProject(project);
-  markGenerated();
-  resolveImagePlanAssets(project); // fire real image requests for this freshly-built plan, async, non-blocking
-  renderDirectionSwitcher();
-  updateDirectionControls();
-  persistDirectionsSilently(); // so a plain page refresh can't reset the 3-direction cap -- see SITE-PROJECT-V8.1.md part "closing the reload loophole"
-
+// V8.1.1: takes the *reserved* index this transaction was promised at the
+// top of runGeneration(), and never trusts global `project` for identity
+// -- only the locally-created `proj` this exact call was handed. Every
+// invariant a concurrent/out-of-order call could violate is checked
+// before anything is pushed, rendered, or requested; this function -- not
+// the generationInFlight lock -- is the hard backstop that decides
+// admission.
+// V8.1.1: shared by finishGeneration's non-admissible path and the
+// generation-step error guard below -- whatever ends a transaction
+// (success, a rejected admission, or a genuine runtime exception mid-step)
+// must leave Generate/progress UI in the same clean, usable state.
+function resetGenerationChromeUI() {
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
   if (heroDemoCopy) heroDemoCopy.style.removeProperty('opacity');
   if (generatorSubmitButton) generatorSubmitButton.disabled = false;
   if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generate website';
+}
+function finishGeneration(proj, expectedDirectionIndex) {
+  const admissible = generationInFlight
+    && directions.length < MAX_DIRECTIONS
+    && directions.length === expectedDirectionIndex
+    && !directions.includes(proj);
+  if (!admissible) {
+    // Should be unreachable given the lock in runGeneration -- this is the
+    // deliberate defense-in-depth backstop, not the primary mechanism.
+    // Never push, never touch resolveImagePlanAssets, never create a
+    // direction; just recover the UI so nothing looks stuck.
+    resetGenerationChromeUI();
+    updateDirectionControls();
+    return;
+  }
+  directions.push(proj);
+  activeDirectionIndex = expectedDirectionIndex;
+  project = directions[activeDirectionIndex];
+  renderProject(project);
+  markGenerated();
+  resolveImagePlanAssets(project); // fire real image requests for this freshly-admitted direction, exactly once, async, non-blocking
+  renderDirectionSwitcher();
+  updateDirectionControls();
+  persistDirectionsSilently(); // so a plain page refresh can't reset the 3-direction cap -- see SITE-PROJECT-V8.1.md part "closing the reload loophole"
+
+  resetGenerationChromeUI();
 
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -2279,83 +2339,138 @@ function finishGeneration(proj) {
 // before any network call, before any deterministic build, before any
 // image plan -- Claude being unconfigured/unavailable/failed NEVER
 // re-opens the door to "just use the free deterministic engine instead" once
-// the visitor already has 3 real directions (that was the bug this fixes --
+// the visitor already has 3 real directions (that was the bug V8.1 fixes --
 // see SITE-PROJECT-V8.1.md).
+// V8.1.1: `directions.length` isn't incremented until finishGeneration()
+// admits a project, so the check above, alone, doesn't stop two
+// overlapping calls from both reading the same length and both passing.
+// generationInFlight closes that -- checked and set synchronously, before
+// any await, so only one transaction can ever be in progress. The
+// transaction's identity is the locally-created `proj` and its reserved
+// `expectedDirectionIndex`, captured once up front and threaded through
+// every step, the animated reveal, and finishGeneration -- global
+// `project` is only ever used here for what's currently on screen, never
+// to decide what gets admitted (see SITE-PROJECT-V8.1.1.md).
 async function runGeneration(text) {
   if (!text || !text.trim()) return;
+  if (generationInFlight) return;
   if (directions.length >= MAX_DIRECTIONS) {
     announceDirectionLimitReached();
     return;
   }
-  const variationSeed = directions.length; // 0, 1, 2 -- which direction this attempt will become if it succeeds
-
-  let claudePlan = null;
-  const meter = window.__siteremadePlanMeter;
-  if (meter && meter.planConfigured) {
-    if (generatorSubmitButton) generatorSubmitButton.disabled = true;
-    if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
-    const result = await requestClaudePlan(text);
-    if (result && result.ok && result.plan) {
-      const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
-      claudePlan = normalizeClaudePlan(result.plan, catDefaults);
-      // A structurally unusable response (normalizeClaudePlan returned
-      // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
-      // part 12 requires falling back from -- it does NOT re-throw or
-      // block; claudePlan simply stays null and buildGenerationPlan below
-      // runs the real deterministic engine instead. Either way this attempt
-      // still produces exactly one direction (see finishGeneration) -- a
-      // failed/unusable Claude response is never a reason to produce
-      // NOTHING, and it is never a reason to produce a SECOND direction
-      // either.
+  const expectedDirectionIndex = directions.length; // the exact slot this transaction is reserved for
+  const variationSeed = expectedDirectionIndex; // 0, 1, 2 -- which direction this attempt will become if it succeeds
+  generationInFlight = true;
+  setGenerationControlsDisabled(true);
+  try {
+    let claudePlan = null;
+    const meter = window.__siteremadePlanMeter;
+    if (meter && meter.planConfigured) {
+      if (generatorSubmitButton) generatorSubmitButton.disabled = true;
+      if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
+      const result = await requestClaudePlan(text);
+      if (result && result.ok && result.plan) {
+        const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
+        claudePlan = normalizeClaudePlan(result.plan, catDefaults);
+        // A structurally unusable response (normalizeClaudePlan returned
+        // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
+        // part 12 requires falling back from -- it does NOT re-throw or
+        // block; claudePlan simply stays null and buildGenerationPlan below
+        // runs the real deterministic engine instead. Either way this attempt
+        // still produces exactly one direction (see finishGeneration) -- a
+        // failed/unusable Claude response is never a reason to produce
+        // NOTHING, and it is never a reason to produce a SECOND direction
+        // either. It also never releases and re-acquires the lock between
+        // the Claude attempt and the deterministic fallback below -- this
+        // is all still the same one reserved transaction.
+      }
+      // A limited/unconfigured/failed response is invisible beyond this --
+      // there is no separate error state for the visitor, because nothing is
+      // actually broken from their side: the deterministic engine below still
+      // produces this direction. It also does NOT re-check `directions.length`
+      // again -- the guard at the top of this function already reserved this
+      // attempt's place in the 3-direction budget before any network call.
     }
-    // A limited/unconfigured/failed response is invisible beyond this --
-    // there is no separate error state for the visitor, because nothing is
-    // actually broken from their side: the deterministic engine below still
-    // produces this direction. It also does NOT re-check `directions.length`
-    // again -- the guard at the top of this function already reserved this
-    // attempt's place in the 3-direction budget before any network call.
+
+    const { proj, steps } = buildGenerationPlan(text, project, claudePlan, variationSeed);
+
+    if (prefersReducedMotion() || !generationProgress || !generationSteps) {
+      // Real work still runs in full -- only the frame-by-frame reveal is
+      // skipped, matching the person's reduced-motion preference.
+      steps.forEach(s => s.run());
+      finishGeneration(proj, expectedDirectionIndex);
+      return;
+    }
+
+    if (generatorSubmitButton) generatorSubmitButton.disabled = true;
+    if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generating…';
+    if (heroMachine) heroMachine.classList.add('generating');
+    if (heroDemoCopy) heroDemoCopy.style.opacity = '0';
+    generationProgress.hidden = false;
+
+    const stepEls = steps.map(s => generationSteps.querySelector(`[data-step="${s.key}"]`));
+    stepEls.forEach(li => setStepState(li, null, ''));
+
+    // First paint: the real shell built above (business name, category,
+    // seed palette, hero section) is already meaningful -- show it now
+    // instead of waiting for every later step. This is the "begin appearing
+    // as soon as enough project state exists" progressive render. `project`
+    // is reassigned here purely for what's on screen; the step loop below
+    // closes over the local `proj` reference directly and never reads
+    // `project` back, so even a stray reassignment of `project` elsewhere
+    // (blocked anyway while generationInFlight -- see switchDirection)
+    // could not change which object this transaction finalizes.
+    project = proj;
+    renderProject(proj);
+
+    // V8.1.1: awaited so the try/finally below only releases the lock once
+    // the whole animated pipeline -- not just this synchronous kickoff --
+    // has actually finished admitting (or failing to admit) `proj`. Each
+    // tick also runs inside its own try/catch: a step scheduled via
+    // requestAnimationFrame runs outside this function's own call stack,
+    // so a genuine exception there would otherwise never reach the
+    // try/finally above at all -- the awaited Promise would simply hang
+    // forever, permanently stuck with generationInFlight === true. Any
+    // such failure resolves (never admits `proj`) and cleans up the UI,
+    // the same contract finishGeneration's own non-admissible path keeps.
+    await new Promise(resolve => {
+      let i = 0;
+      function nextStep() {
+        try {
+          if (i > 0) setStepState(stepEls[i - 1], 'done');
+          if (i >= steps.length) { finishGeneration(proj, expectedDirectionIndex); resolve(); return; }
+          const note = steps[i].run(); // the real work for this step happens here
+          setStepState(stepEls[i], 'active', note);
+          renderProject(proj); // reflect exactly what that real work just changed, on the transaction's own object
+          i++;
+          // One requestAnimationFrame guarantees a paint has happened before the
+          // next step runs -- not a fixed-duration stall. On a typical display
+          // the whole 6-step pipeline finishes in well under 150ms.
+          requestAnimationFrame(nextStep);
+        } catch (error) {
+          resetGenerationChromeUI();
+          updateDirectionControls();
+          resolve();
+        }
+      }
+      nextStep();
+    });
+  } finally {
+    // V8.1.1: the backstop. finishGeneration already resets this chrome on
+    // both its success and non-admissible paths, and the in-loop catch
+    // above resets it for a step-time exception -- but an exception
+    // thrown anywhere else in this transaction (buildGenerationPlan, the
+    // first-paint render, or an unforeseen path) would otherwise still
+    // release the lock via this finally while leaving Generate/progress
+    // UI visibly stuck. Calling it here too is always safe: by the time a
+    // successful transaction reaches this point the chrome is already in
+    // exactly this state, so it's a no-op, never a second admission or a
+    // second image request.
+    generationInFlight = false;
+    setGenerationControlsDisabled(false);
+    resetGenerationChromeUI();
+    updateDirectionControls();
   }
-
-  const { proj, steps } = buildGenerationPlan(text, project, claudePlan, variationSeed);
-
-  if (prefersReducedMotion() || !generationProgress || !generationSteps) {
-    // Real work still runs in full -- only the frame-by-frame reveal is
-    // skipped, matching the person's reduced-motion preference.
-    steps.forEach(s => s.run());
-    finishGeneration(proj);
-    return;
-  }
-
-  if (generatorSubmitButton) generatorSubmitButton.disabled = true;
-  if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generating…';
-  if (heroMachine) heroMachine.classList.add('generating');
-  if (heroDemoCopy) heroDemoCopy.style.opacity = '0';
-  generationProgress.hidden = false;
-
-  const stepEls = steps.map(s => generationSteps.querySelector(`[data-step="${s.key}"]`));
-  stepEls.forEach(li => setStepState(li, null, ''));
-
-  // First paint: the real shell built above (business name, category,
-  // seed palette, hero section) is already meaningful -- show it now
-  // instead of waiting for every later step. This is the "begin appearing
-  // as soon as enough project state exists" progressive render.
-  project = proj;
-  renderProject(project);
-
-  let i = 0;
-  function nextStep() {
-    if (i > 0) setStepState(stepEls[i - 1], 'done');
-    if (i >= steps.length) { finishGeneration(project); return; }
-    const note = steps[i].run(); // the real work for this step happens here
-    setStepState(stepEls[i], 'active', note);
-    renderProject(project); // reflect exactly what that real work just changed
-    i++;
-    // One requestAnimationFrame guarantees a paint has happened before the
-    // next step runs -- not a fixed-duration stall. On a typical display
-    // the whole 6-step pipeline finishes in well under 150ms.
-    requestAnimationFrame(nextStep);
-  }
-  nextStep();
 }
 
 if (generatorForm) {

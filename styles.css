@@ -1060,6 +1060,9 @@ html,body{max-width:100%;overflow-x:hidden}
 .direction-pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color .2s ease,color .2s ease,background .2s ease}
 .direction-pill:hover{border-color:#8c93a0;color:var(--text)}
 .direction-pill.active{background:var(--text);border-color:var(--text);color:#fff}
+/* V8.1.1: UX-only cue while a generation transaction is in flight -- the
+   real enforcement is the generationInFlight lock in script.js, not this. */
+.direction-switcher-locked{opacity:.5;pointer-events:none}
 
 /* ---- Purchase section: the primary ending. Same structural idiom as
    .handoff-section/.pricing-section (two-column, card on the right) but its
