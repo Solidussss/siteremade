@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -28,6 +29,51 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#039;');
 }
 function clean(value, max = 2000) { return String(value ?? '').trim().slice(0, max); }
+
+// ---- V8: anonymous id for metering expensive AI actions --------------------
+// No auth/session infrastructure exists in this app yet (see
+// SITE-PROJECT-V8.md part 7/8 for the full audit) -- this is the smallest
+// real mechanism that is NOT "a counter in localStorage the visitor can
+// clear": a first-party, HttpOnly cookie the browser cannot read or edit,
+// naming an id the visitor cannot see or forge, checked against a
+// server-side ledger before any Claude call happens (so clearing the
+// browser's localStorage, or lying in a request body, cannot buy more free
+// generations -- only clearing the actual HttpOnly cookie can, which is the
+// honestly-stated limit of this pass; see the report for the durable,
+// account-aware path this is designed to grow into without a reshape).
+// No cookie-parsing dependency is added -- this app already avoids npm
+// packages where a few lines of plain code cover it (see the Stripe/OpenAI
+// blocks below).
+const ANON_COOKIE = 'siteremade_anon';
+function getCookie(req, name) {
+  const header = req.headers.cookie || '';
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+function ensureAnonId(req, res) {
+  let id = getCookie(req, ANON_COOKIE);
+  if (!id || !/^[a-f0-9-]{36}$/.test(id)) {
+    id = crypto.randomUUID();
+    // 1 year, HttpOnly (never readable/forgeable from the browser), Lax (so
+    // it survives normal top-level navigation, e.g. after Stripe redirect).
+    res.setHeader('Set-Cookie', `${ANON_COOKIE}=${id}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
+  }
+  return id;
+}
+// In-memory ledger: one entry per anonymous id. This is intentionally NOT
+// the durable mechanism (it resets on every deploy/restart and does not
+// share state across horizontally-scaled instances) -- it is real
+// server-side enforcement for THIS pass, honestly scoped, with the durable
+// upgrade path (a small table keyed by anon id / account id) documented
+// rather than built, per the instruction not to touch the production
+// Supabase app casually. See SITE-PROJECT-V8.md part 8.
+const FULL_GENERATION_LIMIT = 3;
+const generationLedger = new Map();
+function getLedgerEntry(anonId) {
+  let entry = generationLedger.get(anonId);
+  if (!entry) { entry = { count: 0, signatures: [], history: [] }; generationLedger.set(anonId, entry); }
+  return entry;
+}
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -142,6 +188,281 @@ app.post('/api/generate-image', async (req, res) => {
   } catch (error) {
     console.error('Image generation failed:', error);
     return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
+  }
+});
+
+// ---- V8: Claude website-planning provider ----------------------------------
+// A clean, isolated abstraction, same shape/spirit as the image-provider
+// block above: a real interface, a server-only key, and an honest
+// `configured()` check rather than faking a plan when none can be produced.
+// Audited before writing this (SITE-PROJECT-V8.md part 1): unlike
+// api.openai.com (blocked by this sandbox's egress policy), api.anthropic.com
+// IS network-reachable from here -- but no ANTHROPIC_API_KEY is set for this
+// app to use (this container's own Claude access uses a different, internal
+// credential that is not a usable API key for a separate deployed app, and
+// is never read or reused here). So `configured()` is honestly false in this
+// environment too, and every generation falls back to the real V7
+// deterministic engine -- nothing is faked.
+//
+// Claude is asked for a PLAN, never code: the request forces a single tool
+// call (`submit_website_plan`) whose JSON Schema enum-constrains every
+// design-dimension field to the exact vocabulary the renderer already
+// understands (see categoryDimensionDefaults/dimensionKeywords in script.js
+// -- this list must stay in sync with that file). That schema is what makes
+// the model's output structurally impossible to turn into arbitrary
+// HTML/CSS, and what lets the normalization layer in script.js validate
+// every field against a known-safe allowlist rather than trusting free text.
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+
+const HERO_KEYS = ['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot'];
+const TYPE_KEYS = ['geo-sans','serif-editorial','display-condensed','classic-serif-mix','mono-technical','humanist'];
+const NAV_KEYS = ['inline','boxed-pill','minimal-until-scroll','sidebar','centered-logo'];
+const CARD_KEYS = ['flat','bordered','elevated-shadow','image-led','numbered-editorial','outline-ghost'];
+const IMAGERY_KEYS = ['abstract-geometric','photo-led-placeholder','illustration','texture-organic','grid-mosaic','technical-network','editorial-bold','atmospheric-warm','trade-proof','chart-financial','nature-cause','creative-collage','dashboard-ui'];
+const CTA_KEYS = ['solid-pill','sharp-block','outline-ghost','underline-link','floating-badge'];
+const COLOR_BEHAVIOR_KEYS = ['neutral-single-accent','high-contrast-mono-accent','warm-earth-multi-tone','dark-luxury-metallic'];
+const MOTION_KEYS = ['none','subtle','expressive'];
+const SPACING_KEYS = ['standard','compact','airy','generous'];
+const PATTERN_KEYS = ['standard','proof-first','story-first','portfolio-first'];
+const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
+const IMAGE_ROLE_KEYS = ['hero','product','team','gallery'];
+const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
+
+const WEBSITE_PLAN_TOOL = {
+  name: 'submit_website_plan',
+  description: 'Submit a structured plan for a small-business marketing website. Return structure and copy only -- never HTML, CSS, or code.',
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['business', 'heroCopy', 'visualDirection', 'pages', 'imagePlan', 'functionalityPlan'],
+    properties: {
+      heroCopy: {
+        type: 'object', additionalProperties: false,
+        required: ['kicker', 'headline', 'sub', 'ctaLabel'],
+        description: 'Copy for the site\'s single most prominent element, the hero. Persuasive positioning is fine; it must follow the same no-fabricated-facts rule as section copy.',
+        properties: {
+          kicker: { type: 'string', description: 'Short eyebrow label above the headline (a few words).' },
+          headline: { type: 'string', description: 'The main hero headline -- the single most important line on the site, specific to this business.' },
+          sub: { type: 'string', description: 'One supporting sentence under the headline.' },
+          ctaLabel: { type: 'string', description: 'Primary call-to-action button label, e.g. "Get a quote", "Book a table".' }
+        }
+      },
+      business: {
+        type: 'object', additionalProperties: false,
+        required: ['understanding', 'category', 'targetCustomer', 'positioning', 'tone', 'goals'],
+        properties: {
+          name: { type: 'string', description: 'Only if the business name was actually given.' },
+          understanding: { type: 'string', description: 'One or two sentences: what this specific business actually is/does.' },
+          category: { type: 'string', description: 'Closest fit -- used only for fallback/analytics, not a template lookup.' },
+          targetCustomer: { type: 'string' },
+          positioning: { type: 'string' },
+          tone: { type: 'string', enum: ['professional', 'bold', 'friendly'] },
+          goals: { type: 'array', items: { type: 'string' }, maxItems: 5 }
+        }
+      },
+      declaredFacts: {
+        type: 'object', additionalProperties: false,
+        description: 'ONLY facts literally present in the business owner\'s own description. Omit any field not actually supplied -- never estimate or invent one.',
+        properties: {
+          years: { type: 'string' }, rating: { type: 'string' }, customerCount: { type: 'string' }, location: { type: 'string' },
+          otherFacts: { type: 'array', items: { type: 'string' }, maxItems: 5 }
+        }
+      },
+      visualDirection: {
+        type: 'object', additionalProperties: false,
+        required: ['hero', 'typography', 'nav', 'card', 'imagery', 'cta', 'colorBehavior', 'motion', 'spacing', 'pattern', 'rationale'],
+        properties: {
+          hero: { type: 'string', enum: HERO_KEYS },
+          typography: { type: 'string', enum: TYPE_KEYS },
+          nav: { type: 'string', enum: NAV_KEYS },
+          card: { type: 'string', enum: CARD_KEYS },
+          imagery: { type: 'string', enum: IMAGERY_KEYS },
+          cta: { type: 'string', enum: CTA_KEYS, description: 'CTA button/link treatment (the visual hierarchy of the primary call to action).' },
+          colorBehavior: { type: 'string', enum: COLOR_BEHAVIOR_KEYS },
+          motion: { type: 'string', enum: MOTION_KEYS, description: 'Depend on business/mood/page -- restrained for finance/legal/trades, soft for restaurant/wellness, editorial for fashion/creative, potentially expressive for technology. "none" is a valid, often correct choice.' },
+          spacing: { type: 'string', enum: SPACING_KEYS },
+          pattern: { type: 'string', enum: PATTERN_KEYS },
+          rationale: { type: 'string', description: 'One sentence: why this direction suits this business.' }
+        }
+      },
+      pages: {
+        type: 'array', minItems: 1, maxItems: 8,
+        description: 'Only the pages this specific business actually needs -- a local contractor might need 3, a SaaS company or an editorial fashion brand may need more. Do not default to a fixed count.',
+        items: {
+          type: 'object', additionalProperties: false,
+          required: ['id', 'label', 'purpose', 'sections'],
+          properties: {
+            id: { type: 'string' }, label: { type: 'string' }, purpose: { type: 'string' },
+            sections: {
+              type: 'array', minItems: 2, maxItems: 10,
+              items: {
+                type: 'object', additionalProperties: false,
+                required: ['type', 'headline'],
+                properties: {
+                  type: { type: 'string', enum: SECTION_TYPE_KEYS },
+                  headline: { type: 'string' },
+                  subhead: { type: 'string' },
+                  body: { type: 'string' },
+                  ctaLabel: { type: 'string' },
+                  claims: {
+                    type: 'array', maxItems: 6,
+                    description: 'Any factual claim this section\'s copy relies on (a number, a named client, a certification, a guarantee). sourced:true ONLY if it came directly from declaredFacts.',
+                    items: {
+                      type: 'object', additionalProperties: false, required: ['text', 'sourced'],
+                      properties: { text: { type: 'string' }, sourced: { type: 'boolean' } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      imagePlan: {
+        type: 'array', maxItems: 8,
+        items: {
+          type: 'object', additionalProperties: false,
+          required: ['role', 'intent', 'prompt', 'aspectRatio'],
+          properties: {
+            role: { type: 'string', enum: IMAGE_ROLE_KEYS },
+            intent: { type: 'string' },
+            prompt: { type: 'string', description: 'A specific, vivid image-generation prompt for this exact business -- never a generic phrase.' },
+            aspectRatio: { type: 'string', enum: ['16:9', '4:3', '1:1'] }
+          }
+        }
+      },
+      functionalityPlan: {
+        type: 'array', maxItems: 8,
+        description: 'What this business would reasonably need the site to DO. Only "supportedNow" for a contact/lead form and static content -- anything needing a live backend, payments, real bookings/reservations or logins is plannedIntegration or requiresCustomBuild. Never claim a system exists that does not.',
+        items: {
+          type: 'object', additionalProperties: false, required: ['feature', 'status'],
+          properties: {
+            feature: { type: 'string' },
+            status: { type: 'string', enum: FUNCTIONALITY_STATUS_KEYS },
+            note: { type: 'string' }
+          }
+        }
+      }
+    }
+  }
+};
+
+const PLANNER_SYSTEM_PROMPT = `You are SiteRemade's website-planning engine. Given a short small-business description, reason about what THIS specific business needs and call submit_website_plan with a structured plan -- never HTML, CSS, or code.
+
+Rules:
+1. Never invent a fact. Customer counts, ratings, years in business, awards, certifications, revenue, named clients, testimonials, specific locations, staff, or guarantees may ONLY appear if they are literally present in the business owner's own description (echoed to you as declaredFacts/extracted signals). Persuasive marketing copy is welcome; fabricated facts are not. Every claim your copy depends on must be listed in that section's claims array with sourced:true only when it truly came from the input.
+2. Reason about the actual business -- do not default to a generic template or a fixed page/section count. A premium AI logistics company, a neighborhood roofer, and an editorial fashion label should end up structurally different: different pages, different section choices and order, different density, different hero, different motion.
+3. Every enum field must be a real, considered choice, not a random pick -- explain your visual direction in one sentence (rationale).
+4. functionalityPlan must be honest: SiteRemade can render a contact/lead form and static content today. Booking, payments, ecommerce, portals, and live integrations do not exist yet -- mark them plannedIntegration or requiresCustomBuild, never supportedNow.
+5. Keep copy concise and genuinely specific to this business -- avoid generic filler like "a modern website that makes your business obvious" unless the input truly gives you nothing else to work with.`;
+
+function buildPlannerUserPrompt(brief) {
+  const lines = [
+    `Business description (verbatim, from the visitor): "${brief.text}"`,
+    brief.extractedFacts && Object.keys(brief.extractedFacts).length ? `Facts already detected in that text (treat as the ONLY safe declaredFacts unless the description states more): ${JSON.stringify(brief.extractedFacts)}` : 'No explicit facts (years/rating/customer count) were detected in the text -- do not invent any.',
+    brief.location ? `Detected location: ${brief.location}` : '',
+    brief.tone ? `Requested tone: ${brief.tone}` : ''
+  ];
+  if (brief.priorSignatures && brief.priorSignatures.length) {
+    lines.push(
+      `This visitor has already been shown ${brief.priorSignatures.length} other direction(s) for this same business: ${brief.priorSignatures.map((s, i) => `\n  Direction ${i + 1}: ${s}`).join('')}`,
+      'Produce a genuinely different, equally strong interpretation of the SAME business -- vary information architecture, hero composition, typography, colorBehavior, imagery, page/section structure and order, density, CTA strategy, and motion. Do not manufacture difference through random or nonsensical choices; every choice must still suit the business.'
+    );
+  }
+  return lines.filter(Boolean).join('\n');
+}
+
+const anthropicProvider = {
+  name: 'anthropic',
+  configured: () => !!ANTHROPIC_API_KEY,
+  async plan(brief) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: 4096,
+          system: PLANNER_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: buildPlannerUserPrompt(brief) }],
+          tools: [WEBSITE_PLAN_TOOL],
+          tool_choice: { type: 'tool', name: 'submit_website_plan' }
+        }),
+        signal: controller.signal
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`);
+      const toolUse = (data.content || []).find(b => b.type === 'tool_use' && b.name === 'submit_website_plan');
+      if (!toolUse || !toolUse.input) throw new Error('Model did not return a structured plan');
+      return { plan: toolUse.input, usage: data.usage || {}, model: data.model || ANTHROPIC_MODEL };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+};
+
+function planSignature(plan) {
+  // A compact, human-readable fingerprint of a plan -- sent back to Claude
+  // (never shown to the visitor) so the next direction can deliberately
+  // diverge from it, and kept short to stay cost-aware.
+  const vd = plan.visualDirection || {};
+  const pageSummary = (plan.pages || []).map(p => `${p.id}:[${(p.sections || []).map(s => s.type).join(',')}]`).join(' ');
+  return `hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 400);
+}
+
+app.get('/api/generation-status', (req, res) => {
+  const anonId = ensureAnonId(req, res);
+  const entry = getLedgerEntry(anonId);
+  res.json({
+    planConfigured: anthropicProvider.configured(),
+    count: entry.count,
+    limit: FULL_GENERATION_LIMIT,
+    remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count)
+  });
+});
+
+app.post('/api/plan-website', async (req, res) => {
+  const anonId = ensureAnonId(req, res);
+  const entry = getLedgerEntry(anonId);
+  if (!anthropicProvider.configured()) {
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count) });
+  }
+  if (entry.count >= FULL_GENERATION_LIMIT) {
+    // Enforced here, server-side, BEFORE any model call -- so this is a real
+    // gate, not an honor system. The client is expected to fall back to the
+    // free deterministic engine on this response, never to block editing.
+    return res.status(200).json({ ok: false, limited: true, remaining: 0, message: 'You\'ve used your 3 AI-planned directions. You can keep editing this one, or SiteRemade\'s built-in design engine can still generate new directions.' });
+  }
+  const text = clean(req.body.text, 600);
+  if (!text) return res.status(400).json({ ok: false, message: 'Missing business description.' });
+  const brief = {
+    text,
+    location: clean(req.body.location, 120),
+    tone: clean(req.body.tone, 20),
+    extractedFacts: (req.body.extractedFacts && typeof req.body.extractedFacts === 'object') ? req.body.extractedFacts : {},
+    priorSignatures: entry.signatures.slice(-2)
+  };
+  const startedAt = Date.now();
+  try {
+    const { plan, usage, model } = await anthropicProvider.plan(brief);
+    const latencyMs = Date.now() - startedAt;
+    entry.count += 1;
+    entry.signatures.push(planSignature(plan));
+    if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
+    entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
+    if (entry.history.length > 10) entry.history = entry.history.slice(-10);
+    return res.json({ ok: true, plan, remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count), meta: { model, latencyMs } });
+  } catch (error) {
+    const latencyMs = Date.now() - startedAt;
+    entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
+    if (entry.history.length > 10) entry.history = entry.history.slice(-10);
+    console.error('Website planning failed:', error);
+    // A failed attempt does NOT consume one of the visitor's 3 directions --
+    // only a real returned plan does.
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count) });
   }
 });
 

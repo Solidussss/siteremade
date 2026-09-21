@@ -800,7 +800,18 @@ const imageStyleDescriptions = {
   'grid-mosaic': 'technical grid/data mosaic composition',
   'abstract-geometric': 'clean abstract geometric composition'
 };
+// V8: when this project came from the Claude planner, it supplies its own
+// specific, business-aware prompt per image role (see normalizeClaudePlan /
+// project.intent.claudeImagePrompts below) -- Claude never generates images
+// itself, it only writes the prompt; the actual generation still goes
+// through the exact same OpenAI provider / cache / dedup / fallback funnel
+// as every other image (buildImagePlan, resolveImagePlanAssets), completely
+// unchanged. When no Claude prompt exists for this role (deterministic
+// path, or Claude simply didn't plan an image for it), the original
+// category/palette-driven deterministic prompt is used, exactly as before.
 function buildImagePrompt(project, category, role) {
+  const override = project.intent && project.intent.claudeImagePrompts && project.intent.claudeImagePrompts[role];
+  if (override) return override;
   const composed = project.design.dimensions;
   const loc = project.source.location ? `, subtle ${project.source.location} atmosphere` : '';
   const paletteDesc = `${project.design.palette.background} background, ${project.design.palette.main} accent colour`;
@@ -1787,6 +1798,180 @@ function markGenerated() {
   if (buyButton) buyButton.disabled = false;
   if (purchaseStatus && !purchaseStatus.dataset.sticky) purchaseStatus.textContent = 'Ready — this is the project that will be purchased.';
 }
+// ==========================================================================
+// V8: Claude website-planning integration
+// ==========================================================================
+// Claude never renders anything and never becomes a second source of truth
+// -- see SITE-PROJECT-V8.md. The server (POST /api/plan-website) forces a
+// single structured tool call whose JSON Schema already enum-constrains
+// every design field (server.js WEBSITE_PLAN_TOOL). normalizeClaudePlan
+// below validates the response AGAIN, independently, against the exact same
+// vocabulary the renderer supports -- never trusting the network -- and
+// degrades a partially-bad response field-by-field (an unknown/missing enum
+// falls back to this category's own default) rather than discarding an
+// otherwise-good plan. Only a plan with literally no usable page/section
+// structure is rejected outright, sending the caller back to the real V7
+// deterministic engine (never "AI unavailable, nothing works").
+//
+// These lists mirror server.js's HERO_KEYS/TYPE_KEYS/NAV_KEYS/CARD_KEYS/
+// IMAGERY_KEYS/CTA_KEYS/COLOR_BEHAVIOR_KEYS/MOTION_KEYS/SPACING_KEYS/
+// PATTERN_KEYS/SECTION_TYPE_KEYS one-for-one and MUST stay in sync with
+// them (and with dimensionKeywords/categoryDimensionDefaults above, which
+// remain this file's own source of truth for what the renderer supports).
+const CLAUDE_HERO_KEYS = ['split', 'fullbleed-image', 'centered-oversized', 'stacked-image-below', 'asymmetric-offset', 'minimal-text-only', 'grid-dashboard', 'poster', 'collage', 'product-screenshot'];
+const CLAUDE_TYPE_KEYS = ['geo-sans', 'serif-editorial', 'display-condensed', 'classic-serif-mix', 'mono-technical', 'humanist'];
+const CLAUDE_NAV_KEYS = ['inline', 'boxed-pill', 'minimal-until-scroll', 'sidebar', 'centered-logo'];
+const CLAUDE_CARD_KEYS = ['flat', 'bordered', 'elevated-shadow', 'image-led', 'numbered-editorial', 'outline-ghost'];
+const CLAUDE_IMAGERY_KEYS = ['abstract-geometric', 'photo-led-placeholder', 'illustration', 'texture-organic', 'grid-mosaic', 'technical-network', 'editorial-bold', 'atmospheric-warm', 'trade-proof', 'chart-financial', 'nature-cause', 'creative-collage', 'dashboard-ui'];
+const CLAUDE_CTA_KEYS = ['solid-pill', 'sharp-block', 'outline-ghost', 'underline-link', 'floating-badge'];
+const CLAUDE_COLOR_BEHAVIOR_KEYS = ['neutral-single-accent', 'high-contrast-mono-accent', 'warm-earth-multi-tone', 'dark-luxury-metallic'];
+const CLAUDE_MOTION_KEYS = ['none', 'subtle', 'expressive'];
+const CLAUDE_SPACING_KEYS = ['standard', 'compact', 'airy', 'generous'];
+const CLAUDE_PATTERN_KEYS = ['standard', 'proof-first', 'story-first', 'portfolio-first'];
+const CLAUDE_SECTION_TYPE_KEYS = ['proof', 'metrics', 'services', 'features', 'productShowcase', 'integrations', 'pricing', 'faq', 'process', 'gallery', 'caseStudies', 'imageLedEditorial', 'about', 'team', 'testimonial', 'testimonialsGrid', 'menu', 'reservationCta', 'serviceAreas', 'contact', 'newsletter', 'ctaBanner'];
+const CLAUDE_IMAGE_ROLE_KEYS = ['hero', 'product', 'team', 'gallery'];
+const CLAUDE_FUNCTIONALITY_STATUS_KEYS = ['supportedNow', 'plannedIntegration', 'requiresCustomBuild'];
+
+function claudeEnum(value, allowed, fallback) { return (typeof value === 'string' && allowed.includes(value)) ? value : fallback; }
+function claudeStr(value, max) { return (typeof value === 'string' && value.trim()) ? value.trim().slice(0, max) : ''; }
+
+// Turns Claude's raw submit_website_plan payload into the same shape
+// buildGenerationPlan's deterministic path already produces (a validated
+// dimensions object, a list of real section types, hero copy, image
+// prompts by role) so the renderer never has to know or care which path
+// produced a given WebsiteProject. Returns null (never throws) for a plan
+// with no usable page/section structure at all -- the caller's job is to
+// fall back to the deterministic engine when this returns null.
+function normalizeClaudePlan(raw, catDefaults) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const vd = (raw.visualDirection && typeof raw.visualDirection === 'object') ? raw.visualDirection : {};
+  const dimensions = {
+    hero: claudeEnum(vd.hero, CLAUDE_HERO_KEYS, catDefaults.hero),
+    type: claudeEnum(vd.typography, CLAUDE_TYPE_KEYS, catDefaults.type),
+    nav: claudeEnum(vd.nav, CLAUDE_NAV_KEYS, catDefaults.nav),
+    card: claudeEnum(vd.card, CLAUDE_CARD_KEYS, catDefaults.card),
+    imagery: claudeEnum(vd.imagery, CLAUDE_IMAGERY_KEYS, catDefaults.imagery),
+    cta: claudeEnum(vd.cta, CLAUDE_CTA_KEYS, catDefaults.cta),
+    colorBehavior: claudeEnum(vd.colorBehavior, CLAUDE_COLOR_BEHAVIOR_KEYS, catDefaults.colorBehavior),
+    motion: claudeEnum(vd.motion, CLAUDE_MOTION_KEYS, catDefaults.motion),
+    spacing: claudeEnum(vd.spacing, CLAUDE_SPACING_KEYS, catDefaults.spacing),
+    pattern: claudeEnum(vd.pattern, CLAUDE_PATTERN_KEYS, catDefaults.pattern)
+  };
+
+  // A page/section survives only if it is structurally real. A page left
+  // with zero valid sections after filtering is dropped rather than
+  // rendered empty; if nothing survives at all, the whole plan is rejected
+  // -- a plan with no usable structure isn't "genuinely influencing
+  // structure," it's noise, and noise should fall back to the real engine.
+  const rawPages = Array.isArray(raw.pages) ? raw.pages : [];
+  const pages = rawPages.map((p, pi) => {
+    if (!p || typeof p !== 'object') return null;
+    const rawSections = Array.isArray(p.sections) ? p.sections : [];
+    const sections = rawSections
+      .filter(s => s && typeof s === 'object' && CLAUDE_SECTION_TYPE_KEYS.includes(s.type))
+      .slice(0, 10)
+      .map(s => ({
+        type: s.type,
+        // Captured and persisted on the WebsiteProject (round-trips through
+        // save/restore like everything else) so a follow-up pass can wire
+        // it into the section renderers. NOT yet consumed by them this pass
+        // -- see SITE-PROJECT-V8.md part 8/14 for why that's deliberately
+        // deferred rather than rewriting ~20 renderers under this change.
+        copy: {
+          headline: claudeStr(s.headline, 160),
+          subhead: claudeStr(s.subhead, 220),
+          body: claudeStr(s.body, 500),
+          ctaLabel: claudeStr(s.ctaLabel, 40),
+          claims: Array.isArray(s.claims)
+            ? s.claims.filter(c => c && typeof c.text === 'string').slice(0, 6).map(c => ({ text: c.text.slice(0, 200), sourced: !!c.sourced }))
+            : []
+        }
+      }));
+    if (!sections.length) return null;
+    return {
+      id: claudeStr(p.id, 40) || `page-${pi}`,
+      label: claudeStr(p.label, 40) || `Page ${pi + 1}`,
+      purpose: claudeStr(p.purpose, 200),
+      sections
+    };
+  }).filter(Boolean).slice(0, 8);
+  if (!pages.length) return null;
+
+  const heroCopyRaw = (raw.heroCopy && typeof raw.heroCopy === 'object') ? raw.heroCopy : {};
+  const heroCopy = {
+    kicker: claudeStr(heroCopyRaw.kicker, 40) || null,
+    headline: claudeStr(heroCopyRaw.headline, 120) || null,
+    sub: claudeStr(heroCopyRaw.sub, 200) || null,
+    ctaLabel: claudeStr(heroCopyRaw.ctaLabel, 40) || null
+  };
+
+  const businessRaw = (raw.business && typeof raw.business === 'object') ? raw.business : {};
+
+  const imagePromptsByRole = {};
+  (Array.isArray(raw.imagePlan) ? raw.imagePlan : []).forEach(entry => {
+    if (!entry || typeof entry !== 'object') return;
+    const role = claudeEnum(entry.role, CLAUDE_IMAGE_ROLE_KEYS, null);
+    const prompt = claudeStr(entry.prompt, 500);
+    if (!role || !prompt || imagePromptsByRole[role]) return; // first prompt per role wins; matches one-slot-per-role rendering
+    imagePromptsByRole[role] = prompt;
+  });
+
+  const functionalityPlan = (Array.isArray(raw.functionalityPlan) ? raw.functionalityPlan : [])
+    .filter(f => f && typeof f.feature === 'string' && CLAUDE_FUNCTIONALITY_STATUS_KEYS.includes(f.status))
+    .slice(0, 8)
+    .map(f => ({ feature: claudeStr(f.feature, 80) || f.feature.slice(0, 80), status: f.status, note: claudeStr(f.note, 200) }));
+
+  return {
+    dimensions,
+    pages,
+    heroCopy,
+    businessName: claudeStr(businessRaw.name, 60) || null,
+    understanding: claudeStr(businessRaw.understanding, 300),
+    rationale: claudeStr(vd.rationale, 240),
+    imagePromptsByRole,
+    functionalityPlan
+  };
+}
+
+// The only function that calls POST /api/plan-website. Fails soft in every
+// direction (network error, non-200, ok:false, unusable JSON) by returning
+// {ok:false} -- runGeneration below is what decides that a failure here
+// means "fall back to the deterministic engine," never "generation is
+// broken." A failed or skipped call never touches window.__siteremadePlanMeter
+// itself; only a real successful response (or an explicit limited response)
+// updates the visible "N of 3 AI-planned directions" meter.
+async function requestClaudePlan(text) {
+  try {
+    const response = await fetch('/api/plan-website', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await response.json().catch(() => ({}));
+    return data && typeof data === 'object' ? data : { ok: false };
+  } catch (error) {
+    return { ok: false };
+  }
+}
+
+// Tiny, honest status strip above the generator form -- never invasive,
+// never blocking. Configured-but-no-remaining and not-configured-at-all
+// both read the same to a visitor: SiteRemade's own design engine keeps
+// working either way (see runGeneration).
+const generatorAiHint = $('#generatorAiHint');
+function updateGeneratorAiHint(meter) {
+  if (!generatorAiHint || !meter) return;
+  if (!meter.planConfigured) { generatorAiHint.textContent = ''; generatorAiHint.hidden = true; return; }
+  generatorAiHint.hidden = false;
+  if (meter.remaining > 0) {
+    generatorAiHint.textContent = `${meter.remaining} of ${meter.limit} AI-planned directions left — after that, SiteRemade's design engine keeps generating new directions for you.`;
+  } else {
+    generatorAiHint.textContent = `You've used your ${meter.limit} AI-planned directions — SiteRemade's design engine will keep generating new directions from here.`;
+  }
+}
+window.__siteremadePlanMeter = { planConfigured: false, count: 0, limit: 3, remaining: 3 };
+
 // Builds the initial (already-real) shell of a WebsiteProject: business
 // identity + category + a seed design, enough to render a meaningful first
 // paint (the hero, with the right name/category/palette) immediately, then
@@ -1794,7 +1979,7 @@ function markGenerated() {
 // refine it into the finished project. Nothing here is fake -- it is
 // createProject's own logic, exposed as separate steps instead of one
 // opaque call, so the UI can reflect each one as it actually runs.
-function buildGenerationPlan(text, preserved) {
+function buildGenerationPlan(text, preserved, claudePlan) {
   const analysis = analyzeDescription(text);
   const category = categories[analysis.categoryKey] || categories.other;
   const catDefaults = categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other;
@@ -1803,23 +1988,59 @@ function buildGenerationPlan(text, preserved) {
   const facts = extractBusinessFacts(analysis.text);
   const descriptor = extractBusinessDescriptor(analysis.text);
 
+  // V8: categoryKey/category detection itself STAYS fully deterministic
+  // even for an AI-planned direction -- it's what the renderer's fixed
+  // `categories` lookup, palette base-hue table and image-role labels key
+  // off of. Claude reasons about the actual business in its own free-text
+  // `business.category`/`understanding` fields (kept for the report/report
+  // metadata only); it does not get to pick an arbitrary categoryKey the
+  // renderer doesn't know about. This is the "which deterministic functions
+  // become normalizers vs primary decision makers" answer from
+  // SITE-PROJECT-V8.md part 14.1/14.2 made concrete.
+  const usingClaude = !!claudePlan;
+  const dimensions = usingClaude ? claudePlan.dimensions : { ...catDefaults };
+
   // V7: the first-paint shell now seeds its dimensions from the detected
   // CATEGORY's defaults, not the named seed's raw values -- so even before
   // the "structure"/"typography" steps run, an AI company already shows a
   // SaaS-shaped hero instead of the generic split-hero default every result
-  // used to start from.
+  // used to start from. V8: when a Claude plan is present, its already-
+  // validated dimensions are the real ones from the very first paint --
+  // there is no later "compose from keywords" pass to wait for.
   const proj = {
-    meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v7', isDemoShell: false },
+    meta: {
+      id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(),
+      version: usingClaude ? 'v8' : 'v7', isDemoShell: false,
+      planSource: usingClaude ? 'anthropic' : 'deterministic'
+    },
     source: { text: analysis.text, location: analysis.location, facts, descriptor },
-    business: { name: extractedName || priorName || 'Your Business', categoryKey: analysis.categoryKey, tone: (preserved && preserved.business && preserved.business.tone) || 'professional' },
-    intent: { seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed: 0 },
+    business: {
+      name: (usingClaude && claudePlan.businessName) || extractedName || priorName || 'Your Business',
+      categoryKey: analysis.categoryKey,
+      tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
+    },
+    intent: {
+      seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed: 0,
+      // Claude supplies image PROMPTS/roles only -- the OpenAI image
+      // provider remains the only thing that ever generates an actual
+      // image (buildImagePrompt/buildImagePlan/resolveImagePlanAssets are
+      // completely unchanged by this). See SITE-PROJECT-V8.md part 9.
+      claudeImagePrompts: usingClaude ? claudePlan.imagePromptsByRole : null,
+      brief: usingClaude ? { understanding: claudePlan.understanding, rationale: claudePlan.rationale } : null
+    },
     design: {
-      palette: composePalette(analysis.categoryKey, catDefaults, analysis.text),
-      dimensions: { ...catDefaults },
+      palette: composePalette(analysis.categoryKey, dimensions, analysis.text),
+      dimensions: { ...dimensions },
       heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split'
     },
     copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
     sections: [{ id: 'hero-seed-' + Date.now().toString(36), type: 'hero', variant: 'default' }],
+    // V8: the full multi-page plan Claude returned (only pages[0] is
+    // rendered this pass -- see SITE-PROJECT-V8.md part 14.3/14.8; the
+    // array is preserved on the project so a follow-up pass can render/
+    // switch between pages without another Claude call).
+    pages: usingClaude ? claudePlan.pages : null,
+    functionalityPlan: usingClaude ? claudePlan.functionalityPlan : null,
     // A fresh Generate submission describes a business that may be entirely
     // different from the last one -- uploaded images still carry over (the
     // person's own asset didn't stop being relevant), but any previously
@@ -1835,17 +2056,36 @@ function buildGenerationPlan(text, preserved) {
   const steps = [
     { key: 'understand', run() {
         // Real work already happened above (analyzeDescription + the shell
-        // build) -- this step announces that real result rather than
+        // build, or -- for an AI-planned direction -- the already-completed
+        // Claude call) -- this step announces that real result rather than
         // recomputing it.
+        if (usingClaude) {
+          return `${claudePlan.understanding || (category.label + ' business detected')}${analysis.location ? ' · ' + analysis.location : ''} — AI-planned direction`;
+        }
         return `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`;
       } },
     { key: 'structure', run() {
+        if (usingClaude) {
+          const claudeSections = claudePlan.pages[0].sections;
+          const orderedTypes = ['hero', ...claudeSections.map(s => s.type), 'footer'];
+          proj.sections = orderedTypes.map((type, i) => {
+            const claudeSection = (type !== 'hero' && type !== 'footer') ? claudeSections[i - 1] : null;
+            return { id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default', copy: claudeSection ? claudeSection.copy : null };
+          });
+          return `${proj.sections.length} sections planned (AI-selected for ${category.label.toLowerCase()}${claudePlan.pages.length > 1 ? `, ${claudePlan.pages.length} pages planned` : ''})`;
+        }
         composed = composeStyleFromAnalysis(analysis.text, analysis.categoryKey, analysis.styleKey);
         const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
         proj.sections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
         return `${proj.sections.length} sections planned (${category.label.toLowerCase()})`;
       } },
     { key: 'typography', run() {
+        if (usingClaude) {
+          // Dimensions were already validated and applied when the shell
+          // was built above -- this step's job is only to announce that
+          // real result, same contract as the deterministic path.
+          return claudePlan.rationale || describeComposition(proj.design.dimensions);
+        }
         proj.design.palette = { ...composed.palette };
         proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
         return describeComposition(composed);
@@ -1853,6 +2093,18 @@ function buildGenerationPlan(text, preserved) {
     { key: 'sections', run() {
         proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, 0); });
         proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor);
+        if (usingClaude) {
+          // Deterministic copy above is still computed first so every
+          // field always has a safe, real value even when Claude supplied
+          // only some of the four heroCopy fields.
+          proj.copy = {
+            kicker: claudePlan.heroCopy.kicker || proj.copy.kicker,
+            headline: claudePlan.heroCopy.headline || proj.copy.headline,
+            sub: claudePlan.heroCopy.sub || proj.copy.sub,
+            cta: claudePlan.heroCopy.ctaLabel || proj.copy.cta
+          };
+          return 'Copy written for this exact business';
+        }
         return `Content matched to ${category.label}`;
       } },
     { key: 'imagery', run() {
@@ -1886,9 +2138,45 @@ function finishGeneration(proj) {
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 }
-function runGeneration(text) {
+// V8: the only place a full Generate submission tries Claude before the
+// real deterministic engine. Skipped entirely (no network call at all) when
+// the meter says Claude isn't configured or the visitor's 3 AI-planned
+// directions are already used -- there is no point spending a request just
+// to be told no, and "Try another direction" (regenerateButton, below)
+// stays 100% deterministic/unmetered regardless, exactly as today. See
+// SITE-PROJECT-V8.md part 5/7/12.
+async function runGeneration(text) {
   if (!text || !text.trim()) return;
-  const { proj, steps } = buildGenerationPlan(text, project);
+
+  let claudePlan = null;
+  const meter = window.__siteremadePlanMeter;
+  if (meter && meter.planConfigured && meter.remaining > 0) {
+    if (generatorSubmitButton) generatorSubmitButton.disabled = true;
+    if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
+    const result = await requestClaudePlan(text);
+    if (result && typeof result.remaining === 'number') {
+      window.__siteremadePlanMeter = { ...window.__siteremadePlanMeter, remaining: result.remaining, count: Math.max(0, meter.limit - result.remaining) };
+      updateGeneratorAiHint(window.__siteremadePlanMeter);
+    }
+    if (result && result.ok && result.plan) {
+      const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
+      claudePlan = normalizeClaudePlan(result.plan, catDefaults);
+      // A structurally unusable response (normalizeClaudePlan returned
+      // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
+      // part 12 requires falling back from -- it does NOT re-throw or
+      // block; claudePlan simply stays null and buildGenerationPlan below
+      // runs the real deterministic engine instead, silently to the
+      // visitor beyond the meter (a real attempt still consumed one of the
+      // 3 credits server-side, since the model DID return a response --
+      // only a network/timeout/invalid-JSON failure on the server is free).
+    }
+    // Falls through to 'Generating…' below either way -- a skipped/failed/
+    // limited Claude call is invisible beyond the meter hint; there is no
+    // separate error state for the visitor to see, because nothing is
+    // actually broken from their side.
+  }
+
+  const { proj, steps } = buildGenerationPlan(text, project, claudePlan);
 
   if (prefersReducedMotion() || !generationProgress || !generationSteps) {
     // Real work still runs in full -- only the frame-by-frame reveal is
@@ -2069,5 +2357,17 @@ fetch('/api/image-provider-status').then(r => r.json()).then(status => {
     project.imagePlan = buildImagePlan(project, categories[project.business.categoryKey] || categories.other);
     renderProject(project);
     resolveImagePlanAssets(project); // provider may have just become configured -- fires real requests for whatever the current plan needs
+  }
+}).catch(() => {});
+// V8: best-effort AI-planning status + remaining-credits check -- same
+// never-blocks contract as the image-provider check above. If this hasn't
+// resolved yet (or fails outright), window.__siteremadePlanMeter keeps its
+// honest default (planConfigured:false), so a Generate submission simply
+// skips the Claude attempt entirely and runs the real deterministic engine,
+// exactly as it always has.
+fetch('/api/generation-status').then(r => r.json()).then(meter => {
+  if (meter && typeof meter === 'object') {
+    window.__siteremadePlanMeter = meter;
+    updateGeneratorAiHint(meter);
   }
 }).catch(() => {});

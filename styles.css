@@ -1042,6 +1042,9 @@ html,body{max-width:100%;overflow-x:hidden}
 .generator-form .generator-submit{width:100%;margin-top:14px;min-width:0}
 .generator-examples-secondary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px;font-size:11px;color:var(--muted)}
 .generator-examples-secondary .example-chip{padding:6px 11px;font-size:10.5px}
+/* V8: honest, low-key meter for the 3 free AI-planned directions -- never
+   shown at all when AI planning isn't configured in this environment. */
+.generator-ai-hint{margin:10px 0 0;font-size:11px;color:var(--muted)}
 
 /* ---- Builder intro: small, always-reachable "load saved project" link
    replacing the old full-panel dead-looking lock overlay. ---- */
