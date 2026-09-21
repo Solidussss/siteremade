@@ -1502,6 +1502,415 @@ function switchPage(index) {
   persistDirectionsSilently();
 }
 
+// ---- V8.3: editor/remix model ----------------------------------------------
+// A non-AI editing layer over the exact model V8.2 established -- real
+// pages[]/sections[] mutations, zero Claude calls, zero DOM hacks. Every
+// operation below is a pure function of (proj, ...ids) -- it mutates the
+// project model in place and returns a truthy result on success / null or
+// false on a safely-refused edit; it never touches the DOM, and the UI layer
+// further down is the only thing that calls renderProject afterward. This
+// mirrors the "model first, view second" split the V8.2 renderer already
+// uses (renderSections/renderChrome are pure functions OF the model, never
+// the other way around).
+function newSectionId(type) {
+  return `${type}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+function newPageId(slug) {
+  return `page_${slug || 'home'}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+// Assigns a stable id to any page or section that doesn't already have one
+// (a pre-V8.3 direction, restored from storage, or one built by any of the
+// several existing project-construction paths). Idempotent and side-effect
+// bounded: once an id is set it is never regenerated, so it survives every
+// subsequent render, reorder, direction switch, page switch and
+// save/restore for the rest of that object's life -- exactly the "stable
+// unique id that survives reorder/duplicate/page moves/direction
+// switching/save-restore" requirement. Called from renderProject itself
+// (alongside syncActivePageSections) so every existing project-creation
+// path -- createProject, buildGenerationPlan's two branches,
+// buildClaudePages, migrateProjectPages -- gets ids for free, with zero
+// changes needed at any of those call sites.
+function ensureEditorIds(proj) {
+  if (!proj || !Array.isArray(proj.pages)) return;
+  proj.pages.forEach(page => {
+    if (!page.id) page.id = newPageId(page.slug);
+    (page.sections || []).forEach(section => {
+      if (!section.id) section.id = newSectionId(section.type);
+    });
+  });
+}
+function findPageById(proj, pageId) {
+  return (proj && Array.isArray(proj.pages)) ? (proj.pages.find(p => p.id === pageId) || null) : null;
+}
+function findPageIndexById(proj, pageId) {
+  return (proj && Array.isArray(proj.pages)) ? proj.pages.findIndex(p => p.id === pageId) : -1;
+}
+function findSectionIndex(page, sectionId) {
+  return page ? (page.sections || []).findIndex(s => s.id === sectionId) : -1;
+}
+function findSectionById(page, sectionId) {
+  const idx = findSectionIndex(page, sectionId);
+  return idx === -1 ? null : page.sections[idx];
+}
+// Deep-clones a section's own content (never shares the source's `copy`
+// object or its nested `claims` array) and assigns it a brand-new id --
+// used by both duplicateSection (same direction) and
+// importSectionFromDirection (cross-direction), so an edit to the copy
+// afterward can never be observed by the original. JSON round-tripping is
+// exact and safe here because a section's shape is already guaranteed to
+// be plain, serializable data (see normalizeClaudePlan/buildClaudePages).
+function cloneSectionForInsert(source) {
+  const copy = source.copy ? JSON.parse(JSON.stringify(source.copy)) : null;
+  return { id: newSectionId(source.type), type: source.type, variant: source.variant, copy };
+}
+
+// ---- Section operations ----------------------------------------------------
+function moveSection(proj, pageId, sectionId, targetIndex) {
+  const page = findPageById(proj, pageId);
+  if (!page) return false;
+  const idx = findSectionIndex(page, sectionId);
+  if (idx === -1) return false;
+  const clamped = Math.max(0, Math.min(page.sections.length - 1, targetIndex));
+  if (clamped === idx) return true;
+  const [item] = page.sections.splice(idx, 1);
+  page.sections.splice(clamped, 0, item);
+  return true;
+}
+function duplicateSection(proj, pageId, sectionId) {
+  const page = findPageById(proj, pageId);
+  if (!page) return null;
+  const idx = findSectionIndex(page, sectionId);
+  if (idx === -1) return null;
+  const clone = cloneSectionForInsert(page.sections[idx]);
+  page.sections.splice(idx + 1, 0, clone);
+  return clone;
+}
+function removeSection(proj, pageId, sectionId) {
+  const page = findPageById(proj, pageId);
+  if (!page) return false;
+  const idx = findSectionIndex(page, sectionId);
+  if (idx === -1) return false;
+  page.sections.splice(idx, 1);
+  return true;
+}
+function moveSectionToPage(proj, sourcePageId, sectionId, targetPageId, targetIndex) {
+  if (sourcePageId === targetPageId) return moveSection(proj, sourcePageId, sectionId, targetIndex);
+  const sourcePage = findPageById(proj, sourcePageId);
+  const targetPage = findPageById(proj, targetPageId);
+  if (!sourcePage || !targetPage) return false;
+  const idx = findSectionIndex(sourcePage, sectionId);
+  if (idx === -1) return false;
+  const [item] = sourcePage.sections.splice(idx, 1);
+  const clamped = Math.max(0, Math.min(targetPage.sections.length, targetIndex));
+  targetPage.sections.splice(clamped, 0, item);
+  return true;
+}
+// Copies (never moves, never shares references) one real content section
+// from another direction's page into the CURRENT project. The source
+// direction's own object graph is never touched -- only ever read -- so it
+// remains byte-for-byte unchanged by anything done to the imported copy
+// afterward. Only a section whose type is still in the real renderer
+// vocabulary is importable (defense in depth -- every section already in
+// `directions[]` came from either normalizeClaudePlan or the deterministic
+// engine, both of which already only ever produce real types, but this
+// keeps the guarantee local to the operation itself rather than trusting a
+// prior validation pass forever).
+function importSectionFromDirection(sourceDirectionIndex, sourcePageId, sectionId, targetPageId, targetIndex) {
+  if (!project) return null;
+  const sourceDirection = directions[sourceDirectionIndex];
+  if (!sourceDirection) return null;
+  const sourcePage = findPageById(sourceDirection, sourcePageId);
+  if (!sourcePage) return null;
+  const sourceSection = findSectionById(sourcePage, sectionId);
+  // A real content section instance is only ever one of these types -- the
+  // same controlled vocabulary normalizeClaudePlan already enforces on a
+  // Claude plan (referenced here, not aliased at module-eval time, since
+  // CLAUDE_SECTION_TYPE_KEYS is declared later in this file -- this
+  // function itself is only ever called at runtime, long after the whole
+  // script has finished its own top-to-bottom evaluation). Hero and footer
+  // are chrome (see the V8.2 section above), never literal section
+  // entries, so they can never be imported as if they were ordinary
+  // content -- there is simply no section object for them to operate on.
+  if (!sourceSection || !CLAUDE_SECTION_TYPE_KEYS.includes(sourceSection.type)) return null;
+  const targetPage = findPageById(project, targetPageId);
+  if (!targetPage) return null;
+  const clone = cloneSectionForInsert(sourceSection);
+  const clamped = Math.max(0, Math.min(targetPage.sections.length, Number.isInteger(targetIndex) ? targetIndex : targetPage.sections.length));
+  targetPage.sections.splice(clamped, 0, clone);
+  return clone;
+}
+// A lightweight parallel to importSectionFromDirection for the hero, which
+// (as V8.2 established) is chrome, not a section object -- there is
+// nothing to "import" as a list entry. Copies just the hero's own visual
+// treatment and hero copy from another direction into the current one,
+// which is the real, renderable equivalent of "bring the hero from
+// Direction 2" without pretending the hero is a section it isn't.
+function importHeroFromDirection(sourceDirectionIndex) {
+  if (!project) return false;
+  const sourceDirection = directions[sourceDirectionIndex];
+  if (!sourceDirection || !sourceDirection.design) return false;
+  project.design.dimensions.hero = sourceDirection.design.dimensions.hero;
+  if (sourceDirection.copy) {
+    project.copy = { ...project.copy, ...JSON.parse(JSON.stringify(sourceDirection.copy)) };
+  }
+  return true;
+}
+
+// ---- Page operations --------------------------------------------------------
+function addPage(proj, label) {
+  if (!Array.isArray(proj.pages) || proj.pages.length >= MAX_PAGES) return null;
+  const usedSlugs = new Set(proj.pages.map(p => p.slug));
+  const labelSafe = (label && String(label).trim().slice(0, 40)) || `Page ${proj.pages.length + 1}`;
+  const slug = uniqueSlug(sanitizeSlug(labelSafe) || `page-${proj.pages.length}`, usedSlugs);
+  const page = { id: newPageId(slug), slug, label: labelSafe, purpose: '', sections: [] };
+  proj.pages.push(page);
+  return page;
+}
+function renamePage(proj, pageId, newLabel) {
+  const page = findPageById(proj, pageId);
+  if (!page) return false;
+  const safe = String(newLabel || '').trim().slice(0, 40);
+  if (!safe) return false;
+  page.label = safe;
+  return true;
+}
+// The image-bearing slots a page can own -- kept in exact sync with
+// buildImagePlan's own per-page slot names (product/about/gallery-featured)
+// so a slug change can carry a page's already-generated images along with
+// it under their new, correctly-prefixed keys instead of silently
+// orphaning them (which would look identical to a cache miss and cause a
+// wasted paid regeneration the next time that page is viewed).
+const EDITOR_SLOT_ROLE_BY_BASE = { product: 'product', about: 'team', 'gallery-featured': 'gallery' };
+function migratePageImageCache(proj, oldPrefix, newPrefix) {
+  if (oldPrefix === newPrefix || !proj.assets || !proj.assets.generated) return;
+  Object.keys(EDITOR_SLOT_ROLE_BY_BASE).forEach(base => {
+    const oldSlot = oldPrefix + base;
+    const entry = proj.assets.generated[oldSlot];
+    if (!entry) return;
+    delete proj.assets.generated[oldSlot];
+    // A still-in-flight request closed over the OLD slot name; it will
+    // safely no-op against the now-deleted key when it resolves (see
+    // resolveImagePlanAssets). Dropping rather than migrating a 'pending'
+    // entry lets the very next resolveImagePlanAssets call -- always
+    // triggered right after a slug change -- start a fresh, correctly-keyed
+    // request instead of leaving a stuck marker nothing will ever resolve.
+    if (entry.status === 'pending') return;
+    const newSlot = newPrefix + base;
+    proj.assets.generated[newSlot] = { ...entry, cacheKey: computeImageCacheKey(proj, EDITOR_SLOT_ROLE_BY_BASE[base], newSlot) };
+  });
+}
+function changePageSlug(proj, pageId, newSlugRaw) {
+  const pageIndex = findPageIndexById(proj, pageId);
+  if (pageIndex <= 0) return false; // Home's slug ('') is permanently fixed -- the same invariant V8.2 established
+  const page = proj.pages[pageIndex];
+  const oldPrefix = pageSlotPrefix(page);
+  const usedSlugs = new Set(proj.pages.filter((p, i) => i !== pageIndex).map(p => p.slug));
+  const candidate = sanitizeSlug(newSlugRaw) || 'page';
+  page.slug = uniqueSlug(candidate, usedSlugs);
+  migratePageImageCache(proj, oldPrefix, pageSlotPrefix(page));
+  return true;
+}
+function reorderPage(proj, pageId, targetIndex) {
+  if (!Array.isArray(proj.pages)) return false;
+  const idx = findPageIndexById(proj, pageId);
+  if (idx <= 0) return false; // Home (always index 0) can never be reordered, nor can anything be reordered into index 0
+  const activePage = proj.pages[proj.activePageIndex];
+  const activeId = activePage ? activePage.id : null;
+  const clamped = Math.max(1, Math.min(proj.pages.length - 1, targetIndex));
+  if (clamped !== idx) {
+    const [item] = proj.pages.splice(idx, 1);
+    proj.pages.splice(clamped, 0, item);
+  }
+  if (activeId) {
+    const newActiveIdx = proj.pages.findIndex(p => p.id === activeId);
+    if (newActiveIdx !== -1) proj.activePageIndex = newActiveIdx;
+  }
+  syncActivePageSections(proj);
+  return true;
+}
+function removePage(proj, pageId) {
+  if (!Array.isArray(proj.pages) || proj.pages.length <= 1) return false;
+  const idx = findPageIndexById(proj, pageId);
+  if (idx <= 0) return false; // Home can never be removed
+  proj.pages.splice(idx, 1);
+  if (proj.activePageIndex >= proj.pages.length) proj.activePageIndex = proj.pages.length - 1;
+  else if (proj.activePageIndex > idx) proj.activePageIndex -= 1;
+  syncActivePageSections(proj);
+  return true;
+}
+
+// ---- Hero/section variant remixing -----------------------------------------
+// Swaps only the visual TREATMENT -- never touches copy/content, never
+// makes a Claude call. Whether this needs a new generated image is decided
+// entirely by the existing buildImagePlan/resolveImagePlanAssets funnel the
+// next time the caller re-renders: buildImagePlan derives the hero image
+// slot purely from `dimensions.hero` (see heroHasVisual), so switching
+// between two visual hero layouts with the SAME category/imagery/text
+// reuses the exact same cache entry (the cache key never encodes the hero
+// layout itself), and switching to a text-only layout simply stops
+// planning that slot at all -- neither path is special-cased here.
+function swapHeroLayout(proj, newHeroKey) {
+  if (!CLAUDE_HERO_KEYS.includes(newHeroKey)) return false;
+  proj.design.dimensions.hero = newHeroKey;
+  return true;
+}
+// Only a variant a renderer actually branches on is offered -- swapping to
+// anything else would be a silent no-op in the UI, which is worse than not
+// offering it. Kept in sync with the render*() functions themselves.
+const SECTION_VARIANT_OPTIONS = {
+  services: ['numbered', 'described'],
+  gallery: ['grid', 'featured'],
+  caseStudies: ['grid', 'featured'],
+  testimonial: ['card', 'centered'],
+  about: ['statement', 'split'],
+  ctaBanner: ['plain', 'accent']
+};
+function swapSectionVariant(proj, pageId, sectionId, newVariant) {
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section) return false;
+  const allowed = SECTION_VARIANT_OPTIONS[section.type];
+  if (!allowed || !allowed.includes(newVariant)) return false;
+  section.variant = newVariant;
+  return true;
+}
+
+// ---- Copy editing ------------------------------------------------------------
+// The exact same field set sectionCopyField already threads into each
+// renderer -- see the field-availability map the editor UI uses
+// (SECTION_EDITABLE_FIELDS below) to only ever offer a field a renderer
+// actually reads. That map is what keeps the V8.2 fabrication boundary
+// intact here too: proof/metrics have no editable fields at all (fact-
+// gated, numbers-only, never copy-driven -- see renderProof), and
+// testimonial/testimonialsGrid never expose the quote/attribution text
+// itself (only testimonialsGrid's own label, which is all its renderer
+// ever reads from `copy`) -- so this generic setter can never be used, via
+// the shipped UI, to fabricate a proof stat or put invented words in a
+// customer's mouth. editSectionCopy itself stays a plain, general setter
+// (defense in depth: even a value written to an excluded field is simply
+// never rendered, because the corresponding render function never calls
+// sectionCopyField for it).
+const EDITOR_COPY_FIELD_LIMITS = { headline: 160, subhead: 220, body: 500, ctaLabel: 40 };
+const SECTION_EDITABLE_FIELDS = {
+  services: ['headline', 'body'], features: ['headline', 'body'], productShowcase: ['headline', 'body'],
+  integrations: ['headline'], pricing: ['headline', 'body', 'ctaLabel'], faq: ['headline', 'body'],
+  process: ['headline', 'body'], gallery: ['headline', 'body'], caseStudies: ['headline', 'body'],
+  imageLedEditorial: ['body'], about: ['headline', 'body'], team: ['headline'],
+  testimonialsGrid: ['headline'], menu: ['headline', 'body'], reservationCta: ['headline', 'ctaLabel'],
+  serviceAreas: ['headline'], contact: ['headline', 'ctaLabel'], newsletter: ['headline'],
+  ctaBanner: ['headline', 'ctaLabel']
+  // proof, metrics, testimonial: deliberately absent -- see the comment above.
+};
+function editSectionCopy(proj, pageId, sectionId, field, value) {
+  if (!(field in EDITOR_COPY_FIELD_LIMITS)) return false;
+  const page = findPageById(proj, pageId);
+  const section = page && findSectionById(page, sectionId);
+  if (!section) return false;
+  if (!(SECTION_EDITABLE_FIELDS[section.type] || []).includes(field)) return false;
+  if (!section.copy) section.copy = { headline: '', subhead: '', body: '', ctaLabel: '', claims: [] };
+  section.copy[field] = String(value == null ? '' : value).slice(0, EDITOR_COPY_FIELD_LIMITS[field]);
+  return true;
+}
+
+// ---- Undo / redo -------------------------------------------------------------
+// Bounded, whole-project immutable snapshots -- not fragile partial inverse
+// operations. Keyed by the direction OBJECT's own identity via a WeakMap
+// (not an array index, not a serialized id) so: (a) each direction gets its
+// own independent history for free, with no explicit reset code needed
+// anywhere switchDirection/finishGeneration/loadProjectFromStorage already
+// run, because a freshly-admitted or freshly-restored direction is always a
+// brand-new object the WeakMap has never seen -- satisfying "generation
+// completion/restoring a saved project establishes a fresh baseline"
+// without a single extra line at either of those call sites; (b) direction
+// switching itself is not and cannot become an undo event, because nothing
+// about switching ever touches this WeakMap; and (c) a direction's history
+// is automatically released for GC once nothing else references that
+// direction object any more (e.g. after loading a different saved project
+// replaces `directions` with entirely new objects) -- a plain Map would
+// leak every superseded direction's snapshots for the rest of the session.
+const EDITOR_UNDO_LIMIT = 40;
+const editorHistory = new WeakMap();
+function getEditorHistory(proj) {
+  if (!proj) return { undo: [], redo: [] };
+  if (!editorHistory.has(proj)) editorHistory.set(proj, { undo: [], redo: [] });
+  return editorHistory.get(proj);
+}
+// A project's own shape is already guaranteed plain/serializable (it is
+// saved to localStorage as JSON today), so a JSON round-trip is an exact,
+// simple, dependency-free deep clone -- no shared references with the live
+// project survive it.
+function snapshotProjectForUndo(proj) { return JSON.parse(JSON.stringify(proj)); }
+function pushEditorUndoSnapshot() {
+  if (!project) return;
+  const h = getEditorHistory(project);
+  h.undo.push(snapshotProjectForUndo(project));
+  if (h.undo.length > EDITOR_UNDO_LIMIT) h.undo.shift();
+  h.redo = []; // a fresh edit always invalidates whatever redo branch existed
+}
+// Replaces the ACTIVE direction object's own contents in place (never
+// reassigns `directions[activeDirectionIndex]` or `project` to a new
+// reference) so every piece of the app that depends on that identity --
+// direction switching, the V8.1.2 rollback invariant, this very WeakMap --
+// keeps working unchanged.
+function applyRestoredSnapshot(snapshot) {
+  Object.keys(project).forEach(k => { delete project[k]; });
+  Object.assign(project, snapshot);
+  syncActivePageSections(project);
+  renderProject(project);
+  persistDirectionsSilently();
+  // Never requests anything the snapshot's own restored assets.generated
+  // cache doesn't already justify -- resolveImagePlanAssets' own dedupe
+  // check (matching cacheKey + ready/pending) means restoring a snapshot
+  // that already had an image resolved reuses it, exactly like restoring a
+  // saved project does today.
+  resolveImagePlanAssets(project);
+}
+function editorUndo() {
+  if (!project || generationInFlight) return false;
+  const h = getEditorHistory(project);
+  if (!h.undo.length) return false;
+  const current = snapshotProjectForUndo(project);
+  const previous = h.undo.pop();
+  h.redo.push(current);
+  if (h.redo.length > EDITOR_UNDO_LIMIT) h.redo.shift();
+  applyRestoredSnapshot(previous);
+  return true;
+}
+function editorRedo() {
+  if (!project || generationInFlight) return false;
+  const h = getEditorHistory(project);
+  if (!h.redo.length) return false;
+  const current = snapshotProjectForUndo(project);
+  const next = h.redo.pop();
+  h.undo.push(current);
+  if (h.undo.length > EDITOR_UNDO_LIMIT) h.undo.shift();
+  applyRestoredSnapshot(next);
+  return true;
+}
+// The one entry point every editor UI action goes through: snapshot first
+// (so it's always undoable), run the pure model mutation, and only render/
+// persist/request-images if the mutation actually succeeded -- a refused
+// edit (an invalid id, a guardrail like "Home can't be removed") pops its
+// own just-pushed snapshot back off rather than leaving a no-op entry in
+// undo history. `imagesMayChange` is passed by callers whose mutation could
+// plausibly add or drop a real image-bearing slot (see buildImagePlan);
+// resolveImagePlanAssets' own cache-key check makes calling it a safe no-op
+// whenever nothing actually changed.
+function runEditorAction(mutateFn, imagesMayChange) {
+  if (!project || generationInFlight) return false;
+  pushEditorUndoSnapshot();
+  const result = mutateFn();
+  if (!result) {
+    const h = getEditorHistory(project);
+    h.undo.pop();
+    return false;
+  }
+  renderProject(project);
+  persistDirectionsSilently();
+  if (imagesMayChange) resolveImagePlanAssets(project);
+  return true;
+}
+
 // ---- WebsiteProject construction + rendering -----------------------------
 function createProject(analysis, preserved, isDemoShell) {
   const category = categories[analysis.categoryKey] || categories.other;
@@ -1704,12 +2113,18 @@ function renderProject(proj) {
   // in-place (the animated build steps), with zero changes needed at those
   // call sites. A no-op once things are already in sync (the common case).
   syncActivePageSections(proj);
+  // V8.3: guarantees every page/section has a stable editor id before
+  // anything (including the editor panel itself) reads proj.pages -- see
+  // ensureEditorIds' own comment for why this is the one universal call
+  // site that covers every existing project-construction path for free.
+  ensureEditorIds(proj);
   const category = categories[proj.business.categoryKey] || categories.other;
   proj.assets.plan = planAssets(proj.assets);
   proj.imagePlan = buildImagePlan(proj, category);
   applyDesignDataset(proj);
   renderSections(proj, category);
   renderChrome(proj, category);
+  renderEditorPanel(proj, category);
 }
 function renderAssetPanels(proj) {
   const byType = t => proj.assets.items.filter(a => a.type === t);
@@ -1717,6 +2132,111 @@ function renderAssetPanels(proj) {
   if (heroAssetThumbs) heroAssetThumbs.innerHTML = byType('hero').map(thumbHtml).join('');
   if (galleryAssetThumbs) galleryAssetThumbs.innerHTML = byType('gallery').map(thumbHtml).join('');
   if (teamAssetThumbs) teamAssetThumbs.innerHTML = byType('team').map(thumbHtml).join('');
+}
+
+// ---- V8.3: editor panel rendering ------------------------------------------
+// A friendly display label for a section type / variant key -- editor UI
+// only, never shown anywhere in the generated site itself.
+const EDITOR_TYPE_LABEL_OVERRIDES = { faq: 'FAQ', ctaBanner: 'CTA Banner', productShowcase: 'Product Showcase', imageLedEditorial: 'Editorial', testimonialsGrid: 'Testimonials Grid', reservationCta: 'Reservation CTA', serviceAreas: 'Service Areas', headline: 'Headline', subhead: 'Subheading', body: 'Body text', ctaLabel: 'Button label' };
+function humanizeEditorLabel(key) {
+  if (EDITOR_TYPE_LABEL_OVERRIDES[key]) return EDITOR_TYPE_LABEL_OVERRIDES[key];
+  const spaced = String(key || '').replace(/-/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+// Pure function of the model, exactly like renderSections/renderChrome --
+// rebuilds the whole panel's innerHTML from proj every render; all
+// interaction is delegated (see the pageSectionEditor listeners below), so
+// nothing here needs to re-attach a single event handler.
+function renderEditorPanel(proj, category) {
+  if (!editorPageTabs || !proj || !Array.isArray(proj.pages)) return;
+  const pages = proj.pages;
+  const activeIdx = Math.max(0, Math.min(pages.length - 1, proj.activePageIndex || 0));
+  const activePage = pages[activeIdx];
+  const history = getEditorHistory(proj);
+
+  if (editorUndoBtn) editorUndoBtn.disabled = !history.undo.length;
+  if (editorRedoBtn) editorRedoBtn.disabled = !history.redo.length;
+  if (editorAddPageBtn) editorAddPageBtn.disabled = pages.length >= MAX_PAGES;
+
+  editorPageTabs.innerHTML = pages.map((p, i) =>
+    `<button type="button" class="editor-page-tab${i === activeIdx ? ' active' : ''}" data-action="editor-page-tab" data-page-id="${p.id}">${escapeHtml(p.label || (i === 0 ? 'Home' : `Page ${i + 1}`))}</button>`
+  ).join('');
+
+  if (editorPageDetail) {
+    if (!activePage) {
+      editorPageDetail.innerHTML = '';
+    } else {
+      const isHome = activeIdx === 0;
+      editorPageDetail.innerHTML = `
+        <div class="editor-page-detail-row">
+          <label>Page title<input type="text" data-action="editor-page-rename" data-page-id="${activePage.id}" value="${escapeHtml(activePage.label || '')}" maxlength="40" /></label>
+          ${isHome ? '' : `<label>Page path<div class="editor-slug-row"><span>/</span><input type="text" data-action="editor-page-slug" data-page-id="${activePage.id}" value="${escapeHtml(activePage.slug || '')}" maxlength="40" /></div></label>`}
+        </div>
+        <div class="editor-page-detail-actions">
+          ${isHome ? '<span class="editor-home-note">Home is always the first page and can’t be moved or removed.</span>' : `
+            <button type="button" data-action="editor-page-move-left" data-page-id="${activePage.id}"${activeIdx <= 1 ? ' disabled' : ''}>← Move earlier</button>
+            <button type="button" data-action="editor-page-move-right" data-page-id="${activePage.id}"${activeIdx >= pages.length - 1 ? ' disabled' : ''}>Move later →</button>
+            <button type="button" class="editor-danger" data-action="editor-page-remove" data-page-id="${activePage.id}">Remove page</button>
+          `}
+        </div>`;
+    }
+  }
+
+  // A project-level dimension, not a per-page one -- applies to Home's real
+  // hero only (see renderHero); secondary pages use the lightweight page
+  // header instead (renderPageHeader) and are unaffected by this control.
+  if (editorHeroSelect) {
+    editorHeroSelect.innerHTML = CLAUDE_HERO_KEYS.map(k => `<option value="${k}"${proj.design.dimensions.hero === k ? ' selected' : ''}>${humanizeEditorLabel(k)}</option>`).join('');
+  }
+
+  const sections = activePage ? (activePage.sections || []) : [];
+  if (editorSectionList) {
+    if (!sections.length) {
+      editorSectionList.innerHTML = '<p class="editor-empty-note">No content sections on this page yet.</p>';
+    } else {
+      const otherPages = pages.filter(p => p.id !== (activePage && activePage.id));
+      editorSectionList.innerHTML = sections.map((s, i) => {
+        const variantOptions = SECTION_VARIANT_OPTIONS[s.type];
+        const fields = SECTION_EDITABLE_FIELDS[s.type] || [];
+        return `<div class="editor-section-card" data-section-id="${s.id}">
+          <div class="editor-section-card-head">
+            <strong>${escapeHtml(humanizeEditorLabel(s.type))}</strong>
+            <div class="editor-section-card-controls">
+              <button type="button" data-action="editor-section-up" data-section-id="${s.id}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button>
+              <button type="button" data-action="editor-section-down" data-section-id="${s.id}" aria-label="Move down"${i === sections.length - 1 ? ' disabled' : ''}>↓</button>
+              <button type="button" data-action="editor-section-duplicate" data-section-id="${s.id}">Duplicate</button>
+              <button type="button" class="editor-danger" data-action="editor-section-remove" data-section-id="${s.id}">Remove</button>
+            </div>
+          </div>
+          <div class="editor-section-card-row">
+            ${otherPages.length ? `<label>Move to page<select data-action="editor-section-move-page" data-section-id="${s.id}"><option value="">Move to…</option>${otherPages.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('')}</select></label>` : ''}
+            ${variantOptions ? `<label>Layout<select data-action="editor-section-variant" data-section-id="${s.id}">${variantOptions.map(v => `<option value="${v}"${s.variant === v ? ' selected' : ''}>${humanizeEditorLabel(v)}</option>`).join('')}</select></label>` : ''}
+          </div>
+          ${fields.length ? `<div class="editor-section-copy-fields">${fields.map(f => f === 'body'
+            ? `<label>${humanizeEditorLabel(f)}<textarea rows="2" data-action="editor-section-copy" data-section-id="${s.id}" data-field="${f}" maxlength="${EDITOR_COPY_FIELD_LIMITS[f]}">${escapeHtml(sectionCopyField(s, f, ''))}</textarea></label>`
+            : `<label>${humanizeEditorLabel(f)}<input type="text" data-action="editor-section-copy" data-section-id="${s.id}" data-field="${f}" maxlength="${EDITOR_COPY_FIELD_LIMITS[f]}" value="${escapeHtml(sectionCopyField(s, f, ''))}" /></label>`
+          ).join('')}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+  }
+
+  if (editorImportPanel) {
+    const otherDirections = directions.map((d, i) => ({ d, i })).filter(x => x.d !== proj);
+    if (!otherDirections.length) {
+      editorImportPanel.innerHTML = '';
+    } else {
+      const selected = editorImportPanel.dataset.selectedDirection ? Number(editorImportPanel.dataset.selectedDirection) : otherDirections[0].i;
+      const sourceDir = directions[selected];
+      const importableRows = sourceDir ? (sourceDir.pages || []).flatMap(p => (p.sections || []).map(s => ({ p, s }))) : [];
+      editorImportPanel.innerHTML = `
+        <label>Import from<select data-action="editor-import-source">${otherDirections.map(x => `<option value="${x.i}"${x.i === selected ? ' selected' : ''}>Direction ${x.i + 1}</option>`).join('')}</select></label>
+        <button type="button" data-action="editor-import-hero" data-source-direction="${selected}">Use Direction ${selected + 1}’s hero style</button>
+        <div class="editor-import-list">${importableRows.length ? importableRows.map(({ p, s }) =>
+          `<div class="editor-import-row"><span>${escapeHtml(p.label)} — ${escapeHtml(humanizeEditorLabel(s.type))}</span><button type="button" data-action="editor-import-section" data-source-direction="${selected}" data-source-page-id="${p.id}" data-section-id="${s.id}">Import</button></div>`
+        ).join('') : '<p class="editor-empty-note">That direction has no content sections to import.</p>'}</div>`;
+    }
+  }
 }
 
 // ---- Serialization / persistence (client-side this pass -- see SITE-PROJECT-V5.md part 6) ----
@@ -1890,6 +2410,123 @@ const loadProjectButtonLock = $('#loadProjectButtonLock');
 const projectDataStatus = $('#projectDataStatus');
 const projectDataStatusLock = $('#projectDataStatusLock');
 
+// V8.3: editor/remix panel elements -- a compact control-block inside the
+// same collapsible "Advanced customization" drawer the color/layout/section
+// controls already live in, deliberately not a permanent overlay on the
+// live site preview itself (see SITE-PROJECT-V8.3.md part 8). Its own
+// innerHTML is rebuilt wholesale by renderEditorPanel on every
+// renderProject call -- the same pattern renderSections/renderAssetPanels
+// already use -- so all interaction is wired once via delegation on the
+// stable outer containers below rather than re-attached per render.
+const pageSectionEditor = $('#pageSectionEditor');
+const editorUndoBtn = $('#editorUndoBtn');
+const editorRedoBtn = $('#editorRedoBtn');
+const editorAddPageBtn = $('#editorAddPageBtn');
+const editorHeroSelect = $('#editorHeroSelect');
+const editorPageTabs = $('#editorPageTabs');
+const editorPageDetail = $('#editorPageDetail');
+const editorSectionList = $('#editorSectionList');
+const editorImportPanel = $('#editorImportPanel');
+
+// V8.3: the editor panel is wired the same way page nav is -- one delegated
+// click listener and one delegated change listener on the panel's stable
+// outer container, since renderEditorPanel replaces the inner HTML of
+// every sub-section on each render. Every mutation goes through
+// runEditorAction (snapshot -> mutate -> render/persist/maybe-resolve-
+// images); undo/redo and plain page navigation are the only two actions
+// that deliberately do NOT (navigating is not an edit -- see switchPage's
+// own contract; undo/redo must not themselves become undoable).
+if (pageSectionEditor) {
+  pageSectionEditor.addEventListener('click', event => {
+    if (!project) return;
+    const btn = event.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const pageId = btn.dataset.pageId;
+    const sectionId = btn.dataset.sectionId;
+    const activePage = project.pages[project.activePageIndex];
+    switch (action) {
+      case 'editor-undo': editorUndo(); return;
+      case 'editor-redo': editorRedo(); return;
+      case 'editor-page-tab': { const idx = findPageIndexById(project, pageId); if (idx !== -1) switchPage(idx); return; }
+      case 'editor-add-page':
+        runEditorAction(() => {
+          const p = addPage(project, `Page ${project.pages.length + 1}`);
+          if (!p) return false;
+          const idx = findPageIndexById(project, p.id);
+          project.activePageIndex = idx;
+          project.sections = project.pages[idx].sections;
+          return true;
+        }, false);
+        return;
+      case 'editor-page-move-left':
+        runEditorAction(() => reorderPage(project, pageId, findPageIndexById(project, pageId) - 1), false);
+        return;
+      case 'editor-page-move-right':
+        runEditorAction(() => reorderPage(project, pageId, findPageIndexById(project, pageId) + 1), false);
+        return;
+      case 'editor-page-remove':
+        runEditorAction(() => removePage(project, pageId), true);
+        return;
+      case 'editor-section-up':
+        runEditorAction(() => moveSection(project, activePage.id, sectionId, findSectionIndex(activePage, sectionId) - 1), false);
+        return;
+      case 'editor-section-down':
+        runEditorAction(() => moveSection(project, activePage.id, sectionId, findSectionIndex(activePage, sectionId) + 1), false);
+        return;
+      case 'editor-section-duplicate':
+        runEditorAction(() => !!duplicateSection(project, activePage.id, sectionId), true);
+        return;
+      case 'editor-section-remove':
+        runEditorAction(() => removeSection(project, activePage.id, sectionId), true);
+        return;
+      case 'editor-import-hero':
+        runEditorAction(() => importHeroFromDirection(Number(btn.dataset.sourceDirection)), true);
+        return;
+      case 'editor-import-section':
+        runEditorAction(() => !!importSectionFromDirection(Number(btn.dataset.sourceDirection), btn.dataset.sourcePageId, sectionId, activePage.id, activePage.sections.length), true);
+        return;
+    }
+  });
+  pageSectionEditor.addEventListener('change', event => {
+    if (!project) return;
+    const el = event.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    const pageId = el.dataset.pageId;
+    const sectionId = el.dataset.sectionId;
+    const activePage = project.pages[project.activePageIndex];
+    switch (action) {
+      case 'editor-page-rename':
+        runEditorAction(() => renamePage(project, pageId, el.value), false);
+        return;
+      case 'editor-page-slug':
+        runEditorAction(() => changePageSlug(project, pageId, el.value), true);
+        return;
+      case 'editor-hero-swap':
+        runEditorAction(() => swapHeroLayout(project, el.value), true);
+        return;
+      case 'editor-section-variant':
+        runEditorAction(() => swapSectionVariant(project, activePage.id, sectionId, el.value), true);
+        return;
+      case 'editor-section-move-page': {
+        if (!el.value) return; // the "Move to…" placeholder was re-selected -- not a real choice
+        const targetPage = findPageById(project, el.value);
+        if (!targetPage) return;
+        runEditorAction(() => moveSectionToPage(project, activePage.id, sectionId, targetPage.id, targetPage.sections.length), true);
+        return;
+      }
+      case 'editor-section-copy':
+        runEditorAction(() => editSectionCopy(project, activePage.id, sectionId, el.dataset.field, el.value), false);
+        return;
+      case 'editor-import-source':
+        editorImportPanel.dataset.selectedDirection = el.value;
+        renderEditorPanel(project, categories[project.business.categoryKey] || categories.other);
+        return;
+    }
+  });
+}
+
 // ---- Module state -----------------------------------------------------
 // V8.1: the real product rule is "a visitor gets exactly 3 complete website
 // directions, total -- through Claude OR the deterministic engine, doesn't
@@ -1944,6 +2581,23 @@ try {
       slugs: (project && Array.isArray(project.pages)) ? project.pages.map(p => p.slug) : [],
       max: MAX_PAGES
     })
+  });
+  // V8.3: read-only, same pattern as the two hooks above -- lets tests
+  // observe the ACTIVE direction's own undo/redo depth (and, for
+  // convenience, the current page's own section ids in nav order, so a
+  // test can assert on reorder/duplicate/move results without reaching
+  // into module-private state) without exposing any way to mutate it.
+  Object.defineProperty(window, '__siteremadeEditor', {
+    get: () => {
+      const h = project ? getEditorHistory(project) : { undo: [], redo: [] };
+      const activePage = (project && Array.isArray(project.pages)) ? project.pages[project.activePageIndex] : null;
+      return {
+        undoCount: h.undo.length,
+        redoCount: h.redo.length,
+        sectionIds: activePage ? (activePage.sections || []).map(s => s.id) : [],
+        pageIds: (project && Array.isArray(project.pages)) ? project.pages.map(p => p.id) : []
+      };
+    }
   });
 } catch (e) { /* ignore in environments where this isn't definable */ }
 

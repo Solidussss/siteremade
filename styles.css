@@ -1307,3 +1307,57 @@ html,body{max-width:100%;overflow-x:hidden}
   .editorial-visual{height:260px}
 }
 
+/* ---- V8.3: page/section editor -------------------------------------------
+   Lives inside the existing "Advanced customization" collapsible drawer
+   (see SITE-PROJECT-V8.3.md part 8) -- deliberately not an overlay on the
+   live site preview, so the generated-site preview keeps reading as a real
+   website rather than gaining permanent editor chrome. */
+.editor-control-block{grid-column:1/-1}
+.editor-toolbar{display:flex;gap:8px;margin-bottom:14px}
+.editor-toolbar button{border:1px solid #d8dae0;background:#fff;border-radius:999px;font-size:10px;min-height:34px;padding:0 14px;cursor:pointer}
+.editor-toolbar button:disabled{opacity:.4;cursor:default}
+.editor-toolbar #editorAddPageBtn{margin-left:auto}
+.editor-hero-select-label{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#525660;margin-bottom:14px}
+.editor-hero-select-label select{width:100%;height:40px;border:1px solid #d8dae0;background:#fff;border-radius:9px;margin-top:6px;padding:0 10px}
+.editor-page-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.editor-page-tab{border:1px solid #d8dae0;background:#fff;border-radius:999px;font-size:10px;min-height:32px;padding:0 13px;cursor:pointer}
+.editor-page-tab.active{background:#111;color:#fff;border-color:#111}
+.editor-page-detail{background:#f7f7f8;border:1px solid #dddfe4;border-radius:12px;padding:14px;margin-bottom:14px}
+.editor-page-detail-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.editor-page-detail-row label{font-size:10px;letter-spacing:.05em;color:#6b6f78}
+.editor-page-detail-row input{width:100%;height:38px;border:1px solid #d8dae0;background:#fff;border-radius:8px;margin-top:5px;padding:0 10px;font-size:12px}
+.editor-slug-row{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #d8dae0;border-radius:8px;margin-top:5px;padding:0 8px}
+.editor-slug-row span{color:#9a9ea7;font-size:12px}
+.editor-slug-row input{border:0;height:36px;padding:0;margin:0}
+.editor-page-detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.editor-page-detail-actions button{border:1px solid #d8dae0;background:#fff;border-radius:999px;font-size:10px;min-height:32px;padding:0 12px;cursor:pointer}
+.editor-page-detail-actions button:disabled{opacity:.4;cursor:default}
+.editor-page-detail-actions .editor-danger{border-color:#e3b3ad;color:#a3352a}
+.editor-home-note{font-size:11px;color:#6b6f78;align-self:center}
+.editor-section-list{display:flex;flex-direction:column;gap:10px}
+.editor-section-card{border:1px solid #dddfe4;border-radius:12px;padding:12px;background:#fff}
+.editor-section-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.editor-section-card-head strong{font-size:12px}
+.editor-section-card-controls{display:flex;gap:5px}
+.editor-section-card-controls button{border:1px solid #d8dae0;background:#fff;border-radius:8px;font-size:10px;min-height:28px;padding:0 9px;cursor:pointer}
+.editor-section-card-controls button:disabled{opacity:.35;cursor:default}
+.editor-section-card-controls .editor-danger{border-color:#e3b3ad;color:#a3352a}
+.editor-section-card-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.editor-section-card-row label{font-size:10px;color:#6b6f78}
+.editor-section-card-row select{width:100%;height:36px;border:1px solid #d8dae0;background:#fff;border-radius:8px;margin-top:4px;padding:0 8px;font-size:11px}
+.editor-section-copy-fields{display:grid;gap:8px;margin-top:10px}
+.editor-section-copy-fields label{font-size:10px;color:#6b6f78;display:block}
+.editor-section-copy-fields input,.editor-section-copy-fields textarea{width:100%;border:1px solid #d8dae0;background:#fbfbfc;border-radius:8px;margin-top:4px;padding:7px 9px;font-size:12px;font-family:inherit;resize:vertical}
+.editor-empty-note{font-size:11px;color:#6b6f78;margin:0}
+.editor-import{margin-top:14px;padding-top:14px;border-top:1px solid #dddfe4}
+.editor-import label{display:block;font-size:10px;color:#6b6f78;margin-bottom:10px}
+.editor-import select{width:100%;height:38px;border:1px solid #d8dae0;background:#fff;border-radius:8px;margin-top:5px;padding:0 10px}
+.editor-import>button{border:1px solid #d8dae0;background:#fff;border-radius:999px;font-size:10px;min-height:32px;padding:0 12px;cursor:pointer;margin-bottom:10px}
+.editor-import-list{display:flex;flex-direction:column;gap:6px}
+.editor-import-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;background:#f7f7f8;border-radius:8px;padding:8px 10px}
+.editor-import-row button{border:1px solid #d8dae0;background:#fff;border-radius:999px;font-size:10px;min-height:26px;padding:0 10px;cursor:pointer}
+@media (max-width:720px){
+  .editor-page-detail-row{grid-template-columns:1fr}
+  .editor-section-card-row{grid-template-columns:1fr}
+}
+

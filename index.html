@@ -244,6 +244,21 @@
               </div>
               <p class="project-data-status" id="projectDataStatus"></p>
             </div>
+
+            <div class="control-block editor-control-block" id="pageSectionEditor">
+              <label class="control-label">Pages &amp; sections</label>
+              <p class="asset-block-note">Reorder, duplicate, move or remove sections, edit their text, swap a layout, or bring in a section from another direction — every change here is a real edit to this direction, made instantly, with no new AI generation.</p>
+              <div class="editor-toolbar">
+                <button type="button" id="editorUndoBtn" data-action="editor-undo" disabled>Undo</button>
+                <button type="button" id="editorRedoBtn" data-action="editor-redo" disabled>Redo</button>
+                <button type="button" id="editorAddPageBtn" data-action="editor-add-page">+ Add page</button>
+              </div>
+              <label class="editor-hero-select-label">Hero visual style<select id="editorHeroSelect" data-action="editor-hero-swap"></select></label>
+              <div class="editor-page-tabs" id="editorPageTabs"></div>
+              <div class="editor-page-detail" id="editorPageDetail"></div>
+              <div class="editor-section-list" id="editorSectionList"></div>
+              <div class="editor-import" id="editorImportPanel"></div>
+            </div>
           </div>
         </details>
       </div>
