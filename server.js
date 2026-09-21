@@ -309,12 +309,8 @@ app.post('/api/generate-image', async (req, res) => {
 // `configured()` check rather than faking a plan when none can be produced.
 // Audited before writing this (SITE-PROJECT-V8.md part 1): unlike
 // api.openai.com (blocked by this sandbox's egress policy), api.anthropic.com
-// IS network-reachable from here -- but no ANTHROPIC_API_KEY is set for this
-// app to use (this container's own Claude access uses a different, internal
-// credential that is not a usable API key for a separate deployed app, and
-// is never read or reused here). So `configured()` is honestly false in this
-// environment too, and every generation falls back to the real V7
-// deterministic engine -- nothing is faked.
+// IS network-reachable from here. `configured()` reflects the deployment's
+// server-side `ANTHROPIC_API_KEY` configuration.
 //
 // Claude is asked for a PLAN, never code: the request forces a single tool
 // call (`submit_website_plan`) whose JSON Schema enum-constrains every
@@ -326,6 +322,25 @@ app.post('/api/generate-image', async (req, res) => {
 // every field against a known-safe allowlist rather than trusting free text.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+const plannerDiagnostics = { lastAttempt: null };
+
+function categorizeAnthropicError(error) {
+  const status = Number(error && error.status);
+  const message = String(error && error.message || error || '').toLowerCase();
+  if (error && error.name === 'AbortError' || /\btimeout\b|timed out|aborted/.test(message)) return 'timeout';
+  if (status === 401 || status === 403 || /\bauth(?:entication|orization)?\b|api key|invalid x-api-key|permission/.test(message)) return 'auth_error';
+  if (status === 429 || /rate limit|too many requests|rate_limited/.test(message)) return 'rate_limited';
+  if (status === 400 || status === 404 || /invalid model|unknown model|model.*not found|endpoint.*not found|invalid endpoint/.test(message)) return 'invalid_model_or_endpoint';
+  if (error && (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') || /fetch failed|network|connect/.test(message)) return 'network_error';
+  return 'provider_error';
+}
+
+function recordPlannerAttempt(attempt) {
+  plannerDiagnostics.lastAttempt = {
+    timestamp: new Date().toISOString(),
+    ...attempt
+  };
+}
 
 const HERO_KEYS = ['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot'];
 const TYPE_KEYS = ['geo-sans','serif-editorial','display-condensed','classic-serif-mix','mono-technical','humanist'];
@@ -551,7 +566,11 @@ const anthropicProvider = {
         signal: controller.signal
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`);
+      if (!response.ok) {
+        const error = new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
       const toolUse = (data.content || []).find(b => b.type === 'tool_use' && b.name === 'submit_website_plan');
       if (!toolUse || !toolUse.input) throw new Error('Model did not return a structured plan');
       return { plan: toolUse.input, usage: data.usage || {}, model: data.model || ANTHROPIC_MODEL };
@@ -584,6 +603,14 @@ app.get('/api/generation-status', (req, res) => {
     claudeDirectionsUsed: entry.claudeDirectionsUsed,
     maxClaudeDirections: MAX_DIRECTIONS,
     claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed)
+  });
+});
+
+app.get('/api/planner-status', (req, res) => {
+  res.json({
+    configured: anthropicProvider.configured(),
+    model: ANTHROPIC_MODEL,
+    lastAttempt: plannerDiagnostics.lastAttempt
   });
 });
 
@@ -635,6 +662,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   try {
     const { plan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
+    recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
     if (authed) entitlement.commitDirection(db, req.accountId); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
@@ -644,6 +672,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
+    recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
     if (authed) entitlement.releaseDirection(db, req.accountId); // a failed attempt never permanently consumes a direction
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
