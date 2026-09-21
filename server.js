@@ -10,8 +10,14 @@ const crypto = require('crypto');
 // own Supabase project -- the same "don't touch the production app/
 // database casually" boundary V8/V6 already established for the anonymous
 // generation ledger below.
-const { getDb } = require('./lib/db.js');
-const auth = require('./lib/auth.js');
+// V8.7: server.js talks to a DatabaseAdapter, not a raw node:sqlite handle
+// -- see lib/adapters/database-adapter.js. SITEREMADE_BACKEND selects which
+// implementation ('local' by default, matching every prior version's
+// behavior exactly); domain modules below are unchanged in how they're
+// called (still `fn(db, ...)`), only what `db` unlocks internally changed.
+const { getDatabaseAdapter } = require('./lib/adapters/database-adapter.js');
+const { getAuthProvider } = require('./lib/adapters/auth-provider.js');
+const authProvider = getAuthProvider();
 const projectStore = require('./lib/project-store.js');
 const purchase = require('./lib/purchase.js');
 const entitlement = require('./lib/entitlement.js');
@@ -34,7 +40,11 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 // A real file-backed database by default (durable across restarts, which
 // is the entire point) -- DB_PATH lets a test harness point this at a
 // throwaway file or ':memory:' instead, without touching this file.
-const db = getDb(process.env.SITEREMADE_DB_PATH);
+// SITEREMADE_BACKEND=production instead gets the production adapter
+// contract, which fails closed immediately if required config is missing
+// (see lib/adapters/production-database-adapter.js) -- never a silent
+// fallback to this local database.
+const db = getDatabaseAdapter(process.env.SITEREMADE_DB_PATH);
 
 app.disable('x-powered-by');
 // V8.5's Stripe webhook route needs the EXACT raw request bytes to verify
@@ -131,10 +141,12 @@ function getDirectionsLedgerEntry(anonId) {
 // downstream of this ever trusts a client-supplied user/owner id from a
 // request body, header, or query string (see SITE-PROJECT-V8.5.md
 // "security" / "ownership invariant").
+// V8.7: delegates to the AuthProvider's shared getCurrentAccount (see
+// lib/adapters/local-auth-provider.js) instead of hand-rolling the same
+// cookie-parse-then-resolveSession logic mock-server.js also used to
+// duplicate -- one real implementation instead of two copies.
 function getSessionAccount(req) {
-  const cookies = auth.parseCookies(req.headers.cookie);
-  const token = cookies[auth.SESSION_COOKIE];
-  return token ? auth.resolveSession(db, token) : null;
+  return authProvider.getCurrentAccount(db, req);
 }
 // Attaches req.accountId/req.accountEmail (or null) without refusing the
 // request -- used on routes that behave differently for anonymous vs.
@@ -854,25 +866,30 @@ app.post('/api/lead', async (req, res) => {
 // 900kb default every other route still uses.
 const projectJsonParser = express.json({ limit: '35mb' });
 
+// V8.7: these four routes now go through the AuthProvider (sign in/up/out,
+// current-account resolution) instead of calling lib/auth.js directly --
+// see lib/adapters/local-auth-provider.js. Behavior is unchanged (it's the
+// exact same lib/auth.js underneath); this is what makes "sign in/up/out"
+// a real part of the AuthProvider boundary rather than only requireAuth.
 app.post('/api/auth/signup', requireSameOrigin, (req, res) => {
-  const result = auth.createAccount(db, req.body && req.body.email, req.body && req.body.password);
+  const result = authProvider.signUp(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
-  const { token } = auth.createSession(db, result.account.id);
-  res.setHeader('Set-Cookie', auth.sessionCookieHeader(token));
+  const { token } = authProvider.createSession(db, result.account.id);
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token));
   return res.json({ ok: true, account: result.account });
 });
 app.post('/api/auth/signin', requireSameOrigin, (req, res) => {
-  const result = auth.signIn(db, req.body && req.body.email, req.body && req.body.password);
+  const result = authProvider.signIn(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(401).json({ ok: false, message: result.error });
-  const { token } = auth.createSession(db, result.account.id);
-  res.setHeader('Set-Cookie', auth.sessionCookieHeader(token));
+  const { token } = authProvider.createSession(db, result.account.id);
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token));
   return res.json({ ok: true, account: result.account });
 });
 app.post('/api/auth/signout', requireSameOrigin, (req, res) => {
-  const cookies = auth.parseCookies(req.headers.cookie);
-  const token = cookies[auth.SESSION_COOKIE];
-  if (token) auth.deleteSession(db, token);
-  res.setHeader('Set-Cookie', auth.sessionCookieHeader(null, { clear: true }));
+  const cookies = authProvider.parseCookies(req.headers.cookie);
+  const token = cookies[authProvider.SESSION_COOKIE];
+  if (token) authProvider.destroySession(db, token);
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(null, { clear: true }));
   return res.json({ ok: true });
 });
 app.get('/api/auth/me', withOptionalAuth, (req, res) => {
