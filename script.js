@@ -635,7 +635,12 @@ function composeSections(category, composed, assetPlan, categoryKey, facts) {
   if (!middle.length) middle.push('services');
   if ((composed.spacing === 'airy' || composed.spacing === 'generous') && !middle.includes('ctaBanner') && categoryKey !== 'fashion' && categoryKey !== 'tech') middle.push('ctaBanner');
   if (composed.spacing === 'compact' && middle.length > 5) middle.length = 5;
-  return ['hero', ...middle, 'footer'];
+  // V8.2: 'hero' and 'footer' are no longer literal entries in this list --
+  // both are now page-aware chrome rendered directly by renderSections
+  // (the home page's real hero vs. a lightweight header for any other
+  // page, and one shared footer on every page) rather than content a page
+  // stores. This returns only the real, composed content section types.
+  return middle;
 }
 // Variant choice is tied to an existing composed dimension (or, on
 // Regenerate, a variation counter) rather than independently random, so a
@@ -831,42 +836,66 @@ function computeImageCacheKey(project, role, slot) {
   const composed = project.design.dimensions;
   return hashString(`${project.business.categoryKey}::${composed.imagery}::${role}::${slot}::${project.source.text || ''}`).toString(36);
 }
+// V8.2: page-qualified slot naming -- a slug prefix for every page except
+// Home (slug ''), whose slots keep their original bare names ('product',
+// 'about', 'gallery-featured') exactly as before V8.2. That's deliberate,
+// not cosmetic: an existing direction restored from storage has real
+// generated images cached under those bare keys (proj.assets.generated),
+// and Home is by far the common case (every pre-V8.2 project, and most
+// V8.2 ones too) -- so an old cached image is still found under the exact
+// same key it was always stored under, and migrating to the page-aware
+// model never throws away a paid-for image or pays to regenerate one that
+// already exists. Only genuinely NEW secondary-page slots get a prefix, to
+// keep them from colliding with each other or with Home's.
+function pageSlotPrefix(page) {
+  return (page && page.slug) ? `${page.slug}::` : '';
+}
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
   const composed = project.design.dimensions;
   const providerConfigured = !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
   const slots = [];
-  const heroSection = project.sections.find(s => s.type === 'hero');
+  const pages = (Array.isArray(project.pages) && project.pages.length) ? project.pages : [{ slug: '', sections: project.sections || [] }];
+  const homePage = pages[0];
   // centered-oversized/minimal-text-only/poster are deliberately text-only
   // hero treatments -- renderHero never calls renderVisualSlot for them, so
   // planning (and generating) a hero image for those layouts would pay for
-  // an image nothing ever displays.
-  const heroHasVisual = heroSection && !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
+  // an image nothing ever displays. The hero itself is Home-only chrome,
+  // not a section stored on any page, so this no longer looks one up.
+  const heroHasVisual = !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
   if (heroHasVisual) {
-    slots.push({ slot: 'hero', role: 'hero', section: heroSection.id, sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}` });
+    slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}` });
     // The collage hero layout uses a second image-bearing card -- only real
     // when that layout is actually selected, so we never plan/generate an
     // image for a slot that won't be on screen.
     if (composed.hero === 'collage') {
-      slots.push({ slot: 'collage-2', role: 'hero', section: heroSection.id, sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}` });
+      slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}` });
     }
   }
-  const productSection = project.sections.find(s => s.type === 'productShowcase');
-  if (productSection) {
-    slots.push({ slot: 'product', role: 'product', section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual' });
-  }
-  // renderAbout only ever shows a visual for the 'split' variant (or when a
-  // real upload exists) -- matching that here avoids planning/generating an
-  // image the 'statement' variant would never display.
-  const aboutSection = project.sections.find(s => s.type === 'about');
-  if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
-    slots.push({ slot: 'about', role: 'team', section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual' });
-  }
-  const editorialSection = project.sections.find(s => s.type === 'imageLedEditorial');
-  if (editorialSection) {
-    slots.push({ slot: 'gallery-featured', role: 'gallery', section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
-  }
+  // V8.2: every real page's own image-bearing sections are planned here --
+  // not just the page currently on screen -- so that switching pages later
+  // never has to plan or request anything new (see resolveImagePlanAssets /
+  // switchPage). Each slot is scoped to its own page via pageSlotPrefix.
+  pages.forEach(page => {
+    const prefix = pageSlotPrefix(page);
+    const pageSections = page.sections || [];
+    const productSection = pageSections.find(s => s.type === 'productShowcase');
+    if (productSection) {
+      slots.push({ slot: `${prefix}product`, role: 'product', page: page.slug, section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual' });
+    }
+    // renderAbout only ever shows a visual for the 'split' variant (or when
+    // a real upload exists) -- matching that here avoids planning/
+    // generating an image the 'statement' variant would never display.
+    const aboutSection = pageSections.find(s => s.type === 'about');
+    if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
+      slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual' });
+    }
+    const editorialSection = pageSections.find(s => s.type === 'imageLedEditorial');
+    if (editorialSection) {
+      slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
+    }
+  });
   return slots.map(s => {
     const sourceType = s.assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
     return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
@@ -935,6 +964,30 @@ function resolveImagePlanAssets(proj) {
 // only decide *whether* a role has a real user asset to show instead.
 // V7: 10 structurally distinct hero layouts (was 1 DOM shape reskinned by
 // CSS) -- see SITE-PROJECT-V7.md part 4.
+// V8.2: structured section copy, threaded field-by-field ------------------
+// Each section instance may carry a `copy` object (headline/subhead/body/
+// ctaLabel/claims) written by Claude and already validated/length-capped by
+// normalizeClaudePlan -- never trusted as HTML, only ever inserted through
+// escapeHtml() at render time, exactly like every other piece of text here.
+// `copy` is null for a purely deterministic section (no Claude plan, or
+// Claude simply didn't cover this section). sectionCopyField never returns
+// an empty/whitespace value -- a section with a real Claude headline but no
+// body keeps that headline and silently falls back to the deterministic
+// body, field by field, never all-or-nothing (see SITE-PROJECT-V8.2.md).
+//
+// Deliberately NOT threaded into renderProof/renderMetrics (fact-gated,
+// numbers-only -- see composeSections/renderProof) or into the actual
+// testimonial quote/attribution in renderTestimonial/renderTestimonialsGrid
+// (Claude's schema has no per-quote fields at all; threading free-text
+// `body` into what reads as a customer's own words would risk exactly the
+// fabricated-testimonial risk the system prompt forbids). Everywhere else,
+// this is the same "persuasive copy is fine, invented facts are not" rule
+// the hero copy and heroCopy-vs-category fallback already apply -- just
+// extended past the hero to every other section type.
+function sectionCopyField(section, field, fallback) {
+  const value = section && section.copy && section.copy[field];
+  return (typeof value === 'string' && value) ? value : fallback;
+}
 function renderHero(project, category) {
   const composed = project.design.dimensions;
   const plan = project.assets.plan;
@@ -990,20 +1043,29 @@ function renderHero(project, category) {
       </div>`;
   }
 }
-function renderServices(project, category, variant) {
+function renderServices(project, category, section) {
+  const variant = section && section.variant;
   const labels = category.services;
+  const headline = sectionCopyField(section, 'headline', '');
+  const intro = sectionCopyField(section, 'body', '');
+  const labelHtml = headline ? `<p class="site-section-label">${escapeHtml(headline)}</p>` : '';
+  const introHtml = intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : '';
   if (variant === 'described') {
     return `<div class="site-section site-section-services" data-variant="described">
+      ${labelHtml}${introHtml}
       <div class="site-services-cards">${labels.map(l => `<div class="service-card"><strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p></div>`).join('')}</div>
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
+    ${labelHtml}${introHtml}
     <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
   </div>`;
 }
 // V7: never fabricates a number. Only ever shows a fact the description
 // itself supplied (see extractBusinessFacts) -- composeSections only
 // includes this section at all when at least one such fact exists.
+// V8.2: deliberately NOT threaded with Claude copy -- this is exactly the
+// numbers-only, fact-gated section the no-fabrication rule exists for.
 function renderProof(project, category) {
   const facts = project.source.facts || {};
   const stats = [];
@@ -1016,10 +1078,12 @@ function renderProof(project, category) {
   </div>`;
 }
 function renderMetrics(project, category) { return renderProof(project, category); }
-function renderGallery(project, category, variant, labelOverride) {
+function renderGallery(project, category, section, labelOverride) {
+  const variant = section && section.variant;
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
-  const label = escapeHtml(labelOverride || navLabelFor('gallery', project.business.categoryKey));
+  const label = escapeHtml(sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey)));
+  const caption = sectionCopyField(section, 'body', '');
   const tileCount = variant === 'featured' ? 3 : 4;
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
@@ -1030,15 +1094,22 @@ function renderGallery(project, category, variant, labelOverride) {
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
     <p class="site-section-label">${label}</p>
+    ${caption ? `<p class="site-section-intro">${escapeHtml(caption)}</p>` : ''}
     <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
   </div>`;
 }
-function renderCaseStudies(project, category) { return renderGallery(project, category, 'grid', 'Recent Projects'); }
+function renderCaseStudies(project, category, section) { return renderGallery(project, category, { ...(section || {}), variant: 'grid' }, 'Recent Projects'); }
 // V7: the specific numbered claim ("Verified") is dropped -- an
 // illustrative quote used as placeholder marketing copy is normal, but
 // asserting it is a *verified* real review when none exists is exactly the
 // kind of invented proof part 6 asks to remove.
-function renderTestimonial(project, category, variant) {
+// V8.2: deliberately NOT threaded with Claude copy for the quote/attribution
+// itself -- Claude's schema has no per-testimonial quote fields, and
+// putting free-text `body` into what reads as a customer's own words would
+// risk exactly the fabricated-testimonial the system prompt forbids. Only
+// the section label is eligible (see sectionCopyField note above).
+function renderTestimonial(project, category, section) {
+  const variant = section && section.variant;
   const quote = `“Working with a ${escapeHtml(category.label.toLowerCase())} team that actually explains things clearly made this easy.”`;
   const attribution = `— ${escapeHtml(category.label)} client`;
   if (variant === 'card') {
@@ -1050,30 +1121,38 @@ function renderTestimonial(project, category, variant) {
     <blockquote>${quote}<cite>${attribution}</cite></blockquote>
   </div>`;
 }
-function renderTestimonialsGrid(project, category) {
+function renderTestimonialsGrid(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'What people say');
   const quotes = ['Clear communication from start to finish.', 'Exactly what we needed, delivered well.', 'Would recommend without hesitation.'];
   return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
-    <p class="site-section-label">What people say</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
     <div class="testimonials-grid">${quotes.map(q => `<div class="testimonial-card"><p>“${escapeHtml(q)}”</p><span>— ${escapeHtml(category.label)} client</span></div>`).join('')}</div>
   </div>`;
 }
-function renderAbout(project, category, variant) {
+// V8.2: the example the spec itself gives -- a valid Claude heading with a
+// missing/invalid body keeps that heading and falls back to the
+// deterministic body, field by field.
+function renderAbout(project, category, section) {
+  const variant = section && section.variant;
   const plan = project.assets.plan;
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
-  const statement = `We're a ${escapeHtml(category.label.toLowerCase())} team focused on getting the details right, from the first conversation to the finished result.`;
+  const heading = sectionCopyField(section, 'headline', 'About');
+  const statement = sectionCopyField(section, 'body', `We're a ${category.label.toLowerCase()} team focused on getting the details right, from the first conversation to the finished result.`);
   if (variant === 'split' || aboutAsset) {
-    const visual = renderVisualSlot(project, 'about', project.design.dimensions.imagery, plan.about);
+    const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'about';
+    const visual = renderVisualSlot(project, slot, project.design.dimensions.imagery, plan.about);
     return `<div class="site-section site-section-about" data-variant="split">
       <div class="about-visual">${visual}</div>
-      <div class="about-copy"><p class="site-section-label">About</p><p>${statement}</p></div>
+      <div class="about-copy"><p class="site-section-label">${escapeHtml(heading)}</p><p>${escapeHtml(statement)}</p></div>
     </div>`;
   }
   return `<div class="site-section site-section-about" data-variant="statement">
-    <p class="site-section-label">About</p>
-    <p class="about-statement-text">${statement}</p>
+    <p class="site-section-label">${escapeHtml(heading)}</p>
+    <p class="about-statement-text">${escapeHtml(statement)}</p>
   </div>`;
 }
-function renderTeam(project, category) {
+function renderTeam(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Team');
   const teamAssets = project.assets.items.filter(a => a.type === 'team');
   const cards = [];
   for (let i = 0; i < Math.max(teamAssets.length, 3); i++) {
@@ -1081,13 +1160,16 @@ function renderTeam(project, category) {
     cards.push(a ? `<div class="team-card has-image"><img src="${a.dataUrl}" alt="${escapeHtml(a.alt || 'Team member')}" /></div>` : `<div class="team-card team-card-placeholder"></div>`);
   }
   return `<div class="site-section site-section-team" data-variant="grid">
-    <p class="site-section-label">Team</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
     <div class="team-grid">${cards.slice(0, 4).join('')}</div>
   </div>`;
 }
-function renderCtaBanner(project, category, variant) {
+function renderCtaBanner(project, category, section) {
+  const variant = section && section.variant;
+  const message = sectionCopyField(section, 'headline', 'Ready to see this as your real website?');
+  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
   return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
-    <p>Ready to see this as your real website?</p><button>${escapeHtml(category.cta)}</button>
+    <p>${escapeHtml(message)}</p><button>${escapeHtml(cta)}</button>
   </div>`;
 }
 function featureBodyFor(project, category, label, i) {
@@ -1096,20 +1178,25 @@ function featureBodyFor(project, category, label, i) {
   const templates = [`Built around ${base}, without the busywork.`, `Everything ${base} needs, in one place.`, `Designed to make ${(label || '').toLowerCase()} feel effortless.`];
   return templates[i % templates.length];
 }
-function renderFeatures(project, category) {
+function renderFeatures(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'What it does');
+  const intro = sectionCopyField(section, 'body', '');
   const labels = category.services;
   return `<div class="site-section site-section-features" data-variant="grid">
-    <p class="site-section-label">What it does</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
     <div class="features-grid">${labels.map((l, i) => `<div class="feature-card"><span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
   </div>`;
 }
-function renderProductShowcase(project, category) {
+function renderProductShowcase(project, category, section) {
   const businessName = escapeHtml(project.business.name || 'Your Business');
-  const caption = escapeHtml((project.copy && project.copy.sub) || category.sub);
+  const label = sectionCopyField(section, 'headline', 'Product');
+  const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
+  const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'product';
   return `<div class="site-section site-section-product" data-variant="showcase">
-    <p class="site-section-label">Product</p><h4>${businessName} in action</h4>
-    <div class="product-frame">${renderVisualSlot(project, 'product', 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
-    <p class="product-caption">${caption}</p>
+    <p class="site-section-label">${escapeHtml(label)}</p><h4>${businessName} in action</h4>
+    <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
+    <p class="product-caption">${escapeHtml(caption)}</p>
   </div>`;
 }
 const categoryIntegrationLabels = {
@@ -1119,21 +1206,28 @@ const categoryIntegrationLabels = {
   retail: ['Inventory', 'Shipping', 'Payments', 'Loyalty'],
   default: ['Calendar', 'Payments', 'Analytics', 'Support']
 };
-function renderIntegrations(project, category, categoryKey) {
+function renderIntegrations(project, category, categoryKey, section) {
+  const label = sectionCopyField(section, 'headline', 'Works with what you already use');
   const labels = categoryIntegrationLabels[categoryKey] || categoryIntegrationLabels.default;
   return `<div class="site-section site-section-integrations" data-variant="chips">
-    <p class="site-section-label">Works with what you already use</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
     <div class="integration-chips">${labels.map(l => `<span class="integration-chip">${escapeHtml(l)}</span>`).join('')}</div>
   </div>`;
 }
-function renderPricingSection(project, category) {
+function renderPricingSection(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Pricing');
+  const intro = sectionCopyField(section, 'body', '');
+  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
   const tiers = [{ name: 'Starter', blurb: 'For getting started quickly.' }, { name: 'Growth', blurb: 'For teams scaling up.' }, { name: 'Enterprise', blurb: 'Custom for larger needs.' }];
   return `<div class="site-section site-section-pricing" data-variant="tiers">
-    <p class="site-section-label">Pricing</p>
-    <div class="pricing-tiers">${tiers.map(t => `<div class="pricing-tier"><strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(category.cta)}</button></div>`).join('')}</div>
+    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
+    <div class="pricing-tiers">${tiers.map(t => `<div class="pricing-tier"><strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(cta)}</button></div>`).join('')}</div>
   </div>`;
 }
-function renderFaq(project, category) {
+function renderFaq(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'FAQ');
+  const intro = sectionCopyField(section, 'body', '');
   const d = project.source.descriptor || {};
   const noun = d.descriptor || category.noun;
   const qas = [
@@ -1142,52 +1236,67 @@ function renderFaq(project, category) {
     { q: 'Is support included?', a: 'Yes — real help, not just documentation.' }
   ];
   return `<div class="site-section site-section-faq" data-variant="list">
-    <p class="site-section-label">FAQ</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
     <div class="faq-list">${qas.map(x => `<div class="faq-item"><strong>${x.q}</strong><p>${x.a}</p></div>`).join('')}</div>
   </div>`;
 }
-function renderProcess(project, category) {
+function renderProcess(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'How it works');
+  const intro = sectionCopyField(section, 'body', '');
   const steps = ['Reach out', 'We scope the work', 'We deliver', 'You review & sign off'];
   return `<div class="site-section site-section-process" data-variant="steps">
-    <p class="site-section-label">How it works</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
     <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
   </div>`;
 }
-function renderMenu(project, category) {
+function renderMenu(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Menu');
+  const intro = sectionCopyField(section, 'body', '');
   const groups = ['Starters', 'Mains', 'Desserts'];
   return `<div class="site-section site-section-menu" data-variant="columns">
-    <p class="site-section-label">Menu</p>
+    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
     <div class="menu-groups">${groups.map(g => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><span class="menu-line"></span><span class="menu-line"></span><span class="menu-line"></span></div>`).join('')}</div>
   </div>`;
 }
-function renderReservationCta(project, category) {
+function renderReservationCta(project, category, section) {
+  const message = sectionCopyField(section, 'headline', 'Book a table.');
+  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
   return `<div class="site-section site-section-reservation" data-variant="banner">
-    <p>Book a table.</p><button>${escapeHtml(category.cta)}</button>
+    <p>${escapeHtml(message)}</p><button>${escapeHtml(cta)}</button>
   </div>`;
 }
-function renderServiceAreas(project, category) {
+function renderServiceAreas(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Service Areas');
   const loc = project.source.location;
-  const label = loc ? `${escapeHtml(loc)} and surrounding areas` : 'Local & surrounding areas';
+  const areasText = loc ? `${loc} and surrounding areas` : 'Local & surrounding areas';
   return `<div class="site-section site-section-areas" data-variant="list">
-    <p class="site-section-label">Service Areas</p><p class="areas-statement">${label}</p>
+    <p class="site-section-label">${escapeHtml(label)}</p><p class="areas-statement">${escapeHtml(areasText)}</p>
   </div>`;
 }
-function renderContact(project, category) {
+function renderContact(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Contact');
+  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
   const loc = project.source.location ? escapeHtml(project.source.location) + ' · ' : '';
   return `<div class="site-section site-section-contact" data-variant="simple">
-    <p class="site-section-label">Contact</p><p>${loc}Get in touch to get started.</p><button>${escapeHtml(category.cta)}</button>
+    <p class="site-section-label">${escapeHtml(label)}</p><p>${loc}Get in touch to get started.</p><button>${escapeHtml(cta)}</button>
   </div>`;
 }
-function renderNewsletter(project, category) {
+function renderNewsletter(project, category, section) {
+  const message = sectionCopyField(section, 'headline', 'Stay in the loop.');
   return `<div class="site-section site-section-newsletter" data-variant="inline">
-    <p>Stay in the loop.</p>
+    <p>${escapeHtml(message)}</p>
     <div class="newsletter-row"><input type="email" placeholder="you@email.com" disabled /><button>Subscribe</button></div>
   </div>`;
 }
-function renderImageLedEditorial(project, category) {
+function renderImageLedEditorial(project, category, section) {
+  const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
+  const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'gallery-featured';
   return `<div class="site-section site-section-editorial" data-variant="image-led">
-    <div class="editorial-visual">${renderVisualSlot(project, 'gallery-featured', project.design.dimensions.imagery, (project.assets.plan.gallery || [])[0])}</div>
-    <p class="editorial-caption">${escapeHtml((project.copy && project.copy.sub) || category.sub)}</p>
+    <div class="editorial-visual">${renderVisualSlot(project, slot, project.design.dimensions.imagery, (project.assets.plan.gallery || [])[0])}</div>
+    <p class="editorial-caption">${escapeHtml(caption)}</p>
   </div>`;
 }
 function renderSiteFooter(project, category, variant) {
@@ -1217,26 +1326,26 @@ function renderSectionHTML(project, section, category) {
     case 'hero': return renderHero(project, category);
     case 'proof': return renderProof(project, category);
     case 'metrics': return renderMetrics(project, category);
-    case 'services': return renderServices(project, category, section.variant);
-    case 'features': return renderFeatures(project, category);
-    case 'productShowcase': return renderProductShowcase(project, category);
-    case 'integrations': return renderIntegrations(project, category, project.business.categoryKey);
-    case 'pricing': return renderPricingSection(project, category);
-    case 'faq': return renderFaq(project, category);
-    case 'process': return renderProcess(project, category);
-    case 'gallery': return renderGallery(project, category, section.variant);
-    case 'caseStudies': return renderCaseStudies(project, category);
-    case 'imageLedEditorial': return renderImageLedEditorial(project, category);
-    case 'about': return renderAbout(project, category, section.variant);
-    case 'team': return renderTeam(project, category);
-    case 'testimonial': return renderTestimonial(project, category, section.variant);
-    case 'testimonialsGrid': return renderTestimonialsGrid(project, category);
-    case 'menu': return renderMenu(project, category);
-    case 'reservationCta': return renderReservationCta(project, category);
-    case 'serviceAreas': return renderServiceAreas(project, category);
-    case 'contact': return renderContact(project, category);
-    case 'newsletter': return renderNewsletter(project, category);
-    case 'ctaBanner': return renderCtaBanner(project, category, section.variant);
+    case 'services': return renderServices(project, category, section);
+    case 'features': return renderFeatures(project, category, section);
+    case 'productShowcase': return renderProductShowcase(project, category, section);
+    case 'integrations': return renderIntegrations(project, category, project.business.categoryKey, section);
+    case 'pricing': return renderPricingSection(project, category, section);
+    case 'faq': return renderFaq(project, category, section);
+    case 'process': return renderProcess(project, category, section);
+    case 'gallery': return renderGallery(project, category, section);
+    case 'caseStudies': return renderCaseStudies(project, category, section);
+    case 'imageLedEditorial': return renderImageLedEditorial(project, category, section);
+    case 'about': return renderAbout(project, category, section);
+    case 'team': return renderTeam(project, category, section);
+    case 'testimonial': return renderTestimonial(project, category, section);
+    case 'testimonialsGrid': return renderTestimonialsGrid(project, category, section);
+    case 'menu': return renderMenu(project, category, section);
+    case 'reservationCta': return renderReservationCta(project, category, section);
+    case 'serviceAreas': return renderServiceAreas(project, category, section);
+    case 'contact': return renderContact(project, category, section);
+    case 'newsletter': return renderNewsletter(project, category, section);
+    case 'ctaBanner': return renderCtaBanner(project, category, section);
     case 'footer': return renderSiteFooter(project, category, section.variant);
     default: return '';
   }
@@ -1255,6 +1364,142 @@ function ensureAssetDrivenSections(proj) {
   const types = proj.sections.map(s => s.type);
   if ((plan.gallery || []).length && !types.includes('gallery') && !types.includes('caseStudies') && !types.includes('imageLedEditorial')) insertSection(proj, 'gallery');
   if (plan.about && !types.includes('about') && !types.includes('team')) insertSection(proj, 'about');
+}
+
+// ---- V8.2: multi-page model ------------------------------------------------
+// A direction (WebsiteProject) now owns real pages -- proj.pages[], each
+// {slug, label, purpose, sections}. This is exactly one level inside the
+// existing direction system's own shape (directions[] / activeDirectionIndex
+// / project): proj.activePageIndex says which page the live preview shows,
+// and proj.sections is a live pointer at proj.pages[proj.activePageIndex]
+// .sections -- kept in sync by syncActivePageSections, called at the top of
+// every renderProject (after any direct mutation of proj.sections, e.g.
+// toggleSection's wholesale reassignment) and again when leaving a page.
+// Every pre-V8.2 single-page project (fresh or restored) migrates into a
+// one-page `pages` array via migrateProjectPages -- see below.
+function syncActivePageSections(proj) {
+  if (!proj || !Array.isArray(proj.pages) || !proj.pages.length) return;
+  const idx = Math.max(0, Math.min(proj.pages.length - 1, Number.isInteger(proj.activePageIndex) ? proj.activePageIndex : 0));
+  proj.activePageIndex = idx;
+  proj.pages[idx].sections = proj.sections;
+}
+// Ensures a WebsiteProject -- however it arrived (freshly created, restored
+// from localStorage, or a legacy V8.1.2-and-earlier save with only a flat
+// `sections[]` that literally included 'hero'/'footer' entries) -- has a
+// valid, page-aware shape before anything else touches it. Never throws,
+// never drops data: a legacy flat section list becomes a single Home page
+// with the same content sections (hero/footer split back out into chrome,
+// the footer's own variant preserved), so an old save still renders and
+// edits exactly as it used to.
+function migrateProjectPages(proj) {
+  if (!proj) return proj;
+  if (Array.isArray(proj.pages) && proj.pages.length) {
+    proj.activePageIndex = Math.max(0, Math.min(proj.pages.length - 1, Number.isInteger(proj.activePageIndex) ? proj.activePageIndex : 0));
+    proj.sections = proj.pages[proj.activePageIndex].sections || [];
+    if (!proj.footerVariant) proj.footerVariant = 'simple';
+    return proj;
+  }
+  const legacySections = Array.isArray(proj.sections) ? proj.sections : [];
+  const footerSection = legacySections.find(s => s.type === 'footer');
+  const content = legacySections.filter(s => s.type !== 'hero' && s.type !== 'footer');
+  proj.pages = [{ slug: '', label: 'Home', purpose: '', sections: content }];
+  proj.activePageIndex = 0;
+  proj.sections = proj.pages[0].sections;
+  proj.footerVariant = (footerSection && footerSection.variant) || 'simple';
+  return proj;
+}
+function sanitizeSlug(str) {
+  return String(str || '').toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+function uniqueSlug(base, usedSlugs) {
+  const root = base || 'page';
+  let slug = root, n = 2;
+  while (usedSlugs.has(slug)) { slug = `${root}-${n}`; n++; }
+  usedSlugs.add(slug);
+  return slug;
+}
+// Turns normalizeClaudePlan's already shape-validated `pages` (each
+// {id,label,purpose,sections:[{type,copy}]}) into the project's real
+// pages[] -- the one step normalizeClaudePlan deliberately leaves to the
+// caller (see its own comments): unique/stable slugs, no duplicate Home
+// page, and a hard product-level cap, on top of the raw-shape safety
+// (known section types only, length-capped strings) already applied there.
+// index 0 is always Home, regardless of what Claude itself called it --
+// its real label is kept for the nav, only its routing slug is forced.
+function buildClaudePages(claudePages, variationSeed, dimensions) {
+  if (!Array.isArray(claudePages) || !claudePages.length) return null;
+  const usedSlugs = new Set(['']);
+  const pages = [];
+  claudePages.forEach((p, i) => {
+    if (pages.length >= MAX_PAGES) return;
+    if (!p || !Array.isArray(p.sections) || !p.sections.length) return;
+    const isHome = pages.length === 0;
+    const labelRaw = (p.label && String(p.label).trim()) || (isHome ? 'Home' : `Page ${i + 1}`);
+    // Prevent a duplicate Home page: once Home exists (always page 0), any
+    // later Claude-authored page that is ALSO clearly "Home" is dropped
+    // rather than creating a second, redundant entry.
+    if (!isHome && sanitizeSlug(labelRaw) === 'home') return;
+    const slug = isHome ? '' : uniqueSlug(sanitizeSlug(p.id || labelRaw) || `page-${i}`, usedSlugs);
+    const sections = p.sections.map((s, si) => ({
+      id: `${s.type}-${slug || 'home'}-${si}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+      type: s.type,
+      variant: pickVariant(s.type, dimensions, variationSeed),
+      copy: s.copy || null
+    }));
+    pages.push({ slug, label: labelRaw.slice(0, 40), purpose: (p.purpose && String(p.purpose).slice(0, 200)) || '', sections });
+  });
+  if (!pages.length) return null;
+  pages[0].slug = ''; // enforced regardless of what slug the loop above computed for it
+  return pages;
+}
+// The primary CTA button in the live preview's nav only targets a specific
+// page once there's genuinely more than one -- a single-page project keeps
+// the exact original, fully decorative behavior. Prefers the first page
+// (after Home) whose own content is actually about converting a visitor.
+function findCtaTargetPage(proj) {
+  if (!proj || !Array.isArray(proj.pages) || proj.pages.length < 2) return -1;
+  const priority = ['contact', 'reservationCta', 'newsletter'];
+  for (let i = 1; i < proj.pages.length; i++) {
+    if ((proj.pages[i].sections || []).some(s => priority.includes(s.type))) return i;
+  }
+  return -1;
+}
+// The lightweight equivalent of the home page's hero for every OTHER page
+// -- deliberately not a second full hero layout (no extra image slot, no
+// extra generation cost) so secondary pages stay cheap while still reading
+// as real pages of the same site rather than disconnected fragments.
+function renderPageHeader(project, page, category) {
+  const kicker = escapeHtml(category.kicker || category.label);
+  const title = escapeHtml((page && page.label) || 'Page');
+  const sub = (page && page.purpose) ? page.purpose : ((project.copy && project.copy.sub) || category.sub);
+  return `<div class="site-page-header">
+    <p class="site-page-header-kicker">${kicker}</p>
+    <h3 class="site-page-header-title">${title}</h3>
+    <p class="site-page-header-sub">${escapeHtml(sub)}</p>
+  </div>`;
+}
+// V8.2: switches which PAGE of the current direction is shown in the live
+// preview. Exactly parallel to switchDirection's own contract: pure
+// client-side state, zero Claude calls, zero image-provider calls (every
+// image any page could need was already planned/resolved for ALL pages
+// when the direction was generated -- see buildImagePlan -- so this never
+// calls resolveImagePlanAssets), and explicitly NOT a new direction: it
+// never touches directions[]/activeDirectionIndex/the 3-direction meter.
+// Refuses outright while generationInFlight, the same guard switchDirection
+// uses, so a page-nav click can never land mid-transaction.
+function switchPage(index) {
+  if (!project || !Array.isArray(project.pages) || !project.pages.length) return;
+  if (generationInFlight) return;
+  index = Math.max(0, Math.min(project.pages.length - 1, index));
+  syncActivePageSections(project); // commit any pending in-place edits to the page we're leaving
+  if (index === project.activePageIndex) return;
+  project.activePageIndex = index;
+  project.sections = project.pages[index].sections;
+  renderProject(project);
+  persistDirectionsSilently();
 }
 
 // ---- WebsiteProject construction + rendering -----------------------------
@@ -1277,6 +1522,14 @@ function createProject(analysis, preserved, isDemoShell) {
   // SITE-PROJECT-V6.md.
   const extractedName = extractBusinessName(analysis.text);
   const priorName = preserved && preserved.business && preserved.business.name;
+  // V8.2: built directly in the page-aware shape -- a single Home page
+  // carrying these content sections, with hero/footer handled as chrome by
+  // the renderer (see renderSections/renderPageHeader). createProject is
+  // only ever used for the neutral demo shell now (buildGenerationPlan
+  // builds real directions itself, Claude-planned or deterministic), but
+  // it stays consistent with that same shape rather than relying on the
+  // migration shim for something freshly created.
+  const homePage = { slug: '', label: 'Home', purpose: '', sections };
   const proj = {
     meta: { id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(), version: 'v7', isDemoShell: !!isDemoShell },
     source: { text: analysis.text, location: analysis.location, facts, descriptor },
@@ -1288,7 +1541,10 @@ function createProject(analysis, preserved, isDemoShell) {
     intent: { seedKey, styleAlternates: analysis.styleAlternates, variationSeed: 0 },
     design: { palette: { ...composed.palette }, dimensions, heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split' },
     copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
-    sections,
+    pages: [homePage],
+    activePageIndex: 0,
+    sections: homePage.sections,
+    footerVariant: pickVariant('footer', dimensions, 0),
     assets,
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
@@ -1363,10 +1619,26 @@ function renderSections(proj, category) {
     siteLogo.classList.remove('active');
     siteBusiness.classList.remove('logo-active');
   }
-  const navTypes = proj.sections.map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
-  if (siteNavLinks) siteNavLinks.innerHTML = navTypes.map(t => `<span>${escapeHtml(navLabelFor(t, proj.business.categoryKey))}</span>`).join('');
+  // V8.2: once a direction genuinely has more than one page, the nav
+  // becomes real page links (still zero Claude/image calls -- see
+  // switchPage). A single-page direction (the deterministic engine today,
+  // or a one-page Claude plan) keeps the exact original decorative
+  // content-type labels, unchanged.
+  const pages = proj.pages || [];
+  if (pages.length > 1 && siteNavLinks) {
+    siteNavLinks.innerHTML = pages.map((p, i) => `<button type="button" class="site-nav-link${i === proj.activePageIndex ? ' active' : ''}" data-page-index="${i}">${escapeHtml(p.label || (i === 0 ? 'Home' : `Page ${i + 1}`))}</button>`).join('');
+  } else if (siteNavLinks) {
+    const navTypes = proj.sections.map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
+    siteNavLinks.innerHTML = navTypes.map(t => `<span>${escapeHtml(navLabelFor(t, proj.business.categoryKey))}</span>`).join('');
+  }
   if (siteNavCta) siteNavCta.textContent = category.cta;
-  if (siteSectionsRoot) siteSectionsRoot.innerHTML = proj.sections.map(s => renderSectionHTML(proj, s, category)).join('');
+
+  const activePage = pages[proj.activePageIndex] || null;
+  const isHome = !activePage || proj.activePageIndex === 0;
+  const introHtml = isHome ? renderHero(proj, category) : renderPageHeader(proj, activePage, category);
+  const contentHtml = proj.sections.map(s => renderSectionHTML(proj, s, category)).join('');
+  const footerHtml = renderSiteFooter(proj, category, proj.footerVariant || 'simple');
+  if (siteSectionsRoot) siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
 }
 function renderChrome(proj, category) {
   const logoAsset = proj.assets.plan.logo ? proj.assets.items.find(a => a.id === proj.assets.plan.logo) : null;
@@ -1401,7 +1673,7 @@ function renderChrome(proj, category) {
   formLogoData.value = logoAsset ? logoAsset.dataUrl : '';
   formLayout.value = layoutLabel;
   formIndustry.value = category.label;
-  formSections.value = proj.sections.map(s => s.type).join(', ');
+  formSections.value = sectionsSummaryText(proj);
 
   // Mirror controls to project state (covers programmatic changes, e.g. Load project)
   businessName.value = proj.business.name || '';
@@ -1425,6 +1697,13 @@ function renderChrome(proj, category) {
 // is unchanged from V5 behaviour for anything other than the generation
 // pipeline itself, which calls the phases separately -- see runGeneration).
 function renderProject(proj) {
+  // V8.2: the sync boundary -- commits whatever proj.sections currently
+  // points to back onto proj.pages[proj.activePageIndex] before anything
+  // else reads proj.pages. Covers every existing single-page control that
+  // still freely mutates proj.sections wholesale (toggleSection) or
+  // in-place (the animated build steps), with zero changes needed at those
+  // call sites. A no-op once things are already in sync (the common case).
+  syncActivePageSections(proj);
   const category = categories[proj.business.categoryKey] || categories.other;
   proj.assets.plan = planAssets(proj.assets);
   proj.imagePlan = buildImagePlan(proj, category);
@@ -1488,7 +1767,11 @@ function loadProjectFromStorage() {
       throw new Error('Unrecognized saved format');
     }
     restored.slice(0, MAX_DIRECTIONS).forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; }); // restore generated imagery same as user uploads
-    directions = restored.slice(0, MAX_DIRECTIONS);
+    // V8.2: every restored direction gets migrated into the page-aware
+    // shape -- a real pages[] for one already saved that way, or a real
+    // single Home page split back out of a legacy flat sections[] for one
+    // that isn't (see migrateProjectPages).
+    directions = restored.slice(0, MAX_DIRECTIONS).map(migrateProjectPages);
     activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, restoredIndex));
     project = directions[activeDirectionIndex];
     renderProject(project);
@@ -1519,6 +1802,7 @@ const logoPlaceholder = $('#logoPlaceholder');
 const siteLogo = $('#siteLogo');
 const builderSite = $('#builderSite');
 const builderDevice = $('#builderDevice');
+const siteNav = $('#siteNav');
 const siteBusiness = $('#siteBusiness');
 const siteNavLinks = $('#siteNavLinks');
 const siteNavCta = $('#siteNavCta');
@@ -1549,6 +1833,28 @@ const formSections = $('#formSections');
 const leadForm = $('#leadForm');
 const formStatus = $('#formStatus');
 const year = $('#year');
+
+// V8.2: page navigation inside the generated preview itself -- real clicks,
+// not decorative spans, but wired once via delegation on the stable #siteNav
+// element rather than re-attached on every render (siteNavLinks' own inner
+// HTML is replaced wholesale each render). Logo/business-name click always
+// goes Home; nav links go to their own page; the CTA button only targets a
+// page once findCtaTargetPage finds a genuinely relevant one to send it to
+// (a single-page project's CTA stays exactly as decorative as it always
+// was -- see findCtaTargetPage).
+if (siteNav) {
+  siteNav.addEventListener('click', event => {
+    if (!project) return;
+    const link = event.target.closest('.site-nav-link');
+    if (link) { switchPage(Number(link.dataset.pageIndex)); return; }
+    const brand = event.target.closest('.site-brand-lockup');
+    if (brand) { switchPage(0); return; }
+    if (siteNavCta && (event.target === siteNavCta || siteNavCta.contains(event.target))) {
+      const target = findCtaTargetPage(project);
+      if (target !== -1) switchPage(target);
+    }
+  });
+}
 
 // Generator (hero) elements
 const generatorForm = $('#generatorForm');
@@ -1611,12 +1917,33 @@ let hasGenerated = false;
 // before anything else, at the very top of runGeneration() and
 // switchDirection() -- see SITE-PROJECT-V8.1.1.md.
 let generationInFlight = false;
-// Read-only test hook (no setter) -- lets Playwright tests observe the real
-// direction count/active index/lock state without reaching into
-// module-private state. Not sensitive, not written to, and harmless to ship.
+// V8.2: the real product rule one level down -- a direction is now a real,
+// potentially multi-page site, not always one page. `proj.pages` holds
+// every page of the CURRENT direction (in nav order, never more than
+// MAX_PAGES); `proj.activePageIndex` is which one the live preview is
+// currently showing; `proj.sections` is a live pointer at
+// `proj.pages[proj.activePageIndex].sections` -- see syncActivePageSections
+// below. This mirrors the direction system exactly one level in: the same
+// "array + active index + a pointer everything else already reads/writes"
+// shape, just for pages inside a direction instead of directions inside a
+// session. Deliberately conservative: 6 clean nav entries is already a lot
+// for a small-business marketing site preview, well under the 8-page raw
+// ceiling normalizeClaudePlan already enforces defensively at parse time.
+const MAX_PAGES = 6;
+// Read-only test hooks (no setters) -- let Playwright tests observe real
+// direction/page state without reaching into module-private state. Not
+// sensitive, not written to, and harmless to ship.
 try {
   Object.defineProperty(window, '__siteremadeDirections', {
     get: () => ({ count: directions.length, activeIndex: activeDirectionIndex, max: MAX_DIRECTIONS, inFlight: generationInFlight })
+  });
+  Object.defineProperty(window, '__siteremadePages', {
+    get: () => ({
+      count: (project && Array.isArray(project.pages)) ? project.pages.length : 0,
+      activeIndex: project ? project.activePageIndex : -1,
+      slugs: (project && Array.isArray(project.pages)) ? project.pages.map(p => p.slug) : [],
+      max: MAX_PAGES
+    })
   });
 } catch (e) { /* ignore in environments where this isn't definable */ }
 
@@ -2174,12 +2501,13 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
       heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split'
     },
     copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
-    sections: [{ id: 'hero-seed-' + Date.now().toString(36), type: 'hero', variant: 'default' }],
-    // V8: the full multi-page plan Claude returned (only pages[0] is
-    // rendered this pass -- see SITE-PROJECT-V8.md part 14.3/14.8; the
-    // array is preserved on the project so a follow-up pass can render/
-    // switch between pages without another Claude call).
-    pages: usingClaude ? claudePlan.pages : null,
+    // V8.2: the real page-aware shape from the very first paint -- an empty
+    // Home page (hero is chrome, rendered separately; see renderSections).
+    // The 'structure' step below replaces this with the real page(s), same
+    // as it has always replaced the placeholder single-section shell.
+    pages: [{ slug: '', label: 'Home', purpose: '', sections: [] }],
+    activePageIndex: 0,
+    footerVariant: 'simple',
     functionalityPlan: usingClaude ? claudePlan.functionalityPlan : null,
     // A fresh Generate submission describes a business that may be entirely
     // different from the last one -- uploaded images still carry over (the
@@ -2190,6 +2518,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
     assets: (preserved && preserved.assets) ? { items: preserved.assets.items.slice(), plan: {}, generated: {} } : { items: [], plan: {}, generated: {} },
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
+  proj.sections = proj.pages[0].sections; // same array reference -- see syncActivePageSections
   proj.assets.plan = planAssets(proj.assets);
 
   let composed = null;
@@ -2206,13 +2535,25 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
       } },
     { key: 'structure', run() {
         if (usingClaude) {
-          const claudeSections = claudePlan.pages[0].sections;
-          const orderedTypes = ['hero', ...claudeSections.map(s => s.type), 'footer'];
-          proj.sections = orderedTypes.map((type, i) => {
-            const claudeSection = (type !== 'hero' && type !== 'footer') ? claudeSections[i - 1] : null;
-            return { id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default', copy: claudeSection ? claudeSection.copy : null };
-          });
-          return `${proj.sections.length} sections planned (AI-selected for ${category.label.toLowerCase()}${claudePlan.pages.length > 1 ? `, ${claudePlan.pages.length} pages planned` : ''})`;
+          // V8.2: assembles ALL of Claude's planned pages (slugs/ids made
+          // unique and stable, a duplicate "Home" page prevented, capped at
+          // MAX_PAGES) -- not just pages[0] -- into the project's real
+          // pages[]. The animated build below still only walks through the
+          // HOME page's own section list (proj.sections, unchanged UX from
+          // V8.1.2); any secondary pages are fully built here, ready the
+          // moment generation finishes -- see switchPage.
+          const pages = buildClaudePages(claudePlan.pages, variationSeed, proj.design.dimensions);
+          if (pages) {
+            proj.pages = pages;
+            proj.activePageIndex = 0;
+            proj.sections = proj.pages[0].sections;
+            proj.footerVariant = pickVariant('footer', proj.design.dimensions, variationSeed);
+            return `${proj.sections.length} sections planned (AI-selected for ${category.label.toLowerCase()}${proj.pages.length > 1 ? `, ${proj.pages.length} pages planned` : ''})`;
+          }
+          // Defensive only -- normalizeClaudePlan already guarantees at
+          // least one page with at least one valid section, so this should
+          // be unreachable; falls through to the deterministic build below
+          // exactly like an unusable/failed Claude response would.
         }
         // V8.1: a second/third DETERMINISTIC direction for the same business
         // (Claude unavailable/not configured/failed) must still look like a
@@ -2227,13 +2568,20 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
         // array in place, which would have silently changed a DIFFERENT,
         // already-created direction's copy on next render -- fixed here by
         // never mutating shared category data at all.)
+        // V8.2: the deterministic engine remains a complete, single-page
+        // (Home only) fallback -- it never invents secondary pages Claude
+        // didn't plan.
         const stylePool = [analysis.styleKey, ...(analysis.styleAlternates || [])].filter(Boolean);
         const variationStyleKey = stylePool.length ? stylePool[variationSeed % stylePool.length] : analysis.styleKey;
         const variationText = variationSeed ? `${analysis.text}::v${variationSeed}` : analysis.text;
         composed = composeStyleFromAnalysis(variationText, analysis.categoryKey, variationStyleKey);
         proj.intent.seedKey = variationStyleKey;
         const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
-        proj.sections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
+        const homeSections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
+        proj.pages = [{ slug: '', label: 'Home', purpose: '', sections: homeSections }];
+        proj.activePageIndex = 0;
+        proj.sections = proj.pages[0].sections;
+        proj.footerVariant = pickVariant('footer', proj.design.dimensions, variationSeed);
         return `${proj.sections.length} sections planned (${category.label.toLowerCase()})`;
       } },
     { key: 'typography', run() {
@@ -2525,12 +2873,23 @@ if (generatorForm) {
 // completed payment with the exact project that was bought; reliably
 // recovering it from a different device or cleared storage needs the
 // backend persistence work documented in SITE-PROJECT-V6.md.
+// V8.2: summarizes every real page of the site, not just whichever page the
+// live preview happened to be showing when Buy was clicked -- the purchase
+// is of the whole multi-page site, so the description on the Stripe line
+// item (and the /api/lead "Included" field, same helper) should say so.
+// Still a compact description string, never the full WebsiteProject (see
+// the note below on why) -- the server clamps it further on its own.
+function sectionsSummaryText(proj) {
+  const pages = (Array.isArray(proj.pages) && proj.pages.length) ? proj.pages : [{ label: 'Home', sections: proj.sections || [] }];
+  if (pages.length === 1) return pages[0].sections.map(s => s.type).join(', ');
+  return pages.map(p => `${p.label}: ${(p.sections || []).map(s => s.type).join(', ')}`).join(' | ');
+}
 function purchaseSummaryPayload(proj) {
   return {
     projectId: proj.meta.id,
     businessName: proj.business.name || 'Your Business',
     industry: (categories[proj.business.categoryKey] || categories.other).label,
-    sectionsSummary: proj.sections.map(s => s.type).join(', '),
+    sectionsSummary: sectionsSummaryText(proj),
     brandColor: proj.design.palette.main
   };
 }
@@ -2645,6 +3004,7 @@ try {
     if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
       directions = parsed.directions.slice(0, MAX_DIRECTIONS);
       directions.forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; });
+      directions = directions.map(migrateProjectPages); // V8.2: migrate any legacy flat-sections save into the page-aware shape
       activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(parsed.activeDirectionIndex) ? parsed.activeDirectionIndex : 0));
       project = directions[activeDirectionIndex];
       restoredDirectionsOnBoot = true;

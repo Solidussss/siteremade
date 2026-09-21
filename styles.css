@@ -89,6 +89,30 @@ footer .footer-logo img{width:72px;height:64px}
 }
 .builder-site .site-sections>div{border-color:color-mix(in srgb,var(--site-text) 18%,transparent)!important}
 
+/* V8.2: real in-preview page navigation -- minimum necessary UI, matching
+   the existing decorative nav labels it replaces once a direction genuinely
+   has more than one page. */
+.site-nav-link{
+  background:none!important;border:0;padding:0;margin:0;
+  font:inherit;color:inherit;cursor:pointer;opacity:.72;transition:opacity .2s ease;
+}
+.site-nav-link:hover{opacity:1}
+.site-nav-link.active{opacity:1;font-weight:800;text-decoration:underline;text-underline-offset:4px}
+.site-brand-lockup{cursor:pointer}
+.site-page-header{
+  padding:56px 48px 36px;
+  background:linear-gradient(145deg,var(--site-bg-light),var(--site-bg))!important;
+  color:var(--site-text)!important;
+}
+.site-page-header-kicker{
+  font-size:9px;letter-spacing:.18em;margin:0 0 10px;text-transform:uppercase;
+  color:color-mix(in srgb,var(--site-accent) 78%,var(--site-text))!important;
+}
+.site-page-header-title{font-size:clamp(32px,3.6vw,48px);line-height:1.04;letter-spacing:-.04em;margin:0 0 10px}
+.site-page-header-sub{max-width:560px;color:var(--site-muted)!important;line-height:1.6;font-size:13px;margin:0}
+.site-section-intro{color:var(--site-muted)!important;line-height:1.6;font-size:13px;margin:6px 0 18px;max-width:560px}
+.builder-device.mobile .site-page-header{padding:32px 22px 24px}
+
 /* Keep each style's personality while letting the colours fully change. */
 .builder-site[data-mode="editorial"] .site-nav button,
 .builder-site[data-mode="editorial"] .site-actions button,
