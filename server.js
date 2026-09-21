@@ -67,11 +67,25 @@ function ensureAnonId(req, res) {
 // upgrade path (a small table keyed by anon id / account id) documented
 // rather than built, per the instruction not to touch the production
 // Supabase app casually. See SITE-PROJECT-V8.md part 8.
-const FULL_GENERATION_LIMIT = 3;
-const generationLedger = new Map();
-function getLedgerEntry(anonId) {
-  let entry = generationLedger.get(anonId);
-  if (!entry) { entry = { count: 0, signatures: [], history: [] }; generationLedger.set(anonId, entry); }
+//
+// V8.1 naming/semantics note (see SITE-PROJECT-V8.1.md): the real product
+// rule is "3 website directions total," not "3 Claude calls." The
+// AUTHORITATIVE 3-direction cap is enforced client-side (script.js's
+// `directions.length`), because a fully-deterministic direction (Claude
+// unconfigured, or the client's own cap already reached before it would
+// even try) never talks to this server at all -- there is no request for
+// this ledger to count. What this ledger DOES track honestly is "how many
+// times has THIS visitor successfully had Claude plan a direction" -- a
+// useful, real signal (it's what lets the diversity prompt know how many
+// prior directions to describe, and it's a real, if partial, brake on paid
+// Claude usage specifically) but not a claim that it is the total-direction
+// counter. `MAX_DIRECTIONS` here matches the client's own cap only because
+// both are meant to describe "3," not because this counter enforces it.
+const MAX_DIRECTIONS = 3;
+const directionsLedger = new Map();
+function getDirectionsLedgerEntry(anonId) {
+  let entry = directionsLedger.get(anonId);
+  if (!entry) { entry = { claudeDirectionsUsed: 0, signatures: [], history: [] }; directionsLedger.set(anonId, entry); }
   return entry;
 }
 async function sendEmail(payload) {
@@ -413,28 +427,37 @@ function planSignature(plan) {
   return `hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 400);
 }
 
+// V8.1: field names describe exactly what this server actually observes --
+// Claude usage -- and never claim to be "how many total directions this
+// visitor has," since a deterministic-only direction never reaches this
+// endpoint at all. The client (script.js) enforces the real 3-direction-
+// total cap itself via `directions.length` and does not surface these
+// numbers to the visitor as if they were that cap.
 app.get('/api/generation-status', (req, res) => {
   const anonId = ensureAnonId(req, res);
-  const entry = getLedgerEntry(anonId);
+  const entry = getDirectionsLedgerEntry(anonId);
   res.json({
     planConfigured: anthropicProvider.configured(),
-    count: entry.count,
-    limit: FULL_GENERATION_LIMIT,
-    remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count)
+    claudeDirectionsUsed: entry.claudeDirectionsUsed,
+    maxClaudeDirections: MAX_DIRECTIONS,
+    claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed)
   });
 });
 
 app.post('/api/plan-website', async (req, res) => {
   const anonId = ensureAnonId(req, res);
-  const entry = getLedgerEntry(anonId);
+  const entry = getDirectionsLedgerEntry(anonId);
   if (!anthropicProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count) });
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed) });
   }
-  if (entry.count >= FULL_GENERATION_LIMIT) {
-    // Enforced here, server-side, BEFORE any model call -- so this is a real
-    // gate, not an honor system. The client is expected to fall back to the
-    // free deterministic engine on this response, never to block editing.
-    return res.status(200).json({ ok: false, limited: true, remaining: 0, message: 'You\'ve used your 3 AI-planned directions. You can keep editing this one, or SiteRemade\'s built-in design engine can still generate new directions.' });
+  if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
+    // Enforced here, server-side, BEFORE any model call -- a real brake on
+    // Claude usage specifically for this anonymous visitor, independent of
+    // (and in addition to) the client's own overall 3-direction-total cap.
+    // The client is expected to fall back to the deterministic engine on
+    // this response -- which still produces a real direction for the
+    // visitor, it just doesn't ask Claude to plan it.
+    return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This visitor has used their Claude-planned directions for now.' });
   }
   const text = clean(req.body.text, 600);
   if (!text) return res.status(400).json({ ok: false, message: 'Missing business description.' });
@@ -449,20 +472,21 @@ app.post('/api/plan-website', async (req, res) => {
   try {
     const { plan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
-    entry.count += 1;
+    entry.claudeDirectionsUsed += 1;
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    return res.json({ ok: true, plan, remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count), meta: { model, latencyMs } });
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed), meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
-    // A failed attempt does NOT consume one of the visitor's 3 directions --
-    // only a real returned plan does.
-    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', remaining: Math.max(0, FULL_GENERATION_LIMIT - entry.count) });
+    // A failed attempt does NOT consume one of this visitor's Claude
+    // attempts -- only a real returned plan does. The direction itself
+    // still gets created by the client's deterministic fallback.
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed) });
   }
 });
 

@@ -1053,6 +1053,14 @@ html,body{max-width:100%;overflow-x:hidden}
 .link-button:hover{color:var(--accent)}
 .load-project-hint .project-data-status{margin:0;font-size:11px;color:var(--muted)}
 
+/* ---- V8.1: explicit Direction 1/2/3 switcher. Hidden until a second
+   direction exists (renderDirectionSwitcher). Switching is pure client-side
+   state -- no loading affordance needed, it's instant. ---- */
+.direction-switcher{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 0}
+.direction-pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color .2s ease,color .2s ease,background .2s ease}
+.direction-pill:hover{border-color:#8c93a0;color:var(--text)}
+.direction-pill.active{background:var(--text);border-color:var(--text);color:#fff}
+
 /* ---- Purchase section: the primary ending. Same structural idiom as
    .handoff-section/.pricing-section (two-column, card on the right) but its
    own classes so nothing shared with the demoted contact section below. ---- */

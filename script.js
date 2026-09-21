@@ -1441,16 +1441,31 @@ function renderAssetPanels(proj) {
 }
 
 // ---- Serialization / persistence (client-side this pass -- see SITE-PROJECT-V5.md part 6) ----
-function serializeProject(proj) { return JSON.stringify(proj); }
+// V8.1: persists ALL existing directions plus which one is active -- not
+// just the single active WebsiteProject -- so Save/Restore reconstructs the
+// whole 1/2/3 set, not only whichever one happened to be on screen.
+function serializeDirectionsState() { return JSON.stringify({ directions, activeDirectionIndex }); }
 function setProjectStatus(msg) {
   if (projectDataStatus) projectDataStatus.textContent = msg;
   if (projectDataStatusLock) projectDataStatusLock.textContent = msg;
 }
+// Best-effort, silent, and separate from the explicit Save button below: its
+// only job is closing the "just refresh the page" loophole around the
+// 3-direction cap (a plain reload used to reset `directions` to empty,
+// letting the visitor generate 3 more) -- it is NOT a promise that every
+// fine-grained edit survives a refresh (that stays the explicit Save
+// button's job, which shares the same storage key so the two never
+// disagree). A visitor who deliberately clears site data can still reset
+// the count -- same disclosed, honest limitation class as the anonymous
+// cookie itself (SITE-PROJECT-V8.md part 7/8).
+function persistDirectionsSilently() {
+  try { localStorage.setItem('siteremade:lastProject', serializeDirectionsState()); } catch (e) { /* best-effort only */ }
+}
 function saveProjectToStorage() {
-  if (!project) { setProjectStatus('Generate a direction first.'); return; }
+  if (!directions.length) { setProjectStatus('Generate a direction first.'); return; }
   try {
-    localStorage.setItem('siteremade:lastProject', serializeProject(project));
-    setProjectStatus('Saved — this exact project (including your images) can be reloaded anytime.');
+    localStorage.setItem('siteremade:lastProject', serializeDirectionsState());
+    setProjectStatus(`Saved — all ${directions.length} direction${directions.length === 1 ? '' : 's'} (including images) can be reloaded anytime.`);
   } catch (e) { setProjectStatus('Could not save (storage may be full or unavailable).'); }
 }
 function loadProjectFromStorage() {
@@ -1458,13 +1473,30 @@ function loadProjectFromStorage() {
   try { raw = localStorage.getItem('siteremade:lastProject'); } catch (e) { raw = null; }
   if (!raw) { setProjectStatus('No saved project found yet.'); return; }
   try {
-    project = JSON.parse(raw);
-    project.assets = project.assets || {};
-    project.assets.generated = project.assets.generated || {}; // restore generated imagery same as user uploads
+    const parsed = JSON.parse(raw);
+    let restored, restoredIndex;
+    if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
+      restored = parsed.directions;
+      restoredIndex = Number.isInteger(parsed.activeDirectionIndex) ? parsed.activeDirectionIndex : 0;
+    } else if (parsed && parsed.meta) {
+      // Backward-compat: a save from before the multi-direction model (V8
+      // and earlier) was a single WebsiteProject -- migrate it into
+      // Direction 1 rather than failing to load it.
+      restored = [parsed];
+      restoredIndex = 0;
+    } else {
+      throw new Error('Unrecognized saved format');
+    }
+    restored.slice(0, MAX_DIRECTIONS).forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; }); // restore generated imagery same as user uploads
+    directions = restored.slice(0, MAX_DIRECTIONS);
+    activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, restoredIndex));
+    project = directions[activeDirectionIndex];
     renderProject(project);
     markGenerated();
-    resolveImagePlanAssets(project); // covers any slot that was still pending/errored when it was saved
-    setProjectStatus('Loaded your last saved project from stored data.');
+    renderDirectionSwitcher();
+    updateDirectionControls();
+    resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots -- matches "switching never generates images"; inactive directions are left exactly as saved until switched to
+    setProjectStatus(`Loaded your saved project${directions.length > 1 ? ` (${directions.length} directions)` : ''}.`);
   } catch (e) { setProjectStatus('Saved project could not be read.'); }
 }
 
@@ -1552,9 +1584,30 @@ const loadProjectButtonLock = $('#loadProjectButtonLock');
 const projectDataStatus = $('#projectDataStatus');
 const projectDataStatusLock = $('#projectDataStatusLock');
 
-// ---- Module state: the project itself is the only real state -----------
+// ---- Module state -----------------------------------------------------
+// V8.1: the real product rule is "a visitor gets exactly 3 complete website
+// directions, total -- through Claude OR the deterministic engine, doesn't
+// matter." `directions` holds every direction that has actually been
+// created this session (in creation order, never more than MAX_DIRECTIONS);
+// `project` always === `directions[activeDirectionIndex]` once at least one
+// exists (before that, it's the neutral, never-counted demo shell). Every
+// existing refinement control below still just mutates `project` in place
+// and calls renderProject(project) -- since `project` IS the same object
+// reference held in `directions[activeDirectionIndex]`, those edits land on
+// exactly the active direction and no other, with no extra plumbing.
+const MAX_DIRECTIONS = 3;
+let directions = [];
+let activeDirectionIndex = -1;
 let project = null;
 let hasGenerated = false;
+// Read-only test hook (no setter) -- lets Playwright tests observe the real
+// direction count/active index without reaching into module-private state.
+// Not sensitive, not written to, and harmless to ship.
+try {
+  Object.defineProperty(window, '__siteremadeDirections', {
+    get: () => ({ count: directions.length, activeIndex: activeDirectionIndex, max: MAX_DIRECTIONS })
+  });
+} catch (e) { /* ignore in environments where this isn't definable */ }
 
 // ---- Refinement controls: mutate `project`, then re-render --------------
 [businessName].forEach(el => el.addEventListener('input', () => { if (!project) return; project.business.name = businessName.value; renderProject(project); }));
@@ -1691,31 +1744,24 @@ if (toneToggle) {
     renderProject(project);
   }));
 }
+// V8.1: "Try another direction" is no longer a same-project remix -- it is
+// the exact same direction-creation path as the main Generate form (real
+// Claude attempt when configured, deterministic variation fallback
+// otherwise), just seeded from the CURRENT direction's own business text
+// rather than whatever is currently sitting in the textarea. Before the
+// limit, this counts toward the 3-direction allowance like any other
+// generation. Once 3 directions exist, it creates nothing at all -- it
+// becomes the same "switch to the next direction" action the explicit
+// Direction 1/2/3 pills provide (renderDirectionSwitcher), so it can never
+// be an unlimited-deterministic-generation loophole.
 if (regenerateButton) {
   regenerateButton.addEventListener('click', () => {
     if (!project) return;
-    // V7: bump the deterministic variation counter (feeds the palette hash
-    // and alternates between equally-valid variants -- see pickVariant),
-    // and cycle to the next real ranked seed from the ORIGINAL analysis for
-    // any dimension that still has no explicit text signal. Never random,
-    // never named to the visitor -- reads as "the ambiguous parts get a
-    // fresh take."
-    project.intent.variationSeed = (project.intent.variationSeed || 0) + 1;
-    const candidates = [project.intent.seedKey, ...(project.intent.styleAlternates || [])].filter(Boolean);
-    const pool = candidates.length ? candidates : [project.intent.seedKey];
-    const currentIndex = pool.indexOf(project.intent.seedKey);
-    const nextKey = pool[(currentIndex + 1) % pool.length] || pool[0];
-    project.intent.seedKey = nextKey;
-    const variationText = project.source.text + '::v' + project.intent.variationSeed;
-    const composed = composeStyleFromAnalysis(variationText, project.business.categoryKey, nextKey);
-    project.design.palette = { ...composed.palette };
-    project.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
-    project.sections.forEach(s => { s.variant = pickVariant(s.type, project.design.dimensions, project.intent.variationSeed); });
-    const category = categories[project.business.categoryKey] || categories.other;
-    category.services.push(category.services.shift());
-    project.imagePlan = buildImagePlan(project, category);
-    renderProject(project);
-    resolveImagePlanAssets(project); // imagery direction may have changed -- no-ops if the cache key is unchanged
+    if (directions.length >= MAX_DIRECTIONS) {
+      switchDirection((activeDirectionIndex + 1) % directions.length);
+      return;
+    }
+    runGeneration(project.source.text);
   });
 }
 if (saveProjectButton) saveProjectButton.addEventListener('click', saveProjectToStorage);
@@ -1955,22 +2001,81 @@ async function requestClaudePlan(text) {
   }
 }
 
-// Tiny, honest status strip above the generator form -- never invasive,
-// never blocking. Configured-but-no-remaining and not-configured-at-all
-// both read the same to a visitor: SiteRemade's own design engine keeps
-// working either way (see runGeneration).
+// V8.1: this strip now communicates the REAL product rule -- total
+// directions used, out of 3, regardless of whether Claude or the
+// deterministic engine produced them. It intentionally does NOT read the
+// server's Claude-only counter for this number (see requestClaudePlan /
+// server.js part 8): `directions.length` is the one number that is always
+// accurate, because it's incremented in exactly one place (finishGeneration)
+// no matter which engine produced a given direction. Never invasive, never
+// blocking.
 const generatorAiHint = $('#generatorAiHint');
-function updateGeneratorAiHint(meter) {
-  if (!generatorAiHint || !meter) return;
-  if (!meter.planConfigured) { generatorAiHint.textContent = ''; generatorAiHint.hidden = true; return; }
+function updateGeneratorAiHint() {
+  if (!generatorAiHint) return;
+  const used = directions.length;
+  if (used === 0) { generatorAiHint.textContent = ''; generatorAiHint.hidden = true; return; }
   generatorAiHint.hidden = false;
-  if (meter.remaining > 0) {
-    generatorAiHint.textContent = `${meter.remaining} of ${meter.limit} AI-planned directions left — after that, SiteRemade's design engine keeps generating new directions for you.`;
+  const aiNote = (window.__siteremadePlanMeter && window.__siteremadePlanMeter.planConfigured) ? ' (AI-planned when available)' : '';
+  if (used < MAX_DIRECTIONS) {
+    generatorAiHint.textContent = `${used} of ${MAX_DIRECTIONS} website directions used${aiNote}.`;
   } else {
-    generatorAiHint.textContent = `You've used your ${meter.limit} AI-planned directions — SiteRemade's design engine will keep generating new directions from here.`;
+    generatorAiHint.textContent = `You've used all ${MAX_DIRECTIONS} website directions — switch between them below, or keep editing the one you're on.`;
   }
 }
-window.__siteremadePlanMeter = { planConfigured: false, count: 0, limit: 3, remaining: 3 };
+// Only ever tells this session whether it's worth ATTEMPTING Claude for the
+// next direction -- never the source of truth for how many directions a
+// visitor has used (that's directions.length, always). See server.js's
+// /api/generation-status for exactly what this does and doesn't observe.
+window.__siteremadePlanMeter = { planConfigured: false };
+
+// ---- V8.1: the Direction 1/2/3 switcher -----------------------------------
+// Explicit, minimal UI: a row of pills, one per existing direction, shown
+// once there is more than one. Switching is pure client-side state --
+// zero Claude calls, zero image-provider calls, by construction (it never
+// calls requestClaudePlan or resolveImagePlanAssets, it only reassigns
+// which already-built WebsiteProject `project` points at and re-renders).
+const directionSwitcherEl = $('#directionSwitcher');
+function renderDirectionSwitcher() {
+  if (!directionSwitcherEl) return;
+  if (directions.length < 2) { directionSwitcherEl.hidden = true; directionSwitcherEl.innerHTML = ''; return; }
+  directionSwitcherEl.hidden = false;
+  directionSwitcherEl.innerHTML = directions.map((d, i) =>
+    `<button type="button" class="direction-pill${i === activeDirectionIndex ? ' active' : ''}" data-direction-index="${i}" role="tab" aria-selected="${i === activeDirectionIndex}">Direction ${i + 1}</button>`
+  ).join('');
+}
+function switchDirection(index) {
+  if (!directions.length) return;
+  index = Math.max(0, Math.min(directions.length - 1, index));
+  if (index === activeDirectionIndex) return;
+  activeDirectionIndex = index;
+  project = directions[activeDirectionIndex];
+  renderProject(project);
+  renderDirectionSwitcher();
+  markGenerated();
+  persistDirectionsSilently();
+  // Deliberately NO resolveImagePlanAssets() call here -- switching must
+  // never trigger a new image request. Each direction owns its own
+  // assets.generated cache and renders exactly as it was left.
+}
+directionSwitcherEl && directionSwitcherEl.addEventListener('click', event => {
+  const pill = event.target.closest('.direction-pill');
+  if (pill) switchDirection(Number(pill.dataset.directionIndex));
+});
+// "Try another direction" reads as exactly that before the limit, and turns
+// into the same switching action the pills above provide once all 3 exist
+// -- never a second UI concept, never a way past the cap.
+function updateDirectionControls() {
+  if (!regenerateButton) return;
+  const atLimit = directions.length >= MAX_DIRECTIONS;
+  regenerateButton.textContent = atLimit ? 'Switch direction' : 'Try another direction';
+  updateGeneratorAiHint();
+}
+function announceDirectionLimitReached() {
+  updateGeneratorAiHint();
+  renderDirectionSwitcher();
+  const target = directionSwitcherEl && !directionSwitcherEl.hidden ? directionSwitcherEl : document.getElementById('build');
+  if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+}
 
 // Builds the initial (already-real) shell of a WebsiteProject: business
 // identity + category + a seed design, enough to render a meaningful first
@@ -1979,7 +2084,9 @@ window.__siteremadePlanMeter = { planConfigured: false, count: 0, limit: 3, rema
 // refine it into the finished project. Nothing here is fake -- it is
 // createProject's own logic, exposed as separate steps instead of one
 // opaque call, so the UI can reflect each one as it actually runs.
-function buildGenerationPlan(text, preserved, claudePlan) {
+function buildGenerationPlan(text, preserved, claudePlan, variationSeed) {
+  variationSeed = variationSeed || 0;
+  const directionNumber = variationSeed + 1;
   const analysis = analyzeDescription(text);
   const category = categories[analysis.categoryKey] || categories.other;
   const catDefaults = categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other;
@@ -2020,7 +2127,7 @@ function buildGenerationPlan(text, preserved, claudePlan) {
       tone: (preserved && preserved.business && preserved.business.tone) || 'professional'
     },
     intent: {
-      seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed: 0,
+      seedKey: analysis.styleKey, styleAlternates: analysis.styleAlternates, variationSeed,
       // Claude supplies image PROMPTS/roles only -- the OpenAI image
       // provider remains the only thing that ever generates an actual
       // image (buildImagePrompt/buildImagePlan/resolveImagePlanAssets are
@@ -2060,9 +2167,9 @@ function buildGenerationPlan(text, preserved, claudePlan) {
         // Claude call) -- this step announces that real result rather than
         // recomputing it.
         if (usingClaude) {
-          return `${claudePlan.understanding || (category.label + ' business detected')}${analysis.location ? ' · ' + analysis.location : ''} — AI-planned direction`;
+          return `Direction ${directionNumber}: ${claudePlan.understanding || (category.label + ' business detected')}${analysis.location ? ' · ' + analysis.location : ''} — AI-planned`;
         }
-        return `${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`;
+        return `Direction ${directionNumber}: ${category.label} business detected${analysis.location ? ' in ' + analysis.location : ''}`;
       } },
     { key: 'structure', run() {
         if (usingClaude) {
@@ -2074,7 +2181,24 @@ function buildGenerationPlan(text, preserved, claudePlan) {
           });
           return `${proj.sections.length} sections planned (AI-selected for ${category.label.toLowerCase()}${claudePlan.pages.length > 1 ? `, ${claudePlan.pages.length} pages planned` : ''})`;
         }
-        composed = composeStyleFromAnalysis(analysis.text, analysis.categoryKey, analysis.styleKey);
+        // V8.1: a second/third DETERMINISTIC direction for the same business
+        // (Claude unavailable/not configured/failed) must still look like a
+        // genuinely different direction, not a clone -- this is exactly the
+        // old regenerateButton's own "give the ambiguous parts a fresh take"
+        // trick (V7), now applied at direction-creation time instead of via
+        // in-place mutation: the palette hash and any dimension with no
+        // explicit keyword signal are recomputed against a variation-tagged
+        // copy of the text, and the ranked style seed is cycled to the next
+        // real alternate. Deterministic and reproducible -- never random.
+        // (V7's old version of this also rotated the shared `category.services`
+        // array in place, which would have silently changed a DIFFERENT,
+        // already-created direction's copy on next render -- fixed here by
+        // never mutating shared category data at all.)
+        const stylePool = [analysis.styleKey, ...(analysis.styleAlternates || [])].filter(Boolean);
+        const variationStyleKey = stylePool.length ? stylePool[variationSeed % stylePool.length] : analysis.styleKey;
+        const variationText = variationSeed ? `${analysis.text}::v${variationSeed}` : analysis.text;
+        composed = composeStyleFromAnalysis(variationText, analysis.categoryKey, variationStyleKey);
+        proj.intent.seedKey = variationStyleKey;
         const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
         proj.sections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
         return `${proj.sections.length} sections planned (${category.label.toLowerCase()})`;
@@ -2091,7 +2215,7 @@ function buildGenerationPlan(text, preserved, claudePlan) {
         return describeComposition(composed);
       } },
     { key: 'sections', run() {
-        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, 0); });
+        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed); });
         proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor);
         if (usingClaude) {
           // Deterministic copy above is still computed first so every
@@ -2123,11 +2247,21 @@ function buildGenerationPlan(text, preserved, claudePlan) {
   ];
   return { proj, category, steps };
 }
+// V8.1: the single place a new WebsiteProject is ever admitted into
+// `directions`. Called once generation (Claude or deterministic) has fully
+// finished -- this is also where the hard 3-direction cap becomes real:
+// nothing before this point has touched `directions`, so a run that never
+// reaches here (blocked earlier by the cap) has created nothing at all.
 function finishGeneration(proj) {
+  directions.push(proj);
+  activeDirectionIndex = directions.length - 1;
   project = proj;
   renderProject(project);
   markGenerated();
   resolveImagePlanAssets(project); // fire real image requests for this freshly-built plan, async, non-blocking
+  renderDirectionSwitcher();
+  updateDirectionControls();
+  persistDirectionsSilently(); // so a plain page refresh can't reset the 3-direction cap -- see SITE-PROJECT-V8.1.md part "closing the reload loophole"
 
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
@@ -2138,26 +2272,29 @@ function finishGeneration(proj) {
   const target = document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 }
-// V8: the only place a full Generate submission tries Claude before the
-// real deterministic engine. Skipped entirely (no network call at all) when
-// the meter says Claude isn't configured or the visitor's 3 AI-planned
-// directions are already used -- there is no point spending a request just
-// to be told no, and "Try another direction" (regenerateButton, below)
-// stays 100% deterministic/unmetered regardless, exactly as today. See
-// SITE-PROJECT-V8.md part 5/7/12.
+// V8.1: the ONLY function that creates a new WebsiteProject. Used by both
+// the main Generate form and "Try another direction" (before the limit) --
+// both just call this with a business description. The hard product rule
+// lives at the very top: once 3 directions exist, this returns immediately,
+// before any network call, before any deterministic build, before any
+// image plan -- Claude being unconfigured/unavailable/failed NEVER
+// re-opens the door to "just use the free deterministic engine instead" once
+// the visitor already has 3 real directions (that was the bug this fixes --
+// see SITE-PROJECT-V8.1.md).
 async function runGeneration(text) {
   if (!text || !text.trim()) return;
+  if (directions.length >= MAX_DIRECTIONS) {
+    announceDirectionLimitReached();
+    return;
+  }
+  const variationSeed = directions.length; // 0, 1, 2 -- which direction this attempt will become if it succeeds
 
   let claudePlan = null;
   const meter = window.__siteremadePlanMeter;
-  if (meter && meter.planConfigured && meter.remaining > 0) {
+  if (meter && meter.planConfigured) {
     if (generatorSubmitButton) generatorSubmitButton.disabled = true;
     if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
     const result = await requestClaudePlan(text);
-    if (result && typeof result.remaining === 'number') {
-      window.__siteremadePlanMeter = { ...window.__siteremadePlanMeter, remaining: result.remaining, count: Math.max(0, meter.limit - result.remaining) };
-      updateGeneratorAiHint(window.__siteremadePlanMeter);
-    }
     if (result && result.ok && result.plan) {
       const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
       claudePlan = normalizeClaudePlan(result.plan, catDefaults);
@@ -2165,18 +2302,21 @@ async function runGeneration(text) {
       // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
       // part 12 requires falling back from -- it does NOT re-throw or
       // block; claudePlan simply stays null and buildGenerationPlan below
-      // runs the real deterministic engine instead, silently to the
-      // visitor beyond the meter (a real attempt still consumed one of the
-      // 3 credits server-side, since the model DID return a response --
-      // only a network/timeout/invalid-JSON failure on the server is free).
+      // runs the real deterministic engine instead. Either way this attempt
+      // still produces exactly one direction (see finishGeneration) -- a
+      // failed/unusable Claude response is never a reason to produce
+      // NOTHING, and it is never a reason to produce a SECOND direction
+      // either.
     }
-    // Falls through to 'Generating…' below either way -- a skipped/failed/
-    // limited Claude call is invisible beyond the meter hint; there is no
-    // separate error state for the visitor to see, because nothing is
-    // actually broken from their side.
+    // A limited/unconfigured/failed response is invisible beyond this --
+    // there is no separate error state for the visitor, because nothing is
+    // actually broken from their side: the deterministic engine below still
+    // produces this direction. It also does NOT re-check `directions.length`
+    // again -- the guard at the top of this function already reserved this
+    // attempt's place in the 3-direction budget before any network call.
   }
 
-  const { proj, steps } = buildGenerationPlan(text, project, claudePlan);
+  const { proj, steps } = buildGenerationPlan(text, project, claudePlan, variationSeed);
 
   if (prefersReducedMotion() || !generationProgress || !generationSteps) {
     // Real work still runs in full -- only the frame-by-frame reveal is
@@ -2254,7 +2394,7 @@ if (buyButton) {
     buyButton.disabled = true;
     if (purchaseStatus) { purchaseStatus.dataset.sticky = '1'; purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Starting checkout…'; }
     try {
-      try { localStorage.setItem('siteremade:purchase:' + project.meta.id, serializeProject(project)); } catch (e) { /* best-effort only */ }
+      try { localStorage.setItem('siteremade:purchase:' + project.meta.id, JSON.stringify(project)); } catch (e) { /* best-effort only */ }
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2340,12 +2480,45 @@ leadForm.addEventListener('submit', async event => {
   }
 });
 
-// ---- Bootstrap: an initial demo shell, deliberately NOT styled like a real
-// generated result (V7 part 7d -- see hero-demo-shell / isDemoShell above).
-// It shows neutral copy and a distinct "preview" visual treatment so a
-// visitor never mistakes the empty state for an actual generated site.
-project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null, true);
+// ---- Bootstrap ------------------------------------------------------------
+// V8.1: try a SILENT restore of any directions this visitor already has
+// before falling back to the neutral demo shell. Without this, a plain page
+// refresh would reset `directions` to empty and quietly hand the visitor 3
+// more free directions -- the exact "does not fully cap our paid API
+// exposure" gap this pass exists to close. This is best-effort and shares
+// storage with the explicit Save/Restore feature (same key) -- a visitor
+// who deliberately clears site data can still reset the count, which is the
+// same disclosed, honest limitation as the anonymous cookie mechanism
+// itself (SITE-PROJECT-V8.md part 7/8); this only closes the casual,
+// non-adversarial "I hit refresh" case.
+let restoredDirectionsOnBoot = false;
+try {
+  const raw = localStorage.getItem('siteremade:lastProject');
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
+      directions = parsed.directions.slice(0, MAX_DIRECTIONS);
+      directions.forEach(d => { d.assets = d.assets || {}; d.assets.generated = d.assets.generated || {}; });
+      activeDirectionIndex = Math.max(0, Math.min(directions.length - 1, Number.isInteger(parsed.activeDirectionIndex) ? parsed.activeDirectionIndex : 0));
+      project = directions[activeDirectionIndex];
+      restoredDirectionsOnBoot = true;
+    }
+  }
+} catch (e) { /* falls through to the demo shell below */ }
+if (!restoredDirectionsOnBoot) {
+  // Deliberately NOT styled like a real generated result (V7 part 7d -- see
+  // hero-demo-shell / isDemoShell above) and never counted as a direction.
+  // It shows neutral copy and a distinct "preview" visual treatment so a
+  // visitor never mistakes the empty state for an actual generated site.
+  project = createProject({ text: '', categoryKey: 'other', styleKey: 'precision', styleAlternates: [], location: '' }, null, true);
+}
 renderProject(project);
+if (restoredDirectionsOnBoot) {
+  markGenerated();
+  renderDirectionSwitcher();
+  updateDirectionControls();
+  resolveImagePlanAssets(project); // only the ACTIVE direction's still-pending/errored slots, same as loadProjectFromStorage
+}
 year.textContent = new Date().getFullYear();
 // V7: best-effort provider status check -- see buildImagePlan. Never blocks
 // generation; if this hasn't resolved yet, imagePlan safely defaults to the
@@ -2368,6 +2541,6 @@ fetch('/api/image-provider-status').then(r => r.json()).then(status => {
 fetch('/api/generation-status').then(r => r.json()).then(meter => {
   if (meter && typeof meter === 'object') {
     window.__siteremadePlanMeter = meter;
-    updateGeneratorAiHint(meter);
+    updateDirectionControls(); // refreshes the hint's "(AI-planned when available)" note; the direction COUNT it shows always comes from directions.length, never from this
   }
 }).catch(() => {});
