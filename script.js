@@ -888,6 +888,49 @@ const archetypeExtendedDimensionDefaults = {
   'community-nonprofit': { contentWidth:'wide', imageDominance:'dominant', imageArrangement:'stacked', sectionRhythm:'alternating', sectionAlignment:'left', typographyScale:'standard', headingWidth:'wide', cardDensity:'airy', cardShape:'pill', splitRatio:'media-heavy' },
   hospitality: { contentWidth:'edge-to-edge', imageDominance:'dominant', imageArrangement:'mosaic', sectionRhythm:'editorial', sectionAlignment:'center', typographyScale:'display', headingWidth:'wide', cardDensity:'mixed', cardShape:'pill', splitRatio:'media-heavy' }
 };
+// DESIGN INTELLIGENCE PASS: per-archetype icon/decorative direction, keyed
+// off the exact same `strategy.archetype` every other creative decision
+// already uses -- deliberately NOT a new independent randomizer (task
+// requirement: don't create a fresh source of variation, reuse the one that
+// already differentiates businesses). `iconWeight` is a Phosphor weight key
+// (see icons-data.js); `iconDensity` controls how liberally renderIcon call
+// sites use icons at all ('minimal' archetypes stay mostly icon-free, per
+// the "premium consultancy/editorial" guidance -- restraint is a real
+// design choice, not a gap); `iconPresentation` is the DEFAULT presentation
+// variant (individual call sites may still pick a more specific one for
+// their own context, e.g. proof stats always use 'badge'); `decorativeMotif`
+// is which local SVG/CSS primitive family (part 4) this archetype leans on.
+const archetypeIconDefaults = {
+  'product-led-saas': { iconWeight: 'light', iconDensity: 'medium', iconPresentation: 'tinted-tile', decorativeMotif: 'grid' },
+  'service-business': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines' },
+  'premium-consultancy': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'rule' },
+  'editorial-brand': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'none' },
+  portfolio: { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'corners' },
+  'ecommerce-showcase': { iconWeight: 'regular', iconDensity: 'medium', iconPresentation: 'outlined-square', decorativeMotif: 'dots' },
+  'local-conversion': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines' },
+  'trust-heavy-professional': { iconWeight: 'light', iconDensity: 'low', iconPresentation: 'badge', decorativeMotif: 'rule' },
+  'launch-campaign': { iconWeight: 'bold', iconDensity: 'medium', iconPresentation: 'oversized', decorativeMotif: 'dots' },
+  'community-nonprofit': { iconWeight: 'duotone', iconDensity: 'medium', iconPresentation: 'rounded-square', decorativeMotif: 'waves' },
+  hospitality: { iconWeight: 'regular', iconDensity: 'low', iconPresentation: 'above-heading', decorativeMotif: 'divider' }
+};
+// Exactly 4 deterministic proof/value-prop icon keys per archetype -- used
+// wherever a section needs generic icon accents with no more specific
+// per-item signal (metrics/proof strip, and the zero-image gallery
+// fallback, part 7). Never sent anywhere, never AI-selected -- a plain
+// lookup keyed off the same `strategy.archetype` as everything else here.
+const ARCHETYPE_PROOF_ICONS = {
+  'product-led-saas': ['lightning', 'cloud', 'cpu', 'chartLineUp'],
+  'service-business': ['wrench', 'hardHat', 'truck', 'checkCircle'],
+  'premium-consultancy': ['scales', 'briefcase', 'sealCheck', 'chartLineUp'],
+  'editorial-brand': ['palette', 'sparkle', 'penNib', 'layers'],
+  portfolio: ['palette', 'camera', 'penNib', 'layers'],
+  'ecommerce-showcase': ['bag', 'tag', 'package', 'heart'],
+  'local-conversion': ['wrench', 'hardHat', 'truck', 'shieldCheck'],
+  'trust-heavy-professional': ['shieldCheck', 'scales', 'certificate', 'buildings'],
+  'launch-campaign': ['lightning', 'sparkle', 'flag', 'users'],
+  'community-nonprofit': ['heart', 'handshake', 'users', 'globe'],
+  hospitality: ['forkKnife', 'coffee', 'storefront', 'clock']
+};
 
 // ---- V9: deterministic page architecture ----------------------------------
 // Previously the deterministic path was ALWAYS exactly one page (Home) --
@@ -1247,6 +1290,64 @@ function buildCopy(category, categoryKey, analysis, descriptor, variationSeed) {
     if (loc) sub = `${category.sub} Serving ${loc}.`;
   }
   return { kicker, headline, sub, cta: category.cta };
+}
+
+// ---- DESIGN INTELLIGENCE PASS: local icon system (Phosphor, MIT license) --
+// icons-data.js (repo root; UMD -- window.SITEREMADE_ICON_DATA in the
+// browser, require()-able in Node) holds a curated ~210-key semantic
+// vocabulary, each key carrying real Phosphor SVG markup across 5 weights
+// (thin/light/regular/bold/duotone). renderIcon looks a key up and returns
+// an already-INLINED <svg>...</svg> string -- never a reference to an
+// external file, an icon font, or any network request, so an exported site
+// never needs icons-data.js itself (see lib/export-compiler.js). This
+// function (and resolveIconDirection/renderIconTile below) is hand-ported
+// to lib/site-render.js, same convention as renderVisualSlot/effectiveHeroLayout.
+function iconDataSource() {
+  if (typeof window !== 'undefined' && window.SITEREMADE_ICON_DATA) return window.SITEREMADE_ICON_DATA;
+  if (typeof require === 'function') { try { return require('../icons-data.js'); } catch (e) { return null; } }
+  return null;
+}
+// The Creative Director's per-archetype icon direction (part 19/20) --
+// computed once at generation time (buildGenerationPlan's archetypeIconDefaults
+// merge) and persisted on project.design.dimensions, so preview and export
+// always agree. Falls back to sane scalar defaults for any project saved
+// before this pass (never crashes on an old/legacy project).
+function resolveIconDirection(project) {
+  const d = (project && project.design && project.design.dimensions) || {};
+  return {
+    weight: d.iconWeight || 'regular',
+    density: d.iconDensity || 'medium',
+    presentation: d.iconPresentation || 'icon-led-row',
+    motif: d.decorativeMotif || 'none'
+  };
+}
+function renderIcon(key, opts) {
+  opts = opts || {};
+  const data = iconDataSource();
+  const icon = data && data.icons && data.icons[key];
+  if (!icon) return '';
+  const weight = (opts.weight && icon[opts.weight]) ? opts.weight : (icon.regular ? 'regular' : Object.keys(icon)[0]);
+  const inner = icon[weight];
+  const size = opts.size || 20;
+  const cls = 'sr-icon' + (opts.className ? ' ' + opts.className : '');
+  return `<svg class="${cls}" width="${size}" height="${size}" viewBox="${data.viewBox || '0 0 256 256'}" fill="currentColor" aria-hidden="true" focusable="false">${inner}</svg>`;
+}
+// Part 3 -- deterministic icon PRESENTATION variants sharing one wrapper:
+// bare (plain icon), icon+label pill, small tinted/outlined/rounded tile,
+// badge (compact proof marker), oversized decorative, above-heading stack.
+// A section that needs a more specific composition (icon-led service rows,
+// icon+number hybrids) builds its own markup directly with renderIcon() --
+// this wrapper is for the simpler, reusable cases (proof strip, footer
+// contact rows, inline CTA accents).
+function renderIconTile(key, opts) {
+  opts = opts || {};
+  const presentation = opts.presentation || 'bare';
+  const weight = opts.weight || 'regular';
+  const size = opts.size || (presentation === 'oversized' ? 40 : 20);
+  const icon = renderIcon(key, { weight, size });
+  if (!icon) return '';
+  const label = opts.label ? `<span class="sr-icon-tile-label">${escapeHtml(opts.label)}</span>` : '';
+  return `<span class="sr-icon-tile sr-icon-tile-${presentation}">${icon}${label}</span>`;
 }
 
 // ---- V7.1: image plan + designed visual slots + real async generation ----
@@ -1811,7 +1912,27 @@ function reconcileImageSupplyWithSections(proj, category) {
           section.imageTileCount = ZERO_SUPPLY_TILE_COUNT;
           changed = true;
         }
+        // GALLERY FIX (design intelligence pass, part 7): a gallery/case-
+        // studies section with truly ZERO real imagery no longer stays an
+        // image-shaped section at all -- it's marked to render as a
+        // compact icon/proof composition instead (see renderGallery's
+        // `zeroSupplyTreatment` branch in both script.js and
+        // lib/site-render.js). This is the fix for "an enormous dotted/
+        // patterned gallery rectangle... that does not look premium": the
+        // section stops pretending to be a photo gallery the moment there
+        // is no photography to show, rather than shrinking the same empty
+        // photo-shaped box down to one tile.
+        if ((section.type === 'gallery' || section.type === 'caseStudies') && section.zeroSupplyTreatment !== 'icon-composition') {
+          section.zeroSupplyTreatment = 'icon-composition';
+          changed = true;
+        }
         return;
+      }
+      if ((section.type === 'gallery' || section.type === 'caseStudies') && section.zeroSupplyTreatment) {
+        // Real supply arrived (an upload, or a generation finished) after a
+        // prior zero-supply render -- revert to the normal image gallery.
+        section.zeroSupplyTreatment = null;
+        changed = true;
       }
       if (realCount >= currentCount) return; // already fully supplied -- nothing to reconcile
       const resolved = Math.max(MIN_IMAGE_TILES, Math.min(currentCount, realCount));
@@ -2290,17 +2411,26 @@ function renderServices(project, category, section) {
   const headline = sectionCopyField(section, 'headline', '');
   const intro = sectionCopyField(section, 'body', '');
   const headerHtml = renderSectionHeader(headline, intro, section && section.headlineRole);
+  // DESIGN INTELLIGENCE PASS (part 8/19): a service icon per item, keyed
+  // positionally from the archetype's own proof-icon table (same source as
+  // the gallery fallback/proof badges -- never a per-word text guess).
+  // [data-icon-density="minimal"] archetypes (styles.css) hide these again
+  // via CSS, so a premium-consultancy/editorial site still renders plain
+  // numbered/text rows -- restraint is a real choice, not a missing icon.
+  const dir = resolveIconDirection(project);
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
   if (variant === 'described') {
     const vocab = sectionVocab(project);
     return `<div class="site-section site-section-services" data-variant="described">
       ${headerHtml}
-      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', l => `<strong>${escapeHtml(l)}</strong><p>${escapeHtml(vocab.serviceCardBody(l, category))}</p>`)}</div>
+      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', (l, i) => `${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 22, className: 'service-card-icon' })}<strong>${escapeHtml(l)}</strong><p>${escapeHtml(vocab.serviceCardBody(l, category))}</p>`)}</div>
       ${moduleHtml}
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
     ${headerHtml}
-    <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
+    <div class="site-sections">${labels.map((l, i) => `<div class="icon-led-row"><span class="sr-icon-tile sr-icon-tile-tinted-tile">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span><div class="icon-led-row-body"><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div></div>`).join('')}</div>
     ${moduleHtml}
   </div>`;
 }
@@ -2330,12 +2460,46 @@ function renderProof(project, category, section) {
       <p class="site-proof-statement" data-headline-role="${escapeHtml(role)}">${stats.map(s => `<strong>${escapeHtml(s.n)}</strong> ${escapeHtml(s.l)}`).join(' &nbsp;·&nbsp; ')}</p>
     </div>`;
   }
+  // DESIGN INTELLIGENCE PASS: a small icon above each real stat (never a
+  // fabricated one -- this whole section only exists when facts.years/
+  // rating/count came from the actual business description, see comment
+  // above) instead of a bare number in whitespace.
+  const dir = resolveIconDirection(project);
+  const statIcons = { Years: 'clockCountdown', Rating: 'star', Served: 'usersThree' };
   return `<div class="site-section site-section-proof" data-variant="facts">
-    <div class="site-proof-stats">${stats.map(s => `<div><strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
+    <div class="site-proof-stats">${stats.map(s => `<div>${renderIcon(statIcons[s.l] || 'checkCircle', { weight: dir.weight, size: 18, className: 'proof-icon' })}<strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
   </div>`;
 }
 function renderMetrics(project, category, section) { return renderProof(project, category, section); }
+// GALLERY FIX (design intelligence pass, part 7): a zero-real-image gallery
+// stops being image-shaped at all -- it renders as a compact icon/proof
+// composition instead. iconKeys come from the archetype's own deterministic
+// proof-icon table (part 19/20 -- reuses the exact same strategy.archetype
+// signal as everything else); labels are the category's own real
+// `services` list (already used for real content elsewhere, e.g. the
+// footer's service column), never invented copy. Card count always matches
+// however many real service labels the category actually has (usually 3),
+// never padded with a fabricated 4th.
+function renderGalleryIconComposition(project, category, section, label, caption) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const dir = resolveIconDirection(project);
+  const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
+  const items = (category.services || []).slice(0, iconKeys.length);
+  const cards = items.map((itemLabel, i) => `<div class="gallery-icon-card">
+      ${renderIcon(iconKeys[i], { weight: dir.weight, size: 26, className: 'gallery-icon-card-icon' })}
+      <span>${escapeHtml(itemLabel)}</span>
+    </div>`).join('');
+  return `<div class="site-section site-section-gallery gallery-icon-composition" data-variant="icons">
+    ${renderSectionHeader(label, caption, section && section.headlineRole)}
+    <div class="gallery-icon-grid">${cards}</div>
+  </div>`;
+}
 function renderGallery(project, category, section, labelOverride) {
+  const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));
+  const caption = sectionCopyField(section, 'body', '');
+  if (section && section.zeroSupplyTreatment === 'icon-composition') {
+    return renderGalleryIconComposition(project, category, section, label, caption);
+  }
   // TIERED IMAGE SPEND PASS: a reconciled `imageDisplayVariant` (see
   // reconcileImageSupplyWithSections) overrides the stored variant for
   // RENDERING only -- when a gallery has zero real imagery, this switches
@@ -2345,8 +2509,6 @@ function renderGallery(project, category, section, labelOverride) {
   const variant = section && (section.imageDisplayVariant || section.variant);
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
-  const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));
-  const caption = sectionCopyField(section, 'body', '');
   // IMAGE COHERENCE PASS: a reconciled `imageTileCount` (see
   // reconcileImageSupplyWithSections) always wins over the raw
   // variant-based count -- this is what actually shrinks a gallery from
@@ -2764,10 +2926,20 @@ function renderNewsletter(project, category, section) {
   if (section && section.module && section.module.enabled && section.module.type === 'newsletter') {
     return renderFormModuleWidget(project, section, sectionCopyField(section, 'headline', 'Stay in the loop.'));
   }
+  // NEWSLETTER FIX (design intelligence pass, part 13): the fallback
+  // "Subscribe" button previously had NO class at all -- an unstyled
+  // native browser button, the literal "forms that look unfinished"
+  // complaint. Now shares the real, archetype-aware CTA button system
+  // (module-cta-btn, see renderCtaButton) and the whole section gets a
+  // contained surface + icon instead of a bare paragraph and input.
   const message = sectionCopyField(section, 'headline', 'Stay in the loop.');
+  const dir = resolveIconDirection(project);
   return `<div class="site-section site-section-newsletter" data-variant="inline">
-    <p>${escapeHtml(message)}</p>
-    <div class="newsletter-row"><input type="email" placeholder="you@email.com" disabled /><button>Subscribe</button></div>
+    <div class="newsletter-surface">
+      ${renderIcon('paperPlane', { weight: dir.weight, size: 22, className: 'newsletter-icon' })}
+      <p>${escapeHtml(message)}</p>
+      <div class="newsletter-row"><input type="email" placeholder="you@email.com" disabled /><button class="module-cta-btn" disabled>Subscribe${renderIcon('arrowRight', { weight: dir.weight, size: 14, className: 'cta-btn-icon' })}</button></div>
+    </div>
   </div>`;
 }
 function renderImageLedEditorial(project, category, section) {
@@ -2778,25 +2950,36 @@ function renderImageLedEditorial(project, category, section) {
     <p class="editorial-caption">${escapeHtml(caption)}</p>
   </div>`;
 }
+// FOOTER (design intelligence pass, part 13): the bottom-page region was
+// previously either brand+copyright alone ('simple') or that plus two
+// hardcoded generic link columns ('columns') -- "an enormous empty bottom-
+// page region" either way. This adds: a real location line (only when
+// project.source.location is actually set -- never a fabricated address),
+// a small icon accent next to it, and a decorative top divider so the
+// footer reads as a composed closing section instead of trailing off.
+// Nothing invented: the only new content is data the project already has.
 function renderSiteFooter(project, category, variant) {
   const plan = project.assets.plan;
   const logoAsset = plan.logo ? project.assets.items.find(a => a.id === plan.logo) : null;
   const businessName = escapeHtml((project.business.name || 'Your Business').trim());
   const brandInner = logoAsset ? `<img class="site-footer-logo-img" src="${logoAsset.dataUrl}" alt="${businessName} logo" />` : `<strong>${businessName}</strong>`;
   const year = new Date().getFullYear();
+  const dir = resolveIconDirection(project);
+  const location = project.source && project.source.location;
+  const locationLine = location ? `<p class="site-footer-location">${renderIcon('mapPin', { weight: dir.weight, size: 13 })}<span>${escapeHtml(location)}</span></p>` : '';
   if (variant === 'columns') {
     const cols = [
       { title: navLabelFor('services', project.business.categoryKey), items: category.services },
       { title: 'Company', items: ['About', 'Contact'] }
     ];
     return `<div class="site-section site-footer" data-variant="columns">
-      <div class="site-footer-brand">${brandInner}</div>
+      <div class="site-footer-brand">${brandInner}${locationLine}</div>
       <div class="site-footer-columns">${cols.map(c => `<div><small>${escapeHtml(c.title)}</small>${c.items.map(i => `<span>${escapeHtml(i)}</span>`).join('')}</div>`).join('')}</div>
       <p class="site-footer-copy">© ${year} ${businessName}</p>
     </div>`;
   }
   return `<div class="site-section site-footer" data-variant="simple">
-    <div class="site-footer-brand">${brandInner}</div>
+    <div class="site-footer-brand">${brandInner}${locationLine}</div>
     <p class="site-footer-copy">© ${year} ${businessName}</p>
   </div>`;
 }
@@ -2810,16 +2993,30 @@ function renderSiteFooter(project, category, variant) {
 // targets are <button> elements picked up by the single delegated listener
 // on siteSectionsRoot (see handleCtaTargetClick) -- neither path ever
 // creates a direction, calls Claude, or requests an image.
-function renderCtaButton(target, escapedLabel, extraClass) {
+// CTA BUTTON SYSTEM (design intelligence pass, part 10/11): every CTA
+// button now carries a small trailing icon keyed to what it actually does
+// (call/email/external link/in-page action) instead of being bare text in
+// a pill -- the icon itself already inherits the site's real icon weight
+// when the caller has one handy (optional 4th arg); every existing call
+// site still works unchanged (icon just defaults to 'regular' weight).
+// The 5 real CTA treatments this button already renders under
+// (data-cta="sharp-block"/"outline-ghost"/"underline-link"/"floating-badge"
+// / default solid-pill, see styles.css) now apply here too -- previously
+// they only ever reached the hero/nav buttons.
+function renderCtaButton(target, escapedLabel, extraClass, weight) {
   const cls = `module-cta-btn${extraClass ? ' ' + extraClass : ''}`;
-  if (!target) return `<button type="button" class="${cls}">${escapedLabel}</button>`;
+  const iconFor = (kind) => renderIcon(
+    kind === 'tel' ? 'phone' : kind === 'mailto' ? 'envelope' : kind === 'external' ? 'arrowUpRight' : 'arrowRight',
+    { weight: weight || 'regular', size: 14, className: 'cta-btn-icon' }
+  );
+  if (!target) return `<button type="button" class="${cls}">${escapedLabel}${iconFor('page')}</button>`;
   switch (target.kind) {
-    case 'tel': return `<a class="${cls}" href="tel:${escapeHtml(target.value.replace(/[^\d+]/g, ''))}" data-cta-kind="tel">${escapedLabel}</a>`;
-    case 'mailto': return `<a class="${cls}" href="mailto:${escapeHtml(target.value)}" data-cta-kind="mailto">${escapedLabel}</a>`;
-    case 'external': return `<a class="${cls}" href="${escapeHtml(target.value)}" target="_blank" rel="noopener noreferrer" data-cta-kind="external">${escapedLabel}</a>`;
-    case 'page': return `<button type="button" class="${cls}" data-cta-kind="page" data-cta-page-id="${escapeHtml(target.pageId)}">${escapedLabel}</button>`;
-    case 'section': return `<button type="button" class="${cls}" data-cta-kind="section" data-cta-page-id="${escapeHtml(target.pageId)}" data-cta-section-id="${escapeHtml(target.sectionId)}">${escapedLabel}</button>`;
-    default: return `<button type="button" class="${cls}">${escapedLabel}</button>`;
+    case 'tel': return `<a class="${cls}" href="tel:${escapeHtml(target.value.replace(/[^\d+]/g, ''))}" data-cta-kind="tel">${escapedLabel}${iconFor('tel')}</a>`;
+    case 'mailto': return `<a class="${cls}" href="mailto:${escapeHtml(target.value)}" data-cta-kind="mailto">${escapedLabel}${iconFor('mailto')}</a>`;
+    case 'external': return `<a class="${cls}" href="${escapeHtml(target.value)}" target="_blank" rel="noopener noreferrer" data-cta-kind="external">${escapedLabel}${iconFor('external')}</a>`;
+    case 'page': return `<button type="button" class="${cls}" data-cta-kind="page" data-cta-page-id="${escapeHtml(target.pageId)}">${escapedLabel}${iconFor('page')}</button>`;
+    case 'section': return `<button type="button" class="${cls}" data-cta-kind="section" data-cta-page-id="${escapeHtml(target.pageId)}" data-cta-section-id="${escapeHtml(target.sectionId)}">${escapedLabel}${iconFor('section')}</button>`;
+    default: return `<button type="button" class="${cls}">${escapedLabel}${iconFor('page')}</button>`;
   }
 }
 // Live, in-preview, per-VISITOR form state -- deliberately NOT part of the
@@ -4640,6 +4837,10 @@ function applyDesignDataset(proj) {
   builderSite.dataset.cardDensity = composed.cardDensity || 'airy';
   builderSite.dataset.cardShape = composed.cardShape || 'soft';
   builderSite.dataset.splitRatio = composed.splitRatio || 'even';
+  builderSite.dataset.iconWeight = composed.iconWeight || 'regular';
+  builderSite.dataset.iconDensity = composed.iconDensity || 'medium';
+  builderSite.dataset.iconPresentation = composed.iconPresentation || 'icon-led-row';
+  builderSite.dataset.decorativeMotif = composed.decorativeMotif || 'none';
   builderSite.dataset.layout = proj.design.heroLayout;
   // CREATIVE DIRECTOR V2: the page's overall density curve -- paired with
   // each section's own data-rhythm-position (set in renderSections) to
@@ -6924,6 +7125,14 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     ...(categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other)
   };
   const dimensions = usingClaude ? claudePlan.dimensions : { ...catDefaults };
+  // DESIGN INTELLIGENCE PASS: icon/decorative fields are never part of
+  // Claude's own plan JSON (part 19 -- "do not create a new call just for
+  // icon selection"), so they're always filled in here from the archetype
+  // table as a pure fallback layer (never overwrites a field that's somehow
+  // already present) -- both the deterministic and the Claude-planned path
+  // end up with the identical, real archetype-derived values.
+  const iconDefaults = archetypeIconDefaults[strategy.archetype] || archetypeIconDefaults['service-business'];
+  Object.keys(iconDefaults).forEach(k => { if (dimensions[k] === undefined) dimensions[k] = iconDefaults[k]; });
   const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null, source.text, strategy.archetype);
   const previewName = source.extractedName || `${category.label} Studio`;
 
@@ -7093,7 +7302,14 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
           return claudePlan.rationale || describeComposition(proj.design.dimensions);
         }
         proj.design.palette = { ...composed.palette };
-        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio };
+        // `composeStyleFromAnalysis` (composed, above) only ever reasons
+        // about the seed-based hero/type/nav/card/... dimensions -- it has
+        // no concept of archetype, so icon/decorative fields are filled
+        // here straight from the same archetypeIconDefaults table
+        // buildGenerationPlan's own icon fallback uses (this IS that
+        // fallback, applied at the point this object gets re-stamped).
+        const iconDims = archetypeIconDefaults[strategy.archetype] || archetypeIconDefaults['service-business'];
+        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio, iconWeight: iconDims.iconWeight, iconDensity: iconDims.iconDensity, iconPresentation: iconDims.iconPresentation, decorativeMotif: iconDims.decorativeMotif };
         // CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: the deterministic
         // (no-Claude) path had no business-driven hero decision at all --
         // every business in a category got the same fixed hero and the

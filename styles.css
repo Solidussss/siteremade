@@ -957,10 +957,37 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-card="outline-ghost"] .site-sections>div{border-right-style:dashed}
 
 /* ---- CTA treatment variants ---- */
-.builder-site[data-cta="sharp-block"] .site-nav button,.builder-site[data-cta="sharp-block"] .site-actions button{border-radius:0}
-.builder-site[data-cta="outline-ghost"] .site-nav button,.builder-site[data-cta="outline-ghost"] .site-actions button{background:transparent!important;border:1.5px solid var(--site-accent);color:var(--site-accent)!important}
-.builder-site[data-cta="underline-link"] .site-nav button,.builder-site[data-cta="underline-link"] .site-actions button{background:transparent!important;color:var(--site-text)!important;border:0;border-bottom:2px solid var(--site-accent);border-radius:0;padding-left:3px;padding-right:3px}
-.builder-site[data-cta="floating-badge"] .site-actions button{border-radius:999px;box-shadow:0 10px 30px color-mix(in srgb,var(--site-accent) 45%,transparent)}
+/* DESIGN INTELLIGENCE PASS (part 10/11): these 5 real CTA treatments
+   previously only ever reached the hero/nav buttons -- every OTHER button
+   in a generated site (.module-cta-btn: banner/contact/newsletter/action
+   CTAs, .module-submit-btn: every form submit) always rendered as the same
+   flat solid pill regardless of the project's own `cta` dimension. That's
+   the concrete cause of "one universal turquoise-pill feeling across
+   unrelated businesses" -- a real, working 5-variant system already
+   existed, it just wasn't wired to most of the buttons on the page. Now it
+   is, everywhere a button appears. */
+.builder-site[data-cta="sharp-block"] .site-nav button,.builder-site[data-cta="sharp-block"] .site-actions button,
+.builder-site[data-cta="sharp-block"] .module-cta-btn,.builder-site[data-cta="sharp-block"] .module-submit-btn{border-radius:0}
+.builder-site[data-cta="outline-ghost"] .site-nav button,.builder-site[data-cta="outline-ghost"] .site-actions button,
+.builder-site[data-cta="outline-ghost"] .module-cta-btn,.builder-site[data-cta="outline-ghost"] .module-submit-btn{background:transparent!important;border:1.5px solid var(--site-accent);color:var(--site-accent)!important}
+.builder-site[data-cta="underline-link"] .site-nav button,.builder-site[data-cta="underline-link"] .site-actions button,
+.builder-site[data-cta="underline-link"] .module-cta-btn,.builder-site[data-cta="underline-link"] .module-submit-btn{background:transparent!important;color:var(--site-text)!important;border:0;border-bottom:2px solid var(--site-accent);border-radius:0;padding-left:3px;padding-right:3px}
+.builder-site[data-cta="floating-badge"] .site-actions button,
+.builder-site[data-cta="floating-badge"] .module-cta-btn,.builder-site[data-cta="floating-badge"] .module-submit-btn{border-radius:999px;box-shadow:0 10px 30px color-mix(in srgb,var(--site-accent) 45%,transparent)}
+.builder-site[data-cta="outline-ghost"] .module-submit-btn:disabled{color:color-mix(in srgb,var(--site-accent) 60%,transparent)!important}
+
+/* CTA arrow (part 10) -- a small trailing icon on primary CTA buttons,
+   suppressed for the underline-link/text treatment (which already reads as
+   a link, not a button, and a heavy arrow fights that restraint) and for a
+   disabled button. Icon itself is rendered inline by renderCtaButton. */
+.cta-btn-icon{margin-left:2px;transition:transform .18s ease}
+.module-cta-btn:hover .cta-btn-icon,.module-submit-btn:hover .cta-btn-icon{transform:translateX(2px)}
+.builder-site[data-cta="underline-link"] .cta-btn-icon{display:none}
+/* Secondary/paired CTA (part 10 -- "paired primary/secondary CTA") -- an
+   outline companion button next to a primary one, e.g. hero secondary
+   action or a banner's "or call us" line. */
+.module-cta-btn-secondary{background:transparent!important;border:1.5px solid color-mix(in srgb,var(--site-text) 30%,transparent)!important;color:var(--site-text)!important}
+.builder-site[data-cta="outline-ghost"] .module-cta-btn-secondary{border-color:color-mix(in srgb,var(--site-text) 22%,transparent)!important}
 
 /* ---- Colour behaviour variants ---- */
 .builder-site[data-color-behavior="warm-earth-multi-tone"] .site-hero{background:radial-gradient(circle at 80% 20%,color-mix(in srgb,var(--site-accent-2) 30%,transparent),transparent 32%),linear-gradient(150deg,var(--site-bg-light),var(--site-bg))!important}
@@ -1064,6 +1091,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .service-card{padding:18px;border-radius:12px;background:color-mix(in srgb,var(--site-bg) 92%,var(--site-text) 8%);border:1px solid color-mix(in srgb,var(--site-text) 12%,transparent)}
 .service-card strong{display:block;font-size:14px;margin-bottom:8px}
 .service-card p{margin:0;font-size:11px;line-height:1.55;color:var(--site-muted)}
+.service-card-icon{color:var(--site-accent);display:block;margin-bottom:12px}
+.builder-site[data-icon-density="minimal"] .service-card-icon{display:none}
 
 /* ---- Proof / stats strip ---- */
 .site-proof-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:center}
@@ -1131,9 +1160,17 @@ html,body{max-width:100%;overflow-x:hidden}
 .cta-banner-accent{background:color-mix(in srgb,var(--site-accent) 14%,var(--site-bg))}
 
 /* ---- In-preview footer (distinct from the real SiteRemade <footer>) ---- */
-.site-footer{display:flex;flex-direction:column;gap:16px}
+/* DESIGN INTELLIGENCE PASS (part 13): more generous, deliberate padding
+   plus a subtle top accent line, so the closing section reads as a
+   composed part of the page instead of trailing whitespace after the last
+   real section. */
+.site-footer{display:flex;flex-direction:column;gap:18px;padding-top:40px;padding-bottom:40px;position:relative}
+.site-footer::before{content:"";position:absolute;top:0;left:48px;right:48px;height:1px;background:linear-gradient(90deg,var(--site-accent),transparent 60%)}
+.site-footer-brand{display:flex;flex-direction:column;gap:8px}
 .site-footer-brand strong{font-size:14px}
 .site-footer-logo-img{max-height:30px;max-width:140px;object-fit:contain}
+.site-footer-location{display:flex;align-items:center;gap:6px;margin:0;font-size:11px;color:var(--site-muted)}
+.site-footer-location .sr-icon{color:var(--site-accent)}
 .site-footer-columns{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
 .site-footer-columns small{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--site-muted);margin-bottom:8px}
 .site-footer-columns span{display:block;font-size:11px;margin-bottom:5px;color:var(--site-muted)}
@@ -1451,6 +1488,85 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 .product-frame:has(.visual-generated-unfunded),
 .editorial-visual:has(.visual-generated-unfunded){height:140px}
+/* DESIGN INTELLIGENCE PASS: the unfunded-shrink treatment previously only
+   applied to product-frame/editorial-visual -- about-split and team tiles
+   now collapse the same way when they hold an unfunded slot, instead of
+   silently holding a full-size box open for an image that was never
+   coming (gallery itself no longer uses this at all once it has zero real
+   supply -- see gallery-icon-composition below, which replaces the image
+   grid outright). */
+.about-visual:has(.visual-generated-unfunded){aspect-ratio:auto;min-height:120px}
+.team-card-placeholder{position:relative;min-height:64px;border-radius:12px;background:color-mix(in srgb,var(--site-accent) 10%,var(--site-bg));display:flex;align-items:center;justify-content:center}
+.team-card-placeholder::before{content:"";width:22px;height:22px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--site-accent) 45%,transparent)}
+
+/* ---- DESIGN INTELLIGENCE PASS: local icon system (parts 1-3) ------------- */
+.sr-icon{display:inline-block;flex-shrink:0;vertical-align:middle}
+.sr-icon-tile{display:inline-flex;align-items:center;gap:8px;color:var(--site-text)}
+.sr-icon-tile .sr-icon{color:var(--site-accent)}
+.sr-icon-tile-label{font-size:12px;font-weight:650;letter-spacing:-.005em}
+.sr-icon-tile-tinted-tile{padding:10px;border-radius:11px;background:color-mix(in srgb,var(--site-accent) 13%,var(--site-bg))}
+.sr-icon-tile-outlined-square{padding:10px;border-radius:9px;border:1px solid color-mix(in srgb,var(--site-text) 18%,transparent)}
+.sr-icon-tile-rounded-square{padding:11px;border-radius:999px;background:color-mix(in srgb,var(--site-accent) 11%,var(--site-bg))}
+.sr-icon-tile-badge{padding:7px 14px 7px 10px;border-radius:999px;background:color-mix(in srgb,var(--site-accent) 9%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 10%,transparent)}
+.sr-icon-tile-badge .sr-icon-tile-label{font-size:11px;letter-spacing:.01em;color:var(--site-muted)}
+.sr-icon-tile-oversized .sr-icon{width:40px!important;height:40px!important}
+.sr-icon-tile-above-heading{flex-direction:column;align-items:flex-start;gap:12px}
+.sr-icon-tile-bare .sr-icon-tile-label{font-weight:600}
+
+/* Icon-led service/feature rows -- part 3's "icon-led-service-row" variant.
+   A left-aligned icon block beside heading+body, used when the archetype's
+   iconPresentation is 'icon-led-row' (see resolveIconDirection). */
+.icon-led-row{display:flex;gap:14px;align-items:flex-start}
+.icon-led-row .sr-icon-tile{flex-shrink:0;padding:10px;border-radius:10px;background:color-mix(in srgb,var(--site-accent) 12%,var(--site-bg))}
+.icon-led-row-body strong{display:block;font-size:14px;margin-bottom:4px}
+.icon-led-row-body p{margin:0;font-size:12.5px;color:var(--site-muted);line-height:1.5}
+
+/* Gallery icon composition (part 7) -- replaces an image grid entirely
+   when a gallery has zero real photography, instead of shrinking the same
+   photo-shaped placeholder down. Reuses the section's normal padding/label
+   styling (site-section/site-section-label above), just a different body. */
+.gallery-icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:6px}
+.gallery-icon-card{display:flex;flex-direction:column;gap:12px;padding:22px 18px;border-radius:14px;background:color-mix(in srgb,var(--site-accent) 6%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 9%,transparent)}
+.gallery-icon-card-icon{color:var(--site-accent)}
+.gallery-icon-card span{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+
+/* Proof/metrics icon badges -- pairs an icon with the existing stat number
+   instead of a bare number floating in whitespace. */
+.site-section-proof .proof-icon,.site-section-metrics .proof-icon{color:var(--site-accent);margin-bottom:8px;display:block}
+
+/* ---- DESIGN INTELLIGENCE PASS: local decorative primitive library (part 4)
+   Pure CSS/pseudo-element primitives, keyed off [data-decorative-motif] on
+   .builder-site (same archetype-derived attribute pattern as data-cta/
+   data-card/etc, see applyDesignDataset/export-compiler dataAttrs) --
+   zero new markup, so they apply to every existing .site-section-label /
+   .site-hero without any renderer needing to change. They inherit brand
+   color via var(--site-accent)/color-mix, and are restrained by design:
+   a thin rule, a few dots, a corner bracket -- never a busy pattern.
+   Purpose (part 4/6): make an image-light page still feel composed. */
+.decor-dots,.decor-corner,.decor-grid-motif,.decor-wave,.decor-divider{pointer-events:none}
+.builder-site[data-decorative-motif="lines"] .site-section-label,
+.builder-site[data-decorative-motif="rule"] .site-section-label{position:relative;padding-left:18px}
+.builder-site[data-decorative-motif="lines"] .site-section-label::before,
+.builder-site[data-decorative-motif="rule"] .site-section-label::before{content:"";position:absolute;left:0;top:.5em;width:12px;height:1.5px;background:var(--site-accent)}
+.builder-site[data-decorative-motif="dots"] .site-section-label{position:relative;padding-left:16px}
+.builder-site[data-decorative-motif="dots"] .site-section-label::before{content:"";position:absolute;left:0;top:.35em;width:6px;height:6px;border-radius:50%;background:var(--site-accent)}
+.builder-site[data-decorative-motif="divider"] .site-section-label{position:relative;padding-left:20px}
+.builder-site[data-decorative-motif="divider"] .site-section-label::before{content:"";position:absolute;left:0;top:.4em;width:8px;height:8px;border:1.5px solid var(--site-accent);border-radius:50%;background:transparent}
+.builder-site[data-decorative-motif="corners"] .service-card,
+.builder-site[data-decorative-motif="corners"] .testimonial-card,
+.builder-site[data-decorative-motif="corners"] .gallery-icon-card{position:relative}
+.builder-site[data-decorative-motif="corners"] .service-card::before,
+.builder-site[data-decorative-motif="corners"] .testimonial-card::before,
+.builder-site[data-decorative-motif="corners"] .gallery-icon-card::before{content:"";position:absolute;top:8px;left:8px;width:9px;height:9px;border-top:1.5px solid var(--site-accent);border-left:1.5px solid var(--site-accent);opacity:.65}
+.builder-site[data-decorative-motif="grid"] .site-section:nth-of-type(odd){background-image:linear-gradient(color-mix(in srgb,var(--site-text) 5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-text) 5%,transparent) 1px,transparent 1px);background-size:26px 26px}
+.builder-site[data-decorative-motif="waves"] .site-footer::before{background:repeating-linear-gradient(90deg,var(--site-accent) 0 6px,transparent 6px 12px)}
+
+/* Icon density (part 2/19) -- 'minimal' archetypes (premium-consultancy,
+   editorial-brand, portfolio) suppress the icon-led service row entirely
+   in favour of plain numbered/text rows, restraint being the actual design
+   choice those archetypes call for (part 20's "almost no icons" guidance). */
+.builder-site[data-icon-density="minimal"] .icon-led-row .sr-icon-tile{display:none}
+.builder-site[data-icon-density="minimal"] .icon-led-row{gap:0}
 
 /* ---- New section types (part 5) ------------------------------------------ */
 .site-section{padding:44px 48px;border-top:1px solid rgba(255,255,255,.08)}
@@ -1583,8 +1699,13 @@ html,body{max-width:100%;overflow-x:hidden}
 .site-section-contact button{margin-top:14px}
 .contact-facts{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 0}
 .contact-facts span{padding:7px 14px;border-radius:999px;border:1px solid color-mix(in srgb,var(--site-text) 16%,transparent);font-size:11px;letter-spacing:.04em;color:color-mix(in srgb,var(--site-text) 75%,transparent)}
-.newsletter-row{display:flex;gap:10px;margin-top:14px;max-width:420px}
-.newsletter-row input{flex:1;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:transparent;color:inherit;padding:0 16px;height:44px}
+/* DESIGN INTELLIGENCE PASS (part 13): a contained surface instead of a
+   paragraph + bare input floating in section whitespace. */
+.newsletter-surface{max-width:480px;padding:32px;border-radius:16px;background:color-mix(in srgb,var(--site-accent) 7%,var(--site-bg))}
+.newsletter-icon{color:var(--site-accent);margin-bottom:14px;display:block}
+.newsletter-surface p{margin:0;font-size:16px;letter-spacing:-.01em}
+.newsletter-row{display:flex;gap:10px;margin-top:16px;max-width:420px}
+.newsletter-row input{flex:1;border-radius:999px;border:1px solid color-mix(in srgb,var(--site-text) 20%,transparent);background:transparent;color:inherit;padding:0 16px;height:44px}
 .testimonials-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
 .testimonials-grid .testimonial-card{padding:20px;border-radius:14px;background:color-mix(in srgb,var(--site-bg-dark) 55%,transparent);border:1px solid rgba(255,255,255,.08)}
 .testimonials-grid .testimonial-card p{margin:0 0 10px;font-size:13px;line-height:1.5}
@@ -1682,8 +1803,12 @@ html,body{max-width:100%;overflow-x:hidden}
    visual-direction pass: module widgets get one consistent, accessible
    treatment across every generated visual direction rather than 21
    direction-specific skins. */
+/* DESIGN INTELLIGENCE PASS (part 12): a contained surface behind the form
+   itself (not just a max-width on the section) -- "forms that technically
+   work but visually feel unfinished" was mostly this: labels/inputs/button
+   sitting directly on the page background with nothing framing them. */
 .site-section-module{max-width:560px}
-.module-form{display:flex;flex-direction:column;gap:16px;margin-top:10px}
+.module-form{display:flex;flex-direction:column;gap:16px;margin-top:10px;padding:26px;border-radius:14px;background:color-mix(in srgb,var(--site-accent) 5%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 8%,transparent)}
 .module-field{display:flex;flex-direction:column;gap:5px}
 .module-field label{font-size:11px;color:color-mix(in srgb,var(--site-text) 72%,transparent)}
 .module-required-mark{color:#ff7a7a}
@@ -1893,6 +2018,19 @@ button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:point
   .newsletter-row input,.newsletter-row button{width:100%;box-sizing:border-box}
 
   .site-footer-brand,.site-footer-columns,.site-footer-copy{max-width:100%;overflow-wrap:anywhere}
+  .site-footer::before{left:20px;right:20px}
+  .site-footer{padding-top:28px;padding-bottom:28px}
+
+  /* DESIGN INTELLIGENCE PASS: new icon/decorative/gallery-composition
+     systems, verified at the mobile tier -- single column, no oversized
+     icon tiles, decorative primitives shrink or hide rather than crowd a
+     390px-wide box (part 16). */
+  .gallery-icon-grid{grid-template-columns:1fr!important}
+  .icon-led-row{gap:10px}
+  .icon-led-row .sr-icon-tile{padding:8px}
+  .sr-icon-tile-oversized .sr-icon{width:30px!important;height:30px!important}
+  .decor-corner,.decor-grid-motif{display:none}
+  .decor-dots{opacity:.5}
 }
 
 /* Belt-and-braces: whatever tier fires above, a generated site should
