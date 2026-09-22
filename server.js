@@ -39,7 +39,34 @@ const runtimeClassifier = require('./lib/runtime-classifier.js');
 const domainLib = require('./lib/domain.js');
 const { zipDirectory } = require('./lib/archive.js');
 
+// Deployment-safety pass: refuses to boot at all if this looks like a
+// production deployment on the local (SQLite + filesystem) backend with
+// any of its three durable-data paths left at their in-container
+// defaults -- see lib/deployment-safety.js for the full reasoning. This
+// runs BEFORE anything else (including opening the database below) so an
+// unsafe deployment fails immediately and loudly, not after already
+// having written to an ephemeral path.
+const { assessPersistenceSafety, formatUnsafeMessage } = require('./lib/deployment-safety.js');
+const persistenceSafety = assessPersistenceSafety(process.env);
+if (!persistenceSafety.safe) {
+  console.error(formatUnsafeMessage(persistenceSafety));
+  process.exit(1);
+}
+
 const app = express();
+// Railway (like most PaaS) terminates TLS at its own edge and proxies to
+// this container over plain HTTP -- without this, Express's req.secure/
+// req.protocol would see only that internal plain-HTTP hop and never the
+// real external HTTPS scheme. `1` trusts exactly the first proxy hop
+// (Railway's own edge), which is the correct value for a single reverse
+// proxy in front of this app, not "trust anything." This is required for
+// BOTH the Secure-cookie logic below (cookieShouldBeSecure) AND
+// requireSameOrigin's own req.protocol-based check further down -- without
+// it, requireSameOrigin would compare a real "https://" browser Origin
+// header against a wrongly-computed "http://" expected origin and refuse
+// every legitimate same-origin request once deployed behind Railway's
+// proxy.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
@@ -101,13 +128,31 @@ function getCookie(req, name) {
   const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
+// Deployment-safety pass: whether a cookie set on THIS response should
+// carry the Secure attribute (never sent by the browser back over plain
+// HTTP). req.secure is accurate here because of `trust proxy` above --
+// true for a real request that arrived over HTTPS at Railway's (or any
+// single reverse proxy's) edge, even though the hop into this container
+// is plain HTTP. NODE_ENV=production is a second, request-independent
+// signal for any deployment where the proxy hop isn't correctly relaying
+// X-Forwarded-Proto. Never secure for a plain local dev server
+// (NODE_ENV unset/'development', real http://localhost), so `npm start`
+// locally keeps working exactly as before -- a Secure cookie set from a
+// non-HTTPS response is simply dropped by the browser, which would look
+// like "sign-in doesn't stick" locally if this were unconditional.
+function cookieShouldBeSecure(req) {
+  return !!req.secure || process.env.NODE_ENV === 'production';
+}
 function ensureAnonId(req, res) {
   let id = getCookie(req, ANON_COOKIE);
   if (!id || !/^[a-f0-9-]{36}$/.test(id)) {
     id = crypto.randomUUID();
     // 1 year, HttpOnly (never readable/forgeable from the browser), Lax (so
-    // it survives normal top-level navigation, e.g. after Stripe redirect).
-    res.setHeader('Set-Cookie', `${ANON_COOKIE}=${id}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
+    // it survives normal top-level navigation, e.g. after Stripe redirect),
+    // Secure whenever the request is actually HTTPS/production (see
+    // cookieShouldBeSecure above) -- never weakened, only ever added.
+    const secureAttr = cookieShouldBeSecure(req) ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `${ANON_COOKIE}=${id}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax${secureAttr}`);
   }
   return id;
 }
@@ -1594,21 +1639,21 @@ app.post('/api/auth/signup', requireSameOrigin, (req, res) => {
   const result = authProvider.signUp(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
   const { token } = authProvider.createSession(db, result.account.id);
-  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token));
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
 });
 app.post('/api/auth/signin', requireSameOrigin, (req, res) => {
   const result = authProvider.signIn(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(401).json({ ok: false, message: result.error });
   const { token } = authProvider.createSession(db, result.account.id);
-  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token));
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
 });
 app.post('/api/auth/signout', requireSameOrigin, (req, res) => {
   const cookies = authProvider.parseCookies(req.headers.cookie);
   const token = cookies[authProvider.SESSION_COOKIE];
   if (token) authProvider.destroySession(db, token);
-  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(null, { clear: true }));
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(null, { clear: true, secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true });
 });
 app.get('/api/auth/me', withOptionalAuth, (req, res) => {
@@ -1688,7 +1733,15 @@ app.get('/api/purchase-intents/:id', requireAuth, (req, res) => {
 // above: every route here does its own explicit ownership-scoped lookup
 // (never trusts a client-supplied owner/project id alone), requireAuth on
 // every route, requireSameOrigin on every state-changing one (spec §28).
-const EXPORTS_DIR = path.join(__dirname, 'data', 'exports'); // gitignored under /data/, exactly like the sqlite db and asset-store
+// Deployment-safety pass: env-configurable, matching SITEREMADE_DB_PATH and
+// SITEREMADE_ASSET_STORE_DIR -- this directory holds the actual compiled
+// .zip artifact behind every My Websites re-download link, so it needs the
+// SAME durable-volume treatment as the database and asset store (see
+// lib/deployment-safety.js, which requires this to be set explicitly
+// before starting what looks like a production deployment on the local
+// backend). Falls back to the pre-V9 in-container default for local dev/
+// the test harness, unchanged.
+const EXPORTS_DIR = process.env.SITEREMADE_EXPORTS_DIR || path.join(__dirname, 'data', 'exports'); // gitignored under /data/, exactly like the sqlite db and asset-store
 function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
 
 // Compiles + archives + records a new deployment for an owned, PURCHASED
