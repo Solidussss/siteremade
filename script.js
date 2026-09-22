@@ -1402,6 +1402,89 @@ const IMAGE_STRATEGY_ROLE_PRIORITY_BOOST = {
   'editorial-lifestyle': { gallery: -0.5 }
 };
 const IMAGE_ROLE_PRIORITY = { hero: 0, product: 1, team: 2, gallery: 3 };
+
+// ---- TIERED IMAGE SPEND PASS -------------------------------------------
+// The Image Decision Engine above (ARCHETYPE_IMAGE_BUDGET / imageBudgetFor-
+// Project) answers "how many slots may be generated" as a flat count, and
+// every funded slot paid the same (undifferentiated) provider cost. That
+// undercounts what a fixed budget can actually buy: a hero is worth paying
+// full price for, but a 3rd gallery tile funded at the SAME price as the
+// hero is a bad trade when the provider (gpt-image-1) has real, materially
+// cheaper quality tiers. This section adds a real dollar-denominated spend
+// planner and per-slot tier routing ON TOP of the existing archetype/
+// strategy machinery (preserved, not replaced -- see imageSpendCeilingUsd
+// below, which reuses imageBudgetForArchetype's own table as its base
+// unit) so the SAME total spend funds a stronger hero and more, cheaper
+// supporting images instead of fewer identical-cost ones.
+//
+// Cost estimates are intentionally sourced from the SERVER (see
+// /api/image-provider-status's costEstimateUsd, itself env-overridable via
+// SITEREMADE_IMAGE_COST_LOW_USD / _MEDIUM_USD / _HIGH_USD) rather than a
+// second hardcoded copy here -- one source of truth for "what does this
+// actually cost," honestly labeled as an estimate, not a guarantee of the
+// exact billed amount.
+const DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD = { low: 0.02, medium: 0.07, high: 0.19 };
+function imageTierCostEstimate() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.costEstimateUsd) || null;
+  return { ...DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD, ...(fromServer || {}) };
+}
+// The hard per-generation paid-image spend ceiling -- env-configurable on
+// the server (SITEREMADE_IMAGE_BUDGET_USD), read here the same way
+// `configured` already is, never hardcoded twice.
+const DEFAULT_IMAGE_BUDGET_USD = 0.30;
+// CREATIVE DIRECTOR V2's imageStrategy delta used to subtract a fixed
+// integer from the archetype's own slot COUNT. Expressed in the new dollar
+// model as a spend multiplier instead -- capped at 1 (Math.min below) so
+// it can only ever hold or LOWER the archetype's own ceiling, exactly the
+// same hard invariant IMAGE_STRATEGY_BUDGET_DELTA already enforced, never
+// raise it. (IMAGE_STRATEGY_BUDGET_DELTA itself is left completely
+// untouched above -- this is an additive sibling for the new allocator,
+// not a replacement of the old one, which other code may still reference.)
+const IMAGE_STRATEGY_SPEND_MULTIPLIER = { 'sparse-premium': 0.6, 'mostly-typographic': 0.3, 'abstract-branded': 0.6, 'macro-detail': 0.6 };
+// The real per-generation dollar ceiling this pass actually enforces.
+// Archetype influence is PRESERVED (ARCHETYPE_IMAGE_BUDGET's existing,
+// already-tuned per-archetype table is reused as-is, read as "this many
+// medium-tier-equivalent images worth of spend" instead of a raw slot
+// count) rather than retuned from scratch -- but the final number is
+// always clamped to the env-configured global ceiling, which is the part
+// that makes SITEREMADE_IMAGE_BUDGET_USD a real, enforced cap rather than
+// an unenforced suggestion.
+function imageSpendCeilingUsd(project) {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.budgetUsd);
+  const globalCeiling = (typeof fromServer === 'number' && fromServer > 0) ? fromServer : DEFAULT_IMAGE_BUDGET_USD;
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const archetypeUnits = imageBudgetForArchetype(archetype);
+  const costEstimate = imageTierCostEstimate();
+  const archetypeCeilingUsd = archetypeUnits * costEstimate.medium;
+  const cd = project.intent && project.intent.creativeDirection;
+  const strategyMultiplier = Math.min(1, (cd && IMAGE_STRATEGY_SPEND_MULTIPLIER[cd.imageStrategy]) || 1);
+  const afterStrategy = archetypeCeilingUsd * strategyMultiplier;
+  return Math.max(0, Math.min(afterStrategy, globalCeiling));
+}
+// Every quality tier a slot may be downgraded to when the ideal tier can't
+// be afforded, cheapest-acceptable-first, ending in the tier itself never
+// being skipped over -- a hero that can't afford 'high' still gets funded
+// at 'medium' or 'low' rather than nothing, so the single most important
+// slot on the page is the last one to go unfunded, not the first.
+// 'none' slots (bucket 4 below) are never in this table -- see the
+// `idealTier !== 'none'` filter in buildImagePlan -- matching the brief's
+// own "decorative/low-value visuals: deterministic/non-paid treatment
+// only, no paid generation" tier.
+const IMAGE_TIER_DOWNGRADE_PATH = { high: ['high', 'medium', 'low'], medium: ['medium', 'low'], low: ['low'] };
+// Deterministic slot-importance ranking (rank, lower = funded first) and
+// each bucket's ideal quality tier, matching the brief's own 6-level
+// example: 0) hero, 1) key product/lead gallery showcase, 2) about/team
+// supporting trust image, 3) secondary gallery/team tiles, 4) decorative
+// extras (never paid, 'none'). Computed per-slot at push time in
+// buildImagePlan below (role + position within its section), not derived
+// from array order.
+const IMAGE_SLOT_TIER_BUCKETS = [
+  { rank: 0, idealTier: 'high' },   // hero / secondary hero visual
+  { rank: 1, idealTier: 'medium' }, // product showcase / lead gallery-or-proof image
+  { rank: 2, idealTier: 'medium' }, // about/team supporting trust image
+  { rank: 3, idealTier: 'low' },    // secondary gallery/team tile
+  { rank: 4, idealTier: 'none' }    // decorative/low-value extras -- deterministic only
+];
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -1416,13 +1499,18 @@ function buildImagePlan(project, category) {
   // an image nothing ever displays. The hero itself is Home-only chrome,
   // not a section stored on any page, so this no longer looks one up.
   const heroHasVisual = !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
+  // TIERED IMAGE SPEND PASS: every pushed slot now also carries `rank`
+  // (lower = funded first) and `idealTier` (see IMAGE_SLOT_TIER_BUCKETS)
+  // computed at push time from its actual role/position, not guessed later
+  // from array order -- bucket 0 (hero) always outranks bucket 4
+  // (decorative), matching the brief's own 6-level importance example.
   if (heroHasVisual) {
-    slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}` });
+    slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     // The collage hero layout uses a second image-bearing card -- only real
     // when that layout is actually selected, so we never plan/generate an
     // image for a slot that won't be on screen.
     if (composed.hero === 'collage') {
-      slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}` });
+      slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     }
   }
   // V8.2: every real page's own image-bearing sections are planned here --
@@ -1434,18 +1522,18 @@ function buildImagePlan(project, category) {
     const pageSections = page.sections || [];
     const productSection = pageSections.find(s => s.type === 'productShowcase');
     if (productSection) {
-      slots.push({ slot: `${prefix}product`, role: 'product', page: page.slug, section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual' });
+      slots.push({ slot: `${prefix}product`, role: 'product', page: page.slug, section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual', ...IMAGE_SLOT_TIER_BUCKETS[1] });
     }
     // renderAbout only ever shows a visual for the 'split' variant (or when
     // a real upload exists) -- matching that here avoids planning/
     // generating an image the 'statement' variant would never display.
     const aboutSection = pageSections.find(s => s.type === 'about');
     if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
-      slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual' });
+      slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual', ...IMAGE_SLOT_TIER_BUCKETS[2] });
     }
     const editorialSection = pageSections.find(s => s.type === 'imageLedEditorial');
     if (editorialSection) {
-      slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
+      slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual', ...IMAGE_SLOT_TIER_BUCKETS[1] });
     }
     // IMAGE COHERENCE PASS: a section's own already-reconciled
     // `imageTileCount` (see reconcileImageSupplyWithSections below) always
@@ -1454,42 +1542,58 @@ function buildImagePlan(project, category) {
     // reconciled section renders exactly as many tiles as it planned, no
     // more. Absent (not yet reconciled, or a pre-existing saved project),
     // falls back to the original variant-only count, unchanged.
+    // TIERED IMAGE SPEND PASS: tile 0 ("lead proof/gallery image") gets
+    // bucket 1, tile 1 ("secondary") bucket 3, tile 2+ ("decorative
+    // extras") bucket 4 -- never paid at all, regardless of remaining
+    // budget, so the budget is never spent on a 4th gallery tile instead
+    // of a stronger hero or a real secondary tile.
     pageSections.filter(s => s.type === 'gallery' || s.type === 'caseStudies').forEach(gallerySection => {
       const count = gallerySection.imageTileCount || galleryTileCount(gallerySection.variant);
+      const galleryDisplayVariant = gallerySection.imageDisplayVariant || gallerySection.variant;
       for (let i = 0; i < count; i++) {
-        slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: gallerySection.variant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}` });
+        const bucket = i === 0 ? IMAGE_SLOT_TIER_BUCKETS[1] : i === 1 ? IMAGE_SLOT_TIER_BUCKETS[3] : IMAGE_SLOT_TIER_BUCKETS[4];
+        slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: galleryDisplayVariant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}`, ...bucket });
       }
     });
     pageSections.filter(s => s.type === 'team').forEach(teamSection => {
       const teamCount = teamSection.imageTileCount || Math.max((project.assets.items || []).filter(a => a.type === 'team').length, 3);
       for (let i = 0; i < Math.min(teamCount, 4); i++) {
-        slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}` });
+        const bucket = i === 0 ? IMAGE_SLOT_TIER_BUCKETS[2] : i === 1 ? IMAGE_SLOT_TIER_BUCKETS[3] : IMAGE_SLOT_TIER_BUCKETS[4];
+        slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}`, ...bucket });
       }
     });
   });
-  // Image Decision Engine: rank every slot that has no real user upload by
-  // role priority, and only the top `budget` of them are worth a paid
-  // generation -- see ARCHETYPE_IMAGE_BUDGET above. This never changes
-  // WHICH slots exist (that's still purely layout-driven, above), only
-  // whether an unfilled one is worth spending on.
-  // CREATIVE DIRECTOR V2: imageBudgetForProject applies imageStrategy's
-  // budget delta on top of the archetype's own ceiling (imageBudgetFor-
-  // Archetype) -- it can only hold or lower that ceiling, never raise it.
-  // The role-priority boost below only ever REORDERS which unfilled slot
-  // is worth the (unchanged-or-lower) budget first; it cannot add a slot.
-  const budget = imageBudgetForProject(project);
+  // TIERED IMAGE SPEND PASS: replaces the old flat "top N slots by role
+  // priority get sourceType:'generated'" allocator with a real dollar-
+  // budget-aware one. Still respects every existing invariant: archetype
+  // influence preserved (imageSpendCeilingUsd reuses imageBudgetFor-
+  // Archetype's own table), the role-priority boost still only ever
+  // REORDERS which unfilled slot competes for the (unchanged-or-lower)
+  // budget first, and a real user upload is never touched -- it's free,
+  // always shown, never enters this allocation at all.
+  const spendCeilingUsd = imageSpendCeilingUsd(project);
+  const costEstimate = imageTierCostEstimate();
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
-  const generatedAllowed = new Set(
+  const fundedTierBySlotIndex = new Map();
+  if (providerConfigured) {
+    let remainingUsd = spendCeilingUsd;
     slots
-      .map((s, i) => ({ i, role: s.role, hasUpload: !!s.assetId }))
-      .filter(s => !s.hasUpload)
-      .sort((a, b) => ((IMAGE_ROLE_PRIORITY[a.role] ?? 9) + (roleBoost[a.role] || 0)) - ((IMAGE_ROLE_PRIORITY[b.role] ?? 9) + (roleBoost[b.role] || 0)))
-      .slice(0, budget)
-      .map(s => s.i)
-  );
+      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, hasUpload: !!s.assetId }))
+      .filter(s => !s.hasUpload && s.idealTier !== 'none')
+      .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))))
+      .forEach(candidate => {
+        const downgradePath = IMAGE_TIER_DOWNGRADE_PATH[candidate.idealTier] || [];
+        const affordableTier = downgradePath.find(tier => costEstimate[tier] <= remainingUsd);
+        if (affordableTier) {
+          fundedTierBySlotIndex.set(candidate.i, affordableTier);
+          remainingUsd -= costEstimate[affordableTier];
+        }
+      });
+  }
   return slots.map((s, i) => {
-    const sourceType = s.assetId ? 'user' : (providerConfigured && generatedAllowed.has(i) ? 'generated' : 'designed');
-    return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
+    const fundedTier = fundedTierBySlotIndex.get(i) || null;
+    const sourceType = s.assetId ? 'user' : (fundedTier ? 'generated' : 'designed');
+    return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, tier: fundedTier, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
   });
 }
 // IMAGE COHERENCE PASS ("visible image demand <= fulfillable image supply"):
@@ -1522,6 +1626,22 @@ function buildImagePlan(project, category) {
 // does not do.
 const MIN_IMAGE_TILES = 2;
 const IMAGE_TILE_SECTION_TYPES = ['gallery', 'caseStudies', 'team'];
+// TIERED IMAGE SPEND PASS, composition-adaptation strengthening: the
+// min-2-tiles floor above stops a section from disappearing, but 2 (or 3-4)
+// equally-sized CSS-designed tiles side by side with ZERO real imagery still
+// reads as an obviously fake/empty gallery grid, not a deliberate layout --
+// exactly what the brief calls out ("do not stop at the previous minimum 2
+// tiles fix if that still produces obviously fake image grids"). When a
+// gallery/caseStudies section has no real (uploaded or funded) imagery at
+// all, this stamps a display-only `imageDisplayVariant: 'featured'` so
+// renderGallery gives tile 0 the existing `gallery-tile-featured` visual
+// treatment (one deliberately larger, dominant tile) instead of a flat
+// equal-weight grid -- "prefer fewer, larger visuals over many weak ones."
+// This never touches the section's own stored `variant` (so nothing else
+// that reads it -- composeSections, save/restore, tests -- is affected),
+// and never invents a new image or spends any budget; it only changes how
+// the same already-decided tile count is visually composed.
+const IMAGE_DISPLAY_VARIANT_SECTION_TYPES = ['gallery', 'caseStudies'];
 function reconcileImageSupplyWithSections(proj, category) {
   const firstPass = buildImagePlan(proj, category);
   const bySection = new Map();
@@ -1537,6 +1657,13 @@ function reconcileImageSupplyWithSections(proj, category) {
       if (!entries || !entries.length) return;
       const currentCount = entries.length;
       const realCount = entries.filter(e => e.sourceType !== 'designed').length;
+      if (IMAGE_DISPLAY_VARIANT_SECTION_TYPES.includes(section.type) && realCount === 0) {
+        const effectiveVariant = section.imageDisplayVariant || section.variant;
+        if (effectiveVariant !== 'featured') {
+          section.imageDisplayVariant = 'featured';
+          changed = true;
+        }
+      }
       if (realCount >= currentCount) return; // already fully supplied -- nothing to reconcile
       const resolved = Math.max(MIN_IMAGE_TILES, Math.min(currentCount, realCount));
       if (resolved < currentCount && section.imageTileCount !== resolved) {
@@ -1607,7 +1734,13 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
       // taskType/projectId are observability metadata only for the server's
       // operation ledger (see server.js recordOperation) -- absent or
       // generic, this call behaves identically.
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
+      // TIERED IMAGE SPEND PASS: entry.tier ('low'/'medium'/'high') is the
+      // funded quality this slot's importance actually earned (see
+      // buildImagePlan's downgrade-path allocator) -- the server still
+      // re-validates it against ALLOWED_IMAGE_QUALITIES and falls back to
+      // 'medium' for anything missing/malformed, so a bad client value can
+      // never silently buy the most expensive tier.
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, quality: entry.tier || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
       signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
@@ -2004,7 +2137,13 @@ function renderProof(project, category, section) {
 }
 function renderMetrics(project, category, section) { return renderProof(project, category, section); }
 function renderGallery(project, category, section, labelOverride) {
-  const variant = section && section.variant;
+  // TIERED IMAGE SPEND PASS: a reconciled `imageDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored variant for
+  // RENDERING only -- when a gallery has zero real imagery, this switches
+  // it to the existing 'featured' treatment (one larger, deliberate tile)
+  // instead of a flat equal-weight grid of designed placeholders. The
+  // section's own stored `variant` is never mutated.
+  const variant = section && (section.imageDisplayVariant || section.variant);
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
   const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));

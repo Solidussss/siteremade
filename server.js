@@ -262,22 +262,54 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // start billing image calls. This is a hard invariant: do not collapse it
 // back to `!!OPENAI_API_KEY` alone.
 const SITEREMADE_PAID_IMAGES = process.env.SITEREMADE_PAID_IMAGES === 'true';
+// TIERED IMAGE SPEND PASS: gpt-image-1 (the only model this deployment
+// calls) accepts a real `quality` parameter -- 'low' | 'medium' | 'high' --
+// that materially changes both fidelity and price. Previously this route
+// never sent `quality` at all (silently defaulting to the API's own
+// default), so every generated image -- hero or the 4th gallery tile alike
+// -- paid the same, undifferentiated cost. Routing the request's own
+// `quality` through here lets the client fund a strong hero at full
+// quality while stretching the same total budget across more, cheaper
+// supporting images instead of fewer identical-cost ones.
+const ALLOWED_IMAGE_QUALITIES = ['low', 'medium', 'high'];
+// Approximate, illustrative per-image cost by quality tier at the sizes
+// this route actually requests (1024x1024 / 1536x1024) -- NOT a guarantee
+// of OpenAI's exact current billed price (that can change, and varies
+// slightly by resolution); this exists purely to drive the CLIENT's
+// deterministic per-generation spend planner (see script.js
+// imageSpendCeilingUsd/imageTierCostEstimate) with a single, server-owned
+// source of truth instead of a second guessed copy baked into the client.
+// A deployment with an exact negotiated rate can override any of these via
+// env vars without a code change.
+const IMAGE_TIER_COST_ESTIMATE_USD = {
+  low: Number(process.env.SITEREMADE_IMAGE_COST_LOW_USD) || 0.02,
+  medium: Number(process.env.SITEREMADE_IMAGE_COST_MEDIUM_USD) || 0.07,
+  high: Number(process.env.SITEREMADE_IMAGE_COST_HIGH_USD) || 0.19
+};
+// The hard per-generation paid-image spend ceiling. Env-configurable
+// (SITEREMADE_IMAGE_BUDGET_USD) rather than hardcoded, per the brief --
+// a deployment can tune this without a code change. Still gated entirely
+// behind the existing two-key SITEREMADE_PAID_IMAGES/OPENAI_API_KEY switch:
+// this only shrinks or grows how much of an already-enabled budget gets
+// spent, it never itself turns paid generation on.
+const SITEREMADE_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_IMAGE_BUDGET_USD) || 0.30;
 const imageProviders = {
   openai: {
     name: 'openai',
     configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
-    async generate(prompt, { aspectRatio } = {}) {
+    async generate(prompt, { aspectRatio, quality } = {}) {
       const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
+      const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
       const response = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, n: 1 }),
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality: safeQuality, n: 1 }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data && data.error && data.error.message) || `Image provider returned ${response.status}`);
       const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
       if (!b64) throw new Error('Image provider returned no image data');
-      return { dataUrl: `data:image/png;base64,${b64}` };
+      return { dataUrl: `data:image/png;base64,${b64}`, quality: safeQuality };
     }
   }
   // Add another provider here (same {name, configured(), generate()} shape)
@@ -291,7 +323,12 @@ app.get('/api/image-provider-status', (req, res) => {
   const reason = configured ? undefined
     : !OPENAI_API_KEY ? 'No server-side image-generation API key is configured in this environment.'
     : 'Paid image generation is disabled (SITEREMADE_PAID_IMAGES is not set to true).';
-  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason });
+  // budgetUsd/costEstimateUsd let the client's deterministic spend planner
+  // (script.js) read this deployment's real, env-configured economics
+  // instead of guessing -- the client never hardcodes a second copy of
+  // these numbers. Present even when `configured` is false so the client's
+  // planner always has real numbers to reason with, not undefined.
+  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason, budgetUsd: SITEREMADE_IMAGE_BUDGET_USD, costEstimateUsd: IMAGE_TIER_COST_ESTIMATE_USD });
 });
 
 app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
@@ -308,10 +345,19 @@ app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
   try {
     const prompt = clean(req.body.prompt, 600);
     const aspectRatio = clean(req.body.aspectRatio, 10);
+    // TIERED IMAGE SPEND PASS: `quality` is the client's own deterministic
+    // spend planner's decision for this slot (see script.js
+    // imageSpendCeilingUsd/buildImagePlan) -- 'low'/'medium'/'high'. Never
+    // trusted blindly: activeImageProvider.generate() re-validates it
+    // against ALLOWED_IMAGE_QUALITIES and falls back to 'medium' for
+    // anything else, so a malformed/missing value can never silently
+    // request the most expensive tier.
+    const quality = clean(req.body.quality, 10);
     if (!prompt) return res.status(400).json({ ok: false, message: 'Missing prompt.' });
-    const result = await activeImageProvider.generate(prompt, { aspectRatio });
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: true, imageCount: 1, imageSize: aspectRatio || null, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    return res.json({ ok: true, dataUrl: result.dataUrl });
+    const result = await activeImageProvider.generate(prompt, { aspectRatio, quality });
+    const usedQuality = result.quality || 'medium';
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: true, imageCount: 1, imageSize: aspectRatio || null, imageQuality: usedQuality, estimatedCostUsd: IMAGE_TIER_COST_ESTIMATE_USD[usedQuality] ?? null, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality });
   } catch (error) {
     console.error('Image generation failed:', error);
     recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
@@ -401,6 +447,15 @@ function recordOperation(entry) {
     cacheWriteTokens: Number.isFinite(entry.cacheWriteTokens) ? entry.cacheWriteTokens : null,
     imageCount: Number.isFinite(entry.imageCount) ? entry.imageCount : null,
     imageSize: entry.imageSize || null,
+    // TIERED IMAGE SPEND PASS: real observability for the claim that
+    // supporting imagery now costs less than the hero -- imageQuality is
+    // the actual tier requested of the provider, estimatedCostUsd is that
+    // tier's own IMAGE_TIER_COST_ESTIMATE_USD figure (an estimate, not a
+    // billed amount -- see that const's own comment), so the operation
+    // ledger can show the real per-request cost MIX a generation produced,
+    // not just a count.
+    imageQuality: entry.imageQuality || null,
+    estimatedCostUsd: Number.isFinite(entry.estimatedCostUsd) ? entry.estimatedCostUsd : null,
     latencyMs: Number.isFinite(entry.latencyMs) ? entry.latencyMs : null,
     projectId: entry.projectId || null,
     accountId: entry.accountId || null,
