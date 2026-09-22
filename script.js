@@ -8172,6 +8172,7 @@ const exportPanel = $('#exportPanel');
 const exportRuntimeLine = $('#exportRuntimeLine');
 const exportRuntimeReasons = $('#exportRuntimeReasons');
 const exportRevisionNote = $('#exportRevisionNote');
+const exportSnapshotBadge = $('#exportSnapshotBadge');
 const exportStatusHeadline = $('#exportStatusHeadline');
 const exportHostingRecommendation = $('#exportHostingRecommendation');
 const exportButton = $('#exportButton');
@@ -8299,6 +8300,14 @@ if (hostingChoiceSkipBtn) hostingChoiceSkipBtn.addEventListener('click', () => s
 function applyDeploymentToUi(goodDeployment, mostRecent) {
   if (!goodDeployment) return;
   if (exportStatusHeadline) exportStatusHeadline.textContent = `Exported (revision ${goodDeployment.projectRevision})`;
+  // Always-visible (not conditional on a revision mismatch, unlike
+  // exportRevisionNote below): this download is a frozen purchase
+  // snapshot, permanently bound to this revision, distinct from whatever
+  // the live editable draft above is now at.
+  if (exportSnapshotBadge) {
+    exportSnapshotBadge.hidden = false;
+    exportSnapshotBadge.textContent = `Purchased snapshot — revision ${goodDeployment.projectRevision}, frozen forever`;
+  }
   if (exportDownloadLink) {
     exportDownloadLink.hidden = false;
     exportDownloadLink.href = `/api/deployments/${encodeURIComponent(goodDeployment.id)}/download`;
@@ -8421,17 +8430,20 @@ function renderMyWebsitesList() {
   if (myWebsitesEmpty) myWebsitesEmpty.hidden = myWebsitesCache.length > 0;
   myWebsitesList.innerHTML = myWebsitesCache.map(w => {
     const purchasedDate = w.purchasedAt ? new Date(w.purchasedAt).toLocaleDateString() : '';
+    const snapshotRevision = w.snapshot ? w.snapshot.projectRevision : null;
     const downloadHtml = w.latestDeployment && w.latestDeployment.downloadUrl
-      ? `<a href="${escapeHtml(w.latestDeployment.downloadUrl)}" class="link-button" download>Download .zip</a>`
-      : `<button type="button" class="link-button" data-my-website-export="${escapeHtml(w.projectId)}">Export .zip</button>`;
+      ? `<a href="${escapeHtml(w.latestDeployment.downloadUrl)}" class="link-button" download>Download purchased snapshot (.zip)</a>`
+      : `<button type="button" class="link-button" data-my-website-export="${escapeHtml(w.projectId)}">Compile purchased snapshot (.zip)</button>`;
     return `<div class="my-website-item" data-my-website-id="${escapeHtml(w.projectId)}">
       <strong>${escapeHtml(w.projectName || 'Untitled project')}</strong>
       <small>Purchased ${escapeHtml(purchasedDate)}${w.purchaseRef ? ` · ${escapeHtml(w.purchaseRef)}` : ''}</small>
+      <p class="snapshot-badge">${snapshotRevision != null ? `Frozen snapshot — revision ${escapeHtml(String(snapshotRevision))}, never changes` : 'Frozen purchased snapshot'}</p>
       <p class="my-website-hosting">${escapeHtml(hostingChoiceSummary(w.hostingChoice))}</p>
       <div class="my-website-actions">
-        <button type="button" class="link-button" data-my-website-open="${escapeHtml(w.projectId)}">Open in editor</button>
+        <button type="button" class="link-button" data-my-website-open="${escapeHtml(w.projectId)}">Open live draft to edit</button>
         ${downloadHtml}
       </div>
+      <p class="my-website-snapshot-note">The download above always matches what you purchased, exactly — editing the live draft never changes it.</p>
       <p class="my-website-status" data-my-website-status="${escapeHtml(w.projectId)}" aria-live="polite"></p>
     </div>`;
   }).join('');

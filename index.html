@@ -366,6 +366,7 @@
             <li>You inspect it first — what you see here is what gets built.</li>
             <li>Regenerate, change colours, add images or try another direction any time before you buy.</li>
             <li>Full ownership and no lock-in, same as every SiteRemade site.</li>
+            <li>The moment you buy, this exact version becomes your permanent purchased snapshot — you can keep editing the live project afterward without ever changing what you already bought.</li>
           </ul>
         </div>
         <div class="purchase-card">
@@ -387,6 +388,7 @@
           <p class="eyebrow">04 — EXPORT &amp; DEPLOY</p>
           <h2>Your website, ready to leave SiteRemade.</h2>
           <p>Once purchased, export compiles this exact project revision into a real, standalone website package — no SiteRemade editor, account system or generator code included.</p>
+          <p class="handoff-description-note">Your download is a permanent, frozen snapshot taken the moment you bought — it never changes, no matter what you do in the editor above afterward. The editor above keeps editing your <strong>live draft</strong>, a separate, always-current copy you're free to keep changing.</p>
           <p id="exportRuntimeLine">—</p>
           <ul class="purchase-points" id="exportRuntimeReasons"></ul>
           <p id="exportRevisionNote" class="handoff-description-note" hidden></p>
@@ -394,10 +396,11 @@
         <div class="purchase-card">
           <span>DELIVERY</span>
           <strong id="exportStatusHeadline">Not exported yet</strong>
+          <p class="snapshot-badge" id="exportSnapshotBadge" hidden></p>
           <p id="exportHostingRecommendation">—</p>
           <button type="button" class="button full-width" id="exportButton" disabled>Export this website</button>
           <p class="purchase-status" id="exportStatus" aria-live="polite">Purchase this project to enable export.</p>
-          <a href="#" id="exportDownloadLink" class="button full-width" hidden download>Download .zip</a>
+          <a href="#" id="exportDownloadLink" class="button full-width" hidden download>Download purchased snapshot (.zip)</a>
 
           <!-- Product-flow pass: post-purchase hosting recommendation is
                shown above (exportHostingRecommendation); this is the actual

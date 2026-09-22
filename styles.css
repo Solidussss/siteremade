@@ -1195,6 +1195,13 @@ html,body{max-width:100%;overflow-x:hidden}
 .purchase-ownership-badge[data-status="purchased"]{background:#e5f6ec;color:#17733a}
 .purchase-ownership-badge[data-status="checkout_pending"]{background:#fff4e0;color:#8a5a10}
 
+/* Credit-architecture fix (UI clause): a small, always-visible pill
+   distinguishing an immutable purchased snapshot/download from the live
+   editable draft -- used both in the export panel (#exportSnapshotBadge)
+   and on every My Websites row, so the distinction never depends on a
+   conditional (e.g. "you have newer edits") to become visible. */
+.snapshot-badge{margin:10px 0 0!important;font-size:10px!important;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:6px 10px;border-radius:999px;display:inline-block;background:#e9edff;color:#28399e}
+
 /* Product-flow pass: My Websites (account-wide purchased-site list) +
    post-purchase hosting choice. Additive only, reusing the same tokens as
    the account/purchase blocks above rather than introducing new ones. */
@@ -1206,6 +1213,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .my-website-hosting{margin:8px 0 0!important;font-size:11px!important;color:#525660}
 .my-website-actions{display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap}
 .my-website-actions .link-button{font-size:11px}
+.my-website-snapshot-note{margin:8px 0 0!important;font-size:10px!important;font-style:italic;color:var(--muted)}
 .my-website-status{margin:6px 0 0!important;font-size:11px!important;color:var(--muted)}
 .hosting-choice-block{margin-top:16px;padding-top:16px;border-top:1px solid #eceef1}
 .hosting-choice-actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:10px}

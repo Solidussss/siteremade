@@ -20,10 +20,13 @@ const { getAuthProvider } = require('./lib/adapters/auth-provider.js');
 const authProvider = getAuthProvider();
 const projectStore = require('./lib/project-store.js');
 const purchase = require('./lib/purchase.js');
-const entitlement = require('./lib/entitlement.js');
-// Product-flow pass: a real daily credit allowance, separate from (and
-// additive to) entitlement.js's own lifetime-3-directions cap -- see
-// lib/credits.js's own header for the full distinction.
+// Credit-architecture fix: lib/entitlement.js's account-durable lifetime
+// cap is no longer required/called here -- it predated the credit system
+// and, once credits existed alongside it, was blocking authenticated
+// generation forever after 3 uses regardless of daily credits (see the
+// full explanation at this file's /api/plan-website route). It remains a
+// real, tested, concurrency-safe module on disk, just not wired into this
+// file any more.
 const credits = require('./lib/credits.js');
 // V8.6: export + deployment packaging + hosting/domain handoff -- see
 // SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
@@ -626,6 +629,32 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // however many tokens/images that action happens to use underneath; the
 // operationLedger above remains the place raw provider cost/token
 // observability lives, entirely separate from what a customer is charged.
+// Credit-architecture fix: this default is now the SOLE authenticated
+// throttle on generation (see /api/plan-website below), so its size is a
+// real product decision, spelled out here rather than left as an
+// arbitrary round number:
+//   10 credits/day ÷ 3 credits (the 'standard' cost class below) =
+//   EXACTLY 3 full NEW_SITE/NEW_DIRECTION generations per signed-in
+//   account per day, with 1 credit left over.
+// That "3" deliberately matches this product's own long-standing "3
+// website directions" mental model (the same number the client's
+// per-project MAX_DIRECTIONS and the retired lib/entitlement.js lifetime
+// cap both used) -- the difference is this allowance RENEWS every UTC
+// day instead of applying once per account forever. The 1 leftover
+// credit is enough for exactly one 'cheap' action (COPY_REWRITE/
+// COPY_TARGET_CHANGE/QUALITY_REPAIR, 1 credit each) after 3 generations,
+// or can simply go unused. A generation that ALSO spends on paid images
+// (IMAGE_GENERATE/IMAGE_ADD/IMAGE_REGENERATE -- each also 'standard' = 3
+// credits, see the Image Decision Engine's own separate dollar-budget
+// gate for whether a given slot pays for an image at all) draws from
+// this SAME pool, so a day spent generating directions with paid images
+// exhausts the allowance faster than 3 bare-copy generations -- this is
+// intentional, not an oversight: images are the single most expensive
+// action class, and the allowance is deliberately sized around the
+// cheaper, always-necessary planning action, not a worst-case
+// fully-imaged day. Raise SITEREMADE_DAILY_FREE_CREDITS in production if
+// a more generous daily ceiling is wanted; the arithmetic above just
+// documents what the shipped default actually buys someone.
 const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
 const CREDIT_COST_BY_CLASS = {
   free: 0,
@@ -634,8 +663,9 @@ const CREDIT_COST_BY_CLASS = {
 };
 function creditCostForTask(taskType) { return CREDIT_COST_BY_CLASS[classifyOperationCost(taskType)] || 0; }
 // Read-only convenience for building a response payload -- returns null for
-// an anonymous caller (credits are an authenticated-account concept only,
-// same scoping lib/entitlement.js's durable path already uses).
+// an anonymous caller (credits are an authenticated-account concept only;
+// an anonymous visitor is instead gated by the lifetime ledger further
+// down, which is the one remaining use of a "lifetime cap" in this file).
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
   return credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
@@ -1216,13 +1246,35 @@ app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
   }
 });
 
-// V8.5: authenticated visitors get a DURABLE, server-authoritative
-// entitlement (lib/entitlement.js's reserve/commit/release, keyed by
-// account_id in SQLite) instead of the anonymous in-memory cookie ledger
-// below -- a refresh or a second device can never reset or exceed it. The
-// two paths are deliberately kept separate (never merged/double-counted),
-// per the spec's own "explicitly separate anonymous protection from
-// authenticated durable entitlement."
+// Credit-architecture fix (post-Phase-I): authenticated generation is now
+// governed EXCLUSIVELY by the durable daily credit ledger (lib/credits.js)
+// -- lib/entitlement.js's account-durable LIFETIME cap (reserveDirection/
+// commitDirection/releaseDirection, MAX_DIRECTIONS=3 forever, keyed by
+// account_id) is no longer called from this route for an authenticated
+// caller. Under the prior (Phase I) wiring, BOTH gates had to pass
+// independently; once an account had ever used its 3 lifetime slots, it
+// was permanently blocked from Claude-planned generation no matter how
+// many days passed or how many daily credits it still had -- making the
+// renewing daily allowance meaningless for any account that kept using
+// the product past its first few directions. That was a real bug, not a
+// deliberate design: lib/entitlement.js predates the credit system and was
+// this route's ONLY gate for authenticated callers before credits existed
+// (V8.1/V8.5); credits were meant to supersede it as the ongoing throttle,
+// not stack on top of it forever.
+//
+// lib/entitlement.js itself is untouched -- its reserve/commit/release
+// functions, their concurrency safety, and the `direction_entitlements`
+// table are all still real, still tested (see v8-1-*-test.js and the
+// direct lib-level concurrency test in v8-5-ownership-test.js), just no
+// longer called from here. It remains available as a proven primitive if
+// a future, different need for a true lifetime cap arises.
+//
+// The anonymous, cookie-scoped ledger directly below (`entry`,
+// `directionsLedger`) is UNCHANGED and is exactly where a lifetime-style
+// cap still belongs: an anonymous visitor has no account and therefore no
+// credit ledger at all, so it remains the one and only trial/abuse brake
+// on unauthenticated Claude usage -- never merged with, or affected by,
+// the authenticated path's credits.
 app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const entry = getDirectionsLedgerEntry(anonId);
@@ -1232,33 +1284,32 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   // changes nothing about how this route behaves.
   const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
   const projectId = clean(req.body.projectId, 60);
+  // claudeDirectionsRemaining only ever described the lifetime Claude-
+  // planning brake -- for a signed-in caller that brake no longer gates
+  // anything this route enforces, so it's honestly `null` here rather than
+  // reporting a number that used to block them but no longer does.
+  // creditsRemaining (already present on every response below) is the
+  // real, authoritative "can this account still generate today" signal
+  // for a signed-in caller; claudeDirectionsRemaining stays meaningful
+  // only for the still-lifetime-capped anonymous path.
   const remainingFor = () => authed
-    ? entitlement.getEntitlement(db, req.accountId, MAX_DIRECTIONS).remaining
+    ? null
     : Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed);
   if (!anthropicProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor() });
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null });
   }
-  // Product-flow pass: a new site/direction is also credit-consuming (spec:
-  // "full new website generation, new creative direction"). This is
-  // additive to, not a replacement for, the lifetime-3-directions cap right
-  // below -- an account can be blocked by either gate independently. Both
-  // reservations must succeed for the request to proceed; if the credit
-  // reservation fails after the direction reservation already succeeded,
-  // the direction reservation is released too (this attempt never happened
-  // from either ledger's point of view).
+  // A new site/direction is credit-consuming (spec: "full new website
+  // generation, new creative direction") -- the sole gate for an
+  // authenticated caller now (see the header comment above). Anonymous
+  // callers are gated by the lifetime ledger check in the `else if` below,
+  // exactly as before.
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
-  let reservation = null;
   if (authed) {
-    reservation = entitlement.reserveDirection(db, req.accountId, MAX_DIRECTIONS);
-    if (!reservation.ok) {
-      return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining, message: 'This account has used its Claude-planned directions for now.' });
-    }
     if (creditCost > 0) {
       const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
       if (!creditReservation.ok) {
-        entitlement.releaseDirection(db, req.accountId);
-        return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: remainingFor(), creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+        return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
       }
       creditReserved = true;
     }
@@ -1268,13 +1319,14 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     // (and in addition to) the client's own overall 3-direction-total cap.
     // The client is expected to fall back to the deterministic engine on
     // this response -- which still produces a real direction for the
-    // visitor, it just doesn't ask Claude to plan it.
+    // visitor, it just doesn't ask Claude to plan it. This is the one
+    // remaining place a lifetime-style cap still applies: an anonymous
+    // visitor has no account and therefore no daily credit ledger at all.
     return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This visitor has used their Claude-planned directions for now.' });
   }
   const text = clean(req.body.text, 600);
   if (!text) {
-    if (authed) entitlement.releaseDirection(db, req.accountId); // never charged for a request that never reached Claude
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached Claude
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
   }
   const brief = {
@@ -1290,8 +1342,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (authed) entitlement.commitDirection(db, req.accountId); // reserved -> used, only on real success
-    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
+    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
@@ -1302,7 +1353,6 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (authed) entitlement.releaseDirection(db, req.accountId); // a failed attempt never permanently consumes a direction
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently consumes a credit
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
