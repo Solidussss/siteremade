@@ -1370,6 +1370,42 @@ html,body{max-width:100%;overflow-x:hidden}
 /* ---- New section types (part 5) ------------------------------------------ */
 .site-section{padding:44px 48px;border-top:1px solid rgba(255,255,255,.08)}
 .site-section-label{margin:0 0 18px;font-size:10px;letter-spacing:.16em;color:color-mix(in srgb,var(--site-text) 55%,transparent);text-transform:uppercase}
+
+/* ---- Headline-role hierarchy (brand-experience fix) ----------------------
+   section.intent/headlineRole (planSectionGrammar -- derived from section
+   TYPE + POSITION, see sectionTypeIntent/intentHeadlineRole in script.js)
+   were computed and stored on every section but never read by any
+   renderer. renderSectionHeader now stamps a `data-headline-role`
+   attribute on the SAME .site-section-label/.site-section-intro elements
+   it always returned (no new wrapper -- several rules above key off
+   .site-section's direct children being CSS grid items, e.g.
+   [data-section-alignment="split"] .site-section{display:grid;...} and
+   .site-section-about[data-variant="split"]{display:grid;...} -- a
+   wrapper would have changed which element receives grid placement).
+   5 distinct buckets (intentHeadlineRole's own vocabulary), each a real,
+   visible hierarchy change using only the existing --site-* custom
+   properties already threaded through every palette:
+   - declarative (introduce: the first/orienting section on a page) --
+     a larger, weightier "statement" label with more room under it, and a
+     narrower, quieter support line underneath.
+   - explanatory (explain/educate) -- the baseline reading hierarchy,
+     just a wider intro measure for genuinely descriptive copy.
+   - benefit-led (compare/demonstrate/convert -- pricing, product,
+     conversion-adjacent sections) -- intro copy is tightened and quieted
+     so it doesn't compete with the CTA/price/demo that follows.
+   - proof-led (prove/reassure -- proof, testimonials, FAQ) -- the label
+     itself recedes further (smaller, quieter) so the evidence that
+     follows (numbers, quotes, answers) carries the visual weight, not
+     its own setup line.
+   - editorial (showcase/narrate -- gallery, image-led, case studies) --
+     a bigger, heavier label matching those sections' more expressive,
+     art-directed character. */
+.site-section-label[data-headline-role="declarative"]{font-size:13px;letter-spacing:.02em;text-transform:none;font-weight:750;color:var(--site-text);margin-bottom:24px}
+.site-section-intro[data-headline-role="declarative"]{max-width:420px;opacity:.72}
+.site-section-intro[data-headline-role="explanatory"]{max-width:640px}
+.site-section-intro[data-headline-role="benefit-led"]{max-width:360px;font-size:12px;opacity:.85}
+.site-section-label[data-headline-role="proof-led"]{font-size:9px;opacity:.7;margin-bottom:10px}
+.site-section-label[data-headline-role="editorial"]{font-size:12px;letter-spacing:.05em;font-weight:800;color:var(--site-text)}
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}
 .feature-card{padding:20px;border-radius:14px;background:color-mix(in srgb,var(--site-bg-dark) 60%,transparent);border:1px solid rgba(255,255,255,.08)}
 .feature-mark{display:inline-flex;width:28px;height:28px;border-radius:8px;background:var(--site-accent);color:#fff;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-bottom:10px}

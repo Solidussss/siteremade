@@ -1526,9 +1526,25 @@ function renderHero(project, category) {
 // already reused across renderHero, renderCtaBanner, renderReservationCta
 // and renderContact. Both remain good candidates for a future pass; see
 // PRIMITIVES-NOTES below this block for the full inventory.
-function renderSectionHeader(label, intro) {
-  const labelHtml = label ? `<p class="site-section-label">${escapeHtml(label)}</p>` : '';
-  const introHtml = intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : '';
+// V-brand-experience fix: `headlineRole` (computed per-section by
+// planSectionGrammar from intent+position, see sectionTypeIntent/
+// intentHeadlineRole above) used to be stored on every section and never
+// read anywhere -- real, already-computed metadata silently discarded.
+// Threaded through here as a `data-headline-role` attribute on the SAME
+// two elements this already returned (never a new wrapper div -- several
+// existing CSS rules key off `.site-section` being a direct CSS grid
+// parent of its own children, e.g. [data-section-alignment="split"]
+// .site-section{display:grid;...} and .site-section-about[data-variant=
+// "split"]{display:grid;...} -- adding a wrapper would have changed which
+// element receives grid-column placement and silently broken those
+// layouts). Defaults to 'declarative' -- the same fallback
+// intentHeadlineRole itself uses -- so a call site that doesn't pass a
+// role (there are none left, but this keeps the function safe on its own)
+// renders identically to before this fix.
+function renderSectionHeader(label, intro, headlineRole) {
+  const role = headlineRole || 'declarative';
+  const labelHtml = label ? `<p class="site-section-label" data-headline-role="${escapeHtml(role)}">${escapeHtml(label)}</p>` : '';
+  const introHtml = intro ? `<p class="site-section-intro" data-headline-role="${escapeHtml(role)}">${escapeHtml(intro)}</p>` : '';
   return labelHtml + introHtml;
 }
 function renderCardGroup(items, cardClassName, itemRenderer) {
@@ -1681,7 +1697,7 @@ function renderServices(project, category, section) {
   const labels = category.services;
   const headline = sectionCopyField(section, 'headline', '');
   const intro = sectionCopyField(section, 'body', '');
-  const headerHtml = renderSectionHeader(headline, intro);
+  const headerHtml = renderSectionHeader(headline, intro, section && section.headlineRole);
   if (variant === 'described') {
     const vocab = sectionVocab(project);
     return `<div class="site-section site-section-services" data-variant="described">
@@ -1728,7 +1744,7 @@ function renderGallery(project, category, section, labelOverride) {
     tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
-    ${renderSectionHeader(label, caption)}
+    ${renderSectionHeader(label, caption, section && section.headlineRole)}
     <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
   </div>`;
 }
@@ -1765,7 +1781,7 @@ function renderTestimonialsGrid(project, category, section) {
   const label = sectionCopyField(section, 'headline', vocab.testimonialsLabel);
   const attribution = escapeHtml(vocab.testimonialAttribution);
   return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
-    ${renderSectionHeader(label)}
+    ${renderSectionHeader(label, '', section && section.headlineRole)}
     <div class="testimonials-grid">${renderCardGroup(vocab.testimonialQuotes, 'testimonial-card', q => `<p>${escapeHtml(q)}</p><span>${attribution}</span>`)}</div>
   </div>`;
 }
@@ -1784,11 +1800,11 @@ function renderAbout(project, category, section) {
     const visual = renderVisualSlot(project, slot, project.design.dimensions.imagery, plan.about);
     return `<div class="site-section site-section-about" data-variant="split">
       <div class="about-visual">${visual}</div>
-      <div class="about-copy"><p class="site-section-label">${escapeHtml(heading)}</p><p>${escapeHtml(statement)}</p></div>
+      <div class="about-copy"><p class="site-section-label" data-headline-role="${escapeHtml((section && section.headlineRole) || 'declarative')}">${escapeHtml(heading)}</p><p>${escapeHtml(statement)}</p></div>
     </div>`;
   }
   return `<div class="site-section site-section-about" data-variant="statement">
-    <p class="site-section-label">${escapeHtml(heading)}</p>
+    <p class="site-section-label" data-headline-role="${escapeHtml((section && section.headlineRole) || 'declarative')}">${escapeHtml(heading)}</p>
     <p class="about-statement-text">${escapeHtml(statement)}</p>
   </div>`;
 }
@@ -1799,7 +1815,7 @@ function renderTeam(project, category, section) {
   for (let i = 0; i < Math.max(teamAssets.length, 3); i++) slots.push(teamAssets[i]);
   const cardsHtml = renderCardGroup(slots.slice(0, 4), 'team-card', (a, i) => renderVisualSlot(project, teamTileSlot(section, i), project.design.dimensions.imagery, a && a.id));
   return `<div class="site-section site-section-team" data-variant="grid">
-    ${renderSectionHeader(label)}
+    ${renderSectionHeader(label, '', section && section.headlineRole)}
     <div class="team-grid">${cardsHtml}</div>
   </div>`;
 }
@@ -1808,12 +1824,60 @@ function renderTeam(project, category, section) {
 // fallback for every CTA-bearing section -- hero, nav, CTA banner, pricing,
 // reservation and contact all rendered the literal same button text. It
 // stays the hero/nav standard (already a real, considered per-category
-// value -- unchanged here), but every OTHER section now gets an
-// archetype-aware alternative so the journey actually varies, e.g. for
-// hospitality: hero/nav "View Menu", reservation "Reserve a Table", the
-// closing banner "Private Dining", contact "Get Directions". A section type
-// with no override here safely falls back to `category.cta`, same as
-// before this pass.
+// value -- unchanged here).
+//
+// V-brand-experience fix (leakage bug): the first version of this keyed
+// the *other* sections' CTA text off ARCHETYPE alone. Archetype is a
+// design-posture bucket (tone/composition/rhythm) shared by many unrelated
+// businesses -- 'editorial-brand' covers a fashion label AND a wedding
+// photographer AND a film studio -- so archetype-only resolution leaked
+// one business's vocabulary ("Find a Stockist") onto an unrelated one that
+// happens to share its posture (a photographer, who has no stock to find).
+// CATEGORY is the system that already carries real business semantics
+// (`categories`/`categoryKeywords` -- fashion vs creative vs roofing are
+// already distinct categories, detected from the actual description, not
+// one-off business names), so CTA text now resolves in this order:
+//   1. section role + CATEGORY semantics (CATEGORY_SECTION_CTA) -- primary
+//   2. section role + ARCHETYPE tone (ARCHETYPE_SECONDARY_CTA) -- fallback
+//      for any category with no specific entry above (keeps a `local-
+//      conversion` trade with no dedicated row, say, tonally consistent
+//      rather than falling straight to the generic hero CTA)
+//   3. category.cta -- final fallback, same as before this pass
+// Every entry below is deliberately generalized to the whole category
+// (never a single named business) -- see e.g. 'creative', which covers
+// photographers, ad agencies, illustrators and film studios alike, so its
+// contact CTA reads "Inquire About Your Project" rather than the
+// wedding-specific "Inquire About Your Date" a narrower business would use.
+const CATEGORY_SECTION_CTA = {
+  tech: { ctaBanner: 'See It In Action', pricing: 'View Pricing', reservationCta: 'Request a Demo', contact: 'Talk to Sales' },
+  finance: { ctaBanner: 'Schedule a Consultation', pricing: 'View Our Services', reservationCta: 'Book a Consultation', contact: 'Get in Touch' },
+  fashion: { ctaBanner: 'View the Lookbook', pricing: 'Shop the Collection', reservationCta: 'Shop the Collection', contact: 'Find a Stockist' },
+  hospitality: { ctaBanner: 'Explore the Menu', pricing: 'View the Menu', reservationCta: 'Reserve a Table', contact: 'Private Dining' },
+  creative: { ctaBanner: 'View the Portfolio', pricing: 'View Packages', reservationCta: 'Check Availability', contact: 'Inquire About Your Project' },
+  fitness: { ctaBanner: 'View Class Schedule', pricing: 'View Membership Plans', reservationCta: 'Book a Class', contact: 'Get in Touch' },
+  realestate: { ctaBanner: 'Browse Listings', pricing: 'View Listings', reservationCta: 'Schedule a Showing', contact: 'Contact an Agent' },
+  wellness: { ctaBanner: 'Explore Treatments', pricing: 'View Pricing', reservationCta: 'Book an Appointment', contact: 'Get in Touch' },
+  retail: { ctaBanner: 'Shop New Arrivals', pricing: 'Shop Now', reservationCta: 'Shop Now', contact: 'Contact Us' },
+  nonprofit: { ctaBanner: 'See Our Impact', pricing: 'Ways to Give', reservationCta: 'Get Involved', contact: 'Contact Us' },
+  professional: { ctaBanner: 'Learn Our Approach', pricing: 'View Our Services', reservationCta: 'Book a Consultation', contact: 'Get in Touch' },
+  education: { ctaBanner: 'Explore Programs', pricing: 'View Tuition', reservationCta: 'Enroll Now', contact: 'Request Info' },
+  electrical: { ctaBanner: 'View Recent Work', pricing: 'Request a Quote', reservationCta: 'Schedule Service', contact: 'Request a Quote' },
+  plumbing: { ctaBanner: 'View Recent Work', pricing: 'Request a Quote', reservationCta: 'Schedule Service', contact: 'Request a Quote' },
+  landscaping: { ctaBanner: 'View Recent Work', pricing: 'Request a Quote', reservationCta: 'Request a Quote', contact: 'Get in Touch' },
+  painting: { ctaBanner: 'View Recent Work', pricing: 'Request a Quote', reservationCta: 'Request a Quote', contact: 'Get in Touch' },
+  roofing: { ctaBanner: 'View Recent Work', pricing: 'Request an Estimate', reservationCta: 'Check Service Areas', contact: 'Request an Estimate' },
+  automotive: { ctaBanner: 'View Recent Work', pricing: 'Get a Quote', reservationCta: 'Book a Service', contact: 'Get a Quote' },
+  cleaning: { ctaBanner: 'View Our Services', pricing: 'Get a Quote', reservationCta: 'Book a Cleaning', contact: 'Get a Quote' },
+  renovation: { ctaBanner: 'View Recent Projects', pricing: 'Request a Quote', reservationCta: 'Request a Quote', contact: 'Get in Touch' }
+  // 'other' intentionally has no entry -- falls through to the archetype
+  // table, then category.cta, exactly like any unrecognized category did
+  // before this pass.
+};
+// Tone-only fallback for a category with no CATEGORY_SECTION_CTA entry
+// (currently just 'other') -- archetype is still a legitimate signal for
+// TONE (how formal/urgent/considered the ask sounds), it just may not be
+// the right signal for the actual NOUN of the ask, which is why it now
+// only applies once category semantics have had first say.
 const ARCHETYPE_SECONDARY_CTA = {
   hospitality: { reservationCta: 'Reserve a Table', ctaBanner: 'Private Dining', contact: 'Get Directions', pricing: 'View the Menu' },
   'premium-consultancy': { reservationCta: 'Book a Consultation', ctaBanner: 'Request a Proposal', contact: 'Get in Touch', pricing: 'Book a Consultation' },
@@ -1828,9 +1892,12 @@ const ARCHETYPE_SECONDARY_CTA = {
   'service-business': { reservationCta: 'Book a Consultation', ctaBanner: 'Request a Quote', contact: 'Get in Touch', pricing: 'Request a Quote' }
 };
 function ctaLabelForSection(project, category, sectionType) {
+  const categoryKey = project.business && project.business.categoryKey;
+  const categoryOverrides = CATEGORY_SECTION_CTA[categoryKey];
+  if (categoryOverrides && categoryOverrides[sectionType]) return categoryOverrides[sectionType];
   const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
-  const overrides = ARCHETYPE_SECONDARY_CTA[archetype] || ARCHETYPE_SECONDARY_CTA['service-business'];
-  return overrides[sectionType] || category.cta;
+  const archetypeOverrides = ARCHETYPE_SECONDARY_CTA[archetype] || ARCHETYPE_SECONDARY_CTA['service-business'];
+  return archetypeOverrides[sectionType] || category.cta;
 }
 function renderCtaBanner(project, category, section) {
   // V8.4: a ctaBanner is the most generically-compatible host (see
@@ -1871,12 +1938,12 @@ function renderFeatures(project, category, section) {
     // sectionRhythm (see pickVariant) rather than always defaulting to
     // cards.
     return `<div class="site-section site-section-features" data-variant="list">
-      ${renderSectionHeader(label, intro)}
+      ${renderSectionHeader(label, intro, section && section.headlineRole)}
       <div class="process-steps features-list">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
     </div>`;
   }
   return `<div class="site-section site-section-features" data-variant="grid">
-    ${renderSectionHeader(label, intro)}
+    ${renderSectionHeader(label, intro, section && section.headlineRole)}
     <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
   </div>`;
 }
@@ -1889,7 +1956,7 @@ function renderProductShowcase(project, category, section) {
     ? (section.module.type === 'product' ? renderProductModuleWidget(project, section) : (section.module.type === 'action' ? renderActionModuleWidget(project, section) : ''))
     : '';
   return `<div class="site-section site-section-product" data-variant="showcase">
-    ${renderSectionHeader(label)}<h4>${businessName} in action</h4>
+    ${renderSectionHeader(label, '', section && section.headlineRole)}<h4>${businessName} in action</h4>
     <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
     <p class="product-caption">${escapeHtml(caption)}</p>
     ${moduleHtml}
@@ -1906,7 +1973,7 @@ function renderIntegrations(project, category, categoryKey, section) {
   const label = sectionCopyField(section, 'headline', 'Works with what you already use');
   const labels = categoryIntegrationLabels[categoryKey] || categoryIntegrationLabels.default;
   return `<div class="site-section site-section-integrations" data-variant="chips">
-    ${renderSectionHeader(label)}
+    ${renderSectionHeader(label, '', section && section.headlineRole)}
     <div class="integration-chips">${labels.map(l => `<span class="integration-chip">${escapeHtml(l)}</span>`).join('')}</div>
   </div>`;
 }
@@ -1916,7 +1983,7 @@ function renderPricingSection(project, category, section) {
   const cta = sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'pricing'));
   const tiers = [{ name: 'Starter', blurb: 'For getting started quickly.' }, { name: 'Growth', blurb: 'For teams scaling up.' }, { name: 'Enterprise', blurb: 'Custom for larger needs.' }];
   return `<div class="site-section site-section-pricing" data-variant="tiers">
-    ${renderSectionHeader(label, intro)}
+    ${renderSectionHeader(label, intro, section && section.headlineRole)}
     <div class="pricing-tiers">${renderCardGroup(tiers, 'pricing-tier', t => `<strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(cta)}</button>`)}</div>
   </div>`;
 }
@@ -1937,7 +2004,7 @@ function renderFaq(project, category, section) {
     { q: 'What if I’m not sure this is right for me?', a: 'Reach out -- we’re happy to talk through whether it’s a good fit.' }
   ];
   return `<div class="site-section site-section-faq" data-variant="list">
-    ${renderSectionHeader(label, intro)}
+    ${renderSectionHeader(label, intro, section && section.headlineRole)}
     <div class="faq-list">${qas.map(x => `<div class="faq-item"><strong>${x.q}</strong><p>${x.a}</p></div>`).join('')}</div>
   </div>`;
 }
@@ -1947,7 +2014,7 @@ function renderProcess(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const steps = vocab.processSteps;
   return `<div class="site-section site-section-process" data-variant="steps">
-    ${renderSectionHeader(label, intro)}
+    ${renderSectionHeader(label, intro, section && section.headlineRole)}
     <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
   </div>`;
 }
@@ -1960,7 +2027,7 @@ function renderMenu(project, category, section) {
     ? [`Seasonal ${subject}`, 'Shared plates', 'Something sweet']
     : ['Featured offerings', 'Popular choices', 'Seasonal selection'];
   return `<div class="site-section site-section-menu" data-variant="columns">
-    ${renderSectionHeader(label, intro)}
+    ${renderSectionHeader(label, intro, section && section.headlineRole)}
     <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? `A considered take on ${subject}.` : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
   </div>`;
 }
@@ -1991,7 +2058,7 @@ function renderServiceAreas(project, category, section) {
   const loc = project.source.location;
   const areasText = loc ? `${loc} and surrounding areas` : 'Local & surrounding areas';
   return `<div class="site-section site-section-areas" data-variant="list">
-    ${renderSectionHeader(label)}<p class="areas-statement">${escapeHtml(areasText)}</p>
+    ${renderSectionHeader(label, '', section && section.headlineRole)}<p class="areas-statement">${escapeHtml(areasText)}</p>
   </div>`;
 }
 function renderContact(project, category, section) {
@@ -2032,7 +2099,7 @@ function renderContact(project, category, section) {
   if (facts.count) factChips.push(`${escapeHtml(String(facts.count))}+ served`);
   const factsHtml = factChips.length ? `<div class="contact-facts">${factChips.map(f => `<span>${f}</span>`).join('')}</div>` : '';
   return `<div class="site-section site-section-contact" data-variant="simple">
-    ${renderSectionHeader(label)}<p>${loc}Get in touch to get started.</p>${factsHtml}${renderCtaButton(section && section.ctaTarget, cta)}
+    ${renderSectionHeader(label, '', section && section.headlineRole)}<p>${loc}Get in touch to get started.</p>${factsHtml}${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function renderNewsletter(project, category, section) {
