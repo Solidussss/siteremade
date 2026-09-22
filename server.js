@@ -368,8 +368,6 @@ const CREATIVE_NARRATIVE_KEYS = ['editorial','expertise-first','portfolio-led','
 const CREATIVE_IMAGE_STRATEGY_KEYS = ['photography-led','sparse-premium','editorial-lifestyle','people-team','product-ui','architecture-interior','macro-detail','project-portfolio','abstract-branded','mostly-typographic'];
 const CREATIVE_SIGNATURE_KEYS = ['oversized-manifesto','asymmetric-index','editorial-image-rail','large-type-break','case-study-band','split-story','staggered-mosaic','media-interruption','process-timeline','visual-philosophy','product-showcase'];
 const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
-const IMAGE_ROLE_KEYS = ['hero','product','team','gallery'];
-const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
 // V8.4: the module vocabulary a section may optionally carry -- kept in
 // exact sync with script.js's own MODULE_TYPE_KEYS/MODULE_FIELD_ALLOWLIST/
 // INTEGRATION_PROVIDER_KEYS, the same one-for-one mirroring convention the
@@ -383,13 +381,40 @@ const MODULE_TYPE_KEYS = ['contact','quote','newsletter','booking','location','a
 const MODULE_FIELD_KEYS = ['name','email','phone','message','service','description','preferredContact','date','time','partySize','notes'];
 const INTEGRATION_PROVIDER_KEYS = ['calendly','shopify','square','stripe','mailchimp','google-maps'];
 
+// ---- Generation-intelligence upgrade: business/audience/site-strategy and
+// page/section-level reasoning ---------------------------------------------
+// Additive to everything above -- no existing key was renamed or removed.
+// `archetype` is deliberately NOT 1:1 with `categoryKey`: a "tech" business
+// could be product-led-saas, portfolio (an agency), or trust-heavy-
+// professional (an enterprise consultancy) -- the archetype is what actually
+// drives page architecture and section grammar; categoryKey stays the fixed,
+// deterministic renderer/palette lookup it always was (see buildGenerationPlan
+// in script.js -- Claude's free-text business.category still never picks it).
+const ARCHETYPE_KEYS = ['product-led-saas','service-business','premium-consultancy','editorial-brand','portfolio','ecommerce-showcase','local-conversion','trust-heavy-professional','launch-campaign','community-nonprofit','hospitality'];
+const SOPHISTICATION_KEYS = ['general','informed','expert'];
+const BUSINESS_SCOPE_KEYS = ['local','national','digital'];
+const VISUAL_INTENSITY_KEYS = ['quiet','standard','bold'];
+const INFORMATION_DENSITY_KEYS = ['compact','standard','spacious'];
+// Why a section exists -- the "reasoning" layer sitting above its `type`.
+// Two sections of the same type (e.g. two 'services') can carry different
+// intent ('explain' the first time, 'compare' the second) which is what
+// headlineRole/claims selection keys off, without inventing new render types.
+const SECTION_INTENT_KEYS = ['introduce','explain','compare','prove','demonstrate','reassure','convert','educate','showcase','narrate'];
+const HEADLINE_ROLE_KEYS = ['declarative','explanatory','benefit-led','proof-led','editorial','contrast','question'];
+// Image roles: the original 4 (hero/product/team/gallery) stay valid --
+// existing saved projects/cached prompts/normalizeClaudePlan lookups by role
+// keep working unchanged -- these are ADDITIONS for why an image exists, not
+// just where it sits, per SITE-PROJECT brief part "Visual storytelling".
+const IMAGE_ROLE_KEYS = ['hero','product','team','gallery','atmosphere','process','founder','portfolio','location','texture','editorial','feature','beforeAfter'];
+const FUNCTIONALITY_STATUS_KEYS = ['supportedNow','plannedIntegration','requiresCustomBuild'];
+
 const WEBSITE_PLAN_TOOL = {
   name: 'submit_website_plan',
   description: 'Submit a structured plan for a small-business marketing website. Return structure and copy only -- never HTML, CSS, or code.',
   input_schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['business', 'heroCopy', 'visualDirection', 'creativeDirection', 'pages', 'imagePlan', 'functionalityPlan'],
+    required: ['business', 'strategy', 'heroCopy', 'visualDirection', 'creativeDirection', 'pages', 'imagePlan', 'functionalityPlan'],
     properties: {
       heroCopy: {
         type: 'object', additionalProperties: false,
@@ -421,6 +446,29 @@ const WEBSITE_PLAN_TOOL = {
         properties: {
           years: { type: 'string' }, rating: { type: 'string' }, customerCount: { type: 'string' }, location: { type: 'string' },
           otherFacts: { type: 'array', items: { type: 'string' }, maxItems: 5 }
+        }
+      },
+      // V9: site-strategy reasoning -- sits between `business` (what the
+      // company IS) and `visualDirection`/`pages` (what the site LOOKS
+      // like/CONTAINS). This is the layer that decides page architecture,
+      // section intent and copy hierarchy; every field here should visibly
+      // shape the pages/sections you submit below, not just describe them
+      // after the fact.
+      strategy: {
+        type: 'object', additionalProperties: false,
+        required: ['archetype', 'secondaryAudience', 'visitorIntent', 'primaryConversion', 'secondaryConversion', 'credibilityStrategy', 'sophisticationLevel', 'businessScope', 'proofStrategy', 'informationHierarchy'],
+        description: 'How you reason about this business as a website problem, before deciding pages/sections. Pick the archetype that best matches how this site should actually work -- it is NOT a restatement of business.category.',
+        properties: {
+          archetype: { type: 'string', enum: ARCHETYPE_KEYS, description: 'The kind of site this business actually needs, independent of industry category -- e.g. a boutique law firm and a boutique interior designer might both be premium-consultancy; a local roofer and a local cleaner might both be local-conversion.' },
+          secondaryAudience: { type: 'string', description: 'A real secondary visitor type, if one genuinely exists (e.g. "referral partners" alongside "homeowners"). Empty string if there truly is only one audience.' },
+          visitorIntent: { type: 'string', description: 'What the visitor is actually trying to figure out when they land on this site.' },
+          primaryConversion: { type: 'string', description: 'The one action this site most wants a visitor to take.' },
+          secondaryConversion: { type: 'string', description: 'A real secondary action for a visitor not ready for the primary one yet (e.g. "join the newsletter" before "book a call"). Empty string if none is warranted.' },
+          credibilityStrategy: { type: 'string', description: 'What will actually make this specific visitor trust this specific business -- proof, credentials, portfolio, warmth, scale, etc.' },
+          sophisticationLevel: { type: 'string', enum: SOPHISTICATION_KEYS, description: 'How much this visitor already knows about the category -- changes how much the copy needs to explain vs assume.' },
+          businessScope: { type: 'string', enum: BUSINESS_SCOPE_KEYS },
+          proofStrategy: { type: 'string', description: 'What kind of proof matters most here -- numbers, named work, testimonials, credentials, or none available yet.' },
+          informationHierarchy: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'The 3-6 things a visitor needs to learn, in the order they need to learn them -- this should visibly drive your page/section order below.' }
         }
       },
       visualDirection: {
@@ -466,23 +514,47 @@ const WEBSITE_PLAN_TOOL = {
         description: 'Only the pages this specific business actually needs -- a local contractor might need 3, a SaaS company or an editorial fashion brand may need more. Do not default to a fixed count.',
         items: {
           type: 'object', additionalProperties: false,
-          required: ['id', 'label', 'purpose', 'sections'],
+          required: ['id', 'label', 'purpose', 'plan', 'sections'],
           properties: {
             id: { type: 'string' }, label: { type: 'string' }, purpose: { type: 'string' },
+            // V9: what this ONE page is for, planned independently of every
+            // other page -- this is what should make Home/Services/About/
+            // Contact (or whatever pages you chose) each feel deliberately
+            // different rather than four copies of the same section rhythm.
+            plan: {
+              type: 'object', additionalProperties: false,
+              required: ['visitorQuestion', 'primaryCta', 'secondaryCta', 'visualIntensity', 'informationDensity', 'copyTone', 'imageCritical'],
+              properties: {
+                visitorQuestion: { type: 'string', description: 'The one question a visitor lands on this page to answer, e.g. "Is this for me and why should I care?"' },
+                primaryCta: { type: 'string' },
+                secondaryCta: { type: 'string', description: 'Empty string if this page genuinely has only one meaningful call to action.' },
+                visualIntensity: { type: 'string', enum: VISUAL_INTENSITY_KEYS },
+                informationDensity: { type: 'string', enum: INFORMATION_DENSITY_KEYS },
+                copyTone: { type: 'string', description: 'This page\'s own copy register, e.g. "reassuring and concrete" vs "confident and fast" -- can differ from the site-wide business.tone where the page\'s job calls for it.' },
+                imageCritical: { type: 'boolean', description: 'True only if this specific page genuinely needs imagery to do its job (a portfolio/menu/gallery-led page) -- false for a page that works fine as text (most FAQ/pricing/contact pages).' }
+              }
+            },
             sections: {
               type: 'array', minItems: 2, maxItems: 10,
               items: {
                 type: 'object', additionalProperties: false,
-                required: ['type', 'headline'],
+                required: ['type', 'intent', 'headlineRole', 'headline'],
                 properties: {
                   type: { type: 'string', enum: SECTION_TYPE_KEYS },
+                  // V9: why this section exists on this page, and what kind
+                  // of headline it should carry -- reasoned independently of
+                  // `type` so two 'services' sections (say, on Home and on a
+                  // secondary page) can play different roles instead of
+                  // repeating the same claim in the same voice.
+                  intent: { type: 'string', enum: SECTION_INTENT_KEYS, description: 'What this section is doing for the visitor at this point in the page -- introducing, proving, reassuring, converting, etc.' },
+                  headlineRole: { type: 'string', enum: HEADLINE_ROLE_KEYS, description: 'The rhetorical shape of this section\'s headline. Vary this across a page -- a page of all-declarative headlines reads as a flat list, not a designed sequence.' },
                   headline: { type: 'string' },
                   subhead: { type: 'string' },
                   body: { type: 'string' },
                   ctaLabel: { type: 'string' },
                   claims: {
                     type: 'array', maxItems: 6,
-                    description: 'Any factual claim this section\'s copy relies on (a number, a named client, a certification, a guarantee). sourced:true ONLY if it came directly from declaredFacts.',
+                    description: 'Any factual claim this section\'s copy relies on (a number, a named client, a certification, a guarantee). sourced:true ONLY if it came directly from declaredFacts. Do not restate a claim already used in an earlier section on this page -- if the same fact is relevant again, reference it briefly rather than re-introducing it as new information.',
                     items: {
                       type: 'object', additionalProperties: false, required: ['text', 'sourced'],
                       properties: { text: { type: 'string' }, sourced: { type: 'boolean' } }
@@ -527,12 +599,13 @@ const WEBSITE_PLAN_TOOL = {
       },
       imagePlan: {
         type: 'array', maxItems: 64,
+        description: 'Only images that earn their place -- do not add one merely because a section type supports one. Pick the role that says WHY the image exists (e.g. \'founder\' for a credibility photo, \'process\' for a how-it-works shot, \'atmosphere\' for a mood-setting visual), not just a generic \'gallery\'/\'team\' bucket.',
         items: {
           type: 'object', additionalProperties: false,
           required: ['role', 'intent', 'prompt', 'aspectRatio'],
           properties: {
             role: { type: 'string', enum: IMAGE_ROLE_KEYS },
-            intent: { type: 'string' },
+            intent: { type: 'string', description: 'Why this specific image exists here, in a few words -- what it needs to communicate that the copy alone does not.' },
             prompt: { type: 'string', description: 'A specific, vivid image-generation prompt for this exact business -- never a generic phrase.' },
             aspectRatio: { type: 'string', enum: ['16:9', '4:3', '1:1'] }
           }
@@ -582,7 +655,11 @@ Rules:
 4. functionalityPlan must be honest: SiteRemade can render a contact/lead form and static content today. Booking, payments, ecommerce, portals, and live integrations do not exist yet -- mark them plannedIntegration or requiresCustomBuild, never supportedNow.
 5. Keep copy concise and genuinely specific to this business -- avoid generic filler like "a modern website that makes your business obvious" unless the input truly gives you nothing else to work with.
 6. Where it genuinely fits, give ONE relevant section a real, working module (module.type) -- a restaurant's reservation section gets a booking module, a contractor's services/contact section gets a quote module, a retail product section gets a product module, and so on. Only choose a module type that's actually compatible with that section (a booking module belongs on a reservation/contact section, not on a pricing table). Do not invent a phone number, email address, physical address, price, checkout link, or "connected" integration for it -- leave a config-level fact out entirely rather than guess; SiteRemade renders an honest empty/placeholder state for anything you don't supply. A module you place is a REAL, working preview form, not a description of a future feature -- that's what functionalityPlan is for.
-7. Choose every visualDirection field deliberately, including contentWidth, imageDominance, imageArrangement, sectionRhythm, sectionAlignment, typographyScale, headingWidth, cardDensity, cardShape, and splitRatio. These are controlled renderer values, not CSS or HTML.`;
+7. Choose every visualDirection field deliberately, including contentWidth, imageDominance, imageArrangement, sectionRhythm, sectionAlignment, typographyScale, headingWidth, cardDensity, cardShape, and splitRatio. These are controlled renderer values, not CSS or HTML.
+8. Reason about strategy BEFORE structure: decide archetype, audience, conversion goals, credibility strategy and information hierarchy first, and let those decisions actually show up in which pages you choose, what order sections appear in, and what each section's intent/headlineRole is. Two businesses in the same category should end up structurally different if their strategy differs -- do not converge on the same page count or section skeleton out of habit.
+9. Plan each page independently. A page's plan (visitorQuestion, primaryCta, visualIntensity, informationDensity, copyTone, imageCritical) should differ meaningfully from page to page -- a page that just repeats Home's rhythm at lower density is not a real second page, it's padding. Only create a page this business genuinely needs.
+10. Give sections a deliberate rhythm, not uniform density -- vary visualIntensity/informationDensity across a page's sections (e.g. an immersive opening, a quieter trust moment, a denser explanation, a proof-heavy section, a concise close) rather than six sections that all feel the same size and weight. Vary headlineRole across a page too -- do not make every section's headline declarative.
+11. Never restate the same claim, statistic, or headline idea twice across a site. If two sections would naturally make the same point, cut one, merge them, or give the second a different angle (a new objection it resolves, a new piece of proof) instead of repeating the first.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [
@@ -612,7 +689,12 @@ const anthropicProvider = {
         headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
-          max_tokens: 4096,
+          // V9: the schema grew substantially (strategy object, per-page
+          // plan, per-section intent/headlineRole) -- 4096 was already
+          // tight for an 8-page plan with full visualDirection/creative-
+          // Direction/imagePlan/functionalityPlan; raised to give the
+          // richer reasoning room without truncating mid-tool-call.
+          max_tokens: 8192,
           thinking: { type: 'disabled' },
           system: PLANNER_SYSTEM_PROMPT,
           messages: [{ role: 'user', content: buildPlannerUserPrompt(brief) }],
