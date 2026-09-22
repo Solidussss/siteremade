@@ -38,6 +38,44 @@ const credits = require('./lib/credits.js');
 // email, rather than a second, possibly-divergent copy of that logic.
 const rateLimit = require('./lib/rate-limit.js');
 const { normalizeEmail } = require('./lib/auth.js');
+// V14 (shared identity bridge pass): identity-links.js is pure local-DB
+// bookkeeping (no network calls -- see its own header); supabase-identity.js
+// is the one place this file talks to Supabase's Auth API to verify a
+// caller-presented access token. Neither is required/called anywhere
+// except the new /api/identity/* routes below and their feature flag --
+// every existing route/table/session is completely untouched by this pass
+// (see SITE-PROJECT-V14-IDENTITY-BRIDGE.md's "Phase 1" for why: no
+// existing FK is rekeyed, no existing auth path changes behavior).
+const identityLinks = require('./lib/identity-links.js');
+const supabaseIdentity = require('./lib/supabase-identity.js');
+// A real feature flag, not a code comment -- spec item 34 ("we need the
+// ability to stop rollout without reverting the whole codebase"). Default
+// 'disabled': every /api/identity/* route below fails closed (404, the
+// same "doesn't appear to exist" posture as /api/admin/operation-ledger's
+// own missing-token case) until this is explicitly turned on. 'internal'
+// additionally requires the caller's (already-verified, either side's)
+// email to appear in SITEREMADE_IDENTITY_BRIDGE_ALLOWLIST -- a real,
+// enforced restriction, not a cosmetic one. 'opt_in' and 'full' behave
+// identically in THIS pass (both "on for every account") -- there is no
+// behavioral difference to implement yet because nothing in this pass ever
+// links or provisions an account without that account's own explicit,
+// in-the-moment action (see identity-links.js: lazyProvisionGeneratorAccount
+// only ever fires for the Supabase identity that just authenticated itself,
+// createLink only ever fires with a fresh dual-session proof) -- 'full'
+// exists as the named eventual target once a real rollout needs to
+// distinguish "on for everyone" from "on, but still opt-in per account,"
+// which nothing in this pass's scope requires.
+function identityBridgeMode() {
+  const mode = String(process.env.SITEREMADE_IDENTITY_BRIDGE_MODE || 'disabled').trim().toLowerCase();
+  return ['disabled', 'internal', 'opt_in', 'full'].includes(mode) ? mode : 'disabled';
+}
+function identityBridgeEnabled() { return identityBridgeMode() !== 'disabled'; }
+function identityBridgeAllowedForEmail(email) {
+  if (identityBridgeMode() !== 'internal') return true;
+  const allowlist = String(process.env.SITEREMADE_IDENTITY_BRIDGE_ALLOWLIST || '')
+    .split(',').map(e => normalizeEmail(e)).filter(Boolean);
+  return allowlist.includes(normalizeEmail(email));
+}
 // V8.6: export + deployment packaging + hosting/domain handoff -- see
 // SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
 // (no parallel backend), exactly like V8.5's own modules above.
@@ -304,6 +342,13 @@ function rateLimitMiddleware(bucketKeyFn, limitConfig, message) {
 const signupRateLimit = rateLimitMiddleware(req => `signup:${req.ip}`, RATE_LIMITS.signup, 'Too many accounts created from this connection recently. Please try again later.');
 const signinRateLimit = rateLimitMiddleware(req => `signin:${req.ip}`, RATE_LIMITS.signin, 'Too many sign-in attempts from this connection recently. Please try again later.');
 const generationRateLimit = rateLimitMiddleware(req => `generation:${req.accountId || req.ip}`, RATE_LIMITS.generation, 'Too many requests in a short time.');
+// V14 (shared identity bridge pass): the same per-IP request-rate
+// discipline as signin/signup above, applied to the new /api/identity/*
+// routes -- these call out to a real external service (Supabase's Auth
+// API) once configured, so they deserve the same throttle as any other
+// route that does real, non-free work per request. Reuses RATE_LIMITS.signin's
+// own threshold rather than inventing a third number with no real basis.
+const identityRateLimit = rateLimitMiddleware(req => `identity:${req.ip}`, RATE_LIMITS.signin, 'Too many requests in a short time. Please try again later.');
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -1807,6 +1852,105 @@ app.get('/api/auth/me', withOptionalAuth, (req, res) => {
   // it, not a hot path.
   const record = authProvider.findAccountById(db, req.accountId);
   return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail, appSubscriptionStatus: (record && record.app_subscription_status) || null } });
+});
+
+// V14 (shared identity bridge pass) -- three routes, all fail closed (404)
+// while the feature flag is 'disabled' (the default), matching this file's
+// existing /api/admin/operation-ledger precedent for a real, enforced,
+// invisible-until-turned-on gate. None of these three routes touch
+// `accounts`/`projects`/`credit_ledger`/`purchase_intents` or any other
+// pre-existing table -- only the two new identity_links*/identity_link_events
+// tables (migrations/0005_identity_links.sql) and, for the session-exchange
+// route, the EXACT SAME session-minting path signup/signin already use
+// (authProvider.createSession + sessionCookieHeader) -- no second session
+// mechanism, no new cookie.
+//
+// GET /api/identity/status -- requireAuth. {linked} only, no raw ids (spec
+// item 25). Lets the frontend decide whether to show an "Upgrade to your
+// unified SiteRemade account" affordance without exposing implementation
+// terms.
+app.get('/api/identity/status', requireAuth, (req, res) => {
+  if (!identityBridgeEnabled()) return res.json({ ok: true, bridgeEnabled: false, linked: false });
+  return res.json({ ok: true, bridgeEnabled: true, ...identityLinks.getLinkStatusForAccount(db, req.accountId) });
+});
+
+// POST /api/identity/supabase/session -- NOT requireAuth (a visitor may not
+// have a generator session yet -- this IS how an app-only Supabase user
+// gets one). requireSameOrigin because it's state-changing (can create an
+// account) and mints a session cookie, same discipline as signup/signin.
+// Body: { supabaseAccessToken }. The token is used for exactly one thing
+// -- one verification call to lib/supabase-identity.js -- and is never
+// stored anywhere (not in a cookie, not in a database column, not logged).
+//
+// Resolves to one of:
+//  - an EXISTING link -> mint a normal generator session for that account
+//    (population: a returning, already-linked user -- either originally
+//    linked via this same lazy-provision path, or via the explicit
+//    dual-proof /api/identity/link route below).
+//  - NO link, NO colliding generator account by email -> lazily provision a
+//    brand-new generator account + link, then mint a session for it
+//    (population B/I: an app-only Supabase user with nothing to conflict
+//    with -- see lib/identity-links.js's own header for why this does NOT
+//    need dual-session proof).
+//  - NO link, but a generator account with this email ALREADY exists ->
+//    refuse (409) rather than auto-merge (spec item 6: "same email must
+//    not auto-merge") -- the response tells the visitor to sign into that
+//    existing generator account and link it from there instead (routes to
+//    /api/identity/link, which DOES require dual-session proof).
+app.post('/api/identity/supabase/session', requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+  if (!identityBridgeAllowedForEmail(verified.email)) return res.status(404).json({ ok: false });
+
+  const existingAccountId = identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId);
+  let accountId = existingAccountId;
+  let created = false;
+  if (!accountId) {
+    const provisioned = identityLinks.lazyProvisionGeneratorAccount(db, { supabaseUserId: verified.userId, email: verified.email });
+    if (!provisioned.ok) {
+      return res.status(409).json({
+        ok: false, reason: provisioned.reason,
+        message: 'An existing generator account already uses this email address. Sign in to that account, then link it from there.',
+      });
+    }
+    accountId = provisioned.accountId;
+    created = provisioned.created;
+  }
+  const account = authProvider.findAccountById(db, accountId);
+  const { token: sessionToken } = authProvider.createSession(db, accountId);
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(sessionToken, { secure: cookieShouldBeSecure(req) }));
+  return res.json({ ok: true, account, created });
+});
+
+// POST /api/identity/link -- requireAuth (a real generator session is the
+// FIRST of the two required proofs) + requireSameOrigin. Body:
+// { supabaseAccessToken } (the SECOND required proof -- verified
+// server-side here, never trusted from a client-asserted user id, matching
+// spec item 21's "no unsigned client-side linking" / "no `POST email1 +
+// email2`"). This is the ONLY route that links two PRE-EXISTING accounts
+// together (population C/D) -- see lib/identity-links.js's createLink for
+// the transactional conflict handling (already-linked-elsewhere on either
+// side is refused, never silently overwritten; a retry of the identical
+// link is idempotent).
+app.post('/api/identity/link', requireAuth, requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  if (!identityBridgeAllowedForEmail(req.accountEmail)) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+
+  const result = identityLinks.createLink(db, { generatorAccountId: req.accountId, supabaseUserId: verified.userId });
+  if (!result.ok) {
+    return res.status(409).json({
+      ok: false, reason: result.reason,
+      message: result.reason === 'account_already_linked'
+        ? 'This generator account is already linked to a different SiteRemade account.'
+        : 'That SiteRemade account is already linked to a different generator account.',
+    });
+  }
+  return res.json({ ok: true, linked: true, alreadyLinked: !!result.alreadyLinked });
 });
 // Product-flow pass: a signed-in account's real, durable credit balance --
 // what the account page / generation UI reads to show "X credits left
