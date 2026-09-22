@@ -262,54 +262,141 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // start billing image calls. This is a hard invariant: do not collapse it
 // back to `!!OPENAI_API_KEY` alone.
 const SITEREMADE_PAID_IMAGES = process.env.SITEREMADE_PAID_IMAGES === 'true';
-// TIERED IMAGE SPEND PASS: gpt-image-1 (the only model this deployment
-// calls) accepts a real `quality` parameter -- 'low' | 'medium' | 'high' --
-// that materially changes both fidelity and price. Previously this route
-// never sent `quality` at all (silently defaulting to the API's own
-// default), so every generated image -- hero or the 4th gallery tile alike
-// -- paid the same, undifferentiated cost. Routing the request's own
-// `quality` through here lets the client fund a strong hero at full
-// quality while stretching the same total budget across more, cheaper
-// supporting images instead of fewer identical-cost ones.
+// MULTI-MODEL IMAGE ROUTER PASS (supersedes the single-model "tiered
+// quality" pass): auditing that earlier pass against real production
+// billing showed the fix was incomplete -- `quality` was routed correctly,
+// but the request body still hardcoded `model: 'gpt-image-1'` for every
+// single slot, so "cheaper tier" only ever meant "the same expensive model
+// at a slightly lower quality setting." A production generation logged ONE
+// real image costing roughly $0.50 -- several times this file's own
+// previous 'high' estimate ($0.19) -- proving gpt-image-1 itself, at
+// whatever quality was actually selected, is too expensive to fund more
+// than one or two images under a real per-site budget. There is no way to
+// "tier" your way out of that with quality alone: the model itself has to
+// change for supporting images. This section now routes different slots
+// through genuinely different OpenAI image models, not just different
+// quality settings on the same model.
+//
+// SITEREMADE_IMAGE_MODEL_SUPPORT / SITEREMADE_IMAGE_MODEL_PREMIUM name the
+// two models this deployment is allowed to request. Defaults assume
+// 'gpt-image-1-mini' exists as a materially cheaper sibling of
+// 'gpt-image-1' -- if a deployment's real model catalog uses a different
+// name, override these env vars; nothing else in this file or script.js
+// needs to change. `IMAGE_MODEL_COST_ESTIMATE_USD` is keyed
+// model -> quality -> base(square) cost, with `IMAGE_LANDSCAPE_COST_MULTIPLIER`
+// applied for non-square sizes -- this is the "model -> quality -> size ->
+// estimated cost" structure the brief asked for, instead of one flat
+// low/medium/high table that silently assumed every model costs the same.
+// Every number is an env-overridable ESTIMATE, not a verified OpenAI price
+// (see the honesty note on SITEREMADE_IMAGE_BUDGET_USD below) -- the
+// premium figures here are set conservatively HIGH (informed by the real
+// ~$0.50 production data point above), specifically so the allocator will
+// naturally avoid the premium model under a normal budget unless a
+// deployment explicitly raises the ceiling or overrides these estimates
+// with real observed numbers.
+const IMAGE_MODEL_SUPPORT = process.env.SITEREMADE_IMAGE_MODEL_SUPPORT || 'gpt-image-1-mini';
+const IMAGE_MODEL_PREMIUM = process.env.SITEREMADE_IMAGE_MODEL_PREMIUM || 'gpt-image-1';
+// Server-side allowlist -- the browser can request a model/quality by name,
+// but it can NEVER get anything outside this list actually sent to OpenAI.
+// Anything else is safely downgraded to the cheap support model, never
+// rejected in a way that blocks the whole generation.
+const ALLOWED_IMAGE_MODELS = Array.from(new Set([IMAGE_MODEL_SUPPORT, IMAGE_MODEL_PREMIUM]));
 const ALLOWED_IMAGE_QUALITIES = ['low', 'medium', 'high'];
-// Approximate, illustrative per-image cost by quality tier at the sizes
-// this route actually requests (1024x1024 / 1536x1024) -- NOT a guarantee
-// of OpenAI's exact current billed price (that can change, and varies
-// slightly by resolution); this exists purely to drive the CLIENT's
-// deterministic per-generation spend planner (see script.js
-// imageSpendCeilingUsd/imageTierCostEstimate) with a single, server-owned
-// source of truth instead of a second guessed copy baked into the client.
-// A deployment with an exact negotiated rate can override any of these via
-// env vars without a code change.
-const IMAGE_TIER_COST_ESTIMATE_USD = {
-  low: Number(process.env.SITEREMADE_IMAGE_COST_LOW_USD) || 0.02,
-  medium: Number(process.env.SITEREMADE_IMAGE_COST_MEDIUM_USD) || 0.07,
-  high: Number(process.env.SITEREMADE_IMAGE_COST_HIGH_USD) || 0.19
+const ALLOWED_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '4:3'];
+const IMAGE_MODEL_COST_ESTIMATE_USD = {
+  [IMAGE_MODEL_SUPPORT]: {
+    low: Number(process.env.SITEREMADE_IMAGE_COST_SUPPORT_LOW_USD) || 0.006,
+    medium: Number(process.env.SITEREMADE_IMAGE_COST_SUPPORT_MEDIUM_USD) || 0.015,
+    high: Number(process.env.SITEREMADE_IMAGE_COST_SUPPORT_HIGH_USD) || 0.03
+  },
+  [IMAGE_MODEL_PREMIUM]: {
+    low: Number(process.env.SITEREMADE_IMAGE_COST_PREMIUM_LOW_USD) || 0.05,
+    medium: Number(process.env.SITEREMADE_IMAGE_COST_PREMIUM_MEDIUM_USD) || 0.15,
+    high: Number(process.env.SITEREMADE_IMAGE_COST_PREMIUM_HIGH_USD) || 0.45
+  }
 };
-// The hard per-generation paid-image spend ceiling. Env-configurable
-// (SITEREMADE_IMAGE_BUDGET_USD) rather than hardcoded, per the brief --
-// a deployment can tune this without a code change. Still gated entirely
-// behind the existing two-key SITEREMADE_PAID_IMAGES/OPENAI_API_KEY switch:
-// this only shrinks or grows how much of an already-enabled budget gets
-// spent, it never itself turns paid generation on.
-const SITEREMADE_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_IMAGE_BUDGET_USD) || 0.30;
+const IMAGE_LANDSCAPE_COST_MULTIPLIER = Number(process.env.SITEREMADE_IMAGE_LANDSCAPE_COST_MULTIPLIER) || 1.4;
+function estimateImageRouteCostUsd(model, quality, aspectRatio) {
+  const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
+  const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
+  const base = (IMAGE_MODEL_COST_ESTIMATE_USD[safeModel] || IMAGE_MODEL_COST_ESTIMATE_USD[IMAGE_MODEL_SUPPORT])[safeQuality];
+  const isSquare = !aspectRatio || aspectRatio === '1:1';
+  return isSquare ? base : Number((base * IMAGE_LANDSCAPE_COST_MULTIPLIER).toFixed(4));
+}
+// HONESTY NOTE (do not remove): the previous pass's $0.30 default and its
+// low/medium/high estimates were shown, by real billing, to diverge sharply
+// from what OpenAI actually charged -- this file has NEVER had a way to
+// know the real price in advance, only a configurable guess used to drive
+// the allocator's own internal comparisons. Lowering the default here to
+// $0.10 (per the brief's $0.08-$0.12 target) does NOT mean generations are
+// now guaranteed to cost $0.10 -- it means the allocator will stop trying
+// to fund routes once its own (still-approximate) running estimate reaches
+// that figure. Treat every dollar figure in this file as a planning input,
+// not a billing guarantee, and update the env vars above once real
+// per-model/per-quality invoice data is available.
+const SITEREMADE_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_IMAGE_BUDGET_USD) || 0.10;
+// Server-side spend reservation (see the /api/generate-image handler
+// below for the full explanation of what this does and does not
+// guarantee): a per-project running total, reserved synchronously BEFORE
+// each provider call and refunded on failure, so the server enforces the
+// SAME ceiling it quotes the client rather than only trusting the client's
+// own arithmetic. Reservations reset after a window of inactivity so a
+// legitimate later regeneration (industry change, new upload, etc.) is
+// never permanently blocked by an earlier generation's spend.
+const IMAGE_SPEND_RESERVATION_WINDOW_MS = 5 * 60 * 1000;
+const imageSpendReservations = new Map();
+function reserveImageSpend(key, estimatedCostUsd) {
+  const now = Date.now();
+  let entry = imageSpendReservations.get(key);
+  if (!entry || (now - entry.windowStartedAt) > IMAGE_SPEND_RESERVATION_WINDOW_MS) {
+    entry = { spentUsd: 0, windowStartedAt: now };
+  }
+  const projectedTotal = entry.spentUsd + estimatedCostUsd;
+  if (projectedTotal > SITEREMADE_IMAGE_BUDGET_USD + 1e-9) {
+    imageSpendReservations.set(key, entry);
+    return { ok: false, spentUsd: entry.spentUsd };
+  }
+  entry.spentUsd = projectedTotal;
+  imageSpendReservations.set(key, entry);
+  // Opportunistic cleanup -- bounded O(n) sweep of stale windows, run
+  // inline rather than on a timer so this file adds no new background
+  // process. Cheap at this codebase's scale; a high-traffic deployment
+  // would replace this Map with a real store (out of scope here).
+  if (imageSpendReservations.size > 500) {
+    for (const [k, v] of imageSpendReservations) {
+      if ((now - v.windowStartedAt) > IMAGE_SPEND_RESERVATION_WINDOW_MS) imageSpendReservations.delete(k);
+    }
+  }
+  return { ok: true, spentUsd: entry.spentUsd };
+}
+function releaseImageSpend(key, estimatedCostUsd) {
+  const entry = imageSpendReservations.get(key);
+  if (entry) entry.spentUsd = Math.max(0, entry.spentUsd - estimatedCostUsd);
+}
 const imageProviders = {
   openai: {
     name: 'openai',
     configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
-    async generate(prompt, { aspectRatio, quality } = {}) {
+    async generate(prompt, { aspectRatio, quality, model } = {}) {
       const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
       const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
+      // Allowlist enforcement happens here, not just in the route handler,
+      // so this stays safe even if another call site is ever added above
+      // it -- an unrecognized model name is silently downgraded to the
+      // cheap support model rather than forwarded to OpenAI or rejected
+      // outright (a malformed/tampered request should never crash the
+      // generation, it should just fail cheap).
+      const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
       const response = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality: safeQuality, n: 1 }),
+        body: JSON.stringify({ model: safeModel, prompt, size, quality: safeQuality, n: 1 }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data && data.error && data.error.message) || `Image provider returned ${response.status}`);
       const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
       if (!b64) throw new Error('Image provider returned no image data');
-      return { dataUrl: `data:image/png;base64,${b64}`, quality: safeQuality };
+      return { dataUrl: `data:image/png;base64,${b64}`, quality: safeQuality, model: safeModel };
     }
   }
   // Add another provider here (same {name, configured(), generate()} shape)
@@ -323,12 +410,23 @@ app.get('/api/image-provider-status', (req, res) => {
   const reason = configured ? undefined
     : !OPENAI_API_KEY ? 'No server-side image-generation API key is configured in this environment.'
     : 'Paid image generation is disabled (SITEREMADE_PAID_IMAGES is not set to true).';
-  // budgetUsd/costEstimateUsd let the client's deterministic spend planner
-  // (script.js) read this deployment's real, env-configured economics
-  // instead of guessing -- the client never hardcodes a second copy of
-  // these numbers. Present even when `configured` is false so the client's
-  // planner always has real numbers to reason with, not undefined.
-  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason, budgetUsd: SITEREMADE_IMAGE_BUDGET_USD, costEstimateUsd: IMAGE_TIER_COST_ESTIMATE_USD });
+  // budgetUsd/costEstimateUsd/models/landscapeCostMultiplier let the
+  // client's deterministic spend planner (script.js) read this
+  // deployment's real, env-configured economics instead of guessing -- the
+  // client never hardcodes a second copy of these numbers. Present even
+  // when `configured` is false so the client's planner always has real
+  // numbers to reason with, not undefined. costEstimateUsd is now nested
+  // by model (not a flat low/medium/high table) since different models
+  // have materially different economics -- see IMAGE_MODEL_COST_ESTIMATE_USD.
+  res.json({
+    configured,
+    provider: configured ? activeImageProvider.name : null,
+    reason,
+    budgetUsd: SITEREMADE_IMAGE_BUDGET_USD,
+    models: { support: IMAGE_MODEL_SUPPORT, premium: IMAGE_MODEL_PREMIUM },
+    costEstimateUsd: IMAGE_MODEL_COST_ESTIMATE_USD,
+    landscapeCostMultiplier: IMAGE_LANDSCAPE_COST_MULTIPLIER
+  });
 });
 
 app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
@@ -342,25 +440,55 @@ app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
     return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   }
   const startedAt = Date.now();
+  // MULTI-MODEL IMAGE ROUTER PASS: `model`/`quality`/`aspectRatio` are the
+  // client's own deterministic route planner's decision for this slot (see
+  // script.js chooseImageRoute/buildImagePlan). None of the three are
+  // trusted blindly -- each is re-validated against a strict server-side
+  // allowlist below and in activeImageProvider.generate() itself, so a
+  // malformed or tampered request can never reach OpenAI with an
+  // unapproved model, an unapproved quality, or silently request the most
+  // expensive route by default.
+  const requestedModel = clean(req.body.model, 40);
+  const requestedQuality = clean(req.body.quality, 10);
+  const requestedAspectRatio = clean(req.body.aspectRatio, 10);
+  const safeModel = ALLOWED_IMAGE_MODELS.includes(requestedModel) ? requestedModel : IMAGE_MODEL_SUPPORT;
+  const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(requestedQuality) ? requestedQuality : 'medium';
+  const safeAspectRatio = ALLOWED_IMAGE_ASPECT_RATIOS.includes(requestedAspectRatio) ? requestedAspectRatio : '1:1';
+  const estimatedCostUsd = estimateImageRouteCostUsd(safeModel, safeQuality, safeAspectRatio);
+  // SERVER-SIDE SPEND ENFORCEMENT, and its real limits (do not remove this
+  // note): the client computes its own image plan and spend ceiling, but
+  // this reservation is the server's OWN independent check against the
+  // SAME configured ceiling -- it does not just trust whatever the client
+  // sends. The reservation check-and-increment below runs synchronously,
+  // before the `await` to OpenAI, so within a single Node process it is a
+  // real atomic guard: two concurrent requests for the same project cannot
+  // both slip past the check, because Node's event loop cannot interleave
+  // two synchronous blocks. What this does NOT guarantee: if this
+  // deployment runs more than one server instance/replica (Railway
+  // horizontal scaling), each instance holds its own in-memory reservation
+  // map, so the true cross-instance ceiling is (budget x instance count),
+  // not a single global cap -- there is no shared store here, and adding
+  // one (Redis, a DB row with a real lock) would be a materially bigger
+  // change than this pass's scope. This is the strongest enforcement that
+  // fits the current architecture without that rewrite; it is a real
+  // per-instance, per-project guard, not a claim of a global billing cap.
+  const reservationKey = projectId || anonId || 'anonymous';
+  const reservation = reserveImageSpend(reservationKey, estimatedCostUsd);
+  if (!reservation.ok) {
+    return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'Server-side per-generation image budget already reached; this request was not sent to the image provider.' });
+  }
   try {
     const prompt = clean(req.body.prompt, 600);
-    const aspectRatio = clean(req.body.aspectRatio, 10);
-    // TIERED IMAGE SPEND PASS: `quality` is the client's own deterministic
-    // spend planner's decision for this slot (see script.js
-    // imageSpendCeilingUsd/buildImagePlan) -- 'low'/'medium'/'high'. Never
-    // trusted blindly: activeImageProvider.generate() re-validates it
-    // against ALLOWED_IMAGE_QUALITIES and falls back to 'medium' for
-    // anything else, so a malformed/missing value can never silently
-    // request the most expensive tier.
-    const quality = clean(req.body.quality, 10);
-    if (!prompt) return res.status(400).json({ ok: false, message: 'Missing prompt.' });
-    const result = await activeImageProvider.generate(prompt, { aspectRatio, quality });
-    const usedQuality = result.quality || 'medium';
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: true, imageCount: 1, imageSize: aspectRatio || null, imageQuality: usedQuality, estimatedCostUsd: IMAGE_TIER_COST_ESTIMATE_USD[usedQuality] ?? null, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality });
+    if (!prompt) { releaseImageSpend(reservationKey, estimatedCostUsd); return res.status(400).json({ ok: false, message: 'Missing prompt.' }); }
+    const result = await activeImageProvider.generate(prompt, { aspectRatio: safeAspectRatio, quality: safeQuality, model: safeModel });
+    const usedQuality = result.quality || safeQuality;
+    const usedModel = result.model || safeModel;
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel });
   } catch (error) {
     console.error('Image generation failed:', error);
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    releaseImageSpend(reservationKey, estimatedCostUsd);
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
   }
 });
@@ -447,13 +575,17 @@ function recordOperation(entry) {
     cacheWriteTokens: Number.isFinite(entry.cacheWriteTokens) ? entry.cacheWriteTokens : null,
     imageCount: Number.isFinite(entry.imageCount) ? entry.imageCount : null,
     imageSize: entry.imageSize || null,
-    // TIERED IMAGE SPEND PASS: real observability for the claim that
-    // supporting imagery now costs less than the hero -- imageQuality is
-    // the actual tier requested of the provider, estimatedCostUsd is that
-    // tier's own IMAGE_TIER_COST_ESTIMATE_USD figure (an estimate, not a
-    // billed amount -- see that const's own comment), so the operation
-    // ledger can show the real per-request cost MIX a generation produced,
-    // not just a count.
+    // MULTI-MODEL IMAGE ROUTER PASS: real observability for the claim that
+    // supporting imagery now routes through a materially cheaper MODEL, not
+    // just a lower quality setting on the same one -- `model` above (from
+    // activeImageProvider.generate()'s own return value, never assumed) now
+    // reflects the ACTUAL model requested for this specific image, so this
+    // ledger no longer records every row as 'gpt-image-1' once the router
+    // starts using the cheaper support model. imageQuality is the actual
+    // quality requested; estimatedCostUsd is estimateImageRouteCostUsd's own
+    // model+quality+aspect-specific figure (an estimate, not a billed
+    // amount -- see that function's own comment), so the ledger can show
+    // the real per-request cost MIX a generation produced, not just a count.
     imageQuality: entry.imageQuality || null,
     estimatedCostUsd: Number.isFinite(entry.estimatedCostUsd) ? entry.estimatedCostUsd : null,
     latencyMs: Number.isFinite(entry.latencyMs) ? entry.latencyMs : null,

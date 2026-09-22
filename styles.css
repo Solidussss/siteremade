@@ -1097,6 +1097,15 @@ html,body{max-width:100%;overflow-x:hidden}
 .gallery-grid[data-tile-count="2"].gallery-layout-grid{grid-template-columns:repeat(2,1fr)}
 .gallery-grid[data-tile-count="3"].gallery-layout-grid{grid-template-columns:repeat(3,1fr)}
 .gallery-grid[data-tile-count="2"].gallery-layout-featured{grid-template-columns:1.3fr 1fr}
+/* PLACEHOLDER/COMPOSITION FIX: a section with truly ZERO real imagery
+   (see reconcileImageSupplyWithSections's ZERO_SUPPLY_TILE_COUNT) collapses
+   to exactly one tile, always rendered with the gallery-tile-featured
+   class (see renderGallery) -- these two rules give that lone tile an
+   explicit, deliberate wide/banner shape instead of depending on
+   gallery-tile-featured's normal `grid-row:span 2` (which assumes a second
+   row exists to span into, which it does not here). */
+.gallery-grid[data-tile-count="1"]{grid-template-columns:1fr}
+.gallery-grid[data-tile-count="1"] .gallery-tile-featured{grid-row:auto;aspect-ratio:21/9}
 
 /* ---- Testimonial ---- */
 .site-section-testimonial blockquote{margin:0;max-width:620px;margin-left:auto;margin-right:auto;text-align:center;font-size:17px;line-height:1.5;letter-spacing:-.01em}
@@ -1389,6 +1398,33 @@ html,body{max-width:100%;overflow-x:hidden}
 .visual-generated[data-imagery="nature-cause"]{background:radial-gradient(ellipse at 50% 120%,color-mix(in srgb,var(--site-accent) 45%,transparent),transparent 60%),var(--site-bg-light)}
 .visual-generated[data-imagery="creative-collage"]{background:conic-gradient(from 45deg,color-mix(in srgb,var(--site-accent) 30%,var(--site-bg)),color-mix(in srgb,var(--site-accent-2) 30%,var(--site-bg)),var(--site-bg))}
 .visual-generated[data-imagery="dashboard-ui"]{background-image:linear-gradient(color-mix(in srgb,var(--site-text) 7%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-text) 7%,transparent) 1px,transparent 1px);background-size:22px 22px;background-color:var(--site-bg-dark)}
+/* PLACEHOLDER/COMPOSITION FIX (multi-model image router pass): a slot that
+   was never going to get a real photo this render (see renderVisualSlot's
+   `unfunded` distinction -- either never planned for paid generation, or a
+   real attempt failed) no longer wears the same full-strength, photo-like
+   `data-imagery` gradient as a slot that's actively generating or already
+   has a real image. This rule's specificity intentionally matches the
+   per-data-imagery swatches above and comes AFTER them in source order, so
+   it always wins regardless of which imagery direction is set -- a subtle,
+   low-contrast dot pattern plus a small centered accent mark that reads as
+   "an intentional decorative touch," not "a broken/missing photo." Most of
+   the actual SIZE reduction for the biggest offenders (hero, about-split)
+   happens structurally instead (see reconcileImageSupplyWithSections's
+   heroDisplayVariant/imageDisplayVariant overrides) -- this rule handles
+   the smaller, already-bounded containers (product frame, editorial
+   visual) that don't have an equivalent text-only layout to fall back to. */
+.visual-generated.visual-generated-unfunded{
+  min-height:56px;
+  background:
+    radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--site-accent) 22%,transparent) 0 3px,transparent 4px) 12px 12px/28px 28px,
+    color-mix(in srgb,var(--site-bg) 95%,var(--site-accent) 5%);
+}
+.visual-generated.visual-generated-unfunded::before{
+  content:"";position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);
+  border-radius:50%;border:1.5px solid color-mix(in srgb,var(--site-accent) 45%,transparent);
+}
+.product-frame:has(.visual-generated-unfunded),
+.editorial-visual:has(.visual-generated-unfunded){height:140px}
 
 /* ---- New section types (part 5) ------------------------------------------ */
 .site-section{padding:44px 48px;border-top:1px solid rgba(255,255,255,.08)}

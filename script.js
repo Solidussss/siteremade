@@ -1274,7 +1274,25 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
     return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}" alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
   }
   const generating = cacheMatches && generated.status === 'pending';
-  return `<div class="visual-generated${generating ? ' visual-generating' : ''}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
+  // PLACEHOLDER/COMPOSITION FIX: distinguish WHY this slot has no real
+  // image. `generating` (an attempt is actively in flight) keeps the
+  // existing pulse animation -- that's an honest, temporary loading state.
+  // Everything else -- this slot was never even planned for paid
+  // generation (sourceType !== 'generated', the common budget/rank
+  // decision this whole system is built around), or a real attempt was
+  // made and failed -- means NO real photo is coming this render pass, and
+  // showing the same full-size, photo-styled gradient block for that case
+  // is exactly the "giant fake box" this pass's brief calls out. Those get
+  // a distinct `visual-generated-unfunded` class instead: a visibly
+  // smaller, deliberately pattern-styled "branded accent" treatment (see
+  // styles.css), plus a `data-funded="false"` hook that lets the
+  // section's own outer container (site-visual/product-frame/editorial-
+  // visual/gallery-tile/team-card/about-visual) shrink itself via CSS
+  // `:has()` instead of holding the full photo-sized box open for
+  // something that was never going to arrive.
+  const unfunded = !generating && (!planEntry || planEntry.sourceType !== 'generated' || (cacheMatches && generated.status === 'error'));
+  const stateClass = generating ? ' visual-generating' : (unfunded ? ' visual-generated-unfunded' : '');
+  return `<div class="visual-generated${stateClass}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}" data-funded="${unfunded ? 'false' : 'true'}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
 }
 function imageSlotLabel(slot) {
   if (slot === 'hero' || slot === 'collage-2') return 'hero image';
@@ -1403,35 +1421,70 @@ const IMAGE_STRATEGY_ROLE_PRIORITY_BOOST = {
 };
 const IMAGE_ROLE_PRIORITY = { hero: 0, product: 1, team: 2, gallery: 3 };
 
-// ---- TIERED IMAGE SPEND PASS -------------------------------------------
-// The Image Decision Engine above (ARCHETYPE_IMAGE_BUDGET / imageBudgetFor-
-// Project) answers "how many slots may be generated" as a flat count, and
-// every funded slot paid the same (undifferentiated) provider cost. That
-// undercounts what a fixed budget can actually buy: a hero is worth paying
-// full price for, but a 3rd gallery tile funded at the SAME price as the
-// hero is a bad trade when the provider (gpt-image-1) has real, materially
-// cheaper quality tiers. This section adds a real dollar-denominated spend
-// planner and per-slot tier routing ON TOP of the existing archetype/
-// strategy machinery (preserved, not replaced -- see imageSpendCeilingUsd
-// below, which reuses imageBudgetForArchetype's own table as its base
-// unit) so the SAME total spend funds a stronger hero and more, cheaper
-// supporting images instead of fewer identical-cost ones.
+// ---- MULTI-MODEL IMAGE ROUTER PASS -------------------------------------
+// Supersedes the earlier "tiered quality" pass. That pass added real
+// dollar-denominated spend planning and per-slot quality routing, but a
+// post-deployment audit found it incomplete: every funded slot still
+// requested the SAME model (gpt-image-1) at a different `quality` setting
+// -- and real production billing showed a single gpt-image-1 image costing
+// roughly $0.50, several times this codebase's own prior 'high' estimate.
+// Quality alone cannot buy real savings when the model itself is the
+// expensive part. This section keeps the dollar-budget planner (preserved,
+// not replaced -- imageSpendCeilingUsd below still reuses
+// imageBudgetForArchetype's table as its base unit) but replaces "pick a
+// quality on gpt-image-1" with "pick a real {model, quality} ROUTE" --
+// hero/highest-value slots may still reach for the premium model at a
+// contained quality, but supporting slots now route through a genuinely
+// cheaper model (gpt-image-1-mini by default), not just a cheaper setting
+// on the same one.
 //
 // Cost estimates are intentionally sourced from the SERVER (see
-// /api/image-provider-status's costEstimateUsd, itself env-overridable via
-// SITEREMADE_IMAGE_COST_LOW_USD / _MEDIUM_USD / _HIGH_USD) rather than a
-// second hardcoded copy here -- one source of truth for "what does this
-// actually cost," honestly labeled as an estimate, not a guarantee of the
-// exact billed amount.
-const DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD = { low: 0.02, medium: 0.07, high: 0.19 };
-function imageTierCostEstimate() {
+// /api/image-provider-status's costEstimateUsd/models/landscapeCostMultiplier,
+// itself env-overridable) rather than a second hardcoded copy here -- one
+// source of truth for "what does this actually cost," honestly labeled as
+// an estimate, not a guarantee of the exact billed amount (see that
+// endpoint's own honesty note in server.js -- the real $0.50 data point is
+// exactly why this codebase refuses to call any of these numbers a
+// guarantee).
+const DEFAULT_IMAGE_MODEL_KEYS = { support: 'gpt-image-1-mini', premium: 'gpt-image-1' };
+function imageModelKeys() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.models) || null;
+  return { ...DEFAULT_IMAGE_MODEL_KEYS, ...(fromServer || {}) };
+}
+const DEFAULT_IMAGE_MODEL_COST_ESTIMATE_USD = {
+  [DEFAULT_IMAGE_MODEL_KEYS.support]: { low: 0.006, medium: 0.015, high: 0.03 },
+  [DEFAULT_IMAGE_MODEL_KEYS.premium]: { low: 0.05, medium: 0.15, high: 0.45 }
+};
+function imageModelCostTable() {
   const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.costEstimateUsd) || null;
-  return { ...DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD, ...(fromServer || {}) };
+  return { ...DEFAULT_IMAGE_MODEL_COST_ESTIMATE_USD, ...(fromServer || {}) };
+}
+const DEFAULT_IMAGE_LANDSCAPE_COST_MULTIPLIER = 1.4;
+function imageLandscapeCostMultiplier() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.landscapeCostMultiplier);
+  return (typeof fromServer === 'number' && fromServer > 0) ? fromServer : DEFAULT_IMAGE_LANDSCAPE_COST_MULTIPLIER;
+}
+// Estimated cost for one real {model, quality, aspectRatio} route -- the
+// allocator below always compares candidate ROUTES against this, never a
+// single generic low/medium/high number, so a decision between "premium at
+// medium" and "support at high" is a real comparison of what those two
+// specific requests are each estimated to cost, not two labels assumed to
+// cost the same.
+function imageRouteCostEstimate(model, quality, aspectRatio) {
+  const table = imageModelCostTable();
+  const modelKeys = imageModelKeys();
+  const base = (table[model] || table[modelKeys.support])[quality];
+  const isSquare = !aspectRatio || aspectRatio === '1:1';
+  return isSquare ? base : base * imageLandscapeCostMultiplier();
 }
 // The hard per-generation paid-image spend ceiling -- env-configurable on
 // the server (SITEREMADE_IMAGE_BUDGET_USD), read here the same way
-// `configured` already is, never hardcoded twice.
-const DEFAULT_IMAGE_BUDGET_USD = 0.30;
+// `configured` already is, never hardcoded twice. Lowered from the prior
+// pass's $0.30 default to $0.10, per this pass's brief -- the earlier
+// default was sized around gpt-image-1's own (mis-estimated) cost; the new
+// default targets the $0.08-$0.12 "several real images for about a dime"
+// range now that supporting images route through a genuinely cheaper model.
+const DEFAULT_IMAGE_BUDGET_USD = 0.10;
 // CREATIVE DIRECTOR V2's imageStrategy delta used to subtract a fixed
 // integer from the archetype's own slot COUNT. Expressed in the new dollar
 // model as a spend multiplier instead -- capped at 1 (Math.min below) so
@@ -1444,33 +1497,60 @@ const IMAGE_STRATEGY_SPEND_MULTIPLIER = { 'sparse-premium': 0.6, 'mostly-typogra
 // The real per-generation dollar ceiling this pass actually enforces.
 // Archetype influence is PRESERVED (ARCHETYPE_IMAGE_BUDGET's existing,
 // already-tuned per-archetype table is reused as-is, read as "this many
-// medium-tier-equivalent images worth of spend" instead of a raw slot
-// count) rather than retuned from scratch -- but the final number is
+// support-model-medium-equivalent images worth of spend" instead of a raw
+// slot count) rather than retuned from scratch -- but the final number is
 // always clamped to the env-configured global ceiling, which is the part
 // that makes SITEREMADE_IMAGE_BUDGET_USD a real, enforced cap rather than
-// an unenforced suggestion.
+// an unenforced suggestion. Uses the SUPPORT model's medium cost as its
+// per-unit rate (not a flat generic figure) because that is the route most
+// slots will actually be funded through -- see IMAGE_ROUTE_CANDIDATES_BY_
+// IDEAL_TIER below.
 function imageSpendCeilingUsd(project) {
   const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.budgetUsd);
   const globalCeiling = (typeof fromServer === 'number' && fromServer > 0) ? fromServer : DEFAULT_IMAGE_BUDGET_USD;
   const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
   const archetypeUnits = imageBudgetForArchetype(archetype);
-  const costEstimate = imageTierCostEstimate();
-  const archetypeCeilingUsd = archetypeUnits * costEstimate.medium;
+  const modelKeys = imageModelKeys();
+  const costTable = imageModelCostTable();
+  const archetypeCeilingUsd = archetypeUnits * (costTable[modelKeys.support] || {}).medium;
   const cd = project.intent && project.intent.creativeDirection;
   const strategyMultiplier = Math.min(1, (cd && IMAGE_STRATEGY_SPEND_MULTIPLIER[cd.imageStrategy]) || 1);
   const afterStrategy = archetypeCeilingUsd * strategyMultiplier;
   return Math.max(0, Math.min(afterStrategy, globalCeiling));
 }
-// Every quality tier a slot may be downgraded to when the ideal tier can't
-// be afforded, cheapest-acceptable-first, ending in the tier itself never
-// being skipped over -- a hero that can't afford 'high' still gets funded
-// at 'medium' or 'low' rather than nothing, so the single most important
-// slot on the page is the last one to go unfunded, not the first.
-// 'none' slots (bucket 4 below) are never in this table -- see the
-// `idealTier !== 'none'` filter in buildImagePlan -- matching the brief's
-// own "decorative/low-value visuals: deterministic/non-paid treatment
-// only, no paid generation" tier.
-const IMAGE_TIER_DOWNGRADE_PATH = { high: ['high', 'medium', 'low'], medium: ['medium', 'low'], low: ['low'] };
+// Every {model, quality} ROUTE a slot may be downgraded through when its
+// ideal one can't be afforded, cheapest-acceptable-first -- this is the
+// real multi-model router the brief asked for, not a same-model quality
+// slider. 'high' (hero-class) tries the PREMIUM model at a contained
+// quality first (never premium+high -- "do not automatically use the
+// expensive model at high quality for the hero"), then falls back through
+// the cheap support model's own quality ladder, so the hero is still the
+// LAST slot to go fully unfunded, just very often ends up on a strong
+// support-model image rather than a premium one once real economics are
+// applied. 'medium'/'low' (supporting slots) never even attempt the
+// premium model -- they only ever compete on the support model's own
+// quality ladder, which is what actually makes them cheaper than the hero,
+// not just labeled differently. 'none' slots (bucket 4) are never in this
+// table -- see the `idealTier !== 'none'` filter in buildImagePlan --
+// matching the brief's own "decorative/low-value visuals: deterministic/
+// non-paid treatment only, no paid generation" tier.
+function imageRouteCandidatesForIdealTier(idealTier, modelKeys) {
+  if (idealTier === 'high') {
+    return [
+      { model: modelKeys.premium, quality: 'medium' },
+      { model: modelKeys.support, quality: 'high' },
+      { model: modelKeys.support, quality: 'medium' },
+      { model: modelKeys.support, quality: 'low' }
+    ];
+  }
+  if (idealTier === 'medium') {
+    return [{ model: modelKeys.support, quality: 'medium' }, { model: modelKeys.support, quality: 'low' }];
+  }
+  if (idealTier === 'low') {
+    return [{ model: modelKeys.support, quality: 'medium' }, { model: modelKeys.support, quality: 'low' }];
+  }
+  return [];
+}
 // Deterministic slot-importance ranking (rank, lower = funded first) and
 // each bucket's ideal quality tier, matching the brief's own 6-level
 // example: 0) hero, 1) key product/lead gallery showcase, 2) about/team
@@ -1485,6 +1565,12 @@ const IMAGE_SLOT_TIER_BUCKETS = [
   { rank: 3, idealTier: 'low' },    // secondary gallery/team tile
   { rank: 4, idealTier: 'none' }    // decorative/low-value extras -- deterministic only
 ];
+// Hero layouts that render NO visual container at all -- shared between
+// buildImagePlan (so these never plan/pay for a hero image nothing would
+// display) and reconcileImageSupplyWithSections's hero-downgrade step
+// below (the layout an unfunded hero falls back to). Kept as one list so
+// the two can never drift apart.
+const TEXT_ONLY_HERO_VARIANTS = ['centered-oversized', 'minimal-text-only', 'poster'];
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -1497,8 +1583,12 @@ function buildImagePlan(project, category) {
   // hero treatments -- renderHero never calls renderVisualSlot for them, so
   // planning (and generating) a hero image for those layouts would pay for
   // an image nothing ever displays. The hero itself is Home-only chrome,
-  // not a section stored on any page, so this no longer looks one up.
-  const heroHasVisual = !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
+  // not a section stored on any page, so this no longer looks one up. Also
+  // respects a reconciled `heroDisplayVariant` override (see
+  // reconcileImageSupplyWithSections) the same way section-level
+  // `imageDisplayVariant`/`imageTileCount` overrides already are below.
+  const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
+  const heroHasVisual = !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant);
   // TIERED IMAGE SPEND PASS: every pushed slot now also carries `rank`
   // (lower = funded first) and `idealTier` (see IMAGE_SLOT_TIER_BUCKETS)
   // computed at push time from its actual role/position, not guessed later
@@ -1526,9 +1616,14 @@ function buildImagePlan(project, category) {
     }
     // renderAbout only ever shows a visual for the 'split' variant (or when
     // a real upload exists) -- matching that here avoids planning/
-    // generating an image the 'statement' variant would never display.
+    // generating an image the 'statement' variant would never display. Also
+    // respects a reconciled `imageDisplayVariant` override (see
+    // reconcileImageSupplyWithSections) so once an unfunded about-split is
+    // downgraded to 'statement', re-planning never asks to pay for an image
+    // that layout wouldn't show either.
     const aboutSection = pageSections.find(s => s.type === 'about');
-    if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
+    const aboutEffectiveVariant = aboutSection && (aboutSection.imageDisplayVariant || aboutSection.variant);
+    if (aboutSection && (aboutEffectiveVariant === 'split' || plan.about)) {
       slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual', ...IMAGE_SLOT_TIER_BUCKETS[2] });
     }
     const editorialSection = pageSections.find(s => s.type === 'imageLedEditorial');
@@ -1563,37 +1658,48 @@ function buildImagePlan(project, category) {
       }
     });
   });
-  // TIERED IMAGE SPEND PASS: replaces the old flat "top N slots by role
-  // priority get sourceType:'generated'" allocator with a real dollar-
-  // budget-aware one. Still respects every existing invariant: archetype
-  // influence preserved (imageSpendCeilingUsd reuses imageBudgetFor-
-  // Archetype's own table), the role-priority boost still only ever
-  // REORDERS which unfilled slot competes for the (unchanged-or-lower)
-  // budget first, and a real user upload is never touched -- it's free,
-  // always shown, never enters this allocation at all.
+  // MULTI-MODEL IMAGE ROUTER PASS: replaces the old same-model quality-only
+  // allocator with a real {model, quality} ROUTE-aware one. Still respects
+  // every existing invariant: archetype influence preserved
+  // (imageSpendCeilingUsd reuses imageBudgetForArchetype's own table), the
+  // role-priority boost still only ever REORDERS which unfilled slot
+  // competes for the (unchanged-or-lower) budget first, and a real user
+  // upload is never touched -- it's free, always shown, never enters this
+  // allocation at all. The allocator compares candidate ROUTES against
+  // imageRouteCostEstimate's real model+quality+aspect-specific figure, not
+  // a single generic per-tier number, so a hero that can afford a strong
+  // support-model image but not a premium one actually gets routed to the
+  // cheaper model, not just a cheaper label on the same one.
   const spendCeilingUsd = imageSpendCeilingUsd(project);
-  const costEstimate = imageTierCostEstimate();
+  const modelKeys = imageModelKeys();
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
-  const fundedTierBySlotIndex = new Map();
+  const fundedRouteBySlotIndex = new Map();
   if (providerConfigured) {
     let remainingUsd = spendCeilingUsd;
     slots
-      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, hasUpload: !!s.assetId }))
+      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId }))
       .filter(s => !s.hasUpload && s.idealTier !== 'none')
       .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))))
       .forEach(candidate => {
-        const downgradePath = IMAGE_TIER_DOWNGRADE_PATH[candidate.idealTier] || [];
-        const affordableTier = downgradePath.find(tier => costEstimate[tier] <= remainingUsd);
-        if (affordableTier) {
-          fundedTierBySlotIndex.set(candidate.i, affordableTier);
-          remainingUsd -= costEstimate[affordableTier];
+        const routeCandidates = imageRouteCandidatesForIdealTier(candidate.idealTier, modelKeys);
+        const affordableRoute = routeCandidates.find(route => imageRouteCostEstimate(route.model, route.quality, candidate.aspectRatio) <= remainingUsd);
+        if (affordableRoute) {
+          const cost = imageRouteCostEstimate(affordableRoute.model, affordableRoute.quality, candidate.aspectRatio);
+          fundedRouteBySlotIndex.set(candidate.i, { model: affordableRoute.model, quality: affordableRoute.quality, estimatedCostUsd: cost });
+          remainingUsd -= cost;
         }
       });
   }
   return slots.map((s, i) => {
-    const fundedTier = fundedTierBySlotIndex.get(i) || null;
-    const sourceType = s.assetId ? 'user' : (fundedTier ? 'generated' : 'designed');
-    return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, tier: fundedTier, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
+    const fundedRoute = fundedRouteBySlotIndex.get(i) || null;
+    const sourceType = s.assetId ? 'user' : (fundedRoute ? 'generated' : 'designed');
+    return {
+      ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType,
+      model: fundedRoute ? fundedRoute.model : null,
+      quality: fundedRoute ? fundedRoute.quality : null,
+      estimatedCostUsd: fundedRoute ? fundedRoute.estimatedCostUsd : null,
+      cacheKey: computeImageCacheKey(project, s.role, s.slot)
+    };
   });
 }
 // IMAGE COHERENCE PASS ("visible image demand <= fulfillable image supply"):
@@ -1618,29 +1724,33 @@ function buildImagePlan(project, category) {
 // itself -- purely reconciles how many slots the layout asks for down to
 // what that unchanged budget can actually fulfill.
 //
-// The floor is MIN_IMAGE_TILES (2), never 0/1 -- per the brief's own
-// worked example ("collapse a gallery from 6 cards to 2 strong featured
-// visuals"): a thin gallery still reads as a deliberate 2-up layout, not a
-// missing section. Removing the section entirely would mean touching
-// section-type selection (composeSections), which this pass explicitly
-// does not do.
+// The floor is MIN_IMAGE_TILES (2) when at least one real image exists for
+// the section -- a thin-but-real gallery still reads as a deliberate 2-up
+// layout, not a missing section. But PLACEHOLDER/COMPOSITION FIX: when a
+// section's real supply is truly ZERO (no upload, nothing funded at all),
+// even 2 equal-weight CSS-designed tiles side by side reads as an obviously
+// fake/empty gallery grid, not a deliberate layout -- exactly what the
+// brief calls out ("do not stop at the previous minimum 2 tiles fix... if
+// it still produces obviously fake image grids... collapse a gallery
+// entirely if it has no useful real imagery"). For that true-zero case,
+// this collapses the section down to ZERO_SUPPLY_TILE_COUNT (1) -- a single
+// small, deliberately styled accent element (see renderVisualSlot's
+// `visual-generated-unfunded` treatment) rather than a "grid" at all.
+// Removing the section entirely would mean touching section-type selection
+// (composeSections), which this pass still does not do -- one accent tile
+// is the smallest structural footprint achievable without that.
 const MIN_IMAGE_TILES = 2;
+const ZERO_SUPPLY_TILE_COUNT = 1;
 const IMAGE_TILE_SECTION_TYPES = ['gallery', 'caseStudies', 'team'];
-// TIERED IMAGE SPEND PASS, composition-adaptation strengthening: the
-// min-2-tiles floor above stops a section from disappearing, but 2 (or 3-4)
-// equally-sized CSS-designed tiles side by side with ZERO real imagery still
-// reads as an obviously fake/empty gallery grid, not a deliberate layout --
-// exactly what the brief calls out ("do not stop at the previous minimum 2
-// tiles fix if that still produces obviously fake image grids"). When a
-// gallery/caseStudies section has no real (uploaded or funded) imagery at
-// all, this stamps a display-only `imageDisplayVariant: 'featured'` so
-// renderGallery gives tile 0 the existing `gallery-tile-featured` visual
-// treatment (one deliberately larger, dominant tile) instead of a flat
-// equal-weight grid -- "prefer fewer, larger visuals over many weak ones."
-// This never touches the section's own stored `variant` (so nothing else
-// that reads it -- composeSections, save/restore, tests -- is affected),
-// and never invents a new image or spends any budget; it only changes how
-// the same already-decided tile count is visually composed.
+// When a gallery/caseStudies section's real supply is zero, this ALSO
+// stamps a display-only `imageDisplayVariant: 'featured'` so renderGallery
+// gives the one remaining tile the existing `gallery-tile-featured` visual
+// treatment (a deliberate wide/banner shape) instead of a plain square --
+// "prefer fewer, larger, obviously-intentional visuals over many weak
+// ones." This never touches the section's own stored `variant` (so nothing
+// else that reads it -- composeSections, save/restore, tests -- is
+// affected), and never invents a new image or spends any budget; it only
+// changes how the same already-decided tile count is visually composed.
 const IMAGE_DISPLAY_VARIANT_SECTION_TYPES = ['gallery', 'caseStudies'];
 function reconcileImageSupplyWithSections(proj, category) {
   const firstPass = buildImagePlan(proj, category);
@@ -1657,12 +1767,19 @@ function reconcileImageSupplyWithSections(proj, category) {
       if (!entries || !entries.length) return;
       const currentCount = entries.length;
       const realCount = entries.filter(e => e.sourceType !== 'designed').length;
-      if (IMAGE_DISPLAY_VARIANT_SECTION_TYPES.includes(section.type) && realCount === 0) {
-        const effectiveVariant = section.imageDisplayVariant || section.variant;
-        if (effectiveVariant !== 'featured') {
-          section.imageDisplayVariant = 'featured';
+      if (realCount === 0) {
+        if (IMAGE_DISPLAY_VARIANT_SECTION_TYPES.includes(section.type)) {
+          const effectiveVariant = section.imageDisplayVariant || section.variant;
+          if (effectiveVariant !== 'featured') {
+            section.imageDisplayVariant = 'featured';
+            changed = true;
+          }
+        }
+        if (currentCount > ZERO_SUPPLY_TILE_COUNT && section.imageTileCount !== ZERO_SUPPLY_TILE_COUNT) {
+          section.imageTileCount = ZERO_SUPPLY_TILE_COUNT;
           changed = true;
         }
+        return;
       }
       if (realCount >= currentCount) return; // already fully supplied -- nothing to reconcile
       const resolved = Math.max(MIN_IMAGE_TILES, Math.min(currentCount, realCount));
@@ -1672,9 +1789,39 @@ function reconcileImageSupplyWithSections(proj, category) {
       }
     });
   });
-  // The tile-count edits above change what buildImagePlan itself would
-  // generate next (fewer slots competing for the same, unchanged budget),
-  // so the authoritative plan is always the one built AFTER reconciling --
+  // PLACEHOLDER/COMPOSITION FIX: hero layout downgrade. If the hero slot
+  // has no upload and funded no real image, and the project's current hero
+  // layout is one that shows a (now-empty) visual container, fall back to
+  // the existing text-only hero treatment instead. Deterministic,
+  // idempotent (checks the CURRENT effective variant before stamping), and
+  // never touches `dimensions.hero` itself.
+  const heroEntry = firstPass.find(e => e.slot === 'hero');
+  if (heroEntry && heroEntry.sourceType === 'designed') {
+    const composed = proj.design.dimensions;
+    const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
+    if (!TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
+      composed.heroDisplayVariant = 'minimal-text-only';
+      changed = true;
+    }
+  }
+  // PLACEHOLDER/COMPOSITION FIX: about-split layout downgrade, same
+  // reasoning as hero above, per real page (about can exist on more than
+  // one page; hero cannot).
+  (proj.pages && proj.pages.length ? proj.pages : [{ slug: '', sections: proj.sections }]).forEach(page => {
+    const prefix = pageSlotPrefix(page);
+    const aboutSection = (page.sections || []).find(s => s.type === 'about');
+    if (!aboutSection) return;
+    const aboutEntry = firstPass.find(e => e.slot === `${prefix}about`);
+    if (!aboutEntry || aboutEntry.sourceType !== 'designed') return;
+    const effectiveAboutVariant = aboutSection.imageDisplayVariant || aboutSection.variant;
+    if (effectiveAboutVariant === 'split' && aboutSection.imageDisplayVariant !== 'statement') {
+      aboutSection.imageDisplayVariant = 'statement';
+      changed = true;
+    }
+  });
+  // The edits above change what buildImagePlan itself would generate next
+  // (fewer/different slots competing for the same, unchanged budget), so
+  // the authoritative plan is always the one built AFTER reconciling --
   // this is the one real recomputation this pass adds, and it's pure JS,
   // not a provider call.
   proj.imagePlan = changed ? buildImagePlan(proj, category) : firstPass;
@@ -1734,13 +1881,15 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
       // taskType/projectId are observability metadata only for the server's
       // operation ledger (see server.js recordOperation) -- absent or
       // generic, this call behaves identically.
-      // TIERED IMAGE SPEND PASS: entry.tier ('low'/'medium'/'high') is the
-      // funded quality this slot's importance actually earned (see
-      // buildImagePlan's downgrade-path allocator) -- the server still
-      // re-validates it against ALLOWED_IMAGE_QUALITIES and falls back to
-      // 'medium' for anything missing/malformed, so a bad client value can
-      // never silently buy the most expensive tier.
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, quality: entry.tier || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
+      // MULTI-MODEL IMAGE ROUTER PASS: entry.model/entry.quality are the
+      // funded ROUTE this slot's importance actually earned (see
+      // buildImagePlan's route allocator) -- the server still re-validates
+      // both against its own ALLOWED_IMAGE_MODELS/ALLOWED_IMAGE_QUALITIES
+      // allowlists and safely downgrades anything missing/malformed to the
+      // cheap support model at 'medium', so a bad or tampered client value
+      // can never silently buy the premium model or the most expensive
+      // quality.
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
       signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
@@ -1839,7 +1988,16 @@ function renderHero(project, category) {
   const ctaBtn = renderCtaButton(copy.ctaTarget, cta, 'hero-cta-btn');
   const ctaMinimal = renderCtaButton(copy.ctaTarget, cta + ' ↗', 'minimal-link');
   const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
-  const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : composed.hero;
+  // PLACEHOLDER/COMPOSITION FIX: a reconciled `heroDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored hero layout for
+  // RENDERING only -- when the hero has no upload and funds no real image,
+  // this switches to one of the existing deliberately text-only layouts
+  // (see TEXT_ONLY_HERO_VARIANTS) instead of showing a giant empty photo
+  // box as the first thing on the page. `composed.hero` itself is never
+  // mutated (so the editor's own hero picker, save/restore, and every
+  // archetype/heroStrategy invariant that reads the real value are
+  // unaffected).
+  const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : (composed.heroDisplayVariant || composed.hero);
   // Item 17: the default split hero always appended a second, purely
   // decorative "See our work ↗" link next to the real CTA -- generic
   // filler text promising a showcase that may not exist on this business's
@@ -2159,7 +2317,12 @@ function renderGallery(project, category, section, labelOverride) {
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
-    const featuredClass = (i === 0 && variant === 'featured') ? ' gallery-tile-featured' : '';
+    // A collapsed single tile (zero real supply, see
+    // reconcileImageSupplyWithSections) always gets the wide/banner
+    // 'featured' treatment regardless of the section's own variant -- a
+    // lone tile in a plain square shape reads as an accident, a lone tile
+    // in a deliberate wide banner shape reads as a choice.
+    const featuredClass = (i === 0 && (variant === 'featured' || tileCount === 1)) ? ' gallery-tile-featured' : '';
     const slot = galleryTileSlot(section, i);
     tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
   }
@@ -2209,7 +2372,13 @@ function renderTestimonialsGrid(project, category, section) {
 // missing/invalid body keeps that heading and falls back to the
 // deterministic body, field by field.
 function renderAbout(project, category, section) {
-  const variant = section && section.variant;
+  // PLACEHOLDER/COMPOSITION FIX: a reconciled `imageDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored variant for
+  // RENDERING only -- when an about-split section funds no real image and
+  // has no upload, this switches it to the existing 'statement' (text-only)
+  // treatment instead of showing an empty photo box next to the copy. The
+  // section's own stored `variant` is never mutated.
+  const variant = section && (section.imageDisplayVariant || section.variant);
   const plan = project.assets.plan;
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
   const vocab = sectionVocab(project);
@@ -4404,7 +4573,13 @@ const LAYOUT_LABELS = { split: 'Layout 1', center: 'Layout 2', poster: 'Layout 3
 function applyDesignDataset(proj) {
   const composed = proj.design.dimensions;
   builderSite.dataset.style = proj.intent.seedKey;
-  builderSite.dataset.hero = composed.hero;
+  // PLACEHOLDER/COMPOSITION FIX: keep the [data-hero="..."] CSS in sync
+  // with whatever layout renderHero actually rendered (see its own
+  // heroDisplayVariant override) -- otherwise a downgraded-to-text-only
+  // hero would render 'hero-minimal' markup while every [data-hero=
+  // "<original-variant>"] CSS rule kept applying, aimed at markup that no
+  // longer exists on the page.
+  builderSite.dataset.hero = composed.heroDisplayVariant || composed.hero;
   builderSite.dataset.type = composed.type;
   builderSite.dataset.nav = composed.nav;
   builderSite.dataset.card = composed.card;
