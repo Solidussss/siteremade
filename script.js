@@ -1571,6 +1571,38 @@ const IMAGE_SLOT_TIER_BUCKETS = [
 // below (the layout an unfunded hero falls back to). Kept as one list so
 // the two can never drift apart.
 const TEXT_ONLY_HERO_VARIANTS = ['centered-oversized', 'minimal-text-only', 'poster'];
+// Responsive/QA pass: which TEXT_ONLY_HERO_VARIANTS member an unfunded,
+// image-bearing hero falls back to. Previously every image-bearing hero
+// collapsed to the SAME flat 'minimal-text-only' layout regardless of what
+// it originally was -- deterministic and never an empty image slot (the
+// required invariant), but it also erased any distinction between, say, a
+// bold fullbleed-image hero and a calm grid-dashboard one, which is what
+// made two materially different businesses with no funded hero image
+// render an IDENTICAL hero layout (the known v8-claude-plan-test.js
+// regression). This groups every image-bearing variant into the text-only
+// treatment closest to its own visual character, so the fallback still
+// varies with the original design intent instead of flattening it -- kept
+// as a lookup table (not a formula) so the grouping is a legible, reviewable
+// decision, not an incidental side effect of some other calculation.
+const HERO_TEXT_ONLY_FALLBACK = {
+  // Bold / immersive / full-image treatments -> the other bold, oversized
+  // text-only layout, so the site still reads as confident and visual-led.
+  'fullbleed-image': 'poster',
+  collage: 'poster',
+  // Editorial / offset treatments -> the oversized centered layout, which
+  // keeps a similar asymmetric-feeling emphasis on a single big headline.
+  'asymmetric-offset': 'centered-oversized',
+  // Calm / structured / utility treatments -> the plain minimal layout.
+  split: 'minimal-text-only',
+  centered: 'minimal-text-only',
+  'stacked-image-below': 'minimal-text-only',
+  'grid-dashboard': 'minimal-text-only',
+  'product-screenshot': 'minimal-text-only',
+};
+function mapHeroToTextOnlyVariant(originalHero) {
+  if (TEXT_ONLY_HERO_VARIANTS.includes(originalHero)) return originalHero;
+  return HERO_TEXT_ONLY_FALLBACK[originalHero] || 'minimal-text-only';
+}
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -1792,16 +1824,25 @@ function reconcileImageSupplyWithSections(proj, category) {
   // PLACEHOLDER/COMPOSITION FIX: hero layout downgrade. If the hero slot
   // has no upload and funded no real image, and the project's current hero
   // layout is one that shows a (now-empty) visual container, fall back to
-  // the existing text-only hero treatment instead. Deterministic,
-  // idempotent (checks the CURRENT effective variant before stamping), and
-  // never touches `dimensions.hero` itself.
+  // a text-only hero treatment instead. Deterministic, idempotent (checks
+  // the CURRENT effective variant before stamping), and never touches
+  // `dimensions.hero` itself. Responsive/QA pass: the fallback is chosen by
+  // mapHeroToTextOnlyVariant, which groups the ORIGINAL hero by visual
+  // family instead of always stamping the same 'minimal-text-only' -- two
+  // materially different businesses whose creative direction picked
+  // different original heroes (e.g. a bold fullbleed-image hero vs. a calm
+  // grid-dashboard one) still end up with visibly different, but equally
+  // "clean text-only, never an empty image slot", hero layouts.
   const heroEntry = firstPass.find(e => e.slot === 'hero');
   if (heroEntry && heroEntry.sourceType === 'designed') {
     const composed = proj.design.dimensions;
     const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
     if (!TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
-      composed.heroDisplayVariant = 'minimal-text-only';
-      changed = true;
+      const mapped = mapHeroToTextOnlyVariant(composed.hero);
+      if (composed.heroDisplayVariant !== mapped) {
+        composed.heroDisplayVariant = mapped;
+        changed = true;
+      }
     }
   }
   // PLACEHOLDER/COMPOSITION FIX: about-split layout downgrade, same
@@ -4809,8 +4850,7 @@ function renderChrome(proj, category) {
   $$('.layout-choice').forEach(b => b.classList.toggle('active', b.dataset.layout === proj.design.heroLayout));
   $$('#toneToggle button').forEach(b => b.classList.toggle('active', b.dataset.tone === proj.business.tone));
   if (sectionToggles) $$('input', sectionToggles).forEach(input => { input.checked = proj.sections.some(s => s.type === input.value); });
-  builderDevice.classList.toggle('mobile', proj.responsive.device === 'mobile');
-  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b.dataset.device === proj.responsive.device));
+  applyDeviceMode(proj.responsive.device);
 
   renderAssetPanels(proj);
 }
@@ -5169,6 +5209,24 @@ const logoPlaceholder = $('#logoPlaceholder');
 const siteLogo = $('#siteLogo');
 const builderSite = $('#builderSite');
 const builderDevice = $('#builderDevice');
+// Responsive reliability pass: single source of truth for the Desktop/
+// Tablet/Mobile preview toggle. Both renderProject (restoring a saved
+// project's responsive.device) and the toolbar's own click handler funnel
+// through this so the DOM state (data-device attribute + .tablet/.mobile
+// classes, which styles.css's container-query rules key off) can never
+// drift out of sync between the two call sites the way two separate,
+// hand-duplicated classList.toggle sequences previously could. Falls back
+// to 'desktop' for any unrecognized/legacy value (older saved projects
+// only ever stored 'desktop' or 'mobile', which remain valid).
+const DEVICE_MODES = ['desktop', 'tablet', 'mobile'];
+function applyDeviceMode(device) {
+  const mode = DEVICE_MODES.includes(device) ? device : 'desktop';
+  builderDevice.dataset.device = mode;
+  builderDevice.classList.toggle('mobile', mode === 'mobile');
+  builderDevice.classList.toggle('tablet', mode === 'tablet');
+  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b.dataset.device === mode));
+  return mode;
+}
 const siteNav = $('#siteNav');
 const siteBusiness = $('#siteBusiness');
 const siteNavLinks = $('#siteNavLinks');
@@ -5950,9 +6008,8 @@ if (sectionToggles) {
   });
 }
 $$('.device-toggle button').forEach(button => button.addEventListener('click', () => {
-  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b === button));
-  builderDevice.classList.toggle('mobile', button.dataset.device === 'mobile');
-  if (project) project.responsive.device = button.dataset.device;
+  const mode = applyDeviceMode(button.dataset.device);
+  if (project) project.responsive.device = mode;
 }));
 
 // ---- Refinement controls: tone + regenerate (no named styles anywhere) ----
