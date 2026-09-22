@@ -262,16 +262,28 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // start billing image calls. This is a hard invariant: do not collapse it
 // back to `!!OPENAI_API_KEY` alone.
 const SITEREMADE_PAID_IMAGES = process.env.SITEREMADE_PAID_IMAGES === 'true';
+function envMoney(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+const SITEREMADE_IMAGE_BUDGET_USD = envMoney('SITEREMADE_IMAGE_BUDGET_USD', 0.30);
+const IMAGE_TIER_COST_ESTIMATE_USD = Object.freeze({
+  low: envMoney('SITEREMADE_IMAGE_COST_LOW_USD', 0.02),
+  medium: envMoney('SITEREMADE_IMAGE_COST_MEDIUM_USD', 0.07),
+  high: envMoney('SITEREMADE_IMAGE_COST_HIGH_USD', 0.19),
+});
+const ALLOWED_IMAGE_QUALITIES = new Set(['low', 'medium', 'high']);
 const imageProviders = {
   openai: {
     name: 'openai',
     configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
-    async generate(prompt, { aspectRatio } = {}) {
+    async generate(prompt, { aspectRatio, quality } = {}) {
       const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
+      const safeQuality = ALLOWED_IMAGE_QUALITIES.has(quality) ? quality : 'medium';
       const response = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, n: 1 }),
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, size, quality: safeQuality, n: 1 }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data && data.error && data.error.message) || `Image provider returned ${response.status}`);
@@ -291,7 +303,7 @@ app.get('/api/image-provider-status', (req, res) => {
   const reason = configured ? undefined
     : !OPENAI_API_KEY ? 'No server-side image-generation API key is configured in this environment.'
     : 'Paid image generation is disabled (SITEREMADE_PAID_IMAGES is not set to true).';
-  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason });
+  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason, budgetUsd: SITEREMADE_IMAGE_BUDGET_USD, costEstimateUsd: IMAGE_TIER_COST_ESTIMATE_USD });
 });
 
 app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
@@ -308,8 +320,10 @@ app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
   try {
     const prompt = clean(req.body.prompt, 600);
     const aspectRatio = clean(req.body.aspectRatio, 10);
+    const requestedQuality = clean(req.body.quality, 10);
+    const quality = ALLOWED_IMAGE_QUALITIES.has(requestedQuality) ? requestedQuality : 'medium';
     if (!prompt) return res.status(400).json({ ok: false, message: 'Missing prompt.' });
-    const result = await activeImageProvider.generate(prompt, { aspectRatio });
+    const result = await activeImageProvider.generate(prompt, { aspectRatio, quality });
     recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: true, imageCount: 1, imageSize: aspectRatio || null, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.json({ ok: true, dataUrl: result.dataUrl });
   } catch (error) {
