@@ -1406,6 +1406,32 @@ html,body{max-width:100%;overflow-x:hidden}
 .site-section-intro[data-headline-role="benefit-led"]{max-width:360px;font-size:12px;opacity:.85}
 .site-section-label[data-headline-role="proof-led"]{font-size:9px;opacity:.7;margin-bottom:10px}
 .site-section-label[data-headline-role="editorial"]{font-size:12px;letter-spacing:.05em;font-weight:800;color:var(--site-text)}
+/* CREATIVE DIRECTOR V2 -- page rhythm. `.site-section` previously had one
+   flat padding value site-wide (see the base rule above); nothing today
+   varies it by position on the page. `data-rhythm-position` (open/build/
+   proof/close, stamped per section in applySectionRhythmPositions from
+   the section's EXISTING `intent`) and `data-page-rhythm` (on the
+   `.builder-site` root, from creativeDirection.pageRhythm) together give
+   real per-position density without a mechanical alternating pattern --
+   the position comes from what the section is actually doing (introduce/
+   explain/prove/convert), not from its index parity. Only padding is
+   touched; no new dimension, no Claude-authored CSS. */
+.site-section[data-rhythm-position="open"]{padding-top:64px}
+.site-section[data-rhythm-position="proof"]{padding-top:28px;padding-bottom:28px}
+.site-section[data-rhythm-position="close"]{padding-top:56px;padding-bottom:64px}
+.builder-site[data-page-rhythm="steady-editorial"] .site-section{padding-top:52px;padding-bottom:52px}
+.builder-site[data-page-rhythm="steady-editorial"] .site-section[data-rhythm-position="proof"]{padding-top:44px;padding-bottom:44px}
+.builder-site[data-page-rhythm="dense-proof-compressed"] .site-section{padding-top:30px;padding-bottom:30px}
+.builder-site[data-page-rhythm="dense-proof-compressed"] .site-section[data-rhythm-position="proof"]{padding-top:18px;padding-bottom:18px}
+.builder-site[data-page-rhythm="dense-proof-compressed"] .site-section[data-rhythm-position="close"]{padding-top:34px;padding-bottom:44px}
+.builder-site[data-page-rhythm="expressive-alternating"] .site-section[data-rhythm-position="open"]{padding-top:72px}
+.builder-site[data-page-rhythm="expressive-alternating"] .site-section[data-rhythm-position="build"]{padding-top:50px;padding-bottom:50px}
+.builder-site[data-page-rhythm="expressive-alternating"] .site-section[data-rhythm-position="close"]{padding-top:64px;padding-bottom:76px}
+@media (max-width:720px){
+  .site-section[data-rhythm-position="open"],.site-section[data-rhythm-position="close"],
+  .builder-site[data-page-rhythm="expressive-alternating"] .site-section[data-rhythm-position="open"],
+  .builder-site[data-page-rhythm="expressive-alternating"] .site-section[data-rhythm-position="close"]{padding-top:34px;padding-bottom:34px}
+}
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}
 .feature-card{padding:20px;border-radius:14px;background:color-mix(in srgb,var(--site-bg-dark) 60%,transparent);border:1px solid rgba(255,255,255,.08)}
 .feature-mark{display:inline-flex;width:28px;height:28px;border-radius:8px;background:var(--site-accent);color:#fff;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-bottom:10px}
@@ -1628,3 +1654,16 @@ button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:point
   .editor-module-field-row .editor-module-field-label{width:100%}
 }
 
+
+/* CREATIVE DIRECTOR V2 -- the compact creative-direction summary shown
+   right after generation, using real creativeBrief values (Mood/Design
+   idea/Page behavior/Avoiding), matching the preview-summary chip row's
+   own dark, quiet visual language rather than inventing a new style. */
+.creative-direction-summary{margin:10px 4px 0;padding:16px 18px;border-radius:16px;background:#15171c;border:1px solid rgba(255,255,255,.08)}
+.cds-eyebrow{margin:0 0 12px;font-size:9px;letter-spacing:.16em;color:#7d8290}
+.cds-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.cds-grid small{display:block;font-size:9px;letter-spacing:.06em;color:#7d8290;margin-bottom:5px}
+.cds-grid strong{display:block;font-size:12px;line-height:1.4;color:#e7e8ec;font-weight:600}
+@media (max-width:720px){
+  .cds-grid{grid-template-columns:1fr 1fr;gap:14px}
+}

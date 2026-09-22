@@ -448,6 +448,23 @@ const CREATIVE_MOOD_KEYS = ['restrained','warm','cinematic','energetic','precise
 const CREATIVE_NARRATIVE_KEYS = ['editorial','expertise-first','portfolio-led','product-demo-led','credibility-first','conversion-first','founder-story-led','methodology-led','technical-product'];
 const CREATIVE_IMAGE_STRATEGY_KEYS = ['photography-led','sparse-premium','editorial-lifestyle','people-team','product-ui','architecture-interior','macro-detail','project-portfolio','abstract-branded','mostly-typographic'];
 const CREATIVE_SIGNATURE_KEYS = ['oversized-manifesto','asymmetric-index','editorial-image-rail','large-type-break','case-study-band','split-story','staggered-mosaic','media-interruption','process-timeline','visual-philosophy','product-showcase'];
+// CREATIVE DIRECTOR V2: the smallest set of new creative-plan fields that
+// materially change the rendered site (see the audit). Each one is
+// deterministically interpreted by script.js -- never a raw class name or
+// CSS value -- and each rides the SAME existing planning call/schema as
+// concept/visualMood/narrativeStrategy/imageStrategy/signatureMotif above,
+// so this adds zero new provider calls. heroStrategy is the missing
+// intent-level signal above the raw `visualDirection.hero` key (it also
+// biases imageDominance/contentWidth/cardDensity, so two businesses that
+// land on the same raw hero key can still diverge, and it gives the
+// deterministic no-Claude fallback a real hero decision it never had).
+// pageRhythm is the missing per-position density concept (open/build/
+// proof/close), interpreted against each section's EXISTING intent --
+// no new per-section schema needed for that half. avoid is a real
+// suppression signal (script.js's applyAvoidList), not inert metadata.
+const CREATIVE_HERO_STRATEGY_KEYS = ['image-dominant','text-dominant','product-ui-dominant','editorial','proof-first','offer-first','restrained-minimal','portfolio-led'];
+const CREATIVE_PAGE_RHYTHM_KEYS = ['sparse-open-dense-mid','steady-editorial','dense-proof-compressed','expressive-alternating'];
+const CREATIVE_AVOID_KEYS = ['generic-cards','saas-cta-blocks','rounded-cards','bright-cheerful'];
 const SECTION_TYPE_KEYS = ['proof','metrics','services','features','productShowcase','integrations','pricing','faq','process','gallery','caseStudies','imageLedEditorial','about','team','testimonial','testimonialsGrid','menu','reservationCta','serviceAreas','contact','newsletter','ctaBanner'];
 // V8.4: the module vocabulary a section may optionally carry -- kept in
 // exact sync with script.js's own MODULE_TYPE_KEYS/MODULE_FIELD_ALLOWLIST/
@@ -581,13 +598,17 @@ const WEBSITE_PLAN_TOOL = {
       },
       creativeDirection: {
         type: 'object', additionalProperties: false,
-        required: ['concept', 'visualMood', 'narrativeStrategy', 'imageStrategy', 'signatureMotif'],
+        required: ['concept', 'visualMood', 'narrativeStrategy', 'imageStrategy', 'signatureMotif', 'heroStrategy', 'pageRhythm'],
+        description: 'The creative idea for this site, above and independent of archetype/category -- archetype stays a safe structural guardrail, this is the actual point of view. Two businesses that share an archetype should still diverge here when their descriptions imply a different posture (premium vs accessible, urgent vs considered, image-led vs informational, portfolio-heavy vs proof-heavy).',
         properties: {
           concept: { type: 'string', enum: CREATIVE_CONCEPT_KEYS },
           visualMood: { type: 'string', enum: CREATIVE_MOOD_KEYS },
           narrativeStrategy: { type: 'string', enum: CREATIVE_NARRATIVE_KEYS },
-          imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS },
-          signatureMotif: { type: 'string', enum: CREATIVE_SIGNATURE_KEYS }
+          imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS, description: 'How imagery should be used, not how many images to use -- SiteRemade decides real image count/placement from this plus the existing archetype budget and never increases the budget from this field alone.' },
+          signatureMotif: { type: 'string', enum: CREATIVE_SIGNATURE_KEYS },
+          heroStrategy: { type: 'string', enum: CREATIVE_HERO_STRATEGY_KEYS, description: 'The hero\'s creative posture -- what it is actually doing for this visitor (leading with image, leading with copy, leading with proof, leading with the offer, etc.). SiteRemade maps this onto the concrete `visualDirection.hero` layout you also chose; pick both deliberately and make them agree.' },
+          pageRhythm: { type: 'string', enum: CREATIVE_PAGE_RHYTHM_KEYS, description: 'The page\'s overall density curve from opening to close -- sparse-open-dense-mid (quiet opening, denser proof/explanation in the middle, calm close), steady-editorial (even, restrained pacing throughout), dense-proof-compressed (tight, scannable, proof/urgency-forward -- e.g. emergency/local-conversion businesses), or expressive-alternating (strong contrast between sections, big statement moments). Choose the one that actually fits this business\'s pacing, not a default.' },
+          avoid: { type: 'array', maxItems: 3, items: { type: 'string', enum: CREATIVE_AVOID_KEYS }, description: 'Real stylistic traps to actively suppress for THIS business, if any genuinely apply (e.g. a quiet premium restaurant avoiding bright-cheerful and generic-cards). Empty array if nothing here genuinely applies -- do not fill it in just to fill it in.' }
         }
       },
       pages: {
@@ -719,7 +740,7 @@ const REFINEMENT_TOOL = {
       operations: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['action'], properties: {
         action: { type: 'string', enum: ['edit-copy', 'change-design', 'change-variant', 'move-section', 'remove-section', 'insert-section', 'add-page', 'change-image-strategy'] },
         targetId: { type: 'string' }, sectionType: { type: 'string', enum: SECTION_TYPE_KEYS }, beforeId: { type: 'string' },
-        changes: { type: 'object', additionalProperties: false, properties: { headline: { type: 'string' }, body: { type: 'string' }, ctaLabel: { type: 'string' }, hero: { type: 'string', enum: HERO_KEYS }, imagery: { type: 'string', enum: IMAGERY_KEYS }, colorBehavior: { type: 'string', enum: COLOR_BEHAVIOR_KEYS }, spacing: { type: 'string', enum: SPACING_KEYS }, imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS } } }
+        changes: { type: 'object', additionalProperties: false, properties: { headline: { type: 'string' }, body: { type: 'string' }, ctaLabel: { type: 'string' }, hero: { type: 'string', enum: HERO_KEYS }, imagery: { type: 'string', enum: IMAGERY_KEYS }, colorBehavior: { type: 'string', enum: COLOR_BEHAVIOR_KEYS }, spacing: { type: 'string', enum: SPACING_KEYS }, imageStrategy: { type: 'string', enum: CREATIVE_IMAGE_STRATEGY_KEYS }, heroStrategy: { type: 'string', enum: CREATIVE_HERO_STRATEGY_KEYS }, pageRhythm: { type: 'string', enum: CREATIVE_PAGE_RHYTHM_KEYS } } }
       } } },
       imageActions: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['action'], properties: { action: { type: 'string', enum: ['regenerate', 'add'] }, slot: { type: 'string' }, role: { type: 'string', enum: IMAGE_ROLE_KEYS } } } },
       explanation: { type: 'string' }
@@ -740,7 +761,8 @@ Rules:
 8. Reason about strategy BEFORE structure: decide archetype, audience, conversion goals, credibility strategy and information hierarchy first, and let those decisions actually show up in which pages you choose, what order sections appear in, and what each section's intent/headlineRole is. Two businesses in the same category should end up structurally different if their strategy differs -- do not converge on the same page count or section skeleton out of habit.
 9. Plan each page independently. A page's plan (visitorQuestion, primaryCta, visualIntensity, informationDensity, copyTone, imageCritical) should differ meaningfully from page to page -- a page that just repeats Home's rhythm at lower density is not a real second page, it's padding. Only create a page this business genuinely needs.
 10. Give sections a deliberate rhythm, not uniform density -- vary visualIntensity/informationDensity across a page's sections (e.g. an immersive opening, a quieter trust moment, a denser explanation, a proof-heavy section, a concise close) rather than six sections that all feel the same size and weight. Vary headlineRole across a page too -- do not make every section's headline declarative.
-11. Never restate the same claim, statistic, or headline idea twice across a site. If two sections would naturally make the same point, cut one, merge them, or give the second a different angle (a new objection it resolves, a new piece of proof) instead of repeating the first.`;
+11. Never restate the same claim, statistic, or headline idea twice across a site. If two sections would naturally make the same point, cut one, merge them, or give the second a different angle (a new objection it resolves, a new piece of proof) instead of repeating the first.
+12. Decide creativeDirection as the actual creative idea for this specific business, not a restatement of its archetype/category. Two businesses that would land on the same archetype (e.g. two restaurants, two roofers, two SaaS products) must still diverge here when their description implies a different posture -- quiet/premium vs loud/accessible, considered vs urgent, image-led vs informational, portfolio-heavy vs proof-heavy. heroStrategy and pageRhythm are real creative decisions, not defaults: pick pageRhythm from how this business should actually feel to move through (a quiet tasting-menu restaurant reads differently than a same-day emergency contractor), and make heroStrategy agree with the visualDirection.hero layout you chose. Only fill in avoid when a real stylistic trap applies to this business -- leave it empty otherwise.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [
@@ -819,7 +841,7 @@ function planSignature(plan) {
   const vd = plan.visualDirection || {};
   const cd = plan.creativeDirection || {};
   const pageSummary = (plan.pages || []).map(p => `${p.id}:[${(p.sections || []).map(s => s.type).join(',')}]`).join(' ');
-  return `concept=${cd.concept} mood=${cd.visualMood} narrative=${cd.narrativeStrategy} signature=${cd.signatureMotif} hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 500);
+  return `concept=${cd.concept} mood=${cd.visualMood} narrative=${cd.narrativeStrategy} signature=${cd.signatureMotif} heroStrategy=${cd.heroStrategy} pageRhythm=${cd.pageRhythm} hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 500);
 }
 
 // V8.1: field names describe exactly what this server actually observes --

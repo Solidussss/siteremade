@@ -487,7 +487,102 @@ const extendedDimensionDefaults = {
   sectionRhythm: 'steady', sectionAlignment: 'left', typographyScale: 'standard',
   headingWidth: 'balanced', cardDensity: 'airy', cardShape: 'soft', splitRatio: 'even'
 };
-function composeCreativeDirection(categoryKey, variationSeed, claudeDirection) {
+// ---- CREATIVE DIRECTOR V2: creative posture above archetype/category -----
+// heroStrategy/pageRhythm/avoid are the 3 new creativeDirection fields (see
+// server.js WEBSITE_PLAN_TOOL). On the Claude path they're Claude's own
+// deliberate choices, validated below in normalizeClaudePlan exactly like
+// concept/visualMood/etc already were. On the deterministic (no-Claude)
+// path, inferCreativePosture synthesizes them from the SAME kind of
+// keyword-signal detection archetypeKeywordOverrides/categoryKeywords
+// already use elsewhere -- not a new NLP system, not per-industry tables --
+// so the renderer always consumes one creativeDirection shape regardless of
+// which path produced it (this is what makes a quiet omakase counter and a
+// loud ramen bar diverge even with Claude unavailable/disabled).
+const CREATIVE_HERO_STRATEGY_KEYS = ['image-dominant', 'text-dominant', 'product-ui-dominant', 'editorial', 'proof-first', 'offer-first', 'restrained-minimal', 'portfolio-led'];
+const CREATIVE_PAGE_RHYTHM_KEYS = ['sparse-open-dense-mid', 'steady-editorial', 'dense-proof-compressed', 'expressive-alternating'];
+const CREATIVE_AVOID_KEYS = ['generic-cards', 'saas-cta-blocks', 'rounded-cards', 'bright-cheerful'];
+// Which EXISTING hero dimension keys a given heroStrategy maps to -- used
+// only on the deterministic fallback (which has no hero decision of its own
+// today) and by the critic's hero-contradicts-posture check. Never adds a
+// new hero renderer; only picks among the 11 that already exist.
+const HERO_STRATEGY_ALLOWED_HERO = {
+  'image-dominant': ['fullbleed-image', 'collage', 'stacked-image-below'],
+  'text-dominant': ['minimal-text-only', 'centered-oversized'],
+  'product-ui-dominant': ['product-screenshot', 'grid-dashboard'],
+  editorial: ['poster', 'editorial-rail', 'asymmetric-offset'],
+  'proof-first': ['split', 'grid-dashboard'],
+  'offer-first': ['centered-oversized', 'split'],
+  'restrained-minimal': ['minimal-text-only', 'split'],
+  'portfolio-led': ['collage', 'asymmetric-offset', 'editorial-rail']
+};
+// The coherence half of "hero as a creative decision": secondary EXISTING
+// extended dimensions a heroStrategy should agree with, regardless of which
+// exact hero key got picked -- e.g. an image-dominant hero should not also
+// be paired with a 'supporting' image role elsewhere on the page.
+const HERO_STRATEGY_DIMENSION_BIAS = {
+  'image-dominant': { imageDominance: 'dominant', contentWidth: 'edge-to-edge' },
+  'text-dominant': { imageDominance: 'supporting', contentWidth: 'contained' },
+  'product-ui-dominant': { imageDominance: 'balanced', contentWidth: 'wide' },
+  editorial: { imageDominance: 'dominant', headingWidth: 'wide' },
+  'proof-first': { cardDensity: 'compact' },
+  'offer-first': { contentWidth: 'contained' },
+  'restrained-minimal': { imageDominance: 'supporting', cardDensity: 'airy' },
+  'portfolio-led': { imageArrangement: 'mosaic', imageDominance: 'dominant' }
+};
+function applyHeroStrategyBias(dimensions, heroStrategy) {
+  const bias = HERO_STRATEGY_DIMENSION_BIAS[heroStrategy];
+  return bias ? { ...dimensions, ...bias } : dimensions;
+}
+// Real business-description signal words -- premium/accessible, urgent/
+// considered, visual/informational, expressive, proof-heavy -- the exact
+// axes CREATIVE DIRECTOR V2 asks for, applied by simple keyword vote (same
+// mechanism as archetypeKeywordOverrides above). Deliberately not a per-
+// industry table: the same 5 signal groups apply to every category.
+const POSTURE_SIGNAL_WORDS = {
+  premium: ['premium', 'luxury', 'high-end', 'high end', 'bespoke', 'exclusive', 'refined', 'artisan', 'elevated', 'curated', 'private', 'boutique', 'fine dining', 'quiet', 'intimate', 'tasting menu', 'omakase', 'architectural'],
+  accessible: ['casual', 'affordable', 'friendly', 'fun', 'loud', 'fast', 'quick', 'easy', 'family', 'everyday', 'walk-in', 'no-frills', 'value', 'street food', 'late-night', 'late night'],
+  urgent: ['emergency', 'same-day', 'same day', '24/7', '24-hour', '24 hour', 'urgent', 'immediate', 'right away', 'fast response'],
+  visual: ['photography', 'portfolio', 'gallery', 'visual', 'design-led', 'showcase', 'lookbook', 'aesthetic', 'atmosphere'],
+  expressive: ['playful', 'bold', 'vibrant', 'energetic', 'nightlife', 'students', 'edgy'],
+  proofHeavy: ['certified', 'licensed', 'insured', 'award', 'rated', 'trusted', 'years of experience', 'reviews']
+};
+function countSignalWords(text, words) {
+  const t = (text || '').toLowerCase();
+  return words.reduce((n, w) => n + (t.includes(w) ? 1 : 0), 0);
+}
+function inferCreativePosture(text, archetype) {
+  const premium = countSignalWords(text, POSTURE_SIGNAL_WORDS.premium);
+  const accessible = countSignalWords(text, POSTURE_SIGNAL_WORDS.accessible);
+  const urgent = countSignalWords(text, POSTURE_SIGNAL_WORDS.urgent);
+  const visual = countSignalWords(text, POSTURE_SIGNAL_WORDS.visual);
+  const expressive = countSignalWords(text, POSTURE_SIGNAL_WORDS.expressive);
+  const proofHeavy = countSignalWords(text, POSTURE_SIGNAL_WORDS.proofHeavy);
+
+  let pageRhythm;
+  if (urgent > 0 && urgent >= premium) pageRhythm = 'dense-proof-compressed';
+  else if (premium > accessible) pageRhythm = 'steady-editorial';
+  else if (expressive > 0 || accessible > premium) pageRhythm = 'expressive-alternating';
+  else pageRhythm = 'sparse-open-dense-mid';
+
+  const portfolioArchetypes = ['portfolio', 'editorial-brand', 'ecommerce-showcase'];
+  let heroStrategy;
+  if (urgent > 0) heroStrategy = 'offer-first';
+  else if (archetype === 'product-led-saas') heroStrategy = expressive > 0 ? 'text-dominant' : 'product-ui-dominant';
+  else if (visual > 0 || portfolioArchetypes.includes(archetype)) heroStrategy = premium > accessible ? 'editorial' : 'portfolio-led';
+  else if (premium > accessible + 1) heroStrategy = 'restrained-minimal';
+  else if (proofHeavy > 0 && archetype === 'trust-heavy-professional') heroStrategy = 'proof-first';
+  else heroStrategy = 'image-dominant';
+
+  const avoid = [];
+  if (premium > accessible) {
+    avoid.push('bright-cheerful');
+    if (premium > 1) avoid.push('generic-cards');
+  }
+  if (archetype === 'product-led-saas' && premium > 0) avoid.push('saas-cta-blocks');
+
+  return { heroStrategy, pageRhythm, avoid: avoid.slice(0, 3) };
+}
+function composeCreativeDirection(categoryKey, variationSeed, claudeDirection, signalText, archetype) {
   if (claudeDirection) return { ...claudeDirection };
   const byCategory = {
     finance: [
@@ -511,7 +606,9 @@ function composeCreativeDirection(categoryKey, variationSeed, claudeDirection) {
     { concept: 'portfolio-led', visualMood: 'cinematic', narrativeStrategy: 'portfolio-led', imageStrategy: 'project-portfolio', signatureMotif: 'staggered-mosaic' },
     { concept: 'conversion-first', visualMood: 'warm', narrativeStrategy: 'conversion-first', imageStrategy: 'photography-led', signatureMotif: 'editorial-image-rail' }
   ];
-  return (byCategory[categoryKey] || fallback)[variationSeed % 3];
+  const base = (byCategory[categoryKey] || fallback)[variationSeed % 3];
+  const posture = inferCreativePosture(signalText || '', archetype || 'service-business');
+  return { ...base, ...posture };
 }
 // ---- V7: independent palette composition ---------------------------------
 // Previously `composed.palette` was always a straight copy of the matched
@@ -878,6 +975,20 @@ function planSectionGrammar(type, pageRole, archetype, index, total) {
   }
   return { intent, headlineRole: intentHeadlineRole[intent] || 'declarative' };
 }
+// CREATIVE DIRECTOR V2: page rhythm's per-section half. Reuses the section's
+// EXISTING intent (computed above by planSectionGrammar on the deterministic
+// path, or validated straight from Claude's own choice) -- no new per-
+// section schema field. The LAST section on a page always reads as the
+// close, regardless of its own intent, since that's where CTA intensity
+// should concentrate no matter what type of section it happens to be.
+const RHYTHM_POSITION_BY_INTENT = {
+  introduce: 'open', explain: 'build', educate: 'build', demonstrate: 'build', narrate: 'build',
+  compare: 'build', showcase: 'build', prove: 'proof', reassure: 'proof', convert: 'close'
+};
+function rhythmPositionForSection(section, index, total) {
+  if (total > 1 && index === total - 1) return 'close';
+  return RHYTHM_POSITION_BY_INTENT[section && section.intent] || 'build';
+}
 
 // ---- Compositional section system ----------------------------------------
 // V7: the old version scored 4 add-on section types against a fixed
@@ -1214,6 +1325,33 @@ const DEFAULT_IMAGE_BUDGET = 2;
 function imageBudgetForArchetype(archetype) {
   return ARCHETYPE_IMAGE_BUDGET[archetype] ?? DEFAULT_IMAGE_BUDGET;
 }
+// CREATIVE DIRECTOR V2: imageStrategy is real image ECONOMICS, not more
+// images -- never raises the archetype's own ceiling (the hard invariant
+// the brief requires), only ever holds it or spends it more sparingly for
+// a posture that calls for one strong image over four weak ones. Every
+// value not listed here (photography-led/editorial-lifestyle/people-team/
+// architecture-interior/project-portfolio) keeps the archetype's own
+// budget exactly as before -- this is additive, not a rewrite of the
+// existing Image Decision Engine.
+const IMAGE_STRATEGY_BUDGET_DELTA = { 'sparse-premium': -1, 'mostly-typographic': -2, 'abstract-branded': -1, 'macro-detail': -1 };
+function imageBudgetForProject(project) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const base = imageBudgetForArchetype(archetype);
+  const cd = project.intent && project.intent.creativeDirection;
+  const delta = (cd && IMAGE_STRATEGY_BUDGET_DELTA[cd.imageStrategy]) || 0;
+  return Math.max(0, base + delta);
+}
+// A strategy can also change which unfilled ROLE is worth spending the
+// (unchanged) budget on first -- e.g. a product-ui-led business should
+// prioritize its product shot over a generic gallery tile. Small, additive
+// nudges only; the base priority order is untouched for every strategy not
+// listed.
+const IMAGE_STRATEGY_ROLE_PRIORITY_BOOST = {
+  'product-ui': { product: -1 },
+  'people-team': { team: -1 },
+  'photography-led': { gallery: -0.5 },
+  'editorial-lifestyle': { gallery: -0.5 }
+};
 const IMAGE_ROLE_PRIORITY = { hero: 0, product: 1, team: 2, gallery: 3 };
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
@@ -1278,13 +1416,18 @@ function buildImagePlan(project, category) {
   // generation -- see ARCHETYPE_IMAGE_BUDGET above. This never changes
   // WHICH slots exist (that's still purely layout-driven, above), only
   // whether an unfilled one is worth spending on.
-  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
-  const budget = imageBudgetForArchetype(archetype);
+  // CREATIVE DIRECTOR V2: imageBudgetForProject applies imageStrategy's
+  // budget delta on top of the archetype's own ceiling (imageBudgetFor-
+  // Archetype) -- it can only hold or lower that ceiling, never raise it.
+  // The role-priority boost below only ever REORDERS which unfilled slot
+  // is worth the (unchanged-or-lower) budget first; it cannot add a slot.
+  const budget = imageBudgetForProject(project);
+  const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
   const generatedAllowed = new Set(
     slots
       .map((s, i) => ({ i, role: s.role, hasUpload: !!s.assetId }))
       .filter(s => !s.hasUpload)
-      .sort((a, b) => (IMAGE_ROLE_PRIORITY[a.role] ?? 9) - (IMAGE_ROLE_PRIORITY[b.role] ?? 9))
+      .sort((a, b) => ((IMAGE_ROLE_PRIORITY[a.role] ?? 9) + (roleBoost[a.role] || 0)) - ((IMAGE_ROLE_PRIORITY[b.role] ?? 9) + (roleBoost[b.role] || 0)))
       .slice(0, budget)
       .map(s => s.i)
   );
@@ -2356,6 +2499,32 @@ function ensureSignatureSection(proj, creativeDirection) {
   const type = motifToType[creativeDirection.signatureMotif] || 'ctaBanner';
   if (proj.sections.some(section => section.type === type)) return;
   insertSection(proj, type);
+}
+// CREATIVE DIRECTOR V2: a real deterministic suppression pass over already-
+// assigned section variants/dimensions -- never invents a new variant, only
+// steers away from ones the creative direction explicitly asked to avoid.
+// Idempotent with the existing archetype-driven defaults (e.g. sectionRhythm
+// 'editorial' already picks the 'list' features variant over 'grid' --
+// avoiding 'generic-cards' just keeps that choice rather than reverting it).
+function applyAvoidList(proj, creativeDirection) {
+  const avoid = (creativeDirection && Array.isArray(creativeDirection.avoid)) ? creativeDirection.avoid : [];
+  if (!avoid.length) return;
+  const avoidGenericCards = avoid.includes('generic-cards');
+  const avoidSaasCta = avoid.includes('saas-cta-blocks');
+  const avoidRoundedCards = avoid.includes('rounded-cards');
+  const avoidBrightCheerful = avoid.includes('bright-cheerful');
+  const pages = (proj.pages && proj.pages.length) ? proj.pages : [{ sections: proj.sections }];
+  pages.forEach(page => {
+    (page.sections || []).forEach(s => {
+      if (avoidGenericCards) {
+        if (s.type === 'features' && s.variant === 'grid') s.variant = 'list';
+        if (s.type === 'testimonial' && s.variant === 'card') s.variant = 'centered';
+      }
+      if (avoidSaasCta && s.type === 'ctaBanner' && s.variant === 'accent') s.variant = 'plain';
+    });
+  });
+  if (avoidRoundedCards && proj.design.dimensions.cardShape === 'pill') proj.design.dimensions.cardShape = 'square';
+  if (avoidBrightCheerful && proj.design.dimensions.colorBehavior === 'warm-earth-multi-tone') proj.design.dimensions.colorBehavior = 'neutral-single-accent';
 }
 
 // ---- V8.2: multi-page model ------------------------------------------------
@@ -3699,6 +3868,21 @@ function applyLocalRefinementPlan(plan) {
           project.intent.imageRevisions.hero = (project.intent.imageRevisions.hero || 0) + 1;
           imagesMayChange = true;
         }
+        // CREATIVE DIRECTOR V2: same shape as the imageStrategy handling
+        // above -- a genuine creative-direction refinement (from a real
+        // Claude call, only ever reached once classifyRefinementRequest
+        // already decided reasoning was needed) can actually change the
+        // resolved posture, not just be stored and ignored. renderProject
+        // (called once after every operation, below) re-derives page-
+        // rhythm/hero-strategy-driven rendering from this on its own.
+        if (operation.changes.heroStrategy || operation.changes.pageRhythm) {
+          const existing = project.intent.creativeDirection || {};
+          project.intent.creativeDirection = {
+            ...existing,
+            heroStrategy: operation.changes.heroStrategy || existing.heroStrategy,
+            pageRhythm: operation.changes.pageRhythm || existing.pageRhythm
+          };
+        }
       } else if (operation.action === 'add-section') {
         if (!page.sections.some(section => section.type === operation.sectionType)) insertSection(project, operation.sectionType);
         imagesMayChange = true;
@@ -3928,6 +4112,11 @@ function applyDesignDataset(proj) {
   builderSite.dataset.cardShape = composed.cardShape || 'soft';
   builderSite.dataset.splitRatio = composed.splitRatio || 'even';
   builderSite.dataset.layout = proj.design.heroLayout;
+  // CREATIVE DIRECTOR V2: the page's overall density curve -- paired with
+  // each section's own data-rhythm-position (set in renderSections) to
+  // drive real per-position spacing (see styles.css), instead of every
+  // dimension applying as one flat value across the whole page.
+  builderSite.dataset.pageRhythm = (proj.intent && proj.intent.creativeDirection && proj.intent.creativeDirection.pageRhythm) || 'sparse-open-dense-mid';
   updatePaletteFromProject(proj);
 }
 function renderSections(proj, category) {
@@ -3964,7 +4153,58 @@ function renderSections(proj, category) {
   const introHtml = isHome ? renderHero(proj, category) : renderPageHeader(proj, activePage, category);
   const contentHtml = proj.sections.map(s => renderSectionHTML(proj, s, category)).join('');
   const footerHtml = renderSiteFooter(proj, category, proj.footerVariant || 'simple');
-  if (siteSectionsRoot) siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
+  if (siteSectionsRoot) {
+    siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
+    applySectionRhythmPositions(siteSectionsRoot, proj.sections);
+  }
+}
+// CREATIVE DIRECTOR V2: additive-only, same pattern as data-headline-role
+// (Phase C) -- stamps a data attribute onto the ALREADY-RENDERED `.site-
+// section` elements, never wraps them in a new container (several existing
+// CSS rules depend on `.site-section`'s direct children for CSS grid
+// placement; a wrapper would silently break those). Each renderX section
+// function returns exactly one top-level `.site-section...` element, in the
+// same order as `proj.sections` -- confirmed by direct inspection of every
+// renderSectionHTML case -- so a straight index zip is safe here.
+function applySectionRhythmPositions(root, sections) {
+  const els = Array.prototype.filter.call(root.children, el => el.classList.contains('site-section'));
+  const total = sections.length;
+  sections.forEach((s, i) => {
+    if (els[i]) els[i].dataset.rhythmPosition = rhythmPositionForSection(s, i, total);
+  });
+}
+// CREATIVE DIRECTOR V2: a compact, real summary of the resolved creative
+// direction (Mood/Design idea/Page behavior/Avoiding), using the real
+// creativeDirection values already produced by composeCreativeDirection
+// (Claude's own choice, or the signal-driven deterministic fallback) --
+// never placeholder copy. humanizeToken only turns a-kebab-key into
+// Title Case; the label maps below give the 3 fields that need real
+// phrasing (rather than a raw enum key) a short, polished sentence.
+function humanizeToken(str) {
+  return String(str || '').split('-').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
+}
+const CREATIVE_MOOD_LABELS = { restrained: 'Restrained', warm: 'Warm', cinematic: 'Cinematic, atmospheric', energetic: 'Energetic', precise: 'Precise', expressive: 'Expressive', 'quiet-luxury': 'Quiet, luxury' };
+const PAGE_RHYTHM_LABELS = {
+  'sparse-open-dense-mid': 'Sparse opening → denser middle → calm close',
+  'steady-editorial': 'Even, restrained pacing throughout',
+  'dense-proof-compressed': 'Tight and scannable, proof-forward',
+  'expressive-alternating': 'Bold contrast between sections'
+};
+const AVOID_LABELS = { 'generic-cards': 'generic card grids', 'saas-cta-blocks': 'SaaS-style CTA blocks', 'rounded-cards': 'heavy rounded cards', 'bright-cheerful': 'bright, cheerful styling' };
+function renderCreativeDirectionSummary(proj) {
+  const panel = document.getElementById('creativeDirectionSummary');
+  if (!panel) return;
+  const cd = proj.intent && proj.intent.creativeDirection;
+  if (!cd) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const mood = document.getElementById('cdsMood');
+  const idea = document.getElementById('cdsIdea');
+  const rhythm = document.getElementById('cdsRhythm');
+  const avoid = document.getElementById('cdsAvoid');
+  if (mood) mood.textContent = CREATIVE_MOOD_LABELS[cd.visualMood] || humanizeToken(cd.visualMood);
+  if (idea) idea.textContent = humanizeToken(cd.concept);
+  if (rhythm) rhythm.textContent = PAGE_RHYTHM_LABELS[cd.pageRhythm] || humanizeToken(cd.pageRhythm);
+  if (avoid) avoid.textContent = (cd.avoid && cd.avoid.length) ? cd.avoid.map(a => AVOID_LABELS[a] || humanizeToken(a)).join(', ') : 'Nothing specific';
 }
 function renderChrome(proj, category) {
   const logoAsset = proj.assets.plan.logo ? proj.assets.items.find(a => a.id === proj.assets.plan.logo) : null;
@@ -3973,6 +4213,7 @@ function renderChrome(proj, category) {
   summaryColor.textContent = proj.design.palette.main.toUpperCase();
   summaryLayout.textContent = layoutLabel;
   summaryIndustry.textContent = category.label;
+  renderCreativeDirectionSummary(proj);
 
   const businessDisplayName = proj.business.name || 'Your Business';
   handoffTitle.textContent = businessDisplayName;
@@ -5383,7 +5624,16 @@ function normalizeClaudePlan(raw, catDefaults) {
     visualMood: claudeEnum(cd.visualMood, CREATIVE_MOOD_KEYS, 'precise'),
     narrativeStrategy: claudeEnum(cd.narrativeStrategy, CREATIVE_NARRATIVE_KEYS, 'expertise-first'),
     imageStrategy: claudeEnum(cd.imageStrategy, CREATIVE_IMAGE_STRATEGY_KEYS, 'abstract-branded'),
-    signatureMotif: claudeEnum(cd.signatureMotif, CREATIVE_SIGNATURE_KEYS, 'large-type-break')
+    signatureMotif: claudeEnum(cd.signatureMotif, CREATIVE_SIGNATURE_KEYS, 'large-type-break'),
+    // CREATIVE DIRECTOR V2: independently enum-validated/defaulted exactly
+    // like every other creativeDirection field above -- a missing/invalid
+    // value never rejects the plan, it just falls back to a neutral
+    // default so the deterministic interpreters below (applyHeroStrategy-
+    // Bias/rhythmPositionForSection/applyAvoidList) always have something
+    // real to read.
+    heroStrategy: claudeEnum(cd.heroStrategy, CREATIVE_HERO_STRATEGY_KEYS, 'image-dominant'),
+    pageRhythm: claudeEnum(cd.pageRhythm, CREATIVE_PAGE_RHYTHM_KEYS, 'sparse-open-dense-mid'),
+    avoid: Array.isArray(cd.avoid) ? cd.avoid.filter(a => typeof a === 'string' && CREATIVE_AVOID_KEYS.includes(a)).slice(0, 3) : []
   };
 
   // Declared here (rather than at its original lower call site) because the
@@ -5762,6 +6012,69 @@ function findOversizedEmptyDominantVisuals(proj) {
   if (!proj.design || !proj.design.dimensions || proj.design.dimensions.imageDominance !== 'dominant') return [];
   return (proj.imagePlan || []).filter(entry => entry.role === 'hero' && entry.sourceType === 'designed').map(entry => ({ slot: entry.slot }));
 }
+// CREATIVE DIRECTOR V2: critic checks that support the new creative layer.
+// Every check here reads fields the interpreter above already produced
+// (creativeDirection.heroStrategy/pageRhythm/imageStrategy, data-rhythm-
+// position) -- no AI critic, no new reasoning, same "detect, repair only
+// when safe, otherwise report" posture as the existing checks above.
+function findTooManyCardGrids(proj) {
+  const GRID_VARIANT_TYPES = { features: 'grid', testimonial: 'card', team: 'grid', testimonialsGrid: 'grid' };
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    const gridSections = (page.sections || []).filter(s => GRID_VARIANT_TYPES[s.type] === s.variant);
+    if (gridSections.length >= 3) gridSections.slice(2).forEach(s => offenders.push({ pageId: page.id || page.slug, sectionId: s.id, type: s.type }));
+  });
+  return offenders;
+}
+function findHeroContradictsPosture(proj, creativeDirection) {
+  // Claude-path only: PLANNER_SYSTEM_PROMPT rule 12 explicitly asks Claude
+  // to make heroStrategy and visualDirection.hero agree, so a mismatch
+  // there is a real signal. The deterministic fallback deliberately never
+  // forces `dimensions.hero` from heroStrategy (see applyHeroStrategyBias's
+  // own comment -- it only biases secondary dimensions, to avoid fighting
+  // the existing seed-matched hero pick), so flagging every deterministic
+  // mismatch here would just be reporting an expected, by-design gap, not
+  // a real defect.
+  if (!proj.meta || proj.meta.planSource !== 'anthropic') return [];
+  const heroStrategy = creativeDirection && creativeDirection.heroStrategy;
+  const allowed = HERO_STRATEGY_ALLOWED_HERO[heroStrategy];
+  if (!allowed || !proj.design || !proj.design.dimensions) return [];
+  return allowed.includes(proj.design.dimensions.hero) ? [] : [{ heroStrategy, hero: proj.design.dimensions.hero }];
+}
+function findImageLedStrategyWithNoImageSection(proj, creativeDirection) {
+  const IMAGE_LED_STRATEGIES = ['photography-led', 'editorial-lifestyle', 'architecture-interior', 'project-portfolio'];
+  const imageStrategy = creativeDirection && creativeDirection.imageStrategy;
+  if (!IMAGE_LED_STRATEGIES.includes(imageStrategy)) return [];
+  const IMAGE_LED_SECTION_TYPES = ['gallery', 'imageLedEditorial', 'caseStudies', 'productShowcase'];
+  const hasImageLedSection = (proj.pages || [{ sections: proj.sections }]).some(page => (page.sections || []).some(s => IMAGE_LED_SECTION_TYPES.includes(s.type)));
+  return hasImageLedSection ? [] : [{ imageStrategy }];
+}
+function findWeakConversionSection(proj) {
+  const CONVERSION_TYPES = ['ctaBanner', 'contact', 'reservationCta', 'newsletter', 'pricing'];
+  const sections = proj.sections || [];
+  if (!sections.length) return [];
+  const last = sections[sections.length - 1];
+  return CONVERSION_TYPES.includes(last.type) ? [] : [{ sectionId: last.id, type: last.type }];
+}
+function findFlatPageRhythm(proj) {
+  const sections = proj.sections || [];
+  if (sections.length < 4) return [];
+  const positions = new Set(sections.map((s, i) => rhythmPositionForSection(s, i, sections.length)));
+  return positions.size <= 1 ? [{ pageId: (proj.pages && proj.pages[0] && (proj.pages[0].id || proj.pages[0].slug)) || 'home' }] : [];
+}
+function findSignatureDeviceMissing(proj, creativeDirection) {
+  const motifToType = {
+    'oversized-manifesto': 'ctaBanner', 'asymmetric-index': 'services', 'editorial-image-rail': 'imageLedEditorial',
+    'large-type-break': 'ctaBanner', 'case-study-band': 'caseStudies', 'split-story': 'about',
+    'staggered-mosaic': 'gallery', 'media-interruption': 'imageLedEditorial', 'process-timeline': 'process',
+    'visual-philosophy': 'about', 'product-showcase': 'productShowcase'
+  };
+  const motif = creativeDirection && creativeDirection.signatureMotif;
+  const type = motifToType[motif];
+  if (!type) return [];
+  const present = (proj.pages || [{ sections: proj.sections }]).some(page => (page.sections || []).some(s => s.type === type));
+  return present ? [] : [{ signatureMotif: motif, expectedType: type }];
+}
 // Runs once per finished direction (both Claude and deterministic paths --
 // called from the 'build' step below, which both already share), detects
 // real issues, and applies ONLY the repairs that are unambiguous and
@@ -5800,6 +6113,34 @@ function runQualityCritic(proj, variationSeed) {
   const category = categories[proj.business && proj.business.categoryKey] || categories.other;
   findRepeatedCtaText(proj, category).forEach(dup => issues.push({ code: 'repeated_cta_text', detail: dup, repaired: false }));
   findOversizedEmptyDominantVisuals(proj).forEach(dup => issues.push({ code: 'dominant_layout_no_image', detail: dup, repaired: false }));
+
+  // CREATIVE DIRECTOR V2 checks.
+  const creativeDirection = proj.intent && proj.intent.creativeDirection;
+  findTooManyCardGrids(proj).forEach(offender => {
+    const page = (proj.pages || []).find(p => (p.id || p.slug) === offender.pageId);
+    const section = page && (page.sections || []).find(s => s.id === offender.sectionId);
+    // Safe, reversible repair: the exact same variant-swap applyAvoidList
+    // already uses for 'generic-cards' -- only steers an EXISTING section
+    // to a variant that already exists for its type, never invents one.
+    if (section && offender.type === 'features' && section.variant === 'grid') { section.variant = 'list'; issues.push({ code: 'too_many_card_grids', detail: offender, repaired: true }); return; }
+    if (section && offender.type === 'testimonial' && section.variant === 'card') { section.variant = 'centered'; issues.push({ code: 'too_many_card_grids', detail: offender, repaired: true }); return; }
+    issues.push({ code: 'too_many_card_grids', detail: offender, repaired: false });
+  });
+  // Report-only: swapping the hero post-hoc could desync it from an
+  // already-built imagePlan/hero copy that assumed the original hero
+  // layout (e.g. a text-only hero has no hero image slot) -- repairing
+  // that safely needs re-running the imagery step, out of scope here.
+  findHeroContradictsPosture(proj, creativeDirection).forEach(detail => issues.push({ code: 'hero_contradicts_posture', detail, repaired: false }));
+  findImageLedStrategyWithNoImageSection(proj, creativeDirection).forEach(detail => {
+    // Safe, reversible repair: the same insertSection primitive
+    // ensureSignatureSection/missing_conversion_path already use.
+    insertSection(proj, 'imageLedEditorial');
+    issues.push({ code: 'image_led_strategy_no_image_section', detail, repaired: true });
+  });
+  findWeakConversionSection(proj).forEach(detail => issues.push({ code: 'weak_conversion_section', detail, repaired: false }));
+  findFlatPageRhythm(proj).forEach(detail => issues.push({ code: 'flat_page_rhythm', detail, repaired: false }));
+  findSignatureDeviceMissing(proj, creativeDirection).forEach(detail => issues.push({ code: 'signature_device_missing', detail, repaired: false }));
+
   return { issues, checkedAt: new Date().toISOString() };
 }
 
@@ -5843,7 +6184,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     ...(categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other)
   };
   const dimensions = usingClaude ? claudePlan.dimensions : { ...catDefaults };
-  const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null);
+  const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null, source.text, strategy.archetype);
   const previewName = source.extractedName || `${category.label} Studio`;
 
   // V7: the first-paint shell now seeds its dimensions from the detected
@@ -6013,11 +6354,22 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         }
         proj.design.palette = { ...composed.palette };
         proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio };
+        // CREATIVE DIRECTOR V2: the deterministic (no-Claude) path had no
+        // business-driven hero decision at all -- every business in a
+        // category got the same fixed hero-adjacent dimensions. The
+        // synthesized heroStrategy from composeCreativeDirection's signal
+        // detection now biases the secondary dimensions (imageDominance/
+        // contentWidth/etc) that heroStrategy is responsible for, without
+        // touching `composed.hero` itself (the existing seed-matched hero
+        // pick stays authoritative -- this only adds coherent variation on
+        // top of it, never fights it).
+        proj.design.dimensions = applyHeroStrategyBias(proj.design.dimensions, creativeDirection.heroStrategy);
         return describeComposition(composed);
       } },
     { key: 'sections', run() {
         proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed); });
       ensureSignatureSection(proj, creativeDirection);
+        applyAvoidList(proj, creativeDirection);
         proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed);
         if (usingClaude) {
           // Deterministic copy above is still computed first so every
