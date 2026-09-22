@@ -901,6 +901,19 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-split-ratio="text-heavy"] .site-hero{grid-template-columns:1.4fr .6fr}
 .builder-site[data-split-ratio="media-heavy"] .site-hero{grid-template-columns:.7fr 1.3fr}
 
+/* ---- Per-section width/alignment overrides (Generation Strengthening pass):
+   same CSS values as data-content-width/data-section-alignment above, but
+   stamped per-section by applySectionRhythmPositions() so a single page can
+   mix contained/wide/edge-to-edge sections per pageRhythm + section intent
+   instead of only ever being uniform across the whole page. Deliberately no
+   "split" value here -- split's 2-column grid assumes about's own markup
+   shape and would misplace children if forced onto an arbitrary section. ---- */
+.site-section[data-section-width="contained"]{max-width:900px;margin-left:auto;margin-right:auto}
+.site-section[data-section-width="wide"]{max-width:1180px;margin-left:auto;margin-right:auto}
+.site-section[data-section-width="edge-to-edge"]{padding-left:0;padding-right:0;max-width:none}
+.site-section[data-section-align="center"]{text-align:center}
+.site-section[data-section-align="center"] .site-section-label,.site-section[data-section-align="center"] .site-section-intro{margin-left:auto;margin-right:auto}
+
 /* ---- Hero treatment variants ---- */
 .builder-site[data-hero="centered"] .site-hero{grid-template-columns:1fr;text-align:center}
 .builder-site[data-hero="centered"] .site-copy{max-width:760px;margin:0 auto}
@@ -1004,6 +1017,7 @@ html,body{max-width:100%;overflow-x:hidden}
 @media(max-width:720px){
   .builder-site[data-content-width="contained"] .site-section,.builder-site[data-content-width="wide"] .site-section{max-width:none}
   .builder-site[data-section-alignment="split"] .site-section{display:block}
+  .site-section[data-section-width="contained"],.site-section[data-section-width="wide"]{max-width:none}
   .builder-site[data-image-arrangement="rail"] .gallery-grid{grid-template-columns:repeat(4,minmax(150px,1fr));overflow-x:auto}
   .builder-site[data-image-dominance="dominant"] .editorial-visual,.builder-site[data-image-dominance="dominant"] .product-frame{height:300px}
   .builder-site[data-typography-scale="display"] .site-copy h3,.builder-site[data-heading-width="wide"] .site-copy h3{max-width:100%;overflow-wrap:anywhere}
@@ -1406,6 +1420,13 @@ html,body{max-width:100%;overflow-x:hidden}
 .site-section-intro[data-headline-role="benefit-led"]{max-width:360px;font-size:12px;opacity:.85}
 .site-section-label[data-headline-role="proof-led"]{font-size:9px;opacity:.7;margin-bottom:10px}
 .site-section-label[data-headline-role="editorial"]{font-size:12px;letter-spacing:.05em;font-weight:800;color:var(--site-text)}
+/* OUTPUT QUALITY PASS: HEADLINE_ROLE_KEYS has always allowed 7 values --
+   only 5 had CSS treatment (contrast/question were silent no-ops despite
+   being schema-valid choices Claude could legitimately make). */
+.site-section-label[data-headline-role="contrast"]{font-size:13px;font-weight:800;color:var(--site-accent);letter-spacing:.01em}
+.site-section-intro[data-headline-role="contrast"]{font-size:15px;font-weight:600;opacity:.92;max-width:520px}
+.site-section-label[data-headline-role="question"]{font-size:12px;font-style:italic;font-weight:600;opacity:.8}
+.site-section-intro[data-headline-role="question"]{font-style:italic;max-width:480px}
 /* CREATIVE DIRECTOR V2 -- page rhythm. `.site-section` previously had one
    flat padding value site-wide (see the base rule above); nothing today
    varies it by position on the page. `data-rhythm-position` (open/build/
@@ -1506,6 +1527,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .site-proof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:18px}
 .site-proof-stats strong{display:block;font-size:30px;letter-spacing:-.03em}
 .site-proof-stats small{font-size:10px;color:color-mix(in srgb,var(--site-text) 60%,transparent)}
+/* OUTPUT QUALITY PASS -- proof's one new variant: a quiet inline line
+   instead of a boxed stat grid, for when avoid:generic-cards applies. */
+.site-proof-statement{margin:0;font-size:18px;line-height:1.5;font-weight:500;max-width:720px}
+.site-proof-statement strong{font-weight:800;color:var(--site-text)}
 
 @media (max-width:900px){
   .builder-site .site-hero.hero-asymmetric{grid-template-columns:1fr;grid-template-rows:auto;padding:32px 22px}

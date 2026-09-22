@@ -660,13 +660,35 @@ function composePalette(categoryKey, composed, text) {
     text: hslToHex(hue, Math.min(recipe.bgS, 12), recipe.textL)
   };
 }
-function composeStyleFromAnalysis(text, categoryKey, seedKey) {
+// OUTPUT QUALITY PASS: which of a heroStrategy's own allowed HERO_KEYS to
+// use, when there's more than one -- a stable hash of the business text
+// (not the variationSeed, which already does its own job elsewhere) so two
+// UNRELATED businesses that land on the same heroStrategy still don't all
+// get the identical hero layout, while the SAME business regenerating
+// stays deterministic.
+function pickHeroForStrategy(heroStrategy, text) {
+  const allowed = HERO_STRATEGY_ALLOWED_HERO[heroStrategy];
+  if (!allowed || !allowed.length) return null;
+  return allowed[hashString(text || '') % allowed.length];
+}
+function composeStyleFromAnalysis(text, categoryKey, seedKey, heroStrategy) {
   const seed = styles[seedKey] || styles.precision;
   const catDefaults = { ...extendedDimensionDefaults, ...(categoryDimensionDefaults[categoryKey] || categoryDimensionDefaults.other) };
   const composed = { name: seed.name, tagline: seed.tagline, seedKey, categoryKey };
   Object.keys(dimensionKeywords).forEach(dim => {
     const scores = scoreKeywords(text || '', dimensionKeywords[dim]);
     const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    // OUTPUT QUALITY PASS: a real keyword match in the business's own text
+    // still always wins, unchanged. Only the FALLBACK priority changes for
+    // `hero` specifically -- previously a flat category default (the exact
+    // reason two same-category businesses got an identical hero layout);
+    // heroStrategy is itself already a real, business-signal-derived
+    // decision (see inferCreativePosture), so it's a strictly stronger
+    // fallback than the category default it now takes priority over.
+    if (dim === 'hero' && !(ranked.length && ranked[0][1] > 0)) {
+      const strategic = pickHeroForStrategy(heroStrategy, text);
+      if (strategic) { composed[dim] = strategic; return; }
+    }
     composed[dim] = (ranked.length && ranked[0][1] > 0) ? ranked[0][0] : (catDefaults[dim] || seed[dim]);
   });
   composed.palette = composePalette(categoryKey, composed, text);
@@ -1047,24 +1069,51 @@ function composeSections(category, composed, assetPlan, categoryKey, facts) {
 // Variant choice is tied to an existing composed dimension (or, on
 // Regenerate, a variation counter) rather than independently random, so a
 // result still reads as one coherent design system.
-function pickVariant(type, composed, variationSeed) {
+// OUTPUT QUALITY PASS: `context` is a new, entirely OPTIONAL 4th argument
+// (every pre-existing call site that omits it gets EXACTLY the prior
+// behavior, since `ctx` just defaults to `{}`) -- `{avoid, pageRhythm,
+// heroStrategy}` pulled straight from the already-resolved creativeDirection.
+// This is what lets variant selection respond to the creative plan instead
+// of only ever the flat dimension set, without changing pickVariant's
+// return contract (still one of each type's existing variant strings).
+function pickVariant(type, composed, variationSeed, context) {
   const v = variationSeed || 0;
   const flip = v % 2 === 1;
+  const ctx = context || {};
+  const avoidCards = (ctx.avoid || []).includes('generic-cards');
   switch (type) {
-    case 'services': { const d = ['image-led', 'elevated-shadow', 'numbered-editorial'].includes(composed.card) ? 'described' : 'numbered'; return flip ? (d === 'described' ? 'numbered' : 'described') : d; }
+    case 'services': { const d = (avoidCards || ['image-led', 'elevated-shadow', 'numbered-editorial'].includes(composed.card)) ? 'described' : 'numbered'; return (flip && !avoidCards) ? (d === 'described' ? 'numbered' : 'described') : d; }
     case 'gallery': { const d = ['asymmetric-offset', 'fullbleed-image', 'collage'].includes(composed.hero) ? 'featured' : 'grid'; return flip ? (d === 'featured' ? 'grid' : 'featured') : d; }
-    case 'testimonial': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'centered' : 'card';
-    case 'about': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'split' : 'statement';
+    case 'testimonial': return (avoidCards || composed.spacing === 'airy' || composed.spacing === 'generous') ? 'centered' : 'card';
+    case 'about': return (avoidCards || composed.spacing === 'airy' || composed.spacing === 'generous') ? 'split' : 'statement';
     // Brand-experience pass: 'features' previously had zero variance --
     // always a 3-card grid, for every archetype. `sectionRhythm` is already
     // a real, per-archetype (and Claude-settable) composition dimension --
     // 'editorial' rhythm (premium-consultancy/editorial-brand/hospitality)
     // reads as restrained, spacious, text-led, so those get a numbered
     // editorial list instead of a card grid; everything else keeps the
-    // existing card behavior unchanged.
-    case 'features': return composed.sectionRhythm === 'editorial' ? 'list' : 'grid';
-    case 'ctaBanner': return ['high-contrast-mono-accent', 'dark-luxury-metallic'].includes(composed.colorBehavior) ? 'accent' : 'plain';
-    case 'proof': return 'facts';
+    // existing card behavior unchanged. OUTPUT QUALITY PASS: avoid:
+    // generic-cards now has the same real effect, regardless of rhythm.
+    case 'features': return (avoidCards || composed.sectionRhythm === 'editorial') ? 'list' : 'grid';
+    // OUTPUT QUALITY PASS: CTA composition now responds to the creative
+    // plan's own urgency/restraint signal first (heroStrategy/pageRhythm),
+    // falling back to the original colorBehavior-only rule when neither
+    // applies -- still only ever the 2 existing variants.
+    case 'ctaBanner': {
+      const urgent = ctx.pageRhythm === 'dense-proof-compressed' || ctx.heroStrategy === 'offer-first';
+      const restrained = !urgent && (ctx.heroStrategy === 'restrained-minimal' || ctx.pageRhythm === 'steady-editorial' || avoidCards);
+      if (urgent) return 'accent';
+      if (restrained) return 'plain';
+      return ['high-contrast-mono-accent', 'dark-luxury-metallic'].includes(composed.colorBehavior) ? 'accent' : 'plain';
+    }
+    // OUTPUT QUALITY PASS: 'proof' previously had zero variance at all
+    // (always the boxed stat grid, and didn't even receive `section`).
+    // 'statement' is the one new variant this pass adds -- a quiet inline
+    // line instead of a card grid, for exactly the case the brief names
+    // ("single proof statement" as usually-bad card use) -- reusing
+    // renderSectionHeader's own data-headline-role treatment, no new CSS
+    // dimension.
+    case 'proof': return avoidCards ? 'statement' : 'facts';
     case 'footer': return ['sidebar', 'centered-logo'].includes(composed.nav) ? 'columns' : 'simple';
     default: return 'default';
   }
@@ -1860,18 +1909,32 @@ function renderServices(project, category, section) {
 // includes this section at all when at least one such fact exists.
 // V8.2: deliberately NOT threaded with Claude copy -- this is exactly the
 // numbers-only, fact-gated section the no-fabrication rule exists for.
-function renderProof(project, category) {
+// OUTPUT QUALITY PASS: previously zero variance (always the boxed stat
+// grid) and didn't even receive `section` -- one new variant, 'statement',
+// reusing the SAME facts data as an inline editorial line instead of a
+// card grid, for the exact case the brief names ("a single proof
+// statement" as usually-bad card use). Picked by pickVariant('proof', ...)
+// when avoid:generic-cards applies; falls back to 'facts' (the original,
+// only) behavior for every project this ran on before.
+function renderProof(project, category, section) {
   const facts = project.source.facts || {};
   const stats = [];
   if (facts.years) stats.push({ n: facts.years + '+', l: 'Years' });
   if (facts.rating) stats.push({ n: facts.rating, l: 'Rating' });
   if (facts.count) stats.push({ n: facts.count + '+', l: 'Served' });
   if (!stats.length) return '';
+  const variant = (section && section.variant) || 'facts';
+  const role = (section && section.headlineRole) || 'proof-led';
+  if (variant === 'statement') {
+    return `<div class="site-section site-section-proof" data-variant="statement">
+      <p class="site-proof-statement" data-headline-role="${escapeHtml(role)}">${stats.map(s => `<strong>${escapeHtml(s.n)}</strong> ${escapeHtml(s.l)}`).join(' &nbsp;·&nbsp; ')}</p>
+    </div>`;
+  }
   return `<div class="site-section site-section-proof" data-variant="facts">
     <div class="site-proof-stats">${stats.map(s => `<div><strong>${escapeHtml(s.n)}</strong><small>${escapeHtml(s.l)}</small></div>`).join('')}</div>
   </div>`;
 }
-function renderMetrics(project, category) { return renderProof(project, category); }
+function renderMetrics(project, category, section) { return renderProof(project, category, section); }
 function renderGallery(project, category, section, labelOverride) {
   const variant = section && section.variant;
   const plan = project.assets.plan;
@@ -2446,8 +2509,8 @@ function renderProductModuleWidget(project, section) {
 function renderSectionHTML(project, section, category) {
   switch (section.type) {
     case 'hero': return renderHero(project, category);
-    case 'proof': return renderProof(project, category);
-    case 'metrics': return renderMetrics(project, category);
+    case 'proof': return renderProof(project, category, section);
+    case 'metrics': return renderMetrics(project, category, section);
     case 'services': return renderServices(project, category, section);
     case 'features': return renderFeatures(project, category, section);
     case 'productShowcase': return renderProductShowcase(project, category, section);
@@ -2473,7 +2536,8 @@ function renderSectionHTML(project, section, category) {
   }
 }
 function insertSection(proj, type) {
-  const variant = pickVariant(type, proj.design.dimensions, proj.intent && proj.intent.variationSeed);
+  const cd = proj.intent && proj.intent.creativeDirection;
+  const variant = pickVariant(type, proj.design.dimensions, proj.intent && proj.intent.variationSeed, cd && { avoid: cd.avoid, pageRhythm: cd.pageRhythm, heroStrategy: cd.heroStrategy });
   const section = { id: type + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, variant };
   const footerIdx = proj.sections.findIndex(s => s.type === 'footer');
   const insertAt = footerIdx === -1 ? proj.sections.length : footerIdx;
@@ -2519,6 +2583,8 @@ function applyAvoidList(proj, creativeDirection) {
       if (avoidGenericCards) {
         if (s.type === 'features' && s.variant === 'grid') s.variant = 'list';
         if (s.type === 'testimonial' && s.variant === 'card') s.variant = 'centered';
+        // OUTPUT QUALITY PASS: 'proof' now has a real second variant.
+        if ((s.type === 'proof' || s.type === 'metrics') && s.variant === 'facts') s.variant = 'statement';
       }
       if (avoidSaasCta && s.type === 'ctaBanner' && s.variant === 'accent') s.variant = 'plain';
     });
@@ -2621,8 +2687,10 @@ function uniqueSlug(base, usedSlugs) {
 // (known section types only, length-capped strings) already applied there.
 // index 0 is always Home, regardless of what Claude itself called it --
 // its real label is kept for the nav, only its routing slug is forced.
-function buildClaudePages(claudePages, variationSeed, dimensions) {
+function buildClaudePages(claudePages, variationSeed, dimensions, creativeDirection) {
   if (!Array.isArray(claudePages) || !claudePages.length) return null;
+  const cd = creativeDirection || {};
+  const pickCtx = { avoid: cd.avoid, pageRhythm: cd.pageRhythm, heroStrategy: cd.heroStrategy };
   const usedSlugs = new Set(['']);
   const pages = [];
   claudePages.forEach((p, i) => {
@@ -2638,7 +2706,10 @@ function buildClaudePages(claudePages, variationSeed, dimensions) {
     const sections = p.sections.map((s, si) => ({
       id: `${s.type}-${slug || 'home'}-${si}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       type: s.type,
-      variant: pickVariant(s.type, dimensions, variationSeed),
+      // OUTPUT QUALITY PASS: pickVariant now also gets this page's real
+      // creative context (avoid/pageRhythm/heroStrategy), not just the flat
+      // dimension set -- see pickVariant's own comment.
+      variant: pickVariant(s.type, dimensions, variationSeed, pickCtx),
       // V9: normalizeClaudePlan already validated/defaulted these -- carried
       // through as-is, same posture as `copy`/`module` below.
       intent: s.intent || 'explain',
@@ -4155,23 +4226,90 @@ function renderSections(proj, category) {
   const footerHtml = renderSiteFooter(proj, category, proj.footerVariant || 'simple');
   if (siteSectionsRoot) {
     siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
-    applySectionRhythmPositions(siteSectionsRoot, proj.sections);
+    applySectionRhythmPositions(siteSectionsRoot, proj.sections, proj.intent && proj.intent.creativeDirection);
   }
 }
-// CREATIVE DIRECTOR V2: additive-only, same pattern as data-headline-role
-// (Phase C) -- stamps a data attribute onto the ALREADY-RENDERED `.site-
-// section` elements, never wraps them in a new container (several existing
-// CSS rules depend on `.site-section`'s direct children for CSS grid
-// placement; a wrapper would silently break those). Each renderX section
-// function returns exactly one top-level `.site-section...` element, in the
-// same order as `proj.sections` -- confirmed by direct inspection of every
-// renderSectionHTML case -- so a straight index zip is safe here.
-function applySectionRhythmPositions(root, sections) {
+// CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: additive-only, same pattern
+// as data-headline-role (Phase C) -- stamps data attributes onto the
+// ALREADY-RENDERED `.site-section` elements, never wraps them in a new
+// container (several existing CSS rules depend on `.site-section`'s direct
+// children for CSS grid placement; a wrapper would silently break those).
+// Each renderX section function returns exactly one top-level `.site-
+// section...` element, in the same order as `proj.sections` -- confirmed
+// by direct inspection of every renderSectionHTML case -- so a straight
+// index zip is safe here.
+//
+// OUTPUT QUALITY PASS added `data-section-width`/`data-section-align`
+// alongside the existing `data-rhythm-position`: the SAME contentWidth/
+// sectionAlignment CSS values the global `data-content-width`/`data-
+// section-alignment` dimensions already use (styles.css), now applied per
+// section instead of once for the whole page -- reusing existing CSS
+// values, adding no new dimension. `sectionAlignForSection` deliberately
+// only ever returns '' or 'center' -- never 'split' -- because the
+// existing `[data-section-alignment="split"] .site-section{display:grid;
+// grid-template-columns:...}` rule assumes exactly a 2-child structure
+// that only `about`'s own 'split' variant markup guarantees; forcing it
+// onto an arbitrary section type could silently misplace its children.
+function applySectionRhythmPositions(root, sections, creativeDirection) {
   const els = Array.prototype.filter.call(root.children, el => el.classList.contains('site-section'));
   const total = sections.length;
+  const pageRhythm = (creativeDirection && creativeDirection.pageRhythm) || 'sparse-open-dense-mid';
   sections.forEach((s, i) => {
-    if (els[i]) els[i].dataset.rhythmPosition = rhythmPositionForSection(s, i, total);
+    const el = els[i];
+    if (!el) return;
+    const position = rhythmPositionForSection(s, i, total);
+    el.dataset.rhythmPosition = position;
+    const width = sectionWidthForSection(s, position, pageRhythm);
+    if (width) el.dataset.sectionWidth = width; else delete el.dataset.sectionWidth;
+    const align = sectionAlignForSection(s, position, pageRhythm);
+    if (align) el.dataset.sectionAlign = align; else delete el.dataset.sectionAlign;
   });
+}
+// IMMERSIVE_SECTION_TYPES: sections whose whole job is to show something
+// (imagery, a menu, a product) rather than explain or convert -- these are
+// the ones a wider/edge-to-edge treatment actually benefits; a text-heavy
+// section (about/faq/process/pricing/contact) stays contained regardless
+// of rhythm so body copy never stretches to an unreadable line length.
+const IMMERSIVE_SECTION_TYPES = ['gallery', 'imageLedEditorial', 'caseStudies', 'productShowcase', 'menu'];
+function sectionWidthForSection(section, position, pageRhythm) {
+  const immersive = IMMERSIVE_SECTION_TYPES.includes(section.type);
+  if (pageRhythm === 'dense-proof-compressed') {
+    // Tight, scannable, conversion-focused -- even an immersive section
+    // stays no wider than 'wide', and the proof/close positions pull in
+    // to 'contained' so the CTA reads as the obvious next step.
+    if (position === 'proof' || position === 'close') return 'contained';
+    return immersive ? 'wide' : 'contained';
+  }
+  if (pageRhythm === 'steady-editorial') {
+    // Consistent, measured, few boxed sections -- the one real width
+    // change is giving an immersive section real room; everything else
+    // holds a single restrained measure throughout.
+    return immersive ? 'wide' : 'contained';
+  }
+  if (pageRhythm === 'expressive-alternating') {
+    // Stronger section contrast is the whole point here -- an immersive
+    // section goes fully edge-to-edge, and the opening section gets extra
+    // room even when it isn't immersive, for a real width contrast against
+    // the contained sections that follow.
+    if (immersive) return 'edge-to-edge';
+    return position === 'open' ? 'wide' : 'contained';
+  }
+  // sparse-open-dense-mid (the default): a large, breathing opening, a
+  // visually compressed/contained middle, a calm (contained) close.
+  if (position === 'open') return immersive ? 'edge-to-edge' : 'wide';
+  if (position === 'proof') return 'contained';
+  return immersive ? 'wide' : 'contained';
+}
+function sectionAlignForSection(section, position, pageRhythm) {
+  // A restrained editorial page reads its statement-shaped sections
+  // (about/process/proof/the closing CTA) centered, the way a printed
+  // editorial page centers a pull-quote -- never forced on a card-grid or
+  // list-shaped section, which centering would make harder to scan.
+  const STATEMENT_TYPES = ['about', 'process', 'proof', 'metrics', 'ctaBanner'];
+  if (!STATEMENT_TYPES.includes(section.type)) return '';
+  if (pageRhythm === 'steady-editorial') return 'center';
+  if (position === 'close' && section.type === 'ctaBanner') return 'center';
+  return '';
 }
 // CREATIVE DIRECTOR V2: a compact, real summary of the resolved creative
 // direction (Mood/Design idea/Page behavior/Avoiding), using the real
@@ -6075,6 +6213,87 @@ function findSignatureDeviceMissing(proj, creativeDirection) {
   const present = (proj.pages || [{ sections: proj.sections }]).some(page => (page.sections || []).some(s => s.type === type));
   return present ? [] : [{ signatureMotif: motif, expectedType: type }];
 }
+// GENERATION STRENGTHENING pass: checks that catch ADJACENT/uniform
+// composition -- the sharper "AI template" smell than findTooManyCardGrids'
+// own cumulative-count check (which only fires once 3+ card-shaped sections
+// exist anywhere on the page, even with plenty of non-card sections between
+// them). All of these read fields the composition layer above already
+// produces (pickVariant's variant choices, sectionWidthForSection/
+// rhythmPositionForSection) -- no new reasoning, no AI critic.
+const CARD_SHAPED_VARIANTS = { features: 'grid', testimonial: 'card', team: 'grid', testimonialsGrid: 'grid' };
+function findConsecutiveCardSections(proj) {
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    const sections = page.sections || [];
+    for (let i = 1; i < sections.length; i++) {
+      const prevCard = CARD_SHAPED_VARIANTS[sections[i - 1].type] === sections[i - 1].variant;
+      const curCard = CARD_SHAPED_VARIANTS[sections[i].type] === sections[i].variant;
+      if (prevCard && curCard) offenders.push({ pageId: page.id || page.slug, sectionId: sections[i].id, type: sections[i].type, prevType: sections[i - 1].type });
+    }
+  });
+  return offenders;
+}
+// Two+ back-to-back card-shaped sections is exactly what avoid:generic-cards
+// and pickVariant's card-avoidance branches exist to prevent -- so this is
+// safely repairable the same way findTooManyCardGrids already repairs: swap
+// the LATER section to the existing non-card variant for its type, never
+// touching copy/content.
+const CARD_SHAPED_REPAIR_VARIANT = { features: 'list', testimonial: 'centered', team: null, testimonialsGrid: null };
+function findRepeatedLayoutVariant(proj) {
+  const TRACKED_VARIANTS = ['split', 'centered', 'statement'];
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    const counts = {};
+    (page.sections || []).forEach(s => {
+      if (!TRACKED_VARIANTS.includes(s.variant)) return;
+      const key = s.variant;
+      counts[key] = (counts[key] || 0) + 1;
+      if (counts[key] > 2) offenders.push({ pageId: page.id || page.slug, sectionId: s.id, type: s.type, variant: s.variant });
+    });
+  });
+  return offenders;
+}
+// A page where every section resolves to the same computed width is only a
+// real smell for the rhythms that are DESIGNED to vary width by position
+// (sparse-open-dense-mid, dense-proof-compressed, expressive-alternating) --
+// steady-editorial deliberately keeps most sections contained by design
+// ("fewer boxed sections"), so uniform width there is intended, not a defect.
+function findRepeatedSectionWidth(proj) {
+  const cd = proj.intent && proj.intent.creativeDirection;
+  const pageRhythm = (cd && cd.pageRhythm) || 'sparse-open-dense-mid';
+  if (pageRhythm === 'steady-editorial') return [];
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    const sections = page.sections || [];
+    const total = sections.length;
+    if (total < 4) return;
+    const widths = sections.map((s, i) => sectionWidthForSection(s, rhythmPositionForSection(s, i, total), pageRhythm));
+    if (widths.every(w => w === widths[0])) offenders.push({ pageId: page.id || page.slug, width: widths[0] });
+  });
+  return offenders;
+}
+// More than one ctaBanner on the same page dilutes the close instead of
+// sharpening it -- report-only: removing a section is a content-structure
+// change, not a safe variant swap.
+function findTooManyCtaBlocks(proj) {
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    const ctaSections = (page.sections || []).filter(s => s.type === 'ctaBanner');
+    if (ctaSections.length > 1) ctaSections.slice(1).forEach(s => offenders.push({ pageId: page.id || page.slug, sectionId: s.id }));
+  });
+  return offenders;
+}
+// The section right after the hero is the first real "this site was made
+// for THIS business" moment -- flag when it's a type with no visual/proof
+// weight of its own (report-only: which section to promote is a content
+// decision, not a safe mechanical swap).
+const STRONG_ANCHOR_TYPES = ['imageLedEditorial', 'gallery', 'productShowcase', 'caseStudies', 'proof', 'metrics', 'services', 'menu'];
+function findNoAnchorAfterHero(proj) {
+  const sections = proj.sections || [];
+  if (!sections.length) return [];
+  const first = sections[0];
+  return STRONG_ANCHOR_TYPES.includes(first.type) ? [] : [{ sectionId: first.id, type: first.type }];
+}
 // Runs once per finished direction (both Claude and deterministic paths --
 // called from the 'build' step below, which both already share), detects
 // real issues, and applies ONLY the repairs that are unambiguous and
@@ -6083,6 +6302,8 @@ function findSignatureDeviceMissing(proj, creativeDirection) {
 // and belongs to the targeted-repair path (part 9), not this one.
 function runQualityCritic(proj, variationSeed) {
   const issues = [];
+  const criticCreativeDirection = proj.intent && proj.intent.creativeDirection;
+  const criticPickCtx = criticCreativeDirection && { avoid: criticCreativeDirection.avoid, pageRhythm: criticCreativeDirection.pageRhythm, heroStrategy: criticCreativeDirection.heroStrategy };
   const duplicatePatterns = findDuplicateSectionPattern(proj);
   duplicatePatterns.forEach(dup => {
     const page = (proj.pages || []).find(p => (p.id || p.slug) === dup.pageId);
@@ -6091,7 +6312,7 @@ function runQualityCritic(proj, variationSeed) {
       // Safe, reversible repair: nudge the variant so two back-to-back
       // same-type sections don't render as visually identical blocks. Never
       // touches copy/content, only the existing variant vocabulary.
-      const nudged = pickVariant(section.type, proj.design.dimensions, (variationSeed || 0) + 1);
+      const nudged = pickVariant(section.type, proj.design.dimensions, (variationSeed || 0) + 1, criticPickCtx);
       if (nudged !== section.variant) { section.variant = nudged; issues.push({ code: 'duplicate_section_pattern', detail: dup, repaired: true }); return; }
     }
     issues.push({ code: 'duplicate_section_pattern', detail: dup, repaired: false });
@@ -6140,6 +6361,19 @@ function runQualityCritic(proj, variationSeed) {
   findWeakConversionSection(proj).forEach(detail => issues.push({ code: 'weak_conversion_section', detail, repaired: false }));
   findFlatPageRhythm(proj).forEach(detail => issues.push({ code: 'flat_page_rhythm', detail, repaired: false }));
   findSignatureDeviceMissing(proj, creativeDirection).forEach(detail => issues.push({ code: 'signature_device_missing', detail, repaired: false }));
+
+  // GENERATION STRENGTHENING pass: adjacency/uniformity checks.
+  findConsecutiveCardSections(proj).forEach(offender => {
+    const page = (proj.pages || []).find(p => (p.id || p.slug) === offender.pageId);
+    const section = page && (page.sections || []).find(s => s.id === offender.sectionId);
+    const repairVariant = CARD_SHAPED_REPAIR_VARIANT[offender.type];
+    if (section && repairVariant) { section.variant = repairVariant; issues.push({ code: 'consecutive_card_sections', detail: offender, repaired: true }); return; }
+    issues.push({ code: 'consecutive_card_sections', detail: offender, repaired: false });
+  });
+  findRepeatedLayoutVariant(proj).forEach(detail => issues.push({ code: 'repeated_layout_variant', detail, repaired: false }));
+  findRepeatedSectionWidth(proj).forEach(detail => issues.push({ code: 'repeated_section_width', detail, repaired: false }));
+  findTooManyCtaBlocks(proj).forEach(detail => issues.push({ code: 'too_many_cta_blocks', detail, repaired: false }));
+  findNoAnchorAfterHero(proj).forEach(detail => issues.push({ code: 'no_anchor_after_hero', detail, repaired: false }));
 
   return { issues, checkedAt: new Date().toISOString() };
 }
@@ -6267,7 +6501,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
           // HOME page's own section list (proj.sections, unchanged UX from
           // V8.1.2); any secondary pages are fully built here, ready the
           // moment generation finishes -- see switchPage.
-          const pages = buildClaudePages(claudePlan.pages, variationSeed, proj.design.dimensions);
+          const pages = buildClaudePages(claudePlan.pages, variationSeed, proj.design.dimensions, creativeDirection);
           if (pages) {
             proj.pages = pages;
             proj.activePageIndex = 0;
@@ -6304,7 +6538,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         const stylePool = [analysis.styleKey, ...(analysis.styleAlternates || [])].filter(Boolean);
         const variationStyleKey = stylePool.length ? stylePool[variationSeed % stylePool.length] : analysis.styleKey;
         const variationText = variationSeed ? `${analysis.text}::v${variationSeed}` : analysis.text;
-        composed = composeStyleFromAnalysis(variationText, analysis.categoryKey, variationStyleKey);
+        composed = composeStyleFromAnalysis(variationText, analysis.categoryKey, variationStyleKey, creativeDirection.heroStrategy);
         proj.intent.seedKey = variationStyleKey;
         const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
         const architecture = planPageArchitecture(strategy.archetype, analysis.categoryKey);
@@ -6333,7 +6567,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
             const grammar = planSectionGrammar(type, pageMeta.role, strategy.archetype, i, types.length);
             return {
               id: `${type}-${slug}-${i}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
-              type, variant: pickVariant(type, proj.design.dimensions, variationSeed),
+              type, variant: pickVariant(type, proj.design.dimensions, variationSeed, { avoid: creativeDirection.avoid, pageRhythm: creativeDirection.pageRhythm, heroStrategy: creativeDirection.heroStrategy }),
               intent: grammar.intent, headlineRole: grammar.headlineRole
             };
           });
@@ -6354,20 +6588,22 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         }
         proj.design.palette = { ...composed.palette };
         proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio };
-        // CREATIVE DIRECTOR V2: the deterministic (no-Claude) path had no
-        // business-driven hero decision at all -- every business in a
-        // category got the same fixed hero-adjacent dimensions. The
-        // synthesized heroStrategy from composeCreativeDirection's signal
-        // detection now biases the secondary dimensions (imageDominance/
-        // contentWidth/etc) that heroStrategy is responsible for, without
-        // touching `composed.hero` itself (the existing seed-matched hero
-        // pick stays authoritative -- this only adds coherent variation on
-        // top of it, never fights it).
+        // CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: the deterministic
+        // (no-Claude) path had no business-driven hero decision at all --
+        // every business in a category got the same fixed hero and the
+        // same fixed hero-adjacent dimensions. `composed.hero` above ALREADY
+        // reflects heroStrategy now when no real hero keyword matched the
+        // text (composeStyleFromAnalysis's own tiebreaker, still losing to
+        // a genuine keyword match every time -- see its comment). This bias
+        // step is the remaining half: the SECONDARY dimensions
+        // (imageDominance/contentWidth/etc) heroStrategy is also
+        // responsible for, kept coherent with whichever hero got picked.
         proj.design.dimensions = applyHeroStrategyBias(proj.design.dimensions, creativeDirection.heroStrategy);
         return describeComposition(composed);
       } },
     { key: 'sections', run() {
-        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed); });
+        const pickCtx = { avoid: creativeDirection.avoid, pageRhythm: creativeDirection.pageRhythm, heroStrategy: creativeDirection.heroStrategy };
+        proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed, pickCtx); });
       ensureSignatureSection(proj, creativeDirection);
         applyAvoidList(proj, creativeDirection);
         proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed);
