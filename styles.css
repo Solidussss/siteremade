@@ -1341,6 +1341,21 @@ html,body{max-width:100%;overflow-x:hidden}
 .purchase-ownership-badge[data-status="purchased"]{background:#e5f6ec;color:#17733a}
 .purchase-ownership-badge[data-status="checkout_pending"]{background:#fff4e0;color:#8a5a10}
 
+/* UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the daily-credit indicator
+   near the Generate button, and its restrained echo in the account panel.
+   Deliberately plain -- a bordered pill with an icon and a number, the same
+   visual language as .purchase-ownership-badge/.snapshot-badge above, never
+   a progress ring, coin animation, or gamified/crypto-style treatment (spec:
+   "restrained, professional, never gamified/crypto-like"). Hidden outright
+   for a signed-out visitor (see script.js renderCreditsUI). */
+.credit-indicator{display:inline-flex;align-items:center;gap:7px;margin:10px 0 0;padding:6px 12px;border-radius:999px;background:#eef0f4;border:1px solid var(--line);font-size:12px;font-weight:600;color:#3f434a}
+.credit-indicator[hidden]{display:none}
+.credit-indicator-icon{display:inline-flex;color:#525660}
+.credit-indicator-icon svg{display:block}
+.credit-indicator-low{background:#fff4e0;border-color:#f0dcae;color:#8a5a10}
+.credit-indicator-low .credit-indicator-icon{color:#8a5a10}
+.account-credits-line{margin:0 0 12px;font-size:11px;color:#525660}
+
 /* Credit-architecture fix (UI clause): a small, always-visible pill
    distinguishing an immutable purchased snapshot/download from the live
    editable draft -- used both in the export panel (#exportSnapshotBadge)
@@ -2283,3 +2298,29 @@ a.hero-cta-btn{text-decoration:none}
    horizontal-overflow invariant). */
 .builder-site,.site-hero,.site-section,.site-nav,.site-footer{max-width:100%}
 .builder-site img,.builder-site svg{max-width:100%}
+
+/* UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the pre-generation sign-in/
+   sign-up gate. A plain, full-page overlay + centered card -- the same
+   card/button/input tokens used everywhere else on this page (border-radius,
+   var(--line), .button/.button-secondary), not a separate visual language.
+   z-index sits above .nav (20) since it must cover the header too; body
+   scroll is locked (.generation-gate-open) while it's shown. */
+.generation-gate-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(13,14,17,.55);backdrop-filter:blur(2px)}
+.generation-gate-overlay[hidden]{display:none}
+body.generation-gate-open{overflow:hidden}
+.generation-gate-card{position:relative;width:100%;max-width:440px;max-height:calc(100vh - 48px);overflow-y:auto;background:#fff;border-radius:var(--radius);padding:34px 30px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+.generation-gate-card h2{margin:0 0 12px;font-size:24px;letter-spacing:-.03em}
+.generation-gate-copy{margin:0 0 20px;font-size:14px;line-height:1.55;color:#525660}
+.generation-gate-copy strong{color:var(--text)}
+.generation-gate-fields{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.generation-gate-fields input{width:100%;height:48px;border:1px solid #d8dae0;background:#fff;padding:0 14px;outline:none;border-radius:10px;font-size:14px;box-sizing:border-box}
+.generation-gate-fields input:focus{border-color:#8c93a0}
+.generation-gate-actions{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.generation-gate-actions .button{width:100%}
+.generation-gate-status{margin:10px 0 0;font-size:12px;color:#525660;min-height:15px}
+.generation-gate-status.error{color:#b42318}
+.generation-gate-note{margin:14px 0 0;font-size:11px;color:#8a8e97}
+.generation-gate-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#525660}
+.generation-gate-close:hover{background:#f3f4f6}
+@media(max-width:430px){.generation-gate-card{padding:26px 20px 22px;border-radius:20px}.generation-gate-card h2{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.generation-gate-overlay{backdrop-filter:none}}

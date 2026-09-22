@@ -516,7 +516,13 @@ app.get('/api/image-provider-status', (req, res) => {
   });
 });
 
-app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
+// /api/plan-website above -- requireAuth instead of withOptionalAuth, so
+// an unauthenticated image-generation attempt is refused (401) before this
+// handler's body runs. Everything else below is otherwise unchanged: the
+// `req.accountId ? ... : null` conditionals still work correctly (always
+// truthy now), left as-is to keep this diff minimal.
+app.post('/api/generate-image', requireAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   // taskType/projectId are purely observability metadata the client
   // attaches (see script.js's ExecutionPlan) -- absent or wrong, this route
@@ -707,13 +713,34 @@ const CREDIT_COST_BY_CLASS = {
   standard: Number(process.env.SITEREMADE_CREDIT_COST_STANDARD) || 3,
 };
 function creditCostForTask(taskType) { return CREDIT_COST_BY_CLASS[classifyOperationCost(taskType)] || 0; }
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the next UTC-midnight
+// rollover boundary, as a real ISO timestamp the client can format in the
+// visitor's own local timezone -- never a claim of a precise LOCAL reset
+// time (spec item 10: "Do not claim a precise local reset time if the
+// backend only uses UTC day rollover unless converted correctly"; handing
+// back the real UTC instant and letting the browser's own Intl/Date
+// formatting convert it is the honest way to satisfy that).
+function nextUtcMidnightIso(now) {
+  const d = now || new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0)).toISOString();
+}
 // Read-only convenience for building a response payload -- returns null for
 // an anonymous caller (credits are an authenticated-account concept only;
 // an anonymous visitor is instead gated by the lifetime ledger further
 // down, which is the one remaining use of a "lifetime cap" in this file).
+// UNIFIED ACCOUNT pass: now also returns generationCost and resetsAt --
+// spec item 7 ("Ideally credit API returns enough information for UX,
+// such as: remaining credits, daily allowance, generation cost, reset
+// boundary") -- so the client never hardcodes the "3 credits" number
+// itself (spec item 6: "Do NOT create a second credit calculation in the
+// frontend. Backend is source of truth."). generationCost is the standard
+// (NEW_SITE/NEW_DIRECTION) cost specifically -- the one number the
+// Generate button's own label needs; per-action costs for other task
+// types remain server-side-only, exactly as before.
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
-  return credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+  const summary = credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+  return { ...summary, generationCost: creditCostForTask('NEW_SITE'), resetsAt: nextUtcMidnightIso() };
 }
 
 // A real, in-memory, bounded operation ledger -- deliberately the SAME
@@ -1232,7 +1259,9 @@ app.get('/api/planner-status', (req, res) => {
 // tried FIRST for every free-text request, local classification only as a
 // fallback on failure).
 const REFINEMENT_TOOL_CACHED = { ...REFINEMENT_TOOL, cache_control: { type: 'ephemeral' } };
-app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
+// /api/plan-website above -- requireAuth instead of withOptionalAuth.
+app.post('/api/refine-website', requireAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const taskType = clean(req.body.taskType, 40) || 'COPY_REWRITE';
   const projectId = clean(req.body.projectId, 60);
@@ -1314,65 +1343,74 @@ app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
 // longer called from here. It remains available as a proven primitive if
 // a future, different need for a true lifetime cap arises.
 //
-// The anonymous, cookie-scoped ledger directly below (`entry`,
-// `directionsLedger`) is UNCHANGED and is exactly where a lifetime-style
-// cap still belongs: an anonymous visitor has no account and therefore no
-// credit ledger at all, so it remains the one and only trial/abuse brake
-// on unauthenticated Claude usage -- never merged with, or affected by,
-// the authenticated path's credits.
-app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass (spec items 2/3): full
+// website generation now requires a real, authenticated account --
+// `withOptionalAuth` is replaced with `requireAuth`, so an unauthenticated
+// request is refused with 401 before ANY of this handler's body runs, let
+// alone before a Claude call. This is the actual server-side enforcement
+// the spec asks for ("do not rely only on hiding/disabling the button...
+// the server must reject unauthorized full generation attempts"); the
+// client-side gate in script.js's runGeneration is real UX, not the
+// security boundary.
+//
+// The anonymous lifetime-ledger gate this route used to run for an
+// unauthenticated caller (MAX_DIRECTIONS/claudeDirectionsUsed as the
+// trial/abuse brake) is gone from HERE -- requireAuth means there is no
+// more unauthenticated branch to gate. `directionsLedger`/`ensureAnonId`/
+// `MAX_DIRECTIONS` themselves are left completely untouched elsewhere in
+// this file (harmless, simply unused by this specific route now) -- see
+// the final report for why they weren't deleted outright. `entry` (the
+// per-anonymous-cookie ledger row) is still read here, but ONLY for its
+// `signatures`/`history` arrays, which predate and are independent of the
+// lifetime-cap gate -- they feed Claude's own "avoid repeating a similar
+// direction" diversity hint (see planBrief.priorSignatures below) and
+// observability, for BOTH first-time and returning signed-in visitors on
+// the same browser. Stripping this would have been a real, if minor,
+// quality regression unrelated to what this pass actually needs to change.
+//
+// Credit-architecture completion (spec item 6: "full website generation
+// costs 3 credits" as a flat, universal product rule -- not "3 credits
+// only when Claude happens to succeed"): credit reservation now happens
+// BEFORE the anthropicProvider.configured() check, and is committed
+// immediately if Claude is unconfigured -- previously an unconfigured
+// deployment reserved NOTHING for an authenticated caller, because the
+// early "not configured" return happened before reservation was ever
+// reached. That was a real gap: the client's deterministic engine is
+// guaranteed to produce a real, saved, credit-worthy direction regardless
+// of whether Claude assisted it, so the credit charge must not depend on
+// Claude's availability. If Claude IS configured, behavior for that branch
+// is otherwise unchanged from before this pass (reserve, attempt, commit
+// on success / release on failure).
+app.post('/api/plan-website', requireAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
-  const entry = getDirectionsLedgerEntry(anonId);
-  const authed = !!req.accountId;
+  const entry = getDirectionsLedgerEntry(anonId); // signatures/history only now -- see comment above
   // Observability metadata only (see script.js's ExecutionPlan) -- a
   // missing/unrecognized value just labels the ledger row generically and
   // changes nothing about how this route behaves.
   const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
   const projectId = clean(req.body.projectId, 60);
-  // claudeDirectionsRemaining only ever described the lifetime Claude-
-  // planning brake -- for a signed-in caller that brake no longer gates
-  // anything this route enforces, so it's honestly `null` here rather than
-  // reporting a number that used to block them but no longer does.
-  // creditsRemaining (already present on every response below) is the
-  // real, authoritative "can this account still generate today" signal
-  // for a signed-in caller; claudeDirectionsRemaining stays meaningful
-  // only for the still-lifetime-capped anonymous path.
-  const remainingFor = () => authed
-    ? null
-    : Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed);
-  if (!anthropicProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null });
-  }
-  // A new site/direction is credit-consuming (spec: "full new website
-  // generation, new creative direction") -- the sole gate for an
-  // authenticated caller now (see the header comment above). Anonymous
-  // callers are gated by the lifetime ledger check in the `else if` below,
-  // exactly as before.
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
-  if (authed) {
-    if (creditCost > 0) {
-      const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
-      if (!creditReservation.ok) {
-        return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
-      }
-      creditReserved = true;
+  if (creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) {
+      return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
     }
-  } else if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
-    // Enforced here, server-side, BEFORE any model call -- a real brake on
-    // Claude usage specifically for this anonymous visitor, independent of
-    // (and in addition to) the client's own overall 3-direction-total cap.
-    // The client is expected to fall back to the deterministic engine on
-    // this response -- which still produces a real direction for the
-    // visitor, it just doesn't ask Claude to plan it. This is the one
-    // remaining place a lifetime-style cap still applies: an anonymous
-    // visitor has no account and therefore no daily credit ledger at all.
-    return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This visitor has used their Claude-planned directions for now.' });
+    creditReserved = true;
   }
   const text = clean(req.body.text, 600);
   if (!text) {
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached Claude
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached generation
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
+  }
+  if (!anthropicProvider.configured()) {
+    // The credit was reserved above for a REAL generation attempt -- the
+    // client's deterministic engine is about to produce this direction
+    // regardless of Claude's availability, so commit now rather than
+    // leaving the reservation dangling; this response is terminal and the
+    // client never retries this exact reservation.
+    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
   }
   const brief = {
     text,
@@ -1392,8 +1430,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    if (!authed) entry.claudeDirectionsUsed += 1; // anonymous path unchanged from V8/V8.1
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null, meta: { model, latencyMs } });
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
@@ -1402,10 +1439,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
-    // A failed attempt does NOT consume one of this visitor's Claude
-    // attempts -- only a real returned plan does. The direction itself
-    // still gets created by the client's deterministic fallback.
-    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: remainingFor() });
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
   }
 });
 
@@ -1658,7 +1692,15 @@ app.post('/api/auth/signout', requireSameOrigin, (req, res) => {
 });
 app.get('/api/auth/me', withOptionalAuth, (req, res) => {
   if (!req.accountId) return res.json({ authenticated: false });
-  return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail } });
+  // UNIFIED ACCOUNT pass: surfaces app_subscription_status (see
+  // migrations/0004_app_subscription_status.sql) so the client CAN read it
+  // once something real populates it -- today it is always null for every
+  // account, since nothing in this codebase writes it yet. A second lookup
+  // (not the session-resolution JOIN every authenticated request already
+  // runs) because this is the one low-frequency route that actually needs
+  // it, not a hot path.
+  const record = authProvider.findAccountById(db, req.accountId);
+  return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail, appSubscriptionStatus: (record && record.app_subscription_status) || null } });
 });
 // Product-flow pass: a signed-in account's real, durable credit balance --
 // what the account page / generation UI reads to show "X credits left

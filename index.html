@@ -43,6 +43,15 @@
             <div class="asset-thumb-row" id="generatorUploadThumbs" hidden></div>
           </div>
           <button class="button generator-submit" type="submit"><span class="btn-label">Generate website</span></button>
+          <!-- UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: a signed-in
+               account's real daily credit balance, backend-sourced (never a
+               second frontend calculation -- see script.js refreshCreditsUI).
+               Hidden entirely for a signed-out visitor; nothing here gates
+               anything by itself, it's read-only status. -->
+          <div class="credit-indicator" id="creditIndicator" hidden>
+            <span class="credit-indicator-icon" id="creditIndicatorIcon" aria-hidden="true"></span>
+            <span id="creditIndicatorText"></span>
+          </div>
           <div class="generator-examples-secondary">
             <span>Need inspiration?</span>
             <div class="example-chip-row" id="exampleChipRow"></div>
@@ -311,6 +320,7 @@
               </div>
               <div id="accountSignedIn" class="account-signed-in" hidden>
                 <p class="account-identity">Signed in as <strong id="accountEmailLabel"></strong> · <button type="button" class="link-button" id="accountSignOutBtn">Sign out</button></p>
+                <p class="account-credits-line" id="accountCreditsLine" aria-live="polite"></p>
                 <label class="account-project-name-label">Project name<input type="text" id="accountProjectNameInput" maxlength="200" /></label>
                 <p class="account-save-status" id="accountSaveStatus" aria-live="polite">Not saved to your account yet.</p>
                 <div class="account-conflict" id="accountConflictBlock" hidden>
@@ -494,6 +504,31 @@
     <div><a href="#build">Generator</a><a href="#pricing">Pricing</a><a href="https://app.siteremade.com">Client Login</a></div>
     <p>© <span id="year"></span> SiteRemade</p>
   </footer>
+
+  <!-- UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: shown by runGeneration
+       (script.js) whenever a signed-out visitor presses Generate. Sits
+       outside the hero/main flow so it can overlay the whole page
+       (position:fixed, see styles.css) regardless of scroll position. The
+       visitor's exact description is preserved (pendingGenerationText) and
+       generation resumes automatically the moment sign-in/sign-up succeeds
+       -- see script.js's showAuthGate/resumeOrReshowPendingGeneration. -->
+  <div class="generation-gate-overlay" id="generationAuthGate" hidden>
+    <div class="generation-gate-card" role="dialog" aria-modal="true" aria-labelledby="generationAuthGateTitle">
+      <button type="button" class="generation-gate-close" id="generationGateAuthClose" aria-label="Cancel and go back">&times;</button>
+      <h2 id="generationAuthGateTitle">Create your free SiteRemade account</h2>
+      <p class="generation-gate-copy">One account lets you generate this website, save it to your history, get <strong>10 free credits every day</strong>, and come back to it later — on the landing page or in the SiteRemade app, with the same sign-in.</p>
+      <div class="generation-gate-fields">
+        <input type="email" id="gateEmailInput" placeholder="Email" autocomplete="email" />
+        <input type="password" id="gatePasswordInput" placeholder="Password (min 8 characters)" autocomplete="new-password" />
+      </div>
+      <div class="generation-gate-actions">
+        <button type="button" class="button" id="gateSignUpBtn">Create account &amp; generate</button>
+        <button type="button" class="button button-secondary" id="gateSignInBtn">I already have an account — sign in</button>
+      </div>
+      <p class="generation-gate-status" id="gateAuthStatus" aria-live="polite"></p>
+      <p class="generation-gate-note">Your description is saved — you won't need to retype it.</p>
+    </div>
+  </div>
 
   <script src="icons-data.js" defer></script>
   <script src="script.js" defer></script>

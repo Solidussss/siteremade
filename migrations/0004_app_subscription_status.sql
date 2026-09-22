@@ -1,0 +1,36 @@
+-- UNIFIED ACCOUNT / AUTH-GATED GENERATION pass (spec item 16/17/20): the
+-- smallest possible future-compatible hook for distinguishing account
+-- relationship types -- free generator user, website purchaser, app
+-- subscriber, purchaser+subscriber -- WITHOUT building any real billing
+-- integration in this pass (spec: "We are NOT necessarily implementing
+-- full app subscriptions in this pass... do not overengineer a billing
+-- platform now").
+--
+-- Purely additive: one nullable column, no existing table's shape changes,
+-- no data migration needed (every existing account gets NULL, meaning
+-- "unknown/not a subscriber," which is the honest true state today -- this
+-- generator has no subscription integration of any kind yet).
+--
+-- IMPORTANT SCOPE NOTE (see the final report's "future app-subscription
+-- compatibility" section for the full explanation): this column is NOT
+-- wired to any real payment/subscription flow, and it does NOT represent
+-- account unification with the separate SiteRemade ops app
+-- (app.siteremade.com). That app's identity system is Supabase Auth --
+-- structurally different from this generator's local scrypt/session
+-- accounts (see PRODUCTION-ADAPTERS.md's own "Auth" section, written in a
+-- prior pass after directly inspecting that app's repository) -- and there
+-- is no shared user table or existing bridge between the two today.
+-- Unifying them for real is an explicit product decision (account linking
+-- vs. migration, per PRODUCTION-ADAPTERS.md) that a single autonomous pass
+-- should not make silently; this column only exists so THIS account
+-- system's own schema is not a blocker once that decision is made and a
+-- real integration (most likely a webhook from the app, or a shared
+-- Supabase project) is built to populate it.
+--
+-- 'active'/'trialing'/'canceled'/'past_due' loosely mirrors Stripe
+-- subscription status vocabulary (matching the naming convention the real
+-- app's own `workspaces.siteremade_subscription_status` column already
+-- uses) so a future real integration can map values across directly rather
+-- than inventing a second vocabulary.
+ALTER TABLE accounts ADD COLUMN app_subscription_status TEXT
+  CHECK (app_subscription_status IS NULL OR app_subscription_status IN ('active', 'trialing', 'canceled', 'past_due'));
