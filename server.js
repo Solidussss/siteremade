@@ -21,6 +21,10 @@ const authProvider = getAuthProvider();
 const projectStore = require('./lib/project-store.js');
 const purchase = require('./lib/purchase.js');
 const entitlement = require('./lib/entitlement.js');
+// Product-flow pass: a real daily credit allowance, separate from (and
+// additive to) entitlement.js's own lifetime-3-directions cap -- see
+// lib/credits.js's own header for the full distinction.
+const credits = require('./lib/credits.js');
 // V8.6: export + deployment packaging + hosting/domain handoff -- see
 // SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
 // (no parallel backend), exactly like V8.5's own modules above.
@@ -196,6 +200,41 @@ async function sendEmail(payload) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || `Resend returned ${response.status}`);
   return data;
+}
+// Product-flow pass (spec §12): a real post-purchase confirmation email,
+// reusing the SAME sendEmail()/Resend integration the pre-purchase lead
+// form already uses -- no new email provider, no new credentials. A
+// secure DOWNLOAD LINK (not an attachment -- large/fragile) means a link
+// to the authenticated My Websites area, never a raw, unauthenticated file
+// URL or a bearer token embedded in the email itself (spec: "do not expose
+// private tokens in email... require authenticated ownership where
+// practical") -- the actual .zip is only ever served by
+// /api/deployments/:id/download, which is requireAuth + ownership-checked,
+// exactly like every other project route. A missing RESEND_API_KEY is a
+// real, honest no-op (never a fake "email sent" claim) -- the purchase and
+// snapshot themselves are already durable regardless of whether this
+// email succeeds, and a failure here is caught and logged, never allowed
+// to fail the webhook response Stripe is waiting on.
+async function sendPurchaseConfirmationEmail({ to, projectName, myWebsitesUrl }) {
+  if (!RESEND_API_KEY || !to) return { sent: false, reason: !RESEND_API_KEY ? 'not_configured' : 'no_recipient' };
+  const name = escapeHtml(projectName || 'Your website');
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#101114">
+    <p style="font-size:12px;letter-spacing:.12em;font-weight:700">SITEREMADE</p>
+    <h1 style="font-size:28px;line-height:1.2">Your purchase is confirmed.</h1>
+    <p style="font-size:16px;line-height:1.7;color:#555"><strong>${name}</strong> is ready. It's yours -- the real, standalone website files, not something that only works inside SiteRemade.</p>
+    <p style="font-size:15px;line-height:1.7">Head to <a href="${myWebsitesUrl}">My Websites</a> in your account to:</p>
+    <ul style="font-size:15px;line-height:1.9;color:#333">
+      <li>Download your website as a .zip (real source files -- HTML/CSS/JS, a developer README, and a plain-language handoff guide)</li>
+      <li>Choose a hosting recommendation, or skip it and host it yourself -- either way, the download is already yours</li>
+      <li>Find setup resources for uploading your site, connecting a domain, and publishing future changes</li>
+    </ul>
+    <p style="font-size:14px;line-height:1.7;color:#777;margin-top:28px">Questions? Reply to this email.</p>
+  </div>`;
+  const result = await sendEmail({
+    from: 'SiteRemade <hello@siteremade.com>', to: [to], reply_to: 'hello@siteremade.com',
+    subject: `Your website "${projectName || 'your SiteRemade site'}" is ready`, html,
+  });
+  return { sent: true, result };
 }
 
 // ---- V6: real Checkout Session creation, honestly scoped -----------------
@@ -439,6 +478,22 @@ app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
   if (!activeImageProvider.configured()) {
     return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   }
+  // Product-flow pass: a signed-in account's daily credit allowance gates
+  // this route too (image generation is explicitly credit-consuming per
+  // the spec) -- independent of, and in addition to, the dollar-denominated
+  // SITEREMADE_IMAGE_BUDGET_USD provider-spend guard below, which controls
+  // what THIS SERVER spends, not what a given customer is allowed to ask
+  // for today. Anonymous callers are unaffected (credits are an
+  // authenticated-account concept, same scoping as entitlement.js).
+  const creditCost = creditCostForTask(taskType);
+  let creditReserved = false;
+  if (req.accountId && creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) {
+      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+    }
+    creditReserved = true;
+  }
   const startedAt = Date.now();
   // MULTI-MODEL IMAGE ROUTER PASS: `model`/`quality`/`aspectRatio` are the
   // client's own deterministic route planner's decision for this slot (see
@@ -479,15 +534,21 @@ app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
   }
   try {
     const prompt = clean(req.body.prompt, 600);
-    if (!prompt) { releaseImageSpend(reservationKey, estimatedCostUsd); return res.status(400).json({ ok: false, message: 'Missing prompt.' }); }
+    if (!prompt) {
+      releaseImageSpend(reservationKey, estimatedCostUsd);
+      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached the provider
+      return res.status(400).json({ ok: false, message: 'Missing prompt.' });
+    }
     const result = await activeImageProvider.generate(prompt, { aspectRatio: safeAspectRatio, quality: safeQuality, model: safeModel });
     const usedQuality = result.quality || safeQuality;
     const usedModel = result.model || safeModel;
     recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel });
+    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   } catch (error) {
     console.error('Image generation failed:', error);
     releaseImageSpend(reservationKey, estimatedCostUsd);
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently charges a credit
     recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
   }
@@ -548,6 +609,37 @@ const OPERATION_COST_CLASS = {
   SECTION_ADD: 'free', SECTION_REMOVE: 'free', CONTENT_EDIT: 'free', RESPONSIVE_FIX: 'free'
 };
 function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType] || 'standard'; }
+
+// ---- Product-flow pass: customer-facing daily credits ---------------------
+// Maps the SAME cost-class taxonomy above onto real credit numbers a
+// signed-in customer actually sees and spends -- this is deliberately the
+// only place a "how many credits does X cost" number is defined, so it's
+// never scattered across routes (spec: "config-driven commercial settings...
+// do not scatter commercial numbers across frontend code"). `free` actions
+// (color/spacing/reorder/text edits/etc.) never reach this at all in
+// practice -- see server.js's own /api/refine-website comment on the
+// client's local/deterministic classifier already keeping them from
+// calling the server -- but are defined as 0 here too, as real defense in
+// depth, not just an assumption. Users are never charged based on raw
+// token counts (spec: "Do NOT charge users based on raw token counts") --
+// every credit cost below is a flat number per ACTION, independent of
+// however many tokens/images that action happens to use underneath; the
+// operationLedger above remains the place raw provider cost/token
+// observability lives, entirely separate from what a customer is charged.
+const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
+const CREDIT_COST_BY_CLASS = {
+  free: 0,
+  cheap: Number(process.env.SITEREMADE_CREDIT_COST_CHEAP) || 1,
+  standard: Number(process.env.SITEREMADE_CREDIT_COST_STANDARD) || 3,
+};
+function creditCostForTask(taskType) { return CREDIT_COST_BY_CLASS[classifyOperationCost(taskType)] || 0; }
+// Read-only convenience for building a response payload -- returns null for
+// an anonymous caller (credits are an authenticated-account concept only,
+// same scoping lib/entitlement.js's durable path already uses).
+function creditsSummaryFor(accountId) {
+  if (!accountId) return null;
+  return credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+}
 
 // A real, in-memory, bounded operation ledger -- deliberately the SAME
 // honesty posture as `directionsLedger` above (see its own comment): not
@@ -1073,6 +1165,20 @@ app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
   const request = clean(req.body.request, 600);
   const context = req.body.context && typeof req.body.context === 'object' ? req.body.context : {};
   if (!request) return res.status(400).json({ ok: false, message: 'Missing refinement request.' });
+  // Product-flow pass: AI-assisted refinement (copy rewrites, semantic
+  // regeneration) is credit-consuming for signed-in accounts -- ordinary
+  // deterministic edits never reach this route at all (see this route's own
+  // comment above), so free-class taskTypes cost 0 here as real defense in
+  // depth, not the primary enforcement point.
+  const creditCost = creditCostForTask(taskType);
+  let creditReserved = false;
+  if (req.accountId && creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) {
+      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+    }
+    creditReserved = true;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   const startedAt = Date.now();
@@ -1093,13 +1199,17 @@ app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
     const latencyMs = Date.now() - startedAt;
     if (!response.ok) {
       recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
+      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
       return res.status(200).json({ ok: false, configured: true });
     }
     const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: !!(toolUse && toolUse.input), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
-    return res.json(toolUse && toolUse.input ? { ok: true, plan: toolUse.input } : { ok: false, configured: true });
+    const succeeded = !!(toolUse && toolUse.input);
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
+    if (creditReserved) { if (succeeded) credits.commitCredits(db, req.accountId, creditCost); else credits.releaseCredits(db, req.accountId, creditCost); }
+    return res.json(succeeded ? { ok: true, plan: toolUse.input, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
   } catch (error) {
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
     return res.status(200).json({ ok: false, configured: true });
   } finally {
     clearTimeout(timeout);
@@ -1128,11 +1238,29 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   if (!anthropicProvider.configured()) {
     return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor() });
   }
+  // Product-flow pass: a new site/direction is also credit-consuming (spec:
+  // "full new website generation, new creative direction"). This is
+  // additive to, not a replacement for, the lifetime-3-directions cap right
+  // below -- an account can be blocked by either gate independently. Both
+  // reservations must succeed for the request to proceed; if the credit
+  // reservation fails after the direction reservation already succeeded,
+  // the direction reservation is released too (this attempt never happened
+  // from either ledger's point of view).
+  const creditCost = creditCostForTask(taskType);
+  let creditReserved = false;
   let reservation = null;
   if (authed) {
     reservation = entitlement.reserveDirection(db, req.accountId, MAX_DIRECTIONS);
     if (!reservation.ok) {
-      return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This account has used its Claude-planned directions for now.' });
+      return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining, message: 'This account has used its Claude-planned directions for now.' });
+    }
+    if (creditCost > 0) {
+      const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+      if (!creditReservation.ok) {
+        entitlement.releaseDirection(db, req.accountId);
+        return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: remainingFor(), creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+      }
+      creditReserved = true;
     }
   } else if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
     // Enforced here, server-side, BEFORE any model call -- a real brake on
@@ -1146,6 +1274,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   const text = clean(req.body.text, 600);
   if (!text) {
     if (authed) entitlement.releaseDirection(db, req.accountId); // never charged for a request that never reached Claude
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
   }
   const brief = {
@@ -1162,17 +1291,19 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
     if (authed) entitlement.commitDirection(db, req.accountId); // reserved -> used, only on real success
+    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     if (!authed) entry.claudeDirectionsUsed += 1; // anonymous path unchanged from V8/V8.1
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), meta: { model, latencyMs } });
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null, meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
     if (authed) entitlement.releaseDirection(db, req.accountId); // a failed attempt never permanently consumes a direction
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently consumes a credit
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
@@ -1281,7 +1412,17 @@ app.post('/api/stripe/webhook', (req, res) => {
   const session = event && event.data && event.data.object;
   try {
     if (event.type === 'checkout.session.completed' && session && session.id) {
-      purchase.fulfillBySessionId(db, session.id);
+      const fulfillment = purchase.fulfillBySessionId(db, session.id);
+      // Only on a FIRST-TIME fulfillment (never on Stripe's own documented
+      // at-least-once redelivery of the same event) -- an
+      // already-fulfilled intent must never re-send this email.
+      if (fulfillment.ok && !fulfillment.alreadyFulfilled && fulfillment.ownerEmail) {
+        const origin = `${req.protocol}://${req.get('host')}`;
+        sendPurchaseConfirmationEmail({
+          to: fulfillment.ownerEmail, projectName: fulfillment.projectName,
+          myWebsitesUrl: `${origin}/#my-websites`,
+        }).catch(error => console.error('Purchase confirmation email failed to send:', error));
+      }
     } else if ((event.type === 'checkout.session.expired') && session && session.id) {
       purchase.markIntentTerminal(db, session.id, 'cancelled');
     }
@@ -1424,6 +1565,14 @@ app.get('/api/auth/me', withOptionalAuth, (req, res) => {
   if (!req.accountId) return res.json({ authenticated: false });
   return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail } });
 });
+// Product-flow pass: a signed-in account's real, durable credit balance --
+// what the account page / generation UI reads to show "X credits left
+// today," separate from claudeDirectionsRemaining (the lifetime-3 cap,
+// still surfaced by /api/generation-status and /api/plan-website's own
+// responses).
+app.get('/api/credits', requireAuth, (req, res) => {
+  res.json({ ok: true, credits: creditsSummaryFor(req.accountId) });
+});
 
 // Create (or idempotently resolve, via sourceLocalId) an owned project.
 // This is also the anonymous -> account migration endpoint: the client
@@ -1495,31 +1644,41 @@ function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
 // Compiles + archives + records a new deployment for an owned, PURCHASED
 // project. Never trusts localStorage/UI badges/client-supplied status --
 // `project.status` is read straight from the authoritative row (spec §4).
-// Binds to the EXACT revision the client says it has (§3): the caller must
-// have already flushed its latest autosave and pass that resulting
-// revision number, or this refuses with a stale-revision conflict rather
-// than silently exporting whatever the server happens to have.
+//
+// Product-flow pass: this now compiles EXCLUSIVELY from the immutable
+// purchase snapshot frozen at fulfillment time (see lib/purchase.js's
+// fulfillBySessionId/ensureSnapshotForOwnedProject and
+// migrations/0003_credits_and_snapshots.sql) -- never from the live,
+// still-editable draft. This is a deliberate API contract change from the
+// prior pass: since export no longer touches the live draft at all, the
+// client-supplied `expectedRevision`/`directionIndex`/stale-revision check
+// that used to gate this route is gone -- there is nothing left for it to
+// be stale against. A request body is no longer required.
 app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
   const projectId = req.params.id;
-  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
-  if (!project) return res.status(404).json({ ok: false, message: 'Project not found.' });
-  if (project.status !== 'purchased') return res.status(403).json({ ok: false, message: 'This project has not been purchased yet.' });
-  const body = req.body || {};
-  const expectedRevision = Number.isInteger(body.expectedRevision) ? body.expectedRevision : null;
-  if (expectedRevision === null) return res.status(400).json({ ok: false, message: 'expectedRevision is required -- save your latest changes first.' });
-  if (expectedRevision !== project.revision) {
-    return res.status(409).json({ ok: false, reason: 'stale_revision', message: 'Your local copy is behind the saved project. Reload and try again.', currentRevision: project.revision });
-  }
-  const directionIndex = Number.isInteger(body.directionIndex) ? body.directionIndex : (project.directionsState.activeDirectionIndex || 0);
+  const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
+  if (!status) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  if (status.status !== 'purchased') return res.status(403).json({ ok: false, message: 'This project has not been purchased yet.' });
+  // ensureSnapshotForOwnedProject is a one-time, best-effort backfill for a
+  // purchased project that (for any reason) predates this feature -- a
+  // true no-op if a snapshot already exists, which is the normal case
+  // (the Stripe webhook already created it atomically at fulfillment).
+  const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, projectId);
+  if (!ensured.ok) return res.status(500).json({ ok: false, message: 'Could not locate a purchased snapshot for this project.' });
+  const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
+  const exportSource = { id: projectId, revision: snapshot.projectRevision, directionsState: snapshot.directionsState };
   ensureExportsDir();
   const deploymentId = deploymentStore.genId('dep');
   const workDir = path.join(EXPORTS_DIR, deploymentId);
   let result;
   try {
-    result = exportCompiler.compileExport(db, { project, directionIndex, workDir });
+    result = exportCompiler.compileExport(db, {
+      project: exportSource, directionIndex: snapshot.directionIndex, workDir,
+      hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
+    });
   } catch (e) {
     const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
       target: 'local', failureReason: (e && e.message) || 'Export failed.',
     });
     return res.status(400).json({ ok: false, message: (e && e.message) || 'Export failed.', deployment: failed });
@@ -1528,7 +1687,7 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
     zipDirectory(result.workDir, workDir + '.zip');
   } catch (e) {
     const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
       target: 'local', failureReason: 'Could not build a downloadable archive: ' + ((e && e.message) || 'unknown error'),
       runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, manifest: result.manifest,
       artifactHash: result.artifactHash, compilerVersion: exportCompiler.COMPILER_VERSION,
@@ -1536,12 +1695,66 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
     return res.status(500).json({ ok: false, message: 'Could not build a downloadable archive.', deployment: failed });
   }
   const deployment = deploymentStore.createReadyDeployment(db, {
-    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: project.revision, directionIndex,
+    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
     compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
     runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
     manifest: result.manifest, artifactPath: workDir + '.zip',
   });
   return res.status(201).json({ ok: true, deployment, manifest: result.manifest });
+});
+
+// ---- Product-flow pass: purchase snapshot / hosting choice / My Websites --
+app.get('/api/projects/:id/purchase-snapshot', requireAuth, (req, res) => {
+  const status = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);
+  if (!status) return res.status(404).json({ ok: false, message: 'Project not found.' });
+  if (status.status !== 'purchased') return res.status(404).json({ ok: false, message: 'This project has not been purchased yet.' });
+  const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, req.params.id);
+  if (!ensured.ok) return res.status(500).json({ ok: false, message: 'Could not locate a purchased snapshot for this project.' });
+  return res.json({ ok: true, snapshot: purchase.getOwnedPurchaseSnapshot(db, req.accountId, req.params.id) });
+});
+// Post-purchase hosting upsell (spec §6): recommendation-only, never
+// required for ownership -- 'self'/omitted `provider` (or `skipped:true`)
+// is a first-class, equally-valid choice, not a degraded path. Validated
+// against lib/hosting.js's own real provider keys, never trusted blindly
+// from the client, so this can never store a fabricated provider name.
+app.post('/api/projects/:id/hosting-choice', requireAuth, requireSameOrigin, (req, res) => {
+  const body = req.body || {};
+  const rawProvider = body.provider ? String(body.provider).slice(0, 40) : null;
+  const skipped = !!body.skipped || !rawProvider;
+  const validProviderKeys = hosting.listProviders().map(p => p.key);
+  if (rawProvider && rawProvider !== 'self' && !validProviderKeys.includes(rawProvider)) {
+    return res.status(400).json({ ok: false, message: 'Unknown hosting provider.' });
+  }
+  const result = purchase.setSnapshotHostingChoice(db, req.accountId, req.params.id, { provider: skipped ? (rawProvider === 'self' ? 'self' : null) : rawProvider, skipped });
+  if (!result.ok) return res.status(404).json({ ok: false, message: 'No purchase snapshot found for this project -- purchase it first.' });
+  return res.json({ ok: true, hostingChoice: result.hostingChoice });
+});
+// My Websites (spec §15): every purchased site this account owns, with the
+// snapshot/hosting/receipt/latest-download info that surface needs -- the
+// purchased build stays listed here even if the editable draft keeps
+// changing (spec: "the purchased build must remain accessible even if the
+// editable draft changes").
+app.get('/api/my-websites', requireAuth, (req, res) => {
+  const snapshots = purchase.listOwnedPurchaseSnapshots(db, req.accountId);
+  const websites = snapshots.map(snapshot => {
+    const projectStatus = projectStore.getOwnedProjectStatus(db, req.accountId, snapshot.projectId);
+    const latestDeployment = deploymentStore.getLatestGoodDeployment(db, req.accountId, snapshot.projectId);
+    return {
+      projectId: snapshot.projectId,
+      projectName: null, // filled in below from the cheap project-summary list, avoiding a second round trip per site
+      purchaseRef: projectStatus ? projectStatus.purchaseRef : null,
+      purchasedAt: snapshot.createdAt,
+      snapshot: { id: snapshot.id, directionIndex: snapshot.directionIndex, projectRevision: snapshot.projectRevision },
+      hostingChoice: snapshot.hostingChoice,
+      latestDeployment: latestDeployment ? { id: latestDeployment.id, state: latestDeployment.state, createdAt: latestDeployment.createdAt, downloadUrl: `/api/deployments/${latestDeployment.id}/download` } : null,
+    };
+  });
+  // Fold in name/status from the plain project list so the UI doesn't need
+  // a second round trip -- listOwnedProjects is already cheap (one indexed
+  // query) and this route is not on any hot path.
+  const projectsByid = new Map(projectStore.listOwnedProjects(db, req.accountId).map(p => [p.id, p]));
+  websites.forEach(w => { const p = projectsByid.get(w.projectId); if (p) w.projectName = p.name; });
+  return res.json({ ok: true, websites });
 });
 app.get('/api/projects/:id/deployments', requireAuth, (req, res) => {
   const project = projectStore.getOwnedProjectStatus(db, req.accountId, req.params.id);

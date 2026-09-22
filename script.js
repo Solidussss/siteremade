@@ -7622,6 +7622,9 @@ function updateAccountUI() {
   // chokepoint every other account-dependent UI already re-renders from
   // (see this function's own call sites) -- see refreshExportPanel below.
   if (typeof refreshExportPanel === 'function') refreshExportPanel();
+  // Product-flow pass: same chokepoint, for the account-wide (not just
+  // currently-open-project) My Websites list.
+  if (typeof refreshMyWebsitesPanel === 'function') refreshMyWebsitesPanel(false);
 }
 async function refreshServerProjectStatus() {
   if (!currentAccount || !serverProjectId) return;
@@ -7633,6 +7636,7 @@ async function refreshServerProjectStatus() {
   else ownedProjectsCache[idx] = { ...ownedProjectsCache[idx], ...patch };
   updatePurchaseOwnershipBadge();
   if (typeof refreshExportPanel === 'function') refreshExportPanel();
+  if (typeof refreshMyWebsitesPanel === 'function') refreshMyWebsitesPanel(true); // a purchase may have just completed -- force a fresh My Websites fetch, don't wait for the lazy per-account cache
 }
 
 // A one-time anonymous -> account migration marker, persisted so a visitor
@@ -7878,6 +7882,8 @@ if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
   serverProjectId = null;
   serverProjectRevision = null;
   ownedProjectsCache = [];
+  myWebsitesLoadedForAccount = null;
+  latestSnapshot = null;
   hideConflict();
   if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
   setAutosaveState('idle');
@@ -8177,10 +8183,25 @@ const domainSubmitButton = $('#domainSubmitButton');
 const domainRecords = $('#domainRecords');
 const domainVerifyButton = $('#domainVerifyButton');
 const domainStatus = $('#domainStatus');
+// Product-flow pass: hosting CHOICE (distinct from the read-only technical
+// recommendation above) + My Websites, both additive to the V8.6 panel.
+const hostingChoiceBlock = $('#hostingChoiceBlock');
+const hostingProviderSelect = $('#hostingProviderSelect');
+const hostingProviderNote = $('#hostingProviderNote');
+const hostingChoiceSaveBtn = $('#hostingChoiceSaveBtn');
+const hostingChoiceSelfBtn = $('#hostingChoiceSelfBtn');
+const hostingChoiceSkipBtn = $('#hostingChoiceSkipBtn');
+const hostingChoiceStatus = $('#hostingChoiceStatus');
+const myWebsitesPanel = $('#myWebsitesPanel');
+const myWebsitesEmpty = $('#myWebsitesEmpty');
+const myWebsitesList = $('#myWebsitesList');
 
 let exportPanelLoaded = false; // avoids refetching hosting-recommendation/deployments on every unrelated updateAccountUI() call
 let latestDeployment = null;
 let latestDomainId = null;
+let latestSnapshot = null; // { id, directionIndex, projectRevision, hostingChoice, createdAt } for the currently open project, once purchased
+let hostingProvidersCache = null; // GET /api/hosting-providers is public + static -- fetched once, reused by both the export panel and every My Websites row
+let myWebsitesLoadedForAccount = null; // the account id My Websites was last fetched for -- refetches on sign-in/out, not on every unrelated updateAccountUI() call
 
 const RUNTIME_REASON_LABELS = {
   contact_form_submission: 'a contact form that really needs to receive submissions',
@@ -8198,11 +8219,14 @@ async function refreshExportPanel() {
   if (!purchased) return;
   if (exportButton) exportButton.disabled = false;
   if (exportStatus) exportStatus.textContent = 'Ready to export this exact project.';
-  if (exportPanelLoaded) return; // one-time load per purchased-project view -- exportButton's own click handler refreshes after a real export
+  if (hostingChoiceBlock) hostingChoiceBlock.hidden = false;
+  if (exportPanelLoaded) { renderHostingChoiceUi(); return; } // one-time load per purchased-project view -- exportButton's own click handler refreshes after a real export
   exportPanelLoaded = true;
-  const [{ ok: recOk, data: recData }, { ok: depOk, data: depData }] = await Promise.all([
+  const [{ ok: recOk, data: recData }, { ok: depOk, data: depData }, { ok: snapOk, data: snapData }, providers] = await Promise.all([
     apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/hosting-recommendation`),
     apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/deployments`),
+    apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/purchase-snapshot`),
+    loadHostingProviders(),
   ]);
   if (recOk && recData.ok) {
     const rec = recData.recommendation;
@@ -8216,12 +8240,62 @@ async function refreshExportPanel() {
       exportHostingRecommendation.textContent = `Fits: ${names || 'local export'}. ${rec.reasoning}`;
     }
   }
+  if (snapOk && snapData.ok) latestSnapshot = snapData.snapshot;
   if (depOk && depData.ok && depData.deployments.length) {
     const goodOne = depData.deployments.find(d => d.state === 'ready' || d.state === 'live') || null;
     latestDeployment = goodOne || depData.deployments[0];
     applyDeploymentToUi(latestDeployment, depData.deployments[0]);
   }
+  renderHostingChoiceUi();
 }
+// Providers are static, public, and shared by both the export panel and
+// every row of the My Websites list -- fetched once per page load.
+async function loadHostingProviders() {
+  if (hostingProvidersCache) return hostingProvidersCache;
+  const { ok, data } = await apiFetch('/api/hosting-providers');
+  hostingProvidersCache = (ok && data.ok) ? data.providers : [];
+  return hostingProvidersCache;
+}
+function renderHostingChoiceUi() {
+  if (!hostingProviderSelect || !hostingProvidersCache) return;
+  if (!hostingProviderSelect.dataset.populated) {
+    hostingProviderSelect.dataset.populated = '1';
+    hostingProviderSelect.innerHTML = '<option value="">— choose a host —</option>' + hostingProvidersCache
+      .filter(p => p.key !== 'local')
+      .map(p => `<option value="${escapeHtml(p.key)}">${escapeHtml(p.label)}${p.available ? '' : ' (handoff not yet automated here)'}</option>`).join('');
+  }
+  const choice = latestSnapshot && latestSnapshot.hostingChoice;
+  if (choice && choice.provider && choice.provider !== 'self') {
+    hostingProviderSelect.value = choice.provider;
+    const p = hostingProvidersCache.find(x => x.key === choice.provider);
+    if (hostingProviderNote) { hostingProviderNote.hidden = false; hostingProviderNote.textContent = p ? p.description : ''; }
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = `Hosting: ${p ? p.label : choice.provider} -- saved.`;
+  } else if (choice && choice.provider === 'self') {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Hosting: you chose to self-host.';
+  } else if (choice && choice.skipped) {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Hosting: not decided yet -- your download works either way.';
+  } else {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = '';
+  }
+}
+async function saveHostingChoice(body) {
+  if (!serverProjectId) return;
+  [hostingChoiceSaveBtn, hostingChoiceSelfBtn, hostingChoiceSkipBtn].forEach(b => { if (b) b.disabled = true; });
+  if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Saving…';
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/hosting-choice`, { method: 'POST', body });
+  [hostingChoiceSaveBtn, hostingChoiceSelfBtn, hostingChoiceSkipBtn].forEach(b => { if (b) b.disabled = false; });
+  if (!ok || !data.ok) { if (hostingChoiceStatus) hostingChoiceStatus.textContent = (data && data.message) || 'Could not save that.'; return; }
+  if (latestSnapshot) latestSnapshot = { ...latestSnapshot, hostingChoice: data.hostingChoice };
+  renderHostingChoiceUi();
+  refreshMyWebsitesPanel(true); // this project's row should reflect the new choice immediately
+}
+if (hostingChoiceSaveBtn) hostingChoiceSaveBtn.addEventListener('click', () => {
+  const provider = hostingProviderSelect ? hostingProviderSelect.value : '';
+  if (!provider) { if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Pick a host from the list first.'; return; }
+  saveHostingChoice({ provider });
+});
+if (hostingChoiceSelfBtn) hostingChoiceSelfBtn.addEventListener('click', () => saveHostingChoice({ provider: 'self' }));
+if (hostingChoiceSkipBtn) hostingChoiceSkipBtn.addEventListener('click', () => saveHostingChoice({ skipped: true }));
 function applyDeploymentToUi(goodDeployment, mostRecent) {
   if (!goodDeployment) return;
   if (exportStatusHeadline) exportStatusHeadline.textContent = `Exported (revision ${goodDeployment.projectRevision})`;
@@ -8230,13 +8304,20 @@ function applyDeploymentToUi(goodDeployment, mostRecent) {
     exportDownloadLink.href = `/api/deployments/${encodeURIComponent(goodDeployment.id)}/download`;
   }
   if (domainHandoff) domainHandoff.hidden = false;
+  // Product-flow pass: export now compiles EXCLUSIVELY from the immutable
+  // purchase snapshot (see server.js's rewritten POST .../export), never
+  // from the live draft -- so a higher live serverProjectRevision no longer
+  // means "export again to publish it." Re-exporting always reproduces the
+  // exact same purchased version. This note is now purely informational:
+  // it tells the owner their later edits are saved to the project but are
+  // NOT part of this download, rather than implying a re-export would help.
   if (exportRevisionNote && serverProjectRevision != null) {
     if (mostRecent && mostRecent.id !== goodDeployment.id && mostRecent.state === 'failed') {
       exportRevisionNote.hidden = false;
       exportRevisionNote.textContent = `A more recent export attempt failed (${mostRecent.failureReason || 'unknown error'}) -- the version above is still the last good one.`;
     } else if (serverProjectRevision > goodDeployment.projectRevision) {
       exportRevisionNote.hidden = false;
-      exportRevisionNote.textContent = `You have unpublished changes since revision ${goodDeployment.projectRevision} -- export again to publish revision ${serverProjectRevision}.`;
+      exportRevisionNote.textContent = `This download is the exact version you purchased (revision ${goodDeployment.projectRevision}). You've since made further edits in the editor above (now at revision ${serverProjectRevision}) -- those are saved to your project, but this purchased download stays exactly as bought and won't include them.`;
     } else {
       exportRevisionNote.hidden = true;
     }
@@ -8298,5 +8379,83 @@ if (domainVerifyButton) {
     if (domainStatus) domainStatus.textContent = data.check.ok
       ? `Reachable (${data.domain.state}).`
       : `Not live yet: ${data.check.message}`;
+  });
+}
+
+// ==========================================================================
+// Product-flow pass: My Websites (spec: "retain access to purchased sites in
+// account"). Every project this account has actually PURCHASED, across the
+// whole account -- not just whichever one is currently open in the editor
+// above. Reads from GET /api/my-websites (server.js), which itself reads
+// from the immutable purchase_snapshots table, so a row here never
+// disappears or changes just because the live draft keeps getting edited.
+// ==========================================================================
+let myWebsitesCache = [];
+
+async function refreshMyWebsitesPanel(force) {
+  if (!myWebsitesPanel) return;
+  const signedIn = !!currentAccount;
+  if (!signedIn) { myWebsitesLoadedForAccount = null; myWebsitesPanel.hidden = true; return; }
+  myWebsitesPanel.hidden = false;
+  if (!force && myWebsitesLoadedForAccount === currentAccount.id) return;
+  myWebsitesLoadedForAccount = currentAccount.id;
+  const [{ ok, data }] = await Promise.all([
+    apiFetch('/api/my-websites'),
+    loadHostingProviders(), // rows need provider labels too -- shares the same cache the export panel populates
+  ]);
+  if (!ok || !data.ok) return;
+  myWebsitesCache = data.websites;
+  renderMyWebsitesList();
+}
+function hostingChoiceSummary(hostingChoice) {
+  if (!hostingChoice || (!hostingChoice.provider && !hostingChoice.skipped)) return 'Hosting: not decided yet';
+  if (hostingChoice.provider === 'self') return 'Hosting: self-hosted';
+  if (hostingChoice.provider) {
+    const p = (hostingProvidersCache || []).find(x => x.key === hostingChoice.provider);
+    return `Hosting: ${p ? p.label : hostingChoice.provider}`;
+  }
+  return 'Hosting: not decided yet';
+}
+function renderMyWebsitesList() {
+  if (!myWebsitesList) return;
+  if (myWebsitesEmpty) myWebsitesEmpty.hidden = myWebsitesCache.length > 0;
+  myWebsitesList.innerHTML = myWebsitesCache.map(w => {
+    const purchasedDate = w.purchasedAt ? new Date(w.purchasedAt).toLocaleDateString() : '';
+    const downloadHtml = w.latestDeployment && w.latestDeployment.downloadUrl
+      ? `<a href="${escapeHtml(w.latestDeployment.downloadUrl)}" class="link-button" download>Download .zip</a>`
+      : `<button type="button" class="link-button" data-my-website-export="${escapeHtml(w.projectId)}">Export .zip</button>`;
+    return `<div class="my-website-item" data-my-website-id="${escapeHtml(w.projectId)}">
+      <strong>${escapeHtml(w.projectName || 'Untitled project')}</strong>
+      <small>Purchased ${escapeHtml(purchasedDate)}${w.purchaseRef ? ` · ${escapeHtml(w.purchaseRef)}` : ''}</small>
+      <p class="my-website-hosting">${escapeHtml(hostingChoiceSummary(w.hostingChoice))}</p>
+      <div class="my-website-actions">
+        <button type="button" class="link-button" data-my-website-open="${escapeHtml(w.projectId)}">Open in editor</button>
+        ${downloadHtml}
+      </div>
+      <p class="my-website-status" data-my-website-status="${escapeHtml(w.projectId)}" aria-live="polite"></p>
+    </div>`;
+  }).join('');
+}
+function myWebsitesStatusEl(projectId) {
+  return myWebsitesList ? myWebsitesList.querySelector(`[data-my-website-status="${CSS.escape(projectId)}"]`) : null;
+}
+if (myWebsitesList) {
+  myWebsitesList.addEventListener('click', async (e) => {
+    const openId = e.target.getAttribute && e.target.getAttribute('data-my-website-open');
+    if (openId) { loadSelectedOwnedProjectById(openId); return; }
+    const exportId = e.target.getAttribute && e.target.getAttribute('data-my-website-export');
+    if (!exportId) return;
+    e.target.disabled = true;
+    const statusEl = myWebsitesStatusEl(exportId);
+    if (statusEl) statusEl.textContent = 'Compiling your export…';
+    const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(exportId)}/export`, { method: 'POST' });
+    e.target.disabled = false;
+    if (!ok || !data.ok) { if (statusEl) statusEl.textContent = (data && data.message) || 'Export failed.'; return; }
+    const row = myWebsitesCache.find(w => w.projectId === exportId);
+    if (row) row.latestDeployment = { id: data.deployment.id, state: data.deployment.state, createdAt: data.deployment.createdAt, downloadUrl: `/api/deployments/${data.deployment.id}/download` };
+    renderMyWebsitesList();
+    // If this row's project is also the one currently open in the editor,
+    // keep the export panel above in sync too, rather than leaving it stale.
+    if (exportId === serverProjectId) { latestDeployment = data.deployment; applyDeploymentToUi(data.deployment, data.deployment); }
   });
 }

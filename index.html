@@ -322,6 +322,17 @@
                   <select id="accountProjectsSelect"><option value="">— select a project —</option></select>
                 </label>
                 <button type="button" class="reset-colors" id="accountLoadProjectBtn">Load selected project</button>
+
+                <!-- Product-flow pass: every project this account has actually
+                     PURCHASED, independent of which one is open in the editor
+                     above -- the purchased build (and its download/hosting
+                     status) stays reachable here even after the live draft is
+                     edited further or a different project is loaded. -->
+                <div class="my-websites-panel" id="myWebsitesPanel" hidden>
+                  <label class="control-label">My websites</label>
+                  <p class="asset-block-note" id="myWebsitesEmpty">No purchased websites yet — buy a project above and it will appear here.</p>
+                  <div class="my-websites-list" id="myWebsitesList"></div>
+                </div>
               </div>
             </div>
 
@@ -387,6 +398,24 @@
           <button type="button" class="button full-width" id="exportButton" disabled>Export this website</button>
           <p class="purchase-status" id="exportStatus" aria-live="polite">Purchase this project to enable export.</p>
           <a href="#" id="exportDownloadLink" class="button full-width" hidden download>Download .zip</a>
+
+          <!-- Product-flow pass: post-purchase hosting recommendation is
+               shown above (exportHostingRecommendation); this is the actual
+               CHOICE step -- a real, listed provider, explicit self-hosting,
+               or deciding later, all first-class and none required to keep
+               the download. Never a fabricated "deal" -- see lib/hosting.js. -->
+          <div class="hosting-choice-block" id="hostingChoiceBlock" hidden>
+            <label class="account-owned-projects-label">Hosting for this site
+              <select id="hostingProviderSelect"><option value="">— choose a host —</option></select>
+            </label>
+            <p class="handoff-description-note" id="hostingProviderNote" hidden></p>
+            <div class="hosting-choice-actions">
+              <button type="button" class="reset-colors" id="hostingChoiceSaveBtn">Save this host</button>
+              <button type="button" class="link-button" id="hostingChoiceSelfBtn">I'll host it myself</button>
+              <button type="button" class="link-button" id="hostingChoiceSkipBtn">Decide later</button>
+            </div>
+            <p class="purchase-status" id="hostingChoiceStatus" aria-live="polite"></p>
+          </div>
 
           <div id="domainHandoff" hidden>
             <label>Custom domain<input type="text" id="domainInput" placeholder="yourbusiness.com" maxlength="253" /></label>

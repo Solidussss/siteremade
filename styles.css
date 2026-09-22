@@ -1195,6 +1195,22 @@ html,body{max-width:100%;overflow-x:hidden}
 .purchase-ownership-badge[data-status="purchased"]{background:#e5f6ec;color:#17733a}
 .purchase-ownership-badge[data-status="checkout_pending"]{background:#fff4e0;color:#8a5a10}
 
+/* Product-flow pass: My Websites (account-wide purchased-site list) +
+   post-purchase hosting choice. Additive only, reusing the same tokens as
+   the account/purchase blocks above rather than introducing new ones. */
+.my-websites-panel{margin-top:18px;padding-top:18px;border-top:1px solid #dddfe4}
+.my-websites-list{display:flex;flex-direction:column;gap:10px}
+.my-website-item{border:1px solid #dddfe4;background:#fff;border-radius:12px;padding:12px 14px}
+.my-website-item strong{display:block;font-size:13px}
+.my-website-item small{display:block;font-size:10px;color:#8a8e97;margin-top:2px}
+.my-website-hosting{margin:8px 0 0!important;font-size:11px!important;color:#525660}
+.my-website-actions{display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.my-website-actions .link-button{font-size:11px}
+.my-website-status{margin:6px 0 0!important;font-size:11px!important;color:var(--muted)}
+.hosting-choice-block{margin-top:16px;padding-top:16px;border-top:1px solid #eceef1}
+.hosting-choice-actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.hosting-choice-actions .link-button{font-size:11px}
+
 /* ==========================================================================
    V6 -- Generate -> Inspect -> Buy. Additive only, same convention as the
    V5 block above: nothing before this point is modified. See
