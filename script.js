@@ -1274,7 +1274,25 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
     return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}" alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
   }
   const generating = cacheMatches && generated.status === 'pending';
-  return `<div class="visual-generated${generating ? ' visual-generating' : ''}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
+  // PLACEHOLDER/COMPOSITION FIX: distinguish WHY this slot has no real
+  // image. `generating` (an attempt is actively in flight) keeps the
+  // existing pulse animation -- that's an honest, temporary loading state.
+  // Everything else -- this slot was never even planned for paid
+  // generation (sourceType !== 'generated', the common budget/rank
+  // decision this whole system is built around), or a real attempt was
+  // made and failed -- means NO real photo is coming this render pass, and
+  // showing the same full-size, photo-styled gradient block for that case
+  // is exactly the "giant fake box" this pass's brief calls out. Those get
+  // a distinct `visual-generated-unfunded` class instead: a visibly
+  // smaller, deliberately pattern-styled "branded accent" treatment (see
+  // styles.css), plus a `data-funded="false"` hook that lets the
+  // section's own outer container (site-visual/product-frame/editorial-
+  // visual/gallery-tile/team-card/about-visual) shrink itself via CSS
+  // `:has()` instead of holding the full photo-sized box open for
+  // something that was never going to arrive.
+  const unfunded = !generating && (!planEntry || planEntry.sourceType !== 'generated' || (cacheMatches && generated.status === 'error'));
+  const stateClass = generating ? ' visual-generating' : (unfunded ? ' visual-generated-unfunded' : '');
+  return `<div class="visual-generated${stateClass}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}" data-funded="${unfunded ? 'false' : 'true'}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
 }
 function imageSlotLabel(slot) {
   if (slot === 'hero' || slot === 'collage-2') return 'hero image';
@@ -1390,63 +1408,200 @@ function imageBudgetForProject(project) {
   const delta = (cd && IMAGE_STRATEGY_BUDGET_DELTA[cd.imageStrategy]) || 0;
   return Math.max(0, base + delta);
 }
-const DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD = Object.freeze({ low: 0.02, medium: 0.07, high: 0.19 });
-const DEFAULT_IMAGE_BUDGET_USD = 0.30;
-const IMAGE_TIER_DOWNGRADE_PATH = Object.freeze({
-  high: ['high', 'medium', 'low'],
-  medium: ['medium', 'low'],
-  low: ['low']
-});
-function imageTierCostEstimate() {
-  const remote = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.costEstimateUsd) || {};
-  return {
-    low: Number.isFinite(Number(remote.low)) ? Number(remote.low) : DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD.low,
-    medium: Number.isFinite(Number(remote.medium)) ? Number(remote.medium) : DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD.medium,
-    high: Number.isFinite(Number(remote.high)) ? Number(remote.high) : DEFAULT_IMAGE_TIER_COST_ESTIMATE_USD.high
-  };
-}
-function imageGlobalBudgetUsd() {
-  const remote = typeof window !== 'undefined' && window.__siteremadeImageProvider && Number(window.__siteremadeImageProvider.budgetUsd);
-  return Number.isFinite(remote) && remote >= 0 ? remote : DEFAULT_IMAGE_BUDGET_USD;
-}
-function imageSpendCeilingUsd(project) {
-  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
-  const baseCount = imageBudgetForArchetype(archetype);
-  const costs = imageTierCostEstimate();
-  const baseUsd = baseCount * costs.medium;
-  const cd = project.intent && project.intent.creativeDirection;
-  const delta = (cd && IMAGE_STRATEGY_BUDGET_DELTA[cd.imageStrategy]) || 0;
-  const adjustedCount = Math.max(0, baseCount + delta);
-  const multiplier = baseCount > 0 ? Math.min(1, adjustedCount / baseCount) : 0;
-  return Math.max(0, Math.min(baseUsd, imageGlobalBudgetUsd()) * multiplier);
-}
 // A strategy can also change which unfilled ROLE is worth spending the
-// budget on first -- e.g. a product-ui-led business should prioritize its
-// product shot over a generic gallery tile.
+// (unchanged) budget on first -- e.g. a product-ui-led business should
+// prioritize its product shot over a generic gallery tile. Small, additive
+// nudges only; the base priority order is untouched for every strategy not
+// listed.
 const IMAGE_STRATEGY_ROLE_PRIORITY_BOOST = {
   'product-ui': { product: -1 },
   'people-team': { team: -1 },
   'photography-led': { gallery: -0.5 },
   'editorial-lifestyle': { gallery: -0.5 }
 };
-function classifyImageSlotForSpend(slot) {
-  if (slot.role === 'hero') return { rank: 0, idealTier: 'high' };
-  if (slot.role === 'product' || slot.sectionType === 'imageLedEditorial') return { rank: 1, idealTier: 'medium' };
-  const galleryMatch = String(slot.slot || '').match(/gallery-(\d+)$/);
-  if (slot.role === 'gallery') {
-    const index = galleryMatch ? Number(galleryMatch[1]) - 1 : 0;
-    if (index <= 0) return { rank: 1, idealTier: 'medium' };
-    if (index === 1) return { rank: 3, idealTier: 'low' };
-    return { rank: 4, idealTier: null };
+const IMAGE_ROLE_PRIORITY = { hero: 0, product: 1, team: 2, gallery: 3 };
+
+// ---- MULTI-MODEL IMAGE ROUTER PASS -------------------------------------
+// Supersedes the earlier "tiered quality" pass. That pass added real
+// dollar-denominated spend planning and per-slot quality routing, but a
+// post-deployment audit found it incomplete: every funded slot still
+// requested the SAME model (gpt-image-1) at a different `quality` setting
+// -- and real production billing showed a single gpt-image-1 image costing
+// roughly $0.50, several times this codebase's own prior 'high' estimate.
+// Quality alone cannot buy real savings when the model itself is the
+// expensive part. This section keeps the dollar-budget planner (preserved,
+// not replaced -- imageSpendCeilingUsd below still reuses
+// imageBudgetForArchetype's table as its base unit) but replaces "pick a
+// quality on gpt-image-1" with "pick a real {model, quality} ROUTE" --
+// hero/highest-value slots may still reach for the premium model at a
+// contained quality, but supporting slots now route through a genuinely
+// cheaper model (gpt-image-1-mini by default), not just a cheaper setting
+// on the same one.
+//
+// Cost estimates are intentionally sourced from the SERVER (see
+// /api/image-provider-status's costEstimateUsd/models/landscapeCostMultiplier,
+// itself env-overridable) rather than a second hardcoded copy here -- one
+// source of truth for "what does this actually cost," honestly labeled as
+// an estimate, not a guarantee of the exact billed amount (see that
+// endpoint's own honesty note in server.js -- the real $0.50 data point is
+// exactly why this codebase refuses to call any of these numbers a
+// guarantee).
+const DEFAULT_IMAGE_MODEL_KEYS = { support: 'gpt-image-1-mini', premium: 'gpt-image-1' };
+function imageModelKeys() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.models) || null;
+  return { ...DEFAULT_IMAGE_MODEL_KEYS, ...(fromServer || {}) };
+}
+const DEFAULT_IMAGE_MODEL_COST_ESTIMATE_USD = {
+  [DEFAULT_IMAGE_MODEL_KEYS.support]: { low: 0.006, medium: 0.015, high: 0.03 },
+  [DEFAULT_IMAGE_MODEL_KEYS.premium]: { low: 0.05, medium: 0.15, high: 0.45 }
+};
+function imageModelCostTable() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.costEstimateUsd) || null;
+  return { ...DEFAULT_IMAGE_MODEL_COST_ESTIMATE_USD, ...(fromServer || {}) };
+}
+const DEFAULT_IMAGE_LANDSCAPE_COST_MULTIPLIER = 1.4;
+function imageLandscapeCostMultiplier() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.landscapeCostMultiplier);
+  return (typeof fromServer === 'number' && fromServer > 0) ? fromServer : DEFAULT_IMAGE_LANDSCAPE_COST_MULTIPLIER;
+}
+// Estimated cost for one real {model, quality, aspectRatio} route -- the
+// allocator below always compares candidate ROUTES against this, never a
+// single generic low/medium/high number, so a decision between "premium at
+// medium" and "support at high" is a real comparison of what those two
+// specific requests are each estimated to cost, not two labels assumed to
+// cost the same.
+function imageRouteCostEstimate(model, quality, aspectRatio) {
+  const table = imageModelCostTable();
+  const modelKeys = imageModelKeys();
+  const base = (table[model] || table[modelKeys.support])[quality];
+  const isSquare = !aspectRatio || aspectRatio === '1:1';
+  return isSquare ? base : base * imageLandscapeCostMultiplier();
+}
+// The hard per-generation paid-image spend ceiling -- env-configurable on
+// the server (SITEREMADE_IMAGE_BUDGET_USD), read here the same way
+// `configured` already is, never hardcoded twice. Lowered from the prior
+// pass's $0.30 default to $0.10, per this pass's brief -- the earlier
+// default was sized around gpt-image-1's own (mis-estimated) cost; the new
+// default targets the $0.08-$0.12 "several real images for about a dime"
+// range now that supporting images route through a genuinely cheaper model.
+const DEFAULT_IMAGE_BUDGET_USD = 0.10;
+// CREATIVE DIRECTOR V2's imageStrategy delta used to subtract a fixed
+// integer from the archetype's own slot COUNT. Expressed in the new dollar
+// model as a spend multiplier instead -- capped at 1 (Math.min below) so
+// it can only ever hold or LOWER the archetype's own ceiling, exactly the
+// same hard invariant IMAGE_STRATEGY_BUDGET_DELTA already enforced, never
+// raise it. (IMAGE_STRATEGY_BUDGET_DELTA itself is left completely
+// untouched above -- this is an additive sibling for the new allocator,
+// not a replacement of the old one, which other code may still reference.)
+const IMAGE_STRATEGY_SPEND_MULTIPLIER = { 'sparse-premium': 0.6, 'mostly-typographic': 0.3, 'abstract-branded': 0.6, 'macro-detail': 0.6 };
+// The real per-generation dollar ceiling this pass actually enforces.
+// Archetype influence is PRESERVED (ARCHETYPE_IMAGE_BUDGET's existing,
+// already-tuned per-archetype table is reused as-is, read as "this many
+// support-model-medium-equivalent images worth of spend" instead of a raw
+// slot count) rather than retuned from scratch -- but the final number is
+// always clamped to the env-configured global ceiling, which is the part
+// that makes SITEREMADE_IMAGE_BUDGET_USD a real, enforced cap rather than
+// an unenforced suggestion. Uses the SUPPORT model's medium cost as its
+// per-unit rate (not a flat generic figure) because that is the route most
+// slots will actually be funded through -- see IMAGE_ROUTE_CANDIDATES_BY_
+// IDEAL_TIER below.
+function imageSpendCeilingUsd(project) {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.budgetUsd);
+  const globalCeiling = (typeof fromServer === 'number' && fromServer > 0) ? fromServer : DEFAULT_IMAGE_BUDGET_USD;
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const archetypeUnits = imageBudgetForArchetype(archetype);
+  const modelKeys = imageModelKeys();
+  const costTable = imageModelCostTable();
+  const archetypeCeilingUsd = archetypeUnits * (costTable[modelKeys.support] || {}).medium;
+  const cd = project.intent && project.intent.creativeDirection;
+  const strategyMultiplier = Math.min(1, (cd && IMAGE_STRATEGY_SPEND_MULTIPLIER[cd.imageStrategy]) || 1);
+  const afterStrategy = archetypeCeilingUsd * strategyMultiplier;
+  return Math.max(0, Math.min(afterStrategy, globalCeiling));
+}
+// Every {model, quality} ROUTE a slot may be downgraded through when its
+// ideal one can't be afforded, cheapest-acceptable-first -- this is the
+// real multi-model router the brief asked for, not a same-model quality
+// slider. 'high' (hero-class) tries the PREMIUM model at a contained
+// quality first (never premium+high -- "do not automatically use the
+// expensive model at high quality for the hero"), then falls back through
+// the cheap support model's own quality ladder, so the hero is still the
+// LAST slot to go fully unfunded, just very often ends up on a strong
+// support-model image rather than a premium one once real economics are
+// applied. 'medium'/'low' (supporting slots) never even attempt the
+// premium model -- they only ever compete on the support model's own
+// quality ladder, which is what actually makes them cheaper than the hero,
+// not just labeled differently. 'none' slots (bucket 4) are never in this
+// table -- see the `idealTier !== 'none'` filter in buildImagePlan --
+// matching the brief's own "decorative/low-value visuals: deterministic/
+// non-paid treatment only, no paid generation" tier.
+function imageRouteCandidatesForIdealTier(idealTier, modelKeys) {
+  if (idealTier === 'high') {
+    return [
+      { model: modelKeys.premium, quality: 'medium' },
+      { model: modelKeys.support, quality: 'high' },
+      { model: modelKeys.support, quality: 'medium' },
+      { model: modelKeys.support, quality: 'low' }
+    ];
   }
-  const teamMatch = String(slot.slot || '').match(/team-(\d+)$/);
-  if (slot.role === 'team') {
-    const index = teamMatch ? Number(teamMatch[1]) - 1 : 0;
-    if (index <= 0 || slot.sectionType === 'about') return { rank: 2, idealTier: 'medium' };
-    if (index === 1) return { rank: 3, idealTier: 'low' };
-    return { rank: 4, idealTier: null };
+  if (idealTier === 'medium') {
+    return [{ model: modelKeys.support, quality: 'medium' }, { model: modelKeys.support, quality: 'low' }];
   }
-  return { rank: 4, idealTier: null };
+  if (idealTier === 'low') {
+    return [{ model: modelKeys.support, quality: 'medium' }, { model: modelKeys.support, quality: 'low' }];
+  }
+  return [];
+}
+// Deterministic slot-importance ranking (rank, lower = funded first) and
+// each bucket's ideal quality tier, matching the brief's own 6-level
+// example: 0) hero, 1) key product/lead gallery showcase, 2) about/team
+// supporting trust image, 3) secondary gallery/team tiles, 4) decorative
+// extras (never paid, 'none'). Computed per-slot at push time in
+// buildImagePlan below (role + position within its section), not derived
+// from array order.
+const IMAGE_SLOT_TIER_BUCKETS = [
+  { rank: 0, idealTier: 'high' },   // hero / secondary hero visual
+  { rank: 1, idealTier: 'medium' }, // product showcase / lead gallery-or-proof image
+  { rank: 2, idealTier: 'medium' }, // about/team supporting trust image
+  { rank: 3, idealTier: 'low' },    // secondary gallery/team tile
+  { rank: 4, idealTier: 'none' }    // decorative/low-value extras -- deterministic only
+];
+// Hero layouts that render NO visual container at all -- shared between
+// buildImagePlan (so these never plan/pay for a hero image nothing would
+// display) and reconcileImageSupplyWithSections's hero-downgrade step
+// below (the layout an unfunded hero falls back to). Kept as one list so
+// the two can never drift apart.
+const TEXT_ONLY_HERO_VARIANTS = ['centered-oversized', 'minimal-text-only', 'poster'];
+// Responsive/QA pass: which TEXT_ONLY_HERO_VARIANTS member an unfunded,
+// image-bearing hero falls back to. Previously every image-bearing hero
+// collapsed to the SAME flat 'minimal-text-only' layout regardless of what
+// it originally was -- deterministic and never an empty image slot (the
+// required invariant), but it also erased any distinction between, say, a
+// bold fullbleed-image hero and a calm grid-dashboard one, which is what
+// made two materially different businesses with no funded hero image
+// render an IDENTICAL hero layout (the known v8-claude-plan-test.js
+// regression). This groups every image-bearing variant into the text-only
+// treatment closest to its own visual character, so the fallback still
+// varies with the original design intent instead of flattening it -- kept
+// as a lookup table (not a formula) so the grouping is a legible, reviewable
+// decision, not an incidental side effect of some other calculation.
+const HERO_TEXT_ONLY_FALLBACK = {
+  // Bold / immersive / full-image treatments -> the other bold, oversized
+  // text-only layout, so the site still reads as confident and visual-led.
+  'fullbleed-image': 'poster',
+  collage: 'poster',
+  // Editorial / offset treatments -> the oversized centered layout, which
+  // keeps a similar asymmetric-feeling emphasis on a single big headline.
+  'asymmetric-offset': 'centered-oversized',
+  // Calm / structured / utility treatments -> the plain minimal layout.
+  split: 'minimal-text-only',
+  centered: 'minimal-text-only',
+  'stacked-image-below': 'minimal-text-only',
+  'grid-dashboard': 'minimal-text-only',
+  'product-screenshot': 'minimal-text-only',
+};
+function mapHeroToTextOnlyVariant(originalHero) {
+  if (TEXT_ONLY_HERO_VARIANTS.includes(originalHero)) return originalHero;
+  return HERO_TEXT_ONLY_FALLBACK[originalHero] || 'minimal-text-only';
 }
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
@@ -1460,15 +1615,24 @@ function buildImagePlan(project, category) {
   // hero treatments -- renderHero never calls renderVisualSlot for them, so
   // planning (and generating) a hero image for those layouts would pay for
   // an image nothing ever displays. The hero itself is Home-only chrome,
-  // not a section stored on any page, so this no longer looks one up.
-  const heroHasVisual = !['centered-oversized', 'minimal-text-only', 'poster'].includes(composed.hero);
+  // not a section stored on any page, so this no longer looks one up. Also
+  // respects a reconciled `heroDisplayVariant` override (see
+  // reconcileImageSupplyWithSections) the same way section-level
+  // `imageDisplayVariant`/`imageTileCount` overrides already are below.
+  const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
+  const heroHasVisual = !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant);
+  // TIERED IMAGE SPEND PASS: every pushed slot now also carries `rank`
+  // (lower = funded first) and `idealTier` (see IMAGE_SLOT_TIER_BUCKETS)
+  // computed at push time from its actual role/position, not guessed later
+  // from array order -- bucket 0 (hero) always outranks bucket 4
+  // (decorative), matching the brief's own 6-level importance example.
   if (heroHasVisual) {
-    slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}` });
+    slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     // The collage hero layout uses a second image-bearing card -- only real
     // when that layout is actually selected, so we never plan/generate an
     // image for a slot that won't be on screen.
     if (composed.hero === 'collage') {
-      slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}` });
+      slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     }
   }
   // V8.2: every real page's own image-bearing sections are planned here --
@@ -1480,18 +1644,23 @@ function buildImagePlan(project, category) {
     const pageSections = page.sections || [];
     const productSection = pageSections.find(s => s.type === 'productShowcase');
     if (productSection) {
-      slots.push({ slot: `${prefix}product`, role: 'product', page: page.slug, section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual' });
+      slots.push({ slot: `${prefix}product`, role: 'product', page: page.slug, section: productSection.id, sectionType: 'productShowcase', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Product / interface visual', ...IMAGE_SLOT_TIER_BUCKETS[1] });
     }
     // renderAbout only ever shows a visual for the 'split' variant (or when
     // a real upload exists) -- matching that here avoids planning/
-    // generating an image the 'statement' variant would never display.
+    // generating an image the 'statement' variant would never display. Also
+    // respects a reconciled `imageDisplayVariant` override (see
+    // reconcileImageSupplyWithSections) so once an unfunded about-split is
+    // downgraded to 'statement', re-planning never asks to pay for an image
+    // that layout wouldn't show either.
     const aboutSection = pageSections.find(s => s.type === 'about');
-    if (aboutSection && (aboutSection.variant === 'split' || plan.about)) {
-      slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual' });
+    const aboutEffectiveVariant = aboutSection && (aboutSection.imageDisplayVariant || aboutSection.variant);
+    if (aboutSection && (aboutEffectiveVariant === 'split' || plan.about)) {
+      slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual', ...IMAGE_SLOT_TIER_BUCKETS[2] });
     }
     const editorialSection = pageSections.find(s => s.type === 'imageLedEditorial');
     if (editorialSection) {
-      slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
+      slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual', ...IMAGE_SLOT_TIER_BUCKETS[1] });
     }
     // IMAGE COHERENCE PASS: a section's own already-reconciled
     // `imageTileCount` (see reconcileImageSupplyWithSections below) always
@@ -1500,59 +1669,67 @@ function buildImagePlan(project, category) {
     // reconciled section renders exactly as many tiles as it planned, no
     // more. Absent (not yet reconciled, or a pre-existing saved project),
     // falls back to the original variant-only count, unchanged.
+    // TIERED IMAGE SPEND PASS: tile 0 ("lead proof/gallery image") gets
+    // bucket 1, tile 1 ("secondary") bucket 3, tile 2+ ("decorative
+    // extras") bucket 4 -- never paid at all, regardless of remaining
+    // budget, so the budget is never spent on a 4th gallery tile instead
+    // of a stronger hero or a real secondary tile.
     pageSections.filter(s => s.type === 'gallery' || s.type === 'caseStudies').forEach(gallerySection => {
-      const displayVariant = gallerySection.imageDisplayVariant || gallerySection.variant;
-      const count = gallerySection.imageTileCount || galleryTileCount(displayVariant);
+      const count = gallerySection.imageTileCount || galleryTileCount(gallerySection.variant);
+      const galleryDisplayVariant = gallerySection.imageDisplayVariant || gallerySection.variant;
       for (let i = 0; i < count; i++) {
-        slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: displayVariant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}` });
+        const bucket = i === 0 ? IMAGE_SLOT_TIER_BUCKETS[1] : i === 1 ? IMAGE_SLOT_TIER_BUCKETS[3] : IMAGE_SLOT_TIER_BUCKETS[4];
+        slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: galleryDisplayVariant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}`, ...bucket });
       }
     });
     pageSections.filter(s => s.type === 'team').forEach(teamSection => {
       const teamCount = teamSection.imageTileCount || Math.max((project.assets.items || []).filter(a => a.type === 'team').length, 3);
       for (let i = 0; i < Math.min(teamCount, 4); i++) {
-        slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}` });
+        const bucket = i === 0 ? IMAGE_SLOT_TIER_BUCKETS[2] : i === 1 ? IMAGE_SLOT_TIER_BUCKETS[3] : IMAGE_SLOT_TIER_BUCKETS[4];
+        slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}`, ...bucket });
       }
     });
   });
-  // Tiered Image Spend: allocate a real dollar ceiling across the slots
-  // that matter most. Uploads are free and never compete with paid slots.
-  // Decorative extras (rank 4 / no ideal tier) are never paid regardless of
-  // remaining budget. Each paid candidate downgrades quality until a tier
-  // fits instead of disappearing immediately.
-  const spendCeiling = imageSpendCeilingUsd(project);
-  const costs = imageTierCostEstimate();
+  // MULTI-MODEL IMAGE ROUTER PASS: replaces the old same-model quality-only
+  // allocator with a real {model, quality} ROUTE-aware one. Still respects
+  // every existing invariant: archetype influence preserved
+  // (imageSpendCeilingUsd reuses imageBudgetForArchetype's own table), the
+  // role-priority boost still only ever REORDERS which unfilled slot
+  // competes for the (unchanged-or-lower) budget first, and a real user
+  // upload is never touched -- it's free, always shown, never enters this
+  // allocation at all. The allocator compares candidate ROUTES against
+  // imageRouteCostEstimate's real model+quality+aspect-specific figure, not
+  // a single generic per-tier number, so a hero that can afford a strong
+  // support-model image but not a premium one actually gets routed to the
+  // cheaper model, not just a cheaper label on the same one.
+  const spendCeilingUsd = imageSpendCeilingUsd(project);
+  const modelKeys = imageModelKeys();
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
-  const classified = slots.map((slot, i) => {
-    const policy = classifyImageSlotForSpend(slot);
-    return { i, slot, ...policy, sortRank: policy.rank + (roleBoost[slot.role] || 0) };
-  });
-  const allocation = new Map();
-  let spent = 0;
-  classified
-    .filter(item => !item.slot.assetId && item.idealTier)
-    .sort((a, b) => a.sortRank - b.sortRank || a.i - b.i)
-    .forEach(item => {
-      if (!providerConfigured) return;
-      const path = IMAGE_TIER_DOWNGRADE_PATH[item.idealTier] || [];
-      const tier = path.find(candidate => spent + costs[candidate] <= spendCeiling + 1e-9);
-      if (!tier) return;
-      allocation.set(item.i, tier);
-      spent += costs[tier];
-    });
-
+  const fundedRouteBySlotIndex = new Map();
+  if (providerConfigured) {
+    let remainingUsd = spendCeilingUsd;
+    slots
+      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId }))
+      .filter(s => !s.hasUpload && s.idealTier !== 'none')
+      .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))))
+      .forEach(candidate => {
+        const routeCandidates = imageRouteCandidatesForIdealTier(candidate.idealTier, modelKeys);
+        const affordableRoute = routeCandidates.find(route => imageRouteCostEstimate(route.model, route.quality, candidate.aspectRatio) <= remainingUsd);
+        if (affordableRoute) {
+          const cost = imageRouteCostEstimate(affordableRoute.model, affordableRoute.quality, candidate.aspectRatio);
+          fundedRouteBySlotIndex.set(candidate.i, { model: affordableRoute.model, quality: affordableRoute.quality, estimatedCostUsd: cost });
+          remainingUsd -= cost;
+        }
+      });
+  }
   return slots.map((s, i) => {
-    const policy = classifyImageSlotForSpend(s);
-    const quality = allocation.get(i) || null;
-    const sourceType = s.assetId ? 'user' : (providerConfigured && quality ? 'generated' : 'designed');
+    const fundedRoute = fundedRouteBySlotIndex.get(i) || null;
+    const sourceType = s.assetId ? 'user' : (fundedRoute ? 'generated' : 'designed');
     return {
-      ...s,
-      rank: policy.rank,
-      idealTier: policy.idealTier,
-      quality,
-      estimatedCostUsd: quality ? costs[quality] : 0,
-      placement: s.role,
-      prompt: buildImagePrompt(project, category, s.role),
-      sourceType,
+      ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType,
+      model: fundedRoute ? fundedRoute.model : null,
+      quality: fundedRoute ? fundedRoute.quality : null,
+      estimatedCostUsd: fundedRoute ? fundedRoute.estimatedCostUsd : null,
       cacheKey: computeImageCacheKey(project, s.role, s.slot)
     };
   });
@@ -1579,14 +1756,34 @@ function buildImagePlan(project, category) {
 // itself -- purely reconciles how many slots the layout asks for down to
 // what that unchanged budget can actually fulfill.
 //
-// The floor is MIN_IMAGE_TILES (2), never 0/1 -- per the brief's own
-// worked example ("collapse a gallery from 6 cards to 2 strong featured
-// visuals"): a thin gallery still reads as a deliberate 2-up layout, not a
-// missing section. Removing the section entirely would mean touching
-// section-type selection (composeSections), which this pass explicitly
-// does not do.
+// The floor is MIN_IMAGE_TILES (2) when at least one real image exists for
+// the section -- a thin-but-real gallery still reads as a deliberate 2-up
+// layout, not a missing section. But PLACEHOLDER/COMPOSITION FIX: when a
+// section's real supply is truly ZERO (no upload, nothing funded at all),
+// even 2 equal-weight CSS-designed tiles side by side reads as an obviously
+// fake/empty gallery grid, not a deliberate layout -- exactly what the
+// brief calls out ("do not stop at the previous minimum 2 tiles fix... if
+// it still produces obviously fake image grids... collapse a gallery
+// entirely if it has no useful real imagery"). For that true-zero case,
+// this collapses the section down to ZERO_SUPPLY_TILE_COUNT (1) -- a single
+// small, deliberately styled accent element (see renderVisualSlot's
+// `visual-generated-unfunded` treatment) rather than a "grid" at all.
+// Removing the section entirely would mean touching section-type selection
+// (composeSections), which this pass still does not do -- one accent tile
+// is the smallest structural footprint achievable without that.
 const MIN_IMAGE_TILES = 2;
+const ZERO_SUPPLY_TILE_COUNT = 1;
 const IMAGE_TILE_SECTION_TYPES = ['gallery', 'caseStudies', 'team'];
+// When a gallery/caseStudies section's real supply is zero, this ALSO
+// stamps a display-only `imageDisplayVariant: 'featured'` so renderGallery
+// gives the one remaining tile the existing `gallery-tile-featured` visual
+// treatment (a deliberate wide/banner shape) instead of a plain square --
+// "prefer fewer, larger, obviously-intentional visuals over many weak
+// ones." This never touches the section's own stored `variant` (so nothing
+// else that reads it -- composeSections, save/restore, tests -- is
+// affected), and never invents a new image or spends any budget; it only
+// changes how the same already-decided tile count is visually composed.
+const IMAGE_DISPLAY_VARIANT_SECTION_TYPES = ['gallery', 'caseStudies'];
 function reconcileImageSupplyWithSections(proj, category) {
   const firstPass = buildImagePlan(proj, category);
   const bySection = new Map();
@@ -1602,9 +1799,19 @@ function reconcileImageSupplyWithSections(proj, category) {
       if (!entries || !entries.length) return;
       const currentCount = entries.length;
       const realCount = entries.filter(e => e.sourceType !== 'designed').length;
-      if ((section.type === 'gallery' || section.type === 'caseStudies') && realCount === 0 && section.variant !== 'featured' && section.imageDisplayVariant !== 'featured') {
-        section.imageDisplayVariant = 'featured';
-        changed = true;
+      if (realCount === 0) {
+        if (IMAGE_DISPLAY_VARIANT_SECTION_TYPES.includes(section.type)) {
+          const effectiveVariant = section.imageDisplayVariant || section.variant;
+          if (effectiveVariant !== 'featured') {
+            section.imageDisplayVariant = 'featured';
+            changed = true;
+          }
+        }
+        if (currentCount > ZERO_SUPPLY_TILE_COUNT && section.imageTileCount !== ZERO_SUPPLY_TILE_COUNT) {
+          section.imageTileCount = ZERO_SUPPLY_TILE_COUNT;
+          changed = true;
+        }
+        return;
       }
       if (realCount >= currentCount) return; // already fully supplied -- nothing to reconcile
       const resolved = Math.max(MIN_IMAGE_TILES, Math.min(currentCount, realCount));
@@ -1614,9 +1821,48 @@ function reconcileImageSupplyWithSections(proj, category) {
       }
     });
   });
-  // The tile-count edits above change what buildImagePlan itself would
-  // generate next (fewer slots competing for the same, unchanged budget),
-  // so the authoritative plan is always the one built AFTER reconciling --
+  // PLACEHOLDER/COMPOSITION FIX: hero layout downgrade. If the hero slot
+  // has no upload and funded no real image, and the project's current hero
+  // layout is one that shows a (now-empty) visual container, fall back to
+  // a text-only hero treatment instead. Deterministic, idempotent (checks
+  // the CURRENT effective variant before stamping), and never touches
+  // `dimensions.hero` itself. Responsive/QA pass: the fallback is chosen by
+  // mapHeroToTextOnlyVariant, which groups the ORIGINAL hero by visual
+  // family instead of always stamping the same 'minimal-text-only' -- two
+  // materially different businesses whose creative direction picked
+  // different original heroes (e.g. a bold fullbleed-image hero vs. a calm
+  // grid-dashboard one) still end up with visibly different, but equally
+  // "clean text-only, never an empty image slot", hero layouts.
+  const heroEntry = firstPass.find(e => e.slot === 'hero');
+  if (heroEntry && heroEntry.sourceType === 'designed') {
+    const composed = proj.design.dimensions;
+    const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
+    if (!TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
+      const mapped = mapHeroToTextOnlyVariant(composed.hero);
+      if (composed.heroDisplayVariant !== mapped) {
+        composed.heroDisplayVariant = mapped;
+        changed = true;
+      }
+    }
+  }
+  // PLACEHOLDER/COMPOSITION FIX: about-split layout downgrade, same
+  // reasoning as hero above, per real page (about can exist on more than
+  // one page; hero cannot).
+  (proj.pages && proj.pages.length ? proj.pages : [{ slug: '', sections: proj.sections }]).forEach(page => {
+    const prefix = pageSlotPrefix(page);
+    const aboutSection = (page.sections || []).find(s => s.type === 'about');
+    if (!aboutSection) return;
+    const aboutEntry = firstPass.find(e => e.slot === `${prefix}about`);
+    if (!aboutEntry || aboutEntry.sourceType !== 'designed') return;
+    const effectiveAboutVariant = aboutSection.imageDisplayVariant || aboutSection.variant;
+    if (effectiveAboutVariant === 'split' && aboutSection.imageDisplayVariant !== 'statement') {
+      aboutSection.imageDisplayVariant = 'statement';
+      changed = true;
+    }
+  });
+  // The edits above change what buildImagePlan itself would generate next
+  // (fewer/different slots competing for the same, unchanged budget), so
+  // the authoritative plan is always the one built AFTER reconciling --
   // this is the one real recomputation this pass adds, and it's pure JS,
   // not a provider call.
   proj.imagePlan = changed ? buildImagePlan(proj, category) : firstPass;
@@ -1676,7 +1922,15 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
       // taskType/projectId are observability metadata only for the server's
       // operation ledger (see server.js recordOperation) -- absent or
       // generic, this call behaves identically.
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, quality: entry.quality, role: entry.role, taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
+      // MULTI-MODEL IMAGE ROUTER PASS: entry.model/entry.quality are the
+      // funded ROUTE this slot's importance actually earned (see
+      // buildImagePlan's route allocator) -- the server still re-validates
+      // both against its own ALLOWED_IMAGE_MODELS/ALLOWED_IMAGE_QUALITIES
+      // allowlists and safely downgrades anything missing/malformed to the
+      // cheap support model at 'medium', so a bad or tampered client value
+      // can never silently buy the premium model or the most expensive
+      // quality.
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
       signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
@@ -1775,7 +2029,16 @@ function renderHero(project, category) {
   const ctaBtn = renderCtaButton(copy.ctaTarget, cta, 'hero-cta-btn');
   const ctaMinimal = renderCtaButton(copy.ctaTarget, cta + ' ↗', 'minimal-link');
   const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
-  const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : composed.hero;
+  // PLACEHOLDER/COMPOSITION FIX: a reconciled `heroDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored hero layout for
+  // RENDERING only -- when the hero has no upload and funds no real image,
+  // this switches to one of the existing deliberately text-only layouts
+  // (see TEXT_ONLY_HERO_VARIANTS) instead of showing a giant empty photo
+  // box as the first thing on the page. `composed.hero` itself is never
+  // mutated (so the editor's own hero picker, save/restore, and every
+  // archetype/heroStrategy invariant that reads the real value are
+  // unaffected).
+  const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : (composed.heroDisplayVariant || composed.hero);
   // Item 17: the default split hero always appended a second, purely
   // decorative "See our work ↗" link next to the real CTA -- generic
   // filler text promising a showcase that may not exist on this business's
@@ -2073,6 +2336,12 @@ function renderProof(project, category, section) {
 }
 function renderMetrics(project, category, section) { return renderProof(project, category, section); }
 function renderGallery(project, category, section, labelOverride) {
+  // TIERED IMAGE SPEND PASS: a reconciled `imageDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored variant for
+  // RENDERING only -- when a gallery has zero real imagery, this switches
+  // it to the existing 'featured' treatment (one larger, deliberate tile)
+  // instead of a flat equal-weight grid of designed placeholders. The
+  // section's own stored `variant` is never mutated.
   const variant = section && (section.imageDisplayVariant || section.variant);
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
@@ -2089,7 +2358,12 @@ function renderGallery(project, category, section, labelOverride) {
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
-    const featuredClass = (i === 0 && variant === 'featured') ? ' gallery-tile-featured' : '';
+    // A collapsed single tile (zero real supply, see
+    // reconcileImageSupplyWithSections) always gets the wide/banner
+    // 'featured' treatment regardless of the section's own variant -- a
+    // lone tile in a plain square shape reads as an accident, a lone tile
+    // in a deliberate wide banner shape reads as a choice.
+    const featuredClass = (i === 0 && (variant === 'featured' || tileCount === 1)) ? ' gallery-tile-featured' : '';
     const slot = galleryTileSlot(section, i);
     tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
   }
@@ -2139,7 +2413,13 @@ function renderTestimonialsGrid(project, category, section) {
 // missing/invalid body keeps that heading and falls back to the
 // deterministic body, field by field.
 function renderAbout(project, category, section) {
-  const variant = section && section.variant;
+  // PLACEHOLDER/COMPOSITION FIX: a reconciled `imageDisplayVariant` (see
+  // reconcileImageSupplyWithSections) overrides the stored variant for
+  // RENDERING only -- when an about-split section funds no real image and
+  // has no upload, this switches it to the existing 'statement' (text-only)
+  // treatment instead of showing an empty photo box next to the copy. The
+  // section's own stored `variant` is never mutated.
+  const variant = section && (section.imageDisplayVariant || section.variant);
   const plan = project.assets.plan;
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
   const vocab = sectionVocab(project);
@@ -4334,7 +4614,13 @@ const LAYOUT_LABELS = { split: 'Layout 1', center: 'Layout 2', poster: 'Layout 3
 function applyDesignDataset(proj) {
   const composed = proj.design.dimensions;
   builderSite.dataset.style = proj.intent.seedKey;
-  builderSite.dataset.hero = composed.hero;
+  // PLACEHOLDER/COMPOSITION FIX: keep the [data-hero="..."] CSS in sync
+  // with whatever layout renderHero actually rendered (see its own
+  // heroDisplayVariant override) -- otherwise a downgraded-to-text-only
+  // hero would render 'hero-minimal' markup while every [data-hero=
+  // "<original-variant>"] CSS rule kept applying, aimed at markup that no
+  // longer exists on the page.
+  builderSite.dataset.hero = composed.heroDisplayVariant || composed.hero;
   builderSite.dataset.type = composed.type;
   builderSite.dataset.nav = composed.nav;
   builderSite.dataset.card = composed.card;
@@ -4564,8 +4850,7 @@ function renderChrome(proj, category) {
   $$('.layout-choice').forEach(b => b.classList.toggle('active', b.dataset.layout === proj.design.heroLayout));
   $$('#toneToggle button').forEach(b => b.classList.toggle('active', b.dataset.tone === proj.business.tone));
   if (sectionToggles) $$('input', sectionToggles).forEach(input => { input.checked = proj.sections.some(s => s.type === input.value); });
-  builderDevice.classList.toggle('mobile', proj.responsive.device === 'mobile');
-  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b.dataset.device === proj.responsive.device));
+  applyDeviceMode(proj.responsive.device);
 
   renderAssetPanels(proj);
 }
@@ -4924,6 +5209,24 @@ const logoPlaceholder = $('#logoPlaceholder');
 const siteLogo = $('#siteLogo');
 const builderSite = $('#builderSite');
 const builderDevice = $('#builderDevice');
+// Responsive reliability pass: single source of truth for the Desktop/
+// Tablet/Mobile preview toggle. Both renderProject (restoring a saved
+// project's responsive.device) and the toolbar's own click handler funnel
+// through this so the DOM state (data-device attribute + .tablet/.mobile
+// classes, which styles.css's container-query rules key off) can never
+// drift out of sync between the two call sites the way two separate,
+// hand-duplicated classList.toggle sequences previously could. Falls back
+// to 'desktop' for any unrecognized/legacy value (older saved projects
+// only ever stored 'desktop' or 'mobile', which remain valid).
+const DEVICE_MODES = ['desktop', 'tablet', 'mobile'];
+function applyDeviceMode(device) {
+  const mode = DEVICE_MODES.includes(device) ? device : 'desktop';
+  builderDevice.dataset.device = mode;
+  builderDevice.classList.toggle('mobile', mode === 'mobile');
+  builderDevice.classList.toggle('tablet', mode === 'tablet');
+  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b.dataset.device === mode));
+  return mode;
+}
 const siteNav = $('#siteNav');
 const siteBusiness = $('#siteBusiness');
 const siteNavLinks = $('#siteNavLinks');
@@ -5705,9 +6008,8 @@ if (sectionToggles) {
   });
 }
 $$('.device-toggle button').forEach(button => button.addEventListener('click', () => {
-  $$('.device-toggle button').forEach(b => b.classList.toggle('active', b === button));
-  builderDevice.classList.toggle('mobile', button.dataset.device === 'mobile');
-  if (project) project.responsive.device = button.dataset.device;
+  const mode = applyDeviceMode(button.dataset.device);
+  if (project) project.responsive.device = mode;
 }));
 
 // ---- Refinement controls: tone + regenerate (no named styles anywhere) ----
@@ -7377,6 +7679,9 @@ function updateAccountUI() {
   // chokepoint every other account-dependent UI already re-renders from
   // (see this function's own call sites) -- see refreshExportPanel below.
   if (typeof refreshExportPanel === 'function') refreshExportPanel();
+  // Product-flow pass: same chokepoint, for the account-wide (not just
+  // currently-open-project) My Websites list.
+  if (typeof refreshMyWebsitesPanel === 'function') refreshMyWebsitesPanel(false);
 }
 async function refreshServerProjectStatus() {
   if (!currentAccount || !serverProjectId) return;
@@ -7388,6 +7693,7 @@ async function refreshServerProjectStatus() {
   else ownedProjectsCache[idx] = { ...ownedProjectsCache[idx], ...patch };
   updatePurchaseOwnershipBadge();
   if (typeof refreshExportPanel === 'function') refreshExportPanel();
+  if (typeof refreshMyWebsitesPanel === 'function') refreshMyWebsitesPanel(true); // a purchase may have just completed -- force a fresh My Websites fetch, don't wait for the lazy per-account cache
 }
 
 // A one-time anonymous -> account migration marker, persisted so a visitor
@@ -7633,6 +7939,8 @@ if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
   serverProjectId = null;
   serverProjectRevision = null;
   ownedProjectsCache = [];
+  myWebsitesLoadedForAccount = null;
+  latestSnapshot = null;
   hideConflict();
   if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
   setAutosaveState('idle');
@@ -7921,6 +8229,7 @@ const exportPanel = $('#exportPanel');
 const exportRuntimeLine = $('#exportRuntimeLine');
 const exportRuntimeReasons = $('#exportRuntimeReasons');
 const exportRevisionNote = $('#exportRevisionNote');
+const exportSnapshotBadge = $('#exportSnapshotBadge');
 const exportStatusHeadline = $('#exportStatusHeadline');
 const exportHostingRecommendation = $('#exportHostingRecommendation');
 const exportButton = $('#exportButton');
@@ -7932,10 +8241,25 @@ const domainSubmitButton = $('#domainSubmitButton');
 const domainRecords = $('#domainRecords');
 const domainVerifyButton = $('#domainVerifyButton');
 const domainStatus = $('#domainStatus');
+// Product-flow pass: hosting CHOICE (distinct from the read-only technical
+// recommendation above) + My Websites, both additive to the V8.6 panel.
+const hostingChoiceBlock = $('#hostingChoiceBlock');
+const hostingProviderSelect = $('#hostingProviderSelect');
+const hostingProviderNote = $('#hostingProviderNote');
+const hostingChoiceSaveBtn = $('#hostingChoiceSaveBtn');
+const hostingChoiceSelfBtn = $('#hostingChoiceSelfBtn');
+const hostingChoiceSkipBtn = $('#hostingChoiceSkipBtn');
+const hostingChoiceStatus = $('#hostingChoiceStatus');
+const myWebsitesPanel = $('#myWebsitesPanel');
+const myWebsitesEmpty = $('#myWebsitesEmpty');
+const myWebsitesList = $('#myWebsitesList');
 
 let exportPanelLoaded = false; // avoids refetching hosting-recommendation/deployments on every unrelated updateAccountUI() call
 let latestDeployment = null;
 let latestDomainId = null;
+let latestSnapshot = null; // { id, directionIndex, projectRevision, hostingChoice, createdAt } for the currently open project, once purchased
+let hostingProvidersCache = null; // GET /api/hosting-providers is public + static -- fetched once, reused by both the export panel and every My Websites row
+let myWebsitesLoadedForAccount = null; // the account id My Websites was last fetched for -- refetches on sign-in/out, not on every unrelated updateAccountUI() call
 
 const RUNTIME_REASON_LABELS = {
   contact_form_submission: 'a contact form that really needs to receive submissions',
@@ -7953,11 +8277,14 @@ async function refreshExportPanel() {
   if (!purchased) return;
   if (exportButton) exportButton.disabled = false;
   if (exportStatus) exportStatus.textContent = 'Ready to export this exact project.';
-  if (exportPanelLoaded) return; // one-time load per purchased-project view -- exportButton's own click handler refreshes after a real export
+  if (hostingChoiceBlock) hostingChoiceBlock.hidden = false;
+  if (exportPanelLoaded) { renderHostingChoiceUi(); return; } // one-time load per purchased-project view -- exportButton's own click handler refreshes after a real export
   exportPanelLoaded = true;
-  const [{ ok: recOk, data: recData }, { ok: depOk, data: depData }] = await Promise.all([
+  const [{ ok: recOk, data: recData }, { ok: depOk, data: depData }, { ok: snapOk, data: snapData }, providers] = await Promise.all([
     apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/hosting-recommendation`),
     apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/deployments`),
+    apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/purchase-snapshot`),
+    loadHostingProviders(),
   ]);
   if (recOk && recData.ok) {
     const rec = recData.recommendation;
@@ -7971,27 +8298,92 @@ async function refreshExportPanel() {
       exportHostingRecommendation.textContent = `Fits: ${names || 'local export'}. ${rec.reasoning}`;
     }
   }
+  if (snapOk && snapData.ok) latestSnapshot = snapData.snapshot;
   if (depOk && depData.ok && depData.deployments.length) {
     const goodOne = depData.deployments.find(d => d.state === 'ready' || d.state === 'live') || null;
     latestDeployment = goodOne || depData.deployments[0];
     applyDeploymentToUi(latestDeployment, depData.deployments[0]);
   }
+  renderHostingChoiceUi();
 }
+// Providers are static, public, and shared by both the export panel and
+// every row of the My Websites list -- fetched once per page load.
+async function loadHostingProviders() {
+  if (hostingProvidersCache) return hostingProvidersCache;
+  const { ok, data } = await apiFetch('/api/hosting-providers');
+  hostingProvidersCache = (ok && data.ok) ? data.providers : [];
+  return hostingProvidersCache;
+}
+function renderHostingChoiceUi() {
+  if (!hostingProviderSelect || !hostingProvidersCache) return;
+  if (!hostingProviderSelect.dataset.populated) {
+    hostingProviderSelect.dataset.populated = '1';
+    hostingProviderSelect.innerHTML = '<option value="">— choose a host —</option>' + hostingProvidersCache
+      .filter(p => p.key !== 'local')
+      .map(p => `<option value="${escapeHtml(p.key)}">${escapeHtml(p.label)}${p.available ? '' : ' (handoff not yet automated here)'}</option>`).join('');
+  }
+  const choice = latestSnapshot && latestSnapshot.hostingChoice;
+  if (choice && choice.provider && choice.provider !== 'self') {
+    hostingProviderSelect.value = choice.provider;
+    const p = hostingProvidersCache.find(x => x.key === choice.provider);
+    if (hostingProviderNote) { hostingProviderNote.hidden = false; hostingProviderNote.textContent = p ? p.description : ''; }
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = `Hosting: ${p ? p.label : choice.provider} -- saved.`;
+  } else if (choice && choice.provider === 'self') {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Hosting: you chose to self-host.';
+  } else if (choice && choice.skipped) {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Hosting: not decided yet -- your download works either way.';
+  } else {
+    if (hostingChoiceStatus) hostingChoiceStatus.textContent = '';
+  }
+}
+async function saveHostingChoice(body) {
+  if (!serverProjectId) return;
+  [hostingChoiceSaveBtn, hostingChoiceSelfBtn, hostingChoiceSkipBtn].forEach(b => { if (b) b.disabled = true; });
+  if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Saving…';
+  const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}/hosting-choice`, { method: 'POST', body });
+  [hostingChoiceSaveBtn, hostingChoiceSelfBtn, hostingChoiceSkipBtn].forEach(b => { if (b) b.disabled = false; });
+  if (!ok || !data.ok) { if (hostingChoiceStatus) hostingChoiceStatus.textContent = (data && data.message) || 'Could not save that.'; return; }
+  if (latestSnapshot) latestSnapshot = { ...latestSnapshot, hostingChoice: data.hostingChoice };
+  renderHostingChoiceUi();
+  refreshMyWebsitesPanel(true); // this project's row should reflect the new choice immediately
+}
+if (hostingChoiceSaveBtn) hostingChoiceSaveBtn.addEventListener('click', () => {
+  const provider = hostingProviderSelect ? hostingProviderSelect.value : '';
+  if (!provider) { if (hostingChoiceStatus) hostingChoiceStatus.textContent = 'Pick a host from the list first.'; return; }
+  saveHostingChoice({ provider });
+});
+if (hostingChoiceSelfBtn) hostingChoiceSelfBtn.addEventListener('click', () => saveHostingChoice({ provider: 'self' }));
+if (hostingChoiceSkipBtn) hostingChoiceSkipBtn.addEventListener('click', () => saveHostingChoice({ skipped: true }));
 function applyDeploymentToUi(goodDeployment, mostRecent) {
   if (!goodDeployment) return;
   if (exportStatusHeadline) exportStatusHeadline.textContent = `Exported (revision ${goodDeployment.projectRevision})`;
+  // Always-visible (not conditional on a revision mismatch, unlike
+  // exportRevisionNote below): this download is a frozen purchase
+  // snapshot, permanently bound to this revision, distinct from whatever
+  // the live editable draft above is now at.
+  if (exportSnapshotBadge) {
+    exportSnapshotBadge.hidden = false;
+    exportSnapshotBadge.textContent = `Purchased snapshot — revision ${goodDeployment.projectRevision}, frozen forever`;
+  }
   if (exportDownloadLink) {
     exportDownloadLink.hidden = false;
     exportDownloadLink.href = `/api/deployments/${encodeURIComponent(goodDeployment.id)}/download`;
   }
   if (domainHandoff) domainHandoff.hidden = false;
+  // Product-flow pass: export now compiles EXCLUSIVELY from the immutable
+  // purchase snapshot (see server.js's rewritten POST .../export), never
+  // from the live draft -- so a higher live serverProjectRevision no longer
+  // means "export again to publish it." Re-exporting always reproduces the
+  // exact same purchased version. This note is now purely informational:
+  // it tells the owner their later edits are saved to the project but are
+  // NOT part of this download, rather than implying a re-export would help.
   if (exportRevisionNote && serverProjectRevision != null) {
     if (mostRecent && mostRecent.id !== goodDeployment.id && mostRecent.state === 'failed') {
       exportRevisionNote.hidden = false;
       exportRevisionNote.textContent = `A more recent export attempt failed (${mostRecent.failureReason || 'unknown error'}) -- the version above is still the last good one.`;
     } else if (serverProjectRevision > goodDeployment.projectRevision) {
       exportRevisionNote.hidden = false;
-      exportRevisionNote.textContent = `You have unpublished changes since revision ${goodDeployment.projectRevision} -- export again to publish revision ${serverProjectRevision}.`;
+      exportRevisionNote.textContent = `This download is the exact version you purchased (revision ${goodDeployment.projectRevision}). You've since made further edits in the editor above (now at revision ${serverProjectRevision}) -- those are saved to your project, but this purchased download stays exactly as bought and won't include them.`;
     } else {
       exportRevisionNote.hidden = true;
     }
@@ -8053,5 +8445,86 @@ if (domainVerifyButton) {
     if (domainStatus) domainStatus.textContent = data.check.ok
       ? `Reachable (${data.domain.state}).`
       : `Not live yet: ${data.check.message}`;
+  });
+}
+
+// ==========================================================================
+// Product-flow pass: My Websites (spec: "retain access to purchased sites in
+// account"). Every project this account has actually PURCHASED, across the
+// whole account -- not just whichever one is currently open in the editor
+// above. Reads from GET /api/my-websites (server.js), which itself reads
+// from the immutable purchase_snapshots table, so a row here never
+// disappears or changes just because the live draft keeps getting edited.
+// ==========================================================================
+let myWebsitesCache = [];
+
+async function refreshMyWebsitesPanel(force) {
+  if (!myWebsitesPanel) return;
+  const signedIn = !!currentAccount;
+  if (!signedIn) { myWebsitesLoadedForAccount = null; myWebsitesPanel.hidden = true; return; }
+  myWebsitesPanel.hidden = false;
+  if (!force && myWebsitesLoadedForAccount === currentAccount.id) return;
+  myWebsitesLoadedForAccount = currentAccount.id;
+  const [{ ok, data }] = await Promise.all([
+    apiFetch('/api/my-websites'),
+    loadHostingProviders(), // rows need provider labels too -- shares the same cache the export panel populates
+  ]);
+  if (!ok || !data.ok) return;
+  myWebsitesCache = data.websites;
+  renderMyWebsitesList();
+}
+function hostingChoiceSummary(hostingChoice) {
+  if (!hostingChoice || (!hostingChoice.provider && !hostingChoice.skipped)) return 'Hosting: not decided yet';
+  if (hostingChoice.provider === 'self') return 'Hosting: self-hosted';
+  if (hostingChoice.provider) {
+    const p = (hostingProvidersCache || []).find(x => x.key === hostingChoice.provider);
+    return `Hosting: ${p ? p.label : hostingChoice.provider}`;
+  }
+  return 'Hosting: not decided yet';
+}
+function renderMyWebsitesList() {
+  if (!myWebsitesList) return;
+  if (myWebsitesEmpty) myWebsitesEmpty.hidden = myWebsitesCache.length > 0;
+  myWebsitesList.innerHTML = myWebsitesCache.map(w => {
+    const purchasedDate = w.purchasedAt ? new Date(w.purchasedAt).toLocaleDateString() : '';
+    const snapshotRevision = w.snapshot ? w.snapshot.projectRevision : null;
+    const downloadHtml = w.latestDeployment && w.latestDeployment.downloadUrl
+      ? `<a href="${escapeHtml(w.latestDeployment.downloadUrl)}" class="link-button" download>Download purchased snapshot (.zip)</a>`
+      : `<button type="button" class="link-button" data-my-website-export="${escapeHtml(w.projectId)}">Compile purchased snapshot (.zip)</button>`;
+    return `<div class="my-website-item" data-my-website-id="${escapeHtml(w.projectId)}">
+      <strong>${escapeHtml(w.projectName || 'Untitled project')}</strong>
+      <small>Purchased ${escapeHtml(purchasedDate)}${w.purchaseRef ? ` · ${escapeHtml(w.purchaseRef)}` : ''}</small>
+      <p class="snapshot-badge">${snapshotRevision != null ? `Frozen snapshot — revision ${escapeHtml(String(snapshotRevision))}, never changes` : 'Frozen purchased snapshot'}</p>
+      <p class="my-website-hosting">${escapeHtml(hostingChoiceSummary(w.hostingChoice))}</p>
+      <div class="my-website-actions">
+        <button type="button" class="link-button" data-my-website-open="${escapeHtml(w.projectId)}">Open live draft to edit</button>
+        ${downloadHtml}
+      </div>
+      <p class="my-website-snapshot-note">The download above always matches what you purchased, exactly — editing the live draft never changes it.</p>
+      <p class="my-website-status" data-my-website-status="${escapeHtml(w.projectId)}" aria-live="polite"></p>
+    </div>`;
+  }).join('');
+}
+function myWebsitesStatusEl(projectId) {
+  return myWebsitesList ? myWebsitesList.querySelector(`[data-my-website-status="${CSS.escape(projectId)}"]`) : null;
+}
+if (myWebsitesList) {
+  myWebsitesList.addEventListener('click', async (e) => {
+    const openId = e.target.getAttribute && e.target.getAttribute('data-my-website-open');
+    if (openId) { loadSelectedOwnedProjectById(openId); return; }
+    const exportId = e.target.getAttribute && e.target.getAttribute('data-my-website-export');
+    if (!exportId) return;
+    e.target.disabled = true;
+    const statusEl = myWebsitesStatusEl(exportId);
+    if (statusEl) statusEl.textContent = 'Compiling your export…';
+    const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(exportId)}/export`, { method: 'POST' });
+    e.target.disabled = false;
+    if (!ok || !data.ok) { if (statusEl) statusEl.textContent = (data && data.message) || 'Export failed.'; return; }
+    const row = myWebsitesCache.find(w => w.projectId === exportId);
+    if (row) row.latestDeployment = { id: data.deployment.id, state: data.deployment.state, createdAt: data.deployment.createdAt, downloadUrl: `/api/deployments/${data.deployment.id}/download` };
+    renderMyWebsitesList();
+    // If this row's project is also the one currently open in the editor,
+    // keep the export panel above in sync too, rather than leaving it stale.
+    if (exportId === serverProjectId) { latestDeployment = data.deployment; applyDeploymentToUi(data.deployment, data.deployment); }
   });
 }
