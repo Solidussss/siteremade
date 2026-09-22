@@ -663,6 +663,222 @@ function navLabelFor(type, categoryKey) {
   return fallback[type] || 'Services';
 }
 
+// ---- V9: deterministic strategy + page-architecture reasoning ------------
+// Everything in this block is the non-Claude equivalent of the planner's
+// new `strategy` reasoning (server.js PLANNER_SYSTEM_PROMPT rule 8): a
+// business archetype is inferred (never 1:1 with `categoryKey` -- several
+// categories can share an archetype, and the same category can land on a
+// different archetype depending on the actual words used), a small set of
+// strategic defaults follow from that archetype, and those strategic
+// defaults are what then drive real per-archetype page architecture,
+// section-recipe selection for secondary pages, and the 9 "extended"
+// visual dimensions below -- all deterministic and reproducible, never
+// randomized (randomness stays confined to `variationSeed` cycling, exactly
+// as it already was for style/section-variant selection).
+const categoryDefaultArchetype = {
+  tech:'product-led-saas', finance:'trust-heavy-professional', fashion:'editorial-brand',
+  hospitality:'hospitality', creative:'portfolio', fitness:'local-conversion',
+  realestate:'trust-heavy-professional', wellness:'local-conversion', retail:'ecommerce-showcase',
+  nonprofit:'community-nonprofit', professional:'premium-consultancy', education:'service-business',
+  electrical:'local-conversion', plumbing:'local-conversion', landscaping:'local-conversion',
+  painting:'local-conversion', roofing:'local-conversion', automotive:'local-conversion',
+  cleaning:'local-conversion', renovation:'local-conversion', other:'service-business'
+};
+// Checked in order, first keyword match wins -- lets the actual wording of
+// a description pull a business toward a different archetype than its bare
+// category would suggest (a "boutique consulting" services business reads
+// as premium-consultancy, not the generic service-business default; a
+// "launching soon" SaaS reads as launch-campaign, not product-led-saas).
+const archetypeKeywordOverrides = [
+  { archetype: 'launch-campaign', keywords: ['launching', 'coming soon', 'pre-order', 'preorder', 'waitlist', 'early access', 'beta program'] },
+  { archetype: 'premium-consultancy', keywords: ['luxury', 'premium', 'high-end', 'high end', 'bespoke', 'private client', 'exclusive', 'boutique consult'] },
+  { archetype: 'trust-heavy-professional', keywords: ['licensed', 'certified', 'accredited', 'regulated', 'law firm', 'legal', 'cpa'] },
+  { archetype: 'editorial-brand', keywords: ['editorial', 'magazine', 'lookbook', 'journal-style'] },
+  { archetype: 'portfolio', keywords: ['portfolio', 'showcase our work', 'case studies', 'our work speaks', 'video studio', 'documentary', 'documentaries', 'film studio', 'photography studio'] },
+  { archetype: 'ecommerce-showcase', keywords: ['shop online', 'online store', 'buy online', 'e-commerce', 'ecommerce', 'dtc brand'] },
+  { archetype: 'community-nonprofit', keywords: ['nonprofit', 'non-profit', 'charity', 'volunteer', 'donate', 'ngo'] },
+  { archetype: 'hospitality', keywords: ['restaurant', 'cafe', 'bistro', 'hotel', 'bar', 'reservation', 'menu'] },
+  { archetype: 'product-led-saas', keywords: ['saas', 'software platform', 'api', 'developer tool', 'product-led'] },
+  { archetype: 'local-conversion', keywords: ['near me', 'service area', 'same-day', 'same day', 'emergency service', 'free quote', 'serving the'] }
+];
+function inferArchetype(categoryKey, text) {
+  const lower = String(text || '').toLowerCase();
+  for (const entry of archetypeKeywordOverrides) {
+    if (entry.keywords.some(kw => lower.includes(kw))) return entry.archetype;
+  }
+  return categoryDefaultArchetype[categoryKey] || categoryDefaultArchetype.other;
+}
+const archetypeStrategyDefaults = {
+  'product-led-saas': { visitorIntent: 'Evaluate whether this product solves my workflow problem', primaryConversion: 'Start a free trial or request a demo', secondaryConversion: 'Explore pricing or documentation', credibilityStrategy: 'Show the product working and name real integrations and workflows', sophisticationLevel: 'informed', businessScope: 'digital', proofStrategy: 'Product screenshots, integration logos, usage metrics' },
+  'service-business': { visitorIntent: 'Understand what is offered and whether it fits my need', primaryConversion: 'Book a consultation or request a quote', secondaryConversion: 'Browse services or learn about process', credibilityStrategy: 'Clear process and a direct explanation of expertise', sophisticationLevel: 'general', businessScope: 'local', proofStrategy: 'Testimonials and clear service descriptions' },
+  'premium-consultancy': { visitorIntent: 'Decide if this firm is credible enough to trust with a high-stakes decision', primaryConversion: 'Book a private consultation', secondaryConversion: 'Review approach or credentials', credibilityStrategy: 'Restraint and understated expertise signaling', sophisticationLevel: 'expert', businessScope: 'national', proofStrategy: 'Track record, credentials, client discretion' },
+  'editorial-brand': { visitorIntent: 'Experience the brand aesthetic and decide if it resonates', primaryConversion: 'Shop the collection or join the list', secondaryConversion: 'Explore the story or lookbook', credibilityStrategy: 'Visual quality and editorial voice carry the credibility', sophisticationLevel: 'informed', businessScope: 'national', proofStrategy: 'Editorial imagery, press mentions, brand story' },
+  portfolio: { visitorIntent: 'Judge the quality of the work before anything else', primaryConversion: 'Start a project inquiry', secondaryConversion: 'View more work', credibilityStrategy: 'Let the work speak for itself, minimal persuasion copy', sophisticationLevel: 'informed', businessScope: 'national', proofStrategy: 'Case studies and the project work itself' },
+  'ecommerce-showcase': { visitorIntent: 'Find a product worth buying', primaryConversion: 'Shop now', secondaryConversion: 'Join the list for drops or offers', credibilityStrategy: 'Product quality, reviews, styling', sophisticationLevel: 'general', businessScope: 'national', proofStrategy: 'Reviews, product imagery, bestseller signals' },
+  'local-conversion': { visitorIntent: 'Find a reliable local provider fast', primaryConversion: 'Request a quote or call now', secondaryConversion: 'View service areas or past work', credibilityStrategy: 'Proof of real completed work plus fast responsiveness', sophisticationLevel: 'general', businessScope: 'local', proofStrategy: 'Before/after project photos, service-area coverage, guarantees' },
+  'trust-heavy-professional': { visitorIntent: 'Confirm this firm is legitimate and competent before sharing sensitive information', primaryConversion: 'Book a consultation', secondaryConversion: 'Read credentials or FAQ', credibilityStrategy: 'Institutional signals: credentials, regulation, longevity', sophisticationLevel: 'expert', businessScope: 'national', proofStrategy: 'Credentials, years in business, client outcomes' },
+  'launch-campaign': { visitorIntent: 'Understand what is launching and why it matters now', primaryConversion: 'Join the waitlist or pre-order', secondaryConversion: 'Share or learn more', credibilityStrategy: 'Momentum and clarity of the offer', sophisticationLevel: 'general', businessScope: 'digital', proofStrategy: 'Early access signals, founder story, urgency' },
+  'community-nonprofit': { visitorIntent: 'Understand the mission and how to help', primaryConversion: 'Donate or get involved', secondaryConversion: 'Learn about impact', credibilityStrategy: 'Transparency about impact and mission', sophisticationLevel: 'general', businessScope: 'local', proofStrategy: 'Impact metrics and real stories' },
+  hospitality: { visitorIntent: 'Decide if this experience is worth visiting', primaryConversion: 'Reserve a table or book', secondaryConversion: 'View the menu or gallery', credibilityStrategy: 'Atmosphere and sensory presentation', sophisticationLevel: 'general', businessScope: 'local', proofStrategy: 'Imagery-led atmosphere and reviews' }
+};
+// The deterministic mirror of Claude's own `strategy` reasoning
+// (normalizeClaudePlan above returns the identical shape for the AI path)
+// -- archetype first, then everything else follows from it, same order the
+// planner prompt now asks Claude to reason in.
+function inferStrategy(categoryKey, text, facts, descriptor) {
+  facts = facts || {}; descriptor = descriptor || {};
+  const archetype = inferArchetype(categoryKey, text);
+  const base = archetypeStrategyDefaults[archetype] || archetypeStrategyDefaults['service-business'];
+  const category = categories[categoryKey] || categories.other;
+  const hasProof = !!(facts.years || facts.rating || facts.count);
+  const secondaryAudience = descriptor.offering ? `People evaluating ${descriptor.offering}` : 'Repeat visitors comparing options';
+  return {
+    archetype,
+    audience: { primary: category.noun, secondary: secondaryAudience },
+    visitorIntent: base.visitorIntent,
+    conversion: { primary: base.primaryConversion, secondary: base.secondaryConversion },
+    credibilityStrategy: base.credibilityStrategy,
+    sophisticationLevel: base.sophisticationLevel,
+    businessScope: base.businessScope,
+    proofStrategy: hasProof ? base.proofStrategy : `${base.proofStrategy} (qualitative -- no numeric claims were supplied)`,
+    informationHierarchy: []
+  };
+}
+// The 9(10)-field "extended" dimension set previously had exactly one flat
+// default shared by all 21 categories (see `extendedDimensionDefaults`
+// above, still the base fallback) even though styles.css already fully
+// supports every enum value of every one of these fields. This is the fix:
+// real per-archetype variation, merged UNDER the per-category table in
+// `buildGenerationPlan` (category-specific data still wins when it exists;
+// archetype fills in the rest) so two categories that share an archetype
+// (e.g. several trades all defaulting to local-conversion) still diverge
+// wherever the category table itself has an opinion, while genuinely empty
+// categories now inherit real, coherent variation instead of the same
+// contained/balanced/single/steady/left/standard/balanced/airy/soft/even
+// defaults every time.
+const archetypeExtendedDimensionDefaults = {
+  'product-led-saas': { contentWidth:'wide', imageDominance:'dominant', imageArrangement:'stacked', sectionRhythm:'feature-band', sectionAlignment:'left', typographyScale:'display', headingWidth:'balanced', cardDensity:'mixed', cardShape:'soft', splitRatio:'media-heavy' },
+  'service-business': { contentWidth:'contained', imageDominance:'balanced', imageArrangement:'single', sectionRhythm:'steady', sectionAlignment:'left', typographyScale:'standard', headingWidth:'balanced', cardDensity:'airy', cardShape:'soft', splitRatio:'even' },
+  'premium-consultancy': { contentWidth:'contained', imageDominance:'supporting', imageArrangement:'single', sectionRhythm:'editorial', sectionAlignment:'center', typographyScale:'display', headingWidth:'narrow', cardDensity:'airy', cardShape:'square', splitRatio:'text-heavy' },
+  'editorial-brand': { contentWidth:'edge-to-edge', imageDominance:'dominant', imageArrangement:'mosaic', sectionRhythm:'editorial', sectionAlignment:'split', typographyScale:'display', headingWidth:'wide', cardDensity:'mixed', cardShape:'square', splitRatio:'media-heavy' },
+  portfolio: { contentWidth:'wide', imageDominance:'dominant', imageArrangement:'mosaic', sectionRhythm:'alternating', sectionAlignment:'split', typographyScale:'display', headingWidth:'wide', cardDensity:'mixed', cardShape:'square', splitRatio:'media-heavy' },
+  'ecommerce-showcase': { contentWidth:'wide', imageDominance:'dominant', imageArrangement:'rail', sectionRhythm:'feature-band', sectionAlignment:'left', typographyScale:'standard', headingWidth:'balanced', cardDensity:'mixed', cardShape:'soft', splitRatio:'media-heavy' },
+  'local-conversion': { contentWidth:'contained', imageDominance:'balanced', imageArrangement:'stacked', sectionRhythm:'steady', sectionAlignment:'left', typographyScale:'compact', headingWidth:'balanced', cardDensity:'compact', cardShape:'square', splitRatio:'even' },
+  'trust-heavy-professional': { contentWidth:'contained', imageDominance:'supporting', imageArrangement:'single', sectionRhythm:'steady', sectionAlignment:'center', typographyScale:'standard', headingWidth:'narrow', cardDensity:'airy', cardShape:'square', splitRatio:'text-heavy' },
+  'launch-campaign': { contentWidth:'edge-to-edge', imageDominance:'dominant', imageArrangement:'single', sectionRhythm:'feature-band', sectionAlignment:'center', typographyScale:'display', headingWidth:'wide', cardDensity:'mixed', cardShape:'pill', splitRatio:'media-heavy' },
+  'community-nonprofit': { contentWidth:'wide', imageDominance:'dominant', imageArrangement:'stacked', sectionRhythm:'alternating', sectionAlignment:'left', typographyScale:'standard', headingWidth:'wide', cardDensity:'airy', cardShape:'pill', splitRatio:'media-heavy' },
+  hospitality: { contentWidth:'edge-to-edge', imageDominance:'dominant', imageArrangement:'mosaic', sectionRhythm:'editorial', sectionAlignment:'center', typographyScale:'display', headingWidth:'wide', cardDensity:'mixed', cardShape:'pill', splitRatio:'media-heavy' }
+};
+
+// ---- V9: deterministic page architecture ----------------------------------
+// Previously the deterministic path was ALWAYS exactly one page (Home) --
+// real multi-page generation only existed when Claude succeeded. This gives
+// the deterministic engine the same real page-architecture reasoning,
+// driven off the archetype inferred above rather than a random page count.
+const archetypePageRoles = {
+  'product-led-saas': ['home', 'product', 'pricing', 'about', 'contact'],
+  'service-business': ['home', 'services', 'process', 'about', 'contact'],
+  'premium-consultancy': ['home', 'services', 'about', 'contact'],
+  'editorial-brand': ['home', 'work', 'about', 'contact'],
+  portfolio: ['home', 'work', 'process', 'about', 'contact'],
+  'ecommerce-showcase': ['home', 'product', 'about', 'contact'],
+  'local-conversion': ['home', 'services', 'work', 'contact'],
+  'trust-heavy-professional': ['home', 'services', 'about', 'faq', 'contact'],
+  'launch-campaign': ['home', 'product', 'faq', 'contact'],
+  'community-nonprofit': ['home', 'about', 'contact'],
+  hospitality: ['home', 'menu', 'about', 'contact']
+};
+const pageRoleMeta = {
+  home: { label: 'Home', purpose: 'Orient the visitor and make the case for why this business is worth their attention.', question: 'Is this for me, and why should I care?' },
+  services: { label: 'Services', purpose: 'Explain what is offered and how it is structured.', question: 'What exactly can I get here?' },
+  product: { label: 'Product', purpose: 'Show how the product works and what it solves.', question: 'Does this actually solve my problem?' },
+  pricing: { label: 'Pricing', purpose: 'Make the cost and plans clear before the visitor has to ask.', question: 'What will this cost me?' },
+  work: { label: 'Work', purpose: 'Prove quality through real examples of finished work.', question: 'Is the work actually good?' },
+  about: { label: 'About', purpose: 'Establish who is behind the business and why they can be trusted.', question: 'Why should I trust these people?' },
+  process: { label: 'Process', purpose: 'Explain how an engagement actually unfolds, step by step.', question: 'What happens after I reach out?' },
+  contact: { label: 'Contact', purpose: 'Remove friction and make starting easy.', question: 'How do I actually start?' },
+  faq: { label: 'FAQ', purpose: 'Answer the objections that stop a visitor from converting.', question: 'What am I still unsure about?' },
+  menu: { label: 'Menu', purpose: 'Show exactly what is available to order.', question: 'What can I eat or drink here?' },
+  team: { label: 'Team', purpose: 'Put real people behind the business.', question: 'Who will I actually be working with?' }
+};
+const pageRoleLabelOverrides = {
+  services: { hospitality: 'Menu', fashion: 'Collection', realestate: 'Listings', tech: 'Platform' },
+  work: { creative: 'Portfolio', fashion: 'Lookbook', realestate: 'Listings' },
+  product: { retail: 'Shop' }
+};
+function planPageArchitecture(archetype, categoryKey) {
+  const roles = archetypePageRoles[archetype] || archetypePageRoles['service-business'];
+  return roles.map(role => {
+    const meta = pageRoleMeta[role] || pageRoleMeta.home;
+    const overrides = pageRoleLabelOverrides[role] || {};
+    return { role, label: overrides[categoryKey] || meta.label, purpose: meta.purpose, visitorQuestion: meta.question };
+  });
+}
+// Section-type recipes for every NON-home page role -- deliberately
+// separate from `categorySectionRecipes` below, which stays exactly as it
+// was and continues to own Home's section selection alone. `default` is the
+// role's base recipe; `byArchetype` lets a specific archetype override it
+// where the generic recipe would feel wrong (a SaaS "product" page needs
+// integrations, not a trade's caseStudies).
+const pageRoleSectionRecipes = {
+  default: {
+    services: ['services', 'process', 'proof', 'faq'],
+    product: ['features', 'productShowcase', 'pricing'],
+    pricing: ['pricing', 'faq', 'ctaBanner'],
+    work: ['gallery', 'caseStudies', 'testimonial'],
+    about: ['about', 'team', 'proof'],
+    process: ['process', 'proof', 'testimonial'],
+    contact: ['contact'],
+    faq: ['faq', 'contact'],
+    menu: ['menu', 'reservationCta'],
+    team: ['team', 'about']
+  },
+  byArchetype: {
+    'product-led-saas': { product: ['features', 'productShowcase', 'integrations'], pricing: ['pricing', 'faq'] },
+    hospitality: { menu: ['menu', 'gallery'], about: ['about', 'testimonialsGrid'] },
+    portfolio: { work: ['gallery', 'caseStudies'], about: ['about'] },
+    'editorial-brand': { work: ['imageLedEditorial', 'gallery'] },
+    'local-conversion': { services: ['serviceAreas', 'caseStudies', 'testimonial'] },
+    'premium-consultancy': { services: ['services', 'proof', 'faq'], about: ['about', 'proof'] },
+    'community-nonprofit': { about: ['about', 'metrics', 'newsletter'] }
+  }
+};
+function sectionRecipeForPageRole(role, archetype, facts) {
+  facts = facts || {};
+  const overrides = pageRoleSectionRecipes.byArchetype[archetype] || {};
+  const recipe = overrides[role] || pageRoleSectionRecipes.default[role] || ['about'];
+  // Same never-fabricate-proof rule composeSections already applies to Home.
+  return recipe.filter(type => !((type === 'proof' || type === 'metrics') && !facts.years && !facts.rating && !facts.count));
+}
+// ---- V9: deterministic section grammar ------------------------------------
+// A section's `intent`/`headlineRole` (the same two fields Claude's plan
+// now carries per section, see PLANNER_SYSTEM_PROMPT / normalizeClaudePlan)
+// are derived here from the section TYPE plus its POSITION on the page --
+// never randomly. The first content section on a page orients before it
+// argues (unless its type is inherently a closing one); a proof/testimonial
+// /FAQ type landing last on a page closes by reassuring.
+const sectionTypeIntent = {
+  proof: 'prove', metrics: 'prove', services: 'explain', features: 'explain', productShowcase: 'demonstrate',
+  integrations: 'explain', pricing: 'compare', faq: 'reassure', process: 'educate', gallery: 'showcase',
+  caseStudies: 'demonstrate', imageLedEditorial: 'narrate', about: 'introduce', team: 'introduce',
+  testimonial: 'reassure', testimonialsGrid: 'reassure', menu: 'showcase', reservationCta: 'convert',
+  serviceAreas: 'explain', contact: 'convert', newsletter: 'convert', ctaBanner: 'convert'
+};
+const intentHeadlineRole = {
+  introduce: 'declarative', explain: 'explanatory', compare: 'benefit-led', prove: 'proof-led',
+  demonstrate: 'benefit-led', reassure: 'proof-led', convert: 'benefit-led', educate: 'explanatory',
+  showcase: 'editorial', narrate: 'editorial'
+};
+function planSectionGrammar(type, pageRole, archetype, index, total) {
+  let intent = sectionTypeIntent[type] || 'explain';
+  if (index === 0 && !['contact', 'reservationCta', 'newsletter', 'ctaBanner'].includes(type)) {
+    intent = 'introduce';
+  } else if (total > 1 && index === total - 1 && ['proof', 'metrics', 'testimonial', 'testimonialsGrid', 'faq'].includes(type)) {
+    intent = 'reassure';
+  }
+  return { intent, headlineRole: intentHeadlineRole[intent] || 'declarative' };
+}
+
 // ---- Compositional section system ----------------------------------------
 // V7: the old version scored 4 add-on section types against a fixed
 // "hero + services + footer" spine, so nearly every result had the same
@@ -797,6 +1013,10 @@ function planAssets(assets) {
 // gives nothing to work with (SITE-PROJECT-V7.md part 6) -- never invented,
 // just genuinely generic input getting genuinely generic (not fake) copy.
 function titleCase(s) { return String(s || '').replace(/\b\w/g, c => c.toUpperCase()); }
+// V9: every category now carries at least two real templates (several
+// previously had only one, which meant a second/third deterministic
+// direction for the same business always produced the identical headline --
+// see buildCopy's `variationSeed`-aware pool selection above).
 const copyHeadlinePools = {
   tech: [subj => `${titleCase(subj)}, built to move fast.`, subj => `Software for ${subj}, done right.`],
   finance: [subj => `Clarity for ${subj}.`, subj => `${titleCase(subj)}, handled with care.`],
@@ -804,20 +1024,25 @@ const copyHeadlinePools = {
   hospitality: [(subj, d, loc) => `${titleCase(subj)}${loc ? ' in ' + loc : ''}, worth the trip.`, subj => `${titleCase(subj)}, made to be tasted.`],
   creative: [subj => `${titleCase(subj)} work that speaks first.`, subj => `A ${subj} studio, in its own words.`],
   fitness: [subj => `${titleCase(subj)} progress you can see.`, subj => `Train ${subj}, see it show up.`],
-  realestate: [(subj, d, loc) => `Find the right place${loc ? ' in ' + loc : ''}.`],
-  wellness: [subj => `Feel better, through ${subj}.`],
-  retail: [subj => `${titleCase(subj)}, worth stopping for.`],
-  nonprofit: [subj => `Real work on ${subj}.`],
-  professional: [subj => `${titleCase(subj)}, explained clearly.`],
-  education: [subj => `Learn ${subj}, and have it stick.`],
-  electrical: [subj => `${titleCase(subj)}, wired right.`], plumbing: [subj => `${titleCase(subj)}, fixed properly.`],
-  landscaping: [subj => `${titleCase(subj)}, outdoors done right.`], painting: [subj => `${titleCase(subj)}, finished clean.`],
-  roofing: [subj => `${titleCase(subj)}, built for the weather.`], automotive: [subj => `${titleCase(subj)}, cared for properly.`],
-  cleaning: [subj => `${titleCase(subj)}, done thoroughly.`], renovation: [subj => `${titleCase(subj)}, built on reputation.`],
-  other: [subj => `${titleCase(subj)}, done properly.`]
+  realestate: [(subj, d, loc) => `Find the right place${loc ? ' in ' + loc : ''}.`, subj => `${titleCase(subj)}, presented properly.`],
+  wellness: [subj => `Feel better, through ${subj}.`, subj => `${titleCase(subj)}, on your own terms.`],
+  retail: [subj => `${titleCase(subj)}, worth stopping for.`, subj => `${titleCase(subj)}, made to be noticed.`],
+  nonprofit: [subj => `Real impact, through ${subj}.`, subj => `${titleCase(subj)}, because it matters.`],
+  professional: [subj => `${titleCase(subj)}, explained clearly.`, subj => `${titleCase(subj)}, handled with expertise.`],
+  education: [subj => `Learn ${subj}, and have it stick.`, subj => `${titleCase(subj)}, taught properly.`],
+  electrical: [subj => `${titleCase(subj)}, wired right.`, subj => `${titleCase(subj)}, done to code.`],
+  plumbing: [subj => `${titleCase(subj)}, fixed properly.`, subj => `${titleCase(subj)}, handled fast.`],
+  landscaping: [subj => `${titleCase(subj)}, outdoors done right.`, subj => `${titleCase(subj)}, built to last a season.`],
+  painting: [subj => `${titleCase(subj)}, finished clean.`, subj => `${titleCase(subj)}, colour done right.`],
+  roofing: [subj => `${titleCase(subj)}, built for the weather.`, subj => `${titleCase(subj)}, done to last.`],
+  automotive: [subj => `${titleCase(subj)}, cared for properly.`, subj => `${titleCase(subj)}, detailed right.`],
+  cleaning: [subj => `${titleCase(subj)}, done thoroughly.`, subj => `${titleCase(subj)}, spotless every time.`],
+  renovation: [subj => `${titleCase(subj)}, built on reputation.`, subj => `${titleCase(subj)}, done to last.`],
+  other: [subj => `${titleCase(subj)}, done properly.`, subj => `${titleCase(subj)}, built the right way.`]
 };
-function buildCopy(category, categoryKey, analysis, descriptor) {
+function buildCopy(category, categoryKey, analysis, descriptor, variationSeed) {
   descriptor = descriptor || {};
+  variationSeed = variationSeed || 0;
   const loc = analysis.location || '';
   const hasSignal = descriptor.descriptor || descriptor.offering;
   const kicker = descriptor.descriptor ? descriptor.descriptor.toUpperCase() : category.kicker;
@@ -826,12 +1051,32 @@ function buildCopy(category, categoryKey, analysis, descriptor) {
   if (hasSignal) {
     const subject = descriptor.descriptor || category.noun;
     const pool = copyHeadlinePools[categoryKey] || copyHeadlinePools.other;
-    const template = pool[hashString(analysis.text) % pool.length];
+    // V9: a second/third deterministic direction for the same business
+    // previously always landed on the exact same headline template (the
+    // hash only ever depended on the unchanging base text) -- folding
+    // `variationSeed` into the hash lets a direction with more than one
+    // real template in its pool actually pick a different one, while
+    // staying fully deterministic/reproducible.
+    const template = pool[hashString(analysis.text + '::v' + variationSeed) % pool.length];
     headline = template(subject, descriptor, loc);
     sub = descriptor.offering ? `Built for ${descriptor.offering}${loc ? ' in ' + loc : ''}.`
       : (descriptor.outcome ? `Here to ${descriptor.outcome}${loc ? ' in ' + loc : ''}.` : category.sub);
-  } else if (loc) {
-    sub = `${category.sub} Serving ${loc}.`;
+  } else {
+    // V9: previously a description with no captured descriptor/offering
+    // phrase always fell back to the exact same static `category.headline`
+    // string, on every direction -- confirmed by this pass's own 8-brief
+    // variety test (several genuinely different businesses, e.g. "a fitness
+    // coach offering 1-on-1 coaching", never trip the regex-based
+    // descriptor/offering capture at all, so this branch is common, not an
+    // edge case). Routing it through the same headline pool used above
+    // (keyed off the category noun instead of a captured subject) keeps the
+    // output honest -- nothing invented, still a real category-appropriate
+    // sentence -- while letting a second/third direction actually read
+    // differently instead of being a silent clone.
+    const pool = copyHeadlinePools[categoryKey] || copyHeadlinePools.other;
+    const template = pool[hashString(categoryKey + '::v' + variationSeed) % pool.length];
+    headline = template(category.noun, descriptor, loc);
+    if (loc) sub = `${category.sub} Serving ${loc}.`;
   }
   return { kicker, headline, sub, cta: category.cta };
 }
@@ -1785,12 +2030,42 @@ function syncActivePageSections(proj) {
 // with the same content sections (hero/footer split back out into chrome,
 // the footer's own variant preserved), so an old save still renders and
 // edits exactly as it used to.
+// V9: backfills a page's `plan` and a section's `intent`/`headlineRole` for
+// any project saved before those fields existed -- never reconstructs a
+// page/section wholesale, only adds the missing field so nothing already
+// there is disturbed. `intent`/`headlineRole` fall back to the same
+// type-based lookup the deterministic engine itself uses (`sectionTypeIntent`
+// / `intentHeadlineRole`), so an old save at least gets a coherent, non-
+// arbitrary value rather than one flat default everywhere.
+const DEFAULT_PAGE_PLAN = { visitorQuestion: '', primaryCta: '', secondaryCta: '', visualIntensity: 'standard', informationDensity: 'standard', copyTone: '', imageCritical: false };
+function backfillPageAndSectionPlanning(pages) {
+  (pages || []).forEach(p => {
+    if (!p) return;
+    if (!p.plan || typeof p.plan !== 'object') p.plan = { ...DEFAULT_PAGE_PLAN };
+    (p.sections || []).forEach(s => {
+      if (!s) return;
+      if (!s.intent) s.intent = sectionTypeIntent[s.type] || 'explain';
+      if (!s.headlineRole) s.headlineRole = intentHeadlineRole[s.intent] || 'declarative';
+    });
+  });
+}
 function migrateProjectPages(proj) {
   if (!proj) return proj;
+  if (!proj.strategy) {
+    // V9: additive backfill for a pre-V9 save -- inferred from whatever real
+    // signal the project already has (its own source text/category/facts),
+    // never fabricated. Cheap and idempotent; safe to run on every load.
+    const categoryKey = (proj.business && proj.business.categoryKey) || 'other';
+    const srcText = (proj.source && proj.source.text) || '';
+    const facts = (proj.source && proj.source.facts) || {};
+    const descriptor = (proj.source && proj.source.descriptor) || {};
+    proj.strategy = inferStrategy(categoryKey, srcText, facts, descriptor);
+  }
   if (Array.isArray(proj.pages) && proj.pages.length) {
     proj.activePageIndex = Math.max(0, Math.min(proj.pages.length - 1, Number.isInteger(proj.activePageIndex) ? proj.activePageIndex : 0));
     proj.sections = proj.pages[proj.activePageIndex].sections || [];
     if (!proj.footerVariant) proj.footerVariant = 'simple';
+    backfillPageAndSectionPlanning(proj.pages);
     return proj;
   }
   const legacySections = Array.isArray(proj.sections) ? proj.sections : [];
@@ -1800,6 +2075,7 @@ function migrateProjectPages(proj) {
   proj.activePageIndex = 0;
   proj.sections = proj.pages[0].sections;
   proj.footerVariant = (footerSection && footerSection.variant) || 'simple';
+  backfillPageAndSectionPlanning(proj.pages);
   return proj;
 }
 function sanitizeSlug(str) {
@@ -1841,10 +2117,17 @@ function buildClaudePages(claudePages, variationSeed, dimensions) {
       id: `${s.type}-${slug || 'home'}-${si}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       type: s.type,
       variant: pickVariant(s.type, dimensions, variationSeed),
+      // V9: normalizeClaudePlan already validated/defaulted these -- carried
+      // through as-is, same posture as `copy`/`module` below.
+      intent: s.intent || 'explain',
+      headlineRole: s.headlineRole || 'declarative',
       copy: s.copy || null,
       module: s.module || null // already fully validated by normalizeSectionModuleFromClaude -- carried through as-is
     }));
-    pages.push({ slug, label: labelRaw.slice(0, 40), purpose: (p.purpose && String(p.purpose).slice(0, 200)) || '', sections });
+    // V9: forwards Claude's per-page plan (purpose/visitor-question/CTA/
+    // density reasoning) onto the real page object -- previously computed by
+    // normalizeClaudePlan and then dropped here, never reaching `proj.pages`.
+    pages.push({ slug, label: labelRaw.slice(0, 40), purpose: (p.purpose && String(p.purpose).slice(0, 200)) || '', plan: p.plan || null, sections });
   });
   if (!pages.length) return null;
   pages[0].slug = ''; // enforced regardless of what slug the loop above computed for it
@@ -2983,8 +3266,11 @@ function createProject(analysis, preserved, isDemoShell) {
   const dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern };
   const facts = extractBusinessFacts(analysis.text);
   const descriptor = extractBusinessDescriptor(analysis.text);
-  const sections = composeSections(category, dimensions, assets.plan, analysis.categoryKey, facts)
-    .map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions, 0) }));
+  const composedSectionTypes = composeSections(category, dimensions, assets.plan, analysis.categoryKey, facts);
+  const sections = composedSectionTypes.map((type, i) => {
+    const grammar = planSectionGrammar(type, 'home', categoryDefaultArchetype[analysis.categoryKey] || 'service-business', i, composedSectionTypes.length);
+    return { id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: pickVariant(type, dimensions, 0), intent: grammar.intent, headlineRole: grammar.headlineRole };
+  });
   // V6: prefer a name explicitly captured from THIS description (a fresh
   // Generate submission describing a different business should not keep
   // showing the previous one's name); otherwise keep whatever name already
@@ -3019,6 +3305,12 @@ function createProject(analysis, preserved, isDemoShell) {
     assets,
     responsive: { device: (preserved && preserved.responsive && preserved.responsive.device) || 'desktop' }
   };
+  // V9: additive, for shape consistency with the real directions
+  // buildGenerationPlan produces -- the demo shell itself never reasons
+  // about section grammar/page architecture (it's a single static preview
+  // page, not a generated result).
+  proj.strategy = inferStrategy(analysis.categoryKey, analysis.text, facts, descriptor);
+  homePage.plan = { ...DEFAULT_PAGE_PLAN, visitorQuestion: (pageRoleMeta.home && pageRoleMeta.home.question) || '' };
   ensureAssetDrivenSections(proj);
   proj.imagePlan = buildImagePlan(proj, category);
   return proj;
@@ -4387,8 +4679,23 @@ const CREATIVE_NARRATIVE_KEYS = ['editorial','expertise-first','portfolio-led','
 const CREATIVE_IMAGE_STRATEGY_KEYS = ['photography-led','sparse-premium','editorial-lifestyle','people-team','product-ui','architecture-interior','macro-detail','project-portfolio','abstract-branded','mostly-typographic'];
 const CREATIVE_SIGNATURE_KEYS = ['oversized-manifesto','asymmetric-index','editorial-image-rail','large-type-break','case-study-band','split-story','staggered-mosaic','media-interruption','process-timeline','visual-philosophy','product-showcase'];
 const CLAUDE_SECTION_TYPE_KEYS = ['proof', 'metrics', 'services', 'features', 'productShowcase', 'integrations', 'pricing', 'faq', 'process', 'gallery', 'caseStudies', 'imageLedEditorial', 'about', 'team', 'testimonial', 'testimonialsGrid', 'menu', 'reservationCta', 'serviceAreas', 'contact', 'newsletter', 'ctaBanner'];
-const CLAUDE_IMAGE_ROLE_KEYS = ['hero', 'product', 'team', 'gallery'];
+// V9: expanded past the original 4 (hero/product/team/gallery) -- the
+// original 4 stay valid so nothing cached/saved with an old role breaks;
+// the rest are additions for WHY an image exists, mirroring server.js's
+// IMAGE_ROLE_KEYS one-for-one (must stay in sync -- see the sync note above).
+const CLAUDE_IMAGE_ROLE_KEYS = ['hero', 'product', 'team', 'gallery', 'atmosphere', 'process', 'founder', 'portfolio', 'location', 'texture', 'editorial', 'feature', 'beforeAfter'];
 const CLAUDE_FUNCTIONALITY_STATUS_KEYS = ['supportedNow', 'plannedIntegration', 'requiresCustomBuild'];
+// V9: mirrors server.js's ARCHETYPE_KEYS/SOPHISTICATION_KEYS/BUSINESS_SCOPE_KEYS/
+// VISUAL_INTENSITY_KEYS/INFORMATION_DENSITY_KEYS/SECTION_INTENT_KEYS/
+// HEADLINE_ROLE_KEYS one-for-one -- same dual-file sync requirement as
+// every other CLAUDE_*_KEYS list in this block.
+const CLAUDE_ARCHETYPE_KEYS = ['product-led-saas', 'service-business', 'premium-consultancy', 'editorial-brand', 'portfolio', 'ecommerce-showcase', 'local-conversion', 'trust-heavy-professional', 'launch-campaign', 'community-nonprofit', 'hospitality'];
+const CLAUDE_SOPHISTICATION_KEYS = ['general', 'informed', 'expert'];
+const CLAUDE_BUSINESS_SCOPE_KEYS = ['local', 'national', 'digital'];
+const CLAUDE_VISUAL_INTENSITY_KEYS = ['quiet', 'standard', 'bold'];
+const CLAUDE_INFORMATION_DENSITY_KEYS = ['compact', 'standard', 'spacious'];
+const CLAUDE_SECTION_INTENT_KEYS = ['introduce', 'explain', 'compare', 'prove', 'demonstrate', 'reassure', 'convert', 'educate', 'showcase', 'narrate'];
+const CLAUDE_HEADLINE_ROLE_KEYS = ['declarative', 'explanatory', 'benefit-led', 'proof-led', 'editorial', 'contrast', 'question'];
 
 function claudeEnum(value, allowed, fallback) { return (typeof value === 'string' && allowed.includes(value)) ? value : fallback; }
 function claudeStr(value, max) { return (typeof value === 'string' && value.trim()) ? value.trim().slice(0, max) : ''; }
@@ -4436,6 +4743,31 @@ function normalizeClaudePlan(raw, catDefaults) {
     signatureMotif: claudeEnum(cd.signatureMotif, CREATIVE_SIGNATURE_KEYS, 'large-type-break')
   };
 
+  // Declared here (rather than at its original lower call site) because the
+  // strategy block just below needs business.targetCustomer too.
+  const businessRaw = (raw.business && typeof raw.business === 'object') ? raw.business : {};
+
+  // V9: site-strategy reasoning. Every field independently enum-validated/
+  // defaulted exactly like `dimensions`/`creativeDirection` above -- a
+  // missing or malformed strategy object never rejects the plan, it just
+  // falls back to a neutral default (inferStrategy's own 'other' shape is
+  // NOT used here deliberately: this is Claude's own reasoning, degraded
+  // field-by-field, not silently replaced by the deterministic inference).
+  const stratRaw = (raw.strategy && typeof raw.strategy === 'object') ? raw.strategy : {};
+  const strategy = {
+    archetype: claudeEnum(stratRaw.archetype, CLAUDE_ARCHETYPE_KEYS, 'service-business'),
+    audience: { primary: claudeStr(businessRaw.targetCustomer, 120), secondary: claudeStr(stratRaw.secondaryAudience, 120) },
+    visitorIntent: claudeStr(stratRaw.visitorIntent, 200),
+    conversion: { primary: claudeStr(stratRaw.primaryConversion, 120), secondary: claudeStr(stratRaw.secondaryConversion, 120) },
+    credibilityStrategy: claudeStr(stratRaw.credibilityStrategy, 200),
+    sophisticationLevel: claudeEnum(stratRaw.sophisticationLevel, CLAUDE_SOPHISTICATION_KEYS, 'general'),
+    businessScope: claudeEnum(stratRaw.businessScope, CLAUDE_BUSINESS_SCOPE_KEYS, 'local'),
+    proofStrategy: claudeStr(stratRaw.proofStrategy, 200),
+    informationHierarchy: Array.isArray(stratRaw.informationHierarchy)
+      ? stratRaw.informationHierarchy.filter(x => typeof x === 'string' && x.trim()).slice(0, 6).map(x => x.trim().slice(0, 120))
+      : []
+  };
+
   // A page/section survives only if it is structurally real. A page left
   // with zero valid sections after filtering is dropped rather than
   // rendered empty; if nothing survives at all, the whole plan is rejected
@@ -4445,41 +4777,73 @@ function normalizeClaudePlan(raw, catDefaults) {
   const pages = rawPages.map((p, pi) => {
     if (!p || typeof p !== 'object') return null;
     const rawSections = Array.isArray(p.sections) ? p.sections : [];
+    // V9: claims dedupe -- dropped here rather than at the schema level so a
+    // section keeps its OTHER copy even when one of its claims repeats an
+    // earlier one verbatim on this page (never reject a whole section over
+    // one redundant line). Compared on trimmed/lowercased text so trivial
+    // punctuation/casing differences don't defeat the check.
+    const usedClaimTexts = new Set();
     const sections = rawSections
       .filter(s => s && typeof s === 'object' && CLAUDE_SECTION_TYPE_KEYS.includes(s.type))
       .slice(0, 10)
-      .map(s => ({
-        type: s.type,
-        // Captured and persisted on the WebsiteProject (round-trips through
-        // save/restore like everything else) so a follow-up pass can wire
-        // it into the section renderers. NOT yet consumed by them this pass
-        // -- see SITE-PROJECT-V8.md part 8/14 for why that's deliberately
-        // deferred rather than rewriting ~20 renderers under this change.
-        copy: {
-          headline: claudeStr(s.headline, 160),
-          subhead: claudeStr(s.subhead, 220),
-          body: claudeStr(s.body, 500),
-          ctaLabel: claudeStr(s.ctaLabel, 40),
-          claims: Array.isArray(s.claims)
-            ? s.claims.filter(c => c && typeof c.text === 'string').slice(0, 6).map(c => ({ text: c.text.slice(0, 200), sourced: !!c.sourced }))
-            : []
-        },
-        // V8.4: Claude may choose a functionality module (and which of the
-        // fixed allowlisted fields to include) for this section -- never a
-        // freeform shape. normalizeSectionModuleFromClaude independently
-        // re-validates every field against MODULE_SECTION_COMPATIBILITY/
-        // MODULE_FIELD_ALLOWLIST regardless of what the schema already
-        // constrained server-side, and returns null (silently dropped, never
-        // a broken render) for anything unusable -- exactly the same
-        // "never trust the network, degrade field-by-field" posture the
-        // copy fields above already use.
-        module: normalizeSectionModuleFromClaude(s.module, s.type)
-      }));
+      .map(s => {
+        const claims = Array.isArray(s.claims)
+          ? s.claims.filter(c => c && typeof c.text === 'string').slice(0, 6).map(c => ({ text: c.text.slice(0, 200), sourced: !!c.sourced }))
+          : [];
+        const dedupedClaims = claims.filter(c => {
+          const key = c.text.trim().toLowerCase();
+          if (!key || usedClaimTexts.has(key)) return false;
+          usedClaimTexts.add(key);
+          return true;
+        });
+        return {
+          type: s.type,
+          // V9: why this section exists and what rhetorical shape its
+          // headline takes -- independently validated/defaulted like every
+          // other enum field; a missing/invalid value never blocks the
+          // section, it just falls back to a neutral default so the
+          // section-grammar-aware renderer paths (pickVariant/planSection-
+          // Grammar) always have something real to read.
+          intent: claudeEnum(s.intent, CLAUDE_SECTION_INTENT_KEYS, 'explain'),
+          headlineRole: claudeEnum(s.headlineRole, CLAUDE_HEADLINE_ROLE_KEYS, 'declarative'),
+          copy: {
+            headline: claudeStr(s.headline, 160),
+            subhead: claudeStr(s.subhead, 220),
+            body: claudeStr(s.body, 500),
+            ctaLabel: claudeStr(s.ctaLabel, 40),
+            claims: dedupedClaims
+          },
+          // V8.4: Claude may choose a functionality module (and which of the
+          // fixed allowlisted fields to include) for this section -- never a
+          // freeform shape. normalizeSectionModuleFromClaude independently
+          // re-validates every field against MODULE_SECTION_COMPATIBILITY/
+          // MODULE_FIELD_ALLOWLIST regardless of what the schema already
+          // constrained server-side, and returns null (silently dropped, never
+          // a broken render) for anything unusable -- exactly the same
+          // "never trust the network, degrade field-by-field" posture the
+          // copy fields above already use.
+          module: normalizeSectionModuleFromClaude(s.module, s.type)
+        };
+      });
     if (!sections.length) return null;
+    const planRaw = (p.plan && typeof p.plan === 'object') ? p.plan : {};
     return {
       id: claudeStr(p.id, 40) || `page-${pi}`,
       label: claudeStr(p.label, 40) || `Page ${pi + 1}`,
       purpose: claudeStr(p.purpose, 200),
+      // V9: per-page plan, additive -- a page whose `plan` didn't validate
+      // still renders exactly as before (defaults match the pre-V9 flat
+      // "every page the same weight" behavior), it just doesn't get the
+      // extra rhythm/density variation a real plan drives.
+      plan: {
+        visitorQuestion: claudeStr(planRaw.visitorQuestion, 200),
+        primaryCta: claudeStr(planRaw.primaryCta, 60),
+        secondaryCta: claudeStr(planRaw.secondaryCta, 60),
+        visualIntensity: claudeEnum(planRaw.visualIntensity, CLAUDE_VISUAL_INTENSITY_KEYS, 'standard'),
+        informationDensity: claudeEnum(planRaw.informationDensity, CLAUDE_INFORMATION_DENSITY_KEYS, 'standard'),
+        copyTone: claudeStr(planRaw.copyTone, 120),
+        imageCritical: !!planRaw.imageCritical
+      },
       sections
     };
   }).filter(Boolean).slice(0, 8);
@@ -4492,8 +4856,6 @@ function normalizeClaudePlan(raw, catDefaults) {
     sub: claudeStr(heroCopyRaw.sub, 200) || null,
     ctaLabel: claudeStr(heroCopyRaw.ctaLabel, 40) || null
   };
-
-  const businessRaw = (raw.business && typeof raw.business === 'object') ? raw.business : {};
 
   const imagePromptsByRole = {};
   (Array.isArray(raw.imagePlan) ? raw.imagePlan : []).forEach(entry => {
@@ -4509,13 +4871,34 @@ function normalizeClaudePlan(raw, catDefaults) {
     .slice(0, 8)
     .map(f => ({ feature: claudeStr(f.feature, 80) || f.feature.slice(0, 80), status: f.status, note: claudeStr(f.note, 200) }));
 
+  // V9: these existed in the schema/prompt long before this pass (business.
+  // targetCustomer/positioning/goals, declaredFacts) but nothing ever read
+  // them off `raw` -- they were validated by the schema, then discarded.
+  // Surfaced here so real business/audience reasoning actually reaches
+  // `proj.strategy`/`proj.intent` instead of being computed and thrown away.
+  const declaredFactsRaw = (raw.declaredFacts && typeof raw.declaredFacts === 'object') ? raw.declaredFacts : {};
+  const declaredFacts = {
+    years: claudeStr(declaredFactsRaw.years, 20) || null,
+    rating: claudeStr(declaredFactsRaw.rating, 20) || null,
+    customerCount: claudeStr(declaredFactsRaw.customerCount, 20) || null,
+    location: claudeStr(declaredFactsRaw.location, 80) || null,
+    otherFacts: Array.isArray(declaredFactsRaw.otherFacts)
+      ? declaredFactsRaw.otherFacts.filter(x => typeof x === 'string' && x.trim()).slice(0, 5).map(x => x.trim().slice(0, 200))
+      : []
+  };
+
   return {
     dimensions,
     creativeDirection,
+    strategy,
     pages,
     heroCopy,
     businessName: claudeStr(businessRaw.name, 60) || null,
     understanding: claudeStr(businessRaw.understanding, 300),
+    targetCustomer: claudeStr(businessRaw.targetCustomer, 200),
+    positioning: claudeStr(businessRaw.positioning, 200),
+    goals: Array.isArray(businessRaw.goals) ? businessRaw.goals.filter(g => typeof g === 'string' && g.trim()).slice(0, 5).map(g => g.trim().slice(0, 120)) : [],
+    declaredFacts,
     rationale: claudeStr(vd.rationale, 240),
     imagePromptsByRole,
     functionalityPlan
@@ -4662,7 +5045,6 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   const source = canonicalSource || createGenerationSource(text);
   const analysis = source.analysis;
   const category = categories[analysis.categoryKey] || categories.other;
-  const catDefaults = { ...extendedDimensionDefaults, ...(categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other) };
   const sameSource = !!(preserved && preserved.source && preserved.source.generationKey === source.key);
   const facts = source.facts;
   const descriptor = source.descriptor;
@@ -4677,6 +5059,18 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   // become normalizers vs primary decision makers" answer from
   // SITE-PROJECT-V8.md part 14.1/14.2 made concrete.
   const usingClaude = !!claudePlan;
+  // V9: strategy is reasoned about BEFORE structure/dimensions, same order
+  // PLANNER_SYSTEM_PROMPT rule 8 asks of Claude -- the deterministic engine
+  // holds itself to the same sequence. `strategy.archetype` then feeds the
+  // extended-dimension defaults below (this is also the fix for the 9
+  // extended dims -- contentWidth/imageDominance/etc -- having had no real
+  // per-category variation at all; see archetypeExtendedDimensionDefaults).
+  const strategy = usingClaude ? claudePlan.strategy : inferStrategy(analysis.categoryKey, source.text, facts, descriptor);
+  const catDefaults = {
+    ...extendedDimensionDefaults,
+    ...(archetypeExtendedDimensionDefaults[strategy.archetype] || null),
+    ...(categoryDimensionDefaults[analysis.categoryKey] || categoryDimensionDefaults.other)
+  };
   const dimensions = usingClaude ? claudePlan.dimensions : { ...catDefaults };
   const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null);
   const previewName = source.extractedName || `${category.label} Studio`;
@@ -4715,7 +5109,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       dimensions: { ...dimensions },
       heroLayout: (sameSource && preserved.design && preserved.design.heroLayout) || 'split'
     },
-    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
+    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed),
     // V8.2: the real page-aware shape from the very first paint -- an empty
     // Home page (hero is chrome, rendered separately; see renderSections).
     // The 'structure' step below replaces this with the real page(s), same
@@ -4735,6 +5129,10 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   };
   proj.sections = proj.pages[0].sections; // same array reference -- see syncActivePageSections
   proj.assets.plan = planAssets(proj.assets);
+  // V9: additive -- see migrateProjectPages for the backfill that keeps a
+  // pre-V9 saved project (with no `strategy` at all) loading and rendering
+  // exactly as it always did.
+  proj.strategy = strategy;
 
   let composed = null;
   const steps = [
@@ -4783,21 +5181,57 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // array in place, which would have silently changed a DIFFERENT,
         // already-created direction's copy on next render -- fixed here by
         // never mutating shared category data at all.)
-        // V8.2: the deterministic engine remains a complete, single-page
-        // (Home only) fallback -- it never invents secondary pages Claude
-        // didn't plan.
+        // V9: the deterministic engine now plans a REAL multi-page
+        // architecture too, driven off the same `strategy.archetype` Claude
+        // reasons about -- it previously was always exactly one page. Home's
+        // own section selection is untouched (still `composeSections` /
+        // `categorySectionRecipes`, deliberately not rebuilt); this adds
+        // real secondary pages via `planPageArchitecture`/
+        // `sectionRecipeForPageRole`, the deterministic mirror of
+        // `buildClaudePages`.
         const stylePool = [analysis.styleKey, ...(analysis.styleAlternates || [])].filter(Boolean);
         const variationStyleKey = stylePool.length ? stylePool[variationSeed % stylePool.length] : analysis.styleKey;
         const variationText = variationSeed ? `${analysis.text}::v${variationSeed}` : analysis.text;
         composed = composeStyleFromAnalysis(variationText, analysis.categoryKey, variationStyleKey);
         proj.intent.seedKey = variationStyleKey;
         const orderedTypes = composeSections(category, { ...proj.design.dimensions, pattern: composed.pattern }, proj.assets.plan, analysis.categoryKey, facts);
-        const homeSections = orderedTypes.map((type, i) => ({ id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default' }));
-        proj.pages = [{ slug: '', label: 'Home', purpose: '', sections: homeSections }];
+        const architecture = planPageArchitecture(strategy.archetype, analysis.categoryKey);
+        const homeMeta = architecture[0] || pageRoleMeta.home;
+        const planFor = (role, imageCritical) => ({
+          visitorQuestion: (pageRoleMeta[role] || pageRoleMeta.home).question,
+          primaryCta: strategy.conversion.primary,
+          secondaryCta: strategy.conversion.secondary,
+          visualIntensity: composed.motion === 'expressive' ? 'bold' : (composed.spacing === 'compact' ? 'quiet' : 'standard'),
+          informationDensity: composed.cardDensity === 'compact' ? 'compact' : (composed.cardDensity === 'mixed' ? 'standard' : 'spacious'),
+          copyTone: strategy.credibilityStrategy,
+          imageCritical
+        });
+        const homeSections = orderedTypes.map((type, i) => {
+          const grammar = planSectionGrammar(type, 'home', strategy.archetype, i, orderedTypes.length);
+          return { id: `${type}-${i}-${Date.now().toString(36)}`, type, variant: 'default', intent: grammar.intent, headlineRole: grammar.headlineRole };
+        });
+        const pages = [{ slug: '', label: homeMeta.label || 'Home', purpose: homeMeta.purpose || '', plan: planFor('home', true), sections: homeSections }];
+        const usedSlugs = new Set(['']);
+        architecture.slice(1).forEach(pageMeta => {
+          if (pages.length >= MAX_PAGES) return;
+          const types = sectionRecipeForPageRole(pageMeta.role, strategy.archetype, facts);
+          if (!types.length) return;
+          const slug = uniqueSlug(sanitizeSlug(pageMeta.role), usedSlugs);
+          const sections = types.map((type, i) => {
+            const grammar = planSectionGrammar(type, pageMeta.role, strategy.archetype, i, types.length);
+            return {
+              id: `${type}-${slug}-${i}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+              type, variant: pickVariant(type, proj.design.dimensions, variationSeed),
+              intent: grammar.intent, headlineRole: grammar.headlineRole
+            };
+          });
+          pages.push({ slug, label: pageMeta.label, purpose: pageMeta.purpose, plan: planFor(pageMeta.role, ['product', 'work', 'menu'].includes(pageMeta.role)), sections });
+        });
+        proj.pages = pages;
         proj.activePageIndex = 0;
         proj.sections = proj.pages[0].sections;
         proj.footerVariant = pickVariant('footer', proj.design.dimensions, variationSeed);
-        return `${proj.sections.length} sections planned (${category.label.toLowerCase()})`;
+        return `${proj.sections.length} sections planned (${category.label.toLowerCase()}${proj.pages.length > 1 ? `, ${proj.pages.length} pages planned` : ''})`;
       } },
     { key: 'typography', run() {
         if (usingClaude) {
@@ -4813,7 +5247,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     { key: 'sections', run() {
         proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed); });
       ensureSignatureSection(proj, creativeDirection);
-        proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor);
+        proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed);
         if (usingClaude) {
           // Deterministic copy above is still computed first so every
           // field always has a safe, real value even when Claude supplied
