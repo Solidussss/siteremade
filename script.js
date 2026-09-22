@@ -7948,6 +7948,34 @@ async function runGeneration(text) {
       showAuthGate('Your session expired — sign in again to continue generating this website.');
       return;
     }
+    // FINAL GENERATOR HARDENING pass (spec item 17): the new server-side
+    // rate limit (see server.js's RATE_LIMITS.generation) can refuse this
+    // exact call with a 429 -- checked BEFORE applyCreditsFromPlanResponse
+    // (a 429 body carries no creditsRemaining field; that call is already a
+    // safe no-op without one, but the ordering here matches the 401 branch
+    // above and keeps this read top-to-bottom as "handle the special
+    // statuses first"). This is a real, enforced stop with its own clear,
+    // specific message -- never the generic "website could not be
+    // completed" failure text a genuine build error would show, and never a
+    // silent fallback to the deterministic engine (which would let a
+    // request that was refused for being too fast slip through anyway).
+    // Nothing about the pending text needs preserving here beyond what
+    // already happens for every other failure path: `text` was never
+    // cleared from the input field before this call, and returning now
+    // (before buildGenerationPlan is ever reached, exactly like the
+    // creditsExceeded branch below) means no project object -- duplicate or
+    // otherwise -- is ever created for this refused attempt. The server
+    // enforces the "don't burn credits" half of this on its own (the rate
+    // limiter runs before credit reservation in both server.js and
+    // mock-server.js -- see v13-generator-hardening-test.js's "11b. credits
+    // remaining is unchanged by a 429" check), so there is nothing to
+    // release or roll back client-side either.
+    if (result && result.status === 429) {
+      const retrySeconds = Number.isFinite(result.retryAfterSeconds) ? Math.max(1, Math.round(result.retryAfterSeconds)) : null;
+      const retryNote = retrySeconds ? ` Try again in ${retrySeconds < 60 ? retrySeconds + 's' : Math.ceil(retrySeconds / 60) + 'm'}.` : ' Please try again in a moment.';
+      failureMessage = (result.message || 'Too many requests in a short time.') + retryNote + ' Your credits were not charged.';
+      return;
+    }
     if (result) applyCreditsFromPlanResponse(result);
     if (result && result.creditsExceeded) {
       // A real, enforced stop -- never a silent fallback to the free

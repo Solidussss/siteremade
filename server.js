@@ -28,6 +28,16 @@ const purchase = require('./lib/purchase.js');
 // real, tested, concurrency-safe module on disk, just not wired into this
 // file any more.
 const credits = require('./lib/credits.js');
+// FINAL GENERATOR HARDENING pass: a real, in-memory, bounded rate limiter --
+// see lib/rate-limit.js's own header for the full reasoning (same honesty
+// posture as directionsLedger/operationLedger below: not durable, not
+// shared across instances, but genuinely enforced). normalizeEmail is
+// reused directly from lib/auth.js (via the auth provider's own module,
+// same implementation authProvider ultimately delegates to) so the login
+// brute-force key is built the exact same way signIn itself normalizes an
+// email, rather than a second, possibly-divergent copy of that logic.
+const rateLimit = require('./lib/rate-limit.js');
+const { normalizeEmail } = require('./lib/auth.js');
 // V8.6: export + deployment packaging + hosting/domain handoff -- see
 // SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
 // (no parallel backend), exactly like V8.5's own modules above.
@@ -238,6 +248,62 @@ function requireSameOrigin(req, res, next) {
   if (!origin && referer && !referer.startsWith(expected)) return res.status(403).json({ ok: false, message: 'Cross-origin request refused.' });
   next();
 }
+// FINAL GENERATOR HARDENING pass (spec items 3/4/5): server-side rate
+// limiting -- the highest-priority remaining abuse item per the brief.
+// Every threshold below is env-overridable (same convention as the credit
+// config above: a literal default that IS the real production value,
+// never a magic number buried only in a test), and every bucket is keyed
+// off req.ip, which is correct here specifically because `trust proxy` is
+// set to `1` above -- req.ip already reflects Railway's real single-hop
+// X-Forwarded-For value, not the proxy's own address, so this is not a
+// second/duplicate trust decision, just reading the one Express already
+// makes correctly. Deliberately NOT a general-purpose anti-fraud platform
+// (per the brief: "do not build a huge anti-fraud platform") -- four
+// buckets, sized to slow a scripted burst without interfering with a real
+// person's normal usage (a real visitor never sends 15 sign-in attempts or
+// 20 generations inside one window).
+const RATE_LIMITS = {
+  // Account-creation spam / signup-loop protection (spec item 4).
+  signup: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNUP_MAX) || 8, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNUP_WINDOW_MS) || 60 * 60 * 1000 },
+  // Plain per-IP request-rate ceiling on the sign-in ROUTE itself (distinct
+  // from the per-EMAIL failure-count brute-force check below -- this one
+  // exists so a single IP can't hammer the route at all, authenticated or
+  // not, successful or not).
+  signin: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_MAX) || 15, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_WINDOW_MS) || 15 * 60 * 1000 },
+  // Login brute-force protection (spec item 5): counts FAILURES only, keyed
+  // per normalized email -- see the peek()/recordFailure() split in
+  // lib/rate-limit.js and the /api/auth/signin route below for why a
+  // successful sign-in never advances this counter.
+  signinFailurePerEmail: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_FAILURE_MAX) || 8, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_FAILURE_WINDOW_MS) || 15 * 60 * 1000 },
+  // The three expensive, provider-calling routes (spec item 3: "Protect at
+  // minimum... plan-website, generate-image, refine-website"). Keyed
+  // per-account when signed in (every one of these routes already requires
+  // auth, so req.accountId is always present by the time this runs) --
+  // per-account is the right key here, not per-IP, since the credit ledger
+  // itself is already per-account and this is a second, independent brake
+  // on request VOLUME, not spend.
+  generation: { max: Number(process.env.SITEREMADE_RATE_LIMIT_GENERATION_MAX) || 20, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_GENERATION_WINDOW_MS) || 60 * 1000 },
+};
+// A small, structured, NEVER-leaks-internals 429 body -- spec item 3's
+// "no raw internal error leakage" and item 17's "clear retry message, not
+// a generic generation failure" apply starting here, at the response shape
+// itself, not just in the frontend that reads it.
+function rateLimitMiddleware(bucketKeyFn, limitConfig, message) {
+  return function (req, res, next) {
+    const key = bucketKeyFn(req);
+    if (!key) return next(); // no key derivable (shouldn't happen on a guarded route) -- fail open, never crash the request
+    const result = rateLimit.checkAndRecord(key, limitConfig.max, limitConfig.windowMs);
+    res.setHeader('X-RateLimit-Remaining', String(result.remaining));
+    if (!result.allowed) {
+      res.setHeader('Retry-After', String(result.retryAfterSeconds));
+      return res.status(429).json({ ok: false, message, retryAfterSeconds: result.retryAfterSeconds });
+    }
+    next();
+  };
+}
+const signupRateLimit = rateLimitMiddleware(req => `signup:${req.ip}`, RATE_LIMITS.signup, 'Too many accounts created from this connection recently. Please try again later.');
+const signinRateLimit = rateLimitMiddleware(req => `signin:${req.ip}`, RATE_LIMITS.signin, 'Too many sign-in attempts from this connection recently. Please try again later.');
+const generationRateLimit = rateLimitMiddleware(req => `generation:${req.accountId || req.ip}`, RATE_LIMITS.generation, 'Too many requests in a short time.');
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -522,7 +588,7 @@ app.get('/api/image-provider-status', (req, res) => {
 // handler's body runs. Everything else below is otherwise unchanged: the
 // `req.accountId ? ... : null` conditionals still work correctly (always
 // truthy now), left as-is to keep this diff minimal.
-app.post('/api/generate-image', requireAuth, async (req, res) => {
+app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   // taskType/projectId are purely observability metadata the client
   // attaches (see script.js's ExecutionPlan) -- absent or wrong, this route
@@ -706,6 +772,21 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // fully-imaged day. Raise SITEREMADE_DAILY_FREE_CREDITS in production if
 // a more generous daily ceiling is wanted; the arithmetic above just
 // documents what the shipped default actually buys someone.
+// FINAL GENERATOR HARDENING pass: reconfirmed by direct audit as THE one
+// authoritative backend credit-configuration source -- every other place
+// a number related to credits appears (creditsSummaryFor below,
+// /api/credits, the client's Generate-button label/credit indicator) reads
+// through here, never a second hardcoded copy. Production resolves to
+// DAILY CREDITS = 10 / GENERATION COST = 3 by default, matching the
+// intended product default exactly (see primtest/v13-generator-hardening-
+// test.js's source-inspection test, which proves these literal default
+// values rather than assuming them -- server.js itself can't be spawned in
+// this sandbox, so that test reads this exact expression out of this file
+// instead of duplicating it). landing/mock-server.js's own test-double
+// default mirrors this 10/3 exactly now too; a test that wants a smaller
+// pool sets `creditsLimit` explicitly at its own call site rather than
+// relying on a silently-different ambient default (see that file's own
+// comment).
 const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
 const CREDIT_COST_BY_CLASS = {
   free: 0,
@@ -1261,7 +1342,7 @@ app.get('/api/planner-status', (req, res) => {
 const REFINEMENT_TOOL_CACHED = { ...REFINEMENT_TOOL, cache_control: { type: 'ephemeral' } };
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
 // /api/plan-website above -- requireAuth instead of withOptionalAuth.
-app.post('/api/refine-website', requireAuth, async (req, res) => {
+app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const taskType = clean(req.body.taskType, 40) || 'COPY_REWRITE';
   const projectId = clean(req.body.projectId, 60);
@@ -1381,7 +1462,7 @@ app.post('/api/refine-website', requireAuth, async (req, res) => {
 // Claude's availability. If Claude IS configured, behavior for that branch
 // is otherwise unchanged from before this pass (reserve, attempt, commit
 // on success / release on failure).
-app.post('/api/plan-website', requireAuth, async (req, res) => {
+app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const entry = getDirectionsLedgerEntry(anonId); // signatures/history only now -- see comment above
   // Observability metadata only (see script.js's ExecutionPlan) -- a
@@ -1669,16 +1750,41 @@ const projectJsonParser = express.json({ limit: '35mb' });
 // see lib/adapters/local-auth-provider.js. Behavior is unchanged (it's the
 // exact same lib/auth.js underneath); this is what makes "sign in/up/out"
 // a real part of the AuthProvider boundary rather than only requireAuth.
-app.post('/api/auth/signup', requireSameOrigin, (req, res) => {
+app.post('/api/auth/signup', requireSameOrigin, signupRateLimit, (req, res) => {
   const result = authProvider.signUp(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
   const { token } = authProvider.createSession(db, result.account.id);
   res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
 });
-app.post('/api/auth/signin', requireSameOrigin, (req, res) => {
-  const result = authProvider.signIn(db, req.body && req.body.email, req.body && req.body.password);
-  if (!result.ok) return res.status(401).json({ ok: false, message: result.error });
+// Login brute-force hardening (spec item 5): a per-normalized-email FAILURE
+// counter, checked BEFORE the real auth attempt and only ever incremented
+// AFTER a real failed attempt -- never on success, and never by the check
+// itself (see lib/rate-limit.js's peek()/recordFailure() split, and its
+// header comment for why a legitimate user's own successful retry must
+// never nudge this counter). This is layered on top of, not instead of,
+// signinRateLimit's plain per-IP request-rate ceiling just below -- the
+// email-keyed counter survives a rotating IP; the IP-keyed one survives a
+// rotating email. The response shape is IDENTICAL in every failure case
+// (bad password, unknown email, AND rate-limited) -- 401 with the same
+// generic "Invalid email or password."-style message from authProvider, or
+// this route's own equally generic 429 message -- so this never leaks
+// anything about account existence beyond what authProvider.signIn's own
+// pre-existing constant-shape response already did (spec item 5: "don't
+// leak whether email exists more than current UX already does").
+app.post('/api/auth/signin', requireSameOrigin, signinRateLimit, (req, res) => {
+  const email = req.body && req.body.email;
+  const emailKey = `signin-fail:${normalizeEmail(email)}`;
+  const failures = rateLimit.peek(emailKey, RATE_LIMITS.signinFailurePerEmail.windowMs);
+  if (failures.count >= RATE_LIMITS.signinFailurePerEmail.max) {
+    res.setHeader('Retry-After', String(failures.retryAfterSeconds));
+    return res.status(429).json({ ok: false, message: 'Too many failed sign-in attempts. Please try again later.', retryAfterSeconds: failures.retryAfterSeconds });
+  }
+  const result = authProvider.signIn(db, email, req.body && req.body.password);
+  if (!result.ok) {
+    rateLimit.recordFailure(emailKey, RATE_LIMITS.signinFailurePerEmail.windowMs);
+    return res.status(401).json({ ok: false, message: result.error });
+  }
   const { token } = authProvider.createSession(db, result.account.id);
   res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
