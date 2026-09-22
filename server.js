@@ -254,10 +254,18 @@ async function stripeRequest(endpoint, params) {
 // server environment only, used only in this server-side fetch, and is
 // never sent to or readable by the browser.
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Control-plane pass: a real key alone is no longer sufficient to activate
+// paid image generation. SITEREMADE_PAID_IMAGES must ALSO be explicitly
+// 'true' -- a deliberate two-key gate (operational readiness vs. "we have
+// actually decided to spend money on this"), so a key added for a totally
+// different reason (or left over in an environment) can never silently
+// start billing image calls. This is a hard invariant: do not collapse it
+// back to `!!OPENAI_API_KEY` alone.
+const SITEREMADE_PAID_IMAGES = process.env.SITEREMADE_PAID_IMAGES === 'true';
 const imageProviders = {
   openai: {
     name: 'openai',
-    configured: () => !!OPENAI_API_KEY,
+    configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
     async generate(prompt, { aspectRatio } = {}) {
       const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
       const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -280,25 +288,33 @@ const activeImageProvider = imageProviders.openai;
 
 app.get('/api/image-provider-status', (req, res) => {
   const configured = activeImageProvider.configured();
-  res.json({
-    configured,
-    provider: configured ? activeImageProvider.name : null,
-    reason: configured ? undefined : 'No server-side image-generation API key is configured in this environment.'
-  });
+  const reason = configured ? undefined
+    : !OPENAI_API_KEY ? 'No server-side image-generation API key is configured in this environment.'
+    : 'Paid image generation is disabled (SITEREMADE_PAID_IMAGES is not set to true).';
+  res.json({ configured, provider: configured ? activeImageProvider.name : null, reason });
 });
 
-app.post('/api/generate-image', async (req, res) => {
+app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
+  const anonId = ensureAnonId(req, res);
+  // taskType/projectId are purely observability metadata the client
+  // attaches (see script.js's ExecutionPlan) -- absent or wrong, this route
+  // behaves identically; the ledger just falls back to a generic label.
+  const taskType = clean(req.body.taskType, 40) || 'IMAGE_GENERATE';
+  const projectId = clean(req.body.projectId, 60);
+  if (!activeImageProvider.configured()) {
+    return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
+  }
+  const startedAt = Date.now();
   try {
-    if (!activeImageProvider.configured()) {
-      return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
-    }
     const prompt = clean(req.body.prompt, 600);
     const aspectRatio = clean(req.body.aspectRatio, 10);
     if (!prompt) return res.status(400).json({ ok: false, message: 'Missing prompt.' });
     const result = await activeImageProvider.generate(prompt, { aspectRatio });
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: true, imageCount: 1, imageSize: aspectRatio || null, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.json({ ok: true, dataUrl: result.dataUrl });
   } catch (error) {
     console.error('Image generation failed:', error);
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: 'gpt-image-1', ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
   }
 });
@@ -342,7 +358,72 @@ function recordPlannerAttempt(attempt) {
   };
 }
 
-const HERO_KEYS = ['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
+// ---- Control plane: operation cost classification + ledger ---------------
+// Internal cost CLASS, not dollars -- see the architecture-pass brief part
+// 12/13. Every real AI or image-generation operation this server performs
+// is classified once, here, and every recorded ledger entry (below) carries
+// that classification. This is what a real credit system would eventually
+// meter against; this pass only makes the technical system capable of
+// knowing what expensive work actually happened.
+const OPERATION_COST_CLASS = {
+  NEW_SITE: 'standard', NEW_DIRECTION: 'standard',
+  COPY_REWRITE: 'cheap', COPY_TARGET_CHANGE: 'cheap', QUALITY_REPAIR: 'cheap',
+  IMAGE_REGENERATE: 'standard', IMAGE_ADD: 'standard', IMAGE_GENERATE: 'standard',
+  SECTION_REORDER: 'free', STYLE_CHANGE: 'free', COLOR_CHANGE: 'free', TYPOGRAPHY_CHANGE: 'free',
+  LAYOUT_CHANGE: 'free', IMAGE_REMOVE: 'free', PAGE_ADD: 'free', PAGE_REMOVE: 'free',
+  SECTION_ADD: 'free', SECTION_REMOVE: 'free', CONTENT_EDIT: 'free', RESPONSIVE_FIX: 'free'
+};
+function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType] || 'standard'; }
+
+// A real, in-memory, bounded operation ledger -- deliberately the SAME
+// honesty posture as `directionsLedger` above (see its own comment): not
+// durable across a restart or shared across horizontally-scaled instances,
+// but a genuine record of every real provider call this process makes,
+// immediately queryable, and never storing a secret (no API key, no raw
+// prompt/image bytes -- only the accounting fields the brief asked for).
+// The durable upgrade path is the same one `directionsLedger` documents: a
+// small table keyed by account/anon id, added via the DatabaseAdapter,
+// deliberately not built in this pass (see the report's "what still needs
+// building" section) rather than reshaping this twice.
+const OPERATION_LEDGER_LIMIT = 500;
+const operationLedger = [];
+function recordOperation(entry) {
+  const row = {
+    timestamp: new Date().toISOString(),
+    operationType: entry.operationType || 'unknown',
+    costClass: classifyOperationCost(entry.operationType),
+    provider: entry.provider || null,
+    model: entry.model || null,
+    ok: !!entry.ok,
+    inputTokens: Number.isFinite(entry.inputTokens) ? entry.inputTokens : null,
+    outputTokens: Number.isFinite(entry.outputTokens) ? entry.outputTokens : null,
+    cacheReadTokens: Number.isFinite(entry.cacheReadTokens) ? entry.cacheReadTokens : null,
+    cacheWriteTokens: Number.isFinite(entry.cacheWriteTokens) ? entry.cacheWriteTokens : null,
+    imageCount: Number.isFinite(entry.imageCount) ? entry.imageCount : null,
+    imageSize: entry.imageSize || null,
+    latencyMs: Number.isFinite(entry.latencyMs) ? entry.latencyMs : null,
+    projectId: entry.projectId || null,
+    accountId: entry.accountId || null,
+    anonId: entry.anonId || null
+  };
+  operationLedger.push(row);
+  if (operationLedger.length > OPERATION_LEDGER_LIMIT) operationLedger.shift();
+  return row;
+}
+// Gated by a server-only shared secret (never the auth-session mechanism --
+// this is operational/debug visibility, not a customer-facing feature) so
+// this stays a real, usable observability tool without inventing a roles
+// system this app doesn't have yet. Fails closed: with no token configured,
+// the route doesn't exist at all rather than being openly readable.
+const ADMIN_TOKEN = process.env.SITEREMADE_ADMIN_TOKEN;
+app.get('/api/admin/operation-ledger', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) {
+    return res.status(404).json({ ok: false });
+  }
+  res.json({ ok: true, count: operationLedger.length, entries: operationLedger });
+});
+
+const HERO_KEYS =['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
 const TYPE_KEYS = ['geo-sans','serif-editorial','display-condensed','classic-serif-mix','mono-technical','humanist'];
 const NAV_KEYS = ['inline','boxed-pill','minimal-until-scroll','sidebar','centered-logo'];
 const CARD_KEYS = ['flat','bordered','elevated-shadow','image-led','numbered-editorial','outline-ghost'];
@@ -677,6 +758,19 @@ function buildPlannerUserPrompt(brief) {
   return lines.filter(Boolean).join('\n');
 }
 
+// Control-plane pass, item 11 (prompt-caching readiness): this is REAL
+// caching, not scaffolding for a future one -- the Anthropic Messages API
+// caches a prefix up to and including any content block marked
+// `cache_control: {type:'ephemeral'}`. The system prompt (stable across
+// every call) and the tool schema (stable across every call; only the
+// TOOL DEFINITION is marked -- `tools` is otherwise identical every time)
+// are exactly the "stable: system instructions / renderer vocabulary /
+// output schema" split the brief describes; `messages` (the one part that
+// actually changes per request -- the business brief/project context) is
+// deliberately left uncached. Below the ~1024-token minimum this is a
+// harmless no-op per Anthropic's own docs, so this stays correct even for
+// the smaller refine-website call below.
+const WEBSITE_PLAN_TOOL_CACHED = { ...WEBSITE_PLAN_TOOL, cache_control: { type: 'ephemeral' } };
 const anthropicProvider = {
   name: 'anthropic',
   configured: () => !!ANTHROPIC_API_KEY,
@@ -696,9 +790,9 @@ const anthropicProvider = {
           // richer reasoning room without truncating mid-tool-call.
           max_tokens: 8192,
           thinking: { type: 'disabled' },
-          system: PLANNER_SYSTEM_PROMPT,
+          system: [{ type: 'text', text: PLANNER_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: buildPlannerUserPrompt(brief) }],
-          tools: [WEBSITE_PLAN_TOOL],
+          tools: [WEBSITE_PLAN_TOOL_CACHED],
           tool_choice: { type: 'tool', name: 'submit_website_plan' }
         }),
         signal: controller.signal
@@ -753,30 +847,50 @@ app.get('/api/planner-status', (req, res) => {
   });
 });
 
-app.post('/api/refine-website', async (req, res) => {
+// Control-plane pass: this endpoint is now reached only for a task type the
+// client's own classifier decided genuinely needs reasoning (see script.js
+// classifyRefinementRequest/applyRefinementRequest) -- anything with a
+// confident local/deterministic plan (color, spacing, reorder, variant,
+// footer, simple section add/remove) never calls this route at all any
+// more, closing the ordering gap the audit found (this route used to be
+// tried FIRST for every free-text request, local classification only as a
+// fallback on failure).
+const REFINEMENT_TOOL_CACHED = { ...REFINEMENT_TOOL, cache_control: { type: 'ephemeral' } };
+app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
+  const anonId = ensureAnonId(req, res);
+  const taskType = clean(req.body.taskType, 40) || 'COPY_REWRITE';
+  const projectId = clean(req.body.projectId, 60);
   if (!anthropicProvider.configured()) return res.status(200).json({ ok: false, configured: false });
   const request = clean(req.body.request, 600);
   const context = req.body.context && typeof req.body.context === 'object' ? req.body.context : {};
   if (!request) return res.status(400).json({ ok: false, message: 'Missing refinement request.' });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
+  const startedAt = Date.now();
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL, max_tokens: 2500, thinking: { type: 'disabled' },
-        system: 'You are SiteRemade refinement intelligence. Interpret the user request against the supplied structured project and return only submit_website_refinement. Preserve unrelated content and facts. Never invent business facts, HTML, CSS, or arbitrary operations.',
+        system: [{ type: 'text', text: 'You are SiteRemade refinement intelligence. Interpret the user request against the supplied structured project and return only submit_website_refinement. Preserve unrelated content and facts. Never invent business facts, HTML, CSS, or arbitrary operations.', cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: `Canonical business and current structured project context:\n${JSON.stringify(context).slice(0, 120000)}\n\nRefinement request:\n${request}` }],
-        tools: [REFINEMENT_TOOL], tool_choice: { type: 'tool', name: 'submit_website_refinement' }
+        tools: [REFINEMENT_TOOL_CACHED], tool_choice: { type: 'tool', name: 'submit_website_refinement' }
       }),
       signal: controller.signal
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(200).json({ ok: false, configured: true });
+    const usage = data.usage || {};
+    const latencyMs = Date.now() - startedAt;
+    if (!response.ok) {
+      recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
+      return res.status(200).json({ ok: false, configured: true });
+    }
     const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: !!(toolUse && toolUse.input), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
     return res.json(toolUse && toolUse.input ? { ok: true, plan: toolUse.input } : { ok: false, configured: true });
   } catch (error) {
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.status(200).json({ ok: false, configured: true });
   } finally {
     clearTimeout(timeout);
@@ -794,6 +908,11 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const entry = getDirectionsLedgerEntry(anonId);
   const authed = !!req.accountId;
+  // Observability metadata only (see script.js's ExecutionPlan) -- a
+  // missing/unrecognized value just labels the ledger row generically and
+  // changes nothing about how this route behaves.
+  const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
+  const projectId = clean(req.body.projectId, 60);
   const remainingFor = () => authed
     ? entitlement.getEntitlement(db, req.accountId, MAX_DIRECTIONS).remaining
     : Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed);
@@ -832,6 +951,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     const { plan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
     if (authed) entitlement.commitDirection(db, req.accountId); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
@@ -842,6 +962,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
     if (authed) entitlement.releaseDirection(db, req.accountId); // a failed attempt never permanently consumes a direction
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);

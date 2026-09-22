@@ -1179,6 +1179,34 @@ function pageSlotPrefix(page) {
 function galleryTileCount(variant) { return variant === 'featured' ? 3 : 4; }
 function galleryTileSlot(section, index) { return `${section.id}::gallery-${index + 1}`; }
 function teamTileSlot(section, index) { return `${section.id}::team-${index + 1}`; }
+
+// ---- Image Decision Engine -------------------------------------------------
+// Control-plane pass, brief part 4: "image count should depend on the
+// business and visual strategy, not a fixed number." Slot PLANNING below
+// (which sections get an image slot at all) is unchanged -- it already only
+// plans a slot a layout will actually display (see the function's own
+// existing comments). This is the new layer on top: how many of those
+// slots are worth PAYING to generate. A real user upload is never affected
+// -- it's free and always shown. Only slots with no upload compete for the
+// budget, in role-priority order (hero first -- it's the one image every
+// visitor sees regardless of business type), and anything beyond the
+// budget degrades to the honest 'designed' CSS tier rather than a paid
+// call. Matches the brief's own worked examples: a restaurant (hospitality)
+// gets ~1-2 paid images (hero, maybe a founder/chef shot), a roofer
+// (local-conversion) gets just the hero and is expected to supply real
+// project photos itself, and an editorial fashion brand gets several,
+// because imagery is genuinely central to that business.
+const ARCHETYPE_IMAGE_BUDGET = {
+  'editorial-brand': 6, portfolio: 5, 'launch-campaign': 4, 'ecommerce-showcase': 4,
+  'product-led-saas': 3, hospitality: 2, 'premium-consultancy': 2,
+  'trust-heavy-professional': 2, 'service-business': 2, 'community-nonprofit': 2,
+  'local-conversion': 1
+};
+const DEFAULT_IMAGE_BUDGET = 2;
+function imageBudgetForArchetype(archetype) {
+  return ARCHETYPE_IMAGE_BUDGET[archetype] ?? DEFAULT_IMAGE_BUDGET;
+}
+const IMAGE_ROLE_PRIORITY = { hero: 0, product: 1, team: 2, gallery: 3 };
 function buildImagePlan(project, category) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -1237,8 +1265,23 @@ function buildImagePlan(project, category) {
       }
     });
   });
-  return slots.map(s => {
-    const sourceType = s.assetId ? 'user' : (providerConfigured ? 'generated' : 'designed');
+  // Image Decision Engine: rank every slot that has no real user upload by
+  // role priority, and only the top `budget` of them are worth a paid
+  // generation -- see ARCHETYPE_IMAGE_BUDGET above. This never changes
+  // WHICH slots exist (that's still purely layout-driven, above), only
+  // whether an unfilled one is worth spending on.
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const budget = imageBudgetForArchetype(archetype);
+  const generatedAllowed = new Set(
+    slots
+      .map((s, i) => ({ i, role: s.role, hasUpload: !!s.assetId }))
+      .filter(s => !s.hasUpload)
+      .sort((a, b) => (IMAGE_ROLE_PRIORITY[a.role] ?? 9) - (IMAGE_ROLE_PRIORITY[b.role] ?? 9))
+      .slice(0, budget)
+      .map(s => s.i)
+  );
+  return slots.map((s, i) => {
+    const sourceType = s.assetId ? 'user' : (providerConfigured && generatedAllowed.has(i) ? 'generated' : 'designed');
     return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
   });
 }
@@ -1293,7 +1336,10 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
     const request = fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role }),
+      // taskType/projectId are observability metadata only for the server's
+      // operation ledger (see server.js recordOperation) -- absent or
+      // generic, this call behaves identically.
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
       signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
@@ -1445,6 +1491,35 @@ function renderHero(project, category) {
       </div>`;
   }
 }
+// ---- Control-plane pass: light primitive extraction (task #218) -----------
+// Two compositional patterns are duplicated, near-verbatim, across many of
+// the renderX functions below: (1) a section label + optional intro
+// paragraph, and (2) a grid of uniform "cards" built from a list of items.
+// These two are pulled into shared helpers because the duplication is
+// obvious and repeated across many distinct renderers (see call sites
+// below). This is a deliberately light, incremental extraction -- the
+// existing 19-dimension/11-archetype composition system and the renderX
+// functions themselves are NOT being redesigned or migrated; every renderX
+// function below still owns its own markup and still decides for itself
+// whether/how to use these helpers. A "ProofBlock" primitive (matching
+// renderProof, per the brief's own suggested example) was considered but
+// NOT extracted: renderMetrics is already a pure alias of renderProof
+// (`function renderMetrics(...) { return renderProof(...); }`), so there is
+// only one real call site and no actual duplication left to remove there --
+// extracting it now would be abstraction for its own sake, not
+// deduplication. Likewise CTAGroup was considered but not extracted: the
+// pre-existing renderCtaButton() helper already covers that pattern and is
+// already reused across renderHero, renderCtaBanner, renderReservationCta
+// and renderContact. Both remain good candidates for a future pass; see
+// PRIMITIVES-NOTES below this block for the full inventory.
+function renderSectionHeader(label, intro) {
+  const labelHtml = label ? `<p class="site-section-label">${escapeHtml(label)}</p>` : '';
+  const introHtml = intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : '';
+  return labelHtml + introHtml;
+}
+function renderCardGroup(items, cardClassName, itemRenderer) {
+  return (items || []).map((item, i) => `<div class="${cardClassName}">${itemRenderer(item, i)}</div>`).join('');
+}
 function renderServices(project, category, section) {
   // V8.4: a 'quote' module enabled on a services section renders the real
   // quote-request form directly beneath the static services content --
@@ -1456,17 +1531,16 @@ function renderServices(project, category, section) {
   const labels = category.services;
   const headline = sectionCopyField(section, 'headline', '');
   const intro = sectionCopyField(section, 'body', '');
-  const labelHtml = headline ? `<p class="site-section-label">${escapeHtml(headline)}</p>` : '';
-  const introHtml = intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : '';
+  const headerHtml = renderSectionHeader(headline, intro);
   if (variant === 'described') {
     return `<div class="site-section site-section-services" data-variant="described">
-      ${labelHtml}${introHtml}
-      <div class="site-services-cards">${labels.map(l => `<div class="service-card"><strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p></div>`).join('')}</div>
+      ${headerHtml}
+      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', l => `<strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p>`)}</div>
       ${moduleHtml}
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
-    ${labelHtml}${introHtml}
+    ${headerHtml}
     <div class="site-sections">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div>`).join('')}</div>
     ${moduleHtml}
   </div>`;
@@ -1492,7 +1566,7 @@ function renderGallery(project, category, section, labelOverride) {
   const variant = section && section.variant;
   const plan = project.assets.plan;
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
-  const label = escapeHtml(sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey)));
+  const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));
   const caption = sectionCopyField(section, 'body', '');
   const tileCount = galleryTileCount(variant);
   const tiles = [];
@@ -1503,8 +1577,7 @@ function renderGallery(project, category, section, labelOverride) {
     tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
-    <p class="site-section-label">${label}</p>
-    ${caption ? `<p class="site-section-intro">${escapeHtml(caption)}</p>` : ''}
+    ${renderSectionHeader(label, caption)}
     <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
   </div>`;
 }
@@ -1524,7 +1597,7 @@ function renderTestimonial(project, category, section) {
   const attribution = 'Service principle';
   if (variant === 'card') {
     return `<div class="site-section site-section-testimonial" data-variant="card">
-      <div class="testimonial-card"><p>${quote}</p><span>${attribution}</span></div>
+      ${renderCardGroup([{ quote, attribution }], 'testimonial-card', c => `<p>${c.quote}</p><span>${c.attribution}</span>`)}
     </div>`;
   }
   return `<div class="site-section site-section-testimonial" data-variant="centered">
@@ -1535,8 +1608,8 @@ function renderTestimonialsGrid(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'How we work');
   const quotes = ['Clear communication from start to finish.', 'A considered process, from first conversation to final delivery.', 'Useful expertise without unnecessary complexity.'];
   return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    <div class="testimonials-grid">${quotes.map(q => `<div class="testimonial-card"><p>${escapeHtml(q)}</p><span>Service principle</span></div>`).join('')}</div>
+    ${renderSectionHeader(label)}
+    <div class="testimonials-grid">${renderCardGroup(quotes, 'testimonial-card', q => `<p>${escapeHtml(q)}</p><span>Service principle</span>`)}</div>
   </div>`;
 }
 // V8.2: the example the spec itself gives -- a valid Claude heading with a
@@ -1564,14 +1637,12 @@ function renderAbout(project, category, section) {
 function renderTeam(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Team');
   const teamAssets = project.assets.items.filter(a => a.type === 'team');
-  const cards = [];
-  for (let i = 0; i < Math.max(teamAssets.length, 3); i++) {
-    const a = teamAssets[i];
-    cards.push(`<div class="team-card">${renderVisualSlot(project, teamTileSlot(section, i), project.design.dimensions.imagery, a && a.id)}</div>`);
-  }
+  const slots = [];
+  for (let i = 0; i < Math.max(teamAssets.length, 3); i++) slots.push(teamAssets[i]);
+  const cardsHtml = renderCardGroup(slots.slice(0, 4), 'team-card', (a, i) => renderVisualSlot(project, teamTileSlot(section, i), project.design.dimensions.imagery, a && a.id));
   return `<div class="site-section site-section-team" data-variant="grid">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    <div class="team-grid">${cards.slice(0, 4).join('')}</div>
+    ${renderSectionHeader(label)}
+    <div class="team-grid">${cardsHtml}</div>
   </div>`;
 }
 function renderCtaBanner(project, category, section) {
@@ -1606,9 +1677,8 @@ function renderFeatures(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const labels = category.services;
   return `<div class="site-section site-section-features" data-variant="grid">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
-    <div class="features-grid">${labels.map((l, i) => `<div class="feature-card"><span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
+    ${renderSectionHeader(label, intro)}
+    <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
   </div>`;
 }
 function renderProductShowcase(project, category, section) {
@@ -1620,7 +1690,7 @@ function renderProductShowcase(project, category, section) {
     ? (section.module.type === 'product' ? renderProductModuleWidget(project, section) : (section.module.type === 'action' ? renderActionModuleWidget(project, section) : ''))
     : '';
   return `<div class="site-section site-section-product" data-variant="showcase">
-    <p class="site-section-label">${escapeHtml(label)}</p><h4>${businessName} in action</h4>
+    ${renderSectionHeader(label)}<h4>${businessName} in action</h4>
     <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
     <p class="product-caption">${escapeHtml(caption)}</p>
     ${moduleHtml}
@@ -1637,7 +1707,7 @@ function renderIntegrations(project, category, categoryKey, section) {
   const label = sectionCopyField(section, 'headline', 'Works with what you already use');
   const labels = categoryIntegrationLabels[categoryKey] || categoryIntegrationLabels.default;
   return `<div class="site-section site-section-integrations" data-variant="chips">
-    <p class="site-section-label">${escapeHtml(label)}</p>
+    ${renderSectionHeader(label)}
     <div class="integration-chips">${labels.map(l => `<span class="integration-chip">${escapeHtml(l)}</span>`).join('')}</div>
   </div>`;
 }
@@ -1647,9 +1717,8 @@ function renderPricingSection(project, category, section) {
   const cta = sectionCopyField(section, 'ctaLabel', category.cta);
   const tiers = [{ name: 'Starter', blurb: 'For getting started quickly.' }, { name: 'Growth', blurb: 'For teams scaling up.' }, { name: 'Enterprise', blurb: 'Custom for larger needs.' }];
   return `<div class="site-section site-section-pricing" data-variant="tiers">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
-    <div class="pricing-tiers">${tiers.map(t => `<div class="pricing-tier"><strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(cta)}</button></div>`).join('')}</div>
+    ${renderSectionHeader(label, intro)}
+    <div class="pricing-tiers">${renderCardGroup(tiers, 'pricing-tier', t => `<strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(cta)}</button>`)}</div>
   </div>`;
 }
 function renderFaq(project, category, section) {
@@ -1663,8 +1732,7 @@ function renderFaq(project, category, section) {
     { q: 'Is support included?', a: 'Yes — real help, not just documentation.' }
   ];
   return `<div class="site-section site-section-faq" data-variant="list">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
+    ${renderSectionHeader(label, intro)}
     <div class="faq-list">${qas.map(x => `<div class="faq-item"><strong>${x.q}</strong><p>${x.a}</p></div>`).join('')}</div>
   </div>`;
 }
@@ -1673,8 +1741,7 @@ function renderProcess(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const steps = ['Reach out', 'We scope the work', 'We deliver', 'You review & sign off'];
   return `<div class="site-section site-section-process" data-variant="steps">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
+    ${renderSectionHeader(label, intro)}
     <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
   </div>`;
 }
@@ -1687,8 +1754,7 @@ function renderMenu(project, category, section) {
     ? [`Seasonal ${subject}`, 'Shared plates', 'Something sweet']
     : ['Featured offerings', 'Popular choices', 'Seasonal selection'];
   return `<div class="site-section site-section-menu" data-variant="columns">
-    <p class="site-section-label">${escapeHtml(label)}</p>
-    ${intro ? `<p class="site-section-intro">${escapeHtml(intro)}</p>` : ''}
+    ${renderSectionHeader(label, intro)}
     <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? `A considered take on ${subject}.` : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
   </div>`;
 }
@@ -1719,7 +1785,7 @@ function renderServiceAreas(project, category, section) {
   const loc = project.source.location;
   const areasText = loc ? `${loc} and surrounding areas` : 'Local & surrounding areas';
   return `<div class="site-section site-section-areas" data-variant="list">
-    <p class="site-section-label">${escapeHtml(label)}</p><p class="areas-statement">${escapeHtml(areasText)}</p>
+    ${renderSectionHeader(label)}<p class="areas-statement">${escapeHtml(areasText)}</p>
   </div>`;
 }
 function renderContact(project, category, section) {
@@ -1746,7 +1812,7 @@ function renderContact(project, category, section) {
   const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
   const loc = project.source.location ? escapeHtml(project.source.location) + ' · ' : '';
   return `<div class="site-section site-section-contact" data-variant="simple">
-    <p class="site-section-label">${escapeHtml(label)}</p><p>${loc}Get in touch to get started.</p>${renderCtaButton(section && section.ctaTarget, cta)}
+    ${renderSectionHeader(label)}<p>${loc}Get in touch to get started.</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function renderNewsletter(project, category, section) {
@@ -3109,6 +3175,173 @@ function runEditorAction(mutateFn, imagesMayChange) {
   return true;
 }
 
+// ==========================================================================
+// GENERATION CONTROL PLANE -- decides what work a request actually needs
+// before anything expensive runs. SiteRemade's editor controls (color,
+// spacing, typography pickers, drag-reorder, device toggle, section
+// toggles) already ran entirely through `runEditorAction` with zero network
+// calls -- that part of "SiteRemade does the work itself" was already true.
+// The one real gap the audit found: the free-text refine box
+// (`applyRefinementRequest` below) always tried Claude FIRST and only fell
+// back to the already-existing local/deterministic classifier
+// (`buildLocalRefinementPlan`) on failure -- so a request a local pattern
+// could fully handle (e.g. "make it darker") still paid for a Claude call
+// whenever one was configured. `classifyRefinementRequest` fixes the
+// ordering: classify first, run locally when confident, and reach the
+// network only for a task type that genuinely needs reasoning (a rewrite,
+// an audience/positioning change, or free text no local pattern matches).
+// ExecutionPlan is deliberately a SEPARATE object from a WebsiteProject/
+// GenerationPlan (buildGenerationPlan's own return shape) -- see the
+// architecture-pass brief part 2: "what the website should be" vs "what
+// expensive work needs to happen to produce it."
+const TASK_TYPES = ['NEW_SITE', 'NEW_DIRECTION', 'COPY_REWRITE', 'COPY_TARGET_CHANGE', 'SECTION_REORDER', 'STYLE_CHANGE', 'COLOR_CHANGE', 'TYPOGRAPHY_CHANGE', 'LAYOUT_CHANGE', 'IMAGE_REGENERATE', 'IMAGE_ADD', 'IMAGE_REMOVE', 'PAGE_ADD', 'PAGE_REMOVE', 'SECTION_ADD', 'SECTION_REMOVE', 'CONTENT_EDIT', 'RESPONSIVE_FIX', 'QUALITY_REPAIR'];
+// Kept in sync with server.js's OPERATION_COST_CLASS, same mirroring
+// convention this file already uses for every CLAUDE_*_KEYS enum. Cost
+// CLASS only -- no dollar amounts anywhere in this pass (see brief part 12).
+const TASK_COST_CLASS = {
+  NEW_SITE: 'standard', NEW_DIRECTION: 'standard',
+  COPY_REWRITE: 'cheap', COPY_TARGET_CHANGE: 'cheap', QUALITY_REPAIR: 'cheap',
+  IMAGE_REGENERATE: 'standard', IMAGE_ADD: 'standard',
+  SECTION_REORDER: 'free', STYLE_CHANGE: 'free', COLOR_CHANGE: 'free', TYPOGRAPHY_CHANGE: 'free',
+  LAYOUT_CHANGE: 'free', IMAGE_REMOVE: 'free', PAGE_ADD: 'free', PAGE_REMOVE: 'free',
+  SECTION_ADD: 'free', SECTION_REMOVE: 'free', CONTENT_EDIT: 'free', RESPONSIVE_FIX: 'free'
+};
+function buildExecutionPlan(taskType, overrides) {
+  return {
+    taskType,
+    needsClaude: false,
+    needsImageGeneration: false,
+    reuseExistingAssets: true,
+    deterministicOperations: [],
+    costClass: TASK_COST_CLASS[taskType] || 'standard',
+    ...(overrides || {})
+  };
+}
+// Free text shaped like a real strategy/audience/copy change -- checked
+// BEFORE the deterministic pattern match below, and always escalates, even
+// if a coincidental deterministic pattern also happens to match. This is
+// the brief's own worked example: "rewrite this for commercial clients
+// instead of homeowners" must reach real reasoning, not a design-dimension
+// tweak.
+const REASONING_REQUIRED_PATTERNS = [
+  // Broadened beyond the original "for X clients"/"audience"/"targeting"
+  // phrasing to also catch the brief's own worked example verbatim
+  // ("change this roofing site from residential homeowners to commercial
+  // property managers") -- a generic "from <audience> to <audience>" shift
+  // naming a real audience-type noun on either side, without requiring the
+  // literal word "clients".
+  { taskType: 'COPY_TARGET_CHANGE', test: /\bfor (commercial|residential|enterprise|consumer|business|b2b|b2c)\b.*\bclients?\b|\baudience\b|\btarget(ing)? (customer|market|client)|\bfrom\b.{0,40}\bto\b.{0,60}(homeowners?|clients?|customers?|managers?|owners?|businesses?|residents?|tenants?|consumers?|enterprises?|professionals?)\b/i },
+  { taskType: 'COPY_REWRITE', test: /\brewrite\b|\brewritten\b|\bdifferent (tone|voice|angle)\b|\bmore (professional|casual|formal|technical)\b|\bpositioning\b|\bfrom .+ to .+ clients?\b/i }
+];
+// Deterministic, in-vocabulary color-word -> real colorBehavior mapping
+// (control-plane pass, test scenario B: "make the accent blue" must resolve
+// with zero AI calls). This system has exactly 4 real colorBehavior modes
+// -- there is no literal hue/hex system anywhere in the renderer or CSS --
+// so this maps common color/tone words onto the closest existing mode
+// rather than inventing new visual capability. Deliberately honest about
+// its limits: a color word outside this list falls through and the request
+// still safely escalates to Claude (or a no-op local plan) rather than
+// silently doing nothing while claiming success.
+const COLOR_WORD_TO_BEHAVIOR = {
+  blue: 'high-contrast-mono-accent', teal: 'high-contrast-mono-accent', purple: 'high-contrast-mono-accent',
+  cool: 'high-contrast-mono-accent', bold: 'high-contrast-mono-accent', tech: 'high-contrast-mono-accent',
+  orange: 'warm-earth-multi-tone', warm: 'warm-earth-multi-tone', earthy: 'warm-earth-multi-tone', terracotta: 'warm-earth-multi-tone',
+  black: 'dark-luxury-metallic', gold: 'dark-luxury-metallic', dark: 'dark-luxury-metallic', metallic: 'dark-luxury-metallic',
+  grey: 'neutral-single-accent', gray: 'neutral-single-accent', neutral: 'neutral-single-accent', monochrome: 'neutral-single-accent'
+};
+// Generic "move <section keyword> before/after <section keyword>" detector
+// (control-plane pass, test scenario C: "move testimonials before services"
+// must resolve with zero AI calls). The pre-existing rule below only ever
+// recognized the single specific phrase "about above services"; this covers
+// the general case for any pair of known section-type keywords so an
+// arbitrary deterministic reorder request doesn't fall through to Claude.
+const SECTION_TYPE_KEYWORDS = [
+  { type: 'testimonialsGrid', re: /testimonials?/i }, { type: 'services', re: /\bservices?\b/i },
+  { type: 'about', re: /\babout\b/i }, { type: 'gallery', re: /\b(gallery|portfolio)\b/i },
+  { type: 'team', re: /\bteam\b/i }, { type: 'pricing', re: /\b(pricing|tiers?)\b/i },
+  { type: 'faq', re: /\bfaq\b|frequently asked/i }, { type: 'process', re: /\bprocess\b|how it works/i },
+  { type: 'menu', re: /\bmenu\b/i }, { type: 'contact', re: /\bcontact\b/i },
+  { type: 'features', re: /\bfeatures?\b/i }, { type: 'productShowcase', re: /\bproduct\b/i },
+  { type: 'integrations', re: /\bintegrations?\b/i }, { type: 'newsletter', re: /\bnewsletter\b/i },
+  { type: 'ctaBanner', re: /\bcta\b|call.?to.?action/i }, { type: 'reservationCta', re: /\b(reservation|booking)\b/i },
+  { type: 'serviceAreas', re: /service areas?/i }
+];
+function matchSectionTypeKeyword(phrase) {
+  const hit = SECTION_TYPE_KEYWORDS.find(entry => entry.re.test(phrase));
+  return hit ? hit.type : null;
+}
+function detectGenericSectionMove(text, page) {
+  if (!page) return null;
+  const beforeMatch = text.match(/move\s+(.+?)\s+(before|above|ahead of)\s+(.+)/i);
+  const afterMatch = !beforeMatch && text.match(/move\s+(.+?)\s+(after|below)\s+(.+)/i);
+  const m = beforeMatch || afterMatch;
+  if (!m) return null;
+  const fromType = matchSectionTypeKeyword(m[1]);
+  const toType = matchSectionTypeKeyword(m[3]);
+  if (!fromType || !toType || fromType === toType) return null;
+  const source = page.sections.find(s => s.type === fromType);
+  const target = page.sections.find(s => s.type === toType);
+  if (!source || !target) return null;
+  if (beforeMatch) return { action: 'move-section', targetId: source.id, beforeId: target.id };
+  const idx = page.sections.findIndex(s => s.id === target.id);
+  const nextSection = page.sections[idx + 1];
+  return { action: 'move-section', targetId: source.id, beforeId: nextSection ? nextSection.id : target.id };
+}
+// Labels a CONFIDENT local plan for the ledger/observability only -- it
+// never affects what actually executes (`applyLocalRefinementPlan` already
+// does that, unchanged). Order matters: image actions and page/section
+// structure changes are checked before the generic 'change-design' bucket,
+// which covers both pure style AND layout-shaped dimensions.
+function inferLocalTaskType(localPlan) {
+  if (localPlan.imageActions && localPlan.imageActions.length) {
+    return localPlan.imageActions.some(a => a.action === 'regenerate') ? 'IMAGE_REGENERATE' : 'IMAGE_ADD';
+  }
+  const actions = (localPlan.operations || []).map(o => o.action);
+  if (actions.includes('add-page')) return 'PAGE_ADD';
+  if (actions.includes('move-section')) return 'SECTION_REORDER';
+  if (actions.includes('add-section') || actions.includes('replace-section')) return 'SECTION_ADD';
+  if (actions.includes('change-footer') || actions.includes('change-variant')) return 'LAYOUT_CHANGE';
+  const designChange = localPlan.operations.find(o => o.action === 'change-design');
+  if (designChange) {
+    if (designChange.changes && designChange.changes.colorBehavior) return 'COLOR_CHANGE';
+    return 'STYLE_CHANGE';
+  }
+  return 'CONTENT_EDIT';
+}
+// The real classifier: local-first, Claude only when genuinely needed.
+function classifyRefinementRequest(text) {
+  const trimmed = String(text || '').trim();
+  const localPlan = buildLocalRefinementPlan(trimmed);
+  for (const rule of REASONING_REQUIRED_PATTERNS) {
+    if (rule.test.test(trimmed)) {
+      return { executionPlan: buildExecutionPlan(rule.taskType, { needsClaude: true }), localPlan };
+    }
+  }
+  // NOTE: imageActions is a separate array from operations (see
+  // buildLocalRefinementPlan) -- a request that ONLY produces an image
+  // action (e.g. "regenerate the hero image", test scenario E) has
+  // operations.length === 0, so this must check both, not just operations,
+  // or a pure image-regenerate request would wrongly fall through to the
+  // Claude-escalation branch below.
+  if (localPlan.operations.length || localPlan.imageActions.length) {
+    const taskType = inferLocalTaskType(localPlan);
+    return {
+      executionPlan: buildExecutionPlan(taskType, {
+        needsClaude: false,
+        needsImageGeneration: localPlan.imageActions.length > 0,
+        deterministicOperations: localPlan.operations.map(o => o.action)
+      }),
+      localPlan
+    };
+  }
+  // No confident local match -- genuinely ambiguous free text. Escalating
+  // is the honest choice here (matches every request this app already
+  // supported before this pass); it is not the common case in practice,
+  // since most real refinement requests hit a local pattern or a
+  // reasoning-required one above.
+  return { executionPlan: buildExecutionPlan('CONTENT_EDIT', { needsClaude: true }), localPlan };
+}
+
 function buildLocalRefinementPlan(request) {
   const text = String(request || '').toLowerCase();
   const page = project && project.pages && project.pages[project.activePageIndex];
@@ -3119,6 +3352,14 @@ function buildLocalRefinementPlan(request) {
   if (/hero.*(boring|visual|dramatic)|more visual/.test(text)) {
     operations.push({ action: 'change-design', changes: { hero: 'fullbleed-image', imageDominance: 'dominant', imageStrategy: 'photography-led' } });
     imageActions.push({ action: 'regenerate', slot: 'hero' });
+  }
+  // Plain "regenerate the X image" request (control-plane pass, test
+  // scenario E) -- distinct from the hero-boring/dramatic rule above, which
+  // also changes the hero LAYOUT. A bare regenerate request changes nothing
+  // about the design, it only asks for one new asset in an existing slot.
+  if (!imageActions.some(a => a.action === 'regenerate') && /\b(regenerate|redo|refresh|new)\b.*\b(image|photo|picture)\b|\bregenerate\b/i.test(text)) {
+    const roleWord = ['hero', 'about', 'product', 'team', 'gallery', 'logo'].find(w => new RegExp(`\\b${w}\\b`, 'i').test(text));
+    if (roleWord) imageActions.push({ action: 'regenerate', slot: roleWord });
   }
   if (/more (photo|imagery|images)|add.*imagery/.test(text)) {
     operations.push({ action: 'add-section', sectionType: 'gallery' });
@@ -3140,6 +3381,20 @@ function buildLocalRefinementPlan(request) {
     if (about) operations.push({ action: 'change-variant', targetId: about.id, variant: 'split' });
   }
   if (/footer.*(refined|better)/.test(text)) operations.push({ action: 'change-footer', variant: 'columns' });
+  // Generic color-word mapping -- only when no more-specific design rule
+  // above already fired (premium/luxury/darker take precedence over a
+  // loose color word match).
+  if (!operations.some(op => op.action === 'change-design') && /\b(accent|colou?r|palette|tone)\b/i.test(text)) {
+    const hueWord = Object.keys(COLOR_WORD_TO_BEHAVIOR).find(w => new RegExp(`\\b${w}\\b`, 'i').test(text));
+    if (hueWord) operations.push({ action: 'change-design', changes: { colorBehavior: COLOR_WORD_TO_BEHAVIOR[hueWord] } });
+  }
+  // Generic section-move detector -- only when the specific "about above
+  // services" rule above didn't already produce one, to avoid a duplicate
+  // move-section op for the same request.
+  if (!operations.some(op => op.action === 'move-section') && page) {
+    const generic = detectGenericSectionMove(text, page);
+    if (generic) operations.push(generic);
+  }
   return { scope: operations.length > 1 ? 'site' : 'section', operations, imageActions, explanation: operations.length ? 'Applied a scoped structured refinement to the current direction.' : 'No supported scoped change was detected.' };
 }
 
@@ -3226,15 +3481,26 @@ async function applyRefinementRequest(request) {
   generationState = 'refining';
   try {
     if (refinementStatus) refinementStatus.textContent = 'Understanding request…';
-    let plan = null;
-    if (window.__siteremadePlanMeter && window.__siteremadePlanMeter.planConfigured) {
+    // Control plane: classify BEFORE any network call. A confident local
+    // plan is applied directly with zero AI calls -- Claude is only reached
+    // for a task type the classifier decided genuinely needs reasoning.
+    const classification = classifyRefinementRequest(request);
+    let plan = classification.executionPlan.needsClaude ? null : classification.localPlan;
+    if (classification.executionPlan.needsClaude && window.__siteremadePlanMeter && window.__siteremadePlanMeter.planConfigured) {
       try {
-        const response = await fetch('/api/refine-website', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request, context: refinementContext() }) });
+        const response = await fetch('/api/refine-website', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request, context: refinementContext(), taskType: classification.executionPlan.taskType, projectId: project.meta && project.meta.id })
+        });
         const data = await response.json().catch(() => ({}));
         plan = normalizeRefinementPlan(data && data.ok ? data.plan : null);
       } catch (error) { plan = null; }
     }
-    plan = plan || buildLocalRefinementPlan(request);
+    // A reasoning-required classification that Claude couldn't fulfill
+    // (unconfigured or failed) still falls back to whatever the local
+    // classifier found -- possibly nothing, but never worse than before
+    // this pass.
+    plan = plan || classification.localPlan || buildLocalRefinementPlan(request);
     if (!plan.operations.length) {
       if (refinementStatus) refinementStatus.textContent = 'That request needs a more specific supported change.';
       return false;
@@ -3243,7 +3509,7 @@ async function applyRefinementRequest(request) {
     const changed = applyLocalRefinementPlan(plan);
     if (!changed) return false;
     generationState = plan.imageActions && plan.imageActions.length ? 'refinement_images' : 'refinement_finalizing';
-    await resolveImagePlanAssets(project);
+    await resolveImagePlanAssets(project, null, { taskType: classification.executionPlan.taskType });
     renderProject(project);
     if (refinementStatus) refinementStatus.textContent = 'Updated. Your next refinement can build on this version.';
     return true;
@@ -4912,12 +5178,14 @@ function normalizeClaudePlan(raw, catDefaults) {
 // broken." A failed or skipped call never touches window.__siteremadePlanMeter
 // itself; only a real successful response (or an explicit limited response)
 // updates the visible "N of 3 AI-planned directions" meter.
-async function requestClaudePlan(text) {
+async function requestClaudePlan(text, taskType) {
   try {
     const response = await fetch('/api/plan-website', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      // taskType is observability metadata only (server.js recordOperation)
+      // -- the route's own behavior/limits are unchanged by it.
+      body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE' })
     });
     const data = await response.json().catch(() => ({}));
     return data && typeof data === 'object' ? data : { ok: false };
@@ -5030,6 +5298,98 @@ function announceDirectionLimitReached() {
   renderDirectionSwitcher();
   const target = directionSwitcherEl && !directionSwitcherEl.hidden ? directionSwitcherEl : document.getElementById('build');
   if (target) target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---- Deterministic quality critic ------------------------------------------
+// Control-plane pass, brief part 8: evaluates the finished WebsiteProject
+// before reveal. Entirely rule-based -- no Claude call, ever, for this pass
+// (part 9's "targeted AI repair" describes escalating to Claude only when a
+// deterministic rule can't fix an issue; this pass implements the
+// deterministic side and the detection, and applies the handful of repairs
+// that ARE safely automatable, leaving the rest as a real, inspectable
+// report rather than silently ignoring them or fabricating a fix).
+function findDuplicateSectionPattern(proj) {
+  const issues = [];
+  (proj.pages || []).forEach(page => {
+    const sections = page.sections || [];
+    for (let i = 1; i < sections.length; i++) {
+      if (sections[i].type === sections[i - 1].type && sections[i].variant === sections[i - 1].variant) {
+        issues.push({ pageId: page.id || page.slug, sectionId: sections[i].id, type: sections[i].type });
+      }
+    }
+  });
+  return issues;
+}
+function findRepeatedHeadlines(proj) {
+  const seen = new Map();
+  const repeats = [];
+  (proj.pages || []).forEach(page => (page.sections || []).forEach(section => {
+    const headline = section.copy && typeof section.copy.headline === 'string' ? section.copy.headline.trim().toLowerCase() : '';
+    if (!headline) return;
+    if (seen.has(headline)) repeats.push({ sectionId: section.id, matchesSectionId: seen.get(headline), headline: section.copy.headline });
+    else seen.set(headline, section.id);
+  }));
+  return repeats;
+}
+function findRepeatedClaims(proj) {
+  const seen = new Map();
+  const repeats = [];
+  (proj.pages || []).forEach(page => (page.sections || []).forEach(section => {
+    (section.copy && Array.isArray(section.copy.claims) ? section.copy.claims : []).forEach(claim => {
+      const key = String(claim.text || '').trim().toLowerCase();
+      if (!key) return;
+      if (seen.has(key)) repeats.push({ sectionId: section.id, matchesSectionId: seen.get(key), text: claim.text });
+      else seen.set(key, section.id);
+    });
+  }));
+  return repeats;
+}
+function hasConversionPath(proj) {
+  const convertingTypes = ['contact', 'reservationCta', 'newsletter', 'ctaBanner'];
+  return (proj.pages || []).some(page => (page.sections || []).some(s => convertingTypes.includes(s.type) || (s.module && s.module.enabled)));
+}
+function findPagesRepeatingHome(proj) {
+  const pages = proj.pages || [];
+  if (pages.length < 2) return [];
+  const homeSignature = (pages[0].sections || []).map(s => s.type).join(',');
+  return pages.slice(1).filter(p => (p.sections || []).map(s => s.type).join(',') === homeSignature).map(p => p.id || p.slug);
+}
+// Runs once per finished direction (both Claude and deterministic paths --
+// called from the 'build' step below, which both already share), detects
+// real issues, and applies ONLY the repairs that are unambiguous and
+// reversible through machinery this file already has (pickVariant,
+// insertSection) -- never a copy rewrite, which would need real reasoning
+// and belongs to the targeted-repair path (part 9), not this one.
+function runQualityCritic(proj, variationSeed) {
+  const issues = [];
+  const duplicatePatterns = findDuplicateSectionPattern(proj);
+  duplicatePatterns.forEach(dup => {
+    const page = (proj.pages || []).find(p => (p.id || p.slug) === dup.pageId);
+    const section = page && (page.sections || []).find(s => s.id === dup.sectionId);
+    if (section) {
+      // Safe, reversible repair: nudge the variant so two back-to-back
+      // same-type sections don't render as visually identical blocks. Never
+      // touches copy/content, only the existing variant vocabulary.
+      const nudged = pickVariant(section.type, proj.design.dimensions, (variationSeed || 0) + 1);
+      if (nudged !== section.variant) { section.variant = nudged; issues.push({ code: 'duplicate_section_pattern', detail: dup, repaired: true }); return; }
+    }
+    issues.push({ code: 'duplicate_section_pattern', detail: dup, repaired: false });
+  });
+  findRepeatedHeadlines(proj).forEach(dup => issues.push({ code: 'repeated_headline', detail: dup, repaired: false }));
+  findRepeatedClaims(proj).forEach(dup => issues.push({ code: 'repeated_claim', detail: dup, repaired: false }));
+  if (!hasConversionPath(proj)) {
+    // Safe, reversible repair: add the one section type this codebase
+    // already treats as the generic conversion close (see
+    // ensureSignatureSection's own fallback) to Home.
+    insertSection(proj, 'ctaBanner');
+    issues.push({ code: 'missing_conversion_path', repaired: true });
+  }
+  findPagesRepeatingHome(proj).forEach(pageId => issues.push({ code: 'page_repeats_home', detail: { pageId }, repaired: false }));
+  const archetype = (proj.strategy && proj.strategy.archetype) || 'service-business';
+  const imageLed = imageBudgetForArchetype(archetype) >= 4;
+  const realImageCount = (proj.imagePlan || []).filter(p => p.sourceType === 'generated' || p.sourceType === 'user').length;
+  if (imageLed && realImageCount === 0) issues.push({ code: 'too_few_images_for_archetype', detail: { archetype }, repaired: false });
+  return { issues, checkedAt: new Date().toISOString() };
 }
 
 // Builds the initial (already-real) shell of a WebsiteProject: business
@@ -5281,6 +5641,10 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         return 'Art-directed imagery matched to your brand';
       } },
     { key: 'build', run() {
+        // Additive, never blocks reveal -- a real issue is reported (and,
+        // where safely automatable, repaired), not hidden and not a reason
+        // to stop the generation this project already promised the visitor.
+        proj.qualityReport = runQualityCritic(proj, variationSeed);
         return 'Desktop + mobile preview ready';
       } }
   ];
@@ -5545,7 +5909,7 @@ async function runGeneration(text) {
       updateGenerationGate('creative');
       if (generatorSubmitButton) generatorSubmitButton.disabled = true;
       if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
-      const result = await requestClaudePlan(text);
+      const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE');
       if (result && result.ok && result.plan) {
         const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
         claudePlan = normalizeClaudePlan(result.plan, catDefaults);
