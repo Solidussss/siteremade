@@ -37,6 +37,11 @@
         <form class="generator-form" id="generatorForm">
           <label class="generator-label" for="generatorInput">Describe your business</label>
           <textarea id="generatorInput" name="generatorInput" rows="3" maxlength="280" placeholder="A modern AI software company in Los Angeles building tools for creative teams" required></textarea>
+          <div class="generator-upload" id="generatorUpload">
+            <input type="file" id="generatorUploadInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden />
+            <button type="button" class="generator-upload-btn" id="generatorUploadBtn">+ Add your own photos or logo <span>(optional — drag, paste or attach)</span></button>
+            <div class="asset-thumb-row" id="generatorUploadThumbs" hidden></div>
+          </div>
           <button class="button generator-submit" type="submit"><span class="btn-label">Generate website</span></button>
           <div class="generator-examples-secondary">
             <span>Need inspiration?</span>

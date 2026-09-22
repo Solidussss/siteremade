@@ -944,6 +944,14 @@ function pickVariant(type, composed, variationSeed) {
     case 'gallery': { const d = ['asymmetric-offset', 'fullbleed-image', 'collage'].includes(composed.hero) ? 'featured' : 'grid'; return flip ? (d === 'featured' ? 'grid' : 'featured') : d; }
     case 'testimonial': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'centered' : 'card';
     case 'about': return (composed.spacing === 'airy' || composed.spacing === 'generous') ? 'split' : 'statement';
+    // Brand-experience pass: 'features' previously had zero variance --
+    // always a 3-card grid, for every archetype. `sectionRhythm` is already
+    // a real, per-archetype (and Claude-settable) composition dimension --
+    // 'editorial' rhythm (premium-consultancy/editorial-brand/hospitality)
+    // reads as restrained, spacious, text-led, so those get a numbered
+    // editorial list instead of a card grid; everything else keeps the
+    // existing card behavior unchanged.
+    case 'features': return composed.sectionRhythm === 'editorial' ? 'list' : 'grid';
     case 'ctaBanner': return ['high-contrast-mono-accent', 'dark-luxury-metallic'].includes(composed.colorBehavior) ? 'accent' : 'plain';
     case 'proof': return 'facts';
     case 'footer': return ['sidebar', 'centered-logo'].includes(composed.nav) ? 'columns' : 'simple';
@@ -1439,6 +1447,12 @@ function renderHero(project, category) {
   const ctaMinimal = renderCtaButton(copy.ctaTarget, cta + ' ↗', 'minimal-link');
   const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
   const layout = (project.meta && project.meta.isDemoShell) ? 'demo' : composed.hero;
+  // Item 17: the default split hero always appended a second, purely
+  // decorative "See our work ↗" link next to the real CTA -- generic
+  // filler text promising a showcase that may not exist on this business's
+  // own site. Now shown only when a real showcase section is actually on
+  // Home, so it stops being a promise the site itself doesn't keep.
+  const hasShowcase = (project.sections || []).some(s => ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(s.type));
   switch (layout) {
     case 'demo': return `<div class="site-hero hero-demo-shell">
         <div class="site-copy"><p>PREVIEW</p><h3>Describe your business above</h3><p>Your generated site will appear here — real layout, real copy, real palette, built from what you type.</p></div>
@@ -1486,7 +1500,7 @@ function renderHero(project, category) {
         <div class="hero-editorial-visual">${visual}</div>
       </div>`;
     default: return `<div class="site-hero hero-split">
-        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}<span>See our work ↗</span></div></div>
+        <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}${hasShowcase ? '<span>See our work ↗</span>' : ''}</div></div>
         <div class="site-visual">${visual}</div>
       </div>`;
   }
@@ -1520,6 +1534,142 @@ function renderSectionHeader(label, intro) {
 function renderCardGroup(items, cardClassName, itemRenderer) {
   return (items || []).map((item, i) => `<div class="${cardClassName}">${itemRenderer(item, i)}</div>`).join('');
 }
+// ---- Business-semantic section vocabulary (brand-experience pass) --------
+// buildCopy() only ever produced the HERO's copy -- every other section on
+// the deterministic path (no Claude, or Claude unavailable/failed) fell
+// back to whichever single hardcoded English string its own renderer
+// happened to contain, regardless of the business. That's the literal
+// source of e.g. a restaurant rendering "HOW WE WORK / Clear communication
+// from start to finish / A considered process, from first conversation to
+// final delivery / Useful expertise without unnecessary complexity" --
+// those three sentences were renderTestimonialsGrid's only hardcoded pool,
+// shown to every business on earth.
+//
+// This table is keyed by ARCHETYPE, never by a single named business, so it
+// generalizes across every category that shares an archetype (a cafe, a
+// bar and a bistro are all `hospitality`; a roofer, a plumber and a
+// landscaper are all `local-conversion`). Every string is illustrative
+// marketing copy, exactly like the pre-existing hardcoded strings it
+// replaces -- never a specific fabricated claim (no invented years, award
+// names, headcounts, or named people). `service-business` keeps the
+// original strings verbatim, since they're a genuine fit for that
+// archetype; every other archetype gets its own real framing.
+const ARCHETYPE_SECTION_VOCAB = {
+  'service-business': {
+    aboutLabel: 'About', processLabel: 'How We Work',
+    processSteps: ['Reach out', 'We scope the work', 'We deliver', 'You review & sign off'],
+    testimonialsLabel: 'What Clients Say',
+    testimonialQuotes: ['Clear communication from start to finish.', 'A considered process, from first conversation to final delivery.', 'Useful expertise without unnecessary complexity.'],
+    testimonialAttribution: 'Client',
+    aboutFrame: (category) => `We're a ${category.label.toLowerCase()} team focused on getting the details right, from the first conversation to the finished result.`,
+    serviceCardBody: (item, category) => `Real ${category.noun}, presented clearly.`,
+    faqSecondQuestion: 'How do I get started?'
+  },
+  hospitality: {
+    aboutLabel: 'Our Philosophy', processLabel: 'The Experience',
+    processSteps: ['Reserve', 'Arrive & settle in', 'Let the menu lead', 'Come back for more'],
+    testimonialsLabel: 'What Guests Say',
+    testimonialQuotes: ['A room worth returning to.', 'Every detail felt considered, right down to the pacing.', 'The kind of evening you end up telling people about.'],
+    testimonialAttribution: 'Regular guest',
+    aboutFrame: (category) => `${category.label} built around atmosphere as much as what's on the plate -- considered, not staged.`,
+    serviceCardBody: (item, category) => `A regular part of the ${category.noun} on offer.`,
+    faqSecondQuestion: 'How do I make a reservation?'
+  },
+  'premium-consultancy': {
+    aboutLabel: 'Our Approach', processLabel: 'How We Work Together',
+    processSteps: ['A private consultation', 'A plan built around you', 'Careful, considered execution', 'A result worth the trust'],
+    testimonialsLabel: 'What Clients Say',
+    testimonialQuotes: ['Exactly the kind of judgment you want on something this important.', 'Discreet, thorough, and worth every conversation.', 'A rare level of care for the details that matter.'],
+    testimonialAttribution: 'Private client',
+    aboutFrame: (category) => `A considered, understated approach to ${category.noun} -- expertise that doesn't need to shout.`,
+    serviceCardBody: () => 'Handled with the same restraint and care as everything else.',
+    faqSecondQuestion: 'How do I book a consultation?'
+  },
+  portfolio: {
+    aboutLabel: 'About', processLabel: 'How We Work',
+    processSteps: ['A first conversation', 'Concept & direction', 'The work itself', 'Delivery'],
+    testimonialsLabel: 'Client Feedback',
+    testimonialQuotes: ['Work that speaks for itself.', 'Exactly the direction we didn’t know we needed.', 'Meticulous, from the first sketch to the final file.'],
+    testimonialAttribution: 'Client',
+    aboutFrame: (category) => `${titleCase(category.noun)} that lets the work do the talking.`,
+    serviceCardBody: () => 'One part of how the work comes together.',
+    faqSecondQuestion: 'How do I start a project?'
+  },
+  'product-led-saas': {
+    aboutLabel: 'About', processLabel: 'How It Works',
+    processSteps: ['Sign up', 'Connect your workflow', 'See it in action', 'Scale with confidence'],
+    testimonialsLabel: 'What Teams Say',
+    testimonialQuotes: ['It just works, and support actually answers.', 'Cut our setup time down to almost nothing.', 'The one tool the whole team actually uses.'],
+    testimonialAttribution: 'Product lead',
+    aboutFrame: (category) => `${titleCase(category.noun)} built for teams who'd rather it just work.`,
+    serviceCardBody: () => 'Built around real workflows, not a feature checklist.',
+    faqSecondQuestion: 'How do I get started?'
+  },
+  'editorial-brand': {
+    aboutLabel: 'Our Story', processLabel: 'From Concept to Collection',
+    processSteps: ['Concept', 'Craft', 'Collection', 'In your hands'],
+    testimonialsLabel: 'In Their Words',
+    testimonialQuotes: ['Every piece feels considered.', 'A point of view you can actually see.', 'Quality that holds up past the first wear.'],
+    testimonialAttribution: 'Customer',
+    aboutFrame: (category) => `${titleCase(category.noun)} with a point of view -- made deliberately, not mass-produced.`,
+    serviceCardBody: () => 'Part of the current collection.',
+    faqSecondQuestion: 'How do I shop the collection?'
+  },
+  'ecommerce-showcase': {
+    aboutLabel: 'About', processLabel: 'How It Works',
+    processSteps: ['Browse', 'Order', 'Fast, tracked shipping', 'Enjoy'],
+    testimonialsLabel: 'What Customers Say',
+    testimonialQuotes: ['Exactly as described, and it arrived fast.', 'The quality is obviously a step up.', 'Already ordered a second time.'],
+    testimonialAttribution: 'Verified customer',
+    aboutFrame: (category) => `${titleCase(category.noun)} chosen and made with real care, not just stocked.`,
+    serviceCardBody: () => "A closer look at what's in stock.",
+    faqSecondQuestion: 'How do I place an order?'
+  },
+  'local-conversion': {
+    aboutLabel: 'About', processLabel: 'How We Work',
+    processSteps: ['Reach out', 'A straight quote', 'We do the work', 'Final walkthrough'],
+    testimonialsLabel: 'What Customers Say',
+    testimonialQuotes: ['Showed up on time and did it right the first time.', 'Straightforward pricing, no surprises.', 'Would call them again without hesitation.'],
+    testimonialAttribution: 'Local customer',
+    aboutFrame: (category) => `${titleCase(category.noun)} focused on doing the job right the first time.`,
+    serviceCardBody: (item, category) => `Real ${category.noun}, presented clearly.`,
+    faqSecondQuestion: 'How do I get a quote?'
+  },
+  'trust-heavy-professional': {
+    aboutLabel: 'About', processLabel: 'How We Work Together',
+    processSteps: ['An initial review', 'A clear plan', 'Ongoing management', 'Peace of mind'],
+    testimonialsLabel: 'What Clients Say',
+    testimonialQuotes: ['Finally, someone who explains things clearly.', 'Diligent and always reachable when it mattered.', 'Handled things I didn’t even know to ask about.'],
+    testimonialAttribution: 'Client',
+    aboutFrame: (category) => `${titleCase(category.noun)} grounded in diligence, not shortcuts.`,
+    serviceCardBody: () => 'Handled with the same rigor as everything else.',
+    faqSecondQuestion: 'How do I book a consultation?'
+  },
+  'launch-campaign': {
+    aboutLabel: 'About', processLabel: 'How It Works',
+    processSteps: ['Join early', 'Get access', 'Help shape it', 'Launch together'],
+    testimonialsLabel: 'Early Feedback',
+    testimonialQuotes: ['Exactly the kind of thing I’ve been waiting for.', 'Already better than what I was using.', 'Glad I got in early.'],
+    testimonialAttribution: 'Early user',
+    aboutFrame: (category) => `${titleCase(category.noun)}, built in the open and improving fast.`,
+    serviceCardBody: () => "Part of what's launching.",
+    faqSecondQuestion: 'How do I get early access?'
+  },
+  'community-nonprofit': {
+    aboutLabel: 'Our Mission', processLabel: 'How You Can Help',
+    processSteps: ['Learn the need', 'Get involved', 'See the impact', 'Stay connected'],
+    testimonialsLabel: 'Voices from the Community',
+    testimonialQuotes: ['This work made a real difference for us.', 'Transparent about where the help actually goes.', 'Easy to get involved, and it mattered.'],
+    testimonialAttribution: 'Community member',
+    aboutFrame: (category) => `${titleCase(category.noun)} driven by the people it serves.`,
+    serviceCardBody: () => 'Part of how the mission gets done.',
+    faqSecondQuestion: 'How do I get involved?'
+  }
+};
+function sectionVocab(project) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  return ARCHETYPE_SECTION_VOCAB[archetype] || ARCHETYPE_SECTION_VOCAB['service-business'];
+}
 function renderServices(project, category, section) {
   // V8.4: a 'quote' module enabled on a services section renders the real
   // quote-request form directly beneath the static services content --
@@ -1533,9 +1683,10 @@ function renderServices(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const headerHtml = renderSectionHeader(headline, intro);
   if (variant === 'described') {
+    const vocab = sectionVocab(project);
     return `<div class="site-section site-section-services" data-variant="described">
       ${headerHtml}
-      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', l => `<strong>${escapeHtml(l)}</strong><p>Real ${escapeHtml(category.noun)}, presented clearly.</p>`)}</div>
+      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', l => `<strong>${escapeHtml(l)}</strong><p>${escapeHtml(vocab.serviceCardBody(l, category))}</p>`)}</div>
       ${moduleHtml}
     </div>`;
   }
@@ -1593,8 +1744,13 @@ function renderCaseStudies(project, category, section) { return renderGallery(pr
 // the section label is eligible (see sectionCopyField note above).
 function renderTestimonial(project, category, section) {
   const variant = section && section.variant;
-  const quote = `A clear ${escapeHtml(category.label.toLowerCase())} approach, explained in plain language.`;
-  const attribution = 'Service principle';
+  const vocab = sectionVocab(project);
+  // Deterministic per-business pick (not always index 0) so a second/third
+  // direction for the same business, or two businesses that share an
+  // archetype, don't always land on the identical quote.
+  const quoteIndex = hashString((project.source && project.source.text) || '') % vocab.testimonialQuotes.length;
+  const quote = escapeHtml(vocab.testimonialQuotes[quoteIndex]);
+  const attribution = escapeHtml(vocab.testimonialAttribution);
   if (variant === 'card') {
     return `<div class="site-section site-section-testimonial" data-variant="card">
       ${renderCardGroup([{ quote, attribution }], 'testimonial-card', c => `<p>${c.quote}</p><span>${c.attribution}</span>`)}
@@ -1605,11 +1761,12 @@ function renderTestimonial(project, category, section) {
   </div>`;
 }
 function renderTestimonialsGrid(project, category, section) {
-  const label = sectionCopyField(section, 'headline', 'How we work');
-  const quotes = ['Clear communication from start to finish.', 'A considered process, from first conversation to final delivery.', 'Useful expertise without unnecessary complexity.'];
+  const vocab = sectionVocab(project);
+  const label = sectionCopyField(section, 'headline', vocab.testimonialsLabel);
+  const attribution = escapeHtml(vocab.testimonialAttribution);
   return `<div class="site-section site-section-testimonials-grid" data-variant="grid">
     ${renderSectionHeader(label)}
-    <div class="testimonials-grid">${renderCardGroup(quotes, 'testimonial-card', q => `<p>${escapeHtml(q)}</p><span>Service principle</span>`)}</div>
+    <div class="testimonials-grid">${renderCardGroup(vocab.testimonialQuotes, 'testimonial-card', q => `<p>${escapeHtml(q)}</p><span>${attribution}</span>`)}</div>
   </div>`;
 }
 // V8.2: the example the spec itself gives -- a valid Claude heading with a
@@ -1619,8 +1776,9 @@ function renderAbout(project, category, section) {
   const variant = section && section.variant;
   const plan = project.assets.plan;
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
-  const heading = sectionCopyField(section, 'headline', 'About');
-  const statement = sectionCopyField(section, 'body', `We're a ${category.label.toLowerCase()} team focused on getting the details right, from the first conversation to the finished result.`);
+  const vocab = sectionVocab(project);
+  const heading = sectionCopyField(section, 'headline', vocab.aboutLabel);
+  const statement = sectionCopyField(section, 'body', vocab.aboutFrame(category));
   if (variant === 'split' || aboutAsset) {
     const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'about';
     const visual = renderVisualSlot(project, slot, project.design.dimensions.imagery, plan.about);
@@ -1645,6 +1803,35 @@ function renderTeam(project, category, section) {
     <div class="team-grid">${cardsHtml}</div>
   </div>`;
 }
+// ---- CTA intelligence -------------------------------------------------
+// `category.cta` (a single fixed string, e.g. 'View Menu') used to be the
+// fallback for every CTA-bearing section -- hero, nav, CTA banner, pricing,
+// reservation and contact all rendered the literal same button text. It
+// stays the hero/nav standard (already a real, considered per-category
+// value -- unchanged here), but every OTHER section now gets an
+// archetype-aware alternative so the journey actually varies, e.g. for
+// hospitality: hero/nav "View Menu", reservation "Reserve a Table", the
+// closing banner "Private Dining", contact "Get Directions". A section type
+// with no override here safely falls back to `category.cta`, same as
+// before this pass.
+const ARCHETYPE_SECONDARY_CTA = {
+  hospitality: { reservationCta: 'Reserve a Table', ctaBanner: 'Private Dining', contact: 'Get Directions', pricing: 'View the Menu' },
+  'premium-consultancy': { reservationCta: 'Book a Consultation', ctaBanner: 'Request a Proposal', contact: 'Get in Touch', pricing: 'Book a Consultation' },
+  portfolio: { reservationCta: 'Start a Project', ctaBanner: 'View Full Portfolio', contact: 'Get in Touch', pricing: 'Start a Project' },
+  'product-led-saas': { reservationCta: 'Request a Demo', ctaBanner: 'Talk to Sales', contact: 'Contact Sales', pricing: 'Start Free Trial' },
+  'editorial-brand': { reservationCta: 'Join the List', ctaBanner: 'Find a Stockist', contact: 'Get in Touch', pricing: 'Shop the Collection' },
+  'ecommerce-showcase': { reservationCta: 'Join the List', ctaBanner: 'Track an Order', contact: 'Contact Us', pricing: 'Shop Now' },
+  'local-conversion': { reservationCta: 'Call Now', ctaBanner: 'Check Service Areas', contact: 'Get in Touch', pricing: 'Request a Quote' },
+  'trust-heavy-professional': { reservationCta: 'Book a Consultation', ctaBanner: 'Read Our FAQ', contact: 'Get in Touch', pricing: 'Book a Consultation' },
+  'launch-campaign': { reservationCta: 'Get Early Access', ctaBanner: 'Learn More', contact: 'Contact Us', pricing: 'Join the Waitlist' },
+  'community-nonprofit': { reservationCta: 'Get Involved', ctaBanner: 'See Our Impact', contact: 'Contact Us', pricing: 'Donate Now' },
+  'service-business': { reservationCta: 'Book a Consultation', ctaBanner: 'Request a Quote', contact: 'Get in Touch', pricing: 'Request a Quote' }
+};
+function ctaLabelForSection(project, category, sectionType) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const overrides = ARCHETYPE_SECONDARY_CTA[archetype] || ARCHETYPE_SECONDARY_CTA['service-business'];
+  return overrides[sectionType] || category.cta;
+}
 function renderCtaBanner(project, category, section) {
   // V8.4: a ctaBanner is the most generically-compatible host (see
   // MODULE_SECTION_COMPATIBILITY) -- any of contact/quote/newsletter/
@@ -1661,7 +1848,7 @@ function renderCtaBanner(project, category, section) {
   }
   const variant = section && section.variant;
   const message = sectionCopyField(section, 'headline', 'Ready to see this as your real website?');
-  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'ctaBanner')));
   return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
     <p>${escapeHtml(message)}</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
@@ -1676,6 +1863,18 @@ function renderFeatures(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'What it does');
   const intro = sectionCopyField(section, 'body', '');
   const labels = category.services;
+  const variant = (section && section.variant) || 'grid';
+  if (variant === 'list') {
+    // Reuses the same numbered-editorial markup/CSS as renderProcess's
+    // .process-steps -- not a new component, just a second, more
+    // restrained composition for the same content, chosen by
+    // sectionRhythm (see pickVariant) rather than always defaulting to
+    // cards.
+    return `<div class="site-section site-section-features" data-variant="list">
+      ${renderSectionHeader(label, intro)}
+      <div class="process-steps features-list">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
+    </div>`;
+  }
   return `<div class="site-section site-section-features" data-variant="grid">
     ${renderSectionHeader(label, intro)}
     <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
@@ -1714,7 +1913,7 @@ function renderIntegrations(project, category, categoryKey, section) {
 function renderPricingSection(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Pricing');
   const intro = sectionCopyField(section, 'body', '');
-  const cta = sectionCopyField(section, 'ctaLabel', category.cta);
+  const cta = sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'pricing'));
   const tiers = [{ name: 'Starter', blurb: 'For getting started quickly.' }, { name: 'Growth', blurb: 'For teams scaling up.' }, { name: 'Enterprise', blurb: 'Custom for larger needs.' }];
   return `<div class="site-section site-section-pricing" data-variant="tiers">
     ${renderSectionHeader(label, intro)}
@@ -1726,10 +1925,16 @@ function renderFaq(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const d = project.source.descriptor || {};
   const noun = d.descriptor || category.noun;
+  const vocab = sectionVocab(project);
   const qas = [
     { q: `What does ${escapeHtml(project.business.name || 'this business')} actually do?`, a: escapeHtml(category.sub) },
-    { q: 'How do I get started?', a: `Reach out and we'll walk through ${escapeHtml(noun)} together.` },
-    { q: 'Is support included?', a: 'Yes — real help, not just documentation.' }
+    { q: escapeHtml(vocab.faqSecondQuestion), a: `Reach out and we'll walk through ${escapeHtml(noun)} together.` },
+    // Deliberately universal, not SaaS-coded ("Is support included? Yes --
+    // real help, not just documentation." used to render verbatim for
+    // every category, including a restaurant or a nonprofit) -- this
+    // closing question works honestly for any business without asserting
+    // anything specific and unverified about it.
+    { q: 'What if I’m not sure this is right for me?', a: 'Reach out -- we’re happy to talk through whether it’s a good fit.' }
   ];
   return `<div class="site-section site-section-faq" data-variant="list">
     ${renderSectionHeader(label, intro)}
@@ -1737,9 +1942,10 @@ function renderFaq(project, category, section) {
   </div>`;
 }
 function renderProcess(project, category, section) {
-  const label = sectionCopyField(section, 'headline', 'How it works');
+  const vocab = sectionVocab(project);
+  const label = sectionCopyField(section, 'headline', vocab.processLabel);
   const intro = sectionCopyField(section, 'body', '');
-  const steps = ['Reach out', 'We scope the work', 'We deliver', 'You review & sign off'];
+  const steps = vocab.processSteps;
   return `<div class="site-section site-section-process" data-variant="steps">
     ${renderSectionHeader(label, intro)}
     <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
@@ -1768,7 +1974,7 @@ function renderReservationCta(project, category, section) {
     if (section.module.type === 'action') return renderActionModuleWidget(project, section);
   }
   const message = sectionCopyField(section, 'headline', 'Book a table.');
-  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'reservationCta')));
   return `<div class="site-section site-section-reservation" data-variant="banner">
     <p>${escapeHtml(message)}</p>${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
@@ -1809,10 +2015,24 @@ function renderContact(project, category, section) {
     }
   }
   const label = sectionCopyField(section, 'headline', 'Contact');
-  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', category.cta));
+  const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'contact')));
   const loc = project.source.location ? escapeHtml(project.source.location) + ' · ' : '';
+  // V-brand-experience, item 16: the plain fallback form used to be just a
+  // label, one generic sentence and a button -- real empty space with
+  // nothing to fill it. Rather than inventing a fact (an address, hours,
+  // a phone number) that was never given, this surfaces whatever REAL
+  // facts the business description actually contained (the same `facts`
+  // object renderProof already uses, never a new source), so a contact
+  // section for a business that mentioned "15 years" or "4.9 stars" shows
+  // that alongside the form instead of standing empty next to it.
+  const facts = project.source.facts || {};
+  const factChips = [];
+  if (facts.years) factChips.push(`${escapeHtml(String(facts.years))}+ years`);
+  if (facts.rating) factChips.push(`${escapeHtml(String(facts.rating))} rating`);
+  if (facts.count) factChips.push(`${escapeHtml(String(facts.count))}+ served`);
+  const factsHtml = factChips.length ? `<div class="contact-facts">${factChips.map(f => `<span>${f}</span>`).join('')}</div>` : '';
   return `<div class="site-section site-section-contact" data-variant="simple">
-    ${renderSectionHeader(label)}<p>${loc}Get in touch to get started.</p>${renderCtaButton(section && section.ctaTarget, cta)}
+    ${renderSectionHeader(label)}<p>${loc}Get in touch to get started.</p>${factsHtml}${renderCtaButton(section && section.ctaTarget, cta)}
   </div>`;
 }
 function renderNewsletter(project, category, section) {
@@ -4284,6 +4504,96 @@ const generatorForm = $('#generatorForm');
 const generatorInput = $('#generatorInput');
 const generatorSubmitButton = $('.generator-submit');
 const generatorSubmitLabel = generatorSubmitButton ? generatorSubmitButton.querySelector('.btn-label') : null;
+
+// ---- Pre-generation upload staging ----------------------------------------
+// Item 8/9 of the brand-experience brief: real image upload lives right in
+// the generation box, before any business/project exists yet -- attach,
+// drag or paste. Staged files are converted with the exact same pure/local
+// readImageAsDataUrl + createAsset pair the post-generation editor already
+// uses (see chooseLogo/heroAssetInput/etc above and below), so a staged
+// upload becomes a real WebsiteProject asset the moment generation runs,
+// not a separate "AI context" concept. Nothing here ever performs a
+// network request -- reading/resizing an image client-side costs nothing
+// and triggers neither a Claude call nor an image-generation call, so the
+// existing cost invariants (upload != Claude call, upload != image-gen
+// call) hold structurally, the same way they already do post-generation.
+const generatorUpload = $('#generatorUpload');
+const generatorUploadInput = $('#generatorUploadInput');
+const generatorUploadBtn = $('#generatorUploadBtn');
+const generatorUploadThumbs = $('#generatorUploadThumbs');
+let pendingUploads = []; // { id, type, dataUrl, name } -- same shape createAsset produces, pre-assigned an id so thumbs can be removed before a project exists
+// No CV/classification pass (brief item 11 explicitly rules that out this
+// pass) -- just the same kind of obvious, local, filename-based signal a
+// person would use themselves. Defaults to 'gallery', which is also the
+// role planAssets already borrows from first for the hero when no
+// dedicated hero/logo upload exists -- so an unlabeled photo still ends up
+// somewhere sensible.
+function inferUploadType(filename) {
+  const n = String(filename || '').toLowerCase();
+  if (/logo|brandmark|wordmark/.test(n)) return 'logo';
+  if (/team|founder|portrait|headshot|owner|staff|chef|stylist|crew/.test(n)) return 'team';
+  return 'gallery';
+}
+function renderPendingUploads() {
+  if (!generatorUploadThumbs) return;
+  generatorUploadThumbs.hidden = !pendingUploads.length;
+  generatorUploadThumbs.innerHTML = pendingUploads.map(u => `<div class="asset-thumb"><img src="${u.dataUrl}" alt="${escapeHtml(u.name)}" /><button type="button" class="asset-thumb-remove" data-upload-id="${u.id}" aria-label="Remove ${escapeHtml(u.name)}">×</button></div>`).join('');
+}
+function stagePendingUploadFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith('image/'));
+  if (!files.length) return;
+  const room = Math.max(0, 6 - pendingUploads.length);
+  if (!room) return;
+  Promise.all(files.slice(0, room).map(f => readImageAsDataUrl(f, 1000, 1000).then(dataUrl => ({
+    id: 'pending_' + Math.random().toString(36).slice(2, 9),
+    type: inferUploadType(f.name),
+    dataUrl,
+    name: f.name || 'image'
+  })).catch(() => null))).then(results => {
+    pendingUploads = pendingUploads.concat(results.filter(Boolean));
+    renderPendingUploads();
+  });
+}
+if (generatorUploadBtn && generatorUploadInput) {
+  generatorUploadBtn.addEventListener('click', () => generatorUploadInput.click());
+  generatorUploadInput.addEventListener('change', e => {
+    stagePendingUploadFiles(e.target.files);
+    generatorUploadInput.value = '';
+  });
+}
+if (generatorUploadThumbs) {
+  generatorUploadThumbs.addEventListener('click', e => {
+    const btn = e.target.closest('.asset-thumb-remove');
+    if (!btn) return;
+    pendingUploads = pendingUploads.filter(u => u.id !== btn.dataset.uploadId);
+    renderPendingUploads();
+  });
+}
+// Drag-and-drop + paste, scoped to the generator form itself (minimal UI
+// change -- no new drop zone chrome, the existing textarea/upload row just
+// becomes drag/paste-aware).
+if (generatorForm) {
+  ['dragenter', 'dragover'].forEach(evt => generatorForm.addEventListener(evt, e => {
+    if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('Files')) return;
+    e.preventDefault();
+    if (generatorUpload) generatorUpload.classList.add('is-dragover');
+  }));
+  ['dragleave', 'drop'].forEach(evt => generatorForm.addEventListener(evt, () => {
+    if (generatorUpload) generatorUpload.classList.remove('is-dragover');
+  }));
+  generatorForm.addEventListener('drop', e => {
+    if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+    e.preventDefault();
+    stagePendingUploadFiles(e.dataTransfer.files);
+  });
+  generatorForm.addEventListener('paste', e => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const imageFiles = Array.from(items).filter(it => it.kind === 'file' && it.type.startsWith('image/')).map(it => it.getAsFile()).filter(Boolean);
+    if (!imageFiles.length) return;
+    stagePendingUploadFiles(imageFiles);
+  });
+}
 const heroMachine = $('#heroMachine');
 const heroDemoCopy = $('#heroDemoCopy');
 const heroKicker = $('#heroKicker');
@@ -5354,6 +5664,37 @@ function findPagesRepeatingHome(proj) {
   const homeSignature = (pages[0].sections || []).map(s => s.type).join(',');
   return pages.slice(1).filter(p => (p.sections || []).map(s => s.type).join(',') === homeSignature).map(p => p.id || p.slug);
 }
+// Brand-experience pass, item 15/25: a repeated CTA string across multiple
+// conversion sections is exactly the "same button everywhere" complaint the
+// brief calls out -- ctaLabelForSection (see sectionVocab area above) was
+// built to prevent this structurally, but a Claude-authored ctaLabel can
+// still override it per section, so this is the safety net that actually
+// catches it if it happens, the same "detect, don't silently accept" role
+// findRepeatedHeadlines already plays for headline text.
+function findRepeatedCtaText(proj, category) {
+  const ctaSectionTypes = ['ctaBanner', 'pricing', 'reservationCta', 'contact'];
+  const seen = new Map();
+  const repeats = [];
+  (proj.pages || []).forEach(page => (page.sections || []).forEach(section => {
+    if (!ctaSectionTypes.includes(section.type)) return;
+    const text = (section.copy && section.copy.ctaLabel) || ctaLabelForSection(proj, category, section.type);
+    const key = String(text || '').trim().toLowerCase();
+    if (!key) return;
+    if (seen.has(key)) repeats.push({ sectionId: section.id, matchesSectionId: seen.get(key), text });
+    else seen.set(key, section.id);
+  }));
+  return repeats;
+}
+// Item 7/25: a layout that was composed assuming a dominant hero image
+// (imageDominance:'dominant') but ends up with no real upload and no
+// generated image is real, worth surfacing (a future pass could downgrade
+// dominance in this exact case) -- but not safely auto-repairable here,
+// since imageDominance is a project-wide dimension other sections may also
+// depend on, so this only reports it, same as too_few_images_for_archetype.
+function findOversizedEmptyDominantVisuals(proj) {
+  if (!proj.design || !proj.design.dimensions || proj.design.dimensions.imageDominance !== 'dominant') return [];
+  return (proj.imagePlan || []).filter(entry => entry.role === 'hero' && entry.sourceType === 'designed').map(entry => ({ slot: entry.slot }));
+}
 // Runs once per finished direction (both Claude and deterministic paths --
 // called from the 'build' step below, which both already share), detects
 // real issues, and applies ONLY the repairs that are unambiguous and
@@ -5389,6 +5730,9 @@ function runQualityCritic(proj, variationSeed) {
   const imageLed = imageBudgetForArchetype(archetype) >= 4;
   const realImageCount = (proj.imagePlan || []).filter(p => p.sourceType === 'generated' || p.sourceType === 'user').length;
   if (imageLed && realImageCount === 0) issues.push({ code: 'too_few_images_for_archetype', detail: { archetype }, repaired: false });
+  const category = categories[proj.business && proj.business.categoryKey] || categories.other;
+  findRepeatedCtaText(proj, category).forEach(dup => issues.push({ code: 'repeated_cta_text', detail: dup, repaired: false }));
+  findOversizedEmptyDominantVisuals(proj).forEach(dup => issues.push({ code: 'dominant_layout_no_image', detail: dup, repaired: false }));
   return { issues, checkedAt: new Date().toISOString() };
 }
 
@@ -5934,6 +6278,20 @@ async function runGeneration(text) {
     }
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
+    // Whatever was staged in the generator box (attach/drag/paste, before
+    // this business even had a project) becomes real assets on THIS
+    // project now -- appended, not replacing whatever buildGenerationPlan
+    // already carried over from a same-source preserved project above.
+    // This runs before any step below (in particular the 'imagery' step,
+    // which recomputes assets.plan/imagePlan from assets.items) so a
+    // staged upload is treated exactly like a post-generation upload: it
+    // wins its slot outright, no generated/paid image is ever requested
+    // for it. Purely local state -- no network call of any kind.
+    if (pendingUploads.length) {
+      pendingUploads.forEach(u => proj.assets.items.push(createAsset(u.type, u.dataUrl, u.name)));
+      pendingUploads = [];
+      renderPendingUploads();
+    }
     setLifecycleState('composing', proj);
     updateGenerationGate('pages');
 
