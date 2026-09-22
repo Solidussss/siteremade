@@ -980,7 +980,7 @@ html,body{max-width:100%;overflow-x:hidden}
    suppressed for the underline-link/text treatment (which already reads as
    a link, not a button, and a heavy arrow fights that restraint) and for a
    disabled button. Icon itself is rendered inline by renderCtaButton. */
-.cta-btn-icon{margin-left:2px;transition:transform .18s ease}
+.cta-btn-icon{flex:0 0 auto;transition:transform .18s ease}
 .module-cta-btn:hover .cta-btn-icon,.module-submit-btn:hover .cta-btn-icon{transform:translateX(2px)}
 .builder-site[data-cta="underline-link"] .cta-btn-icon{display:none}
 /* Secondary/paired CTA (part 10 -- "paired primary/secondary CTA") -- an
@@ -1001,6 +1001,96 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-motion="expressive"]:hover .site-visual{transform:translateY(-4px) rotate(-1deg)}
 .builder-site[data-motion="expressive"] .site-nav button,.builder-site[data-motion="expressive"] .site-actions button{transition:transform .25s ease}
 .builder-site[data-motion="expressive"] .site-actions button:hover{transform:translateY(-2px)}
+
+/* ---- FINAL BASELINE POLISH pass, parts 4/5/6: micro-motion system ----
+   Layered ADDITIVELY on top of the motion rules just above -- the
+   pre-existing per-CATEGORY `[data-motion]` (none/subtle/expressive) stays
+   exactly as it was (an explicit category-level kill switch some
+   categories already rely on); `[data-motion-character]` is a NEW,
+   archetype-derived axis (part 5) that only ever scales the FEEL of
+   already-permitted motion (reveal distance/speed, hover lift, stagger
+   timing) via custom properties, never re-enables what data-motion="none"
+   turned off (see the override block at the end of this section). 6
+   characters, one per the brief's own named examples. */
+.builder-site{--reveal-y:14px;--reveal-dur:.5s;--hover-lift:-3px;--stagger-step:60ms;--img-hover-scale:1.03}
+.builder-site[data-motion-character="restrained"]{--reveal-y:8px;--reveal-dur:.7s;--hover-lift:-2px;--stagger-step:90ms;--img-hover-scale:1.015}
+.builder-site[data-motion-character="direct"]{--reveal-y:10px;--reveal-dur:.32s;--hover-lift:-2px;--stagger-step:30ms;--img-hover-scale:1.02}
+.builder-site[data-motion-character="tactile"]{--reveal-y:14px;--reveal-dur:.42s;--hover-lift:-4px;--stagger-step:50ms;--img-hover-scale:1.045}
+.builder-site[data-motion-character="structured"]{--reveal-y:12px;--reveal-dur:.4s;--hover-lift:-3px;--stagger-step:40ms;--img-hover-scale:1.025}
+.builder-site[data-motion-character="typographic"]{--reveal-y:6px;--reveal-dur:.6s;--hover-lift:-1px;--stagger-step:70ms;--img-hover-scale:1.015}
+.builder-site[data-motion-character="soft"]{--reveal-y:16px;--reveal-dur:.6s;--hover-lift:-2px;--stagger-step:70ms;--img-hover-scale:1.03}
+
+/* SECTION REVEAL (part 4) -- opacity 0->1 + a short translateY, driven by
+   `.sr-reveal`/`.sr-revealed` (added by initSiteMotion in script.js and its
+   export-side counterpart in SITE_RUNTIME_JS, lib/export-compiler.js). An
+   element that never receives `.sr-reveal` at all (motion disabled, or JS
+   didn't run) simply has no transition and reads as always-visible --
+   never a layout-affecting change either way (transform/opacity only). */
+.sr-reveal{opacity:0;transform:translateY(var(--reveal-y));transition:opacity var(--reveal-dur) cubic-bezier(.2,.8,.2,1),transform var(--reveal-dur) cubic-bezier(.2,.8,.2,1)}
+.sr-reveal.sr-revealed{opacity:1;transform:none}
+/* PROCESS stagger (part 4's "steps may stagger in") -- pure CSS, no second
+   observer: a step only starts revealing once its OWN ancestor section has
+   `.sr-revealed`, with each successive step delayed by one more
+   `--stagger-step` -- reads as a real sequence, not a simultaneous flash.
+   Six nth-child rules covers every process variant's step count (always
+   4) with headroom for a longer future one. */
+.sr-reveal .process-flow>*{opacity:0;transform:translateY(8px);transition:opacity .4s ease,transform .4s ease}
+.sr-reveal.sr-revealed .process-flow>*{opacity:1;transform:none}
+.sr-reveal.sr-revealed .process-flow>*:nth-child(2){transition-delay:calc(var(--stagger-step) * 1)}
+.sr-reveal.sr-revealed .process-flow>*:nth-child(3){transition-delay:calc(var(--stagger-step) * 2)}
+.sr-reveal.sr-revealed .process-flow>*:nth-child(4){transition-delay:calc(var(--stagger-step) * 3)}
+.sr-reveal.sr-revealed .process-flow>*:nth-child(5){transition-delay:calc(var(--stagger-step) * 4)}
+.sr-reveal.sr-revealed .process-flow>*:nth-child(6){transition-delay:calc(var(--stagger-step) * 5)}
+
+/* CARDS (part 4) -- a small lift + a soft shadow response on hover, scaled
+   by --hover-lift (typographic archetypes get a near-zero lift -- "minimal
+   card hover" is a real, intentional choice, not a missing feature). No
+   scaling anywhere (part 4 explicitly rules out "excessive scaling"). */
+.service-card,.testimonial-card,.gallery-icon-card,.feature-card,.pricing-tier,.process-compact-card,.team-card,.product-panel{transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease,border-color .22s ease}
+.service-card:hover,.testimonial-card:hover,.gallery-icon-card:hover,.feature-card:hover,.pricing-tier:hover,.process-compact-card:hover,.team-card:hover,.product-panel:hover{transform:translateY(var(--hover-lift));box-shadow:0 12px 28px color-mix(in srgb,var(--site-text) 9%,transparent)}
+
+/* BUTTONS (part 4) -- subtle background/border response + a hair of scale
+   (max 1.02, per the brief's own ceiling); the arrow/icon's own translate
+   is already handled above (`.cta-btn-icon`, 7px flex gap + translateX on
+   hover). */
+.module-cta-btn,.module-submit-btn{transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
+.module-cta-btn:hover,.module-submit-btn:hover{transform:scale(1.02)}
+.module-cta-btn:active,.module-submit-btn:active{transform:scale(.99)}
+
+/* ICONS (part 4) -- a small, quiet transform/color response, never a spin
+   or bounce. Card-hover already moves the WHOLE card; this adds a slightly
+   larger, independent nudge to the icon inside it so the icon itself reads
+   as responsive too. */
+.sr-icon-tile,.service-card-icon,.gallery-icon-card-icon,.proof-icon,.process-compact-icon{transition:transform .2s ease,color .2s ease}
+.service-card:hover .service-card-icon,.gallery-icon-card:hover .gallery-icon-card-icon,.process-compact-card:hover .process-compact-icon{transform:translateY(-2px)}
+
+/* IMAGES (part 4) -- "when images exist: subtle scale/crop transition."
+   Scoped to a real resolved image only (`.site-visual-img`, never the
+   art-directed `.visual-generated` CSS placeholder, which has no photo to
+   crop into) inside its own overflow:hidden frame, so the scale never
+   spills past the frame's rounded corners. */
+.site-visual-img{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.site-visual:hover .site-visual-img,.product-frame:hover .site-visual-img,.about-visual:hover .site-visual-img,.team-card:hover .site-visual-img,.editorial-visual:hover .site-visual-img,.gallery-tile:hover .site-visual-img{transform:scale(var(--img-hover-scale))}
+
+/* Belt-and-suspenders overrides (part 6): prefers-reduced-motion is always
+   honored even if JS never ran or was blocked, and the pre-existing
+   data-motion="none" kill switch reaches every NEW motion-bearing element
+   added by this pass too, not just the original .site-visual/nav/actions
+   trio. Reduced-motion/motion-off both mean the SAME thing here: every
+   element renders directly in its final state, nothing animates. */
+@media (prefers-reduced-motion: reduce){
+  .sr-reveal,.sr-reveal .process-flow>*{opacity:1!important;transform:none!important;transition:none!important}
+  .service-card,.testimonial-card,.gallery-icon-card,.feature-card,.pricing-tier,.process-compact-card,.team-card,.product-panel,
+  .module-cta-btn,.module-submit-btn,.sr-icon-tile,.service-card-icon,.gallery-icon-card-icon,.proof-icon,.process-compact-icon,.site-visual-img{transition:none!important}
+  .service-card:hover,.testimonial-card:hover,.gallery-icon-card:hover,.feature-card:hover,.pricing-tier:hover,.process-compact-card:hover,.team-card:hover,.product-panel:hover,
+  .module-cta-btn:hover,.module-submit-btn:hover,.module-cta-btn:active,.module-submit-btn:active,
+  .site-visual:hover .site-visual-img,.product-frame:hover .site-visual-img,.about-visual:hover .site-visual-img,.team-card:hover .site-visual-img,.editorial-visual:hover .site-visual-img,.gallery-tile:hover .site-visual-img{transform:none!important}
+}
+.builder-site[data-motion="none"] .sr-reveal,.builder-site[data-motion="none"] .sr-reveal .process-flow>*{opacity:1!important;transform:none!important;transition:none!important}
+.builder-site[data-motion="none"] .service-card,.builder-site[data-motion="none"] .testimonial-card,.builder-site[data-motion="none"] .gallery-icon-card,.builder-site[data-motion="none"] .feature-card,.builder-site[data-motion="none"] .pricing-tier,.builder-site[data-motion="none"] .process-compact-card,.builder-site[data-motion="none"] .team-card,.builder-site[data-motion="none"] .product-panel,
+.builder-site[data-motion="none"] .module-cta-btn,.builder-site[data-motion="none"] .module-submit-btn,.builder-site[data-motion="none"] .sr-icon-tile,.builder-site[data-motion="none"] .site-visual-img{transition:none!important}
+.builder-site[data-motion="none"] .service-card:hover,.builder-site[data-motion="none"] .testimonial-card:hover,.builder-site[data-motion="none"] .gallery-icon-card:hover,.builder-site[data-motion="none"] .feature-card:hover,.builder-site[data-motion="none"] .pricing-tier:hover,.builder-site[data-motion="none"] .process-compact-card:hover,.builder-site[data-motion="none"] .team-card:hover,.builder-site[data-motion="none"] .product-panel:hover,
+.builder-site[data-motion="none"] .module-cta-btn:hover,.builder-site[data-motion="none"] .module-submit-btn:hover{transform:none!important}
 
 /* ---- Spacing scale ---- */
 .builder-site[data-spacing="compact"] .site-hero{padding:32px}
@@ -1081,8 +1171,15 @@ html,body{max-width:100%;overflow-x:hidden}
 .site-visual-img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
 
 /* ---- Generic section rhythm ---- */
-.site-section{padding:34px 29px;border-top:1px solid color-mix(in srgb,var(--site-text) 12%,transparent)}
-.site-section-label{margin:0 0 14px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--site-muted)}
+/* FINAL BASELINE POLISH pass, part 7: these two rules were fully shadowed
+   by later, identically-specific `.site-section{...}`/`.site-section-label
+   {...}` declarations further down this file (same 0,1,0 specificity, CSS
+   cascade order decides the tie) -- dead code that never actually applied,
+   and the exact kind of trap that let the OTHER (winning) `.site-section`
+   rule ship an invisible-on-light-theme border for who knows how long
+   without anyone noticing a themed alternative already existed right here.
+   Removed rather than left in place; see the winning declarations (now
+   themed correctly) further down for the real, active rule. */
 
 /* ---- Services: "described" variant (numbered variant reuses .site-sections) ---- */
 .site-section-services[data-variant="numbered"]{padding:0}
@@ -1139,6 +1236,16 @@ html,body{max-width:100%;overflow-x:hidden}
 .gallery-grid[data-tile-count="1"] .gallery-tile-featured{grid-row:auto;aspect-ratio:21/9}
 
 /* ---- Testimonial ---- */
+/* FINAL BASELINE POLISH pass, part 7: the single-quote 'centered' variant
+   was a bare <blockquote> on the plain page background -- nothing anchored
+   it visually, the literal "testimonials floating alone" complaint. A
+   decorative quotation mark (pure CSS content, no new icon asset --
+   'quote' isn't in the curated Phosphor vocabulary and this pass adds no
+   new icon keys) plus a tinted surface and real vertical room give it the
+   same kind of deliberate "held" presence the product panel/gallery-icon
+   composition already have, instead of type floating in raw whitespace. */
+.site-section-testimonial[data-variant="centered"]{background:color-mix(in srgb,var(--site-accent) 4%,transparent);padding-top:64px;padding-bottom:64px}
+.site-section-testimonial[data-variant="centered"] blockquote::before{content:"\201C";display:block;font-family:Georgia,"Times New Roman",serif;font-size:56px;line-height:1;color:color-mix(in srgb,var(--site-accent) 40%,transparent);margin-bottom:4px}
 .site-section-testimonial blockquote{margin:0;max-width:620px;margin-left:auto;margin-right:auto;text-align:center;font-size:17px;line-height:1.5;letter-spacing:-.01em}
 .site-section-testimonial blockquote cite{display:block;margin-top:16px;font-style:normal;font-size:11px;color:var(--site-muted)}
 .testimonial-card{max-width:420px;padding:22px;border-radius:14px;background:color-mix(in srgb,var(--site-bg) 92%,var(--site-text) 8%);border:1px solid color-mix(in srgb,var(--site-text) 12%,transparent)}
@@ -1391,7 +1498,6 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .builder-site .site-hero.hero-minimal{grid-template-columns:1fr;padding:96px 56px;text-align:left}
 .hero-minimal h3{max-width:820px}
-.minimal-link{border-bottom:1px solid currentColor;padding-bottom:2px;font-size:12px;color:var(--site-text)}
 
 .builder-site .site-hero.hero-grid-dashboard{grid-template-columns:.9fr 1.1fr}
 .hero-dash-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:320px}
@@ -1486,8 +1592,24 @@ html,body{max-width:100%;overflow-x:hidden}
   content:"";position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);
   border-radius:50%;border:1.5px solid color-mix(in srgb,var(--site-accent) 45%,transparent);
 }
+/* FINAL BASELINE POLISH pass, part 2: real root cause of the "enormous
+   dotted placeholder rectangle" bug -- this shrink rule (`:has()`,
+   specificity 0,2,0) was silently losing to
+   `[data-image-dominance="dominant"] .product-frame{height:480px}`
+   (specificity 0,3,0) for every archetype that defaults to
+   imageDominance:'dominant' (6 of 11, including retail's own
+   'ecommerce-showcase') -- exactly the businesses most likely to hit this
+   path. `!important` here is deliberate: an actual "no image" state must
+   always win over a static per-archetype sizing preference, regardless of
+   selector specificity anywhere else in this file, present or future.
+   renderProductShowcase/renderImageLedEditorial no longer even reach this
+   rule in practice (zero real supply now renders an entirely different,
+   non-image-shaped composition -- see .product-panel/
+   .editorial-statement-composition above/below), so this is defense in
+   depth for any other consumer of these two container classes, not the
+   primary fix. */
 .product-frame:has(.visual-generated-unfunded),
-.editorial-visual:has(.visual-generated-unfunded){height:140px}
+.editorial-visual:has(.visual-generated-unfunded){height:140px!important}
 /* DESIGN INTELLIGENCE PASS: the unfunded-shrink treatment previously only
    applied to product-frame/editorial-visual -- about-split and team tiles
    now collapse the same way when they hold an unfunded slot, instead of
@@ -1554,10 +1676,12 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-decorative-motif="divider"] .site-section-label::before{content:"";position:absolute;left:0;top:.4em;width:8px;height:8px;border:1.5px solid var(--site-accent);border-radius:50%;background:transparent}
 .builder-site[data-decorative-motif="corners"] .service-card,
 .builder-site[data-decorative-motif="corners"] .testimonial-card,
-.builder-site[data-decorative-motif="corners"] .gallery-icon-card{position:relative}
+.builder-site[data-decorative-motif="corners"] .gallery-icon-card,
+.builder-site[data-decorative-motif="corners"] .product-panel{position:relative}
 .builder-site[data-decorative-motif="corners"] .service-card::before,
 .builder-site[data-decorative-motif="corners"] .testimonial-card::before,
-.builder-site[data-decorative-motif="corners"] .gallery-icon-card::before{content:"";position:absolute;top:8px;left:8px;width:9px;height:9px;border-top:1.5px solid var(--site-accent);border-left:1.5px solid var(--site-accent);opacity:.65}
+.builder-site[data-decorative-motif="corners"] .gallery-icon-card::before,
+.builder-site[data-decorative-motif="corners"] .product-panel::before{content:"";position:absolute;top:8px;left:8px;width:9px;height:9px;border-top:1.5px solid var(--site-accent);border-left:1.5px solid var(--site-accent);opacity:.65}
 .builder-site[data-decorative-motif="grid"] .site-section:nth-of-type(odd){background-image:linear-gradient(color-mix(in srgb,var(--site-text) 5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-text) 5%,transparent) 1px,transparent 1px);background-size:26px 26px}
 .builder-site[data-decorative-motif="waves"] .site-footer::before{background:repeating-linear-gradient(90deg,var(--site-accent) 0 6px,transparent 6px 12px)}
 
@@ -1569,7 +1693,20 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-icon-density="minimal"] .icon-led-row{gap:0}
 
 /* ---- New section types (part 5) ------------------------------------------ */
-.site-section{padding:44px 48px;border-top:1px solid rgba(255,255,255,.08)}
+/* FINAL BASELINE POLISH pass, part 7 -- real, previously-undiscovered bug:
+   this rule (later in source order, same 0,1,0 specificity as the earlier
+   theme-aware `.site-section{border-top:1px solid color-mix(...)}` near
+   the top of this file) was WINNING the cascade site-wide, and its border
+   was a hardcoded near-white rgba(255,255,255,.08) -- essentially
+   invisible on any light-themed site (the earlier, correctly theme-aware
+   declaration was dead code, silently overridden). That is the literal
+   mechanism behind "weak transitions between sections": on every
+   light-palette generation, section boundaries had no visible divider at
+   all, so a whole page could read as one undifferentiated scroll. Fixed to
+   the same color-mix token pattern already used throughout this file, and
+   bumped slightly (12%->15%) for a genuinely visible, still-subtle
+   division regardless of theme. */
+.site-section{padding:44px 48px;border-top:1px solid color-mix(in srgb,var(--site-text) 15%,transparent)}
 .site-section-label{margin:0 0 18px;font-size:10px;letter-spacing:.16em;color:color-mix(in srgb,var(--site-text) 55%,transparent);text-transform:uppercase}
 
 /* ---- Headline-role hierarchy (brand-experience fix) ----------------------
@@ -1670,6 +1807,23 @@ html,body{max-width:100%;overflow-x:hidden}
 .builder-site[data-imagery="dashboard-ui"] .dash-panel-visual .site-visual-img,
 .builder-site[data-imagery="dashboard-ui"] .hero-product-body .site-visual-img{object-fit:contain;background:color-mix(in srgb,var(--site-bg-dark) 90%,var(--site-accent) 10%)}
 .product-caption{margin:16px 0 0;font-size:12px;color:color-mix(in srgb,var(--site-text) 65%,transparent);max-width:520px}
+/* FINAL BASELINE POLISH pass, part 2: the zero-image product composition
+   (renderProductIconComposition) -- a real content panel (business mark +
+   real category service data as an icon-led spec stack + the real product
+   module when configured), never an image-shaped box, on a tinted brand
+   surface so it still reads as a deliberate section, not a fallback. */
+.product-panel{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:start;padding:34px;border-radius:18px;background:color-mix(in srgb,var(--site-accent) 6%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 9%,transparent)}
+.product-panel-mark{display:flex;align-items:center;justify-content:center;width:84px;height:84px;flex-shrink:0;border-radius:16px;font-size:36px;font-weight:800;letter-spacing:-.03em;color:var(--site-accent);background:color-mix(in srgb,var(--site-accent) 15%,var(--site-bg))}
+.product-panel-body h4{margin:0 0 8px;font-size:19px;letter-spacing:-.01em;font-weight:750}
+.product-panel-rows{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.product-panel-row .sr-icon-tile{width:100%}
+.product-icon-composition .module-product-cta,.product-icon-composition .module-cta-btn{margin-top:18px}
+/* Zero-image editorial composition (renderEditorialStatementComposition):
+   an image-led section with no real image leans into what it still
+   genuinely has -- its own copy, set at real display scale, rather than a
+   text-only afterthought under an empty box. */
+.editorial-statement-composition{padding:64px 48px}
+.editorial-statement-text{margin:0;max-width:820px;font-size:clamp(26px,3.4vw,44px);line-height:1.2;letter-spacing:-.02em;font-weight:640;color:var(--site-text)}
 .integration-chips{display:flex;flex-wrap:wrap;gap:10px}
 .integration-chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-size:11px;color:color-mix(in srgb,var(--site-text) 80%,transparent)}
 .pricing-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
@@ -1683,6 +1837,61 @@ html,body{max-width:100%;overflow-x:hidden}
 .process-steps small{display:block;font-size:9px;color:color-mix(in srgb,var(--site-text) 55%,transparent);margin-bottom:8px}
 .process-steps strong{font-size:13px}
 .process-steps p{margin:6px 0 0;font-size:12px;line-height:1.55;color:color-mix(in srgb,var(--site-text) 68%,transparent)}
+
+/* FINAL BASELINE POLISH pass, part 3: six real process/"how it works"
+   presentation variants (see archetypeProcessVariant/renderProcessSteps in
+   script.js and lib/site-render.js), replacing the single flat "0N + bold
+   label" grid every archetype used to share. Each is horizontal-by-default
+   on desktop where that reads as a sequence (numbered/connected-icon/
+   compact-cards) and collapses to a clean single column at the mobile tier
+   below (alternating/vertical-editorial/large-number are already vertical
+   by design, so they need no such collapse). */
+.process-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px}
+/* numbered-horizontal: a connector line running behind the row, numbered
+   circles sitting on top of it -- a real "track", not a bare grid. */
+.process-flow-numbered{position:relative;padding-top:6px}
+.process-flow-track{position:absolute;top:19px;left:0;right:0;height:1px;background:color-mix(in srgb,var(--site-text) 14%,transparent)}
+.process-flow-numbered .process-flow-step{position:relative;display:flex;flex-direction:column;gap:10px}
+.process-flow-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;background:var(--site-bg);border:1.5px solid var(--site-accent);color:var(--site-accent)}
+.process-flow-numbered .process-flow-step strong{font-size:13px}
+/* connected-icon: an icon node per step with a connector line running
+   THROUGH the row of nodes (drawn on the row itself, behind the nodes). */
+.process-flow-icons{position:relative;padding-top:4px}
+.process-flow-icons::before{content:"";position:absolute;top:23px;left:23px;right:23px;height:1px;background:color-mix(in srgb,var(--site-text) 14%,transparent)}
+.process-flow-icons .process-flow-step{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.process-icon-node{position:relative;z-index:1;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--site-bg);border:1.5px solid color-mix(in srgb,var(--site-accent) 55%,transparent);color:var(--site-accent)}
+.process-flow-icons .process-flow-step strong{font-size:13px}
+/* vertical-editorial: large quiet numerals, a stacked list, a hairline
+   between rows -- restrained typography instead of icons or connectors
+   (premium-consultancy/portfolio/editorial-brand's own posture). */
+.process-flow-editorial{display:flex;flex-direction:column}
+.process-editorial-row{display:flex;align-items:baseline;gap:26px;padding:22px 0;border-top:1px solid color-mix(in srgb,var(--site-text) 10%,transparent)}
+.process-editorial-row:first-child{border-top:0}
+.process-editorial-num{font-size:36px;font-weight:300;line-height:1;color:color-mix(in srgb,var(--site-accent) 55%,var(--site-text) 15%);flex-shrink:0;min-width:52px}
+.process-editorial-row strong{font-size:15px;font-weight:600;letter-spacing:-.005em}
+/* alternating: a vertical rail with steps alternating indent -- a real
+   narrative sequence rather than a checklist (hospitality/community-
+   nonprofit's storytelling tone). */
+.process-flow-alternating{position:relative;padding-left:4px}
+.process-flow-alternating::before{content:"";position:absolute;left:15px;top:6px;bottom:6px;width:1px;background:color-mix(in srgb,var(--site-text) 15%,transparent)}
+.process-alt-row{position:relative;display:flex;align-items:flex-start;gap:16px;padding:14px 0 14px 40px}
+.process-alt-row:nth-child(even){padding-left:76px}
+.process-alt-dot{position:absolute;left:11px;top:19px;width:9px;height:9px;border-radius:50%;background:var(--site-accent)}
+.process-alt-body small{display:block;font-size:9px;color:color-mix(in srgb,var(--site-text) 55%,transparent);margin-bottom:4px}
+.process-alt-body strong{font-size:13px}
+/* compact-cards: tight tactile cards, number + icon + label -- punchy,
+   retail-appropriate (ecommerce-showcase). */
+.process-flow-compact{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.process-compact-card{display:flex;flex-direction:column;gap:9px;padding:16px;border-radius:12px;background:color-mix(in srgb,var(--site-accent) 6%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 8%,transparent)}
+.process-compact-num{font-size:9px;font-weight:800;letter-spacing:.08em;color:color-mix(in srgb,var(--site-text) 55%,transparent)}
+.process-compact-card strong{font-size:12px}
+/* large-number: one bold digit per row -- blunt and direct, no ornament
+   (local-conversion/launch-campaign's urgency). */
+.process-flow-large-number{display:flex;flex-direction:column}
+.process-large-row{display:flex;align-items:center;gap:22px;padding:16px 0;border-bottom:1px solid color-mix(in srgb,var(--site-text) 9%,transparent)}
+.process-large-row:last-child{border-bottom:0}
+.process-large-num{font-size:52px;font-weight:900;line-height:1;letter-spacing:-.03em;color:var(--site-accent);flex-shrink:0;min-width:64px}
+.process-large-row strong{font-size:14px}
 /* Brand-experience pass: features' restrained/editorial composition mode
    (see pickVariant's 'features' case) -- wider columns and more air than
    the default card grid, since it's chosen specifically for archetypes
@@ -1821,7 +2030,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .module-field-error input,.module-field-error select,.module-field-error textarea{border-color:#ff6b6b}
 .module-field-err{font-size:11px;color:#ff9a9a;min-height:14px}
 .module-field-err:empty{display:none}
-.module-submit-btn{align-self:flex-start;border:0;border-radius:999px;padding:13px 22px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer}
+.module-submit-btn{align-self:flex-start;border:0;border-radius:999px;padding:13px 22px;min-height:44px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer}
 .module-submit-btn:disabled{opacity:.6;cursor:default}
 .module-submit-error{font-size:12px;color:#ff9a9a;margin:0}
 .module-success{padding:22px 0}
@@ -1830,23 +2039,40 @@ html,body{max-width:100%;overflow-x:hidden}
 .module-map-placeholder{min-height:160px;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;margin-top:12px;background:color-mix(in srgb,var(--site-accent) 10%,var(--site-bg-dark));border:1px solid rgba(255,255,255,.08)}
 .module-map-note{font-size:13px;color:color-mix(in srgb,var(--site-text) 82%,transparent)}
 .module-empty-note{font-size:11px;color:color-mix(in srgb,var(--site-text) 55%,transparent);margin:10px 0 0}
-.module-cta-btn{border:0;border-radius:999px;padding:13px 20px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+/* FINAL BASELINE POLISH pass, part 1: explicit min-height (not just padding)
+   so the button keeps real presence at any font-metrics edge case, and a
+   real gap for the trailing icon (was a bare 2px margin -- read as the icon
+   crowding the label rather than a deliberately placed arrow). */
+.module-cta-btn{border:0;border-radius:999px;padding:13px 22px;min-height:44px;font-size:12px;font-weight:750;background:var(--site-accent);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none}
 .module-cta-btn:disabled,.module-cta-btn[disabled]{opacity:.5;cursor:default}
+/* The primary hero CTA is the single most important action on the page --
+   it gets real elevation over an ordinary module button (bigger min-height,
+   more generous padding, slightly larger type) so it always reads as THE
+   primary action regardless of which `[data-cta]` ornamental variant the
+   Creative Director picks for this archetype (sharp-block/outline-ghost/
+   underline-link/floating-badge/solid-pill, below). Even underline-link --
+   the most deliberately quiet of the five, used by e.g. premium-consultancy
+   and editorial-brand -- only trims horizontal padding (see
+   `[data-cta="underline-link"]`), so it still keeps this full vertical
+   presence rather than collapsing to inline text. This directly fixes the
+   reported bug where a retail hero's real "Shop Now ↗" action rendered as a
+   near-invisible link-like sliver (root cause: a since-removed
+   `.minimal-link` class that zeroed out all button chrome -- see
+   renderHero's minimal-text-only case in script.js/lib/site-render.js). */
+.hero-cta-btn{min-height:52px;padding:16px 28px;font-size:13px;letter-spacing:.01em}
 .module-product-cta{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .module-product-price{margin:0;font-size:14px;font-weight:700}
-/* The hero CTA and the minimal-hero text link can now render as a real
-   <a href="tel:/mailto:/https:"> instead of a plain <button> once a CTA
-   target is configured (see renderCtaButton) -- these two rules give that
-   link the same base pill/underline treatment the existing per-direction
-   `.site-actions button` / `.minimal-link` rules already give the button
-   form. Direction-specific ornamental variants (sharp-block corners,
-   outline-ghost, underline-link, floating-badge shadow, hover motion) stay
-   scoped to `button` as before -- reproducing every one of those for an
-   <a> element too is a visual-polish concern outside this pass's scope,
-   noted here deliberately rather than silently left inconsistent. */
+/* The hero CTA can now render as a real <a href="tel:/mailto:/https:">
+   instead of a plain <button> once a CTA target is configured (see
+   renderCtaButton) -- this rule gives that link the same base pill
+   treatment the button form already gets from `.module-cta-btn`/
+   `.hero-cta-btn` above. Direction-specific ornamental variants (sharp-block
+   corners, outline-ghost, underline-link, floating-badge shadow, hover
+   motion) stay scoped to `button` as before -- reproducing every one of
+   those for an <a> element too is a visual-polish concern outside this
+   pass's scope, noted here deliberately rather than silently left
+   inconsistent. */
 a.hero-cta-btn{text-decoration:none}
-a.minimal-link{cursor:pointer}
-button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;color:inherit}
 
 /* ---- V8.4: module + CTA editor controls -----------------------------------
    Lives inside the same editor-section-card as V8.3's copy/variant fields
@@ -1960,6 +2186,13 @@ button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:point
   .site-footer-columns{grid-template-columns:repeat(2,1fr)!important}
   .hero-collage-stack{grid-template-columns:1fr 1fr}
   .hero-dash-grid{grid-template-columns:1fr 1fr}
+  /* FINAL BASELINE POLISH pass, part 3: "desktop may use horizontal
+     progression; tablet/mobile should convert cleanly to stacked/vertical
+     progression" -- tablet gets the same single-column collapse as mobile
+     for process's horizontal-by-default variants (the already-vertical
+     ones need no change at any width). */
+  .process-flow-numbered,.process-flow-icons,.process-flow-compact{grid-template-columns:1fr!important}
+  .process-flow-track,.process-flow-icons::before{display:none}
 }
 
 /* ---- Mobile tier (container <=480px): full single-column collapse ---- */
@@ -2010,6 +2243,18 @@ button.minimal-link{background:none;border:0;padding:0;font:inherit;cursor:point
   .features-grid,.testimonials-grid,.team-grid,.process-steps,.menu-groups,.pricing-tiers{grid-template-columns:1fr!important}
   .product-frame,.editorial-visual{height:220px}
   .dash-panel{min-height:80px}
+  .product-panel{grid-template-columns:1fr;padding:22px;gap:18px}
+  .product-panel-mark{width:56px;height:56px;font-size:26px;border-radius:12px}
+  .editorial-statement-composition{padding:40px 22px}
+  .editorial-statement-text{font-size:clamp(24px,7cqw,32px)}
+
+  /* FINAL BASELINE POLISH pass, part 3: process's horizontal-by-default
+     variants convert cleanly to a single stacked column (part 3's explicit
+     responsive requirement) -- the already-vertical variants (editorial/
+     alternating/large-number) need no override here. */
+  .process-flow-numbered,.process-flow-icons,.process-flow-compact{grid-template-columns:1fr!important}
+  .process-flow-track,.process-flow-icons::before{display:none}
+  .process-alt-row,.process-alt-row:nth-child(even){padding-left:36px}
 
   .module-form{gap:12px}
   .module-field input,.module-field select,.module-field textarea{width:100%;box-sizing:border-box;font-size:16px}

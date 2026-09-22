@@ -900,18 +900,37 @@ const archetypeExtendedDimensionDefaults = {
 // variant (individual call sites may still pick a more specific one for
 // their own context, e.g. proof stats always use 'badge'); `decorativeMotif`
 // is which local SVG/CSS primitive family (part 4) this archetype leans on.
+// FINAL BASELINE POLISH pass, part 5 ("motion intelligence"): `motionCharacter`
+// added to this SAME table (not a new one) so it rides the exact merge
+// mechanism buildGenerationPlan already applies to every field here --
+// "Motion density should derive from existing Creative Director/archetype
+// signals," and this IS that signal, reused rather than duplicated. 6
+// distinct characters across 11 archetypes, matching the brief's own named
+// examples one-for-one: restrained (premium-consultancy/trust-heavy --
+// slow, minimal), direct (service-business/local-conversion -- quick, no
+// ornament), tactile (ecommerce-showcase/launch-campaign -- more hover
+// feedback), structured (product-led-saas -- interface-like), typographic
+// (editorial-brand/portfolio -- reveal-led, minimal card hover), soft
+// (hospitality/community-nonprofit -- gentler, more approachable). This is
+// layered ADDITIVELY alongside the pre-existing per-CATEGORY `motion`
+// dimension (none/subtle/expressive, styles.css's existing `[data-motion]`
+// rules) -- that one is an explicit category-level kill switch (e.g.
+// finance/roofing deliberately want motion:'none') and keeps working
+// exactly as before; `data-motion-character` only ever scales an ALREADY-
+// permitted motion's feel, never re-enables motion `data-motion="none"`
+// turned off (see styles.css's motion-system block).
 const archetypeIconDefaults = {
-  'product-led-saas': { iconWeight: 'light', iconDensity: 'medium', iconPresentation: 'tinted-tile', decorativeMotif: 'grid' },
-  'service-business': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines' },
-  'premium-consultancy': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'rule' },
-  'editorial-brand': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'none' },
-  portfolio: { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'corners' },
-  'ecommerce-showcase': { iconWeight: 'regular', iconDensity: 'medium', iconPresentation: 'outlined-square', decorativeMotif: 'dots' },
-  'local-conversion': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines' },
-  'trust-heavy-professional': { iconWeight: 'light', iconDensity: 'low', iconPresentation: 'badge', decorativeMotif: 'rule' },
-  'launch-campaign': { iconWeight: 'bold', iconDensity: 'medium', iconPresentation: 'oversized', decorativeMotif: 'dots' },
-  'community-nonprofit': { iconWeight: 'duotone', iconDensity: 'medium', iconPresentation: 'rounded-square', decorativeMotif: 'waves' },
-  hospitality: { iconWeight: 'regular', iconDensity: 'low', iconPresentation: 'above-heading', decorativeMotif: 'divider' }
+  'product-led-saas': { iconWeight: 'light', iconDensity: 'medium', iconPresentation: 'tinted-tile', decorativeMotif: 'grid', motionCharacter: 'structured' },
+  'service-business': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines', motionCharacter: 'direct' },
+  'premium-consultancy': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'rule', motionCharacter: 'restrained' },
+  'editorial-brand': { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'none', motionCharacter: 'typographic' },
+  portfolio: { iconWeight: 'thin', iconDensity: 'minimal', iconPresentation: 'bare', decorativeMotif: 'corners', motionCharacter: 'typographic' },
+  'ecommerce-showcase': { iconWeight: 'regular', iconDensity: 'medium', iconPresentation: 'outlined-square', decorativeMotif: 'dots', motionCharacter: 'tactile' },
+  'local-conversion': { iconWeight: 'bold', iconDensity: 'high', iconPresentation: 'icon-led-row', decorativeMotif: 'lines', motionCharacter: 'direct' },
+  'trust-heavy-professional': { iconWeight: 'light', iconDensity: 'low', iconPresentation: 'badge', decorativeMotif: 'rule', motionCharacter: 'restrained' },
+  'launch-campaign': { iconWeight: 'bold', iconDensity: 'medium', iconPresentation: 'oversized', decorativeMotif: 'dots', motionCharacter: 'tactile' },
+  'community-nonprofit': { iconWeight: 'duotone', iconDensity: 'medium', iconPresentation: 'rounded-square', decorativeMotif: 'waves', motionCharacter: 'soft' },
+  hospitality: { iconWeight: 'regular', iconDensity: 'low', iconPresentation: 'above-heading', decorativeMotif: 'divider', motionCharacter: 'soft' }
 };
 // Exactly 4 deterministic proof/value-prop icon keys per archetype -- used
 // wherever a section needs generic icon accents with no more specific
@@ -930,6 +949,32 @@ const ARCHETYPE_PROOF_ICONS = {
   'launch-campaign': ['lightning', 'sparkle', 'flag', 'users'],
   'community-nonprofit': ['heart', 'handshake', 'users', 'globe'],
   hospitality: ['forkKnife', 'coffee', 'storefront', 'clock']
+};
+// FINAL BASELINE POLISH pass, part 3: which of the 6 real process
+// presentation variants (see renderProcess) an archetype gets, reusing the
+// same strategy.archetype signal as icon weight/decorative motif -- never a
+// new independent randomizer, so a business's "how it works" section stays
+// consistent with the rest of its own design posture instead of every
+// archetype defaulting to the same 4 numbered cards. Distribution
+// deliberately isn't 1:1 (6 variants across 11 archetypes) -- archetypes
+// that already share a design posture (premium-consultancy/portfolio/
+// editorial-brand's shared "typography over icons" restraint;
+// hospitality/community-nonprofit's shared "narrative, not a checklist"
+// tone) legitimately share a process treatment too, while still reading as
+// clearly different from local-conversion's blunt large-number countdown or
+// ecommerce-showcase's tactile compact cards.
+const archetypeProcessVariant = {
+  'service-business': 'connected-icon',
+  hospitality: 'alternating',
+  'premium-consultancy': 'vertical-editorial',
+  portfolio: 'vertical-editorial',
+  'product-led-saas': 'connected-icon',
+  'editorial-brand': 'vertical-editorial',
+  'ecommerce-showcase': 'compact-cards',
+  'local-conversion': 'large-number',
+  'trust-heavy-professional': 'numbered-horizontal',
+  'launch-campaign': 'large-number',
+  'community-nonprofit': 'alternating'
 };
 
 // ---- V9: deterministic page architecture ----------------------------------
@@ -1394,6 +1439,30 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
   const unfunded = !generating && (!planEntry || planEntry.sourceType !== 'generated' || (cacheMatches && generated.status === 'error'));
   const stateClass = generating ? ' visual-generating' : (unfunded ? ' visual-generated-unfunded' : '');
   return `<div class="visual-generated${stateClass}" data-imagery="${escapeHtml(imageryKey || 'abstract-geometric')}" data-role="${escapeHtml(slot)}" data-funded="${unfunded ? 'false' : 'true'}">${generating ? `<span class="visual-generating-label">Generating ${escapeHtml(imageSlotLabel(slot))}…</span>` : ''}</div>`;
+}
+// FINAL BASELINE POLISH pass, part 2: the exact same funded/unfunded
+// decision renderVisualSlot makes internally (asset upload > cached
+// successful generation > nothing), exposed as a standalone check so a
+// SINGLE-SLOT section renderer (product showcase, image-led editorial --
+// unlike gallery/caseStudies/team, these were never wired into
+// reconcileImageSupplyWithSections' tile-count reconciliation, since they
+// only ever hold one slot, not an array) can decide, before rendering
+// anything, whether to reserve an image-shaped box at all. Zero real supply
+// now means an entirely different, content-appropriate composition is
+// rendered instead (see renderProductIconComposition/
+// renderEditorialStatementComposition below) -- never a placeholder box of
+// any size. `generating` counts as funded here on purpose: swapping to a
+// totally different composition WHILE a real generation is actively in
+// flight would make the image, once it lands, appear to replace content
+// that was never an image slot to begin with.
+function isVisualSlotFunded(project, slot, assetId) {
+  if (assetId && project.assets.items.find(a => a.id === assetId)) return true;
+  const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
+  const generated = project.assets.generated && project.assets.generated[slot];
+  const cacheMatches = !!(generated && planEntry && generated.cacheKey === planEntry.cacheKey);
+  if (cacheMatches && generated.status === 'ready' && generated.dataUrl) return true;
+  if (cacheMatches && generated.status === 'pending') return true;
+  return false;
 }
 function imageSlotLabel(slot) {
   if (slot === 'hero' || slot === 'collage-2') return 'hero image';
@@ -2148,7 +2217,28 @@ function renderHero(project, category) {
   // decorative -- unset (the common case for a fresh direction) renders the
   // exact same plain button it always has.
   const ctaBtn = renderCtaButton(copy.ctaTarget, cta, 'hero-cta-btn');
-  const ctaMinimal = renderCtaButton(copy.ctaTarget, cta + ' ↗', 'minimal-link');
+  // FINAL BASELINE POLISH pass, part 1: 'minimal-text-only' used to render
+  // its primary CTA through a separate `ctaMinimal`/`.minimal-link` class
+  // that stripped ALL button chrome (no background, no border, no padding --
+  // see the removed CSS this replaced) down to bare underlined text. That
+  // was reachable two ways: (a) an archetype/category *choosing*
+  // minimal-text-only on purpose (roofing, 'other'), and (b) ANY OTHER hero
+  // -- including retail's real default, 'product-screenshot' -- silently
+  // DOWNGRADING to minimal-text-only via mapHeroToTextOnlyVariant whenever
+  // its image goes unfunded (the common case with paid image generation
+  // off). Case (b) is exactly the reported bug: a retail site's real "Shop
+  // Now ↗" primary action rendering as a barely-visible link-like sliver.
+  // "No funded hero image" and "the primary CTA should look like a quiet
+  // link" are two unrelated decisions that must not be coupled -- the
+  // existing 5-variant `[data-cta]` system (sharp-block/outline-ghost/
+  // underline-link/floating-badge/solid-pill) is ALREADY how an archetype
+  // deliberately chooses a quieter CTA treatment (see
+  // archetypeExtendedDimensionDefaults' cta field), and even its most
+  // restrained member (underline-link) keeps real vertical padding (see
+  // styles.css) rather than collapsing to zero. So minimal-text-only now
+  // renders the exact same real `ctaBtn` every other hero layout uses --
+  // its CTA's WEIGHT is still fully archetype-driven, it just never loses
+  // button presence outright.
   const visual = renderVisualSlot(project, 'hero', composed.imagery, plan.hero);
   // PLACEHOLDER/COMPOSITION FIX: a reconciled `heroDisplayVariant` (see
   // reconcileImageSupplyWithSections) overrides the stored hero layout for
@@ -2189,7 +2279,7 @@ function renderHero(project, category) {
         <div class="hero-asym-meta"><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
       </div>`;
     case 'minimal-text-only': return `<div class="site-hero hero-minimal">
-        <p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaMinimal}</div>
+        <p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div>
       </div>`;
     case 'grid-dashboard': return `<div class="site-hero hero-grid-dashboard">
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
@@ -2741,17 +2831,63 @@ function renderFeatures(project, category, section) {
     <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
   </div>`;
 }
+// FINAL BASELINE POLISH pass, part 2 -- root cause: renderProductShowcase
+// always reserved a full photo-shaped `.product-frame` and handed it to
+// renderVisualSlot, whose smaller `visual-generated-unfunded` treatment is
+// scoped to `.product-frame` through a `:has()` selector -- (0,2,0)
+// specificity. `[data-image-dominance="dominant"] .product-frame{height:
+// 480px}` (styles.css) is (0,3,0) -- MORE specific -- and SIX of the eleven
+// archetypes default to imageDominance:'dominant', including retail's own
+// ('ecommerce-showcase'). So for exactly the businesses most likely to land
+// here, the shrink rule silently lost that specificity fight and the empty,
+// dot-patterned box stayed at full (480px/300px) height: the literal
+// "Retail Studio in action" + giant dotted rectangle bug. Fixed two ways:
+// the CSS specificity gap itself is closed (styles.css, `!important` on the
+// unfunded-state rule -- a real "no image" state should always win over a
+// static per-archetype sizing preference), and -- the deeper fix -- zero
+// real supply no longer renders an image-shaped box at ALL. It renders a
+// genuinely different, content-appropriate composition: the category's own
+// real `services` list (never invented) as an icon-led feature/spec stack,
+// plus the real configured product module (name/price/checkout link) when
+// present, on a decorative-motif background. "Do not invent factual
+// product details" -- every string here is either the business's own name,
+// the category's own real service/noun data, or the module's own real
+// config; nothing is fabricated.
+function renderProductIconComposition(project, category, section, label, caption, businessName, moduleHtml) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const dir = resolveIconDirection(project);
+  const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
+  const items = (category.services || []).slice(0, iconKeys.length);
+  const rows = items.map((itemLabel, i) => `<div class="product-panel-row">${renderIconTile(iconKeys[i], { weight: dir.weight, presentation: 'tinted-tile', size: 20, label: itemLabel })}</div>`).join('');
+  const markLetter = (businessName || category.label || 'P').trim().charAt(0).toUpperCase() || 'P';
+  return `<div class="site-section site-section-product product-icon-composition" data-variant="panel">
+    ${renderSectionHeader(label, '', section && section.headlineRole)}
+    <div class="product-panel">
+      <div class="product-panel-mark" aria-hidden="true">${escapeHtml(markLetter)}</div>
+      <div class="product-panel-body">
+        <h4>${escapeHtml(businessName)}</h4>
+        ${caption ? `<p class="product-caption">${escapeHtml(caption)}</p>` : ''}
+        ${rows ? `<div class="product-panel-rows">${rows}</div>` : ''}
+        ${moduleHtml}
+      </div>
+    </div>
+  </div>`;
+}
 function renderProductShowcase(project, category, section) {
   const businessName = escapeHtml(project.business.name || 'Your Business');
   const label = sectionCopyField(section, 'headline', 'Product');
   const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
   const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'product';
+  const productAssetId = (project.assets.plan.gallery || [])[0];
   const moduleHtml = section && section.module && section.module.enabled
     ? (section.module.type === 'product' ? renderProductModuleWidget(project, section) : (section.module.type === 'action' ? renderActionModuleWidget(project, section) : ''))
     : '';
+  if (!isVisualSlotFunded(project, slot, productAssetId)) {
+    return renderProductIconComposition(project, category, section, label, caption, businessName, moduleHtml);
+  }
   return `<div class="site-section site-section-product" data-variant="showcase">
     ${renderSectionHeader(label, '', section && section.headlineRole)}<h4>${businessName} in action</h4>
-    <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', (project.assets.plan.gallery || [])[0])}</div>
+    <div class="product-frame">${renderVisualSlot(project, slot, 'dashboard-ui', productAssetId)}</div>
     <p class="product-caption">${escapeHtml(caption)}</p>
     ${moduleHtml}
   </div>`;
@@ -2817,14 +2953,44 @@ function renderFaq(project, category, section) {
     <div class="faq-list">${qas.map(x => `<div class="faq-item"><strong>${x.q}</strong><p>${x.a}</p></div>`).join('')}</div>
   </div>`;
 }
+// FINAL BASELINE POLISH pass, part 3: the process/"how it works" section
+// used to be a single, always-identical treatment -- a bare grid of
+// "0N + bold label", no connector, no icon, no visual sequence, for every
+// archetype on earth (the exact "01 Browse / 02 Order / 03 Fast, tracked
+// shipping / 04 Enjoy" the brief quotes verbatim is ecommerce-showcase's
+// own real vocab steps, rendered through that one flat treatment). Six real
+// presentation variants now exist (see archetypeProcessVariant above for
+// which archetype gets which, and renderProcessSteps below for each one's
+// markup); connectors/numbers/icons/typography differ
+// enough between them that "a visual sequence" reads as true regardless of
+// which one a given business lands on, and none of them default every
+// archetype to the same 4 identical cards.
+function processVariantForArchetype(project) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  return archetypeProcessVariant[archetype] || 'numbered-horizontal';
+}
+function renderProcessSteps(project, steps, variant) {
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const dir = resolveIconDirection(project);
+  const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
+  switch (variant) {
+    case 'connected-icon': return `<div class="process-flow process-flow-icons" data-count="${steps.length}">${steps.map((s, i) => `<div class="process-flow-step"><span class="process-icon-node">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 18 })}</span><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>`;
+    case 'vertical-editorial': return `<div class="process-flow process-flow-editorial">${steps.map((s, i) => `<div class="process-editorial-row"><span class="process-editorial-num">0${i + 1}</span><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>`;
+    case 'alternating': return `<div class="process-flow process-flow-alternating">${steps.map((s, i) => `<div class="process-alt-row"><span class="process-alt-dot" aria-hidden="true"></span><div class="process-alt-body"><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div></div>`).join('')}</div>`;
+    case 'compact-cards': return `<div class="process-flow process-flow-compact">${steps.map((s, i) => `<div class="process-compact-card"><span class="process-compact-num">0${i + 1}</span>${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16, className: 'process-compact-icon' })}<strong>${escapeHtml(s)}</strong></div>`).join('')}</div>`;
+    case 'large-number': return `<div class="process-flow process-flow-large-number">${steps.map((s, i) => `<div class="process-large-row"><span class="process-large-num">${i + 1}</span><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>`;
+    default: return `<div class="process-flow process-flow-numbered" data-count="${steps.length}"><div class="process-flow-track" aria-hidden="true"></div>${steps.map((s, i) => `<div class="process-flow-step"><span class="process-flow-num">0${i + 1}</span><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>`;
+  }
+}
 function renderProcess(project, category, section) {
   const vocab = sectionVocab(project);
   const label = sectionCopyField(section, 'headline', vocab.processLabel);
   const intro = sectionCopyField(section, 'body', '');
   const steps = vocab.processSteps;
-  return `<div class="site-section site-section-process" data-variant="steps">
+  const variant = processVariantForArchetype(project);
+  return `<div class="site-section site-section-process" data-variant="${variant}">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
-    <div class="process-steps">${steps.map((s, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(s)}</strong></div>`).join('')}</div>
+    ${renderProcessSteps(project, steps, variant)}
   </div>`;
 }
 function renderMenu(project, category, section) {
@@ -2942,11 +3108,38 @@ function renderNewsletter(project, category, section) {
     </div>
   </div>`;
 }
+// FINAL BASELINE POLISH pass, part 2 -- imageLedEditorial (the "editorial
+// visual" section named explicitly in this pass's own audit list) had the
+// exact same unguarded renderVisualSlot call as product showcase, hitting
+// the same image-dominance CSS-specificity bug (editorial-brand/portfolio/
+// hospitality all default to imageDominance:'dominant' -- see
+// renderProductIconComposition's note for the full mechanism, and
+// styles.css for the specificity fix). But even with that fixed, a shrunk
+// gradient box is still the wrong composition here: this section's entire
+// point is "image-led", and there is no honest way to still be image-led
+// with no real image. Zero real supply instead renders a large typographic
+// statement -- the section's own real caption, set big, which suits an
+// editorial layout's own typography-forward posture (see
+// archetypeIconDefaults' thin/minimal bias for editorial-brand/portfolio) --
+// over a decorative-motif background, with a real section label (this
+// renderer never had one at all; added only to this new branch so the
+// existing funded/image-led branch's own output is untouched).
+function renderEditorialStatementComposition(project, category, section, label, caption) {
+  return `<div class="site-section site-section-editorial editorial-statement-composition" data-variant="statement">
+    ${renderSectionHeader(label, '', section && section.headlineRole)}
+    <p class="editorial-statement-text">${escapeHtml(caption)}</p>
+  </div>`;
+}
 function renderImageLedEditorial(project, category, section) {
+  const label = sectionCopyField(section, 'headline', 'Featured');
   const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
   const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'gallery-featured';
+  const assetId = (project.assets.plan.gallery || [])[0];
+  if (!isVisualSlotFunded(project, slot, assetId)) {
+    return renderEditorialStatementComposition(project, category, section, label, caption);
+  }
   return `<div class="site-section site-section-editorial" data-variant="image-led">
-    <div class="editorial-visual">${renderVisualSlot(project, slot, project.design.dimensions.imagery, (project.assets.plan.gallery || [])[0])}</div>
+    <div class="editorial-visual">${renderVisualSlot(project, slot, project.design.dimensions.imagery, assetId)}</div>
     <p class="editorial-caption">${escapeHtml(caption)}</p>
   </div>`;
 }
@@ -4841,6 +5034,7 @@ function applyDesignDataset(proj) {
   builderSite.dataset.iconDensity = composed.iconDensity || 'medium';
   builderSite.dataset.iconPresentation = composed.iconPresentation || 'icon-led-row';
   builderSite.dataset.decorativeMotif = composed.decorativeMotif || 'none';
+  builderSite.dataset.motionCharacter = composed.motionCharacter || 'direct';
   builderSite.dataset.layout = proj.design.heroLayout;
   // CREATIVE DIRECTOR V2: the page's overall density curve -- paired with
   // each section's own data-rhythm-position (set in renderSections) to
@@ -4886,7 +5080,33 @@ function renderSections(proj, category) {
   if (siteSectionsRoot) {
     siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
     applySectionRhythmPositions(siteSectionsRoot, proj.sections, proj.intent && proj.intent.creativeDirection);
+    initSiteMotion(siteSectionsRoot);
   }
+}
+// FINAL BASELINE POLISH pass, part 4/6 (micro-motion system): the real,
+// scroll-triggered version of this (ONE IntersectionObserver, a one-shot
+// fade+rise the first time a section scrolls into view) is hand-ported into
+// SITE_RUNTIME_JS in lib/export-compiler.js -- that's what an actual site
+// visitor gets on the purchased, standalone export (part 6's export
+// requirement), and see that file's copy for the full mechanism/rationale.
+//
+// This in-editor copy deliberately does NOT run that same scroll-observer:
+// `renderProject` rebuilds `siteSectionsRoot.innerHTML` from scratch on
+// EVERY edit (each keystroke can trigger a full re-render), which destroys
+// and recreates every section element -- there is no "already revealed"
+// state to preserve across that replace, so a real scroll observer here
+// would re-hide and re-fade-in already-visible sections on every keystroke,
+// a distracting flicker with no counterpart in the real exported site (a
+// real visitor's page loads once; this editor pane re-renders constantly).
+// The small ~690px preview pane is a bounded editing control, not a
+// simulation of a real page's scroll -- so sections here render straight
+// into their final, fully-revealed state, while the character-scaled
+// hover/card/button/icon motion (pure CSS, no observer, no flicker risk --
+// see styles.css's `[data-motion-character]` rules) still gives the person
+// building the site an accurate FEEL for it.
+function initSiteMotion(root) {
+  if (!root) return;
+  root.querySelectorAll('.site-hero, .site-page-header, .site-section').forEach(el => el.classList.add('sr-revealed'));
 }
 // CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: additive-only, same pattern
 // as data-headline-role (Phase C) -- stamps data attributes onto the
@@ -7309,7 +7529,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // buildGenerationPlan's own icon fallback uses (this IS that
         // fallback, applied at the point this object gets re-stamped).
         const iconDims = archetypeIconDefaults[strategy.archetype] || archetypeIconDefaults['service-business'];
-        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio, iconWeight: iconDims.iconWeight, iconDensity: iconDims.iconDensity, iconPresentation: iconDims.iconPresentation, decorativeMotif: iconDims.decorativeMotif };
+        proj.design.dimensions = { hero: composed.hero, type: composed.type, nav: composed.nav, card: composed.card, imagery: composed.imagery, cta: composed.cta, colorBehavior: composed.colorBehavior, motion: composed.motion, spacing: composed.spacing, pattern: composed.pattern, contentWidth: composed.contentWidth, imageDominance: composed.imageDominance, imageArrangement: composed.imageArrangement, sectionRhythm: composed.sectionRhythm, sectionAlignment: composed.sectionAlignment, typographyScale: composed.typographyScale, headingWidth: composed.headingWidth, cardDensity: composed.cardDensity, cardShape: composed.cardShape, splitRatio: composed.splitRatio, iconWeight: iconDims.iconWeight, iconDensity: iconDims.iconDensity, iconPresentation: iconDims.iconPresentation, decorativeMotif: iconDims.decorativeMotif, motionCharacter: iconDims.motionCharacter };
         // CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: the deterministic
         // (no-Claude) path had no business-driven hero decision at all --
         // every business in a category got the same fixed hero and the
