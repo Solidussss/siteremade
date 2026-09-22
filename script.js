@@ -1447,14 +1447,21 @@ function buildImagePlan(project, category) {
     if (editorialSection) {
       slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual' });
     }
+    // IMAGE COHERENCE PASS: a section's own already-reconciled
+    // `imageTileCount` (see reconcileImageSupplyWithSections below) always
+    // wins over the raw variant-based count when present -- this is the one
+    // place layout tile count and the image plan actually agree, so a
+    // reconciled section renders exactly as many tiles as it planned, no
+    // more. Absent (not yet reconciled, or a pre-existing saved project),
+    // falls back to the original variant-only count, unchanged.
     pageSections.filter(s => s.type === 'gallery' || s.type === 'caseStudies').forEach(gallerySection => {
-      const count = galleryTileCount(gallerySection.variant);
+      const count = gallerySection.imageTileCount || galleryTileCount(gallerySection.variant);
       for (let i = 0; i < count; i++) {
         slots.push({ slot: galleryTileSlot(gallerySection, i), role: 'gallery', page: page.slug, section: gallerySection.id, sectionType: gallerySection.type, assetId: (plan.gallery || [])[i], aspectRatio: gallerySection.variant === 'featured' && i === 0 ? '4:3' : '1:1', intent: `Gallery visual ${i + 1} for ${category.label}` });
       }
     });
     pageSections.filter(s => s.type === 'team').forEach(teamSection => {
-      const teamCount = Math.max((project.assets.items || []).filter(a => a.type === 'team').length, 3);
+      const teamCount = teamSection.imageTileCount || Math.max((project.assets.items || []).filter(a => a.type === 'team').length, 3);
       for (let i = 0; i < Math.min(teamCount, 4); i++) {
         slots.push({ slot: teamTileSlot(teamSection, i), role: 'team', page: page.slug, section: teamSection.id, sectionType: 'team', assetId: ((project.assets.items || []).filter(a => a.type === 'team')[i] || {}).id || null, aspectRatio: '1:1', intent: `Team visual ${i + 1} for ${category.label}` });
       }
@@ -1484,6 +1491,67 @@ function buildImagePlan(project, category) {
     const sourceType = s.assetId ? 'user' : (providerConfigured && generatedAllowed.has(i) ? 'generated' : 'designed');
     return { ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType, cacheKey: computeImageCacheKey(project, s.role, s.slot) };
   });
+}
+// IMAGE COHERENCE PASS ("visible image demand <= fulfillable image supply"):
+// buildImagePlan above decides, for a FIXED tile count, which of those
+// tiles are worth a real generated image -- it never changes how many
+// tiles a gallery/caseStudies/team section actually renders. That's the
+// root cause of "it said it made 2 images but the layout still shows 6
+// slots": a gallery section always requested galleryTileCount(variant)
+// (3 or 4) tiles regardless of the archetype's own image budget, so most
+// of them silently fell back to the plain 'designed' CSS treatment with no
+// upstream awareness that they'd done so.
+//
+// This runs buildImagePlan once (its normal, unchanged budget/priority
+// logic -- no new provider or Claude call, just reading its own result),
+// counts how many of a section's own tiles actually resolved to a real
+// visual (an upload OR a slot the existing budget pays to generate), and
+// -- only when that's fewer than the section currently renders -- stamps a
+// real `imageTileCount` on the section so buildImagePlan/renderGallery/
+// renderTeam (see their own `section.imageTileCount ||` fallbacks above and
+// below) all agree on a SMALLER, fully-intentional count next time. Never
+// raises a count, never invents a new visual, never touches the budget
+// itself -- purely reconciles how many slots the layout asks for down to
+// what that unchanged budget can actually fulfill.
+//
+// The floor is MIN_IMAGE_TILES (2), never 0/1 -- per the brief's own
+// worked example ("collapse a gallery from 6 cards to 2 strong featured
+// visuals"): a thin gallery still reads as a deliberate 2-up layout, not a
+// missing section. Removing the section entirely would mean touching
+// section-type selection (composeSections), which this pass explicitly
+// does not do.
+const MIN_IMAGE_TILES = 2;
+const IMAGE_TILE_SECTION_TYPES = ['gallery', 'caseStudies', 'team'];
+function reconcileImageSupplyWithSections(proj, category) {
+  const firstPass = buildImagePlan(proj, category);
+  const bySection = new Map();
+  firstPass.forEach(entry => {
+    if (!bySection.has(entry.section)) bySection.set(entry.section, []);
+    bySection.get(entry.section).push(entry);
+  });
+  let changed = false;
+  (proj.pages && proj.pages.length ? proj.pages : [{ sections: proj.sections }]).forEach(page => {
+    (page.sections || []).forEach(section => {
+      if (!IMAGE_TILE_SECTION_TYPES.includes(section.type)) return;
+      const entries = bySection.get(section.id);
+      if (!entries || !entries.length) return;
+      const currentCount = entries.length;
+      const realCount = entries.filter(e => e.sourceType !== 'designed').length;
+      if (realCount >= currentCount) return; // already fully supplied -- nothing to reconcile
+      const resolved = Math.max(MIN_IMAGE_TILES, Math.min(currentCount, realCount));
+      if (resolved < currentCount && section.imageTileCount !== resolved) {
+        section.imageTileCount = resolved;
+        changed = true;
+      }
+    });
+  });
+  // The tile-count edits above change what buildImagePlan itself would
+  // generate next (fewer slots competing for the same, unchanged budget),
+  // so the authoritative plan is always the one built AFTER reconciling --
+  // this is the one real recomputation this pass adds, and it's pure JS,
+  // not a provider call.
+  proj.imagePlan = changed ? buildImagePlan(proj, category) : firstPass;
+  return proj.imagePlan;
 }
 
 // ---- V7.1: real async image generation ------------------------------------
@@ -1941,7 +2009,14 @@ function renderGallery(project, category, section, labelOverride) {
   const galleryAssets = (plan.gallery || []).map(id => project.assets.items.find(a => a.id === id)).filter(Boolean);
   const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));
   const caption = sectionCopyField(section, 'body', '');
-  const tileCount = galleryTileCount(variant);
+  // IMAGE COHERENCE PASS: a reconciled `imageTileCount` (see
+  // reconcileImageSupplyWithSections) always wins over the raw
+  // variant-based count -- this is what actually shrinks a gallery from
+  // e.g. 4 tiles to 2 when the image budget can't fill more than 2, so the
+  // grid itself, not just the image plan behind it, reflects real supply.
+  // Untouched (falls back to the original count) for a section that was
+  // never reconciled, including every pre-existing saved project.
+  const tileCount = (section && section.imageTileCount) || galleryTileCount(variant);
   const tiles = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
@@ -1951,7 +2026,7 @@ function renderGallery(project, category, section, labelOverride) {
   }
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
     ${renderSectionHeader(label, caption, section && section.headlineRole)}
-    <div class="gallery-grid gallery-layout-${variant}">${tiles.join('')}</div>
+    <div class="gallery-grid gallery-layout-${variant}" data-tile-count="${tileCount}">${tiles.join('')}</div>
   </div>`;
 }
 function renderCaseStudies(project, category, section) { return renderGallery(project, category, { ...(section || {}), variant: 'grid' }, 'Recent Projects'); }
@@ -2017,8 +2092,10 @@ function renderAbout(project, category, section) {
 function renderTeam(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Team');
   const teamAssets = project.assets.items.filter(a => a.type === 'team');
+  // IMAGE COHERENCE PASS: same reconciled-count fallback as renderGallery.
+  const teamCount = (section && section.imageTileCount) || Math.max(teamAssets.length, 3);
   const slots = [];
-  for (let i = 0; i < Math.max(teamAssets.length, 3); i++) slots.push(teamAssets[i]);
+  for (let i = 0; i < teamCount; i++) slots.push(teamAssets[i]);
   const cardsHtml = renderCardGroup(slots.slice(0, 4), 'team-card', (a, i) => renderVisualSlot(project, teamTileSlot(section, i), project.design.dimensions.imagery, a && a.id));
   return `<div class="site-section site-section-team" data-variant="grid">
     ${renderSectionHeader(label, '', section && section.headlineRole)}
@@ -2193,11 +2270,26 @@ function renderPricingSection(project, category, section) {
     <div class="pricing-tiers">${renderCardGroup(tiers, 'pricing-tier', t => `<strong>${escapeHtml(t.name)}</strong><p>${escapeHtml(t.blurb)}</p><button>${escapeHtml(cta)}</button>`)}</div>
   </div>`;
 }
+// SECTION SEMANTICS FIX: descriptor.offering/descriptor.descriptor are
+// regex-captured free text meant for templates that read naturally with a
+// full clause dropped in ("Built for {offering}.", a kicker line). Plugged
+// into a template that expects a short NOUN instead -- "Seasonal {x}",
+// "we'll walk through {x} together" -- a long captured clause reads as a
+// broken run-on ("Seasonal seasonal tasting menus and intimate evening
+// reservations"). This guard only accepts a candidate short enough to read
+// as a noun phrase; anything longer falls through to the next candidate,
+// and finally to the category's own safe noun.
+function shortSubjectPhrase(descriptor, fallback, maxWords) {
+  const words = maxWords || 3;
+  const candidates = [descriptor && descriptor.descriptor, descriptor && descriptor.offering].filter(Boolean);
+  const short = candidates.find(c => c.trim().split(/\s+/).length <= words);
+  return short || fallback;
+}
 function renderFaq(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'FAQ');
   const intro = sectionCopyField(section, 'body', '');
   const d = project.source.descriptor || {};
-  const noun = d.descriptor || category.noun;
+  const noun = shortSubjectPhrase(d, category.noun);
   const vocab = sectionVocab(project);
   const qas = [
     { q: `What does ${escapeHtml(project.business.name || 'this business')} actually do?`, a: escapeHtml(category.sub) },
@@ -2228,13 +2320,24 @@ function renderMenu(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Menu');
   const intro = sectionCopyField(section, 'body', '');
   const descriptor = project.source.descriptor || {};
-  const subject = descriptor.offering || descriptor.descriptor || category.noun;
+  // SECTION SEMANTICS FIX: the raw (potentially long, clause-length)
+  // descriptor/offering text used to be dropped straight into "Seasonal
+  // {x}" with no length guard -- for a business whose captured offering was
+  // a full sentence ("seasonal tasting menus and intimate evening
+  // reservations"), that produced a genuinely broken menu heading
+  // ("Seasonal seasonal tasting menus and intimate evening reservations").
+  // shortSubjectPhrase only accepts a candidate short enough to read as a
+  // real noun phrase; when nothing qualifies, the safe non-interpolated
+  // "Seasonal Selections" heading is used instead of forcing a fit.
+  const subject = shortSubjectPhrase(descriptor, null);
+  const subjectLabel = subject ? titleCase(subject) : null;
   const groups = category === categories.hospitality
-    ? [`Seasonal ${subject}`, 'Shared plates', 'Something sweet']
-    : ['Featured offerings', 'Popular choices', 'Seasonal selection'];
+    ? [subjectLabel ? `Seasonal ${subjectLabel}` : 'Seasonal Selections', 'Shared Plates', 'Something Sweet']
+    : ['Featured Offerings', 'Popular Choices', 'Seasonal Selection'];
+  const firstGroupBody = subject ? `A considered take on ${subject}.` : `A considered seasonal selection.`;
   return `<div class="site-section site-section-menu" data-variant="columns">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
-    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? `A considered take on ${subject}.` : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
+    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? firstGroupBody : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
   </div>`;
 }
 function renderReservationCta(project, category, section) {
@@ -6294,6 +6397,37 @@ function findNoAnchorAfterHero(proj) {
   const first = sections[0];
   return STRONG_ANCHOR_TYPES.includes(first.type) ? [] : [{ sectionId: first.id, type: first.type }];
 }
+// IMAGE COHERENCE PASS: the reveal-gate regression guard for "visible image
+// demand <= fulfillable image supply". reconcileImageSupplyWithSections
+// already enforces this once, at generation time, by shrinking a section's
+// own imageTileCount -- this re-checks the CURRENT proj.imagePlan against
+// whatever each gallery/caseStudies/team section is actually about to
+// render, so a later mutation that changes the image plan or a section's
+// tile count without re-reconciling (a refinement operation, a restored
+// project with a stale imageTileCount) still surfaces the gap instead of
+// silently revealing an oversupplied grid. Report-only: closing the gap
+// safely means re-running reconciliation, which only the generation flow
+// itself has enough context to do without risking a mid-edit surprise.
+function findImageSupplyDemandMismatch(proj) {
+  const bySection = new Map();
+  (proj.imagePlan || []).forEach(entry => {
+    if (!bySection.has(entry.section)) bySection.set(entry.section, []);
+    bySection.get(entry.section).push(entry);
+  });
+  const offenders = [];
+  (proj.pages || [{ sections: proj.sections }]).forEach(page => {
+    (page.sections || []).forEach(section => {
+      if (!IMAGE_TILE_SECTION_TYPES.includes(section.type)) return;
+      const entries = bySection.get(section.id);
+      if (!entries || !entries.length) return;
+      const renderedCount = section.imageTileCount || (section.type === 'team' ? entries.length : galleryTileCount(section.variant));
+      const realCount = entries.filter(e => e.sourceType !== 'designed').length;
+      const tolerated = Math.max(MIN_IMAGE_TILES, realCount);
+      if (renderedCount > tolerated) offenders.push({ sectionId: section.id, type: section.type, renderedCount, realCount, tolerated });
+    });
+  });
+  return offenders;
+}
 // Runs once per finished direction (both Claude and deterministic paths --
 // called from the 'build' step below, which both already share), detects
 // real issues, and applies ONLY the repairs that are unambiguous and
@@ -6374,6 +6508,7 @@ function runQualityCritic(proj, variationSeed) {
   findRepeatedSectionWidth(proj).forEach(detail => issues.push({ code: 'repeated_section_width', detail, repaired: false }));
   findTooManyCtaBlocks(proj).forEach(detail => issues.push({ code: 'too_many_cta_blocks', detail, repaired: false }));
   findNoAnchorAfterHero(proj).forEach(detail => issues.push({ code: 'no_anchor_after_hero', detail, repaired: false }));
+  findImageSupplyDemandMismatch(proj).forEach(detail => issues.push({ code: 'image_supply_demand_mismatch', detail, repaired: false }));
 
   return { issues, checkedAt: new Date().toISOString() };
 }
@@ -6632,7 +6767,15 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     { key: 'imagery', run() {
         proj.assets.plan = planAssets(proj.assets);
         ensureAssetDrivenSections(proj);
-        proj.imagePlan = buildImagePlan(proj, category);
+        // IMAGE COHERENCE PASS: reconciles gallery/caseStudies/team tile
+        // counts DOWN to what the unchanged image budget can actually
+        // fulfill (never up -- see reconcileImageSupplyWithSections' own
+        // comment) before computing the final plan, so a low-budget
+        // archetype never ends up rendering more visual slots than it can
+        // pay to fill. Runs once, here, at real generation time; every
+        // other buildImagePlan call site (ordinary re-render, restore)
+        // just reads the `imageTileCount` this stamps onto the section.
+        proj.imagePlan = reconcileImageSupplyWithSections(proj, category);
         const n = proj.assets.items.length;
         const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
         if (n) return `${n} of your images placed`;

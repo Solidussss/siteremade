@@ -1088,6 +1088,15 @@ html,body{max-width:100%;overflow-x:hidden}
 .gallery-tile:nth-child(2) .visual-generated{filter:brightness(1.08) saturate(1.06)}
 .gallery-tile:nth-child(3) .visual-generated{filter:brightness(.93)}
 .gallery-tile:nth-child(4) .visual-generated{filter:brightness(1.03) saturate(.9)}
+/* IMAGE COHERENCE PASS: reconcileImageSupplyWithSections (script.js) can
+   now shrink a gallery's rendered tile count below its variant's normal 4
+   (grid) / 3 (featured) when the image budget can't fill that many --
+   these overrides make the grid track count match exactly, so 2 tiles
+   read as a deliberate 2-up layout instead of 2 real tiles floating in a
+   4-column track with visible empty columns beside them. */
+.gallery-grid[data-tile-count="2"].gallery-layout-grid{grid-template-columns:repeat(2,1fr)}
+.gallery-grid[data-tile-count="3"].gallery-layout-grid{grid-template-columns:repeat(3,1fr)}
+.gallery-grid[data-tile-count="2"].gallery-layout-featured{grid-template-columns:1.3fr 1fr}
 
 /* ---- Testimonial ---- */
 .site-section-testimonial blockquote{margin:0;max-width:620px;margin-left:auto;margin-right:auto;text-align:center;font-size:17px;line-height:1.5;letter-spacing:-.01em}
