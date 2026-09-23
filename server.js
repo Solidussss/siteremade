@@ -95,6 +95,7 @@ const deploymentStore = require('./lib/deployment-store.js');
 const hosting = require('./lib/hosting.js');
 const runtimeClassifier = require('./lib/runtime-classifier.js');
 const domainLib = require('./lib/domain.js');
+const siteImport = require('./lib/site-import.js'); // Phase 9: "Redesign my existing website" extraction, see /api/redesign/extract below
 const { zipDirectory } = require('./lib/archive.js');
 
 // Deployment-safety pass: refuses to boot at all if this looks like a
@@ -1953,6 +1954,45 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   }
 });
 
+// V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE
+// public page the signed-in account points at and returns structured
+// reference material (business name, services/headings, contact info,
+// colors, logo, images, CTAs, testimonials -- see lib/site-import.js for
+// the full shape and its SSRF-safety comment). This route NEVER creates a
+// project, NEVER calls Claude, and charges NO credit -- it is read-only
+// research the browser shows the person to review/edit. Step 2 is
+// unchanged: the browser folds whatever the person keeps into the SAME
+// `text` description + `extractedFacts` fields POST /api/plan-website
+// already accepts, so a redesign runs through the exact same planner ->
+// client compiler -> POST /api/projects pipeline as a from-scratch site
+// (this ticket's explicit "do not bypass the existing generation system").
+// Only when the resulting project is actually created does the browser
+// also send `source: {type:'redesign', url, metadata}` to POST
+// /api/projects, which is where provenance is recorded (lib/project-store.js
+// createProject) -- this route itself writes nothing to any project.
+//
+// Rate-limited the same as generation (a server-side outbound fetch,
+// however SSRF-guarded, is still a real abuse surface -- a flood of
+// extraction requests is a flood of outbound requests this server makes on
+// an attacker's behalf) and gated behind the same requireAuth as
+// /api/plan-website's own full-generation path.
+app.post('/api/redesign/extract', requireAuth, generationRateLimit, async (req, res) => {
+  const url = clean(req.body && req.body.url, 2000);
+  if (!url) return res.status(400).json({ ok: false, message: 'Enter your current website address.' });
+  const result = await siteImport.runRedesignExtraction(url);
+  if (!result.ok) {
+    // Every failure reason is either a validation problem (bad url, non-
+    // http(s) scheme) or an honest "couldn't fetch/read that" -- never a
+    // 5xx that would look like SiteRemade itself is broken, and never a
+    // detail that would help someone probe internal network layout (the
+    // message is the same generic "can't be fetched" for every SSRF-
+    // blocked reason -- see lib/site-import.js's own reason codes, which
+    // stay server-side/log-only).
+    return res.status(200).json({ ok: false, code: result.reason || 'fetch_failed', message: result.message || 'Couldn’t read that website. Check the address and try again.' });
+  }
+  return res.json({ ok: true, extracted: result.extracted });
+});
+
 // V8.5: checkout now requires an authenticated account and an OWNED
 // project id -- a stable purchase_intents row (account, exact project,
 // pending) is created server-side BEFORE the Stripe Checkout Session
@@ -2414,6 +2454,13 @@ app.post('/api/projects', requireAuth, requireSameOrigin, projectJsonParser, (re
     name: req.body && req.body.name,
     directionsState: req.body && req.body.directionsState,
     sourceLocalId: req.body && req.body.sourceLocalId,
+    // Phase 9: optional provenance for a project created from "Redesign my
+    // existing website" (see /api/redesign/extract below). createProject's
+    // own validateSourceInput re-validates this from scratch (type must be
+    // exactly 'redesign', url must be a real http(s) url) -- nothing here
+    // trusts the body's shape, and a from-scratch project (no `source`, the
+    // overwhelming majority of calls) is completely unaffected.
+    source: req.body && req.body.source,
   });
   if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
   return res.status(result.alreadyExisted ? 200 : 201).json({ ok: true, project: result.project, migrated: result.migrated, alreadyExisted: result.alreadyExisted });
