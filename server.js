@@ -2475,12 +2475,20 @@ const REFINEMENT_VOCAB = {
   pageRhythmKeys: CREATIVE_PAGE_RHYTHM_KEYS,
 };
 // "Which project is this customer's website?" -- resolved by the generator
-// itself, from the authenticated account alone (no app-side mapping table,
-// no client-supplied id): the most recently PURCHASED project still in
+// itself, from the authenticated account alone (no client-supplied id): the
+// most recently PURCHASED project still in
 // 'purchased' status (purchase snapshots are listed newest purchase first);
 // otherwise the most recently updated draft/checkout_pending project.
 // KNOWN SIMPLIFICATION: an account with more than one purchased project
 // only ever sees its most recent one through the app.
+// Phase 5: the customer app now keeps its own REFERENCE link, workspace ->
+// this project id (its public.website_project_links, created the first time
+// this route returns a purchased project for a single-workspace customer).
+// That link never feeds back into this function and never authorizes
+// anything here -- every bridge call is still resolved and ownership-checked
+// from the verified token alone. If this function starts returning a
+// different project for the same person (e.g. a second purchase), the app
+// records a "mismatch" for staff rather than re-pointing its link.
 function resolveCanonicalProjectId(accountId) {
   for (const snap of purchase.listOwnedPurchaseSnapshots(db, accountId)) {
     const st = projectStore.getOwnedProjectStatus(db, accountId, snap.projectId);
