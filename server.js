@@ -2584,13 +2584,43 @@ app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, app
 // CUSTOMER'S OWN TOKEN at that moment, so SiteRemade staff can later choose
 // between these verified ids without the builder ever needing a staff or
 // impersonation path. Metadata only -- never state_json, content or images.
+//
+// Phase 8: also the direct source for the customer app's OWN "connect a
+// website" chooser (GET /api/app/website/candidates -> this route, same
+// token) -- so each candidate now carries the same small display metadata
+// route 1 already exposes for the single canonical project (name, status,
+// domains, deployment status, unpublished-changes flag), not just
+// {projectId, purchaseRef, purchasedAt, revision}. Still bounded (<=50
+// candidates, realistically 1-3) and still metadata only: businessName
+// comes from the same one directionsState field route 1 reads
+// (direction.business.name), nothing else of the design is touched or
+// returned. A metadata lookup failing for one candidate never drops it from
+// the list -- the id/purchaseRef/revision below are never lost because of it.
 app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   // One owner-scoped summary query (id/status/purchaseRef/revision -- no
   // state_json parsed), then the snapshot list for purchase order/dates.
   const owned = new Map(projectStore.listOwnedProjects(db, req.accountId).map(p => [p.id, p]));
   const candidates = [];
   const seen = new Set();
-  const add = (p, purchasedAt) => { seen.add(p.id); candidates.push({ projectId: p.id, purchaseRef: p.purchaseRef || null, purchasedAt: purchasedAt || null, revision: Number.isInteger(p.revision) ? p.revision : null }); };
+  const enrich = (p) => {
+    let businessName = null, domains = [], deploymentStatus = 'not_deployed', hasUnpublishedChanges = false;
+    try {
+      const raw = projectStore.getOwnedProjectRaw(db, req.accountId, p.id);
+      if (raw) {
+        const directionIndex = canonicalDirectionIndex(req.accountId, p.id, raw.directionsState);
+        const direction = (raw.directionsState.directions || [])[directionIndex] || {};
+        businessName = (direction.business && typeof direction.business.name === 'string' && direction.business.name.trim()) ? direction.business.name.trim() : null;
+        domains = bridgeDomains(req.accountId, p.id);
+        deploymentStatus = projectStore.getOwnedProjectDeploymentStatus(db, req.accountId, p.id) || 'not_deployed';
+        const purchaseSnapshot = purchase.getOwnedPurchaseSnapshot(db, req.accountId, p.id);
+        const published = publishedSnapshots.getLatestOwnedPublished(db, req.accountId, p.id);
+        const deliveredRevision = published ? published.revision : (purchaseSnapshot ? purchaseSnapshot.projectRevision : null);
+        hasUnpublishedChanges = deliveredRevision !== null && p.revision > deliveredRevision;
+      }
+    } catch (e) { console.warn('[app-bridge] candidate metadata lookup failed for', p.id, e && e.message); }
+    return { projectId: p.id, name: p.name || null, businessName, status: p.status, purchaseRef: p.purchaseRef || null, revision: Number.isInteger(p.revision) ? p.revision : null, domains, deploymentStatus, hasUnpublishedChanges };
+  };
+  const add = (p, purchasedAt) => { seen.add(p.id); candidates.push({ ...enrich(p), purchasedAt: purchasedAt || null }); };
   for (const snap of purchase.listOwnedPurchaseSnapshots(db, req.accountId)) {
     const p = owned.get(snap.projectId);
     if (p && p.status === 'purchased' && !seen.has(p.id)) add(p, snap.createdAt);
