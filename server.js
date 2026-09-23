@@ -633,6 +633,22 @@ app.get('/api/image-provider-status', (req, res) => {
   });
 });
 
+// PRICING PASS: public, unauthenticated -- purely marketing/checkout config,
+// same posture as /api/image-provider-status above. script.js fetches this
+// once on load to keep the static HTML price copy (a design-time fallback
+// only, so the page still shows a correct number with JS disabled or before
+// this fetch resolves) in sync with the one real canonical price constant
+// this server actually charges via Stripe. Never conflated with the app's
+// own subscription/monthly price, which this endpoint has no knowledge of.
+app.get('/api/pricing', (req, res) => {
+  res.json({
+    ok: true,
+    websitePriceCents: SITEREMADE_WEBSITE_PRICE_CENTS,
+    websitePriceCurrency: SITEREMADE_WEBSITE_PRICE_CURRENCY,
+    websitePriceDisplay: formatWebsitePriceDisplay()
+  });
+});
+
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
 // /api/plan-website above -- requireAuth instead of withOptionalAuth, so
 // an unauthenticated image-generation attempt is refused (401) before this
@@ -876,6 +892,25 @@ const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_C
 const SITEREMADE_CREDIT_COST_BASE_GENERATION = Number(process.env.SITEREMADE_CREDIT_COST_BASE_GENERATION) || 2;
 const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_SUPPORT) || 1;
 const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_PREMIUM) || 2;
+// PRICING PASS: the ONE-TIME generated-website purchase price, in CAD cents
+// -- the single canonical source of truth for what Stripe actually charges
+// AND what the frontend displays. Previously this was two separate
+// hardcoded `35000` literals (one passed into purchase.createPurchaseIntent,
+// one in the Stripe line item's price_data.unit_amount below) that happened
+// to agree with each other by convention, not by construction -- a future
+// edit to one without the other would have silently charged a different
+// amount than the purchase-intent record itself claimed. This constant is
+// deliberately unrelated to and never conflated with the app's own
+// subscription/monthly pricing, which lives entirely in the separate app
+// repo and is never read, stored, or touched here.
+const SITEREMADE_WEBSITE_PRICE_CENTS = Number(process.env.SITEREMADE_WEBSITE_PRICE_CENTS) || 14999;
+const SITEREMADE_WEBSITE_PRICE_CURRENCY = (process.env.SITEREMADE_WEBSITE_PRICE_CURRENCY || 'cad').toLowerCase();
+function formatWebsitePriceDisplay() {
+  // "$149.99" -- always two decimals, no internal cents exposed. Currency
+  // code is shown separately (matches the existing "$X <small>CAD</small>"
+  // markup pattern), so this only ever formats the numeric amount.
+  return `$${(SITEREMADE_WEBSITE_PRICE_CENTS / 100).toFixed(2)}`;
+}
 const CREDIT_COST_BY_CLASS = {
   free: 0,
   cheap: Number(process.env.SITEREMADE_CREDIT_COST_CHEAP) || 1,
@@ -1432,12 +1467,30 @@ function buildPlannerUserPrompt(brief) {
 // harmless no-op per Anthropic's own docs, so this stays correct even for
 // the smaller refine-website call below.
 const WEBSITE_PLAN_TOOL_CACHED = { ...WEBSITE_PLAN_TOOL, cache_control: { type: 'ephemeral' } };
+// PLANNER HARDENING PASS (Part L): a production smoke test surfaced a real
+// planner request that timed out/aborted under this route's own 25s
+// ceiling. Audited before changing it: this call's max_tokens is 8192 (a
+// full page-by-page site plan with strategy/creative-direction/imagePlan/
+// functionalityPlan reasoning, the richest single call this server makes),
+// materially larger than the 2500-max_tokens refine-website call below,
+// which keeps its own, separate, unchanged 25s timeout -- that smaller task
+// was never reported as timing out and this pass does not touch it.
+// Raised conservatively (25s -> 35s, a 40% increase, not an arbitrarily
+// large number) to give the larger completion realistic headroom under
+// real production latency, while still failing in well under a minute so a
+// stuck request can never leave a visitor staring at nothing indefinitely.
+// A timeout here still aborts cleanly via the existing catch block below
+// (AbortError -> categorizeAnthropicError -> 'timeout'), which already
+// releases the reserved base credit and lets the client fall back to
+// deterministic generation -- this change only widens the window before
+// that abort fires, it does not touch that failure/release/fallback path.
+const PLANNER_REQUEST_TIMEOUT_MS = Number(process.env.SITEREMADE_PLANNER_TIMEOUT_MS) || 35000;
 const anthropicProvider = {
   name: 'anthropic',
   configured: () => !!ANTHROPIC_API_KEY,
   async plan(brief) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), PLANNER_REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -1473,10 +1526,55 @@ const anthropicProvider = {
   }
 };
 
+// PLANNER HARDENING PASS (Part K): the exact production crash this fixes --
+// `TypeError: (plan.pages || []).map is not a function` -- happened because
+// `plan` here is `toolUse.input`, Claude's raw tool_use payload. The tool
+// schema constrains the SHAPE Claude is asked to return, but never
+// guarantees the model actually honors every field's type on a given
+// response; `pages` (or a single page's `sections`) coming back as an
+// object/string/number instead of an array was always possible, and
+// `(plan.pages || []).map` only guards against a FALSY pages (undefined,
+// null, 0, '') -- a truthy-but-wrong-type value sails straight through the
+// `|| []` and crashes on `.map`. This function is the one place raw
+// tool_use output gets coerced into a shape every downstream consumer
+// (planSignature below, the success response sent to the client, the
+// client's own buildClaudePages) can safely iterate -- called exactly once,
+// immediately after the Anthropic call returns and before anything else
+// touches the plan. It never silently "fixes" bad content into something
+// that looks real: a completely unusable plan (not an object, or no usable
+// pages at all) returns null so the caller treats this exactly like any
+// other planner failure -- released credit, clean deterministic fallback --
+// rather than forwarding malformed data to the client. A plan that is
+// mostly fine passes through with only its actually-malformed pieces
+// dropped; a fully valid plan is returned unchanged.
+function normalizePlannerPlan(rawPlan) {
+  if (!rawPlan || typeof rawPlan !== 'object' || Array.isArray(rawPlan)) return null;
+  const rawPages = Array.isArray(rawPlan.pages) ? rawPlan.pages : null;
+  if (!rawPages) {
+    // `pages` IS the site's actual content -- there is nothing left to
+    // salvage from a plan whose page list isn't even an array (object,
+    // string, number, or genuinely absent). Unlike a single malformed
+    // page below, this is not a "drop one bad piece and continue" case.
+    return null;
+  }
+  const pages = rawPages
+    .map(p => {
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return null; // one malformed page never takes down the whole plan
+      const rawSections = Array.isArray(p.sections) ? p.sections : [];
+      const sections = rawSections.filter(s => s && typeof s === 'object' && !Array.isArray(s) && typeof s.type === 'string' && s.type);
+      return { ...p, sections };
+    })
+    .filter(p => p && p.sections.length); // a page left with zero real sections after cleanup is dropped, same rule the client's buildClaudePages already applies
+  if (!pages.length) return null; // every page was malformed or empty -- still unusable overall
+  return { ...rawPlan, pages };
+}
+
 function planSignature(plan) {
   // A compact, human-readable fingerprint of a plan -- sent back to Claude
   // (never shown to the visitor) so the next direction can deliberately
-  // diverge from it, and kept short to stay cost-aware.
+  // diverge from it, and kept short to stay cost-aware. Safe to assume
+  // `plan.pages` is already a real array here: every caller passes this a
+  // plan that has already been through normalizePlannerPlan.
   const vd = plan.visualDirection || {};
   const cd = plan.creativeDirection || {};
   const pageSummary = (plan.pages || []).map(p => `${p.id}:[${(p.sections || []).map(s => s.type).join(',')}]`).join(' ');
@@ -1685,8 +1783,32 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   };
   const startedAt = Date.now();
   try {
-    const { plan, usage, model } = await anthropicProvider.plan(brief);
+    const { plan: rawPlan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
+    // PLANNER HARDENING PASS: the Anthropic call itself succeeded (real
+    // tokens spent, real latency) -- but that is not the same thing as
+    // "produced a usable plan." normalizePlannerPlan is the single gate
+    // between Claude's raw, not-fully-trusted tool_use output and every
+    // consumer of `plan` below (planSignature, the JSON response, and from
+    // there the client's own renderer). A malformed/unusable result is
+    // handled explicitly here, in place, rather than relying on an
+    // incidental crash-and-catch a few lines down to save it.
+    const plan = normalizePlannerPlan(rawPlan);
+    if (!plan) {
+      recordPlannerAttempt({ outcome: 'malformed_output', latencyMs, model: model || null });
+      recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: false, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
+      // Never charge for a plan that produced nothing usable, same "only
+      // charge for meaningful completed work" principle the image-credit
+      // settlement logic already follows.
+      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
+      entry.history.push({ at: startedAt, model, latencyMs, success: false, error: 'Planner returned a structurally unusable plan (malformed pages)' });
+      if (entry.history.length > 10) entry.history = entry.history.slice(-10);
+      console.error('Website planning produced an unusable plan (malformed pages); falling back to deterministic generation.');
+      // Same response shape as the catch block below -- the client already
+      // treats any ok:false plan-website response as "fall back to
+      // deterministic generation," so this is not a new client-side case.
+      return res.status(200).json({ ok: false, message: 'The AI planner returned something unusable this time.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
+    }
     recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.commitCredits(db, req.accountId, creditCost); // reserved -> used, only on real success
@@ -1730,7 +1852,7 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
     const sectionsSummary = clean(req.body.sectionsSummary, 200);
     const brandColor = clean(req.body.brandColor, 20);
 
-    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: 35000, currency: 'cad' });
+    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
     if (!intentResult.ok) {
       if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
       return res.status(404).json({ ok: false, message: 'Project not found.' });
@@ -1758,8 +1880,8 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
       line_items: [{
         quantity: 1,
         price_data: {
-          currency: 'cad',
-          unit_amount: 35000,
+          currency: SITEREMADE_WEBSITE_PRICE_CURRENCY,
+          unit_amount: SITEREMADE_WEBSITE_PRICE_CENTS,
           product_data: {
             name: `SiteRemade website — ${businessName}`,
             description: `${industry} · ${sectionsSummary || 'Generated website'}`.slice(0, 300),
@@ -2440,4 +2562,22 @@ app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`SiteRemade running on port ${PORT}`));
+// PLANNER HARDENING PASS: requiring this file as a module (instead of
+// running it with `node server.js`) skips app.listen() below and exposes a
+// small set of pure functions so a test can exercise the REAL
+// implementation directly rather than a second, parallel reimplementation
+// of it -- the same principle the existing test suite already applies to
+// script.js's planAffordableImages via a real browser. Set
+// SITEREMADE_DB_PATH=:memory: (the existing test-harness convention -- see
+// lib/db.js's own comment) before requiring this file so no real database
+// file is ever touched, and leave ANTHROPIC_API_KEY/STRIPE_SECRET_KEY unset
+// so nothing here can reach a real external API merely by being required --
+// module-level code never calls either provider; both are only ever
+// invoked from inside a route handler. Running `node server.js` directly
+// (require.main === module, true in every real deployment) is completely
+// unaffected: app.listen() still fires exactly as it always has.
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => console.log(`SiteRemade running on port ${PORT}`));
+} else {
+  module.exports = { normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
+}
