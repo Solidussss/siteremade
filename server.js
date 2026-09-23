@@ -616,6 +616,11 @@ app.get('/api/image-provider-status', (req, res) => {
   // numbers to reason with, not undefined. costEstimateUsd is now nested
   // by model (not a flat low/medium/high table) since different models
   // have materially different economics -- see IMAGE_MODEL_COST_ESTIMATE_USD.
+  // DYNAMIC CREDIT COSTING PASS: creditCosts is the credit-side sibling of
+  // costEstimateUsd above, same reasoning -- the client's allocator
+  // (script.js buildImagePlan's planAffordableImages-style logic) needs
+  // real per-route CREDIT prices to reason about, not just dollars, and
+  // must never hardcode a second copy of SITEREMADE_CREDIT_COST_IMAGE_*.
   res.json({
     configured,
     provider: configured ? activeImageProvider.name : null,
@@ -623,6 +628,7 @@ app.get('/api/image-provider-status', (req, res) => {
     budgetUsd: SITEREMADE_IMAGE_BUDGET_USD,
     models: { support: IMAGE_MODEL_SUPPORT, premium: IMAGE_MODEL_PREMIUM },
     costEstimateUsd: IMAGE_MODEL_COST_ESTIMATE_USD,
+    creditCosts: { support: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, premium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM },
     landscapeCostMultiplier: IMAGE_LANDSCAPE_COST_MULTIPLIER
   });
 });
@@ -643,22 +649,6 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
   if (!activeImageProvider.configured()) {
     return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   }
-  // Product-flow pass: a signed-in account's daily credit allowance gates
-  // this route too (image generation is explicitly credit-consuming per
-  // the spec) -- independent of, and in addition to, the dollar-denominated
-  // SITEREMADE_IMAGE_BUDGET_USD provider-spend guard below, which controls
-  // what THIS SERVER spends, not what a given customer is allowed to ask
-  // for today. Anonymous callers are unaffected (credits are an
-  // authenticated-account concept, same scoping as entitlement.js).
-  const creditCost = creditCostForTask(taskType);
-  let creditReserved = false;
-  if (req.accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
-    if (!creditReservation.ok) {
-      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
-    }
-    creditReserved = true;
-  }
   const startedAt = Date.now();
   // MULTI-MODEL IMAGE ROUTER PASS: `model`/`quality`/`aspectRatio` are the
   // client's own deterministic route planner's decision for this slot (see
@@ -675,6 +665,30 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
   const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(requestedQuality) ? requestedQuality : 'medium';
   const safeAspectRatio = ALLOWED_IMAGE_ASPECT_RATIOS.includes(requestedAspectRatio) ? requestedAspectRatio : '1:1';
   const estimatedCostUsd = estimateImageRouteCostUsd(safeModel, safeQuality, safeAspectRatio);
+  // DYNAMIC CREDIT COSTING PASS (product economics): a signed-in account's
+  // daily credit allowance gates this route too -- independent of, and in
+  // addition to, the dollar-denominated SITEREMADE_IMAGE_BUDGET_USD
+  // provider-spend guard below, which controls what THIS SERVER spends,
+  // not what a given customer is allowed to ask for today. Anonymous
+  // callers are unaffected (credits are an authenticated-account concept,
+  // same scoping as entitlement.js).
+  //
+  // The credit price is now decided from `safeModel` above -- support vs.
+  // premium, the real vocabulary this router already has -- never a flat
+  // per-task-type number (the old creditCostForTask(taskType) charged a
+  // flat 3 credits for every image regardless of which model it actually
+  // used). This is computed, and reserved, strictly BEFORE
+  // activeImageProvider.generate() is ever called below: no paid provider
+  // call happens unless the matching credit reservation already succeeded.
+  const creditCost = creditCostForImageRoute(safeModel);
+  let creditReserved = false;
+  if (req.accountId && creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) {
+      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+    }
+    creditReserved = true;
+  }
   // SERVER-SIDE SPEND ENFORCEMENT, and its real limits (do not remove this
   // note): the client computes its own image plan and spend ceiling, but
   // this reservation is the server's OWN independent check against the
@@ -707,14 +721,18 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
     const result = await activeImageProvider.generate(prompt, { aspectRatio: safeAspectRatio, quality: safeQuality, model: safeModel });
     const usedQuality = result.quality || safeQuality;
     const usedModel = result.model || safeModel;
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
+    // creditsCharged lets the client accumulate/display the real per-image
+    // charge (spec: "after generation show actual charge") without
+    // re-deriving support/premium pricing itself -- backend stays the sole
+    // source of truth for the number, same principle as creditsRemaining.
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   } catch (error) {
     console.error('Image generation failed:', error);
     releaseImageSpend(reservationKey, estimatedCostUsd);
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently charges a credit
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
   }
 });
@@ -832,13 +850,58 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // pool sets `creditsLimit` explicitly at its own call site rather than
 // relying on a silently-different ambient default (see that file's own
 // comment).
+//
+// DYNAMIC CREDIT COSTING PASS (product economics, supersedes the flat "3
+// credits per generation" model above -- see the final report for the
+// full audit this replaces): a flat per-generation number could never
+// reflect what a generation actually costs to produce, and it was the
+// reason free/authenticated accounts never got to experience real
+// generated imagery at all in practice -- SITEREMADE_PAID_IMAGES stayed
+// off in production because there was no way for spend to track value.
+// The replacement is additive, not a rewrite of the ledger itself:
+// BASE GENERATION now costs its own, lower, always-charged number
+// (SITEREMADE_CREDIT_COST_BASE_GENERATION, default 2 -- this is what
+// 'standard' now prices; NEW_SITE/NEW_DIRECTION are the only tasks still
+// classified 'standard'), and each ACTUALLY-FUNDED image is priced
+// separately and on top of that, by the real {model} route it was routed
+// through (creditCostForImageRoute below) -- never a second flat number,
+// and never charged for a slot that was planned but never actually
+// generated (script.js's buildImagePlan/planAffordableImages decides
+// which slots are even attempted before any credit is reserved for them).
+// 10 daily credits / 2 base = 5 possible generations/day at the text-only
+// floor, same "several tries a day" product feel as the old 10/3, but
+// with headroom for a generation to also spend on real imagery instead of
+// imagery being globally switched off.
 const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
+const SITEREMADE_CREDIT_COST_BASE_GENERATION = Number(process.env.SITEREMADE_CREDIT_COST_BASE_GENERATION) || 2;
+const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_SUPPORT) || 1;
+const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_PREMIUM) || 2;
 const CREDIT_COST_BY_CLASS = {
   free: 0,
   cheap: Number(process.env.SITEREMADE_CREDIT_COST_CHEAP) || 1,
-  standard: Number(process.env.SITEREMADE_CREDIT_COST_STANDARD) || 3,
+  // 'standard' now means base generation ONLY (NEW_SITE/NEW_DIRECTION).
+  // IMAGE_GENERATE/IMAGE_ADD/IMAGE_REGENERATE stay classified 'standard' in
+  // OPERATION_COST_CLASS above purely so the operationLedger's costClass
+  // field (observability) doesn't change shape -- but their real credit
+  // price no longer comes from this table at all; see
+  // creditCostForImageRoute below, which /api/generate-image uses instead
+  // of creditCostForTask for exactly those three task types.
+  standard: SITEREMADE_CREDIT_COST_BASE_GENERATION,
 };
 function creditCostForTask(taskType) { return CREDIT_COST_BY_CLASS[classifyOperationCost(taskType)] || 0; }
+// The real per-image credit price: keyed by which MODEL the route
+// allocator actually funded this slot through, not a flat per-task
+// number. This reuses the exact support/premium vocabulary
+// IMAGE_MODEL_SUPPORT/IMAGE_MODEL_PREMIUM (defined earlier in this file)
+// already established for real dollar routing, rather than inventing a
+// parallel classification system -- the premium model costs roughly
+// 10-15x the support model at the same quality (see
+// IMAGE_MODEL_COST_ESTIMATE_USD), so it is also the one dimension that
+// actually tracks real API expense, which is what credit price should
+// track.
+function creditCostForImageRoute(model) {
+  return model === IMAGE_MODEL_PREMIUM ? SITEREMADE_CREDIT_COST_IMAGE_PREMIUM : SITEREMADE_CREDIT_COST_IMAGE_SUPPORT;
+}
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the next UTC-midnight
 // rollover boundary, as a real ISO timestamp the client can format in the
 // visitor's own local timezone -- never a claim of a precise LOCAL reset
@@ -866,8 +929,57 @@ function nextUtcMidnightIso(now) {
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
   const summary = credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
-  return { ...summary, generationCost: creditCostForTask('NEW_SITE'), resetsAt: nextUtcMidnightIso() };
+  // DYNAMIC CREDIT COSTING PASS: generationCost is now specifically the
+  // BASE generation cost (spec item 15's "baseGenerationCost") --
+  // imageCreditCosts exposes the per-route image prices too, so the
+  // client's allocator (script.js buildImagePlan) and its pre-generation
+  // estimate never hardcode a second copy of either number. No USD figure
+  // is included here -- this is the one place a normal customer-facing
+  // response is built, and internal API cost stays server-only (spec item
+  // 15: "do not expose internal USD API costs to normal users").
+  return {
+    ...summary,
+    generationCost: creditCostForTask('NEW_SITE'),
+    baseGenerationCost: SITEREMADE_CREDIT_COST_BASE_GENERATION,
+    imageCreditCosts: { support: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, premium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM },
+    resetsAt: nextUtcMidnightIso()
+  };
 }
+// DYNAMIC CREDIT COSTING PASS (spec item 19, "planner integration"): the
+// planner gets a BOUNDED, ABSTRACT signal about how much visual budget this
+// generation can afford -- never a dollar figure ("you have $0.08" is
+// explicitly the thing the spec forbids), and never the raw credit number
+// either, so Claude is reasoning about creative posture, not doing its own
+// billing math. Four tiers, mapped from the account's remaining credits
+// AFTER this generation's own base reservation (i.e. exactly what's left to
+// spend on THIS generation's images -- the same number
+// reconcileImageSupplyWithSections/buildImagePlan use client-side, see
+// script.js) -- deliberately matching the breakpoints and behavior the spec
+// itself describes for 10/6/4/2-3/0-1 remaining:
+//   generous     (>= 8 remaining): "freely choose several useful visuals"
+//   moderate     (5-7 remaining):  "still allow strong image treatment"
+//   constrained  (4 remaining):    "prioritize the strongest visual, hero first"
+//   minimal      (<= 3 remaining): "preserve base generation, lean on deterministic systems"
+// This is advisory only -- see the tool-schema comment above
+// (imageStrategy: "how imagery should be used, not how many images to
+// use... never increases the budget from this field alone") and spec item
+// 20 ("Claude must NOT decide final credit deduction / billing state"):
+// the actual enforcement is 100% deterministic backend logic
+// (planAffordableImages/reserveCredits), regardless of what Claude does
+// with this hint or whether it ignores it entirely.
+function visualBudgetForRemainingCredits(remaining) {
+  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return 'moderate';
+  if (remaining >= 8) return 'generous';
+  if (remaining >= 5) return 'moderate';
+  if (remaining >= 4) return 'constrained';
+  return 'minimal';
+}
+const VISUAL_BUDGET_PROMPT_HINTS = {
+  generous: 'Generous visual budget: feel free to plan for several strong generated visuals (a hero plus supporting imagery) where the business genuinely benefits from them.',
+  moderate: 'Moderate visual budget: a strong hero visual plus at most one supporting image is realistic; do not plan for a heavily image-saturated page.',
+  constrained: 'Constrained visual budget: prioritize a single strong hero visual over multiple supporting images; lean on the deterministic typography/icon/SVG/card system for everything else.',
+  minimal: 'Minimal visual budget: plan this as a primarily deterministic, typography/icon/SVG/card-driven design; only consider a single generated image if the business would be meaningfully worse without one.'
+};
 
 // A real, in-memory, bounded operation ledger -- deliberately the SAME
 // honesty posture as `directionsLedger` above (see its own comment): not
@@ -908,6 +1020,21 @@ function recordOperation(entry) {
     // the real per-request cost MIX a generation produced, not just a count.
     imageQuality: entry.imageQuality || null,
     estimatedCostUsd: Number.isFinite(entry.estimatedCostUsd) ? entry.estimatedCostUsd : null,
+    // DYNAMIC CREDIT COSTING PASS (spec item 29, observability -- "base
+    // credits reserved, image credits reserved... credits committed,
+    // credits released, final charge"): `creditCost` is what this
+    // operation RESERVED (base generation cost, or the funded image
+    // route's support/premium price); `creditsCharged` is what actually
+    // settled -- equal to creditCost on success (committed) or 0 on
+    // failure/refusal (released), the same creditsCharged number each
+    // route's own HTTP response already returns to the client, so the
+    // ledger and the customer-facing response can never silently disagree.
+    // creditCost:null means this operation never reserved credits at all
+    // (e.g. an unauthenticated caller, or a free-class task) -- distinct
+    // from creditsCharged:0, which means a reservation existed but was
+    // released, never committed.
+    creditCost: Number.isFinite(entry.creditCost) ? entry.creditCost : null,
+    creditsCharged: Number.isFinite(entry.creditsCharged) ? entry.creditsCharged : null,
     latencyMs: Number.isFinite(entry.latencyMs) ? entry.latencyMs : null,
     projectId: entry.projectId || null,
     accountId: entry.accountId || null,
@@ -1276,7 +1403,12 @@ function buildPlannerUserPrompt(brief) {
     `Business description (verbatim, from the visitor): "${brief.text}"`,
     brief.extractedFacts && Object.keys(brief.extractedFacts).length ? `Facts already detected in that text (treat as the ONLY safe declaredFacts unless the description states more): ${JSON.stringify(brief.extractedFacts)}` : 'No explicit facts (years/rating/customer count) were detected in the text -- do not invent any.',
     brief.location ? `Detected location: ${brief.location}` : '',
-    brief.tone ? `Requested tone: ${brief.tone}` : ''
+    brief.tone ? `Requested tone: ${brief.tone}` : '',
+    // DYNAMIC CREDIT COSTING PASS (spec item 19): an abstract, bounded
+    // creative-posture hint only -- see VISUAL_BUDGET_PROMPT_HINTS' own
+    // comment for why this is never a dollar amount or the raw credit
+    // number, and why it never overrides the backend's own enforcement.
+    VISUAL_BUDGET_PROMPT_HINTS[brief.visualBudget] || VISUAL_BUDGET_PROMPT_HINTS.moderate
   ];
   if (brief.priorSignatures && brief.priorSignatures.length) {
     lines.push(
@@ -1428,17 +1560,17 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
     const usage = data.usage || {};
     const latencyMs = Date.now() - startedAt;
     if (!response.ok) {
-      recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
+      recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
       if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
       return res.status(200).json({ ok: false, configured: true });
     }
     const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
     const succeeded = !!(toolUse && toolUse.input);
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) { if (succeeded) credits.commitCredits(db, req.accountId, creditCost); else credits.releaseCredits(db, req.accountId, creditCost); }
-    return res.json(succeeded ? { ok: true, plan: toolUse.input, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
+    return res.json(succeeded ? { ok: true, plan: toolUse.input, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
   } catch (error) {
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
     return res.status(200).json({ ok: false, configured: true });
   } finally {
@@ -1536,31 +1668,37 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
     // leaving the reservation dangling; this response is terminal and the
     // client never retries this exact reservation.
     if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
   }
+  // DYNAMIC CREDIT COSTING PASS: creditsSummaryFor is read AFTER the base
+  // reservation above (creditReserved is already true here, or this route
+  // already returned) -- so .remaining is exactly the credits left for
+  // this generation's images, the same number visualBudgetForRemainingCredits
+  // buckets into an abstract tier for the prompt below.
   const brief = {
     text,
     location: clean(req.body.location, 120),
     tone: clean(req.body.tone, 20),
     extractedFacts: (req.body.extractedFacts && typeof req.body.extractedFacts === 'object') ? req.body.extractedFacts : {},
-    priorSignatures: entry.signatures.slice(-2)
+    priorSignatures: entry.signatures.slice(-2),
+    visualBudget: visualBudgetForRemainingCredits(creditsSummaryFor(req.accountId).remaining)
   };
   const startedAt = Date.now();
   try {
     const { plan, usage, model } = await anthropicProvider.plan(brief);
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.commitCredits(db, req.accountId, creditCost); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, latencyMs, projectId, accountId: req.accountId, anonId });
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently consumes a credit
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);

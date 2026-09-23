@@ -52,6 +52,14 @@
             <span class="credit-indicator-icon" id="creditIndicatorIcon" aria-hidden="true"></span>
             <span id="creditIndicatorText"></span>
           </div>
+          <!-- DYNAMIC CREDIT COSTING PASS (spec item 17, "generation complete
+               UI"): the real, backend-sourced actual charge for the most
+               recently completed generation -- "6 credits used · 4
+               remaining" -- set once by finishGeneration/prepareProjectForReveal
+               on success and left visible (not a toast that disappears) so a
+               person who looks a moment later can still see what the last
+               generation cost. Hidden until the first generation completes. -->
+          <p class="last-generation-cost" id="lastGenerationCostNote" aria-live="polite" hidden></p>
           <div class="generator-examples-secondary">
             <span>Need inspiration?</span>
             <div class="example-chip-row" id="exampleChipRow"></div>
@@ -185,6 +193,7 @@
                   <li data-gate-step="finalizing"><i></i><span>Reviewing composition</span><small></small></li>
                 </ul>
                 <p class="generation-gate-status" id="generationGateStatus">Creating a custom website for your business...</p>
+                <p class="generation-gate-cost" id="generationGateCost" aria-live="polite"></p>
                 <button type="button" class="button button-small generation-gate-retry" id="generationGateRetry" hidden>Return to previous version</button>
               </div>
             </div>
