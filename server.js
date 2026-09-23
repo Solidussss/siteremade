@@ -368,8 +368,27 @@ const identityRateLimit = rateLimitMiddleware(req => `identity:${req.ip}`, RATE_
 // would throttle all customers collectively. Per-ACCOUNT volume on the one
 // expensive bridge route (edits) is additionally braked by the existing
 // generationRateLimit, applied after auth.
-const APP_BRIDGE_RATE_LIMIT = { max: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_MAX) || 120, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_WINDOW_MS) || 60 * 1000 };
+const APP_BRIDGE_RATE_LIMIT = { max: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_MAX) || 600, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_WINDOW_MS) || 60 * 1000 };
 const appBridgeRateLimit = rateLimitMiddleware(req => `app-bridge:${req.ip}`, APP_BRIDGE_RATE_LIMIT, 'Too many requests in a short time. Please try again later.');
+// Phase 7: the limiter above runs BEFORE token verification and is keyed by
+// req.ip on purpose -- it is a pre-auth abuse guard against token-guessing
+// floods, nothing more. It was never meant to be each customer's real budget,
+// but every legitimate caller here is the customer APP'S SERVER -- one
+// shared egress IP for every customer -- so it was, until now, the ONLY
+// limit on these routes, meaning one customer's heavy polling could burn
+// through the shared bucket and 429 every OTHER customer. Its default was
+// raised (120->600/min) so normal shared-IP traffic has real headroom before
+// this guard is what bites; it is deliberately generous, not the real brake.
+// The real, per-customer brake is this second limiter, applied AFTER
+// requireAppBridgeAuth on every route below (edits already had an
+// equivalent via generationRateLimit, keyed by req.accountId -- unchanged).
+// Keyed by the VERIFIED, server-resolved generator accountId, never
+// anything client-supplied, so one customer's activity can never consume
+// another customer's bucket. Single-replica, in-memory, like every other
+// limiter in this file -- documented scaling trigger: move to shared
+// storage before running more than one replica of the generator.
+const APP_BRIDGE_ACCOUNT_RATE_LIMIT = { max: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_ACCOUNT_MAX) || 60, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_ACCOUNT_WINDOW_MS) || 60 * 1000 };
+const appBridgeAccountRateLimit = rateLimitMiddleware(req => `app-bridge-account:${req.accountId}`, APP_BRIDGE_ACCOUNT_RATE_LIMIT, 'Too many requests for this account in a short time. Please try again later.');
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -2518,7 +2537,7 @@ function bridgeDomains(accountId, projectId) {
 
 // 1. GET /api/app-bridge/website -- a SMALL summary of the canonical
 // project (never the full directionsState or any image data).
-app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = resolveCanonicalProjectId(req.accountId);
   if (!projectId) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website has been created in the SiteRemade builder for this account yet.' } });
   const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
@@ -2565,7 +2584,7 @@ app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, (re
 // CUSTOMER'S OWN TOKEN at that moment, so SiteRemade staff can later choose
 // between these verified ids without the builder ever needing a staff or
 // impersonation path. Metadata only -- never state_json, content or images.
-app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   // One owner-scoped summary query (id/status/purchaseRef/revision -- no
   // state_json parsed), then the snapshot list for purchase order/dates.
   const owned = new Map(projectStore.listOwnedProjects(db, req.accountId).map(p => [p.id, p]));
@@ -2581,7 +2600,7 @@ app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBrid
 });
 
 // 2. GET /api/app-bridge/website/:projectId/deployment
-app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
   const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
   if (!status) return bridgeError(res, 404, 'not_found', 'Website not found.');
@@ -2722,7 +2741,7 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
 // hosting target -- no such mechanism exists anywhere in this codebase
 // (deploy-to for real targets always records a failure; deployed_url is
 // never set). The response says so explicitly (automaticHosting:false).
-app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
   const body = req.body || {};
   const revision = Number.isInteger(body.revision) ? body.revision : null;
