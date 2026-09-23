@@ -2450,7 +2450,8 @@ app.get('/api/purchase-intents/:id', requireAuth, (req, res) => {
 // ============================================================================
 // Four routes, nothing else: read the canonical website summary, read its
 // deployment/domain state, apply a plain-language edit as a new DRAFT
-// revision, and publish a revision. All four:
+// revision, and publish a revision -- plus, since Phase 6, a read-only list
+// of the account's purchased projects (1b, metadata only). All of them:
 //   - 404 {ok:false} unless SITEREMADE_APP_BRIDGE_ENABLED === 'true';
 //   - are per-IP rate limited BEFORE token verification (appBridgeRateLimit);
 //   - re-verify the caller's Supabase access token and re-resolve its
@@ -2548,6 +2549,35 @@ app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, (re
     previewUrl: null,
     liveUrl: null,
   });
+});
+
+// 1b. GET /api/app-bridge/website/candidates -- Phase 6 (additive). EVERY
+// project this account has PURCHASED, not just the single newest one route
+// 1 resolves: exactly the data resolveCanonicalProjectId() already iterates
+// (purchase.listOwnedPurchaseSnapshots, newest purchase first, still in
+// 'purchased' status), plus -- like that function's own fallback -- any
+// purchased project that predates purchase snapshots. Same flag gate, same
+// rate limit, same per-request token verification + identity_links
+// resolution; scoped to req.accountId only, so it can never list anyone
+// else's projects.
+// Why it exists: when the customer app sees this account's canonical
+// project change (e.g. a second purchase), it captures this list WITH THE
+// CUSTOMER'S OWN TOKEN at that moment, so SiteRemade staff can later choose
+// between these verified ids without the builder ever needing a staff or
+// impersonation path. Metadata only -- never state_json, content or images.
+app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+  // One owner-scoped summary query (id/status/purchaseRef/revision -- no
+  // state_json parsed), then the snapshot list for purchase order/dates.
+  const owned = new Map(projectStore.listOwnedProjects(db, req.accountId).map(p => [p.id, p]));
+  const candidates = [];
+  const seen = new Set();
+  const add = (p, purchasedAt) => { seen.add(p.id); candidates.push({ projectId: p.id, purchaseRef: p.purchaseRef || null, purchasedAt: purchasedAt || null, revision: Number.isInteger(p.revision) ? p.revision : null }); };
+  for (const snap of purchase.listOwnedPurchaseSnapshots(db, req.accountId)) {
+    const p = owned.get(snap.projectId);
+    if (p && p.status === 'purchased' && !seen.has(p.id)) add(p, snap.createdAt);
+  }
+  for (const p of owned.values()) if (p.status === 'purchased' && !seen.has(p.id)) add(p, null);
+  return res.json({ ok: true, candidates: candidates.slice(0, 50) });
 });
 
 // 2. GET /api/app-bridge/website/:projectId/deployment
