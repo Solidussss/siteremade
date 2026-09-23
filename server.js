@@ -48,6 +48,16 @@ const { normalizeEmail } = require('./lib/auth.js');
 // existing FK is rekeyed, no existing auth path changes behavior).
 const identityLinks = require('./lib/identity-links.js');
 const supabaseIdentity = require('./lib/supabase-identity.js');
+// App bridge pass (Phase 4): a narrow, additive, server-to-server contract
+// for the SiteRemade customer app (/api/app-bridge/*, near the /api/projects
+// routes below). Gated by its OWN flag, SITEREMADE_APP_BRIDGE_ENABLED
+// (default unset => every bridge route 404s) -- deliberately independent of
+// SITEREMADE_IDENTITY_BRIDGE_MODE above, which gates the browser login
+// handoff and is not touched or depended on here.
+const { createRequireAppBridgeAuth } = require('./lib/app-bridge-auth.js');
+const publishedSnapshots = require('./lib/published-snapshots.js');
+const { normalizeServerRefinementPlan, buildRefinementContext } = require('./lib/refinement-normalizer.js');
+const { applyRefinementPlan, setGeneratedImage, imageSummary } = require('./lib/apply-refinement-plan.js');
 // A real feature flag, not a code comment -- spec item 34 ("we need the
 // ability to stop rollout without reverting the whole codebase"). Default
 // 'disabled': every /api/identity/* route below fails closed (404, the
@@ -349,6 +359,17 @@ const generationRateLimit = rateLimitMiddleware(req => `generation:${req.account
 // route that does real, non-free work per request. Reuses RATE_LIMITS.signin's
 // own threshold rather than inventing a third number with no real basis.
 const identityRateLimit = rateLimitMiddleware(req => `identity:${req.ip}`, RATE_LIMITS.signin, 'Too many requests in a short time. Please try again later.');
+// App bridge pass (Phase 4): the same rateLimitMiddleware helper, per-IP,
+// applied BEFORE token verification on every /api/app-bridge/* route (a
+// brake on token-guessing floods and on Supabase verification calls). Its
+// own, larger default on purpose: unlike /api/identity/*, every legitimate
+// caller here is the customer APP'S SERVER -- one egress IP carrying every
+// customer's traffic -- so reusing RATE_LIMITS.signin's 15-per-15-minutes
+// would throttle all customers collectively. Per-ACCOUNT volume on the one
+// expensive bridge route (edits) is additionally braked by the existing
+// generationRateLimit, applied after auth.
+const APP_BRIDGE_RATE_LIMIT = { max: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_MAX) || 120, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_APP_BRIDGE_WINDOW_MS) || 60 * 1000 };
+const appBridgeRateLimit = rateLimitMiddleware(req => `app-bridge:${req.ip}`, APP_BRIDGE_RATE_LIMIT, 'Too many requests in a short time. Please try again later.');
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -649,12 +670,140 @@ app.get('/api/pricing', (req, res) => {
   });
 });
 
+// App bridge pass (Phase 4): the body of /api/generate-image, factored out
+// UNCHANGED in order and substance into one function so there is exactly
+// one implementation of "generate a paid image" -- used by the existing
+// browser route below AND by the new server-authoritative
+// POST /api/app-bridge/website/:projectId/edits flow. Every gate runs here,
+// in the same order as before, for both callers:
+//   1. activeImageProvider.configured() -- which is false unless BOTH
+//      OPENAI_API_KEY is set AND SITEREMADE_PAID_IMAGES === 'true' (the
+//      kill switch; never read, set, or defaulted anywhere else);
+//   2. model/quality/aspect re-validated against the server allowlists;
+//   3. credit reservation (lib/credits.js reserveCredits), priced by
+//      creditCostForImageRoute(model) -- BEFORE any provider call;
+//   4. per-key USD spend reservation (reserveImageSpend) against
+//      SITEREMADE_IMAGE_BUDGET_USD -- BEFORE any provider call;
+//   5. the provider call; commit on success, release on any failure.
+// `reservationKey` is the caller's choice of spend-budget key: the browser
+// route keys by the browser-supplied projectId (its own in-browser
+// `proj_<timestamp>` meta id) or the anon cookie id, exactly as before;
+// the bridge keys by the SERVER's real projects.id (a different namespace --
+// `proj_<random>` -- so the two can never be confused), because a
+// server-to-server call has no browser id to key off.
+//
+// `deferSettlement` (bridge only): on success, credits stay RESERVED and
+// the spend stays reserved until the caller calls settle.commit() (after
+// the edit is actually saved) or settle.release() (if anything later in
+// the edit fails, so nothing is saved) -- a failed edit never leaves a
+// permanent charge. The browser route never passes it, so its settlement
+// timing is unchanged.
+//
+// One deliberate behavior fix, applying to BOTH callers: when the USD
+// spend reservation is refused (budgetExceeded), the credit reservation
+// made one step earlier is now released. Previously that path returned
+// without releasing it, leaving those credits "reserved" (unusable) until
+// the next UTC-day rollover.
+async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false }) {
+  if (!activeImageProvider.configured()) return { ok: false, reason: 'not_configured' };
+  const startedAt = Date.now();
+  const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
+  const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
+  const safeAspectRatio = ALLOWED_IMAGE_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '1:1';
+  const estimatedCostUsd = estimateImageRouteCostUsd(safeModel, safeQuality, safeAspectRatio);
+  const creditCost = creditCostForImageRoute(safeModel);
+  let creditReserved = false;
+  if (accountId && creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: creditReservation.remaining };
+    creditReserved = true;
+  }
+  // See the SERVER-SIDE SPEND ENFORCEMENT note on /api/generate-image below
+  // for exactly what this per-process reservation does and doesn't guarantee.
+  const reservation = reserveImageSpend(reservationKey, estimatedCostUsd);
+  if (!reservation.ok) {
+    if (creditReserved) credits.releaseCredits(db, accountId, creditCost); // behavior fix -- see header
+    return { ok: false, reason: 'budget_exceeded' };
+  }
+  const releaseAll = () => {
+    releaseImageSpend(reservationKey, estimatedCostUsd);
+    if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+  };
+  if (!prompt) {
+    releaseAll(); // never charged for a request that never reached the provider
+    return { ok: false, reason: 'missing_prompt' };
+  }
+  try {
+    const result = await activeImageProvider.generate(prompt, { aspectRatio: safeAspectRatio, quality: safeQuality, model: safeModel });
+    const usedQuality = result.quality || safeQuality;
+    const usedModel = result.model || safeModel;
+    const record = (settled) => recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && settled) ? creditCost : 0, latencyMs: Date.now() - startedAt, projectId, accountId, anonId });
+    if (!deferSettlement) {
+      record(true);
+      if (creditReserved) credits.commitCredits(db, accountId, creditCost);
+      return { ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsCharged: creditReserved ? creditCost : 0 };
+    }
+    let settled = false;
+    return {
+      ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel,
+      creditsCharged: creditReserved ? creditCost : 0,
+      settle: {
+        commit() { if (settled) return; settled = true; record(true); if (creditReserved) credits.commitCredits(db, accountId, creditCost); },
+        release() { if (settled) return; settled = true; record(false); releaseAll(); },
+      },
+    };
+  } catch (error) {
+    console.error('Image generation failed:', error);
+    releaseAll(); // a failed attempt never permanently charges a credit
+    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId, anonId });
+    return { ok: false, reason: 'provider_error' };
+  }
+}
+
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
 // /api/plan-website above -- requireAuth instead of withOptionalAuth, so
 // an unauthenticated image-generation attempt is refused (401) before this
-// handler's body runs. Everything else below is otherwise unchanged: the
-// `req.accountId ? ... : null` conditionals still work correctly (always
-// truthy now), left as-is to keep this diff minimal.
+// handler's body runs.
+//
+// MULTI-MODEL IMAGE ROUTER PASS: `model`/`quality`/`aspectRatio` are the
+// client's own deterministic route planner's decision for this slot (see
+// script.js chooseImageRoute/buildImagePlan). None of the three are
+// trusted blindly -- each is re-validated against a strict server-side
+// allowlist in generateImageWithCredits above and in
+// activeImageProvider.generate() itself, so a malformed or tampered request
+// can never reach OpenAI with an unapproved model, an unapproved quality,
+// or silently request the most expensive route by default.
+//
+// DYNAMIC CREDIT COSTING PASS (product economics): a signed-in account's
+// daily credit allowance gates this route too -- independent of, and in
+// addition to, the dollar-denominated SITEREMADE_IMAGE_BUDGET_USD
+// provider-spend guard, which controls what THIS SERVER spends, not what a
+// given customer is allowed to ask for today. The credit price is decided
+// from the validated model -- support vs. premium -- never a flat
+// per-task-type number, and is reserved strictly BEFORE
+// activeImageProvider.generate() is ever called: no paid provider call
+// happens unless the matching credit reservation already succeeded.
+//
+// SERVER-SIDE SPEND ENFORCEMENT, and its real limits (do not remove this
+// note): the client computes its own image plan and spend ceiling, but
+// the reservation is the server's OWN independent check against the SAME
+// configured ceiling -- it does not just trust whatever the client sends.
+// The reservation check-and-increment runs synchronously, before the
+// `await` to OpenAI, so within a single Node process it is a real atomic
+// guard: two concurrent requests for the same key cannot both slip past
+// the check, because Node's event loop cannot interleave two synchronous
+// blocks. What this does NOT guarantee: if this deployment runs more than
+// one server instance/replica (Railway horizontal scaling), each instance
+// holds its own in-memory reservation map, so the true cross-instance
+// ceiling is (budget x instance count), not a single global cap -- there
+// is no shared store here, and adding one (Redis, a DB row with a real
+// lock) would be a materially bigger change than this pass's scope. This
+// is the strongest enforcement that fits the current architecture without
+// that rewrite; it is a real per-instance, per-key guard, not a claim of a
+// global billing cap.
+//
+// App bridge pass (Phase 4): the handler body now delegates to
+// generateImageWithCredits; every response shape below is unchanged.
 app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   // taskType/projectId are purely observability metadata the client
@@ -662,95 +811,23 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
   // behaves identically; the ledger just falls back to a generic label.
   const taskType = clean(req.body.taskType, 40) || 'IMAGE_GENERATE';
   const projectId = clean(req.body.projectId, 60);
-  if (!activeImageProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
-  }
-  const startedAt = Date.now();
-  // MULTI-MODEL IMAGE ROUTER PASS: `model`/`quality`/`aspectRatio` are the
-  // client's own deterministic route planner's decision for this slot (see
-  // script.js chooseImageRoute/buildImagePlan). None of the three are
-  // trusted blindly -- each is re-validated against a strict server-side
-  // allowlist below and in activeImageProvider.generate() itself, so a
-  // malformed or tampered request can never reach OpenAI with an
-  // unapproved model, an unapproved quality, or silently request the most
-  // expensive route by default.
-  const requestedModel = clean(req.body.model, 40);
-  const requestedQuality = clean(req.body.quality, 10);
-  const requestedAspectRatio = clean(req.body.aspectRatio, 10);
-  const safeModel = ALLOWED_IMAGE_MODELS.includes(requestedModel) ? requestedModel : IMAGE_MODEL_SUPPORT;
-  const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(requestedQuality) ? requestedQuality : 'medium';
-  const safeAspectRatio = ALLOWED_IMAGE_ASPECT_RATIOS.includes(requestedAspectRatio) ? requestedAspectRatio : '1:1';
-  const estimatedCostUsd = estimateImageRouteCostUsd(safeModel, safeQuality, safeAspectRatio);
-  // DYNAMIC CREDIT COSTING PASS (product economics): a signed-in account's
-  // daily credit allowance gates this route too -- independent of, and in
-  // addition to, the dollar-denominated SITEREMADE_IMAGE_BUDGET_USD
-  // provider-spend guard below, which controls what THIS SERVER spends,
-  // not what a given customer is allowed to ask for today. Anonymous
-  // callers are unaffected (credits are an authenticated-account concept,
-  // same scoping as entitlement.js).
-  //
-  // The credit price is now decided from `safeModel` above -- support vs.
-  // premium, the real vocabulary this router already has -- never a flat
-  // per-task-type number (the old creditCostForTask(taskType) charged a
-  // flat 3 credits for every image regardless of which model it actually
-  // used). This is computed, and reserved, strictly BEFORE
-  // activeImageProvider.generate() is ever called below: no paid provider
-  // call happens unless the matching credit reservation already succeeded.
-  const creditCost = creditCostForImageRoute(safeModel);
-  let creditReserved = false;
-  if (req.accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
-    if (!creditReservation.ok) {
-      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
-    }
-    creditReserved = true;
-  }
-  // SERVER-SIDE SPEND ENFORCEMENT, and its real limits (do not remove this
-  // note): the client computes its own image plan and spend ceiling, but
-  // this reservation is the server's OWN independent check against the
-  // SAME configured ceiling -- it does not just trust whatever the client
-  // sends. The reservation check-and-increment below runs synchronously,
-  // before the `await` to OpenAI, so within a single Node process it is a
-  // real atomic guard: two concurrent requests for the same project cannot
-  // both slip past the check, because Node's event loop cannot interleave
-  // two synchronous blocks. What this does NOT guarantee: if this
-  // deployment runs more than one server instance/replica (Railway
-  // horizontal scaling), each instance holds its own in-memory reservation
-  // map, so the true cross-instance ceiling is (budget x instance count),
-  // not a single global cap -- there is no shared store here, and adding
-  // one (Redis, a DB row with a real lock) would be a materially bigger
-  // change than this pass's scope. This is the strongest enforcement that
-  // fits the current architecture without that rewrite; it is a real
-  // per-instance, per-project guard, not a claim of a global billing cap.
-  const reservationKey = projectId || anonId || 'anonymous';
-  const reservation = reserveImageSpend(reservationKey, estimatedCostUsd);
-  if (!reservation.ok) {
-    return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'Server-side per-generation image budget already reached; this request was not sent to the image provider.' });
-  }
-  try {
-    const prompt = clean(req.body.prompt, 600);
-    if (!prompt) {
-      releaseImageSpend(reservationKey, estimatedCostUsd);
-      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached the provider
-      return res.status(400).json({ ok: false, message: 'Missing prompt.' });
-    }
-    const result = await activeImageProvider.generate(prompt, { aspectRatio: safeAspectRatio, quality: safeQuality, model: safeModel });
-    const usedQuality = result.quality || safeQuality;
-    const usedModel = result.model || safeModel;
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
+  const result = await generateImageWithCredits({
+    accountId: req.accountId, prompt: clean(req.body.prompt, 600),
+    model: clean(req.body.model, 40), quality: clean(req.body.quality, 10), aspectRatio: clean(req.body.aspectRatio, 10),
+    reservationKey: projectId || anonId || 'anonymous', taskType, projectId, anonId,
+  });
+  if (result.ok) {
     // creditsCharged lets the client accumulate/display the real per-image
     // charge (spec: "after generation show actual charge") without
     // re-deriving support/premium pricing itself -- backend stays the sole
     // source of truth for the number, same principle as creditsRemaining.
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
-  } catch (error) {
-    console.error('Image generation failed:', error);
-    releaseImageSpend(reservationKey, estimatedCostUsd);
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently charges a credit
-    recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, creditsCharged: result.creditsCharged, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   }
+  if (result.reason === 'not_configured') return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
+  if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'This account has used its daily credit allowance.' });
+  if (result.reason === 'budget_exceeded') return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'Server-side per-generation image budget already reached; this request was not sent to the image provider.' });
+  if (result.reason === 'missing_prompt') return res.status(400).json({ ok: false, message: 'Missing prompt.' });
+  return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
 });
 
 // ---- V8: Claude website-planning provider ----------------------------------
@@ -1615,8 +1692,52 @@ app.get('/api/planner-status', (req, res) => {
 // tried FIRST for every free-text request, local classification only as a
 // fallback on failure).
 const REFINEMENT_TOOL_CACHED = { ...REFINEMENT_TOOL, cache_control: { type: 'ephemeral' } };
+const REFINEMENT_SYSTEM_PROMPT = 'You are SiteRemade refinement intelligence. Interpret the user request against the supplied structured project and return only submit_website_refinement. Preserve unrelated content and facts. Never invent business facts, HTML, CSS, or arbitrary operations.';
+const REFINEMENT_REQUEST_TIMEOUT_MS = 25000;
+// App bridge pass (Phase 4): the ONE implementation of "ask Claude for a
+// refinement plan" -- factored out of /api/refine-website (unchanged
+// prompt, model, token limit, tool, timeout) so the new server-side
+// /api/app-bridge/website/:projectId/edits route calls exactly the same
+// thing instead of a forked copy. Returns
+//   { providerOk:false, usage, model }            -- Anthropic returned non-2xx
+//   { providerOk:true, ok, plan, usage, model }   -- 2xx; ok=false if no tool_use came back
+// and THROWS on a network error/timeout (AbortError), exactly like the
+// inline fetch it replaced -- each caller keeps its own credit
+// reserve/commit/release and recordOperation bookkeeping around it.
+// The returned plan is Claude's RAW tool input: /api/refine-website hands
+// it to the browser as before (whose own normalizeRefinementPlan shapes
+// it); the bridge route runs it through normalizeServerRefinementPlan
+// (lib/refinement-normalizer.js) before applying anything.
+async function requestRefinementPlan({ request, context }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REFINEMENT_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL, max_tokens: 2500, thinking: { type: 'disabled' },
+        system: [{ type: 'text', text: REFINEMENT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: `Canonical business and current structured project context:\n${JSON.stringify(context || {}).slice(0, 120000)}\n\nRefinement request:\n${request}` }],
+        tools: [REFINEMENT_TOOL_CACHED], tool_choice: { type: 'tool', name: 'submit_website_refinement' }
+      }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    const usage = data.usage || {};
+    if (!response.ok) return { providerOk: false, usage, model: ANTHROPIC_MODEL };
+    const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
+    const ok = !!(toolUse && toolUse.input);
+    return { providerOk: true, ok, plan: ok ? toolUse.input : null, usage, model: data.model || ANTHROPIC_MODEL };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
 // /api/plan-website above -- requireAuth instead of withOptionalAuth.
+// App bridge pass (Phase 4): the Claude call now goes through
+// requestRefinementPlan above; credit handling, ledger rows and every
+// response shape are unchanged.
 app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const taskType = clean(req.body.taskType, 40) || 'COPY_REWRITE';
@@ -1639,40 +1760,24 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
     }
     creditReserved = true;
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
   const startedAt = Date.now();
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL, max_tokens: 2500, thinking: { type: 'disabled' },
-        system: [{ type: 'text', text: 'You are SiteRemade refinement intelligence. Interpret the user request against the supplied structured project and return only submit_website_refinement. Preserve unrelated content and facts. Never invent business facts, HTML, CSS, or arbitrary operations.', cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: `Canonical business and current structured project context:\n${JSON.stringify(context).slice(0, 120000)}\n\nRefinement request:\n${request}` }],
-        tools: [REFINEMENT_TOOL_CACHED], tool_choice: { type: 'tool', name: 'submit_website_refinement' }
-      }),
-      signal: controller.signal
-    });
-    const data = await response.json().catch(() => ({}));
-    const usage = data.usage || {};
+    const result = await requestRefinementPlan({ request, context });
+    const usage = result.usage || {};
     const latencyMs = Date.now() - startedAt;
-    if (!response.ok) {
+    if (!result.providerOk) {
       recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
       if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
       return res.status(200).json({ ok: false, configured: true });
     }
-    const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_refinement');
-    const succeeded = !!(toolUse && toolUse.input);
-    recordOperation({ operationType: taskType, provider: 'anthropic', model: data.model || ANTHROPIC_MODEL, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
+    const succeeded = result.ok;
+    recordOperation({ operationType: taskType, provider: 'anthropic', model: result.model, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) { if (succeeded) credits.commitCredits(db, req.accountId, creditCost); else credits.releaseCredits(db, req.accountId, creditCost); }
-    return res.json(succeeded ? { ok: true, plan: toolUse.input, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
+    return res.json(succeeded ? { ok: true, plan: result.plan, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
   } catch (error) {
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
     return res.status(200).json({ ok: false, configured: true });
-  } finally {
-    clearTimeout(timeout);
   }
 });
 
@@ -2339,6 +2444,264 @@ app.get('/api/purchase-intents/:id', requireAuth, (req, res) => {
   return res.json({ ok: true, intent });
 });
 
+// ============================================================================
+// App bridge pass (Phase 4): /api/app-bridge/* -- the smallest safe
+// server-to-server contract for the SiteRemade customer app
+// ============================================================================
+// Four routes, nothing else: read the canonical website summary, read its
+// deployment/domain state, apply a plain-language edit as a new DRAFT
+// revision, and publish a revision. All four:
+//   - 404 {ok:false} unless SITEREMADE_APP_BRIDGE_ENABLED === 'true';
+//   - are per-IP rate limited BEFORE token verification (appBridgeRateLimit);
+//   - re-verify the caller's Supabase access token and re-resolve its
+//     identity_links row on EVERY request (requireAppBridgeAuth -- no
+//     session, no cookie, nothing cached);
+//   - scope every read/write to req.accountId through the SAME
+//     ownership-scoped store functions the cookie-authenticated routes use
+//     (a project id from the URL only ever says WHICH record to act on --
+//     a missing and a not-owned project are the same 404);
+//   - never expose the internal database, raw state_json, or image bytes.
+// Canonical storage is unchanged: the generator's own `projects` row
+// (state_json + revision). Nothing is copied into the customer app.
+const requireAppBridgeAuth = createRequireAppBridgeAuth({ db, supabaseIdentity, identityLinks });
+function bridgeError(res, status, code, message, extra) {
+  return res.status(status).json({ ok: false, error: { code, message, ...(extra || {}) } });
+}
+// The enum vocabularies REFINEMENT_TOOL's own schema is built from -- the
+// server-side plan normalizer validates against exactly these lists.
+const REFINEMENT_VOCAB = {
+  sectionTypes: SECTION_TYPE_KEYS, heroKeys: HERO_KEYS, imageryKeys: IMAGERY_KEYS, colorBehaviorKeys: COLOR_BEHAVIOR_KEYS,
+  spacingKeys: SPACING_KEYS, imageStrategyKeys: CREATIVE_IMAGE_STRATEGY_KEYS, heroStrategyKeys: CREATIVE_HERO_STRATEGY_KEYS,
+  pageRhythmKeys: CREATIVE_PAGE_RHYTHM_KEYS,
+};
+// "Which project is this customer's website?" -- resolved by the generator
+// itself, from the authenticated account alone (no app-side mapping table,
+// no client-supplied id): the most recently PURCHASED project still in
+// 'purchased' status (purchase snapshots are listed newest purchase first);
+// otherwise the most recently updated draft/checkout_pending project.
+// KNOWN SIMPLIFICATION: an account with more than one purchased project
+// only ever sees its most recent one through the app.
+function resolveCanonicalProjectId(accountId) {
+  for (const snap of purchase.listOwnedPurchaseSnapshots(db, accountId)) {
+    const st = projectStore.getOwnedProjectStatus(db, accountId, snap.projectId);
+    if (st && st.status === 'purchased') return snap.projectId;
+  }
+  const projects = projectStore.listOwnedProjects(db, accountId); // updated_at DESC
+  const purchased = projects.find(p => p.status === 'purchased');
+  if (purchased) return purchased.id;
+  const draft = projects.find(p => p.status === 'draft' || p.status === 'checkout_pending');
+  return draft ? draft.id : null;
+}
+// Which direction (of up to 3) the bridge edits/publishes: the one that
+// was PURCHASED when there is a purchase snapshot (so an edit can never
+// silently switch a customer to a direction they didn't buy), otherwise
+// the draft's active direction.
+function canonicalDirectionIndex(accountId, projectId, directionsState) {
+  const snap = purchase.getOwnedPurchaseSnapshot(db, accountId, projectId);
+  const count = Array.isArray(directionsState && directionsState.directions) ? directionsState.directions.length : 0;
+  const idx = snap && Number.isInteger(snap.directionIndex) ? snap.directionIndex
+    : (Number.isInteger(directionsState && directionsState.activeDirectionIndex) ? directionsState.activeDirectionIndex : 0);
+  return Math.max(0, Math.min(Math.max(0, count - 1), idx));
+}
+function bridgeDomains(accountId, projectId) {
+  return deploymentStore.listOwnedDomains(db, accountId, projectId).map(d => ({ domain: d.domain, state: d.state, target: d.target, verifiedAt: d.verifiedAt, updatedAt: d.updatedAt }));
+}
+
+// 1. GET /api/app-bridge/website -- a SMALL summary of the canonical
+// project (never the full directionsState or any image data).
+app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+  const projectId = resolveCanonicalProjectId(req.accountId);
+  if (!projectId) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website has been created in the SiteRemade builder for this account yet.' } });
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website found.' } });
+  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  const direction = project.directionsState.directions[directionIndex] || {};
+  const purchaseSnapshot = purchase.getOwnedPurchaseSnapshot(db, req.accountId, projectId);
+  const published = publishedSnapshots.getLatestOwnedPublished(db, req.accountId, projectId);
+  const isPurchased = project.status === 'purchased';
+  // The revision POST /api/projects/:id/export currently compiles from.
+  const deliveredRevision = published ? published.revision : (purchaseSnapshot ? purchaseSnapshot.projectRevision : null);
+  return res.json({
+    ok: true, hasCanonicalProject: true,
+    projectId: project.id, name: project.name, status: project.status, revision: project.revision,
+    purchaseRef: project.purchaseRef, createdAt: project.createdAt, updatedAt: project.updatedAt,
+    deploymentStatus: projectStore.getOwnedProjectDeploymentStatus(db, req.accountId, projectId),
+    businessName: (direction.business && typeof direction.business.name === 'string' && direction.business.name.trim()) ? direction.business.name.trim() : null,
+    domains: bridgeDomains(req.accountId, projectId),
+    lastPublishedAt: published ? published.publishedAt : null,
+    publishedRevision: published ? published.revision : null,
+    purchasedRevision: purchaseSnapshot ? purchaseSnapshot.projectRevision : null,
+    hasUnpublishedChanges: isPurchased && deliveredRevision !== null && project.revision > deliveredRevision,
+    canEdit: project.status !== 'archived',
+    canPublish: isPurchased,
+    // Honest, machine-readable statement of what does NOT exist yet, so a
+    // client never has to guess: no server-rendered preview URL, and no
+    // automatic hosting (deployments.deployed_url is never set).
+    previewUrl: null,
+    liveUrl: null,
+  });
+});
+
+// 2. GET /api/app-bridge/website/:projectId/deployment
+app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
+  if (!status) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  const deployments = deploymentStore.listOwnedDeployments(db, req.accountId, projectId).slice(0, 20).map(d => ({
+    id: d.id, state: d.state, target: d.target, projectRevision: d.projectRevision,
+    deployedUrl: d.deployedUrl, // always null today -- no route ever sets it (no real hosting integration exists)
+    failureReason: d.failureReason, createdAt: d.createdAt,
+  }));
+  return res.json({
+    ok: true, projectId, deploymentStatus: projectStore.getOwnedProjectDeploymentStatus(db, req.accountId, projectId),
+    deployments, domains: bridgeDomains(req.accountId, projectId),
+    automaticHosting: false,
+  });
+});
+
+// 3. POST /api/app-bridge/website/:projectId/edits -- body {baseRevision, request}.
+// Pipeline: ownership + revision check (409 before ANY spend) -> reserve the
+// same credits /api/refine-website charges -> requestRefinementPlan (the
+// shared Claude call) -> normalizeServerRefinementPlan -> applyRefinementPlan
+// on a working copy -> any replacement images through generateImageWithCredits
+// (same kill switch / credit / USD-budget gates as /api/generate-image,
+// spend keyed by THIS project's server id) -> save through
+// projectStore.updateOwnedProject with expectedRevision (the same function
+// PUT /api/projects/:id uses) -> commit credits. Any failure at any step
+// releases every reservation and saves nothing. The result is a new DRAFT
+// revision only: nothing is published, exported or deployed here, and
+// purchase_snapshots is never written.
+app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, requireAppBridgeAuth, generationRateLimit, async (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  const body = req.body || {};
+  const baseRevision = Number.isInteger(body.baseRevision) ? body.baseRevision : null;
+  const request = clean(body.request, 600);
+  if (baseRevision === null) return bridgeError(res, 400, 'invalid_request', 'baseRevision is required.');
+  if (!request) return bridgeError(res, 400, 'invalid_request', 'Describe the change you want to make.');
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  if (project.status === 'archived') return bridgeError(res, 409, 'not_editable', 'This website can no longer be edited.');
+  if (project.revision !== baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh before applying this update.', { currentRevision: project.revision });
+  if (!anthropicProvider.configured()) return bridgeError(res, 503, 'ai_unavailable', 'Automatic website editing isn\'t available right now. Nothing on your website was changed.');
+  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  const direction = project.directionsState.directions[directionIndex];
+  if (!direction) return bridgeError(res, 422, 'edit_failed', 'This website couldn\'t be read for editing. Nothing was changed.');
+
+  // Same task type (and therefore the same 'cheap' credit class/price) that
+  // /api/refine-website defaults to -- no new price is invented here.
+  const taskType = 'COPY_REWRITE';
+  const refineCost = creditCostForTask(taskType);
+  let refineReserved = false;
+  if (refineCost > 0) {
+    const reservation = credits.reserveCredits(db, req.accountId, refineCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', 'You\'ve used today\'s editing allowance. Nothing was changed -- more opens up tomorrow (UTC).', { creditsRemaining: reservation.remaining });
+    refineReserved = true;
+  }
+  const imageSettlements = [];
+  const startedAt = Date.now();
+  let usage = {};
+  let plannerModel = ANTHROPIC_MODEL;
+  const recordRefine = (ok) => recordOperation({ operationType: taskType, provider: 'anthropic', model: plannerModel, ok, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: refineReserved ? refineCost : null, creditsCharged: (ok && refineReserved) ? refineCost : 0, latencyMs: Date.now() - startedAt, projectId: project.id, accountId: req.accountId, anonId: null });
+  let settled = false; // true once credits are committed -- a late error must never release a committed charge
+  const fail = (status, code, message, extra) => {
+    if (!settled) {
+      settled = true;
+      if (refineReserved) credits.releaseCredits(db, req.accountId, refineCost);
+      imageSettlements.forEach(s => s.release());
+      recordRefine(false);
+    }
+    if (res.headersSent) return undefined;
+    return bridgeError(res, status, code, message, extra);
+  };
+  try {
+    let planResult;
+    try {
+      planResult = await requestRefinementPlan({ request, context: buildRefinementContext(direction) });
+    } catch (error) {
+      return fail(502, 'edit_failed', 'We couldn\'t work out that change right now. Nothing on your website was changed.');
+    }
+    usage = planResult.usage || {};
+    if (planResult.model) plannerModel = planResult.model;
+    if (!planResult.providerOk || !planResult.ok) return fail(502, 'edit_failed', 'We couldn\'t work out that change right now. Nothing on your website was changed.');
+    const plan = normalizeServerRefinementPlan(planResult.plan, direction, REFINEMENT_VOCAB);
+    if (!plan) return fail(422, 'edit_failed', 'That request didn\'t turn into a change we can make automatically. Nothing on your website was changed -- try describing it another way, or send it to the SiteRemade team.');
+    const applied = applyRefinementPlan(project.directionsState, directionIndex, plan);
+    if (!applied.ok) return fail(422, 'edit_failed', 'That change couldn\'t be applied cleanly, so nothing on your website was changed.');
+    const changeSummary = applied.summary.slice();
+    const appliedOperations = applied.applied.slice();
+    if (applied.imageRequests.length) {
+      if (!activeImageProvider.configured()) return fail(503, 'edit_failed', 'This change needs a new image, and new images can\'t be created right now. Nothing on your website was changed.', { reason: 'images_unavailable' });
+      for (const imageRequest of applied.imageRequests) {
+        const image = await generateImageWithCredits({
+          accountId: req.accountId, prompt: imageRequest.prompt, model: IMAGE_MODEL_SUPPORT, quality: 'medium', aspectRatio: imageRequest.aspectRatio,
+          // Re-keyed on purpose: the server's real projects.id, not a
+          // browser-supplied id (this flow has none) -- see
+          // generateImageWithCredits' header comment.
+          reservationKey: project.id,
+          taskType: 'IMAGE_REGENERATE', projectId: project.id, anonId: null, deferSettlement: true,
+        });
+        if (!image.ok) {
+          if (image.reason === 'credits_exceeded') return fail(402, 'insufficient_credits', 'This change needs a new image, and there aren\'t enough credits left today. Nothing on your website was changed.', { creditsRemaining: image.creditsRemaining });
+          if (image.reason === 'budget_exceeded') return fail(429, 'edit_failed', 'Too many new images were requested in a short time. Nothing on your website was changed -- try again in a few minutes.', { reason: 'image_budget' });
+          if (image.reason === 'not_configured') return fail(503, 'edit_failed', 'This change needs a new image, and new images can\'t be created right now. Nothing on your website was changed.', { reason: 'images_unavailable' });
+          return fail(502, 'edit_failed', 'The new image couldn\'t be created, so nothing on your website was changed.', { reason: 'image_failed' });
+        }
+        imageSettlements.push(image.settle);
+        setGeneratedImage(applied.state, directionIndex, imageRequest.slot, image.dataUrl);
+        changeSummary.push(imageSummary(imageRequest.slot));
+        appliedOperations.push({ action: 'regenerate-image', slot: imageRequest.slot, model: image.model, creditsCharged: image.creditsCharged });
+      }
+    }
+    const saved = projectStore.updateOwnedProject(db, req.accountId, project.id, { directionsState: applied.state, expectedRevision: baseRevision });
+    if (!saved.ok) {
+      if (saved.reason === 'conflict') return fail(409, 'revision_conflict', 'This website changed while your update was being prepared. Nothing was changed -- refresh and try again.', { currentRevision: saved.current ? saved.current.revision : null });
+      if (saved.reason === 'not_found') return fail(404, 'not_found', 'Website not found.');
+      return fail(422, 'edit_failed', 'That change produced a website we couldn\'t save, so nothing was changed.');
+    }
+    settled = true;
+    if (refineReserved) credits.commitCredits(db, req.accountId, refineCost);
+    imageSettlements.forEach(s => s.commit());
+    recordRefine(true);
+    const imageCredits = appliedOperations.filter(o => o.action === 'regenerate-image').reduce((n, o) => n + (o.creditsCharged || 0), 0);
+    let creditsRemaining = null;
+    try { creditsRemaining = creditsSummaryFor(req.accountId).remaining; } catch (e) { /* informational only -- the edit IS saved; never report it as failed */ }
+    return res.json({
+      ok: true, revision: saved.project.revision, changeSummary, appliedOperations,
+      creditsCharged: (refineReserved ? refineCost : 0) + imageCredits,
+      creditsRemaining,
+    });
+  } catch (error) {
+    console.error('App bridge edit failed:', error && error.message);
+    return fail(500, 'edit_failed', 'Something went wrong, so nothing on your website was changed.');
+  }
+});
+
+// 4. POST /api/app-bridge/website/:projectId/publish -- body {revision}.
+// WHAT THIS DOES: appends a published_snapshots row freezing the project's
+// current state_json at exactly `revision`, which from then on is what
+// POST /api/projects/:id/export compiles from (instead of the original
+// purchase snapshot). WHAT THIS DOES NOT DO: push bytes to any live URL or
+// hosting target -- no such mechanism exists anywhere in this codebase
+// (deploy-to for real targets always records a failure; deployed_url is
+// never set). The response says so explicitly (automaticHosting:false).
+app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requireAppBridgeAuth, (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  const body = req.body || {};
+  const revision = Number.isInteger(body.revision) ? body.revision : null;
+  if (revision === null) return bridgeError(res, 400, 'invalid_request', 'revision is required.');
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  const result = publishedSnapshots.publishCurrentRevision(db, req.accountId, projectId, { revision, directionIndex });
+  if (!result.ok) {
+    if (result.reason === 'not_found') return bridgeError(res, 404, 'not_found', 'Website not found.');
+    if (result.reason === 'conflict') return bridgeError(res, 409, 'revision_conflict', 'This website changed since you reviewed it. Refresh before publishing.', { currentRevision: result.currentRevision });
+    if (result.reason === 'not_purchased') return bridgeError(res, 409, 'not_purchased', 'Publishing is available once this website has been purchased.');
+    return bridgeError(res, 500, 'publish_failed', 'Publishing didn\'t go through. Nothing was changed.');
+  }
+  return res.json({ ok: true, published: true, alreadyPublished: !!result.alreadyPublished, revision: result.snapshot.revision, publishedAt: result.snapshot.publishedAt, automaticHosting: false });
+});
+
 // ---- V8.6: export / deployment / hosting / domain handoff ------------------
 // Export/deploy is an ownership boundary exactly like the project routes
 // above: every route here does its own explicit ownership-scoped lookup
@@ -2380,19 +2743,30 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
   const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, projectId);
   if (!ensured.ok) return res.status(500).json({ ok: false, message: 'Could not locate a purchased snapshot for this project.' });
   const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
-  const exportSource = { id: projectId, revision: snapshot.projectRevision, directionsState: snapshot.directionsState };
+  // App bridge pass (Phase 4): if this project has ever been published
+  // through POST /api/app-bridge/website/:id/publish, compile from the
+  // LATEST published snapshot (post-purchase edits become exportable);
+  // otherwise -- every project that never used that flow -- compile from
+  // the original purchase snapshot exactly as before (same revision, same
+  // direction, same state). purchaseDate/hostingChoice always still come
+  // from the purchase snapshot: publishing doesn't change what was bought.
+  const published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
+  const source = published
+    ? { revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
+    : { revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
+  const exportSource = { id: projectId, revision: source.revision, directionsState: source.directionsState };
   ensureExportsDir();
   const deploymentId = deploymentStore.genId('dep');
   const workDir = path.join(EXPORTS_DIR, deploymentId);
   let result;
   try {
     result = exportCompiler.compileExport(db, {
-      project: exportSource, directionIndex: snapshot.directionIndex, workDir,
+      project: exportSource, directionIndex: source.directionIndex, workDir,
       hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
     });
   } catch (e) {
     const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
       target: 'local', failureReason: (e && e.message) || 'Export failed.',
     });
     return res.status(400).json({ ok: false, message: (e && e.message) || 'Export failed.', deployment: failed });
@@ -2401,7 +2775,7 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
     zipDirectory(result.workDir, workDir + '.zip');
   } catch (e) {
     const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
       target: 'local', failureReason: 'Could not build a downloadable archive: ' + ((e && e.message) || 'unknown error'),
       runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, manifest: result.manifest,
       artifactHash: result.artifactHash, compilerVersion: exportCompiler.COMPILER_VERSION,
@@ -2409,7 +2783,7 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
     return res.status(500).json({ ok: false, message: 'Could not build a downloadable archive.', deployment: failed });
   }
   const deployment = deploymentStore.createReadyDeployment(db, {
-    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: snapshot.projectRevision, directionIndex: snapshot.directionIndex,
+    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
     compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
     runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
     manifest: result.manifest, artifactPath: workDir + '.zip',
@@ -2579,5 +2953,8 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => console.log(`SiteRemade running on port ${PORT}`));
 } else {
-  module.exports = { normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
+  // App bridge pass (Phase 4): `app` is also exported so a test harness can
+  // listen() on the REAL route table in-process (still never listens on its
+  // own when required, exactly as before).
+  module.exports = { app, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
 }
