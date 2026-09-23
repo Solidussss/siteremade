@@ -2582,27 +2582,27 @@ function bridgeDomains(accountId, projectId) {
   return deploymentStore.listOwnedDomains(db, accountId, projectId).map(d => ({ domain: d.domain, state: d.state, target: d.target, verifiedAt: d.verifiedAt, updatedAt: d.updatedAt }));
 }
 
-// 1. GET /api/app-bridge/website -- a SMALL summary of the canonical
-// project (never the full directionsState or any image data).
-app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
-  const projectId = resolveCanonicalProjectId(req.accountId);
-  if (!projectId) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website has been created in the SiteRemade builder for this account yet.' } });
-  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
-  if (!project) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website found.' } });
-  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+// Shared by route 1 (canonical) and route 1c (explicit id, Phase 9) --
+// factored out so both return byte-identical shapes for the same project.
+// null means "not found or not owned by this account" (the caller decides
+// the right 404 shape for its own route).
+function buildWebsiteSummary(accountId, projectId) {
+  const project = projectStore.getOwnedProjectRaw(db, accountId, projectId);
+  if (!project) return null;
+  const directionIndex = canonicalDirectionIndex(accountId, projectId, project.directionsState);
   const direction = project.directionsState.directions[directionIndex] || {};
-  const purchaseSnapshot = purchase.getOwnedPurchaseSnapshot(db, req.accountId, projectId);
-  const published = publishedSnapshots.getLatestOwnedPublished(db, req.accountId, projectId);
+  const purchaseSnapshot = purchase.getOwnedPurchaseSnapshot(db, accountId, projectId);
+  const published = publishedSnapshots.getLatestOwnedPublished(db, accountId, projectId);
   const isPurchased = project.status === 'purchased';
   // The revision POST /api/projects/:id/export currently compiles from.
   const deliveredRevision = published ? published.revision : (purchaseSnapshot ? purchaseSnapshot.projectRevision : null);
-  return res.json({
+  return {
     ok: true, hasCanonicalProject: true,
     projectId: project.id, name: project.name, status: project.status, revision: project.revision,
     purchaseRef: project.purchaseRef, createdAt: project.createdAt, updatedAt: project.updatedAt,
-    deploymentStatus: projectStore.getOwnedProjectDeploymentStatus(db, req.accountId, projectId),
+    deploymentStatus: projectStore.getOwnedProjectDeploymentStatus(db, accountId, projectId),
     businessName: (direction.business && typeof direction.business.name === 'string' && direction.business.name.trim()) ? direction.business.name.trim() : null,
-    domains: bridgeDomains(req.accountId, projectId),
+    domains: bridgeDomains(accountId, projectId),
     lastPublishedAt: published ? published.publishedAt : null,
     publishedRevision: published ? published.revision : null,
     purchasedRevision: purchaseSnapshot ? purchaseSnapshot.projectRevision : null,
@@ -2614,7 +2614,17 @@ app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, app
     // automatic hosting (deployments.deployed_url is never set).
     previewUrl: null,
     liveUrl: null,
-  });
+  };
+}
+
+// 1. GET /api/app-bridge/website -- a SMALL summary of the canonical
+// project (never the full directionsState or any image data).
+app.get('/api/app-bridge/website', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const projectId = resolveCanonicalProjectId(req.accountId);
+  if (!projectId) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website has been created in the SiteRemade builder for this account yet.' } });
+  const summary = buildWebsiteSummary(req.accountId, projectId);
+  if (!summary) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website found.' } });
+  return res.json(summary);
 });
 
 // 1b. GET /api/app-bridge/website/candidates -- Phase 6 (additive). EVERY
@@ -2674,6 +2684,35 @@ app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBrid
   }
   for (const p of owned.values()) if (p.status === 'purchased' && !seen.has(p.id)) add(p, null);
   return res.json({ ok: true, candidates: candidates.slice(0, 50) });
+});
+
+// 1c. GET /api/app-bridge/website/:projectId -- Phase 9 (multi-project).
+// The explicit-id sibling of route 1 above, for when the caller already
+// knows WHICH of this account's (possibly several) purchased projects it
+// wants -- the app's own website_project_links can now hold more than one
+// row per workspace (V54-WEBSITE-LINKS-MULTI-PROJECT-MIGRATION.sql), so
+// "the canonical project" (route 1's own resolveCanonicalProjectId, still
+// singular -- "most recently purchased," a documented simplification) is
+// no longer sufficient for a project-centric Workplace to read any
+// project OTHER than the newest one. Same auth/rate-limit gate, same
+// ownership check (getOwnedProjectRaw inside buildWebsiteSummary never
+// returns a row belonging to a different account -- a mismatched id and a
+// genuinely nonexistent one are indistinguishable, same IDOR discipline as
+// every other project lookup in this file), same response shape as route 1
+// byte-for-byte, so the app's existing summaryFrom() mapping (routes/
+// website-bridge.js) needs no changes to consume either one.
+//
+// Registered AFTER route 1b (candidates) deliberately: Express matches
+// routes in registration order, and a bare `:projectId` segment would
+// otherwise swallow `/website/candidates` as if "candidates" were a
+// project id. It does not need to come before `:projectId/deployment` /
+// `:projectId/edits` / `:projectId/publish` below -- those have an extra
+// path segment, so they never collide with this route regardless of order.
+app.get('/api/app-bridge/website/:projectId', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  const summary = buildWebsiteSummary(req.accountId, projectId);
+  if (!summary) return res.status(404).json({ ok: false, hasCanonicalProject: false, error: { code: 'no_project', message: 'No website found.' } });
+  return res.json(summary);
 });
 
 // 2. GET /api/app-bridge/website/:projectId/deployment
