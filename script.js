@@ -5990,6 +5990,12 @@ const accountCreditsLine = $('#accountCreditsLine');
 // is still resolving.
 const lastGenerationCostNote = $('#lastGenerationCostNote');
 const generationGateCost = $('#generationGateCost');
+// PRICING PASS: the three static customer-facing website-price displays --
+// kept in sync with the server's canonical price by the /api/pricing fetch
+// further down this file.
+const heroPriceLine = $('#heroPriceLine');
+const purchasePriceAmount = $('#purchasePriceAmount');
+const pricingCardAmount = $('#pricingCardAmount');
 if (creditIndicatorIcon) creditIndicatorIcon.innerHTML = renderIcon('lightning', { size: 14, weight: 'bold' });
 
 // ---- Pre-generation upload staging ----------------------------------------
@@ -9530,6 +9536,21 @@ fetch('/api/image-provider-status').then(r => r.json()).then(status => {
     prepareProjectForReveal(project, 'restore', preparationToken).finally(() => { revealPreparationInFlight = false; });
   }
 }).catch(() => { imageProviderStatusResolve(); });
+// PRICING PASS: best-effort, never-blocking sync of the three static
+// customer-facing price displays against the one real canonical price
+// server.js actually charges via Stripe (see /api/pricing there). The
+// static HTML values are a correct-at-publish-time fallback, not a second
+// source of truth -- if this fetch never resolves (offline, JS disabled,
+// slow network), the page still shows a real, current price, it just isn't
+// guaranteed to auto-update the instant SITEREMADE_WEBSITE_PRICE_CENTS
+// changes on the server until this script reloads.
+fetch('/api/pricing').then(r => r.json()).then(pricing => {
+  if (!pricing || !pricing.ok || !pricing.websitePriceDisplay) return;
+  const display = pricing.websitePriceDisplay;
+  if (heroPriceLine) heroPriceLine.textContent = `Starting at ${display} ${(pricing.websitePriceCurrency || 'cad').toUpperCase()}`;
+  if (purchasePriceAmount) purchasePriceAmount.textContent = display;
+  if (pricingCardAmount) pricingCardAmount.textContent = display;
+}).catch(() => { /* static HTML fallback already shows a correct price */ });
 // V8: best-effort AI-planning status + remaining-credits check -- same
 // never-blocks contract as the image-provider check above. If this hasn't
 // resolved yet (or fails outright), window.__siteremadePlanMeter keeps its
