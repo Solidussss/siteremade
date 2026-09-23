@@ -1473,6 +1473,12 @@ html,body{max-width:100%;overflow-x:hidden}
 .purchase-status{margin:12px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
 .purchase-status.success{color:#17733a}
 .purchase-status.error{color:#b42318}
+/* Phase 9 (SITE-PROJECT ticket §6): "Continue editing" / "Open in
+   Workplace" after a fulfilled purchase. Same .button/.button-secondary
+   language as everywhere else in this file (see the V15 comment above on
+   why this is deliberate, not a new visual system). */
+.purchase-complete-actions{display:flex;gap:8px;margin:12px 0 0;flex-wrap:wrap}
+.purchase-complete-actions .button{min-height:44px;padding:0 18px;font-size:13px;flex:1 1 auto}
 
 /* ---- Demoted "talk to a human first" contact section: same markup/class
    as before (.handoff-section) so all existing responsive rules keep

@@ -442,6 +442,17 @@
           <p class="purchase-ownership-badge" id="purchaseOwnershipBadge" hidden></p>
           <button type="button" class="button full-width" id="buyButton" disabled>Buy this website</button>
           <p class="purchase-status" id="purchaseStatus" aria-live="polite">Generate a direction above to enable checkout.</p>
+          <!-- Shown only once a return from checkout confirms this exact
+               project is fulfilled/owned (handlePurchaseReturn in script.js).
+               "Continue editing" just dismisses this row -- the editor is
+               already right here. "Open in Workplace" is a button (not a
+               plain link) because it may need to run the existing shared-
+               identity connect flow first if this generator account isn't
+               linked to a SiteRemade app account yet; see openWorkplace(). -->
+          <div class="purchase-complete-actions" id="purchaseCompleteActions" hidden>
+            <button type="button" class="button button-secondary" id="purchaseContinueEditingBtn">Continue editing</button>
+            <button type="button" class="button" id="purchaseOpenWorkplaceBtn">Open in Workplace →</button>
+          </div>
         </div>
       </div>
     </section>

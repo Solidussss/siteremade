@@ -5784,6 +5784,9 @@ const purchaseMeta = $('#purchaseMeta');
 const purchaseDescriptionNote = $('#purchaseDescriptionNote');
 const buyButton = $('#buyButton');
 const purchaseStatus = $('#purchaseStatus');
+const purchaseCompleteActions = $('#purchaseCompleteActions');
+const purchaseContinueEditingBtn = $('#purchaseContinueEditingBtn');
+const purchaseOpenWorkplaceBtn = $('#purchaseOpenWorkplaceBtn');
 const formBusiness = $('#formBusiness');
 const formDescription = $('#formDescription');
 const formDesignMode = $('#formDesignMode');
@@ -9124,6 +9127,33 @@ function startSharedIdentityHandoff(mode) {
 }
 if (sharedIdentityContinueBtn) sharedIdentityContinueBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
 if (gateSharedIdentityBtn) gateSharedIdentityBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
+// Ticket §6's "Open in Workplace" (purchase-complete screen). Deliberately
+// reuses this file's EXISTING identity-bridge building blocks rather than
+// inventing a new cross-app sign-in mechanism:
+//   - already linked -> the exact same plain link accountOpenAppLink/
+//     clientLoginLink already use once connected (see renderIdentityBridgeUI):
+//     the app's own session/sign-in decides what the person sees there.
+//   - bridge disabled in this environment -> same honest fallback
+//     clientLoginLink always shows regardless of bridge state -- a plain
+//     link, never a dead button.
+//   - not yet linked -> the SAME dual-proof "Connect your SiteRemade
+//     account" flow (startSharedIdentityHandoff('link')) used elsewhere in
+//     this file, so proving the app identity and confirming the connection
+//     both still genuinely happen -- never a silent auto-link. The one
+//     addition is sr_open_workplace_after_link, a one-shot sessionStorage
+//     flag (it has to survive the round trip through the app's own sign-in
+//     and back here) that the SAME identityConfirmLinkBtn success handler
+//     already used by the ordinary "Connect" button reads, so confirming
+//     the link here continues straight on to the app instead of stranding
+//     the person back on this exact purchase-complete state needing a
+//     second click.
+function openWorkplace() {
+  if (identityIsLinked || !identityBridgeIsEnabled) { window.location.href = SITEREMADE_APP_URL; return; }
+  try { sessionStorage.setItem('sr_open_workplace_after_link', '1'); } catch (e) { /* best-effort; worst case is one extra click after linking */ }
+  startSharedIdentityHandoff('link');
+}
+if (purchaseOpenWorkplaceBtn) purchaseOpenWorkplaceBtn.addEventListener('click', openWorkplace);
+if (purchaseContinueEditingBtn) purchaseContinueEditingBtn.addEventListener('click', () => { if (purchaseCompleteActions) purchaseCompleteActions.hidden = true; });
 if (identityConnectBtn) identityConnectBtn.addEventListener('click', () => {
   setIdentityConnectStatus('');
   startSharedIdentityHandoff('link');
@@ -9155,6 +9185,12 @@ if (identityConfirmLinkBtn) identityConfirmLinkBtn.addEventListener('click', asy
   if (!pendingLinkToken) return;
   identityConfirmLinkBtn.disabled = true;
   identityCancelLinkBtn.disabled = true;
+  // Read + clear this BEFORE the request, not just on success: a one-shot
+  // flag left set after a failed/cancelled attempt would otherwise silently
+  // redirect the person to the app the next time they link for an
+  // unrelated reason.
+  let openWorkplaceAfter = false;
+  try { openWorkplaceAfter = sessionStorage.getItem('sr_open_workplace_after_link') === '1'; sessionStorage.removeItem('sr_open_workplace_after_link'); } catch (e) { /* best-effort */ }
   const { ok, status, data } = await apiFetch('/api/identity/link', { method: 'POST', body: { supabaseAccessToken: pendingLinkToken } });
   identityConfirmLinkBtn.disabled = false;
   identityCancelLinkBtn.disabled = false;
@@ -9163,6 +9199,9 @@ if (identityConfirmLinkBtn) identityConfirmLinkBtn.addEventListener('click', asy
     identityIsLinked = true;
     renderIdentityBridgeUI();
     setIdentityConnectStatus('Your SiteRemade account is connected.');
+    // Ticket §6: this confirm click IS the "Open in Workplace" button's
+    // second step when linking was required first -- see openWorkplace().
+    if (openWorkplaceAfter) { window.location.href = SITEREMADE_APP_URL; return; }
   } else {
     setIdentityConnectStatus(identityErrorMessage(status, data), true);
   }
@@ -9407,6 +9446,11 @@ if (buyButton) {
             serverProjectId = data.intent.projectId;
             await loadOwnedProjectsList();
             await refreshServerProjectStatus();
+            // Ticket §6: "Open in Workplace"/"Continue editing" on the
+            // purchase-complete screen -- see openWorkplace() for what the
+            // former actually does depending on whether this generator
+            // account is already linked to a SiteRemade app account.
+            if (purchaseCompleteActions) purchaseCompleteActions.hidden = false;
             return;
           }
           if (data.intent.status === 'cancelled' || data.intent.status === 'failed') {
