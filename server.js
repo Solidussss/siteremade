@@ -28,6 +28,54 @@ const purchase = require('./lib/purchase.js');
 // real, tested, concurrency-safe module on disk, just not wired into this
 // file any more.
 const credits = require('./lib/credits.js');
+// FINAL GENERATOR HARDENING pass: a real, in-memory, bounded rate limiter --
+// see lib/rate-limit.js's own header for the full reasoning (same honesty
+// posture as directionsLedger/operationLedger below: not durable, not
+// shared across instances, but genuinely enforced). normalizeEmail is
+// reused directly from lib/auth.js (via the auth provider's own module,
+// same implementation authProvider ultimately delegates to) so the login
+// brute-force key is built the exact same way signIn itself normalizes an
+// email, rather than a second, possibly-divergent copy of that logic.
+const rateLimit = require('./lib/rate-limit.js');
+const { normalizeEmail } = require('./lib/auth.js');
+// V14 (shared identity bridge pass): identity-links.js is pure local-DB
+// bookkeeping (no network calls -- see its own header); supabase-identity.js
+// is the one place this file talks to Supabase's Auth API to verify a
+// caller-presented access token. Neither is required/called anywhere
+// except the new /api/identity/* routes below and their feature flag --
+// every existing route/table/session is completely untouched by this pass
+// (see SITE-PROJECT-V14-IDENTITY-BRIDGE.md's "Phase 1" for why: no
+// existing FK is rekeyed, no existing auth path changes behavior).
+const identityLinks = require('./lib/identity-links.js');
+const supabaseIdentity = require('./lib/supabase-identity.js');
+// A real feature flag, not a code comment -- spec item 34 ("we need the
+// ability to stop rollout without reverting the whole codebase"). Default
+// 'disabled': every /api/identity/* route below fails closed (404, the
+// same "doesn't appear to exist" posture as /api/admin/operation-ledger's
+// own missing-token case) until this is explicitly turned on. 'internal'
+// additionally requires the caller's (already-verified, either side's)
+// email to appear in SITEREMADE_IDENTITY_BRIDGE_ALLOWLIST -- a real,
+// enforced restriction, not a cosmetic one. 'opt_in' and 'full' behave
+// identically in THIS pass (both "on for every account") -- there is no
+// behavioral difference to implement yet because nothing in this pass ever
+// links or provisions an account without that account's own explicit,
+// in-the-moment action (see identity-links.js: lazyProvisionGeneratorAccount
+// only ever fires for the Supabase identity that just authenticated itself,
+// createLink only ever fires with a fresh dual-session proof) -- 'full'
+// exists as the named eventual target once a real rollout needs to
+// distinguish "on for everyone" from "on, but still opt-in per account,"
+// which nothing in this pass's scope requires.
+function identityBridgeMode() {
+  const mode = String(process.env.SITEREMADE_IDENTITY_BRIDGE_MODE || 'disabled').trim().toLowerCase();
+  return ['disabled', 'internal', 'opt_in', 'full'].includes(mode) ? mode : 'disabled';
+}
+function identityBridgeEnabled() { return identityBridgeMode() !== 'disabled'; }
+function identityBridgeAllowedForEmail(email) {
+  if (identityBridgeMode() !== 'internal') return true;
+  const allowlist = String(process.env.SITEREMADE_IDENTITY_BRIDGE_ALLOWLIST || '')
+    .split(',').map(e => normalizeEmail(e)).filter(Boolean);
+  return allowlist.includes(normalizeEmail(email));
+}
 // V8.6: export + deployment packaging + hosting/domain handoff -- see
 // SITE-PROJECT-V8.6.md. Reuses this exact same database/ownership layer
 // (no parallel backend), exactly like V8.5's own modules above.
@@ -238,6 +286,69 @@ function requireSameOrigin(req, res, next) {
   if (!origin && referer && !referer.startsWith(expected)) return res.status(403).json({ ok: false, message: 'Cross-origin request refused.' });
   next();
 }
+// FINAL GENERATOR HARDENING pass (spec items 3/4/5): server-side rate
+// limiting -- the highest-priority remaining abuse item per the brief.
+// Every threshold below is env-overridable (same convention as the credit
+// config above: a literal default that IS the real production value,
+// never a magic number buried only in a test), and every bucket is keyed
+// off req.ip, which is correct here specifically because `trust proxy` is
+// set to `1` above -- req.ip already reflects Railway's real single-hop
+// X-Forwarded-For value, not the proxy's own address, so this is not a
+// second/duplicate trust decision, just reading the one Express already
+// makes correctly. Deliberately NOT a general-purpose anti-fraud platform
+// (per the brief: "do not build a huge anti-fraud platform") -- four
+// buckets, sized to slow a scripted burst without interfering with a real
+// person's normal usage (a real visitor never sends 15 sign-in attempts or
+// 20 generations inside one window).
+const RATE_LIMITS = {
+  // Account-creation spam / signup-loop protection (spec item 4).
+  signup: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNUP_MAX) || 8, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNUP_WINDOW_MS) || 60 * 60 * 1000 },
+  // Plain per-IP request-rate ceiling on the sign-in ROUTE itself (distinct
+  // from the per-EMAIL failure-count brute-force check below -- this one
+  // exists so a single IP can't hammer the route at all, authenticated or
+  // not, successful or not).
+  signin: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_MAX) || 15, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_WINDOW_MS) || 15 * 60 * 1000 },
+  // Login brute-force protection (spec item 5): counts FAILURES only, keyed
+  // per normalized email -- see the peek()/recordFailure() split in
+  // lib/rate-limit.js and the /api/auth/signin route below for why a
+  // successful sign-in never advances this counter.
+  signinFailurePerEmail: { max: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_FAILURE_MAX) || 8, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_SIGNIN_FAILURE_WINDOW_MS) || 15 * 60 * 1000 },
+  // The three expensive, provider-calling routes (spec item 3: "Protect at
+  // minimum... plan-website, generate-image, refine-website"). Keyed
+  // per-account when signed in (every one of these routes already requires
+  // auth, so req.accountId is always present by the time this runs) --
+  // per-account is the right key here, not per-IP, since the credit ledger
+  // itself is already per-account and this is a second, independent brake
+  // on request VOLUME, not spend.
+  generation: { max: Number(process.env.SITEREMADE_RATE_LIMIT_GENERATION_MAX) || 20, windowMs: Number(process.env.SITEREMADE_RATE_LIMIT_GENERATION_WINDOW_MS) || 60 * 1000 },
+};
+// A small, structured, NEVER-leaks-internals 429 body -- spec item 3's
+// "no raw internal error leakage" and item 17's "clear retry message, not
+// a generic generation failure" apply starting here, at the response shape
+// itself, not just in the frontend that reads it.
+function rateLimitMiddleware(bucketKeyFn, limitConfig, message) {
+  return function (req, res, next) {
+    const key = bucketKeyFn(req);
+    if (!key) return next(); // no key derivable (shouldn't happen on a guarded route) -- fail open, never crash the request
+    const result = rateLimit.checkAndRecord(key, limitConfig.max, limitConfig.windowMs);
+    res.setHeader('X-RateLimit-Remaining', String(result.remaining));
+    if (!result.allowed) {
+      res.setHeader('Retry-After', String(result.retryAfterSeconds));
+      return res.status(429).json({ ok: false, message, retryAfterSeconds: result.retryAfterSeconds });
+    }
+    next();
+  };
+}
+const signupRateLimit = rateLimitMiddleware(req => `signup:${req.ip}`, RATE_LIMITS.signup, 'Too many accounts created from this connection recently. Please try again later.');
+const signinRateLimit = rateLimitMiddleware(req => `signin:${req.ip}`, RATE_LIMITS.signin, 'Too many sign-in attempts from this connection recently. Please try again later.');
+const generationRateLimit = rateLimitMiddleware(req => `generation:${req.accountId || req.ip}`, RATE_LIMITS.generation, 'Too many requests in a short time.');
+// V14 (shared identity bridge pass): the same per-IP request-rate
+// discipline as signin/signup above, applied to the new /api/identity/*
+// routes -- these call out to a real external service (Supabase's Auth
+// API) once configured, so they deserve the same throttle as any other
+// route that does real, non-free work per request. Reuses RATE_LIMITS.signin's
+// own threshold rather than inventing a third number with no real basis.
+const identityRateLimit = rateLimitMiddleware(req => `identity:${req.ip}`, RATE_LIMITS.signin, 'Too many requests in a short time. Please try again later.');
 async function sendEmail(payload) {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -516,7 +627,13 @@ app.get('/api/image-provider-status', (req, res) => {
   });
 });
 
-app.post('/api/generate-image', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
+// /api/plan-website above -- requireAuth instead of withOptionalAuth, so
+// an unauthenticated image-generation attempt is refused (401) before this
+// handler's body runs. Everything else below is otherwise unchanged: the
+// `req.accountId ? ... : null` conditionals still work correctly (always
+// truthy now), left as-is to keep this diff minimal.
+app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   // taskType/projectId are purely observability metadata the client
   // attaches (see script.js's ExecutionPlan) -- absent or wrong, this route
@@ -700,6 +817,21 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // fully-imaged day. Raise SITEREMADE_DAILY_FREE_CREDITS in production if
 // a more generous daily ceiling is wanted; the arithmetic above just
 // documents what the shipped default actually buys someone.
+// FINAL GENERATOR HARDENING pass: reconfirmed by direct audit as THE one
+// authoritative backend credit-configuration source -- every other place
+// a number related to credits appears (creditsSummaryFor below,
+// /api/credits, the client's Generate-button label/credit indicator) reads
+// through here, never a second hardcoded copy. Production resolves to
+// DAILY CREDITS = 10 / GENERATION COST = 3 by default, matching the
+// intended product default exactly (see primtest/v13-generator-hardening-
+// test.js's source-inspection test, which proves these literal default
+// values rather than assuming them -- server.js itself can't be spawned in
+// this sandbox, so that test reads this exact expression out of this file
+// instead of duplicating it). landing/mock-server.js's own test-double
+// default mirrors this 10/3 exactly now too; a test that wants a smaller
+// pool sets `creditsLimit` explicitly at its own call site rather than
+// relying on a silently-different ambient default (see that file's own
+// comment).
 const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
 const CREDIT_COST_BY_CLASS = {
   free: 0,
@@ -707,13 +839,34 @@ const CREDIT_COST_BY_CLASS = {
   standard: Number(process.env.SITEREMADE_CREDIT_COST_STANDARD) || 3,
 };
 function creditCostForTask(taskType) { return CREDIT_COST_BY_CLASS[classifyOperationCost(taskType)] || 0; }
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the next UTC-midnight
+// rollover boundary, as a real ISO timestamp the client can format in the
+// visitor's own local timezone -- never a claim of a precise LOCAL reset
+// time (spec item 10: "Do not claim a precise local reset time if the
+// backend only uses UTC day rollover unless converted correctly"; handing
+// back the real UTC instant and letting the browser's own Intl/Date
+// formatting convert it is the honest way to satisfy that).
+function nextUtcMidnightIso(now) {
+  const d = now || new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0)).toISOString();
+}
 // Read-only convenience for building a response payload -- returns null for
 // an anonymous caller (credits are an authenticated-account concept only;
 // an anonymous visitor is instead gated by the lifetime ledger further
 // down, which is the one remaining use of a "lifetime cap" in this file).
+// UNIFIED ACCOUNT pass: now also returns generationCost and resetsAt --
+// spec item 7 ("Ideally credit API returns enough information for UX,
+// such as: remaining credits, daily allowance, generation cost, reset
+// boundary") -- so the client never hardcodes the "3 credits" number
+// itself (spec item 6: "Do NOT create a second credit calculation in the
+// frontend. Backend is source of truth."). generationCost is the standard
+// (NEW_SITE/NEW_DIRECTION) cost specifically -- the one number the
+// Generate button's own label needs; per-action costs for other task
+// types remain server-side-only, exactly as before.
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
-  return credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+  const summary = credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+  return { ...summary, generationCost: creditCostForTask('NEW_SITE'), resetsAt: nextUtcMidnightIso() };
 }
 
 // A real, in-memory, bounded operation ledger -- deliberately the SAME
@@ -1232,7 +1385,9 @@ app.get('/api/planner-status', (req, res) => {
 // tried FIRST for every free-text request, local classification only as a
 // fallback on failure).
 const REFINEMENT_TOOL_CACHED = { ...REFINEMENT_TOOL, cache_control: { type: 'ephemeral' } };
-app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
+// /api/plan-website above -- requireAuth instead of withOptionalAuth.
+app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   const taskType = clean(req.body.taskType, 40) || 'COPY_REWRITE';
   const projectId = clean(req.body.projectId, 60);
@@ -1314,65 +1469,74 @@ app.post('/api/refine-website', withOptionalAuth, async (req, res) => {
 // longer called from here. It remains available as a proven primitive if
 // a future, different need for a true lifetime cap arises.
 //
-// The anonymous, cookie-scoped ledger directly below (`entry`,
-// `directionsLedger`) is UNCHANGED and is exactly where a lifetime-style
-// cap still belongs: an anonymous visitor has no account and therefore no
-// credit ledger at all, so it remains the one and only trial/abuse brake
-// on unauthenticated Claude usage -- never merged with, or affected by,
-// the authenticated path's credits.
-app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass (spec items 2/3): full
+// website generation now requires a real, authenticated account --
+// `withOptionalAuth` is replaced with `requireAuth`, so an unauthenticated
+// request is refused with 401 before ANY of this handler's body runs, let
+// alone before a Claude call. This is the actual server-side enforcement
+// the spec asks for ("do not rely only on hiding/disabling the button...
+// the server must reject unauthorized full generation attempts"); the
+// client-side gate in script.js's runGeneration is real UX, not the
+// security boundary.
+//
+// The anonymous lifetime-ledger gate this route used to run for an
+// unauthenticated caller (MAX_DIRECTIONS/claudeDirectionsUsed as the
+// trial/abuse brake) is gone from HERE -- requireAuth means there is no
+// more unauthenticated branch to gate. `directionsLedger`/`ensureAnonId`/
+// `MAX_DIRECTIONS` themselves are left completely untouched elsewhere in
+// this file (harmless, simply unused by this specific route now) -- see
+// the final report for why they weren't deleted outright. `entry` (the
+// per-anonymous-cookie ledger row) is still read here, but ONLY for its
+// `signatures`/`history` arrays, which predate and are independent of the
+// lifetime-cap gate -- they feed Claude's own "avoid repeating a similar
+// direction" diversity hint (see planBrief.priorSignatures below) and
+// observability, for BOTH first-time and returning signed-in visitors on
+// the same browser. Stripping this would have been a real, if minor,
+// quality regression unrelated to what this pass actually needs to change.
+//
+// Credit-architecture completion (spec item 6: "full website generation
+// costs 3 credits" as a flat, universal product rule -- not "3 credits
+// only when Claude happens to succeed"): credit reservation now happens
+// BEFORE the anthropicProvider.configured() check, and is committed
+// immediately if Claude is unconfigured -- previously an unconfigured
+// deployment reserved NOTHING for an authenticated caller, because the
+// early "not configured" return happened before reservation was ever
+// reached. That was a real gap: the client's deterministic engine is
+// guaranteed to produce a real, saved, credit-worthy direction regardless
+// of whether Claude assisted it, so the credit charge must not depend on
+// Claude's availability. If Claude IS configured, behavior for that branch
+// is otherwise unchanged from before this pass (reserve, attempt, commit
+// on success / release on failure).
+app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
-  const entry = getDirectionsLedgerEntry(anonId);
-  const authed = !!req.accountId;
+  const entry = getDirectionsLedgerEntry(anonId); // signatures/history only now -- see comment above
   // Observability metadata only (see script.js's ExecutionPlan) -- a
   // missing/unrecognized value just labels the ledger row generically and
   // changes nothing about how this route behaves.
   const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
   const projectId = clean(req.body.projectId, 60);
-  // claudeDirectionsRemaining only ever described the lifetime Claude-
-  // planning brake -- for a signed-in caller that brake no longer gates
-  // anything this route enforces, so it's honestly `null` here rather than
-  // reporting a number that used to block them but no longer does.
-  // creditsRemaining (already present on every response below) is the
-  // real, authoritative "can this account still generate today" signal
-  // for a signed-in caller; claudeDirectionsRemaining stays meaningful
-  // only for the still-lifetime-capped anonymous path.
-  const remainingFor = () => authed
-    ? null
-    : Math.max(0, MAX_DIRECTIONS - entry.claudeDirectionsUsed);
-  if (!anthropicProvider.configured()) {
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null });
-  }
-  // A new site/direction is credit-consuming (spec: "full new website
-  // generation, new creative direction") -- the sole gate for an
-  // authenticated caller now (see the header comment above). Anonymous
-  // callers are gated by the lifetime ledger check in the `else if` below,
-  // exactly as before.
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
-  if (authed) {
-    if (creditCost > 0) {
-      const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
-      if (!creditReservation.ok) {
-        return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
-      }
-      creditReserved = true;
+  if (creditCost > 0) {
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!creditReservation.ok) {
+      return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
     }
-  } else if (entry.claudeDirectionsUsed >= MAX_DIRECTIONS) {
-    // Enforced here, server-side, BEFORE any model call -- a real brake on
-    // Claude usage specifically for this anonymous visitor, independent of
-    // (and in addition to) the client's own overall 3-direction-total cap.
-    // The client is expected to fall back to the deterministic engine on
-    // this response -- which still produces a real direction for the
-    // visitor, it just doesn't ask Claude to plan it. This is the one
-    // remaining place a lifetime-style cap still applies: an anonymous
-    // visitor has no account and therefore no daily credit ledger at all.
-    return res.status(200).json({ ok: false, limited: true, claudeDirectionsRemaining: 0, message: 'This visitor has used their Claude-planned directions for now.' });
+    creditReserved = true;
   }
   const text = clean(req.body.text, 600);
   if (!text) {
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached Claude
+    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached generation
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
+  }
+  if (!anthropicProvider.configured()) {
+    // The credit was reserved above for a REAL generation attempt -- the
+    // client's deterministic engine is about to produce this direction
+    // regardless of Claude's availability, so commit now rather than
+    // leaving the reservation dangling; this response is terminal and the
+    // client never retries this exact reservation.
+    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
   }
   const brief = {
     text,
@@ -1392,8 +1556,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    if (!authed) entry.claudeDirectionsUsed += 1; // anonymous path unchanged from V8/V8.1
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: remainingFor(), creditsRemaining: authed ? creditsSummaryFor(req.accountId).remaining : null, meta: { model, latencyMs } });
+    return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
@@ -1402,10 +1565,7 @@ app.post('/api/plan-website', withOptionalAuth, async (req, res) => {
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
-    // A failed attempt does NOT consume one of this visitor's Claude
-    // attempts -- only a real returned plan does. The direction itself
-    // still gets created by the client's deterministic fallback.
-    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: remainingFor() });
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
   }
 });
 
@@ -1635,16 +1795,41 @@ const projectJsonParser = express.json({ limit: '35mb' });
 // see lib/adapters/local-auth-provider.js. Behavior is unchanged (it's the
 // exact same lib/auth.js underneath); this is what makes "sign in/up/out"
 // a real part of the AuthProvider boundary rather than only requireAuth.
-app.post('/api/auth/signup', requireSameOrigin, (req, res) => {
+app.post('/api/auth/signup', requireSameOrigin, signupRateLimit, (req, res) => {
   const result = authProvider.signUp(db, req.body && req.body.email, req.body && req.body.password);
   if (!result.ok) return res.status(400).json({ ok: false, message: result.error });
   const { token } = authProvider.createSession(db, result.account.id);
   res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
 });
-app.post('/api/auth/signin', requireSameOrigin, (req, res) => {
-  const result = authProvider.signIn(db, req.body && req.body.email, req.body && req.body.password);
-  if (!result.ok) return res.status(401).json({ ok: false, message: result.error });
+// Login brute-force hardening (spec item 5): a per-normalized-email FAILURE
+// counter, checked BEFORE the real auth attempt and only ever incremented
+// AFTER a real failed attempt -- never on success, and never by the check
+// itself (see lib/rate-limit.js's peek()/recordFailure() split, and its
+// header comment for why a legitimate user's own successful retry must
+// never nudge this counter). This is layered on top of, not instead of,
+// signinRateLimit's plain per-IP request-rate ceiling just below -- the
+// email-keyed counter survives a rotating IP; the IP-keyed one survives a
+// rotating email. The response shape is IDENTICAL in every failure case
+// (bad password, unknown email, AND rate-limited) -- 401 with the same
+// generic "Invalid email or password."-style message from authProvider, or
+// this route's own equally generic 429 message -- so this never leaks
+// anything about account existence beyond what authProvider.signIn's own
+// pre-existing constant-shape response already did (spec item 5: "don't
+// leak whether email exists more than current UX already does").
+app.post('/api/auth/signin', requireSameOrigin, signinRateLimit, (req, res) => {
+  const email = req.body && req.body.email;
+  const emailKey = `signin-fail:${normalizeEmail(email)}`;
+  const failures = rateLimit.peek(emailKey, RATE_LIMITS.signinFailurePerEmail.windowMs);
+  if (failures.count >= RATE_LIMITS.signinFailurePerEmail.max) {
+    res.setHeader('Retry-After', String(failures.retryAfterSeconds));
+    return res.status(429).json({ ok: false, message: 'Too many failed sign-in attempts. Please try again later.', retryAfterSeconds: failures.retryAfterSeconds });
+  }
+  const result = authProvider.signIn(db, email, req.body && req.body.password);
+  if (!result.ok) {
+    rateLimit.recordFailure(emailKey, RATE_LIMITS.signinFailurePerEmail.windowMs);
+    return res.status(401).json({ ok: false, message: result.error });
+  }
   const { token } = authProvider.createSession(db, result.account.id);
   res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(token, { secure: cookieShouldBeSecure(req) }));
   return res.json({ ok: true, account: result.account });
@@ -1658,7 +1843,173 @@ app.post('/api/auth/signout', requireSameOrigin, (req, res) => {
 });
 app.get('/api/auth/me', withOptionalAuth, (req, res) => {
   if (!req.accountId) return res.json({ authenticated: false });
-  return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail } });
+  // UNIFIED ACCOUNT pass: surfaces app_subscription_status (see
+  // migrations/0004_app_subscription_status.sql) so the client CAN read it
+  // once something real populates it -- today it is always null for every
+  // account, since nothing in this codebase writes it yet. A second lookup
+  // (not the session-resolution JOIN every authenticated request already
+  // runs) because this is the one low-frequency route that actually needs
+  // it, not a hot path.
+  const record = authProvider.findAccountById(db, req.accountId);
+  return res.json({ authenticated: true, account: { id: req.accountId, email: req.accountEmail, appSubscriptionStatus: (record && record.app_subscription_status) || null } });
+});
+
+// V14 (shared identity bridge pass) -- three routes, all fail closed (404)
+// while the feature flag is 'disabled' (the default), matching this file's
+// existing /api/admin/operation-ledger precedent for a real, enforced,
+// invisible-until-turned-on gate. None of these three routes touch
+// `accounts`/`projects`/`credit_ledger`/`purchase_intents` or any other
+// pre-existing table -- only the two new identity_links*/identity_link_events
+// tables (migrations/0005_identity_links.sql) and, for the session-exchange
+// route, the EXACT SAME session-minting path signup/signin already use
+// (authProvider.createSession + sessionCookieHeader) -- no second session
+// mechanism, no new cookie.
+//
+// GET /api/identity/status -- requireAuth. {linked} only, no raw ids (spec
+// item 25). Lets the frontend decide whether to show an "Upgrade to your
+// unified SiteRemade account" affordance without exposing implementation
+// terms.
+app.get('/api/identity/status', requireAuth, (req, res) => {
+  if (!identityBridgeEnabled()) return res.json({ ok: true, bridgeEnabled: false, linked: false });
+  return res.json({ ok: true, bridgeEnabled: true, ...identityLinks.getLinkStatusForAccount(db, req.accountId) });
+});
+
+// POST /api/identity/supabase/session -- NOT requireAuth (a visitor may not
+// have a generator session yet -- this IS how an app-only Supabase user
+// gets one). requireSameOrigin because it's state-changing (can create an
+// account) and mints a session cookie, same discipline as signup/signin.
+// Body: { supabaseAccessToken }. The token is used for exactly one thing
+// -- one verification call to lib/supabase-identity.js -- and is never
+// stored anywhere (not in a cookie, not in a database column, not logged).
+//
+// Resolves to one of:
+//  - an EXISTING link -> mint a normal generator session for that account
+//    (population: a returning, already-linked user -- either originally
+//    linked via this same lazy-provision path, or via the explicit
+//    dual-proof /api/identity/link route below).
+//  - NO link, NO colliding generator account by email -> lazily provision a
+//    brand-new generator account + link, then mint a session for it
+//    (population B/I: an app-only Supabase user with nothing to conflict
+//    with -- see lib/identity-links.js's own header for why this does NOT
+//    need dual-session proof).
+//  - NO link, but a generator account with this email ALREADY exists ->
+//    refuse (409) rather than auto-merge (spec item 6: "same email must
+//    not auto-merge") -- the response tells the visitor to sign into that
+//    existing generator account and link it from there instead (routes to
+//    /api/identity/link, which DOES require dual-session proof).
+app.post('/api/identity/supabase/session', requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+  if (!identityBridgeAllowedForEmail(verified.email)) return res.status(404).json({ ok: false });
+
+  const existingAccountId = identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId);
+  let accountId = existingAccountId;
+  let created = false;
+  if (!accountId) {
+    const provisioned = identityLinks.lazyProvisionGeneratorAccount(db, { supabaseUserId: verified.userId, email: verified.email });
+    if (!provisioned.ok) {
+      return res.status(409).json({
+        ok: false, reason: provisioned.reason,
+        message: 'An existing generator account already uses this email address. Sign in to that account, then link it from there.',
+      });
+    }
+    accountId = provisioned.accountId;
+    created = provisioned.created;
+  }
+  const account = authProvider.findAccountById(db, accountId);
+  const { token: sessionToken } = authProvider.createSession(db, accountId);
+  res.setHeader('Set-Cookie', authProvider.sessionCookieHeader(sessionToken, { secure: cookieShouldBeSecure(req) }));
+  return res.json({ ok: true, account, created });
+});
+
+// POST /api/identity/link -- requireAuth (a real generator session is the
+// FIRST of the two required proofs) + requireSameOrigin. Body:
+// { supabaseAccessToken } (the SECOND required proof -- verified
+// server-side here, never trusted from a client-asserted user id, matching
+// spec item 21's "no unsigned client-side linking" / "no `POST email1 +
+// email2`"). This is the ONLY route that links two PRE-EXISTING accounts
+// together (population C/D) -- see lib/identity-links.js's createLink for
+// the transactional conflict handling (already-linked-elsewhere on either
+// side is refused, never silently overwritten; a retry of the identical
+// link is idempotent).
+app.post('/api/identity/link', requireAuth, requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  if (!identityBridgeAllowedForEmail(req.accountEmail)) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+
+  const result = identityLinks.createLink(db, { generatorAccountId: req.accountId, supabaseUserId: verified.userId });
+  if (!result.ok) {
+    return res.status(409).json({
+      ok: false, reason: result.reason,
+      message: result.reason === 'account_already_linked'
+        ? 'This generator account is already linked to a different SiteRemade account.'
+        : 'That SiteRemade account is already linked to a different generator account.',
+    });
+  }
+  return res.json({ ok: true, linked: true, alreadyLinked: !!result.alreadyLinked });
+});
+
+// V15 (Phase 2: unified login + linking UX) -- two small additions to the
+// V14 identity-bridge API surface, neither of which changes V14's own
+// security model at all:
+//
+// GET /api/identity/public-status -- UNAUTHENTICATED, on purpose. A
+// signed-out visitor (looking at the pre-generation auth gate, or the
+// signed-out account panel) needs to know whether to show "Continue with
+// SiteRemade" at all -- V14's own /api/identity/status requires
+// requireAuth, which a signed-out visitor by definition doesn't have. This
+// mirrors the exact existing pattern of /api/planner-status /
+// /api/image-provider-status / /api/generation-status: a public read of
+// "is this feature configured," never anything account-specific. It
+// intentionally does NOT reveal internal-mode's allowlist or membership in
+// it -- a non-allowlisted visitor sees bridgeEnabled:true exactly like an
+// allowlisted one (matching the same "internal mode fails closed
+// identically to disabled, never leaking who's on the list" posture the
+// three action routes already have) and only discovers they're not
+// eligible if they actually attempt the flow, at which point they get the
+// same generic, friendly "couldn't connect right now" the frontend already
+// shows for a 404 (see script.js's identity-bridge error-copy table).
+app.get('/api/identity/public-status', (req, res) => {
+  res.json({ ok: true, bridgeEnabled: identityBridgeEnabled() });
+});
+
+// POST /api/identity/preview -- requireAuth + requireSameOrigin +
+// identityRateLimit, same gates as /api/identity/link, but performs NO
+// database write and creates NO identity_link_events row -- a pure read
+// that answers "if I clicked confirm right now, which SiteRemade account
+// would this connect to?" so the frontend can show a real confirmation
+// screen (spec: "show enough account information to let the user
+// understand which accounts are being connected... require explicit
+// confirmation") BEFORE calling the real, mutating /api/identity/link.
+// Verifying the same token twice (once here, once again when the person
+// actually confirms) is safe and cheap -- Supabase's own
+// GET /auth/v1/user is a read, not a one-time-use exchange, so calling it
+// twice for the same still-valid token is no different from a person
+// reloading a page. This never returns account IDs, generator account
+// IDs, or any identity_links row -- only the two email addresses already
+// known to the person (their own generator account's, from their existing
+// session, and the Supabase account's, from the token they just proved
+// they hold) plus whether that Supabase identity is already linked
+// elsewhere, so the confirm screen can show a real conflict warning before
+// the person even clicks confirm rather than only after.
+app.post('/api/identity/preview', requireAuth, requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  if (!identityBridgeAllowedForEmail(req.accountEmail)) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+  const alreadyLinkedElsewhere = !!identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId)
+    && identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId) !== req.accountId;
+  return res.json({
+    ok: true,
+    generatorEmail: req.accountEmail,
+    sharedEmail: verified.email,
+    alreadyLinkedElsewhere,
+  });
 });
 // Product-flow pass: a signed-in account's real, durable credit balance --
 // what the account page / generation UI reads to show "X credits left

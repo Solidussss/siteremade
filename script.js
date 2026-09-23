@@ -5847,6 +5847,24 @@ const generatorInput = $('#generatorInput');
 const generatorSubmitButton = $('.generator-submit');
 const generatorSubmitLabel = generatorSubmitButton ? generatorSubmitButton.querySelector('.btn-label') : null;
 
+// ---- UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: pre-generation auth
+// gate + daily-credit UI elements. See runGeneration below for the actual
+// gate (the single chokepoint every generation entry point funnels
+// through), and refreshAuthState/onSignedIn for how sign-in resumes a
+// pending attempt automatically.
+const authGateOverlay = $('#generationAuthGate');
+const gateEmailInput = $('#gateEmailInput');
+const gatePasswordInput = $('#gatePasswordInput');
+const gateSignUpBtn = $('#gateSignUpBtn');
+const gateSignInBtn = $('#gateSignInBtn');
+const gateAuthStatus = $('#gateAuthStatus');
+const gateCloseBtn = $('#generationGateAuthClose');
+const creditIndicator = $('#creditIndicator');
+const creditIndicatorIcon = $('#creditIndicatorIcon');
+const creditIndicatorText = $('#creditIndicatorText');
+const accountCreditsLine = $('#accountCreditsLine');
+if (creditIndicatorIcon) creditIndicatorIcon.innerHTML = renderIcon('lightning', { size: 14, weight: 'bold' });
+
 // ---- Pre-generation upload staging ----------------------------------------
 // Item 8/9 of the brand-experience brief: real image upload lives right in
 // the generation box, before any business/project exists yet -- attach,
@@ -5994,6 +6012,38 @@ const accountLoadTheirsBtn = $('#accountLoadTheirsBtn');
 const accountProjectsSelect = $('#accountProjectsSelect');
 const accountLoadProjectBtn = $('#accountLoadProjectBtn');
 const purchaseOwnershipBadge = $('#purchaseOwnershipBadge');
+
+// V15 (Phase 2: unified login + linking UX): shared-identity bridge
+// elements -- account panel, and the pre-generation auth gate's own
+// mirror of the same "Continue with SiteRemade" entry point. See
+// SITE-PROJECT-V15-UNIFIED-LOGIN.md for the full flow this wires up.
+const sharedIdentityContinueBtn = $('#sharedIdentityContinueBtn');
+const sharedIdentityDivider = $('#sharedIdentityDivider');
+const gateSharedIdentityBtn = $('#gateSharedIdentityBtn');
+const gateSharedIdentityDivider = $('#gateSharedIdentityDivider');
+const identityConnectedBadge = $('#identityConnectedBadge');
+const accountOpenAppLink = $('#accountOpenAppLink');
+const identityConnectBtn = $('#identityConnectBtn');
+const identityConnectStatus = $('#identityConnectStatus');
+const identityConfirmPanel = $('#identityConfirmPanel');
+// The entire account panel (#accountBlock, including every shared-identity
+// element above) lives inside the pre-existing "Advanced customization"
+// <details> drawer, which is CLOSED by default and -- critically -- is
+// NEVER left open across a real navigation (a fresh page load, like the
+// one that always follows the redirect back from app.siteremade.com,
+// always starts it closed again, however it was left before the visitor
+// went there). Without forcing it open, a person completing the shared-
+// identity round trip would land back here with their result -- the
+// confirm dialog, a connected badge, or an error -- rendered but
+// genuinely invisible, having to guess to expand an unrelated-looking
+// accordion to find it. See handleIdentityBridgeFragment, which opens it.
+const advancedPanelDetails = $('#advancedPanel');
+const identityConfirmSharedEmail = $('#identityConfirmSharedEmail');
+const identityConfirmGeneratorEmail = $('#identityConfirmGeneratorEmail');
+const identityConfirmWarning = $('#identityConfirmWarning');
+const identityConfirmLinkBtn = $('#identityConfirmLinkBtn');
+const identityCancelLinkBtn = $('#identityCancelLinkBtn');
+const clientLoginLink = $('#clientLoginLink');
 
 // V8.3: editor/remix panel elements -- a compact control-block inside the
 // same collapsible "Advanced customization" drawer the color/layout/section
@@ -6848,9 +6898,14 @@ async function requestClaudePlan(text, taskType) {
       body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE' })
     });
     const data = await response.json().catch(() => ({}));
-    return data && typeof data === 'object' ? data : { ok: false };
+    // UNIFIED ACCOUNT pass: the HTTP status is now part of the return value
+    // too (not just the JSON body) -- runGeneration needs to tell a real
+    // 401 (session expired mid-visit; requireAuth's own response shape)
+    // apart from every other soft failure this function has always folded
+    // into a plain {ok:false}.
+    return data && typeof data === 'object' ? { ...data, status: response.status } : { ok: false, status: response.status };
   } catch (error) {
-    return { ok: false };
+    return { ok: false, status: 0 };
   }
 }
 
@@ -7718,18 +7773,22 @@ async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle
   setLifecycleState('ready', proj);
   return true;
 }
-function failGenerationGate() {
+function failGenerationGate(message) {
   // No isDemoProject bail here (unlike showGenerationGate's restore/switch
   // guard): a failed FIRST attempt reverts `project` back to the demo
   // shell (see runGeneration's finally block), and that failure/retry
   // state must still show -- the demo must never sit fully exposed after
   // a failed generation, only ever idle-gated or failure-gated.
+  // UNIFIED ACCOUNT pass: accepts an optional override message so a
+  // specific, honest reason (e.g. "out of credits today") can be shown
+  // here instead of the generic fallback -- see runGeneration's
+  // creditsExceeded handling.
   if (!generationGate || !builderDevice) return;
   builderDevice.classList.add('gate-active');
   if (generationGateIdle) generationGateIdle.hidden = true;
   if (generationGateBuilding) generationGateBuilding.hidden = false;
   generationGate.hidden = false;
-  if (generationGateStatus) generationGateStatus.textContent = 'The website could not be completed. Your previous version is safe.';
+  if (generationGateStatus) generationGateStatus.textContent = message || 'The website could not be completed. Your previous version is safe.';
   if (generationGateRetry) generationGateRetry.hidden = false;
   lifecycle.gateVisible = true;
   generationGateOrder.forEach(key => {
@@ -7762,12 +7821,31 @@ if (generationGateRetry) generationGateRetry.addEventListener('click', () => {
   builderDevice.classList.remove('gate-active');
 });
 
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the Generate button's idle
+// label now honestly reflects real account/credit state -- "Generate
+// website" signed out (pressing it opens the account gate, never spends a
+// credit), "Generate website · N credits" signed in with room, or an
+// explicit out-of-credits label -- rather than a hardcoded string. N always
+// comes from the backend's own creditsSummaryFor (see refreshCreditsUI) --
+// never a second, frontend-computed cost.
+function updateGenerateButtonLabel() {
+  if (!generatorSubmitLabel) return;
+  if (!currentAccount || !latestCredits || typeof latestCredits.generationCost !== 'number') {
+    generatorSubmitLabel.textContent = 'Generate website';
+    return;
+  }
+  if (latestCredits.remaining < latestCredits.generationCost) {
+    generatorSubmitLabel.textContent = 'Generate website — out of credits today';
+  } else {
+    generatorSubmitLabel.textContent = `Generate website · ${latestCredits.generationCost} credits`;
+  }
+}
 function resetGenerationChromeUI() {
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
   if (heroDemoCopy) heroDemoCopy.style.removeProperty('opacity');
   if (generatorSubmitButton) generatorSubmitButton.disabled = false;
-  if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Generate website';
+  updateGenerateButtonLabel();
 }
 // V8.1.2: returns whether `proj` was actually admitted (true) or not
 // (false), so callers can tell runGeneration's `finally` block whether
@@ -7827,6 +7905,25 @@ function finishGeneration(proj, expectedDirectionIndex) {
 async function runGeneration(text) {
   if (!text || !text.trim()) return;
   if (generationInFlight) return;
+  // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the single chokepoint
+  // every generation entry point funnels through (main form submit, "Try
+  // another direction," example chips, the idle-gate CTA) -- see index.html
+  // showIdleGenerationGate/generationGateCta, which all resolve to a call
+  // here. A signed-out visitor may fill the form freely; only pressing
+  // Generate reaches this point, and it stops HERE, before any network
+  // call, before the deterministic engine, before anything expensive --
+  // never just a disabled/hidden button (spec: "server must enforce this
+  // too, not just hide/disable the button client-side" -- see /api/plan-
+  // website's own requireAuth for the server-side half of this).
+  // authReadyPromise avoids a race where this could incorrectly gate an
+  // already-signed-in returning visitor whose first /api/auth/me hasn't
+  // resolved yet.
+  await authReadyPromise;
+  if (!currentAccount) {
+    setPendingGenerationText(text);
+    showAuthGate();
+    return;
+  }
   if (directions.length >= MAX_DIRECTIONS) {
     announceDirectionLimitReached();
     return;
@@ -7844,6 +7941,7 @@ async function runGeneration(text) {
   // (if any exist yet), or the pre-generation/demo shell (if none do).
   const previousProject = project;
   let admitted = false; // set true only by a successful finishGeneration call below
+  let failureMessage = null; // UNIFIED ACCOUNT pass: an optional specific reason for the failure gate (e.g. out of credits), read by the finally block below
   generationInFlight = true;
   lifecycle.waitingForProvider = false;
   lifecycle.preparationToken++;
@@ -7853,34 +7951,98 @@ async function runGeneration(text) {
   try {
     let claudePlan = null;
     const meter = window.__siteremadePlanMeter;
-    if (meter && meter.planConfigured) {
-      setLifecycleState('planning', project);
-      updateGenerationGate('creative');
-      if (generatorSubmitButton) generatorSubmitButton.disabled = true;
-      if (generatorSubmitLabel) generatorSubmitLabel.textContent = 'Planning with Claude…';
-      const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE');
-      if (result && result.ok && result.plan) {
-        const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
-        claudePlan = normalizeClaudePlan(result.plan, catDefaults);
-        // A structurally unusable response (normalizeClaudePlan returned
-        // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
-        // part 12 requires falling back from -- it does NOT re-throw or
-        // block; claudePlan simply stays null and buildGenerationPlan below
-        // runs the real deterministic engine instead. Either way this attempt
-        // still produces exactly one direction (see finishGeneration) -- a
-        // failed/unusable Claude response is never a reason to produce
-        // NOTHING, and it is never a reason to produce a SECOND direction
-        // either. It also never releases and re-acquires the lock between
-        // the Claude attempt and the deterministic fallback below -- this
-        // is all still the same one reserved transaction.
-      }
-      // A limited/unconfigured/failed response is invisible beyond this --
-      // there is no separate error state for the visitor, because nothing is
-      // actually broken from their side: the deterministic engine below still
-      // produces this direction. It also does NOT re-check `directions.length`
-      // again -- the guard at the top of this function already reserved this
-      // attempt's place in the 3-direction budget before any network call.
+    // UNIFIED ACCOUNT pass: this call now ALWAYS happens for a signed-in
+    // caller, not only when Claude planning is configured. /api/plan-
+    // website is the one place a generation's credit is actually reserved
+    // (see server.js) -- skipping the call whenever Claude wasn't
+    // configured used to skip credit reservation entirely too, silently
+    // making every generation free in an environment without Claude
+    // configured (a real gap found during this pass's audit, fixed
+    // server-side by reserving-then-committing immediately on the
+    // unconfigured path; this client-side call is what actually reaches
+    // that fixed path). The deterministic-engine fallback behavior below is
+    // completely unchanged -- only the credit-and-gate accounting around it
+    // is now always real.
+    setLifecycleState('planning', project);
+    updateGenerationGate('creative');
+    if (generatorSubmitButton) generatorSubmitButton.disabled = true;
+    if (generatorSubmitLabel) generatorSubmitLabel.textContent = (meter && meter.planConfigured) ? 'Planning with Claude…' : 'Reserving your credit…';
+    const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE');
+    if (result && result.status === 401) {
+      // Session expired mid-visit (spec: "session expiry during use" must
+      // be handled, not just at page load) -- currentAccount was stale.
+      // Re-show the SAME gate with the SAME preserved text rather than
+      // failing silently or discarding anything; signing back in resumes
+      // this exact attempt automatically (see resumeOrReshowPendingGeneration).
+      currentAccount = null;
+      updateAccountUI();
+      setPendingGenerationText(text);
+      showAuthGate('Your session expired — sign in again to continue generating this website.');
+      return;
     }
+    // FINAL GENERATOR HARDENING pass (spec item 17): the new server-side
+    // rate limit (see server.js's RATE_LIMITS.generation) can refuse this
+    // exact call with a 429 -- checked BEFORE applyCreditsFromPlanResponse
+    // (a 429 body carries no creditsRemaining field; that call is already a
+    // safe no-op without one, but the ordering here matches the 401 branch
+    // above and keeps this read top-to-bottom as "handle the special
+    // statuses first"). This is a real, enforced stop with its own clear,
+    // specific message -- never the generic "website could not be
+    // completed" failure text a genuine build error would show, and never a
+    // silent fallback to the deterministic engine (which would let a
+    // request that was refused for being too fast slip through anyway).
+    // Nothing about the pending text needs preserving here beyond what
+    // already happens for every other failure path: `text` was never
+    // cleared from the input field before this call, and returning now
+    // (before buildGenerationPlan is ever reached, exactly like the
+    // creditsExceeded branch below) means no project object -- duplicate or
+    // otherwise -- is ever created for this refused attempt. The server
+    // enforces the "don't burn credits" half of this on its own (the rate
+    // limiter runs before credit reservation in both server.js and
+    // mock-server.js -- see v13-generator-hardening-test.js's "11b. credits
+    // remaining is unchanged by a 429" check), so there is nothing to
+    // release or roll back client-side either.
+    if (result && result.status === 429) {
+      const retrySeconds = Number.isFinite(result.retryAfterSeconds) ? Math.max(1, Math.round(result.retryAfterSeconds)) : null;
+      const retryNote = retrySeconds ? ` Try again in ${retrySeconds < 60 ? retrySeconds + 's' : Math.ceil(retrySeconds / 60) + 'm'}.` : ' Please try again in a moment.';
+      failureMessage = (result.message || 'Too many requests in a short time.') + retryNote + ' Your credits were not charged.';
+      return;
+    }
+    if (result) applyCreditsFromPlanResponse(result);
+    if (result && result.creditsExceeded) {
+      // A real, enforced stop -- never a silent fallback to the free
+      // deterministic engine (that would defeat the whole credit system).
+      // Clear, structured message, never a generic 403/failure (spec item
+      // 9), surfaced through the SAME failure/retry gate a normal
+      // generation failure already uses (see the finally block below).
+      failureMessage = result.message || `You've used today's free credits — more opens up tomorrow (UTC).`;
+      return;
+    }
+    if (result && result.ok && result.plan) {
+      const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
+      claudePlan = normalizeClaudePlan(result.plan, catDefaults);
+      // A structurally unusable response (normalizeClaudePlan returned
+      // null) is exactly the "invalid model output" case SITE-PROJECT-V8.md
+      // part 12 requires falling back from -- it does NOT re-throw or
+      // block; claudePlan simply stays null and buildGenerationPlan below
+      // runs the real deterministic engine instead. Either way this attempt
+      // still produces exactly one direction (see finishGeneration) -- a
+      // failed/unusable Claude response is never a reason to produce
+      // NOTHING, and it is never a reason to produce a SECOND direction
+      // either. It also never releases and re-acquires the lock between
+      // the Claude attempt and the deterministic fallback below -- this
+      // is all still the same one reserved transaction.
+    }
+    // A limited/unconfigured/failed response (other than creditsExceeded/401
+    // above) is invisible beyond this -- there is no separate error state
+    // for the visitor, because nothing is actually broken from their side:
+    // the deterministic engine below still produces this direction, and the
+    // credit already reserved for this attempt was already committed
+    // server-side for the unconfigured case (or will be released on a
+    // genuine error, per that route's own contract). This also does NOT
+    // re-check `directions.length` again -- the guard at the top of this
+    // function already reserved this attempt's place in the 3-direction
+    // budget before any network call.
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
     // Whatever was staged in the generator box (attach/drag/paste, before
@@ -8005,7 +8167,11 @@ async function runGeneration(text) {
       project = directions.length ? directions[activeDirectionIndex] : previousProject;
       renderProject(project);
       renderDirectionSwitcher();
-      failGenerationGate();
+      // UNIFIED ACCOUNT pass: a session-expired-mid-attempt abort already
+      // re-opened the auth gate above (the real actionable UI for that
+      // case) -- showing the generic failure/retry gate underneath it too
+      // would just be a second, redundant overlay stacked behind the first.
+      if (!authGateOverlay || authGateOverlay.hidden) failGenerationGate(failureMessage);
     }
   }
 }
@@ -8039,6 +8205,32 @@ let autosaveHighestAppliedSeq = 0; // a response is only ever applied if no NEWE
 let autosaveState = 'idle'; // idle | dirty | saving | saved | failed | conflict
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const AUTOSAVE_RETRY_MS = 5000;
+// UNIFIED ACCOUNT / AUTH-GATED GENERATION pass -----------------------------
+// latestCredits: the account's real daily balance, as last reported by the
+// backend (/api/credits, or a /api/plan-website response's own
+// creditsRemaining) -- {used, reserved, remaining, dailyFreeCredits,
+// generationCost, resetsAt} | null. Never computed client-side (spec: "Do
+// NOT create a second credit calculation in the frontend").
+let latestCredits = null;
+// pendingGenerationText: the EXACT brief a signed-out (or session-expired)
+// visitor was trying to generate when the auth gate interrupted them --
+// preserved verbatim (never re-derived, never retyped) and resumed
+// automatically the moment sign-in/sign-up succeeds. Persisted to
+// localStorage too, so it survives an accidental page refresh while the
+// gate is open (spec: "preserve pending generation state robustly through
+// ... refresh ... back-navigation").
+let pendingGenerationText = null;
+const PENDING_GENERATION_KEY = 'siteremade:pendingGenerationText';
+function setPendingGenerationText(text) {
+  pendingGenerationText = text || null;
+  try {
+    if (pendingGenerationText) localStorage.setItem(PENDING_GENERATION_KEY, pendingGenerationText);
+    else localStorage.removeItem(PENDING_GENERATION_KEY);
+  } catch (e) { /* best-effort only -- an unavailable localStorage never blocks the gate itself */ }
+}
+function loadPendingGenerationText() {
+  try { return localStorage.getItem(PENDING_GENERATION_KEY) || null; } catch (e) { return null; }
+}
 let resolveAuthReady;
 // handlePurchaseReturn (below) can run before this module's own
 // refreshAuthState() call has resolved -- it awaits this so a purchase-
@@ -8096,6 +8288,111 @@ function updatePurchaseOwnershipBadge() {
     purchaseOwnershipBadge.hidden = true;
   }
 }
+// ---- UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: auth gate + credit UI --
+function setGateAuthStatus(msg, isError) {
+  if (!gateAuthStatus) return;
+  gateAuthStatus.textContent = msg || '';
+  gateAuthStatus.className = 'generation-gate-status' + (isError ? ' error' : '');
+}
+let gateReturnFocusEl = null;
+function showAuthGate(message) {
+  if (!authGateOverlay) return;
+  setGateAuthStatus(message || '');
+  authGateOverlay.hidden = false;
+  document.body.classList.add('generation-gate-open');
+  gateReturnFocusEl = document.activeElement;
+  if (gateEmailInput) gateEmailInput.focus();
+}
+function hideAuthGate() {
+  if (!authGateOverlay) return;
+  authGateOverlay.hidden = true;
+  document.body.classList.remove('generation-gate-open');
+  if (gateReturnFocusEl && typeof gateReturnFocusEl.focus === 'function') gateReturnFocusEl.focus();
+  gateReturnFocusEl = null;
+}
+if (gateCloseBtn) gateCloseBtn.addEventListener('click', () => hideAuthGate());
+// Clicking the dimmed backdrop itself (not the card) also cancels -- the
+// typed description is never lost either way (see setPendingGenerationText/
+// generatorInput, which this never touches).
+if (authGateOverlay) authGateOverlay.addEventListener('click', e => { if (e.target === authGateOverlay) hideAuthGate(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && authGateOverlay && !authGateOverlay.hidden) hideAuthGate(); });
+
+function formatResetTime(resetsAt) {
+  if (!resetsAt) return '';
+  try { return new Date(resetsAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+  catch (e) { return ''; }
+}
+// The one place credit UI actually renders from latestCredits -- called
+// after every fetch AND every account-state change, so the indicator,
+// account-panel line, and Generate button label can never drift out of
+// sync with each other.
+function renderCreditsUI() {
+  const signedIn = !!currentAccount;
+  if (creditIndicator) creditIndicator.hidden = !signedIn;
+  if (signedIn && latestCredits) {
+    const { remaining, dailyFreeCredits, resetsAt, generationCost } = latestCredits;
+    if (creditIndicatorText) creditIndicatorText.textContent = `${remaining} of ${dailyFreeCredits} credits today`;
+    if (creditIndicator) {
+      const resetLabel = formatResetTime(resetsAt);
+      creditIndicator.title = resetLabel ? `Resets ${resetLabel}` : '';
+      creditIndicator.classList.toggle('credit-indicator-low', typeof generationCost === 'number' && remaining < generationCost);
+    }
+    if (accountCreditsLine) {
+      const resetLabel = formatResetTime(resetsAt);
+      accountCreditsLine.textContent = `${remaining} of ${dailyFreeCredits} credits left today${resetLabel ? ' · resets ' + resetLabel : ''}`;
+    }
+  } else if (signedIn) {
+    if (creditIndicatorText) creditIndicatorText.textContent = 'Loading credits…';
+    if (accountCreditsLine) accountCreditsLine.textContent = '';
+  } else {
+    if (accountCreditsLine) accountCreditsLine.textContent = '';
+  }
+  updateGenerateButtonLabel();
+}
+// Fetches the account's real balance from the one backend source of truth
+// -- called on sign-in/sign-up, at bootstrap (via refreshAuthState), and
+// after sign-out (to clear it). Never called from a hot path (typing,
+// rendering) -- only real account-state transitions.
+async function refreshCreditsUI() {
+  if (!currentAccount) { latestCredits = null; renderCreditsUI(); return; }
+  const { ok, data } = await apiFetch('/api/credits');
+  if (ok && data.ok) latestCredits = data.credits;
+  renderCreditsUI();
+}
+// A /api/plan-website response always carries the POST-this-call
+// creditsRemaining figure -- applying it directly here means the indicator
+// updates immediately after a generation (spec item 8: "never trust stale
+// local state") without a second round-trip to /api/credits. Only the
+// `remaining` field is patched; dailyFreeCredits/generationCost/resetsAt
+// come from the last full /api/credits fetch (or are fetched fresh if none
+// has happened yet this session).
+function applyCreditsFromPlanResponse(result) {
+  if (!result || typeof result.creditsRemaining !== 'number') return;
+  if (latestCredits) { latestCredits = { ...latestCredits, remaining: result.creditsRemaining }; renderCreditsUI(); }
+  else refreshCreditsUI();
+}
+// Resumes an interrupted generation attempt the moment auth state is known
+// -- called once per real auth-state resolution (bootstrap's
+// refreshAuthState, and after a successful sign-in/sign-up in the gate
+// itself). If now signed in, the exact preserved brief is resubmitted
+// automatically (spec: "after auth, resume automatically... never make them
+// retype, never discard state"). If still signed out (e.g. a plain page
+// refresh while the gate was open, spec item 19), the gate is re-shown with
+// the same text pre-filled into the visible form field too, so it's never
+// silently lost.
+function resumeOrReshowPendingGeneration() {
+  const pending = pendingGenerationText || loadPendingGenerationText();
+  if (!pending) return;
+  if (currentAccount) {
+    setPendingGenerationText(null);
+    hideAuthGate();
+    runGeneration(pending);
+  } else {
+    pendingGenerationText = pending;
+    if (generatorInput && !generatorInput.value.trim()) generatorInput.value = pending;
+    showAuthGate();
+  }
+}
 function updateAccountUI() {
   const signedIn = !!currentAccount;
   if (accountSignedOut) accountSignedOut.hidden = signedIn;
@@ -8118,6 +8415,17 @@ function updateAccountUI() {
   // Product-flow pass: same chokepoint, for the account-wide (not just
   // currently-open-project) My Websites list.
   if (typeof refreshMyWebsitesPanel === 'function') refreshMyWebsitesPanel(false);
+  // UNIFIED ACCOUNT pass: same chokepoint, for the credit indicator/label --
+  // only toggles visibility and re-renders whatever latestCredits already
+  // holds; the actual balance fetch is refreshCreditsUI, called separately
+  // on real account-state transitions (see its own comment).
+  renderCreditsUI();
+  // V15 (Phase 2): same chokepoint, for the shared-identity CTA/connect
+  // button/connected badge -- only toggles visibility from whatever
+  // identityBridgeIsEnabled/identityIsLinked already hold; the actual
+  // fetch is refreshIdentityBridgeStatus, called separately on real
+  // auth-state transitions (see its own call site in refreshAuthState).
+  renderIdentityBridgeUI();
 }
 async function refreshServerProjectStatus() {
   if (!currentAccount || !serverProjectId) return;
@@ -8269,6 +8577,20 @@ async function refreshAuthState() {
     currentAccount = null;
   }
   updateAccountUI();
+  // UNIFIED ACCOUNT pass: resolve the real daily balance as part of the
+  // same real-auth-state-known chokepoint every other post-auth step here
+  // uses, then resolve any generation this visitor was in the middle of
+  // when they last left/refreshed (spec: preserve pending generation state
+  // through a refresh) -- both before authReadyPromise resolves, so
+  // runGeneration's own `await authReadyPromise` never observes a moment
+  // where auth is known but credits/pending-resume aren't yet.
+  await refreshCreditsUI();
+  // V15 (Phase 2): same chokepoint -- whether the bridge is on, and
+  // whether THIS account is already connected, is re-derived every time
+  // real auth state is (re)established, never left stale across a
+  // sign-in/out transition.
+  await refreshIdentityBridgeStatus();
+  resumeOrReshowPendingGeneration();
   if (resolveAuthReady) { resolveAuthReady(); resolveAuthReady = null; }
 }
 async function onSignedIn() {
@@ -8345,30 +8667,62 @@ async function forceSyncBeforeCheckout() {
   return autosaveState === 'saved';
 }
 
+// UNIFIED ACCOUNT pass: the actual /api/auth/${mode} call, extracted out of
+// submitAuthForm so the account panel's own sign-in/sign-up buttons AND the
+// pre-generation auth gate's buttons call exactly one real implementation
+// -- never two independently-maintained copies of "how signing in works"
+// (spec: same login on landing page and app -- and, within this one
+// surface, the same login code path everywhere it's offered).
+async function performAuth(mode, email, password, { onStatus, buttons } = {}) {
+  email = (email || '').trim();
+  const status = onStatus || (() => {});
+  if (!email || !password) { status('Enter an email and password.', true); return { ok: false }; }
+  (buttons || []).forEach(b => { if (b) b.disabled = true; });
+  status(mode === 'signin' ? 'Signing in…' : 'Creating your account…', false);
+  const { ok, data } = await apiFetch(`/api/auth/${mode}`, { method: 'POST', body: { email, password } });
+  if (ok && data.ok) {
+    currentAccount = data.account;
+    status(`Signed in as ${data.account.email}.`, false);
+    updateAccountUI();
+    await onSignedIn();
+    await refreshCreditsUI();
+  } else {
+    status((data && data.message) || 'Could not sign in.', true);
+  }
+  (buttons || []).forEach(b => { if (b) b.disabled = false; });
+  return { ok: !!(ok && data && data.ok), data };
+}
+
 if (accountSignInBtn) accountSignInBtn.addEventListener('click', () => submitAuthForm('signin'));
 if (accountSignUpBtn) accountSignUpBtn.addEventListener('click', () => submitAuthForm('signup'));
 async function submitAuthForm(mode) {
   const email = accountEmailInput ? accountEmailInput.value.trim() : '';
   const password = accountPasswordInput ? accountPasswordInput.value : '';
-  if (!email || !password) { setAccountAuthStatus('Enter an email and password.', true); return; }
   const btn = mode === 'signin' ? accountSignInBtn : accountSignUpBtn;
   const otherBtn = mode === 'signin' ? accountSignUpBtn : accountSignInBtn;
-  if (btn) btn.disabled = true;
-  if (otherBtn) otherBtn.disabled = true;
-  setAccountAuthStatus(mode === 'signin' ? 'Signing in…' : 'Creating your account…');
-  const { ok, data } = await apiFetch(`/api/auth/${mode}`, { method: 'POST', body: { email, password } });
-  if (ok && data.ok) {
-    currentAccount = data.account;
-    if (accountPasswordInput) accountPasswordInput.value = '';
-    setAccountAuthStatus(`Signed in as ${data.account.email}.`);
-    updateAccountUI();
-    await onSignedIn();
-  } else {
-    setAccountAuthStatus((data && data.message) || 'Could not sign in.', true);
-  }
-  if (btn) btn.disabled = false;
-  if (otherBtn) otherBtn.disabled = false;
+  const result = await performAuth(mode, email, password, { onStatus: setAccountAuthStatus, buttons: [btn, otherBtn] });
+  if (result.ok && accountPasswordInput) accountPasswordInput.value = '';
 }
+
+// The pre-generation gate's own sign-in/sign-up -- identical call, own
+// fields/status/buttons. A successful auth here additionally resumes
+// (never discards) whatever generation was pending, exactly once.
+if (gateSignUpBtn) gateSignUpBtn.addEventListener('click', () => submitGateAuthForm('signup'));
+if (gateSignInBtn) gateSignInBtn.addEventListener('click', () => submitGateAuthForm('signin'));
+async function submitGateAuthForm(mode) {
+  const email = gateEmailInput ? gateEmailInput.value.trim() : '';
+  const password = gatePasswordInput ? gatePasswordInput.value : '';
+  const btn = mode === 'signin' ? gateSignInBtn : gateSignUpBtn;
+  const otherBtn = mode === 'signin' ? gateSignUpBtn : gateSignInBtn;
+  const result = await performAuth(mode, email, password, { onStatus: setGateAuthStatus, buttons: [btn, otherBtn] });
+  if (!result.ok) return; // wrong password / validation error stays on screen, exactly as typed, gate stays open -- nothing discarded
+  if (gatePasswordInput) gatePasswordInput.value = '';
+  hideAuthGate();
+  const text = pendingGenerationText || loadPendingGenerationText();
+  setPendingGenerationText(null);
+  if (text) runGeneration(text); // guarded against double-submit by runGeneration's own generationInFlight check
+}
+
 if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
   await apiFetch('/api/auth/signout', { method: 'POST' });
   currentAccount = null;
@@ -8377,12 +8731,293 @@ if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
   ownedProjectsCache = [];
   myWebsitesLoadedForAccount = null;
   latestSnapshot = null;
+  latestCredits = null; // UNIFIED ACCOUNT pass: clears the indicator immediately -- never shows a stale balance for the now-signed-out visitor
   hideConflict();
   if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
   setAutosaveState('idle');
   setAccountAuthStatus('Signed out.');
+  // V15 (Phase 2): a signed-out visitor never carries over the previous
+  // account's link state or a half-open confirm panel -- both are re-
+  // derived fresh the next time someone signs in (renderIdentityBridgeUI
+  // itself also gates everything on currentAccount, but this avoids even a
+  // one-frame flash of stale state).
+  identityIsLinked = false;
+  hideIdentityConfirmPanel();
   updateAccountUI();
+  renderIdentityBridgeUI();
 });
+
+// ---- V15 (Phase 2: unified login + linking UX) -----------------------------
+// The generator's own frontend half of the identity bridge. Backend
+// contract (all V14, unchanged by this pass): GET /api/identity/public-status
+// (unauthenticated -- lets a SIGNED-OUT visitor know whether to show
+// "Continue with SiteRemade" at all), GET /api/identity/status
+// (requireAuth), POST /api/identity/supabase/session (mints a normal
+// generator session for a verified Supabase identity -- population B/I,
+// spec items 3/4), POST /api/identity/preview (requireAuth, read-only --
+// previews what a link WOULD connect, spec item 5's "show a clear
+// confirmation screen"), POST /api/identity/link (requireAuth, the one
+// real mutating link call -- population C/D, spec item 5's "user
+// confirms"). See SITE-PROJECT-V15-UNIFIED-LOGIN.md for the full flow and
+// the session-handoff architecture this depends on: the SiteRemade app
+// mints the redirect URL that carries a verified identity back here; this
+// file only ever consumes it, never manages Supabase tokens as an ongoing
+// session of its own (V14 §11's Option B, unchanged).
+const SITEREMADE_APP_URL = 'https://app.siteremade.com/';
+let identityBridgeIsEnabled = false;
+let identityIsLinked = false;
+// Held only in memory (never localStorage, never a cookie) for exactly as
+// long as the confirm panel is open -- cleared the moment the person
+// confirms, cancels, or navigates away. This is the one place a raw
+// Supabase access token exists in this file, and only during the
+// dual-proof CONFIRM step (spec item 6) -- the far more common session-
+// exchange path (spec items 3/4) never holds onto a token past its single
+// POST /api/identity/supabase/session call in handleIdentityBridgeFragment.
+let pendingLinkToken = null;
+
+function renderIdentityBridgeUI() {
+  const show = identityBridgeIsEnabled;
+  if (sharedIdentityContinueBtn) sharedIdentityContinueBtn.hidden = !show || !!currentAccount;
+  if (sharedIdentityDivider) sharedIdentityDivider.hidden = !show || !!currentAccount;
+  if (gateSharedIdentityBtn) gateSharedIdentityBtn.hidden = !show;
+  if (gateSharedIdentityDivider) gateSharedIdentityDivider.hidden = !show;
+  const connected = show && !!currentAccount && identityIsLinked;
+  const canConnect = show && !!currentAccount && !identityIsLinked;
+  if (identityConnectedBadge) identityConnectedBadge.hidden = !connected;
+  if (accountOpenAppLink) accountOpenAppLink.hidden = !connected;
+  if (identityConnectBtn) identityConnectBtn.hidden = !canConnect;
+  // Cross-product nav (spec item 8): the ALREADY-existing "Client Login"
+  // link (index.html, present since V8.5, always a plain link to the
+  // app -- see its own comment there) just gets clearer copy once we know
+  // this visitor's account is actually connected. Its href/behavior are
+  // untouched -- still a plain link, never a second silent auto-login,
+  // matching the spec's own "a simple Open SiteRemade App" minimum bar and
+  // "do not overbuild a unified mega-dashboard."
+  if (clientLoginLink) {
+    clientLoginLink.textContent = connected ? 'Open SiteRemade App' : 'Client Login';
+    clientLoginLink.setAttribute('aria-label', connected ? 'Open the SiteRemade app -- same account' : 'Open SiteRemade client login');
+  }
+}
+// Routes a status message to whichever of the two status paragraphs is
+// actually visible right now -- accountAuthStatus lives in the
+// signed-OUT panel, identityConnectStatus in the signed-IN one -- so an
+// error from e.g. an expired GENERATOR session during the "Connect" round
+// trip (which lands the visitor back here effectively signed out) is never
+// written into an element that's `hidden`.
+function showIdentityStatusMessage(msg, isError) {
+  if (currentAccount) setIdentityConnectStatus(msg, isError);
+  else setAccountAuthStatus(msg, isError);
+}
+
+// Single source of truth for whether the bridge is even on, and (once
+// signed in) whether THIS account is already connected -- never guessed,
+// never cached across a sign-in/out transition. Called from
+// refreshAuthState()'s own one real auth-state chokepoint, so this can
+// never drift out of sync with currentAccount.
+async function refreshIdentityBridgeStatus() {
+  const pub = await apiFetch('/api/identity/public-status');
+  identityBridgeIsEnabled = !!(pub.ok && pub.data && pub.data.bridgeEnabled);
+  if (identityBridgeIsEnabled && currentAccount) {
+    const status = await apiFetch('/api/identity/status');
+    identityIsLinked = !!(status.ok && status.data && status.data.linked);
+  } else {
+    identityIsLinked = false;
+  }
+  renderIdentityBridgeUI();
+}
+
+// Customer-facing copy for every failure case spec item 7 lists -- never a
+// raw server message, always a specific recovery-oriented sentence. `data`
+// is the parsed JSON body apiFetch already returned; `status` its HTTP
+// status code.
+function identityErrorMessage(status, data) {
+  const reason = data && data.reason;
+  const rawMessage = (data && data.message) || '';
+  if (status === 409 && reason === 'email_conflict') return 'An account already exists with this email. Sign in below with your password instead, then connect it from your account panel.';
+  if (status === 409 && reason === 'account_already_linked') return 'Your generator account is already connected to a different SiteRemade account. Sign out and try again from the account you meant to connect.';
+  if (status === 409 && reason === 'supabase_user_already_linked') return 'That SiteRemade account is already connected to a different generator account. Sign in to the generator account you originally connected it to.';
+  // requireAuth's own generic 401 ("Sign in required.") means the
+  // GENERATOR session itself is the one that's missing/expired -- a
+  // different, more actionable message than a stale/forged Supabase token
+  // (also a 401, different message) deserves.
+  if (status === 401 && rawMessage === 'Sign in required.') return 'You’ve been signed out of your generator account. Please sign in again, then try connecting.';
+  if (status === 401) return 'Your SiteRemade sign-in expired before we could verify it. Please try connecting again.';
+  if (status === 404) return 'Connecting your SiteRemade account isn’t available right now.';
+  return 'Something went wrong connecting your SiteRemade account. Please try again.';
+}
+
+// Navigates the WHOLE PAGE (top-level, not a fetch) to the SiteRemade
+// app's own sign-in, carrying a `handoff_return` the app hands back
+// through the session-handoff redirect once the visitor is authenticated
+// there -- see SITE-PROJECT-V15-UNIFIED-LOGIN.md's session-handoff section
+// for the exact redirect-URL contract (a short-lived Supabase access token
+// in a URL FRAGMENT, never a query string -- mirroring this exact app's
+// own existing Google-OAuth pattern on the SiteRemade-app side; exchanged
+// and scrubbed from the address bar within the same page load below; no
+// refresh token ever leaves the app; nothing is ever stored in
+// localStorage). `mode` becomes `handoff_mode` -- 'session' (spec items
+// 3/4: a new or existing SiteRemade-app user entering the generator, no
+// generator session assumed yet) or 'link' (spec item 5: an ALREADY
+// signed-in legacy generator visitor proving they also own a SiteRemade
+// account, for the dual-proof confirm flow below). The exact typed
+// generation brief, if any, is already preserved by this point --
+// runGeneration sets it via setPendingGenerationText before ever showing
+// the auth gate this button lives in (spec item 11).
+function startSharedIdentityHandoff(mode) {
+  const returnUrl = window.location.origin + window.location.pathname;
+  const url = new URL(SITEREMADE_APP_URL);
+  url.searchParams.set('handoff_return', returnUrl);
+  url.searchParams.set('handoff_mode', mode);
+  window.location.href = url.toString();
+}
+if (sharedIdentityContinueBtn) sharedIdentityContinueBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
+if (gateSharedIdentityBtn) gateSharedIdentityBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
+if (identityConnectBtn) identityConnectBtn.addEventListener('click', () => {
+  setIdentityConnectStatus('');
+  startSharedIdentityHandoff('link');
+});
+function setIdentityConnectStatus(msg, isError) {
+  if (!identityConnectStatus) return;
+  identityConnectStatus.textContent = msg || '';
+  identityConnectStatus.className = 'account-status' + (isError ? ' error' : '');
+}
+// Same focus-management convention as the pre-existing auth gate overlay
+// (showAuthGate/hideAuthGate above): remember what had focus before the
+// dialog opened, move focus INTO the dialog on open (never leave focus
+// stranded on a now-hidden trigger button), and restore it on close --
+// plus the same document-level Escape-to-cancel handling. This panel is
+// role="dialog"/aria-modal="true" (see index.html), so this is table
+// stakes accessibility for it, not new behavior for this codebase.
+let identityConfirmReturnFocusEl = null;
+function hideIdentityConfirmPanel() {
+  if (identityConfirmPanel) identityConfirmPanel.hidden = true;
+  pendingLinkToken = null;
+  if (identityConfirmReturnFocusEl && typeof identityConfirmReturnFocusEl.focus === 'function') identityConfirmReturnFocusEl.focus();
+  identityConfirmReturnFocusEl = null;
+}
+if (identityCancelLinkBtn) identityCancelLinkBtn.addEventListener('click', () => {
+  hideIdentityConfirmPanel();
+  setIdentityConnectStatus('Connection cancelled.');
+});
+if (identityConfirmLinkBtn) identityConfirmLinkBtn.addEventListener('click', async () => {
+  if (!pendingLinkToken) return;
+  identityConfirmLinkBtn.disabled = true;
+  identityCancelLinkBtn.disabled = true;
+  const { ok, status, data } = await apiFetch('/api/identity/link', { method: 'POST', body: { supabaseAccessToken: pendingLinkToken } });
+  identityConfirmLinkBtn.disabled = false;
+  identityCancelLinkBtn.disabled = false;
+  hideIdentityConfirmPanel();
+  if (ok && data.ok) {
+    identityIsLinked = true;
+    renderIdentityBridgeUI();
+    setIdentityConnectStatus('Your SiteRemade account is connected.');
+  } else {
+    setIdentityConnectStatus(identityErrorMessage(status, data), true);
+  }
+});
+
+// The dual-proof CONFIRM step (spec item 5, point 4: "show a clear
+// confirmation screen" -- point 5: "user confirms" -- as steps SEPARATE
+// from proving the Supabase identity itself, which already happened via
+// the app's own real sign-in before this ever runs). Calls the
+// non-mutating POST /api/identity/preview first so the panel shows the
+// real two emails being connected (never invented/assumed client-side, and
+// never a raw Supabase UUID or internal id -- spec item 25) and a real
+// already-linked-elsewhere warning BEFORE the person can even click
+// confirm -- the actual mutating POST /api/identity/link only ever fires
+// from identityConfirmLinkBtn's own handler above, never from here.
+async function showIdentityLinkConfirmation(token) {
+  const { ok, status, data } = await apiFetch('/api/identity/preview', { method: 'POST', body: { supabaseAccessToken: token } });
+  if (!ok || !data.ok) {
+    showIdentityStatusMessage(identityErrorMessage(status, data), true);
+    return;
+  }
+  pendingLinkToken = token;
+  // This function runs during bootstrap, BEFORE refreshAuthState() has had
+  // a chance to run and unhide #accountSignedIn (whose own hidden default
+  // only gets cleared by updateAccountUI(), called from there) -- and
+  // identityConfirmPanel lives inside that container. A successful,
+  // authenticated preview call already proves this generator session is
+  // valid (requireAuth passed), so there is no need to wait for the
+  // separate /api/auth/me round trip refreshAuthState() makes moments
+  // later just to know that: unhide the signed-in shell right now, using
+  // the email this same response already carries, so the confirm dialog's
+  // own container -- and everything inside it, including the button this
+  // pass moves focus to -- is actually rendered and focusable the instant
+  // it appears, not a screen-reader/keyboard dead end that only becomes
+  // visible a beat later once refreshAuthState() catches up. (Idempotent:
+  // refreshAuthState() re-sets all of this from the real source of truth
+  // right after, harmlessly, the same way it does on every other sign-in.)
+  if (accountSignedOut) accountSignedOut.hidden = true;
+  if (accountSignedIn) accountSignedIn.hidden = false;
+  if (accountEmailLabel) accountEmailLabel.textContent = data.generatorEmail;
+  if (identityConfirmSharedEmail) identityConfirmSharedEmail.textContent = data.sharedEmail;
+  if (identityConfirmGeneratorEmail) identityConfirmGeneratorEmail.textContent = data.generatorEmail;
+  if (identityConfirmWarning) {
+    if (data.alreadyLinkedElsewhere) {
+      identityConfirmWarning.hidden = false;
+      identityConfirmWarning.textContent = 'Heads up: that SiteRemade account is already connected to a different generator account. Confirming here will fail until it’s disconnected from that account first.';
+    } else {
+      identityConfirmWarning.hidden = true;
+    }
+  }
+  if (identityConfirmPanel) {
+    identityConfirmPanel.hidden = false;
+    identityConfirmPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    identityConfirmReturnFocusEl = document.activeElement;
+    if (identityConfirmLinkBtn) identityConfirmLinkBtn.focus();
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && identityConfirmPanel && !identityConfirmPanel.hidden) { hideIdentityConfirmPanel(); setIdentityConnectStatus('Connection cancelled.'); } });
+
+// Runs once, at bootstrap, before refreshAuthState() -- parses a
+// #bridge=<mode>&access_token=...&expires_in=... fragment left by a
+// redirect back from the SiteRemade app (see startSharedIdentityHandoff's
+// own comment for the full contract) and scrubs it from the address bar
+// IMMEDIATELY, before even awaiting the exchange, so it lingers in the
+// visible URL / browser history for as little time as possible (spec item
+// 26: no reusable permanent token, minimize exposure window) -- never
+// stored in localStorage, never read a second time.
+async function handleIdentityBridgeFragment() {
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#bridge=')) return;
+  const params = new URLSearchParams(hash.slice(1));
+  const mode = params.get('bridge');
+  const token = params.get('access_token');
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  // This IS a genuine handoff arrival -- whatever happens next (the
+  // confirm dialog, a success state, or an error message) renders inside
+  // the account panel, which is closed by default on every fresh page
+  // load. Force it open now, before any of those outcomes render, so the
+  // person who just completed the round trip actually sees it (see the
+  // advancedPanelDetails declaration above for the full why).
+  if (advancedPanelDetails) advancedPanelDetails.open = true;
+  if (!token) return;
+  if (mode === 'link') {
+    // Dual-proof linking needs an ALREADY-authenticated generator session
+    // (the first of the two proofs) -- refreshAuthState() hasn't run yet
+    // at this point in bootstrap, so whether that session is still valid
+    // is discovered the same honest way every other gated call discovers
+    // it: by making the call and reading a real 401 back, never by
+    // assuming a cookie is still good.
+    await showIdentityLinkConfirmation(token);
+    return;
+  }
+  // mode === 'session' (or an unrecognized mode -- treated the same, safe
+  // default): the far more common path -- exchange the verified Supabase
+  // identity for the generator's own existing session mechanism, the
+  // EXACT SAME V14 route/cookie/session model an ordinary sign-in uses.
+  // On success this deliberately does NOT set currentAccount or call
+  // onSignedIn/refreshCreditsUI itself -- refreshAuthState(), called right
+  // after this function returns (see the bootstrap call site below),
+  // discovers the new session cookie itself via /api/auth/me and runs the
+  // exact one real signed-in bootstrap sequence every sign-in path shares
+  // -- never a second, parallel copy of it here.
+  const { ok, status, data } = await apiFetch('/api/identity/supabase/session', { method: 'POST', body: { supabaseAccessToken: token } });
+  if (!(ok && data.ok)) {
+    setAccountAuthStatus(identityErrorMessage(status, data), true);
+  }
+}
 // Renaming schedules a flush through the SAME sequenced/coalesced save
 // path as any other edit (see doAutosaveSave, which reads this field's own
 // current value at send time) -- never a second, independent PUT that
@@ -8626,7 +9261,16 @@ year.textContent = new Date().getFullYear();
 // forget from bootstrap's own synchronous flow; authReadyPromise is how the
 // purchase-return handler above waits for this without blocking first
 // paint on it.
-refreshAuthState();
+// V15 (Phase 2): handleIdentityBridgeFragment() runs FIRST and is awaited
+// before refreshAuthState() -- a #bridge=session&access_token=... fragment
+// (a redirect landing back from the SiteRemade app) has to finish its
+// exchange and mint the generator's own session cookie BEFORE
+// refreshAuthState()'s own /api/auth/me call, or that call would see the
+// visitor as still signed out. Still fire-and-forget from this file's own
+// top-level synchronous flow, same as the plain refreshAuthState() call
+// this replaces -- authReadyPromise (resolved inside refreshAuthState)
+// remains the one thing other code awaits.
+(async () => { await handleIdentityBridgeFragment(); await refreshAuthState(); })();
 // V7: best-effort provider status check -- see buildImagePlan. Never blocks
 // generation; if this hasn't resolved yet, imagePlan safely defaults to the
 // honest 'designed' tier (see server.js for what /api/image-provider-status
