@@ -6013,6 +6013,38 @@ const accountProjectsSelect = $('#accountProjectsSelect');
 const accountLoadProjectBtn = $('#accountLoadProjectBtn');
 const purchaseOwnershipBadge = $('#purchaseOwnershipBadge');
 
+// V15 (Phase 2: unified login + linking UX): shared-identity bridge
+// elements -- account panel, and the pre-generation auth gate's own
+// mirror of the same "Continue with SiteRemade" entry point. See
+// SITE-PROJECT-V15-UNIFIED-LOGIN.md for the full flow this wires up.
+const sharedIdentityContinueBtn = $('#sharedIdentityContinueBtn');
+const sharedIdentityDivider = $('#sharedIdentityDivider');
+const gateSharedIdentityBtn = $('#gateSharedIdentityBtn');
+const gateSharedIdentityDivider = $('#gateSharedIdentityDivider');
+const identityConnectedBadge = $('#identityConnectedBadge');
+const accountOpenAppLink = $('#accountOpenAppLink');
+const identityConnectBtn = $('#identityConnectBtn');
+const identityConnectStatus = $('#identityConnectStatus');
+const identityConfirmPanel = $('#identityConfirmPanel');
+// The entire account panel (#accountBlock, including every shared-identity
+// element above) lives inside the pre-existing "Advanced customization"
+// <details> drawer, which is CLOSED by default and -- critically -- is
+// NEVER left open across a real navigation (a fresh page load, like the
+// one that always follows the redirect back from app.siteremade.com,
+// always starts it closed again, however it was left before the visitor
+// went there). Without forcing it open, a person completing the shared-
+// identity round trip would land back here with their result -- the
+// confirm dialog, a connected badge, or an error -- rendered but
+// genuinely invisible, having to guess to expand an unrelated-looking
+// accordion to find it. See handleIdentityBridgeFragment, which opens it.
+const advancedPanelDetails = $('#advancedPanel');
+const identityConfirmSharedEmail = $('#identityConfirmSharedEmail');
+const identityConfirmGeneratorEmail = $('#identityConfirmGeneratorEmail');
+const identityConfirmWarning = $('#identityConfirmWarning');
+const identityConfirmLinkBtn = $('#identityConfirmLinkBtn');
+const identityCancelLinkBtn = $('#identityCancelLinkBtn');
+const clientLoginLink = $('#clientLoginLink');
+
 // V8.3: editor/remix panel elements -- a compact control-block inside the
 // same collapsible "Advanced customization" drawer the color/layout/section
 // controls already live in, deliberately not a permanent overlay on the
@@ -8388,6 +8420,12 @@ function updateAccountUI() {
   // holds; the actual balance fetch is refreshCreditsUI, called separately
   // on real account-state transitions (see its own comment).
   renderCreditsUI();
+  // V15 (Phase 2): same chokepoint, for the shared-identity CTA/connect
+  // button/connected badge -- only toggles visibility from whatever
+  // identityBridgeIsEnabled/identityIsLinked already hold; the actual
+  // fetch is refreshIdentityBridgeStatus, called separately on real
+  // auth-state transitions (see its own call site in refreshAuthState).
+  renderIdentityBridgeUI();
 }
 async function refreshServerProjectStatus() {
   if (!currentAccount || !serverProjectId) return;
@@ -8547,6 +8585,11 @@ async function refreshAuthState() {
   // runGeneration's own `await authReadyPromise` never observes a moment
   // where auth is known but credits/pending-resume aren't yet.
   await refreshCreditsUI();
+  // V15 (Phase 2): same chokepoint -- whether the bridge is on, and
+  // whether THIS account is already connected, is re-derived every time
+  // real auth state is (re)established, never left stale across a
+  // sign-in/out transition.
+  await refreshIdentityBridgeStatus();
   resumeOrReshowPendingGeneration();
   if (resolveAuthReady) { resolveAuthReady(); resolveAuthReady = null; }
 }
@@ -8693,8 +8736,288 @@ if (accountSignOutBtn) accountSignOutBtn.addEventListener('click', async () => {
   if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
   setAutosaveState('idle');
   setAccountAuthStatus('Signed out.');
+  // V15 (Phase 2): a signed-out visitor never carries over the previous
+  // account's link state or a half-open confirm panel -- both are re-
+  // derived fresh the next time someone signs in (renderIdentityBridgeUI
+  // itself also gates everything on currentAccount, but this avoids even a
+  // one-frame flash of stale state).
+  identityIsLinked = false;
+  hideIdentityConfirmPanel();
   updateAccountUI();
+  renderIdentityBridgeUI();
 });
+
+// ---- V15 (Phase 2: unified login + linking UX) -----------------------------
+// The generator's own frontend half of the identity bridge. Backend
+// contract (all V14, unchanged by this pass): GET /api/identity/public-status
+// (unauthenticated -- lets a SIGNED-OUT visitor know whether to show
+// "Continue with SiteRemade" at all), GET /api/identity/status
+// (requireAuth), POST /api/identity/supabase/session (mints a normal
+// generator session for a verified Supabase identity -- population B/I,
+// spec items 3/4), POST /api/identity/preview (requireAuth, read-only --
+// previews what a link WOULD connect, spec item 5's "show a clear
+// confirmation screen"), POST /api/identity/link (requireAuth, the one
+// real mutating link call -- population C/D, spec item 5's "user
+// confirms"). See SITE-PROJECT-V15-UNIFIED-LOGIN.md for the full flow and
+// the session-handoff architecture this depends on: the SiteRemade app
+// mints the redirect URL that carries a verified identity back here; this
+// file only ever consumes it, never manages Supabase tokens as an ongoing
+// session of its own (V14 §11's Option B, unchanged).
+const SITEREMADE_APP_URL = 'https://app.siteremade.com/';
+let identityBridgeIsEnabled = false;
+let identityIsLinked = false;
+// Held only in memory (never localStorage, never a cookie) for exactly as
+// long as the confirm panel is open -- cleared the moment the person
+// confirms, cancels, or navigates away. This is the one place a raw
+// Supabase access token exists in this file, and only during the
+// dual-proof CONFIRM step (spec item 6) -- the far more common session-
+// exchange path (spec items 3/4) never holds onto a token past its single
+// POST /api/identity/supabase/session call in handleIdentityBridgeFragment.
+let pendingLinkToken = null;
+
+function renderIdentityBridgeUI() {
+  const show = identityBridgeIsEnabled;
+  if (sharedIdentityContinueBtn) sharedIdentityContinueBtn.hidden = !show || !!currentAccount;
+  if (sharedIdentityDivider) sharedIdentityDivider.hidden = !show || !!currentAccount;
+  if (gateSharedIdentityBtn) gateSharedIdentityBtn.hidden = !show;
+  if (gateSharedIdentityDivider) gateSharedIdentityDivider.hidden = !show;
+  const connected = show && !!currentAccount && identityIsLinked;
+  const canConnect = show && !!currentAccount && !identityIsLinked;
+  if (identityConnectedBadge) identityConnectedBadge.hidden = !connected;
+  if (accountOpenAppLink) accountOpenAppLink.hidden = !connected;
+  if (identityConnectBtn) identityConnectBtn.hidden = !canConnect;
+  // Cross-product nav (spec item 8): the ALREADY-existing "Client Login"
+  // link (index.html, present since V8.5, always a plain link to the
+  // app -- see its own comment there) just gets clearer copy once we know
+  // this visitor's account is actually connected. Its href/behavior are
+  // untouched -- still a plain link, never a second silent auto-login,
+  // matching the spec's own "a simple Open SiteRemade App" minimum bar and
+  // "do not overbuild a unified mega-dashboard."
+  if (clientLoginLink) {
+    clientLoginLink.textContent = connected ? 'Open SiteRemade App' : 'Client Login';
+    clientLoginLink.setAttribute('aria-label', connected ? 'Open the SiteRemade app -- same account' : 'Open SiteRemade client login');
+  }
+}
+// Routes a status message to whichever of the two status paragraphs is
+// actually visible right now -- accountAuthStatus lives in the
+// signed-OUT panel, identityConnectStatus in the signed-IN one -- so an
+// error from e.g. an expired GENERATOR session during the "Connect" round
+// trip (which lands the visitor back here effectively signed out) is never
+// written into an element that's `hidden`.
+function showIdentityStatusMessage(msg, isError) {
+  if (currentAccount) setIdentityConnectStatus(msg, isError);
+  else setAccountAuthStatus(msg, isError);
+}
+
+// Single source of truth for whether the bridge is even on, and (once
+// signed in) whether THIS account is already connected -- never guessed,
+// never cached across a sign-in/out transition. Called from
+// refreshAuthState()'s own one real auth-state chokepoint, so this can
+// never drift out of sync with currentAccount.
+async function refreshIdentityBridgeStatus() {
+  const pub = await apiFetch('/api/identity/public-status');
+  identityBridgeIsEnabled = !!(pub.ok && pub.data && pub.data.bridgeEnabled);
+  if (identityBridgeIsEnabled && currentAccount) {
+    const status = await apiFetch('/api/identity/status');
+    identityIsLinked = !!(status.ok && status.data && status.data.linked);
+  } else {
+    identityIsLinked = false;
+  }
+  renderIdentityBridgeUI();
+}
+
+// Customer-facing copy for every failure case spec item 7 lists -- never a
+// raw server message, always a specific recovery-oriented sentence. `data`
+// is the parsed JSON body apiFetch already returned; `status` its HTTP
+// status code.
+function identityErrorMessage(status, data) {
+  const reason = data && data.reason;
+  const rawMessage = (data && data.message) || '';
+  if (status === 409 && reason === 'email_conflict') return 'An account already exists with this email. Sign in below with your password instead, then connect it from your account panel.';
+  if (status === 409 && reason === 'account_already_linked') return 'Your generator account is already connected to a different SiteRemade account. Sign out and try again from the account you meant to connect.';
+  if (status === 409 && reason === 'supabase_user_already_linked') return 'That SiteRemade account is already connected to a different generator account. Sign in to the generator account you originally connected it to.';
+  // requireAuth's own generic 401 ("Sign in required.") means the
+  // GENERATOR session itself is the one that's missing/expired -- a
+  // different, more actionable message than a stale/forged Supabase token
+  // (also a 401, different message) deserves.
+  if (status === 401 && rawMessage === 'Sign in required.') return 'You’ve been signed out of your generator account. Please sign in again, then try connecting.';
+  if (status === 401) return 'Your SiteRemade sign-in expired before we could verify it. Please try connecting again.';
+  if (status === 404) return 'Connecting your SiteRemade account isn’t available right now.';
+  return 'Something went wrong connecting your SiteRemade account. Please try again.';
+}
+
+// Navigates the WHOLE PAGE (top-level, not a fetch) to the SiteRemade
+// app's own sign-in, carrying a `handoff_return` the app hands back
+// through the session-handoff redirect once the visitor is authenticated
+// there -- see SITE-PROJECT-V15-UNIFIED-LOGIN.md's session-handoff section
+// for the exact redirect-URL contract (a short-lived Supabase access token
+// in a URL FRAGMENT, never a query string -- mirroring this exact app's
+// own existing Google-OAuth pattern on the SiteRemade-app side; exchanged
+// and scrubbed from the address bar within the same page load below; no
+// refresh token ever leaves the app; nothing is ever stored in
+// localStorage). `mode` becomes `handoff_mode` -- 'session' (spec items
+// 3/4: a new or existing SiteRemade-app user entering the generator, no
+// generator session assumed yet) or 'link' (spec item 5: an ALREADY
+// signed-in legacy generator visitor proving they also own a SiteRemade
+// account, for the dual-proof confirm flow below). The exact typed
+// generation brief, if any, is already preserved by this point --
+// runGeneration sets it via setPendingGenerationText before ever showing
+// the auth gate this button lives in (spec item 11).
+function startSharedIdentityHandoff(mode) {
+  const returnUrl = window.location.origin + window.location.pathname;
+  const url = new URL(SITEREMADE_APP_URL);
+  url.searchParams.set('handoff_return', returnUrl);
+  url.searchParams.set('handoff_mode', mode);
+  window.location.href = url.toString();
+}
+if (sharedIdentityContinueBtn) sharedIdentityContinueBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
+if (gateSharedIdentityBtn) gateSharedIdentityBtn.addEventListener('click', () => startSharedIdentityHandoff('session'));
+if (identityConnectBtn) identityConnectBtn.addEventListener('click', () => {
+  setIdentityConnectStatus('');
+  startSharedIdentityHandoff('link');
+});
+function setIdentityConnectStatus(msg, isError) {
+  if (!identityConnectStatus) return;
+  identityConnectStatus.textContent = msg || '';
+  identityConnectStatus.className = 'account-status' + (isError ? ' error' : '');
+}
+// Same focus-management convention as the pre-existing auth gate overlay
+// (showAuthGate/hideAuthGate above): remember what had focus before the
+// dialog opened, move focus INTO the dialog on open (never leave focus
+// stranded on a now-hidden trigger button), and restore it on close --
+// plus the same document-level Escape-to-cancel handling. This panel is
+// role="dialog"/aria-modal="true" (see index.html), so this is table
+// stakes accessibility for it, not new behavior for this codebase.
+let identityConfirmReturnFocusEl = null;
+function hideIdentityConfirmPanel() {
+  if (identityConfirmPanel) identityConfirmPanel.hidden = true;
+  pendingLinkToken = null;
+  if (identityConfirmReturnFocusEl && typeof identityConfirmReturnFocusEl.focus === 'function') identityConfirmReturnFocusEl.focus();
+  identityConfirmReturnFocusEl = null;
+}
+if (identityCancelLinkBtn) identityCancelLinkBtn.addEventListener('click', () => {
+  hideIdentityConfirmPanel();
+  setIdentityConnectStatus('Connection cancelled.');
+});
+if (identityConfirmLinkBtn) identityConfirmLinkBtn.addEventListener('click', async () => {
+  if (!pendingLinkToken) return;
+  identityConfirmLinkBtn.disabled = true;
+  identityCancelLinkBtn.disabled = true;
+  const { ok, status, data } = await apiFetch('/api/identity/link', { method: 'POST', body: { supabaseAccessToken: pendingLinkToken } });
+  identityConfirmLinkBtn.disabled = false;
+  identityCancelLinkBtn.disabled = false;
+  hideIdentityConfirmPanel();
+  if (ok && data.ok) {
+    identityIsLinked = true;
+    renderIdentityBridgeUI();
+    setIdentityConnectStatus('Your SiteRemade account is connected.');
+  } else {
+    setIdentityConnectStatus(identityErrorMessage(status, data), true);
+  }
+});
+
+// The dual-proof CONFIRM step (spec item 5, point 4: "show a clear
+// confirmation screen" -- point 5: "user confirms" -- as steps SEPARATE
+// from proving the Supabase identity itself, which already happened via
+// the app's own real sign-in before this ever runs). Calls the
+// non-mutating POST /api/identity/preview first so the panel shows the
+// real two emails being connected (never invented/assumed client-side, and
+// never a raw Supabase UUID or internal id -- spec item 25) and a real
+// already-linked-elsewhere warning BEFORE the person can even click
+// confirm -- the actual mutating POST /api/identity/link only ever fires
+// from identityConfirmLinkBtn's own handler above, never from here.
+async function showIdentityLinkConfirmation(token) {
+  const { ok, status, data } = await apiFetch('/api/identity/preview', { method: 'POST', body: { supabaseAccessToken: token } });
+  if (!ok || !data.ok) {
+    showIdentityStatusMessage(identityErrorMessage(status, data), true);
+    return;
+  }
+  pendingLinkToken = token;
+  // This function runs during bootstrap, BEFORE refreshAuthState() has had
+  // a chance to run and unhide #accountSignedIn (whose own hidden default
+  // only gets cleared by updateAccountUI(), called from there) -- and
+  // identityConfirmPanel lives inside that container. A successful,
+  // authenticated preview call already proves this generator session is
+  // valid (requireAuth passed), so there is no need to wait for the
+  // separate /api/auth/me round trip refreshAuthState() makes moments
+  // later just to know that: unhide the signed-in shell right now, using
+  // the email this same response already carries, so the confirm dialog's
+  // own container -- and everything inside it, including the button this
+  // pass moves focus to -- is actually rendered and focusable the instant
+  // it appears, not a screen-reader/keyboard dead end that only becomes
+  // visible a beat later once refreshAuthState() catches up. (Idempotent:
+  // refreshAuthState() re-sets all of this from the real source of truth
+  // right after, harmlessly, the same way it does on every other sign-in.)
+  if (accountSignedOut) accountSignedOut.hidden = true;
+  if (accountSignedIn) accountSignedIn.hidden = false;
+  if (accountEmailLabel) accountEmailLabel.textContent = data.generatorEmail;
+  if (identityConfirmSharedEmail) identityConfirmSharedEmail.textContent = data.sharedEmail;
+  if (identityConfirmGeneratorEmail) identityConfirmGeneratorEmail.textContent = data.generatorEmail;
+  if (identityConfirmWarning) {
+    if (data.alreadyLinkedElsewhere) {
+      identityConfirmWarning.hidden = false;
+      identityConfirmWarning.textContent = 'Heads up: that SiteRemade account is already connected to a different generator account. Confirming here will fail until it’s disconnected from that account first.';
+    } else {
+      identityConfirmWarning.hidden = true;
+    }
+  }
+  if (identityConfirmPanel) {
+    identityConfirmPanel.hidden = false;
+    identityConfirmPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    identityConfirmReturnFocusEl = document.activeElement;
+    if (identityConfirmLinkBtn) identityConfirmLinkBtn.focus();
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && identityConfirmPanel && !identityConfirmPanel.hidden) { hideIdentityConfirmPanel(); setIdentityConnectStatus('Connection cancelled.'); } });
+
+// Runs once, at bootstrap, before refreshAuthState() -- parses a
+// #bridge=<mode>&access_token=...&expires_in=... fragment left by a
+// redirect back from the SiteRemade app (see startSharedIdentityHandoff's
+// own comment for the full contract) and scrubs it from the address bar
+// IMMEDIATELY, before even awaiting the exchange, so it lingers in the
+// visible URL / browser history for as little time as possible (spec item
+// 26: no reusable permanent token, minimize exposure window) -- never
+// stored in localStorage, never read a second time.
+async function handleIdentityBridgeFragment() {
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#bridge=')) return;
+  const params = new URLSearchParams(hash.slice(1));
+  const mode = params.get('bridge');
+  const token = params.get('access_token');
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  // This IS a genuine handoff arrival -- whatever happens next (the
+  // confirm dialog, a success state, or an error message) renders inside
+  // the account panel, which is closed by default on every fresh page
+  // load. Force it open now, before any of those outcomes render, so the
+  // person who just completed the round trip actually sees it (see the
+  // advancedPanelDetails declaration above for the full why).
+  if (advancedPanelDetails) advancedPanelDetails.open = true;
+  if (!token) return;
+  if (mode === 'link') {
+    // Dual-proof linking needs an ALREADY-authenticated generator session
+    // (the first of the two proofs) -- refreshAuthState() hasn't run yet
+    // at this point in bootstrap, so whether that session is still valid
+    // is discovered the same honest way every other gated call discovers
+    // it: by making the call and reading a real 401 back, never by
+    // assuming a cookie is still good.
+    await showIdentityLinkConfirmation(token);
+    return;
+  }
+  // mode === 'session' (or an unrecognized mode -- treated the same, safe
+  // default): the far more common path -- exchange the verified Supabase
+  // identity for the generator's own existing session mechanism, the
+  // EXACT SAME V14 route/cookie/session model an ordinary sign-in uses.
+  // On success this deliberately does NOT set currentAccount or call
+  // onSignedIn/refreshCreditsUI itself -- refreshAuthState(), called right
+  // after this function returns (see the bootstrap call site below),
+  // discovers the new session cookie itself via /api/auth/me and runs the
+  // exact one real signed-in bootstrap sequence every sign-in path shares
+  // -- never a second, parallel copy of it here.
+  const { ok, status, data } = await apiFetch('/api/identity/supabase/session', { method: 'POST', body: { supabaseAccessToken: token } });
+  if (!(ok && data.ok)) {
+    setAccountAuthStatus(identityErrorMessage(status, data), true);
+  }
+}
 // Renaming schedules a flush through the SAME sequenced/coalesced save
 // path as any other edit (see doAutosaveSave, which reads this field's own
 // current value at send time) -- never a second, independent PUT that
@@ -8938,7 +9261,16 @@ year.textContent = new Date().getFullYear();
 // forget from bootstrap's own synchronous flow; authReadyPromise is how the
 // purchase-return handler above waits for this without blocking first
 // paint on it.
-refreshAuthState();
+// V15 (Phase 2): handleIdentityBridgeFragment() runs FIRST and is awaited
+// before refreshAuthState() -- a #bridge=session&access_token=... fragment
+// (a redirect landing back from the SiteRemade app) has to finish its
+// exchange and mint the generator's own session cookie BEFORE
+// refreshAuthState()'s own /api/auth/me call, or that call would see the
+// visitor as still signed out. Still fire-and-forget from this file's own
+// top-level synchronous flow, same as the plain refreshAuthState() call
+// this replaces -- authReadyPromise (resolved inside refreshAuthState)
+// remains the one thing other code awaits.
+(async () => { await handleIdentityBridgeFragment(); await refreshAuthState(); })();
 // V7: best-effort provider status check -- see buildImagePlan. Never blocks
 // generation; if this hasn't resolved yet, imagePlan safely defaults to the
 // honest 'designed' tier (see server.js for what /api/image-provider-status

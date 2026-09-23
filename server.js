@@ -1952,6 +1952,65 @@ app.post('/api/identity/link', requireAuth, requireSameOrigin, identityRateLimit
   }
   return res.json({ ok: true, linked: true, alreadyLinked: !!result.alreadyLinked });
 });
+
+// V15 (Phase 2: unified login + linking UX) -- two small additions to the
+// V14 identity-bridge API surface, neither of which changes V14's own
+// security model at all:
+//
+// GET /api/identity/public-status -- UNAUTHENTICATED, on purpose. A
+// signed-out visitor (looking at the pre-generation auth gate, or the
+// signed-out account panel) needs to know whether to show "Continue with
+// SiteRemade" at all -- V14's own /api/identity/status requires
+// requireAuth, which a signed-out visitor by definition doesn't have. This
+// mirrors the exact existing pattern of /api/planner-status /
+// /api/image-provider-status / /api/generation-status: a public read of
+// "is this feature configured," never anything account-specific. It
+// intentionally does NOT reveal internal-mode's allowlist or membership in
+// it -- a non-allowlisted visitor sees bridgeEnabled:true exactly like an
+// allowlisted one (matching the same "internal mode fails closed
+// identically to disabled, never leaking who's on the list" posture the
+// three action routes already have) and only discovers they're not
+// eligible if they actually attempt the flow, at which point they get the
+// same generic, friendly "couldn't connect right now" the frontend already
+// shows for a 404 (see script.js's identity-bridge error-copy table).
+app.get('/api/identity/public-status', (req, res) => {
+  res.json({ ok: true, bridgeEnabled: identityBridgeEnabled() });
+});
+
+// POST /api/identity/preview -- requireAuth + requireSameOrigin +
+// identityRateLimit, same gates as /api/identity/link, but performs NO
+// database write and creates NO identity_link_events row -- a pure read
+// that answers "if I clicked confirm right now, which SiteRemade account
+// would this connect to?" so the frontend can show a real confirmation
+// screen (spec: "show enough account information to let the user
+// understand which accounts are being connected... require explicit
+// confirmation") BEFORE calling the real, mutating /api/identity/link.
+// Verifying the same token twice (once here, once again when the person
+// actually confirms) is safe and cheap -- Supabase's own
+// GET /auth/v1/user is a read, not a one-time-use exchange, so calling it
+// twice for the same still-valid token is no different from a person
+// reloading a page. This never returns account IDs, generator account
+// IDs, or any identity_links row -- only the two email addresses already
+// known to the person (their own generator account's, from their existing
+// session, and the Supabase account's, from the token they just proved
+// they hold) plus whether that Supabase identity is already linked
+// elsewhere, so the confirm screen can show a real conflict warning before
+// the person even clicks confirm rather than only after.
+app.post('/api/identity/preview', requireAuth, requireSameOrigin, identityRateLimit, async (req, res) => {
+  if (!identityBridgeEnabled()) return res.status(404).json({ ok: false });
+  if (!identityBridgeAllowedForEmail(req.accountEmail)) return res.status(404).json({ ok: false });
+  const token = req.body && req.body.supabaseAccessToken;
+  const verified = await supabaseIdentity.verifyAccessToken(token);
+  if (!verified.ok) return res.status(401).json({ ok: false, message: 'Could not verify your SiteRemade account session.' });
+  const alreadyLinkedElsewhere = !!identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId)
+    && identityLinks.resolveGeneratorAccountForSupabaseUser(db, verified.userId) !== req.accountId;
+  return res.json({
+    ok: true,
+    generatorEmail: req.accountEmail,
+    sharedEmail: verified.email,
+    alreadyLinkedElsewhere,
+  });
+});
 // Product-flow pass: a signed-in account's real, durable credit balance --
 // what the account page / generation UI reads to show "X credits left
 // today," separate from claudeDirectionsRemaining (the lifetime-3 cap,

@@ -308,6 +308,17 @@
               <label class="control-label">Account &amp; sync</label>
               <div id="accountSignedOut" class="account-signed-out">
                 <p class="asset-block-note">Sign in to save this project to your account, sync it across devices, and buy it.</p>
+                <!-- V15 (Phase 2): the preferred entry point when the shared
+                     SiteRemade identity bridge is live (spec item 3, "new
+                     users should use shared identity first") -- hidden by
+                     default and shown only once script.js confirms the
+                     bridge is enabled (GET /api/identity/public-status),
+                     never assumed. Clicking it navigates the whole page to
+                     the SiteRemade app's sign-in, which hands the browser
+                     straight back here already signed in -- see script.js's
+                     startSharedIdentityHandoff. -->
+                <button type="button" class="button shared-identity-cta" id="sharedIdentityContinueBtn" hidden>Continue with SiteRemade</button>
+                <p class="shared-identity-divider" id="sharedIdentityDivider" hidden><span>or use a generator-only account</span></p>
                 <div class="account-auth-fields">
                   <input type="email" id="accountEmailInput" placeholder="Email" autocomplete="email" />
                   <input type="password" id="accountPasswordInput" placeholder="Password (min 8 characters)" autocomplete="current-password" />
@@ -320,6 +331,40 @@
               </div>
               <div id="accountSignedIn" class="account-signed-in" hidden>
                 <p class="account-identity">Signed in as <strong id="accountEmailLabel"></strong> · <button type="button" class="link-button" id="accountSignOutBtn">Sign out</button></p>
+                <!-- V15 (Phase 2) -- three mutually-exclusive states, toggled
+                     by script.js's renderIdentityBridgeUI() from the same
+                     one real backend source of truth (GET
+                     /api/identity/status) every other account-dependent
+                     panel already reads from, never guessed client-side:
+                     (1) bridge disabled entirely -- nothing here shows;
+                     (2) bridge enabled, this account not yet connected --
+                     the "Connect" button + its confirm panel;
+                     (3) bridge enabled, already connected -- the badge +
+                     "Open SiteRemade App" link. Never shows raw internal
+                     state (Supabase UUID, identity_links id, migration
+                     phase) -- see this block's own child elements. -->
+                <p class="purchase-ownership-badge" id="identityConnectedBadge" data-status="purchased" hidden>Connected to SiteRemade</p>
+                <a class="account-open-app-link" id="accountOpenAppLink" href="https://app.siteremade.com/" hidden>Open SiteRemade App →</a>
+                <button type="button" class="reset-colors" id="identityConnectBtn" hidden>Connect your SiteRemade account</button>
+                <p class="account-status" id="identityConnectStatus" aria-live="polite"></p>
+                <!-- Confirmation screen for the dual-proof linking flow
+                     (spec item 5: "show a clear confirmation screen... user
+                     confirms"). Populated from POST /api/identity/preview's
+                     response (generatorEmail/sharedEmail/
+                     alreadyLinkedElsewhere) -- never from anything typed or
+                     assumed client-side -- and only actually links on an
+                     explicit click of identityConfirmLinkBtn, which is the
+                     one and only call to the real, mutating
+                     POST /api/identity/link. -->
+                <div class="identity-confirm-panel" id="identityConfirmPanel" role="dialog" aria-modal="true" aria-labelledby="identityConfirmTitle" hidden>
+                  <h3 id="identityConfirmTitle">Connect your SiteRemade account?</h3>
+                  <p class="identity-confirm-copy">This will connect <strong id="identityConfirmSharedEmail"></strong> to your generator account (<strong id="identityConfirmGeneratorEmail"></strong>). Your projects, credits, and purchases stay exactly as they are.</p>
+                  <p class="identity-confirm-warning" id="identityConfirmWarning" hidden></p>
+                  <div class="identity-confirm-actions">
+                    <button type="button" class="button" id="identityConfirmLinkBtn">Confirm connection</button>
+                    <button type="button" class="button button-secondary" id="identityCancelLinkBtn">Cancel</button>
+                  </div>
+                </div>
                 <p class="account-credits-line" id="accountCreditsLine" aria-live="polite"></p>
                 <label class="account-project-name-label">Project name<input type="text" id="accountProjectNameInput" maxlength="200" /></label>
                 <p class="account-save-status" id="accountSaveStatus" aria-live="polite">Not saved to your account yet.</p>
@@ -517,6 +562,16 @@
       <button type="button" class="generation-gate-close" id="generationGateAuthClose" aria-label="Cancel and go back">&times;</button>
       <h2 id="generationAuthGateTitle">Create your free SiteRemade account</h2>
       <p class="generation-gate-copy">One account lets you generate this website, save it to your history, get <strong>10 free credits every day</strong>, and come back to it later — on the landing page or in the SiteRemade app, with the same sign-in.</p>
+      <!-- V15 (Phase 2): same preferred-path CTA as the account panel's
+           signed-out state (see its own comment) -- shown/hidden by the
+           exact same renderIdentityBridgeUI() call, from the same
+           bridgeEnabled flag, so the gate and the account panel can never
+           disagree about whether shared sign-in is available right now.
+           script.js's startSharedIdentityHandoff preserves the exact typed
+           brief (setPendingGenerationText) before navigating away, so it
+           survives the round trip through the app and back (spec item 11). -->
+      <button type="button" class="button shared-identity-cta" id="gateSharedIdentityBtn" hidden>Continue with SiteRemade</button>
+      <p class="shared-identity-divider" id="gateSharedIdentityDivider" hidden><span>or use a generator-only account</span></p>
       <div class="generation-gate-fields">
         <input type="email" id="gateEmailInput" placeholder="Email" autocomplete="email" />
         <input type="password" id="gatePasswordInput" placeholder="Password (min 8 characters)" autocomplete="new-password" />

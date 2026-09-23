@@ -1341,6 +1341,30 @@ html,body{max-width:100%;overflow-x:hidden}
 .purchase-ownership-badge[data-status="purchased"]{background:#e5f6ec;color:#17733a}
 .purchase-ownership-badge[data-status="checkout_pending"]{background:#fff4e0;color:#8a5a10}
 
+/* V15 (Phase 2: unified login + linking UX) -- shared-identity CTA, the
+   connect-your-account button, the "already connected" state, and the
+   dual-proof confirm panel. Reuses the existing .button/.button-secondary/
+   .reset-colors/.purchase-ownership-badge visual language throughout --
+   this is deliberately not a separate visual system (see this file's own
+   V8.5-era comment on that same discipline). */
+.shared-identity-cta{width:100%;margin:12px 0 10px;min-height:48px}
+.shared-identity-divider{position:relative;text-align:center;margin:4px 0 14px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8a8f99}
+.shared-identity-divider::before,.shared-identity-divider::after{content:"";position:absolute;top:50%;width:calc(50% - 70px);border-top:1px solid var(--line,#e4e6ea)}
+.shared-identity-divider::before{left:0}
+.shared-identity-divider::after{right:0}
+.shared-identity-divider span{background:var(--panel,#fff);padding:0 8px;position:relative}
+.account-open-app-link{display:inline-block;margin:10px 0 0;font-size:12px;font-weight:700;color:var(--accent,#2c61f2)}
+.account-open-app-link:hover{text-decoration:underline}
+#identityConnectBtn{margin-top:10px}
+#identityConnectStatus:empty{display:none}
+.identity-confirm-panel{margin:12px 0;padding:14px;border:1px solid var(--line,#e4e6ea);border-radius:12px;background:#f7f8fa}
+.identity-confirm-panel h3{margin:0 0 8px;font-size:14px}
+.identity-confirm-copy{margin:0 0 10px;font-size:12px;color:#525660;line-height:1.5}
+.identity-confirm-warning{margin:0 0 10px;padding:8px 10px;border-radius:8px;background:#fff4e0;color:#8a5a10;font-size:11px}
+.identity-confirm-actions{display:flex;gap:8px}
+.identity-confirm-actions .button{min-height:42px;padding:0 18px;font-size:13px}
+.identity-confirm-actions .button-secondary{background:#fff}
+
 /* UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: the daily-credit indicator
    near the Generate button, and its restrained echo in the account panel.
    Deliberately plain -- a bordered pill with an icon and a number, the same
