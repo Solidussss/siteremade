@@ -722,6 +722,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .generation-gate-steps li.active i{border-color:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.08);animation:gatePulse 1.2s ease-in-out infinite}
 .generation-gate-steps li.done i{border-color:#73e6a0;background:#73e6a0}
 .generation-gate-status{margin:34px 0 0;color:#9eabc6;font-size:13px}
+.generation-gate-cost{margin:6px 0 0;color:#6b7794;font-size:12px}
+.generation-gate-cost:empty{display:none}
 .generation-gate-retry{margin-top:24px;background:#f7f8fb!important;color:#111!important}
 @keyframes gatePulse{50%{opacity:.42;transform:scale(.78)}}
 
@@ -1376,6 +1378,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .credit-indicator[hidden]{display:none}
 .credit-indicator-icon{display:inline-flex;color:#525660}
 .credit-indicator-icon svg{display:block}
+.last-generation-cost{margin:8px 0 0;font-size:12px;color:#6b7794}
+.last-generation-cost[hidden]{display:none}
 .credit-indicator-low{background:#fff4e0;border-color:#f0dcae;color:#8a5a10}
 .credit-indicator-low .credit-indicator-icon{color:#8a5a10}
 .account-credits-line{margin:0 0 12px;font-size:11px;color:#525660}

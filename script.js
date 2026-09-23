@@ -1647,6 +1647,25 @@ function imageRouteCostEstimate(model, quality, aspectRatio) {
   const isSquare = !aspectRatio || aspectRatio === '1:1';
   return isSquare ? base : base * imageLandscapeCostMultiplier();
 }
+// DYNAMIC CREDIT COSTING PASS: the credit-side sibling of
+// imageModelCostTable()/imageRouteCostEstimate() above -- same "read the
+// deployment's real numbers from the server, never hardcode a second
+// copy" pattern, sourced from /api/image-provider-status's own
+// creditCosts field (server.js SITEREMADE_CREDIT_COST_IMAGE_SUPPORT/
+// _PREMIUM). Unlike the USD estimate, credit price depends only on which
+// MODEL a route uses (support vs. premium), never quality or aspect
+// ratio -- matching server.js creditCostForImageRoute() exactly, so a
+// client-side estimate and the server's actual charge can never disagree.
+const DEFAULT_IMAGE_CREDIT_COSTS = { support: 1, premium: 2 };
+function imageCreditCostTable() {
+  const fromServer = (typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.creditCosts) || null;
+  return { ...DEFAULT_IMAGE_CREDIT_COSTS, ...(fromServer || {}) };
+}
+function imageCreditCostForRoute(model) {
+  const modelKeys = imageModelKeys();
+  const table = imageCreditCostTable();
+  return model === modelKeys.premium ? table.premium : table.support;
+}
 // The hard per-generation paid-image spend ceiling -- env-configurable on
 // the server (SITEREMADE_IMAGE_BUDGET_USD), read here the same way
 // `configured` already is, never hardcoded twice. Lowered from the prior
@@ -1773,7 +1792,55 @@ function mapHeroToTextOnlyVariant(originalHero) {
   if (TEXT_ONLY_HERO_VARIANTS.includes(originalHero)) return originalHero;
   return HERO_TEXT_ONLY_FALLBACK[originalHero] || 'minimal-text-only';
 }
-function buildImagePlan(project, category) {
+// DYNAMIC CREDIT COSTING PASS: the coherent affordability planner the
+// brief's section 8 asks for -- extracted out of buildImagePlan's own
+// allocator loop (below) so it's a real, independently-callable/testable
+// function rather than logic inlined in a much larger one. Walks
+// `candidates` (already sorted into priority order by the caller --
+// hero/dominant visual first, decorative last, per section 5's priority
+// list) and greedily funds each one with the cheapest route that fits
+// BOTH remaining budgets at once (section 7: "An image call must satisfy
+// BOTH" the credit budget and the internal USD ceiling) -- never funds a
+// route that fits only one of the two. `remainingCredits` of
+// `null`/`undefined` means "not credit-gated" (no signed-in account
+// context yet, or an anonymous/demo preview) and preserves the
+// USD-only behavior this allocator always had. Returns a Map of
+// slot-index -> {model, quality, estimatedCostUsd, creditCost}, exactly
+// what buildImagePlan already expected from its old inline loop.
+function planAffordableImages({ candidates, remainingUsd, remainingCredits, modelKeys }) {
+  const fundedRouteBySlotIndex = new Map();
+  let usdLeft = remainingUsd;
+  let creditsLeft = remainingCredits;
+  candidates.forEach(candidate => {
+    const routeCandidates = imageRouteCandidatesForIdealTier(candidate.idealTier, modelKeys);
+    const affordableRoute = routeCandidates.find(route => {
+      const costUsd = imageRouteCostEstimate(route.model, route.quality, candidate.aspectRatio);
+      const costCredits = imageCreditCostForRoute(route.model);
+      const fitsUsd = costUsd <= usdLeft;
+      const fitsCredits = (creditsLeft == null) || costCredits <= creditsLeft;
+      return fitsUsd && fitsCredits;
+    });
+    if (affordableRoute) {
+      const costUsd = imageRouteCostEstimate(affordableRoute.model, affordableRoute.quality, candidate.aspectRatio);
+      const costCredits = imageCreditCostForRoute(affordableRoute.model);
+      fundedRouteBySlotIndex.set(candidate.i, { model: affordableRoute.model, quality: affordableRoute.quality, estimatedCostUsd: costUsd, creditCost: costCredits });
+      usdLeft -= costUsd;
+      if (creditsLeft != null) creditsLeft -= costCredits;
+    }
+  });
+  return fundedRouteBySlotIndex;
+}
+// `remainingCredits`: the signed-in account's credit budget available for
+// THIS generation's images specifically (i.e. already net of whatever the
+// base generation itself cost -- see runGeneration, which passes
+// latestCredits.remaining here only after applyCreditsFromApiResponse
+// has already patched it down by the base charge). `null`/`undefined`
+// (every pre-existing call site this pass didn't update, plus any
+// anonymous/demo context) means "no credit ceiling," which is exactly
+// this allocator's behavior before this pass -- so nothing about the
+// existing USD-only behavior changes unless a caller opts in with a real
+// number.
+function buildImagePlan(project, category, remainingCredits) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
   const composed = project.design.dimensions;
@@ -1875,22 +1942,13 @@ function buildImagePlan(project, category) {
   const spendCeilingUsd = imageSpendCeilingUsd(project);
   const modelKeys = imageModelKeys();
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
-  const fundedRouteBySlotIndex = new Map();
+  let fundedRouteBySlotIndex = new Map();
   if (providerConfigured) {
-    let remainingUsd = spendCeilingUsd;
-    slots
+    const candidates = slots
       .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId }))
       .filter(s => !s.hasUpload && s.idealTier !== 'none')
-      .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))))
-      .forEach(candidate => {
-        const routeCandidates = imageRouteCandidatesForIdealTier(candidate.idealTier, modelKeys);
-        const affordableRoute = routeCandidates.find(route => imageRouteCostEstimate(route.model, route.quality, candidate.aspectRatio) <= remainingUsd);
-        if (affordableRoute) {
-          const cost = imageRouteCostEstimate(affordableRoute.model, affordableRoute.quality, candidate.aspectRatio);
-          fundedRouteBySlotIndex.set(candidate.i, { model: affordableRoute.model, quality: affordableRoute.quality, estimatedCostUsd: cost });
-          remainingUsd -= cost;
-        }
-      });
+      .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))));
+    fundedRouteBySlotIndex = planAffordableImages({ candidates, remainingUsd: spendCeilingUsd, remainingCredits, modelKeys });
   }
   return slots.map((s, i) => {
     const fundedRoute = fundedRouteBySlotIndex.get(i) || null;
@@ -1900,6 +1958,7 @@ function buildImagePlan(project, category) {
       model: fundedRoute ? fundedRoute.model : null,
       quality: fundedRoute ? fundedRoute.quality : null,
       estimatedCostUsd: fundedRoute ? fundedRoute.estimatedCostUsd : null,
+      creditCost: fundedRoute ? fundedRoute.creditCost : null,
       cacheKey: computeImageCacheKey(project, s.role, s.slot)
     };
   });
@@ -1954,8 +2013,8 @@ const IMAGE_TILE_SECTION_TYPES = ['gallery', 'caseStudies', 'team'];
 // affected), and never invents a new image or spends any budget; it only
 // changes how the same already-decided tile count is visually composed.
 const IMAGE_DISPLAY_VARIANT_SECTION_TYPES = ['gallery', 'caseStudies'];
-function reconcileImageSupplyWithSections(proj, category) {
-  const firstPass = buildImagePlan(proj, category);
+function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
+  const firstPass = buildImagePlan(proj, category, remainingCredits);
   const bySection = new Map();
   firstPass.forEach(entry => {
     if (!bySection.has(entry.section)) bySection.set(entry.section, []);
@@ -2055,7 +2114,7 @@ function reconcileImageSupplyWithSections(proj, category) {
   // the authoritative plan is always the one built AFTER reconciling --
   // this is the one real recomputation this pass adds, and it's pure JS,
   // not a provider call.
-  proj.imagePlan = changed ? buildImagePlan(proj, category) : firstPass;
+  proj.imagePlan = changed ? buildImagePlan(proj, category, remainingCredits) : firstPass;
   return proj.imagePlan;
 }
 
@@ -2087,6 +2146,26 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
     });
     return Promise.resolve();
   }
+  // DYNAMIC CREDIT COSTING PASS (spec section 24: "do not retroactively
+  // deduct credits for restore... unless an operation explicitly performs
+  // new paid generation work"): restoring a saved project or switching
+  // directions is never that explicit action -- but buildImagePlan
+  // recomputes its funding decision fresh every time it's called
+  // (archetype/strategy/budget/credit inputs can all have shifted since
+  // the project was saved), so without this guard a slot that was
+  // 'designed' (unfunded) when saved could come back 'generated' purely
+  // from re-opening the project, and fire a brand-new paid request -- with
+  // a real credit charge -- from an action the visitor never took.
+  // `allowNewSpend:false` (passed by prepareProjectForReveal/
+  // applyRestoredSnapshot -- restore, switch, undo/redo -- never by an
+  // explicit Generate/Regenerate/edit action) makes that case fall back to
+  // the exact same honest 'error'->designed-CSS treatment as an
+  // unconfigured provider, instead of ever calling this route. A slot that
+  // already has a matching cached/ready asset is completely unaffected --
+  // the cache-hit check just below always wins first, same as before this
+  // pass, so an ordinary restore of a project that already paid for its
+  // images never touches this branch at all.
+  const allowNewSpend = options.allowNewSpend !== false;
   const requests = [];
   (proj.imagePlan || []).forEach(entry => {
     if (entry.sourceType !== 'generated') return;
@@ -2096,6 +2175,14 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
     // re-render (color/tone/layout/device) must never cause a second paid
     // request for a slot whose identity hasn't changed.
     if (existing && existing.cacheKey === entry.cacheKey && (existing.status === 'ready' || existing.status === 'error')) return;
+    if (!allowNewSpend) {
+      // No cache hit above, and new spend isn't allowed on this call --
+      // never fires the request.
+      proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
+      if (proj === project && !options.suppressRender) renderProject(project);
+      if (onProgress) onProgress();
+      return;
+    }
     const reqKey = `${proj.meta.id}::${slot}::${entry.cacheKey}`;
     if (imageRequestsInFlight.has(reqKey)) {
       requests.push(imageRequestPromises.get(reqKey) || Promise.resolve());
@@ -2126,6 +2213,18 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
       .then(r => r.json().catch(() => ({})))
       .then(data => {
         imageRequestsInFlight.delete(reqKey);
+        // DYNAMIC CREDIT COSTING PASS: patch the account balance from THIS
+        // image's own charge, whether it landed 'ready' or was reserved
+        // then errored server-side (a reservation the server already
+        // committed either way -- see server.js's /api/generate-image
+        // handler) -- and regardless of whether this project is still the
+        // one on screen (`proj === project` below), because the credit
+        // pill reflects the signed-in ACCOUNT's real balance, not
+        // per-project state. Runs before the superseded-plan early return
+        // so a charge is never silently dropped from the visible balance
+        // just because the user navigated away from this slot's plan in
+        // the meantime.
+        if (data) applyCreditsFromApiResponse(data);
         const current = proj.assets.generated[slot];
         if (!current || current.cacheKey !== entry.cacheKey) return; // superseded by a newer plan before this returned
         if (!data || data.ok !== true || !data.dataUrl) {
@@ -4495,8 +4594,12 @@ function applyRestoredSnapshot(snapshot) {
   // cache doesn't already justify -- resolveImagePlanAssets' own dedupe
   // check (matching cacheKey + ready/pending) means restoring a snapshot
   // that already had an image resolved reuses it, exactly like restoring a
-  // saved project does today.
-  resolveImagePlanAssets(project);
+  // saved project does today. allowNewSpend:false backstops that: an
+  // undo/redo is never the visitor taking a new paid action, so even if
+  // the restored plan now calls for a slot with no cached asset, it falls
+  // back to the same honest 'error' state a missing provider would produce
+  // rather than ever firing a new charge.
+  resolveImagePlanAssets(project, null, { allowNewSpend: false });
 }
 function editorUndo() {
   if (!project || generationInFlight) return false;
@@ -4877,6 +4980,14 @@ async function applyRefinementRequest(request) {
           body: JSON.stringify({ request, context: refinementContext(), taskType: classification.executionPlan.taskType, projectId: project.meta && project.meta.id })
         });
         const data = await response.json().catch(() => ({}));
+        // DYNAMIC CREDIT COSTING PASS: a Claude-reasoning refinement is its
+        // own separate charge (the existing 'cheap' 1-credit class -- see
+        // server.js's /api/refine-website handler) independent of both the
+        // base generation charge and any per-image charges that may follow
+        // it just below via resolveImagePlanAssets -- patch the balance
+        // from it the same way plan-website and generate-image responses
+        // already are, so the pill never lags behind an actual charge.
+        if (data) applyCreditsFromApiResponse(data);
         plan = normalizeRefinementPlan(data && data.ok ? data.plan : null);
       } catch (error) { plan = null; }
     }
@@ -5295,7 +5406,15 @@ function renderProject(proj) {
   const category = categories[proj.business.categoryKey] || categories.other;
   proj._visibleImageSlots = [];
   proj.assets.plan = planAssets(proj.assets);
-  proj.imagePlan = buildImagePlan(proj, category);
+  // DYNAMIC CREDIT COSTING PASS: renderProject is the pure/synchronous
+  // path (runs on every color/tone/device-preview tweak, never fires a
+  // network request itself -- see resolveImagePlanAssets' own comment on
+  // why the two are split), so it reads the last-known account credit
+  // balance (`latestCredits`, kept fresh by refreshCreditsUI/
+  // applyCreditsFromApiResponse) rather than anything fetched here. This
+  // keeps the `sourceType` labels this recomputes in sync with whatever
+  // resolveImagePlanAssets will actually fetch using that same balance.
+  proj.imagePlan = buildImagePlan(proj, category, latestCredits ? latestCredits.remaining : null);
   applyDesignDataset(proj);
   renderSections(proj, category);
   renderChrome(proj, category);
@@ -5863,6 +5982,14 @@ const creditIndicator = $('#creditIndicator');
 const creditIndicatorIcon = $('#creditIndicatorIcon');
 const creditIndicatorText = $('#creditIndicatorText');
 const accountCreditsLine = $('#accountCreditsLine');
+// DYNAMIC CREDIT COSTING PASS: lastGenerationCostNote (spec item 17,
+// "generation complete UI" -- "6 credits used · 4 remaining") sits beside
+// the credit indicator and persists after the building gate closes;
+// generationGateCost (spec item 16, "frontend estimate") lives inside the
+// building gate itself and shows the pre-committed ESTIMATE while imagery
+// is still resolving.
+const lastGenerationCostNote = $('#lastGenerationCostNote');
+const generationGateCost = $('#generationGateCost');
 if (creditIndicatorIcon) creditIndicatorIcon.innerHTML = renderIcon('lightning', { size: 14, weight: 'bold' });
 
 // ---- Pre-generation upload staging ----------------------------------------
@@ -7637,7 +7764,16 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // pay to fill. Runs once, here, at real generation time; every
         // other buildImagePlan call site (ordinary re-render, restore)
         // just reads the `imageTileCount` this stamps onto the section.
-        proj.imagePlan = reconcileImageSupplyWithSections(proj, category);
+        //
+        // DYNAMIC CREDIT COSTING PASS: `latestCredits.remaining` here is
+        // already the account's balance AFTER the base generation charge
+        // -- applyCreditsFromApiResponse (called right after the
+        // plan-website request that started this same generation, above
+        // in runGeneration) patches it down before any step in this array
+        // ever runs. So this is exactly "how many credits can this
+        // generation's images spend" (spec section 4), with no separate
+        // subtraction needed here.
+        proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;
         const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
         if (n) return `${n} of your images placed`;
@@ -7692,6 +7828,11 @@ function showGenerationGate(state, mode = 'generation') {
   generationGate.hidden = false;
   if (generationGateRetry) generationGateRetry.hidden = true;
   if (generationGateStatus) generationGateStatus.textContent = mode === 'restore' ? 'Preparing your website...' : mode === 'switch' ? 'Preparing this direction...' : 'Creating a custom website for your business...';
+  // DYNAMIC CREDIT COSTING PASS: clear any estimate left over from a
+  // PREVIOUS attempt -- this new attempt's own imagePlan isn't known yet
+  // (buildGenerationPlan hasn't run), so the honest state here is "no
+  // estimate yet," never a stale number from whatever generated last.
+  if (generationGateCost) generationGateCost.textContent = '';
   updateGenerationGate(state === 'analyzing' ? 'understand' : state === 'planning' ? 'creative' : state === 'composing' ? 'pages' : state === 'generating_images' ? 'imagery' : 'copy');
   lifecycle.gateVisible = true;
 }
@@ -7728,7 +7869,14 @@ function prepareProjectImagePlan(proj) {
   proj.assets.generated = proj.assets.generated || {};
   proj.assets.plan = planAssets(proj.assets);
   const category = categories[proj.business && proj.business.categoryKey] || categories.other;
-  proj.imagePlan = buildImagePlan(proj, category);
+  // This feeds ONLY prepareProjectForReveal (restore/switch, never a fresh
+  // Generate) -- resolveImagePlanAssets is called from there with
+  // `allowNewSpend:false`, so a slot this marks 'generated' without an
+  // already-cached asset falls back to the designed treatment rather than
+  // firing a new paid request/charge regardless of the credits number
+  // passed here (see resolveImagePlanAssets' own comment). Passed anyway,
+  // for the same rendering-consistency reason as renderProject above.
+  proj.imagePlan = buildImagePlan(proj, category, latestCredits ? latestCredits.remaining : null);
 }
 async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle.preparationToken) {
   if (!proj || isDemoProject(proj)) return false;
@@ -7757,7 +7905,12 @@ async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle
 
   setLifecycleState(mode === 'switch' ? 'generating_images' : 'finalizing', proj);
   updateGenerationGate('imagery', `${imageProgressNote(proj)}${mode === 'restore' ? ' — restoring' : ''}`);
-  await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)), { suppressRender: true });
+  // allowNewSpend:false: this function is only ever called with
+  // mode 'restore' or 'switch' (confirmed via every call site), never for
+  // a fresh Generate, so a slot the just-recomputed imagePlan calls
+  // 'generated' but that has no cached asset yet is deliberately never
+  // requested/charged here -- see resolveImagePlanAssets' own comment.
+  await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)), { suppressRender: true, allowNewSpend: false });
   if (token !== lifecycle.preparationToken || project !== proj) return false;
   updateGenerationGate('finalizing');
   const quality = validateProjectQuality(proj);
@@ -7840,6 +7993,43 @@ function updateGenerateButtonLabel() {
     generatorSubmitLabel.textContent = `Generate website · ${latestCredits.generationCost} credits`;
   }
 }
+// DYNAMIC CREDIT COSTING PASS (spec item 16, "frontend estimate"): a
+// human-readable, EXPLICITLY LABELED estimate ("Estimated cost: N
+// credits...") built purely from numbers the backend already returned --
+// latestCredits.generationCost/imageCreditCosts (never a second client-side
+// price table) and proj.imagePlan's own already-decided creditCost per
+// slot (set by buildImagePlan/planAffordableImages, itself seeded from
+// window.__siteremadeImageProvider.creditCosts -- see that function's own
+// comment). This never promises a final number (spec: "Do not promise an
+// exact value if planner/image routing can still adjust... use wording
+// like 'Estimated'") -- funded slots can still fail individually and
+// settle for less, which lastGenerationCostNote (below) reports for real
+// once generation actually finishes.
+function estimatedCostLine(proj) {
+  if (!latestCredits || typeof latestCredits.generationCost !== 'number') return '';
+  const generated = (proj && proj.imagePlan || []).filter(entry => entry.sourceType === 'generated');
+  const imageCredits = generated.reduce((sum, entry) => sum + (typeof entry.creditCost === 'number' ? entry.creditCost : 0), 0);
+  const total = latestCredits.generationCost + imageCredits;
+  if (!generated.length) return `Estimated cost: ${total} credit${total === 1 ? '' : 's'}`;
+  const modelKeys = imageModelKeys();
+  const premiumCount = generated.filter(entry => entry.model === modelKeys.premium).length;
+  const supportCount = generated.length - premiumCount;
+  const parts = [];
+  if (premiumCount) parts.push(`${premiumCount} premium visual${premiumCount === 1 ? '' : 's'}`);
+  if (supportCount) parts.push(`${supportCount} generated visual${supportCount === 1 ? '' : 's'}`);
+  return `Estimated cost: ${total} credits — includes ${parts.join(' + ')}`;
+}
+// DYNAMIC CREDIT COSTING PASS (spec item 17, "generation complete UI"):
+// the REAL post-generation charge, from the backend's own before/after
+// remaining balance (see generationCreditsBeforeCharge's own comment) --
+// never a re-derivation of what SHOULD have been charged. Deliberately
+// plain wording (spec: "do not shame the user or say 'cheap mode'" when
+// imagery was reduced) regardless of whether every planned image actually
+// funded/succeeded.
+function actualCostLine(charged, remaining) {
+  if (typeof charged !== 'number' || typeof remaining !== 'number' || charged < 0) return '';
+  return `${charged} credit${charged === 1 ? '' : 's'} used · ${remaining} remaining`;
+}
 function resetGenerationChromeUI() {
   if (generationProgress) generationProgress.hidden = true;
   if (heroMachine) heroMachine.classList.remove('generating');
@@ -7872,6 +8062,21 @@ function finishGeneration(proj, expectedDirectionIndex) {
   renderProject(project);
   markGenerated();
   completeGenerationGate();
+  // DYNAMIC CREDIT COSTING PASS (spec item 17, "generation complete UI"):
+  // the REAL charge for the attempt that just got admitted -- diffed from
+  // the balance captured at its start (generationCreditsBeforeCharge) against
+  // the balance now (already patched by every plan-website/generate-image
+  // response this attempt made, via applyCreditsFromApiResponse -- see that
+  // function's own comment). Left visible (not cleared/hidden again) so it
+  // reads correctly even after this function returns and the gate itself
+  // closes just above.
+  if (lastGenerationCostNote) {
+    const line = actualCostLine(
+      (typeof generationCreditsBeforeCharge === 'number' && latestCredits) ? generationCreditsBeforeCharge - latestCredits.remaining : null,
+      latestCredits ? latestCredits.remaining : null
+    );
+    if (line) { lastGenerationCostNote.textContent = line; lastGenerationCostNote.hidden = false; }
+  }
   if (conversationRefinement) conversationRefinement.hidden = false;
   renderDirectionSwitcher();
   updateDirectionControls();
@@ -7942,6 +8147,12 @@ async function runGeneration(text) {
   const previousProject = project;
   let admitted = false; // set true only by a successful finishGeneration call below
   let failureMessage = null; // UNIFIED ACCOUNT pass: an optional specific reason for the failure gate (e.g. out of credits), read by the finally block below
+  // DYNAMIC CREDIT COSTING PASS: the balance as of right now, before this
+  // attempt's own base reservation or any image charge -- see
+  // generationCreditsBeforeCharge's own comment. Captured unconditionally
+  // (even for a signed-out visitor, where it's just null) so finishGeneration
+  // never has to guess whether this attempt started the diff window.
+  generationCreditsBeforeCharge = (currentAccount && latestCredits) ? latestCredits.remaining : null;
   generationInFlight = true;
   lifecycle.waitingForProvider = false;
   lifecycle.preparationToken++;
@@ -7982,7 +8193,7 @@ async function runGeneration(text) {
     }
     // FINAL GENERATOR HARDENING pass (spec item 17): the new server-side
     // rate limit (see server.js's RATE_LIMITS.generation) can refuse this
-    // exact call with a 429 -- checked BEFORE applyCreditsFromPlanResponse
+    // exact call with a 429 -- checked BEFORE applyCreditsFromApiResponse
     // (a 429 body carries no creditsRemaining field; that call is already a
     // safe no-op without one, but the ordering here matches the 401 branch
     // above and keeps this read top-to-bottom as "handle the special
@@ -8008,7 +8219,7 @@ async function runGeneration(text) {
       failureMessage = (result.message || 'Too many requests in a short time.') + retryNote + ' Your credits were not charged.';
       return;
     }
-    if (result) applyCreditsFromPlanResponse(result);
+    if (result) applyCreditsFromApiResponse(result);
     if (result && result.creditsExceeded) {
       // A real, enforced stop -- never a silent fallback to the free
       // deterministic engine (that would defeat the whole credit system).
@@ -8068,6 +8279,7 @@ async function runGeneration(text) {
       steps.forEach(s => s.run());
       setLifecycleState('generating_images', proj);
       updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+      if (generationGateCost) generationGateCost.textContent = estimatedCostLine(proj);
       await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)));
       setLifecycleState('finalizing', proj);
       updateGenerationGate('finalizing');
@@ -8109,6 +8321,7 @@ async function runGeneration(text) {
           if (i >= steps.length) {
             setLifecycleState('generating_images', proj);
             updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+            if (generationGateCost) generationGateCost.textContent = estimatedCostLine(proj);
             resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(() => {
               setLifecycleState('finalizing', proj);
               updateGenerationGate('finalizing');
@@ -8212,6 +8425,21 @@ const AUTOSAVE_RETRY_MS = 5000;
 // generationCost, resetsAt} | null. Never computed client-side (spec: "Do
 // NOT create a second credit calculation in the frontend").
 let latestCredits = null;
+// DYNAMIC CREDIT COSTING PASS (spec item 17, "generation complete UI"):
+// the account's real remaining balance captured at the very start of the
+// CURRENT generation attempt (runGeneration), before its own base-cost
+// reservation or any image charge -- finishGeneration diffs this against
+// latestCredits.remaining once that attempt succeeds to get the real
+// "N credits used" figure for lastGenerationCostNote, without duplicating
+// backend credit math client-side (the diff is just arithmetic on two
+// numbers the backend already reported, never a second cost calculation).
+// null whenever no generation is in flight / none has completed yet. Like
+// latestCredits itself, this is deliberately simple ambient state, not a
+// per-transaction value threaded through every call -- a concurrent charge
+// from a second browser tab for the SAME account during this window could
+// in theory skew the diff, exactly the same ambient-staleness tradeoff
+// `latestCredits` itself already accepts everywhere else in this file.
+let generationCreditsBeforeCharge = null;
 // pendingGenerationText: the EXACT brief a signed-out (or session-expired)
 // visitor was trying to generate when the auth gate interrupted them --
 // preserved verbatim (never re-derived, never retyped) and resumed
@@ -8354,19 +8582,37 @@ function renderCreditsUI() {
 // after sign-out (to clear it). Never called from a hot path (typing,
 // rendering) -- only real account-state transitions.
 async function refreshCreditsUI() {
-  if (!currentAccount) { latestCredits = null; renderCreditsUI(); return; }
+  if (!currentAccount) {
+    latestCredits = null;
+    // DYNAMIC CREDIT COSTING PASS: the last generation's charge line is
+    // account-scoped state (it names a real balance) -- clear it on
+    // sign-out along with latestCredits itself, same as the credit
+    // indicator/account panel just below, so a new visitor (or a
+    // different account signing in on the same device) never sees a
+    // stranger's leftover "N credits used" note.
+    generationCreditsBeforeCharge = null;
+    if (lastGenerationCostNote) { lastGenerationCostNote.textContent = ''; lastGenerationCostNote.hidden = true; }
+    renderCreditsUI();
+    return;
+  }
   const { ok, data } = await apiFetch('/api/credits');
   if (ok && data.ok) latestCredits = data.credits;
   renderCreditsUI();
 }
-// A /api/plan-website response always carries the POST-this-call
-// creditsRemaining figure -- applying it directly here means the indicator
-// updates immediately after a generation (spec item 8: "never trust stale
-// local state") without a second round-trip to /api/credits. Only the
-// `remaining` field is patched; dailyFreeCredits/generationCost/resetsAt
-// come from the last full /api/credits fetch (or are fetched fresh if none
-// has happened yet this session).
-function applyCreditsFromPlanResponse(result) {
+// DYNAMIC CREDIT COSTING PASS: every credit-spending endpoint's response
+// (/api/plan-website, /api/generate-image, /api/refine-website) carries the
+// POST-this-call creditsRemaining figure -- applying it directly here,
+// from all three call sites, means the indicator updates immediately after
+// ANY charge (base generation OR a single image) (spec item 8: "never
+// trust stale local state") without a second round-trip to /api/credits,
+// and without the credit pill/Generate-button label going stale between a
+// plan-website charge and the per-image charges that follow it in the same
+// generation. Only the `remaining` field is patched; dailyFreeCredits/
+// generationCost/resetsAt come from the last full /api/credits fetch (or
+// are fetched fresh if none has happened yet this session). Kept generic
+// (was applyCreditsFromPlanResponse) since it now applies to any response
+// shape carrying a numeric creditsRemaining, not just plan-website's.
+function applyCreditsFromApiResponse(result) {
   if (!result || typeof result.creditsRemaining !== 'number') return;
   if (latestCredits) { latestCredits = { ...latestCredits, remaining: result.creditsRemaining }; renderCreditsUI(); }
   else refreshCreditsUI();
