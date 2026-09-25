@@ -2358,3 +2358,24 @@ body.generation-gate-open{overflow:hidden}
 .generation-gate-close:hover{background:#f3f4f6}
 @media(max-width:430px){.generation-gate-card{padding:26px 20px 22px;border-radius:20px}.generation-gate-card h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.generation-gate-overlay{backdrop-filter:none}}
+/* ---- PREMIUM_GENERATION_V1 design-token layer -----------------------------------------------------------------
+   One coherent system per generated site: type pairing, heading scale, line length, section rhythm, radius.
+   Everything is inert unless the container carries data-premium="1" (set from project.design.premiumTokens, in the live
+   preview AND in the purchased export), so existing projects render exactly as before. Sizes use container units (cqw)
+   because the site lays itself out by container queries, not by viewport. */
+.builder-site[data-premium="1"]{font-family:var(--site-font-body);line-height:var(--site-body-line)}
+.builder-site[data-premium="1"] :is(.site-hero,.site-page-header,.site-copy,.hero-stacked-copy) :is(h1,h2,h3){font-family:var(--site-font-heading);font-weight:var(--site-heading-weight);letter-spacing:var(--site-heading-tracking);line-height:var(--site-heading-line);text-wrap:balance}
+.builder-site[data-premium="1"] :is(.site-copy,.hero-stacked-copy) h3{font-size:var(--site-h1)!important;max-width:var(--site-measure)}
+.builder-site[data-premium="1"] .site-page-header-title{font-size:var(--site-h1)!important}
+.builder-site[data-premium="1"] :is(.site-copy,.hero-stacked-copy)>p:not(:first-child){max-width:var(--site-measure);font-size:var(--site-body-size);line-height:var(--site-body-line)}
+.builder-site[data-premium="1"] .site-section-label{font-family:var(--site-font-heading);font-size:var(--site-h2);font-weight:var(--site-heading-weight);letter-spacing:var(--site-heading-tracking);line-height:1.15;text-transform:none;text-wrap:balance;color:var(--site-text);opacity:1}
+.builder-site[data-premium="1"] .site-section-intro{max-width:var(--site-measure);font-size:var(--site-body-size);line-height:var(--site-body-line);text-wrap:pretty}
+.builder-site[data-premium="1"] h4{font-family:var(--site-font-heading);letter-spacing:-.01em}
+.builder-site[data-premium="1"] :is(.feature-card,.faq-item,.sr-icon-tile,.site-visual,.gallery-tile){border-radius:var(--site-radius)}
+@container site (min-width:481px){
+  .builder-site[data-premium="1"] .site-section{padding-top:var(--site-space-major);padding-bottom:var(--site-space-major)}
+  .builder-site[data-premium="1"] .site-hero{padding-top:calc(var(--site-space-hero) * .55);padding-bottom:calc(var(--site-space-hero) * .55)}
+}
+@container site (max-width:480px){
+  .builder-site[data-premium="1"] .site-section{padding-top:calc(var(--site-space-major) * .55);padding-bottom:calc(var(--site-space-major) * .55)}
+}

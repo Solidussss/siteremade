@@ -1,0 +1,247 @@
+{
+  "fixture": "restaurant",
+  "label": "Restaurant / hospitality",
+  "mode": "legacy",
+  "premiumFlagSeenByClient": false,
+  "wallMs": 5695,
+  "run": {
+    "ms": 5690,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "hospitality",
+    "category": "hospitality",
+    "hero": "fullbleed-image",
+    "typeKey": "serif-editorial",
+    "premiumTokens": null,
+    "review": null,
+    "copy": {
+      "kicker": "FOOD & HOSPITALITY",
+      "headline": "Experience in Vancouver, worth the trip.",
+      "sub": "A menu and a room worth showing off before anyone walks in the door. Serving Vancouver.",
+      "cta": "View Menu"
+    },
+    "sections": [
+      "menu/default",
+      "gallery/featured",
+      "about/split",
+      "testimonialsGrid/default",
+      "reservationCta/default",
+      "ctaBanner/plain",
+      "imageLedEditorial/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "aspectRatio": "16:9",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.020999999999999998
+      },
+      {
+        "slot": "gallery-featured",
+        "role": "gallery",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.0084
+      },
+      {
+        "slot": "gallery-1-muhgvlte::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "gallery-menu-1-muhgvlteqnr::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": null
+      },
+      {
+        "slot": "gallery-featured",
+        "status": "ready",
+        "focal": null
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "gid": false,
+      "aspect": "16:9",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "promptHead": "soft organic texture photography for a food & hospitality brand, subtle Vancouve"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "gallery",
+      "gid": false,
+      "aspect": "4:3",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "promptHead": "soft organic texture photography for a food & hospitality brand, subtle Vancouve"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T21:22:39.611Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 8,
+        "cardsPerRowMax": 1,
+        "widestPx": 394,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 43
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 1,
+        "navOverflow": false,
+        "tightSections": 8,
+        "cardsPerRowMax": 1,
+        "widestPx": 364,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 40
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "FAIL",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "NEEDS_REPAIR",
+      "TECHNICAL_VALIDITY": "PASS"
+    },
+    "defects": [
+      {
+        "c": "BUSINESS_SPECIFICITY",
+        "code": "fabricated_testimonial",
+        "sev": 3,
+        "detail": "testimonial section without customer-supplied testimonials"
+      },
+      {
+        "c": "BUSINESS_SPECIFICITY",
+        "code": "fabricated_testimonial",
+        "sev": 3,
+        "detail": "testimonial section without customer-supplied testimonials"
+      },
+      {
+        "c": "MOBILE_READINESS",
+        "code": "bad_image_crop",
+        "sev": 2,
+        "detail": "1 at 360px"
+      }
+    ]
+  },
+  "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44En1yHnV8Fli4jqz/Fo9ch4fPIn27rcuvrBYDVO3tWOXpV07rYsvZT377eufzfNPTXOPDVM3rYsv8cGTloXnmtGL2rHLprnHzPJbduW9sP2bXXmvHjlrW/uM9u43zz9FunfLevYqBo78K85aFp7b1j7rxq9yqx9141dNc4+R7r3U7EP1yHnD1E2096CksBPtPchvfPvHPjRM3VaPnDVM3XZu/fjtnWZX3humbhumbjLLr+3rX4mJ65aF54qBo6a5x1jfYWH7r2b0onrkrHLoNNq7z17t2PzOLL+V9x9mlt+a55+SM3c1oxfZlffascvG6dvKIX1N09xDy8Jz7dgl79/75C278lbY/s2tasPUjF4kZ+4rh04rBo4SE9c8NX/TufUT7T3IrrxHew94ulifflfN6EVm+Y0fWzt2md/4zq1+RLr3WhefExPX7eufFQPa7a2LL4Xt35aFp7a1j8bp27a1j8TEdeO09nZm+S23+t6+/tUwdVM7dpFeeo31HZYUdtJLL+3rX/HBk4ap25aFp1jfYevic/XIWfv6V2H7r2nuoX7yOrP85td4UTFwHOs7aJy+Sy+9pJde68YvExPXvPm2tY+2tc+2tc+a0Yv8xnd88KRq+LRy6LRt7",
+  "desktopPageHeightPx": 3357,
+  "mobilePageHeightPx": 3874,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+        "FIRST_DRAFT_COST": 0,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0,
+        "modelCalls": 1,
+        "imageCount": 0,
+        "imageAttempts": 0,
+        "imageRetries": 0,
+        "byOperation": {
+          "NEW_SITE": 0
+        }
+      },
+      {
+        "generationId": "proj_muhgvlez",
+        "FIRST_DRAFT_COST": 0.0294,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0.0294,
+        "modelCalls": 0,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 0,
+        "byOperation": {
+          "IMAGE_ADD": 0.0294
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 0.0294,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 0.0294,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 0
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "soft organic texture photography for a food & hospitality brand, subtle Vancouver atmosphere, #f3ebe7 background, #a45c3d accent colour, premium brand aesthetic, hero composition, no text"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "size": "1024x1024",
+      "promptSample": "soft organic texture photography for a food & hospitality brand, subtle Vancouver atmosphere, #f3ebe7 background, #a45c3d accent colour, premium brand aesthetic, gallery composition, no text"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5293\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+}

@@ -1,0 +1,219 @@
+{
+  "fixture": "cleaning",
+  "label": "Cleaning / home service",
+  "mode": "legacy",
+  "premiumFlagSeenByClient": false,
+  "wallMs": 5649,
+  "run": {
+    "ms": 5648,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "local-conversion",
+    "category": "cleaning",
+    "hero": "stacked-image-below",
+    "typeKey": "humanist",
+    "premiumTokens": null,
+    "review": null,
+    "copy": {
+      "kicker": "CLEANING SERVICES",
+      "headline": "Cleaning Service, spotless every time.",
+      "sub": "Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.",
+      "cta": "Get a Quote"
+    },
+    "sections": [
+      "services/numbered",
+      "serviceAreas/default",
+      "testimonial/card",
+      "process/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "aspectRatio": "16:9",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.0084
+      },
+      {
+        "slot": "caseStudies-services-1-muhgylc8q2e::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "gallery-work-0-muhgylc8plf::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "caseStudies-work-1-muhgylc8lm4::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": null
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "gid": false,
+      "aspect": "16:9",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "promptHead": "clean documentary-style trade and craftsmanship photography for a cleaning brand"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T21:24:58.910Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 4,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 6,
+        "cardsPerRowMax": 0,
+        "widestPx": 420,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 43
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 4,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 6,
+        "cardsPerRowMax": 0,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 40
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "FAIL",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS"
+    },
+    "defects": [
+      {
+        "c": "BUSINESS_SPECIFICITY",
+        "code": "fabricated_testimonial",
+        "sev": 3,
+        "detail": "testimonial section without customer-supplied testimonials"
+      },
+      {
+        "c": "BUSINESS_SPECIFICITY",
+        "code": "fabricated_testimonial",
+        "sev": 3,
+        "detail": "testimonial section without customer-supplied testimonials"
+      },
+      {
+        "c": "BUSINESS_SPECIFICITY",
+        "code": "fabricated_testimonial",
+        "sev": 3,
+        "detail": "testimonial section without customer-supplied testimonials"
+      }
+    ]
+  },
+  "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>CLEANING SERVICES</p><h3>Cleaning Service, spotless every time.</h3><p>Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLT",
+  "desktopPageHeightPx": 2610,
+  "mobilePageHeightPx": 3077,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+        "FIRST_DRAFT_COST": 0,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0,
+        "modelCalls": 1,
+        "imageCount": 0,
+        "imageAttempts": 0,
+        "imageRetries": 0,
+        "byOperation": {
+          "NEW_SITE": 0
+        }
+      },
+      {
+        "generationId": "proj_muhgykxn",
+        "FIRST_DRAFT_COST": 0.0084,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0.0084,
+        "modelCalls": 0,
+        "imageCount": 1,
+        "imageAttempts": 1,
+        "imageRetries": 0,
+        "byOperation": {
+          "IMAGE_ADD": 0.0084
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 0.0084,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 0.0084,
+    "imageCount": 1,
+    "imageAttempts": 1,
+    "imageRetries": 0
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "size": "1536x1024",
+      "promptSample": "clean documentary-style trade and craftsmanship photography for a cleaning brand, subtle Edmonton. Recurring atmosphere, #f7f8f8 background, #2b87b6 accent colour, premium brand aesthetic, hero composition, no text"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5301\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+}

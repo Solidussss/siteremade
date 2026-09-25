@@ -1407,7 +1407,7 @@ function renderIconTile(key, opts) {
 function renderVisualSlot(project, slot, imageryKey, assetId) {
   if (project && Array.isArray(project._visibleImageSlots) && !project._visibleImageSlots.includes(slot)) project._visibleImageSlots.push(slot);
   const asset = assetId ? project.assets.items.find(a => a.id === assetId) : null;
-  if (asset) return `<img class="site-visual-img" src="${asset.dataUrl}" alt="${escapeHtml(asset.alt || (project.business.name || 'Business') + ' image')}" />`;
+  if (asset) return `<img class="site-visual-img" src="${asset.dataUrl}"${premiumFocalStyle(asset.focal)} alt="${escapeHtml(asset.alt || (project.business.name || 'Business') + ' image')}" />`;
   const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
   const generated = project.assets.generated && project.assets.generated[slot];
   // A cached generated image is only shown if it matches the CURRENT plan
@@ -1417,7 +1417,7 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
   // (fired elsewhere, see resolveImagePlanAssets) resolves.
   const cacheMatches = !!(generated && planEntry && generated.cacheKey === planEntry.cacheKey);
   if (cacheMatches && generated.status === 'ready' && generated.dataUrl) {
-    return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}" alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
+    return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}"${premiumFocalStyle(generated.focal)} alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
   }
   const generating = cacheMatches && generated.status === 'pending';
   // PLACEHOLDER/COMPOSITION FIX: distinguish WHY this slot has no real
@@ -1840,6 +1840,141 @@ function planAffordableImages({ candidates, remainingUsd, remainingCredits, mode
 // this allocator's behavior before this pass -- so nothing about the
 // existing USD-only behavior changes unless a caller opts in with a real
 // number.
+// ==========================================================================
+// PREMIUM_GENERATION_V1 (client side). Everything here is inert unless the
+// server reports premium.enabled (PREMIUM_GENERATION_V1=true) AND the shared
+// core (premium-core.js, the browser build of lib/premium) loaded. With the
+// flag off, the legacy image planner below runs exactly as before.
+// ==========================================================================
+function premiumStatus() {
+  const s = window.__siteremadeImageProvider;
+  return (s && s.premium && s.premium.enabled && s.premium.cfg && window.SiteRemadePremium) ? s.premium : null;
+}
+function premiumActive() { return !!premiumStatus(); }
+function premiumNewGenerationId() { return window.SiteRemadePremium.createPremiumCore(premiumStatus().cfg).newGenerationId(); }
+function premiumStrategyFor(project, category) {
+  const P = window.SiteRemadePremium;
+  const src = project.source || {};
+  return P.strategy.deriveStrategy({
+    archetype: project.strategy && project.strategy.archetype, categoryKey: project.business && project.business.categoryKey, categoryLabel: category.label,
+    description: src.text, facts: src.facts, location: src.location, creativeDirection: project.intent && project.intent.creativeDirection, claudeStrategy: project.strategy,
+  });
+}
+// Same allocator the server-side core uses: role planning, source priority, composition prompts, budget tiers.
+// The server stays authoritative for actual spend (its BudgetGovernor + USD ledger); this only decides what to ask for.
+function premiumPlanImages(project, category, slots, remainingCredits) {
+  const P = window.SiteRemadePremium, cfg = premiumStatus().cfg;
+  const strategy = premiumStrategyFor(project, category);
+  const art = P.art.deriveArtDirection(strategy, project.design.palette);
+  const governor = new P.BudgetGovernor(cfg, new P.CostLedger(cfg), 'gen_planonly');
+  const keys = imageModelKeys();
+  const credits = (typeof remainingCredits === 'number') ? { remaining: remainingCredits, support: imageCreditCostForRoute(keys.support), premium: imageCreditCostForRoute(keys.premium) } : null;
+  const heroVariant = project.design.dimensions.heroDisplayVariant || project.design.dimensions.hero;
+  const heroTextSide = ['centered-oversized', 'poster', 'stacked-image-below'].includes(heroVariant) ? 'center' : 'left';
+  const uploads = (project.assets.items || []).map(a => ({ id: a.id, width: a.width, height: a.height }));
+  return P.images.allocateImages({ slots, strategy, art, uploads, credits, heroTextSide, cfg, governor });
+}
+function premiumPlanEntry(project, category, s, pd) {
+  const generated = pd.sourceType === 'generated';
+  if (pd.sourceType === 'user' && s.assetId && pd.focal) {
+    const a = (project.assets.items || []).find(x => x.id === s.assetId);
+    if (a && a.focal !== pd.focal.objectPosition) a.focal = pd.focal.objectPosition; // meaningful object-position for real uploads
+  }
+  return {
+    ...s, aspectRatio: pd.aspectRatio || s.aspectRatio, placement: s.role,
+    prompt: pd.prompt || buildImagePrompt(project, category, s.role), promptAlt: pd.promptSimplified || null,
+    sourceType: pd.sourceType, model: generated ? pd.model : null, quality: generated ? pd.quality : null,
+    estimatedCostUsd: generated ? pd.estimatedUsd : null, creditCost: generated ? imageCreditCostForRoute(pd.model) : null,
+    cacheKey: computeImageCacheKey(project, s.role, s.slot),
+    focal: pd.focal ? pd.focal.objectPosition : null, premiumRole: pd.premiumRole, tier: pd.tier, kind: pd.kind || null, premiumReason: pd.reason || null,
+  };
+}
+function premiumImageRequestFields(proj, entry) {
+  if (!premiumActive() || !proj.design || !proj.design.premium || !proj.design.premium.generationId) return {};
+  return { premiumGenerationId: proj.design.premium.generationId, premiumTier: entry.tier || undefined, promptAlt: entry.promptAlt || undefined };
+}
+function premiumFocalStyle(focal) { return (typeof focal === 'string' && /^\d{1,3}% \d{1,3}%$/.test(focal)) ? ` style="object-position:${focal}"` : ''; }
+// One coherent token system per site (typography pairing, spacing rhythm, radius, width) stored slim inside project.design.
+function attachPremiumDesign(proj, generationId) {
+  try {
+    const P = window.SiteRemadePremium;
+    const category = categories[proj.business.categoryKey] || categories.other;
+    const strategy = premiumStrategyFor(proj, category);
+    proj.design.premiumTokens = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(strategy, proj.design.palette));
+    proj.design.premium = { generationId, v: 1 };
+  } catch (e) { /* the legacy design stays as-is */ }
+}
+function premiumDirectionPayload(proj, mobileReport) {
+  const d = JSON.parse(JSON.stringify(proj, (k, v) => (k === 'dataUrl' ? undefined : v))); // never ship image bytes for a review
+  d.imagePlan = (proj.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt }));
+  d.mobileReport = mobileReport || null;
+  return d;
+}
+function applyPremiumPatch(proj, patch) {
+  if (!patch) return false;
+  let changed = false;
+  if (patch.copy && proj.copy) ['headline', 'sub', 'cta'].forEach(k => { if (typeof patch.copy[k] === 'string' && patch.copy[k] !== proj.copy[k]) { proj.copy[k] = patch.copy[k]; changed = true; } });
+  (patch.sections || []).forEach(ps => {
+    const page = (proj.pages || []).find(p => (p.id || p.slug) === ps.pageId) || (proj.pages || [])[0];
+    if (!page) return;
+    let s = (page.sections || []).find(x => x.id === ps.id);
+    if (!s && (patch.addedSections || []).includes(ps.id) && ps.type) {
+      s = { id: ps.id, type: ps.type, variant: ps.variant, copy: ps.copy || null };
+      const fi = page.sections.findIndex(x => x.type === 'footer');
+      page.sections.splice(fi === -1 ? page.sections.length : fi, 0, s); changed = true; return;
+    }
+    if (!s) return;
+    if (ps.variant && ps.variant !== s.variant) { s.variant = ps.variant; changed = true; }
+    if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
+  });
+  (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
+  (patch.imagePlan || []).forEach(pe => {
+    const e = (proj.imagePlan || []).find(x => x.slot === pe.slot); if (!e) return;
+    if (pe.focal && pe.focal.objectPosition) e.focal = pe.focal.objectPosition;
+    if (pe.sourceType && pe.sourceType !== e.sourceType) {
+      e.sourceType = pe.sourceType; changed = true;
+      if (pe.sourceType === 'designed') proj.assets.generated[e.slot] = { cacheKey: e.cacheKey, status: 'error', prompt: e.prompt }; // designed visual instead of a broken/poor image
+    }
+  });
+  Object.keys(patch.generated || {}).forEach(slot => {
+    const e = (proj.imagePlan || []).find(x => x.slot === slot);
+    if (e && patch.generated[slot].dataUrl) { proj.assets.generated[slot] = { cacheKey: e.cacheKey, status: 'ready', dataUrl: patch.generated[slot].dataUrl, prompt: e.prompt, focal: e.focal || undefined }; changed = true; }
+  });
+  if (patch.dimensions && patch.dimensions.hero && patch.dimensions.hero !== proj.design.dimensions.hero) { proj.design.dimensions.hero = patch.dimensions.hero; changed = true; }
+  return changed;
+}
+// ONE whole-site review + at most one surgical repair round, before the customer sees the site.
+// Never blocks generation on failure: any error/timeout just reveals the first draft.
+async function premiumPreReveal(proj) {
+  if (!premiumActive() || !proj || !proj.design || !proj.design.premium) return;
+  const started = performance.now();
+  try {
+    updateGenerationGate('finalizing', 'Checking quality');
+    renderProject(proj); // make sure the DOM reflects exactly this project before measuring it
+    // The image plan can gain funded slots after the first resolve (sections built later). Resolve them now, as FIRST-DRAFT work,
+    // so the review sees the real result and they are not billed as repair. Idempotent: already-resolved slots are skipped.
+    await resolveImagePlanAssets(proj, () => {}, { suppressRender: true });
+    renderProject(proj);
+    const mobile = window.SiteRemadePremium.mobile.measureMobile(builderSite, [390, 360]);
+    const category = categories[proj.business.categoryKey] || categories.other;
+    const strategy = premiumStrategyFor(proj, category);
+    const payload = {
+      generationId: proj.design.premium.generationId, projectId: proj.meta && proj.meta.id, description: (proj.source && proj.source.text) || '',
+      facts: (proj.source && proj.source.facts) || {}, archetype: strategy.archetype, categoryKey: strategy.categoryKey, direction: premiumDirectionPayload(proj, mobile),
+    };
+    const body = JSON.stringify(payload);
+    if (body.length > 850000) return; // over the API body limit: skip rather than fail
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    const response = await fetch('/api/premium/review-repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal }).finally(() => clearTimeout(timer));
+    const data = await response.json().catch(() => ({}));
+    if (data && data.ok) {
+      if (applyPremiumPatch(proj, data.patch)) renderProject(proj);
+      proj.design.premium.review = { before: data.before, after: data.after, repaired: !!data.repaired, ms: Math.round(performance.now() - started) };
+    }
+  } catch (e) { /* first draft is revealed as-is */ }
+}
+
 function buildImagePlan(project, category, remainingCredits) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
@@ -1943,7 +2078,9 @@ function buildImagePlan(project, category, remainingCredits) {
   const modelKeys = imageModelKeys();
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
   let fundedRouteBySlotIndex = new Map();
-  if (providerConfigured) {
+  // PREMIUM_GENERATION_V1: quality-first allocation (roles, source priority, composition prompts, budget tiers). Legacy path untouched when off.
+  const premiumPlan = (providerConfigured && premiumActive()) ? premiumPlanImages(project, category, slots, remainingCredits) : null;
+  if (providerConfigured && !premiumPlan) {
     const candidates = slots
       .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId }))
       .filter(s => !s.hasUpload && s.idealTier !== 'none')
@@ -1951,6 +2088,8 @@ function buildImagePlan(project, category, remainingCredits) {
     fundedRouteBySlotIndex = planAffordableImages({ candidates, remainingUsd: spendCeilingUsd, remainingCredits, modelKeys });
   }
   return slots.map((s, i) => {
+    const premiumDecision = premiumPlan && premiumPlan.slots[i];
+    if (premiumDecision) return premiumPlanEntry(project, category, s, premiumDecision);
     const fundedRoute = fundedRouteBySlotIndex.get(i) || null;
     const sourceType = s.assetId ? 'user' : (fundedRoute ? 'generated' : 'designed');
     return {
@@ -2207,7 +2346,7 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
       // cheap support model at 'medium', so a bad or tampered client value
       // can never silently buy the premium model or the most expensive
       // quality.
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
+      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, ...premiumImageRequestFields(proj, entry), model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
       signal: controller.signal
     })
       .then(r => r.json().catch(() => ({})))
@@ -2231,7 +2370,7 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
           // Honest failure path: fall back cleanly to the designed CSS visual.
           proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
         } else {
-          proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: data.dataUrl, prompt: entry.prompt };
+          proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: data.dataUrl, prompt: entry.prompt, ...(entry.focal ? { focal: entry.focal, role: entry.premiumRole } : {}) };
         }
         if (proj === project && !options.suppressRender) renderProject(project);
         if (onProgress) onProgress();
@@ -5145,6 +5284,15 @@ function applyDesignDataset(proj) {
   builderSite.dataset.iconDensity = composed.iconDensity || 'medium';
   builderSite.dataset.iconPresentation = composed.iconPresentation || 'icon-led-row';
   builderSite.dataset.decorativeMotif = composed.decorativeMotif || 'none';
+  // PREMIUM_GENERATION_V1: one token system (type pairing, spacing rhythm, radius, width) per project. Data-driven, so a stored
+  // premium project keeps its tokens regardless of the flag; projects without tokens render exactly as before.
+  if (builderSite._premiumVars) builderSite._premiumVars.forEach(k => builderSite.style.removeProperty(k));
+  builderSite._premiumVars = [];
+  const premiumTokens = (window.SiteRemadePremium && proj.design.premiumTokens) ? window.SiteRemadePremium.tokens.sanitizeTokens(proj.design.premiumTokens) : null;
+  if (premiumTokens) {
+    Object.keys(premiumTokens.vars).forEach(k => { builderSite.style.setProperty(k, premiumTokens.vars[k]); builderSite._premiumVars.push(k); });
+    builderSite.dataset.premium = '1'; builderSite.dataset.premiumType = premiumTokens.typographyKey;
+  } else { delete builderSite.dataset.premium; delete builderSite.dataset.premiumType; }
   builderSite.dataset.motionCharacter = composed.motionCharacter || 'direct';
   builderSite.dataset.layout = proj.design.heroLayout;
   // CREATIVE DIRECTOR V2: the page's overall density curve -- paired with
@@ -7031,7 +7179,7 @@ async function requestClaudePlan(text, taskType) {
       headers: { 'Content-Type': 'application/json' },
       // taskType is observability metadata only (server.js recordOperation)
       // -- the route's own behavior/limits are unchanged by it.
-      body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE' })
+      body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE', premiumGenerationId: window.__premiumPendingGenerationId || undefined })
     });
     const data = await response.json().catch(() => ({}));
     // UNIFIED ACCOUNT pass: the HTTP status is now part of the return value
@@ -8187,6 +8335,7 @@ async function runGeneration(text) {
     updateGenerationGate('creative');
     if (generatorSubmitButton) generatorSubmitButton.disabled = true;
     if (generatorSubmitLabel) generatorSubmitLabel.textContent = (meter && meter.planConfigured) ? 'Planning with Claude…' : 'Reserving your credit…';
+    window.__premiumPendingGenerationId = premiumActive() ? premiumNewGenerationId() : null; // one generation session per fresh Generate (its own budget)
     const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE');
     if (result && result.status === 401) {
       // Session expired mid-visit (spec: "session expiry during use" must
@@ -8265,6 +8414,7 @@ async function runGeneration(text) {
     // budget before any network call.
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
+    if (premiumActive() && window.__premiumPendingGenerationId) attachPremiumDesign(proj, window.__premiumPendingGenerationId);
     // Whatever was staged in the generator box (attach/drag/paste, before
     // this business even had a project) becomes real assets on THIS
     // project now -- appended, not replacing whatever buildGenerationPlan
@@ -8292,6 +8442,7 @@ async function runGeneration(text) {
       await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)));
       setLifecycleState('finalizing', proj);
       updateGenerationGate('finalizing');
+      await premiumPreReveal(proj);
       const quality = validateProjectQuality(proj);
       if (!quality.ready) throw new Error('Generated project failed its deterministic quality gate');
       admitted = finishGeneration(proj, expectedDirectionIndex);
@@ -8331,9 +8482,10 @@ async function runGeneration(text) {
             setLifecycleState('generating_images', proj);
             updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
             if (generationGateCost) generationGateCost.textContent = estimatedCostLine(proj);
-            resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(() => {
+            resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(async () => {
               setLifecycleState('finalizing', proj);
               updateGenerationGate('finalizing');
+              await premiumPreReveal(proj);
               const quality = validateProjectQuality(proj);
               if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
               else resetGenerationChromeUI();

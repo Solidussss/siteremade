@@ -1,0 +1,480 @@
+{
+  "fixture": "restaurant",
+  "label": "Restaurant / hospitality",
+  "mode": "premium",
+  "premiumFlagSeenByClient": true,
+  "wallMs": 5961,
+  "run": {
+    "ms": 5949,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "hospitality",
+    "category": "hospitality",
+    "hero": "fullbleed-image",
+    "typeKey": "serif-editorial",
+    "premiumTokens": {
+      "typographyKey": "warm-editorial",
+      "heading": "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif",
+      "h1": "clamp(2.05rem,5.5cqw,3.6rem)",
+      "spaceMajor": "92px"
+    },
+    "review": {
+      "before": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "after": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repaired": true,
+      "ms": 36
+    },
+    "copy": {
+      "kicker": "FOOD & HOSPITALITY",
+      "headline": "Experience in Vancouver, worth the trip.",
+      "sub": "A menu and a room worth showing off before anyone walks in the door. Serving Vancouver.",
+      "cta": "View Menu"
+    },
+    "sections": [
+      "menu/default",
+      "gallery/featured",
+      "about/split",
+      "reservationCta/default",
+      "ctaBanner/plain",
+      "imageLedEditorial/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "aspectRatio": "16:9",
+        "tier": "hero",
+        "focal": "72% 55%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.63
+      },
+      {
+        "slot": "about",
+        "role": "team",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "1:1",
+        "tier": "primary",
+        "focal": "50% 38%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.15
+      },
+      {
+        "slot": "gallery-featured",
+        "role": "gallery",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": "72% 55%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.21
+      },
+      {
+        "slot": "gallery-1-muhgvz8f::gallery-1",
+        "role": "gallery",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": "50% 50%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.21
+      },
+      {
+        "slot": "gallery-1-muhgvz8f::gallery-2",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "1:1",
+        "tier": "primary",
+        "focal": null,
+        "reason": "first_draft_target_reached",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "gallery-menu-1-muhgvz8f3hx::gallery-1",
+        "role": "gallery",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": "50% 50%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.21
+      },
+      {
+        "slot": "gallery-menu-1-muhgvz8f3hx::gallery-2",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "1:1",
+        "tier": "primary",
+        "focal": null,
+        "reason": "first_draft_target_reached",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "about::about",
+        "role": "team",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "1:1",
+        "tier": "primary",
+        "focal": "50% 38%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.15
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": "72% 55%"
+      },
+      {
+        "slot": "about",
+        "status": "ready",
+        "focal": "50% 38%"
+      },
+      {
+        "slot": "gallery-featured",
+        "status": "ready",
+        "focal": "72% 55%"
+      },
+      {
+        "slot": "gallery-1-muhgvz8f::gallery-1",
+        "status": "ready",
+        "focal": "50% 50%"
+      },
+      {
+        "slot": "gallery-menu-1-muhgvz8f3hx::gallery-1",
+        "status": "ready",
+        "focal": "50% 50%"
+      },
+      {
+        "slot": "about::about",
+        "status": "ready",
+        "focal": "50% 38%"
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "tier": "hero",
+      "gid": true,
+      "aspect": "16:9",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "promptHead": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no l"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "team",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "1:1",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "the room set for service, no identifiable guests, subtle Vancouver regional sett"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "gallery",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "4:3",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no l"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "gallery",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "4:3",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "close detail of a plated dish with natural texture, subtle Vancouver regional se"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "gallery",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "4:3",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "close detail of a plated dish with natural texture, subtle Vancouver regional se"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "team",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "1:1",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "the room set for service, no identifiable guests, subtle Vancouver regional sett"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T21:22:57.263Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 1,
+        "navOverflow": false,
+        "tightSections": 7,
+        "cardsPerRowMax": 1,
+        "widestPx": 394,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 43
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 1,
+        "navOverflow": false,
+        "tightSections": 7,
+        "cardsPerRowMax": 1,
+        "widestPx": 364,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 40
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "NEEDS_REPAIR",
+      "TECHNICAL_VALIDITY": "PASS"
+    },
+    "defects": [
+      {
+        "c": "MOBILE_READINESS",
+        "code": "bad_image_crop",
+        "sev": 2,
+        "detail": "1 at 390px"
+      },
+      {
+        "c": "MOBILE_READINESS",
+        "code": "bad_image_crop",
+        "sev": 2,
+        "detail": "1 at 360px"
+      }
+    ]
+  },
+  "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa2jUlEQVR4XkydV1OUa9aG/f+nBoxgRMEssk+QoJIkSZLsieScc+ivrvt6uuermpras0eh+32fsNad1q2Nn493+58dDb26mHi31H5vt//Z9dTH45HXi9/uno01b3Y/2R94cfr7TWXm88bPx5W//1Vmv+z0NlxMvD0ebtz4+Xil8/5yR912b8Nq14OLiXcnv9/s9j/b7H5y9edDZf7r2veHO31PK3//2/v17Hjk9cHgS3/C5eS7ykJrZaF17fvD3f5nFxPv1r4/PBx6tfb9Ib9r9stOX8Pit7uVhVZ+6cznxW939/qfLbXf2+l7utr14Gb6096v56tdD05Hm66nPlbmvy5+u8uf//vfzfSng8GXe7+en4+/rSy0Xk6+Pxx6tZ8/XJlrufrz4Wys+eT3m+OR10vt9/YHXpz8fl1Z+LrT9/R66uNWT31lrqUy/3V/4MX+wIudvqeL3+6ej7+9+vNhf+DF4dCrysznrZ76xbY7O31Pz8ffLnfUbfXUb/x8vNn95Hrq49HQq9PRppPfbyp//zscerXdU1/5+9/l5PuzseaDwZeno00rnfcr819vpj8tfru7/uPRSR7yycjrw6GXB4Mv9wdeLH67e1H92EfDr26mP+30PT0ba64stG731F9PfTz5/ebk95vVrgf8xd+vKzOflzvqltrv+aC2exu2eur3B15c/fmw09ew2c3buZh4dz7+9mi48XDo1V7/M37FxLvljrrK7JfzsebT0abDvPrN7scXE293+p7u9j87HW26+vPhZupjnufH7d6Gysznlc7752PNS+33ljvq1n88uvrzYbu3gYc883l/4HllhjdyNtq03H7vdPTNdm/D4dCr1a77i213+NZzLXu/+LFHQ6/8vyoLrT6966mPh0OvDodesWBmvxwMvDgff7v+49HpaBOv7O9/u/1Pt3sbNrufrHTed61W5r9e/fmw9v2hb/N45LWvb+/Xs6Phxs3uJ36F8/G3e/3PfP5nY6wTlkpWiG/8eOT1ZveT9R+P9gde7PU/Oxtt8t9UFlpXOu9fT33kk898dqXlkT69+vPhYvztbv8zPsZcy830p6X2excT7/YHXlRmv6z/eLTT9/Ri4l3l738+maPhxjyfF0fDjX5gfvvsl8OhV7v9z67+vM+rvHM5+b4y+2Xj5+PDoVfn42/dSjz22S+Vv/+djjYdDL68nvpQmWvZ7X+2/uPRateDo+HGy8n3l5Pv9349Pxh8cZonX5n57H92+55W5lo2fj7e6qnnG7GD7vAPs19upj9dT",
+  "desktopPageHeightPx": 4745,
+  "mobilePageHeightPx": 4216,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "gen_muhgvytje29282",
+        "FIRST_DRAFT_COST": 2.196633,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 2.196633,
+        "modelCalls": 2,
+        "imageCount": 7,
+        "imageAttempts": 7,
+        "imageRetries": 1,
+        "byOperation": {
+          "NEW_SITE": 0,
+          "IMAGE_ADD": 2.19,
+          "QUALITY_REPAIR": 0.006633
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 2.1966,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 2.1966,
+    "imageCount": 7,
+    "imageAttempts": 7,
+    "imageRetries": 1
+  },
+  "generationLog": {
+    "generationId": "gen_muhgvytje29282",
+    "at": "2026-09-25T21:22:56.415Z",
+    "premium": true,
+    "archetype": "hospitality",
+    "projectId": "proj_muhgvyty",
+    "firstDraftCostUsd": 2.196633,
+    "repairCostUsd": 0,
+    "totalCostUsd": 2.196633,
+    "imageCount": 7,
+    "imageAttempts": 7,
+    "imageRetries": 1,
+    "modelCalls": 2,
+    "qualityBefore": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "FAIL",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "NEEDS_REPAIR",
+      "TECHNICAL_VALIDITY": "PASS"
+    },
+    "qualityAfter": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "NEEDS_REPAIR",
+      "TECHNICAL_VALIDITY": "PASS"
+    },
+    "repairRan": true,
+    "repairActions": [
+      {
+        "kind": "remove_section",
+        "code": "fabricated_testimonial"
+      },
+      {
+        "kind": "remove_section",
+        "code": "fabricated_testimonial"
+      },
+      {
+        "kind": "set_focal_all",
+        "code": "bad_image_crop"
+      }
+    ],
+    "budgetLimitReached": false,
+    "fullRegenerationsRequested": 0,
+    "timingsMs": {
+      "review": 1,
+      "critique": 1
+    },
+    "accepted": false,
+    "acceptedAt": null
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "blank": true,
+      "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Wide landscape frame, main subject occupying the right 55% of the frame, clean uncluttered negative space on the left for a headline. warm sensory food-and-space photogr"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No browser windows, websi"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1024x1024",
+      "promptSample": "the room set for service, no identifiable guests, subtle Vancouver regional setting (no landmarks). 4:5 portrait crop, subject in the upper two-thirds, calm depth, foreground softly out of focus. warm sensory food-and-space photography; warm low ambient light "
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Wide landscape frame, subject placed on the right third line, strong negative space on the left. warm sensory food-and-space photography; warm low ambient light with sof"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "close detail of a plated dish with natural texture, subtle Vancouver regional setting (no landmarks). 4:3 close crop, the detail fills the frame, simple background, clean edges. warm sensory food-and-space photography; warm low ambient light with soft highligh"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "close detail of a plated dish with natural texture, subtle Vancouver regional setting (no landmarks). 4:3 close crop, the detail fills the frame, simple background, clean edges. warm sensory food-and-space photography; warm low ambient light with soft highligh"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1024x1024",
+      "promptSample": "the room set for service, no identifiable guests, subtle Vancouver regional setting (no landmarks). 4:5 portrait crop, subject in the upper two-thirds, calm depth, foreground softly out of focus. warm sensory food-and-space photography; warm low ambient light "
+    },
+    {
+      "kind": "critic",
+      "model": "claude-sonnet-5"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5294\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+}

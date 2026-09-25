@@ -146,6 +146,15 @@ app.disable('x-powered-by');
 // before the generic JSON parser below so it claims that one route first.
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '2mb' }));
 app.use(express.json({ limit: '900kb' }));
+// PREMIUM_GENERATION_V1: attribute every provider call from a browser project to its generation (cost ledger grouping).
+app.use('/api', (req, res, next) => {
+  const b = req.body;
+  if (b && typeof b === 'object' && b.premiumGenerationId && b.projectId) {
+    const g = String(b.premiumGenerationId).slice(0, 60), p = String(b.projectId).slice(0, 60);
+    if (/^gen_[a-z0-9]{6,40}$/.test(g)) { projectGeneration.set(p, g); if (projectGeneration.size > 2000) projectGeneration.delete(projectGeneration.keys().next().value); }
+  }
+  next();
+});
 app.use(express.urlencoded({ extended: false, limit: '900kb' }));
 app.use(express.static(__dirname,{
   setHeaders(res,filePath){
@@ -541,7 +550,7 @@ const IMAGE_MODEL_PREMIUM = process.env.SITEREMADE_IMAGE_MODEL_PREMIUM || 'gpt-i
 // rejected in a way that blocks the whole generation.
 const ALLOWED_IMAGE_MODELS = Array.from(new Set([IMAGE_MODEL_SUPPORT, IMAGE_MODEL_PREMIUM]));
 const ALLOWED_IMAGE_QUALITIES = ['low', 'medium', 'high'];
-const ALLOWED_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '4:3'];
+const ALLOWED_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '4:3', '4:5', '3:4'];
 const IMAGE_MODEL_COST_ESTIMATE_USD = {
   [IMAGE_MODEL_SUPPORT]: {
     low: Number(process.env.SITEREMADE_IMAGE_COST_SUPPORT_LOW_USD) || 0.006,
@@ -616,8 +625,10 @@ const imageProviders = {
   openai: {
     name: 'openai',
     configured: () => !!OPENAI_API_KEY && SITEREMADE_PAID_IMAGES,
-    async generate(prompt, { aspectRatio, quality, model } = {}) {
-      const size = aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024';
+    async generate(prompt, { aspectRatio, quality, model, size: sizeOverride } = {}) {
+      // Legacy behaviour is unchanged (4:3 still maps to a square). PREMIUM_GENERATION_V1 passes an explicit
+      // ratio-appropriate size so images are generated for the slot, not generated square and cropped.
+      const size = sizeOverride || (aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024');
       const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
       // Allowlist enforcement happens here, not just in the route handler,
       // so this stays safe even if another call site is ever added above
@@ -663,6 +674,8 @@ app.get('/api/image-provider-status', (req, res) => {
   // real per-route CREDIT prices to reason about, not just dollars, and
   // must never hardcode a second copy of SITEREMADE_CREDIT_COST_IMAGE_*.
   res.json({
+    // PREMIUM_GENERATION_V1: the client planner needs the SAME budgets/tiers/prices the server enforces (numbers only, no secrets).
+    premium: premiumCore.cfg.enabled ? { enabled: true, cfg: premiumCore.cfg } : { enabled: false },
     configured,
     provider: configured ? activeImageProvider.name : null,
     reason,
@@ -689,6 +702,74 @@ app.get('/api/pricing', (req, res) => {
     websitePriceDisplay: formatWebsitePriceDisplay()
   });
 });
+
+// PREMIUM_GENERATION_V1 image path. Differences from the legacy path, all deliberate:
+//  - the ONLY spend gate is the per-generation BudgetGovernor (hard/soft budgets from config), not the $0.10 legacy
+//    reservation; concurrent requests reserve synchronously so parallel slots cannot jointly overshoot;
+//  - the prompt is guarded: UI-mockup requests are refused, the no-text/no-UI tail is always present;
+//  - the image is generated at a ratio-appropriate provider size;
+//  - a cheap deterministic evaluation (no paid vision call) decides whether the result is usable; a poor result gets
+//    AT MOST ONE retry with a genuinely different (simplified) prompt, then the caller falls back to a designed visual;
+//  - a poor result is never charged to the customer's credits.
+const premiumInflight = new Map(); // generationId -> estimated USD reserved but not yet in the ledger
+async function generatePremiumImage({ accountId, prompt, promptAlt, model, quality, aspectRatio, taskType, projectId, anonId, generationId, premiumTier, phase, deferSettlement }) {
+  const P = premiumLib.images;
+  const startedAt = Date.now();
+  const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
+  const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
+  const safeAspect = ALLOWED_IMAGE_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '1:1';
+  if (!prompt) return { ok: false, reason: 'missing_prompt' };
+  const lint = P.lintImagePrompt(prompt);
+  if (!lint.ok && lint.problems.some(p => /interface content/.test(p))) return { ok: false, reason: 'prompt_rejected', problems: lint.problems };
+  const safePrompt = /no text/i.test(prompt) ? prompt : (prompt + ' ' + P.NEGATIVE_TAIL);
+  const session = premiumSession(generationId);
+  const est = premiumLib.imageCostUsd(premiumCore.cfg, { model: safeModel === IMAGE_MODEL_PREMIUM ? 'premium' : 'support', quality: safeQuality, aspectRatio: safeAspect });
+  const inflight = premiumInflight.get(generationId) || 0;
+  const decision = session.governor.decide({ operation: 'image_generation', phase: phase === 'repair' ? 'repair' : 'first_draft', priority: premiumTier === 'hero' ? 'critical' : premiumTier === 'decorative' ? 'optional' : 'normal', estimatedUsd: est, committedUsd: inflight });
+  if (!decision.allowed) return { ok: false, reason: 'budget_exceeded', budgetLimitReached: decision.budgetLimitReached };
+  const creditCost = creditCostForImageRoute(safeModel);
+  let creditReserved = false;
+  if (accountId && creditCost > 0) {
+    const cr = credits.reserveCredits(db, accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    if (!cr.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: cr.remaining };
+    creditReserved = true;
+  }
+  premiumInflight.set(generationId, inflight + est);
+  const done = () => { premiumInflight.set(generationId, Math.max(0, (premiumInflight.get(generationId) || 0) - est)); };
+  const size = P.providerSizeFor(safeAspect);
+  let attempt = 0, current = safePrompt, evalResult = null, result = null;
+  try {
+    for (;;) {
+      result = await activeImageProvider.generate(current, { aspectRatio: safeAspect, quality: safeQuality, model: safeModel, size });
+      recordOperation({ operationType: taskType || 'IMAGE_GENERATE', provider: activeImageProvider.name, model: result.model || safeModel, ok: true, imageCount: 1, imageSize: safeAspect, imageQuality: result.quality || safeQuality, estimatedCostUsd: est, latencyMs: Date.now() - startedAt, projectId, accountId, anonId, generationId, retryCount: attempt, phase });
+      evalResult = P.evaluateImageDeterministic(result.dataUrl, safeAspect);
+      const next = P.retryDecision({ attempt, evaluation: evalResult }, premiumCore.cfg);
+      if (next.action !== 'retry' || !promptAlt) break;
+      // a retry is only run if the budget still allows it
+      const again = session.governor.decide({ operation: 'image_generation', phase: 'repair', priority: 'high', estimatedUsd: est, committedUsd: premiumInflight.get(generationId) - est });
+      if (!again.allowed) break;
+      attempt = next.attempt; current = /no text/i.test(promptAlt) ? promptAlt : (promptAlt + ' ' + P.NEGATIVE_TAIL);
+    }
+  } catch (error) {
+    console.error('Premium image generation failed:', error);
+    done(); if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+    recordOperation({ operationType: taskType || 'IMAGE_GENERATE', provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId, anonId, generationId });
+    return { ok: false, reason: 'provider_error' };
+  }
+  done();
+  if (evalResult && evalResult.poor) { // never charge a customer for an unusable image; caller falls back to a designed visual
+    if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+    return { ok: false, reason: 'poor_image', evaluation: evalResult, retried: attempt > 0 };
+  }
+  const okResult = { ok: true, dataUrl: result.dataUrl, quality: result.quality || safeQuality, model: result.model || safeModel, creditsCharged: creditReserved ? creditCost : 0, evaluation: evalResult, retried: attempt > 0 };
+  if (!deferSettlement) { if (creditReserved) credits.commitCredits(db, accountId, creditCost); return okResult; }
+  let settled = false; // bridge edits: credits stay reserved until the edit is actually saved (spend is already in the USD ledger either way)
+  okResult.settle = {
+    commit() { if (settled) return; settled = true; if (creditReserved) credits.commitCredits(db, accountId, creditCost); },
+    release() { if (settled) return; settled = true; if (creditReserved) credits.releaseCredits(db, accountId, creditCost); },
+  };
+  return okResult;
+}
 
 // App bridge pass (Phase 4): the body of /api/generate-image, factored out
 // UNCHANGED in order and substance into one function so there is exactly
@@ -724,8 +805,10 @@ app.get('/api/pricing', (req, res) => {
 // made one step earlier is now released. Previously that path returned
 // without releasing it, leaving those credits "reserved" (unusable) until
 // the next UTC-day rollover.
-async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false }) {
+async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null }) {
   if (!activeImageProvider.configured()) return { ok: false, reason: 'not_configured' };
+  const premiumOn = premiumCore.cfg.enabled && !!generationId && /^gen_[a-z0-9]{6,40}$/.test(generationId);
+  if (premiumOn) return generatePremiumImage({ accountId, prompt, promptAlt, model, quality, aspectRatio, taskType, projectId, anonId, generationId, premiumTier, phase, deferSettlement });
   const startedAt = Date.now();
   const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
   const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
@@ -832,21 +915,25 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
   const taskType = clean(req.body.taskType, 40) || 'IMAGE_GENERATE';
   const projectId = clean(req.body.projectId, 60);
   const result = await generateImageWithCredits({
-    accountId: req.accountId, prompt: clean(req.body.prompt, 600),
+    accountId: req.accountId, prompt: clean(req.body.prompt, 1200),
     model: clean(req.body.model, 40), quality: clean(req.body.quality, 10), aspectRatio: clean(req.body.aspectRatio, 10),
     reservationKey: projectId || anonId || 'anonymous', taskType, projectId, anonId,
+    // PREMIUM_GENERATION_V1 (ignored unless the flag is on)
+    generationId: clean(req.body.premiumGenerationId, 60) || null, promptAlt: clean(req.body.promptAlt, 1200) || null, premiumTier: clean(req.body.premiumTier, 20) || null,
   });
   if (result.ok) {
     // creditsCharged lets the client accumulate/display the real per-image
     // charge (spec: "after generation show actual charge") without
     // re-deriving support/premium pricing itself -- backend stays the sole
     // source of truth for the number, same principle as creditsRemaining.
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, creditsCharged: result.creditsCharged, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, evaluation: result.evaluation || undefined, creditsCharged: result.creditsCharged, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   }
   if (result.reason === 'not_configured') return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'This account has used its daily credit allowance.' });
   if (result.reason === 'budget_exceeded') return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'Server-side per-generation image budget already reached; this request was not sent to the image provider.' });
   if (result.reason === 'missing_prompt') return res.status(400).json({ ok: false, message: 'Missing prompt.' });
+  if (result.reason === 'poor_image') return res.status(200).json({ ok: false, configured: true, poorImage: true, message: 'The generated image was not good enough to use, so a designed visual is shown instead. You were not charged for it.' });
+  if (result.reason === 'prompt_rejected') return res.status(400).json({ ok: false, message: 'That image request was refused.' });
   return res.status(500).json({ ok: false, message: 'Could not generate image right now.' });
 });
 
@@ -1125,6 +1212,38 @@ const VISUAL_BUDGET_PROMPT_HINTS = {
 // building" section) rather than reshaping this twice.
 const OPERATION_LEDGER_LIMIT = 500;
 const operationLedger = [];
+// ---- PREMIUM_GENERATION_V1 (lib/premium): USD cost ledger, budget governor, metrics ----
+// The ledger is ALWAYS on (legacy and premium runs alike, so old-vs-new economics
+// are comparable); everything that changes generation BEHAVIOUR is behind
+// PREMIUM_GENERATION_V1=true. recordOperation stays the single funnel for every
+// provider call, so the USD ledger cannot miss an operation.
+const premiumLib = require('./lib/premium');
+const premiumFs = require('fs');
+const PREMIUM_LOG_DIR = process.env.SITEREMADE_PREMIUM_LOG_DIR || path.join(__dirname, 'data', 'premium');
+function premiumAppend(file, obj) { try { premiumFs.mkdirSync(PREMIUM_LOG_DIR, { recursive: true }); premiumFs.appendFile(path.join(PREMIUM_LOG_DIR, file), JSON.stringify(obj) + '\n', () => {}); } catch (_) { /* diagnostics only */ } }
+const premiumCore = premiumLib.createPremiumCore(process.env, {
+  ledgerSink: e => premiumAppend('cost-ledger.jsonl', e),
+  sink: l => premiumAppend('generation-log.jsonl', l),
+});
+const projectGeneration = new Map(); // browser project id -> premium generation id (set by middleware below)
+function premiumSession(generationId, seed) {
+  let s = premiumCore.getSession(generationId);
+  if (!s) s = premiumCore.startSession(Object.assign({ generationId }, seed || {}));
+  else if (seed && seed.archetype && seed.archetype !== s.strategy.archetype) s.rebind(seed);
+  return s;
+}
+const PREMIUM_REPAIR_TASKS = /^(COPY_|QUALITY_REPAIR|IMAGE_REGENERATE|REFINE)/;
+function premiumRecord(row, entry) {
+  try {
+    const genId = (entry.generationId && String(entry.generationId).slice(0, 60)) || projectGeneration.get(row.projectId) || row.projectId || row.anonId || 'unassigned';
+    const phase = entry.phase || (PREMIUM_REPAIR_TASKS.test(row.operationType || '') ? 'repair' : 'first_draft');
+    if (row.provider === activeImageProvider.name && (row.imageCount > 0)) {
+      premiumCore.ledger.record({ generationId: genId, phase, kind: 'image', provider: row.provider, model: row.model, imageTier: row.model === premiumCore.cfg.models.imagePremium ? 'premium' : 'support', operation: row.operationType, imageQuality: row.imageQuality, imageSize: row.imageSize, imageCount: row.imageCount, ok: row.ok, providerReached: true, latencyMs: row.latencyMs, retryCount: entry.retryCount || 0, projectId: row.projectId });
+    } else if (row.provider === 'anthropic') {
+      premiumCore.ledger.record({ generationId: genId, phase, kind: 'text', provider: row.provider, model: row.model, operation: row.operationType, tier: row.model === premiumCore.cfg.models.cheap ? 'cheap' : 'strong', usage: { inputTokens: row.inputTokens || 0, outputTokens: row.outputTokens || 0, cacheReadTokens: row.cacheReadTokens || 0, cacheWriteTokens: row.cacheWriteTokens || 0 }, latencyMs: row.latencyMs, ok: row.ok, projectId: row.projectId });
+    }
+  } catch (_) { /* the USD ledger must never break a generation */ }
+}
 function recordOperation(entry) {
   const row = {
     timestamp: new Date().toISOString(),
@@ -1174,6 +1293,7 @@ function recordOperation(entry) {
   };
   operationLedger.push(row);
   if (operationLedger.length > OPERATION_LEDGER_LIMIT) operationLedger.shift();
+  premiumRecord(row, entry);
   return row;
 }
 // Gated by a server-only shared secret (never the auth-session mechanism --
@@ -1187,6 +1307,21 @@ app.get('/api/admin/operation-ledger', (req, res) => {
     return res.status(404).json({ ok: false });
   }
   res.json({ ok: true, count: operationLedger.length, entries: operationLedger });
+});
+
+// PREMIUM_GENERATION_V1 diagnostics: cost per generation (FIRST_DRAFT / REPAIR / TOTAL),
+// generation log and economics aggregates. Internal only; never shown to customers.
+app.get('/api/admin/premium-ledger', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
+  const id = clean(req.query.generationId, 60);
+  if (id) return res.json({ ok: true, totals: premiumCore.ledger.totals(id), entries: premiumCore.ledger.forGeneration(id) });
+  const ids = [...new Set(premiumCore.ledger.entries.map(e => e.generationId))].slice(-50);
+  res.json({ ok: true, generations: ids.map(g => premiumCore.ledger.totals(g)) });
+});
+app.get('/api/admin/premium-metrics', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
+  const revenue = Number(process.env.PREMIUM_REVENUE_USD_PER_SITE);
+  res.json({ ok: true, enabled: premiumCore.cfg.enabled, config: { budgets: premiumCore.cfg.budgets, imageTierCaps: premiumCore.cfg.imageTierCaps, retry: premiumCore.cfg.retry, models: premiumCore.cfg.models }, aggregate: premiumCore.metrics.aggregate({ revenueUsdPerSite: Number.isFinite(revenue) ? revenue : null }), recent: premiumCore.metrics.logs.slice(-25) });
 });
 
 const HERO_KEYS =['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
@@ -1869,7 +2004,7 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   // missing/unrecognized value just labels the ledger row generically and
   // changes nothing about how this route behaves.
   const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
-  const projectId = clean(req.body.projectId, 60);
+  const projectId = clean(req.body.projectId, 60) || clean(req.body.premiumGenerationId, 60); // premiumGenerationId groups the planner's USD cost with its generation
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
   if (creditCost > 0) {
@@ -2112,6 +2247,86 @@ app.post('/api/stripe/webhook', (req, res) => {
     console.error('Webhook fulfillment failed:', error);
     return res.status(500).json({ ok: false, message: 'Fulfillment failed.' });
   }
+});
+
+// ---- PREMIUM_GENERATION_V1: whole-site review + ONE surgical repair round ------------------------------
+// Called once by the client after the first render. Server-side so the same review/repair core (and the same
+// budget governor and USD ledger) serves the generator and the Workplace updater. Repair images are paid by the
+// platform (accountId:null: no customer credits), bounded by HARD_SITE_BUDGET_USD; nothing about cost is returned
+// to the customer.
+async function anthropicSmallCall({ model, system, user, tool, maxTokens, taskType, projectId, generationId, phase }) {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  try {
+    const body = { model, max_tokens: maxTokens || 700, thinking: { type: 'disabled' }, system, messages: [{ role: 'user', content: user }] };
+    if (tool) { body.tools = [tool]; body.tool_choice = { type: 'tool', name: tool.name }; }
+    const response = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
+    const data = await response.json().catch(() => ({}));
+    const usage = data.usage || {};
+    recordOperation({ operationType: taskType, provider: 'anthropic', model, ok: response.ok, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, latencyMs: Date.now() - startedAt, projectId, generationId, phase });
+    if (!response.ok) throw new Error((data.error && data.error.message) || `Anthropic returned ${response.status}`);
+    const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    return { input: toolUse && toolUse.input, text, usage: { inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0, cacheReadTokens: usage.cache_read_input_tokens || 0, cacheWriteTokens: usage.cache_creation_input_tokens || 0 } };
+  } finally { clearTimeout(timer); }
+}
+function premiumCurrentCopy(direction, targetId, field) {
+  if (targetId === 'hero') return (direction.copy && direction.copy[field === 'body' ? 'sub' : field]) || '';
+  for (const p of (direction.pages || [])) for (const s of (p.sections || [])) if (s && s.id === targetId) return (s.copy && s.copy[field]) || '';
+  return '';
+}
+app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (req, res) => {
+  if (!premiumCore.cfg.enabled) return res.status(404).json({ ok: false });
+  const generationId = clean(req.body.generationId, 60);
+  if (!/^gen_[a-z0-9]{6,40}$/.test(generationId)) return res.status(400).json({ ok: false, message: 'Invalid generation.' });
+  const direction = req.body.direction;
+  if (!direction || typeof direction !== 'object' || !Array.isArray(direction.pages)) return res.status(400).json({ ok: false, message: 'Missing site.' });
+  const description = clean(req.body.description, 1500);
+  const facts = (req.body.facts && typeof req.body.facts === 'object') ? { years: !!req.body.facts.years, rating: !!req.body.facts.rating, count: !!req.body.facts.count } : {};
+  const projectId = clean(req.body.projectId, 60);
+  const session = premiumSession(generationId, { categoryKey: clean(req.body.categoryKey, 30), archetype: clean(req.body.archetype, 40), description, palette: (direction.design && direction.design.palette) || {}, facts, projectId });
+  const cheapModel = premiumCore.cfg.models.cheap, strongModel = premiumCore.cfg.models.strong;
+  const deps = {
+    selfRecorded: true,
+    critic: ANTHROPIC_API_KEY ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 900, taskType: 'QUALITY_REPAIR', projectId, generationId, phase: 'first_draft' }) : undefined,
+    regenerateImage: activeImageProvider.configured() ? async spec => generateImageWithCredits({ accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
+    rewriteCopy: ANTHROPIC_API_KEY ? async ({ targetId, field, maxChars, removeClaim, direction: cur }) => {
+      const current = premiumCurrentCopy(cur, targetId, field);
+      const limit = Math.min(Number(maxChars) || 200, 400);
+      const user = `Rewrite this ${field} from a small-business website. The customer's own description is the ONLY source of facts: "${description}". Current text: "${current}". Rules: keep the meaning; at most ${limit} characters; specific and plain; no generic marketing filler; do NOT add any fact (years, ratings, counts, certifications, awards, guarantees) that is not in the description${removeClaim ? `; remove this unsupported claim: "${removeClaim}"` : ''}. Return only the rewritten text.`;
+      const out = await anthropicSmallCall({ model: cheapModel, system: 'You rewrite website copy for small businesses. Never invent facts.', user, maxTokens: 220, taskType: 'COPY_REWRITE', projectId, generationId, phase: 'repair' });
+      let text = String(out.text || '').replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, '').trim();
+      const bad = premiumLib.review.CLAIM_PATTERNS.concat(premiumLib.review.GENERIC_PHRASES).some(re => re.test(text) && !new RegExp(re.source, 'i').test(description));
+      if (!text || text.length > limit * 1.25 || bad) return { ok: false, usage: out.usage };
+      return { ok: true, text, usage: out.usage };
+    } : undefined,
+  };
+  try {
+    const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true }, deps);
+    const d = out.direction;
+    const patch = {
+      copy: d.copy || null,
+      sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, copy: s.copy || null }))),
+      addedSections: out.actions.filter(a => a.sectionId).map(a => a.sectionId),
+      removedSections: out.actions.filter(a => a.kind === 'remove_section').map(a => a.targetId),
+      imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),
+      generated: Object.fromEntries(out.actions.filter(a => a.kind === 'regenerate_image' && d.assets && d.assets.generated && d.assets.generated[a.slot] && d.assets.generated[a.slot].dataUrl).map(a => [a.slot, { status: 'ready', dataUrl: d.assets.generated[a.slot].dataUrl }])),
+      premiumTokens: (d.design && d.design.premiumTokens) || null,
+      dimensions: (d.design && d.design.dimensions) || null,
+      premium: d.premium || null,
+    };
+    const log = session.finish();
+    return res.json({ ok: true, generationId, repaired: out.repaired, before: out.before, after: out.after, actions: out.actions.map(a => ({ kind: a.kind, defectCode: a.defectCode, target: a.target || null, downgradedFrom: a.downgradedFrom || null })), skipped: out.skipped, patch, timingsMs: log.timingsMs });
+  } catch (error) {
+    console.error('Premium review/repair failed:', error);
+    return res.status(200).json({ ok: false, message: 'Quality review was skipped.' });
+  }
+});
+// Client tells us the customer bought/kept the site so acceptance metrics are real, not guessed.
+app.post('/api/premium/accepted', requireAuth, (req, res) => {
+  const id = clean(req.body.generationId, 60);
+  return res.json({ ok: true, recorded: /^gen_[a-z0-9]{6,40}$/.test(id) ? premiumCore.metrics.markAccepted(id) : false });
 });
 
 app.post('/api/lead', async (req, res) => {
@@ -2805,8 +3020,13 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
     if (applied.imageRequests.length) {
       if (!activeImageProvider.configured()) return fail(503, 'edit_failed', 'This change needs a new image, and new images can\'t be created right now. Nothing on your website was changed.', { reason: 'images_unavailable' });
       for (const imageRequest of applied.imageRequests) {
+        // PREMIUM_GENERATION_V1: the Workplace updater shares the generator's premium image path. Route, ratio and tier come
+        // from the stored image plan; every edit is its own generation session (its own hard budget), phase 'repair'.
+        const planEntry = premiumCore.cfg.enabled ? ((applied.state.directions[directionIndex].imagePlan || []).find(e => e.slot === imageRequest.slot) || null) : null;
         const image = await generateImageWithCredits({
-          accountId: req.accountId, prompt: imageRequest.prompt, model: IMAGE_MODEL_SUPPORT, quality: 'medium', aspectRatio: imageRequest.aspectRatio,
+          accountId: req.accountId, prompt: imageRequest.prompt,
+          model: (planEntry && planEntry.model) || IMAGE_MODEL_SUPPORT, quality: (planEntry && planEntry.quality) || 'medium', aspectRatio: (planEntry && planEntry.aspectRatio) || imageRequest.aspectRatio,
+          generationId: premiumCore.cfg.enabled ? premiumCore.newGenerationId() : null, premiumTier: planEntry && planEntry.tier || null, phase: 'repair',
           // Re-keyed on purpose: the server's real projects.id, not a
           // browser-supplied id (this flow has none) -- see
           // generateImageWithCredits' header comment.

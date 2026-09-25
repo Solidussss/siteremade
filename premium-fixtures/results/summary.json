@@ -1,0 +1,3734 @@
+[
+  {
+    "fixture": "roofing",
+    "label": "Roofing / local service",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5660,
+    "run": {
+      "ms": 5659,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "roofing",
+      "hero": "stacked-image-below",
+      "typeKey": "mono-technical",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "ROOFING SERVICES",
+        "headline": "Roofing Work, built for the weather.",
+        "sub": "Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.",
+        "cta": "Request a Quote"
+      },
+      "sections": [
+        "serviceAreas/default",
+        "caseStudies/default",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.0084
+        },
+        {
+          "slot": "caseStudies-1-muhgu5lw::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-services-1-muhgu5lwsn1::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgu5lw6ml::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgu5lw58q::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "clean documentary-style trade and craftsmanship photography for a roofing brand,"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:21:31.900Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>ROOFING SERVICES</p><h3>Roofing Work, built for the weather.</h3><p>Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1t",
+    "desktopPageHeightPx": 1785,
+    "mobilePageHeightPx": 2217,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgu573",
+          "FIRST_DRAFT_COST": 0.0084,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.0084,
+          "modelCalls": 0,
+          "imageCount": 1,
+          "imageAttempts": 1,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.0084
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.0084,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.0084,
+      "imageCount": 1,
+      "imageAttempts": 1,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1536x1024",
+        "promptSample": "clean documentary-style trade and craftsmanship photography for a roofing brand, subtle Calgary. We atmosphere, #170e0d background, #f2392c accent colour, premium brand aesthetic, hero composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5289\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "roofing",
+    "label": "Roofing / local service",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5664,
+    "run": {
+      "ms": 5664,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "roofing",
+      "hero": "stacked-image-below",
+      "typeKey": "mono-technical",
+      "premiumTokens": {
+        "typographyKey": "humanist-workhorse",
+        "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+        "h1": "clamp(2rem,5.4cqw,3.5rem)",
+        "spaceMajor": "64px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": false,
+        "ms": 13
+      },
+      "copy": {
+        "kicker": "ROOFING SERVICES",
+        "headline": "Roofing Work, built for the weather.",
+        "sub": "Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.",
+        "cta": "Request a Quote"
+      },
+      "sections": [
+        "serviceAreas/default",
+        "caseStudies/default",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "50% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "caseStudies-1-muhguj0q::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-services-1-muhguj0qzgx::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhguj0qd58::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhguj0q9t1::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "50% 55%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "a finished residential roof on a well-kept suburban home, subtle Calgary. We reg"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:21:49.300Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 32
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 32
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>ROOFING SERVICES</p><h3>Roofing Work, built for the weather.</h3><p>Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1t",
+    "desktopPageHeightPx": 2161,
+    "mobilePageHeightPx": 2219,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhguilw5e8d00",
+          "FIRST_DRAFT_COST": 1.266504,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 1.266504,
+          "modelCalls": 2,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 1.26,
+            "QUALITY_REPAIR": 0.006504
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 1.2665,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 1.2665,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhguilw5e8d00",
+      "at": "2026-09-25T21:21:48.491Z",
+      "premium": true,
+      "archetype": "local-conversion",
+      "projectId": "proj_muhguimb",
+      "firstDraftCostUsd": 1.266504,
+      "repairCostUsd": 0,
+      "totalCostUsd": 1.266504,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": false,
+      "repairActions": [],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "a finished residential roof on a well-kept suburban home, subtle Calgary. We regional setting (no landmarks). Wide landscape frame, single clear subject centered with calm negative space above and below for a headline. commercial documentary photography of rea"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "a finished residential roof on a well-kept suburban home, subtle Calgary. We regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No bro"
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5290\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "consultant",
+    "label": "Premium consultant",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5692,
+    "run": {
+      "ms": 5690,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "premium-consultancy",
+      "category": "professional",
+      "hero": "stacked-image-below",
+      "typeKey": "classic-serif-mix",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "PROFESSIONAL SERVICES",
+        "headline": "Guidance, handled with expertise.",
+        "sub": "Straightforward guidance from people who know the details, so you do not have to.",
+        "cta": "Book a Consultation"
+      },
+      "sections": [
+        "services/numbered",
+        "process/default",
+        "faq/default",
+        "ctaBanner/plain"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.0084
+        },
+        {
+          "slot": "about::about",
+          "role": "team",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "1:1",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.006
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        },
+        {
+          "slot": "about::about",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "clean abstract geometric composition for a professional services brand, #f7f7f8 "
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "team",
+        "gid": false,
+        "aspect": "1:1",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "clean abstract geometric composition for a professional services brand, #f7f7f8 "
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:22:06.736Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>PROFESSIONAL SERVICES</p><h3>Guidance, handled with expertise.</h3><p>Straightforward guidance from people who know the details, so you do not have to.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Book a Consultation<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44E",
+    "desktopPageHeightPx": 2613,
+    "mobilePageHeightPx": 2990,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhguw1v",
+          "FIRST_DRAFT_COST": 0.0144,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.0144,
+          "modelCalls": 0,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.0144
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.0144,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.0144,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1536x1024",
+        "promptSample": "clean abstract geometric composition for a professional services brand, #f7f7f8 background, #2b57b6 accent colour, premium brand aesthetic, hero composition, no text"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1024x1024",
+        "promptSample": "clean abstract geometric composition for a professional services brand, #f7f7f8 background, #2b57b6 accent colour, premium brand aesthetic, team composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5291\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "consultant",
+    "label": "Premium consultant",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5722,
+    "run": {
+      "ms": 5720,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "premium-consultancy",
+      "category": "professional",
+      "hero": "stacked-image-below",
+      "typeKey": "classic-serif-mix",
+      "premiumTokens": {
+        "typographyKey": "editorial-contrast",
+        "heading": "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif",
+        "h1": "clamp(2.1rem,5.7cqw,3.8rem)",
+        "spaceMajor": "92px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": false,
+        "ms": 18
+      },
+      "copy": {
+        "kicker": "PROFESSIONAL SERVICES",
+        "headline": "Guidance, handled with expertise.",
+        "sub": "Straightforward guidance from people who know the details, so you do not have to.",
+        "cta": "Book a Consultation"
+      },
+      "sections": [
+        "services/numbered",
+        "process/default",
+        "faq/default",
+        "ctaBanner/plain"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "50% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "about::about",
+          "role": "team",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": "50% 38%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.15
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "50% 55%"
+        },
+        {
+          "slot": "about::about",
+          "status": "ready",
+          "focal": "50% 38%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "a calm, well-lit professional office or consultation space. Wide landscape frame"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "team",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "1:1",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "a meeting table set for a discussion, no identifiable people. 4:5 portrait crop,"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:22:24.144Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 34
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 34
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>PROFESSIONAL SERVICES</p><h3>Guidance, handled with expertise.</h3><p>Straightforward guidance from people who know the details, so you do not have to.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Book a Consultation<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44E",
+    "desktopPageHeightPx": 3655,
+    "mobilePageHeightPx": 3308,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgv9g68072e8",
+          "FIRST_DRAFT_COST": 1.416207,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 1.416207,
+          "modelCalls": 2,
+          "imageCount": 3,
+          "imageAttempts": 3,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 1.41,
+            "QUALITY_REPAIR": 0.006207
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 1.4162,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 1.4162,
+      "imageCount": 3,
+      "imageAttempts": 3,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhgv9g68072e8",
+      "at": "2026-09-25T21:22:23.328Z",
+      "premium": true,
+      "archetype": "premium-consultancy",
+      "projectId": "proj_muhgv9gl",
+      "firstDraftCostUsd": 1.416207,
+      "repairCostUsd": 0,
+      "totalCostUsd": 1.416207,
+      "imageCount": 3,
+      "imageAttempts": 3,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": false,
+      "repairActions": [],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "a calm, well-lit professional office or consultation space. Wide landscape frame, single clear subject centered with calm negative space above and below for a headline. quiet editorial photography, restrained and architectural; soft directional daylight with g"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "a calm, well-lit professional office or consultation space. Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No browser windows, website or app interface, buttons, d"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1024x1024",
+        "promptSample": "a meeting table set for a discussion, no identifiable people. 4:5 portrait crop, subject in the upper two-thirds, calm depth, foreground softly out of focus. quiet editorial photography, restrained and architectural; soft directional daylight with gentle shado"
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5292\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "restaurant",
+    "label": "Restaurant / hospitality",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5695,
+    "run": {
+      "ms": 5690,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "hospitality",
+      "category": "hospitality",
+      "hero": "fullbleed-image",
+      "typeKey": "serif-editorial",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "FOOD & HOSPITALITY",
+        "headline": "Experience in Vancouver, worth the trip.",
+        "sub": "A menu and a room worth showing off before anyone walks in the door. Serving Vancouver.",
+        "cta": "View Menu"
+      },
+      "sections": [
+        "menu/default",
+        "gallery/featured",
+        "about/split",
+        "testimonialsGrid/default",
+        "reservationCta/default",
+        "ctaBanner/plain",
+        "imageLedEditorial/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "medium",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.020999999999999998
+        },
+        {
+          "slot": "gallery-featured",
+          "role": "gallery",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.0084
+        },
+        {
+          "slot": "gallery-1-muhgvlte::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-menu-1-muhgvlteqnr::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        },
+        {
+          "slot": "gallery-featured",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "promptHead": "soft organic texture photography for a food & hospitality brand, subtle Vancouve"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "gallery",
+        "gid": false,
+        "aspect": "4:3",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "soft organic texture photography for a food & hospitality brand, subtle Vancouve"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:22:39.611Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 8,
+          "cardsPerRowMax": 1,
+          "widestPx": 394,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 1,
+          "navOverflow": false,
+          "tightSections": 8,
+          "cardsPerRowMax": 1,
+          "widestPx": 364,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": [
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "MOBILE_READINESS",
+          "code": "bad_image_crop",
+          "sev": 2,
+          "detail": "1 at 360px"
+        }
+      ]
+    },
+    "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44En1yHnV8Fli4jqz/Fo9ch4fPIn27rcuvrBYDVO3tWOXpV07rYsvZT377eufzfNPTXOPDVM3rYsv8cGTloXnmtGL2rHLprnHzPJbduW9sP2bXXmvHjlrW/uM9u43zz9FunfLevYqBo78K85aFp7b1j7rxq9yqx9141dNc4+R7r3U7EP1yHnD1E2096CksBPtPchvfPvHPjRM3VaPnDVM3XZu/fjtnWZX3humbhumbjLLr+3rX4mJ65aF54qBo6a5x1jfYWH7r2b0onrkrHLoNNq7z17t2PzOLL+V9x9mlt+a55+SM3c1oxfZlffascvG6dvKIX1N09xDy8Jz7dgl79/75C278lbY/s2tasPUjF4kZ+4rh04rBo4SE9c8NX/TufUT7T3IrrxHew94ulifflfN6EVm+Y0fWzt2md/4zq1+RLr3WhefExPX7eufFQPa7a2LL4Xt35aFp7a1j8bp27a1j8TEdeO09nZm+S23+t6+/tUwdVM7dpFeeo31HZYUdtJLL+3rX/HBk4ap25aFp1jfYevic/XIWfv6V2H7r2nuoX7yOrP85td4UTFwHOs7aJy+Sy+9pJde68YvExPXvPm2tY+2tc+2tc+a0Yv8xnd88KRq+LRy6LRt7",
+    "desktopPageHeightPx": 3357,
+    "mobilePageHeightPx": 3874,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgvlez",
+          "FIRST_DRAFT_COST": 0.0294,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.0294,
+          "modelCalls": 0,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.0294
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.0294,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.0294,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "soft organic texture photography for a food & hospitality brand, subtle Vancouver atmosphere, #f3ebe7 background, #a45c3d accent colour, premium brand aesthetic, hero composition, no text"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1024x1024",
+        "promptSample": "soft organic texture photography for a food & hospitality brand, subtle Vancouver atmosphere, #f3ebe7 background, #a45c3d accent colour, premium brand aesthetic, gallery composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5293\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "restaurant",
+    "label": "Restaurant / hospitality",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5961,
+    "run": {
+      "ms": 5949,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "hospitality",
+      "category": "hospitality",
+      "hero": "fullbleed-image",
+      "typeKey": "serif-editorial",
+      "premiumTokens": {
+        "typographyKey": "warm-editorial",
+        "heading": "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif",
+        "h1": "clamp(2.05rem,5.5cqw,3.6rem)",
+        "spaceMajor": "92px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "FAIL",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "NEEDS_REPAIR",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "NEEDS_REPAIR",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": true,
+        "ms": 36
+      },
+      "copy": {
+        "kicker": "FOOD & HOSPITALITY",
+        "headline": "Experience in Vancouver, worth the trip.",
+        "sub": "A menu and a room worth showing off before anyone walks in the door. Serving Vancouver.",
+        "cta": "View Menu"
+      },
+      "sections": [
+        "menu/default",
+        "gallery/featured",
+        "about/split",
+        "reservationCta/default",
+        "ctaBanner/plain",
+        "imageLedEditorial/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "72% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "about",
+          "role": "team",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": "50% 38%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.15
+        },
+        {
+          "slot": "gallery-featured",
+          "role": "gallery",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": "72% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.21
+        },
+        {
+          "slot": "gallery-1-muhgvz8f::gallery-1",
+          "role": "gallery",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": "50% 50%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.21
+        },
+        {
+          "slot": "gallery-1-muhgvz8f::gallery-2",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": null,
+          "reason": "first_draft_target_reached",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-menu-1-muhgvz8f3hx::gallery-1",
+          "role": "gallery",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": "50% 50%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.21
+        },
+        {
+          "slot": "gallery-menu-1-muhgvz8f3hx::gallery-2",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": null,
+          "reason": "first_draft_target_reached",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "about::about",
+          "role": "team",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": "50% 38%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.15
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "72% 55%"
+        },
+        {
+          "slot": "about",
+          "status": "ready",
+          "focal": "50% 38%"
+        },
+        {
+          "slot": "gallery-featured",
+          "status": "ready",
+          "focal": "72% 55%"
+        },
+        {
+          "slot": "gallery-1-muhgvz8f::gallery-1",
+          "status": "ready",
+          "focal": "50% 50%"
+        },
+        {
+          "slot": "gallery-menu-1-muhgvz8f3hx::gallery-1",
+          "status": "ready",
+          "focal": "50% 50%"
+        },
+        {
+          "slot": "about::about",
+          "status": "ready",
+          "focal": "50% 38%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no l"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "team",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "1:1",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "the room set for service, no identifiable guests, subtle Vancouver regional sett"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "gallery",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "4:3",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no l"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "gallery",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "4:3",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "close detail of a plated dish with natural texture, subtle Vancouver regional se"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "gallery",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "4:3",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "close detail of a plated dish with natural texture, subtle Vancouver regional se"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "team",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "1:1",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "the room set for service, no identifiable guests, subtle Vancouver regional sett"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:22:57.263Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 1,
+          "navOverflow": false,
+          "tightSections": 7,
+          "cardsPerRowMax": 1,
+          "widestPx": 394,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 1,
+          "navOverflow": false,
+          "tightSections": 7,
+          "cardsPerRowMax": 1,
+          "widestPx": 364,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": [
+        {
+          "c": "MOBILE_READINESS",
+          "code": "bad_image_crop",
+          "sev": 2,
+          "detail": "1 at 390px"
+        },
+        {
+          "c": "MOBILE_READINESS",
+          "code": "bad_image_crop",
+          "sev": 2,
+          "detail": "1 at 360px"
+        }
+      ]
+    },
+    "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa2jUlEQVR4XkydV1OUa9aG/f+nBoxgRMEssk+QoJIkSZLsieScc+ivrvt6uuermpras0eh+32fsNad1q2Nn493+58dDb26mHi31H5vt//Z9dTH45HXi9/uno01b3Y/2R94cfr7TWXm88bPx5W//1Vmv+z0NlxMvD0ebtz4+Xil8/5yR912b8Nq14OLiXcnv9/s9j/b7H5y9edDZf7r2veHO31PK3//2/v17Hjk9cHgS3/C5eS7ykJrZaF17fvD3f5nFxPv1r4/PBx6tfb9Ib9r9stOX8Pit7uVhVZ+6cznxW939/qfLbXf2+l7utr14Gb6096v56tdD05Hm66nPlbmvy5+u8uf//vfzfSng8GXe7+en4+/rSy0Xk6+Pxx6tZ8/XJlrufrz4Wys+eT3m+OR10vt9/YHXpz8fl1Z+LrT9/R66uNWT31lrqUy/3V/4MX+wIudvqeL3+6ej7+9+vNhf+DF4dCrysznrZ76xbY7O31Pz8ffLnfUbfXUb/x8vNn95Hrq49HQq9PRppPfbyp//zscerXdU1/5+9/l5PuzseaDwZeno00rnfcr819vpj8tfru7/uPRSR7yycjrw6GXB4Mv9wdeLH67e1H92EfDr26mP+30PT0ba64stG731F9PfTz5/ebk95vVrgf8xd+vKzOflzvqltrv+aC2exu2eur3B15c/fmw09ew2c3buZh4dz7+9mi48XDo1V7/M37FxLvljrrK7JfzsebT0abDvPrN7scXE293+p7u9j87HW26+vPhZupjnufH7d6Gysznlc7752PNS+33ljvq1n88uvrzYbu3gYc883l/4HllhjdyNtq03H7vdPTNdm/D4dCr1a77i213+NZzLXu/+LFHQ6/8vyoLrT6966mPh0OvDodesWBmvxwMvDgff7v+49HpaBOv7O9/u/1Pt3sbNrufrHTed61W5r9e/fmw9v2hb/N45LWvb+/Xs6Phxs3uJ36F8/G3e/3PfP5nY6wTlkpWiG/8eOT1ZveT9R+P9gde7PU/Oxtt8t9UFlpXOu9fT33kk898dqXlkT69+vPhYvztbv8zPsZcy830p6X2excT7/YHXlRmv6z/eLTT9/Ri4l3l738+maPhxjyfF0fDjX5gfvvsl8OhV7v9z67+vM+rvHM5+b4y+2Xj5+PDoVfn42/dSjz22S+Vv/+djjYdDL68nvpQmWvZ7X+2/uPRateDo+HGy8n3l5Pv9349Pxh8cZonX5n57H92+55W5lo2fj7e6qnnG7GD7vAPs19upj9dT",
+    "desktopPageHeightPx": 4745,
+    "mobilePageHeightPx": 4216,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgvytje29282",
+          "FIRST_DRAFT_COST": 2.196633,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 2.196633,
+          "modelCalls": 2,
+          "imageCount": 7,
+          "imageAttempts": 7,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 2.19,
+            "QUALITY_REPAIR": 0.006633
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 2.1966,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 2.1966,
+      "imageCount": 7,
+      "imageAttempts": 7,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhgvytje29282",
+      "at": "2026-09-25T21:22:56.415Z",
+      "premium": true,
+      "archetype": "hospitality",
+      "projectId": "proj_muhgvyty",
+      "firstDraftCostUsd": 2.196633,
+      "repairCostUsd": 0,
+      "totalCostUsd": 2.196633,
+      "imageCount": 7,
+      "imageAttempts": 7,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": true,
+      "repairActions": [
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "set_focal_all",
+          "code": "bad_image_crop"
+        }
+      ],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Wide landscape frame, main subject occupying the right 55% of the frame, clean uncluttered negative space on the left for a headline. warm sensory food-and-space photogr"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No browser windows, websi"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1024x1024",
+        "promptSample": "the room set for service, no identifiable guests, subtle Vancouver regional setting (no landmarks). 4:5 portrait crop, subject in the upper two-thirds, calm depth, foreground softly out of focus. warm sensory food-and-space photography; warm low ambient light "
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "a warmly lit dining room or plated dish, subtle Vancouver regional setting (no landmarks). Wide landscape frame, subject placed on the right third line, strong negative space on the left. warm sensory food-and-space photography; warm low ambient light with sof"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "close detail of a plated dish with natural texture, subtle Vancouver regional setting (no landmarks). 4:3 close crop, the detail fills the frame, simple background, clean edges. warm sensory food-and-space photography; warm low ambient light with soft highligh"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "close detail of a plated dish with natural texture, subtle Vancouver regional setting (no landmarks). 4:3 close crop, the detail fills the frame, simple background, clean edges. warm sensory food-and-space photography; warm low ambient light with soft highligh"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1024x1024",
+        "promptSample": "the room set for service, no identifiable guests, subtle Vancouver regional setting (no landmarks). 4:5 portrait crop, subject in the upper two-thirds, calm depth, foreground softly out of focus. warm sensory food-and-space photography; warm low ambient light "
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5294\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "photographer",
+    "label": "Photographer / portfolio",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5648,
+    "run": {
+      "ms": 5647,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "portfolio",
+      "category": "creative",
+      "hero": "fullbleed-image",
+      "typeKey": "display-condensed",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "CREATIVE STUDIO",
+        "headline": "A work studio, in its own words.",
+        "sub": "A portfolio built to let the work do the talking. Serving Toronto. Natural-light.",
+        "cta": "See Our Work"
+      },
+      "sections": [
+        "gallery/featured",
+        "features/list",
+        "about/statement",
+        "testimonial/card",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.041999999999999996
+        },
+        {
+          "slot": "gallery-0-muhgwcvu::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgwcvus26::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgwcvu5o1::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "high",
+        "promptHead": "clean documentary photography for a creative studio brand, subtle Toronto. Natur"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:23:14.640Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 1,
+          "cardsPerRowMax": 1,
+          "widestPx": 394,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 1,
+          "navOverflow": false,
+          "tightSections": 1,
+          "cardsPerRowMax": 1,
+          "widestPx": 364,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "NEEDS_REPAIR",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": [
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "MOBILE_READINESS",
+          "code": "bad_image_crop",
+          "sev": 2,
+          "detail": "1 at 360px"
+        }
+      ]
+    },
+    "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44En1yHnV8Fli4jqz/Fo9ch4fPIn27rcuvrBYDVO3tWOXpV07rYsvZT377eufzfNPTXOPDVM3rYsv8cGTloXnmtGL2rHLprnHzPJbduW9sP2bXXmvHjlrW/uM9u43zz9FunfLevYqBo78K85aFp7b1j7rxq9yqx9141dNc4+R7r3U7EP1yHnD1E2096CksBPtPchvfPvHPjRM3VaPnDVM3XZu/fjtnWZX3humbhumbjLLr+3rX4mJ65aF54qBo6a5x1jfYWH7r2b0onrkrHLoNNq7z17t2PzOLL+V9x9mlt+a55+SM3c1oxfZlffascvG6dvKIX1N09xDy8Jz7dgl79/75C278lbY/s2tasPUjF4kZ+4rh04rBo4SE9c8NX/TufUT7T3IrrxHew94ulifflfN6EVm+Y0fWzt2md/4zq1+RLr3WhefExPX7eufFQPa7a2LL4Xt35aFp7a1j8bp27a1j8TEdeO09nZm+S23+t6+/tUwdVM7dpFeeo31HZYUdtJLL+3rX/HBk4ap25aFp1jfYevic/XIWfv6V2H7r2nuoX7yOrP85td4UTFwHOs7aJy+Sy+9pJde68YvExPXvPm2tY+2tc+2tc+a0Yv8xnd88KRq+LRy6LRt7",
+    "desktopPageHeightPx": 2660,
+    "mobilePageHeightPx": 2950,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgwchc",
+          "FIRST_DRAFT_COST": 0.042,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.042,
+          "modelCalls": 0,
+          "imageCount": 1,
+          "imageAttempts": 1,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.042
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.042,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.042,
+      "imageCount": 1,
+      "imageAttempts": 1,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "clean documentary photography for a creative studio brand, subtle Toronto. Natural-light atmosphere, #170d13 background, #f22ca6 accent colour, premium brand aesthetic, hero composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5295\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "photographer",
+    "label": "Photographer / portfolio",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5671,
+    "run": {
+      "ms": 5671,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "portfolio",
+      "category": "creative",
+      "hero": "fullbleed-image",
+      "typeKey": "display-condensed",
+      "premiumTokens": {
+        "typographyKey": "editorial-contrast",
+        "heading": "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif",
+        "h1": "clamp(2.1rem,5.7cqw,3.8rem)",
+        "spaceMajor": "92px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "FAIL",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": true,
+        "ms": 17
+      },
+      "copy": {
+        "kicker": "CREATIVE STUDIO",
+        "headline": "A work studio, in its own words.",
+        "sub": "A portfolio built to let the work do the talking. Serving Toronto. Natural-light.",
+        "cta": "See Our Work"
+      },
+      "sections": [
+        "gallery/featured",
+        "features/list",
+        "about/statement",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "72% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "gallery-0-muhgwq99::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgwq9a9xb::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgwq9avhf::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "72% 55%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "the photographer or studio at work: camera, light and a finished frame, subtle T"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:23:31.994Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 1,
+          "cardsPerRowMax": 1,
+          "widestPx": 394,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 1,
+          "cardsPerRowMax": 1,
+          "widestPx": 364,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-fullbleed sr-revealed\">\n        <div class=\"hero-fullbleed-media\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1tax9lPfuR7t3Ord/44En1yHnV8Fli4jqz/Fo9ch4fPIn27rcuvrBYDVO3tWOXpV07rYsvZT377eufzfNPTXOPDVM3rYsv8cGTloXnmtGL2rHLprnHzPJbduW9sP2bXXmvHjlrW/uM9u43zz9FunfLevYqBo78K85aFp7b1j7rxq9yqx9141dNc4+R7r3U7EP1yHnD1E2096CksBPtPchvfPvHPjRM3VaPnDVM3XZu/fjtnWZX3humbhumbjLLr+3rX4mJ65aF54qBo6a5x1jfYWH7r2b0onrkrHLoNNq7z17t2PzOLL+V9x9mlt+a55+SM3c1oxfZlffascvG6dvKIX1N09xDy8Jz7dgl79/75C278lbY/s2tasPUjF4kZ+4rh04rBo4SE9c8NX/TufUT7T3IrrxHew94ulifflfN6EVm+Y0fWzt2md/4zq1+RLr3WhefExPX7eufFQPa7a2LL4Xt35aFp7a1j8bp27a1j8TEdeO09nZm+S23+t6+/tUwdVM7dpFeeo31HZYUdtJLL+3rX/HBk4ap25aFp1jfYevic/XIWfv6V2H7r2nuoX7yOrP85td4UTFwHOs7aJy+Sy+9pJde68YvExPXvPm2tY+2tc+2tc+a0Yv8xnd88KRq+LRy6LRt7",
+    "desktopPageHeightPx": 2760,
+    "mobilePageHeightPx": 2790,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgwpubb78c0c",
+          "FIRST_DRAFT_COST": 1.266432,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 1.266432,
+          "modelCalls": 2,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 1.26,
+            "QUALITY_REPAIR": 0.006432
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 1.2664,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 1.2664,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhgwpubb78c0c",
+      "at": "2026-09-25T21:23:31.182Z",
+      "premium": true,
+      "archetype": "portfolio",
+      "projectId": "proj_muhgwpuq",
+      "firstDraftCostUsd": 1.266432,
+      "repairCostUsd": 0,
+      "totalCostUsd": 1.266432,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": true,
+      "repairActions": [
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        }
+      ],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "the photographer or studio at work: camera, light and a finished frame, subtle Toronto. Natural-light regional setting (no landmarks). Wide landscape frame, main subject occupying the right 55% of the frame, clean uncluttered negative space on the left for a h"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "the photographer or studio at work: camera, light and a finished frame, subtle Toronto. Natural-light regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, lo"
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5296\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "saas",
+    "label": "SaaS / software",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5668,
+    "run": {
+      "ms": 5664,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "product-led-saas",
+      "category": "tech",
+      "hero": "centered-oversized",
+      "typeKey": "mono-technical",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "TECHNOLOGY",
+        "headline": "Product, built to move fast.",
+        "sub": "A product site that explains itself in the first ten seconds.",
+        "cta": "Get Started"
+      },
+      "sections": [
+        "features/grid",
+        "productShowcase/default",
+        "integrations/default",
+        "pricing/default",
+        "faq/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "product",
+          "role": "product",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.020999999999999998
+        },
+        {
+          "slot": "product::product",
+          "role": "product",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.020999999999999998
+        },
+        {
+          "slot": "team-about-1-muhgx3oc8al::team-1",
+          "role": "team",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "1:1",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "product",
+          "status": "ready",
+          "focal": null
+        },
+        {
+          "slot": "product::product",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "product",
+        "gid": false,
+        "aspect": "4:3",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "promptHead": "technical grid/data mosaic composition for a technology brand, #0d1017 backgroun"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "product",
+        "gid": false,
+        "aspect": "4:3",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "promptHead": "technical grid/data mosaic composition for a technology brand, #0d1017 backgroun"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:23:49.384Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 0,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 51
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 0,
+          "cardsPerRowMax": 1,
+          "widestPx": 360,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 47
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-centered-oversized sr-revealed\">\n        <p class=\"hero-kicker-center\">TECHNOLOGY</p><h3 class=\"hero-headline-oversized\">Product, built to move fast.</h3><p class=\"hero-sub-center\">A product site that explains itself in the first ten seconds.</p>\n        <div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get Started<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div>\n      </div>",
+    "desktopPageHeightPx": 2279,
+    "mobilePageHeightPx": 2478,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgx39v",
+          "FIRST_DRAFT_COST": 0.042,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.042,
+          "modelCalls": 0,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.042
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.042,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.042,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "size": "1024x1024",
+        "promptSample": "technical grid/data mosaic composition for a technology brand, #0d1017 background, #2c6bf2 accent colour, premium brand aesthetic, product composition, no text"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "size": "1024x1024",
+        "promptSample": "technical grid/data mosaic composition for a technology brand, #0d1017 background, #2c6bf2 accent colour, premium brand aesthetic, product composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5297\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "saas",
+    "label": "SaaS / software",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5732,
+    "run": {
+      "ms": 5728,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "product-led-saas",
+      "category": "tech",
+      "hero": "centered-oversized",
+      "typeKey": "mono-technical",
+      "premiumTokens": {
+        "typographyKey": "technical-sans",
+        "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+        "h1": "clamp(2.1rem,5.9cqw,3.9rem)",
+        "spaceMajor": "72px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": false,
+        "ms": 17
+      },
+      "copy": {
+        "kicker": "TECHNOLOGY",
+        "headline": "Product, built to move fast.",
+        "sub": "A product site that explains itself in the first ten seconds.",
+        "cta": "Get Started"
+      },
+      "sections": [
+        "features/grid",
+        "productShowcase/default",
+        "integrations/default",
+        "pricing/default",
+        "faq/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "product",
+          "role": "product",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": "50% 50%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.21
+        },
+        {
+          "slot": "product::product",
+          "role": "product",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "medium",
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": "50% 50%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.21
+        },
+        {
+          "slot": "team-about-1-muhgxh3pme9::team-1",
+          "role": "team",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "1:1",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_team_photos_only",
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "product",
+          "status": "ready",
+          "focal": "50% 50%"
+        },
+        {
+          "slot": "product::product",
+          "status": "ready",
+          "focal": "50% 50%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "product",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "4:3",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-k"
+      },
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "product",
+        "tier": "primary",
+        "gid": true,
+        "aspect": "4:3",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "promptHead": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-k"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:24:06.849Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 0,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 51
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 0,
+          "cardsPerRowMax": 1,
+          "widestPx": 360,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 47
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-centered-oversized sr-revealed\">\n        <p class=\"hero-kicker-center\">TECHNOLOGY</p><h3 class=\"hero-headline-oversized\">Product, built to move fast.</h3><p class=\"hero-sub-center\">A product site that explains itself in the first ten seconds.</p>\n        <div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get Started<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div>\n      </div>",
+    "desktopPageHeightPx": 2722,
+    "mobilePageHeightPx": 2759,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgxgotbd8c60",
+          "FIRST_DRAFT_COST": 0.426492,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.426492,
+          "modelCalls": 2,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 0.42,
+            "QUALITY_REPAIR": 0.006492
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.4265,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.4265,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 0
+    },
+    "generationLog": {
+      "generationId": "gen_muhgxgotbd8c60",
+      "at": "2026-09-25T21:24:06.031Z",
+      "premium": true,
+      "archetype": "product-led-saas",
+      "projectId": "proj_muhgxgp8",
+      "firstDraftCostUsd": 0.426492,
+      "repairCostUsd": 0,
+      "totalCostUsd": 0.426492,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 0,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": false,
+      "repairActions": [],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 2
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-key tones drawn from the brand colour, suggesting Technology. 4:3 frame, one clear focal subject slightly off-centre, shallow depth of field, soft uncluttered background. soft studi"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "size": "1536x1024",
+        "promptSample": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-key tones drawn from the brand colour, suggesting Technology. 4:3 frame, one clear focal subject slightly off-centre, shallow depth of field, soft uncluttered background. soft studi"
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5298\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "renovation",
+    "label": "Renovation / trades",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5648,
+    "run": {
+      "ms": 5647,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "renovation",
+      "hero": "product-screenshot",
+      "typeKey": "classic-serif-mix",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "RENOVATION SERVICES",
+        "headline": "Renovation Work, done to last.",
+        "sub": "Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.",
+        "cta": "Request a Quote"
+      },
+      "sections": [
+        "caseStudies/default",
+        "process/default",
+        "testimonial/centered",
+        "ctaBanner/plain"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.0084
+        },
+        {
+          "slot": "caseStudies-0-muhgxujk::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-services-1-muhgxujkrb7::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgxujklcn::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgxujk1lm::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "clean documentary-style trade and craftsmanship photography for a renovation bra"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:24:24.181Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 46
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 1,
+          "widestPx": 360,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 46
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": [
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        }
+      ]
+    },
+    "debugHero": "<div class=\"site-hero hero-product-screenshot sr-revealed\">\n        <div class=\"site-copy center\"><p>RENOVATION SERVICES</p><h3>Renovation Work, done to last.</h3><p>Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-product-frame\"><div class=\"hero-product-chrome\"><span></span><span></span><span></span></div><div class=\"hero-product-body\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTr",
+    "desktopPageHeightPx": 2604,
+    "mobilePageHeightPx": 2753,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgxu50",
+          "FIRST_DRAFT_COST": 0.0084,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.0084,
+          "modelCalls": 0,
+          "imageCount": 1,
+          "imageAttempts": 1,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.0084
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.0084,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.0084,
+      "imageCount": 1,
+      "imageAttempts": 1,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1536x1024",
+        "promptSample": "clean documentary-style trade and craftsmanship photography for a renovation brand, subtle Ottawa. Design atmosphere, #f8f7f7 background, #b6602b accent colour, premium brand aesthetic, hero composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5299\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "renovation",
+    "label": "Renovation / trades",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5673,
+    "run": {
+      "ms": 5673,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "renovation",
+      "hero": "product-screenshot",
+      "typeKey": "classic-serif-mix",
+      "premiumTokens": {
+        "typographyKey": "humanist-workhorse",
+        "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+        "h1": "clamp(2rem,5.4cqw,3.5rem)",
+        "spaceMajor": "64px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "FAIL",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": true,
+        "ms": 18
+      },
+      "copy": {
+        "kicker": "RENOVATION SERVICES",
+        "headline": "Renovation Work, done to last.",
+        "sub": "Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.",
+        "cta": "Request a Quote"
+      },
+      "sections": [
+        "caseStudies/default",
+        "process/default",
+        "ctaBanner/plain"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "72% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "caseStudies-0-muhgy7xq::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-services-1-muhgy7xqqb1::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgy7xq6yf::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgy7xqu2e::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "72% 55%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Des"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:24:41.565Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 46
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 3,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 4,
+          "cardsPerRowMax": 1,
+          "widestPx": 360,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 46
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-product-screenshot sr-revealed\">\n        <div class=\"site-copy center\"><p>RENOVATION SERVICES</p><h3>Renovation Work, done to last.</h3><p>Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-product-frame\"><div class=\"hero-product-chrome\"><span></span><span></span><span></span></div><div class=\"hero-product-body\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTr",
+    "desktopPageHeightPx": 2679,
+    "mobilePageHeightPx": 2712,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgy7ir44112a",
+          "FIRST_DRAFT_COST": 1.266528,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 1.266528,
+          "modelCalls": 2,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 1.26,
+            "QUALITY_REPAIR": 0.006528
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 1.2665,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 1.2665,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhgy7ir44112a",
+      "at": "2026-09-25T21:24:40.752Z",
+      "premium": true,
+      "archetype": "local-conversion",
+      "projectId": "proj_muhgy7j6",
+      "firstDraftCostUsd": 1.266528,
+      "repairCostUsd": 0,
+      "totalCostUsd": 1.266528,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": true,
+      "repairActions": [
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        }
+      ],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Design regional setting (no landmarks). Wide landscape frame, main subject occupying the right 55% of the frame, clean uncluttered negative space on the left for a headline. commercia"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Design regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks."
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5300\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "cleaning",
+    "label": "Cleaning / home service",
+    "mode": "legacy",
+    "premiumFlagSeenByClient": false,
+    "wallMs": 5649,
+    "run": {
+      "ms": 5648,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "cleaning",
+      "hero": "stacked-image-below",
+      "typeKey": "humanist",
+      "premiumTokens": null,
+      "review": null,
+      "copy": {
+        "kicker": "CLEANING SERVICES",
+        "headline": "Cleaning Service, spotless every time.",
+        "sub": "Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.",
+        "cta": "Get a Quote"
+      },
+      "sections": [
+        "services/numbered",
+        "serviceAreas/default",
+        "testimonial/card",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1-mini",
+          "quality": "low",
+          "aspectRatio": "16:9",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": 0.0084
+        },
+        {
+          "slot": "caseStudies-services-1-muhgylc8q2e::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgylc8plf::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgylc8lm4::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": null,
+          "focal": null,
+          "reason": null,
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": null
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "gid": false,
+        "aspect": "16:9",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "promptHead": "clean documentary-style trade and craftsmanship photography for a cleaning brand"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:24:58.910Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 4,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 6,
+          "cardsPerRowMax": 0,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 43
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 4,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 6,
+          "cardsPerRowMax": 0,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 40
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": [
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        },
+        {
+          "c": "BUSINESS_SPECIFICITY",
+          "code": "fabricated_testimonial",
+          "sev": 3,
+          "detail": "testimonial section without customer-supplied testimonials"
+        }
+      ]
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>CLEANING SERVICES</p><h3>Cleaning Service, spotless every time.</h3><p>Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLT",
+    "desktopPageHeightPx": 2610,
+    "mobilePageHeightPx": 3077,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "9444eb86-e5e6-41c4-8d16-d48bf66b843e",
+          "FIRST_DRAFT_COST": 0,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0,
+          "modelCalls": 1,
+          "imageCount": 0,
+          "imageAttempts": 0,
+          "imageRetries": 0,
+          "byOperation": {
+            "NEW_SITE": 0
+          }
+        },
+        {
+          "generationId": "proj_muhgykxn",
+          "FIRST_DRAFT_COST": 0.0084,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 0.0084,
+          "modelCalls": 0,
+          "imageCount": 1,
+          "imageAttempts": 1,
+          "imageRetries": 0,
+          "byOperation": {
+            "IMAGE_ADD": 0.0084
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 0.0084,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 0.0084,
+      "imageCount": 1,
+      "imageAttempts": 1,
+      "imageRetries": 0
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "size": "1536x1024",
+        "promptSample": "clean documentary-style trade and craftsmanship photography for a cleaning brand, subtle Edmonton. Recurring atmosphere, #f7f8f8 background, #2b87b6 accent colour, premium brand aesthetic, hero composition, no text"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5301\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  },
+  {
+    "fixture": "cleaning",
+    "label": "Cleaning / home service",
+    "mode": "premium",
+    "premiumFlagSeenByClient": true,
+    "wallMs": 5674,
+    "run": {
+      "ms": 5674,
+      "directions": 1
+    },
+    "project": {
+      "archetype": "local-conversion",
+      "category": "cleaning",
+      "hero": "stacked-image-below",
+      "typeKey": "humanist",
+      "premiumTokens": {
+        "typographyKey": "humanist-workhorse",
+        "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+        "h1": "clamp(2rem,5.4cqw,3.5rem)",
+        "spaceMajor": "64px"
+      },
+      "review": {
+        "before": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "FAIL",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "after": {
+          "VISUAL_COHERENCE": "PASS",
+          "IMAGE_QUALITY": "PASS",
+          "TYPOGRAPHY": "PASS",
+          "LAYOUT": "PASS",
+          "BUSINESS_SPECIFICITY": "PASS",
+          "CONVERSION_CLARITY": "PASS",
+          "MOBILE_READINESS": "PASS",
+          "TECHNICAL_VALIDITY": "PASS"
+        },
+        "repaired": true,
+        "ms": 17
+      },
+      "copy": {
+        "kicker": "CLEANING SERVICES",
+        "headline": "Cleaning Service, spotless every time.",
+        "sub": "Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.",
+        "cta": "Get a Quote"
+      },
+      "sections": [
+        "services/numbered",
+        "serviceAreas/default",
+        "process/default"
+      ],
+      "imagePlan": [
+        {
+          "slot": "hero",
+          "role": "hero",
+          "sourceType": "generated",
+          "model": "gpt-image-1",
+          "quality": "high",
+          "aspectRatio": "16:9",
+          "tier": "hero",
+          "focal": "50% 55%",
+          "reason": "funded",
+          "estimatedCostUsd": 0.63
+        },
+        {
+          "slot": "caseStudies-services-1-muhgyyql6nc::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "gallery-work-0-muhgyyqlq4w::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        },
+        {
+          "slot": "caseStudies-work-1-muhgyyql958::gallery-1",
+          "role": "gallery",
+          "sourceType": "designed",
+          "model": null,
+          "quality": null,
+          "aspectRatio": "4:3",
+          "tier": "primary",
+          "focal": null,
+          "reason": "real_project_media_only",
+          "estimatedCostUsd": null
+        }
+      ],
+      "generated": [
+        {
+          "slot": "hero",
+          "status": "ready",
+          "focal": "50% 55%"
+        }
+      ]
+    },
+    "imageRequests": [
+      {
+        "status": 200,
+        "ok": true,
+        "reason": null,
+        "poor": null,
+        "budget": null,
+        "slot": "hero",
+        "tier": "hero",
+        "gid": true,
+        "aspect": "16:9",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "promptHead": "a bright, spotless living space with natural light, subtle Edmonton. Recurring r"
+      }
+    ],
+    "mobile": {
+      "measuredAt": "2026-09-25T21:25:16.297Z",
+      "widths": [
+        {
+          "width": 390,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 420,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 32
+        },
+        {
+          "width": 360,
+          "overflowX": false,
+          "heroHeadlineLines": 2,
+          "smallTapTargets": 0,
+          "badImageCrops": 0,
+          "navOverflow": false,
+          "tightSections": 5,
+          "cardsPerRowMax": 0,
+          "widestPx": 390,
+          "overflowOffenders": [],
+          "heroHeadlineFontPx": 32
+        }
+      ]
+    },
+    "rubricFinal": {
+      "categories": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "defects": []
+    },
+    "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>CLEANING SERVICES</p><h3>Cleaning Service, spotless every time.</h3><p>Reliable residential and commercial cleaning with simple booking and clear service options. Serving Edmonton. Recurring.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLT",
+    "desktopPageHeightPx": 2961,
+    "mobilePageHeightPx": 2979,
+    "ledger": {
+      "generations": [
+        {
+          "generationId": "gen_muhgyybjf8d9c3",
+          "FIRST_DRAFT_COST": 1.266483,
+          "REPAIR_COST": 0,
+          "TOTAL_SITE_COST": 1.266483,
+          "modelCalls": 2,
+          "imageCount": 2,
+          "imageAttempts": 2,
+          "imageRetries": 1,
+          "byOperation": {
+            "NEW_SITE": 0,
+            "IMAGE_ADD": 1.26,
+            "QUALITY_REPAIR": 0.006483
+          }
+        }
+      ],
+      "FIRST_DRAFT_COST": 1.2665,
+      "REPAIR_COST": 0,
+      "TOTAL_SITE_COST": 1.2665,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1
+    },
+    "generationLog": {
+      "generationId": "gen_muhgyybjf8d9c3",
+      "at": "2026-09-25T21:25:15.486Z",
+      "premium": true,
+      "archetype": "local-conversion",
+      "projectId": "proj_muhgyyby",
+      "firstDraftCostUsd": 1.266483,
+      "repairCostUsd": 0,
+      "totalCostUsd": 1.266483,
+      "imageCount": 2,
+      "imageAttempts": 2,
+      "imageRetries": 1,
+      "modelCalls": 2,
+      "qualityBefore": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "qualityAfter": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS"
+      },
+      "repairRan": true,
+      "repairActions": [
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        },
+        {
+          "kind": "remove_section",
+          "code": "fabricated_testimonial"
+        }
+      ],
+      "budgetLimitReached": false,
+      "fullRegenerationsRequested": 0,
+      "timingsMs": {
+        "review": 1,
+        "critique": 1
+      },
+      "accepted": false,
+      "acceptedAt": null
+    },
+    "providerCalls": [
+      {
+        "kind": "planner_refused",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "blank": true,
+        "promptSample": "a bright, spotless living space with natural light, subtle Edmonton. Recurring regional setting (no landmarks). Wide landscape frame, single clear subject centered with calm negative space above and below for a headline. commercial documentary photography of r"
+      },
+      {
+        "kind": "image",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "size": "1536x1024",
+        "promptSample": "a bright, spotless living space with natural light, subtle Edmonton. Recurring regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No b"
+      },
+      {
+        "kind": "critic",
+        "model": "claude-sonnet-5"
+      }
+    ],
+    "serverTail": "SiteRemade running on port 5302\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\gen\\server.js:2046:45 {\n  status: 529\n}\n"
+  }
+]
