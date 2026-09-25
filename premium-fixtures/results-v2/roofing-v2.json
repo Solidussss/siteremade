@@ -1,0 +1,335 @@
+{
+  "fixture": "roofing",
+  "label": "Roofing / local service",
+  "mode": "v2",
+  "premiumFlagSeenByClient": true,
+  "wallMs": 5680,
+  "run": {
+    "ms": 5681,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "local-conversion",
+    "category": "roofing",
+    "hero": "stacked-image-below",
+    "typeKey": "mono-technical",
+    "premiumTokens": {
+      "typographyKey": "humanist-workhorse",
+      "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+      "h1": "clamp(2rem,5.4cqw,3.5rem)",
+      "spaceMajor": "64px"
+    },
+    "review": {
+      "before": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "PASS",
+        "SECTION_CONTRAST": "PASS",
+        "COMPOSITION_VARIETY": "PASS",
+        "CTA_STRENGTH": "FAIL",
+        "FOOTER_COMPLETION": "PASS"
+      },
+      "after": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "PASS",
+        "SECTION_CONTRAST": "PASS",
+        "COMPOSITION_VARIETY": "PASS",
+        "CTA_STRENGTH": "PASS",
+        "FOOTER_COMPLETION": "PASS"
+      },
+      "repaired": true,
+      "ms": 19
+    },
+    "copy": {
+      "kicker": "ROOFING SERVICES",
+      "headline": "Roofing Work, built for the weather.",
+      "sub": "Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.",
+      "cta": "Request a Quote"
+    },
+    "sections": [
+      "serviceAreas/default",
+      "caseStudies/default",
+      "process/default",
+      "ctaBanner/plain"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "aspectRatio": "16:9",
+        "tier": "hero",
+        "focal": "50% 55%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.63
+      },
+      {
+        "slot": "caseStudies-1-muhje1gm::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "caseStudies-services-1-muhje1gmgc4::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "gallery-work-0-muhje1gmahh::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "caseStudies-work-1-muhje1gmhbf::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": "50% 55%"
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "tier": "hero",
+      "gid": true,
+      "aspect": "16:9",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "promptHead": "a finished residential roof on a well-kept suburban home, subtle Calgary. We reg"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T22:32:58.903Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 2,
+        "cardsPerRowMax": 1,
+        "widestPx": 420,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 32
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 2,
+        "cardsPerRowMax": 1,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 32
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "PASS",
+      "SECTION_CONTRAST": "PASS",
+      "COMPOSITION_VARIETY": "PASS",
+      "CTA_STRENGTH": "PASS",
+      "FOOTER_COMPLETION": "PASS"
+    },
+    "defects": []
+  },
+  "debugHero": "<div class=\"site-hero hero-stacked sr-revealed\">\n        <div class=\"hero-stacked-copy\"><p>ROOFING SERVICES</p><h3>Roofing Work, built for the weather.</h3><p>Roofing and exterior work backed by clear communication and dependable installation. Serving Calgary. We.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-stacked-visual\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTrIrbw1Tt01zj6nZh8L2b8PUTdXwWWH7L7300jz/WD953TT3EO096Nj8ya1+lHbtVAwc85J5LfWT+o3+dc+dWz987Nzqe83oRfP8U+fWb9XwWXblLTX7kJp9iPUd8o1t",
+  "layoutStats": {
+    "sections": 6,
+    "distinctBackgrounds": 3,
+    "adjacentBackgroundChanges": 4,
+    "fullWidthSections": 3,
+    "cardFramedElements": 0,
+    "sectionsWithTopDivider": 0,
+    "totalHeightPx": 2365,
+    "minSectionHeightPx": 223,
+    "maxSectionHeightPx": 792,
+    "heights": [
+      792,
+      223,
+      267,
+      555,
+      232,
+      297
+    ]
+  },
+  "desktopPageHeightPx": 2429,
+  "mobilePageHeightPx": 2630,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "gen_muhje11i174fd0",
+        "FIRST_DRAFT_COST": 1.266573,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 1.266573,
+        "modelCalls": 2,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 1,
+        "byOperation": {
+          "NEW_SITE": 0,
+          "IMAGE_ADD": 1.26,
+          "QUALITY_REPAIR": 0.006573
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 1.2666,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 1.2666,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 1
+  },
+  "generationLog": {
+    "generationId": "gen_muhje11i174fd0",
+    "at": "2026-09-25T22:32:58.091Z",
+    "premium": true,
+    "archetype": "local-conversion",
+    "projectId": "proj_muhje11w",
+    "firstDraftCostUsd": 1.266573,
+    "repairCostUsd": 0,
+    "totalCostUsd": 1.266573,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 1,
+    "modelCalls": 2,
+    "qualityBefore": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "PASS",
+      "SECTION_CONTRAST": "PASS",
+      "COMPOSITION_VARIETY": "PASS",
+      "CTA_STRENGTH": "FAIL",
+      "FOOTER_COMPLETION": "PASS"
+    },
+    "qualityAfter": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "PASS",
+      "SECTION_CONTRAST": "PASS",
+      "COMPOSITION_VARIETY": "PASS",
+      "CTA_STRENGTH": "PASS",
+      "FOOTER_COMPLETION": "PASS"
+    },
+    "repairRan": true,
+    "repairActions": [
+      {
+        "kind": "insert_cta_section",
+        "code": "no_final_cta"
+      }
+    ],
+    "budgetLimitReached": false,
+    "fullRegenerationsRequested": 0,
+    "timingsMs": {
+      "review": 2,
+      "critique": 1
+    },
+    "accepted": false,
+    "acceptedAt": null
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "blank": true,
+      "promptSample": "a finished residential roof on a well-kept suburban home, subtle Calgary. We regional setting (no landmarks). Wide landscape frame, single clear subject centered with calm negative space above and below for a headline. commercial documentary photography of rea"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "promptSample": "a finished residential roof on a well-kept suburban home, subtle Calgary. We regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks. No bro"
+    },
+    {
+      "kind": "critic",
+      "model": "claude-sonnet-5"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5560\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:2046:45 {\n  status: 529\n}\n"
+}

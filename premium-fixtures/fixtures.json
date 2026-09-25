@@ -1,9 +1,42 @@
 [
-  { "id": "roofing", "label": "Roofing / local service", "text": "Family-run roofing company in Calgary. We repair and replace asphalt shingle roofs, fix leaks and flashing, and handle hail damage claims. Free written quotes, usually within two days." },
-  { "id": "consultant", "label": "Premium consultant", "text": "Independent operations consultant helping mid-sized manufacturers cut lead times. I work with plant managers on scheduling, inventory and supplier planning through a fixed-scope 6 week engagement." },
-  { "id": "restaurant", "label": "Restaurant / hospitality", "text": "Neighbourhood Italian restaurant in Vancouver serving fresh pasta, wood-fired pizza and natural wines. Dinner Tuesday to Sunday. Reservations recommended on weekends." },
-  { "id": "photographer", "label": "Photographer / portfolio", "text": "Wedding and portrait photographer based in Toronto. Natural-light, documentary style storytelling for weddings, engagements and family portraits. Available for travel." },
-  { "id": "saas", "label": "SaaS / software", "text": "Scheduling software for physiotherapy clinics. Online booking, automatic reminders and a simple dashboard that shows no-shows and open slots. 14 day free trial." },
-  { "id": "renovation", "label": "Renovation / trades", "text": "Kitchen and bathroom renovation contractor in Ottawa. Design help, custom cabinetry, tile and plumbing coordination from demolition to final walkthrough." },
-  { "id": "cleaning", "label": "Cleaning / home service", "text": "Residential cleaning service in Edmonton. Recurring weekly and bi-weekly home cleaning, move-out cleans and deep cleans. Eco-friendly products on request." }
+  {
+    "id": "roofing",
+    "label": "Roofing / local service",
+    "text": "Family-run roofing company in Calgary. We repair and replace asphalt shingle roofs, fix leaks and flashing, and handle hail damage claims. Free written quotes, usually within two days."
+  },
+  {
+    "id": "consultant",
+    "label": "Premium consultant",
+    "text": "Independent operations consultant helping mid-sized manufacturers cut lead times. I work with plant managers on scheduling, inventory and supplier planning through a fixed-scope 6 week engagement."
+  },
+  {
+    "id": "restaurant",
+    "label": "Restaurant / hospitality",
+    "text": "Neighbourhood Italian restaurant in Vancouver serving fresh pasta, wood-fired pizza and natural wines. Dinner Tuesday to Sunday. Reservations recommended on weekends."
+  },
+  {
+    "id": "photographer",
+    "label": "Photographer / portfolio",
+    "text": "Wedding and portrait photographer based in Toronto. Natural-light, documentary style storytelling for weddings, engagements and family portraits. Available for travel."
+  },
+  {
+    "id": "saas",
+    "label": "SaaS / software",
+    "text": "Scheduling software for physiotherapy clinics. Online booking, automatic reminders and a simple dashboard that shows no-shows and open slots. 14 day free trial."
+  },
+  {
+    "id": "renovation",
+    "label": "Renovation / trades",
+    "text": "Kitchen and bathroom renovation contractor in Ottawa. Design help, custom cabinetry, tile and plumbing coordination from demolition to final walkthrough."
+  },
+  {
+    "id": "cleaning",
+    "label": "Cleaning / home service",
+    "text": "Residential cleaning service in Edmonton. Recurring weekly and bi-weekly home cleaning, move-out cleans and deep cleans. Eco-friendly products on request."
+  },
+  {
+    "id": "nonprofit",
+    "label": "Community / nonprofit",
+    "text": "Community food bank in Winnipeg. We collect and distribute groceries to local families, run a weekly pantry and welcome volunteers and donations of food or time."
+  }
 ]

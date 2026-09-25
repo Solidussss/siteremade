@@ -1228,7 +1228,7 @@ const premiumCore = premiumLib.createPremiumCore(process.env, {
 const projectGeneration = new Map(); // browser project id -> premium generation id (set by middleware below)
 function premiumSession(generationId, seed) {
   let s = premiumCore.getSession(generationId);
-  if (!s) s = premiumCore.startSession(Object.assign({ generationId }, seed || {}));
+  if (!s) s = premiumCore.startSession(Object.assign({ generationId, composition: premiumCore.cfg.compositionV2 }, seed || {}));
   else if (seed && seed.archetype && seed.archetype !== s.strategy.archetype) s.rebind(seed);
   return s;
 }
@@ -2303,13 +2303,13 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
     } : undefined,
   };
   try {
-    const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true }, deps);
+    const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true, compositionV2: premiumCore.cfg.compositionV2 }, deps);
     const d = out.direction;
     const patch = {
       copy: d.copy || null,
       sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, copy: s.copy || null }))),
       addedSections: out.actions.filter(a => a.sectionId).map(a => a.sectionId),
-      removedSections: out.actions.filter(a => a.kind === 'remove_section').map(a => a.targetId),
+      removedSections: out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]),
       imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),
       generated: Object.fromEntries(out.actions.filter(a => a.kind === 'regenerate_image' && d.assets && d.assets.generated && d.assets.generated[a.slot] && d.assets.generated[a.slot].dataUrl).map(a => [a.slot, { status: 'ready', dataUrl: d.assets.generated[a.slot].dataUrl }])),
       premiumTokens: (d.design && d.design.premiumTokens) || null,

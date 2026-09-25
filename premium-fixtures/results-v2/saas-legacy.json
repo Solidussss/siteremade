@@ -1,0 +1,239 @@
+{
+  "fixture": "saas",
+  "label": "SaaS / software",
+  "mode": "legacy",
+  "premiumFlagSeenByClient": false,
+  "wallMs": 5676,
+  "run": {
+    "ms": 5674,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "product-led-saas",
+    "category": "tech",
+    "hero": "centered-oversized",
+    "typeKey": "mono-technical",
+    "premiumTokens": null,
+    "review": null,
+    "copy": {
+      "kicker": "TECHNOLOGY",
+      "headline": "Product, built to move fast.",
+      "sub": "A product site that explains itself in the first ten seconds.",
+      "cta": "Get Started"
+    },
+    "sections": [
+      "features/grid",
+      "productShowcase/default",
+      "integrations/default",
+      "pricing/default",
+      "faq/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "product",
+        "role": "product",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.020999999999999998
+      },
+      {
+        "slot": "product::product",
+        "role": "product",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.020999999999999998
+      },
+      {
+        "slot": "team-about-1-muhjhelcdhi::team-1",
+        "role": "team",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "1:1",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "product",
+        "status": "ready",
+        "focal": null
+      },
+      {
+        "slot": "product::product",
+        "status": "ready",
+        "focal": null
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "product",
+      "gid": false,
+      "aspect": "4:3",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "promptHead": "technical grid/data mosaic composition for a technology brand, #0d1017 backgroun"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "product",
+      "gid": false,
+      "aspect": "4:3",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "promptHead": "technical grid/data mosaic composition for a technology brand, #0d1017 backgroun"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T22:35:35.891Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 0,
+        "cardsPerRowMax": 1,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 51
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 0,
+        "cardsPerRowMax": 1,
+        "widestPx": 360,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 47
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "defects": []
+  },
+  "debugHero": "<div class=\"site-hero hero-centered-oversized sr-revealed\">\n        <p class=\"hero-kicker-center\">TECHNOLOGY</p><h3 class=\"hero-headline-oversized\">Product, built to move fast.</h3><p class=\"hero-sub-center\">A product site that explains itself in the first ten seconds.</p>\n        <div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get Started<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div>\n      </div>",
+  "layoutStats": {
+    "sections": 7,
+    "distinctBackgrounds": 1,
+    "adjacentBackgroundChanges": 0,
+    "fullWidthSections": 0,
+    "cardFramedElements": 6,
+    "sectionsWithTopDivider": 6,
+    "totalHeightPx": 2215,
+    "minSectionHeightPx": 136,
+    "maxSectionHeightPx": 585,
+    "heights": [
+      585,
+      270,
+      534,
+      153,
+      247,
+      290,
+      136
+    ]
+  },
+  "desktopPageHeightPx": 2279,
+  "mobilePageHeightPx": 2478,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "9645599c-2de9-4ef2-9ed3-a1e00edac183",
+        "FIRST_DRAFT_COST": 0,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0,
+        "modelCalls": 1,
+        "imageCount": 0,
+        "imageAttempts": 0,
+        "imageRetries": 0,
+        "byOperation": {
+          "NEW_SITE": 0
+        }
+      },
+      {
+        "generationId": "proj_muhjhe6v",
+        "FIRST_DRAFT_COST": 0.042,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0.042,
+        "modelCalls": 0,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 0,
+        "byOperation": {
+          "IMAGE_ADD": 0.042
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 0.042,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 0.042,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 0
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "size": "1024x1024",
+      "promptSample": "technical grid/data mosaic composition for a technology brand, #0d1017 background, #2c6bf2 accent colour, premium brand aesthetic, product composition, no text"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "medium",
+      "size": "1024x1024",
+      "promptSample": "technical grid/data mosaic composition for a technology brand, #0d1017 background, #2c6bf2 accent colour, premium brand aesthetic, product composition, no text"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5570\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:2046:45 {\n  status: 529\n}\n"
+}

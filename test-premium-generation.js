@@ -459,6 +459,110 @@ const sample = () => ({
     assert.strictEqual(new P.metrics.MetricsStore().aggregate().COST_AS_PERCENT_OF_REVENUE, null);
   });
 
+  console.log('PREMIUM_COMPOSITION_V2');
+  const C = P.composition;
+  const PAL = { background: '#f7f7f8', main: '#c0451f', text: '#111111' };
+  const recipes = {
+    'local-conversion': ['serviceAreas', 'proof', 'caseStudies', 'contact'], 'premium-consultancy': ['services', 'process', 'faq', 'ctaBanner'],
+    hospitality: ['menu', 'gallery', 'about', 'testimonialsGrid', 'reservationCta', 'imageLedEditorial'], 'product-led-saas': ['features', 'productShowcase', 'integrations', 'pricing', 'faq', 'ctaBanner'],
+    'community-nonprofit': ['about', 'metrics', 'gallery', 'newsletter', 'contact'], 'service-business': ['services', 'serviceAreas', 'ctaBanner'], portfolio: ['gallery', 'about', 'services', 'ctaBanner'],
+  };
+  const planFor2 = (arch, types) => C.planPageComposition({ sections: types.map((ty, i) => ({ id: 's' + i, type: ty, hasImage: ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(ty) })), strategy: { archetype: arch, conversionGoal: 'request_quote' }, palette: PAL });
+  await t('config: composition sub-flag defaults OFF and requires the V1 flag', () => {
+    assert.strictEqual(P.loadConfig({}).compositionV2, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).compositionV2, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_COMPOSITION_V2: 'true' }).compositionV2, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'true' }).compositionV2, true);
+  });
+  await t('plan guarantees: every archetype gets >=2 moments, no 3-equal-weight run, every neighbour pair clearly different', () => {
+    Object.entries(recipes).forEach(([arch, types]) => {
+      const plan = planFor2(arch, types);
+      assert.ok(plan.moments >= 2, arch + ' moments ' + plan.moments);
+      for (let i = 2; i < plan.sections.length; i++) assert.ok(!(plan.sections[i].weight === plan.sections[i - 1].weight && plan.sections[i].weight === plan.sections[i - 2].weight), arch + ' weight run at ' + i);
+      for (let i = 1; i < plan.sections.length; i++) assert.ok(C.neighbourContrast(plan.sections[i - 1], plan.sections[i]) >= 1, arch + ' neighbours ' + i + ' ' + plan.sections[i - 1].type + '/' + plan.sections[i].type);
+      assert.deepStrictEqual(C.evaluateComposition(plan).filter(f => f.severity >= 2), [], arch);
+    });
+  });
+  await t('pacing is deliberate: at least three distinct surfaces and a strong closing CTA band', () => {
+    Object.entries(recipes).forEach(([arch, types]) => {
+      const plan = planFor2(arch, types);
+      assert.ok(new Set(plan.sections.map(s => s.tone)).size >= 3, arch + ' tones ' + [...new Set(plan.sections.map(s => s.tone))]);
+      const cta = plan.sections.filter(s => s.role === 'CONVERT').pop();
+      assert.ok(cta && cta.cta === 'band' && cta.weight === 'strong', arch);
+    });
+  });
+  await t('visual grammar differs by archetype (not one composition for every business)', () => {
+    const sig = a => planFor2(a, recipes[a]).sections.map(s => s.tone[0] + (s.moment || '-')).join('');
+    assert.notStrictEqual(sig('premium-consultancy'), sig('local-conversion'));
+    assert.strictEqual(C.GRAMMAR['premium-consultancy'].feel, 'restrained'); assert.strictEqual(C.GRAMMAR.hospitality.feel, 'immersive'); assert.strictEqual(C.GRAMMAR['product-led-saas'].feel, 'structured');
+    assert.strictEqual(planFor2('premium-consultancy', recipes['premium-consultancy']).footer.tone, 'base');
+    assert.notStrictEqual(planFor2('local-conversion', recipes['local-conversion']).footer.tone, 'base');
+  });
+  await t('cards only where content is a repeated unit; prose sections are open', () => {
+    const plan = planFor2('service-business', ['services', 'about', 'faq', 'process', 'ctaBanner']);
+    const by = Object.fromEntries(plan.sections.map(s => [s.type, s]));
+    assert.strictEqual(by.services.open, false); ['about', 'faq', 'process', 'ctaBanner'].forEach(k => assert.strictEqual(by[k].open, true, k));
+  });
+  await t('fullbleed only for sections that actually have imagery; without an image the section becomes a contrast band', () => {
+    const withImg = C.planPageComposition({ sections: [{ id: 'a', type: 'services' }, { id: 'f', type: 'faq' }, { id: 'g', type: 'gallery', hasImage: true }, { id: 'p', type: 'process' }, { id: 'c', type: 'ctaBanner' }], strategy: { archetype: 'hospitality' }, palette: PAL }), noImg = C.planPageComposition({ sections: [{ id: 'a', type: 'services' }, { id: 'f', type: 'faq' }, { id: 'g', type: 'gallery', hasImage: false }, { id: 'p', type: 'process' }, { id: 'c', type: 'ctaBanner' }], strategy: { archetype: 'hospitality' }, palette: PAL });
+    assert.strictEqual(withImg.sections[2].moment, 'fullbleed'); assert.strictEqual(noImg.sections[2].moment, 'contrastband');
+  });
+  await t('statement moments only for short copy (copy length matches composition)', () => {
+    const mk = chars => C.planPageComposition({ sections: [{ id: 'a', type: 'services' }, { id: 'b', type: 'about', copyChars: chars }, { id: 'c', type: 'faq' }, { id: 'd', type: 'ctaBanner' }], strategy: { archetype: 'premium-consultancy' }, palette: PAL }).sections[1].moment;
+    assert.strictEqual(mk(120), 'statement'); assert.notStrictEqual(mk(900), 'statement');
+  });
+  await t('surface colours derive from the palette: dark sites get a deep brand band, light sites a dark band; ink readable', () => {
+    const dark = C.compositionVars({ background: '#160e0e', main: '#c0451f', text: '#ffffff' }), light = C.compositionVars(PAL);
+    [dark, light].forEach(v => { assert.ok(C.contrast(v['--site-comp-contrast-bg'], v['--site-comp-contrast-ink']) >= 4.5); assert.ok(C.contrast(v['--site-comp-brand-bg'], v['--site-comp-brand-ink']) >= 3); });
+    assert.ok(C.lum(light['--site-comp-contrast-bg']) < 0.25); assert.notStrictEqual(dark['--site-comp-contrast-bg'], '#ffffff');
+  });
+  await t('final CTA headline is business-specific per goal and never the generic filler', () => {
+    assert.strictEqual(C.finalCtaHeadline({ conversionGoal: 'reserve' }, { location: 'Vancouver' }), 'Reserve a table in Vancouver');
+    assert.strictEqual(C.finalCtaHeadline({ conversionGoal: 'request_quote' }, { noun: 'Roof', location: 'Calgary' }), 'Request a quote for your roof in Calgary');
+    P.strategy.CONVERSION_GOALS.forEach(g => assert.ok(!/ready to (take|see|get)/i.test(C.finalCtaHeadline({ conversionGoal: g }, {}))));
+  });
+  await t('tokens carry composition surfaces only when asked; sanitiser keeps them and flags composition', () => {
+    const s = P.strategy.deriveStrategy({ archetype: 'local-conversion' });
+    const off = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(s, PAL)), on = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(s, PAL, { composition: true }));
+    assert.strictEqual(off.composition, false); assert.strictEqual(on.composition, true); assert.strictEqual(on.dataAttrs['data-comp'], 'v2');
+    assert.ok(Object.keys(on.vars).filter(k => /^--site-comp-/.test(k)).length >= 8);
+  });
+  await t('stamping (export path): every section gets tone and weight, the CTA a band, the footer a tone', () => {
+    const proj = { strategy: { archetype: 'local-conversion' }, business: { categoryKey: 'roofing' }, design: { palette: PAL }, source: { location: 'Calgary' } };
+    const parts = ['serviceAreas', 'caseStudies', 'ctaBanner'].map((ty, i) => ({ section: { id: 's' + i, type: ty }, html: '<div class="site-section site-section-' + ty + '"><p>x</p></div>' }));
+    const out = P.stamp.stampParts(proj, parts, { variant: 'split', hasImage: false });
+    assert.ok(out.html.every(h => /data-comp-tone="/.test(h) && /data-comp-weight="/.test(h)));
+    assert.ok(/data-comp-cta="band"/.test(out.html[2]));
+    assert.ok(/data-comp-footer="resolved"/.test(P.stamp.stampFooterHtml('<div class="site-section site-footer" data-variant="resolved"></div>', out.plan)));
+  });
+  await t('rubric: composition categories are NOT_APPLICABLE without the flag, and real with it', () => {
+    const s = P.strategy.deriveStrategy({ archetype: 'product-led-saas' });
+    const tok = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(s, PAL, { composition: true }));
+    const mk = types => ({ copy: { headline: 'Scheduling for clinics', cta: 'Start' }, design: { palette: PAL, dimensions: { hero: 'split' }, premiumTokens: tok }, pages: [{ id: 'home', slug: '', sections: types.map((ty, i) => ({ id: 'q' + i, type: ty })) }], imagePlan: [], assets: { generated: {} } });
+    const off = P.review.reviewDirection(mk(['features', 'faq', 'ctaBanner']), { strategy: s, description: 'x' });
+    ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'].forEach(k => assert.strictEqual(off.categories[k], 'NOT_APPLICABLE'));
+    const bad = P.review.reviewDirection(mk(['features', 'faq', 'integrations']), { strategy: s, description: 'x', compositionV2: true });
+    assert.strictEqual(bad.categories.CTA_STRENGTH, 'FAIL'); assert.ok(bad.defects.some(d => d.code === 'no_final_cta' && d.repair && d.repair.kind === 'insert_cta_section'));
+    const good = P.review.reviewDirection(mk(['features', 'productShowcase', 'faq', 'ctaBanner']), { strategy: s, description: 'x', compositionV2: true });
+    ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'].forEach(k => assert.notStrictEqual(good.categories[k], 'FAIL', k));
+  });
+  await t('rubric flags REPETITIVE_COMPOSITION and flat pacing on a flat plan', () => {
+    const flat = { sections: Array.from({ length: 5 }, (_, i) => ({ id: 'x' + i, type: 'services', role: 'EDUCATE', tone: 'base', weight: 'medium', moment: null, open: false, layout: 'default', cta: null })), footer: { tone: 'base', layout: 'resolved' } };
+    assert.ok(C.evaluateComposition(flat).some(f => f.code === 'REPETITIVE_COMPOSITION'));
+    assert.ok(C.evaluateComposition(flat).some(f => f.code === 'flat_pacing_run'));
+  });
+  await t('composition repair is surgical and free: missing final CTA inserted, unsupported testimonials removed as ONE action, rest untouched', async () => {
+    const c = P.createPremiumCore(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'true' })), s = c.startSession({ categoryKey: 'cleaning', archetype: 'service-business', palette: PAL, composition: true });
+    const d = { copy: { headline: 'Residential cleaning in Edmonton', cta: 'Book' }, design: { palette: PAL, dimensions: { hero: 'split' }, premiumTokens: s.tokens }, pages: [{ id: 'home', slug: '', sections: [{ id: 'a', type: 'services', variant: 'numbered', copy: { headline: 'What we clean' } }, { id: 't1', type: 'testimonial', copy: {} }, { id: 't2', type: 'testimonialsGrid', copy: {} }, { id: 't3', type: 'testimonial', copy: {} }, { id: 'b', type: 'serviceAreas', copy: {} }] }], imagePlan: [], assets: { generated: {} } };
+    const before = JSON.stringify(d.pages[0].sections.find(x => x.id === 'a'));
+    const out = await s.reviewAndRepair(d, { description: 'Residential cleaning service in Edmonton' }, {});
+    const kinds = out.actions.map(a => a.kind);
+    assert.ok(kinds.includes('insert_cta_section') && kinds.filter(k => k === 'remove_section').length === 1, kinds.join());
+    assert.strictEqual(JSON.stringify(out.direction.pages[0].sections.find(x => x.id === 'a')), before);
+    assert.ok(out.direction.pages[0].sections.some(x => x.type === 'ctaBanner') && !out.direction.pages[0].sections.some(x => /^t/.test(x.id)));
+    assert.strictEqual(s.totals().TOTAL_SITE_COST, 0);
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

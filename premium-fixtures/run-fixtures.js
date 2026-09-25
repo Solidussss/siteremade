@@ -29,7 +29,7 @@ async function startServer(mode, tag) {
   const logDir = path.join(OUT, 'logs', tag); fs.mkdirSync(logDir, { recursive: true });
   const env = Object.assign({}, process.env, {
     PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: 'mock',
-    PREMIUM_GENERATION_V1: mode === 'premium' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
+    PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: mode === 'v2' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
     MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_DAILY_FREE_CREDITS: '1000',
     SITEREMADE_RATE_LIMIT_SIGNUP_MAX: '1000', SITEREMADE_RATE_LIMIT_GENERATION_MAX: '1000', ELECTRON_RUN_AS_NODE: '',
   });
@@ -82,9 +82,10 @@ async function runOne(fixture, mode) {
     result.rubricFinal = await ev(`(()=>{ const P = window.SiteRemadePremium; const p = directions[0]; const cat = categories[p.business.categoryKey]||categories.other;
       const s = P.strategy.deriveStrategy({archetype:p.strategy&&p.strategy.archetype,categoryKey:p.business.categoryKey,categoryLabel:cat.label,description:p.source.text,facts:p.source.facts,location:p.source.location,creativeDirection:p.intent&&p.intent.creativeDirection});
       const d = JSON.parse(JSON.stringify(p,(k,v)=>k==='dataUrl'?undefined:v)); d.imagePlan = p.imagePlan; d.mobileReport = ${JSON.stringify(result.mobile)};
-      const r = P.review.reviewDirection(d,{strategy:s,premiumEnabled:!!p.design.premiumTokens,description:p.source.text,facts:p.source.facts}); return {categories:r.categories, defects:r.defects.filter(x=>x.severity>0).map(x=>({c:x.category,code:x.code,sev:x.severity,detail:x.detail||null}))}; })()`);
+      const r = P.review.reviewDirection(d,{strategy:s,premiumEnabled:!!p.design.premiumTokens,compositionV2:!!(p.design.premiumTokens&&p.design.premiumTokens.vars['--site-comp-brand-bg']),description:p.source.text,facts:p.source.facts}); return {categories:r.categories, defects:r.defects.filter(x=>x.severity>0).map(x=>({c:x.category,code:x.code,sev:x.severity,detail:x.detail||null}))}; })()`);
     result.debugHero = await ev('(()=>{ const h=builderSite.querySelector(".site-hero, [class*=hero]"); return h ? h.outerHTML.slice(0,1500) : null; })()');
     if (process.env.FIX_DEBUG_JS) result.debugCustom = await ev(fs.readFileSync(process.env.FIX_DEBUG_JS, 'utf8'));
+    result.layoutStats = await ev(fs.readFileSync(path.join(__dirname, 'layout-stats.js'), 'utf8'));
     step('mobile + rubric done');
     // ---- screenshots: desktop top / middle, mobile top
     fs.mkdirSync(path.join(OUT, 'shots'), { recursive: true });
@@ -107,7 +108,7 @@ async function runOne(fixture, mode) {
     step('fetching ledger'); const led = await Promise.race([adminGet('/api/admin/premium-ledger'), sleep(10000).then(() => { throw new Error('ledger fetch timeout'); })]); step('ledger ok');
     const gens = led.generations || [];
     result.ledger = { generations: gens, FIRST_DRAFT_COST: +gens.reduce((n, g) => n + g.FIRST_DRAFT_COST, 0).toFixed(4), REPAIR_COST: +gens.reduce((n, g) => n + g.REPAIR_COST, 0).toFixed(4), TOTAL_SITE_COST: +gens.reduce((n, g) => n + g.TOTAL_SITE_COST, 0).toFixed(4), imageCount: gens.reduce((n, g) => n + g.imageCount, 0), imageAttempts: gens.reduce((n, g) => n + g.imageAttempts, 0), imageRetries: gens.reduce((n, g) => n + g.imageRetries, 0) };
-    if (mode === 'premium') { const m = await adminGet('/api/admin/premium-metrics'); result.generationLog = (m.recent || []).slice(-1)[0] || null; }
+    if (mode !== 'legacy') { const m = await adminGet('/api/admin/premium-metrics'); result.generationLog = (m.recent || []).slice(-1)[0] || null; }
     const calls = fs.existsSync(path.join(srv.logDir, 'provider-calls.jsonl')) ? fs.readFileSync(path.join(srv.logDir, 'provider-calls.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
     result.providerCalls = calls.map(c => ({ kind: c.kind, model: c.model, quality: c.quality, size: c.size, blank: c.blank || undefined, promptSample: c.prompt ? c.prompt.slice(0, 260) : undefined }));
   } catch (e) { result.error = String(e && e.stack || e); step('caught: ' + result.error.slice(0, 200)); }

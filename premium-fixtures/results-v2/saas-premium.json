@@ -1,0 +1,326 @@
+{
+  "fixture": "saas",
+  "label": "SaaS / software",
+  "mode": "premium",
+  "premiumFlagSeenByClient": true,
+  "wallMs": 5728,
+  "run": {
+    "ms": 5724,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "product-led-saas",
+    "category": "tech",
+    "hero": "centered-oversized",
+    "typeKey": "mono-technical",
+    "premiumTokens": {
+      "typographyKey": "technical-sans",
+      "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+      "h1": "clamp(2.1rem,5.9cqw,3.9rem)",
+      "spaceMajor": "72px"
+    },
+    "review": {
+      "before": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "NOT_APPLICABLE",
+        "SECTION_CONTRAST": "NOT_APPLICABLE",
+        "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+        "CTA_STRENGTH": "NOT_APPLICABLE",
+        "FOOTER_COMPLETION": "NOT_APPLICABLE"
+      },
+      "after": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "NOT_APPLICABLE",
+        "SECTION_CONTRAST": "NOT_APPLICABLE",
+        "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+        "CTA_STRENGTH": "NOT_APPLICABLE",
+        "FOOTER_COMPLETION": "NOT_APPLICABLE"
+      },
+      "repaired": false,
+      "ms": 16
+    },
+    "copy": {
+      "kicker": "TECHNOLOGY",
+      "headline": "Product, built to move fast.",
+      "sub": "A product site that explains itself in the first ten seconds.",
+      "cta": "Get Started"
+    },
+    "sections": [
+      "features/grid",
+      "productShowcase/default",
+      "integrations/default",
+      "pricing/default",
+      "faq/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "product",
+        "role": "product",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": "50% 50%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.21
+      },
+      {
+        "slot": "product::product",
+        "role": "product",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "medium",
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": "50% 50%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.21
+      },
+      {
+        "slot": "team-about-1-muhjhs0xv9u::team-1",
+        "role": "team",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "1:1",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_team_photos_only",
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "product",
+        "status": "ready",
+        "focal": "50% 50%"
+      },
+      {
+        "slot": "product::product",
+        "status": "ready",
+        "focal": "50% 50%"
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "product",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "4:3",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-k"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "product",
+      "tier": "primary",
+      "gid": true,
+      "aspect": "4:3",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "promptHead": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-k"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T22:35:53.349Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 0,
+        "cardsPerRowMax": 1,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 51
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 0,
+        "cardsPerRowMax": 1,
+        "widestPx": 360,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 47
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "defects": []
+  },
+  "debugHero": "<div class=\"site-hero hero-centered-oversized sr-revealed\">\n        <p class=\"hero-kicker-center\">TECHNOLOGY</p><h3 class=\"hero-headline-oversized\">Product, built to move fast.</h3><p class=\"hero-sub-center\">A product site that explains itself in the first ten seconds.</p>\n        <div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get Started<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div>\n      </div>",
+  "layoutStats": {
+    "sections": 7,
+    "distinctBackgrounds": 1,
+    "adjacentBackgroundChanges": 0,
+    "fullWidthSections": 0,
+    "cardFramedElements": 6,
+    "sectionsWithTopDivider": 6,
+    "totalHeightPx": 2658,
+    "minSectionHeightPx": 201,
+    "maxSectionHeightPx": 633,
+    "heights": [
+      539,
+      337,
+      633,
+      242,
+      347,
+      359,
+      201
+    ]
+  },
+  "desktopPageHeightPx": 2722,
+  "mobilePageHeightPx": 2759,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "gen_muhjhrlx60ec7b",
+        "FIRST_DRAFT_COST": 0.426561,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0.426561,
+        "modelCalls": 2,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 0,
+        "byOperation": {
+          "NEW_SITE": 0,
+          "IMAGE_ADD": 0.42,
+          "QUALITY_REPAIR": 0.006561
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 0.4266,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 0.4266,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 0
+  },
+  "generationLog": {
+    "generationId": "gen_muhjhrlx60ec7b",
+    "at": "2026-09-25T22:35:52.532Z",
+    "premium": true,
+    "archetype": "product-led-saas",
+    "projectId": "proj_muhjhrmc",
+    "firstDraftCostUsd": 0.426561,
+    "repairCostUsd": 0,
+    "totalCostUsd": 0.426561,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 0,
+    "modelCalls": 2,
+    "qualityBefore": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "qualityAfter": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "repairRan": false,
+    "repairActions": [],
+    "budgetLimitReached": false,
+    "fullRegenerationsRequested": 0,
+    "timingsMs": {
+      "review": 1,
+      "critique": 1
+    },
+    "accepted": false,
+    "acceptedAt": null
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-key tones drawn from the brand colour, suggesting Technology. 4:3 frame, one clear focal subject slightly off-centre, shallow depth of field, soft uncluttered background. soft studi"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "medium",
+      "size": "1536x1024",
+      "promptSample": "Abstract brand graphic: layered flowing forms and soft depth in cool dark, low-key tones drawn from the brand colour, suggesting Technology. 4:3 frame, one clear focal subject slightly off-centre, shallow depth of field, soft uncluttered background. soft studi"
+    },
+    {
+      "kind": "critic",
+      "model": "claude-sonnet-5"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5571\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:2046:45 {\n  status: 529\n}\n"
+}

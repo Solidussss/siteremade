@@ -1,0 +1,333 @@
+{
+  "fixture": "renovation",
+  "label": "Renovation / trades",
+  "mode": "premium",
+  "premiumFlagSeenByClient": true,
+  "wallMs": 5669,
+  "run": {
+    "ms": 5668,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "local-conversion",
+    "category": "renovation",
+    "hero": "product-screenshot",
+    "typeKey": "classic-serif-mix",
+    "premiumTokens": {
+      "typographyKey": "humanist-workhorse",
+      "heading": "Inter,'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif",
+      "h1": "clamp(2rem,5.4cqw,3.5rem)",
+      "spaceMajor": "64px"
+    },
+    "review": {
+      "before": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "FAIL",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "NOT_APPLICABLE",
+        "SECTION_CONTRAST": "NOT_APPLICABLE",
+        "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+        "CTA_STRENGTH": "NOT_APPLICABLE",
+        "FOOTER_COMPLETION": "NOT_APPLICABLE"
+      },
+      "after": {
+        "VISUAL_COHERENCE": "PASS",
+        "IMAGE_QUALITY": "PASS",
+        "TYPOGRAPHY": "PASS",
+        "LAYOUT": "PASS",
+        "BUSINESS_SPECIFICITY": "PASS",
+        "CONVERSION_CLARITY": "PASS",
+        "MOBILE_READINESS": "PASS",
+        "TECHNICAL_VALIDITY": "PASS",
+        "VISUAL_PACING": "NOT_APPLICABLE",
+        "SECTION_CONTRAST": "NOT_APPLICABLE",
+        "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+        "CTA_STRENGTH": "NOT_APPLICABLE",
+        "FOOTER_COMPLETION": "NOT_APPLICABLE"
+      },
+      "repaired": true,
+      "ms": 18
+    },
+    "copy": {
+      "kicker": "RENOVATION SERVICES",
+      "headline": "Renovation Work, done to last.",
+      "sub": "Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.",
+      "cta": "Request a Quote"
+    },
+    "sections": [
+      "caseStudies/default",
+      "process/default",
+      "ctaBanner/plain"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1",
+        "quality": "high",
+        "aspectRatio": "16:9",
+        "tier": "hero",
+        "focal": "72% 55%",
+        "reason": "funded",
+        "estimatedCostUsd": 0.63
+      },
+      {
+        "slot": "caseStudies-0-muhjiwa1::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "caseStudies-services-1-muhjiwa1gfq::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "gallery-work-0-muhjiwa1q50::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      },
+      {
+        "slot": "caseStudies-work-1-muhjiwa11qz::gallery-1",
+        "role": "gallery",
+        "sourceType": "designed",
+        "model": null,
+        "quality": null,
+        "aspectRatio": "4:3",
+        "tier": "primary",
+        "focal": null,
+        "reason": "real_project_media_only",
+        "estimatedCostUsd": null
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": "72% 55%"
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "tier": "hero",
+      "gid": true,
+      "aspect": "16:9",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "promptHead": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Des"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T22:36:45.466Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 4,
+        "cardsPerRowMax": 1,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 46
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 3,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 4,
+        "cardsPerRowMax": 1,
+        "widestPx": 360,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 46
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "defects": []
+  },
+  "debugHero": "<div class=\"site-hero hero-product-screenshot sr-revealed\">\n        <div class=\"site-copy center\"><p>RENOVATION SERVICES</p><h3>Renovation Work, done to last.</h3><p>Renovation work presented through strong projects, clear process and proof people can trust. Serving Ottawa. Design.</p><div class=\"site-actions center\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Request a Quote<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-product-frame\"><div class=\"hero-product-chrome\"><span></span><span></span><span></span></div><div class=\"hero-product-body\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa8TUlEQVR4XkydZ1MrSbOEz///uiAkEFaAhJEBgfDee28C77337sONzGc0943Y2Dh7FqOZ7q7Kysyq/hcfPKkdu2yYum1dfIl079WOXWZX3pIz96Vdu83zT5VDJ4mJq9TsQ9vaR3zwpLD9277+WT1y3rLw3Dh9Fx88jvYelPXsVY+cx/oOWhdfUrMPtWOXlUOnmeXXjs2f8v6jmtHzwvZv7dhlcua+fvKmsP3Xvv7VuvjSufXbufVb3n9YO3bZuvhc3n/UMHVb3n+Umn1oX/+qHjkv7drt3PqJD560rX2Udu3Wjl1GuvdqRi9ifQe51fe68atY32HT3GN25b1j86e0a6e0a7ew/Zdbfa+fvK4bv2xZeO7c+k0vvTZM3fLF+Y3vzPJr8/xTavYhOXMX6d5LTFwlZ+47Nn9qRs+zK29Vw6f5je+OzZ/ExHVi4rpm9KK0a7dl4Smz/JqYuG6Yum1b+6waPisp7NSMXrQsPJX17FcNn8UHjyuHTr",
+  "layoutStats": {
+    "sections": 5,
+    "distinctBackgrounds": 1,
+    "adjacentBackgroundChanges": 0,
+    "fullWidthSections": 2,
+    "cardFramedElements": 0,
+    "sectionsWithTopDivider": 4,
+    "totalHeightPx": 2595,
+    "minSectionHeightPx": 211,
+    "maxSectionHeightPx": 782,
+    "heights": [
+      729,
+      295,
+      578,
+      782,
+      211
+    ]
+  },
+  "desktopPageHeightPx": 2679,
+  "mobilePageHeightPx": 2712,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "gen_muhjivv9a2dfd3",
+        "FIRST_DRAFT_COST": 1.266597,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 1.266597,
+        "modelCalls": 2,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 1,
+        "byOperation": {
+          "NEW_SITE": 0,
+          "IMAGE_ADD": 1.26,
+          "QUALITY_REPAIR": 0.006597
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 1.2666,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 1.2666,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 1
+  },
+  "generationLog": {
+    "generationId": "gen_muhjivv9a2dfd3",
+    "at": "2026-09-25T22:36:44.653Z",
+    "premium": true,
+    "archetype": "local-conversion",
+    "projectId": "proj_muhjivvo",
+    "firstDraftCostUsd": 1.266597,
+    "repairCostUsd": 0,
+    "totalCostUsd": 1.266597,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 1,
+    "modelCalls": 2,
+    "qualityBefore": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "FAIL",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "qualityAfter": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "repairRan": true,
+    "repairActions": [
+      {
+        "kind": "remove_section",
+        "code": "fabricated_testimonial"
+      }
+    ],
+    "budgetLimitReached": false,
+    "fullRegenerationsRequested": 0,
+    "timingsMs": {
+      "review": 1,
+      "critique": 1
+    },
+    "accepted": false,
+    "acceptedAt": null
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "blank": true,
+      "promptSample": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Design regional setting (no landmarks). Wide landscape frame, main subject occupying the right 55% of the frame, clean uncluttered negative space on the left for a headline. commercia"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1",
+      "quality": "high",
+      "size": "1536x1024",
+      "promptSample": "a completed renovated kitchen or living space, natural light, subtle Ottawa. Design regional setting (no landmarks). Simple, uncluttered composition, 16:9 frame. Photograph or graphic only. Absolutely no text, lettering, signage, captions, logos or watermarks."
+    },
+    {
+      "kind": "critic",
+      "model": "claude-sonnet-5"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5574\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:2046:45 {\n  status: 529\n}\n"
+}

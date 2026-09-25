@@ -1,0 +1,223 @@
+{
+  "fixture": "nonprofit",
+  "label": "Community / nonprofit",
+  "mode": "legacy",
+  "premiumFlagSeenByClient": false,
+  "wallMs": 5668,
+  "run": {
+    "ms": 5667,
+    "directions": 1
+  },
+  "project": {
+    "archetype": "community-nonprofit",
+    "category": "other",
+    "hero": "collage",
+    "typeKey": "geo-sans",
+    "premiumTokens": null,
+    "review": null,
+    "copy": {
+      "kicker": "YOUR BUSINESS",
+      "headline": "Business, done properly.",
+      "sub": "A modern website that makes the quality of your business obvious before anyone reaches out. Serving Winnipeg. We.",
+      "cta": "Get Started"
+    },
+    "sections": [
+      "services/numbered",
+      "about/statement",
+      "process/default"
+    ],
+    "imagePlan": [
+      {
+        "slot": "hero",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "aspectRatio": "16:9",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.0084
+      },
+      {
+        "slot": "collage-2",
+        "role": "hero",
+        "sourceType": "generated",
+        "model": "gpt-image-1-mini",
+        "quality": "low",
+        "aspectRatio": "4:3",
+        "tier": null,
+        "focal": null,
+        "reason": null,
+        "estimatedCostUsd": 0.0084
+      }
+    ],
+    "generated": [
+      {
+        "slot": "hero",
+        "status": "ready",
+        "focal": null
+      },
+      {
+        "slot": "collage-2",
+        "status": "ready",
+        "focal": null
+      }
+    ]
+  },
+  "imageRequests": [
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "gid": false,
+      "aspect": "16:9",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "promptHead": "warm atmospheric lifestyle photography for a general business brand, subtle Winn"
+    },
+    {
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "poor": null,
+      "budget": null,
+      "slot": "hero",
+      "gid": false,
+      "aspect": "4:3",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "promptHead": "warm atmospheric lifestyle photography for a general business brand, subtle Winn"
+    }
+  ],
+  "mobile": {
+    "measuredAt": "2026-09-25T22:38:12.122Z",
+    "widths": [
+      {
+        "width": 390,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 4,
+        "cardsPerRowMax": 0,
+        "widestPx": 390,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 43
+      },
+      {
+        "width": 360,
+        "overflowX": false,
+        "heroHeadlineLines": 2,
+        "smallTapTargets": 0,
+        "badImageCrops": 0,
+        "navOverflow": false,
+        "tightSections": 4,
+        "cardsPerRowMax": 0,
+        "widestPx": 360,
+        "overflowOffenders": [],
+        "heroHeadlineFontPx": 40
+      }
+    ]
+  },
+  "rubricFinal": {
+    "categories": {
+      "VISUAL_COHERENCE": "PASS",
+      "IMAGE_QUALITY": "PASS",
+      "TYPOGRAPHY": "PASS",
+      "LAYOUT": "PASS",
+      "BUSINESS_SPECIFICITY": "PASS",
+      "CONVERSION_CLARITY": "PASS",
+      "MOBILE_READINESS": "PASS",
+      "TECHNICAL_VALIDITY": "PASS",
+      "VISUAL_PACING": "NOT_APPLICABLE",
+      "SECTION_CONTRAST": "NOT_APPLICABLE",
+      "COMPOSITION_VARIETY": "NOT_APPLICABLE",
+      "CTA_STRENGTH": "NOT_APPLICABLE",
+      "FOOTER_COMPLETION": "NOT_APPLICABLE"
+    },
+    "defects": []
+  },
+  "debugHero": "<div class=\"site-hero hero-collage sr-revealed\">\n        <div class=\"hero-collage-copy\"><p>YOUR BUSINESS</p><h3>Business, done properly.</h3><p>A modern website that makes the quality of your business obvious before anyone reaches out. Serving Winnipeg. We.</p><div class=\"site-actions\"><button type=\"button\" class=\"module-cta-btn hero-cta-btn\">Get Started<svg class=\"sr-icon cta-btn-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"></path></svg></button></div></div>\n        <div class=\"hero-collage-stack\"><div class=\"collage-card collage-card-1\"><img class=\"site-visual-img site-visual-generated-img\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIACAIAAAC6lJxtAAa2jUlEQVR4XkydV1OUa9aG/f+nBoxgRMEssk+QoJIkSZLsieScc+ivrvt6uuermpras0eh+32fsNad1q2Nn493+58dDb26mHi31H5vt//Z9dTH45HXi9/uno01b3Y/2R94cfr7TWXm88bPx5W//1Vmv+z0NlxMvD0ebtz4+Xil8/5yR912b8Nq14OLiXcnv9/s9j/b7H5y9edDZf7r2veHO31PK3//2/v17Hjk9cHgS3/C5eS7ykJrZaF17fvD3f5nFxPv1r4/PBx6tfb9Ib9r9stOX8Pit7uVhVZ+6cznxW939/qfLbXf2+l7utr14Gb6096v56tdD05Hm66nPlbmvy5+u8uf//vfzfSng8GXe7+en4+/rSy0Xk6+Pxx6tZ8/XJlrufrz4Wys+eT3m+OR10vt9/YHXpz8fl1Z+LrT9/R66uNWT31lrqUy/3V/4MX+wIudvqeL3+6ej7+9+vNhf+DF4dCrysznrZ76xbY7O31Pz8ffLnfUbfXUb/x8vNn95Hrq49HQq9PRppPfbyp//zscerXdU1/5+9/l5PuzseaDwZeno00rnfcr819vpj8tfru7/uPRSR7yycjrw6GXB4Mv9wdeLH",
+  "layoutStats": {
+    "sections": 5,
+    "distinctBackgrounds": 1,
+    "adjacentBackgroundChanges": 0,
+    "fullWidthSections": 1,
+    "cardFramedElements": 3,
+    "sectionsWithTopDivider": 4,
+    "totalHeightPx": 1239,
+    "minSectionHeightPx": 158,
+    "maxSectionHeightPx": 485,
+    "heights": [
+      485,
+      200,
+      172,
+      224,
+      158
+    ]
+  },
+  "desktopPageHeightPx": 1315,
+  "mobilePageHeightPx": 1893,
+  "ledger": {
+    "generations": [
+      {
+        "generationId": "9645599c-2de9-4ef2-9ed3-a1e00edac183",
+        "FIRST_DRAFT_COST": 0,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0,
+        "modelCalls": 1,
+        "imageCount": 0,
+        "imageAttempts": 0,
+        "imageRetries": 0,
+        "byOperation": {
+          "NEW_SITE": 0
+        }
+      },
+      {
+        "generationId": "proj_muhjkqqu",
+        "FIRST_DRAFT_COST": 0.0168,
+        "REPAIR_COST": 0,
+        "TOTAL_SITE_COST": 0.0168,
+        "modelCalls": 0,
+        "imageCount": 2,
+        "imageAttempts": 2,
+        "imageRetries": 0,
+        "byOperation": {
+          "IMAGE_ADD": 0.0168
+        }
+      }
+    ],
+    "FIRST_DRAFT_COST": 0.0168,
+    "REPAIR_COST": 0,
+    "TOTAL_SITE_COST": 0.0168,
+    "imageCount": 2,
+    "imageAttempts": 2,
+    "imageRetries": 0
+  },
+  "providerCalls": [
+    {
+      "kind": "planner_refused",
+      "model": "claude-sonnet-5"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "size": "1536x1024",
+      "promptSample": "warm atmospheric lifestyle photography for a general business brand, subtle Winnipeg. We atmosphere, #f7f7f8 background, #2b60b6 accent colour, premium brand aesthetic, hero composition, no text"
+    },
+    {
+      "kind": "image",
+      "model": "gpt-image-1-mini",
+      "quality": "low",
+      "size": "1024x1024",
+      "promptSample": "warm atmospheric lifestyle photography for a general business brand, subtle Winnipeg. We atmosphere, #f7f7f8 background, #2b60b6 accent colour, premium brand aesthetic, hero composition, no text"
+    }
+  ],
+  "serverTail": "SiteRemade running on port 5579\nWebsite planning failed: Error: mock: planner not available\n    at Object.plan (C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:1748:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async C:\\Users\\jayde\\AppData\\Local\\Temp\\claude\\c--Users-jayde-Documents-BeatBlock\\f77ec6d4-71d7-4500-b46b-68165439e77a\\scratchpad\\v2\\server.js:2046:45 {\n  status: 529\n}\n"
+}

@@ -147,6 +147,281 @@
     module.exports = { BudgetGovernor, PRIORITIES };
 
   });
+  __define("comp-stamp", function (module, exports, require) {
+    'use strict';
+    // Turns a page composition plan into data attributes on the ALREADY-RENDERED section elements (same additive technique as the
+    // existing data-rhythm-position stamping: never a wrapper, so existing CSS that depends on a section's direct children keeps
+    // working). Two front doors, one plan: DOM (live preview) and HTML strings (purchased export / Workplace).
+    const { planPageComposition, finalCtaHeadline } = require('./composition');
+    const { deriveStrategy } = require('./strategy');
+
+    function attrString(e) {
+      let s = ` data-comp-tone="${e.tone}" data-comp-weight="${e.weight}"`;
+      if (e.moment) s += ` data-comp-moment="${e.moment}"`;
+      if (e.open) s += ' data-comp-open="1"';
+      if (e.layout && e.layout !== 'default') s += ` data-comp-layout="${e.layout}"`;
+      if (e.form) s += ' data-comp-form="1"';
+      if (e.cta) s += ` data-comp-cta="${e.cta}"`;
+      return s;
+    }
+    const footerAttrs = f => ` data-comp-tone="${f.tone}" data-comp-footer="${f.layout}"`;
+
+    function strategyFor(project) {
+      const cd = project.intent && project.intent.creativeDirection;
+      return deriveStrategy({ archetype: project.strategy && project.strategy.archetype, categoryKey: project.business && project.business.categoryKey, creativeDirection: cd, claudeStrategy: project.strategy, location: project.source && project.source.location });
+    }
+    // sections: the page's section objects (footer entries ignored); hasImage: parallel array of booleans
+    function planFor(project, sections, hasImage, heroInfo, hasForm) {
+      const list = [];
+      (sections || []).forEach((s, i) => { if (s && s.type !== 'footer') list.push({ id: s.id, type: s.type, variant: s.variant, hasImage: !!(hasImage && hasImage[i]), hasForm: !!(hasForm && hasForm[i]), copyChars: s.copy && s.copy.body ? String(s.copy.body).length : 0 }); });
+      return planPageComposition({ sections: list, strategy: strategyFor(project), palette: project.design && project.design.palette, hero: heroInfo });
+    }
+
+    // ---- string front door (export) --------------------------------------------------------------------------------------
+    // parts: [{ section, html }] in page order; returns html strings with attributes inserted
+    function stampParts(project, parts, heroInfo) {
+      const secs = parts.map(p => p.section);
+      const plan = planFor(project, secs, parts.map(p => /<img[^>]*site-visual-img/.test(p.html)), heroInfo, parts.map(p => /<form[^>]*module-form/.test(p.html)));
+      const byId = new Map(plan.sections.map(e => [e.id, e]));
+      const html = parts.map(p => { const e = byId.get(p.section.id); return e ? p.html.replace('<div class="site-section ', `<div${attrString(e)} class="site-section `) : p.html; });
+      return { html, plan };
+    }
+    function stampFooterHtml(html, plan) { return html.replace('<div class="site-section site-footer"', `<div${footerAttrs(plan.footer)} class="site-section site-footer"`); }
+
+    // ---- DOM front door (live preview) -----------------------------------------------------------------------------------
+    function stampDom(root, project, sections, heroInfo) {
+      const els = Array.prototype.filter.call(root.children, el => el.classList.contains('site-section') && !el.classList.contains('site-footer'));
+      const secs = (sections || []).filter(s => s && s.type !== 'footer');
+      const plan = planFor(project, secs, secs.map((s, i) => !!(els[i] && els[i].querySelector('img'))), heroInfo, secs.map((s, i) => !!(els[i] && els[i].querySelector('.module-form'))));
+      plan.sections.forEach((e, i) => {
+        const el = els[i]; if (!el) return;
+        ['tone', 'weight', 'moment', 'open', 'layout', 'form', 'cta'].forEach(k => el.removeAttribute('data-comp-' + k));
+        el.dataset.compTone = e.tone; el.dataset.compWeight = e.weight;
+        if (e.moment) el.dataset.compMoment = e.moment; if (e.open) el.dataset.compOpen = '1';
+        if (e.layout && e.layout !== 'default') el.dataset.compLayout = e.layout; if (e.form) el.dataset.compForm = '1'; if (e.cta) el.dataset.compCta = e.cta;
+      });
+      const foot = root.querySelector('.site-footer'); if (foot) { foot.dataset.compTone = plan.footer.tone; foot.dataset.compFooter = plan.footer.layout; }
+      return plan;
+    }
+
+    module.exports = { attrString, footerAttrs, planFor, stampParts, stampFooterHtml, stampDom, strategyFor, finalCtaHeadline };
+
+  });
+  __define("composition", function (module, exports, require) {
+    'use strict';
+    // PREMIUM_COMPOSITION_V2: plan the WHOLE homepage as one visual sequence before rendering it.
+    //
+    // Pure and deterministic (no model call, no I/O): a function of the ordered sections, the strategy/archetype and the
+    // palette. Because it is derived rather than stored, the live preview, the purchased export and the Workplace updater
+    // all compute the same plan from the same project JSON and cannot drift.
+    //
+    // What it decides per section: role (why it exists), visual weight (strong/medium/quiet), surface tone (base / alt /
+    // contrast / brand), whether it is a visual MOMENT (fullbleed media, contrast band, typographic statement, offset
+    // composition, CTA band), whether cards are dropped in favour of open editorial layout, and how forms and the footer are
+    // composed. It then verifies its own output (neighbour contrast, no long runs of the same weight, enough moments, a
+    // real final CTA) so the same rules the reviewer applies are guaranteed on the way in.
+
+    const ROLE = {
+      proof: 'PROVE', metrics: 'PROVE', testimonial: 'PROVE', testimonialsGrid: 'PROVE', serviceAreas: 'TRUST',
+      services: 'EDUCATE', features: 'EDUCATE', integrations: 'EDUCATE', pricing: 'EDUCATE', faq: 'EDUCATE', process: 'EDUCATE',
+      gallery: 'SHOW', caseStudies: 'SHOW', imageLedEditorial: 'SHOW', productShowcase: 'SHOW', menu: 'SHOW', team: 'SHOW',
+      about: 'STORY', ctaBanner: 'CONVERT', reservationCta: 'CONVERT', contact: 'CONVERT', newsletter: 'CONVERT', footer: 'CLOSE', hero: 'ORIENT',
+    };
+    const CONVERT_TYPES = ['ctaBanner', 'reservationCta', 'contact'];
+    const SHOW_MEDIA = ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'];
+    const CARD_KEEP = ['services', 'features', 'pricing', 'team', 'integrations', 'productShowcase'];
+
+    // Per-archetype visual grammar (Part 17): how many moments, and which kind of surface carries them.
+    const GRAMMAR = {
+      'local-conversion': { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'brand', statement: false, feel: 'assertive' },
+      'trust-heavy-professional': { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'contrast', statement: true, feel: 'assertive' },
+      'service-business': { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'brand', statement: false, feel: 'assertive' },
+      'premium-consultancy': { moments: 2, contrastForProof: false, footer: 'base', ctaTone: 'contrast', statement: true, feel: 'restrained' },
+      hospitality: { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'contrast', statement: false, feel: 'immersive' },
+      portfolio: { moments: 2, contrastForProof: false, footer: 'base', ctaTone: 'contrast', statement: true, feel: 'immersive' },
+      'editorial-brand': { moments: 3, contrastForProof: false, footer: 'contrast', ctaTone: 'contrast', statement: true, feel: 'immersive' },
+      'product-led-saas': { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'brand', statement: false, feel: 'structured' },
+      'launch-campaign': { moments: 3, contrastForProof: true, footer: 'contrast', ctaTone: 'brand', statement: true, feel: 'structured' },
+      'ecommerce-showcase': { moments: 2, contrastForProof: false, footer: 'contrast', ctaTone: 'brand', statement: false, feel: 'structured' },
+      'community-nonprofit': { moments: 3, contrastForProof: true, footer: 'brand', ctaTone: 'brand', statement: true, feel: 'story' },
+    };
+    const GOAL_HEAD = {
+      request_quote: 'Request a quote for your {noun}{loc}', book_consultation: 'Book a consultation{loc}', call: 'Call to talk it through{loc}',
+      reserve: 'Reserve a table{loc}', buy: 'Shop the collection', view_work: 'See the work, then let\'s talk', start_trial: 'Start using {name}',
+      join_waitlist: 'Join the waitlist', get_involved: 'Get involved{loc}',
+    };
+
+    // ---- colour helpers ------------------------------------------------------------------------------------------
+    function hexToRgb(h) { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '')); if (!m) return null; const n = parseInt(m[1], 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }; }
+    const toHex = c => '#' + [c.r, c.g, c.b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+    function mix(a, b, t) { const x = hexToRgb(a), y = hexToRgb(b); if (!x || !y) return a; return toHex({ r: x.r + (y.r - x.r) * t, g: x.g + (y.g - x.g) * t, b: x.b + (y.b - x.b) * t }); }
+    function lum(hex) { const c = hexToRgb(hex); if (!c) return 0.5; const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); }
+    const contrast = (a, b) => { const la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+
+    // Surface colours for the four tones, derived from the site's own palette (nothing hard-coded to a brand).
+    function compositionVars(palette) {
+      const p = palette || {};
+      const bg = hexToRgb(p.background) ? p.background : '#f7f7f8', text = hexToRgb(p.text) ? p.text : '#111111', main = hexToRgb(p.main) ? p.main : '#315cff';
+      const darkTheme = lum(bg) < 0.25;
+      const altBg = mix(bg, text, darkTheme ? 0.07 : 0.045);
+      // "contrast" is the INVERSE of the base theme: a dark band on a light site, a light band on a dark one.
+      // On a dark site the contrast surface is a deep brand tone (a real change of colour, not a pale inversion that fights the theme).
+      const contrastBg = darkTheme ? mix(main, '#000000', 0.5) : mix('#0b0d12', main, 0.22);
+      const contrastInk = lum(contrastBg) < 0.4 ? '#f4f5f7' : '#101216';
+      const brandBg = main;
+      const brandInk = contrast(main, '#ffffff') >= 3.2 ? '#ffffff' : '#101216';
+      const contrastAccent = lum(contrastBg) < 0.4 ? mix(main, '#ffffff', darkTheme ? 0.55 : 0.2) : main;
+      return {
+        '--site-comp-alt-bg': altBg, '--site-comp-contrast-bg': contrastBg, '--site-comp-contrast-ink': contrastInk,
+        '--site-comp-contrast-muted': mix(contrastBg, contrastInk, 0.68), '--site-comp-contrast-accent': contrastAccent,
+        '--site-comp-brand-bg': brandBg, '--site-comp-brand-ink': brandInk, '--site-comp-brand-muted': mix(brandBg, brandInk, 0.78),
+        '--site-comp-line': mix(bg, text, 0.16),
+      };
+    }
+
+    // ---- planning ------------------------------------------------------------------------------------------------
+    const TONE_DIST = { 'base:alt': 0.5, 'base:contrast': 1, 'base:brand': 1, 'alt:contrast': 1, 'alt:brand': 1, 'contrast:brand': 0.6 };
+    const toneDistance = (a, b) => (a === b ? 0 : TONE_DIST[a + ':' + b] || TONE_DIST[b + ':' + a] || 1);
+    const WEIGHT_N = { quiet: 0, medium: 1, strong: 2 };
+    // How visibly different two neighbours are (>=1 means "clearly different").
+    function neighbourContrast(a, b) {
+      const layoutDiff = (a.moment !== b.moment ? 1 : 0) || (a.open !== b.open ? 0.5 : 0) || (a.layout !== b.layout ? 0.5 : 0);
+      return toneDistance(a.tone, b.tone) + Math.abs(WEIGHT_N[a.weight] - WEIGHT_N[b.weight]) * 0.5 + layoutDiff;
+    }
+
+    // input: { sections:[{id,type,variant,copyChars?,hasImage?}], strategy:{archetype,conversionGoal,...}, palette, hero:{variant,hasImage},
+    //          businessName, noun, location }
+    function planPageComposition(input) {
+      const inp = input || {};
+      const strat = inp.strategy || {};
+      const g = GRAMMAR[strat.archetype] || GRAMMAR['service-business'];
+      const all = (inp.sections || []).filter(s => s && s.type !== 'footer');
+      const items = all.map((s, i) => ({
+        id: s.id, type: s.type, index: i, role: ROLE[s.type] || 'EDUCATE', tone: 'base', weight: 'medium', moment: null, open: false, layout: 'default',
+        cta: null, form: !!s.hasForm, hasImage: !!s.hasImage, copyChars: Number.isFinite(s.copyChars) ? s.copyChars : 0,
+      }));
+      const heroStrong = !!(inp.hero && (inp.hero.hasImage || ['fullbleed-image', 'poster', 'collage', 'centered-oversized'].includes(inp.hero.variant)));
+
+      // 1. the closing conversion moment (the final CTA lives here, before the footer)
+      let finalIdx = -1;
+      for (let i = items.length - 1; i >= 0; i--) if (CONVERT_TYPES.includes(items[i].type)) { finalIdx = i; break; }
+
+      // 2. score sections as visual-moment candidates by role (business-specific through archetype grammar)
+      const cand = [];
+      items.forEach(it => {
+        if (it.index === finalIdx) return;
+        let score = 0, kind = null;
+        if (it.role === 'SHOW' && SHOW_MEDIA.includes(it.type)) { kind = it.hasImage ? 'fullbleed' : 'contrastband'; score = it.hasImage ? 3 : 2; }
+        else if (it.type === 'menu') { kind = 'contrastband'; score = 2.5; }
+        else if (it.role === 'PROVE') { kind = g.contrastForProof ? 'contrastband' : 'statement'; score = 2.5; }
+        else if (it.type === 'about') { kind = g.statement && it.copyChars <= 260 ? 'statement' : 'offset'; score = 2; }
+        else if (it.type === 'serviceAreas') { kind = 'statement'; score = it.copyChars <= 200 ? 1.5 : 0; }
+        else if (it.type === 'process') { kind = 'steps'; score = 1.6; }
+        else if (it.type === 'services' || it.type === 'features') { kind = 'offset'; score = 0.8; }
+        if (kind && score > 0) cand.push({ it, kind, score });
+      });
+      cand.sort((a, b) => b.score - a.score || a.it.index - b.it.index);
+      const chosen = [];
+      const want = Math.min(g.moments - (finalIdx >= 0 ? 1 : 0), cand.length);
+      for (const c of cand) {
+        if (chosen.length >= want) break;
+        // moments need air between them: never two in a row (the CTA band counts as a moment)
+        if (chosen.some(x => Math.abs(x.it.index - c.it.index) < 2) || (finalIdx >= 0 && Math.abs(finalIdx - c.it.index) < 2 && c.kind !== 'fullbleed')) continue;
+        chosen.push(c);
+      }
+      // Guarantee: a page is never left with fewer than two moments (final CTA included) when it has content to spare.
+      const minMoments = Math.min(2, items.length - 1);
+      for (const c2 of cand) {
+        if (chosen.length + (finalIdx >= 0 ? 1 : 0) >= minMoments) break;
+        if (!chosen.includes(c2) && !chosen.some(x => Math.abs(x.it.index - c2.it.index) < 2)) chosen.push(c2);
+      }
+      chosen.forEach(({ it, kind }) => {
+        it.moment = kind; it.weight = 'strong';
+        if (kind === 'contrastband') it.tone = 'contrast';
+        if (kind === 'statement') it.tone = g.feel === 'restrained' ? 'base' : 'alt';
+        if (kind === 'fullbleed') it.tone = 'base';
+        if (kind === 'offset') it.layout = 'offset';
+        if (kind === 'steps') { it.layout = 'large-steps'; it.tone = 'base'; }
+      });
+      if (finalIdx >= 0) { const f = items[finalIdx]; f.moment = 'ctaband'; f.weight = 'strong'; f.tone = g.ctaTone; f.cta = 'band'; f.form = f.form || f.type === 'contact'; }
+      // forms (contact) sit on a tighter, contrasting surface with a split layout instead of a giant pale panel
+      items.forEach(it => { if (it.type === 'contact' || (it.type === 'reservationCta')) { it.form = true; it.layout = 'split'; } });
+
+      // 3. cards: only where the content really is a repeated unit; everything else is open editorial
+      items.forEach(it => { it.open = !CARD_KEEP.includes(it.type); });
+
+      // 4. quiet sections carry the rest; alternate base/alt surfaces between moments (never two identical pale neighbours)
+      let lastSurface = 'alt';
+      items.forEach(it => {
+        if (it.moment) { lastSurface = it.tone === 'contrast' || it.tone === 'brand' ? 'alt' : it.tone; return; }
+        it.weight = it.role === 'EDUCATE' && it.type !== 'faq' ? 'medium' : 'quiet';
+        it.tone = lastSurface === 'alt' ? 'base' : 'alt'; lastSurface = it.tone;
+      });
+
+      // 5. verify + repair the sequence: no 3 equal weights in a row, and every neighbour pair clearly different
+      for (let pass = 0; pass < 3; pass++) {
+        for (let i = 2; i < items.length; i++) {
+          if (items[i].weight === items[i - 1].weight && items[i].weight === items[i - 2].weight && !items[i].moment) items[i].weight = items[i].weight === 'quiet' ? 'medium' : 'quiet';
+        }
+        for (let i = 1; i < items.length; i++) {
+          const a = items[i - 1], b = items[i];
+          if (neighbourContrast(a, b) >= 1) continue;
+          if (!b.moment && b.tone !== 'contrast') { b.layout = b.layout === 'default' ? (b.type === 'about' || b.type === 'services' ? 'offset' : 'quiet-air') : b.layout; }
+          if (neighbourContrast(a, b) < 1 && !b.moment) b.tone = b.tone === 'base' ? 'alt' : 'base';
+        }
+      }
+      const finalItem = finalIdx >= 0 ? items[finalIdx] : null;
+      const footer = { tone: finalItem && finalItem.tone === g.footer ? (g.footer === 'brand' ? 'contrast' : 'base') : g.footer, layout: 'resolved' };
+      if (footer.tone === 'base' && finalItem && (finalItem.tone === 'base' || finalItem.tone === 'alt')) footer.tone = 'contrast';
+      return {
+        version: 2, archetype: strat.archetype || 'service-business', feel: g.feel, heroStrong,
+        sections: items.map(it => ({ id: it.id, type: it.type, role: it.role, tone: it.tone, weight: it.weight, moment: it.moment, open: it.open, layout: it.layout, cta: it.cta, form: it.form })),
+        footer, moments: items.filter(i => i.moment).length, needsFinalCta: finalIdx < 0,
+      };
+    }
+
+    // Business-specific closing headline from the strategy; only used when the section has no copy of its own.
+    // Never a claim: it names the action and, when known, the offering and place.
+    function finalCtaHeadline(strategy, ctx) {
+      const c = ctx || {};
+      const tpl = GOAL_HEAD[(strategy && strategy.conversionGoal) || 'request_quote'] || GOAL_HEAD.request_quote;
+      // The generator location extraction can carry sentence fragments (Winnipeg. We); only the place name is used.
+      const place = c.location ? String(c.location).split(/[.,;]/)[0].trim() : '';
+      const loc = place ? ' in ' + place : '';
+      const noun = String(c.noun || 'project').toLowerCase();
+      return tpl.replace('{noun}', noun).replace('{loc}', loc).replace('{name}', c.businessName || 'it');
+    }
+
+    // ---- verification (shared by the review rubric) -------------------------------------------------------------------
+    // plan: from planPageComposition. Returns concrete findings with codes the rubric maps to categories.
+    function evaluateComposition(plan) {
+      const out = [];
+      const s = (plan && plan.sections) || [];
+      if (s.length < 3) return out;
+      // VISUAL_PACING: runs of identical weight, and pages that never reach 'strong'
+      for (let i = 2; i < s.length; i++) if (s[i].weight === s[i - 1].weight && s[i].weight === s[i - 2].weight) { out.push({ category: 'VISUAL_PACING', code: 'flat_pacing_run', severity: 2, detail: `3 ${s[i].weight} sections in a row ending at ${s[i].type}`, target: { kind: 'section', id: s[i].id } }); break; }
+      if (!s.some(x => x.weight === 'strong')) out.push({ category: 'VISUAL_PACING', code: 'no_strong_moment', severity: 2, detail: 'no section carries strong visual weight' });
+      // SECTION_CONTRAST: neighbours nearly identical
+      for (let i = 1; i < s.length; i++) if (neighbourContrast(s[i - 1], s[i]) < 1) { out.push({ category: 'SECTION_CONTRAST', code: 'adjacent_sections_too_similar', severity: 2, detail: `${s[i - 1].type} / ${s[i].type}`, target: { kind: 'section', id: s[i].id } }); break; }
+      // COMPOSITION_VARIETY: REPETITIVE_COMPOSITION when most sections share tone/alignment/frame treatment
+      const tones = s.reduce((m, x) => { m[x.tone] = (m[x.tone] || 0) + 1; return m; }, {});
+      const dominant = Math.max.apply(null, Object.values(tones)) / s.length;
+      const moments = s.filter(x => x.moment).length;
+      if (dominant > 0.75 || moments < 2 && s.length >= 4) out.push({ category: 'COMPOSITION_VARIETY', code: 'REPETITIVE_COMPOSITION', severity: 2, detail: `${Math.round(dominant * 100)}% of sections share one surface; ${moments} visual moments` });
+      const cards = s.filter(x => !x.open).length;
+      if (cards / s.length > (plan.feel === 'structured' ? 0.85 : 0.6) && s.length >= 4) out.push({ category: 'COMPOSITION_VARIETY', code: 'card_overuse', severity: 1, detail: `${cards}/${s.length} sections are card-framed` });
+      // CTA_STRENGTH
+      const cta = s.filter(x => x.role === 'CONVERT');
+      if (!cta.length) out.push({ category: 'CTA_STRENGTH', code: 'no_final_cta', severity: 3, detail: 'no closing conversion section' });
+      else if (!cta.some(x => x.cta === 'band')) out.push({ category: 'CTA_STRENGTH', code: 'weak_final_cta', severity: 2, detail: 'closing CTA is not a composed band', target: { kind: 'section', id: cta[cta.length - 1].id } });
+      // FOOTER_COMPLETION
+      if (!plan.footer || plan.footer.layout !== 'resolved') out.push({ category: 'FOOTER_COMPLETION', code: 'footer_unfinished', severity: 2, detail: 'footer is the minimal legacy variant' });
+      return out;
+    }
+
+    module.exports = { ROLE, GRAMMAR, planPageComposition, compositionVars, finalCtaHeadline, evaluateComposition, neighbourContrast, toneDistance, mix, lum, contrast };
+
+  });
   __define("config", function (module, exports, require) {
     'use strict';
     // PREMIUM_GENERATION_V1 configuration: the ONE place budgets, prices, model
@@ -175,6 +450,8 @@
       const heroMax = num(env.PREMIUM_HERO_IMAGE_MAX_USD, 0.75);
       return {
         enabled: truthy(env.PREMIUM_GENERATION_V1),
+        // V2 composition (page-level visual planning). Sub-flag: only meaningful when PREMIUM_GENERATION_V1 is on. Default OFF.
+        compositionV2: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_COMPOSITION_V2),
         budgets: {
           TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.5),
           TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 3.0),
@@ -337,7 +614,8 @@
     const CONTENT_WIDTH = { 'trust-heavy-local-service': '1120px', 'trust-heavy-professional': '1120px', 'premium-consultancy': '1080px', 'service-led': '1120px', hospitality: '1160px', 'portfolio-heavy': '1280px', editorial: '1280px', 'product-led': '1200px', 'story-led': '1120px' };
 
     // strategy: from strategy.js; palette: {background, main, text, accent2}
-    function buildDesignTokens(strategy, palette) {
+    const composition = require('./composition');
+    function buildDesignTokens(strategy, palette, opts) {
       const type = TYPE_SYSTEMS[strategy.typographyDirection] || TYPE_SYSTEMS['humanist-workhorse'];
       const space = SPACING[strategy.spacingCharacter] || SPACING.standard;
       const radius = RADIUS[strategy.layoutPattern] || '12px';
@@ -351,6 +629,8 @@
         '--site-space-hero': space.hero, '--site-space-major': space.major, '--site-space-minor': space.minor, '--site-gap': space.gap,
         '--site-radius': radius, '--site-content-width': width,
       };
+      // PREMIUM_COMPOSITION_V2: surface colours for the alt / contrast / brand tones, derived from this site's own palette.
+      if (opts && opts.composition) Object.assign(vars, composition.compositionVars(p));
       return {
         version: 1, premium: true, typographyKey: strategy.typographyDirection, spacingKey: strategy.spacingCharacter,
         palette: { background: p.background || null, surface: p.background || null, text: p.text || null, accent: p.main || null, accent2: p.accent2 || p.main || null },
@@ -371,7 +651,8 @@
         vars[k] = v;
       });
       const key = /^[a-z-]{1,40}$/.test(String(tokens.typographyKey)) ? tokens.typographyKey : 'humanist-workhorse';
-      return { premium: true, version: 1, typographyKey: key, vars, dataAttrs: { 'data-premium': '1', 'data-premium-type': key } };
+      const comp = !!vars['--site-comp-brand-bg'];
+      return { premium: true, version: 1, typographyKey: key, vars, composition: comp, dataAttrs: Object.assign({ 'data-premium': '1', 'data-premium-type': key }, comp ? { 'data-comp': 'v2' } : {}) };
     }
 
     module.exports = { TYPE_SYSTEMS, SPACING, buildDesignTokens, sanitizeTokens };
@@ -661,6 +942,8 @@
     const stateLib = require('./section-state');
     const reviewLib = require('./quality-review');
     const repairLib = require('./repair');
+    const compositionLib = require('./composition');
+    const stampLib = require('./comp-stamp');
     const metricsLib = require('./metrics');
     const { textCostUsd, imageCostUsd } = require('./cost-ledger');
 
@@ -679,7 +962,7 @@
         const strategy = strategyLib.normalizeStrategy(input && input.strategy, input || {});
         const palette = (input && input.palette) || {};
         const art = artLib.deriveArtDirection(strategy, palette);
-        const tokens = tokenLib.buildDesignTokens(strategy, palette);
+        const tokens = tokenLib.buildDesignTokens(strategy, palette, { composition: !!(input && input.composition) });
         const governor = new BudgetGovernor(cfg, ledger, generationId);
         const session = new Session({ core: api, cfg, ledger, governor, generationId, strategy, art, tokens, input: input || {}, now });
         sessions.set(generationId, session);
@@ -701,7 +984,7 @@
       // A session can be created early (first image request) before the client's real strategy is known; re-derive when it arrives.
       rebind(input) {
         const inp = Object.assign({}, this.input, input || {});
-        this.input = inp; this.strategy = strategyLib.normalizeStrategy(inp.strategy, inp); this.art = artLib.deriveArtDirection(this.strategy, inp.palette || {}); this.tokens = tokenLib.buildDesignTokens(this.strategy, inp.palette || {});
+        this.input = inp; this.strategy = strategyLib.normalizeStrategy(inp.strategy, inp); this.art = artLib.deriveArtDirection(this.strategy, inp.palette || {}); this.tokens = tokenLib.buildDesignTokens(this.strategy, inp.palette || {}, { composition: !!inp.composition });
         if (inp.projectId) this.projectId = inp.projectId;
         return this;
       }
@@ -730,7 +1013,7 @@
       //                      rewriteCopy({targetId, field, current, constraint}) -> {ok, text, usage}
       async reviewAndRepair(direction, ctx, deps) {
         const d = deps || {};
-        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true }, ctx || {});
+        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2 }, ctx || {});
         stateLib.markAllGood(direction);
         let review = this.time('review', () => reviewLib.reviewDirection(direction, c));
         // Optional model critique: ONE call, only if it fits the budget.
@@ -743,7 +1026,7 @@
               const res = await this.time('critique', () => d.critic({ system: p.system, user: p.user, tool: reviewLib.CRITIQUE_TOOL }));
               if (!d.selfRecorded) this.recordText({ operation: 'whole_site_critique', usage: res.usage, phase: 'first_draft' });
               const extra = reviewLib.parseCritique(res.input);
-              review = reviewLib.summarize(review.defects.concat(extra), !!(direction.mobileReport && direction.mobileReport.widths && direction.mobileReport.widths.length));
+              review = reviewLib.summarize(review.defects.concat(extra), !!(direction.mobileReport && direction.mobileReport.widths && direction.mobileReport.widths.length), !!c.compositionV2);
             } catch (e) { this.critiqueError = String(e && e.message || e); }
           }
         }
@@ -800,7 +1083,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -983,9 +1266,12 @@
     const { STATES, allSections, stateOf } = require('./section-state');
     const { SECTION_VARIANTS } = require('./vocab');
 
-    const CATEGORIES = ['VISUAL_COHERENCE', 'IMAGE_QUALITY', 'TYPOGRAPHY', 'LAYOUT', 'BUSINESS_SPECIFICITY', 'CONVERSION_CLARITY', 'MOBILE_READINESS', 'TECHNICAL_VALIDITY'];
+    const CATEGORIES = ['VISUAL_COHERENCE', 'IMAGE_QUALITY', 'TYPOGRAPHY', 'LAYOUT', 'BUSINESS_SPECIFICITY', 'CONVERSION_CLARITY', 'MOBILE_READINESS', 'TECHNICAL_VALIDITY',
+      // PREMIUM_COMPOSITION_V2 (page-level composition). Reported NOT_APPLICABLE unless the composition flag is on for the site.
+      'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
+    const COMPOSITION_CATEGORIES = ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
     // Where a fix pays off most for perceived quality (used to rank the 1-3 repairs we allow).
-    const IMPACT = { IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
+    const IMPACT = { VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
 
     const GENERIC_PHRASES = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bpassion for excellence\b/i, /\bcommitted to excellence\b/i];
     // Claims a site must not make unless the customer supplied them.
@@ -1096,17 +1382,32 @@
         if (w.badImageCrops > 0) add({ category: 'MOBILE_READINESS', code: 'bad_image_crop', severity: 2, detail: `${w.badImageCrops} at ${w.width}px`, repair: { kind: 'set_focal_all' } });
       });
 
-      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false);
+      // ---- PREMIUM_COMPOSITION_V2 categories: the planned page sequence is checked with the same rules that produced it
+      if (c.compositionV2) {
+        const tokens = direction.design && direction.design.premiumTokens;
+        const composed = !!(tokens && tokens.vars && tokens.vars['--site-comp-brand-bg']);
+        if (!composed) add({ category: 'COMPOSITION_VARIETY', code: 'composition_not_applied', severity: 2, detail: 'site has no page-composition surfaces', repair: { kind: 'apply_tokens' } });
+        else {
+          const stamp = require('./comp-stamp');
+          // The homepage is one visual sequence; other pages are planned on their own, so evaluate the home page only.
+          const secs = ((direction.pages && direction.pages[0] && direction.pages[0].sections) || []).filter(Boolean);
+          const hasImg = secs.map(sec => plan.some(e => e.section === sec.id && (e.sourceType === 'generated' || e.sourceType === 'user')));
+          const plan2 = stamp.planFor(direction, secs, hasImg, { variant: direction.design && direction.design.dimensions && direction.design.dimensions.hero, hasImage: !!(heroPlan && (heroPlan.sourceType === 'generated' || heroPlan.sourceType === 'user')) });
+          require('./composition').evaluateComposition(plan2).forEach(d => add(Object.assign({}, d, d.code === 'no_final_cta' ? { repair: { kind: 'insert_cta_section' } } : {})));
+        }
+      }
+      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false, !!c.compositionV2);
     }
 
-    function summarize(defects, mobileMeasured) {
+    function summarize(defects, mobileMeasured, compositionOn) {
       const categories = {};
       CATEGORIES.forEach(cat => {
         const ds = defects.filter(d => d.category === cat && d.severity > 0);
         categories[cat] = ds.some(d => d.severity >= 3) ? 'FAIL' : ds.length ? 'NEEDS_REPAIR' : 'PASS';
       });
+      if (!compositionOn) COMPOSITION_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
       if (!mobileMeasured) categories.MOBILE_READINESS = defects.some(d => d.category === 'MOBILE_READINESS' && d.severity > 0) ? categories.MOBILE_READINESS : 'UNVERIFIED';
-      return { categories, defects, passing: Object.values(categories).every(v => v === 'PASS' || v === 'UNVERIFIED') };
+      return { categories, defects, passing: Object.values(categories).every(v => v === 'PASS' || v === 'UNVERIFIED' || v === 'NOT_APPLICABLE') };
     }
 
     // ---- optional strong-model critique (one call, concrete criteria) -----------
@@ -1216,6 +1517,13 @@
         .sort((a, b) => (b.severity * (IMPACT[b.category] || 1)) - (a.severity * (IMPACT[a.category] || 1)));
       const actions = [], skipped = [];
       for (const d of candidates) {
+        // Removing invented sections is one repair ("remove unsupported social proof"), however many sections it covers.
+        if (d.repair.kind === 'remove_section') {
+          const existing = actions.find(x => x.kind === 'remove_section');
+          if (existing) { existing.targetIds.push(d.repair.targetId); continue; }
+          if (actions.length < MAX_REPAIR_ACTIONS) { actions.push({ kind: 'remove_section', targetIds: [d.repair.targetId], defectCode: d.code, category: d.category, target: d.target, severity: d.severity, estimatedUsd: 0, executor: 'free' }); }
+          continue;
+        }
         if (actions.length >= MAX_REPAIR_ACTIONS) { skipped.push({ code: d.code, reason: 'repair_round_limit' }); continue; }
         const key = (d.repair.kind + ':' + (d.repair.slot || d.repair.targetId || d.target && d.target.id || 'site'));
         if (seenTargets.has(key)) continue; seenTargets.add(key);
@@ -1261,7 +1569,8 @@
             page.sections.splice(footerIdx === -1 ? page.sections.length : footerIdx, 0, sec); applied.push(Object.assign({ sectionId: sec.id }, a));
           }
         } else if (a.kind === 'remove_section') {
-          for (const p of (d.pages || [])) { const i = (p.sections || []).findIndex(s => s.id === a.targetId); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); applied.push(a); break; } }
+          const ids = a.targetIds || [a.targetId];
+          for (const id of ids) for (const p of (d.pages || [])) { const i = (p.sections || []).findIndex(s => s.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); if (!applied.includes(a)) applied.push(a); break; } }
         } else if (a.kind === 'swap_hero_layout_text_led') {
           d.design = d.design || {}; d.design.dimensions = Object.assign({}, d.design.dimensions, { hero: 'minimal-text-only' }); applied.push(a);
         }
@@ -1274,7 +1583,7 @@
       const operations = [], imageActions = [];
       actions.forEach(a => {
         if (a.kind === 'swap_variant') { const s = a.variant || null; if (s) operations.push({ action: 'change-variant', targetId: a.targetId, variant: s }); }
-        else if (a.kind === 'remove_section' && a.targetId) operations.push({ action: 'remove-section', targetId: a.targetId });
+        else if (a.kind === 'remove_section') (a.targetIds || [a.targetId]).filter(Boolean).forEach(id => operations.push({ action: 'remove-section', targetId: id }));
         else if (a.kind === 'regenerate_image' && a.slot) imageActions.push({ action: 'regenerate', slot: a.slot });
       });
       return { scope: 'section', operations, imageActions, explanation: 'Automatic quality repair' };

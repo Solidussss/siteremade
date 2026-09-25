@@ -1900,13 +1900,13 @@ function attachPremiumDesign(proj, generationId) {
     const P = window.SiteRemadePremium;
     const category = categories[proj.business.categoryKey] || categories.other;
     const strategy = premiumStrategyFor(proj, category);
-    proj.design.premiumTokens = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(strategy, proj.design.palette));
+    proj.design.premiumTokens = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(strategy, proj.design.palette, { composition: !!premiumStatus().cfg.compositionV2 }));
     proj.design.premium = { generationId, v: 1 };
   } catch (e) { /* the legacy design stays as-is */ }
 }
 function premiumDirectionPayload(proj, mobileReport) {
   const d = JSON.parse(JSON.stringify(proj, (k, v) => (k === 'dataUrl' ? undefined : v))); // never ship image bytes for a review
-  d.imagePlan = (proj.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt }));
+  d.imagePlan = (proj.imagePlan || []).map(e => ({ section: e.section, sectionType: e.sectionType, slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt }));
   d.mobileReport = mobileReport || null;
   return d;
 }
@@ -3036,7 +3036,9 @@ function renderCtaBanner(project, category, section) {
     }
   }
   const variant = section && section.variant;
-  const message = sectionCopyField(section, 'headline', 'Ready to see this as your real website?');
+  const message = sectionCopyField(section, 'headline', compositionActive(project)
+    ? window.SiteRemadePremium.composition.finalCtaHeadline(premiumStrategyFor(project, category), { location: project.source && project.source.location, noun: category.noun, businessName: project.business && project.business.name })
+    : 'Ready to see this as your real website?');
   const cta = escapeHtml(sectionCopyField(section, 'ctaLabel', ctaLabelForSection(project, category, 'ctaBanner')));
   return `<div class="site-section site-section-cta-banner cta-banner-${variant}" data-variant="${variant}">
     <p>${escapeHtml(message)}</p>${renderCtaButton(section && section.ctaTarget, cta)}
@@ -3389,6 +3391,11 @@ function renderImageLedEditorial(project, category, section) {
 // a small icon accent next to it, and a decorative top divider so the
 // footer reads as a composed closing section instead of trailing off.
 // Nothing invented: the only new content is data the project already has.
+// PREMIUM_COMPOSITION_V2: on only when the project's stored tokens carry the composition surfaces (set at generation when the
+// server reports premium.cfg.compositionV2). Data-driven, so stored projects keep their look regardless of the flag.
+function compositionActive(project) {
+  try { const t = window.SiteRemadePremium && project && project.design && project.design.premiumTokens && window.SiteRemadePremium.tokens.sanitizeTokens(project.design.premiumTokens); return !!(t && t.composition); } catch (e) { return false; }
+}
 function renderSiteFooter(project, category, variant) {
   const plan = project.assets.plan;
   const logoAsset = plan.logo ? project.assets.items.find(a => a.id === plan.logo) : null;
@@ -3398,6 +3405,20 @@ function renderSiteFooter(project, category, variant) {
   const dir = resolveIconDirection(project);
   const location = project.source && project.source.location;
   const locationLine = location ? `<p class="site-footer-location">${renderIcon('mapPin', { weight: dir.weight, size: 13 })}<span>${escapeHtml(location)}</span></p>` : '';
+
+  if (compositionActive(project)) {
+    // PREMIUM_COMPOSITION_V2 footer: resolves the page. Only facts the customer supplied (name, place) plus the site's own primary action.
+    const heroCopy = project.copy || {};
+    const ctaLabel = escapeHtml(heroCopy.cta || category.cta);
+    const descriptor = escapeHtml(category.label);
+    return `<div class="site-section site-footer" data-variant="resolved">
+      <div class="site-footer-main">
+        <div class="site-footer-brand">${brandInner}${locationLine}<p class="site-footer-descriptor">${descriptor}</p></div>
+        <div class="site-footer-action">${renderCtaButton(heroCopy.ctaTarget, ctaLabel, 'footer-cta-btn')}</div>
+      </div>
+      <p class="site-footer-copy">© ${year} ${businessName}</p>
+    </div>`;
+  }
   if (variant === 'columns') {
     const cols = [
       { title: navLabelFor('services', project.business.categoryKey), items: category.services },
@@ -5292,7 +5313,8 @@ function applyDesignDataset(proj) {
   if (premiumTokens) {
     Object.keys(premiumTokens.vars).forEach(k => { builderSite.style.setProperty(k, premiumTokens.vars[k]); builderSite._premiumVars.push(k); });
     builderSite.dataset.premium = '1'; builderSite.dataset.premiumType = premiumTokens.typographyKey;
-  } else { delete builderSite.dataset.premium; delete builderSite.dataset.premiumType; }
+    if (premiumTokens.composition) builderSite.dataset.comp = 'v2'; else delete builderSite.dataset.comp;
+  } else { delete builderSite.dataset.premium; delete builderSite.dataset.premiumType; delete builderSite.dataset.comp; }
   builderSite.dataset.motionCharacter = composed.motionCharacter || 'direct';
   builderSite.dataset.layout = proj.design.heroLayout;
   // CREATIVE DIRECTOR V2: the page's overall density curve -- paired with
@@ -5339,6 +5361,8 @@ function renderSections(proj, category) {
   if (siteSectionsRoot) {
     siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
     applySectionRhythmPositions(siteSectionsRoot, proj.sections, proj.intent && proj.intent.creativeDirection);
+    // PREMIUM_COMPOSITION_V2: plan the page as one visual sequence and stamp it onto the rendered sections.
+    if (compositionActive(proj)) { const heroEl = siteSectionsRoot.querySelector('.site-hero'); window.SiteRemadePremium.stamp.stampDom(siteSectionsRoot, proj, proj.sections, { variant: proj.design.dimensions.heroDisplayVariant || proj.design.dimensions.hero, hasImage: !!(heroEl && heroEl.querySelector('img')) }); }
     initSiteMotion(siteSectionsRoot);
   }
 }
