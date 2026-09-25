@@ -563,6 +563,158 @@ const sample = () => ({
     assert.strictEqual(s.totals().TOTAL_SITE_COST, 0);
   });
 
+  console.log('PREMIUM_GROUNDING_V3');
+  const SKIN = 'Online skincare store in Vancouver selling gentle cleansers, serums and moisturizers for sensitive skin. Free shipping over $60.';
+  const RESTO = 'Neighbourhood Italian restaurant in Vancouver serving fresh pasta and wood-fired pizza. Reservations recommended on weekends.';
+  const SAAS = 'Scheduling software for physiotherapy clinics. Online booking, automatic reminders and a dashboard. 14 day free trial.';
+  const gOf = (text, categoryKey, archetype) => P.grounding.deriveGrounding({ description: text, categoryKey, archetype, location: 'Vancouver', facts: {} });
+  const leakySite = () => ({
+    copy: { headline: 'Products, made to be noticed.', sub: 'Browse the range.', cta: 'Reserve a table' },
+    strategy: { archetype: 'local-conversion' },
+    pages: [
+      { id: 'home', slug: '', label: 'Home', purpose: 'Remove friction and make starting easy.', sections: [
+        { id: 'a1', type: 'productShowcase', variant: 'x', copy: { headline: 'Bestsellers' } },
+        { id: 'a2', type: 'testimonial', variant: 'x', copy: { headline: 'Loved by guests', body: 'Verified customer' } },
+        { id: 'a3', type: 'pricing', variant: 'x', copy: { headline: 'Starter Growth Enterprise' } },
+        { id: 'a4', type: 'menu', variant: 'x', copy: { headline: 'The menu' } },
+        { id: 'a5', type: 'team', variant: 'x', copy: {} },
+      ] },
+      { id: 'about', slug: 'about', label: 'About', purpose: 'Establish who is behind the business and why they can be trusted.', sections: [{ id: 'b1', type: 'about', variant: 'x', copy: {} }] },
+      { id: 'contact', slug: 'contact', label: 'Contact', sections: [{ id: 'c1', type: 'contact', copy: {} }] },
+    ],
+  });
+  await t('V3 flag: default OFF, needs V1', () => {
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).groundingV3, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GROUNDING_V3: 'true' }).groundingV3, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'true' }).groundingV3, true);
+  });
+  await t('V3 budgets: semantic sub-budgets have the briefed defaults', () => {
+    const b = P.loadConfig({}).budgets;
+    assert.deepStrictEqual([b.SEMANTIC_REVIEW_TARGET_USD, b.SEMANTIC_REPAIR_TARGET_USD, b.SEMANTIC_REVIEW_HARD_CEILING_USD], [0.10, 0.10, 0.30]);
+  });
+  await t('grounding: skincare store is retail, no restaurant/SaaS concepts, no invented proof', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase');
+    assert.strictEqual(g.family, 'retail'); assert.strictEqual(g.subtype, 'skincare');
+    ['menu', 'reservationCta', 'pricing'].forEach(s => assert.ok(g.forbiddenSections.includes(s), 'forbids ' + s));
+    assert.notStrictEqual(g.teamAvailability, 'supplied');
+    assert.ok(g.forbiddenWords.includes('menu') && g.forbiddenWords.includes('guest'));
+    assert.notStrictEqual(g.testimonialAvailability, 'supplied');
+    assert.ok(/skincare|serum|cream/i.test(JSON.stringify(g.imagerySubjects)));
+    assert.ok(g.imageryAvoid.some(w => /fashion|apparel|clothing/i.test(w)));
+  });
+  await t('grounding: restaurant keeps menu/reservation concepts; saas without pricing forbids pricing', () => {
+    const r = gOf(RESTO, 'restaurant', 'hospitality');
+    assert.strictEqual(r.family, 'hospitality'); assert.ok(!r.forbiddenSections.includes('menu'));
+    const s = gOf(SAAS, 'saas', 'product-led-saas');
+    assert.strictEqual(s.family, 'saas'); assert.strictEqual(s.pricingModel, 'none-supplied');
+  });
+  await t('grounding: strict word matching (no prefix false positives) and supplied testimonials are honoured', () => {
+    assert.strictEqual(P.grounding.wordMatch('a candlestick maker', 'candle'), false);
+    assert.strictEqual(P.grounding.wordMatch('handmade candles', 'candle'), true);
+    const g = gOf(SKIN + ' Testimonial: "Best serum I have used in years, my skin feels calm."', 'ecommerce', 'ecommerce-showcase');
+    assert.strictEqual(g.testimonialAvailability, 'supplied');
+  });
+  await t('semantic guard: fake testimonials, SaaS tiers, menu and team are removed from a retail site (deterministic, $0)', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase'); const site = leakySite();
+    const def = P.semantic.checkSemantics(site, g, { description: SKIN, facts: {} });
+    const out = P.semantic.applyRepairs(site, def, g).direction;
+    const types = out.pages.flatMap(p => p.sections.map(s => s.type));
+    ['testimonial', 'pricing', 'menu', 'team'].forEach(x => assert.ok(!types.includes(x), x + ' removed'));
+    assert.ok(types.includes('productShowcase'));
+    assert.ok(def.some(x => x.category === 'INVENTED_TRUST_SIGNALS') && def.some(x => x.category === 'WRONG_BUSINESS_CONCEPTS'));
+  });
+  await t('semantic guard: builder-instruction page purposes never survive as customer copy', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase'); const site = leakySite();
+    const out = P.semantic.applyRepairs(site, P.semantic.checkSemantics(site, g, { description: SKIN }), g).direction;
+    out.pages.forEach(p => assert.ok(!P.semantic.INTERNAL_PATTERNS.some(re => re.test(p.purpose || '')), 'purpose clean on ' + p.label));
+    assert.ok(P.semantic.validateCustomerText('Remove friction and make starting easy.', g, 'headline').length > 0);
+    assert.strictEqual(P.semantic.validateCustomerText('Gentle cleansers for sensitive skin', g, 'headline').length, 0);
+  });
+  await t('semantic guard: cross-family CTA ("Reserve a table") is replaced on a retail site', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase'); const site = leakySite();
+    const out = P.semantic.applyRepairs(site, P.semantic.checkSemantics(site, g, { description: SKIN }), g).direction;
+    assert.ok(!/reserve/i.test(out.copy.cta || ''), 'hero CTA: ' + out.copy.cta);
+  });
+  await t('semantic guard: thin About/Contact pages are enriched without inventing facts', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase'); const site = leakySite();
+    const out = P.semantic.applyRepairs(site, P.semantic.checkSemantics(site, g, { description: SKIN }), g).direction;
+    assert.ok(out.pages.find(p => p.slug === 'about').sections.length >= 2);
+  });
+  await t('semantic guard: a Pricing page is dropped when no pricing was supplied', () => {
+    const g = gOf(SAAS, 'saas', 'product-led-saas');
+    const site = { copy: {}, pages: [{ id: 'home', slug: '', label: 'Home', sections: [{ id: 'h', type: 'features', copy: {} }] }, { id: 'pricing', slug: 'pricing', label: 'Pricing', sections: [{ id: 'q', type: 'faq', copy: {} }] }] };
+    const out = P.semantic.applyRepairs(site, P.semantic.checkSemantics(site, g, { description: SAAS }), g).direction;
+    assert.ok(!out.pages.some(p => p.slug === 'pricing'));
+  });
+  await t('semantic guard: supplied restaurant content is NOT touched (no false positives on a correct site)', () => {
+    const g = gOf(RESTO, 'restaurant', 'hospitality');
+    const site = { copy: { headline: 'Fresh pasta and wood-fired pizza', sub: 'Dinner Tuesday to Sunday in Vancouver.', cta: 'Reserve a table' }, strategy: { archetype: 'hospitality' }, pages: [
+      { id: 'home', slug: '', label: 'Home', sections: [{ id: 'm', type: 'menu', copy: { headline: 'The menu' } }, { id: 'r', type: 'reservationCta', copy: {} }] },
+      { id: 'about', slug: 'about', label: 'About', sections: [{ id: 'a', type: 'about', copy: {} }, { id: 'cb', type: 'ctaBanner', copy: {} }] }] };
+    const def = P.semantic.checkSemantics(site, g, { description: RESTO }).filter(x => x.severity >= 3);
+    assert.deepStrictEqual(def.map(x => x.code), []);
+  });
+  await t('image subject validation: off-subject prompts are caught before money is spent; grounded prompts pass', () => {
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase');
+    const strat = P.strategy.deriveStrategy({ archetype: 'ecommerce-showcase', categoryKey: 'ecommerce', categoryLabel: 'Retail', description: SKIN, location: 'Vancouver', grounding: g });
+    const art = P.art.deriveArtDirection(strat, { background: '#fff', main: '#245', text: '#111' });
+    const prompt = P.images.buildImagePrompt({ role: 'hero', aspectRatio: '16:9', textSide: 'left', avoid: strat.imageAvoid }, strat, art);
+    assert.ok(/skincare|serum|cream/i.test(prompt), prompt.slice(0, 160));
+    assert.ok(P.images.lintImagePrompt(prompt).ok, JSON.stringify(P.images.lintImagePrompt(prompt).problems));
+    assert.strictEqual(P.images.validateImagePromptSubject(prompt, g).ok, true);
+    assert.strictEqual(P.images.validateImagePromptSubject('a runway model wearing fashion apparel', g).ok, false);
+  });
+  await t('session: guard + ONE critic call + <=5 critic fixes, cost tracked in the semantic budget', async () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true' });
+    const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let calls = 0;
+    const many = Array.from({ length: 8 }, (_, i) => ({ category: 'COPY_SPECIFICITY', code: 'x' + i, severity: 2, where: 'hero', field: 'sub', evidence: 'generic', fixKind: 'apply_fix_text', fixText: 'Gentle cleansers and serums for sensitive skin.' }));
+    const site = leakySite(); site.copy.cta = 'Shop now';
+    const out = await s.reviewAndRepair(site, { description: SKIN, facts: {}, premiumEnabled: true }, { semanticCritic: async () => { calls++; return { input: { defects: many }, usage: { inputTokens: 3000, outputTokens: 600 } }; } });
+    assert.strictEqual(calls, 1);
+    assert.ok(out.semantic && out.semantic.log.criticRan);
+    assert.ok(out.semantic.changes.length >= 4, 'deterministic + critic changes applied');
+    assert.ok(out.semantic.log.criticCostUsd <= 0.10 + 1e-9, 'within semantic target: ' + out.semantic.log.criticCostUsd);
+    assert.ok(!out.direction.pages.flatMap(p => p.sections.map(x => x.type)).includes('testimonial'));
+  });
+  await t('session: critic fix that invents a fact or leaks another business is rejected', async () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true' });
+    const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    const bad = [{ category: 'COPY_SPECIFICITY', code: 'x', severity: 3, where: 'hero', field: 'sub', evidence: 'e', fixKind: 'apply_fix_text', fixText: 'Reserve your table for our verified customers since 1998.' }];
+    const site = leakySite();
+    const out = await s.reviewAndRepair(site, { description: SKIN, facts: {}, premiumEnabled: true }, { semanticCritic: async () => ({ input: { defects: bad }, usage: { inputTokens: 3000, outputTokens: 300 } }) });
+    assert.ok(!/1998|verified|reserve/i.test(out.direction.copy.sub || ''), out.direction.copy.sub);
+  });
+  await t('session: with V3 OFF nothing changes (no semantic pass, no critic call)', async () => {
+    const c = core();
+    const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let calls = 0;
+    const out = await s.reviewAndRepair(leakySite(), { description: SKIN, facts: {}, premiumEnabled: true }, { semanticCritic: async () => { calls++; return { input: { defects: [] }, usage: {} }; } });
+    assert.strictEqual(calls, 0); assert.ok(!out.semantic);
+    assert.ok(out.direction.pages[0].sections.some(x => x.type === 'menu'), 'V3 guards did not run: the off-category menu section is still there (V1 behaviour)');
+  });
+  await t('rubric: 10 semantic categories exist and are NOT_APPLICABLE when V3 is off', () => {
+    P.semantic.SEMANTIC_CATEGORIES.forEach(k => assert.ok(P.review.CATEGORIES.includes(k), k));
+    const r = P.review.reviewDirection(sample(), { strategy: P.strategy.deriveStrategy({ categoryKey: 'roofing', categoryLabel: 'Roofing', archetype: 'local-conversion', description: 'roofing in Calgary' }), premiumEnabled: true });
+    assert.ok(P.semantic.SEMANTIC_CATEGORIES.every(k => r.categories[k] === 'NOT_APPLICABLE' || (r.categories[k] && r.categories[k].status === 'NOT_APPLICABLE') || r.categories[k] === undefined));
+  });
+  await t('CTA validation: a critic button label must fit THIS business', () => {
+    const roof = P.grounding.deriveGrounding({ description: 'Family roofing company in Calgary. Free quotes.', categoryKey: 'roofing', archetype: 'local-conversion', location: 'Calgary' });
+    assert.ok(P.semantic.validateCustomerText('Shop the range', roof, 'cta').length > 0);
+    assert.strictEqual(P.semantic.validateCustomerText('Get a free quote', roof, 'cta').length, 0);
+    const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase');
+    assert.ok(P.semantic.validateCustomerText('Reserve a table', g, 'cta').length > 0);
+    assert.strictEqual(P.semantic.validateCustomerText('Shop the range', g, 'cta').length, 0);
+  });
+  await t('metrics: semantic defects/repairs are aggregated', async () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true' });
+    const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    await s.reviewAndRepair(leakySite(), { description: SKIN, facts: {}, premiumEnabled: true }, {});
+    s.finish();
+    const m = c.metrics.summary ? c.metrics.summary() : c.metrics.aggregate();
+    assert.ok(m.SEMANTIC_REPAIR_RATE >= 0 && m.AVERAGE_SEMANTIC_DEFECTS > 0, JSON.stringify(m).slice(0, 300));
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

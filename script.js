@@ -1852,10 +1852,41 @@ function premiumStatus() {
 }
 function premiumActive() { return !!premiumStatus(); }
 function premiumNewGenerationId() { return window.SiteRemadePremium.createPremiumCore(premiumStatus().cfg).newGenerationId(); }
+// V3: ONE business grounding derived from the customer's own words (pure function of description/category/place -- never stored whole).
+function premiumGroundingOn() { const s = premiumStatus(); return !!(s && s.cfg.groundingV3 && window.SiteRemadePremium && window.SiteRemadePremium.grounding); }
+function premiumGroundingFor(project) {
+  const src = project.source || {};
+  const cat = categories[project.business && project.business.categoryKey] || categories.other;
+  return window.SiteRemadePremium.grounding.deriveGrounding({
+    description: src.text, categoryKey: project.business && project.business.categoryKey, categoryLabel: cat.label,
+    archetype: (project.strategy && project.strategy.archetype) || null, location: src.location, facts: src.facts,
+    hasTeamAssets: ((project.assets && project.assets.items) || []).some(a => a.type === 'team'),
+  });
+}
+// Deterministic, free guard pass BEFORE any image money is spent: drops off-category / invented sections, replaces builder-instruction
+// copy, fixes CTAs. Runs once per fresh generation, after the pages are built and before the image plan is finalised.
+function groundProject(proj) {
+  if (!premiumGroundingOn() || !proj || !Array.isArray(proj.pages)) return;
+  try {
+    const P = window.SiteRemadePremium;
+    syncActivePageSections(proj);
+    const g = premiumGroundingFor(proj);
+    const ctx = { description: (proj.source && proj.source.text) || '', facts: (proj.source && proj.source.facts) || {} };
+    const defects = P.semantic.checkSemantics(proj, g, ctx);
+    const out = P.semantic.applyRepairs(proj, defects, g);
+    proj.pages = out.direction.pages;
+    if (out.direction.copy) proj.copy = out.direction.copy;
+    if (out.direction.strategy) proj.strategy = out.direction.strategy;
+    proj.activePageIndex = Math.min(proj.activePageIndex || 0, proj.pages.length - 1);
+    proj.sections = proj.pages[proj.activePageIndex].sections;
+    if (proj.design && proj.design.premium) { proj.design.premium.g = String(g.subtype || g.family || '').slice(0, 30); proj.design.premium.gr = out.changes.length; }
+  } catch (e) { /* the ungrounded draft continues */ }
+}
 function premiumStrategyFor(project, category) {
   const P = window.SiteRemadePremium;
   const src = project.source || {};
   return P.strategy.deriveStrategy({
+    grounding: premiumGroundingOn() ? premiumGroundingFor(project) : null,
     archetype: project.strategy && project.strategy.archetype, categoryKey: project.business && project.business.categoryKey, categoryLabel: category.label,
     description: src.text, facts: src.facts, location: src.location, creativeDirection: project.intent && project.intent.creativeDirection, claudeStrategy: project.strategy,
   });
@@ -1928,6 +1959,14 @@ function applyPremiumPatch(proj, patch) {
     if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
   });
   (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
+  (patch.removedPages || []).forEach(id => { const i = (proj.pages || []).findIndex((p, k) => k > 0 && (p.id || p.slug) === id); if (i > 0) { proj.pages.splice(i, 1); if ((proj.activePageIndex || 0) >= proj.pages.length) proj.activePageIndex = 0; proj.sections = proj.pages[proj.activePageIndex || 0].sections; changed = true; } });
+  (patch.pages || []).forEach(pm => {
+    const page = (proj.pages || []).find(p => (p.id || p.slug) === pm.id); if (!page) return;
+    if (typeof pm.label === 'string' && pm.label && pm.label !== page.label) { page.label = pm.label; changed = true; }
+    if (pm.purpose === null && page.purpose) { delete page.purpose; changed = true; }
+    else if (typeof pm.purpose === 'string' && pm.purpose !== page.purpose) { page.purpose = pm.purpose; changed = true; }
+  });
+  if (patch.archetype && proj.strategy && proj.strategy.archetype !== patch.archetype) { proj.strategy.archetype = patch.archetype; changed = true; }
   (patch.imagePlan || []).forEach(pe => {
     const e = (proj.imagePlan || []).find(x => x.slot === pe.slot); if (!e) return;
     if (pe.focal && pe.focal.objectPosition) e.focal = pe.focal.objectPosition;
@@ -7954,6 +7993,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // ever runs. So this is exactly "how many credits can this
         // generation's images spend" (spec section 4), with no separate
         // subtraction needed here.
+        groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;
         const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;

@@ -65,6 +65,11 @@ globalThis.fetch = async function (url, opts) {
     const usage = { input_tokens: Math.round(chars / 4), output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
     if (tool === 'submit_website_plan') { log({ kind: 'planner_refused', model: b.model }); return json({ error: { message: 'mock: planner not available' } }, 529); }
     if (tool === 'report_defects') { usage.output_tokens = 260; log({ kind: 'critic', model: b.model, usage }); return json({ model: b.model, usage, content: [{ type: 'tool_use', name: 'report_defects', input: { defects: [] } }] }); }
+    if (tool === 'report_semantic_defects') {
+      usage.output_tokens = 500; log({ kind: 'semantic_critic', model: b.model, usage });
+      const defects = process.env.MOCK_SEMANTIC_DEFECT ? [{ category: 'CTA_CONSISTENCY', code: 'mock_cta', severity: 3, where: 'hero', field: 'cta', evidence: 'mock finding', fixKind: 'apply_fix_text', fixText: process.env.MOCK_SEMANTIC_DEFECT }] : [];
+      return json({ model: b.model, usage, content: [{ type: 'tool_use', name: 'report_semantic_defects', input: { defects } }] });
+    }
     usage.output_tokens = 40; log({ kind: 'rewrite', model: b.model, usage });
     return json({ model: b.model, usage, content: [{ type: 'text', text: 'Straightforward service you can rely on.' }] });
   }

@@ -29,7 +29,7 @@ async function startServer(mode, tag) {
   const logDir = path.join(OUT, 'logs', tag); fs.mkdirSync(logDir, { recursive: true });
   const env = Object.assign({}, process.env, {
     PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: 'mock',
-    PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: mode === 'v2' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
+    PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2' || mode === 'v3') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: (mode === 'v2' || mode === 'v3') ? 'true' : 'false', PREMIUM_GROUNDING_V3: mode === 'v3' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
     MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_DAILY_FREE_CREDITS: '1000',
     SITEREMADE_RATE_LIMIT_SIGNUP_MAX: '1000', SITEREMADE_RATE_LIMIT_GENERATION_MAX: '1000', ELECTRON_RUN_AS_NODE: '',
   });
@@ -75,6 +75,15 @@ async function runOne(fixture, mode) {
       imagePlan: (p.imagePlan||[]).map(e => ({ slot:e.slot, role:e.role, sourceType:e.sourceType, model:e.model, quality:e.quality, aspectRatio:e.aspectRatio, tier:e.tier||null, focal:e.focal||null, reason:e.premiumReason||null, estimatedCostUsd:e.estimatedCostUsd })),
       generated: Object.keys(p.assets.generated||{}).map(k => ({ slot:k, status:p.assets.generated[k].status, focal:p.assets.generated[k].focal||null })) }; })()`);
     result.imageRequests = await ev('(window.__fxImgLog||[])');
+    // ---- V3 semantic scan of the FINAL customer-visible site (independent of the guard: raw text patterns from the real live failures)
+    result.semanticScan = await ev(`(()=>{ const p = directions[0]; const out = []; const seen = new Set();
+      const walk = (v, where) => { if (typeof v === 'string') { out.push({ where, text: v }); } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, where + '[' + i + ']')); else if (v && typeof v === 'object') Object.keys(v).forEach(k => { if (k !== 'dataUrl' && k !== 'imagePlan') walk(v[k], where + '.' + k); }); };
+      walk(p.copy, 'copy'); (p.pages || []).forEach((pg, i) => { out.push({ where: 'page' + i + '.label', text: pg.label || '' }); out.push({ where: 'page' + i + '.purpose', text: pg.purpose || '' }); (pg.sections || []).forEach(s => walk(s.copy, 'page' + i + '.' + s.type)); });
+      const pats = { restaurant: /\\b(menu|reserve|reservation|guests?|plates?|table for|dine|dining)\\b/i, fakeProof: /verified (customer|buyer)|five[- ]star|regular guest/i, saasTier: /\\b(starter|growth|enterprise)\\b/i, builder: /(remove friction|make starting easy|establish who is behind|why (they|you) can be trusted|the visitor|this section should)/i, shopAsSaas: /\\b(free trial|dashboard|api)\\b/i };
+      const hits = {}; out.forEach(o => Object.keys(pats).forEach(k => { const m = o.text.match(pats[k]); if (m) (hits[k] = hits[k] || []).push(o.where + ': ' + m[0]); }));
+      const types = (p.pages || []).flatMap(pg => (pg.sections || []).map(s => s.type));
+      const pages = (p.pages || []).map(pg => ({ label: pg.label, slug: pg.slug, sections: (pg.sections || []).length, words: (pg.sections || []).reduce((n, s) => n + JSON.stringify(s.copy || {}).split(/\\s+/).length, 0) }));
+      return { hits, types, pages, sem: p.design.premium && { g: p.design.premium.g, gr: p.design.premium.gr }, prompts: (p.imagePlan || []).filter(e => e.sourceType === 'generated').map(e => ({ slot: e.slot, prompt: (e.prompt || '').slice(0, 220) })) }; })()`);
     step('project collected');
     // ---- real phone-width layout measurement of the finished site
     result.mobile = await ev(`(()=>{ const m = window.SiteRemadePremium.mobile.measureMobile(builderSite,[390,360]); return m; })()`);

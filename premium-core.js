@@ -112,7 +112,9 @@
         // committedUsd: planned-but-not-yet-recorded spend (e.g. image slots allocated earlier in the same plan).
         const spent = this.spent() + (req.committedUsd || 0);
         const ceiling = this.ceilingFor(req.phase, req.priority);
-        const options = [{ id: req.id || 'primary', estimatedUsd: req.estimatedUsd }].concat(req.fallbacks || []);
+        let options = [{ id: req.id || 'primary', estimatedUsd: req.estimatedUsd }].concat(req.fallbacks || []);
+        // Optional sub-budget (e.g. semantic review): a smaller ceiling that applies on top of the site ceilings.
+        if (req.subBudget) options = options.filter(o => req.subBudget.spentUsd + o.estimatedUsd <= req.subBudget.ceilingUsd + 1e-9);
         let out = null;
         // 'optional' first-draft work stops at the first-draft target.
         if (req.phase === 'first_draft' && req.priority === 'optional' && spent >= this.cfg.budgets.TARGET_FIRST_DRAFT_USD) {
@@ -127,6 +129,7 @@
               break;
             }
           }
+          if (!out && !options.length) out = { allowed: false, choice: null, reason: 'sub_budget', budgetLimitReached: false };
           if (!out) {
             const hit = spent + Math.min.apply(null, options.map(o => o.estimatedUsd)) > this.cfg.budgets.HARD_SITE_BUDGET_USD - 1e-9 || req.phase === 'repair';
             out = { allowed: false, choice: null, reason: hit ? 'hard_budget' : 'phase_ceiling', budgetLimitReached: hit };
@@ -452,6 +455,8 @@
         enabled: truthy(env.PREMIUM_GENERATION_V1),
         // V2 composition (page-level visual planning). Sub-flag: only meaningful when PREMIUM_GENERATION_V1 is on. Default OFF.
         compositionV2: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_COMPOSITION_V2),
+        // V3: business grounding + one whole-site semantic critique + one small targeted repair. Sub-flag, default OFF, requires V1.
+        groundingV3: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_GROUNDING_V3),
         budgets: {
           TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.5),
           TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 3.0),
@@ -460,6 +465,10 @@
           // Kept free for the one automatic repair round so first-draft image
           // spending can never starve it.
           REPAIR_RESERVE_USD: num(env.PREMIUM_REPAIR_RESERVE_USD, 0.75),
+          // Semantic review (V3) has its own small budget inside the site budget: judgment is where the extra spend goes.
+          SEMANTIC_REVIEW_TARGET_USD: num(env.SEMANTIC_REVIEW_TARGET_USD, 0.10),
+          SEMANTIC_REPAIR_TARGET_USD: num(env.SEMANTIC_REPAIR_TARGET_USD, 0.10),
+          SEMANTIC_REVIEW_HARD_CEILING_USD: num(env.SEMANTIC_REVIEW_HARD_CEILING_USD, 0.30),
         },
         // Per-slot image spend ceilings by budget tier (USD, estimated).
         imageTierCaps: {
@@ -658,6 +667,189 @@
     module.exports = { TYPE_SYSTEMS, SPACING, buildDesignTokens, sanitizeTokens };
 
   });
+  __define("grounding", function (module, exports, require) {
+    'use strict';
+    // BUSINESS_GROUNDING (V3): ONE authoritative description of what this business is and is not, derived from the
+    // customer's own words plus category/archetype rules, that every page, section, CTA, nav label and image prompt must obey.
+    //
+    // Three kinds of statement are kept strictly apart:
+    //   verifiedFacts      - literally present in what the customer supplied
+    //   inferred structure - what a business of this kind normally needs (sections, CTA vocabulary, image subjects)
+    //   forbidden invention- things a site must not assert unless supplied (testimonials, awards, years, staff, prices, ...)
+    //
+    // Pure, deterministic, no I/O: works in the browser bundle, on the server and in the Workplace updater. The optional
+    // whole-site critique (semantic.js) is the LLM layer on top; this file is the free layer underneath.
+
+    const esc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Whole-word match (optional plural). The legacy scorer only checked the character BEFORE a keyword, so "barrier" matched
+    // the hospitality keyword "bar", "apparel" matched "app", "space" matched "spa".
+    function wordMatch(text, kw) {
+      const k = String(kw || '').trim().toLowerCase(); if (!k) return false;
+      return new RegExp('(^|[^a-z0-9])' + esc(k) + '(?:s|es)?(?![a-z0-9])', 'i').test(String(text || '').toLowerCase());
+    }
+    const anyWord = (text, kws) => kws.some(k => wordMatch(text, k));
+
+    // ---- families: which "kind of website" this is -----------------------------------------------------------------------
+    function familyFor(archetype, categoryKey) {
+      if (categoryKey === 'retail' || categoryKey === 'fashion' || archetype === 'ecommerce-showcase') return 'retail';
+      if (archetype === 'editorial-brand' && categoryKey !== 'creative') return 'retail';
+      if (archetype === 'hospitality' || categoryKey === 'hospitality') return 'hospitality';
+      if (archetype === 'product-led-saas' || archetype === 'launch-campaign' || categoryKey === 'tech') return 'saas';
+      if (archetype === 'community-nonprofit' || categoryKey === 'nonprofit') return 'nonprofit';
+      if (archetype === 'local-conversion' && ['fitness', 'wellness'].includes(categoryKey)) return 'appointments';
+      if (archetype === 'local-conversion') return 'local_service';
+      if (['premium-consultancy', 'trust-heavy-professional'].includes(archetype) || ['finance', 'professional', 'realestate', 'education'].includes(categoryKey)) return 'professional';
+      if (archetype === 'portfolio' || categoryKey === 'creative') return 'creative';
+      return 'other';
+    }
+
+    // ---- sub-verticals: what is actually being sold (drives imagery + vocabulary) ------------------------------------------------
+    const SUBVERTICALS = [
+      { id: 'skincare', label: 'skincare', family: 'retail', keywords: ['skincare', 'skin care', 'moisturizer', 'moisturiser', 'serum', 'cleanser', 'sunscreen', 'spf', 'toner', 'cosmetic', 'cosmetics', 'beauty', 'retinol', 'skin barrier', 'barrier repair', 'acne'],
+        notService: ['facial', 'treatment', 'appointment', 'clinic', 'spa', 'esthetician', 'aesthetician', 'book a'],
+        imagery: { hero: 'skincare products (bottles, jars and tubes) arranged on a clean surface in soft natural light', detail: 'close detail of a cream texture or a serum dropper', context: 'a calm vanity or bathroom shelf with skincare products, no faces' },
+        avoid: ['handbag', 'purse', 'shoe', 'heel', 'sneaker', 'fashion model', 'runway', 'clothing', 'dress', 'jewelry', 'jewellery', 'restaurant', 'food', 'plate', 'dining', 'laptop', 'dashboard', 'office'] },
+      { id: 'apparel', label: 'clothing', family: 'retail', keywords: ['clothing', 'apparel', 'menswear', 'womenswear', 'streetwear', 'garment', 'dresses', 'denim', 'knitwear'],
+        imagery: { hero: 'garments styled on a rail or folded in natural light', detail: 'close detail of fabric and stitching', context: 'a tidy boutique rail, no identifiable faces' },
+        avoid: ['skincare', 'serum', 'restaurant', 'food', 'plate', 'dashboard', 'laptop'] },
+      { id: 'jewelry', label: 'jewellery', family: 'retail', keywords: ['jewelry', 'jewellery', 'rings', 'necklace', 'earrings', 'bracelet'],
+        imagery: { hero: 'fine jewellery on a neutral surface in soft light', detail: 'macro detail of metal and stone', context: 'a jewellery tray on a workbench, no faces' },
+        avoid: ['skincare', 'restaurant', 'food', 'dashboard', 'clothing rail'] },
+      { id: 'home', label: 'home goods', family: 'retail', keywords: ['furniture', 'homeware', 'home goods', 'decor', 'candles', 'ceramics', 'linen', 'lighting'],
+        imagery: { hero: 'a styled corner of a home with the products in natural light', detail: 'close detail of material and finish', context: 'a shelf styled with the products' },
+        avoid: ['skincare', 'restaurant', 'food', 'dashboard', 'fashion model'] },
+      { id: 'coffee_tea', label: 'coffee and tea', family: 'retail', keywords: ['coffee beans', 'roastery', 'loose leaf', 'tea blends', 'whole bean', 'ground coffee'],
+        imagery: { hero: 'packaged coffee or tea products with beans or leaves on a wooden surface', detail: 'close detail of beans or leaves', context: 'a tidy shelf of packaged product' },
+        avoid: ['dashboard', 'laptop', 'clothing', 'skincare'] },
+      { id: 'pets', label: 'pet supplies', family: 'retail', keywords: ['pet supplies', 'dog food', 'cat food', 'pet store', 'pet accessories'],
+        imagery: { hero: 'pet products arranged on a clean surface in daylight', detail: 'close detail of a product texture', context: 'a tidy pet-store shelf, no people' }, avoid: ['restaurant', 'dashboard', 'skincare'] },
+    ];
+    function detectSubvertical(text) {
+      const t = String(text || '');
+      let best = null, bestScore = 0;
+      SUBVERTICALS.forEach(sv => {
+        const hits = sv.keywords.filter(k => wordMatch(t, k)).length;
+        if (!hits) return;
+        // a treatment/appointment business is a SERVICE business even if it says "skincare"
+        if (sv.notService && sv.notService.some(k => wordMatch(t, k)) && !/\b(shop|store|products?|brand|online|buy|order)\b/i.test(t)) return;
+        if (hits > bestScore) { best = sv; bestScore = hits; }
+      });
+      return best;
+    }
+
+    // ---- archetype inference with whole-word matching + family compatibility --------------------------------------------------
+    const ARCHETYPE_OVERRIDES = [
+      { archetype: 'launch-campaign', keywords: ['launching', 'coming soon', 'pre-order', 'preorder', 'waitlist', 'early access', 'beta program'] },
+      { archetype: 'premium-consultancy', keywords: ['luxury', 'high-end', 'high end', 'bespoke', 'private client', 'exclusive', 'boutique consult'] },
+      { archetype: 'trust-heavy-professional', keywords: ['licensed', 'certified', 'accredited', 'regulated', 'law firm', 'legal', 'cpa'] },
+      { archetype: 'editorial-brand', keywords: ['editorial', 'magazine', 'lookbook', 'journal-style'] },
+      { archetype: 'portfolio', keywords: ['portfolio', 'showcase our work', 'case studies', 'our work speaks', 'video studio', 'documentary', 'documentaries', 'film studio', 'photography studio'] },
+      { archetype: 'ecommerce-showcase', keywords: ['shop online', 'online store', 'buy online', 'e-commerce', 'ecommerce', 'dtc brand', 'direct-to-consumer'] },
+      { archetype: 'community-nonprofit', keywords: ['nonprofit', 'non-profit', 'charity', 'volunteer', 'donate', 'ngo'] },
+      { archetype: 'hospitality', keywords: ['restaurant', 'cafe', 'bistro', 'hotel', 'bar', 'reservation', 'menu'] },
+      { archetype: 'product-led-saas', keywords: ['saas', 'software platform', 'api', 'developer tool', 'product-led'] },
+      { archetype: 'local-conversion', keywords: ['near me', 'service area', 'same-day', 'same day', 'emergency service', 'free quote', 'serving the'] },
+    ];
+    const COMPAT = {
+      retail: ['ecommerce-showcase', 'editorial-brand', 'launch-campaign'],
+      hospitality: ['hospitality', 'premium-consultancy', 'editorial-brand'],
+      saas: ['product-led-saas', 'launch-campaign', 'premium-consultancy'],
+    };
+    function inferArchetypeStrict(categoryKey, text, categoryDefault, sv) {
+      const fam = sv ? sv.family : null;
+      for (const e of ARCHETYPE_OVERRIDES) {
+        if (!anyWord(text, e.keywords)) continue;
+        if (fam && COMPAT[fam] && !COMPAT[fam].includes(e.archetype)) continue; // "luxury skincare" is still a store, not a consultancy
+        return e.archetype;
+      }
+      if (fam === 'retail') return 'ecommerce-showcase';
+      return categoryDefault;
+    }
+    // Re-score the category with whole-word matching. `keywordMap` is the generator's own categoryKeywords table.
+    function strictCategory(text, keywordMap, fallback, sv) {
+      if (sv && sv.family === 'retail') return 'retail';
+      const t = String(text || '').toLowerCase();
+      let bestKey = fallback || 'other', best = 0;
+      Object.keys(keywordMap || {}).forEach(key => {
+        const score = (keywordMap[key] || []).reduce((n, kw) => n + (wordMatch(t, kw.trim()) ? 1 : 0), 0);
+        if (score > best) { best = score; bestKey = key; }
+      });
+      return best ? bestKey : (fallback || 'other');
+    }
+
+    // ---- rules per family ------------------------------------------------------------------------------------------------------
+    const W = (...ws) => ws;
+    const RULES = {
+      retail: { sectionsForbidden: ['menu', 'reservationCta', 'pricing', 'integrations'], words: W('menu', 'reserve', 'reservation', 'guest', 'guests', 'plate', 'plates', 'table', 'dining', 'tasting', 'chef', 'starter', 'growth', 'enterprise', 'per seat', 'free trial', 'saas', 'workspace'),
+        cta: { allow: /(shop|browse|view|explore|discover|see|visit|find|contact|learn|get in touch|join|sign up|subscribe)/i, forbid: /(reserve|book a|table|menu|free trial|demo|quote|estimate|track an order)/i }, pricing: 'products', primary: 'Shop now',
+        pages: { home: 'brand and value, product emphasis, shop CTA', shop: 'products and categories, how to buy', about: 'story and product philosophy', contact: 'contact and support' } },
+      hospitality: { sectionsForbidden: ['pricing', 'integrations', 'productShowcase', 'features'], words: W('starter', 'growth', 'enterprise', 'saas', 'platform', 'integrations', 'api', 'dashboard', 'free trial', 'per seat', 'workspace', 'enterprise plan'),
+        cta: { allow: /(reserve|book|view|see|menu|visit|order|contact|find|directions|call)/i, forbid: /(free trial|demo|quote|enterprise|pricing)/i }, pricing: 'menu', primary: 'View the menu',
+        pages: { home: 'atmosphere and food, reserve or visit CTA', menu: 'the menu', about: 'story and approach', contact: 'hours, location, reservations' } },
+      saas: { sectionsForbidden: ['menu', 'gallery-food'], words: W('menu', 'reserve', 'reservation', 'guest', 'guests', 'plate', 'plates', 'dining', 'tasting', 'chef', 'add to cart', 'new arrivals', 'best sellers', 'shop now'),
+        cta: { allow: /(start|try|book|request|see|get|sign|watch|talk|view|contact|learn|demo)/i, forbid: /(reserve|table|menu|shop now|add to cart|visit us)/i }, pricing: 'plans', primary: 'Start free',
+        pages: { home: 'what the product does, primary signup CTA', product: 'features and how it works', pricing: 'plans if pricing is supplied', contact: 'sales and support' } },
+      local_service: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'guest', 'guests', 'plate', 'plates', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now', 'new arrivals'),
+        cta: { allow: /(quote|estimate|call|book|schedule|contact|request|get|view|see|check)/i, forbid: /(reserve a table|menu|free trial|shop now|add to cart)/i }, pricing: 'quotes', primary: 'Request a quote',
+        pages: { home: 'trust and services, quote CTA', services: 'what is offered', about: 'the business', contact: 'how to reach us, service area' } },
+      appointments: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'guest', 'plate', 'dining', 'starter', 'enterprise', 'saas', 'add to cart'),
+        cta: { allow: /(book|schedule|call|contact|view|see|join|get|start|visit)/i, forbid: /(reserve a table|menu|free trial|shop now)/i }, pricing: 'quotes', primary: 'Book now', pages: {} },
+      professional: { sectionsForbidden: ['menu', 'integrations', 'productShowcase', 'pricing'], words: W('menu', 'reserve a table', 'guest', 'guests', 'plate', 'plates', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now'),
+        cta: { allow: /(book|request|schedule|contact|call|get|view|see|learn|talk)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial)/i }, pricing: 'quotes', primary: 'Book a consultation', pages: {} },
+      creative: { sectionsForbidden: ['menu', 'integrations', 'pricing'], words: W('menu', 'reserve a table', 'guest', 'plate', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart'),
+        cta: { allow: /(view|see|start|inquire|enquire|contact|book|get|check|request)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial)/i }, pricing: 'packages', primary: 'View the work', pages: {} },
+      nonprofit: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'reserve a table', 'plate', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now'),
+        cta: { allow: /(donate|give|volunteer|get involved|join|support|learn|see|contact)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial|quote)/i }, pricing: 'none', primary: 'Get involved', pages: {} },
+      other: { sectionsForbidden: ['menu', 'integrations'], words: W('starter', 'growth', 'enterprise', 'saas'), cta: { allow: /./, forbid: /(reserve a table|menu)/i }, pricing: 'none', primary: 'Get in touch', pages: {} },
+    };
+    // Forbidden vocabulary is allowed when the customer's own text uses it (a furniture store may sell "tables").
+    const VERIFIED_UNSUPPORTED = ['customer testimonials', 'reviews or review counts', 'years in business', 'awards or certifications', 'staff or founder names', 'customer counts', 'guarantees', 'shipping promises', 'best-seller or new-arrival claims', 'pricing tiers or prices', 'physical store locations', 'opening hours'];
+
+    const cleanPlace = loc => (loc ? String(loc).split(/[.,;]/)[0].trim() : '') || null;
+    const supplied = (text, re) => re.test(String(text || ''));
+
+    // input: { description, categoryKey, categoryLabel, archetype, location, facts, hasTeamAssets, refinements }
+    function deriveGrounding(input) {
+      const inp = input || {};
+      const text = String(inp.description || '');
+      const sv = detectSubvertical(text);
+      const archetype = inp.archetype || 'service-business';
+      const categoryKey = inp.categoryKey || 'other';
+      const family = sv ? sv.family : familyFor(archetype, categoryKey);
+      const rules = RULES[family] || RULES.other;
+      const r = inp.refinements || {};
+      const claimsTestimonials = supplied(text, /testimonial|reviews?\b|customers? (say|said|love)|"[^"]{25,}"/i);
+      const pricingSupplied = supplied(text, /\b(pricing|price list|plans?|packages?|membership|subscription|from \$|\$\d)/i);
+      const teamSupplied = !!inp.hasTeamAssets || supplied(text, /\b(our team|founded by|founder|owner is|meet the)\b/i);
+      const facts = inp.facts || {};
+      const forbiddenWords = rules.words.filter(w => !wordMatch(text, w));
+      const forbiddenSections = rules.sectionsForbidden.filter(s => !(s === 'pricing' && pricingSupplied && family === 'saas'));
+      const g = {
+        version: 3, family, subtype: sv ? sv.id : (r.subtype || null), businessType: sv ? sv.label : (inp.categoryLabel || categoryKey),
+        industry: inp.categoryLabel || categoryKey, archetype, categoryKey,
+        primaryOffer: (r.primaryOffer || text.split(/(?<=[.!?])\s+/)[0] || '').slice(0, 200) || null,
+        products: sv ? sv.keywords.filter(k => wordMatch(text, k)).slice(0, 6) : [],
+        salesModel: family === 'retail' ? 'sells products' : family === 'saas' ? 'software subscription' : family === 'hospitality' ? 'venue' : 'services',
+        location: cleanPlace(inp.location),
+        primaryCTA: r.primaryCTA || (family === 'hospitality' && !supplied(text, /reserv|book/i) ? 'View the menu' : rules.primary),
+        pricingModel: pricingSupplied ? rules.pricing : 'none-supplied',
+        allowedPageIntents: rules.pages,
+        forbiddenSections, forbiddenWords, cta: { allow: rules.cta.allow.source, forbid: rules.cta.forbid.source },
+        verifiedFacts: { location: cleanPlace(inp.location), description: text.slice(0, 400), years: !!facts.years, rating: !!facts.rating, count: !!facts.count },
+        unsupportedFacts: VERIFIED_UNSUPPORTED.filter(x => !(x === 'customer testimonials' && claimsTestimonials) && !(x === 'pricing tiers or prices' && pricingSupplied)),
+        testimonialAvailability: claimsTestimonials ? 'supplied' : 'none',
+        teamAvailability: teamSupplied ? 'supplied' : 'none',
+        trustSignalsAllowed: ['the business description as written', 'the place, if supplied', 'a clear next step'].concat(facts.years ? ['years, as supplied'] : []),
+        imagerySubjects: sv ? sv.imagery : null, imageryAvoid: sv ? sv.avoid : ['text', 'logos', 'user interface'],
+        newArrivalsJustified: supplied(text, /new arrivals?|new collection|just launched|drop\b/i),
+      };
+      if (r.imagerySubject) g.imagerySubjects = Object.assign({}, g.imagerySubjects, { hero: r.imagerySubject });
+      return g;
+    }
+
+    module.exports = { wordMatch, anyWord, familyFor, SUBVERTICALS, detectSubvertical, ARCHETYPE_OVERRIDES, inferArchetypeStrict, strictCategory, RULES, deriveGrounding, cleanPlace };
+
+  });
   __define("image-planning", function (module, exports, require) {
     'use strict';
     // Image role planning, source priority, composition-aware prompts, aspect
@@ -781,14 +973,15 @@
       const comp = compositionFor(spec.role, spec);
       const subject = subjectFor(spec.role, strategy, art, abstract);
       const loc = strategy.location && !abstract ? `, subtle ${strategy.location} regional setting (no landmarks)` : '';
+      const avoidTail = (spec.avoid && spec.avoid.length) ? ` Not ${spec.avoid.slice(0, 8).join(', ')}.` : '';
       if (spec.simplified) {
         // Retry variant: fewer constraints, single subject -- a different approach, not the same prompt again.
-        return `${subject}${loc}. Simple, uncluttered composition, ${spec.aspectRatio || ROLE_ASPECT[spec.role]} frame. ${abstract ? ABSTRACT_NEGATIVE_TAIL : NEGATIVE_TAIL}`;
+        return `${subject}${loc}. Simple, uncluttered composition, ${spec.aspectRatio || ROLE_ASPECT[spec.role]} frame.${avoidTail} ${abstract ? ABSTRACT_NEGATIVE_TAIL : NEGATIVE_TAIL}`;
       }
       const style = abstract
         ? `${art.lighting}; ${art.colorMood}; clean, modern, premium`
         : `${art.photographyStyle}; ${art.lighting}; ${art.colorMood}; ${art.realismLevel}; ${art.humanPresence}; ${art.contrast} contrast`;
-      return `${subject}${loc}. ${comp.text}. ${style}. Consistent with the rest of the site: ${art.subjectTreatment}. ${abstract ? ABSTRACT_NEGATIVE_TAIL : NEGATIVE_TAIL}`;
+      return `${subject}${loc}. ${comp.text}. ${style}. Consistent with the rest of the site: ${art.subjectTreatment}.${avoidTail} ${abstract ? ABSTRACT_NEGATIVE_TAIL : NEGATIVE_TAIL}`;
     }
 
     // Guard against the "UI mockup as a photo" failure: positive instructions
@@ -799,7 +992,7 @@
       const p = String(prompt || '');
       // Prohibitions ("No dashboards...") are allowed to name UI words; only positive instructions are checked. Sentence-based so a
       // tail truncated by a length limit cannot be misread as a request.
-      const body = p.split(/(?<=[.!?])\s+/).filter(sent => !/^\s*(absolutely\s+)?no\b/i.test(sent)).join(' ');
+      const body = p.split(/(?<=[.!?])\s+/).filter(sent => !/^\s*((absolutely\s+)?no|not)\b/i.test(sent)).join(' ');
       const problems = [];
       const m = UI_WORDS.exec(body); if (m) problems.push(`asks for interface content: "${m[0]}"`);
       if (!/no text|no text,/i.test(p)) problems.push('missing explicit no-text instruction');
@@ -900,7 +1093,7 @@
         if (tier === 'primary') primaryFunded++;
         committed += full.estimatedUsd; if (credits) creditsLeft -= (full.kind === 'premium' ? credits.premium : credits.support);
         const abstract = isAbstractSlot(role, strategy);
-        const spec = { role, aspectRatio: aspect, textSide: input.heroTextSide || 'left' };
+        const spec = { role, aspectRatio: aspect, textSide: input.heroTextSide || 'left', avoid: strategy.imageAvoid || [] };
         out[i] = Object.assign(base, {
           sourceType: 'generated', reason: d.reason === 'downgraded' ? 'budget_downgraded_route' : 'funded', kind: abstract ? 'abstract' : 'photo',
           model: full.model, routeKind: full.kind, quality: full.quality, estimatedUsd: full.estimatedUsd, focal,
@@ -910,7 +1103,20 @@
       return { slots: out, committedUsd: Math.round(committed * 1e6) / 1e6, notes };
     }
 
+    function validateImagePromptSubject(prompt, grounding) {
+      const { wordMatch } = require('./grounding');
+      const head = String(prompt || '').split(' Not ')[0];
+      const problems = ((grounding && grounding.imageryAvoid) || []).filter(w => wordMatch(head, w)).map(w => 'off-subject: ' + w);
+      const hero = grounding && grounding.imagerySubjects && grounding.imagerySubjects.hero;
+      if (hero && !/abstract|graphic/i.test(head)) {
+        const cues = String(hero).toLowerCase().split(/[^a-z]+/).filter(x => x.length > 4);
+        if (cues.length && !cues.some(x => head.toLowerCase().includes(x))) problems.push('missing subject cue');
+      }
+      return { ok: problems.length === 0, problems };
+    }
+
     module.exports = {
+      validateImagePromptSubject,
       NEGATIVE_TAIL, ABSTRACT_NEGATIVE_TAIL, ROLE_ASPECT, ROLE_TIER, ROUTE_LADDER,
       providerSizeFor, classifySlot, uploadQuality, cropAdvice, focalFor, buildImagePrompt, lintImagePrompt,
       evaluateImageDeterministic, retryDecision, allocateImages, isAbstractSlot,
@@ -944,6 +1150,8 @@
     const repairLib = require('./repair');
     const compositionLib = require('./composition');
     const stampLib = require('./comp-stamp');
+    const groundingLib = require('./grounding');
+    const semanticLib = require('./semantic');
     const metricsLib = require('./metrics');
     const { textCostUsd, imageCostUsd } = require('./cost-ledger');
 
@@ -989,6 +1197,41 @@
         return this;
       }
       route(operation) { return routeOperation(operation, this.cfg); }
+
+      // ---- V3 semantic pass: deterministic guards (free) + ONE whole-site critique + a handful of targeted fixes ------------------
+      semanticSpent() { return this.ledger.forGeneration(this.generationId).filter(e => /^semantic/i.test(e.operation || '')).reduce((n, e) => n + e.costUsd, 0); }
+      groundingFor(direction, c) {
+        return c.grounding || groundingLib.deriveGrounding({ description: c.description, categoryKey: direction.business && direction.business.categoryKey, categoryLabel: this.strategy.businessType, archetype: (direction.strategy && direction.strategy.archetype) || this.strategy.archetype, location: direction.source && direction.source.location, facts: c.facts, hasTeamAssets: ((direction.assets && direction.assets.items) || []).some(a => a.type === 'team') });
+      }
+      async semanticPass(direction, c, d) {
+        const g = this.groundingFor(direction, c); this.grounding = g;
+        const before = semanticLib.checkSemantics(direction, g, c);
+        const det = semanticLib.applyRepairs(direction, before, g);
+        let work = det.direction; let changes = det.changes.slice(); let criticDefects = []; let criticRan = false;
+        if (typeof d.semanticCritic === 'function') {
+          const B = this.cfg.budgets;
+          const est = textCostUsd(this.cfg, 'strong', { inputTokens: 3500, outputTokens: 700 });
+          const dec = this.governor.decide({ operation: 'semantic_critique', phase: 'first_draft', priority: 'high', estimatedUsd: est, subBudget: { spentUsd: this.semanticSpent(), ceilingUsd: B.SEMANTIC_REVIEW_TARGET_USD } });
+          if (dec.allowed) {
+            try {
+              const p = semanticLib.buildSemanticCritique(work, g);
+              const res = await this.time('semanticCritique', () => d.semanticCritic({ system: p.system, user: p.user, tool: semanticLib.CRITIC_TOOL }));
+              if (!d.selfRecorded) this.recordText({ operation: 'semantic_critique', usage: res.usage, phase: 'first_draft' });
+              criticDefects = semanticLib.parseSemanticCritique(res.input, work, g); criticRan = true;
+            } catch (e) { this.semanticError = String(e && e.message || e); }
+          } else this.semanticSkipped = dec.reason;
+        }
+        // one small repair pass: the highest-impact critic findings that carry a concrete, validated fix (max 5)
+        const ranked = criticDefects.filter(x => x.repair).sort((a, b) => b.severity - a.severity).slice(0, 5);
+        const fixed = semanticLib.applyRepairs(work, ranked, g); work = fixed.direction; changes = changes.concat(fixed.changes);
+        const afterDefects = semanticLib.checkSemantics(work, g, c);
+        const all = before.concat(criticDefects);
+        const by = {}; all.forEach(x => { if (x.severity > 0) by[x.category] = (by[x.category] || 0) + 1; });
+        this.semanticLog = { found: all.filter(x => x.severity > 0).length, deterministicFound: before.length, criticFound: criticDefects.length, criticRan, repairsApplied: changes.length, byCategory: by,
+          wrongBusiness: (by.WRONG_BUSINESS_CONCEPTS || 0) + (by.BUSINESS_CONSISTENCY || 0), invented: (by.INVENTED_TRUST_SIGNALS || 0) + (by.FACTUAL_GROUNDING || 0), cta: by.CTA_CONSISTENCY || 0, imageSubject: by.IMAGE_SUBJECT_RELEVANCE || 0, secondaryDepth: by.SECONDARY_PAGE_DEPTH || 0, internalText: (by.PAGE_PURPOSE_CLARITY || 0) + (by.COPY_SPECIFICITY || 0),
+          criticCostUsd: Math.round(this.semanticSpent() * 1e6) / 1e6, skipped: this.semanticSkipped || null };
+        return { direction: work, changes, before: semanticLib.summarizeSemantic(all), after: semanticLib.summarizeSemantic(afterDefects), remaining: afterDefects.filter(x => x.severity > 0), grounding: g, log: this.semanticLog };
+      }
       time(name, fn) { const t = this.now(); const r = fn(); if (r && typeof r.then === 'function') return r.then(v => { this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return v; }); this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return r; }
 
       // ---- ledger ---------------------------------------------------------------
@@ -1013,7 +1256,9 @@
       //                      rewriteCopy({targetId, field, current, constraint}) -> {ok, text, usage}
       async reviewAndRepair(direction, ctx, deps) {
         const d = deps || {};
-        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2 }, ctx || {});
+        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3 }, ctx || {});
+        let semanticResult = null;
+        if (c.groundingV3) { semanticResult = await this.semanticPass(direction, c, d); direction = semanticResult.direction; c.grounding = semanticResult.grounding; }
         stateLib.markAllGood(direction);
         let review = this.time('review', () => reviewLib.reviewDirection(direction, c));
         // Optional model critique: ONE call, only if it fits the budget.
@@ -1034,7 +1279,7 @@
         const plan = repairLib.planRepairs(direction, review, this.governor, this.cfg);
         if (!plan.actions.length || this.cfg.retry.maxRepairRounds < 1) {
           this.afterReview = review.categories;
-          return { direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached };
+          return { direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached, semantic: semanticResult };
         }
         this.repairRan = true;
         const free = repairLib.applyFreeRepairs(direction, plan.actions, { tokens: this.tokens });
@@ -1062,7 +1307,7 @@
         const after = reviewLib.reviewDirection(work, c);
         this.afterReview = after.categories;
         this.repairActions = executed; // what actually changed (planned-but-not-applicable actions are not counted)
-        return { direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached };
+        return { direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached, semantic: semanticResult };
       }
 
       finish(extra) {
@@ -1070,7 +1315,7 @@
         return this.core.metrics.append(metricsLib.buildGenerationLog({
           generationId: this.generationId, premium: true, archetype: this.strategy.archetype, projectId: this.projectId, totals: this.totals(),
           before: this.beforeReview, after: this.afterReview, repairRan: this.repairRan, repairActions: this.repairActions,
-          budgetLimitReached: this.governor.limitReached, fullRegenerationsRequested: x.fullRegenerationsRequested || this.fullRegenerationsRequested, timingsMs: this.timings,
+          budgetLimitReached: this.governor.limitReached, fullRegenerationsRequested: x.fullRegenerationsRequested || this.fullRegenerationsRequested, timingsMs: this.timings, semantic: this.semanticLog || null,
         }));
       }
     }
@@ -1083,7 +1328,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -1105,7 +1350,7 @@
         qualityBefore: x.before || null, qualityAfter: x.after || null,
         repairRan: !!x.repairRan, repairActions: (x.repairActions || []).map(a => ({ kind: a.kind, code: a.defectCode })), budgetLimitReached: !!x.budgetLimitReached,
         fullRegenerationsRequested: x.fullRegenerationsRequested || 0,
-        timingsMs: x.timingsMs || {}, accepted: false, acceptedAt: null,
+        timingsMs: x.timingsMs || {}, semantic: x.semantic || null, accepted: false, acceptedAt: null,
       };
     }
 
@@ -1132,6 +1377,11 @@
           AVERAGE_FIRST_DRAFT_COST_USD: avg(logs.map(l => l.firstDraftCostUsd)),
           AVERAGE_PUBLISHABLE_SITE_COST_USD: avgPublishable,
           COST_AS_PERCENT_OF_REVENUE: revenueUsd && avgPublishable != null ? Math.round(avgPublishable / revenueUsd * 1000) / 10 : null,
+          // V3 first-generation acceptance signals: how often the planner itself needed semantic repair
+          SEMANTIC_REPAIR_RATE: (() => { const s = logs.filter(l => l.semantic); return s.length ? Math.round(s.filter(l => l.semantic.repairsApplied > 0).length / s.length * 1000) / 1000 : null; })(),
+          AVERAGE_SEMANTIC_DEFECTS: avg(logs.filter(l => l.semantic).map(l => l.semantic.found)),
+          SEMANTIC_DEFECTS_BY_KIND: (() => { const t = { wrongBusiness: 0, invented: 0, cta: 0, imageSubject: 0, secondaryDepth: 0, internalText: 0 }; logs.forEach(l => { if (l.semantic) Object.keys(t).forEach(k => { t[k] += l.semantic[k] || 0; }); }); return t; })(),
+          AVERAGE_SEMANTIC_COST_USD: avg(logs.filter(l => l.semantic).map(l => l.semantic.criticCostUsd || 0)),
           repairRunRate: logs.length ? Math.round(logs.filter(l => l.repairRan).length / logs.length * 1000) / 1000 : null,
           budgetLimitReachedRate: logs.length ? Math.round(logs.filter(l => l.budgetLimitReached).length / logs.length * 1000) / 1000 : null,
           note: revenueUsd == null ? 'set PREMIUM_REVENUE_USD_PER_SITE (website price converted to USD) to get COST_AS_PERCENT_OF_REVENUE' : undefined,
@@ -1233,7 +1483,7 @@
     const OPERATIONS = Object.freeze({
       // STRONG: positioning, art direction, architecture, hierarchy, image roles, critique, hard repair
       understand_business: 'strong', art_direction: 'strong', page_architecture: 'strong', section_hierarchy: 'strong',
-      image_role_planning: 'strong', whole_site_critique: 'strong', repair_decision: 'strong',
+      image_role_planning: 'strong', whole_site_critique: 'strong', semantic_critique: 'strong', repair_decision: 'strong',
       // CHEAP: extraction, classification, repetitive fields, basic rewrites
       extraction: 'cheap', classification: 'cheap', field_generation: 'cheap', copy_rewrite_basic: 'cheap',
       // DETERMINISTIC: no model
@@ -1268,10 +1518,14 @@
 
     const CATEGORIES = ['VISUAL_COHERENCE', 'IMAGE_QUALITY', 'TYPOGRAPHY', 'LAYOUT', 'BUSINESS_SPECIFICITY', 'CONVERSION_CLARITY', 'MOBILE_READINESS', 'TECHNICAL_VALIDITY',
       // PREMIUM_COMPOSITION_V2 (page-level composition). Reported NOT_APPLICABLE unless the composition flag is on for the site.
-      'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
+      'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION',
+      // PREMIUM_GROUNDING_V3 (business grounding + semantic review). NOT_APPLICABLE unless the flag is on.
+      'BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE', 'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY'];
+    const semantic = require('./semantic');
+    const { deriveGrounding } = require('./grounding');
     const COMPOSITION_CATEGORIES = ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
     // Where a fix pays off most for perceived quality (used to rank the 1-3 repairs we allow).
-    const IMPACT = { VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
+    const IMPACT = { WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
 
     const GENERIC_PHRASES = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bpassion for excellence\b/i, /\bcommitted to excellence\b/i];
     // Claims a site must not make unless the customer supplied them.
@@ -1396,16 +1650,22 @@
           require('./composition').evaluateComposition(plan2).forEach(d => add(Object.assign({}, d, d.code === 'no_final_cta' ? { repair: { kind: 'insert_cta_section' } } : {})));
         }
       }
-      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false, !!c.compositionV2);
+      // ---- PREMIUM_GROUNDING_V3 categories: every page and section is checked against ONE business grounding
+      if (c.groundingV3) {
+        const g = c.grounding || deriveGrounding({ description: c.description, categoryKey: direction.business && direction.business.categoryKey, archetype: (direction.strategy && direction.strategy.archetype) || (strategy && strategy.archetype), location: direction.source && direction.source.location, facts: c.facts, hasTeamAssets: ((direction.assets && direction.assets.items) || []).some(a => a.type === 'team') });
+        semantic.checkSemantics(direction, g, c).forEach(d => add(d));
+      }
+      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false, !!c.compositionV2, !!c.groundingV3);
     }
 
-    function summarize(defects, mobileMeasured, compositionOn) {
+    function summarize(defects, mobileMeasured, compositionOn, groundingOn) {
       const categories = {};
       CATEGORIES.forEach(cat => {
         const ds = defects.filter(d => d.category === cat && d.severity > 0);
         categories[cat] = ds.some(d => d.severity >= 3) ? 'FAIL' : ds.length ? 'NEEDS_REPAIR' : 'PASS';
       });
       if (!compositionOn) COMPOSITION_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
+      if (!groundingOn) semantic.SEMANTIC_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
       if (!mobileMeasured) categories.MOBILE_READINESS = defects.some(d => d.category === 'MOBILE_READINESS' && d.severity > 0) ? categories.MOBILE_READINESS : 'UNVERIFIED';
       return { categories, defects, passing: Object.values(categories).every(v => v === 'PASS' || v === 'UNVERIFIED' || v === 'NOT_APPLICABLE') };
     }
@@ -1668,6 +1928,226 @@
     module.exports = { STATES, SCOPES, ensure, allSections, stateOf, setState, markAllGood, lock, unlock, autoRepairAllowed, planRegeneration };
 
   });
+  __define("semantic", function (module, exports, require) {
+    'use strict';
+    // Semantic review + repair (V3). Two layers over one shared BUSINESS_GROUNDING:
+    //   1. deterministic guards/checks (free, always run): wrong-business sections and words, invented trust signals,
+    //      internal planner text shown to customers, CTA/nav vocabulary, thin secondary pages, off-subject image prompts
+    //   2. ONE whole-site critique by the strong model (small, budgeted) that sees every page, section, CTA and image prompt
+    //      together and proposes at most a handful of targeted fixes with customer-ready replacement text.
+    // Repairs are surgical: remove/replace/rewrite exactly the flagged item; the site is never regenerated.
+
+    const { wordMatch, RULES } = require('./grounding');
+    const { SECTION_VARIANTS } = require('./vocab');
+
+    const SEMANTIC_CATEGORIES = ['BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE',
+      'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY'];
+
+    // Builder instructions that leak into customer-facing text ("Establish who is behind the business...").
+    const INTERNAL_PATTERNS = [
+      /^\s*(remove|reduce|establish|show|explain|demonstrate|highlight|clarify|convey|reassure|address|answer|introduce|position|build|drive|encourage|prompt|give|help|let) (friction|who|how|what|why|the|your|trust|objections?|visitors?|people|users?|customers?)\b/i,
+      /\b(the visitor|visitors? (should|can|will|need)|this (section|page) (should|will|exists|is meant)|the goal of (this|the)|call[- ]to[- ]action|primary cta|make starting easy|remove friction)\b/i,
+      /^\s*(who is behind|why (they|you) can be trusted)\b/i,
+    ];
+    // Invented social proof and trust phrases that are never allowed without supplied data.
+    const FAKE_PROOF = [/\bverified (customer|buyer|purchase)\b/i, /\bregular guest\b/i, /\b(local|private|happy|satisfied) (customer|client)s?\b(?=\s*$)/i, /\bfive[- ]star\b/i, /\b(customers?|clients?|guests?) (say|said|love|rave)\b/i, /\b(already )?ordered (a )?(second|again)\b/i, /\bfast,? tracked shipping\b/i, /\bfree (shipping|returns)\b/i, /\bbest[- ]?sellers?\b/i, /\btrusted by\b/i];
+    const GENERIC = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bfocused on doing the job right\b/i, /\bwithout the busywork\b/i, /\bcomes? to life\b/i];
+
+    const CTA_SENTENCE = /^[A-Za-z][A-Za-z '&-]{1,40}$/;
+    const ROLE_OF_PAGE = label => { const l = String(label || '').toLowerCase(); if (/about|story|who we|our (approach|philosophy)/.test(l)) return 'about'; if (/contact|visit|find us|get in touch|location|hours/.test(l)) return 'contact'; if (/shop|product|collection|store|catalog|menu|services?|work|pricing|plans?/.test(l)) return 'catalog'; return 'other'; };
+    const RENAME = { retail: { menu: 'Shop', services: 'Shop', pricing: 'Shop', reservations: 'Visit', reserve: 'Visit', booking: 'Contact', 'book now': 'Contact' }, saas: { menu: 'Product', shop: 'Product', reservations: 'Contact' }, hospitality: { pricing: 'Menu', plans: 'Menu' } };
+
+    function eachString(direction, fn) {
+      const c = direction.copy || {};
+      ['kicker', 'headline', 'sub', 'cta'].forEach(k => { if (typeof c[k] === 'string') fn({ kind: 'hero', id: 'hero', field: k }, c[k]); });
+      (direction.pages || []).forEach(p => {
+        if (typeof p.label === 'string') fn({ kind: 'page', id: p.slug || 'home', field: 'label' }, p.label);
+        if (typeof p.purpose === 'string' && p.purpose) fn({ kind: 'page', id: p.slug || 'home', field: 'purpose' }, p.purpose);
+        (p.sections || []).forEach(s => {
+          const cp = s.copy || {};
+          Object.keys(cp).forEach(k => { if (typeof cp[k] === 'string') fn({ kind: 'section', id: s.id, field: k, type: s.type, page: p.slug || 'home' }, cp[k]); });
+        });
+      });
+    }
+    const CTA_FIELDS = new Set(['cta', 'ctaLabel']);
+    const forbiddenHit = (text, g) => (g.forbiddenWords || []).find(w => wordMatch(text, w)) || null;
+    const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text));
+    const fakeProofHit = (text, g) => FAKE_PROOF.find(re => re.test(text) && !(re.source && re.test(g.verifiedFacts && g.verifiedFacts.description || ''))) || null;
+
+    // Would this replacement text be acceptable on the site? (used for critic-supplied fixes)
+    function validateCustomerText(text, g, field) {
+      const t = String(text || '').trim(); const p = [];
+      if (!t) p.push('empty'); if (t.length > 240) p.push('too long');
+      if (briefHit(t)) p.push('internal wording'); const fw = forbiddenHit(t, g); if (fw) p.push('wrong-business word: ' + fw);
+      if (FAKE_PROOF.some(re => re.test(t))) p.push('invented proof'); if (GENERIC.some(re => re.test(t))) p.push('generic filler');
+      if (CTA_FIELDS.has(field) && !CTA_SENTENCE.test(t)) p.push('not a button label');
+      if (CTA_FIELDS.has(field) && g && g.cta) { try { if (g.cta.forbid && new RegExp(g.cta.forbid, 'i').test(t)) p.push('button belongs to another business'); else if (g.cta.allow && !new RegExp(g.cta.allow, 'i').test(t)) p.push('button does not fit this business'); } catch (_) { /* bad pattern: skip */ } }
+      return p;
+    }
+
+    // ---- deterministic checks -----------------------------------------------------------------------------------------------------
+    function checkSemantics(direction, g, ctx) {
+      const c = ctx || {}; const defects = []; const add = d => defects.push(Object.assign({ severity: 2, target: { kind: 'site', id: null }, source: 'deterministic' }, d));
+      const rules = RULES[g.family] || RULES.other;
+      const pages = direction.pages || [];
+      const allSections = []; pages.forEach(p => (p.sections || []).forEach(s => allSections.push({ page: p, section: s })));
+
+      // archetype vs family: the planner/analysis picked a different kind of business
+      const arch = direction.strategy && direction.strategy.archetype;
+      if (arch && arch !== g.archetype) add({ category: 'BUSINESS_CONSISTENCY', code: 'archetype_conflicts_with_business', severity: 3, detail: `${arch} vs ${g.archetype}`, repair: { kind: 'set_archetype', value: g.archetype } });
+
+      allSections.forEach(({ page, section: s }) => {
+        if (g.forbiddenSections.includes(s.type)) add({ category: 'WRONG_BUSINESS_CONCEPTS', code: 'section_wrong_for_business', severity: 3, detail: `${s.type} on a ${g.family} site`, target: { kind: 'section', id: s.id }, repair: { kind: 'remove_section', targetId: s.id } });
+        if ((s.type === 'testimonial' || s.type === 'testimonialsGrid') && g.testimonialAvailability !== 'supplied') add({ category: 'INVENTED_TRUST_SIGNALS', code: 'testimonials_without_source', severity: 3, detail: 'no testimonials were supplied', target: { kind: 'section', id: s.id }, repair: { kind: 'remove_section', targetId: s.id } });
+        if (s.type === 'team' && g.teamAvailability !== 'supplied') add({ category: 'FACTUAL_GROUNDING', code: 'team_without_data', severity: 3, detail: 'no team information was supplied', target: { kind: 'section', id: s.id }, repair: { kind: 'remove_section', targetId: s.id } });
+        if (s.type === 'pricing' && !g.forbiddenSections.includes('pricing') && g.pricingModel === 'none-supplied') add({ category: 'FACTUAL_GROUNDING', code: 'pricing_tiers_invented', severity: 3, detail: 'pricing tiers with no supplied pricing', target: { kind: 'section', id: s.id }, repair: { kind: 'remove_section', targetId: s.id } });
+      });
+      // a "Pricing"/"Plans" page when no pricing was supplied is an invented offer, even if the tier section itself is gone
+      pages.forEach((p, i) => {
+        if (i === 0 || !/^\s*(pricing|plans?( (&|and) pricing)?|packages)\s*$/i.test(String(p.label || ''))) return;
+        if (g.pricingModel === 'none-supplied' || g.forbiddenSections.includes('pricing')) add({ category: 'FACTUAL_GROUNDING', code: 'pricing_page_without_pricing', severity: 3, detail: p.label, target: { kind: 'page', id: p.slug }, repair: { kind: 'remove_page', slug: p.slug } });
+      });
+      // strings
+      const ctaLabels = new Set();
+      eachString(direction, (where, text) => {
+        const isCta = CTA_FIELDS.has(where.field);
+        if (isCta) {
+          ctaLabels.add(text.trim().toLowerCase());
+          if (rules.cta.forbid.test(text) || (!g.newArrivalsJustified && /new arrivals/i.test(text)) || (rules.cta.allow && !rules.cta.allow.test(text))) add({ category: 'CTA_CONSISTENCY', code: 'cta_wrong_for_business', severity: 2, detail: text, target: where, repair: { kind: 'set_text', where, value: g.primaryCTA } });
+          return;
+        }
+        if (where.field === 'label') {
+          const key = text.trim().toLowerCase(); const map = RENAME[g.family] || {};
+          if (map[key]) add({ category: 'CROSS_PAGE_CONSISTENCY', code: 'nav_label_wrong_for_business', severity: 2, detail: text, target: where, repair: { kind: 'set_text', where, value: map[key] } });
+          else { const fw = forbiddenHit(text, g); if (fw) add({ category: 'CROSS_PAGE_CONSISTENCY', code: 'nav_label_wrong_for_business', severity: 2, detail: text, target: where }); }
+          return;
+        }
+        if (briefHit(text)) add({ category: where.field === 'purpose' ? 'PAGE_PURPOSE_CLARITY' : 'COPY_SPECIFICITY', code: 'internal_text_on_site', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'clear_text', where } });
+        else if (FAKE_PROOF.some(re => re.test(text))) add({ category: 'INVENTED_TRUST_SIGNALS', code: 'invented_proof_phrase', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'clear_text', where } });
+        else { const fw = forbiddenHit(text, g); if (fw) add({ category: 'WRONG_BUSINESS_CONCEPTS', code: 'wrong_business_word', severity: 3, detail: `"${fw}" in: ${text.slice(0, 80)}`, target: where, repair: { kind: 'clear_text', where } }); else if (GENERIC.some(re => re.test(text))) add({ category: 'COPY_SPECIFICITY', code: 'generic_copy', severity: 1, detail: text.slice(0, 90), target: where }); }
+      });
+      if (ctaLabels.size > 3) add({ category: 'CTA_CONSISTENCY', code: 'too_many_cta_labels', severity: 1, detail: [...ctaLabels].join(' | ') });
+
+      // secondary pages: intentionally minimal is fine, a title over one thin section is not
+      pages.forEach((p, i) => {
+        if (i === 0) return;
+        const real = (p.sections || []).filter(s => s.type !== 'footer');
+        const role = ROLE_OF_PAGE(p.label);
+        if (real.length <= 1 && (role === 'about' || role === 'contact')) add({ category: 'SECONDARY_PAGE_DEPTH', code: 'thin_secondary_page', severity: 2, detail: `${p.label}: ${real.length} section(s)`, target: { kind: 'page', id: p.slug }, repair: { kind: 'enrich_page', slug: p.slug, role } });
+      });
+      // images: prompts must describe this business's subject
+      (direction.imagePlan || []).forEach(e => {
+        if (e.sourceType !== 'generated' || !e.prompt) return;
+        const bad = (g.imageryAvoid || []).find(w => wordMatch(String(e.prompt).split(/\.\s*(Photograph or graphic only|Abstract graphic only)/)[0], w));
+        if (bad) add({ category: 'IMAGE_SUBJECT_RELEVANCE', code: 'image_prompt_off_subject', severity: 2, detail: `${e.slot}: mentions "${bad}"`, target: { kind: 'image', id: e.slot }, repair: { kind: 'rewrite_image_prompt', slot: e.slot } });
+      });
+      return defects;
+    }
+
+    // ---- deterministic repairs -----------------------------------------------------------------------------------------------------
+    const clone = o => JSON.parse(JSON.stringify(o));
+    function setAt(direction, where, value) {
+      if (where.kind === 'hero') { direction.copy = direction.copy || {}; if (value === null) delete direction.copy[where.field]; else direction.copy[where.field] = value; return true; }
+      if (where.kind === 'page') { const p = (direction.pages || []).find(x => (x.slug || 'home') === where.id); if (!p) return false; p[where.field] = value === null ? '' : value; return true; }
+      if (where.kind === 'section') { for (const p of (direction.pages || [])) { const s = (p.sections || []).find(x => x.id === where.id); if (s) { s.copy = Object.assign({}, s.copy); if (value === null) delete s.copy[where.field]; else s.copy[where.field] = value; return true; } } }
+      return false;
+    }
+    function newId(prefix) { return `${prefix}-${Date.now().toString(36)}${Math.random().toString(16).slice(2, 7)}`; }
+    const RECIPES = { about: ['about', 'ctaBanner'], contact: ['contact'] };
+    function enrichPage(direction, slug, role, g) {
+      const p = (direction.pages || []).find(x => (x.slug || 'home') === slug); if (!p) return false;
+      const have = new Set((p.sections || []).map(s => s.type)); let added = false;
+      (RECIPES[role] || []).forEach(t => {
+        if (have.has(t) || g.forbiddenSections.includes(t)) return;
+        const v = SECTION_VARIANTS[t] ? SECTION_VARIANTS[t][0] : undefined;
+        p.sections.push({ id: newId(t), type: t, variant: v, copy: null, intent: 'convert', headlineRole: 'declarative' }); added = true;
+      });
+      return added;
+    }
+    // Applies every deterministic repair (defects carry their own repair). Returns changes for logging.
+    function applyRepairs(direction, defects, g) {
+      const d = clone(direction); const changes = [];
+      const seen = new Set();
+      defects.forEach(x => {
+        const r = x.repair; if (!r) return; const key = JSON.stringify(r); if (seen.has(key)) return; seen.add(key);
+        if (r.kind === 'remove_section') {
+          for (const p of (d.pages || [])) { const i = (p.sections || []).findIndex(s => s.id === r.targetId); if (i !== -1 && (p.sections.length > 1 || (d.pages[0] !== p && d.pages.length > 1))) { p.sections.splice(i, 1); changes.push({ code: x.code, kind: r.kind, target: r.targetId, category: x.category }); break; } }
+        } else if (r.kind === 'set_text' && r.where) { if (setAt(d, r.where, r.value)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
+        else if (r.kind === 'clear_text' && r.where) { if (setAt(d, r.where, null)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
+        else if (r.kind === 'remove_page') { const i = (d.pages || []).findIndex((p, k) => k > 0 && (p.slug || '') === (r.slug || '')); if (i > 0) { d.pages.splice(i, 1); changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); } }
+        else if (r.kind === 'set_archetype') { d.strategy = Object.assign({}, d.strategy, { archetype: r.value }); changes.push({ code: x.code, kind: r.kind, target: 'archetype', category: x.category }); }
+        else if (r.kind === 'enrich_page') { if (enrichPage(d, r.slug, r.role, g)) changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); }
+        else if (r.kind === 'rewrite_image_prompt') { const e = (d.imagePlan || []).find(z => z.slot === r.slot); if (e) { e.promptNeedsRewrite = true; changes.push({ code: x.code, kind: r.kind, target: r.slot, category: x.category, note: 'flagged; image already generated' }); } }
+        else if (r.kind === 'apply_fix_text' && r.where && r.fixText) { if (!validateCustomerText(r.fixText, g, r.where.field).length && setAt(d, r.where, r.fixText)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
+      });
+      // a page whose every section was removed must not stay in the nav
+      d.pages = (d.pages || []).filter((p, i) => i === 0 || (p.sections || []).length);
+      return { direction: d, changes };
+    }
+
+    // ---- whole-site critique (one strong-model call) ----------------------------------------------------------------------------------
+    const CRITERIA = [
+      'BUSINESS_CONSISTENCY: does every page and section describe the SAME kind of business as the grounding says?',
+      'CROSS_PAGE_CONSISTENCY: do page names, nav labels, tone, CTAs and terminology agree across pages?',
+      'FACTUAL_GROUNDING: is any fact (product, price, place, policy, staff, history) asserted that is not in the description?',
+      'CTA_CONSISTENCY: does every button label fit this business and one primary action?',
+      'IMAGE_SUBJECT_RELEVANCE: does every image prompt depict this business\'s actual subject, and agree with the others?',
+      'SECONDARY_PAGE_DEPTH: does each non-home page have enough grounded substance for its purpose (without inventing)?',
+      'COPY_SPECIFICITY: is any copy generic filler, or a builder instruction shown as if it were customer copy?',
+      'INVENTED_TRUST_SIGNALS: testimonials, ratings, awards, years, guarantees, "verified" claims, customer counts?',
+      'WRONG_BUSINESS_CONCEPTS: words or sections from a different kind of business (menu/reserve/guest on a store, plan tiers on a store, shop language on software)?',
+      'PAGE_PURPOSE_CLARITY: is each page\'s purpose clear to a customer?',
+    ];
+    const CRITIC_TOOL = {
+      name: 'report_semantic_defects', description: 'Report up to 8 concrete defects across the WHOLE site. Empty list if none. Fix text must be customer-ready and must not invent facts.',
+      input_schema: { type: 'object', additionalProperties: false, required: ['defects'], properties: { defects: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['category', 'code', 'severity', 'evidence'], properties: {
+        category: { type: 'string', enum: SEMANTIC_CATEGORIES }, code: { type: 'string', maxLength: 60 }, severity: { type: 'integer', enum: [1, 2, 3] },
+        where: { type: 'string', enum: ['hero', 'page', 'section', 'image', 'site'] }, targetId: { type: 'string', maxLength: 90, description: 'section id, page slug (empty string for Home), or image slot' },
+        field: { type: 'string', enum: ['kicker', 'headline', 'sub', 'cta', 'label', 'purpose', 'body', 'ctaLabel'] },
+        evidence: { type: 'string', maxLength: 240 }, fixKind: { type: 'string', enum: ['remove_section', 'apply_fix_text', 'none'] }, fixText: { type: 'string', maxLength: 220 } } } } } },
+    };
+    function dumpSite(direction) {
+      const L = []; const c = direction.copy || {};
+      L.push(`HERO: kicker="${c.kicker || ''}" headline="${c.headline || ''}" sub="${c.sub || ''}" cta="${c.cta || ''}"`);
+      (direction.pages || []).forEach((p, i) => {
+        L.push(`PAGE ${i === 0 ? 'Home' : p.label} (slug="${p.slug || ''}") purpose="${p.purpose || ''}"`);
+        (p.sections || []).forEach(s => { const cp = s.copy || {}; L.push(`  - ${s.type} id=${s.id} ${Object.keys(cp).filter(k => typeof cp[k] === 'string').map(k => `${k}="${cp[k].slice(0, 120)}"`).join(' ')}`); });
+      });
+      (direction.imagePlan || []).forEach(e => { if (e.prompt) L.push(`IMAGE ${e.slot} [${e.sourceType}]: ${String(e.prompt).slice(0, 170)}`); });
+      return L.join('\n').slice(0, 7000);
+    }
+    function buildSemanticCritique(direction, g, remainingNote) {
+      const grounding = [`Business: ${g.businessType} (${g.family}); sells: ${g.salesModel}; location: ${g.location || 'not supplied'}`,
+        `Customer wrote: "${g.verifiedFacts.description}"`, `Primary action: ${g.primaryCTA}. Pricing supplied: ${g.pricingModel !== 'none-supplied'}. Testimonials supplied: ${g.testimonialAvailability === 'supplied'}. Team info supplied: ${g.teamAvailability === 'supplied'}.`,
+        `NOT supplied (must not be asserted): ${g.unsupportedFacts.join('; ')}`, `Words that belong to a different kind of business: ${g.forbiddenWords.join(', ')}`,
+        g.imagerySubjects ? `Image subjects should be: ${g.imagerySubjects.hero}` : ''].filter(Boolean).join('\n');
+      return { system: 'You review a generated small-business website against the customer\'s own description. Judge the WHOLE site together. Report only concrete, checkable defects with evidence; propose customer-ready replacement text only when it invents nothing. Do not give an overall opinion.',
+        user: `GROUNDING\n${grounding}\n\nCRITERIA\n- ${CRITERIA.join('\n- ')}\n\nWHOLE SITE\n${dumpSite(direction)}${remainingNote ? '\n\n' + remainingNote : ''}` };
+    }
+    function parseSemanticCritique(input, direction, g) {
+      if (!input || !Array.isArray(input.defects)) return [];
+      const out = [];
+      input.defects.slice(0, 8).forEach(d => {
+        if (!d || !SEMANTIC_CATEGORIES.includes(d.category)) return;
+        const defect = { category: d.category, code: String(d.code || 'critic_defect').slice(0, 60), severity: [1, 2, 3].includes(d.severity) ? d.severity : 1, detail: String(d.evidence || '').slice(0, 240), source: 'semantic_critique', target: { kind: d.where || 'site', id: d.targetId || null } };
+        if (d.fixKind === 'remove_section' && d.where === 'section' && d.targetId) defect.repair = { kind: 'remove_section', targetId: d.targetId };
+        else if (d.fixKind === 'apply_fix_text' && d.fixText && d.field) {
+          const kind = d.where === 'hero' ? 'hero' : d.where === 'page' ? 'page' : d.where === 'section' ? 'section' : null;
+          if (kind) defect.repair = { kind: 'apply_fix_text', where: { kind, id: kind === 'hero' ? 'hero' : (d.targetId || (kind === 'page' ? 'home' : '')), field: d.field }, fixText: String(d.fixText) };
+        }
+        out.push(defect);
+      });
+      return out;
+    }
+
+    function summarizeSemantic(defects) {
+      const categories = {}; SEMANTIC_CATEGORIES.forEach(c => { const ds = defects.filter(d => d.category === c && d.severity > 0); categories[c] = ds.some(d => d.severity >= 3) ? 'FAIL' : ds.length ? 'NEEDS_REPAIR' : 'PASS'; });
+      return categories;
+    }
+
+    module.exports = { SEMANTIC_CATEGORIES, INTERNAL_PATTERNS, FAKE_PROOF, GENERIC, eachString, checkSemantics, applyRepairs, validateCustomerText, buildSemanticCritique, parseSemanticCritique, CRITIC_TOOL, summarizeSemantic, dumpSite, briefHit, ROLE_OF_PAGE };
+
+  });
   __define("strategy", function (module, exports, require) {
     'use strict';
     // One strong business/creative strategy object that drives the WHOLE site
@@ -1816,7 +2296,9 @@
         sectionHierarchy: prof.hierarchy.slice(),
         pagePriorities: prof.hierarchy.slice(0, 3),
         location: clean(inp.location || '', 80) || null,
-        imageSubjects: subjects,
+        // V3: when a business grounding is supplied, its sub-vertical imagery (e.g. skincare products) replaces the generic category subjects
+        imageSubjects: (inp.grounding && inp.grounding.imagerySubjects) ? Object.assign({}, subjects, inp.grounding.imagerySubjects) : subjects,
+        imageAvoid: (inp.grounding && inp.grounding.imageryAvoid) || [],
       };
     }
 

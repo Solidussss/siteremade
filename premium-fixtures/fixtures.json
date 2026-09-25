@@ -38,5 +38,10 @@
     "id": "nonprofit",
     "label": "Community / nonprofit",
     "text": "Community food bank in Winnipeg. We collect and distribute groceries to local families, run a weekly pantry and welcome volunteers and donations of food or time."
+  },
+  {
+    "id": "skincare",
+    "label": "Retail / skincare store",
+    "text": "Online skincare store in Vancouver selling gentle cleansers, serums and moisturizers made for sensitive skin. Free shipping over $60 and easy 30 day returns."
   }
 ]

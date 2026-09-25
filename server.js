@@ -2290,6 +2290,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
   const deps = {
     selfRecorded: true,
     critic: ANTHROPIC_API_KEY ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 900, taskType: 'QUALITY_REPAIR', projectId, generationId, phase: 'first_draft' }) : undefined,
+    semanticCritic: (premiumCore.cfg.groundingV3 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 1100, taskType: 'SEMANTIC_CRITIQUE', projectId, generationId, phase: 'first_draft' }) : undefined,
     regenerateImage: activeImageProvider.configured() ? async spec => generateImageWithCredits({ accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
     rewriteCopy: ANTHROPIC_API_KEY ? async ({ targetId, field, maxChars, removeClaim, direction: cur }) => {
       const current = premiumCurrentCopy(cur, targetId, field);
@@ -2305,11 +2306,17 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
   try {
     const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true, compositionV2: premiumCore.cfg.compositionV2 }, deps);
     const d = out.direction;
+    const idsOf = dir => new Set((dir.pages || []).flatMap(p => (p.sections || []).map(s => s && s.id)));
+    const beforeIds = idsOf(direction), afterIds = idsOf(d);
+    const semRemoved = [...beforeIds].filter(id => !afterIds.has(id)), semAdded = [...afterIds].filter(id => !beforeIds.has(id));
     const patch = {
+      pages: (d.pages || []).map(p => ({ id: p.id || p.slug, label: p.label, purpose: p.purpose === undefined ? null : p.purpose })),
+      archetype: (d.strategy && d.strategy.archetype) || null,
+      removedPages: (direction.pages || []).map(p => p.id || p.slug).filter(id => !(d.pages || []).some(p => (p.id || p.slug) === id)),
       copy: d.copy || null,
       sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, copy: s.copy || null }))),
-      addedSections: out.actions.filter(a => a.sectionId).map(a => a.sectionId),
-      removedSections: out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]),
+      addedSections: [...new Set(out.actions.filter(a => a.sectionId).map(a => a.sectionId).concat(semAdded))],
+      removedSections: [...new Set(out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]).concat(semRemoved))],
       imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),
       generated: Object.fromEntries(out.actions.filter(a => a.kind === 'regenerate_image' && d.assets && d.assets.generated && d.assets.generated[a.slot] && d.assets.generated[a.slot].dataUrl).map(a => [a.slot, { status: 'ready', dataUrl: d.assets.generated[a.slot].dataUrl }])),
       premiumTokens: (d.design && d.design.premiumTokens) || null,
@@ -2317,7 +2324,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
       premium: d.premium || null,
     };
     const log = session.finish();
-    return res.json({ ok: true, generationId, repaired: out.repaired, before: out.before, after: out.after, actions: out.actions.map(a => ({ kind: a.kind, defectCode: a.defectCode, target: a.target || null, downgradedFrom: a.downgradedFrom || null })), skipped: out.skipped, patch, timingsMs: log.timingsMs });
+    return res.json({ ok: true, generationId, repaired: out.repaired || !!(out.semantic && out.semantic.changes.length), before: out.before, after: out.after, semantic: out.semantic ? { changes: out.semantic.changes, log: out.semantic.log, before: out.semantic.before, after: out.semantic.after } : null, actions: out.actions.map(a => ({ kind: a.kind, defectCode: a.defectCode, target: a.target || null, downgradedFrom: a.downgradedFrom || null })), skipped: out.skipped, patch, timingsMs: log.timingsMs });
   } catch (error) {
     console.error('Premium review/repair failed:', error);
     return res.status(200).json({ ok: false, message: 'Quality review was skipped.' });
