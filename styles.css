@@ -2452,3 +2452,43 @@ body.generation-gate-open{overflow:hidden}
   .builder-site[data-comp="v2"] [data-comp-moment="fullbleed"] :is(.site-section-label,.site-section-intro){padding-left:22px;padding-right:22px}
   .builder-site[data-comp="v2"] .site-footer-main{flex-direction:column;align-items:flex-start}
 }
+
+/* ==== PREMIUM_VISUALS_V4: starter visuals (deterministic SVG). Themed entirely from the site's own tokens. ==== */
+.visual-starter{position:relative;width:100%;height:100%;min-height:160px;overflow:hidden;border-radius:inherit;background:var(--site-bg)!important;border:0!important;animation:none!important}
+.visual-starter::before,.visual-starter::after{content:none!important}
+.visual-starter .starter-svg{display:block;width:100%;height:100%;min-height:inherit}
+.starter-svg .sv-bg{fill:color-mix(in srgb,var(--site-accent) 7%,var(--site-bg))}
+.starter-svg .sv-soft{fill:color-mix(in srgb,var(--site-accent) 14%,transparent)}
+.starter-svg .sv-panel{fill:color-mix(in srgb,var(--site-text) 5%,var(--site-bg));stroke:color-mix(in srgb,var(--site-text) 14%,transparent);stroke-width:1}
+.starter-svg .sv-panel-top{fill:color-mix(in srgb,var(--site-text) 9%,var(--site-bg))}
+.starter-svg .sv-side{fill:color-mix(in srgb,var(--site-text) 7%,var(--site-bg))}
+.starter-svg .sv-card{fill:color-mix(in srgb,var(--site-text) 7%,var(--site-bg));stroke:color-mix(in srgb,var(--site-text) 13%,transparent);stroke-width:1}
+.starter-svg .sv-card-hi{fill:color-mix(in srgb,var(--site-accent) 16%,var(--site-bg));stroke:color-mix(in srgb,var(--site-accent) 55%,transparent);stroke-width:1.2}
+.starter-svg .sv-row{fill:color-mix(in srgb,var(--site-text) 5%,var(--site-bg))}
+.starter-svg .sv-bar{fill:color-mix(in srgb,var(--site-text) 26%,var(--site-bg))}
+.starter-svg .sv-bar-dim{fill:color-mix(in srgb,var(--site-text) 14%,var(--site-bg))}
+.starter-svg .sv-accent{fill:var(--site-accent)}
+.starter-svg .sv-dot{fill:var(--site-accent)}
+.starter-svg .sv-dot-dim{fill:color-mix(in srgb,var(--site-text) 30%,var(--site-bg))}
+.starter-svg .sv-line{stroke:color-mix(in srgb,var(--site-text) 20%,transparent);stroke-width:1;fill:none}
+.starter-svg .sv-grid{stroke:color-mix(in srgb,var(--site-text) 8%,transparent);stroke-width:1}
+.starter-svg .sv-path{stroke:var(--site-accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.starter-svg .sv-area{fill:color-mix(in srgb,var(--site-accent) 18%,transparent)}
+.starter-svg .sv-label{fill:color-mix(in srgb,var(--site-text) 78%,transparent);font:600 14px var(--site-font-body,system-ui,sans-serif)}
+.starter-svg .sv-label-sm{fill:color-mix(in srgb,var(--site-text) 55%,transparent);font:600 11px var(--site-font-body,system-ui,sans-serif);letter-spacing:.04em}
+.starter-svg .sv-mono{fill:var(--site-bg);font:700 64px var(--site-font-heading,system-ui,sans-serif)}
+.starter-svg .sv-stop-a{stop-color:var(--site-accent);stop-opacity:.28}
+.starter-svg .sv-stop-b{stop-color:var(--site-accent-2,var(--site-accent));stop-opacity:.22}
+.starter-svg .sv-stop-0{stop-color:var(--site-bg);stop-opacity:0}
+/* the starter fills whatever frame its slot already has; product/hero frames must not collapse the way an empty slot did */
+.product-frame:has(.visual-starter),.editorial-visual:has(.visual-starter){height:auto!important;aspect-ratio:16/10}
+.about-visual:has(.visual-starter){aspect-ratio:4/3;min-height:180px}
+.hero-product-body:has(.visual-starter){height:auto!important;overflow:hidden}
+.hero-product-body .visual-starter{aspect-ratio:16/8;height:auto;max-height:520px}
+.dash-panel-visual .visual-starter{aspect-ratio:16/10;height:auto}
+.site-visual:has(.visual-starter){aspect-ratio:16/10}
+/* customizer only (preview, never the export): replace affordance on starter media */
+.builder-site .visual-starter[data-replaceable]{cursor:pointer}
+.starter-replace{position:absolute;right:10px;bottom:10px;z-index:3;padding:6px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--site-text) 25%,transparent);background:color-mix(in srgb,var(--site-bg) 82%,transparent);color:var(--site-text);font:600 12px system-ui,sans-serif;opacity:0;transition:opacity .15s;backdrop-filter:blur(6px);cursor:pointer}
+.visual-starter:hover .starter-replace,.starter-replace:focus-visible{opacity:1}
+@media (hover:none){.starter-replace{opacity:.92}}

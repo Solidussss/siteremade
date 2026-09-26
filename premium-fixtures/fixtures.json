@@ -43,5 +43,10 @@
     "id": "skincare",
     "label": "Retail / skincare store",
     "text": "Online skincare store in Vancouver selling gentle cleansers, serums and moisturizers made for sensitive skin. Free shipping over $60 and easy 30 day returns."
+  },
+  {
+    "id": "tech-ai",
+    "label": "Technology / AI software (live failure)",
+    "text": "Technology company building modern AI software. Tools for creative teams. Los Angeles."
   }
 ]

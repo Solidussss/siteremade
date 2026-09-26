@@ -2291,6 +2291,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
     selfRecorded: true,
     critic: ANTHROPIC_API_KEY ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 900, taskType: 'QUALITY_REPAIR', projectId, generationId, phase: 'first_draft' }) : undefined,
     semanticCritic: (premiumCore.cfg.groundingV3 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 1100, taskType: 'SEMANTIC_CRITIQUE', projectId, generationId, phase: 'first_draft' }) : undefined,
+    visualBrief: (premiumCore.cfg.visualsV4 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 300, taskType: 'VISUAL_BRIEF', projectId, generationId, phase: 'first_draft' }) : undefined,
     regenerateImage: activeImageProvider.configured() ? async spec => generateImageWithCredits({ accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
     rewriteCopy: ANTHROPIC_API_KEY ? async ({ targetId, field, maxChars, removeClaim, direction: cur }) => {
       const current = premiumCurrentCopy(cur, targetId, field);
@@ -2312,6 +2313,8 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
     const patch = {
       pages: (d.pages || []).map(p => ({ id: p.id || p.slug, label: p.label, purpose: p.purpose === undefined ? null : p.purpose })),
       archetype: (d.strategy && d.strategy.archetype) || null,
+      starter: (d.design && d.design.premium && d.design.premium.vs) ? 1 : 0,
+      visualBrief: out.visualBrief || null,
       removedPages: (direction.pages || []).map(p => p.id || p.slug).filter(id => !(d.pages || []).some(p => (p.id || p.slug) === id)),
       copy: d.copy || null,
       sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, copy: s.copy || null }))),

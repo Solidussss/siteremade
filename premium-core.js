@@ -457,6 +457,9 @@
         compositionV2: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_COMPOSITION_V2),
         // V3: business grounding + one whole-site semantic critique + one small targeted repair. Sub-flag, default OFF, requires V1.
         groundingV3: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_GROUNDING_V3),
+        // V4: fully-dressed first output -- starter visuals (deterministic SVG), industry visual profiles, completeness + visual critique.
+        // Sub-flag, default OFF, requires V1 AND V3 (the industry visual profile is derived from the business grounding).
+        visualsV4: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_GROUNDING_V3) && truthy(env.PREMIUM_VISUALS_V4),
         budgets: {
           TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.5),
           TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 3.0),
@@ -1076,16 +1079,23 @@
           }
           notes.push(`${s.slot}: supplied image is low resolution; considering a generated alternative`);
         }
+        // V4: the industry visual profile may decide a role is better served by a deterministic starter visual (product UI, diagram,
+        // chart, brand graphic) than by an image model. Costs $0 and is identical in the preview and the export.
+        const vprof = strategy.visualProfile ? require('./visuals').PROFILES[strategy.visualProfile] : null;
+        const vmedia = vprof ? (vprof.media[role] || 'PHOTO') : null;
+        if (vprof && role !== 'testimonial' && require('./visuals').DETERMINISTIC.has(vmedia) && role !== 'team') {
+          out[i] = Object.assign(base, { sourceType: 'designed', reason: 'starter_visual', starter: true, mediaType: vmedia, estimatedUsd: 0 }); return;
+        }
         // never fabricate people / projects / testimonials
         if (role === 'testimonial') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'no_generated_image_for_testimonials', omitImage: true, estimatedUsd: 0 }); return; }
-        if (role === 'team') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_team_photos_only', omitImage: true, estimatedUsd: 0 }); return; }
+        if (role === 'team') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_team_photos_only', omitImage: true, estimatedUsd: 0 }, vprof ? { starter: true, mediaType: 'ABSTRACT_GRAPHIC' } : {}); return; }
         if (role === 'gallery' && !GALLERY_GENERATION_OK.includes(strategy.archetype)) { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_project_media_only', omitImage: true, estimatedUsd: 0 }); return; }
         // 3/4. generated photography or abstract graphic, by budget tier
         const tier = ROLE_TIER[role];
         const cap = cfg.imageTierCaps[tier] != null ? cfg.imageTierCaps[tier] : 0;
         const options = (ROUTE_LADDER[tier] || []).map(([k, q]) => routeOption(cfg, tier, k, q, aspect)).filter(o => o.estimatedUsd <= cap + 1e-9)
           .filter(o => !credits || (o.kind === 'premium' ? credits.premium : credits.support) <= creditsLeft);
-        if (!options.length) { out[i] = Object.assign(base, { sourceType: 'designed', reason: credits ? 'credits_or_tier_cap' : 'tier_cap', omitImage: role !== 'hero', estimatedUsd: 0 }); return; }
+        if (!options.length) { out[i] = Object.assign(base, { sourceType: 'designed', reason: credits ? 'credits_or_tier_cap' : 'tier_cap', omitImage: role !== 'hero', estimatedUsd: 0 }, vprof ? { starter: true, mediaType: 'GRAPHIC_FALLBACK' } : {}); return; }
         const d = governor.decide({ operation: 'image_generation', phase: 'first_draft', priority: tier === 'hero' ? 'critical' : (tier === 'primary' && primaryFunded < MAX_NORMAL_PRIMARY) ? 'normal' : 'optional', estimatedUsd: options[0].estimatedUsd, id: options[0].id, fallbacks: options.slice(1), committedUsd: committed });
         if (!d.allowed) { out[i] = Object.assign(base, { sourceType: 'designed', reason: d.reason, budgetLimitReached: d.budgetLimitReached, estimatedUsd: 0 }); return; }
         const route = d.choice;
@@ -1152,6 +1162,7 @@
     const stampLib = require('./comp-stamp');
     const groundingLib = require('./grounding');
     const semanticLib = require('./semantic');
+    const visualsLib = require('./visuals');
     const metricsLib = require('./metrics');
     const { textCostUsd, imageCostUsd } = require('./cost-ledger');
 
@@ -1205,7 +1216,9 @@
       }
       async semanticPass(direction, c, d) {
         const g = this.groundingFor(direction, c); this.grounding = g;
-        const before = semanticLib.checkSemantics(direction, g, c);
+        const visualsOn = !!(c.visualsV4 && this.cfg.visualsV4);
+        let before = semanticLib.checkSemantics(direction, g, c);
+        if (visualsOn) before = before.concat(visualsLib.checkVisuals(direction, c));
         const det = semanticLib.applyRepairs(direction, before, g);
         let work = det.direction; let changes = det.changes.slice(); let criticDefects = []; let criticRan = false;
         if (typeof d.semanticCritic === 'function') {
@@ -1214,23 +1227,41 @@
           const dec = this.governor.decide({ operation: 'semantic_critique', phase: 'first_draft', priority: 'high', estimatedUsd: est, subBudget: { spentUsd: this.semanticSpent(), ceilingUsd: B.SEMANTIC_REVIEW_TARGET_USD } });
           if (dec.allowed) {
             try {
-              const p = semanticLib.buildSemanticCritique(work, g);
+              const p = semanticLib.buildSemanticCritique(work, g, null, visualsOn ? { criteria: visualsLib.VISUAL_CRITERIA, lines: visualsLib.visualLines(work) } : null);
               const res = await this.time('semanticCritique', () => d.semanticCritic({ system: p.system, user: p.user, tool: semanticLib.CRITIC_TOOL }));
               if (!d.selfRecorded) this.recordText({ operation: 'semantic_critique', usage: res.usage, phase: 'first_draft' });
-              criticDefects = semanticLib.parseSemanticCritique(res.input, work, g); criticRan = true;
+              criticDefects = semanticLib.parseSemanticCritique(res.input, work, g, { visuals: visualsOn }); criticRan = true;
             } catch (e) { this.semanticError = String(e && e.message || e); }
           } else this.semanticSkipped = dec.reason;
         }
         // one small repair pass: the highest-impact critic findings that carry a concrete, validated fix (max 5)
         const ranked = criticDefects.filter(x => x.repair).sort((a, b) => b.severity - a.severity).slice(0, 5);
         const fixed = semanticLib.applyRepairs(work, ranked, g); work = fixed.direction; changes = changes.concat(fixed.changes);
-        const afterDefects = semanticLib.checkSemantics(work, g, c);
+        let afterDefects = semanticLib.checkSemantics(work, g, c);
+        if (visualsOn) afterDefects = afterDefects.concat(visualsLib.checkVisuals(work, c));
         const all = before.concat(criticDefects);
         const by = {}; all.forEach(x => { if (x.severity > 0) by[x.category] = (by[x.category] || 0) + 1; });
         this.semanticLog = { found: all.filter(x => x.severity > 0).length, deterministicFound: before.length, criticFound: criticDefects.length, criticRan, repairsApplied: changes.length, byCategory: by,
           wrongBusiness: (by.WRONG_BUSINESS_CONCEPTS || 0) + (by.BUSINESS_CONSISTENCY || 0), invented: (by.INVENTED_TRUST_SIGNALS || 0) + (by.FACTUAL_GROUNDING || 0), cta: by.CTA_CONSISTENCY || 0, imageSubject: by.IMAGE_SUBJECT_RELEVANCE || 0, secondaryDepth: by.SECONDARY_PAGE_DEPTH || 0, internalText: (by.PAGE_PURPOSE_CLARITY || 0) + (by.COPY_SPECIFICITY || 0),
-          criticCostUsd: Math.round(this.semanticSpent() * 1e6) / 1e6, skipped: this.semanticSkipped || null };
+          criticCostUsd: Math.round(this.semanticSpent() * 1e6) / 1e6, skipped: this.semanticSkipped || null,
+          visuals: visualsOn ? { defects: all.filter(x => x.severity > 0 && semanticLib.VISUAL_CATEGORIES.includes(x.category)).length, byCategory: Object.fromEntries(semanticLib.VISUAL_CATEGORIES.map(k => [k, (by[k] || 0)]).filter(x => x[1])) } : null };
         return { direction: work, changes, before: semanticLib.summarizeSemantic(all), after: semanticLib.summarizeSemantic(afterDefects), remaining: afterDefects.filter(x => x.severity > 0), grounding: g, log: this.semanticLog };
+      }
+      // ---- V4: ONE small strong-model call that tailors the starter product visual (its four workflow labels) to THIS product ----------
+      async visualBriefPass(direction, c, d) {
+        if (!(this.cfg.visualsV4 && typeof d.visualBrief === 'function')) return null;
+        let ctx; try { ctx = visualsLib.contextFor(direction); } catch (e) { return null; }
+        if (ctx.profile.id !== 'tech') return null; // photography businesses do not need a product-UI brief
+        const est = textCostUsd(this.cfg, 'strong', { inputTokens: 500, outputTokens: 120 });
+        const dec = this.governor.decide({ operation: 'visual_brief', phase: 'first_draft', priority: 'normal', estimatedUsd: est });
+        if (!dec.allowed) { this.visualBriefSkipped = dec.reason; return null; }
+        try {
+          const p = visualsLib.buildBriefPrompt(c.description, this.grounding || null);
+          const res = await this.time('visualBrief', () => d.visualBrief({ system: p.system, user: p.user, tool: visualsLib.BRIEF_TOOL }));
+          if (!d.selfRecorded) this.recordText({ operation: 'visual_brief', usage: res.usage, phase: 'first_draft' });
+          const b = visualsLib.validateBrief(res.input, c.description);
+          return b ? visualsLib.encodeBrief(b) : null;
+        } catch (e) { this.visualBriefError = String(e && e.message || e); return null; }
       }
       time(name, fn) { const t = this.now(); const r = fn(); if (r && typeof r.then === 'function') return r.then(v => { this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return v; }); this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return r; }
 
@@ -1256,9 +1287,11 @@
       //                      rewriteCopy({targetId, field, current, constraint}) -> {ok, text, usage}
       async reviewAndRepair(direction, ctx, deps) {
         const d = deps || {};
-        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3 }, ctx || {});
+        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3, visualsV4: !!this.cfg.visualsV4 }, ctx || {});
         let semanticResult = null;
         if (c.groundingV3) { semanticResult = await this.semanticPass(direction, c, d); direction = semanticResult.direction; c.grounding = semanticResult.grounding; }
+        let visualBrief = null;
+        if (c.visualsV4) { visualBrief = await this.visualBriefPass(direction, c, d); if (this.semanticLog) this.semanticLog.visualBrief = !!visualBrief; }
         stateLib.markAllGood(direction);
         let review = this.time('review', () => reviewLib.reviewDirection(direction, c));
         // Optional model critique: ONE call, only if it fits the budget.
@@ -1271,7 +1304,7 @@
               const res = await this.time('critique', () => d.critic({ system: p.system, user: p.user, tool: reviewLib.CRITIQUE_TOOL }));
               if (!d.selfRecorded) this.recordText({ operation: 'whole_site_critique', usage: res.usage, phase: 'first_draft' });
               const extra = reviewLib.parseCritique(res.input);
-              review = reviewLib.summarize(review.defects.concat(extra), !!(direction.mobileReport && direction.mobileReport.widths && direction.mobileReport.widths.length), !!c.compositionV2);
+              review = reviewLib.summarize(review.defects.concat(extra), !!(direction.mobileReport && direction.mobileReport.widths && direction.mobileReport.widths.length), !!c.compositionV2, !!c.groundingV3, !!c.visualsV4);
             } catch (e) { this.critiqueError = String(e && e.message || e); }
           }
         }
@@ -1279,7 +1312,7 @@
         const plan = repairLib.planRepairs(direction, review, this.governor, this.cfg);
         if (!plan.actions.length || this.cfg.retry.maxRepairRounds < 1) {
           this.afterReview = review.categories;
-          return { direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached, semantic: semanticResult };
+          return { direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
         }
         this.repairRan = true;
         const free = repairLib.applyFreeRepairs(direction, plan.actions, { tokens: this.tokens });
@@ -1307,7 +1340,7 @@
         const after = reviewLib.reviewDirection(work, c);
         this.afterReview = after.categories;
         this.repairActions = executed; // what actually changed (planned-but-not-applicable actions are not counted)
-        return { direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached, semantic: semanticResult };
+        return { direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
       }
 
       finish(extra) {
@@ -1328,7 +1361,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -1381,6 +1414,9 @@
           SEMANTIC_REPAIR_RATE: (() => { const s = logs.filter(l => l.semantic); return s.length ? Math.round(s.filter(l => l.semantic.repairsApplied > 0).length / s.length * 1000) / 1000 : null; })(),
           AVERAGE_SEMANTIC_DEFECTS: avg(logs.filter(l => l.semantic).map(l => l.semantic.found)),
           SEMANTIC_DEFECTS_BY_KIND: (() => { const t = { wrongBusiness: 0, invented: 0, cta: 0, imageSubject: 0, secondaryDepth: 0, internalText: 0 }; logs.forEach(l => { if (l.semantic) Object.keys(t).forEach(k => { t[k] += l.semantic[k] || 0; }); }); return t; })(),
+          // V4 visuals: how often a first draft needed visual repair (empty visual, weak hero, missing product visual, placeholder text)
+          AVERAGE_VISUAL_DEFECTS: avg(logs.filter(l => l.semantic && l.semantic.visuals).map(l => l.semantic.visuals.defects)),
+          STARTER_VISUAL_SITES: logs.filter(l => l.semantic && l.semantic.visuals).length,
           AVERAGE_SEMANTIC_COST_USD: avg(logs.filter(l => l.semantic).map(l => l.semantic.criticCostUsd || 0)),
           repairRunRate: logs.length ? Math.round(logs.filter(l => l.repairRan).length / logs.length * 1000) / 1000 : null,
           budgetLimitReachedRate: logs.length ? Math.round(logs.filter(l => l.budgetLimitReached).length / logs.length * 1000) / 1000 : null,
@@ -1483,7 +1519,7 @@
     const OPERATIONS = Object.freeze({
       // STRONG: positioning, art direction, architecture, hierarchy, image roles, critique, hard repair
       understand_business: 'strong', art_direction: 'strong', page_architecture: 'strong', section_hierarchy: 'strong',
-      image_role_planning: 'strong', whole_site_critique: 'strong', semantic_critique: 'strong', repair_decision: 'strong',
+      image_role_planning: 'strong', whole_site_critique: 'strong', semantic_critique: 'strong', visual_brief: 'strong', repair_decision: 'strong',
       // CHEAP: extraction, classification, repetitive fields, basic rewrites
       extraction: 'cheap', classification: 'cheap', field_generation: 'cheap', copy_rewrite_basic: 'cheap',
       // DETERMINISTIC: no model
@@ -1520,12 +1556,13 @@
       // PREMIUM_COMPOSITION_V2 (page-level composition). Reported NOT_APPLICABLE unless the composition flag is on for the site.
       'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION',
       // PREMIUM_GROUNDING_V3 (business grounding + semantic review). NOT_APPLICABLE unless the flag is on.
+      'FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY',
       'BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE', 'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY'];
     const semantic = require('./semantic');
     const { deriveGrounding } = require('./grounding');
     const COMPOSITION_CATEGORIES = ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
     // Where a fix pays off most for perceived quality (used to rank the 1-3 repairs we allow).
-    const IMPACT = { WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
+    const IMPACT = { FIRST_DRAFT_COMPLETENESS: 3, MEDIA_COMPLETENESS: 3, PLACEHOLDER_LEAKAGE: 3, HERO_VISUAL_STRENGTH: 3, PRODUCT_VISUAL_EXPLANATION: 2, INDUSTRY_VISUAL_FIT: 2, VISUAL_DEPTH: 1, PAGE_VISUAL_VARIETY: 1, WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
 
     const GENERIC_PHRASES = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bpassion for excellence\b/i, /\bcommitted to excellence\b/i];
     // Claims a site must not make unless the customer supplied them.
@@ -1654,11 +1691,12 @@
       if (c.groundingV3) {
         const g = c.grounding || deriveGrounding({ description: c.description, categoryKey: direction.business && direction.business.categoryKey, archetype: (direction.strategy && direction.strategy.archetype) || (strategy && strategy.archetype), location: direction.source && direction.source.location, facts: c.facts, hasTeamAssets: ((direction.assets && direction.assets.items) || []).some(a => a.type === 'team') });
         semantic.checkSemantics(direction, g, c).forEach(d => add(d));
+        if (c.visualsV4) require('./visuals').checkVisuals(direction, c).forEach(d => add(d));
       }
-      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false, !!c.compositionV2, !!c.groundingV3);
+      return summarize(defects, mobile && mobile.widths && mobile.widths.length ? true : false, !!c.compositionV2, !!c.groundingV3, !!c.visualsV4);
     }
 
-    function summarize(defects, mobileMeasured, compositionOn, groundingOn) {
+    function summarize(defects, mobileMeasured, compositionOn, groundingOn, visualsOn) {
       const categories = {};
       CATEGORIES.forEach(cat => {
         const ds = defects.filter(d => d.category === cat && d.severity > 0);
@@ -1666,6 +1704,7 @@
       });
       if (!compositionOn) COMPOSITION_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
       if (!groundingOn) semantic.SEMANTIC_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
+      if (!visualsOn) semantic.VISUAL_CATEGORIES.forEach(k => { categories[k] = 'NOT_APPLICABLE'; });
       if (!mobileMeasured) categories.MOBILE_READINESS = defects.some(d => d.category === 'MOBILE_READINESS' && d.severity > 0) ? categories.MOBILE_READINESS : 'UNVERIFIED';
       return { categories, defects, passing: Object.values(categories).every(v => v === 'PASS' || v === 'UNVERIFIED' || v === 'NOT_APPLICABLE') };
     }
@@ -1951,7 +1990,7 @@
     ];
     // Invented social proof and trust phrases that are never allowed without supplied data.
     const FAKE_PROOF = [/\bverified (customer|buyer|purchase)\b/i, /\bregular guest\b/i, /\b(local|private|happy|satisfied) (customer|client)s?\b(?=\s*$)/i, /\bfive[- ]star\b/i, /\b(customers?|clients?|guests?) (say|said|love|rave)\b/i, /\b(already )?ordered (a )?(second|again)\b/i, /\bfast,? tracked shipping\b/i, /\bfree (shipping|returns)\b/i, /\bbest[- ]?sellers?\b/i, /\btrusted by\b/i];
-    const GENERIC = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bfocused on doing the job right\b/i, /\bwithout the busywork\b/i, /\bcomes? to life\b/i];
+    const GENERIC = [/\bdone right\b/i, /\beverything .{0,50}\bin one place\b/i, /\b(make|feel|feels) (it |docs? |work )?(effortless|seamless)\b/i, /\bfor modern [a-z ]{0,20}software\b/i, /\bbuilt to move fast\b/i, /\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bfocused on doing the job right\b/i, /\bwithout the busywork\b/i, /\bcomes? to life\b/i];
 
     const CTA_SENTENCE = /^[A-Za-z][A-Za-z '&-]{1,40}$/;
     const ROLE_OF_PAGE = label => { const l = String(label || '').toLowerCase(); if (/about|story|who we|our (approach|philosophy)/.test(l)) return 'about'; if (/contact|visit|find us|get in touch|location|hours/.test(l)) return 'contact'; if (/shop|product|collection|store|catalog|menu|services?|work|pricing|plans?/.test(l)) return 'catalog'; return 'other'; };
@@ -1969,6 +2008,8 @@
         });
       });
     }
+    // V4: visual categories (deterministic checks live in visuals.js; the critic may also report them)
+    const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY'];
     const CTA_FIELDS = new Set(['cta', 'ctaLabel']);
     const forbiddenHit = (text, g) => (g.forbiddenWords || []).find(w => wordMatch(text, w)) || null;
     const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text));
@@ -2053,6 +2094,14 @@
       return false;
     }
     function newId(prefix) { return `${prefix}-${Date.now().toString(36)}${Math.random().toString(16).slice(2, 7)}`; }
+    // a product-led site must explain the product visually: insert one productShowcase (its visual is the starter UI) after the first Home section
+    function addProductVisual(direction, g) {
+      const home = (direction.pages || [])[0]; if (!home || !Array.isArray(home.sections)) return false;
+      if (home.sections.some(s => s.type === 'productShowcase' || s.type === 'imageLedEditorial')) return false;
+      const v = SECTION_VARIANTS.productShowcase ? SECTION_VARIANTS.productShowcase[0] : undefined;
+      home.sections.splice(Math.min(1, home.sections.length), 0, { id: newId('productShowcase'), type: 'productShowcase', variant: v, copy: null, intent: 'educate', headlineRole: 'declarative' });
+      return true;
+    }
     const RECIPES = { about: ['about', 'ctaBanner'], contact: ['contact'] };
     function enrichPage(direction, slug, role, g) {
       const p = (direction.pages || []).find(x => (x.slug || 'home') === slug); if (!p) return false;
@@ -2075,6 +2124,9 @@
         } else if (r.kind === 'set_text' && r.where) { if (setAt(d, r.where, r.value)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
         else if (r.kind === 'clear_text' && r.where) { if (setAt(d, r.where, null)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
         else if (r.kind === 'remove_page') { const i = (d.pages || []).findIndex((p, k) => k > 0 && (p.slug || '') === (r.slug || '')); if (i > 0) { d.pages.splice(i, 1); changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); } }
+        else if (r.kind === 'set_hero_variant') { d.design = d.design || {}; d.design.dimensions = Object.assign({}, d.design.dimensions, { hero: r.value }); delete d.design.dimensions.heroDisplayVariant; changes.push({ code: x.code, kind: r.kind, target: 'hero', category: x.category }); }
+        else if (r.kind === 'enable_starter') { d.design = d.design || {}; d.design.premium = Object.assign({}, d.design.premium, { vs: 1 }); (d.imagePlan || []).forEach(e => { if (e.sourceType === 'designed' && /^(hero|product|about|gallery-featured|editorial)/.test(e.slot || '')) e.starter = true; }); changes.push({ code: x.code, kind: r.kind, target: 'starter', category: x.category }); }
+        else if (r.kind === 'add_product_visual') { if (addProductVisual(d, g)) changes.push({ code: x.code, kind: r.kind, target: 'product', category: x.category }); }
         else if (r.kind === 'set_archetype') { d.strategy = Object.assign({}, d.strategy, { archetype: r.value }); changes.push({ code: x.code, kind: r.kind, target: 'archetype', category: x.category }); }
         else if (r.kind === 'enrich_page') { if (enrichPage(d, r.slug, r.role, g)) changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); }
         else if (r.kind === 'rewrite_image_prompt') { const e = (d.imagePlan || []).find(z => z.slot === r.slot); if (e) { e.promptNeedsRewrite = true; changes.push({ code: x.code, kind: r.kind, target: r.slot, category: x.category, note: 'flagged; image already generated' }); } }
@@ -2101,7 +2153,7 @@
     const CRITIC_TOOL = {
       name: 'report_semantic_defects', description: 'Report up to 8 concrete defects across the WHOLE site. Empty list if none. Fix text must be customer-ready and must not invent facts.',
       input_schema: { type: 'object', additionalProperties: false, required: ['defects'], properties: { defects: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['category', 'code', 'severity', 'evidence'], properties: {
-        category: { type: 'string', enum: SEMANTIC_CATEGORIES }, code: { type: 'string', maxLength: 60 }, severity: { type: 'integer', enum: [1, 2, 3] },
+        category: { type: 'string', enum: SEMANTIC_CATEGORIES.concat(VISUAL_CATEGORIES) }, code: { type: 'string', maxLength: 60 }, severity: { type: 'integer', enum: [1, 2, 3] },
         where: { type: 'string', enum: ['hero', 'page', 'section', 'image', 'site'] }, targetId: { type: 'string', maxLength: 90, description: 'section id, page slug (empty string for Home), or image slot' },
         field: { type: 'string', enum: ['kicker', 'headline', 'sub', 'cta', 'label', 'purpose', 'body', 'ctaLabel'] },
         evidence: { type: 'string', maxLength: 240 }, fixKind: { type: 'string', enum: ['remove_section', 'apply_fix_text', 'none'] }, fixText: { type: 'string', maxLength: 220 } } } } } },
@@ -2116,19 +2168,19 @@
       (direction.imagePlan || []).forEach(e => { if (e.prompt) L.push(`IMAGE ${e.slot} [${e.sourceType}]: ${String(e.prompt).slice(0, 170)}`); });
       return L.join('\n').slice(0, 7000);
     }
-    function buildSemanticCritique(direction, g, remainingNote) {
+    function buildSemanticCritique(direction, g, remainingNote, extra) {
       const grounding = [`Business: ${g.businessType} (${g.family}); sells: ${g.salesModel}; location: ${g.location || 'not supplied'}`,
         `Customer wrote: "${g.verifiedFacts.description}"`, `Primary action: ${g.primaryCTA}. Pricing supplied: ${g.pricingModel !== 'none-supplied'}. Testimonials supplied: ${g.testimonialAvailability === 'supplied'}. Team info supplied: ${g.teamAvailability === 'supplied'}.`,
         `NOT supplied (must not be asserted): ${g.unsupportedFacts.join('; ')}`, `Words that belong to a different kind of business: ${g.forbiddenWords.join(', ')}`,
         g.imagerySubjects ? `Image subjects should be: ${g.imagerySubjects.hero}` : ''].filter(Boolean).join('\n');
       return { system: 'You review a generated small-business website against the customer\'s own description. Judge the WHOLE site together. Report only concrete, checkable defects with evidence; propose customer-ready replacement text only when it invents nothing. Do not give an overall opinion.',
-        user: `GROUNDING\n${grounding}\n\nCRITERIA\n- ${CRITERIA.join('\n- ')}\n\nWHOLE SITE\n${dumpSite(direction)}${remainingNote ? '\n\n' + remainingNote : ''}` };
+        user: `GROUNDING\n${grounding}\n\nCRITERIA\n- ${CRITERIA.concat((extra && extra.criteria) || []).join('\n- ')}\n\nWHOLE SITE\n${dumpSite(direction)}${extra && extra.lines && extra.lines.length ? '\n\nVISUALS\n' + extra.lines.join('\n') : ''}${remainingNote ? '\n\n' + remainingNote : ''}` };
     }
-    function parseSemanticCritique(input, direction, g) {
+    function parseSemanticCritique(input, direction, g, opts) {
       if (!input || !Array.isArray(input.defects)) return [];
       const out = [];
       input.defects.slice(0, 8).forEach(d => {
-        if (!d || !SEMANTIC_CATEGORIES.includes(d.category)) return;
+        if (!d || !(SEMANTIC_CATEGORIES.includes(d.category) || (opts && opts.visuals && VISUAL_CATEGORIES.includes(d.category)))) return;
         const defect = { category: d.category, code: String(d.code || 'critic_defect').slice(0, 60), severity: [1, 2, 3].includes(d.severity) ? d.severity : 1, detail: String(d.evidence || '').slice(0, 240), source: 'semantic_critique', target: { kind: d.where || 'site', id: d.targetId || null } };
         if (d.fixKind === 'remove_section' && d.where === 'section' && d.targetId) defect.repair = { kind: 'remove_section', targetId: d.targetId };
         else if (d.fixKind === 'apply_fix_text' && d.fixText && d.field) {
@@ -2145,7 +2197,7 @@
       return categories;
     }
 
-    module.exports = { SEMANTIC_CATEGORIES, INTERNAL_PATTERNS, FAKE_PROOF, GENERIC, eachString, checkSemantics, applyRepairs, validateCustomerText, buildSemanticCritique, parseSemanticCritique, CRITIC_TOOL, summarizeSemantic, dumpSite, briefHit, ROLE_OF_PAGE };
+    module.exports = { VISUAL_CATEGORIES, SEMANTIC_CATEGORIES, INTERNAL_PATTERNS, FAKE_PROOF, GENERIC, eachString, checkSemantics, applyRepairs, validateCustomerText, buildSemanticCritique, parseSemanticCritique, CRITIC_TOOL, summarizeSemantic, dumpSite, briefHit, ROLE_OF_PAGE };
 
   });
   __define("strategy", function (module, exports, require) {
@@ -2299,6 +2351,8 @@
         // V3: when a business grounding is supplied, its sub-vertical imagery (e.g. skincare products) replaces the generic category subjects
         imageSubjects: (inp.grounding && inp.grounding.imagerySubjects) ? Object.assign({}, subjects, inp.grounding.imagerySubjects) : subjects,
         imageAvoid: (inp.grounding && inp.grounding.imageryAvoid) || [],
+        // V4: which industry visual profile decides media types per role (null = legacy behaviour)
+        visualProfile: (inp.visualsV4 && inp.grounding) ? require('./visuals').profileFromGrounding(inp.grounding).id : null,
       };
     }
 
@@ -2319,6 +2373,335 @@
     }
 
     module.exports = { ARCHETYPES, PROFILES, CATEGORY_SUBJECTS, CONVERSION_GOALS, deriveStrategy, normalizeStrategy };
+
+  });
+  __define("visuals", function (module, exports, require) {
+    'use strict';
+    // PREMIUM_VISUALS_V4 -- industry-native starter visuals.
+    //
+    // A generated site must look COMPLETE before the customer uploads anything. Every important visual slot therefore resolves
+    // through one priority ladder (customer upload > verified business asset > generated image > STARTER VISUAL > nothing), and the
+    // starter visual is built here: deterministic inline SVG (zero image-model cost, identical in the live preview and the export).
+    //
+    //   INDUSTRY_VISUAL_PROFILE  <- BUSINESS_GROUNDING (family / sub-type / archetype)
+    //   media type per role      PHOTO | PRODUCT_UI | DIAGRAM | DATA_VISUAL | DEVICE_MOCKUP | ABSTRACT_GRAPHIC | ILLUSTRATION | NONE
+    //   starter kinds            ui-dashboard, ui-workflow, ui-command, ui-canvas, ui-document, diagram-system, data-chart,
+    //                            retail-arrangement, hospitality-scene, trades-blueprint, consult-matrix, portfolio-frames, brand-mark
+    //
+    // HONESTY: product UI starters are conceptual. Labels come from the customer's own description or generic verbs ("Review",
+    // "Publish"); there are NO invented numbers, customer names, logos, ratings or metrics -- bars and lines carry no values.
+    const { wordMatch, deriveGrounding } = require('./grounding');
+
+    const MEDIA_TYPES = ['PHOTO', 'PRODUCT_UI', 'ABSTRACT_GRAPHIC', 'DIAGRAM', 'DATA_VISUAL', 'DEVICE_MOCKUP', 'SCREENSHOT_STYLE_VISUAL', 'ILLUSTRATION', 'NONE'];
+    const DETERMINISTIC = new Set(['PRODUCT_UI', 'DIAGRAM', 'DATA_VISUAL', 'DEVICE_MOCKUP', 'SCREENSHOT_STYLE_VISUAL', 'ABSTRACT_GRAPHIC', 'ILLUSTRATION']);
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+
+    // ---- profiles -----------------------------------------------------------------------------------------------------------
+    // role keys: hero, product, editorial, about, gallery, team, service, decorative
+    const PROFILES = {
+      tech: { id: 'tech', label: 'Technology / SaaS', density: 'high', heroVariant: 'product-screenshot', deterministicFirst: true,
+        media: { hero: 'PRODUCT_UI', product: 'PRODUCT_UI', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
+        treatment: 'interface-led: layered product UI, workflow and system diagrams, technical grid' },
+      retail: { id: 'retail', label: 'Retail', density: 'medium', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'retail-arrangement', treatment: 'product photography, collection imagery, detail shots' },
+      hospitality: { id: 'hospitality', label: 'Restaurant / hospitality', density: 'medium', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'hospitality-scene', treatment: 'food, atmosphere and the space' },
+      trades: { id: 'trades', label: 'Trades / local service', density: 'medium', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'trades-blueprint', treatment: 'project work, materials, finished results' },
+      consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'DIAGRAM', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'consult-matrix', treatment: 'editorial typography, diagrams, restrained imagery' },
+      portfolio: { id: 'portfolio', label: 'Portfolio / creative', density: 'low', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'portfolio-frames', treatment: 'image-dominant, project-first, minimal chrome' },
+      cause: { id: 'cause', label: 'Nonprofit / cause', density: 'medium', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'brand-mark', treatment: 'human, place and impact imagery' },
+      general: { id: 'general', label: 'General', density: 'medium', deterministicFirst: false,
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'ABSTRACT_GRAPHIC', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'brand-mark', treatment: 'clean brand imagery' },
+    };
+    const FAMILY_PROFILE = { saas: 'tech', retail: 'retail', hospitality: 'hospitality', local_service: 'trades', appointments: 'trades', professional: 'consultancy', creative: 'portfolio', nonprofit: 'cause' };
+
+    // ---- product concept (what to draw for a software product) -----------------------------------------------------------------
+    // Detected from the customer's words only. Labels are generic verbs / the customer's own nouns; never data.
+    const CONCEPTS = [
+      { kind: 'ui-dashboard', re: /\b(analytics?|dashboards?|metrics?|reporting|insights?|monitor(ing)?|no[- ]shows?|scheduling|booking|crm|finance|accounting|inventory)\b/i, steps: ['Overview', 'Activity', 'Trends', 'Reports'], panels: ['Overview', 'Activity', 'Team'] },
+      { kind: 'ui-document', re: /\b(documents?|contracts?|invoices?|pdfs?|paperwork|forms?|extract(ion)?|ocr|receipts?)\b/i, steps: ['Upload', 'Extract', 'Review', 'Export'], panels: ['Document', 'Fields', 'Review'] },
+      { kind: 'ui-canvas', re: /\b(creative|design(ers?)?|canvas|video|photo|music|audio|illustration|brand(ing)?|studio|edit(ing|or)?|content creators?)\b/i, steps: ['Brief', 'Create', 'Review', 'Publish'], panels: ['Layers', 'Canvas', 'Export'] },
+      { kind: 'ui-workflow', re: /\b(ai|ml|machine learning|agents?|automation|automate|workflows?|pipelines?|models?|copilot|assistant)\b/i, steps: ['Input', 'Understand', 'Review', 'Deliver'], panels: ['Assistant', 'Workflow', 'Output'] },
+      { kind: 'diagram-system', re: /\b(api|integrations?|infrastructure|developer|devops|cloud|platform|security|network)\b/i, steps: ['Source', 'Platform', 'Actions', 'Apps'], panels: ['Sources', 'Platform', 'Apps'] },
+    ];
+    function deriveConcept(text, businessType) {
+      const t = String(text || '') + ' ' + String(businessType || '');
+      for (const c of CONCEPTS) if (c.re.test(t)) return { kind: c.kind, steps: c.steps.slice(), panels: c.panels.slice() };
+      return { kind: 'ui-dashboard', steps: ['Overview', 'Activity', 'Trends', 'Reports'], panels: ['Overview', 'Activity', 'Team'] };
+    }
+    // "kind|s1|s2|s3|s4" (<=200 chars): the ONE flat string persisted under design.premium.vb when a model refined the labels.
+    function encodeBrief(b) { return [b.kind].concat(b.steps || []).map(x => clip(x, 22).replace(/\|/g, ' ')).join('|').slice(0, 200); }
+    function decodeBrief(str, base) {
+      const parts = String(str || '').split('|').map(x => x.trim()).filter(Boolean); if (parts.length < 4) return base;
+      const kinds = CONCEPTS.map(c => c.kind);
+      const kind = kinds.includes(parts[0]) ? parts[0] : base.kind;
+      return { kind, steps: parts.slice(1, 5).map(x => clip(x, 22)), panels: base.panels };
+    }
+    const BRIEF_TOOL = {
+      name: 'submit_visual_brief', description: 'Describe the starter product visual for a software website. Conceptual only: NO numbers, NO customer names, NO metrics, NO logos.',
+      input_schema: { type: 'object', additionalProperties: false, required: ['kind', 'steps'], properties: {
+        kind: { type: 'string', enum: CONCEPTS.map(c => c.kind) },
+        steps: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'string', maxLength: 22, description: 'One or two words, Title Case, generic verb or noun from THIS product\'s workflow' } } } },
+    };
+    function validateBrief(input, description) {
+      if (!input || !Array.isArray(input.steps) || input.steps.length !== 4) return null;
+      const steps = input.steps.map(s => clip(s, 22));
+      const bad = steps.some(s => !s || /\d/.test(s) || /\b(inc|llc|ltd|acme|corp|verified|\$|%)\b/i.test(s));
+      const kind = CONCEPTS.some(c => c.kind === input.kind) ? input.kind : null;
+      if (bad || !kind) return null;
+      return { kind, steps, panels: (CONCEPTS.find(c => c.kind === kind) || {}).panels || [] };
+    }
+    function buildBriefPrompt(description, g) {
+      return { system: 'You design the starter product visual for a software company website. Be concrete about THIS product\'s workflow, using only what the customer wrote. Never invent numbers, names, customers or metrics.',
+        user: `Business: ${(g && g.businessType) || 'software'}\nCustomer wrote: "${clip(description, 600)}"\nReturn the kind of interface that best explains the product and the four steps of its workflow as 1-2 word labels.` };
+    }
+
+    // ---- profile / concept for a project ------------------------------------------------------------------------------------------
+    function profileFromGrounding(g) {
+      const id = FAMILY_PROFILE[g && g.family] || 'general';
+      return PROFILES[id];
+    }
+    const cache = new WeakMap();
+    function contextFor(project) {
+      const src = (project && project.source) || {};
+      const key = [src.text, project && project.business && project.business.categoryKey, project && project.strategy && project.strategy.archetype, project && project.design && project.design.premium && project.design.premium.vb].join('\u0001');
+      const hit = cache.get(project); if (hit && hit.key === key) return hit.v;
+      let g = null; try { g = deriveGrounding({ description: src.text, categoryKey: project.business && project.business.categoryKey, archetype: project.strategy && project.strategy.archetype, location: src.location, facts: src.facts }); } catch (e) { g = null; }
+      const profile = profileFromGrounding(g);
+      let concept = deriveConcept(src.text, g && g.businessType);
+      concept = decodeBrief(project && project.design && project.design.premium && project.design.premium.vb, concept);
+      const v = { g, profile, concept, name: (project && project.business && project.business.name) || '' };
+      cache.set(project, { key, v }); return v;
+    }
+    function mediaTypeFor(profile, role) { return (profile && profile.media[role]) || 'PHOTO'; }
+    function enabled(project) { return !!(project && project.design && project.design.premium && project.design.premium.vs); }
+
+    // ---- SVG builders -------------------------------------------------------------------------------------------------------------
+    // Colours come from the site's own CSS variables through classes (styles.css: .sv-*), so light/dark/brand palettes all work.
+    const W = 640, H = 400;
+    let U = ''; // unique suffix per rendered visual so gradient ids never collide (or vanish inside a hidden page)
+    const svg = (body, vb, label) => `<svg class="starter-svg" viewBox="${vb || `0 0 ${W} ${H}`}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label || 'Illustration')}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+    const r = (x, y, w, h, c, rx) => `<rect class="${c}" x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx == null ? 6 : rx}"/>`;
+    const line = (x1, y1, x2, y2, c) => `<line class="${c || 'sv-line'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    const text = (x, y, s, c, anchor) => `<text class="${c || 'sv-label'}" x="${x}" y="${y}" text-anchor="${anchor || 'start'}">${esc(s)}</text>`;
+    const dots = (n, x, y, gap) => Array.from({ length: n }, (_, i) => `<circle class="sv-dot${i === 0 ? '' : '-dim'}" cx="${x + i * gap}" cy="${y}" r="3.5"/>`).join('');
+    const grid = () => { let s = ''; for (let x = 0; x <= W; x += 40) s += line(x, 0, x, H, 'sv-grid'); for (let y = 0; y <= H; y += 40) s += line(0, y, W, y, 'sv-grid'); return s; };
+    const glow = () => `<defs><radialGradient id="svg-a${U}" cx="30%" cy="20%" r="70%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient><radialGradient id="svg-b${U}" cx="85%" cy="90%" r="60%"><stop offset="0" class="sv-stop-b"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs><rect class="sv-bg" width="${W}" height="${H}"/><rect fill="url(#svg-a${U})" width="${W}" height="${H}"/><rect fill="url(#svg-b${U})" width="${W}" height="${H}"/>`;
+    const win = (x, y, w, h, title) => r(x, y, w, h, 'sv-panel', 12) + r(x, y, w, 26, 'sv-panel-top', 12) + `<circle class="sv-dot" cx="${x + 16}" cy="${y + 13}" r="3.5"/><circle class="sv-dot-dim" cx="${x + 30}" cy="${y + 13}" r="3.5"/><circle class="sv-dot-dim" cx="${x + 44}" cy="${y + 13}" r="3.5"/>` + (title ? text(x + 62, y + 17, title, 'sv-label-sm') : '');
+    // deterministic pseudo-variation from a string so two different sites do not draw the identical chart
+    const seedOf = s => { let h = 2166136261; for (const ch of String(s || 'x')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const rnd = seed => { let s = seed || 1; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; };
+
+    function uiDashboard(c, seed) {
+      const R = rnd(seed); const bars = Array.from({ length: 12 }, () => 0.25 + R() * 0.7);
+      let path = ''; bars.forEach((v, i) => { path += (i ? ' L' : 'M') + (250 + i * 30) + ' ' + (250 - v * 90).toFixed(1); });
+      return svg(glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".5"') + win(28, 26, 584, 348, c.panels[0]) +
+        r(28, 52, 118, 322, 'sv-side', 0) + [0, 1, 2, 3, 4].map(i => r(44, 70 + i * 34, i === 0 ? 86 : 70, 12, i === 0 ? 'sv-accent' : 'sv-bar-dim', 6)).join('') +
+        [0, 1, 2].map(i => r(164 + i * 148, 68, 136, 62, 'sv-card', 10) + text(176 + i * 148, 90, (c.panels[i] || c.steps[i] || 'Overview'), 'sv-label-sm') + r(176 + i * 148, 102, 56 + (i * 17) % 40, 10, i === 0 ? 'sv-accent' : 'sv-bar', 5) + r(176 + i * 148, 116, 90, 6, 'sv-bar-dim', 3)).join('') +
+        r(164, 146, 436, 122, 'sv-card', 10) + text(178, 168, c.steps[1] || 'Activity', 'sv-label-sm') +
+        bars.map((v, i) => r(250 + i * 30 - 8, 250 - v * 90, 16, v * 90, i % 3 === 1 ? 'sv-accent' : 'sv-bar', 4)).join('') + `<path class="sv-path" d="${path}" fill="none"/>` +
+        [0, 1, 2].map(i => r(164, 282 + i * 26, 436, 20, 'sv-row', 6) + r(176, 289 + i * 26, 90 + i * 22, 6, 'sv-bar', 3) + r(520, 289 + i * 26, 60, 6, i === 0 ? 'sv-accent' : 'sv-bar-dim', 3)).join(''), null, 'Dashboard concept');
+    }
+    function uiWorkflow(c) {
+      const X0 = 62, NW = 100, GAP = 44, y = 196; const steps = c.steps;
+      let s = glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".5"') + win(28, 26, 584, 348, 'Workflow');
+      for (let i = 0; i < 3; i++) { const x1 = X0 + i * (NW + GAP) + NW, x2 = x1 + GAP; s += `<path class="sv-path" d="M${x1} ${y} C ${x1 + 18} ${y}, ${x2 - 18} ${y + (i % 2 ? -30 : 30)}, ${x2} ${y}" fill="none"/>`; }
+      steps.forEach((label, i) => { const x = X0 + i * (NW + GAP); s += r(x, y - 44, NW, 88, i === 1 ? 'sv-card-hi' : 'sv-card', 14) + `<circle class="${i === 1 ? 'sv-accent' : 'sv-dot-dim'}" cx="${x + 16}" cy="${y - 26}" r="6"/>` + text(x + NW / 2, y - 18, '0' + (i + 1), 'sv-label-sm', 'middle') + text(x + NW / 2, y + 8, label, 'sv-label', 'middle') + r(x + 16, y + 22, NW - 32, 6, 'sv-bar-dim', 3); });
+      s += r(62, 292, 516, 46, 'sv-card', 12) + text(82, 320, 'Ask or describe what you need…', 'sv-label-sm') + r(520, 304, 44, 22, 'sv-accent', 11);
+      return svg(s, null, 'Workflow concept');
+    }
+    function uiCommand(c) {
+      return svg(glow() + win(80, 44, 480, 312, 'Search') + r(104, 84, 432, 40, 'sv-card-hi', 10) + text(122, 109, 'Ask or search…', 'sv-label') + r(492, 94, 32, 20, 'sv-accent', 6) +
+        c.steps.map((st, i) => r(104, 140 + i * 50, 432, 40, i === 0 ? 'sv-card-hi' : 'sv-card', 10) + `<circle class="${i === 0 ? 'sv-accent' : 'sv-dot-dim'}" cx="128" cy="${160 + i * 50}" r="8"/>` + text(150, 165 + i * 50, st, 'sv-label') + r(400, 156 + i * 50, 110, 8, 'sv-bar-dim', 4)).join(''), null, 'Command interface concept');
+    }
+    function uiCanvas(c) {
+      return svg(glow() + win(28, 26, 584, 348, 'Canvas') + r(28, 52, 44, 322, 'sv-side', 0) + [0, 1, 2, 3].map(i => `<circle class="${i === 1 ? 'sv-accent' : 'sv-dot-dim'}" cx="50" cy="${80 + i * 40}" r="9"/>`).join('') +
+        r(96, 74, 330, 280, 'sv-card', 8) + r(124, 100, 170, 120, 'sv-accent', 10) + r(310, 100, 92, 56, 'sv-bar', 8) + r(310, 168, 92, 52, 'sv-card-hi', 8) + r(124, 240, 278, 10, 'sv-bar', 5) + r(124, 262, 200, 8, 'sv-bar-dim', 4) + r(124, 300, 90, 30, 'sv-card-hi', 15) +
+        r(444, 74, 156, 280, 'sv-side', 8) + text(458, 98, c.panels[0] || 'Layers', 'sv-label-sm') + [0, 1, 2, 3, 4].map(i => r(458, 114 + i * 36, 128, 26, i === 1 ? 'sv-card-hi' : 'sv-card', 6) + r(468, 124 + i * 36, 60 + (i * 13) % 30, 6, 'sv-bar', 3)).join(''), null, 'Creative canvas concept');
+    }
+    function uiDocument(c) {
+      return svg(glow() + win(28, 26, 584, 348, 'Review') + r(52, 68, 200, 282, 'sv-card', 8) + [0, 1, 2, 3, 4, 5, 6, 7].map(i => r(70, 92 + i * 30, i % 3 === 2 ? 120 : 164, 8, i === 2 || i === 5 ? 'sv-accent' : 'sv-bar-dim', 4)).join('') +
+        `<path class="sv-path" d="M262 208 L318 208" fill="none"/><path class="sv-path" d="M310 198 L322 208 L310 218" fill="none"/>` +
+        r(332, 68, 256, 282, 'sv-card', 8) + text(348, 94, c.panels[1] || 'Fields', 'sv-label-sm') + [0, 1, 2, 3, 4].map(i => r(348, 108 + i * 46, 224, 34, 'sv-row', 8) + r(360, 120 + i * 46, 70, 6, 'sv-bar-dim', 3) + r(360, 130 + i * 46, 120 + (i * 17) % 60, 8, i === 2 ? 'sv-accent' : 'sv-bar', 4)).join(''), null, 'Document workflow concept');
+    }
+    function diagramSystem(c) {
+      const cx = 320, cy = 200; const nodes = [[110, 90], [110, 200], [110, 310], [530, 90], [530, 200], [530, 310]];
+      let s = glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".45"');
+      nodes.forEach(([x, y], i) => { s += `<path class="sv-path" d="M${x + (x < cx ? 46 : -46)} ${y} C ${(x + cx) / 2} ${y}, ${(x + cx) / 2} ${cy}, ${cx + (x < cx ? -62 : 62)} ${cy}" fill="none"/>` + r(x - 46, y - 20, 92, 40, 'sv-card', 10) + `<circle class="sv-dot${i % 2 ? '-dim' : ''}" cx="${x - 30}" cy="${y}" r="5"/>` + r(x - 16, y - 4, 50, 8, 'sv-bar-dim', 4); });
+      s += r(cx - 62, cy - 52, 124, 104, 'sv-card-hi', 18) + `<circle class="sv-accent" cx="${cx}" cy="${cy - 8}" r="18"/>` + text(cx, cy + 34, c.steps[1] || 'Platform', 'sv-label', 'middle');
+      return svg(s, null, 'System diagram concept');
+    }
+    function dataChart(c, seed) {
+      const R = rnd(seed); const pts = Array.from({ length: 10 }, (_, i) => [60 + i * 60, 300 - (0.2 + R() * 0.6) * 200 - i * 4]);
+      return svg(glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".5"') + `<path class="sv-area" d="M${pts.map(p => p.join(' ')).join(' L')} L${pts[pts.length - 1][0]} 340 L60 340 Z"/>` + `<path class="sv-path" d="M${pts.map(p => p.join(' ')).join(' L')}" fill="none"/>` + pts.map(p => `<circle class="sv-dot" cx="${p[0]}" cy="${p[1].toFixed(1)}" r="4"/>`).join('') + text(60, 44, c.steps[2] || 'Trends', 'sv-label'), null, 'Data visual concept');
+    }
+    // Non-technology starters: intentional graphic compositions, never an empty box.
+    function retailArrangement(seed) {
+      return svg(`<defs><linearGradient id="svg-p${U}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="sv-stop-b"/><stop offset="1" class="sv-stop-0"/></linearGradient></defs><rect class="sv-bg" width="${W}" height="${H}"/><ellipse class="sv-soft" cx="320" cy="330" rx="260" ry="34"/>` +
+        `<rect class="sv-panel" x="200" y="130" width="74" height="190" rx="14"/><rect class="sv-accent" x="222" y="96" width="30" height="42" rx="6"/><rect class="sv-card-hi" x="212" y="180" width="50" height="60" rx="6"/>` +
+        `<rect class="sv-card-hi" x="300" y="200" width="120" height="120" rx="20"/><rect class="sv-accent" x="296" y="180" width="128" height="34" rx="10"/><rect class="sv-bar-dim" x="322" y="250" width="76" height="8" rx="4"/>` +
+        `<path class="sv-panel" d="M448 320 L470 130 Q472 116 486 116 L500 116 Q514 116 516 130 L538 320 Z"/><rect class="sv-accent" x="466" y="92" width="38" height="28" rx="6"/><rect class="sv-bar-dim" x="474" y="220" width="22" height="8" rx="4"/>` +
+        `<circle class="sv-dot-dim" cx="120" cy="300" r="26"/><circle class="sv-accent" cx="150" cy="282" r="10"/>`, null, 'Product arrangement');
+    }
+    function hospitalityScene() {
+      return svg(`<rect class="sv-bg" width="${W}" height="${H}"/><defs><radialGradient id="svg-w${U}" cx="50%" cy="45%" r="55%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs><rect fill="url(#svg-w${U})" width="${W}" height="${H}"/>` +
+        `<ellipse class="sv-panel" cx="320" cy="230" rx="170" ry="120"/><ellipse class="sv-card-hi" cx="320" cy="230" rx="128" ry="88"/><ellipse class="sv-accent" cx="320" cy="230" rx="52" ry="34"/>` +
+        `<rect class="sv-bar" x="96" y="120" width="8" height="220" rx="4"/><rect class="sv-bar" x="538" y="120" width="8" height="220" rx="4"/><circle class="sv-accent" cx="100" cy="106" r="16"/><circle class="sv-accent" cx="542" cy="106" r="16"/>`, null, 'Table setting');
+    }
+    function tradesBlueprint() {
+      return svg(`<rect class="sv-bg" width="${W}" height="${H}"/>` + grid() + `<path class="sv-path" d="M120 300 L120 190 L320 90 L520 190 L520 300 Z" fill="none"/><path class="sv-path" d="M120 190 L520 190" fill="none"/><rect class="sv-accent" x="290" y="220" width="60" height="80" rx="4"/>` +
+        line(120, 330, 520, 330) + line(120, 322, 120, 338) + line(520, 322, 520, 338) + line(560, 90, 560, 300) + line(552, 90, 568, 90) + line(552, 300, 568, 300), null, 'Project plan');
+    }
+    function consultMatrix() {
+      return svg(glow() + [0, 1, 2].map(i => r(70 + i * 190, 80, 170, 240, i === 1 ? 'sv-card-hi' : 'sv-card', 12) + `<circle class="${i === 1 ? 'sv-accent' : 'sv-dot-dim'}" cx="${100 + i * 190}" cy="116" r="10"/>` + [0, 1, 2, 3].map(j => r(92 + i * 190, 150 + j * 36, 120 - j * 14, 8, j === 0 ? 'sv-bar' : 'sv-bar-dim', 4)).join('')).join('') + `<path class="sv-path" d="M240 200 L260 200 M430 200 L450 200" fill="none"/>`, null, 'Approach diagram');
+    }
+    function portfolioFrames() {
+      return svg(`<rect class="sv-bg" width="${W}" height="${H}"/>` + r(70, 60, 250, 190, 'sv-card', 6) + r(90, 80, 210, 150, 'sv-accent', 4) + r(300, 130, 250, 190, 'sv-card-hi', 6) + r(320, 150, 210, 150, 'sv-bar', 4) + r(190, 240, 150, 110, 'sv-panel', 6) + r(206, 256, 118, 78, 'sv-bar-dim', 4), null, 'Selected work');
+    }
+    function brandMark(name) {
+      const ch = (String(name || '').trim()[0] || 'S').toUpperCase();
+      return svg(glow() + `<circle class="sv-soft" cx="320" cy="200" r="150"/><circle class="sv-panel" cx="320" cy="200" r="104"/><circle class="sv-accent" cx="320" cy="200" r="64"/>` + text(320, 224, ch, 'sv-mono', 'middle'), null, 'Brand mark');
+    }
+
+    const KIND_BUILDERS = {
+      'ui-dashboard': (c, s) => uiDashboard(c, s), 'ui-workflow': c => uiWorkflow(c), 'ui-command': c => uiCommand(c), 'ui-canvas': c => uiCanvas(c),
+      'ui-document': c => uiDocument(c), 'diagram-system': c => diagramSystem(c), 'data-chart': (c, s) => dataChart(c, s),
+      'retail-arrangement': (c, s) => retailArrangement(s), 'hospitality-scene': () => hospitalityScene(), 'trades-blueprint': () => tradesBlueprint(),
+      'consult-matrix': () => consultMatrix(), 'portfolio-frames': () => portfolioFrames(), 'brand-mark': (c, s, n) => brandMark(n),
+    };
+    const STARTER_KINDS = Object.keys(KIND_BUILDERS);
+
+    // Which starter kind fills a slot. Technology alternates product UI / diagram / chart so pages don't repeat one picture.
+    function starterKindFor(ctx, role, slot) {
+      const p = ctx.profile; const mt = mediaTypeFor(p, role);
+      if (p.id === 'tech') {
+        if (role === 'hero') return ctx.concept.kind === 'diagram-system' ? 'diagram-system' : ctx.concept.kind;
+        if (role === 'product') return ctx.concept.kind === 'ui-workflow' ? 'ui-command' : (ctx.concept.kind === 'ui-dashboard' ? 'ui-workflow' : 'ui-dashboard');
+        if (role === 'about' || role === 'team') return 'brand-mark';
+        const pool = ['diagram-system', 'data-chart', 'ui-command'];
+        return pool[seedOf(slot) % pool.length];
+      }
+      if (role === 'team' || role === 'about' && mt === 'ABSTRACT_GRAPHIC') return 'brand-mark';
+      if (mt === 'DIAGRAM' || mt === 'DATA_VISUAL') return p.id === 'consultancy' ? 'consult-matrix' : 'data-chart';
+      return p.fallbackKind || 'brand-mark';
+    }
+    // slot -> role, mirroring image-planning's classifySlot by slot name (renderers only know the slot id)
+    function roleOfSlot(slot) {
+      const s = String(slot || '');
+      if (s === 'hero' || s === 'collage-2') return 'hero';
+      if (/product/.test(s)) return 'product';
+      if (/team|about/.test(s)) return /about/.test(s) && !/team-/.test(s) ? 'about' : 'team';
+      if (/gallery|case/.test(s)) return 'gallery';
+      if (/editorial/.test(s)) return 'editorial';
+      return 'decorative';
+    }
+    // Interface-led sites: the "what it does" cards explain the product's WORKFLOW (the same four steps the starter visual draws) instead of
+    // repeating category filler such as "Product / Pricing / Docs". Neutral how-it-works statements only -- no feature, price or proof claims.
+    const STEP_BODIES = {
+      'ui-workflow': ['Describe what you need in your own words.', 'The software works through it step by step.', 'You check the result and adjust it.', 'Then it goes where it is needed.'],
+      'ui-dashboard': ['See where things stand at a glance.', 'Follow what changed and when.', 'Spot patterns as they build up.', 'Keep the whole team looking at the same picture.'],
+      'ui-document': ['Bring in the documents you already have.', 'Pull out the details that matter.', 'Confirm what was found.', 'Send clean results onward.'],
+      'ui-canvas': ['Start from a clear brief.', 'Build and iterate in one workspace.', 'Review the work together.', 'Publish when it is ready.'],
+      'ui-command': ['Ask or search in plain language.', 'Get to the right place quickly.', 'Review what comes back.', 'Act on it.'],
+      'diagram-system': ['Start from the tools you already use.', 'Bring everything through one platform.', 'Decide what happens next.', 'Deliver to the apps that need it.'],
+    };
+    function featureItemsFor(project) {
+      if (!enabled(project)) return null;
+      try {
+        const ctx = contextFor(project); if (ctx.profile.id !== 'tech') return null;
+        const bodies = STEP_BODIES[ctx.concept.kind] || STEP_BODIES['ui-workflow'];
+        return ctx.concept.steps.slice(0, 4).map((label, i) => ({ label, body: bodies[i] }));
+      } catch (e) { return null; }
+    }
+
+    // HTML for one starter visual (or null when V4 is off for this project).
+    function starterHtml(project, slot, opts) {
+      if (!enabled(project)) return null;
+      try {
+        U = '-' + seedOf(String(slot) + (project.business && project.business.name)).toString(36);
+        const ctx = contextFor(project); const role = roleOfSlot(slot); const kind = starterKindFor(ctx, role, slot);
+        const inner = KIND_BUILDERS[kind](ctx.concept, seedOf(String(ctx.name) + slot), ctx.name);
+        const mt = mediaTypeFor(ctx.profile, role);
+        return `<div class="visual-generated visual-starter" data-starter="${kind}" data-media="${DETERMINISTIC.has(mt) ? mt : 'GRAPHIC_FALLBACK'}" data-role="${esc(slot)}" data-funded="true">${inner}</div>`;
+      } catch (e) { return null; }
+    }
+
+    // ---- V4 deterministic checks (FIRST_DRAFT_COMPLETENESS + visual critique categories) ----------------------------------------------
+    const TEXT_ONLY_HEROES = ['centered-oversized', 'minimal-text-only', 'poster'];
+    const PLACEHOLDER_TEXT = /(lorem ipsum|placeholder|your (image|photo|logo|picture) here|upload (your|a|an) (image|photo|logo|picture)|add (an? )?(image|photo)|image (goes|coming) here|coming soon|\bTBD\b|\[[^\]]{2,30}\])/i;
+    const VISUAL_SLOT_ROLES = new Set(['hero', 'product', 'editorial', 'about']);
+    function walkStrings(direction, fn) {
+      const c = direction.copy || {}; Object.keys(c).forEach(k => { if (typeof c[k] === 'string') fn('hero.' + k, c[k]); });
+      (direction.pages || []).forEach(p => {
+        if (typeof p.purpose === 'string') fn(`page:${p.slug || 'home'}.purpose`, p.purpose);
+        (p.sections || []).forEach(s => { const cp = s.copy || {}; Object.keys(cp).forEach(k => { if (typeof cp[k] === 'string') fn(`${s.id}.${k}`, cp[k]); }); });
+      });
+    }
+    function checkVisuals(direction, ctx) {
+      const defects = []; const add = d => defects.push(Object.assign({ severity: 2, target: { kind: 'site', id: null }, source: 'deterministic' }, d));
+      let vctx; try { vctx = contextFor(direction); } catch (e) { return defects; }
+      const prof = vctx.profile; const on = enabled(direction);
+      const dims = (direction.design && direction.design.dimensions) || {}; const heroVariant = dims.heroDisplayVariant || dims.hero;
+      const plan = direction.imagePlan || []; const pages = direction.pages || [];
+      const allSecs = []; pages.forEach(p => (p.sections || []).forEach(s => allSecs.push({ p, s })));
+
+      // hero must not be typography over nothing on an interface-led business
+      if (prof.deterministicFirst && TEXT_ONLY_HEROES.includes(heroVariant)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'hero_has_no_product_visual', severity: 3, detail: `${prof.label} hero is ${heroVariant} (no product visual)`, target: { kind: 'hero', id: 'hero' }, repair: { kind: 'set_hero_variant', value: prof.heroVariant } });
+      // every important visual slot must resolve to real media, a generated image or a starter visual -- never an empty box
+      plan.forEach(e => {
+        const role = roleOfSlot(e.slot); if (!VISUAL_SLOT_ROLES.has(role)) return;
+        if (e.sourceType === 'designed' && !e.starter && !on) add({ category: 'MEDIA_COMPLETENESS', code: 'empty_visual_slot', severity: 3, detail: `${e.slot} has no media and no starter visual`, target: { kind: 'image', id: e.slot }, repair: { kind: 'enable_starter' } });
+      });
+      if (prof.deterministicFirst) {
+        plan.forEach(e => { if (e.sourceType === 'generated' && (e.kind === 'photo') && (e.role === 'hero' || e.role === 'product')) add({ category: 'INDUSTRY_VISUAL_FIT', code: 'photo_for_interface_business', severity: 1, detail: `${e.slot}: photography on a ${prof.label} site (product UI/diagram fits better)`, target: { kind: 'image', id: e.slot } }); });
+        if (!allSecs.some(x => x.s.type === 'productShowcase' || x.s.type === 'imageLedEditorial') && (TEXT_ONLY_HEROES.includes(heroVariant) || !on)) add({ category: 'PRODUCT_VISUAL_EXPLANATION', code: 'no_product_visual_section', severity: 2, detail: 'no section shows the product visually', target: { kind: 'site', id: null }, repair: { kind: 'add_product_visual' } });
+        else if (!allSecs.some(x => x.s.type === 'productShowcase' || x.s.type === 'imageLedEditorial')) add({ category: 'PRODUCT_VISUAL_EXPLANATION', code: 'no_product_visual_section', severity: 2, detail: 'no section explains the product visually', target: { kind: 'site', id: null }, repair: { kind: 'add_product_visual' } });
+        const visualCount = (TEXT_ONLY_HEROES.includes(heroVariant) ? 0 : 1) + allSecs.filter(x => ['productShowcase', 'imageLedEditorial', 'gallery', 'integrations'].includes(x.s.type)).length;
+        if (visualCount < 2) add({ category: 'VISUAL_DEPTH', code: 'too_few_visual_moments', severity: 1, detail: `${visualCount} visual moment(s) on an interface-led site`, target: { kind: 'site', id: null } });
+      }
+      // leaked placeholder wording in customer-visible text
+      walkStrings(direction, (where, text) => { const m = PLACEHOLDER_TEXT.exec(text); if (m) add({ category: 'PLACEHOLDER_LEAKAGE', code: 'placeholder_text', severity: 3, detail: `${where}: "${m[0]}"`, target: { kind: 'site', id: where } }); });
+      // secondary pages that are the same page twice
+      const seqs = pages.slice(1).map(p => (p.sections || []).map(s => s.type).join('>')).filter(Boolean);
+      if (seqs.length >= 2 && new Set(seqs).size < seqs.length) add({ category: 'PAGE_VISUAL_VARIETY', code: 'repeated_page_composition', severity: 1, detail: 'two secondary pages share one section sequence', target: { kind: 'site', id: null } });
+      // completeness roll-up: anything that would make the first output look unfinished
+      defects.filter(d => ['MEDIA_COMPLETENESS', 'PLACEHOLDER_LEAKAGE', 'HERO_VISUAL_STRENGTH'].includes(d.category) && d.severity >= 3)
+        .forEach(d => add({ category: 'FIRST_DRAFT_COMPLETENESS', code: d.code, severity: 3, detail: d.detail, target: d.target }));
+      return defects;
+    }
+    const VISUAL_CRITERIA = [
+      'HERO_VISUAL_STRENGTH: is the hero a strong, industry-native composition (product UI for software, product for retail, food/space for hospitality), or typography over an empty panel?',
+      'INDUSTRY_VISUAL_FIT: does every visual use the visual language of THIS industry (interface/diagram for software, photography for retail/hospitality/trades)?',
+      'MEDIA_COMPLETENESS / PLACEHOLDER_LEAKAGE: is any visual area empty, dotted, spinner-like, or expecting the customer to upload something to look finished?',
+      'PRODUCT_VISUAL_EXPLANATION: for software, does a visual (UI, workflow, diagram) explain what the product does, instead of repeating text in cards?',
+      'VISUAL_DEPTH / PAGE_VISUAL_VARIETY: do pages differ in composition, or are they all heading + cards + footer?',
+      'COPY_SPECIFICITY: flag vague product copy ("done right", "everything in one place", "feel effortless"); propose a concrete replacement using only what the customer wrote.',
+    ];
+    function visualLines(direction) {
+      let v; try { v = contextFor(direction); } catch (e) { return []; }
+      const dims = (direction.design && direction.design.dimensions) || {};
+      const L = [`profile=${v.profile.id} (${v.profile.treatment}); hero layout=${dims.heroDisplayVariant || dims.hero}; concept=${v.concept.kind}`];
+      (direction.imagePlan || []).forEach(e => L.push(`slot ${e.slot}: ${e.sourceType}${e.starter ? '/starter(' + (e.mediaType || 'graphic') + ')' : ''}`));
+      return L;
+    }
+
+    // one starter kind rendered on demand (used by the QA contact sheet and tests)
+    function renderKind(kind, project, slot) { const ctx = contextFor(project); return `<div class="visual-generated visual-starter" data-starter="${kind}">${KIND_BUILDERS[kind](ctx.concept, seedOf(String(slot || kind)), ctx.name)}</div>`; }
+    module.exports = { renderKind, featureItemsFor, checkVisuals, VISUAL_CRITERIA, visualLines, MEDIA_TYPES, DETERMINISTIC, PROFILES, FAMILY_PROFILE, CONCEPTS, STARTER_KINDS, BRIEF_TOOL, profileFromGrounding, deriveConcept, encodeBrief, decodeBrief, validateBrief, buildBriefPrompt,
+      contextFor, mediaTypeFor, enabled, starterKindFor, roleOfSlot, starterHtml, seedOf };
 
   });
   __define("vocab", function (module, exports, require) {

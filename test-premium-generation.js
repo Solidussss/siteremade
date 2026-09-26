@@ -715,6 +715,138 @@ const sample = () => ({
     assert.ok(m.SEMANTIC_REPAIR_RATE >= 0 && m.AVERAGE_SEMANTIC_DEFECTS > 0, JSON.stringify(m).slice(0, 300));
   });
 
+  console.log('PREMIUM_VISUALS_V4');
+  const TECH = 'Technology company building modern AI software. Tools for creative teams. Los Angeles.';
+  const techProj = (over) => Object.assign({ source: { text: TECH, location: 'Los Angeles' }, business: { categoryKey: 'tech', name: 'Lumen' }, strategy: { archetype: 'product-led-saas' }, design: { premium: { vs: 1 }, dimensions: { hero: 'centered-oversized' } },
+    copy: { headline: 'Software for creative teams', sub: 'Tools for creative teams in Los Angeles.', cta: 'Get started' },
+    pages: [{ id: 'home', slug: '', label: 'Home', sections: [{ id: 'f1', type: 'features', copy: {} }, { id: 'faq1', type: 'faq', copy: {} }] }, { id: 'about', slug: 'about', label: 'About', sections: [{ id: 'ab', type: 'about', copy: {} }] }],
+    imagePlan: [{ slot: 'hero', role: 'hero', sourceType: 'designed' }, { slot: 'product', role: 'product', sourceType: 'designed' }] }, over || {});
+  await t('V4 flag: default OFF; needs V1 AND V3', () => {
+    const c = k => P.loadConfig(k).visualsV4;
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true' }), false);
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_VISUALS_V4: 'true' }), false);
+    assert.strictEqual(c({ PREMIUM_VISUALS_V4: 'true', PREMIUM_GROUNDING_V3: 'true' }), false);
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' }), true);
+  });
+  await t('industry visual profile: derived from the grounding, one per business family', () => {
+    const fam = f => P.visuals.profileFromGrounding({ family: f }).id;
+    assert.deepStrictEqual(['saas', 'retail', 'hospitality', 'local_service', 'professional', 'creative'].map(fam), ['tech', 'retail', 'hospitality', 'trades', 'consultancy', 'portfolio']);
+    assert.strictEqual(P.visuals.contextFor(techProj()).profile.id, 'tech');
+  });
+  await t('starter visuals: every kind renders valid, self-contained SVG with no invented numbers', () => {
+    const p = techProj();
+    P.visuals.STARTER_KINDS.forEach(k => {
+      const h = P.visuals.renderKind(k, p, 'x');
+      assert.ok(/<svg[^>]*viewBox/.test(h) && /<\/svg>/.test(h), k);
+      assert.ok(!/NaN|undefined|null/.test(h), k + ' has bad tokens');
+      const labels = [...h.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m => m[1]);
+      labels.filter(l => !/^0[1-4]$/.test(l)).forEach(l => assert.ok(!/\d|%|\$/.test(l), k + ' label looks like data: ' + l));
+    });
+  });
+  await t('starter visuals: unique gradient ids per slot; nothing rendered unless the project opted in', () => {
+    const p = techProj();
+    const a = P.visuals.starterHtml(p, 'hero'), b = P.visuals.starterHtml(p, 'product');
+    const ida = a.match(/id="(svg-a[^"]*)"/), idb = b.match(/id="(svg-a[^"]*)"/);
+    assert.ok(ida && idb && ida[1] !== idb[1], 'ids differ');
+    const off = techProj({ design: { premium: {} } });
+    assert.strictEqual(P.visuals.starterHtml(off, 'hero'), null);
+  });
+  await t('starter media: hero/product use a product UI for tech, brand graphic for team/about, photography families keep photos', () => {
+    const ctx = P.visuals.contextFor(techProj());
+    assert.ok(/^ui-/.test(P.visuals.starterKindFor(ctx, 'hero', 'hero')));
+    assert.strictEqual(P.visuals.starterKindFor(ctx, 'team', 'team-1'), 'brand-mark');
+    assert.strictEqual(P.visuals.PROFILES.retail.media.hero, 'PHOTO');
+    assert.strictEqual(P.visuals.PROFILES.tech.media.hero, 'PRODUCT_UI');
+  });
+  await t('media planning: tech hero/product become $0 starter visuals; retail still gets generated photography', () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' });
+    const mk = (text, key, arch, label) => {
+      const g = P.grounding.deriveGrounding({ description: text, categoryKey: key, archetype: arch, location: 'LA' });
+      const strat = P.strategy.deriveStrategy({ archetype: arch, categoryKey: key, categoryLabel: label, description: text, grounding: g, visualsV4: true });
+      const art = P.art.deriveArtDirection(strat, palette);
+      const gov = new P.BudgetGovernor(c.cfg, new P.CostLedger(c.cfg), 'gen_t1');
+      return P.images.allocateImages({ slots: slots(), strategy: strat, art, uploads: [], cfg: c.cfg, governor: gov });
+    };
+    const tech = mk(TECH, 'tech', 'product-led-saas', 'Technology');
+    const hero = tech.slots.find(s => s.slot === 'hero'), prod = tech.slots.find(s => s.slot === 'product');
+    assert.ok(hero.sourceType === 'designed' && hero.starter && hero.mediaType === 'PRODUCT_UI' && hero.estimatedUsd === 0, JSON.stringify(hero));
+    assert.ok(prod.starter && prod.estimatedUsd === 0);
+    const retail = mk('Online skincare store selling serums and cleansers.', 'ecommerce', 'ecommerce-showcase', 'Retail');
+    assert.strictEqual(retail.slots.find(s => s.slot === 'hero').sourceType, 'generated');
+    assert.ok(retail.committedUsd > tech.committedUsd);
+  });
+  await t('first-draft completeness: a text-only tech hero is caught and repaired with a product-visual hero', () => {
+    const p = techProj(); const g = gOf(TECH, 'tech', 'product-led-saas');
+    const def = P.visuals.checkVisuals(p, { description: TECH });
+    assert.ok(def.some(x => x.category === 'HERO_VISUAL_STRENGTH' && x.severity === 3));
+    assert.ok(def.some(x => x.category === 'FIRST_DRAFT_COMPLETENESS'));
+    assert.ok(def.some(x => x.category === 'PRODUCT_VISUAL_EXPLANATION'));
+    const out = P.semantic.applyRepairs(p, def, g).direction;
+    assert.strictEqual(out.design.dimensions.hero, 'product-screenshot');
+    assert.ok(out.pages[0].sections.some(s => s.type === 'productShowcase'));
+    assert.strictEqual(P.visuals.checkVisuals(out, {}).filter(x => x.severity >= 3).length, 0);
+  });
+  await t('first-draft completeness: an empty visual slot (no media, no starter) is flagged and fixed by enabling starters', () => {
+    const p = techProj({ design: { premium: {}, dimensions: { hero: 'product-screenshot' } } }); const g = gOf(TECH, 'tech', 'product-led-saas');
+    const def = P.visuals.checkVisuals(p, {});
+    assert.ok(def.some(x => x.category === 'MEDIA_COMPLETENESS' && x.repair && x.repair.kind === 'enable_starter'));
+    const out = P.semantic.applyRepairs(p, def, g).direction;
+    assert.strictEqual(out.design.premium.vs, 1);
+    assert.strictEqual(P.visuals.checkVisuals(out, {}).filter(x => x.category === 'MEDIA_COMPLETENESS').length, 0);
+  });
+  await t('placeholder leakage: "upload your photo" / lorem text on the site is flagged', () => {
+    const p = techProj(); p.pages[0].sections[0].copy = { body: 'Lorem ipsum dolor sit amet' }; p.pages[1].sections[0].copy = { body: 'Your image here' };
+    const d = P.visuals.checkVisuals(p, {}).filter(x => x.category === 'PLACEHOLDER_LEAKAGE');
+    assert.strictEqual(d.length, 2);
+  });
+  await t('generic tech copy is flagged ("done right", "everything ... in one place", "feel effortless")', () => {
+    const g = gOf(TECH, 'tech', 'product-led-saas');
+    ['Software for modern AI software, done right.', 'Everything modern AI software needs, in one place.', 'Designed to make docs feel effortless.'].forEach(x => assert.ok(P.semantic.validateCustomerText(x, g, 'headline').some(z => /generic/.test(z)), x));
+    assert.strictEqual(P.semantic.validateCustomerText('Turn a creative brief into a reviewed draft.', g, 'headline').length, 0);
+  });
+  await t('tech product features explain the workflow (no Product / Pricing / Docs filler, no pricing implied)', () => {
+    const items = P.visuals.featureItemsFor(techProj());
+    assert.strictEqual(items.length, 4);
+    items.forEach(i => assert.ok(!/pricing|docs|\$|free|plan/i.test(i.label + ' ' + i.body)));
+    assert.strictEqual(P.visuals.featureItemsFor(techProj({ design: { premium: {} } })), null);
+    const retailP = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' } });
+    assert.strictEqual(P.visuals.featureItemsFor(retailP), null);
+  });
+  await t('visual brief: validated (no numbers/brands), encoded flat, decoded back', () => {
+    const ok = P.visuals.validateBrief({ kind: 'ui-workflow', steps: ['Brief', 'Generate', 'Review', 'Publish'] });
+    assert.ok(ok); const enc = P.visuals.encodeBrief(ok); assert.ok(enc.length <= 200 && /^ui-workflow\|/.test(enc));
+    assert.deepStrictEqual(P.visuals.decodeBrief(enc, { kind: 'ui-dashboard', steps: [], panels: [] }).steps, ['Brief', 'Generate', 'Review', 'Publish']);
+    assert.strictEqual(P.visuals.validateBrief({ kind: 'ui-workflow', steps: ['Brief', '10x faster', 'Review', 'Acme Corp'] }), null);
+    assert.strictEqual(P.visuals.validateBrief({ kind: 'nonsense', steps: ['A', 'B', 'C', 'D'] }), null);
+  });
+  await t('session V4: ONE visual-brief call for tech (governed, ledgered), none for retail; V4 off = none', async () => {
+    const run = async (text, key, arch, envx) => {
+      const c = core(envx); const s = c.startSession({ categoryKey: key, categoryLabel: 'X', archetype: arch, palette, description: text }); let calls = 0;
+      const p = techProj({ source: { text }, business: { categoryKey: key, name: 'Lumen' }, strategy: { archetype: arch } });
+      const out = await s.reviewAndRepair(p, { description: text, facts: {}, premiumEnabled: true }, { visualBrief: async () => { calls++; return { input: { kind: 'ui-workflow', steps: ['Brief', 'Generate', 'Review', 'Publish'] }, usage: { inputTokens: 500, outputTokens: 80 } }; }, semanticCritic: async () => ({ input: { defects: [] }, usage: { inputTokens: 3000, outputTokens: 200 } }) });
+      return { calls, out, s };
+    };
+    const on = { PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' };
+    const a = await run(TECH, 'tech', 'product-led-saas', on); assert.strictEqual(a.calls, 1); assert.ok(/^ui-workflow\|/.test(a.out.visualBrief));
+    assert.ok(a.s.ledger.forGeneration(a.s.generationId).some(e => e.operation === 'visual_brief'), 'ledgered');
+    const b = await run('Online skincare store selling serums.', 'ecommerce', 'ecommerce-showcase', on); assert.strictEqual(b.calls, 0);
+    const c = await run(TECH, 'tech', 'product-led-saas', { PREMIUM_GROUNDING_V3: 'true' }); assert.strictEqual(c.calls, 0);
+  });
+  await t('rubric: 8 visual categories exist; NOT_APPLICABLE unless V4 is on', () => {
+    P.semantic.VISUAL_CATEGORIES.forEach(k => assert.ok(P.review.CATEGORIES.includes(k), k));
+    const strat = P.strategy.deriveStrategy({ categoryKey: 'tech', categoryLabel: 'Tech', archetype: 'product-led-saas', description: TECH });
+    const off = P.review.reviewDirection(techProj(), { strategy: strat, premiumEnabled: true, groundingV3: true, description: TECH });
+    P.semantic.VISUAL_CATEGORIES.forEach(k => assert.strictEqual(off.categories[k], 'NOT_APPLICABLE', k));
+    const on = P.review.reviewDirection(techProj(), { strategy: strat, premiumEnabled: true, groundingV3: true, visualsV4: true, description: TECH });
+    assert.strictEqual(on.categories.HERO_VISUAL_STRENGTH, 'FAIL'); assert.strictEqual(on.categories.FIRST_DRAFT_COMPLETENESS, 'FAIL');
+  });
+  await t('image prompts still pass the lint after V4 (avoid-list wording)', () => {
+    const g = gOf('Online skincare store in Vancouver selling serums.', 'ecommerce', 'ecommerce-showcase');
+    const strat = P.strategy.deriveStrategy({ archetype: 'ecommerce-showcase', categoryKey: 'ecommerce', categoryLabel: 'Retail', description: SKIN, grounding: g, visualsV4: true });
+    const art = P.art.deriveArtDirection(strat, palette);
+    ['hero', 'product', 'gallery'].forEach(role => assert.ok(P.images.lintImagePrompt(P.images.buildImagePrompt({ role, aspectRatio: '4:3', textSide: 'left', avoid: strat.imageAvoid }, strat, art)).ok, role));
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

@@ -29,7 +29,7 @@ async function startServer(mode, tag) {
   const logDir = path.join(OUT, 'logs', tag); fs.mkdirSync(logDir, { recursive: true });
   const env = Object.assign({}, process.env, {
     PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: 'mock',
-    PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2' || mode === 'v3') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: (mode === 'v2' || mode === 'v3') ? 'true' : 'false', PREMIUM_GROUNDING_V3: mode === 'v3' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
+    PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: (mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_GROUNDING_V3: (mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_VISUALS_V4: mode === 'v4' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
     MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_DAILY_FREE_CREDITS: '1000',
     SITEREMADE_RATE_LIMIT_SIGNUP_MAX: '1000', SITEREMADE_RATE_LIMIT_GENERATION_MAX: '1000', ELECTRON_RUN_AS_NODE: '',
   });
@@ -85,6 +85,26 @@ async function runOne(fixture, mode) {
       const pages = (p.pages || []).map(pg => ({ label: pg.label, slug: pg.slug, sections: (pg.sections || []).length, words: (pg.sections || []).reduce((n, s) => n + JSON.stringify(s.copy || {}).split(/\\s+/).length, 0) }));
       return { hits, types, pages, sem: p.design.premium && { g: p.design.premium.g, gr: p.design.premium.gr }, prompts: (p.imagePlan || []).filter(e => e.sourceType === 'generated').map(e => ({ slot: e.slot, prompt: (e.prompt || '').slice(0, 220) })) }; })()`);
     step('project collected');
+    // ---- V4: what the customer actually SEES (rendered DOM of every page), not what the planner claims
+    result.visualScan = await ev(`(async()=>{ const p = directions[0]; const out = { pages: [] };
+      const start = p.activePageIndex || 0;
+      for (let i = 0; i < p.pages.length; i++) { switchPage(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const q = s => builderSite.querySelectorAll(s).length; const visuals = [...builderSite.querySelectorAll('.visual-generated, .site-visual-img')];
+        const heroEl = builderSite.querySelector('.site-hero');
+        out.pages.push({ label: p.pages[i].label, starters: q('.visual-starter'), photos: q('img.site-visual-img'), legacyPlaceholders: q('.visual-generated:not(.visual-starter)'), dotted: q('.visual-generated-unfunded'), teamPlaceholders: q('.team-card-placeholder'), generatingLabels: q('.visual-generating-label'), replaceButtons: q('.starter-replace'), kinds: [...builderSite.querySelectorAll('.visual-starter')].map(e => e.dataset.starter), heroClass: i === 0 && heroEl ? heroEl.className : undefined, sectionCount: q('.site-section') });
+      }
+      switchPage(start); return out; })()`);
+    // ---- V4 customer replacement (live client): Replace button routes to the upload input; an uploaded asset overrides the starter cleanly and can be removed again
+    result.replacement = await ev(`(async()=>{ const p = directions[0]; if (!p.design.premium || !p.design.premium.vs) return { skipped: true };
+      switchPage(0); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const out = { startersBefore: builderSite.querySelectorAll('.visual-starter').length };
+      let clicked = 0; const orig = heroAssetInput.click; heroAssetInput.click = () => { clicked++; };
+      const btn = builderSite.querySelector('.starter-replace[data-slot="hero"]'); if (btn) btn.click(); heroAssetInput.click = orig; out.replaceRoutedToHeroInput = clicked === 1;
+      const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      const asset = createAsset('hero', png, 'own.png'); p.assets.items.push(asset); p.assets.plan = planAssets(p.assets); renderProject(p); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      out.heroUploadShown = !!builderSite.querySelector('.site-hero img.site-visual-img[src^="data:image/png"]'); out.startersAfterUpload = builderSite.querySelectorAll('.visual-starter').length;
+      p.assets.items = p.assets.items.filter(a => a.id !== asset.id); p.assets.plan = planAssets(p.assets); renderProject(p); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      out.startersRestored = builderSite.querySelectorAll('.visual-starter').length; return out; })()`);
     // ---- real phone-width layout measurement of the finished site
     result.mobile = await ev(`(()=>{ const m = window.SiteRemadePremium.mobile.measureMobile(builderSite,[390,360]); return m; })()`);
     // ---- the same deterministic rubric applied to the FINAL site of both pipelines (comparable)
@@ -99,7 +119,7 @@ async function runOne(fixture, mode) {
     // ---- screenshots: desktop top / middle, mobile top
     fs.mkdirSync(path.join(OUT, 'shots'), { recursive: true });
     // Screenshots of the SITE ONLY (isolated from the generator page so nothing else can be in frame), desktop then phone.
-    const isolate = (mobile) => `(()=>{ const site = window.__fxSite || (window.__fxSite = builderSite.cloneNode(true)); const s = site.cloneNode(true); s.removeAttribute('id');
+    const isolate = (mobile) => `(()=>{ window.scrollTo(0,0); const site = window.__fxSite || (window.__fxSite = builderSite.cloneNode(true)); const s = site.cloneNode(true); s.removeAttribute('id');
       document.documentElement.style.background = '#0c0e12'; document.body.className = ''; document.body.style.cssText = 'margin:0;background:#0c0e12;overflow:hidden'; document.body.innerHTML = '';
       const dev = document.createElement('div'); dev.className = 'builder-device' + (${mobile} ? ' mobile' : ''); dev.style.cssText = ${mobile} ? 'width:416px;min-height:0;padding:13px;display:flex;justify-content:center' : 'width:1300px;min-height:0;padding:0;display:block;overflow:visible';
       dev.appendChild(s); document.body.appendChild(dev); return document.body.scrollHeight; })()`;

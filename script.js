@@ -1274,7 +1274,7 @@ function titleCase(s) { return String(s || '').replace(/\b\w/g, c => c.toUpperCa
 // direction for the same business always produced the identical headline --
 // see buildCopy's `variationSeed`-aware pool selection above).
 const copyHeadlinePools = {
-  tech: [subj => `${titleCase(subj)}, built to move fast.`, subj => `Software for ${subj}, done right.`],
+  tech: [subj => /\bsoftware\b/i.test(subj) ? `${titleCase(subj)} that fits how your team already works.` : `${titleCase(subj)}, built around your workflow.`, subj => /\bsoftware\b/i.test(subj) ? `${titleCase(subj)}, from first input to finished result.` : `Software for ${subj}, from first input to finished result.`],
   finance: [subj => `Clarity for ${subj}.`, subj => `${titleCase(subj)}, handled with care.`],
   fashion: [subj => `${titleCase(subj)}. Made to be seen.`, subj => `A ${subj} collection, presented properly.`],
   hospitality: [(subj, d, loc) => `${titleCase(subj)}${loc ? ' in ' + loc : ''}, worth the trip.`, subj => `${titleCase(subj)}, made to be tasted.`],
@@ -1419,6 +1419,9 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
   if (cacheMatches && generated.status === 'ready' && generated.dataUrl) {
     return `<img class="site-visual-img site-visual-generated-img" src="${generated.dataUrl}"${premiumFocalStyle(generated.focal)} alt="${escapeHtml((project.business.name || 'Business') + ' image')}" />`;
   }
+  // V4: never show an empty/dotted/spinner panel -- the starter visual stands in until (and unless) a real image replaces it
+  const starterVisual = starterVisualHtml(project, slot);
+  if (starterVisual) return starterVisual;
   const generating = cacheMatches && generated.status === 'pending';
   // PLACEHOLDER/COMPOSITION FIX: distinguish WHY this slot has no real
   // image. `generating` (an attempt is actively in flight) keeps the
@@ -1462,7 +1465,7 @@ function isVisualSlotFunded(project, slot, assetId) {
   const cacheMatches = !!(generated && planEntry && generated.cacheKey === planEntry.cacheKey);
   if (cacheMatches && generated.status === 'ready' && generated.dataUrl) return true;
   if (cacheMatches && generated.status === 'pending') return true;
-  return false;
+  return starterVisualsEnabled(project); // V4: a starter visual fills the frame
 }
 function imageSlotLabel(slot) {
   if (slot === 'hero' || slot === 'collage-2') return 'hero image';
@@ -1882,11 +1885,37 @@ function groundProject(proj) {
     if (proj.design && proj.design.premium) { proj.design.premium.g = String(g.subtype || g.family || '').slice(0, 30); proj.design.premium.gr = out.changes.length; }
   } catch (e) { /* the ungrounded draft continues */ }
 }
+// V4: fully-dressed first output. Starter visuals are deterministic SVG (see lib/premium/visuals.js); `design.premium.vs` is the persisted marker.
+function premiumVisualsOn() { const s = premiumStatus(); return !!(s && s.cfg.visualsV4 && window.SiteRemadePremium && window.SiteRemadePremium.visuals); }
+function starterVisualsEnabled(project) { try { return !!(window.SiteRemadePremium && window.SiteRemadePremium.visuals && window.SiteRemadePremium.visuals.enabled(project)); } catch (e) { return false; } }
+function starterFeatureItems(project) { try { return window.SiteRemadePremium && window.SiteRemadePremium.visuals ? window.SiteRemadePremium.visuals.featureItemsFor(project) : null; } catch (e) { return null; } }
+function starterVisualHtml(project, slot) {
+  try {
+    if (!starterVisualsEnabled(project)) return null;
+    const html = window.SiteRemadePremium.visuals.starterHtml(project, slot);
+    if (!html) return null;
+    // customizer affordance (preview only, never exported): the starter is a real, finished visual the customer may replace
+    return html.replace(/<\/div>$/, `<button type="button" class="starter-replace" data-action="replace-starter" data-slot="${escapeHtml(slot)}">Replace</button></div>`);
+  } catch (e) { return null; }
+}
+// Applies the industry visual profile to a fresh project: marks starter visuals on and gives interface-led businesses a hero that can carry a product visual.
+function applyVisualProfile(proj) {
+  if (!premiumVisualsOn() || !proj || !proj.design) return;
+  try {
+    const P = window.SiteRemadePremium;
+    proj.design.premium = Object.assign({}, proj.design.premium, { vs: 1 });
+    const g = premiumGroundingFor(proj);
+    const prof = P.visuals.profileFromGrounding(g);
+    proj.design.premium.vp = prof.id;
+    const dims = proj.design.dimensions || {};
+    if (prof.heroVariant && dims.hero !== prof.heroVariant) { dims.hero = prof.heroVariant; delete dims.heroDisplayVariant; }
+  } catch (e) { /* legacy look */ }
+}
 function premiumStrategyFor(project, category) {
   const P = window.SiteRemadePremium;
   const src = project.source || {};
   return P.strategy.deriveStrategy({
-    grounding: premiumGroundingOn() ? premiumGroundingFor(project) : null,
+    grounding: premiumGroundingOn() ? premiumGroundingFor(project) : null, visualsV4: premiumVisualsOn(),
     archetype: project.strategy && project.strategy.archetype, categoryKey: project.business && project.business.categoryKey, categoryLabel: category.label,
     description: src.text, facts: src.facts, location: src.location, creativeDirection: project.intent && project.intent.creativeDirection, claudeStrategy: project.strategy,
   });
@@ -1917,7 +1946,7 @@ function premiumPlanEntry(project, category, s, pd) {
     sourceType: pd.sourceType, model: generated ? pd.model : null, quality: generated ? pd.quality : null,
     estimatedCostUsd: generated ? pd.estimatedUsd : null, creditCost: generated ? imageCreditCostForRoute(pd.model) : null,
     cacheKey: computeImageCacheKey(project, s.role, s.slot),
-    focal: pd.focal ? pd.focal.objectPosition : null, premiumRole: pd.premiumRole, tier: pd.tier, kind: pd.kind || null, premiumReason: pd.reason || null,
+    focal: pd.focal ? pd.focal.objectPosition : null, premiumRole: pd.premiumRole, tier: pd.tier, kind: pd.kind || null, premiumReason: pd.reason || null, starter: !!pd.starter, mediaType: pd.mediaType || null,
   };
 }
 function premiumImageRequestFields(proj, entry) {
@@ -1933,11 +1962,12 @@ function attachPremiumDesign(proj, generationId) {
     const strategy = premiumStrategyFor(proj, category);
     proj.design.premiumTokens = P.tokens.sanitizeTokens(P.tokens.buildDesignTokens(strategy, proj.design.palette, { composition: !!premiumStatus().cfg.compositionV2 }));
     proj.design.premium = { generationId, v: 1 };
+    applyVisualProfile(proj);
   } catch (e) { /* the legacy design stays as-is */ }
 }
 function premiumDirectionPayload(proj, mobileReport) {
   const d = JSON.parse(JSON.stringify(proj, (k, v) => (k === 'dataUrl' ? undefined : v))); // never ship image bytes for a review
-  d.imagePlan = (proj.imagePlan || []).map(e => ({ section: e.section, sectionType: e.sectionType, slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt }));
+  d.imagePlan = (proj.imagePlan || []).map(e => ({ section: e.section, sectionType: e.sectionType, slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt, role: e.role || e.premiumRole, starter: !!e.starter, mediaType: e.mediaType || null }));
   d.mobileReport = mobileReport || null;
   return d;
 }
@@ -1966,6 +1996,8 @@ function applyPremiumPatch(proj, patch) {
     if (pm.purpose === null && page.purpose) { delete page.purpose; changed = true; }
     else if (typeof pm.purpose === 'string' && pm.purpose !== page.purpose) { page.purpose = pm.purpose; changed = true; }
   });
+  if (patch.starter && proj.design && proj.design.premium && !proj.design.premium.vs) { proj.design.premium.vs = 1; changed = true; }
+  if (typeof patch.visualBrief === 'string' && patch.visualBrief && proj.design && proj.design.premium && proj.design.premium.vb !== patch.visualBrief) { proj.design.premium.vb = patch.visualBrief.slice(0, 200); changed = true; }
   if (patch.archetype && proj.strategy && proj.strategy.archetype !== patch.archetype) { proj.strategy.archetype = patch.archetype; changed = true; }
   (patch.imagePlan || []).forEach(pe => {
     const e = (proj.imagePlan || []).find(x => x.slot === pe.slot); if (!e) return;
@@ -1979,7 +2011,7 @@ function applyPremiumPatch(proj, patch) {
     const e = (proj.imagePlan || []).find(x => x.slot === slot);
     if (e && patch.generated[slot].dataUrl) { proj.assets.generated[slot] = { cacheKey: e.cacheKey, status: 'ready', dataUrl: patch.generated[slot].dataUrl, prompt: e.prompt, focal: e.focal || undefined }; changed = true; }
   });
-  if (patch.dimensions && patch.dimensions.hero && patch.dimensions.hero !== proj.design.dimensions.hero) { proj.design.dimensions.hero = patch.dimensions.hero; changed = true; }
+  if (patch.dimensions && patch.dimensions.hero && patch.dimensions.hero !== proj.design.dimensions.hero) { proj.design.dimensions.hero = patch.dimensions.hero; delete proj.design.dimensions.heroDisplayVariant; changed = true; }
   return changed;
 }
 // ONE whole-site review + at most one surgical repair round, before the customer sees the site.
@@ -2261,7 +2293,7 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
   // grid-dashboard one) still end up with visibly different, but equally
   // "clean text-only, never an empty image slot", hero layouts.
   const heroEntry = firstPass.find(e => e.slot === 'hero');
-  if (heroEntry && heroEntry.sourceType === 'designed') {
+  if (heroEntry && heroEntry.sourceType === 'designed' && !starterVisualsEnabled(proj)) {
     const composed = proj.design.dimensions;
     const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
     if (!TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
@@ -2280,7 +2312,7 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
     const aboutSection = (page.sections || []).find(s => s.type === 'about');
     if (!aboutSection) return;
     const aboutEntry = firstPass.find(e => e.slot === `${prefix}about`);
-    if (!aboutEntry || aboutEntry.sourceType !== 'designed') return;
+    if (!aboutEntry || aboutEntry.sourceType !== 'designed' || starterVisualsEnabled(proj)) return;
     const effectiveAboutVariant = aboutSection.imageDisplayVariant || aboutSection.variant;
     if (effectiveAboutVariant === 'split' && aboutSection.imageDisplayVariant !== 'statement') {
       aboutSection.imageDisplayVariant = 'statement';
@@ -3084,6 +3116,7 @@ function renderCtaBanner(project, category, section) {
   </div>`;
 }
 function featureBodyFor(project, category, label, i) {
+  const v4 = starterFeatureItems(project); if (v4 && v4[i]) return v4[i].body; // V4: workflow explanation instead of category filler
   const d = project.source.descriptor || {};
   const base = d.offering || d.descriptor || category.noun;
   const templates = [`Built around ${base}, without the busywork.`, `Everything ${base} needs, in one place.`, `Designed to make ${(label || '').toLowerCase()} feel effortless.`];
@@ -3092,7 +3125,8 @@ function featureBodyFor(project, category, label, i) {
 function renderFeatures(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'What it does');
   const intro = sectionCopyField(section, 'body', '');
-  const labels = category.services;
+  const v4Items = starterFeatureItems(project);
+  const labels = v4Items ? v4Items.map(x => x.label) : category.services;
   const variant = (section && section.variant) || 'grid';
   if (variant === 'list') {
     // Reuses the same numbered-editorial markup/CSS as renderProcess's
@@ -6333,6 +6367,16 @@ const refinementStatus = $('#refinementStatus');
 const heroAssetInput = $('#heroAssetInput'); const heroAssetAdd = $('#heroAssetAdd'); const heroAssetThumbs = $('#heroAssetThumbs');
 const galleryAssetInput = $('#galleryAssetInput'); const galleryAssetAdd = $('#galleryAssetAdd'); const galleryAssetThumbs = $('#galleryAssetThumbs');
 const teamAssetInput = $('#teamAssetInput'); const teamAssetAdd = $('#teamAssetAdd'); const teamAssetThumbs = $('#teamAssetThumbs');
+// V4 customizer: a starter visual is a finished visual the customer may replace. "Replace" routes to the same upload inputs the
+// asset panels already use; an uploaded asset outranks the starter in renderVisualSlot, so the swap is clean and layout-preserving.
+if (builderSite) builderSite.addEventListener('click', event => {
+  const btn = event.target.closest && event.target.closest('[data-action="replace-starter"]');
+  if (!btn) return;
+  event.preventDefault(); event.stopPropagation();
+  const slot = btn.getAttribute('data-slot') || '';
+  const input = slot === 'hero' || slot === 'collage-2' ? heroAssetInput : /team|about/.test(slot) ? teamAssetInput : galleryAssetInput;
+  if (input) input.click();
+}, true);
 
 // Project data elements
 const saveProjectButton = $('#saveProjectButton');
@@ -7993,6 +8037,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // ever runs. So this is exactly "how many credits can this
         // generation's images spend" (spec section 4), with no separate
         // subtraction needed here.
+        applyVisualProfile(proj); // V4 (flag-gated): starter visuals + a hero that can carry a product visual
         groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;
