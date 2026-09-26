@@ -19,7 +19,8 @@ function makePngs() {
   };
   return { PNG_BLANK: mk(1536, 1024, 3000), PNG_PHOTO: mk(1536, 1024, 2500000) };
 }
-const env = over => Object.assign({ PREMIUM_GENERATION_V1: 'true' }, over || {});
+// V1-level tests run with the sub-features explicitly OFF (they are ON by default in production); V2/V3/V4 tests switch them on.
+const env = over => Object.assign({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'false', PREMIUM_GROUNDING_V3: 'false', PREMIUM_VISUALS_V4: 'false' }, over || {});
 const core = over => P.createPremiumCore(P.loadConfig(env(over)));
 const palette = { background: '#f7f8fa', main: '#c0451f', text: '#101216', accent2: '#1b4b8f' };
 const startRoofing = c => c.startSession({ categoryKey: 'roofing', categoryLabel: 'Roofing', archetype: 'local-conversion', palette, description: 'Family roofing company in Calgary, shingle repair and replacement', location: 'Calgary' });
@@ -53,7 +54,7 @@ const sample = () => ({
   });
   await t('budgets default to the briefed targets and are env-overridable', () => {
     const b = P.loadConfig({}).budgets;
-    assert.deepStrictEqual([b.TARGET_FIRST_DRAFT_USD, b.TARGET_PUBLISHABLE_SITE_USD, b.SOFT_SITE_BUDGET_USD, b.HARD_SITE_BUDGET_USD], [1.5, 3, 4, 5]);
+    assert.deepStrictEqual([b.TARGET_FIRST_DRAFT_USD, b.TARGET_PUBLISHABLE_SITE_USD, b.SOFT_SITE_BUDGET_USD, b.HARD_SITE_BUDGET_USD], [1.0, 2.0, 2.5, 5]);
     assert.strictEqual(P.loadConfig({ HARD_SITE_BUDGET_USD: '2.5' }).budgets.HARD_SITE_BUDGET_USD, 2.5);
   });
 
@@ -159,7 +160,7 @@ const sample = () => ({
     const by = Object.fromEntries(r.slots.map(x => [x.slot, x]));
     assert.strictEqual(by.hero.premiumRole, 'hero'); assert.strictEqual(by.hero.aspectRatio, '16:9'); assert.strictEqual(by.hero.sourceType, 'generated'); assert.strictEqual(by.hero.tier, 'hero');
     assert.strictEqual(by['team-0'].sourceType, 'designed'); assert.strictEqual(by['team-0'].reason, 'real_team_photos_only');
-    assert.strictEqual(by['gallery-0'].sourceType, 'designed'); assert.strictEqual(by['gallery-0'].reason, 'real_project_media_only');
+    assert.strictEqual(by['gallery-0'].sourceType, 'generated'); // quality pass: trades galleries may use generated material/result photography
     assert.strictEqual(by['gallery-featured'].premiumRole, 'editorial');
   });
   await t('hero gets the highest-quality route; decorative never gets an expensive one', () => {
@@ -468,11 +469,12 @@ const sample = () => ({
     'community-nonprofit': ['about', 'metrics', 'gallery', 'newsletter', 'contact'], 'service-business': ['services', 'serviceAreas', 'ctaBanner'], portfolio: ['gallery', 'about', 'services', 'ctaBanner'],
   };
   const planFor2 = (arch, types) => C.planPageComposition({ sections: types.map((ty, i) => ({ id: 's' + i, type: ty, hasImage: ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(ty) })), strategy: { archetype: arch, conversionGoal: 'request_quote' }, palette: PAL });
-  await t('config: composition sub-flag defaults OFF and requires the V1 flag', () => {
+  await t('config: composition/grounding/visuals are ON with V1 (rollback switch = false) and never on without V1', () => {
     assert.strictEqual(P.loadConfig({}).compositionV2, false);
-    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).compositionV2, false);
+    const on = P.loadConfig({ PREMIUM_GENERATION_V1: 'true' });
+    assert.deepStrictEqual([on.compositionV2, on.groundingV3, on.visualsV4], [true, true, true]);
     assert.strictEqual(P.loadConfig({ PREMIUM_COMPOSITION_V2: 'true' }).compositionV2, false);
-    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'true' }).compositionV2, true);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'false' }).compositionV2, false);
   });
   await t('plan guarantees: every archetype gets >=2 moments, no 3-equal-weight run, every neighbour pair clearly different', () => {
     Object.entries(recipes).forEach(([arch, types]) => {
@@ -552,7 +554,7 @@ const sample = () => ({
     assert.ok(C.evaluateComposition(flat).some(f => f.code === 'flat_pacing_run'));
   });
   await t('composition repair is surgical and free: missing final CTA inserted, unsupported testimonials removed as ONE action, rest untouched', async () => {
-    const c = P.createPremiumCore(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'true' })), s = c.startSession({ categoryKey: 'cleaning', archetype: 'service-business', palette: PAL, composition: true });
+    const c = P.createPremiumCore(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_COMPOSITION_V2: 'true', PREMIUM_GROUNDING_V3: 'false' })), s = c.startSession({ categoryKey: 'cleaning', archetype: 'service-business', palette: PAL, composition: true });
     const d = { copy: { headline: 'Residential cleaning in Edmonton', cta: 'Book' }, design: { palette: PAL, dimensions: { hero: 'split' }, premiumTokens: s.tokens }, pages: [{ id: 'home', slug: '', sections: [{ id: 'a', type: 'services', variant: 'numbered', copy: { headline: 'What we clean' } }, { id: 't1', type: 'testimonial', copy: {} }, { id: 't2', type: 'testimonialsGrid', copy: {} }, { id: 't3', type: 'testimonial', copy: {} }, { id: 'b', type: 'serviceAreas', copy: {} }] }], imagePlan: [], assets: { generated: {} } };
     const before = JSON.stringify(d.pages[0].sections.find(x => x.id === 'a'));
     const out = await s.reviewAndRepair(d, { description: 'Residential cleaning service in Edmonton' }, {});
@@ -583,14 +585,14 @@ const sample = () => ({
       { id: 'contact', slug: 'contact', label: 'Contact', sections: [{ id: 'c1', type: 'contact', copy: {} }] },
     ],
   });
-  await t('V3 flag: default OFF, needs V1', () => {
-    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).groundingV3, false);
+  await t('V3 flag: on with V1, off with =false, never without V1', () => {
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).groundingV3, true);
     assert.strictEqual(P.loadConfig({ PREMIUM_GROUNDING_V3: 'true' }).groundingV3, false);
-    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'true' }).groundingV3, true);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'off' }).groundingV3, false);
   });
   await t('V3 budgets: semantic sub-budgets have the briefed defaults', () => {
     const b = P.loadConfig({}).budgets;
-    assert.deepStrictEqual([b.SEMANTIC_REVIEW_TARGET_USD, b.SEMANTIC_REPAIR_TARGET_USD, b.SEMANTIC_REVIEW_HARD_CEILING_USD], [0.10, 0.10, 0.30]);
+    assert.deepStrictEqual([b.SEMANTIC_REVIEW_TARGET_USD, b.SEMANTIC_REPAIR_TARGET_USD, b.SEMANTIC_REVIEW_HARD_CEILING_USD], [0.30, 0.30, 0.60]);
   });
   await t('grounding: skincare store is retail, no restaurant/SaaS concepts, no invented proof', () => {
     const g = gOf(SKIN, 'ecommerce', 'ecommerce-showcase');
@@ -674,7 +676,7 @@ const sample = () => ({
     assert.strictEqual(calls, 1);
     assert.ok(out.semantic && out.semantic.log.criticRan);
     assert.ok(out.semantic.changes.length >= 4, 'deterministic + critic changes applied');
-    assert.ok(out.semantic.log.criticCostUsd <= 0.10 + 1e-9, 'within semantic target: ' + out.semantic.log.criticCostUsd);
+    assert.ok(out.semantic.log.criticCostUsd <= 0.30 + 1e-9, 'within semantic target: ' + out.semantic.log.criticCostUsd);
     assert.ok(!out.direction.pages.flatMap(p => p.sections.map(x => x.type)).includes('testimonial'));
   });
   await t('session: critic fix that invents a fact or leaks another business is rejected', async () => {
@@ -721,12 +723,12 @@ const sample = () => ({
     copy: { headline: 'Software for creative teams', sub: 'Tools for creative teams in Los Angeles.', cta: 'Get started' },
     pages: [{ id: 'home', slug: '', label: 'Home', sections: [{ id: 'f1', type: 'features', copy: {} }, { id: 'faq1', type: 'faq', copy: {} }] }, { id: 'about', slug: 'about', label: 'About', sections: [{ id: 'ab', type: 'about', copy: {} }] }],
     imagePlan: [{ slot: 'hero', role: 'hero', sourceType: 'designed' }, { slot: 'product', role: 'product', sourceType: 'designed' }] }, over || {});
-  await t('V4 flag: default OFF; needs V1 AND V3', () => {
+  await t('V4 flag: on with V1 (+V3), off with =false, needs V3', () => {
     const c = k => P.loadConfig(k).visualsV4;
-    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true' }), false);
-    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_VISUALS_V4: 'true' }), false);
-    assert.strictEqual(c({ PREMIUM_VISUALS_V4: 'true', PREMIUM_GROUNDING_V3: 'true' }), false);
-    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' }), true);
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true' }), true);
+    assert.strictEqual(c({ PREMIUM_VISUALS_V4: 'true' }), false);
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_VISUALS_V4: 'false' }), false);
+    assert.strictEqual(c({ PREMIUM_GENERATION_V1: 'true', PREMIUM_GROUNDING_V3: 'false' }), false);
   });
   await t('industry visual profile: derived from the grounding, one per business family', () => {
     const fam = f => P.visuals.profileFromGrounding({ family: f }).id;
@@ -845,6 +847,94 @@ const sample = () => ({
     const strat = P.strategy.deriveStrategy({ archetype: 'ecommerce-showcase', categoryKey: 'ecommerce', categoryLabel: 'Retail', description: SKIN, grounding: g, visualsV4: true });
     const art = P.art.deriveArtDirection(strat, palette);
     ['hero', 'product', 'gallery'].forEach(role => assert.ok(P.images.lintImagePrompt(P.images.buildImagePrompt({ role, aspectRatio: '4:3', textSide: 'left', avoid: strat.imageAvoid }, strat, art)).ok, role));
+  });
+
+  console.log('PREMIUM QUALITY PASS (V5)');
+  const V5ON = { PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true', PREMIUM_COMPOSITION_V2: 'true' };
+  await t('quality-first budgets: target 1.00, soft 2.50, hard 5.00; primary image cap raised; first four primary images funded', () => {
+    const b = P.loadConfig({ PREMIUM_GENERATION_V1: 'true' });
+    assert.deepStrictEqual([b.budgets.TARGET_FIRST_DRAFT_USD, b.budgets.SOFT_SITE_BUDGET_USD, b.budgets.HARD_SITE_BUDGET_USD], [1.0, 2.5, 5]);
+    assert.ok(b.imageTierCaps.primary >= 0.45 && b.imageTierCaps.hero >= 0.75);
+    assert.ok(b.models.planner);
+  });
+  await t('secondary-page depth: thin About / Contact / catalog pages are enriched with grounded sections only', () => {
+    const g = gOf('Family roofing company in Calgary. Free quotes.', 'roofing', 'local-conversion');
+    const site = { copy: { headline: 'Roofing in Calgary' }, pages: [
+      { id: 'home', slug: '', label: 'Home', sections: [{ id: 'h1', type: 'services', copy: {} }] },
+      { id: 'about', slug: 'about', label: 'About', sections: [{ id: 'a', type: 'about', copy: {} }] },
+      { id: 'contact', slug: 'contact', label: 'Contact', sections: [{ id: 'c', type: 'contact', copy: {} }] },
+      { id: 'services', slug: 'services', label: 'Services', sections: [{ id: 's', type: 'services', copy: {} }] }] };
+    const out = P.semantic.applyRepairs(site, P.semantic.checkSemantics(site, g, { description: 'x' }), g).direction;
+    const types = slug => out.pages.find(p => p.slug === slug).sections.map(s => s.type);
+    assert.ok(types('about').length >= 3 && types('about').includes('process'), types('about').join());
+    assert.ok(types('contact').length >= 2, types('contact').join());
+    assert.ok(types('services').length >= 2, types('services').join());
+    ['testimonial', 'team', 'pricing'].forEach(x => out.pages.forEach(p => assert.ok(!p.sections.some(s => s.type === x))));
+  });
+  await t('hero families: photography businesses never keep a text-only or interface hero; tech keeps the browser-frame hero', () => {
+    const V = P.visuals;
+    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'poster'), 'asymmetric-offset');
+    assert.strictEqual(V.chooseHero(V.PROFILES.hospitality, 'centered-oversized'), 'fullbleed-image');
+    assert.strictEqual(V.chooseHero(V.PROFILES.trades, 'product-screenshot'), 'split');
+    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'editorial-rail'), 'editorial-rail');
+    assert.strictEqual(V.chooseHero(V.PROFILES.tech, 'grid-dashboard'), 'product-screenshot');
+    const retailProj = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' }, design: { premium: { vs: 1 }, dimensions: { hero: 'poster' } } });
+    assert.ok(V.checkVisuals(retailProj, {}).some(x => x.code === 'hero_family_mismatch' && x.repair && x.repair.value === 'asymmetric-offset'));
+  });
+  const imgSite = () => { const s = techProj({ source: { text: 'Online skincare store in Vancouver selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' }, design: { premium: { vs: 1 }, dimensions: { hero: 'asymmetric-offset' } } });
+    s.imagePlan = [{ slot: 'hero', role: 'hero', sourceType: 'generated', kind: 'photo', model: 'gpt-image-1', quality: 'high', routeKind: 'premium', aspectRatio: '16:9', cacheKey: 'k', prompt: 'skincare products on a clean surface, soft light', promptSimplified: 'skincare bottles, simple' }, { slot: 'product', role: 'product', sourceType: 'generated', kind: 'photo', model: 'gpt-image-1', quality: 'medium', routeKind: 'premium', aspectRatio: '4:3', cacheKey: 'k2', prompt: 'skincare product close-up' }];
+    return s; };
+  const criticImg = (slot, prompt) => async () => ({ input: { defects: [{ category: 'IMAGE_SUBJECT_RELEVANCE', code: 'poor_hero', severity: 3, where: 'image', targetId: slot, evidence: 'generic stock', fixKind: 'regenerate_image', fixText: prompt }, { category: 'IMAGE_SUBJECT_RELEVANCE', code: 'poor_product', severity: 3, where: 'image', targetId: 'product', evidence: 'x', fixKind: 'regenerate_image', fixText: prompt }] }, usage: { inputTokens: 6000, outputTokens: 1500 } });
+  await t('image repair: the critic may request ONE replacement of a primary image; it is governed, verified and recorded', async () => {
+    const c = core(V5ON); const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let regen = 0, seenPrompt = '';
+    const out = await s.reviewAndRepair(imgSite(), { description: SKIN, facts: {}, premiumEnabled: true }, {
+      semanticCritic: criticImg('hero', 'Editorial photograph of skincare bottles and a glass jar on a stone plinth, soft window light, shallow depth of field'),
+      regenerateImage: async spec => { if (spec.slot === 'hero') { regen++; seenPrompt = spec.prompt; } return { ok: true, dataUrl: PNG_PHOTO }; } });
+    assert.strictEqual(regen, 1, 'exactly one hero replacement although the critic asked for two images');
+    assert.deepStrictEqual(out.semantic.regenerated, ['hero'], 'the critic never replaces more than one image');
+    assert.ok(/skincare bottles/.test(seenPrompt) && /no text/i.test(seenPrompt), 'validated critic prompt + safety tail');
+    assert.deepStrictEqual(out.semantic.regenerated, ['hero']);
+    assert.ok(out.direction.assets.generated.hero.dataUrl);
+    assert.ok(s.ledger.forGeneration(s.generationId).some(e => e.kind === 'image' && e.phase === 'repair'), 'repair image is in the ledger');
+  });
+  await t('image repair: an off-subject or UI-word critic prompt falls back to the planner prompt; a poor result never replaces the image', async () => {
+    const c = core(V5ON); const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let seen = '';
+    const out = await s.reviewAndRepair(imgSite(), { description: SKIN, facts: {}, premiumEnabled: true }, {
+      semanticCritic: criticImg('hero', 'A fashion runway model wearing apparel in a dashboard screenshot'),
+      regenerateImage: async spec => { if (spec.slot === 'hero') seen = spec.prompt; return { ok: true, dataUrl: PNG_BLANK }; } });
+    assert.ok(/skincare bottles, simple/.test(seen), 'fell back: ' + seen.slice(0, 80));
+    assert.deepStrictEqual(out.semantic.regenerated, []);
+  });
+  await t('image repair: never when the budget forbids it', async () => {
+    const c = core(Object.assign({ HARD_SITE_BUDGET_USD: '0.05', SOFT_SITE_BUDGET_USD: '0.05' }, V5ON)); const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let regen = 0;
+    await s.reviewAndRepair(imgSite(), { description: SKIN, facts: {}, premiumEnabled: true }, { semanticCritic: criticImg('hero', 'Editorial photograph of skincare bottles on stone, soft light'), regenerateImage: async () => { regen++; return { ok: true, dataUrl: PNG_PHOTO }; } });
+    assert.strictEqual(regen, 0);
+  });
+  await t('critic gets the pictures: vision thumbnails are passed through to the critic call', async () => {
+    const c = core(V5ON); const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
+    let got = null;
+    await s.reviewAndRepair(imgSite(), { description: SKIN, facts: {}, premiumEnabled: true, visionImages: [{ slot: 'hero', mediaType: 'image/jpeg', data: 'AAAA' }] }, { semanticCritic: async x => { got = x; return { input: { defects: [] }, usage: {} }; } });
+    assert.ok(got && got.images && got.images.length === 1 && /IMAGE quality/.test(got.user));
+    assert.ok(got.tool.input_schema.properties.defects.maxItems >= 10);
+  });
+  await t('acceptance gate: blockers left after the repair pass are reported; a clean site is accepted', async () => {
+    const c = core(V5ON); const s = c.startSession({ categoryKey: 'tech', categoryLabel: 'Tech', archetype: 'product-led-saas', palette, description: TECH });
+    const bad = techProj(); bad.pages[0].sections[0].copy = { body: 'Your image here' };
+    const o1 = await s.reviewAndRepair(bad, { description: TECH, facts: {}, premiumEnabled: true }, {});
+    assert.strictEqual(o1.acceptance.accepted, false); assert.ok(o1.acceptance.blockers.includes('placeholder_text'));
+    const s2 = c.startSession({ categoryKey: 'tech', categoryLabel: 'Tech', archetype: 'product-led-saas', palette, description: TECH });
+    const good = techProj({ design: { premium: { vs: 1 }, dimensions: { hero: 'product-screenshot' } }, pages: [{ id: 'home', slug: '', label: 'Home', sections: [{ id: 'f', type: 'features', copy: {} }, { id: 'p', type: 'productShowcase', copy: {} }] }] });
+    const o2 = await s2.reviewAndRepair(good, { description: TECH, facts: {}, premiumEnabled: true }, {});
+    assert.strictEqual(o2.acceptance.accepted, true, JSON.stringify(o2.acceptance));
+  });
+  await t('starter visuals: the layered hero composition renders for tech; never for photography families', () => {
+    const p = techProj();
+    assert.ok(/data-starter="ui-stack"/.test(P.visuals.starterHtml(p, 'hero')));
+    const retailProj = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' } });
+    assert.ok(!/ui-/.test(P.visuals.starterHtml(retailProj, 'hero')));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

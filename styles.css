@@ -2365,7 +2365,11 @@ body.generation-gate-open{overflow:hidden}
    because the site lays itself out by container queries, not by viewport. */
 .builder-site[data-premium="1"]{font-family:var(--site-font-body);line-height:var(--site-body-line)}
 .builder-site[data-premium="1"] :is(.site-hero,.site-page-header,.site-copy,.hero-stacked-copy) :is(h1,h2,h3){font-family:var(--site-font-heading);font-weight:var(--site-heading-weight);letter-spacing:var(--site-heading-tracking);line-height:var(--site-heading-line);text-wrap:balance}
-.builder-site[data-premium="1"] :is(.site-copy,.hero-stacked-copy) h3{font-size:var(--site-h1)!important;max-width:var(--site-measure)}
+.builder-site[data-premium="1"] :is(.site-hero,.site-copy,.hero-stacked-copy) h3{font-size:var(--site-h1)!important;max-width:var(--site-measure)}
+/* quality pass: every hero layout (asymmetric, full-bleed, collage, editorial, minimal, poster ...) gets the display headline scale, not the browser-default h3 (18px) */
+.builder-site[data-premium="1"] :is(.hero-fullbleed-copy,.hero-collage-copy,.hero-editorial-copy,.hero-asym-headline,.hero-minimal,.hero-poster) h3,.builder-site[data-premium="1"] .site-hero.hero-minimal>h3{max-width:var(--site-measure)}
+.builder-site[data-premium="1"] :is(.hero-fullbleed-copy,.hero-collage-copy,.hero-editorial-copy,.hero-asym-meta)>p:not(:first-child),.builder-site[data-premium="1"] .hero-minimal>p:not(:first-child){max-width:var(--site-measure);font-size:var(--site-body-size);line-height:var(--site-body-line)}
+.builder-site[data-premium="1"] :is(.hero-fullbleed-copy,.hero-collage-copy,.hero-editorial-copy,.hero-asym-headline)>p:first-child,.builder-site[data-premium="1"] .hero-minimal>p:first-child{color:color-mix(in srgb,var(--site-accent) 78%,var(--site-text));letter-spacing:.14em;font-size:12px;text-transform:uppercase}
 .builder-site[data-premium="1"] .site-page-header-title{font-size:var(--site-h1)!important}
 .builder-site[data-premium="1"] :is(.site-copy,.hero-stacked-copy)>p:not(:first-child){max-width:var(--site-measure);font-size:var(--site-body-size);line-height:var(--site-body-line)}
 .builder-site[data-premium="1"] .site-section-label{font-family:var(--site-font-heading);font-size:var(--site-h2);font-weight:var(--site-heading-weight);letter-spacing:var(--site-heading-tracking);line-height:1.15;text-transform:none;text-wrap:balance;color:var(--site-text);opacity:1}
@@ -2476,6 +2480,7 @@ body.generation-gate-open{overflow:hidden}
 .starter-svg .sv-area{fill:color-mix(in srgb,var(--site-accent) 18%,transparent)}
 .starter-svg .sv-label{fill:color-mix(in srgb,var(--site-text) 78%,transparent);font:600 14px var(--site-font-body,system-ui,sans-serif)}
 .starter-svg .sv-label-sm{fill:color-mix(in srgb,var(--site-text) 55%,transparent);font:600 11px var(--site-font-body,system-ui,sans-serif);letter-spacing:.04em}
+.starter-svg .sv-lift{filter:drop-shadow(0 16px 26px color-mix(in srgb,#000 38%,transparent))}
 .starter-svg .sv-mono{fill:var(--site-bg);font:700 64px var(--site-font-heading,system-ui,sans-serif)}
 .starter-svg .sv-stop-a{stop-color:var(--site-accent);stop-opacity:.28}
 .starter-svg .sv-stop-b{stop-color:var(--site-accent-2,var(--site-accent));stop-opacity:.22}
@@ -2484,7 +2489,7 @@ body.generation-gate-open{overflow:hidden}
 .product-frame:has(.visual-starter),.editorial-visual:has(.visual-starter){height:auto!important;aspect-ratio:16/10}
 .about-visual:has(.visual-starter){aspect-ratio:4/3;min-height:180px}
 .hero-product-body:has(.visual-starter){height:auto!important;overflow:hidden}
-.hero-product-body .visual-starter{aspect-ratio:16/8;height:auto;max-height:520px}
+.hero-product-body .visual-starter{aspect-ratio:8/5;height:auto;max-height:640px}
 .dash-panel-visual .visual-starter{aspect-ratio:16/10;height:auto}
 .site-visual:has(.visual-starter){aspect-ratio:16/10}
 /* customizer only (preview, never the export): replace affordance on starter media */
@@ -2492,3 +2497,9 @@ body.generation-gate-open{overflow:hidden}
 .starter-replace{position:absolute;right:10px;bottom:10px;z-index:3;padding:6px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--site-text) 25%,transparent);background:color-mix(in srgb,var(--site-bg) 82%,transparent);color:var(--site-text);font:600 12px system-ui,sans-serif;opacity:0;transition:opacity .15s;backdrop-filter:blur(6px);cursor:pointer}
 .visual-starter:hover .starter-replace,.starter-replace:focus-visible{opacity:1}
 @media (hover:none){.starter-replace{opacity:.92}}
+
+/* quality pass: full-bleed heroes must stay legible over any image (real photo or starter graphic); menu/reservation sections get the site gutter */
+.builder-site[data-premium="1"] .hero-fullbleed-scrim{background:linear-gradient(90deg,rgba(8,6,4,.8),rgba(8,6,4,.46) 58%,rgba(8,6,4,.14)),linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0) 55%)}
+.builder-site[data-premium="1"] .hero-fullbleed-copy,.builder-site[data-premium="1"] .hero-fullbleed-copy h3,.builder-site[data-premium="1"] .hero-fullbleed-copy>p{color:#fff!important;text-shadow:0 1px 18px rgba(0,0,0,.35)}
+.builder-site[data-premium="1"] .hero-fullbleed-copy>p:first-child{color:rgba(255,255,255,.82)!important}
+.builder-site .site-section-menu,.builder-site .site-section-reservation{padding-left:clamp(20px,5vw,56px);padding-right:clamp(20px,5vw,56px)}

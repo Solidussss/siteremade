@@ -69,6 +69,8 @@ globalThis.fetch = async function (url, opts) {
     if (tool === 'report_semantic_defects') {
       usage.output_tokens = 500; log({ kind: 'semantic_critic', model: b.model, usage });
       const defects = process.env.MOCK_SEMANTIC_DEFECT ? [{ category: 'CTA_CONSISTENCY', code: 'mock_cta', severity: 3, where: 'hero', field: 'cta', evidence: 'mock finding', fixKind: 'apply_fix_text', fixText: process.env.MOCK_SEMANTIC_DEFECT }] : [];
+      if (process.env.MOCK_SEMANTIC_IMAGE) defects.push({ category: 'IMAGE_SUBJECT_RELEVANCE', code: 'mock_poor_hero', severity: 3, where: 'image', targetId: process.env.MOCK_SEMANTIC_IMAGE, evidence: 'mock: hero image is generic', fixKind: 'regenerate_image', fixText: 'Editorial photograph of the real product subject on a clean surface, soft window light, shallow depth of field, wide landscape frame' });
+      const hasVision = JSON.stringify(b.messages).includes('"type":"image"'); log({ kind: 'semantic_critic_input', vision: hasVision });
       return json({ model: b.model, usage, content: [{ type: 'tool_use', name: 'report_semantic_defects', input: { defects } }] });
     }
     usage.output_tokens = 40; log({ kind: 'rewrite', model: b.model, usage });

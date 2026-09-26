@@ -16,6 +16,10 @@ const http = require('http');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.FIX_OUT || path.join(ROOT, 'premium-fixtures', 'out');
+// FIX_REAL=1 runs against the REAL OpenAI/Anthropic APIs (needs OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment). It spends real money:
+// use it with FIX_IDS=<2-3 fixtures> only. The ledger then reports real token usage from the API responses.
+const REAL = process.env.FIX_REAL === '1';
+if (REAL && !(process.env.OPENAI_API_KEY && process.env.ANTHROPIC_API_KEY)) { console.error('FIX_REAL=1 needs OPENAI_API_KEY and ANTHROPIC_API_KEY'); process.exit(2); }
 const MODES = (process.env.FIX_MODES || 'legacy,premium').split(',');
 const fixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures.json'), 'utf8')).filter(f => !process.env.FIX_IDS || process.env.FIX_IDS.split(',').includes(f.id));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -28,13 +32,13 @@ async function startServer(mode, tag) {
   const p = port++;
   const logDir = path.join(OUT, 'logs', tag); fs.mkdirSync(logDir, { recursive: true });
   const env = Object.assign({}, process.env, {
-    PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: 'mock',
+    PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: REAL ? process.env.OPENAI_API_KEY : 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: REAL ? process.env.ANTHROPIC_API_KEY : 'mock',
     PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: (mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_GROUNDING_V3: (mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_VISUALS_V4: mode === 'v4' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
     MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_DAILY_FREE_CREDITS: '1000',
     SITEREMADE_RATE_LIMIT_SIGNUP_MAX: '1000', SITEREMADE_RATE_LIMIT_GENERATION_MAX: '1000', ELECTRON_RUN_AS_NODE: '',
   });
   delete env.ELECTRON_RUN_AS_NODE;
-  const child = spawn('node', ['-r', path.join(__dirname, 'mock-providers.js'), 'server.js'], { cwd: ROOT, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn('node', (REAL ? [] : ['-r', path.join(__dirname, 'mock-providers.js')]).concat(['server.js']), { cwd: ROOT, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';
   child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { out += d; });
   for (let i = 0; i < 60; i++) { if (/running on port/.test(out)) break; await sleep(250); }
@@ -47,6 +51,7 @@ async function runOne(fixture, mode) {
   const srv = await startServer(mode, tag);
   const w = sharedWindow || (sharedWindow = new BrowserWindow({ width: 1440, height: 900, show: false, webPreferences: { sandbox: true } }));
   w.setContentSize(1440, 900);
+  if (!w.__fxConsole) { w.__fxConsole = true; w.webContents.on('console-message', (e, level, msg, line, src) => { if (level >= 2 && process.env.FIX_VERBOSE) console.log('   [page ' + (level === 3 ? 'error' : 'warn') + '] ' + String(msg).slice(0, 300) + ' @' + String(src).split('/').pop() + ':' + line); }); }
   const result = { fixture: fixture.id, label: fixture.label, mode };
   try {
     const base = `http://localhost:${srv.port}/`;
@@ -62,7 +67,8 @@ async function runOne(fixture, mode) {
       for (let i=0;i<240 && !(directions && directions.length>=1);i++) await new Promise(r=>setTimeout(r,250));
       return {ms: Math.round(performance.now()-t), directions: directions.length}; })()`);
     result.wallMs = Date.now() - t0; result.run = run;
-    if (run.error || !run.directions) throw new Error('generation did not complete: ' + JSON.stringify(run));
+    if (run.error || !run.directions) { try { result.debugQuality = await ev('(()=>{ try { return JSON.stringify({q: validateProjectQuality(project), term: imagePlanIsTerminal(project), name: project.business && JSON.stringify(project.business), src: project.source && project.source.text, bad: (project.imagePlan||[]).filter(e => e.sourceType==="generated" && !(project.assets.generated[e.slot] && project.assets.generated[e.slot].cacheKey===e.cacheKey)).map(e => e.slot + ":" + (project.assets.generated[e.slot]&&project.assets.generated[e.slot].cacheKey) + "!=" + e.cacheKey)}).slice(0, 1500); } catch (e) { return String(e); } })()'); } catch (_) { /* ignore */ }
+      throw new Error('generation did not complete: ' + JSON.stringify(run) + ' quality=' + (result.debugQuality || '?')); }
     await sleep(800);
     step('generation complete');
     // ---- collect from the real client state
@@ -91,7 +97,7 @@ async function runOne(fixture, mode) {
       for (let i = 0; i < p.pages.length; i++) { switchPage(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const q = s => builderSite.querySelectorAll(s).length; const visuals = [...builderSite.querySelectorAll('.visual-generated, .site-visual-img')];
         const heroEl = builderSite.querySelector('.site-hero');
-        out.pages.push({ label: p.pages[i].label, starters: q('.visual-starter'), photos: q('img.site-visual-img'), legacyPlaceholders: q('.visual-generated:not(.visual-starter)'), dotted: q('.visual-generated-unfunded'), teamPlaceholders: q('.team-card-placeholder'), generatingLabels: q('.visual-generating-label'), replaceButtons: q('.starter-replace'), kinds: [...builderSite.querySelectorAll('.visual-starter')].map(e => e.dataset.starter), heroClass: i === 0 && heroEl ? heroEl.className : undefined, sectionCount: q('.site-section') });
+        out.pages.push({ label: p.pages[i].label, starters: q('.visual-starter'), photos: q('img.site-visual-img'), legacyPlaceholders: q('.visual-generated:not(.visual-starter)'), dotted: q('.visual-generated-unfunded'), teamPlaceholders: q('.team-card-placeholder'), generatingLabels: q('.visual-generating-label'), replaceButtons: q('.starter-replace'), kinds: [...builderSite.querySelectorAll('.visual-starter')].map(e => e.dataset.starter), heroClass: i === 0 && heroEl ? heroEl.className : undefined, heroFont: i === 0 && heroEl && heroEl.querySelector("h3") ? getComputedStyle(heroEl.querySelector("h3")).fontSize : undefined, siteW: builderSite.getBoundingClientRect().width, leaks: (builderSite.innerText.match(/not connected|lorem ipsum|placeholder|upload your|coming soon|undefined/gi) || []), sectionCount: q('.site-section') });
       }
       switchPage(start); return out; })()`);
     // ---- V4 customer replacement (live client): Replace button routes to the upload input; an uploaded asset overrides the starter cleanly and can be removed again
@@ -107,6 +113,7 @@ async function runOne(fixture, mode) {
       out.startersRestored = builderSite.querySelectorAll('.visual-starter').length; return out; })()`);
     // ---- real phone-width layout measurement of the finished site
     result.mobile = await ev(`(()=>{ const m = window.SiteRemadePremium.mobile.measureMobile(builderSite,[390,360]); return m; })()`);
+    result.tablet = await ev(`(()=>{ const m = window.SiteRemadePremium.mobile.measureMobile(builderSite,[768]); return m; })()`);
     // ---- the same deterministic rubric applied to the FINAL site of both pipelines (comparable)
     result.rubricFinal = await ev(`(()=>{ const P = window.SiteRemadePremium; const p = directions[0]; const cat = categories[p.business.categoryKey]||categories.other;
       const s = P.strategy.deriveStrategy({archetype:p.strategy&&p.strategy.archetype,categoryKey:p.business.categoryKey,categoryLabel:cat.label,description:p.source.text,facts:p.source.facts,location:p.source.location,creativeDirection:p.intent&&p.intent.creativeDirection});
@@ -124,7 +131,7 @@ async function runOne(fixture, mode) {
       const dev = document.createElement('div'); dev.className = 'builder-device' + (${mobile} ? ' mobile' : ''); dev.style.cssText = ${mobile} ? 'width:416px;min-height:0;padding:13px;display:flex;justify-content:center' : 'width:1300px;min-height:0;padding:0;display:block;overflow:visible';
       dev.appendChild(s); document.body.appendChild(dev); return document.body.scrollHeight; })()`;
     await ev(`window.__fxSite = builderSite.cloneNode(true)`);
-    for (const [name, mobile, width] of [['desktop', false, 1300], ['mobile', true, 416]]) {
+    for (const [name, mobile, width] of [['desktop', false, 1300], ['tablet', false, 820], ['mobile', true, 416]]) {
       const h = await ev(isolate(mobile));
       w.setContentSize(width, Math.min(2400, Math.max(600, h + 20))); await sleep(1200);
       await ev(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);

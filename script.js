@@ -1908,7 +1908,8 @@ function applyVisualProfile(proj) {
     const prof = P.visuals.profileFromGrounding(g);
     proj.design.premium.vp = prof.id;
     const dims = proj.design.dimensions || {};
-    if (prof.heroVariant && dims.hero !== prof.heroVariant) { dims.hero = prof.heroVariant; delete dims.heroDisplayVariant; }
+    const heroPick = P.visuals.chooseHero(prof, dims.hero);
+    if (heroPick && dims.hero !== heroPick) { dims.hero = heroPick; delete dims.heroDisplayVariant; }
   } catch (e) { /* legacy look */ }
 }
 function premiumStrategyFor(project, category) {
@@ -2014,6 +2015,24 @@ function applyPremiumPatch(proj, patch) {
   if (patch.dimensions && patch.dimensions.hero && patch.dimensions.hero !== proj.design.dimensions.hero) { proj.design.dimensions.hero = patch.dimensions.hero; delete proj.design.dimensions.heroDisplayVariant; changed = true; }
   return changed;
 }
+// Small JPEG thumbnails of the primary GENERATED images (hero first), so the whole-site critic can judge the pictures themselves.
+// Purely client-side (canvas); anything that fails is simply skipped.
+async function premiumVisionThumbs(proj) {
+  const out = [];
+  const slots = ['hero', 'product'].filter(slot => { const g = proj.assets && proj.assets.generated && proj.assets.generated[slot]; return g && g.status === 'ready' && g.dataUrl; });
+  for (const slot of slots.slice(0, 2)) {
+    try {
+      const src = proj.assets.generated[slot].dataUrl;
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+      const scale = Math.min(1, 640 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/jpeg', 0.72); const data = url.split(',')[1] || '';
+      if (data && data.length < 250000) out.push({ slot, mediaType: 'image/jpeg', data });
+    } catch (e) { /* skip this thumbnail */ }
+  }
+  return out;
+}
 // ONE whole-site review + at most one surgical repair round, before the customer sees the site.
 // Never blocks generation on failure: any error/timeout just reveals the first draft.
 async function premiumPreReveal(proj) {
@@ -2032,18 +2051,26 @@ async function premiumPreReveal(proj) {
     const payload = {
       generationId: proj.design.premium.generationId, projectId: proj.meta && proj.meta.id, description: (proj.source && proj.source.text) || '',
       facts: (proj.source && proj.source.facts) || {}, archetype: strategy.archetype, categoryKey: strategy.categoryKey, direction: premiumDirectionPayload(proj, mobile),
+      vision: premiumGroundingOn() ? await premiumVisionThumbs(proj) : [],
     };
     const body = JSON.stringify(payload);
     if (body.length > 850000) return; // over the API body limit: skip rather than fail
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
+    const timer = setTimeout(() => controller.abort(), 120000); // the whole-site critique + one image replacement may take a while
     const response = await fetch('/api/premium/review-repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal }).finally(() => clearTimeout(timer));
     const data = await response.json().catch(() => ({}));
     if (data && data.ok) {
-      if (applyPremiumPatch(proj, data.patch)) renderProject(proj);
-      proj.design.premium.review = { before: data.before, after: data.after, repaired: !!data.repaired, ms: Math.round(performance.now() - started) };
+      if (applyPremiumPatch(proj, data.patch)) {
+        renderProject(proj);
+        // The review may add sections (secondary-page depth, product visual). Any image slot they create is first-draft work: resolve it now
+        // (governed by the same budget) so the customer never sees an unresolved slot and the site stays admissible.
+        if (data.patch && (data.patch.addedSections || []).length) { await resolveImagePlanAssets(proj, () => {}, { suppressRender: true }); renderProject(proj); }
+      }
+      proj.design.premium.review = { before: data.before, after: data.after, repaired: !!data.repaired, accepted: data.acceptance ? !!data.acceptance.accepted : null, ms: Math.round(performance.now() - started) };
     }
   } catch (e) { /* first draft is revealed as-is */ }
+  // Safety net: a generated slot that never resolved must not block the reveal -- it falls back to its starter visual / designed treatment.
+  try { (proj.imagePlan || []).forEach(entry => { if (entry.sourceType !== 'generated') return; const g = proj.assets.generated && proj.assets.generated[entry.slot]; if (!g || g.cacheKey !== entry.cacheKey || !['ready', 'error'].includes(g.status)) { proj.assets.generated = proj.assets.generated || {}; proj.assets.generated[entry.slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt }; } }); } catch (e) { /* ignore */ }
 }
 
 function buildImagePlan(project, category, remainingCredits) {
@@ -3677,7 +3704,8 @@ function renderProductModuleWidget(project, section) {
   const priceHtml = cfg.priceLabel ? `<p class="module-product-price">${escapeHtml(cfg.priceLabel)}</p>` : '';
   const ctaLabel = escapeHtml(cfg.ctaLabel || 'View product');
   const target = cfg.checkoutUrl ? { kind: 'external', value: cfg.checkoutUrl } : null;
-  const button = target ? renderCtaButton(target, ctaLabel) : `<button type="button" class="module-cta-btn module-product-btn-disabled" disabled>${ctaLabel} — not connected yet</button>`;
+  // premium (V4) sites never show builder-status text such as "not connected yet" to a customer: with no target the button is simply not rendered
+  const button = target ? renderCtaButton(target, ctaLabel) : (starterVisualsEnabled(project) ? '' : `<button type="button" class="module-cta-btn module-product-btn-disabled" disabled>${ctaLabel} — not connected yet</button>`);
   return `<div class="module-product-cta"><strong>${name}</strong>${priceHtml}${button}</div>`;
 }
 function renderSectionHTML(project, section, category) {

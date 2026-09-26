@@ -439,6 +439,9 @@
     // SAME budget/route/repair logic.
 
     const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 0 && v !== '' && v != null ? n : d; };
+    // Sub-features (composition V2, grounding V3, visuals V4) are part of the premium generator: ON whenever PREMIUM_GENERATION_V1 is on.
+    // The env vars remain only as a rollback switch (set to false/0/off to disable one).
+    const notOff = v => !['0', 'false', 'off', 'no'].includes(String(v == null ? '' : v).toLowerCase());
     const truthy = v => ['1', 'true', 'on', 'yes'].includes(String(v || '').toLowerCase());
 
     // Text pricing, USD per 1M tokens. ESTIMATES: set PREMIUM_PRICE_* from your
@@ -454,33 +457,35 @@
       return {
         enabled: truthy(env.PREMIUM_GENERATION_V1),
         // V2 composition (page-level visual planning). Sub-flag: only meaningful when PREMIUM_GENERATION_V1 is on. Default OFF.
-        compositionV2: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_COMPOSITION_V2),
+        compositionV2: truthy(env.PREMIUM_GENERATION_V1) && notOff(env.PREMIUM_COMPOSITION_V2),
         // V3: business grounding + one whole-site semantic critique + one small targeted repair. Sub-flag, default OFF, requires V1.
-        groundingV3: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_GROUNDING_V3),
+        groundingV3: truthy(env.PREMIUM_GENERATION_V1) && notOff(env.PREMIUM_GROUNDING_V3),
         // V4: fully-dressed first output -- starter visuals (deterministic SVG), industry visual profiles, completeness + visual critique.
         // Sub-flag, default OFF, requires V1 AND V3 (the industry visual profile is derived from the business grounding).
-        visualsV4: truthy(env.PREMIUM_GENERATION_V1) && truthy(env.PREMIUM_GROUNDING_V3) && truthy(env.PREMIUM_VISUALS_V4),
+        visualsV4: truthy(env.PREMIUM_GENERATION_V1) && notOff(env.PREMIUM_GROUNDING_V3) && notOff(env.PREMIUM_VISUALS_V4),
         budgets: {
-          TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.5),
-          TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 3.0),
-          SOFT_SITE_BUDGET_USD: num(env.SOFT_SITE_BUDGET_USD, 4.0),
+          TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.0),
+          TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 2.0),
+          SOFT_SITE_BUDGET_USD: num(env.SOFT_SITE_BUDGET_USD, 2.5),
           HARD_SITE_BUDGET_USD: num(env.HARD_SITE_BUDGET_USD, 5.0),
           // Kept free for the one automatic repair round so first-draft image
           // spending can never starve it.
           REPAIR_RESERVE_USD: num(env.PREMIUM_REPAIR_RESERVE_USD, 0.75),
           // Semantic review (V3) has its own small budget inside the site budget: judgment is where the extra spend goes.
-          SEMANTIC_REVIEW_TARGET_USD: num(env.SEMANTIC_REVIEW_TARGET_USD, 0.10),
-          SEMANTIC_REPAIR_TARGET_USD: num(env.SEMANTIC_REPAIR_TARGET_USD, 0.10),
-          SEMANTIC_REVIEW_HARD_CEILING_USD: num(env.SEMANTIC_REVIEW_HARD_CEILING_USD, 0.30),
+          SEMANTIC_REVIEW_TARGET_USD: num(env.SEMANTIC_REVIEW_TARGET_USD, 0.30),
+          SEMANTIC_REPAIR_TARGET_USD: num(env.SEMANTIC_REPAIR_TARGET_USD, 0.30),
+          SEMANTIC_REVIEW_HARD_CEILING_USD: num(env.SEMANTIC_REVIEW_HARD_CEILING_USD, 0.60),
         },
         // Per-slot image spend ceilings by budget tier (USD, estimated).
         imageTierCaps: {
           hero: heroMax,
-          primary: num(env.PREMIUM_PRIMARY_IMAGE_MAX_USD, 0.3),
-          decorative: num(env.PREMIUM_DECORATIVE_IMAGE_MAX_USD, 0.04),
+          primary: num(env.PREMIUM_PRIMARY_IMAGE_MAX_USD, 0.45),
+          decorative: num(env.PREMIUM_DECORATIVE_IMAGE_MAX_USD, 0.08),
         },
         retry: { maxImageRetries: num(env.PREMIUM_IMAGE_MAX_AUTO_RETRIES, 1), maxRepairRounds: num(env.PREMIUM_MAX_REPAIR_ROUNDS, 1) },
         models: {
+          // the site planner (server.js) reasons about design; default = the strong model, override with PREMIUM_MODEL_PLANNER
+          planner: env.PREMIUM_MODEL_PLANNER || env.ANTHROPIC_MODEL || 'claude-sonnet-5',
           strong: env.PREMIUM_MODEL_STRONG || env.ANTHROPIC_MODEL || 'claude-sonnet-5',
           cheap: env.PREMIUM_MODEL_CHEAP || 'claude-haiku-4-5-20251001',
           imageSupport: env.SITEREMADE_IMAGE_MODEL_SUPPORT || 'gpt-image-1-mini',
@@ -506,7 +511,7 @@
       };
     }
 
-    module.exports = { loadConfig, DEFAULT_TEXT_PRICES, truthy };
+    module.exports = { notOff, loadConfig, DEFAULT_TEXT_PRICES, truthy };
 
   });
   __define("cost-ledger", function (module, exports, require) {
@@ -901,9 +906,11 @@
     };
     // The first few primary images are 'normal' priority (funded up to the soft budget); further ones are 'optional' and stop at
     // the first-draft cost target, so an image-heavy layout cannot quietly spend the whole soft budget.
-    const MAX_NORMAL_PRIMARY = 2;
+    const MAX_NORMAL_PRIMARY = 4; // quality pass: the first four primary visuals are funded up to the soft budget (was 2)
     const ABSTRACT_ARCHETYPES = ['product-led-saas', 'launch-campaign'];
-    const GALLERY_GENERATION_OK = ['hospitality', 'editorial-brand', 'ecommerce-showcase'];
+    // Archetypes whose galleries may use generated imagery. Quality pass: photography helps trades/nonprofit/portfolio sites too; prompts stay
+    // material/atmosphere/result-led and captions never claim the image is the customer's own work.
+    const GALLERY_GENERATION_OK = ['hospitality', 'editorial-brand', 'ecommerce-showcase', 'local-conversion', 'trust-heavy-professional', 'community-nonprofit', 'portfolio', 'product-led-saas'];
 
     function uploadQuality(meta) {
       if (!meta) return 'unknown';
@@ -1223,20 +1230,43 @@
         let work = det.direction; let changes = det.changes.slice(); let criticDefects = []; let criticRan = false;
         if (typeof d.semanticCritic === 'function') {
           const B = this.cfg.budgets;
-          const est = textCostUsd(this.cfg, 'strong', { inputTokens: 3500, outputTokens: 700 });
+          const est = textCostUsd(this.cfg, 'strong', { inputTokens: 7000, outputTokens: 2200 });
           const dec = this.governor.decide({ operation: 'semantic_critique', phase: 'first_draft', priority: 'high', estimatedUsd: est, subBudget: { spentUsd: this.semanticSpent(), ceilingUsd: B.SEMANTIC_REVIEW_TARGET_USD } });
           if (dec.allowed) {
             try {
               const p = semanticLib.buildSemanticCritique(work, g, null, visualsOn ? { criteria: visualsLib.VISUAL_CRITERIA, lines: visualsLib.visualLines(work) } : null);
-              const res = await this.time('semanticCritique', () => d.semanticCritic({ system: p.system, user: p.user, tool: semanticLib.CRITIC_TOOL }));
+              const res = await this.time('semanticCritique', () => d.semanticCritic({ system: p.system, user: p.user, tool: semanticLib.CRITIC_TOOL, images: (c.visionImages || []).slice(0, 2) }));
               if (!d.selfRecorded) this.recordText({ operation: 'semantic_critique', usage: res.usage, phase: 'first_draft' });
               criticDefects = semanticLib.parseSemanticCritique(res.input, work, g, { visuals: visualsOn }); criticRan = true;
             } catch (e) { this.semanticError = String(e && e.message || e); }
           } else this.semanticSkipped = dec.reason;
         }
         // one small repair pass: the highest-impact critic findings that carry a concrete, validated fix (max 5)
-        const ranked = criticDefects.filter(x => x.repair).sort((a, b) => b.severity - a.severity).slice(0, 5);
+        const ranked = criticDefects.filter(x => x.repair).sort((a, b) => b.severity - a.severity).slice(0, 8);
         const fixed = semanticLib.applyRepairs(work, ranked, g); work = fixed.direction; changes = changes.concat(fixed.changes);
+        // ONE image replacement (a primary image the critic judged clearly poor). Governed like any repair spend; verified before it replaces anything.
+        const regenerated = [];
+        const imgFix = ranked.find(x => x.repair.kind === 'regenerate_image');
+        if (imgFix && typeof d.regenerateImage === 'function') {
+          const slot = imgFix.repair.slot; const entry = (work.imagePlan || []).find(e => e.slot === slot);
+          if (entry && entry.sourceType === 'generated' && /^(hero|product|about|gallery-featured)/.test(slot)) {
+            let prompt = imgFix.repair.prompt ? String(imgFix.repair.prompt).replace(/[.s]+$/, '') + '. ' + (entry.aspectRatio === '16:9' ? 'Wide landscape frame' : (entry.aspectRatio || '4:3') + ' frame') + '.' : '';
+            const okPrompt = prompt && imageLib.lintImagePrompt(prompt + ' ' + imageLib.NEGATIVE_TAIL).ok && imageLib.validateImagePromptSubject(prompt, g).ok && !semanticLib.briefHit(prompt);
+            prompt = okPrompt ? prompt + ' ' + imageLib.NEGATIVE_TAIL : (entry.promptSimplified || entry.prompt);
+            const est = imageCostUsd(this.cfg, { model: entry.routeKind === 'premium' ? 'premium' : 'support', quality: entry.quality || 'medium', aspectRatio: entry.aspectRatio || '16:9' });
+            const dec = this.governor.decide({ operation: 'image_regeneration', phase: 'repair', priority: 'high', estimatedUsd: est });
+            if (dec.allowed && prompt) {
+              try {
+                const res = await this.time('semanticImage', () => d.regenerateImage({ slot, prompt, aspectRatio: entry.aspectRatio, model: entry.model, quality: entry.quality, routeKind: entry.routeKind }));
+                if (!d.selfRecorded) this.recordImage({ model: entry.model, imageTier: entry.routeKind, quality: entry.quality, aspectRatio: entry.aspectRatio, phase: 'repair', retryCount: 1, ok: !!(res && res.ok), providerReached: true, slot });
+                if (res && res.ok && res.dataUrl) {
+                  const ev = imageLib.evaluateImageDeterministic(res.dataUrl, entry.aspectRatio);
+                  if (!ev.poor) { work.assets = work.assets || {}; work.assets.generated = work.assets.generated || {}; work.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: res.dataUrl, prompt, evaluation: ev }; regenerated.push(slot); changes.push({ code: imgFix.code, kind: 'regenerate_image', target: slot, category: imgFix.category }); }
+                }
+              } catch (e) { this.semanticImageError = String(e && e.message || e); }
+            }
+          }
+        }
         let afterDefects = semanticLib.checkSemantics(work, g, c);
         if (visualsOn) afterDefects = afterDefects.concat(visualsLib.checkVisuals(work, c));
         const all = before.concat(criticDefects);
@@ -1245,7 +1275,7 @@
           wrongBusiness: (by.WRONG_BUSINESS_CONCEPTS || 0) + (by.BUSINESS_CONSISTENCY || 0), invented: (by.INVENTED_TRUST_SIGNALS || 0) + (by.FACTUAL_GROUNDING || 0), cta: by.CTA_CONSISTENCY || 0, imageSubject: by.IMAGE_SUBJECT_RELEVANCE || 0, secondaryDepth: by.SECONDARY_PAGE_DEPTH || 0, internalText: (by.PAGE_PURPOSE_CLARITY || 0) + (by.COPY_SPECIFICITY || 0),
           criticCostUsd: Math.round(this.semanticSpent() * 1e6) / 1e6, skipped: this.semanticSkipped || null,
           visuals: visualsOn ? { defects: all.filter(x => x.severity > 0 && semanticLib.VISUAL_CATEGORIES.includes(x.category)).length, byCategory: Object.fromEntries(semanticLib.VISUAL_CATEGORIES.map(k => [k, (by[k] || 0)]).filter(x => x[1])) } : null };
-        return { direction: work, changes, before: semanticLib.summarizeSemantic(all), after: semanticLib.summarizeSemantic(afterDefects), remaining: afterDefects.filter(x => x.severity > 0), grounding: g, log: this.semanticLog };
+        return { regenerated, direction: work, changes, before: semanticLib.summarizeSemantic(all), after: semanticLib.summarizeSemantic(afterDefects), remaining: afterDefects.filter(x => x.severity > 0), grounding: g, log: this.semanticLog };
       }
       // ---- V4: ONE small strong-model call that tailors the starter product visual (its four workflow labels) to THIS product ----------
       async visualBriefPass(direction, c, d) {
@@ -1262,6 +1292,13 @@
           const b = visualsLib.validateBrief(res.input, c.description);
           return b ? visualsLib.encodeBrief(b) : null;
         } catch (e) { this.visualBriefError = String(e && e.message || e); return null; }
+      }
+      // FIRST-DRAFT ACCEPTANCE GATE: "would this look finished to a customer who has not touched the customizer?" Blockers are the
+      // severity-3 findings still present after the one repair pass (empty media, placeholder text, wrong-business content, invented proof, ...).
+      accept(review) {
+        const blockers = ((review && review.defects) || []).filter(x => x.severity >= 3).map(x => x.code);
+        this.acceptance = { accepted: blockers.length === 0, blockers: [...new Set(blockers)].slice(0, 8) };
+        return this.acceptance;
       }
       time(name, fn) { const t = this.now(); const r = fn(); if (r && typeof r.then === 'function') return r.then(v => { this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return v; }); this.timings[name] = (this.timings[name] || 0) + (this.now() - t); return r; }
 
@@ -1312,7 +1349,8 @@
         const plan = repairLib.planRepairs(direction, review, this.governor, this.cfg);
         if (!plan.actions.length || this.cfg.retry.maxRepairRounds < 1) {
           this.afterReview = review.categories;
-          return { direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
+          const acceptance = this.accept(review);
+          return { acceptance, direction, review, before: review.categories, after: review.categories, actions: [], skipped: plan.skipped, repaired: false, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
         }
         this.repairRan = true;
         const free = repairLib.applyFreeRepairs(direction, plan.actions, { tokens: this.tokens });
@@ -1340,7 +1378,8 @@
         const after = reviewLib.reviewDirection(work, c);
         this.afterReview = after.categories;
         this.repairActions = executed; // what actually changed (planned-but-not-applicable actions are not counted)
-        return { direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
+        const acceptance = this.accept(after);
+        return { acceptance, direction: work, review, before: review.categories, after: after.categories, remainingDefects: after.defects.filter(x => x.severity > 0), actions: executed, planned: plan.actions.length, skipped: plan.skipped, repaired: executed.length > 0, budgetLimitReached: this.governor.limitReached, semantic: semanticResult, visualBrief };
       }
 
       finish(extra) {
@@ -1348,7 +1387,7 @@
         return this.core.metrics.append(metricsLib.buildGenerationLog({
           generationId: this.generationId, premium: true, archetype: this.strategy.archetype, projectId: this.projectId, totals: this.totals(),
           before: this.beforeReview, after: this.afterReview, repairRan: this.repairRan, repairActions: this.repairActions,
-          budgetLimitReached: this.governor.limitReached, fullRegenerationsRequested: x.fullRegenerationsRequested || this.fullRegenerationsRequested, timingsMs: this.timings, semantic: this.semanticLog || null,
+          budgetLimitReached: this.governor.limitReached, fullRegenerationsRequested: x.fullRegenerationsRequested || this.fullRegenerationsRequested, timingsMs: this.timings, semantic: this.semanticLog || null, acceptance: this.acceptance || null,
         }));
       }
     }
@@ -1383,7 +1422,7 @@
         qualityBefore: x.before || null, qualityAfter: x.after || null,
         repairRan: !!x.repairRan, repairActions: (x.repairActions || []).map(a => ({ kind: a.kind, code: a.defectCode })), budgetLimitReached: !!x.budgetLimitReached,
         fullRegenerationsRequested: x.fullRegenerationsRequested || 0,
-        timingsMs: x.timingsMs || {}, semantic: x.semantic || null, accepted: false, acceptedAt: null,
+        timingsMs: x.timingsMs || {}, semantic: x.semantic || null, acceptance: x.acceptance || null, accepted: false, acceptedAt: null,
       };
     }
 
@@ -1414,6 +1453,8 @@
           SEMANTIC_REPAIR_RATE: (() => { const s = logs.filter(l => l.semantic); return s.length ? Math.round(s.filter(l => l.semantic.repairsApplied > 0).length / s.length * 1000) / 1000 : null; })(),
           AVERAGE_SEMANTIC_DEFECTS: avg(logs.filter(l => l.semantic).map(l => l.semantic.found)),
           SEMANTIC_DEFECTS_BY_KIND: (() => { const t = { wrongBusiness: 0, invented: 0, cta: 0, imageSubject: 0, secondaryDepth: 0, internalText: 0 }; logs.forEach(l => { if (l.semantic) Object.keys(t).forEach(k => { t[k] += l.semantic[k] || 0; }); }); return t; })(),
+          // First-draft acceptance gate: share of generations with no blocking defect left after the one repair pass
+          FIRST_DRAFT_ACCEPTANCE_RATE: (() => { const a = logs.filter(l => l.acceptance); return a.length ? Math.round(a.filter(l => l.acceptance.accepted).length / a.length * 1000) / 1000 : null; })(),
           // V4 visuals: how often a first draft needed visual repair (empty visual, weak hero, missing product visual, placeholder text)
           AVERAGE_VISUAL_DEFECTS: avg(logs.filter(l => l.semantic && l.semantic.visuals).map(l => l.semantic.visuals.defects)),
           STARTER_VISUAL_SITES: logs.filter(l => l.semantic && l.semantic.visuals).length,
@@ -1556,13 +1597,13 @@
       // PREMIUM_COMPOSITION_V2 (page-level composition). Reported NOT_APPLICABLE unless the composition flag is on for the site.
       'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION',
       // PREMIUM_GROUNDING_V3 (business grounding + semantic review). NOT_APPLICABLE unless the flag is on.
-      'FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY',
+      'FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL',
       'BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE', 'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY'];
     const semantic = require('./semantic');
     const { deriveGrounding } = require('./grounding');
     const COMPOSITION_CATEGORIES = ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
     // Where a fix pays off most for perceived quality (used to rank the 1-3 repairs we allow).
-    const IMPACT = { FIRST_DRAFT_COMPLETENESS: 3, MEDIA_COMPLETENESS: 3, PLACEHOLDER_LEAKAGE: 3, HERO_VISUAL_STRENGTH: 3, PRODUCT_VISUAL_EXPLANATION: 2, INDUSTRY_VISUAL_FIT: 2, VISUAL_DEPTH: 1, PAGE_VISUAL_VARIETY: 1, WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
+    const IMPACT = { FIRST_IMPRESSION: 3, GENERIC_TEMPLATE_FEEL: 2, FIRST_DRAFT_COMPLETENESS: 3, MEDIA_COMPLETENESS: 3, PLACEHOLDER_LEAKAGE: 3, HERO_VISUAL_STRENGTH: 3, PRODUCT_VISUAL_EXPLANATION: 2, INDUSTRY_VISUAL_FIT: 2, VISUAL_DEPTH: 1, PAGE_VISUAL_VARIETY: 1, WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
 
     const GENERIC_PHRASES = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bpassion for excellence\b/i, /\bcommitted to excellence\b/i];
     // Claims a site must not make unless the customer supplied them.
@@ -2009,7 +2050,7 @@
       });
     }
     // V4: visual categories (deterministic checks live in visuals.js; the critic may also report them)
-    const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY'];
+    const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL'];
     const CTA_FIELDS = new Set(['cta', 'ctaLabel']);
     const forbiddenHit = (text, g) => (g.forbiddenWords || []).find(w => wordMatch(text, w)) || null;
     const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text));
@@ -2074,7 +2115,7 @@
         if (i === 0) return;
         const real = (p.sections || []).filter(s => s.type !== 'footer');
         const role = ROLE_OF_PAGE(p.label);
-        if (real.length <= 1 && (role === 'about' || role === 'contact')) add({ category: 'SECONDARY_PAGE_DEPTH', code: 'thin_secondary_page', severity: 2, detail: `${p.label}: ${real.length} section(s)`, target: { kind: 'page', id: p.slug }, repair: { kind: 'enrich_page', slug: p.slug, role } });
+        if (real.length < minSectionsFor(role, g) && RECIPES_FOR(role, g).some(t => !real.some(s => s.type === t) && !g.forbiddenSections.includes(t))) add({ category: 'SECONDARY_PAGE_DEPTH', code: 'thin_secondary_page', severity: 2, detail: `${p.label}: ${real.length} section(s)`, target: { kind: 'page', id: p.slug }, repair: { kind: 'enrich_page', slug: p.slug, role } });
       });
       // images: prompts must describe this business's subject
       (direction.imagePlan || []).forEach(e => {
@@ -2102,8 +2143,27 @@
       home.sections.splice(Math.min(1, home.sections.length), 0, { id: newId('productShowcase'), type: 'productShowcase', variant: v, copy: null, intent: 'educate', headlineRole: 'declarative' });
       return true;
     }
-    const RECIPES = { about: ['about', 'ctaBanner'], contact: ['contact'] };
+    // Secondary-page depth: every navigation page needs enough grounded composition to justify existing. Recipes only use sections whose
+    // content comes from the customer's own description / the site's vocabulary -- never invented proof, people or prices.
+    const QUOTE_FAMILIES = new Set(['local_service', 'appointments', 'professional', 'saas']);
+    function RECIPES_FOR(role, g) {
+      const fam = g && g.family;
+      if (role === 'about') return ['about', 'process', 'ctaBanner'];
+      if (role === 'contact') return QUOTE_FAMILIES.has(fam) ? ['contact', 'process'] : ['contact'];
+      if (role === 'catalog') {
+        if (fam === 'saas') return ['productShowcase', 'features', 'ctaBanner'];
+        if (fam === 'retail') return ['productShowcase', 'gallery', 'ctaBanner'];
+        if (fam === 'hospitality') return ['menu', 'gallery', 'ctaBanner'];
+        if (fam === 'creative') return ['gallery', 'ctaBanner'];
+        return ['services', 'process', 'ctaBanner'];
+      }
+      return [];
+    }
+    const RECIPES = new Proxy({}, { get: (_, role) => RECIPES_FOR(String(role), CURRENT_G.g) });
+    let CURRENT_G = { g: null };
+    function minSectionsFor(role, g) { return role === 'about' ? 3 : role === 'contact' ? (QUOTE_FAMILIES.has(g && g.family) ? 2 : 1) : role === 'catalog' ? 3 : 99; }
     function enrichPage(direction, slug, role, g) {
+      CURRENT_G.g = g;
       const p = (direction.pages || []).find(x => (x.slug || 'home') === slug); if (!p) return false;
       const have = new Set((p.sections || []).map(s => s.type)); let added = false;
       (RECIPES[role] || []).forEach(t => {
@@ -2139,6 +2199,10 @@
 
     // ---- whole-site critique (one strong-model call) ----------------------------------------------------------------------------------
     const CRITERIA = [
+      'FIRST_IMPRESSION: in the first five seconds, would a customer who has not touched the customizer think this was worth paying for, or "a decent template"? Consider hero, imagery, hierarchy, polish.',
+      'GENERIC_TEMPLATE_FEEL: does it read like an AI website builder (hero + three cards + CTA repeated on every page, stock SaaS gradient) instead of THIS industry?',
+      'COPY_SPECIFICITY (banned filler): "done right", "designed for modern teams", "everything you need in one place", "effortless", "elevate your", "unlock your", "built to move fast", "future-ready", "redefine", "where X meets Y" -- flag and rewrite concretely from the customer\'s own facts.',
+      'IMAGE quality: for each attached image judge whether it looks professional, matches the business subject and the site art direction, and is not distorted, generic stock, off-industry, or containing text/UI. If a PRIMARY image (hero first) is clearly poor, report where="image", targetId=<slot>, fixKind="regenerate_image" with a better photography prompt (at most one).',
       'BUSINESS_CONSISTENCY: does every page and section describe the SAME kind of business as the grounding says?',
       'CROSS_PAGE_CONSISTENCY: do page names, nav labels, tone, CTAs and terminology agree across pages?',
       'FACTUAL_GROUNDING: is any fact (product, price, place, policy, staff, history) asserted that is not in the description?',
@@ -2151,38 +2215,39 @@
       'PAGE_PURPOSE_CLARITY: is each page\'s purpose clear to a customer?',
     ];
     const CRITIC_TOOL = {
-      name: 'report_semantic_defects', description: 'Report up to 8 concrete defects across the WHOLE site. Empty list if none. Fix text must be customer-ready and must not invent facts.',
-      input_schema: { type: 'object', additionalProperties: false, required: ['defects'], properties: { defects: { type: 'array', maxItems: 8, items: { type: 'object', additionalProperties: false, required: ['category', 'code', 'severity', 'evidence'], properties: {
+      name: 'report_semantic_defects', description: 'Report up to 10 concrete defects across the WHOLE site, most important first. Empty list if none. Fix text must be customer-ready and must not invent facts.',
+      input_schema: { type: 'object', additionalProperties: false, required: ['defects'], properties: { defects: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, required: ['category', 'code', 'severity', 'evidence'], properties: {
         category: { type: 'string', enum: SEMANTIC_CATEGORIES.concat(VISUAL_CATEGORIES) }, code: { type: 'string', maxLength: 60 }, severity: { type: 'integer', enum: [1, 2, 3] },
         where: { type: 'string', enum: ['hero', 'page', 'section', 'image', 'site'] }, targetId: { type: 'string', maxLength: 90, description: 'section id, page slug (empty string for Home), or image slot' },
         field: { type: 'string', enum: ['kicker', 'headline', 'sub', 'cta', 'label', 'purpose', 'body', 'ctaLabel'] },
-        evidence: { type: 'string', maxLength: 240 }, fixKind: { type: 'string', enum: ['remove_section', 'apply_fix_text', 'none'] }, fixText: { type: 'string', maxLength: 220 } } } } } },
+        evidence: { type: 'string', maxLength: 240 }, fixKind: { type: 'string', enum: ['remove_section', 'apply_fix_text', 'regenerate_image', 'none'] }, fixText: { type: 'string', maxLength: 600, description: 'Customer-ready replacement copy (max about 220 chars) or, for regenerate_image, a photography prompt that depicts the real subject of this business' } } } } } },
     };
     function dumpSite(direction) {
       const L = []; const c = direction.copy || {};
       L.push(`HERO: kicker="${c.kicker || ''}" headline="${c.headline || ''}" sub="${c.sub || ''}" cta="${c.cta || ''}"`);
       (direction.pages || []).forEach((p, i) => {
         L.push(`PAGE ${i === 0 ? 'Home' : p.label} (slug="${p.slug || ''}") purpose="${p.purpose || ''}"`);
-        (p.sections || []).forEach(s => { const cp = s.copy || {}; L.push(`  - ${s.type} id=${s.id} ${Object.keys(cp).filter(k => typeof cp[k] === 'string').map(k => `${k}="${cp[k].slice(0, 120)}"`).join(' ')}`); });
+        (p.sections || []).forEach(s => { const cp = s.copy || {}; L.push(`  - ${s.type} id=${s.id} ${Object.keys(cp).filter(k => typeof cp[k] === 'string').map(k => `${k}="${cp[k].slice(0, 240)}"`).join(' ')}`); });
       });
       (direction.imagePlan || []).forEach(e => { if (e.prompt) L.push(`IMAGE ${e.slot} [${e.sourceType}]: ${String(e.prompt).slice(0, 170)}`); });
-      return L.join('\n').slice(0, 7000);
+      return L.join('\n').slice(0, 16000);
     }
     function buildSemanticCritique(direction, g, remainingNote, extra) {
       const grounding = [`Business: ${g.businessType} (${g.family}); sells: ${g.salesModel}; location: ${g.location || 'not supplied'}`,
         `Customer wrote: "${g.verifiedFacts.description}"`, `Primary action: ${g.primaryCTA}. Pricing supplied: ${g.pricingModel !== 'none-supplied'}. Testimonials supplied: ${g.testimonialAvailability === 'supplied'}. Team info supplied: ${g.teamAvailability === 'supplied'}.`,
         `NOT supplied (must not be asserted): ${g.unsupportedFacts.join('; ')}`, `Words that belong to a different kind of business: ${g.forbiddenWords.join(', ')}`,
         g.imagerySubjects ? `Image subjects should be: ${g.imagerySubjects.hero}` : ''].filter(Boolean).join('\n');
-      return { system: 'You review a generated small-business website against the customer\'s own description. Judge the WHOLE site together. Report only concrete, checkable defects with evidence; propose customer-ready replacement text only when it invents nothing. Do not give an overall opinion.',
+      return { system: 'You review a generated small-business website against the customer\'s own description. Judge the WHOLE site together. Report only concrete, checkable defects with evidence; propose customer-ready replacement text only when it invents nothing. Do not give an overall opinion. You may report up to 10 defects; prioritise what a paying customer would notice first. For the hero image or another primary image that is clearly poor or off-subject you may request ONE replacement with fixKind=regenerate_image.',
         user: `GROUNDING\n${grounding}\n\nCRITERIA\n- ${CRITERIA.concat((extra && extra.criteria) || []).join('\n- ')}\n\nWHOLE SITE\n${dumpSite(direction)}${extra && extra.lines && extra.lines.length ? '\n\nVISUALS\n' + extra.lines.join('\n') : ''}${remainingNote ? '\n\n' + remainingNote : ''}` };
     }
     function parseSemanticCritique(input, direction, g, opts) {
       if (!input || !Array.isArray(input.defects)) return [];
       const out = [];
-      input.defects.slice(0, 8).forEach(d => {
+      input.defects.slice(0, 10).forEach(d => {
         if (!d || !(SEMANTIC_CATEGORIES.includes(d.category) || (opts && opts.visuals && VISUAL_CATEGORIES.includes(d.category)))) return;
         const defect = { category: d.category, code: String(d.code || 'critic_defect').slice(0, 60), severity: [1, 2, 3].includes(d.severity) ? d.severity : 1, detail: String(d.evidence || '').slice(0, 240), source: 'semantic_critique', target: { kind: d.where || 'site', id: d.targetId || null } };
         if (d.fixKind === 'remove_section' && d.where === 'section' && d.targetId) defect.repair = { kind: 'remove_section', targetId: d.targetId };
+        else if (d.fixKind === 'regenerate_image' && d.where === 'image' && d.targetId) defect.repair = { kind: 'regenerate_image', slot: d.targetId, prompt: d.fixText ? String(d.fixText).slice(0, 600) : '' };
         else if (d.fixKind === 'apply_fix_text' && d.fixText && d.field) {
           const kind = d.where === 'hero' ? 'hero' : d.where === 'page' ? 'page' : d.where === 'section' ? 'section' : null;
           if (kind) defect.repair = { kind: 'apply_fix_text', where: { kind, id: kind === 'hero' ? 'hero' : (d.targetId || (kind === 'page' ? 'home' : '')), field: d.field }, fixText: String(d.fixText) };
@@ -2401,25 +2466,25 @@
     // ---- profiles -----------------------------------------------------------------------------------------------------------
     // role keys: hero, product, editorial, about, gallery, team, service, decorative
     const PROFILES = {
-      tech: { id: 'tech', label: 'Technology / SaaS', density: 'high', heroVariant: 'product-screenshot', deterministicFirst: true,
+      tech: { id: 'tech', label: 'Technology / SaaS', density: 'high', heroVariant: 'product-screenshot', heroVariants: ['product-screenshot'], deterministicFirst: true,
         media: { hero: 'PRODUCT_UI', product: 'PRODUCT_UI', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
         treatment: 'interface-led: layered product UI, workflow and system diagrams, technical grid' },
-      retail: { id: 'retail', label: 'Retail', density: 'medium', deterministicFirst: false,
+      retail: { id: 'retail', label: 'Retail', density: 'medium', deterministicFirst: false, heroVariants: ['asymmetric-offset', 'editorial-rail', 'fullbleed-image'], heroVariant: 'asymmetric-offset',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'retail-arrangement', treatment: 'product photography, collection imagery, detail shots' },
-      hospitality: { id: 'hospitality', label: 'Restaurant / hospitality', density: 'medium', deterministicFirst: false,
+      hospitality: { id: 'hospitality', label: 'Restaurant / hospitality', density: 'medium', deterministicFirst: false, heroVariants: ['fullbleed-image', 'asymmetric-offset', 'editorial-rail'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'hospitality-scene', treatment: 'food, atmosphere and the space' },
-      trades: { id: 'trades', label: 'Trades / local service', density: 'medium', deterministicFirst: false,
+      trades: { id: 'trades', label: 'Trades / local service', density: 'medium', deterministicFirst: false, heroVariants: ['split', 'stacked-image-below', 'fullbleed-image', 'asymmetric-offset'], heroVariant: 'split',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'trades-blueprint', treatment: 'project work, materials, finished results' },
-      consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false,
+      consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false, heroVariants: ['editorial-rail', 'poster', 'asymmetric-offset', 'split'], heroVariant: 'editorial-rail',
         media: { hero: 'PHOTO', product: 'DIAGRAM', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'consult-matrix', treatment: 'editorial typography, diagrams, restrained imagery' },
-      portfolio: { id: 'portfolio', label: 'Portfolio / creative', density: 'low', deterministicFirst: false,
+      portfolio: { id: 'portfolio', label: 'Portfolio / creative', density: 'low', deterministicFirst: false, heroVariants: ['collage', 'fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'collage',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'portfolio-frames', treatment: 'image-dominant, project-first, minimal chrome' },
-      cause: { id: 'cause', label: 'Nonprofit / cause', density: 'medium', deterministicFirst: false,
+      cause: { id: 'cause', label: 'Nonprofit / cause', density: 'medium', deterministicFirst: false, heroVariants: ['fullbleed-image', 'collage', 'stacked-image-below', 'split'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'brand-mark', treatment: 'human, place and impact imagery' },
       general: { id: 'general', label: 'General', density: 'medium', deterministicFirst: false,
@@ -2548,6 +2613,31 @@
       const R = rnd(seed); const pts = Array.from({ length: 10 }, (_, i) => [60 + i * 60, 300 - (0.2 + R() * 0.6) * 200 - i * 4]);
       return svg(glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".5"') + `<path class="sv-area" d="M${pts.map(p => p.join(' ')).join(' L')} L${pts[pts.length - 1][0]} 340 L60 340 Z"/>` + `<path class="sv-path" d="M${pts.map(p => p.join(' ')).join(' L')}" fill="none"/>` + pts.map(p => `<circle class="sv-dot" cx="${p[0]}" cy="${p[1].toFixed(1)}" r="4"/>`).join('') + text(60, 44, c.steps[2] || 'Trends', 'sv-label'), null, 'Data visual concept');
     }
+    // Layered hero composition for interface-led businesses: a dimmed back window, a lifted front window carrying the product concept, floating step chips.
+    function miniContent(kind, c, x, y, w, h, seed) {
+      const R2 = rnd(seed); let o = '';
+      if (kind === 'ui-workflow' || kind === 'ui-command' || kind === 'diagram-system') {
+        const n = 4, nw = 74, gap = (w - 32 - n * nw) / (n - 1);
+        for (let i = 0; i < n; i++) { const nx = x + 16 + i * (nw + gap), ny = y + h / 2 - 30; if (i) o += `<path class="sv-path" d="M${nx - gap} ${ny + 30} C ${nx - gap / 2} ${ny + 30}, ${nx - gap / 2} ${ny + (i % 2 ? 14 : 46)}, ${nx} ${ny + 30}" fill="none"/>`; o += r(nx, ny, nw, 60, i === 1 ? 'sv-card-hi' : 'sv-card', 10) + text(nx + nw / 2, ny + 26, c.steps[i] || '', 'sv-label-sm', 'middle') + r(nx + 12, ny + 38, nw - 24, 6, 'sv-bar-dim', 3); }
+        o += r(x + 16, y + h - 46, w - 32, 30, 'sv-card', 8) + text(x + 30, y + h - 26, 'Describe what you need…', 'sv-label-sm') + r(x + w - 60, y + h - 39, 32, 16, 'sv-accent', 8);
+      } else if (kind === 'ui-canvas' || kind === 'ui-document') {
+        o += r(x + 16, y + 14, w * 0.58, h - 28, 'sv-card', 8) + r(x + 32, y + 30, w * 0.34, h * 0.4, 'sv-accent', 8) + r(x + 32 + w * 0.36, y + 30, w * 0.16, h * 0.18, 'sv-bar', 6) + r(x + 32, y + 40 + h * 0.4, w * 0.5, 8, 'sv-bar', 4) + r(x + 32, y + 58 + h * 0.4, w * 0.36, 6, 'sv-bar-dim', 3);
+        for (let i = 0; i < 4; i++) o += r(x + w * 0.62 + 16, y + 14 + i * 34, w * 0.34 - 16, 26, i === 1 ? 'sv-card-hi' : 'sv-card', 6);
+      } else {
+        const bars = Array.from({ length: 10 }, () => 0.3 + R2() * 0.65); let p = '';
+        bars.forEach((v, i) => { o += r(x + 24 + i * (w - 48) / 10, y + h - 30 - v * (h - 90), 14, v * (h - 90), i % 3 === 1 ? 'sv-accent' : 'sv-bar', 4); p += (i ? ' L' : 'M') + (x + 31 + i * (w - 48) / 10) + ' ' + (y + h - 30 - v * (h - 90)).toFixed(1); });
+        o += `<path class="sv-path" d="${p}" fill="none"/>` + [0, 1, 2].map(i => r(x + 24 + i * ((w - 64) / 3 + 8), y + 14, (w - 64) / 3, 44, 'sv-card', 8) + r(x + 36 + i * ((w - 64) / 3 + 8), y + 26, 44, 8, i === 0 ? 'sv-accent' : 'sv-bar', 4)).join('');
+      }
+      return o;
+    }
+    function uiStack(c, seed) {
+      const back = c.kind === 'ui-dashboard' ? 'ui-workflow' : 'ui-dashboard';
+      return svg(glow() + grid().replace(/class="sv-grid"/g, 'class="sv-grid" opacity=".4"') +
+        '<g style="opacity:.6">' + win(18, 20, 400, 240, c.panels[0]) + miniContent(back, c, 30, 50, 376, 200, seed + 7) + '</g>' +
+        '<g class="sv-lift">' + win(120, 88, 500, 288, c.steps[1] || c.panels[1]) + miniContent(c.kind, c, 128, 116, 484, 250, seed) + '</g>' +
+        '<g class="sv-lift">' + r(36, 300, 132, 40, 'sv-card-hi', 20) + `<circle class="sv-accent" cx="58" cy="320" r="7"/>` + text(74, 325, c.steps[0] || 'Start', 'sv-label-sm') + '</g>' +
+        '<g class="sv-lift">' + r(470, 40, 138, 40, 'sv-card-hi', 20) + `<circle class="sv-dot" cx="492" cy="60" r="7"/>` + text(508, 65, c.steps[3] || 'Done', 'sv-label-sm') + '</g>', null, 'Layered product interface concept');
+    }
     // Non-technology starters: intentional graphic compositions, never an empty box.
     function retailArrangement(seed) {
       return svg(`<defs><linearGradient id="svg-p${U}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="sv-stop-b"/><stop offset="1" class="sv-stop-0"/></linearGradient></defs><rect class="sv-bg" width="${W}" height="${H}"/><ellipse class="sv-soft" cx="320" cy="330" rx="260" ry="34"/>` +
@@ -2577,6 +2667,7 @@
     }
 
     const KIND_BUILDERS = {
+      'ui-stack': (c, s) => uiStack(c, s),
       'ui-dashboard': (c, s) => uiDashboard(c, s), 'ui-workflow': c => uiWorkflow(c), 'ui-command': c => uiCommand(c), 'ui-canvas': c => uiCanvas(c),
       'ui-document': c => uiDocument(c), 'diagram-system': c => diagramSystem(c), 'data-chart': (c, s) => dataChart(c, s),
       'retail-arrangement': (c, s) => retailArrangement(s), 'hospitality-scene': () => hospitalityScene(), 'trades-blueprint': () => tradesBlueprint(),
@@ -2588,7 +2679,7 @@
     function starterKindFor(ctx, role, slot) {
       const p = ctx.profile; const mt = mediaTypeFor(p, role);
       if (p.id === 'tech') {
-        if (role === 'hero') return ctx.concept.kind === 'diagram-system' ? 'diagram-system' : ctx.concept.kind;
+        if (role === 'hero') return 'ui-stack';
         if (role === 'product') return ctx.concept.kind === 'ui-workflow' ? 'ui-command' : (ctx.concept.kind === 'ui-dashboard' ? 'ui-workflow' : 'ui-dashboard');
         if (role === 'about' || role === 'team') return 'brand-mark';
         const pool = ['diagram-system', 'data-chart', 'ui-command'];
@@ -2640,6 +2731,8 @@
     }
 
     // ---- V4 deterministic checks (FIRST_DRAFT_COMPLETENESS + visual critique categories) ----------------------------------------------
+    // keep the site's own hero when it belongs to the industry's hero family; otherwise use the family's default
+    function chooseHero(profile, current) { if (!profile || !profile.heroVariants) return current; if (current === 'demo' || profile.heroVariants.includes(current)) return current; return profile.heroVariant; }
     const TEXT_ONLY_HEROES = ['centered-oversized', 'minimal-text-only', 'poster'];
     const PLACEHOLDER_TEXT = /(lorem ipsum|placeholder|your (image|photo|logo|picture) here|upload (your|a|an) (image|photo|logo|picture)|add (an? )?(image|photo)|image (goes|coming) here|coming soon|\bTBD\b|\[[^\]]{2,30}\])/i;
     const VISUAL_SLOT_ROLES = new Set(['hero', 'product', 'editorial', 'about']);
@@ -2659,6 +2752,7 @@
       const allSecs = []; pages.forEach(p => (p.sections || []).forEach(s => allSecs.push({ p, s })));
 
       // hero must not be typography over nothing on an interface-led business
+      if (!prof.deterministicFirst && prof.heroVariants && heroVariant !== 'demo' && !prof.heroVariants.includes(heroVariant)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'hero_family_mismatch', severity: TEXT_ONLY_HEROES.includes(heroVariant) ? 3 : 2, detail: `${prof.label} hero is ${heroVariant}; ${prof.heroVariants.join(' / ')} fit the industry`, target: { kind: 'hero', id: 'hero' }, repair: { kind: 'set_hero_variant', value: prof.heroVariant } });
       if (prof.deterministicFirst && TEXT_ONLY_HEROES.includes(heroVariant)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'hero_has_no_product_visual', severity: 3, detail: `${prof.label} hero is ${heroVariant} (no product visual)`, target: { kind: 'hero', id: 'hero' }, repair: { kind: 'set_hero_variant', value: prof.heroVariant } });
       // every important visual slot must resolve to real media, a generated image or a starter visual -- never an empty box
       plan.forEach(e => {
@@ -2700,7 +2794,7 @@
 
     // one starter kind rendered on demand (used by the QA contact sheet and tests)
     function renderKind(kind, project, slot) { const ctx = contextFor(project); return `<div class="visual-generated visual-starter" data-starter="${kind}">${KIND_BUILDERS[kind](ctx.concept, seedOf(String(slot || kind)), ctx.name)}</div>`; }
-    module.exports = { renderKind, featureItemsFor, checkVisuals, VISUAL_CRITERIA, visualLines, MEDIA_TYPES, DETERMINISTIC, PROFILES, FAMILY_PROFILE, CONCEPTS, STARTER_KINDS, BRIEF_TOOL, profileFromGrounding, deriveConcept, encodeBrief, decodeBrief, validateBrief, buildBriefPrompt,
+    module.exports = { chooseHero, renderKind, featureItemsFor, checkVisuals, VISUAL_CRITERIA, visualLines, MEDIA_TYPES, DETERMINISTIC, PROFILES, FAMILY_PROFILE, CONCEPTS, STARTER_KINDS, BRIEF_TOOL, profileFromGrounding, deriveConcept, encodeBrief, decodeBrief, validateBrief, buildBriefPrompt,
       contextFor, mediaTypeFor, enabled, starterKindFor, roleOfSlot, starterHtml, seedOf };
 
   });

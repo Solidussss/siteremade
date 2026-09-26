@@ -1663,7 +1663,8 @@ Rules:
 9. Plan each page independently. A page's plan (visitorQuestion, primaryCta, visualIntensity, informationDensity, copyTone, imageCritical) should differ meaningfully from page to page -- a page that just repeats Home's rhythm at lower density is not a real second page, it's padding. Only create a page this business genuinely needs.
 10. Give sections a deliberate rhythm, not uniform density -- vary visualIntensity/informationDensity across a page's sections (e.g. an immersive opening, a quieter trust moment, a denser explanation, a proof-heavy section, a concise close) rather than six sections that all feel the same size and weight. Vary headlineRole across a page too -- do not make every section's headline declarative.
 11. Never restate the same claim, statistic, or headline idea twice across a site. If two sections would naturally make the same point, cut one, merge them, or give the second a different angle (a new objection it resolves, a new piece of proof) instead of repeating the first.
-12. Decide creativeDirection as the actual creative idea for this specific business, not a restatement of its archetype/category. Two businesses that would land on the same archetype (e.g. two restaurants, two roofers, two SaaS products) must still diverge here when their description implies a different posture -- quiet/premium vs loud/accessible, considered vs urgent, image-led vs informational, portfolio-heavy vs proof-heavy. heroStrategy and pageRhythm are real creative decisions, not defaults: pick pageRhythm from how this business should actually feel to move through (a quiet tasting-menu restaurant reads differently than a same-day emergency contractor), and make heroStrategy agree with the visualDirection.hero layout you chose. Only fill in avoid when a real stylistic trap applies to this business -- leave it empty otherwise.`;
+12. Decide creativeDirection as the actual creative idea for this specific business, not a restatement of its archetype/category. Two businesses that would land on the same archetype (e.g. two restaurants, two roofers, two SaaS products) must still diverge here when their description implies a different posture -- quiet/premium vs loud/accessible, considered vs urgent, image-led vs informational, portfolio-heavy vs proof-heavy. heroStrategy and pageRhythm are real creative decisions, not defaults: pick pageRhythm from how this business should actually feel to move through (a quiet tasting-menu restaurant reads differently than a same-day emergency contractor), and make heroStrategy agree with the visualDirection.hero layout you chose. Only fill in avoid when a real stylistic trap applies to this business -- leave it empty otherwise.
+13. QUALITY BAR. The customer pays for this first draft and will judge it before touching anything. Design a site a professional agency would be proud to ship: (a) EVERY page is a designed page with real substance -- Home tells the story and drives the primary action; Product/Services/Shop shows the offer visually and explains it; About states the philosophy/approach using only supplied facts; Contact gives one clear way to act. Never plan a page that is a heading, one paragraph and a footer; plan 3-6 purposeful sections per secondary page, each answering a different visitor question. (b) Give every page its own composition and rhythm; do not repeat hero + three cards + CTA. (c) Choose the hero as an industry-native composition: product UI/browser frame for software, editorial or full-bleed photography for retail/hospitality/trades/nonprofit, image-led project storytelling for portfolios, restrained editorial typography for consultancies. (d) Choose media deliberately per role (photograph, product UI, diagram, data visual, abstract graphic) and write imagePrompts that depict THIS business's real subject in specific, photographic terms (subject, setting, light, framing), never generic stock or fashion for a non-fashion business. (e) Banned filler unless genuinely natural and supported: "done right", "designed for modern teams", "everything you need in one place", "effortless", "elevate your", "unlock your", "built to move fast", "future-ready", "redefine", "where X meets Y". Say the concrete thing the product or service does for a specific person. (f) Never invent testimonials, ratings, client counts, awards, staff, certifications, years, guarantees, addresses or prices; build trust with process, philosophy, capability explanation and only the facts supplied.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [
@@ -1716,7 +1717,8 @@ const WEBSITE_PLAN_TOOL_CACHED = { ...WEBSITE_PLAN_TOOL, cache_control: { type: 
 // releases the reserved base credit and lets the client fall back to
 // deterministic generation -- this change only widens the window before
 // that abort fires, it does not touch that failure/release/fallback path.
-const PLANNER_REQUEST_TIMEOUT_MS = Number(process.env.SITEREMADE_PLANNER_TIMEOUT_MS) || 35000;
+// Quality pass: the planner is the design brain of the site, so it gets a larger completion budget and more time (env-overridable).
+const PLANNER_REQUEST_TIMEOUT_MS = Number(process.env.SITEREMADE_PLANNER_TIMEOUT_MS) || 60000;
 const anthropicProvider = {
   name: 'anthropic',
   configured: () => !!ANTHROPIC_API_KEY,
@@ -1728,13 +1730,13 @@ const anthropicProvider = {
         method: 'POST',
         headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
+          model: (premiumCore && premiumCore.cfg && premiumCore.cfg.enabled && premiumCore.cfg.models.planner) || ANTHROPIC_MODEL,
           // V9: the schema grew substantially (strategy object, per-page
           // plan, per-section intent/headlineRole) -- 4096 was already
           // tight for an 8-page plan with full visualDirection/creative-
           // Direction/imagePlan/functionalityPlan; raised to give the
           // richer reasoning room without truncating mid-tool-call.
-          max_tokens: 8192,
+          max_tokens: Number(process.env.SITEREMADE_PLANNER_MAX_TOKENS) || 12000,
           thinking: { type: 'disabled' },
           system: [{ type: 'text', text: PLANNER_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: buildPlannerUserPrompt(brief) }],
@@ -2254,12 +2256,14 @@ app.post('/api/stripe/webhook', (req, res) => {
 // budget governor and USD ledger) serves the generator and the Workplace updater. Repair images are paid by the
 // platform (accountId:null: no customer credits), bounded by HARD_SITE_BUDGET_USD; nothing about cost is returned
 // to the customer.
-async function anthropicSmallCall({ model, system, user, tool, maxTokens, taskType, projectId, generationId, phase }) {
+async function anthropicSmallCall({ model, system, user, tool, maxTokens, taskType, projectId, generationId, phase, images, timeoutMs }) {
   const startedAt = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 25000);
   try {
-    const body = { model, max_tokens: maxTokens || 700, thinking: { type: 'disabled' }, system, messages: [{ role: 'user', content: user }] };
+    // optional vision: small JPEG/PNG/WebP thumbnails of the primary generated images so the critic can judge them, not just their prompts
+    const content = (Array.isArray(images) && images.length) ? images.map(im => ({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.data } })).concat([{ type: 'text', text: user }]) : user;
+    const body = { model, max_tokens: maxTokens || 700, thinking: { type: 'disabled' }, system, messages: [{ role: 'user', content }] };
     if (tool) { body.tools = [tool]; body.tool_choice = { type: 'tool', name: tool.name }; }
     const response = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
     const data = await response.json().catch(() => ({}));
@@ -2285,12 +2289,13 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
   const description = clean(req.body.description, 1500);
   const facts = (req.body.facts && typeof req.body.facts === 'object') ? { years: !!req.body.facts.years, rating: !!req.body.facts.rating, count: !!req.body.facts.count } : {};
   const projectId = clean(req.body.projectId, 60);
+  const visionImages = (Array.isArray(req.body.vision) ? req.body.vision : []).slice(0, 2).filter(v => v && /^image\/(jpeg|png|webp)$/.test(v.mediaType) && typeof v.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(v.data) && v.data.length <= 260000).map(v => ({ slot: clean(v.slot, 60), mediaType: v.mediaType, data: v.data }));
   const session = premiumSession(generationId, { categoryKey: clean(req.body.categoryKey, 30), archetype: clean(req.body.archetype, 40), description, palette: (direction.design && direction.design.palette) || {}, facts, projectId });
   const cheapModel = premiumCore.cfg.models.cheap, strongModel = premiumCore.cfg.models.strong;
   const deps = {
     selfRecorded: true,
     critic: ANTHROPIC_API_KEY ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 900, taskType: 'QUALITY_REPAIR', projectId, generationId, phase: 'first_draft' }) : undefined,
-    semanticCritic: (premiumCore.cfg.groundingV3 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 1100, taskType: 'SEMANTIC_CRITIQUE', projectId, generationId, phase: 'first_draft' }) : undefined,
+    semanticCritic: (premiumCore.cfg.groundingV3 && ANTHROPIC_API_KEY) ? async ({ system, user, tool, images }) => anthropicSmallCall({ model: strongModel, system, user, tool, images, maxTokens: 3200, timeoutMs: 60000, taskType: 'SEMANTIC_CRITIQUE', projectId, generationId, phase: 'first_draft' }) : undefined,
     visualBrief: (premiumCore.cfg.visualsV4 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 300, taskType: 'VISUAL_BRIEF', projectId, generationId, phase: 'first_draft' }) : undefined,
     regenerateImage: activeImageProvider.configured() ? async spec => generateImageWithCredits({ accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
     rewriteCopy: ANTHROPIC_API_KEY ? async ({ targetId, field, maxChars, removeClaim, direction: cur }) => {
@@ -2305,7 +2310,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
     } : undefined,
   };
   try {
-    const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true, compositionV2: premiumCore.cfg.compositionV2 }, deps);
+    const out = await session.reviewAndRepair(direction, { description, facts, strategy: session.strategy, premiumEnabled: true, visionImages, compositionV2: premiumCore.cfg.compositionV2 }, deps);
     const d = out.direction;
     const idsOf = dir => new Set((dir.pages || []).flatMap(p => (p.sections || []).map(s => s && s.id)));
     const beforeIds = idsOf(direction), afterIds = idsOf(d);
@@ -2321,13 +2326,13 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
       addedSections: [...new Set(out.actions.filter(a => a.sectionId).map(a => a.sectionId).concat(semAdded))],
       removedSections: [...new Set(out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]).concat(semRemoved))],
       imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),
-      generated: Object.fromEntries(out.actions.filter(a => a.kind === 'regenerate_image' && d.assets && d.assets.generated && d.assets.generated[a.slot] && d.assets.generated[a.slot].dataUrl).map(a => [a.slot, { status: 'ready', dataUrl: d.assets.generated[a.slot].dataUrl }])),
+      generated: Object.fromEntries(out.actions.filter(a => a.kind === 'regenerate_image').map(a => a.slot).concat((out.semantic && out.semantic.regenerated) || []).filter(slot => d.assets && d.assets.generated && d.assets.generated[slot] && d.assets.generated[slot].dataUrl).map(slot => [slot, { status: 'ready', dataUrl: d.assets.generated[slot].dataUrl }])),
       premiumTokens: (d.design && d.design.premiumTokens) || null,
       dimensions: (d.design && d.design.dimensions) || null,
       premium: d.premium || null,
     };
     const log = session.finish();
-    return res.json({ ok: true, generationId, repaired: out.repaired || !!(out.semantic && out.semantic.changes.length), before: out.before, after: out.after, semantic: out.semantic ? { changes: out.semantic.changes, log: out.semantic.log, before: out.semantic.before, after: out.semantic.after } : null, actions: out.actions.map(a => ({ kind: a.kind, defectCode: a.defectCode, target: a.target || null, downgradedFrom: a.downgradedFrom || null })), skipped: out.skipped, patch, timingsMs: log.timingsMs });
+    return res.json({ ok: true, generationId, acceptance: out.acceptance || null, repaired: out.repaired || !!(out.semantic && out.semantic.changes.length), before: out.before, after: out.after, semantic: out.semantic ? { changes: out.semantic.changes, log: out.semantic.log, before: out.semantic.before, after: out.semantic.after } : null, actions: out.actions.map(a => ({ kind: a.kind, defectCode: a.defectCode, target: a.target || null, downgradedFrom: a.downgradedFrom || null })), skipped: out.skipped, patch, timingsMs: log.timingsMs });
   } catch (error) {
     console.error('Premium review/repair failed:', error);
     return res.status(200).json({ ok: false, message: 'Quality review was skipped.' });
