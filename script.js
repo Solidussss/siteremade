@@ -1931,7 +1931,23 @@ function applyVisualProfile(proj) {
     const prof = P.visuals.profileFromGrounding(g);
     proj.design.premium.vp = prof.id;
     const dims = proj.design.dimensions || {};
-    const heroPick = P.visuals.chooseHero(prof, dims.hero);
+    // SITEREMADE_VISUAL_ENGINE_V1.1 (Part 4): a real per-generation choice, not a fixed per-industry default.
+    // `funded`/`galleryCount` are the same guarantees V6/V7 already make (a photo-led business always gets its full
+    // shot list; an interface-led one always gets its deterministic starter), read here as real signals rather than
+    // re-deriving them from an image plan that, at this point in generation, may not exist yet.
+    const text = (proj.source && proj.source.text) || '';
+    const isPhotoLed = P.editorial.isPhotoLed(g, text);
+    const funded = !!(prof.deterministicFirst || isPhotoLed || (proj.assets && proj.assets.plan && proj.assets.plan.hero));
+    const galleryCount = isPhotoLed ? Math.max(0, P.editorial.minPhotos(g) - 1) : ((proj.assets && proj.assets.plan && (proj.assets.plan.gallery || []).length) || 0);
+    const concept = prof.id === 'tech' ? P.visuals.contextFor(proj).concept.kind : null;
+    const family = P.visualEngine.selectHeroFamily({
+      family: g.family, subtype: g.subtype, concept, archetype: g.archetype, description: text,
+      mediaCtx: { funded, galleryCount, interfaceLed: !!prof.deterministicFirst },
+      currentFamily: P.visualEngine.familyForVariant(dims.hero),
+    });
+    proj.design.premium.hf = family; // instrumentation only (Part 17) -- never customer-facing copy
+    if (window.__vedbg) window.__vedbg.push({ family: g.family, subtype: g.subtype, funded, galleryCount, cur: P.visualEngine.familyForVariant(dims.hero), chosen: family, heroPickBefore: dims.hero });
+    const heroPick = P.visualEngine.heroVariantFor(family);
     if (heroPick && dims.hero !== heroPick) { dims.hero = heroPick; delete dims.heroDisplayVariant; }
   } catch (e) { /* legacy look */ }
 }
@@ -2013,6 +2029,7 @@ function applyPremiumPatch(proj, patch) {
     if (ps.variant && ps.variant !== s.variant) { s.variant = ps.variant; changed = true; }
     if (ps.imageDisplayVariant && ps.imageDisplayVariant !== s.imageDisplayVariant) { s.imageDisplayVariant = ps.imageDisplayVariant; changed = true; }
     if (ps.mediaComposition && ps.mediaComposition !== s.mediaComposition) { s.mediaComposition = ps.mediaComposition; changed = true; }
+    if (ps.surfaceTexture && ps.surfaceTexture !== s.surfaceTexture) { s.surfaceTexture = ps.surfaceTexture; changed = true; }
     if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
   });
   (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
@@ -7099,7 +7116,7 @@ function markGenerated() {
 // PATTERN_KEYS/SECTION_TYPE_KEYS one-for-one and MUST stay in sync with
 // them (and with dimensionKeywords/categoryDimensionDefaults above, which
 // remain this file's own source of truth for what the renderer supports).
-const CLAUDE_HERO_KEYS = ['split', 'fullbleed-image', 'centered-oversized', 'stacked-image-below', 'asymmetric-offset', 'minimal-text-only', 'grid-dashboard', 'poster', 'collage', 'product-screenshot', 'editorial-rail'];
+const CLAUDE_HERO_KEYS = ['split', 'fullbleed-image', 'centered-oversized', 'stacked-image-below', 'asymmetric-offset', 'minimal-text-only', 'grid-dashboard', 'poster', 'collage', 'product-screenshot', 'editorial-rail', 'product-stage', 'floating-media', 'quiet-luxury'];
 const CLAUDE_TYPE_KEYS = ['geo-sans', 'serif-editorial', 'display-condensed', 'classic-serif-mix', 'mono-technical', 'humanist'];
 const CLAUDE_NAV_KEYS = ['inline', 'boxed-pill', 'minimal-until-scroll', 'sidebar', 'centered-logo'];
 const CLAUDE_CARD_KEYS = ['flat', 'bordered', 'elevated-shadow', 'image-led', 'numbered-editorial', 'outline-ghost'];

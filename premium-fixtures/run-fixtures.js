@@ -60,6 +60,7 @@ async function runOne(fixture, mode) {
     const su = await ev(`fetch('/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'fx-${tag}@example.com',password:'Fixture-pass-12345'})}).then(r=>r.json())`);
     if (!su.ok) throw new Error('signup failed ' + JSON.stringify(su));
     await w.loadURL(base); await sleep(2500);
+    await ev('window.__vedbg = []');
     result.premiumFlagSeenByClient = await ev(`!!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.premium && window.__siteremadeImageProvider.premium.enabled)`);
     await ev(`(()=>{ window.__fxImgLog = []; const of = window.fetch; window.fetch = async function (u, o) { const r = await of.apply(this, arguments); if (String(u).includes('/api/generate-image')) { try { const c = r.clone(); const j = await c.json(); let b = {}; try { b = JSON.parse(o.body); } catch (e) {} window.__fxImgLog.push({ status: r.status, ok: j.ok, reason: j.message || null, poor: j.poorImage || null, budget: j.budgetExceeded || null, slot: b.role, tier: b.premiumTier, gid: !!b.premiumGenerationId, aspect: b.aspectRatio, model: b.model, quality: b.quality, promptHead: (b.prompt || '').slice(0, 80) }); } catch (e) {} } return r; }; })()`);
     const t0 = Date.now();
@@ -67,6 +68,7 @@ async function runOne(fixture, mode) {
       for (let i=0;i<240 && !(directions && directions.length>=1);i++) await new Promise(r=>setTimeout(r,250));
       return {ms: Math.round(performance.now()-t), directions: directions.length}; })()`);
     result.wallMs = Date.now() - t0; result.run = run;
+    result.veDebug = await ev('window.__vedbg || []');
     if (run.error || !run.directions) { try { result.debugQuality = await ev('(()=>{ try { return JSON.stringify({q: validateProjectQuality(project), term: imagePlanIsTerminal(project), name: project.business && JSON.stringify(project.business), src: project.source && project.source.text, bad: (project.imagePlan||[]).filter(e => e.sourceType==="generated" && !(project.assets.generated[e.slot] && project.assets.generated[e.slot].cacheKey===e.cacheKey)).map(e => e.slot + ":" + (project.assets.generated[e.slot]&&project.assets.generated[e.slot].cacheKey) + "!=" + e.cacheKey)}).slice(0, 1500); } catch (e) { return String(e); } })()'); } catch (_) { /* ignore */ }
       throw new Error('generation did not complete: ' + JSON.stringify(run) + ' quality=' + (result.debugQuality || '?')); }
     await sleep(800);

@@ -1335,7 +1335,7 @@ app.get('/api/admin/premium-metrics', (req, res) => {
   res.json({ ok: true, enabled: premiumCore.cfg.enabled, config: { budgets: premiumCore.cfg.budgets, imageTierCaps: premiumCore.cfg.imageTierCaps, retry: premiumCore.cfg.retry, models: premiumCore.cfg.models }, aggregate: premiumCore.metrics.aggregate({ revenueUsdPerSite: Number.isFinite(revenue) ? revenue : null }), recent: premiumCore.metrics.logs.slice(-25) });
 });
 
-const HERO_KEYS =['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
+const HERO_KEYS =['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail','product-stage','floating-media','quiet-luxury'];
 const TYPE_KEYS = ['geo-sans','serif-editorial','display-condensed','classic-serif-mix','mono-technical','humanist'];
 const NAV_KEYS = ['inline','boxed-pill','minimal-until-scroll','sidebar','centered-logo'];
 const CARD_KEYS = ['flat','bordered','elevated-shadow','image-led','numbered-editorial','outline-ghost'];
@@ -1485,7 +1485,7 @@ const WEBSITE_PLAN_TOOL = {
         type: 'object', additionalProperties: false,
         required: ['hero', 'typography', 'nav', 'card', 'imagery', 'cta', 'colorBehavior', 'motion', 'spacing', 'pattern', 'contentWidth', 'imageDominance', 'imageArrangement', 'sectionRhythm', 'sectionAlignment', 'typographyScale', 'headingWidth', 'cardDensity', 'cardShape', 'splitRatio', 'rationale'],
         properties: {
-          hero: { type: 'string', enum: HERO_KEYS },
+          hero: { type: 'string', enum: HERO_KEYS, description: 'The layout family for the hero. Prefer a genuinely premium composition where the business supports it: product-stage (a single staged product/object, real estate/retail), floating-media (2-3 overlapping surfaces, SaaS/creative), quiet-luxury (restrained, generous whitespace, one soft image -- consultancies/high-end services). Only choose a text-only layout (poster/centered-oversized/minimal-text-only) when this business genuinely has no real subject to photograph.' },
           typography: { type: 'string', enum: TYPE_KEYS },
           nav: { type: 'string', enum: NAV_KEYS },
           card: { type: 'string', enum: CARD_KEYS },
@@ -2333,7 +2333,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
       visualBrief: out.visualBrief || null,
       removedPages: (direction.pages || []).map(p => p.id || p.slug).filter(id => !(d.pages || []).some(p => (p.id || p.slug) === id)),
       copy: d.copy || null,
-      sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, imageDisplayVariant: s.imageDisplayVariant || null, mediaComposition: s.mediaComposition || null, copy: s.copy || null }))),
+      sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, imageDisplayVariant: s.imageDisplayVariant || null, mediaComposition: s.mediaComposition || null, surfaceTexture: s.surfaceTexture || null, copy: s.copy || null }))),
       addedSections: [...new Set(out.actions.filter(a => a.sectionId).map(a => a.sectionId).concat(semAdded))],
       removedSections: [...new Set(out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]).concat(semRemoved))],
       imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),

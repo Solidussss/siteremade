@@ -2601,3 +2601,29 @@ body.generation-gate-open{overflow:hidden}
 [data-surface-texture="radial-field"]{background-image:radial-gradient(circle at 18% 20%,color-mix(in srgb,var(--site-accent) 12%,transparent),transparent 45%),radial-gradient(circle at 85% 80%,color-mix(in srgb,var(--site-accent-2,var(--site-accent)) 10%,transparent),transparent 45%)}
 [data-surface-texture="grid-technical"]{background-image:linear-gradient(color-mix(in srgb,var(--site-text) 6%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--site-text) 6%,transparent) 1px,transparent 1px);background-size:32px 32px}
 [data-surface-texture="editorial-paper"]{background-image:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--site-text) 4%,transparent),transparent 60%)}
+
+/* ==== SITEREMADE_VISUAL_ENGINE_V1.1: depth-per-section, remaining media compositions, surface activation ==== */
+
+/* Part 8: real per-section depth, driven by the page's own composition pacing (data-depth, stamped by comp-stamp.js).
+   Only ever applied to a section that carries a media treatment (editorialFeature) -- a plain text/FAQ/process
+   section never receives a depth attribute at all, so it is never affected here. */
+.site-section-feature[data-depth="DRAMATIC"] .feature-visual{box-shadow:0 42px 70px -26px rgba(0,0,0,.4);transform:translateY(-6px)}
+.site-section-feature[data-depth="LAYERED"] .feature-visual{box-shadow:0 26px 46px -22px rgba(0,0,0,.3)}
+.site-section-feature[data-depth="SUBTLE"] .feature-visual{box-shadow:0 12px 24px -16px rgba(0,0,0,.2)}
+.site-section-feature[data-depth="FLAT"] .feature-visual{box-shadow:none}
+@media (max-width:720px){.site-section-feature[data-depth] .feature-visual{transform:none}}
+
+/* Part 6: OVERLAPPING_PAIR -- a small echo of the hero's own image overlapping the corner (zero new image spend) */
+.site-section-feature .feature-visual.media-overlap-pair{position:relative;overflow:visible}
+.feature-visual-echo{position:absolute;left:-10%;bottom:-12%;width:46%;aspect-ratio:1;border-radius:var(--site-radius,12px);overflow:hidden;box-shadow:0 20px 36px -18px rgba(0,0,0,.35);border:3px solid var(--site-bg);z-index:2}
+.feature-visual-echo .visual-generated,.feature-visual-echo .site-visual-img,.feature-visual-echo .visual-starter{width:100%;height:100%}
+@media (max-width:720px){.feature-visual-echo{width:38%;left:-6%;bottom:-8%}}
+
+/* FULL_WIDTH_BAND (renamed from the plain "oversized" treatment on the full-bleed feature variant) */
+.site-section-feature .feature-visual.media-full-band{aspect-ratio:21/9}
+
+/* VISUAL_QUOTE already renders as .feature-quote; data-media-comp="VISUAL_QUOTE" is present for instrumentation only */
+
+/* Part 7: activated surface textures on a real section (not just the hero) -- same texture classes V1 defined,
+   scoped here to whichever element actually carries the attribute (a .site-section-feature in practice). */
+.site-section-feature[data-surface-texture]{border-radius:var(--site-radius,14px)}

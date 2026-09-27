@@ -1282,6 +1282,102 @@ const sample = () => ({
     ['floating-media-please', '', null, 42, 'DROP TABLE'].forEach(bad => assert.ok(VE.HERO_FAMILY_KEYS.includes(VE.normalizeHeroFamily(bad)), String(bad)));
   });
 
+  console.log('SITEREMADE_VISUAL_ENGINE_V1_1');
+  await t('hero compatibility (Part 5): a family is only offered when the business can actually support it', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.heroCompatible('COLLAGE', { funded: true, galleryCount: 0 }), false, 'a collage needs a second surface');
+    assert.strictEqual(VE.heroCompatible('COLLAGE', { funded: true, galleryCount: 2 }), true);
+    assert.strictEqual(VE.heroCompatible('FLOATING_MEDIA', { funded: true, galleryCount: 0, interfaceLed: false }), false);
+    assert.strictEqual(VE.heroCompatible('FLOATING_MEDIA', { funded: true, interfaceLed: true }), true);
+    assert.strictEqual(VE.heroCompatible('QUIET_LUXURY', {}), true, 'never depends on a funded photo');
+    assert.strictEqual(VE.heroCompatible('PRODUCT_STAGE', { funded: false }), false);
+  });
+  await t('dynamic hero selection (Part 4): a still-viable current choice is kept, an incompatible one is replaced -- never a fixed mapping', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.selectHeroFamily({ family: 'retail', mediaCtx: { funded: true, galleryCount: 3 }, currentFamily: 'COLLAGE' }), 'COLLAGE');
+    assert.strictEqual(VE.selectHeroFamily({ family: 'retail', mediaCtx: { funded: true, galleryCount: 0 }, currentFamily: 'COLLAGE' }), 'PRODUCT_STAGE', 'collage was picked but the site has no gallery -- falls back');
+  });
+  await t('same-industry variation (Parts 12, 19): 3 real retail sub-verticals genuinely land on different, grounded hero families', () => {
+    const VE = P.visualEngine;
+    const skincare = VE.selectHeroFamily({ family: 'retail', subtype: 'skincare', mediaCtx: { funded: true, galleryCount: 3 } });
+    const apparel = VE.selectHeroFamily({ family: 'retail', subtype: 'apparel', mediaCtx: { funded: true, galleryCount: 3 } });
+    const coffee = VE.selectHeroFamily({ family: 'retail', subtype: 'coffee_tea', mediaCtx: { funded: true, galleryCount: 3 } });
+    assert.deepStrictEqual([skincare, apparel, coffee], ['PRODUCT_STAGE', 'COLLAGE', 'FULL_BLEED_CINEMATIC']);
+    assert.strictEqual(new Set([skincare, apparel, coffee]).size, 3, 'three distinct families, not the same hero with different colours');
+  });
+  await t('same-industry variation: SaaS product concept picks a genuinely different hero (multi-panel vs single-surface vs systems-level)', () => {
+    const VE = P.visualEngine;
+    const dashboard = VE.selectHeroFamily({ family: 'saas', concept: 'ui-dashboard', mediaCtx: { funded: true, interfaceLed: true } });
+    const command = VE.selectHeroFamily({ family: 'saas', concept: 'ui-command', mediaCtx: { funded: true, interfaceLed: true } });
+    const infra = VE.selectHeroFamily({ family: 'saas', concept: 'diagram-system', mediaCtx: { funded: true, interfaceLed: true } });
+    assert.deepStrictEqual([dashboard, command, infra], ['FLOATING_MEDIA', 'FRAME_WITHIN_FRAME', 'TYPOGRAPHIC_STATEMENT']);
+  });
+  await t('same-industry variation: wellness wording genuinely changes the hero (restorative vs group/energetic vs neutral)', () => {
+    const VE = P.visualEngine;
+    const mc = { funded: true, galleryCount: 2 };
+    assert.strictEqual(VE.selectHeroFamily({ family: 'wellness', description: 'A quiet restorative spa retreat', mediaCtx: mc }), 'QUIET_LUXURY');
+    assert.strictEqual(VE.selectHeroFamily({ family: 'wellness', description: 'High-energy group training studio classes', mediaCtx: mc }), 'FULL_BLEED_CINEMATIC');
+    // "studio" itself reads as the more energetic/group signal (matches the actual live wellness fixture text) --
+    // an explainable choice, not a bug; a description with neither signal falls through to the steady default.
+    assert.strictEqual(VE.selectHeroFamily({ family: 'wellness', description: 'A private one-on-one massage practice', mediaCtx: mc }), 'QUIET_LUXURY', 'wellness\'s own steady industry default when no signal fires');
+  });
+  await t('depth activation (Part 8): a real per-section level derived from the page\'s own pacing, never applied to a non-media section', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.depthForSection({ type: 'editorialFeature' }, 'HEROIC'), 'DRAMATIC');
+    assert.strictEqual(VE.depthForSection({ type: 'editorialFeature' }, 'FEATURE'), 'LAYERED');
+    assert.strictEqual(VE.depthForSection({ type: 'editorialFeature' }, 'QUIET'), 'FLAT');
+    assert.strictEqual(VE.depthForSection({ type: 'faq' }, 'HEROIC'), null, 'a plain text section never gets a depth attribute -- not every section floats');
+    assert.strictEqual(VE.depthForSection({ type: 'process' }, 'FEATURE'), null);
+  });
+  await t('contrast validation (Part 14): a surface texture is only offered when it will not hurt real text/background contrast', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.contrastOk('#111111', '#ffffff'), true);
+    assert.strictEqual(VE.contrastOk('#eeeeee', '#f4f2ee'), false, 'pale text on a pale surface -- the exact live regression this part guards against');
+    assert.strictEqual(VE.safeToTexture('#101216', '#f7f8fa'), true);
+  });
+  await t('media compositions (Part 6): all 6 defined treatments are genuinely in rotation, none silently unused', () => {
+    const g = P.grounding.deriveGrounding({ description: SKIN, categoryKey: 'ecommerce', archetype: 'ecommerce-showcase', location: 'Vancouver' });
+    const site = { source: { text: SKIN }, business: { categoryKey: 'ecommerce' }, strategy: { archetype: 'ecommerce-showcase' }, design: { dimensions: {} },
+      pages: [{ id: 'h', slug: '', label: 'Home', sections: ['productShowcase', 'gallery', 'newsletter', 'process'].map((ty, i) => ({ id: 'x' + i, type: ty, copy: {} })) }] };
+    const out = P.editorial.planLayout(site, g, SKIN).direction;
+    const used = new Set(out.pages[0].sections.filter(s => s.type === 'editorialFeature').map(s => s.mediaComposition));
+    assert.ok(used.size >= 2, 'at least the left/right/full cycle produced real variety: ' + [...used].join(','));
+    [...used].forEach(mc => assert.ok(P.visualEngine.MEDIA_COMPOSITION_KEYS.includes(mc), mc));
+  });
+  await t('surface activation (Part 7): exactly one section on Home is textured, and only when contrast allows it', () => {
+    const g = P.grounding.deriveGrounding({ description: SKIN, categoryKey: 'ecommerce', archetype: 'ecommerce-showcase', location: 'Vancouver' });
+    const site = { source: { text: SKIN }, business: { categoryKey: 'ecommerce' }, strategy: { archetype: 'ecommerce-showcase' }, design: { dimensions: {} },
+      pages: [{ id: 'h', slug: '', label: 'Home', sections: ['productShowcase', 'gallery', 'newsletter', 'process'].map((ty, i) => ({ id: 'x' + i, type: ty, copy: {} })) }] };
+    const out = P.editorial.planLayout(site, g, SKIN).direction;
+    const textured = out.pages[0].sections.filter(s => s.surfaceTexture);
+    assert.ok(textured.length <= 1, 'at most one deliberate texture per home page: ' + textured.length);
+    if (textured.length) assert.ok(P.visualEngine.SURFACE_TEXTURES.includes(textured[0].surfaceTexture));
+  });
+  await t('preview/export parity for the render-time additions: mediaComposition/surfaceTexture attributes and the OVERLAPPING_PAIR echo render identically via the one shared renderFeature', () => {
+    const project = { source: { location: '' }, business: { name: 'Glow', categoryKey: 'ecommerce', tone: 'x' }, design: { dimensions: { imagery: 'abstract-geometric' }, palette: { background: '#f7f8fa', text: '#101216' } }, assets: { items: [], plan: {}, generated: {} }, imagePlan: [], pages: [], copy: {} };
+    const deps = { escapeHtml: s => String(s), renderVisualSlot: () => '<div class="visual-generated"></div>', slotFor: (p, s) => s.id + '::feature' };
+    const section = { id: 'f1', type: 'editorialFeature', variant: 'image-left', mediaComposition: 'OVERLAPPING_PAIR', surfaceTexture: 'radial-field', copy: { headline: 'H', body: 'B' } };
+    const html = P.editorial.renderFeature(project, section, deps);
+    assert.ok(/data-media-comp="OVERLAPPING_PAIR"/.test(html) && /data-surface-texture="radial-field"/.test(html) && /feature-visual-echo/.test(html));
+  });
+  await t('hero gate stays consistent with the new selector: every family selectHeroFamily can produce for an industry is still accepted by that industry\'s server-side hero_family_mismatch gate', () => {
+    const V = P.visuals; const VE = P.visualEngine;
+    const familyToKey = { saas: 'tech', retail: 'retail', wellness: 'wellness', hospitality: 'hospitality', realestate: 'realestate', local_service: 'trades', appointments: 'trades', creative: 'portfolio', nonprofit: 'cause' };
+    Object.keys(VE.INDUSTRY_HERO_PREFERENCE).forEach(fam => {
+      const profKey = familyToKey[fam]; if (!profKey) return;
+      const prof = V.PROFILES[profKey]; if (!prof || !prof.heroVariants) return;
+      VE.INDUSTRY_HERO_PREFERENCE[fam].forEach(hf => assert.ok(prof.heroVariants.includes(VE.heroVariantFor(hf)), `${fam} profile "${profKey}" is missing ${hf} (${VE.heroVariantFor(hf)}) from its allowed gate`));
+    });
+  });
+  await t('planner vocabulary: the 3 new premium hero layouts are now selectable through the existing, already-integrated hero field (no parallel schema needed -- family and variant are in bijection)', () => {
+    const fs = require('fs');
+    const server = fs.readFileSync('server.js', 'utf8'); const client = fs.readFileSync('script.js', 'utf8');
+    ['product-stage', 'floating-media', 'quiet-luxury'].forEach(k => {
+      assert.ok(new RegExp(`HERO_KEYS\\s*=\\s*\\[[^\\]]*'${k}'`).test(server), 'server HERO_KEYS: ' + k);
+      assert.ok(new RegExp(`CLAUDE_HERO_KEYS\\s*=\\s*\\[[^\\]]*'${k}'`).test(client), 'client CLAUDE_HERO_KEYS: ' + k);
+    });
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

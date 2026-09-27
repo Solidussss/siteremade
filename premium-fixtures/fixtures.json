@@ -58,5 +58,25 @@
     "id": "realestate",
     "label": "Real estate (buyers + sellers, downtown)",
     "text": "Residential real estate team focused on downtown Toronto, helping buyers and sellers with condos and houses."
+  },
+  {
+    "id": "apparel",
+    "label": "Retail: streetwear apparel",
+    "text": "Streetwear clothing brand in Toronto selling limited-run apparel drops: hoodies, tees and outerwear."
+  },
+  {
+    "id": "coffeegear",
+    "label": "Retail: specialty coffee and tea",
+    "text": "A specialty coffee and tea retail store in Seattle. We roast whole bean coffee and blend loose leaf teas, sold in our shop and online."
+  },
+  {
+    "id": "saas-dash",
+    "label": "SaaS: analytics dashboard",
+    "text": "Analytics dashboard software for online sellers. Real-time sales metrics, cohort reports and alerts."
+  },
+  {
+    "id": "consultancy-firm",
+    "label": "Professional consultancy (firm, not personal brand)",
+    "text": "A management consulting firm in Chicago advising mid-market manufacturers on operational strategy, cost reduction and organizational design. Engagements typically run six to twelve weeks."
   }
 ]
