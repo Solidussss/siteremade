@@ -211,6 +211,17 @@ const categoryStyleAffinity = {
 // suffix growth -- "roof" matching "roofing", "paint" matching "painting",
 // "plumb" matching "plumbing", "auto" matching "automotive" -- and a full
 // two-sided boundary would silently break every one of those.
+// Keywords are matched as word-START stems by default ('roof' -> roofing,
+// 'plumb' -> plumbing), which is what most entries in these tables rely on.
+// Two cases must match a WHOLE word instead (an optional plural 's' allowed):
+//   - an entry written with surrounding spaces ('ai ', ' ml ') -- the tables'
+//     own existing convention for "this is a word, not a stem", which the old
+//     `.trim()` here silently erased;
+//   - any entry of 3 letters or fewer ('spa', 'app', 'bar', 'eco', 'fun'),
+//     which as a stem misfires on unrelated words -- "sparkling" read as a
+//     spa, "apparel" as software, "barber" as a bar, "funding" as playful.
+// Real case this fixes: "Fizzwell is a sparkling energy drink brand" was
+// classified as a Health & Wellness studio.
 function scoreKeywords(text, keywordMap) {
   const lower = text.toLowerCase();
   const scores = {};
@@ -218,12 +229,20 @@ function scoreKeywords(text, keywordMap) {
     scores[key] = keywordMap[key].reduce((n, kwRaw) => {
       const kw = kwRaw.trim();
       if (!kw) return n;
+      const wholeWord = kw !== kwRaw || kw.length <= 3;
       let idx = 0;
       while (true) {
         const found = lower.indexOf(kw, idx);
         if (found === -1) return n;
         const before = lower[found - 1];
-        if (!before || !/[a-z0-9]/.test(before)) return n + 1;
+        const startsWord = !before || !/[a-z0-9]/.test(before);
+        let endsWord = true;
+        if (wholeWord) {
+          let end = found + kw.length;
+          if (lower[end] === 's' && /[a-z0-9]/.test(kw[kw.length - 1])) end++; // plural: apps, spas, bars
+          endsWord = !lower[end] || !/[a-z0-9]/.test(lower[end]);
+        }
+        if (startsWord && endsWord) return n + 1;
         idx = found + 1;
       }
     }, 0);
@@ -240,13 +259,34 @@ function rankedKeys(scores, fallback) {
 }
 function extractLocation(text) {
   const match = text.match(/\bin\s+([A-Z][a-zA-Z'.-]+(?:\s[A-Z][a-zA-Z'.-]+){0,2})/);
-  return match ? match[1].trim().replace(/[.,]+$/, '') : '';
+  // '.' stays allowed INSIDE a name ("St. John's") but a period followed by
+  // a space ends the sentence -- "in Portland. Single-origin beans..." is
+  // Portland, not "Portland. Single-origin" (which then appeared verbatim in
+  // the hero sub, footer and every image prompt).
+  if (!match) return '';
+  // ...unless the word before the period is an abbreviation (St., Mt., Ft.).
+  const words = match[1].split(/\s+/);
+  const kept = [];
+  for (const w of words) {
+    kept.push(w);
+    if (w.endsWith('.') && w.length > 4) break;
+  }
+  return kept.join(' ').trim().replace(/[.,]+$/, '');
 }
 // V6: real (non-AI) business-name capture -- "...called X" / "...named X".
 // Deliberately conservative (only fires on an explicit naming phrase) so it
 // never guesses wrong; when it finds nothing, the caller falls back to
 // whatever name already exists, then to a neutral "Your Business" -- the
 // site's identity is never left blank. See SITE-PROJECT-V6.md part 2.
+// Also accepts the single most common way people introduce a business -- the
+// description OPENING with its own capitalised name followed by a defining
+// verb ("Fizzwell is a...", "Glow Theory sells...", "Fern & Flint roasts...").
+// Without this, almost every real description produced a template name
+// ("Retail Studio", "Food & Hospitality Studio") that then appeared in the
+// nav, footer, headings and letter marks of the generated site. Still
+// conservative: the name must lead the text, be 1-4 capitalised words, and
+// never be a pronoun/article ("We are...", "Our studio is...").
+const LEADING_NAME_STOPWORDS = new Set(['we', 'i', 'our', 'my', 'this', 'it', 'they', 'a', 'an', 'the', 'hi', 'hello', 'looking', 'need', 'please', 'website', 'site']);
 function extractBusinessName(text) {
   if (!text) return '';
   const patterns = [
@@ -256,6 +296,14 @@ function extractBusinessName(text) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) return match[1].trim().replace(/[.,]+$/, '');
+  }
+  const leading = String(text).trim().match(/^((?:The\s+)?[A-Z][A-Za-z0-9&'-]*(?:\s+(?:&\s+)?[A-Z][A-Za-z0-9&'-]*){0,3})\s+(?:is|are|was|makes|sells|offers|brews|bakes|roasts|builds|designs|creates|helps|provides|runs|serves|has)\b/);
+  if (leading) {
+    const name = leading[1].trim();
+    const words = name.split(/\s+/);
+    const first = words[0].toLowerCase();
+    const leadsWithThe = first === 'the' && words.length > 1; // "The Daily Grind is..." is a real name
+    if (leadsWithThe || !LEADING_NAME_STOPWORDS.has(first)) return name;
   }
   return '';
 }
@@ -290,6 +338,77 @@ function extractBusinessDescriptor(text) {
     outcome: outcomeMatch ? `${outcomeMatch[1]} ${outcomeMatch[2]}`.trim().replace(/[.,]+$/, '') : ''
   };
 }
+// What this business actually sells/does, as short labels -- ONLY when the
+// description literally lists them ("natural flavours: peach, cherry and
+// citrus", "selling gentle cleansers, serums and moisturizers", "Single-origin
+// beans, pour-over bar and fresh pastries."). Every renderer that used to show
+// the category's fixed three-item `services` list (features cards, service
+// cards, product panel rows, gallery fallback, footer) now shows these
+// instead when they exist -- that fixed list is why unrelated businesses in
+// the same category all read identically, and why a drink brand misfiled as
+// wellness showed "Treatments / Booking / About". Conservative by design:
+// 2-5 items, each 1-4 plain words, no numbers/prices, never a clause that
+// starts with a verb or preposition; anything else returns [] and the
+// category list is used exactly as before. Never invents an item.
+const OFFERING_LEAD_STOPWORDS = new Set(['in', 'at', 'on', 'for', 'to', 'with', 'by', 'from', 'of', 'sold', 'we', 'our', 'your', 'you', 'and', 'or', 'is', 'are', 'free', 'easy', 'fast', 'plus', 'also', 'based', 'available', 'open', 'call', 'book']);
+const OFFERING_SMALL_WORDS = new Set(['and', 'or', 'of', 'the', 'a', 'an', 'for', 'with', 'to', 'in', 'on']);
+function titleCaseOffering(s) {
+  return s.split(/\s+/).map((w, i) => (i > 0 && OFFERING_SMALL_WORDS.has(w.toLowerCase())) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function parseOfferingList(segment) {
+  const parts = String(segment || '').split(/\s*,\s*|\s+and\s+|\s+or\s+/i).map(p => p.trim()).filter(Boolean);
+  if (parts.length < 2 || parts.length > 5) return [];
+  const items = [];
+  for (let raw of parts) {
+    raw = raw.replace(/^(?:a|an|the)\s+/i, '').replace(/\s+(?:for|to|in|at|from|that|which|with|across|near|made|designed|built|crafted|sourced|handmade|delivered)\b.*$/i, '').trim();
+    const words = raw.split(/\s+/);
+    if (!raw || words.length > 4 || raw.length > 32) return [];
+    if (!/^[A-Za-z][A-Za-z'&-]*(?:\s+[A-Za-z][A-Za-z'&-]*)*$/.test(raw)) return []; // no digits, prices, symbols
+    if (OFFERING_LEAD_STOPWORDS.has(words[0].toLowerCase())) return [];
+    items.push(titleCaseOffering(raw));
+  }
+  return [...new Set(items)];
+}
+// Splits text into sentences at each whitespace run that follows . ! or ?,
+// keeping the punctuation with its sentence -- the same result as splitting
+// on whitespace with a lookbehind for . ! ?, written WITHOUT a lookbehind:
+// Safari/iOS before 16.4 cannot parse a lookbehind regex literal, and one
+// anywhere in this file stops the whole script from loading (see
+// test/browser-script.test.js).
+function splitSentences(text) {
+  const t = String(text || '');
+  const out = [];
+  const boundary = /[.!?]\s+/g;
+  let start = 0, m;
+  while ((m = boundary.exec(t))) {
+    out.push(t.slice(start, m.index + 1));
+    start = m.index + m[0].length;
+  }
+  out.push(t.slice(start));
+  return out;
+}
+function extractOfferings(text) {
+  if (!text) return [];
+  const t = String(text);
+  const candidates = [];
+  // 1. an explicit list after a colon or an "offer" verb
+  const lead = /(?::|\b(?:selling|sells|offering|offers|serving|serves|making|makes|with|including|featuring|specializ(?:ing|es) in|specialis(?:ing|es) in))\s+([^.;:!?]{3,160})/gi;
+  let m;
+  while ((m = lead.exec(t))) candidates.push(m[1]);
+  // 2. a whole later sentence that is nothing but a short list
+  splitSentences(t).slice(1).forEach(sentence => candidates.push(sentence.replace(/[.!?]+$/, '')));
+  for (const c of candidates) {
+    const items = parseOfferingList(c);
+    if (items.length >= 2) return items.slice(0, 5);
+  }
+  return [];
+}
+// The single source every "list what this business offers" renderer reads.
+function offeringsFor(project, category) {
+  const own = (project && project.business && Array.isArray(project.business.offerings))
+    ? project.business.offerings.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : [];
+  return own.length >= 2 ? own.slice(0, 6) : ((category && category.services) || []);
+}
 // Real (non-AI) analysis: keyword-scores the description against the
 // categories/styles dictionaries above, adds a small affinity bonus toward
 // seeds that suit the detected category, and pulls a location if one reads
@@ -322,7 +441,8 @@ function createGenerationSource(text) {
     analysis,
     facts: extractBusinessFacts(analysis.text),
     descriptor: extractBusinessDescriptor(analysis.text),
-    extractedName: extractBusinessName(analysis.text)
+    extractedName: extractBusinessName(analysis.text),
+    offerings: extractOfferings(analysis.text)
   });
 }
 
@@ -648,8 +768,29 @@ const paletteRecipes = {
   'dark-luxury-metallic':      { bgL:11, bgS:22, mainL:62, mainS:32, textL:92, accent2Off:16, accent2L:74 },
   'neutral-single-accent':     { bgL:97, bgS:6,  mainL:44, mainS:62, textL:11, accent2Off:12, accent2L:68 }
 };
+// Colour the business itself names ("peach, cherry and citrus", "matcha",
+// "ocean") -- used as the base hue instead of the category's fixed one when
+// present, so a cherry/citrus drink brand isn't handed retail's stock violet.
+// Only the HUE moves; saturation/lightness still come from the colorBehavior
+// recipe, so contrast rules are unchanged. Whole words only.
+const DESCRIPTION_COLOUR_HUES = {
+  cherry: 350, strawberry: 355, raspberry: 340, berry: 330, berries: 330, rose: 345, watermelon: 355, tomato: 8, chili: 5, chilli: 5,
+  peach: 22, apricot: 28, orange: 25, tangerine: 28, citrus: 38, mango: 38, lemon: 52, honey: 40, gold: 45, golden: 45, caramel: 32, amber: 40,
+  coffee: 25, espresso: 20, cacao: 18, chocolate: 18, cinnamon: 20, terracotta: 14, rust: 16,
+  matcha: 95, lime: 85, olive: 70, sage: 110, mint: 155, forest: 140, pine: 150, moss: 100,
+  ocean: 200, sea: 195, coastal: 195, sky: 205, denim: 215, navy: 225, lavender: 265, grape: 285, plum: 300, violet: 270,
+};
+function descriptionColourHue(text) {
+  const hits = [];
+  String(text || '').toLowerCase().replace(/[a-z]+/g, word => { if (Object.prototype.hasOwnProperty.call(DESCRIPTION_COLOUR_HUES, word)) hits.push(DESCRIPTION_COLOUR_HUES[word]); return word; });
+  if (!hits.length) return null;
+  // circular mean -- 350 (cherry) and 22 (peach) average to a warm red-orange, not cyan
+  const x = hits.reduce((s, h) => s + Math.cos(h * Math.PI / 180), 0), y = hits.reduce((s, h) => s + Math.sin(h * Math.PI / 180), 0);
+  return Math.round(((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360);
+}
 function composePalette(categoryKey, composed, text) {
-  const baseHue = categoryBaseHue[categoryKey] ?? categoryBaseHue.other;
+  const cueHue = descriptionColourHue(text);
+  const baseHue = cueHue !== null ? cueHue : (categoryBaseHue[categoryKey] ?? categoryBaseHue.other);
   const jitter = (hashString((text || categoryKey) + '::' + categoryKey) % 25) - 12; // -12..+12, deterministic
   const hue = baseHue + jitter;
   const recipe = paletteRecipes[composed.colorBehavior] || paletteRecipes['neutral-single-accent'];
@@ -1486,23 +1627,159 @@ const imageStyleDescriptions = {
   'grid-mosaic': 'technical grid/data mosaic composition',
   'abstract-geometric': 'clean abstract geometric composition'
 };
-// V8: when this project came from the Claude planner, it supplies its own
-// specific, business-aware prompt per image role (see normalizeClaudePlan /
-// project.intent.claudeImagePrompts below) -- Claude never generates images
-// itself, it only writes the prompt; the actual generation still goes
-// through the exact same OpenAI provider / cache / dedup / fallback funnel
-// as every other image (buildImagePlan, resolveImagePlanAssets), completely
-// unchanged. When no Claude prompt exists for this role (deterministic
-// path, or Claude simply didn't plan an image for it), the original
-// category/palette-driven deterministic prompt is used, exactly as before.
-function buildImagePrompt(project, category, role) {
-  const override = project.intent && project.intent.claudeImagePrompts && project.intent.claudeImagePrompts[role];
-  if (override) return override;
-  const composed = project.design.dimensions;
-  const loc = project.source.location ? `, subtle ${project.source.location} atmosphere` : '';
-  const paletteDesc = `${project.design.palette.background} background, ${project.design.palette.main} accent colour`;
-  const styleWord = imageStyleDescriptions[composed.imagery] || 'clean abstract brand composition';
-  return `${styleWord} for a ${category.label.toLowerCase()} brand${loc}, ${paletteDesc}, premium brand aesthetic, ${role} composition, no text`;
+// ---- Image prompts -----------------------------------------------------------
+// Claude never generates images; it only writes prompts, which go through the
+// same OpenAI provider / cache / dedup / fallback funnel as every other image.
+//
+// Two problems this section fixes (both found by tracing a real generation):
+//   1. The planner's image list was collapsed to ONE prompt per role ("first
+//      prompt per role wins"), and only 4 of the 13 roles it may use (hero,
+//      product, team, gallery) ever matched a rendered slot -- so its most
+//      specific shots ('founder', 'process', 'atmosphere', 'feature', and
+//      every gallery prompt after the first) were discarded, and every
+//      gallery tile was sent the identical prompt.
+//   2. With no planner prompt, every slot got the same subject-less line
+//      ("clean abstract geometric composition for a retail brand, #f7f8fa
+//      background ...") -- abstract blobs, hex codes an image model can't
+//      read, and nothing about what the business actually sells.
+// Prompts are deliberately NOT part of computeImageCacheKey, so none of this
+// invalidates an image a saved project already paid for.
+
+// Which planner roles can fill which rendered slot role, best fit first.
+const SLOT_ROLE_PROMPT_POOLS = {
+  hero: ['hero', 'product', 'atmosphere', 'editorial', 'feature', 'portfolio', 'location'],
+  product: ['product', 'feature', 'hero', 'texture', 'editorial', 'portfolio'],
+  team: ['team', 'founder', 'process', 'location', 'atmosphere'],
+  gallery: ['gallery', 'portfolio', 'feature', 'atmosphere', 'process', 'editorial', 'location', 'texture', 'beforeAfter', 'product'],
+};
+// The planner's full, ordered image list -- also rebuilt from the older
+// one-prompt-per-role map so a project saved before this change still works.
+function plannedImagePromptList(project) {
+  const intent = project.intent || {};
+  if (Array.isArray(intent.claudeImagePromptList) && intent.claudeImagePromptList.length) {
+    return intent.claudeImagePromptList.filter(e => e && typeof e.prompt === 'string' && e.prompt.trim() && typeof e.role === 'string');
+  }
+  const byRole = intent.claudeImagePrompts;
+  return byRole && typeof byRole === 'object' ? Object.keys(byRole).filter(r => typeof byRole[r] === 'string' && byRole[r].trim()).map(role => ({ role, prompt: byRole[role] })) : [];
+}
+// One planned prompt per slot, never the same planned prompt twice: slots
+// claim in importance order (hero first), each from its own role pool.
+// Returns an array parallel to `slots`; null = no planned prompt left.
+function assignPlannedImagePrompts(slots, list) {
+  const out = slots.map(() => null);
+  if (!list.length) return out;
+  const used = new Set();
+  const order = slots.map((s, i) => i).sort((a, b) => ((slots[a].rank || 0) - (slots[b].rank || 0)) || (a - b));
+  order.forEach(i => {
+    const pool = SLOT_ROLE_PROMPT_POOLS[slots[i].role] || [slots[i].role];
+    for (const role of pool) {
+      const j = list.findIndex((e, k) => !used.has(k) && e.role === role);
+      if (j !== -1) { used.add(j); out[i] = list[j].prompt; return; }
+    }
+  });
+  return out;
+}
+// A colour an image model can actually use ("deep orange"), from a hex.
+function colourWordForHex(hex) {
+  const { r, g, b } = hexToRgb(hex || '#777777');
+  const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255, l = (max + min) / 2;
+  const s = max === min ? 0 : (l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min));
+  if (s < 0.12) return l > 0.85 ? 'off-white' : l < 0.2 ? 'near-black' : l < 0.5 ? 'charcoal grey' : 'soft grey';
+  let h;
+  const R = r / 255, G = g / 255, B = b / 255;
+  if (max === R) h = ((G - B) / (max - min)) % 6; else if (max === G) h = (B - R) / (max - min) + 2; else h = (R - G) / (max - min) + 4;
+  h = (h * 60 + 360) % 360;
+  const name = h < 15 ? 'red' : h < 40 ? 'orange' : h < 55 ? 'amber' : h < 70 ? 'yellow' : h < 160 ? 'green' : h < 195 ? 'teal' : h < 255 ? 'blue' : h < 290 ? 'violet' : h < 335 ? 'magenta' : 'red';
+  return (l < 0.32 ? 'deep ' : l > 0.72 ? 'pale ' : 'vivid ') + name;
+}
+const INTERFACE_IMAGERY = ['dashboard-ui', 'technical-network', 'chart-financial', 'grid-mosaic'];
+// Shot lists per slot role; index cycles so repeated slots (gallery tiles,
+// the collage hero's second card) each get a genuinely different picture.
+const PRODUCT_SHOTS = {
+  hero: [
+    '{subject} as one bold, single focal subject, centred and heroic, dramatic studio lighting with a strong rim light, on a saturated {accent} colour-field backdrop that glows toward the edges, generous negative space for a headline',
+    'a tight, dramatic detail crop of {subject}, low camera angle, glossy highlights, {accent} light spilling across the frame',
+  ],
+  product: [
+    'a still-life product line-up of {subject} in {offerings}, arranged together on a seamless {accent} studio sweep, crisp shadows, premium advertising photography',
+    '{subject} presented on a simple plinth against a {accent} backdrop, soft reflection, clean studio light',
+  ],
+  gallery: [
+    'a macro close-up of {item}, tactile texture and fine detail, shallow depth of field, {accent} accent light',
+    '{item} in its real, everyday setting{place}, natural light, candid lifestyle photograph',
+    'an overhead flat-lay of {item} on a {accent} surface, bold graphic composition, hard shadows',
+    'the making of {item}: hands at work, behind-the-scenes process photograph, warm light',
+  ],
+  // Never a face or a posed "staff portrait": these slots stand in for the
+  // real team's own photos, so a generated person would misrepresent them.
+  team: [
+    'the workspace where {subject} comes to life{place}, natural light, lived-in detail, people seen from behind or at work, no posed portraits',
+    'hands at work on {item}, close crop, no faces, warm natural light, honest craft photography',
+    'the tools and materials behind {subject} laid out on a workbench, soft window light, still life, no people',
+  ],
+};
+const INTERFACE_SHOTS = {
+  hero: [
+    'a polished product interface for {subject}, shown on a floating screen at a slight angle with layered UI panels, {accent} accent glow on a dark backdrop',
+    'a detail of the {subject} interface: one key screen, crisp UI, {accent} highlights, shallow depth of field',
+  ],
+  product: [
+    '{subject} running across a laptop and a phone on a clean desk, {accent} accent light, product photography',
+    'a single key screen of {subject} floating at an angle over a soft {accent} gradient, crisp UI, depth of field',
+  ],
+  gallery: [
+    'a crisp close-up of the {feature} screen in {subject}, clean UI detail, {accent} accents',
+    'someone using {subject} for {feature} at work{place}, candid, natural light, screen softly visible',
+  ],
+  team: [
+    'the team building {subject}{place}, a bright modern workspace, candid, people at work seen from behind, no posed portraits',
+    'a close crop of hands on a keyboard working in {subject}, no faces, soft screen glow',
+    'a whiteboard planning session for {subject}, sticky notes and sketches, people out of frame',
+  ],
+};
+// What the business IS, in the owner's own words: the phrase after "is a/an"
+// ("scheduling software for physiotherapy clinics", "specialty coffee roaster
+// and café"), minus a trailing business-type word ("brand", "store") that
+// would make an image model picture a shopfront instead of the product.
+function definingPhraseFor(text) {
+  const firstSentence = splitSentences(text)[0];
+  const m = firstSentence.match(/\b(?:is|are)\s+(?:(?:a|an|the)\s+)?([^.,;:!?]{3,70}?)(?=\s+(?:with|that|who|which|in|based|for\s+(?:over|more|\d))\b|[.,;:!?]|$)/i);
+  if (!m) return '';
+  const phrase = m[1].trim().replace(/\s+(?:brand|company|business|store|shop|studio|startup|firm|agency|label|team)$/i, '').trim();
+  // "Our team is the best in town" is praise, not a subject.
+  if (/^(?:best|greatest|leading|top|number one|good|great|amazing|here|open|new|local|proud|happy|passionate|dedicated|committed)\b/i.test(phrase)) return '';
+  return phrase;
+}
+function deterministicImagePrompt(project, category, role, index) {
+  const composed = project.design.dimensions || {};
+  const descriptor = (project.source && project.source.descriptor) || {};
+  const offerings = offeringsFor(project, category);
+  const noun = definingPhraseFor(project.source && project.source.text) || descriptor.descriptor || descriptor.offering || (category.noun && category.label ? `${category.label.toLowerCase()} ${category.noun}` : 'the business');
+  const name = project.business && project.business.name && !(project.meta && project.meta.previewBrandName) ? project.business.name : '';
+  const subject = name ? `${name}'s ${noun}` : `a ${noun}`;
+  // {feature}: the bare offering; {item}: the offering anchored to THIS business, so
+  // 'peach' is Fizzwell's peach drink, not a piece of fruit.
+  const feature = offerings.length ? offerings[index % offerings.length].toLowerCase() : noun;
+  const item = offerings.length ? `${subject}: ${feature}` : subject;
+  const shots = (INTERFACE_IMAGERY.includes(composed.imagery) ? INTERFACE_SHOTS : PRODUCT_SHOTS)[role] || PRODUCT_SHOTS.gallery;
+  const shot = shots[index % shots.length];
+  const place = project.source && project.source.location ? `, ${project.source.location}` : '';
+  const accent = colourWordForHex(project.design.palette && project.design.palette.main);
+  const style = imageStyleDescriptions[composed.imagery] || 'premium brand photography';
+  return shot
+    .replace(/\{subject\}/g, subject)
+    .replace(/\{offerings\}/g, offerings.length ? offerings.slice(0, 4).join(', ').toLowerCase() : noun)
+    .replace(/\{item\}/g, item)
+    .replace(/\{place\}/g, place)
+    .replace(/\{accent\}/g, accent)
+    + `. Art direction: ${style}, one clear focal point, intentional and specific to this business -- not a generic stock image. No text, no logos, no watermarks.`;
+}
+// `plannedPrompt` (from assignPlannedImagePrompts) always wins; otherwise a
+// subject-led prompt, varied by `index` (this slot's position among slots of
+// the same role).
+function buildImagePrompt(project, category, role, index = 0, plannedPrompt = null) {
+  if (plannedPrompt) return plannedPrompt;
+  return deterministicImagePrompt(project, category, role, index);
 }
 // One entry per real, currently-rendered visual slot (the same slot ids
 // renderHero/renderAbout/renderProductShowcase/renderImageLedEditorial pass
@@ -1950,11 +2227,19 @@ function buildImagePlan(project, category, remainingCredits) {
       .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))));
     fundedRouteBySlotIndex = planAffordableImages({ candidates, remainingUsd: spendCeilingUsd, remainingCredits, modelKeys });
   }
+  // Planned prompts go to the slots that will actually be generated first
+  // (funded before unfunded, then by importance), one distinct prompt each.
+  const plannedPrompts = assignPlannedImagePrompts(
+    slots.map((s, i) => ({ role: s.role, rank: (fundedRouteBySlotIndex.has(i) ? 0 : 100) + (s.rank || 0) })),
+    plannedImagePromptList(project)
+  );
+  const roleOccurrence = {};
   return slots.map((s, i) => {
     const fundedRoute = fundedRouteBySlotIndex.get(i) || null;
     const sourceType = s.assetId ? 'user' : (fundedRoute ? 'generated' : 'designed');
+    const occurrence = roleOccurrence[s.role] = (roleOccurrence[s.role] === undefined ? 0 : roleOccurrence[s.role] + 1);
     return {
-      ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role), sourceType,
+      ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role, occurrence, plannedPrompts[i]), sourceType,
       model: fundedRoute ? fundedRoute.model : null,
       quality: fundedRoute ? fundedRoute.quality : null,
       estimatedCostUsd: fundedRoute ? fundedRoute.estimatedCostUsd : null,
@@ -2131,7 +2416,36 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
 // save/restore for free, the same as a user upload.
 const imageRequestsInFlight = new Set();
 const imageRequestPromises = new Map();
-const IMAGE_REQUEST_TIMEOUT_MS = 30000;
+// Was 30000. gpt-image-1 at high quality routinely takes longer than 30s,
+// and the server kept going after the browser gave up -- the image was paid
+// for and then thrown away (see lib/image-delivery.js). The browser now
+// waits LONGER than the server's own provider timeout
+// (SITEREMADE_IMAGE_PROVIDER_TIMEOUT_MS, default 150s), so the server always
+// answers first; if the connection still drops, one retry with the same
+// requestKey is replayed or joined server-side -- never paid twice.
+const IMAGE_REQUEST_TIMEOUT_MS = 180000;
+const IMAGE_REQUEST_RETRIES = 1;
+function postImageRequest(body, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch('/api/generate-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })
+    .then(r => r.json().catch(() => ({})))
+    .finally(() => clearTimeout(timer));
+}
+// Retries ONLY a request that never produced an answer (network drop/abort)
+// -- a real {ok:false} from the server (provider error, budget, credits) is
+// an honest outcome and is returned as-is, never retried into a second charge.
+function postImageRequestWithRetry(body, timeoutMs, retries) {
+  return postImageRequest(body, timeoutMs).catch(err => {
+    if (retries <= 0) throw err;
+    return postImageRequestWithRetry(body, timeoutMs, retries - 1);
+  });
+}
+// Private diagnostics (server.js POST /api/generation-diagnostics) --
+// fire-and-forget, never awaited, never allowed to affect generation.
+function reportGenerationDiagnostic(payload) {
+  try { fetch('/api/generation-diagnostics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {}); } catch (e) { /* diagnostics are best-effort */ }
+}
 function resolveImagePlanAssets(proj, onProgress, options = {}) {
   if (!proj || (proj.meta && proj.meta.isDemoShell)) return Promise.resolve();
   proj.assets.generated = proj.assets.generated || {};
@@ -2185,32 +2499,37 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
     }
     const reqKey = `${proj.meta.id}::${slot}::${entry.cacheKey}`;
     if (imageRequestsInFlight.has(reqKey)) {
+      // BUG FIX: the plan changed and then changed BACK while this exact
+      // request was still in flight. The slot had been re-marked for the
+      // intermediate plan, so when the (correct) image arrived it was
+      // thrown away as "superseded" even though its plan was current again.
+      // Re-claim the slot for this plan so the arriving result applies.
+      const current = proj.assets.generated[slot];
+      if (!current || current.cacheKey !== entry.cacheKey) {
+        proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'pending', prompt: entry.prompt };
+      }
       requests.push(imageRequestPromises.get(reqKey) || Promise.resolve());
       return;
     }
     imageRequestsInFlight.add(reqKey);
     proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'pending', prompt: entry.prompt };
     if (proj === project && !options.suppressRender) renderProject(project);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), IMAGE_REQUEST_TIMEOUT_MS);
-    const request = fetch('/api/generate-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // taskType/projectId are observability metadata only for the server's
-      // operation ledger (see server.js recordOperation) -- absent or
-      // generic, this call behaves identically.
-      // MULTI-MODEL IMAGE ROUTER PASS: entry.model/entry.quality are the
-      // funded ROUTE this slot's importance actually earned (see
-      // buildImagePlan's route allocator) -- the server still re-validates
-      // both against its own ALLOWED_IMAGE_MODELS/ALLOWED_IMAGE_QUALITIES
-      // allowlists and safely downgrades anything missing/malformed to the
-      // cheap support model at 'medium', so a bad or tampered client value
-      // can never silently buy the premium model or the most expensive
-      // quality.
-      body: JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id }),
-      signal: controller.signal
-    })
-      .then(r => r.json().catch(() => ({})))
+    // taskType/projectId are observability metadata only for the server's
+    // operation ledger (see server.js recordOperation) -- absent or generic,
+    // this call behaves identically. requestKey is this image's identity
+    // (project :: slot :: plan cacheKey): the server stores the paid result
+    // under it and replays it for a repeat of the same key instead of paying
+    // again (lib/image-delivery.js).
+    // MULTI-MODEL IMAGE ROUTER PASS: entry.model/entry.quality are the
+    // funded ROUTE this slot's importance actually earned (see
+    // buildImagePlan's route allocator) -- the server still re-validates
+    // both against its own ALLOWED_IMAGE_MODELS/ALLOWED_IMAGE_QUALITIES
+    // allowlists and safely downgrades anything missing/malformed to the
+    // cheap support model at 'medium', so a bad or tampered client value
+    // can never silently buy the premium model or the most expensive
+    // quality.
+    const body = JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id, requestKey: reqKey });
+    const request = postImageRequestWithRetry(body, IMAGE_REQUEST_TIMEOUT_MS, IMAGE_REQUEST_RETRIES)
       .then(data => {
         imageRequestsInFlight.delete(reqKey);
         // DYNAMIC CREDIT COSTING PASS: patch the account balance from THIS
@@ -2226,7 +2545,14 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
         // the meantime.
         if (data) applyCreditsFromApiResponse(data);
         const current = proj.assets.generated[slot];
-        if (!current || current.cacheKey !== entry.cacheKey) return; // superseded by a newer plan before this returned
+        if (!current || current.cacheKey !== entry.cacheKey) {
+          // Superseded by a newer plan before this returned: never shown for
+          // the wrong plan. It is NOT lost -- the server stored it under
+          // reqKey, so if the plan returns to this state the image is
+          // replayed at no charge. Recorded so the discard is visible.
+          if (data && data.ok === true) reportGenerationDiagnostic({ outcome: 'image_superseded', projectId: proj.meta && proj.meta.id, requestKey: reqKey, slot });
+          return;
+        }
         if (!data || data.ok !== true || !data.dataUrl) {
           // Honest failure path: fall back cleanly to the designed CSS visual.
           proj.assets.generated[slot] = { cacheKey: entry.cacheKey, status: 'error', prompt: entry.prompt };
@@ -2243,7 +2569,7 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
         if (proj === project && !options.suppressRender) renderProject(project);
         if (onProgress) onProgress();
       })
-      .finally(() => { clearTimeout(timer); imageRequestsInFlight.delete(reqKey); imageRequestPromises.delete(reqKey); });
+      .finally(() => { imageRequestsInFlight.delete(reqKey); imageRequestPromises.delete(reqKey); });
     imageRequestPromises.set(reqKey, request);
     requests.push(request);
   });
@@ -2596,7 +2922,7 @@ function renderServices(project, category, section) {
   const moduleHtml = (section && section.module && section.module.enabled && section.module.type === 'quote')
     ? renderFormModuleWidget(project, section, 'Request a quote') : '';
   const variant = section && section.variant;
-  const labels = category.services;
+  const labels = offeringsFor(project, category);
   const headline = sectionCopyField(section, 'headline', '');
   const intro = sectionCopyField(section, 'body', '');
   const headerHtml = renderSectionHeader(headline, intro, section && section.headlineRole);
@@ -2673,7 +2999,7 @@ function renderGalleryIconComposition(project, category, section, label, caption
   const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
   const dir = resolveIconDirection(project);
   const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
-  const items = (category.services || []).slice(0, iconKeys.length);
+  const items = offeringsFor(project, category).slice(0, iconKeys.length);
   const cards = items.map((itemLabel, i) => `<div class="gallery-icon-card">
       ${renderIcon(iconKeys[i], { weight: dir.weight, size: 26, className: 'gallery-icon-card-icon' })}
       <span>${escapeHtml(itemLabel)}</span>
@@ -2912,7 +3238,7 @@ function featureBodyFor(project, category, label, i) {
 function renderFeatures(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'What it does');
   const intro = sectionCopyField(section, 'body', '');
-  const labels = category.services;
+  const labels = offeringsFor(project, category);
   const variant = (section && section.variant) || 'grid';
   if (variant === 'list') {
     // Reuses the same numbered-editorial markup/CSS as renderProcess's
@@ -2925,9 +3251,16 @@ function renderFeatures(project, category, section) {
       <div class="process-steps features-list">${labels.map((l, i) => `<div><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p></div>`).join('')}</div>
     </div>`;
   }
+  // The badge used to be the label's first LETTER (with a literal 'F' when a
+  // label was missing) -- a row of lettered squares reads as a placeholder,
+  // not a design. It is now the archetype's own icon for that position, the
+  // same deterministic icon table services/gallery/product already use.
+  const dir = resolveIconDirection(project);
+  const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
+  const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
   return `<div class="site-section site-section-features" data-variant="grid">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
-    <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${escapeHtml((l || 'F').charAt(0))}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
+    <div class="features-grid">${renderCardGroup(labels, 'feature-card', (l, i) => `<span class="feature-mark">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span><strong>${escapeHtml(l)}</strong><p>${escapeHtml(featureBodyFor(project, category, l, i))}</p>`)}</div>
   </div>`;
 }
 // FINAL BASELINE POLISH pass, part 2 -- root cause: renderProductShowcase
@@ -2956,15 +3289,21 @@ function renderProductIconComposition(project, category, section, label, caption
   const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
   const dir = resolveIconDirection(project);
   const iconKeys = ARCHETYPE_PROOF_ICONS[archetype] || ARCHETYPE_PROOF_ICONS['service-business'];
-  const items = (category.services || []).slice(0, iconKeys.length);
+  const items = offeringsFor(project, category).slice(0, iconKeys.length);
   const rows = items.map((itemLabel, i) => `<div class="product-panel-row">${renderIconTile(iconKeys[i], { weight: dir.weight, presentation: 'tinted-tile', size: 20, label: itemLabel })}</div>`).join('');
-  const markLetter = (businessName || category.label || 'P').trim().charAt(0).toUpperCase() || 'P';
+  // The image position used to hold the business name's first LETTER in a
+  // tinted square -- the "circular letter badge where the photo should be".
+  // With no real image there is still a real, strong thing to show: the name
+  // itself, set as an oversized typographic block on the accent colour (type
+  // as the image, the way product brands use a wordmark). `businessName`
+  // arrives already HTML-escaped from renderProductShowcase -- escaping it
+  // again here (as the old <h4> did) printed "&amp;" for names like
+  // "Fern & Flint".
   return `<div class="site-section site-section-product product-icon-composition" data-variant="panel">
     ${renderSectionHeader(label, '', section && section.headlineRole)}
     <div class="product-panel">
-      <div class="product-panel-mark" aria-hidden="true">${escapeHtml(markLetter)}</div>
+      <p class="product-panel-wordmark">${businessName}</p>
       <div class="product-panel-body">
-        <h4>${escapeHtml(businessName)}</h4>
         ${caption ? `<p class="product-caption">${escapeHtml(caption)}</p>` : ''}
         ${rows ? `<div class="product-panel-rows">${rows}</div>` : ''}
         ${moduleHtml}
@@ -3261,7 +3600,7 @@ function renderSiteFooter(project, category, variant) {
   const locationLine = location ? `<p class="site-footer-location">${renderIcon('mapPin', { weight: dir.weight, size: 13 })}<span>${escapeHtml(location)}</span></p>` : '';
   if (variant === 'columns') {
     const cols = [
-      { title: navLabelFor('services', project.business.categoryKey), items: category.services },
+      { title: navLabelFor('services', project.business.categoryKey), items: offeringsFor(project, category) },
       { title: 'Company', items: ['About', 'Contact'] }
     ];
     return `<div class="site-section site-footer" data-variant="columns">
@@ -5079,6 +5418,16 @@ function createProject(analysis, preserved, isDemoShell) {
 function mix(hex, target, amount) { const a = hexToRgb(hex), b = hexToRgb(target); return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount); }
 function hexToRgb(hex) { const n = parseInt(hex.replace('#', ''), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }; }
 function rgbToHex(r, g, b) { return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+// Readable text colour for anything set ON the accent colour (the no-image
+// product wordmark): dark ink on a light/bright accent, white on a deep one.
+// WCAG relative luminance, not a guess from the hex digits. Mirrored in
+// lib/site-render.js's paletteVars.
+function onAccentColor(hex) {
+  const { r, g, b } = hexToRgb(hex || '#000000');
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return luminance > 0.42 ? '#111111' : '#ffffff';
+}
 function updatePaletteFromProject(proj) {
   const { main, background, text, accent2 } = proj.design.palette;
   const dark = mix(main, '#000000', .55);
@@ -5089,6 +5438,7 @@ function updatePaletteFromProject(proj) {
   const textMuted = mix(text, background, .38);
   builderSite.style.setProperty('--site-accent', main);
   builderSite.style.setProperty('--site-accent-2', accent2 || main);
+  builderSite.style.setProperty('--site-on-accent', onAccentColor(main));
   builderSite.style.setProperty('--site-accent-dark', dark);
   builderSite.style.setProperty('--site-accent-light', light);
   builderSite.style.setProperty('--site-bg', background);
@@ -6966,13 +7316,19 @@ function normalizeClaudePlan(raw, catDefaults) {
     ctaLabel: claudeStr(heroCopyRaw.ctaLabel, 40) || null
   };
 
+  // The FULL ordered list is kept (imagePrompts) and assigned slot-by-slot in
+  // buildImagePlan (assignPlannedImagePrompts) -- the old one-per-role map
+  // alone dropped every second gallery prompt and every role the renderer
+  // doesn't name directly. imagePromptsByRole stays for older readers.
   const imagePromptsByRole = {};
+  const imagePrompts = [];
   (Array.isArray(raw.imagePlan) ? raw.imagePlan : []).forEach(entry => {
     if (!entry || typeof entry !== 'object') return;
     const role = claudeEnum(entry.role, CLAUDE_IMAGE_ROLE_KEYS, null);
     const prompt = claudeStr(entry.prompt, 500);
-    if (!role || !prompt || imagePromptsByRole[role]) return; // first prompt per role wins; matches one-slot-per-role rendering
-    imagePromptsByRole[role] = prompt;
+    if (!role || !prompt) return;
+    if (imagePrompts.length < 16 && !imagePrompts.some(e => e.prompt === prompt)) imagePrompts.push({ role, prompt });
+    if (!imagePromptsByRole[role]) imagePromptsByRole[role] = prompt;
   });
 
   const functionalityPlan = (Array.isArray(raw.functionalityPlan) ? raw.functionalityPlan : [])
@@ -7003,6 +7359,12 @@ function normalizeClaudePlan(raw, catDefaults) {
     pages,
     heroCopy,
     businessName: claudeStr(businessRaw.name, 60) || null,
+    // What this business actually offers, in its own words (schema:
+    // business.offerings). Each label independently validated; fewer than two
+    // usable labels means "none" and offeringsFor falls back to the
+    // category list, same as a deterministic direction with nothing listed.
+    offerings: (Array.isArray(businessRaw.offerings) ? businessRaw.offerings : [])
+      .map(o => claudeStr(o, 40)).filter(Boolean).slice(0, 6),
     understanding: claudeStr(businessRaw.understanding, 300),
     targetCustomer: claudeStr(businessRaw.targetCustomer, 200),
     positioning: claudeStr(businessRaw.positioning, 200),
@@ -7010,6 +7372,7 @@ function normalizeClaudePlan(raw, catDefaults) {
     declaredFacts,
     rationale: claudeStr(vd.rationale, 240),
     imagePromptsByRole,
+    imagePrompts,
     functionalityPlan
   };
 }
@@ -7021,14 +7384,25 @@ function normalizeClaudePlan(raw, catDefaults) {
 // broken." A failed or skipped call never touches window.__siteremadePlanMeter
 // itself; only a real successful response (or an explicit limited response)
 // updates the visible "N of 3 AI-planned directions" meter.
-async function requestClaudePlan(text, taskType) {
+// Why a direction was built by the deterministic engine instead of the AI
+// plan, in the fixed vocabulary server.js's diagnostics route accepts.
+function planFallbackReason(result) {
+  if (!result) return 'unknown';
+  if (result.ok && result.plan) return 'plan_rejected_by_client';
+  if (result.configured === false) return 'not_configured';
+  if (result.creditsExceeded) return 'credits_exceeded';
+  if (result.status === 0) return 'network';
+  return 'server_not_ok';
+}
+async function requestClaudePlan(text, taskType, generationId) {
   try {
     const response = await fetch('/api/plan-website', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // taskType is observability metadata only (server.js recordOperation)
-      // -- the route's own behavior/limits are unchanged by it.
-      body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE' })
+      // taskType/generationId are observability metadata only (server.js
+      // recordOperation / generation diagnostics) -- the route's own
+      // behavior/limits are unchanged by them.
+      body: JSON.stringify({ text, taskType: taskType || 'NEW_SITE', generationId: generationId || undefined })
     });
     const data = await response.json().catch(() => ({}));
     // UNIFIED ACCOUNT pass: the HTTP status is now part of the return value
@@ -7542,7 +7916,14 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   const iconDefaults = archetypeIconDefaults[strategy.archetype] || archetypeIconDefaults['service-business'];
   Object.keys(iconDefaults).forEach(k => { if (dimensions[k] === undefined) dimensions[k] = iconDefaults[k]; });
   const creativeDirection = composeCreativeDirection(analysis.categoryKey, variationSeed, usingClaude ? claudePlan.creativeDirection : null, source.text, strategy.archetype);
-  const previewName = source.extractedName || `${category.label} Studio`;
+  // The planner's own business.name ("only if the business name was actually
+  // given" -- see the tool schema in server.js) was validated by
+  // normalizeClaudePlan and then never read, so even a successful AI-planned
+  // direction shipped as "<Category> Studio". It now wins over the
+  // deterministic extraction; the template name stays the last resort.
+  const plannedName = usingClaude ? claudePlan.businessName : null;
+  const realName = plannedName || source.extractedName;
+  const previewName = realName || `${category.label} Studio`;
 
   // V7: the first-paint shell now seeds its dimensions from the detected
   // CATEGORY's defaults, not the named seed's raw values -- so even before
@@ -7555,12 +7936,15 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     meta: {
       id: 'proj_' + Date.now().toString(36), createdAt: new Date().toISOString(),
       version: usingClaude ? 'v8' : 'v7', isDemoShell: false,
-      planSource: usingClaude ? 'anthropic' : 'deterministic', previewBrandName: !source.extractedName
+      planSource: usingClaude ? 'anthropic' : 'deterministic', previewBrandName: !realName
     },
     source: { text: source.text, location: analysis.location, facts, descriptor, generationKey: source.key },
     business: {
       name: previewName,
       categoryKey: analysis.categoryKey,
+      // Planner-supplied offerings win; otherwise only what the description
+      // itself listed (see extractOfferings). Empty = category list.
+      offerings: (usingClaude && claudePlan.offerings && claudePlan.offerings.length >= 2) ? claudePlan.offerings.slice() : (source.offerings || []).slice(),
       tone: (sameSource && preserved.business && preserved.business.tone) || 'professional'
     },
     intent: {
@@ -7570,6 +7954,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       // image (buildImagePrompt/buildImagePlan/resolveImagePlanAssets are
       // completely unchanged by this). See SITE-PROJECT-V8.md part 9.
       claudeImagePrompts: usingClaude ? claudePlan.imagePromptsByRole : null,
+      claudeImagePromptList: usingClaude ? claudePlan.imagePrompts : null,
       brief: usingClaude ? { understanding: claudePlan.understanding, rationale: claudePlan.rationale } : null,
       creativeDirection
     },
@@ -8184,7 +8569,8 @@ async function runGeneration(text) {
     updateGenerationGate('creative');
     if (generatorSubmitButton) generatorSubmitButton.disabled = true;
     if (generatorSubmitLabel) generatorSubmitLabel.textContent = (meter && meter.planConfigured) ? 'Planning with Claude…' : 'Reserving your credit…';
-    const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE');
+    const generationId = 'gen_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE', generationId);
     if (result && result.status === 401) {
       // Session expired mid-visit (spec: "session expiry during use" must
       // be handled, not just at page load) -- currentAccount was stale.
@@ -8262,6 +8648,12 @@ async function runGeneration(text) {
     // budget before any network call.
 
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
+    // Durable, private record of which engine actually built this direction
+    // and why -- the server can say ok:true and this client can still reject
+    // the plan (normalizeClaudePlan -> null), which the server never sees.
+    reportGenerationDiagnostic(claudePlan
+      ? { outcome: 'plan_used', generationId, projectId: proj.meta.id }
+      : { outcome: 'plan_fallback', generationId, projectId: proj.meta.id, reason: planFallbackReason(result) });
     // Whatever was staged in the generator box (attach/drag/paste, before
     // this business even had a project) becomes real assets on THIS
     // project now -- appended, not replacing whatever buildGenerationPlan

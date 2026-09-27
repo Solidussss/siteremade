@@ -19,6 +19,8 @@ const { getDatabaseAdapter } = require('./lib/adapters/database-adapter.js');
 const { getAuthProvider } = require('./lib/adapters/auth-provider.js');
 const authProvider = getAuthProvider();
 const projectStore = require('./lib/project-store.js');
+const { createGenerationEvents } = require('./lib/generation-events.js');
+const { createImageDelivery } = require('./lib/image-delivery.js');
 const purchase = require('./lib/purchase.js');
 // Credit-architecture fix: lib/entitlement.js's account-durable lifetime
 // cap is no longer required/called here -- it predated the credit system
@@ -137,6 +139,11 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 // (see lib/adapters/production-database-adapter.js) -- never a silent
 // fallback to this local database.
 const db = getDatabaseAdapter(process.env.SITEREMADE_DB_PATH);
+// Durable, private generation diagnostics (planner outcomes, every image
+// outcome, the operation ledger) -- see lib/generation-events.js. Survives a
+// restart, unlike the in-memory ledger below; never exposed on a generated
+// site; read only via the admin-token route GET /api/admin/generation-events.
+const generationEvents = createGenerationEvents(db, { retentionDays: Number(process.env.SITEREMADE_DIAGNOSTICS_RETENTION_DAYS) || undefined });
 
 app.disable('x-powered-by');
 // V8.5's Stripe webhook route needs the EXACT raw request bytes to verify
@@ -535,6 +542,8 @@ const IMAGE_MODEL_COST_ESTIMATE_USD = {
   }
 };
 const IMAGE_LANDSCAPE_COST_MULTIPLIER = Number(process.env.SITEREMADE_IMAGE_LANDSCAPE_COST_MULTIPLIER) || 1.4;
+// Upper bound on one provider image call (see imageProviders.openai.generate).
+const IMAGE_PROVIDER_TIMEOUT_MS = Number(process.env.SITEREMADE_IMAGE_PROVIDER_TIMEOUT_MS) || 150000;
 function estimateImageRouteCostUsd(model, quality, aspectRatio) {
   const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
   const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
@@ -606,11 +615,25 @@ const imageProviders = {
       // outright (a malformed/tampered request should never crash the
       // generation, it should just fail cheap).
       const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: safeModel, prompt, size, quality: safeQuality, n: 1 }),
-      });
+      // This call previously had no timeout at all -- a hung provider
+      // request held its credit + spend reservation indefinitely. Generous
+      // on purpose: gpt-image-1 at high quality routinely takes well over
+      // 30s, and cutting a call off after OpenAI has started work still
+      // costs money. The browser now waits longer than this (see script.js
+      // IMAGE_REQUEST_TIMEOUT_MS) so the server always settles first.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), IMAGE_PROVIDER_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: safeModel, prompt, size, quality: safeQuality, n: 1 }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error((data && data.error && data.error.message) || `Image provider returned ${response.status}`);
       const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
@@ -741,7 +764,7 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
     if (!deferSettlement) {
       record(true);
       if (creditReserved) credits.commitCredits(db, accountId, creditCost);
-      return { ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, creditsCharged: creditReserved ? creditCost : 0 };
+      return { ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, provider: activeImageProvider.name, estimatedCostUsd, creditsCharged: creditReserved ? creditCost : 0 };
     }
     let settled = false;
     return {
@@ -804,6 +827,17 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
 //
 // App bridge pass (Phase 4): the handler body now delegates to
 // generateImageWithCredits; every response shape below is unchanged.
+// Browser-route image delivery: stores every paid result and replays it for
+// a repeated request key instead of paying again (see lib/image-delivery.js
+// for the lost-image bug this fixes). The app-bridge edit flow still calls
+// generateImageWithCredits directly -- its deferred-settlement contract is
+// unchanged.
+const imageDelivery = createImageDelivery({
+  generate: args => generateImageWithCredits(args),
+  events: generationEvents,
+  storeImage: dataUrl => projectStore.storeImageDataUrl(db, dataUrl),
+  loadImage: hash => projectStore.loadImageDataUrl(db, hash),
+});
 app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, res) => {
   const anonId = ensureAnonId(req, res);
   // taskType/projectId are purely observability metadata the client
@@ -811,17 +845,30 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
   // behaves identically; the ledger just falls back to a generic label.
   const taskType = clean(req.body.taskType, 40) || 'IMAGE_GENERATE';
   const projectId = clean(req.body.projectId, 60);
-  const result = await generateImageWithCredits({
+  // The browser's own identity for this exact image (project :: slot :: plan
+  // cacheKey). Optional -- without it the request behaves exactly as before,
+  // just without replay/join protection.
+  const requestKey = clean(req.body.requestKey, 300);
+  // If the browser gives up before we answer (its own timeout, a closed tab,
+  // a dropped connection), the image is still stored and replayable -- this
+  // just records that it happened, so "paid but never shown" is visible.
+  let clientGone = false;
+  res.on('close', () => { if (!res.writableFinished) clientGone = true; });
+  const result = await imageDelivery.deliver({
     accountId: req.accountId, prompt: clean(req.body.prompt, 600),
     model: clean(req.body.model, 40), quality: clean(req.body.quality, 10), aspectRatio: clean(req.body.aspectRatio, 10),
-    reservationKey: projectId || anonId || 'anonymous', taskType, projectId, anonId,
+    reservationKey: projectId || anonId || 'anonymous', taskType, projectId, anonId, requestKey,
   });
+  if (clientGone && result.ok) {
+    generationEvents.record({ kind: 'image', outcome: 'client_disconnected', accountId: req.accountId, projectId, requestKey, model: result.model, quality: result.quality, creditsCharged: result.creditsCharged, detail: { recoverableByReplay: !!requestKey } });
+  }
   if (result.ok) {
     // creditsCharged lets the client accumulate/display the real per-image
     // charge (spec: "after generation show actual charge") without
     // re-deriving support/premium pricing itself -- backend stays the sole
     // source of truth for the number, same principle as creditsRemaining.
-    return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, creditsCharged: result.creditsCharged, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
+    // A replayed/joined result is 0 -- that image was already paid for once.
+    return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, creditsCharged: result.creditsCharged, replayed: !!result.replayed, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   }
   if (result.reason === 'not_configured') return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'This account has used its daily credit allowance.' });
@@ -862,11 +909,26 @@ function categorizeAnthropicError(error) {
   return 'provider_error';
 }
 
-function recordPlannerAttempt(attempt) {
+// `context` ({accountId, projectId, taskType}) is optional and only feeds the
+// durable record -- the in-memory lastAttempt keeps its original shape.
+function recordPlannerAttempt(attempt, context) {
+  // lastAttempt is served by the PUBLIC /api/planner-status route, so it
+  // keeps exactly its original fields -- the richer per-request detail
+  // (generationId, token counts, plan shape) goes only to the private
+  // durable store below.
   plannerDiagnostics.lastAttempt = {
     timestamp: new Date().toISOString(),
-    ...attempt
+    outcome: attempt.outcome,
+    ...(attempt.latencyMs !== undefined ? { latencyMs: attempt.latencyMs } : {}),
+    ...(attempt.model !== undefined ? { model: attempt.model } : {}),
+    ...(attempt.errorCategory !== undefined ? { errorCategory: attempt.errorCategory } : {}),
   };
+  const ctx = context || {};
+  generationEvents.record({
+    kind: 'planner', outcome: attempt.outcome, accountId: ctx.accountId || null, projectId: ctx.projectId || null,
+    provider: 'anthropic', model: attempt.model || null, latencyMs: attempt.latencyMs,
+    detail: { taskType: ctx.taskType || null, generationId: attempt.generationId || null, errorCategory: attempt.errorCategory || null, inputTokens: attempt.inputTokens, outputTokens: attempt.outputTokens, pages: attempt.pages, imagePlanEntries: attempt.imagePlanEntries, hasOfferings: attempt.hasOfferings },
+  });
 }
 
 // ---- Control plane: operation cost classification + ledger ---------------
@@ -1154,6 +1216,14 @@ function recordOperation(entry) {
   };
   operationLedger.push(row);
   if (operationLedger.length > OPERATION_LEDGER_LIMIT) operationLedger.shift();
+  // Durable copy (this in-memory array is lost on restart -- the exact gap
+  // that made a real run's spend untraceable afterwards). Never throws.
+  generationEvents.record({
+    kind: 'operation', outcome: row.ok ? 'ok' : 'failed', accountId: row.accountId, projectId: row.projectId,
+    provider: row.provider, model: row.model, quality: row.imageQuality, latencyMs: row.latencyMs,
+    estimatedCostUsd: row.estimatedCostUsd, creditsCharged: row.creditsCharged,
+    detail: { operationType: row.operationType, costClass: row.costClass, inputTokens: row.inputTokens, outputTokens: row.outputTokens, cacheReadTokens: row.cacheReadTokens, cacheWriteTokens: row.cacheWriteTokens, imageCount: row.imageCount, imageSize: row.imageSize, creditCost: row.creditCost },
+  });
   return row;
 }
 // Gated by a server-only shared secret (never the auth-session mechanism --
@@ -1167,6 +1237,17 @@ app.get('/api/admin/operation-ledger', (req, res) => {
     return res.status(404).json({ ok: false });
   }
   res.json({ ok: true, count: operationLedger.length, entries: operationLedger });
+});
+// Durable generation diagnostics (lib/generation-events.js) -- same
+// fail-closed admin gate as the in-memory ledger above, but survives a
+// restart. Filters: ?kind=planner|image|client_outcome|operation,
+// ?accountId=, ?projectId=, ?limit= (max 1000).
+app.get('/api/admin/generation-events', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) {
+    return res.status(404).json({ ok: false });
+  }
+  const entries = generationEvents.listRecent({ limit: req.query.limit, kind: clean(req.query.kind, 30) || null, accountId: clean(req.query.accountId, 80) || null, projectId: clean(req.query.projectId, 120) || null });
+  res.json({ ok: true, count: entries.length, writeFailures: generationEvents.stats().writeFailures, entries });
 });
 
 const HERO_KEYS =['split','fullbleed-image','centered-oversized','stacked-image-below','asymmetric-offset','minimal-text-only','grid-dashboard','poster','collage','product-screenshot','editorial-rail'];
@@ -1281,7 +1362,11 @@ const WEBSITE_PLAN_TOOL = {
           targetCustomer: { type: 'string' },
           positioning: { type: 'string' },
           tone: { type: 'string', enum: ['professional', 'bold', 'friendly'] },
-          goals: { type: 'array', items: { type: 'string' }, maxItems: 5 }
+          goals: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+          // Without this the renderer's feature/service/product lists could
+          // only ever show a fixed per-category list, so every business in a
+          // category read the same ("Treatments / Booking / About").
+          offerings: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'The specific products, flavours, services or programmes THIS business offers, as 2-6 short labels (1-4 words each) the site can list and show -- e.g. "Peach Energy", "Hail Damage Repair". Only things the description states or clearly implies; never invent a product line. Omit if the description names none.' }
         }
       },
       declaredFacts: {
@@ -1675,6 +1760,34 @@ app.get('/api/generation-status', (req, res) => {
   });
 });
 
+// The browser's side of generation diagnostics -- things only it knows:
+// whether it actually USED the AI plan or fell back to the deterministic
+// engine (and why -- the server can return ok:true and the client can still
+// reject the plan in normalizeClaudePlan), and when an image result arrived
+// for a plan that had already changed (so it was correctly not shown). Every
+// field is allowlisted/clipped; nothing here is ever rendered anywhere. Its
+// own small rate limit so it never eats the generation budget.
+const CLIENT_OUTCOMES = ['plan_used', 'plan_fallback', 'image_superseded', 'image_failed'];
+const CLIENT_FALLBACK_REASONS = ['server_not_ok', 'plan_rejected_by_client', 'network', 'not_configured', 'credits_exceeded', 'timeout', 'provider_error', 'unknown'];
+const diagnosticsRateLimit = rateLimitMiddleware(req => `diagnostics:${req.accountId || req.ip}`, { max: 60, windowMs: 60 * 1000 }, 'Too many requests in a short time.');
+app.post('/api/generation-diagnostics', requireAuth, diagnosticsRateLimit, (req, res) => {
+  const body = req.body || {};
+  const outcome = clean(body.outcome, 40);
+  if (!CLIENT_OUTCOMES.includes(outcome)) return res.status(400).json({ ok: false });
+  const reason = CLIENT_FALLBACK_REASONS.includes(clean(body.reason, 40)) ? clean(body.reason, 40) : null;
+  generationEvents.record({
+    kind: 'client_outcome', outcome, accountId: req.accountId,
+    projectId: clean(body.projectId, 120) || null, requestKey: clean(body.requestKey, 300) || null,
+    detail: {
+      generationId: clean(body.generationId, 60) || null, reason,
+      slot: clean(body.slot, 120) || null,
+      imagesRequested: Number.isFinite(body.imagesRequested) ? Math.max(0, Math.min(64, Math.round(body.imagesRequested))) : null,
+      imagesReady: Number.isFinite(body.imagesReady) ? Math.max(0, Math.min(64, Math.round(body.imagesReady))) : null,
+    },
+  });
+  res.json({ ok: true });
+});
+
 app.get('/api/planner-status', (req, res) => {
   res.json({
     configured: anthropicProvider.configured(),
@@ -1850,11 +1963,18 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   // changes nothing about how this route behaves.
   const taskType = (clean(req.body.taskType, 40) === 'NEW_DIRECTION') ? 'NEW_DIRECTION' : 'NEW_SITE';
   const projectId = clean(req.body.projectId, 60);
+  // Durable diagnostics context (lib/generation-events.js). generationId is
+  // the browser's id for this one generation attempt, so this server-side
+  // planner row can be matched to the browser's own report of whether it
+  // actually used the plan (POST /api/generation-diagnostics).
+  const plannerCtx = { accountId: req.accountId, projectId, taskType };
+  const generationId = clean(req.body.generationId, 60) || null;
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
   if (creditCost > 0) {
     const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
     if (!creditReservation.ok) {
+      recordPlannerAttempt({ outcome: 'credits_exceeded', generationId }, plannerCtx);
       return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
     }
     creditReserved = true;
@@ -1862,9 +1982,13 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   const text = clean(req.body.text, 600);
   if (!text) {
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached generation
+    recordPlannerAttempt({ outcome: 'missing_text', generationId }, plannerCtx);
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
   }
   if (!anthropicProvider.configured()) {
+    // Durable record: this direction WILL be built by the deterministic
+    // engine -- the single most useful fact when a site comes out generic.
+    recordPlannerAttempt({ outcome: 'not_configured', generationId }, plannerCtx);
     // The credit was reserved above for a REAL generation attempt -- the
     // client's deterministic engine is about to produce this direction
     // regardless of Claude's availability, so commit now rather than
@@ -1900,7 +2024,7 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
     // incidental crash-and-catch a few lines down to save it.
     const plan = normalizePlannerPlan(rawPlan);
     if (!plan) {
-      recordPlannerAttempt({ outcome: 'malformed_output', latencyMs, model: model || null });
+      recordPlannerAttempt({ outcome: 'malformed_output', latencyMs, model: model || null, generationId, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens }, plannerCtx);
       recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: false, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
       // Never charge for a plan that produced nothing usable, same "only
       // charge for meaningful completed work" principle the image-credit
@@ -1914,7 +2038,11 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
       // deterministic generation," so this is not a new client-side case.
       return res.status(200).json({ ok: false, message: 'The AI planner returned something unusable this time.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
     }
-    recordPlannerAttempt({ outcome: 'success', latencyMs, model: model || null });
+    recordPlannerAttempt({
+      outcome: 'success', latencyMs, model: model || null, generationId, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens,
+      pages: plan.pages.length, imagePlanEntries: Array.isArray(plan.imagePlan) ? plan.imagePlan.length : 0,
+      hasOfferings: !!(plan.business && Array.isArray(plan.business.offerings) && plan.business.offerings.length),
+    }, plannerCtx);
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.commitCredits(db, req.accountId, creditCost); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
@@ -1924,7 +2052,7 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
     return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
-    recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error) });
+    recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error), generationId }, plannerCtx);
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
     if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently consumes a credit
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });

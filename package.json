@@ -5,7 +5,9 @@
   "description": "SiteRemade website and lead form backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "fixtures:export": "node test/fixtures/render-export-fixtures.js"
   },
   "engines": {
     "node": ">=22.13 <23"
