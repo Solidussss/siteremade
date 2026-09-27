@@ -1790,6 +1790,10 @@ const HERO_TEXT_ONLY_FALLBACK = {
   'stacked-image-below': 'minimal-text-only',
   'grid-dashboard': 'minimal-text-only',
   'product-screenshot': 'minimal-text-only',
+  // SITEREMADE_VISUAL_ENGINE_V1: the 3 new hero families, unfunded -> the closest-feeling existing text-only layout.
+  'product-stage': 'centered-oversized',
+  'floating-media': 'poster',
+  'quiet-luxury': 'minimal-text-only',
 };
 function mapHeroToTextOnlyVariant(originalHero) {
   if (TEXT_ONLY_HERO_VARIANTS.includes(originalHero)) return originalHero;
@@ -2008,6 +2012,7 @@ function applyPremiumPatch(proj, patch) {
     if (!s) return;
     if (ps.variant && ps.variant !== s.variant) { s.variant = ps.variant; changed = true; }
     if (ps.imageDisplayVariant && ps.imageDisplayVariant !== s.imageDisplayVariant) { s.imageDisplayVariant = ps.imageDisplayVariant; changed = true; }
+    if (ps.mediaComposition && ps.mediaComposition !== s.mediaComposition) { s.mediaComposition = ps.mediaComposition; changed = true; }
     if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
   });
   (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
@@ -2619,7 +2624,29 @@ function renderHero(project, category) {
   // own site. Now shown only when a real showcase section is actually on
   // Home, so it stops being a promise the site itself doesn't keep.
   const hasShowcase = (project.sections || []).some(s => ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(s.type));
+  // SITEREMADE_VISUAL_ENGINE_V1: every hero layout carries its family/depth as data attributes (CSS hooks + testable
+  // state), even the pre-existing ones -- so the new vocabulary describes the whole hero system, not just the 3 new layouts.
+  const VE = window.SiteRemadePremium && window.SiteRemadePremium.visualEngine;
+  const heroFamily = VE ? (VE.familyForVariant(layout) || 'EDITORIAL_SPLIT') : null;
+  const heroDepth = VE && heroFamily ? VE.depthForFamily(heroFamily) : null;
+  const veAttrs = VE ? ` data-hero-family="${escapeHtml(heroFamily)}" data-depth="${escapeHtml(heroDepth)}"` : '';
   switch (layout) {
+    case 'product-stage': return `<div class="site-hero hero-product-stage"${veAttrs}>
+        <p class="hero-kicker-center">${kicker}</p>
+        <div class="hero-stage-frame"><span class="hero-stage-ring hero-stage-ring-a"></span><span class="hero-stage-ring hero-stage-ring-b"></span><div class="hero-stage-object">${visual}</div></div>
+        <h3 class="hero-stage-headline">${headline}</h3><p class="hero-stage-sub">${sub}</p>
+        <div class="site-actions center">${ctaBtn}</div>
+      </div>`;
+    case 'floating-media': { const mid = renderVisualSlot(project, 'collage-2', composed.imagery, (plan.gallery || [])[0]);
+      const back = renderVisualSlot(project, 'collage-3', composed.imagery, (plan.gallery || [])[1]);
+      return `<div class="site-hero hero-floating-media"${veAttrs}>
+        <div class="hero-float-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
+        <div class="hero-float-stack"><div class="hero-float-card hero-float-card-back">${back}</div><div class="hero-float-card hero-float-card-mid">${mid}</div><div class="hero-float-card hero-float-card-front">${visual}</div></div>
+      </div>`; }
+    case 'quiet-luxury': return `<div class="site-hero hero-quiet-luxury"${veAttrs}>
+        <div class="hero-quiet-copy"><p class="hero-quiet-eyebrow">${kicker}</p><h3 class="hero-quiet-headline">${headline}</h3><p class="hero-quiet-sub">${sub}</p><div class="site-actions">${ctaBtn}</div></div>
+        <div class="hero-quiet-visual">${visual}</div>
+      </div>`;
     case 'demo': return `<div class="site-hero hero-demo-shell">
         <div class="site-copy"><p>PREVIEW</p><h3>Describe your business above</h3><p>Your generated site will appear here — real layout, real copy, real palette, built from what you type.</p></div>
         <div class="site-visual"><div class="visual-generated" data-imagery="demo-shell"></div></div>
@@ -2628,7 +2655,7 @@ function renderHero(project, category) {
         <p class="hero-kicker-center">${kicker}</p><h3 class="hero-headline-oversized">${headline}</h3><p class="hero-sub-center">${sub}</p>
         <div class="site-actions center">${ctaBtn}</div>
       </div>`;
-    case 'fullbleed-image': return `<div class="site-hero hero-fullbleed">
+    case 'fullbleed-image': return `<div class="site-hero hero-fullbleed"${veAttrs}>
         <div class="hero-fullbleed-media">${visual}<div class="hero-fullbleed-scrim"></div></div>
         <div class="hero-fullbleed-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
       </div>`;
@@ -2648,24 +2675,24 @@ function renderHero(project, category) {
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
         <div class="hero-dash-grid"><div class="dash-panel dash-panel-visual">${visual}</div><div class="dash-panel"></div><div class="dash-panel"></div><div class="dash-panel"></div></div>
       </div>`;
-    case 'poster': return `<div class="site-hero hero-poster">
+    case 'poster': return `<div class="site-hero hero-poster"${veAttrs}>
         <p class="hero-kicker-center">${kicker}</p><h3 class="hero-poster-headline">${headline}</h3>
         <div class="hero-poster-row"><p>${sub}</p>${ctaBtn}</div>
       </div>`;
     case 'collage': { const b = renderVisualSlot(project, 'collage-2', composed.imagery, (plan.gallery || [])[0]);
-      return `<div class="site-hero hero-collage">
+      return `<div class="site-hero hero-collage"${veAttrs}>
         <div class="hero-collage-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
         <div class="hero-collage-stack"><div class="collage-card collage-card-1">${visual}</div><div class="collage-card collage-card-2">${b}</div></div>
       </div>`; }
-    case 'product-screenshot': return `<div class="site-hero hero-product-screenshot">
+    case 'product-screenshot': return `<div class="site-hero hero-product-screenshot"${veAttrs}>
         <div class="site-copy center"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions center">${ctaBtn}</div></div>
         <div class="hero-product-frame"><div class="hero-product-chrome"><span></span><span></span><span></span></div><div class="hero-product-body">${visual}</div></div>
       </div>`;
-    case 'editorial-rail': return `<div class="site-hero hero-editorial-rail">
+    case 'editorial-rail': return `<div class="site-hero hero-editorial-rail"${veAttrs}>
         <div class="hero-editorial-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}</div></div>
         <div class="hero-editorial-visual">${visual}</div>
       </div>`;
-    default: return `<div class="site-hero hero-split">
+    default: return `<div class="site-hero hero-split"${veAttrs}>
         <div class="site-copy"><p>${kicker}</p><h3>${headline}</h3><p>${sub}</p><div class="site-actions">${ctaBtn}${hasShowcase ? '<span>See our work ↗</span>' : ''}</div></div>
         <div class="site-visual">${visual}</div>
       </div>`;

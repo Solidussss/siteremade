@@ -874,13 +874,14 @@ const sample = () => ({
   });
   await t('hero families: photography businesses never keep a text-only or interface hero; tech keeps the browser-frame hero', () => {
     const V = P.visuals;
-    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'poster'), 'asymmetric-offset');
+    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'poster'), 'product-stage'); // Visual Engine V1: retail's default hero is now PRODUCT_STAGE
     assert.strictEqual(V.chooseHero(V.PROFILES.hospitality, 'centered-oversized'), 'fullbleed-image');
     assert.strictEqual(V.chooseHero(V.PROFILES.trades, 'product-screenshot'), 'split');
-    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'editorial-rail'), 'editorial-rail');
+    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'editorial-rail'), 'product-stage'); // narrowed allowlist (Part 30): retail now always upgrades to its premium default
+    assert.strictEqual(V.chooseHero(V.PROFILES.retail, 'collage'), 'collage'); // a still-allowed, still-photo-capable alternate is kept
     assert.strictEqual(V.chooseHero(V.PROFILES.tech, 'grid-dashboard'), 'product-screenshot');
     const retailProj = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' }, design: { premium: { vs: 1 }, dimensions: { hero: 'poster' } } });
-    assert.ok(V.checkVisuals(retailProj, {}).some(x => x.code === 'hero_family_mismatch' && x.repair && x.repair.value === 'asymmetric-offset'));
+    assert.ok(V.checkVisuals(retailProj, {}).some(x => x.code === 'hero_family_mismatch' && x.repair && x.repair.value === 'product-stage'));
   });
   const imgSite = () => { const s = techProj({ source: { text: 'Online skincare store in Vancouver selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' }, design: { premium: { vs: 1 }, dimensions: { hero: 'asymmetric-offset' } } });
     s.imagePlan = [{ slot: 'hero', role: 'hero', sourceType: 'generated', kind: 'photo', model: 'gpt-image-1', quality: 'high', routeKind: 'premium', aspectRatio: '16:9', cacheKey: 'k', prompt: 'skincare products on a clean surface, soft light', promptSimplified: 'skincare bottles, simple' }, { slot: 'product', role: 'product', sourceType: 'generated', kind: 'photo', model: 'gpt-image-1', quality: 'medium', routeKind: 'premium', aspectRatio: '4:3', cacheKey: 'k2', prompt: 'skincare product close-up' }];
@@ -1078,7 +1079,10 @@ const sample = () => ({
     // include the text-only 'poster' layout, which plans zero image slots at all (renderHero never calls renderVisualSlot).
     const gOld = P.grounding.deriveGrounding({ description: RE, categoryKey: 'professional', archetype: 'trust-heavy-professional', location: 'Toronto' });
     assert.strictEqual(gOld.family, 'professional'); assert.ok(!P.editorial.isPhotoLed(gOld, RE));
-    assert.ok(P.visuals.PROFILES.consultancy.heroVariants.includes('poster'));
+    // SITEREMADE_VISUAL_ENGINE_V1 note: 'professional'/consultancy no longer has this gap either -- its one allowed
+    // hero (QUIET_LUXURY) always renders a real image slot (never a text-only layout), even with no funded photo.
+    assert.ok(!P.visuals.PROFILES.consultancy.heroVariants.includes('poster'));
+    assert.strictEqual(P.visuals.PROFILES.consultancy.heroVariant, 'quiet-luxury');
   });
   await t('hero families: real estate never keeps a text-only hero (poster/minimal/centered-oversized are not offered)', () => {
     const V = P.visuals;
@@ -1173,6 +1177,109 @@ const sample = () => ({
     });
     assert.ok(/PREMIUM_FEEL|HERO_QUALITY|VISUAL_COLLISIONS|BUSINESS_TRUTHFULNESS/.test(seenPrompt));
     assert.ok(out.semantic.regenerated.includes('hero'));
+  });
+
+  console.log('SITEREMADE_VISUAL_ENGINE_V1');
+  await t('hero family vocabulary: normalization, invalid-value fallback, variant mapping is a closed set of 8', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.HERO_FAMILY_KEYS.length, 8);
+    assert.strictEqual(VE.normalizeHeroFamily('product_stage'), 'PRODUCT_STAGE');
+    assert.strictEqual(VE.normalizeHeroFamily('nonsense-value-claude-invented', 'COLLAGE'), 'COLLAGE');
+    assert.strictEqual(VE.normalizeHeroFamily(undefined), 'EDITORIAL_SPLIT');
+    assert.strictEqual(VE.normalizeHeroFamily(null, 'also-not-real'), 'EDITORIAL_SPLIT');
+    VE.HERO_FAMILY_KEYS.forEach(k => assert.strictEqual(VE.familyForVariant(VE.heroVariantFor(k)), k, k));
+  });
+  await t('media composition vocabulary: normalization and invalid-value fallback', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.normalizeMediaComposition('oversized-image'), 'OVERSIZED_IMAGE');
+    assert.strictEqual(VE.normalizeMediaComposition('made up nonsense', 'OFFSET_IMAGE'), 'OFFSET_IMAGE');
+    assert.strictEqual(VE.normalizeMediaComposition(undefined), 'DEFAULT');
+    assert.ok(VE.MEDIA_COMPOSITION_KEYS.length >= 6);
+  });
+  await t('depth and surface vocabulary: normalization, fallback, and a fixed per-family depth (Part 6 V1 scope)', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.normalizeDepth('dramatic'), 'DRAMATIC');
+    assert.strictEqual(VE.normalizeDepth('not-a-depth', 'LAYERED'), 'LAYERED');
+    assert.strictEqual(VE.normalizeDepth(undefined), 'SUBTLE');
+    assert.strictEqual(VE.depthForFamily('PRODUCT_STAGE'), 'DRAMATIC');
+    assert.strictEqual(VE.depthForFamily('TYPOGRAPHIC_STATEMENT'), 'FLAT');
+    assert.strictEqual(VE.normalizeSurfaceTexture('GRID-TECHNICAL'), 'grid-technical');
+    assert.strictEqual(VE.normalizeSurfaceTexture('nope', 'clean'), 'clean');
+    assert.strictEqual(VE.surfaceTextureFor('tech'), 'grid-technical');
+    assert.strictEqual(VE.surfaceTextureFor('wellness'), 'radial-field');
+  });
+  await t('industry hero selection: a preference order, filtered by whether a real photo will actually be funded (Part 4: not a fixed mapping)', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.pickHeroFamily('retail', true), 'PRODUCT_STAGE');
+    assert.strictEqual(VE.pickHeroFamily('saas', false), 'FRAME_WITHIN_FRAME'); // interface-led: no photo needed
+    // a photo-dependent family is never picked with no funded media
+    assert.strictEqual(VE.pickHeroFamily('retail', false), 'TYPOGRAPHIC_STATEMENT');
+    // an already-good current choice that's still viable is kept, not overridden (Part 4)
+    assert.strictEqual(VE.pickHeroFamily('retail', true, 'COLLAGE'), 'COLLAGE');
+    assert.strictEqual(VE.pickHeroFamily('retail', false, 'COLLAGE'), 'TYPOGRAPHIC_STATEMENT', 'a photo-dependent current choice is replaced once media is unavailable, and retail has no photo-independent family of its own');
+  });
+  await t('anti-repetition: 3+ identical media positions in a row is flagged; varied positions are not', () => {
+    const VE = P.visualEngine;
+    const same = [{ type: 'editorialFeature', variant: 'image-left' }, { type: 'editorialFeature', variant: 'image-left' }, { type: 'editorialFeature', variant: 'image-left' }];
+    assert.ok(VE.checkLayoutRepetition(same).some(x => x.code === 'repeated_media_position'));
+    const varied = [{ type: 'editorialFeature', variant: 'image-left' }, { type: 'editorialFeature', variant: 'image-right' }, { type: 'editorialFeature', variant: 'full' }];
+    assert.deepStrictEqual(VE.checkLayoutRepetition(varied), []);
+  });
+  await t('section intensity: QUIET/NORMAL/FEATURE/HEROIC map onto lib/premium/composition.js\'s existing weight/moment fields (no second pacing engine)', () => {
+    const VE = P.visualEngine;
+    assert.strictEqual(VE.intensityFor({ weight: 'quiet' }), 'QUIET');
+    assert.strictEqual(VE.intensityFor({ weight: 'medium' }), 'NORMAL');
+    assert.strictEqual(VE.intensityFor({ weight: 'strong' }), 'FEATURE');
+    assert.strictEqual(VE.intensityFor({ weight: 'strong', moment: 'fullbleed' }), 'HEROIC');
+  });
+  await t('visual moments quota (Part 14): a page with no moment, no quiet section, or no closing CTA band is flagged', () => {
+    const VE = P.visualEngine;
+    const flat = { sections: Array.from({ length: 5 }, () => ({ weight: 'medium', moment: null, cta: null })) };
+    const codes = VE.checkVisualMoments(flat).map(x => x.code);
+    assert.ok(codes.includes('no_visual_moment') && codes.includes('no_quiet_section') && codes.includes('no_strong_closing_cta'));
+    const good = { sections: [{ weight: 'quiet', moment: null, cta: null }, { weight: 'strong', moment: 'fullbleed', cta: null }, { weight: 'strong', moment: 'ctaband', cta: 'band' }] };
+    assert.deepStrictEqual(VE.checkVisualMoments(good), []);
+  });
+  await t('retail hero: default is now PRODUCT_STAGE; the structured placeholder is a staged object, not the wide shelf scene', () => {
+    const p = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' }, design: { premium: { vs: 1 } } });
+    assert.strictEqual(P.visuals.PROFILES.retail.heroVariant, 'product-stage');
+    const html = P.visuals.starterHtml(p, 'hero');
+    assert.strictEqual(html.match(/data-starter="([^"]+)"/)[1], 'product-bottle-stage');
+    assert.ok(!/undefined|NaN/.test(html));
+  });
+  await t('media composition is actually assigned on a photo-led page plan, and never repeats on consecutive features', () => {
+    const g = P.grounding.deriveGrounding({ description: SKIN, categoryKey: 'ecommerce', archetype: 'ecommerce-showcase', location: 'Vancouver' });
+    const site = { source: { text: SKIN }, business: { categoryKey: 'ecommerce' }, strategy: { archetype: 'ecommerce-showcase' }, design: { dimensions: {} },
+      pages: [{ id: 'h', slug: '', label: 'Home', sections: ['productShowcase', 'gallery', 'newsletter', 'process'].map((ty, i) => ({ id: 'x' + i, type: ty, copy: {} })) }] };
+    const out = P.editorial.planLayout(site, g, SKIN).direction;
+    const feats = out.pages[0].sections.filter(s => s.type === 'editorialFeature');
+    feats.forEach(f => assert.ok(P.visualEngine.MEDIA_COMPOSITION_KEYS.includes(f.mediaComposition), f.mediaComposition));
+    for (let i = 1; i < feats.length; i++) if (feats[i - 1].variant === feats[i].variant) assert.notStrictEqual(feats[i - 1].mediaComposition, feats[i].mediaComposition, 'same side back-to-back should still vary its media treatment');
+  });
+  await t('preview/export parity: the 3 new hero layouts render byte-identical markup in script.js and lib/site-render.js', () => {
+    const fs = require('fs');
+    const a = fs.readFileSync('script.js', 'utf8'), b = fs.readFileSync('lib/site-render.js', 'utf8');
+    ['hero-product-stage', 'hero-floating-media', 'hero-quiet-luxury'].forEach(key => {
+      const re = new RegExp(`<div class="site-hero ${key}"[\\s\\S]*?</div>\\s*</div>\\s*\`;`);
+      const ma = a.match(re), mb = b.match(re);
+      assert.ok(ma && mb, key + ' present in both files');
+      assert.strictEqual(ma[0].replace(/\s+/g, ' ').trim(), mb[0].replace(/\s+/g, ' ').trim(), key + ' markup differs between preview and export');
+    });
+  });
+  await t('export renderer: PRODUCT_STAGE/FLOATING_MEDIA/QUIET_LUXURY actually produce real, non-empty markup with the right data attributes', () => {
+    const SR = require('./lib/site-render');
+    const base = { source: { location: '' }, business: { name: 'Glow', categoryKey: 'ecommerce', tone: 'x' }, design: { dimensions: { imagery: 'abstract-geometric' } }, assets: { plan: {}, items: [], generated: {} }, copy: { headline: 'H', sub: 'S', cta: 'C' } };
+    const cat = SR.categories.retail;
+    ['product-stage', 'floating-media', 'quiet-luxury'].forEach(hero => {
+      const p = Object.assign({}, base, { design: Object.assign({}, base.design, { dimensions: Object.assign({}, base.design.dimensions, { hero }) }) });
+      const html = SR.renderHero(p, cat);
+      assert.ok(html.includes(`data-hero-family=`), hero);
+      assert.ok(!/undefined|NaN/.test(html), hero);
+    });
+  });
+  await t('planner vocabulary is validated before it ever reaches the renderer: an invented heroFamily value cannot pass through', () => {
+    const VE = P.visualEngine;
+    ['floating-media-please', '', null, 42, 'DROP TABLE'].forEach(bad => assert.ok(VE.HERO_FAMILY_KEYS.includes(VE.normalizeHeroFamily(bad)), String(bad)));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

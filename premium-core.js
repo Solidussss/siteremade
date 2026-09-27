@@ -303,7 +303,7 @@
         id: s.id, type: s.type, index: i, role: ROLE[s.type] || 'EDUCATE', tone: 'base', weight: 'medium', moment: null, open: false, layout: 'default',
         cta: null, form: !!s.hasForm, hasImage: !!s.hasImage, copyChars: Number.isFinite(s.copyChars) ? s.copyChars : 0,
       }));
-      const heroStrong = !!(inp.hero && (inp.hero.hasImage || ['fullbleed-image', 'poster', 'collage', 'centered-oversized'].includes(inp.hero.variant)));
+      const heroStrong = !!(inp.hero && (inp.hero.hasImage || ['fullbleed-image', 'poster', 'collage', 'centered-oversized', 'product-stage', 'floating-media'].includes(inp.hero.variant)));
 
       // 1. the closing conversion moment (the final CTA lives here, before the footer)
       let finalIdx = -1;
@@ -960,9 +960,16 @@
       for (let i = 1; i <= 6; i++) { if (typeof c['t' + i] === 'string' && c['t' + i]) out.push({ title: c['t' + i], body: typeof c['b' + i] === 'string' ? c['b' + i] : '' }); }
       return out.length ? out : null;
     }
-    function featureSection(shot, spec) {
-      return newSection('editorialFeature', spec.side === 'full' ? 'full' : spec.side === 'left' ? 'image-left' : spec.side === 'right' ? 'image-right' : 'quote',
-        { headline: spec.headline, body: spec.body, brief: clip(shot ? shot.brief : '', 200), shot: spec.id });
+    // SITEREMADE_VISUAL_ENGINE_V1 (Parts 5, 10): each feature gets a deliberately DIFFERENT media treatment from its
+    // neighbour (never the same composition twice in a row), instead of every image-left/image-right section looking
+    // like a plain rectangle in a frame.
+    const FEATURE_MEDIA_CYCLE = { left: ['OFFSET_IMAGE', 'DEFAULT'], right: ['DEFAULT', 'VERTICAL_EDITORIAL'], full: ['OVERSIZED_IMAGE'] };
+    function featureSection(shot, spec, index) {
+      const side = spec.side === 'full' ? 'full' : spec.side === 'left' ? 'left' : spec.side === 'right' ? 'right' : 'quote';
+      const cycle = FEATURE_MEDIA_CYCLE[side] || ['DEFAULT'];
+      const mediaComposition = cycle[(index || 0) % cycle.length];
+      return newSection('editorialFeature', side === 'full' ? 'full' : side === 'left' ? 'image-left' : side === 'right' ? 'image-right' : 'quote',
+        { headline: spec.headline, body: spec.body, brief: clip(shot ? shot.brief : '', 200), shot: spec.id }, { mediaComposition });
     }
     // Build the photo-led page plan. Existing sections whose type is reused keep their id (so uploads, edits and links survive).
     // direction: the project/direction; returns a NEW direction and a change list. Deterministic; never removes the customer's own edits
@@ -981,7 +988,8 @@
         rest.forEach(s => { if (s.type === 'about' && !bag.about) bag.about = s; else if (s.type === 'services' && !bag.services) bag.services = s; else if (s.type === 'faq' && !bag.faq) bag.faq = s; else if (s.type === 'process' && !bag.process) bag.process = s; else if (s.type === 'ctaBanner' && !bag.cta) bag.cta = s; else if (s.type === 'contact' && !bag.contact) bag.contact = s; else if ((s.type === 'gallery' || s.type === 'caseStudies') && !bag.gallery) bag.gallery = s; });
         // planning twice must not create new feature sections (each one is an image slot = money): reuse the existing section for a shot id
         const existing = new Map(rest.filter(s => s.type === 'editorialFeature' && s.copy && s.copy.shot).map(s => [s.copy.shot, s]));
-        const feat = spec => existing.get(spec.id) || featureSection(byId[spec.id] || shots[shots.length - 1], spec);
+        let featIndex = 0;
+        const feat = spec => existing.get(spec.id) || featureSection(byId[spec.id] || shots[shots.length - 1], spec, featIndex++);
         const withItems = (s, type, items, variant) => { const sec = s || newSection(type, variant, null); sec.copy = setItems(Object.assign({}, sec.copy), items); if (variant) sec.variant = variant; return sec; };
         const statement = (s, headline, body) => { const sec = s || newSection('about', 'statement', null); sec.variant = 'statement'; sec.imageDisplayVariant = 'statement'; sec.copy = Object.assign({}, sec.copy, { headline, body }); return sec; };
         const cta = bag.cta || newSection('ctaBanner', 'accent', null);
@@ -1075,8 +1083,12 @@
       if (variant === 'quote') return `<div class="site-section site-section-feature" data-variant="quote"><blockquote class="feature-quote"><p>${e(c.body || c.headline || '')}</p>${c.headline && c.body ? `<cite>${headline}</cite>` : ''}</blockquote></div>`;
       const slot = deps.slotFor(project, section);
       const visual = deps.renderVisualSlot(project, slot, project.design.dimensions.imagery, null);
-      if (variant === 'full') return `<div class="site-section site-section-feature" data-variant="full"><div class="feature-visual">${visual}<div class="feature-scrim"></div></div><div class="feature-overlay"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
-      return `<div class="site-section site-section-feature" data-variant="${variant === 'image-right' ? 'image-right' : 'image-left'}"><div class="feature-visual">${visual}</div><div class="feature-copy"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
+      // SITEREMADE_VISUAL_ENGINE_V1 (Part 5): an optional media-composition treatment layered on top of the existing
+      // image-left/image-right/full frame -- normalized so only the fixed vocabulary in visual-engine.js can ever reach here.
+      const VE = require('./visual-engine'); const mc = VE.normalizeMediaComposition(section && section.mediaComposition, 'DEFAULT');
+      const mediaCls = VE.MEDIA_COMPOSITIONS[mc].cls; const visualCls = 'feature-visual' + (mediaCls ? ' ' + mediaCls : '');
+      if (variant === 'full') return `<div class="site-section site-section-feature" data-variant="full"><div class="${visualCls}">${visual}<div class="feature-scrim"></div></div><div class="feature-overlay"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
+      return `<div class="site-section site-section-feature" data-variant="${variant === 'image-right' ? 'image-right' : 'image-left'}"><div class="${visualCls}">${visual}</div><div class="feature-copy"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
     }
 
     module.exports = { INVENTORY_CLAIM_RE, sanitizeListingClaim, PHOTO_LED_FAMILIES, isPhotoLed, shotList, minPhotos, MODALITIES, detectModalities, packFor, wellnessPack, realestatePack, genericPack, looksLikeInstruction, INSTRUCTION_RE, FILLER,
@@ -1844,7 +1856,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -2952,6 +2964,175 @@
     module.exports = { ARCHETYPES, PROFILES, CATEGORY_SUBJECTS, CONVERSION_GOALS, deriveStrategy, normalizeStrategy };
 
   });
+  __define("visual-engine", function (module, exports, require) {
+    'use strict';
+    // SITEREMADE_VISUAL_ENGINE_V1 -- the vocabulary layer beneath hero/media rendering.
+    //
+    // This is the layer the brief asks for: instead of Claude (or any planner) inventing markup, it reasons in a small,
+    // validated vocabulary -- a HERO_FAMILY, a MEDIA_COMPOSITION, a DEPTH level -- and SiteRemade already knows how to
+    // render each one at a premium level. Every normalize* function here takes an arbitrary (possibly planner-supplied,
+    // possibly missing) value and returns a value from the fixed vocabulary, falling back safely. Nothing here calls a
+    // model or does I/O; it is pure selection/validation logic, shared by the browser bundle, the server and the export
+    // compiler (same convention as every other lib/premium/*.js file).
+    //
+    // Composition PACING (which sections get 'weight'/visual moments across a whole page) already exists and is
+    // deliberately NOT duplicated here -- see lib/premium/composition.js (PREMIUM_COMPOSITION_V2), which this file's
+    // intensity vocabulary maps onto rather than replaces.
+
+    // ---- HERO_FAMILY ---------------------------------------------------------------------------------------------
+    // 8 genuinely distinct hero families. `variant` is the concrete hero layout key renderHero (script.js /
+    // lib/site-render.js) switches on -- 5 of the 8 map onto hero layouts that already exist (enhanced here with real
+    // depth/decoration so they read as premium, not "the same grid"); 3 (product-stage, floating-media, quiet-luxury)
+    // are new layouts built for this pass.
+    const HERO_FAMILIES = {
+      EDITORIAL_SPLIT: { variant: 'split', textWidth: 'balanced', typographyMode: 'display', heroic: false },
+      FULL_BLEED_CINEMATIC: { variant: 'fullbleed-image', textWidth: 'narrow', typographyMode: 'display', heroic: true },
+      PRODUCT_STAGE: { variant: 'product-stage', textWidth: 'balanced', typographyMode: 'display', heroic: true },
+      FLOATING_MEDIA: { variant: 'floating-media', textWidth: 'balanced', typographyMode: 'display', heroic: true },
+      TYPOGRAPHIC_STATEMENT: { variant: 'poster', textWidth: 'wide', typographyMode: 'oversized', heroic: true },
+      FRAME_WITHIN_FRAME: { variant: 'product-screenshot', textWidth: 'narrow', typographyMode: 'standard', heroic: false },
+      COLLAGE: { variant: 'collage', textWidth: 'balanced', typographyMode: 'standard', heroic: false },
+      QUIET_LUXURY: { variant: 'quiet-luxury', textWidth: 'narrow', typographyMode: 'restrained', heroic: false },
+    };
+    const HERO_FAMILY_KEYS = Object.keys(HERO_FAMILIES);
+    const VARIANT_TO_FAMILY = Object.fromEntries(HERO_FAMILY_KEYS.map(k => [HERO_FAMILIES[k].variant, k]));
+    function normalizeHeroFamily(value, fallback) {
+      const k = String(value || '').toUpperCase().replace(/[\s-]+/g, '_');
+      return HERO_FAMILY_KEYS.includes(k) ? k : (HERO_FAMILY_KEYS.includes(fallback) ? fallback : 'EDITORIAL_SPLIT');
+    }
+    function heroVariantFor(family) { return (HERO_FAMILIES[normalizeHeroFamily(family)] || HERO_FAMILIES.EDITORIAL_SPLIT).variant; }
+    function familyForVariant(variant) { return VARIANT_TO_FAMILY[variant] || null; }
+
+    // ---- industry defaults (Parts 4, 22): tendencies, not rigid rules -- a preference ORDER, filtered by what this
+    // business can actually support (photoLed vs interface-led vs no real media at all). ------------------------------
+    // Keyed by BUSINESS_GROUNDING's own family names (lib/premium/grounding.js) -- the canonical "what kind of
+    // business is this" signal already computed for every site, so no separate industry taxonomy is introduced.
+    const INDUSTRY_HERO_PREFERENCE = {
+      saas: ['FRAME_WITHIN_FRAME', 'FLOATING_MEDIA', 'TYPOGRAPHIC_STATEMENT'],
+      retail: ['PRODUCT_STAGE', 'COLLAGE', 'FULL_BLEED_CINEMATIC'],
+      wellness: ['QUIET_LUXURY', 'EDITORIAL_SPLIT', 'FULL_BLEED_CINEMATIC'],
+      hospitality: ['FULL_BLEED_CINEMATIC', 'EDITORIAL_SPLIT', 'QUIET_LUXURY'],
+      creative: ['COLLAGE', 'TYPOGRAPHIC_STATEMENT', 'FLOATING_MEDIA'],
+      local_service: ['EDITORIAL_SPLIT', 'FULL_BLEED_CINEMATIC', 'TYPOGRAPHIC_STATEMENT'],
+      appointments: ['EDITORIAL_SPLIT', 'FULL_BLEED_CINEMATIC', 'QUIET_LUXURY'],
+      realestate: ['FULL_BLEED_CINEMATIC', 'EDITORIAL_SPLIT', 'QUIET_LUXURY'],
+      professional: ['QUIET_LUXURY', 'EDITORIAL_SPLIT', 'TYPOGRAPHIC_STATEMENT'],
+      nonprofit: ['FULL_BLEED_CINEMATIC', 'EDITORIAL_SPLIT', 'COLLAGE'],
+      other: ['EDITORIAL_SPLIT', 'FULL_BLEED_CINEMATIC'],
+    };
+    // families that require a real photograph/generated image to make sense at all (never chosen with no funded media)
+    const PHOTO_DEPENDENT = new Set(['FULL_BLEED_CINEMATIC', 'PRODUCT_STAGE', 'FLOATING_MEDIA', 'COLLAGE', 'EDITORIAL_SPLIT']);
+    // families that never carry a photograph (pure typography/interface) -- safe with zero real media
+    const NO_PHOTO_NEEDED = new Set(['TYPOGRAPHIC_STATEMENT', 'FRAME_WITHIN_FRAME', 'QUIET_LUXURY']);
+    // Pick the first family in the industry's preference order this business can actually support.
+    // hasStrongMedia: true when a real/generated hero image will actually be funded (photo-led or an uploaded asset).
+    function pickHeroFamily(industryKey, hasStrongMedia, currentFamily) {
+      const cur = currentFamily ? normalizeHeroFamily(currentFamily, null) : null;
+      if (cur && (hasStrongMedia || !PHOTO_DEPENDENT.has(cur))) return cur; // an already-good, still-viable choice is kept (Part 4: "do not force a fixed mapping")
+      const order = INDUSTRY_HERO_PREFERENCE[industryKey] || INDUSTRY_HERO_PREFERENCE.other;
+      const viable = order.find(f => hasStrongMedia || !PHOTO_DEPENDENT.has(f));
+      return viable || (hasStrongMedia ? order[0] : 'TYPOGRAPHIC_STATEMENT');
+    }
+
+    // ---- MEDIA_COMPOSITION (Part 5) -- treatments a single-image section (editorialFeature, about-split, product
+    // showcase) can carry. 10 named, each a concrete class + crop/position recipe; 'default' is the plain treatment
+    // every image section already had before this pass. ----------------------------------------------------------
+    const MEDIA_COMPOSITIONS = {
+      DEFAULT: { cls: '', aspect: null },
+      OVERSIZED_IMAGE: { cls: 'media-oversized', aspect: '16/10' },
+      OFFSET_IMAGE: { cls: 'media-offset', aspect: '4/5' },
+      OVERLAPPING_PAIR: { cls: 'media-overlap-pair', aspect: '4/5', needsSecond: true },
+      FULL_WIDTH_BAND: { cls: 'media-full-band', aspect: '21/9' },
+      VERTICAL_EDITORIAL: { cls: 'media-vertical', aspect: '3/4' },
+      VISUAL_QUOTE: { cls: 'media-quote', aspect: null },
+    };
+    const MEDIA_COMPOSITION_KEYS = Object.keys(MEDIA_COMPOSITIONS);
+    function normalizeMediaComposition(value, fallback) {
+      const k = String(value || '').toUpperCase().replace(/[\s-]+/g, '_');
+      return MEDIA_COMPOSITION_KEYS.includes(k) ? k : (MEDIA_COMPOSITION_KEYS.includes(fallback) ? fallback : 'DEFAULT');
+    }
+
+    // ---- DEPTH (Part 6) -- 4 levels. V1 scope: depth is currently a fixed property of each hero family / media
+    // composition (documented per-family below), not yet an independent axis a planner can tune -- see V7 doc's
+    // "known weaknesses" for the follow-up. Exposed here so the vocabulary and its CSS hooks already exist.
+    const DEPTH_LEVELS = ['FLAT', 'SUBTLE', 'LAYERED', 'DRAMATIC'];
+    function normalizeDepth(value, fallback) {
+      const k = String(value || '').toUpperCase();
+      return DEPTH_LEVELS.includes(k) ? k : (DEPTH_LEVELS.includes(fallback) ? fallback : 'SUBTLE');
+    }
+    const HERO_FAMILY_DEPTH = { EDITORIAL_SPLIT: 'SUBTLE', FULL_BLEED_CINEMATIC: 'LAYERED', PRODUCT_STAGE: 'DRAMATIC', FLOATING_MEDIA: 'DRAMATIC',
+      TYPOGRAPHIC_STATEMENT: 'FLAT', FRAME_WITHIN_FRAME: 'LAYERED', COLLAGE: 'LAYERED', QUIET_LUXURY: 'FLAT' };
+    function depthForFamily(family) { return HERO_FAMILY_DEPTH[normalizeHeroFamily(family)] || 'SUBTLE'; }
+
+    // ---- SURFACE (Part 7) -- named treatments layered on top of the 4 existing composition tones (base/alt/contrast/
+    // brand from lib/premium/composition.js): this does not replace that colour system, it adds a texture/pattern
+    // class on top of whichever tone a section already resolved to. Kept tasteful and rare by design (Part 7: "do not
+    // add random gradients everywhere") -- only 3 sections per page may opt in (see pickSurfaceTexture).
+    const SURFACE_TEXTURES = ['clean', 'radial-field', 'grid-technical', 'editorial-paper'];
+    function normalizeSurfaceTexture(value, fallback) {
+      const k = String(value || '').toLowerCase();
+      return SURFACE_TEXTURES.includes(k) ? k : (SURFACE_TEXTURES.includes(fallback) ? fallback : 'clean');
+    }
+    // deterministic: technical grid for interface-led business, soft radial field for photo/atmosphere-led, plain otherwise
+    function surfaceTextureFor(profileId) {
+      if (profileId === 'tech') return 'grid-technical';
+      if (['wellness', 'hospitality', 'realestate'].includes(profileId)) return 'radial-field';
+      if (['consultancy', 'consultancy_personal', 'portfolio'].includes(profileId)) return 'editorial-paper';
+      return 'clean';
+    }
+
+    // ---- section INTENSITY (Parts 9, 10, 14) -- names the same 4 rungs lib/premium/composition.js already computes
+    // (quiet/medium/strong + the hero itself), so the planner/tests can reason in these terms without a second pacing
+    // engine. QUIET/NORMAL/FEATURE come straight from composition.js's `weight`; HEROIC is reserved for the hero and a
+    // true full-bleed/cinematic moment (kind 'fullbleed' or 'contrastband' with tone 'contrast'/'brand').
+    const INTENSITY_FROM_WEIGHT = { quiet: 'QUIET', medium: 'NORMAL', strong: 'FEATURE' };
+    function intensityFor(section) {
+      if (!section) return 'NORMAL';
+      if (section.moment === 'fullbleed' || (section.moment && (section.tone === 'contrast' || section.tone === 'brand') && section.weight === 'strong')) return 'HEROIC';
+      return INTENSITY_FROM_WEIGHT[section.weight] || 'NORMAL';
+    }
+    // Part 14: "hero + 2-3 visual moments + 1 quiet section + 1 strong closing CTA" -- a deterministic check over an
+    // already-planned composition (lib/premium/composition.js's planPageComposition output), reusing its own fields.
+    function checkVisualMoments(plan) {
+      const problems = [];
+      const s = (plan && plan.sections) || [];
+      if (!s.length) return problems;
+      const moments = s.filter(x => x.moment && x.moment !== 'ctaband').length;
+      if (moments < 1) problems.push({ code: 'no_visual_moment', detail: 'no visual moment besides the hero and the closing CTA' });
+      if (moments > 4) problems.push({ code: 'too_many_visual_moments', detail: `${moments} visual moments -- every section competing for attention reads as none of them special` });
+      if (!s.some(x => x.weight === 'quiet')) problems.push({ code: 'no_quiet_section', detail: 'no intentionally quiet section -- the page never lets the visitor rest' });
+      const cta = s.filter(x => x.cta === 'band');
+      if (!cta.length) problems.push({ code: 'no_strong_closing_cta', detail: 'no composed closing CTA band' });
+      return problems;
+    }
+
+    // ---- anti-repetition (Part 10): identical MEDIA POSITION / layout streaks, beyond composition.js's existing
+    // weight/tone repetition checks. `layoutOf(section)` reads whatever "side"/layout signal the section already
+    // carries (editorialFeature's `variant` image-left/image-right/full/quote, or composition.js's own `layout`).
+    function layoutOf(section) {
+      if (section.type === 'editorialFeature') return section.variant || 'quote';
+      return (section.layout && section.layout !== 'default') ? section.layout : null;
+    }
+    function checkLayoutRepetition(sections) {
+      const problems = []; let streak = 1;
+      for (let i = 1; i < sections.length; i++) {
+        const a = layoutOf(sections[i - 1]), b = layoutOf(sections[i]);
+        if (a && b && a === b) { streak++; if (streak >= 3) problems.push({ code: 'repeated_media_position', detail: `3+ sections in a row use "${b}"`, index: i }); }
+        else streak = 1;
+      }
+      return problems;
+    }
+
+    module.exports = {
+      HERO_FAMILIES, HERO_FAMILY_KEYS, normalizeHeroFamily, heroVariantFor, familyForVariant,
+      INDUSTRY_HERO_PREFERENCE, PHOTO_DEPENDENT, NO_PHOTO_NEEDED, pickHeroFamily,
+      MEDIA_COMPOSITIONS, MEDIA_COMPOSITION_KEYS, normalizeMediaComposition,
+      DEPTH_LEVELS, normalizeDepth, depthForFamily,
+      SURFACE_TEXTURES, normalizeSurfaceTexture, surfaceTextureFor,
+      intensityFor, checkVisualMoments, layoutOf, checkLayoutRepetition,
+    };
+
+  });
   __define("visuals", function (module, exports, require) {
     'use strict';
     // PREMIUM_VISUALS_V4 -- industry-native starter visuals.
@@ -2978,10 +3159,16 @@
     // ---- profiles -----------------------------------------------------------------------------------------------------------
     // role keys: hero, product, editorial, about, gallery, team, service, decorative
     const PROFILES = {
-      tech: { id: 'tech', label: 'Technology / SaaS', density: 'high', heroVariant: 'product-screenshot', heroVariants: ['product-screenshot'], deterministicFirst: true,
+      tech: { id: 'tech', label: 'Technology / SaaS', density: 'high', heroVariant: 'product-screenshot', heroVariants: ['product-screenshot', 'floating-media'], deterministicFirst: true,
         media: { hero: 'PRODUCT_UI', product: 'PRODUCT_UI', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
         treatment: 'interface-led: layered product UI, workflow and system diagrams, technical grid' },
-      retail: { id: 'retail', label: 'Retail', density: 'medium', deterministicFirst: false, heroVariants: ['asymmetric-offset', 'editorial-rail', 'fullbleed-image'], heroVariant: 'asymmetric-offset',
+      // SITEREMADE_VISUAL_ENGINE_V1: retail's primary hero is now PRODUCT_STAGE (a centred, staged object with real
+      // depth) instead of a flat offset photo -- Part 4's explicit "RETAIL -> PRODUCT_STAGE" preference; the other
+      // families stay available so an established, already-tested project keeps whatever hero it already had.
+      // Narrowed to the genuinely premium options only (Part 30: quality over a long backward-compat allowlist) --
+      // a prior 'asymmetric-offset'/'editorial-rail' pick is now corrected to product-stage by chooseHero, same as any
+      // text-only pick already was; that is the intended behaviour change, not an oversight.
+      retail: { id: 'retail', label: 'Retail', density: 'medium', deterministicFirst: false, heroVariants: ['product-stage', 'fullbleed-image', 'collage'], heroVariant: 'product-stage',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'retail-arrangement', treatment: 'product photography, collection imagery, detail shots' },
       hospitality: { id: 'hospitality', label: 'Restaurant / hospitality', density: 'medium', deterministicFirst: false, heroVariants: ['fullbleed-image', 'asymmetric-offset', 'editorial-rail'], heroVariant: 'fullbleed-image',
@@ -2990,7 +3177,7 @@
       trades: { id: 'trades', label: 'Trades / local service', density: 'medium', deterministicFirst: false, heroVariants: ['split', 'stacked-image-below', 'fullbleed-image', 'asymmetric-offset'], heroVariant: 'split',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'trades-blueprint', treatment: 'project work, materials, finished results' },
-      consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false, heroVariants: ['editorial-rail', 'poster', 'asymmetric-offset', 'split'], heroVariant: 'editorial-rail',
+      consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false, heroVariants: ['quiet-luxury'], heroVariant: 'quiet-luxury',
         media: { hero: 'PHOTO', product: 'DIAGRAM', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'consult-matrix', treatment: 'editorial typography, diagrams, restrained imagery' },
       consultancy_personal: { id: 'consultancy_personal', label: 'Personal-brand consultant / coach', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['editorial-rail', 'asymmetric-offset', 'fullbleed-image'], heroVariant: 'editorial-rail',
@@ -3003,7 +3190,7 @@
         heroVariants: ['fullbleed-image', 'split', 'asymmetric-offset', 'editorial-rail'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'realestate-scene', treatment: 'editorial real-estate photography: property/skyline hero, neighbourhood streetscape, interior lifestyle' },
-      wellness: { id: 'wellness', label: 'Wellness / yoga / recovery', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'fullbleed-image',
+      wellness: { id: 'wellness', label: 'Wellness / yoga / recovery', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['fullbleed-image', 'editorial-rail', 'asymmetric-offset', 'quiet-luxury'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'wellness-scene', treatment: 'calm editorial photography: studio, movement, recovery, atmosphere' },
       cause: { id: 'cause', label: 'Nonprofit / cause', density: 'medium', deterministicFirst: false, heroVariants: ['fullbleed-image', 'collage', 'stacked-image-below', 'split'], heroVariant: 'fullbleed-image',
@@ -3170,6 +3357,21 @@
         `<path class="sv-panel" d="M448 320 L470 130 Q472 116 486 116 L500 116 Q514 116 516 130 L538 320 Z"/><rect class="sv-accent" x="466" y="92" width="38" height="28" rx="6"/><rect class="sv-bar-dim" x="474" y="220" width="22" height="8" rx="4"/>` +
         `<circle class="sv-dot-dim" cx="120" cy="300" r="26"/><circle class="sv-accent" cx="150" cy="282" r="10"/>`, null, 'Product arrangement');
     }
+    // SITEREMADE_VISUAL_ENGINE_V1 (Part 11): a STRUCTURED PLACEHOLDER for the PRODUCT_STAGE hero -- a single staged,
+    // clearly-replaceable object (bottle/container/apparel-card), not a broken/generic box. Composed centred and tall
+    // so it survives the hero-stage-object frame's 4:5 center-crop (this canvas is a wide 640x400).
+    function productBottleStage(seed) {
+      const R2 = rnd(seed); const capH = 22 + R2() * 10; const neckH = 34; const bodyH = 168; const bodyW = 108; const bx = 320 - bodyW / 2; const topY = 92;
+      return svg(`<defs><radialGradient id="svg-g${U}" cx="50%" cy="30%" r="65%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs>` +
+        `<rect class="sv-bg" width="${W}" height="${H}"/><rect fill="url(#svg-g${U})" width="${W}" height="${H}"/>` +
+        `<ellipse class="sv-soft" cx="320" cy="342" rx="120" ry="16"/>` +
+        `<rect class="sv-panel" x="${bx + 26}" y="${topY}" width="${bodyW - 52}" height="${capH}" rx="4"/>` +
+        `<path class="sv-panel" d="M${bx + 30} ${topY + capH} L${bx + 38} ${topY + capH + neckH} L${bx} ${topY + capH + neckH + 24} L${bx} ${topY + capH + neckH + 24 + bodyH} Q${bx} ${topY + capH + neckH + 24 + bodyH + 14} ${bx + 14} ${topY + capH + neckH + 24 + bodyH + 14} L${bx + bodyW - 14} ${topY + capH + neckH + 24 + bodyH + 14} Q${bx + bodyW} ${topY + capH + neckH + 24 + bodyH + 14} ${bx + bodyW} ${topY + capH + neckH + 24 + bodyH} L${bx + bodyW} ${topY + capH + neckH + 24} L${bx + bodyW - 38} ${topY + capH + neckH} L${bx + bodyW - 30} ${topY + capH} Z"/>` +
+        `<rect class="sv-card-hi" x="${bx + 14}" y="${topY + capH + neckH + 50}" width="${bodyW - 28}" height="${bodyH * 0.42}" rx="6"/>` +
+        `<rect class="sv-accent" x="${bx + 22}" y="${topY + capH + neckH + 62}" width="${bodyW - 44}" height="8" rx="4"/>` +
+        `<rect class="sv-bar-dim" x="${bx + 22}" y="${topY + capH + neckH + 78}" width="${(bodyW - 44) * 0.6}" height="6" rx="3"/>` +
+        `<circle class="sv-dot-dim" cx="200" cy="140" r="16"/><circle class="sv-dot-dim" cx="450" cy="230" r="10"/>`, null, 'Product staged for presentation');
+    }
     function hospitalityScene() {
       return svg(`<rect class="sv-bg" width="${W}" height="${H}"/><defs><radialGradient id="svg-w${U}" cx="50%" cy="45%" r="55%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs><rect fill="url(#svg-w${U})" width="${W}" height="${H}"/>` +
         `<ellipse class="sv-panel" cx="320" cy="230" rx="170" ry="120"/><ellipse class="sv-card-hi" cx="320" cy="230" rx="128" ry="88"/><ellipse class="sv-accent" cx="320" cy="230" rx="52" ry="34"/>` +
@@ -3210,7 +3412,7 @@
       'ui-stack': (c, s) => uiStack(c, s),
       'ui-dashboard': (c, s) => uiDashboard(c, s), 'ui-workflow': c => uiWorkflow(c), 'ui-command': c => uiCommand(c), 'ui-canvas': c => uiCanvas(c),
       'ui-document': c => uiDocument(c), 'diagram-system': c => diagramSystem(c), 'data-chart': (c, s) => dataChart(c, s),
-      'retail-arrangement': (c, s) => retailArrangement(s), 'hospitality-scene': () => hospitalityScene(), 'trades-blueprint': () => tradesBlueprint(),
+      'retail-arrangement': (c, s) => retailArrangement(s), 'product-bottle-stage': (c, s) => productBottleStage(s), 'hospitality-scene': () => hospitalityScene(), 'trades-blueprint': () => tradesBlueprint(),
       'consult-matrix': () => consultMatrix(), 'portfolio-frames': () => portfolioFrames(), 'brand-mark': (c, s, n) => brandMark(n),
     };
     const STARTER_KINDS = Object.keys(KIND_BUILDERS);
@@ -3227,6 +3429,9 @@
       }
       if (role === 'team' || role === 'about' && mt === 'ABSTRACT_GRAPHIC') return 'brand-mark';
       if (mt === 'DIAGRAM' || mt === 'DATA_VISUAL') return p.id === 'consultancy' ? 'consult-matrix' : 'data-chart';
+      // SITEREMADE_VISUAL_ENGINE_V1 (Part 11): the PRODUCT_STAGE hero needs a STRUCTURED PLACEHOLDER built for its
+      // frame (a single staged, replaceable object), not the wide shelf-arrangement scene used elsewhere on a retail site.
+      if (p.id === 'retail' && (role === 'hero' || role === 'product')) return 'product-bottle-stage';
       return p.fallbackKind || 'brand-mark';
     }
     // slot -> role, mirroring image-planning's classifySlot by slot name (renderers only know the slot id)
@@ -3316,6 +3521,9 @@
       // secondary pages that are the same page twice
       const seqs = pages.slice(1).map(p => (p.sections || []).map(s => s.type).join('>')).filter(Boolean);
       if (seqs.length >= 2 && new Set(seqs).size < seqs.length) add({ category: 'PAGE_VISUAL_VARIETY', code: 'repeated_page_composition', severity: 1, detail: 'two secondary pages share one section sequence', target: { kind: 'site', id: null } });
+      // SITEREMADE_VISUAL_ENGINE_V1 (Part 10): 3+ features/sections in a row using the identical media position (e.g.
+      // image-left three times) -- checked per page, since composition.js's own repetition checks only look within one page too.
+      { const VE = require('./visual-engine'); pages.forEach(p => VE.checkLayoutRepetition(p.sections || []).forEach(r => add({ category: 'PAGE_VISUAL_VARIETY', code: r.code, severity: 1, detail: `${p.label || 'Home'}: ${r.detail}`, target: { kind: 'page', id: p.slug || '' } }))); }
       // completeness roll-up: anything that would make the first output look unfinished
       defects.filter(d => ['MEDIA_COMPLETENESS', 'PLACEHOLDER_LEAKAGE', 'HERO_VISUAL_STRENGTH'].includes(d.category) && d.severity >= 3)
         .forEach(d => add({ category: 'FIRST_DRAFT_COMPLETENESS', code: d.code, severity: 3, detail: d.detail, target: d.target }));
