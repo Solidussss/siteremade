@@ -1534,6 +1534,13 @@ html,body{max-width:100%;overflow-x:hidden}
 .hero-fullbleed-media .visual-generated,.hero-fullbleed-media img{width:100%;height:100%}
 .hero-fullbleed-scrim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,.06) 60%)}
 .hero-fullbleed-copy{position:relative;z-index:2;padding:56px;max-width:680px}
+/* BUG FIX: these five hero layouts only ever had a MOBILE headline size (the
+   @container site (max-width:480px) rule below) -- on desktop their <h3>
+   fell back to the browser's default ~20px, so the most image-led heroes
+   (full-bleed, collage) carried the smallest headline on the page. Same
+   display scale the split hero's .site-copy h3 already uses; the mobile
+   rule's !important still wins on phones. */
+.hero-fullbleed-copy h3,.hero-collage-copy h3,.hero-stacked-copy h3,.hero-asym-headline h3,.hero-editorial-copy h3{font-size:clamp(44px,6.2cqw,92px);line-height:.9;letter-spacing:-.06em;margin:12px 0 18px;text-wrap:balance}
 
 .builder-site .site-hero.hero-stacked{grid-template-columns:1fr;padding:56px 48px 0}
 .hero-stacked-copy{max-width:680px;margin:0 auto;text-align:center}
@@ -1863,6 +1870,12 @@ html,body{max-width:100%;overflow-x:hidden}
    surface so it still reads as a deliberate section, not a fallback. */
 .product-panel{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:start;padding:34px;border-radius:18px;background:color-mix(in srgb,var(--site-accent) 6%,var(--site-bg));border:1px solid color-mix(in srgb,var(--site-text) 9%,transparent)}
 .product-panel-mark{display:flex;align-items:center;justify-content:center;width:84px;height:84px;flex-shrink:0;border-radius:16px;font-size:36px;font-weight:800;letter-spacing:-.03em;color:var(--site-accent);background:color-mix(in srgb,var(--site-accent) 15%,var(--site-bg))}
+/* No-image product composition: the business name as an oversized
+   typographic block on the accent colour (replaces the single-letter mark
+   that used to sit where the product photo goes). Wraps rather than
+   overflows for long names. */
+.product-panel:has(.product-panel-wordmark){grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:stretch}
+.product-panel-wordmark{display:flex;align-items:flex-end;margin:0;min-height:220px;padding:28px 30px;border-radius:14px;font-size:clamp(40px,5.4vw,84px);line-height:.88;font-weight:900;letter-spacing:-.05em;text-transform:uppercase;overflow-wrap:anywhere;color:var(--site-on-accent,#fff);background:radial-gradient(circle at 80% 15%,color-mix(in srgb,var(--site-accent) 70%,#fff) 0,transparent 55%),var(--site-accent)}
 .product-panel-body h4{margin:0 0 8px;font-size:19px;letter-spacing:-.01em;font-weight:750}
 .product-panel-rows{display:flex;flex-direction:column;gap:9px;margin-top:16px}
 .product-panel-row .sr-icon-tile{width:100%}
@@ -1871,7 +1884,7 @@ html,body{max-width:100%;overflow-x:hidden}
    an image-led section with no real image leans into what it still
    genuinely has -- its own copy, set at real display scale, rather than a
    text-only afterthought under an empty box. */
-.editorial-statement-composition{padding:64px 48px}
+.site-section-editorial.editorial-statement-composition{padding:64px 48px} /* compound selector: .site-section-editorial{padding:0} below has equal specificity and came later, zeroing this */
 .editorial-statement-text{margin:0;max-width:820px;font-size:clamp(26px,3.4vw,44px);line-height:1.2;letter-spacing:-.02em;font-weight:640;color:var(--site-text)}
 .integration-chips{display:flex;flex-wrap:wrap;gap:10px}
 .integration-chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-size:11px;color:color-mix(in srgb,var(--site-text) 80%,transparent)}
@@ -2299,8 +2312,10 @@ a.hero-cta-btn{text-decoration:none}
   .product-frame,.editorial-visual{height:220px}
   .dash-panel{min-height:80px}
   .product-panel{grid-template-columns:1fr;padding:22px;gap:18px}
+  .product-panel:has(.product-panel-wordmark){grid-template-columns:1fr}
   .product-panel-mark{width:56px;height:56px;font-size:26px;border-radius:12px}
-  .editorial-statement-composition{padding:40px 22px}
+  .product-panel-wordmark{min-height:150px;padding:20px 22px;font-size:clamp(34px,11vw,54px)}
+  .site-section-editorial.editorial-statement-composition{padding:40px 22px}
   .editorial-statement-text{font-size:clamp(24px,7cqw,32px)}
 
   /* FINAL BASELINE POLISH pass, part 3: process's horizontal-by-default
