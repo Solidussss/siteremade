@@ -730,7 +730,7 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
   const creditCost = creditCostForImageRoute(safeModel);
   let creditReserved = false;
   if (accountId && creditCost > 0) {
-    const cr = credits.reserveCredits(db, accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    const cr = credits.reserveCredits(db, accountId, creditCost, dailyCreditsForAccount(accountId));
     if (!cr.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: cr.remaining };
     creditReserved = true;
   }
@@ -817,7 +817,7 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
   const creditCost = creditCostForImageRoute(safeModel);
   let creditReserved = false;
   if (accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    const creditReservation = credits.reserveCredits(db, accountId, creditCost, dailyCreditsForAccount(accountId));
     if (!creditReservation.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: creditReservation.remaining };
     creditReserved = true;
   }
@@ -1073,6 +1073,17 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // with headroom for a generation to also spend on real imagery instead of
 // imagery being globally switched off.
 const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
+const SITEREMADE_TESTER_DAILY_CREDITS = Number(process.env.SITEREMADE_TESTER_DAILY_CREDITS) || 500;
+const SITEREMADE_TESTER_EMAILS = new Set((process.env.SITEREMADE_TESTER_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
+function dailyCreditsForAccount(accountId) {
+  if (!accountId || SITEREMADE_TESTER_EMAILS.size === 0) return SITEREMADE_DAILY_FREE_CREDITS;
+  try {
+    const account = authProvider.findAccountById(db, accountId);
+    const email = String((account && account.email) || '').trim().toLowerCase();
+    if (email && SITEREMADE_TESTER_EMAILS.has(email)) return SITEREMADE_TESTER_DAILY_CREDITS;
+  } catch (_) {}
+  return SITEREMADE_DAILY_FREE_CREDITS;
+}
 const SITEREMADE_CREDIT_COST_BASE_GENERATION = Number(process.env.SITEREMADE_CREDIT_COST_BASE_GENERATION) || 2;
 const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_SUPPORT) || 1;
 const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_PREMIUM) || 2;
@@ -1147,7 +1158,7 @@ function nextUtcMidnightIso(now) {
 // types remain server-side-only, exactly as before.
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
-  const summary = credits.getCredits(db, accountId, SITEREMADE_DAILY_FREE_CREDITS);
+  const summary = credits.getCredits(db, accountId, dailyCreditsForAccount(accountId));
   // DYNAMIC CREDIT COSTING PASS: generationCost is now specifically the
   // BASE generation cost (spec item 15's "baseGenerationCost") --
   // imageCreditCosts exposes the per-route image prices too, so the
@@ -1911,7 +1922,7 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
   if (req.accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, dailyCreditsForAccount(req.accountId));
     if (!creditReservation.ok) {
       return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
     }
@@ -2010,7 +2021,7 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   const creditCost = creditCostForTask(taskType);
   let creditReserved = false;
   if (creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, SITEREMADE_DAILY_FREE_CREDITS);
+    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, dailyCreditsForAccount(req.accountId));
     if (!creditReservation.ok) {
       return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
     }
@@ -2996,7 +3007,7 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   const refineCost = creditCostForTask(taskType);
   let refineReserved = false;
   if (refineCost > 0) {
-    const reservation = credits.reserveCredits(db, req.accountId, refineCost, SITEREMADE_DAILY_FREE_CREDITS);
+    const reservation = credits.reserveCredits(db, req.accountId, refineCost, dailyCreditsForAccount(req.accountId));
     if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', 'You\'ve used today\'s editing allowance. Nothing was changed -- more opens up tomorrow (UTC).', { creditsRemaining: reservation.remaining });
     refineReserved = true;
   }
