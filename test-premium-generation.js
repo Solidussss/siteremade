@@ -54,7 +54,7 @@ const sample = () => ({
   });
   await t('budgets default to the briefed targets and are env-overridable', () => {
     const b = P.loadConfig({}).budgets;
-    assert.deepStrictEqual([b.TARGET_FIRST_DRAFT_USD, b.TARGET_PUBLISHABLE_SITE_USD, b.SOFT_SITE_BUDGET_USD, b.HARD_SITE_BUDGET_USD], [1.0, 2.0, 2.5, 5]);
+    assert.deepStrictEqual([b.TARGET_FIRST_DRAFT_USD, b.TARGET_PUBLISHABLE_SITE_USD, b.SOFT_SITE_BUDGET_USD, b.HARD_SITE_BUDGET_USD], [1.5, 3.0, 3.5, 5]);
     assert.strictEqual(P.loadConfig({ HARD_SITE_BUDGET_USD: '2.5' }).budgets.HARD_SITE_BUDGET_USD, 2.5);
   });
 
@@ -165,7 +165,7 @@ const sample = () => ({
   });
   await t('hero gets the highest-quality route; decorative never gets an expensive one', () => {
     const c = core(), s = startRoofing(c);
-    const r = s.planImages({ slots: slots().concat([{ slot: 'deco', role: 'gallery', sectionType: 'contact', aspectRatio: '4:3', rank: 9 }]), uploads: [] });
+    const r = s.planImages({ slots: slots().concat([{ slot: 'deco', role: 'decor', sectionType: 'contact', aspectRatio: '4:3', rank: 9 }]), uploads: [] });
     const hero = r.slots.find(x => x.slot === 'hero'), deco = r.slots.find(x => x.slot === 'deco');
     assert.strictEqual(hero.routeKind, 'premium'); assert.strictEqual(hero.quality, 'high');
     if (deco.sourceType === 'generated') assert.ok(deco.estimatedUsd <= c.cfg.imageTierCaps.decorative + 1e-9);
@@ -284,8 +284,9 @@ const sample = () => ({
     assert.strictEqual(P.images.evaluateImageDeterministic('data:text/plain;base64,AAAA', '16:9').poor, true);
     assert.strictEqual(P.images.evaluateImageDeterministic(PNG_PHOTO, '4:5').reasons[0], 'orientation_mismatch');
   });
-  await t('at most ONE automatic retry, then fallback (never the same concept repeatedly)', () => {
-    const cfg = P.loadConfig({}), bad = { poor: true };
+  await t('bounded automatic retries (2 for premium photo-led quality), then fallback (never an endless loop)', () => {
+    const cfg = P.loadConfig({ PREMIUM_IMAGE_MAX_AUTO_RETRIES: '1' }), bad = { poor: true };
+    assert.strictEqual(P.loadConfig({}).retry.maxImageRetries, 2);
     assert.strictEqual(P.images.retryDecision({ attempt: 0, evaluation: bad }, cfg).action, 'retry');
     assert.strictEqual(P.images.retryDecision({ attempt: 0, evaluation: bad }, cfg).simplifiedPrompt, true);
     assert.strictEqual(P.images.retryDecision({ attempt: 1, evaluation: bad }, cfg).action, 'fallback');
@@ -851,9 +852,9 @@ const sample = () => ({
 
   console.log('PREMIUM QUALITY PASS (V5)');
   const V5ON = { PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true', PREMIUM_COMPOSITION_V2: 'true' };
-  await t('quality-first budgets: target 1.00, soft 2.50, hard 5.00; primary image cap raised; first four primary images funded', () => {
+  await t('quality-first budgets: target 1.50, soft 3.50, hard 5.00; primary image cap raised; photo-led sites fund a full photo set', () => {
     const b = P.loadConfig({ PREMIUM_GENERATION_V1: 'true' });
-    assert.deepStrictEqual([b.budgets.TARGET_FIRST_DRAFT_USD, b.budgets.SOFT_SITE_BUDGET_USD, b.budgets.HARD_SITE_BUDGET_USD], [1.0, 2.5, 5]);
+    assert.deepStrictEqual([b.budgets.TARGET_FIRST_DRAFT_USD, b.budgets.SOFT_SITE_BUDGET_USD, b.budgets.HARD_SITE_BUDGET_USD], [1.5, 3.5, 5]);
     assert.ok(b.imageTierCaps.primary >= 0.45 && b.imageTierCaps.hero >= 0.75);
     assert.ok(b.models.planner);
   });
@@ -892,9 +893,10 @@ const sample = () => ({
       semanticCritic: criticImg('hero', 'Editorial photograph of skincare bottles and a glass jar on a stone plinth, soft window light, shallow depth of field'),
       regenerateImage: async spec => { if (spec.slot === 'hero') { regen++; seenPrompt = spec.prompt; } return { ok: true, dataUrl: PNG_PHOTO }; } });
     assert.strictEqual(regen, 1, 'exactly one hero replacement although the critic asked for two images');
-    assert.deepStrictEqual(out.semantic.regenerated, ['hero'], 'the critic never replaces more than one image');
+    assert.strictEqual(out.semantic.changes.filter(c => c.kind === 'regenerate_image' && c.code !== 'photo_slot_retry').length, 1, 'the critic never replaces more than one image (unresolved photo slots are retried separately, V6)');
+    assert.ok(out.semantic.regenerated.includes('hero'));
     assert.ok(/skincare bottles/.test(seenPrompt) && /no text/i.test(seenPrompt), 'validated critic prompt + safety tail');
-    assert.deepStrictEqual(out.semantic.regenerated, ['hero']);
+    assert.ok(out.semantic.regenerated.includes('hero'));
     assert.ok(out.direction.assets.generated.hero.dataUrl);
     assert.ok(s.ledger.forGeneration(s.generationId).some(e => e.kind === 'image' && e.phase === 'repair'), 'repair image is in the ledger');
   });
@@ -905,7 +907,7 @@ const sample = () => ({
       semanticCritic: criticImg('hero', 'A fashion runway model wearing apparel in a dashboard screenshot'),
       regenerateImage: async spec => { if (spec.slot === 'hero') seen = spec.prompt; return { ok: true, dataUrl: PNG_BLANK }; } });
     assert.ok(/skincare bottles, simple/.test(seen), 'fell back: ' + seen.slice(0, 80));
-    assert.deepStrictEqual(out.semantic.regenerated, []);
+    assert.ok(!out.semantic.regenerated.includes('hero'), 'a poor result never replaces the hero');
   });
   await t('image repair: never when the budget forbids it', async () => {
     const c = core(Object.assign({ HARD_SITE_BUDGET_USD: '0.05', SOFT_SITE_BUDGET_USD: '0.05' }, V5ON)); const s = c.startSession({ categoryKey: 'ecommerce', categoryLabel: 'Retail', archetype: 'ecommerce-showcase', palette, description: SKIN });
@@ -935,6 +937,126 @@ const sample = () => ({
     assert.ok(/data-starter="ui-stack"/.test(P.visuals.starterHtml(p, 'hero')));
     const retailProj = techProj({ source: { text: 'Online skincare store selling serums.' }, business: { categoryKey: 'ecommerce', name: 'Glow' }, strategy: { archetype: 'ecommerce-showcase' } });
     assert.ok(!/ui-/.test(P.visuals.starterHtml(retailProj, 'hero')));
+  });
+
+  console.log('PREMIUM_PHOTO_LED_V6');
+  const WELL = 'A wellness studio in Los Angeles offering yoga and recovery therapy';
+  const gW = () => P.grounding.deriveGrounding({ description: WELL, categoryKey: 'wellness', archetype: 'local-conversion', location: 'Los Angeles' });
+  const E = P.editorial;
+  const wellSite = () => ({ source: { text: WELL, location: 'Los Angeles' }, business: { categoryKey: 'wellness', name: 'Studio' }, strategy: { archetype: 'local-conversion' }, design: { premium: { vs: 1 }, dimensions: { hero: 'stacked-image-below', imagery: 'atmospheric-warm' } },
+    copy: { headline: 'Feel better, starting here.', sub: 'x', cta: 'Book Now' },
+    pages: [
+      { id: 'home', slug: '', label: 'Home', purpose: 'Orient the visitor and make the case for why this business is worth their attention.', sections: [{ id: 'a', type: 'about', copy: {} }, { id: 's', type: 'services', variant: 'described', copy: {} }, { id: 'tg', type: 'testimonialsGrid', copy: {} }, { id: 'f', type: 'faq', copy: {} }, { id: 'c', type: 'ctaBanner', copy: {} }] },
+      { id: 'work', slug: 'work', label: 'Work', purpose: 'Explain each yoga class type and what to expect.', sections: [{ id: 's2', type: 'services', copy: {} }] },
+      { id: 'services', slug: 'services', label: 'Services', purpose: 'Convey the philosophy and feel of the studio.', sections: [{ id: 'a2', type: 'about', copy: {} }] },
+      { id: 'contact', slug: 'contact', label: 'Contact', purpose: 'Remove friction and make starting easy.', sections: [{ id: 'ct', type: 'contact', copy: {} }] }] });
+  await t('grounding: yoga/recovery is a WELLNESS family (photo-led) and scheduling software for physio clinics stays SaaS', () => {
+    const g = gW(); assert.strictEqual(g.family, 'wellness'); assert.strictEqual(g.primaryCTA, 'Book a class');
+    assert.ok(E.isPhotoLed(g, WELL));
+    const s = P.grounding.deriveGrounding({ description: 'Scheduling software for physiotherapy clinics. Online booking and a dashboard.', categoryKey: 'tech', archetype: 'product-led-saas' });
+    assert.strictEqual(s.family, 'saas'); assert.ok(!E.isPhotoLed(s, ''));
+    assert.strictEqual(P.visuals.profileFromGrounding(g).id, 'wellness'); assert.ok(P.visuals.PROFILES.wellness.photoLed && P.visuals.PROFILES.retail.photoLed && !P.visuals.PROFILES.tech.photoLed);
+  });
+  await t('shot lists: wellness >=5 photographs (hero, movement, recovery, studio, atmosphere); retail/hospitality >=4; briefs carry no faces/UI', () => {
+    const shots = E.shotList(gW()); assert.ok(shots.length >= 5); ['hero', 'movement', 'recovery', 'studio', 'atmosphere'].forEach(id => assert.ok(shots.some(s => s.id === id), id));
+    assert.strictEqual(E.minPhotos(gW()), 5);
+    const retail = P.grounding.deriveGrounding({ description: 'Online skincare store selling serums.', categoryKey: 'ecommerce', archetype: 'ecommerce-showcase' });
+    assert.ok(E.shotList(retail).length >= 4 && E.minPhotos(retail) >= 4);
+    shots.forEach(s => assert.ok(!/dashboard|screenshot|logo|text/i.test(s.brief), s.id));
+  });
+  await t('instruction / filler text is hard-blocked: planner purposes and template filler never count as customer copy', () => {
+    ['Explain each yoga class type and what to expect.', 'Convey the philosophy and feel of the studio.', 'Remove friction and make starting easy.', 'Establish who is behind the business and why they can be trusted.',
+      'A regular part of the care on offer.', 'Reach out and we\'ll walk through this together.', 'Real care, presented clearly.'].forEach(x => assert.ok(E.looksLikeInstruction(x), x));
+    ['Move well, rest properly.', 'Show up as you are.', 'Build strength and calm.', 'Yoga classes that build strength, mobility and calm.', 'Tell us what you need and we will help you begin.'].forEach(x => assert.ok(!E.looksLikeInstruction(x), x));
+  });
+  await t('wellness plan: specific offerings, alternating photographic sections, real page names, no generic cards, no leaked purposes', () => {
+    const out = E.planLayout(wellSite(), gW(), WELL).direction;
+    const types = i => out.pages[i].sections.map(s => s.type);
+    assert.ok(out.pages[0].sections.length >= 9, types(0).join());
+    const feats = out.pages[0].sections.filter(s => s.type === 'editorialFeature');
+    assert.deepStrictEqual(feats.map(s => s.variant), ['image-left', 'image-right', 'full']);
+    assert.ok(feats.every(s => s.copy.brief && s.copy.headline && !E.looksLikeInstruction(s.copy.body)));
+    assert.ok(!types(0).includes('testimonialsGrid'));
+    const svc = E.itemsOf(out.pages[0].sections.find(s => s.type === 'services')); assert.deepStrictEqual(svc.map(x => x.title).slice(0, 2), ['Yoga classes', 'Recovery sessions']);
+    assert.ok(E.itemsOf(out.pages[0].sections.find(s => s.type === 'faq')).length >= 4);
+    assert.deepStrictEqual(out.pages.map(p => p.label), ['Home', 'Classes & Recovery', 'The Studio', 'Contact']);
+    out.pages.forEach(p => assert.ok(!E.looksLikeInstruction(p.purpose), p.label + ': ' + p.purpose));
+    assert.ok(out.pages[1].sections.length >= 5 && out.pages[2].sections.length >= 5);
+    assert.ok(out.pages[0].sections.some(s => s.type === 'ctaBanner' && /^Begin with a class/.test(s.copy.headline) && s.copy.ctaLabel === 'Book a class'));
+    const kinds = new Set(out.pages.flatMap(p => p.sections.filter(s => s.type === 'editorialFeature').map(s => s.variant))); assert.ok(kinds.has('image-left') && kinds.has('image-right') && kinds.has('full'));
+  });
+  await t('wellness plan keeps existing section ids (uploads/edits survive) and is idempotent', () => {
+    const once = E.planLayout(wellSite(), gW(), WELL).direction; const twice = E.planLayout(once, gW(), WELL).direction;
+    assert.ok(once.pages[0].sections.some(s => s.id === 's') && once.pages[0].sections.some(s => s.id === 'c'));
+    assert.deepStrictEqual(twice.pages.map(p => p.sections.length), once.pages.map(p => p.sections.length));
+    assert.strictEqual(twice.pages[0].sections.filter(s => s.type === 'editorialFeature').length, 3);
+  });
+  await t('planning is idempotent for EVERY photo-led family: re-planning never creates new feature sections (= new image slots)', () => {
+    const cases = [[WELL, 'wellness', 'local-conversion'], ['Online skincare store selling serums.', 'ecommerce', 'ecommerce-showcase'], ['Family roofing company in Calgary. Free quotes.', 'roofing', 'local-conversion'], ['Neighbourhood Italian restaurant in Vancouver serving pasta.', 'restaurant', 'hospitality']];
+    cases.forEach(([text, key, arch]) => {
+      const g = P.grounding.deriveGrounding({ description: text, categoryKey: key, archetype: arch, location: 'X' });
+      const site = { source: { text }, business: { categoryKey: key }, strategy: { archetype: arch }, design: { dimensions: {} }, pages: [{ id: 'h', slug: '', label: 'Home', sections: ['services', 'gallery', 'process'].map((ty, i) => ({ id: 'x' + i, type: ty, copy: {} })) }, { id: 'p2', slug: 'services', label: 'Services', sections: [{ id: 'y', type: 'services', copy: {} }] }] };
+      const one = E.planLayout(site, g, text).direction, two = E.planLayout(one, g, text).direction;
+      const ids = d => d.pages.flatMap(p => p.sections.filter(s => s.type === 'editorialFeature').map(s => s.id));
+      assert.deepStrictEqual(ids(two), ids(one), key); assert.ok(ids(one).length >= 3, key);
+    });
+  });
+  await t('generic photo-led plan (retail) inserts alternating photographic features and never invents copy', () => {
+    const g = P.grounding.deriveGrounding({ description: 'Online skincare store in Vancouver selling gentle cleansers and serums. Free shipping over $60.', categoryKey: 'ecommerce', archetype: 'ecommerce-showcase', location: 'Vancouver' });
+    const site = { source: { text: 'Online skincare store in Vancouver selling gentle cleansers and serums. Free shipping over $60.' }, business: { categoryKey: 'ecommerce' }, strategy: { archetype: 'ecommerce-showcase' }, design: { dimensions: {} },
+      pages: [{ id: 'h', slug: '', label: 'Home', sections: ['productShowcase', 'gallery', 'newsletter', 'process'].map((t, i) => ({ id: 'x' + i, type: t, copy: {} })) }] };
+    const out = E.planLayout(site, g, site.source.text).direction; const feats = out.pages[0].sections.filter(s => s.type === 'editorialFeature');
+    assert.ok(feats.length >= 3 && feats.every(f => f.copy.brief)); assert.ok(out.pages[0].sections.some(s => s.id === 'x0') && out.pages[0].sections.some(s => s.id === 'x3'));
+    feats.forEach(f => assert.ok(f.copy.body && !/[0-9$%]/.test(f.copy.body) && !E.looksLikeInstruction(f.copy.body), 'caption describes the photograph, no claims/prices: ' + f.copy.body));
+  });
+  await t('image planning: feature slots are generated PHOTOS with their own briefs; tech stays deterministic', () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' }); const g = gW();
+    const strat = P.strategy.deriveStrategy({ archetype: 'local-conversion', categoryKey: 'wellness', categoryLabel: 'Wellness', description: WELL, grounding: g, visualsV4: true }); const art = P.art.deriveArtDirection(strat, palette);
+    const briefs = E.shotList(g);
+    const sl = [{ slot: 'hero', role: 'hero', sectionType: 'hero', aspectRatio: '16:9', rank: 0 }].concat(briefs.slice(1, 5).map((b, i) => ({ slot: 'f' + i + '::feature', role: 'gallery', sectionType: 'editorialFeature', aspectRatio: i === 2 ? '16:9' : '4:5', rank: 1 + i, brief: b.brief })));
+    const gov = new P.BudgetGovernor(c.cfg, new P.CostLedger(c.cfg), 'gen_v6'); const r = P.images.allocateImages({ slots: sl, strategy: strat, art, uploads: [], cfg: c.cfg, governor: gov });
+    assert.ok(r.slots.every(s => s.sourceType === 'generated'), JSON.stringify(r.slots.map(s => s.sourceType + ':' + s.reason)));
+    assert.strictEqual(new Set(r.slots.map(s => s.prompt)).size, r.slots.length, 'every photograph has its own prompt');
+    assert.ok(/yoga pose on a mat/.test(r.slots[1].prompt) && /treatment room/.test(r.slots[2].prompt));
+    r.slots.forEach(s => assert.ok(P.images.lintImagePrompt(s.prompt).ok, s.slot));
+    assert.ok(r.committedUsd <= c.cfg.budgets.SOFT_SITE_BUDGET_USD, 'photo set fits the soft budget: ' + r.committedUsd);
+  });
+  await t('photo-set gates: incomplete photo set, mostly-starter art, no hero anchor, sparse pages, generic FAQ and instruction text are all flagged', () => {
+    const g = gW(); const site = wellSite(); site.imagePlan = [{ slot: 'hero', sourceType: 'designed', starter: true }, { slot: 'p', sourceType: 'designed', starter: true }, { slot: 'q', sourceType: 'generated' }]; site.design.dimensions.hero = 'poster';
+    const codes = E.checkPhotoLed(site, g, WELL).map(x => x.code);
+    ['photo_set_incomplete', 'photo_led_mostly_starter_art', 'photo_led_hero_without_anchor', 'page_too_sparse', 'generic_faq', 'instruction_text_on_site'].forEach(c => assert.ok(codes.includes(c), c + ' in ' + codes.join()));
+    const planned = E.planLayout(wellSite(), g, WELL).direction; planned.imagePlan = Array.from({ length: 8 }, (_, i) => ({ slot: 's' + i, sourceType: 'generated' })); planned.design.dimensions.hero = 'fullbleed-image';
+    assert.deepStrictEqual(E.checkPhotoLed(planned, g, WELL).filter(x => x.severity >= 3).map(x => x.code), []);
+  });
+  await t('session V6: failed photo slots are retried (max 3, governed, ledgered); the layout repair runs through review-repair', async () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true', PREMIUM_PHOTO_LED_V6: 'true' });
+    const s = c.startSession({ categoryKey: 'wellness', categoryLabel: 'Wellness', archetype: 'local-conversion', palette, description: WELL });
+    const site = E.planLayout(wellSite(), gW(), WELL).direction; site.design.dimensions.hero = 'fullbleed-image';
+    site.imagePlan = Array.from({ length: 6 }, (_, i) => ({ slot: 's' + i, sourceType: 'generated', model: 'gpt-image-1', quality: 'medium', routeKind: 'premium', aspectRatio: '4:5', cacheKey: 'k' + i, prompt: 'a calm studio detail', promptSimplified: 'a calm studio, simple' }));
+    site.assets = { generated: Object.fromEntries(site.imagePlan.map((e, i) => [e.slot, { cacheKey: e.cacheKey, status: i < 5 ? 'error' : 'ready' }])) };
+    const calls = []; const out = await s.reviewAndRepair(site, { description: WELL, facts: {}, premiumEnabled: true }, { regenerateImage: async spec => { calls.push(spec.slot); return { ok: true, dataUrl: PNG_PHOTO }; } });
+    assert.ok(calls.length >= 1 && calls.length <= 3, 'retried once each, at most 3 slots: ' + calls.join());
+    assert.ok(out.semantic.regenerated.length <= 3 && s.ledger.forGeneration(s.generationId).filter(e => e.kind === 'image' && e.phase === 'repair').length >= 1);
+    // the plan check runs inside the normal review: an unplanned (Claude-planned) wellness site is reshaped
+    const raw = wellSite(); raw.imagePlan = []; const s2 = c.startSession({ categoryKey: 'wellness', categoryLabel: 'Wellness', archetype: 'local-conversion', palette, description: WELL });
+    const out2 = await s2.reviewAndRepair(raw, { description: WELL, facts: {}, premiumEnabled: true }, {});
+    assert.ok(out2.direction.pages[0].sections.some(x => x.type === 'editorialFeature'), 'layout repair applied');
+    out2.direction.pages.forEach(p => assert.ok(!E.looksLikeInstruction(p.purpose)));
+  });
+  await t('export parity: the export renderer draws editorialFeature (all variants) and never prints an instruction as a page intro', () => {
+    const SR = require('./lib/site-render');
+    const project = { source: { text: WELL, location: 'Los Angeles' }, business: { name: 'Studio', categoryKey: 'wellness' }, strategy: { archetype: 'local-conversion' }, design: { premium: { vs: 1 }, dimensions: { imagery: 'atmospheric-warm' } }, assets: { items: [], plan: {}, generated: {} }, imagePlan: [], pages: [], copy: { sub: 'Feel better.' } };
+    const cat = SR.categoryFor ? SR.categoryFor(project) : SR.categories.wellness;
+    ['image-left', 'image-right', 'full', 'quote'].forEach(v => { const html = SR.renderSectionHTML(project, { id: 'z' + v, type: 'editorialFeature', variant: v, copy: { headline: 'Rest is part of the practice', body: 'Time to reset.', brief: 'a treatment room' } }, cat); assert.ok(new RegExp('data-variant="' + v + '"').test(html), v); if (v !== 'quote') assert.ok(/visual-starter|site-visual-img/.test(html), v + ' has media'); });
+    const hdr = SR.renderPageHeader(project, { label: 'Classes', purpose: 'Explain each yoga class type and what to expect.' }, cat);
+    assert.ok(!/Explain each/.test(hdr) && /Feel better/.test(hdr));
+    const svc = SR.renderSectionHTML(project, { id: 'sv', type: 'services', variant: 'described', copy: E.setItems({}, [{ title: 'Yoga classes', body: 'Classes that build strength.' }]) }, cat);
+    assert.ok(/Yoga classes/.test(svc) && !/presented clearly/.test(svc));
+  });
+  await t('flags: V6 ON with V1 (rollback =false); retries default 2; planner has its own model setting', () => {
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true' }).photoLedV6, true);
+    assert.strictEqual(P.loadConfig({ PREMIUM_GENERATION_V1: 'true', PREMIUM_PHOTO_LED_V6: 'false' }).photoLedV6, false);
+    assert.strictEqual(P.loadConfig({ PREMIUM_PHOTO_LED_V6: 'true' }).photoLedV6, false);
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

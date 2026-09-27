@@ -1889,6 +1889,25 @@ function groundProject(proj) {
 function premiumVisualsOn() { const s = premiumStatus(); return !!(s && s.cfg.visualsV4 && window.SiteRemadePremium && window.SiteRemadePremium.visuals); }
 function starterVisualsEnabled(project) { try { return !!(window.SiteRemadePremium && window.SiteRemadePremium.visuals && window.SiteRemadePremium.visuals.enabled(project)); } catch (e) { return false; } }
 function starterFeatureItems(project) { try { return window.SiteRemadePremium && window.SiteRemadePremium.visuals ? window.SiteRemadePremium.visuals.featureItemsFor(project) : null; } catch (e) { return null; } }
+// V6 helpers: pack items stored flat on a section's copy (t1/b1...), and a guard so planner/builder filler never reaches a premium site
+function editorialItems(section) { try { return window.SiteRemadePremium && window.SiteRemadePremium.editorial ? window.SiteRemadePremium.editorial.itemsOf(section) : null; } catch (e) { return null; } }
+function safeBuilderText(project, text) { try { return (starterVisualsEnabled(project) && window.SiteRemadePremium.editorial.looksLikeInstruction(text)) ? '' : text; } catch (e) { return text; } }
+function premiumPhotoLedOn() { const s = premiumStatus(); return !!(s && s.cfg.photoLedV6 && window.SiteRemadePremium && window.SiteRemadePremium.editorial); }
+// V6: photo-led businesses get the editorial page plan (alternating photographic sections, specific content packs) BEFORE the image plan is finalised
+function applyPhotoLayout(proj) {
+  if (!premiumPhotoLedOn() || !proj || !Array.isArray(proj.pages)) return;
+  try {
+    syncActivePageSections(proj);
+    const P = window.SiteRemadePremium; const g = premiumGroundingFor(proj);
+    if (!P.editorial.isPhotoLed(g, proj.source && proj.source.text)) return;
+    const out = P.editorial.planLayout(proj, g, (proj.source && proj.source.text) || '');
+    if (!out.changes.length) return;
+    proj.pages = out.direction.pages;
+    proj.activePageIndex = Math.min(proj.activePageIndex || 0, proj.pages.length - 1);
+    proj.sections = proj.pages[proj.activePageIndex].sections;
+    if (proj.design && proj.design.premium) proj.design.premium.pl = 1;
+  } catch (e) { /* the previous layout stands */ }
+}
 function starterVisualHtml(project, slot) {
   try {
     if (!starterVisualsEnabled(project)) return null;
@@ -2128,6 +2147,10 @@ function buildImagePlan(project, category, remainingCredits) {
     if (aboutSection && (aboutEffectiveVariant === 'split' || plan.about)) {
       slots.push({ slot: `${prefix}about`, role: 'team', page: page.slug, section: aboutSection.id, sectionType: 'about', assetId: plan.about, aspectRatio: '1:1', intent: 'Team / people visual', ...IMAGE_SLOT_TIER_BUCKETS[2] });
     }
+    pageSections.filter(s => s.type === 'editorialFeature' && s.variant !== 'quote').forEach((featureSection, fi) => {
+      const brief = featureSection.copy && featureSection.copy.brief;
+      slots.push({ slot: `${featureSection.id}::feature`, role: 'gallery', page: page.slug, section: featureSection.id, sectionType: 'editorialFeature', assetId: (plan.gallery || [])[fi], aspectRatio: featureSection.variant === 'full' ? '16:9' : '4:5', brief: brief || null, intent: 'Editorial feature photograph', ...IMAGE_SLOT_TIER_BUCKETS[1] });
+    });
     const editorialSection = pageSections.find(s => s.type === 'imageLedEditorial');
     if (editorialSection) {
       slots.push({ slot: `${prefix}gallery-featured`, role: 'gallery', page: page.slug, section: editorialSection.id, sectionType: 'imageLedEditorial', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: 'Supporting gallery visual', ...IMAGE_SLOT_TIER_BUCKETS[1] });
@@ -2833,7 +2856,8 @@ function renderServices(project, category, section) {
   const moduleHtml = (section && section.module && section.module.enabled && section.module.type === 'quote')
     ? renderFormModuleWidget(project, section, 'Request a quote') : '';
   const variant = section && section.variant;
-  const labels = category.services;
+  const packItems = editorialItems(section);
+  const labels = packItems ? packItems.map(x => x.title) : category.services;
   const headline = sectionCopyField(section, 'headline', '');
   const intro = sectionCopyField(section, 'body', '');
   const headerHtml = renderSectionHeader(headline, intro, section && section.headlineRole);
@@ -2850,13 +2874,13 @@ function renderServices(project, category, section) {
     const vocab = sectionVocab(project);
     return `<div class="site-section site-section-services" data-variant="described">
       ${headerHtml}
-      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', (l, i) => `${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 22, className: 'service-card-icon' })}<strong>${escapeHtml(l)}</strong><p>${escapeHtml(vocab.serviceCardBody(l, category))}</p>`)}</div>
+      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', (l, i) => `${packItems ? '' : renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 22, className: 'service-card-icon' })}<strong>${escapeHtml(l)}</strong>${packItems ? (packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : '') : `<p>${escapeHtml(safeBuilderText(project, vocab.serviceCardBody(l, category)))}</p>`}`)}</div>
       ${moduleHtml}
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
     ${headerHtml}
-    <div class="site-sections">${labels.map((l, i) => `<div class="icon-led-row"><span class="sr-icon-tile sr-icon-tile-tinted-tile">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span><div class="icon-led-row-body"><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong></div></div>`).join('')}</div>
+    <div class="site-sections">${labels.map((l, i) => `<div class="icon-led-row">${packItems ? '' : `<span class="sr-icon-tile sr-icon-tile-tinted-tile">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span>`}<div class="icon-led-row-body"><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong>${packItems && packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : ''}</div></div>`).join('')}</div>
     ${moduleHtml}
   </div>`;
 }
@@ -3278,7 +3302,8 @@ function renderFaq(project, category, section) {
   const d = project.source.descriptor || {};
   const noun = shortSubjectPhrase(d, category.noun);
   const vocab = sectionVocab(project);
-  const qas = [
+  const packQas = editorialItems(section);
+  const qas = packQas ? packQas.map(x => ({ q: escapeHtml(x.title), a: escapeHtml(x.body) })) : [
     { q: `What does ${escapeHtml(project.business.name || 'this business')} actually do?`, a: escapeHtml(category.sub) },
     { q: escapeHtml(vocab.faqSecondQuestion), a: `Reach out and we'll walk through ${escapeHtml(noun)} together.` },
     // Deliberately universal, not SaaS-coded ("Is support included? Yes --
@@ -3326,7 +3351,8 @@ function renderProcess(project, category, section) {
   const vocab = sectionVocab(project);
   const label = sectionCopyField(section, 'headline', vocab.processLabel);
   const intro = sectionCopyField(section, 'body', '');
-  const steps = vocab.processSteps;
+  const packSteps = editorialItems(section);
+  const steps = packSteps ? packSteps.map(x => x.title) : vocab.processSteps;
   const variant = processVariantForArchetype(project);
   return `<div class="site-section site-section-process" data-variant="${variant}">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
@@ -3354,7 +3380,7 @@ function renderMenu(project, category, section) {
   const firstGroupBody = subject ? `A considered take on ${subject}.` : `A considered seasonal selection.`;
   return `<div class="site-section site-section-menu" data-variant="columns">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
-    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong><p>${escapeHtml(i === 0 ? firstGroupBody : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p></div>`).join('')}</div>
+    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong>${starterVisualsEnabled(project) ? '' : `<p>${escapeHtml(i === 0 ? firstGroupBody : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p>`}</div>`).join('')}</div>
   </div>`;
 }
 function renderReservationCta(project, category, section) {
@@ -3723,6 +3749,7 @@ function renderSectionHTML(project, section, category) {
     case 'gallery': return renderGallery(project, category, section);
     case 'caseStudies': return renderCaseStudies(project, category, section);
     case 'imageLedEditorial': return renderImageLedEditorial(project, category, section);
+    case 'editorialFeature': return window.SiteRemadePremium.editorial.renderFeature(project, section, { escapeHtml, renderVisualSlot, slotFor: (p, s) => window.SiteRemadePremium.editorial.featureSlot(p, s) });
     case 'about': return renderAbout(project, category, section);
     case 'team': return renderTeam(project, category, section);
     case 'testimonial': return renderTestimonial(project, category, section);
@@ -3947,7 +3974,9 @@ function findCtaTargetPage(proj) {
 function renderPageHeader(project, page, category) {
   const kicker = escapeHtml(category.kicker || category.label);
   const title = escapeHtml((page && page.label) || 'Page');
-  const sub = (page && page.purpose) ? page.purpose : ((project.copy && project.copy.sub) || category.sub);
+  // a planner instruction ("Explain each class type...") is never customer copy
+  const purposeOk = page && page.purpose && !(window.SiteRemadePremium && window.SiteRemadePremium.editorial && window.SiteRemadePremium.editorial.looksLikeInstruction(page.purpose));
+  const sub = purposeOk ? page.purpose : ((project.copy && project.copy.sub) || category.sub);
   return `<div class="site-page-header">
     <p class="site-page-header-kicker">${kicker}</p>
     <h3 class="site-page-header-title">${title}</h3>
@@ -8066,6 +8095,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         // generation's images spend" (spec section 4), with no separate
         // subtraction needed here.
         applyVisualProfile(proj); // V4 (flag-gated): starter visuals + a hero that can carry a product visual
+        applyPhotoLayout(proj); // V6 (photo-led businesses): editorial alternating layout + specific content, before images are planned
         groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;

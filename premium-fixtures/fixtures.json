@@ -48,5 +48,10 @@
     "id": "tech-ai",
     "label": "Technology / AI software (live failure)",
     "text": "Technology company building modern AI software. Tools for creative teams. Los Angeles."
+  },
+  {
+    "id": "wellness",
+    "label": "Health & wellness studio (yoga + recovery)",
+    "text": "A wellness studio in Los Angeles offering yoga and recovery therapy"
   }
 ]

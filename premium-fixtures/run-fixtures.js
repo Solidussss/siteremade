@@ -130,14 +130,16 @@ async function runOne(fixture, mode) {
       document.documentElement.style.background = '#0c0e12'; document.body.className = ''; document.body.style.cssText = 'margin:0;background:#0c0e12;overflow:hidden'; document.body.innerHTML = '';
       const dev = document.createElement('div'); dev.className = 'builder-device' + (${mobile} ? ' mobile' : ''); dev.style.cssText = ${mobile} ? 'width:416px;min-height:0;padding:13px;display:flex;justify-content:center' : 'width:1300px;min-height:0;padding:0;display:block;overflow:visible';
       dev.appendChild(s); document.body.appendChild(dev); return document.body.scrollHeight; })()`;
+    if (process.env.FIX_ALLPAGES) await ev(`(async()=>{ window.__fxPages = []; for (let i = 0; i < directions[0].pages.length; i++) { switchPage(i); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); window.__fxPages.push(builderSite.cloneNode(true)); } switchPage(0); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); })()`);
     await ev(`window.__fxSite = builderSite.cloneNode(true)`);
     for (const [name, mobile, width] of [['desktop', false, 1300], ['tablet', false, 820], ['mobile', true, 416]]) {
       const h = await ev(isolate(mobile));
-      w.setContentSize(width, Math.min(2400, Math.max(600, h + 20))); await sleep(1200);
+      w.setContentSize(width, Math.min(6400, Math.max(600, h + 20))); await sleep(1200);
       await ev(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
       fs.writeFileSync(path.join(OUT, 'shots', `${tag}-${name}.png`), (await w.webContents.capturePage()).toPNG());
       result[name + 'PageHeightPx'] = h;
     }
+    if (process.env.FIX_ALLPAGES) { const n = await ev('window.__fxPages.length'); for (let i = 1; i < n; i++) { await ev('window.__fxSite = window.__fxPages[' + i + ']'); const h = await ev(isolate(false)); w.setContentSize(1300, Math.min(6400, Math.max(600, h + 20))); await sleep(1000); await ev(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`); fs.writeFileSync(path.join(OUT, 'shots', `${tag}-p${i}-desktop.png`), (await w.webContents.capturePage()).toPNG()); } }
     step('screenshots done');
     // ---- server-side numbers (USD ledger, provider calls)
     const adminGet = p => ev(`fetch(${JSON.stringify(p)},{headers:{'x-admin-token':'fixture-admin'}}).then(r=>r.json())`);

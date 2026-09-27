@@ -463,10 +463,13 @@
         // V4: fully-dressed first output -- starter visuals (deterministic SVG), industry visual profiles, completeness + visual critique.
         // Sub-flag, default OFF, requires V1 AND V3 (the industry visual profile is derived from the business grounding).
         visualsV4: truthy(env.PREMIUM_GENERATION_V1) && notOff(env.PREMIUM_GROUNDING_V3) && notOff(env.PREMIUM_VISUALS_V4),
+        // V6: photo-led businesses default to generated photography (minimum shot lists), editorial alternating layouts, specific content packs and
+        // photo-set quality gates. Part of the premium generator (ON with V1); the env var is only a rollback switch.
+        photoLedV6: truthy(env.PREMIUM_GENERATION_V1) && notOff(env.PREMIUM_GROUNDING_V3) && notOff(env.PREMIUM_VISUALS_V4) && notOff(env.PREMIUM_PHOTO_LED_V6),
         budgets: {
-          TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.0),
-          TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 2.0),
-          SOFT_SITE_BUDGET_USD: num(env.SOFT_SITE_BUDGET_USD, 2.5),
+          TARGET_FIRST_DRAFT_USD: num(env.TARGET_FIRST_DRAFT_USD, 1.5), // V6: photo-led sites carry 7-11 photographs; a lower target starved them (later images fell back to starter art)
+          TARGET_PUBLISHABLE_SITE_USD: num(env.TARGET_PUBLISHABLE_SITE_USD, 3.0),
+          SOFT_SITE_BUDGET_USD: num(env.SOFT_SITE_BUDGET_USD, 3.5), // first-draft image budget = soft - repair reserve (3.0)
           HARD_SITE_BUDGET_USD: num(env.HARD_SITE_BUDGET_USD, 5.0),
           // Kept free for the one automatic repair round so first-draft image
           // spending can never starve it.
@@ -482,7 +485,7 @@
           primary: num(env.PREMIUM_PRIMARY_IMAGE_MAX_USD, 0.45),
           decorative: num(env.PREMIUM_DECORATIVE_IMAGE_MAX_USD, 0.08),
         },
-        retry: { maxImageRetries: num(env.PREMIUM_IMAGE_MAX_AUTO_RETRIES, 1), maxRepairRounds: num(env.PREMIUM_MAX_REPAIR_ROUNDS, 1) },
+        retry: { maxImageRetries: num(env.PREMIUM_IMAGE_MAX_AUTO_RETRIES, 2), maxRepairRounds: num(env.PREMIUM_MAX_REPAIR_ROUNDS, 1) },
         models: {
           // the site planner (server.js) reasons about design; default = the strong model, override with PREMIUM_MODEL_PLANNER
           planner: env.PREMIUM_MODEL_PLANNER || env.ANTHROPIC_MODEL || 'claude-sonnet-5',
@@ -675,6 +678,334 @@
     module.exports = { TYPE_SYSTEMS, SPACING, buildDesignTokens, sanitizeTokens };
 
   });
+  __define("editorial", function (module, exports, require) {
+    'use strict';
+    // PREMIUM_PHOTO_LED_V6 -- editorial layout, real-photography shot lists and specific (never filler) content for photo-led businesses.
+    //
+    //   * isPhotoLed(g)        : generated photography is the DEFAULT for these businesses; starter graphics are only a fallback
+    //   * shotList(g)          : the minimum image set per business type (e.g. wellness: hero, movement, recovery, studio, atmosphere)
+    //   * packFor(g, text)     : specific offerings / first-visit flow / philosophy / FAQ, derived only from the customer's own words
+    //                            plus neutral definitions of the modalities they name (no schedules, prices, people, credentials)
+    //   * planLayout(...)      : deterministic page plan with alternating art-directed sections (image-left / image-right / full-bleed /
+    //                            editorial quote) instead of one repeated card template
+    //   * looksLikeInstruction : hard block for planner / builder text ("Explain each yoga class type...") on the customer site
+    //   * renderFeature(...)   : HTML for the `editorialFeature` section (shared by the live preview and the export)
+    //
+    // Pure and deterministic; no I/O. Used by the browser bundle, the server and lib/site-render.js.
+    const { wordMatch } = require('./grounding');
+
+    const clip = (s, n) => { s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+    const uid = p => `${p}-${Date.now().toString(36)}${Math.random().toString(16).slice(2, 6)}`;
+
+    // ---- which businesses are photo-led ---------------------------------------------------------------------------------
+    const PHOTO_LED_FAMILIES = new Set(['wellness', 'retail', 'hospitality', 'local_service', 'appointments', 'creative', 'nonprofit']);
+    function isPhotoLed(g, description) {
+      if (!g) return false;
+      if (PHOTO_LED_FAMILIES.has(g.family)) return true;
+      // consultants with personal-brand positioning ("I help ...", coach, independent)
+      if (g.family === 'professional' && /\b(i help|i work|my clients|coach|independent|solo|founder-led|personal brand)\b/i.test(String(description || ''))) return true;
+      return false;
+    }
+
+    // ---- shot lists -----------------------------------------------------------------------------------------------------------
+    // Each shot: { id, brief } -- the brief is the SUBJECT of the photograph (no faces, no text, no UI). The first shot is the hero.
+    const SHOTS = {
+      wellness: [
+        { id: 'hero', brief: 'a calm, sunlit yoga and recovery studio interior: pale wooden floor, neatly arranged mats, soft plants, natural morning light, no people' },
+        { id: 'movement', brief: 'a person practising a yoga pose on a mat in a bright studio, photographed from behind or in soft silhouette, calm and unposed' },
+        { id: 'recovery', brief: 'a quiet treatment room: massage table dressed in natural linen, folded warm towels, a small ceramic dish, soft warm light, no people' },
+        { id: 'studio', brief: 'a wide view of a serene wellness studio: bolsters, blocks and folded blankets on wooden shelves, a large window, muted natural palette' },
+        { id: 'atmosphere', brief: 'close tactile detail: herbal tea in a ceramic cup beside a lit candle and a folded towel, shallow depth of field, warm light' },
+        { id: 'group', brief: 'a relaxed small yoga class seen from behind, mats in rows, soft daylight through tall windows' },
+        { id: 'detail', brief: 'macro detail of smooth stones and linen on a treatment table, warm neutral tones, shallow depth of field' },
+      ],
+      retail: [
+        { id: 'hero', brief: null },
+        { id: 'lifestyle', brief: null, ctx: true },
+        { id: 'detail', brief: null, det: true },
+        { id: 'environment', brief: 'the brand\'s tidy studio shelf where the products are kept, natural light, soft neutral surfaces, no people' },
+        { id: 'lifestyle2', brief: null, ctx: true },
+      ],
+      hospitality: [
+        { id: 'hero', brief: 'the signature dining space in warm evening light, tables set, no people' },
+        { id: 'interior', brief: 'the interior seen from the entrance: warm materials, considered lighting, empty seats' },
+        { id: 'offering', brief: 'the food or drink the business is known for, plated simply on a wooden table in natural light' },
+        { id: 'atmosphere', brief: 'a tactile detail of the space: candlelight, glassware and linen, shallow depth of field' },
+        { id: 'kitchen', brief: 'ingredients being prepared on a worn wooden counter, hands only, warm light' },
+      ],
+      professional: [
+        { id: 'hero', brief: 'a calm, well-lit working environment: a desk with notebooks and materials, window light, no people, no screens' },
+        { id: 'materials', brief: 'close detail of working materials: paper, notes, a pen, natural textures, shallow depth of field' },
+        { id: 'place', brief: 'the place the work happens: a quiet meeting room or studio, soft daylight, no people' },
+        { id: 'detail', brief: 'a tactile detail of the workspace: a coffee cup, a plant, a folded notebook, warm light' },
+      ],
+      local_service: [
+        { id: 'hero', brief: 'a finished, well-made result of the work in flattering natural light, no people' },
+        { id: 'material', brief: 'close detail of the materials and craftsmanship involved in the work' },
+        { id: 'process', brief: 'tools and materials laid out during the work, hands only, tidy and professional' },
+        { id: 'environment', brief: 'the place where the work happens, clean and well lit, no people' },
+        { id: 'result', brief: 'a wide view of a completed project seen in daylight' },
+      ],
+      appointments: [
+        { id: 'hero', brief: 'a calm, professional treatment or consultation space in natural light, no people' },
+        { id: 'detail', brief: 'close detail of the tools and materials used in a session, tidy and warm' },
+        { id: 'environment', brief: 'the welcoming reception or waiting area, soft light, no people' },
+        { id: 'atmosphere', brief: 'a tactile detail of the space: linen, plants, natural textures' },
+      ],
+      creative: [
+        { id: 'hero', brief: 'a studio wall or table with finished work displayed in soft natural light, no people' },
+        { id: 'work', brief: 'a close-up of a piece of finished work, detailed and crisp' },
+        { id: 'work2', brief: 'a second piece of finished work in a different setting, editorial framing' },
+        { id: 'studio', brief: 'the working studio, tools and materials in order, natural light, no people' },
+      ],
+      nonprofit: [
+        { id: 'hero', brief: 'a community gathering place in warm daylight, people seen from a distance or from behind' },
+        { id: 'activity', brief: 'hands at work on a community activity, close and human, no faces' },
+        { id: 'place', brief: 'the place the organisation works in, honest documentary light' },
+        { id: 'detail', brief: 'a small telling detail from the work: tools, supplies or handwritten notes' },
+      ],
+    };
+    function shotList(g) {
+      const fam = g && g.family; const base = SHOTS[fam] || SHOTS.wellness;
+      const im = (g && g.imagerySubjects) || {};
+      return base.map(s => ({ id: s.id, brief: s.brief || (s.det ? im.detail : s.ctx ? im.context : im.hero) || im.hero || null })).filter(s => s.brief);
+    }
+    // minimum generated-photo counts per business type (hero included)
+    const MIN_PHOTOS = { wellness: 5, retail: 4, hospitality: 4, local_service: 4, appointments: 4, creative: 4, nonprofit: 4, professional: 3 };
+    function minPhotos(g) { return MIN_PHOTOS[g && g.family] || 3; }
+
+    // ---- specific content (wellness pack) ------------------------------------------------------------------------------------------
+    // Neutral definitions of modalities the CUSTOMER NAMED. Nothing here asserts prices, schedules, teachers, credentials, outcomes or history.
+    const MODALITIES = [
+      { k: 'yoga', re: /\byoga\b/i, title: 'Yoga classes', body: 'Classes that build strength, mobility and calm, at a pace you can choose.' },
+      { k: 'pilates', re: /\bpilates\b/i, title: 'Pilates', body: 'Controlled, low-impact work for core strength and posture.' },
+      { k: 'restorative', re: /\brestorative\b/i, title: 'Restorative yoga', body: 'Long, supported holds that let the body settle and release.' },
+      { k: 'flow', re: /\b(vinyasa|flow classes?)\b/i, title: 'Flow classes', body: 'Movement linked to breath, building heat and focus.' },
+      { k: 'mobility', re: /\bmobility\b/i, title: 'Mobility work', body: 'Focused work on range of motion and everyday movement.' },
+      { k: 'recovery', re: /\b(recovery|recover)\b/i, title: 'Recovery sessions', body: 'Time set aside for your body to rest, release and reset.' },
+      { k: 'massage', re: /\bmassage\b/i, title: 'Massage', body: 'Hands-on treatment to ease tension and support recovery.' },
+      { k: 'physio', re: /\b(physio|physiotherapy|chiropract\w*)\b/i, title: 'Hands-on therapy', body: 'Assessment and treatment for aches, strains and movement limits.' },
+      { k: 'breathwork', re: /\bbreathwork\b/i, title: 'Breathwork', body: 'Guided breathing to settle the nervous system.' },
+      { k: 'meditation', re: /\bmeditat\w*\b/i, title: 'Meditation', body: 'Quiet, guided practice for a clearer head.' },
+      { k: 'sauna', re: /\bsauna\b/i, title: 'Sauna', body: 'Heat to relax the body and unwind after a long day.' },
+      { k: 'cold', re: /\bcold (plunge|therapy|immersion)\b/i, title: 'Cold plunge', body: 'Short, invigorating cold exposure.' },
+      { k: 'stretch', re: /\bstretch\w*\b/i, title: 'Stretch sessions', body: 'Guided stretching to release tight muscles.' },
+      { k: 'acupuncture', re: /\bacupuncture\b/i, title: 'Acupuncture', body: 'Traditional treatment to support balance and relief.' },
+    ];
+    function detectModalities(text) {
+      const t = String(text || ''); const hits = MODALITIES.filter(m => m.re.test(t));
+      // "restorative yoga" and "yoga" both matching is fine, but do not list plain yoga twice as separate cards when a specific style is named
+      return hits.filter(m => !(m.k === 'yoga' && hits.some(x => x.k === 'restorative' || x.k === 'flow')));
+    }
+    function wellnessPack(g, text) {
+      const mods = detectModalities(text);
+      const offerings = mods.map(m => ({ title: m.title, body: m.body })).slice(0, 5);
+      if (offerings.length < 3) offerings.push({ title: 'Guided sessions', body: 'Sessions guided from start to finish, so you always know what comes next.' });
+      const move = mods.find(m => ['yoga', 'restorative', 'flow', 'pilates', 'mobility', 'stretch'].includes(m.k));
+      const rest = mods.find(m => ['recovery', 'massage', 'physio', 'sauna', 'cold', 'acupuncture', 'breathwork', 'meditation'].includes(m.k));
+      const place = g && g.location ? ` in ${g.location}` : '';
+      const cta = (g && g.primaryCTA) || 'Book a class';
+      return {
+        positioning: clip(g && g.primaryOffer ? g.primaryOffer.split(String.fromCharCode(46))[0].trim() : 'A studio for movement and recovery', 150) + '. A calm place to move well, rest properly and come back' + (place ? ',' + place : '') + '.',
+        offerings,
+        home: [
+          { id: 'movement', side: 'left', headline: move ? `${move.title.replace(/ classes$/i, '')}, at your own pace` : 'Movement, at your own pace', body: move ? move.body : 'Classes that build strength, mobility and calm, whatever your starting point.' },
+          { id: 'recovery', side: 'right', headline: 'Rest is part of the practice', body: rest ? rest.body : 'Time set aside for your body to rest, release and reset.' },
+          { id: 'studio', side: 'full', headline: 'A calm place to begin', body: 'Whether you come for movement or for rest, the room is here to help you slow down.' },
+        ],
+        offer: [
+          { id: 'group', side: 'right', headline: 'Together, or on your own', body: 'Join a class with others, or ask about a quieter, more personal session.' },
+          { id: 'detail', side: 'left', headline: 'Care in the details', body: 'The small things — a warm towel, a quiet room, time to settle — are part of how we work.' },
+        ],
+        studio: [
+          { id: 'studio', side: 'full', headline: 'The space', body: 'A room designed for quiet, focus and ease.' },
+          { id: 'atmosphere', side: 'left', headline: 'Slow down on arrival', body: 'Tea, soft light and a moment to arrive before anything begins.' },
+        ],
+        cta: { headline: `Begin with ${/\b(class|classes|yoga|pilates)\b/i.test(text) ? 'a class' : 'a session'}${place}`, label: cta },
+        philosophy: 'Strength comes from listening to your body as much as from pushing it. Movement and rest belong together.',
+        process: ['Get in touch', 'Choose a class or session', 'Arrive and settle in', 'Move, rest, return'],
+        faq: [
+          { title: 'Do I need experience?', body: 'No. Tell us what you are comfortable with and we will suggest where to start.' },
+          { title: 'What should I bring?', body: 'Wear something comfortable you can move in. If you are unsure about anything else, ask before your first visit.' },
+          { title: 'How do I book?', body: `Use the “${cta}” button on this page to get in touch and we will help you choose.` },
+          { title: rest ? `Can I come just for ${rest.title.toLowerCase()}?` : 'Can I ask about a specific need first?', body: 'Ask us. Tell us what you are looking for and we will point you to the right session.' },
+        ],
+        intros: {
+          home: `${clip(g && g.primaryOffer ? g.primaryOffer.replace(/\.$/, '') : 'Movement and recovery', 120)}.`,
+          offer: mods.length ? (s => s.charAt(0).toUpperCase() + s.slice(1))(`${mods.slice(0, 3).map(m => m.title.toLowerCase()).join(', ')} and guided sessions.`) : 'Classes and sessions, guided from start to finish.',
+          studio: 'The space, and the thinking behind it.',
+          contact: 'Tell us what you are looking for and we will help you begin.',
+        },
+      };
+    }
+    // Neutral captions for photo-led families that have no content pack: they describe the PHOTOGRAPH's subject, never make a claim
+    // (no prices, hours, materials, credentials or outcomes).
+    const CAPTIONS = {
+      retail: { home: [['Up close', 'A closer look at the products, the materials and the finish.'], ['In everyday life', 'Made to sit naturally in your routine.'], ['Behind the brand', 'Where the products are kept and prepared for you.']], offer: [['The range', 'See what is available and how it comes together.'], ['Details that matter', 'Texture, colour and finish, seen properly.']], studio: [['The space', 'A look at where it all happens.'], ['The atmosphere', 'The feel of the brand, beyond the products.']] },
+      hospitality: { home: [['The room', 'Take a seat and take it in.'], ['On the table', 'A look at what is served.'], ['The atmosphere', 'How the room feels.']], offer: [['What we serve', 'A closer look at the food and drink.'], ['In the kitchen', 'Where the preparation happens.']], studio: [['The space', 'A look around the room.'], ['The details', 'The small touches that make the room.']] },
+      local_service: { home: [['The work, up close', 'The materials and detail behind every job.'], ['How it gets done', 'Tools, materials and careful process.'], ['The result', 'What finished work looks like.']], offer: [['Materials and craft', 'A closer look at what goes into the work.'], ['The process', 'Tidy, careful and thorough.']], studio: [['Where we work', 'A look at the place the work happens.'], ['The details', 'The small things that show in the finish.']] },
+      creative: { home: [['Selected work', 'A closer look at recent work.'], ['In detail', 'Craft, texture and finish.'], ['The studio', 'Where the work happens.']], offer: [['The work', 'A closer look at how it is made.'], ['Materials', 'Tools, textures and finish.']], studio: [['The studio', 'Where the thinking and making happen.'], ['The details', 'The small things that shape the work.']] },
+      nonprofit: { home: [['In the community', 'A look at the work in the places it happens.'], ['Hands at work', 'The people and effort behind it.'], ['The place', 'Where the work takes place.']], offer: [['How we help', 'A closer look at the work.'], ['Up close', 'The small details of what we do.']], studio: [['Our place', 'Where the work takes place.'], ['The details', 'The small things that make the work.']] },
+      professional: { home: [['The workspace', 'Where the thinking happens.'], ['In detail', 'The materials behind the work.'], ['The place', 'A quiet room to work through the problem.']], offer: [['How the work goes', 'A closer look at the working process.'], ['In detail', 'The small things that keep it on track.']], studio: [['The space', 'Where the work happens.'], ['The details', 'The small things that shape the day.']] },
+    };
+    CAPTIONS.appointments = CAPTIONS.local_service;
+    function genericPack(g, text) {
+      const sentences = String(text || '').split(/(?<=[.!?])s+/).map(s => s.trim()).filter(s => s.length > 40 && s.length < 220);
+      const shots = shotList(g); const caps = CAPTIONS[g && g.family] || CAPTIONS.retail;
+      const mk = (list, i, side) => ({ id: (shots[Math.min(i + 1, shots.length - 1)] && shots[Math.min(i + 1, shots.length - 1)].id) || 'detail' + i, side, headline: list[i][0], body: list[i][1] });
+      return {
+        positioning: sentences[0] ? clip(sentences[0], 200) : '',
+        offerings: [], process: null, faq: null, philosophy: sentences[1] ? clip(sentences[1], 200) : '',
+        home: [mk(caps.home, 0, 'left'), mk(caps.home, 1, 'right'), mk(caps.home, 2, 'full')],
+        offer: [mk(caps.offer, 0, 'right'), mk(caps.offer, 1, 'left')],
+        studio: [mk(caps.studio, 0, 'full'), mk(caps.studio, 1, 'left')],
+        intros: { home: '', offer: '', studio: '', contact: '' },
+      };
+    }
+    function packFor(g, text) { return g && g.family === 'wellness' ? wellnessPack(g, text) : genericPack(g, text); }
+
+    // ---- instruction / filler detection ---------------------------------------------------------------------------------------------
+    const INSTRUCTION_VERBS = 'explain|convey|establish|communicate|demonstrate|clarify|reassure|address|outline|describe|introduce|highlight|emphasi[sz]e|position|articulate|reinforce|showcase|ensure|encourage|prompt|drive|guide visitors|help visitors|let visitors|give visitors|show visitors|remove friction|reduce friction|make (the )?(cost|starting|it easy)|answer the|orient the|put real people|prove quality|show exactly|show how|show what|set expectations|build trust|create a sense|capture the|tell the story';
+    const INSTRUCTION_RE = new RegExp('^\\s*(' + INSTRUCTION_VERBS + ')\\b', 'i');
+    const PERSONAL = /\b(you|your|we|our|us|i|my)\b/i;
+    const FILLER = [/\ba regular part of the .{0,40}on offer\b/i, /\breal .{0,30}, presented clearly\b/i, /\bhandled with the same rigor\b/i, /\bpart of (how|what)'?s? .{0,30}(gets done|launching)\b/i,
+      /\breach out and we'll walk through\b/i, /\bwe.re happy to talk through whether\b/i, /\bis support included\b/i, /\breal help, not just documentation\b/i, /\bsimple, honest .{0,20} explained\b/i,
+      /\ba considered seasonal selection\b/i, /\bmade for sharing, with detail in every choice\b/i, /\bbuilt around .{0,60}, without the busywork\b/i, /\bexplain each\b/i, /\bconvey the\b/i];
+    function looksLikeInstruction(text) {
+      const t = String(text || '').trim(); if (!t) return false;
+      if (FILLER.some(re => re.test(t))) return true;
+      if (INSTRUCTION_RE.test(t) && !PERSONAL.test(t)) return true;
+      // "<Verb> each/the/how/what ..." planner phrasing even when the verb is not in the list above
+      if (/^\s*(explain|convey|establish|communicate|demonstrate|clarify|introduce|highlight|remove|reduce|answer|orient|prove|put)\s+(each|the|how|what|why|who|real|friction|quality|objections?)\b/i.test(t)) return true;
+      return false;
+    }
+
+    // ---- layout planning ----------------------------------------------------------------------------------------------------------
+    const roleOfLabel = label => {
+      const l = String(label || '').toLowerCase();
+      if (/contact|visit|find us|reach|hours|get in touch|book\b/.test(l)) return 'contact';
+      if (/studio|about|story|space|philosoph|approach|who we|our /.test(l)) return 'studio';
+      if (/class|session|recover|treat|service|program|offer|what we|menu|shop|product|work|collection|classes/.test(l)) return 'offer';
+      return 'other';
+    };
+    function newSection(type, variant, copy, extra) { return Object.assign({ id: uid(type), type, variant, copy: copy || null, intent: 'educate', headlineRole: 'declarative' }, extra || {}); }
+    function setItems(copy, items) { copy = copy || {}; items.slice(0, 6).forEach((it, i) => { copy['t' + (i + 1)] = clip(it.title, 80); copy['b' + (i + 1)] = clip(it.body || '', 260); }); return copy; }
+    function itemsOf(section) {
+      const c = section && section.copy; if (!c || typeof c !== 'object') return null; const out = [];
+      for (let i = 1; i <= 6; i++) { if (typeof c['t' + i] === 'string' && c['t' + i]) out.push({ title: c['t' + i], body: typeof c['b' + i] === 'string' ? c['b' + i] : '' }); }
+      return out.length ? out : null;
+    }
+    function featureSection(shot, spec) {
+      return newSection('editorialFeature', spec.side === 'full' ? 'full' : spec.side === 'left' ? 'image-left' : spec.side === 'right' ? 'image-right' : 'quote',
+        { headline: spec.headline, body: spec.body, brief: clip(shot ? shot.brief : '', 200), shot: spec.id });
+    }
+    // Build the photo-led page plan. Existing sections whose type is reused keep their id (so uploads, edits and links survive).
+    // direction: the project/direction; returns a NEW direction and a change list. Deterministic; never removes the customer's own edits
+    // on pages it does not own (it only reshapes the pages of a fresh generation: home + offer/studio/contact-style pages).
+    function planLayout(direction, g, text) {
+      const d = JSON.parse(JSON.stringify(direction)); const changes = [];
+      if (!isPhotoLed(g, text) || !Array.isArray(d.pages) || !d.pages.length) return { direction: d, changes };
+      const pack = packFor(g, text); const shots = shotList(g); const byId = Object.fromEntries(shots.map(s => [s.id, s]));
+      const wellness = g.family === 'wellness';
+      const take = (page, type) => { const i = (page.sections || []).findIndex(s => s.type === type); return i === -1 ? null : page.sections.splice(i, 1)[0]; };
+      const keepFooter = page => (page.sections || []).filter(s => s.type === 'footer');
+      const build = (page, role) => {
+        const pool = page.sections || []; const foot = keepFooter(page);
+        const rest = pool.filter(s => s.type !== 'footer');
+        const bag = { about: null, services: null, faq: null, process: null, cta: null, contact: null, gallery: null };
+        rest.forEach(s => { if (s.type === 'about' && !bag.about) bag.about = s; else if (s.type === 'services' && !bag.services) bag.services = s; else if (s.type === 'faq' && !bag.faq) bag.faq = s; else if (s.type === 'process' && !bag.process) bag.process = s; else if (s.type === 'ctaBanner' && !bag.cta) bag.cta = s; else if (s.type === 'contact' && !bag.contact) bag.contact = s; else if ((s.type === 'gallery' || s.type === 'caseStudies') && !bag.gallery) bag.gallery = s; });
+        // planning twice must not create new feature sections (each one is an image slot = money): reuse the existing section for a shot id
+        const existing = new Map(rest.filter(s => s.type === 'editorialFeature' && s.copy && s.copy.shot).map(s => [s.copy.shot, s]));
+        const feat = spec => existing.get(spec.id) || featureSection(byId[spec.id] || shots[shots.length - 1], spec);
+        const withItems = (s, type, items, variant) => { const sec = s || newSection(type, variant, null); sec.copy = setItems(Object.assign({}, sec.copy), items); if (variant) sec.variant = variant; return sec; };
+        const statement = (s, headline, body) => { const sec = s || newSection('about', 'statement', null); sec.variant = 'statement'; sec.imageDisplayVariant = 'statement'; sec.copy = Object.assign({}, sec.copy, { headline, body }); return sec; };
+        const cta = bag.cta || newSection('ctaBanner', 'accent', null);
+        if (wellness) cta.copy = Object.assign({}, cta.copy, { headline: pack.cta.headline, ctaLabel: pack.cta.label });
+        let seq = null;
+        if (wellness && role === 'home') {
+          seq = [statement(bag.about, 'Our approach', pack.positioning), withItems(bag.services, 'services', pack.offerings, 'described'), feat(pack.home[0]), feat(pack.home[1]), feat(pack.home[2]),
+            newSection('about', 'statement', { headline: 'Philosophy', body: pack.philosophy }, { imageDisplayVariant: 'statement' }),
+            withItems(bag.process, 'process', pack.process.map(t => ({ title: t, body: '' }))), withItems(bag.faq, 'faq', pack.faq), cta];
+          seq[1].copy.headline = seq[1].copy.headline && !looksLikeInstruction(seq[1].copy.headline) ? seq[1].copy.headline : 'Classes & recovery';
+          seq[6].copy.headline = 'Your first visit'; seq[7].copy.headline = 'Good to know';
+        } else if (wellness && role === 'offer') {
+          seq = [withItems(bag.services, 'services', pack.offerings, 'numbered'), feat(pack.offer[0]), feat(pack.offer[1]), withItems(bag.process, 'process', pack.process.map(t => ({ title: t, body: '' }))), cta];
+          seq[0].copy.headline = seq[0].copy.headline && !looksLikeInstruction(seq[0].copy.headline) ? seq[0].copy.headline : 'What we offer'; seq[3].copy.headline = 'Your first visit';
+        } else if (wellness && role === 'studio') {
+          seq = [feat(pack.studio[0]), statement(bag.about, 'Philosophy', pack.philosophy), feat(pack.studio[1]), withItems(bag.faq, 'faq', pack.faq), cta];
+          seq[3].copy.headline = 'Good to know';
+        } else if (!wellness && role === 'home') {
+          // keep the planner's own sections; break the repetition with alternating photographic features after the first two sections
+          const kept = rest.filter(s => !['editorialFeature'].includes(s.type));
+          const f1 = feat(pack.home[0]), f2 = feat(pack.home[1]), f3 = feat(pack.home[2]);
+          seq = [].concat(kept.slice(0, 1), f1, kept.slice(1, 2), f2, kept.slice(2, 3), f3, kept.slice(3));
+        } else if (!wellness && (role === 'offer' || role === 'studio') && rest.length < 5) {
+          const kept = rest.filter(s => s.type !== 'editorialFeature'); const specs = role === 'offer' ? pack.offer : pack.studio;
+          seq = [].concat(kept.slice(0, 1), feat(specs[0]), kept.slice(1, 2), feat(specs[1]), kept.slice(2));
+        }
+        if (!seq) return false;
+        // drop generic filler bodies the planner or vocab produced; features must always carry a photograph brief
+        page.sections = seq.filter(Boolean).concat(foot);
+        return true;
+      };
+      let seenOffer = false, seenStudio = false;
+      const GENERIC_LABEL = /^(services?|work|our work|portfolio|shop|product|products|offerings?|about|about us|menu|collection)$/i;
+      d.pages.forEach((p, i) => {
+        let role = i === 0 ? 'home' : roleOfLabel(p.label);
+        // a business needs one page for what it offers and one for the place / philosophy; a second "offer-like" page becomes the studio page
+        if (wellness && i > 0) { if (role === 'offer' && seenOffer && !seenStudio) role = 'studio'; if (role === 'offer') seenOffer = true; if (role === 'studio') seenStudio = true; }
+        if (wellness && i > 0 && GENERIC_LABEL.test(String(p.label || '').trim())) { const nl = role === 'offer' ? (detectModalities(text).length >= 2 ? 'Classes & Recovery' : 'Classes & Sessions') : role === 'studio' ? 'The Studio' : null; if (nl && nl !== p.label) { p.label = nl; changes.push({ kind: 'rename_page', target: p.slug || 'home', label: nl }); } }
+        if (role === 'contact' || role === 'other') { if (wellness && p.purpose && looksLikeInstruction(p.purpose)) p.purpose = pack.intros.contact; return; }
+        if (build(p, role)) { changes.push({ kind: 'plan_photo_layout', target: p.slug || 'home', role }); if (wellness) p.purpose = pack.intros[role] || ''; else if (looksLikeInstruction(p.purpose)) p.purpose = ''; }
+      });
+      d.pages.forEach(p => { if (looksLikeInstruction(p.purpose)) { p.purpose = ''; changes.push({ kind: 'clear_purpose', target: p.slug || 'home' }); } });
+      return { direction: d, changes };
+    }
+
+    // ---- gates -------------------------------------------------------------------------------------------------------------------------
+    function checkPhotoLed(direction, g, text) {
+      const out = []; const add = d => out.push(Object.assign({ severity: 2, target: { kind: 'site', id: null }, source: 'deterministic' }, d));
+      if (!isPhotoLed(g, text)) return out;
+      const plan = direction.imagePlan || []; const pages = direction.pages || [];
+      const secs = []; pages.forEach(p => (p.sections || []).forEach(s => secs.push({ p, s })));
+      const visible = plan.filter(e => /^(hero|gallery-featured|about|product|.*feature-|.*gallery-)/.test(e.slot || '') || true);
+      const generated = plan.filter(e => e.sourceType === 'generated'); const starters = plan.filter(e => e.sourceType === 'designed' && e.starter);
+      const need = minPhotos(g);
+      if (generated.length < need) add({ category: 'MEDIA_COMPLETENESS', code: 'photo_set_incomplete', severity: 3, detail: `${generated.length} generated photo slot(s), ${need} expected for ${g.family}`, repair: { kind: 'plan_photo_layout' } });
+      if (plan.length && starters.length >= Math.max(2, plan.length / 2)) add({ category: 'INDUSTRY_VISUAL_FIT', code: 'photo_led_mostly_starter_art', severity: 3, detail: `${starters.length} of ${plan.length} visual slots are starter graphics on a photo-led site`, target: { kind: 'site', id: null } });
+      const hero = plan.find(e => e.slot === 'hero'); const dims = (direction.design && direction.design.dimensions) || {}; const hv = dims.heroDisplayVariant || dims.hero;
+      if (['centered-oversized', 'minimal-text-only', 'poster'].includes(hv) || (hero && hero.sourceType === 'designed' && !hero.starter)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'photo_led_hero_without_anchor', severity: 3, detail: `hero layout ${hv} / ${hero ? hero.sourceType : 'no hero slot'}`, target: { kind: 'hero', id: 'hero' } });
+      // repeated generic card sections on one page
+      pages.forEach(p => { const cards = (p.sections || []).filter(s => ['services', 'features', 'testimonialsGrid', 'team'].includes(s.type)); if (cards.length >= 3) add({ category: 'GENERIC_TEMPLATE_FEEL', code: 'repeated_card_sections', severity: 2, detail: `${p.label}: ${cards.length} card-grid sections`, target: { kind: 'page', id: p.slug } }); });
+      // sparse pages
+      pages.forEach((p, i) => { const n = (p.sections || []).filter(s => s.type !== 'footer').length; const role = i === 0 ? 'home' : roleOfLabel(p.label); if (n < (i === 0 ? 6 : role === 'contact' ? 1 : 3) && role !== 'other') add({ category: 'SECONDARY_PAGE_DEPTH', code: 'page_too_sparse', severity: i === 0 ? 3 : 2, detail: `${p.label}: ${n} section(s)`, target: { kind: 'page', id: p.slug }, repair: { kind: 'plan_photo_layout' } }); });
+      // generic FAQ answers
+      secs.filter(x => x.s.type === 'faq').forEach(x => { const its = itemsOf(x.s); if (!its) add({ category: 'COPY_SPECIFICITY', code: 'generic_faq', severity: 2, detail: 'FAQ uses the template questions', target: { kind: 'section', id: x.s.id }, repair: { kind: 'plan_photo_layout' } }); });
+      // filler / instruction text anywhere
+      const scan = (where, t) => { if (typeof t === 'string' && looksLikeInstruction(t)) add({ category: 'PAGE_PURPOSE_CLARITY', code: 'instruction_text_on_site', severity: 3, detail: `${where}: ${t.slice(0, 80)}`, target: { kind: 'site', id: where } }); };
+      Object.keys(direction.copy || {}).forEach(k => scan('hero.' + k, direction.copy[k]));
+      pages.forEach(p => { scan('page:' + (p.slug || 'home') + '.purpose', p.purpose); (p.sections || []).forEach(s => Object.keys(s.copy || {}).forEach(k => scan(s.id + '.' + k, s.copy[k]))); });
+      return out;
+    }
+
+    // ---- rendering (shared by preview and export) ---------------------------------------------------------------------------------------
+    // deps: { escapeHtml, renderVisualSlot(project, slot, imageryKey, assetId), renderCtaButton?(target, label, cls), slotFor(project, section) }
+    // one image slot per feature section, keyed by the section id (stable across reordering, like gallery tiles)
+    function featureSlot(project, section) { return `${section.id}::feature`; }
+    function renderFeature(project, section, deps) {
+      const e = deps.escapeHtml; const c = (section && section.copy) || {}; const variant = (section && section.variant) || 'image-left';
+      const headline = e(c.headline || ''); const body = c.body ? `<p class="feature-body">${e(c.body)}</p>` : '';
+      if (variant === 'quote') return `<div class="site-section site-section-feature" data-variant="quote"><blockquote class="feature-quote"><p>${e(c.body || c.headline || '')}</p>${c.headline && c.body ? `<cite>${headline}</cite>` : ''}</blockquote></div>`;
+      const slot = deps.slotFor(project, section);
+      const visual = deps.renderVisualSlot(project, slot, project.design.dimensions.imagery, null);
+      if (variant === 'full') return `<div class="site-section site-section-feature" data-variant="full"><div class="feature-visual">${visual}<div class="feature-scrim"></div></div><div class="feature-overlay"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
+      return `<div class="site-section site-section-feature" data-variant="${variant === 'image-right' ? 'image-right' : 'image-left'}"><div class="feature-visual">${visual}</div><div class="feature-copy"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
+    }
+
+    module.exports = { PHOTO_LED_FAMILIES, isPhotoLed, shotList, minPhotos, MODALITIES, detectModalities, packFor, wellnessPack, genericPack, looksLikeInstruction, INSTRUCTION_RE, FILLER,
+      roleOfLabel, planLayout, checkPhotoLed, itemsOf, setItems, featureSlot, renderFeature, SHOTS };
+
+  });
   __define("grounding", function (module, exports, require) {
     'use strict';
     // BUSINESS_GROUNDING (V3): ONE authoritative description of what this business is and is not, derived from the
@@ -704,6 +1035,7 @@
       if (archetype === 'hospitality' || categoryKey === 'hospitality') return 'hospitality';
       if (archetype === 'product-led-saas' || archetype === 'launch-campaign' || categoryKey === 'tech') return 'saas';
       if (archetype === 'community-nonprofit' || categoryKey === 'nonprofit') return 'nonprofit';
+      if (['fitness', 'wellness'].includes(categoryKey)) return 'wellness'; // photo-led: studios, recovery, yoga, salons, spas
       if (archetype === 'local-conversion' && ['fitness', 'wellness'].includes(categoryKey)) return 'appointments';
       if (archetype === 'local-conversion') return 'local_service';
       if (['premium-consultancy', 'trust-heavy-professional'].includes(archetype) || ['finance', 'professional', 'realestate', 'education'].includes(categoryKey)) return 'professional';
@@ -713,6 +1045,13 @@
 
     // ---- sub-verticals: what is actually being sold (drives imagery + vocabulary) ------------------------------------------------
     const SUBVERTICALS = [
+      { id: 'wellness', label: 'wellness studio', family: 'wellness', excludeIf: /\b(software|saas|platform|app|apps|api|dashboard|analytics|scheduling tool|booking software)\b/i, keywords: ['yoga', 'pilates', 'recovery', 'mobility', 'massage', 'physiotherapy', 'physio', 'chiropractic', 'acupuncture', 'meditation', 'breathwork', 'sauna', 'cold plunge', 'wellness studio', 'wellness centre', 'wellness center', 'spa', 'holistic health', 'stretch studio', 'float'],
+        imagery: { hero: 'a calm, sunlit yoga and recovery studio interior with pale wooden floor, neat mats and plants, no people', detail: 'a tactile detail: linen, smooth stones, a ceramic cup, warm soft light', context: 'a quiet treatment room with a linen-dressed table and folded warm towels, no people' },
+        avoid: ['dashboard', 'laptop', 'office', 'restaurant', 'plated food', 'fashion model', 'runway', 'product bottles', 'gym machines', 'barbell', 'crossfit', 'neon', 'text', 'logo'] },
+      { id: 'beauty_salon', label: 'beauty salon', family: 'wellness', excludeIf: /\b(software|saas|platform|app|apps|api|dashboard|analytics)\b/i, keywords: ['salon', 'barber', 'barbershop', 'hair studio', 'nail studio', 'nails', 'lashes', 'brows', 'esthetician', 'aesthetician', 'facials', 'waxing'],
+        notService: [],
+        imagery: { hero: 'a bright, elegant salon interior with styling chairs, mirrors and plants, no people', detail: 'close detail of professional tools and products laid out neatly, soft light', context: 'a calm treatment station with fresh linen, no people' },
+        avoid: ['dashboard', 'laptop', 'restaurant', 'plated food', 'runway', 'office', 'text', 'logo'] },
       { id: 'skincare', label: 'skincare', family: 'retail', keywords: ['skincare', 'skin care', 'moisturizer', 'moisturiser', 'serum', 'cleanser', 'sunscreen', 'spf', 'toner', 'cosmetic', 'cosmetics', 'beauty', 'retinol', 'skin barrier', 'barrier repair', 'acne'],
         notService: ['facial', 'treatment', 'appointment', 'clinic', 'spa', 'esthetician', 'aesthetician', 'book a'],
         imagery: { hero: 'skincare products (bottles, jars and tubes) arranged on a clean surface in soft natural light', detail: 'close detail of a cream texture or a serum dropper', context: 'a calm vanity or bathroom shelf with skincare products, no faces' },
@@ -738,6 +1077,7 @@
       SUBVERTICALS.forEach(sv => {
         const hits = sv.keywords.filter(k => wordMatch(t, k)).length;
         if (!hits) return;
+        if (sv.excludeIf && sv.excludeIf.test(t)) return; // "scheduling software for physiotherapy clinics" is software, not a wellness studio
         // a treatment/appointment business is a SERVICE business even if it says "skincare"
         if (sv.notService && sv.notService.some(k => wordMatch(t, k)) && !/\b(shop|store|products?|brand|online|buy|order)\b/i.test(t)) return;
         if (hits > bestScore) { best = sv; bestScore = hits; }
@@ -800,6 +1140,9 @@
       local_service: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'guest', 'guests', 'plate', 'plates', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now', 'new arrivals'),
         cta: { allow: /(quote|estimate|call|book|schedule|contact|request|get|view|see|check)/i, forbid: /(reserve a table|menu|free trial|shop now|add to cart)/i }, pricing: 'quotes', primary: 'Request a quote',
         pages: { home: 'trust and services, quote CTA', services: 'what is offered', about: 'the business', contact: 'how to reach us, service area' } },
+      wellness: { sectionsForbidden: ['menu', 'integrations', 'productShowcase', 'pricing'], words: W('menu', 'guest', 'guests', 'plate', 'plates', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now', 'new arrivals'),
+        cta: { allow: /(book|schedule|reserve|join|try|start|visit|view|see|explore|contact|plan|get|learn|meet|come)/i, forbid: /(shop now|add to cart|free trial|quote|estimate|menu|demo)/i }, pricing: 'memberships', primary: 'Book a class',
+        pages: { home: 'atmosphere, offerings, first visit, book CTA', classes: 'the classes and sessions offered', studio: 'the space and philosophy', contact: 'how to book, where to find us' } },
       appointments: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'guest', 'plate', 'dining', 'starter', 'enterprise', 'saas', 'add to cart'),
         cta: { allow: /(book|schedule|call|contact|view|see|join|get|start|visit)/i, forbid: /(reserve a table|menu|free trial|shop now)/i }, pricing: 'quotes', primary: 'Book now', pages: {} },
       professional: { sectionsForbidden: ['menu', 'integrations', 'productShowcase', 'pricing'], words: W('menu', 'reserve a table', 'guest', 'guests', 'plate', 'plates', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now'),
@@ -837,9 +1180,9 @@
         industry: inp.categoryLabel || categoryKey, archetype, categoryKey,
         primaryOffer: (r.primaryOffer || text.split(/(?<=[.!?])\s+/)[0] || '').slice(0, 200) || null,
         products: sv ? sv.keywords.filter(k => wordMatch(text, k)).slice(0, 6) : [],
-        salesModel: family === 'retail' ? 'sells products' : family === 'saas' ? 'software subscription' : family === 'hospitality' ? 'venue' : 'services',
+        salesModel: family === 'retail' ? 'sells products' : family === 'saas' ? 'software subscription' : family === 'hospitality' ? 'venue' : family === 'wellness' ? 'classes and sessions' : 'services',
         location: cleanPlace(inp.location),
-        primaryCTA: r.primaryCTA || (family === 'hospitality' && !supplied(text, /reserv|book/i) ? 'View the menu' : rules.primary),
+        primaryCTA: r.primaryCTA || (family === 'hospitality' && !supplied(text, /reserv|book/i) ? 'View the menu' : family === 'wellness' && !/\b(class|classes|yoga|pilates|studio)\b/i.test(text) ? 'Book a session' : rules.primary),
         pricingModel: pricingSupplied ? rules.pricing : 'none-supplied',
         allowedPageIntents: rules.pages,
         forbiddenSections, forbiddenWords, cta: { allow: rules.cta.allow.source, forbid: rules.cta.forbid.source },
@@ -888,7 +1231,7 @@
       const st = slot.sectionType || '', role = slot.role || '';
       if (role === 'hero') return 'hero';
       if (st === 'productShowcase' || role === 'product') return 'product';
-      if (st === 'imageLedEditorial') return 'editorial';
+      if (st === 'imageLedEditorial' || st === 'editorialFeature') return 'editorial';
       if (st === 'team') return 'team';
       if (st === 'about' || role === 'team') return 'about';
       if (st === 'testimonial' || st === 'testimonialsGrid') return 'testimonial';
@@ -981,7 +1324,8 @@
     function buildImagePrompt(spec, strategy, art) {
       const abstract = isAbstractSlot(spec.role, strategy);
       const comp = compositionFor(spec.role, spec);
-      const subject = subjectFor(spec.role, strategy, art, abstract);
+      // V6: a shot-list brief (e.g. "a person practising a yoga pose on a mat, from behind") is the subject of that specific photograph
+      const subject = (spec.brief && !abstract) ? String(spec.brief).replace(/[.s]+$/, '') : subjectFor(spec.role, strategy, art, abstract);
       const loc = strategy.location && !abstract ? `, subtle ${strategy.location} regional setting (no landmarks)` : '';
       const avoidTail = (spec.avoid && spec.avoid.length) ? ` Not ${spec.avoid.slice(0, 8).join(', ')}.` : '';
       if (spec.simplified) {
@@ -1096,21 +1440,21 @@
         // never fabricate people / projects / testimonials
         if (role === 'testimonial') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'no_generated_image_for_testimonials', omitImage: true, estimatedUsd: 0 }); return; }
         if (role === 'team') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_team_photos_only', omitImage: true, estimatedUsd: 0 }, vprof ? { starter: true, mediaType: 'ABSTRACT_GRAPHIC' } : {}); return; }
-        if (role === 'gallery' && !GALLERY_GENERATION_OK.includes(strategy.archetype)) { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_project_media_only', omitImage: true, estimatedUsd: 0 }); return; }
+        if (role === 'gallery' && !GALLERY_GENERATION_OK.includes(strategy.archetype) && !(vprof && vprof.photoLed)) { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_project_media_only', omitImage: true, estimatedUsd: 0 }); return; }
         // 3/4. generated photography or abstract graphic, by budget tier
         const tier = ROLE_TIER[role];
         const cap = cfg.imageTierCaps[tier] != null ? cfg.imageTierCaps[tier] : 0;
         const options = (ROUTE_LADDER[tier] || []).map(([k, q]) => routeOption(cfg, tier, k, q, aspect)).filter(o => o.estimatedUsd <= cap + 1e-9)
           .filter(o => !credits || (o.kind === 'premium' ? credits.premium : credits.support) <= creditsLeft);
         if (!options.length) { out[i] = Object.assign(base, { sourceType: 'designed', reason: credits ? 'credits_or_tier_cap' : 'tier_cap', omitImage: role !== 'hero', estimatedUsd: 0 }, vprof ? { starter: true, mediaType: 'GRAPHIC_FALLBACK' } : {}); return; }
-        const d = governor.decide({ operation: 'image_generation', phase: 'first_draft', priority: tier === 'hero' ? 'critical' : (tier === 'primary' && primaryFunded < MAX_NORMAL_PRIMARY) ? 'normal' : 'optional', estimatedUsd: options[0].estimatedUsd, id: options[0].id, fallbacks: options.slice(1), committedUsd: committed });
+        const d = governor.decide({ operation: 'image_generation', phase: 'first_draft', priority: tier === 'hero' ? 'critical' : (tier === 'primary' && primaryFunded < ((vprof && vprof.photoLed) ? 10 : MAX_NORMAL_PRIMARY)) ? 'normal' : 'optional', estimatedUsd: options[0].estimatedUsd, id: options[0].id, fallbacks: options.slice(1), committedUsd: committed });
         if (!d.allowed) { out[i] = Object.assign(base, { sourceType: 'designed', reason: d.reason, budgetLimitReached: d.budgetLimitReached, estimatedUsd: 0 }); return; }
         const route = d.choice;
         const full = options.find(o => o.id === route.id);
         if (tier === 'primary') primaryFunded++;
         committed += full.estimatedUsd; if (credits) creditsLeft -= (full.kind === 'premium' ? credits.premium : credits.support);
         const abstract = isAbstractSlot(role, strategy);
-        const spec = { role, aspectRatio: aspect, textSide: input.heroTextSide || 'left', avoid: strategy.imageAvoid || [] };
+        const spec = { role, aspectRatio: aspect, textSide: input.heroTextSide || 'left', avoid: strategy.imageAvoid || [], brief: s.brief || null };
         out[i] = Object.assign(base, {
           sourceType: 'generated', reason: d.reason === 'downgraded' ? 'budget_downgraded_route' : 'funded', kind: abstract ? 'abstract' : 'photo',
           model: full.model, routeKind: full.kind, quality: full.quality, estimatedUsd: full.estimatedUsd, focal,
@@ -1267,6 +1611,24 @@
             }
           }
         }
+        // V6: a photo-led site must not silently accept empty-looking visuals. Any generated photo slot that failed gets up to 3 governed retries
+        // (simplified prompt); slots that still fail fall back to the starter visual and the acceptance gate reports the incomplete photo set.
+        const photoRetried = [];
+        if (c.photoLedV6 && typeof d.regenerateImage === 'function' && require('./editorial').isPhotoLed(g, (work.source && work.source.text) || c.description)) {
+          const failed = (work.imagePlan || []).filter(e => e.sourceType === 'generated' && (!work.assets || !work.assets.generated || !work.assets.generated[e.slot] || work.assets.generated[e.slot].status === 'error')).slice(0, 3);
+          for (const entry of failed) {
+            entry.photoRetried = true;
+            const est = imageCostUsd(this.cfg, { model: entry.routeKind === 'premium' ? 'premium' : 'support', quality: entry.quality || 'medium', aspectRatio: entry.aspectRatio || '4:3' });
+            const dec = this.governor.decide({ operation: 'image_regeneration', phase: 'repair', priority: 'high', estimatedUsd: est });
+            if (!dec.allowed) break;
+            try {
+              const prompt = entry.promptSimplified || entry.prompt; if (!prompt) continue;
+              const res = await this.time('photoRetry', () => d.regenerateImage({ slot: entry.slot, prompt, aspectRatio: entry.aspectRatio, model: entry.model, quality: entry.quality, routeKind: entry.routeKind }));
+              if (!d.selfRecorded) this.recordImage({ model: entry.model, imageTier: entry.routeKind, quality: entry.quality, aspectRatio: entry.aspectRatio, phase: 'repair', retryCount: 1, ok: !!(res && res.ok), providerReached: true, slot: entry.slot });
+              if (res && res.ok && res.dataUrl) { const ev = imageLib.evaluateImageDeterministic(res.dataUrl, entry.aspectRatio); if (!ev.poor) { work.assets = work.assets || {}; work.assets.generated = work.assets.generated || {}; work.assets.generated[entry.slot] = { cacheKey: entry.cacheKey, status: 'ready', dataUrl: res.dataUrl, prompt, evaluation: ev }; photoRetried.push(entry.slot); regenerated.push(entry.slot); changes.push({ code: 'photo_slot_retry', kind: 'regenerate_image', target: entry.slot, category: 'MEDIA_COMPLETENESS' }); } }
+            } catch (e) { this.photoRetryError = String(e && e.message || e); }
+          }
+        }
         let afterDefects = semanticLib.checkSemantics(work, g, c);
         if (visualsOn) afterDefects = afterDefects.concat(visualsLib.checkVisuals(work, c));
         const all = before.concat(criticDefects);
@@ -1324,7 +1686,7 @@
       //                      rewriteCopy({targetId, field, current, constraint}) -> {ok, text, usage}
       async reviewAndRepair(direction, ctx, deps) {
         const d = deps || {};
-        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3, visualsV4: !!this.cfg.visualsV4 }, ctx || {});
+        const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3, visualsV4: !!this.cfg.visualsV4, photoLedV6: !!this.cfg.photoLedV6 }, ctx || {});
         let semanticResult = null;
         if (c.groundingV3) { semanticResult = await this.semanticPass(direction, c, d); direction = semanticResult.direction; c.grounding = semanticResult.grounding; }
         let visualBrief = null;
@@ -1400,7 +1762,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -1868,6 +2230,8 @@
         const key = (d.repair.kind + ':' + (d.repair.slot || d.repair.targetId || d.target && d.target.id || 'site'));
         if (seenTargets.has(key)) continue; seenTargets.add(key);
         const action = Object.assign({}, d.repair, { defectCode: d.code, category: d.category, target: d.target, severity: d.severity });
+        // V6: a photo slot the semantic pass already retried is not paid for a third time -- it falls back to its starter visual
+        if (action.kind === 'regenerate_image') { const pe = (direction.imagePlan || []).find(x => x.slot === action.slot); if (pe && pe.photoRetried) { action.kind = 'use_designed_fallback'; action.executor = 'free'; action.estimatedUsd = 0; actions.push(action); continue; } }
         action.estimatedUsd = round(estimateRepairUsd(action, direction, cfg));
         if (action.estimatedUsd === 0) { action.executor = 'free'; actions.push(action); continue; }
         const fallbacks = d.repair.fallback ? [{ id: d.repair.fallback, estimatedUsd: 0 }] : [];
@@ -2053,7 +2417,7 @@
     const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL'];
     const CTA_FIELDS = new Set(['cta', 'ctaLabel']);
     const forbiddenHit = (text, g) => (g.forbiddenWords || []).find(w => wordMatch(text, w)) || null;
-    const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text));
+    const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text)) || require('./editorial').looksLikeInstruction(text);
     const fakeProofHit = (text, g) => FAKE_PROOF.find(re => re.test(text) && !(re.source && re.test(g.verifiedFacts && g.verifiedFacts.description || ''))) || null;
 
     // Would this replacement text be acceptable on the site? (used for critic-supplied fixes)
@@ -2184,6 +2548,7 @@
         } else if (r.kind === 'set_text' && r.where) { if (setAt(d, r.where, r.value)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
         else if (r.kind === 'clear_text' && r.where) { if (setAt(d, r.where, null)) changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); }
         else if (r.kind === 'remove_page') { const i = (d.pages || []).findIndex((p, k) => k > 0 && (p.slug || '') === (r.slug || '')); if (i > 0) { d.pages.splice(i, 1); changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); } }
+        else if (r.kind === 'plan_photo_layout') { const E = require('./editorial'); const out = E.planLayout(d, g, (d.source && d.source.text) || (g.verifiedFacts && g.verifiedFacts.description) || ''); if (out.changes.length) { d.pages = out.direction.pages; changes.push({ code: x.code, kind: r.kind, target: 'layout', category: x.category }); } }
         else if (r.kind === 'set_hero_variant') { d.design = d.design || {}; d.design.dimensions = Object.assign({}, d.design.dimensions, { hero: r.value }); delete d.design.dimensions.heroDisplayVariant; changes.push({ code: x.code, kind: r.kind, target: 'hero', category: x.category }); }
         else if (r.kind === 'enable_starter') { d.design = d.design || {}; d.design.premium = Object.assign({}, d.design.premium, { vs: 1 }); (d.imagePlan || []).forEach(e => { if (e.sourceType === 'designed' && /^(hero|product|about|gallery-featured|editorial)/.test(e.slot || '')) e.starter = true; }); changes.push({ code: x.code, kind: r.kind, target: 'starter', category: x.category }); }
         else if (r.kind === 'add_product_visual') { if (addProductVisual(d, g)) changes.push({ code: x.code, kind: r.kind, target: 'product', category: x.category }); }
@@ -2481,9 +2846,15 @@
       consultancy: { id: 'consultancy', label: 'Consultancy / professional', density: 'low', deterministicFirst: false, heroVariants: ['editorial-rail', 'poster', 'asymmetric-offset', 'split'], heroVariant: 'editorial-rail',
         media: { hero: 'PHOTO', product: 'DIAGRAM', editorial: 'DIAGRAM', about: 'ABSTRACT_GRAPHIC', gallery: 'DIAGRAM', team: 'ABSTRACT_GRAPHIC', service: 'DIAGRAM', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'consult-matrix', treatment: 'editorial typography, diagrams, restrained imagery' },
+      consultancy_personal: { id: 'consultancy_personal', label: 'Personal-brand consultant / coach', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['editorial-rail', 'asymmetric-offset', 'fullbleed-image'], heroVariant: 'editorial-rail',
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'consult-matrix', treatment: 'editorial portraiture-free photography: workspace, materials, place, detail' },
       portfolio: { id: 'portfolio', label: 'Portfolio / creative', density: 'low', deterministicFirst: false, heroVariants: ['collage', 'fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'collage',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'portfolio-frames', treatment: 'image-dominant, project-first, minimal chrome' },
+      wellness: { id: 'wellness', label: 'Wellness / yoga / recovery', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'fullbleed-image',
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'wellness-scene', treatment: 'calm editorial photography: studio, movement, recovery, atmosphere' },
       cause: { id: 'cause', label: 'Nonprofit / cause', density: 'medium', deterministicFirst: false, heroVariants: ['fullbleed-image', 'collage', 'stacked-image-below', 'split'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'brand-mark', treatment: 'human, place and impact imagery' },
@@ -2491,7 +2862,7 @@
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'ABSTRACT_GRAPHIC', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'brand-mark', treatment: 'clean brand imagery' },
     };
-    const FAMILY_PROFILE = { saas: 'tech', retail: 'retail', hospitality: 'hospitality', local_service: 'trades', appointments: 'trades', professional: 'consultancy', creative: 'portfolio', nonprofit: 'cause' };
+    const FAMILY_PROFILE = { wellness: 'wellness', saas: 'tech', retail: 'retail', hospitality: 'hospitality', local_service: 'trades', appointments: 'trades', professional: 'consultancy', creative: 'portfolio', nonprofit: 'cause' };
 
     // ---- product concept (what to draw for a software product) -----------------------------------------------------------------
     // Detected from the customer's words only. Labels are generic verbs / the customer's own nouns; never data.
@@ -2536,7 +2907,9 @@
 
     // ---- profile / concept for a project ------------------------------------------------------------------------------------------
     function profileFromGrounding(g) {
-      const id = FAMILY_PROFILE[g && g.family] || 'general';
+      let id = FAMILY_PROFILE[g && g.family] || 'general';
+      // consultants with personal-brand positioning ("I help ...", coach, independent) default to real imagery like any photo-led business
+      if (id === 'consultancy' && require('./editorial').isPhotoLed(g, g && g.verifiedFacts && g.verifiedFacts.description)) id = 'consultancy_personal';
       return PROFILES[id];
     }
     const cache = new WeakMap();
@@ -2661,12 +3034,18 @@
     function portfolioFrames() {
       return svg(`<rect class="sv-bg" width="${W}" height="${H}"/>` + r(70, 60, 250, 190, 'sv-card', 6) + r(90, 80, 210, 150, 'sv-accent', 4) + r(300, 130, 250, 190, 'sv-card-hi', 6) + r(320, 150, 210, 150, 'sv-bar', 4) + r(190, 240, 150, 110, 'sv-panel', 6) + r(206, 256, 118, 78, 'sv-bar-dim', 4), null, 'Selected work');
     }
+    function wellnessScene() {
+      return svg(`<defs><radialGradient id="svg-w${U}" cx="50%" cy="55%" r="60%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs><rect class="sv-bg" width="${W}" height="${H}"/><rect fill="url(#svg-w${U})" width="${W}" height="${H}"/>` +
+        `<circle class="sv-soft" cx="320" cy="170" r="110"/><path class="sv-path" d="M60 300 Q 200 250 320 300 T 580 300" fill="none"/><path class="sv-line" d="M40 330 Q 200 290 320 330 T 600 330" fill="none"/>` +
+        `<ellipse class="sv-panel" cx="320" cy="262" rx="88" ry="20"/><ellipse class="sv-card-hi" cx="320" cy="238" rx="66" ry="17"/><ellipse class="sv-accent" cx="320" cy="217" rx="42" ry="13"/>`, null, 'Calm studio still life');
+    }
     function brandMark(name) {
       const ch = (String(name || '').trim()[0] || 'S').toUpperCase();
       return svg(glow() + `<circle class="sv-soft" cx="320" cy="200" r="150"/><circle class="sv-panel" cx="320" cy="200" r="104"/><circle class="sv-accent" cx="320" cy="200" r="64"/>` + text(320, 224, ch, 'sv-mono', 'middle'), null, 'Brand mark');
     }
 
     const KIND_BUILDERS = {
+      'wellness-scene': () => wellnessScene(),
       'ui-stack': (c, s) => uiStack(c, s),
       'ui-dashboard': (c, s) => uiDashboard(c, s), 'ui-workflow': c => uiWorkflow(c), 'ui-command': c => uiCommand(c), 'ui-canvas': c => uiCanvas(c),
       'ui-document': c => uiDocument(c), 'diagram-system': c => diagramSystem(c), 'data-chart': (c, s) => dataChart(c, s),
@@ -2695,6 +3074,7 @@
       if (s === 'hero' || s === 'collage-2') return 'hero';
       if (/product/.test(s)) return 'product';
       if (/team|about/.test(s)) return /about/.test(s) && !/team-/.test(s) ? 'about' : 'team';
+      if (/::feature$/.test(s)) return 'editorial';
       if (/gallery|case/.test(s)) return 'gallery';
       if (/editorial/.test(s)) return 'editorial';
       return 'decorative';
@@ -2735,6 +3115,8 @@
     function chooseHero(profile, current) { if (!profile || !profile.heroVariants) return current; if (current === 'demo' || profile.heroVariants.includes(current)) return current; return profile.heroVariant; }
     const TEXT_ONLY_HEROES = ['centered-oversized', 'minimal-text-only', 'poster'];
     const PLACEHOLDER_TEXT = /(lorem ipsum|placeholder|your (image|photo|logo|picture) here|upload (your|a|an) (image|photo|logo|picture)|add (an? )?(image|photo)|image (goes|coming) here|coming soon|\bTBD\b|\[[^\]]{2,30}\])/i;
+    // photo-led business types (generated photography is the default; starter graphics are only the failure fallback)
+    for (const k of ['retail', 'hospitality', 'trades', 'portfolio', 'cause']) PROFILES[k].photoLed = true;
     const VISUAL_SLOT_ROLES = new Set(['hero', 'product', 'editorial', 'about']);
     function walkStrings(direction, fn) {
       const c = direction.copy || {}; Object.keys(c).forEach(k => { if (typeof c[k] === 'string') fn('hero.' + k, c[k]); });
@@ -2751,6 +3133,8 @@
       const plan = direction.imagePlan || []; const pages = direction.pages || [];
       const allSecs = []; pages.forEach(p => (p.sections || []).forEach(s => allSecs.push({ p, s })));
 
+      // V6: photo-led quality gates (photo set, hero anchor, repeated cards, sparse pages, generic FAQ, instruction text)
+      if (ctx && ctx.photoLedV6) { try { const G = require('./grounding'); const g = ctx.grounding || G.deriveGrounding({ description: (direction.source && direction.source.text) || ctx.description, categoryKey: direction.business && direction.business.categoryKey, archetype: direction.strategy && direction.strategy.archetype, location: direction.source && direction.source.location }); require('./editorial').checkPhotoLed(direction, g, (direction.source && direction.source.text) || ctx.description).forEach(d => add(d)); } catch (e) { /* gates are best-effort */ } }
       // hero must not be typography over nothing on an interface-led business
       if (!prof.deterministicFirst && prof.heroVariants && heroVariant !== 'demo' && !prof.heroVariants.includes(heroVariant)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'hero_family_mismatch', severity: TEXT_ONLY_HEROES.includes(heroVariant) ? 3 : 2, detail: `${prof.label} hero is ${heroVariant}; ${prof.heroVariants.join(' / ')} fit the industry`, target: { kind: 'hero', id: 'hero' }, repair: { kind: 'set_hero_variant', value: prof.heroVariant } });
       if (prof.deterministicFirst && TEXT_ONLY_HEROES.includes(heroVariant)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'hero_has_no_product_visual', severity: 3, detail: `${prof.label} hero is ${heroVariant} (no product visual)`, target: { kind: 'hero', id: 'hero' }, repair: { kind: 'set_hero_variant', value: prof.heroVariant } });
@@ -2761,7 +3145,7 @@
       });
       if (prof.deterministicFirst) {
         plan.forEach(e => { if (e.sourceType === 'generated' && (e.kind === 'photo') && (e.role === 'hero' || e.role === 'product')) add({ category: 'INDUSTRY_VISUAL_FIT', code: 'photo_for_interface_business', severity: 1, detail: `${e.slot}: photography on a ${prof.label} site (product UI/diagram fits better)`, target: { kind: 'image', id: e.slot } }); });
-        if (!allSecs.some(x => x.s.type === 'productShowcase' || x.s.type === 'imageLedEditorial') && (TEXT_ONLY_HEROES.includes(heroVariant) || !on)) add({ category: 'PRODUCT_VISUAL_EXPLANATION', code: 'no_product_visual_section', severity: 2, detail: 'no section shows the product visually', target: { kind: 'site', id: null }, repair: { kind: 'add_product_visual' } });
+        if (!allSecs.some(x => x.s.type === 'productShowcase' || x.s.type === 'imageLedEditorial' || x.s.type === 'editorialFeature') && (TEXT_ONLY_HEROES.includes(heroVariant) || !on)) add({ category: 'PRODUCT_VISUAL_EXPLANATION', code: 'no_product_visual_section', severity: 2, detail: 'no section shows the product visually', target: { kind: 'site', id: null }, repair: { kind: 'add_product_visual' } });
         else if (!allSecs.some(x => x.s.type === 'productShowcase' || x.s.type === 'imageLedEditorial')) add({ category: 'PRODUCT_VISUAL_EXPLANATION', code: 'no_product_visual_section', severity: 2, detail: 'no section explains the product visually', target: { kind: 'site', id: null }, repair: { kind: 'add_product_visual' } });
         const visualCount = (TEXT_ONLY_HEROES.includes(heroVariant) ? 0 : 1) + allSecs.filter(x => ['productShowcase', 'imageLedEditorial', 'gallery', 'integrations'].includes(x.s.type)).length;
         if (visualCount < 2) add({ category: 'VISUAL_DEPTH', code: 'too_few_visual_moments', severity: 1, detail: `${visualCount} visual moment(s) on an interface-led site`, target: { kind: 'site', id: null } });
