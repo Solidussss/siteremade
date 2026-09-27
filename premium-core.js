@@ -698,7 +698,7 @@
     const uid = p => `${p}-${Date.now().toString(36)}${Math.random().toString(16).slice(2, 6)}`;
 
     // ---- which businesses are photo-led ---------------------------------------------------------------------------------
-    const PHOTO_LED_FAMILIES = new Set(['wellness', 'retail', 'hospitality', 'local_service', 'appointments', 'creative', 'nonprofit']);
+    const PHOTO_LED_FAMILIES = new Set(['wellness', 'realestate', 'retail', 'hospitality', 'local_service', 'appointments', 'creative', 'nonprofit']);
     function isPhotoLed(g, description) {
       if (!g) return false;
       if (PHOTO_LED_FAMILIES.has(g.family)) return true;
@@ -739,6 +739,13 @@
         { id: 'place', brief: 'the place the work happens: a quiet meeting room or studio, soft daylight, no people' },
         { id: 'detail', brief: 'a tactile detail of the workspace: a coffee cup, a plant, a folded notebook, warm light' },
       ],
+      realestate: [
+        { id: 'hero', brief: 'a well-composed home exterior or downtown skyline at golden hour, no people, no address or signage visible' },
+        { id: 'neighborhood', brief: 'a residential tree-lined street or downtown streetscape in daylight, no people, no readable signage' },
+        { id: 'buyerLifestyle', brief: 'a bright, tidy living room interior with natural light, no people' },
+        { id: 'sellerInterior', brief: 'a staged interior detail: kitchen or living space, natural light, no people' },
+        { id: 'detail', brief: 'close detail of interior architecture: a staircase, large window or hardwood floor, natural light' },
+      ],
       local_service: [
         { id: 'hero', brief: 'a finished, well-made result of the work in flattering natural light, no people' },
         { id: 'material', brief: 'close detail of the materials and craftsmanship involved in the work' },
@@ -771,7 +778,7 @@
       return base.map(s => ({ id: s.id, brief: s.brief || (s.det ? im.detail : s.ctx ? im.context : im.hero) || im.hero || null })).filter(s => s.brief);
     }
     // minimum generated-photo counts per business type (hero included)
-    const MIN_PHOTOS = { wellness: 5, retail: 4, hospitality: 4, local_service: 4, appointments: 4, creative: 4, nonprofit: 4, professional: 3 };
+    const MIN_PHOTOS = { wellness: 5, realestate: 4, retail: 4, hospitality: 4, local_service: 4, appointments: 4, creative: 4, nonprofit: 4, professional: 3 };
     function minPhotos(g) { return MIN_PHOTOS[g && g.family] || 3; }
 
     // ---- specific content (wellness pack) ------------------------------------------------------------------------------------------
@@ -862,10 +869,68 @@
         intros: { home: '', offer: '', studio: '', contact: '' },
       };
     }
-    function packFor(g, text) { return g && g.family === 'wellness' ? wellnessPack(g, text) : genericPack(g, text); }
+    function packFor(g, text) { return g && g.family === 'wellness' ? wellnessPack(g, text) : g && g.family === 'realestate' ? realestatePack(g, text) : genericPack(g, text); }
+    // ---- real-estate content pack (buyer / seller / neighbourhood framing; never claims live inventory) --------------------------
+    function detectSide(text) {
+      const t = String(text || ''); const buy = /\bbuy(er|ers|ing)?\b/i.test(t); const sell = /\bsell(er|ers|ing)?\b/i.test(t);
+      return buy && sell ? 'both' : sell ? 'seller' : 'buyer';
+    }
+    // framing that never implies live inventory exists (Part 16): rotate deterministically so repeated generations for the same
+    // business text stay stable, but different businesses don't all read identically.
+    const SAFE_OFFER_FRAMING = ['Property types we work with', 'Areas we specialize in', 'What we help buyers find', 'Neighbourhoods we know well'];
+    function realestatePack(g, text) {
+      const side = detectSide(text); const place = g && g.location ? ` in ${g.location}` : '';
+      const cta = (g && g.primaryCTA) || 'Contact an Agent';
+      const offerLabel = SAFE_OFFER_FRAMING[Math.abs(hashStr(text)) % SAFE_OFFER_FRAMING.length];
+      const offerings = [
+        { title: 'Buying', body: 'Guidance from the first search to closing day.' },
+        { title: 'Selling', body: 'Strategy from pricing through to a signed deal.' },
+        { title: 'Neighbourhoods', body: `Local knowledge across the areas we work${place || '.'}`.replace(/\.\.$/, '.') },
+      ];
+      const buyerProcess = ['Define the search', 'Review properties', 'Tour & compare', 'Offer & close'];
+      const sellerProcess = ['Property review', 'Pricing strategy', 'Prepare & launch', 'Negotiate & close'];
+      const neutralProcess = ['Get in touch', 'Understand your goals', 'Tour or list the property', 'Close with confidence'];
+      return {
+        positioning: clip(g && g.primaryOffer ? g.primaryOffer.replace(/[.!?]+$/, '') : 'A real estate team', 150) + `. Working with buyers and sellers${place}.`,
+        offerings, offerLabel,
+        home: [
+          { id: 'neighborhood', side: 'left', headline: 'Get to know the neighbourhoods', body: `A closer look at the areas we work${place || '.'}`.replace(/\.\.$/, '.') },
+          { id: side === 'seller' ? 'sellerInterior' : 'buyerLifestyle', side: 'right', headline: side === 'seller' ? 'Ready when you are' : 'Find the right fit', body: side === 'seller' ? 'Straightforward guidance from listing to close.' : 'A considered search, matched to what you actually need.' },
+          { id: 'detail', side: 'full', headline: 'Care in the details', body: 'The small things -- clear communication, careful timing -- are part of how we work.' },
+        ],
+        offer: [ // Buyers page
+          { id: 'buyerLifestyle', side: 'right', headline: 'A search built around you', body: 'Tell us what matters and we will focus the search around it.' },
+          { id: 'detail', side: 'left', headline: 'What to expect', body: 'A clear process from the first conversation to the keys.' },
+        ],
+        studio: [ // Sellers page
+          { id: 'sellerInterior', side: 'full', headline: 'Prepared to sell', body: 'A considered plan for pricing, presentation and timing.' },
+          { id: 'neighborhood', side: 'left', headline: 'Priced with the market in mind', body: 'A strategy grounded in the neighbourhood, not guesswork.' },
+        ],
+        philosophy: 'Buying or selling a home is a big decision. We keep the process clear and the communication direct.',
+        processByRole: { home: neutralProcess, offer: buyerProcess, studio: sellerProcess },
+        faq: [
+          { title: 'Do you work with both buyers and sellers?', body: side === 'both' ? 'Yes -- tell us which applies to you and we will point you to the right next step.' : `We focus on ${side === 'seller' ? 'sellers' : 'buyers'}${place}; ask us if your situation is different.` },
+          { title: 'How do I start if I\u2019m buying?', body: 'Reach out and tell us what you are looking for; we will help you shape the search.' },
+          { title: 'How do I start if I\u2019m selling?', body: 'Reach out and we will walk through pricing and timing together.' },
+          { title: 'Which areas do you work in?', body: place ? `Primarily${place}; ask us about anywhere nearby.` : 'Ask us -- we will tell you the areas we know best.' },
+        ],
+        intros: { home: '', offer: 'Buyer process and property types.', studio: 'Seller strategy, from pricing to close.', contact: 'Get in touch to start a conversation.' },
+        cta: { headline: `Contact us about buying or selling${place}`, label: cta },
+      };
+    }
+    function hashStr(s) { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
+    // Part 16/17: "current listings", "active/available/our/exclusive listings" and "current inventory" claim live property inventory
+    // that was never supplied -- replace with a safe, non-inventory-implying framing (rotated deterministically per text).
+    function wb(word) { return '(^|[^a-z0-9])' + word + '(?![a-z0-9])'; }
+    const INVENTORY_CLAIM_RE = new RegExp(wb('(current|active|available|our|exclusive) +listings') + '|' + wb('current +(inventory|properties)'), 'i');
+    function sanitizeListingClaim(text, g) {
+      if (!g || g.family !== 'realestate') return null;
+      const t = String(text || ''); if (!INVENTORY_CLAIM_RE.test(t)) return null;
+      return SAFE_OFFER_FRAMING[Math.abs(hashStr(t)) % SAFE_OFFER_FRAMING.length];
+    }
 
     // ---- instruction / filler detection ---------------------------------------------------------------------------------------------
-    const INSTRUCTION_VERBS = 'explain|convey|establish|communicate|demonstrate|clarify|reassure|address|outline|describe|introduce|highlight|emphasi[sz]e|position|articulate|reinforce|showcase|ensure|encourage|prompt|drive|guide visitors|help visitors|let visitors|give visitors|show visitors|remove friction|reduce friction|make (the )?(cost|starting|it easy)|answer the|orient the|put real people|prove quality|show exactly|show how|show what|set expectations|build trust|create a sense|capture the|tell the story';
+    const INSTRUCTION_VERBS = 'explain|convey|establish|communicate|demonstrate|clarify|reassure|address|outline|describe|introduce|highlight|emphasi[sz]e|position|articulate|reinforce|showcase|ensure|encourage|prompt|drive|guide visitors|help visitors|let visitors|give visitors|show visitors|remove friction|reduce friction|make (the )?(cost|starting|it easy)|answer the|orient the|put real people|prove quality|show exactly|show how|show what|set expectations|build trust|create a sense|capture the|tell the story|walk (a |the )?(prospective |visiting )?(visitor|buyer|seller|client|customer)s?( through)?|make (the )?cost clear';
     const INSTRUCTION_RE = new RegExp('^\\s*(' + INSTRUCTION_VERBS + ')\\b', 'i');
     const PERSONAL = /\b(you|your|we|our|us|i|my)\b/i;
     const FILLER = [/\ba regular part of the .{0,40}on offer\b/i, /\breal .{0,30}, presented clearly\b/i, /\bhandled with the same rigor\b/i, /\bpart of (how|what)'?s? .{0,30}(gets done|launching)\b/i,
@@ -876,7 +941,7 @@
       if (FILLER.some(re => re.test(t))) return true;
       if (INSTRUCTION_RE.test(t) && !PERSONAL.test(t)) return true;
       // "<Verb> each/the/how/what ..." planner phrasing even when the verb is not in the list above
-      if (/^\s*(explain|convey|establish|communicate|demonstrate|clarify|introduce|highlight|remove|reduce|answer|orient|prove|put)\s+(each|the|how|what|why|who|real|friction|quality|objections?)\b/i.test(t)) return true;
+      if (/^\s*(explain|convey|establish|communicate|demonstrate|clarify|introduce|highlight|remove|reduce|answer|orient|prove|put|walk)\s+(each|the|how|what|why|who|real|friction|quality|objections?|a|prospective)\b/i.test(t)) return true;
       return false;
     }
 
@@ -884,8 +949,8 @@
     const roleOfLabel = label => {
       const l = String(label || '').toLowerCase();
       if (/contact|visit|find us|reach|hours|get in touch|book\b/.test(l)) return 'contact';
-      if (/studio|about|story|space|philosoph|approach|who we|our /.test(l)) return 'studio';
-      if (/class|session|recover|treat|service|program|offer|what we|menu|shop|product|work|collection|classes/.test(l)) return 'offer';
+      if (/studio|about|story|space|philosoph|approach|who we|our |sellers?|selling/.test(l)) return 'studio';
+      if (/class|session|recover|treat|service|program|offer|what we|menu|shop|product|work|collection|classes|buyers?|buying|listings?|neighbo(u)?rhood/.test(l)) return 'offer';
       return 'other';
     };
     function newSection(type, variant, copy, extra) { return Object.assign({ id: uid(type), type, variant, copy: copy || null, intent: 'educate', headlineRole: 'declarative' }, extra || {}); }
@@ -906,7 +971,7 @@
       const d = JSON.parse(JSON.stringify(direction)); const changes = [];
       if (!isPhotoLed(g, text) || !Array.isArray(d.pages) || !d.pages.length) return { direction: d, changes };
       const pack = packFor(g, text); const shots = shotList(g); const byId = Object.fromEntries(shots.map(s => [s.id, s]));
-      const wellness = g.family === 'wellness';
+      const wellness = g.family === 'wellness'; const realestate = g.family === 'realestate'; const storyDriven = wellness || realestate;
       const take = (page, type) => { const i = (page.sections || []).findIndex(s => s.type === type); return i === -1 ? null : page.sections.splice(i, 1)[0]; };
       const keepFooter = page => (page.sections || []).filter(s => s.type === 'footer');
       const build = (page, role) => {
@@ -920,16 +985,28 @@
         const withItems = (s, type, items, variant) => { const sec = s || newSection(type, variant, null); sec.copy = setItems(Object.assign({}, sec.copy), items); if (variant) sec.variant = variant; return sec; };
         const statement = (s, headline, body) => { const sec = s || newSection('about', 'statement', null); sec.variant = 'statement'; sec.imageDisplayVariant = 'statement'; sec.copy = Object.assign({}, sec.copy, { headline, body }); return sec; };
         const cta = bag.cta || newSection('ctaBanner', 'accent', null);
-        if (wellness) cta.copy = Object.assign({}, cta.copy, { headline: pack.cta.headline, ctaLabel: pack.cta.label });
+        if (storyDriven) cta.copy = Object.assign({}, cta.copy, { headline: pack.cta.headline, ctaLabel: pack.cta.label });
+        const procSteps = role2 => ((pack.processByRole && pack.processByRole[role2]) || pack.process || []).map(t => ({ title: t, body: '' }));
         let seq = null;
-        if (wellness && role === 'home') {
+        if (realestate && role === 'home') {
+          seq = [statement(bag.about, 'Our approach', pack.positioning), withItems(bag.services, 'services', pack.offerings, 'described'), feat(pack.home[0]), feat(pack.home[1]), feat(pack.home[2]),
+            withItems(bag.faq, 'faq', pack.faq), cta];
+          seq[1].copy.headline = pack.offerLabel;
+          seq[5].copy.headline = 'Good to know';
+        } else if (realestate && role === 'offer') {
+          seq = [feat(pack.offer[0]), withItems(bag.process, 'process', procSteps('offer')), feat(pack.offer[1]), withItems(bag.faq, 'faq', pack.faq), cta];
+          seq[1].copy.headline = 'How it works';
+        } else if (realestate && role === 'studio') {
+          seq = [feat(pack.studio[0]), withItems(bag.process, 'process', procSteps('studio')), feat(pack.studio[1]), withItems(bag.faq, 'faq', pack.faq), cta];
+          seq[1].copy.headline = 'How it works';
+        } else if (wellness && role === 'home') {
           seq = [statement(bag.about, 'Our approach', pack.positioning), withItems(bag.services, 'services', pack.offerings, 'described'), feat(pack.home[0]), feat(pack.home[1]), feat(pack.home[2]),
             newSection('about', 'statement', { headline: 'Philosophy', body: pack.philosophy }, { imageDisplayVariant: 'statement' }),
-            withItems(bag.process, 'process', pack.process.map(t => ({ title: t, body: '' }))), withItems(bag.faq, 'faq', pack.faq), cta];
+            withItems(bag.process, 'process', procSteps('home')), withItems(bag.faq, 'faq', pack.faq), cta];
           seq[1].copy.headline = seq[1].copy.headline && !looksLikeInstruction(seq[1].copy.headline) ? seq[1].copy.headline : 'Classes & recovery';
           seq[6].copy.headline = 'Your first visit'; seq[7].copy.headline = 'Good to know';
         } else if (wellness && role === 'offer') {
-          seq = [withItems(bag.services, 'services', pack.offerings, 'numbered'), feat(pack.offer[0]), feat(pack.offer[1]), withItems(bag.process, 'process', pack.process.map(t => ({ title: t, body: '' }))), cta];
+          seq = [withItems(bag.services, 'services', pack.offerings, 'numbered'), feat(pack.offer[0]), feat(pack.offer[1]), withItems(bag.process, 'process', procSteps('offer')), cta];
           seq[0].copy.headline = seq[0].copy.headline && !looksLikeInstruction(seq[0].copy.headline) ? seq[0].copy.headline : 'What we offer'; seq[3].copy.headline = 'Your first visit';
         } else if (wellness && role === 'studio') {
           seq = [feat(pack.studio[0]), statement(bag.about, 'Philosophy', pack.philosophy), feat(pack.studio[1]), withItems(bag.faq, 'faq', pack.faq), cta];
@@ -949,14 +1026,14 @@
         return true;
       };
       let seenOffer = false, seenStudio = false;
-      const GENERIC_LABEL = /^(services?|work|our work|portfolio|shop|product|products|offerings?|about|about us|menu|collection)$/i;
+      const GENERIC_LABEL = /^(services?|work|our work|portfolio|shop|product|products|offerings?|about|about us|menu|collection|listings?)$/i;
       d.pages.forEach((p, i) => {
         let role = i === 0 ? 'home' : roleOfLabel(p.label);
         // a business needs one page for what it offers and one for the place / philosophy; a second "offer-like" page becomes the studio page
-        if (wellness && i > 0) { if (role === 'offer' && seenOffer && !seenStudio) role = 'studio'; if (role === 'offer') seenOffer = true; if (role === 'studio') seenStudio = true; }
-        if (wellness && i > 0 && GENERIC_LABEL.test(String(p.label || '').trim())) { const nl = role === 'offer' ? (detectModalities(text).length >= 2 ? 'Classes & Recovery' : 'Classes & Sessions') : role === 'studio' ? 'The Studio' : null; if (nl && nl !== p.label) { p.label = nl; changes.push({ kind: 'rename_page', target: p.slug || 'home', label: nl }); } }
-        if (role === 'contact' || role === 'other') { if (wellness && p.purpose && looksLikeInstruction(p.purpose)) p.purpose = pack.intros.contact; return; }
-        if (build(p, role)) { changes.push({ kind: 'plan_photo_layout', target: p.slug || 'home', role }); if (wellness) p.purpose = pack.intros[role] || ''; else if (looksLikeInstruction(p.purpose)) p.purpose = ''; }
+        if (storyDriven && i > 0) { if (role === 'offer' && seenOffer && !seenStudio) role = 'studio'; if (role === 'offer') seenOffer = true; if (role === 'studio') seenStudio = true; }
+        if (storyDriven && i > 0 && GENERIC_LABEL.test(String(p.label || '').trim())) { const nl = realestate ? (role === 'offer' ? 'Buyers' : role === 'studio' ? 'Sellers' : null) : role === 'offer' ? (detectModalities(text).length >= 2 ? 'Classes & Recovery' : 'Classes & Sessions') : role === 'studio' ? 'The Studio' : null; if (nl && nl !== p.label) { p.label = nl; changes.push({ kind: 'rename_page', target: p.slug || 'home', label: nl }); } }
+        if (role === 'contact' || role === 'other') { if (storyDriven && p.purpose && looksLikeInstruction(p.purpose)) p.purpose = pack.intros.contact; return; }
+        if (build(p, role)) { changes.push({ kind: 'plan_photo_layout', target: p.slug || 'home', role }); if (storyDriven) p.purpose = pack.intros[role] || ''; else if (looksLikeInstruction(p.purpose)) p.purpose = ''; }
       });
       d.pages.forEach(p => { if (looksLikeInstruction(p.purpose)) { p.purpose = ''; changes.push({ kind: 'clear_purpose', target: p.slug || 'home' }); } });
       return { direction: d, changes };
@@ -1002,7 +1079,7 @@
       return `<div class="site-section site-section-feature" data-variant="${variant === 'image-right' ? 'image-right' : 'image-left'}"><div class="feature-visual">${visual}</div><div class="feature-copy"><h2 class="feature-headline">${headline}</h2>${body}</div></div>`;
     }
 
-    module.exports = { PHOTO_LED_FAMILIES, isPhotoLed, shotList, minPhotos, MODALITIES, detectModalities, packFor, wellnessPack, genericPack, looksLikeInstruction, INSTRUCTION_RE, FILLER,
+    module.exports = { INVENTORY_CLAIM_RE, sanitizeListingClaim, PHOTO_LED_FAMILIES, isPhotoLed, shotList, minPhotos, MODALITIES, detectModalities, packFor, wellnessPack, realestatePack, genericPack, looksLikeInstruction, INSTRUCTION_RE, FILLER,
       roleOfLabel, planLayout, checkPhotoLed, itemsOf, setItems, featureSlot, renderFeature, SHOTS };
 
   });
@@ -1035,6 +1112,7 @@
       if (archetype === 'hospitality' || categoryKey === 'hospitality') return 'hospitality';
       if (archetype === 'product-led-saas' || archetype === 'launch-campaign' || categoryKey === 'tech') return 'saas';
       if (archetype === 'community-nonprofit' || categoryKey === 'nonprofit') return 'nonprofit';
+      if (categoryKey === 'realestate') return 'realestate'; // photo-led: property/neighbourhood photography, buyer/seller/neighbourhood pages
       if (['fitness', 'wellness'].includes(categoryKey)) return 'wellness'; // photo-led: studios, recovery, yoga, salons, spas
       if (archetype === 'local-conversion' && ['fitness', 'wellness'].includes(categoryKey)) return 'appointments';
       if (archetype === 'local-conversion') return 'local_service';
@@ -1151,10 +1229,13 @@
         cta: { allow: /(view|see|start|inquire|enquire|contact|book|get|check|request)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial)/i }, pricing: 'packages', primary: 'View the work', pages: {} },
       nonprofit: { sectionsForbidden: ['menu', 'pricing', 'integrations', 'productShowcase'], words: W('menu', 'reserve a table', 'plate', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now'),
         cta: { allow: /(donate|give|volunteer|get involved|join|support|learn|see|contact)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial|quote)/i }, pricing: 'none', primary: 'Get involved', pages: {} },
+      realestate: { sectionsForbidden: ['menu', 'integrations', 'productShowcase', 'pricing'], words: W('menu', 'reserve a table', 'guest', 'guests', 'plate', 'dining', 'starter', 'growth', 'enterprise', 'saas', 'add to cart', 'shop now', 'free trial'),
+        cta: { allow: /(contact|schedule|book|view|browse|explore|see|request|search|find|learn|get in touch|reach out)/i, forbid: /(reserve a table|menu|shop now|add to cart|free trial|demo)/i }, pricing: 'none', primary: 'Contact an Agent',
+        pages: { home: 'positioning, neighbourhoods teaser, buyer/seller entry, contact CTA', buyers: 'buyer process and property types', sellers: 'seller process and strategy', neighborhoods: 'areas served', about: 'story', contact: 'contact' } },
       other: { sectionsForbidden: ['menu', 'integrations'], words: W('starter', 'growth', 'enterprise', 'saas'), cta: { allow: /./, forbid: /(reserve a table|menu)/i }, pricing: 'none', primary: 'Get in touch', pages: {} },
     };
     // Forbidden vocabulary is allowed when the customer's own text uses it (a furniture store may sell "tables").
-    const VERIFIED_UNSUPPORTED = ['customer testimonials', 'reviews or review counts', 'years in business', 'awards or certifications', 'staff or founder names', 'customer counts', 'guarantees', 'shipping promises', 'best-seller or new-arrival claims', 'pricing tiers or prices', 'physical store locations', 'opening hours'];
+    const VERIFIED_UNSUPPORTED = ['customer testimonials', 'reviews or review counts', 'years in business', 'awards or certifications', 'staff or founder names', 'customer counts', 'guarantees', 'shipping promises', 'best-seller or new-arrival claims', 'pricing tiers or prices', 'physical store locations', 'opening hours', 'current listings or active inventory', 'specific building/market expertise claims', 'neighbourhood sales statistics'];
 
     const cleanPlace = loc => (loc ? String(loc).split(/[.,;]/)[0].trim() : '') || null;
     const supplied = (text, re) => re.test(String(text || ''));
@@ -1180,7 +1261,7 @@
         industry: inp.categoryLabel || categoryKey, archetype, categoryKey,
         primaryOffer: (r.primaryOffer || text.split(/(?<=[.!?])\s+/)[0] || '').slice(0, 200) || null,
         products: sv ? sv.keywords.filter(k => wordMatch(text, k)).slice(0, 6) : [],
-        salesModel: family === 'retail' ? 'sells products' : family === 'saas' ? 'software subscription' : family === 'hospitality' ? 'venue' : family === 'wellness' ? 'classes and sessions' : 'services',
+        salesModel: family === 'retail' ? 'sells products' : family === 'saas' ? 'software subscription' : family === 'hospitality' ? 'venue' : family === 'wellness' ? 'classes and sessions' : family === 'realestate' ? 'representation services' : 'services',
         location: cleanPlace(inp.location),
         primaryCTA: r.primaryCTA || (family === 'hospitality' && !supplied(text, /reserv|book/i) ? 'View the menu' : family === 'wellness' && !/\b(class|classes|yoga|pilates|studio)\b/i.test(text) ? 'Book a session' : rules.primary),
         pricingModel: pricingSupplied ? rules.pricing : 'none-supplied',
@@ -1191,7 +1272,8 @@
         testimonialAvailability: claimsTestimonials ? 'supplied' : 'none',
         teamAvailability: teamSupplied ? 'supplied' : 'none',
         trustSignalsAllowed: ['the business description as written', 'the place, if supplied', 'a clear next step'].concat(facts.years ? ['years, as supplied'] : []),
-        imagerySubjects: sv ? sv.imagery : null, imageryAvoid: sv ? sv.avoid : ['text', 'logos', 'user interface'],
+        imagerySubjects: sv ? sv.imagery : (family === 'realestate' ? { hero: 'a well-composed home exterior or downtown skyline at golden hour, no people, no address or signage visible', detail: 'close detail of interior architecture: a staircase, window light or hardwood floor', context: 'a bright, tidy living room interior with natural light, no people' } : null),
+        imageryAvoid: sv ? sv.avoid : (family === 'realestate' ? ['dashboard', 'laptop', 'office desk', 'restaurant', 'plated food', 'fashion model', 'gym equipment', 'text', 'logo', 'street sign', 'house number'] : ['text', 'logos', 'user interface']),
         newArrivalsJustified: supplied(text, /new arrivals?|new collection|just launched|drop\b/i),
       };
       if (r.imagerySubject) g.imagerySubjects = Object.assign({}, g.imagerySubjects, { hero: r.imagerySubject });
@@ -1910,7 +1992,47 @@
       return { measuredAt: new Date().toISOString(), widths: ws.map(w => measureAtWidth(siteEl, w)) };
     }
 
-    module.exports = { measureMobile, measureAtWidth };
+    // PREMIUM_GENERATION_V7 (Part 12): real DOM overlap check for process/step/timeline rows -- desktop, tablet and mobile.
+    // Returns [{width, index, kind}] where index is the Nth '.process-flow-numbered/.process-flow-icons' element on the
+    // CURRENTLY rendered page (in DOM order), so the caller can zip it back to that page's process-type section ids.
+    function measureProcessAtWidth(siteEl, width) {
+      const doc = siteEl.ownerDocument;
+      const wrap = doc.createElement('div');
+      wrap.className = width <= 480 ? 'builder-device mobile' : '';
+      wrap.style.cssText = 'position:fixed;left:-100000px;top:0;width:' + width + 'px;min-height:0;visibility:hidden;pointer-events:none;';
+      const clone = siteEl.cloneNode(true); clone.removeAttribute('id'); clone.style.removeProperty('width');
+      wrap.appendChild(clone); doc.body.appendChild(wrap);
+      const hits = [];
+      try {
+        const flows = Array.from(clone.querySelectorAll('.process-flow-numbered, .process-flow-icons'));
+        flows.forEach((flow, index) => {
+          const steps = Array.from(flow.children).filter(el => el.classList && el.classList.contains('process-flow-step'));
+          const rects = steps.map(s => s.getBoundingClientRect());
+          for (let i = 0; i < rects.length && !hits.some(h => h.index === index); i++) {
+            for (let j = i + 1; j < rects.length; j++) {
+              const a = rects[i], b = rects[j];
+              const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+              if (ox > 4 && oy > 4) { hits.push({ width, index, kind: 'step_overlap' }); break; }
+            }
+          }
+          steps.forEach(s => {
+            if (hits.some(h => h.index === index)) return;
+            const num = s.querySelector('.process-flow-num, .process-icon-node'); const label = s.querySelector('strong');
+            if (!num || !label) return;
+            const nr = num.getBoundingClientRect(), lr = label.getBoundingClientRect();
+            const ox = Math.min(nr.right, lr.right) - Math.max(nr.left, lr.left), oy = Math.min(nr.bottom, lr.bottom) - Math.max(nr.top, lr.top);
+            if (ox > 4 && oy > 4) hits.push({ width, index, kind: 'label_on_number' });
+          });
+        });
+      } finally { wrap.remove(); }
+      return hits;
+    }
+    function measureProcessCollisions(siteEl, widths) {
+      const ws = (widths && widths.length ? widths : [1300, 820, 390]);
+      const all = []; ws.forEach(w => all.push(...measureProcessAtWidth(siteEl, w))); return all;
+    }
+
+    module.exports = { measureMobile, measureAtWidth, measureProcessCollisions };
 
   });
   __define("model-routing", function (module, exports, require) {
@@ -1960,12 +2082,14 @@
       'VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION',
       // PREMIUM_GROUNDING_V3 (business grounding + semantic review). NOT_APPLICABLE unless the flag is on.
       'FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL',
-      'BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE', 'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY'];
+      'BUSINESS_CONSISTENCY', 'CROSS_PAGE_CONSISTENCY', 'FACTUAL_GROUNDING', 'CTA_CONSISTENCY', 'IMAGE_SUBJECT_RELEVANCE', 'SECONDARY_PAGE_DEPTH', 'COPY_SPECIFICITY', 'INVENTED_TRUST_SIGNALS', 'WRONG_BUSINESS_CONCEPTS', 'PAGE_PURPOSE_CLARITY',
+      // PREMIUM_GENERATION_V7 (visual completion + real image usage + final quality repair).
+      'BUSINESS_TRUTHFULNESS', 'VISUAL_COLLISIONS', 'PREMIUM_FEEL', 'HERO_QUALITY'];
     const semantic = require('./semantic');
     const { deriveGrounding } = require('./grounding');
     const COMPOSITION_CATEGORIES = ['VISUAL_PACING', 'SECTION_CONTRAST', 'COMPOSITION_VARIETY', 'CTA_STRENGTH', 'FOOTER_COMPLETION'];
     // Where a fix pays off most for perceived quality (used to rank the 1-3 repairs we allow).
-    const IMPACT = { FIRST_IMPRESSION: 3, GENERIC_TEMPLATE_FEEL: 2, FIRST_DRAFT_COMPLETENESS: 3, MEDIA_COMPLETENESS: 3, PLACEHOLDER_LEAKAGE: 3, HERO_VISUAL_STRENGTH: 3, PRODUCT_VISUAL_EXPLANATION: 2, INDUSTRY_VISUAL_FIT: 2, VISUAL_DEPTH: 1, PAGE_VISUAL_VARIETY: 1, WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3 };
+    const IMPACT = { FIRST_IMPRESSION: 3, GENERIC_TEMPLATE_FEEL: 2, FIRST_DRAFT_COMPLETENESS: 3, MEDIA_COMPLETENESS: 3, PLACEHOLDER_LEAKAGE: 3, HERO_VISUAL_STRENGTH: 3, PRODUCT_VISUAL_EXPLANATION: 2, INDUSTRY_VISUAL_FIT: 2, VISUAL_DEPTH: 1, PAGE_VISUAL_VARIETY: 1, WRONG_BUSINESS_CONCEPTS: 3, INVENTED_TRUST_SIGNALS: 3, FACTUAL_GROUNDING: 3, BUSINESS_CONSISTENCY: 3, PAGE_PURPOSE_CLARITY: 2, COPY_SPECIFICITY: 1.5, CTA_CONSISTENCY: 2.5, CROSS_PAGE_CONSISTENCY: 2, SECONDARY_PAGE_DEPTH: 2, IMAGE_SUBJECT_RELEVANCE: 2.5, VISUAL_PACING: 2, SECTION_CONTRAST: 2, COMPOSITION_VARIETY: 2, CTA_STRENGTH: 2.5, FOOTER_COMPLETION: 1.5, IMAGE_QUALITY: 3, MOBILE_READINESS: 3, CONVERSION_CLARITY: 3, BUSINESS_SPECIFICITY: 2.5, VISUAL_COHERENCE: 2, LAYOUT: 2, TYPOGRAPHY: 1.5, TECHNICAL_VALIDITY: 3, BUSINESS_TRUTHFULNESS: 3, VISUAL_COLLISIONS: 2.5, PREMIUM_FEEL: 2, HERO_QUALITY: 3 };
 
     const GENERIC_PHRASES = [/\belevate your\b/i, /\bwhere (quality|innovation|excellence) meets\b/i, /\bunlock (your|the) (full )?potential\b/i, /\bseamless(ly)?\b/i, /\bcutting[- ]edge\b/i, /\bworld[- ]class\b/i, /\bsolutions? tailored\b/i, /\bnext level\b/i, /\bstate[- ]of[- ]the[- ]art\b/i, /\bpassion for excellence\b/i, /\bcommitted to excellence\b/i];
     // Claims a site must not make unless the customer supplied them.
@@ -2075,6 +2199,20 @@
         if (w.smallTapTargets > 0) add({ category: 'MOBILE_READINESS', code: 'small_tap_targets', severity: 1, detail: `${w.smallTapTargets} at ${w.width}px` });
         if (w.badImageCrops > 0) add({ category: 'MOBILE_READINESS', code: 'bad_image_crop', severity: 2, detail: `${w.badImageCrops} at ${w.width}px`, repair: { kind: 'set_focal_all' } });
       });
+
+      // ---- VISUAL_COLLISIONS (Part 12): real DOM overlap check for process/step rows, measured by the client at desktop/tablet/mobile
+      // width on the currently-rendered page. Maps back to that page's process-type sections by DOM order (see mobile-check.js).
+      const proc = direction.processReport;
+      if (c.visualsV4 && Array.isArray(proc) && proc.length) {
+        const activeIdx = Number.isInteger(direction.activePageIndex) ? direction.activePageIndex : 0;
+        const activePage = (direction.pages || [])[activeIdx];
+        const procSections = activePage ? (activePage.sections || []).filter(s => s.type === 'process') : [];
+        const seen = new Set();
+        proc.forEach(hit => {
+          const sec = procSections[hit.index]; if (!sec || seen.has(sec.id)) return; seen.add(sec.id);
+          add({ category: 'VISUAL_COLLISIONS', code: 'process_step_collision', severity: 3, detail: `${hit.kind} at ${hit.width}px`, target: { kind: 'section', id: sec.id }, repair: { kind: 'set_process_variant', where: { id: sec.id }, value: 'alternating' } });
+        });
+      }
 
       // ---- PREMIUM_COMPOSITION_V2 categories: the planned page sequence is checked with the same rules that produced it
       if (c.compositionV2) {
@@ -2414,7 +2552,9 @@
       });
     }
     // V4: visual categories (deterministic checks live in visuals.js; the critic may also report them)
-    const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL'];
+    const VISUAL_CATEGORIES = ['FIRST_DRAFT_COMPLETENESS', 'HERO_VISUAL_STRENGTH', 'INDUSTRY_VISUAL_FIT', 'MEDIA_COMPLETENESS', 'PRODUCT_VISUAL_EXPLANATION', 'PLACEHOLDER_LEAKAGE', 'VISUAL_DEPTH', 'PAGE_VISUAL_VARIETY', 'FIRST_IMPRESSION', 'GENERIC_TEMPLATE_FEEL',
+      // PREMIUM_GENERATION_V7: business-truthfulness, layout-collision and overall-premium-feel categories.
+      'BUSINESS_TRUTHFULNESS', 'VISUAL_COLLISIONS', 'PREMIUM_FEEL', 'HERO_QUALITY'];
     const CTA_FIELDS = new Set(['cta', 'ctaLabel']);
     const forbiddenHit = (text, g) => (g.forbiddenWords || []).find(w => wordMatch(text, w)) || null;
     const briefHit = text => INTERNAL_PATTERNS.some(re => re.test(text)) || require('./editorial').looksLikeInstruction(text);
@@ -2468,7 +2608,9 @@
           else { const fw = forbiddenHit(text, g); if (fw) add({ category: 'CROSS_PAGE_CONSISTENCY', code: 'nav_label_wrong_for_business', severity: 2, detail: text, target: where }); }
           return;
         }
-        if (briefHit(text)) add({ category: where.field === 'purpose' ? 'PAGE_PURPOSE_CLARITY' : 'COPY_SPECIFICITY', code: 'internal_text_on_site', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'clear_text', where } });
+        const listingClaim = require('./editorial').sanitizeListingClaim(text, g);
+        if (listingClaim) add({ category: 'BUSINESS_TRUTHFULNESS', code: 'unsupported_listing_claim', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'set_text', where, value: listingClaim } });
+        else if (briefHit(text)) add({ category: where.field === 'purpose' ? 'PAGE_PURPOSE_CLARITY' : 'COPY_SPECIFICITY', code: 'internal_text_on_site', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'clear_text', where } });
         else if (FAKE_PROOF.some(re => re.test(text))) add({ category: 'INVENTED_TRUST_SIGNALS', code: 'invented_proof_phrase', severity: 3, detail: text.slice(0, 90), target: where, repair: { kind: 'clear_text', where } });
         else { const fw = forbiddenHit(text, g); if (fw) add({ category: 'WRONG_BUSINESS_CONCEPTS', code: 'wrong_business_word', severity: 3, detail: `"${fw}" in: ${text.slice(0, 80)}`, target: where, repair: { kind: 'clear_text', where } }); else if (GENERIC.some(re => re.test(text))) add({ category: 'COPY_SPECIFICITY', code: 'generic_copy', severity: 1, detail: text.slice(0, 90), target: where }); }
       });
@@ -2552,6 +2694,7 @@
         else if (r.kind === 'set_hero_variant') { d.design = d.design || {}; d.design.dimensions = Object.assign({}, d.design.dimensions, { hero: r.value }); delete d.design.dimensions.heroDisplayVariant; changes.push({ code: x.code, kind: r.kind, target: 'hero', category: x.category }); }
         else if (r.kind === 'enable_starter') { d.design = d.design || {}; d.design.premium = Object.assign({}, d.design.premium, { vs: 1 }); (d.imagePlan || []).forEach(e => { if (e.sourceType === 'designed' && /^(hero|product|about|gallery-featured|editorial)/.test(e.slot || '')) e.starter = true; }); changes.push({ code: x.code, kind: r.kind, target: 'starter', category: x.category }); }
         else if (r.kind === 'add_product_visual') { if (addProductVisual(d, g)) changes.push({ code: x.code, kind: r.kind, target: 'product', category: x.category }); }
+        else if (r.kind === 'set_process_variant' && r.where) { for (const p of (d.pages || [])) { const s = (p.sections || []).find(x => x.id === r.where.id); if (s) { s.imageDisplayVariant = r.value; changes.push({ code: x.code, kind: r.kind, target: r.where.id, category: x.category }); break; } } }
         else if (r.kind === 'set_archetype') { d.strategy = Object.assign({}, d.strategy, { archetype: r.value }); changes.push({ code: x.code, kind: r.kind, target: 'archetype', category: x.category }); }
         else if (r.kind === 'enrich_page') { if (enrichPage(d, r.slug, r.role, g)) changes.push({ code: x.code, kind: r.kind, target: r.slug, category: x.category }); }
         else if (r.kind === 'rewrite_image_prompt') { const e = (d.imagePlan || []).find(z => z.slot === r.slot); if (e) { e.promptNeedsRewrite = true; changes.push({ code: x.code, kind: r.kind, target: r.slot, category: x.category, note: 'flagged; image already generated' }); } }
@@ -2578,6 +2721,10 @@
       'INVENTED_TRUST_SIGNALS: testimonials, ratings, awards, years, guarantees, "verified" claims, customer counts?',
       'WRONG_BUSINESS_CONCEPTS: words or sections from a different kind of business (menu/reserve/guest on a store, plan tiers on a store, shop language on software)?',
       'PAGE_PURPOSE_CLARITY: is each page\'s purpose clear to a customer?',
+      'PREMIUM_FEEL: does the whole site feel like a finished, paid-for website, or like "good generated layout"? Consider polish, consistency and restraint together, not any one section alone.',
+      'HERO_QUALITY: is the hero image (if any) sharp, well-composed, on-subject and premium-looking, not generic stock or distorted? If the hero has no real visual anchor at all on a photo-led business, say so.',
+      'VISUAL_COLLISIONS: does any process/step/timeline row, numbered sequence or icon label visually overlap or crowd its neighbour?',
+      'BUSINESS_TRUTHFULNESS: does any copy imply real inventory, listings, sales results, named clients or credentials that were not supplied? A generated photo must never be described as an actual listing, sold property or real client\'s home.',
     ];
     const CRITIC_TOOL = {
       name: 'report_semantic_defects', description: 'Report up to 10 concrete defects across the WHOLE site, most important first. Empty list if none. Fix text must be customer-ready and must not invent facts.',
@@ -2852,6 +2999,10 @@
       portfolio: { id: 'portfolio', label: 'Portfolio / creative', density: 'low', deterministicFirst: false, heroVariants: ['collage', 'fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'collage',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'portfolio-frames', treatment: 'image-dominant, project-first, minimal chrome' },
+      realestate: { id: 'realestate', label: 'Real estate', density: 'medium', deterministicFirst: false, photoLed: true,
+        heroVariants: ['fullbleed-image', 'split', 'asymmetric-offset', 'editorial-rail'], heroVariant: 'fullbleed-image',
+        media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
+        fallbackKind: 'realestate-scene', treatment: 'editorial real-estate photography: property/skyline hero, neighbourhood streetscape, interior lifestyle' },
       wellness: { id: 'wellness', label: 'Wellness / yoga / recovery', density: 'low', deterministicFirst: false, photoLed: true, heroVariants: ['fullbleed-image', 'editorial-rail', 'asymmetric-offset'], heroVariant: 'fullbleed-image',
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'PHOTO', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'wellness-scene', treatment: 'calm editorial photography: studio, movement, recovery, atmosphere' },
@@ -2862,7 +3013,7 @@
         media: { hero: 'PHOTO', product: 'PHOTO', editorial: 'PHOTO', about: 'ABSTRACT_GRAPHIC', gallery: 'PHOTO', team: 'ABSTRACT_GRAPHIC', service: 'PHOTO', decorative: 'ABSTRACT_GRAPHIC' },
         fallbackKind: 'brand-mark', treatment: 'clean brand imagery' },
     };
-    const FAMILY_PROFILE = { wellness: 'wellness', saas: 'tech', retail: 'retail', hospitality: 'hospitality', local_service: 'trades', appointments: 'trades', professional: 'consultancy', creative: 'portfolio', nonprofit: 'cause' };
+    const FAMILY_PROFILE = { wellness: 'wellness', realestate: 'realestate', saas: 'tech', retail: 'retail', hospitality: 'hospitality', local_service: 'trades', appointments: 'trades', professional: 'consultancy', creative: 'portfolio', nonprofit: 'cause' };
 
     // ---- product concept (what to draw for a software product) -----------------------------------------------------------------
     // Detected from the customer's words only. Labels are generic verbs / the customer's own nouns; never data.
@@ -3034,6 +3185,15 @@
     function portfolioFrames() {
       return svg(`<rect class="sv-bg" width="${W}" height="${H}"/>` + r(70, 60, 250, 190, 'sv-card', 6) + r(90, 80, 210, 150, 'sv-accent', 4) + r(300, 130, 250, 190, 'sv-card-hi', 6) + r(320, 150, 210, 150, 'sv-bar', 4) + r(190, 240, 150, 110, 'sv-panel', 6) + r(206, 256, 118, 78, 'sv-bar-dim', 4), null, 'Selected work');
     }
+    function realestateScene(seed) {
+      const R2 = rnd(seed); const bh = [70, 110, 90, 130, 75, 100].map(h => h + R2() * 30);
+      let bx = 40; const bars = bh.map((h, i) => { const w = 46 + (i % 3) * 10; const x = bx; bx += w + 8; return { x, w, h }; });
+      return svg(glow() + '<rect class="sv-bg" width="' + W + '" height="' + H + '"/>' +
+        bars.map(b => r(b.x, 300 - b.h, b.w, b.h, 'sv-panel', 3)).join('') +
+        bars.map(b => r(b.x + 8, 300 - b.h + 14, b.w - 16, 10, 'sv-accent', 2)).join('') +
+        '<rect class="sv-soft" x="0" y="296" width="' + W + '" height="6"/>' +
+        '<path class="sv-line" d="M0 300 L' + W + ' 300" fill="none"/>', null, 'City skyline concept');
+    }
     function wellnessScene() {
       return svg(`<defs><radialGradient id="svg-w${U}" cx="50%" cy="55%" r="60%"><stop offset="0" class="sv-stop-a"/><stop offset="1" class="sv-stop-0"/></radialGradient></defs><rect class="sv-bg" width="${W}" height="${H}"/><rect fill="url(#svg-w${U})" width="${W}" height="${H}"/>` +
         `<circle class="sv-soft" cx="320" cy="170" r="110"/><path class="sv-path" d="M60 300 Q 200 250 320 300 T 580 300" fill="none"/><path class="sv-line" d="M40 330 Q 200 290 320 330 T 600 330" fill="none"/>` +
@@ -3045,6 +3205,7 @@
     }
 
     const KIND_BUILDERS = {
+      'realestate-scene': (c, s) => realestateScene(s),
       'wellness-scene': () => wellnessScene(),
       'ui-stack': (c, s) => uiStack(c, s),
       'ui-dashboard': (c, s) => uiDashboard(c, s), 'ui-workflow': c => uiWorkflow(c), 'ui-command': c => uiCommand(c), 'ui-canvas': c => uiCanvas(c),

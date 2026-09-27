@@ -53,5 +53,10 @@
     "id": "wellness",
     "label": "Health & wellness studio (yoga + recovery)",
     "text": "A wellness studio in Los Angeles offering yoga and recovery therapy"
+  },
+  {
+    "id": "realestate",
+    "label": "Real estate (buyers + sellers, downtown)",
+    "text": "Residential real estate team focused on downtown Toronto, helping buyers and sellers with condos and houses."
   }
 ]

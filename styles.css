@@ -1896,6 +1896,12 @@ html,body{max-width:100%;overflow-x:hidden}
    below (alternating/vertical-editorial/large-number are already vertical
    by design, so they need no such collapse). */
 .process-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px}
+/* PREMIUM_GENERATION_V7: a grid item's default min-width is 'auto' (its own content's min-content size), so a long
+   grounded label ("Walk a prospective buyer through...") or a single long word can force the item wider than its
+   1fr share and bleed into the next column -- exactly a "number/label overlaps the next step" collision. min-width:0
+   lets the item shrink to the track and word-break lets a long label wrap instead of forcing the column wider. */
+.process-flow>*{min-width:0}
+.process-flow-numbered .process-flow-step strong,.process-flow-icons .process-flow-step strong{overflow-wrap:anywhere;word-break:break-word}
 /* numbered-horizontal: a connector line running behind the row, numbered
    circles sitting on top of it -- a real "track", not a bare grid. */
 .process-flow-numbered{position:relative;padding-top:6px}
@@ -2541,3 +2547,5 @@ body.generation-gate-open{overflow:hidden}
 .builder-site[data-premium="1"] .site-section-faq .faq-item p{margin:8px 0 0;font-size:var(--site-body-size,17px);line-height:1.6;color:color-mix(in srgb,var(--site-text) 74%,transparent);max-width:60ch}
 .builder-site[data-premium="1"] .process-editorial-row strong,.builder-site[data-premium="1"] .process-large-row strong{font-size:clamp(18px,2vw,24px)}
 .builder-site[data-premium="1"] .site-section-faq .faq-item,.builder-site[data-premium="1"] .site-section-faq .faq-item *{text-align:left}
+.site-services-cards,.features-grid,.menu-groups,.testimonials-grid,.team-grid{min-width:0}
+.site-services-cards>*,.features-grid>*,.menu-groups>*,.testimonials-grid>*,.team-grid>*{min-width:0;overflow-wrap:anywhere}

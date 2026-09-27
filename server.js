@@ -2333,7 +2333,7 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
       visualBrief: out.visualBrief || null,
       removedPages: (direction.pages || []).map(p => p.id || p.slug).filter(id => !(d.pages || []).some(p => (p.id || p.slug) === id)),
       copy: d.copy || null,
-      sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, copy: s.copy || null }))),
+      sections: (d.pages || []).flatMap(p => (p.sections || []).map(s => ({ pageId: p.id || p.slug, id: s.id, type: s.type, variant: s.variant, imageDisplayVariant: s.imageDisplayVariant || null, copy: s.copy || null }))),
       addedSections: [...new Set(out.actions.filter(a => a.sectionId).map(a => a.sectionId).concat(semAdded))],
       removedSections: [...new Set(out.actions.filter(a => a.kind === 'remove_section').flatMap(a => a.targetIds || [a.targetId]).concat(semRemoved))],
       imagePlan: (d.imagePlan || []).map(e => ({ slot: e.slot, sourceType: e.sourceType, focal: e.focal || null, fallbackReason: e.fallbackReason || null })),

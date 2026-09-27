@@ -113,7 +113,7 @@ const categories = {
   hospitality:  { label:'Food & Hospitality',        kicker:'FOOD & HOSPITALITY',     headline:'Made to be experienced.',                  sub:'A menu and a room worth showing off before anyone walks in the door.', services:['Menu','Catering','Reservations'], cta:'View Menu', noun:'experience' },
   creative:     { label:'Creative Studio',           kicker:'CREATIVE STUDIO',        headline:'Work that speaks first.',                  sub:'A portfolio built to let the work do the talking.', services:['Portfolio','Process','Collaborations'], cta:'See Our Work', noun:'work' },
   fitness:      { label:'Fitness',                   kicker:'FITNESS',                headline:'Progress you can see.',                    sub:'A site that makes it easy to show up for the first session.', services:['Programs','Coaching','Schedule'], cta:'Join Now', noun:'coaching' },
-  realestate:   { label:'Real Estate',               kicker:'REAL ESTATE',           headline:'Find the right place.',                    sub:'Listings and a story about how you work, presented properly.', services:['Listings','Buyers','Sellers'], cta:'View Listings', noun:'listings' },
+  realestate:   { label:'Real Estate',               kicker:'REAL ESTATE',           headline:'Find the right place.',                    sub:'Guidance for buyers and sellers, presented properly.', services:['Buying','Selling','Neighbourhoods'], cta:'Contact an Agent', noun:'home search' },
   wellness:     { label:'Health & Wellness',         kicker:'HEALTH & WELLNESS',      headline:'Feel better, starting here.',              sub:'A calm, trustworthy front door for people looking after themselves.', services:['Treatments','Booking','About'], cta:'Book Now', noun:'care' },
   retail:       { label:'Retail',                    kicker:'RETAIL',                 headline:'Products worth stopping for.',             sub:'A storefront that makes browsing feel as good as buying, online or in person.', services:['New Arrivals','Best Sellers','In-Store'], cta:'Shop Now', noun:'products' },
   nonprofit:    { label:'Community & Nonprofit',     kicker:'COMMUNITY',             headline:'Doing the work that matters.',             sub:'A site built to explain the mission and make it easy to help.', services:['Mission','Get Involved','Impact'], cta:'Get Involved', noun:'work' },
@@ -1985,8 +1985,9 @@ function attachPremiumDesign(proj, generationId) {
     applyVisualProfile(proj);
   } catch (e) { /* the legacy design stays as-is */ }
 }
-function premiumDirectionPayload(proj, mobileReport) {
+function premiumDirectionPayload(proj, mobileReport, processReport) {
   const d = JSON.parse(JSON.stringify(proj, (k, v) => (k === 'dataUrl' ? undefined : v))); // never ship image bytes for a review
+  d.processReport = processReport || null;
   d.imagePlan = (proj.imagePlan || []).map(e => ({ section: e.section, sectionType: e.sectionType, slot: e.slot, sourceType: e.sourceType, aspectRatio: e.aspectRatio, cacheKey: e.cacheKey, kind: e.kind, routeKind: e.model && premiumStatus() && e.model === premiumStatus().cfg.models.imagePremium ? 'premium' : 'support', model: e.model, quality: e.quality, tier: e.tier, focal: e.focal ? { objectPosition: e.focal } : null, prompt: e.prompt, promptAlt: e.promptAlt, role: e.role || e.premiumRole, starter: !!e.starter, mediaType: e.mediaType || null }));
   d.mobileReport = mobileReport || null;
   return d;
@@ -2006,6 +2007,7 @@ function applyPremiumPatch(proj, patch) {
     }
     if (!s) return;
     if (ps.variant && ps.variant !== s.variant) { s.variant = ps.variant; changed = true; }
+    if (ps.imageDisplayVariant && ps.imageDisplayVariant !== s.imageDisplayVariant) { s.imageDisplayVariant = ps.imageDisplayVariant; changed = true; }
     if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
   });
   (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
@@ -2065,11 +2067,13 @@ async function premiumPreReveal(proj) {
     await resolveImagePlanAssets(proj, () => {}, { suppressRender: true });
     renderProject(proj);
     const mobile = window.SiteRemadePremium.mobile.measureMobile(builderSite, [390, 360]);
+    // V7 Part 12: same real-DOM technique, but checking process/step rows for overlap at desktop/tablet/mobile widths.
+    const processReport = window.SiteRemadePremium.mobile.measureProcessCollisions(builderSite, [1300, 820, 390]);
     const category = categories[proj.business.categoryKey] || categories.other;
     const strategy = premiumStrategyFor(proj, category);
     const payload = {
       generationId: proj.design.premium.generationId, projectId: proj.meta && proj.meta.id, description: (proj.source && proj.source.text) || '',
-      facts: (proj.source && proj.source.facts) || {}, archetype: strategy.archetype, categoryKey: strategy.categoryKey, direction: premiumDirectionPayload(proj, mobile),
+      facts: (proj.source && proj.source.facts) || {}, archetype: strategy.archetype, categoryKey: strategy.categoryKey, direction: premiumDirectionPayload(proj, mobile, processReport),
       vision: premiumGroundingOn() ? await premiumVisionThumbs(proj) : [],
     };
     const body = JSON.stringify(payload);
@@ -3099,7 +3103,7 @@ const CATEGORY_SECTION_CTA = {
   hospitality: { ctaBanner: 'Explore the Menu', pricing: 'View the Menu', reservationCta: 'Reserve a Table', contact: 'Private Dining' },
   creative: { ctaBanner: 'View the Portfolio', pricing: 'View Packages', reservationCta: 'Check Availability', contact: 'Inquire About Your Project' },
   fitness: { ctaBanner: 'View Class Schedule', pricing: 'View Membership Plans', reservationCta: 'Book a Class', contact: 'Get in Touch' },
-  realestate: { ctaBanner: 'Browse Listings', pricing: 'View Listings', reservationCta: 'Schedule a Showing', contact: 'Contact an Agent' },
+  realestate: { ctaBanner: 'Contact an Agent', pricing: 'Contact an Agent', reservationCta: 'Schedule a Showing', contact: 'Contact an Agent' },
   wellness: { ctaBanner: 'Explore Treatments', pricing: 'View Pricing', reservationCta: 'Book an Appointment', contact: 'Get in Touch' },
   retail: { ctaBanner: 'Shop New Arrivals', pricing: 'Shop Now', reservationCta: 'Shop Now', contact: 'Contact Us' },
   nonprofit: { ctaBanner: 'See Our Impact', pricing: 'Ways to Give', reservationCta: 'Get Involved', contact: 'Contact Us' },
@@ -3353,7 +3357,7 @@ function renderProcess(project, category, section) {
   const intro = sectionCopyField(section, 'body', '');
   const packSteps = editorialItems(section);
   const steps = packSteps ? packSteps.map(x => x.title) : vocab.processSteps;
-  const variant = processVariantForArchetype(project);
+  const variant = (section && section.imageDisplayVariant) || processVariantForArchetype(project); // V7: a collision repair can force a safe (already-vertical) variant
   return `<div class="site-section site-section-process" data-variant="${variant}">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
     ${renderProcessSteps(project, steps, variant)}

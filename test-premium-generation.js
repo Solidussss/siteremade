@@ -1059,6 +1059,122 @@ const sample = () => ({
     assert.strictEqual(P.loadConfig({ PREMIUM_PHOTO_LED_V6: 'true' }).photoLedV6, false);
   });
 
+  console.log('PREMIUM_GENERATION_V7');
+  const RE = 'Residential real estate team focused on downtown Toronto, helping buyers and sellers with condos and houses.';
+  const gRE = () => P.grounding.deriveGrounding({ description: RE, categoryKey: 'realestate', archetype: 'trust-heavy-professional', location: 'Toronto' });
+  await t('grounding: real estate is its own photo-led family (was silently folded into "professional")', () => {
+    const g = gRE();
+    assert.strictEqual(g.family, 'realestate');
+    assert.strictEqual(g.primaryCTA, 'Contact an Agent'); // never implies live inventory
+    assert.ok(/skyline|home exterior/.test(g.imagerySubjects.hero));
+    assert.ok(P.editorial.isPhotoLed(g, RE));
+    assert.strictEqual(P.visuals.profileFromGrounding(g).id, 'realestate');
+    assert.ok(P.visuals.PROFILES.realestate.photoLed);
+    assert.ok(g.unsupportedFacts.some(x => /listing|inventory/i.test(x)));
+  });
+  await t('root cause (V7 Part 2): before this fix, real estate had NO hero-image guarantee and NO photo-led page plan', () => {
+    // family 'professional' (the old mapping) is not photo-led -- only personal-brand wording flips it -- so a plain
+    // "residential real estate TEAM" description never triggered photography, and 'professional' profile heroVariants
+    // include the text-only 'poster' layout, which plans zero image slots at all (renderHero never calls renderVisualSlot).
+    const gOld = P.grounding.deriveGrounding({ description: RE, categoryKey: 'professional', archetype: 'trust-heavy-professional', location: 'Toronto' });
+    assert.strictEqual(gOld.family, 'professional'); assert.ok(!P.editorial.isPhotoLed(gOld, RE));
+    assert.ok(P.visuals.PROFILES.consultancy.heroVariants.includes('poster'));
+  });
+  await t('hero families: real estate never keeps a text-only hero (poster/minimal/centered-oversized are not offered)', () => {
+    const V = P.visuals;
+    assert.deepStrictEqual(V.PROFILES.realestate.heroVariants.filter(h => ['poster', 'minimal-text-only', 'centered-oversized'].includes(h)), []);
+    assert.strictEqual(V.chooseHero(V.PROFILES.realestate, 'poster'), 'fullbleed-image');
+    assert.strictEqual(V.chooseHero(V.PROFILES.realestate, 'split'), 'split');
+  });
+  await t('shot list: real estate has >=4 photographs (hero, neighbourhood, buyer lifestyle, seller interior); starter fallback is a skyline, not a random mark', () => {
+    const g = gRE(); const shots = P.editorial.shotList(g);
+    assert.ok(shots.length >= 4); ['hero', 'neighborhood', 'buyerLifestyle', 'sellerInterior'].forEach(id => assert.ok(shots.some(s => s.id === id), id));
+    shots.forEach(s => assert.ok(!/people|address|signage/i.test(s.brief) || /no /i.test(s.brief), s.id));
+    const p = { source: { text: RE }, business: { categoryKey: 'realestate', name: 'Core Realty' }, strategy: { archetype: 'trust-heavy-professional' }, design: { premium: { vs: 1 } } };
+    assert.strictEqual(P.visuals.starterHtml(p, 'hero').match(/data-starter="([^"]+)"/)[1], 'realestate-scene');
+  });
+  await t('listing truthfulness: "current/active/available/our/exclusive listings" is rewritten to a safe framing; "listing process" and normal copy are untouched', () => {
+    const g = gRE();
+    assert.strictEqual(P.editorial.sanitizeListingClaim('Current listings in the core', g), 'Areas we specialize in');
+    assert.strictEqual(P.editorial.sanitizeListingClaim('Browse available listings now', g), 'What we help buyers find');
+    assert.strictEqual(P.editorial.sanitizeListingClaim('Our listing process is simple', g), null);
+    assert.strictEqual(P.editorial.sanitizeListingClaim('A calm approach to buying and selling', g), null);
+    assert.strictEqual(P.editorial.sanitizeListingClaim('Current listings', P.grounding.deriveGrounding({ description: 'x', categoryKey: 'wellness', archetype: 'local-conversion' })), null, 'only applies to the realestate family');
+  });
+  await t('planner-copy sanitizer (Part 11): the exact reported leak is hard-blocked, and normal first-person copy is not', () => {
+    const E = P.editorial;
+    assert.ok(E.looksLikeInstruction('Walk a prospective buyer through how the team helps them find and win a property downtown.'));
+    assert.ok(E.looksLikeInstruction('Make the cost clear before they ask.'));
+    assert.ok(!E.looksLikeInstruction('We walk every buyer through financing, tours and offers.'));
+    assert.ok(!E.looksLikeInstruction('Straightforward guidance from search to close.'));
+  });
+  const reSite = () => ({ source: { text: RE, location: 'Toronto' }, business: { categoryKey: 'realestate', name: 'Core Realty' }, strategy: { archetype: 'trust-heavy-professional' },
+    design: { premium: { vs: 1 }, dimensions: { hero: 'poster' } }, copy: { headline: 'Find the right place.', sub: 'x', cta: 'Contact an Agent' },
+    pages: [
+      { id: 'h', slug: '', label: 'Home', purpose: 'Orient the visitor and make the case for why this business is worth their attention.', sections: [{ id: 'a', type: 'about', copy: {} }, { id: 's', type: 'services', copy: {} }, { id: 'f', type: 'faq', copy: {} }, { id: 'c', type: 'ctaBanner', copy: { headline: 'Current listings in the core' } }] },
+      { id: 'l', slug: 'listings', label: 'Listings', purpose: 'Walk a prospective buyer through how the team helps them find and win a property downtown.', sections: [{ id: 's2', type: 'services', copy: {} }] },
+      { id: 'ab', slug: 'about', label: 'About', purpose: 'Establish who is behind the business and why they can be trusted.', sections: [{ id: 'a2', type: 'about', copy: {} }] },
+      { id: 'ct', slug: 'contact', label: 'Contact', purpose: 'Remove friction and make starting easy.', sections: [{ id: 'c2', type: 'contact', copy: {} }] }] });
+  await t('secondary-page composition (Parts 14/15): Listings/About are renamed to Buyers/Sellers with their own process and a real visual each; no invented listing claim survives', () => {
+    const out = P.editorial.planLayout(reSite(), gRE(), RE).direction;
+    assert.deepStrictEqual(out.pages.map(p => p.label), ['Home', 'Buyers', 'Sellers', 'Contact']);
+    const buyerProc = P.editorial.itemsOf(out.pages[1].sections.find(s => s.type === 'process'));
+    const sellerProc = P.editorial.itemsOf(out.pages[2].sections.find(s => s.type === 'process'));
+    assert.notDeepStrictEqual(buyerProc.map(x => x.title), sellerProc.map(x => x.title), 'buyer and seller flows are grounded and different');
+    assert.ok(/search/i.test(buyerProc[0].title) && /pric|review/i.test(sellerProc.map(x => x.title).join(' ')));
+    out.pages.forEach(p => assert.ok(!P.editorial.looksLikeInstruction(p.purpose || ''), p.label + ': ' + p.purpose));
+    const home = out.pages[0]; const feats = home.sections.filter(s => s.type === 'editorialFeature');
+    assert.ok(feats.length >= 3 && feats.every(f => f.copy.brief));
+    assert.ok(feats.some(f => /neighbourhood/i.test(f.copy.headline)), 'home shows a neighbourhood visual (Part 4)');
+  });
+  await t('image planning: real estate funds a full photo set (hero + neighbourhood + buyer + seller visuals), no gallery-generation block', () => {
+    const g = gRE();
+    const strat = P.strategy.deriveStrategy({ archetype: 'trust-heavy-professional', categoryKey: 'realestate', categoryLabel: 'Real Estate', description: RE, grounding: g, visualsV4: true, location: 'Toronto' });
+    const art = P.art.deriveArtDirection(strat, palette);
+    const shots = P.editorial.shotList(g);
+    const sl = [{ slot: 'hero', role: 'hero', sectionType: 'hero', aspectRatio: '16:9', rank: 0 }].concat(shots.slice(1, 4).map((s, i) => ({ slot: 'f' + i + '::feature', role: 'gallery', sectionType: 'editorialFeature', aspectRatio: '4:5', rank: i + 1, brief: s.brief })));
+    const c = core({ PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true', PREMIUM_PHOTO_LED_V6: 'true' });
+    const gov = new P.BudgetGovernor(c.cfg, new P.CostLedger(c.cfg), 'gen_re1');
+    const r = P.images.allocateImages({ slots: sl, strategy: strat, art, uploads: [], cfg: c.cfg, governor: gov });
+    assert.ok(r.slots.every(s => s.sourceType === 'generated'), JSON.stringify(r.slots.map(s => s.slot + ':' + s.sourceType + ':' + s.reason)));
+    assert.ok(/skyline|home exterior/.test(r.slots[0].prompt));
+    r.slots.forEach(s => assert.ok(P.images.lintImagePrompt(s.prompt).ok, s.slot));
+  });
+  await t('process collision repair: a flagged section is switched to an already-vertical variant (never overlaps again)', () => {
+    const strat = P.strategy.deriveStrategy({ categoryKey: 'realestate', categoryLabel: 'Real Estate', archetype: 'trust-heavy-professional', description: RE });
+    const direction = { copy: {}, activePageIndex: 0, design: { dimensions: { hero: 'split' } },
+      pages: [{ id: 'home', slug: '', sections: [{ id: 'p1', type: 'process', copy: {} }] }],
+      processReport: [{ width: 820, index: 0, kind: 'step_overlap' }] };
+    const review = P.review.reviewDirection(direction, { strategy: strat, premiumEnabled: true, visualsV4: true, description: RE });
+    assert.strictEqual(review.categories.VISUAL_COLLISIONS, 'FAIL');
+    const collide = review.defects.find(d => d.category === 'VISUAL_COLLISIONS');
+    assert.ok(collide && collide.repair && collide.repair.kind === 'set_process_variant' && collide.repair.where.id === 'p1');
+    const out = P.semantic.applyRepairs(direction, [collide], gRE()).direction;
+    assert.strictEqual(out.pages[0].sections[0].imageDisplayVariant, 'alternating');
+    const SR = require('./lib/site-render');
+    const cat = SR.categories.other;
+    const html = SR.renderSectionHTML({ source: {}, business: {}, strategy: {}, design: { dimensions: {} } }, out.pages[0].sections[0], cat);
+    assert.ok(/data-variant="alternating"/.test(html));
+  });
+  await t('rubric: VISUAL_COLLISIONS / PREMIUM_FEEL / HERO_QUALITY / BUSINESS_TRUTHFULNESS exist and are gated NOT_APPLICABLE without V4', () => {
+    ['VISUAL_COLLISIONS', 'PREMIUM_FEEL', 'HERO_QUALITY', 'BUSINESS_TRUTHFULNESS'].forEach(k => assert.ok(P.review.CATEGORIES.includes(k), k));
+    const strat = P.strategy.deriveStrategy({ categoryKey: 'realestate', categoryLabel: 'Real Estate', archetype: 'trust-heavy-professional', description: RE });
+    const off = P.review.reviewDirection({ copy: {}, pages: [{ id: 'h', slug: '', sections: [] }] }, { strategy: strat, premiumEnabled: true, groundingV3: true, description: RE });
+    ['VISUAL_COLLISIONS', 'PREMIUM_FEEL', 'HERO_QUALITY', 'BUSINESS_TRUTHFULNESS'].forEach(k => assert.strictEqual(off.categories[k], 'NOT_APPLICABLE', k));
+  });
+  await t('whole-site critic: sees the new criteria (hero image quality, premium feel, collisions, truthfulness) and can request one image replacement', async () => {
+    const c = core({ PREMIUM_GROUNDING_V3: 'true', PREMIUM_VISUALS_V4: 'true' });
+    const s = c.startSession({ categoryKey: 'realestate', categoryLabel: 'Real Estate', archetype: 'trust-heavy-professional', palette, description: RE });
+    let seenPrompt = '';
+    const site = reSite(); site.imagePlan = [{ slot: 'hero', role: 'hero', sourceType: 'generated', kind: 'photo', model: 'gpt-image-1', quality: 'high', routeKind: 'premium', aspectRatio: '16:9', cacheKey: 'k', prompt: 'a home exterior', promptSimplified: 'a home exterior, simple' }];
+    const out = await s.reviewAndRepair(site, { description: RE, facts: {}, premiumEnabled: true }, {
+      semanticCritic: async p => { seenPrompt = p.user; return { input: { defects: [{ category: 'HERO_QUALITY', code: 'weak_hero', severity: 3, where: 'image', targetId: 'hero', evidence: 'generic stock', fixKind: 'regenerate_image', fixText: 'a well-composed downtown Toronto home exterior at golden hour, no people, no signage' }] }, usage: { inputTokens: 3000, outputTokens: 400 } }; },
+      regenerateImage: async () => ({ ok: true, dataUrl: PNG_PHOTO }),
+    });
+    assert.ok(/PREMIUM_FEEL|HERO_QUALITY|VISUAL_COLLISIONS|BUSINESS_TRUTHFULNESS/.test(seenPrompt));
+    assert.ok(out.semantic.regenerated.includes('hero'));
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();
