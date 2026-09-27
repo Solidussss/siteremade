@@ -2627,3 +2627,188 @@ body.generation-gate-open{overflow:hidden}
 /* Part 7: activated surface textures on a real section (not just the hero) -- same texture classes V1 defined,
    scoped here to whichever element actually carries the attribute (a .site-section-feature in practice). */
 .site-section-feature[data-surface-texture]{border-radius:var(--site-radius,14px)}
+
+/* =====================================================================
+   SITEREMADE MOTION ENGINE V1
+   Additive only -- every rule below is scoped to a NEW attribute
+   (data-reveal/data-stagger/data-hero-motion/data-depth-motion/
+   data-sticky) this pass introduces, or generalises an EXISTING mechanism
+   (.sr-reveal/.sr-revealed, --stagger-step) to more values. Nothing above
+   this block is edited. Every animated property below is transform/
+   opacity/clip-path only (Part 22) -- never width/height/top/left. Every
+   rule here is also covered by the reduced-motion/data-motion="none"
+   overrides at the end of this block (Part 20).
+   ===================================================================== */
+
+/* ---- Reveal vocabulary (Parts 3, 7, 10, 11) --------------------------
+   `.sr-reveal` (existing, unchanged) is the RISE default -- these
+   `[data-reveal]` variants override its transform/transition for a
+   section that asked for something else. FADE/NONE are strictly
+   quieter than the default and so need no override of their own transform
+   beyond what's written here; SLIDE/SCALE/MASK are genuinely different
+   treatments. */
+.sr-reveal[data-reveal="FADE"]{transform:none}
+.sr-reveal[data-reveal="NONE"]{opacity:1;transform:none;transition:none}
+.sr-reveal[data-reveal="SLIDE"]{transform:translateX(calc(var(--reveal-y) * 1.6))}
+.sr-reveal[data-reveal="SLIDE"].sr-revealed{transform:none}
+.sr-reveal[data-reveal="SCALE"]{transform:scale(.96)}
+.sr-reveal[data-reveal="SCALE"].sr-revealed{transform:scale(1)}
+/* MASK (Part 10/11): the section's own text still just fades in place
+   (clipping copy would read as a bug, not a premium effect) -- the wipe
+   is scoped to the section's OWN media element only, so "reveal from
+   crop" reads on the photograph without ever touching the layout. */
+.sr-reveal[data-reveal="MASK"] .feature-visual,
+.sr-reveal[data-reveal="MASK"] .gallery-tile,
+.sr-reveal[data-reveal="MASK"] .site-visual{clip-path:inset(0 100% 0 0);transition:clip-path var(--reveal-dur) cubic-bezier(.2,.8,.2,1)}
+.sr-reveal[data-reveal="MASK"].sr-revealed .feature-visual,
+.sr-reveal[data-reveal="MASK"].sr-revealed .gallery-tile,
+.sr-reveal[data-reveal="MASK"].sr-revealed .site-visual{clip-path:inset(0 0 0 0)}
+
+/* ---- Stagger, generalised (Part 8) ------------------------------------
+   Exactly the same delay ladder already built for `.process-flow>*`,
+   applied to ANY container the motion engine marked `[data-stagger]`
+   (card grids, stats, logo lists, media clusters) -- capped at 6 real
+   steps; anything past the 6th shares the 6th's own delay rather than
+   queuing indefinitely (Part 8's explicit "not 20 elements one by one"). */
+.sr-reveal[data-stagger]>*{opacity:0;transform:translateY(8px);transition:opacity .4s ease,transform .4s ease}
+.sr-reveal.sr-revealed[data-stagger]>*{opacity:1;transform:none}
+.sr-reveal.sr-revealed[data-stagger]>*:nth-child(2){transition-delay:calc(var(--stagger-step) * 1)}
+.sr-reveal.sr-revealed[data-stagger]>*:nth-child(3){transition-delay:calc(var(--stagger-step) * 2)}
+.sr-reveal.sr-revealed[data-stagger]>*:nth-child(4){transition-delay:calc(var(--stagger-step) * 3)}
+.sr-reveal.sr-revealed[data-stagger]>*:nth-child(5){transition-delay:calc(var(--stagger-step) * 4)}
+.sr-reveal.sr-revealed[data-stagger]>*:nth-child(n+6){transition-delay:calc(var(--stagger-step) * 5)}
+
+/* ---- Hero motion (Part 6) ----------------------------------------------
+   One entrance treatment per hero-motion pattern, always GPU-safe
+   (transform/opacity). A CONTINUOUS loop (the "slow float/drift" the
+   brief asks for) only ever runs at MODERATE/EXPRESSIVE -- Part 4's own
+   point that visual intensity and motion intensity are independent axes
+   means a SUBTLE business gets the one-shot entrance and stops there. */
+.site-hero[data-hero-motion]{--hero-in-dur:1.1s}
+.site-hero[data-hero-motion] .hero-stage-object,
+.site-hero[data-hero-motion] .hero-quiet-visual,
+.site-hero[data-hero-motion] .hero-fullbleed-media,
+.site-hero[data-hero-motion] .hero-product-frame,
+.site-hero[data-hero-motion] .hero-editorial-visual,
+.site-hero[data-hero-motion] .site-visual{opacity:0;transform:scale(.97);transition:opacity var(--hero-in-dur) cubic-bezier(.2,.8,.2,1),transform var(--hero-in-dur) cubic-bezier(.2,.8,.2,1)}
+.site-hero[data-hero-motion].sr-revealed .hero-stage-object,
+.site-hero[data-hero-motion].sr-revealed .hero-quiet-visual,
+.site-hero[data-hero-motion].sr-revealed .hero-fullbleed-media,
+.site-hero[data-hero-motion].sr-revealed .hero-product-frame,
+.site-hero[data-hero-motion].sr-revealed .hero-editorial-visual,
+.site-hero[data-hero-motion].sr-revealed .site-visual{opacity:1;transform:none}
+/* Copy reveals a beat after the media (Part 6: "text reveal separate from
+   object") -- never the reverse, so the media always reads as the lead. */
+.site-hero[data-hero-motion] .hero-stage-headline,.site-hero[data-hero-motion] .hero-stage-sub,
+.site-hero[data-hero-motion] .hero-quiet-headline,.site-hero[data-hero-motion] .hero-quiet-sub,
+.site-hero[data-hero-motion] .hero-fullbleed-copy,.site-hero[data-hero-motion] .site-copy{opacity:0;transform:translateY(10px);transition:opacity .8s ease .15s,transform .8s ease .15s}
+.site-hero[data-hero-motion].sr-revealed .hero-stage-headline,.site-hero[data-hero-motion].sr-revealed .hero-stage-sub,
+.site-hero[data-hero-motion].sr-revealed .hero-quiet-headline,.site-hero[data-hero-motion].sr-revealed .hero-quiet-sub,
+.site-hero[data-hero-motion].sr-revealed .hero-fullbleed-copy,.site-hero[data-hero-motion].sr-revealed .site-copy{opacity:1;transform:none}
+
+/* STAGE_REVEAL (PRODUCT_STAGE): rings drift slowly; object gets a tiny
+   continuous float. Ring drift is the "background object drift" Part 6/12
+   ask for -- never a bounce, never a spin. */
+@keyframes heroStageRingDrift{0%,100%{transform:rotate(0deg) scale(1)}50%{transform:rotate(3deg) scale(1.03)}}
+@keyframes heroStageFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.site-hero[data-hero-motion="STAGE_REVEAL"][data-motion-intensity="MODERATE"].sr-revealed .hero-stage-ring,
+.site-hero[data-hero-motion="STAGE_REVEAL"][data-motion-intensity="EXPRESSIVE"].sr-revealed .hero-stage-ring{animation:heroStageRingDrift 9s ease-in-out infinite}
+.site-hero[data-hero-motion="STAGE_REVEAL"][data-motion-intensity="EXPRESSIVE"].sr-revealed .hero-stage-object{animation:heroStageFloat 7s ease-in-out infinite}
+
+/* FLOAT (FLOATING_MEDIA/COLLAGE): staggered depth entrance, back-to-front
+   (Part 6: "staggered card entry, slight parallax between layers"); a
+   continuous drift only at EXPRESSIVE, each layer on its own phase so the
+   stack never moves as one rigid block. */
+.site-hero[data-hero-motion="FLOAT"] .hero-float-card,.site-hero[data-hero-motion="FLOAT"] .collage-card{opacity:0;transform:translateY(16px) scale(.97);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+.site-hero[data-hero-motion="FLOAT"].sr-revealed .hero-float-card,.site-hero[data-hero-motion="FLOAT"].sr-revealed .collage-card{opacity:1;transform:none}
+.site-hero[data-hero-motion="FLOAT"].sr-revealed .hero-float-card-mid,.site-hero[data-hero-motion="FLOAT"].sr-revealed .collage-card-2{transition-delay:.12s}
+.site-hero[data-hero-motion="FLOAT"].sr-revealed .hero-float-card-front{transition-delay:.24s}
+@keyframes heroFloatDriftA{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes heroFloatDriftB{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+.site-hero[data-hero-motion="FLOAT"][data-motion-intensity="EXPRESSIVE"].sr-revealed .hero-float-card-back{animation:heroFloatDriftB 8s ease-in-out infinite}
+.site-hero[data-hero-motion="FLOAT"][data-motion-intensity="EXPRESSIVE"].sr-revealed .hero-float-card-front{animation:heroFloatDriftA 6.5s ease-in-out infinite}
+
+/* PARALLAX (FULL_BLEED_CINEMATIC): a slow, controlled Ken-Burns scale on
+   the image itself -- "slow image scale or controlled pan" (Part 6),
+   never a hard zoom. Runs continuously at MODERATE+ only; SUBTLE keeps
+   just the shared entrance fade above. */
+@keyframes heroCinematicScale{0%{transform:scale(1.06)}100%{transform:scale(1.14)}}
+.site-hero[data-hero-motion="PARALLAX"][data-motion-intensity="MODERATE"] .hero-fullbleed-media .site-visual-img,
+.site-hero[data-hero-motion="PARALLAX"][data-motion-intensity="EXPRESSIVE"] .hero-fullbleed-media .site-visual-img{animation:heroCinematicScale 18s ease-out infinite alternate}
+
+/* EDITORIAL_REVEAL (EDITORIAL_SPLIT/FRAME_WITHIN_FRAME): the image leads,
+   the copy offsets slightly against it (Part 6: "restrained text offset,
+   subtle opposing motion") -- both already covered by the shared entrance
+   rule above; this adds only the "opposing" horizontal nuance. */
+.site-hero[data-hero-motion="EDITORIAL_REVEAL"] .site-copy,.site-hero[data-hero-motion="EDITORIAL_REVEAL"] .hero-editorial-copy{transform:translateY(10px) translateX(-6px)}
+.site-hero[data-hero-motion="EDITORIAL_REVEAL"].sr-revealed .site-copy,.site-hero[data-hero-motion="EDITORIAL_REVEAL"].sr-revealed .hero-editorial-copy{transform:none}
+
+/* ---- Depth motion / restrained parallax (Part 9) ----------------------
+   PARALLAX is the only depth-motion level driven by scroll position (a
+   single shared, passive scroll listener updates --parallax-y only for
+   whatever is currently in view -- see SITE_RUNTIME_JS/initSiteMotion);
+   SUBTLE/LAYERED keep Visual Engine's existing STATIC box-shadow depth and
+   add no scroll-linked transform of their own. Never applied to a form,
+   FAQ or dense text block (depthForSection already refuses those a depth
+   value at all, so the attribute is simply absent there). */
+[data-depth-motion="PARALLAX"]{transform:translateY(var(--parallax-y,0px))}
+@media (max-width:640px){[data-depth-motion="PARALLAX"]{transform:none!important}}
+
+/* ---- Sticky / pinned-light feature (Part 15) --------------------------
+   At most one per page (editorial.js's own pickStickySection guarantees
+   this structurally); the media column holds while its own copy scrolls
+   past it. Reverts to the normal stacked flow below tablet width (Part 21:
+   "no 500vh nonsense", "mobile: normal stacked flow"). */
+@media (min-width:900px){
+  .site-section-feature[data-sticky="LIGHT"]{align-items:flex-start}
+  .site-section-feature[data-sticky="LIGHT"] .feature-visual{position:sticky;top:32px;align-self:start}
+}
+
+/* ---- Header motion (Part 18) ------------------------------------------
+   Wired onto the EXISTING `data-nav="minimal-until-scroll"` style choice,
+   which until this pass was a purely static, always-transparent look with
+   no scroll behaviour behind its own name. A shared scroll listener (see
+   SITE_RUNTIME_JS/initSiteMotion) toggles `data-nav-scrolled` past a small
+   threshold; every other nav style is untouched. */
+.builder-site[data-nav="minimal-until-scroll"] .site-nav{transition:background-color .3s ease,border-color .3s ease,backdrop-filter .3s ease}
+.builder-site[data-nav="minimal-until-scroll"] .site-nav[data-nav-scrolled="1"]{background:color-mix(in srgb,var(--site-bg) 92%,transparent)!important;border-bottom-color:color-mix(in srgb,var(--site-text) 14%,transparent)!important;backdrop-filter:saturate(1.1) blur(8px)}
+
+/* ---- Final CTA / footer motion (Part 19) ------------------------------
+   The footer already reveals like any other `.site-section`; this gives
+   the FINAL cta band a very slightly stronger entrance so the page reads
+   as ending with intent rather than just stopping. */
+.site-section-cta.sr-reveal{transform:translateY(calc(var(--reveal-y) * 1.3))}
+
+/* ---- Mobile simplification (Part 21) -----------------------------------
+   Depth-motion parallax already turns off above (640px). Hero drift/float
+   loops are a desktop-only refinement -- disabling them on narrow screens
+   is "simplify", not "turn everything off": the one-shot entrance reveals
+   above are untouched and still play on every width. */
+@media (max-width:640px){
+  .site-hero[data-hero-motion] .hero-stage-ring,.site-hero[data-hero-motion] .hero-stage-object,
+  .site-hero[data-hero-motion] .hero-float-card-back,.site-hero[data-hero-motion] .hero-float-card-front,
+  .site-hero[data-hero-motion] .hero-fullbleed-media .site-visual-img{animation:none!important}
+}
+
+/* ---- Reduced motion / kill switch (Part 20) ---------------------------
+   Same belt-and-suspenders pattern as the existing FINAL BASELINE POLISH
+   overrides above: every animated property this whole block introduces is
+   named again here, so prefers-reduced-motion and the pre-existing
+   data-motion="none" switch both fully neutralise it, not just the parts
+   that happen to share a selector with the older system. */
+@media (prefers-reduced-motion:reduce){
+  .sr-reveal[data-reveal],.sr-reveal[data-stagger]>*,
+  .site-hero[data-hero-motion] .hero-stage-object,.site-hero[data-hero-motion] .hero-quiet-visual,.site-hero[data-hero-motion] .hero-fullbleed-media,.site-hero[data-hero-motion] .hero-product-frame,.site-hero[data-hero-motion] .hero-editorial-visual,.site-hero[data-hero-motion] .site-visual,
+  .site-hero[data-hero-motion] .hero-stage-headline,.site-hero[data-hero-motion] .hero-stage-sub,.site-hero[data-hero-motion] .hero-quiet-headline,.site-hero[data-hero-motion] .hero-quiet-sub,.site-hero[data-hero-motion] .hero-fullbleed-copy,.site-hero[data-hero-motion] .site-copy,
+  .site-hero[data-hero-motion] .hero-float-card,.site-hero[data-hero-motion] .collage-card,
+  .site-section-cta.sr-reveal{opacity:1!important;transform:none!important;transition:none!important;clip-path:none!important}
+  .site-hero[data-hero-motion] .hero-stage-ring,.site-hero[data-hero-motion] .hero-float-card-back,.site-hero[data-hero-motion] .hero-float-card-front,.site-hero[data-hero-motion] .hero-fullbleed-media .site-visual-img{animation:none!important}
+  [data-depth-motion="PARALLAX"]{transform:none!important}
+  .site-section-feature[data-sticky="LIGHT"] .feature-visual{position:static!important}
+}
+.builder-site[data-motion="none"] .sr-reveal[data-reveal],.builder-site[data-motion="none"] .sr-reveal[data-stagger]>*,
+.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-stage-object,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-quiet-visual,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-fullbleed-media,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-product-frame,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-editorial-visual,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .site-visual,
+.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-float-card,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .collage-card,
+.builder-site[data-motion="none"] .site-section-cta.sr-reveal{opacity:1!important;transform:none!important;transition:none!important;clip-path:none!important}
+.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-stage-ring,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-float-card-back,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-float-card-front,.builder-site[data-motion="none"] .site-hero[data-hero-motion] .hero-fullbleed-media .site-visual-img{animation:none!important}
+.builder-site[data-motion="none"] [data-depth-motion="PARALLAX"]{transform:none!important}

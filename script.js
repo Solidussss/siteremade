@@ -1949,6 +1949,13 @@ function applyVisualProfile(proj) {
     if (window.__vedbg) window.__vedbg.push({ family: g.family, subtype: g.subtype, funded, galleryCount, cur: P.visualEngine.familyForVariant(dims.hero), chosen: family, heroPickBefore: dims.hero });
     const heroPick = P.visualEngine.heroVariantFor(family);
     if (heroPick && dims.hero !== heroPick) { dims.hero = heroPick; delete dims.heroDisplayVariant; }
+    // SITEREMADE_MOTION_ENGINE_V1 (Part 4/23): resolved once per generation from
+    // the now-final hero family, this business's industry family, and the
+    // EXISTING planner-facing visualDirection.motion value (no new schema field
+    // -- see motion-engine.js's own note) -- never recomputed per render, so a
+    // section's motion never drifts across an edit/patch the way a live re-
+    // derivation could.
+    proj.design.premium.mi = P.motionEngine.motionIntensityFor({ heroFamily: family, industryFamily: g.family, requestedMotion: dims.motion });
   } catch (e) { /* legacy look */ }
 }
 function premiumStrategyFor(project, category) {
@@ -2030,6 +2037,7 @@ function applyPremiumPatch(proj, patch) {
     if (ps.imageDisplayVariant && ps.imageDisplayVariant !== s.imageDisplayVariant) { s.imageDisplayVariant = ps.imageDisplayVariant; changed = true; }
     if (ps.mediaComposition && ps.mediaComposition !== s.mediaComposition) { s.mediaComposition = ps.mediaComposition; changed = true; }
     if (ps.surfaceTexture && ps.surfaceTexture !== s.surfaceTexture) { s.surfaceTexture = ps.surfaceTexture; changed = true; }
+    if (ps.stickyMode && ps.stickyMode !== s.stickyMode) { s.stickyMode = ps.stickyMode; changed = true; }
     if (ps.copy && JSON.stringify(ps.copy) !== JSON.stringify(s.copy)) { s.copy = ps.copy; changed = true; }
   });
   (patch.removedSections || []).forEach(id => { (proj.pages || []).forEach(p => { const i = (p.sections || []).findIndex(x => x.id === id); if (i !== -1 && p.sections.length > 1) { p.sections.splice(i, 1); changed = true; } }); });
@@ -2644,9 +2652,17 @@ function renderHero(project, category) {
   // SITEREMADE_VISUAL_ENGINE_V1: every hero layout carries its family/depth as data attributes (CSS hooks + testable
   // state), even the pre-existing ones -- so the new vocabulary describes the whole hero system, not just the 3 new layouts.
   const VE = window.SiteRemadePremium && window.SiteRemadePremium.visualEngine;
+  const ME = window.SiteRemadePremium && window.SiteRemadePremium.motionEngine;
   const heroFamily = VE ? (VE.familyForVariant(layout) || 'EDITORIAL_SPLIT') : null;
   const heroDepth = VE && heroFamily ? VE.depthForFamily(heroFamily) : null;
-  const veAttrs = VE ? ` data-hero-family="${escapeHtml(heroFamily)}" data-depth="${escapeHtml(heroDepth)}"` : '';
+  // SITEREMADE_MOTION_ENGINE_V1 (Part 6/9): the hero's own motion pattern and
+  // depth-motion level are read from the SAME family/depth this hero already
+  // carries, plus the whole-business intensity `applyVisualProfile` resolved
+  // once (design.premium.mi) -- never a second, independently-derived choice.
+  const motionIntensity = ME ? ME.normalizeIntensity((project.design.premium && project.design.premium.mi) || 'SUBTLE') : null;
+  const heroMotion = ME && heroFamily ? ME.heroMotionFor(heroFamily) : null;
+  const depthMotion = ME && heroDepth ? ME.depthMotionFor(heroDepth, motionIntensity) : null;
+  const veAttrs = VE ? ` data-hero-family="${escapeHtml(heroFamily)}" data-depth="${escapeHtml(heroDepth)}"` + (ME ? ` data-hero-motion="${escapeHtml(heroMotion)}" data-motion-intensity="${escapeHtml(motionIntensity)}" data-depth-motion="${escapeHtml(depthMotion)}"` : '') : '';
   switch (layout) {
     case 'product-stage': return `<div class="site-hero hero-product-stage"${veAttrs}>
         <p class="hero-kicker-center">${kicker}</p>
@@ -5568,6 +5584,24 @@ function renderSections(proj, category) {
 function initSiteMotion(root) {
   if (!root) return;
   root.querySelectorAll('.site-hero, .site-page-header, .site-section').forEach(el => el.classList.add('sr-revealed'));
+  // SITEREMADE_MOTION_ENGINE_V1 (Part 18/27): the header scroll behaviour
+  // does NOT depend on siteSectionsRoot's per-keystroke rebuild the way
+  // section reveals do -- `.site-nav` lives outside that root and is never
+  // destroyed/recreated by a re-render, so it can safely mirror the real
+  // exported site's behaviour here too (parity of the actual FEEL while
+  // building, not just of the final markup). Bound once per nav element
+  // (a `data-nav-bound` guard), never re-attached on every render.
+  try {
+    const builderSite = root.closest ? root.closest('.builder-site') : null;
+    const navEl = builderSite && builderSite.getAttribute('data-nav') === 'minimal-until-scroll' ? builderSite.querySelector('.site-nav') : null;
+    if (navEl && !navEl.dataset.navBound && !prefersReducedMotion()) {
+      navEl.dataset.navBound = '1';
+      const scroller = builderSite.closest('.builder-device') || builderSite;
+      const update = () => { navEl.setAttribute('data-nav-scrolled', scroller.scrollTop > 24 ? '1' : '0'); };
+      scroller.addEventListener('scroll', update, { passive: true });
+      update();
+    }
+  } catch (e) { /* nav-scroll is cosmetic; never blocks rendering */ }
 }
 // CREATIVE DIRECTOR V2 / OUTPUT QUALITY PASS: additive-only, same pattern
 // as data-headline-role (Phase C) -- stamps data attributes onto the

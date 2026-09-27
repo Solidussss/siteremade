@@ -1378,6 +1378,101 @@ const sample = () => ({
     });
   });
 
+  console.log('SITEREMADE_MOTION_ENGINE_V1');
+  await t('motion vocabulary: normalization always falls back to a real, safe member -- no invented value can pass through', () => {
+    const ME = P.motionEngine;
+    ['fade-please', '', null, 42, 'DROP TABLE'].forEach(bad => {
+      assert.ok(ME.REVEAL_MODES.includes(ME.normalizeReveal(bad)), 'reveal: ' + String(bad));
+      assert.ok(ME.MOTION_INTENSITY.includes(ME.normalizeIntensity(bad)), 'intensity: ' + String(bad));
+      assert.ok(ME.DEPTH_MOTION.includes(ME.normalizeDepthMotion(bad)), 'depth motion: ' + String(bad));
+      assert.ok(ME.HERO_MOTION_MODES.includes(ME.normalizeHeroMotion(bad)), 'hero motion: ' + String(bad));
+      assert.ok(ME.STICKY_MODES.includes(ME.normalizeStickyMode(bad)), 'sticky: ' + String(bad));
+    });
+  });
+  await t('hero motion (Part 6): every one of Visual Engine\'s 8 hero families maps to a real, defined pattern -- never a silent gap', () => {
+    const VE = P.visualEngine, ME = P.motionEngine;
+    VE.HERO_FAMILY_KEYS.forEach(fam => assert.ok(ME.HERO_MOTION_MODES.includes(ME.heroMotionFor(fam)), fam));
+  });
+  await t('motion intensity (Parts 4, 23, 24): independent of visual intensity, resolved from the EXISTING planner-facing visualDirection.motion field -- no new schema needed', () => {
+    const ME = P.motionEngine;
+    // 'none' is an absolute kill switch regardless of hero family or industry.
+    assert.strictEqual(ME.motionIntensityFor({ heroFamily: 'PRODUCT_STAGE', industryFamily: 'retail', requestedMotion: 'none' }), 'NONE');
+    // 'subtle' caps at SUBTLE even for a hero family whose own base is stronger.
+    assert.strictEqual(ME.motionIntensityFor({ heroFamily: 'PRODUCT_STAGE', industryFamily: 'retail', requestedMotion: 'subtle' }), 'SUBTLE');
+    // QUIET_LUXURY never exceeds SUBTLE even when the category leans 'expressive' -- a visually rich hero can still move quietly (Part 4's own example).
+    assert.strictEqual(ME.motionIntensityFor({ heroFamily: 'QUIET_LUXURY', industryFamily: 'creative', requestedMotion: 'expressive' }), 'SUBTLE');
+    // PRODUCT_STAGE with no explicit motion field at all still lands on a real, defined level -- the brief's own
+    // Part 4 example lists "MODERATE or EXPRESSIVE" as both correct for this exact hero family, never SUBTLE/NONE.
+    assert.ok(ME.intensityRank(ME.motionIntensityFor({ heroFamily: 'PRODUCT_STAGE', industryFamily: 'retail' })) >= ME.intensityRank('MODERATE'));
+  });
+  await t('industry tendencies (Part 25) are soft defaults, not hard locks -- only consulted when no stronger signal exists', () => {
+    const ME = P.motionEngine;
+    Object.keys(ME.INDUSTRY_MOTION_TENDENCY).forEach(fam => assert.ok(ME.MOTION_INTENSITY.includes(ME.INDUSTRY_MOTION_TENDENCY[fam]), fam));
+    // an explicit 'none' always wins over any industry's own tendency.
+    assert.strictEqual(ME.motionIntensityFor({ industryFamily: 'creative', requestedMotion: 'none' }), 'NONE');
+  });
+  await t('compatibility rules (Part 24): dense/functional sections never receive more than a plain fade, whatever intensity the page resolved to', () => {
+    const ME = P.motionEngine;
+    ME.MINIMAL_MOTION_SECTIONS.forEach(ty => {
+      ['SUBTLE', 'MODERATE', 'EXPRESSIVE'].forEach(i => assert.ok(['NONE', 'FADE'].includes(ME.sectionRevealFor(ty, i, 3)), ty + '/' + i));
+    });
+    assert.strictEqual(ME.staggerFor('faq', 'EXPRESSIVE'), false, 'a FAQ accordion never staggers');
+  });
+  await t('deterministic selection (Part 26): the exact same inputs always produce the exact same reveal/stagger -- no Math.random anywhere in the module', () => {
+    const fs = require('fs'), ME = P.motionEngine;
+    assert.ok(!/Math\.random/.test(fs.readFileSync('lib/premium/motion-engine.js', 'utf8')), 'motion-engine.js must never call Math.random');
+    for (let i = 0; i < 5; i++) assert.strictEqual(ME.sectionRevealFor('gallery', 'MODERATE', 2), ME.sectionRevealFor('gallery', 'MODERATE', 2));
+  });
+  await t('whole-page motion budget (Part 5): media sections at a real intensity are not all identical, and a NONE-intensity page never moves at all', () => {
+    const ME = P.motionEngine;
+    const seq = [0, 1, 2, 3].map(i => ME.sectionRevealFor('gallery', 'EXPRESSIVE', i));
+    assert.ok(new Set(seq).size >= 2, 'the page should breathe -- not every media section reveals the same way: ' + seq.join(','));
+    [0, 1, 2, 3].forEach(i => assert.strictEqual(ME.sectionRevealFor('features', 'NONE', i), 'NONE'));
+  });
+  await t('sticky/pinned-light (Part 15): at most one per page, only a genuine two-column media feature, and only on a real MODERATE+ page', () => {
+    const ME = P.motionEngine;
+    const page = [{ id: 'a', type: 'editorialFeature', variant: 'image-left' }, { id: 'b', type: 'editorialFeature', variant: 'image-right' }, { id: 'c', type: 'faq' }];
+    assert.strictEqual(ME.pickStickySection(page, 'SUBTLE'), null, 'a SUBTLE/restrained page never gets a scroll-pin');
+    assert.strictEqual(ME.pickStickySection(page, 'MODERATE'), 'a', 'the first eligible section, and only one');
+    assert.strictEqual(ME.pickStickySection([{ id: 'c', type: 'faq' }], 'EXPRESSIVE'), null, 'no eligible section at all -- nothing is forced');
+  });
+  await t('reduced motion + mobile fallback (Parts 20, 21) are real CSS, not just a JS intention -- every new mechanism this pass added is covered by BOTH the prefers-reduced-motion block and the existing data-motion="none" kill switch', () => {
+    const css = require('fs').readFileSync('styles.css', 'utf8');
+    const reduced = css.match(/@media \(prefers-reduced-motion:reduce\)\{[\s\S]*?\n\}/)[0];
+    ['[data-reveal]', '[data-stagger]', 'hero-stage-ring', 'hero-float-card-back', 'depth-motion="PARALLAX"'].forEach(needle => assert.ok(reduced.includes(needle), 'reduced-motion block missing: ' + needle));
+    assert.ok(/@media \(max-width:640px\)\{\[data-depth-motion="PARALLAX"\]/.test(css), 'parallax has a static mobile fallback');
+    assert.ok(/@media \(min-width:900px\)\{[\s\S]*?data-sticky="LIGHT"/.test(css), 'sticky is desktop-only, reverting to normal stacked flow below it');
+  });
+  await t('static fallback (Part 29): a NONE reveal is unconditionally visible in CSS alone, with no dependency on .sr-revealed or JS having run', () => {
+    const css = require('fs').readFileSync('styles.css', 'utf8');
+    const rule = css.match(/\.sr-reveal\[data-reveal="NONE"\]\{([^}]*)\}/);
+    assert.ok(rule, 'data-reveal="NONE" rule must exist');
+    assert.ok(/opacity:1/.test(rule[1]) && !/\.sr-revealed/.test(rule[0]), 'must be visible unconditionally, not gated on a JS-added class');
+  });
+  await t('preview/export parity (Part 27): the hero-motion/motion-intensity/depth-motion attributes are computed the same way in script.js and lib/site-render.js', () => {
+    const fs = require('fs');
+    const a = fs.readFileSync('script.js', 'utf8'), b = fs.readFileSync('lib/site-render.js', 'utf8');
+    ['data-hero-motion=', 'data-motion-intensity=', 'data-depth-motion='].forEach(needle => {
+      assert.ok(a.includes(needle), 'script.js missing ' + needle);
+      assert.ok(b.includes(needle), 'lib/site-render.js missing ' + needle);
+    });
+  });
+  await t('export renderer actually produces valid, non-empty motion attributes for a real hero (not just source text presence)', () => {
+    const SR = require('./lib/site-render');
+    const ME = P.motionEngine;
+    const base = { source: { location: '' }, business: { name: 'Glow', categoryKey: 'ecommerce', tone: 'x' }, design: { dimensions: { imagery: 'abstract-geometric' }, premium: { mi: 'MODERATE' } }, assets: { plan: {}, items: [], generated: {} }, copy: { headline: 'H', sub: 'S', cta: 'C' } };
+    const cat = SR.categories.retail;
+    const html = SR.renderHero(Object.assign({}, base, { design: Object.assign({}, base.design, { dimensions: Object.assign({}, base.design.dimensions, { hero: 'product-stage' }) }) }), cat);
+    assert.ok(/data-hero-motion="STAGE_REVEAL"/.test(html));
+    assert.ok(/data-motion-intensity="MODERATE"/.test(html));
+    const m = html.match(/data-depth-motion="([A-Z]+)"/); assert.ok(m && ME.DEPTH_MOTION.includes(m[1]));
+  });
+  await t('motion is planner-safe end to end: a corrupted/invented section.stickyMode never survives project-store validation', () => {
+    const store = require('./lib/project-store');
+    const sec = store.validateSection({ id: 'x', type: 'editorialFeature', variant: 'image-left', stickyMode: 'SCROLLJACK_EVERYTHING' });
+    assert.strictEqual(sec.stickyMode, 'NONE');
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();
