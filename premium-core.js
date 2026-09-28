@@ -1364,7 +1364,7 @@
     const A = require('./hero-art');
     const O = require('./hero-art-outdoor');
     const { mix, lighten, darken, rng, hashStr, inkOn } = A;
-    const { rect, circ, ell, path, line, g, P, n1 } = A._svg;
+    const { rect, circ, ell, path, line, g, P, n1, mark, markFrom } = A._svg;
 
     // ---- furniture & fixtures ----------------------------------------------------------------------------------------
     function sofa(e, x, baseY, W, c) {
@@ -1435,9 +1435,9 @@
       if (k.trim !== false) s += rect(0, hz - 10 * e.s, e.w, 4 * e.s, '#fbfaf7');
       s += artFrame(e, e.w * 0.18, e.h * 0.18, e.w * 0.18, e.h * 0.2);
       s += rect(e.w * 0.08, hz + (e.h - hz) * 0.25, e.w * 0.84, (e.h - hz) * 0.55, e.tint(k.rug || '#d8cbb7'), { rx: 4 * e.s, opacity: 0.85 });
-      s += sofa(e, e.w * 0.42, hz + (e.h - hz) * 0.42, e.w * 0.5, k.sofa);
+      s += mark(sofa(e, e.w * 0.42, hz + (e.h - hz) * 0.42, e.w * 0.5, k.sofa));
       s += floorLamp(e, e.w * 0.78, hz + (e.h - hz) * 0.3, e.h * 0.5, !!k.lampOn) + plantPot(e, e.w * 0.1, hz + (e.h - hz) * 0.3, e.h * 0.34);
-      s += table(e, e.w * 0.46, hz + (e.h - hz) * 0.55, e.w * 0.22, '#7a5b40');
+      s += mark(table(e, e.w * 0.46, hz + (e.h - hz) * 0.55, e.w * 0.22, '#7a5b40'));
       if (k.sparkle) [[0.3, 0.84], [0.62, 0.88], [0.52, 0.76], [0.86, 0.9], [0.2, 0.92]].forEach(([fx, fy], i) => { s += sparkle(e, e.w * fx, e.h * fy, (6 + (i % 3) * 3) * e.s); });
       return s;
     }
@@ -1449,9 +1449,9 @@
       s += path(P([[e.w * 0.44, e.h * 0.06], [e.w * 0.56, e.h * 0.06], [e.w * 0.6, e.h * 0.24], [e.w * 0.4, e.h * 0.24]]), e.cyl('#bfc4c9'));
       s += rect(e.w * 0.06, e.h * 0.44, e.w * 0.88, e.h * 0.03, e.lin([[0, '#f4f2ef'], [1, '#cfccc7']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.06, e.h * 0.47, e.w * 0.88, hz - e.h * 0.47, cab);
       // island in front
-      const iy = e.h * 0.66; s += e.shadow(e.cx, e.h * 0.95, e.w * 0.36, e.h * 0.02, 0.3);
+      const iy = e.h * 0.66; s += e.shadow(e.cx, e.h * 0.95, e.w * 0.36, e.h * 0.02, 0.3); const m0 = s.length;
       s += rect(e.w * 0.2, iy, e.w * 0.6, e.h * 0.035, e.lin([[0, '#f7f5f2'], [1, '#d6d2cb']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.22, iy + e.h * 0.035, e.w * 0.56, e.h * 0.25, k.island || darken(e.tint(cab), 0.3));
-      s += A.ceramic(e, e.w * 0.36, iy, e.h * 0.12, '#e9e1d4', { form: 'vase', stems: true });
+      s += A.ceramic(e, e.w * 0.36, iy, e.h * 0.12, '#e9e1d4', { form: 'vase', stems: true }); s = markFrom(s, m0);
       [0.32, 0.5, 0.68].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.1, e.w * 0.035, true, '#2d2a27'); });
       return s;
     }
@@ -1462,9 +1462,9 @@
       s += rect(e.w * 0.64, e.h * 0.06, e.w * 0.3, e.h * 0.72, '#dff0f5', { opacity: 0.35, stroke: '#b7c6cc', 'stroke-width': n1(2 * e.s) }) + line(e.w * 0.8, e.h * 0.06, e.w * 0.8, e.h * 0.2, '#b0b5ba', 3 * e.s) + ell(e.w * 0.8, e.h * 0.21, e.w * 0.05, e.h * 0.012, '#c9ced3');
       for (let i = 0; i < 12; i++) s += line(e.w * (0.76 + (i % 6) * 0.016), e.h * 0.23, e.w * (0.755 + (i % 6) * 0.018), e.h * (0.4 + (i % 4) * 0.08), '#bfe3f2', 1 * e.s, { opacity: 0.6 });
       // vanity, vessel sink, faucet, mirror
-      s += mirrorRound(e, e.w * 0.32, e.h * 0.28, e.w * 0.13);
+      const m0 = s.length; s += mirrorRound(e, e.w * 0.32, e.h * 0.28, e.w * 0.13);
       s += rect(e.w * 0.1, e.h * 0.52, e.w * 0.44, e.h * 0.04, e.lin([[0, '#f5f3ef'], [1, '#d7d3cc']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.11, e.h * 0.56, e.w * 0.42, e.h * 0.2, k.vanity || '#7a5b40');
-      s += ell(e.w * 0.32, e.h * 0.515, e.w * 0.1, e.h * 0.03, '#ffffff', { stroke: '#d9dde0', 'stroke-width': n1(1.5 * e.s) }) + faucetShape(e, e.w * 0.32, e.h * 0.49, e.h * 0.1, false);
+      s += ell(e.w * 0.32, e.h * 0.515, e.w * 0.1, e.h * 0.03, '#ffffff', { stroke: '#d9dde0', 'stroke-width': n1(1.5 * e.s) }) + faucetShape(e, e.w * 0.32, e.h * 0.49, e.h * 0.1, false); s = markFrom(s, m0);
       s += rect(e.w * 0.03, e.h * 0.4, e.w * 0.05, e.h * 0.22, e.tint(k.towel || '#e7d8c6'), { rx: 3 * e.s }) + plantPot(e, e.w * 0.5, e.h * 0.52, e.h * 0.18);
       return s;
     }
@@ -1482,13 +1482,16 @@
       }
       // treatment table
       const ty = hz + (e.h - hz) * 0.18; const tx = e.w * 0.46, tw = e.w * 0.48;
-      s += e.shadow(tx, e.h * 0.94, tw * 0.55, e.h * 0.02, 0.3);
+      s += e.shadow(tx, e.h * 0.94, tw * 0.55, e.h * 0.02, 0.3); const m0 = s.length;
       const uph = k.upholstery || (k.spa ? '#d8c8b4' : '#3f5f6b');
       s += rect(tx - tw / 2, ty, tw, e.h * 0.05, e.lin([[0, lighten(e.tint(uph), 0.15)], [1, darken(e.tint(uph), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 5 * e.s });
       if (!k.spa) s += path(P([[tx - tw / 2, ty], [tx - tw / 2 + tw * 0.2, ty], [tx - tw / 2 + tw * 0.14, ty - e.h * 0.08], [tx - tw / 2 - tw * 0.02, ty - e.h * 0.05]]), e.tint(darken(uph, 0.05)));
       else s += rect(tx - tw * 0.3, ty - e.h * 0.03, tw * 0.5, e.h * 0.035, '#f6f1e8', { rx: 4 * e.s }) + A.sprig(e, tx + tw * 0.2, ty - e.h * 0.02, e.h * 0.1, -30);
       s += rect(tx - tw / 2 + tw * 0.62, ty - e.h * 0.02, tw * 0.22, e.h * 0.025, '#f6f3ee', { rx: 4 * e.s });
-      s += rect(tx - tw * 0.36, ty + e.h * 0.05, 6 * e.s, e.h * 0.24, '#b6bbc0') + rect(tx + tw * 0.34, ty + e.h * 0.05, 6 * e.s, e.h * 0.24, '#b6bbc0') + rect(tx - tw * 0.36, ty + e.h * 0.2, tw * 0.72, 4 * e.s, '#b6bbc0');
+      // the legs stand on the floor where the shadow falls (they used to run off the bottom of the picture)
+      const legH = e.h * 0.93 - (ty + e.h * 0.05);
+      s += rect(tx - tw * 0.36, ty + e.h * 0.05, 6 * e.s, legH, '#b6bbc0') + rect(tx + tw * 0.34, ty + e.h * 0.05, 6 * e.s, legH, '#b6bbc0') + rect(tx - tw * 0.36, ty + e.h * 0.05 + legH * 0.62, tw * 0.72, 4 * e.s, '#b6bbc0');
+      s = markFrom(s, m0);
       if (k.spa) return s + O.shrub(e, e.w * 0.88, e.h * 0.9, e.h * 0.06) + plantPot(e, e.w * 0.07, hz + (e.h - hz) * 0.25, e.h * 0.26);
       // equipment on the floor: exercise ball, foam roller, resistance bands on a hook
       s += circ(e.w * 0.86, e.h * 0.84, e.h * 0.1, e.rad([[0, lighten(e.accent, 0.4)], [1, darken(e.accent, 0.15)]], { cx: 0.35, cy: 0.3 })) + e.shadow(e.w * 0.86, e.h * 0.95, e.h * 0.1, e.h * 0.015, 0.3);
@@ -1524,7 +1527,7 @@
       // counter across the room
       const cy = e.h * 0.5; s += rect(0, cy, e.w, e.h * 0.03, e.lin([[0, '#9a7250'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, cy + e.h * 0.03, e.w, hz - cy, e.lin([[0, e.tint('#efe7da')], [1, e.tint('#d5c8b4')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
       for (let i = 0; i < 16; i++) s += line(i * e.w / 16, cy + e.h * 0.03, i * e.w / 16, hz, e.tint('#c4b39c'), 1 * e.s, { opacity: 0.7 });
-      s += espressoMachine(e, e.w * 0.6, cy, e.w * 0.22);
+      s += mark(espressoMachine(e, e.w * 0.6, cy, e.w * 0.22));
       s += A.jar(e, e.w * 0.28, cy, e.h * 0.1, '#e8f0f2', { open: false, lid: '#c9ccd1', noLabel: true, contents: '#c99a5c', wide: 0.8 });
       [0.22, 0.46, 0.7].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.07, e.w * 0.03, true, '#1f1d1b'); });
       [0.18, 0.38, 0.58, 0.78].forEach(f => { s += stool(e, e.w * f, e.h * 0.96, e.h * 0.26, '#6b4a33'); });
@@ -1540,7 +1543,7 @@
       // the bar
       s += rect(0, e.h * 0.62, e.w, e.h * 0.04, e.lin([[0, '#a57a4c'], [1, '#5a3b22']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.lin([[0, '#3a2618'], [1, '#1b120c']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
       s += line(0, e.h * 0.9, e.w, e.h * 0.9, '#c9a24a', 3 * e.s);
-      s += glassware(e, e.w * 0.32, e.h * 0.62, e.h * 0.14, 'coupe', '#e8a23a') + glassware(e, e.w * 0.62, e.h * 0.62, e.h * 0.16, 'rocks', '#b8642a');
+      s += mark(glassware(e, e.w * 0.32, e.h * 0.62, e.h * 0.14, 'coupe', '#e8a23a') + glassware(e, e.w * 0.62, e.h * 0.62, e.h * 0.16, 'rocks', '#b8642a'));
       [0.25, 0.5, 0.75].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.04, e.w * 0.025, true, '#c9a24a'); });
       return s;
     }
@@ -1567,22 +1570,23 @@
       let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#2a1e17')], [1, e.tint('#140e0b')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
       s += rect(0, e.h * 0.55, e.w, e.h * 0.45, e.lin([[0, '#3b281c'], [1, '#1c130d']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
       for (let i = 0; i < 5; i++) s += rect(e.w * (0.05 + i * 0.2), e.h * 0.12, e.w * 0.12, e.h * 0.24, e.tint('#3f2c20'), { stroke: '#8a6a3a', 'stroke-width': n1(2 * e.s) });
+      const m0 = s.length;
       [[0.25, 0.7, 0.34], [0.72, 0.68, 0.3], [0.5, 0.86, 0.4]].forEach(([fx, fy, fw]) => {
         const x = e.w * fx, y = e.h * fy, w = e.w * fw;
         s += e.shadow(x, y + w * 0.35, w * 0.55, w * 0.05, 0.5) + ell(x, y, w / 2, w * 0.1, '#f6efe2') + rect(x - w * 0.02, y + w * 0.08, w * 0.04, w * 0.3, '#2a1d15');
         s += A.ceramic(e, x - w * 0.18, y - 1, w * 0.06, '#f4f1ec', { form: 'bowl' }) + A.ceramic(e, x + w * 0.18, y - 1, w * 0.06, '#f4f1ec', { form: 'bowl' });
         s += rect(x - 2 * e.s, y - w * 0.14, 4 * e.s, w * 0.14, '#fbf3df') + circ(x, y - w * 0.17, 4 * e.s, '#ffcf6b') + circ(x, y - w * 0.17, w * 0.18, '#ffc864', { opacity: 0.18 });
         s += glassware(e, x + w * 0.3, y - 1, w * 0.12, 'wine', '#7a1f2b');
-      });
+      }); s = markFrom(s, m0);
       [0.2, 0.5, 0.8].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.06, e.w * 0.025, true, '#c9a24a'); });
       return s;
     }
     function classroom(e, o) {
       const k = o || {}; let s = A.room(e, { horizon: 0.7, wall: e.tint('#efe9dc'), window: [0.76, 0.1, 0.18, 0.36] });
-      s += rect(e.w * 0.08, e.h * 0.1, e.w * 0.58, e.h * 0.32, '#2f4a3c', { stroke: '#8a6a4c', 'stroke-width': n1(6 * e.s) });
+      const m0 = s.length; s += rect(e.w * 0.08, e.h * 0.1, e.w * 0.58, e.h * 0.32, '#2f4a3c', { stroke: '#8a6a4c', 'stroke-width': n1(6 * e.s) });
       const chalk = (k.subject === 'math') ? ['x² + 3x = 10', '(x + 5)(x − 2) = 0'] : (k.subject === 'reading') ? ['Chapter 3', 'Main idea · Evidence'] : ['Today', 'Practice · Review'];
       chalk.forEach((t, i) => { s += A.wordmark(e, t, e.w * 0.12, e.h * (0.2 + i * 0.09), e.h * 0.045, '#f3f1e8', { anchor: 'start', weight: 500, spacing: '0.01em', serif: true, opacity: 0.9 }); });
-      s += path(`M${n1(e.w * 0.46)} ${n1(e.h * 0.3)} q${n1(e.w * 0.04)} ${n1(-e.h * 0.08)} ${n1(e.w * 0.12)} ${n1(-e.h * 0.02)}`, 'none', { stroke: '#f3f1e8', 'stroke-width': n1(2 * e.s), opacity: 0.8 });
+      s += path(`M${n1(e.w * 0.46)} ${n1(e.h * 0.3)} q${n1(e.w * 0.04)} ${n1(-e.h * 0.08)} ${n1(e.w * 0.12)} ${n1(-e.h * 0.02)}`, 'none', { stroke: '#f3f1e8', 'stroke-width': n1(2 * e.s), opacity: 0.8 }); s = markFrom(s, m0);
       [[0.24, 0.8], [0.56, 0.8], [0.4, 0.95]].forEach(([fx, fy]) => { s += table(e, e.w * fx, e.h * fy - e.h * 0.1, e.w * 0.22, '#b98a55'); s += rect(e.w * fx - e.w * 0.06, e.h * fy - e.h * 0.115, e.w * 0.07, e.h * 0.012, '#fbfaf5') + rect(e.w * fx + e.w * 0.02, e.h * fy - e.h * 0.118, e.w * 0.05, e.h * 0.015, e.tint('#c65d3b')); });
       return s;
     }
@@ -1590,8 +1594,8 @@
       const k = o || {}; let s = A.room(e, { horizon: 0.7, wall: e.tint(k.wall || '#e9e6e0'), window: [0.1, 0.08, 0.5, 0.5], city: true, night: !!k.night });
       s += rect(e.w * 0.68, e.h * 0.08, e.w * 0.26, e.h * 0.62, e.tint('#6b4a33'));
       [0.2, 0.36, 0.52].forEach(f => { s += rect(e.w * 0.68, e.h * f, e.w * 0.26, 4 * e.s, '#4a3222') + bookRow(e, e.w * 0.7, e.h * f, e.w * 0.22, e.h * 0.1, { law: k.law }); });
-      s += table(e, e.w * 0.4, e.h * 0.72, e.w * 0.5, '#5a3e2a');
-      s += rect(e.w * 0.22, e.h * 0.705, e.w * 0.14, e.h * 0.016, '#fbfaf5', { transform: `rotate(-4 ${n1(e.w * 0.29)} ${n1(e.h * 0.71)})` }) + A.ceramic(e, e.w * 0.52, e.h * 0.72, e.h * 0.05, '#f1ede6', { form: 'mug' });
+      const m0 = s.length; s += table(e, e.w * 0.4, e.h * 0.72, e.w * 0.5, '#5a3e2a');
+      s += rect(e.w * 0.22, e.h * 0.705, e.w * 0.14, e.h * 0.016, '#fbfaf5', { transform: `rotate(-4 ${n1(e.w * 0.29)} ${n1(e.h * 0.71)})` }) + A.ceramic(e, e.w * 0.52, e.h * 0.72, e.h * 0.05, '#f1ede6', { form: 'mug' }); s = markFrom(s, m0);
       s += floorLamp(e, e.w * 0.62, e.h * 0.72, e.h * 0.16, true);
       return s;
     }
@@ -1599,7 +1603,7 @@
       const k = o || {}; let s = A.room(e, { horizon: 0.58, wall: e.tint(k.wall || '#f1ece4'), window: [0.08, 0.08, 0.3, 0.36] });
       s += rect(e.w * 0.46, e.h * 0.08, e.w * 0.46, e.h * 0.44, e.lin([[0, '#eef2f3'], [1, '#d4dde0']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { stroke: '#cfc7bb', 'stroke-width': n1(3 * e.s) });
       const eq = k.equipment || 'reformer';
-      [0, 1, 2].forEach(i => { const y = e.h * (0.7 + i * 0.12), x = e.w * (0.52 - i * 0.03), W = e.w * (0.7 + i * 0.12); s += eq === 'mat' ? yogaMat(e, x, y, W * 0.7) : reformer(e, x, y, W); });
+      const m0 = s.length; [0, 1, 2].forEach(i => { const y = e.h * (0.7 + i * 0.12), x = e.w * (0.52 - i * 0.03), W = e.w * (0.7 + i * 0.12); s += eq === 'mat' ? yogaMat(e, x, y, W * 0.7) : reformer(e, x, y, W); }); s = markFrom(s, m0);
       s += O.shrub(e, e.w * 0.92, e.h * 0.6, e.h * 0.06);
       return s;
     }
@@ -1625,7 +1629,7 @@
     function yogaMat(e, x, y, W, c) { const col = e.tint(c || lighten(e.accent, 0.3)); return e.shadow(x, y, W * 0.5, W * 0.03, 0.2) + path(P([[x - W * 0.42, y - W * 0.07], [x + W * 0.42, y - W * 0.07], [x + W * 0.5, y + W * 0.04], [x - W * 0.5, y + W * 0.04]]), e.lin([[0, lighten(col, 0.15)], [1, darken(col, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + ell(x + W * 0.5, y - W * 0.02, W * 0.04, W * 0.07, darken(col, 0.15)); }
     function salon(e, o) {
       let s = A.room(e, { horizon: 0.72, wall: e.tint('#efe6de'), boards: false, floor: e.tint('#d9d2c8') });
-      [0.28, 0.72].forEach(f => { const x = e.w * f; s += rect(x - e.w * 0.12, e.h * 0.1, e.w * 0.24, e.h * 0.38, e.lin([[0, '#eef3f5'], [1, '#cdd8dc']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: e.w * 0.12, stroke: '#c9a86a', 'stroke-width': n1(3 * e.s) }); for (let i = 0; i < 5; i++) s += circ(x - e.w * 0.13 + i * e.w * 0.065, e.h * 0.08, 3.5 * e.s, '#fff7dc'); s += salonChair(e, x, e.h * 0.94, e.h * 0.42); });
+      [0.28, 0.72].forEach(f => { const x = e.w * f; s += rect(x - e.w * 0.12, e.h * 0.1, e.w * 0.24, e.h * 0.38, e.lin([[0, '#eef3f5'], [1, '#cdd8dc']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: e.w * 0.12, stroke: '#c9a86a', 'stroke-width': n1(3 * e.s) }); for (let i = 0; i < 5; i++) s += circ(x - e.w * 0.13 + i * e.w * 0.065, e.h * 0.08, 3.5 * e.s, '#fff7dc'); s += mark(salonChair(e, x, e.h * 0.94, e.h * 0.42)); });
       s += rect(e.w * 0.44, e.h * 0.52, e.w * 0.12, e.h * 0.02, '#c9a86a') + A.pump(e, e.w * 0.47, e.h * 0.52, e.h * 0.12, '#f3ede4') + A.bottle(e, e.w * 0.53, e.h * 0.52, e.h * 0.1, e.tint('#2d2d2d'), { style: 'toner' });
       return s;
     }
@@ -1640,7 +1644,7 @@
       const stud = e.tint('#d8b98a'); s += rect(0, e.h * 0.08, e.w, e.h * 0.03, e.cyl(stud)) + rect(0, e.h * 0.72, e.w, e.h * 0.03, e.cyl(stud));
       for (let i = 0; i < 9; i++) { const x = e.w * (0.05 + i * 0.115); s += rect(x, e.h * 0.11, e.w * 0.035, e.h * 0.61, e.lin([[0, lighten(stud, 0.15)], [0.5, stud], [1, darken(stud, 0.2)]])); for (let q = 0; q < 3; q++) s += line(x + e.w * 0.01, e.h * (0.2 + q * 0.18), x + e.w * 0.012, e.h * (0.26 + q * 0.18), darken(stud, 0.25), 0.8 * e.s, { opacity: 0.5 }); }
       s += rect(e.w * 0.32, e.h * 0.34, e.w * 0.28, e.h * 0.03, e.cyl(stud));
-      s += sawhorse(e, e.w * 0.3, e.h * 0.96, e.w * 0.24) + drill(e, e.w * 0.66, e.h * 0.92, e.w * 0.16);
+      s += mark(sawhorse(e, e.w * 0.3, e.h * 0.96, e.w * 0.24) + drill(e, e.w * 0.66, e.h * 0.92, e.w * 0.16));
       const R = rng(hashStr('dust')); for (let i = 0; i < 40; i++) s += circ(R() * e.w, e.h * (0.78 + R() * 0.2), (0.8 + R() * 1.6) * e.s, '#f1e3c6', { opacity: 0.7 });
       return s;
     }
@@ -1781,6 +1785,7 @@
     const I = require('./hero-art-interior');
     const B = require('./hero-art-objects');
     const U = require('./hero-art-ui');
+    const F = require('./hero-framing');
     const { lighten, darken, mix, FLAVOUR_COLOURS, flavourColour } = A;
     const { rect, circ, ell, path, line, g, n1 } = A._svg;
 
@@ -1867,7 +1872,7 @@
       return s + ell(e.cx - H * 0.2, e.cy - H * 0.55, H * 0.5, H * 0.3, '#fff', { opacity: e.dark ? 0.05 : 0.25 });
     }
     function skincareRange(e, p) {
-      const vs = (p.variants && p.variants.length ? p.variants : ['pump', 'dropper', 'jar']).filter(v => SKIN[v]).slice(0, 3); const H = prodH(e) * (e.w > e.h * 1.2 ? 0.9 : 0.72); const base = e.cy + H * 0.62;
+      const own = (p.variants || []).filter(v => SKIN[v]); const vs = (own.length ? own : ['pump', 'dropper', 'jar']).slice(0, 3); const H = prodH(e) * (e.w > e.h * 1.2 ? 0.9 : 0.72); const base = e.cy + H * 0.62;
       let s = A.studio(e, { horizon: (base + 2) / e.h, wall: e.dark ? undefined : mix(e.accent, '#f3efe8', 0.9) }) + stone(e, e.cx, base + H * 0.03, e.w * 0.9, H * 0.16);
       const n = vs.length; const gap = Math.min(e.w * 0.3, H * 0.6);
       vs.forEach((v, i) => { const x = e.cx + (i - (n - 1) / 2) * gap; s += SKIN[v](e, x, base, v === 'jar' || v === 'tin' ? H * 0.9 : H * (i === 1 ? 1.08 : 0.95), null, { label: brand(p), sub: SKIN_SUB[v] }); });
@@ -1899,7 +1904,27 @@
       return s;
     }
     // ---- retail: pantry & home ---------------------------------------------------------------------------------------------------
+    // the sauce's colour for one bottle: its heat level or flavour, else a hot-sauce red
+    const sauceColour = (name, i) => A.heatColour(name) || flavourColour(name) || ['#c0241a', '#d8461f', '#9b1b16'][i % 3];
+    // Hot sauce: a woozy bottle full of sauce, labelled with the brand and what is in it.
+    // A range (the owner's heat levels or flavours) stands as a row of bottles, each
+    // labelled with the owner's own name for it -- no invented flavours, no heat scale.
+    function sauceHero(e, p) {
+      const names = (p.variants || []).filter(Boolean).slice(0, 3);
+      const H = prodH(e) * (names.length > 1 ? 0.9 : 1.02); const base = e.cy + H * 0.5;
+      let s = A.studio(e, { horizon: (base + 2) / e.h, floor: e.tint('#6b4a33') });
+      s += rect(e.cx - e.w * 0.46, base - H * 0.02, e.w * 0.92, H * 0.08, e.lin([[0, '#a57a4c'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * e.s });
+      if (names.length > 1) {
+        const gap = Math.min(e.w * 0.3, H * 0.4); const order = names.length === 3 ? [0, 2, 1] : [0, 1];
+        order.forEach(i => { const x = e.cx + (i - (names.length - 1) / 2) * gap; const front = names.length === 3 && i === 1; s += A.sauceBottle(e, x, base + (front ? H * 0.03 : 0), front ? H : H * 0.92, { sauce: sauceColour(names[i], i), label: brand(p), sub: names[i] }); });
+        return s;
+      }
+      const c = sauceColour(fl(p, 0) || p.sub, 0);
+      s += A.chiliPod(e, e.cx + H * 0.22, base - H * 0.04, H * 0.34, -14, '#c9291d') + A.chiliPod(e, e.cx + H * 0.26, base + H * 0.01, H * 0.3, 6, '#a61b14');
+      return s + A.sauceBottle(e, e.cx - H * 0.06, base, H, { sauce: c, label: brand(p), sub: p.sub || (fl(p, 0) || '') });
+    }
     function pantryHero(e, p) {
+      if ((p.variant || 'jar') === 'woozy') return sauceHero(e, p);
       const v = p.variant || 'jar'; const H = prodH(e) * 0.95; const base = e.cy + H * 0.5; const c = fc(p, 0, v === 'woozy' ? '#c9291d' : '#e0a21a');
       let s = A.studio(e, { horizon: (base + 2) / e.h, floor: e.tint('#6b4a33') });
       s += rect(e.cx - H * 0.8, base - H * 0.02, H * 1.6, H * 0.08, e.lin([[0, '#a57a4c'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * e.s });
@@ -1912,10 +1937,27 @@
       return s;
     }
     function chocolate(e, x, y, W, c) { const u = W / 100; let s = e.shadow(x, y + 36 * u, W * 0.45, W * 0.05, 0.3) + g(rect(-40 * u, -30 * u, 80 * u, 60 * u, '#5b3a1e', { rx: 3 * u }) + Array.from({ length: 12 }, (_, i) => rect(-38 * u + (i % 4) * 19.5 * u, -28 * u + Math.floor(i / 4) * 19 * u, 17 * u, 17 * u, e.lin([[0, '#7a4e2a'], [1, '#4a2d15']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 2 * u })).join('') + path(`M${n1(-42 * u)} ${n1(4 * u)} L${n1(42 * u)} ${n1(-10 * u)} L${n1(42 * u)} ${n1(32 * u)} L${n1(-42 * u)} ${n1(32 * u)} Z`, e.tint(c || e.accent)), { transform: `translate(${n1(x)} ${n1(y)}) rotate(-8)` }); return s; }
+    // the ingredients the owner names, on dark slate. Chillies are drawn as a scatter of whole
+    // pods (each variety in its own colour) with a split one showing its seeds.
+    function chiliScatter(e, fls) {
+      const m = Math.min(e.w, e.h); const R = A.rng(A.hashStr('chi' + e.uid));
+      const cols = fls.map(k => flavourColour(k) || '#c9291d'); const reds = ['#c9291d', '#b01e16', '#d8401f', '#9e1712'];
+      const pods = [[0.2, 0.3, 24], [0.56, 0.22, -18], [0.3, 0.58, -32], [0.62, 0.5, 14], [0.18, 0.78, 8], [0.52, 0.76, -10], [0.74, 0.33, 40]];
+      let s = '';
+      pods.forEach(([fx, fy, a], i) => { const c = cols.length > 1 ? cols[i % cols.length] : (fls[0] === 'chili' ? reds[i % reds.length] : (i % 3 === 2 ? darken(cols[0], 0.12) : cols[0])); s += A.chiliPod(e, e.w * fx, e.h * fy, m * (0.34 + R() * 0.08), a, c); });
+      // one pod split lengthwise: pale flesh and seeds
+      const sx = e.w * 0.66, sy = e.h * 0.72, L = m * 0.36;
+      s += A.chiliPod(e, sx, sy, L, -24, cols[0] === '#efe6d2' ? '#c9291d' : cols[0]);
+      s += A._svg.g(ell(L * 0.48, 0, L * 0.34, L * 0.07, '#f3d9b0', { opacity: 0.95 }) + Array.from({ length: 9 }, (_, i) => ell(L * (0.24 + i * 0.055), (i % 2 ? 1 : -1) * L * 0.025, L * 0.022, L * 0.014, '#f6e7a8')).join(''), { transform: `translate(${n1(sx)} ${n1(sy)}) rotate(-24)` });
+      for (let i = 0; i < 26; i++) s += circ(e.w * (0.12 + R() * 0.76), e.h * (0.14 + R() * 0.72), (0.8 + R() * 1.2) * e.s, R() > 0.4 ? '#f2e3b3' : '#c9291d', { opacity: 0.85 });
+      return s;
+    }
     function ingredients(e, p) {
-      const fls = (p.flavours && p.flavours.length ? p.flavours : ['chili', 'garlic', 'lime']); const m = Math.min(e.w, e.h);
+      const fls = (p.flavours && p.flavours.length ? p.flavours : []).slice(0, 3); const m = Math.min(e.w, e.h);
       let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#3a3633')], [1, e.tint('#22201e')]], { x1: 0, y1: 0, x2: 1, y2: 1 }));
       const R = A.rng(A.hashStr('ing' + e.uid)); for (let i = 0; i < 40; i++) s += circ(e.w * R(), e.h * R(), (0.6 + R()) * e.s, '#6a625a', { opacity: 0.5 });
+      if (!fls.length) return s;
+      if (fls.every(k => A.CHILI_KEYS.includes(k))) return s + A._svg.mark(chiliScatter(e, fls));
       const spots = [[0.3, 0.35, 0.16], [0.68, 0.3, 0.14], [0.52, 0.64, 0.17], [0.22, 0.72, 0.12], [0.8, 0.7, 0.12]];
       spots.forEach(([fx, fy, k], i) => { s += A.flavourPiece(e, fls[i % fls.length], e.w * fx, e.h * fy, m * k); });
       for (let i = 0; i < 30; i++) s += circ(e.w * (0.2 + R() * 0.6), e.h * (0.2 + R() * 0.6), (1 + R() * 1.4) * e.s, R() > 0.5 ? '#c9291d' : '#e0a21a', { opacity: 0.8 });
@@ -1925,6 +1967,8 @@
       const r = Math.min(e.w * 0.36, e.h * 0.5); let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint(e.dark ? '#2a221d' : '#e9e1d6')], [1, e.tint(e.dark ? '#16110e' : '#cfc3b3')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
       if (e.dark) s += circ(e.cx, e.cy - r * 0.2, r * 1.6, '#ffcf8a', { opacity: 0.12 });
       s += B.plate(e, e.cx, e.cy + r * 0.1, r, p.variant || 'generic');
+      // a sauce brand's dish: its sauce zig-zagged across the food
+      if (p.drizzle) { let d = `M${n1(e.cx - r * 0.5)} ${n1(e.cy - r * 0.02)}`; for (let i = 1; i <= 8; i++) d += ` L${n1(e.cx - r * 0.5 + i * r * 0.125)} ${n1(e.cy + (i % 2 ? r * 0.2 : -r * 0.02))}`; s += path(d, 'none', { stroke: '#b81d14', 'stroke-width': n1(r * 0.035), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }) + path(d, 'none', { stroke: '#ff8a70', 'stroke-width': n1(r * 0.01), opacity: 0.6, transform: `translate(${n1(-r * 0.008)} ${n1(-r * 0.01)})` }); }
       s += line(e.cx - r * 1.35, e.cy - r * 0.2, e.cx - r * 1.35, e.cy + r * 0.6, '#c9ccd1', 3 * e.s) + line(e.cx + r * 1.35, e.cy - r * 0.2, e.cx + r * 1.35, e.cy + r * 0.6, '#c9ccd1', 3 * e.s);
       if (p.glass !== false) s += I.glassware(e, e.cx + r * 1.15, e.cy - r * 0.35, r * 0.7, 'wine', p.variant === 'pizza' || p.variant === 'pasta' ? '#7a1f2b' : '#e7d9a8');
       return s;
@@ -2005,7 +2049,8 @@
       classroom: (e, p) => I.classroom(e, { subject: p.variant }),
       'study-desk': (e, p) => { let s = A.studio(e, { horizon: 0.06, floor: e.tint('#e3d8c6') }); s += B.paper(e, e.cx + e.w * 0.08, e.cy, Math.min(e.w * 0.46, e.h * 0.6), Math.min(e.w * 0.6, e.h * 0.8), 5, { lines: 7 }); s += A.wordmark(e, p.variant === 'reading' ? 'Chapter 3' : '3x + 4 = 19', e.cx + e.w * 0.08, e.cy - e.h * 0.14, Math.min(e.w, e.h) * 0.06, '#2d3a67', { serif: true, weight: 500 }); s += I.bookRow(e, e.w * 0.04, e.h * 0.34, e.w * 0.3, e.h * 0.3); s += B.pen(e, e.cx + e.w * 0.1, e.cy + e.h * 0.3, Math.min(e.w, e.h) * 0.4, -24, '#e9b949'); return s; },
       library: (e) => { let s = rect(0, 0, e.w, e.h, e.tint('#3a281c')); for (let r = 0; r < 5; r++) { const y = e.h * (0.18 + r * 0.19); s += rect(0, y, e.w, 5 * e.s, '#2a1c12') + I.bookRow(e, e.w * 0.02, y, e.w * 0.96, e.h * 0.16, { law: true }); } return s + I.floorLamp(e, e.w * 0.82, e.h * 0.99, e.h * 0.5, true) + rect(0, 0, e.w, e.h, e.rad([[0, '#ffd98a', 0.18], [1, '#000', 0]], { cx: 0.8, cy: 0.6, r: 0.6 })); },
-      books: (e) => { let s = A.studio(e, { horizon: 0.74, floor: e.tint('#c9a26f') }); const m = Math.min(e.w, e.h); const cols = ['#c65d3b', '#3f6c8a', '#e0b44a', '#6b8f5a']; cols.forEach((c, i) => { const y = e.h * 0.8 - i * m * 0.07; s += rect(e.cx - m * 0.3 + (i % 2) * 6 * e.s, y - m * 0.07, m * 0.56, m * 0.07, e.lin([[0, lighten(e.tint(c), 0.1)], [1, darken(e.tint(c), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }) + rect(e.cx + m * 0.2 + (i % 2) * 6 * e.s, y - m * 0.065, m * 0.04, m * 0.06, '#f6f1e6'); }); s += A.ceramic(e, e.cx + m * 0.4, e.h * 0.8, m * 0.2, e.tint('#e9e1d4'), { form: 'mug', drink: '#f6f1e6' }); ['#e9b949', '#e05a47', '#3f8fd1'].forEach((c, i) => { s += line(e.cx + m * (0.36 + i * 0.04), e.h * 0.8 - m * 0.18, e.cx + m * (0.34 + i * 0.05), e.h * 0.8 - m * 0.34, c, 4 * e.s); }); return s + B.paper(e, e.cx - m * 0.3, e.h * 0.92, m * 0.34, m * 0.2, -8, { lines: 4 }); },
+      // a stack of books, a mug of pencils and notes, standing in the middle of the frame (never along its bottom edge)
+      books: (e) => { const base = e.cy + Math.min(e.w, e.h) * 0.22; let s = A.studio(e, { horizon: (base - Math.min(e.w, e.h) * 0.06) / e.h, floor: e.tint('#c9a26f') }); const m = Math.min(e.w, e.h) * 0.9; const cols = ['#c65d3b', '#3f6c8a', '#e0b44a', '#6b8f5a']; cols.forEach((c, i) => { const y = base - i * m * 0.07; s += rect(e.cx - m * 0.3 + (i % 2) * 6 * e.s, y - m * 0.07, m * 0.56, m * 0.07, e.lin([[0, lighten(e.tint(c), 0.1)], [1, darken(e.tint(c), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }) + rect(e.cx + m * 0.2 + (i % 2) * 6 * e.s, y - m * 0.065, m * 0.04, m * 0.06, '#f6f1e6'); }); s += A.ceramic(e, e.cx + m * 0.4, base, m * 0.2, e.tint('#e9e1d4'), { form: 'mug', drink: '#f6f1e6' }); ['#e9b949', '#e05a47', '#3f8fd1'].forEach((c, i) => { s += line(e.cx + m * (0.36 + i * 0.04), base - m * 0.18, e.cx + m * (0.34 + i * 0.05), base - m * 0.34, c, 4 * e.s); }); return s + B.paper(e, e.cx - m * 0.22, base + m * 0.12, m * 0.34, m * 0.16, -6, { lines: 4 }); },
       music: (e, p) => A.studio(e, { horizon: 0.84 }) + (p.variant === 'piano' ? piano(e) : B.guitar(e, e.cx, e.cy + e.h * 0.05, Math.min(e.h * 0.7, e.w * 1.1))),
     };
     function piano(e) { const y = e.h * 0.5, x0 = e.w * 0.06, w = e.w * 0.88; let s = rect(x0, y - e.h * 0.12, w, e.h * 0.4, '#16171b', { rx: 4 * e.s }); const n = 14; for (let i = 0; i < n; i++) s += rect(x0 + 6 * e.s + i * (w - 12 * e.s) / n, y, (w - 12 * e.s) / n - 2 * e.s, e.h * 0.26, e.lin([[0, '#ffffff'], [1, '#dcdad4']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }); [0, 1, 3, 4, 5, 7, 8, 10, 11, 12].forEach(i => { s += rect(x0 + 6 * e.s + (i + 0.68) * (w - 12 * e.s) / n, y, (w - 12 * e.s) / n * 0.62, e.h * 0.16, '#16171b', { rx: 1.5 * e.s }); }); return s; }
@@ -2050,12 +2095,31 @@
       'house-dusk': (e) => { const hz = e.h * 0.62; return A.outdoors(e, { horizon: 0.62, time: 'dusk' }) + O.lawn(e, hz, { stripes: false, colour: '#35502e' }) + O.tree(e, e.w * 0.14, hz + e.h * 0.08, e.h * 0.46, { colour: '#2d4a2c' }) + O.house(e, e.cx + e.w * 0.06, hz + e.h * 0.08, e.w * 0.56, { time: 'dusk', chimney: true }) + O.pavers(e, [[e.cx - e.w * 0.02, e.h], [e.cx + e.w * 0.14, e.h], [e.cx + e.w * 0.09, hz + e.h * 0.08], [e.cx + e.w * 0.03, hz + e.h * 0.08]], '#9c9486', { rows: 6, cols: 2 }); },
       street: (e) => { const hz = e.h * 0.7; let s = A.outdoors(e, { horizon: 0.7, time: 'golden', treeline: false }) + rect(0, hz, e.w, e.h - hz, e.tint('#b9b1a4')); const cols = ['#e8d9c4', '#c9d6d8', '#e2c9b5', '#d6dcc8']; for (let i = 0; i < 4; i++) s += O.house(e, e.w * (0.14 + i * 0.25), hz, e.w * 0.24, { siding: cols[i], tall: true, roof: i % 2 ? '#5a4a42' : '#4a4a52' }); s += O.tree(e, e.w * 0.28, hz + e.h * 0.02, e.h * 0.36) + O.tree(e, e.w * 0.78, hz + e.h * 0.02, e.h * 0.34); return s; },
       boat: (e) => A.outdoors(e, { horizon: 0.55, time: 'golden' }) + O.water(e, e.h * 0.55, '#2a6f86', { glint: '#ffe0a8' }) + O.boat(e, e.cx, e.h * 0.7, e.w * 0.62),
+      // kayaks and a paddleboard on a lake: what a paddling rental or tour actually puts on the water
+      kayaks: (e, p) => {
+        if (p.variant === 'shore') { // kayaks pulled up on the beach, paddles laid beside them, the lake behind
+          const hz = e.h * 0.36; const m = Math.min(e.w * 0.66, e.h * 1.1);
+          let s = A.outdoors(e, { horizon: 0.36, time: 'golden' }) + O.water(e, hz, '#2f7d8f') + rect(0, e.h * 0.54, e.w, e.h * 0.46, e.lin([[0, e.tint('#e8d3a8')], [1, e.tint('#c9ab7a')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+          s += path(`M0 ${n1(e.h * 0.55)} Q${n1(e.w * 0.3)} ${n1(e.h * 0.52)} ${n1(e.w * 0.55)} ${n1(e.h * 0.56)} T${n1(e.w)} ${n1(e.h * 0.54)}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(3 * e.s), opacity: 0.7 });
+          return s + O.kayak(e, e.cx - e.w * 0.06, e.h * 0.72, m * 0.8, '#e4572e', { paddle: false }) + O.kayak(e, e.cx + e.w * 0.08, e.h * 0.87, m * 0.76, '#f2c14e', { paddle: false }) + line(e.cx - m * 0.42, e.h * 0.95, e.cx + m * 0.1, e.h * 0.79, '#2b2b2b', 2.2 * e.s) + ell(e.cx - m * 0.44, e.h * 0.96, m * 0.05, m * 0.018, '#2d9cdb', { transform: `rotate(-17 ${n1(e.cx - m * 0.44)} ${n1(e.h * 0.96)})` }) + ell(e.cx + m * 0.12, e.h * 0.78, m * 0.05, m * 0.018, '#2d9cdb', { transform: `rotate(-17 ${n1(e.cx + m * 0.12)} ${n1(e.h * 0.78)})` });
+        }
+        const hz = e.h * 0.5; const m = Math.min(e.w * 0.62, e.h * 1.05); return A.outdoors(e, { horizon: 0.5, time: 'day' }) + O.water(e, hz, '#2f7d8f') + O.paddleboard(e, e.cx + e.w * 0.2, e.h * 0.62, m * 0.55, '#2d9cdb') + O.kayak(e, e.cx - e.w * 0.06, e.h * 0.74, m * 0.8, '#e4572e', { angle: -14 }) + O.kayak(e, e.cx + e.w * 0.12, e.h * 0.88, m * 0.7, '#f2c14e', { angle: 10, blade: '#2d9cdb' }); },
       sailboat: (e) => A.outdoors(e, { horizon: 0.58, time: 'day' }) + O.water(e, e.h * 0.58, '#2f6d8f') + O.sailboat(e, e.cx + e.w * 0.04, e.h * 0.74, Math.min(e.w * 0.7, e.h * 0.9)) + O.sailboat(e, e.w * 0.18, e.h * 0.64, Math.min(e.w, e.h) * 0.22, '#e9e4da'),
       // a mooring cleat on a teak deck with a coiled line: the hands-on detail of sailing
       'rope-cleat': (e) => { let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#c49a6c')], [1, e.tint('#8f6a45')]], { x1: 0, y1: 0, x2: 1, y2: 1 })); for (let i = 1; i < 9; i++) s += rect(0, e.h * i / 9 - 2 * e.s, e.w, 4 * e.s, '#3a2a1c', { opacity: 0.8 }); const m = Math.min(e.w, e.h); const cx = e.cx - m * 0.12, cy = e.cy + m * 0.12; s += e.shadow(cx, cy + m * 0.06, m * 0.3, m * 0.05, 0.35) + rect(cx - m * 0.3, cy - m * 0.05, m * 0.6, m * 0.08, e.lin([[0, '#eceef0'], [0.5, '#a9aeb3'], [1, '#6a7076']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: m * 0.04 }) + rect(cx - m * 0.08, cy - m * 0.02, m * 0.16, m * 0.1, e.lin([[0, '#c9ccd1'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: m * 0.02 }); for (let r = 0; r < 5; r++) s += ell(e.cx + m * 0.2, e.cy - m * 0.08, m * (0.26 - r * 0.045), m * (0.16 - r * 0.028), 'none', { stroke: r % 2 ? '#e9e2d0' : '#f6f1e3', 'stroke-width': n1(m * 0.035) }); s += path(`M${n1(cx - m * 0.2)} ${n1(cy - m * 0.03)} C${n1(cx - m * 0.1)} ${n1(cy - m * 0.12)} ${n1(cx + m * 0.1)} ${n1(cy + m * 0.04)} ${n1(cx + m * 0.22)} ${n1(cy - m * 0.03)} S${n1(e.cx + m * 0.1)} ${n1(e.cy - m * 0.2)} ${n1(e.cx + m * 0.04)} ${n1(e.cy - m * 0.1)}`, 'none', { stroke: '#f3eddc', 'stroke-width': n1(m * 0.035), 'stroke-linecap': 'round' }); return s; },
       'boat-dusk': (e) => A.outdoors(e, { horizon: 0.5, time: 'dusk' }) + O.water(e, e.h * 0.5, '#1d3550', { glint: '#ffb877' }) + circ(e.w * 0.2, e.h * 0.46, e.w * 0.08, '#ffb877', { opacity: 0.5 }) + O.boat(e, e.cx + e.w * 0.06, e.h * 0.66, e.w * 0.72),
       fishing: (e) => A.outdoors(e, { horizon: 0.5, time: 'golden', treeline: false }) + O.water(e, e.h * 0.5, '#2a6f86', { glint: '#ffe0a8' }) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.lin([[0, '#a57a4c'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + [0.2, 0.4, 0.6, 0.8].map(f => line(0, e.h * (0.66 + f * 0.34), e.w, e.h * (0.66 + f * 0.34), '#5a3b22', 1.4 * e.s, { opacity: 0.5 })).join('') + B.fishingGear(e, e.cx, e.h * 0.74, e.w * 0.8),
-      bicycle: (e) => A.outdoors(e, { horizon: 0.66, time: 'day' }) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.tint('#b9b1a4')) + O.bicycle(e, e.cx, e.h * 0.84, Math.min(e.w * 0.8, e.h * 1.1)),
+      bicycle: (e, p) => {
+        if (p.variant === 'stand') { // a bike clamped in a workstand in the workshop, a pegboard of tools behind
+          const L = Math.min(e.w * 0.74, e.h * 1.0); const base = e.h * 0.9; const wy = e.h * 0.66;
+          let s = A.studio(e, { horizon: 0.9, wall: e.tint('#e7e2d8'), floor: e.tint('#8b8f94') }) + rect(e.w * 0.08, e.h * 0.08, e.w * 0.84, e.h * 0.3, e.tint('#c9a26f'), { rx: 4 * e.s });
+          for (let i = 0; i < 7; i++) for (let j = 0; j < 3; j++) s += circ(e.w * (0.12 + i * 0.13), e.h * (0.13 + j * 0.1), 1.6 * e.s, '#7a5538');
+          s += line(e.w * 0.2, e.h * 0.12, e.w * 0.24, e.h * 0.3, '#5f656b', 5 * e.s) + line(e.w * 0.34, e.h * 0.12, e.w * 0.34, e.h * 0.32, '#c0392b', 4 * e.s) + circ(e.w * 0.66, e.h * 0.22, e.h * 0.05, 'none', { stroke: '#2b2b2b', 'stroke-width': n1(4 * e.s) });
+          s += line(e.cx + L * 0.02, base, e.cx + L * 0.02, wy - L * 0.3, '#3a3d42', 5 * e.s) + line(e.cx - L * 0.14, base, e.cx + L * 0.18, base, '#3a3d42', 5 * e.s) + rect(e.cx - L * 0.02, wy - L * 0.34, L * 0.08, L * 0.05, '#c0392b', { rx: 2 * e.s });
+          return s + O.bicycle(e, e.cx, wy, L);
+        }
+        return A.outdoors(e, { horizon: 0.66, time: 'day' }) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.tint('#b9b1a4')) + O.bicycle(e, e.cx, e.h * 0.84, Math.min(e.w * 0.8, e.h * 1.1));
+      },
       solar: (e) => A.outdoors(e, { horizon: 0.95, time: 'day', treeline: false }) + path(`M0 ${n1(e.h * 0.34)} L${n1(e.w)} ${n1(e.h * 0.1)} L${n1(e.w)} ${n1(e.h)} L0 ${n1(e.h)} Z`, e.tint('#50535c')) + O.solarPanels(e, e.w * 0.14, e.h * 0.34, e.w * 0.72, e.h * 0.44),
       'produce-crate': (e) => { let s = A.studio(e, { horizon: 0.6 }); const W = e.w * 0.8, y = e.h * 0.84; s += e.shadow(e.cx, y, W * 0.55, W * 0.04, 0.3) + rect(e.cx - W / 2, y - e.h * 0.24, W, e.h * 0.24, e.lin([[0, e.tint('#c9a26f')], [1, e.tint('#8f6a45')]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * e.s }); for (let i = 1; i < 3; i++) s += line(e.cx - W / 2, y - e.h * 0.08 * i, e.cx + W / 2, y - e.h * 0.08 * i, e.tint('#7a5538'), 2 * e.s); const R = A.rng(A.hashStr('crate' + e.uid)); const veg = ['apple', 'orange', 'lemon', 'pear', 'strawberry', 'mango']; for (let i = 0; i < 9; i++) s += A.flavourPiece(e, veg[i % veg.length], e.cx - W * 0.4 + (i % 5) * W * 0.2 + R() * 6, y - e.h * 0.24 - Math.floor(i / 5) * e.h * 0.06, Math.min(e.w, e.h) * 0.07); s += A.sprig(e, e.cx + W * 0.36, y - e.h * 0.3, e.h * 0.26, -70); return s; },
       seedling: (e) => { let s = A.outdoors(e, { horizon: 0.3, time: 'day' }) + rect(0, e.h * 0.3, e.w, e.h * 0.7, e.lin([[0, '#5a3a24'], [1, '#3a2416']], { x1: 0, y1: 0, x2: 0, y2: 1 })); const R = A.rng(A.hashStr('soil' + e.uid)); for (let i = 0; i < 80; i++) s += circ(e.w * R(), e.h * (0.32 + R() * 0.68), (1 + R() * 2) * e.s, R() > 0.5 ? '#6b4a33' : '#2a1a10'); [[0.3, 0.7], [0.6, 0.62], [0.8, 0.84]].forEach(([fx, fy], i) => { s += line(e.w * fx, e.h * fy, e.w * fx, e.h * (fy - 0.14), '#5f8f4e', 2.4 * e.s) + A.leaf(e, e.w * fx, e.h * (fy - 0.12), e.h * 0.1, -150) + A.leaf(e, e.w * fx, e.h * (fy - 0.14), e.h * 0.1, -30); }); s += g(path(`M0 0 L${n1(e.w * 0.2)} ${n1(-e.w * 0.03)} L${n1(e.w * 0.2)} ${n1(e.w * 0.03)} Z`, e.lin([[0, '#eceef0'], [1, '#7d848b']])) + rect(-e.w * 0.14, -e.w * 0.02, e.w * 0.14, e.w * 0.04, e.tint('#2e7d32'), { rx: e.w * 0.02 }), { transform: `translate(${n1(e.w * 0.18)} ${n1(e.h * 0.88)}) rotate(-20)` }); return s; },
@@ -2094,7 +2158,15 @@
     };
     // ---- other subjects ---------------------------------------------------------------------------------------------------------------------------------------
     const misc = {
-      dog: (e) => A.studio(e, { horizon: 0.8 }) + B.dog(e, e.cx, e.h * 0.86, Math.min(e.h * 0.66, e.w * 0.8)),
+      dog: (e, p) => {
+        if ((p || {}).variant === 'walk') { // out on a walk: a park path, the lead running up out of frame to the walker's hand
+          const H = Math.min(e.h * 0.56, e.w * 0.7); const base = e.h * 0.88;
+          let s = A.outdoors(e, { horizon: 0.5, time: 'day' }) + O.lawn(e, e.h * 0.5, { stripes: false }) + path(`M${n1(e.w * 0.3)} ${n1(e.h)} L${n1(e.w * 0.7)} ${n1(e.h)} L${n1(e.w * 0.56)} ${n1(e.h * 0.5)} L${n1(e.w * 0.46)} ${n1(e.h * 0.5)} Z`, e.tint('#d9cdb6'));
+          s += O.tree(e, e.w * 0.12, e.h * 0.54, e.h * 0.42) + O.tree(e, e.w * 0.88, e.h * 0.56, e.h * 0.38);
+          return s + B.dog(e, e.cx - H * 0.1, base, H) + path(`M${n1(e.cx - H * 0.1 + H * 0.2)} ${n1(base - H * 0.62)} Q${n1(e.cx + H * 0.45)} ${n1(base - H * 1.05)} ${n1(e.cx + H * 0.62)} ${n1(e.h * 0.02)}`, 'none', { stroke: e.tint('#c0392b'), 'stroke-width': n1(3.2 * e.s), 'stroke-linecap': 'round' });
+        }
+        return A.studio(e, { horizon: 0.8 }) + B.dog(e, e.cx, e.h * 0.86, Math.min(e.h * 0.66, e.w * 0.8));
+      },
       bouquet: (e) => A.studio(e, { horizon: 0.82 }) + B.bouquet(e, e.cx, e.h * 0.88, Math.min(e.h * 0.8, e.w * 1.1)),
       stationery: (e, p) => A.studio(e, { horizon: 0.05, floor: e.tint('#e3dccf') }) + B.stationery(e, e.cx, e.cy, Math.min(e.w * 0.86, e.h * 1.05), { title: p.variant || '&' }),
       // a close-up of the finishing: wax seal, ribbon, a calligraphy nib
@@ -2105,7 +2177,7 @@
       travel: (e) => A.studio(e, { horizon: 0.82 }) + B.suitcase(e, e.cx - e.w * 0.08, e.h * 0.86, Math.min(e.h * 0.6, e.w * 0.8)) + A.ceramic(e, e.cx + e.w * 0.3, e.h * 0.84, e.h * 0.1, '#f1ede6', { form: 'mug' }),
       sewing: (e) => A.studio(e, { horizon: 0.78 }) + B.sewingMachine(e, e.cx, e.h * 0.82, Math.min(e.w * 0.8, e.h * 1.0)),
       cake: (e) => hospitality.bakery(e, { variant: 'cake' }),
-      pet: (e) => misc.dog(e),
+      pet: (e, p) => misc.dog(e, p || {}),
       // last resort: the owner's own offerings as a designed stack of cards -- honest, readable, never a random object
       'offer-cards': (e, p) => { const items = (p.items && p.items.length ? p.items : [p.label].filter(Boolean)).slice(0, 3); if (!items.length) return A.studio(e, { horizon: 0.86 }) + misc.stationery(e, { variant: '' }); let s = A.studio(e, { horizon: 0.86 }); items.forEach((it, i) => { const w = e.w * 0.62, h = e.h * 0.2, x = e.cx - w / 2 + (i - 1) * e.w * 0.05, y = e.h * (0.18 + i * 0.22); s += e.shadow(x + w / 2, y + h, w * 0.45, h * 0.08, 0.25) + rect(x, y, w, h, i === 1 ? e.accent : (e.dark ? '#1f2026' : '#fbfaf7'), { rx: h * 0.16, transform: `rotate(${(i - 1) * -3} ${n1(x + w / 2)} ${n1(y + h / 2)})` }) + A.wordmark(e, it, x + w * 0.08, y + h * 0.6, Math.min(h * 0.28, w * 0.07), i === 1 ? A.inkOn(e.accent) : e.ink, { anchor: 'start', weight: 700, maxWidth: w * 0.84, spacing: '-0.01em' }); }); return s; },
     };
@@ -2119,25 +2191,150 @@
     }, hospitality, creative, tech, desk, body, outdoor, indoor, misc);
     const ART_KINDS = Object.keys(KINDS);
 
-    // the one entry point: an art spec for one layer -> self-contained HTML (inline SVG)
-    function drawArt(spec, o) {
-      const k = o || {}; const kind = spec && KINDS[spec.kind] ? spec.kind : 'offer-cards'; const params = (spec && spec.params) || {};
-      const align = /^x(Min|Mid|Max)Y(Min|Mid|Max)$/.test(k.align || '') ? k.align : 'xMidYMid';
-      // canvas: the frame's own proportions when known (clamped so no picture is squashed), else the image aspect
-      let [w, h] = BOX[k.aspect] || BOX['1:1'];
-      // a line-up of products is built to sit in a narrow column; scenes need a wider canvas to stay composed
-      const minRatio = { 'skincare-range': 0.42, 'can-range': 0.42, 'bottle-hero': 0.42 }[kind] || 0.62;
-      if (Number.isFinite(k.ratio) && k.ratio > 0) { const r = Math.max(minRatio, Math.min(2.6, k.ratio)); if (r >= 1) { w = 640; h = Math.round(640 / r); } else { h = 640; w = Math.round(640 * r); } }
-      const e = A.makeEnv({ w, h, tone: k.tone, accent: k.accent, seed: A.hashStr(`${kind}|${k.seed || ''}`), uid: k.uid, kind, detail: k.role && k.role !== 'lead' ? 'simple' : 'full' });
-      if (kind === 'interface') return `<div class="ha-art" data-art="interface">${U.renderInterface(e, params.ui || 'analytics', { title: params.label || 'Product', items: params.items, audience: params.audience, reminders: params.reminders })}</div>`;
-      let bodySvg = '';
-      try { bodySvg = KINDS[kind](e, params) || ''; } catch (err) { bodySvg = misc['offer-cards'](e, params); }
-      if (k.role === 'lead' && !e.dark) bodySvg += A.grain(e, 0.06);
-      const label = A.esc(params.alt || kind.replace(/-/g, ' '));
-      return `<div class="ha-art" data-art="${A.esc(kind)}"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="${align} slice" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg"><defs>${e.defs.join('')}</defs>${bodySvg}</svg></div>`;
+    // ---- the subject of each drawing ------------------------------------------------------------------------------------------------------
+    // Every part a kind draws through the shared kit (O.house, A.can, B.bouquet ...)
+    // is the subject unless it is scenery (sky, lawn, trees, studio wall, grain).
+    // The subject parts are wrapped in <g data-subject="1"> so the framing below --
+    // and a reviewer's browser -- can find them. SUBJECT_PARTS narrows a kind whose
+    // supporting props would otherwise count (the lawn-mowing house is scenery; its
+    // mower is the subject). "name#n" is the n-th call of that part.
+    const SCENERY = new Set(['A.studio', 'A.outdoors', 'A.room', 'A.cityline', 'A.grain', 'A.leaf', 'A.sprig', 'A.bubbles', 'A.droplets', 'A.wordmark',
+      'O.shrub', 'O.grasses', 'O.perennial', 'O.tree', 'O.lawn', 'O.water', 'O.pavers', 'O.mulchBed', 'O.soilCores',
+      'I.pendant', 'I.plantPot', 'I.tileGrid', 'I.sparkle', 'I.bookRow', 'I.floorLamp', 'I.artFrame', 'I.cabinetRun', 'B.stringLights']);
+    const SUBJECT_PARTS = {
+      'lawn-mowing': ['O.mower'], aeration: ['O.aerator'], 'roof-house': ['O.house'], 'house-dusk': ['O.house'], 'house-paint': ['O.house', 'O.ladder'],
+      boat: ['O.boat'], 'boat-dusk': ['O.boat'], sailboat: ['O.sailboat#1'], 'ev-charger': ['I.evCharger', 'B.car'], vacuum: ['I.vacuum'],
+      'roof-ladder': ['O.ladder', 'O.shingleField'], solar: ['O.solarPanels'], edging: ['O.trimmer'], 'leaf-cleanup': ['O.leafPile', 'O.rake'],
+    };
+    const KIT = [[A, 'A', ['sauceBottle', 'chiliPod', 'garlicBulb', 'can', 'bottle', 'dropper', 'pump', 'jar', 'tube', 'tin', 'pouch', 'candle', 'ceramic', 'chili', 'flavourPiece', 'beanPile', 'citrusWheel', 'roundFruit', 'halfFruit', 'studio', 'outdoors', 'room', 'cityline', 'grain', 'leaf', 'sprig', 'bubbles', 'droplets', 'wordmark']], [O, 'O'], [I, 'I'], [B, 'B'], [U, 'U', ['phoneNotice']]];
+    let REC = null; // the drawing in progress: { only, count, depth }
+    for (const [ns, prefix, only] of KIT) {
+      for (const key of only || Object.keys(ns)) {
+        const f = ns[key]; if (typeof f !== 'function' || f.__framed) continue;
+        const name = `${prefix}.${key}`;
+        const wrapped = function () {
+          if (!REC) return f.apply(this, arguments);
+          REC.depth++; let out; try { out = f.apply(this, arguments); } finally { REC.depth--; }
+          if (REC.depth || typeof out !== 'string' || !out) return out;
+          const n = REC.count[name] = (REC.count[name] || 0) + 1;
+          const isSubject = REC.only ? (REC.only.includes(name) || REC.only.includes(`${name}#${n}`)) : !SCENERY.has(name);
+          if (!isSubject) return out.replace(/ data-subject="1"/g, '');
+          // a part that marks its own subject (a room marks its treatment table) keeps that finer mark
+          return (!REC.only && out.includes(' data-subject="1"')) ? out : `<g data-subject="1">${out.replace(/ data-subject="1"/g, '')}</g>`;
+        };
+        wrapped.__framed = true; ns[key] = wrapped;
+      }
     }
 
-    module.exports = { KINDS, ART_KINDS, BOX, drawArt };
+    // ---- canvas + framing -------------------------------------------------------------------------------------------------------------------
+    // a line-up of products is built to sit in a narrow column; scenes need a wider canvas to stay composed
+    const minRatioFor = kind => ({ 'skincare-range': 0.42, 'can-range': 0.42, 'bottle-hero': 0.42 }[kind] || 0.62);
+    function canvasFor(kind, aspect, ratio) {
+      let [w, h] = BOX[aspect] || BOX['1:1'];
+      if (Number.isFinite(ratio) && ratio > 0) { const r = Math.max(minRatioFor(kind), Math.min(2.6, ratio)); if (r >= 1) { w = 640; h = Math.round(640 / r); } else { h = 640; w = Math.round(640 * r); } }
+      return [w, h];
+    }
+    function paint(kind, params, k, w, h, uidSuffix) {
+      const e = A.makeEnv({ w, h, tone: k.tone, accent: k.accent, seed: A.hashStr(`${kind}|${k.seed || ''}`), uid: k.uid ? `${k.uid}${uidSuffix || ''}` : undefined, kind, detail: k.role && k.role !== 'lead' ? 'simple' : 'full' });
+      REC = { only: SUBJECT_PARTS[kind] || null, count: {}, depth: 0 };
+      let body = '';
+      try { body = KINDS[kind](e, params) || ''; } catch (err) { REC.count = {}; try { body = misc['offer-cards'](e, params); } catch (err2) { body = ''; } } finally { REC = null; }
+      if (k.role === 'lead' && !e.dark) body += A.grain(e, 0.06);
+      return { e, body, w, h };
+    }
+    // Frame one drawing for one frame: { ratio, pan, shape, avoid[] } (see
+    // hero-framing.js). The drawing is made at the frame's own proportions; when
+    // its subject would still be lost -- cut by the frame, carried out by the
+    // camera move, or under another frame or the headline -- a slightly wider or
+    // taller canvas is drawn and the crop slides so the subject lands in the open.
+    const OFFSETS = [0.5, 0.35, 0.65, 0.2, 0.8, 0, 1];
+    // the subject's bounds inside the canvas (a part drawn running off the edge is cropped on purpose);
+    // a subject filling the whole canvas is a surface or a room -- any crop of it shows it
+    function subjectIn(body, w, h) {
+      const b = F.subjectBox(body); if (!b) return null;
+      const c = [Math.max(0, b[0]), Math.max(0, b[1]), Math.min(w, b[2]), Math.min(h, b[3])];
+      if (c[2] <= c[0] || c[3] <= c[1]) return null;
+      return (c[2] - c[0]) * (c[3] - c[1]) >= 0.8 * w * h ? null : c;
+    }
+    // Where the subject may go when the crop alone cannot clear it: slid along its
+    // ground line (a share of the canvas width) and/or made a little smaller about
+    // its base -- it never leaves the ground it stands on.
+    const SHIFTS = [0, -0.12, 0.12, -0.24, 0.24, -0.34, 0.34];
+    const SCALES = [1, 0.86, 0.74, 0.62];
+    // the subject's box after a move: scale k about its bottom centre, then slide dx
+    function moved(b, dx, kk) { const ax = (b[0] + b[2]) / 2, ay = b[3]; return [ax + dx + (b[0] - ax) * kk, ay + (b[1] - ay) * kk, ax + dx + (b[2] - ax) * kk, b[3]]; }
+    function moveSubject(body, b, dx, kk) {
+      if (!dx && kk === 1) return body;
+      const ax = (b[0] + b[2]) / 2, ay = b[3];
+      const t = `translate(${r1(ax + dx)} ${r1(ay)}) scale(${kk}) translate(${r1(-ax)} ${r1(-ay)})`;
+      return body.replace(/<g data-subject="1">/g, `<g data-subject="1" transform="${t}">`);
+    }
+    function frameDrawing(kind, params, k, fr, uidSuffix) {
+      const R = fr.ratio; const win = F.stableWindow(fr.pan); let best = null; let measured = false;
+      const evalBox = (box, crop, n) => [F.visibleShare(box, crop, win, fr.avoid, fr.shape, n), F.visibleShare(F.core(box), crop, win, fr.avoid, fr.shape, n)];
+      for (const [fx, fy] of [[1, 1], [1.4, 1], [1, 1.4]]) {
+        const [w, h] = canvasFor(kind, k.aspect, R * fx / fy);
+        const d = paint(kind, params, k, w, h, uidSuffix);
+        const box = subjectIn(d.body, w, h); if (box) measured = true; else if (measured) continue; // a canvas where the subject cannot be measured never beats one where it was
+        const cw = w / h > R ? h * R : w, ch = w / h > R ? h : w / R;
+        for (const ox of (w - cw > 1 ? OFFSETS : [0.5])) for (const oy of (h - ch > 1 ? OFFSETS : [0.5])) {
+          const crop = [(w - cw) * ox, (h - ch) * oy, cw, ch];
+          // the drawing as composed first; moving the subject is a fallback, costed so it only wins when it shows clearly more
+          for (const kk of (box ? SCALES : [1])) for (const sx of (box ? SHIFTS : [0])) {
+            const dx = sx * w; const b2 = box && moved(box, dx, kk);
+            if (b2 && (b2[0] < -0.02 * w || b2[2] > 1.02 * w)) continue;
+            const [share, coreShare] = b2 ? evalBox(b2, crop, 10) : [1, 1];
+            // the recognisable middle first, then the whole; prefer the frame's own drawing, a centred crop and the subject where it was drawn
+            const score = coreShare * 0.6 + share * 0.4 - (fx * fy > 1 ? 0.03 : 0) - 0.02 * (Math.abs(ox - 0.5) + Math.abs(oy - 0.5)) - 0.08 * Math.abs(sx) - 0.15 * (1 - kk);
+            if (!best || score > best.score + 1e-9) best = { score, crop, box: b2, base: box, dx, kk, d };
+          }
+        }
+        if (best.box == null || evalBox(best.box, best.crop, 24)[0] >= 0.96) break;
+      }
+      const [share, coreShare] = best.box ? evalBox(best.box, best.crop, 24) : [1, 1];
+      if (best.box && (best.dx || best.kk !== 1)) best.d = Object.assign({}, best.d, { body: moveSubject(best.d.body, best.base, best.dx, best.kk) });
+      return Object.assign(best, { share, coreShare });
+    }
+    const r1 = v => Math.round(v * 10) / 10;
+    function svgFor(kind, params, f, cls) {
+      const label = A.esc(params.alt || kind.replace(/-/g, ' '));
+      const [x, y, w, h] = f.crop; const b = f.box;
+      return `<div class="ha-art${cls ? ` ${cls}` : ''}" data-art="${A.esc(kind)}"${f.share != null ? ` data-fit="${Math.round(f.share * 100)}"` : ''}><svg viewBox="${r1(x)} ${r1(y)} ${r1(w)} ${r1(h)}" preserveAspectRatio="${f.align || 'xMidYMid'} slice" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg"${b ? ` data-subject-box="${b.map(r1).join(' ')}"` : ''}><defs>${f.d.e.defs.join('')}</defs>${f.d.body}</svg></div>`;
+    }
+
+    // the one entry point: an art spec for one layer -> self-contained HTML (inline SVG)
+    // o: { aspect, accent, tone, role, seed, uid } and either
+    //    frames: { desktop: {ratio, pan, shape, avoid}, phone: {...} }  (the hero: framed per breakpoint)
+    //    or ratio + align                                               (one canvas, as before)
+    function drawArt(spec, o) {
+      const k = o || {}; const kind = spec && KINDS[spec.kind] ? spec.kind : 'offer-cards'; const params = (spec && spec.params) || {};
+      if (kind === 'interface') {
+        const [w, h] = canvasFor(kind, k.aspect, k.ratio);
+        const e = A.makeEnv({ w, h, tone: k.tone, accent: k.accent, seed: A.hashStr(`${kind}|${k.seed || ''}`), uid: k.uid, kind });
+        return `<div class="ha-art" data-art="interface">${U.renderInterface(e, params.ui || 'analytics', { title: params.label || 'Product', items: params.items, audience: params.audience, reminders: params.reminders })}</div>`;
+      }
+      if (k.frames && k.frames.desktop) {
+        const desk = frameDrawing(kind, params, k, k.frames.desktop, '');
+        const ph = k.frames.phone && frameDrawing(kind, params, k, k.frames.phone, 'p');
+        // one drawing serves both when the phone frame crops it the same way
+        const same = !ph || (ph.d.w === desk.d.w && ph.d.h === desk.d.h && ph.crop.every((v, i) => Math.abs(v - desk.crop[i]) < 1));
+        return same ? svgFor(kind, params, desk) : svgFor(kind, params, desk, 'ha-desk') + svgFor(kind, params, ph, 'ha-phone');
+      }
+      const align = /^x(Min|Mid|Max)Y(Min|Mid|Max)$/.test(k.align || '') ? k.align : 'xMidYMid';
+      // canvas: the frame's own proportions when known (clamped so no picture is squashed), else the image aspect
+      const [w, h] = canvasFor(kind, k.aspect, k.ratio);
+      const d = paint(kind, params, k, w, h, '');
+      return svgFor(kind, params, { d, crop: [0, 0, w, h], box: subjectIn(d.body, w, h), align });
+    }
+    // how a drawing frames its subject for one frame (tests, review): { share, crop, box, canvas }
+    function framingOf(spec, o, fr) {
+      const k = o || {}; const kind = spec && KINDS[spec.kind] ? spec.kind : 'offer-cards';
+      if (kind === 'interface') return { share: 1, coreShare: 1, crop: null, box: null, canvas: null };
+      const f = frameDrawing(kind, (spec && spec.params) || {}, k, fr, '');
+      return { share: f.share, coreShare: f.coreShare, crop: f.crop, box: f.box, canvas: [f.d.w, f.d.h] };
+    }
+
+    module.exports = { KINDS, ART_KINDS, BOX, drawArt, framingOf, SUBJECT_PARTS, SCENERY };
 
   });
   __define("hero-art-objects", function (module, exports, require) {
@@ -2203,10 +2400,12 @@
       return e.shadow(x, y + r * 1.1, r * 1.1, r * 0.2, 0.3) + ell(x, y, r, r * 0.8, 'none', { stroke: gold, 'stroke-width': n1(r * 0.2) }) + path(P([[x - r * 0.3, y - r * 0.8], [x + r * 0.3, y - r * 0.8], [x + r * 0.18, y - r * 1.25], [x - r * 0.18, y - r * 1.25]]), e.lin([[0, '#ffffff'], [0.5, stone || '#cfe8f7'], [1, '#8fb9d6']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + A._svg.line(x - r * 0.18, y - r * 1.25, x + r * 0.1, y - r * 0.8, '#fff', 1 * e.s, { opacity: 0.8 });
     }
     function weave(e, c, o) {
-      const k = o || {}; const col = e.tint(c || '#7c8a9a'); const st = (k.knit ? 22 : 12) * e.s; let s = rect(0, 0, e.w, e.h, darken(col, 0.25));
+      const k = o || {}; const col = e.tint(c || '#7c8a9a'); const st = (k.knit ? 24 : 18) * e.s; let s = rect(0, 0, e.w, e.h, darken(col, 0.25));
+      // one shared gradient per stitch type (a gradient per stitch made a fabric swatch over half a megabyte)
+      const lc = e.lin([[0, lighten(col, 0.25)], [1, darken(col, 0.12)]], { x1: 0, y1: 0, x2: 1, y2: 1 }); const wc = e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 });
       for (let y = 0; y < e.h + st; y += st) for (let x = 0; x < e.w + st; x += st) {
-        if (k.knit) { const lc = e.lin([[0, lighten(col, 0.25)], [1, darken(col, 0.12)]], { x1: 0, y1: 0, x2: 1, y2: 1 }); s += ell(x + st * 0.3, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(-28 ${n1(x + st * 0.3)} ${n1(y + st * 0.5)})` }) + ell(x + st * 0.7, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(28 ${n1(x + st * 0.7)} ${n1(y + st * 0.5)})` }); }
-        else s += rect(x + ((y / st) % 2 ? st / 2 : 0), y, st * 0.9, st * 0.45, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: st * 0.2 });
+        if (k.knit) { s += ell(x + st * 0.3, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(-28 ${n1(x + st * 0.3)} ${n1(y + st * 0.5)})` }) + ell(x + st * 0.7, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(28 ${n1(x + st * 0.7)} ${n1(y + st * 0.5)})` }); }
+        else s += rect(x + ((y / st) % 2 ? st / 2 : 0), y, st * 0.9, st * 0.45, wc, { rx: st * 0.2 });
       }
       if (k.seam) s += line(0, e.h * 0.62, e.w, e.h * 0.55, darken(col, 0.4), 2 * e.s) + line(0, e.h * 0.64, e.w, e.h * 0.57, lighten(k.thread || '#d9a441', 0.1), 1.6 * e.s, { 'stroke-dasharray': `${n1(6 * e.s)} ${n1(4 * e.s)}` });
       return s;
@@ -2637,9 +2836,12 @@
     // a close view of new architectural shingles with a line of flashing
     function shingleField(e, x, y, w, h, colour, o) {
       const k = o || {}; const c = e.tint(colour || '#55565e'); const R = rng(hashStr(`shf${x}${y}`)); const rh = (k.rowH || 26) * e.s; let s = rect(x, y, w, h, darken(c, 0.3));
+      const toneCols = [darken(c, 0.2), mix(c, darken(c, 0.2), 0.5), c, mix(c, lighten(c, 0.18), 0.5), lighten(c, 0.18)];
+      const tones = toneCols.map(t => e.lin([[0, lighten(t, 0.1)], [1, darken(t, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 })); const grain = toneCols.map(t => lighten(t, 0.3));
       for (let r = 0; r * rh < h + rh; r++) {
         const yy = y + r * rh; let cx = x - ((r * 17) % 40) * e.s;
-        while (cx < x + w) { const tw = (26 + R() * 22) * e.s; const tone = mix(c, R() > 0.5 ? lighten(c, 0.18) : darken(c, 0.2), R()); s += rect(cx + 1, yy, tw - 2, rh * 1.05, e.lin([[0, lighten(tone, 0.1)], [1, darken(tone, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 })); for (let q = 0; q < 6; q++) s += circ(cx + R() * tw, yy + R() * rh, 0.8 * e.s, lighten(tone, 0.3), { opacity: 0.5 }); cx += tw; }
+        // (five shared tones and a couple of granules per tab: the same look for a fraction of the markup a phone has to paint)
+        while (cx < x + w) { const tw = (26 + R() * 22) * e.s; const ti = Math.floor(R() * tones.length); s += rect(cx + 1, yy, tw - 2, rh * 1.05, tones[ti]); for (let q = 0; q < 2; q++) s += circ(cx + R() * tw, yy + R() * rh, 0.8 * e.s, grain[ti], { opacity: 0.5 }); cx += tw; }
         s += rect(x, yy + rh - 2 * e.s, w, 3 * e.s, darken(c, 0.4), { opacity: 0.5 });
       }
       return s;
@@ -2746,6 +2948,23 @@
       return s;
     }
     // a small sailboat heeling slightly: hull, mast, mainsail and jib
+    // a sit-in kayak seen from the side on the water: a long pointed hull, deck lines, the cockpit, a double paddle across it
+    function kayak(e, x, y, L, c, o) {
+      const k = o || {}; const u = L / 100; const hull = e.tint(c || '#e4572e'); let s = '';
+      s += ell(x, y + 3 * u, 52 * u, 3.2 * u, '#0b2a3a', { opacity: 0.35 });
+      s += path(`M${n1(x - 50 * u)} ${n1(y - 2 * u)} Q${n1(x - 20 * u)} ${n1(y - 9 * u)} ${n1(x)} ${n1(y - 9 * u)} Q${n1(x + 22 * u)} ${n1(y - 9 * u)} ${n1(x + 50 * u)} ${n1(y - 3 * u)} Q${n1(x + 30 * u)} ${n1(y + 4 * u)} ${n1(x)} ${n1(y + 4 * u)} Q${n1(x - 30 * u)} ${n1(y + 4 * u)} ${n1(x - 50 * u)} ${n1(y - 2 * u)} Z`, e.lin([[0, lighten(hull, 0.18)], [0.55, hull], [1, darken(hull, 0.28)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += path(`M${n1(x - 46 * u)} ${n1(y - 3.5 * u)} Q${n1(x)} ${n1(y - 7.5 * u)} ${n1(x + 46 * u)} ${n1(y - 4 * u)}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(0.8 * u), opacity: 0.55 });
+      s += ell(x - 2 * u, y - 8.5 * u, 11 * u, 2.4 * u, '#1d1e22') + ell(x - 2 * u, y - 9 * u, 11 * u, 2.4 * u, 'none', { stroke: darken(hull, 0.35), 'stroke-width': n1(1 * u) });
+      if (k.paddle !== false) { const a = (k.angle == null ? -12 : k.angle) * Math.PI / 180; const dx = Math.cos(a) * 40 * u, dy = Math.sin(a) * 40 * u; s += line(x - 2 * u - dx, y - 11 * u - dy, x - 2 * u + dx, y - 11 * u + dy, '#2b2b2b', 1.4 * u); [[-1], [1]].forEach(([sg]) => { const bx = x - 2 * u + sg * dx, by = y - 11 * u + sg * dy; s += ell(bx, by, 6 * u, 2.2 * u, e.tint(k.blade || '#f2c14e'), { transform: `rotate(${n1(a * 180 / Math.PI)} ${n1(bx)} ${n1(by)})` }); }); }
+      return s;
+    }
+    // a stand-up paddleboard afloat, its paddle laid along it
+    function paddleboard(e, x, y, L, c) {
+      const u = L / 100; const b = e.tint(c || '#2d9cdb'); let s = ell(x, y + 2 * u, 50 * u, 2.4 * u, '#0b2a3a', { opacity: 0.3 });
+      s += path(`M${n1(x - 50 * u)} ${n1(y)} Q${n1(x - 40 * u)} ${n1(y - 4.5 * u)} ${n1(x)} ${n1(y - 4.5 * u)} Q${n1(x + 44 * u)} ${n1(y - 4.5 * u)} ${n1(x + 50 * u)} ${n1(y - 1 * u)} Q${n1(x + 44 * u)} ${n1(y + 2 * u)} ${n1(x)} ${n1(y + 2 * u)} Q${n1(x - 40 * u)} ${n1(y + 2 * u)} ${n1(x - 50 * u)} ${n1(y)} Z`, e.lin([[0, lighten(b, 0.3)], [1, darken(b, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += rect(x - 14 * u, y - 4.6 * u, 28 * u, 1.4 * u, '#e9e6de', { rx: 0.7 * u, opacity: 0.9 }) + line(x - 34 * u, y - 5.5 * u, x + 30 * u, y - 6.5 * u, '#2b2b2b', 1.1 * u) + ell(x + 34 * u, y - 6.6 * u, 6 * u, 1.8 * u, '#1d1e22');
+      return s;
+    }
     function sailboat(e, x, y, L, c) {
       const u = L / 100; const hull = e.tint(c || '#f4f1ea'); let s = '';
       s += path(`M${n1(x - 40 * u)} ${n1(y - 6 * u)} L${n1(x + 44 * u)} ${n1(y - 6 * u)} Q${n1(x + 36 * u)} ${n1(y + 8 * u)} ${n1(x + 24 * u)} ${n1(y + 8 * u)} L${n1(x - 30 * u)} ${n1(y + 8 * u)} Z`, e.lin([[0, lighten(hull, 0.1)], [1, darken(hull, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(x - 38 * u, y - 3 * u, 80 * u, 2.4 * u, e.accent);
@@ -2768,7 +2987,7 @@
       return s;
     }
 
-    module.exports = { shrub, grasses, perennial, tree, lawn, pavers, stoneWall, mulchBed, house, shingleField, ladder, mower, aerator, soilCores, trimmer, rake, leafPile, sprinkler, firePit, pergola, chair, water, boat, sailboat, bicycle, solarPanels };
+    module.exports = { shrub, grasses, perennial, tree, lawn, pavers, stoneWall, mulchBed, house, shingleField, ladder, mower, aerator, soilCores, trimmer, rake, leafPile, sprinkler, firePit, pergola, chair, water, boat, sailboat, kayak, paddleboard, bicycle, solarPanels };
 
   });
   __define("hero-art-ui", function (module, exports, require) {
@@ -3033,9 +3252,26 @@
       coconut: '#efe8da', pineapple: '#f5c63c', passionfruit: '#8f3a6c', cucumber: '#9bc865', elderflower: '#ece4c0', hibiscus: '#c01f5d', lavender: '#9a86c8',
       pomegranate: '#a3163d', cranberry: '#9a1b30', pear: '#c7d16a', grape: '#6b3c99', matcha: '#7ca552', tea: '#b36a26', coffee: '#6e4b33', citrus: '#f5b82e',
       cola: '#5a2e1b', cinnamon: '#a0522d', honey: '#e0a21a', chili: '#c9291d', habanero: '#ef6a1a', jalapeno: '#4f8f2f', garlic: '#efe6d2', smoky: '#7a4a2a',
+      'ghost pepper': '#8e0d18', 'scotch bonnet': '#e8541c', 'carolina reaper': '#a3121c', reaper: '#a3121c', chipotle: '#8a2f17', serrano: '#4f8f2f', cayenne: '#c9291d',
     };
-    const FLAVOUR_KEYS = Object.keys(FLAVOUR_COLOURS);
-    const flavourColour = f => FLAVOUR_COLOURS[String(f || '').toLowerCase()] || null;
+    // words that describe a taste but are not a thing to draw or a flavour of the range ("smoky" is how it tastes, not an ingredient)
+    const DESCRIPTORS = new Set(['smoky']);
+    const FLAVOUR_KEYS = Object.keys(FLAVOUR_COLOURS).filter(k => !DESCRIPTORS.has(k));
+    // the chillies (a heat level may name one: "ghost pepper")
+    const CHILI_KEYS = ['chili', 'habanero', 'jalapeno', 'ghost pepper', 'scotch bonnet', 'carolina reaper', 'reaper', 'chipotle', 'serrano', 'cayenne'];
+    // the colour of a sauce at a named heat -- always a sauce colour (orange to deep red), never brown or grey
+    function heatColour(level) {
+      const t = String(level || '').toLowerCase();
+      if (/ghost|reaper|scorpion|extra|xxx|insane|nuclear|very hot|fire/.test(t)) return '#8e0d18';
+      if (/smok|chipotle/.test(t)) return '#9a2b16';
+      if (/\bhot\b/.test(t)) return '#c0241a';
+      if (/medium|classic|original/.test(t)) return '#d23c1f';
+      if (/mild|sweet|gentle/.test(t)) return '#e3642a';
+      if (/green|jalape|verde|serrano/.test(t)) return '#5d8a2a';
+      return flavourColour(t) || null;
+    }
+    // a named flavour's colour; a two-word flavour ("habanero mango") takes its first named part's
+    const flavourColour = f => { const t = String(f || '').toLowerCase(); if (FLAVOUR_COLOURS[t]) return FLAVOUR_COLOURS[t]; const hit = t.split(/\s+/).map((w, i, a) => FLAVOUR_COLOURS[a.slice(i, i + 2).join(' ')] || FLAVOUR_COLOURS[w]).find(Boolean); return hit || null; };
 
     // ---- svg helpers ----------------------------------------------------------------------------------------------
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3048,6 +3284,9 @@
     const line = (x1, y1, x2, y2, stroke, w, o) => el('line', Object.assign({ x1, y1, x2, y2, stroke, 'stroke-width': w || 1, 'stroke-linecap': 'round' }, o || {}));
     const g = (inner, o) => el('g', o || {}, inner);
     const P = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${n1(p[0])} ${n1(p[1])}`).join(' ') + ' Z';
+    // the drawing's main subject (hero-framing.js keeps it in view): mark(svg), or everything drawn since index i
+    const mark = svg => `<g data-subject="1">${String(svg).replace(/ data-subject="1"/g, '')}</g>`;
+    const markFrom = (s, i) => s.slice(0, i) + mark(s.slice(i));
 
     // deterministic pseudo-random from a seed
     function rng(seed) { let s = (seed >>> 0) || 1; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -3224,8 +3463,8 @@
       if (/chocolate|cocoa|coffee|cola/.test(f)) return beanPile(e, x, y, r, f === 'coffee' ? '#4b2e1c' : '#3a2213');
       if (/pineapple/.test(f)) return ell(x, y + r * 0.2, r * 0.75, r * 0.95, e.rad([[0, '#f8d35b'], [1, '#c78a1c']], { cx: 0.35, cy: 0.3 })) + [0, 1, 2, 3, 4].map(i => leaf(e, x, y - r * 0.65, r * 0.9, -90 + (i - 2) * 22, '#4f8a3b')).join('');
       if (/coconut/.test(f)) return halfFruit(e, x, y, r, '#6b4428', '#f6f1e6');
-      if (/chili|habanero|jalapeno/.test(f)) return chili(e, x - r * 0.5, y, r, c) + chili(e, x + r * 0.3, y + r * 0.3, r * 0.9, darken(c, 0.1));
-      if (/garlic/.test(f)) return path(`M${n1(x)} ${n1(y - r)} Q${n1(x + r)} ${n1(y - r * 0.2)} ${n1(x + r * 0.7)} ${n1(y + r * 0.6)} Q${n1(x)} ${n1(y + r)} ${n1(x - r * 0.7)} ${n1(y + r * 0.6)} Q${n1(x - r)} ${n1(y - r * 0.2)} ${n1(x)} ${n1(y - r)} Z`, e.rad([[0, '#fffaf0'], [1, '#d9ccb2']], { cx: 0.35, cy: 0.3 }));
+      if (CHILI_KEYS.includes(f)) return chiliPod(e, x - r * 0.9, y - r * 0.15, r * 1.9, 12, c) + chiliPod(e, x - r * 0.6, y + r * 0.45, r * 1.7, -8, darken(c, 0.08));
+      if (/garlic/.test(f)) return garlicBulb(e, x, y + r * 0.2, r * 1.05);
       if (/honey/.test(f)) return honeyDipper(e, x, y, r);
       if (/cinnamon/.test(f)) return [0, 1, 2].map(i => rect(x - r + i * 5 * e.s, y - r * 0.2 + i * 4 * e.s, r * 2, r * 0.32, darken(c, i * 0.08), { rx: r * 0.16, transform: `rotate(-18 ${n1(x)} ${n1(y)})` })).join('');
       return roundFruit(e, x, y, r, c);
@@ -3233,6 +3472,54 @@
     function chili(e, x, y, r, c) {
       return path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.5)} Q${n1(x + r * 0.2)} ${n1(y - r * 0.7)} ${n1(x + r * 1.1)} ${n1(y + r * 0.6)} Q${n1(x + r * 0.1)} ${n1(y - r * 0.05)} ${n1(x - r * 0.9)} ${n1(y - r * 0.1)} Z`, e.lin([[0, lighten(c, 0.3)], [1, darken(c, 0.25)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) +
         path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.3)} q${n1(-r * 0.3)} ${n1(-r * 0.2)} ${n1(-r * 0.35)} ${n1(-r * 0.6)}`, 'none', { stroke: '#4d6b2a', 'stroke-width': n1(r * 0.14), 'stroke-linecap': 'round' });
+    }
+    // a chilli pod lying on its side: green calyx and stem, a glossy curved body tapering to a point.
+    // (x, y) is the stem end, L the pod's length, angle in degrees.
+    function chiliPod(e, x, y, L, angle, c) {
+      const w = L * 0.26; const col = c || '#c9291d';
+      const body = `M0 ${n1(-w * 0.5)} C${n1(L * 0.35)} ${n1(-w * 0.62)} ${n1(L * 0.78)} ${n1(-w * 0.34)} ${n1(L)} ${n1(w * 0.42)} C${n1(L * 0.72)} ${n1(w * 0.18)} ${n1(L * 0.36)} ${n1(w * 0.56)} 0 ${n1(w * 0.5)} Z`;
+      let s = path(body, e.lin([[0, lighten(col, 0.28)], [0.45, col], [1, darken(col, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += path(`M${n1(L * 0.08)} ${n1(-w * 0.26)} Q${n1(L * 0.42)} ${n1(-w * 0.42)} ${n1(L * 0.72)} ${n1(-w * 0.1)}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(w * 0.12), 'stroke-linecap': 'round', opacity: 0.45 });
+      s += path(`M${n1(w * 0.22)} ${n1(-w * 0.56)} Q${n1(-w * 0.12)} 0 ${n1(w * 0.22)} ${n1(w * 0.56)} L${n1(-w * 0.2)} ${n1(w * 0.3)} L${n1(-w * 0.2)} ${n1(-w * 0.3)} Z`, '#4d7a2a');
+      s += path(`M${n1(-w * 0.18)} 0 Q${n1(-w * 0.7)} ${n1(-w * 0.1)} ${n1(-w * 0.9)} ${n1(-w * 0.62)}`, 'none', { stroke: '#557f2c', 'stroke-width': n1(w * 0.2), 'stroke-linecap': 'round' });
+      return e.shadow(x + L * 0.5 * Math.cos(angle * Math.PI / 180), y + w * 0.7, L * 0.5, w * 0.22, 0.3) + g(s, { transform: `translate(${n1(x)} ${n1(y)}) rotate(${n1(angle)})` });
+    }
+    // a garlic bulb: papery cloves meeting at a pointed top, root hairs underneath
+    function garlicBulb(e, x, y, r) {
+      const skin = e.rad([[0, '#fffdf8'], [0.7, '#efe6d2'], [1, '#d8c9ad']], { cx: 0.4, cy: 0.35 });
+      let s = e.shadow(x, y + r * 0.8, r * 0.9, r * 0.14, 0.3);
+      s += path(`M${n1(x)} ${n1(y - r * 1.05)} C${n1(x + r * 0.2)} ${n1(y - r * 0.7)} ${n1(x + r * 1.05)} ${n1(y - r * 0.45)} ${n1(x + r * 0.95)} ${n1(y + r * 0.25)} Q${n1(x + r * 0.8)} ${n1(y + r * 0.8)} ${n1(x)} ${n1(y + r * 0.8)} Q${n1(x - r * 0.8)} ${n1(y + r * 0.8)} ${n1(x - r * 0.95)} ${n1(y + r * 0.25)} C${n1(x - r * 1.05)} ${n1(y - r * 0.45)} ${n1(x - r * 0.2)} ${n1(y - r * 0.7)} ${n1(x)} ${n1(y - r * 1.05)} Z`, skin);
+      [-0.55, -0.2, 0.2, 0.55].forEach(f => { s += path(`M${n1(x)} ${n1(y - r * 0.95)} Q${n1(x + f * r * 1.3)} ${n1(y - r * 0.2)} ${n1(x + f * r * 0.9)} ${n1(y + r * 0.75)}`, 'none', { stroke: '#cdbb9a', 'stroke-width': n1(r * 0.05), opacity: 0.8 }); });
+      s += path(`M${n1(x - r * 0.06)} ${n1(y - r * 1.02)} Q${n1(x + r * 0.05)} ${n1(y - r * 1.35)} ${n1(x + r * 0.22)} ${n1(y - r * 1.45)}`, 'none', { stroke: '#d8c9ad', 'stroke-width': n1(r * 0.1), 'stroke-linecap': 'round' });
+      for (let i = -3; i <= 3; i++) s += line(x + i * r * 0.07, y + r * 0.8, x + i * r * 0.1, y + r * 0.95, '#bda985', r * 0.03);
+      return s + ell(x - r * 0.35, y - r * 0.3, r * 0.18, r * 0.3, '#fff', { opacity: 0.45 });
+    }
+    // a hot-sauce "woozy" bottle: clear glass filled with sauce up into the neck, a ribbed cap,
+    // a label wrapped round the body (the brand, and what is inside: the product or its heat level)
+    function sauceBottle(e, x, baseY, H, o) {
+      const k = o || {}; const sauce = k.sauce || '#c0241a';
+      const W = H * 0.34, r = W / 2, top = baseY - H;
+      const capH = H * 0.1, neckTop = top + capH, neckBot = top + H * 0.36, shoulderBot = top + H * 0.5, nr = W * 0.15;
+      let s = e.shadow(x + W * 0.2, baseY + 2, W * 0.85, W * 0.14);
+      const outline = `M${n1(x - nr)} ${n1(neckTop)} L${n1(x + nr)} ${n1(neckTop)} L${n1(x + nr * 1.1)} ${n1(neckBot)} C${n1(x + nr * 1.3)} ${n1(neckBot + H * 0.08)} ${n1(x + r)} ${n1(neckBot + H * 0.06)} ${n1(x + r)} ${n1(shoulderBot)} L${n1(x + r)} ${n1(baseY - W * 0.1)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r - W * 0.12)} ${n1(baseY)} L${n1(x - r + W * 0.12)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - W * 0.1)} L${n1(x - r)} ${n1(shoulderBot)} C${n1(x - r)} ${n1(neckBot + H * 0.06)} ${n1(x - nr * 1.3)} ${n1(neckBot + H * 0.08)} ${n1(x - nr * 1.1)} ${n1(neckBot)} Z`;
+      // the sauce fills the glass (a thin clear rim of glass shows round it), up to a line in the neck
+      s += path(outline, e.cyl('#eef2f0', { edge: 0.3, hi: 0.4 }), { opacity: 0.9 });
+      const fill = top + H * 0.2;
+      s += g(path(outline, e.cyl(sauce, { edge: 0.42, hi: 0.18 })), { transform: `translate(${n1(x)} ${n1(baseY)}) scale(0.9 0.96) translate(${n1(-x)} ${n1(-baseY)})` }) + rect(x - nr, neckTop, nr * 2, fill - neckTop, '#eef2f0', { opacity: 0.85 });
+      s += ell(x, fill, nr * 0.95, nr * 0.25, lighten(sauce, 0.2), { opacity: 0.8 });
+      // ribbed cap
+      const capC = k.cap || '#1d1d1d';
+      s += rect(x - nr * 1.35, top, nr * 2.7, capH + 2, e.cyl(capC, { edge: 0.35 }), { rx: 2 * e.s });
+      for (let i = 1; i < 6; i++) s += line(x - nr * 1.35 + i * nr * 0.45, top + 2, x - nr * 1.35 + i * nr * 0.45, top + capH, lighten(capC, 0.18), 0.8 * e.s, { opacity: 0.6 });
+      // label: brand on a light band, the contents on a coloured strip below
+      const lt = shoulderBot + (baseY - shoulderBot) * 0.1, lh = (baseY - shoulderBot) * 0.66; const lc = k.labelColour || '#f6efe2';
+      s += rect(x - r, lt, W, lh, e.cyl(lc, { edge: 0.2, hi: 0.12 }));
+      s += rect(x - r, lt + lh * 0.66, W, lh * 0.26, e.cyl(k.band || sauce, { edge: 0.25 }));
+      if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.36, Math.min(W * 0.17, lh * 0.2), '#2a1a14', { maxWidth: W * 0.84, upper: true, spacing: '0.05em', weight: 800 });
+      if (k.icon !== false) s += g(chiliPod(e, 0, 0, W * 0.34, -18, sauce).replace(/<ellipse[^>]*filter="[^"]*"[^>]*\/>/, ''), { transform: `translate(${n1(x - W * 0.18)} ${n1(lt + lh * 0.54)})` });
+      if (k.sub) s += wordmark(e, k.sub, x, lt + lh * 0.84, Math.min(W * 0.11, lh * 0.13), inkOn(k.band || sauce), { maxWidth: W * 0.86, upper: true, spacing: '0.08em', weight: 700 });
+      s += e.hi(x - r * 0.66, shoulderBot + 2 * e.s, W * 0.07, (baseY - shoulderBot) * 0.86, 0.35) + e.hi(x - nr * 0.55, neckTop + 3 * e.s, nr * 0.35, neckBot - neckTop, 0.3);
+      return s;
     }
     function beanPile(e, x, y, r, c) {
       const R = rng(hashStr(`beans${x}${y}`)); let s = '';
@@ -3482,9 +3769,367 @@
     module.exports = {
       FLAVOUR_COLOURS, FLAVOUR_KEYS, flavourColour, mix, lighten, darken, inkOn, lum, hashStr, rng, esc,
       makeEnv, studio, outdoors, room, cityline, grain, leaf, sprig, citrusWheel, roundFruit, halfFruit, flavourPiece, beanPile, bean, bubbles, droplets,
-      wordmark, can, bottle, dropper, pump, jar, tube, tin, pouch, candle, ceramic, chili,
-      _svg: { el, rect, circ, ell, path, line, g, P, n1 },
+      wordmark, can, bottle, dropper, pump, jar, tube, tin, pouch, candle, ceramic, chili, chiliPod, garlicBulb, sauceBottle, heatColour, CHILI_KEYS, DESCRIPTORS,
+      _svg: { el, rect, circ, ell, path, line, g, P, n1, mark, markFrom },
     };
+
+  });
+  __define("hero-copy", function (module, exports, require) {
+    'use strict';
+    // HERO COPY -- the business's name and its opening words, read from what the
+    // owner actually wrote.
+    //
+    //   extractName(text)     the name the owner gave ("Harbour Knots teaches...",
+    //                         "We are Stem Studio, a florist...", "...called X",
+    //                         "Citrine Soda Co. makes..."). Never a service ("Residential
+    //                         Cleaning offers..."), a place, or a sentence fragment.
+    //   readBusiness(text, name)   what it IS (identity: "a florist") and what it DOES
+    //                         (clauses: verb + objects + where/how: "teaches | sailing
+    //                         lessons | from the marina").
+    //   heroCopyFor(ctx)      a headline, kicker and sub built only from those words --
+    //                         several sentence shapes, chosen per business, so two
+    //                         businesses never share one pattern -- or null when the
+    //                         description gives nothing to build on.
+    //   headlineProblem(h, ctx)  why a (planner-written) headline should not ship:
+    //                         generic (a category word + stock phrase, or nothing from
+    //                         the owner's words) or a claim the owner never made.
+    // Pure and deterministic (no I/O, no randomness): the live preview (premium-core.js
+    // bundle) and the export read the same stored copy.
+
+    const cap = s => { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+    const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
+    function listPhrase(a) { const x = (a || []).filter(Boolean); if (x.length <= 1) return x[0] || ''; return `${x.slice(0, -1).join(', ')} and ${x[x.length - 1]}`; }
+    function hash(s) { let h = 2166136261; const t = String(s || ''); for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+    // ---- the name ------------------------------------------------------------------------------------------------------
+    // a capitalised word (internal capitals, apostrophes, "&", and an abbreviation's full stop: "Co.", "St.")
+    const CAPWORD = "(?:[A-Z][A-Za-z0-9'’-]*\\.?|&)";
+    const CONNECT = "(?:&|and|of|the|de|du|la|le|on|by|n'|'n')";
+    const NAME = `${CAPWORD}(?:\\s+(?:${CONNECT}\\s+)?${CAPWORD}){0,4}`;
+    const PRONOUN_START = new Set(['we', 'i', 'our', 'my', 'this', 'it', 'they', 'a', 'an', 'the', 'hi', 'hello', 'looking', 'need', 'please', 'website', 'site', 'welcome', 'at', 'in', 'for', 'with', 'from', 'on', 'every', 'each', 'all', 'some', 'most', 'best', 'top', 'local', 'your']);
+    // words that on their own only name a kind of work, a quality or a place -- a "name" made only of these is a description
+    const GENERIC = new Set(('residential commercial professional local family mobile emergency affordable premium luxury custom quality expert certified licensed small independent boutique online modern ' +
+      'cleaning roofing plumbing landscaping landscape painting lawn care services service company business studio shop store agency firm group solutions home homes house garden gardens ' +
+      'electrical electric heating cooling hvac repair repairs renovation renovations construction contracting contractor contractors builders building design designs marketing consulting ' +
+      'dog dogs pet pets walking sitting grooming training fitness yoga pilates massage therapy wellness health dental clinic beauty hair nails salon barber spa cafe coffee bakery ' +
+      'restaurant food catering wedding weddings photography photographer events event flowers florist sailing boat boats fishing charter charters tours tour travel auto car cars detailing ' +
+      'mechanic tutoring tutors tutor lessons classes school academy software app apps platform tech technology digital web website websites data ai the and of').split(' '));
+    const ABBREV_END = /\b(?:Co|Inc|Ltd|Corp|LLC|St|Bros)\.$/;
+    // a lowercase word right after the name that makes it the subject of a sentence
+    const NOT_VERBS = new Set(['across', 'as', 'plus', 'its', 'this', 'his', 'hers', 'was', 'gas', 'bus', 'less', 'various', 'famous', 'previous', 'serious', 'thus', 'yes', 'business', 'fitness', 'wellness', 'glass', 'grass', 'class', 'dress', 'press', 'always', 'perhaps', 'towards', 'sometimes', 'news', 'services', 'goods', 'products', 'solutions']);
+    function looksLikeVerb(w) { const x = String(w || '').toLowerCase(); if (/^(is|are|was|were|has|have|does|do|offers?|makes?|runs?)$/.test(x)) return true; return x.length >= 4 && /[a-z](?:s|es)$/.test(x) && !/ss$/.test(x) && !NOT_VERBS.has(x); }
+    function tidyName(n) { let s = clean(n).replace(/[,;:]+$/, ''); if (/\.$/.test(s) && !ABBREV_END.test(s)) s = s.replace(/\.+$/, ''); return s; }
+    function acceptable(name, text) {
+      const words = name.split(/\s+/).map(w => w.toLowerCase().replace(/[^a-z0-9&']/g, '')).filter(Boolean);
+      if (!words.length || words.length > 6) return false;
+      if (PRONOUN_START.has(words[0]) && !(words[0] === 'the' && words.length > 1)) return false;
+      if (words.every(w => GENERIC.has(w) || w === '&')) return false; // "Residential Cleaning", "Dog Walking"
+      const place = /\bin\s+([A-Z][a-zA-Z'.-]+(?:\s[A-Z][a-zA-Z'.-]+){0,2})/.exec(text || '');
+      if (place && place[1].replace(/[.,]+$/, '') === name) return false; // a place is not a name
+      return true;
+    }
+    function extractName(text) {
+      const t = clean(text); if (!t) return '';
+      const tries = [
+        new RegExp(`\\b(?:called|named)\\s+(${NAME})`),
+        new RegExp(`^(?:we are|we're|this is|welcome to|hi,? we're|hello,? we're)\\s+(${NAME})(?=\\s*(?:,|\\.|\\s+and\\b|\\s+[-–—]\\s|$))`, 'i'),
+        new RegExp(`^at\\s+(${NAME}),\\s+(?:we|our)\\b`, 'i'),
+        new RegExp(`^((?:The\\s+)?${NAME})(?=\\s*,\\s*(?:a|an|the|we|our)\\b|\\s+\\(|\\s+[-–—]\\s)`),
+        new RegExp(`^((?:The\\s+)?${NAME})\\s+([a-z][a-z-]+)\\b`),
+      ];
+      for (let i = 0; i < tries.length; i++) {
+        const m = tries[i].exec(t); if (!m) continue;
+        if (i === 4 && (!looksLikeVerb(m[2]) || /^(?:is|are)\s+(?:where|home|a (?:city|town|place)|the (?:city|town|place)|located)\b/i.test(t.slice(m.index + m[1].length).trim()))) continue;
+        let name = tidyName(m[1]);
+        // "We are Stem Studio" captures the name only when it is capitalised ("we are a roofing company" is not a name)
+        if (i === 1 && !/^[A-Z]/.test(name)) continue;
+        if (acceptable(name, t)) return name;
+      }
+      return '';
+    }
+
+    // ---- what it is and what it does ------------------------------------------------------------------------------------
+    const IRREGULAR = { build: 'built', rebuild: 'rebuilt', make: 'made', sell: 'sold', teach: 'taught', run: 'run', grow: 'grown', lead: 'led', mow: 'mown', do: 'done', sew: 'sewn', hold: 'held', bring: 'brought', feed: 'fed', keep: 'kept', find: 'found', buy: 'bought', cut: 'cut', shoot: 'shot', sit: 'sat', write: 'written', draw: 'drawn', give: 'given', take: 'taken', fit: 'fitted', ship: 'shipped', plan: 'planned', knit: 'knitted', lay: 'laid', weave: 'woven', throw: 'thrown', drive: 'driven', dig: 'dug', spin: 'spun', stop: 'stopped', wrap: 'wrapped', prep: 'prepped', map: 'mapped' };
+    // verbs whose participle makes a poor headline ("offered", "done", "helped")
+    const NO_PARTICIPLE = new Set(['offer', 'provide', 'do', 'help', 'keep', 'focus', 'specialise', 'specialize', 'have', 'run', 'care', 'bring', 'support', 'work', 'love', 'aim', 'want', 'try', 'get', 'go', 'come', 'let', 'use', 'include', 'feature', 'give', 'take', 'find', 'sit', 'hold', 'lead', 'make sure']);
+    const NOUN_ING = new Set(['wedding', 'weddings', 'clothing', 'lighting', 'catering', 'flooring', 'landscaping', 'roofing', 'plumbing', 'painting', 'cleaning', 'bedding', 'planning', 'consulting', 'accounting', 'marketing', 'printing', 'framing', 'coaching', 'training', 'tutoring', 'fishing', 'sailing', 'camping', 'housekeeping', 'bookkeeping', 'engineering', 'packaging', 'branding', 'detailing', 'recording', 'hosting', 'dog walking', 'walking', 'sitting', 'grooming', 'boxing', 'sparring', 'decking', 'fencing', 'siding', 'paving', 'tiling', 'heating', 'cooling', 'dining', 'baking', 'brewing', 'roasting', 'banking', 'lending', 'moving', 'storage', 'shipping', 'sewing', 'knitting', 'building', 'buildings', 'cycling', 'climbing', 'swimming', 'skating', 'surfing', 'diving', 'kayaking', 'paddling', 'hiking', 'running', 'rowing', 'riding', 'dancing', 'singing', 'drawing', 'pottery', 'morning', 'evening', 'spring', 'string', 'ceiling', 'awning', 'awnings', 'railing', 'seating', 'ring', 'rings', 'thing', 'things', 'king', 'wing', 'wings', 'something', 'everything', 'nothing', 'anything']);
+    function baseOf(w) {
+      const x = w.toLowerCase();
+      if (/ing$/.test(x)) {
+        // "delivering" -> deliver, "making" -> make, "running" -> run: the known verb wins, else the bare stem
+        const s = x.slice(0, -3); const und = s.length > 2 && s[s.length - 1] === s[s.length - 2] && !/(ll|ss|ff|zz)$/.test(s) ? s.slice(0, -1) : s;
+        for (const cnd of [s, und, s + 'e', und + 'e']) if (COMMON_VERBS.test(cnd)) return cnd;
+        return s;
+      }
+      if (/ies$/.test(x)) return x.slice(0, -3) + 'y';
+      if (/(ch|sh|x|ss|zz|o)es$/.test(x)) return x.slice(0, -2);
+      if (/s$/.test(x) && !/ss$/.test(x)) return x.slice(0, -1);
+      return x;
+    }
+    function participle(base) {
+      if (!base || NO_PARTICIPLE.has(base)) return '';
+      if (IRREGULAR[base]) return IRREGULAR[base];
+      if (/e$/.test(base)) return base + 'd';
+      if (/[^aeiou]y$/.test(base)) return base.slice(0, -1) + 'ied';
+      return base + 'ed';
+    }
+    function gerund(base) {
+      if (!base) return '';
+      if (/ie$/.test(base)) return base.slice(0, -2) + 'ying';
+      if (/[^aeiou]e$/.test(base) && base !== 'be') return base.slice(0, -1) + 'ing';
+      if (/^(?:run|plan|shop|ship|stop|wrap|map|prep|dig|spin|sit|cut|set|get|put|swim|knit|fit|tan|trim|chop|mop|jog|drop)$/.test(base)) return base + base.slice(-1) + 'ing';
+      return base + 'ing';
+    }
+    // words a clause's object stops at: where / how / for whom, or a describing participle ("hot honey | infused with habanero")
+    const TAIL_WORD = /^(?:from|in|across|for|to|at|on|around|by|near|throughout|with|within|along|over|inside|outside|since|using|out|all|based|made|sold|built|grown|brewed|roasted|baked|infused|blended|delivered|designed|handmade|hand-made|crafted|sourced|printed|packed|shipped|served|run)$/;
+    const PEOPLE = /\b(?:teams?|families|family|clients?|customers?|homeowners?|businesses|kids|children|students?|patients?|owners?|people|members?|companies|brands?|manufacturers?|organisations?|organizations?|startups?|founders?|couples?|parents?|seniors?|adults?|athletes?|runners?|guests?|travell?ers?)$/;
+    const PLACE_TAIL = /^(?:in|across|around|from|throughout|on|at|near)\s+(?:the\s+)?[A-Z]/;
+    function singular(w) { return /ies$/.test(w) ? w.slice(0, -3) + 'y' : /(?:ch|sh|x|ss)es$/.test(w) ? w.slice(0, -2) : /s$/.test(w) && !/ss$/.test(w) ? w.slice(0, -1) : w; }
+    const COMMON_VERBS = /^(?:alert|notify|remind|send|invoice|bill|report|sync|connect|integrate|teach|run|rent|hire|build|rebuild|make|sell|deliver|repair|replace|paint|fix|install|clean|design|create|bake|brew|roast|serve|print|grow|walk|treat|train|coach|photograph|handle|host|guide|plan|cook|cater|restore|maintain|detail|tailor|alter|mow|craft|import|ship|stock|frame|tune|groom|offer|provide|do|help|keep|collect|distribute|renovate|remodel|upgrade|inspect|lay|pour|edge|aerate|trim|prune|plant|haul|move|store|wash|polish|coat|protect|ferment|bottle|blend|mix|sew|knit|weave|dye|glaze|carve|forge|weld|sharpen|upholster|refinish|arrange|style|cut|colour|color|shape|manage|prepare|advise|represent|insure|lend|buy|lease|list|develop|support|monitor|automate|schedule|track|audit|tutor|mentor|lead|organise|organize|raise|feed|rescue|shelter|foster|clear|remove|tow|fit|supply|source|press|bind|engrave|embroider|hand-pour|pack|smoke|cure|pickle|preserve|roll|fold|bring|play|record|master|film|shoot|edit|write|draw|illustrate|translate|transcribe|fund|donate|care|visit|take|drive|fly|sail|paddle|climb|explore|book|stage|throw|launch|specialise|specialize|focus|sit)$/;
+    function verbForm(w) {
+      const x = String(w || '').toLowerCase().replace(/[^a-z-]/g, '');
+      if (!x || NOUN_ING.has(x)) return null;
+      if (/ing$/.test(x)) return COMMON_VERBS.test(baseOf(x)) ? 'gerund' : null;
+      if (/s$/.test(x) && x.length >= 4 && !NOT_VERBS.has(x) && COMMON_VERBS.test(baseOf(x))) return 'third';
+      if (COMMON_VERBS.test(x)) return 'base';
+      return null;
+    }
+    // "teaches sailing lessons and runs sunset cruises" -> two clauses; "patios, retaining walls and planting beds" stays one
+    // (a new clause starts only at a verb of the same form as the first, right after "and" or a comma)
+    function splitClauses(s, form) {
+      const words = s.split(/\s+/); const out = []; let cur = [];
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i]; const prev = words[i - 1] || '';
+        const joins = prev === 'and' || /,$/.test(prev);
+        if (i > 0 && cur.length > 2 && joins && verbForm(w) === form && !(prev === 'and' && cur.length === 2)) { if (prev === 'and') cur.pop(); out.push(cur.join(' ').replace(/,$/, '')); cur = []; }
+        cur.push(w);
+      }
+      if (cur.length) out.push(cur.join(' '));
+      return out.filter(Boolean);
+    }
+    function clauseParts(c) {
+      let words = c.split(/\s+/); const verbs = [words[0]];
+      // "replaces and repairs shingle roofs", "collecting and distributing groceries": one object, two verbs
+      if (words[1] === 'and' && words[2] && verbForm(words[2])) { verbs.push(words[2]); words = [words[0]].concat(words.slice(3)); }
+      const rest = words.slice(1); let cut = rest.length;
+      for (let i = 1; i < rest.length; i++) if (TAIL_WORD.test(rest[i].toLowerCase().replace(/[^a-z-]/g, ''))) { cut = i; break; }
+      if (rest[0] && /^(?:with|for|to)$/i.test(rest[0])) cut = 0;
+      const object = clean(rest.slice(0, cut).join(' ')).replace(/[,.]+$/, ''); let tail = clean(rest.slice(cut).join(' ')).replace(/[,.]+$/, '');
+      if (/,/.test(tail) && !/\band\b/.test(tail.split(',').slice(1).join(','))) tail = tail.split(',')[0]; // "infused with habanero, sold at markets" -> the first phrase
+      const bases = verbs.map(baseOf); const parts = bases.map(participle);
+      const items = object.split(/\s*,\s*|\s+and\s+|\s+or\s+/).map(x => x.replace(/^(?:a|an|the|their|your|our)\s+/i, '').trim()).filter(Boolean);
+      return { verb: verbs[0].toLowerCase(), base: bases[0], bases, part: parts.every(Boolean) ? parts.join(' and ') : '', object, items, tail, people: items.length > 0 && items.every(x => PEOPLE.test(x)) };
+    }
+    const IDENTITY_STOP = /^(?:in|for|with|based|that|who|which|across|serving|from|on|at|near|around|since|run|where|whose|to|by)$/i;
+    // the city the text is in: "in Portland. Single-origin..." is Portland (a full stop ends it unless it is an abbreviation)
+    function placeIn(t) {
+      const m = /\bin\s+([A-Z][a-zA-Z'.-]+(?:\s[A-Z][a-zA-Z'.-]+){0,2})/.exec(t); if (!m) return '';
+      const kept = []; for (const w of m[1].split(/\s+/)) { kept.push(w); if (/\.$/.test(w) && w.length > 4) break; }
+      return kept.join(' ').replace(/[.,]+$/, '');
+    }
+    function sentencesOf(t) {
+      const out = []; const re = /[.!?](?=\s+[A-Z0-9])/g; let s = 0, m;
+      while ((m = re.exec(t))) { const before = t.slice(Math.max(0, m.index - 5), m.index + 1); if (ABBREV_END.test(before) || /\b[A-Z]\.$/.test(before)) continue; out.push(t.slice(s, m.index + 1)); s = m.index + 1; }
+      out.push(t.slice(s)); return out.map(clean).filter(Boolean);
+    }
+    // "Petal & Post is a florist delivering bouquets..." -> identity "florist", clauses [delivering | bouquets, wedding flowers | across Bristol]
+    function readBusiness(text, name) {
+      const t = clean(text); const sentences = sentencesOf(t);
+      const first = (sentences[0] || '').replace(/[.!?]+$/, '');
+      let rest = first; let named = false;
+      if (name) { const i = first.toLowerCase().indexOf(name.toLowerCase()); if (i >= 0) { rest = first.slice(i + name.length); named = true; } }
+      // "We are Stem Studio, a wedding florist ...": what follows the name's comma is what it is
+      const appositive = /^[,:;–—-]/.test(clean(rest));
+      rest = clean(rest).replace(/^[,:;–—-]+\s*/, '');
+      // first person: "I walk dogs", "...called Northfield Tutors and we help kids"
+      let form = null;
+      const fp = /(?:^|\band\s+|,\s*)(?:we|i)\s+(?:also\s+)?(.*)$/i.exec(named ? rest : first);
+      if (fp && (!named || /^(?:and\s+)?(?:we|i)\b|^,/i.test(rest))) { if (/^(?:are|'re|am)\s/i.test(fp[1])) rest = fp[1].replace(/^(?:are|'re|am)\s+/i, 'is '); else { rest = fp[1]; form = 'base'; } }
+      let identity = '', article = '', audience = '', lead = '';
+      const idm = /^(?:is|are|'s)\s+(?:(a|an|the)\s+)?(.*)$/i.exec(rest) || (appositive ? /^(a|an|the)\s+(.*)$/i.exec(rest) : null);
+      if (!form && idm) {
+        article = (idm[1] || '').toLowerCase(); const words = idm[2].split(/\s+/); const idw = [];
+        for (let i = 0; i < words.length; i++) {
+          const bare = words[i].replace(/[,;:]+$/, '');
+          if (idw.length && (IDENTITY_STOP.test(bare) || verbForm(bare) === 'gerund')) break;
+          idw.push(bare); if (/[,;:]$/.test(words[i])) break;
+        }
+        identity = idw.join(' '); rest = clean(words.slice(idw.length).join(' ')).replace(/^[,;:]\s*/, '');
+        const aud = /^for\s+(.+?)(?=\s+(?:with|in|across|that|who|to)\b|[,:;]|$)/.exec(rest); if (aud) audience = aud[1];
+      }
+      // the verb phrases: after the identity (a gerund: "delivering ..."), after the name ("teaches ..."), or after "we"/"I".
+      // A verb opens the phrase or follows a joining word -- "online booking" and "uptime monitoring" are things, not actions.
+      const words = rest.split(/\s+/).filter(Boolean);
+      // ("in Ottawa making sourdough..." -- after a place name a gerund is still the action)
+      const vi = words.findIndex((w, i) => { const f = verbForm(w); if (!f || (form && f !== form)) return false; const raw = words[i - 1] || ''; const prev = raw.toLowerCase(); return i === 0 || f !== 'gerund' || /[,:;]$/.test(prev) || /^[A-Z]/.test(raw) || /^(?:and|with|for|by|to|in|also|then)$/.test(prev); });
+      let clauses = [];
+      if (vi >= 0) {
+        lead = words.slice(0, vi).join(' ');
+        const f = form || verbForm(words[vi]);
+        clauses = splitClauses(words.slice(vi).join(' '), f).map(clauseParts).filter(c => c.items.length || c.tail);
+      } else {
+        // "a cocktail bar in Chicago with seasonal cocktails, natural wine and late-night snacks",
+        // "software for engineering teams: uptime monitoring, alerting and logs for APIs"
+        const w = /(?:\bwith|:)\s+([^.;]+)$/.exec(rest);
+        if (w) {
+          const idx = w[1].search(/\s+(?=for\s|in\s[A-Z]|across\s|from\s)/); const list = idx >= 0 ? w[1].slice(0, idx) : w[1]; const tail = idx >= 0 ? clean(w[1].slice(idx)) : (audience ? `for ${audience}` : '');
+          const items = list.split(/\s*,\s*|\s+and\s+/).map(x => x.replace(/^(?:a|an|the)\s+/i, '').trim()).filter(Boolean);
+          if (items.length >= 2) clauses = [{ verb: 'with', base: 'with', bases: ['with'], part: '', object: list, items, tail, people: false }]; lead = rest.slice(0, w.index).trim();
+        }
+      }
+      return { first, sentences: sentences.slice(1), identity, article, audience, clauses, lead: clean(lead), place: placeIn(t), form: form || 'third' };
+    }
+
+    // someone who does the work -> the work itself ("a wedding photographer" -> "wedding photography")
+    const AGENT_TO_WORK = [[/photographers?$/, 'photography'], [/videographers?$/, 'films'], [/florists?$/, 'flowers'], [/tutors?$/, 'tutoring'], [/coach(?:es)?$/, 'coaching'], [/designers?$/, 'design'],
+      [/electricians?$/, 'electrical work'], [/plumbers?$/, 'plumbing'], [/roofers?$/, 'roofing'], [/painters?$/, 'painting'], [/landscapers?$/, 'landscaping'], [/caterers?$/, 'catering'], [/architects?$/, 'architecture'], [/therapists?$/, 'therapy'],
+      [/trainers?$/, 'training'], [/cleaners?$/, 'cleaning'], [/detailers?$/, 'detailing'], [/tailors?$/, 'tailoring'], [/groomers?$/, 'grooming'], [/physiotherapists?$/, 'physiotherapy']];
+    function workOf(identity) { const x = String(identity || '').toLowerCase(); for (const [re, w] of AGENT_TO_WORK) if (re.test(x)) return clean(x.replace(re, w)); return ''; }
+    // "a sparkling energy drink brand" -> "sparkling energy drinks" (what a maker of things makes)
+    function productOf(identity) {
+      const m = /^(.+?)\s+(?:brand|label|maker|makers)$/i.exec(String(identity || '')); if (!m || /\b(?:and|or)\b/.test(m[1]) || m[1].split(' ').length > 4) return '';
+      const w = m[1].split(' '); const last = w.pop(); return w.concat(/s$/.test(last) || /(?:wear|ware|ry|ing)$/.test(last) ? last : `${last}s`).join(' ');
+    }
+    // an item inside a sentence: lower case ("Single-origin Beans" -> "single-origin beans"), acronyms kept ("EV chargers", "APIs")
+    const lc = s => String(s || '').split(/\s+/).map(w => (/^[A-Z]{2,}s?$/.test(w) ? w : w.replace(/^[A-Z](?=[a-z'’-]|$)/, c => c.toLowerCase()))).join(' ');
+    // just the place in a where-phrase ("for homeowners in Guelph" -> "in Guelph")
+    const shortPlace = tail => (/\b(?:in|across|around|from|throughout|on)\s+(?:the\s+)?[A-Z][\w'.-]*(?:\s[A-Z][\w'.-]*){0,2}/.exec(tail || '') || [''])[0];
+    // the where/how phrase to end a headline with, short enough to read at a glance
+    function tailFor(tail, place, items) {
+      const t = clean(tail); const opts = [t];
+      const ins = t.split(/\s+(?=in\s)/); if (ins.length > 1 && /,|\band\b/.test(ins[ins.length - 1])) opts.unshift(ins[ins.length - 1]); // "in cans in blood orange, lime and ginger" -> the flavours
+      const fors = t.split(/\s+(?=for\s)/); if (fors.length > 1) opts.push(fors[0], fors.slice(1).join(' '));
+      const pl = (/\b(?:in|across|around|from|throughout|on)\s+(?:the\s+)?[A-Z][\w'.-]*(?:\s[A-Z][\w'.-]*){0,2}/.exec(t) || [''])[0]; if (pl) opts.push(pl);
+      for (const o of opts) if (o && o.length <= 46) return o;
+      if (!t && place && !items.join(' ').includes(place)) return `in ${place}`;
+      return '';
+    }
+
+    // a clause's things, as a visitor would name them: "walk dogs" -> "dog walking"; "do pet sitting" -> "pet sitting"
+    const itemsOf = x => (x.base === 'do' ? x.items : (x.bases.length === 1 && x.items.length === 1 && /^[a-z]+s$/.test(x.items[0]) && /^(?:walk|groom|wash|clean|mow|sit|train|detail|tune|service|valet)$/.test(x.base) ? [`${singular(x.items[0])} ${gerund(x.base)}`] : x.items));
+    const titleWords = s => String(s).split(/\s+/).map((w, i) => (i > 0 && /^(?:and|or|of|the|a|an|for|with|to|in|on|by)$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+    // What the business offers, read from what it says it does -- for a description that gives no list of its own
+    // ("Blue Mooring rents kayaks and paddleboards..." -> Kayaks, Paddleboards). Never who it serves ("families"),
+    // never a clause that is not a thing ("help kids with..."); 2-5 short items or nothing.
+    function offeringsFrom(text, name) {
+      const b = readBusiness(text, name || extractName(text));
+      let items = [];
+      for (const x of b.clauses) {
+        if (x.people || x.base === 'help') continue;
+        if (x.items.length === 1 && /^with\s+[^,]+(?:,[^,]+)*\s+and\s+/.test(x.tail)) items = items.concat(x.tail.replace(/^with\s+/, '').split(/\s+(?=in\s+[A-Z]|across\s|from\s|for\s)/)[0].split(/\s*,\s*|\s+and\s+/));
+        else items = items.concat(itemsOf(x));
+      }
+      items = items.map(s => clean(s).replace(/^(?:a|an|the)\s+/i, '')).filter(s => s && s.split(' ').length <= 4 && s.length <= 32 && /^[A-Za-z][A-Za-z' &-]*$/.test(s));
+      items = items.filter((s, i) => items.findIndex(o => o.toLowerCase() === s.toLowerCase()) === i);
+      return items.length >= 2 && items.length <= 5 ? items.map(s => titleWords(lc(s))) : [];
+    }
+
+    // ctx: { text, name, categoryKey, place, offerings[], seed }
+    function heroCopyFor(ctx) {
+      const c = ctx || {}; const text = clean(c.text); if (!text) return null;
+      const name = c.name || extractName(text);
+      const b = readBusiness(text, name);
+      const place = c.place || b.place;
+      const cands = [];
+      const add = (kind, s) => { s = clean(s).replace(/\s+([,.:])/g, '$1').replace(/,\s*,/g, ','); if (s.length >= 14 && s.length <= 80 && s.split(' ').length >= 3) cands.push({ kind, text: cap(s.replace(/[.:,;]*$/, '.')) }); };
+      const cl = b.clauses.slice(0, 2);
+      if (cl.length) {
+        const last = cl[cl.length - 1];
+        const helpWith = cl.find(x => /^(?:help|support|advise|coach|guide)$/.test(x.base) && /^with\s/.test(x.tail));
+        // "treating running injuries with exercise rehab, dry needling and manual therapy", "keeps lawns sharp with weekly
+        // mowing, crisp edging and spring aeration": the list after "with" is what they actually offer
+        const withList = !helpWith && cl.length === 1 && cl[0].items.length === 1 && /^with\s+[^,]+(?:,[^,]+)*\s+and\s+/.test(cl[0].tail) ? cl[0] : null;
+        if (withList) {
+          const rest = withList.tail.replace(/^with\s+/, ''); const cut = rest.search(/\s+(?=in\s+[A-Z]|across\s|from\s|for\s)/); const what = (cut >= 0 ? rest.slice(0, cut) : rest).split(/\s*,\s*|\s+and\s+/).map(lc);
+          const wherePart = cut >= 0 ? clean(rest.slice(cut)) : (place ? `in ${place}` : '');
+          if (/^(?:treat|fix|help|support|ease|relieve|heal|cure|manage|resolve|repair)$/.test(withList.base)) add('with', `${listPhrase(what)} for ${lc(withList.object)}`);
+          else add('with', `${listPhrase(what)}${wherePart && wherePart.length <= 30 ? ` ${wherePart}` : ''}`);
+        } else if (helpWith) {
+          // "helping families with retirement, savings and tax planning" -> "Retirement, savings and tax planning for families."
+          const what = helpWith.tail.replace(/^with\s+/, '').split(/\s+(?=for|in|across|to)\b/)[0]; const list = what.split(/\s*,\s*|\s+and\s+/).map(lc);
+          add('help', `${listPhrase(list)}${/homework$/.test(what) ? ' help' : ''} for ${helpWith.object}${place && !what.includes(place) ? ` in ${place}` : ''}`);
+        } else if (cl.some(x => x.people || x.base === 'help')) {
+          // the object is who they serve ("alerting on-call teams", "helping families buy and sell homes"): the owner's own verb phrases
+          add('doing', cl.map(x => `${gerund(x.base)} ${x.object}${x === last && x.tail && x.tail.length <= 30 ? ` ${x.tail}` : ''}`).join(' and '));
+        } else {
+          let items = cl.reduce((a, x) => a.concat(itemsOf(x)), []).map(lc);
+          if (items.length > 4 || (items.length === 4 && listPhrase(items).length > 52)) items = items.slice(0, 3);
+          const where = tailFor(last.tail || (/^(?:in|from|across)\s/.test(b.lead) ? b.lead : ''), place, items);
+          const tailIsParticiple = /^(?:made|sold|built|grown|brewed|roasted|baked|infused|blended|delivered|designed|handmade|hand-made|crafted|sourced|printed|packed|shipped|served|based|run)\b/.test(where);
+          const placeLike = PLACE_TAIL.test(where) || /^by hand\b/.test(where) || /^(?:by the|on)\b/.test(where) || /^to\s+(?:\w+\s+)?(?:families|people|homes|customers|clients|members|neighbours|neighbors)\b/.test(where);
+          const p = !tailIsParticiple && placeLike && (cl.length === 1 || cl[0].base === cl[1].base) ? cl[0].part : '';
+          const shapeOf = (pp, wh) => (pp ? 'made-where' : wh ? 'what-where' : 'what');
+          add(shapeOf(p, where), `${listPhrase(items)}${p ? `, ${p}` : tailIsParticiple ? ',' : ''}${where ? ` ${where}` : ''}`);
+          if (p && where && (PLACE_TAIL.test(where) || /^by hand\b/.test(where))) add('inverted', `${cap(p)} ${where}: ${listPhrase(items)}`);
+          // shorter phrasings of the same facts: the first two of a long list (the full list is in the offer chips and
+          // sections), the place without the audience ("for homeowners in Guelph" -> "in Guelph"), the list without its verb
+          const sets = items.length > 2 && listPhrase(items).length > 34 ? [items, items.slice(0, 2)] : [items];
+          const near = shortPlace(where); const wheres = near && near !== where ? [where, near] : [where];
+          for (const set of sets) for (const wh of wheres) for (const pp of (p ? [p, ''] : [''])) {
+            if (set === items && wh === where && pp === p) continue;
+            add(shapeOf(pp, wh), `${listPhrase(set)}${pp ? `, ${pp}` : (tailIsParticiple && wh === where) ? ',' : ''}${wh ? ` ${wh}` : ''}`);
+          }
+          if (/^(?:rent|hire|book)$/.test(cl[0].base)) add('invite', `${cap(cl[0].base)} ${listPhrase(items)}${where ? ` ${where}` : ''}`);
+        }
+      }
+      if (b.identity) {
+        const work = workOf(b.identity); const made = productOf(b.identity);
+        const aud = b.audience ? ` for ${b.audience}` : '';
+        if (work) add('work', `${work}${aud}${place ? ` in ${place}` : ''}`);
+        if (made) add('made', `${made}${place ? ` from ${place}` : ''}`);
+        if (/\b(?:software|app|platform|tool|tools)\b/i.test(b.identity) && b.identity.split(' ').length > 1 && b.audience) add('product', `${b.identity}${aud}`);
+      }
+      // offerings the owner listed in a later sentence ("Single-origin beans, pour-over bar and fresh pastries.")
+      const offers = (c.offerings || []).filter(Boolean).map(String);
+      if (!cl.length && offers.length >= 2) add('offers', `${listPhrase(offers.slice(0, 3).map(lc))}${place ? ` in ${place}` : ''}`);
+      if (!cands.length && b.identity) add('identity', `${b.article === 'the' ? 'the ' : ''}${b.identity}${b.audience ? ` for ${b.audience}` : ''}${place ? ` in ${place}` : ''}`);
+      if (!cands.length) return null;
+      // an opening line is read at a glance: the shorter phrasings when there are any
+      const pool = cands.filter(x => x.text.length <= 54).length ? cands.filter(x => x.text.length <= 54) : cands;
+      const pick = pool[hash(`${text}|${c.seed || 0}`) % pool.length];
+      // the kicker: what the business is (else where it is); the sub: the owner's next sentence, else what it is
+      const kickerBase = b.identity && b.identity.split(' ').length <= 4 ? b.identity : '';
+      const kicker = kickerBase ? clean(`${kickerBase}${place && kickerBase.length + place.length < 30 && !pick.text.includes(place) ? ` · ${place}` : ''}`).toUpperCase() : '';
+      const next = b.sentences.find(s => s.length >= 12 && s.length <= 170 && !/[$€£]|\d+\s*%|free shipping|returns?\b/i.test(s));
+      let sub = next ? cap(next.replace(/\s*[.!]*$/, '.')) : '';
+      if (!sub && name && b.identity) sub = `${name} is ${b.article ? `${/^[aeiou]/i.test(b.identity) && b.article !== 'the' ? 'an' : b.article} ` : ''}${b.identity}${b.audience ? ` for ${b.audience}` : ''}${place && !pick.text.includes(place) ? ` in ${place}` : ''}.`;
+      return { headline: pick.text, kicker, sub, shape: pick.kind, read: b };
+    }
+
+    // ---- checking a planner-written headline ------------------------------------------------------------------------------
+    const STOCK = /,\s*(?:done properly|made to be noticed|worth stopping for|built the right way|made to be seen|worth the trip|made to be tasted|handled with care|handled with expertise|explained clearly|presented properly|taught properly|on your own terms|because it matters|done right|done to last|built to last|finished clean|fixed properly|handled fast|wired right|done to code|done thoroughly|spotless every time|cared for properly|detailed right|built for the weather|built on reputation|outdoors done right|colour done right)\.?$/i;
+    const GENERIC_LINES = /^(?:built to make a strong first impression|a modern website\b|your business,|welcome to\b|quality you can trust|excellence in\b|the best\b)/i;
+    // claims only the owner can make: rankings, awards, guarantees, credentials, results, numbers
+    const CLAIMS = /\b(?:best|#\s?1|number one|no\.\s?1|award[- ]?winning|awards?|guarantee[ds]?|trusted by|leading|premier|top[- ]rated|five[- ]star|5[- ]star|certified|licensed|insured|accredited|official|world[- ]class|unbeatable|cheapest|fastest|only|proven|results)\b/i;
+    const STOP = new Set('a an the and or of for to in on at by with from your our their its is are be we you it that this as into over just every all any more most very so than then now here there up out new get make made done right way how what who where when why can will need want know love count rely'.split(' '));
+    const contentWords = s => String(s || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w));
+    const stem = w => w.replace(/(?:ies|es|s|ing|ed)$/, '');
+    // words that could open ANY business's site: a headline made only of these (and category words) says nothing about this one
+    const GENERIC_VOCAB = new Set(('quality trust trusted excellence excellent service services solution solutions business businesses experience experiences results professional professionals ' +
+      'properly better best first impression impressions modern website site online noticed built care cared caring work works working team teams expert experts expertise reliable ' +
+      'simple easy fast today tomorrow future growth grow success successful difference matters matter detail details standard standards level next partner partners perfect premium ' +
+      'style story stories brand brands company companies product products studio agency firm group local community people customer customers client clients home homes life lives ' +
+      'world everyday everything something beautiful great good amazing incredible unique special stand standout confidence confident style stylish vision passion passionate ' +
+      'dedicated commitment committed craft crafted craftsmanship creative creativity innovative innovation elevate elevated elevating transform transforming journey moment moments ' +
+      'value values real true genuine honest help helping deliver delivering delivered make making create creating created impact impression noticed seen heard feel ' +
+      'category general other offering offerings offer offers approach approaches way ways right place places time times day days start started starts begin begins here').split(' '));
+    function headlineProblem(h, ctx) {
+      const s = clean(h); const c = ctx || {}; if (!s) return 'empty';
+      if (STOCK.test(s) && s.split(',')[0].split(' ').length <= 3) return 'generic';
+      if (GENERIC_LINES.test(s)) return 'generic';
+      const owner = `${c.text || ''} ${(c.offerings || []).join(' ')} ${c.name || ''}`;
+      const claim = CLAIMS.exec(s); if (claim && !new RegExp(`\\b${claim[0].replace(/[#.]/g, m => `\\${m}`)}\\b`, 'i').test(owner)) return 'claim';
+      const nums = s.match(/\d+/g) || []; if (nums.some(n => !owner.includes(n))) return 'claim';
+      // specific when it names something concrete (a yard, a can, a sail) or anything the owner wrote
+      const ownerStems = new Set(contentWords(owner).map(stem));
+      const words = contentWords(s);
+      if (!words.some(w => ownerStems.has(stem(w)) || !GENERIC_VOCAB.has(w))) return 'generic';
+      return null;
+    }
+
+    // a planner-given name that is really a service, a place or a fragment is not used
+    function isNameLike(name, text) { const n = tidyName(name || ''); return !!n && n.length <= 60 && acceptable(n, text || ''); }
+    module.exports = { offeringsFrom, isNameLike, extractName, readBusiness, heroCopyFor, headlineProblem, participle, gerund, baseOf, workOf, productOf, placeIn };
 
   });
   __define("hero-direction", function (module, exports, require) {
@@ -3811,6 +4456,235 @@
     };
 
   });
+  __define("hero-framing", function (module, exports, require) {
+    'use strict';
+    // HERO FRAMING -- keeps each layer's main subject in view.
+    //
+    // A hero layer is a frame (placed on the stage, moving on its own track) with a
+    // picture inside it (oversized by 7% each side and panned/zoomed on its own
+    // camera move). The same wide drawing cropped into a narrow phone frame, or
+    // sitting behind the headline, can lose its subject entirely -- the roofing
+    // lead once showed grass and a tree while the house was cut away. So every
+    // drawn layer is framed on purpose:
+    //
+    //   subjectBox(svg)       where the subject is: the union of the drawing's
+    //                         [data-subject] groups (see hero-art-kinds.js).
+    //   stableWindow(pan)     the part of the picture that stays visible through the
+    //                         whole pan/zoom loop (fractions of the picture).
+    //   occludersFor(...)     what covers this frame: layers above it (across their
+    //                         own motion) and, behind bottom-left copy, the words.
+    //   visibleShare(...)     how much of the subject a viewer actually sees:
+    //                         inside the stable window, inside the frame's shape
+    //                         (circle / arch), not under another frame or the copy.
+    //
+    // Pure functions: the live preview and the export compute identical framing.
+
+    const OVERSIZE = 0.07; // .sb-media inset:-7%
+    // the motion of the picture inside its frame (mirrors PANS in hero-storyboard.js)
+    const PAN_MOTION = {
+      none: [[0, 0, 1], [0, 0, 1]],
+      'pan-left': [[4, 0, 1.06], [-4, 0, 1.06]],
+      'pan-right': [[-4, 0, 1.06], [4, 0, 1.06]],
+      'pan-up': [[0, 4, 1.06], [0, -4, 1.06]],
+      'zoom-in': [[0, 0, 1], [0, 0, 1.14]],
+      'zoom-out': [[0, 0, 1.14], [0, 0, 1]],
+    };
+
+    // ---- the subject's bounds in an SVG fragment ------------------------------------------------------------------------
+    const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+    const ID = [1, 0, 0, 1, 0, 0];
+    function parseTransform(t) {
+      let m = ID; const re = /(matrix|translate|scale|rotate)\s*\(([^)]*)\)/g; let r;
+      while ((r = re.exec(String(t || '')))) {
+        const v = r[2].trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
+        let k = ID;
+        if (r[1] === 'translate') k = [1, 0, 0, 1, v[0] || 0, v[1] || 0];
+        else if (r[1] === 'scale') k = [v[0] == null ? 1 : v[0], 0, 0, v[1] == null ? (v[0] == null ? 1 : v[0]) : v[1], 0, 0];
+        else if (r[1] === 'matrix' && v.length === 6) k = v;
+        else if (r[1] === 'rotate') {
+          const a = (v[0] || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+          k = [c, s, -s, c, 0, 0];
+          if (v.length >= 3) k = mul(mul([1, 0, 0, 1, v[1], v[2]], k), [1, 0, 0, 1, -v[1], -v[2]]);
+        }
+        m = mul(m, k);
+      }
+      return m;
+    }
+    const attr = (s, name) => { const r = new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(s); return r ? r[1] : null; };
+    const num = (s, name, d) => { const v = parseFloat(attr(s, name)); return Number.isFinite(v) ? v : d; };
+    // every point a path passes through or pulls toward (control points slightly over-state the bounds -- fine)
+    function pathPoints(d) {
+      const toks = String(d || '').match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) || [];
+      const pts = []; let i = 0, cmd = 'M', x = 0, y = 0, sx = 0, sy = 0;
+      const n = () => parseFloat(toks[i++]);
+      while (i < toks.length) {
+        if (/[a-zA-Z]/.test(toks[i])) cmd = toks[i++];
+        const rel = cmd === cmd.toLowerCase(); const C = cmd.toUpperCase();
+        if (C === 'Z') { x = sx; y = sy; if (i < toks.length && !/[a-zA-Z]/.test(toks[i])) i++; continue; }
+        const take = k => { const out = []; for (let q = 0; q < k; q++) out.push(n()); return out; };
+        const pt = (px, py) => { const X = rel ? x + px : px, Y = rel ? y + py : py; pts.push([X, Y]); return [X, Y]; };
+        if (C === 'M' || C === 'L' || C === 'T') { const [a, b] = take(2); [x, y] = pt(a, b); if (C === 'M') { sx = x; sy = y; cmd = rel ? 'l' : 'L'; } }
+        else if (C === 'H') { const [a] = take(1); x = rel ? x + a : a; pts.push([x, y]); }
+        else if (C === 'V') { const [a] = take(1); y = rel ? y + a : a; pts.push([x, y]); }
+        else if (C === 'Q' || C === 'S') { const v = take(4); pt(v[0], v[1]); [x, y] = pt(v[2], v[3]); }
+        else if (C === 'C') { const v = take(6); pt(v[0], v[1]); pt(v[2], v[3]); [x, y] = pt(v[4], v[5]); }
+        else if (C === 'A') { const v = take(7); const r = Math.max(Math.abs(v[0]), Math.abs(v[1])); const [ex, ey] = [rel ? x + v[5] : v[5], rel ? y + v[6] : v[6]]; pts.push([x, y], [ex, ey], [(x + ex) / 2, (y + ey) / 2 - r], [(x + ex) / 2, (y + ey) / 2 + r]); x = ex; y = ey; }
+        else i++;
+        if ([x, y].some(v => !Number.isFinite(v))) return pts.filter(p => p.every(Number.isFinite));
+      }
+      return pts;
+    }
+    // the points of one drawable element, in its own coordinates
+    function shapePoints(tag, a, inner) {
+      if (tag === 'rect') { const x = num(a, 'x', 0), y = num(a, 'y', 0), w = num(a, 'width', 0), h = num(a, 'height', 0); return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]; }
+      if (tag === 'circle') { const cx = num(a, 'cx', 0), cy = num(a, 'cy', 0), r = num(a, 'r', 0); return [[cx - r, cy - r], [cx + r, cy - r], [cx - r, cy + r], [cx + r, cy + r]]; }
+      if (tag === 'ellipse') { const cx = num(a, 'cx', 0), cy = num(a, 'cy', 0), rx = num(a, 'rx', 0), ry = num(a, 'ry', 0); return [[cx - rx, cy - ry], [cx + rx, cy - ry], [cx - rx, cy + ry], [cx + rx, cy + ry]]; }
+      if (tag === 'line') { const w = num(a, 'stroke-width', 1) / 2; const x1 = num(a, 'x1', 0), y1 = num(a, 'y1', 0), x2 = num(a, 'x2', 0), y2 = num(a, 'y2', 0); return [[x1 - w, y1 - w], [x2 + w, y2 + w], [x1 + w, y1 + w], [x2 - w, y2 - w]]; }
+      if (tag === 'path') return pathPoints(attr(a, 'd'));
+      if (tag === 'polygon' || tag === 'polyline') { const v = String(attr(a, 'points') || '').trim().split(/[\s,]+/).map(Number); const out = []; for (let i = 0; i + 1 < v.length; i += 2) out.push([v[i], v[i + 1]]); return out; }
+      if (tag === 'text') {
+        const fs = num(a, 'font-size', 12); const x = num(a, 'x', 0), y = num(a, 'y', 0); const len = String(inner || '').replace(/&[a-z#0-9]+;/g, 'x').length;
+        const w = Math.min(num(a, 'textLength', Infinity), len * fs * 0.58); const anchor = attr(a, 'text-anchor') || 'start';
+        const x0 = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x; return [[x0, y - fs * 0.8], [x0 + w, y + fs * 0.2]];
+      }
+      return [];
+    }
+    const DRAWN = new Set(['rect', 'circle', 'ellipse', 'line', 'path', 'polygon', 'polyline', 'text']);
+    // bounds of the drawn geometry; { subjectOnly } limits it to [data-subject] groups.
+    // Blurred shadows and faint glows are not the subject's outline and are skipped.
+    function svgBox(svg, o) {
+      const k = o || {}; const s = String(svg || '');
+      const re = /<(\/?)([a-zA-Z]+)((?:\s+[^\s=>\/]+="[^"]*")*)\s*(\/?)>/g; let r;
+      const stack = [{ m: ID, subj: false, defs: false }]; let box = null;
+      while ((r = re.exec(s))) {
+        const [, close, tag, a, self] = r; const top = stack[stack.length - 1];
+        if (close) { if (tag === 'g' || tag === 'svg' || tag === 'defs' || tag === 'clipPath' || tag === 'mask' || tag === 'symbol') stack.length > 1 && stack.pop(); continue; }
+        if (tag === 'g' || tag === 'svg' || tag === 'defs' || tag === 'clipPath' || tag === 'mask' || tag === 'symbol') {
+          const frame = { m: tag === 'g' ? mul(top.m, parseTransform(attr(a, 'transform'))) : top.m, subj: top.subj || /\sdata-subject="1"/.test(a), defs: top.defs || tag !== 'g' && tag !== 'svg', faint: top.faint || (tag === 'g' && num(a, 'opacity', 1) < 0.2) };
+          if (!self) stack.push(frame); continue;
+        }
+        if (!DRAWN.has(tag) || top.defs || top.faint) continue;
+        if (k.subjectOnly && !top.subj) continue;
+        if (/\sfilter="/.test(a) || num(a, 'opacity', 1) < 0.2 || num(a, 'fill-opacity', 1) < 0.2) continue;
+        if (attr(a, 'fill') === 'none' && !attr(a, 'stroke')) continue;
+        const inner = tag === 'text' && !self ? s.slice(re.lastIndex, s.indexOf('<', re.lastIndex)) : '';
+        const m = mul(top.m, parseTransform(attr(a, 'transform')));
+        for (const [px, py] of shapePoints(tag, a, inner)) {
+          const X = m[0] * px + m[2] * py + m[4], Y = m[1] * px + m[3] * py + m[5];
+          if (!Number.isFinite(X) || !Number.isFinite(Y)) continue;
+          if (!box) box = [X, Y, X, Y]; else { if (X < box[0]) box[0] = X; if (Y < box[1]) box[1] = Y; if (X > box[2]) box[2] = X; if (Y > box[3]) box[3] = Y; }
+        }
+      }
+      return box;
+    }
+    const subjectBox = svg => svgBox(svg, { subjectOnly: true });
+
+    // ---- motion ----------------------------------------------------------------------------------------------------
+    // The region of the picture (0-1 of the picture's width/height) visible at every
+    // moment of the loop, for a given camera move. Sampled across the keyframes.
+    function stableWindow(pan) { return stableWindowFor(PAN_MOTION[pan] || PAN_MOTION.none); }
+    // mv: [[x%, y%, scale] at the start, [...] at mid-loop]
+    function stableWindowFor(mv) {
+      let w = [0, 0, 1, 1];
+      const lo = OVERSIZE / (1 + 2 * OVERSIZE), hi = (1 + OVERSIZE) / (1 + 2 * OVERSIZE);
+      for (let t = 0; t <= 1.0001; t += 0.125) {
+        const tx = (mv[0][0] + (mv[1][0] - mv[0][0]) * t) / 100, ty = (mv[0][1] + (mv[1][1] - mv[0][1]) * t) / 100, sc = mv[0][2] + (mv[1][2] - mv[0][2]) * t;
+        const u0 = 0.5 + (lo - 0.5 - tx) / sc, u1 = 0.5 + (hi - 0.5 - tx) / sc, v0 = 0.5 + (lo - 0.5 - ty) / sc, v1 = 0.5 + (hi - 0.5 - ty) / sc;
+        w = [Math.max(w[0], u0), Math.max(w[1], v0), Math.min(w[2], u1), Math.min(w[3], v1)];
+      }
+      return w;
+    }
+    // a point in the frame (0-1) -> the same point as a fraction of the (oversized) picture, at rest
+    const frameToPicture = X => (X + OVERSIZE) / (1 + 2 * OVERSIZE);
+
+    // ---- what covers a frame -----------------------------------------------------------------------------------------
+    // Where a layer can be on the stage across its own track: its rect at both ends of
+    // the move (translate is a share of its own size, scale about its centre).
+    // the rect [x0, y0, x1, y1] at each end of the track
+    function trackEnds(rect, track) {
+      const [x, y, w, h] = rect; const ends = track ? [track.from, track.to] : [{ x: 0, y: 0, s: 1 }];
+      return ends.map(p => { const s = p.s || 1; const cx = x + w / 2 + (p.x || 0) / 100 * w, cy = y + h / 2 + (p.y || 0) / 100 * h; return [cx - w * s / 2, cy - h * s / 2, cx + w * s / 2, cy + h * s / 2]; });
+    }
+    function sweptRect(rect, track) {
+      return trackEnds(rect, track).reduce((out, r) => (out ? [Math.min(out[0], r[0]), Math.min(out[1], r[1]), Math.max(out[2], r[2]), Math.max(out[3], r[3])] : r), null);
+    }
+    // the share of the copy block that sits over a full-bleed lead (desktop, copy bottom-left; see styles.css)
+    const COPY_OVER = { 'bottom-left': { desktop: [0, 36, 48, 100] } };
+    // stage proportions (width / height) per copy side -- see styles.css .sb-stage (desktop ~1440px, phone ~390px)
+    const STAGE_RATIO = { desktop: { left: 1.11, right: 1.11, top: 2.2, 'bottom-left': 1.72 }, phone: { left: 0.81, right: 0.81, top: 0.95, 'bottom-left': 0.83 } };
+    const stageRatio = (view, copySafe) => STAGE_RATIO[view === 'phone' ? 'phone' : 'desktop'][copySafe] || (view === 'phone' ? 0.81 : 1.11);
+    // a layer's rect on the stage [x, y, w, h] (% of the stage): a circle keeps a square box (aspect-ratio:1)
+    function placedRect(l, view, sr) { const r = (view === 'phone' ? l.mobile : l.desktop).slice(); if (l.shape === 'circle') r[3] = r[2] * sr; return r; }
+    // the frame's own proportions (width / height) for a view
+    function frameRatioOf(l, view, copySafe) { const sr = stageRatio(view, copySafe); const r = placedRect(l, view, sr); return (r[2] / r[3]) * sr; }
+    // resolved: resolveLayers(sb) entries ({ slot, z, desktop:[x,y,w,h], mobile:[...], track, shape }).
+    // -> rects (fractions of THIS layer's frame, at rest) that hide part of it.
+    function occludersFor(resolved, slot, view, copySafe) {
+      const me = resolved.find(l => l.slot === slot); if (!me) return [];
+      const sr = stageRatio(view, copySafe);
+      const mine = placedRect(me, view, sr); const myEnds = trackEnds(mine, me.track);
+      // both frames move (each on its own phase): the cover is every place the other can be,
+      // seen from every place this frame can be -- in this frame's own fractions
+      const relative = ends => { let u = null; for (const m of myEnds) for (const r of ends) { const W = m[2] - m[0], H = m[3] - m[1]; const f = [(r[0] - m[0]) / W, (r[1] - m[1]) / H, (r[2] - m[0]) / W, (r[3] - m[1]) / H]; u = u ? [Math.min(u[0], f[0]), Math.min(u[1], f[1]), Math.max(u[2], f[2]), Math.max(u[3], f[3])] : f; } return u; };
+      const out = [];
+      for (const l of resolved) {
+        if (l.slot === slot || l.z <= me.z) continue;
+        const f = relative(trackEnds(placedRect(l, view, sr), l.track));
+        if (f[2] > 0 && f[0] < 1 && f[3] > 0 && f[1] < 1) out.push(f);
+      }
+      const copy = COPY_OVER[copySafe] && COPY_OVER[copySafe][view];
+      if (copy) { const f = relative([[copy[0], copy[1], copy[2], copy[3]]]); if (f[2] > 0 && f[0] < 1 && f[3] > 0 && f[1] < 1) out.push(f); }
+      return out;
+    }
+
+    // ---- how much of the subject is seen -------------------------------------------------------------------------------
+    // box: subject [x0,y0,x1,y1] in the picture's own units; crop: [x, y, w, h] the part
+    // of the picture that fills the frame; win: stableWindow(); occ: occludersFor()
+    // (frame fractions); shape: the frame's shape. Sampled on a grid.
+    function inShape(shape, X, Y) {
+      if (shape === 'circle') return (X - 0.5) ** 2 + (Y - 0.5) ** 2 <= 0.25;
+      if (shape === 'arch') return Y >= 0.5 || (X - 0.5) ** 2 + (Y - 0.5) ** 2 <= 0.25;
+      return true;
+    }
+    function visibleShare(box, crop, win, occ, shape, n) {
+      if (!box) return 1;
+      const [cx, cy, cw, ch] = crop; const N = n || 24; let seen = 0, all = 0;
+      const pic2frame = u => u * (1 + 2 * OVERSIZE) - OVERSIZE; // picture fraction -> frame fraction, at rest
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const px = box[0] + (box[2] - box[0]) * (i + 0.5) / N, py = box[1] + (box[3] - box[1]) * (j + 0.5) / N;
+        all++;
+        const u = (px - cx) / cw, v = (py - cy) / ch;
+        if (u < win[0] || u > win[2] || v < win[1] || v > win[3]) continue;
+        const X = pic2frame(u), Y = pic2frame(v);
+        if (!inShape(shape, X, Y)) continue;
+        if ((occ || []).some(o => X >= o[0] && X <= o[2] && Y >= o[1] && Y <= o[3])) continue;
+        seen++;
+      }
+      return all ? seen / all : 1;
+    }
+
+    // the middle of the subject (its central 60%): the part that makes it recognisable
+    function core(box, k) { if (!box) return null; const f = (1 - (k || 0.6)) / 2; const w = box[2] - box[0], h = box[3] - box[1]; return [box[0] + w * f, box[1] + h * f, box[2] - w * f, box[3] - h * f]; }
+    // A photo (uploaded or generated) has no known outline: assume what photos of a
+    // subject are asked for -- the subject in the middle, a little low -- and pick the
+    // object-position (on the axis the frame crops) that keeps that middle clearest.
+    // imageRatio: the picture's width/height; returns "X% Y%".
+    const PHOTO_SUBJECT = [0.25, 0.2, 0.75, 0.86];
+    function photoPosition(imageRatio, fr) {
+      const R = fr.ratio; const win = stableWindow(fr.pan); let best = null;
+      const W = imageRatio >= 1 ? imageRatio : 1, H = imageRatio >= 1 ? 1 : 1 / imageRatio; // picture in units of its short side
+      const box = [PHOTO_SUBJECT[0] * W, PHOTO_SUBJECT[1] * H, PHOTO_SUBJECT[2] * W, PHOTO_SUBJECT[3] * H];
+      const cw = W / H > R ? H * R : W, ch = W / H > R ? H : W / R;
+      for (const px of (W - cw > 1e-6 ? [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8] : [0.5])) for (const py of (H - ch > 1e-6 ? [0.5, 0.4, 0.6, 0.3, 0.7] : [0.5])) {
+        const crop = [(W - cw) * px, (H - ch) * py, cw, ch];
+        const score = visibleShare(core(box), crop, win, fr.avoid, fr.shape, 12) * 0.6 + visibleShare(box, crop, win, fr.avoid, fr.shape, 12) * 0.4 - 0.03 * (Math.abs(px - 0.5) + Math.abs(py - 0.5));
+        if (!best || score > best.score + 1e-9) best = { score, px, py };
+      }
+      return `${Math.round(best.px * 100)}% ${Math.round(best.py * 100)}%`;
+    }
+    module.exports = { photoPosition, stableWindowFor, core, STAGE_RATIO, stageRatio, placedRect, frameRatioOf, OVERSIZE, PAN_MOTION, parseTransform, pathPoints, svgBox, subjectBox, stableWindow, frameToPicture, sweptRect, occludersFor, inShape, visibleShare, COPY_OVER };
+
+  });
   __define("hero-storyboard", function (module, exports, require) {
     'use strict';
     // HERO STORYBOARD -- a motion-designed hero built from SEVERAL separately
@@ -3847,6 +4721,7 @@
     // layer. A software lead is always a drawn interface with readable labels.
     const VS = require('./visual-subjects');
     const ARTK = require('./hero-art-kinds');
+    const FR = require('./hero-framing');
 
     // ---- vocabulary ----------------------------------------------------------------------------------------------
     // Placement rectangles are [x, y, w, h] in % of the hero's image stage; `m` is
@@ -3862,9 +4737,10 @@
       // outdoor / property / community: the finished result full-bleed, framed insets
       panorama: { copy: 'bottom-left', anchors: {
         lead: { d: [0, 0, 100, 100], m: [0, 0, 100, 100], shape: 'full' },
-        a: { d: [60, 9, 22, 34], m: [46, 5, 48, 26], shape: 'frame' },
-        b: { d: [77, 40, 20, 32], m: [62, 25, 34, 22], shape: 'frame' },
-        c: { d: [58, 58, 17, 25], m: [8, 5, 34, 20], shape: 'frame' } } },
+        // (the insets hug the right edge: between them and the headline the lead's subject stays in the open)
+        a: { d: [73, 7, 23, 32], m: [46, 5, 48, 26], shape: 'frame' },
+        b: { d: [80, 43, 17, 27], m: [62, 25, 34, 22], shape: 'frame' },
+        c: { d: [72, 72, 14, 21], m: [8, 5, 34, 20], shape: 'frame' } } },
       // venues: the room tall, a detail and a moment overlapping it
       'venue-stack': { copy: 'left', anchors: {
         lead: { d: [30, 0, 68, 100], m: [22, 0, 78, 76], shape: 'soft' },
@@ -3907,8 +4783,10 @@
         a: { d: [8, 50, 42, 46], m: [0, 56, 54, 40], shape: 'frame' },
         b: { d: [0, 6, 26, 36], m: [62, 64, 38, 32], shape: 'rounded' },
         c: { d: [74, 72, 26, 28], m: [64, 30, 34, 24], shape: 'circle' } } },
-      // moodboards / collections / lessons: cards spread like a hand of prints (`r`: a resting tilt, degrees)
-      fan: { copy: 'right', anchors: {
+      // moodboards / collections / lessons: cards spread like a hand of prints (`r`: a resting tilt, degrees);
+      // like a real hand, the centre card lies on top of the two tilted ones (`stack`: stacking order by anchor);
+      // the cards beneath move gently (`calm`) so their pictures are not slid out of sight under it
+      fan: { copy: 'right', stack: { a: 1, b: 1, lead: 2, c: 3 }, calm: ['a', 'b'], anchors: {
         lead: { d: [27, 4, 46, 88], m: [25, 2, 50, 80], shape: 'rounded' },
         a: { d: [0, 14, 38, 70], m: [0, 12, 40, 64], shape: 'rounded', r: -7 },
         b: { d: [62, 14, 38, 70], m: [60, 12, 40, 64], shape: 'rounded', r: 7 },
@@ -4053,13 +4931,14 @@
       const loop = num(sb && sb.loop, 8, 18, 12);
       return ((sb && sb.layers) || []).map((l, i) => {
         const place = placementFor(sb.composition, l.anchor);
-        const track = trackFor(l.motion && l.motion.path, l.motion && l.motion.amount);
+        const comp = COMPOSITIONS[sb.composition] || {};
+        const track = trackFor(l.motion && l.motion.path, comp.calm && comp.calm.includes(l.anchor) ? 'subtle' : (l.motion && l.motion.amount));
         if (place.r) { track.from.r = Math.round((track.from.r + place.r) * 100) / 100; track.to.r = Math.round((track.to.r + place.r) * 100) / 100; }
         const pan = PANS[l.pan] || PANS.none;
         const offset = num(l.motion && l.motion.offset, 0, 1, 0);
         return {
           slot: l.slot, role: l.role, anchor: l.anchor, subject: l.subject, shape: l.shape || place.shape,
-          desktop: place.d, mobile: place.m, depth: l.depth, z: l.depth * 10 + i,
+          desktop: place.d, mobile: place.m, depth: l.depth, z: ((COMPOSITIONS[sb.composition] || {}).stack ? (COMPOSITIONS[sb.composition].stack[l.anchor] || l.depth) : l.depth) * 10 + i,
           track, pan: { from: pan.f, to: pan.t }, loop, delay: -Math.round(offset * loop * 100) / 100,
           reveal: l.reveal, revealDelay: Math.round((0.15 + i * 0.28) * 100) / 100,
         };
@@ -4081,7 +4960,7 @@
       ['label', 'sub', 'variant', 'ui', 'audience', 'container', 'side'].forEach(k => { if (typeof pr[k] === 'string' && pr[k].trim()) out[k] = clip(pr[k], 40); });
       if (typeof pr.colour === 'string' && HEX_RE.test(pr.colour)) out.colour = pr.colour;
       ['flavours', 'variants', 'items'].forEach(k => { if (Array.isArray(pr[k])) { const arr = pr[k].filter(x => typeof x === 'string' && x.trim()).slice(0, 6).map(x => clip(x, 32)); if (arr.length) out[k] = arr; } });
-      ['reminders', 'glass', 'range'].forEach(k => { if (typeof pr[k] === 'boolean') out[k] = pr[k]; });
+      ['reminders', 'glass', 'range', 'drizzle'].forEach(k => { if (typeof pr[k] === 'boolean') out[k] = pr[k]; });
       return { kind: a.kind, params: out };
     }
     function sanitizeStored(raw) {
@@ -4118,7 +4997,8 @@
 
     // ---- prompts ---------------------------------------------------------------------------------------------------
     const ROLE_FRAMING = {
-      lead: a => `Hero image in a ${a} frame, the subject filling most of the frame with a little breathing room at every edge for slow camera movement`,
+      // (the same picture is cropped narrower on phones: the subject whole in the middle, the scene continuing to both sides)
+      lead: a => `Hero image in a ${a} frame, the main subject whole and centred in the middle half of the frame, the scene continuing to both sides so a narrower crop still shows all of it, a little breathing room at every edge for slow camera movement`,
       detail: a => `Tight ${a} close-up, the detail filling the frame, shallow depth of field, simple background`,
       context: a => `${a} environmental frame, candid and natural, the setting clearly readable`,
       accent: a => `${a} graphic still-life on a simple background`,
@@ -4274,7 +5154,8 @@
           L('lead', 'lead', '3:4', 'rise', 'bold', 'pan-up', 'a model walking in the {garment}', 'A model walking toward camera in a {name} {garment}, face turned away, fabric moving, concrete street at dusk, editorial fashion photography'),
           L('detail', 'a', '3:4', 'sink', 'bold', 'zoom-in', 'fabric and stitching macro', 'A macro of heavy fabric, bold stitching and a woven edge, raking light across the weave'),
           L('context', 'b', '3:4', 'rise', 'bold', 'none', 'collection on a clothing rail', 'The collection hanging on a steel clothing rail in a raw concrete studio, garments swaying slightly')] },
-      { id: 'fashion-atelier', cat: 'fashion', match: /\b(bridal|wedding dress|gown|couture|tailor|tailoring|bespoke|jewellery|jewelry|atelier|dress)\b/i, composition: 'arch-cluster', tone: 'light', light: 'glow',
+      // (garments, not the word "bridal" alone: a florist's bridal bouquets are flowers; a tailor's alterations are a service)
+      { id: 'fashion-atelier', cat: 'fashion', match: /\b(bridal (?:wear|gowns?|fashion|boutique|shop|salon)|wedding dress\w*|gowns?|couture|jewellery|jewelry|atelier|dresses|dressmak\w*)\b/i, composition: 'arch-cluster', tone: 'light', light: 'glow',
         concept: '{name}: the garment in soft light, the hand-finished detail, and the fitting', layers: [
           L('lead', 'lead', '3:4', 'hold', 'medium', 'zoom-in', 'the {offer} in soft window light', 'A {name} {offer} on a dress form by a tall window, fabric catching soft light, atelier setting'),
           L('detail', 'a', '1:1', 'float', 'medium', 'none', 'lace and hand-stitching detail', 'A macro of hand-sewn lace, beading and a silk seam, pins resting on fabric'),
@@ -4526,7 +5407,7 @@
         container: fv.container, containers: fv.containers,
         flavourOf: fv.flavourList ? ` in ${fv.flavourList}` : '', flavourPhrase: fv.flavourList || 'citrus and mint', flavourColourways: fv.flavourList ? `${fv.flavourList} colourways` : 'three flavour colourways',
         skinProduct: fv.skinProduct, skinProduct2: fv.skinProduct2, skinList: fv.skinList, skinWithContainers: fv.skinWithContainers, skinContainer: fv.skinContainer, skinContainerShort: fv.skinContainer.split(' ').slice(-2).join(' '),
-        pantryNoun: fv.pantryNoun, pantryLabel: fv.pantryProduct || cleanNoun(c.noun) || 'product', ingredientList: fv.flavourList || 'fresh chilies, garlic and spices',
+        pantryNoun: fv.pantryNoun, pantryLabel: fv.pantryProduct || cleanNoun(c.noun) || 'product', ingredientList: fv.ingredientList || 'the raw ingredients',
         garment: facts.apparel ? fv.garment : (offers[0] || 'garment'),
       };
     }
@@ -4622,14 +5503,22 @@
     const px = n => `${n}`;
     // The illustration for one layer: its stored art spec, or (a storyboard saved
     // before art specs existed) one matched on the layer's own subject.
-    // stage proportions (width / height) per copy side at a desktop width -- see styles.css .sb-stage
-    const STAGE_RATIO = { left: 1.11, right: 1.11, top: 2.2, 'bottom-left': 1.72 };
-    function frameRatio(sb, layer) { const d = placementFor(sb.composition, layer.anchor).d; return (d[2] / d[3]) * (STAGE_RATIO[sb.copySafe] || 1.11); }
-    function layerArtHtml(sb, layer, o) {
-      const art = layer.art || VS.artForText(`${layer.subject}. ${layer.prompt}`, layer.role, VS.factsFor({ name: o.name, categoryKey: o.categoryKey || 'other', ownOfferings: o.offerings || [] }), { name: o.name }, null);
-      // a full-bleed lead behind bottom-left copy: draw wider and pin the left edge, so the subject lands right of the words
-      const behindCopy = sb.copySafe === 'bottom-left' && layer.anchor === 'lead';
-      return ARTK.drawArt(art, { aspect: layer.aspect, ratio: frameRatio(sb, layer) * (behindCopy ? 1.25 : 1), align: behindCopy ? 'xMinYMid' : null, accent: o.accent, tone: sb.tone, role: layer.role, seed: `${sb.conceptId || ''}|${layer.slot}`, uid: `sb${layer.slot.replace(/\W/g, '')}${(ARTK.KINDS[art.kind] ? art.kind : 'x').replace(/\W/g, '').slice(0, 8)}` });
+    // Each drawing is framed twice -- for the desktop frame and for the phone frame
+    // -- with the subject kept clear of the camera move, the frame's shape, the
+    // frames stacked above it and (full-bleed behind bottom-left copy) the words.
+    // See lib/premium/hero-framing.js.
+    function layerFrames(sb, slot, resolved) {
+      const l = resolved.find(x => x.slot === slot); if (!l) return null;
+      const pan = ((sb.layers || []).find(x => x.slot === slot) || {}).pan || 'none';
+      const frame = view => ({ ratio: FR.frameRatioOf(l, view, sb.copySafe), pan, shape: l.shape, avoid: FR.occludersFor(resolved, slot, view, sb.copySafe) });
+      return { desktop: frame('desktop'), phone: frame('phone') };
+    }
+    function layerArtHtml(sb, layer, o, resolvedLayers) {
+      let art = layer.art || VS.artForText(`${layer.subject}. ${layer.prompt}`, layer.role, VS.factsFor({ name: o.name, categoryKey: o.categoryKey || 'other', ownOfferings: o.offerings || [] }), { name: o.name }, null);
+      // packaging and screens carry the business's current name (the owner may have renamed it since generation; a placeholder is never printed)
+      if (art && art.params && Object.prototype.hasOwnProperty.call(art.params, 'label')) art = { kind: art.kind, params: Object.assign({}, art.params, { label: o.name ? clip(o.name, 22) : '' }) };
+      const frames = layerFrames(sb, layer.slot, resolvedLayers || resolveLayers(sb));
+      return ARTK.drawArt(art, { aspect: layer.aspect, frames, ratio: frames ? frames.desktop.ratio : undefined, accent: o.accent, tone: sb.tone, role: layer.role, seed: `${sb.conceptId || ''}|${layer.slot}`, uid: `sb${layer.slot.replace(/\W/g, '')}${(ARTK.KINDS[art.kind] ? art.kind : 'x').replace(/\W/g, '').slice(0, 8)}` });
     }
     // opts: { storyboard, visuals: {slot: html|null}, accent, categoryKey, kickerHtml, headlineHtml, subHtml, ctaHtml, offerings[], name, place }
     // visuals[slot] is the layer's real image (an upload or a ready generated
@@ -4651,13 +5540,26 @@
         ].join(';');
         const layer = sb.layers.find(x => x.slot === l.slot);
         const real = o.visuals && o.visuals[l.slot]; // an upload wins even over a drawn interface
-        let media = real ? String(real) : layerArtHtml(sb, layer, o);
-        // the owner's chosen focal point wins over any stored one
-        if (real && layer.focal) media = /object-position:/.test(media) ? media.replace(/object-position:[^;"]*/, `object-position:${layer.focal}`) : media.replace(/<img /, `<img style="object-position:${layer.focal}" `);
+        let media = real ? String(real) : layerArtHtml(sb, layer, o, resolved);
+        // a photo's framing per view (--op desktop, --op-m phone): the owner's chosen focus wins everywhere, then the
+        // picture's own stored focus; otherwise its middle is kept clear of the frames and words above it
+        let photoVars = '';
+        if (real) {
+          const own = (/object-position:\s*(\d{1,3}% \d{1,3}%)/.exec(media) || [])[1] || null;
+          media = media.replace(/ style="object-position:[^"]*"/, '');
+          const fixed = layer.focal || own;
+          const frames = fixed ? null : layerFrames(sb, l.slot, resolved);
+          const imgRatio = { '16:9': 16 / 9, '4:3': 4 / 3, '1:1': 1, '4:5': 0.8, '3:4': 0.75 }[layer.aspect] || 1;
+          const dk = fixed || FR.photoPosition(imgRatio, frames.desktop), ph = fixed || FR.photoPosition(imgRatio, frames.phone);
+          photoVars = `;--op:${dk};--op-m:${ph}`;
+        }
         const kind = real ? 'image' : 'art';
-        return `<figure class="sb-layer sb-role-${l.role} sb-shape-${l.shape}" data-slot="${esc(l.slot)}" data-motion="${esc(layer.motion.path)}" data-reveal="${esc(l.reveal)}" data-source="${kind}"${kind === 'art' && layer.art ? ` data-art="${esc(layer.art.kind)}"` : ''} style="${style}"><div class="sb-frame"><div class="sb-media">${media}</div></div></figure>`;
+        return `<figure class="sb-layer sb-role-${l.role} sb-shape-${l.shape}" data-slot="${esc(l.slot)}" data-motion="${esc(layer.motion.path)}" data-reveal="${esc(l.reveal)}" data-source="${kind}"${kind === 'art' && layer.art ? ` data-art="${esc(layer.art.kind)}"` : ''} style="${style}${photoVars}"><div class="sb-frame"><div class="sb-media">${media}</div></div></figure>`;
       }).join('');
-      const copy = `<div class="cinema-copy sb-copy"><p class="cinema-kicker">${o.kickerHtml || ''}</p><h3>${o.headlineHtml || ''}</h3><p class="cinema-sub">${o.subHtml || ''}</p><div class="site-actions">${o.ctaHtml || ''}</div>${items.length ? `<ul class="sb-offers">${items.map(i => `<li>${i}</li>`).join('')}</ul>` : ''}</div>`;
+      // a specific headline runs longer than a slogan: it steps down a size instead of stacking five lines deep
+      const hl = String(o.headlineHtml || '').replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/gi, 'x').trim().length;
+      const lenAttr = hl > 50 ? ' data-len="longer"' : hl > 32 ? ' data-len="long"' : '';
+      const copy = `<div class="cinema-copy sb-copy"><p class="cinema-kicker">${o.kickerHtml || ''}</p><h3${lenAttr}>${o.headlineHtml || ''}</h3><p class="cinema-sub">${o.subHtml || ''}</p><div class="site-actions">${o.ctaHtml || ''}</div>${items.length ? `<ul class="sb-offers">${items.map(i => `<li>${i}</li>`).join('')}</ul>` : ''}</div>`;
       return `<div class="site-hero hero-cinema hero-storyboard" data-cinema="storyboard" data-composition="${esc(sb.composition)}" data-copy="${esc(sb.copySafe)}" data-tone="${esc(sb.tone)}" data-light="${esc(sb.light)}" data-concept="${esc(sb.conceptId || '')}" data-layers="${resolved.length}" style="--sb-loop:${sb.loop}s">
             <div class="sb-backdrop" aria-hidden="true"><span class="sb-glow"></span></div>
             ${copy}
@@ -5248,7 +6150,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), heroDirection: require('./hero-direction'), heroStoryboard: require('./hero-storyboard'), offeringCopy: require('./offering-copy'), sectionVoice: require('./section-voice'), metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), heroDirection: require('./hero-direction'), heroStoryboard: require('./hero-storyboard'), offeringCopy: require('./offering-copy'), heroCopy: require('./hero-copy'), sectionVoice: require('./section-voice'), metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -7220,13 +8122,46 @@
     ];
     function menuFacts(t) { const found = []; MENU_TYPES.forEach(m => { const i = firstIndex(m.re, t); if (i >= 0) found.push({ dish: m.dish, index: i }); }); found.sort((a, b) => a.index - b.index); return found.map(f => f.dish); }
     function bakeFacts(t) { const i = { croissant: firstIndex(/\b(croissants?|pastr\w*|viennoiserie)\b/, t), cake: firstIndex(/\b(cakes?|cupcakes?|wedding cakes?)\b/, t), bread: firstIndex(/\b(breads?|sourdough|loaves|loaf|baguettes?)\b/, t) }; const k = Object.keys(i).filter(x => i[x] >= 0).sort((a, b) => i[a] - i[b]); return k; }
+    // one spelling per chilli: "fermented chilies", "chillies", "chiles", "hot peppers" -> chili
+    function chiliWords(t) {
+      return String(t || '').replace(/\b(?:hot|chil(?:l)?i|chile) peppers?\b/g, 'chili')
+        .replace(/\bchil(?:l)?ies\b|\bchil(?:l)?is\b|\bchiles\b|\bchile\b|\bchilli\b/g, 'chili')
+        .replace(/\bghost peppers\b/g, 'ghost pepper').replace(/\bjalapenos\b/g, 'jalapeno').replace(/\bhabaneros\b/g, 'habanero');
+    }
+    // HEAT LEVELS are the names of a sauce's strengths ("three heat levels: mild, smoky and
+    // ghost pepper") -- labels for the bottles, not flavours and not ingredients.
+    const HEAT_WORDS = /^(mild|medium|hot|extra[- ]hot|very hot|x+hot|original|classic|smoky|fiery|insane|nuclear|ghost pepper|carolina reaper|reaper|habanero|scotch bonnet|jalapeno|green|red|chipotle|sweet heat|sweet|fire)$/;
+    function heatFacts(t) {
+      const m = /\b(?:(?:one|two|three|four|five|\d)\s+)?(?:heat levels?|heats|spice levels?|levels? of heat|strengths)\b\s*(?::|-|,|\(|are|include|including|from)?\s*([^.;)]+)/.exec(t);
+      const split = s => s.split(/,|\band\b|\bor\b|\bto\b|\//).map(x => x.replace(/[^a-z\s-]/g, ' ').trim().replace(/\s+/g, ' ')).filter(Boolean);
+      let levels = null, span = null;
+      if (m) { const items = split(m[1]).filter(x => x.split(' ').length <= 3); if (items.length >= 2) { levels = items; span = [m.index, m.index + m[0].length]; } }
+      if (!levels) { // "in mild, medium and hot"
+        const r = /\b(mild|medium|hot|extra[- ]hot)\b(?:\s*(?:,|and|or|to)\s*(?:mild|medium|hot|extra[- ]hot)\b){1,3}/.exec(t);
+        if (r) { levels = split(r[0]); span = [r.index, r.index + r[0].length]; }
+      }
+      if (!levels) return null;
+      return { levels: levels.slice(0, 4).map(l => l.split(' ').map(cap).join(' ')), span, named: levels.every(l => HEAT_WORDS.test(l)) };
+    }
+    // INGREDIENTS the owner says the product is made with ("made with fermented chilies")
+    const INGREDIENT_CLAUSE = /\b(?:made (?:with|from)|brewed with|packed with|using|infused with|blended with|with (?:real|fresh|fermented|local|organic|wild))\s+([^.;:]+)/g;
+    function ingredientFacts(t) {
+      const out = []; let m; const re = new RegExp(INGREDIENT_CLAUSE.source, 'g'); const spans = [];
+      while ((m = re.exec(t))) { spans.push([m.index, m.index + m[0].length]); const seg = m[0]; ART.FLAVOUR_KEYS.slice().sort((a, b) => b.length - a.length).forEach(k => { const i = seg.search(new RegExp(`\\b${k.replace(/ /g, '\\s')}\\b`)); if (i >= 0 && !out.some(o => o.key === k)) out.push({ key: k, index: m.index + i }); }); }
+      out.sort((a, b) => a.index - b.index);
+      return { list: out.map(o => o.key), spans };
+    }
+    const blank = (t, spans) => (spans || []).reduce((s, [a, b]) => s.slice(0, a) + ' '.repeat(b - a) + s.slice(b), t);
     // flavours / named ingredients, in the order the owner lists them
     function flavourFacts(t) {
       const keys = ART.FLAVOUR_KEYS.slice().sort((a, b) => b.length - a.length);
       const hits = [];
       keys.forEach(k => { const re = new RegExp(`\\b${k.replace(/ /g, '\\s')}\\b`); const m = re.exec(t); if (m && !hits.some(h => h.index <= m.index && h.index + h.key.length >= m.index + k.length)) hits.push({ key: k, index: m.index }); });
       hits.sort((a, b) => a.index - b.index);
-      return hits.map(h => (h.key === 'berries' ? 'berry' : h.key)).filter((k, i, a) => a.indexOf(k) === i).slice(0, 4);
+      // one flavour can be named by two words ("habanero mango", "lemon ginger"): adjacent names are one flavour
+      const merged = [];
+      hits.forEach(h => { const prev = merged[merged.length - 1]; if (prev && /^\s+$/.test(t.slice(prev.end, h.index))) { prev.key += ` ${h.key}`; prev.end = h.index + h.key.length; } else merged.push({ key: h.key, index: h.index, end: h.index + h.key.length }); });
+      return merged.map(h => (h.key === 'berries' ? 'berry' : h.key)).filter((k, i, a) => a.indexOf(k) === i).slice(0, 4);
     }
     // ---- software ----------------------------------------------------------------------------------------------------
     const UI_TYPES = [
@@ -7265,7 +8200,16 @@
       const c = ctx || {};
       const t = plain(`${c.text || ''}. ${(c.ownOfferings || []).join(', ')}`);
       const f = { text: t, name: c.name || '', place: c.place || '', categoryKey: c.categoryKey || 'other', offers: (c.ownOfferings || []).filter(Boolean) };
-      f.flavours = flavourFacts(t);
+      // three different kinds of information: heat levels (bottle labels), ingredients (what it is made with)
+      // and flavours (the range) -- each read from its own part of the owner's words
+      const tc = chiliWords(t);
+      f.heat = heatFacts(tc);
+      // a heat level's name ("ghost pepper") is a label wherever it appears -- also in the listed offerings
+      const heatSpans = [];
+      if (f.heat) { heatSpans.push(f.heat.span); f.heat.levels.forEach(l => { const re = new RegExp(`\\b${l.toLowerCase().replace(/[^a-z0-9 -]/g, '')}\\b`, 'g'); let m; while ((m = re.exec(tc))) heatSpans.push([m.index, m.index + m[0].length]); }); }
+      const ing = ingredientFacts(blank(tc, heatSpans));
+      f.ingredients = ing.list;
+      f.flavours = flavourFacts(blank(tc, heatSpans.concat(ing.spans)));
       f.drink = drinkFacts(t);
       f.skin = f.drink ? null : skinFacts(t);
       f.pantry = f.drink || f.skin ? null : pantryFacts(t);
@@ -7274,7 +8218,8 @@
       f.menu = menuFacts(t);
       f.bakes = bakeFacts(t);
       f.tech = c.categoryKey === 'tech' || /\b(software|saas|platform|app|apps)\b/.test(t) ? techFacts(t) : null;
-      f.facets = matchFacets(t, f.categoryKey);
+      const unnamed = c.name ? t.split(plain(c.name)).join(' ') : t;
+      f.facets = matchFacets(unnamed, f.categoryKey, plain((c.ownOfferings || []).join(', ')));
       f.noun = String(c.noun || '').trim();
       return f;
     }
@@ -7372,7 +8317,7 @@
       F('piano', ['education', 'creative'], /\b(piano|keys lessons|keyboard lessons)\b/, ['lead', 'detail'], 'a piano keyboard', 'Piano keys in soft side light, sheet music on the stand, close-up', { kind: 'music', params: { variant: 'piano' } }),
       F('guitar', ['education', 'creative'], /\b(guitars?|music lessons?|ukuleles?)\b/, ['lead', 'detail'], 'an acoustic guitar', 'An acoustic guitar resting on a stand in a sunny music room, warm wood grain, three-quarter view', { kind: 'music', params: { variant: 'guitar' } }),
       // creative
-      F('photo', ['creative'], /\b(photograph\w*|photo shoots?|portraits?|headshots?|weddings?)\b/, ['lead'], 'a camera and light on set', 'A camera on a tripod facing a softbox-lit studio set, cables across the floor, behind-the-scenes view', { kind: 'camera-set' }),
+      F('photo', ['creative'], /\b(photograph\w*|photo shoots?|portraits?|headshots?)\b/, ['lead'], 'a camera and light on set', 'A camera on a tripod facing a softbox-lit studio set, cables across the floor, behind-the-scenes view', { kind: 'camera-set' }),
       F('prints', ['creative'], /\b(prints?|albums?|galleries|framing|editing)\b/, ['detail'], 'prints spread on the light table', 'A spread of printed photographs on a light table with a loupe resting on top, overhead view', { kind: 'prints' }),
       F('branding', ['creative', 'professional'], /\b(branding|brand identity|logos?|identity|graphic design|packaging design)\b/, ['lead', 'detail'], 'a moodboard of the brand work', 'A studio moodboard of type specimens, colour chips and sketches pinned to cork, a swatch fan in front, daylight', { kind: 'moodboard' }),
       F('illustration', ['creative'], /\b(illustrat\w*|sketch\w*|drawings?|murals?)\b/, ['detail', 'lead'], 'a sketchbook and swatches', 'An open sketchbook with pencil studies beside a fan of colour swatches on a desk, overhead view, soft daylight', { kind: 'sketch-desk' }),
@@ -7381,19 +8326,20 @@
       F('food-bank', ['nonprofit'], /\b(food banks?|meals?|hunger|groceries|pantr\w*|produce)\b/, ['lead', 'detail'], 'a crate of fresh produce', 'A wooden crate of fresh donated produce -- apples, citrus and greens -- on a folding table, close three-quarter view, natural light', { kind: 'produce-crate' }),
       F('environment', ['nonprofit'], /\b(tree planting|trees|environment\w*|restoration|conservation|climate|greening)\b/, ['detail', 'context'], 'seedlings planted in fresh soil', 'Young seedlings just planted in rich dark soil with a trowel beside them, low close-up, soft daylight', { kind: 'seedling' }),
       F('gathering', ['nonprofit', 'hospitality'], /\b(community (?:meals?|events?|dinners?)|gatherings?|volunteers?|events?)\b/, ['context', 'lead'], 'a long table set for the community', 'A long table set outdoors for a community meal, string lights overhead and flowers in the middle, golden hour, wide view', { kind: 'community-table' }),
-      F('animals', ['nonprofit', '*'], /\b(animal rescue|shelters?|adopt\w*|dogs?|puppies|pets?|grooming|dog walk\w*|pet sitt\w*)\b/, ['lead', 'detail'], 'a happy dog', 'A happy, well-groomed dog sitting on a clean floor with a new collar, eye level, soft natural light', { kind: 'dog' }),
+      F('animals', ['nonprofit', '*'], /\b(animal rescue|shelters?|adopt\w*|dogs?|puppies|pets?|grooming|dog walk\w*|pet sitt\w*)\b/, ['lead', 'detail', 'context'], 'a happy dog', 'A happy, well-groomed dog sitting on a clean floor with a new collar, eye level, soft natural light', { kind: 'dog', byRole: { detail: 'dog:walk', context: 'dog:walk' }, text: { detail: ['a dog out on a walk', 'A happy dog trotting along a park path on a lead, the walker out of frame, bright morning light, low eye-level view'], context: ['a dog out on a walk', 'A happy dog trotting along a park path on a lead, the walker out of frame, bright morning light, low eye-level view'] } }),
       // unusual businesses ('other' and anything else)
       F('sailing', ['*', 'education'], /\b(sailing|sailboats?|sail lessons|dinghy|dinghies|regattas?|yacht club)\b/, ['lead', 'detail'], 'a sailboat under way', 'A small sailboat heeling gently under a full mainsail on bright blue water{inPlace}, a second boat in the distance, clear daylight, wide view from the water', { kind: 'sailboat', byRole: { detail: 'rope-cleat' }, text: { detail: ['a line made fast on a deck cleat', 'A mooring line coiled and made fast on a stainless deck cleat, weathered teak underneath, bright sun, close overhead view'] } }),
-      F('boat', ['*'], /\b(boats?|charters?|cruises?|yachts?|kayak\w*|boat tours?|ferr(?:y|ies))\b/, ['lead', 'context'], 'a charter boat on the water', 'A charter boat on calm water at golden hour{inPlace}, gentle wake behind it, wide view from the water', { kind: 'boat' }),
+      F('paddling', ['*', 'fitness'], /\b(kayak\w*|canoe\w*|paddle ?board\w*|stand[- ]up paddl\w*|sup boards?)\b/, ['lead', 'detail', 'context'], 'kayaks and a paddleboard on the water', 'Two sit-in kayaks and a stand-up paddleboard on a calm lake{inPlace}, paddles resting across them, bright morning light, wide view from the shore', { kind: 'kayaks', byRole: { detail: 'kayaks:shore', context: 'kayaks:shore' }, text: { detail: ['kayaks pulled up on the shore', 'Two kayaks pulled up on a sandy shore with their paddles laid beside them, the lake behind, golden light, low three-quarter view'], context: ['kayaks pulled up on the shore', 'Two kayaks pulled up on a sandy shore with their paddles laid beside them, the lake behind, golden light, low three-quarter view'] } }),
+      F('boat', ['*'], /\b(boats?|charters?|cruises?|yachts?|boat tours?|ferr(?:y|ies))\b/, ['lead', 'context'], 'a charter boat on the water', 'A charter boat on calm water at golden hour{inPlace}, gentle wake behind it, wide view from the water', { kind: 'boat' }),
       F('sunset-cruise', ['*'], /\b(sunset|evening|dusk) (?:boat |harbou?r )?(?:tours?|cruises?|sails?|trips?)\b/, ['context', 'lead'], 'guests on deck at sunset', 'Guests seen from behind on the deck of a small boat at sunset{inPlace}, deck lights coming on, calm water, warm golden light', { kind: 'boat-dusk' }),
       F('fishing', ['*'], /\b(fishing|anglers?|angling|fly fishing|tackle)\b/, ['detail', 'lead'], 'rods, reels and tackle on the dock', 'A fishing rod, reel and an open tackle box on a wooden dock by the water, late-afternoon light, close three-quarter view', { kind: 'fishing' }),
-      F('cycling', ['*', 'fitness'], /\b(bikes?|bicycles?|cycling|e-?bikes?|bike repairs?)\b/, ['lead', 'detail'], 'a bicycle ready to ride', 'A clean, well-tuned bicycle leaning in soft daylight on a quiet street, three-quarter view', { kind: 'bicycle' }),
+      F('cycling', ['*', 'fitness'], /\b(bikes?|bicycles?|cycling|e-?bikes?|bike repairs?)\b/, ['lead', 'detail'], 'a bicycle ready to ride', 'A clean, well-tuned bicycle leaning in soft daylight on a quiet street, three-quarter view', { kind: 'bicycle', byRole: { detail: 'bicycle:stand' }, text: { detail: ['a bike on the workstand', 'A bicycle clamped in a workshop repair stand, a pegboard of tools behind, bright even light, three-quarter view'] } }),
       F('flowers', ['*'], /\b(florists?|flowers?|bouquets?|floral\w*|arrangements?)\b/, ['lead', 'detail'], 'a fresh bouquet', 'A fresh hand-tied bouquet of garden roses and greenery wrapped in kraft paper, soft window light, three-quarter view', { kind: 'bouquet', byRole: { detail: 'flower-buckets', context: 'flower-buckets' }, text: { detail: ['fresh stems in buckets at the bench', 'Zinc buckets of fresh stems -- roses, ranunculus and eucalyptus -- on the florist\'s bench beside shears and a spool of twine, soft window light'], context: ['fresh stems in buckets at the bench', 'Zinc buckets of fresh stems -- roses, ranunculus and eucalyptus -- on the florist\'s bench beside shears and a spool of twine, soft window light'] } }),
       F('stationery', ['*', 'creative'], /\b(stationery|invitations?|letterpress|greeting cards|cards|wedding suites?|calligraph\w*|printing)\b/, ['lead', 'detail'], 'invitations and envelopes', 'Letterpress invitation cards, an envelope with a wax seal and a sprig of greenery on linen, overhead view, soft daylight', { kind: 'stationery', byRole: { detail: 'stationery-detail' }, text: { detail: ['the wax-sealed invitation up close', 'A close-up of a pressed wax seal closing a letterpress invitation envelope in cotton paper, a silk ribbon and a calligraphy nib beside it, soft raking light'] } }),
       F('events', ['*', 'hospitality'], /\b(weddings?|events?|parties|celebrations?|receptions?|catering)\b/, ['context'], 'the {phraseOne} table under string lights', 'A long {phraseOne} table set under string lights, flowers and candles down the middle, place cards at each setting, dusk, wide view', { kind: 'event-lights' }),
       F('moving', ['*'], /\b(moving|movers|removals?|relocation\w*|storage)\b/, ['lead', 'detail'], 'packed moving boxes', 'Neatly packed and labelled moving boxes stacked in a bright empty room, three-quarter view', { kind: 'moving' }),
       F('travel', ['*'], /\b(travel|travel agenc\w*|getaways?|holidays?|vacations?|trip planning)\b/, ['detail', 'context'], 'a packed suitcase', 'A packed suitcase by the door with a coffee cup nearby, soft morning light, three-quarter view', { kind: 'travel' }),
-      F('sewing', ['*', 'fashion'], /\b(tailor\w*|alterations?|sewing|seamstress\w*|upholster\w*)\b/, ['detail', 'context'], 'a sewing machine at work', 'A sewing machine with fabric under the needle in a bright workroom, macro three-quarter view', { kind: 'sewing' }),
+      F('sewing', ['*', 'fashion'], /\b(tailor\w*|alterations?|sewing|seamstress\w*|upholster\w*|hemming)\b/, ['lead', 'detail', 'context'], 'a sewing machine at work', 'A sewing machine with fabric under the needle in a bright workroom, macro three-quarter view', { kind: 'sewing', byRole: { detail: 'fabric' }, text: { detail: ['a seam pinned and chalk-marked', 'A seam pinned and chalk-marked on suiting fabric, a tape measure and scissors beside it, macro, soft light'] } }),
       F('solar', ['*', 'electrical'], /\b(solar|panels installation|renewable\w*)\b/, ['lead', 'detail'], 'solar panels on a roof', 'Rows of solar panels on a pitched roof under a clear sky, crisp reflections, three-quarter view', { kind: 'solar' }),
       F('pottery', ['*', 'creative'], /\b(pottery|ceramics? classes|wheel throwing|kilns?)\b/, ['detail', 'lead'], 'a pot on the wheel', 'A freshly thrown pot on the wheel in a clay studio, tools and finished pieces on the shelf behind, warm light', { kind: 'workbench', params: { variant: 'pottery' } }),
       F('cakes', ['*', 'hospitality'], /\b(custom cakes?|wedding cakes?|cakes?|cupcakes?)\b/, ['lead', 'detail'], 'a tiered celebration cake', 'A tiered celebration cake with piped icing and fresh berries on a stand, soft window light, three-quarter view', { kind: 'bakery', params: { variant: 'cake' } }),
@@ -7401,10 +8347,21 @@
     ];
     const FACET_BY_ID = Object.fromEntries(FACETS.map(f => [f.id, f]));
     function facetAllowed(f, cat) { return cat === 'other' ? true : f.cats.includes(cat); }
-    // facets the owner's words name, in the order they name them
-    function matchFacets(t, cat) {
+    const OTHER_GENERIC = /^(?:repairs?|servic\w*|maintenance|inspections?|leaks?|installs?|installations?|design|consult\w*|classes?|lessons?|training|care|cleaning|deliver\w*|events?|tours?|sessions?|workshops?|rentals?|hire|storage|moving)$/;
+    // facets the owner's words name, in the order they name them. An everyday subject ('*': a boat, flowers, bikes)
+    // also counts for a business filed under another category when it is in the owner's own list of what they
+    // offer -- a yacht broker filed as real estate sells sailboats, not houses (offCategory marks those).
+    function matchFacets(t, cat, offersText) {
       const out = [];
-      FACETS.forEach(f => { if (!facetAllowed(f, cat)) return; const re = new RegExp(f.re.source); const m = re.exec(t); if (m) out.push({ id: f.id, index: m.index, phrase: m[0] }); });
+      FACETS.forEach(f => {
+        const own = facetAllowed(f, cat); const listed = !own && f.cats.includes('*') && !!offersText && new RegExp(f.re.source).test(offersText);
+        if (!own && !listed) return;
+        const re = new RegExp(f.re.source); const m = re.exec(t); if (!m) return;
+        // an unclassified business borrows another trade's subject only on that trade's own words -- "repairs mountain
+        // bikes" is not a car on a lift or a roof repair
+        if (cat === 'other' && !f.cats.includes('*') && OTHER_GENERIC.test(m[0])) return;
+        out.push(Object.assign({ id: f.id, index: m.index, phrase: m[0] }, listed ? { offCategory: true } : {}));
+      });
       out.sort((a, b) => a.index - b.index || (FACET_BY_ID[a.id].cats.includes(cat) ? -1 : 1));
       return out;
     }
@@ -7416,6 +8373,7 @@
       const v = {
         name: c.name || f.name || 'the business', place: c.place || f.place || '', inPlace: (c.place || f.place) ? ` in ${c.place || f.place}` : '',
         flavourList: listPhrase(f.flavours) || '', flavour: (f.flavours && f.flavours[0]) || '', flavour2: (f.flavours && (f.flavours[1] || f.flavours[0])) || '',
+        ingredientList: listPhrase(ingredientsOf(f).map(k => (k === 'chili' ? 'fresh red chillies' : k))) || '', heatList: f.heat ? listPhrase(f.heat.levels.map(l => l.toLowerCase())) : '',
         container: f.drink ? f.drink.noun : 'can', containers: f.drink ? (f.drink.container === 'can' ? 'cans' : 'bottles') : 'cans',
         skinProduct: skinP[0] ? skinP[0].phrase : 'serum', skinContainer: skinP[0] ? skinP[0].container : 'amber glass dropper bottle',
         skinList: listPhrase(skinP.map(p => p.phrase)) || 'serum', skinProduct2: skinP[1] ? skinP[1].phrase : (skinP[0] ? skinP[0].phrase : 'cream'),
@@ -7439,6 +8397,19 @@
     const served = f => (f.tech && f.tech.servedArt) || 'team-table';
     const iface = (f, v) => ({ kind: 'interface', params: { ui: f.tech ? f.tech.ui : 'analytics', label: label(v), items: f.tech && f.tech.items, audience: f.tech && f.tech.audience, reminders: f.tech && f.tech.reminders } });
     const notice = (f, v) => { const ui = f.tech ? f.tech.ui : 'analytics'; const msg = { schedule: [f.tech && f.tech.reminders ? 'Appointment reminder' : 'New booking', 'Tomorrow · confirmed'], monitor: ['Alert resolved', 'All services healthy'], ledger: ['Invoice paid', 'Sent to your account'], inbox: ['New conversation', 'Assigned to you'], pipeline: ['Deal moved', 'Proposal stage'] }[ui] || ['Update', 'Ready to review']; return { kind: 'phone-notice', params: { label: label(v), items: msg } }; };
+    // A pantry product's lead. A sauce stands in a hot-sauce bottle; when the owner names
+    // heat levels (or two or more flavours) the range stands side by side, each bottle
+    // labelled with the owner's own name for it. The label otherwise says what it is.
+    const SAUCE_RE = /\b(hot sauces?|chil[i]? sauces?|pepper sauces?|chili oils?)\b/;
+    function pantryLead(f, v) {
+      const variant = f.pantry ? f.pantry.variant : 'jar';
+      if (variant !== 'woozy') return { kind: 'pantry-hero', params: { label: label(v), variant, flavours: flavours(f) } };
+      const range = (f.heat && f.heat.levels.length > 1) ? f.heat.levels : (flavours(f).length > 1 ? flavours(f).map(cap) : null);
+      const sub = (/\bhot sauces?\b/.exec(f.text) || /\b(chili sauces?|pepper sauces?|chili oils?|sauces?)\b/.exec(f.text) || [''])[0].replace(/s$/, '');
+      return { kind: 'pantry-hero', params: Object.assign({ label: label(v), variant, flavours: flavours(f), sub }, range ? { variants: range.slice(0, 3) } : {}) };
+    }
+    // what the product is made with: the ingredients the owner names; a hot sauce is chillies by definition
+    const ingredientsOf = f => { const own = (f.ingredients || []).slice(0, 3); if (own.length) return own; if (SAUCE_RE.test(f.text || '')) return ['chili']; return flavours(f); };
     // what the business offers in its own words: its listed offerings, else what it says it is
     const offerWords = f => ((f.offers && f.offers.length) ? f.offers : (f.noun ? [f.noun] : [])).map(cap);
     const CONCEPT_ART = {
@@ -7446,7 +8417,7 @@
       'drink-range': [(f, v) => drinkLead(f, v, true), f => ({ kind: 'fruit-splash', params: { flavours: flavours(f) } }), (f, v) => (f.drink && f.drink.container === 'bottle' ? pour(f, v) : { kind: 'can-ice', params: { label: label(v), flavours: flavours(f) } })],
       'skincare-ritual': [(f, v) => ({ kind: 'skincare-hero', params: { label: label(v), variant: skinVariants(f)[0] || 'dropper', sub: v.skinProduct } }), f => ({ kind: 'texture-swatch', params: { variant: skinVariants(f).includes('jar') ? 'jar' : null } }), (f, v) => ({ kind: 'basin-ritual', params: { label: label(v), variants: skinVariants(f) } })],
       'skincare-botanic': [(f, v) => ({ kind: skinVariants(f).length > 1 ? 'skincare-range' : 'skincare-hero', params: { label: label(v), variants: skinVariants(f), variant: skinVariants(f)[0] || 'jar', sub: v.skinProduct } }), () => ({ kind: 'botanicals' }), (f, v) => ({ kind: 'basin-ritual', params: { label: label(v), variants: skinVariants(f) } })],
-      'food-product': [(f, v) => ({ kind: 'pantry-hero', params: { label: label(v), variant: f.pantry ? f.pantry.variant : 'jar', flavours: flavours(f) } }), f => ({ kind: 'ingredients', params: { flavours: flavours(f) } }), f => ({ kind: 'plated', params: { variant: f.pantry ? f.pantry.dish : 'generic' } })],
+      'food-product': [(f, v) => pantryLead(f, v), f => (ingredientsOf(f).length ? { kind: 'ingredients', params: { flavours: ingredientsOf(f) } } : { kind: 'offer-cards', params: { items: f.offers } }), f => ({ kind: 'plated', params: Object.assign({ variant: f.pantry ? f.pantry.dish : 'generic' }, f.pantry && f.pantry.variant === 'woozy' ? { drizzle: true } : {}) })],
       'home-goods': [(f, v) => ({ kind: 'home-object', params: { label: label(v), variant: f.home ? f.home.variant : 'vase' } }), (f, v) => ({ kind: 'home-object', params: { label: label(v), variant: f.home && f.home.variant === 'candle' ? 'mug' : 'candle' } }), f => ({ kind: 'workbench', params: { variant: f.home && f.home.variant === 'candle' ? 'candle' : 'pottery' } })],
       'retail-general': [(f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: f.offers } }), () => ({ kind: 'fabric', params: { variant: 'weave' } }), () => ({ kind: 'living-room' })],
       'fashion-street': [f => ({ kind: 'apparel', params: { variant: f.apparel ? f.apparel[0].variant : 'hoodie' } }), () => ({ kind: 'fabric', params: { variant: 'weave' } }), f => ({ kind: 'rail', params: { variant: f.apparel && f.apparel[0].variant === 'tee' ? 'tee' : null } })],
@@ -7493,7 +8464,7 @@
     // concepts whose layers follow the product itself (containers, flavours) rather than a list of services
     const KEEP_LEAD = new Set(['cafe-venue', 'bar-night', 'hospitality-general', 'restaurant-table', 'bakery-oven', 'realestate-dusk', 'realestate-condo', 'clinic-physio', 'spa-calm', 'fitness-boxing', 'fitness-studio', 'fitness-gym', 'creative-photo', 'nonprofit-community']);
     const PRODUCT_LED = new Set(['drink-chill', 'drink-range', 'skincare-ritual', 'skincare-botanic', 'food-product', 'home-goods', 'fashion-street', 'fashion-atelier', 'fashion-general', 'coffee-roaster', 'saas-vertical', 'saas-dev', 'tech-general']);
-    function facetArt(facet, v, role) { const a = facet.art; const kind = (a.byRole && a.byRole[role]) || a.kind; return { kind, params: Object.assign({}, a.params || {}, kind === 'offer-cards' ? { label: clip(v.name, 22) } : {}) }; }
+    function facetArt(facet, v, role) { const a = facet.art; const [kind, variant] = String((a.byRole && a.byRole[role]) || a.kind).split(':'); return { kind, params: Object.assign({}, a.params || {}, variant ? { variant } : {}, kind === 'offer-cards' ? { label: clip(v.name, 22) } : {}) }; }
     function singular(w) { w = String(w || ''); return /ies$/.test(w) ? w.slice(0, -3) + 'y' : /(ss|us)$/.test(w) ? w : w.replace(/s$/, ''); }
     function facetText(facet, role) { const t = facet.art.text && facet.art.text[role]; return t ? { subject: t[0], shot: t[1] } : { subject: facet.subject, shot: facet.shot }; }
     function fillText(tpl, v) { return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => (v[k] != null ? v[k] : '')).replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim(); }
@@ -7511,13 +8482,15 @@
       const out = layers.map((l, i) => {
         const base = Object.assign({}, l, { art: arts[i] ? arts[i](f, v) : { kind: 'offer-cards', params: { items: f.offers } }, facet: null });
         const productLed = PRODUCT_LED.has(conceptId) && !(conceptId === 'saas-vertical' && i === 2);
-        if (productLed || (i === 0 && KEEP_LEAD.has(conceptId))) { usedArt.add(keyOf(base.art)); return base; }
+        // a venue's own room leads -- unless what the owner lists is something else entirely (a yacht broker filed as real estate)
+        const offLead = facetsFor.some(m => m.offCategory && FACET_BY_ID[m.id].roles.includes('lead'));
+        if (productLed || (i === 0 && KEEP_LEAD.has(conceptId) && !offLead)) { usedArt.add(keyOf(base.art)); return base; }
         // a named subject can appear twice only when its role gives a genuinely different picture (the cards, then the seal close-up)
-        const fits = (m, fresh) => { const a = facetArt(FACET_BY_ID[m.id], v, l.role); return FACET_BY_ID[m.id].roles.includes(l.role) && !usedArt.has(keyOf(a)) && (fresh ? ![...usedFacets].some(k => k.startsWith(`${m.id}|`)) : !usedFacets.has(`${m.id}|${a.kind}`)); };
+        const fits = (m, fresh) => { const a = facetArt(FACET_BY_ID[m.id], v, l.role); return FACET_BY_ID[m.id].roles.includes(l.role) && !usedArt.has(keyOf(a)) && (fresh ? ![...usedFacets].some(k => k.startsWith(`${m.id}|`)) : !usedFacets.has(`${m.id}|${keyOf(a)}`)); };
         // everything the owner named gets shown once before anything is shown twice
         const pick = facetsFor.find(m => fits(m, true)) || facetsFor.find(m => fits(m, false));
         if (!pick) { usedArt.add(keyOf(base.art)); return base; }
-        const facet = FACET_BY_ID[pick.id]; usedFacets.add(`${pick.id}|${facetArt(facet, v, l.role).kind}`);
+        const facet = FACET_BY_ID[pick.id]; usedFacets.add(`${pick.id}|${keyOf(facetArt(facet, v, l.role))}`);
         const fv = Object.assign({}, v, { phrase: pick.phrase, phraseOne: singular(pick.phrase) });
         const words = facetText(facet, l.role);
         const res = Object.assign(base, { subject: fillText(words.subject, fv), shot: fillText(words.shot, fv), art: facetArt(facet, fv, l.role), facet: pick.id });

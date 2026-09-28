@@ -97,6 +97,63 @@ outranks any generated image or drawing, is never regenerated over, and survives
 drawn interface replaces the premium lead). Checked with `test/hero-imagery.test.js`, `test/review/review-sites.js
 --replace` (the real editor) and `test/review/imagery-review.js` (before/after contact sheets).
 
+## Keeping the subject in view (`lib/premium/hero-framing.js`)
+
+A layer is a frame that moves on its own track, with a picture inside it oversized 7% each side and panned or zoomed.
+The same wide drawing cropped into a narrow phone frame, or sitting behind the headline, used to lose its subject (the
+roofing lead once showed grass and a tree while the house was cut away). Now:
+
+* **Every drawing marks its subject.** Parts a kind draws through the shared kit (a house, a boat, a can, a treatment
+  table) are wrapped in `<g data-subject="1">` unless they are scenery (sky, lawn, trees, studio wall); rooms mark
+  their key object themselves; `SUBJECT_PARTS` narrows a kind whose props would otherwise count (a lawn-mowing scene's
+  house is scenery, its mower the subject). Whole-frame textures and rooms are listed as scenes.
+* **Each drawn layer is composed twice** -- for its desktop frame and for its phone frame (`.ha-desk` / `.ha-phone`,
+  switched by the phone container query), at that frame's real proportions.
+* **Subject-aware framing.** For each view, what covers the frame is worked out from the composition: the layers
+  stacked above it (at every point of both frames' motion) and, for a full-bleed lead behind bottom-left copy, the copy
+  block. The crop (the SVG viewBox) is chosen so the subject stays inside the part of the picture that is visible
+  through the whole pan/zoom loop, inside the frame's shape (circle, arch) and clear of those covers; when the crop alone
+  cannot, a slightly wider or taller canvas is drawn, and as a last resort the subject slides along its ground line or
+  shrinks a little about its base. The fan layout's centre card now lies on top of its tilted neighbours (which move
+  gently), and the panorama insets hug the right edge, leaving the lead's subject an open window.
+* **Photos** (uploaded or generated) have no known outline: each view gets an object-position (`--op` / `--op-m`)
+  that keeps the photo's middle clear of what covers the frame; the owner's chosen focus wins on both. Lead prompts ask
+  for the subject whole in the middle half, the scene continuing to both sides, so a phone crop keeps it.
+* **Checked** by `test/helpers/hero-framing-check.js` (re-derives every layer's visible subject from the rendered
+  markup: placement and motion properties, viewBox, `data-subject-box`) and in a real browser by
+  `test/review/imagery-review.js`, which freezes the loop at several moments on desktop and phone and hit-tests points
+  across each subject's outline -- a point counts only when the topmost element there belongs to that layer.
+
+## Saying the right thing
+
+* **Heat levels, ingredients and flavours are different facts** (`visual-subjects.js`): "Three heat levels: mild,
+  smoky and ghost pepper" labels the bottles; "made with fermented chilies" is the ingredient; "habanero mango" is one
+  flavour. "Smoky" is a taste, never drawn as a thing. A sauce is a woozy bottle full of sauce (clear glass, sauce up
+  into the neck, ribbed cap), labelled with the brand and what is inside; a range of heats is a row of bottles, each
+  labelled with the owner's name for it; the ingredients are whole chilli pods and a split one showing its seeds. Only
+  stated ingredients are drawn (a hot sauce is chillies by definition); nothing is invented.
+* **Everyday subjects follow the owner's list**: a business filed under another category that lists sailboats, bikes
+  or flowers among what it offers shows those (a yacht broker filed as real estate no longer leads with a house).
+
+## Names and opening words (`lib/premium/hero-copy.js`)
+
+* **The name the owner wrote** is found in natural openings ("Harbour Knots teaches...", "We are Stem Studio, a...",
+  "Citrine Soda Co. makes...", "...called X", "At X, we...") and never taken from a service, a place or a fragment
+  ("Residential Cleaning offers...", "Toronto is where..."). It wins over the planner's; a name the owner types in the
+  editor survives regenerating the same description, saving, reopening and export, and the drawings' labels always
+  carry the current name. With no name the site uses a clear "Your Business" placeholder (flagged, kept through saves,
+  never printed on packaging) -- never an invented "<Category> Studio". The planner is told the name and asked to use
+  it exactly.
+* **Headlines from what the business does**: the owner's first sentence is read into what it is (a florist) and what it
+  does (verb, objects, where/how), and the headline is built only from those words in one of several shapes chosen per
+  business -- "Sailing lessons and sunset cruises from the marina.", "Delivered across Bristol: bouquets and wedding
+  flowers.", "Exercise rehab, dry needling and manual therapy for running injuries.", "Rent kayaks and paddleboards by
+  the hour on Lake Muskoka.", "Wedding and portrait photography in Toronto." The kicker is what the business is; the sub
+  is the owner's next sentence. Nothing is added: no results, guarantees, credentials or superlatives.
+* **Planner headlines** ship as written when specific; one that is a category word plus a stock phrase, says nothing
+  about this business, or makes a claim the owner never made (awards, rankings, numbers) is replaced by the grounded
+  fallback (`meta.plannerHeadlineReplaced` records why). The planner prompt gained the same rule -- same single call.
+
 ## Motion
 
 `styles.css` "HERO STORYBOARD". Every layer carries its own placement and motion as custom properties and runs the
@@ -130,3 +187,10 @@ screen; the live preview keeps the loop's phase across edits.
   motion, a 4 s MP4 burst), with contact sheets and per-business checks.
 * `ELECTRON_PATH=<electron.exe> node test/review/review-sites.js <outDir>` -- the live preview through the real page
   and server for a subset, preview + export.
+* `npm test` -- `test/hero-polish.test.js`: the roofing house on phones through the loop (and proof the check catches
+  the old crop), every fixture's subjects on both views, vulnerable subjects in every frame shape, photo framing, the
+  hot-sauce facts and drawings, names (natural openings, rejections, placeholder, owner-typed name through regenerate /
+  save / export), grounded and varied headlines, planner-headline acceptance and replacement.
+* `ELECTRON_PATH=<electron.exe> node test/review/imagery-review.js <outDir> --before <old checkout>` -- before/after
+  contact sheets with the headline and name, desktop and phone at several points of the loop, and the browser-measured
+  visibility of every drawn subject (`visibility.json`).

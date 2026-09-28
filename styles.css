@@ -3042,6 +3042,9 @@ body.generation-gate-open{overflow:hidden}
 .hero-storyboard .sb-glow{position:absolute;right:6%;top:10%;width:62%;height:80%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--site-accent) 55%,transparent),transparent);filter:blur(40px);opacity:.7;animation:sr-glow var(--sb-loop) ease-in-out calc(var(--cam-phase,0s)) infinite alternate}
 .hero-storyboard .sb-copy{position:relative;z-index:70;min-width:0}
 .hero-storyboard .sb-copy h3{max-width:13ch}
+/* specific headlines are longer than slogans: a step down in size, a little wider, never five lines deep */
+.hero-storyboard .sb-copy h3[data-len="long"]{font-size:clamp(36px,4.4cqw,70px);max-width:15ch}
+.hero-storyboard .sb-copy h3[data-len="longer"]{font-size:clamp(32px,3.7cqw,58px);max-width:18ch}
 .hero-storyboard .sb-copy .cinema-kicker{color:color-mix(in srgb,var(--site-accent) 75%,var(--site-text))!important}
 .hero-storyboard .sb-copy .cinema-sub{color:var(--site-muted)!important}
 .hero-storyboard[data-tone="dark"] .sb-copy h3{color:#fff!important;text-shadow:0 2px 26px rgba(0,0,0,.45)}
@@ -3065,6 +3068,8 @@ body.generation-gate-open{overflow:hidden}
 .hero-storyboard .sb-media{position:absolute;inset:-7%;transform:translate3d(var(--ix0),var(--iy0),0) scale(var(--is0));animation:sb-pan var(--sb-loop) ease-in-out calc(var(--delay) + var(--cam-phase,0s)) infinite;will-change:transform}
 @keyframes sb-pan{0%,100%{transform:translate3d(var(--ix0),var(--iy0),0) scale(var(--is0))}50%{transform:translate3d(var(--ix1),var(--iy1),0) scale(var(--is1))}}
 .hero-storyboard .sb-media>img,.hero-storyboard .sb-media>*{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;display:block}
+/* a photo's framing per view (hero-storyboard.js: the owner's focus, else its middle kept clear of what covers it) */
+.hero-storyboard .sb-media>img{object-position:var(--op,50% 50%)}
 /* reveals (one-shot, staggered per layer) */
 .hero-storyboard [data-reveal="wipe-left"] .sb-frame{animation-name:sb-reveal-wipe-left}
 .hero-storyboard [data-reveal="wipe-right"] .sb-frame{animation-name:sb-reveal-wipe-right}
@@ -3093,6 +3098,8 @@ body.generation-gate-open{overflow:hidden}
 .hero-storyboard .ha-art>svg,.hero-storyboard .ha-ui>svg{width:100%;height:100%;display:block}
 .hero-storyboard .ha-ui{position:absolute;inset:0;background:#111319}
 .hero-storyboard .ha-ui-compact{display:none!important}
+/* a drawing framed separately for the phone frame (hero-framing.js): one of the two shows */
+.hero-storyboard .ha-phone{display:none!important}
 /* a drawn interface is read, not panned: no oversize, no content move, the whole screen visible */
 .hero-storyboard .sb-media:has(>.ha-art[data-art="interface"]){inset:0;animation:none;transform:none}
 .hero-storyboard .sb-shape-device .sb-media:has(>.ha-art[data-art="interface"]){top:28px}
@@ -3107,7 +3114,7 @@ body.generation-gate-open{overflow:hidden}
 .builder-site .site-hero.hero-storyboard[data-copy="bottom-left"]{display:block;padding:0!important;min-height:clamp(620px,58cqw,880px)}
 .hero-storyboard[data-copy="bottom-left"] .sb-stage{position:absolute;inset:0;height:auto}
 .hero-storyboard[data-copy="bottom-left"] .sb-stage::after{content:"";position:absolute;inset:0;z-index:25;pointer-events:none;background:linear-gradient(90deg,rgba(6,8,7,.8) 0,rgba(6,8,7,.45) 38%,rgba(6,8,7,0) 66%),linear-gradient(0deg,rgba(6,8,7,.72) 0,rgba(6,8,7,0) 52%)}
-.hero-storyboard[data-copy="bottom-left"] .sb-copy{position:absolute;left:clamp(24px,5.2cqw,84px);bottom:clamp(28px,4.5cqw,68px);max-width:min(620px,52%)}
+.hero-storyboard[data-copy="bottom-left"] .sb-copy{position:absolute;left:clamp(24px,5.2cqw,84px);bottom:clamp(28px,4.5cqw,68px);max-width:min(620px,44%)}
 .hero-storyboard[data-copy="bottom-left"] .sb-copy h3{color:#fff!important;text-shadow:0 2px 28px rgba(0,0,0,.5)}
 .hero-storyboard[data-copy="bottom-left"] .sb-copy .cinema-kicker,.hero-storyboard[data-copy="bottom-left"] .sb-copy .cinema-sub{color:rgba(255,255,255,.88)!important}
 .hero-storyboard[data-copy="bottom-left"] .sb-offers li{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff}
@@ -3134,7 +3141,12 @@ body.generation-gate-open{overflow:hidden}
   /* phones read the compact interface: fewer, larger labels */
   .hero-storyboard .ha-ui-wide{display:none!important}
   .hero-storyboard .ha-ui-compact{display:block!important}
+  .hero-storyboard .sb-media>img{object-position:var(--op-m,var(--op,50% 50%))}
+  .hero-storyboard .ha-desk{display:none!important}
+  .hero-storyboard .ha-phone{display:block!important}
   .hero-storyboard .sb-copy h3{font-size:clamp(36px,11cqw,54px)}
+  .hero-storyboard .sb-copy h3[data-len="long"]{font-size:clamp(31px,9cqw,46px);max-width:none}
+  .hero-storyboard .sb-copy h3[data-len="longer"]{font-size:clamp(28px,7.8cqw,40px);max-width:none}
   .builder-site .site-hero.hero-storyboard[data-copy="bottom-left"]{display:flex;padding:0!important;min-height:0}
   .hero-storyboard[data-copy="bottom-left"] .sb-stage{position:relative;inset:auto;height:120cqw}
   .hero-storyboard[data-copy="bottom-left"] .sb-stage::after{background:linear-gradient(0deg,rgba(6,8,7,.55) 0,rgba(6,8,7,0) 40%)}

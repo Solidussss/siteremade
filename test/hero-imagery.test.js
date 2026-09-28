@@ -151,8 +151,9 @@ test('each hero image can be replaced with the owner\'s photo -- placement, moti
   const html = b.heroHtml();
   const fig = html.match(/<figure class="sb-layer[^>]*data-slot="hero-2"[^>]*>[\s\S]*?<\/figure>/)[0];
   assert.ok(fig.includes(photo.slice(0, 60)), 'the owner photo is shown in that layer');
-  assert.ok(/object-position:50% 20%/.test(fig), 'the chosen focus point applies');
-  assert.equal(fig.match(/<figure[^>]*>/)[0].replace(/ data-source="[^"]+"| data-art="[^"]+"/g, ''), before.replace(/ data-source="[^"]+"| data-art="[^"]+"/g, ''), 'same placement, depth and motion track');
+  assert.ok(/--op:50% 20%;--op-m:50% 20%/.test(fig), 'the chosen focus point applies, on desktop and on phones');
+  assert.ok(!/<img[^>]*style="object-position/.test(fig), 'no inline position fights the per-view framing');
+  assert.equal(fig.match(/<figure[^>]*>/)[0].replace(/ data-source="[^"]+"| data-art="[^"]+"|;--op(?:-m)?:[^;"]+/g, ''), before.replace(/ data-source="[^"]+"| data-art="[^"]+"|;--op(?:-m)?:[^;"]+/g, ''), 'same placement, depth and motion track');
   // other layers keep their own pictures
   assert.ok(/data-slot="hero-3"[^>]*data-source="image"/.test(html));
   // the plan never re-requests a layer the owner covered, not even on a later re-plan

@@ -288,8 +288,13 @@ function extractLocation(text) {
 // conservative: the name must lead the text, be 1-4 capitalised words, and
 // never be a pronoun/article ("We are...", "Our studio is...").
 const LEADING_NAME_STOPWORDS = new Set(['we', 'i', 'our', 'my', 'this', 'it', 'they', 'a', 'an', 'the', 'hi', 'hello', 'looking', 'need', 'please', 'website', 'site']);
+// lib/premium/hero-copy.js (premium-core.js bundle): the name, what the business does and its opening words
+function premiumHeroCopy() { return (typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.heroCopy) || null; }
 function extractBusinessName(text) {
   if (!text) return '';
+  // the shared reader also recognises "Harbour Knots teaches...", "We are Stem Studio, a...", "Citrine Soda Co. makes..."
+  // and refuses a service, a place or a fragment ("Residential Cleaning offers...", "Toronto is where...")
+  const HC = premiumHeroCopy(); if (HC) return HC.extractName(text);
   const patterns = [
     /\bcalled\s+([A-Z][A-Za-z0-9&'.-]*(?:\s+(?:&\s+)?[A-Z][A-Za-z0-9&'.-]*){0,3})/,
     /\bnamed\s+([A-Z][A-Za-z0-9&'.-]*(?:\s+(?:&\s+)?[A-Z][A-Za-z0-9&'.-]*){0,3})/
@@ -435,6 +440,12 @@ function analyzeDescription(text) {
   };
 }
 
+// What the business offers: the list the description gives, else the things it says it does ("rents kayaks and
+// paddleboards" -> Kayaks, Paddleboards; lib/premium/hero-copy.js) -- empty when neither, and the category list is used.
+function offeringsOf(text) {
+  const listed = extractOfferings(text); if (listed.length) return listed;
+  const HC = premiumHeroCopy(); return HC ? HC.offeringsFrom(text, extractBusinessName(text)) : [];
+}
 function createGenerationSource(text) {
   const normalizedText = String(text || '').trim();
   const analysis = analyzeDescription(normalizedText);
@@ -445,7 +456,7 @@ function createGenerationSource(text) {
     facts: extractBusinessFacts(analysis.text),
     descriptor: extractBusinessDescriptor(analysis.text),
     extractedName: extractBusinessName(analysis.text),
-    offerings: extractOfferings(analysis.text)
+    offerings: offeringsOf(analysis.text)
   });
 }
 
@@ -1447,12 +1458,13 @@ const copyHeadlinePools = {
   renovation: [subj => `${titleCase(subj)}, built on reputation.`, subj => `${titleCase(subj)}, done to last.`],
   other: [subj => `${titleCase(subj)}, done properly.`, subj => `${titleCase(subj)}, built the right way.`]
 };
-function buildCopy(category, categoryKey, analysis, descriptor, variationSeed) {
+// extra: { name, offerings } -- the business's own name and listed offers, when known
+function buildCopy(category, categoryKey, analysis, descriptor, variationSeed, extra) {
   descriptor = descriptor || {};
   variationSeed = variationSeed || 0;
   const loc = analysis.location || '';
   const hasSignal = descriptor.descriptor || descriptor.offering;
-  const kicker = descriptor.descriptor ? descriptor.descriptor.toUpperCase() : category.kicker;
+  let kicker = descriptor.descriptor ? descriptor.descriptor.toUpperCase() : category.kicker;
   let headline = category.headline;
   let sub = category.sub;
   if (hasSignal) {
@@ -1482,8 +1494,21 @@ function buildCopy(category, categoryKey, analysis, descriptor, variationSeed) {
     // differently instead of being a silent clone.
     const pool = copyHeadlinePools[categoryKey] || copyHeadlinePools.other;
     const template = pool[hashString(categoryKey + '::v' + variationSeed) % pool.length];
-    headline = template(category.noun, descriptor, loc);
+    headline = categoryKey === 'other' ? category.headline : template(category.noun, descriptor, loc); // never "Business, done properly."
     if (loc) sub = `${category.sub} Serving ${loc}.`;
+  }
+  // What the owner wrote about THIS business, when it says enough: what it offers or does, in its own words and
+  // place ("Sailing lessons and sunset cruises from the marina.", "Delivered across Bristol: bouquets and wedding
+  // flowers."), shaped differently per business -- nothing invented. The pools above remain for a description
+  // too thin to build on.
+  const HC = premiumHeroCopy();
+  const own = HC ? HC.heroCopyFor({ text: analysis.text, name: extra && extra.name, categoryKey, place: loc, offerings: extra && extra.offerings, seed: variationSeed }) : null;
+  if (own) {
+    headline = own.headline;
+    // a kicker the owner's words give ("FLORIST"); else the category's own, never a stray descriptor ("ONLINE")
+    kicker = own.kicker || (categoryKey === 'other' ? (loc ? loc.toUpperCase() : '') : category.kicker);
+    if (own.sub) sub = own.sub;
+    else if (categoryKey === 'other') sub = loc ? `Serving ${loc}.` : '';
   }
   return { kicker, headline, sub, cta: category.cta };
 }
@@ -5973,7 +5998,7 @@ function createProject(analysis, preserved, isDemoShell) {
     },
     intent: { seedKey, styleAlternates: analysis.styleAlternates, variationSeed: 0 },
     design: { palette: { ...composed.palette }, dimensions, heroLayout: (preserved && preserved.design && preserved.design.heroLayout) || 'split' },
-    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor),
+    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor, 0, { name: extractedName || priorName || '', offerings: offeringsOf(analysis.text) }),
     pages: [homePage],
     activePageIndex: 0,
     sections: homePage.sections,
@@ -7505,7 +7530,14 @@ try {
 } catch (e) { /* ignore in environments where this isn't definable */ }
 
 // ---- Refinement controls: mutate `project`, then re-render --------------
-[businessName].forEach(el => el.addEventListener('input', () => { if (!project) return; project.business.name = businessName.value; renderProject(project); }));
+[businessName].forEach(el => el.addEventListener('input', () => {
+  if (!project) return;
+  project.business.name = businessName.value;
+  // the owner's own name: shown everywhere (hero art labels included) and kept when the same description is regenerated
+  project.business.nameSource = businessName.value.trim() ? 'owner' : 'placeholder';
+  if (project.meta) project.meta.previewBrandName = !businessName.value.trim();
+  renderProject(project);
+}));
 industrySelect.addEventListener('input', () => { if (!project) return; project.business.categoryKey = industrySelect.value; renderProject(project); resolveImagePlanAssets(project); });
 [brandColor, backgroundColor, textColor].forEach(el => el.addEventListener('input', () => {
   if (!project) return;
@@ -8618,9 +8650,17 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
   // normalizeClaudePlan and then never read, so even a successful AI-planned
   // direction shipped as "<Category> Studio". It now wins over the
   // deterministic extraction; the template name stays the last resort.
-  const plannedName = usingClaude ? claudePlan.businessName : null;
-  const realName = plannedName || source.extractedName;
-  const previewName = realName || `${category.label} Studio`;
+  // The name the owner wrote in the description wins; then the planner's (only when it reads as a name -- never a
+  // service, place or fragment); a name the owner typed into the editor survives regenerating the same
+  // description (or one that names no business). With no name at all the site carries a clear placeholder --
+  // never an invented "<Category> Studio" brand.
+  const HCN = premiumHeroCopy();
+  const plannedName = usingClaude && claudePlan.businessName && (!HCN || HCN.isNameLike(claudePlan.businessName, source.text)) ? claudePlan.businessName : null;
+  const ownerName = preserved && preserved.business && preserved.business.nameSource === 'owner' && preserved.business.name && String(preserved.business.name).trim() ? String(preserved.business.name).trim() : null;
+  const keepOwner = !!ownerName && (sameSource || !source.extractedName);
+  const realName = keepOwner ? ownerName : (source.extractedName || plannedName);
+  const nameSource = keepOwner ? 'owner' : source.extractedName ? 'description' : plannedName ? 'planner' : 'placeholder';
+  const previewName = realName || 'Your Business';
 
   // V7: the first-paint shell now seeds its dimensions from the detected
   // CATEGORY's defaults, not the named seed's raw values -- so even before
@@ -8638,6 +8678,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
     source: { text: source.text, location: analysis.location, facts, descriptor, generationKey: source.key },
     business: {
       name: previewName,
+      nameSource,
       categoryKey: analysis.categoryKey,
       // Planner-supplied offerings win; otherwise only what the description
       // itself listed (see extractOfferings). Empty = category list.
@@ -8660,7 +8701,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       dimensions: { ...dimensions },
       heroLayout: (sameSource && preserved.design && preserved.design.heroLayout) || 'split'
     },
-    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed),
+    copy: buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed, { name: realName || '', offerings: source.offerings }),
     // V8.2: the real page-aware shape from the very first paint -- an empty
     // Home page (hero is chrome, rendered separately; see renderSections).
     // The 'structure' step below replaces this with the real page(s), same
@@ -8818,14 +8859,21 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         proj.sections.forEach(s => { s.variant = pickVariant(s.type, proj.design.dimensions, variationSeed, pickCtx); });
       ensureSignatureSection(proj, creativeDirection);
         applyAvoidList(proj, creativeDirection);
-        proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed);
+        proj.copy = buildCopy(category, analysis.categoryKey, analysis, descriptor, variationSeed, { name: realName || '', offerings: proj.business.offerings && proj.business.offerings.length ? proj.business.offerings : source.offerings });
         if (usingClaude) {
           // Deterministic copy above is still computed first so every
           // field always has a safe, real value even when Claude supplied
-          // only some of the four heroCopy fields.
+          // only some of the four heroCopy fields. A planner headline that is
+          // specific to this business ships as written; one that is generic
+          // ("X, done properly.", nothing from the owner's words) or makes a
+          // claim the owner never made is replaced by the grounded fallback.
+          const HCP = premiumHeroCopy();
+          const plannedHeadline = claudePlan.heroCopy.headline;
+          const headlineIssue = plannedHeadline && HCP ? HCP.headlineProblem(plannedHeadline, { text: source.text, offerings: proj.business.offerings, name: realName || '' }) : null;
+          if (headlineIssue) proj.meta.plannerHeadlineReplaced = headlineIssue;
           proj.copy = {
             kicker: claudePlan.heroCopy.kicker || proj.copy.kicker,
-            headline: claudePlan.heroCopy.headline || proj.copy.headline,
+            headline: (!headlineIssue && plannedHeadline) || proj.copy.headline,
             sub: claudePlan.heroCopy.sub || proj.copy.sub,
             cta: claudePlan.heroCopy.ctaLabel || proj.copy.cta
           };
