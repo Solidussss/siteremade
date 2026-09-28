@@ -87,7 +87,7 @@ test('image prompts: every slot gets its own prompt, about THIS business, with c
       // business name to be about it -- they must pass the storyboard's own industry/business relevance check.
       if (e.storyboardLayer) assert.ok(heroStoryboard.relevance(p, { categoryKey: proj.business.categoryKey, name: proj.business.name, offerings: proj.business.offerings, text: proj.source.text }).ok, `${b.id}: off-industry hero layer: ${p}`);
       else assert.ok(p.includes(b.expect.name), `${b.id}: prompt does not name the business: ${p}`);
-      assert.ok(p.length <= 600, `${b.id}: prompt longer than the server accepts`);
+      assert.ok(p.length <= 1200, `${b.id}: prompt longer than the server accepts`); // server.js /api/generate-image: clean(req.body.prompt, 1200)
     });
   }
 });

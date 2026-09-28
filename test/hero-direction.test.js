@@ -78,12 +78,15 @@ test('every generator category receives a directed moving hero with industry-led
   assert.match(H.heroPrompt({ categoryKey: 'fashion', treatment: 'PRODUCT_CLOSEUP', subject: 'a clothing label' }), /garment|fashion|fabric/i);
 });
 
-test('no hero image available -> a moving typographic statement, never an empty photo frame', async () => {
+test('no hero image available -> every hero layer draws its illustration, never an empty photo frame', async () => {
+  // (the moving typographic statement below remains the fallback for projects saved before the storyboard)
   const { c, proj, cat } = await generated(F.GREENLINE_TEXT, { noImages: true });
   const html = c.ctx.renderHero(proj, cat);
-  assert.ok(html.includes('hero-cinema-statement') && html.includes('cinema-ticker'), html.slice(0, 200));
+  assert.ok(html.includes('hero-storyboard'), html.slice(0, 200));
+  const figures = html.match(/<figure class="sb-layer[^>]*>/g) || [];
+  assert.ok(figures.length >= 3 && figures.every(f => /data-source="art"/.test(f)), 'every layer drawn');
   assert.ok(!/<img|visual-generated/.test(html));
-  assert.ok(!proj.imagePlan.some(e => e.slot === 'hero'), 'no hero image is planned or paid for');
+  assert.ok(!proj.imagePlan.some(e => e.storyboardLayer && e.sourceType === 'generated'), 'no hero image is paid for');
 });
 
 test('preview and export render the identical hero, and the direction survives a save', async () => {

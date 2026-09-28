@@ -91,6 +91,46 @@ app.whenReady().then(async () => {
       }
       result.settled = ready;
       await sleep(1500);
+      if (job.replace) {
+        // HERO STORYBOARD: replace ONE hero image through the real editor control (the per-image file input),
+        // move its focus point, save through the page's own autosave, then reload and reopen the project from
+        // the server -- the same path an owner takes.
+        // is a layer showing the photo the owner uploaded for it? (the upload is re-encoded in the browser, so compare to the stored asset)
+        const layerState = () => w.webContents.executeJavaScript(`({ layers: [...document.querySelectorAll('#builderSite .sb-layer')].map(f => { const own = (project.assets.items || []).find(a => a.type === 'hero' && a.slot === f.dataset.slot); const img = f.querySelector('img'); return { slot: f.dataset.slot, source: f.dataset.source, style: f.getAttribute('style'), ownerPhoto: !!(own && img && img.getAttribute('src') === own.dataUrl), focal: img ? img.style.objectPosition : null }; }), uploads: (project.assets.items || []).filter(a => a.slot).map(a => a.slot), focal: (project.heroStoryboard && project.heroStoryboard.layers || []).map(l => l.focal || null), projectId: typeof serverProjectId !== 'undefined' ? serverProjectId : null })`);
+        result.replace = { before: await layerState() };
+        const heroShot = async name => {
+          const measure = () => w.webContents.executeJavaScript(`(() => { const el = document.querySelector('#builderSite .site-hero'); if (!el) return null; el.scrollIntoView({ block: 'start' }); const b = el.getBoundingClientRect(); return { x: Math.max(0, Math.round(b.left)), y: Math.max(0, Math.round(b.top)), width: Math.round(Math.min(b.width, innerWidth)), height: Math.round(Math.min(b.height, innerHeight - Math.max(0, b.top))) }; })()`);
+          await measure(); await sleep(1200); const r = await measure();
+          let full = await w.webContents.capturePage(); for (let t = 0; t < 8 && full.isEmpty(); t++) { await sleep(400); full = await w.webContents.capturePage(); }
+          const sz = full.getSize(); const k = sz.width / 1440;
+          const box = r && r.width > 10 && r.height > 10 ? { x: Math.round(r.x * k), y: Math.round(r.y * k), width: Math.min(Math.round(r.width * k), sz.width - Math.round(r.x * k)), height: Math.min(Math.round(r.height * k), sz.height - Math.round(r.y * k)) } : null;
+          const img = box && box.width > 10 && box.height > 10 ? full.crop(box) : full;
+          fs.writeFileSync(`${prefix}-${name}.png`, img.toPNG());
+          return { file: path.basename(`${prefix}-${name}.png`), rect: r, bytes: img.toPNG().length };
+        };
+        result.replace.beforeShot = await heroShot('replace-before');
+        await w.webContents.executeJavaScript(`document.getElementById('heroLayerInput').dataset.slot = ${JSON.stringify(job.replace.slot)}; true`);
+        const { root } = await w.webContents.debugger.sendCommand('DOM.getDocument', { depth: 0 });
+        const { nodeId } = await w.webContents.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: '#heroLayerInput' });
+        await w.webContents.debugger.sendCommand('DOM.setFileInputFiles', { nodeId, files: [job.replace.file] });
+        await sleep(2500);
+        await w.webContents.executeJavaScript(`(() => { const s = document.querySelector('.hero-layer-focal[data-slot=${JSON.stringify(job.replace.slot)}]'); s.value = ${JSON.stringify(job.replace.focal)}; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+        await sleep(1200);
+        result.replace.editorRows = await w.webContents.executeJavaScript(`[...document.querySelectorAll('.hero-layer-row')].map(r => [...r.querySelector('.hero-layer-meta').children].map(c => c.textContent.trim()).join(' / '))`);
+        result.replace.after = await layerState();
+        result.replace.afterShot = await heroShot('replace-after');
+        result.replace.saved = await w.webContents.executeJavaScript('migrateLocalProjectToAccount().then(() => flushServerAutosave()).then(() => ({ id: serverProjectId, revision: serverProjectRevision }))');
+        const id = result.replace.saved && result.replace.saved.id;
+        // reopen as a new session would: from the account, not from this browser's local draft
+        await w.webContents.executeJavaScript(`localStorage.removeItem('siteremade:lastProject'); true`);
+        await w.loadURL(job.url);
+        await w.webContents.executeJavaScript('authReadyPromise.then(() => true)');
+        await w.webContents.executeJavaScript(`loadSelectedOwnedProjectById(${JSON.stringify(id)}).then(() => true)`);
+        await sleep(2500);
+        result.replace.conflictShown = await w.webContents.executeJavaScript(`!!(document.querySelector('#conflictBlock') && !document.querySelector('#conflictBlock').hidden)`);
+        result.replace.reopened = await layerState();
+        result.replace.reopenedShot = await heroShot('replace-reopened');
+      }
       const proj = await w.webContents.executeJavaScript('JSON.stringify(project)');
       fs.writeFileSync(path.join(job.outDir, `${job.id}.project.json`), proj);
       result.desktop = await shootFull(w, 1440, `${prefix}-desktop.png`, '#builderSite');

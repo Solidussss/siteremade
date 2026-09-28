@@ -66,7 +66,14 @@ async function main() {
     };
     const server = await startServer(env);
     let preview;
-    try { preview = runCapture({ mode: 'preview', id: c.id, url: `http://127.0.0.1:${server.port}/`, text: c.text, outDir }); }
+    // --replace: also replace one hero image through the real editor (see capture.js job.replace)
+    let replace = null;
+    if (args.includes('--replace')) {
+      const photo = path.join(outDir, `${c.id}-owner-photo.png`);
+      fs.writeFileSync(photo, Buffer.from(require('../helpers/mock-image').mockPng('owner photo: the finished work, shot by the owner', '4:3').split(',')[1], 'base64'));
+      replace = { slot: 'hero-2', file: photo, focal: '50% 20%' };
+    }
+    try { preview = runCapture({ mode: 'preview', id: c.id, url: `http://127.0.0.1:${server.port}/`, text: c.text, outDir, replace }); }
     finally { await server.stop(); }
     let exported = { id: c.id, mode: 'export', error: 'no project saved' };
     const projFile = path.join(outDir, `${c.id}.project.json`);

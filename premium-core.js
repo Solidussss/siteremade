@@ -1357,6 +1357,2136 @@
     module.exports = { wordMatch, anyWord, familyFor, SUBVERTICALS, detectSubvertical, ARCHETYPE_OVERRIDES, inferArchetypeStrict, strictCategory, RULES, deriveGrounding, cleanPlace };
 
   });
+  __define("hero-art-interior", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- interiors (rooms a business works in or delivers) and the tools of
+    // the trades that work indoors. Built on the kit in ./hero-art.
+    const A = require('./hero-art');
+    const O = require('./hero-art-outdoor');
+    const { mix, lighten, darken, rng, hashStr, inkOn } = A;
+    const { rect, circ, ell, path, line, g, P, n1 } = A._svg;
+
+    // ---- furniture & fixtures ----------------------------------------------------------------------------------------
+    function sofa(e, x, baseY, W, c) {
+      const col = e.tint(c || '#8a9a8c'); const H = W * 0.36; const u = W / 100; let s = e.shadow(x, baseY, W * 0.55, W * 0.05, 0.3);
+      s += rect(x - W / 2, baseY - H, W, H * 0.62, e.lin([[0, lighten(col, 0.1)], [1, darken(col, 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 6 * u });
+      s += rect(x - W / 2 + 6 * u, baseY - H * 0.52, W - 12 * u, H * 0.34, e.lin([[0, lighten(col, 0.18)], [1, col]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * u });
+      s += line(x, baseY - H * 0.5, x, baseY - H * 0.2, darken(col, 0.2), 1 * u);
+      s += rect(x - W / 2 - 3 * u, baseY - H * 0.62, 10 * u, H * 0.5, darken(col, 0.06), { rx: 4 * u }) + rect(x + W / 2 - 7 * u, baseY - H * 0.62, 10 * u, H * 0.5, darken(col, 0.06), { rx: 4 * u });
+      s += rect(x - W / 2 + 2 * u, baseY - H * 0.18, W - 4 * u, H * 0.12, darken(col, 0.2), { rx: 2 * u });
+      s += line(x - W * 0.42, baseY - H * 0.06, x - W * 0.42, baseY, '#3b2b20', 2 * u) + line(x + W * 0.42, baseY - H * 0.06, x + W * 0.42, baseY, '#3b2b20', 2 * u);
+      s += rect(x - W * 0.34, baseY - H * 0.86, W * 0.16, H * 0.3, e.lin([[0, lighten(e.accent, 0.35)], [1, lighten(e.accent, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * u, transform: `rotate(-8 ${n1(x - W * 0.26)} ${n1(baseY - H * 0.7)})` });
+      s += rect(x + W * 0.18, baseY - H * 0.84, W * 0.15, H * 0.28, e.lin([[0, '#f3ece0'], [1, '#d8cdbb']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * u, transform: `rotate(7 ${n1(x + W * 0.25)} ${n1(baseY - H * 0.7)})` });
+      return s;
+    }
+    function plantPot(e, x, baseY, h, o) {
+      const k = o || {}; let s = e.shadow(x, baseY, h * 0.3, h * 0.05, 0.3);
+      const pot = e.tint(k.pot || '#d9c7b0');
+      s += path(P([[x - h * 0.18, baseY - h * 0.3], [x + h * 0.18, baseY - h * 0.3], [x + h * 0.14, baseY], [x - h * 0.14, baseY]]), e.cyl(pot));
+      for (let i = 0; i < 9; i++) { const a = -150 + i * 15 + (i % 2) * 6; s += A.leaf(e, x, baseY - h * 0.3, h * (0.42 + (i % 3) * 0.1), a, e.tint(i % 2 ? '#4f7f45' : '#5f9152'), { width: 0.34 }); }
+      return s;
+    }
+    function floorLamp(e, x, baseY, h, on) {
+      let s = line(x, baseY, x, baseY - h * 0.82, '#2f2c29', 2.4 * e.s) + ell(x, baseY, h * 0.1, h * 0.02, '#2f2c29');
+      s += path(P([[x - h * 0.12, baseY - h * 0.8], [x + h * 0.12, baseY - h * 0.8], [x + h * 0.08, baseY - h], [x - h * 0.08, baseY - h]]), on ? e.lin([[0, '#fff1c9'], [1, '#f2d28b']], { x1: 0, y1: 0, x2: 0, y2: 1 }) : e.tint('#efe6d6'));
+      if (on) s += circ(x, baseY - h * 0.86, h * 0.35, '#ffe2a0', { opacity: 0.2 });
+      return s;
+    }
+    function artFrame(e, x, y, w, h) {
+      let s = rect(x, y, w, h, '#2d2a27') + rect(x + 4 * e.s, y + 4 * e.s, w - 8 * e.s, h - 8 * e.s, '#f7f3ec');
+      s += circ(x + w * 0.4, y + h * 0.45, Math.min(w, h) * 0.2, lighten(e.accent, 0.2)) + path(`M${n1(x + 8 * e.s)} ${n1(y + h * 0.78)} Q${n1(x + w * 0.5)} ${n1(y + h * 0.5)} ${n1(x + w - 8 * e.s)} ${n1(y + h * 0.7)}`, 'none', { stroke: darken(e.accent, 0.2), 'stroke-width': n1(3 * e.s) });
+      return s;
+    }
+    function pendant(e, x, top, drop, r, on, c) {
+      let s = line(x, top, x, top + drop, '#2a2724', 1.4 * e.s);
+      s += path(`M${n1(x - r)} ${n1(top + drop + r * 0.9)} Q${n1(x - r)} ${n1(top + drop)} ${n1(x)} ${n1(top + drop)} Q${n1(x + r)} ${n1(top + drop)} ${n1(x + r)} ${n1(top + drop + r * 0.9)} Z`, e.lin([[0, lighten(c || '#2f2c29', 0.2)], [1, darken(c || '#2f2c29', 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      if (on) s += ell(x, top + drop + r * 0.9, r * 0.8, r * 0.2, '#fff2c9') + path(P([[x - r * 0.8, top + drop + r * 0.9], [x + r * 0.8, top + drop + r * 0.9], [x + r * 2.6, top + drop + r * 6], [x - r * 2.6, top + drop + r * 6]]), '#ffe7ae', { opacity: 0.16 });
+      return s;
+    }
+    function cabinetRun(e, x, y, w, h, c, o) {
+      const k = o || {}; const col = e.tint(c || '#dfe3df'); const doors = Math.max(2, Math.round(w / (h * 0.55))); const dw = w / doors; let s = rect(x, y, w, h, darken(col, 0.18));
+      for (let i = 0; i < doors; i++) { s += rect(x + i * dw + 2 * e.s, y + 2 * e.s, dw - 4 * e.s, h - 4 * e.s, e.lin([[0, lighten(col, 0.08)], [1, darken(col, 0.06)]], { x1: 0, y1: 0, x2: 0.4, y2: 1 }), { rx: 1.5 * e.s }); s += rect(x + i * dw + dw * 0.18, y + h * 0.14, dw * 0.64, h * 0.72, 'none', { stroke: darken(col, 0.1), 'stroke-width': n1(1 * e.s) }); s += rect(x + i * dw + (i % 2 ? dw * 0.14 : dw * 0.78), y + (k.upper ? h * 0.7 : h * 0.18), 2.5 * e.s, h * 0.14, '#b89a5a', { rx: 1 * e.s }); }
+      return s;
+    }
+    function tileGrid(e, x, y, w, h, c, o) {
+      const k = o || {}; const col = e.tint(c || '#e9eef0'); const tw = (k.size || 26) * e.s, th = tw * (k.subway ? 0.5 : 1); let s = rect(x, y, w, h, darken(col, 0.12)); const R = rng(hashStr(`tile${x}${y}`));
+      for (let r = 0; r * th < h; r++) for (let q = -1; q * tw < w; q++) { const ox = k.subway && r % 2 ? tw / 2 : 0; const px = x + q * tw + ox, py = y + r * th; const x0 = Math.max(x, px + 1), x1 = Math.min(x + w, px + tw - 1); if (x1 <= x0) continue; s += rect(x0, py + 1, x1 - x0, Math.min(th - 2, y + h - py - 1), mix(col, lighten(col, 0.3), R() * 0.5)); }
+      return s;
+    }
+    function table(e, x, topY, W, c, o) {
+      const k = o || {}; const col = e.tint(c || '#8b6a4c'); let s = e.shadow(x, topY + W * 0.34, W * 0.5, W * 0.04, 0.28);
+      s += rect(x - W / 2, topY, W, W * 0.05, e.lin([[0, lighten(col, 0.15)], [1, darken(col, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s });
+      s += rect(x - W * 0.44, topY + W * 0.05, W * 0.03, W * 0.3, darken(col, 0.25)) + rect(x + W * 0.41, topY + W * 0.05, W * 0.03, W * 0.3, darken(col, 0.25));
+      if (k.cloth) s += rect(x - W / 2 - 2 * e.s, topY - 1, W + 4 * e.s, W * 0.12, '#f6f2ea', { rx: 2 * e.s });
+      return s;
+    }
+    function stool(e, x, baseY, h, c) { return rect(x - h * 0.2, baseY - h, h * 0.4, h * 0.08, e.cyl(e.tint(c || '#6b4a33')), { rx: 3 * e.s }) + line(x - h * 0.14, baseY - h * 0.92, x - h * 0.2, baseY, '#2d2926', 2 * e.s) + line(x + h * 0.14, baseY - h * 0.92, x + h * 0.2, baseY, '#2d2926', 2 * e.s) + line(x - h * 0.17, baseY - h * 0.35, x + h * 0.17, baseY - h * 0.35, '#2d2926', 1.4 * e.s); }
+    function mirrorRound(e, x, y, r) { return circ(x, y, r, '#c9a86a') + circ(x, y, r * 0.92, e.lin([[0, '#eef4f6'], [1, '#c8d6dc']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + path(P([[x - r * 0.5, y - r * 0.5], [x - r * 0.2, y - r * 0.7], [x + r * 0.2, y + r * 0.6], [x - r * 0.1, y + r * 0.75]]), '#fff', { opacity: 0.35 }); }
+    function sparkle(e, x, y, r, c) { return path(`M${n1(x)} ${n1(y - r)} Q${n1(x + r * 0.12)} ${n1(y - r * 0.12)} ${n1(x + r)} ${n1(y)} Q${n1(x + r * 0.12)} ${n1(y + r * 0.12)} ${n1(x)} ${n1(y + r)} Q${n1(x - r * 0.12)} ${n1(y + r * 0.12)} ${n1(x - r)} ${n1(y)} Q${n1(x - r * 0.12)} ${n1(y - r * 0.12)} ${n1(x)} ${n1(y - r)} Z`, c || '#ffffff', { opacity: 0.9 }); }
+    function bookRow(e, x, baseY, w, h, o) {
+      const k = o || {}; const R = rng(hashStr(`bk${x}${baseY}`)); const cols = k.law ? ['#6b1f24', '#2e3f2e', '#1f2b44', '#5a3b1d', '#7a2e2e'] : ['#c65d3b', '#3f6c8a', '#e0b44a', '#6b8f5a', '#8c5a8a', '#2f3b4a']; let s = '', cx = x;
+      while (cx < x + w - 6 * e.s) { const bw = (8 + R() * 8) * e.s, bh = h * (0.72 + R() * 0.28); const c = e.tint(cols[Math.floor(R() * cols.length)]); s += rect(cx, baseY - bh, bw - 1, bh, e.lin([[0, lighten(c, 0.12)], [1, darken(c, 0.18)]]), { rx: 1 * e.s }); if (k.law) { s += rect(cx + 1, baseY - bh * 0.8, bw - 3, 2 * e.s, '#d8b25a') + rect(cx + 1, baseY - bh * 0.3, bw - 3, 2 * e.s, '#d8b25a'); } else s += rect(cx + 2, baseY - bh * 0.7, bw - 5, 3 * e.s, lighten(c, 0.4), { opacity: 0.8 }); cx += bw; }
+      return s;
+    }
+    // ---- rooms ------------------------------------------------------------------------------------------------------
+    function livingRoom(e, o) {
+      const k = o || {}; const wall = k.wall ? e.tint(k.wall) : null; const hz = e.h * 0.7;
+      let s = A.room(e, { horizon: 0.7, wall, window: k.city ? [0.5, 0.08, 0.44, 0.5] : [0.62, 0.12, 0.26, 0.4], city: !!k.city, night: !!k.night });
+      if (k.trim !== false) s += rect(0, hz - 10 * e.s, e.w, 4 * e.s, '#fbfaf7');
+      s += artFrame(e, e.w * 0.18, e.h * 0.18, e.w * 0.18, e.h * 0.2);
+      s += rect(e.w * 0.08, hz + (e.h - hz) * 0.25, e.w * 0.84, (e.h - hz) * 0.55, e.tint(k.rug || '#d8cbb7'), { rx: 4 * e.s, opacity: 0.85 });
+      s += sofa(e, e.w * 0.42, hz + (e.h - hz) * 0.42, e.w * 0.5, k.sofa);
+      s += floorLamp(e, e.w * 0.78, hz + (e.h - hz) * 0.3, e.h * 0.5, !!k.lampOn) + plantPot(e, e.w * 0.1, hz + (e.h - hz) * 0.3, e.h * 0.34);
+      s += table(e, e.w * 0.46, hz + (e.h - hz) * 0.55, e.w * 0.22, '#7a5b40');
+      if (k.sparkle) [[0.3, 0.84], [0.62, 0.88], [0.52, 0.76], [0.86, 0.9], [0.2, 0.92]].forEach(([fx, fy], i) => { s += sparkle(e, e.w * fx, e.h * fy, (6 + (i % 3) * 3) * e.s); });
+      return s;
+    }
+    function kitchen(e, o) {
+      const k = o || {}; const hz = e.h * 0.62; const cab = k.cabinets || '#dde2dc';
+      let s = A.room(e, { horizon: 0.62, boards: true, floor: e.tint(k.floor || '#b58d67') });
+      s += tileGrid(e, e.w * 0.06, e.h * 0.28, e.w * 0.88, e.h * 0.16, '#eef1f0', { subway: true, size: 22 });
+      s += cabinetRun(e, e.w * 0.06, e.h * 0.06, e.w * 0.36, e.h * 0.2, cab, { upper: true }) + cabinetRun(e, e.w * 0.58, e.h * 0.06, e.w * 0.36, e.h * 0.2, cab, { upper: true });
+      s += path(P([[e.w * 0.44, e.h * 0.06], [e.w * 0.56, e.h * 0.06], [e.w * 0.6, e.h * 0.24], [e.w * 0.4, e.h * 0.24]]), e.cyl('#bfc4c9'));
+      s += rect(e.w * 0.06, e.h * 0.44, e.w * 0.88, e.h * 0.03, e.lin([[0, '#f4f2ef'], [1, '#cfccc7']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.06, e.h * 0.47, e.w * 0.88, hz - e.h * 0.47, cab);
+      // island in front
+      const iy = e.h * 0.66; s += e.shadow(e.cx, e.h * 0.95, e.w * 0.36, e.h * 0.02, 0.3);
+      s += rect(e.w * 0.2, iy, e.w * 0.6, e.h * 0.035, e.lin([[0, '#f7f5f2'], [1, '#d6d2cb']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.22, iy + e.h * 0.035, e.w * 0.56, e.h * 0.25, k.island || darken(e.tint(cab), 0.3));
+      s += A.ceramic(e, e.w * 0.36, iy, e.h * 0.12, '#e9e1d4', { form: 'vase', stems: true });
+      [0.32, 0.5, 0.68].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.1, e.w * 0.035, true, '#2d2a27'); });
+      return s;
+    }
+    function bathroom(e, o) {
+      const k = o || {}; let s = rect(0, 0, e.w, e.h, e.tint('#e9eceb')) + tileGrid(e, 0, 0, e.w, e.h * 0.78, k.tile || '#e6ecec', { size: 34 });
+      s += rect(0, e.h * 0.78, e.w, e.h * 0.22, e.lin([[0, e.tint('#cfc7bd')], [1, e.tint('#a79d91')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      // glass shower panel with rain head
+      s += rect(e.w * 0.64, e.h * 0.06, e.w * 0.3, e.h * 0.72, '#dff0f5', { opacity: 0.35, stroke: '#b7c6cc', 'stroke-width': n1(2 * e.s) }) + line(e.w * 0.8, e.h * 0.06, e.w * 0.8, e.h * 0.2, '#b0b5ba', 3 * e.s) + ell(e.w * 0.8, e.h * 0.21, e.w * 0.05, e.h * 0.012, '#c9ced3');
+      for (let i = 0; i < 12; i++) s += line(e.w * (0.76 + (i % 6) * 0.016), e.h * 0.23, e.w * (0.755 + (i % 6) * 0.018), e.h * (0.4 + (i % 4) * 0.08), '#bfe3f2', 1 * e.s, { opacity: 0.6 });
+      // vanity, vessel sink, faucet, mirror
+      s += mirrorRound(e, e.w * 0.32, e.h * 0.28, e.w * 0.13);
+      s += rect(e.w * 0.1, e.h * 0.52, e.w * 0.44, e.h * 0.04, e.lin([[0, '#f5f3ef'], [1, '#d7d3cc']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + cabinetRun(e, e.w * 0.11, e.h * 0.56, e.w * 0.42, e.h * 0.2, k.vanity || '#7a5b40');
+      s += ell(e.w * 0.32, e.h * 0.515, e.w * 0.1, e.h * 0.03, '#ffffff', { stroke: '#d9dde0', 'stroke-width': n1(1.5 * e.s) }) + faucetShape(e, e.w * 0.32, e.h * 0.49, e.h * 0.1, false);
+      s += rect(e.w * 0.03, e.h * 0.4, e.w * 0.05, e.h * 0.22, e.tint(k.towel || '#e7d8c6'), { rx: 3 * e.s }) + plantPot(e, e.w * 0.5, e.h * 0.52, e.h * 0.18);
+      return s;
+    }
+    function treatmentRoom(e, o) {
+      const k = o || {}; const hz = e.h * 0.68;
+      let s = A.room(e, { horizon: 0.68, window: [0.7, 0.1, 0.22, 0.38], wall: e.tint(k.wall || (k.spa ? '#efe4d8' : '#eef0ec')) });
+      if (k.spa) {
+        // a spa room: warm wall, a shelf of candles and rolled towels instead of a clinical chart
+        s += rect(e.w * 0.08, e.h * 0.3, e.w * 0.3, 4 * e.s, '#8b6a4c');
+        for (let i = 0; i < 3; i++) s += A.candle(e, e.w * (0.12 + i * 0.1), e.h * 0.3, e.h * 0.05, e.tint('#efe6d6'), { noLabel: true });
+      } else {
+        // anatomy chart: a simple spine and knee study
+        s += rect(e.w * 0.08, e.h * 0.1, e.w * 0.14, e.h * 0.3, '#fbfaf7', { stroke: '#d5d0c8', 'stroke-width': n1(1.5 * e.s) });
+        for (let i = 0; i < 9; i++) s += rect(e.w * 0.145 - 5 * e.s, e.h * (0.14 + i * 0.026), 10 * e.s, e.h * 0.018, e.tint('#c9b8a6'), { rx: 2 * e.s });
+      }
+      // treatment table
+      const ty = hz + (e.h - hz) * 0.18; const tx = e.w * 0.46, tw = e.w * 0.48;
+      s += e.shadow(tx, e.h * 0.94, tw * 0.55, e.h * 0.02, 0.3);
+      const uph = k.upholstery || (k.spa ? '#d8c8b4' : '#3f5f6b');
+      s += rect(tx - tw / 2, ty, tw, e.h * 0.05, e.lin([[0, lighten(e.tint(uph), 0.15)], [1, darken(e.tint(uph), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 5 * e.s });
+      if (!k.spa) s += path(P([[tx - tw / 2, ty], [tx - tw / 2 + tw * 0.2, ty], [tx - tw / 2 + tw * 0.14, ty - e.h * 0.08], [tx - tw / 2 - tw * 0.02, ty - e.h * 0.05]]), e.tint(darken(uph, 0.05)));
+      else s += rect(tx - tw * 0.3, ty - e.h * 0.03, tw * 0.5, e.h * 0.035, '#f6f1e8', { rx: 4 * e.s }) + A.sprig(e, tx + tw * 0.2, ty - e.h * 0.02, e.h * 0.1, -30);
+      s += rect(tx - tw / 2 + tw * 0.62, ty - e.h * 0.02, tw * 0.22, e.h * 0.025, '#f6f3ee', { rx: 4 * e.s });
+      s += rect(tx - tw * 0.36, ty + e.h * 0.05, 6 * e.s, e.h * 0.24, '#b6bbc0') + rect(tx + tw * 0.34, ty + e.h * 0.05, 6 * e.s, e.h * 0.24, '#b6bbc0') + rect(tx - tw * 0.36, ty + e.h * 0.2, tw * 0.72, 4 * e.s, '#b6bbc0');
+      if (k.spa) return s + O.shrub(e, e.w * 0.88, e.h * 0.9, e.h * 0.06) + plantPot(e, e.w * 0.07, hz + (e.h - hz) * 0.25, e.h * 0.26);
+      // equipment on the floor: exercise ball, foam roller, resistance bands on a hook
+      s += circ(e.w * 0.86, e.h * 0.84, e.h * 0.1, e.rad([[0, lighten(e.accent, 0.4)], [1, darken(e.accent, 0.15)]], { cx: 0.35, cy: 0.3 })) + e.shadow(e.w * 0.86, e.h * 0.95, e.h * 0.1, e.h * 0.015, 0.3);
+      s += rect(e.w * 0.1, e.h * 0.88, e.w * 0.2, e.h * 0.05, e.cyl('#3a4a5a'), { rx: e.h * 0.025, transform: `rotate(-4 ${n1(e.w * 0.2)} ${n1(e.h * 0.9)})` });
+      ['#e05a47', '#3f8fd1', '#6cbf5a'].forEach((c, i) => { s += path(`M${n1(e.w * 0.3 + i * 10 * e.s)} ${n1(e.h * 0.1)} q${n1(-8 * e.s)} ${n1(e.h * 0.12)} 0 ${n1(e.h * 0.24)}`, 'none', { stroke: c, 'stroke-width': n1(4 * e.s), 'stroke-linecap': 'round' }); });
+      s += plantPot(e, e.w * 0.07, hz + (e.h - hz) * 0.25, e.h * 0.26);
+      return s;
+    }
+    function menuBoard(e, x, y, w, h, items) {
+      let s = rect(x, y, w, h, '#23211f', { rx: 3 * e.s, stroke: '#6b4a33', 'stroke-width': n1(4 * e.s) });
+      const list = (items || []).slice(0, 5);
+      list.forEach((it, i) => { s += A.wordmark(e, it, x + w * 0.1, y + h * (0.22 + i * 0.16), Math.min(h * 0.09, w * 0.07), '#f3eee4', { anchor: 'start', weight: 600, spacing: '0.02em', maxWidth: w * 0.62 }) + line(x + w * 0.72, y + h * (0.2 + i * 0.16), x + w * 0.86, y + h * (0.2 + i * 0.16), '#f3eee4', 1 * e.s, { opacity: 0.35, 'stroke-dasharray': `${n1(2 * e.s)} ${n1(3 * e.s)}` }); });
+      if (!list.length) for (let i = 0; i < 4; i++) s += rect(x + w * 0.1, y + h * (0.18 + i * 0.18), w * (0.5 + (i % 2) * 0.2), 3 * e.s, '#f3eee4', { opacity: 0.6 });
+      return s;
+    }
+    function espressoMachine(e, x, baseY, W, c) {
+      const col = c || '#c9ccd1'; const H = W * 0.62; let s = e.shadow(x, baseY, W * 0.55, W * 0.04, 0.3);
+      s += rect(x - W / 2, baseY - H, W, H, e.lin([[0, lighten(col, 0.3)], [0.3, col], [1, darken(col, 0.35)]]), { rx: 5 * e.s });
+      s += rect(x - W / 2, baseY - H, W, H * 0.16, darken(col, 0.2), { rx: 5 * e.s }) + rect(x - W * 0.3, baseY - H * 0.78, W * 0.6, H * 0.12, '#2a2724', { rx: 2 * e.s });
+      [-0.22, 0.22].forEach(f => { s += rect(x + f * W - W * 0.08, baseY - H * 0.56, W * 0.16, H * 0.1, e.cyl('#3b3632'), { rx: 2 * e.s }) + line(x + f * W, baseY - H * 0.5, x + f * W + W * 0.16, baseY - H * 0.5, '#2a2724', 3.2 * e.s); });
+      s += circ(x, baseY - H * 0.72, W * 0.05, '#fdfdfd', { stroke: '#555', 'stroke-width': n1(1.2 * e.s) }) + line(x, baseY - H * 0.72, x + W * 0.03, baseY - H * 0.74, '#c0392b', 1 * e.s);
+      s += rect(x - W * 0.4, baseY - H * 0.14, W * 0.8, H * 0.06, '#3b3632', { rx: 1.5 * e.s });
+      s += A.ceramic(e, x - W * 0.22, baseY - H * 0.14, H * 0.16, '#f4f1ec', { form: 'mug', drink: '#5d3a1e' });
+      return s;
+    }
+    function cafeRoom(e, o) {
+      const k = o || {}; const hz = e.h * 0.64;
+      let s = A.room(e, { horizon: 0.64, wall: e.tint(k.wall || '#e8dccb'), window: [0.72, 0.1, 0.22, 0.36] });
+      s += menuBoard(e, e.w * 0.08, e.h * 0.1, e.w * 0.3, e.h * 0.26, k.items);
+      // shelves with cups
+      s += rect(e.w * 0.42, e.h * 0.2, e.w * 0.24, 4 * e.s, '#6b4a33') + rect(e.w * 0.42, e.h * 0.32, e.w * 0.24, 4 * e.s, '#6b4a33');
+      for (let i = 0; i < 5; i++) { s += A.ceramic(e, e.w * 0.45 + i * e.w * 0.045, e.h * 0.2, e.h * 0.05, i % 2 ? '#e9e1d4' : e.tint('#b9855a'), { form: 'mug' }); s += A.ceramic(e, e.w * 0.46 + i * e.w * 0.045, e.h * 0.32, e.h * 0.045, '#f1ede6', { form: 'bowl' }); }
+      // counter across the room
+      const cy = e.h * 0.5; s += rect(0, cy, e.w, e.h * 0.03, e.lin([[0, '#9a7250'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, cy + e.h * 0.03, e.w, hz - cy, e.lin([[0, e.tint('#efe7da')], [1, e.tint('#d5c8b4')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 16; i++) s += line(i * e.w / 16, cy + e.h * 0.03, i * e.w / 16, hz, e.tint('#c4b39c'), 1 * e.s, { opacity: 0.7 });
+      s += espressoMachine(e, e.w * 0.6, cy, e.w * 0.22);
+      s += A.jar(e, e.w * 0.28, cy, e.h * 0.1, '#e8f0f2', { open: false, lid: '#c9ccd1', noLabel: true, contents: '#c99a5c', wide: 0.8 });
+      [0.22, 0.46, 0.7].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.07, e.w * 0.03, true, '#1f1d1b'); });
+      [0.18, 0.38, 0.58, 0.78].forEach(f => { s += stool(e, e.w * f, e.h * 0.96, e.h * 0.26, '#6b4a33'); });
+      s += plantPot(e, e.w * 0.92, cy, e.h * 0.2);
+      return s;
+    }
+    function barRoom(e, o) {
+      const k = o || {}; let s = rect(0, 0, e.w, e.h, e.lin([[0, '#1d1714'], [1, '#0e0b0a']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      // backlit shelves of bottles
+      const sy = [0.14, 0.3, 0.46]; s += rect(e.w * 0.06, e.h * 0.06, e.w * 0.88, e.h * 0.48, e.rad([[0, '#6a4a28', 0.9], [1, '#1d1714', 0.2]], { cx: 0.5, cy: 0.4, r: 0.7 }));
+      const cols = ['#3d6b3a', '#8a3b2a', '#c9a24a', '#2e4a6b', '#d9d2c3', '#5a2b3b'];
+      sy.forEach((fy, r) => { s += rect(e.w * 0.06, e.h * fy + e.h * 0.1, e.w * 0.88, 3 * e.s, '#b8914a'); for (let i = 0; i < 12; i++) s += A.bottle(e, e.w * 0.1 + i * e.w * 0.07, e.h * fy + e.h * 0.1, e.h * (0.1 + ((i + r) % 3) * 0.015), e.tint(cols[(i + r) % cols.length]), { style: (i + r) % 4 === 0 ? 'spirit' : (i % 3 ? 'wine' : 'oil') }); });
+      // the bar
+      s += rect(0, e.h * 0.62, e.w, e.h * 0.04, e.lin([[0, '#a57a4c'], [1, '#5a3b22']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.lin([[0, '#3a2618'], [1, '#1b120c']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += line(0, e.h * 0.9, e.w, e.h * 0.9, '#c9a24a', 3 * e.s);
+      s += glassware(e, e.w * 0.32, e.h * 0.62, e.h * 0.14, 'coupe', '#e8a23a') + glassware(e, e.w * 0.62, e.h * 0.62, e.h * 0.16, 'rocks', '#b8642a');
+      [0.25, 0.5, 0.75].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.04, e.w * 0.025, true, '#c9a24a'); });
+      return s;
+    }
+    function glassware(e, x, baseY, H, kind, drink, o) {
+      const k = o || {}; let s = e.shadow(x, baseY, H * 0.3, H * 0.04, 0.3); const glass = '#e9f2f5';
+      if (kind === 'coupe') {
+        s += line(x, baseY, x, baseY - H * 0.5, glass, 2 * e.s, { opacity: 0.8 }) + ell(x, baseY, H * 0.18, H * 0.03, glass, { opacity: 0.8 });
+        s += path(`M${n1(x - H * 0.36)} ${n1(baseY - H * 0.9)} Q${n1(x - H * 0.3)} ${n1(baseY - H * 0.5)} ${n1(x)} ${n1(baseY - H * 0.5)} Q${n1(x + H * 0.3)} ${n1(baseY - H * 0.5)} ${n1(x + H * 0.36)} ${n1(baseY - H * 0.9)} Z`, drink, { opacity: 0.85 }) + ell(x, baseY - H * 0.9, H * 0.36, H * 0.05, lighten(drink, 0.3));
+        if (k.garnish !== false) s += A.citrusWheel(e, x + H * 0.3, baseY - H * 0.92, H * 0.12, A.FLAVOUR_COLOURS[k.garnish] || A.FLAVOUR_COLOURS.orange);
+      } else if (kind === 'wine') {
+        s += line(x, baseY, x, baseY - H * 0.45, glass, 2 * e.s, { opacity: 0.8 }) + ell(x, baseY, H * 0.16, H * 0.03, glass, { opacity: 0.8 });
+        s += path(`M${n1(x - H * 0.2)} ${n1(baseY - H)} Q${n1(x - H * 0.26)} ${n1(baseY - H * 0.5)} ${n1(x)} ${n1(baseY - H * 0.45)} Q${n1(x + H * 0.26)} ${n1(baseY - H * 0.5)} ${n1(x + H * 0.2)} ${n1(baseY - H)} Z`, glass, { opacity: 0.35 }) + path(`M${n1(x - H * 0.23)} ${n1(baseY - H * 0.7)} Q${n1(x - H * 0.22)} ${n1(baseY - H * 0.5)} ${n1(x)} ${n1(baseY - H * 0.47)} Q${n1(x + H * 0.22)} ${n1(baseY - H * 0.5)} ${n1(x + H * 0.23)} ${n1(baseY - H * 0.7)} Z`, drink, { opacity: 0.9 });
+      } else if (kind === 'pint') {
+        s += path(P([[x - H * 0.26, baseY - H], [x + H * 0.26, baseY - H], [x + H * 0.2, baseY], [x - H * 0.2, baseY]]), e.lin([[0, lighten(drink, 0.2)], [0.35, drink], [1, darken(drink, 0.25)]]), { opacity: 0.92 }) + rect(x - H * 0.26, baseY - H, H * 0.52, H * 0.14, '#fbf5e6') + A.bubbles(e, x - H * 0.18, baseY - H * 0.8, H * 0.36, H * 0.7, 12, 0.5);
+      } else { // rocks / serving glass over ice
+        s += path(P([[x - H * 0.34, baseY - H * 0.8], [x + H * 0.34, baseY - H * 0.8], [x + H * 0.3, baseY], [x - H * 0.3, baseY]]), glass, { opacity: 0.4 }) + rect(x - H * 0.3, baseY - H * 0.55, H * 0.6, H * 0.52, drink, { opacity: 0.85 });
+        for (let i = 0; i < 3; i++) s += rect(x - H * 0.22 + i * H * 0.14, baseY - H * (0.62 - (i % 2) * 0.08), H * 0.16, H * 0.16, '#f2f8fb', { opacity: 0.8, rx: 2 * e.s, transform: `rotate(${i * 14 - 10} ${n1(x)} ${n1(baseY - H * 0.5)})` });
+        if (k.garnish) s += A.citrusWheel(e, x + H * 0.28, baseY - H * 0.8, H * 0.14, A.FLAVOUR_COLOURS[k.garnish] || A.FLAVOUR_COLOURS.lime);
+        if (k.garnishSprig) s += A.sprig(e, x - H * 0.05, baseY - H * 0.7, H * 0.5, -80);
+      }
+      return s + A._svg.rect(x - H * 0.28, baseY - H * 0.85, H * 0.05, H * 0.5, '#fff', { opacity: 0.25, rx: 2 * e.s });
+    }
+    function diningRoom(e, o) {
+      let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#2a1e17')], [1, e.tint('#140e0b')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += rect(0, e.h * 0.55, e.w, e.h * 0.45, e.lin([[0, '#3b281c'], [1, '#1c130d']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 5; i++) s += rect(e.w * (0.05 + i * 0.2), e.h * 0.12, e.w * 0.12, e.h * 0.24, e.tint('#3f2c20'), { stroke: '#8a6a3a', 'stroke-width': n1(2 * e.s) });
+      [[0.25, 0.7, 0.34], [0.72, 0.68, 0.3], [0.5, 0.86, 0.4]].forEach(([fx, fy, fw]) => {
+        const x = e.w * fx, y = e.h * fy, w = e.w * fw;
+        s += e.shadow(x, y + w * 0.35, w * 0.55, w * 0.05, 0.5) + ell(x, y, w / 2, w * 0.1, '#f6efe2') + rect(x - w * 0.02, y + w * 0.08, w * 0.04, w * 0.3, '#2a1d15');
+        s += A.ceramic(e, x - w * 0.18, y - 1, w * 0.06, '#f4f1ec', { form: 'bowl' }) + A.ceramic(e, x + w * 0.18, y - 1, w * 0.06, '#f4f1ec', { form: 'bowl' });
+        s += rect(x - 2 * e.s, y - w * 0.14, 4 * e.s, w * 0.14, '#fbf3df') + circ(x, y - w * 0.17, 4 * e.s, '#ffcf6b') + circ(x, y - w * 0.17, w * 0.18, '#ffc864', { opacity: 0.18 });
+        s += glassware(e, x + w * 0.3, y - 1, w * 0.12, 'wine', '#7a1f2b');
+      });
+      [0.2, 0.5, 0.8].forEach(f => { s += pendant(e, e.w * f, 0, e.h * 0.06, e.w * 0.025, true, '#c9a24a'); });
+      return s;
+    }
+    function classroom(e, o) {
+      const k = o || {}; let s = A.room(e, { horizon: 0.7, wall: e.tint('#efe9dc'), window: [0.76, 0.1, 0.18, 0.36] });
+      s += rect(e.w * 0.08, e.h * 0.1, e.w * 0.58, e.h * 0.32, '#2f4a3c', { stroke: '#8a6a4c', 'stroke-width': n1(6 * e.s) });
+      const chalk = (k.subject === 'math') ? ['x² + 3x = 10', '(x + 5)(x − 2) = 0'] : (k.subject === 'reading') ? ['Chapter 3', 'Main idea · Evidence'] : ['Today', 'Practice · Review'];
+      chalk.forEach((t, i) => { s += A.wordmark(e, t, e.w * 0.12, e.h * (0.2 + i * 0.09), e.h * 0.045, '#f3f1e8', { anchor: 'start', weight: 500, spacing: '0.01em', serif: true, opacity: 0.9 }); });
+      s += path(`M${n1(e.w * 0.46)} ${n1(e.h * 0.3)} q${n1(e.w * 0.04)} ${n1(-e.h * 0.08)} ${n1(e.w * 0.12)} ${n1(-e.h * 0.02)}`, 'none', { stroke: '#f3f1e8', 'stroke-width': n1(2 * e.s), opacity: 0.8 });
+      [[0.24, 0.8], [0.56, 0.8], [0.4, 0.95]].forEach(([fx, fy]) => { s += table(e, e.w * fx, e.h * fy - e.h * 0.1, e.w * 0.22, '#b98a55'); s += rect(e.w * fx - e.w * 0.06, e.h * fy - e.h * 0.115, e.w * 0.07, e.h * 0.012, '#fbfaf5') + rect(e.w * fx + e.w * 0.02, e.h * fy - e.h * 0.118, e.w * 0.05, e.h * 0.015, e.tint('#c65d3b')); });
+      return s;
+    }
+    function office(e, o) {
+      const k = o || {}; let s = A.room(e, { horizon: 0.7, wall: e.tint(k.wall || '#e9e6e0'), window: [0.1, 0.08, 0.5, 0.5], city: true, night: !!k.night });
+      s += rect(e.w * 0.68, e.h * 0.08, e.w * 0.26, e.h * 0.62, e.tint('#6b4a33'));
+      [0.2, 0.36, 0.52].forEach(f => { s += rect(e.w * 0.68, e.h * f, e.w * 0.26, 4 * e.s, '#4a3222') + bookRow(e, e.w * 0.7, e.h * f, e.w * 0.22, e.h * 0.1, { law: k.law }); });
+      s += table(e, e.w * 0.4, e.h * 0.72, e.w * 0.5, '#5a3e2a');
+      s += rect(e.w * 0.22, e.h * 0.705, e.w * 0.14, e.h * 0.016, '#fbfaf5', { transform: `rotate(-4 ${n1(e.w * 0.29)} ${n1(e.h * 0.71)})` }) + A.ceramic(e, e.w * 0.52, e.h * 0.72, e.h * 0.05, '#f1ede6', { form: 'mug' });
+      s += floorLamp(e, e.w * 0.62, e.h * 0.72, e.h * 0.16, true);
+      return s;
+    }
+    function studioRoom(e, o) {
+      const k = o || {}; let s = A.room(e, { horizon: 0.58, wall: e.tint(k.wall || '#f1ece4'), window: [0.08, 0.08, 0.3, 0.36] });
+      s += rect(e.w * 0.46, e.h * 0.08, e.w * 0.46, e.h * 0.44, e.lin([[0, '#eef2f3'], [1, '#d4dde0']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { stroke: '#cfc7bb', 'stroke-width': n1(3 * e.s) });
+      const eq = k.equipment || 'reformer';
+      [0, 1, 2].forEach(i => { const y = e.h * (0.7 + i * 0.12), x = e.w * (0.52 - i * 0.03), W = e.w * (0.7 + i * 0.12); s += eq === 'mat' ? yogaMat(e, x, y, W * 0.7) : reformer(e, x, y, W); });
+      s += O.shrub(e, e.w * 0.92, e.h * 0.6, e.h * 0.06);
+      return s;
+    }
+    // a pilates reformer seen from the side: wooden frame on feet, the padded carriage, shoulder blocks, footbar, springs, straps
+    function reformer(e, x, y, W) {
+      const wood = e.tint('#c49a6c'); const pad = e.tint('#e9e2d6'); const steel = '#a9aeb3'; let s = e.shadow(x, y + W * 0.02, W * 0.52, W * 0.03, 0.3);
+      const fy = y - W * 0.05; // top of the frame rail
+      s += rect(x - W * 0.47, fy + W * 0.05, W * 0.03, W * 0.03, darken(wood, 0.35)) + rect(x + W * 0.44, fy + W * 0.05, W * 0.03, W * 0.03, darken(wood, 0.35));
+      s += rect(x - W / 2, fy, W, W * 0.055, e.lin([[0, lighten(wood, 0.22)], [0.5, wood], [1, darken(wood, 0.28)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.012 });
+      // springs at the foot end
+      for (let i = 0; i < 4; i++) s += path(`M${n1(x + W * 0.14)} ${n1(fy + W * (0.012 + i * 0.01))} ${Array.from({ length: 10 }, (_, q) => `L${n1(x + W * (0.16 + q * 0.018))} ${n1(fy + W * (0.012 + i * 0.01) + (q % 2 ? -2 : 2) * e.s)}`).join(' ')}`, 'none', { stroke: ['#e05a47', '#e0b44a', '#3f8fd1', '#6cbf5a'][i], 'stroke-width': n1(1.3 * e.s) });
+      // carriage + shoulder blocks + headrest
+      s += rect(x - W * 0.36, fy - W * 0.045, W * 0.44, W * 0.05, e.lin([[0, lighten(pad, 0.1)], [1, darken(pad, 0.14)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.018 });
+      s += rect(x - W * 0.24, fy - W * 0.1, W * 0.03, W * 0.06, e.cyl(e.tint('#d8cdbd')), { rx: W * 0.01 }) + rect(x - W * 0.18, fy - W * 0.1, W * 0.03, W * 0.06, e.cyl(e.tint('#d8cdbd')), { rx: W * 0.01 });
+      s += rect(x - W * 0.37, fy - W * 0.07, W * 0.07, W * 0.03, e.lin([[0, lighten(pad, 0.1)], [1, darken(pad, 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.012, transform: `rotate(-10 ${n1(x - W * 0.34)} ${n1(fy - W * 0.055)})` });
+      // footbar
+      s += path(`M${n1(x + W * 0.38)} ${n1(fy)} L${n1(x + W * 0.34)} ${n1(fy - W * 0.13)} L${n1(x + W * 0.42)} ${n1(fy - W * 0.13)}`, 'none', { stroke: steel, 'stroke-width': n1(W * 0.012), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }) + rect(x + W * 0.325, fy - W * 0.142, W * 0.11, W * 0.025, e.cyl('#2d2a27'), { rx: W * 0.012 });
+      // risers + ropes and loop straps
+      s += line(x - W * 0.47, fy, x - W * 0.47, fy - W * 0.22, steel, W * 0.01) + circ(x - W * 0.47, fy - W * 0.22, W * 0.012, steel);
+      s += path(`M${n1(x - W * 0.47)} ${n1(fy - W * 0.21)} Q${n1(x - W * 0.3)} ${n1(fy - W * 0.12)} ${n1(x - W * 0.12)} ${n1(fy - W * 0.06)}`, 'none', { stroke: '#2d2a27', 'stroke-width': n1(1.2 * e.s), opacity: 0.75 }) + ell(x - W * 0.11, fy - W * 0.06, W * 0.02, W * 0.012, 'none', { stroke: '#2d2a27', 'stroke-width': n1(2 * e.s) });
+      return s;
+    }
+    function yogaMat(e, x, y, W, c) { const col = e.tint(c || lighten(e.accent, 0.3)); return e.shadow(x, y, W * 0.5, W * 0.03, 0.2) + path(P([[x - W * 0.42, y - W * 0.07], [x + W * 0.42, y - W * 0.07], [x + W * 0.5, y + W * 0.04], [x - W * 0.5, y + W * 0.04]]), e.lin([[0, lighten(col, 0.15)], [1, darken(col, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + ell(x + W * 0.5, y - W * 0.02, W * 0.04, W * 0.07, darken(col, 0.15)); }
+    function salon(e, o) {
+      let s = A.room(e, { horizon: 0.72, wall: e.tint('#efe6de'), boards: false, floor: e.tint('#d9d2c8') });
+      [0.28, 0.72].forEach(f => { const x = e.w * f; s += rect(x - e.w * 0.12, e.h * 0.1, e.w * 0.24, e.h * 0.38, e.lin([[0, '#eef3f5'], [1, '#cdd8dc']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: e.w * 0.12, stroke: '#c9a86a', 'stroke-width': n1(3 * e.s) }); for (let i = 0; i < 5; i++) s += circ(x - e.w * 0.13 + i * e.w * 0.065, e.h * 0.08, 3.5 * e.s, '#fff7dc'); s += salonChair(e, x, e.h * 0.94, e.h * 0.42); });
+      s += rect(e.w * 0.44, e.h * 0.52, e.w * 0.12, e.h * 0.02, '#c9a86a') + A.pump(e, e.w * 0.47, e.h * 0.52, e.h * 0.12, '#f3ede4') + A.bottle(e, e.w * 0.53, e.h * 0.52, e.h * 0.1, e.tint('#2d2d2d'), { style: 'toner' });
+      return s;
+    }
+    function salonChair(e, x, baseY, h) {
+      const c = e.tint('#3a3431'); let s = e.shadow(x, baseY, h * 0.35, h * 0.04, 0.3) + ell(x, baseY - 2 * e.s, h * 0.2, h * 0.035, '#9aa0a6') + rect(x - 3 * e.s, baseY - h * 0.38, 6 * e.s, h * 0.36, e.cyl('#b6bbc0'));
+      s += rect(x - h * 0.24, baseY - h * 0.48, h * 0.48, h * 0.12, e.lin([[0, lighten(c, 0.2)], [1, darken(c, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 6 * e.s }) + rect(x - h * 0.2, baseY - h * 0.95, h * 0.4, h * 0.5, e.lin([[0, lighten(c, 0.18)], [1, darken(c, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 10 * e.s });
+      s += rect(x - h * 0.3, baseY - h * 0.6, h * 0.08, h * 0.04, '#b6bbc0', { rx: 2 * e.s }) + rect(x + h * 0.22, baseY - h * 0.6, h * 0.08, h * 0.04, '#b6bbc0', { rx: 2 * e.s });
+      return s;
+    }
+    function framing(e, o) {
+      let s = A.room(e, { horizon: 0.74, wall: e.tint('#d9d2c6'), floor: e.tint('#b89a78') });
+      const stud = e.tint('#d8b98a'); s += rect(0, e.h * 0.08, e.w, e.h * 0.03, e.cyl(stud)) + rect(0, e.h * 0.72, e.w, e.h * 0.03, e.cyl(stud));
+      for (let i = 0; i < 9; i++) { const x = e.w * (0.05 + i * 0.115); s += rect(x, e.h * 0.11, e.w * 0.035, e.h * 0.61, e.lin([[0, lighten(stud, 0.15)], [0.5, stud], [1, darken(stud, 0.2)]])); for (let q = 0; q < 3; q++) s += line(x + e.w * 0.01, e.h * (0.2 + q * 0.18), x + e.w * 0.012, e.h * (0.26 + q * 0.18), darken(stud, 0.25), 0.8 * e.s, { opacity: 0.5 }); }
+      s += rect(e.w * 0.32, e.h * 0.34, e.w * 0.28, e.h * 0.03, e.cyl(stud));
+      s += sawhorse(e, e.w * 0.3, e.h * 0.96, e.w * 0.24) + drill(e, e.w * 0.66, e.h * 0.92, e.w * 0.16);
+      const R = rng(hashStr('dust')); for (let i = 0; i < 40; i++) s += circ(R() * e.w, e.h * (0.78 + R() * 0.2), (0.8 + R() * 1.6) * e.s, '#f1e3c6', { opacity: 0.7 });
+      return s;
+    }
+    function sawhorse(e, x, baseY, W) { const wood = e.tint('#c9a26f'); return rect(x - W / 2, baseY - W * 0.44, W, W * 0.06, e.cyl(wood)) + line(x - W * 0.4, baseY - W * 0.38, x - W * 0.5, baseY, darken(wood, 0.2), 4 * e.s) + line(x + W * 0.4, baseY - W * 0.38, x + W * 0.5, baseY, darken(wood, 0.2), 4 * e.s) + rect(x - W * 0.3, baseY - W * 0.5, W * 0.6, W * 0.06, e.cyl(lighten(wood, 0.1)), { transform: `rotate(-3 ${n1(x)} ${n1(baseY - W * 0.47)})` }); }
+    // ---- trade tools ------------------------------------------------------------------------------------------------
+    function drill(e, x, baseY, L, c) {
+      const col = c || '#e2a21a'; const u = L / 100; let s = e.shadow(x, baseY, L * 0.45, L * 0.06, 0.3);
+      s += path(P([[x - 16 * u, baseY - 68 * u], [x + 6 * u, baseY - 68 * u], [x + 12 * u, baseY - 26 * u], [x - 8 * u, baseY - 26 * u]]), e.cyl('#2f3033')) + rect(x - 2 * u, baseY - 64 * u, 5 * u, 9 * u, '#1d1e20', { rx: 2 * u });
+      s += path(`M${n1(x - 34 * u)} ${n1(baseY - 96 * u)} L${n1(x + 26 * u)} ${n1(baseY - 96 * u)} Q${n1(x + 34 * u)} ${n1(baseY - 96 * u)} ${n1(x + 34 * u)} ${n1(baseY - 84 * u)} L${n1(x + 34 * u)} ${n1(baseY - 74 * u)} Q${n1(x + 34 * u)} ${n1(baseY - 66 * u)} ${n1(x + 24 * u)} ${n1(baseY - 66 * u)} L${n1(x - 34 * u)} ${n1(baseY - 66 * u)} Z`, e.lin([[0, lighten(col, 0.25)], [1, darken(col, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += rect(x - 52 * u, baseY - 88 * u, 20 * u, 14 * u, e.cyl('#3a3b3f'), { rx: 3 * u }) + line(x - 74 * u, baseY - 81 * u, x - 52 * u, baseY - 81 * u, '#c9ccd1', 3 * u);
+      s += rect(x - 16 * u, baseY - 26 * u, 34 * u, 20 * u, e.lin([[0, '#3a3b3f'], [1, '#1d1e20']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * u }) + rect(x - 16 * u, baseY - 12 * u, 34 * u, 6 * u, col, { rx: 2 * u });
+      return s;
+    }
+    function paintCan(e, x, baseY, H, paint, o) {
+      const k = o || {}; const W = H * 1.05, r = W / 2, top = baseY - H, er = W * 0.14;
+      let s = e.shadow(x + W * 0.1, baseY + 2, W * 0.6, er * 0.6) + path(`M${n1(x - r)} ${n1(top)} L${n1(x - r)} ${n1(baseY)} A${n1(r)} ${n1(er)} 0 0 0 ${n1(x + r)} ${n1(baseY)} L${n1(x + r)} ${n1(top)} Z`, e.cyl('#c9ccd1', { edge: 0.35, hi: 0.4 }));
+      s += rect(x - r, top + H * 0.2, W, H * 0.5, e.cyl(k.label || '#f4f1ec', { edge: 0.2 })) + rect(x - r, top + H * 0.2, W, H * 0.14, e.cyl(paint, { edge: 0.25 }));
+      if (k.open) s += ell(x, top, r, er, '#9da2a7') + ell(x, top + 1, r * 0.88, er * 0.8, paint) + path(`M${n1(x + r * 0.2)} ${n1(top)} q${n1(r * 0.4)} ${n1(er * 0.5)} ${n1(r * 0.8)} ${n1(H * 0.4)}`, 'none', { stroke: paint, 'stroke-width': n1(5 * e.s), 'stroke-linecap': 'round' });
+      else s += ell(x, top, r, er, e.rad([[0, '#eceef0'], [1, '#9da2a7']], { cx: 0.4, cy: 0.35 }));
+      s += path(`M${n1(x - r * 0.9)} ${n1(top + H * 0.1)} Q${n1(x)} ${n1(top - H * 0.5)} ${n1(x + r * 0.9)} ${n1(top + H * 0.1)}`, 'none', { stroke: '#8b9096', 'stroke-width': n1(1.8 * e.s) });
+      return s;
+    }
+    function rollerTray(e, x, baseY, W, paint) {
+      let s = e.shadow(x, baseY, W * 0.55, W * 0.05, 0.3);
+      s += path(P([[x - W / 2, baseY - W * 0.1], [x + W / 2, baseY - W * 0.2], [x + W / 2, baseY - W * 0.1], [x - W / 2, baseY]]), e.lin([[0, '#e2e4e6'], [1, '#a5aab0']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += path(P([[x - W * 0.46, baseY - W * 0.095], [x + W * 0.05, baseY - W * 0.15], [x + W * 0.05, baseY - W * 0.1], [x - W * 0.46, baseY - W * 0.03]]), paint, { opacity: 0.95 });
+      // roller resting across
+      const ry = baseY - W * 0.22; s += rect(x - W * 0.2, ry - W * 0.07, W * 0.46, W * 0.14, e.lin([[0, lighten(paint, 0.2)], [0.5, paint], [1, darken(paint, 0.25)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.07 });
+      s += path(`M${n1(x + W * 0.26)} ${n1(ry)} L${n1(x + W * 0.34)} ${n1(ry)} L${n1(x + W * 0.34)} ${n1(ry - W * 0.14)} L${n1(x + W * 0.5)} ${n1(ry - W * 0.2)}`, 'none', { stroke: '#8b9096', 'stroke-width': n1(2.2 * e.s), 'stroke-linejoin': 'round' }) + rect(x + W * 0.48, ry - W * 0.34, W * 0.06, W * 0.2, e.cyl('#2d2a27'), { rx: W * 0.03, transform: `rotate(-24 ${n1(x + W * 0.51)} ${n1(ry - W * 0.24)})` });
+      return s;
+    }
+    function brush(e, x, y, L, ang, paint) {
+      const u = L / 100; return g(rect(-8 * u, -54 * u, 16 * u, 40 * u, e.cyl('#b98a55'), { rx: 6 * u }) + rect(-10 * u, -16 * u, 20 * u, 14 * u, e.cyl('#c9ccd1')) + path(P([[-10 * u, -2 * u], [10 * u, -2 * u], [9 * u, 22 * u], [-9 * u, 22 * u]]), e.lin([[0, '#e8dcc2'], [1, paint || '#d9d2c6']], { x1: 0, y1: 0, x2: 0, y2: 1 })), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${ang || 0})` });
+    }
+    // a wall meeting the trim, the brush cutting a clean line, masking tape
+    function cuttingIn(e, o) {
+      const k = o || {}; const paint = e.tint(k.paint || '#6f8f86'); const old = e.tint('#e9e3d8'); const y = e.h * 0.62;
+      let s = rect(0, 0, e.w, e.h, old) + path(P([[0, 0], [e.w * 0.78, 0], [e.w * 0.7, y], [0, y]]), e.lin([[0, lighten(paint, 0.08)], [1, darken(paint, 0.08)]], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      s += rect(0, y, e.w, e.h * 0.06, e.lin([[0, '#fdfcf9'], [1, '#e6e1d7']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, y + e.h * 0.06, e.w, e.h * 0.08, e.lin([[0, '#f7f5f0'], [1, '#d9d3c7']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, y + e.h * 0.14, e.w, e.h * 0.86 - y, e.tint('#b58d67'));
+      s += rect(0, y - 3 * e.s, e.w, 5 * e.s, '#6fa3d6', { opacity: 0.85 });
+      s += brush(e, e.w * 0.74, y - e.h * 0.12, e.h * 0.55, 38, paint);
+      return s;
+    }
+    function faucetShape(e, x, baseY, H, running) {
+      const chrome = e.lin([[0, '#7d848b'], [0.25, '#f4f6f8'], [0.5, '#aab2b9'], [1, '#6a7178']]);
+      let s = rect(x - H * 0.09, baseY - H * 0.35, H * 0.18, H * 0.35, chrome, { rx: H * 0.04 }) + path(`M${n1(x - H * 0.05)} ${n1(baseY - H * 0.34)} L${n1(x - H * 0.05)} ${n1(baseY - H * 0.9)} Q${n1(x - H * 0.05)} ${n1(baseY - H * 1.05)} ${n1(x + H * 0.15)} ${n1(baseY - H * 1.05)} Q${n1(x + H * 0.4)} ${n1(baseY - H * 1.05)} ${n1(x + H * 0.4)} ${n1(baseY - H * 0.8)}`, 'none', { stroke: '#c9cfd4', 'stroke-width': n1(H * 0.1), 'stroke-linecap': 'round' });
+      s += rect(x + H * 0.08, baseY - H * 0.62, H * 0.3, H * 0.06, chrome, { rx: H * 0.03 });
+      if (running) s += path(`M${n1(x + H * 0.37)} ${n1(baseY - H * 0.76)} Q${n1(x + H * 0.39)} ${n1(baseY - H * 0.3)} ${n1(x + H * 0.36)} ${n1(baseY + H * 0.2)}`, 'none', { stroke: '#d6eef8', 'stroke-width': n1(H * 0.06), opacity: 0.85, 'stroke-linecap': 'round' }) + path(`M${n1(x + H * 0.36)} ${n1(baseY - H * 0.7)} Q${n1(x + H * 0.37)} ${n1(baseY - H * 0.3)} ${n1(x + H * 0.355)} ${n1(baseY + H * 0.2)}`, 'none', { stroke: '#fff', 'stroke-width': n1(H * 0.015), opacity: 0.9 });
+      return s;
+    }
+    function basinFaucet(e) {
+      let s = tileGrid(e, 0, 0, e.w, e.h * 0.62, '#e5ebed', { size: 40 }) + rect(0, e.h * 0.62, e.w, e.h * 0.38, e.lin([[0, '#f7f5f1'], [1, '#d9d4cc']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += ell(e.cx + e.w * 0.08, e.h * 0.78, e.w * 0.3, e.h * 0.1, '#ffffff', { stroke: '#d4d8db', 'stroke-width': n1(2 * e.s) }) + ell(e.cx + e.w * 0.08, e.h * 0.8, e.w * 0.22, e.h * 0.06, e.rad([[0, '#e7eef1'], [1, '#c9d3d8']]));
+      s += faucetShape(e, e.cx - e.w * 0.22, e.h * 0.64, e.h * 0.5, true);
+      s += A.droplets(e, e.cx - e.w * 0.02, e.h * 0.72, e.w * 0.2, e.h * 0.1, 10);
+      return s;
+    }
+    function copperPipes(e, o) {
+      const cu = e.lin([[0, '#8a4a22'], [0.3, '#e7a36b'], [0.55, '#c8773f'], [1, '#6e3718']], { x1: 0, y1: 0, x2: 0, y2: 1 }); const cuV = e.lin([[0, '#8a4a22'], [0.3, '#e7a36b'], [0.55, '#c8773f'], [1, '#6e3718']]);
+      let s = rect(0, 0, e.w, e.h, e.tint('#e6e0d6')) + rect(0, e.h * 0.82, e.w, e.h * 0.18, e.tint('#cfc7bb'));
+      const p = e.h * 0.05;
+      s += rect(e.w * 0.08, e.h * 0.3, e.w * 0.62, p, cu) + rect(e.w * 0.66, e.h * 0.3, p, e.h * 0.52, cuV) + rect(e.w * 0.3, e.h * 0.52, e.w * 0.62, p, cu) + rect(e.w * 0.3, e.h * 0.52, p, e.h * 0.3, cuV);
+      [[0.66, 0.3], [0.3, 0.52], [0.24, 0.3], [0.8, 0.52]].forEach(([fx, fy]) => { s += rect(e.w * fx - p * 0.2, e.h * fy - p * 0.2, p * 1.4, p * 1.4, e.lin([[0, '#d99a5f'], [1, '#8a4a22']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: p * 0.3 }); });
+      // a quarter-turn valve
+      s += rect(e.w * 0.46, e.h * 0.28, e.w * 0.08, p * 1.4, e.cyl('#c9a24a'), { rx: 3 * e.s }) + rect(e.w * 0.44, e.h * 0.2, e.w * 0.12, e.h * 0.035, '#c0392b', { rx: 4 * e.s }) + line(e.w * 0.5, e.h * 0.235, e.w * 0.5, e.h * 0.28, '#6a7178', 3 * e.s);
+      // adjustable wrench resting on the pipe
+      s += g(rect(0, -8 * e.s, e.w * 0.36, 16 * e.s, e.lin([[0, '#e1e4e7'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 8 * e.s }) + path(`M${n1(e.w * 0.34)} ${n1(-18 * e.s)} L${n1(e.w * 0.44)} ${n1(-18 * e.s)} L${n1(e.w * 0.44)} ${n1(-4 * e.s)} L${n1(e.w * 0.4)} ${n1(-4 * e.s)} L${n1(e.w * 0.4)} ${n1(4 * e.s)} L${n1(e.w * 0.44)} ${n1(4 * e.s)} L${n1(e.w * 0.44)} ${n1(18 * e.s)} L${n1(e.w * 0.34)} ${n1(18 * e.s)} Z`, e.lin([[0, '#d6dadd'], [1, '#6a7178']], { x1: 0, y1: 0, x2: 0, y2: 1 })), { transform: `translate(${n1(e.w * 0.14)} ${n1(e.h * 0.74)}) rotate(-18)` });
+      return s;
+    }
+    function breakerPanel(e, o) {
+      const k = o || {}; let s = rect(0, 0, e.w, e.h, e.tint('#dcd6cc'));
+      const x = e.w * 0.24, y = e.h * 0.08, w = e.w * 0.52, h = e.h * 0.84; s += e.shadow(e.cx + 6 * e.s, y + h, w * 0.5, h * 0.03, 0.3);
+      s += rect(x, y, w, h, e.lin([[0, '#eceef0'], [1, '#b9bec4']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 4 * e.s }) + rect(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.88, '#3a3d42', { rx: 3 * e.s });
+      const labels = (k.items && k.items.length ? k.items : ['Kitchen', 'Lights', 'Laundry', 'Bath', 'Heat', 'Outlets', 'Garage', 'Office', 'EV', 'Spare']);
+      for (let i = 0; i < 12; i++) { const col = i % 2, row = Math.floor(i / 2); const bx = x + w * (col ? 0.52 : 0.14), by = y + h * (0.12 + row * 0.13); s += rect(bx, by, w * 0.34, h * 0.09, e.lin([[0, '#f5f5f3'], [1, '#c8c9c6']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }) + rect(bx + w * (col ? 0.02 : 0.24), by + h * 0.025, w * 0.08, h * 0.04, '#2b2d31', { rx: 1.5 * e.s }); if (labels[i]) s += A.wordmark(e, labels[i], bx + w * (col ? 0.12 : 0.02), by + h * 0.058, Math.min(h * 0.03, w * 0.045), '#3a3d42', { anchor: 'start', weight: 600, spacing: '0.02em' }); }
+      // tidy cable runs down the sides
+      ['#1d1d1d', '#c0392b', '#f2f2f2', '#2e7d32'].forEach((c, i) => { s += line(x + w * 0.1 + i * 3 * e.s, y + h * 0.95, x + w * 0.1 + i * 3 * e.s, e.h, c, 2 * e.s); });
+      return s;
+    }
+    function outletPlate(e, x, y, w, kind) {
+      let s = rect(x - w / 2, y - w * 0.8, w, w * 1.6, e.lin([[0, '#fbfbf9'], [1, '#dedbd4']], { x1: 0, y1: 0, x2: 0.5, y2: 1 }), { rx: w * 0.08 }) + e.shadow(x + w * 0.05, y + w * 0.85, w * 0.5, w * 0.06, 0.2);
+      if (kind === 'switch') s += rect(x - w * 0.14, y - w * 0.36, w * 0.28, w * 0.72, '#f3f1ec', { rx: w * 0.04, stroke: '#cfcbc2', 'stroke-width': n1(1 * e.s) });
+      else [-0.36, 0.36].forEach(f => { s += rect(x - w * 0.28, y + f * w - w * 0.2, w * 0.56, w * 0.4, '#f6f4ef', { rx: w * 0.12, stroke: '#d4d0c7', 'stroke-width': n1(1 * e.s) }) + rect(x - w * 0.12, y + f * w - w * 0.1, w * 0.05, w * 0.14, '#3a3a3a') + rect(x + w * 0.07, y + f * w - w * 0.1, w * 0.05, w * 0.14, '#3a3a3a'); });
+      return s;
+    }
+    function evCharger(e, x, y, w) {
+      let s = e.shadow(x + w * 0.1, y + w * 1.1, w * 0.5, w * 0.05, 0.3) + rect(x - w / 2, y - w * 0.7, w, w * 1.3, e.lin([[0, '#f7f7f5'], [1, '#c7c9cc']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: w * 0.14 });
+      s += rect(x - w * 0.3, y - w * 0.45, w * 0.6, w * 0.08, '#2ecc71', { rx: w * 0.04 }) + circ(x, y + w * 0.1, w * 0.2, '#2b2d31') + circ(x, y + w * 0.1, w * 0.1, '#50555c');
+      s += path(`M${n1(x)} ${n1(y + w * 0.3)} C${n1(x)} ${n1(y + w * 1.4)} ${n1(x + w * 1.6)} ${n1(y + w * 0.4)} ${n1(x + w * 1.4)} ${n1(y + w * 1.3)}`, 'none', { stroke: '#2b2d31', 'stroke-width': n1(w * 0.09), 'stroke-linecap': 'round' });
+      return s;
+    }
+    function sprayBottle(e, x, baseY, H, c) {
+      const col = e.tint(c || lighten(e.accent, 0.4)); const W = H * 0.36, r = W / 2; let s = e.shadow(x, baseY, W * 0.7, W * 0.1, 0.3);
+      s += path(`M${n1(x - r)} ${n1(baseY - H * 0.55)} Q${n1(x - r * 1.1)} ${n1(baseY - H * 0.3)} ${n1(x - r)} ${n1(baseY - H * 0.05)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r + 4 * e.s)} ${n1(baseY)} L${n1(x + r - 4 * e.s)} ${n1(baseY)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r)} ${n1(baseY - H * 0.05)} L${n1(x + r)} ${n1(baseY - H * 0.55)} Q${n1(x + r * 0.5)} ${n1(baseY - H * 0.64)} ${n1(x + r * 0.35)} ${n1(baseY - H * 0.68)} L${n1(x - r * 0.35)} ${n1(baseY - H * 0.68)} Q${n1(x - r * 0.5)} ${n1(baseY - H * 0.64)} ${n1(x - r)} ${n1(baseY - H * 0.55)} Z`, e.cyl(col, { edge: 0.3 }), { opacity: 0.95 });
+      s += rect(x - r * 0.4, baseY - H * 0.78, r * 0.8, H * 0.1, '#f4f4f2', { rx: 2 * e.s }) + path(P([[x - r * 0.5, baseY - H * 0.94], [x + r * 1.2, baseY - H * 0.94], [x + r * 1.2, baseY - H * 0.86], [x - r * 0.5, baseY - H * 0.78]]), '#f4f4f2') + path(`M${n1(x + r * 0.2)} ${n1(baseY - H * 0.86)} q${n1(-r * 0.1)} ${n1(H * 0.1)} ${n1(-r * 0.25)} ${n1(H * 0.14)}`, 'none', { stroke: '#f4f4f2', 'stroke-width': n1(4 * e.s), 'stroke-linecap': 'round' });
+      s += rect(x - r * 0.8, baseY - H * 0.42, W * 0.8, H * 0.2, '#ffffff', { opacity: 0.85, rx: 3 * e.s });
+      return s;
+    }
+    function clothStack(e, x, baseY, W, cols) { let s = ''; (cols || ['#5fa8d3', '#f2c14e', '#e76f51']).forEach((c, i) => { const y = baseY - i * W * 0.14; s += rect(x - W / 2 + i * 3 * e.s, y - W * 0.14, W, W * 0.14, e.lin([[0, lighten(e.tint(c), 0.15)], [1, darken(e.tint(c), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.05 }); }); return e.shadow(x, baseY, W * 0.55, W * 0.05, 0.3) + s; }
+    function caddy(e, x, baseY, W) {
+      let s = e.shadow(x, baseY, W * 0.6, W * 0.06, 0.3);
+      s += sprayBottle(e, x - W * 0.26, baseY - W * 0.2, W * 0.62, '#7fc8e8') + sprayBottle(e, x + W * 0.02, baseY - W * 0.2, W * 0.56, '#f4a261');
+      s += rect(x + W * 0.18, baseY - W * 0.62, W * 0.12, W * 0.4, e.cyl('#f2c14e'), { rx: 4 * e.s }) + rect(x + W * 0.16, baseY - W * 0.66, W * 0.16, W * 0.06, '#5a8f3e', { rx: 3 * e.s });
+      s += path(P([[x - W / 2, baseY - W * 0.3], [x + W / 2, baseY - W * 0.3], [x + W * 0.46, baseY], [x - W * 0.46, baseY]]), e.lin([[0, e.tint(lighten(e.accent, 0.1))], [1, e.tint(darken(e.accent, 0.2))]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += path(`M${n1(x - W * 0.08)} ${n1(baseY - W * 0.3)} L${n1(x - W * 0.08)} ${n1(baseY - W * 0.72)} Q${n1(x)} ${n1(baseY - W * 0.8)} ${n1(x + W * 0.08)} ${n1(baseY - W * 0.72)} L${n1(x + W * 0.08)} ${n1(baseY - W * 0.3)}`, 'none', { stroke: e.tint(darken(e.accent, 0.1)), 'stroke-width': n1(5 * e.s) });
+      s += clothStack(e, x + W * 0.72, baseY, W * 0.4, ['#5fa8d3', '#e9c46a']);
+      return s;
+    }
+    function vacuum(e, x, baseY, H, c) {
+      const col = c || e.accent; let s = e.shadow(x, baseY, H * 0.3, H * 0.04, 0.3);
+      s += rect(x - H * 0.2, baseY - H * 0.08, H * 0.4, H * 0.08, e.lin([[0, '#4a4d52'], [1, '#1d1e20']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: H * 0.03 }) + circ(x - H * 0.15, baseY - 3 * e.s, H * 0.03, '#222') + circ(x + H * 0.15, baseY - 3 * e.s, H * 0.03, '#222');
+      s += rect(x - H * 0.09, baseY - H * 0.62, H * 0.18, H * 0.54, e.cyl(col), { rx: H * 0.06 }) + rect(x - H * 0.06, baseY - H * 0.5, H * 0.12, H * 0.22, '#d9eef7', { opacity: 0.6, rx: H * 0.03 });
+      s += line(x, baseY - H * 0.62, x, baseY - H, '#9aa0a6', 3 * e.s) + rect(x - H * 0.07, baseY - H * 1.03, H * 0.14, H * 0.05, '#2d2a27', { rx: H * 0.02 });
+      return s;
+    }
+
+    module.exports = {
+      sofa, plantPot, floorLamp, artFrame, pendant, cabinetRun, tileGrid, table, stool, mirrorRound, sparkle, bookRow,
+      livingRoom, kitchen, bathroom, treatmentRoom, menuBoard, espressoMachine, cafeRoom, barRoom, glassware, diningRoom, classroom, office, studioRoom, reformer, yogaMat, salon, salonChair, framing, sawhorse,
+      drill, paintCan, rollerTray, brush, cuttingIn, faucetShape, basinFaucet, copperPipes, breakerPanel, outletPlate, evCharger, sprayBottle, clothStack, caddy, vacuum,
+    };
+
+  });
+  __define("hero-art-kinds", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- the registry of complete pictures. Each KIND composes the parts in
+    // ./hero-art, ./hero-art-outdoor, ./hero-art-interior, ./hero-art-objects and
+    // ./hero-art-ui into one framed illustration for one hero layer: backdrop,
+    // the subject large and centred (inside the middle ~70% so the layer's crop and
+    // camera move never lose it), and a few supporting props.
+    //
+    // drawArt({ kind, params }, { aspect, accent, tone, role, seed, uid }) -> HTML
+    //   params (all optional): label (the business name, printed on packaging),
+    //   sub, flavours[], variant, variants[], items[] (the owner's own words for
+    //   UI labels / menu boards), audience, reminders, colour.
+    const A = require('./hero-art');
+    const O = require('./hero-art-outdoor');
+    const I = require('./hero-art-interior');
+    const B = require('./hero-art-objects');
+    const U = require('./hero-art-ui');
+    const { lighten, darken, mix, FLAVOUR_COLOURS, flavourColour } = A;
+    const { rect, circ, ell, path, line, g, n1 } = A._svg;
+
+    const BOX = { '16:9': [640, 360], '4:3': [560, 420], '1:1': [480, 480], '4:5': [480, 600], '3:4': [480, 640] };
+    const fl = (p, i) => { const f = (p.flavours || [])[i]; return f || (p.flavours || [])[0] || null; };
+    const fc = (p, i, d) => flavourColour(fl(p, i)) || d;
+    const brand = p => String(p.label || '').slice(0, 22);
+    const tall = e => e.h / e.w; // >1 portrait
+    // the size of a standing product for this frame: tall frames get a taller product
+    const prodH = e => Math.min(e.h * 0.62, e.w * (tall(e) > 1.05 ? 1.0 : 0.72));
+
+    // ---- retail: drinks ---------------------------------------------------------------------------------------------------
+    function canHero(e, p) {
+      const H = prodH(e); const base = e.cy + H * 0.5; const c = fc(p, 0, e.accent);
+      let s = A.studio(e, { horizon: (base - H * 0.02) / e.h });
+      if (fl(p, 1)) s += A.flavourPiece(e, fl(p, 1), e.cx - H * 0.42, base - H * 0.08, H * 0.12);
+      s += A.flavourPiece(e, fl(p, 0) || 'citrus', e.cx + H * 0.4, base - H * 0.06, H * 0.14);
+      s += A.can(e, e.cx, base, H, c, { label: brand(p) || 'Sparkling', sub: fl(p, 0) || '', fruit: fl(p, 0), cold: true, detail: e.detail });
+      return s + A.bubbles(e, e.cx - H * 0.6, base - H * 1.05, H * 1.2, H * 0.4, 16, 0.35);
+    }
+    function canRange(e, p) {
+      const fls = (p.flavours || []).slice(0, 3); while (fls.length < 3) fls.push(fls[fls.length - 1] || null);
+      const H = prodH(e) * 0.82; const base = e.cy + H * 0.52; let s = A.studio(e, { horizon: (base - 2) / e.h });
+      const xs = [e.cx - H * 0.56, e.cx + H * 0.56, e.cx];
+      fls.forEach((f, i) => { const hh = i === 2 ? H * 1.05 : H * 0.92; s += A.can(e, xs[i], base + (i === 2 ? H * 0.04 : 0), hh, flavourColour(f) || [e.accent, lighten(e.accent, 0.3), darken(e.accent, 0.2)][i], { label: brand(p) || 'Sparkling', sub: f || '', fruit: f, cold: true }); });
+      return s;
+    }
+    function canIce(e, p) {
+      const c = fc(p, 0, e.accent); const W = Math.min(e.w * 0.78, e.h * 0.95); const y = e.h * 0.8;
+      let s = A.studio(e, { horizon: 0.64, wall: e.dark ? mix('#0c2233', e.accent, 0.2) : mix('#dff0f6', e.accent, 0.1) });
+      s += ell(e.cx, y + W * 0.04, W * 0.5, W * 0.12, darken('#b9c4cc', 0.2)) + path(`M${n1(e.cx - W * 0.5)} ${n1(y - W * 0.1)} L${n1(e.cx - W * 0.42)} ${n1(y + W * 0.12)} L${n1(e.cx + W * 0.42)} ${n1(y + W * 0.12)} L${n1(e.cx + W * 0.5)} ${n1(y - W * 0.1)} Z`, e.lin([[0, '#9aa5ad'], [0.3, '#eef3f6'], [0.6, '#b9c4cc'], [1, '#76818a']]));
+      s += A.can(e, e.cx + W * 0.06, y - W * 0.04, W * 0.62, c, { label: brand(p), sub: fl(p, 0) || '', cold: true });
+      const R = A.rng(A.hashStr('ice' + e.uid)); for (let i = 0; i < 26; i++) { const x = e.cx - W * 0.46 + R() * W * 0.92, yy = y - W * 0.12 + R() * W * 0.06; s += rect(x, yy, W * 0.08, W * 0.07, '#f4fbff', { opacity: 0.85, rx: 3 * e.s, transform: `rotate(${n1(R() * 60 - 30)} ${n1(x)} ${n1(yy)})`, stroke: '#cfe6f2', 'stroke-width': n1(1 * e.s) }); }
+      return s + ell(e.cx, y - W * 0.1, W * 0.5, W * 0.05, 'none', { stroke: '#dfe7ec', 'stroke-width': n1(4 * e.s) });
+    }
+    function bottleHero(e, p) {
+      if (p.range && (p.flavours || []).length > 1) return bottleRange(e, p);
+      const H = prodH(e) * 1.02; const base = e.cy + H * 0.5; const v = p.variant || 'kombucha'; const c = fc(p, 0, e.accent);
+      const glass = { wine: '#2f4a2a', beer: '#5a3b1d', kombucha: '#dbe7dc', juice: '#eef3ee', spirit: '#e9eef0', woozy: '#eee7da', oil: '#9aa84a', toner: '#e9e1d6' }[v] || '#dbe7dc';
+      const liquid = { kombucha: c, juice: c, woozy: fc(p, 0, '#c9291d'), spirit: '#f3e7c4', toner: '#f7f1e8' }[v];
+      let s = A.studio(e, { horizon: (base - 2) / e.h });
+      if (fl(p, 0)) s += A.flavourPiece(e, fl(p, 0), e.cx + H * 0.34, base - H * 0.07, H * 0.12);
+      if (fl(p, 1)) s += A.flavourPiece(e, fl(p, 1), e.cx - H * 0.36, base - H * 0.06, H * 0.1);
+      s += A.bottle(e, e.cx, base, H, glass, { style: v, liquid, label: brand(p), labelColour: '#f4efe6', labelBand: c, fruit: v !== 'wine' && v !== 'beer' ? fl(p, 0) : null, serif: v === 'wine', cold: v === 'beer' || v === 'kombucha' || v === 'juice' });
+      return s;
+    }
+    // a bottled range: one bottle per stated flavour, the liquid showing the flavour
+    function bottleRange(e, p) {
+      const fls = p.flavours.slice(0, 3); const v = p.variant || 'kombucha'; const H = prodH(e) * 0.9; const base = e.cy + H * 0.52;
+      let s = A.studio(e, { horizon: (base - 2) / e.h });
+      const gap = Math.min(e.w * 0.28, H * 0.42); const order = fls.length === 3 ? [0, 2, 1] : [0, 1];
+      order.forEach(i => { const x = e.cx + (i - (fls.length - 1) / 2) * gap; const hh = i === 1 && fls.length === 3 ? H : H * 0.9; s += A.bottle(e, x, base + (i === 1 ? H * 0.02 : 0), hh, v === 'wine' ? '#2f4a2a' : '#dbe7dc', { style: v, liquid: flavourColour(fls[i]) || e.accent, label: brand(p), labelColour: '#f4efe6', labelBand: flavourColour(fls[i]) || e.accent, fruit: v !== 'wine' ? fls[i] : null, cold: true }); });
+      return s;
+    }
+    function drinkPour(e, p) {
+      const v = p.variant || 'rocks'; const c = fc(p, 0, v === 'pint' ? '#e0a33a' : e.accent); const H = Math.min(e.h * 0.56, e.w * 0.7); const base = e.cy + H * 0.46;
+      let s = A.studio(e, { horizon: (base - 2) / e.h });
+      if (p.container === 'can') s += A.can(e, e.cx + H * 0.52, base, H * 0.8, c, { label: brand(p), sub: fl(p, 0) || '', cold: true });
+      else if (p.container === 'bottle') s += A.bottle(e, e.cx + H * 0.5, base, H * 0.9, '#dbe7dc', { style: 'kombucha', liquid: c, label: brand(p), labelBand: c });
+      s += I.glassware(e, e.cx - (p.container ? H * 0.12 : 0), base, H * 0.8, v, lighten(c, 0.15), { garnish: fl(p, 0) && /lemon|lime|orange|grapefruit|yuzu|citrus/.test(fl(p, 0)) ? fl(p, 0) : (v === 'coupe' ? 'orange' : null), garnishSprig: /mint|basil/.test(fl(p, 0) || '') });
+      if (fl(p, 1)) s += A.flavourPiece(e, fl(p, 1), e.cx - H * 0.5, base - H * 0.06, H * 0.11);
+      return s + A.bubbles(e, e.cx - H * 0.3, base - H * 0.6, H * 0.36, H * 0.4, 14, 0.5);
+    }
+    function fruitSplash(e, p) {
+      const fls = (p.flavours && p.flavours.length ? p.flavours : ['citrus']).slice(0, 3); const r = Math.min(e.w, e.h) * 0.16;
+      let s = A.studio(e, { horizon: 0.78, wall: e.dark ? mix(fc(p, 0, e.accent), '#0c0c10', 0.7) : mix(fc(p, 0, e.accent), '#ffffff', 0.78) });
+      // a crown of splashing water behind the fruit
+      s += path(`M${n1(e.cx - r * 2.4)} ${n1(e.cy + r * 0.8)} Q${n1(e.cx - r * 2)} ${n1(e.cy - r * 1.6)} ${n1(e.cx - r * 1.2)} ${n1(e.cy - r * 0.6)} Q${n1(e.cx - r * 0.6)} ${n1(e.cy - r * 2.4)} ${n1(e.cx)} ${n1(e.cy - r * 0.9)} Q${n1(e.cx + r * 0.6)} ${n1(e.cy - r * 2.3)} ${n1(e.cx + r * 1.2)} ${n1(e.cy - r * 0.6)} Q${n1(e.cx + r * 2)} ${n1(e.cy - r * 1.5)} ${n1(e.cx + r * 2.4)} ${n1(e.cy + r * 0.8)} Z`, e.lin([[0, '#ffffff', 0.85], [1, '#cfe9f5', 0.35]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      A.droplets && (s += A.droplets(e, e.cx - r * 2.6, e.cy - r * 2.6, r * 5.2, r * 2, 28));
+      const spots = [[0, -0.1, 1.15], [-1.35, 0.55, 0.85], [1.35, 0.5, 0.9]];
+      fls.concat(fls).slice(0, 3).forEach((f, i) => { const [dx, dy, k] = spots[i]; s += A.flavourPiece(e, f, e.cx + dx * r, e.cy + dy * r, r * k); });
+      return s + A.bubbles(e, e.cx - r * 2.5, e.cy - r * 1.5, r * 5, r * 3.4, 30, 0.55);
+    }
+    // ---- retail: skincare ------------------------------------------------------------------------------------------------------
+    const SKIN = { dropper: (e, x, b, H, c, o) => A.dropper(e, x, b, H * 0.95, c || '#b8742f', o), pump: (e, x, b, H, c, o) => A.pump(e, x, b, H, c || '#ece5da', o), jar: (e, x, b, H, c, o) => A.jar(e, x, b, H * 0.42, c || '#f1ece6', Object.assign({ ribs: true, wide: 1.2 }, o)), tube: (e, x, b, H, c, o) => A.tube(e, x, b - H * 0.12, H * 0.8, c || '#f3d9c6', Object.assign({ angle: -18 }, o)), tin: (e, x, b, H, c, o) => A.tin(e, x, b, H * 0.55, c || '#c9ccd1', o), toner: (e, x, b, H, c, o) => A.bottle(e, x, b, H * 0.9, c || '#ece4d8', Object.assign({ style: 'toner', liquid: '#f7f1e8' }, o)), bar: (e, x, b, H, c) => soapBar(e, x, b, H * 0.5, c) };
+    const SKIN_SUB = { dropper: 'serum', pump: 'cleanser', jar: 'cream', tube: 'SPF', tin: 'balm', toner: 'toner', bar: 'soap' };
+    function soapBar(e, x, baseY, W, c) { const col = e.tint(c || '#efe6d8'); return e.shadow(x, baseY, W * 0.6, W * 0.08, 0.3) + rect(x - W / 2, baseY - W * 0.34, W, W * 0.34, e.lin([[0, lighten(col, 0.15)], [1, darken(col, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.12 }) + ell(x, baseY - W * 0.34, W * 0.48, W * 0.06, lighten(col, 0.25)) + A.sprig(e, x - W * 0.2, baseY - W * 0.36, W * 0.4, -10); }
+    function stone(e, x, y, w, h) { return e.shadow(x, y + h * 0.6, w * 0.6, h * 0.18, 0.3) + ell(x, y, w / 2, h / 2, e.rad([[0, e.tint('#f1ebe2')], [0.7, e.tint('#ddd3c4')], [1, e.tint('#b9ad9a')]], { cx: 0.35, cy: 0.3 })) + ell(x, y - h * 0.18, w * 0.44, h * 0.18, '#fff', { opacity: 0.25 }); }
+    function skincareHero(e, p) {
+      const v = SKIN[p.variant] ? p.variant : 'dropper'; const H = prodH(e) * 0.92; const base = e.cy + H * 0.5;
+      let s = A.studio(e, { horizon: (base + H * 0.02) / e.h, wall: e.dark ? undefined : mix(e.accent, '#f3efe8', 0.9) });
+      s += stone(e, e.cx, base + H * 0.02, H * 0.9, H * 0.16) + A.sprig(e, e.cx - H * 0.46, base - H * 0.02, H * 0.46, -62);
+      s += SKIN[v](e, e.cx, base, H, null, { label: brand(p), sub: p.sub || SKIN_SUB[v] });
+      return s + ell(e.cx - H * 0.2, e.cy - H * 0.55, H * 0.5, H * 0.3, '#fff', { opacity: e.dark ? 0.05 : 0.25 });
+    }
+    function skincareRange(e, p) {
+      const vs = (p.variants && p.variants.length ? p.variants : ['pump', 'dropper', 'jar']).filter(v => SKIN[v]).slice(0, 3); const H = prodH(e) * (e.w > e.h * 1.2 ? 0.9 : 0.72); const base = e.cy + H * 0.62;
+      let s = A.studio(e, { horizon: (base + 2) / e.h, wall: e.dark ? undefined : mix(e.accent, '#f3efe8', 0.9) }) + stone(e, e.cx, base + H * 0.03, e.w * 0.9, H * 0.16);
+      const n = vs.length; const gap = Math.min(e.w * 0.3, H * 0.6);
+      vs.forEach((v, i) => { const x = e.cx + (i - (n - 1) / 2) * gap; s += SKIN[v](e, x, base, v === 'jar' || v === 'tin' ? H * 0.9 : H * (i === 1 ? 1.08 : 0.95), null, { label: brand(p), sub: SKIN_SUB[v] }); });
+      return s + A.sprig(e, e.cx + gap * 1.2, base - 2, H * 0.4, -120);
+    }
+    function textureSwatch(e, p) {
+      const c = e.tint(p.colour || '#f3e6d8'); let s = rect(0, 0, e.w, e.h, e.lin([[0, e.dark ? '#1d1a1a' : '#ece6de'], [1, e.dark ? '#121010' : '#d9d1c5']], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      s += path(`M${n1(e.w * 0.08)} ${n1(e.h * 0.62)} C${n1(e.w * 0.25)} ${n1(e.h * 0.3)} ${n1(e.w * 0.55)} ${n1(e.h * 0.28)} ${n1(e.w * 0.9)} ${n1(e.h * 0.4)} C${n1(e.w * 0.94)} ${n1(e.h * 0.52)} ${n1(e.w * 0.6)} ${n1(e.h * 0.66)} ${n1(e.w * 0.3)} ${n1(e.h * 0.72)} C${n1(e.w * 0.14)} ${n1(e.h * 0.76)} ${n1(e.w * 0.05)} ${n1(e.h * 0.7)} ${n1(e.w * 0.08)} ${n1(e.h * 0.62)} Z`, e.lin([[0, lighten(c, 0.35)], [0.5, c], [1, darken(c, 0.12)]], { x1: 0, y1: 0, x2: 0.6, y2: 1 }));
+      for (let i = 0; i < 6; i++) s += path(`M${n1(e.w * (0.14 + i * 0.1))} ${n1(e.h * (0.64 - i * 0.03))} Q${n1(e.w * (0.3 + i * 0.1))} ${n1(e.h * (0.44 - i * 0.02))} ${n1(e.w * (0.5 + i * 0.07))} ${n1(e.h * (0.46 - i * 0.01))}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(2.2 * e.s), opacity: 0.4 });
+      s += circ(e.w * 0.72, e.h * 0.34, e.w * 0.09, e.rad([[0, '#fff'], [0.6, lighten(c, 0.2)], [1, darken(c, 0.1)]], { cx: 0.35, cy: 0.3 })) + A.bubbles(e, e.w * 0.2, e.h * 0.36, e.w * 0.6, e.h * 0.3, 16, 0.6);
+      if (p.variant) s += SKIN[p.variant] ? SKIN[p.variant](e, e.w * 0.8, e.h * 0.92, e.h * 0.36, null, { label: brand(p), sub: SKIN_SUB[p.variant] }) : '';
+      return s;
+    }
+    function botanicals(e, p) {
+      let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#efe9df')], [1, e.tint('#dcd3c4')]], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      const R = A.rng(A.hashStr('bot' + e.uid)); const m = Math.min(e.w, e.h);
+      for (let i = 0; i < 7; i++) s += A.leaf(e, e.w * (0.1 + R() * 0.8), e.h * (0.1 + R() * 0.8), m * (0.2 + R() * 0.16), R() * 360, e.tint(i % 2 ? '#6e9a58' : '#89ad6c'));
+      for (let i = 0; i < 5; i++) { const x = e.w * (0.18 + R() * 0.64), y = e.h * (0.18 + R() * 0.64); for (let q = 0; q < 10; q++) { const a = q / 10 * Math.PI * 2; s += ell(x + Math.cos(a) * m * 0.035, y + Math.sin(a) * m * 0.035, m * 0.03, m * 0.012, '#fbf8f1', { transform: `rotate(${n1(a * 57)} ${n1(x + Math.cos(a) * m * 0.035)} ${n1(y + Math.sin(a) * m * 0.035)})` }); } s += circ(x, y, m * 0.022, '#f2c23b'); }
+      for (let i = 0; i < 26; i++) s += ell(e.w * R(), e.h * R(), m * 0.014, m * 0.007, '#e8d9b8', { transform: `rotate(${n1(R() * 180)} ${n1(e.w * 0.5)} ${n1(e.h * 0.5)})` });
+      s += path(`M${n1(e.w * 0.62)} ${n1(e.h * 0.9)} Q${n1(e.w * 0.66)} ${n1(e.h * 0.5)} ${n1(e.w * 0.76)} ${n1(e.h * 0.2)} Q${n1(e.w * 0.8)} ${n1(e.h * 0.55)} ${n1(e.w * 0.7)} ${n1(e.h * 0.9)} Z`, e.lin([[0, '#9cc58a'], [1, '#5f8f4e']]));
+      return s;
+    }
+    function basinRitual(e, p) {
+      let s = I.tileGrid(e, 0, 0, e.w, e.h * 0.62, '#eef0ef', { size: 42 }) + rect(0, e.h * 0.62, e.w, e.h * 0.38, e.lin([[0, '#f7f5f1'], [1, '#d6d0c7']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += ell(e.w * 0.62, e.h * 0.7, e.w * 0.28, e.h * 0.06, '#ffffff', { stroke: '#dcdfe1', 'stroke-width': n1(2 * e.s) }) + I.faucetShape(e, e.w * 0.62, e.h * 0.66, e.h * 0.22, false);
+      const vs = (p.variants && p.variants.length ? p.variants : ['pump', 'dropper']).filter(v => SKIN[v]).slice(0, 2);
+      vs.forEach((v, i) => { s += SKIN[v](e, e.w * (0.18 + i * 0.15), e.h * 0.64, e.h * 0.32, null, { label: brand(p), sub: SKIN_SUB[v] }); });
+      s += B.towelRoll(e, e.w * 0.3, e.h * 0.84, e.h * 0.06) + I.plantPot(e, e.w * 0.9, e.h * 0.64, e.h * 0.26);
+      return s;
+    }
+    // ---- retail: pantry & home ---------------------------------------------------------------------------------------------------
+    function pantryHero(e, p) {
+      const v = p.variant || 'jar'; const H = prodH(e) * 0.95; const base = e.cy + H * 0.5; const c = fc(p, 0, v === 'woozy' ? '#c9291d' : '#e0a21a');
+      let s = A.studio(e, { horizon: (base + 2) / e.h, floor: e.tint('#6b4a33') });
+      s += rect(e.cx - H * 0.8, base - H * 0.02, H * 1.6, H * 0.08, e.lin([[0, '#a57a4c'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * e.s });
+      if (v === 'woozy') s += A.bottle(e, e.cx, base, H, '#eee7da', { style: 'woozy', liquid: c, label: brand(p), labelColour: '#f6efe2', labelBand: c });
+      else if (v === 'pouch') s += A.pouch(e, e.cx, base, H * 0.86, e.tint(p.colour || '#8a6a4a'), { label: brand(p), sub: p.sub || '', valve: true });
+      else if (v === 'bar') s += chocolate(e, e.cx, base - H * 0.2, H * 0.9, c);
+      else if (v === 'tin') s += A.tin(e, e.cx, base, H * 0.8, e.tint(c), { label: brand(p) });
+      else s += A.jar(e, e.cx, base, H * 0.66, lighten(c, 0.2), { lid: e.tint('#2d2a27'), contents: c, label: brand(p), sub: p.sub || '', wide: 0.9, labelColour: '#f6efe2' });
+      (p.flavours || []).slice(0, 2).forEach((f, i) => { s += A.flavourPiece(e, f, e.cx + (i ? -1 : 1) * H * 0.5, base - H * 0.08, H * 0.12); });
+      return s;
+    }
+    function chocolate(e, x, y, W, c) { const u = W / 100; let s = e.shadow(x, y + 36 * u, W * 0.45, W * 0.05, 0.3) + g(rect(-40 * u, -30 * u, 80 * u, 60 * u, '#5b3a1e', { rx: 3 * u }) + Array.from({ length: 12 }, (_, i) => rect(-38 * u + (i % 4) * 19.5 * u, -28 * u + Math.floor(i / 4) * 19 * u, 17 * u, 17 * u, e.lin([[0, '#7a4e2a'], [1, '#4a2d15']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 2 * u })).join('') + path(`M${n1(-42 * u)} ${n1(4 * u)} L${n1(42 * u)} ${n1(-10 * u)} L${n1(42 * u)} ${n1(32 * u)} L${n1(-42 * u)} ${n1(32 * u)} Z`, e.tint(c || e.accent)), { transform: `translate(${n1(x)} ${n1(y)}) rotate(-8)` }); return s; }
+    function ingredients(e, p) {
+      const fls = (p.flavours && p.flavours.length ? p.flavours : ['chili', 'garlic', 'lime']); const m = Math.min(e.w, e.h);
+      let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#3a3633')], [1, e.tint('#22201e')]], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      const R = A.rng(A.hashStr('ing' + e.uid)); for (let i = 0; i < 40; i++) s += circ(e.w * R(), e.h * R(), (0.6 + R()) * e.s, '#6a625a', { opacity: 0.5 });
+      const spots = [[0.3, 0.35, 0.16], [0.68, 0.3, 0.14], [0.52, 0.64, 0.17], [0.22, 0.72, 0.12], [0.8, 0.7, 0.12]];
+      spots.forEach(([fx, fy, k], i) => { s += A.flavourPiece(e, fls[i % fls.length], e.w * fx, e.h * fy, m * k); });
+      for (let i = 0; i < 30; i++) s += circ(e.w * (0.2 + R() * 0.6), e.h * (0.2 + R() * 0.6), (1 + R() * 1.4) * e.s, R() > 0.5 ? '#c9291d' : '#e0a21a', { opacity: 0.8 });
+      return s;
+    }
+    function plated(e, p) {
+      const r = Math.min(e.w * 0.36, e.h * 0.5); let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint(e.dark ? '#2a221d' : '#e9e1d6')], [1, e.tint(e.dark ? '#16110e' : '#cfc3b3')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      if (e.dark) s += circ(e.cx, e.cy - r * 0.2, r * 1.6, '#ffcf8a', { opacity: 0.12 });
+      s += B.plate(e, e.cx, e.cy + r * 0.1, r, p.variant || 'generic');
+      s += line(e.cx - r * 1.35, e.cy - r * 0.2, e.cx - r * 1.35, e.cy + r * 0.6, '#c9ccd1', 3 * e.s) + line(e.cx + r * 1.35, e.cy - r * 0.2, e.cx + r * 1.35, e.cy + r * 0.6, '#c9ccd1', 3 * e.s);
+      if (p.glass !== false) s += I.glassware(e, e.cx + r * 1.15, e.cy - r * 0.35, r * 0.7, 'wine', p.variant === 'pizza' || p.variant === 'pasta' ? '#7a1f2b' : '#e7d9a8');
+      return s;
+    }
+    function homeObject(e, p) {
+      const v = p.variant || 'candle'; const H = prodH(e); const base = e.cy + H * 0.5; let s = A.studio(e, { horizon: (base + 2) / e.h });
+      s += rect(e.cx - e.w * 0.46, base - 2, e.w * 0.92, H * 0.07, e.lin([[0, e.tint('#c8a57a')], [1, e.tint('#8f6a45')]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * e.s });
+      if (v === 'candle') s += A.candle(e, e.cx + H * 0.1, base, H * 0.5, e.tint('#e8ddcc'), { label: brand(p), sub: p.sub || 'soy candle' }) + A.ceramic(e, e.cx - H * 0.46, base, H * 0.55, e.tint('#8fa89b'), { form: 'vase', stems: true });
+      else if (v === 'mug') s += A.ceramic(e, e.cx - H * 0.2, base, H * 0.36, e.tint(p.colour || '#d9cbb6'), { form: 'mug' }) + A.ceramic(e, e.cx + H * 0.28, base, H * 0.28, e.tint('#8fa89b'), { form: 'mug' }) + A.ceramic(e, e.cx + H * 0.02, base - H * 0.02, H * 0.14, e.tint('#e9e1d4'), { form: 'bowl' });
+      else s += A.ceramic(e, e.cx, base, H * 0.85, e.tint(p.colour || '#8fa89b'), { form: 'vase', stems: true }) + A.ceramic(e, e.cx + H * 0.42, base, H * 0.3, e.tint('#e7dccb'), { form: 'mug' });
+      return s;
+    }
+    function workbench(e, p) {
+      let s = rect(0, 0, e.w, e.h * 0.6, e.tint('#e9e0d2')) + rect(0, e.h * 0.6, e.w, e.h * 0.4, e.lin([[0, e.tint('#a57a4c')], [1, e.tint('#6b4a33')]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 5; i++) s += line(0, e.h * (0.64 + i * 0.07), e.w, e.h * (0.63 + i * 0.07), e.tint('#7a5538'), 1.2 * e.s, { opacity: 0.5 });
+      s += rect(e.w * 0.08, e.h * 0.18, e.w * 0.84, 4 * e.s, '#6b4a33');
+      const v = p.variant || 'candle';
+      if (v === 'candle') { for (let i = 0; i < 4; i++) s += A.candle(e, e.w * (0.18 + i * 0.12), e.h * 0.18, e.h * 0.08, e.tint('#e8ddcc'), { noLabel: true }); s += I.paintCan(e, e.w * 0.62, e.h * 0.72, e.h * 0.2, '#f3e6c4', { open: true }) + A.candle(e, e.w * 0.32, e.h * 0.76, e.h * 0.16, e.tint('#e8ddcc'), { noLabel: true }); }
+      else if (v === 'pottery') { s += ell(e.cx, e.h * 0.74, e.w * 0.26, e.h * 0.05, '#5a5f66') + A.ceramic(e, e.cx, e.h * 0.72, e.h * 0.3, e.tint('#c9a27a'), { form: 'vase' }); for (let i = 0; i < 4; i++) s += A.ceramic(e, e.w * (0.18 + i * 0.13), e.h * 0.18, e.h * 0.1, e.tint(['#8fa89b', '#d9cbb6', '#b56576', '#e9e1d4'][i]), { form: i % 2 ? 'mug' : 'vase' }); }
+      else { s += I.drill(e, e.w * 0.3, e.h * 0.86, e.w * 0.22) + I.sawhorse(e, e.w * 0.7, e.h * 0.92, e.w * 0.3); }
+      return s;
+    }
+    // ---- apparel -------------------------------------------------------------------------------------------------------------------
+    function apparel(e, p) {
+      const v = p.variant || 'hoodie'; const m = Math.min(e.w, e.h * 0.8); const c = p.colour || (e.dark ? lighten(e.accent, 0.15) : e.accent);
+      let s = A.studio(e, { horizon: 0.84 });
+      if (v === 'hoodie' || v === 'tee' || v === 'jacket') { s += B.hanger(e, e.cx, e.cy - m * 0.46, m * 0.4); s += v === 'tee' ? B.tee(e, e.cx, e.cy - m * 0.38, m * 0.78, c) : B.hoodie(e, e.cx, e.cy - m * 0.36, m * 0.74, c); }
+      else if (v === 'jeans') s += B.jeansStack(e, e.cx, e.cy + m * 0.3, m * 0.8);
+      else if (v === 'sneaker') s += B.sneaker(e, e.cx, e.cy + m * 0.2, m * 0.95, p.colour || '#f2f0ec') + B.sneaker(e, e.cx + m * 0.08, e.cy + m * 0.34, m * 0.9, p.colour || '#f2f0ec');
+      else if (v === 'cap') s += B.cap(e, e.cx - m * 0.1, e.cy, m * 0.7, c);
+      else if (v === 'gown') s += B.dressForm(e, e.cx, e.h * 0.9, e.h * 0.78, '#f7f2ea');
+      else if (v === 'ring') s += stone(e, e.cx, e.cy + m * 0.26, m * 0.7, m * 0.16) + B.ring(e, e.cx, e.cy + m * 0.06, m * 0.18, lighten(e.accent, 0.6));
+      else if (v === 'knit') s += B.weave(e, c, { knit: true });
+      else s += B.hanger(e, e.cx, e.cy - m * 0.46, m * 0.4) + B.hoodie(e, e.cx, e.cy - m * 0.36, m * 0.74, c);
+      return s;
+    }
+    // ---- hospitality ----------------------------------------------------------------------------------------------------------------
+    function coffeeBag(e, p) {
+      const H = prodH(e) * 0.9; const base = e.cy + H * 0.52; let s = A.studio(e, { horizon: (base + 2) / e.h, floor: e.tint(e.dark ? '#2a211b' : '#b58d67') });
+      s += A.pouch(e, e.cx - H * 0.08, base, H, e.tint(p.colour || '#8a6a4a'), { label: brand(p) || 'Coffee', sub: p.sub || 'whole bean', valve: true });
+      s += A.beanPile(e, e.cx + H * 0.36, base + H * 0.02, H * 0.3, '#4b2e1c') + A.ceramic(e, e.cx + H * 0.52, base - H * 0.02, H * 0.2, e.tint('#f1ece4'), { form: 'mug', drink: '#3a2213' });
+      return s;
+    }
+    function counterScene(e, fn) { const top = e.h * 0.7; return A.studio(e, { horizon: 0.7, floor: e.tint(e.dark ? '#2a211b' : '#d8cbb9') }) + rect(0, top - 2, e.w, 6 * e.s, e.tint(e.dark ? '#3a2c22' : '#efe8dd')) + fn(top); }
+    const hospitality = {
+      'pour-over': (e) => A.studio(e, { horizon: 0.82 }) + B.pourOver(e, e.cx - e.w * 0.1, e.h * 0.84, Math.min(e.h * 0.7, e.w * 0.62)),
+      latte: (e, p) => rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#efe6da')], [1, e.tint('#d9cbb8')]], { x1: 0, y1: 0, x2: 1, y2: 1 })) + B.latteTop(e, e.cx - e.w * 0.08, e.cy - e.h * 0.04, Math.min(e.w, e.h) * 0.25) + (p.side === 'croissant' ? B.croissant(e, e.cx + e.w * 0.24, e.cy + e.h * 0.28, Math.min(e.w, e.h) * 0.36) : B.loaf(e, e.cx + e.w * 0.26, e.cy + e.h * 0.28, Math.min(e.w, e.h) * 0.3)),
+      espresso: (e) => counterScene(e, top => I.espressoMachine(e, e.cx, top, Math.min(e.w * 0.7, e.h * 0.9))),
+      roaster: (e) => A.studio(e, { horizon: 0.84, floor: e.tint('#2a2420') }) + B.roasterDrum(e, e.cx, e.h * 0.86, Math.min(e.w * 0.62, e.h * 0.7)),
+      cafe: (e, p) => I.cafeRoom(e, { items: p.items }),
+      bakery: (e, p) => counterScene(e, top => (p.variant === 'cake' ? B.cake(e, e.cx, top + 4, Math.min(e.w * 0.66, e.h * 0.7)) : p.variant === 'croissant' ? B.croissant(e, e.cx - e.w * 0.14, top - e.h * 0.02, e.w * 0.36) + B.croissant(e, e.cx + e.w * 0.16, top + e.h * 0.02, e.w * 0.32) + B.loaf(e, e.cx, top - e.h * 0.14, e.w * 0.3) : B.loaf(e, e.cx - e.w * 0.16, top - Math.min(e.w, e.h) * 0.08, Math.min(e.w, e.h) * 0.5) + B.loaf(e, e.cx + e.w * 0.06, top + e.h * 0.06, Math.min(e.w, e.h) * 0.62, 'baguette') + B.croissant(e, e.cx + e.w * 0.26, top - Math.min(e.w, e.h) * 0.12, Math.min(e.w, e.h) * 0.34))),
+      dining: (e) => I.diningRoom(e, {}),
+      bar: (e) => I.barRoom(e, {}),
+      cocktail: (e, p) => A.studio(e, { horizon: 0.78, wall: e.tint('#2a1f1a'), floor: e.tint('#3a2618') }) + I.glassware(e, e.cx, e.h * 0.8, Math.min(e.h * 0.62, e.w * 0.8), p.variant || 'coupe', fc(p, 0, '#e8a23a'), { garnish: fl(p, 0) || 'orange' }) + A.flavourPiece(e, fl(p, 1) || 'lime', e.cx + e.w * 0.3, e.h * 0.78, e.w * 0.08),
+      taps: (e) => B.beerTaps(e),
+      table: (e, p) => plated(e, p),
+    };
+    // ---- creative ---------------------------------------------------------------------------------------------------------------------
+    const creative = {
+      'camera-set': (e) => A.studio(e, { horizon: 0.8 }) + B.softbox(e, e.w * 0.24, e.h * 0.82, e.h * 0.66) + B.camera(e, e.w * 0.62, e.h * 0.56, Math.min(e.w * 0.5, e.h * 0.56)),
+      prints: (e) => A.studio(e, { horizon: 0.06, floor: e.tint('#d9d2c6') }) + B.prints(e, e.cx, e.cy, Math.min(e.w * 0.96, e.h * 1.3), { loupe: true }),
+      moodboard: (e) => B.moodboard(e),
+      'sketch-desk': (e) => A.studio(e, { horizon: 0.06, floor: e.tint('#e3dccf') }) + B.sketchbook(e, e.cx - e.w * 0.06, e.cy - e.h * 0.04, Math.min(e.w * 0.7, e.h * 0.9)) + B.swatchFan(e, e.cx + e.w * 0.3, e.cy + e.h * 0.4, Math.min(e.w, e.h) * 0.3),
+    };
+    // ---- software ------------------------------------------------------------------------------------------------------------------------
+    const tech = {
+      interface: (e, p) => null, // rendered by drawArt directly (HTML, two layouts)
+      'phone-notice': (e, p) => A.studio(e, { horizon: 0.86 }) + U.phoneNotice(e, e.cx, e.cy, Math.min(e.h * 0.84, e.w * 1.5), { app: p.label || 'App', title: (p.items && p.items[0]) || 'New booking', body: (p.items && p.items[1]) || 'Confirmed', time: '9:41' }),
+      'server-rack': (e) => { let s = rect(0, 0, e.w, e.h, e.lin([[0, '#11141b'], [1, '#07080c']], { x1: 0, y1: 0, x2: 0, y2: 1 })); const R = A.rng(A.hashStr('rack' + e.uid)); for (let c = 0; c < 3; c++) { const x = e.w * (0.08 + c * 0.3), w = e.w * 0.26; s += rect(x, e.h * 0.06, w, e.h * 0.9, '#1b1f29', { rx: 4 * e.s }); for (let r = 0; r < 12; r++) { const y = e.h * (0.09 + r * 0.072); s += rect(x + 6 * e.s, y, w - 12 * e.s, e.h * 0.06, '#252b38', { rx: 2 * e.s }); for (let q = 0; q < 4; q++) s += circ(x + w * 0.12 + q * 7 * e.s, y + e.h * 0.03, 2 * e.s, R() > 0.25 ? (R() > 0.8 ? '#f2a33a' : '#2fb67c') : '#3a4254'); s += rect(x + w * 0.5, y + e.h * 0.022, w * 0.36, 3 * e.s, '#3a4254', { rx: 1.5 * e.s }); } } return s + rect(0, 0, e.w, e.h, e.rad([[0, e.accent, 0.25], [1, e.accent, 0]], { cx: 0.5, cy: 0.1, r: 0.8 })); },
+      'team-table': (e) => { let s = rect(0, 0, e.w, e.h, e.tint(e.dark ? '#2a2724' : '#d9cbb6')) + ell(e.cx, e.cy, e.w * 0.42, e.h * 0.3, e.lin([[0, e.tint('#a57a4c')], [1, e.tint('#6b4a33')]], { x1: 0, y1: 0, x2: 1, y2: 1 })); [[-0.22, -0.12, -10], [0.18, -0.14, 12], [-0.02, 0.14, 180]].forEach(([dx, dy, a]) => { s += g(rect(-e.w * 0.1, -e.h * 0.07, e.w * 0.2, e.h * 0.14, '#2a2d33', { rx: 4 * e.s }) + rect(-e.w * 0.09, -e.h * 0.06, e.w * 0.18, e.h * 0.12, e.lin([[0, mix(e.accent, '#ffffff', 0.5)], [1, e.accent]], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 2 * e.s, opacity: 0.8 }), { transform: `translate(${n1(e.cx + dx * e.w)} ${n1(e.cy + dy * e.h)}) rotate(${a})` }); }); s += A.ceramic(e, e.cx + e.w * 0.24, e.cy + e.h * 0.1, e.h * 0.07, '#f1ede6', { form: 'mug' }) + B.paper(e, e.cx - e.w * 0.28, e.cy + e.h * 0.12, e.w * 0.14, e.h * 0.18, 8, { lines: 5 }); return s; },
+    };
+    // ---- desk, advice, learning -------------------------------------------------------------------------------------------------------------
+    const desk = {
+      'desk-docs': (e, p) => A.studio(e, { horizon: 0.05, floor: e.tint(e.dark ? '#3a2a1e' : '#d9d2c6') }) + B.paper(e, e.cx - e.w * 0.12, e.cy - e.h * 0.02, Math.min(e.w * 0.4, e.h * 0.56), Math.min(e.w * 0.54, e.h * 0.74), -6, { chart: p.variant !== 'contract', band: 'none' }) + B.paper(e, e.cx + e.w * 0.1, e.cy + e.h * 0.02, Math.min(e.w * 0.38, e.h * 0.5), Math.min(e.w * 0.5, e.h * 0.68), 7, { signature: true }) + (p.variant === 'contract' ? '' : B.calculator(e, e.cx + e.w * 0.32, e.cy + e.h * 0.2, Math.min(e.w, e.h) * 0.16, 12)) + B.pen(e, e.cx + e.w * 0.02, e.cy + e.h * 0.3, Math.min(e.w, e.h) * 0.46, -28),
+      'sticky-wall': (e, p) => B.stickyWall(e, { items: p.items }),
+      office: (e, p) => I.office(e, { law: p.variant === 'law', night: e.dark }),
+      keys: (e) => A.studio(e, { horizon: 0.72 }) + B.keysOnTag(e, e.cx + e.w * 0.08, e.cy + e.h * 0.14, Math.min(e.w, e.h) * 0.62),
+      classroom: (e, p) => I.classroom(e, { subject: p.variant }),
+      'study-desk': (e, p) => { let s = A.studio(e, { horizon: 0.06, floor: e.tint('#e3d8c6') }); s += B.paper(e, e.cx + e.w * 0.08, e.cy, Math.min(e.w * 0.46, e.h * 0.6), Math.min(e.w * 0.6, e.h * 0.8), 5, { lines: 7 }); s += A.wordmark(e, p.variant === 'reading' ? 'Chapter 3' : '3x + 4 = 19', e.cx + e.w * 0.08, e.cy - e.h * 0.14, Math.min(e.w, e.h) * 0.06, '#2d3a67', { serif: true, weight: 500 }); s += I.bookRow(e, e.w * 0.04, e.h * 0.34, e.w * 0.3, e.h * 0.3); s += B.pen(e, e.cx + e.w * 0.1, e.cy + e.h * 0.3, Math.min(e.w, e.h) * 0.4, -24, '#e9b949'); return s; },
+      library: (e) => { let s = rect(0, 0, e.w, e.h, e.tint('#3a281c')); for (let r = 0; r < 5; r++) { const y = e.h * (0.18 + r * 0.19); s += rect(0, y, e.w, 5 * e.s, '#2a1c12') + I.bookRow(e, e.w * 0.02, y, e.w * 0.96, e.h * 0.16, { law: true }); } return s + I.floorLamp(e, e.w * 0.82, e.h * 0.99, e.h * 0.5, true) + rect(0, 0, e.w, e.h, e.rad([[0, '#ffd98a', 0.18], [1, '#000', 0]], { cx: 0.8, cy: 0.6, r: 0.6 })); },
+      books: (e) => { let s = A.studio(e, { horizon: 0.74, floor: e.tint('#c9a26f') }); const m = Math.min(e.w, e.h); const cols = ['#c65d3b', '#3f6c8a', '#e0b44a', '#6b8f5a']; cols.forEach((c, i) => { const y = e.h * 0.8 - i * m * 0.07; s += rect(e.cx - m * 0.3 + (i % 2) * 6 * e.s, y - m * 0.07, m * 0.56, m * 0.07, e.lin([[0, lighten(e.tint(c), 0.1)], [1, darken(e.tint(c), 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }) + rect(e.cx + m * 0.2 + (i % 2) * 6 * e.s, y - m * 0.065, m * 0.04, m * 0.06, '#f6f1e6'); }); s += A.ceramic(e, e.cx + m * 0.4, e.h * 0.8, m * 0.2, e.tint('#e9e1d4'), { form: 'mug', drink: '#f6f1e6' }); ['#e9b949', '#e05a47', '#3f8fd1'].forEach((c, i) => { s += line(e.cx + m * (0.36 + i * 0.04), e.h * 0.8 - m * 0.18, e.cx + m * (0.34 + i * 0.05), e.h * 0.8 - m * 0.34, c, 4 * e.s); }); return s + B.paper(e, e.cx - m * 0.3, e.h * 0.92, m * 0.34, m * 0.2, -8, { lines: 4 }); },
+      music: (e, p) => A.studio(e, { horizon: 0.84 }) + (p.variant === 'piano' ? piano(e) : B.guitar(e, e.cx, e.cy + e.h * 0.05, Math.min(e.h * 0.7, e.w * 1.1))),
+    };
+    function piano(e) { const y = e.h * 0.5, x0 = e.w * 0.06, w = e.w * 0.88; let s = rect(x0, y - e.h * 0.12, w, e.h * 0.4, '#16171b', { rx: 4 * e.s }); const n = 14; for (let i = 0; i < n; i++) s += rect(x0 + 6 * e.s + i * (w - 12 * e.s) / n, y, (w - 12 * e.s) / n - 2 * e.s, e.h * 0.26, e.lin([[0, '#ffffff'], [1, '#dcdad4']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }); [0, 1, 3, 4, 5, 7, 8, 10, 11, 12].forEach(i => { s += rect(x0 + 6 * e.s + (i + 0.68) * (w - 12 * e.s) / n, y, (w - 12 * e.s) / n * 0.62, e.h * 0.16, '#16171b', { rx: 1.5 * e.s }); }); return s; }
+    // ---- fitness & care ---------------------------------------------------------------------------------------------------------------------------
+    const body = {
+      boxing: (e) => A.studio(e, { horizon: 0.86, wall: e.tint('#2a1f1f') }) + B.heavyBag(e, e.cx + e.w * 0.14, e.h * 0.08, e.h * 0.78) + B.glove(e, e.cx - e.w * 0.18, e.h * 0.62, Math.min(e.w, e.h) * 0.36, fc({ flavours: [] }, 0, '#c0392b')),
+      wraps: (e) => A.studio(e, { horizon: 0.7, wall: e.tint('#2a1f1f') }) + B.wraps(e, e.cx - e.w * 0.12, e.h * 0.66, Math.min(e.w, e.h) * 0.12) + B.glove(e, e.cx + e.w * 0.14, e.h * 0.5, Math.min(e.w, e.h) * 0.36, '#c0392b') + B.glove(e, e.cx + e.w * 0.3, e.h * 0.62, Math.min(e.w, e.h) * 0.3, '#c0392b', true),
+      ring: (e) => { let s = rect(0, 0, e.w, e.h, e.lin([[0, '#1a1414'], [1, '#0b0909']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + path(`M0 ${n1(e.h * 0.7)} L${n1(e.w)} ${n1(e.h * 0.62)} L${n1(e.w)} ${n1(e.h)} L0 ${n1(e.h)} Z`, e.tint('#3a4a6b')); [0.36, 0.46, 0.56].forEach(f => { s += line(0, e.h * f + e.h * 0.1, e.w, e.h * f, '#d8d2c8', 3 * e.s); }); s += rect(e.w * 0.08, e.h * 0.3, 10 * e.s, e.h * 0.45, '#c0392b') + [0.2, 0.5, 0.8].map(f => I.pendant(e, e.w * f, 0, e.h * 0.08, e.w * 0.04, true, '#2d2a27')).join(''); return s; },
+      reformer: (e) => I.studioRoom(e, { equipment: 'reformer' }),
+      yoga: (e) => I.studioRoom(e, { equipment: 'mat' }),
+      kettlebells: (e) => A.studio(e, { horizon: 0.74, wall: e.tint('#1f2530') }) + [0, 1, 2, 3].map(i => B.kettlebell(e, e.w * (0.17 + i * 0.22), e.h * 0.84, Math.min(e.w, e.h) * (0.26 + (i % 2) * 0.06), ['#2d2f33', '#c0392b', '#2d6cdf', '#e0b44a'][i])).join('') + rect(e.w * 0.05, e.h * 0.86, e.w * 0.9, e.h * 0.02, '#3a3d42'),
+      reception: (e) => { let s = A.room(e, { horizon: 0.7, wall: e.tint('#eef0ec'), window: [0.66, 0.1, 0.26, 0.4] }); s += rect(e.w * 0.14, e.h * 0.5, e.w * 0.46, e.h * 0.24, e.lin([[0, e.tint('#e9e4dc')], [1, e.tint('#c9c2b6')]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 6 * e.s }) + rect(e.w * 0.12, e.h * 0.48, e.w * 0.5, e.h * 0.03, e.tint('#8b6a4c'), { rx: 3 * e.s }); s += I.plantPot(e, e.w * 0.08, e.h * 0.82, e.h * 0.3) + I.bookRow(e, e.w * 0.18, e.h * 0.48, e.w * 0.14, e.h * 0.06); [0.7, 0.84].forEach(f => { s += O.chair(e, e.w * f, e.h * 0.96, e.h * 0.24, '#8fa89b'); }); s += A.ceramic(e, e.w * 0.46, e.h * 0.48, e.h * 0.1, '#e9e1d4', { form: 'vase', stems: true }); return s; },
+      weights: (e) => A.studio(e, { horizon: 0.72, wall: e.tint('#1f2530') }) + B.barbell(e, e.cx, e.h * 0.5, e.w * 0.92) + B.kettlebell(e, e.cx - e.w * 0.24, e.h * 0.9, e.h * 0.24) + B.dumbbell(e, e.cx + e.w * 0.22, e.h * 0.84, e.w * 0.3),
+      'treatment-room': (e, p) => I.treatmentRoom(e, { spa: p.variant === 'spa' }),
+      'exercise-kit': (e) => { let s = A.studio(e, { horizon: 0.56 }); s += I.yogaMat(e, e.cx, e.h * 0.84, e.w * 0.9, lighten(e.accent, 0.35)); s += B.band(e, e.w * 0.2, e.h * 0.62, e.w * 0.62, e.h * 0.66, '#e05a47') + B.band(e, e.w * 0.3, e.h * 0.7, e.w * 0.74, e.h * 0.74, '#3f8fd1'); s += rect(e.w * 0.1, e.h * 0.72, e.w * 0.32, e.h * 0.08, e.cyl('#3a4a5a'), { rx: e.h * 0.04 }); s += B.dumbbell(e, e.w * 0.7, e.h * 0.8, e.w * 0.28, '#6cbf9a'); s += ell(e.w * 0.56, e.h * 0.9, e.w * 0.14, e.h * 0.03, e.tint('#e0b44a')); return s; },
+      spa: (e) => { const m = Math.min(e.w, e.h); return A.studio(e, { horizon: 0.6 }) + B.towelRoll(e, e.cx + m * 0.12, e.h * 0.64, m * 0.1) + B.stones(e, e.cx - m * 0.2, e.h * 0.8, m * 0.62) + A.dropper(e, e.cx + m * 0.4, e.h * 0.8, m * 0.46, '#b8742f', { label: 'Oil' }) + A.sprig(e, e.cx - m * 0.62, e.h * 0.8, m * 0.4, -40); },
+      needles: (e) => A.studio(e, { horizon: 0.6 }) + B.needles(e, e.cx, e.h * 0.66, e.w * 0.62) + B.towelRoll(e, e.cx + e.w * 0.2, e.h * 0.86, Math.min(e.w, e.h) * 0.06),
+      salon: (e) => I.salon(e, {}),
+      'salon-tools': (e) => A.studio(e, { horizon: 0.6 }) + B.scissorsComb(e, e.cx - e.w * 0.08, e.h * 0.66, e.w * 0.5) + A.pump(e, e.cx + e.w * 0.3, e.h * 0.8, e.h * 0.34, '#f3ede4', { label: 'Salon' }),
+      nails: (e) => A.studio(e, { horizon: 0.72 }) + ['#c2185b', '#e76f51', '#f4a3b4', '#8e3b6b'].map((c, i) => B.nailPolish(e, e.w * (0.2 + i * 0.2), e.h * 0.76, e.h * 0.3, c)).join(''),
+      dental: (e) => A.studio(e, { horizon: 0.72, wall: e.tint('#e9f3f4') }) + B.tooth(e, e.cx, e.cy, Math.min(e.w, e.h) * 0.5),
+    };
+    // ---- outdoor trades ------------------------------------------------------------------------------------------------------------------------------
+    const outdoor = {
+      'lawn-mowing': (e) => { const hz = e.h * 0.42; return A.outdoors(e, { horizon: 0.42, time: 'day' }) + O.house(e, e.w * 0.74, hz + 4 * e.s, e.w * 0.34, {}) + O.shrub(e, e.w * 0.54, hz + 4 * e.s, e.w * 0.035) + O.lawn(e, hz) + O.mower(e, e.w * 0.4, e.h * 0.9, Math.min(e.w * 0.36, e.h * 0.6), e.tint('#c8402f')); },
+      edging: (e) => O.lawn(e, 0, { stripes: false }) + O.mulchBed(e, e.w * 0.42, e.h * 0.34, e.w * 0.78, e.h * 0.8) + O.perennial(e, e.w * 0.76, e.h * 0.78, e.h * 0.2, '#9a86c8') + O.shrub(e, e.w * 0.86, e.h * 0.58, e.h * 0.09, null, { flowers: '#f2c14e' }) + O.trimmer(e, e.w * 0.38, e.h * 0.72, Math.min(e.w, e.h) * 0.6),
+      aeration: (e) => { const hz = e.h * 0.3; return A.outdoors(e, { horizon: 0.3, time: 'day' }) + O.lawn(e, hz, { stripes: true }) + O.soilCores(e, 0, hz + e.h * 0.08, e.w, e.h * 0.62, 46) + O.aerator(e, e.cx + e.w * 0.08, e.h * 0.9, Math.min(e.w * 0.4, e.h * 0.7)); },
+      'leaf-cleanup': (e) => O.lawn(e, 0, { stripes: false }) + O.leafPile(e, e.cx + e.w * 0.06, e.h * 0.72, Math.min(e.w, e.h) * 0.34) + O.rake(e, e.cx - e.w * 0.22, e.h * 0.8, Math.min(e.w, e.h) * 0.62),
+      hedge: (e) => A.outdoors(e, { horizon: 0.3, time: 'day' }) + O.lawn(e, e.h * 0.3, { stripes: true }) + O.shrub(e, e.w * 0.3, e.h * 0.66, e.w * 0.16, '#3f6f35', { clipped: true }) + O.shrub(e, e.w * 0.7, e.h * 0.66, e.w * 0.16, '#3f6f35', { clipped: true }) + O.shrub(e, e.cx, e.h * 0.92, e.w * 0.14, '#4b7d3e'),
+      patio: (e) => { const hz = e.h * 0.45; return A.outdoors(e, { horizon: 0.45, time: 'golden' }) + O.lawn(e, hz, { stripes: false }) + O.tree(e, e.w * 0.12, hz + e.h * 0.1, e.h * 0.42) + O.pergola(e, e.w * 0.74, hz + e.h * 0.24, e.w * 0.3, e.h * 0.3) + O.pavers(e, [[e.w * 0.02, e.h], [e.w * 0.98, e.h], [e.w * 0.82, hz + e.h * 0.14], [e.w * 0.18, hz + e.h * 0.14]], '#cdb99d', { flag: true }) + O.shrub(e, e.w * 0.9, hz + e.h * 0.16, e.w * 0.05, null, { flowers: '#e6a4b4' }) + O.grasses(e, e.w * 0.08, hz + e.h * 0.24, e.h * 0.12) + O.firePit(e, e.cx, e.h * 0.8, Math.min(e.w, e.h) * 0.12) + O.chair(e, e.w * 0.3, e.h * 0.84, e.h * 0.2) + O.chair(e, e.w * 0.66, e.h * 0.86, e.h * 0.2); },
+      'retaining-wall': (e) => { const hz = e.h * 0.3; return A.outdoors(e, { horizon: 0.3, time: 'day' }) + O.lawn(e, hz, { stripes: false }) + O.shrub(e, e.w * 0.2, e.h * 0.44, e.w * 0.07) + O.grasses(e, e.w * 0.46, e.h * 0.45, e.h * 0.14) + O.perennial(e, e.w * 0.66, e.h * 0.45, e.h * 0.14, '#e07a5f') + O.shrub(e, e.w * 0.86, e.h * 0.44, e.w * 0.065, null, { flowers: '#fff3b0' }) + O.stoneWall(e, 0, e.h * 0.45, e.w, e.h * 0.36, '#b8a88f', { rows: 4, cap: true }) + O.pavers(e, [[0, e.h], [e.w, e.h], [e.w, e.h * 0.81], [0, e.h * 0.81]], '#c9bba5', { rows: 3, cols: 6 }); },
+      // flagstones going down: sand bed, a rubber mallet, a level
+      'paver-laying': (e) => { let s = rect(0, 0, e.w, e.h, e.tint('#d9c7a6')); const R = A.rng(A.hashStr('sand' + e.uid)); for (let i = 0; i < 120; i++) s += circ(e.w * R(), e.h * R(), (0.6 + R()) * e.s, '#bfa982', { opacity: 0.6 }); s += O.pavers(e, [[-e.w * 0.1, e.h * 0.62], [e.w * 0.72, e.h * 0.66], [e.w * 0.6, -e.h * 0.05], [-e.w * 0.2, -e.h * 0.05]], '#c9b8a0', { flag: true, rows: 4, cols: 3 }); s += g(rect(-e.w * 0.18, -e.h * 0.05, e.w * 0.36, e.h * 0.1, e.lin([[0, '#3a3d42'], [1, '#1d1e20']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: e.h * 0.03 }) + rect(-e.w * 0.02, e.h * 0.05, e.w * 0.04, e.h * 0.3, e.cyl('#b98a55'), { rx: e.w * 0.02 }), { transform: `translate(${n1(e.w * 0.74)} ${n1(e.h * 0.6)}) rotate(-24)` }); s += rect(e.w * 0.08, e.h * 0.8, e.w * 0.56, e.h * 0.06, e.lin([[0, '#e2a21a'], [1, '#9a6a0f']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * e.s }) + rect(e.w * 0.3, e.h * 0.815, e.w * 0.1, e.h * 0.03, '#bfe3a0', { rx: e.h * 0.015 }) + circ(e.w * 0.35, e.h * 0.83, e.h * 0.008, '#2d6cdf'); return s; },
+      'planting-bed': (e) => { let s = O.lawn(e, 0, { stripes: false }) + O.mulchBed(e, -e.w * 0.1, e.h * 0.18, e.w * 1.2, e.h * 0.7); [[0.18, 0.5, 'shrub'], [0.4, 0.6, 'grass'], [0.62, 0.52, 'per'], [0.82, 0.62, 'shrub'], [0.3, 0.76, 'per'], [0.56, 0.8, 'grass']].forEach(([fx, fy, k], i) => { s += k === 'shrub' ? O.shrub(e, e.w * fx, e.h * fy, Math.min(e.w, e.h) * 0.1, null, { flowers: i % 2 ? '#f2c14e' : '#e6a4b4' }) : k === 'grass' ? O.grasses(e, e.w * fx, e.h * fy, e.h * 0.2) : O.perennial(e, e.w * fx, e.h * fy, e.h * 0.18, i % 2 ? '#9a86c8' : '#e07a5f'); }); return s + stone(e, e.w * 0.1, e.h * 0.9, e.w * 0.16, e.h * 0.06) + stone(e, e.w * 0.3, e.h * 0.94, e.w * 0.14, e.h * 0.05); },
+      'garden-path': (e) => { const hz = e.h * 0.36; return A.outdoors(e, { horizon: 0.36, time: 'golden' }) + O.lawn(e, hz, { stripes: false }) + O.tree(e, e.w * 0.82, hz + e.h * 0.06, e.h * 0.34) + O.pavers(e, [[e.w * 0.3, e.h], [e.w * 0.7, e.h], [e.w * 0.54, hz + 4], [e.w * 0.46, hz + 4]], '#c9bba5', { rows: 9, cols: 2, flag: true }) + O.shrub(e, e.w * 0.18, e.h * 0.62, e.w * 0.08, null, { flowers: '#e6a4b4' }) + O.grasses(e, e.w * 0.8, e.h * 0.74, e.h * 0.14) + O.perennial(e, e.w * 0.24, e.h * 0.9, e.h * 0.14, '#9a86c8'); },
+      pergola: (e) => { const hz = e.h * 0.5; return A.outdoors(e, { horizon: 0.5, time: 'golden' }) + O.lawn(e, hz, { stripes: false }) + O.pavers(e, [[0, e.h], [e.w, e.h], [e.w * 0.88, hz + e.h * 0.12], [e.w * 0.12, hz + e.h * 0.12]], '#cdb99d') + O.pergola(e, e.cx, e.h * 0.84, e.w * 0.66, e.h * 0.46) + O.chair(e, e.cx - e.w * 0.12, e.h * 0.84, e.h * 0.2) + O.chair(e, e.cx + e.w * 0.14, e.h * 0.86, e.h * 0.2); },
+      'fire-pit': (e) => { const hz = e.h * 0.4; return A.outdoors(e, { horizon: 0.4, time: 'dusk' }) + O.lawn(e, hz, { stripes: false, colour: '#35502e' }) + O.pavers(e, [[0, e.h], [e.w, e.h], [e.w * 0.86, hz + e.h * 0.1], [e.w * 0.14, hz + e.h * 0.1]], '#9c9486') + O.firePit(e, e.cx, e.h * 0.74, Math.min(e.w, e.h) * 0.2) + O.chair(e, e.w * 0.2, e.h * 0.8, e.h * 0.24) + O.chair(e, e.w * 0.8, e.h * 0.8, e.h * 0.24) + B.stringLights(e, e.h * 0.1); },
+      irrigation: (e) => O.lawn(e, 0, { stripes: true }) + O.sprinkler(e, e.cx - e.w * 0.18, e.h * 0.74, Math.min(e.w, e.h) * 0.46) + O.sprinkler(e, e.cx + e.w * 0.26, e.h * 0.5, Math.min(e.w, e.h) * 0.3),
+      'roof-house': (e, p) => { const hz = e.h * 0.62; return A.outdoors(e, { horizon: 0.62, time: p.variant === 'dusk' ? 'dusk' : 'day' }) + O.lawn(e, hz, { stripes: false }) + O.tree(e, e.w * 0.1, hz + e.h * 0.04, e.h * 0.4) + O.house(e, e.cx + e.w * 0.04, hz + e.h * 0.05, e.w * 0.62, { roof: p.colour || '#4a4a52', chimney: true, time: p.variant }) + O.shrub(e, e.w * 0.3, hz + e.h * 0.05, e.w * 0.04) + O.shrub(e, e.w * 0.76, hz + e.h * 0.05, e.w * 0.04); },
+      shingles: (e, p) => O.shingleField(e, 0, 0, e.w, e.h, p.colour || '#50535c') + rect(0, e.h * 0.66, e.w, e.h * 0.05, e.lin([[0, '#e1e4e7'], [1, '#8a9097']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + circ(e.w * 0.3, e.h * 0.4, 3 * e.s, '#c9ccd1') + circ(e.w * 0.62, e.h * 0.52, 3 * e.s, '#c9ccd1'),
+      'roof-ladder': (e, p) => A.outdoors(e, { horizon: 0.95, time: 'day', treeline: false }) + O.shingleField(e, 0, e.h * 0.1, e.w, e.h * 0.62, p.colour || '#50535c', { rowH: 20 }) + rect(0, e.h * 0.72, e.w, e.h * 0.06, e.lin([[0, '#f4f2ee'], [1, '#c9c4ba']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, e.h * 0.78, e.w, e.h * 0.22, e.tint('#e8e1d4')) + O.ladder(e, e.w * 0.62, e.h * 1.02, e.w * 0.76, e.h * 0.34, e.w * 0.1) + rect(e.w * 0.18, e.h * 0.46, e.w * 0.2, e.h * 0.1, e.lin([[0, '#6a6d74'], [1, '#3a3d42']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s }),
+      'house-dusk': (e) => { const hz = e.h * 0.62; return A.outdoors(e, { horizon: 0.62, time: 'dusk' }) + O.lawn(e, hz, { stripes: false, colour: '#35502e' }) + O.tree(e, e.w * 0.14, hz + e.h * 0.08, e.h * 0.46, { colour: '#2d4a2c' }) + O.house(e, e.cx + e.w * 0.06, hz + e.h * 0.08, e.w * 0.56, { time: 'dusk', chimney: true }) + O.pavers(e, [[e.cx - e.w * 0.02, e.h], [e.cx + e.w * 0.14, e.h], [e.cx + e.w * 0.09, hz + e.h * 0.08], [e.cx + e.w * 0.03, hz + e.h * 0.08]], '#9c9486', { rows: 6, cols: 2 }); },
+      street: (e) => { const hz = e.h * 0.7; let s = A.outdoors(e, { horizon: 0.7, time: 'golden', treeline: false }) + rect(0, hz, e.w, e.h - hz, e.tint('#b9b1a4')); const cols = ['#e8d9c4', '#c9d6d8', '#e2c9b5', '#d6dcc8']; for (let i = 0; i < 4; i++) s += O.house(e, e.w * (0.14 + i * 0.25), hz, e.w * 0.24, { siding: cols[i], tall: true, roof: i % 2 ? '#5a4a42' : '#4a4a52' }); s += O.tree(e, e.w * 0.28, hz + e.h * 0.02, e.h * 0.36) + O.tree(e, e.w * 0.78, hz + e.h * 0.02, e.h * 0.34); return s; },
+      boat: (e) => A.outdoors(e, { horizon: 0.55, time: 'golden' }) + O.water(e, e.h * 0.55, '#2a6f86', { glint: '#ffe0a8' }) + O.boat(e, e.cx, e.h * 0.7, e.w * 0.62),
+      sailboat: (e) => A.outdoors(e, { horizon: 0.58, time: 'day' }) + O.water(e, e.h * 0.58, '#2f6d8f') + O.sailboat(e, e.cx + e.w * 0.04, e.h * 0.74, Math.min(e.w * 0.7, e.h * 0.9)) + O.sailboat(e, e.w * 0.18, e.h * 0.64, Math.min(e.w, e.h) * 0.22, '#e9e4da'),
+      // a mooring cleat on a teak deck with a coiled line: the hands-on detail of sailing
+      'rope-cleat': (e) => { let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#c49a6c')], [1, e.tint('#8f6a45')]], { x1: 0, y1: 0, x2: 1, y2: 1 })); for (let i = 1; i < 9; i++) s += rect(0, e.h * i / 9 - 2 * e.s, e.w, 4 * e.s, '#3a2a1c', { opacity: 0.8 }); const m = Math.min(e.w, e.h); const cx = e.cx - m * 0.12, cy = e.cy + m * 0.12; s += e.shadow(cx, cy + m * 0.06, m * 0.3, m * 0.05, 0.35) + rect(cx - m * 0.3, cy - m * 0.05, m * 0.6, m * 0.08, e.lin([[0, '#eceef0'], [0.5, '#a9aeb3'], [1, '#6a7076']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: m * 0.04 }) + rect(cx - m * 0.08, cy - m * 0.02, m * 0.16, m * 0.1, e.lin([[0, '#c9ccd1'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: m * 0.02 }); for (let r = 0; r < 5; r++) s += ell(e.cx + m * 0.2, e.cy - m * 0.08, m * (0.26 - r * 0.045), m * (0.16 - r * 0.028), 'none', { stroke: r % 2 ? '#e9e2d0' : '#f6f1e3', 'stroke-width': n1(m * 0.035) }); s += path(`M${n1(cx - m * 0.2)} ${n1(cy - m * 0.03)} C${n1(cx - m * 0.1)} ${n1(cy - m * 0.12)} ${n1(cx + m * 0.1)} ${n1(cy + m * 0.04)} ${n1(cx + m * 0.22)} ${n1(cy - m * 0.03)} S${n1(e.cx + m * 0.1)} ${n1(e.cy - m * 0.2)} ${n1(e.cx + m * 0.04)} ${n1(e.cy - m * 0.1)}`, 'none', { stroke: '#f3eddc', 'stroke-width': n1(m * 0.035), 'stroke-linecap': 'round' }); return s; },
+      'boat-dusk': (e) => A.outdoors(e, { horizon: 0.5, time: 'dusk' }) + O.water(e, e.h * 0.5, '#1d3550', { glint: '#ffb877' }) + circ(e.w * 0.2, e.h * 0.46, e.w * 0.08, '#ffb877', { opacity: 0.5 }) + O.boat(e, e.cx + e.w * 0.06, e.h * 0.66, e.w * 0.72),
+      fishing: (e) => A.outdoors(e, { horizon: 0.5, time: 'golden', treeline: false }) + O.water(e, e.h * 0.5, '#2a6f86', { glint: '#ffe0a8' }) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.lin([[0, '#a57a4c'], [1, '#6b4a33']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + [0.2, 0.4, 0.6, 0.8].map(f => line(0, e.h * (0.66 + f * 0.34), e.w, e.h * (0.66 + f * 0.34), '#5a3b22', 1.4 * e.s, { opacity: 0.5 })).join('') + B.fishingGear(e, e.cx, e.h * 0.74, e.w * 0.8),
+      bicycle: (e) => A.outdoors(e, { horizon: 0.66, time: 'day' }) + rect(0, e.h * 0.66, e.w, e.h * 0.34, e.tint('#b9b1a4')) + O.bicycle(e, e.cx, e.h * 0.84, Math.min(e.w * 0.8, e.h * 1.1)),
+      solar: (e) => A.outdoors(e, { horizon: 0.95, time: 'day', treeline: false }) + path(`M0 ${n1(e.h * 0.34)} L${n1(e.w)} ${n1(e.h * 0.1)} L${n1(e.w)} ${n1(e.h)} L0 ${n1(e.h)} Z`, e.tint('#50535c')) + O.solarPanels(e, e.w * 0.14, e.h * 0.34, e.w * 0.72, e.h * 0.44),
+      'produce-crate': (e) => { let s = A.studio(e, { horizon: 0.6 }); const W = e.w * 0.8, y = e.h * 0.84; s += e.shadow(e.cx, y, W * 0.55, W * 0.04, 0.3) + rect(e.cx - W / 2, y - e.h * 0.24, W, e.h * 0.24, e.lin([[0, e.tint('#c9a26f')], [1, e.tint('#8f6a45')]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * e.s }); for (let i = 1; i < 3; i++) s += line(e.cx - W / 2, y - e.h * 0.08 * i, e.cx + W / 2, y - e.h * 0.08 * i, e.tint('#7a5538'), 2 * e.s); const R = A.rng(A.hashStr('crate' + e.uid)); const veg = ['apple', 'orange', 'lemon', 'pear', 'strawberry', 'mango']; for (let i = 0; i < 9; i++) s += A.flavourPiece(e, veg[i % veg.length], e.cx - W * 0.4 + (i % 5) * W * 0.2 + R() * 6, y - e.h * 0.24 - Math.floor(i / 5) * e.h * 0.06, Math.min(e.w, e.h) * 0.07); s += A.sprig(e, e.cx + W * 0.36, y - e.h * 0.3, e.h * 0.26, -70); return s; },
+      seedling: (e) => { let s = A.outdoors(e, { horizon: 0.3, time: 'day' }) + rect(0, e.h * 0.3, e.w, e.h * 0.7, e.lin([[0, '#5a3a24'], [1, '#3a2416']], { x1: 0, y1: 0, x2: 0, y2: 1 })); const R = A.rng(A.hashStr('soil' + e.uid)); for (let i = 0; i < 80; i++) s += circ(e.w * R(), e.h * (0.32 + R() * 0.68), (1 + R() * 2) * e.s, R() > 0.5 ? '#6b4a33' : '#2a1a10'); [[0.3, 0.7], [0.6, 0.62], [0.8, 0.84]].forEach(([fx, fy], i) => { s += line(e.w * fx, e.h * fy, e.w * fx, e.h * (fy - 0.14), '#5f8f4e', 2.4 * e.s) + A.leaf(e, e.w * fx, e.h * (fy - 0.12), e.h * 0.1, -150) + A.leaf(e, e.w * fx, e.h * (fy - 0.14), e.h * 0.1, -30); }); s += g(path(`M0 0 L${n1(e.w * 0.2)} ${n1(-e.w * 0.03)} L${n1(e.w * 0.2)} ${n1(e.w * 0.03)} Z`, e.lin([[0, '#eceef0'], [1, '#7d848b']])) + rect(-e.w * 0.14, -e.w * 0.02, e.w * 0.14, e.w * 0.04, e.tint('#2e7d32'), { rx: e.w * 0.02 }), { transform: `translate(${n1(e.w * 0.18)} ${n1(e.h * 0.88)}) rotate(-20)` }); return s; },
+      'community-table': (e) => { let s = A.outdoors(e, { horizon: 0.5, time: 'golden' }) + O.lawn(e, e.h * 0.5, { stripes: false }) + B.stringLights(e, e.h * 0.08); s += I.table(e, e.cx, e.h * 0.64, e.w * 0.8, '#8b6a4c', { cloth: true }); for (let i = 0; i < 5; i++) s += A.ceramic(e, e.w * (0.2 + i * 0.15), e.h * 0.64, e.h * 0.05, '#f4f1ec', { form: 'bowl' }); s += B.bouquet(e, e.cx, e.h * 0.64, e.h * 0.26); return s; },
+    };
+    // ---- indoor trades ---------------------------------------------------------------------------------------------------------------------------------------
+    const indoor = {
+      'living-room': (e, p) => I.livingRoom(e, { wall: p.colour, lampOn: e.dark || p.variant === 'city', city: p.variant === 'city', night: e.dark && p.variant === 'city' }),
+      'painted-room': (e, p) => I.livingRoom(e, { wall: p.colour || lighten(e.accent, 0.35) }),
+      'lit-room': (e) => I.livingRoom(e, { lampOn: true, wall: '#e9dcc7' }) + [0.3, 0.5, 0.7].map(f => I.pendant(e, e.w * f, 0, e.h * 0.1, e.w * 0.03, true, '#2d2a27')).join(''),
+      'clean-room': (e) => I.livingRoom(e, { sparkle: true }),
+      kitchen: (e, p) => I.kitchen(e, { cabinets: p.colour }),
+      bathroom: (e) => I.bathroom(e, {}),
+      framing: (e) => I.framing(e, {}),
+      'tile-detail': (e) => I.tileGrid(e, 0, 0, e.w, e.h * 0.64, '#e6ecec', { size: 56 }) + rect(0, e.h * 0.64, e.w, e.h * 0.05, e.lin([[0, '#f4f2ef'], [1, '#cfccc7']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + I.cabinetRun(e, 0, e.h * 0.69, e.w, e.h * 0.31, '#7a5b40') + [0, 1, 2].map(i => path(`M${n1(e.w * (0.2 + i * 0.25))} ${n1(e.h * 0.2)} l${n1(8 * e.s)} 0 l0 ${n1(-8 * e.s)}`, 'none', { stroke: '#e05a47', 'stroke-width': n1(2.4 * e.s) })).join(''),
+      joinery: (e) => { let s = rect(0, 0, e.w, e.h, e.lin([[0, '#c49a6c'], [1, '#8f6a45']], { x1: 0, y1: 0, x2: 1, y2: 1 })); for (let i = 0; i < 26; i++) s += path(`M0 ${n1(e.h * i / 26)} Q${n1(e.w * 0.5)} ${n1(e.h * i / 26 + (i % 3 - 1) * 6 * e.s)} ${n1(e.w)} ${n1(e.h * i / 26)}`, 'none', { stroke: '#7a5538', 'stroke-width': n1(1 * e.s), opacity: 0.4 }); s += path(`M${n1(e.w * 0.5)} 0 L${n1(e.w * 0.5)} ${n1(e.h)}`, 'none', { stroke: '#5a3b22', 'stroke-width': n1(2 * e.s) }); for (let i = 0; i < 5; i++) s += path(`M${n1(e.w * 0.5)} ${n1(e.h * (0.1 + i * 0.2))} l${n1(e.w * 0.06)} ${n1(e.h * 0.03)} l0 ${n1(e.h * 0.1)} l${n1(-e.w * 0.06)} ${n1(e.h * 0.03)}`, e.tint('#d8b98a'), { stroke: '#5a3b22', 'stroke-width': n1(1.4 * e.s) }); return s + B.pen(e, e.w * 0.3, e.h * 0.8, e.w * 0.4, -20, '#e9b949'); },
+      tools: (e) => A.studio(e, { horizon: 0.72, floor: e.tint('#a57a4c') }) + I.drill(e, e.cx - e.w * 0.14, e.h * 0.86, Math.min(e.w, e.h) * 0.5) + I.sawhorse(e, e.cx + e.w * 0.26, e.h * 0.94, e.w * 0.36),
+      'cutting-in': (e, p) => I.cuttingIn(e, { paint: p.colour || lighten(e.accent, 0.3) }),
+      'paint-tray': (e, p) => A.studio(e, { horizon: 0.6 }) + I.paintCan(e, e.cx - e.w * 0.26, e.h * 0.8, Math.min(e.w, e.h) * 0.28, p.colour || lighten(e.accent, 0.3), { open: true }) + I.rollerTray(e, e.cx + e.w * 0.14, e.h * 0.88, e.w * 0.5, p.colour || lighten(e.accent, 0.3)),
+      'house-paint': (e, p) => { const hz = e.h * 0.66; return A.outdoors(e, { horizon: 0.66, time: 'day' }) + O.lawn(e, hz, { stripes: false }) + O.house(e, e.cx, hz + e.h * 0.04, e.w * 0.66, { siding: p.colour || lighten(e.accent, 0.5) }) + O.ladder(e, e.w * 0.14, e.h * 0.98, e.w * 0.26, e.h * 0.42, e.w * 0.07) + I.paintCan(e, e.w * 0.3, e.h * 0.94, e.h * 0.1, p.colour || lighten(e.accent, 0.5), { open: true }); },
+      faucet: (e) => I.basinFaucet(e),
+      pipes: (e) => I.copperPipes(e),
+      'water-heater': (e) => { let s = A.studio(e, { horizon: 0.84, wall: e.tint('#e6e0d6') }); s += rect(e.cx - e.w * 0.18, e.h * 0.14, e.w * 0.36, e.h * 0.7, e.cyl('#e9ecef', { edge: 0.25 }), { rx: e.w * 0.06 }) + rect(e.cx - e.w * 0.08, e.h * 0.54, e.w * 0.16, e.h * 0.1, '#c9ccd1', { rx: 3 * e.s }) + circ(e.cx, e.h * 0.59, e.w * 0.03, '#3a3d42'); [[-0.06, '#c8773f'], [0.06, '#3f7ea6']].forEach(([f, c]) => { s += rect(e.cx + f * e.w - 4 * e.s, 0, 8 * e.s, e.h * 0.16, e.cyl(c)); }); return s; },
+      panel: (e, p) => I.breakerPanel(e, { items: p.items }),
+      outlets: (e) => A.studio(e, { horizon: 0.86 }) + I.outletPlate(e, e.cx - e.w * 0.14, e.cy, Math.min(e.w, e.h) * 0.2) + I.outletPlate(e, e.cx + e.w * 0.14, e.cy, Math.min(e.w, e.h) * 0.2, 'switch'),
+      'ev-charger': (e) => A.studio(e, { horizon: 0.78 }) + I.evCharger(e, e.cx - e.w * 0.12, e.h * 0.38, Math.min(e.w, e.h) * 0.26) + B.car(e, e.cx + e.w * 0.44, e.h * 0.86, e.w * 0.8, lighten(e.accent, 0.1)),
+      pendants: (e) => rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#2a2420')], [1, e.tint('#171310')]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + [0.28, 0.5, 0.72].map((f, i) => I.pendant(e, e.w * f, 0, e.h * (0.28 + (i % 2) * 0.1), e.w * 0.08, true, '#c9a24a')).join('') + rect(0, e.h * 0.84, e.w, e.h * 0.16, e.tint('#3a2c22')),
+      'spray-shine': (e) => A.studio(e, { horizon: 0.66, floor: e.tint('#eceae6') }) + I.sprayBottle(e, e.cx - e.w * 0.16, e.h * 0.8, Math.min(e.h * 0.52, e.w * 0.7)) + I.clothStack(e, e.cx + e.w * 0.2, e.h * 0.82, e.w * 0.34) + [[0.6, 0.5], [0.72, 0.4], [0.3, 0.3]].map(([fx, fy], i) => I.sparkle(e, e.w * fx, e.h * fy, (8 + i * 4) * e.s)).join(''),
+      caddy: (e) => A.studio(e, { horizon: 0.7 }) + I.caddy(e, e.cx - e.w * 0.08, e.h * 0.84, Math.min(e.w * 0.62, e.h * 0.7)),
+      vacuum: (e) => I.livingRoom(e, { sparkle: true }) + I.vacuum(e, e.w * 0.78, e.h * 0.96, e.h * 0.5),
+      'car-shine': (e, p) => A.studio(e, { horizon: 0.78, wall: e.dark ? undefined : e.tint('#2a2c31') }) + [0.2, 0.5, 0.8].map(f => rect(e.w * f - e.w * 0.1, e.h * 0.06, e.w * 0.2, e.h * 0.02, '#f6f3e8', { opacity: 0.9 })).join('') + B.car(e, e.cx, e.h * 0.82, e.w * 0.92, p.colour || darken(e.accent, 0.15), { shine: true }),
+      polisher: (e, p) => { const c = p.colour || darken(e.accent, 0.15); let s = rect(0, 0, e.w, e.h, e.lin([[0, lighten(c, 0.3)], [0.5, c], [1, darken(c, 0.4)]], { x1: 0, y1: 0, x2: 0.3, y2: 1 })); for (let i = 0; i < 18; i++) s += circ(e.w * 0.3, e.h * 0.62, (8 + i * 6) * e.s, 'none', { stroke: '#ffffff', 'stroke-width': n1(0.8 * e.s), opacity: 0.08 }); s += path(`M${n1(e.w * 0.5)} 0 L${n1(e.w * 0.62)} 0 L${n1(e.w * 0.32)} ${n1(e.h)} L${n1(e.w * 0.2)} ${n1(e.h)} Z`, '#ffffff', { opacity: 0.2 }); return s + B.polisher(e, e.w * 0.62, e.h * 0.5, Math.min(e.w, e.h) * 0.62); },
+      rim: (e) => A.studio(e, { horizon: 0.86, wall: e.tint('#1f2126') }) + B.rim(e, e.cx, e.cy, Math.min(e.w, e.h) * 0.38),
+      'car-lift': (e, p) => B.carLift(e, { colour: p.colour }),
+      'engine-parts': (e) => A.studio(e, { horizon: 0.4, floor: e.tint('#3a3633') }) + B.engineParts(e, e.cx, e.cy + e.h * 0.06, Math.min(e.w * 0.9, e.h * 1.1)),
+    };
+    // ---- other subjects ---------------------------------------------------------------------------------------------------------------------------------------
+    const misc = {
+      dog: (e) => A.studio(e, { horizon: 0.8 }) + B.dog(e, e.cx, e.h * 0.86, Math.min(e.h * 0.66, e.w * 0.8)),
+      bouquet: (e) => A.studio(e, { horizon: 0.82 }) + B.bouquet(e, e.cx, e.h * 0.88, Math.min(e.h * 0.8, e.w * 1.1)),
+      stationery: (e, p) => A.studio(e, { horizon: 0.05, floor: e.tint('#e3dccf') }) + B.stationery(e, e.cx, e.cy, Math.min(e.w * 0.86, e.h * 1.05), { title: p.variant || '&' }),
+      // a close-up of the finishing: wax seal, ribbon, a calligraphy nib
+      'stationery-detail': (e) => { let s = rect(0, 0, e.w, e.h, e.tint('#efe6d8')); const m = Math.min(e.w, e.h); s += B.paper(e, e.cx - m * 0.05, e.cy, m * 0.9, m * 0.62, -4, { lines: 0 }); s += path(`M${n1(e.cx - m * 0.5)} ${n1(e.cy + m * 0.06)} Q${n1(e.cx)} ${n1(e.cy - m * 0.04)} ${n1(e.cx + m * 0.5)} ${n1(e.cy + m * 0.1)}`, 'none', { stroke: e.tint('#b8a07a'), 'stroke-width': n1(m * 0.03) }); s += circ(e.cx, e.cy + m * 0.04, m * 0.13, e.rad([[0, lighten(e.tint('#9b2c3a'), 0.25)], [1, darken(e.tint('#9b2c3a'), 0.2)]], { cx: 0.4, cy: 0.35 })) + circ(e.cx, e.cy + m * 0.04, m * 0.08, 'none', { stroke: darken(e.tint('#9b2c3a'), 0.3), 'stroke-width': n1(2 * e.s) }) + A.wordmark(e, '&', e.cx, e.cy + m * 0.075, m * 0.09, darken(e.tint('#9b2c3a'), 0.4), { serif: true, weight: 500 }); s += A.sprig(e, e.cx - m * 0.42, e.cy + m * 0.28, m * 0.3, -30, e.tint('#8aa46a')); return s + B.pen(e, e.cx + m * 0.26, e.cy + m * 0.34, m * 0.5, -38, '#1f2d3d'); },
+      'flower-buckets': (e) => { let s = A.studio(e, { horizon: 0.66, floor: e.tint('#b58d67') }); const m = Math.min(e.w, e.h); const cols = ['#f4a3b4', '#e76f51', '#fbf7f0', '#c9a7e8']; [-0.28, 0, 0.28].forEach((f, i) => { const x = e.cx + f * e.w, base = e.h * 0.86, H = m * 0.34; s += e.shadow(x, base, H * 0.45, H * 0.06, 0.3) + A._svg.path(`M${n1(x - H * 0.36)} ${n1(base - H)} L${n1(x + H * 0.36)} ${n1(base - H)} L${n1(x + H * 0.28)} ${n1(base)} L${n1(x - H * 0.28)} ${n1(base)} Z`, e.cyl('#aab2b8', { edge: 0.35 })) + A._svg.rect(x - H * 0.38, base - H - 3 * e.s, H * 0.76, 5 * e.s, '#c9d0d5', { rx: 2 * e.s }); const R = A.rng(A.hashStr('fb' + i + e.uid)); for (let q = 0; q < 7; q++) { const tx = x + (R() - 0.5) * H * 0.9, ty = base - H - H * (0.5 + R() * 0.7); s += A._svg.line(x + (R() - 0.5) * H * 0.3, base - H, tx, ty, e.tint('#5f8a4a'), 1.6 * e.s); const c = e.tint(cols[(i + q) % cols.length]); for (let p = 0; p < 6; p++) { const a = p / 6 * Math.PI * 2; s += A._svg.circ(tx + Math.cos(a) * H * 0.05, ty + Math.sin(a) * H * 0.05, H * 0.06, c); } s += A._svg.circ(tx, ty, H * 0.04, darken(c, 0.25)); } for (let q = 0; q < 3; q++) s += A.leaf(e, x + (R() - 0.5) * H * 0.6, base - H * (1.1 + R() * 0.4), H * 0.3, -60 - R() * 60); }); s += B.scissorsComb ? '' : ''; return s + A._svg.circ(e.w * 0.9, e.h * 0.92, m * 0.05, e.tint('#c8a57a')) + A._svg.circ(e.w * 0.9, e.h * 0.92, m * 0.02, e.tint('#8f6a45')); },
+      moving: (e) => A.studio(e, { horizon: 0.84 }) + B.movingBoxes(e, e.cx, e.h * 0.86, Math.min(e.w * 0.8, e.h * 0.9)),
+      'event-lights': (e) => { const hz = e.h * 0.62; return A.outdoors(e, { horizon: 0.62, time: 'dusk' }) + O.lawn(e, hz, { stripes: false, colour: '#35502e' }) + B.stringLights(e, e.h * 0.12, 16) + B.stringLights(e, e.h * 0.26, 14) + I.table(e, e.cx, e.h * 0.74, e.w * 0.6, '#8b6a4c', { cloth: true }) + B.bouquet(e, e.cx, e.h * 0.74, e.h * 0.22); },
+      travel: (e) => A.studio(e, { horizon: 0.82 }) + B.suitcase(e, e.cx - e.w * 0.08, e.h * 0.86, Math.min(e.h * 0.6, e.w * 0.8)) + A.ceramic(e, e.cx + e.w * 0.3, e.h * 0.84, e.h * 0.1, '#f1ede6', { form: 'mug' }),
+      sewing: (e) => A.studio(e, { horizon: 0.78 }) + B.sewingMachine(e, e.cx, e.h * 0.82, Math.min(e.w * 0.8, e.h * 1.0)),
+      cake: (e) => hospitality.bakery(e, { variant: 'cake' }),
+      pet: (e) => misc.dog(e),
+      // last resort: the owner's own offerings as a designed stack of cards -- honest, readable, never a random object
+      'offer-cards': (e, p) => { const items = (p.items && p.items.length ? p.items : [p.label].filter(Boolean)).slice(0, 3); if (!items.length) return A.studio(e, { horizon: 0.86 }) + misc.stationery(e, { variant: '' }); let s = A.studio(e, { horizon: 0.86 }); items.forEach((it, i) => { const w = e.w * 0.62, h = e.h * 0.2, x = e.cx - w / 2 + (i - 1) * e.w * 0.05, y = e.h * (0.18 + i * 0.22); s += e.shadow(x + w / 2, y + h, w * 0.45, h * 0.08, 0.25) + rect(x, y, w, h, i === 1 ? e.accent : (e.dark ? '#1f2026' : '#fbfaf7'), { rx: h * 0.16, transform: `rotate(${(i - 1) * -3} ${n1(x + w / 2)} ${n1(y + h / 2)})` }) + A.wordmark(e, it, x + w * 0.08, y + h * 0.6, Math.min(h * 0.28, w * 0.07), i === 1 ? A.inkOn(e.accent) : e.ink, { anchor: 'start', weight: 700, maxWidth: w * 0.84, spacing: '-0.01em' }); }); return s; },
+    };
+
+    const KINDS = Object.assign({
+      'can-hero': canHero, 'can-range': canRange, 'can-ice': canIce, 'bottle-hero': bottleHero, 'drink-pour': drinkPour, 'fruit-splash': fruitSplash,
+      'skincare-hero': skincareHero, 'skincare-range': skincareRange, 'texture-swatch': textureSwatch, botanicals, 'basin-ritual': basinRitual,
+      'pantry-hero': pantryHero, ingredients, plated, 'home-object': homeObject, workbench, apparel,
+      rail: (e, p) => B.clothingRail(e, { kind: p.variant }), fabric: (e, p) => B.weave(e, p.colour || e.accent, { knit: p.variant === 'knit', seam: p.variant !== 'knit' }),
+      'coffee-bag': coffeeBag,
+    }, hospitality, creative, tech, desk, body, outdoor, indoor, misc);
+    const ART_KINDS = Object.keys(KINDS);
+
+    // the one entry point: an art spec for one layer -> self-contained HTML (inline SVG)
+    function drawArt(spec, o) {
+      const k = o || {}; const kind = spec && KINDS[spec.kind] ? spec.kind : 'offer-cards'; const params = (spec && spec.params) || {};
+      const align = /^x(Min|Mid|Max)Y(Min|Mid|Max)$/.test(k.align || '') ? k.align : 'xMidYMid';
+      // canvas: the frame's own proportions when known (clamped so no picture is squashed), else the image aspect
+      let [w, h] = BOX[k.aspect] || BOX['1:1'];
+      // a line-up of products is built to sit in a narrow column; scenes need a wider canvas to stay composed
+      const minRatio = { 'skincare-range': 0.42, 'can-range': 0.42, 'bottle-hero': 0.42 }[kind] || 0.62;
+      if (Number.isFinite(k.ratio) && k.ratio > 0) { const r = Math.max(minRatio, Math.min(2.6, k.ratio)); if (r >= 1) { w = 640; h = Math.round(640 / r); } else { h = 640; w = Math.round(640 * r); } }
+      const e = A.makeEnv({ w, h, tone: k.tone, accent: k.accent, seed: A.hashStr(`${kind}|${k.seed || ''}`), uid: k.uid, kind, detail: k.role && k.role !== 'lead' ? 'simple' : 'full' });
+      if (kind === 'interface') return `<div class="ha-art" data-art="interface">${U.renderInterface(e, params.ui || 'analytics', { title: params.label || 'Product', items: params.items, audience: params.audience, reminders: params.reminders })}</div>`;
+      let bodySvg = '';
+      try { bodySvg = KINDS[kind](e, params) || ''; } catch (err) { bodySvg = misc['offer-cards'](e, params); }
+      if (k.role === 'lead' && !e.dark) bodySvg += A.grain(e, 0.06);
+      const label = A.esc(params.alt || kind.replace(/-/g, ' '));
+      return `<div class="ha-art" data-art="${A.esc(kind)}"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="${align} slice" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg"><defs>${e.defs.join('')}</defs>${bodySvg}</svg></div>`;
+    }
+
+    module.exports = { KINDS, ART_KINDS, BOX, drawArt };
+
+  });
+  __define("hero-art-objects", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- objects: garments, food and drink, studio tools, fitness and care
+    // equipment, desk and paperwork, vehicles, and the everyday things unusual
+    // businesses are about. Built on the kit in ./hero-art.
+    const A = require('./hero-art');
+    const { mix, lighten, darken, rng, hashStr, inkOn } = A;
+    const { rect, circ, ell, path, line, g, P, n1 } = A._svg;
+
+    // ---- garments ----------------------------------------------------------------------------------------------------
+    function fabricFill(e, c) { return e.lin([[0, lighten(c, 0.14)], [0.5, c], [1, darken(c, 0.2)]], { x1: 0, y1: 0, x2: 0.8, y2: 1 }); }
+    function hanger(e, x, y, w) { return path(`M${n1(x - w / 2)} ${n1(y + w * 0.2)} L${n1(x)} ${n1(y)} L${n1(x + w / 2)} ${n1(y + w * 0.2)} Z`, 'none', { stroke: '#b98a55', 'stroke-width': n1(2.4 * e.s), 'stroke-linejoin': 'round' }) + path(`M${n1(x)} ${n1(y)} L${n1(x)} ${n1(y - w * 0.1)} Q${n1(x)} ${n1(y - w * 0.2)} ${n1(x + w * 0.08)} ${n1(y - w * 0.18)}`, 'none', { stroke: '#9aa0a6', 'stroke-width': n1(1.6 * e.s) }); }
+    function hoodie(e, x, y, W, c) {
+      const col = e.tint(c || '#3d4b5c'); const u = W / 100; let s = '';
+      const body = `M${n1(x - 30 * u)} ${n1(y + 8 * u)} L${n1(x - 48 * u)} ${n1(y + 22 * u)} L${n1(x - 56 * u)} ${n1(y + 84 * u)} L${n1(x - 44 * u)} ${n1(y + 86 * u)} L${n1(x - 36 * u)} ${n1(y + 44 * u)} L${n1(x - 34 * u)} ${n1(y + 108 * u)} L${n1(x + 34 * u)} ${n1(y + 108 * u)} L${n1(x + 36 * u)} ${n1(y + 44 * u)} L${n1(x + 44 * u)} ${n1(y + 86 * u)} L${n1(x + 56 * u)} ${n1(y + 84 * u)} L${n1(x + 48 * u)} ${n1(y + 22 * u)} L${n1(x + 30 * u)} ${n1(y + 8 * u)} Z`;
+      s += path(body, fabricFill(e, col));
+      s += path(`M${n1(x - 20 * u)} ${n1(y + 8 * u)} Q${n1(x - 24 * u)} ${n1(y - 18 * u)} ${n1(x)} ${n1(y - 20 * u)} Q${n1(x + 24 * u)} ${n1(y - 18 * u)} ${n1(x + 20 * u)} ${n1(y + 8 * u)} Q${n1(x)} ${n1(y + 18 * u)} ${n1(x - 20 * u)} ${n1(y + 8 * u)} Z`, fabricFill(e, darken(col, 0.08)));
+      s += path(`M${n1(x - 12 * u)} ${n1(y + 6 * u)} Q${n1(x)} ${n1(y + 14 * u)} ${n1(x + 12 * u)} ${n1(y + 6 * u)}`, 'none', { stroke: darken(col, 0.35), 'stroke-width': n1(1.4 * u) });
+      s += line(x - 5 * u, y + 10 * u, x - 6 * u, y + 34 * u, '#f3efe8', 1.2 * u) + line(x + 5 * u, y + 10 * u, x + 6 * u, y + 34 * u, '#f3efe8', 1.2 * u);
+      s += path(`M${n1(x - 22 * u)} ${n1(y + 64 * u)} L${n1(x + 22 * u)} ${n1(y + 64 * u)} L${n1(x + 26 * u)} ${n1(y + 84 * u)} L${n1(x - 26 * u)} ${n1(y + 84 * u)} Z`, darken(col, 0.1), { opacity: 0.8 });
+      s += rect(x - 34 * u, y + 100 * u, 68 * u, 8 * u, darken(col, 0.15)) + rect(x - 56 * u, y + 80 * u, 12 * u, 6 * u, darken(col, 0.15)) + rect(x + 44 * u, y + 80 * u, 12 * u, 6 * u, darken(col, 0.15));
+      for (let i = 0; i < 10; i++) s += line(x - 33 * u + i * 7.3 * u, y + 101 * u, x - 33 * u + i * 7.3 * u, y + 107 * u, darken(col, 0.3), 0.6 * u, { opacity: 0.6 });
+      return s;
+    }
+    function tee(e, x, y, W, c) {
+      const col = e.tint(c || '#e9e4da'); const u = W / 100;
+      return path(`M${n1(x - 16 * u)} ${n1(y)} Q${n1(x)} ${n1(y + 10 * u)} ${n1(x + 16 * u)} ${n1(y)} L${n1(x + 44 * u)} ${n1(y + 10 * u)} L${n1(x + 56 * u)} ${n1(y + 38 * u)} L${n1(x + 38 * u)} ${n1(y + 44 * u)} L${n1(x + 36 * u)} ${n1(y + 102 * u)} L${n1(x - 36 * u)} ${n1(y + 102 * u)} L${n1(x - 38 * u)} ${n1(y + 44 * u)} L${n1(x - 56 * u)} ${n1(y + 38 * u)} L${n1(x - 44 * u)} ${n1(y + 10 * u)} Z`, fabricFill(e, col)) +
+        path(`M${n1(x - 16 * u)} ${n1(y)} Q${n1(x)} ${n1(y + 10 * u)} ${n1(x + 16 * u)} ${n1(y)}`, 'none', { stroke: darken(col, 0.2), 'stroke-width': n1(2.5 * u) }) + line(x - 38 * u, y + 44 * u, x - 36 * u, y + 30 * u, darken(col, 0.12), 0.8 * u);
+    }
+    function jeansStack(e, x, baseY, W) {
+      const cols = ['#2e4a6e', '#3d5f8a', '#23374f']; let s = e.shadow(x, baseY, W * 0.55, W * 0.05, 0.3);
+      cols.forEach((c, i) => { const y = baseY - (i + 1) * W * 0.16; const col = e.tint(c); s += rect(x - W / 2 + (i % 2) * 4 * e.s, y, W, W * 0.16, fabricFill(e, col), { rx: W * 0.04 }); s += line(x - W / 2 + 6 * e.s + (i % 2) * 4 * e.s, y + W * 0.03, x + W / 2 - 6 * e.s, y + W * 0.03, '#d9a441', 1 * e.s, { 'stroke-dasharray': `${n1(3 * e.s)} ${n1(2 * e.s)}`, opacity: 0.8 }); s += rect(x + W * 0.3, y + W * 0.05, W * 0.1, W * 0.06, '#b98a55', { rx: 1 * e.s }); });
+      return s;
+    }
+    function sneaker(e, x, baseY, L, c) {
+      const col = e.tint(c || '#f2f0ec'); const u = L / 100; let s = e.shadow(x, baseY, L * 0.5, L * 0.05, 0.3);
+      s += path(`M${n1(x - 48 * u)} ${n1(baseY - 8 * u)} Q${n1(x - 50 * u)} ${n1(baseY)} ${n1(x - 40 * u)} ${n1(baseY)} L${n1(x + 46 * u)} ${n1(baseY)} Q${n1(x + 52 * u)} ${n1(baseY - 2 * u)} ${n1(x + 50 * u)} ${n1(baseY - 10 * u)} Z`, '#ffffff', { stroke: '#d8d4cc', 'stroke-width': n1(1 * u) });
+      s += path(`M${n1(x - 46 * u)} ${n1(baseY - 8 * u)} Q${n1(x - 48 * u)} ${n1(baseY - 30 * u)} ${n1(x - 34 * u)} ${n1(baseY - 36 * u)} L${n1(x - 14 * u)} ${n1(baseY - 38 * u)} Q${n1(x + 6 * u)} ${n1(baseY - 26 * u)} ${n1(x + 26 * u)} ${n1(baseY - 22 * u)} Q${n1(x + 48 * u)} ${n1(baseY - 20 * u)} ${n1(x + 50 * u)} ${n1(baseY - 10 * u)} Z`, fabricFill(e, col));
+      s += path(`M${n1(x - 20 * u)} ${n1(baseY - 30 * u)} Q${n1(x + 6 * u)} ${n1(baseY - 8 * u)} ${n1(x + 36 * u)} ${n1(baseY - 14 * u)}`, 'none', { stroke: e.accent, 'stroke-width': n1(5 * u), 'stroke-linecap': 'round' });
+      for (let i = 0; i < 4; i++) s += line(x - 12 * u + i * 7 * u, baseY - 34 * u + i * 3 * u, x - 4 * u + i * 7 * u, baseY - 30 * u + i * 3 * u, darken(col, 0.3), 1.4 * u);
+      s += rect(x - 46 * u, baseY - 9 * u, 96 * u, 3 * u, darken(col, 0.12));
+      return s;
+    }
+    function cap(e, x, y, W, c) {
+      const col = e.tint(c || '#2d3a2e'); const u = W / 100;
+      return path(`M${n1(x - 40 * u)} ${n1(y + 20 * u)} Q${n1(x - 38 * u)} ${n1(y - 26 * u)} ${n1(x)} ${n1(y - 28 * u)} Q${n1(x + 38 * u)} ${n1(y - 26 * u)} ${n1(x + 40 * u)} ${n1(y + 20 * u)} Z`, fabricFill(e, col)) + path(`M${n1(x + 30 * u)} ${n1(y + 16 * u)} Q${n1(x + 70 * u)} ${n1(y + 18 * u)} ${n1(x + 78 * u)} ${n1(y + 30 * u)} Q${n1(x + 50 * u)} ${n1(y + 30 * u)} ${n1(x + 26 * u)} ${n1(y + 22 * u)} Z`, darken(col, 0.15)) + circ(x, y - 27 * u, 3 * u, darken(col, 0.2)) + line(x, y - 26 * u, x - 4 * u, y + 18 * u, darken(col, 0.25), 0.8 * u) + line(x, y - 26 * u, x + 18 * u, y + 18 * u, darken(col, 0.25), 0.8 * u);
+    }
+    function dressForm(e, x, baseY, H, c, o) {
+      const k = o || {}; const col = e.tint(c || '#f5f0e8'); let s = e.shadow(x, baseY, H * 0.2, H * 0.03, 0.3);
+      s += line(x, baseY, x, baseY - H * 0.36, '#6b4a33', 3 * e.s) + path(`M${n1(x - H * 0.1)} ${n1(baseY)} L${n1(x)} ${n1(baseY - H * 0.06)} L${n1(x + H * 0.1)} ${n1(baseY)}`, 'none', { stroke: '#6b4a33', 'stroke-width': n1(3 * e.s) });
+      // bodice + skirt of a gown
+      s += path(`M${n1(x - H * 0.1)} ${n1(baseY - H * 0.92)} Q${n1(x)} ${n1(baseY - H * 0.96)} ${n1(x + H * 0.1)} ${n1(baseY - H * 0.92)} L${n1(x + H * 0.08)} ${n1(baseY - H * 0.68)} Q${n1(x + H * 0.3)} ${n1(baseY - H * 0.34)} ${n1(x + H * 0.36)} ${n1(baseY - H * 0.1)} L${n1(x - H * 0.36)} ${n1(baseY - H * 0.1)} Q${n1(x - H * 0.3)} ${n1(baseY - H * 0.34)} ${n1(x - H * 0.08)} ${n1(baseY - H * 0.68)} Z`, e.lin([[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.12)]]));
+      for (let i = -3; i <= 3; i++) s += path(`M${n1(x + i * H * 0.02)} ${n1(baseY - H * 0.66)} Q${n1(x + i * H * 0.06)} ${n1(baseY - H * 0.4)} ${n1(x + i * H * 0.1)} ${n1(baseY - H * 0.11)}`, 'none', { stroke: darken(col, 0.1), 'stroke-width': n1(1 * e.s), opacity: 0.6 });
+      s += rect(x - H * 0.08, baseY - H * 0.72, H * 0.16, H * 0.03, k.sash || e.tint('#d8c3a0'), { rx: 2 * e.s });
+      if (k.lace !== false) { const R = rng(hashStr(`lace${x}`)); for (let i = 0; i < 26; i++) s += circ(x + (R() - 0.5) * H * 0.18, baseY - H * (0.72 + R() * 0.2), (0.8 + R()) * e.s, '#fff', { opacity: 0.8 }); }
+      s += ell(x, baseY - H * 0.97, H * 0.035, H * 0.02, '#6b4a33');
+      return s;
+    }
+    function ring(e, x, y, r, stone) {
+      const gold = e.lin([[0, '#8a6a22'], [0.3, '#f5d98a'], [0.6, '#c99a36'], [1, '#7a5a1a']]);
+      return e.shadow(x, y + r * 1.1, r * 1.1, r * 0.2, 0.3) + ell(x, y, r, r * 0.8, 'none', { stroke: gold, 'stroke-width': n1(r * 0.2) }) + path(P([[x - r * 0.3, y - r * 0.8], [x + r * 0.3, y - r * 0.8], [x + r * 0.18, y - r * 1.25], [x - r * 0.18, y - r * 1.25]]), e.lin([[0, '#ffffff'], [0.5, stone || '#cfe8f7'], [1, '#8fb9d6']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + A._svg.line(x - r * 0.18, y - r * 1.25, x + r * 0.1, y - r * 0.8, '#fff', 1 * e.s, { opacity: 0.8 });
+    }
+    function weave(e, c, o) {
+      const k = o || {}; const col = e.tint(c || '#7c8a9a'); const st = (k.knit ? 22 : 12) * e.s; let s = rect(0, 0, e.w, e.h, darken(col, 0.25));
+      for (let y = 0; y < e.h + st; y += st) for (let x = 0; x < e.w + st; x += st) {
+        if (k.knit) { const lc = e.lin([[0, lighten(col, 0.25)], [1, darken(col, 0.12)]], { x1: 0, y1: 0, x2: 1, y2: 1 }); s += ell(x + st * 0.3, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(-28 ${n1(x + st * 0.3)} ${n1(y + st * 0.5)})` }) + ell(x + st * 0.7, y + st * 0.5, st * 0.2, st * 0.42, lc, { transform: `rotate(28 ${n1(x + st * 0.7)} ${n1(y + st * 0.5)})` }); }
+        else s += rect(x + ((y / st) % 2 ? st / 2 : 0), y, st * 0.9, st * 0.45, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: st * 0.2 });
+      }
+      if (k.seam) s += line(0, e.h * 0.62, e.w, e.h * 0.55, darken(col, 0.4), 2 * e.s) + line(0, e.h * 0.64, e.w, e.h * 0.57, lighten(k.thread || '#d9a441', 0.1), 1.6 * e.s, { 'stroke-dasharray': `${n1(6 * e.s)} ${n1(4 * e.s)}` });
+      return s;
+    }
+    function clothingRail(e, o) {
+      const k = o || {}; const cols = k.colours || ['#2d3a2e', '#c65d3b', '#e8e2d6', '#3d4b5c', '#b89a6a'];
+      let s = A.studio(e, { horizon: 0.84 }) + line(e.w * 0.08, e.h * 0.14, e.w * 0.92, e.h * 0.14, '#9aa0a6', 4 * e.s) + line(e.w * 0.1, e.h * 0.14, e.w * 0.1, e.h * 0.84, '#9aa0a6', 4 * e.s) + line(e.w * 0.9, e.h * 0.14, e.w * 0.9, e.h * 0.84, '#9aa0a6', 4 * e.s);
+      const n = 5; for (let i = 0; i < n; i++) { const x = e.w * (0.2 + i * 0.15); s += hanger(e, x, e.h * 0.16, e.w * 0.12); s += (k.kind === 'tee' || i % 2) ? tee(e, x, e.h * 0.19, e.w * 0.14, cols[i % cols.length]) : hoodie(e, x, e.h * 0.21, e.w * 0.13, cols[i % cols.length]); }
+      return s;
+    }
+    // ---- food & drink ---------------------------------------------------------------------------------------------------
+    function latteTop(e, x, y, r, o) {
+      const k = o || {}; let s = e.shadow(x + r * 0.1, y + r * 0.2, r * 1.3, r * 1.2, 0.3) + ell(x, y + r * 0.9, r * 1.35, r * 0.4, e.tint('#f1ece4')) + circ(x, y, r, e.tint(k.cup || '#f4f1ec')) + circ(x, y, r * 0.82, '#b07a4f');
+      s += circ(x, y, r * 0.7, '#c8966a') + path(`M${n1(x)} ${n1(y + r * 0.55)} Q${n1(x - r * 0.5)} ${n1(y)} ${n1(x)} ${n1(y - r * 0.5)} Q${n1(x + r * 0.5)} ${n1(y)} ${n1(x)} ${n1(y + r * 0.55)} Z`, '#f6ecdc');
+      for (let i = 0; i < 5; i++) s += path(`M${n1(x - r * (0.4 - i * 0.04))} ${n1(y - r * (0.35 - i * 0.16))} Q${n1(x)} ${n1(y - r * (0.1 - i * 0.16))} ${n1(x + r * (0.4 - i * 0.04))} ${n1(y - r * (0.35 - i * 0.16))}`, 'none', { stroke: '#c8966a', 'stroke-width': n1(r * 0.05) });
+      s += path(`M${n1(x + r * 0.95)} ${n1(y - r * 0.2)} Q${n1(x + r * 1.4)} ${n1(y - r * 0.2)} ${n1(x + r * 1.4)} ${n1(y + r * 0.1)} Q${n1(x + r * 1.4)} ${n1(y + r * 0.35)} ${n1(x + r * 0.95)} ${n1(y + r * 0.3)}`, 'none', { stroke: e.tint(k.cup || '#f4f1ec'), 'stroke-width': n1(r * 0.14) });
+      return s;
+    }
+    function pourOver(e, x, baseY, H) {
+      let s = e.shadow(x, baseY, H * 0.35, H * 0.04, 0.3);
+      // glass carafe
+      s += path(`M${n1(x - H * 0.16)} ${n1(baseY - H * 0.4)} L${n1(x + H * 0.16)} ${n1(baseY - H * 0.4)} Q${n1(x + H * 0.28)} ${n1(baseY - H * 0.2)} ${n1(x + H * 0.24)} ${n1(baseY - H * 0.04)} Q${n1(x + H * 0.22)} ${n1(baseY)} ${n1(x + H * 0.16)} ${n1(baseY)} L${n1(x - H * 0.16)} ${n1(baseY)} Q${n1(x - H * 0.22)} ${n1(baseY)} ${n1(x - H * 0.24)} ${n1(baseY - H * 0.04)} Q${n1(x - H * 0.28)} ${n1(baseY - H * 0.2)} ${n1(x - H * 0.16)} ${n1(baseY - H * 0.4)} Z`, '#e7f1f4', { opacity: 0.45, stroke: '#c7d8de', 'stroke-width': n1(1.2 * e.s) });
+      s += path(`M${n1(x - H * 0.25)} ${n1(baseY - H * 0.14)} Q${n1(x)} ${n1(baseY - H * 0.16)} ${n1(x + H * 0.25)} ${n1(baseY - H * 0.14)} L${n1(x + H * 0.22)} ${n1(baseY - H * 0.02)} L${n1(x - H * 0.22)} ${n1(baseY - H * 0.02)} Z`, '#4a2c18', { opacity: 0.9 });
+      // ceramic dripper with the coffee bed blooming
+      s += path(P([[x - H * 0.26, baseY - H * 0.68], [x + H * 0.26, baseY - H * 0.68], [x + H * 0.1, baseY - H * 0.42], [x - H * 0.1, baseY - H * 0.42]]), e.cyl(e.tint('#f2eee8'))) + ell(x, baseY - H * 0.68, H * 0.26, H * 0.04, '#e3ddd3') + ell(x, baseY - H * 0.675, H * 0.22, H * 0.03, '#6b4428');
+      s += A.bubbles(e, x - H * 0.18, baseY - H * 0.7, H * 0.36, H * 0.03, 8, 0.7);
+      // gooseneck kettle pouring
+      const kx = x + H * 0.5, ky = baseY - H * 0.9;
+      s += path(`M${n1(kx - H * 0.14)} ${n1(ky)} L${n1(kx + H * 0.14)} ${n1(ky)} L${n1(kx + H * 0.18)} ${n1(ky + H * 0.24)} L${n1(kx - H * 0.18)} ${n1(ky + H * 0.24)} Z`, e.lin([[0, '#5a5d62'], [0.3, '#b9bdc2'], [1, '#2d2f33']])) + path(`M${n1(kx - H * 0.16)} ${n1(ky + H * 0.2)} Q${n1(kx - H * 0.36)} ${n1(ky + H * 0.18)} ${n1(kx - H * 0.4)} ${n1(ky - H * 0.02)}`, 'none', { stroke: '#8b8f95', 'stroke-width': n1(H * 0.03), 'stroke-linecap': 'round' });
+      s += path(`M${n1(kx - H * 0.4)} ${n1(ky - H * 0.01)} Q${n1(kx - H * 0.46)} ${n1(ky + H * 0.12)} ${n1(x + H * 0.02)} ${n1(baseY - H * 0.68)}`, 'none', { stroke: '#d2a679', 'stroke-width': n1(H * 0.012), opacity: 0.85 });
+      s += path(`M${n1(kx + H * 0.14)} ${n1(ky + H * 0.04)} Q${n1(kx + H * 0.3)} ${n1(ky + H * 0.1)} ${n1(kx + H * 0.16)} ${n1(ky + H * 0.2)}`, 'none', { stroke: '#2d2f33', 'stroke-width': n1(H * 0.03) });
+      for (let i = 0; i < 3; i++) s += path(`M${n1(x - H * 0.1 + i * H * 0.1)} ${n1(baseY - H * 0.74)} q${n1(-H * 0.05)} ${n1(-H * 0.08)} 0 ${n1(-H * 0.16)} q${n1(H * 0.05)} ${n1(-H * 0.08)} 0 ${n1(-H * 0.16)}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(2 * e.s), opacity: 0.35 });
+      return s;
+    }
+    function roasterDrum(e, x, baseY, W) {
+      let s = e.shadow(x, baseY, W * 0.55, W * 0.05, 0.35); const steel = e.lin([[0, '#3a3c40'], [0.3, '#8c9096'], [1, '#232427']], { x1: 0, y1: 0, x2: 0, y2: 1 });
+      s += rect(x - W * 0.38, baseY - W * 0.34, W * 0.12, W * 0.34, '#2a2b2e') + rect(x + W * 0.1, baseY - W * 0.34, W * 0.12, W * 0.34, '#2a2b2e');
+      s += rect(x - W * 0.45, baseY - W * 0.7, W * 0.7, W * 0.38, steel, { rx: W * 0.08 }) + circ(x - W * 0.45, baseY - W * 0.51, W * 0.19, e.lin([[0, '#b9914f'], [1, '#6a4a1f']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + circ(x - W * 0.45, baseY - W * 0.51, W * 0.11, '#20160f');
+      s += path(P([[x - W * 0.05, baseY - W * 0.7], [x + W * 0.15, baseY - W * 0.7], [x + W * 0.22, baseY - W * 1.05], [x - W * 0.12, baseY - W * 1.05]]), steel);
+      // cooling tray with beans
+      s += ell(x + W * 0.32, baseY - W * 0.18, W * 0.28, W * 0.08, '#3a3c40') + ell(x + W * 0.32, baseY - W * 0.2, W * 0.24, W * 0.06, '#5a3a22') + A.beanPile(e, x + W * 0.32, baseY - W * 0.21, W * 0.18, '#4b2e1c');
+      s += path(`M${n1(x - W * 0.48)} ${n1(baseY - W * 0.4)} Q${n1(x - W * 0.2)} ${n1(baseY - W * 0.25)} ${n1(x + W * 0.18)} ${n1(baseY - W * 0.22)}`, 'none', { stroke: '#5a3a22', 'stroke-width': n1(W * 0.03), 'stroke-dasharray': `${n1(4 * e.s)} ${n1(3 * e.s)}` });
+      return s;
+    }
+    function croissant(e, x, y, L) {
+      const c = '#d99a45'; let s = e.shadow(x, y + L * 0.2, L * 0.5, L * 0.08, 0.3);
+      const segs = [[-0.42, 0.08, 0.14, 25], [-0.24, -0.04, 0.2, 12], [0, -0.08, 0.24, 0], [0.24, -0.04, 0.2, -12], [0.42, 0.08, 0.14, -25]];
+      segs.forEach(([dx, dy, r, a]) => { s += ell(x + dx * L, y + dy * L, r * L * 0.62, r * L, e.rad([[0, '#f5c77a'], [0.6, c], [1, darken(c, 0.35)]], { cx: 0.4, cy: 0.3 }), { transform: `rotate(${a} ${n1(x + dx * L)} ${n1(y + dy * L)})` }); });
+      return s;
+    }
+    function loaf(e, x, y, L, kind) {
+      const c = '#c98a44'; let s = e.shadow(x, y + L * 0.3, L * 0.55, L * 0.06, 0.3);
+      if (kind === 'baguette') return s + rect(x - L * 0.6, y - L * 0.1, L * 1.2, L * 0.2, e.lin([[0, '#e8b36a'], [1, darken(c, 0.25)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: L * 0.1, transform: `rotate(-12 ${n1(x)} ${n1(y)})` }) + [-0.35, -0.12, 0.11, 0.34].map(f => path(`M${n1(x + f * L - L * 0.06)} ${n1(y - L * 0.05 - f * L * 0.2)} q${n1(L * 0.06)} ${n1(-L * 0.05)} ${n1(L * 0.13)} ${n1(-L * 0.02)}`, 'none', { stroke: '#f3d9a6', 'stroke-width': n1(L * 0.03), 'stroke-linecap': 'round' })).join('');
+      s += ell(x, y, L * 0.5, L * 0.3, e.rad([[0, '#eab874'], [0.6, c], [1, darken(c, 0.4)]], { cx: 0.4, cy: 0.3 }));
+      s += path(`M${n1(x - L * 0.3)} ${n1(y - L * 0.02)} Q${n1(x)} ${n1(y - L * 0.22)} ${n1(x + L * 0.3)} ${n1(y - L * 0.02)}`, 'none', { stroke: '#f6e3bd', 'stroke-width': n1(L * 0.04), 'stroke-linecap': 'round' });
+      const R = rng(hashStr(`fl${x}`)); for (let i = 0; i < 20; i++) s += circ(x + (R() - 0.5) * L * 0.8, y - R() * L * 0.2, (0.6 + R()) * e.s, '#fbf6ea', { opacity: 0.7 });
+      return s;
+    }
+    function cake(e, x, baseY, W, o) {
+      const k = o || {}; const icing = e.tint(k.icing || '#f6ede3'); let s = e.shadow(x, baseY, W * 0.6, W * 0.05, 0.3) + ell(x, baseY, W * 0.62, W * 0.1, '#e9e4dc');
+      [[0.5, 0.28], [0.36, 0.24], [0.24, 0.2]].forEach(([r, h], i) => { const y = baseY - W * (0.02 + [0, 0.28, 0.52][i]); s += rect(x - W * r, y - W * h, W * r * 2, W * h, e.cyl(icing, { edge: 0.18, hi: 0.2 })) + ell(x, y - W * h, W * r, W * 0.05, lighten(icing, 0.3)); s += path(`M${n1(x - W * r)} ${n1(y - W * h)} ${Array.from({ length: 8 }, (_, q) => `Q${n1(x - W * r + (q + 0.5) * W * r * 2 / 8)} ${n1(y - W * h + W * 0.05)} ${n1(x - W * r + (q + 1) * W * r * 2 / 8)} ${n1(y - W * h)}`).join(' ')}`, 'none', { stroke: k.drip || e.tint('#b56576'), 'stroke-width': n1(3 * e.s) }); });
+      s += A.flavourPiece(e, k.fruit || 'strawberry', x, baseY - W * 0.82, W * 0.08);
+      return s;
+    }
+    // a plate seen from above at a slight angle; dish: pasta pizza salad steak sushi ramen burger tacos eggs
+    function plate(e, x, y, r, dish) {
+      const d = String(dish || 'generic'); let s = e.shadow(x + r * 0.08, y + r * 0.2, r * 1.1, r * 0.55, 0.35) + ell(x, y, r, r * 0.62, e.lin([[0, '#fbfaf7'], [1, '#d9d4cc']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + ell(x, y, r * 0.72, r * 0.44, '#f4f1ec', { stroke: '#e3ded5', 'stroke-width': n1(1 * e.s) });
+      const R = rng(hashStr(`dish${d}${x}`));
+      if (d === 'ramen') s = e.shadow(x + r * 0.08, y + r * 0.3, r * 1.1, r * 0.5, 0.35) + path(`M${n1(x - r)} ${n1(y)} Q${n1(x - r)} ${n1(y + r * 0.9)} ${n1(x)} ${n1(y + r * 0.9)} Q${n1(x + r)} ${n1(y + r * 0.9)} ${n1(x + r)} ${n1(y)} Z`, e.cyl(e.tint('#2d2a27'))) + ell(x, y, r, r * 0.4, '#1f1d1b') + ell(x, y + 2, r * 0.92, r * 0.34, '#d9a15b') + [0, 1, 2, 3, 4, 5].map(i => path(`M${n1(x - r * 0.6)} ${n1(y - r * 0.05 + i * r * 0.05)} Q${n1(x)} ${n1(y + r * 0.15 - i * r * 0.03)} ${n1(x + r * 0.5)} ${n1(y - r * 0.02 + i * r * 0.04)}`, 'none', { stroke: '#f3dc9a', 'stroke-width': n1(2.2 * e.s) })).join('') + halfEgg(e, x + r * 0.35, y - r * 0.06, r * 0.18) + ell(x - r * 0.4, y - r * 0.12, r * 0.18, r * 0.08, '#4a7a3a') + line(x + r * 0.2, y - r * 0.6, x + r * 1.1, y - r * 0.9, '#b98a55', 3 * e.s) + line(x + r * 0.28, y - r * 0.56, x + r * 1.16, y - r * 0.8, '#b98a55', 3 * e.s);
+      else if (d === 'pasta') { for (let i = 0; i < 26; i++) { const a = R() * Math.PI * 2, rr = R() * r * 0.45; s += path(`M${n1(x + Math.cos(a) * rr)} ${n1(y + Math.sin(a) * rr * 0.6)} q${n1((R() - 0.5) * r * 0.5)} ${n1((R() - 0.5) * r * 0.2)} ${n1((R() - 0.5) * r * 0.6)} ${n1((R() - 0.5) * r * 0.3)}`, 'none', { stroke: '#efcf7e', 'stroke-width': n1(2.6 * e.s), 'stroke-linecap': 'round' }); } s += ell(x, y - r * 0.02, r * 0.28, r * 0.12, '#c0392b', { opacity: 0.85 }) + A.leaf(e, x + r * 0.1, y - r * 0.1, r * 0.2, -30, '#4f8a3b') + A.leaf(e, x - r * 0.05, y - r * 0.12, r * 0.16, 200, '#4f8a3b'); }
+      else if (d === 'pizza') { s += ell(x, y, r * 0.78, r * 0.48, '#d9924a') + ell(x, y, r * 0.66, r * 0.4, '#c8412c') + ell(x, y, r * 0.62, r * 0.37, '#f2d38a', { opacity: 0.85 }); for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; s += ell(x + Math.cos(a) * r * 0.36, y + Math.sin(a) * r * 0.22, r * 0.09, r * 0.055, '#b33a2a'); } for (let i = 0; i < 5; i++) s += A.leaf(e, x + (R() - 0.5) * r * 0.8, y + (R() - 0.5) * r * 0.4, r * 0.12, R() * 360, '#3f7a34'); }
+      else if (d === 'sushi') { for (let i = 0; i < 6; i++) { const px = x - r * 0.45 + (i % 3) * r * 0.45, py = y - r * 0.12 + Math.floor(i / 3) * r * 0.26; s += ell(px, py + r * 0.04, r * 0.18, r * 0.09, '#faf7f0') + ell(px, py, r * 0.18, r * 0.1, i % 2 ? '#f08a5d' : '#e55c5c') + line(px - r * 0.12, py - r * 0.02, px + r * 0.12, py + r * 0.02, '#fff', 1.2 * e.s, { opacity: 0.6 }); } }
+      else if (d === 'steak') { s += ell(x - r * 0.1, y, r * 0.42, r * 0.24, e.rad([[0, '#8a3b22'], [1, '#4a1f12']], { cx: 0.4, cy: 0.3 })) + [0, 1, 2].map(i => line(x - r * 0.4 + i * r * 0.22, y - r * 0.12, x - r * 0.26 + i * r * 0.22, y + r * 0.12, '#2a120a', 3 * e.s, { opacity: 0.7 })).join('') + ell(x + r * 0.42, y + r * 0.05, r * 0.18, r * 0.1, '#6fa34a') + ell(x + r * 0.38, y - r * 0.12, r * 0.12, r * 0.07, '#e8c16a'); }
+      else if (d === 'salad') { for (let i = 0; i < 18; i++) s += A.leaf(e, x + (R() - 0.5) * r * 0.9, y + (R() - 0.5) * r * 0.5, r * 0.24, R() * 360, ['#6aa84f', '#8cc05a', '#4f8a3b'][i % 3], { width: 0.5 }); for (let i = 0; i < 5; i++) s += circ(x + (R() - 0.5) * r * 0.7, y + (R() - 0.5) * r * 0.4, r * 0.06, '#d9442f'); }
+      else if (d === 'burger') { s = e.shadow(x, y + r * 0.3, r * 0.9, r * 0.3, 0.35) + ell(x, y + r * 0.26, r * 0.9, r * 0.3, '#eae6df'); const by = y + r * 0.2; s += ell(x, by, r * 0.55, r * 0.14, '#c98a44') + rect(x - r * 0.58, by - r * 0.2, r * 1.16, r * 0.12, '#4a2616', { rx: r * 0.06 }) + path(`M${n1(x - r * 0.62)} ${n1(by - r * 0.2)} q${n1(r * 0.3)} ${n1(r * 0.1)} ${n1(r * 0.62)} 0 q${n1(r * 0.3)} ${n1(r * 0.1)} ${n1(r * 0.62)} 0`, 'none', { stroke: '#6aa84f', 'stroke-width': n1(r * 0.06) }) + rect(x - r * 0.55, by - r * 0.26, r * 1.1, r * 0.06, '#f2c14e') + path(`M${n1(x - r * 0.56)} ${n1(by - r * 0.26)} Q${n1(x - r * 0.56)} ${n1(by - r * 0.7)} ${n1(x)} ${n1(by - r * 0.72)} Q${n1(x + r * 0.56)} ${n1(by - r * 0.7)} ${n1(x + r * 0.56)} ${n1(by - r * 0.26)} Z`, e.rad([[0, '#e8b36a'], [1, '#b4722f']], { cx: 0.4, cy: 0.3 })); for (let i = 0; i < 9; i++) s += ell(x + (R() - 0.5) * r * 0.7, by - r * (0.4 + R() * 0.25), 1.2 * e.s, 2.2 * e.s, '#fbf1d6'); }
+      else if (d === 'tacos') { [-0.35, 0.05, 0.45].forEach(f => { s += path(`M${n1(x + f * r - r * 0.24)} ${n1(y + r * 0.1)} Q${n1(x + f * r)} ${n1(y - r * 0.5)} ${n1(x + f * r + r * 0.24)} ${n1(y + r * 0.1)} Z`, '#e8c06a') + ell(x + f * r, y - r * 0.02, r * 0.16, r * 0.06, '#7a3b1f') + [0, 1, 2].map(q => ell(x + f * r - r * 0.08 + q * r * 0.08, y - r * 0.08, r * 0.04, r * 0.03, q === 1 ? '#f4f1ec' : '#6aa84f')).join(''); }); }
+      else if (d === 'eggs') { s += halfEgg(e, x - r * 0.25, y, r * 0.24) + halfEgg(e, x + r * 0.15, y - r * 0.05, r * 0.24) + rect(x - r * 0.1, y + r * 0.12, r * 0.6, r * 0.14, '#c98a44', { rx: r * 0.05 }) + ell(x + r * 0.45, y - r * 0.12, r * 0.14, r * 0.08, '#6aa84f'); }
+      else { s += ell(x - r * 0.15, y, r * 0.3, r * 0.18, e.rad([[0, '#d98f4e'], [1, '#8a4a22']], { cx: 0.4, cy: 0.3 })) + ell(x + r * 0.3, y + r * 0.04, r * 0.2, r * 0.12, '#6fa34a') + ell(x + r * 0.25, y - r * 0.14, r * 0.12, r * 0.07, '#e8c16a') + path(`M${n1(x - r * 0.5)} ${n1(y + r * 0.2)} Q${n1(x)} ${n1(y + r * 0.3)} ${n1(x + r * 0.5)} ${n1(y + r * 0.15)}`, 'none', { stroke: '#8a2b1a', 'stroke-width': n1(3 * e.s), opacity: 0.7 }); }
+      return s;
+    }
+    function halfEgg(e, x, y, r) { return ell(x, y, r, r * 0.8, '#fbf8f1') + circ(x, y, r * 0.42, e.rad([[0, '#ffc84a'], [1, '#f0961e']], { cx: 0.4, cy: 0.35 })); }
+    function beerTaps(e, o) {
+      let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#2a1f18')], [1, e.tint('#120d0a')]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, 0, e.w, e.h * 0.2, e.tint('#3b2a1e'));
+      for (let i = 0; i < 16; i++) s += rect(i * e.w / 16, e.h * 0.2, e.w / 16 - 2 * e.s, e.h * 0.4, e.tint(i % 2 ? '#4a3524' : '#3f2d1f'));
+      s += rect(e.w * 0.08, e.h * 0.3, e.w * 0.84, e.h * 0.05, e.lin([[0, '#f1f3f5'], [0.5, '#a9aeb3'], [1, '#6f757b']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * e.s });
+      ['#e0b44a', '#b8642a', '#3a2418', '#e6c56a', '#8a3b2a'].forEach((c, i) => { const x = e.w * (0.16 + i * 0.17); s += rect(x - 3 * e.s, e.h * 0.35, 6 * e.s, e.h * 0.08, '#c9ccd1') + rect(x - e.w * 0.02, e.h * 0.18, e.w * 0.04, e.h * 0.14, e.lin([[0, lighten(c, 0.25)], [1, darken(c, 0.3)]]), { rx: 3 * e.s }); });
+      s += rect(0, e.h * 0.66, e.w, e.h * 0.05, e.lin([[0, '#a57a4c'], [1, '#5a3b22']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, e.h * 0.71, e.w, e.h * 0.29, '#1b120c');
+      const I = require('./hero-art-interior');
+      s += I.glassware(e, e.w * 0.3, e.h * 0.66, e.h * 0.24, 'pint', '#e0a33a') + I.glassware(e, e.w * 0.52, e.h * 0.66, e.h * 0.24, 'pint', '#6b2e18') + I.glassware(e, e.w * 0.72, e.h * 0.66, e.h * 0.24, 'pint', '#f0c55a');
+      return s;
+    }
+    // ---- studio tools --------------------------------------------------------------------------------------------------
+    function camera(e, x, y, W, o) {
+      const k = o || {}; const body = e.lin([[0, '#3d3f43'], [1, '#141517']], { x1: 0, y1: 0, x2: 0, y2: 1 }); let s = e.shadow(x, y + W * 0.42, W * 0.55, W * 0.05, 0.35);
+      s += rect(x - W / 2, y - W * 0.28, W, W * 0.6, body, { rx: W * 0.06 }) + rect(x - W * 0.2, y - W * 0.4, W * 0.34, W * 0.14, body, { rx: W * 0.03 }) + rect(x + W * 0.24, y - W * 0.36, W * 0.14, W * 0.08, '#2a2b2e', { rx: W * 0.02 });
+      s += rect(x - W / 2, y - W * 0.12, W * 0.24, W * 0.36, '#26272a', { rx: W * 0.04 });
+      for (let i = 0; i < 8; i++) s += line(x - W * 0.48, y - W * 0.08 + i * W * 0.04, x - W * 0.28, y - W * 0.08 + i * W * 0.04, '#3a3b3f', 1 * e.s);
+      // lens
+      [0.3, 0.26, 0.2, 0.14].forEach((r, i) => { s += circ(x + W * 0.08, y + W * 0.03, W * r, i === 0 ? '#1b1c1e' : i === 1 ? e.lin([[0, '#55585d'], [1, '#1b1c1e']], { x1: 0, y1: 0, x2: 1, y2: 1 }) : i === 2 ? '#0e0f10' : e.rad([[0, '#6a89c9'], [0.5, '#1c2640'], [1, '#07090f']], { cx: 0.35, cy: 0.3 })); });
+      s += circ(x + W * 0.08, y + W * 0.03, W * 0.3, 'none', { stroke: k.ring || '#c0392b', 'stroke-width': n1(1.4 * e.s) }) + circ(x + W * 0.02, y - W * 0.03, W * 0.04, '#fff', { opacity: 0.6 }) + circ(x - W * 0.34, y - W * 0.2, W * 0.03, '#c0392b');
+      return s;
+    }
+    function softbox(e, x, baseY, H) {
+      let s = e.shadow(x, baseY, H * 0.25, H * 0.03, 0.3) + line(x, baseY, x, baseY - H * 0.62, '#2a2b2e', 2.4 * e.s) + path(`M${n1(x - H * 0.16)} ${n1(baseY)} L${n1(x)} ${n1(baseY - H * 0.18)} L${n1(x + H * 0.16)} ${n1(baseY)}`, 'none', { stroke: '#2a2b2e', 'stroke-width': n1(2.2 * e.s) });
+      s += g(rect(-H * 0.2, -H * 0.24, H * 0.4, H * 0.3, '#1d1e20', { rx: 3 * e.s }) + rect(-H * 0.18, -H * 0.22, H * 0.36, H * 0.26, e.rad([[0, '#ffffff'], [1, '#f1ead8']], { cx: 0.5, cy: 0.5, r: 0.7 }), { rx: 2 * e.s }), { transform: `translate(${n1(x)} ${n1(baseY - H * 0.66)}) rotate(-14)` });
+      s += path(P([[x - H * 0.2, baseY - H * 0.62], [x + H * 0.2, baseY - H * 0.7], [x + H * 0.9, baseY - H * 0.1], [x - H * 0.2, baseY]]), '#fff6dd', { opacity: 0.08 });
+      return s;
+    }
+    function prints(e, x, y, W, o) {
+      const k = o || {}; const R = rng(hashStr(`pr${x}${y}`)); let s = '';
+      const scenes = k.scenes || ['sea', 'hill', 'city', 'portrait', 'forest'];
+      scenes.slice(0, 5).forEach((sc, i) => { const px = x + (i - 2) * W * 0.2 + (R() - 0.5) * W * 0.05, py = y + (i % 2) * W * 0.08 - W * 0.04; const pw = W * 0.26, ph = W * 0.2; const a = (R() - 0.5) * 16;
+        let inner = rect(-pw / 2, -ph / 2, pw, ph, '#fbfaf7') + rect(-pw / 2 + pw * 0.06, -ph / 2 + pw * 0.06, pw * 0.88, ph - pw * 0.2, sc === 'city' ? '#2b3a67' : '#bcd7e6');
+        const ix = -pw / 2 + pw * 0.06, iy = -ph / 2 + pw * 0.06, iw = pw * 0.88, ih = ph - pw * 0.2;
+        if (sc === 'sea') inner += rect(ix, iy + ih * 0.55, iw, ih * 0.45, '#3f7ea6') + circ(ix + iw * 0.7, iy + ih * 0.3, ih * 0.12, '#fff4d6');
+        else if (sc === 'hill') inner += path(`M${n1(ix)} ${n1(iy + ih)} L${n1(ix)} ${n1(iy + ih * 0.6)} Q${n1(ix + iw * 0.4)} ${n1(iy + ih * 0.25)} ${n1(ix + iw)} ${n1(iy + ih * 0.65)} L${n1(ix + iw)} ${n1(iy + ih)} Z`, '#6a9a4f');
+        else if (sc === 'city') inner += [0, 1, 2, 3, 4].map(q => rect(ix + q * iw / 5, iy + ih * (0.3 + (q % 3) * 0.15), iw / 5 - 1, ih * (0.7 - (q % 3) * 0.15), '#131b31')).join('');
+        else if (sc === 'portrait') inner += rect(ix, iy, iw, ih, '#d8c2a6') + circ(ix + iw * 0.5, iy + ih * 0.4, ih * 0.2, '#8a5a3b') + path(`M${n1(ix + iw * 0.25)} ${n1(iy + ih)} Q${n1(ix + iw * 0.5)} ${n1(iy + ih * 0.5)} ${n1(ix + iw * 0.75)} ${n1(iy + ih)} Z`, '#3d4b5c');
+        else inner += rect(ix, iy, iw, ih, '#2f4a2c') + [0, 1, 2, 3].map(q => path(P([[ix + q * iw / 4 + iw * 0.05, iy + ih], [ix + q * iw / 4 + iw * 0.125, iy + ih * 0.2], [ix + q * iw / 4 + iw * 0.2, iy + ih]]), '#4f7a3a')).join('');
+        s += e.shadow(px + 3 * e.s, py + ph * 0.55, pw * 0.5, ph * 0.1, 0.25) + g(inner, { transform: `translate(${n1(px)} ${n1(py)}) rotate(${n1(a)})` }); });
+      if (k.loupe) s += circ(x + W * 0.25, y + W * 0.02, W * 0.07, '#dfe9ee', { opacity: 0.6, stroke: '#2a2b2e', 'stroke-width': n1(3 * e.s) });
+      return s;
+    }
+    function swatchFan(e, x, y, L, cols) {
+      const cs = cols || [e.accent, lighten(e.accent, 0.3), '#e76f51', '#f4a261', '#e9c46a', '#2a9d8f', '#264653']; let s = e.shadow(x, y + L * 0.1, L * 0.6, L * 0.08, 0.3);
+      cs.forEach((c, i) => { const a = -70 + i * (100 / cs.length); s += g(rect(-L * 0.08, -L, L * 0.16, L, '#fbfaf7', { rx: 3 * e.s }) + rect(-L * 0.07, -L * 0.98, L * 0.14, L * 0.6, e.tint(c), { rx: 2 * e.s }) + line(-L * 0.05, -L * 0.3, L * 0.03, -L * 0.3, '#9a958c', 1.4 * e.s) + line(-L * 0.05, -L * 0.24, L * 0.01, -L * 0.24, '#bdb8af', 1.2 * e.s), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${n1(a)})` }); });
+      return s + circ(x, y, L * 0.03, '#9aa0a6');
+    }
+    function moodboard(e, o) {
+      const k = o || {}; let s = rect(0, 0, e.w, e.h, e.tint('#e9e2d6')) + rect(e.w * 0.06, e.h * 0.06, e.w * 0.88, e.h * 0.8, e.tint('#cbb89a'), { rx: 4 * e.s });
+      const R = rng(hashStr('mood' + e.uid)); const cards = [[0.1, 0.1, 0.3, 0.34], [0.44, 0.12, 0.22, 0.3], [0.7, 0.1, 0.2, 0.22], [0.12, 0.5, 0.24, 0.3], [0.4, 0.48, 0.3, 0.32], [0.74, 0.38, 0.16, 0.42]];
+      cards.forEach(([fx, fy, fw, fh], i) => { const x = e.w * fx, y = e.h * fy, w = e.w * fw, h = e.h * fh; const a = (R() - 0.5) * 6;
+        let inner = rect(0, 0, w, h, '#fbfaf7');
+        if (i === 0) inner += A.wordmark(e, 'Aa', w * 0.5, h * 0.66, h * 0.5, darken(e.accent, 0.2), { serif: true, weight: 700 });
+        else if (i === 2 || i === 5) inner += [0, 1, 2, 3].map(q => rect(w * 0.1, h * (0.08 + q * 0.23), w * 0.8, h * 0.18, e.tint([e.accent, '#e9c46a', '#2a9d8f', '#e76f51'][q]))).join('');
+        else if (i === 3) inner += path(`M${n1(w * 0.1)} ${n1(h * 0.8)} Q${n1(w * 0.3)} ${n1(h * 0.2)} ${n1(w * 0.5)} ${n1(h * 0.6)} T${n1(w * 0.9)} ${n1(h * 0.3)}`, 'none', { stroke: '#3a3a3a', 'stroke-width': n1(2 * e.s) }) + circ(w * 0.7, h * 0.7, h * 0.1, 'none', { stroke: '#3a3a3a', 'stroke-width': n1(1.5 * e.s) });
+        else inner += rect(w * 0.06, h * 0.06, w * 0.88, h * 0.88, e.lin([[0, lighten(e.accent, 0.4)], [1, e.tint('#a3b8a0')]], { x1: 0, y1: 0, x2: 1, y2: 1 })) + circ(w * 0.3, h * 0.35, h * 0.12, '#fbf3df');
+        s += e.shadow(x + w / 2 + 3 * e.s, y + h, w * 0.4, h * 0.05, 0.25) + g(inner + circ(w * 0.5, h * 0.05, 4 * e.s, '#c0392b'), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${n1(a)} ${n1(w / 2)} ${n1(h / 2)})` }); });
+      if (k.swatches !== false) s += swatchFan(e, e.w * 0.78, e.h * 0.96, e.h * 0.3);
+      return s;
+    }
+    function sketchbook(e, x, y, W) {
+      let s = e.shadow(x, y + W * 0.36, W * 0.55, W * 0.06, 0.3) + rect(x - W / 2, y - W * 0.34, W, W * 0.68, '#fbfaf5', { rx: 3 * e.s, stroke: '#ddd6ca', 'stroke-width': n1(1 * e.s) }) + line(x, y - W * 0.34, x, y + W * 0.34, '#d8d1c4', 1.5 * e.s);
+      s += path(`M${n1(x - W * 0.42)} ${n1(y + W * 0.1)} Q${n1(x - W * 0.3)} ${n1(y - W * 0.25)} ${n1(x - W * 0.12)} ${n1(y - W * 0.02)} T${n1(x - W * 0.05)} ${n1(y - W * 0.2)}`, 'none', { stroke: '#4a4a4a', 'stroke-width': n1(1.6 * e.s) }) + rect(x + W * 0.08, y - W * 0.24, W * 0.3, W * 0.2, 'none', { stroke: '#4a4a4a', 'stroke-width': n1(1.4 * e.s) }) + line(x + W * 0.08, y + W * 0.04, x + W * 0.38, y + W * 0.04, '#9a9a9a', 1.2 * e.s) + line(x + W * 0.08, y + W * 0.1, x + W * 0.3, y + W * 0.1, '#9a9a9a', 1.2 * e.s);
+      s += g(rect(0, -3 * e.s, W * 0.5, 6 * e.s, '#e9b949') + path(P([[W * 0.5, -3 * e.s], [W * 0.58, 0], [W * 0.5, 3 * e.s]]), '#e8cfa6') + rect(-W * 0.05, -3 * e.s, W * 0.05, 6 * e.s, '#e37b8a'), { transform: `translate(${n1(x + W * 0.05)} ${n1(y + W * 0.28)}) rotate(-24)` });
+      return s;
+    }
+    // ---- fitness ---------------------------------------------------------------------------------------------------------
+    function glove(e, x, y, W, c, flip) {
+      const col = c || '#c0392b'; const u = W / 100;
+      const inner = path(`M${n1(-30 * u)} ${n1(40 * u)} L${n1(-34 * u)} ${n1(-10 * u)} Q${n1(-38 * u)} ${n1(-50 * u)} ${n1(4 * u)} ${n1(-52 * u)} Q${n1(40 * u)} ${n1(-50 * u)} ${n1(38 * u)} ${n1(-8 * u)} L${n1(34 * u)} ${n1(20 * u)} Q${n1(28 * u)} ${n1(40 * u)} ${n1(10 * u)} ${n1(40 * u)} Z`, e.rad([[0, lighten(col, 0.35)], [0.6, col], [1, darken(col, 0.35)]], { cx: 0.35, cy: 0.3 })) +
+        path(`M${n1(-36 * u)} ${n1(-6 * u)} Q${n1(-52 * u)} ${n1(-6 * u)} ${n1(-48 * u)} ${n1(10 * u)} Q${n1(-44 * u)} ${n1(20 * u)} ${n1(-32 * u)} ${n1(16 * u)}`, darken(col, 0.08)) + rect(-32 * u, 34 * u, 64 * u, 30 * u, e.lin([[0, '#f4f1ec'], [1, '#cfc8bc']]), { rx: 6 * u }) + rect(-32 * u, 44 * u, 64 * u, 8 * u, darken(col, 0.1)) + ell(-8 * u, -30 * u, 12 * u, 6 * u, '#fff', { opacity: 0.3, transform: 'rotate(-20)' });
+      return g(inner, { transform: `translate(${n1(x)} ${n1(y)})${flip ? ' scale(-1 1)' : ''} rotate(${flip ? -12 : 12})` });
+    }
+    function heavyBag(e, x, top, H, c) {
+      const col = e.tint(c || '#2d2a27'); let s = line(x, 0, x, top, '#6a6f75', 2 * e.s) + path(`M${n1(x)} ${n1(top)} L${n1(x - H * 0.14)} ${n1(top + H * 0.08)} M${n1(x)} ${n1(top)} L${n1(x + H * 0.14)} ${n1(top + H * 0.08)}`, 'none', { stroke: '#6a6f75', 'stroke-width': n1(1.6 * e.s) });
+      s += rect(x - H * 0.16, top + H * 0.08, H * 0.32, H * 0.9, e.cyl(col, { edge: 0.4, hi: 0.18 }), { rx: H * 0.08 }) + rect(x - H * 0.16, top + H * 0.3, H * 0.32, H * 0.06, darken(col, 0.3)) + rect(x - H * 0.16, top + H * 0.72, H * 0.32, H * 0.06, darken(col, 0.3));
+      return s;
+    }
+    function wraps(e, x, y, r, c) { const col = e.tint(c || '#e05a47'); let s = e.shadow(x, y + r * 0.8, r * 1.2, r * 0.2, 0.3) + circ(x, y, r, e.rad([[0, lighten(col, 0.2)], [1, darken(col, 0.25)]], { cx: 0.4, cy: 0.35 })); for (let i = 1; i < 5; i++) s += circ(x, y, r * i / 5, 'none', { stroke: darken(col, 0.2), 'stroke-width': n1(1 * e.s), opacity: 0.6 }); return s + path(`M${n1(x + r)} ${n1(y)} Q${n1(x + r * 1.6)} ${n1(y + r * 0.2)} ${n1(x + r * 2.4)} ${n1(y + r * 0.9)}`, 'none', { stroke: col, 'stroke-width': n1(r * 0.5), 'stroke-linecap': 'round' }); }
+    function kettlebell(e, x, baseY, H, c) { const col = c || '#2d2f33'; return e.shadow(x, baseY, H * 0.45, H * 0.06, 0.35) + path(`M${n1(x - H * 0.24)} ${n1(baseY - H * 0.62)} Q${n1(x - H * 0.28)} ${n1(baseY - H)} ${n1(x)} ${n1(baseY - H)} Q${n1(x + H * 0.28)} ${n1(baseY - H)} ${n1(x + H * 0.24)} ${n1(baseY - H * 0.62)}`, 'none', { stroke: col, 'stroke-width': n1(H * 0.1) }) + circ(x, baseY - H * 0.34, H * 0.36, e.rad([[0, lighten(col, 0.35)], [1, darken(col, 0.3)]], { cx: 0.35, cy: 0.3 })) + rect(x - H * 0.28, baseY - 4 * e.s, H * 0.56, 4 * e.s, darken(col, 0.3)); }
+    function dumbbell(e, x, y, L, c) { const col = c || '#2d2f33'; const u = L / 100; return e.shadow(x, y + 14 * u, L * 0.5, L * 0.05, 0.3) + rect(x - 30 * u, y - 3 * u, 60 * u, 6 * u, e.lin([[0, '#e1e4e7'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 })) + [-1, 1].map(sd => rect(x + sd * 38 * u - 9 * u, y - 16 * u, 18 * u, 32 * u, e.lin([[0, lighten(col, 0.3)], [1, darken(col, 0.3)]]), { rx: 4 * u }) + rect(x + sd * 26 * u - 5 * u, y - 12 * u, 10 * u, 24 * u, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.3)]]), { rx: 3 * u })).join(''); }
+    function barbell(e, x, y, L) { const u = L / 100; let s = e.shadow(x, y + 30 * u, L * 0.55, L * 0.04, 0.35) + rect(x - 50 * u, y - 1.6 * u, 100 * u, 3.2 * u, e.lin([[0, '#f1f3f5'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 })); [-1, 1].forEach(sd => { [[36, 26, '#c0392b'], [30, 22, '#2d6cdf'], [25, 16, '#2d2f33']].forEach(([off, r, c]) => { s += rect(x + sd * off * u - 3 * u, y - r * u, 6 * u, r * 2 * u, e.lin([[0, lighten(c, 0.2)], [1, darken(c, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * u }); }); }); for (let i = -6; i <= 6; i++) s += line(x + i * 2 * u, y - 1.6 * u, x + i * 2 * u + 1 * u, y + 1.6 * u, '#6a7178', 0.5 * u); return s; }
+    // ---- care & wellness ---------------------------------------------------------------------------------------------------
+    function stones(e, x, baseY, W) { let s = e.shadow(x, baseY, W * 0.4, W * 0.05, 0.3); [[0.5, 0.16], [0.4, 0.14], [0.3, 0.12], [0.2, 0.1]].forEach(([r, h], i) => { const y = baseY - W * [0.08, 0.22, 0.34, 0.44][i]; s += ell(x + (i % 2 ? 3 : -3) * e.s, y, W * r * 0.5, W * h * 0.5, e.rad([[0, '#6a6f75'], [0.6, '#3a3d42'], [1, '#1f2023']], { cx: 0.35, cy: 0.3 })); }); return s; }
+    function towelRoll(e, x, y, r, c) { const col = e.tint(c || '#f1ebe1'); let s = e.shadow(x, y + r, r * 1.6, r * 0.2, 0.25) + rect(x - r * 1.5, y - r, r * 3, r * 2, e.lin([[0, lighten(col, 0.1)], [1, darken(col, 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: r }) + circ(x + r * 1.5, y, r, darken(col, 0.05)); for (let i = 1; i < 4; i++) s += circ(x + r * 1.5, y, r * i / 4, 'none', { stroke: darken(col, 0.15), 'stroke-width': n1(1 * e.s) }); return s; }
+    function needles(e, x, y, W) { let s = e.shadow(x, y + W * 0.1, W * 0.55, W * 0.06, 0.25) + rect(x - W / 2, y - W * 0.12, W, W * 0.24, '#eceff1', { rx: W * 0.04, stroke: '#cfd6da', 'stroke-width': n1(1 * e.s) }); for (let i = 0; i < 7; i++) { const nx = x - W * 0.4 + i * W * 0.13; s += line(nx, y - W * 0.06, nx + W * 0.06, y + W * 0.08, '#c9ccd1', 1.2 * e.s) + rect(nx - W * 0.02, y - W * 0.1, W * 0.04, W * 0.06, e.tint('#6cbf9a'), { rx: 2 * e.s }); } return s; }
+    function scissorsComb(e, x, y, L) { const u = L / 100; const steel = e.lin([[0, '#f1f3f5'], [1, '#7d848b']]); let s = e.shadow(x, y + 20 * u, L * 0.5, L * 0.05, 0.25); s += g(path(`M0 0 L${n1(60 * u)} ${n1(-4 * u)} L${n1(60 * u)} ${n1(2 * u)} Z`, steel) + circ(-14 * u, 6 * u, 9 * u, 'none', { stroke: '#2d2f33', 'stroke-width': n1(3 * u) }), { transform: `translate(${n1(x - 20 * u)} ${n1(y - 8 * u)}) rotate(-8)` }) + g(path(`M0 0 L${n1(60 * u)} ${n1(4 * u)} L${n1(60 * u)} ${n1(-2 * u)} Z`, steel) + circ(-14 * u, -6 * u, 9 * u, 'none', { stroke: '#2d2f33', 'stroke-width': n1(3 * u) }), { transform: `translate(${n1(x - 20 * u)} ${n1(y - 8 * u)}) rotate(8)` }); s += rect(x - 40 * u, y + 10 * u, 80 * u, 8 * u, '#2d2f33', { rx: 2 * u }); for (let i = 0; i < 26; i++) s += line(x - 38 * u + i * 3 * u, y + 18 * u, x - 38 * u + i * 3 * u, y + 30 * u, '#2d2f33', 1.2 * u); return s; }
+    function nailPolish(e, x, baseY, H, c) { const col = c || '#c2185b'; return e.shadow(x, baseY, H * 0.3, H * 0.04, 0.3) + rect(x - H * 0.24, baseY - H * 0.5, H * 0.48, H * 0.5, e.cyl(col, { edge: 0.4, hi: 0.4 }), { rx: H * 0.08 }) + rect(x - H * 0.1, baseY - H, H * 0.2, H * 0.5, e.cyl('#1f1d1b'), { rx: H * 0.03 }) + rect(x - H * 0.16, baseY - H * 0.34, H * 0.08, H * 0.26, '#fff', { opacity: 0.35, rx: H * 0.04 }); }
+    function tooth(e, x, y, H) { return e.shadow(x, y + H * 0.55, H * 0.4, H * 0.06, 0.25) + path(`M${n1(x - H * 0.36)} ${n1(y - H * 0.3)} Q${n1(x - H * 0.4)} ${n1(y - H * 0.55)} ${n1(x - H * 0.18)} ${n1(y - H * 0.55)} Q${n1(x)} ${n1(y - H * 0.48)} ${n1(x + H * 0.18)} ${n1(y - H * 0.55)} Q${n1(x + H * 0.4)} ${n1(y - H * 0.55)} ${n1(x + H * 0.36)} ${n1(y - H * 0.3)} Q${n1(x + H * 0.3)} ${n1(y)} ${n1(x + H * 0.24)} ${n1(y + H * 0.45)} Q${n1(x + H * 0.16)} ${n1(y + H * 0.55)} ${n1(x + H * 0.08)} ${n1(y + H * 0.35)} Q${n1(x)} ${n1(y + H * 0.1)} ${n1(x - H * 0.08)} ${n1(y + H * 0.35)} Q${n1(x - H * 0.16)} ${n1(y + H * 0.55)} ${n1(x - H * 0.24)} ${n1(y + H * 0.45)} Q${n1(x - H * 0.3)} ${n1(y)} ${n1(x - H * 0.36)} ${n1(y - H * 0.3)} Z`, e.rad([[0, '#ffffff'], [0.7, '#eef2f4'], [1, '#c9d3d8']], { cx: 0.35, cy: 0.3 })) + A.sprig(e, x + H * 0.4, y - H * 0.5, H * 0.3, -40, e.tint('#7fc8b0')); }
+    function band(e, x1, y1, x2, y2, c) { return path(`M${n1(x1)} ${n1(y1)} Q${n1((x1 + x2) / 2)} ${n1(Math.max(y1, y2) + 30 * e.s)} ${n1(x2)} ${n1(y2)}`, 'none', { stroke: c || '#e05a47', 'stroke-width': n1(6 * e.s), 'stroke-linecap': 'round' }); }
+    // ---- desk & paperwork --------------------------------------------------------------------------------------------------
+    function paper(e, x, y, w, h, ang, o) {
+      const k = o || {}; let inner = rect(-w / 2, -h / 2, w, h, '#fdfcf8') + rect(-w / 2, -h / 2, w, h * 0.12, k.band || 'none');
+      for (let i = 0; i < (k.lines || 9); i++) inner += rect(-w * 0.4, -h * 0.34 + i * h * 0.07, w * (i % 4 === 3 ? 0.5 : 0.8), 2.4 * e.s, '#c9c4ba', { rx: 1.2 * e.s });
+      if (k.signature) inner += line(-w * 0.4, h * 0.36, w * 0.1, h * 0.36, '#7a756c', 1 * e.s) + path(`M${n1(-w * 0.38)} ${n1(h * 0.33)} q${n1(w * 0.06)} ${n1(-h * 0.08)} ${n1(w * 0.1)} 0 t${n1(w * 0.1)} 0 t${n1(w * 0.12)} ${n1(-h * 0.02)}`, 'none', { stroke: '#1f3a6b', 'stroke-width': n1(1.8 * e.s) });
+      if (k.chart) inner += path(`M${n1(-w * 0.36)} ${n1(h * 0.34)} L${n1(-w * 0.2)} ${n1(h * 0.2)} L${n1(-w * 0.04)} ${n1(h * 0.26)} L${n1(w * 0.14)} ${n1(h * 0.06)} L${n1(w * 0.34)} ${n1(-h * 0.02)}`, 'none', { stroke: e.accent, 'stroke-width': n1(2.4 * e.s) }) + line(-w * 0.38, h * 0.38, w * 0.38, h * 0.38, '#b9b4aa', 1 * e.s);
+      return e.shadow(x + 4 * e.s, y + h * 0.5, w * 0.5, h * 0.06, 0.2) + g(inner, { transform: `translate(${n1(x)} ${n1(y)}) rotate(${ang || 0})` });
+    }
+    function pen(e, x, y, L, ang, c) { const u = L / 100; return g(rect(-50 * u, -3.4 * u, 84 * u, 6.8 * u, e.lin([[0, lighten(c || '#1f2d3d', 0.3)], [1, darken(c || '#1f2d3d', 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * u }) + path(P([[34 * u, -3.4 * u], [50 * u, 0], [34 * u, 3.4 * u]]), '#d8b25a') + rect(-40 * u, -4.4 * u, 22 * u, 1.6 * u, '#d8b25a'), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${ang || 0})` }); }
+    function calculator(e, x, y, W, ang) { let inner = rect(-W / 2, -W * 0.65, W, W * 1.3, e.lin([[0, '#3a3d42'], [1, '#1d1e20']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.08 }) + rect(-W * 0.4, -W * 0.55, W * 0.8, W * 0.26, '#b9c8a8', { rx: W * 0.03 }); for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) inner += rect(-W * 0.4 + c * W * 0.21, -W * 0.18 + r * W * 0.2, W * 0.16, W * 0.14, c === 3 ? e.tint('#e07a3a') : '#5a5e64', { rx: W * 0.03 }); return e.shadow(x + 4 * e.s, y + W * 0.66, W * 0.5, W * 0.06, 0.3) + g(inner, { transform: `translate(${n1(x)} ${n1(y)}) rotate(${ang || 0})` }); }
+    function stickyWall(e, o) {
+      const k = o || {}; let s = rect(0, 0, e.w, e.h, '#f7f7f5') + rect(0, 0, e.w, e.h, e.rad([[0, '#ffffff', 0.6], [1, '#e7e8e6', 0.8]], { cx: 0.3, cy: 0.2, r: 0.9 }));
+      const cols = ['#ffe07a', '#ffb3a7', '#a8e0c8', '#a7c8ff', '#f7c6ff']; const R = rng(hashStr('stk' + e.uid)); const heads = (k.items || []).slice(0, 3);
+      for (let c = 0; c < 3; c++) { const x = e.w * (0.08 + c * 0.31); if (heads[c]) s += A.wordmark(e, heads[c], x + e.w * 0.12, e.h * 0.1, e.h * 0.045, '#3a3a3a', { weight: 700, spacing: '0.02em', maxWidth: e.w * 0.26 }); else s += rect(x + e.w * 0.03, e.h * 0.07, e.w * 0.18, 4 * e.s, '#3a3a3a', { rx: 2 * e.s }); for (let r = 0; r < 4; r++) { if (R() < 0.2) continue; const px = x + (r % 2) * e.w * 0.12 + (R() - 0.5) * 6 * e.s, py = e.h * (0.18 + r * 0.18); s += e.shadow(px + e.w * 0.05, py + e.w * 0.1, e.w * 0.05, e.w * 0.01, 0.2) + rect(px, py, e.w * 0.11, e.w * 0.1, e.tint(cols[(c + r) % cols.length]), { transform: `rotate(${n1((R() - 0.5) * 8)} ${n1(px)} ${n1(py)})` }) + rect(px + e.w * 0.015, py + e.w * 0.03, e.w * 0.07, 2 * e.s, '#555', { opacity: 0.5 }) + rect(px + e.w * 0.015, py + e.w * 0.05, e.w * 0.05, 2 * e.s, '#555', { opacity: 0.5 }); } }
+      s += path(`M${n1(e.w * 0.3)} ${n1(e.h * 0.5)} q${n1(e.w * 0.04)} ${n1(-e.h * 0.06)} ${n1(e.w * 0.08)} 0`, 'none', { stroke: '#2d6cdf', 'stroke-width': n1(3 * e.s), 'stroke-linecap': 'round' }) + path(`M${n1(e.w * 0.62)} ${n1(e.h * 0.62)} q${n1(e.w * 0.04)} ${n1(e.h * 0.06)} ${n1(e.w * 0.08)} 0`, 'none', { stroke: '#2d6cdf', 'stroke-width': n1(3 * e.s), 'stroke-linecap': 'round' });
+      s += g(rect(0, -5 * e.s, e.w * 0.22, 10 * e.s, e.tint('#2d6cdf'), { rx: 5 * e.s }) + rect(e.w * 0.2, -4 * e.s, e.w * 0.05, 8 * e.s, '#1d1e20', { rx: 2 * e.s }), { transform: `translate(${n1(e.w * 0.62)} ${n1(e.h * 0.92)}) rotate(-12)` });
+      return s;
+    }
+    function keysOnTag(e, x, y, L) {
+      const u = L / 100; const brass = e.lin([[0, '#8a6a22'], [0.3, '#f5d98a'], [0.6, '#c99a36'], [1, '#7a5a1a']]); let s = e.shadow(x, y + 30 * u, L * 0.5, L * 0.06, 0.3);
+      s += circ(x - 20 * u, y - 10 * u, 14 * u, 'none', { stroke: '#c9ccd1', 'stroke-width': n1(3 * u) });
+      s += g(rect(0, -6 * u, 50 * u, 12 * u, brass, { rx: 2 * u }) + path(`M${n1(40 * u)} ${n1(6 * u)} l0 ${n1(6 * u)} l${n1(5 * u)} 0 l0 ${n1(-3 * u)} l${n1(4 * u)} 0 l0 ${n1(4 * u)}`, 'none', { stroke: '#c99a36', 'stroke-width': n1(3 * u) }) + circ(-6 * u, 0, 12 * u, brass) + circ(-8 * u, 0, 4 * u, '#fbf7ea'), { transform: `translate(${n1(x - 8 * u)} ${n1(y)}) rotate(18)` });
+      s += g(path(`M${n1(-18 * u)} ${n1(-12 * u)} L${n1(8 * u)} ${n1(-12 * u)} L${n1(18 * u)} 0 L${n1(8 * u)} ${n1(12 * u)} L${n1(-18 * u)} ${n1(12 * u)} Z`, '#f4efe4', { stroke: '#d9cfbd', 'stroke-width': n1(1 * u) }) + path(`M${n1(-10 * u)} ${n1(4 * u)} L${n1(-10 * u)} ${n1(-2 * u)} L${n1(-4 * u)} ${n1(-7 * u)} L${n1(2 * u)} ${n1(-2 * u)} L${n1(2 * u)} ${n1(4 * u)} Z`, e.accent), { transform: `translate(${n1(x - 42 * u)} ${n1(y + 18 * u)}) rotate(-24)` });
+      return s;
+    }
+    // ---- vehicles -------------------------------------------------------------------------------------------------------------
+    function car(e, x, baseY, L, c, o) {
+      const k = o || {}; const col = c || e.accent; const u = L / 100; let s = e.shadow(x, baseY + 1 * u, L * 0.55, L * 0.05, 0.45);
+      const paint = e.lin([[0, lighten(col, 0.35)], [0.35, col], [0.62, darken(col, 0.25)], [1, darken(col, 0.5)]], { x1: 0, y1: 0, x2: 0, y2: 1 });
+      s += path(`M${n1(x - 50 * u)} ${n1(baseY - 10 * u)} Q${n1(x - 52 * u)} ${n1(baseY - 22 * u)} ${n1(x - 42 * u)} ${n1(baseY - 24 * u)} L${n1(x - 26 * u)} ${n1(baseY - 26 * u)} Q${n1(x - 14 * u)} ${n1(baseY - 40 * u)} ${n1(x + 4 * u)} ${n1(baseY - 40 * u)} L${n1(x + 18 * u)} ${n1(baseY - 39 * u)} Q${n1(x + 30 * u)} ${n1(baseY - 28 * u)} ${n1(x + 44 * u)} ${n1(baseY - 24 * u)} Q${n1(x + 52 * u)} ${n1(baseY - 22 * u)} ${n1(x + 51 * u)} ${n1(baseY - 12 * u)} L${n1(x + 50 * u)} ${n1(baseY - 8 * u)} L${n1(x - 50 * u)} ${n1(baseY - 8 * u)} Z`, paint);
+      s += path(`M${n1(x - 22 * u)} ${n1(baseY - 27 * u)} Q${n1(x - 12 * u)} ${n1(baseY - 37 * u)} ${n1(x + 2 * u)} ${n1(baseY - 37 * u)} L${n1(x + 16 * u)} ${n1(baseY - 36 * u)} Q${n1(x + 24 * u)} ${n1(baseY - 30 * u)} ${n1(x + 28 * u)} ${n1(baseY - 27 * u)} Z`, e.lin([[0, '#c9dbe6'], [1, '#2f3f4c']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += line(x + 4 * u, baseY - 37 * u, x + 4 * u, baseY - 27 * u, darken(col, 0.3), 1.6 * u) + line(x - 30 * u, baseY - 18 * u, x + 44 * u, baseY - 18 * u, lighten(col, 0.5), 0.8 * u, { opacity: 0.6 });
+      // mirror-finish reflections: long light strips across the paint
+      if (k.shine) [[-30, 0.5], [0, 0.35], [26, 0.45]].forEach(([dx, op]) => { s += path(P([[x + (dx - 4) * u, baseY - 26 * u], [x + (dx + 6) * u, baseY - 26 * u], [x + (dx + 2) * u, baseY - 12 * u], [x + (dx - 8) * u, baseY - 12 * u]]), '#ffffff', { opacity: op }); });
+      s += rect(x + 44 * u, baseY - 21 * u, 6 * u, 3 * u, '#fff6d8', { rx: 1.5 * u }) + rect(x - 50 * u, baseY - 20 * u, 4 * u, 3 * u, '#c0392b', { rx: 1.5 * u });
+      const wheel = wx => circ(wx, baseY - 8 * u, 9 * u, '#1b1c1e') + circ(wx, baseY - 8 * u, 5.6 * u, e.lin([[0, '#eceef0'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + [0, 1, 2, 3, 4].map(i => { const a = i / 5 * Math.PI * 2; return line(wx, baseY - 8 * u, wx + Math.cos(a) * 5 * u, baseY - 8 * u + Math.sin(a) * 5 * u, '#5a5f66', 1.2 * u); }).join('') + circ(wx, baseY - 8 * u, 1.4 * u, '#2d2f33');
+      s += wheel(x - 30 * u) + wheel(x + 32 * u);
+      return s;
+    }
+    function rim(e, x, y, r) {
+      let s = e.shadow(x, y + r * 1.02, r * 1.1, r * 0.12, 0.4) + circ(x, y, r, e.rad([[0, '#2a2b2e'], [1, '#101112']])) + circ(x, y, r * 0.96, 'none', { stroke: '#3a3b3f', 'stroke-width': n1(r * 0.05) });
+      for (let i = 0; i < 30; i++) { const a = i / 30 * Math.PI * 2; s += line(x + Math.cos(a) * r * 0.82, y + Math.sin(a) * r * 0.82, x + Math.cos(a) * r * 0.97, y + Math.sin(a) * r * 0.97, '#2f3034', r * 0.05); }
+      s += circ(x, y, r * 0.72, e.lin([[0, '#f4f6f8'], [0.5, '#a3a9b0'], [1, '#5f656b']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + circ(x, y, r * 0.66, '#1b1c1e');
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 - Math.PI / 2; s += path(P([[x + Math.cos(a - 0.12) * r * 0.16, y + Math.sin(a - 0.12) * r * 0.16], [x + Math.cos(a - 0.2) * r * 0.66, y + Math.sin(a - 0.2) * r * 0.66], [x + Math.cos(a + 0.2) * r * 0.66, y + Math.sin(a + 0.2) * r * 0.66], [x + Math.cos(a + 0.12) * r * 0.16, y + Math.sin(a + 0.12) * r * 0.16]]), e.lin([[0, '#f4f6f8'], [1, '#8a9097']], { x1: 0, y1: 0, x2: 1, y2: 1 })); }
+      s += circ(x, y, r * 0.2, e.lin([[0, '#e9ecef'], [1, '#6a7178']])) + circ(x, y, r * 0.08, e.accent);
+      [0, 1, 2, 3, 4].forEach(i => { const a = i / 5 * Math.PI * 2; s += circ(x + Math.cos(a) * r * 0.13, y + Math.sin(a) * r * 0.13, r * 0.02, '#2d2f33'); });
+      return s + path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.4)} A${n1(r)} ${n1(r)} 0 0 1 ${n1(x - r * 0.2)} ${n1(y - r * 0.98)}`, 'none', { stroke: '#ffffff', 'stroke-width': n1(r * 0.03), opacity: 0.35 });
+    }
+    function polisher(e, x, y, W, ang) {
+      const u = W / 100; return g(ell(0, 30 * u, 36 * u, 10 * u, e.tint('#e8793a')) + ell(0, 26 * u, 34 * u, 9 * u, '#f4a261') + rect(-18 * u, -8 * u, 36 * u, 30 * u, e.lin([[0, '#3a3d42'], [1, '#1d1e20']]), { rx: 8 * u }) + rect(-60 * u, -14 * u, 50 * u, 16 * u, e.lin([[0, '#4a4d52'], [1, '#232427']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 8 * u }) + rect(-16 * u, -20 * u, 32 * u, 10 * u, e.tint('#e2a21a'), { rx: 4 * u }), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${ang || -8})` });
+    }
+    function carLift(e, o) {
+      let s = rect(0, 0, e.w, e.h, e.lin([[0, e.tint('#3a3d42')], [1, e.tint('#1d1e20')]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(0, e.h * 0.8, e.w, e.h * 0.2, e.tint('#4a4d52'));
+      for (let i = 0; i < 6; i++) s += rect(e.w * (0.05 + i * 0.16), e.h * 0.08, e.w * 0.12, e.h * 0.03, '#f6f3e8', { opacity: 0.85 });
+      // pegboard of tools
+      s += rect(e.w * 0.06, e.h * 0.18, e.w * 0.28, e.h * 0.3, '#6a6f75'); for (let i = 0; i < 5; i++) s += line(e.w * (0.09 + i * 0.05), e.h * 0.22, e.w * (0.09 + i * 0.05), e.h * (0.3 + (i % 2) * 0.06), '#c9ccd1', 3 * e.s);
+      [0.3, 0.7].forEach(f => { s += rect(e.w * f - e.w * 0.02, e.h * 0.28, e.w * 0.04, e.h * 0.52, e.lin([[0, '#e2a21a'], [1, '#9a6a0f']])); });
+      s += car(e, e.cx, e.h * 0.5, e.w * 0.62, (o && o.colour) || '#b9bec4', {}) + rect(e.w * 0.26, e.h * 0.5, e.w * 0.48, e.h * 0.02, '#e2a21a');
+      return s;
+    }
+    function engineParts(e, x, y, W) {
+      let s = e.shadow(x, y + W * 0.3, W * 0.6, W * 0.06, 0.3);
+      const gear = (gx, gy, r, teeth) => { let d = ''; for (let i = 0; i < teeth * 2; i++) { const a = i / (teeth * 2) * Math.PI * 2; const rr = i % 2 ? r : r * 1.18; d += `${i ? 'L' : 'M'}${n1(gx + Math.cos(a) * rr)} ${n1(gy + Math.sin(a) * rr)} `; } return path(d + 'Z', e.lin([[0, '#eceef0'], [1, '#6a7178']], { x1: 0, y1: 0, x2: 1, y2: 1 })) + circ(gx, gy, r * 0.35, '#3a3d42'); };
+      s += gear(x - W * 0.2, y, W * 0.16, 14) + gear(x + W * 0.05, y - W * 0.12, W * 0.09, 10);
+      s += g(rect(-W * 0.02, -W * 0.14, W * 0.04, W * 0.1, '#c9ccd1') + rect(-W * 0.035, -W * 0.04, W * 0.07, W * 0.08, '#f4f1ec', { rx: 2 * e.s }) + rect(-W * 0.03, W * 0.04, W * 0.06, W * 0.06, e.lin([[0, '#eceef0'], [1, '#7d848b']])) + line(0, W * 0.1, 0, W * 0.16, '#9aa0a6', 2 * e.s), { transform: `translate(${n1(x + W * 0.3)} ${n1(y - W * 0.02)}) rotate(20)` });
+      s += g(rect(0, -W * 0.02, W * 0.4, W * 0.04, e.lin([[0, '#e1e4e7'], [1, '#7d848b']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.02 }) + circ(W * 0.42, 0, W * 0.05, 'none', { stroke: '#a9aeb3', 'stroke-width': n1(W * 0.02) }), { transform: `translate(${n1(x - W * 0.35)} ${n1(y + W * 0.2)}) rotate(-6)` });
+      return s;
+    }
+    // ---- everyday subjects for unusual businesses --------------------------------------------------------------------------
+    function dog(e, x, baseY, H, c) {
+      const col = e.tint(c || '#c98a4a'); const fur = e.rad([[0, lighten(col, 0.25)], [1, darken(col, 0.25)]], { cx: 0.4, cy: 0.3 }); const u = H / 100; let s = e.shadow(x, baseY, H * 0.4, H * 0.05, 0.3);
+      s += ell(x + 4 * u, baseY - 30 * u, 26 * u, 30 * u, fur) + ell(x - 12 * u, baseY - 6 * u, 12 * u, 7 * u, darken(col, 0.1)) + ell(x + 20 * u, baseY - 6 * u, 12 * u, 7 * u, darken(col, 0.1));
+      s += path(`M${n1(x + 26 * u)} ${n1(baseY - 20 * u)} Q${n1(x + 46 * u)} ${n1(baseY - 30 * u)} ${n1(x + 42 * u)} ${n1(baseY - 48 * u)}`, 'none', { stroke: col, 'stroke-width': n1(6 * u), 'stroke-linecap': 'round' });
+      s += circ(x - 6 * u, baseY - 66 * u, 20 * u, fur) + ell(x - 20 * u, baseY - 60 * u, 12 * u, 9 * u, lighten(col, 0.15)) + circ(x - 30 * u, baseY - 62 * u, 4 * u, '#2a1d15');
+      s += path(`M${n1(x + 4 * u)} ${n1(baseY - 82 * u)} Q${n1(x + 18 * u)} ${n1(baseY - 78 * u)} ${n1(x + 14 * u)} ${n1(baseY - 56 * u)} Q${n1(x + 6 * u)} ${n1(baseY - 66 * u)} ${n1(x + 4 * u)} ${n1(baseY - 82 * u)} Z`, darken(col, 0.3));
+      s += circ(x - 12 * u, baseY - 70 * u, 2.4 * u, '#1d1510') + rect(x - 14 * u, baseY - 48 * u, 24 * u, 5 * u, e.accent, { rx: 2 * u }) + circ(x - 2 * u, baseY - 42 * u, 3 * u, '#e0b44a');
+      return s;
+    }
+    function bouquet(e, x, baseY, H) {
+      const R = rng(hashStr(`bq${x}`)); let s = e.shadow(x, baseY, H * 0.2, H * 0.03, 0.25);
+      for (let i = 0; i < 9; i++) s += line(x + (R() - 0.5) * H * 0.08, baseY - H * 0.1, x + (R() - 0.5) * H * 0.5, baseY - H * (0.55 + R() * 0.2), e.tint('#5f8a4a'), 1.6 * e.s);
+      for (let i = 0; i < 8; i++) s += A.leaf(e, x + (R() - 0.5) * H * 0.3, baseY - H * (0.45 + R() * 0.2), H * 0.16, R() * 360);
+      const cols = ['#f4a3b4', '#f8e1c4', '#e76f51', '#fbf7f0', '#c9a7e8'];
+      for (let i = 0; i < 9; i++) { const fx = x + (R() - 0.5) * H * 0.5, fy = baseY - H * (0.6 + R() * 0.28), fr = H * (0.05 + R() * 0.03), c = e.tint(cols[i % cols.length]); for (let p = 0; p < 6; p++) { const a = p / 6 * Math.PI * 2; s += circ(fx + Math.cos(a) * fr * 0.6, fy + Math.sin(a) * fr * 0.6, fr * 0.62, c); } s += circ(fx, fy, fr * 0.4, darken(c, 0.25)); }
+      s += path(P([[x - H * 0.16, baseY - H * 0.44], [x + H * 0.16, baseY - H * 0.44], [x + H * 0.05, baseY], [x - H * 0.05, baseY]]), e.lin([[0, '#efe6d6'], [1, '#c9b89a']]));
+      return s + rect(x - H * 0.1, baseY - H * 0.22, H * 0.2, H * 0.04, e.accent, { rx: H * 0.01 });
+    }
+    function stationery(e, x, y, W, o) {
+      const k = o || {}; let s = '';
+      s += paper(e, x - W * 0.2, y + W * 0.05, W * 0.5, W * 0.36, -8, { lines: 0 }) + g(rect(-W * 0.27, -W * 0.19, W * 0.54, W * 0.38, '#fbf8f1', { stroke: '#e3dac8', 'stroke-width': n1(1 * e.s) }) + path(`M${n1(-W * 0.27)} ${n1(-W * 0.19)} L0 ${n1(W * 0.04)} L${n1(W * 0.27)} ${n1(-W * 0.19)}`, 'none', { stroke: '#e3dac8', 'stroke-width': n1(1.2 * e.s) }) + circ(0, W * 0.04, W * 0.05, e.tint(k.seal || '#9b2c3a')) + circ(0, W * 0.04, W * 0.03, darken(e.tint(k.seal || '#9b2c3a'), 0.2)), { transform: `translate(${n1(x - W * 0.12)} ${n1(y + W * 0.08)}) rotate(-8)` });
+      const card = rect(-W * 0.2, -W * 0.28, W * 0.4, W * 0.56, '#fdfbf6', { stroke: '#e8e0cf', 'stroke-width': n1(1 * e.s) }) + A.wordmark(e, k.title || '&', 0, -W * 0.08, W * 0.1, darken(e.accent, 0.25), { serif: true, weight: 500 }) + line(-W * 0.12, W * 0.02, W * 0.12, W * 0.02, '#c8bca6', 1 * e.s) + rect(-W * 0.12, W * 0.07, W * 0.24, 2.4 * e.s, '#cfc6b4') + rect(-W * 0.09, W * 0.12, W * 0.18, 2.4 * e.s, '#cfc6b4') + A.sprig(e, -W * 0.14, W * 0.24, W * 0.14, -20, e.tint('#8aa46a'));
+      s += e.shadow(x + W * 0.2, y + W * 0.32, W * 0.2, W * 0.03, 0.25) + g(card, { transform: `translate(${n1(x + W * 0.18)} ${n1(y)}) rotate(6)` });
+      return s;
+    }
+    function movingBoxes(e, x, baseY, W) {
+      const kraft = e.tint('#c9a26f'); const box = (bx, by, w, h) => rect(bx, by - h, w, h, e.lin([[0, lighten(kraft, 0.12)], [1, darken(kraft, 0.18)]], { x1: 0, y1: 0, x2: 0.4, y2: 1 })) + rect(bx + w * 0.44, by - h, w * 0.12, h, '#b89066', { opacity: 0.7 }) + rect(bx + w * 0.1, by - h * 0.4, w * 0.25, h * 0.14, '#f4efe4') + line(bx + w * 0.12, by - h * 0.33, bx + w * 0.3, by - h * 0.33, '#8a7a66', 1 * e.s);
+      return e.shadow(x, baseY, W * 0.6, W * 0.05, 0.3) + box(x - W * 0.5, baseY, W * 0.5, W * 0.36) + box(x + W * 0.02, baseY, W * 0.44, W * 0.3) + box(x - W * 0.36, baseY - W * 0.36, W * 0.4, W * 0.3);
+    }
+    function stringLights(e, y, n) {
+      let s = path(`M0 ${n1(y)} Q${n1(e.w / 2)} ${n1(y + e.h * 0.12)} ${n1(e.w)} ${n1(y)}`, 'none', { stroke: '#2a2724', 'stroke-width': n1(1.4 * e.s) });
+      for (let i = 1; i < (n || 12); i++) { const t = i / (n || 12); const px = e.w * t, py = y + e.h * 0.12 * 4 * t * (1 - t) * 0.5 + 4 * e.s; s += circ(px, py, 4 * e.s, '#ffe7a8') + circ(px, py, 14 * e.s, '#ffd98a', { opacity: 0.2 }); }
+      return s;
+    }
+    function suitcase(e, x, baseY, H, c) { const col = e.tint(c || e.accent); return e.shadow(x, baseY, H * 0.4, H * 0.05, 0.3) + rect(x - H * 0.3, baseY - H * 0.8, H * 0.6, H * 0.76, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.25)]]), { rx: H * 0.06 }) + [-0.15, 0, 0.15].map(f => line(x + f * H, baseY - H * 0.76, x + f * H, baseY - H * 0.08, darken(col, 0.2), 2 * e.s)).join('') + path(`M${n1(x - H * 0.1)} ${n1(baseY - H * 0.8)} L${n1(x - H * 0.1)} ${n1(baseY - H)} L${n1(x + H * 0.1)} ${n1(baseY - H)} L${n1(x + H * 0.1)} ${n1(baseY - H * 0.8)}`, 'none', { stroke: '#3a3d42', 'stroke-width': n1(4 * e.s) }) + circ(x - H * 0.2, baseY - 2 * e.s, H * 0.04, '#222') + circ(x + H * 0.2, baseY - 2 * e.s, H * 0.04, '#222'); }
+    function guitar(e, x, y, H, c) {
+      const col = e.tint(c || '#c98a44'); let s = e.shadow(x, y + H * 0.5, H * 0.3, H * 0.05, 0.3);
+      s += g(ell(0, H * 0.22, H * 0.2, H * 0.22, e.rad([[0, lighten(col, 0.3)], [1, darken(col, 0.3)]], { cx: 0.4, cy: 0.35 })) + ell(0, -H * 0.04, H * 0.15, H * 0.15, e.rad([[0, lighten(col, 0.3)], [1, darken(col, 0.3)]], { cx: 0.4, cy: 0.35 })) + circ(0, H * 0.08, H * 0.06, '#2a1d15') + rect(-H * 0.03, -H * 0.62, H * 0.06, H * 0.62, '#4a2e1c') + rect(-H * 0.045, -H * 0.72, H * 0.09, H * 0.12, '#3a2418', { rx: 2 * e.s }) + rect(-H * 0.07, H * 0.26, H * 0.14, H * 0.03, '#2a1d15') + [-0.015, 0, 0.015].map(f => line(f * H, -H * 0.7, f * H * 2, H * 0.27, '#e9e4da', 0.8 * e.s)).join(''), { transform: `translate(${n1(x)} ${n1(y)}) rotate(-24)` });
+      return s;
+    }
+    function sewingMachine(e, x, baseY, W) {
+      const body = e.tint('#f1ebe1'); let s = e.shadow(x, baseY, W * 0.55, W * 0.05, 0.3) + rect(x - W / 2, baseY - W * 0.1, W, W * 0.1, e.lin([[0, lighten(body, 0.1)], [1, darken(body, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.02 });
+      s += rect(x + W * 0.22, baseY - W * 0.52, W * 0.2, W * 0.42, e.lin([[0, lighten(body, 0.12)], [1, darken(body, 0.15)]]), { rx: W * 0.04 }) + rect(x - W * 0.4, baseY - W * 0.52, W * 0.82, W * 0.14, e.lin([[0, lighten(body, 0.15)], [1, darken(body, 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.05 });
+      s += rect(x - W * 0.4, baseY - W * 0.38, W * 0.1, W * 0.16, darken(body, 0.05), { rx: W * 0.02 }) + line(x - W * 0.35, baseY - W * 0.22, x - W * 0.35, baseY - W * 0.12, '#9aa0a6', 1.6 * e.s);
+      s += rect(x - W * 0.1, baseY - W * 0.66, W * 0.05, W * 0.14, e.cyl(e.tint('#c0392b'))) + circ(x + W * 0.46, baseY - W * 0.36, W * 0.08, '#b9bec4') + rect(x - W * 0.3, baseY - W * 0.5, W * 0.4, W * 0.04, e.accent, { rx: W * 0.02, opacity: 0.8 });
+      return s + path(`M${n1(x - W * 0.5)} ${n1(baseY - W * 0.1)} Q${n1(x - W * 0.2)} ${n1(baseY - W * 0.2)} ${n1(x + W * 0.3)} ${n1(baseY - W * 0.1)}`, e.tint('#b8d4e6'), { opacity: 0.9 });
+    }
+    function fishingGear(e, x, y, W) {
+      let s = e.shadow(x, y + W * 0.2, W * 0.6, W * 0.05, 0.3);
+      s += line(x - W * 0.5, y + W * 0.1, x + W * 0.5, y - W * 0.5, '#2d2a27', 3 * e.s) + line(x + W * 0.5, y - W * 0.5, x + W * 0.52, y + W * 0.2, '#e9e4da', 0.8 * e.s) + circ(x - W * 0.3, y + W * 0.02, W * 0.07, e.lin([[0, '#eceef0'], [1, '#6a7178']])) + circ(x - W * 0.3, y + W * 0.02, W * 0.03, '#2d2a27');
+      s += rect(x - W * 0.1, y + W * 0.02, W * 0.5, W * 0.2, e.lin([[0, '#3f7a4a'], [1, '#234a2c']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * e.s }) + rect(x - W * 0.1, y + W * 0.02, W * 0.5, W * 0.05, '#2d5a36', { rx: 4 * e.s }) + [0, 1, 2].map(i => ell(x + W * (0.02 + i * 0.12), y + W * 0.12, W * 0.04, W * 0.015, ['#e0b44a', '#e05a47', '#6cbf9a'][i])).join('');
+      return s;
+    }
+
+    module.exports = {
+      hanger, hoodie, tee, jeansStack, sneaker, cap, dressForm, ring, weave, clothingRail,
+      latteTop, pourOver, roasterDrum, croissant, loaf, cake, plate, halfEgg, beerTaps,
+      camera, softbox, prints, swatchFan, moodboard, sketchbook,
+      glove, heavyBag, wraps, kettlebell, dumbbell, barbell,
+      stones, towelRoll, needles, scissorsComb, nailPolish, tooth, band,
+      paper, pen, calculator, stickyWall, keysOnTag,
+      car, rim, polisher, carLift, engineParts,
+      dog, bouquet, stationery, movingBoxes, stringLights, suitcase, guitar, sewingMachine, fishingGear,
+    };
+
+  });
+  __define("hero-art-outdoor", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- exteriors: lawns and gardens, hardscape, houses and roofs, streets,
+    // water. Built on the kit in ./hero-art (same palette, light and shadow).
+    const A = require('./hero-art');
+    const { mix, lighten, darken, rng, hashStr } = A;
+    const { rect, circ, ell, path, line, g, P, n1 } = A._svg;
+
+    const GRASS = '#5d8f3e';
+    // ---- planting -----------------------------------------------------------------------------------------------------
+    function shrub(e, x, y, r, c, o) {
+      const k = o || {}; const col = e.tint(c || '#4f7d3a'); const R = rng(hashStr(`sh${x}${y}${r}`));
+      let s = e.shadow(x + r * 0.2, y + r * 0.1, r * 1.1, r * 0.25, 0.25);
+      const blobs = k.clipped ? [[0, -0.45, 0.95]] : [[-0.45, -0.3, 0.6], [0.4, -0.35, 0.62], [0, -0.7, 0.66], [-0.1, -0.2, 0.7], [0.55, -0.1, 0.45], [-0.6, -0.05, 0.45]];
+      blobs.forEach(([dx, dy, rr]) => { s += circ(x + dx * r, y + dy * r, rr * r, e.rad([[0, lighten(col, 0.25)], [0.6, col], [1, darken(col, 0.3)]], { cx: 0.35, cy: 0.3, r: 0.7 })); });
+      if (k.clipped) s = e.shadow(x + r * 0.2, y + r * 0.1, r * 1.1, r * 0.25, 0.25) + rect(x - r, y - r * 1.2, r * 2, r * 1.2, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.25)]], { x1: 0, y1: 0, x2: 0.3, y2: 1 }), { rx: r * 0.25 });
+      for (let i = 0; i < (k.clipped ? 30 : 18); i++) s += circ(x + (R() - 0.5) * r * 1.8, y - R() * r * (k.clipped ? 1.1 : 1.2), (1 + R() * 1.6) * e.s, lighten(col, 0.35), { opacity: 0.55 });
+      if (k.flowers) for (let i = 0; i < 12; i++) s += circ(x + (R() - 0.5) * r * 1.5, y - (0.3 + R() * 0.8) * r, (2 + R() * 2) * e.s, k.flowers, { opacity: 0.95 });
+      return s;
+    }
+    function grasses(e, x, y, h, c) {
+      const col = e.tint(c || '#a9a36a'); const R = rng(hashStr(`gr${x}${y}`)); let s = '';
+      for (let i = 0; i < 16; i++) { const a = -1.1 + R() * 2.2; const tx = x + Math.sin(a) * h * 0.7, ty = y - Math.cos(a) * h * (0.7 + R() * 0.3); s += path(`M${n1(x + (R() - 0.5) * 6 * e.s)} ${n1(y)} Q${n1(x + Math.sin(a) * h * 0.2)} ${n1(y - h * 0.5)} ${n1(tx)} ${n1(ty)}`, 'none', { stroke: i % 3 ? col : lighten(col, 0.25), 'stroke-width': n1(1.8 * e.s), 'stroke-linecap': 'round' }); if (i % 3 === 0) s += ell(tx, ty, 2.5 * e.s, 6 * e.s, lighten(col, 0.4), { transform: `rotate(${n1(a * 57)} ${n1(tx)} ${n1(ty)})` }); }
+      return s;
+    }
+    function perennial(e, x, y, h, flower) {
+      const R = rng(hashStr(`pe${x}${y}`)); let s = '';
+      for (let i = 0; i < 7; i++) { const a = (R() - 0.5) * 0.9; const tx = x + Math.sin(a) * h * 0.6, ty = y - h * (0.6 + R() * 0.4); s += line(x, y, tx, ty, e.tint('#4f7a3a'), 1.4 * e.s); s += circ(tx, ty, (3 + R() * 2.5) * e.s, flower); }
+      for (let i = 0; i < 4; i++) s += A.leaf(e, x, y - 2 * e.s, h * 0.35, -150 + i * 40);
+      return s;
+    }
+    function tree(e, x, y, h, o) {
+      const k = o || {}; const c = e.tint(k.colour || '#4c7a3c');
+      let s = e.shadow(x + h * 0.15, y, h * 0.35, h * 0.06, 0.3) + rect(x - h * 0.03, y - h * 0.42, h * 0.06, h * 0.42, e.cyl('#6b4a33'));
+      [[0, -0.62, 0.3], [-0.2, -0.5, 0.22], [0.2, -0.52, 0.22], [0, -0.82, 0.22], [-0.12, -0.72, 0.2], [0.14, -0.72, 0.2]].forEach(([dx, dy, rr]) => { s += circ(x + dx * h, y + dy * h, rr * h, e.rad([[0, lighten(c, 0.22)], [0.7, c], [1, darken(c, 0.28)]], { cx: 0.35, cy: 0.3, r: 0.75 })); });
+      return s;
+    }
+    // ---- ground ------------------------------------------------------------------------------------------------------
+    // perspective lawn stripes from the horizon to the bottom edge
+    function lawn(e, hz, o) {
+      const k = o || {}; const base = e.tint(k.colour || GRASS); let s = rect(0, hz, e.w, e.h - hz, e.lin([[0, darken(base, 0.08)], [1, darken(base, 0.18)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      if (k.stripes !== false) {
+        const n = 9; const vx = k.vx == null ? e.cx : k.vx;
+        for (let i = 0; i < n; i++) {
+          if (i % 2) continue;
+          const x0 = -e.w * 0.6 + i * (e.w * 2.2 / n), x1 = x0 + e.w * 2.2 / n;
+          const top = t => vx + (t - vx) * 0.18;
+          s += path(P([[top(x0), hz], [top(x1), hz], [x1, e.h], [x0, e.h]]), lighten(base, 0.12), { opacity: 0.55 });
+        }
+      }
+      const R = rng(hashStr(`lawn${hz}`));
+      for (let i = 0; i < (e.detail === 'simple' ? 30 : 90); i++) { const y = hz + Math.pow(R(), 0.7) * (e.h - hz); const x = R() * e.w; const len = (2 + (y - hz) / (e.h - hz) * 7) * e.s; s += line(x, y, x + (R() - 0.5) * 2 * e.s, y - len, lighten(base, 0.2 + R() * 0.15), 1 * e.s, { opacity: 0.6 }); }
+      return s;
+    }
+    // a paved area as a perspective trapezoid [[x,y] bottom-left, bottom-right, top-right, top-left]
+    function pavers(e, quad, colour, o) {
+      const k = o || {}; const c = e.tint(colour || '#c9b8a0'); const [bl, br, tr, tl] = quad; const R = rng(hashStr(`pv${bl}${tr}`));
+      let s = path(P(quad), darken(c, 0.28));
+      const rows = k.rows || 8, cols = k.cols || 7;
+      const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      for (let r = 0; r < rows; r++) {
+        const t0 = Math.pow(r / rows, 1.35), t1 = Math.pow((r + 1) / rows, 1.35);
+        const L0 = lerp(tl, bl, t0), R0 = lerp(tr, br, t0), L1 = lerp(tl, bl, t1), R1 = lerp(tr, br, t1);
+        const off = k.flag ? 0 : (r % 2) * 0.5;
+        for (let q = -1; q < cols; q++) {
+          const a0 = (q + off) / cols, a1 = (q + 1 + off) / cols; if (a1 <= 0 || a0 >= 1) continue;
+          const u0 = Math.max(0, a0), u1 = Math.min(1, a1); const gap = 0.012;
+          const p1 = lerp(L0, R0, u0 + gap), p2 = lerp(L0, R0, u1 - gap), p3 = lerp(L1, R1, u1 - gap), p4 = lerp(L1, R1, u0 + gap);
+          const inset = (p, q2, t) => lerp(p, q2, t);
+          const tone = k.flag ? mix(c, R() > 0.5 ? '#8f8a80' : '#d8cdb8', R() * 0.5) : mix(c, darken(c, 0.2), R() * 0.6);
+          s += path(P([inset(p1, p4, 0.06), inset(p2, p3, 0.06), inset(p3, p2, 0.06), inset(p4, p1, 0.06)]), e.lin([[0, lighten(tone, 0.12)], [1, darken(tone, 0.06)]], { x1: 0, y1: 0, x2: 0.3, y2: 1 }));
+        }
+      }
+      return s;
+    }
+    // a dry-stacked block wall: rows of stones from (x,y) width w height h
+    function stoneWall(e, x, y, w, h, colour, o) {
+      const k = o || {}; const c = e.tint(colour || '#b3a590'); const R = rng(hashStr(`sw${x}${y}${w}`)); let s = rect(x, y, w, h, darken(c, 0.35));
+      const rows = k.rows || 4, rh = h / rows;
+      for (let r = 0; r < rows; r++) {
+        let cx = x - (r % 2) * rh * 0.8;
+        while (cx < x + w) {
+          const bw = rh * (1.4 + R() * 1.2); const x0 = Math.max(x, cx), x1 = Math.min(x + w, cx + bw);
+          if (x1 - x0 > 4) { const tone = mix(c, R() > 0.5 ? lighten(c, 0.2) : darken(c, 0.18), R() * 0.7); s += rect(x0 + 1.5 * e.s, y + r * rh + 1.5 * e.s, x1 - x0 - 3 * e.s, rh - 3 * e.s, e.lin([[0, lighten(tone, 0.15)], [1, darken(tone, 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * e.s }); s += line(x0 + 3 * e.s, y + r * rh + 3 * e.s, x1 - 4 * e.s, y + r * rh + 3 * e.s, '#fff', 1.1 * e.s, { opacity: 0.25 }); }
+          cx += bw;
+        }
+      }
+      if (k.cap) s += rect(x - 4 * e.s, y - rh * 0.4, w + 8 * e.s, rh * 0.45, e.lin([[0, lighten(c, 0.2)], [1, darken(c, 0.1)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 2 * e.s });
+      return s;
+    }
+    function mulchBed(e, x, y, w, h) {
+      const c = e.tint('#5a3a24'); const R = rng(hashStr(`mu${x}${y}`)); let s = ell(x + w / 2, y + h / 2, w / 2, h / 2, c);
+      for (let i = 0; i < 70; i++) { const a = R() * Math.PI * 2, d = Math.sqrt(R()); s += ell(x + w / 2 + Math.cos(a) * d * w * 0.46, y + h / 2 + Math.sin(a) * d * h * 0.44, (2 + R() * 3) * e.s, (1 + R()) * e.s, R() > 0.5 ? darken(c, 0.25) : lighten(c, 0.15), { transform: `rotate(${n1(R() * 180)} ${n1(x + w / 2)} ${n1(y + h / 2)})` }); }
+      return s;
+    }
+    // ---- buildings -------------------------------------------------------------------------------------------------
+    // a house front: gable roof with shingles, siding, windows, door, porch light
+    function house(e, x, baseY, W0, o) {
+      // never taller than the space above its ground line: the roof is the subject, it must stay in frame
+      const k = o || {}; const W = Math.min(W0, Math.max(40, (baseY - e.h * 0.05) / ((k.tall ? 0.6 : 0.46) + 0.32))); const H = W * (k.tall ? 0.6 : 0.46); const top = baseY - H; const roofH = W * 0.3;
+      const siding = e.tint(k.siding || '#e8e1d4'), roofC = e.tint(k.roof || '#4a4a52'), trim = '#f7f4ee';
+      const lit = k.time === 'dusk' || k.time === 'night';
+      let s = e.shadow(x + W * 0.1, baseY + 4 * e.s, W * 0.62, W * 0.05, 0.35);
+      s += rect(x - W / 2, top, W, H, e.lin([[0, lighten(siding, 0.05)], [1, darken(siding, lit ? 0.35 : 0.12)]], { x1: 0, y1: 0, x2: 0.8, y2: 1 }));
+      for (let yy = top + 7 * e.s; yy < baseY; yy += 7 * e.s) s += line(x - W / 2, yy, x + W / 2, yy, darken(siding, 0.14), 0.8 * e.s, { opacity: 0.6 });
+      if (k.chimney) s += rect(x + W * 0.22, top - roofH * 0.9, W * 0.07, roofH * 0.7, e.cyl('#8a4c3a'));
+      // roof with shingle rows
+      const eave = W * 0.06; const roof = [[x - W / 2 - eave, top + 2 * e.s], [x + W / 2 + eave, top + 2 * e.s], [x + W * 0.1, top - roofH], [x - W * 0.1, top - roofH]];
+      s += path(P(roof), e.lin([[0, lighten(roofC, 0.15)], [1, darken(roofC, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      const rows = 9; for (let i = 1; i < rows; i++) { const t = i / rows; const yy = top - roofH + roofH * t; const half = (W * 0.1) + (W / 2 + eave - W * 0.1) * t; s += line(x - half, yy, x + half, yy, darken(roofC, 0.35), 1 * e.s, { opacity: 0.7 }); for (let q = -half + ((i % 2) * 6 * e.s); q < half; q += 12 * e.s) s += line(x + q, yy - roofH / rows, x + q, yy, darken(roofC, 0.3), 0.6 * e.s, { opacity: 0.45 }); }
+      s += rect(x - W / 2 - eave, top, W + eave * 2, 4 * e.s, trim);
+      // gable window
+      s += rect(x - W * 0.05, top - roofH * 0.55, W * 0.1, roofH * 0.34, lit ? '#ffcf7a' : e.tint('#9fb7c7'), { rx: 1.5 * e.s, stroke: trim, 'stroke-width': n1(2.5 * e.s) });
+      // windows + door
+      const win = (wx, wy, ww, wh) => rect(wx, wy, ww, wh, lit ? e.lin([[0, '#ffe2a3'], [1, '#f2a948']], { x1: 0, y1: 0, x2: 0, y2: 1 }) : e.lin([[0, '#b9d2e2'], [1, '#e9f1f4']], { x1: 0, y1: 0, x2: 0.3, y2: 1 }), { stroke: trim, 'stroke-width': n1(3 * e.s) }) + line(wx + ww / 2, wy, wx + ww / 2, wy + wh, trim, 2 * e.s) + line(wx, wy + wh / 2, wx + ww, wy + wh / 2, trim, 2 * e.s) + (lit ? path(P([[wx, wy + wh], [wx + ww, wy + wh], [wx + ww * 1.3, baseY + H * 0.3], [wx - ww * 0.3, baseY + H * 0.3]]), '#ffd98a', { opacity: 0.12 }) : '');
+      s += win(x - W * 0.4, top + H * 0.22, W * 0.16, H * 0.36) + win(x + W * 0.24, top + H * 0.22, W * 0.16, H * 0.36);
+      s += rect(x - W * 0.06, top + H * 0.32, W * 0.12, H * 0.68, e.lin([[0, darken(k.door || e.accent, 0.05)], [1, darken(k.door || e.accent, 0.35)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { stroke: trim, 'stroke-width': n1(2.5 * e.s) }) + circ(x + W * 0.035, top + H * 0.68, 1.8 * e.s, '#d8c28a');
+      if (lit) s += circ(x + W * 0.09, top + H * 0.45, 3 * e.s, '#ffe7a8') + circ(x + W * 0.09, top + H * 0.45, 14 * e.s, '#ffd98a', { opacity: 0.25 });
+      s += rect(x - W * 0.12, baseY - 3 * e.s, W * 0.24, 6 * e.s, lighten(siding, 0.2));
+      return s;
+    }
+    // a close view of new architectural shingles with a line of flashing
+    function shingleField(e, x, y, w, h, colour, o) {
+      const k = o || {}; const c = e.tint(colour || '#55565e'); const R = rng(hashStr(`shf${x}${y}`)); const rh = (k.rowH || 26) * e.s; let s = rect(x, y, w, h, darken(c, 0.3));
+      for (let r = 0; r * rh < h + rh; r++) {
+        const yy = y + r * rh; let cx = x - ((r * 17) % 40) * e.s;
+        while (cx < x + w) { const tw = (26 + R() * 22) * e.s; const tone = mix(c, R() > 0.5 ? lighten(c, 0.18) : darken(c, 0.2), R()); s += rect(cx + 1, yy, tw - 2, rh * 1.05, e.lin([[0, lighten(tone, 0.1)], [1, darken(tone, 0.15)]], { x1: 0, y1: 0, x2: 0, y2: 1 })); for (let q = 0; q < 6; q++) s += circ(cx + R() * tw, yy + R() * rh, 0.8 * e.s, lighten(tone, 0.3), { opacity: 0.5 }); cx += tw; }
+        s += rect(x, yy + rh - 2 * e.s, w, 3 * e.s, darken(c, 0.4), { opacity: 0.5 });
+      }
+      return s;
+    }
+    function ladder(e, x1, y1, x2, y2, w) {
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), nx = -dy / len * w / 2, ny = dx / len * w / 2; const c = '#c9ccd1'; let s = '';
+      s += line(x1 + nx, y1 + ny, x2 + nx, y2 + ny, c, 4 * e.s) + line(x1 - nx, y1 - ny, x2 - nx, y2 - ny, darken(c, 0.15), 4 * e.s);
+      for (let t = 0.08; t < 1; t += 0.1) s += line(x1 + dx * t + nx, y1 + dy * t + ny, x1 + dx * t - nx, y1 + dy * t - ny, darken(c, 0.1), 2.6 * e.s);
+      return s;
+    }
+    // ---- equipment -------------------------------------------------------------------------------------------------
+    // a walk-behind mower in 3/4 side view facing left, `c` body colour
+    function mower(e, x, baseY, L, c) {
+      const col = c || '#c8402f'; const u = L / 100; let s = e.shadow(x, baseY + 2 * u, L * 0.55, L * 0.07, 0.35);
+      const wheel = (wx, r) => circ(wx, baseY - r, r, '#232323') + circ(wx, baseY - r, r * 0.55, '#7d7f84') + circ(wx, baseY - r, r * 0.2, '#c9ccd1');
+      // grass bag at the back
+      s += path(`M${n1(x + 22 * u)} ${n1(baseY - 30 * u)} L${n1(x + 58 * u)} ${n1(baseY - 38 * u)} Q${n1(x + 66 * u)} ${n1(baseY - 20 * u)} ${n1(x + 56 * u)} ${n1(baseY - 10 * u)} L${n1(x + 24 * u)} ${n1(baseY - 12 * u)} Z`, e.lin([[0, '#5d6066'], [1, '#2e3034']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 5; i++) s += line(x + (28 + i * 6) * u, baseY - 33 * u, x + (27 + i * 6) * u, baseY - 13 * u, '#1f2023', 0.8 * e.s, { opacity: 0.6 });
+      // deck
+      s += path(`M${n1(x - 46 * u)} ${n1(baseY - 12 * u)} Q${n1(x - 48 * u)} ${n1(baseY - 30 * u)} ${n1(x - 26 * u)} ${n1(baseY - 32 * u)} L${n1(x + 24 * u)} ${n1(baseY - 32 * u)} Q${n1(x + 30 * u)} ${n1(baseY - 30 * u)} ${n1(x + 30 * u)} ${n1(baseY - 20 * u)} L${n1(x + 30 * u)} ${n1(baseY - 10 * u)} Z`, e.lin([[0, lighten(col, 0.25)], [0.4, col], [1, darken(col, 0.35)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += rect(x - 44 * u, baseY - 14 * u, 72 * u, 4 * u, darken(col, 0.45), { rx: 2 * u });
+      // engine
+      s += rect(x - 18 * u, baseY - 46 * u, 26 * u, 16 * u, e.lin([[0, '#4a4d52'], [1, '#1f2023']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 5 * u }) + rect(x - 14 * u, baseY - 52 * u, 18 * u, 8 * u, e.lin([[0, lighten(col, 0.2)], [1, darken(col, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * u }) + circ(x - 20 * u, baseY - 40 * u, 3 * u, '#d8a33a');
+      // handle
+      s += path(`M${n1(x + 26 * u)} ${n1(baseY - 26 * u)} L${n1(x + 62 * u)} ${n1(baseY - 84 * u)} L${n1(x + 70 * u)} ${n1(baseY - 84 * u)}`, 'none', { stroke: '#2a2b2e', 'stroke-width': n1(3.2 * u), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }) + line(x + 58 * u, baseY - 78 * u, x + 64 * u, baseY - 82 * u, '#d0d2d6', 5 * u);
+      s += wheel(x - 34 * u, 10 * u) + wheel(x + 20 * u, 12 * u);
+      return s;
+    }
+    // string trimmer head at an edge, clippings flying
+    function trimmer(e, x, y, L, ang) {
+      const u = L / 100; const a = (ang == null ? -58 : ang) * Math.PI / 180; const ex = x + Math.cos(a) * L, ey = y + Math.sin(a) * L; let s = '';
+      s += line(x, y, ex, ey, '#c9ccd1', 3.4 * u) + line(x, y, ex, ey, '#8b8f95', 1.2 * u, { opacity: 0.6 });
+      s += rect(ex - 8 * u, ey - 8 * u, 16 * u, 22 * u, e.lin([[0, '#f07a2b'], [1, '#b8501a']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 5 * u, transform: `rotate(${n1(ang == null ? 32 : ang + 90)} ${n1(ex)} ${n1(ey)})` });
+      s += path(`M${n1(x + Math.cos(a) * L * 0.55 - 6 * u)} ${n1(y + Math.sin(a) * L * 0.55)} l${n1(12 * u)} ${n1(-4 * u)}`, 'none', { stroke: '#1f2023', 'stroke-width': n1(6 * u), 'stroke-linecap': 'round' });
+      s += ell(x, y, 16 * u, 5 * u, '#2d2f33', { opacity: 0.85 }) + ell(x, y, 22 * u, 7 * u, 'none', { stroke: '#fff', 'stroke-width': n1(0.8 * u), opacity: 0.35, 'stroke-dasharray': `${n1(3 * u)} ${n1(4 * u)}` });
+      const R = rng(hashStr(`clip${x}${y}`)); for (let i = 0; i < 24; i++) { const cx = x + (R() - 0.3) * 60 * u, cy = y - R() * 30 * u; s += line(cx, cy, cx + (R() - 0.5) * 5 * u, cy - 3 * u, e.tint('#7fb35a'), 1.2 * u, { opacity: 0.8 }); }
+      return s;
+    }
+    // a walk-behind core aerator: spiked drum, weight box, handle -- facing left, like the mower
+    function aerator(e, x, baseY, L, c) {
+      const col = c || '#2f7a4a'; const u = L / 100; let s = e.shadow(x, baseY + 2 * u, L * 0.5, L * 0.06, 0.35);
+      s += rect(x - 30 * u, baseY - 44 * u, 56 * u, 22 * u, e.lin([[0, lighten(col, 0.25)], [1, darken(col, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 5 * u });
+      s += rect(x - 26 * u, baseY - 54 * u, 30 * u, 12 * u, e.lin([[0, '#4a4d52'], [1, '#1f2023']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 3 * u });
+      // the tine drum
+      s += circ(x - 14 * u, baseY - 14 * u, 14 * u, e.lin([[0, '#b9bec4'], [1, '#6a7076']], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; s += line(x - 14 * u + Math.cos(a) * 14 * u, baseY - 14 * u + Math.sin(a) * 14 * u, x - 14 * u + Math.cos(a) * 20 * u, baseY - 14 * u + Math.sin(a) * 20 * u, '#8b9096', 2.4 * u); }
+      s += circ(x - 14 * u, baseY - 14 * u, 4 * u, '#3a3d42') + circ(x + 20 * u, baseY - 9 * u, 9 * u, '#232323') + circ(x + 20 * u, baseY - 9 * u, 4 * u, '#9aa0a6');
+      s += path(`M${n1(x + 22 * u)} ${n1(baseY - 40 * u)} L${n1(x + 56 * u)} ${n1(baseY - 88 * u)} L${n1(x + 64 * u)} ${n1(baseY - 88 * u)}`, 'none', { stroke: '#2a2b2e', 'stroke-width': n1(3.2 * u), 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+      return s;
+    }
+    // soil cores pulled from the lawn: a dark hole and the plug lying beside it
+    function soilCores(e, x0, y0, w, h, n) {
+      const R = rng(hashStr(`cores${x0}${y0}`)); let s = '';
+      for (let i = 0; i < n; i++) { const t = R(); const x = x0 + R() * w, y = y0 + Math.pow(t, 0.8) * h; const k = (0.5 + (y - y0) / h * 0.8) * e.s; const a = R() * 60 - 30;
+        s += ell(x, y, 6 * k, 3 * k, '#2a1a10') + g(rect(-10 * k, -4 * k, 20 * k, 8 * k, e.lin([[0, '#8a5d3b'], [1, '#5a3a24']], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: 4 * k }) + ell(-9 * k, 0, 2.5 * k, 3.6 * k, '#3a2616'), { transform: `translate(${n1(x + 12 * k)} ${n1(y - 2 * k)}) rotate(${n1(a)})` }); }
+      return s;
+    }
+    function rake(e, x, y, L, ang) {
+      const u = L / 100; const a = (ang == null ? -62 : ang) * Math.PI / 180; const hx = x + Math.cos(a) * L, hy = y + Math.sin(a) * L; let s = line(x, y, hx, hy, '#b98a55', 2.6 * u);
+      for (let i = -6; i <= 6; i++) { const t = i / 6; s += line(x, y, x + t * 18 * u - 2 * u, y + 12 * u, '#6f7479', 1.1 * u); }
+      return s + ell(x, y + 2 * u, 18 * u, 3 * u, '#6f7479', { opacity: 0.5 });
+    }
+    function leafPile(e, x, y, r) {
+      const R = rng(hashStr(`lp${x}${y}`)); const cols = ['#d9822b', '#c4471d', '#e6b43c', '#9c3b1a', '#b8652a']; let s = e.shadow(x, y + r * 0.1, r * 1.2, r * 0.18, 0.3);
+      for (let i = 0; i < 120; i++) { const a = R() * Math.PI, d = Math.sqrt(R()); const lx = x + Math.cos(a) * d * r * 1.1 * (R() > 0.5 ? 1 : -1), ly = y - Math.sin(a) * d * r * 0.6; s += A.leaf(e, lx, ly, r * (0.1 + R() * 0.09), R() * 360, cols[Math.floor(R() * cols.length)], { width: 0.5 }); }
+      return s;
+    }
+    function sprinkler(e, x, y, r) {
+      let s = rect(x - 4 * e.s, y - 10 * e.s, 8 * e.s, 12 * e.s, '#2c2e33', { rx: 2 * e.s }) + ell(x, y + 1 * e.s, 10 * e.s, 3 * e.s, '#1c1d20');
+      for (let i = -3; i <= 3; i++) { const a = -Math.PI / 2 + i * 0.32; s += path(`M${n1(x)} ${n1(y - 10 * e.s)} Q${n1(x + Math.cos(a) * r * 0.6)} ${n1(y - r * 0.9)} ${n1(x + Math.cos(a) * r * 1.2)} ${n1(y - 10 * e.s + r * 0.2)}`, 'none', { stroke: '#dff1ff', 'stroke-width': n1(1.4 * e.s), opacity: 0.75, 'stroke-dasharray': `${n1(3 * e.s)} ${n1(3 * e.s)}` }); }
+      return s;
+    }
+    function firePit(e, x, y, r) {
+      let s = e.shadow(x, y + r * 0.1, r * 1.3, r * 0.3, 0.3) + ell(x, y, r, r * 0.34, e.tint('#6f675e')) + ell(x, y - r * 0.06, r * 0.82, r * 0.26, '#2a1c14');
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; s += ell(x + Math.cos(a) * r * 0.92, y + Math.sin(a) * r * 0.3, r * 0.16, r * 0.1, e.tint(i % 2 ? '#8d857a' : '#a69d91')); }
+      s += path(`M${n1(x - r * 0.4)} ${n1(y - r * 0.05)} Q${n1(x - r * 0.35)} ${n1(y - r * 0.8)} ${n1(x - r * 0.05)} ${n1(y - r * 1.05)} Q${n1(x + r * 0.05)} ${n1(y - r * 0.6)} ${n1(x + r * 0.2)} ${n1(y - r * 0.9)} Q${n1(x + r * 0.5)} ${n1(y - r * 0.5)} ${n1(x + r * 0.4)} ${n1(y - r * 0.05)} Z`, e.lin([[0, '#ffe08a'], [0.5, '#ff9a3c'], [1, '#e2531d']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      return s + circ(x, y - r * 0.5, r * 1.3, '#ffb35a', { opacity: 0.18 });
+    }
+    function pergola(e, x, baseY, W, H) {
+      const wood = e.tint('#9a7250'); let s = '';
+      [-0.46, 0.46].forEach(f => { s += rect(x + f * W - 5 * e.s, baseY - H, 10 * e.s, H, e.cyl(wood)); });
+      [-0.3, -0.1, 0.1, 0.3].forEach(f => { s += rect(x + f * W - 4 * e.s, baseY - H * 0.8, 8 * e.s, H * 0.8, e.cyl(wood), { opacity: 0.85 }); });
+      s += rect(x - W * 0.56, baseY - H - 12 * e.s, W * 1.12, 12 * e.s, e.lin([[0, lighten(wood, 0.15)], [1, darken(wood, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 9; i++) s += rect(x - W * 0.5 + i * W / 8 - 3 * e.s, baseY - H - 22 * e.s, 6 * e.s, 12 * e.s, darken(wood, 0.1));
+      return s;
+    }
+    function chair(e, x, baseY, h, c) {
+      const col = e.tint(c || '#e9e2d6');
+      return e.shadow(x, baseY, h * 0.5, h * 0.08, 0.25) + path(P([[x - h * 0.35, baseY - h * 0.45], [x + h * 0.3, baseY - h * 0.45], [x + h * 0.25, baseY - h * 0.35], [x - h * 0.3, baseY - h * 0.35]]), col) + path(P([[x - h * 0.34, baseY - h * 0.45], [x - h * 0.2, baseY - h], [x + h * 0.02, baseY - h], [x - h * 0.1, baseY - h * 0.45]]), darken(col, 0.08)) + line(x - h * 0.3, baseY - h * 0.36, x - h * 0.34, baseY, darken(col, 0.3), 3 * e.s) + line(x + h * 0.25, baseY - h * 0.36, x + h * 0.3, baseY, darken(col, 0.3), 3 * e.s);
+    }
+    // water with a few reflected light lines
+    function water(e, y, colour, o) {
+      const k = o || {}; const c = e.tint(colour || '#2f6d8f'); const R = rng(hashStr(`wa${y}`)); let s = rect(0, y, e.w, e.h - y, e.lin([[0, lighten(c, 0.15)], [1, darken(c, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      for (let i = 0; i < 40; i++) { const yy = y + Math.pow(R(), 1.3) * (e.h - y); const xx = R() * e.w; s += line(xx, yy, xx + (10 + R() * 30) * e.s, yy, k.glint || '#ffffff', 1.2 * e.s, { opacity: 0.15 + R() * 0.3 }); }
+      return s;
+    }
+    function boat(e, x, y, L, c) {
+      const u = L / 100; const hull = e.tint(c || '#f4f1ea'); let s = '';
+      s += path(`M${n1(x - 50 * u)} ${n1(y - 12 * u)} L${n1(x + 46 * u)} ${n1(y - 12 * u)} Q${n1(x + 52 * u)} ${n1(y - 12 * u)} ${n1(x + 48 * u)} ${n1(y - 4 * u)} L${n1(x + 38 * u)} ${n1(y + 8 * u)} L${n1(x - 44 * u)} ${n1(y + 8 * u)} Z`, e.lin([[0, lighten(hull, 0.1)], [1, darken(hull, 0.18)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += rect(x - 46 * u, y - 4 * u, 88 * u, 3 * u, e.accent);
+      s += path(P([[x - 26 * u, y - 12 * u], [x + 14 * u, y - 12 * u], [x + 8 * u, y - 30 * u], [x - 20 * u, y - 30 * u]]), lighten(hull, 0.05)) + rect(x - 16 * u, y - 27 * u, 20 * u, 8 * u, '#2d4a5e', { rx: 1.5 * u });
+      s += line(x - 6 * u, y - 30 * u, x - 6 * u, y - 44 * u, '#9ea3a8', 1.4 * u) + line(x - 30 * u, y - 12 * u, x - 44 * u, y - 44 * u, '#6b5a45', 1.2 * u) + path(`M${n1(x - 44 * u)} ${n1(y - 44 * u)} Q${n1(x - 58 * u)} ${n1(y - 20 * u)} ${n1(x - 62 * u)} ${n1(y + 6 * u)}`, 'none', { stroke: '#dfe6ea', 'stroke-width': n1(0.6 * u), opacity: 0.8 });
+      s += ell(x, y + 10 * u, 60 * u, 4 * u, '#fff', { opacity: 0.25 });
+      return s;
+    }
+    // a small sailboat heeling slightly: hull, mast, mainsail and jib
+    function sailboat(e, x, y, L, c) {
+      const u = L / 100; const hull = e.tint(c || '#f4f1ea'); let s = '';
+      s += path(`M${n1(x - 40 * u)} ${n1(y - 6 * u)} L${n1(x + 44 * u)} ${n1(y - 6 * u)} Q${n1(x + 36 * u)} ${n1(y + 8 * u)} ${n1(x + 24 * u)} ${n1(y + 8 * u)} L${n1(x - 30 * u)} ${n1(y + 8 * u)} Z`, e.lin([[0, lighten(hull, 0.1)], [1, darken(hull, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) + rect(x - 38 * u, y - 3 * u, 80 * u, 2.4 * u, e.accent);
+      s += line(x, y - 6 * u, x + 2 * u, y - 92 * u, '#6b5a45', 1.8 * u);
+      s += path(`M${n1(x + 3 * u)} ${n1(y - 90 * u)} Q${n1(x + 34 * u)} ${n1(y - 50 * u)} ${n1(x + 38 * u)} ${n1(y - 12 * u)} L${n1(x + 3 * u)} ${n1(y - 12 * u)} Z`, e.lin([[0, '#ffffff'], [1, '#e3e1da']], { x1: 0, y1: 0, x2: 1, y2: 1 }));
+      s += path(`M${n1(x - 2 * u)} ${n1(y - 84 * u)} Q${n1(x - 26 * u)} ${n1(y - 48 * u)} ${n1(x - 34 * u)} ${n1(y - 10 * u)} L${n1(x - 2 * u)} ${n1(y - 12 * u)} Z`, e.lin([[0, '#fbfaf6'], [1, '#d9d6cc']], { x1: 1, y1: 0, x2: 0, y2: 1 }));
+      s += line(x + 3 * u, y - 12 * u, x + 38 * u, y - 12 * u, '#6b5a45', 1.4 * u) + ell(x, y + 10 * u, 56 * u, 3.5 * u, '#fff', { opacity: 0.25 });
+      return s;
+    }
+    function bicycle(e, x, y, L, c) {
+      const u = L / 100; const col = c || e.accent; const wheel = (wx) => circ(wx, y, 22 * u, 'none', { stroke: '#222', 'stroke-width': n1(3.5 * u) }) + circ(wx, y, 19 * u, 'none', { stroke: '#9aa0a6', 'stroke-width': n1(0.7 * u) }) + circ(wx, y, 3 * u, '#9aa0a6');
+      let s = e.shadow(x, y + 22 * u, 60 * u, 5 * u, 0.3) + wheel(x - 34 * u) + wheel(x + 34 * u);
+      s += path(`M${n1(x - 34 * u)} ${n1(y)} L${n1(x - 6 * u)} ${n1(y)} L${n1(x + 18 * u)} ${n1(y - 30 * u)} L${n1(x - 14 * u)} ${n1(y - 30 * u)} Z M${n1(x - 6 * u)} ${n1(y)} L${n1(x - 18 * u)} ${n1(y - 38 * u)} M${n1(x + 18 * u)} ${n1(y - 30 * u)} L${n1(x + 34 * u)} ${n1(y)} M${n1(x + 18 * u)} ${n1(y - 30 * u)} L${n1(x + 16 * u)} ${n1(y - 40 * u)}`, 'none', { stroke: col, 'stroke-width': n1(3.4 * u), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+      s += rect(x - 26 * u, y - 42 * u, 16 * u, 4 * u, '#222', { rx: 2 * u }) + path(`M${n1(x + 10 * u)} ${n1(y - 42 * u)} Q${n1(x + 16 * u)} ${n1(y - 44 * u)} ${n1(x + 24 * u)} ${n1(y - 40 * u)}`, 'none', { stroke: '#222', 'stroke-width': n1(3 * u), 'stroke-linecap': 'round' }) + circ(x - 6 * u, y, 5 * u, '#555');
+      return s;
+    }
+    function solarPanels(e, x, y, w, h) {
+      let s = ''; const cols = 4, rows = 2; const pw = w / cols, ph = h / rows;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const px = x + c * pw, py = y + r * ph; s += rect(px + 2 * e.s, py + 2 * e.s, pw - 4 * e.s, ph - 4 * e.s, e.lin([[0, '#2e4c8f'], [1, '#162a55']], { x1: 0, y1: 0, x2: 1, y2: 1 }), { stroke: '#c9d2e0', 'stroke-width': n1(1.5 * e.s) }); for (let i = 1; i < 4; i++) s += line(px + i * pw / 4, py + 3 * e.s, px + i * pw / 4, py + ph - 3 * e.s, '#6f8cc7', 0.6 * e.s, { opacity: 0.6 }); s += path(P([[px + pw * 0.1, py + 3 * e.s], [px + pw * 0.35, py + 3 * e.s], [px + pw * 0.15, py + ph - 3 * e.s], [px + 3 * e.s, py + ph - 3 * e.s]]), '#fff', { opacity: 0.12 }); }
+      return s;
+    }
+
+    module.exports = { shrub, grasses, perennial, tree, lawn, pavers, stoneWall, mulchBed, house, shingleField, ladder, mower, aerator, soilCores, trimmer, rake, leafPile, sprinkler, firePit, pergola, chair, water, boat, sailboat, bicycle, solarPanels };
+
+  });
+  __define("hero-art-ui", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- product interfaces for software businesses, drawn as SVG with real,
+    // readable labels (an image model cannot draw legible UI). Two layouts per
+    // interface: `wide` (the desktop lead) and `compact` (phones swap to it, see
+    // styles.css .ha-ui). Labels are the owner's own words or generic UI verbs.
+    // HONESTY: no invented numbers, customer names, ratings or metrics -- charts and
+    // bars carry no values, people are roles ("New patient"), not names.
+    const A = require('./hero-art');
+    const { mix, lighten, darken } = A;
+    const { rect, circ, ell, path, line, g, n1 } = A._svg;
+
+    const FONT = "Inter,'Helvetica Neue',Arial,sans-serif";
+    function txt(x, y, s, size, fill, o) {
+      const k = o || {};
+      const t = String(s == null ? '' : s);
+      const max = k.max || 0; const shown = max && t.length > max ? t.slice(0, max - 1) + '…' : t;
+      return `<text x="${n1(x)}" y="${n1(y)}" fill="${fill}" font-size="${n1(size)}" text-anchor="${k.anchor || 'start'}" style="font-family:${FONT};font-weight:${k.weight || 500};letter-spacing:${k.spacing || '-0.005em'}"${k.opacity != null ? ` opacity="${k.opacity}"` : ''}>${A.esc(shown)}</text>`;
+    }
+    const cap = s => { s = String(s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+    // a small theme from the site accent: light or dark product chrome
+    function theme(e) {
+      const acc = e.accent; const dark = e.dark;
+      return {
+        acc, accSoft: dark ? mix(acc, '#15161b', 0.7) : mix(acc, '#ffffff', 0.86), accInk: A.inkOn(acc),
+        bg: dark ? '#111217' : '#f5f6f8', panel: dark ? '#1a1c23' : '#ffffff', panel2: dark ? '#22252e' : '#f0f2f5', line: dark ? '#2c2f3a' : '#e3e6eb',
+        ink: dark ? '#eef0f4' : '#1d2230', mute: dark ? '#9aa1b1' : '#6b7385', faint: dark ? '#4a5061' : '#c7ccd6',
+        ok: '#2fb67c', warn: '#f2a33a', bad: '#e5534b', info: '#4a8fe7',
+      };
+    }
+    function chrome(e, T, W, H, title, nav, activeIdx, o) {
+      const k = o || {}; let s = rect(0, 0, W, H, T.bg);
+      s += rect(0, 0, W, 44, T.panel) + line(0, 44, W, 44, T.line, 1);
+      s += rect(18, 13, 18, 18, T.acc, { rx: 5 }) + txt(44, 27, title, 15, T.ink, { weight: 700, max: 22 });
+      if (!k.compact) (nav || []).slice(0, 4).forEach((n, i) => { const x = 250 + i * 110; s += txt(x, 27, n, 13, i === activeIdx ? T.ink : T.mute, { weight: i === activeIdx ? 650 : 500, max: 14 }); if (i === activeIdx) s += rect(x, 40, Math.min(90, String(n).length * 7.4), 3, T.acc, { rx: 1.5 }); });
+      s += circ(W - 30, 22, 11, T.panel2) + circ(W - 30, 19, 4, T.faint) + path(`M${W - 37} 29 Q${W - 30} 22 ${W - 23} 29`, T.faint);
+      return s;
+    }
+    function chip(x, y, label, bg, ink, size) { const w = Math.max(40, String(label).length * (size || 11) * 0.62 + 18); return rect(x, y, w, (size || 11) + 11, bg, { rx: ((size || 11) + 11) / 2 }) + txt(x + w / 2, y + (size || 11) + 4, label, size || 11, ink, { anchor: 'middle', weight: 650 }); }
+    function statusDot(x, y, c) { return circ(x, y, 5, c) + circ(x, y, 9, c, { opacity: 0.2 }); }
+
+    // ---- scheduling / booking -------------------------------------------------------------------------------------------
+    function schedule(e, T, p, compact) {
+      const who = cap(p.audience || 'Clients'); const kinds = (p.items && p.items.length ? p.items : ['Appointment', 'Follow-up', 'Consultation']).map(cap);
+      if (compact) {
+        const W = 400, H = 300; let s = chrome(e, T, W, H, p.title, [], 0, { compact: true });
+        s += txt(18, 72, 'Today', 16, T.ink, { weight: 700 }) + chip(W - 118, 57, 'Book', T.acc, T.accInk, 12);
+        ['9:00', '10:30', '1:00', '3:30'].forEach((t, i) => { const y = 88 + i * 50; s += rect(14, y, W - 28, 42, T.panel, { rx: 10 }) + rect(14, y, 5, 42, i === 1 ? T.warn : T.acc, { rx: 2.5 }) + txt(30, y + 18, t, 12, T.mute, { weight: 600 }) + txt(30, y + 34, kinds[i % kinds.length], 14, T.ink, { weight: 650, max: 26 }) + txt(W - 28, y + 26, i === 1 ? (p.reminders ? 'Reminder sent' : 'Pending') : 'Confirmed', 11, i === 1 ? T.warn : T.ok, { anchor: 'end', weight: 650 }); });
+        return { s, W, H };
+      }
+      const W = 800, H = 500; let s = chrome(e, T, W, H, p.title, ['Calendar', who, p.reminders ? 'Reminders' : 'Services', 'Settings'], 0);
+      s += rect(16, 60, 172, H - 76, T.panel, { rx: 12 }) + txt(32, 88, 'This week', 14, T.ink, { weight: 700 });
+      // mini month
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 7; c++) { const d = r * 7 + c; const x = 36 + c * 20, y = 110 + r * 20; s += d === 17 ? circ(x, y - 4, 9, T.acc) : ''; s += txt(x, y, String((d % 30) + 1), 10, d === 17 ? T.accInk : T.mute, { anchor: 'middle', weight: 500 }); }
+      s += line(32, 212, 172, 212, T.line, 1) + txt(32, 238, 'Services', 12, T.mute, { weight: 650, spacing: '0.04em' });
+      kinds.slice(0, 4).forEach((k2, i) => { s += rect(32, 252 + i * 30, 10, 10, [T.acc, T.warn, T.info, T.ok][i % 4], { rx: 3 }) + txt(50, 262 + i * 30, k2, 12.5, T.ink, { max: 18 }); });
+      s += rect(32, H - 64, 140, 34, T.acc, { rx: 9 }) + txt(102, H - 42, '+ New booking', 13, T.accInk, { anchor: 'middle', weight: 700 });
+      // week grid
+      const gx = 204, gy = 60, gw = W - gx - 16, gh = H - 76; const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']; const cw = (gw - 48) / 5;
+      s += rect(gx, gy, gw, gh, T.panel, { rx: 12 });
+      days.forEach((d, i) => { s += txt(gx + 48 + i * cw + cw / 2, gy + 26, d, 12.5, i === 2 ? T.acc : T.mute, { anchor: 'middle', weight: 650 }); });
+      ['9 am', '10', '11', '12 pm', '1', '2', '3', '4'].forEach((t, i) => { const y = gy + 52 + i * 46; s += txt(gx + 40, y + 4, t, 10.5, T.mute, { anchor: 'end' }) + line(gx + 48, y, gx + gw - 10, y, T.line, 1); });
+      const blocks = [[0, 0.2, 1.6, 0], [1, 1.1, 1.2, 1], [2, 0.1, 1, 2], [2, 2.4, 1.6, 0], [3, 0.6, 1.4, 3], [4, 1.4, 1, 1], [0, 3.2, 1.2, 2], [3, 3.6, 1.2, 0], [1, 4.4, 1.3, 3], [4, 4, 1.4, 2]];
+      const cols = [T.acc, T.warn, T.info, T.ok];
+      blocks.forEach(([d, start, len, ci], i) => { const x = gx + 52 + d * cw, y = gy + 52 + start * 46, h = len * 46 - 6, c = cols[ci]; s += rect(x, y, cw - 8, h, mix(c, T.panel, e.dark ? 0.55 : 0.82), { rx: 7 }) + rect(x, y, 4, h, c, { rx: 2 }) + txt(x + 11, y + 17, kinds[i % kinds.length], 11.5, T.ink, { weight: 650, max: 15 }) + (h > 40 ? txt(x + 11, y + 32, i % 3 === 0 ? `New ${who.toLowerCase().replace(/s$/, '')}` : 'Confirmed', 10.5, T.mute, { max: 16 }) : ''); });
+      // now line
+      s += line(gx + 48, gy + 52 + 2.2 * 46, gx + gw - 10, gy + 52 + 2.2 * 46, T.bad, 1.6) + circ(gx + 48, gy + 52 + 2.2 * 46, 4, T.bad);
+      return { s, W, H };
+    }
+    // ---- monitoring / infrastructure --------------------------------------------------------------------------------------
+    function spark(x, y, w, h, seed, c, fill) {
+      const R = A.rng(seed); let d = '', pts = [];
+      for (let i = 0; i <= 24; i++) { const v = 0.35 + 0.25 * Math.sin(i / 3 + seed % 7) + R() * 0.2 + (i === 17 ? 0.35 : 0); pts.push([x + i * w / 24, y + h - Math.min(0.98, v) * h]); }
+      d = pts.map((p2, i) => `${i ? 'L' : 'M'}${n1(p2[0])} ${n1(p2[1])}`).join(' ');
+      return (fill ? path(`${d} L${n1(x + w)} ${n1(y + h)} L${n1(x)} ${n1(y + h)} Z`, c, { opacity: 0.14 }) : '') + path(d, 'none', { stroke: c, 'stroke-width': 2, 'stroke-linejoin': 'round' });
+    }
+    function monitor(e, T, p, compact) {
+      const svcs = (p.items && p.items.length ? p.items : ['api', 'web', 'worker', 'database', 'queue']).slice(0, 5);
+      if (compact) {
+        const W = 400, H = 300; let s = chrome(e, T, W, H, p.title, [], 0, { compact: true });
+        s += txt(18, 72, 'Services', 16, T.ink, { weight: 700 }) + chip(W - 112, 57, 'Healthy', mix(T.ok, T.panel, 0.75), T.ok, 11);
+        svcs.slice(0, 3).forEach((sv, i) => { const y = 86 + i * 46; s += rect(14, y, W - 28, 38, T.panel, { rx: 9 }) + statusDot(32, y + 19, i === 1 ? T.warn : T.ok) + txt(48, y + 24, sv, 14, T.ink, { weight: 650, max: 16 }) + spark(W - 170, y + 6, 140, 26, 11 + i, i === 1 ? T.warn : T.acc); });
+        s += rect(14, 232, W - 28, 52, mix(T.warn, T.panel, e.dark ? 0.8 : 0.88), { rx: 10 }) + txt(30, 254, 'Alert · latency above threshold', 13, T.ink, { weight: 650 }) + txt(30, 272, `${cap(svcs[1] || 'web')} · acknowledged`, 11.5, T.mute);
+        return { s, W, H };
+      }
+      const W = 800, H = 500; let s = chrome(e, T, W, H, p.title, ['Overview', 'Services', 'Alerts', 'Logs'], 0);
+      s += rect(16, 60, 168, H - 76, T.panel, { rx: 12 }) + txt(32, 88, 'Services', 13, T.mute, { weight: 650, spacing: '0.04em' });
+      svcs.forEach((sv, i) => { const y = 104 + i * 36; s += (i === 0 ? rect(24, y - 6, 152, 30, T.accSoft, { rx: 8 }) : '') + statusDot(40, y + 9, i === 2 ? T.warn : T.ok) + txt(56, y + 14, sv, 13, T.ink, { weight: i === 0 ? 700 : 500, max: 14 }); });
+      s += txt(32, H - 60, 'Region', 11, T.mute, { weight: 650, spacing: '0.04em' }) + chip(32, H - 50, 'All regions', T.panel2, T.ink, 11);
+      // latency chart
+      s += rect(200, 60, W - 216, 210, T.panel, { rx: 12 }) + txt(220, 88, 'Latency', 14, T.ink, { weight: 700 }) + txt(292, 88, 'p50 · p95 · p99', 12, T.mute) + chip(W - 150, 72, 'Last 24 hours', T.panel2, T.ink, 11);
+      for (let i = 0; i < 4; i++) s += line(220, 120 + i * 36, W - 36, 120 + i * 36, T.line, 1);
+      s += spark(220, 108, W - 256, 140, 7, T.acc, true) + spark(220, 140, W - 256, 110, 3, T.info) + spark(220, 170, W - 256, 80, 5, T.faint);
+      s += line(220 + (W - 256) * 17 / 24, 104, 220 + (W - 256) * 17 / 24, 250, T.warn, 1.2, { 'stroke-dasharray': '4 4' }) + chip(220 + (W - 256) * 17 / 24 - 40, 98, 'Deploy', mix(T.warn, T.panel, 0.7), darken(T.warn, 0.3), 10);
+      // uptime strips + alert card
+      s += rect(200, 286, (W - 232) * 0.6, H - 302, T.panel, { rx: 12 }) + txt(220, 314, 'Availability', 14, T.ink, { weight: 700 });
+      svcs.slice(0, 4).forEach((sv, r) => { const y = 332 + r * 32; s += txt(220, y + 13, sv, 12, T.mute, { max: 10 }); for (let i = 0; i < 30; i++) s += rect(300 + i * ((W - 232) * 0.6 - 120) / 30, y, ((W - 232) * 0.6 - 120) / 30 - 2, 18, (r === 2 && (i === 21 || i === 22)) ? T.warn : T.ok, { rx: 2, opacity: 0.85 }); });
+      const ax = 216 + (W - 232) * 0.6, aw = W - 16 - ax;
+      s += rect(ax, 286, aw, H - 302, T.panel, { rx: 12 }) + txt(ax + 18, 314, 'Alerts', 14, T.ink, { weight: 700 });
+      [['Latency above threshold', T.warn, 'Acknowledged'], ['Error rate', T.ok, 'Resolved'], ['Disk usage', T.ok, 'Resolved']].forEach(([t, c, st], i) => { const y = 330 + i * 46; s += rect(ax + 12, y, aw - 24, 38, T.panel2, { rx: 8 }) + statusDot(ax + 28, y + 19, c) + txt(ax + 42, y + 17, t, 12, T.ink, { weight: 650, max: 24 }) + txt(ax + 42, y + 31, st, 10.5, T.mute); });
+      return { s, W, H };
+    }
+    // ---- pipeline / kanban -------------------------------------------------------------------------------------------------
+    function pipeline(e, T, p, compact) {
+      const stages = (p.items && p.items.length >= 3 ? p.items : ['New', 'Contacted', 'Proposal', 'Won']).slice(0, 4).map(cap); const cols = [T.info, T.warn, T.acc, T.ok];
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Pipeline', 'Contacts', 'Tasks', 'Reports'], 0, { compact });
+      const n = compact ? 2 : 4; const cw = (W - 16 - n * 12) / n;
+      stages.slice(0, n).forEach((st, c) => { const x = 16 + c * (cw + 12); s += rect(x, 60, cw, H - 76, T.panel2, { rx: 12 }) + circ(x + 18, 82, 5, cols[c]) + txt(x + 30, 87, st, 13.5, T.ink, { weight: 700, max: 16 });
+        const cards = compact ? 3 : 4 - (c % 2);
+        for (let i = 0; i < cards; i++) { const y = 104 + i * (compact ? 58 : 86); const h = compact ? 50 : 76; s += rect(x + 10, y, cw - 20, h, T.panel, { rx: 9 }) + rect(x + 22, y + 14, cw * (0.45 + ((i + c) % 3) * 0.12), 9, T.ink, { rx: 4.5, opacity: 0.8 }) + rect(x + 22, y + 30, cw * 0.4, 7, T.faint, { rx: 3.5 }) + (compact ? '' : rect(x + 22, y + 48, 44, 16, mix(cols[c], T.panel, 0.8), { rx: 8 }) + circ(x + cw - 34, y + 56, 10, T.panel2) + circ(x + cw - 34, y + 53, 3.5, T.faint)); } });
+      return { s, W, H };
+    }
+    // ---- invoices / accounting ---------------------------------------------------------------------------------------------
+    function ledger(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Invoices', 'Expenses', 'Clients', 'Reports'], 0, { compact });
+      const statuses = [['Paid', T.ok], ['Sent', T.info], ['Overdue', T.bad], ['Draft', T.faint], ['Paid', T.ok], ['Sent', T.info]];
+      const x0 = 16, w = W - 32; s += rect(x0, 60, w, H - 76, T.panel, { rx: 12 }) + txt(x0 + 18, 90, cap((p.items && p.items[0]) || 'Invoices'), 16, T.ink, { weight: 700 }) + chip(x0 + w - (compact ? 96 : 136), 72, compact ? '+ New' : '+ New invoice', T.acc, T.accInk, 11.5);
+      if (!compact) ['Client', 'Issued', 'Due', 'Status', 'Amount'].forEach((h2, i) => { s += txt(x0 + 18 + [0, 240, 360, 480, 600][i], 126, h2, 11.5, T.mute, { weight: 650, spacing: '0.04em' }); });
+      statuses.slice(0, compact ? 4 : 6).forEach(([st, c], i) => { const y = (compact ? 104 : 140) + i * (compact ? 44 : 52); s += line(x0 + 12, y - 8, x0 + w - 12, y - 8, T.line, 1) + circ(x0 + 30, y + 12, 11, T.panel2) + rect(x0 + 50, y + 4, compact ? 120 : 150, 9, T.ink, { rx: 4.5, opacity: 0.75 }) + (compact ? '' : rect(x0 + 258, y + 6, 70, 7, T.faint, { rx: 3.5 }) + rect(x0 + 378, y + 6, 70, 7, T.faint, { rx: 3.5 })) + chip(x0 + (compact ? w - 150 : 498), y + 1, st, mix(c, T.panel, e.dark ? 0.7 : 0.82), c === T.faint ? T.mute : darken(c, e.dark ? -0.2 : 0.2), 10.5) + rect(x0 + w - (compact ? 64 : 110), y + 5, compact ? 46 : 80, 9, T.ink, { rx: 4.5, opacity: 0.55 }); });
+      return { s, W, H };
+    }
+    // ---- support inbox ------------------------------------------------------------------------------------------------------
+    function inbox(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Inbox', 'Assigned', 'Resolved', 'Help center'], 0, { compact });
+      const lw = compact ? 0 : 250;
+      if (!compact) { s += rect(16, 60, lw, H - 76, T.panel, { rx: 12 }); for (let i = 0; i < 6; i++) { const y = 72 + i * 66; s += (i === 0 ? rect(22, y - 4, lw - 12, 60, T.accSoft, { rx: 9 }) : '') + circ(46, y + 22, 14, T.panel2) + rect(68, y + 10, 120, 8, T.ink, { rx: 4, opacity: 0.75 }) + rect(68, y + 26, 160, 6, T.faint, { rx: 3 }) + rect(68, y + 38, 110, 6, T.faint, { rx: 3 }) + (i < 2 ? circ(lw - 4, y + 14, 4, T.acc) : ''); } }
+      const tx = 16 + lw + (compact ? 0 : 14), tw = W - tx - 16; s += rect(tx, 60, tw, H - 76, T.panel, { rx: 12 }) + txt(tx + 18, 88, cap((p.items && p.items[0]) || 'Customer question'), 15, T.ink, { weight: 700, max: 30 }) + chip(tx + tw - 100, 72, 'Open', mix(T.info, T.panel, 0.8), T.info, 11);
+      const bub = (x, y, w, mine, lines) => rect(x, y, w, 18 + lines * 14, mine ? T.acc : T.panel2, { rx: 12 }) + Array.from({ length: lines }, (_, i) => rect(x + 14, y + 12 + i * 14, w * (i === lines - 1 ? 0.5 : 0.8), 6, mine ? T.accInk : T.faint, { rx: 3, opacity: mine ? 0.8 : 1 })).join('');
+      s += bub(tx + 18, 110, tw * 0.62, false, 3) + bub(tx + tw * 0.34, 186, tw * 0.6, true, 2) + (compact ? '' : bub(tx + 18, 252, tw * 0.5, false, 2));
+      s += rect(tx + 14, H - 74, tw - 28, 44, T.panel2, { rx: 10 }) + txt(tx + 30, H - 47, 'Write a reply…', 13, T.mute) + chip(tx + tw - 90, H - 64, 'Send', T.acc, T.accInk, 11);
+      return { s, W, H };
+    }
+    // ---- design / content editor -------------------------------------------------------------------------------------------
+    function editor(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Projects', 'Editor', 'Assets', 'Share'], 1, { compact });
+      const lx = compact ? 16 : 16, lw = compact ? 0 : 60; if (!compact) { s += rect(16, 60, lw, H - 76, T.panel, { rx: 12 }); for (let i = 0; i < 6; i++) s += rect(32, 78 + i * 46, 28, 28, i === 1 ? T.acc : T.panel2, { rx: 7 }); }
+      const cx = lx + lw + (compact ? 0 : 14), cw = W - cx - (compact ? 16 : 200); s += rect(cx, 60, cw, H - 76, T.panel2, { rx: 12 });
+      s += rect(cx + cw * 0.12, 90, cw * 0.76, H - 140, T.panel, { rx: 6 }) + rect(cx + cw * 0.18, 112, cw * 0.4, (H - 140) * 0.44, mix(T.acc, T.panel, 0.25), { rx: 8 }) + circ(cx + cw * 0.3, 112 + (H - 140) * 0.18, (H - 140) * 0.08, lighten(T.acc, 0.5)) + rect(cx + cw * 0.62, 112, cw * 0.2, (H - 140) * 0.2, T.panel2, { rx: 6 }) + rect(cx + cw * 0.18, 112 + (H - 140) * 0.52, cw * 0.54, 12, T.ink, { rx: 6, opacity: 0.8 }) + rect(cx + cw * 0.18, 132 + (H - 140) * 0.52, cw * 0.4, 8, T.faint, { rx: 4 });
+      s += rect(cx + cw * 0.18 - 3, 109, cw * 0.4 + 6, (H - 140) * 0.44 + 6, 'none', { stroke: T.info, 'stroke-width': 1.6 }) + [[0, 0], [1, 0], [0, 1], [1, 1]].map(([a, b]) => rect(cx + cw * 0.18 - 6 + a * (cw * 0.4 + 6), 106 + b * ((H - 140) * 0.44 + 6), 7, 7, T.panel, { stroke: T.info, 'stroke-width': 1.4 })).join('');
+      if (!compact) { const px = W - 186; s += rect(px, 60, 170, H - 76, T.panel, { rx: 12 }) + txt(px + 16, 88, 'Layers', 13, T.mute, { weight: 650, spacing: '0.04em' }); ((p.items && p.items.length ? p.items : ['Headline', 'Image', 'Button', 'Background'])).slice(0, 5).forEach((it, i) => { s += (i === 1 ? rect(px + 8, 102 + i * 34, 154, 28, T.accSoft, { rx: 7 }) : '') + rect(px + 18, 110 + i * 34, 12, 12, [T.acc, T.info, T.warn, T.ok, T.faint][i], { rx: 3 }) + txt(px + 38, 120 + i * 34, cap(it), 12.5, T.ink, { max: 16 }); }); }
+      return { s, W, H };
+    }
+    // ---- storefront builder ---------------------------------------------------------------------------------------------------
+    function store(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Products', 'Orders', 'Customers', 'Storefront'], 0, { compact });
+      const cols = compact ? 2 : 4, rows = compact ? 1 : 2; const cw = (W - 32 - (cols - 1) * 14) / cols, ch = compact ? 200 : 196; const tones = [T.acc, T.warn, T.info, T.ok, lighten(T.acc, 0.4), T.bad];
+      const items = (p.items && p.items.length ? p.items : ['Product', 'Product', 'Product', 'Product']).map(cap);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const i = r * cols + c; const x = 16 + c * (cw + 14), y = 60 + r * (ch + 14); s += rect(x, y, cw, ch, T.panel, { rx: 12 }) + rect(x + 10, y + 10, cw - 20, ch * 0.56, mix(tones[i % tones.length], T.panel, 0.7), { rx: 8 }) + circ(x + cw / 2, y + 10 + ch * 0.28, ch * 0.13, mix(tones[i % tones.length], T.panel, 0.25)) + txt(x + 14, y + ch * 0.56 + 34, items[i % items.length], 13, T.ink, { weight: 650, max: Math.floor(cw / 8) }) + rect(x + 14, y + ch * 0.56 + 46, cw * 0.35, 8, T.faint, { rx: 4 }) + rect(x + cw - 64, y + ch - 34, 50, 22, T.acc, { rx: 11 }) + txt(x + cw - 39, y + ch - 19, 'Add', 11, T.accInk, { anchor: 'middle', weight: 700 }); }
+      return { s, W, H };
+    }
+    // ---- analytics ---------------------------------------------------------------------------------------------------------------
+    function analytics(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Overview', 'Reports', 'Segments', 'Exports'], 0, { compact });
+      const kpis = (p.items && p.items.length ? p.items : ['Visitors', 'Signups', 'Retention', 'Revenue']).slice(0, compact ? 2 : 4).map(cap); const kw = (W - 32 - (kpis.length - 1) * 12) / kpis.length;
+      kpis.forEach((k2, i) => { const x = 16 + i * (kw + 12); s += rect(x, 60, kw, 86, T.panel, { rx: 12 }) + txt(x + 16, 86, k2, 12.5, T.mute, { weight: 650, max: 18 }) + rect(x + 16, 100, kw * 0.45, 16, T.ink, { rx: 5, opacity: 0.85 }) + spark(x + kw * 0.55, 96, kw * 0.38, 34, 21 + i, [T.acc, T.info, T.ok, T.warn][i]); });
+      s += rect(16, 160, compact ? W - 32 : (W - 44) * 0.64, H - 176, T.panel, { rx: 12 }) + txt(34, 188, 'Trend', 14, T.ink, { weight: 700 }) + spark(34, 206, (compact ? W - 32 : (W - 44) * 0.64) - 36, H - 250, 9, T.acc, true) + spark(34, 226, (compact ? W - 32 : (W - 44) * 0.64) - 36, H - 270, 4, T.info);
+      if (!compact) { const bx = 28 + (W - 44) * 0.64, bw = W - 16 - bx; s += rect(bx, 160, bw, H - 176, T.panel, { rx: 12 }) + txt(bx + 18, 188, 'By channel', 14, T.ink, { weight: 700 }); ['Search', 'Direct', 'Social', 'Email', 'Referral'].forEach((c, i) => { const y = 210 + i * 50; s += txt(bx + 18, y + 12, c, 12, T.mute) + rect(bx + 18, y + 20, (bw - 36), 10, T.panel2, { rx: 5 }) + rect(bx + 18, y + 20, (bw - 36) * [0.82, 0.64, 0.5, 0.36, 0.24][i], 10, [T.acc, T.info, T.warn, T.ok, T.faint][i], { rx: 5 }); }); }
+      return { s, W, H };
+    }
+    // ---- courses / learning ------------------------------------------------------------------------------------------------------
+    function learning(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['My courses', 'Lessons', 'Progress', 'Community'], 0, { compact });
+      const mods = (p.items && p.items.length ? p.items : ['Getting started', 'Core skills', 'Practice', 'Review']).map(cap);
+      if (!compact) { s += rect(16, 60, 480, 290, T.panel2, { rx: 12 }) + rect(16, 60, 480, 290, e.lin([[0, mix(T.acc, '#000', 0.2)], [1, mix(T.acc, '#000', 0.55)]], { x1: 0, y1: 0, x2: 1, y2: 1 }), { rx: 12 }) + circ(256, 205, 30, '#ffffff', { opacity: 0.9 }) + path('M248 190 L270 205 L248 220 Z', T.acc) + rect(36, 322, 440, 5, '#ffffff', { rx: 2.5, opacity: 0.35 }) + rect(36, 322, 180, 5, '#ffffff', { rx: 2.5 }); s += txt(16, 380, mods[0], 17, T.ink, { weight: 700, max: 40 }) + rect(16, 394, 300, 8, T.faint, { rx: 4 }) + rect(16, 410, 240, 8, T.faint, { rx: 4 }); }
+      const lx = compact ? 16 : 512, lw = W - lx - 16; s += rect(lx, 60, lw, H - 76, T.panel, { rx: 12 }) + txt(lx + 16, 88, 'Modules', 13, T.mute, { weight: 650, spacing: '0.04em' });
+      mods.slice(0, compact ? 4 : 6).forEach((m, i) => { const y = 102 + i * (compact ? 44 : 62); s += rect(lx + 10, y, lw - 20, compact ? 38 : 52, i === 1 ? T.accSoft : T.panel2, { rx: 9 }) + circ(lx + 32, y + (compact ? 19 : 26), 10, i < 1 ? T.ok : (i === 1 ? T.acc : T.faint)) + txt(lx + 50, y + (compact ? 24 : 24), m, 13, T.ink, { weight: 650, max: compact ? 26 : 18 }) + (compact ? '' : rect(lx + 50, y + 34, lw - 90, 6, T.line, { rx: 3 }) + rect(lx + 50, y + 34, (lw - 90) * [1, 0.55, 0.2, 0, 0, 0][i], 6, T.acc, { rx: 3 })); });
+      return { s, W, H };
+    }
+    // ---- documents / extraction ------------------------------------------------------------------------------------------------
+    function docs(e, T, p, compact) {
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Documents', 'Review', 'Templates', 'Exports'], 1, { compact });
+      const fields = (p.items && p.items.length ? p.items : ['Party', 'Effective date', 'Term', 'Signature']).map(cap);
+      if (!compact) { s += rect(16, 60, 360, H - 76, T.panel2, { rx: 12 }) + rect(44, 80, 304, H - 116, '#fdfcf8', { rx: 3 }); for (let i = 0; i < 16; i++) s += rect(66, 104 + i * 20, [240, 260, 180, 250][i % 4], 6, '#c9c4ba', { rx: 3 }); [2, 7, 12].forEach(i => { s += rect(62, 98 + i * 20, 180, 16, mix(T.acc, '#ffffff', 0.7), { rx: 3, opacity: 0.8 }); }); }
+      const fx = compact ? 16 : 392, fw = W - fx - 16; s += rect(fx, 60, fw, H - 76, T.panel, { rx: 12 }) + txt(fx + 18, 88, 'Extracted fields', 14, T.ink, { weight: 700 });
+      fields.slice(0, compact ? 4 : 6).forEach((f, i) => { const y = 104 + i * (compact ? 44 : 56); s += txt(fx + 18, y + 12, f, 12, T.mute, { weight: 650, max: 26 }) + rect(fx + 18, y + 18, fw - 36, compact ? 20 : 26, T.panel2, { rx: 7 }) + rect(fx + 28, y + (compact ? 25 : 27), (fw - 80) * (0.4 + (i % 3) * 0.15), 7, T.ink, { rx: 3.5, opacity: 0.7 }) + circ(fx + fw - 32, y + (compact ? 28 : 31), 7, T.ok); });
+      return { s, W, H };
+    }
+    // ---- workflow / automation ---------------------------------------------------------------------------------------------------
+    function workflow(e, T, p, compact) {
+      const steps = (p.items && p.items.length >= 3 ? p.items : ['Trigger', 'Understand', 'Review', 'Deliver']).slice(0, 4).map(cap);
+      const W = compact ? 400 : 800, H = compact ? 300 : 500; let s = chrome(e, T, W, H, p.title, ['Workflows', 'Runs', 'Connections', 'Settings'], 0, { compact });
+      s += rect(16, 60, W - 32, H - 76, T.panel2, { rx: 12 });
+      for (let y = 80; y < H - 20; y += 22) for (let x = 36; x < W - 20; x += 22) s += circ(x, y, 1, T.faint, { opacity: 0.6 });
+      const pos = compact ? [[40, 90], [210, 90], [210, 190], [40, 190]] : [[50, 120], [240, 220], [430, 120], [600, 250]];
+      const nw = compact ? 150 : 170, nh = compact ? 60 : 74;
+      for (let i = 1; i < steps.length; i++) {
+        const [ax, ay] = pos[i - 1], [bx, by] = pos[i];
+        let d;
+        if (bx === ax) d = `M${ax + nw / 2} ${ay + nh} C ${ax + nw / 2} ${ay + nh + 20}, ${bx + nw / 2} ${by - 20}, ${bx + nw / 2} ${by}`;
+        else if (bx > ax) d = `M${ax + nw} ${ay + nh / 2} C ${ax + nw + 50} ${ay + nh / 2}, ${bx - 50} ${by + nh / 2}, ${bx} ${by + nh / 2}`;
+        else d = `M${ax} ${ay + nh / 2} C ${ax - 30} ${ay + nh / 2}, ${bx + nw + 30} ${by + nh / 2}, ${bx + nw} ${by + nh / 2}`;
+        s += path(d, 'none', { stroke: T.acc, 'stroke-width': 2, opacity: 0.8 });
+      }
+      steps.forEach((st, i) => { const [x, y] = pos[i]; s += rect(x, y, nw, nh, T.panel, { rx: 12, stroke: i === 1 ? T.acc : T.line, 'stroke-width': i === 1 ? 2 : 1 }) + rect(x + 14, y + 14, 26, 26, [T.info, T.acc, T.warn, T.ok][i], { rx: 7 }) + txt(x + 50, y + 32, st, 14, T.ink, { weight: 700, max: 14 }) + (compact ? '' : rect(x + 14, y + 52, nw - 60, 7, T.faint, { rx: 3.5 })) + circ(x + nw - 18, y + 27, 5, i < 2 ? T.ok : T.faint); });
+      return { s, W, H };
+    }
+
+    const INTERFACES = { schedule, monitor, pipeline, ledger, inbox, editor, store, analytics, learning, docs, workflow };
+    const INTERFACE_KINDS = Object.keys(INTERFACES);
+    // Both layouts in one element; styles.css shows `wide` on desktop and `compact` on phones.
+    function renderInterface(e, kind, params) {
+      const fn = INTERFACES[kind] || INTERFACES.analytics; const T = theme(e); const p = Object.assign({ title: 'Product' }, params || {});
+      const out = [false, true].map(compact => { const r = fn(e, T, p, compact); return `<svg class="ha-ui-${compact ? 'compact' : 'wide'}" viewBox="0 0 ${r.W} ${r.H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${A.esc(`${p.title} interface`)}" xmlns="http://www.w3.org/2000/svg">${r.s}</svg>`; });
+      // the whole screen is always visible; the frame around it takes the product's own background
+      return `<div class="ha-ui" data-ui="${A.esc(kind)}" style="background:${T.bg}">${out.join('')}</div>`;
+    }
+    // a phone showing one notification card -- the supporting "moment" for a software site
+    function phoneNotice(e, x, y, H, o) {
+      const k = o || {}; const T = theme(e); const W = H * 0.5; let s = e.shadow(x + W * 0.1, y + H * 0.52, W * 0.6, H * 0.04, 0.4);
+      s += rect(x - W / 2, y - H / 2, W, H, '#16171b', { rx: W * 0.16 }) + rect(x - W / 2 + W * 0.05, y - H / 2 + W * 0.05, W * 0.9, H - W * 0.1, e.lin([[0, mix(T.acc, '#0c0d12', 0.55)], [1, mix(T.acc, '#0c0d12', 0.85)]], { x1: 0, y1: 0, x2: 0.4, y2: 1 }), { rx: W * 0.12 }) + rect(x - W * 0.14, y - H / 2 + W * 0.09, W * 0.28, W * 0.06, '#000', { rx: W * 0.03 });
+      s += txt(x, y - H * 0.28, k.time || '9:41', W * 0.2, '#ffffff', { anchor: 'middle', weight: 300 });
+      const cy = y - H * 0.08; s += rect(x - W * 0.42, cy, W * 0.84, H * 0.16, 'rgba(255,255,255,0.88)', { rx: W * 0.06 }) + rect(x - W * 0.36, cy + H * 0.025, W * 0.1, W * 0.1, T.acc, { rx: W * 0.025 }) + txt(x - W * 0.22, cy + H * 0.05, k.app || 'App', W * 0.07, '#1d2230', { weight: 700, max: 16 }) + txt(x - W * 0.36, cy + H * 0.1, k.title || 'New booking', W * 0.075, '#1d2230', { weight: 650, max: 22 }) + txt(x - W * 0.36, cy + H * 0.135, k.body || 'Tomorrow · confirmed', W * 0.065, '#5b6273', { max: 26 });
+      return s;
+    }
+
+    module.exports = { INTERFACES, INTERFACE_KINDS, renderInterface, phoneNotice, theme };
+
+  });
+  __define("hero-art", function (module, exports, require) {
+    'use strict';
+    // HERO ART -- code-drawn illustrations for the moving hero.
+    //
+    // Every hero layer names WHAT it shows (lib/premium/visual-subjects.js turns the
+    // owner's own words into a subject and an art spec: a can in the stated
+    // flavours, a serum dropper, a striped lawn with a mower, a scheduling screen).
+    // When no paid image is available for that layer -- image generation is off or
+    // unfunded, the request failed, or it is still in flight -- the layer draws this
+    // illustration instead of disappearing. Software leads always use a drawn
+    // interface (readable labels; an image model cannot draw legible UI).
+    //
+    // Pure and deterministic (no I/O, no randomness): the same spec, palette and
+    // seed give byte-identical SVG in the live preview (premium-core.js bundle) and
+    // the export (lib/site-render.js). One visual language across a hero's layers:
+    // the site's own accent tints every surface, light always comes from the upper
+    // left, one soft shadow style, one grain.
+    //
+    // HONESTY: interface drawings carry only the owner's own words and generic UI
+    // labels -- no invented numbers, customer names, ratings or metrics.
+
+    // ---- colour ---------------------------------------------------------------------------------------------------
+    function rgb(c) {
+      const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c || '').trim());
+      if (!m) return [128, 128, 128];
+      let h = m[1]; if (h.length === 3) h = h.split('').map(x => x + x).join('');
+      return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+    }
+    const hex = a => '#' + a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+    function mix(a, b, t) { const A = rgb(a), B = rgb(b); return hex(A.map((v, i) => v + (B[i] - v) * t)); }
+    const lighten = (c, t) => mix(c, '#ffffff', t);
+    const darken = (c, t) => mix(c, '#000000', t);
+    function lum(c) { const [r, g, b] = rgb(c).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
+    const inkOn = c => (lum(c) > 0.42 ? '#1c1a19' : '#ffffff');
+    const n1 = v => Math.round(v * 10) / 10;
+
+    // Named materials and flavours. Colours only -- the subject module decides WHICH apply.
+    const FLAVOUR_COLOURS = {
+      grapefruit: '#f0705f', yuzu: '#f2d13a', ginger: '#d8a44a', peach: '#f6a178', cherry: '#b5122f', lemon: '#f4dc3f', lime: '#8cc63f',
+      orange: '#f58a1f', 'blood orange': '#c7432b', mango: '#ffb13b', berry: '#b8205a', berries: '#b8205a', raspberry: '#c7215d', strawberry: '#e33b45',
+      blueberry: '#4a4f9e', blackberry: '#3e1f48', watermelon: '#f25c6e', mint: '#72cf9c', vanilla: '#f0dfa4', chocolate: '#5b3a1e', apple: '#8cbf45',
+      coconut: '#efe8da', pineapple: '#f5c63c', passionfruit: '#8f3a6c', cucumber: '#9bc865', elderflower: '#ece4c0', hibiscus: '#c01f5d', lavender: '#9a86c8',
+      pomegranate: '#a3163d', cranberry: '#9a1b30', pear: '#c7d16a', grape: '#6b3c99', matcha: '#7ca552', tea: '#b36a26', coffee: '#6e4b33', citrus: '#f5b82e',
+      cola: '#5a2e1b', cinnamon: '#a0522d', honey: '#e0a21a', chili: '#c9291d', habanero: '#ef6a1a', jalapeno: '#4f8f2f', garlic: '#efe6d2', smoky: '#7a4a2a',
+    };
+    const FLAVOUR_KEYS = Object.keys(FLAVOUR_COLOURS);
+    const flavourColour = f => FLAVOUR_COLOURS[String(f || '').toLowerCase()] || null;
+
+    // ---- svg helpers ----------------------------------------------------------------------------------------------
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    function attrs(o) { return Object.keys(o).filter(k => o[k] != null && o[k] !== false).map(k => `${k}="${typeof o[k] === 'number' ? n1(o[k]) : esc(o[k])}"`).join(' '); }
+    const el = (tag, o, inner) => (inner == null ? `<${tag} ${attrs(o)}/>` : `<${tag} ${attrs(o)}>${inner}</${tag}>`);
+    const rect = (x, y, w, h, fill, o) => el('rect', Object.assign({ x, y, width: Math.max(0, w), height: Math.max(0, h), fill }, o || {}));
+    const circ = (cx, cy, r, fill, o) => el('circle', Object.assign({ cx, cy, r: Math.max(0, r), fill }, o || {}));
+    const ell = (cx, cy, rx, ry, fill, o) => el('ellipse', Object.assign({ cx, cy, rx: Math.max(0, rx), ry: Math.max(0, ry), fill }, o || {}));
+    const path = (d, fill, o) => el('path', Object.assign({ d, fill }, o || {}));
+    const line = (x1, y1, x2, y2, stroke, w, o) => el('line', Object.assign({ x1, y1, x2, y2, stroke, 'stroke-width': w || 1, 'stroke-linecap': 'round' }, o || {}));
+    const g = (inner, o) => el('g', o || {}, inner);
+    const P = pts => pts.map((p, i) => `${i ? 'L' : 'M'}${n1(p[0])} ${n1(p[1])}`).join(' ') + ' Z';
+
+    // deterministic pseudo-random from a seed
+    function rng(seed) { let s = (seed >>> 0) || 1; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+    function hashStr(s) { let h = 2166136261; const t = String(s || ''); for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+    // A drawing context: viewBox, palette, one gradient registry, one shadow filter.
+    function makeEnv(o) {
+      const w = o.w, h = o.h;
+      const accent = o.accent || '#6b5b95';
+      const dark = o.tone === 'dark';
+      const uid = 'ha' + (o.uid || hashStr(`${o.kind}|${o.seed}|${w}x${h}`).toString(36));
+      const defs = [];
+      let n = 0;
+      const env = {
+        w, h, cx: w / 2, cy: h / 2, s: Math.min(w, h) / 480, accent, dark, uid, rand: rng(o.seed || 7), detail: o.detail || 'full', defs,
+        // surfaces tinted by the site accent: one family of colours across every layer of a hero
+        wall: dark ? mix(accent, '#0e0e13', 0.8) : mix(accent, '#f5f1eb', 0.9),
+        wall2: dark ? mix(accent, '#1a1a22', 0.72) : mix(accent, '#ebe4da', 0.86),
+        floor: dark ? mix(accent, '#17161b', 0.78) : mix(accent, '#e3dacd', 0.84),
+        ink: dark ? '#f4f1ec' : '#23201d',
+        tint: c => mix(c, accent, 0.08),
+        id(p) { n += 1; return `${uid}-${p || 'g'}${n}`; },
+        lin(stops, o2) { const id = env.id('l'); const d = o2 || {}; defs.push(`<linearGradient id="${id}" x1="${d.x1 == null ? 0 : d.x1}" y1="${d.y1 == null ? 0 : d.y1}" x2="${d.x2 == null ? 1 : d.x2}" y2="${d.y2 == null ? 0 : d.y2}">${stops.map(s => `<stop offset="${s[0]}" stop-color="${s[1]}"${s[2] != null ? ` stop-opacity="${s[2]}"` : ''}/>`).join('')}</linearGradient>`); return `url(#${id})`; },
+        rad(stops, o2) { const id = env.id('r'); const d = o2 || {}; defs.push(`<radialGradient id="${id}" cx="${d.cx == null ? 0.5 : d.cx}" cy="${d.cy == null ? 0.5 : d.cy}" r="${d.r == null ? 0.5 : d.r}"${d.fx != null ? ` fx="${d.fx}" fy="${d.fy}"` : ''}>${stops.map(s => `<stop offset="${s[0]}" stop-color="${s[1]}"${s[2] != null ? ` stop-opacity="${s[2]}"` : ''}/>`).join('')}</radialGradient>`); return `url(#${id})`; },
+        // a lit cylinder: shade at both edges, a bright band left of centre (light from the upper left)
+        cyl(c, o3) { const k = o3 || {}; return env.lin([[0, darken(c, k.edge == null ? 0.38 : k.edge)], [0.16, lighten(c, k.hi == null ? 0.28 : k.hi)], [0.3, c], [0.72, darken(c, 0.12)], [1, darken(c, (k.edge == null ? 0.38 : k.edge) + 0.08)]]); },
+        // a lit flat face: lighter at the top left
+        face(c, t) { return env.lin([[0, lighten(c, t || 0.12)], [1, darken(c, t || 0.12)]], { x1: 0, y1: 0, x2: 0.7, y2: 1 }); },
+        blur: null,
+      };
+      env.blurId = `${uid}-blur`;
+      defs.push(`<filter id="${env.blurId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${n1(8 * env.s)}"/></filter>`);
+      env.shadow = (cx, cy, rx, ry, op) => ell(cx, cy, rx, ry, dark ? '#000' : darken(env.floor, 0.55), { opacity: op == null ? (dark ? 0.55 : 0.32) : op, filter: `url(#${env.blurId})` });
+      env.hi = (x, y, w2, h2, op, rx) => rect(x, y, w2, h2, '#fff', { opacity: op == null ? 0.32 : op, rx: rx == null ? w2 / 2 : rx });
+      return env;
+    }
+
+    // ---- backdrops ------------------------------------------------------------------------------------------------
+    // studio: a softly lit wall meeting a surface at `horizon` (0-1 of the height)
+    function studio(e, o) {
+      const k = o || {};
+      const hz = e.h * (k.horizon == null ? 0.72 : k.horizon);
+      const wall = k.wall || e.wall, floor = k.floor || e.floor;
+      return rect(0, 0, e.w, e.h, e.lin([[0, lighten(wall, e.dark ? 0.06 : 0.25)], [1, wall]], { x1: 0, y1: 0, x2: 0, y2: 1 })) +
+        rect(0, 0, e.w, hz, e.rad([[0, lighten(wall, e.dark ? 0.16 : 0.35), 0.9], [1, wall, 0]], { cx: 0.3, cy: 0.2, r: 0.8 })) +
+        rect(0, hz, e.w, e.h - hz, e.lin([[0, floor], [1, darken(floor, e.dark ? 0.35 : 0.12)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) +
+        rect(0, hz - 1, e.w, 2, lighten(floor, 0.18), { opacity: 0.55 });
+    }
+    // sky + ground for exteriors; time: day | golden | dusk | night
+    function outdoors(e, o) {
+      const k = o || {};
+      const hz = e.h * (k.horizon == null ? 0.5 : k.horizon);
+      const skies = { day: ['#9ccbe8', '#dcecf4'], golden: ['#f2b56b', '#fde6c3'], dusk: ['#2b3a67', '#e7a58c'], night: ['#0f1730', '#2c3b63'] };
+      const [top, bottom] = skies[k.time || 'day'];
+      let s = rect(0, 0, e.w, hz + 2, e.lin([[0, e.tint(top)], [1, e.tint(bottom)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      if (k.time === 'golden' || k.time === 'day') s += circ(e.w * 0.78, hz * 0.34, 36 * e.s, k.time === 'golden' ? '#fff3d6' : '#fffdf2', { opacity: 0.9 }) + circ(e.w * 0.78, hz * 0.34, 80 * e.s, '#fff6dd', { opacity: 0.25 });
+      if (k.time === 'dusk' || k.time === 'night') { const R = e.rand; for (let i = 0; i < 14; i++) s += circ(R() * e.w, R() * hz * 0.6, (0.8 + R()) * e.s, '#fff', { opacity: 0.5 + R() * 0.4 }); }
+      // distant tree line
+      if (k.treeline !== false) {
+        const R = e.rand; let d = `M0 ${hz}`; for (let x = 0; x <= e.w + 20; x += 18 * e.s) d += ` Q${n1(x + 9 * e.s)} ${n1(hz - (14 + R() * 26) * e.s)} ${n1(x + 18 * e.s)} ${n1(hz - (4 + R() * 6) * e.s)}`;
+        s += path(d + ` L${e.w} ${hz + 4} L0 ${hz + 4} Z`, e.tint(k.time === 'dusk' || k.time === 'night' ? '#1d2b2a' : '#5f8a4f'), { opacity: k.time === 'dusk' ? 0.9 : 0.75 });
+      }
+      return s;
+    }
+    // an interior: back wall, floor with boards, optional window; returns the wall/floor line
+    function room(e, o) {
+      const k = o || {};
+      const hz = e.h * (k.horizon == null ? 0.66 : k.horizon);
+      const wall = k.wall || e.tint(e.dark ? '#3b3530' : '#efe7dc');
+      const floor = k.floor || e.tint(e.dark ? '#2a211b' : '#c9a57e');
+      let s = rect(0, 0, e.w, hz, e.lin([[0, lighten(wall, 0.08)], [1, darken(wall, 0.06)]], { x1: 0, y1: 0, x2: 0.4, y2: 1 }));
+      s += rect(0, hz, e.w, e.h - hz, e.lin([[0, floor], [1, darken(floor, 0.22)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      if (k.boards !== false) for (let i = 1; i < 9; i++) { const x = e.w * i / 9; s += line(e.cx + (x - e.cx) * 0.55, hz, e.cx + (x - e.cx) * 2.2, e.h, darken(floor, 0.18), 1.2 * e.s, { opacity: 0.6 }); }
+      s += rect(0, hz - 6 * e.s, e.w, 6 * e.s, lighten(wall, 0.35));
+      if (k.window) {
+        const [wx, wy, ww, wh] = k.window.map((v, i) => (i % 2 ? v * e.h : v * e.w));
+        const glass = k.night ? e.lin([[0, '#23355c'], [1, '#101a31']], { x1: 0, y1: 0, x2: 0, y2: 1 }) : e.lin([[0, '#cfe6f3'], [1, '#f5efe1']], { x1: 0, y1: 0, x2: 0, y2: 1 });
+        s += rect(wx - 6 * e.s, wy - 6 * e.s, ww + 12 * e.s, wh + 12 * e.s, lighten(wall, 0.5), { rx: 3 * e.s }) + rect(wx, wy, ww, wh, glass);
+        if (k.city) s += cityline(e, wx, wy + wh, ww, wh * 0.55, k.night);
+        s += line(wx + ww / 2, wy, wx + ww / 2, wy + wh, lighten(wall, 0.5), 5 * e.s) + line(wx, wy + wh * 0.45, wx + ww, wy + wh * 0.45, lighten(wall, 0.5), 5 * e.s);
+        // daylight falling on the floor
+        if (!k.night) s += path(P([[wx, hz], [wx + ww, hz], [wx + ww * 1.5, e.h], [wx - ww * 0.2, e.h]]), '#fff7e3', { opacity: 0.18 });
+      }
+      return s;
+    }
+    function cityline(e, x, base, w, hmax, night) {
+      const R = rng(hashStr(e.uid + 'city'));
+      let s = '', cx = x;
+      while (cx < x + w) {
+        const bw = (16 + R() * 28) * e.s, bh = hmax * (0.35 + R() * 0.65);
+        const bx = Math.min(cx, x + w - 4);
+        s += rect(bx, base - bh, Math.min(bw, x + w - bx), bh, night ? '#0b1224' : e.tint('#8fa3b5'), { opacity: night ? 0.95 : 0.8 });
+        if (night) for (let yy = base - bh + 6 * e.s; yy < base - 4 * e.s; yy += 8 * e.s) for (let xx = bx + 4 * e.s; xx < bx + Math.min(bw, x + w - bx) - 4 * e.s; xx += 7 * e.s) if (R() > 0.55) s += rect(xx, yy, 3 * e.s, 3 * e.s, '#ffd98a', { opacity: 0.8 });
+        cx += bw + 3 * e.s;
+      }
+      return s;
+    }
+    function grain(e, op) {
+      const id = e.id('grain');
+      e.defs.push(`<filter id="${id}"><feTurbulence type="fractalNoise" baseFrequency="${n1(0.9 / e.s * 10) / 10}" numOctaves="2" seed="${Math.floor(e.rand() * 99)}" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 ${op || 0.08}"/></feComponentTransfer></filter>`);
+      return rect(0, 0, e.w, e.h, '#808080', { filter: `url(#${id})`, style: 'mix-blend-mode:overlay' });
+    }
+
+    // ---- botanicals & produce ---------------------------------------------------------------------------------------
+    function leaf(e, x, y, len, ang, colour, o) {
+      const k = o || {}; const wd = len * (k.width || 0.32);
+      const c = colour || e.tint('#5f8f4e');
+      return g(path(`M0 0 Q${n1(len * 0.45)} ${n1(-wd)} ${n1(len)} 0 Q${n1(len * 0.45)} ${n1(wd)} 0 0 Z`, e.lin([[0, lighten(c, 0.18)], [1, darken(c, 0.2)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) +
+        line(len * 0.05, 0, len * 0.9, 0, darken(c, 0.3), Math.max(0.6, len * 0.025), { opacity: 0.55 }), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${n1(ang)})` });
+    }
+    function sprig(e, x, y, len, ang, colour) {
+      let s = ''; const c = colour || e.tint('#6e9a58');
+      const rad = ang * Math.PI / 180;
+      s += line(x, y, x + Math.cos(rad) * len, y + Math.sin(rad) * len, darken(c, 0.25), 1.6 * e.s);
+      for (let i = 1; i <= 5; i++) { const t = i / 6; const px = x + Math.cos(rad) * len * t, py = y + Math.sin(rad) * len * t; s += leaf(e, px, py, len * 0.28 * (1.1 - t * 0.4), ang - 50, c) + leaf(e, px, py, len * 0.26 * (1.1 - t * 0.4), ang + 50, c); }
+      return s;
+    }
+    // a slice of citrus (wheel) seen face-on
+    function citrusWheel(e, x, y, r, c) {
+      const pith = lighten(c, 0.72); let s = circ(x, y, r, darken(c, 0.12)) + circ(x, y, r * 0.9, pith) + circ(x, y, r * 0.82, c);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; s += line(x, y, x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, pith, 1.6 * e.s); }
+      s += circ(x, y, r * 0.12, pith) + ell(x - r * 0.35, y - r * 0.4, r * 0.3, r * 0.14, '#fff', { opacity: 0.35, transform: `rotate(-30 ${n1(x)} ${n1(y)})` });
+      return s;
+    }
+    function roundFruit(e, x, y, r, c, o) {
+      const k = o || {};
+      let s = circ(x, y, r, e.rad([[0, lighten(c, 0.35)], [0.55, c], [1, darken(c, 0.35)]], { cx: 0.35, cy: 0.3, r: 0.75 }));
+      if (k.stem) s += path(`M${n1(x)} ${n1(y - r * 0.85)} q${n1(r * 0.1)} ${n1(-r * 0.6)} ${n1(r * 0.5)} ${n1(-r * 0.9)}`, 'none', { stroke: '#5a3b1d', 'stroke-width': n1(Math.max(1.2, r * 0.08)), 'stroke-linecap': 'round' });
+      if (k.leaf) s += leaf(e, x + r * 0.1, y - r * 0.9, r * 0.9, -25);
+      if (k.crease) s += path(`M${n1(x)} ${n1(y - r)} Q${n1(x - r * 0.25)} ${n1(y)} ${n1(x)} ${n1(y + r)}`, 'none', { stroke: darken(c, 0.25), 'stroke-width': n1(1.4 * e.s), opacity: 0.5 });
+      if (k.seeds) { const R = rng(hashStr(`${x}${y}`)); for (let i = 0; i < 14; i++) { const a = R() * Math.PI * 2, d = R() * r * 0.75; s += ell(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.2 * e.s, 2 * e.s, k.seeds, { opacity: 0.85 }); } }
+      return s + ell(x - r * 0.35, y - r * 0.38, r * 0.28, r * 0.16, '#fff', { opacity: 0.45, transform: `rotate(-35 ${n1(x)} ${n1(y)})` });
+    }
+    function halfFruit(e, x, y, r, skin, flesh, o) {
+      const k = o || {};
+      let s = ell(x, y, r, r * 0.92, darken(skin, 0.1)) + ell(x, y, r * 0.9, r * 0.82, flesh);
+      if (k.stone) s += ell(x + r * 0.05, y, r * 0.3, r * 0.36, e.rad([[0, lighten(k.stone, 0.2)], [1, darken(k.stone, 0.3)]]));
+      if (k.core) s += ell(x, y, r * 0.22, r * 0.3, lighten(flesh, 0.3)) + ell(x - r * 0.08, y, 2.2 * e.s, 4 * e.s, '#3b2412') + ell(x + r * 0.08, y, 2.2 * e.s, 4 * e.s, '#3b2412');
+      if (k.seeds) { const R = rng(hashStr(`h${x}${y}`)); for (let i = 0; i < 18; i++) { const a = R() * Math.PI * 2, d = (0.2 + R() * 0.6) * r; s += ell(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.9, 1.3 * e.s, 2.2 * e.s, k.seeds); } }
+      return s + ell(x - r * 0.3, y - r * 0.35, r * 0.35, r * 0.16, '#fff', { opacity: 0.3, transform: `rotate(-25 ${n1(x)} ${n1(y)})` });
+    }
+    function gingerRoot(e, x, y, s0) {
+      const c = '#d7a861'; const s = s0 * e.s; let o = '';
+      const knobs = [[0, 0, 22], [26, -8, 16], [-22, 6, 15], [12, 16, 13], [40, 4, 11]];
+      knobs.forEach(([dx, dy, r]) => { o += ell(x + dx * s, y + dy * s, r * s, r * 0.72 * s, e.rad([[0, lighten(c, 0.25)], [1, darken(c, 0.25)]], { cx: 0.35, cy: 0.3 })); });
+      knobs.forEach(([dx, dy, r]) => { o += path(`M${n1(x + (dx - r * 0.6) * s)} ${n1(y + dy * s)} q${n1(r * 0.6 * s)} ${n1(-r * 0.25 * s)} ${n1(r * 1.2 * s)} 0`, 'none', { stroke: darken(c, 0.35), 'stroke-width': n1(0.9 * e.s), opacity: 0.6 }); });
+      return o;
+    }
+    function cherries(e, x, y, r) {
+      const c = FLAVOUR_COLOURS.cherry;
+      return path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.7)} Q${n1(x - r * 0.4)} ${n1(y - r * 3)} ${n1(x + r * 0.6)} ${n1(y - r * 3.2)} M${n1(x + r * 1.1)} ${n1(y - r * 0.6)} Q${n1(x + r * 1.2)} ${n1(y - r * 2.2)} ${n1(x + r * 0.6)} ${n1(y - r * 3.2)}`, 'none', { stroke: '#4d6b2a', 'stroke-width': n1(Math.max(1.4, r * 0.12)), 'stroke-linecap': 'round' }) +
+        leaf(e, x + r * 0.6, y - r * 3.2, r * 1.8, -20) + roundFruit(e, x - r * 0.9, y, r, c) + roundFruit(e, x + r * 1.1, y + r * 0.2, r, c);
+    }
+    function berry(e, x, y, r, c) {
+      let s = circ(x, y, r, darken(c, 0.15));
+      for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; s += circ(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.42, e.rad([[0, lighten(c, 0.3)], [1, darken(c, 0.2)]], { cx: 0.35, cy: 0.3 })); }
+      return s + circ(x, y, r * 0.42, e.rad([[0, lighten(c, 0.3)], [1, darken(c, 0.2)]], { cx: 0.35, cy: 0.3 }));
+    }
+    // one piece of fruit/produce standing for a named flavour
+    function flavourPiece(e, flavour, x, y, r) {
+      const f = String(flavour || '').toLowerCase(); const c = flavourColour(f) || e.accent;
+      if (/grapefruit|orange|lemon|lime|yuzu|citrus|blood orange/.test(f)) return citrusWheel(e, x, y, r, c);
+      if (f === 'ginger') return gingerRoot(e, x, y, r / 22);
+      if (f === 'cherry') return cherries(e, x, y + r * 0.6, r * 0.55);
+      if (f === 'blueberry') return [[-0.5, 0], [0.4, 0.1], [0, -0.5], [0.1, 0.5]].map(([dx, dy]) => roundFruit(e, x + dx * r, y + dy * r, r * 0.4, c) + circ(x + dx * r, y + dy * r - r * 0.32, r * 0.08, darken(c, 0.4))).join('');
+      if (f === 'strawberry') return path(`M${n1(x)} ${n1(y + r)} Q${n1(x - r * 1.05)} ${n1(y - r * 0.1)} ${n1(x - r * 0.6)} ${n1(y - r * 0.7)} Q${n1(x)} ${n1(y - r * 0.95)} ${n1(x + r * 0.6)} ${n1(y - r * 0.7)} Q${n1(x + r * 1.05)} ${n1(y - r * 0.1)} ${n1(x)} ${n1(y + r)} Z`, e.rad([[0, lighten(c, 0.3)], [1, darken(c, 0.25)]], { cx: 0.35, cy: 0.3 })) + [0, 1, 2, 3, 4, 5, 6, 7].map(i => ell(x + ((i % 3) - 1) * r * 0.35, y - r * 0.3 + Math.floor(i / 3) * r * 0.38, 1.3 * e.s, 2 * e.s, '#f7e27a')).join('') + leaf(e, x - r * 0.1, y - r * 0.78, r * 0.7, -160) + leaf(e, x + r * 0.1, y - r * 0.78, r * 0.7, -20);
+      if (/raspberry|blackberry|berry|berries/.test(f)) return berry(e, x - r * 0.5, y, r * 0.5, c) + berry(e, x + r * 0.45, y + r * 0.2, r * 0.46, c);
+      if (/peach|apricot/.test(f)) return halfFruit(e, x, y, r, '#e4705a', '#f8b777', { stone: '#8a3b27' });
+      if (/mango/.test(f)) return ell(x, y, r * 1.15, r * 0.82, e.rad([[0, '#ffd166'], [0.6, '#f59e3b'], [1, '#d9573c']], { cx: 0.35, cy: 0.3 }), { transform: `rotate(-20 ${n1(x)} ${n1(y)})` });
+      if (/watermelon/.test(f)) return path(`M${n1(x - r * 1.2)} ${n1(y - r * 0.2)} A${n1(r * 1.2)} ${n1(r * 1.2)} 0 0 0 ${n1(x + r * 1.2)} ${n1(y - r * 0.2)} Z`, '#3f8a3a') + path(`M${n1(x - r * 1.08)} ${n1(y - r * 0.2)} A${n1(r * 1.08)} ${n1(r * 1.08)} 0 0 0 ${n1(x + r * 1.08)} ${n1(y - r * 0.2)} Z`, '#eaf2c8') + path(`M${n1(x - r)} ${n1(y - r * 0.2)} A${n1(r)} ${n1(r)} 0 0 0 ${n1(x + r)} ${n1(y - r * 0.2)} Z`, c) + [-0.5, 0, 0.5, -0.25, 0.25].map((dx, i) => ell(x + dx * r, y + (i < 3 ? 0.25 : 0.5) * r, 1.6 * e.s, 2.6 * e.s, '#2a1a14')).join('');
+      if (/apple|pear/.test(f)) return roundFruit(e, x, y, r, c, { stem: true, leaf: true });
+      if (/mint|basil|matcha|tea|elderflower|lavender|hibiscus|cucumber/.test(f)) return sprig(e, x - r, y + r * 0.6, r * 2.2, -55, f === 'lavender' ? '#8f7cc0' : f === 'hibiscus' ? '#c01f5d' : undefined);
+      if (/vanilla/.test(f)) return path(`M${n1(x - r)} ${n1(y + r * 0.6)} Q${n1(x)} ${n1(y - r * 0.2)} ${n1(x + r)} ${n1(y - r * 0.8)}`, 'none', { stroke: '#3a2615', 'stroke-width': n1(r * 0.16), 'stroke-linecap': 'round' }) + circ(x - r * 0.2, y + r * 0.35, r * 0.45, '#f4ecd2') + circ(x + r * 0.35, y + r * 0.25, r * 0.36, '#f0e3bd');
+      if (/chocolate|cocoa|coffee|cola/.test(f)) return beanPile(e, x, y, r, f === 'coffee' ? '#4b2e1c' : '#3a2213');
+      if (/pineapple/.test(f)) return ell(x, y + r * 0.2, r * 0.75, r * 0.95, e.rad([[0, '#f8d35b'], [1, '#c78a1c']], { cx: 0.35, cy: 0.3 })) + [0, 1, 2, 3, 4].map(i => leaf(e, x, y - r * 0.65, r * 0.9, -90 + (i - 2) * 22, '#4f8a3b')).join('');
+      if (/coconut/.test(f)) return halfFruit(e, x, y, r, '#6b4428', '#f6f1e6');
+      if (/chili|habanero|jalapeno/.test(f)) return chili(e, x - r * 0.5, y, r, c) + chili(e, x + r * 0.3, y + r * 0.3, r * 0.9, darken(c, 0.1));
+      if (/garlic/.test(f)) return path(`M${n1(x)} ${n1(y - r)} Q${n1(x + r)} ${n1(y - r * 0.2)} ${n1(x + r * 0.7)} ${n1(y + r * 0.6)} Q${n1(x)} ${n1(y + r)} ${n1(x - r * 0.7)} ${n1(y + r * 0.6)} Q${n1(x - r)} ${n1(y - r * 0.2)} ${n1(x)} ${n1(y - r)} Z`, e.rad([[0, '#fffaf0'], [1, '#d9ccb2']], { cx: 0.35, cy: 0.3 }));
+      if (/honey/.test(f)) return honeyDipper(e, x, y, r);
+      if (/cinnamon/.test(f)) return [0, 1, 2].map(i => rect(x - r + i * 5 * e.s, y - r * 0.2 + i * 4 * e.s, r * 2, r * 0.32, darken(c, i * 0.08), { rx: r * 0.16, transform: `rotate(-18 ${n1(x)} ${n1(y)})` })).join('');
+      return roundFruit(e, x, y, r, c);
+    }
+    function chili(e, x, y, r, c) {
+      return path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.5)} Q${n1(x + r * 0.2)} ${n1(y - r * 0.7)} ${n1(x + r * 1.1)} ${n1(y + r * 0.6)} Q${n1(x + r * 0.1)} ${n1(y - r * 0.05)} ${n1(x - r * 0.9)} ${n1(y - r * 0.1)} Z`, e.lin([[0, lighten(c, 0.3)], [1, darken(c, 0.25)]], { x1: 0, y1: 0, x2: 0, y2: 1 })) +
+        path(`M${n1(x - r * 0.9)} ${n1(y - r * 0.3)} q${n1(-r * 0.3)} ${n1(-r * 0.2)} ${n1(-r * 0.35)} ${n1(-r * 0.6)}`, 'none', { stroke: '#4d6b2a', 'stroke-width': n1(r * 0.14), 'stroke-linecap': 'round' });
+    }
+    function beanPile(e, x, y, r, c) {
+      const R = rng(hashStr(`beans${x}${y}`)); let s = '';
+      for (let i = 0; i < 16; i++) { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * r; s += bean(e, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.6, r * 0.2, R() * 180, c); }
+      return s;
+    }
+    function bean(e, x, y, r, ang, c) {
+      return g(ell(0, 0, r, r * 0.7, e.rad([[0, lighten(c, 0.3)], [1, darken(c, 0.25)]], { cx: 0.35, cy: 0.3 })) + path(`M${n1(-r * 0.8)} 0 Q0 ${n1(r * 0.25)} ${n1(r * 0.8)} 0`, 'none', { stroke: darken(c, 0.5), 'stroke-width': n1(Math.max(0.8, r * 0.14)) }), { transform: `translate(${n1(x)} ${n1(y)}) rotate(${n1(ang)})` });
+    }
+    function honeyDipper(e, x, y, r) {
+      return line(x - r * 1.2, y - r * 1.2, x + r * 0.2, y + r * 0.2, '#b98a55', r * 0.16) + [0, 1, 2, 3].map(i => ell(x + r * 0.35 + i * r * 0.12, y + r * 0.35 + i * r * 0.12, r * 0.42, r * 0.2, darken('#c99a5c', i * 0.05), { transform: `rotate(45 ${n1(x + r * 0.35 + i * r * 0.12)} ${n1(y + r * 0.35 + i * r * 0.12)})` })).join('') + path(`M${n1(x + r * 0.7)} ${n1(y + r * 0.8)} q${n1(r * 0.1)} ${n1(r * 0.5)} 0 ${n1(r * 0.9)}`, 'none', { stroke: FLAVOUR_COLOURS.honey, 'stroke-width': n1(r * 0.14), 'stroke-linecap': 'round' });
+    }
+    function bubbles(e, x, y, w, h, n, op) {
+      const R = rng(hashStr(`bub${x}${y}${w}`)); let s = '';
+      for (let i = 0; i < n; i++) { const r = (1.5 + R() * 5) * e.s; s += circ(x + R() * w, y + R() * h, r, 'none', { stroke: '#fff', 'stroke-width': n1(0.9 * e.s), opacity: (op || 0.6) * (0.5 + R() * 0.5) }); }
+      return s;
+    }
+    function droplets(e, x, y, w, h, n) {
+      const R = rng(hashStr(`drop${x}${y}${w}`)); let s = '';
+      for (let i = 0; i < n; i++) { const r = (1 + R() * 2.6) * e.s, px = x + R() * w, py = y + R() * h; s += ell(px, py, r * 0.8, r, '#ffffff', { opacity: 0.35 }) + circ(px - r * 0.3, py - r * 0.35, r * 0.3, '#fff', { opacity: 0.8 }); }
+      return s;
+    }
+
+    // ---- containers ---------------------------------------------------------------------------------------------------
+    // All drawn centred on (x, baseY) with a given height; `c` is the body colour, `label` optional text.
+    function wordmark(e, text, x, y, size, colour, o) {
+      const k = o || {}; const t = String(text || '').trim(); if (!t) return '';
+      const fs = n1(size);
+      const style = `font-family:${k.serif ? 'Georgia,\'Times New Roman\',serif' : 'Inter,\'Helvetica Neue\',Arial,sans-serif'};font-weight:${k.weight || 800};letter-spacing:${k.spacing == null ? '-0.02em' : k.spacing}`;
+      const fit = k.maxWidth ? { textLength: n1(Math.min(k.maxWidth, t.length * size * (k.upper ? 0.68 : 0.58))), lengthAdjust: 'spacingAndGlyphs' } : {};
+      return el('text', Object.assign({ x, y, fill: colour, 'font-size': fs, 'text-anchor': k.anchor || 'middle', style, transform: k.rotate ? `rotate(${k.rotate} ${n1(x)} ${n1(y)})` : null, opacity: k.opacity }, fit), esc(k.upper ? t.toUpperCase() : t));
+    }
+    function can(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * 0.5, r = W / 2, top = baseY - H;
+      const body = e.cyl(c);
+      const metal = e.lin([[0, '#7d8288'], [0.2, '#f1f3f5'], [0.45, '#b9bec4'], [0.8, '#8a9096'], [1, '#5f656b']]);
+      let s = e.shadow(x + W * 0.18, baseY + 2, W * 0.75, W * 0.12);
+      // body with a slight neck taper at the top
+      s += path(`M${n1(x - r)} ${n1(top + H * 0.09)} L${n1(x - r * 0.86)} ${n1(top + H * 0.035)} L${n1(x + r * 0.86)} ${n1(top + H * 0.035)} L${n1(x + r)} ${n1(top + H * 0.09)} L${n1(x + r)} ${n1(baseY - H * 0.04)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r * 0.8)} ${n1(baseY)} L${n1(x - r * 0.8)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - H * 0.04)} Z`, body);
+      // label band + wordmark (the business's own name, rotated up the can)
+      const bandC = k.band || lighten(c, 0.85);
+      s += rect(x - r, top + H * 0.3, W, H * 0.34, e.cyl(bandC, { edge: 0.25, hi: 0.2 }));
+      if (k.stripe) s += rect(x - r, top + H * 0.64, W, H * 0.05, e.cyl(k.stripe, { edge: 0.3 }));
+      if (k.label) s += wordmark(e, k.label, x, top + H * 0.5, Math.min(W * 0.36, H * 0.07), inkOn(bandC), { maxWidth: W * 0.84, upper: true, spacing: '0.04em' });
+      if (k.sub) s += wordmark(e, k.sub, x, top + H * 0.58, Math.min(W * 0.14, H * 0.03), inkOn(bandC), { maxWidth: W * 0.7, weight: 600, spacing: '0.12em', upper: true, opacity: 0.75 });
+      if (k.fruit) s += flavourPiece(e, k.fruit, x, top + H * 0.77, W * 0.16);
+      // rim, lid, tab
+      s += ell(x, top + H * 0.035, r * 0.86, W * 0.07, metal) + ell(x, top + H * 0.035, r * 0.74, W * 0.055, e.lin([[0, '#aab0b6'], [1, '#e7eaee']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      s += ell(x + r * 0.12, top + H * 0.033, r * 0.3, W * 0.03, '#9ba1a7') + ell(x + r * 0.12, top + H * 0.033, r * 0.14, W * 0.014, '#6a7076');
+      s += ell(x, baseY - 1, r * 0.8, W * 0.035, darken(c, 0.45), { opacity: 0.6 });
+      // highlight + condensation
+      s += e.hi(x - r * 0.55, top + H * 0.12, W * 0.08, H * 0.8, 0.35);
+      if (k.cold) s += droplets(e, x - r * 0.9, top + H * 0.14, W * 0.85, H * 0.8, Math.round(26 * (k.detail === 'simple' ? 0.5 : 1)));
+      return s;
+    }
+    // bottle silhouettes: shoulder/neck proportions per style
+    const BOTTLE = {
+      wine: { neck: 0.33, neckW: 0.26, shoulder: 0.1, capH: 0.1, cap: '#6b1e24' },
+      beer: { neck: 0.3, neckW: 0.28, shoulder: 0.14, capH: 0.04, cap: '#c9a646' },
+      kombucha: { neck: 0.16, neckW: 0.42, shoulder: 0.12, capH: 0.06, cap: '#2d2d2d' },
+      juice: { neck: 0.12, neckW: 0.5, shoulder: 0.1, capH: 0.07, cap: '#f4f1ea' },
+      spirit: { neck: 0.18, neckW: 0.3, shoulder: 0.06, capH: 0.1, cap: '#2a2622', square: true },
+      woozy: { neck: 0.42, neckW: 0.22, shoulder: 0.2, capH: 0.08, cap: '#1d1d1d' },
+      oil: { neck: 0.3, neckW: 0.24, shoulder: 0.16, capH: 0.06, cap: '#b89a3c' },
+      toner: { neck: 0.1, neckW: 0.36, shoulder: 0.08, capH: 0.12, cap: '#e8e1d7' },
+    };
+    function bottle(e, x, baseY, H, c, o) {
+      const k = o || {}; const st = BOTTLE[k.style] || BOTTLE.kombucha;
+      const W = H * (k.style === 'wine' || k.style === 'woozy' || k.style === 'oil' ? 0.3 : k.style === 'spirit' ? 0.42 : 0.36), r = W / 2, top = baseY - H;
+      const neckTop = top + H * st.capH, neckBot = top + H * (st.capH + st.neck), shoulderBot = neckBot + H * st.shoulder, nr = r * st.neckW / 0.5 * 0.5;
+      const glass = k.glass || c;
+      let s = e.shadow(x + W * 0.2, baseY + 2, W * 0.8, W * 0.14);
+      const outline = st.square
+        ? `M${n1(x - nr)} ${n1(neckTop)} L${n1(x + nr)} ${n1(neckTop)} L${n1(x + nr)} ${n1(neckBot)} L${n1(x + r)} ${n1(shoulderBot)} L${n1(x + r)} ${n1(baseY)} L${n1(x - r)} ${n1(baseY)} L${n1(x - r)} ${n1(shoulderBot)} L${n1(x - nr)} ${n1(neckBot)} Z`
+        : `M${n1(x - nr)} ${n1(neckTop)} L${n1(x + nr)} ${n1(neckTop)} L${n1(x + nr)} ${n1(neckBot)} C${n1(x + nr)} ${n1(neckBot + H * st.shoulder * 0.5)} ${n1(x + r)} ${n1(neckBot + H * st.shoulder * 0.4)} ${n1(x + r)} ${n1(shoulderBot)} L${n1(x + r)} ${n1(baseY - W * 0.08)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r - W * 0.1)} ${n1(baseY)} L${n1(x - r + W * 0.1)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - W * 0.08)} L${n1(x - r)} ${n1(shoulderBot)} C${n1(x - r)} ${n1(neckBot + H * st.shoulder * 0.4)} ${n1(x - nr)} ${n1(neckBot + H * st.shoulder * 0.5)} ${n1(x - nr)} ${n1(neckBot)} Z`;
+      s += path(outline, e.cyl(glass, { edge: 0.45, hi: 0.35 }));
+      // the liquid line inside clear glass
+      if (k.liquid) s += rect(x - r + 2 * e.s, shoulderBot + H * 0.04, W - 4 * e.s, baseY - shoulderBot - H * 0.06, e.cyl(k.liquid, { edge: 0.3, hi: 0.2 }), { opacity: 0.9, rx: 3 * e.s });
+      // cap / cork
+      s += rect(x - nr * 1.12, top, nr * 2.24, H * st.capH + 2, e.cyl(k.cap || st.cap, { edge: 0.35 }), { rx: 2 * e.s });
+      if (k.style === 'beer') for (let i = 0; i < 7; i++) s += line(x - nr * 1.12 + i * nr * 0.37, top + H * st.capH, x - nr * 1.12 + i * nr * 0.37, top + H * st.capH + 3 * e.s, darken(st.cap, 0.3), 1);
+      // label
+      const lt = shoulderBot + (baseY - shoulderBot) * 0.16, lh = (baseY - shoulderBot) * (k.tallLabel ? 0.62 : 0.46);
+      const lc = k.labelColour || '#f3eee6';
+      s += rect(x - r, lt, W, lh, e.cyl(lc, { edge: 0.22, hi: 0.15 }));
+      if (k.labelBand) s += rect(x - r, lt + lh * 0.72, W, lh * 0.12, e.cyl(k.labelBand, { edge: 0.25 }));
+      if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.5, Math.min(W * 0.2, lh * 0.22), inkOn(lc), { maxWidth: W * 0.8, upper: true, spacing: '0.06em', serif: k.serif });
+      if (k.fruit) s += flavourPiece(e, k.fruit, x, lt + lh * 0.8, W * 0.1);
+      s += e.hi(x - r * 0.62, shoulderBot + 4 * e.s, W * 0.08, (baseY - shoulderBot) * 0.8, 0.3) + e.hi(x - nr * 0.5, neckTop + 4 * e.s, W * 0.05, neckBot - neckTop, 0.25);
+      if (k.cold) s += droplets(e, x - r * 0.9, shoulderBot, W * 0.85, (baseY - shoulderBot) * 0.9, 18);
+      return s;
+    }
+    // skincare: dropper bottle (serum, face oil)
+    function dropper(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * 0.42, r = W / 2;
+      const bodyTop = baseY - H * 0.56, collarTop = bodyTop - H * 0.1, bulbTop = baseY - H;
+      const glass = c || '#b8742f';
+      let s = e.shadow(x + W * 0.2, baseY + 2, W * 0.85, W * 0.14);
+      s += path(`M${n1(x - r * 0.46)} ${n1(bodyTop - H * 0.02)} L${n1(x + r * 0.46)} ${n1(bodyTop - H * 0.02)} C${n1(x + r * 0.5)} ${n1(bodyTop + H * 0.04)} ${n1(x + r)} ${n1(bodyTop + H * 0.03)} ${n1(x + r)} ${n1(bodyTop + H * 0.11)} L${n1(x + r)} ${n1(baseY - W * 0.1)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r - W * 0.12)} ${n1(baseY)} L${n1(x - r + W * 0.12)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - W * 0.1)} L${n1(x - r)} ${n1(bodyTop + H * 0.11)} C${n1(x - r)} ${n1(bodyTop + H * 0.03)} ${n1(x - r * 0.5)} ${n1(bodyTop + H * 0.04)} ${n1(x - r * 0.46)} ${n1(bodyTop - H * 0.02)} Z`, e.cyl(glass, { edge: 0.5, hi: 0.35 }), { opacity: 0.96 });
+      // the serum inside + the glass pipette
+      s += rect(x - r + 3 * e.s, bodyTop + H * 0.2, W - 6 * e.s, baseY - bodyTop - H * 0.23, e.cyl(lighten(glass, 0.25), { edge: 0.3 }), { opacity: 0.5, rx: 3 * e.s });
+      s += rect(x - W * 0.045, collarTop + H * 0.08, W * 0.09, H * 0.44, '#f4efe7', { opacity: 0.55, rx: W * 0.045 });
+      // collar and rubber bulb
+      const cap = k.cap || '#1f1d1b';
+      s += rect(x - r * 0.52, collarTop, r * 1.04, H * 0.11, e.cyl(cap, { edge: 0.4, hi: 0.3 }), { rx: 2 * e.s });
+      for (let i = 1; i < 6; i++) s += line(x - r * 0.52 + i * r * 0.173, collarTop + 2 * e.s, x - r * 0.52 + i * r * 0.173, collarTop + H * 0.1, darken(cap, 0.4), 0.8 * e.s, { opacity: 0.6 });
+      s += path(`M${n1(x - r * 0.34)} ${n1(collarTop)} L${n1(x - r * 0.36)} ${n1(bulbTop + H * 0.12)} Q${n1(x - r * 0.38)} ${n1(bulbTop)} ${n1(x)} ${n1(bulbTop)} Q${n1(x + r * 0.38)} ${n1(bulbTop)} ${n1(x + r * 0.36)} ${n1(bulbTop + H * 0.12)} L${n1(x + r * 0.34)} ${n1(collarTop)} Z`, e.cyl(k.bulb || cap, { edge: 0.35, hi: 0.3 }));
+      // label
+      const lc = k.labelColour || '#f5f0e8';
+      const lt = bodyTop + H * 0.18, lh = H * 0.2;
+      s += rect(x - r, lt, W, lh, e.cyl(lc, { edge: 0.2, hi: 0.12 }));
+      if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.45, Math.min(W * 0.14, lh * 0.3), inkOn(lc), { maxWidth: W * 0.8, upper: true, spacing: '0.12em', weight: 700 });
+      if (k.sub) s += wordmark(e, k.sub, x, lt + lh * 0.78, Math.min(W * 0.09, lh * 0.18), inkOn(lc), { maxWidth: W * 0.7, weight: 500, spacing: '0.1em', upper: true, opacity: 0.7 });
+      s += e.hi(x - r * 0.64, bodyTop + H * 0.12, W * 0.07, H * 0.36, 0.35);
+      return s;
+    }
+    // skincare: pump bottle (cleanser, lotion, body wash)
+    function pump(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * 0.34, r = W / 2;
+      const bodyTop = baseY - H * 0.72, collarTop = bodyTop - H * 0.06, stemTop = collarTop - H * 0.1, headTop = stemTop - H * 0.07;
+      let s = e.shadow(x + W * 0.2, baseY + 2, W * 0.8, W * 0.14);
+      s += path(`M${n1(x - r)} ${n1(bodyTop + W * 0.16)} Q${n1(x - r)} ${n1(bodyTop)} ${n1(x - r + W * 0.18)} ${n1(bodyTop)} L${n1(x + r - W * 0.18)} ${n1(bodyTop)} Q${n1(x + r)} ${n1(bodyTop)} ${n1(x + r)} ${n1(bodyTop + W * 0.16)} L${n1(x + r)} ${n1(baseY - W * 0.08)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r - W * 0.1)} ${n1(baseY)} L${n1(x - r + W * 0.1)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - W * 0.08)} Z`, e.cyl(c, { edge: 0.3, hi: 0.3 }));
+      const cap = k.cap || '#2a2724';
+      s += rect(x - r * 0.42, collarTop, r * 0.84, H * 0.065, e.cyl(cap), { rx: 2 * e.s }) + rect(x - r * 0.12, stemTop, r * 0.24, H * 0.1, e.cyl(lighten(cap, 0.1)));
+      s += path(`M${n1(x - r * 0.4)} ${n1(stemTop)} L${n1(x - r * 0.4)} ${n1(headTop + 3 * e.s)} Q${n1(x - r * 0.4)} ${n1(headTop)} ${n1(x - r * 0.3)} ${n1(headTop)} L${n1(x + r * 1.05)} ${n1(headTop)} Q${n1(x + r * 1.15)} ${n1(headTop)} ${n1(x + r * 1.15)} ${n1(headTop + H * 0.025)} L${n1(x + r * 1.15)} ${n1(headTop + H * 0.04)} L${n1(x + r * 0.35)} ${n1(headTop + H * 0.045)} L${n1(x + r * 0.4)} ${n1(stemTop)} Z`, e.cyl(cap, { edge: 0.3 }));
+      const lc = k.labelColour || lighten(c, 0.8);
+      const lt = bodyTop + H * 0.2, lh = H * 0.3;
+      s += rect(x - r, lt, W, lh, e.cyl(lc, { edge: 0.18, hi: 0.1 }));
+      if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.42, Math.min(W * 0.16, lh * 0.2), inkOn(lc), { maxWidth: W * 0.8, upper: true, spacing: '0.1em', weight: 700 });
+      if (k.sub) s += wordmark(e, k.sub, x, lt + lh * 0.66, Math.min(W * 0.1, lh * 0.12), inkOn(lc), { maxWidth: W * 0.72, weight: 500, spacing: '0.1em', upper: true, opacity: 0.7 });
+      s += e.hi(x - r * 0.62, bodyTop + H * 0.05, W * 0.08, H * 0.6, 0.3);
+      return s;
+    }
+    // jar: cream, balm, honey, jam, sauce; `open` shows the contents from above
+    function jar(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * (k.wide || 1.25), r = W / 2, top = baseY - H;
+      const lidH = H * (k.open ? 0 : 0.26), er = W * 0.12;
+      let s = e.shadow(x + W * 0.15, baseY + 2, W * 0.66, W * 0.1);
+      s += path(`M${n1(x - r)} ${n1(top + lidH)} L${n1(x + r)} ${n1(top + lidH)} L${n1(x + r)} ${n1(baseY - er * 0.5)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r - er)} ${n1(baseY)} L${n1(x - r + er)} ${n1(baseY)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - er * 0.5)} Z`, e.cyl(c, { edge: 0.3, hi: 0.3 }));
+      if (k.contents) s += rect(x - r + 3 * e.s, top + lidH + H * 0.12, W - 6 * e.s, H * 0.8 - lidH, e.cyl(k.contents, { edge: 0.25, hi: 0.15 }), { opacity: 0.85, rx: 3 * e.s });
+      if (!k.open) {
+        const lid = k.lid || '#e8e2d8';
+        s += rect(x - r * 1.03, top, W * 1.03, lidH, e.cyl(lid, { edge: 0.3, hi: 0.35 }), { rx: 3 * e.s }) + ell(x, top, r * 1.03, er * 0.55, lighten(lid, 0.2));
+        if (k.ribs) for (let i = 1; i < 14; i++) s += line(x - r * 1.03 + i * W * 1.03 / 14, top + 2, x - r * 1.03 + i * W * 1.03 / 14, top + lidH - 2, darken(lid, 0.2), 0.8 * e.s, { opacity: 0.5 });
+      } else {
+        s += ell(x, top, r, er, darken(c, 0.2)) + ell(x, top + 1, r * 0.9, er * 0.82, k.fill || '#f6f0e6');
+        // a swirl in the cream
+        s += path(`M${n1(x - r * 0.5)} ${n1(top)} Q${n1(x - r * 0.1)} ${n1(top - er * 0.9)} ${n1(x + r * 0.35)} ${n1(top - er * 0.2)} Q${n1(x + r * 0.1)} ${n1(top + er * 0.4)} ${n1(x - r * 0.15)} ${n1(top)}`, 'none', { stroke: darken(k.fill || '#f6f0e6', 0.12), 'stroke-width': n1(2 * e.s), opacity: 0.8 });
+      }
+      const lc = k.labelColour || lighten(c, 0.82);
+      if (!k.noLabel) {
+        const lt = top + lidH + (H - lidH) * 0.22, lh = (H - lidH) * 0.5;
+        s += rect(x - r, lt, W, lh, e.cyl(lc, { edge: 0.18, hi: 0.1 }));
+        if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.48, Math.min(W * 0.1, lh * 0.28), inkOn(lc), { maxWidth: W * 0.8, upper: true, spacing: '0.12em', weight: 700, serif: k.serif });
+        if (k.sub) s += wordmark(e, k.sub, x, lt + lh * 0.78, Math.min(W * 0.06, lh * 0.16), inkOn(lc), { maxWidth: W * 0.7, weight: 500, spacing: '0.12em', upper: true, opacity: 0.7 });
+      }
+      s += e.hi(x - r * 0.7, top + lidH + 4 * e.s, W * 0.05, (H - lidH) * 0.75, 0.3);
+      return s;
+    }
+    // tube: sunscreen, hand cream, gel -- lying at an angle, cap to the lower left
+    function tube(e, x, y, L, c, o) {
+      const k = o || {}; const W = L * 0.26;
+      let s = e.shadow(x + L * 0.05, y + W * 0.62, L * 0.55, W * 0.14);
+      const body = `M${n1(-L * 0.36)} ${n1(-W * 0.4)} L${n1(L * 0.44)} ${n1(-W * 0.52)} L${n1(L * 0.5)} ${n1(-W * 0.52)} L${n1(L * 0.5)} ${n1(W * 0.52)} L${n1(L * 0.44)} ${n1(W * 0.52)} L${n1(-L * 0.36)} ${n1(W * 0.4)} Z`;
+      let inner = path(body, e.lin([[0, lighten(c, 0.3)], [0.35, c], [1, darken(c, 0.3)]], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      inner += rect(L * 0.44, -W * 0.54, L * 0.07, W * 1.08, darken(c, 0.1));
+      for (let i = 0; i < 6; i++) inner += line(L * 0.45 + i * L * 0.01, -W * 0.52, L * 0.45 + i * L * 0.01, W * 0.52, darken(c, 0.25), 0.7 * e.s, { opacity: 0.5 });
+      const cap = k.cap || '#f2eee8';
+      inner += rect(-L * 0.52, -W * 0.36, L * 0.17, W * 0.72, e.lin([[0, lighten(cap, 0.2)], [1, darken(cap, 0.25)]], { x1: 0, y1: 0, x2: 0, y2: 1 }), { rx: W * 0.1 });
+      const lc = k.labelColour || lighten(c, 0.85);
+      inner += rect(-L * 0.24, -W * 0.3, L * 0.5, W * 0.6, lc, { rx: 3 * e.s, opacity: 0.95 });
+      if (k.label) inner += wordmark(e, k.label, L * 0.01, W * 0.02, Math.min(W * 0.26, L * 0.06), inkOn(lc), { maxWidth: L * 0.44, upper: true, spacing: '0.1em', weight: 700 });
+      if (k.sub) inner += wordmark(e, k.sub, L * 0.01, W * 0.2, Math.min(W * 0.14, L * 0.035), inkOn(lc), { maxWidth: L * 0.36, weight: 500, upper: true, spacing: '0.1em', opacity: 0.7 });
+      inner += rect(-L * 0.3, -W * 0.34, L * 0.7, W * 0.07, '#fff', { opacity: 0.3, rx: W * 0.03 });
+      return s + g(inner, { transform: `translate(${n1(x)} ${n1(y)}) rotate(${k.angle == null ? -14 : k.angle})` });
+    }
+    // tin: balm, salve, pomade -- a short wide cylinder seen from above-front
+    function tin(e, x, baseY, W, c, o) {
+      const k = o || {}; const H = W * 0.34, r = W / 2, top = baseY - H, er = W * 0.2;
+      let s = e.shadow(x + W * 0.1, baseY + 3, W * 0.6, er * 0.5);
+      s += path(`M${n1(x - r)} ${n1(top)} L${n1(x - r)} ${n1(baseY)} A${n1(r)} ${n1(er)} 0 0 0 ${n1(x + r)} ${n1(baseY)} L${n1(x + r)} ${n1(top)} Z`, e.cyl(c, { edge: 0.35, hi: 0.4 }));
+      s += ell(x, top, r, er, e.rad([[0, lighten(c, 0.45)], [0.7, lighten(c, 0.1)], [1, darken(c, 0.15)]], { cx: 0.4, cy: 0.35, r: 0.7 }));
+      s += ell(x, top, r * 0.8, er * 0.8, 'none', { stroke: darken(c, 0.15), 'stroke-width': n1(1.5 * e.s), opacity: 0.6 });
+      if (k.label) s += wordmark(e, k.label, x, top + er * 0.15, Math.min(W * 0.12, er * 0.5), darken(c, 0.55), { maxWidth: W * 0.62, upper: true, spacing: '0.14em', weight: 700, opacity: 0.85 });
+      return s;
+    }
+    // stand-up pouch: coffee, granola, tea, snacks
+    function pouch(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * 0.7, r = W / 2, top = baseY - H;
+      let s = e.shadow(x + W * 0.15, baseY + 2, W * 0.62, W * 0.08);
+      s += path(`M${n1(x - r * 0.96)} ${n1(top)} L${n1(x + r * 0.96)} ${n1(top)} L${n1(x + r)} ${n1(baseY - H * 0.1)} Q${n1(x + r * 0.98)} ${n1(baseY)} ${n1(x + r * 0.8)} ${n1(baseY)} L${n1(x - r * 0.8)} ${n1(baseY)} Q${n1(x - r * 0.98)} ${n1(baseY)} ${n1(x - r)} ${n1(baseY - H * 0.1)} Z`, e.lin([[0, darken(c, 0.2)], [0.25, lighten(c, 0.18)], [0.55, c], [1, darken(c, 0.3)]]));
+      s += rect(x - r * 0.96, top, W * 0.96, H * 0.06, darken(c, 0.12)) + line(x - r * 0.9, top + H * 0.1, x + r * 0.9, top + H * 0.1, darken(c, 0.3), 1.2 * e.s, { opacity: 0.6 });
+      for (let i = 0; i < 16; i++) s += line(x - r * 0.94 + i * W * 0.12, top + 1, x - r * 0.94 + i * W * 0.12 + 3 * e.s, top + H * 0.05, darken(c, 0.25), 0.8 * e.s, { opacity: 0.35 });
+      if (k.valve) s += circ(x + r * 0.5, top + H * 0.2, W * 0.05, darken(c, 0.25)) + circ(x + r * 0.5, top + H * 0.2, W * 0.025, darken(c, 0.4));
+      const lc = k.labelColour || '#f3ede3';
+      const lt = top + H * 0.34, lh = H * 0.36;
+      s += rect(x - r * 0.72, lt, W * 0.72, lh, lc, { rx: 4 * e.s });
+      if (k.label) s += wordmark(e, k.label, x, lt + lh * 0.42, Math.min(W * 0.1, lh * 0.2), inkOn(lc), { maxWidth: W * 0.6, upper: true, spacing: '0.12em', weight: 800 });
+      if (k.sub) s += wordmark(e, k.sub, x, lt + lh * 0.7, Math.min(W * 0.06, lh * 0.12), inkOn(lc), { maxWidth: W * 0.58, weight: 500, spacing: '0.12em', upper: true, opacity: 0.7 });
+      s += path(`M${n1(x - r * 0.8)} ${n1(baseY - H * 0.05)} Q${n1(x)} ${n1(baseY - H * 0.14)} ${n1(x + r * 0.8)} ${n1(baseY - H * 0.05)}`, 'none', { stroke: darken(c, 0.3), 'stroke-width': n1(1.2 * e.s), opacity: 0.5 });
+      s += e.hi(x - r * 0.78, top + H * 0.14, W * 0.05, H * 0.7, 0.25);
+      return s;
+    }
+    // candle in a glass/ceramic vessel, lit
+    function candle(e, x, baseY, H, c, o) {
+      const k = o || {}; const W = H * 1.02, r = W / 2, top = baseY - H, er = W * 0.14;
+      let s = circ(x, top - H * 0.28, H * 0.55, e.rad([[0, '#ffd88a', 0.55], [1, '#ffd88a', 0]])) + e.shadow(x + W * 0.1, baseY + 2, W * 0.62, er * 0.6);
+      s += path(`M${n1(x - r)} ${n1(top)} L${n1(x - r)} ${n1(baseY - er * 0.5)} Q${n1(x - r)} ${n1(baseY)} ${n1(x - r + er)} ${n1(baseY)} L${n1(x + r - er)} ${n1(baseY)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r)} ${n1(baseY - er * 0.5)} L${n1(x + r)} ${n1(top)} Z`, e.cyl(c, { edge: 0.35, hi: 0.3 }));
+      s += ell(x, top, r, er, darken(c, 0.15)) + ell(x, top + er * 0.35, r * 0.9, er * 0.75, e.rad([[0, '#fff8e8'], [1, '#eadbc0']], { cx: 0.5, cy: 0.4 }));
+      s += line(x, top + er * 0.3, x, top - H * 0.05, '#2a2420', 1.6 * e.s);
+      s += path(`M${n1(x)} ${n1(top - H * 0.28)} Q${n1(x + H * 0.07)} ${n1(top - H * 0.14)} ${n1(x)} ${n1(top - H * 0.04)} Q${n1(x - H * 0.07)} ${n1(top - H * 0.14)} ${n1(x)} ${n1(top - H * 0.28)} Z`, e.lin([[0, '#fff5c2'], [0.6, '#ffb341'], [1, '#e8642a']], { x1: 0, y1: 0, x2: 0, y2: 1 }));
+      const lc = k.labelColour || '#f4efe6';
+      if (!k.noLabel) {
+        s += rect(x - r * 0.62, top + H * 0.34, W * 0.62, H * 0.36, lc, { rx: 3 * e.s });
+        if (k.label) s += wordmark(e, k.label, x, top + H * 0.5, Math.min(W * 0.08, H * 0.1), inkOn(lc), { maxWidth: W * 0.52, upper: true, spacing: '0.12em', weight: 700, serif: true });
+        if (k.sub) s += wordmark(e, k.sub, x, top + H * 0.62, Math.min(W * 0.05, H * 0.06), inkOn(lc), { maxWidth: W * 0.5, weight: 500, spacing: '0.14em', upper: true, opacity: 0.7 });
+      }
+      s += e.hi(x - r * 0.75, top + H * 0.08, W * 0.05, H * 0.7, 0.3);
+      return s;
+    }
+    // thrown ceramic: vase / mug / bowl, speckled glaze
+    function ceramic(e, x, baseY, H, c, o) {
+      const k = o || {}; const kind = k.form || 'vase'; let s = '';
+      const glaze = e.cyl(c, { edge: 0.35, hi: 0.25 });
+      if (kind === 'mug') {
+        const W = H * 0.9, r = W / 2, top = baseY - H;
+        s += e.shadow(x + W * 0.1, baseY + 2, W * 0.7, W * 0.1);
+        s += path(`M${n1(x + r * 0.9)} ${n1(top + H * 0.25)} Q${n1(x + r * 1.55)} ${n1(top + H * 0.28)} ${n1(x + r * 1.5)} ${n1(top + H * 0.55)} Q${n1(x + r * 1.45)} ${n1(top + H * 0.8)} ${n1(x + r * 0.9)} ${n1(top + H * 0.75)}`, 'none', { stroke: darken(c, 0.1), 'stroke-width': n1(H * 0.1), 'stroke-linecap': 'round' });
+        s += path(`M${n1(x - r)} ${n1(top)} L${n1(x - r * 0.94)} ${n1(baseY - H * 0.06)} Q${n1(x - r * 0.92)} ${n1(baseY)} ${n1(x - r * 0.8)} ${n1(baseY)} L${n1(x + r * 0.8)} ${n1(baseY)} Q${n1(x + r * 0.92)} ${n1(baseY)} ${n1(x + r * 0.94)} ${n1(baseY - H * 0.06)} L${n1(x + r)} ${n1(top)} Z`, glaze);
+        s += ell(x, top, r, W * 0.1, darken(c, 0.25)) + ell(x, top + 2, r * 0.9, W * 0.08, k.drink || '#6b4a33');
+      } else if (kind === 'bowl') {
+        const W = H * 2, r = W / 2, top = baseY - H;
+        s += e.shadow(x + W * 0.08, baseY + 2, W * 0.5, H * 0.14);
+        s += path(`M${n1(x - r)} ${n1(top)} Q${n1(x - r)} ${n1(baseY)} ${n1(x)} ${n1(baseY)} Q${n1(x + r)} ${n1(baseY)} ${n1(x + r)} ${n1(top)} Z`, glaze) + ell(x, top, r, H * 0.2, darken(c, 0.2)) + ell(x, top + 2, r * 0.92, H * 0.15, lighten(c, 0.15));
+      } else {
+        const W = H * 0.62, r = W / 2, top = baseY - H;
+        s += e.shadow(x + W * 0.15, baseY + 2, W * 0.7, W * 0.12);
+        s += path(`M${n1(x - r * 0.34)} ${n1(top)} L${n1(x + r * 0.34)} ${n1(top)} Q${n1(x + r * 0.3)} ${n1(top + H * 0.2)} ${n1(x + r * 0.62)} ${n1(top + H * 0.34)} Q${n1(x + r * 1.1)} ${n1(top + H * 0.55)} ${n1(x + r * 0.9)} ${n1(baseY - H * 0.08)} Q${n1(x + r * 0.8)} ${n1(baseY)} ${n1(x + r * 0.5)} ${n1(baseY)} L${n1(x - r * 0.5)} ${n1(baseY)} Q${n1(x - r * 0.8)} ${n1(baseY)} ${n1(x - r * 0.9)} ${n1(baseY - H * 0.08)} Q${n1(x - r * 1.1)} ${n1(top + H * 0.55)} ${n1(x - r * 0.62)} ${n1(top + H * 0.34)} Q${n1(x - r * 0.3)} ${n1(top + H * 0.2)} ${n1(x - r * 0.34)} ${n1(top)} Z`, glaze);
+        s += ell(x, top, r * 0.34, W * 0.05, darken(c, 0.35));
+        if (k.stems) s += sprig(e, x - 2, top + 2, H * 0.55, -100) + sprig(e, x + 2, top + 2, H * 0.45, -70, e.tint('#8aa46a'));
+      }
+      // speckles in the glaze
+      const R = rng(hashStr(`sp${x}${baseY}`)); for (let i = 0; i < 26; i++) s += circ(x + (R() - 0.5) * H * 0.55, baseY - R() * H * 0.9, (0.6 + R()) * e.s, darken(c, 0.4), { opacity: 0.35 });
+      return s;
+    }
+
+    module.exports = {
+      FLAVOUR_COLOURS, FLAVOUR_KEYS, flavourColour, mix, lighten, darken, inkOn, lum, hashStr, rng, esc,
+      makeEnv, studio, outdoors, room, cityline, grain, leaf, sprig, citrusWheel, roundFruit, halfFruit, flavourPiece, beanPile, bean, bubbles, droplets,
+      wordmark, can, bottle, dropper, pump, jar, tube, tin, pouch, candle, ceramic, chili,
+      _svg: { el, rect, circ, ell, path, line, g, P, n1 },
+    };
+
+  });
   __define("hero-direction", function (module, exports, require) {
     'use strict';
     // HERO DIRECTION -- the art-directed, moving hero.
@@ -1708,6 +3838,15 @@
     // Pure (no I/O, no randomness); shared by the live preview (premium-core.js
     // bundle), the export (lib/site-render.js), the save validator
     // (lib/project-store.js) and the tests. Independent of PREMIUM_GENERATION_V1.
+    //
+    // Every layer also names WHAT it shows as an art spec: ./visual-subjects picks
+    // the subject from the owner's own words (the flavours, the product types and
+    // their real containers, the services listed), and when no paid image exists
+    // for a layer -- generation off or unfunded, failed, or still in flight -- the
+    // renderer draws that illustration (./hero-art-kinds) instead of dropping the
+    // layer. A software lead is always a drawn interface with readable labels.
+    const VS = require('./visual-subjects');
+    const ARTK = require('./hero-art-kinds');
 
     // ---- vocabulary ----------------------------------------------------------------------------------------------
     // Placement rectangles are [x, y, w, h] in % of the hero's image stage; `m` is
@@ -1830,14 +3969,14 @@
     const CUES = {
       retail: 'product,products,bottle,can,cans,jar,package,packaging,box,bag,label,ingredient,ingredients,flavour,flavor,texture,shelf,unboxing,formula,serum,cream,drink,snack,sauce,candle,ceramic,range,still-life,splash,fruit,skincare,dropper,swatch,chili,spice,wax,pour,glass,pet,collar,treat,jewellery,jewelry,ring',
       fashion: 'garment,garments,fabric,textile,weave,stitch,stitching,seam,denim,knit,jacket,dress,shirt,coat,sneaker,sneakers,shoe,shoes,model,silhouette,runway,lookbook,rail,hanger,fitting,atelier,collection,tailoring,veil,gown,bridal,accessory,accessories,jewellery,jewelry,ring',
-      hospitality: 'cafe,café,coffee,espresso,latte,barista,pour-over,roast,roaster,roastery,beans,cup,mug,pastry,pastries,croissant,bread,bakery,oven,dough,flour,plate,dish,chef,kitchen,menu,table,dining,restaurant,bar,cocktail,counter,wine,glass,room,terrace,bistro,brunch,steam,taproom,inn,hotel,lobby,guest',
+      hospitality: 'cafe,café,coffee,espresso,latte,barista,pour-over,roast,roaster,roastery,beans,cup,mug,pastry,pastries,croissant,bread,bakery,oven,dough,flour,plate,dish,chef,kitchen,menu,table,dining,restaurant,bar,cocktail,counter,wine,glass,room,terrace,bistro,brunch,steam,taproom,inn,hotel,lobby,guest,cake,cakes,loaves,sourdough,pasta,pizza',
       creative: 'camera,lens,photograph,photographer,shoot,studio,print,prints,film,frame,lighting,moodboard,sketch,sketches,design,branding,swatch,swatches,typography,poster,edit,editing,set,storyboard,portfolio,artwork,canvas,easel,gallery,video',
       tech: 'software,app,screen,device,laptop,tablet,phone,interface,product,workflow,desk,team,keyboard,code,data,dashboard,calendar,booking,clinic,schedule,platform,tool,notification,reminder,api,developer,server,chip,cloud',
       finance: 'financial,finance,plan,planning,advisor,adviser,consultation,documents,paperwork,portfolio,retirement,savings,tax,accounts,accounting,bookkeeping,ledger,calculator,meeting,office,desk,notebook,pen,family,home,investment',
       fitness: 'gym,training,trainer,coach,coaching,workout,barbell,dumbbell,kettlebell,weights,chalk,boxing,gloves,bag,ring,mat,yoga,pilates,reformer,studio,class,athlete,run,runner,track,stretch,sweat,rowing,climbing',
       realestate: 'home,house,property,listing,exterior,interior,kitchen,living,room,street,neighbourhood,neighborhood,keys,porch,facade,façade,window,garden,condo,apartment,staging,open house,dusk,architecture',
       wellness: 'treatment,therapy,therapist,physio,physiotherapist,clinic,patient,massage,spa,stones,oil,oils,towel,towels,stretch,knee,shoulder,spine,rehab,recovery,needle,needling,acupuncture,calm,room,salon,stylist,hair,skin,facial,dental,dentist,chiropractor,wellness,care,hands,band,exercise',
-      nonprofit: 'community,volunteer,volunteers,people,hands,neighbourhood,neighborhood,garden,food,bank,shelter,cleanup,river,shore,park,children,school,donation,donations,crates,planting,tools,event,meeting',
+      nonprofit: 'community,volunteer,volunteers,people,hands,neighbourhood,neighborhood,garden,food,bank,shelter,cleanup,river,shore,park,children,school,donation,donations,crates,crate,produce,seedlings,soil,table,meal,planting,tools,event,meeting',
       professional: 'consultation,meeting,office,desk,documents,paperwork,contract,law,legal,lawyer,counsel,advisor,consultant,strategy,whiteboard,workshop,notebook,pen,conference,table,city,window,client,files,library,books',
       education: 'tutor,tutoring,student,students,learning,classroom,class,lesson,books,notebook,desk,teacher,whiteboard,study,library,school,course,workshop,materials,pencil,chalkboard,lab,science',
       electrical: 'electrical,electrician,wiring,wire,wires,panel,breaker,lighting,light,lights,fixture,fixtures,switch,outlet,cable,conduit,pendant,lamp,interior,home,kitchen,ev charger,install',
@@ -1890,7 +4029,8 @@
       const cueSet = CUE_SETS[c.categoryKey] || new Set();
       const hasCue = w => (w.includes(' ') ? lower.includes(w) : toks.has(w) || toks.has(w + 's'));
       const ownCues = [...cueSet].filter(hasCue);
-      const bizHits = [...businessTokens(c)].filter(w => toks.has(w));
+      // the owner's own words count in either number ('charters' -> 'a charter boat')
+      const bizHits = [...businessTokens(c)].filter(w => toks.has(w) || toks.has(w + 's') || (w.length > 4 && w.endsWith('s') && toks.has(w.slice(0, -1))));
       const off = (OFF_INDUSTRY[c.categoryKey] || []).concat(c.categoryKey === 'tech' ? [] : OFF_INDUSTRY.default).filter(w => lower.includes(w));
       return { ok: (ownCues.length + bizHits.length) > 0 && off.length === 0, ownCues, bizHits, off };
     }
@@ -1931,6 +4071,19 @@
     // client: enums checked, numbers clamped, strings clipped, layers de-duplicated.
     // Returns null when fewer than 3 usable layers remain (the renderer then uses
     // its classic/statement fallback).
+    const FOCAL_RE = /^\d{1,3}% \d{1,3}%$/;
+    const HEX_RE = /^#[0-9a-f]{6}$/i;
+    // an art spec from storage or the planner: a known kind and a few short, typed params
+    function sanitizeArt(a) {
+      if (!a || typeof a !== 'object' || !ARTK.KINDS[a.kind]) return null;
+      const pr = a.params && typeof a.params === 'object' ? a.params : {};
+      const out = {};
+      ['label', 'sub', 'variant', 'ui', 'audience', 'container', 'side'].forEach(k => { if (typeof pr[k] === 'string' && pr[k].trim()) out[k] = clip(pr[k], 40); });
+      if (typeof pr.colour === 'string' && HEX_RE.test(pr.colour)) out.colour = pr.colour;
+      ['flavours', 'variants', 'items'].forEach(k => { if (Array.isArray(pr[k])) { const arr = pr[k].filter(x => typeof x === 'string' && x.trim()).slice(0, 6).map(x => clip(x, 32)); if (arr.length) out[k] = arr; } });
+      ['reminders', 'glass', 'range'].forEach(k => { if (typeof pr[k] === 'boolean') out[k] = pr[k]; });
+      return { kind: a.kind, params: out };
+    }
     function sanitizeStored(raw) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
       const composition = pick(raw.composition, COMPOSITION_KEYS, null);
@@ -1945,10 +4098,11 @@
         const m = l.motion && typeof l.motion === 'object' ? l.motion : {};
         return {
           slot, role: pick(l.role, ROLES, 'context'), anchor,
-          subject: clip(l.subject, 120), prompt: clip(l.prompt, 600), aspect: pick(l.aspect, ASPECTS, '1:1'),
+          subject: clip(l.subject, 120), prompt: clip(l.prompt, 900), aspect: pick(l.aspect, ASPECTS, '1:1'),
           shape: pick(l.shape, SHAPES, placementFor(composition, anchor).shape), depth: Math.round(num(l.depth, 1, 5, 2)),
           motion: { path: pick(m.path, MOTION_KEYS, 'hold'), amount: pick(m.amount, Object.keys(AMOUNTS), 'medium'), offset: num(m.offset, 0, 1, 0) },
           pan: pick(l.pan, PAN_KEYS, 'none'), reveal: pick(l.reveal, REVEALS, 'rise'),
+          art: sanitizeArt(l.art), render: l.render === 'art' ? 'art' : 'image', focal: FOCAL_RE.test(l.focal || '') ? l.focal : null,
         };
       }).filter(Boolean);
       if (layers.length < 3 || !layers.some(l => l.slot === 'hero' && l.anchor === 'lead')) return null;
@@ -1957,7 +4111,8 @@
         conceptId: clip(raw.conceptId, 60) || null, concept: clip(raw.concept, 160), composition,
         copySafe: pick(raw.copySafe, COPY_SIDES, COMPOSITIONS[composition].copy), tone: pick(raw.tone, TONES, 'dark'),
         light: pick(raw.light, LIGHTS, 'sweep'), loop: num(raw.loop, 8, 18, 12),
-        baseHero: typeof raw.baseHero === 'string' ? clip(raw.baseHero, 40) : null, layers,
+        baseHero: typeof raw.baseHero === 'string' ? clip(raw.baseHero, 40) : null,
+        treatment: raw.treatment === 'illustration' ? 'illustration' : 'photo', look: raw.look ? clip(raw.look, 240) : null, layers,
       };
     }
 
@@ -1969,11 +4124,20 @@
       accent: a => `${a} graphic still-life on a simple background`,
     };
     const TAIL = 'No text, lettering, logos or watermarks. No identifiable faces.';
-    function finishPrompt(shot, role, aspect) {
-      const framing = (ROLE_FRAMING[role] || ROLE_FRAMING.context)(aspect);
+    // the picture has to survive the layer's own camera move
+    const PAN_FRAMING = {
+      'pan-left': 'the scene continuing past both side edges for a slow sideways pan', 'pan-right': 'the scene continuing past both side edges for a slow sideways pan',
+      'pan-up': 'the scene continuing above and below the frame for a slow vertical pan', 'zoom-in': 'the subject centred with generous margin for a slow push-in', 'zoom-out': 'the subject centred with margin all round for a slow pull-back',
+    };
+    // o: { pan, look, treatment }
+    function finishPrompt(shot, role, aspect, o) {
+      const k = o || {};
+      const framing = (ROLE_FRAMING[role] || ROLE_FRAMING.context)(aspect) + (PAN_FRAMING[k.pan] ? `, ${PAN_FRAMING[k.pan]}` : '');
+      const style = k.treatment === 'illustration' ? ' Render it as a detailed editorial illustration, not a photograph.' : '';
+      const tail = `${framing}.${style}${k.look ? ` ${String(k.look).trim()}` : ''} ${TAIL}`;
       shot = String(shot || '').trim(); shot = shot.charAt(0).toUpperCase() + shot.slice(1);
-      let out = `${clip(shot, 420).replace(/[.\s]+$/, '')}. ${framing}. ${TAIL}`;
-      if (out.length > 600) out = `${clip(shot, 600 - framing.length - TAIL.length - 6).replace(/[.\s]+$/, '')}. ${framing}. ${TAIL}`;
+      let out = `${clip(shot, 480).replace(/[.\s]+$/, '')}. ${tail}`;
+      if (out.length > 900) out = `${clip(shot, 900 - tail.length - 4).replace(/[.\s]+$/, '')}. ${tail}`;
       return out;
     }
 
@@ -2011,24 +4175,52 @@
           problems.push(`layers ${i + 1} and ${j + 1} describe the same picture -- every hero image must be a different subject`);
         }
       }
+      const facts = VS.factsFor(ctx);
+      if (!problems.length) VS.planProblems(layers, facts).forEach(pr => problems.push(pr));
       if (problems.length) return { ok: false, problems };
       const ordered = layers.slice().sort((a, b) => (a.role === 'lead' ? -1 : 0) - (b.role === 'lead' ? -1 : 0));
       const loop = num(raw.loopSeconds, 8, 18, 12);
+      const treatment = raw.treatment === 'illustration' ? 'illustration' : 'photo';
+      const look = raw.look ? clip(raw.look, 240) : VS.lookLine({ tone: raw.tone, treatment }, ctx.accent);
+      // the fallback for this business gives each role a sensible illustration when the planner's words match nothing drawable
+      const reference = fallbackStoryboard(ctx, 'reference');
+      const software = ctx.categoryKey === 'tech';
+      const ifc = raw.interface && typeof raw.interface === 'object' ? raw.interface : null;
       const storyboard = sanitizeStored({
         source: 'planner', conceptId: `planner:${composition}`, concept: raw.concept, composition, tone: raw.tone, light: raw.light,
         copySafe: COMPOSITIONS[composition].copy, loop, baseHero: ctx.hero,
+        treatment, look,
         layers: ordered.map((l, i) => ({
           slot: i === 0 ? 'hero' : `hero-${i + 1}`, role: l.role, anchor: l.anchor, subject: l.subject,
-          prompt: finishPrompt(l.prompt, l.role, pick(l.raw.aspectRatio, ASPECTS, i === 0 ? '4:5' : '1:1')),
+          prompt: finishPrompt(l.prompt, l.role, pick(l.raw.aspectRatio, ASPECTS, i === 0 ? '4:5' : '1:1'), { pan: pick(l.raw.pan, PAN_KEYS, i === 0 ? 'zoom-in' : 'none'), look, treatment }),
+          art: software && l.role === 'lead'
+            ? interfaceArt(reference.layers[0].art, ifc)
+            : VS.artForText(`${l.subject}. ${l.prompt}`, l.role, facts, ctx, reference.layers[Math.min(i, reference.layers.length - 1)].art),
+          render: software && l.role === 'lead' ? 'art' : 'image',
           aspect: pick(l.raw.aspectRatio, ASPECTS, i === 0 ? '4:5' : '1:1'), shape: pick(l.raw.shape, SHAPES, null) || undefined,
           depth: num(l.raw.depth, 1, 5, i === 0 ? 2 : 3 + (i % 2)),
           motion: { path: pick(l.raw.motion, MOTION_KEYS, i === 0 ? 'push-in' : 'float'), amount: pick(l.raw.intensity, Object.keys(AMOUNTS), 'medium'), offset: num(l.raw.offset, 0, 1, i / ordered.length) },
           pan: pick(l.raw.pan, PAN_KEYS, i === 0 ? 'zoom-in' : 'none'), reveal: REVEALS[i % REVEALS.length],
         })),
       });
+      if (storyboard) {
+        const key = a => `${a && a.kind}|${(a && a.params && a.params.variant) || ''}`; const seen = new Set();
+        storyboard.layers.forEach((l, i) => { if (l.art && seen.has(key(l.art))) { const alt = [reference.layers[Math.min(i, reference.layers.length - 1)].art].concat(reference.layers.map(r => r.art)).find(a => a && !seen.has(key(a)) && !storyboard.layers.some(o => o !== l && key(o.art) === key(a))); if (alt) l.art = alt; } if (l.art) seen.add(key(l.art)); });
+      }
       return storyboard ? { ok: true, storyboard, problems: [] } : { ok: false, problems: ['storyboard did not survive sanitising'] };
     }
 
+    // a software lead: the drawn interface, labelled from the planner's interface brief when it gives one
+    const UI_KINDS = require('./hero-art-ui').INTERFACE_KINDS;
+    function interfaceArt(base, ifc) {
+      const a = sanitizeArt(base) || { kind: 'interface', params: { ui: 'analytics' } };
+      if (a.kind !== 'interface') return a;
+      if (ifc && UI_KINDS.includes(ifc.kind)) a.params.ui = ifc.kind;
+      // UI labels: short words only -- no digits, no names of people or companies
+      const items = ifc && Array.isArray(ifc.items) ? ifc.items.filter(x => typeof x === 'string' && x.trim() && !/\d/.test(x) && x.length <= 28).slice(0, 6) : [];
+      if (items.length >= 2) a.params.items = items.map(x => clip(x, 28));
+      return a;
+    }
     // ---- the fallback concept library ------------------------------------------------------------------------------
     // Placeholders: {name} {Name's} {noun} {offer} {offer2} {offer3} {offers} {flavour} {place} {inPlace} {accent}
     // Each concept: category, optional sub-type matcher, composition, tone, light,
@@ -2039,30 +4231,30 @@
       // ---- retail: drinks
       { id: 'drink-chill', cat: 'retail', match: /\b(drink|drinks|beverage|soda|juice|sparkling|energy|kombucha|seltzer|tonic|lemonade|cold brew)\b/i, composition: 'hero-stage', tone: 'dark', light: 'sweep',
         concept: '{name}: the ice-cold can up close, a burst of {flavour}, and the moment it gets opened', layers: [
-          L('lead', 'lead', '4:5', 'push-in', 'bold', 'zoom-in', 'ice-cold {name} can close-up', 'A single ice-cold can of {name} standing on wet dark stone, fine condensation beading on the metal, dramatic {accent} rim light'),
-          L('detail', 'a', '1:1', 'orbit', 'medium', 'pan-left', '{flavour} flavour splash', 'A frozen-motion splash of sparkling water around fresh {flavour}, droplets suspended mid-air, bright backlight on a {accent} backdrop'),
-          L('context', 'b', '1:1', 'float', 'bold', 'none', 'hand opening the drink outdoors', 'A hand cracking open a cold drink can against a sunlit rooftop{inPlace} at golden hour, skyline softly out of focus')] },
+          L('lead', 'lead', '4:5', 'push-in', 'bold', 'zoom-in', 'ice-cold {name} {container} close-up', 'A single ice-cold {container} of {name}{flavourOf} standing on wet dark stone, fine condensation beading on the surface, dramatic {accent} rim light'),
+          L('detail', 'a', '1:1', 'orbit', 'medium', 'pan-left', '{flavourPhrase} splash', 'A frozen-motion splash of sparkling water around freshly cut {flavourPhrase}, droplets suspended mid-air, bright backlight on a {accent} backdrop'),
+          L('context', 'b', '1:1', 'float', 'bold', 'none', 'a cold {container} opened outdoors', 'A hand opening a cold {container} of {name} on a sunlit rooftop{inPlace} at golden hour, a glass poured over ice beside it, skyline softly out of focus')] },
       { id: 'drink-range', cat: 'retail', match: /\b(drink|drinks|beverage|soda|juice|sparkling|energy|kombucha|seltzer|tonic|lemonade|cold brew)\b/i, composition: 'orbit', tone: 'dark', light: 'glow',
         concept: '{name}: the full range lined up, the fruit behind each flavour, and a can on ice', layers: [
-          L('lead', 'lead', '4:5', 'pulse', 'medium', 'pan-up', 'the {noun} range lined up', 'Three {name} {noun} cans in {offers} colourways standing in a staggered row on a glossy {accent} surface, crisp reflections, commercial beverage photography'),
+          L('lead', 'lead', '4:5', 'pulse', 'medium', 'pan-up', 'the {name} range lined up', 'Three {name} {containers} in {flavourColourways} standing in a staggered row on a glossy {accent} surface, crisp reflections, commercial beverage photography'),
           L('detail', 'a', '1:1', 'orbit', 'bold', 'zoom-in', 'sliced {flavour} and {flavour2} fruit', 'Halved ripe {flavour} and fresh {flavour2} arranged on crushed ice, glistening juice, overhead macro'),
-          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'a can buried in crushed ice', 'A single drink can half-buried in crushed ice in a steel cooler, frost on the rim, cool blue light')] },
+          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'a {container} buried in crushed ice', 'A single {name} {container} half-buried in crushed ice in a steel cooler, frost on the rim, cool blue light')] },
       // ---- retail: skincare / beauty
       { id: 'skincare-ritual', cat: 'retail', match: /\b(skincare|skin care|serum|serums|cleanser|cleansers|moisturi[sz]er|cosmetic|cosmetics|beauty|spf|toner|balm)\b/i, composition: 'hero-stage', tone: 'light', light: 'glow',
         concept: '{name}: the bottle on stone, the formula up close, and the daily ritual', layers: [
-          L('lead', 'lead', '4:5', 'push-in', 'medium', 'zoom-in', '{noun} bottle on stone', 'A frosted glass {noun} bottle with a dropper resting on pale travertine, soft morning window light, a single sprig of greenery, minimal skincare still-life'),
-          L('detail', 'a', '1:1', 'float', 'medium', 'pan-right', 'formula texture swatch', 'A macro swatch of translucent serum and cream texture smeared across glass, tiny bubbles, pearlescent highlight'),
-          L('context', 'b', '1:1', 'drift-left', 'medium', 'none', 'hands applying at the sink', 'Two hands massaging cream into the back of a hand beside a white ceramic basin, towels folded nearby, calm bathroom daylight')] },
+          L('lead', 'lead', '4:5', 'push-in', 'medium', 'zoom-in', 'the {skinProduct} {skinContainerShort} on stone', 'The {name} {skinProduct} in a {skinContainer} resting on pale travertine, soft morning window light, a single sprig of greenery, minimal skincare still-life'),
+          L('detail', 'a', '1:1', 'float', 'medium', 'pan-right', '{skinProduct2} texture swatch', 'A macro swatch of the {name} {skinProduct2} texture smeared across glass, tiny bubbles, pearlescent highlight'),
+          L('context', 'b', '1:1', 'drift-left', 'medium', 'none', 'hands applying at the sink', 'Two hands massaging {skinProduct2} into the back of a hand beside a white ceramic basin, the {skinList} on the shelf above, towels folded nearby, calm bathroom daylight')] },
       { id: 'skincare-botanic', cat: 'retail', match: /\b(skincare|skin care|serum|serums|cleanser|cleansers|moisturi[sz]er|cosmetic|cosmetics|beauty|spf|toner|balm|botanical|botanicals)\b/i, composition: 'columns', tone: 'light', light: 'glow',
         concept: '{name}: ingredient, formula and routine side by side, drifting like a lookbook', layers: [
-          L('lead', 'lead', '3:4', 'rise', 'medium', 'zoom-in', 'the {offer} jar with botanicals', 'An open jar of {name} {offer} surrounded by fresh botanicals and oat on linen, soft top light'),
+          L('lead', 'lead', '3:4', 'rise', 'medium', 'zoom-in', 'the {skinList} with botanicals', '{skinWithContainers} from {name}, arranged with fresh botanicals and oat on linen, soft top light'),
           L('detail', 'a', '3:4', 'sink', 'medium', 'none', 'raw botanical ingredients', 'Raw botanical ingredients -- chamomile, aloe leaf and oat grains -- scattered on pale stone, close overhead'),
-          L('context', 'b', '3:4', 'rise', 'medium', 'none', 'a shelf routine in morning light', 'A bathroom shelf with skincare bottles, a folded towel and a small plant, morning sun through frosted glass')] },
+          L('context', 'b', '3:4', 'rise', 'medium', 'none', 'a shelf routine in morning light', 'A bathroom shelf with the {name} {skinList}, a folded towel and a small plant, morning sun through frosted glass')] },
       // ---- retail: packaged food
       { id: 'food-product', cat: 'retail', match: /\b(sauce|sauces|hot sauce|snack|snacks|chocolate|granola|jam|honey|spice|spices|chips|candy|cookies|preserves|condiment|pickles|coffee beans|tea blends)\b/i, composition: 'orbit', tone: 'dark', light: 'glow',
         concept: '{name}: the jar, what goes into it, and the dish it finishes', layers: [
-          L('lead', 'lead', '4:5', 'hold', 'bold', 'zoom-in', 'the {noun} jar hero', 'A glass jar of {name} {noun} on a dark wooden board, rich colour catching a warm side light, a spoon resting beside it'),
-          L('detail', 'a', '1:1', 'orbit', 'bold', 'pan-left', 'raw ingredients', 'The raw ingredients behind {offer}: fresh chilies, garlic and spices tumbling across slate, dramatic macro light'),
+          L('lead', 'lead', '4:5', 'hold', 'bold', 'zoom-in', 'the {pantryLabel} hero', 'A {pantryNoun} of {name} {pantryLabel} on a dark wooden board, rich colour catching a warm side light, a spoon resting beside it'),
+          L('detail', 'a', '1:1', 'orbit', 'bold', 'pan-left', 'raw ingredients', 'The raw ingredients behind the {pantryLabel}: {ingredientList} tumbling across slate, dramatic macro light'),
           L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'the finished dish', 'A finished dish being finished with a drizzle of the sauce, steam rising, dinner-table light')] },
       // ---- retail: home goods
       { id: 'home-goods', cat: 'retail', match: /\b(candle|candles|ceramic|ceramics|furniture|homeware|home goods|decor|linen|pottery|vase|lighting)\b/i, composition: 'fan', tone: 'light', light: 'glow',
@@ -2079,7 +4271,7 @@
       // ---- fashion
       { id: 'fashion-street', cat: 'fashion', match: /\b(streetwear|apparel|clothing|denim|hoodie|sneakers?|menswear|womenswear|knitwear|label)\b/i, composition: 'columns', tone: 'dark', light: 'sweep',
         concept: '{name}: the look in motion, the fabric up close, and the collection on the rail', layers: [
-          L('lead', 'lead', '3:4', 'rise', 'bold', 'pan-up', 'model walking in the {offer}', 'A model walking toward camera in a {name} {offer}, face turned away, fabric moving, concrete street at dusk, editorial fashion photography'),
+          L('lead', 'lead', '3:4', 'rise', 'bold', 'pan-up', 'a model walking in the {garment}', 'A model walking toward camera in a {name} {garment}, face turned away, fabric moving, concrete street at dusk, editorial fashion photography'),
           L('detail', 'a', '3:4', 'sink', 'bold', 'zoom-in', 'fabric and stitching macro', 'A macro of heavy fabric, bold stitching and a woven edge, raking light across the weave'),
           L('context', 'b', '3:4', 'rise', 'bold', 'none', 'collection on a clothing rail', 'The collection hanging on a steel clothing rail in a raw concrete studio, garments swaying slightly')] },
       { id: 'fashion-atelier', cat: 'fashion', match: /\b(bridal|wedding dress|gown|couture|tailor|tailoring|bespoke|jewellery|jewelry|atelier|dress)\b/i, composition: 'arch-cluster', tone: 'light', light: 'glow',
@@ -2108,14 +4300,14 @@
       { id: 'restaurant-table', cat: 'hospitality', match: /\b(restaurant|bistro|dining|chef|tasting menu|kitchen|trattoria|izakaya|ramen|sushi|pizzeria|steakhouse|eatery)\b/i, composition: 'filmstrip', tone: 'dark', light: 'glow',
         concept: '{name}: the signature plate, the kitchen fire, and the dining room at night', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'the signature {offer} plated', 'A signature plate of {offer} on a dark ceramic dish, sauce glossy under a warm spotlight, fine-dining food photography'),
-          L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', "chef's hands plating over flame", "A chef's hands finishing a plate over an open flame in a busy kitchen, sparks and steam, face out of frame"),
+          L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', 'a second signature plate up close', 'A close-up of {offer2} plated on handmade ceramics at the pass, sauce glossy, garnish placed by hand, warm kitchen light'),
           L('context', 'b', '4:3', 'slide-right', 'bold', 'none', 'the dining room at night', 'The dining room at night{inPlace}, candlelit tables, guests seen from behind, warm amber light')] },
       // ---- hospitality: bakery
       { id: 'bakery-oven', cat: 'hospitality', match: /\b(bakery|baker|bakes|pastr\w*|bread|breads|croissants?|sourdough|patisserie|cakes?)\b/i, composition: 'orbit', tone: 'light', light: 'glow',
         concept: '{name}: loaves from the oven, flour and dough, and the shop window at dawn', layers: [
           L('lead', 'lead', '4:5', 'hold', 'bold', 'zoom-in', 'fresh {offer} on the counter', 'Freshly baked {offer} piled on a wooden bakery counter, crackling crusts, warm morning light'),
-          L('detail', 'a', '1:1', 'orbit', 'bold', 'none', 'hands shaping dough', 'Floured hands shaping dough on a wooden bench, flour dust in the air, macro'),
-          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'the bakery window at dawn', 'The bakery shop window at dawn{inPlace}, trays of pastries glowing behind the glass, street still quiet')] },
+          L('detail', 'a', '1:1', 'orbit', 'bold', 'none', '{offer2} fresh from the oven', 'Fresh {offer2} cooling on a wire rack by the oven, flour dust in the air, crisp golden crusts, macro'),
+          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'the bakery counter at dawn', 'The bakery counter at dawn{inPlace} with the menu board, trays of pastries and a coffee machine, warm light before opening')] },
       // ---- hospitality: bar / hotel / general
       { id: 'bar-night', cat: 'hospitality', match: /\b(bar|cocktail|cocktails|brewery|taproom|wine bar|pub|lounge|speakeasy)\b/i, composition: 'venue-stack', tone: 'dark', light: 'sweep',
         concept: '{name}: the bar after dark, a cocktail being poured, and the glassware glinting', layers: [
@@ -2172,7 +4364,7 @@
           L('detail', 'a', '3:4', 'sink', 'bold', 'zoom-in', 'sticky notes and a marker on a whiteboard', 'A whiteboard covered in sticky notes and arrows, a hand holding a marker, close-up'),
           L('context', 'b', '3:4', 'rise', 'bold', 'none', 'the city from the office window', 'A city view{inPlace} from a bright office window at golden hour, a notebook on the sill')] },
       // ---- education
-      { id: 'education-tutor', cat: 'education', composition: 'fan', tone: 'light', light: 'glow',
+      { id: 'education-tutor', cat: 'education', composition: 'fan', tone: 'light', light: 'glow', treatment: 'illustration',
         concept: '{name}: learning at the table, the materials, and the moment it clicks', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a tutor and student working through a lesson', 'A tutor and a student working through a lesson at a bright table, notebooks open, hands pointing at a worked problem, faces out of frame'),
           L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', 'books, pencils and notes', 'Open textbooks, sharpened pencils and handwritten notes spread on a desk, soft daylight'),
@@ -2191,8 +4383,8 @@
       { id: 'fitness-gym', cat: 'fitness', composition: 'filmstrip', tone: 'dark', light: 'sweep',
         concept: '{name}: the lift, the chalk and steel, and the coach in the room', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'bold', 'pan-left', 'an athlete mid-lift', 'An athlete driving a barbell up mid-lift in a warehouse gym, chalk dust in the light, face turned away'),
-          L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', 'chalked hands on the bar', 'Chalked hands gripping a knurled barbell, macro, dramatic light'),
-          L('context', 'b', '4:3', 'slide-right', 'bold', 'none', 'a coach spotting a client', 'A coach spotting a client on the bench press, focused, seen from the side, faces out of frame')] },
+          L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', 'kettlebells lined up on the floor', 'A row of kettlebells in graduated weights on a rubber gym floor, chalk dust in the light, low angle'),
+          L('context', 'b', '4:3', 'slide-right', 'bold', 'none', 'the training mat set up for a session', 'A training mat set up for a coached session with resistance bands, a foam roller and dumbbells, bright gym light, three-quarter view')] },
       // ---- real estate
       { id: 'realestate-dusk', cat: 'realestate', composition: 'panorama', tone: 'dark', light: 'glow',
         concept: '{name}: the home at dusk, the kitchen inside, and the keys changing hands', layers: [
@@ -2209,12 +4401,12 @@
         concept: '{name}: hands-on treatment, the recovery exercise, and the calm clinic room', layers: [
           L('lead', 'lead', '3:4', 'hold', 'medium', 'zoom-in', 'a physiotherapist treating a knee', 'A physiotherapist guiding a patient\'s knee through a gentle stretch on a treatment table, hands and posture in frame, faces out of frame, soft daylight'),
           L('detail', 'a', '1:1', 'float', 'medium', 'none', 'resistance band recovery exercise', 'A resistance band looped around an ankle during a recovery exercise, close crop, clinic floor'),
-          L('context', 'b', '4:3', 'drift-left', 'medium', 'pan-right', 'the bright treatment room', 'A bright, calm treatment room with a padded table, exercise equipment and plants, morning light')] },
+          L('context', 'b', '4:3', 'drift-left', 'medium', 'pan-right', 'the calm clinic reception', 'The calm reception of the clinic{inPlace} with a desk, a plant and chairs by a bright window, morning light, wide view')] },
       { id: 'spa-calm', cat: 'wellness', match: /\b(spa|massage|facial|sauna|retreat|day spa|salon|stylist|hair|nails|esthetic\w*)\b/i, composition: 'venue-stack', tone: 'light', light: 'glow',
         concept: '{name}: the quiet room, the ritual up close, and the treatment in progress', layers: [
           L('lead', 'lead', '4:5', 'push-in', 'subtle', 'pan-right', 'a calm treatment room', 'A calm treatment room with a made-up massage table, folded towels, candles and soft daylight through linen'),
           L('detail', 'a', '1:1', 'float', 'medium', 'zoom-in', 'oils, stones and towels', 'Warm basalt stones, a small bottle of oil and rolled towels on a wooden tray, macro'),
-          L('context', 'b', '4:3', 'drift-right', 'medium', 'none', 'hands giving a treatment', 'Hands giving a relaxing shoulder massage, close crop, face out of frame, warm light')] },
+          L('context', 'b', '4:3', 'drift-right', 'medium', 'none', 'oils and creams by the basin', 'Massage oils and body creams lined up beside a stone basin with rolled towels, warm soft light, three-quarter view')] },
       { id: 'wellness-general', cat: 'wellness', composition: 'arch-cluster', tone: 'light', light: 'glow',
         concept: '{name}: care in progress, the details that make it calm, and the space itself', layers: [
           L('lead', 'lead', '3:4', 'hold', 'medium', 'zoom-in', 'a treatment in progress', 'A treatment in progress at {name}, hands in frame, faces out of frame, calm light-filled room'),
@@ -2223,15 +4415,15 @@
       // ---- nonprofit
       { id: 'nonprofit-community', cat: 'nonprofit', composition: 'panorama', tone: 'dark', light: 'glow',
         concept: '{name}: people working side by side, the hands doing it, and the place it changes', layers: [
-          L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'volunteers working together', 'Volunteers working side by side on a community project{inPlace}, seen from behind, warm afternoon light'),
+          L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a long table set for the community', 'Volunteers setting a long table for a community meal{inPlace}, bowls and flowers down the middle, string lights overhead, seen from behind, warm afternoon light'),
           L('detail', 'a', '4:3', 'float', 'medium', 'zoom-in', 'hands sorting donations', 'Hands sorting donated food into crates on a table, close-up'),
-          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'the community space', 'The neighbourhood community space the work serves, people gathering, candid')] },
+          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'seedlings going into the community garden', 'Young seedlings just planted in a community garden bed, a trowel in the soil, soft daylight, low close-up')] },
       // ---- trades
       { id: 'landscape-build', cat: 'landscaping', match: /\b(design|patios?|stone|hardscap\w*|retaining|outdoor living|build)\b/i, composition: 'panorama', tone: 'dark', light: 'glow',
         concept: '{name}: the finished yard, the stonework up close, and the crew mid-build', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a finished backyard at golden hour', 'A finished backyard{inPlace} at golden hour: a natural stone patio, layered planting beds and a fresh green lawn'),
           L('detail', 'a', '4:3', 'float', 'medium', 'zoom-in', 'flagstone and planting detail', 'A close-up of freshly laid flagstone meeting a planted border, soil and mulch detail'),
-          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'the crew laying pavers mid-project', 'A landscaping crew laying pavers mid-project, wheelbarrow and tools, seen from behind, work in progress')] },
+          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'fresh planting going in', 'Fresh perennials and ornamental grasses being planted into a dark mulched bed beside the new stonework, trowel and tray of plants, soft daylight')] },
       { id: 'lawn-care', cat: 'landscaping', match: /\b(lawn|lawns|mowing|turf|sod|yard maintenance|cleanups?|aeration|fertili[sz]\w*)\b/i, composition: 'filmstrip', tone: 'light', light: 'sweep',
         concept: '{name}: the striped lawn, the clean edge, and the seasonal cleanup', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-right', 'a freshly striped lawn', 'A freshly mowed striped lawn in front of a suburban home{inPlace}, crisp edges, bright morning light'),
@@ -2241,7 +4433,7 @@
         concept: '{name}: the finished garden, planting up close, and the work underway', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a finished garden', 'A finished garden{inPlace} with mature planting, a curving path and a lawn, soft evening light'),
           L('detail', 'a', '4:3', 'float', 'medium', 'zoom-in', 'planting detail', 'Close-up of fresh perennials planted into dark mulch, dew on the leaves'),
-          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'landscapers working in the yard', 'Landscapers planting shrubs in a yard, tools and soil, seen from behind')] },
+          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'freshly clipped hedges', 'Freshly clipped hedges with crisp square edges framing a lawn, hedge shears resting on top, clear daylight')] },
       { id: 'roofing', cat: 'roofing', composition: 'panorama', tone: 'dark', light: 'glow',
         concept: '{name}: the finished roofline, the shingles up close, and the crew on the roof', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a finished roof on a family home', 'A family home{inPlace} with a crisp, newly finished roof, clean ridge line against a clear sky'),
@@ -2256,7 +4448,7 @@
         concept: '{name}: the freshly painted room, the brush cutting in, and the painter at work', layers: [
           L('lead', 'lead', '4:5', 'push-in', 'medium', 'pan-right', 'a freshly painted living room', 'A freshly painted living room with crisp walls and white trim, furniture back in place, afternoon light'),
           L('detail', 'a', '1:1', 'float', 'medium', 'zoom-in', 'a brush cutting a clean line', 'A paint brush cutting a perfectly straight line where a wall meets the trim, macro'),
-          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'a painter on a ladder', 'A painter on a ladder rolling a ceiling, drop cloths below, seen from behind')] },
+          L('context', 'b', '4:3', 'drift-left', 'medium', 'none', 'a loaded roller and open paint', 'An open can of paint, a loaded roller resting in the tray and colour swatches on a drop cloth, three-quarter overhead view, soft light')] },
       { id: 'plumbing', cat: 'plumbing', composition: 'diagonal', tone: 'light', light: 'glow',
         concept: '{name}: the finished bathroom, the fixture up close, and the fix underway', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-right', 'a finished modern bathroom', 'A finished modern bathroom with a walk-in shower, new chrome fixtures and clean tile, soft daylight'),
@@ -2266,7 +4458,7 @@
         concept: '{name}: the room lit well, the neat panel, and the install in progress', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-right', 'a home interior glowing with new lighting', 'A home interior{inPlace} glowing with warm new pendant and recessed lighting at dusk'),
           L('detail', 'a', '4:3', 'float', 'medium', 'zoom-in', 'a neatly wired electrical panel', 'A neatly wired electrical panel with labelled breakers and tidy cable runs, close-up'),
-          L('context', 'b', '1:1', 'drift-left', 'medium', 'none', 'an electrician installing a light fixture', 'An electrician installing a pendant light fixture from a ladder, seen from below, hands in frame')] },
+          L('context', 'b', '1:1', 'drift-left', 'medium', 'none', 'new outlets and switches', 'New white outlet and switch plates on a freshly painted wall, square and level, soft side light, close-up')] },
       { id: 'cleaning', cat: 'cleaning', composition: 'split-duo', tone: 'light', light: 'sweep',
         concept: '{name}: the spotless room, the sparkle up close, and the team at work', layers: [
           L('lead', 'lead', '4:5', 'push-in', 'medium', 'pan-right', 'a spotless sunlit living room', 'A spotless, sunlit living room after a deep clean, plumped cushions and gleaming floors'),
@@ -2276,12 +4468,12 @@
         concept: '{name}: the finish like a mirror, the polisher at work, and the interior reborn', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'bold', 'pan-left', 'a freshly detailed car with a mirror finish', 'A freshly detailed car in a dark studio bay, paint reflecting overhead light strips like a mirror'),
           L('detail', 'a', '1:1', 'orbit', 'bold', 'zoom-in', 'a polisher correcting paint', 'A dual-action polisher correcting paint on a car hood, swirl marks disappearing, macro'),
-          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'a leather interior being cleaned', 'A leather car interior being cleaned with a soft brush, stitching and texture close-up')] },
+          L('context', 'b', '1:1', 'orbit-reverse', 'bold', 'none', 'a freshly cleaned alloy wheel', 'A freshly cleaned alloy wheel and dressed tyre, a spotless brake caliper behind the spokes, close-up, studio light')] },
       { id: 'auto-repair', cat: 'automotive', composition: 'filmstrip', tone: 'dark', light: 'sweep',
         concept: '{name}: the car on the lift, the parts up close, and the mechanic at work', layers: [
           L('lead', 'lead', '16:9', 'push-in', 'medium', 'pan-left', 'a car on the lift in the garage bay', 'A car raised on a lift in a clean garage bay{inPlace}, tools on the wall, bright work lights'),
           L('detail', 'a', '4:3', 'slide-left', 'bold', 'zoom-in', 'engine parts and tools', 'Engine parts and a torque wrench laid out on a workbench, macro'),
-          L('context', 'b', '4:3', 'slide-right', 'bold', 'none', "a mechanic's hands under the hood", "A mechanic's hands working under a car hood with a work light, close crop")] },
+          L('context', 'b', '4:3', 'slide-right', 'bold', 'none', 'a new tyre and wheel ready to fit', 'A new tyre and alloy wheel leaning by the lift ready to fit, torque wrench beside it, workshop light, close-up')] },
       // ---- other
       { id: 'other-product', cat: 'other', match: /\b(product|products|brand|made|make|makes|making|craft|crafts|handmade|goods|shop|store)\b/i, composition: 'venue-stack', tone: 'light', light: 'glow',
         concept: '{name}: the finished piece up close, the making of it, and the moment it is used', layers: [
@@ -2314,8 +4506,10 @@
       n = n.replace(/\s+(?:made|made with|with|that|which|from)\b.*$/i, '').trim();
       return n.length > 50 ? n.split(/\s+(?:and|,)\s+/)[0] : n;
     }
-    function templateVars(ctx) {
+    function templateVars(ctx, factsIn) {
       const c = Object.assign({}, ctx || {});
+      const facts = factsIn || VS.factsFor(c);
+      const fv = VS.varsFor(facts, c);
       c.noun = cleanNoun(c.noun);
       // own offerings first; a business the classifier could not place ('other') has only placeholder defaults,
       // so it uses what it says it does instead ('fishing charters and sunset boat tours' -> two offers)
@@ -2329,6 +4523,11 @@
         offer3: offers[2] || offers[1] || 'the range', offers: offers.slice(0, 3).join(', ') || c.noun || 'the range',
         flavour: flavourWords[0] || (offers[0] || 'citrus'), flavour2: flavourWords[1] || flavourWords[0] || 'citrus', place: c.place || '', inPlace: c.place ? ` in ${c.place}` : '',
         accent: c.accent || 'warm', served: servedPhrase(c.text),
+        container: fv.container, containers: fv.containers,
+        flavourOf: fv.flavourList ? ` in ${fv.flavourList}` : '', flavourPhrase: fv.flavourList || 'citrus and mint', flavourColourways: fv.flavourList ? `${fv.flavourList} colourways` : 'three flavour colourways',
+        skinProduct: fv.skinProduct, skinProduct2: fv.skinProduct2, skinList: fv.skinList, skinWithContainers: fv.skinWithContainers, skinContainer: fv.skinContainer, skinContainerShort: fv.skinContainer.split(' ').slice(-2).join(' '),
+        pantryNoun: fv.pantryNoun, pantryLabel: fv.pantryProduct || cleanNoun(c.noun) || 'product', ingredientList: fv.flavourList || 'fresh chilies, garlic and spices',
+        garment: facts.apparel ? fv.garment : (offers[0] || 'garment'),
       };
     }
     // Deterministic variety: the concept (among the category's matching ones),
@@ -2352,15 +4551,24 @@
       const candidates = matching.length ? matching : (generic.length ? generic : pool);
       const h = hashStr(`${c.name}|${c.text}|${c.variation || 0}`);
       const concept = candidates[h % candidates.length];
-      const v = templateVars(c);
+      const facts = VS.factsFor(c);
+      const v = templateVars(c, facts);
       const loop = 10 + (h % 5); // 10-14s
       const amounts = ['subtle', 'medium', 'bold'];
+      const special = VS.specialiseLayers(concept.id, concept.layers.map(l => ({ role: l.role, subject: fill(l.subject, v), shot: fill(l.shot, v) })), facts, c);
+      const treatment = concept.treatment || 'photo';
+      const look = VS.lookLine({ tone: concept.tone, treatment }, c.accent);
+      const UI_NAMES = { schedule: 'scheduling', monitor: 'monitoring', ledger: 'invoicing', pipeline: 'pipeline', inbox: 'support inbox', docs: 'document review', learning: 'course', store: 'storefront', editor: 'editor', workflow: 'workflow', analytics: 'analytics' };
       const layers = concept.layers.map((l, i) => {
+        const sp = special[i];
+        const drawn = concept.cat === 'tech' && l.role === 'lead';
         // supporting layers vary between medium and bold (never faint) so the motion reads in a short capture
         const amount = i === 0 ? l.amount : amounts[Math.min(2, Math.max(1, amounts.indexOf(l.amount) + ((h >> (i * 3)) % 3) - 1))];
         return {
-          slot: i === 0 ? 'hero' : `hero-${i + 1}`, role: l.role, anchor: l.anchor, subject: fill(l.subject, v),
-          prompt: finishPrompt(fill(l.shot, v), l.role, l.aspect), aspect: l.aspect, shape: l.shape,
+          slot: i === 0 ? 'hero' : `hero-${i + 1}`, role: l.role, anchor: l.anchor,
+          subject: drawn ? `the ${v.name} ${UI_NAMES[(sp.art.params && sp.art.params.ui) || 'analytics'] || 'product'} screen` : sp.subject,
+          prompt: finishPrompt(sp.shot, l.role, l.aspect, { pan: l.pan, look, treatment }), aspect: l.aspect, shape: l.shape,
+          art: sp.art, render: drawn ? 'art' : 'image',
           depth: i === 0 ? 2 : 3 + (i % 2),
           motion: { path: l.motion, amount, offset: Math.round(((i / concept.layers.length) + ((h >> (i + 5)) % 7) / 40) % 1 * 100) / 100 },
           pan: l.pan, reveal: REVEALS[(i + h) % REVEALS.length],
@@ -2368,7 +4576,7 @@
       });
       return sanitizeStored({
         source: 'fallback', fallbackReason: reason || null, conceptId: concept.id, concept: fill(concept.concept, v), composition: concept.composition,
-        copySafe: COMPOSITIONS[concept.composition].copy, tone: concept.tone, light: concept.light, loop, baseHero: c.hero, layers,
+        copySafe: COMPOSITIONS[concept.composition].copy, tone: concept.tone, light: concept.light, loop, baseHero: c.hero, treatment, look, layers,
       });
     }
     // The one entry point generation calls: the planner's storyboard when it
@@ -2381,6 +4589,20 @@
       }
       return fallbackStoryboard(ctx, 'no planner storyboard');
     }
+    // The owner's own photo for one hero layer: an upload bound to that layer's slot
+    // (the editor's per-image "Replace" control), or -- for the lead only -- the
+    // general hero upload. Uploads always outrank generated images and drawings.
+    function layerUpload(project, slot) {
+      const items = (project && project.assets && Array.isArray(project.assets.items)) ? project.assets.items : [];
+      const own = items.find(a => a && a.type === 'hero' && a.slot === slot && a.dataUrl);
+      if (own) return own;
+      if (slot !== 'hero') return null;
+      const planned = project.assets && project.assets.plan && project.assets.plan.hero;
+      return items.find(a => a && a.id === planned && a.dataUrl && (!a.slot || a.slot === 'hero')) || null;
+    }
+    // the short label the editor shows for a layer: its role and what it shows
+    const ROLE_LABELS = { lead: 'Main image', detail: 'Detail', context: 'Scene', accent: 'Accent' };
+    function layerLabel(layer) { return `${ROLE_LABELS[layer.role] || 'Image'} · ${clip(layer.subject || '', 48)}`; }
     function activeStoryboard(project) {
       if (!project || (project.meta && project.meta.isDemoShell)) return null;
       const sb = project.heroStoryboard;
@@ -2398,13 +4620,25 @@
     // ---- markup -------------------------------------------------------------------------------------------------------
     function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     const px = n => `${n}`;
-    // opts: { storyboard, visuals: {slot: html|null}, kickerHtml, headlineHtml, subHtml, ctaHtml, offerings[], name, place }
-    // Only layers with a real visual are drawn (a failed generation never leaves an
-    // empty frame). Each layer carries its own placement and motion track as CSS
+    // The illustration for one layer: its stored art spec, or (a storyboard saved
+    // before art specs existed) one matched on the layer's own subject.
+    // stage proportions (width / height) per copy side at a desktop width -- see styles.css .sb-stage
+    const STAGE_RATIO = { left: 1.11, right: 1.11, top: 2.2, 'bottom-left': 1.72 };
+    function frameRatio(sb, layer) { const d = placementFor(sb.composition, layer.anchor).d; return (d[2] / d[3]) * (STAGE_RATIO[sb.copySafe] || 1.11); }
+    function layerArtHtml(sb, layer, o) {
+      const art = layer.art || VS.artForText(`${layer.subject}. ${layer.prompt}`, layer.role, VS.factsFor({ name: o.name, categoryKey: o.categoryKey || 'other', ownOfferings: o.offerings || [] }), { name: o.name }, null);
+      // a full-bleed lead behind bottom-left copy: draw wider and pin the left edge, so the subject lands right of the words
+      const behindCopy = sb.copySafe === 'bottom-left' && layer.anchor === 'lead';
+      return ARTK.drawArt(art, { aspect: layer.aspect, ratio: frameRatio(sb, layer) * (behindCopy ? 1.25 : 1), align: behindCopy ? 'xMinYMid' : null, accent: o.accent, tone: sb.tone, role: layer.role, seed: `${sb.conceptId || ''}|${layer.slot}`, uid: `sb${layer.slot.replace(/\W/g, '')}${(ARTK.KINDS[art.kind] ? art.kind : 'x').replace(/\W/g, '').slice(0, 8)}` });
+    }
+    // opts: { storyboard, visuals: {slot: html|null}, accent, categoryKey, kickerHtml, headlineHtml, subHtml, ctaHtml, offerings[], name, place }
+    // visuals[slot] is the layer's real image (an upload or a ready generated
+    // image); every other layer draws its illustration, so the composition is
+    // always whole. Each layer carries its own placement and motion track as CSS
     // custom properties consumed by the shared keyframes in styles.css.
     function renderStoryboardHero(o) {
       const sb = o.storyboard;
-      const resolved = resolveLayers(sb).filter(l => o.visuals && o.visuals[l.slot]);
+      const resolved = resolveLayers(sb);
       const items = (o.offerings || []).filter(Boolean).slice(0, 4).map(esc);
       const layerHtml = resolved.map(l => {
         const [x, y, w, h] = l.desktop; const [mx, my, mw, mh] = l.mobile;
@@ -2415,7 +4649,13 @@
           `--ix0:${l.pan.from[0]}%`, `--iy0:${l.pan.from[1]}%`, `--is0:${l.pan.from[2]}`, `--ix1:${l.pan.to[0]}%`, `--iy1:${l.pan.to[1]}%`, `--is1:${l.pan.to[2]}`,
           `--delay:${l.delay}s`, `--rvd:${l.revealDelay}s`,
         ].join(';');
-        return `<figure class="sb-layer sb-role-${l.role} sb-shape-${l.shape}" data-slot="${esc(l.slot)}" data-motion="${esc(sb.layers.find(x => x.slot === l.slot).motion.path)}" data-reveal="${esc(l.reveal)}" style="${style}"><div class="sb-frame"><div class="sb-media">${o.visuals[l.slot]}</div></div></figure>`;
+        const layer = sb.layers.find(x => x.slot === l.slot);
+        const real = o.visuals && o.visuals[l.slot]; // an upload wins even over a drawn interface
+        let media = real ? String(real) : layerArtHtml(sb, layer, o);
+        // the owner's chosen focal point wins over any stored one
+        if (real && layer.focal) media = /object-position:/.test(media) ? media.replace(/object-position:[^;"]*/, `object-position:${layer.focal}`) : media.replace(/<img /, `<img style="object-position:${layer.focal}" `);
+        const kind = real ? 'image' : 'art';
+        return `<figure class="sb-layer sb-role-${l.role} sb-shape-${l.shape}" data-slot="${esc(l.slot)}" data-motion="${esc(layer.motion.path)}" data-reveal="${esc(l.reveal)}" data-source="${kind}"${kind === 'art' && layer.art ? ` data-art="${esc(layer.art.kind)}"` : ''} style="${style}"><div class="sb-frame"><div class="sb-media">${media}</div></div></figure>`;
       }).join('');
       const copy = `<div class="cinema-copy sb-copy"><p class="cinema-kicker">${o.kickerHtml || ''}</p><h3>${o.headlineHtml || ''}</h3><p class="cinema-sub">${o.subHtml || ''}</p><div class="site-actions">${o.ctaHtml || ''}</div>${items.length ? `<ul class="sb-offers">${items.map(i => `<li>${i}</li>`).join('')}</ul>` : ''}</div>`;
       return `<div class="site-hero hero-cinema hero-storyboard" data-cinema="storyboard" data-composition="${esc(sb.composition)}" data-copy="${esc(sb.copySafe)}" data-tone="${esc(sb.tone)}" data-light="${esc(sb.light)}" data-concept="${esc(sb.conceptId || '')}" data-layers="${resolved.length}" style="--sb-loop:${sb.loop}s">
@@ -2428,7 +4668,7 @@
     module.exports = {
       COMPOSITIONS, COMPOSITION_KEYS, ANCHORS, ROLES, ASPECTS, SHAPES, MOTION_PATHS, MOTION_KEYS, AMOUNTS, PANS, PAN_KEYS, REVEALS, CUES, CONCEPTS,
       relevance, similarity, placementFor, trackFor, resolveLayers, sanitizeStored, validatePlanned, fallbackStoryboard, storyboardFor,
-      activeStoryboard, conceptsFor, templateVars, finishPrompt, heroCostSummary, renderStoryboardHero,
+      activeStoryboard, conceptsFor, templateVars, finishPrompt, heroCostSummary, renderStoryboardHero, sanitizeArt, layerArtHtml, layerUpload, layerLabel, ROLE_LABELS,
     };
 
   });
@@ -4876,6 +7116,485 @@
       HERO_REQUIREMENTS, heroCompatible, RETAIL_SUBTYPE_HERO, SAAS_CONCEPT_HERO, textSignalFamily, selectHeroFamily,
       depthForSection, pickTexturedSection, contrastOk, safeToTexture,
     };
+
+  });
+  __define("visual-subjects", function (module, exports, require) {
+    'use strict';
+    // VISUAL SUBJECTS -- what each hero image actually shows, decided from the
+    // owner's own words rather than a category keyword.
+    //
+    //   factsFor(ctx)        the owner's stated specifics: drink container and
+    //                        flavours, skincare product types (serum -> dropper,
+    //                        cleanser -> pump...), pantry goods, garments, menu items,
+    //                        the services they list (mowing, edging, retaining walls,
+    //                        dry needling...), and for software the kind of product
+    //                        (scheduling, monitoring...) and who it serves.
+    //   FACETS               a library of concrete subjects: a label, a photographic
+    //                        prompt (subject, action/setting, framing, material, light)
+    //                        and the matching code-drawn illustration (./hero-art-kinds).
+    //   specialiseLayers()   fills a storyboard concept's layers from those facts --
+    //                        a lawn-care company gets mowing / edging / cleanup, a
+    //                        landscape builder patio / retaining wall / planting.
+    //   artForText()         the illustration for a planner-written layer, matched on
+    //                        its own subject and prompt.
+    //   planProblems()       semantic checks on a planner storyboard: a container that
+    //                        contradicts the product, or images that ignore everything
+    //                        the owner said they sell.
+    // Pure (no I/O, no randomness). Shared by the preview bundle and the export.
+    const ART = require('./hero-art');
+
+    function plain(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+    function clip(s, n) { const t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') : t; }
+    const cap = s => { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+    function listPhrase(a) { const x = (a || []).filter(Boolean); if (x.length <= 1) return x[0] || ''; return `${x.slice(0, -1).join(', ')} and ${x[x.length - 1]}`; }
+    // first index of a regex in text (or -1)
+    function firstIndex(re, text) { const m = new RegExp(re.source, re.flags.replace('g', '')).exec(text); return m ? m.index : -1; }
+
+    // ---- products --------------------------------------------------------------------------------------------------
+    const DRINK_RE = /\b(sparkling|soda|sodas|seltzers?|energy drinks?|tonics?|lemonades?|kombucha|juices?|cold[- ]pressed|smoothies?|cold brew|iced teas?|wines?|beers?|ales?|lagers?|ipas?|ciders?|gin|vodka|whisk(?:e)?y|rum|spirits|mocktails?|drinks?|beverages?)\b/;
+    function drinkFacts(t) {
+      if (!DRINK_RE.test(t)) return null;
+      let variant = 'can';
+      if (/\b(wines?|vineyard|winery)\b/.test(t)) variant = 'wine';
+      else if (/\b(gin|vodka|whisk(?:e)?y|rum|spirits|distiller\w*)\b/.test(t)) variant = 'spirit';
+      else if (/\b(kombucha|juices?|cold[- ]pressed|smoothies?|iced teas?)\b/.test(t)) variant = /\bkombucha\b/.test(t) ? 'kombucha' : 'juice';
+      else if (/\b(beers?|ales?|lagers?|ipas?|ciders?|brew(?:ery|ing))\b/.test(t)) variant = 'beer';
+      let container = variant === 'can' ? 'can' : 'bottle';
+      if (/\bcans?\b|\bcanned\b/.test(t)) container = 'can';
+      else if (/\bbottles?\b|\bbottled\b/.test(t)) container = 'bottle';
+      if (container === 'can' && variant !== 'can' && variant !== 'beer') variant = 'can';
+      return { container, variant: container === 'can' ? 'can' : variant, noun: container === 'can' ? 'can' : ({ wine: 'wine bottle', spirit: 'bottle', beer: 'beer bottle', kombucha: 'glass bottle', juice: 'glass bottle' }[variant] || 'bottle') };
+    }
+    // skincare and body care: product type -> the container it actually comes in
+    const SKIN_TYPES = [
+      { re: /\b(serums?|face oils?|facial oils?|ampoules?|essences?|retinol)\b/, variant: 'dropper', container: 'amber glass dropper bottle' },
+      { re: /\b(cleansers?|face wash|cleansing (?:gel|milk|oil)|body wash|shampoos?|conditioners?|lotions?|hand wash)\b/, variant: 'pump', container: 'frosted pump bottle' },
+      { re: /\b(moisturi[sz]ers?|creams?|night cream|eye cream|body butters?|masks?|scrubs?|exfoliants?)\b/, variant: 'jar', container: 'heavy glass jar with a ribbed lid' },
+      { re: /\b(spf|sunscreens?|sun cream|sunblock|hand creams?|gels?)\b/, variant: 'tube', container: 'soft squeeze tube' },
+      { re: /\b(balms?|salves?|pomades?|lip balms?)\b/, variant: 'tin', container: 'shallow metal tin' },
+      { re: /\b(toners?|facial mists?|mists?)\b/, variant: 'toner', container: 'tall glass bottle' },
+      { re: /\b(soaps?|soap bars?)\b/, variant: 'bar', container: 'bar' },
+    ];
+    const SKIN_RE = /\b(skin ?care|serums?|cleansers?|moisturi[sz]ers?|spf|sunscreens?|toners?|balms?|cosmetics?|beauty|face oils?|creams?|body care|soaps?)\b/;
+    function phraseAt(t, idx, len) {
+      // the owner's own product phrase: up to two describing words before the product noun ("vitamin c serum")
+      const seg = t.slice(0, idx).split(/[,;.:!?()]|\band\b|\bor\b|\bwith\b/).pop();
+      const before = seg.replace(/[^a-z0-9\s-]/g, ' ').trim().split(/\s+/).slice(-2).filter(w => w && !STOPWORDS.has(w));
+      const pre = []; for (let i = before.length - 1; i >= 0; i--) { if (STOPWORDS.has(before[i])) break; pre.unshift(before[i]); }
+      return (pre.join(' ') + ' ' + t.slice(idx, idx + len)).trim();
+    }
+    const STOPWORDS = new Set('a,an,the,and,or,of,for,with,our,their,its,in,on,at,to,from,by,selling,sells,makes,making,offers,offering,including,like,such,as,plus,also,gentle,daily,small,online,shop,store,brand,company,business,we,is,are,that,which,into,your,you'.split(','));
+    function skinFacts(t) {
+      if (!SKIN_RE.test(t)) return null;
+      const found = [];
+      SKIN_TYPES.forEach(st => { const re = new RegExp(st.re.source, 'g'); const m = re.exec(t); if (m) found.push({ variant: st.variant, container: st.container, index: m.index, len: m[0].length, phrase: phraseAt(t, m.index, m[0].length) }); });
+      found.sort((a, b) => a.index - b.index);
+      const spans = found.map(p => ({ from: p.index - (p.phrase.length - p.len), to: p.index + p.len }));
+      const own = found.filter((p, i) => !found.some((q, j) => j !== i && q.variant !== p.variant && p.index >= spans[j].from && p.index < spans[j].to && q.phrase.length > p.phrase.length));
+      return { products: own.length ? own : [{ variant: 'dropper', container: 'amber glass dropper bottle', index: 0, phrase: 'serum' }] };
+    }
+    const PANTRY_TYPES = [
+      { re: /\b(hot sauces?|chil[ie] sauces?|sauces?|chil[ie] oils?)\b/, variant: 'woozy', noun: 'sauce bottle', dish: 'tacos' },
+      { re: /\b(jams?|preserves|marmalades?|honey|nut butters?|peanut butter|salsas?|pickles|chutneys?|spreads?)\b/, variant: 'jar', noun: 'glass jar', dish: 'eggs' },
+      { re: /\b(chocolates?|chocolate bars?|cacao)\b/, variant: 'bar', noun: 'chocolate bar', dish: 'generic' },
+      { re: /\b(granola|coffee beans|tea blends|loose[- ]leaf teas?|snacks?|chips|crisps|jerky|trail mix|cookies|biscuits|crackers)\b/, variant: 'pouch', noun: 'stand-up pouch', dish: 'generic' },
+      { re: /\b(spices?|spice blends?|rubs|seasonings?)\b/, variant: 'jar', noun: 'spice jar', dish: 'steak' },
+      { re: /\b(olive oils?|oils|vinegars?)\b/, variant: 'tin', noun: 'tin', dish: 'salad' },
+    ];
+    function pantryFacts(t) { let best = null; PANTRY_TYPES.forEach(pt => { const i = firstIndex(pt.re, t); if (i >= 0 && (!best || i < best.index)) { const m = new RegExp(pt.re.source).exec(t); best = Object.assign({ index: i, phrase: phraseAt(t, i, m[0].length) }, pt); } }); return best; }
+    const HOME_TYPES = [
+      { re: /\bcandles?\b/, variant: 'candle' }, { re: /\b(mugs?|ceramics?|pottery|stoneware|tableware|bowls?)\b/, variant: 'mug' }, { re: /\b(vases?|planters?)\b/, variant: 'vase' },
+    ];
+    function homeFacts(t) { let best = null; HOME_TYPES.forEach(ht => { const i = firstIndex(ht.re, t); if (i >= 0 && (!best || i < best.index)) best = { variant: ht.variant, index: i }; }); return best; }
+    const APPAREL_TYPES = [
+      { re: /\b(hoodies?|sweatshirts?|crewnecks?)\b/, variant: 'hoodie', noun: 'hoodie' }, { re: /\b(t-?shirts?|tees)\b/, variant: 'tee', noun: 't-shirt' }, { re: /\b(denim|jeans)\b/, variant: 'jeans', noun: 'denim' },
+      { re: /\b(sneakers?|trainers|shoes|footwear)\b/, variant: 'sneaker', noun: 'sneakers' }, { re: /\b(caps?|hats?|beanies?)\b/, variant: 'cap', noun: 'cap' }, { re: /\b(gowns?|dresses|dress|bridal|wedding dress\w*)\b/, variant: 'gown', noun: 'gown' },
+      { re: /\b(jewell?ery|rings?|necklaces?|earrings?|bracelets?)\b/, variant: 'ring', noun: 'ring' }, { re: /\b(knitwear|sweaters?|jumpers?|cardigans?)\b/, variant: 'knit', noun: 'knitwear' }, { re: /\b(jackets?|coats?|outerwear)\b/, variant: 'hoodie', noun: 'jacket' },
+    ];
+    function apparelFacts(t) { const found = []; APPAREL_TYPES.forEach(a => { const i = firstIndex(a.re, t); if (i >= 0) found.push({ variant: a.variant, noun: a.noun, index: i }); }); found.sort((a, b) => a.index - b.index); return found.length ? found : null; }
+    // menu items for hospitality: what is actually on the plate / in the cup
+    const MENU_TYPES = [
+      { re: /\b(pasta|spaghetti|tagliatelle|gnocchi|ravioli)\b/, dish: 'pasta' }, { re: /\b(pizzas?|wood[- ]fired)\b/, dish: 'pizza' }, { re: /\b(sushi|sashimi|omakase)\b/, dish: 'sushi' },
+      { re: /\b(ramen|noodles?|pho|udon)\b/, dish: 'ramen' }, { re: /\b(steaks?|steakhouse|grill)\b/, dish: 'steak' }, { re: /\b(burgers?)\b/, dish: 'burger' }, { re: /\b(tacos?|taqueria)\b/, dish: 'tacos' },
+      { re: /\b(salads?|bowls?|vegan|plant[- ]based)\b/, dish: 'salad' }, { re: /\b(brunch|breakfast|eggs?)\b/, dish: 'eggs' },
+    ];
+    function menuFacts(t) { const found = []; MENU_TYPES.forEach(m => { const i = firstIndex(m.re, t); if (i >= 0) found.push({ dish: m.dish, index: i }); }); found.sort((a, b) => a.index - b.index); return found.map(f => f.dish); }
+    function bakeFacts(t) { const i = { croissant: firstIndex(/\b(croissants?|pastr\w*|viennoiserie)\b/, t), cake: firstIndex(/\b(cakes?|cupcakes?|wedding cakes?)\b/, t), bread: firstIndex(/\b(breads?|sourdough|loaves|loaf|baguettes?)\b/, t) }; const k = Object.keys(i).filter(x => i[x] >= 0).sort((a, b) => i[a] - i[b]); return k; }
+    // flavours / named ingredients, in the order the owner lists them
+    function flavourFacts(t) {
+      const keys = ART.FLAVOUR_KEYS.slice().sort((a, b) => b.length - a.length);
+      const hits = [];
+      keys.forEach(k => { const re = new RegExp(`\\b${k.replace(/ /g, '\\s')}\\b`); const m = re.exec(t); if (m && !hits.some(h => h.index <= m.index && h.index + h.key.length >= m.index + k.length)) hits.push({ key: k, index: m.index }); });
+      hits.sort((a, b) => a.index - b.index);
+      return hits.map(h => (h.key === 'berries' ? 'berry' : h.key)).filter((k, i, a) => a.indexOf(k) === i).slice(0, 4);
+    }
+    // ---- software ----------------------------------------------------------------------------------------------------
+    const UI_TYPES = [
+      { kind: 'schedule', re: /\b(schedul\w*|bookings?|appointments?|calendars?|reservations?|no-shows?)\b/ },
+      { kind: 'monitor', re: /\b(monitor\w*|observability|uptime|alert\w*|incidents?|logs|logging|infrastructure|devops|on-call|latency|apis?)\b/ },
+      { kind: 'ledger', re: /\b(invoic\w*|accounting|bookkeeping|billing|payroll|expenses?|payments?)\b/ },
+      { kind: 'pipeline', re: /\b(crm|pipelines?|sales|leads|deals|project management|tasks|kanban)\b/ },
+      { kind: 'inbox', re: /\b(support|help ?desk|tickets?|live chat|inbox|customer service)\b/ },
+      { kind: 'docs', re: /\b(documents?|contracts?|forms|e-?sign\w*|ocr|extract\w*|pdfs?)\b/ },
+      { kind: 'learning', re: /\b(courses?|lms|e-?learning|lessons|training platform)\b/ },
+      { kind: 'store', re: /\b(e-?commerce|storefronts?|online stores?|shop builder|checkout|inventory)\b/ },
+      { kind: 'editor', re: /\b(design tool|editor|whiteboard|canvas|content creation|video editing|website builder)\b/ },
+      { kind: 'workflow', re: /\b(ai|automation|automate\w*|workflows?|agents?|integrations?)\b/ },
+      { kind: 'analytics', re: /\b(analytics|dashboards?|reporting|insights|metrics|data)\b/ },
+    ];
+    const SERVED = [
+      { re: /\b(clinics?|physio\w*|dentists?|dental|chiropract\w*|patients?|practices?|therap\w*)\b/, served: 'clinic', audience: 'patients', art: 'treatment-room', services: ['Initial assessment', 'Follow-up', 'Treatment'] },
+      { re: /\b(salons?|barbers?|spas?|stylists?|nail)\b/, served: 'salon', audience: 'clients', art: 'salon', services: ['Cut & style', 'Colour', 'Blow-dry'] },
+      { re: /\b(restaurants?|cafes?|bars?|hospitality)\b/, served: 'restaurant', audience: 'guests', art: 'dining', services: ['Table for two', 'Table for four', 'Private dining'] },
+      { re: /\b(gyms?|fitness|studios?|coaches|trainers)\b/, served: 'gym', audience: 'members', art: 'weights', services: ['Personal training', 'Group class', 'Assessment'] },
+      { re: /\b(contractors?|trades\w*|plumbers?|electricians?|builders?|field service)\b/, served: 'trades', audience: 'customers', art: 'framing', services: ['Site visit', 'Quote', 'Job'] },
+      { re: /\b(schools?|tutors?|teachers?|students?)\b/, served: 'school', audience: 'students', art: 'classroom', services: ['Lesson', 'Tutoring', 'Review'] },
+    ];
+    function techFacts(t) {
+      let best = null; UI_TYPES.forEach((u, order) => { const i = firstIndex(u.re, t); if (i >= 0 && (!best || order < best.order)) best = { kind: u.kind, order, index: i }; });
+      const kind = best ? best.kind : 'analytics';
+      let served = null; SERVED.forEach(s => { const i = firstIndex(s.re, t); if (i >= 0 && (!served || i < served.index)) served = Object.assign({ index: i }, s); });
+      const items = kind === 'schedule' ? (served ? served.services : ['Appointment', 'Consultation', 'Follow-up'])
+        : kind === 'monitor' ? ['api', 'web', 'worker', 'database', 'queue'] : null;
+      return { ui: kind, audience: served ? served.audience : (kind === 'schedule' ? 'clients' : null), served: served ? served.served : null, servedArt: served ? served.art : null, items, reminders: /\bremind\w*\b/.test(t) };
+    }
+
+    // ---- facts ---------------------------------------------------------------------------------------------------------
+    // ctx: { categoryKey, name, text, ownOfferings[], offerings[], place, accent }
+    function factsFor(ctx) {
+      const c = ctx || {};
+      const t = plain(`${c.text || ''}. ${(c.ownOfferings || []).join(', ')}`);
+      const f = { text: t, name: c.name || '', place: c.place || '', categoryKey: c.categoryKey || 'other', offers: (c.ownOfferings || []).filter(Boolean) };
+      f.flavours = flavourFacts(t);
+      f.drink = drinkFacts(t);
+      f.skin = f.drink ? null : skinFacts(t);
+      f.pantry = f.drink || f.skin ? null : pantryFacts(t);
+      f.home = homeFacts(t);
+      f.apparel = apparelFacts(t);
+      f.menu = menuFacts(t);
+      f.bakes = bakeFacts(t);
+      f.tech = c.categoryKey === 'tech' || /\b(software|saas|platform|app|apps)\b/.test(t) ? techFacts(t) : null;
+      f.facets = matchFacets(t, f.categoryKey);
+      f.noun = String(c.noun || '').trim();
+      return f;
+    }
+
+    // ---- the facet library -------------------------------------------------------------------------------------------------
+    // id, cats (categories it belongs to; '*' = any), re (owner's words), roles it can fill,
+    // subject + shot (templates: {name} {inPlace} {phrase}), art (kind + params).
+    const F = (id, cats, re, roles, subject, shot, art) => ({ id, cats, re, roles, subject, shot, art });
+    const FACETS = [
+      // landscaping: maintenance vs construction
+      F('mowing', ['landscaping'], /\b(mow\w*|lawn care|lawn maintenance|lawns?|grass cutting|turf care)\b/, ['lead', 'context'], 'a freshly mowed striped lawn', 'A freshly mowed lawn with crisp diagonal stripes in front of a family home{inPlace}, a walk-behind mower parked at the edge, clean edges along the path, bright morning sun, eye-level wide view', { kind: 'lawn-mowing' }),
+      F('edging', ['landscaping'], /\b(edg(?:e|es|ing)|trimming|string trimm\w*)\b/, ['detail', 'context'], 'a crisp edge cut along a garden bed', 'A string trimmer cutting a razor-straight edge where lawn meets a dark mulched bed, fresh clippings in the air, low close-up at ground level, morning light raking across the grass', { kind: 'edging' }),
+      F('aeration', ['landscaping'], /\b(aerat\w*|overseed\w*|fertili[sz]\w*|weed control|top ?dressing)\b/, ['detail', 'context'], 'core aeration plugs across the lawn', 'Neat rows of soil cores pulled from a green lawn after core aeration, a sprinkler arcing water in the background, low angle, soft morning light', { kind: 'aeration' }),
+      F('cleanup', ['landscaping'], /\b(clean[- ]?ups?|leaf removal|leaves|fall clean\w*|spring clean\w*|yard clean\w*)\b/, ['context', 'detail'], 'a seasonal leaf cleanup', 'A rake gathering a pile of orange and red autumn leaves on a green lawn during a yard cleanup, leaves scattered, warm late-afternoon light, mid-shot', { kind: 'leaf-cleanup' }),
+      F('hedges', ['landscaping'], /\b(hedg\w*|shrub trimm\w*|prun\w*|topiary)\b/, ['detail', 'context'], 'freshly clipped hedges', 'Freshly clipped boxwood hedges with sharp square edges lining a lawn, a pair of hedge shears resting on top, clear daylight', { kind: 'hedge' }),
+      F('patio', ['landscaping', 'renovation'], /\b(patios?|pavers?|interlock\w*|flagstone|hardscap\w*|stonework)\b/, ['lead', 'detail'], 'a finished natural-stone patio', 'A finished natural-stone patio{inPlace} at golden hour, tight joints between the flagstones, a low fire pit and two chairs, planting softening the edges, wide view', { kind: 'patio', byRole: { detail: 'paver-laying', context: 'paver-laying' }, text: { detail: ['flagstones being set in the sand bed', 'Flagstones being set into a levelled sand bed with a rubber mallet and a spirit level, joints tight and even, low close-up, soft daylight'], context: ['the patio being built', 'A landscaper setting a large flagstone into a bed of screenings with a rubber mallet, work in progress, low three-quarter view, soft daylight'] } }),
+      F('retaining', ['landscaping'], /\b(retaining walls?|stone walls?|garden walls?)\b/, ['lead', 'detail', 'context'], 'a stacked-stone retaining wall', 'A new stacked-stone retaining wall with a clean cap row holding back a planted terrace, crisp mortar-free joints, grasses and perennials above it, soft daylight, three-quarter view', { kind: 'retaining-wall' }),
+      F('planting', ['landscaping', 'nonprofit'], /\b(planting|plantings|garden beds?|perennials?|shrubs?|flower beds?|native plants?|gardens?)\b/, ['detail', 'context'], 'fresh planting in a mulched bed', 'Fresh perennials, ornamental grasses and flowering shrubs planted into a dark mulched bed, stepping stones at the edge, dew on the leaves, close three-quarter view', { kind: 'planting-bed' }),
+      F('pergola', ['landscaping', 'renovation'], /\b(pergolas?|decks?|outdoor living|gazebos?)\b/, ['lead', 'context'], 'a cedar pergola over the patio', 'A cedar pergola over a paved patio with outdoor chairs, warm evening light through the slats, wide view', { kind: 'pergola' }),
+      F('firepit', ['landscaping'], /\b(fire ?pits?|outdoor kitchens?|fireplaces?)\b/, ['context', 'lead'], 'a stone fire pit at dusk', 'A round stone fire pit glowing at dusk on a paved patio, chairs around it and string lights overhead, cosy evening light', { kind: 'fire-pit' }),
+      F('pathway', ['landscaping'], /\b(walkways?|pathways?|garden paths?|paths)\b/, ['detail', 'context'], 'a flagstone garden path', 'A curving flagstone path through a planted garden, lawn on either side, golden-hour light, eye-level view down the path', { kind: 'garden-path' }),
+      F('irrigation', ['landscaping'], /\b(irrigation|sprinklers?|drip lines?)\b/, ['detail'], 'sprinklers watering the lawn', 'Pop-up sprinklers arcing fine water over a striped lawn, droplets catching the morning sun, low angle', { kind: 'irrigation' }),
+      // roofing
+      F('shingles', ['roofing'], /\b(shingles?|asphalt|architectural)\b/, ['detail'], 'new architectural shingles and flashing', 'Close-up of freshly installed architectural shingles in neat staggered rows with clean metal flashing along a valley, crisp shadows, overcast daylight', { kind: 'shingles' }),
+      F('metal-roof', ['roofing'], /\b(metal roof\w*|standing seam)\b/, ['lead', 'detail'], 'a standing-seam metal roof', 'A family home{inPlace} with a new standing-seam metal roof, straight seams catching the light, clear blue sky, three-quarter view', { kind: 'roof-house', params: { colour: '#6b7f8f' } }),
+      F('roof-repair', ['roofing'], /\b(repairs?|leaks?|storm damage|inspections?)\b/, ['context'], 'a roof repair in progress', 'A ladder against the eave of a house during a roof repair, a bundle of shingles and a tool bag on the roof, bright sky', { kind: 'roof-ladder' }),
+      F('gutters', ['roofing'], /\b(gutters?|eavestroughs?|downspouts?)\b/, ['detail', 'context'], 'new seamless gutters along the eave', 'New seamless aluminium gutters running along the eave of a house, a ladder resting nearby, clear daylight', { kind: 'roof-ladder' }),
+      F('replacement', ['roofing'], /\b(roof replacement|re-?roof\w*|new roofs?)\b/, ['lead'], 'a newly replaced roof', 'A family home{inPlace} with a newly replaced roof, clean ridge line and fresh shingles, clear sky, three-quarter view', { kind: 'roof-house' }),
+      // painting
+      F('interior-paint', ['painting'], /\b(interior|rooms?|walls?|ceilings?)\b/, ['lead'], 'a freshly painted living room', 'A freshly painted living room with crisp walls and bright white trim, furniture back in place, soft afternoon light through the window, wide view', { kind: 'painted-room' }),
+      F('exterior-paint', ['painting'], /\b(exteriors?|siding|house painting|decks?)\b/, ['lead', 'context'], 'a freshly painted house exterior', 'A house exterior with freshly painted siding and trim, a ladder against the wall and a paint can on the grass, clear daylight, three-quarter view', { kind: 'house-paint' }),
+      F('cabinets', ['painting', 'renovation'], /\b(cabinets?|cabinetry|kitchen cabinets?)\b/, ['detail', 'context'], 'freshly painted kitchen cabinets', 'A kitchen with freshly painted shaker cabinets, new brass pulls and a clean counter, soft natural light', { kind: 'kitchen' }),
+      F('trim', ['painting'], /\b(trim|cutting in|baseboards?|detail work)\b/, ['detail'], 'a brush cutting a clean line', 'A paint brush cutting a perfectly straight line where the wall meets white trim, masking tape along the edge, macro', { kind: 'cutting-in' }),
+      F('colour', ['painting'], /\b(colou?r consult\w*|colou?rs?|swatches?)\b/, ['detail', 'context'], 'paint colours and a loaded roller', 'An open paint can, a loaded roller in a tray and colour swatches on a drop cloth, overhead three-quarter view, soft light', { kind: 'paint-tray' }),
+      // plumbing
+      F('bathroom', ['plumbing', 'renovation'], /\b(bathrooms?|showers?|baths?|vanit\w*)\b/, ['lead', 'context'], 'a finished bathroom', 'A finished modern bathroom with a walk-in glass shower, a floating vanity and new chrome fixtures, clean tile, soft daylight, wide view', { kind: 'bathroom' }),
+      F('fixtures', ['plumbing'], /\b(faucets?|taps?|fixtures?|sinks?|leaks?|toilets?)\b/, ['detail'], 'a new faucet running into the basin', 'A new chrome faucet with water running into a white basin, tile behind, macro with a clean highlight on the spout', { kind: 'faucet' }),
+      F('pipework', ['plumbing'], /\b(pip(?:es|ing|ework)|re-?pip\w*|drains?|sewer|valves?)\b/, ['detail', 'context'], 'copper pipework and a valve', 'Neat new copper pipework with soldered elbows and a quarter-turn valve, an adjustable wrench resting on the pipe, close-up, workshop light', { kind: 'pipes' }),
+      F('water-heater', ['plumbing'], /\b(water heaters?|hot water|boilers?|tankless)\b/, ['detail', 'context'], 'a new water heater', 'A newly installed water heater with insulated hot and cold lines in a clean utility room, even light', { kind: 'water-heater' }),
+      // electrical
+      F('lighting', ['electrical'], /\b(lighting|lights?|pot lights?|recessed|fixtures?|pendants?)\b/, ['lead', 'detail'], 'a room glowing with new lighting', 'A living room{inPlace} glowing with new pendant and recessed lighting at dusk, warm pools of light on the walls, wide view', { kind: 'lit-room' }),
+      F('panel', ['electrical'], /\b(panels?|breakers?|upgrades?|service upgrade)\b/, ['detail'], 'a neatly wired electrical panel', 'A neatly wired electrical panel with labelled breakers and tidy cable runs, close-up, even light', { kind: 'panel' }),
+      F('outlets', ['electrical'], /\b(outlets?|wiring|rewir\w*|switches?|receptacles?)\b/, ['detail', 'context'], 'new outlets and switches', 'New white outlet and switch plates on a freshly painted wall, square and level, soft side light, close-up', { kind: 'outlets' }),
+      F('ev', ['electrical', 'automotive'], /\b(ev chargers?|ev charging|electric vehicles?|car chargers?)\b/, ['detail', 'context'], 'a wall-mounted EV charger', 'A wall-mounted EV charger in a clean garage with the cable plugged into an electric car, even light, three-quarter view', { kind: 'ev-charger' }),
+      // cleaning
+      F('home-clean', ['cleaning'], /\b(homes?|houses?|residential|apartments?|condos?)\b/, ['lead'], 'a spotless sunlit living room', 'A spotless, sunlit living room after a deep clean, plumped cushions, gleaming floors and a clear coffee table, wide view', { kind: 'clean-room' }),
+      F('kitchen-clean', ['cleaning'], /\b(kitchens?|counters?|countertops?|surfaces?)\b/, ['detail'], 'a gleaming countertop being wiped', 'A microfiber cloth and spray bottle on a gleaming kitchen countertop, streak-free shine, macro', { kind: 'spray-shine' }),
+      F('deep-clean', ['cleaning'], /\b(deep clean\w*|move[- ](?:in|out)|end of lease|spring clean\w*)\b/, ['context'], 'a cleaning caddy ready to go', 'A cleaning caddy with spray bottles, brushes and folded cloths set down in a bright kitchen, mid-shot', { kind: 'caddy' }),
+      F('carpet', ['cleaning'], /\b(carpets?|rugs?|upholstery|vacuum\w*)\b/, ['context', 'detail'], 'a vacuum on a freshly cleaned rug', 'An upright vacuum on a freshly cleaned rug in a bright living room, clean lines in the pile, mid-shot', { kind: 'vacuum' }),
+      F('office-clean', ['cleaning'], /\b(offices?|commercial|workplaces?|janitorial)\b/, ['lead', 'context'], 'a clean, bright office', 'A clean, bright office with tidy desks and a clear floor at the end of the day, wide view', { kind: 'office' }),
+      // renovation
+      F('kitchen-reno', ['renovation'], /\b(kitchens?)\b/, ['lead'], 'a finished renovated kitchen', 'A finished renovated kitchen with a stone island, new cabinetry and pendant lights, natural light, wide view', { kind: 'kitchen' }),
+      F('basement', ['renovation'], /\b(basements?|additions?|framing|structural)\b/, ['context'], 'fresh framing mid-renovation', 'A room mid-renovation with fresh timber framing, a cordless drill on a sawhorse and sawdust on the floor, work light, wide view', { kind: 'framing' }),
+      F('tile', ['renovation', 'plumbing'], /\b(til(?:e|es|ing)|backsplash\w*)\b/, ['detail'], 'freshly laid tile', 'Freshly laid tile with even grout lines and spacers still in place above a cabinet run, close-up', { kind: 'tile-detail' }),
+      F('joinery', ['renovation', 'creative'], /\b(joinery|carpentry|millwork|built-?ins?|woodwork\w*|dovetail\w*)\b/, ['detail'], 'precise cabinet joinery', 'A macro of precise hand-cut dovetail joinery in oak, a pencil resting on the board, raking workshop light', { kind: 'joinery' }),
+      // automotive
+      F('detailing', ['automotive'], /\b(detail\w*|ceramic coating|paint correction|polish\w*|ppf|wax\w*)\b/, ['lead', 'detail'], 'a freshly detailed car', 'A freshly detailed car in a dark studio bay, deep glossy paint reflecting long overhead light strips like a mirror, low three-quarter view', { kind: 'car-shine' }),
+      F('polisher', ['automotive'], /\b(paint correction|polish\w*|swirl\w*|buff\w*)\b/, ['detail'], 'a polisher correcting paint', 'A dual-action polisher correcting paint on a car panel, swirl marks disappearing into a mirror finish, macro', { kind: 'polisher' }),
+      F('wheels', ['automotive'], /\b(wheels?|rims?|tyres?|tires?)\b/, ['detail', 'context'], 'a clean alloy wheel', 'A freshly cleaned alloy wheel and tyre, dressed rubber and a spotless brake caliper, close-up, studio light', { kind: 'rim' }),
+      F('repair', ['automotive'], /\b(repairs?|brakes?|oil changes?|diagnostics?|mechanic\w*|servic\w*|maintenance)\b/, ['lead', 'context'], 'a car on the lift in the bay', 'A car raised on a two-post lift in a clean garage bay{inPlace}, tools on the wall, bright work lights, wide view', { kind: 'car-lift' }),
+      F('parts', ['automotive'], /\b(parts|engines?|transmissions?|clutch\w*)\b/, ['detail'], 'engine parts on the bench', 'Engine parts, gears and a spark plug laid out on a workbench beside a torque wrench, macro, workshop light', { kind: 'engine-parts' }),
+      // wellness & care
+      F('rehab', ['wellness'], /\b(rehab\w*|sports injur\w*|injur\w*|exercise\w*|mobility|strength(?:ening)?|post[- ]surg\w*|recovery)\b/, ['detail', 'context'], 'resistance-band recovery exercise', 'A resistance band, foam roller and light dumbbell set out on an exercise mat in a bright clinic, ready for a guided rehab session, three-quarter view, soft daylight', { kind: 'exercise-kit' }),
+      F('manual-therapy', ['wellness'], /\b(manual therapy|hands-on|massage therap\w*|treatment tables?|chiropract\w*|osteopath\w*)\b/, ['lead'], 'the treatment room ready for a session', 'A bright treatment room with a padded treatment table, a fresh pillow cover, resistance bands on a hook and a window of morning light, wide view', { kind: 'treatment-room' }),
+      F('needling', ['wellness'], /\b(dry needling|acupuncture|needles?)\b/, ['detail'], 'dry needling tray', 'A sterile tray of fine acupuncture needles with a folded towel on a clinic trolley, macro, clean even light', { kind: 'needles' }),
+      F('massage', ['wellness'], /\b(massage|hot stones?|aromatherapy|facials?|body treatments?)\b/, ['detail', 'context'], 'warm stones, oil and towels', 'Warm basalt stones stacked beside a bottle of massage oil and rolled towels on a wooden tray, macro, warm soft light', { kind: 'spa' }),
+      F('hair', ['wellness'], /\b(hair|haircuts?|cuts|colou?r|stylists?|salons?|barber\w*)\b/, ['lead', 'detail'], 'the salon chairs and mirrors', 'A bright salon with styling chairs facing round mirrors, a tidy product shelf and warm bulbs, wide view', { kind: 'salon' }),
+      F('salon-tools', ['wellness'], /\b(haircuts?|cuts|trims?|barber\w*|styling)\b/, ['detail'], 'shears and a comb', 'Hairdressing shears and a fine comb on a clean counter beside a styling product, macro', { kind: 'salon-tools' }),
+      F('nails', ['wellness'], /\b(nails?|manicures?|pedicures?|gel polish)\b/, ['detail'], 'nail polish bottles', 'A row of nail polish bottles in a curated palette on a manicure table, macro, soft light', { kind: 'nails' }),
+      F('dental', ['wellness'], /\b(dental|dentists?|teeth|whitening|hygiene|orthodont\w*)\b/, ['detail', 'lead'], 'bright dental care', 'A clean, bright dental treatment room with the chair and a tray of instruments, calm light, wide view', { kind: 'dental' }),
+      // fitness
+      F('boxing', ['fitness'], /\b(boxing|kickboxing|muay thai|mma|sparring)\b/, ['lead'], 'the heavy bag and gloves', 'A heavy bag hanging under hard top light in a gritty gym, red gloves resting on the bench below, dramatic contrast', { kind: 'boxing' }),
+      F('wraps', ['fitness'], /\b(boxing|sparring|pads|wraps)\b/, ['detail'], 'hand wraps and gloves', 'Hand wraps rolled beside a pair of red boxing gloves on a bench, macro, hard light', { kind: 'wraps' }),
+      F('pilates', ['fitness', 'wellness'], /\b(pilates|reformers?)\b/, ['lead', 'context'], 'reformers in the studio', 'A calm studio with pilates reformers lined up on pale wood floors, a mirror wall and soft morning light, wide view', { kind: 'reformer' }),
+      F('yoga', ['fitness', 'wellness'], /\b(yoga|meditation|breathwork|stretch\w*)\b/, ['lead', 'detail', 'context'], 'mats laid out in the studio', 'Yoga mats laid out in a quiet studio with plants and daylight, blocks and straps beside them, wide view', { kind: 'yoga' }),
+      F('strength', ['fitness'], /\b(strength|weights?|barbells?|powerlift\w*|weightlift\w*|olympic lifting|personal training)\b/, ['lead', 'detail'], 'a loaded barbell and weights', 'A loaded barbell on the platform with kettlebells and dumbbells nearby, chalk on the knurling, hard gym light', { kind: 'weights' }),
+      F('kettlebell', ['fitness'], /\b(kettlebells?|hiit|conditioning|circuits?|bootcamps?)\b/, ['detail', 'context'], 'a row of kettlebells', 'A row of kettlebells in graduated weights on a rubber floor, low angle, gym light', { kind: 'kettlebells' }),
+      // real estate
+      F('homes', ['realestate'], /\b(homes?|houses?|family homes?|single[- ]family|buyers?|sellers?)\b/, ['lead'], 'a home exterior at dusk', 'A welcoming family home{inPlace} at dusk, warm light in every window, a landscaped front walk, three-quarter view', { kind: 'house-dusk' }),
+      F('condos', ['realestate'], /\b(condos?|apartments?|lofts?|penthouses?|downtown)\b/, ['lead', 'detail'], 'a condo living room with a city view', 'A condo living room with floor-to-ceiling windows over the city{inPlace} at blue hour, designer furniture, wide view', { kind: 'living-room', params: { variant: 'city' } }),
+      F('staging', ['realestate'], /\b(staging|interiors?|kitchens?|open houses?)\b/, ['detail'], 'a bright staged kitchen', 'A bright staged kitchen with an island, pendant lights and flowers on the counter, natural light', { kind: 'kitchen' }),
+      F('keys', ['realestate'], /\b(keys|closings?|first[- ]time buyers?|move[- ]in)\b/, ['context'], 'house keys on a tag', 'A set of house keys on a brass ring with a house-shaped tag, resting on a hallway table, soft evening light, macro', { kind: 'keys' }),
+      F('neighbourhood', ['realestate'], /\b(neighbou?rhoods?|communit\w*|streets?|towns?)\b/, ['context'], 'the neighbourhood street', 'A tree-lined neighbourhood street{inPlace} with townhouses and cafés at golden hour, eye level', { kind: 'street' }),
+      // money & advice
+      F('tax', ['finance'], /\b(tax\w*|accounting|bookkeeping|payroll|returns?)\b/, ['lead', 'detail'], 'organised financial documents', 'Neatly organised financial documents, a calculator and a fountain pen on a clean desk, soft window light, three-quarter overhead view', { kind: 'desk-docs', params: { variant: 'finance' } }),
+      F('retirement', ['finance'], /\b(retirement|pensions?|investments?|wealth|savings?|portfolios?)\b/, ['detail', 'context'], 'a long-term plan on paper', 'A planning document with a long-term growth line sketched by hand beside a pen and a cup of coffee, soft daylight, close-up', { kind: 'desk-docs', params: { variant: 'finance' } }),
+      F('mortgage', ['finance', 'realestate'], /\b(mortgages?|home loans?|insurance)\b/, ['context'], 'the family home the plan protects', 'A family home at dusk with warm lights in the windows, the future the planning is for, three-quarter view', { kind: 'house-dusk' }),
+      F('legal-docs', ['professional'], /\b(contracts?|wills?|estates?|agreements?|leases?|conveyancing)\b/, ['detail'], 'a contract being signed', 'A contract on a walnut desk with a fountain pen resting on the signature line, close-up, warm office light', { kind: 'desk-docs', params: { variant: 'contract' } }),
+      F('law-library', ['professional'], /\b(law|legal|litigation|counsel|attorneys?|lawyers?|solicitors?)\b/, ['context'], 'law books in the library', 'Shelves of law books in a quiet library, a reading lamp glowing, warm light', { kind: 'library' }),
+      F('workshop', ['professional'], /\b(workshops?|strategy|planning sessions?|facilitation|consult\w*)\b/, ['detail'], 'a workshop wall of sticky notes', 'A whiteboard covered in grouped sticky notes and arrows from a strategy workshop, a marker resting on the ledge, close-up', { kind: 'sticky-wall' }),
+      F('meeting', ['professional', 'finance'], /\b(meetings?|advisory|coaching|recruit\w*|hr|teams?)\b/, ['lead', 'context'], 'a working session around the table', 'A working session around a table with laptops, notebooks and coffee, seen from above, bright office light', { kind: 'team-table' }),
+      // learning
+      F('maths', ['education'], /\b(math\w*|algebra|calculus|numeracy|sat|act|exam prep|test prep)\b/, ['lead', 'detail'], 'a worked maths problem on the desk', 'A notebook open to a neatly worked algebra problem, pencils and a textbook beside it on a bright study desk, overhead three-quarter view', { kind: 'study-desk', params: { variant: 'math' } }),
+      F('reading', ['education'], /\b(reading|literacy|english|writing|essays?|phonics|languages?)\b/, ['lead', 'detail'], 'books and notes on the desk', 'A stack of books, handwritten notes and sharpened pencils on a bright study desk, soft daylight, three-quarter view', { kind: 'books' }),
+      F('piano', ['education', 'creative'], /\b(piano|keys lessons|keyboard lessons)\b/, ['lead', 'detail'], 'a piano keyboard', 'Piano keys in soft side light, sheet music on the stand, close-up', { kind: 'music', params: { variant: 'piano' } }),
+      F('guitar', ['education', 'creative'], /\b(guitars?|music lessons?|ukuleles?)\b/, ['lead', 'detail'], 'an acoustic guitar', 'An acoustic guitar resting on a stand in a sunny music room, warm wood grain, three-quarter view', { kind: 'music', params: { variant: 'guitar' } }),
+      // creative
+      F('photo', ['creative'], /\b(photograph\w*|photo shoots?|portraits?|headshots?|weddings?)\b/, ['lead'], 'a camera and light on set', 'A camera on a tripod facing a softbox-lit studio set, cables across the floor, behind-the-scenes view', { kind: 'camera-set' }),
+      F('prints', ['creative'], /\b(prints?|albums?|galleries|framing|editing)\b/, ['detail'], 'prints spread on the light table', 'A spread of printed photographs on a light table with a loupe resting on top, overhead view', { kind: 'prints' }),
+      F('branding', ['creative', 'professional'], /\b(branding|brand identity|logos?|identity|graphic design|packaging design)\b/, ['lead', 'detail'], 'a moodboard of the brand work', 'A studio moodboard of type specimens, colour chips and sketches pinned to cork, a swatch fan in front, daylight', { kind: 'moodboard' }),
+      F('illustration', ['creative'], /\b(illustrat\w*|sketch\w*|drawings?|murals?)\b/, ['detail', 'lead'], 'a sketchbook and swatches', 'An open sketchbook with pencil studies beside a fan of colour swatches on a desk, overhead view, soft daylight', { kind: 'sketch-desk' }),
+      F('interior-design', ['creative', 'realestate'], /\b(interior design\w*|home staging|decorat\w*)\b/, ['lead', 'detail'], 'a styled living room', 'A styled living room with layered textiles, a statement lamp and art on the wall, soft afternoon light, wide view', { kind: 'living-room' }),
+      // community
+      F('food-bank', ['nonprofit'], /\b(food banks?|meals?|hunger|groceries|pantr\w*|produce)\b/, ['lead', 'detail'], 'a crate of fresh produce', 'A wooden crate of fresh donated produce -- apples, citrus and greens -- on a folding table, close three-quarter view, natural light', { kind: 'produce-crate' }),
+      F('environment', ['nonprofit'], /\b(tree planting|trees|environment\w*|restoration|conservation|climate|greening)\b/, ['detail', 'context'], 'seedlings planted in fresh soil', 'Young seedlings just planted in rich dark soil with a trowel beside them, low close-up, soft daylight', { kind: 'seedling' }),
+      F('gathering', ['nonprofit', 'hospitality'], /\b(community (?:meals?|events?|dinners?)|gatherings?|volunteers?|events?)\b/, ['context', 'lead'], 'a long table set for the community', 'A long table set outdoors for a community meal, string lights overhead and flowers in the middle, golden hour, wide view', { kind: 'community-table' }),
+      F('animals', ['nonprofit', '*'], /\b(animal rescue|shelters?|adopt\w*|dogs?|puppies|pets?|grooming|dog walk\w*|pet sitt\w*)\b/, ['lead', 'detail'], 'a happy dog', 'A happy, well-groomed dog sitting on a clean floor with a new collar, eye level, soft natural light', { kind: 'dog' }),
+      // unusual businesses ('other' and anything else)
+      F('sailing', ['*', 'education'], /\b(sailing|sailboats?|sail lessons|dinghy|dinghies|regattas?|yacht club)\b/, ['lead', 'detail'], 'a sailboat under way', 'A small sailboat heeling gently under a full mainsail on bright blue water{inPlace}, a second boat in the distance, clear daylight, wide view from the water', { kind: 'sailboat', byRole: { detail: 'rope-cleat' }, text: { detail: ['a line made fast on a deck cleat', 'A mooring line coiled and made fast on a stainless deck cleat, weathered teak underneath, bright sun, close overhead view'] } }),
+      F('boat', ['*'], /\b(boats?|charters?|cruises?|yachts?|kayak\w*|boat tours?|ferr(?:y|ies))\b/, ['lead', 'context'], 'a charter boat on the water', 'A charter boat on calm water at golden hour{inPlace}, gentle wake behind it, wide view from the water', { kind: 'boat' }),
+      F('sunset-cruise', ['*'], /\b(sunset|evening|dusk) (?:boat |harbou?r )?(?:tours?|cruises?|sails?|trips?)\b/, ['context', 'lead'], 'guests on deck at sunset', 'Guests seen from behind on the deck of a small boat at sunset{inPlace}, deck lights coming on, calm water, warm golden light', { kind: 'boat-dusk' }),
+      F('fishing', ['*'], /\b(fishing|anglers?|angling|fly fishing|tackle)\b/, ['detail', 'lead'], 'rods, reels and tackle on the dock', 'A fishing rod, reel and an open tackle box on a wooden dock by the water, late-afternoon light, close three-quarter view', { kind: 'fishing' }),
+      F('cycling', ['*', 'fitness'], /\b(bikes?|bicycles?|cycling|e-?bikes?|bike repairs?)\b/, ['lead', 'detail'], 'a bicycle ready to ride', 'A clean, well-tuned bicycle leaning in soft daylight on a quiet street, three-quarter view', { kind: 'bicycle' }),
+      F('flowers', ['*'], /\b(florists?|flowers?|bouquets?|floral\w*|arrangements?)\b/, ['lead', 'detail'], 'a fresh bouquet', 'A fresh hand-tied bouquet of garden roses and greenery wrapped in kraft paper, soft window light, three-quarter view', { kind: 'bouquet', byRole: { detail: 'flower-buckets', context: 'flower-buckets' }, text: { detail: ['fresh stems in buckets at the bench', 'Zinc buckets of fresh stems -- roses, ranunculus and eucalyptus -- on the florist\'s bench beside shears and a spool of twine, soft window light'], context: ['fresh stems in buckets at the bench', 'Zinc buckets of fresh stems -- roses, ranunculus and eucalyptus -- on the florist\'s bench beside shears and a spool of twine, soft window light'] } }),
+      F('stationery', ['*', 'creative'], /\b(stationery|invitations?|letterpress|greeting cards|cards|wedding suites?|calligraph\w*|printing)\b/, ['lead', 'detail'], 'invitations and envelopes', 'Letterpress invitation cards, an envelope with a wax seal and a sprig of greenery on linen, overhead view, soft daylight', { kind: 'stationery', byRole: { detail: 'stationery-detail' }, text: { detail: ['the wax-sealed invitation up close', 'A close-up of a pressed wax seal closing a letterpress invitation envelope in cotton paper, a silk ribbon and a calligraphy nib beside it, soft raking light'] } }),
+      F('events', ['*', 'hospitality'], /\b(weddings?|events?|parties|celebrations?|receptions?|catering)\b/, ['context'], 'the {phraseOne} table under string lights', 'A long {phraseOne} table set under string lights, flowers and candles down the middle, place cards at each setting, dusk, wide view', { kind: 'event-lights' }),
+      F('moving', ['*'], /\b(moving|movers|removals?|relocation\w*|storage)\b/, ['lead', 'detail'], 'packed moving boxes', 'Neatly packed and labelled moving boxes stacked in a bright empty room, three-quarter view', { kind: 'moving' }),
+      F('travel', ['*'], /\b(travel|travel agenc\w*|getaways?|holidays?|vacations?|trip planning)\b/, ['detail', 'context'], 'a packed suitcase', 'A packed suitcase by the door with a coffee cup nearby, soft morning light, three-quarter view', { kind: 'travel' }),
+      F('sewing', ['*', 'fashion'], /\b(tailor\w*|alterations?|sewing|seamstress\w*|upholster\w*)\b/, ['detail', 'context'], 'a sewing machine at work', 'A sewing machine with fabric under the needle in a bright workroom, macro three-quarter view', { kind: 'sewing' }),
+      F('solar', ['*', 'electrical'], /\b(solar|panels installation|renewable\w*)\b/, ['lead', 'detail'], 'solar panels on a roof', 'Rows of solar panels on a pitched roof under a clear sky, crisp reflections, three-quarter view', { kind: 'solar' }),
+      F('pottery', ['*', 'creative'], /\b(pottery|ceramics? classes|wheel throwing|kilns?)\b/, ['detail', 'lead'], 'a pot on the wheel', 'A freshly thrown pot on the wheel in a clay studio, tools and finished pieces on the shelf behind, warm light', { kind: 'workbench', params: { variant: 'pottery' } }),
+      F('cakes', ['*', 'hospitality'], /\b(custom cakes?|wedding cakes?|cakes?|cupcakes?)\b/, ['lead', 'detail'], 'a tiered celebration cake', 'A tiered celebration cake with piped icing and fresh berries on a stand, soft window light, three-quarter view', { kind: 'bakery', params: { variant: 'cake' } }),
+      F('music', ['*'], /\b(music|musicians?|recording studios?|recording)\b/, ['detail'], 'an acoustic guitar', 'An acoustic guitar on a stand in a warm room, three-quarter view', { kind: 'music', params: { variant: 'guitar' } }),
+    ];
+    const FACET_BY_ID = Object.fromEntries(FACETS.map(f => [f.id, f]));
+    function facetAllowed(f, cat) { return cat === 'other' ? true : f.cats.includes(cat); }
+    // facets the owner's words name, in the order they name them
+    function matchFacets(t, cat) {
+      const out = [];
+      FACETS.forEach(f => { if (!facetAllowed(f, cat)) return; const re = new RegExp(f.re.source); const m = re.exec(t); if (m) out.push({ id: f.id, index: m.index, phrase: m[0] }); });
+      out.sort((a, b) => a.index - b.index || (FACET_BY_ID[a.id].cats.includes(cat) ? -1 : 1));
+      return out;
+    }
+
+    // ---- template vars from facts ------------------------------------------------------------------------------------------
+    function varsFor(facts, ctx) {
+      const f = facts || {}; const c = ctx || {};
+      const skinP = f.skin && f.skin.products || [];
+      const v = {
+        name: c.name || f.name || 'the business', place: c.place || f.place || '', inPlace: (c.place || f.place) ? ` in ${c.place || f.place}` : '',
+        flavourList: listPhrase(f.flavours) || '', flavour: (f.flavours && f.flavours[0]) || '', flavour2: (f.flavours && (f.flavours[1] || f.flavours[0])) || '',
+        container: f.drink ? f.drink.noun : 'can', containers: f.drink ? (f.drink.container === 'can' ? 'cans' : 'bottles') : 'cans',
+        skinProduct: skinP[0] ? skinP[0].phrase : 'serum', skinContainer: skinP[0] ? skinP[0].container : 'amber glass dropper bottle',
+        skinList: listPhrase(skinP.map(p => p.phrase)) || 'serum', skinProduct2: skinP[1] ? skinP[1].phrase : (skinP[0] ? skinP[0].phrase : 'cream'),
+        // "the vitamin c serum in an amber glass dropper bottle, the gel cleanser in a frosted pump bottle ..."
+        skinWithContainers: listPhrase(skinP.slice(0, 3).map(p => `the ${p.phrase} in ${/^[aeiou]/.test(p.container) ? 'an' : 'a'} ${p.container}`)) || 'the serum in an amber glass dropper bottle',
+        pantryNoun: f.pantry ? f.pantry.noun : 'glass jar', pantryProduct: f.pantry ? f.pantry.phrase : '',
+        garment: f.apparel ? f.apparel[0].noun : 'garment', garments: f.apparel ? listPhrase(f.apparel.slice(0, 3).map(a => a.noun)) : 'the collection',
+        dish: (f.menu && f.menu[0]) || '', bake: (f.bakes && f.bakes[0]) || '',
+      };
+      return v;
+    }
+
+    // ---- default art for every concept layer ---------------------------------------------------------------------------------
+    // conceptId -> [lead, detail, context], each (facts, vars) -> { kind, params }
+    // the business name for packaging and screens -- blank rather than a placeholder when it is not known
+    const label = v => (v.name && v.name !== 'the business' ? clip(v.name, 22) : '');
+    const flavours = f => (f.flavours || []).slice(0, 3);
+    const skinVariants = f => (f.skin && f.skin.products || []).map(p => p.variant).filter((x, i, a) => a.indexOf(x) === i);
+    const drinkLead = (f, v, range) => (f.drink && f.drink.container === 'bottle') ? { kind: 'bottle-hero', params: Object.assign({ label: label(v), variant: f.drink.variant, flavours: flavours(f) }, range ? { range: true } : {}) } : { kind: range && flavours(f).length > 1 ? 'can-range' : 'can-hero', params: { label: label(v), flavours: flavours(f) } };
+    const pour = (f, v) => ({ kind: 'drink-pour', params: { label: label(v), container: f.drink ? f.drink.container : 'can', flavours: flavours(f), variant: f.drink && f.drink.variant === 'wine' ? 'wine' : f.drink && f.drink.variant === 'beer' ? 'pint' : 'rocks' } });
+    const served = f => (f.tech && f.tech.servedArt) || 'team-table';
+    const iface = (f, v) => ({ kind: 'interface', params: { ui: f.tech ? f.tech.ui : 'analytics', label: label(v), items: f.tech && f.tech.items, audience: f.tech && f.tech.audience, reminders: f.tech && f.tech.reminders } });
+    const notice = (f, v) => { const ui = f.tech ? f.tech.ui : 'analytics'; const msg = { schedule: [f.tech && f.tech.reminders ? 'Appointment reminder' : 'New booking', 'Tomorrow · confirmed'], monitor: ['Alert resolved', 'All services healthy'], ledger: ['Invoice paid', 'Sent to your account'], inbox: ['New conversation', 'Assigned to you'], pipeline: ['Deal moved', 'Proposal stage'] }[ui] || ['Update', 'Ready to review']; return { kind: 'phone-notice', params: { label: label(v), items: msg } }; };
+    // what the business offers in its own words: its listed offerings, else what it says it is
+    const offerWords = f => ((f.offers && f.offers.length) ? f.offers : (f.noun ? [f.noun] : [])).map(cap);
+    const CONCEPT_ART = {
+      'drink-chill': [(f, v) => drinkLead(f, v, false), f => ({ kind: 'fruit-splash', params: { flavours: flavours(f) } }), pour],
+      'drink-range': [(f, v) => drinkLead(f, v, true), f => ({ kind: 'fruit-splash', params: { flavours: flavours(f) } }), (f, v) => (f.drink && f.drink.container === 'bottle' ? pour(f, v) : { kind: 'can-ice', params: { label: label(v), flavours: flavours(f) } })],
+      'skincare-ritual': [(f, v) => ({ kind: 'skincare-hero', params: { label: label(v), variant: skinVariants(f)[0] || 'dropper', sub: v.skinProduct } }), f => ({ kind: 'texture-swatch', params: { variant: skinVariants(f).includes('jar') ? 'jar' : null } }), (f, v) => ({ kind: 'basin-ritual', params: { label: label(v), variants: skinVariants(f) } })],
+      'skincare-botanic': [(f, v) => ({ kind: skinVariants(f).length > 1 ? 'skincare-range' : 'skincare-hero', params: { label: label(v), variants: skinVariants(f), variant: skinVariants(f)[0] || 'jar', sub: v.skinProduct } }), () => ({ kind: 'botanicals' }), (f, v) => ({ kind: 'basin-ritual', params: { label: label(v), variants: skinVariants(f) } })],
+      'food-product': [(f, v) => ({ kind: 'pantry-hero', params: { label: label(v), variant: f.pantry ? f.pantry.variant : 'jar', flavours: flavours(f) } }), f => ({ kind: 'ingredients', params: { flavours: flavours(f) } }), f => ({ kind: 'plated', params: { variant: f.pantry ? f.pantry.dish : 'generic' } })],
+      'home-goods': [(f, v) => ({ kind: 'home-object', params: { label: label(v), variant: f.home ? f.home.variant : 'vase' } }), (f, v) => ({ kind: 'home-object', params: { label: label(v), variant: f.home && f.home.variant === 'candle' ? 'mug' : 'candle' } }), f => ({ kind: 'workbench', params: { variant: f.home && f.home.variant === 'candle' ? 'candle' : 'pottery' } })],
+      'retail-general': [(f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: f.offers } }), () => ({ kind: 'fabric', params: { variant: 'weave' } }), () => ({ kind: 'living-room' })],
+      'fashion-street': [f => ({ kind: 'apparel', params: { variant: f.apparel ? f.apparel[0].variant : 'hoodie' } }), () => ({ kind: 'fabric', params: { variant: 'weave' } }), f => ({ kind: 'rail', params: { variant: f.apparel && f.apparel[0].variant === 'tee' ? 'tee' : null } })],
+      'fashion-atelier': [f => ({ kind: 'apparel', params: { variant: f.apparel && f.apparel[0].variant === 'ring' ? 'ring' : 'gown' } }), () => ({ kind: 'fabric', params: { variant: 'weave', colour: '#e9e1d6' } }), () => ({ kind: 'sewing' })],
+      'fashion-general': [f => ({ kind: 'apparel', params: { variant: f.apparel ? f.apparel[0].variant : 'tee' } }), f => ({ kind: 'fabric', params: { variant: f.apparel && f.apparel.some(a => a.variant === 'knit') ? 'knit' : 'weave' } }), () => ({ kind: 'rail' })],
+      'coffee-roaster': [(f, v) => ({ kind: 'coffee-bag', params: { label: label(v), sub: /single[- ]origin/.test(f.text) ? 'single origin' : 'whole bean' } }), () => ({ kind: 'pour-over' }), () => ({ kind: 'roaster' })],
+      'cafe-venue': [f => ({ kind: 'cafe', params: { items: (f.offers || []).map(cap) } }), f => ({ kind: 'latte', params: { side: f.bakes && f.bakes[0] === 'croissant' ? 'croissant' : 'bread' } }), () => ({ kind: 'espresso' })],
+      'restaurant-table': [f => ({ kind: 'plated', params: { variant: (f.menu && f.menu[0]) || 'generic' } }), f => ({ kind: 'plated', params: { variant: (f.menu && f.menu[1]) || (f.menu && f.menu[0] === 'steak' ? 'salad' : 'steak'), glass: false } }), () => ({ kind: 'dining' })],
+      'bakery-oven': [f => ({ kind: 'bakery', params: { variant: (f.bakes && f.bakes[0]) || 'bread' } }), f => ({ kind: 'bakery', params: { variant: (f.bakes && f.bakes[1]) || ((f.bakes && f.bakes[0]) === 'croissant' ? 'bread' : 'croissant') } }), f => ({ kind: 'cafe', params: { items: (f.offers || []).map(cap) } })],
+      'bar-night': [() => ({ kind: 'bar' }), f => ({ kind: 'cocktail', params: { flavours: flavours(f) } }), f => (/\b(beers?|taps?|taproom|brewery|ale)\b/.test(f.text) ? { kind: 'taps' } : { kind: 'cocktail', params: { variant: 'rocks', flavours: flavours(f).slice(1) } })],
+      'hospitality-general': [() => ({ kind: 'dining' }), f => ({ kind: 'plated', params: { variant: (f.menu && f.menu[0]) || 'generic' } }), f => ({ kind: 'cafe', params: { items: (f.offers || []).map(cap) } })],
+      'creative-photo': [() => ({ kind: 'camera-set' }), () => ({ kind: 'prints' }), () => ({ kind: 'street' })],
+      'creative-studio': [() => ({ kind: 'moodboard' }), () => ({ kind: 'sketch-desk' }), () => ({ kind: 'team-table' })],
+      'saas-vertical': [iface, notice, f => ({ kind: served(f) })],
+      'saas-dev': [iface, () => ({ kind: 'server-rack' }), () => ({ kind: 'team-table' })],
+      'tech-general': [iface, notice, () => ({ kind: 'team-table' })],
+      'finance-planning': [() => ({ kind: 'team-table' }), () => ({ kind: 'desk-docs', params: { variant: 'finance' } }), () => ({ kind: 'house-dusk' })],
+      'law-counsel': [() => ({ kind: 'office', params: { variant: 'law' } }), () => ({ kind: 'desk-docs', params: { variant: 'contract' } }), () => ({ kind: 'library' })],
+      'consulting-workshop': [() => ({ kind: 'team-table' }), f => ({ kind: 'sticky-wall', params: { items: (f.offers || []).slice(0, 3).map(cap) } }), () => ({ kind: 'office' })],
+      'education-tutor': [f => ({ kind: 'study-desk', params: { variant: /\b(math\w*|algebra|calculus|sat|exam)\b/.test(f.text) ? 'math' : 'reading' } }), () => ({ kind: 'books' }), f => ({ kind: 'classroom', params: { variant: /\b(math\w*|algebra|calculus)\b/.test(f.text) ? 'math' : 'reading' } })],
+      'fitness-boxing': [() => ({ kind: 'boxing' }), () => ({ kind: 'wraps' }), () => ({ kind: 'ring' })],
+      'fitness-studio': [f => ({ kind: /\b(pilates|reformers?)\b/.test(f.text) ? 'reformer' : 'yoga' }), () => ({ kind: 'exercise-kit' }), f => ({ kind: /\b(pilates|reformers?)\b/.test(f.text) ? 'yoga' : 'reformer' })],
+      'fitness-gym': [() => ({ kind: 'weights' }), () => ({ kind: 'kettlebells' }), () => ({ kind: 'exercise-kit' })],
+      'realestate-dusk': [() => ({ kind: 'house-dusk' }), () => ({ kind: 'kitchen' }), () => ({ kind: 'keys' })],
+      'realestate-condo': [() => ({ kind: 'living-room', params: { variant: 'city' } }), () => ({ kind: 'kitchen' }), () => ({ kind: 'street' })],
+      'clinic-physio': [() => ({ kind: 'treatment-room' }), () => ({ kind: 'exercise-kit' }), () => ({ kind: 'reception' })],
+      'spa-calm': [() => ({ kind: 'treatment-room', params: { variant: 'spa' } }), () => ({ kind: 'spa' }), () => ({ kind: 'basin-ritual', params: { variants: ['pump', 'jar'] } })],
+      'wellness-general': [() => ({ kind: 'treatment-room' }), () => ({ kind: 'spa' }), () => ({ kind: 'reception' })],
+      'nonprofit-community': [() => ({ kind: 'community-table' }), () => ({ kind: 'produce-crate' }), () => ({ kind: 'seedling' })],
+      'landscape-build': [() => ({ kind: 'patio' }), () => ({ kind: 'retaining-wall' }), () => ({ kind: 'planting-bed' })],
+      'lawn-care': [() => ({ kind: 'lawn-mowing' }), () => ({ kind: 'edging' }), () => ({ kind: 'leaf-cleanup' })],
+      'landscape-general': [() => ({ kind: 'garden-path' }), () => ({ kind: 'planting-bed' }), () => ({ kind: 'hedge' })],
+      roofing: [() => ({ kind: 'roof-house' }), () => ({ kind: 'shingles' }), () => ({ kind: 'roof-ladder' })],
+      renovation: [() => ({ kind: 'kitchen' }), () => ({ kind: 'tile-detail' }), () => ({ kind: 'framing' })],
+      painting: [() => ({ kind: 'painted-room' }), () => ({ kind: 'cutting-in' }), () => ({ kind: 'paint-tray' })],
+      plumbing: [() => ({ kind: 'bathroom' }), () => ({ kind: 'faucet' }), () => ({ kind: 'pipes' })],
+      electrical: [() => ({ kind: 'lit-room' }), () => ({ kind: 'panel' }), f => ({ kind: /\bev\b|electric vehicle/.test(f.text) ? 'ev-charger' : 'outlets' })],
+      cleaning: [() => ({ kind: 'clean-room' }), () => ({ kind: 'spray-shine' }), () => ({ kind: 'caddy' })],
+      'auto-detailing': [() => ({ kind: 'car-shine' }), () => ({ kind: 'polisher' }), () => ({ kind: 'rim' })],
+      'auto-repair': [() => ({ kind: 'car-lift' }), () => ({ kind: 'engine-parts' }), () => ({ kind: 'rim' })],
+      'other-product': [(f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: offerWords(f) } }), f => (/\b(hand-?made|workshop|wood\w*|leather|metal\w*|furniture|carpent\w*)\b/.test(f.text) ? { kind: 'workbench', params: { variant: 'tools' } } : { kind: 'offer-cards', params: { items: offerWords(f).slice().reverse() } }), (f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: offerWords(f).slice(1).concat(offerWords(f).slice(0, 1)) } })],
+      'other-service': [(f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: offerWords(f) } }), f => ({ kind: 'offer-cards', params: { items: offerWords(f).slice().reverse() } }), (f, v) => ({ kind: 'offer-cards', params: { label: label(v), items: offerWords(f).slice(1).concat(offerWords(f).slice(0, 1)) } })],
+    };
+    // concepts whose layers follow the product itself (containers, flavours) rather than a list of services
+    const KEEP_LEAD = new Set(['cafe-venue', 'bar-night', 'hospitality-general', 'restaurant-table', 'bakery-oven', 'realestate-dusk', 'realestate-condo', 'clinic-physio', 'spa-calm', 'fitness-boxing', 'fitness-studio', 'fitness-gym', 'creative-photo', 'nonprofit-community']);
+    const PRODUCT_LED = new Set(['drink-chill', 'drink-range', 'skincare-ritual', 'skincare-botanic', 'food-product', 'home-goods', 'fashion-street', 'fashion-atelier', 'fashion-general', 'coffee-roaster', 'saas-vertical', 'saas-dev', 'tech-general']);
+    function facetArt(facet, v, role) { const a = facet.art; const kind = (a.byRole && a.byRole[role]) || a.kind; return { kind, params: Object.assign({}, a.params || {}, kind === 'offer-cards' ? { label: clip(v.name, 22) } : {}) }; }
+    function singular(w) { w = String(w || ''); return /ies$/.test(w) ? w.slice(0, -3) + 'y' : /(ss|us)$/.test(w) ? w : w.replace(/s$/, ''); }
+    function facetText(facet, role) { const t = facet.art.text && facet.art.text[role]; return t ? { subject: t[0], shot: t[1] } : { subject: facet.subject, shot: facet.shot }; }
+    function fillText(tpl, v) { return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => (v[k] != null ? v[k] : '')).replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim(); }
+
+    // A concept's layers made specific to this business: the concept's own subjects
+    // with the facts filled in, then any service/subject the owner names replacing
+    // the generic one for the role it fits. Each layer gains its `art` spec.
+    // layers: [{ role, subject, shot }] (subject/shot already filled by the concept templates)
+    function specialiseLayers(conceptId, layers, facts, ctx) {
+      const f = facts || factsFor(ctx); const v = varsFor(f, ctx);
+      const arts = CONCEPT_ART[conceptId] || CONCEPT_ART['other-service'];
+      const usedFacets = new Set(); const usedArt = new Set();
+      const facetsFor = f.facets || [];
+      const keyOf = a => `${a.kind}|${(a.params && a.params.variant) || ''}`;
+      const out = layers.map((l, i) => {
+        const base = Object.assign({}, l, { art: arts[i] ? arts[i](f, v) : { kind: 'offer-cards', params: { items: f.offers } }, facet: null });
+        const productLed = PRODUCT_LED.has(conceptId) && !(conceptId === 'saas-vertical' && i === 2);
+        if (productLed || (i === 0 && KEEP_LEAD.has(conceptId))) { usedArt.add(keyOf(base.art)); return base; }
+        // a named subject can appear twice only when its role gives a genuinely different picture (the cards, then the seal close-up)
+        const fits = (m, fresh) => { const a = facetArt(FACET_BY_ID[m.id], v, l.role); return FACET_BY_ID[m.id].roles.includes(l.role) && !usedArt.has(keyOf(a)) && (fresh ? ![...usedFacets].some(k => k.startsWith(`${m.id}|`)) : !usedFacets.has(`${m.id}|${a.kind}`)); };
+        // everything the owner named gets shown once before anything is shown twice
+        const pick = facetsFor.find(m => fits(m, true)) || facetsFor.find(m => fits(m, false));
+        if (!pick) { usedArt.add(keyOf(base.art)); return base; }
+        const facet = FACET_BY_ID[pick.id]; usedFacets.add(`${pick.id}|${facetArt(facet, v, l.role).kind}`);
+        const fv = Object.assign({}, v, { phrase: pick.phrase, phraseOne: singular(pick.phrase) });
+        const words = facetText(facet, l.role);
+        const res = Object.assign(base, { subject: fillText(words.subject, fv), shot: fillText(words.shot, fv), art: facetArt(facet, fv, l.role), facet: pick.id });
+        usedArt.add(keyOf(res.art));
+        return res;
+      });
+      // never the same picture twice: a layer whose picture repeats an earlier one takes the first concept default
+      // (any role) or remaining named subject that is not on screen yet
+      const seen = new Set();
+      return out.map((l, i) => {
+        const k = keyOf(l.art);
+        if (!seen.has(k)) { seen.add(k); return l; }
+        const cands = arts.map(fn => ({ art: fn(f, v) })).concat(facetsFor.filter(m => FACET_BY_ID[m.id].roles.includes(l.role)).map(m => ({ facet: FACET_BY_ID[m.id], phrase: m.phrase, art: facetArt(FACET_BY_ID[m.id], v, l.role) })));
+        const alt = cands.find(c => !seen.has(keyOf(c.art)) && !out.some((o, j) => j !== i && keyOf(o.art) === keyOf(c.art)));
+        if (!alt) { seen.add(k); return l; }
+        seen.add(keyOf(alt.art));
+        if (alt.facet) { const fv = Object.assign({}, v, { phrase: alt.phrase, phraseOne: singular(alt.phrase) }); const words = facetText(alt.facet, l.role); return Object.assign({}, l, { subject: fillText(words.subject, fv), shot: fillText(words.shot, fv), art: alt.art, facet: alt.facet.id }); }
+        return Object.assign({}, l, { art: alt.art, subject: SUBJECT_OF_ART[alt.art.kind] ? SUBJECT_OF_ART[alt.art.kind].subject : l.subject, shot: SUBJECT_OF_ART[alt.art.kind] ? fillText(SUBJECT_OF_ART[alt.art.kind].shot, v) : l.shot });
+      });
+    }
+    // when a repeated picture is swapped for another concept default, its words follow it
+    const SUBJECT_OF_ART = {
+      'desk-docs': { subject: 'organised documents and a calculator', shot: 'Neatly organised financial documents, a calculator and a fountain pen on a clean desk, soft window light, three-quarter overhead view' },
+      'house-dusk': { subject: 'a family home at dusk', shot: 'A family home{inPlace} at dusk with warm light in every window, three-quarter view' },
+      'team-table': { subject: 'a working session around the table', shot: 'A working session around a table with laptops, notebooks and coffee, seen from above, bright office light' },
+      'produce-crate': { subject: 'a crate of fresh produce', shot: 'A wooden crate of fresh produce on a folding table, close three-quarter view, natural light' },
+      'community-table': { subject: 'a long table set for the community', shot: 'A long table set outdoors for a community meal, string lights overhead, golden hour, wide view' },
+      seedling: { subject: 'seedlings planted in fresh soil', shot: 'Young seedlings just planted in rich dark soil with a trowel beside them, low close-up, soft daylight' },
+    };
+    // The illustration for a planner-written layer: matched on its own words first,
+    // then the product facts, then the concept default for its role.
+    const TEXT_ART = [
+      [/\b(dropper|serum)\b/, (f, v) => ({ kind: 'skincare-hero', params: { label: label(v), variant: 'dropper', sub: v.skinProduct } })],
+      [/\b(pump bottle|cleanser)\b/, (f, v) => ({ kind: 'skincare-hero', params: { label: label(v), variant: 'pump', sub: 'cleanser' } })],
+      [/\b(swatch|texture|smear)\b/, () => ({ kind: 'texture-swatch' })],
+      [/\b(cans?)\b/, (f, v) => ({ kind: /\b(line(?:d)? up|range|row|trio|three)\b/.test(v._t) ? 'can-range' : 'can-hero', params: { label: label(v), flavours: flavours(f) } })],
+      [/\b(splash|fruit|citrus|peach|cherry|berries|ingredients? splash)\b/, f => ({ kind: 'fruit-splash', params: { flavours: flavours(f) } })],
+      [/\b(pour(?:ed|ing)? over ice|glass of|cocktail|poured)\b/, pour],
+      [/\b(interface|screen|dashboard|calendar|app)\b/, iface],
+      [/\b(notification|phone)\b/, notice],
+    ];
+    function artForText(text, role, facts, ctx, fallbackArt) {
+      const f = facts || factsFor(ctx); const v = Object.assign(varsFor(f, ctx), { _t: plain(text) });
+      const t = v._t;
+      let facet = null, at = Infinity;
+      FACETS.forEach(x => { if (!facetAllowed(x, f.categoryKey)) return; const m = new RegExp(x.re.source).exec(t); if (m && m.index < at) { at = m.index; facet = x; } });
+      // a drink shown poured or out in the world is the serving scene, not another pack shot
+      if (f.drink && /\b(rooftop|terrace|picnic|beach|poolside|outdoors?|raised|cheers|poured|pouring|glass)\b/.test(t)) return pour(f, v);
+      if (facet) return facetArt(facet, v, role);
+      for (const [re, fn] of TEXT_ART) if (re.test(t)) { if (fn === iface && f.categoryKey !== 'tech') continue; return fn(f, v); }
+      return fallbackArt || { kind: 'offer-cards', params: { label: label(v), items: f.offers } };
+    }
+
+    // ---- semantic checks on a planner storyboard -------------------------------------------------------------------------------
+    const CONTAINER_WORDS = { dropper: /\bdroppers?\b/, pump: /\bpump bottles?\b/, can: /\bcans?\b/, wine: /\bwine bottles?\b/, jar: /\bjars?\b/ };
+    function planProblems(layers, facts) {
+      const f = facts || {}; const problems = [];
+      const texts = layers.map(l => plain(`${l.subject} ${l.prompt}`));
+      // a container that contradicts the product
+      if (f.drink) texts.forEach((t, i) => { if (CONTAINER_WORDS.dropper.test(t) || /\b(serum|moisturi[sz]er|cleanser)\b/.test(t)) problems.push(`layer ${i + 1} shows a skincare container for a drinks brand`); if (f.drink.container === 'can' && /\bbottles?\b/.test(t) && !/\bcans?\b/.test(t)) problems.push(`layer ${i + 1} shows bottles but ${f.name || 'the brand'} sells cans`); });
+      if (f.skin) texts.forEach((t, i) => { if (CONTAINER_WORDS.can.test(t) || /\b(soda|beer|energy drink)\b/.test(t)) problems.push(`layer ${i + 1} shows a drink can for a skincare brand`); });
+      // the owner's stated specifics must appear somewhere in the images
+      const specifics = [].concat(f.flavours || [], (f.skin && f.skin.products || []).map(p => p.phrase.split(' ').pop().replace(/s$/, '')), (f.facets || []).slice(0, 3).map(m => m.phrase.replace(/s$/, '')), (f.apparel || []).map(a => a.noun), f.menu || []).filter(Boolean);
+      if (specifics.length) { const all = texts.join(' '); if (!specifics.some(s => all.includes(plain(s)))) problems.push(`no image shows what the owner says they offer (${specifics.slice(0, 4).join(', ')})`); }
+      return problems;
+    }
+
+    // ---- a shared look across the hero's images ---------------------------------------------------------------------------------
+    function lookLine(sb, accentWord) {
+      const acc = accentWord || 'brand-colour';
+      if (sb && sb.treatment === 'illustration') return `Shared look for every image in this set: detailed editorial illustration with gouache texture, light from the upper left, a restrained palette led by ${acc}.`;
+      return sb && sb.tone === 'dark'
+        ? `Shared look for every image in this set: key light from the upper left, deep shadows with a ${acc} rim light, rich contrast, one consistent colour grade.`
+        : `Shared look for every image in this set: key light from the upper left, airy neutrals with ${acc} accents, gentle contrast, one consistent colour grade.`;
+    }
+
+    module.exports = { FACETS, FACET_BY_ID, CONCEPT_ART, PRODUCT_LED, factsFor, varsFor, matchFacets, specialiseLayers, artForText, planProblems, lookLine, plain, listPhrase };
 
   });
   __define("visuals", function (module, exports, require) {

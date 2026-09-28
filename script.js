@@ -1398,7 +1398,7 @@ function readImageAsDataUrl(file, maxW, maxH) {
 function planAssets(assets) {
   const items = (assets && assets.items) || [];
   const logo = items.find(a => a.type === 'logo');
-  const heroUploads = items.filter(a => a.type === 'hero');
+  const heroUploads = items.filter(a => a.type === 'hero' && (!a.slot || a.slot === 'hero'));
   const galleryUploads = items.filter(a => a.type === 'gallery');
   const teamUploads = items.filter(a => a.type === 'team');
   let heroId = null;
@@ -1609,6 +1609,12 @@ function renderVisualSlot(project, slot, imageryKey, assetId) {
 // totally different composition WHILE a real generation is actively in
 // flight would make the image, once it lands, appear to replace content
 // that was never an image slot to begin with.
+// A finished generated image for this slot that belongs to the current plan (not pending, not a starter visual).
+function generatedImageReady(project, slot) {
+  const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
+  const generated = project.assets && project.assets.generated && project.assets.generated[slot];
+  return !!(generated && planEntry && generated.cacheKey === planEntry.cacheKey && generated.status === 'ready' && generated.dataUrl);
+}
 function isVisualSlotFunded(project, slot, assetId) {
   if (assetId && project.assets.items.find(a => a.id === assetId)) return true;
   const planEntry = (project.imagePlan || []).find(p => p.slot === slot);
@@ -2539,9 +2545,11 @@ function buildImagePlan(project, category, remainingCredits) {
   // computed at push time from its actual role/position, not guessed later
   // from array order -- bucket 0 (hero) always outranks bucket 4
   // (decorative), matching the brief's own 6-level importance example.
-  if (storyboard && !composed.heroDisplayVariant) {
+  if (storyboard) {
     storyboard.layers.forEach(l => {
-      slots.push({ slot: l.slot, role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: l.slot === 'hero' ? plan.hero : null, aspectRatio: l.aspect, intent: `Hero ${l.role} image: ${l.subject}`, storyboardLayer: true, storyboardPrompt: l.prompt, heroLayerRole: l.role, rank: 0, idealTier: l.role === 'lead' ? 'high' : 'medium' });
+      if (l.render === 'art') return; // drawn in code (a software interface): no image to buy
+      const upload = heroStoryboardLib().layerUpload(project, l.slot);
+      slots.push({ slot: l.slot, role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: upload ? upload.id : null, aspectRatio: l.aspect, intent: `Hero ${l.role} image: ${l.subject}`, storyboardLayer: true, storyboardPrompt: l.prompt, heroLayerRole: l.role, rank: 0, idealTier: l.role === 'lead' ? 'high' : 'medium' });
     });
   } else if (heroHasVisual && !storyboard) {
     slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
@@ -2796,7 +2804,7 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
   const heroEntry = firstPass.find(e => e.slot === 'hero');
   const storyboardEntries = firstPass.filter(e => e.storyboardLayer);
   const heroUnfunded = storyboardEntries.length ? storyboardEntries.every(e => e.sourceType === 'designed') : (heroEntry && heroEntry.sourceType === 'designed');
-  if (heroUnfunded && !starterVisualsEnabled(proj)) {
+  if (heroUnfunded && !starterVisualsEnabled(proj) && !activeHeroStoryboard(proj)) {
     const composed = proj.design.dimensions;
     const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
     // A directed hero asked for an image even over a text-only base layout,
@@ -3118,16 +3126,16 @@ function renderHero(project, category) {
   // real image are drawn; with none at all, the moving typographic statement.
   const storyboard = layout !== 'demo' ? activeHeroStoryboard(project) : null;
   if (storyboard) {
+    // each layer: the owner's photo for it, else its finished generated image; every other layer (drawn
+    // interface, no image, generation off, failed, or still in flight) draws its illustration
     const visuals = {};
-    if (!composed.heroDisplayVariant) {
-      storyboard.layers.forEach(l => {
-        const assetId = l.slot === 'hero' ? plan.hero : null;
-        if (isVisualSlotFunded(project, l.slot, assetId)) visuals[l.slot] = renderVisualSlot(project, l.slot, composed.imagery, assetId);
-      });
-    }
+    storyboard.layers.forEach(l => {
+      const upload = heroStoryboardLib().layerUpload(project, l.slot);
+      if (upload) visuals[l.slot] = renderVisualSlot(project, l.slot, composed.imagery, upload.id);
+      else if (l.render !== 'art' && generatedImageReady(project, l.slot)) visuals[l.slot] = renderVisualSlot(project, l.slot, composed.imagery, null);
+    });
     const heroOpts = { kickerHtml: kicker, headlineHtml: headline, subHtml: sub, ctaHtml: ctaBtn, offerings: offeringsFor(project, category), name: project.meta && project.meta.previewBrandName ? '' : project.business.name, place: project.source && project.source.location };
-    if (Object.keys(visuals).length) return heroStoryboardLib().renderStoryboardHero({ storyboard, visuals, ...heroOpts });
-    if (heroDirectionLib()) return heroDirectionLib().renderCinemaHero({ layout: 'cinema-statement', camera: 'lightfield', strength: 'full', visualHtml: '', ...heroOpts });
+    return heroStoryboardLib().renderStoryboardHero({ storyboard, visuals, accent: project.design && project.design.palette && project.design.palette.main, categoryKey: project.business && project.business.categoryKey, ...heroOpts });
   }
   const heroDirection = layout !== 'demo' ? activeHeroDirection(project) : null;
   if (heroDirection) {
@@ -6384,10 +6392,39 @@ function renderProject(proj) {
   renderEditorPanel(proj, category);
   lifecycle.projectKind = isDemoProject(proj) ? 'demo' : 'real';
 }
+// The editor's hero image rows: what each layer shows, where its picture comes from
+// (your photo / generated image / illustration), Replace, Remove and a focus point.
+const HERO_FOCAL_CHOICES = [['', 'Centre'], ['50% 20%', 'Top'], ['50% 80%', 'Bottom'], ['25% 50%', 'Left'], ['75% 50%', 'Right']];
+function renderHeroLayerRows(proj, storyboard) {
+  const SB = heroStoryboardLib();
+  return storyboard.layers.map(l => {
+    const upload = SB.layerUpload(proj, l.slot);
+    const generated = !upload && l.render !== 'art' && generatedImageReady(proj, l.slot) ? proj.assets.generated[l.slot] : null;
+    const source = upload ? 'Your photo' : generated ? 'Generated image' : (l.render === 'art' ? 'Drawn interface' : 'Illustration');
+    const thumb = upload || generated ? `<img src="${escapeHtml((upload || generated).dataUrl)}" alt="" />` : `<span class="hero-layer-drawn" aria-hidden="true">${l.render === 'art' ? '▭' : '✎'}</span>`;
+    const [roleLabel, what] = SB.layerLabel(l).split(' · ');
+    return `<div class="hero-layer-row" data-slot="${escapeHtml(l.slot)}">
+      <div class="hero-layer-thumb">${thumb}</div>
+      <div class="hero-layer-meta"><strong>${escapeHtml(roleLabel)}</strong><span>${escapeHtml(what || '')}</span><small>${escapeHtml(source)}</small></div>
+      <div class="hero-layer-actions">
+        <button type="button" class="hero-layer-replace" data-slot="${escapeHtml(l.slot)}">${upload ? 'Replace' : 'Use my photo'}</button>
+        ${upload ? `<button type="button" class="hero-layer-remove" data-slot="${escapeHtml(l.slot)}">Remove photo</button>` : ''}
+        <label class="hero-layer-focal-label">Focus <select class="hero-layer-focal" data-slot="${escapeHtml(l.slot)}">${HERO_FOCAL_CHOICES.map(([v, t]) => `<option value="${v}"${(l.focal || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+      </div>
+    </div>`;
+  }).join('');
+}
 function renderAssetPanels(proj) {
   const byType = t => proj.assets.items.filter(a => a.type === t);
   const thumbHtml = a => `<div class="asset-thumb"><img src="${a.dataUrl}" alt="" /><button type="button" class="asset-thumb-remove" data-asset-id="${a.id}" aria-label="Remove image">×</button></div>`;
-  if (heroAssetThumbs) heroAssetThumbs.innerHTML = byType('hero').map(thumbHtml).join('');
+  // HERO STORYBOARD: one row per hero image, labelled by what it shows, each replaceable on its own
+  const storyboard = activeHeroStoryboard(proj);
+  if (heroLayerList) {
+    heroLayerList.hidden = !storyboard;
+    heroLayerList.innerHTML = storyboard ? renderHeroLayerRows(proj, storyboard) : '';
+  }
+  if (heroAssetAdd) heroAssetAdd.hidden = !!storyboard;
+  if (heroAssetThumbs) heroAssetThumbs.innerHTML = storyboard ? '' : byType('hero').map(thumbHtml).join('');
   if (galleryAssetThumbs) galleryAssetThumbs.innerHTML = byType('gallery').map(thumbHtml).join('');
   if (teamAssetThumbs) teamAssetThumbs.innerHTML = byType('team').map(thumbHtml).join('');
 }
@@ -7083,6 +7120,7 @@ const refinementStatus = $('#refinementStatus');
 
 // Asset upload elements
 const heroAssetInput = $('#heroAssetInput'); const heroAssetAdd = $('#heroAssetAdd'); const heroAssetThumbs = $('#heroAssetThumbs');
+const heroLayerInput = $('#heroLayerInput'); const heroLayerList = $('#heroLayerList');
 const galleryAssetInput = $('#galleryAssetInput'); const galleryAssetAdd = $('#galleryAssetAdd'); const galleryAssetThumbs = $('#galleryAssetThumbs');
 const teamAssetInput = $('#teamAssetInput'); const teamAssetAdd = $('#teamAssetAdd'); const teamAssetThumbs = $('#teamAssetThumbs');
 // V4 customizer: a starter visual is a finished visual the customer may replace. "Replace" routes to the same upload inputs the
@@ -7523,6 +7561,35 @@ if (heroAssetInput) heroAssetInput.addEventListener('change', e => {
   readImageAsDataUrl(file, 1200, 900).then(dataUrl => {
     project.assets.items = project.assets.items.filter(a => a.type !== 'hero');
     project.assets.items.push(createAsset('hero', dataUrl, file.name));
+    afterAssetsChanged();
+  }).catch(err => alert(err.message));
+});
+// HERO STORYBOARD: replace one hero image with the owner's own photo. The photo is bound to that
+// layer's slot, keeps the layer's placement and motion, outranks any generated image or illustration,
+// and is never regenerated over (the image plan skips a slot that has an upload).
+function removeHeroLayerUpload(proj, slot) {
+  proj.assets.items = proj.assets.items.filter(a => !(a.type === 'hero' && (a.slot === slot || (slot === 'hero' && !a.slot))));
+}
+if (heroLayerList) heroLayerList.addEventListener('click', e => {
+  const replace = e.target.closest('.hero-layer-replace'); const remove = e.target.closest('.hero-layer-remove');
+  if (!project) return;
+  if (replace && heroLayerInput) { heroLayerInput.dataset.slot = replace.dataset.slot; heroLayerInput.click(); }
+  if (remove) { removeHeroLayerUpload(project, remove.dataset.slot); afterAssetsChanged(); }
+});
+if (heroLayerList) heroLayerList.addEventListener('change', e => {
+  const sel = e.target.closest('.hero-layer-focal'); if (!sel || !project || !project.heroStoryboard) return;
+  const layer = project.heroStoryboard.layers.find(l => l.slot === sel.dataset.slot); if (!layer) return;
+  layer.focal = sel.value || null;
+  renderProject(project);
+});
+if (heroLayerInput) heroLayerInput.addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0]; const slot = heroLayerInput.dataset.slot;
+  heroLayerInput.value = '';
+  if (!file || !project || !slot) return;
+  readImageAsDataUrl(file, 1600, 1600).then(dataUrl => {
+    removeHeroLayerUpload(project, slot);
+    const asset = createAsset('hero', dataUrl, file.name); asset.slot = slot;
+    project.assets.items.push(asset);
     afterAssetsChanged();
   }).catch(err => alert(err.message));
 });

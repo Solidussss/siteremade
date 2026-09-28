@@ -1305,6 +1305,21 @@ html,body{max-width:100%;overflow-x:hidden}
 .asset-add-button{width:100%;text-align:left;border:1px dashed #c9ccd3;background:#f7f8fa;border-radius:10px;padding:10px 12px;font-size:11px;font-weight:700;color:#3f434a;cursor:pointer}
 .asset-add-button:hover{border-color:#111}
 .asset-thumb-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+/* HERO STORYBOARD: one row per hero image in the editor */
+.hero-layer-list{display:grid;gap:8px;margin-top:4px}
+.hero-layer-row{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 10px;align-items:center;border:1px solid #e3e5ea;border-radius:10px;padding:8px}
+.hero-layer-thumb{width:52px;height:52px;border-radius:8px;overflow:hidden;background:#eef0f3;display:grid;place-items:center;grid-row:span 2}
+.hero-layer-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-layer-drawn{font-size:20px;color:#8a8f99}
+.hero-layer-meta{display:grid;gap:1px;min-width:0}
+.hero-layer-meta strong{font-size:11px;letter-spacing:.02em;color:#1d2230}
+.hero-layer-meta span{font-size:11px;color:#3f434a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-layer-meta small{font-size:10px;color:#8a8f99}
+.hero-layer-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.hero-layer-actions button{border:1px solid #c9ccd3;background:#fff;border-radius:8px;padding:5px 9px;font-size:10.5px;font-weight:700;color:#23262d;cursor:pointer}
+.hero-layer-actions button:hover{border-color:#111}
+.hero-layer-focal-label{font-size:10.5px;color:#5b6070;display:flex;gap:4px;align-items:center}
+.hero-layer-focal{font-size:10.5px;border:1px solid #c9ccd3;border-radius:6px;padding:3px 4px;background:#fff}
 .asset-thumb{position:relative;width:56px;height:56px;border-radius:9px;overflow:hidden;border:1px solid #d8dae0}
 .asset-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .asset-thumb-remove{position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;border:0;background:rgba(17,17,17,.75);color:#fff;font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -3073,6 +3088,14 @@ body.generation-gate-open{overflow:hidden}
 .hero-storyboard .sb-shape-device .sb-frame{border-radius:16px;border:1px solid rgba(255,255,255,.14);background:#111319;padding-top:28px}
 .hero-storyboard .sb-shape-device .sb-frame::before{content:"";position:absolute;left:14px;top:10px;width:44px;height:8px;z-index:2;background:radial-gradient(circle at 4px 4px,rgba(255,255,255,.3) 3.5px,transparent 4px) 0 0/16px 8px repeat-x}
 .hero-storyboard .sb-shape-device .sb-media{top:28px}
+/* drawn layers (lib/premium/hero-art-kinds.js): the illustration fills its frame like a photo would */
+.hero-storyboard .ha-art{position:absolute;inset:0}
+.hero-storyboard .ha-art>svg,.hero-storyboard .ha-ui>svg{width:100%;height:100%;display:block}
+.hero-storyboard .ha-ui{position:absolute;inset:0;background:#111319}
+.hero-storyboard .ha-ui-compact{display:none!important}
+/* a drawn interface is read, not panned: no oversize, no content move, the whole screen visible */
+.hero-storyboard .sb-media:has(>.ha-art[data-art="interface"]){inset:0;animation:none;transform:none}
+.hero-storyboard .sb-shape-device .sb-media:has(>.ha-art[data-art="interface"]){top:28px}
 /* light moving across the whole stage */
 .hero-storyboard .sb-light{position:absolute;inset:-10% -30%;z-index:60;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.16) 48%,rgba(255,255,255,.04) 54%,transparent 62%);mix-blend-mode:screen;animation:sb-light var(--sb-loop) ease-in-out calc(var(--cam-phase,0s)) infinite}
 .hero-storyboard[data-light="none"] .sb-light,.hero-storyboard[data-light="glow"] .sb-light{display:none}
@@ -3108,6 +3131,9 @@ body.generation-gate-open{overflow:hidden}
   .hero-storyboard[data-copy="top"] .site-actions{justify-content:center;align-items:center}
   .hero-storyboard .sb-layer{left:calc(var(--mx) * 1%);top:calc(var(--my) * 1%);width:calc(var(--mw) * 1%);height:calc(var(--mh) * 1%)}
   .hero-storyboard .sb-shape-circle{height:auto}
+  /* phones read the compact interface: fewer, larger labels */
+  .hero-storyboard .ha-ui-wide{display:none!important}
+  .hero-storyboard .ha-ui-compact{display:block!important}
   .hero-storyboard .sb-copy h3{font-size:clamp(36px,11cqw,54px)}
   .builder-site .site-hero.hero-storyboard[data-copy="bottom-left"]{display:flex;padding:0!important;min-height:0}
   .hero-storyboard[data-copy="bottom-left"] .sb-stage{position:relative;inset:auto;height:120cqw}

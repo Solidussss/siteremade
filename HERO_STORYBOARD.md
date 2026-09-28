@@ -63,6 +63,40 @@ Expected hero cost on the current route (lead = premium model at medium, support
 Premium mode (`PREMIUM_GENERATION_V1`) funds the layers through its own allocator (lead on the hero tier, supporting
 layers on the primary tier; never replaced by a starter graphic).
 
+## Imagery: specific subjects, a drawn fallback, the owner's photos
+
+**What each image shows** comes from the owner's own words (`lib/premium/visual-subjects.js`), not a category
+keyword: the product types and the containers they really come in (serum -> dropper bottle, cleanser -> pump,
+sparkling soda -> can, kombucha -> glass bottle), the flavours they name, their menu items, and the services they
+list (a lawn-maintenance company gets mowing / edging / aeration; a landscape builder patios / retaining walls /
+planting). A library of ~90 named subjects ("facets"), each with a label, a photographic prompt (subject, setting,
+framing, material, light) and a matching drawing, fills the concept's roles in the order the owner names them;
+venues keep their own lead (a café leads with the café). Businesses the classifier cannot place (`other`) draw on the
+whole library (boats, tackle, bouquets, stationery, moving boxes...). Prompts also carry framing for the layer's own
+camera move and one shared look line, so the set reads as one composition.
+
+**Planner checks for sense, not just keywords** (`validatePlanned` -> `planProblems`): a container that contradicts
+the product (a dropper for a drinks brand) or a set of images that ignores everything the owner said they offer is
+rejected and replaced by the fallback. The planner call is unchanged (same single call); its schema gained optional
+`treatment`, `look` and a software `interface` brief.
+
+**Drawn illustrations** (`lib/premium/hero-art*.js`): every layer carries an art spec, and whenever no image exists for
+it -- generation off, unfunded, failed, or still in flight -- it draws that illustration instead of dropping out: ~120
+detailed, shaded SVG pictures (products with the business name on the label, lawns and patios, rooms, tools, garments,
+food, vehicles...), all tinted from the site accent with one light direction, shadow style and grain. A software lead is
+always a drawn interface (scheduling, monitoring, pipeline, invoices, inbox, editor, storefront, analytics, courses,
+documents, workflow) with readable labels from the owner's words, in a wide desktop layout and a compact phone layout;
+it is never bought as an image. Interfaces carry no invented numbers, prices, ratings or customer names.
+
+**Replacing an image** (editor, "Your images"): one row per hero image, labelled by role and subject, showing where its
+picture comes from (your photo / generated image / illustration / drawn interface), with "Use my photo" / "Replace",
+"Remove photo" and a Focus point. The photo is bound to that layer's slot (`asset.slot`), keeps its placement and motion,
+outranks any generated image or drawing, is never regenerated over, and survives save, reopen and export.
+
+**Cost.** Same provider, models, qualities, budgets and one planning call. Software heroes buy one image fewer (the
+drawn interface replaces the premium lead). Checked with `test/hero-imagery.test.js`, `test/review/review-sites.js
+--replace` (the real editor) and `test/review/imagery-review.js` (before/after contact sheets).
+
 ## Motion
 
 `styles.css` "HERO STORYBOARD". Every layer carries its own placement and motion as custom properties and runs the

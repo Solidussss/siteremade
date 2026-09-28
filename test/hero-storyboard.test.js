@@ -29,10 +29,10 @@ async function built() {
   for (const f of HERO_MATRIX.concat(PLANNED)) builtCache[f.id] = { fixture: f, ...(await buildHeroFixture(f)) };
   return builtCache;
 }
-// the rendered layers of one hero: slot, image src, and its own motion track
+// the rendered layers of one hero: slot, what it shows (an image src, or the drawn art kind), and its own motion track
 function layersOf(html) {
-  return [...html.matchAll(/<figure class="sb-layer[^"]*" data-slot="([^"]+)" data-motion="([^"]+)" data-reveal="[^"]+" style="([^"]+)">[\s\S]*?src="([^"]+)"/g)]
-    .map(m => ({ slot: m[1], motion: m[2], style: m[3], src: m[4], track: (m[3].match(/--fx:[^;]+;--fy:[^;]+;--fs:[^;]+;--fr:[^;]+;--tx:[^;]+;--ty:[^;]+;--ts:[^;]+;--tr:[^;]+/) || [''])[0], delay: (m[3].match(/--delay:([^;]+)/) || [])[1] }));
+  return [...html.matchAll(/<figure class="sb-layer[^"]*" data-slot="([^"]+)" data-motion="([^"]+)" data-reveal="[^"]+" data-source="(image|art)"(?: data-art="([^"]+)")? style="([^"]+)">([\s\S]*?)<\/figure>/g)]
+    .map(m => ({ slot: m[1], motion: m[2], source: m[3], art: m[4] || null, style: m[5], src: m[3] === 'image' ? (m[6].match(/src="([^"]+)"/) || [])[1] : `art:${m[4]}`, track: (m[5].match(/--fx:[^;]+;--fy:[^;]+;--fs:[^;]+;--fr:[^;]+;--tx:[^;]+;--ty:[^;]+;--ts:[^;]+;--tr:[^;]+/) || [''])[0], delay: (m[5].match(/--delay:([^;]+)/) || [])[1] }));
 }
 
 test('the fixture matrix covers EVERY category the generator supports, each fixture classified by the real classifier', () => {
@@ -48,25 +48,30 @@ test('the fixture matrix covers EVERY category the generator supports, each fixt
   assert.ok(HERO_MATRIX.length >= categories.length + 10, 'plus several same-category businesses');
 });
 
-test('every generated hero has at least three DISTINCT generated images, each with its own motion track', async () => {
+test('every generated hero has at least three DISTINCT visuals, each with its own motion track; every image layer is its own generated image', async () => {
   const all = await built();
   for (const [id, b] of Object.entries(all)) {
     const sb = b.proj.heroStoryboard;
     assert.ok(sb && sb.layers.length >= 3, `${id}: storyboard with 3+ layers`);
     assert.equal(new Set(sb.layers.map(l => l.slot)).size, sb.layers.length, `${id}: one image slot per layer`);
-    // requested through the real image pipeline, one request per layer, each a different prompt
+    // image layers: requested through the real image pipeline, one request per layer, each a different prompt.
+    // A software lead is a drawn interface (readable labels) and is never bought as an image.
+    const imageLayers = sb.layers.filter(l => l.render !== 'art');
+    assert.ok(imageLayers.length >= (b.proj.business.categoryKey === 'tech' ? 2 : 3), `${id}: ${imageLayers.length} generated image layers`);
+    assert.ok(sb.layers.filter(l => l.render === 'art').every(l => b.proj.business.categoryKey === 'tech' && l.role === 'lead' && l.art.kind === 'interface'), `${id}: only a software lead is drawn instead of generated`);
     const heroRequests = b.requests.filter(r => r.heroLayer === true);
-    assert.equal(heroRequests.length, sb.layers.length, `${id}: every layer requested as its own image`);
+    assert.equal(heroRequests.length, imageLayers.length, `${id}: every image layer requested as its own image`);
     assert.equal(new Set(heroRequests.map(r => r.prompt)).size, heroRequests.length, `${id}: every hero image a different prompt`);
     assert.equal(new Set(heroRequests.map(r => r.requestKey)).size, heroRequests.length, `${id}: separate stored assets`);
     // stored as separate assets
-    const stored = sb.layers.map(l => b.proj.assets.generated[l.slot]);
-    stored.forEach((g, i) => assert.ok(g && g.status === 'ready' && g.dataUrl, `${id}: ${sb.layers[i].slot} stored`));
+    const stored = imageLayers.map(l => b.proj.assets.generated[l.slot]);
+    stored.forEach((g, i) => assert.ok(g && g.status === 'ready' && g.dataUrl, `${id}: ${imageLayers[i].slot} stored`));
     assert.equal(new Set(stored.map(g => g.dataUrl)).size, stored.length, `${id}: the images are different pictures, not one duplicated`);
     // rendered: every layer drawn, each its own image and its own motion
     const layers = layersOf(b.heroHtml());
     assert.ok(layers.length >= 3, `${id}: ${layers.length} layers rendered`);
-    assert.equal(new Set(layers.map(l => l.src)).size, layers.length, `${id}: rendered images are distinct`);
+    assert.equal(layers.length, sb.layers.length, `${id}: every layer rendered`);
+    assert.equal(new Set(layers.map(l => l.src)).size, layers.length, `${id}: rendered visuals are distinct`);
     assert.equal(new Set(layers.map(l => `${l.track}|${l.delay}`)).size, layers.length, `${id}: every layer has its own motion track and phase`);
     layers.forEach(l => assert.ok(l.track && /--tx:/.test(l.track), `${id}: ${l.slot} carries a frame track`));
   }
@@ -152,7 +157,9 @@ test('businesses in the same category get different concepts, image sets, compos
     for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
       const a = signature(all[ids[i]].proj.heroStoryboard), b = signature(all[ids[j]].proj.heroStoryboard);
       assert.notEqual(a.concept, b.concept, `${ids[i]} vs ${ids[j]}: same concept`);
-      assert.deepEqual(a.subjects.filter(s => b.subjects.includes(s)), [], `${ids[i]} vs ${ids[j]}: shared image subjects`);
+      // two businesses that both list the same service may both show it -- but never the same lead, never the same set
+      const shared = a.subjects.filter(s => b.subjects.includes(s));
+      assert.ok(shared.length <= 1 && a.subjects[0] !== b.subjects[0], `${ids[i]} vs ${ids[j]}: shared image subjects ${shared.join(', ')}`);
       assert.ok(a.composition !== b.composition || a.motion !== b.motion, `${ids[i]} vs ${ids[j]}: identical composition AND motion`);
       if (a.composition !== b.composition && a.motion !== b.motion) fullyDifferentPairs++;
     }
