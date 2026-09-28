@@ -76,3 +76,4 @@ body.cs-open{overflow:hidden}
   .cs-panel{border-right:0;border-bottom:1px solid #26262d;max-height:none}
   .cs-stage{min-height:70vh}
 }
+.cs.cs-behind{z-index:50}

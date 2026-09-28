@@ -26,7 +26,7 @@ Read `CREATIVE_MODE.md` first. This file records state and decisions so work can
 - [x] tests: `test/creative.test.js` (14); Business preservation check `test/review/business-preservation.js`
       (6 real Business projects: save + export byte-identical to eb98bf1)
 - [x] review harness: `test/review/creative-review.js` → studio run → export → `creative-capture.js` → `creative-report.js`
-- [ ] commit / deploy
+- [x] commit / deploy (985da89, deployment 6722651015; follow-up fix for the sign-in gate)
 
 ## Fixed during review (found by looking at real output)
 - white roll on a white wall: flood fill leaked and shredded the roll → edge-contrast gate; the picture stays framed
@@ -49,3 +49,6 @@ Read `CREATIVE_MODE.md` first. This file records state and decisions so work can
 - phone: 2 px horizontal overflow from the scroll-rotated specimen picture → sections clip horizontal overflow
 - desktop reduced-motion capture failed after the long scroll sequence → captures use a fresh window (harness only)
 - closing echo had no picture for framed-photo subjects → a small round framed echo
+- live check (after deploy 6722651015): signed out, "Create the page" opened the sign-in gate *behind* the full-screen
+  studio → the studio steps back beneath the gate while it is open; a pending Business brief is set aside during a
+  Creative sign-in so it cannot start a Business generation

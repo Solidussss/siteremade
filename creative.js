@@ -24,6 +24,22 @@
     return fetch(path, { method: (opts && opts.method) || 'GET', headers: opts && opts.body ? { 'Content-Type': 'application/json' } : undefined, body: opts && opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); });
   }
+  // the Business page's own sign-in gate: the studio steps back beneath it while it is open, then returns
+  function needSignIn(msg) {
+    if (typeof showAuthGate !== 'function') { fail('Sign in first.'); return; }
+    // a Business brief waiting for sign-in must not start generating because someone signed in from Creative
+    var pending = null;
+    try { pending = (typeof pendingGenerationText !== 'undefined' && pendingGenerationText) || localStorage.getItem('siteremade:pendingGenerationText'); } catch (e) { pending = null; }
+    if (pending && typeof setPendingGenerationText === 'function') setPendingGenerationText(null);
+    root.classList.add('cs-behind'); showAuthGate(msg);
+    var mo = new MutationObserver(function () {
+      if (document.body.classList.contains('generation-gate-open')) return;
+      mo.disconnect(); root.classList.remove('cs-behind');
+      if (pending && typeof setPendingGenerationText === 'function') setPendingGenerationText(pending);
+      if (signedIn()) setSaveState('Signed in. You can create and save now.');
+    });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
   function signedIn() { try { return typeof currentAccount !== 'undefined' && !!currentAccount; } catch (e) { return false; } }
 
   // ---------- layout ----------
@@ -177,7 +193,7 @@
     if (S.busy) return;
     S.brief = els.csBrief.value.trim(); S.suppliedText = els.csSupplied.value; S.memoriesText = els.csMemories.value;
     if (!S.brief) { els.csBrief.focus(); return; }
-    if (!signedIn()) { if (typeof showAuthGate === 'function') showAuthGate('Sign in to make a Creative page — it saves to your account like any website.'); else fail('Sign in first.'); return; }
+    if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
     if (S.dirty && S.plan && !choice && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
     S.busy = true; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
@@ -188,7 +204,7 @@
     step('research', 'active', u.kind === 'fictional' ? 'Not looked up: invented subjects stay invented' : '');
     var t0 = Date.now();
     return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length > 0 } }).then(function (r) {
-      if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; if (typeof showAuthGate === 'function') showAuthGate('Sign in to make a Creative page.'); return; }
+      if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
       if (!r.ok || !r.data.ok) { step('research', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
       var d = r.data; S.understanding = d.understanding; S.research = d.research; S.choice = choice || '';
       if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
@@ -386,7 +402,7 @@
     };
   }
   function save() {
-    if (!S.plan || S.saving) return; if (!signedIn()) { if (typeof showAuthGate === 'function') showAuthGate('Sign in to save your Creative page.'); return; }
+    if (!S.plan || S.saving) return; if (!signedIn()) { needSignIn('Sign in to save your Creative page.'); return; }
     S.saving = true; els.csSave.disabled = true; setSaveState('Saving…');
     var body = { name: S.name || S.plan.hero.title.text, directionsState: { directions: [direction()], activeDirectionIndex: 0 } };
     var req = S.projectId ? api('/api/projects/' + encodeURIComponent(S.projectId), { method: 'PUT', body: Object.assign({ expectedRevision: S.revision }, body) }) : api('/api/projects', { method: 'POST', body: body });
