@@ -43,11 +43,45 @@ test('the hero treatment follows what the business is and what the visitor came 
   assert.equal(pick('other', 'Small-batch hot sauce, three heat levels'), 'PRODUCT_CLOSEUP');
 });
 
+test('every generator category receives a directed moving hero with industry-led image cues', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8');
+  const categoryBlock = source.match(/const categoryKeywords = \{([\s\S]*?)\n\};/);
+  assert.ok(categoryBlock, 'the generator category list is present');
+  const categories = [...categoryBlock[1].matchAll(/^  ([a-z]+):/gm)].map(m => m[1]);
+  assert.ok(categories.length >= 20, 'the full category list is covered');
+  for (const categoryKey of categories) {
+    assert.ok(H.CATEGORY_TREATMENT[categoryKey], `explicit hero treatment for ${categoryKey}`);
+    const direction = H.directHero({ categoryKey, motion: 'none' });
+    assert.ok(H.validDirection(direction), `valid direction for ${categoryKey}`);
+    assert.equal(direction.strength, 'full', `the hero camera remains active for ${categoryKey}`);
+    const planned = H.framePlannedPrompt('A generic planned hero image', direction, { categoryKey, text: 'A business description.' });
+    assert.notEqual(planned, 'A generic planned hero image', `the planned prompt receives an industry cue for ${categoryKey}`);
+  }
+
+  assert.equal(H.chooseTreatment({ categoryKey: 'hospitality', text: 'Small-batch coffee roastery selling whole coffee beans' }), 'PRODUCT_CLOSEUP');
+  assert.equal(H.chooseTreatment({ categoryKey: 'hospitality', text: 'Neighborhood cafe serving pour-over coffee and pastries' }), 'ATMOSPHERE');
+  const roastPrompt = H.heroPrompt({
+    categoryKey: 'hospitality', treatment: 'PRODUCT_CLOSEUP', name: 'Fern & Flint Roasters',
+    subject: 'Fern & Flint Roasters coffee beans', text: 'Small-batch coffee roastery selling whole coffee beans',
+  });
+  assert.match(roastPrompt, /roasted coffee beans|coffee bag|roastery/i);
+  assert.ok(roastPrompt.length <= 600);
+  const plannedRoast = H.framePlannedPrompt('A general product photograph for a coffee company', { camera: 'push' }, {
+    categoryKey: 'hospitality', text: 'Small-batch coffee roastery selling whole coffee beans',
+  });
+  assert.match(plannedRoast, /specialty coffee roasting unmistakable/i);
+  assert.match(plannedRoast, /slow cinematic push-in/);
+  assert.ok(plannedRoast.startsWith('A general product photograph'));
+  assert.ok(plannedRoast.length <= 1200);
+  assert.equal(H.chooseTreatment({ categoryKey: 'fashion' }), 'PRODUCT_CLOSEUP');
+  assert.match(H.heroPrompt({ categoryKey: 'fashion', treatment: 'PRODUCT_CLOSEUP', subject: 'a clothing label' }), /garment|fashion|fabric/i);
+});
+
 test('different businesses get meaningfully different heroes (not one composition recoloured)', async () => {
   const cases = [
     ['fizzwell', F.FIZZWELL_TEXT, 'cinema-product', 'push'],
     ['greenline', F.GREENLINE_TEXT, 'cinema-panorama', 'pan'],
-    ['fern-flint', text('fern-flint'), 'cinema-layered', 'parallax'],
+    ['fern-flint', text('fern-flint'), 'cinema-product', 'push'],
     ['harbour-physio', F.HARBOUR_TEXT, 'cinema-portrait', 'breathe'],
     ['ledgerly', text('ledgerly'), 'cinema-interface', 'float'],
   ];
@@ -60,7 +94,7 @@ test('different businesses get meaningfully different heroes (not one compositio
     assert.ok(/<img class="site-visual-img site-visual-generated-img"/.test(html), `${id}: the hero shows its generated image`);
     seen.add(layout);
   }
-  assert.equal(seen.size, cases.length);
+  assert.ok(seen.size >= 4, 'the five businesses span four visual compositions; both product brands keep their own industry-specific prompts');
 });
 
 test('the hero carries the business itself: its real offerings, name and place', async () => {

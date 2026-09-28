@@ -2852,14 +2852,14 @@ body.generation-gate-open{overflow:hidden}
 /* camera loops (full strength; [data-camera-strength="gentle"] swaps to the slower, smaller set) */
 @keyframes sr-cam-intro{from{opacity:0;transform:scale(1.12)}to{opacity:1;transform:scale(1)}}
 @keyframes sr-copy-in{from{opacity:0;transform:translate3d(0,16px,0)}to{opacity:1;transform:none}}
-@keyframes sr-cam-push{from{transform:scale(1.03) translate3d(0,0,0)}to{transform:scale(1.17) translate3d(-2.2%,-1.6%,0)}}
+@keyframes sr-cam-push{from{transform:scale(1.06) translate3d(1.5%,1%,0)}to{transform:scale(1.24) translate3d(-3.5%,-2.5%,0)}}
 @keyframes sr-cam-push-g{from{transform:scale(1.02) translate3d(0,0,0)}to{transform:scale(1.1) translate3d(-1.2%,-.9%,0)}}
-@keyframes sr-cam-pan{from{transform:scale(1.16) translate3d(-5%,0,0)}to{transform:scale(1.16) translate3d(5%,-1%,0)}}
+@keyframes sr-cam-pan{from{transform:scale(1.22) translate3d(-7%,1%,0)}to{transform:scale(1.22) translate3d(7%,-1.5%,0)}}
 @keyframes sr-cam-pan-g{from{transform:scale(1.11) translate3d(-3.2%,0,0)}to{transform:scale(1.11) translate3d(3.2%,-.6%,0)}}
-@keyframes sr-cam-rise{from{transform:scale(1.14) translate3d(0,3.5%,0)}to{transform:scale(1.14) translate3d(0,-3.5%,0)}}
-@keyframes sr-cam-sink{from{transform:scale(1.9) translate3d(2.5%,-3%,0)}to{transform:scale(1.9) translate3d(-2.5%,3%,0)}}
-@keyframes sr-cam-breathe{from{transform:scale(1.02) translate3d(0,0,0)}to{transform:scale(1.11) translate3d(0,-1.8%,0)}}
-@keyframes sr-cam-scroll{from{transform:scale(1.03) translate3d(0,0,0)}to{transform:scale(1.08) translate3d(0,-4%,0)}}
+@keyframes sr-cam-rise{from{transform:scale(1.18) translate3d(0,5%,0)}to{transform:scale(1.18) translate3d(0,-5%,0)}}
+@keyframes sr-cam-sink{from{transform:scale(1.9) translate3d(3.5%,-4%,0)}to{transform:scale(1.9) translate3d(-3.5%,4%,0)}}
+@keyframes sr-cam-breathe{from{transform:scale(1.04) translate3d(0,0,0)}to{transform:scale(1.17) translate3d(0,-2.5%,0)}}
+@keyframes sr-cam-scroll{from{transform:scale(1.06) translate3d(0,0,0)}to{transform:scale(1.15) translate3d(0,-6%,0)}}
 @keyframes sr-drift-y{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-14px,0)}}
 @keyframes sr-drift-y2{from{transform:translate3d(0,-6px,0)}to{transform:translate3d(0,10px,0)}}
 @keyframes sr-device-tilt{from{transform:perspective(1400px) rotateX(9deg) rotateY(-9deg) translate3d(0,0,0)}to{transform:perspective(1400px) rotateX(4deg) rotateY(-3deg) translate3d(0,-10px,0)}}
@@ -2871,15 +2871,15 @@ body.generation-gate-open{overflow:hidden}
 @keyframes sr-orb-b{from{transform:translate3d(10%,8%,0) scale(1.15)}to{transform:translate3d(-12%,-6%,0) scale(.9)}}
 @keyframes sr-orb-c{from{transform:translate3d(0,12%,0) scale(.9)}to{transform:translate3d(8%,-10%,0) scale(1.2)}}
 @keyframes sr-ticker{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
-.hero-cinema[data-camera="push"] .cinema-cam>*{animation:sr-cam-push 16s ease-in-out var(--cam-phase,0s) infinite alternate}
-.hero-cinema[data-camera="push"][data-camera-strength="gentle"] .cinema-cam>*{animation:sr-cam-push-g 22s ease-in-out var(--cam-phase,0s) infinite alternate}
-.hero-cinema[data-camera="pan"] .cinema-cam>*{animation:sr-cam-pan 26s ease-in-out var(--cam-phase,0s) infinite alternate}
-.hero-cinema[data-camera="pan"][data-camera-strength="gentle"] .cinema-cam>*{animation:sr-cam-pan-g 34s ease-in-out var(--cam-phase,0s) infinite alternate}
-.hero-cinema[data-camera="parallax"] .cinema-frame-main .cinema-cam>*{animation:sr-cam-rise 18s ease-in-out var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="push"] .cinema-cam>*{animation:sr-cam-push 11s cubic-bezier(.45,0,.55,1) var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="push"][data-camera-strength="gentle"] .cinema-cam>*{animation:sr-cam-push-g 20s ease-in-out var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="pan"] .cinema-cam>*{animation:sr-cam-pan 14s cubic-bezier(.45,0,.55,1) var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="pan"][data-camera-strength="gentle"] .cinema-cam>*{animation:sr-cam-pan-g 24s ease-in-out var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="parallax"] .cinema-frame-main .cinema-cam>*{animation:sr-cam-rise 12s ease-in-out var(--cam-phase,0s) infinite alternate}
 .hero-cinema .cinema-cam-detail>*{transform:scale(1.9)} /* the detail crop stays a detail crop when motion is off */
-.hero-cinema[data-camera="parallax"] .cinema-cam-detail>*{--cam-origin:50% 62%;animation:sr-cam-sink 18s ease-in-out infinite alternate}
-.hero-cinema[data-camera="breathe"] .cinema-cam>*{animation:sr-cam-breathe 15s ease-in-out var(--cam-phase,0s) infinite alternate}
-.hero-cinema[data-camera="float"] .cinema-cam>*{animation:sr-cam-scroll 14s ease-in-out var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="parallax"] .cinema-cam-detail>*{--cam-origin:50% 62%;animation:sr-cam-sink 12s ease-in-out infinite alternate}
+.hero-cinema[data-camera="breathe"] .cinema-cam>*{animation:sr-cam-breathe 12s ease-in-out var(--cam-phase,0s) infinite alternate}
+.hero-cinema[data-camera="float"] .cinema-cam>*{animation:sr-cam-scroll 11s ease-in-out var(--cam-phase,0s) infinite alternate}
 
 /* -- PRODUCT_CLOSEUP: the product, close and lit, on a dark brand-tinted stage; the range beside it -- */
 .builder-site .site-hero.hero-cinema-product{background:radial-gradient(120% 90% at 72% 48%,color-mix(in srgb,var(--site-accent) 34%,#0b0b0e) 0,color-mix(in srgb,var(--site-accent) 12%,#08080a) 48%,#060607 100%)!important;color:#fff!important;min-height:clamp(560px,50cqw,760px);display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);align-items:center}

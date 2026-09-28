@@ -1790,12 +1790,12 @@ function deterministicImagePrompt(project, category, role, index) {
 function buildImagePrompt(project, category, role, index = 0, plannedPrompt = null) {
   // HERO DIRECTION: the directed hero's one image is shot FOR its camera move
   // (a push-in needs margin, a pan needs a scene that continues past the
-  // edges). A planner's own hero prompt keeps its subject and gains only the
-  // framing; otherwise the treatment writes the whole shot.
+  // edges). A planner's own hero prompt keeps its subject and gains its
+  // industry cue plus framing; otherwise the treatment writes the whole shot.
   const direction = role === 'hero' && index === 0 ? activeHeroDirection(project) : null;
   if (direction) {
     const H = heroDirectionLib();
-    return plannedPrompt ? H.framePlannedPrompt(plannedPrompt, direction) : directedHeroPrompt(project, category, direction);
+    return plannedPrompt ? H.framePlannedPrompt(plannedPrompt, direction, { categoryKey: project.business.categoryKey, text: project.source && project.source.text }) : directedHeroPrompt(project, category, direction);
   }
   if (plannedPrompt) return plannedPrompt;
   return deterministicImagePrompt(project, category, role, index);
@@ -2309,7 +2309,7 @@ function premiumPlanEntry(project, category, s, pd) {
   }
   return {
     ...s, aspectRatio: pd.aspectRatio || s.aspectRatio, placement: s.role,
-    prompt: (s.slot === 'hero' && pd.prompt && activeHeroDirection(project)) ? heroDirectionLib().framePlannedPrompt(pd.prompt, activeHeroDirection(project)) : (pd.prompt || buildImagePrompt(project, category, s.role)), promptAlt: pd.promptSimplified || null,
+    prompt: (s.slot === 'hero' && pd.prompt && activeHeroDirection(project)) ? heroDirectionLib().framePlannedPrompt(pd.prompt, activeHeroDirection(project), { categoryKey: project.business.categoryKey, text: project.source && project.source.text }) : (pd.prompt || buildImagePrompt(project, category, s.role)), promptAlt: pd.promptSimplified || null,
     sourceType: pd.sourceType, model: generated ? pd.model : null, quality: generated ? pd.quality : null,
     estimatedCostUsd: generated ? pd.estimatedUsd : null, creditCost: generated ? imageCreditCostForRoute(pd.model) : null,
     cacheKey: computeImageCacheKey(project, s.role, s.slot),
