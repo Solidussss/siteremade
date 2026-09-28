@@ -47,11 +47,54 @@ const FIZZWELL_PLAN = {
   functionalityPlan: [],
 };
 
+// A local SERVICE business (not a product): the planner leads with finished
+// work and the services, and converts on a quote.
+const GREENLINE_TEXT = 'Greenline Landscapes is a landscaping company in Calgary. Garden design, natural stone patios, lawn care and seasonal cleanups for homeowners.';
+const GREENLINE_PLAN = {
+  business: {
+    name: 'Greenline Landscapes',
+    understanding: 'A residential landscaping company in Calgary doing garden design, stone patios, lawn care and seasonal cleanups.',
+    category: 'landscaping', targetCustomer: 'Calgary homeowners planning a yard project', positioning: 'Design-led yards built to last Calgary winters', tone: 'warm',
+    goals: ['Get quote requests', 'Show finished projects'],
+    offerings: ['Garden Design', 'Natural Stone Patios', 'Lawn Care', 'Seasonal Cleanups'],
+  },
+  declaredFacts: { location: 'Calgary', otherFacts: [] },
+  strategy: {
+    archetype: 'local-conversion', visitorIntent: 'See finished yards and ask for a quote', primaryConversion: 'Request a quote', secondaryConversion: 'See recent projects',
+    credibilityStrategy: 'Finished project photography', sophisticationLevel: 'general', businessScope: 'local', proofStrategy: 'Before/after project work',
+    informationHierarchy: ['finished work', 'services', 'process', 'quote'],
+  },
+  heroCopy: { kicker: 'CALGARY LANDSCAPING', headline: 'Yards worth coming home to.', sub: 'Garden design, stone patios and lawn care from one Calgary crew.', ctaLabel: 'Request a quote' },
+  visualDirection: { hero: 'fullbleed-image', typography: 'humanist', nav: 'inline', card: 'image-led', imagery: 'trade-proof', cta: 'solid-pill', colorBehavior: 'warm-earth-multi-tone', motion: 'subtle', spacing: 'generous', pattern: 'proof-first', rationale: 'Lead with a finished yard; the work sells itself.' },
+  creativeDirection: { concept: 'portfolio-led', visualMood: 'warm', narrativeStrategy: 'portfolio-led', imageStrategy: 'project-portfolio', signatureMotif: 'case-study-band', heroStrategy: 'image-dominant', pageRhythm: 'sparse-open-dense-mid', avoid: [] },
+  pages: [
+    { id: 'home', label: 'Home', purpose: 'Show finished yards and win quote requests', plan: { visualIntensity: 'standard', imageCritical: true }, sections: [
+      { type: 'services', intent: 'explain', headlineRole: 'benefit-led', headline: 'What we build', body: 'Design, stonework and upkeep -- one crew from plan to first mow.' },
+      { type: 'gallery', intent: 'showcase', headlineRole: 'declarative', headline: 'Recent Calgary yards' },
+      { type: 'process', intent: 'reassure', headlineRole: 'explanatory', headline: 'From sketch to first mow' },
+      { type: 'testimonial', intent: 'prove', headlineRole: 'proof-led', headline: 'What homeowners say' },
+      { type: 'contact', intent: 'convert', headlineRole: 'declarative', headline: 'Tell us about your yard', ctaLabel: 'Request a quote' },
+    ] },
+  ],
+  imagePlan: [
+    { role: 'hero', intent: 'A finished yard is the proof', prompt: 'A finished Calgary backyard at golden hour: natural flagstone patio, layered perennial garden beds, fresh green lawn, warm evening light, wide architectural garden photography', aspectRatio: '16:9' },
+    { role: 'gallery', intent: 'Patio project', prompt: 'Close view of a newly laid natural stone patio with low stone wall and planted borders, soft overcast light, landscape portfolio photography', aspectRatio: '4:3' },
+    { role: 'gallery', intent: 'Garden design', prompt: 'Layered perennial garden with ornamental grasses and a curved gravel path in a Calgary front yard, morning light, landscape design photography', aspectRatio: '4:3' },
+    { role: 'gallery', intent: 'Lawn care', prompt: 'Freshly mowed striped lawn edged cleanly against garden beds in a suburban Calgary yard, bright daylight, landscaping photography', aspectRatio: '4:3' },
+  ],
+  functionalityPlan: [],
+};
+
+// An appointment-led CARE business: people and reassurance, not products.
+const HARBOUR_TEXT = 'Harbour Physio is a physiotherapy clinic in Halifax offering sports injury rehab, dry needling and post-surgery recovery. Book online.';
+
 const BUSINESSES = [
   { id: 'fizzwell', text: FIZZWELL_TEXT, expect: { name: 'Fizzwell', notCategory: 'wellness' } },
   { id: 'glow-theory', text: 'Glow Theory is an online skincare store in Vancouver selling gentle cleansers, serums and moisturizers for sensitive skin.', expect: { name: 'Glow Theory' } },
   { id: 'fern-flint', text: 'Fern & Flint is a specialty coffee roaster and café in Portland. Single-origin beans, pour-over bar and fresh pastries.', expect: { name: 'Fern & Flint' } },
   { id: 'ledgerly', text: 'Ledgerly is scheduling software for physiotherapy clinics with online booking and automatic reminders.', expect: { name: 'Ledgerly' } },
+  { id: 'greenline', text: GREENLINE_TEXT, expect: { name: 'Greenline Landscapes' } },
+  { id: 'harbour-physio', text: HARBOUR_TEXT, expect: { name: 'Harbour Physio' } },
 ];
 
-module.exports = { BUSINESSES, FIZZWELL_TEXT, FIZZWELL_PLAN };
+module.exports = { BUSINESSES, FIZZWELL_TEXT, FIZZWELL_PLAN, GREENLINE_TEXT, GREENLINE_PLAN, HARBOUR_TEXT };

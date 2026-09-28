@@ -1357,6 +1357,275 @@
     module.exports = { wordMatch, anyWord, familyFor, SUBVERTICALS, detectSubvertical, ARCHETYPE_OVERRIDES, inferArchetypeStrict, strictCategory, RULES, deriveGrounding, cleanPlace };
 
   });
+  __define("hero-direction", function (module, exports, require) {
+    'use strict';
+    // HERO DIRECTION -- the art-directed, moving hero.
+    //
+    // Chooses HOW the hero presents a business from what the business is and what
+    // the visitor is there to do, then renders it as a short, seamless camera move
+    // over ONE generated still (the image provider makes stills, not video):
+    //
+    //   PRODUCT_CLOSEUP  a product brand leads with the product itself, close and
+    //                    dramatic, the range (flavours/variants) listed beside it;
+    //                    the camera pushes in slowly.
+    //   FINISHED_WORK    a trade/outdoor/property business opens on the finished
+    //                    result -- the yard, the roof, the kitchen -- full-bleed,
+    //                    with its services along the bottom; the camera pans.
+    //   ATMOSPHERE       a venue (cafe, restaurant, studio) is about the room: a
+    //                    tall frame plus a close detail crop of the same shot,
+    //                    moving against each other (layered parallax).
+    //   CARE             an appointment/advice business (clinic, coach, advisor)
+    //                    is calm and human: a soft arched frame, a slow breathing
+    //                    zoom, what they treat/offer as a short checklist.
+    //   INTERFACE        software shows the product: a screen floating at an angle
+    //                    with its key capabilities drifting around it.
+    //   STATEMENT        no hero image available (none funded, generation off):
+    //                    oversized type over a slowly moving light field, the
+    //                    offerings on a gentle ticker -- still alive, never an empty
+    //                    photo box.
+    //
+    // Pure (no I/O, no model calls, no randomness), shared by the live preview
+    // (script.js, via the premium-core.js bundle), the static export
+    // (lib/site-render.js) and the tests -- so the preview and the purchased site
+    // render the SAME markup. Independent of the PREMIUM_GENERATION_V1 flag.
+    //
+    // Motion itself is CSS (styles.css, "HERO DIRECTION"): transform/opacity only,
+    // seamless `alternate` loops, a one-shot intro that ends on the loop's first
+    // frame, and a hard stop under prefers-reduced-motion.
+
+    const TREATMENTS = {
+      PRODUCT_CLOSEUP: { layout: 'cinema-product', camera: 'push' },
+      FINISHED_WORK: { layout: 'cinema-panorama', camera: 'pan' },
+      ATMOSPHERE: { layout: 'cinema-layered', camera: 'parallax' },
+      CARE: { layout: 'cinema-portrait', camera: 'breathe' },
+      INTERFACE: { layout: 'cinema-interface', camera: 'float' },
+      STATEMENT: { layout: 'cinema-statement', camera: 'lightfield' },
+    };
+    const TREATMENT_KEYS = Object.keys(TREATMENTS);
+    const CINEMA_LAYOUTS = TREATMENT_KEYS.map(k => TREATMENTS[k].layout);
+    const CAMERAS = ['push', 'pan', 'parallax', 'breathe', 'float', 'lightfield'];
+
+    const CATEGORY_TREATMENT = {
+      retail: 'PRODUCT_CLOSEUP',
+      fashion: 'ATMOSPHERE',
+      hospitality: 'ATMOSPHERE',
+      creative: 'ATMOSPHERE',
+      landscaping: 'FINISHED_WORK', roofing: 'FINISHED_WORK', renovation: 'FINISHED_WORK', painting: 'FINISHED_WORK',
+      plumbing: 'FINISHED_WORK', electrical: 'FINISHED_WORK', cleaning: 'FINISHED_WORK', automotive: 'FINISHED_WORK',
+      realestate: 'FINISHED_WORK', nonprofit: 'FINISHED_WORK',
+      wellness: 'CARE', fitness: 'CARE', professional: 'CARE', finance: 'CARE', education: 'CARE',
+      tech: 'INTERFACE',
+    };
+    const ARCHETYPE_TREATMENT = { 'ecommerce-showcase': 'PRODUCT_CLOSEUP', 'product-led-saas': 'INTERFACE', hospitality: 'ATMOSPHERE', 'local-conversion': 'FINISHED_WORK' };
+    const PRODUCT_WORDS = /\b(drink|drinks|beverage|soda|juice|energy drink|sparkling|kombucha|snack|snacks|sauce|chocolate|candle|candles|skincare|serum|serums|cleanser|moisturi[sz]er|cosmetics?|supplement|gear|bottle|cans?|jar|product|products)\b/i;
+    const SERVICE_WORDS = /\b(install\w*|repair\w*|renovat\w*|build\w*|construct\w*|landscap\w*|clean\w*|contractor|crew)\b/i;
+    const CARE_WORDS = /\b(clinic|therapy|therapist|physio\w*|coach\w*|advis\w*|consult\w*|tutor\w*|counsel\w*|practice)\b/i;
+
+    // What the visitor is there to do shapes the camera as much as the category:
+    // a product is examined (push in), a finished place is explored (pan), a
+    // venue is felt (layers drifting), a care business reassures (breathing).
+    function chooseTreatment(ctx) {
+      const c = ctx || {};
+      const text = String(c.text || '');
+      if (c.categoryKey === 'other' || !CATEGORY_TREATMENT[c.categoryKey]) {
+        if (ARCHETYPE_TREATMENT[c.archetype]) return ARCHETYPE_TREATMENT[c.archetype];
+        if (PRODUCT_WORDS.test(text)) return 'PRODUCT_CLOSEUP';
+        if (CARE_WORDS.test(text)) return 'CARE';
+        if (SERVICE_WORDS.test(text)) return 'FINISHED_WORK';
+        return 'CARE';
+      }
+      // A retail business that sells an experience/venue rather than a boxed
+      // product (a bookshop cafe, a boutique salon) still reads better as a room.
+      if (c.categoryKey === 'retail' && !PRODUCT_WORDS.test(text) && /\b(shop floor|showroom|boutique space|visit us|in-store experience)\b/i.test(text)) return 'ATMOSPHERE';
+      return CATEGORY_TREATMENT[c.categoryKey];
+    }
+
+    // Stored once at generation time on project.design.heroDirection (plain JSON,
+    // saved and exported with the project). `baseHero` records the hero layout it
+    // was directed over: if the owner later picks a different hero layout
+    // themselves, the direction steps aside (see activeDirection).
+    function directHero(ctx) {
+      const c = ctx || {};
+      const treatment = chooseTreatment(c);
+      const t = TREATMENTS[treatment];
+      return {
+        v: 1, treatment, layout: t.layout, camera: t.camera,
+        strength: c.motion === 'expressive' ? 'full' : 'gentle',
+        baseHero: typeof c.hero === 'string' ? c.hero : null,
+      };
+    }
+    function validDirection(d) {
+      return !!(d && typeof d === 'object' && TREATMENTS[d.treatment] && CINEMA_LAYOUTS.includes(d.layout) && CAMERAS.includes(d.camera));
+    }
+    function activeDirection(project) {
+      if (!project || !project.design || (project.meta && project.meta.isDemoShell)) return null;
+      const d = project.design.heroDirection;
+      if (!validDirection(d)) return null;
+      const hero = project.design.dimensions && project.design.dimensions.hero;
+      if (d.baseHero && hero && d.baseHero !== hero) return null;
+      return d;
+    }
+    // Whether the directed hero shows an image at all. An unfunded hero (the
+    // reconciler stamped a text-only `heroDisplayVariant`) falls back to STATEMENT.
+    function heroShowsImage(project) {
+      const d = activeDirection(project);
+      if (!d) return null; // not directed -- caller keeps its own rule
+      return d.layout !== 'cinema-statement' && !(project.design.dimensions && project.design.dimensions.heroDisplayVariant);
+    }
+    function layoutFor(project) {
+      const d = activeDirection(project);
+      if (!d) return null;
+      return heroShowsImage(project) ? d.layout : 'cinema-statement';
+    }
+
+    // ---- hero image prompt ---------------------------------------------------------------------------------------
+    const FINISHED_OUTCOMES = {
+      landscaping: 'a finished backyard -- natural stone patio, layered planting beds and a fresh green lawn',
+      roofing: 'a family home with a crisp, newly finished roof',
+      renovation: 'a freshly renovated kitchen and living space, finished and styled',
+      painting: 'a freshly painted home, crisp walls and clean trim',
+      plumbing: 'a finished modern bathroom with new fixtures',
+      electrical: 'a finished home interior glowing with new lighting',
+      cleaning: 'a spotless, sunlit living room after a deep clean',
+      automotive: 'a freshly detailed car with a mirror-like finish',
+      realestate: 'a beautiful home exterior at dusk, windows glowing',
+      nonprofit: 'the community work in progress, volunteers seen from behind',
+    };
+    function careMoment(categoryKey, text) {
+      const t = String(text || '');
+      if (/\bphysio\w*|rehab\w*|chiropract\w*/i.test(t)) return 'a physiotherapist guiding a patient through a gentle knee stretch, hands and posture in frame, faces out of frame';
+      if (/\bmassage\b/i.test(t)) return 'a calm massage treatment in progress, faces out of frame';
+      if (/\b(salon|barber|hair)\b/i.test(t)) return 'a stylist finishing a cut, hands and tools in frame, faces out of frame';
+      if (categoryKey === 'fitness') return 'a coach guiding a client through a lift in a bright training space, faces out of frame';
+      if (categoryKey === 'education') return 'a tutor and student working through notes at a bright table, hands in frame, faces out of frame';
+      if (categoryKey === 'professional' || categoryKey === 'finance') return 'a working session across a clean table -- documents, a laptop and two people\'s hands mid-conversation, faces out of frame';
+      return 'a treatment in progress in a calm, light-filled room, hands in frame, faces out of frame';
+    }
+    const CAMERA_FRAMING = {
+      push: 'Composed for a slow cinematic push-in: subject filling the right half, clean dark negative space on the left for a headline, extra margin on every edge.',
+      pan: 'Wide panoramic composition for a slow sideways camera pan: the scene continues past both edges, horizon on the upper third, calm lower-left area for a headline.',
+      parallax: 'Layered depth for a drifting camera: sharp foreground detail, softly blurred room behind, extra margin top and bottom.',
+      breathe: 'Calm, centred composition with room around the subject for a gentle slow zoom.',
+      float: 'Generous dark margin around the screen for floating motion.',
+      lightfield: '',
+    };
+    const possessive = n => (/s$/i.test(n) ? n + "'" : n + "'s");
+    const clip = (s, n) => (String(s || '').length > n ? String(s).slice(0, n - 1).replace(/\s+\S*$/, '') : String(s || ''));
+
+    // Deterministic hero prompt for a directed hero. `c`: { treatment, categoryKey,
+    // text, name, subject ("Fizzwell's sparkling energy drink"), offerings[], place,
+    // accent ("deep orange") }. Always names the business, never a hex colour,
+    // <= 600 characters (the client-side cap the other prompts respect).
+    function heroPrompt(c) {
+      const p = c || {};
+      const t = TREATMENTS[p.treatment] ? p.treatment : 'CARE';
+      const subject = clip(p.subject || p.name || 'the business', 90);
+      const place = p.place ? `, ${clip(p.place, 40)}` : '';
+      const offers = (p.offerings || []).slice(0, 3).map(o => String(o).toLowerCase());
+      const accent = p.accent || 'warm';
+      let shot;
+      if (t === 'PRODUCT_CLOSEUP') {
+        const drink = /\b(drink|beverage|soda|juice|sparkling|kombucha|energy)\b/i.test(p.text || '');
+        shot = `A dramatic close-up hero photograph of ${subject}${drink ? ', ice-cold with fine condensation' : ', tactile texture and glossy highlights'}${offers.length ? `, styled with ${offers.join(', ')} cues around it` : ''}, strong rim light on a ${accent} backdrop, premium advertising photography`;
+      } else if (t === 'FINISHED_WORK') {
+        shot = `A wide establishing photograph of ${p.name ? `${possessive(clip(p.name, 50))} work: ` : ''}${FINISHED_OUTCOMES[p.categoryKey] || `the finished work of ${subject}`}${place}, golden-hour light, real and lived-in, documentary quality`;
+      } else if (t === 'ATMOSPHERE') {
+        const detail = offers[0] ? `${offers[0]} in sharp focus` : 'one telling detail in sharp focus';
+        shot = `The atmosphere of ${subject}${place}: ${detail} in the foreground, the warm room softly blurred behind, natural light, candid editorial photography`;
+      } else if (t === 'CARE') {
+        shot = `A calm, light-filled moment at ${p.name ? clip(p.name, 50) : subject}${place}: ${careMoment(p.categoryKey, p.text)}, soft daylight, quiet neutral palette with a touch of ${accent}`;
+      } else if (t === 'INTERFACE') {
+        shot = `The ${subject} interface on a floating screen at a slight angle, one crisp key screen, ${accent} glow on a dark backdrop, polished product render`;
+      } else {
+        shot = `${subject}, one clear focal point`;
+      }
+      const tail = ' No text, no logos, no watermarks.';
+      const framing = CAMERA_FRAMING[TREATMENTS[t].camera];
+      let out = `${shot}. ${framing}${tail}`;
+      if (out.length > 600) out = `${clip(shot, 600 - tail.length - 2)}.${tail}`;
+      return out;
+    }
+    // A planner-written hero prompt keeps its subject; only the camera framing is
+    // added (the planner never knew the hero would move). Capped at the server's
+    // 1200-character prompt limit.
+    function framePlannedPrompt(prompt, direction) {
+      const base = String(prompt || '').trim();
+      const framing = direction && CAMERA_FRAMING[direction.camera];
+      if (!base || !framing || base.includes(framing)) return base;
+      return clip(`${base.replace(/[.\s]+$/, '')}. ${framing}`, 1200);
+    }
+
+    // ---- markup --------------------------------------------------------------------------------------------------
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    // The one hero renderer both sides call. Fields ending in Html are already
+    // escaped/rendered by the caller (its own copy, CTA button and visual slot);
+    // plain strings are escaped here.
+    //   { layout, camera, strength, kickerHtml, headlineHtml, subHtml, ctaHtml,
+    //     visualHtml, offerings[], name, place }
+    function renderCinemaHero(o) {
+      const layout = CINEMA_LAYOUTS.includes(o.layout) ? o.layout : 'cinema-statement';
+      const camera = CAMERAS.includes(o.camera) ? o.camera : 'lightfield';
+      const attrs = `class="site-hero hero-cinema hero-${layout}" data-cinema="${layout}" data-camera="${layout === 'cinema-statement' ? 'lightfield' : camera}" data-camera-strength="${o.strength === 'full' ? 'full' : 'gentle'}"`;
+      const items = (o.offerings || []).filter(Boolean).slice(0, 5).map(esc);
+      const place = o.place ? esc(o.place) : '';
+      const name = esc(o.name || '');
+      const copy = (extra) => `<div class="cinema-copy"><p class="cinema-kicker">${o.kickerHtml || ''}</p><h3>${o.headlineHtml || ''}</h3><p class="cinema-sub">${o.subHtml || ''}</p><div class="site-actions">${o.ctaHtml || ''}</div>${extra || ''}</div>`;
+      const cam = (cls) => `<div class="cinema-cam${cls ? ' ' + cls : ''}">${o.visualHtml || ''}</div>`;
+      switch (layout) {
+        case 'cinema-product':
+          return `<div ${attrs}>
+            <div class="cinema-stage" aria-hidden="true"><span class="cinema-glow"></span></div>
+            <div class="cinema-media">${cam()}<span class="cinema-sweep" aria-hidden="true"></span></div>
+            ${copy(items.length ? `<ul class="cinema-chips" aria-label="The range">${items.map(i => `<li><span class="cinema-chip-dot" aria-hidden="true"></span>${i}</li>`).join('')}</ul>` : '')}
+          </div>`;
+        case 'cinema-panorama':
+          return `<div ${attrs}>
+            <div class="cinema-media">${cam()}<span class="cinema-scrim" aria-hidden="true"></span><span class="cinema-light" aria-hidden="true"></span></div>
+            ${copy()}
+            ${items.length ? `<div class="cinema-strip">${place ? `<span class="cinema-strip-place">${place}</span>` : ''}<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul></div>` : ''}
+          </div>`;
+        case 'cinema-layered':
+          return `<div ${attrs}>
+            ${copy(items.length ? `<p class="cinema-note">${items.join(' <span aria-hidden="true">·</span> ')}</p>` : '')}
+            <div class="cinema-media">
+              <div class="cinema-frame cinema-frame-main">${cam()}</div>
+              <div class="cinema-frame cinema-frame-detail" aria-hidden="true">${cam('cinema-cam-detail')}</div>
+              ${name ? `<span class="cinema-tag" aria-hidden="true">${name}${place ? ` · ${place}` : ''}</span>` : ''}
+            </div>
+          </div>`;
+        case 'cinema-portrait':
+          return `<div ${attrs}>
+            ${copy(items.length ? `<ul class="cinema-checks">${items.slice(0, 4).map(i => `<li><span class="cinema-check" aria-hidden="true"></span>${i}</li>`).join('')}</ul>` : '')}
+            <div class="cinema-media"><span class="cinema-halo" aria-hidden="true"></span><div class="cinema-arch">${cam()}</div></div>
+          </div>`;
+        case 'cinema-interface':
+          return `<div ${attrs}>
+            ${copy()}
+            <div class="cinema-media">
+              <div class="cinema-device"><div class="cinema-device-bar" aria-hidden="true"><span></span><span></span><span></span></div><div class="cinema-device-screen">${cam()}</div></div>
+              ${items.slice(0, 3).map((i, n) => `<div class="cinema-float cinema-float-${n + 1}"><span class="cinema-float-dot" aria-hidden="true"></span>${i}</div>`).join('')}
+            </div>
+          </div>`;
+        default: {
+          const ticker = items.length ? `<div class="cinema-ticker" aria-hidden="true"><div class="cinema-ticker-track">${[0, 1].map(() => `<span>${items.join('</span><span>')}</span>`).join('')}</div></div>` : '';
+          return `<div ${attrs}>
+            <div class="cinema-field" aria-hidden="true"><span class="cinema-orb cinema-orb-a"></span><span class="cinema-orb cinema-orb-b"></span><span class="cinema-orb cinema-orb-c"></span></div>
+            ${copy()}
+            ${ticker}
+          </div>`;
+        }
+      }
+    }
+
+    module.exports = {
+      TREATMENTS, TREATMENT_KEYS, CINEMA_LAYOUTS, CAMERAS, CATEGORY_TREATMENT, FINISHED_OUTCOMES, CAMERA_FRAMING,
+      chooseTreatment, directHero, validDirection, activeDirection, heroShowsImage, layoutFor,
+      heroPrompt, framePlannedPrompt, renderCinemaHero,
+    };
+
+  });
   __define("image-planning", function (module, exports, require) {
     'use strict';
     // Image role planning, source priority, composition-aware prompts, aspect
@@ -1918,7 +2187,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), heroDirection: require('./hero-direction'), offeringCopy: require('./offering-copy'), sectionVoice: require('./section-voice'), metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -2333,6 +2602,174 @@
       STAGGER_SECTION_TYPES, sectionRevealFor, staggerFor,
       STICKY_MODES, normalizeStickyMode, stickyEligible, pickStickySection,
     };
+
+  });
+  __define("offering-copy", function (module, exports, require) {
+    'use strict';
+    // OFFERING COPY -- one honest line under each service/feature/menu item.
+    //
+    // Replaces the category-wide filler that used to sit under every card no
+    // matter what it was ("Real landscaping work, presented clearly.", "Built
+    // around X, without the busywork."). Each line describes what the offering
+    // IS, from a small lexicon of common offerings, and otherwise falls back to a
+    // sentence anchored to this business (its name and place). Rules:
+    //   * never an invented fact (no years, awards, prices, guarantees, numbers);
+    //   * product facts only when the owner's own description states them
+    //     ("zero sugar", "natural flavours", "for sensitive skin");
+    //   * the same input always gives the same line (no randomness).
+    // Pure, shared by the live preview (premium-core.js bundle) and the export
+    // (lib/site-render.js) -- same flag-independence as hero-direction.js.
+
+    const LEXICON = [
+      // outdoor / landscaping
+      [/\b(patio|patios|paver|pavers|flagstone|hardscap\w*|walkway|walkways|retaining wall|stonework|stone)\b/i, 'Patios, paths and stone walls laid to suit the yard you have.'],
+      [/\b(garden design|landscape design|planting|garden beds?|perennials?|garden)\b/i, 'Planting plans and garden beds designed around your light, soil and how you use the space.'],
+      [/\b(lawn|lawns|turf|sod)\b/i, 'Mowing, edging and feeding that keep the lawn thick and even.'],
+      [/\b(clean ?ups?|seasonal|leaf|leaves|snow)\b/i, 'Spring and fall visits that clear beds and leaves and reset the yard for the season.'],
+      [/\b(irrigation|sprinklers?)\b/i, 'Watering systems set up so the garden looks after itself.'],
+      [/\b(trees?|pruning|hedges?)\b/i, 'Pruning and shaping that keep trees and hedges healthy and tidy.'],
+      // trades
+      [/\b(roof|roofs|roofing|shingles?)\b/i, 'Roof repairs and replacements, inspected and finished properly.'],
+      [/\b(gutters?)\b/i, 'Gutters cleared, repaired or replaced so water goes where it should.'],
+      [/\b(kitchens?)\b/i, 'Kitchens planned and rebuilt around how you actually cook.'],
+      [/\b(bathrooms?|baths?)\b/i, 'Bathrooms rebuilt with fixtures and finishes chosen to last.'],
+      [/\b(drains?|pipes?|pipework|leaks?|plumbing)\b/i, 'Leaks, drains and pipework found and fixed without the runaround.'],
+      [/\b(wiring|panels?|electrical|lighting)\b/i, 'Wiring, panels and lighting, done safely and neatly.'],
+      [/\b(painting|paint)\b/i, 'Walls and trim prepared properly, then painted cleanly.'],
+      [/\b(deep clean\w*|move.?out|cleaning)\b/i, 'A thorough clean, room by room, on a schedule that suits you.'],
+      [/\b(detailing|detail)\b/i, 'Inside-and-out detailing that brings the finish back.'],
+      // care / wellness / fitness
+      [/\b(sports injur\w*|injur\w*|rehab\w*)\b/i, 'An assessment first, then a step-by-step plan to get you back to what you do.'],
+      [/\b(dry needling|needling|acupuncture)\b/i, 'Targeted needling to ease tight, painful muscles.'],
+      [/\b(post.?surg\w*|post.?op\w*|recovery)\b/i, 'Guided recovery after surgery, from first movements back to full strength.'],
+      [/\b(massage)\b/i, 'Hands-on massage to ease tension and help you recover.'],
+      [/\b(pilates|yoga|classes?)\b/i, 'Small classes that build strength, balance and control.'],
+      [/\b(personal training|coaching|training)\b/i, 'One-to-one sessions built around your goals.'],
+      // food / hospitality
+      [/\b(single.?origin|beans|roast\w*)\b/i, 'Whole-bean coffee to take home and brew your way.'],
+      [/\b(pour.?over|espresso|coffee bar|brew\w*)\b/i, 'Coffee made to order at the bar, one cup at a time.'],
+      [/\b(pastr\w*|croissants?|bak\w*|bread|cakes?)\b/i, 'Pastries and bakes, fresh from the counter.'],
+      [/\b(brunch|breakfast)\b/i, 'Breakfast and brunch plates from the kitchen.'],
+      [/\b(cocktails?|wine|bar)\b/i, 'Drinks from the bar, from the classics to house pours.'],
+      [/\b(catering|events?)\b/i, 'Food for your event, planned with you from menu to service.'],
+      // products
+      [/\b(variety|pack|bundle|sampler|set)\b/i, 'A mix of the range in one order.'],
+      [/\b(cleansers?)\b/i, 'A gentle cleanse for every day.'],
+      [/\b(serums?)\b/i, 'Concentrated serums for targeted care.'],
+      [/\b(moisturi[sz]ers?)\b/i, 'Daily moisture that sits comfortably on the skin.'],
+      // software
+      [/\b(online booking|booking|schedul\w*)\b/i, 'Clients book online at any hour, without a phone call.'],
+      [/\b(reminders?|notifications?)\b/i, 'Automatic reminders sent before every appointment.'],
+      [/\b(reports?|reporting|analytics|dashboards?)\b/i, 'Clear reports on what is working and what is not.'],
+      [/\b(integrations?)\b/i, 'Connects with the tools you already use.'],
+      [/\b(invoic\w*|billing|payments?)\b/i, 'Invoices and payments handled in one place.'],
+    ];
+    const FLAVOURS = /\b(peach|cherry|citrus|lemon|lime|berry|berries|mango|grape|orange|mint|vanilla|chocolate|raspberry|strawberry|blueberry|watermelon|ginger|apple|coconut|pineapple|passionfruit)\b/i;
+    // Product facts the owner may state themselves -- carried through verbatim, never assumed.
+    const STATED_FACTS = [/\bzero sugar\b/i, /\bsugar[- ]free\b/i, /\bnatural (?:flavou?rs?|ingredients)\b/i, /\borganic\b/i, /\bvegan\b/i, /\bgluten[- ]free\b/i, /\bfragrance[- ]free\b/i, /\bcruelty[- ]free\b/i, /\bhandmade\b/i, /\bsmall[- ]batch\b/i, /\bfor sensitive skin\b/i];
+
+    const GROUP = {
+      landscaping: 'crew', roofing: 'crew', renovation: 'crew', painting: 'crew', plumbing: 'crew', electrical: 'crew', cleaning: 'crew', automotive: 'crew',
+      wellness: 'care', fitness: 'care', education: 'care',
+      hospitality: 'venue', retail: 'range', fashion: 'range', tech: 'product', professional: 'advice', finance: 'advice',
+    };
+
+    function statedFacts(text) {
+      const t = String(text || '');
+      const out = [];
+      STATED_FACTS.forEach(re => { const m = t.match(re); if (m && out.length < 2) out.push(m[0].toLowerCase()); });
+      return out;
+    }
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+    // ctx: { categoryKey, name, place, text }
+    function describeOffering(label, ctx) {
+      const c = ctx || {};
+      const item = String(label || '').trim();
+      if (!item) return '';
+      const group = GROUP[c.categoryKey] || 'other';
+      const flavour = (group === 'range' || /\b(drink|beverage|soda|juice|energy|tea|kombucha|candle)\b/i.test(c.text || '')) && item.match(FLAVOURS);
+      if (flavour) {
+        const facts = statedFacts(c.text);
+        return `${cap(flavour[0].toLowerCase())} flavour${facts.length ? ` -- ${facts.join(', ')}` : ''}.`;
+      }
+      for (const [re, line] of LEXICON) if (re.test(item)) return line;
+      const name = c.name ? String(c.name) : '';
+      const place = c.place ? String(c.place) : '';
+      switch (group) {
+        case 'crew': return `${item}, planned and carried out by ${name ? `the ${name} team` : 'our own team'}${place ? ` across ${place}` : ''}.`;
+        case 'care': return `${item}, one-to-one${name ? ` at ${name}` : ''}${place ? ` in ${place}` : ''}.`;
+        case 'venue': return `${item}, served${name ? ` at ${name}` : ''}${place ? ` in ${place}` : ''}.`;
+        case 'range': { const facts = statedFacts(c.text); return `${item}${name ? ` from the ${name} range` : ''}${facts.length ? ` -- ${facts.join(', ')}` : ''}.`; }
+        case 'product': return `${item}, built into ${name || 'the product'}.`;
+        case 'advice': return `${item}, handled directly${name ? ` by ${name}` : ''}.`;
+        default: return `${item}${name ? ` from ${name}` : ''}${place ? ` in ${place}` : ''}.`;
+      }
+    }
+
+    function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    // A menu of what the business actually offers -- replaces the invented
+    // "Starters / Mains / Desserts" groups and grey skeleton lines.
+    function renderMenuList(labels, ctx) {
+      return `<ol class="menu-list">${(labels || []).map(l => `<li class="menu-item"><strong>${esc(l)}</strong><span class="menu-item-rule" aria-hidden="true"></span><p>${esc(describeOffering(l, ctx))}</p></li>`).join('')}</ol>`;
+    }
+
+    // The About statement in the owner's own words: the first sentence or two of
+    // the description they typed ("Fern & Flint is a specialty coffee roaster and
+    // cafe in Portland. Single-origin beans, pour-over bar and fresh pastries."),
+    // which is specific and true, instead of a category-wide line. null when the
+    // description is too thin to stand on its own (the caller keeps its fallback).
+    function ownWordsAbout(text) {
+      const t = String(text || '').replace(/\s+/g, ' ').trim();
+      if (t.split(' ').length < 8) return null;
+      const sentences = t.match(/[^.!?]+[.!?]+/g) || [t];
+      let out = '';
+      for (const s of sentences) { if ((out + s).length > 280) break; out += s; }
+      out = (out || t.slice(0, 277) + '...').trim();
+      if (!/[.!?]$/.test(out)) out += '.';
+      return out.charAt(0).toUpperCase() + out.slice(1);
+    }
+
+    // A caption that names the business and what it offers -- used where a
+    // section had no copy of its own and used to repeat the hero's subheading.
+    function offeringsLine(name, place, offerings) {
+      const items = (offerings || []).filter(Boolean).slice(0, 4);
+      const who = [name, place].filter(Boolean).join(', ');
+      if (!items.length) return who || null;
+      return who ? `${who}: ${items.join(' · ')}` : items.join(' · ');
+    }
+
+    // The fallback FAQ, from the business itself: what it offers (and where), how
+    // to take the next step the way THIS kind of business actually converts, and
+    // where it is -- replacing "What does X actually do?" answered with a category
+    // tagline and "Is support included? Yes -- real help" on a clinic's site.
+    // Plain strings (the renderers escape). A planner's own FAQ items still win.
+    const NEXT_STEP = {
+      care: ['How do I book?', "Book online or get in touch, and we'll find a time that suits you."],
+      venue: ['How do I make a reservation?', "Get in touch or book ahead, and we'll have a place ready for you."],
+      crew: ['How do I get a quote?', "Tell us about the job and where it is, and we'll come back with a clear quote."],
+      range: ['How do I order?', 'Order online, and get in touch if you have a question about the range.'],
+      product: ['How do I get started?', "Get in touch or sign up, and we'll help you get set up."],
+      advice: ['How do I book a consultation?', "Get in touch, and we'll set up a first conversation."],
+      other: ['How do I get started?', "Get in touch and we'll walk you through it."],
+    };
+    function listPhrase(items) { return items.length <= 1 ? (items[0] || '') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]; }
+    function faqItems(c) {
+      const ctx = c || {};
+      const name = ctx.name || '';
+      const place = ctx.place || '';
+      const offers = (ctx.offerings || []).filter(Boolean).slice(0, 5).map(o => String(o).toLowerCase());
+      const group = GROUP[ctx.categoryKey] || 'other';
+      const out = [];
+      if (offers.length) out.push({ q: 'What does ' + (name || 'this business') + ' offer?', a: (name ? name + ' offers ' : 'We offer ') + listPhrase(offers) + (place ? ' in ' + place : '') + '.' });
+      const next = NEXT_STEP[group] || NEXT_STEP.other;
+      out.push({ q: next[0], a: next[1] });
+      if (place) out.push({ q: 'Where are you based?', a: (name ? name + ' is' : "We're") + ' based in ' + place + '.' });
+      else out.push({ q: 'What if I’m not sure this is right for me?', a: 'Get in touch -- we’re happy to talk through whether it’s a good fit.' });
+      return out;
+    }
+
+    module.exports = { describeOffering, statedFacts, renderMenuList, ownWordsAbout, offeringsLine, faqItems, LEXICON };
 
   });
   __define("quality-review", function (module, exports, require) {
@@ -2780,6 +3217,139 @@
     }
 
     module.exports = { STATES, SCOPES, ensure, allSections, stateOf, setState, markAllGood, lock, unlock, autoRepairAllowed, planRegeneration };
+
+  });
+  __define("section-voice", function (module, exports, require) {
+    'use strict';
+    // SECTION VOICE -- the archetype-specific wording of the testimonial sections,
+    // shared by the live preview (script.js sectionVocab overlays it) and the export
+    // (lib/site-render.js), which used to show three generic quotes on every site
+    // whatever the business. Illustrative placeholder quotes meant to be replaced
+    // by the owner's real reviews; never presented as verified proof. Moved here
+    // verbatim from script.js's ARCHETYPE_SECTION_VOCAB so both sides show the same words.
+    const TESTIMONIAL_VOICE = {
+      "service-business": {
+        label: "What Clients Say",
+        quotes: [
+          "Clear communication from start to finish.",
+          "A considered process, from first conversation to final delivery.",
+          "Useful expertise without unnecessary complexity."
+        ],
+        attribution: "Client"
+      },
+      hospitality: {
+        label: "What Guests Say",
+        quotes: [
+          "A room worth returning to.",
+          "Every detail felt considered, right down to the pacing.",
+          "The kind of evening you end up telling people about."
+        ],
+        attribution: "Regular guest"
+      },
+      "premium-consultancy": {
+        label: "What Clients Say",
+        quotes: [
+          "Exactly the kind of judgment you want on something this important.",
+          "Discreet, thorough, and worth every conversation.",
+          "A rare level of care for the details that matter."
+        ],
+        attribution: "Private client"
+      },
+      portfolio: {
+        label: "Client Feedback",
+        quotes: [
+          "Work that speaks for itself.",
+          "Exactly the direction we didn’t know we needed.",
+          "Meticulous, from the first sketch to the final file."
+        ],
+        attribution: "Client"
+      },
+      "product-led-saas": {
+        label: "What Teams Say",
+        quotes: [
+          "It just works, and support actually answers.",
+          "Cut our setup time down to almost nothing.",
+          "The one tool the whole team actually uses."
+        ],
+        attribution: "Product lead"
+      },
+      "editorial-brand": {
+        label: "In Their Words",
+        quotes: [
+          "Every piece feels considered.",
+          "A point of view you can actually see.",
+          "Quality that holds up past the first wear."
+        ],
+        attribution: "Customer"
+      },
+      "ecommerce-showcase": {
+        label: "What Customers Say",
+        quotes: [
+          "Exactly as described, and it arrived fast.",
+          "The quality is obviously a step up.",
+          "Already ordered a second time."
+        ],
+        attribution: "Customer"
+      },
+      "local-conversion": {
+        label: "What Customers Say",
+        quotes: [
+          "Showed up on time and did it right the first time.",
+          "Straightforward pricing, no surprises.",
+          "Would call them again without hesitation."
+        ],
+        attribution: "Local customer"
+      },
+      "trust-heavy-professional": {
+        label: "What Clients Say",
+        quotes: [
+          "Finally, someone who explains things clearly.",
+          "Diligent and always reachable when it mattered.",
+          "Handled things I didn’t even know to ask about."
+        ],
+        attribution: "Client"
+      },
+      "launch-campaign": {
+        label: "Early Feedback",
+        quotes: [
+          "Exactly the kind of thing I’ve been waiting for.",
+          "Already better than what I was using.",
+          "Glad I got in early."
+        ],
+        attribution: "Early user"
+      },
+      "community-nonprofit": {
+        label: "Voices from the Community",
+        quotes: [
+          "This work made a real difference for us.",
+          "Transparent about where the help actually goes.",
+          "Easy to get involved, and it mattered."
+        ],
+        attribution: "Community member"
+      }
+    };
+    // Care businesses sit in the trades' archetype ('local-conversion'), whose
+    // quotes ("Straightforward pricing, no surprises.") read wrong for a clinic,
+    // spa or gym -- they get their own voice.
+    const CATEGORY_TESTIMONIAL = {
+      wellness: { label: 'What Clients Say', quotes: ['They listened first, then explained what they would do.', 'Easy to book, and I always knew what came next.', 'I left feeling better than when I walked in.'], attribution: 'Client' },
+      fitness: { label: 'What Members Say', quotes: ['Sessions built around where I actually am.', 'A clear plan, and progress I can see.', 'The coaching keeps me coming back.'], attribution: 'Member' },
+    };
+    function testimonialVoice(archetype, categoryKey) { return CATEGORY_TESTIMONIAL[categoryKey] || TESTIMONIAL_VOICE[archetype] || TESTIMONIAL_VOICE['service-business']; }
+    // Deterministic per-business pick, same rule as script.js renderTestimonial.
+    function pickQuote(voice, seedHash) { return voice.quotes[Math.abs(seedHash || 0) % voice.quotes.length]; }
+
+    // Care businesses share the 'local-conversion' archetype with trades, whose
+    // process ("A straight quote", "We do the work") reads wrong for a clinic or a
+    // coach -- they get an appointment-shaped process instead, in both renderers.
+    const CATEGORY_PROCESS = {
+      wellness: { label: 'Your First Visit', steps: ['Book online', 'An assessment first', 'A plan for you', 'Follow-up sessions'] },
+      fitness: { label: 'Getting Started', steps: ['Book a first session', 'Talk through your goals', 'Train with a plan', 'Track your progress'] },
+      education: { label: 'How It Works', steps: ['Get in touch', 'A first session', 'A plan that fits', 'Steady progress'] },
+    };
+    function processVoiceFor(categoryKey) { return CATEGORY_PROCESS[categoryKey] || null; }
+
+    module.exports = { TESTIMONIAL_VOICE, CATEGORY_TESTIMONIAL, testimonialVoice, pickQuote, CATEGORY_PROCESS, processVoiceFor };
 
   });
   __define("semantic", function (module, exports, require) {

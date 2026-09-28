@@ -70,8 +70,11 @@ function loadClient({ fetchHandler } = {}) {
   ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx;
   ctx.addEventListener = () => {}; ctx.removeEventListener = () => {};
   vm.createContext(ctx);
-  // Same load order as index.html: the icon data first, then the app.
+  // Same load order as index.html: the icon data, the shared premium core
+  // (hero direction, visual/motion engines -- loaded on every page, flag or no
+  // flag), then the app.
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', '..', 'icons-data.js'), 'utf8'), ctx, { filename: 'icons-data.js' });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', '..', 'premium-core.js'), 'utf8'), ctx, { filename: 'premium-core.js' });
   vm.runInContext(fs.readFileSync(SCRIPT_PATH, 'utf8'), ctx, { filename: 'script.js' });
   return {
     ctx,

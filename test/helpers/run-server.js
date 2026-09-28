@@ -5,7 +5,10 @@
 // SUPABASE_URL is set, Supabase's /auth/v1/user token check -- everything
 // else, including the database, asset store, auth and credits, is the real
 // code).
-//   MOCK_PLANNER = success | malformed | error   (default success)
+//   MOCK_PLANNER = success | malformed | error   (default success). On success the
+//     plan is the fixture whose business name the request mentions (Fizzwell,
+//     Greenline Landscapes), else FIZZWELL_PLAN. Any other Claude tool (the
+//     premium critics) answers 529, so those paths take their no-Claude fallback.
 //   MOCK_IMAGE_DELAY_MS = ms before a mock image response (default 0)
 //   MOCK_REFINEMENT_IMAGE_SLOT = slot the mock Workplace-edit plan regenerates (default hero)
 //   MOCK_SUPABASE_USER_ID / MOCK_SUPABASE_EMAIL = the identity any bearer token verifies as
@@ -14,7 +17,8 @@
 const fs = require('fs');
 const path = require('path');
 const { mockPng } = require('./mock-image');
-const { FIZZWELL_PLAN } = require('../fixtures/businesses');
+const { FIZZWELL_PLAN, GREENLINE_PLAN } = require('../fixtures/businesses');
+const MOCK_PLANS = [FIZZWELL_PLAN, GREENLINE_PLAN];
 
 const realFetch = globalThis.fetch;
 const log = entry => { if (process.env.MOCK_CALL_LOG) fs.appendFileSync(process.env.MOCK_CALL_LOG, JSON.stringify(entry) + '\n'); };
@@ -40,8 +44,10 @@ globalThis.fetch = async function (url, options) {
       return json({ model: body.model, usage, content: [{ type: 'tool_use', name: tool, input }] });
     }
     const mode = process.env.MOCK_PLANNER || 'success';
-    if (mode === 'error') return json({ error: { message: 'mock: overloaded' } }, 529);
-    const input = mode === 'malformed' ? { ...FIZZWELL_PLAN, pages: 'not-an-array' } : FIZZWELL_PLAN;
+    if (mode === 'error' || tool !== 'submit_website_plan') return json({ error: { message: 'mock: overloaded' } }, 529);
+    const asked = JSON.stringify(body.messages || '');
+    const plan = MOCK_PLANS.find(p => asked.includes(p.business.name)) || FIZZWELL_PLAN;
+    const input = mode === 'malformed' ? { ...plan, pages: 'not-an-array' } : plan;
     return json({ model: body.model, usage, content: [{ type: 'tool_use', name: tool, input }] });
   }
   if (process.env.SUPABASE_URL && u.startsWith(process.env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user')) {

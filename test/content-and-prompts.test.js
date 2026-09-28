@@ -90,7 +90,12 @@ test('image prompts: every slot gets its own prompt, about THIS business, with c
 test('AI image prompts: every planned prompt can reach a slot (not one per role), none is used twice', () => {
   const { proj } = buildProject(loadClient(), FIZZWELL_TEXT, { claudePlanRaw: FIZZWELL_PLAN, providerStatus: fundedProviderStatus() });
   const planned = new Set(FIZZWELL_PLAN.imagePlan.map(e => e.prompt));
-  const used = proj.imagePlan.map(e => e.prompt).filter(p => planned.has(p));
+  // A directed hero keeps the planner's prompt and appends only its camera framing (lib/premium/hero-direction.js).
+  const plannedOf = p => [...planned].find(pl => p === pl || p.startsWith(pl.replace(/[.\s]+$/, '') + '. '));
+  const used = proj.imagePlan.map(e => plannedOf(e.prompt)).filter(Boolean);
+  const hero = proj.imagePlan.find(e => e.slot === 'hero');
+  assert.ok(hero.prompt.startsWith(FIZZWELL_PLAN.imagePlan[0].prompt) && /push-in/.test(hero.prompt), 'the hero keeps the planned shot and gains the camera framing');
+  assert.ok(proj.imagePlan.filter(e => e.slot !== 'hero').every(e => !/push-in|camera pan/.test(e.prompt)), 'only the hero is framed for motion');
   assert.equal(new Set(used).size, used.length, 'a planned prompt was assigned to two slots');
   assert.equal(used.length, Math.min(planned.size, proj.imagePlan.length), 'planned prompts were discarded while slots fell back to generic ones');
   const galleryPrompts = proj.imagePlan.filter(e => e.role === 'gallery').map(e => e.prompt);

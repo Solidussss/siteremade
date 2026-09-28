@@ -147,7 +147,7 @@ const categoryKeywords = {
   creative:['design studio','photography','photographer','creative agency','videograph','branding studio','illustrator','creative studio','ad agency','marketing agency','film studio','animation studio'],
   fitness:['gym','fitness','personal training','crossfit','training studio','boutique fitness','pilates','spin studio','martial arts','boxing gym'],
   realestate:['real estate','realtor','property management','realty','brokerage','property developer'],
-  wellness:['spa','wellness','therapy','massage','yoga studio','salon','esthetic','acupuncture','holistic health','meditation studio'],
+  wellness:['spa','wellness','therapy','massage','yoga studio','salon','esthetic','acupuncture','holistic health','meditation studio','physio','chiropract','osteopath','naturopath','dental clinic','dentist','barber'],
   retail:['retail','shop','store','boutique','shopping','e-commerce','ecommerce','online store','dtc brand','direct-to-consumer','skincare brand','beauty brand'],
   nonprofit:['nonprofit','non-profit','charity','community organization','foundation','ngo','advocacy group','ocean cleanup','conservation','humanitarian'],
   professional:['consult','law firm','legal','advisor','accounting firm','cpa firm','advisory firm','consultancy'],
@@ -961,10 +961,17 @@ const archetypeKeywordOverrides = [
   { archetype: 'product-led-saas', keywords: ['saas', 'software platform', 'api', 'developer tool', 'product-led'] },
   { archetype: 'local-conversion', keywords: ['near me', 'service area', 'same-day', 'same day', 'emergency service', 'free quote', 'serving the'] }
 ];
+function archetypeKeywordPresent(lower, kw) {
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + escaped + '(s|es)?(?![a-z0-9])').test(lower);
+}
 function inferArchetype(categoryKey, text) {
   const lower = String(text || '').toLowerCase();
   for (const entry of archetypeKeywordOverrides) {
-    if (entry.keywords.some(kw => lower.includes(kw))) return entry.archetype;
+    // whole words only (plural allowed): a raw substring test made 'api' match
+    // 'landscaping'/'therapist'/'capital' (every landscaper was planned as SaaS)
+    // and 'bar' match 'barber'
+    if (entry.keywords.some(kw => archetypeKeywordPresent(lower, kw))) return entry.archetype;
   }
   return categoryDefaultArchetype[categoryKey] || categoryDefaultArchetype.other;
 }
@@ -1781,8 +1788,44 @@ function deterministicImagePrompt(project, category, role, index) {
 // subject-led prompt, varied by `index` (this slot's position among slots of
 // the same role).
 function buildImagePrompt(project, category, role, index = 0, plannedPrompt = null) {
+  // HERO DIRECTION: the directed hero's one image is shot FOR its camera move
+  // (a push-in needs margin, a pan needs a scene that continues past the
+  // edges). A planner's own hero prompt keeps its subject and gains only the
+  // framing; otherwise the treatment writes the whole shot.
+  const direction = role === 'hero' && index === 0 ? activeHeroDirection(project) : null;
+  if (direction) {
+    const H = heroDirectionLib();
+    return plannedPrompt ? H.framePlannedPrompt(plannedPrompt, direction) : directedHeroPrompt(project, category, direction);
+  }
   if (plannedPrompt) return plannedPrompt;
   return deterministicImagePrompt(project, category, role, index);
+}
+// ---- HERO DIRECTION (lib/premium/hero-direction.js, bundled in premium-core.js) ----
+// Shared with the static export so both render the same moving hero. Loaded on
+// every page regardless of PREMIUM_GENERATION_V1; absent (an old cached page,
+// a test harness without the bundle) means the classic hero layouts, unchanged.
+function heroDirectionLib() {
+  return (typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.heroDirection) || null;
+}
+function activeHeroDirection(project) {
+  const H = heroDirectionLib();
+  return H ? H.activeDirection(project) : null;
+}
+function directHeroForProject(proj) {
+  const H = heroDirectionLib();
+  if (!H) return null;
+  const dims = proj.design.dimensions || {};
+  return H.directHero({ categoryKey: proj.business.categoryKey, archetype: proj.strategy && proj.strategy.archetype, text: proj.source && proj.source.text, motion: dims.motion, hero: dims.hero });
+}
+function directedHeroPrompt(project, category, direction) {
+  const descriptor = (project.source && project.source.descriptor) || {};
+  const noun = definingPhraseFor(project.source && project.source.text) || descriptor.descriptor || descriptor.offering || (category.noun && category.label ? `${category.label.toLowerCase()} ${category.noun}` : 'the business');
+  const name = project.business && project.business.name && !(project.meta && project.meta.previewBrandName) ? project.business.name : '';
+  return heroDirectionLib().heroPrompt({
+    treatment: direction.treatment, categoryKey: project.business.categoryKey, text: project.source && project.source.text,
+    name, subject: name ? `${name}'s ${noun}` : `a ${noun}`, offerings: offeringsFor(project, category),
+    place: project.source && project.source.location, accent: colourWordForHex(project.design.palette && project.design.palette.main),
+  });
 }
 // One entry per real, currently-rendered visual slot (the same slot ids
 // renderHero/renderAbout/renderProductShowcase/renderImageLedEditorial pass
@@ -2266,7 +2309,7 @@ function premiumPlanEntry(project, category, s, pd) {
   }
   return {
     ...s, aspectRatio: pd.aspectRatio || s.aspectRatio, placement: s.role,
-    prompt: pd.prompt || buildImagePrompt(project, category, s.role), promptAlt: pd.promptSimplified || null,
+    prompt: (s.slot === 'hero' && pd.prompt && activeHeroDirection(project)) ? heroDirectionLib().framePlannedPrompt(pd.prompt, activeHeroDirection(project)) : (pd.prompt || buildImagePrompt(project, category, s.role)), promptAlt: pd.promptSimplified || null,
     sourceType: pd.sourceType, model: generated ? pd.model : null, quality: generated ? pd.quality : null,
     estimatedCostUsd: generated ? pd.estimatedUsd : null, creditCost: generated ? imageCreditCostForRoute(pd.model) : null,
     cacheKey: computeImageCacheKey(project, s.role, s.slot),
@@ -2420,7 +2463,10 @@ function buildImagePlan(project, category, remainingCredits) {
   // reconcileImageSupplyWithSections) the same way section-level
   // `imageDisplayVariant`/`imageTileCount` overrides already are below.
   const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
-  const heroHasVisual = !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant);
+  // HERO DIRECTION: a directed hero shows exactly one image (the 'hero' slot)
+  // unless it fell back to its moving typographic STATEMENT treatment.
+  const directedShowsImage = heroDirectionLib() ? heroDirectionLib().heroShowsImage(project) : null;
+  const heroHasVisual = directedShowsImage !== null ? directedShowsImage : !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant);
   // TIERED IMAGE SPEND PASS: every pushed slot now also carries `rank`
   // (lower = funded first) and `idealTier` (see IMAGE_SLOT_TIER_BUCKETS)
   // computed at push time from its actual role/position, not guessed later
@@ -2431,7 +2477,7 @@ function buildImagePlan(project, category, remainingCredits) {
     // The collage hero layout uses a second image-bearing card -- only real
     // when that layout is actually selected, so we never plan/generate an
     // image for a slot that won't be on screen.
-    if (composed.hero === 'collage') {
+    if (composed.hero === 'collage' && directedShowsImage === null) {
       slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     }
   }
@@ -2665,7 +2711,9 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
   if (heroEntry && heroEntry.sourceType === 'designed' && !starterVisualsEnabled(proj)) {
     const composed = proj.design.dimensions;
     const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
-    if (!TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
+    // A directed hero asked for an image even over a text-only base layout,
+    // so an unfunded one must always be marked (it then renders STATEMENT).
+    if (activeHeroDirection(proj) ? !composed.heroDisplayVariant : !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
       const mapped = mapHeroToTextOnlyVariant(composed.hero);
       if (composed.heroDisplayVariant !== mapped) {
         composed.heroDisplayVariant = mapped;
@@ -2975,6 +3023,22 @@ function renderHero(project, category) {
   // own site. Now shown only when a real showcase section is actually on
   // Home, so it stops being a promise the site itself doesn't keep.
   const hasShowcase = (project.sections || []).some(s => ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(s.type));
+  // HERO DIRECTION: the art-directed moving hero (same markup as the export --
+  // lib/premium/hero-direction.js renderCinemaHero).
+  const heroDirection = layout !== 'demo' ? activeHeroDirection(project) : null;
+  if (heroDirection) {
+    let cinemaLayout = heroDirectionLib().layoutFor(project);
+    // a planned image that then failed (or never arrived) never leaves an empty frame
+    if (cinemaLayout !== 'cinema-statement' && !isVisualSlotFunded(project, 'hero', plan.hero)) cinemaLayout = 'cinema-statement';
+    return heroDirectionLib().renderCinemaHero({
+      layout: cinemaLayout, camera: heroDirection.camera, strength: heroDirection.strength,
+      kickerHtml: kicker, headlineHtml: headline, subHtml: sub, ctaHtml: ctaBtn,
+      visualHtml: cinemaLayout === 'cinema-statement' ? '' : visual,
+      offerings: offeringsFor(project, category),
+      name: project.meta && project.meta.previewBrandName ? '' : project.business.name,
+      place: project.source && project.source.location,
+    });
+  }
   // SITEREMADE_VISUAL_ENGINE_V1: every hero layout carries its family/depth as data attributes (CSS hooks + testable
   // state), even the pre-existing ones -- so the new vocabulary describes the whole hero system, not just the 3 new layouts.
   const VE = window.SiteRemadePremium && window.SiteRemadePremium.visualEngine;
@@ -3188,7 +3252,7 @@ const ARCHETYPE_SECTION_VOCAB = {
     processSteps: ['Browse', 'Order', 'Fast, tracked shipping', 'Enjoy'],
     testimonialsLabel: 'What Customers Say',
     testimonialQuotes: ['Exactly as described, and it arrived fast.', 'The quality is obviously a step up.', 'Already ordered a second time.'],
-    testimonialAttribution: 'Verified customer',
+    testimonialAttribution: 'Customer', // illustrative placeholder quotes are never labelled as verified reviews
     aboutFrame: (category) => `${titleCase(category.noun)} chosen and made with real care, not just stocked.`,
     serviceCardBody: () => "A closer look at what's in stock.",
     faqSecondQuestion: 'How do I place an order?'
@@ -3236,7 +3300,14 @@ const ARCHETYPE_SECTION_VOCAB = {
 };
 function sectionVocab(project) {
   const archetype = (project.strategy && project.strategy.archetype) || 'service-business';
-  return ARCHETYPE_SECTION_VOCAB[archetype] || ARCHETYPE_SECTION_VOCAB['service-business'];
+  const base = ARCHETYPE_SECTION_VOCAB[archetype] || ARCHETYPE_SECTION_VOCAB['service-business'];
+  // Testimonial wording comes from the module the export also reads
+  // (lib/premium/section-voice.js) so the purchased site says what the preview did.
+  const V = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.sectionVoice;
+  if (!V) return base;
+  const voice = V.testimonialVoice(archetype, project.business && project.business.categoryKey);
+  const proc = V.processVoiceFor(project.business && project.business.categoryKey);
+  return { ...base, testimonialsLabel: voice.label, testimonialQuotes: voice.quotes, testimonialAttribution: voice.attribution, ...(proc ? { processLabel: proc.label, processSteps: proc.steps } : {}) };
 }
 function renderServices(project, category, section) {
   // V8.4: a 'quote' module enabled on a services section renders the real
@@ -3244,7 +3315,7 @@ function renderServices(project, category, section) {
   // never replacing it, since the list of services is still real, useful
   // information a quote module doesn't duplicate.
   const moduleHtml = (section && section.module && section.module.enabled && section.module.type === 'quote')
-    ? renderFormModuleWidget(project, section, 'Request a quote') : '';
+    ? renderFormModuleWidget(project, { ...section, copy: { ...(section.copy || {}), headline: 'Request a quote' } }, 'Request a quote') : ''; // its own heading, never the services headline twice
   const variant = section && section.variant;
   const packItems = editorialItems(section);
   const labels = packItems ? packItems.map(x => x.title) : offeringsFor(project, category);
@@ -3264,13 +3335,13 @@ function renderServices(project, category, section) {
     const vocab = sectionVocab(project);
     return `<div class="site-section site-section-services" data-variant="described">
       ${headerHtml}
-      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', (l, i) => `${packItems ? '' : renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 22, className: 'service-card-icon' })}<strong>${escapeHtml(l)}</strong>${packItems ? (packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : '') : `<p>${escapeHtml(safeBuilderText(project, vocab.serviceCardBody(l, category)))}</p>`}`)}</div>
+      <div class="site-services-cards">${renderCardGroup(labels, 'service-card', (l, i) => `${packItems ? '' : renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 22, className: 'service-card-icon' })}<strong>${escapeHtml(l)}</strong>${packItems ? (packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : '') : `<p>${escapeHtml(safeBuilderText(project, describeOfferingFor(project, l) || vocab.serviceCardBody(l, category)))}</p>`}`)}</div>
       ${moduleHtml}
     </div>`;
   }
   return `<div class="site-section site-section-services" data-variant="numbered">
     ${headerHtml}
-    <div class="site-sections">${labels.map((l, i) => `<div class="icon-led-row">${packItems ? '' : `<span class="sr-icon-tile sr-icon-tile-tinted-tile">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span>`}<div class="icon-led-row-body"><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong>${packItems && packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : ''}</div></div>`).join('')}</div>
+    <div class="site-sections">${labels.map((l, i) => `<div class="icon-led-row">${packItems ? '' : `<span class="sr-icon-tile sr-icon-tile-tinted-tile">${renderIcon(iconKeys[i % iconKeys.length], { weight: dir.weight, size: 16 })}</span>`}<div class="icon-led-row-body"><small>0${i + 1}</small><strong>${escapeHtml(l)}</strong>${packItems ? (packItems[i].body ? `<p>${escapeHtml(packItems[i].body)}</p>` : '') : `<p>${escapeHtml(describeOfferingFor(project, l) || '')}</p>`}</div></div>`).join('')}</div>
     ${moduleHtml}
   </div>`;
 }
@@ -3334,10 +3405,21 @@ function renderGalleryIconComposition(project, category, section, label, caption
     <div class="gallery-icon-grid">${cards}</div>
   </div>`;
 }
+// A gallery with no real imagery used to fall back to icon cards of the
+// business's offerings -- a second copy of the row the services/features/menu
+// section on the same page already shows. When the page already lists them,
+// the gallery steps aside (an empty, hidden marker keeps DOM order aligned
+// with the section list for the rhythm/composition stamping).
+function offeringsListedElsewhere(project, section) {
+  const page = (project.pages || []).find(p => (p.sections || []).some(s => s.id === section.id)) || { sections: project.sections || [] };
+  return (page.sections || []).some(s => s.id !== section.id && ['services', 'features', 'menu', 'productShowcase', 'pricing'].includes(s.type));
+}
+function omittedSectionHtml(section) { return `<div class="site-section site-section-gallery" data-variant="omitted" data-omitted-reason="duplicate-offerings" hidden></div>`; }
 function renderGallery(project, category, section, labelOverride) {
   const label = sectionCopyField(section, 'headline', labelOverride || navLabelFor('gallery', project.business.categoryKey));
   const caption = sectionCopyField(section, 'body', '');
   if (section && section.zeroSupplyTreatment === 'icon-composition') {
+    if (offeringsListedElsewhere(project, section)) return omittedSectionHtml(section);
     return renderGalleryIconComposition(project, category, section, label, caption);
   }
   // TIERED IMAGE SPEND PASS: a reconciled `imageDisplayVariant` (see
@@ -3357,21 +3439,25 @@ function renderGallery(project, category, section, labelOverride) {
   // Untouched (falls back to the original count) for a section that was
   // never reconciled, including every pre-existing saved project.
   const tileCount = (section && section.imageTileCount) || galleryTileCount(variant);
-  const tiles = [];
+  // Only tiles with something real in them (an upload, a generated image, one
+  // in flight, or a starter visual) are drawn -- a real photo is never padded
+  // out with an empty dotted placeholder beside it. The plan and its spend are
+  // unchanged; this only decides what is shown.
+  const shown = [];
   for (let i = 0; i < tileCount; i++) {
     const asset = galleryAssets[i];
-    // A collapsed single tile (zero real supply, see
-    // reconcileImageSupplyWithSections) always gets the wide/banner
-    // 'featured' treatment regardless of the section's own variant -- a
-    // lone tile in a plain square shape reads as an accident, a lone tile
-    // in a deliberate wide banner shape reads as a choice.
-    const featuredClass = (i === 0 && (variant === 'featured' || tileCount === 1)) ? ' gallery-tile-featured' : '';
     const slot = galleryTileSlot(section, i);
-    tiles.push(`<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`);
+    if (asset || isVisualSlotFunded(project, slot, asset && asset.id)) shown.push({ slot, asset });
   }
+  if (!shown.length) return offeringsListedElsewhere(project, section) ? omittedSectionHtml(section) : renderGalleryIconComposition(project, category, section, label, caption);
+  const tiles = shown.map(({ slot, asset }, i) => {
+    const featuredClass = (i === 0 && (variant === 'featured' || shown.length === 1)) ? ' gallery-tile-featured' : '';
+    return `<div class="gallery-tile${featuredClass}">${renderVisualSlot(project, slot, project.design.dimensions.imagery, asset && asset.id)}</div>`;
+  });
+
   return `<div class="site-section site-section-gallery" data-variant="${variant}">
     ${renderSectionHeader(label, caption, section && section.headlineRole)}
-    <div class="gallery-grid gallery-layout-${variant}" data-tile-count="${tileCount}">${tiles.join('')}</div>
+    <div class="gallery-grid gallery-layout-${variant}" data-tile-count="${tiles.length}">${tiles.join('')}</div>
   </div>`;
 }
 function renderCaseStudies(project, category, section) { return renderGallery(project, category, { ...(section || {}), variant: 'grid' }, 'Recent Projects'); }
@@ -3426,9 +3512,12 @@ function renderAbout(project, category, section) {
   const aboutAsset = plan.about ? project.assets.items.find(a => a.id === plan.about) : null;
   const vocab = sectionVocab(project);
   const heading = sectionCopyField(section, 'headline', vocab.aboutLabel);
-  const statement = sectionCopyField(section, 'body', vocab.aboutFrame(category));
-  if (variant === 'split' || aboutAsset) {
-    const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'about';
+  const ownWords = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.offeringCopy ? window.SiteRemadePremium.offeringCopy.ownWordsAbout(project.source && project.source.text) : null;
+  const statement = sectionCopyField(section, 'body', ownWords || vocab.aboutFrame(category));
+  const aboutSlot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'about';
+  // never an image-shaped box without a real image in it (a failed/unfunded generation)
+  if ((variant === 'split' || aboutAsset) && (aboutAsset || isVisualSlotFunded(project, aboutSlot, plan.about))) {
+    const slot = aboutSlot;
     const visual = renderVisualSlot(project, slot, project.design.dimensions.imagery, plan.about);
     return `<div class="site-section site-section-about" data-variant="split">
       <div class="about-visual">${visual}</div>
@@ -3558,10 +3647,18 @@ function renderCtaBanner(project, category, section) {
 }
 function featureBodyFor(project, category, label, i) {
   const v4 = starterFeatureItems(project); if (v4 && v4[i]) return v4[i].body; // V4: workflow explanation instead of category filler
+  const described = describeOfferingFor(project, label); if (described) return described; // what this offering actually is (lib/premium/offering-copy.js)
   const d = project.source.descriptor || {};
   const base = d.offering || d.descriptor || category.noun;
   const templates = [`Built around ${base}, without the busywork.`, `Everything ${base} needs, in one place.`, `Designed to make ${(label || '').toLowerCase()} feel effortless.`];
   return templates[i % templates.length];
+}
+// OFFERING COPY: one honest line per offering, shared with the export
+// (lib/premium/offering-copy.js via premium-core.js). null when the bundle is absent.
+function describeOfferingFor(project, label) {
+  const L = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.offeringCopy;
+  if (!L) return null;
+  return L.describeOffering(label, { categoryKey: project.business.categoryKey, name: project.meta && project.meta.previewBrandName ? '' : project.business.name, place: project.source && project.source.location, text: project.source && project.source.text });
 }
 function renderFeatures(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'What it does');
@@ -3706,7 +3803,10 @@ function renderFaq(project, category, section) {
   const noun = shortSubjectPhrase(d, category.noun);
   const vocab = sectionVocab(project);
   const packQas = editorialItems(section);
-  const qas = packQas ? packQas.map(x => ({ q: escapeHtml(x.title), a: escapeHtml(x.body) })) : [
+  const OC = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.offeringCopy;
+  // from the business itself (lib/premium/offering-copy.js faqItems, same in the export)
+  const ownQas = !packQas && OC ? OC.faqItems({ name: project.meta && project.meta.previewBrandName ? '' : project.business.name, place: project.source && project.source.location, categoryKey: project.business.categoryKey, offerings: offeringsFor(project, category) }).map(x => ({ q: escapeHtml(x.q), a: escapeHtml(x.a) })) : null;
+  const qas = packQas ? packQas.map(x => ({ q: escapeHtml(x.title), a: escapeHtml(x.body) })) : ownQas || [
     { q: `What does ${escapeHtml(project.business.name || 'this business')} actually do?`, a: escapeHtml(category.sub) },
     { q: escapeHtml(vocab.faqSecondQuestion), a: `Reach out and we'll walk through ${escapeHtml(noun)} together.` },
     // Deliberately universal, not SaaS-coded ("Is support included? Yes --
@@ -3783,8 +3883,15 @@ function renderMenu(project, category, section) {
   const firstGroupBody = subject ? `A considered take on ${subject}.` : `A considered seasonal selection.`;
   return `<div class="site-section site-section-menu" data-variant="columns">
     ${renderSectionHeader(label, intro, section && section.headlineRole)}
-    <div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong>${starterVisualsEnabled(project) ? '' : `<p>${escapeHtml(i === 0 ? firstGroupBody : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p>`}</div>`).join('')}</div>
+    ${menuListHtml(project, category) || `<div class="menu-groups">${groups.map((g, i) => `<div class="menu-group"><strong>${escapeHtml(g)}</strong>${starterVisualsEnabled(project) ? '' : `<p>${escapeHtml(i === 0 ? firstGroupBody : i === 1 ? `Made for sharing, with detail in every choice.` : `A concise finish to the ${category.label.toLowerCase()} experience.`)}</p>`}</div>`).join('')}</div>`}
   </div>`;
+}
+// The business's own offerings as the menu (lib/premium/offering-copy.js,
+// identical in the export); '' only if the shared bundle is missing.
+function menuListHtml(project, category) {
+  const L = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.offeringCopy;
+  if (!L) return '';
+  return L.renderMenuList(offeringsFor(project, category), { categoryKey: project.business.categoryKey, name: project.meta && project.meta.previewBrandName ? '' : project.business.name, place: project.source && project.source.location, text: project.source && project.source.text });
 }
 function renderReservationCta(project, category, section) {
   // V8.4: 'booking' is the real, functional replacement for the static
@@ -3901,7 +4008,10 @@ function renderEditorialStatementComposition(project, category, section, label, 
 }
 function renderImageLedEditorial(project, category, section) {
   const label = sectionCopyField(section, 'headline', 'Featured');
-  const caption = sectionCopyField(section, 'body', (project.copy && project.copy.sub) || category.sub);
+  // never the hero's subheading a second time (lib/premium/offering-copy.js offeringsLine, same in the export)
+  const OC = typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.offeringCopy;
+  const ownLine = OC ? OC.offeringsLine(project.meta && project.meta.previewBrandName ? '' : project.business.name, project.source && project.source.location, offeringsFor(project, category)) : null;
+  const caption = sectionCopyField(section, 'body', ownLine || (project.copy && project.copy.sub) || category.sub);
   const slot = pageSlotPrefix(project.pages && project.pages[project.activePageIndex]) + 'gallery-featured';
   const assetId = (project.assets.plan.gallery || [])[0];
   if (!isVisualSlotFunded(project, slot, assetId)) {
@@ -5892,7 +6002,7 @@ function renderSections(proj, category) {
   if (pages.length > 1 && siteNavLinks) {
     siteNavLinks.innerHTML = pages.map((p, i) => `<button type="button" class="site-nav-link${i === proj.activePageIndex ? ' active' : ''}" data-page-index="${i}">${escapeHtml(p.label || (i === 0 ? 'Home' : `Page ${i + 1}`))}</button>`).join('');
   } else if (siteNavLinks) {
-    const navTypes = proj.sections.map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
+    const navTypes = proj.sections.filter(s => !(s.zeroSupplyTreatment === 'icon-composition' && offeringsListedElsewhere(proj, s))).map(s => s.type).filter(t => t === 'services' || t === 'gallery' || t === 'about').slice(0, 3);
     siteNavLinks.innerHTML = navTypes.map(t => `<span>${escapeHtml(navLabelFor(t, proj.business.categoryKey))}</span>`).join('');
   }
   if (siteNavCta) siteNavCta.textContent = category.cta;
@@ -5904,6 +6014,7 @@ function renderSections(proj, category) {
   const footerHtml = renderSiteFooter(proj, category, proj.footerVariant || 'simple');
   if (siteSectionsRoot) {
     siteSectionsRoot.innerHTML = introHtml + contentHtml + footerHtml;
+    keepCinemaHeroContinuous(siteSectionsRoot, proj);
     applySectionRhythmPositions(siteSectionsRoot, proj.sections, proj.intent && proj.intent.creativeDirection);
     // PREMIUM_COMPOSITION_V2: plan the page as one visual sequence and stamp it onto the rendered sections.
     if (compositionActive(proj)) { const heroEl = siteSectionsRoot.querySelector('.site-hero'); window.SiteRemadePremium.stamp.stampDom(siteSectionsRoot, proj, proj.sections, { variant: proj.design.dimensions.heroDisplayVariant || proj.design.dimensions.hero, hasImage: !!(heroEl && heroEl.querySelector('img')) }); }
@@ -5931,6 +6042,20 @@ function renderSections(proj, category) {
 // hover/card/button/icon motion (pure CSS, no observer, no flicker risk --
 // see styles.css's `[data-motion-character]` rules) still gives the person
 // building the site an accurate FEEL for it.
+// HERO DIRECTION: the preview rebuilds the whole site on every edit, which
+// would replay the hero's intro and restart its camera each time. The first
+// render of a given project+treatment plays the intro; later renders skip it
+// and resume the camera loop at the phase it had reached (negative delay).
+let cinemaHeroClock = { key: null, t0: 0 };
+function keepCinemaHeroContinuous(root, proj) {
+  const hero = root && root.querySelector('.hero-cinema');
+  if (!hero) return;
+  const key = `${(proj.meta && proj.meta.id) || ''}::${hero.getAttribute('data-cinema')}`;
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  if (cinemaHeroClock.key !== key) { cinemaHeroClock = { key, t0: now }; return; }
+  hero.classList.add('cinema-no-intro');
+  hero.style.setProperty('--cam-phase', `-${((now - cinemaHeroClock.t0) / 1000).toFixed(2)}s`);
+}
 function initSiteMotion(root) {
   if (!root) return;
   root.querySelectorAll('.site-hero, .site-page-header, .site-section').forEach(el => el.classList.add('sr-revealed'));
@@ -8565,6 +8690,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         applyVisualProfile(proj); // V4 (flag-gated): starter visuals + a hero that can carry a product visual
         applyPhotoLayout(proj); // V6 (photo-led businesses): editorial alternating layout + specific content, before images are planned
         groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
+        proj.design.heroDirection = directHeroForProject(proj); // HERO DIRECTION: after every hero-layout decision above, before the image plan
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;
         const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
