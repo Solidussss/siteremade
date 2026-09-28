@@ -2302,6 +2302,46 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   }
 });
 
+// CREATIVE MODE (see CREATIVE_MODE.md): research for a Creative page -- what the brief is
+// about, and, for a recognizable subject, its encyclopedia facts and reusable-licence
+// pictures from Wikipedia / Wikimedia Commons (free public APIs, fixed host allow-list, no
+// model call, no image generation). Like /api/redesign/extract it is read-only research:
+// it charges no credit, creates no project and is rate-limited like generation. Personal
+// subjects get general facts about their species only (never pictures of other animals as
+// "theirs"); invented subjects are not looked up at all. Retrieved text is returned as data
+// for the director -- it is never treated as instructions. Every run is written to its own
+// ledger (data/premium/creative-ledger.jsonl), separate from Business costs.
+const creativeUnderstand = require('./lib/creative/understand');
+const creativeResearch = require('./lib/creative/research');
+app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const brief = clean(req.body && req.body.brief, 1200);
+  if (!brief) return res.status(400).json({ ok: false, message: 'Describe what the page should be about.' });
+  const supplied = clean(req.body.supplied, 2000);
+  const choice = clean(req.body.choice, 120); // the owner's pick after an ambiguous result
+  const understanding = creativeUnderstand.understandBrief(brief, { supplied, uploads: !!req.body.hasUploads });
+  if (choice && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
+  const startedAt = Date.now();
+  let result = { status: 'skipped', facts: [], images: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
+  try {
+    if (understanding.kind === 'recognizable' || (understanding.kind === 'personal' && understanding.query)) {
+      result = await creativeResearch.research(understanding, { maxImages: 6, textOnly: understanding.kind === 'personal' });
+    }
+  } catch (error) {
+    console.error('Creative research failed:', error);
+    premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: false, ms: Date.now() - startedAt, paidCalls: 0, usd: 0 });
+    return res.status(200).json({ ok: false, understanding, message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' });
+  }
+  if (result.status === 'ambiguous') understanding.kind = 'ambiguous';
+  if (result.page && result.page.category && understanding.kind === 'recognizable') understanding.category = result.page.category;
+  const images = (result.images || []).map((i, n) => ({
+    id: `r${n + 1}`, origin: 'research', title: i.title, description: i.description, author: i.author, credit: i.credit, license: i.license, licenseUrl: i.licenseUrl,
+    pageUrl: i.pageUrl, sourceUrl: i.fileUrl, found: i.found, relevance: i.relevance, width: i.width, height: i.height, mime: i.mime,
+    retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${i.mime};base64,${i.bytes.toString('base64')}`,
+  }));
+  premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
+  res.json({ ok: true, understanding, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log }, images, creditsCharged: 0 });
+});
+
 // V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE
 // public page the signed-in account points at and returns structured
 // reference material (business name, services/headings, contact info,

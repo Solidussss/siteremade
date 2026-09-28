@@ -15,8 +15,20 @@ const { loadClient } = require('./helpers/load-client');
 const scripts = browserScripts();
 
 test('index.html loads the expected local scripts, and they exist', () => {
-  assert.deepEqual(scripts.map(s => s.src), ['icons-data.js', 'premium-core.js', 'script.js']);
+  // creative-entry.js (4 KB) only adds the Creative switch in review mode; the studio itself is loaded on demand
+  assert.deepEqual(scripts.map(s => s.src), ['icons-data.js', 'premium-core.js', 'script.js', 'creative-entry.js']);
   scripts.forEach(s => assert.ok(fs.existsSync(s.file), `${s.src} is missing`));
+});
+
+test('the on-demand Creative scripts parse, avoid lookbehind, and the bundle is up to date', () => {
+  const path = require('path'); const root = path.join(__dirname, '..');
+  ['creative-core.js', 'creative.js'].forEach(f => {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    assert.doesNotThrow(() => compile(src, f), `${f} has a syntax error`);
+    assert.deepEqual(findLookbehinds(src), [], `${f} contains lookbehind syntax`);
+  });
+  const r = require('child_process').spawnSync(process.execPath, [path.join(root, 'scripts', 'build-creative-core.js'), '--check']);
+  assert.equal(r.status, 0, String(r.stderr));
 });
 
 test('every browser script parses', () => {

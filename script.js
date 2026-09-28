@@ -6738,6 +6738,7 @@ function loadProjectFromStorage() {
   try {
     const parsed = JSON.parse(raw);
     let restored, restoredIndex;
+    if (isCreativeProjectState(parsed)) { setProjectStatus('The saved project is a Creative project — it opens in Creative mode.'); return; }
     if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
       restored = parsed.directions;
       restoredIndex = Number.isInteger(parsed.activeDirectionIndex) ? parsed.activeDirectionIndex : 0;
@@ -9807,7 +9808,7 @@ function updateAccountUI() {
   if (accountProjectsSelect) {
     const previousValue = accountProjectsSelect.value;
     accountProjectsSelect.innerHTML = '<option value="">— select a project —</option>' +
-      ownedProjectsCache.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (${escapeHtml(p.status)})</option>`).join('');
+      ownedProjectsCache.map(p => `<option value="${escapeHtml(p.id)}">${p.mode === 'creative' ? 'Creative · ' : ''}${escapeHtml(p.name)} (${escapeHtml(p.status)})</option>`).join('');
     if (previousValue && ownedProjectsCache.some(p => p.id === previousValue)) accountProjectsSelect.value = previousValue;
   }
   updatePurchaseOwnershipBadge();
@@ -9875,7 +9876,17 @@ function hideConflict() {
 // live browser state -- reuses applyDirectionsState (shared with
 // loadProjectFromStorage above) so there is exactly one restore/migrate/
 // render sequence regardless of where the state came from.
+// CREATIVE MODE: a Creative project is opened in the Creative studio (creative-entry.js) and
+// never passes through the Business builder's state -- so it is never converted, and the
+// Business project currently open is left exactly as it was.
+function isCreativeProjectState(state) { return !!(state && Array.isArray(state.directions) && state.directions.some(d => d && d.mode === 'creative')); }
+function openInCreativeStudio(serverProject) {
+  if (window.SiteRemadeCreativeEntry) { window.SiteRemadeCreativeEntry.openProject(serverProject); return true; }
+  setProjectStatus('This is a Creative project — it opens in Creative mode.');
+  return true;
+}
 function adoptServerProject(serverProject) {
+  if (isCreativeProjectState(serverProject.directionsState)) { openInCreativeStudio(serverProject); return; }
   serverProjectId = serverProject.id;
   serverProjectRevision = serverProject.revision;
   applyDirectionsState(serverProject.directionsState.directions, serverProject.directionsState.activeDirectionIndex);
@@ -9892,6 +9903,7 @@ async function loadSelectedOwnedProjectById(id) {
   const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(id)}`);
   if (!ok || !data.ok) { setAutosaveState('failed', 'Could not load that project from your account.'); return; }
   const serverProject = data.project;
+  if (isCreativeProjectState(serverProject.directionsState)) { openInCreativeStudio(serverProject); return; }
   const hasLocalContent = directions.length > 0;
   const localMatchesServer = hasLocalContent && serializeDirectionsState() === JSON.stringify(serverProject.directionsState);
   if (hasLocalContent && !localMatchesServer) { showConflict(serverProject); return; }
@@ -10677,7 +10689,7 @@ try {
   const raw = localStorage.getItem('siteremade:lastProject');
   if (raw) {
     const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.directions) && parsed.directions.length) {
+    if (parsed && Array.isArray(parsed.directions) && parsed.directions.length && !isCreativeProjectState(parsed)) {
       // V8.5: reuses the exact same restore/migrate/render sequence
       // loadProjectFromStorage uses (see applyDirectionsState above) -- one
       // real, tested "become a loaded {directions, activeDirectionIndex}
