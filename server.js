@@ -152,7 +152,17 @@ app.disable('x-powered-by');
 // guaranteed byte-identical to what Stripe actually sent) -- mounted
 // before the generic JSON parser below so it claims that one route first.
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '2mb' }));
-app.use(express.json({ limit: '900kb' }));
+// The generic 900kb JSON parser must NOT run for the routes that declare their
+// own 35mb projectJsonParser (a saved project carries its generated images as
+// data URLs until the server internalizes them): run first, the small limit
+// rejected every save with more than ~900kb of images with a 413 before the
+// route's own parser was ever reached. A multi-image hero makes that every save.
+const OWN_LARGE_JSON_ROUTES = [
+  ['POST', /^\/api\/projects\/?$/], ['PUT', /^\/api\/projects\/[^/]+\/?$/], ['POST', /^\/api\/projects\/[^/]+\/export\/?$/],
+  ['POST', /^\/api\/projects\/[^/]+\/domain\/?$/], ['POST', /^\/api\/deployments\/[^/]+\/deploy-to\/?$/],
+];
+const genericJsonParser = express.json({ limit: '900kb' });
+app.use((req, res, next) => (OWN_LARGE_JSON_ROUTES.some(([m, re]) => req.method === m && re.test(req.path)) ? next() : genericJsonParser(req, res, next)));
 // PREMIUM_GENERATION_V1: attribute every provider call from a browser project to its generation (cost ledger grouping).
 app.use('/api', (req, res, next) => {
   const b = req.body;
@@ -592,6 +602,16 @@ function estimateImageRouteCostUsd(model, quality, aspectRatio) {
 // not a billing guarantee, and update the env vars above once real
 // per-model/per-quality invoice data is available.
 const SITEREMADE_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_IMAGE_BUDGET_USD) || 0.10;
+// HERO STORYBOARD: the hero is built from several separately generated images
+// (lib/premium/hero-storyboard.js -- a lead plus at least two supporting
+// images). They are funded from their OWN allowance, reserved separately from
+// the site budget above, so a small site budget can never quietly cut the hero
+// back to one image. Default: this deployment's own route prices for a lead on
+// the premium model at medium plus three supporting images on the support
+// model at medium (portrait sizes), so it scales with SITEREMADE_IMAGE_COST_*.
+const SITEREMADE_HERO_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_HERO_IMAGE_BUDGET_USD)
+  || Number((estimateImageRouteCostUsd(IMAGE_MODEL_PREMIUM, 'medium', '4:5') + 3 * estimateImageRouteCostUsd(IMAGE_MODEL_SUPPORT, 'medium', '4:5')).toFixed(4));
+const HERO_MIN_IMAGES = 3;
 // Server-side spend reservation (see the /api/generate-image handler
 // below for the full explanation of what this does and does not
 // guarantee): a per-project running total, reserved synchronously BEFORE
@@ -602,14 +622,14 @@ const SITEREMADE_IMAGE_BUDGET_USD = Number(process.env.SITEREMADE_IMAGE_BUDGET_U
 // never permanently blocked by an earlier generation's spend.
 const IMAGE_SPEND_RESERVATION_WINDOW_MS = 5 * 60 * 1000;
 const imageSpendReservations = new Map();
-function reserveImageSpend(key, estimatedCostUsd) {
+function reserveImageSpend(key, estimatedCostUsd, ceilingUsd = SITEREMADE_IMAGE_BUDGET_USD) {
   const now = Date.now();
   let entry = imageSpendReservations.get(key);
   if (!entry || (now - entry.windowStartedAt) > IMAGE_SPEND_RESERVATION_WINDOW_MS) {
     entry = { spentUsd: 0, windowStartedAt: now };
   }
   const projectedTotal = entry.spentUsd + estimatedCostUsd;
-  if (projectedTotal > SITEREMADE_IMAGE_BUDGET_USD + 1e-9) {
+  if (projectedTotal > ceilingUsd + 1e-9) {
     imageSpendReservations.set(key, entry);
     return { ok: false, spentUsd: entry.spentUsd };
   }
@@ -637,7 +657,9 @@ const imageProviders = {
     async generate(prompt, { aspectRatio, quality, model, size: sizeOverride } = {}) {
       // Legacy behaviour is unchanged (4:3 still maps to a square). PREMIUM_GENERATION_V1 passes an explicit
       // ratio-appropriate size so images are generated for the slot, not generated square and cropped.
-      const size = sizeOverride || (aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : '1024x1024');
+      // HERO STORYBOARD: portrait layers (4:5 / 3:4) are generated portrait rather than square-then-cropped; the cost estimate
+      // already prices every non-square request with the landscape multiplier, so this changes no budget.
+      const size = sizeOverride || (aspectRatio === '1:1' ? '1024x1024' : aspectRatio === '16:9' ? '1536x1024' : (aspectRatio === '4:5' || aspectRatio === '3:4') ? '1024x1536' : '1024x1024');
       const safeQuality = ALLOWED_IMAGE_QUALITIES.includes(quality) ? quality : 'medium';
       // Allowlist enforcement happens here, not just in the route handler,
       // so this stays safe even if another call site is ever added above
@@ -703,6 +725,7 @@ app.get('/api/image-provider-status', (req, res) => {
     provider: configured ? activeImageProvider.name : null,
     reason,
     budgetUsd: SITEREMADE_IMAGE_BUDGET_USD,
+    heroBudgetUsd: SITEREMADE_HERO_IMAGE_BUDGET_USD, heroMinImages: HERO_MIN_IMAGES,
     models: { support: IMAGE_MODEL_SUPPORT, premium: IMAGE_MODEL_PREMIUM },
     costEstimateUsd: IMAGE_MODEL_COST_ESTIMATE_USD,
     creditCosts: { support: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, premium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM },
@@ -828,7 +851,7 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
 // made one step earlier is now released. Previously that path returned
 // without releasing it, leaving those credits "reserved" (unusable) until
 // the next UTC-day rollover.
-async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null }) {
+async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null, spendBucket = null }) {
   if (!activeImageProvider.configured()) return { ok: false, reason: 'not_configured' };
   const premiumOn = premiumCore.cfg.enabled && !!generationId && /^gen_[a-z0-9]{6,40}$/.test(generationId);
   if (premiumOn) return generatePremiumImage({ accountId, prompt, promptAlt, model, quality, aspectRatio, taskType, projectId, anonId, generationId, premiumTier, phase, deferSettlement });
@@ -846,13 +869,15 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
   }
   // See the SERVER-SIDE SPEND ENFORCEMENT note on /api/generate-image below
   // for exactly what this per-process reservation does and doesn't guarantee.
-  const reservation = reserveImageSpend(reservationKey, estimatedCostUsd);
+  // hero-storyboard images spend from the hero allowance, everything else from the site budget
+  const spendKey = spendBucket === 'hero' ? `${reservationKey}::hero` : reservationKey;
+  const reservation = reserveImageSpend(spendKey, estimatedCostUsd, spendBucket === 'hero' ? SITEREMADE_HERO_IMAGE_BUDGET_USD : SITEREMADE_IMAGE_BUDGET_USD);
   if (!reservation.ok) {
     if (creditReserved) credits.releaseCredits(db, accountId, creditCost); // behavior fix -- see header
     return { ok: false, reason: 'budget_exceeded' };
   }
   const releaseAll = () => {
-    releaseImageSpend(reservationKey, estimatedCostUsd);
+    releaseImageSpend(spendKey, estimatedCostUsd);
     if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
   };
   if (!prompt) {
@@ -966,6 +991,7 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
     reservationKey: projectId || anonId || 'anonymous', taskType, projectId, anonId, requestKey,
     // PREMIUM_GENERATION_V1 (ignored unless the flag is on)
     generationId: clean(req.body.premiumGenerationId, 60) || null, promptAlt: clean(req.body.promptAlt, 1200) || null, premiumTier: clean(req.body.premiumTier, 20) || null,
+    spendBucket: req.body.heroLayer === true ? 'hero' : null, // HERO STORYBOARD: the hero's own image allowance
   });
   if (clientGone && result.ok) {
     // creditsCharged stays null here so summing credits over image rows never
@@ -1511,7 +1537,7 @@ const WEBSITE_PLAN_TOOL = {
   input_schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['business', 'strategy', 'heroCopy', 'visualDirection', 'creativeDirection', 'pages', 'imagePlan', 'functionalityPlan'],
+    required: ['business', 'strategy', 'heroCopy', 'visualDirection', 'creativeDirection', 'pages', 'heroStoryboard', 'imagePlan', 'functionalityPlan'],
     properties: {
       heroCopy: {
         type: 'object', additionalProperties: false,
@@ -1702,6 +1728,36 @@ const WEBSITE_PLAN_TOOL = {
           }
         }
       },
+      heroStoryboard: {
+        type: 'object', additionalProperties: false,
+        description: 'The hero at the top of the site: a short, looping motion composition built from 3-4 SEPARATE generated images that move independently (layered, choreographed). Art-direct it for THIS business: one lead image (the product itself, the finished job, the venue, the treatment...) plus supporting images that are genuinely different subjects -- a close detail (ingredient, material, craft, texture) and a context shot (lifestyle, work in progress, the room, the people it serves). Never the same picture twice, never a recoloured template, never another industry\'s imagery.',
+        required: ['concept', 'composition', 'tone', 'layers'],
+        properties: {
+          concept: { type: 'string', description: 'One sentence: the visual idea tying the hero images together, specific to this business.' },
+          composition: { type: 'string', enum: ["hero-stage","panorama","venue-stack","columns","arch-cluster","device-float","orbit","filmstrip","diagonal","fan","split-duo"], description: 'hero-stage: product big and central with satellites; panorama: finished result full-bleed with framed insets (copy bottom-left); venue-stack: the room tall with a detail and a moment overlapping; columns: tall columns drifting against each other; arch-cluster: calm arch, round detail, quiet card; device-float: software on a device with its world floating around (copy on top); orbit: the product centred with details orbiting (copy right); filmstrip: a wide lead with a sliding strip below; diagonal: a lead with frames cascading down its side; fan: cards spread like a hand of prints (copy right); split-duo: two halves with a frame crossing the seam (before/after, the work and the result).' },
+          tone: { type: 'string', enum: ['dark', 'light'] },
+          loopSeconds: { type: 'number', description: 'Length of the shared motion loop, 8-18 seconds.' },
+          layers: {
+            type: 'array', minItems: 3, maxItems: 4,
+            items: {
+              type: 'object', additionalProperties: false,
+              required: ['role', 'anchor', 'subject', 'prompt', 'aspectRatio', 'motion'],
+              properties: {
+                role: { type: 'string', enum: ["lead","detail","context","accent"], description: 'Exactly one lead.' },
+                anchor: { type: 'string', enum: ["lead","a","b","c"], description: 'Placement slot in the chosen composition; the lead uses "lead", the others a/b/c, each once.' },
+                subject: { type: 'string', description: 'A few words naming what this image shows.' },
+                prompt: { type: 'string', description: 'A specific image-generation prompt for this exact picture of this business: subject, setting, light, lens. No text, logos or identifiable faces.' },
+                aspectRatio: { type: 'string', enum: ["16:9","4:3","1:1","4:5","3:4"] },
+                motion: { type: 'string', enum: ["push-in","pull-out","drift-left","drift-right","rise","sink","orbit","orbit-reverse","tilt","float","slide-left","slide-right","pulse","hold"], description: 'How this image travels over the loop.' },
+                intensity: { type: 'string', enum: ['subtle', 'medium', 'bold'] },
+                pan: { type: 'string', enum: ["none","pan-left","pan-right","pan-up","zoom-in","zoom-out"], description: 'Movement of the picture inside its frame.' },
+                depth: { type: 'integer', description: '1 (back) to 5 (front).' },
+                offset: { type: 'number', description: 'Phase within the loop, 0-1, so the images move in sequence rather than in unison.' }
+              }
+            }
+          }
+        }
+      },
       imagePlan: {
         type: 'array', maxItems: 64,
         description: 'Only images that earn their place -- do not add one merely because a section type supports one. Pick the role that says WHY the image exists (e.g. \'founder\' for a credibility photo, \'process\' for a how-it-works shot, \'atmosphere\' for a mood-setting visual), not just a generic \'gallery\'/\'team\' bucket.',
@@ -1766,7 +1822,8 @@ Rules:
 10. Give sections a deliberate rhythm, not uniform density -- vary visualIntensity/informationDensity across a page's sections (e.g. an immersive opening, a quieter trust moment, a denser explanation, a proof-heavy section, a concise close) rather than six sections that all feel the same size and weight. Vary headlineRole across a page too -- do not make every section's headline declarative.
 11. Never restate the same claim, statistic, or headline idea twice across a site. If two sections would naturally make the same point, cut one, merge them, or give the second a different angle (a new objection it resolves, a new piece of proof) instead of repeating the first.
 12. Decide creativeDirection as the actual creative idea for this specific business, not a restatement of its archetype/category. Two businesses that would land on the same archetype (e.g. two restaurants, two roofers, two SaaS products) must still diverge here when their description implies a different posture -- quiet/premium vs loud/accessible, considered vs urgent, image-led vs informational, portfolio-heavy vs proof-heavy. heroStrategy and pageRhythm are real creative decisions, not defaults: pick pageRhythm from how this business should actually feel to move through (a quiet tasting-menu restaurant reads differently than a same-day emergency contractor), and make heroStrategy agree with the visualDirection.hero layout you chose. Only fill in avoid when a real stylistic trap applies to this business -- leave it empty otherwise.
-13. QUALITY BAR. The customer pays for this first draft and will judge it before touching anything. Design a site a professional agency would be proud to ship: (a) EVERY page is a designed page with real substance -- Home tells the story and drives the primary action; Product/Services/Shop shows the offer visually and explains it; About states the philosophy/approach using only supplied facts; Contact gives one clear way to act. Never plan a page that is a heading, one paragraph and a footer; plan 3-6 purposeful sections per secondary page, each answering a different visitor question. (b) Give every page its own composition and rhythm; do not repeat hero + three cards + CTA. (c) Choose the hero as an industry-native composition: product UI/browser frame for software, editorial or full-bleed photography for retail/hospitality/trades/nonprofit, image-led project storytelling for portfolios, restrained editorial typography for consultancies. (d) Choose media deliberately per role (photograph, product UI, diagram, data visual, abstract graphic) and write imagePrompts that depict THIS business's real subject in specific, photographic terms (subject, setting, light, framing), never generic stock or fashion for a non-fashion business. (e) Banned filler unless genuinely natural and supported: "done right", "designed for modern teams", "everything you need in one place", "effortless", "elevate your", "unlock your", "built to move fast", "future-ready", "redefine", "where X meets Y". Say the concrete thing the product or service does for a specific person. (f) Never invent testimonials, ratings, client counts, awards, staff, certifications, years, guarantees, addresses or prices; build trust with process, philosophy, capability explanation and only the facts supplied.`;
+13. QUALITY BAR. The customer pays for this first draft and will judge it before touching anything. Design a site a professional agency would be proud to ship: (a) EVERY page is a designed page with real substance -- Home tells the story and drives the primary action; Product/Services/Shop shows the offer visually and explains it; About states the philosophy/approach using only supplied facts; Contact gives one clear way to act. Never plan a page that is a heading, one paragraph and a footer; plan 3-6 purposeful sections per secondary page, each answering a different visitor question. (b) Give every page its own composition and rhythm; do not repeat hero + three cards + CTA. (c) Choose the hero as an industry-native composition: product UI/browser frame for software, editorial or full-bleed photography for retail/hospitality/trades/nonprofit, image-led project storytelling for portfolios, restrained editorial typography for consultancies. (d) Choose media deliberately per role (photograph, product UI, diagram, data visual, abstract graphic) and write imagePrompts that depict THIS business's real subject in specific, photographic terms (subject, setting, light, framing), never generic stock or fashion for a non-fashion business. (e) Banned filler unless genuinely natural and supported: "done right", "designed for modern teams", "everything you need in one place", "effortless", "elevate your", "unlock your", "built to move fast", "future-ready", "redefine", "where X meets Y". Say the concrete thing the product or service does for a specific person. (f) Never invent testimonials, ratings, client counts, awards, staff, certifications, years, guarantees, addresses or prices; build trust with process, philosophy, capability explanation and only the facts supplied.
+14. heroStoryboard is the site's opening motion piece: 3-4 separate images that move independently. Art-direct it from THIS business's product/service, audience and goal -- e.g. a drink brand: the can up close, a flavour or ingredient splash, a lifestyle moment; a coffee roaster: the bag and beans, a pour-over bloom, the roaster at work; a landscaper: the finished yard, a stone or planting detail, the crew mid-project. Those are examples, not templates: two businesses in the same category should get different concepts, subjects, compositions and motion. Every image must read as this industry, every image a different subject, prompts specific and photographic, no text/logos/identifiable faces. Give the images different motions and offsets so they move as one choreographed sequence.`;
 
 function buildPlannerUserPrompt(brief) {
   const lines = [
@@ -1914,7 +1971,7 @@ function planSignature(plan) {
   const vd = plan.visualDirection || {};
   const cd = plan.creativeDirection || {};
   const pageSummary = (plan.pages || []).map(p => `${p.id}:[${(p.sections || []).map(s => s.type).join(',')}]`).join(' ');
-  return `concept=${cd.concept} mood=${cd.visualMood} narrative=${cd.narrativeStrategy} signature=${cd.signatureMotif} heroStrategy=${cd.heroStrategy} pageRhythm=${cd.pageRhythm} hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} pages=${pageSummary}`.slice(0, 500);
+  return `concept=${cd.concept} mood=${cd.visualMood} narrative=${cd.narrativeStrategy} signature=${cd.signatureMotif} heroStrategy=${cd.heroStrategy} pageRhythm=${cd.pageRhythm} hero=${vd.hero} type=${vd.typography} imagery=${vd.imagery} color=${vd.colorBehavior} motion=${vd.motion} pattern=${vd.pattern} heroStoryboard=${(plan.heroStoryboard && plan.heroStoryboard.composition) || '-'}:${String((plan.heroStoryboard && plan.heroStoryboard.concept) || '').slice(0, 80)} pages=${pageSummary}`.slice(0, 600);
 }
 
 // V8.1: field names describe exactly what this server actually observes --

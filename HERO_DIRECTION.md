@@ -1,5 +1,8 @@
 # Hero Direction: art-directed moving hero + section carry-through
 
+> Superseded for new generations by the multi-image hero in `HERO_STORYBOARD.md`. The single-image treatments below
+> still render projects saved before the storyboard, and STATEMENT is the storyboard's no-image fallback.
+
 Generated sites were landing on the same few page structures with static placeholder art (dotted panels,
 skeleton "menu" lines, icon-card rows that repeated the services) and category filler under every card
 ("Real landscaping work, presented clearly."). This pass directs the hero from the business itself and

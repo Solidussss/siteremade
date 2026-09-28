@@ -6,6 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadClient, fundedProviderStatus, buildProject } = require('./helpers/load-client');
 const { BUSINESSES, FIZZWELL_TEXT, FIZZWELL_PLAN } = require('./fixtures/businesses');
+const heroStoryboard = require('../lib/premium/hero-storyboard');
 const siteRender = require('../lib/site-render');
 const projectStore = require('../lib/project-store');
 
@@ -79,9 +80,13 @@ test('image prompts: every slot gets its own prompt, about THIS business, with c
     const { proj } = buildProject(loadClient(), b.text, { providerStatus: fundedProviderStatus() });
     const prompts = proj.imagePlan.map(e => e.prompt);
     assert.equal(new Set(prompts).size, prompts.length, `${b.id}: two slots were sent the identical prompt`);
-    prompts.forEach(p => {
+    proj.imagePlan.forEach(e => {
+      const p = e.prompt;
       assert.ok(!/#[0-9a-f]{6}/i.test(p), `${b.id}: hex colour code in prompt: ${p}`);
-      assert.ok(p.includes(b.expect.name), `${b.id}: prompt does not name the business: ${p}`);
+      // Hero storyboard layers are separate pictures (a detail, a context shot) that need not repeat the
+      // business name to be about it -- they must pass the storyboard's own industry/business relevance check.
+      if (e.storyboardLayer) assert.ok(heroStoryboard.relevance(p, { categoryKey: proj.business.categoryKey, name: proj.business.name, offerings: proj.business.offerings, text: proj.source.text }).ok, `${b.id}: off-industry hero layer: ${p}`);
+      else assert.ok(p.includes(b.expect.name), `${b.id}: prompt does not name the business: ${p}`);
       assert.ok(p.length <= 600, `${b.id}: prompt longer than the server accepts`);
     });
   }
@@ -90,14 +95,15 @@ test('image prompts: every slot gets its own prompt, about THIS business, with c
 test('AI image prompts: every planned prompt can reach a slot (not one per role), none is used twice', () => {
   const { proj } = buildProject(loadClient(), FIZZWELL_TEXT, { claudePlanRaw: FIZZWELL_PLAN, providerStatus: fundedProviderStatus() });
   const planned = new Set(FIZZWELL_PLAN.imagePlan.map(e => e.prompt));
-  // A directed hero keeps the planner's prompt and appends only its camera framing (lib/premium/hero-direction.js).
-  const plannedOf = p => [...planned].find(pl => p === pl || p.startsWith(pl.replace(/[.\s]+$/, '') + '. '));
-  const used = proj.imagePlan.map(e => plannedOf(e.prompt)).filter(Boolean);
-  const hero = proj.imagePlan.find(e => e.slot === 'hero');
-  assert.ok(hero.prompt.startsWith(FIZZWELL_PLAN.imagePlan[0].prompt) && /push-in/.test(hero.prompt), 'the hero keeps the planned shot and gains the camera framing');
-  assert.ok(proj.imagePlan.filter(e => e.slot !== 'hero').every(e => !/push-in|camera pan/.test(e.prompt)), 'only the hero is framed for motion');
+  // The hero's images come from the planner's own heroStoryboard (each layer its own prompt); the rest of the
+  // planner's image list goes to the rest of the site's slots.
+  const heroLayers = proj.imagePlan.filter(e => e.storyboardLayer);
+  assert.equal(heroLayers.length, FIZZWELL_PLAN.heroStoryboard.layers.length);
+  heroLayers.forEach((e, i) => assert.ok(e.prompt.startsWith(FIZZWELL_PLAN.heroStoryboard.layers[i].prompt), `hero layer ${e.slot} keeps the planned shot`));
+  const rest = proj.imagePlan.filter(e => !e.storyboardLayer);
+  const used = rest.map(e => [...planned].find(pl => e.prompt === pl)).filter(Boolean);
   assert.equal(new Set(used).size, used.length, 'a planned prompt was assigned to two slots');
-  assert.equal(used.length, Math.min(planned.size, proj.imagePlan.length), 'planned prompts were discarded while slots fell back to generic ones');
+  assert.equal(used.length, Math.min(planned.size, rest.length), 'planned prompts were discarded while slots fell back to generic ones');
   const galleryPrompts = proj.imagePlan.filter(e => e.role === 'gallery').map(e => e.prompt);
   assert.ok(galleryPrompts.length >= 2 && new Set(galleryPrompts).size === galleryPrompts.length, 'gallery tiles each get a different planned shot');
 });

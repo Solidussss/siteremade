@@ -35,6 +35,15 @@ const FIZZWELL_PLAN = {
       { type: 'ctaBanner', intent: 'convert', headlineRole: 'declarative', headline: 'Find your can', ctaLabel: 'Shop now' },
     ] },
   ],
+  heroStoryboard: {
+    concept: 'Fizzwell cracks open: the can sweating on ice, peach and cherry bursting through the bubbles, and a Toronto rooftop at dusk',
+    composition: 'hero-stage', tone: 'dark', loopSeconds: 11,
+    layers: [
+      { role: 'lead', anchor: 'lead', subject: 'Fizzwell can sweating on ice', prompt: 'A single Fizzwell sparkling energy drink can standing in crushed ice, heavy condensation running down the metal, hard orange rim light against a near-black backdrop, low camera angle, commercial beverage photography', aspectRatio: '4:5', motion: 'push-in', intensity: 'bold', pan: 'zoom-in', depth: 2, offset: 0 },
+      { role: 'detail', anchor: 'a', subject: 'peach and cherry bursting through bubbles', prompt: 'Sliced ripe peach and dark cherries bursting through a column of sparkling bubbles, frozen motion, backlit juice droplets, macro beverage photography', aspectRatio: '1:1', motion: 'orbit', intensity: 'bold', pan: 'pan-left', depth: 4, offset: 0.35 },
+      { role: 'context', anchor: 'b', subject: 'a can raised on a Toronto rooftop at dusk', prompt: 'A hand raising an open drink can on a Toronto rooftop at dusk, the skyline glowing softly out of focus, warm evening light, lifestyle photography', aspectRatio: '1:1', motion: 'float', intensity: 'medium', pan: 'none', depth: 3, offset: 0.7 },
+    ],
+  },
   imagePlan: [
     { role: 'hero', intent: 'The can is the brand', prompt: 'A single glossy Fizzwell sparkling energy drink can standing centred on a molten orange-to-red gradient backdrop, dramatic rim lighting, condensation droplets, low camera angle, bold commercial product photography', aspectRatio: '16:9' },
     { role: 'product', intent: 'Show the range', prompt: 'Three Fizzwell cans in peach, cherry and citrus colourways arranged in a staggered row on a seamless warm studio sweep, crisp shadows, premium beverage advertising', aspectRatio: '4:3' },
@@ -76,6 +85,15 @@ const GREENLINE_PLAN = {
       { type: 'contact', intent: 'convert', headlineRole: 'declarative', headline: 'Tell us about your yard', ctaLabel: 'Request a quote' },
     ] },
   ],
+  heroStoryboard: {
+    concept: 'Greenline builds a Calgary backyard: the finished stone patio at golden hour, the flagstone being set, and the planting going in',
+    composition: 'panorama', tone: 'dark', loopSeconds: 13,
+    layers: [
+      { role: 'lead', anchor: 'lead', subject: 'finished stone patio at golden hour', prompt: 'A finished Calgary backyard at golden hour: a natural flagstone patio with a low stone wall, layered perennial beds and a fresh lawn, warm raking light, wide architectural garden photography', aspectRatio: '16:9', motion: 'push-in', intensity: 'medium', pan: 'pan-left', depth: 1, offset: 0 },
+      { role: 'context', anchor: 'a', subject: 'flagstone being set by the crew', prompt: 'A landscaper setting a large flagstone into a bed of screenings with a rubber mallet, gloves and knee pads, work in progress, seen from behind', aspectRatio: '4:3', motion: 'drift-left', intensity: 'medium', pan: 'zoom-in', depth: 3, offset: 0.3 },
+      { role: 'detail', anchor: 'b', subject: 'ornamental grasses being planted', prompt: 'Close-up of hands planting ornamental grasses into fresh dark soil beside a curved gravel path, morning dew, garden detail', aspectRatio: '4:5', motion: 'rise', intensity: 'bold', pan: 'none', depth: 4, offset: 0.65 },
+    ],
+  },
   imagePlan: [
     { role: 'hero', intent: 'A finished yard is the proof', prompt: 'A finished Calgary backyard at golden hour: natural flagstone patio, layered perennial garden beds, fresh green lawn, warm evening light, wide architectural garden photography', aspectRatio: '16:9' },
     { role: 'gallery', intent: 'Patio project', prompt: 'Close view of a newly laid natural stone patio with low stone wall and planted borders, soft overcast light, landscape portfolio photography', aspectRatio: '4:3' },
@@ -97,4 +115,13 @@ const BUSINESSES = [
   { id: 'harbour-physio', text: HARBOUR_TEXT, expect: { name: 'Harbour Physio' } },
 ];
 
-module.exports = { BUSINESSES, FIZZWELL_TEXT, FIZZWELL_PLAN, GREENLINE_TEXT, GREENLINE_PLAN, HARBOUR_TEXT };
+const OFF_INDUSTRY_STORYBOARD = {
+  concept: 'A modern productivity story', composition: 'device-float', tone: 'dark',
+  layers: [
+    { role: 'lead', anchor: 'lead', subject: 'a laptop screen with a dashboard', prompt: 'A laptop screen showing a sleek analytics dashboard with charts in a glass office, product photography', aspectRatio: '16:9', motion: 'hold' },
+    { role: 'detail', anchor: 'a', subject: 'a spreadsheet on a monitor', prompt: 'A spreadsheet and a stock chart on a monitor in a corporate office, shallow depth of field', aspectRatio: '1:1', motion: 'float' },
+    { role: 'context', anchor: 'b', subject: 'a corporate handshake', prompt: 'A corporate handshake in an office cubicle area, business people in suits, bright light', aspectRatio: '1:1', motion: 'orbit' },
+  ],
+};
+
+module.exports = { BUSINESSES, FIZZWELL_TEXT, FIZZWELL_PLAN, GREENLINE_TEXT, GREENLINE_PLAN, HARBOUR_TEXT, OFF_INDUSTRY_STORYBOARD };

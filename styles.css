@@ -3012,3 +3012,118 @@ body.generation-gate-open{overflow:hidden}
 @container site (max-width:700px){.builder-site .menu-list{grid-template-columns:1fr;gap:20px}}
 /* a gallery that would only have repeated the offerings listed above it (see offeringsListedElsewhere) */
 .builder-site .site-section[data-variant="omitted"]{display:none!important}
+/* ==== HERO STORYBOARD: the multi-image moving hero ======================================================
+   Markup: lib/premium/hero-storyboard.js renderStoryboardHero (the live preview and the export render the same
+   HTML). Each .sb-layer is a separately generated image with its OWN motion track: its placement and its frame
+   track (--fx/--fy/--fs/--fr -> --tx/--ty/--ts/--tr) and content track (--ix0.. -> --ix1..) arrive as custom
+   properties, and every layer runs the same two keyframes on the same loop length (--sb-loop) from its own phase
+   (--delay), so the whole composition repeats exactly once per loop. Transform/opacity/clip-path only. The copy sits
+   in its own copy-safe area and never moves on a loop. prefers-reduced-motion: every image still shown, resting in
+   its composed position. */
+.builder-site .site-hero.hero-cinema.hero-storyboard{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:clamp(20px,3.6cqw,60px);align-items:center;padding:clamp(40px,5cqw,84px) clamp(24px,5.2cqw,84px)!important;min-height:clamp(580px,52cqw,800px);color:var(--site-text)}
+.hero-storyboard .sb-backdrop{position:absolute;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(90% 80% at 70% 45%,color-mix(in srgb,var(--site-accent) 14%,var(--site-bg)) 0,var(--site-bg) 70%)}
+.hero-storyboard[data-tone="dark"] .sb-backdrop{background:radial-gradient(110% 90% at 68% 45%,color-mix(in srgb,var(--site-accent) 30%,#0b0b0e) 0,color-mix(in srgb,var(--site-accent) 10%,#08080a) 50%,#060607 100%)}
+.builder-site .site-hero.hero-storyboard[data-tone="dark"]{background:#07070a!important;color:#fff!important}
+.hero-storyboard .sb-glow{position:absolute;right:6%;top:10%;width:62%;height:80%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--site-accent) 55%,transparent),transparent);filter:blur(40px);opacity:.7;animation:sr-glow var(--sb-loop) ease-in-out calc(var(--cam-phase,0s)) infinite alternate}
+.hero-storyboard .sb-copy{position:relative;z-index:70;min-width:0}
+.hero-storyboard .sb-copy h3{max-width:13ch}
+.hero-storyboard .sb-copy .cinema-kicker{color:color-mix(in srgb,var(--site-accent) 75%,var(--site-text))!important}
+.hero-storyboard .sb-copy .cinema-sub{color:var(--site-muted)!important}
+.hero-storyboard[data-tone="dark"] .sb-copy h3{color:#fff!important;text-shadow:0 2px 26px rgba(0,0,0,.45)}
+.hero-storyboard[data-tone="dark"] .sb-copy .cinema-kicker{color:color-mix(in srgb,var(--site-accent) 55%,#fff)!important}
+.hero-storyboard[data-tone="dark"] .sb-copy .cinema-sub{color:rgba(255,255,255,.8)!important}
+.hero-storyboard .sb-offers{list-style:none;display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 0;padding:0}
+.hero-storyboard .sb-offers li{padding:7px 13px;border-radius:999px;font-size:12px;font-weight:650;background:color-mix(in srgb,var(--site-text) 7%,transparent);border:1px solid color-mix(in srgb,var(--site-text) 14%,transparent)}
+.hero-storyboard[data-tone="dark"] .sb-offers li{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff}
+/* the CTA's ink follows the stage it sits on (the generic `.site-actions button` rule inks it with body text, which
+   is unreadable on the accent fill and on a dark stage) */
+.builder-site .hero-storyboard .sb-copy .site-actions .module-cta-btn{color:var(--site-on-accent,#fff)!important}
+.builder-site:is([data-cta="underline-link"],[data-cta="outline-ghost"]) .hero-storyboard .sb-copy .site-actions .module-cta-btn{color:var(--site-text)!important}
+.builder-site:is([data-cta="underline-link"],[data-cta="outline-ghost"]) .hero-storyboard:is([data-tone="dark"],[data-copy="bottom-left"]) .sb-copy .site-actions .module-cta-btn{color:#fff!important}
+.hero-storyboard .sb-stage{position:relative;height:clamp(440px,45cqw,680px);min-width:0}
+/* layers: placement + the frame track */
+.hero-storyboard .sb-layer{position:absolute;left:calc(var(--x) * 1%);top:calc(var(--y) * 1%);width:calc(var(--w) * 1%);height:calc(var(--h) * 1%);z-index:var(--z);margin:0;transform:translate3d(var(--fx),var(--fy),0) scale(var(--fs)) rotate(var(--fr));animation:sb-track var(--sb-loop) cubic-bezier(.45,0,.55,1) calc(var(--delay) + var(--cam-phase,0s)) infinite;will-change:transform;backface-visibility:hidden}
+@keyframes sb-track{0%,100%{transform:translate3d(var(--fx),var(--fy),0) scale(var(--fs)) rotate(var(--fr))}50%{transform:translate3d(var(--tx),var(--ty),0) scale(var(--ts)) rotate(var(--tr))}}
+.hero-storyboard .sb-frame{position:absolute;inset:0;overflow:hidden;border-radius:18px;background:color-mix(in srgb,var(--site-text) 8%,transparent);box-shadow:0 34px 70px -34px rgba(0,0,0,.6);animation:sb-reveal-rise 1.3s cubic-bezier(.16,.84,.24,1) var(--rvd) both;isolation:isolate;will-change:transform}
+/* (isolation + its own layer: without it Chromium leaves a 1px column of the panning picture outside the rounded clip) */
+/* the content track: the picture moving inside its frame */
+.hero-storyboard .sb-media{position:absolute;inset:-7%;transform:translate3d(var(--ix0),var(--iy0),0) scale(var(--is0));animation:sb-pan var(--sb-loop) ease-in-out calc(var(--delay) + var(--cam-phase,0s)) infinite;will-change:transform}
+@keyframes sb-pan{0%,100%{transform:translate3d(var(--ix0),var(--iy0),0) scale(var(--is0))}50%{transform:translate3d(var(--ix1),var(--iy1),0) scale(var(--is1))}}
+.hero-storyboard .sb-media>img,.hero-storyboard .sb-media>*{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;display:block}
+/* reveals (one-shot, staggered per layer) */
+.hero-storyboard [data-reveal="wipe-left"] .sb-frame{animation-name:sb-reveal-wipe-left}
+.hero-storyboard [data-reveal="wipe-right"] .sb-frame{animation-name:sb-reveal-wipe-right}
+.hero-storyboard [data-reveal="wipe-up"] .sb-frame{animation-name:sb-reveal-wipe-up}
+.hero-storyboard [data-reveal="iris"] .sb-frame{animation-name:sb-reveal-iris}
+.hero-storyboard [data-reveal="scale"] .sb-frame{animation-name:sb-reveal-scale}
+@keyframes sb-reveal-rise{from{opacity:0;transform:translate3d(0,28px,0)}to{opacity:1;transform:none}}
+/* the wipes/iris end beyond the frame (negative inset) so they never trim its drop shadow */
+@keyframes sb-reveal-wipe-left{from{clip-path:inset(-90px -90px -90px 100%)}to{clip-path:inset(-90px)}}
+@keyframes sb-reveal-wipe-right{from{clip-path:inset(-90px 100% -90px -90px)}to{clip-path:inset(-90px)}}
+@keyframes sb-reveal-wipe-up{from{clip-path:inset(100% -90px -90px -90px)}to{clip-path:inset(-90px)}}
+@keyframes sb-reveal-iris{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(120% at 50% 50%)}}
+@keyframes sb-reveal-scale{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:none}}
+/* frame shapes */
+.hero-storyboard .sb-shape-soft .sb-frame{border-radius:28px}
+.hero-storyboard .sb-shape-circle{height:auto;aspect-ratio:1}
+.hero-storyboard .sb-shape-circle .sb-frame{border-radius:50%}
+.hero-storyboard .sb-shape-arch .sb-frame{border-radius:999px 999px 26px 26px}
+.hero-storyboard .sb-shape-frame .sb-frame{border-radius:12px;border:6px solid color-mix(in srgb,var(--site-bg) 92%,#fff);box-shadow:0 26px 60px -24px rgba(0,0,0,.65)}
+.hero-storyboard .sb-shape-full .sb-frame{border-radius:0;box-shadow:none}
+.hero-storyboard .sb-shape-device .sb-frame{border-radius:16px;border:1px solid rgba(255,255,255,.14);background:#111319;padding-top:28px}
+.hero-storyboard .sb-shape-device .sb-frame::before{content:"";position:absolute;left:14px;top:10px;width:44px;height:8px;z-index:2;background:radial-gradient(circle at 4px 4px,rgba(255,255,255,.3) 3.5px,transparent 4px) 0 0/16px 8px repeat-x}
+.hero-storyboard .sb-shape-device .sb-media{top:28px}
+/* light moving across the whole stage */
+.hero-storyboard .sb-light{position:absolute;inset:-10% -30%;z-index:60;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.16) 48%,rgba(255,255,255,.04) 54%,transparent 62%);mix-blend-mode:screen;animation:sb-light var(--sb-loop) ease-in-out calc(var(--cam-phase,0s)) infinite}
+.hero-storyboard[data-light="none"] .sb-light,.hero-storyboard[data-light="glow"] .sb-light{display:none}
+@keyframes sb-light{0%,100%{transform:translate3d(-35%,0,0)}50%{transform:translate3d(35%,0,0)}}
+/* copy on the right */
+.builder-site .site-hero.hero-storyboard[data-copy="right"]{grid-template-columns:minmax(0,1.16fr) minmax(0,.84fr)}
+.hero-storyboard[data-copy="right"] .sb-copy{order:2}
+/* full-bleed lead, copy bottom-left over a scrim, the other images framed on the right */
+.builder-site .site-hero.hero-storyboard[data-copy="bottom-left"]{display:block;padding:0!important;min-height:clamp(620px,58cqw,880px)}
+.hero-storyboard[data-copy="bottom-left"] .sb-stage{position:absolute;inset:0;height:auto}
+.hero-storyboard[data-copy="bottom-left"] .sb-stage::after{content:"";position:absolute;inset:0;z-index:25;pointer-events:none;background:linear-gradient(90deg,rgba(6,8,7,.8) 0,rgba(6,8,7,.45) 38%,rgba(6,8,7,0) 66%),linear-gradient(0deg,rgba(6,8,7,.72) 0,rgba(6,8,7,0) 52%)}
+.hero-storyboard[data-copy="bottom-left"] .sb-copy{position:absolute;left:clamp(24px,5.2cqw,84px);bottom:clamp(28px,4.5cqw,68px);max-width:min(620px,52%)}
+.hero-storyboard[data-copy="bottom-left"] .sb-copy h3{color:#fff!important;text-shadow:0 2px 28px rgba(0,0,0,.5)}
+.hero-storyboard[data-copy="bottom-left"] .sb-copy .cinema-kicker,.hero-storyboard[data-copy="bottom-left"] .sb-copy .cinema-sub{color:rgba(255,255,255,.88)!important}
+.hero-storyboard[data-copy="bottom-left"] .sb-offers li{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff}
+/* copy centred on top, the product stage below it */
+.builder-site .site-hero.hero-storyboard[data-copy="top"]{display:block;text-align:center}
+.hero-storyboard[data-copy="top"] .sb-copy{max-width:820px;margin:0 auto}
+.hero-storyboard[data-copy="top"] .sb-copy h3{max-width:16ch;margin-left:auto;margin-right:auto;font-size:clamp(38px,4.6cqw,72px)}
+.hero-storyboard[data-copy="top"] .cinema-sub{margin:0 auto}
+.hero-storyboard[data-copy="top"] .site-actions,.hero-storyboard[data-copy="top"] .sb-offers{justify-content:center}
+.hero-storyboard[data-copy="top"] .site-actions{margin-top:22px}
+.hero-storyboard[data-copy="top"] .sb-offers{margin-top:18px}
+/* the product stage rises into the first screen instead of starting below the fold */
+.builder-site .site-hero.hero-storyboard[data-copy="top"]{padding-top:clamp(30px,3.4cqw,56px)!important}
+.hero-storyboard[data-copy="top"] .sb-stage{max-width:1060px;margin:clamp(22px,2.6cqw,40px) auto 0;height:clamp(330px,33cqw,480px)}
+/* phones: the images first, then the copy; each layer takes its phone placement */
+@container site (max-width:700px){
+  .builder-site .site-hero.hero-cinema.hero-storyboard{display:flex;flex-direction:column;align-items:stretch;gap:26px;padding:24px 18px 40px!important;min-height:0}
+  .hero-storyboard .sb-stage{order:-1;height:112cqw}
+  /* (a centred `margin:auto` stage in the phone's flex column would shrink to zero width -- every image gone) */
+  .hero-storyboard[data-copy="top"] .sb-stage{order:0;height:96cqw;width:100%;max-width:none;margin:4px 0 0}
+  .hero-storyboard[data-copy="top"] .site-actions{justify-content:center;align-items:center}
+  .hero-storyboard .sb-layer{left:calc(var(--mx) * 1%);top:calc(var(--my) * 1%);width:calc(var(--mw) * 1%);height:calc(var(--mh) * 1%)}
+  .hero-storyboard .sb-shape-circle{height:auto}
+  .hero-storyboard .sb-copy h3{font-size:clamp(36px,11cqw,54px)}
+  .builder-site .site-hero.hero-storyboard[data-copy="bottom-left"]{display:flex;padding:0!important;min-height:0}
+  .hero-storyboard[data-copy="bottom-left"] .sb-stage{position:relative;inset:auto;height:120cqw}
+  .hero-storyboard[data-copy="bottom-left"] .sb-stage::after{background:linear-gradient(0deg,rgba(6,8,7,.55) 0,rgba(6,8,7,0) 40%)}
+  .hero-storyboard[data-copy="bottom-left"] .sb-copy{position:relative;left:auto;bottom:auto;max-width:none;padding:0 18px 36px}
+  .hero-storyboard[data-copy="bottom-left"]:not([data-tone="dark"]) .sb-copy h3{color:var(--site-text)!important;text-shadow:none}
+  .hero-storyboard[data-copy="bottom-left"]:not([data-tone="dark"]) .sb-copy .cinema-kicker{color:color-mix(in srgb,var(--site-accent) 75%,var(--site-text))!important}
+  .hero-storyboard[data-copy="bottom-left"]:not([data-tone="dark"]) .sb-copy .cinema-sub{color:var(--site-muted)!important}
+  .hero-storyboard[data-copy="bottom-left"]:not([data-tone="dark"]) .sb-offers li{background:color-mix(in srgb,var(--site-text) 7%,transparent);border-color:color-mix(in srgb,var(--site-text) 14%,transparent);color:var(--site-text)}
+  .builder-site:is([data-cta="underline-link"],[data-cta="outline-ghost"]) .hero-storyboard[data-copy="bottom-left"]:not([data-tone="dark"]) .sb-copy .site-actions .module-cta-btn{color:var(--site-text)!important}
+}
+/* live preview re-renders on every edit: no replayed reveal after the first render (see keepCinemaHeroContinuous) */
+.hero-cinema.cinema-no-intro .sb-frame{animation:none}
+/* the visitor asked for stillness: every image shown, resting where the composition placed it */
+@media (prefers-reduced-motion:reduce){
+  .hero-storyboard .sb-layer,.hero-storyboard .sb-media{animation:none!important;transform:none!important}
+  .hero-storyboard .sb-frame{animation:none!important;clip-path:none!important;opacity:1!important}
+  .hero-storyboard .sb-light{display:none}
+}

@@ -1,5 +1,6 @@
 'use strict';
-// The art-directed moving hero (lib/premium/hero-direction.js) and the section
+// The single-image moving hero (lib/premium/hero-direction.js -- now the legacy/statement
+// path; new generations use the multi-image storyboard, test/hero-storyboard.test.js) and the section
 // copy that carries its direction through the page (lib/premium/offering-copy.js),
 // exercised through the REAL client (script.js in a vm, with premium-core.js
 // loaded exactly as index.html loads it) and the REAL export renderer.
@@ -75,53 +76,6 @@ test('every generator category receives a directed moving hero with industry-led
   assert.ok(plannedRoast.length <= 1200);
   assert.equal(H.chooseTreatment({ categoryKey: 'fashion' }), 'PRODUCT_CLOSEUP');
   assert.match(H.heroPrompt({ categoryKey: 'fashion', treatment: 'PRODUCT_CLOSEUP', subject: 'a clothing label' }), /garment|fashion|fabric/i);
-});
-
-test('different businesses get meaningfully different heroes (not one composition recoloured)', async () => {
-  const cases = [
-    ['fizzwell', F.FIZZWELL_TEXT, 'cinema-product', 'push'],
-    ['greenline', F.GREENLINE_TEXT, 'cinema-panorama', 'pan'],
-    ['fern-flint', text('fern-flint'), 'cinema-product', 'push'],
-    ['harbour-physio', F.HARBOUR_TEXT, 'cinema-portrait', 'breathe'],
-    ['ledgerly', text('ledgerly'), 'cinema-interface', 'float'],
-  ];
-  const seen = new Set();
-  for (const [id, t, layout, camera] of cases) {
-    const { c, proj, cat } = await generated(t);
-    assert.equal(proj.design.heroDirection.layout, layout, `${id}: treatment`);
-    const html = c.ctx.renderHero(proj, cat);
-    assert.ok(html.includes(`hero-${layout}`) && html.includes(`data-camera="${camera}"`), `${id}: renders the ${layout} composition with a ${camera} camera`);
-    assert.ok(/<img class="site-visual-img site-visual-generated-img"/.test(html), `${id}: the hero shows its generated image`);
-    seen.add(layout);
-  }
-  assert.ok(seen.size >= 4, 'the five businesses span four visual compositions; both product brands keep their own industry-specific prompts');
-});
-
-test('the hero carries the business itself: its real offerings, name and place', async () => {
-  const product = await generated(F.FIZZWELL_TEXT, { plan: F.FIZZWELL_PLAN });
-  const productHtml = product.c.ctx.renderHero(product.proj, product.cat);
-  ['Peach Energy', 'Cherry Energy', 'Citrus Energy'].forEach(f => assert.ok(productHtml.includes(f), `flavour chip ${f}`));
-  const yard = await generated(F.GREENLINE_TEXT, { plan: F.GREENLINE_PLAN });
-  const yardHtml = yard.c.ctx.renderHero(yard.proj, yard.cat);
-  assert.ok(yardHtml.includes('cinema-strip') && yardHtml.includes('Calgary') && yardHtml.includes('Natural Stone Patios'), 'services strip with the place');
-  assert.ok(yardHtml.includes('Yards worth coming home to.'), "the planner's headline is kept");
-});
-
-test('the hero image is shot for its camera move; a planned hero prompt keeps its subject', async () => {
-  const { proj } = await generated(F.GREENLINE_TEXT);
-  const hero = proj.imagePlan.find(e => e.slot === 'hero');
-  assert.match(hero.prompt, /Greenline Landscapes' work: a finished backyard/);
-  assert.match(hero.prompt, /slow sideways camera pan/);
-  assert.ok(hero.prompt.length <= 600);
-  const planned = await generated(F.FIZZWELL_TEXT, { plan: F.FIZZWELL_PLAN });
-  const plannedHero = planned.proj.imagePlan.find(e => e.slot === 'hero').prompt;
-  assert.ok(plannedHero.startsWith(F.FIZZWELL_PLAN.imagePlan[0].prompt) && /push-in/.test(plannedHero));
-});
-
-test('a directed hero never costs more images: exactly one hero slot, even over a collage base layout', async () => {
-  const { proj } = await generated(text('fern-flint'));
-  assert.equal(proj.imagePlan.filter(e => e.section === 'hero').length, 1);
-  assert.ok(!proj.imagePlan.some(e => e.slot === 'collage-2'), 'the layered treatment reuses the hero still as its detail crop');
 });
 
 test('no hero image available -> a moving typographic statement, never an empty photo frame', async () => {

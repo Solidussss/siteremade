@@ -223,7 +223,8 @@ const categoryStyleAffinity = {
 // Real case this fixes: "Fizzwell is a sparkling energy drink brand" was
 // classified as a Health & Wellness studio.
 function scoreKeywords(text, keywordMap) {
-  const lower = text.toLowerCase();
+  // accents ignored, so "café" matches the 'cafe' keyword
+  const lower = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const scores = {};
   Object.keys(keywordMap).forEach(key => {
     scores[key] = keywordMap[key].reduce((n, kwRaw) => {
@@ -357,6 +358,8 @@ function titleCaseOffering(s) {
 }
 function parseOfferingList(segment) {
   const parts = String(segment || '').split(/\s*,\s*|\s+and\s+|\s+or\s+/i).map(p => p.trim()).filter(Boolean);
+  // a trailing "..., made in Victoria" / "..., based in Leeds" describes the list, it is not an item in it
+  while (parts.length > 2 && /^(?:all\s+)?(?:made|handmade|hand-made|designed|built|crafted|sourced|delivered|shipped|based|located|roasted|baked|brewed)\b/i.test(parts[parts.length - 1])) parts.pop();
   if (parts.length < 2 || parts.length > 5) return [];
   const items = [];
   for (let raw of parts) {
@@ -1811,6 +1814,68 @@ function activeHeroDirection(project) {
   const H = heroDirectionLib();
   return H ? H.activeDirection(project) : null;
 }
+// ---- HERO STORYBOARD (lib/premium/hero-storyboard.js, bundled in premium-core.js) ----
+function heroStoryboardLib() {
+  return (typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.heroStoryboard) || null;
+}
+function activeHeroStoryboard(project) {
+  const S = heroStoryboardLib();
+  return S ? S.activeStoryboard(project) : null;
+}
+// Everything the storyboard needs to know about THIS business.
+function storyboardContext(proj, category, variation) {
+  const descriptor = (proj.source && proj.source.descriptor) || {};
+  const name = proj.business && proj.business.name && !(proj.meta && proj.meta.previewBrandName) ? proj.business.name : '';
+  return {
+    categoryKey: proj.business.categoryKey, archetype: proj.strategy && proj.strategy.archetype, name,
+    offerings: offeringsFor(proj, category), ownOfferings: (proj.business && proj.business.offerings) || [], activity: activityPhraseFor(proj.source && proj.source.text),
+    text: proj.source && proj.source.text,
+    noun: definingPhraseFor(proj.source && proj.source.text) || activityPhraseFor(proj.source && proj.source.text) || descriptor.descriptor || descriptor.offering || (category.noun || 'business'),
+    place: proj.source && proj.source.location, accent: colourWordForHex(proj.design.palette && proj.design.palette.main),
+    hero: proj.design.dimensions && proj.design.dimensions.hero, variation: variation || 0,
+  };
+}
+// What the business DOES, in its own words, when it never says what it IS
+// ('Tidewater Charters runs fishing charters and sunset boat tours').
+function activityPhraseFor(text) {
+  const m = String(text || '').match(/\b(?:runs|makes|offers|provides|sells|builds|repairs|designs|creates|hosts|teaches|leads|operates|restores|crafts)\s+([^.;:!?]{3,70}?)(?=\s+(?:from|in|for|across|throughout|by hand)\b|[.;:!?]|$)/i);
+  return m ? m[1].trim() : '';
+}
+function storyboardForProject(proj, category, plannedRaw, variation) {
+  const S = heroStoryboardLib();
+  return S ? S.storyboardFor(plannedRaw, storyboardContext(proj, category, variation)) : null;
+}
+// The hero's own image allowance: what the server says it will fund for hero
+// layers (heroBudgetUsd, env-configurable there), else the cost of the
+// storyboard's routes on this deployment's price table -- a lead on the
+// premium model at medium plus three supporting images on the support model.
+function heroImageBudgetUsd() {
+  const fromServer = typeof window !== 'undefined' && window.__siteremadeImageProvider && window.__siteremadeImageProvider.heroBudgetUsd;
+  if (typeof fromServer === 'number' && fromServer > 0) return fromServer;
+  const keys = imageModelKeys();
+  return imageRouteCostEstimate(keys.premium, 'medium', '4:5') + 3 * imageRouteCostEstimate(keys.support, 'medium', '4:5');
+}
+// Funds the hero's layers in order (lead first) from the hero allowance,
+// never letting an earlier layer's upgrade starve a later one: each pick
+// leaves enough for every remaining layer's cheapest route.
+function planHeroImages({ candidates, heroUsd, remainingCredits, modelKeys }) {
+  const out = new Map();
+  let usdLeft = heroUsd, creditsLeft = remainingCredits;
+  const cheapest = c => { const routes = imageRouteCandidatesForIdealTier(c.idealTier, modelKeys); const r = routes[routes.length - 1]; return { usd: imageRouteCostEstimate(r.model, r.quality, c.aspectRatio), credits: imageCreditCostForRoute(r.model) }; };
+  candidates.forEach((c, k) => {
+    const rest = candidates.slice(k + 1).map(cheapest);
+    const reserveUsd = rest.reduce((n, r) => n + r.usd, 0), reserveCredits = rest.reduce((n, r) => n + r.credits, 0);
+    const route = imageRouteCandidatesForIdealTier(c.idealTier, modelKeys).find(r => {
+      const usd = imageRouteCostEstimate(r.model, r.quality, c.aspectRatio), credits = imageCreditCostForRoute(r.model);
+      return usd <= usdLeft - reserveUsd + 1e-9 && (creditsLeft == null || credits <= creditsLeft - reserveCredits);
+    });
+    if (!route) return;
+    const usd = imageRouteCostEstimate(route.model, route.quality, c.aspectRatio), credits = imageCreditCostForRoute(route.model);
+    out.set(c.i, { model: route.model, quality: route.quality, estimatedCostUsd: usd, creditCost: credits });
+    usdLeft -= usd; if (creditsLeft != null) creditsLeft -= credits;
+  });
+  return out;
+}
 function directHeroForProject(proj) {
   const H = heroDirectionLib();
   if (!H) return null;
@@ -2466,18 +2531,24 @@ function buildImagePlan(project, category, remainingCredits) {
   // HERO DIRECTION: a directed hero shows exactly one image (the 'hero' slot)
   // unless it fell back to its moving typographic STATEMENT treatment.
   const directedShowsImage = heroDirectionLib() ? heroDirectionLib().heroShowsImage(project) : null;
+  // HERO STORYBOARD: every layer is its own real image slot (hero, hero-2, hero-3...)
+  const storyboard = activeHeroStoryboard(project);
   const heroHasVisual = directedShowsImage !== null ? directedShowsImage : !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant);
   // TIERED IMAGE SPEND PASS: every pushed slot now also carries `rank`
   // (lower = funded first) and `idealTier` (see IMAGE_SLOT_TIER_BUCKETS)
   // computed at push time from its actual role/position, not guessed later
   // from array order -- bucket 0 (hero) always outranks bucket 4
   // (decorative), matching the brief's own 6-level importance example.
-  if (heroHasVisual) {
+  if (storyboard && !composed.heroDisplayVariant) {
+    storyboard.layers.forEach(l => {
+      slots.push({ slot: l.slot, role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: l.slot === 'hero' ? plan.hero : null, aspectRatio: l.aspect, intent: `Hero ${l.role} image: ${l.subject}`, storyboardLayer: true, storyboardPrompt: l.prompt, heroLayerRole: l.role, rank: 0, idealTier: l.role === 'lead' ? 'high' : 'medium' });
+    });
+  } else if (heroHasVisual && !storyboard) {
     slots.push({ slot: 'hero', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: plan.hero, aspectRatio: '16:9', intent: `Primary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     // The collage hero layout uses a second image-bearing card -- only real
     // when that layout is actually selected, so we never plan/generate an
     // image for a slot that won't be on screen.
-    if (composed.hero === 'collage' && directedShowsImage === null) {
+    if (composed.hero === 'collage' && directedShowsImage === null && !storyboard) {
       slots.push({ slot: 'collage-2', role: 'hero', page: homePage.slug, section: 'hero', sectionType: 'hero', assetId: (plan.gallery || [])[0], aspectRatio: '4:3', intent: `Secondary hero visual for ${category.label}`, ...IMAGE_SLOT_TIER_BUCKETS[0] });
     }
   }
@@ -2560,15 +2631,30 @@ function buildImagePlan(project, category, remainingCredits) {
   const premiumPlan = (providerConfigured && premiumActive()) ? premiumPlanImages(project, category, slots, remainingCredits) : null;
   if (providerConfigured && !premiumPlan) {
     const candidates = slots
-      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId }))
+      .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId, storyboardLayer: !!s.storyboardLayer }))
       .filter(s => !s.hasUpload && s.idealTier !== 'none')
       .sort((a, b) => ((a.rank + (roleBoost[a.role] || 0)) - (b.rank + (roleBoost[b.role] || 0))));
-    fundedRouteBySlotIndex = planAffordableImages({ candidates, remainingUsd: spendCeilingUsd, remainingCredits, modelKeys });
+    // HERO STORYBOARD: the hero's images are funded first from their own
+    // allowance (heroImageBudgetUsd), guaranteeing every layer at least its
+    // cheapest route before any is upgraded; the rest of the site keeps the
+    // unchanged per-archetype ceiling.
+    const heroFunded = planHeroImages({ candidates: candidates.filter(c => c.storyboardLayer), heroUsd: heroImageBudgetUsd(), remainingCredits, modelKeys });
+    const heroCredits = [...heroFunded.values()].reduce((n, r) => n + r.creditCost, 0);
+    // The rest of the site gets exactly the budget it had when the single hero image was funded from the site
+    // ceiling: that ceiling minus what that one hero image would have cost there (the first route of its ladder
+    // that fitted). The hero's own allowance pays for everything beyond that -- the added images, and any
+    // upgrade of the lead -- so the rest of the site is neither starved nor enlarged by the storyboard.
+    const leadCandidate = candidates.find(c => c.storyboardLayer && slots[c.i].heroLayerRole === 'lead');
+    const oldHeroRoute = leadCandidate ? imageRouteCandidatesForIdealTier('high', modelKeys).find(r => imageRouteCostEstimate(r.model, r.quality, '16:9') <= spendCeilingUsd + 1e-9) : null;
+    const oldHeroCostUsd = oldHeroRoute ? imageRouteCostEstimate(oldHeroRoute.model, oldHeroRoute.quality, '16:9') : 0;
+    const restFunded = planAffordableImages({ candidates: candidates.filter(c => !c.storyboardLayer), remainingUsd: Math.max(0, spendCeilingUsd - oldHeroCostUsd), remainingCredits: remainingCredits == null ? remainingCredits : remainingCredits - heroCredits, modelKeys });
+    fundedRouteBySlotIndex = new Map([...heroFunded, ...restFunded]);
   }
   // Planned prompts go to the slots that will actually be generated first
   // (funded before unfunded, then by importance), one distinct prompt each.
   const plannedPrompts = assignPlannedImagePrompts(
-    slots.map((s, i) => ({ role: s.role, rank: (fundedRouteBySlotIndex.has(i) ? 0 : 100) + (s.rank || 0) })),
+    // storyboard layers carry their own prompts; the planner's image list is kept for the rest
+    slots.map((s, i) => ({ role: s.storyboardLayer ? 'storyboard-layer' : s.role, rank: (fundedRouteBySlotIndex.has(i) ? 0 : 100) + (s.rank || 0) })),
     plannedImagePromptList(project)
   );
   const roleOccurrence = {};
@@ -2579,7 +2665,7 @@ function buildImagePlan(project, category, remainingCredits) {
     const sourceType = s.assetId ? 'user' : (fundedRoute ? 'generated' : 'designed');
     const occurrence = roleOccurrence[s.role] = (roleOccurrence[s.role] === undefined ? 0 : roleOccurrence[s.role] + 1);
     return {
-      ...s, placement: s.role, prompt: buildImagePrompt(project, category, s.role, occurrence, plannedPrompts[i]), sourceType,
+      ...s, placement: s.role, prompt: s.storyboardLayer ? s.storyboardPrompt : buildImagePrompt(project, category, s.role, occurrence, plannedPrompts[i]), sourceType,
       model: fundedRoute ? fundedRoute.model : null,
       quality: fundedRoute ? fundedRoute.quality : null,
       estimatedCostUsd: fundedRoute ? fundedRoute.estimatedCostUsd : null,
@@ -2708,12 +2794,14 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
   // grid-dashboard one) still end up with visibly different, but equally
   // "clean text-only, never an empty image slot", hero layouts.
   const heroEntry = firstPass.find(e => e.slot === 'hero');
-  if (heroEntry && heroEntry.sourceType === 'designed' && !starterVisualsEnabled(proj)) {
+  const storyboardEntries = firstPass.filter(e => e.storyboardLayer);
+  const heroUnfunded = storyboardEntries.length ? storyboardEntries.every(e => e.sourceType === 'designed') : (heroEntry && heroEntry.sourceType === 'designed');
+  if (heroUnfunded && !starterVisualsEnabled(proj)) {
     const composed = proj.design.dimensions;
     const effectiveHeroVariant = composed.heroDisplayVariant || composed.hero;
     // A directed hero asked for an image even over a text-only base layout,
     // so an unfunded one must always be marked (it then renders STATEMENT).
-    if (activeHeroDirection(proj) ? !composed.heroDisplayVariant : !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
+    if ((activeHeroDirection(proj) || activeHeroStoryboard(proj)) ? !composed.heroDisplayVariant : !TEXT_ONLY_HERO_VARIANTS.includes(effectiveHeroVariant)) {
       const mapped = mapHeroToTextOnlyVariant(composed.hero);
       if (composed.heroDisplayVariant !== mapped) {
         composed.heroDisplayVariant = mapped;
@@ -2870,7 +2958,7 @@ function resolveImagePlanAssets(proj, onProgress, options = {}) {
     // cheap support model at 'medium', so a bad or tampered client value
     // can never silently buy the premium model or the most expensive
     // quality.
-    const body = JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, ...premiumImageRequestFields(proj, entry), model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id, requestKey: reqKey });
+    const body = JSON.stringify({ prompt: entry.prompt, aspectRatio: entry.aspectRatio, role: entry.role, ...premiumImageRequestFields(proj, entry), model: entry.model || undefined, quality: entry.quality || 'medium', taskType: options.taskType || 'IMAGE_ADD', projectId: proj.meta && proj.meta.id, requestKey: reqKey, heroLayer: entry.storyboardLayer ? true : undefined });
     const request = postImageRequestWithRetry(body, IMAGE_REQUEST_TIMEOUT_MS, IMAGE_REQUEST_RETRIES)
       .then(data => {
         imageRequestsInFlight.delete(reqKey);
@@ -3025,6 +3113,22 @@ function renderHero(project, category) {
   const hasShowcase = (project.sections || []).some(s => ['gallery', 'caseStudies', 'imageLedEditorial', 'productShowcase'].includes(s.type));
   // HERO DIRECTION: the art-directed moving hero (same markup as the export --
   // lib/premium/hero-direction.js renderCinemaHero).
+  // HERO STORYBOARD: the multi-image moving hero (same markup as the export --
+  // lib/premium/hero-storyboard.js renderStoryboardHero). Only layers with a
+  // real image are drawn; with none at all, the moving typographic statement.
+  const storyboard = layout !== 'demo' ? activeHeroStoryboard(project) : null;
+  if (storyboard) {
+    const visuals = {};
+    if (!composed.heroDisplayVariant) {
+      storyboard.layers.forEach(l => {
+        const assetId = l.slot === 'hero' ? plan.hero : null;
+        if (isVisualSlotFunded(project, l.slot, assetId)) visuals[l.slot] = renderVisualSlot(project, l.slot, composed.imagery, assetId);
+      });
+    }
+    const heroOpts = { kickerHtml: kicker, headlineHtml: headline, subHtml: sub, ctaHtml: ctaBtn, offerings: offeringsFor(project, category), name: project.meta && project.meta.previewBrandName ? '' : project.business.name, place: project.source && project.source.location };
+    if (Object.keys(visuals).length) return heroStoryboardLib().renderStoryboardHero({ storyboard, visuals, ...heroOpts });
+    if (heroDirectionLib()) return heroDirectionLib().renderCinemaHero({ layout: 'cinema-statement', camera: 'lightfield', strength: 'full', visualHtml: '', ...heroOpts });
+  }
   const heroDirection = layout !== 'demo' ? activeHeroDirection(project) : null;
   if (heroDirection) {
     let cinemaLayout = heroDirectionLib().layoutFor(project);
@@ -7895,7 +7999,10 @@ function normalizeClaudePlan(raw, catDefaults) {
     rationale: claudeStr(vd.rationale, 240),
     imagePromptsByRole,
     imagePrompts,
-    functionalityPlan
+    functionalityPlan,
+    // HERO STORYBOARD: validated later (generation's imagery step) against this
+    // business's category, offerings and words -- see storyboardForProject.
+    heroStoryboard: (raw.heroStoryboard && typeof raw.heroStoryboard === 'object' && !Array.isArray(raw.heroStoryboard)) ? raw.heroStoryboard : null
   };
 }
 
@@ -8690,7 +8797,11 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         applyVisualProfile(proj); // V4 (flag-gated): starter visuals + a hero that can carry a product visual
         applyPhotoLayout(proj); // V6 (photo-led businesses): editorial alternating layout + specific content, before images are planned
         groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
-        proj.design.heroDirection = directHeroForProject(proj); // HERO DIRECTION: after every hero-layout decision above, before the image plan
+        // HERO STORYBOARD: the multi-image moving hero -- the planner's storyboard
+        // when it validates for THIS business, otherwise the art-directed fallback.
+        // Decided after every hero-layout decision above, before the image plan.
+        proj.heroStoryboard = storyboardForProject(proj, category, usingClaude ? claudePlan.heroStoryboard : null, variationSeed);
+        proj.design.heroDirection = proj.heroStoryboard ? null : directHeroForProject(proj); // single-image direction only if the storyboard module is unavailable
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
         const n = proj.assets.items.length;
         const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
