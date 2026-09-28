@@ -49,6 +49,13 @@ async function shootFull(w, width, file, selector) {
   fs.writeFileSync(file, img.toPNG());
   return { file: path.basename(file), height: h };
 }
+// The hero's words and button at one moment: each wholly inside the hero's width, not covered, and where it was
+// (the copy never moves with the loop). Also the page's (or preview pane's) sideways scroll.
+const COPY_CHECK = heroSel => `(() => { const hero = document.querySelector(${JSON.stringify(heroSel)}); if (!hero) return null; const hb = hero.getBoundingClientRect();
+  const els = [...hero.querySelectorAll('.sb-copy h3, .sb-copy .cinema-sub, .sb-copy .site-actions a, .sb-copy .site-actions button, .sb-copy .sb-offers li')];
+  const items = els.map(el => { const b = el.getBoundingClientRect(); let ok = 0, n = 0; for (let i = 0; i < 6; i++) { const x = b.left + 1 + (b.width - 2) * i / 5, y = b.top + b.height / 2; if (y < 0 || y >= innerHeight) continue; n++; const hit = document.elementFromPoint(x, y); if (hit && (el.contains(hit) || hit.contains(el) || hit.closest('.sb-copy'))) ok++; } return { tag: el.tagName, left: Math.round(b.left - hb.left), right: Math.round(b.right - hb.left), inside: b.left >= hb.left - 0.5 && b.right <= hb.right + 0.5, seen: n ? ok / n : null }; });
+  const scrollers = [document.scrollingElement, ...document.querySelectorAll('#builderSite, #builderSite *')].filter(e => e && e.scrollLeft > 0).length;
+  return { heroWidth: Math.round(hb.width), items, sideways: scrollers + (scrollX ? 1 : 0) }; })()`;
 async function heroFrames(w, width, prefix, heroSelector) {
   const out = {};
   for (const reduced of [false, true]) {
@@ -63,10 +70,11 @@ async function heroFrames(w, width, prefix, heroSelector) {
     const frames = [];
     // capture the whole viewport, then crop: a sub-rect capture fails (UnknownVizError) inside the
     // editor's scrolling preview pane
-    for (const t of [0, 2500, 5000]) { if (t) await sleep(2500); let full = await w.webContents.capturePage(); for (let r = 0; r < 5 && full.isEmpty(); r++) { await sleep(400); full = await w.webContents.capturePage(); } const k = full.getSize().width / width; const sz = full.getSize(); const cx = Math.round(rect.x * k), cy = Math.round(rect.y * k); frames.push(full.crop({ x: cx, y: cy, width: Math.max(1, Math.min(Math.round(rect.width * k), sz.width - cx)), height: Math.max(1, Math.min(Math.round(rect.height * k), sz.height - cy)) })); }
+    const copyChecks = [];
+    for (const t of [0, 2500, 5000]) { if (t) await sleep(2500); copyChecks.push(await w.webContents.executeJavaScript(COPY_CHECK(heroSelector)).catch(e => ({ error: String(e).slice(0, 80) }))); let full = await w.webContents.capturePage(); for (let r = 0; r < 5 && full.isEmpty(); r++) { await sleep(400); full = await w.webContents.capturePage(); } const k = full.getSize().width / width; const sz = full.getSize(); const cx = Math.round(rect.x * k), cy = Math.round(rect.y * k); frames.push(full.crop({ x: cx, y: cy, width: Math.max(1, Math.min(Math.round(rect.width * k), sz.width - cx)), height: Math.max(1, Math.min(Math.round(rect.height * k), sz.height - cy)) })); }
     const tag = reduced ? 'reduced' : 'motion';
     frames.forEach((f, i) => fs.writeFileSync(`${prefix}-hero-${tag}-${i}.png`, f.toPNG()));
-    out[tag] = { diff01: meanDiff(frames[0], frames[1]), diff02: meanDiff(frames[0], frames[2]), files: frames.map((_, i) => path.basename(`${prefix}-hero-${tag}-${i}.png`)) };
+    out[tag] = { diff01: meanDiff(frames[0], frames[1]), diff02: meanDiff(frames[0], frames[2]), files: frames.map((_, i) => path.basename(`${prefix}-hero-${tag}-${i}.png`)), copy: copyChecks };
   }
   await w.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   return out;

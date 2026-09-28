@@ -129,21 +129,44 @@ ${Bf ? copyLine(Bf['no-images'], 'BEFORE') : ''}${copyLine(A['no-images'], 'AFTE
     if (fs.existsSync(partReport)) Object.assign(merged, JSON.parse(fs.readFileSync(partReport, 'utf8')));
     if (last) break;
   }
+  // a capture that failed twice inside a long-running process gets one more chance in a fresh one
+  const missing = shots.filter(s => (s.few ? ['desktop-a', 'desktop-b', 'mobile'] : ['desktop-a', 'desktop-b', 'desktop-c', 'desktop-d', 'mobile', 'mobile-b', 'mobile-c']).some(n => !fs.existsSync(`${s.out}-${n}.png`)));
+  if (missing.length) {
+    const jobFile = path.join(outDir, 'job-missing.json'); const partReport = path.join(outDir, 'visibility-missing.json');
+    fs.writeFileSync(jobFile, JSON.stringify({ shots: missing, sheets: [], report: partReport }));
+    spawnSync(ELECTRON, [path.join(__dirname, 'capture-heroes.js'), jobFile], { stdio: 'inherit', timeout: 30 * 60 * 1000, env });
+    if (fs.existsSync(partReport)) for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(partReport, 'utf8')))) merged[k] = Object.assign(merged[k] || {}, v);
+    // the contact sheets were drawn before this pass: draw them again with the recovered captures
+    const sheetJob = path.join(outDir, 'job-sheets.json'); fs.writeFileSync(sheetJob, JSON.stringify({ shots: [], sheets }));
+    spawnSync(ELECTRON, [path.join(__dirname, 'capture-heroes.js'), sheetJob], { stdio: 'inherit', timeout: 10 * 60 * 1000, env });
+  }
+  const still = shots.filter(s => (s.few ? ['desktop-a', 'desktop-b', 'mobile'] : ['desktop-a', 'desktop-b', 'desktop-c', 'desktop-d', 'mobile', 'mobile-b', 'mobile-c']).some(n => !fs.existsSync(`${s.out}-${n}.png`)));
+  console.log(`captures still missing after a fresh-process retry: ${still.length ? still.map(s => path.relative(outDir, s.out)).join(', ') : 'none'}`);
   fs.writeFileSync(reportFile, JSON.stringify(merged, null, 1));
   fs.writeFileSync(path.join(outDir, 'subjects.json'), JSON.stringify({ after, before }, null, 2));
   // what the browser measured: the least-visible drawn subject per business, across every captured moment and view
   if (fs.existsSync(reportFile)) {
-    const rep = JSON.parse(fs.readFileSync(reportFile, 'utf8')); const rows = [];
+    const rep = JSON.parse(fs.readFileSync(reportFile, 'utf8')); const rows = []; const copyIssues = [];
     for (const [prefix, moments] of Object.entries(rep)) {
       if (!/[\\/]after[\\/]no-images[\\/]/.test(prefix)) continue;
       const id = path.basename(path.dirname(prefix));
-      for (const [moment, layers] of Object.entries(moments)) for (const l of (layers || [])) if (l.subject) rows.push({ id, moment, slot: l.slot, role: l.role, kind: l.kind, share: l.share, core: l.core });
+      for (const [moment, m] of Object.entries(moments)) {
+        if (!m) continue;
+        for (const l of (m.layers || [])) if (l.subject) rows.push({ id, moment, slot: l.slot, role: l.role, kind: l.kind, share: l.share, core: l.core, labels: l.labels, labelsSeen: l.labelsSeen, worstLabel: l.worstLabel });
+        for (const c of (m.copy || [])) if (!c.inside || (c.seen != null && c.seen < 1)) copyIssues.push(`${id} ${moment} ${c.sel} left ${c.left} right ${c.right} seen ${c.seen}`);
+        if (m.page && (m.page.scrollX || m.page.docW > m.page.clientW)) copyIssues.push(`${id} ${moment} page scrollX ${m.page.scrollX} width ${m.page.docW}/${m.page.clientW}`);
+      }
     }
     rows.sort((a, b) => a.core - b.core || a.share - b.share);
     console.log('\nleast visible drawn subjects (after, no paid imagery, measured in the browser):');
     rows.slice(0, 25).forEach(r => console.log(`  ${r.id.padEnd(20)} ${r.moment.padEnd(10)} ${r.slot.padEnd(7)} ${r.role.padEnd(8)} ${String(r.kind).padEnd(16)} core ${r.core} whole ${r.share}`));
     const leads = rows.filter(r => r.role === 'lead');
     console.log(`leads measured: ${leads.length}, core below 0.8: ${leads.filter(r => r.core < 0.8).length}`);
+    const labelled = rows.filter(r => r.labels);
+    console.log(`drawn layers with printed labels, measured: ${labelled.length}; any label less than fully visible: ${labelled.filter(r => r.labelsSeen < 1).length}`);
+    labelled.filter(r => r.labelsSeen < 1).sort((a, b) => a.labelsSeen - b.labelsSeen).slice(0, 12).forEach(r => console.log(`  ${r.id.padEnd(20)} ${r.moment.padEnd(10)} ${r.slot.padEnd(7)} ${String(r.kind).padEnd(16)} worst label "${r.worstLabel}" ${r.labelsSeen}`));
+    console.log(`copy (kicker, headline, paragraph, button, chips) clipped, off the page's width or covered: ${copyIssues.length ? copyIssues.length + ' cases' : 'none'}`);
+    copyIssues.slice(0, 20).forEach(x => console.log('  ' + x));
   }
   console.log(`\n${BUSINESSES.length} businesses · sheets: ${sheets.map(s => s.png).join(', ')}`);
 }

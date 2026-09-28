@@ -83,7 +83,8 @@ test('an unusual business the classifier cannot place still gets pictures of wha
   const flor = (await hero(UNFAMILIAR.florist)).proj;
   assert.ok(arts(sail.heroStoryboard).includes('sailboat') && arts(sail.heroStoryboard).includes('rope-cleat'), `${sail.business.categoryKey}: ${arts(sail.heroStoryboard)}`);
   assert.ok(arts(sail.heroStoryboard).includes('boat-dusk'), 'the sunset cruise is its own picture');
-  assert.ok(arts(flor.heroStoryboard).includes('bouquet'), `${flor.business.categoryKey}: ${arts(flor.heroStoryboard)}`);
+  // (a florist that delivers leads with the bouquet in its delivery box -- flowers either way)
+  assert.ok(arts(flor.heroStoryboard).some(k => k === 'bouquet' || k === 'bouquet-delivery'), `${flor.business.categoryKey}: ${arts(flor.heroStoryboard)}`);
 });
 
 test('no paid imagery: every layer draws a specific, detailed illustration -- one visual language, never the same picture twice', async () => {

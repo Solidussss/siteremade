@@ -13,8 +13,8 @@ const FR = require('../../lib/premium/hero-framing');
 
 const vars = style => { const o = {}; String(style).replace(/--([a-z0-9]+):([^;]+)/g, (m, k, v) => { o[k] = parseFloat(v); return m; }); return o; };
 function svgInfo(html) {
-  const vb = /viewBox="([^"]+)"/.exec(html); const sb = /data-subject-box="([^"]+)"/.exec(html);
-  return { viewBox: vb ? vb[1].split(/\s+/).map(Number) : null, box: sb ? sb[1].split(/\s+/).map(Number) : null, kind: (/data-art="([^"]+)"/.exec(html) || [])[1] || null };
+  const vb = /viewBox="([^"]+)"/.exec(html); const sb = /data-subject-box="([^"]+)"/.exec(html); const db = /data-detail-boxes="([^"]+)"/.exec(html);
+  return { viewBox: vb ? vb[1].split(/\s+/).map(Number) : null, box: sb ? sb[1].split(/\s+/).map(Number) : null, details: db ? db[1].split(';').map(t => t.split(/\s+/).map(Number)) : [], kind: (/data-art="([^"]+)"/.exec(html) || [])[1] || null };
 }
 // what the frame really shows of a viewBox drawn with "xMidYMid slice" into a frame of this ratio
 function effectiveCrop(vb, ratio) {
@@ -31,7 +31,7 @@ function parseHero(html) {
     const desk = arts.find(a => !/ha-phone/.test(a.slice(0, 60))) || null; const phone = arts.find(a => /ha-phone/.test(a.slice(0, 60))) || desk;
     layers.push({
       slot, role, shape, source, z: v.z, desktop: [v.x, v.y, v.w, v.h], mobile: [v.mx, v.my, v.mw, v.mh],
-      track: { from: { x: v.fx, y: v.fy, s: v.fs }, to: { x: v.tx, y: v.ty, s: v.ts } }, motion: [[v.ix0, v.iy0, v.is0], [v.ix1, v.iy1, v.is1]],
+      track: { from: { x: v.fx, y: v.fy, s: v.fs, r: v.fr }, to: { x: v.tx, y: v.ty, s: v.ts, r: v.tr } }, motion: [[v.ix0, v.iy0, v.is0], [v.ix1, v.iy1, v.is1]],
       art: { desktop: desk && svgInfo(desk), phone: phone && svgInfo(phone) }, interface: /data-art="interface"/.test(media),
     });
   }
@@ -46,7 +46,8 @@ function framingReport(html) {
       const a = l.art[view]; if (!a || !a.viewBox) continue;
       const ratio = FR.frameRatioOf(l, view, copy); const crop = effectiveCrop(a.viewBox, ratio);
       const win = FR.stableWindowFor(l.motion); const occ = FR.occludersFor(layers, l.slot, view, copy);
-      out.push({ slot: l.slot, role: l.role, view, kind: a.kind, hasSubject: !!a.box, share: a.box ? FR.visibleShare(a.box, crop, win, occ, l.shape) : 1, core: a.box ? FR.visibleShare(FR.core(a.box), crop, win, occ, l.shape) : 1 });
+      // details: the least-visible printed label on the subject (1 = every label wholly in view at every moment)
+      out.push({ slot: l.slot, role: l.role, view, kind: a.kind, hasSubject: !!a.box, share: a.box ? FR.visibleShare(a.box, crop, win, occ, l.shape) : 1, core: a.box ? FR.visibleShare(FR.core(a.box), crop, win, occ, l.shape) : 1, labels: a.details.length, details: FR.detailShare(a.details, crop, win, occ, l.shape, 16) });
     }
   }
   return out;

@@ -19,7 +19,7 @@ const { pathToFileURL } = require('url');
 const job = JSON.parse(fs.readFileSync(process.argv[process.argv.length - 1], 'utf8'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 app.disableHardwareAcceleration();
-const MOCK_CSS = `.sb-frame:has(img)::after,.cinema-frame:has(img)::after{content:"MOCK IMAGE";position:absolute;left:8px;top:8px;z-index:9;padding:3px 7px;border-radius:4px;background:rgba(0,0,0,.74);color:#fff;font:700 10px/1.2 system-ui,sans-serif;letter-spacing:.08em}`;
+const MOCK_CSS = `.sb-frame:has(img)::after,.cinema-frame:has(img)::after{content:"MOCK IMAGE";position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;border:3px dashed rgba(255,214,0,.95);color:#fff;font:800 11px/1.2 system-ui,sans-serif;letter-spacing:.1em;text-shadow:0 0 3px #000,0 0 6px #000;pointer-events:none}`;
 // the moments captured (seconds into the loop); names kept compatible with the contact sheets
 const DESKTOP_TIMES = [['desktop-a', 2.5], ['desktop-b', 5.5], ['desktop-c', 8.5], ['desktop-d', 11.5]];
 const PHONE_TIMES = [['mobile', 2.5], ['mobile-b', 6.5], ['mobile-c', 10.5]];
@@ -27,7 +27,8 @@ const PHONE_TIMES = [['mobile', 2.5], ['mobile-b', 6.5], ['mobile-c', 10.5]];
 // capturePage fails transiently (UnknownVizError / empty image) right after a load or resize -- retry patiently
 async function grab(w) { let img = null; for (let t = 0; t < 30 && (!img || img.isEmpty()); t++) { try { w.webContents.invalidate(); img = await w.webContents.capturePage(); } catch (e) { img = null; } if (!img || img.isEmpty()) await sleep(250 + t * 50); } return img; }
 async function heroCrop(w, width) {
-  const r = await w.webContents.executeJavaScript(`(() => { const el = document.querySelector('.site-hero'); if (!el) return null; el.scrollIntoView({ block: 'start' }); const b = el.getBoundingClientRect(); return { x: Math.max(0, Math.round(b.left)), y: Math.max(0, Math.round(b.top)), width: Math.round(Math.min(b.width, innerWidth)), height: Math.round(Math.min(b.height, innerHeight - Math.max(0, b.top))) }; })()`);
+  const r = await w.webContents.executeJavaScript(`(() => { const el = document.querySelector('.site-hero'); if (!el) return null; window.scrollTo(0, Math.round(el.getBoundingClientRect().top + scrollY)); const b = el.getBoundingClientRect(); return { x: Math.max(0, Math.round(b.left)), y: Math.max(0, Math.round(b.top)), width: Math.round(Math.min(b.width, innerWidth)), height: Math.round(Math.min(b.height, innerHeight - Math.max(0, b.top))), left: Math.round(b.left), scrollX }; })()`);
+  if (r && (r.left !== 0 || r.scrollX !== 0)) process.stdout.write(`warn hero not at the left edge (left ${r.left}, scrollX ${r.scrollX})\n`);
   const full = await grab(w); if (!full) return null;
   const sz = full.getSize(); const k = sz.width / width;
   if (!r || r.width < 10 || r.height < 10) return full;
@@ -37,7 +38,7 @@ async function open(w, file, width, height, labelMocks) {
   w.setContentSize(width, height); await sleep(250);
   await w.loadURL('data:text/html,<p>.</p>');
   try { await w.loadURL(pathToFileURL(file).href); } catch (e) { /* the site's own script may navigate; the page is loaded */ }
-  await w.webContents.executeJavaScript(`document.querySelectorAll('.sr-reveal').forEach(e => e.classList.add('sr-revealed')); document.querySelector('.site-hero') && document.querySelector('.site-hero').scrollIntoView({ block: 'start' }); true`).catch(() => {});
+  await w.webContents.executeJavaScript(`document.querySelectorAll('.sr-reveal').forEach(e => e.classList.add('sr-revealed')); const h = document.querySelector('.site-hero'); if (h) window.scrollTo(0, Math.round(h.getBoundingClientRect().top + scrollY)); true`).catch(() => {});
   if (labelMocks) await w.webContents.insertCSS(MOCK_CSS);
   await sleep(600);
 }
@@ -58,12 +59,22 @@ const MEASURE = `(() => {
       const fx = (i + 0.5) / N, fy = (j + 0.5) / N; const x = r.l + (r.r - r.l) * fx, y = r.t + (r.b - r.t) * fy;
       const inCore = fx > 0.2 && fx < 0.8 && fy > 0.2 && fy < 0.8;
       const hit = (x >= 0 && y >= 0 && x < innerWidth && y < innerHeight) ? document.elementFromPoint(x, y) : null;
-      const ok = !!hit && fig.contains(hit);
+      // (another layer's bare figure box -- the transparent corners around a round frame -- covers nothing)
+      const ok = !!hit && (fig.contains(hit) || (hit !== fig && hit.classList && hit.classList.contains('sb-layer') && !hit.contains(fig)));
       all++; if (ok) seen++; if (inCore) { coreAll++; if (ok) coreSeen++; }
     }
-    out.push({ slot, role, kind, subject: true, share: +(seen / all).toFixed(2), core: +(coreSeen / coreAll).toFixed(2) });
+    // every printed label on the subject: the share of its points that are on screen and not covered
+    const labels = [...art.querySelectorAll('[data-subject] text')].map(tx => { const b = tx.getBoundingClientRect(); let ok = 0; for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) { const x = b.left + b.width * (i + 0.5) / 5, y = b.top + b.height * (j + 0.5) / 3; const hit = (x >= 0 && y >= 0 && x < innerWidth && y < innerHeight) ? document.elementFromPoint(x, y) : null; if (hit && (fig.contains(hit) || (hit.classList && hit.classList.contains('sb-layer')))) ok++; } return { text: tx.textContent, seen: ok / 15 }; }).filter(l => l.text.trim());
+    out.push({ slot, role, kind, subject: true, share: +(seen / all).toFixed(2), core: +(coreSeen / coreAll).toFixed(2), labels: labels.length, labelsSeen: labels.length ? +Math.min(...labels.map(l => l.seen)).toFixed(2) : 1, worstLabel: labels.length ? labels.sort((a, b) => a.seen - b.seen)[0].text : null });
   });
-  return out;
+  // the words and the button: each wholly inside the viewport's width and not covered by anything (a frame, the light sweep)
+  const copy = ['.sb-copy .cinema-kicker', '.sb-copy h3', '.sb-copy .cinema-sub', '.sb-copy .site-actions a, .sb-copy .site-actions button', '.sb-copy .sb-offers li'].flatMap(sel => [...document.querySelectorAll(sel)].map(el => ({ sel, el }))).filter(c => c.el.getBoundingClientRect().width > 0).map(({ sel, el }) => {
+    const b = el.getBoundingClientRect(); let ok = 0, n = 0;
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) { const x = b.left + 1 + (b.width - 2) * i / 5, y = b.top + b.height * (j + 0.5) / 3; if (y < 0 || y >= innerHeight) continue; n++; const hit = x >= 0 && x < innerWidth ? document.elementFromPoint(x, y) : null; if (hit && (el.contains(hit) || hit.contains(el) || hit.closest('.sb-copy'))) ok++; }
+    return { sel, left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), inside: b.left >= 0 && b.right <= document.documentElement.clientWidth + 0.5, seen: n ? ok / n : null };
+  });
+  const se = document.scrollingElement;
+  return { layers: out, copy, page: { scrollX, docW: se.scrollWidth, clientW: se.clientWidth } };
 })()`;
 
 app.whenReady().then(async () => {

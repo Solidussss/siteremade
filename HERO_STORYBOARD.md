@@ -124,6 +124,17 @@ roofing lead once showed grass and a tree while the house was cut away). Now:
   `test/review/imagery-review.js`, which freezes the loop at several moments on desktop and phone and hit-tests points
   across each subject's outline -- a point counts only when the topmost element there belongs to that layer.
 
+* **Printed details stay clear.** The text on a drawn subject (a bottle's brand and heat level, a can's flavour, a
+  board's lesson) is tracked label by label (`detailBoxes`); the framing solver weighs every label wholly in view on top
+  of the subject's middle. When that is still not enough, the frames stacked above the layer that reach it travel less
+  (`settleMotion` in hero-storyboard.js: placement, size and stacking unchanged, the track's travel damped to 50% or
+  20%). A frame's tilt is part of the area it sweeps. On phones the `columns` layout gives the lead a wide column
+  instead of three 120px strips. Photos (uploaded or generated) have no known label geometry: nothing detects labels in
+  a raster image; photos keep the owner's focus, else their middle is kept clear (`photoPosition`).
+* **The words never move.** The hero copy is outside the moving stage; its only motion is the one-time entrance rise
+  (vertical, suppressed on preview re-renders). `test/hero-correction.test.js` guards this, and the review measures the
+  kicker, headline, paragraph, button and chips at every captured moment.
+
 ## Saying the right thing
 
 * **Heat levels, ingredients and flavours are different facts** (`visual-subjects.js`): "Three heat levels: mild,
@@ -132,6 +143,11 @@ roofing lead once showed grass and a tree while the house was cut away). Now:
   into the neck, ribbed cap), labelled with the brand and what is inside; a range of heats is a row of bottles, each
   labelled with the owner's name for it; the ingredients are whole chilli pods and a split one showing its seeds. Only
   stated ingredients are drawn (a hot sauce is chillies by definition); nothing is invented.
+* **Offerings choose the subject.** Specific offerings have their own pictures -- a floral ceremony arch, a bouquet
+  delivered to the door, a flower-arranging workshop table, a dried-flower wreath, kayaks, a bike on the workstand --
+  used only when the owner names them. The lead shows the most specific offering named before the broad subject of the
+  trade (flowers, boats, animals), which then takes a supporting role; when two phrases start together, the longer (more
+  specific) one wins. Businesses that offer the same thing share the same picture.
 * **Everyday subjects follow the owner's list**: a business filed under another category that lists sailboats, bikes
   or flowers among what it offers shows those (a yacht broker filed as real estate no longer leads with a house).
 
@@ -193,4 +209,10 @@ screen; the live preview keeps the loop's phase across edits.
   save / export), grounded and varied headlines, planner-headline acceptance and replacement.
 * `ELECTRON_PATH=<electron.exe> node test/review/imagery-review.js <outDir> --before <old checkout>` -- before/after
   contact sheets with the headline and name, desktop and phone at several points of the loop, and the browser-measured
-  visibility of every drawn subject (`visibility.json`).
+  visibility of every drawn subject (`visibility.json`): its middle ("core", the central 60% of its outline -- not the
+  share of the whole image), every printed label on it, and the hero's words and button (on the page's width, not
+  covered, no sideways scroll). Captures run in batches of fresh Electron processes; one that still fails gets a final
+  fresh-process retry. Mocked images carry a dashed outline and a centred MOCK IMAGE mark.
+* `npm test` -- `test/hero-correction.test.js`: the copy never moves or clips, every product label clear (and proof
+  the check catches the undamped overlap), the owner's photo focus untouched, offering-led subjects for close
+  relatives, save/reopen/export parity.
