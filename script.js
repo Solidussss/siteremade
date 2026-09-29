@@ -10576,6 +10576,17 @@ if (buyButton) {
         method: 'POST',
         body: { ...purchaseSummaryPayload(project), projectId: serverProjectId },
       });
+      if (ok && data.ok && data.testerPurchase && data.fulfilled) {
+        serverProjectId = data.projectId || serverProjectId;
+        if (purchaseStatus) {
+          purchaseStatus.className = 'purchase-status success';
+          purchaseStatus.textContent = 'Tester purchase complete — this exact project is now in your purchased handoff.';
+        }
+        await loadOwnedProjectsList();
+        await refreshServerProjectStatus();
+        if (purchaseCompleteActions) purchaseCompleteActions.hidden = false;
+        return;
+      }
       if (ok && data.ok && data.url) {
         if (purchaseStatus) purchaseStatus.textContent = 'Redirecting to checkout…';
         window.location.href = data.url;
