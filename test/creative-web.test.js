@@ -135,3 +135,52 @@ test('where the pictures stopped is judged from the evidence, stage by stage', (
   assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('other', 'unrelated') }] }, { candidates: [] }).stage, 'discovery');
   assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('exact'), outcome: 'not selected' }] }, null).stage, 'selection');
 });
+
+test('SerpApi adapter: the documented request; the key never appears in an error; empty results are a search, not a failure', async () => {
+  const serp = require('../lib/creative/serpapi');
+  const KEY = 'sk-test-secret-123';
+  let asked = null;
+  const ok = await serp.googleImages('Kirby official artwork', { key: KEY, licenses: 'cl', fetchImpl: async u => { asked = new URL(u); return new Response(JSON.stringify({ images_results: [
+    { position: 1, title: 'Kirby', link: 'https://example.org/kirby', original: 'https://img.example.org/kirby.png', original_width: 1200, original_height: 1100, thumbnail: 'https://encrypted-tbn0.gstatic.com/x', source: 'Example', is_product: false },
+    { position: 2, title: 'Kirby plush', link: 'https://shop.example.org/p', original: 'https://img.example.org/plush.jpg', original_width: 800, original_height: 800, source: 'Shop', is_product: true },
+    { position: 3, title: 'no page', link: 'http://insecure.example.org/', original: 'https://img.example.org/x.jpg' }] }), { status: 200 }); } });
+  assert.equal(asked.origin + asked.pathname, 'https://serpapi.com/search');
+  assert.equal(asked.searchParams.get('engine'), 'google_images'); assert.equal(asked.searchParams.get('licenses'), 'cl'); assert.equal(asked.searchParams.get('q'), 'Kirby official artwork');
+  assert.equal(ok.ok, true); assert.deepEqual(ok.results.map(r => [r.imageUrl, r.isProduct]), [['https://img.example.org/kirby.png', false], ['https://img.example.org/plush.jpg', true]], 'a non-https page is dropped; shopping flagged');
+  const refused = await serp.googleImages('q', { key: KEY, fetchImpl: async () => new Response(JSON.stringify({ error: `Invalid API key ${KEY}.` }), { status: 401 }) });
+  assert.equal(refused.ok, false); assert.equal(refused.status, 401); assert.match(refused.error, /refused \(401\)/); assert.ok(!refused.error.includes(KEY));
+  const crashed = await serp.googleImages('q', { key: KEY, fetchImpl: async u => { throw new Error(`connect failed ${u}`); } });
+  assert.ok(!crashed.error.includes(KEY)); assert.match(crashed.error, /api_key=\[key\]/);
+  const empty = await serp.googleImages('q', { key: KEY, fetchImpl: async () => new Response(JSON.stringify({ error: "Google hasn't returned any results for this query." }), { status: 200 }) });
+  assert.deepEqual([empty.ok, empty.results.length, empty.error], [true, 0, '']);
+  assert.match((await serp.googleImages('q', { key: '' })).error, /not configured/);
+  assert.deepEqual(serp.searchQueries({ identity: { name: 'BMO' }, research: { wikipediaTitles: [] }, pageTitle: 'Adventure Time' }).map(q => q.q), ['BMO Adventure Time official artwork', 'BMO Adventure Time character official art']);
+  assert.equal(serp.searchQueries({ identity: { name: 'Link' }, research: { wikipediaTitles: ['Link (The Legend of Zelda)'] } })[0].q, 'Link The Legend of Zelda official artwork');
+});
+
+test('image discovery: shopping results never fetched; permission read from the picture\'s page; the licence filter is a hint, not permission', async () => {
+  const { discoverImages, samePicture } = require('../lib/creative/webimages');
+  assert.equal(samePicture('https://live.example.org/123/4567_abc_b.jpg', 'https://live.example.org/123/4567_abc_h.jpg'), true);
+  assert.equal(samePicture('https://a.example.org/one.jpg', 'https://a.example.org/two.jpg'), false);
+  const png = n => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(n, 30); return b; };
+  const pages = {
+    'https://photos.example.org/p/1': '<meta property="og:type" content="photo"><meta property="og:image" content="https://live.example.org/123/4567_abc_b.jpg"><meta name="author" content="A. Artist"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">CC BY</a>',
+    'https://fans.example.org/art': '<meta property="og:image" content="https://fans.example.org/kirby.png"><footer>no licence here</footer>',
+  };
+  const fetched = [];
+  const out = await discoverImages({ identity: { name: 'Kirby' } }, {
+    imageSearch: async () => ({ searches: 2, results: [
+      { title: 'Kirby photo', pageUrl: 'https://photos.example.org/p/1', imageUrl: 'https://live.example.org/123/4567_abc_h.jpg', source: 'Photos', query: 'Kirby official artwork', licenceFilter: 'Creative Commons licences' },
+      { title: 'Kirby plush', pageUrl: 'https://shop.example.org/p', imageUrl: 'https://img.example.org/plush.jpg', source: 'Shop', isProduct: true },
+      { title: 'Kirby fan art', pageUrl: 'https://fans.example.org/art', imageUrl: 'https://fans.example.org/kirby.png', source: 'Fans', query: 'Kirby official artwork', licenceFilter: 'Creative Commons licences' },
+      { title: 'Blocked', pageUrl: 'https://wiki.example.org/k', imageUrl: 'https://wiki.example.org/k.png', source: 'Wiki', query: 'q' },
+    ] }),
+    fetch: async u => (pages[u] ? { ok: true, url: u, body: Buffer.from(pages[u]) } : { ok: false, reason: 'HTTP 403' }),
+    fetchImg: async u => { fetched.push(u); return { ok: true, url: u, body: png(fetched.length), mime: 'image/png', width: 900, height: 900 }; },
+  });
+  assert.ok(!fetched.includes('https://img.example.org/plush.jpg'), 'a shopping result is never fetched'); assert.equal(out.log.products, 1);
+  const by = Object.fromEntries(out.candidates.map(c => [c.title, c]));
+  assert.equal(by['Kirby photo'].permission.status, 'free'); assert.equal(by['Kirby photo'].author, 'A. Artist'); assert.equal(by['Kirby photo'].query, 'Kirby official artwork');
+  assert.equal(by['Kirby fan art'].permission.status, 'unclear'); assert.ok(by['Kirby fan art'].permission.evidence.some(e => /search hint, not permission/.test(e)));
+  assert.equal(by['Blocked'].permission.status, 'unclear'); assert.match(by['Blocked'].permission.evidence[0], /could not be read/); assert.match(out.log.pageErrors[0], /403/);
+});

@@ -152,6 +152,15 @@ run against a newer server.
   `CREATIVE_AI_TIMEOUT_MS` 100000, `CREATIVE_CURATE` (on unless "off"; `CREATIVE_CURATE_MAX_TOKENS` 3500),
   `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt),
   `CREATIVE_WEB_DISCOVERY` (on unless "off"), `CREATIVE_WEB_SEARCHES` 3 per discovery, `CREATIVE_WEB_SEARCH_USD` 0.01.
+* **Google Images via SerpApi** (`lib/creative/serpapi.js`): when the server has `SERPAPI_API_KEY` (a Railway variable;
+  read only on the server, never logged, returned or stored -- error text is scrubbed of it), discovery searches Google
+  Images instead of the Anthropic web-search step: two searches per discovery (`CREATIVE_SERPAPI_SEARCHES` 2), one narrowed
+  to Google's Creative Commons usage-rights filter and one open; `CREATIVE_SERPAPI_DAILY` 60 searches per day protects the
+  plan's monthly allowance; `CREATIVE_SERPAPI_USD` (default 0; the plan is monthly) adds a per-search amount to the Creative
+  spend if set. Shopping results (`is_product`) are never fetched. Each picture keeps its query, position, source site, page
+  and image URL; its permission is still read from its own page (the usage-rights filter is recorded as a hint, never as
+  permission). 401/403/429 stop further searches for that discovery and are reported (429 = hourly limit or the plan's
+  searches used up). Without the key, the Anthropic web-search step is used as before.
 * **Provider unavailable**: an answer saying the account has no usable balance or the key is refused (401/403) stops
   Creative calling the provider for 10 minutes; every step then says why (research uses the built-in reader and ranking,
   direction the labelled built-in director). Overloads and timeouts are not treated as an outage. Nothing retries

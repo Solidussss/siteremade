@@ -2323,10 +2323,16 @@ const creativeAi = require('./lib/creative/ai');
 const creativeWeb = require('./lib/creative/webimages');
 const creativeWebFetch = require('./lib/creative/webfetch');
 const CREATIVE_AI_LIMITS = creativeAi.limits(process.env);
-const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: false };
+const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: false, imageSearches: 0 };
+// Google Images through SerpApi, when the server has SERPAPI_API_KEY (read here only; never logged, returned or stored).
+// Searches are counted against a daily cap that protects the SerpApi plan's monthly allowance; CREATIVE_SERPAPI_USD
+// (default 0: the plan is paid monthly, not per call) adds a per-search amount to the Creative spend if set.
+const creativeSerpApi = require('./lib/creative/serpapi');
+const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(4, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || 2)), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
+function creativeSerpKey() { return String(process.env.SERPAPI_API_KEY || '').trim(); }
 function creativeSpendToday() {
   const day = new Date().toISOString().slice(0, 10);
-  if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; }
+  if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; creativeSpend.imageSearches = 0; }
   if (!creativeSpend.seeded) {
     creativeSpend.seeded = true; // survive a restart: today's rows from the ledger
     try {
@@ -2335,6 +2341,7 @@ function creativeSpendToday() {
         if (!r.at || r.at.slice(0, 10) !== day) return;
         creativeSpend.usd += Number(r.usd) || 0;
         if (r.kind === 'creative_direct' && r.accountId) creativeSpend.plansByAccount.set(r.accountId, (creativeSpend.plansByAccount.get(r.accountId) || 0) + 1);
+        if (r.kind === 'creative_imagesearch') creativeSpend.imageSearches += Number(r.searches) || 0;
       });
     } catch (e) { /* no ledger yet */ }
   }
@@ -2404,7 +2411,25 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   const identity = understanding.identity || { name: understanding.subject, kind: understanding.kind };
   const input = { identity, visuals: understanding.visuals, brief: refine ? `${brief}\nThe owner asks to look for: ${refine}` : brief };
   const out = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: '', searches: 0, diag: { queries: [], stop: '', results: 0, pagesChosen: 0, pageErrors: [], imageErrors: [], candidates: [] } };
-  const found = await creativeWeb.discover(input, { searchPages: async inp => {
+  const serpKey = creativeSerpKey();
+  const found = serpKey ? await creativeWeb.discoverImages(input, { imageSearch: async () => {
+    const spend = creativeSpendToday();
+    const qs = creativeSerpApi.searchQueries(Object.assign({}, understanding, { pageTitle: understanding.pageTitle || '' }), CREATIVE_SERPAPI.searches);
+    if (refine) qs.unshift({ q: String(refine).slice(0, 120), licenses: '' });
+    const results = []; let searches = 0; let error = '';
+    for (const q of qs.slice(0, CREATIVE_SERPAPI.searches)) {
+      if (spend.imageSearches >= CREATIVE_SERPAPI.daily) { error = error || `the daily image-search limit (${CREATIVE_SERPAPI.daily}, CREATIVE_SERPAPI_DAILY) is used up`; break; }
+      const r = await creativeSerpApi.googleImages(q.q, { key: serpKey, licenses: q.licenses });
+      // a refused or failed call is counted too (SerpApi may still bill it); an empty result counts as a search
+      searches++; spend.imageSearches++; const usd = CREATIVE_SERPAPI.usd; spend.usd += usd; out.usd += usd;
+      creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: r.ok, status: r.status, searches: 1, results: r.results.length, query: q.q.slice(0, 120), licenses: q.licenses || '', error: r.error || '', usd });
+      out.diag.queries.push(`${q.q}${q.licenses ? ` [licences: ${q.licenses}]` : ''}`);
+      if (!r.ok) { error = r.error; if (r.status === 401 || r.status === 403 || r.status === 429) break; continue; }
+      r.results.forEach(x => results.push(Object.assign({}, x, { query: q.q, licenceFilter: q.licenses === 'cl' ? 'Creative Commons licences' : '' })));
+    }
+    out.searches = searches; Object.assign(out.diag, { provider: 'serpapi', results: results.length, products: results.filter(x => x.isProduct).length, searchError: error });
+    return { results, searches, error };
+  } }) : await creativeWeb.discover(input, { searchPages: async inp => {
     try {
       const r = await creativeAi.webSearchPages(inp, { limits: CREATIVE_AI_LIMITS, raw: creativeRawCall });
       out.usd += r.usd; out.searches = r.searches; Object.assign(out.diag, { queries: r.queries || [], stop: r.stop || '', results: r.results || 0, pagesChosen: (r.pages || []).length, searchError: r.error || '' });
@@ -2413,9 +2438,10 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
     } catch (error) { creativeLedger({ kind: 'creative_websearch', accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
   } });
   out.log = found.log; out.error = found.log.searchError || '';
+  if (serpKey) out.diag.pagesChosen = found.log.pages || 0;
   out.diag.pageErrors = (found.log.pageErrors || []).slice(0, 8); out.diag.imageErrors = (found.log.imageErrors || []).slice(0, 10);
   // every found picture, assessed three separate ways: what it shows, whether it is technically usable, what its page permits
-  const record = (v, k, outcome) => out.diag.candidates.push({ src: 'web', pageUrl: v.pageUrl, imageUrl: v.imageUrl, site: v.site, title: String(v.title || '').slice(0, 120),
+  const record = (v, k, outcome) => out.diag.candidates.push({ src: 'web', pageUrl: v.pageUrl, imageUrl: v.imageUrl, site: v.site, title: String(v.title || '').slice(0, 120), query: v.query || '', position: v.searchPosition || 0,
     technical: { size: `${v.width}x${v.height}`, mime: v.mime, kb: Math.round(v.bytes.length / 1024), viewable: /^image\/(jpeg|png|webp)$/.test(v.mime) && v.bytes.length <= 3.5 * 1024 * 1024 },
     permission: { status: v.permission.status, licence: v.permission.licence, evidence: v.permission.evidence, note: v.permission.note },
     verdict: k ? { role: k.role, identity: k.identity, depicts: k.depicts, issues: k.issues, quality: k.quality } : null, outcome });
@@ -2547,7 +2573,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   if (needsPictures && !covered) {
     const why = !CREATIVE_AI_LIMITS.webDiscovery ? 'web discovery is switched off (CREATIVE_WEB_DISCOVERY)' : creativeAiUnavailableReason() || (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? 'the daily Creative AI budget is used up' : '');
     let web = null;
-    if (!why) { try { web = await creativeWebDiscovery(understanding, brief, req.accountId, refine); } catch (error) { web = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: String(error && error.message || error).slice(0, 200), searches: 0 }; } }
+    if (!why) { try { web = await creativeWebDiscovery(Object.assign({}, understanding, { pageTitle: (result.page && result.page.title) || '' }), brief, req.accountId, refine); } catch (error) { web = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: String(error && error.message || error).slice(0, 200), searches: 0 }; } }
     const base = images.length;
     (web ? web.images : []).slice(0, Math.max(0, 9 - base)).forEach((v, n) => images.push({
       id: `r${base + n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: v.permission.licenseUrl || '',
@@ -2558,7 +2584,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     webDiag = web ? web.diag : { ran: false, reason: why };
     const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
     if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
-    merged.web = web ? { ran: true, searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '' } : { ran: false, reason: why };
+    merged.web = web ? { ran: true, provider: creativeSerpKey() ? 'google-images' : 'web-search', searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '' } : { ran: false, reason: why };
     if (!curation) Object.assign(merged, { reason: merged.reason || 'no Commons picture check' });
     result.curation = merged;
   }

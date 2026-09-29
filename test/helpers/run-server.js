@@ -35,6 +35,14 @@ globalThis.fetch = async function (url, options) {
     const dataUrl = mockPng(body.prompt, body.size === '1536x1024' ? '16:9' : '1:1');
     return json({ data: [{ b64_json: dataUrl.split(',')[1] }] });
   }
+  // SerpApi Google Images (Creative discovery, only when the test server has SERPAPI_API_KEY): MOCK_SERPAPI = empty |
+  // refused (HTTP 401 whose message repeats the key -- it must never reach a response or the ledger)
+  if (u.startsWith('https://serpapi.com/search')) {
+    const q = new URL(u).searchParams;
+    log({ provider: 'serpapi', engine: q.get('engine'), q: q.get('q'), licenses: q.get('licenses') || '', keyPresent: !!q.get('api_key') });
+    if (process.env.MOCK_SERPAPI === 'refused') return json({ error: `Invalid API key ${q.get('api_key')}. Your API key should be here: https://serpapi.com/manage-api-key` }, 401);
+    return json({ search_metadata: { status: 'Success' }, error: "Google hasn't returned any results for this query." });
+  }
   if (u.startsWith('https://api.anthropic.com/')) {
     const body = JSON.parse(options.body);
     const tool = body.tool_choice && body.tool_choice.name;
