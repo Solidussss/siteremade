@@ -72,9 +72,37 @@ body.cs-open{overflow:hidden}
 .cs-viewport[data-device="phone"]{border-radius:28px;outline:8px solid #222}
 .cs-viewport iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#fff}
 @media (max-width:860px){
-  .cs-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto}
-  .cs-panel{border-right:0;border-bottom:1px solid #26262d;max-height:none}
-  .cs-stage{min-height:70vh}
+  /* Mobile: use one document-like scroll instead of squeezing the controls
+     into a tiny grid row above a 70vh preview. The controls must remain fully
+     reachable; the generated page sits below them and can never cover them. */
+  .cs-body{
+    display:block;
+    overflow-y:auto;
+    overflow-x:hidden;
+    min-height:0;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .cs-panel{
+    overflow:visible;
+    width:100%;
+    max-height:none;
+    border-right:0;
+    border-bottom:1px solid #26262d;
+  }
+  .cs-stage{
+    width:100%;
+    min-height:60vh;
+    height:min(72vh,760px);
+  }
+  .cs-tabs{
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .cs-tabs::-webkit-scrollbar{display:none}
+  .cs-tabs button{flex:0 0 auto}
 }
 .cs.cs-behind{z-index:50}
 .cs-direction{border:1px solid #2e2e38;border-radius:12px;padding:12px 14px;margin:0 0 14px;background:#17171d}
