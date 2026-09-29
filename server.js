@@ -3805,6 +3805,66 @@ app.get('/api/app-bridge/credits', appBridgeRateLimit, requireAppBridgeAuth, app
   return res.json({ ok: true, credits: creditsSummaryFor(req.accountId), websitePrice: { cents: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY, display: formatWebsitePriceDisplay() } });
 });
 
+// Authenticated, non-hosted preview for the Client App. This compiles the
+// signed-in owner's current purchased project with the SAME export compiler
+// used for handoff, then inlines local assets so the app can display one
+// self-contained HTML document without exposing the builder filesystem or a
+// public preview URL. Nothing is deployed and no database state is changed.
+function previewMime(file) {
+  const ext = path.extname(file).toLowerCase();
+  return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.avif':'image/avif','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'})[ext] || 'application/octet-stream';
+}
+function inlinePreviewAssets(html, root) {
+  const dir = path.join(root, 'assets');
+  if (!fs.existsSync(dir)) return html;
+  for (const name of fs.readdirSync(dir)) {
+    const file = path.join(dir, name);
+    if (!fs.statSync(file).isFile()) continue;
+    const data = fs.readFileSync(file).toString('base64');
+    const uri = `data:${previewMime(file)};base64,${data}`;
+    const rel = 'assets/' + name;
+    html = html.split(rel).join(uri);
+  }
+  return html;
+}
+function compileOwnedPreviewHtml(accountId, projectId) {
+  const raw = projectStore.getOwnedProjectRaw(db, accountId, projectId);
+  if (!raw || raw.status !== 'purchased') return null;
+  const directionIndex = canonicalDirectionIndex(accountId, projectId, raw.directionsState);
+  const previewId = 'preview-' + crypto.createHash('sha1').update(projectId + ':' + raw.revision + ':' + directionIndex).digest('hex').slice(0, 20);
+  const workDir = path.join(EXPORTS_DIR, previewId);
+  ensureExportsDir();
+  try {
+    const result = exportCompiler.compileExport(db, {
+      project: { id: raw.id, revision: raw.revision, directionsState: raw.directionsState },
+      directionIndex, workDir, hostingChoice: null, purchaseDate: null,
+    });
+    const indexFile = path.join(result.workDir, 'index.html');
+    if (!fs.existsSync(indexFile)) throw new Error('Preview homepage was not compiled.');
+    let html = fs.readFileSync(indexFile, 'utf8');
+    html = inlinePreviewAssets(html, result.workDir);
+    // Keep navigation inside the preview harmless: relative multi-page links
+    // are part of the export, but the app preview intentionally serves only
+    // the homepage. External links may still open in a new tab.
+    html = html.replace(/<head([^>]*)>/i, '<head$1><base target="_blank">');
+    return html;
+  } finally {
+    try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (e) {}
+  }
+}
+app.get('/api/app-bridge/website/:projectId/preview', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  try {
+    const html = compileOwnedPreviewHtml(req.accountId, projectId);
+    if (!html) return bridgeError(res, 404, 'not_found', 'Purchased website not found.');
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(html);
+  } catch (e) {
+    console.error('[app-bridge] preview failed:', e && e.message);
+    return bridgeError(res, 500, 'preview_failed', 'The website preview could not be prepared.');
+  }
+});
+
 // 2. GET /api/app-bridge/website/:projectId/deployment
 app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
