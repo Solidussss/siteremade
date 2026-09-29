@@ -163,6 +163,12 @@ run against a newer server.
   7:1, and the picture's frame dissolves into it (soft edges); the page's base colour follows the opening picture; each
   scene eases in from the previous scene's colour; the director builds the palette from the main picture's own colours
   (measured in the browser). Kickers use a per-scene accent that keeps 3.2:1 on the scene's tone.
+* **Decoration is light, not clip-art.** Shapes render as light: rings and arcs as thin glowing strokes that fade along
+  their length, lines and waves as soft glowing traces, circles as glows, blobs as haze, stars as twinkling sparkles (the
+  focal shape of an explicitly abstract page stays solid). Every scene has its own air: far haze in the palette's colours,
+  a vignette, and a few near out-of-focus sparkles (none on a "still" page; all motion off for reduced motion); decoration
+  far back is softer. New or recomposed plans keep one decorative shape per scene at most (the largest), and a shape that
+  passes behind the words fades almost away. (The light rendering applies to saved pages too; their layout is unchanged.)
 * **Watermark check on picks.** Before a page is built, the pictures the owner picked are checked for watermarks at up to
   1024 px (one cheap vision call for up to four); a watermarked one is taken back out and marked on the pick screen.
 * **The owner picks.** The studio shows the suitable pictures with the best one the studio can fetch pre-selected as the

@@ -545,6 +545,13 @@
     }).filter(function (g) { return g[1].length; });
   }
   // what the direction is, where it came from, what it cost, and what it wanted but could not have
+  // where this page's pictures came from (the sources that actually ran), for the studio's wording
+  function pictureSources() {
+    var r = S.research || {}; var cur = r.curation || {}; var parts = [];
+    if (r.diagnostics && r.diagnostics.commons) parts.push('Wikimedia Commons');
+    if (cur.web && cur.web.ran) parts.push(cur.web.provider === 'google-images' ? 'Google Images' : 'a web search');
+    parts.push('your uploads'); return parts.join(', ');
+  }
   function directionPanel() {
     var m = S.planMeta || { source: 'rules' }; var p = S.plan; var u = S.understanding || {};
     var badge = m.source === 'ai' ? '<span class="cs-src is-ai">AI direction</span>' : m.source === 'mock' ? '<span class="cs-src is-mock">MOCKED plan (test provider)</span>' : '<span class="cs-src is-fallback">Built-in layout — not AI direction</span>';
@@ -552,13 +559,15 @@
     var meta = m.source === 'ai' || m.source === 'mock' ? '<p class="cs-hint">' + esc(m.model || '') + ' · ' + ((m.ms || 0) / 1000).toFixed(1) + ' s · ' + (m.attempts || 1) + ' call' + ((m.attempts || 1) > 1 ? 's (one repair)' : '') + ' · about $' + (m.usdEstimated || 0).toFixed(3) + ' (estimated)</p>' : '<p class="cs-hint">Why: ' + esc(m.reason || 'AI direction is not available here') + '</p>';
     var ident = u.identity ? '<p class="cs-hint">Understood as: <strong>' + esc(u.identity.name) + '</strong> — ' + esc(u.identity.what || u.identity.kind) + (u.tone && u.tone.register ? ' · tone: ' + esc(u.tone.register) : '') + (u.motifs && u.motifs.length ? ' · motifs: ' + esc(u.motifs.slice(0, 5).join(', ')) : '') + '</p>' + (u.uncertainty && u.uncertainty.length ? '<p class="cs-hint">Uncertain: ' + esc(u.uncertainty.join(' · ')) + '</p>' : '') : '';
     var missing = p.v === 2 ? p.wants.filter(function (w) { return w.status === 'missing'; }) : [];
-    var wants = missing.length ? '<div class="cs-wants"><p><strong>Pictures the direction wanted but we couldn\'t find among the usable ones (Wikimedia Commons, web search, your uploads):</strong></p><ul>' + missing.map(function (w) { return '<li>' + esc(w.description) + (w.fallback ? ' <small>— instead: ' + esc(w.fallback) + '</small>' : '') + '</li>'; }).join('') + '</ul><button type="button" class="cs-btn cs-ghost" data-upload>Upload a picture</button></div>' : '';
+    var wants = missing.length ? '<div class="cs-wants"><p><strong>Pictures the direction wanted but we couldn\'t find among the usable ones (' + pictureSources() + '):</strong></p><ul>' + missing.map(function (w) { return '<li>' + esc(w.description) + (w.fallback ? ' <small>— instead: ' + esc(w.fallback) + '</small>' : '') + '</li>'; }).join('') + '</ul><button type="button" class="cs-btn cs-ghost" data-upload>Upload a picture</button></div>' : '';
     // the subject's imagery: degraded is said out loud, with the one picture that would fix it
     var im = p.v === 2 && p.imagery; var imagery = '';
     if (im && im.degraded) imagery = '<div class="cs-degraded"><p><strong>Degraded: ' + esc(im.note || 'the subject itself is not shown') + '.</strong></p>' + (im.missing && im.missing.length ? '<p>Missing: ' + im.missing.map(esc).join(' · ') + '</p>' : '') + '<p class="cs-hint">No free-licence picture of it was found. Upload one (your own, or one you have the rights to) and the page will use it.</p><button type="button" class="cs-btn" data-upload>Upload the missing picture</button></div>';
     else if (im && im.status === 'form') imagery = '<p class="cs-hint">Shown through a real-world form: ' + esc(im.note || '') + '</p>';
     var cur = S.research && S.research.curation;
-    var check = cur ? '<p class="cs-hint">Picture check: ' + (cur.source === 'ai' ? 'the subject is ' + ({ strong: 'well covered', partial: 'only partly covered', none: 'not covered' }[cur.coverage] || 'unknown') + ' (' + (cur.judged || 0) + ' of ' + (cur.of || 0) + ' candidates looked at' + (cur.usd ? ', about $' + Number(cur.usd).toFixed(3) : '') + ')' : 'keyword ranking only — ' + esc(cur.reason || 'no picture check')) + '</p>' : '';
+    var dgw = S.research && S.research.diagnostics && S.research.diagnostics.web;
+    var check = cur && cur.web && cur.web.ran && dgw && dgw.candidates ? '<p class="cs-hint">Picture check: ' + dgw.candidates.length + ' ' + (cur.web.provider === 'google-images' ? 'Google Images results' : 'found pictures') + ' looked at' + (cur.web.usd ? ', about $' + Number(cur.web.usd).toFixed(3) : '') + ' · fan art, cosplay, merchandise and watermarked pictures left out</p>'
+      : cur ? '<p class="cs-hint">Picture check: ' + (cur.source === 'ai' ? 'the subject is ' + ({ strong: 'well covered', partial: 'only partly covered', none: 'not covered' }[cur.coverage] || 'unknown') + ' (' + (cur.judged || 0) + ' of ' + (cur.of || 0) + ' candidates looked at' + (cur.usd ? ', about $' + Number(cur.usd).toFixed(3) : '') + ')' : 'keyword ranking only — ' + esc(cur.reason || 'no picture check')) + '</p>' : '';
     var cl = p.v === 2 && p.claims; var claims = '';
     if (cl) claims = cl.status === 'verified' ? '<p class="cs-hint">Words checked against the facts: every line (' + cl.checked + ')' + (cl.removed ? ' · ' + cl.removed + ' unsupported line(s) taken out' : '') + '</p>' : cl.status === 'partial' ? '<p class="cs-warn">Words only partly checked: ' + cl.checked + ' of ' + cl.of + ' lines; the rest were taken out.</p>' : cl.status === 'unchecked' ? '<p class="cs-warn">The words could NOT be checked against the facts; invented paragraphs were left out.</p>' : '<p class="cs-hint">Claim check off.</p>';
     var old = p.v === 2 && p.layout && p.layout.version < C.validate2.LAYOUT_VERSION ? '<p class="cs-hint">This page was composed under older layout rules and stays exactly as saved. <button type="button" class="cs-btn cs-ghost" id="csRecompose">Re-apply today\'s layout rules</button></p>' : '';

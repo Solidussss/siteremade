@@ -578,3 +578,23 @@ test('server (MOCK provider): picked pictures are checked for watermarks; junk i
     const row = ledger(dir).find(x => x.kind === 'creative_picturecheck'); assert.ok(row); assert.equal(row.flagged, 1); assert.equal(row.pictures, 2);
   });
 });
+
+test('decoration: one deliberate shape per scene, none across the words, drawn as light; every scene has its own air', () => {
+  const p = basePlan();
+  p.scenes[1].layers.push(
+    { kind: 'shape', role: 'support', shape: { form: 'star' }, box: box([80, 10, 6, 6]) },
+    { kind: 'shape', role: 'support', shape: { form: 'star' }, box: box([88, 60, 5, 5]) },
+    { kind: 'shape', role: 'texture', shape: { form: 'ring' }, box: box([2, 20, 60, 60]) });
+  p.scenes[1].text.region = 'left';
+  const v = validatePlan2(p, { assets: ASSETS, facts: FACTS });
+  const deco = v.plan.scenes[1].layers.filter(l => l.kind === 'shape' && l.role !== 'focal');
+  assert.equal(deco.length, 1, 'the small filler stars are gone'); assert.equal(deco[0].shape.form, 'ring', 'the largest, deliberate shape stays');
+  assert.ok(deco[0].opacity <= 0.18, 'a shape passing behind the words fades almost away');
+  const html = renderCreative2(v.plan, ASSETS, { mode: 'export', src: a => a.id + '.png' });
+  assert.match(html, /class="shape" data-form="ring"[^>]*data-light/, 'decoration is drawn as light');
+  assert.equal((html.match(/class="sc-amb"/g) || []).length, v.plan.scenes.length, 'every scene has its ambient layer');
+  // an explicitly abstract page keeps its focal shape solid (it is the page's main visual)
+  const a = basePlan(); a.scenes[0].layers[0] = { kind: 'shape', role: 'focal', shape: { form: 'circle' }, box: box([55, 10, 35, 60]) };
+  const va = validatePlan2(a, { assets: ASSETS, facts: FACTS, abstractChosen: true });
+  assert.match(renderCreative2(va.plan, ASSETS, { mode: 'export', src: x => x.id }), /data-form="circle" data-fill="[a-z0-9]+">/);
+});
