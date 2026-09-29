@@ -51,9 +51,15 @@ its output is structured data (tool use), validated, then rendered by one render
    exist, match what the director saw, and be the owner's own on a personal page; a flat photo never floats as a bare
    rectangle; a photo appears at most twice and a cutout three times; uncited "sourced" lines and invented quotations are
    removed; text is never cut (an overlong paragraph is sent back); motion budget (≤2 looping layers per scene, ≤3
-   pinned scenes, ≤32 layers); the focal layer is grown, never shrunk, and kept clear of the words (secondaries fade or
-   move first; a scrim as last resort); layers stay out of the thread's margin; a cutout nearly the colour of its stage
-   gets a light rim; readable palette. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
+   pinned scenes, ≤32 layers). **Composition** (checked against the same column geometry the renderer uses): every stage
+   with pictures has a main one, grown to a minimum share of the stage (desktop and phone separately); it moves clear of
+   the words (layers built onto it move with it), is made smaller to fit beside them if it must, and only then do the
+   words move or get a scrim; secondaries step aside before fading (photos fade further than shapes); a scene sized to
+   its text gets a real stage when it has layers; zoom and drift are checked at their largest, camera included, and a
+   zoom is anchored to grow away from the words; layers stay out of the thread's margin; a cutout nearly the colour of
+   its stage gets a light rim; readable palette. **Legibility**, after composition: words on a full-bleed or backdrop
+   photo get a scrim in the scene's own colour; word layers across the words become ghosts; long headings never sit in
+   the narrow column. Validating a stored plan again changes nothing, so reopen and export show the accepted design. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
    text) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
    director and labels the page "Built-in layout — not AI direction" with the reason.
 6. **Render** (`render2.js`): scenes as stages with layers; pinned scenes hold while scroll scrubs their layers;

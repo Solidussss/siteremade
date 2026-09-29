@@ -278,12 +278,14 @@
         step('direct', 'done', (S.planMeta.source === 'mock' ? 'MOCKED plan · ' : 'AI direction · ') + (plan.concept.title ? plan.concept.title + ' — ' : '') + plan.concept.logline + ' (' + (S.planMeta.ms / 1000).toFixed(1) + 's' + (S.planMeta.repaired ? ', repaired once' : '') + ')');
         return;
       }
-      useFallback(d.reason || 'the AI director did not answer');
-      if (d.meta && d.meta.usdEstimated) { S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + d.meta.usdEstimated; S.planMeta.usdEstimated = d.meta.usdEstimated; }
-    }).catch(function (e) { useFallback('the AI director could not be reached (' + (e && e.message || e) + ')'); });
+      useFallback(d.reason || 'the AI director did not answer', d.meta, Date.now() - t0);
+    }).catch(function (e) { useFallback('the AI director could not be reached (' + (e && e.message || e) + ')', null, Date.now() - t0); });
   }
-  function useFallback(reason) {
-    direct(); S.planMeta = { source: 'fallback', reason: reason, at: new Date().toISOString() };
+  // the model calls that were made (and paid for) before falling back are still recorded
+  function useFallback(reason, meta, ms) {
+    var tries = (meta && meta.attempts) || [];
+    direct(); S.planMeta = { source: 'fallback', reason: reason, at: new Date().toISOString(), model: (tries[0] && tries[0].model) || '', usdEstimated: (meta && meta.usdEstimated) || 0, ms: (meta && meta.ms) || ms || 0, attempts: tries.length, repaired: false };
+    if (tries.length) { S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + tries.length; }
     step('direct', 'wait', 'Built-in layout, not AI direction: ' + reason);
   }
   function rememberDirection() {

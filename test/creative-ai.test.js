@@ -103,11 +103,13 @@ test('v2 renderer: every string escaped, only its own runtime, nothing remote, a
 test('v2 persistence: an accepted plan is stored as validated and reopens identical; provenance and history kept', () => {
   const plan = validatePlan2(Object.assign(basePlan(), { direction: { source: 'ai', model: 'claude-x', attempt: 2, repaired: true } }), { assets: ASSETS, facts: FACTS }).plan;
   const assets = ASSETS.map(a => Object.assign({}, a, { assetRef: 'a'.repeat(64) }));
-  const c1 = sanitizeCreative({ brief: 'toilet paper', understanding: { kind: 'recognizable', subject: 'toilet paper', source: 'ai', identity: { name: 'Toilet paper', kind: 'recognizable', what: 'the product' }, tone: { register: 'extravagant' } }, research: { facts: FACTS }, assets, plan, planMeta: { source: 'ai', model: 'claude-x', usdEstimated: 0.12, attempts: 2, repaired: true }, history: [{ title: 'A', logline: 'first' }] });
+  const c1 = sanitizeCreative({ brief: 'toilet paper', understanding: { kind: 'recognizable', subject: 'toilet paper', source: 'ai', identity: { name: 'Toilet paper', kind: 'recognizable', what: 'the product' }, tone: { register: 'extravagant' } }, research: { facts: FACTS }, assets, plan, planMeta: { source: 'ai', model: 'claude-x', usdEstimated: 0.12, attempts: 2, repaired: true }, history: [{ title: 'A', logline: 'first' }], cost: { researchRequests: 3, aiCalls: 2, aiUsdEstimated: 0.12 } });
   const c2 = sanitizeCreative(JSON.parse(JSON.stringify(c1)));
   assert.equal(JSON.stringify(c2.plan), JSON.stringify(c1.plan), 'saving again does not change the design');
   assert.equal(c1.plan.direction.repaired, true); assert.equal(c1.planMeta.source, 'ai'); assert.equal(c1.history.length, 1);
   assert.equal(c1.understanding.identity.what, 'the product'); assert.equal(c1.understanding.tone.register, 'extravagant');
+  // the page keeps its own record of the model calls behind it (the operator's estimated cost; no credits)
+  assert.equal(c2.cost.aiCalls, 2); assert.equal(c2.cost.aiUsdEstimated, 0.12); assert.equal(c2.cost.credits, 0);
 });
 
 test('a personal subject\'s name is never researched (no "Bubbles the chimpanzee"), only its general type', () => {
