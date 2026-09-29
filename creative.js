@@ -9,13 +9,14 @@
   'use strict';
   var C = window.SiteRemadeCreative; if (!C) throw new Error('creative-core.js missing');
   var POINTER = 'siteremade:creativeProject';
+  var JOB = 'siteremade:creativeJob'; // the page job still open for a brief (resume after a reload continues it, free)
   var S = null; // studio state
   var root = null, frame = null, els = {};
   var blobUrls = {};
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null,
+      projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -49,7 +50,7 @@
     root.innerHTML = [
       '<header class="cs-top"><div class="cs-title"><strong>Creative mode</strong><span class="cs-badge">preview</span></div>',
       '<div class="cs-device" role="group" aria-label="Preview size"><button type="button" data-device="desktop" aria-pressed="true">Desktop</button><button type="button" data-device="phone" aria-pressed="false">Phone</button></div>',
-      '<div class="cs-actions"><span class="cs-save-state" id="csSaveState" aria-live="polite"></span><button type="button" class="cs-btn" id="csSave" disabled>Save to my account</button><button type="button" class="cs-btn cs-ghost" id="csClose">Back to Business</button></div></header>',
+      '<div class="cs-actions"><span class="cs-save-state" id="csSaveState" aria-live="polite"></span><button type="button" class="cs-btn" id="csSave" disabled>Save to my account</button><button type="button" class="cs-btn cs-primary" id="csBuy" hidden>Buy this website</button><button type="button" class="cs-btn cs-ghost" id="csClose">Back to Business</button></div></header>',
       '<div class="cs-fixture" id="csFixture" hidden></div>',
       '<div class="cs-body"><aside class="cs-panel" id="csPanel">',
       '<section class="cs-step" id="csBriefStep"><h2>What is the page about?</h2>',
@@ -62,7 +63,7 @@
       '<p class="cs-hint">A personal page only ever shows your own photos of them and only says what you write here.</p></details>',
       '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><div class="cs-thumbs" id="csThumbs"></div></div>',
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
-      '<p class="cs-cost" id="csCostNote">Uses Wikipedia, Wikimedia Commons, web search and your own pictures, and paid AI calls (understanding, picture checks, direction, fact checks) within this site\'s daily limit. No AI image generation; no credits charged.</p>',
+      '<p class="cs-cost" id="csCostNote">A Creative page costs <strong>4 credits</strong>: the research, picture search and checks, the direction and its automatic fixes. Another direction for the same page costs 3. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
       '<section class="cs-step" id="csProgress" hidden><h2>Making it</h2><ol class="cs-progress" id="csProgressList"></ol><div id="csChoices"></div><p class="cs-error" id="csError" role="alert" hidden></p></section>',
       '<section class="cs-step" id="csEditor" hidden>',
@@ -75,7 +76,7 @@
       '</div>',
     ].join('');
     document.body.appendChild(root);
-    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal'].forEach(function (id) { els[id] = document.getElementById(id); });
+    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal', 'csBuy', 'csBalance'].forEach(function (id) { els[id] = document.getElementById(id); });
     frame = els.csFrame;
     ['A website about toilet paper — make it grand and a bit absurd', 'Sherlock Holmes fan site, cinematic and moody', 'A tribute to the Big Mac', 'A memorial page for my goldfish Bubbles'].forEach(function (t) {
       var b = h('button', { type: 'button', class: 'cs-chip', text: t.replace(/ —.*| fan site.*/, '') }); b.addEventListener('click', function () { els.csBrief.value = t; if (/my goldfish/.test(t)) els.csPersonal.open = true; els.csBrief.focus(); }); els.csChips.appendChild(b);
@@ -85,6 +86,7 @@
     els.csUploadBtn.addEventListener('click', function () { els.csUpload.click(); });
     els.csUpload.addEventListener('change', function () { addUploads([].slice.call(els.csUpload.files || [])); els.csUpload.value = ''; });
     els.csSave.addEventListener('click', save);
+    els.csBuy.addEventListener('click', buyOrDownload);
     els.csNew.addEventListener('click', function () { if (S.dirty && !window.confirm('Start a different page? Unsaved changes to this one will be lost.')) return; S = fresh(); resetUI(); });
     [].forEach.call(root.querySelectorAll('[data-device]'), function (b) { b.addEventListener('click', function () { S.device = b.getAttribute('data-device'); [].forEach.call(root.querySelectorAll('[data-device]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); fit(); }); });
     [].forEach.call(root.querySelectorAll('[data-tab]'), function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
@@ -98,7 +100,54 @@
   function resetUI() {
     els.csBrief.value = S.brief; els.csSupplied.value = S.suppliedText; els.csMemories.value = S.memoriesText;
     els.csBriefStep.hidden = false; els.csProgress.hidden = true; els.csEditor.hidden = true; els.csViewport.hidden = true; els.csEmpty.hidden = false;
-    els.csChoices.innerHTML = ''; els.csError.hidden = true; renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture();
+    els.csChoices.innerHTML = ''; els.csError.hidden = true; renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
+  }
+  // ---------- credits and the website purchase ----------
+  // the balance and prices come from the server (the same numbers the builder and the app show)
+  var price = null;
+  function showBalance(remaining) {
+    if (!els.csBalance) return;
+    if (typeof remaining === 'number') S.creditsRemaining = remaining;
+    var n = S.creditsRemaining; els.csBalance.textContent = typeof n === 'number' ? 'Your balance: ' + n + ' credit' + (n === 1 ? '' : 's') + (S.planLabel ? ' (' + S.planLabel + ')' : '') + '.' : '';
+  }
+  function refreshBalance() {
+    if (!signedIn()) { if (els.csBalance) els.csBalance.textContent = ''; return; }
+    api('/api/credits').then(function (r) { if (r.ok && r.data && r.data.credits) { S.planLabel = r.data.credits.planLabel; showBalance(r.data.credits.remaining); } });
+    if (!price) api('/api/pricing').then(function (r) { if (r.ok && r.data && r.data.ok) { price = r.data.websitePriceDisplay + ' ' + String(r.data.websitePriceCurrency || '').toUpperCase(); showBuy(); } });
+  }
+  function showBuy() {
+    if (!els.csBuy) return;
+    els.csBuy.hidden = !S.plan;
+    els.csBuy.textContent = S.status === 'purchased' ? 'Download website' : 'Buy this website' + (price ? ' — ' + price : '');
+    els.csBuy.title = S.status === 'purchased' ? 'Download the files of the website you bought' : 'One-time purchase of this page as a website you can download and host. Not included in a Workspace subscription.';
+  }
+  function rememberJob(directed) { try { if (S.jobId) localStorage.setItem(JOB, JSON.stringify({ jobId: S.jobId, brief: S.brief, directed: !!directed })); } catch (e) { /* optional */ } }
+  function openJobFor(brief) { var j = null; try { j = JSON.parse(localStorage.getItem(JOB) || 'null'); } catch (e) { j = null; } return j && !j.directed && j.brief === brief ? j.jobId : null; }
+  function creditsFrom(d) { if (d && typeof d.creditsRemaining === 'number') showBalance(d.creditsRemaining); }
+  function buyOrDownload() {
+    if (!S.plan || S.busy) return; if (!signedIn()) { needSignIn('Sign in to buy this website.'); return; }
+    els.csBuy.disabled = true;
+    var done = function () { els.csBuy.disabled = false; };
+    if (S.status === 'purchased') {
+      setSaveState('Preparing your download…');
+      return api('/api/projects/' + encodeURIComponent(S.projectId) + '/export', { method: 'POST' }).then(function (r) {
+        done();
+        if (r.ok && r.data.ok && r.data.deployment) { setSaveState('Download ready'); window.location.href = '/api/deployments/' + encodeURIComponent(r.data.deployment.id) + '/download'; }
+        else setSaveState((r.data && r.data.message) || 'The download could not be prepared. Try again.');
+      });
+    }
+    // what is bought is the page as saved at checkout: save first
+    var saved = !S.projectId || S.dirty ? save() : Promise.resolve({ ok: true, data: { ok: true } });
+    return Promise.resolve(saved).then(function (s) {
+      if (!s || !S.projectId || S.dirty) { done(); return; }
+      setSaveState('Opening checkout…');
+      return api('/api/checkout', { method: 'POST', body: { projectId: S.projectId, businessName: S.name || pageTitle(), industry: 'Creative page', sectionsSummary: 'Creative page' } }).then(function (r) {
+        done();
+        if (r.ok && r.data.ok && r.data.url) { window.location.href = r.data.url; return; }
+        if (r.status === 409 && /already been purchased/.test((r.data && r.data.message) || '')) { S.status = 'purchased'; showBuy(); }
+        setSaveState((r.data && r.data.message) || 'Checkout could not start. Try again shortly.');
+      });
+    });
   }
   function showFixture() { els.csFixture.hidden = !S.fixture; els.csFixture.textContent = S.fixture ? 'TEST FIXTURE — ' + S.fixture : ''; }
 
@@ -107,7 +156,7 @@
   function open(opts) {
     if (!root) { build(); S = fresh(); resetUI(); }
     onClose = opts && opts.onClose;
-    root.hidden = false; document.body.classList.add('cs-open');
+    root.hidden = false; document.body.classList.add('cs-open'); refreshBalance();
     if (opts && opts.project) loadProject(opts.project);
     else if (!S.plan) offerLast();
     setTimeout(function () { (S.plan ? els.csSave : els.csBrief).focus(); }, 30);
@@ -221,8 +270,11 @@
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     step('understand', 'active', 'Reading the brief, then looking it up: the encyclopedia for facts, a picture search, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
-    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length } }).then(function (r) {
+    var jobId = choice ? S.jobId : openJobFor(S.brief);
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, jobId: jobId || '' } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
+      creditsFrom(r.data);
+      if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
       var d = r.data; S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || '';
       var u = d.understanding || {};
@@ -273,11 +325,12 @@
     // one direction at a time: a second call (a repeated click at the gate) while one is being planned does nothing
     if (S.directing) return Promise.resolve();
     S.directing = true; S.gate = null; els.csChoices.innerHTML = ''; S.busy = true; els.csCreate.disabled = true;
-    return planDirection('').then(function () {
+    return planDirection('').then(function (res) {
       S.directing = false;
+      if (res && res.stop) { step('direct', 'failed', res.stop); return fail(res.stop); }
       step('build', 'active'); refresh(true); step('build', 'done');
       S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
-      els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
+      els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
     }, function (e) { S.directing = false; throw e; });
   }
   function showGate(g) {
@@ -288,7 +341,7 @@
     var sources = parts.join(' and ') || 'our picture sources';
     // the pick: the best picture the studio can fetch is pre-selected as the main picture; the owner decides
     if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false && !review[p].watermarked) { S.picked.push(p); break; } }
-    step('direct', 'wait', review.length ? 'Pick the pictures to build with (nothing is spent until you do)' : 'Waiting for your choice (nothing is spent until you continue)');
+    step('direct', 'wait', review.length ? 'Pick the pictures to build with (the page\'s price already includes this step)' : 'Waiting for your choice (the page\'s price already includes this step)');
     var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>'
       : review.length ? '<p><strong>Pictures of ' + esc(name) + ' found on ' + esc(sources) + '.</strong> Pick the ones to build with. The main picture leads the page.</p><p class="cs-hint">None of these states a licence. Whoever uses one is responsible for having the right to. Each picture is credited to its source on the page.</p>'
       : '<p><strong>We couldn\'t find usable artwork of ' + esc(name) + ' through ' + esc(sources) + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Picture search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Picture search: ' + esc(web.error) + '</p>' : '');
@@ -335,7 +388,7 @@
     var picks = got.map(function (a, k) { return a ? { a: a, r: chosen[k] } : null; }).filter(Boolean); if (!picks.length) return Promise.resolve(false);
     step('direct', 'active', 'Checking the picture' + (picks.length > 1 ? 's' : '') + ' for watermarks…');
     return Promise.all(picks.map(function (p) { return loadImage(p.a.dataUrl).then(function (im) { var k = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight)); var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k)); var g = cv.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); return { id: p.a.id, dataUrl: cv.toDataURL('image/jpeg', 0.85) }; }); }))
-      .then(function (pictures) { return api('/api/creative/check-pictures', { method: 'POST', body: { pictures: pictures } }); })
+      .then(function (pictures) { return api('/api/creative/check-pictures', { method: 'POST', body: { pictures: pictures, jobId: S.jobId || '' } }); })
       .then(function (res) {
         if (!res.ok || !res.data || !res.data.ok) return false; // the check could not run: the owner's pick stands
         var bad = picks.filter(function (p) { var x = res.data.results[p.a.id]; return x && x.watermark; });
@@ -375,7 +428,8 @@
   function refineSearch(q) {
     S.refines++; step('research', 'active', 'Searching again for “' + q + '”…'); els.csChoices.innerHTML = '';
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, refine: q, understanding: S.understanding, hasUploads: uploads.length } }).then(function (r) {
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, refine: q, understanding: S.understanding, hasUploads: uploads.length, jobId: S.jobId || '' } }).then(function (r) {
+      creditsFrom(r.data);
       if (!r.ok || !r.data.ok) { step('research', 'failed', (r.data && r.data.message) || 'The search failed.'); showGate(S.gate); return; }
       var d = r.data; if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
       var keepFacts = S.research && S.research.facts; S.research = d.research; if ((!S.research.facts || !S.research.facts.length) && keepFacts) S.research.facts = keepFacts;
@@ -426,10 +480,14 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
+      creditsFrom(d);
+      // not enough credits, or no page job: nothing was spent, and the page is not swapped for a free layout
+      if (d.creditsExceeded || d.needsJob || d.inProgress) return { stop: d.message || d.reason || 'This direction could not start.' };
+      if (r.ok && d.ok && d.plan) rememberJob(true);
       if (r.ok && d.ok && d.plan) {
         var v = C.validate2.validatePlan2(d.plan, Object.assign(ctx2(), { mode: 'safety' })); var plan = v.plan; // accepted by the server: kept as composed if (S.fixture) plan.fixture = S.fixture;
         // the server and the studio both validate: each note once
@@ -464,7 +522,8 @@
     if (S.dirty && !window.confirm('Try another direction? The current layout is kept so you can go back, but text edits made to it stay with it.')) return Promise.resolve();
     var avoid = S.plan.v === 2 ? (S.plan.concept.title + ': ' + S.plan.concept.logline + ' | scenes: ' + S.plan.scenes.map(function (s) { return s.name || s.purpose; }).join(' / ')) : S.plan.concept.line;
     rememberDirection(); S.busy = true; els.csProgress.hidden = false; steps([['direct', 'Directing the page again, differently'], ['build', 'Building the page']]);
-    return planDirection((S.history || []).map(function (h) { return h.title + ': ' + h.logline; }).slice(-3).concat([avoid]).join(' || ')).then(function () {
+    return planDirection((S.history || []).map(function (h) { return h.title + ': ' + h.logline; }).slice(-3).concat([avoid]).join(' || ')).then(function (res) {
+      if (res && res.stop) { S.plan = S.previous.plan; S.planMeta = S.previous.planMeta; S.previous = null; S.history.pop(); S.busy = false; step('direct', 'failed', res.stop); els.csError.hidden = false; els.csError.textContent = res.stop; buildEditor(); return; }
       refresh(true); step('build', 'done'); S.busy = false; els.csProgress.hidden = true; S.name = pageTitle(); markDirty(); buildEditor();
     });
   }
@@ -573,7 +632,7 @@
     var old = p.v === 2 && p.layout && p.layout.version < C.validate2.LAYOUT_VERSION ? '<p class="cs-hint">This page was composed under older layout rules and stays exactly as saved. <button type="button" class="cs-btn cs-ghost" id="csRecompose">Re-apply today\'s layout rules</button></p>' : '';
     var lim = p.v === 2 && p.limitations.length ? '<details><summary>Limitations noted by the director (' + p.limitations.length + ')</summary><ul>' + p.limitations.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '';
     var hist = (S.history || []).length ? '<details><summary>Earlier directions (' + S.history.length + ')</summary><ul>' + S.history.map(function (h) { return '<li>' + esc(h.title ? h.title + ': ' : '') + esc(h.logline) + ' <small>(' + esc(h.source) + ')</small></li>'; }).join('') + '</ul></details>' : '';
-    return '<div class="cs-direction">' + badge + head + meta + ident + imagery + check + claims + wants + old + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
+    return '<div class="cs-direction">' + badge + head + meta + ident + imagery + check + claims + wants + old + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction · 3 credits</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
   }
   function buildEditor() {
     showFixture();
@@ -720,7 +779,7 @@
     var kb = Math.round((S.cost.researchBytes || 0) / 1024);
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
-      + '<p class="cs-hint">Cost of this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks), about $' + (S.cost.aiUsdEstimated || 0).toFixed(3) + ' estimated' + (S.understandMeta && S.understandMeta.source === 'ai' ? ' + understanding about $' + (S.understandMeta.usd || 0).toFixed(4) : '') + ' · 0 generated images · 0 credits.</p>';
+      + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: 4 for the page (research and direction), 3 for each further direction.</p>';
   }
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }
@@ -741,7 +800,7 @@
     return req.then(function (r) {
       S.saving = false;
       if (r.ok && r.data.ok) {
-        S.projectId = r.data.project.id; S.revision = r.data.project.revision; S.dirty = false; setSaveState('Saved to your account'); els.csSave.disabled = true;
+        S.projectId = r.data.project.id; S.revision = r.data.project.revision; S.status = r.data.project.status || S.status; S.dirty = false; setSaveState('Saved to your account'); els.csSave.disabled = true; showBuy();
         try { localStorage.setItem(POINTER, JSON.stringify({ id: S.projectId, name: body.name })); } catch (e) { /* optional */ }
         if (typeof loadOwnedProjectsList === 'function') loadOwnedProjectsList();
       } else if (r.data && r.data.reason === 'conflict') { setSaveState('Changed on another device — reopen it from your projects to see that version.'); els.csSave.disabled = false; }
@@ -752,12 +811,12 @@
   function loadProject(p) {
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
-    S.projectId = p.id; S.revision = p.revision; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
+    S.projectId = p.id; S.revision = p.revision; S.status = p.status || null; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
     S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }
-    S.plan = settle(c.plan); els.csBriefStep.hidden = true; els.csEditor.hidden = false; buildEditor(); refresh(true);
+    S.plan = settle(c.plan); els.csBriefStep.hidden = true; els.csEditor.hidden = false; buildEditor(); refresh(true); showBuy();
     setSaveState('Opened from your account'); els.csSave.disabled = true;
     try { localStorage.setItem(POINTER, JSON.stringify({ id: p.id, name: p.name })); } catch (e) { /* optional */ }
   }

@@ -9133,7 +9133,7 @@ function updateGenerateButtonLabel() {
     return;
   }
   if (latestCredits.remaining < latestCredits.generationCost) {
-    generatorSubmitLabel.textContent = 'Generate website — out of credits today';
+    generatorSubmitLabel.textContent = 'Generate website — not enough credits';
   } else {
     generatorSubmitLabel.textContent = `Generate website · ${latestCredits.generationCost} credits`;
   }
@@ -9375,7 +9375,7 @@ async function runGeneration(text) {
       // Clear, structured message, never a generic 403/failure (spec item
       // 9), surfaced through the SAME failure/retry gate a normal
       // generation failure already uses (see the finally block below).
-      failureMessage = result.message || `You've used today's free credits — more opens up tomorrow (UTC).`;
+      failureMessage = (result.message || 'Not enough credits for this website.') + ' A Workspace subscription in the SiteRemade app adds 100 credits a month.';
       return;
     }
     if (result && result.ok && result.plan) {
@@ -9712,21 +9712,35 @@ function formatResetTime(resetsAt) {
 // after every fetch AND every account-state change, so the indicator,
 // account-panel line, and Generate button label can never drift out of
 // sync with each other.
+// BILLING PASS: one balance for the builder and the app -- the free trial (one-time), the Workspace plan's month, or
+// the tester allowance -- with what each action costs, from the server's own summary (GET /api/credits).
+function formatCreditDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch (e) { return ''; }
+}
+function creditPlanLine(c) {
+  const costs = c.costs ? ` · Business website ${c.costs.businessGeneration} · Creative page ${c.costs.creativePage} · AI update ${c.costs.aiUpdate} · manual edits free` : '';
+  if (c.plan === 'tester') return `Tester allowance: ${c.remaining} credits${c.tester && c.tester.resetsAt ? ' · resets ' + formatResetTime(c.tester.resetsAt) : ''}${costs}`;
+  if (c.plan === 'workspace') {
+    const s = c.subscription || {};
+    const when = s.renewsAt ? ` · renews ${formatCreditDate(s.renewsAt)} (unused credits don't roll over)` : s.endsAt ? ` · plan ends ${formatCreditDate(s.endsAt)}` : '';
+    return `Workspace plan: ${c.remaining} credits left${when}${costs}`;
+  }
+  const trial = c.trial || {};
+  const problem = c.subscription && c.subscription.paymentProblem ? ' · Workspace payment failed — update it in the app' : '';
+  return `Free trial: ${c.remaining} of ${trial.credits} credits left (one-time)${problem}${costs}`;
+}
 function renderCreditsUI() {
   const signedIn = !!currentAccount;
   if (creditIndicator) creditIndicator.hidden = !signedIn;
   if (signedIn && latestCredits) {
-    const { remaining, dailyFreeCredits, resetsAt, generationCost } = latestCredits;
-    if (creditIndicatorText) creditIndicatorText.textContent = `${remaining} of ${dailyFreeCredits} credits today`;
+    const { remaining, generationCost } = latestCredits;
+    if (creditIndicatorText) creditIndicatorText.textContent = `${remaining} credit${remaining === 1 ? '' : 's'} · ${latestCredits.planLabel || 'Free trial'}`;
     if (creditIndicator) {
-      const resetLabel = formatResetTime(resetsAt);
-      creditIndicator.title = resetLabel ? `Resets ${resetLabel}` : '';
+      creditIndicator.title = creditPlanLine(latestCredits);
       creditIndicator.classList.toggle('credit-indicator-low', typeof generationCost === 'number' && remaining < generationCost);
     }
-    if (accountCreditsLine) {
-      const resetLabel = formatResetTime(resetsAt);
-      accountCreditsLine.textContent = `${remaining} of ${dailyFreeCredits} credits left today${resetLabel ? ' · resets ' + resetLabel : ''}`;
-    }
+    if (accountCreditsLine) accountCreditsLine.textContent = creditPlanLine(latestCredits);
   } else if (signedIn) {
     if (creditIndicatorText) creditIndicatorText.textContent = 'Loading credits…';
     if (accountCreditsLine) accountCreditsLine.textContent = '';

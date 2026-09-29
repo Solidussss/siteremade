@@ -213,10 +213,13 @@ test('cost estimates come from the configured per-million prices', () => {
 
 async function withServer(env, fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-cr-ai-'));
-  const s = await startServer(Object.assign({ SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'a'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'p'), ANTHROPIC_API_KEY: 'mock-only', OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', MOCK_CALL_LOG: path.join(dir, 'calls.log'), NODE_ENV: 'test' }, env));
+  const s = await startServer(Object.assign({ SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'a'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'p'), ANTHROPIC_API_KEY: 'mock-only', OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', MOCK_CALL_LOG: path.join(dir, 'calls.log'), NODE_ENV: 'test', SITEREMADE_TRIAL_CREDITS: '40' }, env));
   try { const call = client(s.port); await call('POST', '/api/auth/signup', { email: `ai-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' }); await fn(call, dir); } finally { await s.stop(); }
 }
 const BRIEF = 'An imaginary kingdom run entirely by cats'; // invented: no research, so no network in tests
+// a Creative page is one paid job: it starts at research, and the direction continues it (lib/creative-jobs.js)
+const startJob = async call => { const r = await call('POST', '/api/creative/research', { brief: BRIEF }); assert.ok(r.body.jobId, 'research starts the page job'); return r.body.jobId; };
+const planFor = async (call, u) => Object.assign(planBody(u), { jobId: await startJob(call) });
 const planBody = u => ({ brief: BRIEF, understanding: u, facts: [], supplied: {}, assets: [{ id: 'u1', origin: 'upload', title: 'cat', assess: { width: 800, height: 600, aspect: 1.33, orientation: 'landscape' }, caps: { moveFreely: false } }], thumbnails: [{ id: 'u1', dataUrl: 'data:image/jpeg;base64,/9j/4AAQ' }] });
 const ledger = dir => { const f = path.join(dir, 'p', 'creative-ledger.jsonl'); return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : []; };
 
@@ -224,7 +227,7 @@ test('server (MOCK provider): understanding before research, a validated directi
   await withServer({}, async (call, dir) => {
     const r = await call('POST', '/api/creative/research', { brief: BRIEF });
     assert.equal(r.body.understandMeta.source, 'ai'); assert.equal(r.body.understanding.identity.kind, 'invented'); assert.equal(r.body.research.status, 'skipped');
-    const p = await call('POST', '/api/creative/plan', planBody(r.body.understanding));
+    const p = await call('POST', '/api/creative/plan', Object.assign(planBody(r.body.understanding), { jobId: r.body.jobId }));
     assert.equal(p.body.ok, true); assert.equal(p.body.plan.v, 2);
     assert.equal(p.body.plan.direction.source, 'mock', 'a mock is never labelled as AI direction');
     assert.ok(p.body.meta.usdEstimated > 0);
@@ -237,22 +240,22 @@ test('server (MOCK provider): understanding before research, a validated directi
 
 test('server (MOCK provider): one bounded repair, then an explicit fallback with the reason', async () => {
   await withServer({ MOCK_CREATIVE: 'repair' }, async call => {
-    const p = await call('POST', '/api/creative/plan', planBody({ kind: 'invented', subject: 'cats' }));
+    const p = await call('POST', '/api/creative/plan', await planFor(call, { kind: 'invented', subject: 'cats' }));
     assert.equal(p.body.ok, true); assert.equal(p.body.meta.attempts.length, 2); assert.equal(p.body.plan.direction.repaired, true);
   });
   await withServer({ MOCK_CREATIVE: 'invalid' }, async call => {
-    const p = await call('POST', '/api/creative/plan', planBody({ kind: 'invented', subject: 'cats' }));
+    const p = await call('POST', '/api/creative/plan', await planFor(call, { kind: 'invented', subject: 'cats' }));
     assert.equal(p.body.ok, false); assert.equal(p.body.fallback, true); assert.match(p.body.reason, /repair attempt/); assert.equal(p.body.meta.attempts.length, 2);
   });
   await withServer({ MOCK_CREATIVE: 'error' }, async call => {
-    const p = await call('POST', '/api/creative/plan', planBody({ kind: 'invented', subject: 'cats' }));
+    const p = await call('POST', '/api/creative/plan', await planFor(call, { kind: 'invented', subject: 'cats' }));
     assert.equal(p.body.ok, false); assert.match(p.body.reason, /model call failed/);
   });
 });
 
 test('server (MOCK provider): the claim check sends unsupported words back once, then takes them out; its cost is its own ledger row', async () => {
   await withServer({ MOCK_CREATIVE: 'claims' }, async (call, dir) => {
-    const body = Object.assign(planBody({ kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
+    const body = Object.assign(await planFor(call, { kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
     const r = await call('POST', '/api/creative/plan', body);
     assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 2, 'one repair for the unsupported heading');
     assert.ok(r.body.meta.attempts.every(a => a.claims && a.claims.unsupported === 1));
@@ -261,13 +264,13 @@ test('server (MOCK provider): the claim check sends unsupported words back once,
     assert.ok(reveal.layers.length, 'the scene keeps its pictures, so it stays');
     assert.ok(r.body.fixes.some(f => /"Closer" was taken out/.test(f)));
     assert.deepEqual(r.body.plan.claims, { status: 'verified', checked: r.body.plan.claims.of, of: r.body.plan.claims.of, removed: 1, calls: 1 });
-    for (let i = 0; i < 40 && ledger(dir).length < 4; i++) await new Promise(res => setTimeout(res, 50)); // (the ledger is written in order, after the reply)
+    for (let i = 0; i < 40 && ledger(dir).filter(x => x.kind === 'creative_claims' || x.kind === 'creative_direct').length < 4; i++) await new Promise(res => setTimeout(res, 50)); // (the ledger is written in order, after the reply)
     const rows = ledger(dir);
     assert.equal(rows.filter(x => x.kind === 'creative_claims').length, 2); assert.equal(rows.filter(x => x.kind === 'creative_direct').length, 2);
   });
   // switched off: no claim call at all
   await withServer({ MOCK_CREATIVE: 'claims', CREATIVE_CLAIM_CHECK: 'off' }, async (call, dir) => {
-    const body = Object.assign(planBody({ kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
+    const body = Object.assign(await planFor(call, { kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
     const r = await call('POST', '/api/creative/plan', body);
     assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 1); assert.equal(ledger(dir).filter(x => x.kind === 'creative_claims').length, 0);
   });
@@ -481,9 +484,10 @@ test('direction: an unchecked page is accepted only as explicitly degraded, with
 
 test('server: limits are explicit -- account cap, off switch, no key', async () => {
   await withServer({ CREATIVE_ACCOUNT_DAILY_PLANS: '1' }, async call => {
-    assert.equal((await call('POST', '/api/creative/plan', planBody({ kind: 'invented' }))).body.ok, true);
-    const second = await call('POST', '/api/creative/plan', planBody({ kind: 'invented' }));
-    assert.equal(second.body.ok, false); assert.match(second.body.reason, /today's 1 AI directions/);
+    const body = await planFor(call, { kind: 'invented' });
+    assert.equal((await call('POST', '/api/creative/plan', body)).body.ok, true);
+    const second = await call('POST', '/api/creative/plan', Object.assign({}, body, { avoid: 'the first direction' }));
+    assert.equal(second.body.ok, false); assert.match(second.body.reason, /today's 1 AI directions/); assert.match(second.body.reason, /credits were not used/);
   });
   await withServer({ CREATIVE_AI_DIRECTION: 'off' }, async call => { const p = await call('POST', '/api/creative/plan', planBody({})); assert.match(p.body.reason, /switched off/); });
   await withServer({ ANTHROPIC_API_KEY: '' }, async call => {
@@ -571,7 +575,9 @@ test('watermark check: the picked pictures are judged together; the answer is bo
 test('server (MOCK provider): picked pictures are checked for watermarks; junk is refused; each check is a ledger row', async () => {
   const png = 'data:image/png;base64,' + Buffer.from('\x89PNG\r\n\x1a\n0000000000000000', 'latin1').toString('base64');
   await withServer({ MOCK_WATERMARK: 'p2' }, async (call, dir) => {
-    const r = await call('POST', '/api/creative/check-pictures', { pictures: [{ id: 'p1', dataUrl: png }, { id: 'p2', dataUrl: png }] });
+    assert.equal((await call('POST', '/api/creative/check-pictures', { pictures: [{ id: 'p1', dataUrl: png }] })).status, 402, 'only inside a page job');
+    const jobId = await startJob(call);
+    const r = await call('POST', '/api/creative/check-pictures', { jobId, pictures: [{ id: 'p1', dataUrl: png }, { id: 'p2', dataUrl: png }] });
     assert.equal(r.body.ok, true); assert.equal(r.body.results.p1.watermark, false); assert.equal(r.body.results.p2.watermark, true);
     assert.equal((await call('POST', '/api/creative/check-pictures', { pictures: [{ id: 'x', dataUrl: 'data:text/html;base64,PGI+' }] })).status, 400);
     for (let i = 0; i < 40 && !ledger(dir).some(x => x.kind === 'creative_picturecheck'); i++) await new Promise(res => setTimeout(res, 50));

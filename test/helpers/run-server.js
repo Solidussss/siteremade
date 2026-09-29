@@ -65,6 +65,25 @@ globalThis.fetch = async function (url, options) {
     const input = mode === 'malformed' ? { ...plan, pages: 'not-an-array' } : plan;
     return json({ model: body.model, usage, content: [{ type: 'tool_use', name: tool, input }] });
   }
+  // Stripe (website checkout; never the real API in tests): a Checkout Session is created with a test id and its
+  // price is logged; MOCK_STRIPE_EXPIRE=fail makes closing an earlier session fail (as when it has just been paid)
+  if (u.startsWith('https://api.stripe.com/v1/')) {
+    const endpoint = u.slice('https://api.stripe.com/v1/'.length);
+    const form = new URLSearchParams(String((options && options.body) || ''));
+    if (/^checkout\/sessions\/[^/]+\/expire$/.test(endpoint)) {
+      const session = decodeURIComponent(endpoint.split('/')[2]);
+      log({ provider: 'stripe', endpoint: 'expire', session });
+      if (process.env.MOCK_STRIPE_EXPIRE === 'fail') return json({ error: { message: 'mock: this session is complete' } }, 400);
+      return json({ id: session, status: 'expired' });
+    }
+    if (endpoint === 'checkout/sessions') {
+      mockCreativeCounters.stripe = (mockCreativeCounters.stripe || 0) + 1;
+      const id = `cs_test_mock_${process.pid}_${mockCreativeCounters.stripe}`;
+      log({ provider: 'stripe', endpoint: 'checkout', session: id, mode: form.get('mode'), amount: Number(form.get('line_items[0][price_data][unit_amount]')), currency: form.get('line_items[0][price_data][currency]'), intentId: form.get('metadata[intentId]'), projectId: form.get('metadata[projectId]'), websiteMode: form.get('metadata[mode]') });
+      return json({ id, url: `https://checkout.stripe.test/${id}` });
+    }
+    return json({ error: { message: `mock: unhandled Stripe endpoint ${endpoint}` } }, 400);
+  }
   if (process.env.SUPABASE_URL && u.startsWith(process.env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user')) {
     log({ provider: 'supabase' });
     return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com' });

@@ -34,7 +34,7 @@ async function startServer(mode, tag) {
   const env = Object.assign({}, process.env, {
     PORT: String(p), SITEREMADE_DB_PATH: ':memory:', OPENAI_API_KEY: REAL ? process.env.OPENAI_API_KEY : 'mock', SITEREMADE_PAID_IMAGES: 'true', ANTHROPIC_API_KEY: REAL ? process.env.ANTHROPIC_API_KEY : 'mock',
     PREMIUM_GENERATION_V1: (mode === 'premium' || mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_COMPOSITION_V2: (mode === 'v2' || mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_GROUNDING_V3: (mode === 'v3' || mode === 'v4') ? 'true' : 'false', PREMIUM_VISUALS_V4: mode === 'v4' ? 'true' : 'false', SITEREMADE_ADMIN_TOKEN: 'fixture-admin', SITEREMADE_PREMIUM_LOG_DIR: logDir,
-    MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_DAILY_FREE_CREDITS: '1000',
+    MOCK_LOG: path.join(logDir, 'provider-calls.jsonl'), SITEREMADE_TRIAL_CREDITS: '1000',
     SITEREMADE_RATE_LIMIT_SIGNUP_MAX: '1000', SITEREMADE_RATE_LIMIT_GENERATION_MAX: '1000', ELECTRON_RUN_AS_NODE: '',
   });
   delete env.ELECTRON_RUN_AS_NODE;

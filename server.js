@@ -30,6 +30,8 @@ const purchase = require('./lib/purchase.js');
 // real, tested, concurrency-safe module on disk, just not wired into this
 // file any more.
 const credits = require('./lib/credits.js');
+const { createBilling } = require('./lib/billing.js');
+const creativeJobs = require('./lib/creative-jobs.js');
 // FINAL GENERATOR HARDENING pass: a real, in-memory, bounded rate limiter --
 // see lib/rate-limit.js's own header for the full reasoning (same honesty
 // posture as directionsLedger/operationLedger below: not durable, not
@@ -774,11 +776,11 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
   const decision = session.governor.decide({ operation: 'image_generation', phase: phase === 'repair' ? 'repair' : 'first_draft', priority: premiumTier === 'hero' ? 'critical' : premiumTier === 'decorative' ? 'optional' : 'normal', estimatedUsd: est, committedUsd: inflight });
   if (!decision.allowed) return { ok: false, reason: 'budget_exceeded', budgetLimitReached: decision.budgetLimitReached };
   const creditCost = creditCostForImageRoute(safeModel);
-  let creditReserved = false;
+  let creditReserved = false, creditOp = null;
   if (accountId && creditCost > 0) {
-    const cr = credits.reserveCredits(db, accountId, creditCost, dailyCreditsForAccount(accountId));
+    const cr = reserveCredit(accountId, creditCost, 'image');
     if (!cr.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: cr.remaining };
-    creditReserved = true;
+    creditReserved = true; creditOp = cr.opId;
   }
   premiumInflight.set(generationId, inflight + est);
   const done = () => { premiumInflight.set(generationId, Math.max(0, (premiumInflight.get(generationId) || 0) - est)); };
@@ -798,21 +800,21 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
     }
   } catch (error) {
     console.error('Premium image generation failed:', error);
-    done(); if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+    done(); if (creditReserved) releaseCredit(creditOp);
     recordOperation({ operationType: taskType || 'IMAGE_GENERATE', provider: activeImageProvider.name, model: safeModel, ok: false, imageCount: 0, latencyMs: Date.now() - startedAt, projectId, accountId, anonId, generationId });
     return { ok: false, reason: 'provider_error' };
   }
   done();
   if (evalResult && evalResult.poor) { // never charge a customer for an unusable image; caller falls back to a designed visual
-    if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+    if (creditReserved) releaseCredit(creditOp);
     return { ok: false, reason: 'poor_image', evaluation: evalResult, retried: attempt > 0 };
   }
   const okResult = { ok: true, dataUrl: result.dataUrl, quality: result.quality || safeQuality, model: result.model || safeModel, creditsCharged: creditReserved ? creditCost : 0, evaluation: evalResult, retried: attempt > 0 };
-  if (!deferSettlement) { if (creditReserved) credits.commitCredits(db, accountId, creditCost); return okResult; }
+  if (!deferSettlement) { if (creditReserved) commitCredit(creditOp); return okResult; }
   let settled = false; // bridge edits: credits stay reserved until the edit is actually saved (spend is already in the USD ledger either way)
   okResult.settle = {
-    commit() { if (settled) return; settled = true; if (creditReserved) credits.commitCredits(db, accountId, creditCost); },
-    release() { if (settled) return; settled = true; if (creditReserved) credits.releaseCredits(db, accountId, creditCost); },
+    commit() { if (settled) return; settled = true; if (creditReserved) commitCredit(creditOp); },
+    release() { if (settled) return; settled = true; if (creditReserved) releaseCredit(creditOp); },
   };
   return okResult;
 }
@@ -853,7 +855,8 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
 // the next UTC-day rollover.
 async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null, spendBucket = null }) {
   if (!activeImageProvider.configured()) return { ok: false, reason: 'not_configured' };
-  const premiumOn = premiumCore.cfg.enabled && !!generationId && /^gen_[a-z0-9]{6,40}$/.test(generationId);
+  await prepareCredits(accountId);
+  const premiumOn =premiumCore.cfg.enabled && !!generationId && /^gen_[a-z0-9]{6,40}$/.test(generationId);
   if (premiumOn) return generatePremiumImage({ accountId, prompt, promptAlt, model, quality, aspectRatio, taskType, projectId, anonId, generationId, premiumTier, phase, deferSettlement });
   const startedAt = Date.now();
   const safeModel = ALLOWED_IMAGE_MODELS.includes(model) ? model : IMAGE_MODEL_SUPPORT;
@@ -861,11 +864,11 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
   const safeAspectRatio = ALLOWED_IMAGE_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '1:1';
   const estimatedCostUsd = estimateImageRouteCostUsd(safeModel, safeQuality, safeAspectRatio);
   const creditCost = creditCostForImageRoute(safeModel);
-  let creditReserved = false;
+  let creditReserved = false, creditOp = null;
   if (accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, accountId, creditCost, dailyCreditsForAccount(accountId));
+    const creditReservation = reserveCredit(accountId, creditCost, 'image');
     if (!creditReservation.ok) return { ok: false, reason: 'credits_exceeded', creditsRemaining: creditReservation.remaining };
-    creditReserved = true;
+    creditReserved = true; creditOp = creditReservation.opId;
   }
   // See the SERVER-SIDE SPEND ENFORCEMENT note on /api/generate-image below
   // for exactly what this per-process reservation does and doesn't guarantee.
@@ -873,12 +876,12 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
   const spendKey = spendBucket === 'hero' ? `${reservationKey}::hero` : reservationKey;
   const reservation = reserveImageSpend(spendKey, estimatedCostUsd, spendBucket === 'hero' ? SITEREMADE_HERO_IMAGE_BUDGET_USD : SITEREMADE_IMAGE_BUDGET_USD);
   if (!reservation.ok) {
-    if (creditReserved) credits.releaseCredits(db, accountId, creditCost); // behavior fix -- see header
+    if (creditReserved) releaseCredit(creditOp); // behavior fix -- see header
     return { ok: false, reason: 'budget_exceeded' };
   }
   const releaseAll = () => {
     releaseImageSpend(spendKey, estimatedCostUsd);
-    if (creditReserved) credits.releaseCredits(db, accountId, creditCost);
+    if (creditReserved) releaseCredit(creditOp);
   };
   if (!prompt) {
     releaseAll(); // never charged for a request that never reached the provider
@@ -891,7 +894,7 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
     const record = (settled) => recordOperation({ operationType: taskType, provider: activeImageProvider.name, model: usedModel, ok: true, imageCount: 1, imageSize: safeAspectRatio || null, imageQuality: usedQuality, estimatedCostUsd, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && settled) ? creditCost : 0, latencyMs: Date.now() - startedAt, projectId, accountId, anonId });
     if (!deferSettlement) {
       record(true);
-      if (creditReserved) credits.commitCredits(db, accountId, creditCost);
+      if (creditReserved) commitCredit(creditOp);
       return { ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel, provider: activeImageProvider.name, estimatedCostUsd, creditsCharged: creditReserved ? creditCost : 0 };
     }
     let settled = false;
@@ -899,7 +902,7 @@ async function generateImageWithCredits({ accountId, prompt, model, quality, asp
       ok: true, dataUrl: result.dataUrl, quality: usedQuality, model: usedModel,
       creditsCharged: creditReserved ? creditCost : 0,
       settle: {
-        commit() { if (settled) return; settled = true; record(true); if (creditReserved) credits.commitCredits(db, accountId, creditCost); },
+        commit() { if (settled) return; settled = true; record(true); if (creditReserved) commitCredit(creditOp); },
         release() { if (settled) return; settled = true; record(false); releaseAll(); },
       },
     };
@@ -1008,8 +1011,8 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
     return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, evaluation: result.evaluation || undefined, creditsCharged: result.creditsCharged, replayed: !!result.replayed, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   }
   if (result.reason === 'not_configured') return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
-  if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'This account has used its daily credit allowance.' });
-  if (result.reason === 'budget_exceeded') return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'Server-side per-generation image budget already reached; this request was not sent to the image provider.' });
+  if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'Not enough credits for this image.' });
+  if (result.reason === 'budget_exceeded') return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'This generation reached its image limit, so this picture was not made. Your credits were not used for it.' });
   if (result.reason === 'missing_prompt') return res.status(400).json({ ok: false, message: 'Missing prompt.' });
   if (result.reason === 'poor_image') return res.status(200).json({ ok: false, configured: true, poorImage: true, message: 'The generated image was not good enough to use, so a designed visual is shown instead. You were not charged for it.' });
   if (result.reason === 'prompt_rejected') return res.status(400).json({ ok: false, message: 'That image request was refused.' });
@@ -1166,21 +1169,61 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // floor, same "several tries a day" product feel as the old 10/3, but
 // with headroom for a generation to also spend on real imagery instead of
 // imagery being globally switched off.
-const SITEREMADE_DAILY_FREE_CREDITS = Number(process.env.SITEREMADE_DAILY_FREE_CREDITS) || 10;
-const SITEREMADE_TESTER_DAILY_CREDITS = Number(process.env.SITEREMADE_TESTER_DAILY_CREDITS) || 500;
+// BILLING PASS: the daily free pool above is retired. Every account now spends from ONE ledger (lib/credits.js):
+// a one-time free trial (SITEREMADE_TRIAL_CREDITS, 6), the Workspace plan's monthly allowance
+// (SITEREMADE_PLAN_MONTHLY_CREDITS, 100, no rollover; verified with the app -- lib/billing.js), and the owner's separate
+// tester allowance (SITEREMADE_TESTER_EMAILS, SITEREMADE_TESTER_DAILY_CREDITS per UTC day, unchanged).
 const SITEREMADE_TESTER_EMAILS = new Set((process.env.SITEREMADE_TESTER_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
-function dailyCreditsForAccount(accountId) {
-  if (!accountId || SITEREMADE_TESTER_EMAILS.size === 0) return SITEREMADE_DAILY_FREE_CREDITS;
+function isTesterAccount(accountId) {
+  if (!accountId || SITEREMADE_TESTER_EMAILS.size === 0) return false;
   try {
     const account = authProvider.findAccountById(db, accountId);
     const email = String((account && account.email) || '').trim().toLowerCase();
-    if (email && SITEREMADE_TESTER_EMAILS.has(email)) return SITEREMADE_TESTER_DAILY_CREDITS;
-  } catch (_) {}
-  return SITEREMADE_DAILY_FREE_CREDITS;
+    return !!(email && SITEREMADE_TESTER_EMAILS.has(email));
+  } catch (_) { return false; }
 }
-const SITEREMADE_CREDIT_COST_BASE_GENERATION = Number(process.env.SITEREMADE_CREDIT_COST_BASE_GENERATION) || 2;
-const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_SUPPORT) || 1;
-const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = Number(process.env.SITEREMADE_CREDIT_COST_IMAGE_PREMIUM) || 2;
+const billing = createBilling({ db, isTester: isTesterAccount });
+// Bring the account's grants up to date (trial once, tester day, verified plan month) before any reservation.
+async function prepareCredits(accountId) {
+  if (!accountId) return;
+  try { await billing.refresh(accountId); } catch (e) { console.error('Billing refresh failed (free/tester grants still apply):', e.message); try { billing.applyGrants(accountId, null); } catch (_) {} }
+}
+// Every paid action is one ledger operation with a unique id; the default id is fresh (a new action), callers that can
+// be retried pass a stable one. Returns { ok, opId, remaining, existing, status }.
+function reserveCredit(accountId, amount, kind, opId) {
+  return credits.reserve(db, { accountId, opId: opId || `${kind}:${crypto.randomUUID()}`, amount, kind });
+}
+function commitCredit(opId, providerUsd) { if (opId) credits.commit(db, opId, { providerUsd }); }
+function releaseCredit(opId, providerUsd) { if (opId) credits.release(db, opId, { providerUsd }); }
+// For a route whose caller supplies its own attempt id (double clicks, retries, reconnects): the same id while the
+// first attempt is still running is refused (never a second provider call); an id whose attempt already finished and
+// was charged is a new, separately priced action (never free work); a failed attempt's id may simply retry.
+function reserveAttempt(accountId, amount, kind, opId) {
+  const r = reserveCredit(accountId, amount, kind, opId);
+  if (r.ok && r.existing && r.status === 'reserved') return { ok: false, inProgress: true, remaining: r.remaining };
+  if (r.ok && r.existing && r.status === 'committed') { const replay = replayPaid(opId); return replay ? { ok: false, replay } : reserveCredit(accountId, amount, kind); }
+  return r;
+}
+// A successful paid response, kept for a while under its operation id: the same attempt retried after a lost response
+// (a reconnect, a timeout in the browser or the app) gets it back -- no second charge, no second provider call. Kept in
+// memory (this service runs as one instance); after a restart such a retry is priced as a new action.
+const paidReplays = new Map(); const PAID_REPLAY_MS = 30 * 60 * 1000;
+function rememberPaid(opId, body) { if (!opId) return; paidReplays.set(opId, { at: Date.now(), body }); while (paidReplays.size > 200) paidReplays.delete(paidReplays.keys().next().value); }
+function replayPaid(opId) { const r = opId && paidReplays.get(opId); return r && Date.now() - r.at < PAID_REPLAY_MS ? r.body : null; }
+function creditsRemainingFor(accountId) { return accountId ? credits.available(db, accountId).total : null; }
+// a stable operation id derived from the caller's own request key, scoped to the account (a key can never collide
+// with, or unlock, another account's operation)
+function opIdFromKey(prefix, accountId, key) {
+  const k = String(key || '').trim();
+  if (!k) return null;
+  return `${prefix}:${crypto.createHash('sha256').update(`${accountId}|${k}`).digest('hex').slice(0, 32)}`;
+}
+// BILLING PASS: the agreed customer prices, fixed in code (no environment override -- an old variable left on a
+// deployment must never silently change what a customer is charged): Business generation 2, optional generated image
+// 1 (support) / 2 (premium), AI update 1 (CREDIT_COST_BY_CLASS.cheap), Creative page 4 (lib/creative-jobs.js).
+const SITEREMADE_CREDIT_COST_BASE_GENERATION = 2;
+const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = 1;
+const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = 2;
 // PRICING PASS: the ONE-TIME generated-website purchase price, in CAD cents
 // -- the single canonical source of truth for what Stripe actually charges
 // AND what the frontend displays. Previously this was two separate
@@ -1202,7 +1245,7 @@ function formatWebsitePriceDisplay() {
 }
 const CREDIT_COST_BY_CLASS = {
   free: 0,
-  cheap: Number(process.env.SITEREMADE_CREDIT_COST_CHEAP) || 1,
+  cheap: 1,
   // 'standard' now means base generation ONLY (NEW_SITE/NEW_DIRECTION).
   // IMAGE_GENERATE/IMAGE_ADD/IMAGE_REGENERATE stay classified 'standard' in
   // OPERATION_COST_CLASS above purely so the operationLedger's costClass
@@ -1250,9 +1293,18 @@ function nextUtcMidnightIso(now) {
 // (NEW_SITE/NEW_DIRECTION) cost specifically -- the one number the
 // Generate button's own label needs; per-action costs for other task
 // types remain server-side-only, exactly as before.
+// The customer-facing credit costs, one table for the builder AND the app (served to both).
+const CREDIT_COSTS = {
+  businessGeneration: SITEREMADE_CREDIT_COST_BASE_GENERATION,
+  creativePage: creativeJobs.PRICES.research + creativeJobs.PRICES.direction,
+  creativeResearch: creativeJobs.PRICES.research, creativeDirection: creativeJobs.PRICES.direction,
+  aiUpdate: CREDIT_COST_BY_CLASS.cheap,
+  imageSupport: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, imagePremium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM,
+  manualEdit: 0, upload: 0,
+};
 function creditsSummaryFor(accountId) {
   if (!accountId) return null;
-  const summary = credits.getCredits(db, accountId, dailyCreditsForAccount(accountId));
+  const summary = billing.summary(accountId, CREDIT_COSTS);
   // DYNAMIC CREDIT COSTING PASS: generationCost is now specifically the
   // BASE generation cost (spec item 15's "baseGenerationCost") --
   // imageCreditCosts exposes the per-route image prices too, so the
@@ -1266,7 +1318,8 @@ function creditsSummaryFor(accountId) {
     generationCost: creditCostForTask('NEW_SITE'),
     baseGenerationCost: SITEREMADE_CREDIT_COST_BASE_GENERATION,
     imageCreditCosts: { support: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, premium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM },
-    resetsAt: nextUtcMidnightIso()
+    // when the balance next changes on its own: the tester day, else the plan month
+    resetsAt: summary.tester ? summary.tester.resetsAt : summary.subscription && summary.subscription.renewsAt || null,
   };
 }
 // DYNAMIC CREDIT COSTING PASS (spec item 19, "planner integration"): the
@@ -2102,14 +2155,20 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
   // deterministic edits never reach this route at all (see this route's own
   // comment above), so free-class taskTypes cost 0 here as real defense in
   // depth, not the primary enforcement point.
-  const creditCost = creditCostForTask(taskType);
-  let creditReserved = false;
+  // BILLING PASS: every request that reaches this route is a paid model call, so it costs one AI update whatever
+  // `taskType` the browser labels it with -- a label can describe the edit but can never make the call free. Edits
+  // that need no model (colours, spacing, reordering, typed text) are made in the browser and never come here.
+  const creditCost = CREDIT_COSTS.aiUpdate;
+  let creditReserved = false, creditOp = null;
   if (req.accountId && creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, dailyCreditsForAccount(req.accountId));
+    await prepareCredits(req.accountId);
+    const creditReservation = reserveAttempt(req.accountId, creditCost, 'ai_update', opIdFromKey('refine', req.accountId, clean(req.body.requestId, 120)));
+    if (creditReservation.inProgress) return res.status(409).json({ ok: false, configured: true, inProgress: true, message: 'This update is already running.' });
+    if (creditReservation.replay) return res.json(Object.assign({}, creditReservation.replay, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) }));
     if (!creditReservation.ok) {
-      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance.' });
+      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: `This AI update needs ${creditCost} credit and your balance is ${creditReservation.remaining}.` });
     }
-    creditReserved = true;
+    creditReserved = true; creditOp = creditReservation.opId;
   }
   const startedAt = Date.now();
   try {
@@ -2118,16 +2177,17 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
     const latencyMs = Date.now() - startedAt;
     if (!result.providerOk) {
       recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
-      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
+      if (creditReserved) releaseCredit(creditOp);
       return res.status(200).json({ ok: false, configured: true });
     }
     const succeeded = result.ok;
     recordOperation({ operationType: taskType, provider: 'anthropic', model: result.model, ok: succeeded, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) { if (succeeded) credits.commitCredits(db, req.accountId, creditCost); else credits.releaseCredits(db, req.accountId, creditCost); }
-    return res.json(succeeded ? { ok: true, plan: result.plan, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null } : { ok: false, configured: true });
+    if (creditReserved) { if (succeeded) commitCredit(creditOp); else releaseCredit(creditOp); }
+    if (succeeded) rememberPaid(creditOp, { ok: true, plan: result.plan });
+    return res.json(succeeded ? { ok: true, plan: result.plan, creditsCharged: (creditReserved && succeeded) ? creditCost : 0, creditsRemaining: creditsRemainingFor(req.accountId) } : { ok: false, configured: true });
   } catch (error) {
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs: Date.now() - startedAt, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
+    if (creditReserved) releaseCredit(creditOp);
     return res.status(200).json({ ok: false, configured: true });
   }
 });
@@ -2207,19 +2267,23 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
   // actually used the plan (POST /api/generation-diagnostics).
   const plannerCtx = { accountId: req.accountId, projectId, taskType };
   const generationId = clean(req.body.generationId, 60) || null;
-  const creditCost = creditCostForTask(taskType);
-  let creditReserved = false;
+  const creditCost = CREDIT_COSTS.businessGeneration;
+  let creditReserved = false, creditOp = null;
   if (creditCost > 0) {
-    const creditReservation = credits.reserveCredits(db, req.accountId, creditCost, dailyCreditsForAccount(req.accountId));
+    await prepareCredits(req.accountId);
+    // one operation per generation attempt: a double click or reconnect with the same generation id never plans twice
+    const creditReservation = reserveAttempt(req.accountId, creditCost, 'business_generation', opIdFromKey('gen', req.accountId, clean(req.body.premiumGenerationId, 60) || generationId));
+    if (creditReservation.inProgress) return res.status(409).json({ ok: false, inProgress: true, claudeDirectionsRemaining: null, message: 'This generation is already running.' });
+    if (creditReservation.replay) return res.json(Object.assign({}, creditReservation.replay, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) }));
     if (!creditReservation.ok) {
       recordPlannerAttempt({ outcome: 'credits_exceeded', generationId }, plannerCtx);
-      return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: 'This account has used its daily credit allowance -- more opens up tomorrow (UTC).' });
+      return res.status(200).json({ ok: false, limited: true, creditsExceeded: true, claudeDirectionsRemaining: null, creditsRemaining: creditReservation.remaining, message: `A Business website costs ${creditCost} credits and your balance is ${creditReservation.remaining}.` });
     }
-    creditReserved = true;
+    creditReserved = true; creditOp = creditReservation.opId;
   }
   const text = clean(req.body.text, 600);
   if (!text) {
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // never charged for a request that never reached generation
+    if (creditReserved) releaseCredit(creditOp); // never charged for a request that never reached generation
     recordPlannerAttempt({ outcome: 'missing_text', generationId }, plannerCtx);
     return res.status(400).json({ ok: false, message: 'Missing business description.' });
   }
@@ -2232,8 +2296,8 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
     // regardless of Claude's availability, so commit now rather than
     // leaving the reservation dangling; this response is terminal and the
     // client never retries this exact reservation.
-    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost);
-    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
+    if (creditReserved) commitCredit(creditOp);
+    return res.status(200).json({ ok: false, configured: false, message: 'AI-planned generation is not configured on this environment yet.', claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsRemainingFor(req.accountId) });
   }
   // DYNAMIC CREDIT COSTING PASS: creditsSummaryFor is read AFTER the base
   // reservation above (creditReserved is already true here, or this route
@@ -2248,7 +2312,7 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
     // the owner's own name for the business, read the same way the client reads it (lib/premium/hero-copy.js)
     businessName: premiumLib.heroCopy.extractName(text),
     priorSignatures: entry.signatures.slice(-2),
-    visualBudget: visualBudgetForRemainingCredits(creditsSummaryFor(req.accountId).remaining)
+    visualBudget: visualBudgetForRemainingCredits(creditsRemainingFor(req.accountId))
   };
   const startedAt = Date.now();
   try {
@@ -2269,14 +2333,14 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
       // Never charge for a plan that produced nothing usable, same "only
       // charge for meaningful completed work" principle the image-credit
       // settlement logic already follows.
-      if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost);
+      if (creditReserved) releaseCredit(creditOp);
       entry.history.push({ at: startedAt, model, latencyMs, success: false, error: 'Planner returned a structurally unusable plan (malformed pages)' });
       if (entry.history.length > 10) entry.history = entry.history.slice(-10);
       console.error('Website planning produced an unusable plan (malformed pages); falling back to deterministic generation.');
       // Same response shape as the catch block below -- the client already
       // treats any ok:false plan-website response as "fall back to
       // deterministic generation," so this is not a new client-side case.
-      return res.status(200).json({ ok: false, message: 'The AI planner returned something unusable this time.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
+      return res.status(200).json({ ok: false, message: 'The AI planner returned something unusable this time.', claudeDirectionsRemaining: null, creditsRemaining: creditsRemainingFor(req.accountId) });
     }
     recordPlannerAttempt({
       outcome: 'success', latencyMs, model: model || null, generationId, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens,
@@ -2284,29 +2348,31 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
       hasOfferings: !!(plan.business && Array.isArray(plan.business.offerings) && plan.business.offerings.length),
     }, plannerCtx);
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) credits.commitCredits(db, req.accountId, creditCost); // reserved -> used, only on real success
+    if (creditReserved) commitCredit(creditOp); // reserved -> used, only on real success
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
-    return res.json({ ok: true, plan, claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsSummaryFor(req.accountId).remaining, meta: { model, latencyMs } });
+    const planned = { ok: true, plan, claudeDirectionsRemaining: null, creditsCharged: creditReserved ? creditCost : 0, creditsRemaining: creditsRemainingFor(req.accountId), meta: { model, latencyMs } };
+    rememberPaid(creditOp, planned);
+    return res.json(planned);
   } catch (error) {
     const latencyMs = Date.now() - startedAt;
     recordPlannerAttempt({ outcome: 'error', latencyMs, errorCategory: categorizeAnthropicError(error), generationId }, plannerCtx);
     recordOperation({ operationType: taskType, provider: 'anthropic', model: ANTHROPIC_MODEL, ok: false, creditCost: creditReserved ? creditCost : null, creditsCharged: 0, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) credits.releaseCredits(db, req.accountId, creditCost); // a failed attempt never permanently consumes a credit
+    if (creditReserved) releaseCredit(creditOp); // a failed attempt never permanently consumes a credit
     entry.history.push({ at: startedAt, latencyMs, success: false, error: String(error && error.message || error) });
     if (entry.history.length > 10) entry.history = entry.history.slice(-10);
     console.error('Website planning failed:', error);
-    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: null, creditsRemaining: creditsSummaryFor(req.accountId).remaining });
+    return res.status(200).json({ ok: false, message: 'Could not reach the AI planner right now.', claudeDirectionsRemaining: null, creditsRemaining: creditsRemainingFor(req.accountId) });
   }
 });
 
 // CREATIVE MODE (see CREATIVE_MODE.md): research for a Creative page -- what the brief is
 // about, and, for a recognizable subject, its encyclopedia facts and reusable-licence
 // pictures from Wikipedia / Wikimedia Commons (free public APIs, fixed host allow-list, no
-// model call, no image generation). Like /api/redesign/extract it is read-only research:
-// it charges no credit, creates no project and is rate-limited like generation. Personal
+// image generation). It starts (or continues) the page's paid job -- see the BILLING PASS note in the route -- and
+// creates no project; it is rate-limited like generation. Personal
 // subjects get general facts about their species only (never pictures of other animals as
 // "theirs"); invented subjects are not looked up at all. Retrieved text is returned as data
 // for the director -- it is never treated as instructions. Every run is written to its own
@@ -2344,7 +2410,7 @@ function creativeSerpCachePut(q, results) {
 }
 function creativeSpendToday() {
   const day = new Date().toISOString().slice(0, 10);
-  if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; creativeSpend.imageSearches = 0; }
+  if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.inflight = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; creativeSpend.imageSearches = 0; }
   if (!creativeSpend.seeded) {
     creativeSpend.seeded = true; // survive a restart: today's rows from the ledger
     try {
@@ -2369,6 +2435,27 @@ function creativeProviderTrip(error) {
     creativeProvider.reason = /credit balance|billing|payment|insufficient|quota/i.test(msg) ? 'the AI provider account has no usable credit balance (Anthropic: "credit balance is too low")' : 'the AI provider rejected the key';
   }
 }
+// THE SERVER'S OWN CREATIVE AI BUDGET (CREATIVE_DAILY_USD_CAP) -- what this server spends at the provider, never a
+// customer's balance. Every paid step first reserves its WORST-CASE cost (from the configured token limits and prices),
+// and what is reserved counts against the cap until the step settles -- so steps already running cannot jointly
+// overshoot it. A refusal says so plainly and never touches the customer's credits.
+const CREATIVE_BUDGET_MSG = 'Creative has reached its daily AI limit on our side, so this step did not run. Your credits were not used -- please try again tomorrow (UTC).';
+function creativeBoundUsd(step) {
+  const L = CREATIVE_AI_LIMITS, P = L.prices, M = 1e6;
+  const cheap = (out, inp) => (out * P.cheap.output + inp * P.cheap.input) / M;
+  if (step === 'check') return cheap(1500, 12000);
+  if (step === 'research') return cheap(L.understandMaxTokens, 8000) + 2 * cheap(L.curateMaxTokens, 45000) + L.webSearches * L.webSearchUsd + CREATIVE_SERPAPI.searches * CREATIVE_SERPAPI.usd;
+  const attempts = 1 + L.repairs; // 'direction': the direction, its bounded repairs and their claim checks
+  return attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0));
+}
+function creativeBudgetTake(usd) {
+  const s = creativeSpendToday();
+  if (s.usd + (s.inflight || 0) + usd > CREATIVE_AI_LIMITS.dailyUsdCap) return null;
+  s.inflight = (s.inflight || 0) + usd; const day = s.day; let done = false;
+  return () => { if (done) return; done = true; if (creativeSpend.day === day) creativeSpend.inflight = Math.max(0, (creativeSpend.inflight || 0) - usd); };
+}
+// what a Creative response says about the owner's credits
+function creativeCredits(accountId, charged) { return { creditsCharged: charged || 0, creditsRemaining: creditsRemainingFor(accountId), creditCosts: { page: CREDIT_COSTS.creativePage, research: CREDIT_COSTS.creativeResearch, direction: CREDIT_COSTS.creativeDirection } }; }
 function creativeProviderDown() { return Date.now() < creativeProvider.downUntil ? creativeProvider.reason : ''; }
 function creativeAiAvailable() { return CREATIVE_AI_LIMITS.enabled && anthropicProvider.configured() && !creativeProviderDown(); }
 function creativeAiUnavailableReason() { return !CREATIVE_AI_LIMITS.enabled ? 'AI direction is switched off (CREATIVE_AI_DIRECTION)' : !anthropicProvider.configured() ? 'no AI model is configured on this server' : creativeProviderDown() || ''; }
@@ -2517,6 +2604,8 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   return out;
 }
 
+const creativePictureChecks = new Map(); // job id -> picture checks run (a bounded part of the page's price)
+const CREATIVE_PICTURE_CHECKS_PER_JOB = 6;
 // The pictures the owner picked, checked for watermarks at up to 1024 px before the page is built (the search thumbnails
 // are too small to show a faint one). One cheap vision call for up to four pictures; a ledger row.
 app.post('/api/creative/check-pictures', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
@@ -2525,10 +2614,19 @@ app.post('/api/creative/check-pictures', requireAuth, requireSameOrigin, generat
     const bytes = Buffer.from(m[2], 'base64'); return bytes.length > 0 && bytes.length <= 1.6 * 1024 * 1024 ? { id: String(p.id), mime: m[1], bytes } : null;
   }).filter(Boolean);
   if (!list.length) return res.status(400).json({ ok: false, message: 'No pictures to check.' });
+  // BILLING PASS: the watermark check is part of a Creative page's price -- it runs only inside this account's own,
+  // still-open page job (already paid or reserved), a bounded number of times per page
+  const job = creativeJobs.get(db, req.accountId, clean(req.body && req.body.jobId, 60));
+  if (!job || job.status === 'failed') return res.status(402).json({ ok: false, needsJob: true, reason: 'the picture check runs as part of a Creative page -- start the page from its brief first' });
+  if ((creativePictureChecks.get(job.id) || 0) >= CREATIVE_PICTURE_CHECKS_PER_JOB) return res.json({ ok: false, reason: 'this page has used its included picture checks' });
   if (!creativeAiAvailable()) return res.json({ ok: false, reason: creativeAiUnavailableReason() });
-  if (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap) return res.json({ ok: false, reason: 'the daily Creative AI budget is used up' });
+  const releaseBudget = creativeBudgetTake(creativeBoundUsd('check'));
+  if (!releaseBudget) return res.json({ ok: false, providerBudget: true, reason: CREATIVE_BUDGET_MSG });
+  creativePictureChecks.set(job.id, (creativePictureChecks.get(job.id) || 0) + 1);
+  if (creativePictureChecks.size > 5000) creativePictureChecks.delete(creativePictureChecks.keys().next().value);
   try {
-    const r = await creativeAi.checkPictures({ pictures: list }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+    const r = await creativeAi.checkPictures({ pictures: list }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall }).finally(releaseBudget);
+    credits.addProviderUsd(db, `${job.id}:research`, r.usd);
     creativeLedger({ kind: 'creative_picturecheck', accountId: req.accountId, ok: true, model: r.model, pictures: list.length, flagged: Object.values(r.results).filter(x => x.watermark).length, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true });
     res.json({ ok: true, results: r.results });
   } catch (error) {
@@ -2556,6 +2654,39 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   // "look again": the owner refines the picture search; the understanding they already have is reused (no new call)
   const refine = clean(req.body.refine, 120);
   const prior = refine && req.body.understanding && typeof req.body.understanding === 'object' && req.body.understanding.source === 'ai' ? req.body.understanding : null;
+  // BILLING PASS: the page is one job (lib/creative-jobs.js). A new page reserves its whole price -- 1 research + 3
+  // direction credits -- BEFORE any paid step; the clarification answer, "search again" and a resume after a reload
+  // continue the same job (within its included research runs) and cost nothing more.
+  await prepareCredits(req.accountId);
+  const askedJob = clean(req.body.jobId, 60);
+  let job = creativeJobs.get(db, req.accountId, askedJob);
+  let jobNew = false;
+  if (!job && askedJob && (refine || choice)) return res.json({ ok: false, jobEnded: true, ...creativeCredits(req.accountId), message: `This page's research session has ended. Start the page again to research it (${CREDIT_COSTS.creativePage} credits).` });
+  if (!job) {
+    const begun = creativeJobs.begin(db, req.accountId);
+    if (!begun.ok) return res.json({ ok: false, creditsExceeded: true, ...creativeCredits(req.accountId), message: `A Creative page costs ${CREDIT_COSTS.creativePage} credits (research and direction, automatic fixes included). Your balance is ${begun.remaining}.` });
+    job = begun.job; jobNew = true;
+  }
+  if (!creativeJobs.takeResearchRun(db, job)) return res.json({ ok: false, researchUsedUp: true, jobId: job.id, ...creativeCredits(req.accountId), message: `This page has used its ${creativeJobs.RESEARCH_RUNS} included research runs. Build it with the pictures you have or upload your own.` });
+  // the server's own AI budget: reserved for the worst case before anything paid runs
+  let releaseBudget = () => {};
+  if (creativeAiAvailable()) {
+    const take = creativeBudgetTake(creativeBoundUsd('research'));
+    if (!take) { if (jobNew) creativeJobs.researchFailed(db, job); return res.json({ ok: false, providerBudget: true, jobId: jobNew ? null : job.id, ...creativeCredits(req.accountId), message: CREATIVE_BUDGET_MSG }); }
+    releaseBudget = take;
+  }
+  res.once('close', () => releaseBudget()); res.once('finish', () => releaseBudget());
+  // Settlement: research is charged once, when a paid step of it has produced something (an understanding, a picture
+  // check, a picture search). A run with no paid step (AI off, the free sources only) charges nothing; if a later run of
+  // the same job does, it is charged then. A first run that fails outright ends the job and returns all 4 credits.
+  let paidUsd = 0, paidOk = false;
+  const settleResearch = (failed) => {
+    releaseBudget();
+    if (failed && jobNew && !paidOk) { creativeJobs.researchFailed(db, job, { providerUsd: paidUsd }); return 0; }
+    if (!paidOk) { credits.addProviderUsd(db, `${job.id}:research`, paidUsd); return 0; }
+    const c = creativeJobs.researchDone(db, job, { providerUsd: paidUsd });
+    return c && c.ok && !c.already ? c.charged : 0;
+  };
   const startedAt = Date.now();
   // 1. what the brief is about -- the model when available (identity before research), else the built-in reader
   let understanding = creativeUnderstand.understandBrief(brief, { supplied, uploads: !!req.body.hasUploads });
@@ -2579,6 +2710,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       if (choice) { u.kind = u.identity.kind === 'ambiguous' ? 'recognizable' : u.identity.kind; u.clarify = null; }
       understanding = Object.assign(u, { legacy: { tone: understanding.tone, purpose: understanding.purpose, asks: understanding.asks } });
       understandMeta = { source: 'ai', model: r.model, ms: r.ms, usd: r.usd, usage: r.usage };
+      paidOk = true; paidUsd += Number(r.usd) || 0;
       creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: true, model: r.model, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true, identity: u.identity.name, identityKind: u.identity.kind, clarify: !!u.clarify });
     } catch (error) {
       understandMeta = { source: 'rules', reason: `the understanding call failed (${String(error && error.message || error).slice(0, 120)})` };
@@ -2586,7 +2718,8 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     }
   } else if (creativeAiAvailable()) understandMeta.reason = 'the daily Creative AI budget is used up';
   if (understanding.clarify && !choice && !prior) {
-    return res.json({ ok: true, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], creditsCharged: 0 });
+    const charged = settleResearch(false);
+    return res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], ...creativeCredits(req.accountId, charged) });
   }
   if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
   let result = { status: 'skipped', facts: [], images: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
@@ -2604,6 +2737,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
         try {
           const c = await creativeAi.curate({ identity: understanding.identity || { name: understanding.subject, kind: understanding.kind }, visuals: understanding.visuals, max, candidates }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
           curateMeta = { source: 'ai', model: c.model, ms: c.ms, usd: c.usd, judged: c.judged, of: c.of };
+          paidOk = true; paidUsd += Number(c.usd) || 0;
           creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: true, model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length, coverage: c.coverage });
           return c;
         } catch (error) { creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
@@ -2613,7 +2747,9 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   } catch (error) {
     console.error('Creative research failed:', error);
     creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: false, ms: Date.now() - startedAt, paidCalls: 0, usd: 0 });
-    return res.status(200).json({ ok: false, understanding, message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' });
+    const charged = settleResearch(true);
+    const alive = !!creativeJobs.get(db, req.accountId, job.id);
+    return res.status(200).json({ ok: false, jobId: alive ? job.id : null, understanding, ...creativeCredits(req.accountId, charged), message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' + (alive ? '' : ' Your credits were not used.') });
   }
   // a general-topic lookup for a personal subject never turns into a question for the owner
   if (result.status === 'ambiguous' && understanding.kind === 'personal') result = { status: 'skipped', facts: [], images: [], options: [], log: result.log };
@@ -2643,6 +2779,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
     }));
     review = web ? web.review : [];
+    if (web) { paidUsd += Number(web.usd) || 0; if (web.searches > 0 || web.usd > 0 || (web.diag && web.diag.judged)) paidOk = true; }
     webDiag = web ? web.diag : { ran: false, reason: why };
     const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
     if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
@@ -2652,7 +2789,8 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   }
   const curationOut = result.curation && result.curation.web ? result.curation : curation;
   creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
-  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ commons: result.diagnostics || null, web: webDiag }, creativeResearch.pictureStage(result.diagnostics, webDiag)) : null }, images, creditsCharged: 0 });
+  const charged = settleResearch(false);
+  res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ commons: result.diagnostics || null, web: webDiag }, creativeResearch.pictureStage(result.diagnostics, webDiag)) : null }, images, ...creativeCredits(req.accountId, charged) });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the
@@ -2660,10 +2798,27 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
 // ok:false with the reason -- the studio then uses the built-in director and labels it as such.
 app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const b = req.body || {};
-  if (!creativeAiAvailable()) return res.json({ ok: false, fallback: true, reason: creativeAiUnavailableReason() });
+  // BILLING PASS: the direction is the 3-credit part of the page's job. Its reservation was made when the page began
+  // (a further "try another direction" reserves its own 3). A double click or a retry after a lost response gets the
+  // page already directed back, never a second model call; a direction that fails returns its credits.
+  const job = creativeJobs.get(db, req.accountId, clean(b.jobId, 60));
+  if (!creativeAiAvailable()) {
+    // nothing paid runs: the built-in layout builds the page, and nothing still held for it is charged
+    if (job && job.status === 'open') { creativeJobs.directionFailed(db, job, creativeJobs.directionOp(job)); if (!job.directions) credits.release(db, `${job.id}:research`); }
+    return res.json({ ok: false, fallback: true, reason: creativeAiUnavailableReason(), ...creativeCredits(req.accountId) });
+  }
+  if (!job) return res.status(402).json({ ok: false, needsJob: true, ...creativeCredits(req.accountId), reason: 'this page has no active job -- start it from its brief', message: `Start the page from its brief to direct it (${CREDIT_COSTS.creativePage} credits).` });
+  await prepareCredits(req.accountId);
+  const started = creativeJobs.beginDirection(db, req.accountId, job, { another: !!clean(b.avoid, 600) });
+  if (started.replay) return res.json(Object.assign({}, started.replay, { replayed: true }, creativeCredits(req.accountId)));
+  if (!started.ok && started.reason === 'in_progress') return res.status(409).json({ ok: false, inProgress: true, message: 'This page is already being directed.' });
+  if (!started.ok) return res.json({ ok: false, creditsExceeded: true, ...creativeCredits(req.accountId), message: `Another direction costs ${CREDIT_COSTS.creativeDirection} credits. Your balance is ${started.remaining || 0}.` });
+  const directionOpId = started.op;
   const spend = creativeSpendToday();
-  if (spend.usd >= CREATIVE_AI_LIMITS.dailyUsdCap) return res.json({ ok: false, fallback: true, reason: `the daily Creative AI budget ($${CREATIVE_AI_LIMITS.dailyUsdCap}) is used up` });
-  if ((spend.plansByAccount.get(req.accountId) || 0) >= CREATIVE_AI_LIMITS.accountDailyPlans) return res.json({ ok: false, fallback: true, reason: `this account has used today's ${CREATIVE_AI_LIMITS.accountDailyPlans} AI directions` });
+  if ((spend.plansByAccount.get(req.accountId) || 0) >= CREATIVE_AI_LIMITS.accountDailyPlans) { creativeJobs.directionFailed(db, job, directionOpId); return res.json({ ok: false, fallback: true, ...creativeCredits(req.accountId), reason: `this account has used today's ${CREATIVE_AI_LIMITS.accountDailyPlans} AI directions -- your credits were not used` }); }
+  const releaseBudget = creativeBudgetTake(creativeBoundUsd('direction'));
+  if (!releaseBudget) { creativeJobs.directionFailed(db, job, directionOpId); return res.json({ ok: false, fallback: true, providerBudget: true, ...creativeCredits(req.accountId), reason: CREATIVE_BUDGET_MSG }); }
+  res.once('close', releaseBudget); res.once('finish', releaseBudget);
   const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : []);
   const assets = arr(b.assets, 24).filter(a => a && typeof a.id === 'string').map(a => require('./lib/creative/store').cleanAsset(Object.assign({}, a, { dataUrl: undefined, assetRef: a.assetRef || '0'.repeat(64) }))).filter(Boolean);
   const facts = arr(b.facts, 40).filter(f => f && f.id && f.text).map(f => ({ id: clean(f.id, 20), text: clean(f.text, 600), section: clean(f.section, 80) }));
@@ -2697,15 +2852,20 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   } catch (error) {
     console.error('Creative direction failed:', error);
     creativeLedger({ kind: 'creative_direct', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
-    return res.json({ ok: false, fallback: true, reason: 'the AI direction failed unexpectedly' });
+    releaseBudget(); creativeJobs.directionFailed(db, job, directionOpId);
+    return res.json({ ok: false, fallback: true, ...creativeCredits(req.accountId), reason: 'the AI direction failed unexpectedly -- your credits for it were not used' });
   }
+  releaseBudget();
   const usd = +(r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0).toFixed(5);
   const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
-    return res.json({ ok: false, fallback: true, reason: r.reason, meta });
+    creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });
+    return res.json({ ok: false, fallback: true, reason: r.reason, meta, ...creativeCredits(req.accountId) });
   }
-  res.json({ ok: true, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta });
+  const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
+  creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd });
+  res.json(Object.assign({}, directed, creativeCredits(req.accountId, CREDIT_COSTS.creativeDirection)));
 });
 
 // V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE
@@ -2770,6 +2930,16 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
     const sectionsSummary = clean(req.body.sectionsSummary, 200);
     const brandColor = clean(req.body.brandColor, 20);
 
+    // BILLING PASS: one open checkout per website. An earlier checkout for it is closed at Stripe first; if Stripe
+    // will not close it (it has just been paid), no second checkout is started -- one website is never paid twice.
+    if (owned.status === 'purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
+    for (const open of purchase.listPendingIntentsForProject(db, req.accountId, projectId)) {
+      if (open.stripeSessionId && STRIPE_SECRET_KEY) {
+        try { await stripeRequest(`checkout/sessions/${encodeURIComponent(open.stripeSessionId)}/expire`, {}); }
+        catch (e) { return res.status(409).json({ ok: false, pendingPayment: true, message: 'A payment for this website is still being confirmed. Refresh in a minute before trying again.' }); }
+      }
+      purchase.cancelIntent(db, req.accountId, open.id);
+    }
     const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
     if (!intentResult.ok) {
       if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
@@ -2815,6 +2985,8 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
         kind: 'website_purchase',
         intentId,
         projectId,
+        revision: String(intentResult.intent.revision),
+        mode: owned.mode === 'creative' ? 'creative' : 'business',
         businessName: businessName.slice(0, 90),
         industry: industry.slice(0, 90),
         brandColor,
@@ -2844,8 +3016,11 @@ app.post('/api/stripe/webhook', (req, res) => {
   try { event = JSON.parse(rawBody.toString('utf8')); } catch (e) { return res.status(400).json({ ok: false, message: 'Malformed event body.' }); }
   const session = event && event.data && event.data.object;
   try {
-    if (event.type === 'checkout.session.completed' && session && session.id) {
-      const fulfillment = purchase.fulfillBySessionId(db, session.id);
+    if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && session && session.id) {
+      // unlocked only for what the signed event itself says was paid, in the agreed amount and currency
+      const fulfillment = purchase.fulfillBySessionId(db, session.id, { status: session.payment_status, amountTotal: session.amount_total, currency: session.currency });
+      if (!fulfillment.ok && fulfillment.reason !== 'not_paid') console.error('Website purchase not fulfilled:', fulfillment.reason, session.id);
+      if (fulfillment.ok && fulfillment.duplicatePayment) console.error('Website paid twice (refund the second payment):', session.id, fulfillment.projectId);
       // Only on a FIRST-TIME fulfillment (never on Stripe's own documented
       // at-least-once redelivery of the same event) -- an
       // already-fulfilled intent must never re-send this email.
@@ -2858,6 +3033,8 @@ app.post('/api/stripe/webhook', (req, res) => {
       }
     } else if ((event.type === 'checkout.session.expired') && session && session.id) {
       purchase.markIntentTerminal(db, session.id, 'cancelled');
+    } else if (event.type === 'checkout.session.async_payment_failed' && session && session.id) {
+      purchase.markIntentTerminal(db, session.id, 'failed');
     }
     // Any other event type is acknowledged (200) without action -- Stripe
     // retries on non-2xx, and this app only cares about the two above.
@@ -2901,6 +3078,14 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
   if (!premiumCore.cfg.enabled) return res.status(404).json({ ok: false });
   const generationId = clean(req.body.generationId, 60);
   if (!/^gen_[a-z0-9]{6,40}$/.test(generationId)) return res.status(400).json({ ok: false, message: 'Invalid generation.' });
+  // BILLING PASS: the quality review and its bounded automatic repairs (model critique, copy rewrites, at most the
+  // governor's image replacements) are part of the Business generation the owner already paid for -- so they run only
+  // for a generation this account was charged for, and only once. Any other id (guessed, replayed, never generated)
+  // is refused before any model call.
+  const genOp = credits.findOperation(db, opIdFromKey('gen', req.accountId, generationId));
+  if (!genOp || genOp.account_id !== req.accountId || genOp.status !== 'committed') return res.status(200).json({ ok: false, message: 'Quality review was skipped.' });
+  try { db.ledger.insertOp({ opId: opIdFromKey('review', req.accountId, generationId), accountId: req.accountId, kind: 'review_repair', amount: 0, status: 'committed', jobId: genOp.op_id, expiresAt: new Date().toISOString(), createdAt: new Date().toISOString() }); }
+  catch (e) { return res.status(200).json({ ok: false, message: 'Quality review already ran for this generation.' }); }
   const direction = req.body.direction;
   if (!direction || typeof direction !== 'object' || !Array.isArray(direction.pages)) return res.status(400).json({ ok: false, message: 'Missing site.' });
   const description = clean(req.body.description, 1500);
@@ -3287,7 +3472,8 @@ app.post('/api/identity/preview', requireAuth, requireSameOrigin, identityRateLi
 // today," separate from claudeDirectionsRemaining (the lifetime-3 cap,
 // still surfaced by /api/generation-status and /api/plan-website's own
 // responses).
-app.get('/api/credits', requireAuth, (req, res) => {
+app.get('/api/credits', requireAuth, async (req, res) => {
+  await prepareCredits(req.accountId);
   res.json({ ok: true, credits: creditsSummaryFor(req.accountId) });
 });
 
@@ -3562,6 +3748,14 @@ app.get('/api/app-bridge/website/:projectId', appBridgeRateLimit, requireAppBrid
   return res.json(summary);
 });
 
+// BILLING PASS: the same plan/credit summary the builder shows (GET /api/credits), for the app's own screens -- one
+// balance, one set of prices, one renewal date in both places. `?refresh=1` re-verifies the subscription with the app
+// right away (after the owner subscribes, changes or cancels), instead of waiting for the few-minute cache.
+app.get('/api/app-bridge/credits', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, async (req, res) => {
+  try { await billing.refresh(req.accountId, { force: req.query.refresh === '1' }); } catch (e) { console.error('Billing refresh failed:', e.message); }
+  return res.json({ ok: true, credits: creditsSummaryFor(req.accountId), websitePrice: { cents: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY, display: formatWebsitePriceDisplay() } });
+});
+
 // 2. GET /api/app-bridge/website/:projectId/deployment
 app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
@@ -3598,6 +3792,10 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   const request = clean(body.request, 600);
   if (baseRevision === null) return bridgeError(res, 400, 'invalid_request', 'baseRevision is required.');
   if (!request) return bridgeError(res, 400, 'invalid_request', 'Describe the change you want to make.');
+  // the app retrying an update it already made (its response was lost): the saved result, before any revision check
+  const editOpId = opIdFromKey('appedit', req.accountId, clean(req.get('idempotency-key') || body.requestId, 120));
+  const earlier = editOpId && replayPaid(editOpId);
+  if (earlier) { const op = credits.findOperation(db, editOpId); if (op && op.account_id === req.accountId && op.status === 'committed') return res.json(Object.assign({}, earlier, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) })); }
   const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
   if (!project) return bridgeError(res, 404, 'not_found', 'Website not found.');
   if (project.status === 'archived') return bridgeError(res, 409, 'not_editable', 'This website can no longer be edited.');
@@ -3609,13 +3807,18 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
 
   // Same task type (and therefore the same 'cheap' credit class/price) that
   // /api/refine-website defaults to -- no new price is invented here.
+  // BILLING PASS: one AI update (CREDIT_COSTS.aiUpdate) from the same ledger the builder spends from. The app sends
+  // an idempotency key per update, so a retried or reconnected request never plans (or charges) twice.
   const taskType = 'COPY_REWRITE';
-  const refineCost = creditCostForTask(taskType);
-  let refineReserved = false;
+  const refineCost = CREDIT_COSTS.aiUpdate;
+  let refineReserved = false, refineOp = null;
   if (refineCost > 0) {
-    const reservation = credits.reserveCredits(db, req.accountId, refineCost, dailyCreditsForAccount(req.accountId));
-    if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', 'You\'ve used today\'s editing allowance. Nothing was changed -- more opens up tomorrow (UTC).', { creditsRemaining: reservation.remaining });
-    refineReserved = true;
+    await prepareCredits(req.accountId);
+    const reservation = reserveAttempt(req.accountId, refineCost, 'ai_update', editOpId);
+    if (reservation.inProgress) return bridgeError(res, 409, 'in_progress', 'This update is already being made.');
+    if (reservation.replay) return res.json(Object.assign({}, reservation.replay, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) }));
+    if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', `An AI update needs ${refineCost} credit and your balance is ${reservation.remaining}. Nothing was changed.`, { creditsRemaining: reservation.remaining });
+    refineReserved = true; refineOp = reservation.opId;
   }
   const imageSettlements = [];
   const startedAt = Date.now();
@@ -3626,7 +3829,7 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   const fail = (status, code, message, extra) => {
     if (!settled) {
       settled = true;
-      if (refineReserved) credits.releaseCredits(db, req.accountId, refineCost);
+      if (refineReserved) releaseCredit(refineOp);
       imageSettlements.forEach(s => s.release());
       recordRefine(false);
     }
@@ -3669,7 +3872,7 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
           taskType: 'IMAGE_REGENERATE', projectId: project.id, anonId: null, deferSettlement: true,
         });
         if (!image.ok) {
-          if (image.reason === 'credits_exceeded') return fail(402, 'insufficient_credits', 'This change needs a new image, and there aren\'t enough credits left today. Nothing on your website was changed.', { creditsRemaining: image.creditsRemaining });
+          if (image.reason === 'credits_exceeded') return fail(402, 'insufficient_credits', 'This change needs a new image, and there aren\'t enough credits for it. Nothing on your website was changed.', { creditsRemaining: image.creditsRemaining });
           if (image.reason === 'budget_exceeded') return fail(429, 'edit_failed', 'Too many new images were requested in a short time. Nothing on your website was changed -- try again in a few minutes.', { reason: 'image_budget' });
           if (image.reason === 'not_configured') return fail(503, 'edit_failed', 'This change needs a new image, and new images can\'t be created right now. Nothing on your website was changed.', { reason: 'images_unavailable' });
           return fail(502, 'edit_failed', 'The new image couldn\'t be created, so nothing on your website was changed.', { reason: 'image_failed' });
@@ -3687,17 +3890,15 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
       return fail(422, 'edit_failed', 'That change produced a website we couldn\'t save, so nothing was changed.');
     }
     settled = true;
-    if (refineReserved) credits.commitCredits(db, req.accountId, refineCost);
+    if (refineReserved) commitCredit(refineOp);
     imageSettlements.forEach(s => s.commit());
     recordRefine(true);
     const imageCredits = appliedOperations.filter(o => o.action === 'regenerate-image').reduce((n, o) => n + (o.creditsCharged || 0), 0);
     let creditsRemaining = null;
-    try { creditsRemaining = creditsSummaryFor(req.accountId).remaining; } catch (e) { /* informational only -- the edit IS saved; never report it as failed */ }
-    return res.json({
-      ok: true, revision: saved.project.revision, changeSummary, appliedOperations,
-      creditsCharged: (refineReserved ? refineCost : 0) + imageCredits,
-      creditsRemaining,
-    });
+    try { creditsRemaining = creditsRemainingFor(req.accountId); } catch (e) { /* informational only -- the edit IS saved; never report it as failed */ }
+    const edited = { ok: true, revision: saved.project.revision, changeSummary, appliedOperations, creditsCharged: (refineReserved ? refineCost : 0) + imageCredits, creditsRemaining };
+    rememberPaid(refineOp, edited);
+    return res.json(edited);
   } catch (error) {
     console.error('App bridge edit failed:', error && error.message);
     return fail(500, 'edit_failed', 'Something went wrong, so nothing on your website was changed.');
@@ -3720,6 +3921,10 @@ app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requi
   const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
   if (!project) return bridgeError(res, 404, 'not_found', 'Website not found.');
   const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  // BILLING PASS: a purchase is of one kind of website. A later revision of it may be published; a different kind of
+  // website (a Business purchase turned into a Creative page, or the reverse) is a new website and needs its own purchase.
+  const bought = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
+  if (bought && directionModeOf(bought.directionsState, bought.directionIndex) !== directionModeOf(project.directionsState, directionIndex)) return bridgeError(res, 409, 'not_purchased', 'This is a different kind of website from the one that was purchased, so it needs its own purchase.');
   const result = publishedSnapshots.publishCurrentRevision(db, req.accountId, projectId, { revision, directionIndex });
   if (!result.ok) {
     if (result.reason === 'not_found') return bridgeError(res, 404, 'not_found', 'Website not found.');
@@ -3744,6 +3949,10 @@ app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requi
 // backend). Falls back to the pre-V9 in-container default for local dev/
 // the test harness, unchanged.
 const EXPORTS_DIR = process.env.SITEREMADE_EXPORTS_DIR || path.join(__dirname, 'data', 'exports'); // gitignored under /data/, exactly like the sqlite db and asset-store
+function directionModeOf(directionsState, index) {
+  const d = ((directionsState && directionsState.directions) || [])[Number.isInteger(index) ? index : 0];
+  return d && d.mode === 'creative' ? 'creative' : 'business';
+}
 function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
 
 // Compiles + archives + records a new deployment for an owned, PURCHASED
@@ -3778,7 +3987,9 @@ app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJson
   // the original purchase snapshot exactly as before (same revision, same
   // direction, same state). purchaseDate/hostingChoice always still come
   // from the purchase snapshot: publishing doesn't change what was bought.
-  const published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
+  let published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
+  // a published revision of a different kind than what was bought never replaces the purchased website
+  if (published && directionModeOf(published.directionsState, published.directionIndex) !== directionModeOf(snapshot.directionsState, snapshot.directionIndex)) published = null;
   const source = published
     ? { revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
     : { revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
