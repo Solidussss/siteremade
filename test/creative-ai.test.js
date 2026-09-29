@@ -44,15 +44,15 @@ test('v2 validator: a clean plan passes, with every enum and number bounded', ()
 test('v2 validator: hostile or careless model output is bounded, made honest, or sent back for repair', () => {
   const p = basePlan();
   p.type.display = 'comic-sans'; p.atmosphere.particles = 'fireworks';
-  p.scenes[0].layers.push({ kind: 'image', role: 'support', asset: 'r1', box: box([900, -500, 400, 400]), loop: { kind: 'wiggle', amp: 99 } }); // flat photo, absurd box
+  p.scenes[0].layers.push({ kind: 'image', role: 'support', asset: 'r3', box: box([900, -500, 400, 400]), loop: { kind: 'wiggle', amp: 99 } }); // flat photo (no cut-out), absurd box
   p.scenes[0].layers.push({ kind: 'image', role: 'support', asset: 'r2', box: box([5, 70, 10, 20]) }); // the director said it is not the subject
   p.scenes[1].text.items.push({ text: 'An unsupported claim.', kind: 'sourced' });
   p.scenes[1].text.items.push({ text: '“Toilet paper changed my life,” said Napoleon.', kind: 'imagined' });
   p.scenes[1].text.body = 'x'.repeat(LIMITS.body + 10);
   p.scenes.push({ id: 'pin', purpose: 'p', height: 'tall', pin: true, layers: [{ kind: 'shape', role: 'focal', shape: { form: 'star' }, box: box([40, 20, 20, 40]) }], text: { heading: 'Pinned with nothing moving' } });
-  const { plan, fixes, errors } = validatePlan2(p, { assets: ASSETS, facts: FACTS });
+  const { plan, fixes, errors } = validatePlan2(p, { assets: ASSETS.concat([A('r3')]), facts: FACTS });
   assert.equal(plan.type.display, 'serif'); assert.equal(plan.atmosphere.particles, 'none');
-  const flat = plan.scenes[0].layers.find(l => l.asset === 'r1');
+  const flat = plan.scenes[0].layers.find(l => l.asset === 'r3');
   assert.ok(flat.box.d.every(v => v >= 0 && v <= 100), 'box clamped'); assert.equal(flat.loop.kind, 'none');
   assert.notEqual(flat.mask, 'none', 'a flat photo never floats as a bare rectangle');
   assert.ok(!plan.scenes[0].layers.some(l => l.asset === 'r2'), 'a picture the director saw is not the subject is not used');
@@ -532,4 +532,38 @@ test('a picture the owner picked from the web is credited to its source, with no
   // a saved project keeps the flag and the picture's origin
   const saved = sanitizeCreative({ assets: [Object.assign({ assetRef: '0'.repeat(64) }, picked)], plan: v.plan });
   assert.equal(saved.assets[0].ownerPicked, true); assert.equal(saved.assets[0].curation.origin, 'official');
+});
+
+test('blend: a plain-background picture floats as its cut-out; a framed picture gives its scene its tone and dissolves; the page follows the hero; a saved page keeps it', () => {
+  const space = A('r9', { assess: { width: 1600, height: 900, aspect: 1.78, orientation: 'landscape', subject: [0.2, 0.1, 0.8, 0.9], colours: ['#0b1a4a', '#f2c200'], luminance: 30, background: { colour: '#0b1a4a', uniformity: 0.62, tolerance: 30 } }, caps: { moveFreely: false, frame: true } });
+  const white = A('r8', { assess: { width: 900, height: 900, aspect: 1, orientation: 'square', subject: [0.2, 0.1, 0.8, 0.9], colours: ['#ffffff', '#e21b1b'], luminance: 230, background: { colour: '#ffffff', uniformity: 0.95, tolerance: 20 } }, caps: { moveFreely: false, frame: true } });
+  const whiteCut = A('c-r8', { origin: 'derived', cutout: true, cutoutOf: 'r8', assess: { width: 700, height: 800, aspect: 0.88, orientation: 'portrait', transparent: true, subject: [0.02, 0.02, 0.98, 0.98], colours: [], luminance: 120 }, caps: { moveFreely: true } });
+  const assets = ASSETS.concat([space, white, whiteCut]);
+  const p = basePlan();
+  p.palette.bg = '#101820';
+  p.scenes[0].layers[0] = { kind: 'image', role: 'focal', asset: 'r9', mask: 'window', fit: 'cover', box: box([52, 10, 40, 80]) };
+  p.scenes[1].layers[0] = { kind: 'image', role: 'focal', asset: 'r8', mask: 'circle', fit: 'cover', box: box([55, 15, 38, 70]) };
+  const v = validatePlan2(p, { assets, facts: FACTS });
+  const hero = v.plan.scenes[0], two = v.plan.scenes[1];
+  assert.equal(hero.tone, '#0b1a4a', 'the hero takes its picture\'s own background');
+  const f0 = hero.layers.find(l => l.asset === 'r9'); assert.equal(f0.mask, 'none'); assert.equal(f0.edge, 'fade', 'its frame dissolves');
+  assert.equal(two.layers.find(l => l.role === 'focal').asset, 'c-r8', 'the white-background picture floats as its cut-out');
+  assert.notEqual(v.plan.palette.bg, '#101820', 'the page base colour follows the hero'); assert.ok(v.fixes.some(x => /follows the opening picture/.test(x)));
+  // text stays readable on the picture's tone
+  const lumi = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const x = lumi(a), y = lumi(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  assert.ok(ratio(hero.ink.ink, hero.ink.surface) >= 7); assert.ok(ratio(hero.ink.accent, hero.ink.surface) >= 3.2);
+  // rendered: the tone, the accent, the soft arrival and the dissolving frame
+  const html = renderCreative2(v.plan, assets, { mode: 'export', src: a => a.id + '.png' });
+  assert.match(html, /data-tone/); assert.match(html, /--s-accent:#/); assert.match(html, /data-edge="fade"/); assert.match(html, /data-flow/);
+  // a saved page keeps its tone and its dissolving frame (safety mode never re-frames it)
+  const again = validatePlan2(JSON.parse(JSON.stringify(v.plan)), { assets, facts: FACTS, mode: 'safety' }).plan;
+  assert.equal(again.scenes[0].tone, '#0b1a4a'); const g0 = again.scenes[0].layers.find(l => l.asset === 'r9'); assert.equal(g0.mask, 'none'); assert.equal(g0.edge, 'fade');
+});
+
+test('watermark check: the picked pictures are judged together; the answer is bounded to the pictures sent', async () => {
+  const call = async req => { assert.equal(req.tool.name, 'submit_picture_check'); return { model: 'm', usage: { input_tokens: 1000, output_tokens: 50 }, input: { pictures: [{ id: 'p1', watermark: true, text: 'HYRO ART' }, { id: 'p2', watermark: false }, { id: 'zz', watermark: true }] } }; };
+  const r = await ai.checkPictures({ pictures: [{ id: 'p1', mime: 'image/jpeg', bytes: Buffer.from('a') }, { id: 'p2', mime: 'image/png', bytes: Buffer.from('b') }] }, { limits: ai.limits({}), call });
+  assert.deepEqual(r.results, { p1: { watermark: true, text: 'HYRO ART' }, p2: { watermark: false, text: '' } });
+  assert.ok(r.usd > 0);
 });

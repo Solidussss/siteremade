@@ -2517,6 +2517,26 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   return out;
 }
 
+// The pictures the owner picked, checked for watermarks at up to 1024 px before the page is built (the search thumbnails
+// are too small to show a faint one). One cheap vision call for up to four pictures; a ledger row.
+app.post('/api/creative/check-pictures', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const list = (Array.isArray(req.body && req.body.pictures) ? req.body.pictures : []).slice(0, 4).map(p => {
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(p && p.dataUrl || '')); if (!m || !/^[\w-]{1,40}$/.test(String(p.id || ''))) return null;
+    const bytes = Buffer.from(m[2], 'base64'); return bytes.length > 0 && bytes.length <= 1.6 * 1024 * 1024 ? { id: String(p.id), mime: m[1], bytes } : null;
+  }).filter(Boolean);
+  if (!list.length) return res.status(400).json({ ok: false, message: 'No pictures to check.' });
+  if (!creativeAiAvailable()) return res.json({ ok: false, reason: creativeAiUnavailableReason() });
+  if (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap) return res.json({ ok: false, reason: 'the daily Creative AI budget is used up' });
+  try {
+    const r = await creativeAi.checkPictures({ pictures: list }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+    creativeLedger({ kind: 'creative_picturecheck', accountId: req.accountId, ok: true, model: r.model, pictures: list.length, flagged: Object.values(r.results).filter(x => x.watermark).length, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true });
+    res.json({ ok: true, results: r.results });
+  } catch (error) {
+    creativeLedger({ kind: 'creative_picturecheck', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
+    res.json({ ok: false, reason: 'the watermark check failed' });
+  }
+});
+
 // "Use this picture -- I have the rights to it": only a picture this studio just offered this account, fetched with the
 // hardened fetcher; it becomes the owner's supplied picture (the studio records the source and the owner's affirmation)
 app.post('/api/creative/fetch-image', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
@@ -2656,6 +2676,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
     // the owner's choices: a main picture (it must lead), or an explicit abstract interpretation
     mainAsset: typeof b.mainAsset === 'string' && assets.some(a => a.id === b.mainAsset) ? b.mainAsset : null, abstractChosen: !!b.abstractChosen,
+    // the main picture's own colours (measured in the browser): the palette is built from them
+    pictureColours: b.pictureColours && typeof b.pictureColours === 'object' ? { background: /^#[0-9a-f]{6}$/i.test(b.pictureColours.background || '') ? b.pictureColours.background : '', plainBackground: !!b.pictureColours.plainBackground, colours: arr(b.pictureColours.colours, 6).filter(x => /^#[0-9a-f]{6}$/i.test(x || '')) } : null,
     // what the picture check found (coverage of the subject, the pictures that could not be found)
     coverage: b.coverage && typeof b.coverage === 'object' ? { coverage: ['strong', 'partial', 'none'].includes(b.coverage.coverage) ? b.coverage.coverage : '', missing: arr(b.coverage.missing, 3).map(x => clean(x, 160)).filter(Boolean), note: clean(b.coverage.note, 240) } : null,
   };

@@ -48,6 +48,8 @@ globalThis.fetch = async function (url, options) {
     const tool = body.tool_choice && body.tool_choice.name;
     log({ provider: 'anthropic', tool });
     // Creative mode's understanding / direction tools: labelled mock answers (test/helpers/mock-creative.js)
+    // the watermark check on picked pictures (labelled mock: nothing is flagged unless MOCK_WATERMARK names an id)
+    if (tool === 'submit_picture_check') { const ids = [...JSON.stringify(body.messages).matchAll(/Picture ([w-]+):/g)].map(m => m[1]); return json({ model: 'mock-creative-picturecheck', usage: { input_tokens: 900, output_tokens: 60 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'w1', name: tool, input: { pictures: ids.map(id => ({ id, watermark: id === process.env.MOCK_WATERMARK, text: id === process.env.MOCK_WATERMARK ? 'mock watermark' : '' })) } }] }); }
     if (tool && tool.startsWith('submit_creative_')) { const r = require('./mock-creative').respond(body, process.env, mockCreativeCounters); return json(r.body, r.status); }
     // Creative web discovery: the mock cannot search the web -- one search, no results (labelled as a mock model)
     if ((body.tools || []).some(t => t && t.name === 'submit_image_pages')) return json({ model: 'mock-creative-websearch', stop_reason: 'end_turn', usage: { input_tokens: 800, output_tokens: 60, server_tool_use: { web_search_requests: 1 } }, content: [{ type: 'server_tool_use', id: 'srvtoolu_mock', name: 'web_search', input: { query: 'mock' } }, { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_mock', content: [] }, { type: 'text', text: 'mock: no web search in tests' }] });

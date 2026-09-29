@@ -287,7 +287,7 @@
     var parts = []; if (dg && dg.commons) parts.push('Wikimedia Commons'); if (web.ran) parts.push(web.provider === 'google-images' ? 'Google Images' : 'a web search');
     var sources = parts.join(' and ') || 'our picture sources';
     // the pick: the best picture the studio can fetch is pre-selected as the main picture; the owner decides
-    if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false) { S.picked.push(p); break; } }
+    if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false && !review[p].watermarked) { S.picked.push(p); break; } }
     step('direct', 'wait', review.length ? 'Pick the pictures to build with (nothing is spent until you do)' : 'Waiting for your choice (nothing is spent until you continue)');
     var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>'
       : review.length ? '<p><strong>Pictures of ' + esc(name) + ' found on ' + esc(sources) + '.</strong> Pick the ones to build with. The main picture leads the page.</p><p class="cs-hint">None of these states a licence. Whoever uses one is responsible for having the right to. Each picture is credited to its source on the page.</p>'
@@ -303,12 +303,12 @@
         + (dg.note ? '<li>' + esc(dg.note) + '</li>' : '') + '</ul></details>';
     }
     var cards = review.map(function (r, i) {
-      var at = S.picked.indexOf(i), can = r.adoptable !== false;
+      var at = S.picked.indexOf(i), can = r.adoptable !== false && !r.watermarked;
       return '<div class="cs-review' + (at >= 0 ? ' is-picked' : '') + '"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + ' · ' + ({ official: 'official material', unknown: 'origin not certain' }[r.origin] || 'official material') + '</small>'
         + '<small class="cs-perm">Licence: ' + (r.permission.status === 'restricted' ? 'rights reserved' + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') : 'none stated') + '</small>'
         + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> '
         + (can ? '<span class="cs-pick-actions">' + (at === 0 ? '<span class="cs-main-badge">Main picture</span> ' : '') + '<button type="button" class="cs-btn cs-ghost" data-pick="' + i + '">' + (at >= 0 ? 'Remove' : 'Use this picture') + '</button>' + (at > 0 ? ' <button type="button" class="cs-btn cs-ghost" data-main="' + i + '">Make it the main picture</button>' : '') + '</span>'
-          : '<small>This site does not let the studio download it: save it from its page and upload it.</small>') + '</div></div>';
+          : r.watermarked ? '<small class="cs-perm">Watermarked' + (r.watermarked !== true ? ' (“' + esc(r.watermarked) + '”)' : '') + ': pick another picture.</small>' : '<small>This site does not let the studio download it: save it from its page and upload it.</small>') + '</div></div>';
     }).join('');
     var ok = usableSubject() && !S.gate.problem;
     var pickN = S.picked.length;
@@ -330,6 +330,23 @@
   }
   // the owner's pick: each picture is fetched by the server (only pictures it just offered), credited to its source page,
   // and recorded as chosen by the owner -- never as licensed; the first is the main picture; then the page is directed
+  // the picks, checked at up to 1024 px for watermarks the thumbnails hid; a flagged one is taken back out and marked
+  function checkWatermarks(got, chosen) {
+    var picks = got.map(function (a, k) { return a ? { a: a, r: chosen[k] } : null; }).filter(Boolean); if (!picks.length) return Promise.resolve(false);
+    step('direct', 'active', 'Checking the picture' + (picks.length > 1 ? 's' : '') + ' for watermarks…');
+    return Promise.all(picks.map(function (p) { return loadImage(p.a.dataUrl).then(function (im) { var k = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight)); var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k)); var g = cv.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); return { id: p.a.id, dataUrl: cv.toDataURL('image/jpeg', 0.85) }; }); }))
+      .then(function (pictures) { return api('/api/creative/check-pictures', { method: 'POST', body: { pictures: pictures } }); })
+      .then(function (res) {
+        if (!res.ok || !res.data || !res.data.ok) return false; // the check could not run: the owner's pick stands
+        var bad = picks.filter(function (p) { var x = res.data.results[p.a.id]; return x && x.watermark; });
+        if (!bad.length) return false;
+        bad.forEach(function (p) { p.r.watermarked = res.data.results[p.a.id].text || true; S.assets = S.assets.filter(function (x) { return x.id !== p.a.id && x.cutoutOf !== p.a.id; }); });
+        if (bad.some(function (p) { return p.a.id === S.mainAsset; })) S.mainAsset = null;
+        renderThumbs(); S.picked = null;
+        els.csError.hidden = false; els.csError.textContent = 'The picture' + (bad.length > 1 ? 's' : '') + ' you picked ' + (bad.length > 1 ? 'carry' : 'carries') + ' a watermark (' + bad.map(function (p) { return '“' + (p.r.watermarked === true ? 'watermark' : p.r.watermarked) + '”'; }).join(', ') + '). Pick another picture.';
+        showGate(S.gate); return true;
+      }).catch(function () { return false; });
+  }
   function buildWithPicked(review) {
     var chosen = S.picked.map(function (i) { return review[i]; }).filter(Boolean); if (!chosen.length) return Promise.resolve();
     step('direct', 'active', 'Fetching the picture' + (chosen.length > 1 ? 's' : '') + ' you picked…');
@@ -345,6 +362,9 @@
         });
       });
     }, Promise.resolve()).then(function () {
+      return checkWatermarks(got, chosen);
+    }).then(function (flagged) {
+      if (flagged) return;
       var first = got.filter(Boolean)[0];
       if (!first) { els.csError.hidden = false; els.csError.textContent = 'None of the pictures you picked could be fetched. Save one from its page and upload it, or pick another.'; S.picked = null; showGate(S.gate); return; }
       S.mainAsset = first.id; renderThumbs(); S.picked = null;
@@ -395,12 +415,18 @@
     })).then(function (list) { return list.filter(Boolean); });
   }
   function ctx2() { var sp = supplied(); return { page: (S.research && S.research.page) || null, mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
+  // the main picture's own colours, for the palette: the owner's main picture, else the best picture of the subject
+  function pictureColours() {
+    var pick = (S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; })) || live().filter(function (a) { return !a.cutoutOf; }).sort(function (a, b) { var s = function (x) { var k = x.curation; return (x.origin === 'upload' ? 4 : 0) + (k && k.role === 'subject' ? 2 : 0) + (x.relevance || 0); }; return s(b) - s(a); })[0];
+    var a = pick && pick.assess; if (!a) return null;
+    return { background: a.background && a.background.colour || '', plainBackground: !!(a.background && a.background.uniformity >= 0.8), colours: (a.colours || []).slice(0, 6) };
+  }
   function liveMain() { var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; }); return a ? a.id : null; }
   function planDirection(avoid) {
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen } });
+      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};

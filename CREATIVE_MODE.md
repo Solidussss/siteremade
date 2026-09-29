@@ -157,6 +157,14 @@ run against a newer server.
   (`CREATIVE_SERPAPI_SEARCHES` 1): "<name> official render" (minus cosplay, merchandise and fan-art sites) for a fictional
   character, "<name> high resolution photo" for a real-world subject. Results are kept for 30 days
   (`CREATIVE_SERPAPI_CACHE_DAYS`), so a subject searched once costs no second search.
+* **The page blends into its pictures** (layout version 4; new or recomposed plans -- a saved page keeps its look until
+  "Re-apply today's layout rules"): a picture on a plain background floats as its clean cut-out; a scene whose main picture
+  keeps its own background (and does not already fill the scene) takes that background's tone, nudged until text reads at
+  7:1, and the picture's frame dissolves into it (soft edges); the page's base colour follows the opening picture; each
+  scene eases in from the previous scene's colour; the director builds the palette from the main picture's own colours
+  (measured in the browser). Kickers use a per-scene accent that keeps 3.2:1 on the scene's tone.
+* **Watermark check on picks.** Before a page is built, the pictures the owner picked are checked for watermarks at up to
+  1024 px (one cheap vision call for up to four); a watermarked one is taken back out and marked on the pick screen.
 * **The owner picks.** The studio shows the suitable pictures with the best one the studio can fetch pre-selected as the
   main picture; "Build with this picture" fetches the picked ones (up to four) and directs the page. A picked picture is
   credited to its source site and page as "no licence stated; chosen by the page owner" -- never as licensed; whoever

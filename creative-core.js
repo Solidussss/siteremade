@@ -595,7 +595,7 @@
 
     const { drawnRect, overlap, area } = require('./validate');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
-    const LAYOUT_VERSION = 3;
+    const LAYOUT_VERSION = 4; // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
 
     const VOCAB = {
       display: ['didone', 'grotesk', 'serif', 'rounded', 'slab', 'mono', 'condensed', 'script'],
@@ -791,6 +791,7 @@
             loop: { kind: oneOf(l.kind, VOCAB.loop, 'none'), amp: num(l.amp, 0, 3, 1), period: num(l.period, 3, 30, 9) },
             scroll: Object.assign({ kind: oneOf(s.kind, VOCAB.scroll, 'none'), amount: num(s.amount, -1, 1, 0.4) }, s.anchor === 'left' || s.anchor === 'right' ? { anchor: s.anchor } : {}),
             hideM: !!rl.hideM,
+            ...(rl.edge === 'fade' ? { edge: 'fade' } : {}),
             // layers sharing a group move as one object (one entrance, loop and scroll; relative placement kept)
             ...(/^[a-z0-9][a-z0-9-]{0,23}$/i.test(rl.group || '') ? { group: String(rl.group).toLowerCase() } : {}),
           };
@@ -806,7 +807,7 @@
             L.asset = a.id; L.fit = oneOf(rl.fit, VOCAB.fit, (a.caps && a.caps.moveFreely) ? 'contain' : 'cover'); L.focus = /^\d{1,3}% \d{1,3}%$/.test(rl.focus || '') ? rl.focus : '50% 50%';
             // a flat photo never floats as a bare rectangle: framed, masked, or used as a full backdrop
             const free = !!(a.caps && a.caps.moveFreely);
-            if (!free && L.mask === 'none' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
+            if (!free && L.mask === 'none' && L.edge !== 'fade' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
             if (!free && L.fit === 'contain' && L.mask !== 'none') L.fit = 'cover';
             const k = baseOf(a).id; uses.set(k, (uses.get(k) || 0) + 1);
             const max = a.cutout || (a.assess && a.assess.transparent) ? LIMITS.cutoutUses : LIMITS.photoUses;
@@ -868,6 +869,7 @@
           height: sceneHeight, pin, camera: oneOf(rs.camera, VOCAB.camera, 'none'), background: oneOf(bg.style || rs.background, VOCAB.sceneBg, si === 0 ? 'base' : 'base'), atmosphere: !!rs.atmosphere || si === 0,
           mobile: { order: oneOf(rs.mobile && rs.mobile.order, VOCAB.mobileOrder, si === 0 ? 'text-first' : 'text-first') },
           text, layers,
+          ...(HEX.test(rs.tone || '') ? { tone: String(rs.tone).toLowerCase() } : {}),
         };
         if (si === 0) scene.cta = cap(rs.cta, 40) || 'Begin';
         if (!scene.purpose) warnings.push(`${where}: no stated purpose`);
@@ -928,8 +930,10 @@
         const missing = ((coverage && coverage.missing) || []).slice(0, 3).map(x => cap(x, 160));
         imagery = { status, degraded: status === 'missing' || status === 'weak', missing, note: status === 'missing' ? `no picture of ${identity.name || 'the subject'} to show${missing[0] ? ` (missing: ${missing[0]})` : ''}` : status === 'weak' ? `the main picture does not show ${identity.name || 'the subject'} itself` : status === 'form' ? `shown through a real-world form (${(heroCur && heroCur.depicts) || 'a costume, figure or replica'}), not the subject itself` : '' };
       }
+      // ---- the page blends into its pictures (a new or recomposed plan; a saved page keeps what it had)
+      if (!safety) blendPictures(scenes, palette, byId, assets, fixes, warnings);
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
-      scenes.forEach(s => { s.ink = sceneInk(s.background, palette); });
+      scenes.forEach(s => { s.ink = sceneInk(s.background, palette, s.tone); });
       // the main subject is never blurred: "soft" is for backdrops and textures (a blurred focal picture read as washed out)
       if (!safety) scenes.forEach(s => s.layers.forEach(L => { if (L.kind === 'image' && L.role === 'focal' && L.treatment === 'soft') { L.treatment = 'none'; fixes.push(`scene ${s.id}: the main picture is shown sharp (no soft blur)`); } }));
       // a cut-out subject almost the colour of its stage (a black silhouette on a dark scene) gets a light rim so it reads
@@ -960,7 +964,54 @@
       return { plan, fixes, warnings, errors };
     }
 
-    function sceneInk(bg, P) {
+    // The page follows its pictures instead of sitting behind them:
+    //  1. a picture on a plain background floats -- its clean cut-out replaces it (no white disc on a dark scene);
+    //  2. a scene whose main picture keeps its own background takes that background's tone;
+    //  3. that picture's frame dissolves into the scene (soft edges, no box);
+    //  4. the page's base colour moves toward the opening picture's tone, so every scene shares its world.
+    // Text and accent colours are then re-derived for contrast against each scene's tone (sceneInk).
+    function blendPictures(scenes, palette, byId, assets, fixes, warnings) {
+      const floats = a => !!(a && (a.cutout || (a.assess && a.assess.transparent)));
+      const cutOf = a => assets.find(x => x.cutoutOf === a.id && x.caps && x.caps.moveFreely);
+      scenes.forEach((s, si) => {
+        let changed = false;
+        s.layers.forEach(L => {
+          if (L.kind !== 'image' || L.role === 'backdrop' || L.role === 'texture') return;
+          const a = byId.get(L.asset); if (!a || floats(a)) return;
+          const cut = cutOf(a); if (!cut) return;
+          L.asset = cut.id; L.mask = 'none'; L.fit = 'contain'; delete L.edge; if (L.treatment === 'none') L.treatment = 'shadow';
+          changed = true; fixes.push(`scene ${s.id}: ${a.id} has a plain background -- its cut-out floats in the scene instead`);
+        });
+        // (a full-bleed backdrop already fills its scene: only a picture that leaves the scene around it gives it a tone)
+        const main = s.layers.filter(L => L.kind === 'image' && L.opacity >= 0.6 && L.role !== 'backdrop' && L.role !== 'texture' && area(L.box.d) < 7000).map(L => ({ L, a: byId.get(L.asset) }))
+          .filter(x => x.a && !floats(x.a) && x.a.assess && x.a.assess.background && HEX.test(x.a.assess.background.colour || ''))
+          .sort((x, y) => (y.L.role === 'focal') - (x.L.role === 'focal') || area(y.L.box.d) - area(x.L.box.d))[0];
+        if (main && main.a.assess.background.uniformity >= 0.45) {
+          // the picture's tone, moved just far enough toward dark or light that the words on it read at 7:1
+          let tone = main.a.assess.background.colour.toLowerCase(); const toLight = lum(tone) > 0.18;
+          for (let i = 0; i < 20 && contrast(tone, toLight ? '#141414' : '#f6f3ee') < 7; i++) tone = mix(tone, toLight ? '#ffffff' : '#000000', 0.12);
+          s.tone = tone;
+          if (['none', 'window', 'frame', 'polaroid'].includes(main.L.mask) && main.L.role !== 'backdrop') { main.L.mask = 'none'; main.L.edge = 'fade'; if (main.L.fit === 'contain') main.L.fit = 'cover'; }
+          changed = true; fixes.push(`scene ${s.id}: takes the tone of its picture (${s.tone}) so the picture sits in its own world`);
+        }
+        if (changed) { compose(s, byId, fixes, warnings, si === 0); legible(s, byId, fixes); }
+      });
+      const h = scenes[0] && scenes[0].tone;
+      if (h) {
+        palette.bg = mix(palette.bg, h, 0.75); palette.bg2 = mix(palette.bg2, h, 0.45);
+        if (contrast(palette.ink, palette.bg) < 7) palette.ink = lum(palette.bg) > 0.3 ? '#141414' : '#f6f3ee';
+        if (contrast(palette.muted, palette.bg) < 4.5) palette.muted = mix(palette.ink, palette.bg, 0.3);
+        for (let i = 0; i < 12 && contrast(palette.accent, palette.bg) < 3.2; i++) palette.accent = mix(palette.accent, lum(palette.bg) > 0.3 ? '#000000' : '#ffffff', 0.18);
+        fixes.push(`palette: the page's base colour follows the opening picture (${h})`);
+      }
+    }
+    function sceneInk(bg, P, tone) {
+      if (tone) {
+        const light = contrast('#141414', tone) >= contrast('#f6f3ee', tone); const ink = contrast(P.ink, tone) >= 7 ? P.ink : light ? '#141414' : '#f6f3ee';
+        let accent = P.accent; for (let i = 0; i < 12 && contrast(accent, tone) < 3.2; i++) accent = mix(accent, light ? '#000000' : '#ffffff', 0.18);
+        let muted = mix(ink, tone, 0.3); for (let i = 0; i < 8 && contrast(muted, tone) < 4.5; i++) muted = mix(muted, ink, 0.3);
+        return { ink, muted, surface: tone, accent };
+      }
       if (bg === 'invert') return { ink: P.bg, muted: mix(P.bg, P.ink, 0.3), surface: P.ink };
       if (bg === 'accent') { const dark = contrast('#111111', P.accent) >= contrast('#f7f5f0', P.accent); return { ink: dark ? '#111111' : '#f7f5f0', muted: dark ? '#2a2a2a' : '#ece8e0', surface: P.accent }; }
       return { ink: P.ink, muted: P.muted, surface: bg === 'deep' ? P.bg2 : P.bg };
@@ -2000,7 +2051,7 @@
       } else {
         art = `<span class="ly-word" data-style="${L.word.style}" style="--len:${Math.max(2, L.word.text.length)}">${esc(L.word.text)}</span>`;
       }
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}">${art}</div></div></div></div></div>`;
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}">${art}</div></div></div></div></div>`;
     }
 
     // a group is ONE object on the stage: a wrapper at the union of its members' boxes carries the anchor's entrance,
@@ -2043,7 +2094,9 @@
       const count = hero || s.atmosphere ? Math.round(c.plan.atmosphere.density * (c.plan.atmosphere.particles === 'stars' ? 60 : 22)) : 0;
       const atmos = hero || s.atmosphere ? `<div class="sc-world" aria-hidden="true"><div class="sc-backdrop"></div><div class="sc-light" data-light="${c.plan.atmosphere.light}"></div>${particles(c.plan.atmosphere, count)}${c.plan.atmosphere.grain ? '<div class="sc-grain"></div>' : ''}</div>` : '';
       const ink = s.ink || {};
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}" data-camera="${s.camera}" data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      const prev = si > 0 && c.plan.scenes[si - 1] && c.plan.scenes[si - 1].ink ? c.plan.scenes[si - 1].ink.surface : '';
+      const flow = prev && ink.surface && prev.toLowerCase() !== String(ink.surface).toLowerCase();
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}" data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow ? `;--prev:${prev}` : ''}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}
         <div class="sc-stage">${renderStage(s, si, c)}</div>
         ${text}
@@ -2074,6 +2127,10 @@
     .sc{position:relative;color:var(--s-ink,var(--ink));background:var(--s-surface,var(--bg))}
     .sc[data-bg="deep"]{background:linear-gradient(180deg,var(--bg2),var(--bg))}
     .sc[data-bg="tint"]{background:linear-gradient(180deg,rgba(var(--accent-rgb),.10),rgba(var(--accent-rgb),.04))}
+    /* a scene in its picture's tone; arriving from the previous scene's colour; a picture whose frame dissolves */
+    .sc[data-tone]{background:var(--s-surface)}
+    .sc[data-flow] .sc-pin::before{content:"";position:absolute;inset:0 0 auto 0;height:22vh;background:linear-gradient(var(--prev),transparent);z-index:1;pointer-events:none}
+    .ly[data-edge="fade"] .ly-art{-webkit-mask-image:linear-gradient(to right,transparent,#000 14%,#000 86%,transparent),linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent,#000 14%,#000 86%,transparent),linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect}
     .sc-pin{position:relative;min-height:calc(var(--sh,0)*1vh);display:grid;grid-template-columns:5% 1fr 1fr 5%;grid-template-rows:auto;align-items:center;padding:calc(var(--nav) + 4vh) 0 6vh;overflow:clip;isolation:isolate}
     .sc[data-height="screen"],.sc[data-height="tall"]{--sh:100}.sc[data-height="short"]{--sh:64}.sc[data-height="auto"]{--sh:0}
     .sc[data-height="auto"] .sc-pin{padding:clamp(80px,12vh,150px) 0}
@@ -2089,7 +2146,7 @@
     .sc-text[data-width="narrow"]{max-width:34ch}.sc-text[data-width="medium"]{max-width:52ch}.sc-text[data-width="wide"]{max-width:70ch}
     .sc-text[data-region="center"][data-width="wide"],.sc-text[data-region="top"][data-width="wide"],.sc-text[data-region="bottom"][data-width="wide"]{max-width:min(64ch,86vw)}
     .sc-text.has-scrim{padding:22px 26px;border-radius:14px;background:rgba(var(--bg-rgb),.72);background:color-mix(in srgb,var(--s-surface,var(--bg)) 80%,transparent);backdrop-filter:blur(6px)}
-    .sc-kicker{margin:0 0 14px;text-transform:uppercase;letter-spacing:.22em;font-size:12.5px;font-weight:700;color:var(--accent)}
+    .sc-kicker{margin:0 0 14px;text-transform:uppercase;letter-spacing:.22em;font-size:12.5px;font-weight:700;color:var(--s-accent,var(--accent))}
     .sc[data-bg="accent"] .sc-kicker,.sc[data-bg="invert"] .sc-kicker{color:var(--s-ink)}
     .sc-heading{margin:0;font-family:var(--display);font-weight:var(--dw);line-height:1;letter-spacing:-.015em;text-wrap:balance;overflow-wrap:normal;hyphens:manual}
     html[data-case="upper"] .sc-heading{text-transform:uppercase;letter-spacing:.01em}
