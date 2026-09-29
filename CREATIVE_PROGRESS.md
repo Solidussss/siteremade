@@ -217,3 +217,17 @@ Main constraint for franchise characters: permission (depictions exist and are f
 licence), then access (wikis and publishers refuse automated fetching; not bypassed). Discovery, processing and
 rendering were not the limiting stage for these six; planning had two defects (subject left out of the first plan,
 stand-in shapes), one caught by validation, one now in the prompt.
+
+## SerpApi Google Images (2026-09-29, ee0460d → dbf49ed)
+- SERPAPI_API_KEY (Railway, server only; never logged/returned/stored; scrubbed from errors) switches discovery from the
+  Anthropic web-search step to Google Images. Verified live: ~80 results per character; a refused key stops at 401.
+- Owner feedback on the first pass (fan drawings, cosplay, merchandise): searches now target official renders,
+  promotional art and game/show stills with substitutes excluded in the query; every result is judged from its thumbnail
+  (what it shows, whether it is official) before anything is downloaded; art-community/portfolio/print-marketplace hosts
+  and Commons "own work" files count as fan-made for a fictional character; suitability and licence are reported
+  separately; up to six official candidates are offered with source and licence status, never marked free.
+- Fixed on the way: a 20 s SerpApi timeout (now 45 s); AVIF requested but not verifiable (official images refused).
+- Discovery-only verification (no page generated, direction blocked): Link, Kirby, Pikachu, BMO and Silver Surfer stop
+  at the gate with official candidates (none with a stated licence); SpongeBob automatic (Nickelodeon CC BY on Commons).
+  BMO's remaining candidates are weak (small official renders; two drawings the check called official look fan-made).
+- Spend: >= 43 SerpApi searches (plus up to ~8 unlogged in two runs), ~$0.5 model calls; no directions.
