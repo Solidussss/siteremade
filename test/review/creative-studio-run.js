@@ -90,6 +90,13 @@ app.whenReady().then(async () => {
         if (ok === 'gate') {
           r.gate = await js(w, `(() => { const g = document.querySelector('.cs-gate'); const S = SiteRemadeCreativeStudio.state(); return { text: g.innerText.slice(0, 1500), review: (S.research.review || []).map(x => ({ depicts: x.depicts, site: x.site, pageUrl: x.pageUrl, status: x.permission.status, licence: x.permission.licence, note: x.permission.note })), diagnostics: S.research.diagnostics || null, understanding: S.understanding, buttons: [...g.querySelectorAll('button')].map(b => b.textContent), curation: S.research.curation, cost: S.cost }; })()`);
           r.timings.gateMs = Date.now() - t0;
+          // the candidates offered to the owner, each saved with its source record (the picture itself as a file)
+          r.candidates = await js(w, `(SiteRemadeCreativeStudio.state().research.review || []).map(x => ({ depicts: x.depicts, site: x.site, pageUrl: x.pageUrl, imageUrl: x.imageUrl, origin: x.origin, query: x.query, width: x.width, height: x.height, adoptable: x.adoptable, technical: x.technical, permission: x.permission, preview: x.preview || '' }))`);
+          (r.candidates || []).forEach((x, n) => {
+            const m = /^data:image\/(png|jpeg|webp);base64,(.+)$/.exec(x.preview || '');
+            if (m) { const file = `${c.id}-cand-${n + 1}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`; fs.writeFileSync(path.join(job.outDir, file), Buffer.from(m[2], 'base64')); x.file = file; }
+            delete x.preview;
+          });
           // the gate may carry large review previews: let them decode and paint before the screenshot (a stale frame was captured)
           await js(w, `Promise.all([...document.querySelectorAll('.cs-gate img')].map(i => i.decode ? i.decode().catch(() => {}) : 0)).then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))).then(() => true)`); await sleep(1500);
           r.shots.push(await shot(w, `${c.id}-studio-gate`));

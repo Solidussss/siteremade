@@ -199,3 +199,18 @@ test('stage verdict: fan-made pictures do not count as the character', () => {
   const v = pictureStage({ judged: [{ src: 'commons', verdict: { role: 'subject', identity: 'exact', origin: 'fan' }, outcome: 'fan-made, not official artwork' }] }, { candidates: [] });
   assert.equal(v.stage, 'identity'); assert.match(v.note, /fan-made pictures \(1\)/);
 });
+
+test('a portfolio or art-community picture of a franchise character counts as fan-made, whatever the check guessed', async () => {
+  const { discoverImages, PERSONAL_WORK } = require('../lib/creative/webimages');
+  ['cagataycetin.artstation.com', 'www.behance.net', 'sketchfab.com', 'www.deviantart.com'].forEach(h => assert.ok(PERSONAL_WORK.test(h), h));
+  ['www.pokemon.com', 'screenrant.com', 'commons.wikimedia.org'].forEach(h => assert.ok(!PERSONAL_WORK.test(h), h));
+  const png = n => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(n, 30); return b; };
+  const fetched = [];
+  const out = await discoverImages({ identity: { name: 'X' } }, {
+    imageSearch: async () => ({ searches: 1, results: [{ title: 'X render', pageUrl: 'https://someone.artstation.com/projects/1', imageUrl: 'https://cdn.example.org/x.png', thumbUrl: 'https://t.example.org/1', width: 1800, height: 1800, source: 'ArtStation', query: 'q', position: 1 }] }),
+    fetchThumb: async u => ({ ok: true, url: u, body: png(1), mime: 'image/png', width: 200, height: 200 }),
+    curate: async () => ({ verdicts: { w1: { role: 'subject', identity: 'exact', origin: 'official', depicts: 'X', quality: 3 } }, selection: ['w1'], coverage: 'strong', missing: [] }),
+    fetch: async () => ({ ok: false, reason: 'unused' }), fetchImg: async u => { fetched.push(u); return { ok: false, reason: 'unused' }; },
+  });
+  assert.equal(out.candidates[0].verdict.origin, 'fan'); assert.match(out.candidates[0].verdict.originBy, /personal work/); assert.deepEqual(fetched, [], 'a fan work is not downloaded');
+});
