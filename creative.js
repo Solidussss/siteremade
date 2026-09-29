@@ -357,7 +357,7 @@
       }).catch(function () { return null; });
     })).then(function (list) { return list.filter(Boolean); });
   }
-  function ctx2() { var sp = supplied(); return { mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
+  function ctx2() { var sp = supplied(); return { page: (S.research && S.research.page) || null, mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
   function liveMain() { var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; }); return a ? a.id : null; }
   function planDirection(avoid) {
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
@@ -372,7 +372,9 @@
         // the server and the studio both validate: each note once
         var uniq = function (xs) { return xs.filter(function (x, i) { return xs.indexOf(x) === i; }); };
         S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings));
-        S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired };
+        S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired,
+          // what the one repair was for (this session only; not saved)
+          repairFor: ((d.meta && d.meta.attempts) || []).filter(function (a) { return a.errors && a.errors.length; }).slice(0, 1).map(function (a) { return a.errors.slice(0, 4).map(function (e) { return String(e).slice(0, 160); }); })[0] || [] };
         S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + modelCalls(d.meta, S.planMeta.attempts);
         step('direct', 'done', (S.planMeta.source === 'mock' ? 'MOCKED plan · ' : 'AI direction · ') + (plan.concept.title ? plan.concept.title + ' — ' : '') + plan.concept.logline + ' (' + (S.planMeta.ms / 1000).toFixed(1) + 's' + (S.planMeta.repaired ? ', repaired once' : '') + ')');
         return;

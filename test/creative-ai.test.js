@@ -295,6 +295,38 @@ test('stability: a page saved under the previous layout rules reopens unchanged;
   assert.equal(recomposed.layout.version, require('../lib/creative/validate2').LAYOUT_VERSION);
 });
 
+// ---- licence delivery: the facts' article is credited, and the bundle carries only pictures the page shows
+test('sources and export: cited facts credit their article; unused pictures are not shipped', () => {
+  const page = { title: 'Toilet paper', url: 'https://en.wikipedia.org/wiki/Toilet_paper', license: 'CC BY-SA 4.0', retrieved: '2026-09-28' };
+  const v = validatePlan2(basePlan(), { assets: ASSETS, facts: FACTS, page });
+  assert.deepEqual(v.plan.sources.map(s => [s.title, s.license]), [['Toilet paper', 'CC BY-SA 4.0']]);
+  const html = renderCreative2(v.plan, ASSETS, { mode: 'export', src: a => a.id + '.png' });
+  assert.match(html, /From <a href="https:\/\/en\.wikipedia\.org\/wiki\/Toilet_paper"[^>]*>Toilet paper<\/a> \(CC BY-SA 4\.0\)/);
+  // a saved plan without sources (every v2 plan before this fix) gets them on reopen and export
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-cr2-export-'));
+  process.env.SITEREMADE_BACKEND = 'local'; process.env.SITEREMADE_ASSET_STORE_DIR = path.join(dir, 'assets');
+  const { getDatabaseAdapter } = require('../lib/adapters/database-adapter'); const projectStore = require('../lib/project-store'); const { compileExport } = require('../lib/export-compiler');
+  const db = getDatabaseAdapter(':memory:');
+  const pix = n => { const b = Buffer.alloc(80); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(13, 8); b.write('IHDR', 12); b.writeUInt32BE(10, 16); b.writeUInt32BE(10, 20); b.writeUInt32BE(n, 60); return 'data:image/png;base64,' + b.toString('base64'); };
+  const assets = ASSETS.map((a, i) => Object.assign({}, a, { dataUrl: pix(i + 1), mime: 'image/png' }));
+  const saved = Object.assign({}, v.plan, { sources: [] });
+  const direction = { mode: 'creative', meta: { id: 'c1' }, pages: [{ id: 'creative', label: 'Creative page', sections: [] }], creative: { brief: 'toilet paper', understanding: { kind: 'recognizable', subject: 'toilet paper' }, research: { status: 'ok', page, facts: FACTS }, assets, plan: saved } };
+  const check = projectStore.validateDirectionsState({ directions: [direction], activeDirectionIndex: 0 });
+  assert.ok(check.valid, check.error);
+  assert.equal(check.normalized.directions[0].creative.plan.sources[0].title, 'Toilet paper', 'reopening credits the article');
+  projectStore.internalizeAssets(db, check.normalized);
+  const workDir = path.join(dir, 'export');
+  const res = compileExport(db, { project: { id: 'p2', revision: 1, directionsState: check.normalized }, directionIndex: 0, workDir });
+  const out = fs.readFileSync(path.join(workDir, 'index.html'), 'utf8');
+  const shipped = fs.readdirSync(path.join(workDir, 'assets'));
+  assert.equal(shipped.length, 1, 'only the cutout the page shows is shipped (not r1, r2 or the upload)');
+  assert.ok(out.includes('assets/' + shipped[0])); assert.equal(res.manifest.assets.length, 1);
+  const attribution = fs.readFileSync(path.join(workDir, 'ATTRIBUTION.md'), 'utf8');
+  assert.match(attribution, /Toilet paper \(CC BY-SA 4\.0\)\n  https:\/\/en\.wikipedia\.org\/wiki\/Toilet_paper/);
+  assert.match(attribution, /- r1 — A\. Photographer \(CC BY-SA 4\.0\)/); assert.match(attribution, /Background removed by SiteRemade/);
+  assert.doesNotMatch(attribution, /uploaded by the page owner/, 'an upload the page does not show is neither shipped nor counted');
+});
+
 test('groups: parts of one object render inside one wrapper that carries the motion; members keep their relative places', () => {
   const p = basePlan(); p.scenes[1] = { id: 'sword', purpose: 'p', height: 'screen', text: { heading: 'A sword', region: 'right' }, layers: [
     { id: 'blade', kind: 'shape', role: 'focal', group: 'sword', shape: { form: 'line' }, box: box([20, 5, 6, 80], [40, 5, 6, 80]), entrance: { kind: 'descend' }, loop: { kind: 'float' }, scroll: { kind: 'parallax', amount: 0.3 } },
