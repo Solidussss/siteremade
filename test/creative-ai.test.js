@@ -326,12 +326,28 @@ test('imagery: a logo is never the hero when a picture of the subject exists; a 
   p.scenes[0].layers = [{ kind: 'shape', role: 'focal', shape: { form: 'triangle' }, box: box([55, 8, 38, 60]) }];
   const d = validatePlan2(p, { assets: [], facts: FACTS, coverage: { coverage: 'none', missing: ['a clear picture of the character himself'] } }).plan.imagery;
   assert.equal(d.status, 'missing'); assert.equal(d.degraded, true); assert.deepEqual(d.missing, ['a clear picture of the character himself']);
+  // an owner's upload is a picture of the subject: a supporting picture may not lead instead of it
+  const withUpload = pics.concat([A('u9', { origin: 'upload', title: 'my artwork', license: '' }), A('r7', { curation: { role: 'supporting', identity: 'exact', depicts: 'an ocarina' } })]);
+  p.scenes[0].layers = [{ kind: 'image', role: 'focal', asset: 'r7', mask: 'arch', box: box([55, 8, 38, 60]) }];
+  assert.ok(validatePlan2(p, { assets: withUpload, facts: FACTS, visuals: { main: 'the hero himself' } }).errors.some(e => /shows a supporting object, not the subject -- r6, u9 show the subject/.test(e)));
+  // a brief "invented" by kind can still have a picture it cannot do without: the stated visuals decide
+  p.identity = { name: 'A meme', kind: 'invented' }; p.scenes[0].layers = [{ kind: 'shape', role: 'focal', shape: { form: 'triangle' }, box: box([55, 8, 38, 60]) }];
+  assert.equal(validatePlan2(p, { assets: [], facts: FACTS, visuals: { main: 'the original photograph' } }).plan.imagery.status, 'missing');
+  p.identity = { name: 'Toilet paper', kind: 'recognizable' };
   // an intentionally geometric brief is not degraded
   assert.equal(validatePlan2(p, { assets: [], facts: FACTS, visuals: { main: 'none -- a pure geometry piece' } }).plan.imagery.status, 'not-needed');
   // a picture the check found unrelated is never used
   const u = basePlan(); u.scenes[0].layers.push({ kind: 'image', role: 'support', asset: 'x1', mask: 'window', box: box([10, 60, 20, 20]) });
   const w = validatePlan2(u, { assets: ASSETS.concat([A('x1', { curation: { role: 'unrelated', identity: 'other', depicts: 'a street parade' } })]), facts: FACTS });
   assert.ok(!w.plan.scenes[0].layers.some(L => L.asset === 'x1')); assert.ok(w.fixes.some(f => /a street parade/.test(f)));
+});
+
+test('footer: an "invented" subject that cites real facts is never called a work of pure imagination', () => {
+  const p = basePlan(); p.identity = { name: 'The Backrooms', kind: 'invented' };
+  const cites = renderCreative2(validatePlan2(p, { assets: ASSETS, facts: FACTS }).plan, ASSETS, {});
+  assert.doesNotMatch(cites, /nothing on this page describes real events/); assert.match(cites, /The numbered lines come from the sources below/);
+  p.scenes.forEach(s => { s.text.body = ''; s.text.items = []; s.text.kind = 'imagined'; s.text.cite = null; });
+  assert.match(renderCreative2(validatePlan2(p, { assets: ASSETS, facts: [] }).plan, ASSETS, {}), /nothing on this page describes real events/);
 });
 
 test('research: directed results must match their own search, logos are recognised by their categories, one shoot counts once', async () => {
@@ -423,7 +439,8 @@ test('direction: an unchecked page is accepted only as explicitly degraded, with
   const good = claimPlan(); const planInput = JSON.parse(JSON.stringify(good)); delete planInput.claims;
   let n = 0;
   const deps = { limits: Object.assign({}, LIM, { repairs: 1 }), call: async req => { n++; if (req.tool.name === 'submit_creative_plan') return { input: planInput, usage: { input_tokens: 1, output_tokens: 1 }, model: 'test-director' }; throw new Error('checker unavailable'); } };
-  const r = await ai.direct({ facts: claimInput.facts, supplied: claimInput.supplied, assets: ASSETS, thumbnails: [] }, deps);
+  // (no owner upload here: a drawn hero beside an unused upload would rightly be sent back first)
+  const r = await ai.direct({ facts: claimInput.facts, supplied: claimInput.supplied, assets: ASSETS.filter(a => a.origin !== 'upload'), thumbnails: [] }, deps);
   assert.equal(r.ok, true); assert.equal(r.plan.claims.status, 'unchecked'); assert.equal(r.plan.claims.checked, 0);
   assert.ok(r.warnings.some(w => /could NOT be checked/.test(w)));
   assert.deepEqual(r.plan.scenes.find(s => s.id === 'rest').text.items, [], 'the invented line is gone');

@@ -18,73 +18,105 @@ SiteRemade has two generation modes:
 | Project state | a direction without `mode` | a direction with `mode: 'creative'` and a `creative` block: brief, understanding, supplied details, research (page + facts with sources), assets (pixels + provenance + processing), scene plan, motion, cost |
 | Save / reopen | `/api/projects` + autosave | the same `/api/projects` routes (explicit Save), pictures stored in the same content-addressed asset store; the project list labels it “Creative ·”; opening it from the account routes it to the studio (`adoptServerProject` / `loadSelectedOwnedProjectById` never pass it to the Business builder, and the Business local restore ignores it) |
 | Export | `compileExport` → business renderer | `compileExport` branches on `mode === 'creative'` → the same `render.js` document, pictures written to `assets/`, `ATTRIBUTION.md`, `export-manifest.json` (`mode: 'creative'`, static) |
-| Cost | unchanged | its own limits and ledger (`data/premium/creative-ledger.jsonl`: `creative_understand`, `creative_research`, `creative_direct`, `creative_direct_fallback`), never Business credits or budgets — see "AI direction: limits and cost" |
+| Cost | unchanged | its own limits and ledger (`data/premium/creative-ledger.jsonl`: `creative_understand`, `creative_research`, `creative_curate`, `creative_direct`, `creative_claims`, `creative_direct_fallback`), never Business credits or budgets — see "AI direction: limits and cost" |
 
 A direction without `mode: 'creative'` is a Business project wherever it is read. `project-store.validateDirection` adds
 `mode`/`creative` only for a Creative direction, so a Business project saves exactly as before (tested: a Business
 project with a stray `mode` value saves identically to the same project without it).
 
-## AI creative direction (stage 2)
+## AI creative direction (stages 2 and 3)
 
 The model makes the visual and editorial decisions; fixed code executes them. Nothing the model writes is executed:
 its output is structured data (tool use), validated, then rendered by one renderer used for every subject.
 
-1. **Understand before research** (`ai.understand`, cheap model, ~3 s, ~$0.003): identity and exactly *which* thing
+1. **Understand before research** (`ai.understand`, cheap model, ~3 s, ~$0.004): identity and exactly *which* thing
    ("the Nintendo franchise, not one game"), kind (recognizable / fictional / personal / invented), tone and whether the
-   brief asked for it, audience, motifs that belong to the subject, uncertainty, the Wikipedia title(s) for that
-   identity and up to three Commons queries. A clarification is asked only when a wrong identity would change the page.
-   A personal subject's *name* is never researched (only its general type), and a general-topic lookup never turns
-   into a question for the owner. If the call fails or the budget is used, the built-in reader takes over (recorded).
-2. **Research** (same sources, now directed): the resolved article titles first; the model's Commons queries added to
-   the searches (results need not share the subject's words — the director checks what they actually show).
-3. **Pictures** (unchanged): read in the browser, real cutouts only.
-4. **Direct** (`ai.direct`, strong model, ~60–75 s, ~$0.11–0.14 estimated): the whole page as a **v2 scene plan** — a
-   named concept and why it suits the brief; 2–9 scenes, each with a purpose and a link to the previous one, its own
-   height, pinning (a scroll-scrubbed hold), camera move and background; per scene up to 6 layers — pictures from the
-   inventory, drawn shapes (circle, ring, triangle, star, wave, sunburst, …) and giant words — with masks, treatments,
-   depth, entrances, ambient loops and scroll-linked movement; words per scene with citations; palette, typography,
-   atmosphere, tempo and thread. The model is shown **small thumbnails of the actual pictures** and records what each
-   depicts and whether it matches the subject; pictures it judges unrelated are not used. It lists what it wanted but
-   could not have, what it did instead, and its limitations; the studio shows these and offers an upload. "Try another
-   direction" sends the previous concept(s) to avoid and keeps identity, facts and uploads.
-5. **Validate** (`validate2.js`, on the server and again in the studio): enums, numbers and counts bounded; assets must
-   exist, match what the director saw, and be the owner's own on a personal page; a flat photo never floats as a bare
-   rectangle; a photo appears at most twice and a cutout three times; uncited "sourced" lines and invented quotations are
-   removed; text is never cut (an overlong paragraph is sent back); motion budget (≤2 looping layers per scene, ≤3
-   pinned scenes, ≤32 layers). **Composition** (checked against the same column geometry the renderer uses): every stage
-   with pictures has a main one, grown to a minimum share of the stage (desktop and phone separately); it moves clear of
-   the words (layers built onto it move with it), is made smaller to fit beside them if it must, and only then do the
-   words move or get a scrim; secondaries step aside before fading (photos fade further than shapes); a scene sized to
-   its text gets a real stage when it has layers; zoom and drift are checked at their largest, camera included, and a
-   zoom is anchored to grow away from the words; layers stay out of the thread's margin; a cutout nearly the colour of
-   its stage gets a light rim; readable palette. **Legibility**, after composition: words on a full-bleed or backdrop
-   photo get a scrim in the scene's own colour; word layers across the words become ghosts; long headings never sit in
-   the narrow column. Validating a stored plan again changes nothing, so reopen and export show the accepted design.
-   **Claim check** (`ai.js`, cheap model, `CREATIVE_CLAIM_CHECK`, on by default): a plan that passes validation has every
-   kicker, heading, paragraph, list line, word layer and its concept read against the given facts and the owner's
-   details; a line that states anything they do not ("circled the planet", "the width of a stadium") goes back in the
-   one repair, and whatever is still unsupported after it is taken out (a heading falls back to the scene's plain label)
-   and listed in the studio's notes. Its cost is its own ledger row (`creative_claims`) and counts toward the daily cap. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
-   text) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
-   director and labels the page "Built-in layout — not AI direction" with the reason.
-6. **Render** (`render2.js`): scenes as stages with layers; pinned scenes hold while scroll scrubs their layers;
-   per-scene entrances on arrival; ambient loops after the entrance; camera moves; atmosphere; the thread between scenes;
-   sources and credits folded into the footer; a complete still composition for reduced motion (pins released).
-7. **Persist**: the accepted plan is stored as validated with its provenance (model, time, estimated cost, attempts);
-   reopening and exporting render it without planning again. Text edits change only words; replacing a picture keeps the
-   concept and re-frames the new picture for what it is (framed if flat, free if cut out).
+   brief asked for it, audience, motifs, uncertainty, the Wikipedia title(s) for that identity, **what the page must
+   show** (`visuals`: the main picture it cannot do without, the setting, up to four supporting objects — or "none"
+   for an idea with no likeness) and up to four Commons queries written like Commons file names. For a fictional,
+   branded or trademarked subject the queries look for its **photographable forms** (cosplay, figures, plush, replicas,
+   statues, exhibitions) with its name. A clarification is asked only when a wrong identity would change the page. A
+   personal subject's *name* is never researched (only its general type). If the call fails or the budget is used, the
+   built-in reader takes over (recorded).
+2. **Research** (`research.js`, same sources): the resolved article, the article's files, a Commons search for the
+   subject, one for a layer-friendly version, and the directed queries. Candidates are scored on the subject's words —
+   and a directed result on **its own query's** words — in the file's name, description and **Commons categories**
+   (a flat score for directed results once let unrelated 9504-px festival photos outrank a cosplay photo of the
+   subject). Logos, maps, diagrams, timelines and screenshots are recognised from their categories and rank low; batch
+   uploads of one shoot count once. Only free licences; only fixed Wikimedia hosts; model-written text never becomes a
+   URL (queries are search terms sent to the Commons search API).
+3. **Picture check** (`ai.curate`, cheap model, one call, ~10 s, ~$0.01): a shortlist of up to 16 candidates, balanced
+   across where they came from, is judged from **330-px thumbnails before anything is downloaded**: role (subject /
+   environment / supporting / detail / logo / reference / unrelated), identity (exact / **form** = a real-world form such
+   as a cosplayer or figure / related / other), what it depicts, issues (cropped, watermark, text-heavy, busy, …), whether
+   it could be cut out. It selects a coherent set (the main picture first, complementary roles, no near-duplicates),
+   states coverage of the main visual (strong / partial / none) and names the pictures that are **missing**. Only the
+   selection is downloaded (≤ 7). The verdicts travel with the assets and are saved with the project, so reopening
+   never judges again. Without it (off, over budget, failed) the ranking alone picks, and the studio says so.
+4. **Pictures** (browser): size, background, cutouts. A cutout drops separate background patches that touch the frame
+   (a wall or window the fill did not reach) and peels pale shadow rims along the subject's base; logos and references
+   are never cut out; a doubtful cut stays a framed picture. Original bytes are kept.
+5. **Direct** (`ai.direct`, strong model, ~50–100 s, ~$0.10–0.15 estimated per call): the whole page as a **v2 scene
+   plan** — a named concept; 2–9 scenes with purpose, height, pinning, camera, background; per scene up to 6 layers
+   (pictures, drawn shapes, giant words) with masks, treatments, depth, entrances, ambient loops, scroll movement and
+   **groups** (layers that are one object: one entrance, loop and scroll, parts kept in place); words with citations.
+   The model sees thumbnails of the actual pictures **and the picture check's verdicts**: a "subject" picture leads
+   the opening scene when one exists, a logo or reference is supporting material, a "form" is described as exactly what
+   it is (never "Link" for a cosplayer). It lists what it wanted but could not have; the studio offers an upload.
+6. **Validate** (`validate2.js`) in one of two modes:
+   * **accept** — a new plan from the director, or a recompose the owner asks for: bounds, assets that exist and show
+     the subject (director's notes and the picture check), owner's photos only on a personal page, framed flat photos,
+     reuse limits, honest copy labels, citations read as written ("f2, f3" → f2), numbers only from facts, motion
+     budget; then **composition** (the main subject grown to a minimum share of the desktop and phone stage and kept
+     clear of the words — moved, else the words move, and only then made smaller; its group moves and scales with it;
+     secondaries and small decorations step aside or fade; zoom and drift checked at their largest; a scene sized to
+     its text gets a stage) and **legibility** (scrims in the scene's colour, ghosted word layers, no narrow towers).
+     The opening subject is never frozen when the tempo calls for movement. **Imagery**: a logo as the hero's main
+     picture while a subject picture exists is sent back; a page that should show its subject but cannot is marked
+     **degraded** (`plan.imagery`) with the missing picture. The plan is stamped `layout.version`.
+   * **safety** — reopening, exporting, studio load, text edits, picture swaps: everything that must always hold
+     (bounds, assets, the owner's-photos rule, honest labels, escaping), but **nothing moves**. A page accepted under
+     older layout rules keeps its geometry; "Re-apply today's layout rules" is the owner's explicit choice.
+
+   **Errors** (missing focal picture, no title, most sourced lines uncited, unsupported numbers, overlong text, a logo
+   hero) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
+   director and labels the page "Built-in layout — not AI direction" with the reason and the calls it cost.
+7. **Claim check** (`ai.verifyClaims`, cheap model, `CREATIVE_CLAIM_CHECK`, on by default): every kicker, heading,
+   paragraph, list line, word layer and the concept of an accepted plan is checked against the given facts and the
+   owner's details. **Coverage is accounted for line by line**: each line needs exactly one valid verdict; "supported"
+   counts only with evidence ids that exist; unknown references are ignored; conflicting answers resolve to the
+   stricter; unanswered lines get one follow-up; a failed or truncated check gets one retry. Unsupported lines go back
+   in the one repair; after it, they — and any line that still could not be verified — are taken out, and the section
+   is **repaired as a whole** (the hero heading falls back to the subject's name; other headings are cleared rather
+   than replaced by new unchecked words; a scene left with only a heading and no picture is dropped; a kicker never
+   stands alone). If the check could not run at all, the page is **explicitly degraded** (`claims.status: unchecked`):
+   invented paragraphs and list lines are left out and the studio says the words were not checked. `plan.claims`
+   records verified / partial / unchecked with counts. Humour and mood ("Behold, the Roll") are "no-claim".
+8. **Render** (`render2.js`): scenes as stages with layers; groups as one wrapper carrying the motion; pinned scenes
+   hold while scroll scrubs their layers; entrances on arrival; ambient loops (float, sway, swim, breathe, drift, spin,
+   pulse, orbit, bob, **kenburns** — a framed picture drifts and zooms inside its frame — and **sheen** — light
+   passes across a picture, the one loop a "still" page keeps); camera moves; atmosphere; the thread between scenes;
+   sources and credits in the footer; a complete still composition for reduced motion (pins released, loops off).
+9. **Persist**: the accepted plan with its provenance (model, time, estimated cost, attempts), picture verdicts,
+   `imagery`, `claims` and `layout.version`; reopening and exporting render it without planning or composing again.
+
+The studio shows the picture check (coverage, calls, cost), each picture's verdict, a **Degraded** notice with the
+missing picture and an upload button, the claim-check result, and whether the page predates today's layout rules.
 
 The studio files load with the deployed build id in their URLs (`/api/creative/version`), so a cached studio can never
-run against a newer server (this happened once in review and is why the endpoint exists).
+run against a newer server.
 
 ### AI direction: limits and cost
 
-* `CREATIVE_AI_DIRECTION` (on unless "off"), `CREATIVE_MODEL_UNDERSTAND` (default the cheap model),
-  `CREATIVE_MODEL_DIRECTOR` (default the strong model), `CREATIVE_DIRECTOR_MAX_TOKENS` 9000, `CREATIVE_MAX_REPAIRS` 1,
-  `CREATIVE_MAX_THUMBNAILS` 10, `CREATIVE_AI_TIMEOUT_MS` 100000.
+* `CREATIVE_AI_DIRECTION` (on unless "off"), `CREATIVE_MODEL_UNDERSTAND` (default the cheap model; also used for the
+  picture check and the claim check), `CREATIVE_MODEL_DIRECTOR` (default the strong model),
+  `CREATIVE_DIRECTOR_MAX_TOKENS` 9000, `CREATIVE_MAX_REPAIRS` 1, `CREATIVE_MAX_THUMBNAILS` 10,
+  `CREATIVE_AI_TIMEOUT_MS` 100000, `CREATIVE_CURATE` (on unless "off"; `CREATIVE_CURATE_MAX_TOKENS` 3500),
+  `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt).
 * `CREATIVE_DAILY_USD_CAP` **$6/day** for all Creative AI calls on the server (estimated from tokens × the configured
   per-million prices, reseeded from the ledger after a restart); `CREATIVE_ACCOUNT_DAILY_PLANS` **20** direction calls per
-  account per day (repairs count). When a limit is reached the studio falls back to the built-in director and says why.
+  account per day (repairs count; picture and claim checks are not directions but count toward the $6). When a limit is
+  reached the studio falls back to the built-in director (or ranking-only pictures) and says why.
 * No credits are charged for Creative (review only); Business pricing is unchanged. Ledger costs are **estimates**
   from token counts; the provider invoice is the real charge.
 
@@ -144,16 +176,16 @@ to a sourced line in the studio turns it into the owner's words and removes its 
 
 ## Cost and allowance
 
-Business pricing and behaviour are unchanged. Creative stage 1, per page:
+Business pricing and behaviour are unchanged. No credits are charged for Creative (review only). Per page:
 
-* **paid AI calls: 0. Generated images: 0. Credits: 0.** Research is read-only, like `/api/redesign/extract`: it
-  charges nothing, creates nothing, and is rate-limited like generation (`generationRateLimit`, per account).
-* research: ≈ 10–14 requests to Wikipedia / Wikimedia Commons (summary, article text, article files, two Commons
-  searches, licence metadata in batches of 40, ≤ 6 picture downloads of ≤ 4 MB each, stopping at 14 MB) — measured
-  in the review run and recorded per page in `creative-ledger.jsonl` (requests, bytes, ms, `paidCalls: 0`, `usd: 0`).
-* server cost is bandwidth and storage: the pictures are stored once per project (content-addressed, deduplicated).
-* A model-directed plan (stage 2) and any paid image generation are **not** built; they need an explicit budget
-  decision first. The validator already accepts any plan source, so a model plan would pass the same checks.
+* **research** (no AI): ≈ 15–35 requests to Wikipedia / Wikimedia Commons (summary, article text, article files,
+  Commons searches, licence metadata, ≤ 16 shortlist thumbnails of ≤ 300 KB, ≤ 7 picture downloads of ≤ 4 MB, stopping
+  at 16 MB), recorded in the ledger (`creative_research`: requests, bytes, ms, `usd: 0`).
+* **AI calls** (estimated from token counts × configured prices; the invoice is the real charge): understanding
+  ~$0.004; picture check ~$0.01; direction ~$0.10–0.15 per attempt (one repair at most); claim check ~$0.005–0.01
+  per attempt (≤ 2 calls). Typical page: **$0.13–0.35**, 60–150 s. Measured figures for each review run are in
+  `CREATIVE_PROGRESS.md`.
+* No image generation, no OpenAI. Pictures are stored once per project (content-addressed, deduplicated).
 
 ## Verification
 
@@ -171,19 +203,28 @@ Business pricing and behaviour are unchanged. Creative stage 1, per page:
   direction → one repair → labelled fallback; limits; ledger). Mocks answer as `mock-creative-*` and every plan they
   produce is labelled MOCKED; they test plumbing, not creative quality.
 * Real model: `node test/review/creative-review.js <outDir> --remote=https://www.siteremade.com
-  --briefs=test/fixtures/creative-briefs-ai.js` with `CREATIVE_REVIEW_EMAIL` / `CREATIVE_REVIEW_PASSWORD` for a review
-  account — the deployed studio with the real model, within the deployed limits; set A was fixed before tuning, set B
-  after the implementation. `--provider=mock` runs the same harness locally against the mock.
+  --briefs=test/fixtures/creative-briefs-r3.js` with `CREATIVE_REVIEW_EMAIL` / `CREATIVE_REVIEW_PASSWORD` for a review
+  account — the deployed studio with the real model, within the deployed limits. Each round's brief file says which
+  briefs were fixed before tuning and which were unseen; the supplied-artwork brief is reported apart from automatic
+  sourcing. `--provider=mock` runs the same harness locally against the mock (`MOCK_CREATIVE=ok|repair|invalid|error|
+  claims|claims-missing|claims-noevidence|claims-conflict|claims-error|claims-junk`).
+* Diagnostics: `research(u, { trace: [] })` records every candidate with its score, kind, verdict and why it was kept
+  or dropped.
+* Stability: `test/fixtures/creative-saved-stage2.json` is a page saved by the stage-2 code; it must reopen unchanged.
 
 ## Stages
 
 1. **Stage 1:** review-mode switch; understanding; Wikipedia/Commons research with provenance; pixel assessment and
    background removal; deterministic director; validator; renderer; studio; save / reopen; export; tests.
-2. **Stage 2 (this change):** AI creative direction — model understanding before research, model-directed v2 scene
-   plans with vision on the real pictures, validator v2 with one repair and a labelled fallback, renderer v2 (scenes,
-   pinning, shapes, words, masks, camera), "Try another direction", Creative-only limits and ledger.
-3. **Next:** generated or licensed imagery within an explicit allowance (the biggest remaining limit: many subjects —
-   trademarked characters, memes, abstract ideas — have no free pictures); faster direction (streaming or a smaller
-   model for a draft); scene-level "redirect this scene"; purchase pricing for Creative; the normal (non-review) flow.
+2. **Stage 2:** AI creative direction — model understanding before research, model-directed v2 scene plans with vision
+   on the real pictures, validator v2 with one repair and a labelled fallback, renderer v2 (scenes, pinning, shapes,
+   words, masks, camera), "Try another direction", Creative-only limits and ledger, claim check.
+3. **Stage 3 (this change):** subject imagery and composition — visual needs and photographable-form queries, query-aware
+   scoring with Commons categories, the picture check before download, picture roles through to the director and the
+   studio, degraded-imagery reporting with uploads, cleaner cutouts, grouped layers, collision order that keeps the
+   subject large, accept/safety validation with layout versions, complete claim-check accounting, kenburns and sheen.
+4. **Next:** an explicit licensed-imagery route (a stock or partner source with redistribution rights, or the owner's
+   licensed artwork) for subjects Commons cannot cover; faster direction (streaming, or a draft from a smaller model);
+   scene-level "redirect this scene"; purchase pricing for Creative; the normal (non-review) flow.
 
 See `CREATIVE_PROGRESS.md` for the running log.

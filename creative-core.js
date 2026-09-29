@@ -888,13 +888,18 @@
       // ---- the subject's imagery: a logo is a reference, never the hero's main picture when a real picture of the
       // subject exists; and a page that should show its subject but cannot is marked degraded, never passed off
       const heroFocal = scenes[0] && scenes[0].layers.find(L => L.role === 'focal');
-      const subjectPics = assets.filter(a => { const k = curOf(a); return k && k.role === 'subject' && (k.identity === 'exact' || k.identity === 'form'); });
+      // (the owner's uploads count as pictures of the subject -- they are the owner's choice -- unless the director saw
+      // that one does not show it)
+      const subjectPics = assets.filter(a => { if (baseOf(a).origin === 'upload') return verdictOf(a) !== 'no'; const k = curOf(a); return k && k.role === 'subject' && (k.identity === 'exact' || k.identity === 'form'); });
       const heroCur = heroFocal && heroFocal.kind === 'image' ? curOf(byId.get(heroFocal.asset)) : null;
       const visuals = c.visuals || null; const coverage = c.coverage || null;
-      const needsImagery = identity.kind !== 'invented' && !(visuals && /^\s*none\b/i.test(visuals.main || ''));
+      // whether the page must show its subject follows what the understanding said it must show; the kind decides only
+      // when nothing was said (a meme or a concept "invented" in the brief can still have a picture it cannot do without)
+      const needsImagery = visuals && visuals.main ? !/^\s*none\b/i.test(visuals.main) : identity.kind !== 'invented';
       if (!safety && needsImagery && subjectPics.length) {
         const use = subjectPics.slice(0, 3).map(a => a.id).join(', ');
         if (heroCur && (heroCur.role === 'logo' || heroCur.role === 'reference')) errors.push(`hero: its main picture ${heroFocal.asset} is a ${heroCur.role} -- use a picture of the subject (${use}); logos and references are supporting material`);
+        else if (heroCur && (heroCur.role === 'supporting' || heroCur.role === 'environment')) errors.push(`hero: its main picture ${heroFocal.asset} shows ${heroCur.role === 'supporting' ? 'a supporting object' : 'a setting'}, not the subject -- ${use} show${subjectPics.length > 1 ? '' : 's'} the subject; lead with it`);
         else if (heroFocal && heroFocal.kind !== 'image') errors.push(`hero: no picture of the subject although ${use} show${subjectPics.length > 1 ? '' : 's'} it -- make one of them the hero's main visual`);
       }
       let imagery;
@@ -1907,7 +1912,7 @@
       const sceneHtml = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode })).join('\n');
       const navItems = plan.scenes.slice(1).filter(s => s.navLabel).slice(0, 5).map(s => `<li><a href="#${esc(s.id)}">${esc(s.navLabel)}</a></li>`).join('') + '<li><a href="#cr-sources">Sources</a></li>';
       const nav = `<header class="cr-nav"><a class="cr-brand" href="#top">${esc(hero.text.heading || plan.identity.name)}</a><nav aria-label="Scenes"><ul class="cr-links">${navItems}</ul><details class="cr-menu"><summary>Contents</summary><ul>${navItems}</ul></details></nav></header>`;
-      const kindNote = plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? 'A work of imagination: nothing on this page describes real events.' : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
+      const kindNote = plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? (citeNo.size ? 'An unofficial page. The numbered lines come from the sources below; everything else on it is imagined.' : 'A work of imagination: nothing on this page describes real events.') : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
       const cited = [...citeNo.keys()].map(k => factById.get(k));
       const sources = `<footer class="cr-foot" id="cr-sources"><details class="cr-sources"><summary>Sources and credits</summary>
         <p class="cr-kinds">${plan.identity.kind === 'personal' ? 'Words about them come from the family. ' : ''}${plan.identity.kind === 'fictional' ? 'Facts marked with a number describe the stories, as reported by the source below. ' : ''}Headlines and lines not marked with a number are written for this page and are not facts.</p>
