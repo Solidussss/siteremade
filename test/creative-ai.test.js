@@ -491,3 +491,9 @@ test('server: limits are explicit -- account cap, off switch, no key', async () 
     const r = await call('POST', '/api/creative/research', { brief: BRIEF }); assert.equal(r.body.understandMeta.source, 'rules');
   });
 });
+
+test('the main picture is never blurred on a new plan; a saved page keeps what it had', () => {
+  const p = basePlan(); p.scenes[0].layers[0].treatment = 'soft';
+  assert.equal(validatePlan2(p, { assets: ASSETS, facts: FACTS }).plan.scenes[0].layers[0].treatment, 'none');
+  assert.equal(validatePlan2(p, { assets: ASSETS, facts: FACTS, mode: 'safety' }).plan.scenes[0].layers[0].treatment, 'soft');
+});

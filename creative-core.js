@@ -930,6 +930,8 @@
       }
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
       scenes.forEach(s => { s.ink = sceneInk(s.background, palette); });
+      // the main subject is never blurred: "soft" is for backdrops and textures (a blurred focal picture read as washed out)
+      if (!safety) scenes.forEach(s => s.layers.forEach(L => { if (L.kind === 'image' && L.role === 'focal' && L.treatment === 'soft') { L.treatment = 'none'; fixes.push(`scene ${s.id}: the main picture is shown sharp (no soft blur)`); } }));
       // a cut-out subject almost the colour of its stage (a black silhouette on a dark scene) gets a light rim so it reads
       scenes.forEach(s => s.layers.forEach(L => {
         const a = L.kind === 'image' && byId.get(L.asset); if (!a || !(a.cutout || (a.assess && a.assess.transparent)) || !(a.assess && typeof a.assess.luminance === 'number')) return;

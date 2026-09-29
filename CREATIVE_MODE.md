@@ -33,9 +33,10 @@ its output is structured data (tool use), validated, then rendered by one render
    ("the Nintendo franchise, not one game"), kind (recognizable / fictional / personal / invented), tone and whether the
    brief asked for it, audience, motifs, uncertainty, the Wikipedia title(s) for that identity, **what the page must
    show** (`visuals`: the main picture it cannot do without, the setting, up to four supporting objects — or "none"
-   for an idea with no likeness) and up to four Commons queries written like Commons file names. For a fictional,
-   branded or trademarked subject the queries look for its **photographable forms** (cosplay, figures, plush, replicas,
-   statues, exhibitions) with its name. A clarification is asked only when a wrong identity would change the page. A
+   for an idea with no likeness) and up to four Commons queries written like Commons file names. For a fictional
+   character or other fictional, branded or trademarked subject the main visual is its **own depiction** (artwork, a
+   render, a sprite, a show or game still) and the queries look for that and for fitting scenery -- never for
+   photographable forms (cosplay, figures, merchandise), which are not the character. A clarification is asked only when a wrong identity would change the page. A
    personal subject's *name* is never researched (only its general type). If the call fails or the budget is used, the
    built-in reader takes over (recorded).
 2. **Research** (`research.js`, same sources): the resolved article, the article's files, a Commons search for the
@@ -48,14 +49,47 @@ its output is structured data (tool use), validated, then rendered by one render
 3. **Picture check** (`ai.curate`, cheap model, one call, ~10 s, ~$0.01): a shortlist of up to 16 candidates, balanced
    across where they came from, is judged from **330-px thumbnails before anything is downloaded**: role (subject /
    environment / supporting / detail / logo / reference / unrelated), identity (exact / **form** = a real-world form such
-   as a cosplayer or figure / related / other), what it depicts, issues (cropped, watermark, text-heavy, busy, …), whether
+   as a cosplayer, figure, merchandise or painted vehicle -- recorded, **never selected, never coverage**, never downloaded
+   or used; a page whose subject has only forms stops at the missing-imagery gate / related / other), what it depicts, issues (cropped, watermark, text-heavy, busy, …), whether
    it could be cut out. It selects a coherent set (the main picture first, complementary roles, no near-duplicates),
    states coverage of the main visual (strong / partial / none) and names the pictures that are **missing**. Only the
    selection is downloaded (≤ 7). The verdicts travel with the assets and are saved with the project, so reopening
    never judges again. Without it (off, over budget, failed) the ranking alone picks, and the studio says so.
+   **Where the pictures stopped** is recorded with the research (`research.diagnostics`): the Commons queries, licence /
+   type / size refusals, low relevance, the candidates ranked below the shortlist (never looked at), every judged
+   candidate with its verdict, licence and outcome; the web search's queries, stop reason or refusal, page and image
+   errors, and every found picture assessed separately for what it shows, technical usability and stated permission.
+   A stage verdict -- none, discovery, identity (only forms), permission, selection, provider, or processing (found but
+   unreadable in the browser) -- is shown at the gate under "What we checked".
+   **Web discovery** (`webimages.js`, `webfetch.js`, `CREATIVE_WEB_DISCOVERY`): when the page needs a picture of its
+   subject and Commons did not cover it, one cheap-model call with Anthropic's **web search** server tool (the existing
+   API key; $10 per 1,000 searches plus tokens; ≤ 3 searches) finds pages that show the subject. The model may submit
+   only URLs the search itself returned. A hardened fetcher reads ≤ 8 of those pages: https on port 443 only, no
+   credentials, every DNS answer checked against private / loopback / link-local / mapped ranges and the connection
+   pinned to the checked address, ≤ 3 redirects each re-checked, timeouts, size caps; no cookies, no sign-in, nothing
+   behind an access control. From each page it takes the declared images (og:image, JSON-LD, large `<img>`), fetches
+   ≤ 10 (≤ 6 MB, ≥ 300 px, real JPEG/PNG/WebP signatures and dimensions — not headers or names), deduplicates by
+   content, and records **permission separately from discovery**: a picture is *free* only when its page states a free
+   licence (Creative Commons BY/BY-SA/CC0/public domain, via rel=license, licence metadata or a licence link) that covers
+   the page's primary image, with a creator to credit when the licence requires one; "All rights reserved" or a
+   NonCommercial/NoDerivatives licence is *restricted*; anything else — an official site, a wiki, a fan page, a
+   transparent PNG, a code licence — is *unclear*. The same picture check judges what was found. Free pictures that show
+   the subject join the page with their source, creator, licence and evidence; relevant restricted or unclear ones (≤ 4)
+   are shown to the owner only as **links to review**.
 4. **Pictures** (browser): size, background, cutouts. A cutout drops separate background patches that touch the frame
    (a wall or window the fill did not reach) and peels pale shadow rims along the subject's base; logos and references
    are never cut out; a doubtful cut stays a framed picture. Original bytes are kept.
+   **Missing imagery — the owner decides before any direction is paid for.** If the page should show its subject and no
+   usable picture of it exists (nothing the check calls subject/detail, no upload), the studio stops and says "We
+   couldn't find usable artwork of X through Wikimedia Commons and a web search" (never "no artwork exists"), with what
+   is missing and the review links. The owner can upload pictures, use a reviewed picture after affirming they have the
+   rights (the server fetches only a URL it just offered; the page credits it as supplied by the owner), search again
+   with their own words (≤ 2; the understanding is reused), or continue with an explicitly **abstract** page. The brief
+   and research are kept whichever they choose; the gate's buttons lock so a repeated click cannot start two directions.
+   **Owner roles for uploads**: main subject / supporting / background / logo / let the page decide. A picture chosen as
+   the main subject **must lead the opening scene** (the director is told; validation swaps it in if not); if it cannot
+   (removed, unreadable, under 300 px) the studio explains before planning. Replacing it later keeps the concept and
+   recomposes only the scenes it appears in.
 5. **Direct** (`ai.direct`, strong model, ~50–100 s, ~$0.10–0.15 estimated per call): the whole page as a **v2 scene
    plan** — a named concept; 2–9 scenes with purpose, height, pinning, camera, background; per scene up to 6 layers
    (pictures, drawn shapes, giant words) with masks, treatments, depth, entrances, ambient loops, scroll movement and
@@ -97,6 +131,10 @@ its output is structured data (tool use), validated, then rendered by one render
    pulse, orbit, bob, **kenburns** — a framed picture drifts and zooms inside its frame — and **sheen** — light
    passes across a picture, the one loop a "still" page keeps); camera moves; atmosphere; the thread between scenes;
    sources and credits in the footer; a complete still composition for reduced motion (pins released, loops off).
+   **Navigation** is handled inside the page: every `#` link (menu, CTA, citation, Sources, back to top) scrolls to its
+   target with the sticky menu's height taken into account, opens Sources when it points there, closes the phone menu,
+   and moves focus; it never navigates the parent — the studio preview is a `srcdoc` frame, where a plain `#id` link
+   would load the parent site. External links open in a new tab. No navigation calls AI.
 9. **Persist**: the accepted plan with its provenance (model, time, estimated cost, attempts), picture verdicts,
    `imagery`, `claims` and `layout.version`; reopening and exporting render it without planning or composing again.
 
@@ -112,7 +150,12 @@ run against a newer server.
   picture check and the claim check), `CREATIVE_MODEL_DIRECTOR` (default the strong model),
   `CREATIVE_DIRECTOR_MAX_TOKENS` 9000, `CREATIVE_MAX_REPAIRS` 1, `CREATIVE_MAX_THUMBNAILS` 10,
   `CREATIVE_AI_TIMEOUT_MS` 100000, `CREATIVE_CURATE` (on unless "off"; `CREATIVE_CURATE_MAX_TOKENS` 3500),
-  `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt).
+  `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt),
+  `CREATIVE_WEB_DISCOVERY` (on unless "off"), `CREATIVE_WEB_SEARCHES` 3 per discovery, `CREATIVE_WEB_SEARCH_USD` 0.01.
+* **Provider unavailable**: an answer saying the account has no usable balance or the key is refused (401/403) stops
+  Creative calling the provider for 10 minutes; every step then says why (research uses the built-in reader and ranking,
+  direction the labelled built-in director). Overloads and timeouts are not treated as an outage. Nothing retries
+  automatically beyond the one repair and the one claim-check follow-up; the studio's requests are single fetches.
 * `CREATIVE_DAILY_USD_CAP` **$6/day** for all Creative AI calls on the server (estimated from tokens × the configured
   per-million prices, reseeded from the ledger after a restart); `CREATIVE_ACCOUNT_DAILY_PLANS` **20** direction calls per
   account per day (repairs count; picture and claim checks are not directions but count toward the $6). When a limit is
@@ -183,7 +226,8 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   at 16 MB), recorded in the ledger (`creative_research`: requests, bytes, ms, `usd: 0`).
 * **AI calls** (estimated from token counts × configured prices; the invoice is the real charge): understanding
   ~$0.004; picture check ~$0.01; direction ~$0.10–0.15 per attempt (one repair at most); claim check ~$0.005–0.01
-  per attempt (≤ 2 calls). Typical page: **$0.13–0.35**, 60–150 s. Measured figures for each review run are in
+  per attempt (≤ 2 calls); web discovery, only when Commons does not cover the subject, ~$0.03–0.08 (≤ 3 searches at
+  $0.01 plus tokens) and a second picture check. Typical page: **$0.13–0.45**, 60–180 s. Measured figures for each review run are in
   `CREATIVE_PROGRESS.md`.
 * No image generation, no OpenAI. Pictures are stored once per project (content-addressed, deduplicated).
 
@@ -210,6 +254,17 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   claims|claims-missing|claims-noevidence|claims-conflict|claims-error|claims-junk`).
 * Diagnostics: `research(u, { trace: [] })` records every candidate with its score, kind, verdict and why it was kept
   or dropped.
+* Web discovery: `node --test test/creative-web.test.js` — refused URLs and addresses (including a public name that
+  resolves privately and a redirect into private space), image signatures, permission evidence, bounded deduplicated
+  discovery, and that the search step can submit only URLs the search returned (no network).
+* Characters: `--briefs=test/fixtures/creative-briefs-characters.js` -- six franchise characters with distinct visual
+  directions; the main visual must be the character's own depiction; with none usable automatically the case stops
+  at the gate (no paid direction) and the diagnostics say where and why.
+* Completion round: `--briefs=test/fixtures/creative-briefs-final.js` (the Pokémon failure, Zelda with the owner's
+  main picture, two pages that already worked, two subjects chosen after the fixes). The harness answers the
+  missing-imagery gate as each case says, marks an upload as the main subject through its menu, and clicks every menu
+  item and CTA inside the studio preview. Run it locally first with `--provider=mock` (`MOCK_CREATIVE=curate-none`
+  forces the gate) — it costs nothing and catches studio-flow breaks before a paid run.
 * Stability: `test/fixtures/creative-saved-stage2.json` is a page saved by the stage-2 code; it must reopen unchanged.
 
 ## Stages
@@ -223,8 +278,9 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
    scoring with Commons categories, the picture check before download, picture roles through to the director and the
    studio, degraded-imagery reporting with uploads, cleaner cutouts, grouped layers, collision order that keeps the
    subject large, accept/safety validation with layout versions, complete claim-check accounting, kenburns and sheen.
-4. **Next:** an explicit licensed-imagery route (a stock or partner source with redistribution rights, or the owner's
-   licensed artwork) for subjects Commons cannot cover; faster direction (streaming, or a draft from a smaller model);
-   scene-level "redirect this scene"; purchase pricing for Creative; the normal (non-review) flow.
+4. **Completion round:** web discovery with permission kept apart from discovery; the missing-imagery gate (upload,
+   reviewed picture with the owner's rights, search again, explicit abstract); owner roles for uploads with an enforced
+   main picture; in-page navigation that works in the studio preview and exports; provider-outage handling; ordered
+   Creative ledger. Creative remains review-only (`?creative=1`), with no Creative pricing.
 
 See `CREATIVE_PROGRESS.md` for the running log.
