@@ -39,7 +39,7 @@ const SUMMARY = `(() => { const S = SiteRemadeCreativeStudio.state(); const p = 
   title: p.hero.title, sections: p.sections.map(s => ({ type: s.type, kind: s.kind, title: s.title || '', items: (s.items || []).length, asset: s.asset || null, assets: s.assets || null })),
   facts: p.facts.length, sources: p.sources, credits: p.credits, derived: p.derived, fixes: S.lastFixes, warnings: S.lastWarnings,
   assets: S.assets.map(a => ({ id: a.id, origin: a.origin, title: a.title, license: a.license || '', author: (a.author || '').slice(0, 80), found: a.found || '', relevance: a.relevance, size: a.assess ? a.assess.width + 'x' + a.assess.height : '', transparent: !!(a.assess && a.assess.transparent), bgUniformity: a.assess && a.assess.background ? a.assess.background.uniformity : null, cutout: !!a.cutout, cutoutOf: a.cutoutOf || null, processing: a.processing || '', removed: !!a.removed, failed: !!a.failed, bytes: a.dataUrl ? Math.round(a.dataUrl.length * 0.75) : 0 })),
-  research: S.research ? { status: S.research.status, page: S.research.page && { title: S.research.page.title, url: S.research.page.url, category: S.research.page.category }, log: S.research.log } : null,
+  research: S.research ? { status: S.research.status, page: S.research.page && { title: S.research.page.title, url: S.research.page.url, category: S.research.page.category }, log: S.research.log, curation: S.research.curation, diagnostics: S.research.diagnostics || null } : null,
   understanding: S.understanding, cost: S.cost, htmlBytes: (S.lastHtml || '').length } })()`;
 
 app.whenReady().then(async () => {

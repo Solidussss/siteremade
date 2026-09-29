@@ -2569,7 +2569,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
           return c;
         } catch (error) { creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
       } : null;
-      result = await creativeResearch.research(understanding, { maxImages: 7, textOnly: understanding.kind === 'personal', titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
+      result = await creativeResearch.research(understanding, { fictional: understanding.kind === 'fictional' || !!(understanding.identity && understanding.identity.kind === 'fictional'), maxImages: 7, textOnly: understanding.kind === 'personal', titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
     }
   } catch (error) {
     console.error('Creative research failed:', error);
