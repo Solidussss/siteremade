@@ -1174,6 +1174,13 @@ function classifyOperationCost(taskType) { return OPERATION_COST_CLASS[taskType]
 // (SITEREMADE_PLAN_MONTHLY_CREDITS, 100, no rollover; verified with the app -- lib/billing.js), and the owner's separate
 // tester allowance (SITEREMADE_TESTER_EMAILS, SITEREMADE_TESTER_DAILY_CREDITS per UTC day, unchanged).
 const SITEREMADE_TESTER_EMAILS = new Set((process.env.SITEREMADE_TESTER_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
+// Separate from the credit tester list so purchase testing can be granted
+// narrowly without changing generation-credit allowances.
+const SITEREMADE_FREE_PURCHASE_TESTER_EMAILS = new Set((process.env.SITEREMADE_FREE_PURCHASE_TESTER_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
+function isFreePurchaseTester(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  return !!(normalized && SITEREMADE_FREE_PURCHASE_TESTER_EMAILS.has(normalized));
+}
 function isTesterAccount(accountId) {
   if (!accountId || SITEREMADE_TESTER_EMAILS.size === 0) return false;
   try {
@@ -2940,7 +2947,7 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
       }
       purchase.cancelIntent(db, req.accountId, open.id);
     }
-    const testerPurchase = isTesterAccount(req.accountId);
+    const testerPurchase = isFreePurchaseTester(req.accountEmail);
     const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: testerPurchase ? 0 : SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
     if (!intentResult.ok) {
       if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
