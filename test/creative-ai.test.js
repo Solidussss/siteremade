@@ -257,8 +257,10 @@ test('server (MOCK provider): the claim check sends unsupported words back once,
     assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 2, 'one repair for the unsupported heading');
     assert.ok(r.body.meta.attempts.every(a => a.claims && a.claims.unsupported === 1));
     const reveal = r.body.plan.scenes.find(s => s.id === 'reveal');
-    assert.equal(reveal.text.heading, 'The reveal', 'the unsupported heading fell back to the scene label');
+    assert.equal(reveal.text.heading, '', 'the unsupported heading is cleared, not replaced by new unchecked words');
+    assert.ok(reveal.layers.length, 'the scene keeps its pictures, so it stays');
     assert.ok(r.body.fixes.some(f => /"Closer" was taken out/.test(f)));
+    assert.deepEqual(r.body.plan.claims, { status: 'verified', checked: r.body.plan.claims.of, of: r.body.plan.claims.of, removed: 1, calls: 1 });
     const rows = ledger(dir);
     assert.equal(rows.filter(x => x.kind === 'creative_claims').length, 2); assert.equal(rows.filter(x => x.kind === 'creative_direct').length, 2);
   });
@@ -268,6 +270,163 @@ test('server (MOCK provider): the claim check sends unsupported words back once,
     const r = await call('POST', '/api/creative/plan', body);
     assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 1); assert.equal(ledger(dir).filter(x => x.kind === 'creative_claims').length, 0);
   });
+});
+
+// ---- accepted designs stay put: a page saved by the stage-2 code, reopened with today's layout rules
+test('stability: a page saved under the previous layout rules reopens unchanged; edits change only what was edited', () => {
+  const saved = require('./fixtures/creative-saved-stage2.json').creative;
+  const reopened = sanitizeCreative(JSON.parse(JSON.stringify(saved)));
+  assert.deepEqual(reopened.plan.scenes, saved.plan.scenes, 'no layer, box, height or region moved');
+  assert.equal(reopened.plan.layout.version, 0, 'marked as composed under the old rules, not silently upgraded');
+  // a text edit: only that text differs
+  const edited = JSON.parse(JSON.stringify(saved)); edited.plan.scenes[1].text.heading = 'A new heading of my own';
+  const e = sanitizeCreative(edited).plan.scenes;
+  const expect = JSON.parse(JSON.stringify(saved.plan.scenes)); expect[1].text.heading = 'A new heading of my own';
+  assert.deepEqual(e, expect);
+  // replacing one picture: that layer shows the new asset, in the same place
+  const swapped = JSON.parse(JSON.stringify(saved)); const L = swapped.plan.scenes.flatMap(s => s.layers).find(x => x.kind === 'image' && x.role === 'focal');
+  const other = swapped.assets.find(a => a.origin === 'research' && a.id !== L.asset && !a.cutoutOf && a.id !== (swapped.assets.find(b => b.id === L.asset) || {}).cutoutOf);
+  const before = JSON.parse(JSON.stringify(L)); L.asset = other.id;
+  const after = sanitizeCreative(swapped).plan.scenes.flatMap(s => s.layers).find(x => x.id === L.id);
+  assert.equal(after.asset, other.id); assert.deepEqual(after.box, before.box); assert.deepEqual(after.entrance, before.entrance); assert.deepEqual(after.scroll, before.scroll);
+  // an explicit recompose is the only way to today's rules
+  const recomposed = validatePlan2(saved.plan, { assets: saved.assets, facts: saved.plan.facts }).plan;
+  assert.equal(recomposed.layout.version, require('../lib/creative/validate2').LAYOUT_VERSION);
+});
+
+test('groups: parts of one object render inside one wrapper that carries the motion; members keep their relative places', () => {
+  const p = basePlan(); p.scenes[1] = { id: 'sword', purpose: 'p', height: 'screen', text: { heading: 'A sword', region: 'right' }, layers: [
+    { id: 'blade', kind: 'shape', role: 'focal', group: 'sword', shape: { form: 'line' }, box: box([20, 5, 6, 80], [40, 5, 6, 80]), entrance: { kind: 'descend' }, loop: { kind: 'float' }, scroll: { kind: 'parallax', amount: 0.3 } },
+    { id: 'hilt', kind: 'shape', role: 'support', group: 'sword', shape: { form: 'cross' }, box: box([15, 55, 16, 8], [35, 55, 16, 8]), entrance: { kind: 'pop' }, loop: { kind: 'sway' } },
+  ] };
+  const { plan } = validatePlan2(p, { assets: ASSETS, facts: FACTS });
+  const html = renderCreative2(plan, ASSETS, {});
+  const g = html.slice(html.indexOf('data-kind="group"')); const wrap = g.slice(0, g.indexOf('ly-group-art'));
+  assert.match(wrap, /data-scroll="parallax"/); assert.match(wrap, /data-entrance="descend"/); assert.match(wrap, /data-loop="float"/);
+  const inner = g.slice(g.indexOf('ly-group-art'), g.indexOf('</section>'));
+  assert.equal((inner.match(/data-entrance="none"/g) || []).length, 2, 'members have no entrance of their own'); assert.match(inner, /data-loop="sway"/, 'a member keeps its own ambient loop');
+  // moving the focal clear of the words moves the whole object
+  const q = basePlan(); q.scenes[1] = { id: 'sword', purpose: 'p', height: 'screen', text: { heading: 'A sword', region: 'right', body: 'It waits.' }, layers: [
+    { id: 'blade', kind: 'shape', role: 'focal', shape: { form: 'line' }, box: box([46, 5, 8, 80]) },
+    { id: 'hilt', kind: 'shape', role: 'support', shape: { form: 'cross' }, box: box([44, 55, 12, 8]) }] };
+  const s = validatePlan2(q, { assets: ASSETS, facts: FACTS }).plan.scenes[1];
+  const blade = s.layers.find(L => L.id === 'blade'), hilt = s.layers.find(L => L.id === 'hilt');
+  assert.equal(blade.group, hilt.group, 'the hilt lying on the blade became part of it');
+  assert.ok(Math.abs((hilt.box.d[0] - blade.box.d[0]) - (44 - 46)) < 0.5, 'their relative placement is unchanged');
+});
+
+test('imagery: a logo is never the hero when a picture of the subject exists; a missing subject is marked degraded', () => {
+  const pics = [A('r5', { curation: { role: 'logo', identity: 'related', depicts: 'a wordmark' } }), A('r6', { curation: { role: 'subject', identity: 'form', depicts: 'a cosplayer dressed as the hero' } })];
+  const p = basePlan(); p.scenes[0].layers = [{ kind: 'image', role: 'focal', asset: 'r5', mask: 'window', box: box([55, 8, 38, 60]) }];
+  const v = validatePlan2(p, { assets: pics, facts: FACTS, visuals: { main: 'the hero himself' } });
+  assert.ok(v.errors.some(e => /is a logo -- use a picture of the subject \(r6\)/.test(e)));
+  p.scenes[0].layers = [{ kind: 'image', role: 'focal', asset: 'r6', mask: 'arch', box: box([55, 8, 38, 60]) }];
+  assert.equal(validatePlan2(p, { assets: pics, facts: FACTS }).plan.imagery.status, 'form');
+  // nothing shows the subject: the plan is kept, but labelled degraded with what is missing
+  p.scenes[0].layers = [{ kind: 'shape', role: 'focal', shape: { form: 'triangle' }, box: box([55, 8, 38, 60]) }];
+  const d = validatePlan2(p, { assets: [], facts: FACTS, coverage: { coverage: 'none', missing: ['a clear picture of the character himself'] } }).plan.imagery;
+  assert.equal(d.status, 'missing'); assert.equal(d.degraded, true); assert.deepEqual(d.missing, ['a clear picture of the character himself']);
+  // an intentionally geometric brief is not degraded
+  assert.equal(validatePlan2(p, { assets: [], facts: FACTS, visuals: { main: 'none -- a pure geometry piece' } }).plan.imagery.status, 'not-needed');
+  // a picture the check found unrelated is never used
+  const u = basePlan(); u.scenes[0].layers.push({ kind: 'image', role: 'support', asset: 'x1', mask: 'window', box: box([10, 60, 20, 20]) });
+  const w = validatePlan2(u, { assets: ASSETS.concat([A('x1', { curation: { role: 'unrelated', identity: 'other', depicts: 'a street parade' } })]), facts: FACTS });
+  assert.ok(!w.plan.scenes[0].layers.some(L => L.asset === 'x1')); assert.ok(w.fixes.some(f => /a street parade/.test(f)));
+});
+
+test('research: directed results must match their own search, logos are recognised by their categories, one shoot counts once', async () => {
+  const { research } = require('../lib/creative/research');
+  const info = (t, extra) => Object.assign({ imageinfo: [{ url: 'https://upload.wikimedia.org/x.jpg', thumburl: 'https://upload.wikimedia.org/x.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/' + encodeURIComponent(t), width: 3000, height: 2000, mime: 'image/jpeg', extmetadata: Object.assign({ LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: 'Someone' } }, extra || {}) }] }, { title: t });
+  const files = {
+    'File:Volksfestumzug in Hof 20230728 HOF04609.jpg': info('File:Volksfestumzug in Hof 20230728 HOF04609.jpg', { ImageDescription: { value: 'Street parade' } }),
+    'File:Volksfestumzug in Hof 20230728 HOF04610.jpg': info('File:Volksfestumzug in Hof 20230728 HOF04610.jpg', { ImageDescription: { value: 'Street parade' } }),
+    'File:Link cosplay at a convention 2025.jpg': info('File:Link cosplay at a convention 2025.jpg'),
+    'File:Ocarina Chronicle.png': (() => { const x = info('File:Ocarina Chronicle.png', { Categories: { value: 'Video game logos|Ocarina' } }); x.imageinfo[0].mime = 'image/png'; return x; })(),
+  };
+  const fetchImpl = async url => {
+    const json = x => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => JSON.stringify(x), arrayBuffer: async () => new ArrayBuffer(0) });
+    if (/rest_v1\/page\/summary/.test(url)) return json({ type: 'standard', title: 'Ocarina', description: 'a game', extract: 'Ocarina is a game about a hero in a green tunic who explores a kingdom.' });
+    if (/prop=extracts/.test(url)) return json({ query: { pages: { 1: { extract: 'Ocarina is a game about a hero in a green tunic who explores a kingdom of forests.' } } } });
+    if (/prop=images/.test(url)) return json({ query: { pages: { 1: { images: [] } } } });
+    if (/list=search/.test(url)) return json({ query: { search: /cosplay/.test(decodeURIComponent(url)) ? Object.keys(files).map(title => ({ title })) : [] } });
+    if (/prop=imageinfo/.test(url)) return json({ query: { pages: Object.fromEntries(Object.values(files).map((v, i) => [i, v])) } });
+    return { ok: true, status: 200, headers: { get: () => 'image/jpeg' }, arrayBuffer: async () => new ArrayBuffer(8) };
+  };
+  const trace = [];
+  await research({ query: 'Ocarina' }, { fetchImpl, queries: ['Link cosplay Ocarina'], trace, maxImages: 3 });
+  const row = t => trace.find(x => x.title === t && x.relevance != null);
+  assert.ok(row('File:Link cosplay at a convention 2025.jpg').picked, 'the photo that matches its search is picked');
+  assert.equal(row('File:Link cosplay at a convention 2025.jpg').kind, 'form');
+  assert.equal(row('File:Ocarina Chronicle.png').kind, 'logo', 'a wordmark whose name hides it is known by its categories');
+  assert.ok(row('File:Ocarina Chronicle.png').relevance < row('File:Link cosplay at a convention 2025.jpg').relevance);
+  assert.ok(!row('File:Volksfestumzug in Hof 20230728 HOF04609.jpg').picked && !row('File:Volksfestumzug in Hof 20230728 HOF04610.jpg').picked, 'a large photo matching nothing is not picked for its size');
+});
+
+// ---- the claim check's accounting, against a scripted checker (every failure mode found in stage 2)
+const LIM = ai.limits({});
+const claimPlan = () => validatePlan2({ identity: { name: 'Tunguska event' }, concept: { title: 'The Sky Split', logline: 'A morning in Siberia.' }, scenes: [
+  { id: 'hero', purpose: 'p', layers: [{ kind: 'shape', role: 'focal', shape: { form: 'circle' }, box: box([55, 10, 35, 60]) }], text: { heading: 'The Sky Split', kicker: 'Behold', body: 'Trees fell across the forest.', kind: 'sourced', cite: 'f1' } },
+  { id: 'wave', purpose: 'p', layers: [], text: { kicker: 'Measured', heading: 'A shockwave that circled the planet', body: 'Windows broke far away.', kind: 'sourced', cite: 'f2' } },
+  { id: 'rest', purpose: 'p', layers: [{ kind: 'image', role: 'focal', asset: 'r1', box: box([55, 10, 35, 70]) }], text: { heading: 'The forest remembers', items: [{ text: 'A stone the width of a stadium.', kind: 'imagined' }] } },
+] }, { assets: ASSETS, facts: [{ id: 'f1', text: 'Trees fell across 2,150 km2 of forest.' }, { id: 'f2', text: 'The shock wave broke windows hundreds of kilometres away.' }] }).plan;
+const claimInput = { facts: [{ id: 'f1', text: 'Trees fell across 2,150 km2 of forest.' }, { id: 'f2', text: 'The shock wave broke windows hundreds of kilometres away.' }], supplied: { facts: [], memories: [] } };
+// a scripted checker: each call answers with answer(lines, callNo) or throws
+const scripted = answer => { let n = 0; const calls = []; return { calls, deps: { limits: LIM, call: async req => { n++; const asked = JSON.parse(req.content[0].text.split('\n\nGive')[0]).lines; calls.push(asked.map(l => l.ref)); const a = answer(asked, n); if (a instanceof Error) throw a; return { input: a, usage: { input_tokens: 1000, output_tokens: 100 }, model: 'test-checker' }; } } }; };
+const verdictFor = l => (/circled|stadium/.test(l.text) ? { ref: l.ref, verdict: 'unsupported', claim: l.text } : /Behold|Sky Split|remembers|morning|Measured/.test(l.text) ? { ref: l.ref, verdict: 'no-claim' } : { ref: l.ref, verdict: 'supported', evidence: [/Windows/.test(l.text) ? 'f2' : 'f1'] });
+
+test('claim check: every line needs a verdict -- unanswered lines get one follow-up, and only they are asked again', async () => {
+  const s = scripted((lines, n) => ({ lines: (n === 1 ? lines.filter((_, i) => i % 2) : lines).map(verdictFor) }));
+  const c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1);
+  assert.equal(s.calls.length, 2); assert.equal(s.calls[1].length, s.calls[0].length - Math.floor(s.calls[0].length / 2), 'the follow-up asks only the unanswered lines');
+  assert.equal(c.status, 'verified'); assert.equal(c.unresolved.length, 0); assert.deepEqual(c.unsupported.map(u => u.what).sort(), ['heading', 'line 1']);
+});
+
+test('claim check: lines still unanswered after the follow-up are unresolved, never reported as checked', async () => {
+  const s = scripted(lines => ({ lines: lines.slice(1).map(verdictFor) })); // always skips the first line asked
+  const c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1);
+  assert.equal(s.calls.length, 2, 'bounded: the check and one follow-up'); assert.equal(c.status, 'partial'); assert.equal(c.unresolved.length, 1); assert.equal(c.checked, c.lines - 1);
+});
+
+test('claim check: "supported" must point at evidence that exists; unknown refs are ignored; conflicting answers resolve to the stricter', async () => {
+  const s = scripted(lines => ({ lines: lines.map(l => { const v = verdictFor(l); return v.verdict === 'supported' ? Object.assign(v, { evidence: /Trees/.test(l.text) ? [] : ['f99'] }) : v; }).concat([{ ref: 's9.heading', verdict: 'supported', evidence: ['f1'] }, { ref: 'concept.title', verdict: 'unsupported', claim: 'conflict' }]) }));
+  const c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1);
+  assert.ok(c.noEvidence >= 2, 'supported without evidence, or with an id that does not exist, is not a verdict'); assert.ok(c.unknown >= 1, 'answers for lines that were not asked are ignored');
+  assert.equal(c.conflicts, 1); assert.ok(c.unsupported.some(u => u.ref === 'concept.title'), 'no-claim vs unsupported: unsupported holds');
+  assert.equal(c.status, 'partial'); assert.ok(c.unresolved.some(u => /Trees/.test(u.text)));
+});
+
+test('claim check: a failed or malformed check is retried once, then reported as unchecked -- never as verified', async () => {
+  let s = scripted((lines, n) => (n === 1 ? new Error('the model ran out of output room before finishing') : { lines: lines.map(verdictFor) }));
+  let c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1); assert.equal(s.calls.length, 2); assert.equal(c.status, 'verified');
+  s = scripted(() => ({ note: 'no lines here' }));
+  c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1); assert.equal(s.calls.length, 2); assert.equal(c.status, 'unchecked'); assert.equal(c.checked, 0);
+  s = scripted(() => new Error('overloaded'));
+  c = await ai.verifyClaims(claimPlan(), claimInput, s.deps, 1); assert.equal(c.status, 'unchecked'); assert.equal(c.errors.length, 2);
+});
+
+test('claim removal repairs the section: no orphaned headings, kickers or blank scenes; humour stays; the hero keeps a name', () => {
+  const plan = claimPlan(); const lines = ai.claimLines(plan); const pick = re => lines.filter(l => re.test(l.text));
+  // the wave scene loses its heading and its paragraph: a kicker with nothing under it and no picture -> the scene goes
+  let cut = ai.withoutClaims(plan, pick(/circled|Windows/));
+  assert.ok(!cut.plan.scenes.some(s => s.id === 'wave')); assert.ok(cut.notes.some(n => /dropped/.test(n)));
+  assert.equal(cut.plan.scenes[0].text.kicker, 'Behold', 'humour and mood are not touched');
+  // the hero's heading falls back to the subject's name, never to blank or to new words
+  cut = ai.withoutClaims(plan, pick(/^The Sky Split$/)); assert.equal(cut.plan.scenes[0].text.heading, 'Tunguska event');
+  // a scene with a picture keeps its picture when its words go; its emptied list is gone, not left empty
+  cut = ai.withoutClaims(plan, pick(/stadium/)); const rest = cut.plan.scenes.find(s => s.id === 'rest');
+  assert.ok(rest && rest.layers.length); assert.deepEqual(rest.text.items, []);
+  // could not be checked at all: invented prose goes, cited and owner lines stay
+  cut = ai.withoutClaims(plan, [], true); assert.deepEqual(cut.plan.scenes.find(s => s.id === 'rest').text.items, []); assert.equal(cut.plan.scenes[0].text.body, 'Trees fell across the forest.');
+});
+
+test('direction: an unchecked page is accepted only as explicitly degraded, with invented prose removed', async () => {
+  const good = claimPlan(); const planInput = JSON.parse(JSON.stringify(good)); delete planInput.claims;
+  let n = 0;
+  const deps = { limits: Object.assign({}, LIM, { repairs: 1 }), call: async req => { n++; if (req.tool.name === 'submit_creative_plan') return { input: planInput, usage: { input_tokens: 1, output_tokens: 1 }, model: 'test-director' }; throw new Error('checker unavailable'); } };
+  const r = await ai.direct({ facts: claimInput.facts, supplied: claimInput.supplied, assets: ASSETS, thumbnails: [] }, deps);
+  assert.equal(r.ok, true); assert.equal(r.plan.claims.status, 'unchecked'); assert.equal(r.plan.claims.checked, 0);
+  assert.ok(r.warnings.some(w => /could NOT be checked/.test(w)));
+  assert.deepEqual(r.plan.scenes.find(s => s.id === 'rest').text.items, [], 'the invented line is gone');
 });
 
 test('server: limits are explicit -- account cap, off switch, no key', async () => {

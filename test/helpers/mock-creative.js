@@ -47,9 +47,23 @@ function respond(body, env, counters) {
   const usage = { input_tokens: 5200, output_tokens: 2400, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   if (mode === 'error') return { status: 529, body: { error: { message: 'mock: overloaded' } } };
   if (tool === 'submit_creative_understanding') return { status: 200, body: { model: 'mock-creative-understand', usage: { input_tokens: 900, output_tokens: 300 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'u1', name: tool, input: understanding(body) }] } };
+  if (tool === 'submit_creative_curation') {
+    // no vision here: every candidate is called the subject (labelled as a mock), the first MAX are selected
+    const text = payload(body).text; const ids = [...text.matchAll(/Candidate (c\d+):/g)].map(m => m[1]); const max = +((/MAX: (\d+)/.exec(text) || [])[1] || 6);
+    const input = { candidates: ids.map(id => ({ id, role: 'subject', identity: 'exact', depicts: 'mock: not looked at', issues: [], separable: false, quality: 2 })), selection: ids.slice(0, max), coverage: 'partial', missing: ['mock: no real picture check was made'], note: 'mock curation' };
+    return { status: 200, body: { model: 'mock-creative-curate', usage: { input_tokens: 2500, output_tokens: 600 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'k1', name: tool, input }] } };
+  }
   if (tool === 'submit_creative_claims') {
-    const lines = (payload(body).data.lines || []).map(l => ({ ref: l.ref, verdict: mode === 'claims' && /\.heading$/.test(l.ref) && l.text === 'Closer' ? 'unsupported' : 'supported', claim: 'Closer' }));
+    // claims modes: claims (the "Closer" heading is unsupported) | claims-missing (the first answer skips half the
+    // lines) | claims-noevidence ("supported" with no evidence) | claims-conflict (a line answered twice, differently)
+    // | claims-error (the checker fails) | claims-junk (verdicts for refs that were never asked)
     counters.claims = (counters.claims || 0) + 1;
+    if (mode === 'claims-error') return { status: 500, body: { error: { message: 'mock: checker down' } } };
+    const data = payload(body).data; const ev = (data.facts && data.facts[0] && data.facts[0].id) || 'owner';
+    let lines = (data.lines || []).map(l => ({ ref: l.ref, verdict: mode === 'claims' && /\.heading$/.test(l.ref) && l.text === 'Closer' ? 'unsupported' : 'supported', evidence: mode === 'claims-noevidence' ? [] : [ev], claim: 'Closer' }));
+    if (mode === 'claims-missing' && counters.claims === 1) lines = lines.filter((_, i) => i % 2 === 0);
+    if (mode === 'claims-conflict' && lines[1]) lines.push(Object.assign({}, lines[1], { verdict: 'unsupported', claim: 'conflict' }));
+    if (mode === 'claims-junk') lines = [{ ref: 'sX.heading', verdict: 'supported', evidence: [ev] }];
     return { status: 200, body: { model: 'mock-creative-claims', usage: { input_tokens: 1500, output_tokens: 200 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `c${counters.claims}`, name: tool, input: { lines } }] } };
   }
   counters.plans = (counters.plans || 0) + 1;

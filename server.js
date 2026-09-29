@@ -2388,6 +2388,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   }
   if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
   let result = { status: 'skipped', facts: [], images: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
+  let curateMeta = null;
   try {
     const scope = understanding.research ? understanding.research.scope : (understanding.kind === 'recognizable' ? 'subject' : understanding.kind === 'personal' && understanding.query ? 'general-topic' : 'none');
     if (scope !== 'none' && (understanding.query || (understanding.research && understanding.research.wikipediaTitles.length))) {
@@ -2395,7 +2396,17 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       if (choice) titles.unshift(choice);
       // pictures are skipped only for a personal subject (never other animals or people as "theirs") -- an everyday
       // object the model calls a "general topic" still gets its pictures
-      result = await creativeResearch.research(understanding, { maxImages: 7, textOnly: understanding.kind === 'personal', titles, queries: understanding.research ? understanding.research.commonsQueries : [] });
+      // the picture check: one cheap vision call over the shortlist's thumbnails, when AI is on and within budget
+      const curate = creativeAiAvailable() && CREATIVE_AI_LIMITS.curate ? async ({ candidates, max }) => {
+        if (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap) throw new Error('the daily Creative AI budget is used up');
+        try {
+          const c = await creativeAi.curate({ identity: understanding.identity || { name: understanding.subject, kind: understanding.kind }, visuals: understanding.visuals, max, candidates }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+          curateMeta = { source: 'ai', model: c.model, ms: c.ms, usd: c.usd, judged: c.judged, of: c.of };
+          creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: true, model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length, coverage: c.coverage });
+          return c;
+        } catch (error) { creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
+      } : null;
+      result = await creativeResearch.research(understanding, { maxImages: 7, textOnly: understanding.kind === 'personal', titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
     }
   } catch (error) {
     console.error('Creative research failed:', error);
@@ -2409,10 +2420,12 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   const images = (result.images || []).map((i, n) => ({
     id: `r${n + 1}`, origin: 'research', title: i.title, description: i.description, author: i.author, credit: i.credit, license: i.license, licenseUrl: i.licenseUrl,
     pageUrl: i.pageUrl, sourceUrl: i.fileUrl, found: i.found, relevance: i.relevance, width: i.width, height: i.height, mime: i.mime,
+    kind: i.kind || '', curation: i.curation || null,
     retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${i.mime};base64,${i.bytes.toString('base64')}`,
   }));
+  const curation = result.curation ? Object.assign({}, result.curation, curateMeta ? { model: curateMeta.model, ms: curateMeta.ms, usd: curateMeta.usd } : {}) : null;
   premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
-  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log }, images, creditsCharged: 0 });
+  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation }, images, creditsCharged: 0 });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the
@@ -2434,6 +2447,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
     assets, thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
     avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
+    // what the picture check found (coverage of the subject, the pictures that could not be found)
+    coverage: b.coverage && typeof b.coverage === 'object' ? { coverage: ['strong', 'partial', 'none'].includes(b.coverage.coverage) ? b.coverage.coverage : '', missing: arr(b.coverage.missing, 3).map(x => clean(x, 160)).filter(Boolean), note: clean(b.coverage.note, 240) } : null,
   };
   const startedAt = Date.now();
   let r;

@@ -142,11 +142,13 @@
       asset.assess = a; asset.illustration = ILLUSTRATION.test((asset.title || '') + ' ' + (asset.description || ''));
       asset.caps = C.assets.capabilities(asset);
       var out = [asset];
-      if (!a.transparent && a.background && a.background.uniformity >= 0.8) {
+      // a logo or a map is never lifted out as a floating layer
+      var reference = asset.curation && (asset.curation.role === 'logo' || asset.curation.role === 'reference');
+      if (!a.transparent && !reference && a.background && a.background.uniformity >= 0.8) {
         var cut = C.assets.cutout(px.img, { holes: !asset.illustration });
         if (cut.clean && cut.img) {
           var cropped = C.assets.crop(cut.img, cut.bbox, 0.02); var ca = C.assets.assess(cropped);
-          var derived = { id: 'c-' + asset.id, origin: 'derived', cutout: true, cutoutOf: asset.id, title: asset.title, alt: asset.alt, relevance: asset.relevance, illustration: asset.illustration,
+          var derived = { id: 'c-' + asset.id, origin: 'derived', cutout: true, cutoutOf: asset.id, title: asset.title, alt: asset.alt, relevance: asset.relevance, illustration: asset.illustration, kind: asset.kind, curation: asset.curation,
             dataUrl: toDataUrl(cropped, 'image/png'), mime: 'image/png', assess: ca, processing: 'Background removed in the browser (plain background, edge flood fill, ' + Math.round(cut.removedShare * 100) + '% removed), cropped to the subject' };
           derived.caps = C.assets.capabilities(derived); out.push(derived);
           asset.processing = 'Cut out as a separate layer (see its cutout)';
@@ -214,7 +216,7 @@
       var note = d.research.page ? d.research.page.title + ' · ' + (d.research.facts || []).length + ' facts · ' + d.images.length + ' pictures' : (u.kind === 'fictional' || u.kind === 'invented') && !d.research.page ? 'Nothing looked up' : 'Nothing found — the page uses your words and pictures';
       step('research', 'done', note + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + 's)');
       step('pictures', 'active');
-      var research = (d.images || []).map(function (i) { return { id: i.id, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl }; });
+      var research = (d.images || []).map(function (i) { return { id: i.id, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl, kind: i.kind || '', curation: i.curation || null }; });
       // keep the owner's uploads; research pictures are replaced by this run's
       S.assets = S.assets.filter(function (a) { return a.origin === 'upload' || (a.origin === 'derived' && S.assets.some(function (b) { return b.id === a.cutoutOf && b.origin === 'upload'; })); });
       var todo = research.filter(function (a) { return !S.assets.some(function (b) { return b.id === a.id; }); });
@@ -246,7 +248,7 @@
     return Object.assign({}, local, { kind: u.kind === 'invented' ? 'fictional' : u.kind === 'ambiguous' ? 'recognizable' : u.kind, subject: u.subject || local.subject, name: u.name || local.name, species: u.species || local.species, noun: u.noun || local.noun, query: u.query, tone: TONE_MAP[u.tone && u.tone.register] || local.tone, brief: S.brief });
   }
   function inventory() {
-    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime }; });
+    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime, kind: a.kind, curation: a.curation }; });
   }
   // small thumbnails so the director can SEE what each picture depicts (transparent cutouts shown on grey)
   function thumbnails() {
@@ -264,12 +266,12 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()) } });
+      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
       if (r.ok && d.ok && d.plan) {
-        var v = C.validate2.validatePlan2(d.plan, ctx2()); var plan = v.plan; if (S.fixture) plan.fixture = S.fixture;
+        var v = C.validate2.validatePlan2(d.plan, Object.assign(ctx2(), { mode: 'safety' })); var plan = v.plan; // accepted by the server: kept as composed if (S.fixture) plan.fixture = S.fixture;
         // the server and the studio both validate: each note once
         var uniq = function (xs) { return xs.filter(function (x, i) { return xs.indexOf(x) === i; }); };
         S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings));
@@ -323,7 +325,8 @@
     S.plan = settle(plan);
   }
   function live() { return S.assets.filter(function (a) { return !a.removed && !a.failed; }); }
-  function settle(plan) { var v = plan.v === 2 ? C.validate2.validatePlan2(plan, ctx2()) : C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
+  // edits, picture swaps and reopening keep the accepted layout (safety checks only); recompose is the owner's explicit choice
+  function settle(plan, mode) { var v = plan.v === 2 ? C.validate2.validatePlan2(plan, Object.assign(ctx2(), { mode: mode || 'safety' })) : C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
 
   // ---------- preview ----------
   function srcFor(a) {
@@ -387,10 +390,19 @@
     var meta = m.source === 'ai' || m.source === 'mock' ? '<p class="cs-hint">' + esc(m.model || '') + ' · ' + ((m.ms || 0) / 1000).toFixed(1) + ' s · ' + (m.attempts || 1) + ' call' + ((m.attempts || 1) > 1 ? 's (one repair)' : '') + ' · about $' + (m.usdEstimated || 0).toFixed(3) + ' (estimated)</p>' : '<p class="cs-hint">Why: ' + esc(m.reason || 'AI direction is not available here') + '</p>';
     var ident = u.identity ? '<p class="cs-hint">Understood as: <strong>' + esc(u.identity.name) + '</strong> — ' + esc(u.identity.what || u.identity.kind) + (u.tone && u.tone.register ? ' · tone: ' + esc(u.tone.register) : '') + (u.motifs && u.motifs.length ? ' · motifs: ' + esc(u.motifs.slice(0, 5).join(', ')) : '') + '</p>' + (u.uncertainty && u.uncertainty.length ? '<p class="cs-hint">Uncertain: ' + esc(u.uncertainty.join(' · ')) + '</p>' : '') : '';
     var missing = p.v === 2 ? p.wants.filter(function (w) { return w.status === 'missing'; }) : [];
-    var wants = missing.length ? '<div class="cs-wants"><p><strong>The direction wanted, but no usable picture exists:</strong></p><ul>' + missing.map(function (w) { return '<li>' + esc(w.description) + (w.fallback ? ' <small>— instead: ' + esc(w.fallback) + '</small>' : '') + '</li>'; }).join('') + '</ul><button type="button" class="cs-btn cs-ghost" id="csWantUpload">Upload a picture</button></div>' : '';
+    var wants = missing.length ? '<div class="cs-wants"><p><strong>The direction wanted, but no usable picture exists:</strong></p><ul>' + missing.map(function (w) { return '<li>' + esc(w.description) + (w.fallback ? ' <small>— instead: ' + esc(w.fallback) + '</small>' : '') + '</li>'; }).join('') + '</ul><button type="button" class="cs-btn cs-ghost" data-upload>Upload a picture</button></div>' : '';
+    // the subject's imagery: degraded is said out loud, with the one picture that would fix it
+    var im = p.v === 2 && p.imagery; var imagery = '';
+    if (im && im.degraded) imagery = '<div class="cs-degraded"><p><strong>Degraded: ' + esc(im.note || 'the subject itself is not shown') + '.</strong></p>' + (im.missing && im.missing.length ? '<p>Missing: ' + im.missing.map(esc).join(' · ') + '</p>' : '') + '<p class="cs-hint">No free-licence picture of it was found. Upload one (your own, or one you have the rights to) and the page will use it.</p><button type="button" class="cs-btn" data-upload>Upload the missing picture</button></div>';
+    else if (im && im.status === 'form') imagery = '<p class="cs-hint">Shown through a real-world form: ' + esc(im.note || '') + '</p>';
+    var cur = S.research && S.research.curation;
+    var check = cur ? '<p class="cs-hint">Picture check: ' + (cur.source === 'ai' ? 'the subject is ' + ({ strong: 'well covered', partial: 'only partly covered', none: 'not covered' }[cur.coverage] || 'unknown') + ' (' + (cur.judged || 0) + ' of ' + (cur.of || 0) + ' candidates looked at' + (cur.usd ? ', about $' + Number(cur.usd).toFixed(3) : '') + ')' : 'keyword ranking only — ' + esc(cur.reason || 'no picture check')) + '</p>' : '';
+    var cl = p.v === 2 && p.claims; var claims = '';
+    if (cl) claims = cl.status === 'verified' ? '<p class="cs-hint">Words checked against the facts: every line (' + cl.checked + ')' + (cl.removed ? ' · ' + cl.removed + ' unsupported line(s) taken out' : '') + '</p>' : cl.status === 'partial' ? '<p class="cs-warn">Words only partly checked: ' + cl.checked + ' of ' + cl.of + ' lines; the rest were taken out.</p>' : cl.status === 'unchecked' ? '<p class="cs-warn">The words could NOT be checked against the facts; invented paragraphs were left out.</p>' : '<p class="cs-hint">Claim check off.</p>';
+    var old = p.v === 2 && p.layout && p.layout.version < C.validate2.LAYOUT_VERSION ? '<p class="cs-hint">This page was composed under older layout rules and stays exactly as saved. <button type="button" class="cs-btn cs-ghost" id="csRecompose">Re-apply today\'s layout rules</button></p>' : '';
     var lim = p.v === 2 && p.limitations.length ? '<details><summary>Limitations noted by the director (' + p.limitations.length + ')</summary><ul>' + p.limitations.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '';
     var hist = (S.history || []).length ? '<details><summary>Earlier directions (' + S.history.length + ')</summary><ul>' + S.history.map(function (h) { return '<li>' + esc(h.title ? h.title + ': ' : '') + esc(h.logline) + ' <small>(' + esc(h.source) + ')</small></li>'; }).join('') + '</ul></details>' : '';
-    return '<div class="cs-direction">' + badge + head + meta + ident + wants + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
+    return '<div class="cs-direction">' + badge + head + meta + ident + imagery + check + claims + wants + old + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
   }
   function buildEditor() {
     showFixture();
@@ -405,7 +417,8 @@
     dp.innerHTML = directionPanel();
     document.getElementById('csAnother').addEventListener('click', function () { anotherDirection(); });
     if (document.getElementById('csPrevious')) document.getElementById('csPrevious').addEventListener('click', previousDirection);
-    if (document.getElementById('csWantUpload')) document.getElementById('csWantUpload').addEventListener('click', function () { els.csUpload.click(); });
+    [].forEach.call(dp.querySelectorAll('[data-upload]'), function (b) { b.addEventListener('click', function () { els.csUpload.click(); }); });
+    if (document.getElementById('csRecompose')) document.getElementById('csRecompose').addEventListener('click', function () { S.plan = settle(S.plan, 'accept'); refresh(); buildEditor(); markDirty(); });
     // words
     var words = root.querySelector('[data-panel="words"]');
     words.innerHTML = '<p class="cs-hint">Edits show on the page as you type (the design stays as it is). A fact you rewrite becomes your own words and loses its source mark.</p>' + (S.plan.v === 2 ? fieldsFor2(S.plan) : fieldsFor(S.plan)).map(function (g) {
@@ -449,6 +462,7 @@
         return '<div class="cs-pic' + (a.failed ? ' is-failed' : '') + '"><img src="' + esc(cut ? cut.dataUrl : a.dataUrl) + '" alt=""' + (cut ? ' class="is-cut"' : '') + '>'
           + '<div><strong>' + esc(C.render.cleanTitle(a.title).slice(0, 70)) + '</strong><small>' + (a.pageUrl ? '<a href="' + esc(a.pageUrl) + '" target="_blank" rel="noopener">' + src + '</a>' : src) + '</small>'
           + '<small>' + (a.assess ? a.assess.width + '×' + a.assess.height : '') + ' · ' + esc(cut ? cutRole : role) + '</small><small class="cs-proc">' + esc((cut && cut.processing) || a.processing || '') + '</small>'
+          + (a.curation ? '<small class="cs-seen' + (a.curation.role === 'unrelated' || a.curation.identity === 'other' ? ' is-no' : '') + '">Picture check: ' + esc(a.curation.depicts || '') + ' — ' + esc({ subject: 'the subject', environment: 'a setting', supporting: 'supporting', detail: 'a detail', logo: 'a logo (reference only)', reference: 'a reference (map, diagram…)', unrelated: 'unrelated' }[a.curation.role] || a.curation.role) + (a.curation.identity === 'form' ? ', a real-world form (costume, figure, replica)' : '') + (a.curation.issues && a.curation.issues.length ? ' · ' + esc(a.curation.issues.join(', ')) : '') + '</small>' : '')
           + (function () { var n = S.plan && S.plan.v === 2 && S.plan.assetNotes.find(function (x) { return x.asset === a.id || (cut && x.asset === cut.id); }); return n ? '<small class="cs-seen' + (n.matches === 'no' ? ' is-no' : '') + '">The director saw: ' + esc(n.depicts) + ' — ' + (n.matches === 'yes' ? 'shows the subject' : n.matches === 'partly' ? 'partly the subject' : n.matches === 'no' ? 'not the subject, so not used' : 'unsure') + '</small>' : ''; })()
           + '<div class="cs-pic-actions"><button type="button" data-main="' + esc(cut ? cut.id : a.id) + '">Use as main</button><button type="button" data-replace="' + esc(a.id) + '">Replace…</button><button type="button" data-remove="' + esc(a.id) + '">Remove</button></div></div></div>';
       }).join('') + '<button type="button" class="cs-btn cs-ghost" id="csAddPic">+ Add a picture</button>';

@@ -82,6 +82,8 @@ body.cs-open{overflow:hidden}
 .cs-src{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:99px;margin-bottom:6px}
 .cs-src.is-ai{background:#1f3b2a;color:#8ee2a8}.cs-src.is-mock{background:#4a3b10;color:#ffd866}.cs-src.is-fallback{background:#43222a;color:#ffabb8}
 .cs-wants{background:#221d10;border:1px solid #4d3f14;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px}.cs-wants ul{margin:4px 0 8px;padding-left:18px}
+.cs-degraded{background:#2a1414;border:1px solid #7a2e2e;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px}.cs-degraded p{margin:0 0 6px}
+.cs-warn{color:#f0b3a3;font-size:12.5px;margin:4px 0}
 .cs-dir-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .cs-seen{color:#b9c7ff!important}.cs-seen.is-no{color:#ff9b9b!important}
 .cs-scenes{padding-left:18px;font-size:13px;color:#cfcdd6}.cs-scenes li{margin-bottom:6px}
