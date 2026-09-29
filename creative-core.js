@@ -837,6 +837,13 @@
         const w = Math.min(100, b[2] * g), h = Math.min(100, b[3] * g); focal.box.d = box([b[0] - (w - b[2]) / 2, b[1] - (h - b[3]) / 2, w, h], b);
         if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged to stay the main visual`);
       }
+      // phones: the words sit above the stage, so the focal can and should fill it
+      const minM = hero ? 3000 : 2000; const rectM = () => (focal.kind === 'image' ? drawnRect(focal, asset, 'm') : focal.box.m.slice());
+      for (let i = 0; i < 4 && area(rectM()) < minM && focal.role !== 'backdrop'; i++) {
+        const b = focal.box.m; const g = Math.min(3, Math.max(1.05, Math.sqrt(minM / Math.max(1, area(rectM()))) * 1.03));
+        const w = Math.min(100, b[2] * g), h = Math.min(100, b[3] * g); focal.box.m = box([b[0] - (w - b[2]) / 2, b[1] - (h - b[3]) / 2, w, h], b);
+        if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged on phones`);
+      }
       if (focal.role === 'backdrop' || focal.box.d[2] >= 90) return; // a full-bleed focal carries the words over a scrim
       // a ghost word or a faint shape behind the words is a background, not something the words hide
       if (focal.kind === 'word' || (focal.kind === 'shape' && focal.opacity < 0.5)) return;

@@ -52,3 +52,37 @@ Read `CREATIVE_MODE.md` first. This file records state and decisions so work can
 - live check (after deploy 6722651015): signed out, "Create the page" opened the sign-in gate *behind* the full-screen
   studio → the studio steps back beneath the gate while it is open; a pending Business brief is set aside during a
   Creative sign-in so it cannot start a Business generation
+
+## Stage 2 — AI creative direction (2026-09-29)
+
+Decisions
+- Two model steps, both structured tool output: understanding (cheap model) BEFORE research; direction (strong model)
+  with thumbnails of the real pictures. Nothing the model writes is executed; `validate2.js` gates every plan.
+- A new plan format (v2: scenes) and renderer (`render2.js`) rather than more slots in v1; v1 stays for saved v1 pages
+  and as the explicit, labelled fallback.
+- One repair call at most; then the built-in director, labelled "Built-in layout — not AI direction" with the reason.
+- Creative-only limits: $6/day server-wide (estimated), 20 directions per account per day, no credits. Ledger rows per call.
+- Real-model validation happens on production (the only place with a model key), in review mode, with one review
+  account whose credentials live outside the repo. Mocks (`mock-creative-*`) test plumbing only and are labelled.
+- Test set A fixed before tuning (toilet paper + another direction, Zelda, synthetic Bubbles, Tunguska); set B after
+  implementation (axolotls, the distracted-boyfriend meme, the Rosetta Stone). No subject-specific prompt or code.
+
+Found by the real-model review and fixed (general fixes only)
+- the production studio ran a cached older `creative.js` against a newer server → files load with the build id
+- "Bubbles" (a personal goldfish) became a Wikipedia question about Michael Jackson's chimpanzee → a personal subject's
+  name is never researched; personal lookups never turn into questions
+- an uncited headline invented a false comparison ("Taller than the Eiffel Tower is wide") → headings/kickers may not
+  add facts; numbers in "imagined" copy must come from a fact (restated → sourced and cited; invented → repair)
+- the model labelled cited paragraphs "imagined", and an embellished line ("endlessly curious") as the owner's words →
+  cited lines are sourced; "supplied" lines must mostly be the owner's words
+- an everyday object the model called a "general topic" got no pictures at all → only personal subjects skip pictures
+- headings broke mid-word in capitals/wide faces; long titles stacked into towers; centred text blocks collapsed to
+  zero width; numbered lists printed "01 1"; the thread crossed edge pictures; a dark cutout vanished on a dark stage;
+  scrims behind ghost words; warnings shown twice; the studio kept the previous page's uploads between pages
+
+Open / next
+- Pictures are the main limit: trademarked characters, memes and abstract subjects have little or no free imagery.
+  The director composes honestly with shapes and type and asks for uploads; it does not substitute other subjects.
+- Direction takes ~50–90 s (one strong-model call); no streaming or draft preview yet.
+- Model self-labelling of copy kinds is imperfect; the validator catches numbers, citations and owner-words, not every
+  factual claim phrased without numbers.
