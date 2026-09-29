@@ -83,6 +83,10 @@ Found by the real-model review and fixed (general fixes only)
 - scenes sized to their text squeezed pictures under the words → scenes with layers get a short stage; the validator's
   text boxes now match the rendered columns; built-on layers (a hilt on a blade) move with the focal; secondaries
   step beside the words before being faded; circles stay round; lines in tall boxes draw vertically
+- a scene whose only picture was labelled "support" skipped composition (words over it) → the largest picture is the
+  main visual; circle masks on wide boxes were cut flat → closest-side
+- a photo clear of the words at rest zoomed over them on scroll → zoom/drift are checked at their largest (with the
+  camera) and reduced, or turned into parallax
 - an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,
   still never from none
 

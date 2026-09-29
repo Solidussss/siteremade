@@ -895,6 +895,19 @@
         if (free) { L.box.d = free; fixes.push(`scene ${scene.id}: ${L.id} moved beside the words`); return; }
         if (L.opacity > 0.35) { L.opacity = 0.3; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: ${L.id} faded behind the words`); }
       });
+      // clear at rest is not enough: a layer that grows or slides on scroll must stay clear at its largest too
+      // (mirrors the runtime: zoom scales by 1 + |amount| * .55, drift-x slides |amount| * 17.5% each way, the camera scales about 60% 55%)
+      const camS = scene.camera === 'push-in' || scene.camera === 'pull-out' ? 1.12 : 1;
+      scene.layers.forEach(L => {
+        const k = L.scroll.kind; if (L.role === 'backdrop' || L.role === 'texture' || !['zoom-in', 'zoom-out', 'drift-x'].includes(k) || L.opacity < 0.5) return;
+        const rest = L.kind === 'image' ? drawnRect(L, byId.get(L.asset), 'd') : L.box.d;
+        const peak = a => { let [x, y, w, h] = rest; if (k === 'drift-x') { const dx = Math.abs(a) * 17.5; x -= dx; w += 2 * dx; } else { const s = 1 + Math.abs(a) * 0.55; x -= w * (s - 1) / 2; y -= h * (s - 1) / 2; w *= s; h *= s; } return [60 + (x - 60) * camS, 55 + (y - 55) * camS, w * camS, h * camS]; };
+        const clear = a => overlap(peak(a), tb) <= area(rest) * 0.02;
+        if (clear(L.scroll.amount) || !clear(0)) return;
+        const a0 = L.scroll.amount; const a = [0.66, 0.33].map(f => Math.round(a0 * f * 100) / 100).find(clear);
+        if (a) { L.scroll.amount = a; fixes.push(`scene ${scene.id}: ${L.id} ${k} reduced so it never grows over the words`); }
+        else { L.scroll = { kind: 'parallax', amount: a0 }; fixes.push(`scene ${scene.id}: ${L.id} ${k} would cross the words -- parallax instead`); }
+      });
     }
 
     module.exports = { validatePlan2, VOCAB, LIMITS, REGION_BOXES, contrast, sceneInk };
