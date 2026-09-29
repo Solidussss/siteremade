@@ -215,3 +215,22 @@ test('a portfolio or art-community picture of a franchise character counts as fa
   });
   assert.equal(out.candidates[0].verdict.origin, 'fan'); assert.match(out.candidates[0].verdict.originBy, /personal work/); assert.deepEqual(fetched, [], 'a fan work is not downloaded');
 });
+
+test('the search follows how the subject is seen: artwork for any drawn or game character (even a "recognizable" one), photos for real things, never stock previews', async () => {
+  const serp = require('../lib/creative/serpapi');
+  assert.match(serp.searchQueries({ identity: { name: 'Kirby', kind: 'recognizable' }, visuals: { depiction: 'artwork' } }, 1)[0].q, /^Kirby official render/);
+  assert.match(serp.searchQueries({ identity: { name: 'Silver Surfer', kind: 'recognizable', what: 'a Marvel Comics superhero' } }, 1)[0].q, /^Silver Surfer official render/, 'keyword fallback when the understanding did not say');
+  const photo = serp.searchQueries({ identity: { name: 'Toilet paper', kind: 'recognizable' }, visuals: { depiction: 'photo' } }, 1)[0].q;
+  assert.match(photo, /^Toilet paper high resolution photo/); assert.match(photo, /-site:shutterstock\.com/); assert.match(photo, /-site:dreamstime\.com/);
+  const { discoverImages, STOCK } = require('../lib/creative/webimages');
+  assert.ok(STOCK.test('www.dreamstime.com') && STOCK.test('stock.adobe.com') && !STOCK.test('www.nintendo.com'));
+  const png = n => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(n, 30); return b; };
+  const fetched = [];
+  await discoverImages({ identity: { name: 'X' } }, {
+    imageSearch: async () => ({ searches: 1, results: [{ title: 'X', pageUrl: 'https://www.dreamstime.com/x', imageUrl: 'https://thumbs.dreamstime.com/x.jpg', thumbUrl: 'https://t.example.org/1', width: 900, height: 900, source: 'Dreamstime', query: 'q', position: 1 }] }),
+    fetchThumb: async u => ({ ok: true, url: u, body: png(1), mime: 'image/png', width: 200, height: 200 }),
+    curate: async () => ({ verdicts: { w1: { role: 'subject', identity: 'exact', origin: 'unknown', depicts: 'X', quality: 3, issues: [] } }, selection: ['w1'], coverage: 'strong', missing: [] }),
+    fetch: async () => ({ ok: false, reason: 'unused' }), fetchImg: async u => { fetched.push(u); return { ok: false, reason: 'unused' }; },
+  });
+  assert.deepEqual(fetched, [], 'a stock-photo preview is treated as watermarked and never downloaded');
+});

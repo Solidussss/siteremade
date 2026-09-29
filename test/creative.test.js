@@ -256,3 +256,12 @@ test('/api/creative/research needs an account and a brief, and does not look up 
     assert.equal(fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').trim() : '', '', 'no provider call');
   } finally { await server.stop(); }
 });
+
+test('the built-in layout credits a picture the owner picked from the web, with no licence claimed', () => {
+  const { plan, assets } = tpPlan();
+  const picked = Object.assign({}, assets.find(a => a.id === 'r1'), { id: 'p1', origin: 'upload', ownerPicked: true, author: 'Example Site', license: '', pageUrl: 'https://www.example.org/pic' });
+  plan.hero.layers[0].asset = 'p1';
+  const v = validatePlan(plan, assets.concat([picked])).plan;
+  const cr = v.credits.find(c => c.asset === 'p1');
+  assert.ok(cr); assert.equal(cr.license, 'no licence stated; chosen by the page owner'); assert.equal(cr.url, 'https://www.example.org/pic');
+});

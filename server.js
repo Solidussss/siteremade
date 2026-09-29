@@ -2492,6 +2492,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
     if (k.identity === 'form') { record(v, k, 'a real-world form (cosplay, figure, merchandise...), not the subject itself'); continue; }
     if (k.role === 'logo' || k.role === 'reference') { record(v, k, 'a logo, reference or interface capture'); continue; }
     if (k.identity === 'exact' && k.origin === 'fan') { record(v, k, 'fan-made, not official artwork'); continue; }
+    if ((k.issues || []).includes('watermark')) { record(v, k, 'watermarked (a stock-photo preview or similar)'); continue; }
     const itself = (k.role === 'subject' || k.role === 'detail') && k.identity === 'exact';
     const free = v.permission && v.permission.status === 'free';
     if (free && v.bytes && c.selection.includes(v.id)) { out.images.push(Object.assign({}, v, { curation: k })); record(v, k, 'used'); }
@@ -2545,7 +2546,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     understanding = Object.assign({}, understanding, {
       kind: ['recognizable', 'fictional', 'invented'].includes(prior.kind) ? prior.kind : 'recognizable', subject: s(prior.subject, 120), query: s(prior.query, 160) || null, source: 'ai',
       identity: { name: s(pi.name, 120), kind: s(pi.kind, 20), what: s(pi.what, 240), confidence: s(pi.confidence, 10) },
-      visuals: { main: s(pv.main, 200), setting: s(pv.setting, 200), supporting: arr(pv.supporting, 4, 120) },
+      visuals: Object.assign({ main: s(pv.main, 200), setting: s(pv.setting, 200), supporting: arr(pv.supporting, 4, 120) }, ['artwork', 'photo', 'none'].includes(pv.depiction) ? { depiction: pv.depiction } : {}),
       research: { scope: pr.scope === 'none' ? 'none' : 'subject', wikipediaTitles: arr(pr.wikipediaTitles, 3, 160), commonsQueries: [refine].concat(arr(pr.commonsQueries, 3, 100)), note: '' },
       tone: prior.tone && typeof prior.tone === 'object' ? { register: s(prior.tone.register, 20), words: arr(prior.tone.words, 5, 30), fromBrief: !!prior.tone.fromBrief } : understanding.tone,
       motifs: arr(prior.motifs, 8, 80), audience: s(prior.audience, 160), uncertainty: arr(prior.uncertainty, 5, 200),

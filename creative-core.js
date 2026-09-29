@@ -526,7 +526,7 @@
       const shown = new Set(); usedAssets(plan).forEach(id => { shown.add(id); const a = assetsById.get(id); if (a && a.cutoutOf) shown.add(a.cutoutOf); });
       plan.credits = plan.credits.filter(c => shown.has(c.asset)); plan.derived = plan.derived.filter(d => shown.has(d.asset));
       const credited = new Set(plan.credits.map(c => c.asset));
-      usedAssets(plan).forEach(id => { const a = assetsById.get(id); const base = a && a.cutoutOf ? assetsById.get(a.cutoutOf) : a; if (base && base.origin !== 'upload' && !credited.has(base.id)) { const c = { asset: base.id, title: str(base.title, 200), author: str(base.author, 200), license: str(base.license, 80), url: /^https:\/\//.test(base.pageUrl || '') ? base.pageUrl : '', licenseUrl: /^https?:\/\//.test(base.licenseUrl || '') ? base.licenseUrl : '' }; plan.credits.push(c); credited.add(base.id); fixes.push(`credits: added the missing credit for ${c.title || base.id}`); } });
+      usedAssets(plan).forEach(id => { const a = assetsById.get(id); const base = a && a.cutoutOf ? assetsById.get(a.cutoutOf) : a; if (base && (base.origin !== 'upload' || base.ownerPicked) && !credited.has(base.id)) { const c = { asset: base.id, title: str(base.title, 200), author: str(base.author, 200), license: base.ownerPicked ? 'no licence stated; chosen by the page owner' : str(base.license, 80), url: /^https:\/\//.test(base.pageUrl || '') ? base.pageUrl : '', licenseUrl: /^https?:\/\//.test(base.licenseUrl || '') ? base.licenseUrl : '' }; plan.credits.push(c); credited.add(base.id); fixes.push(`credits: added the missing credit for ${c.title || base.id}`); } });
       return { plan, fixes, warnings };
     }
     function usedAssets(plan) {
