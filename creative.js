@@ -578,7 +578,7 @@
     if (S.plan && S.plan.v === 2) {
       var hero = S.plan.scenes[0]; var f = hero.layers.find(function (L) { return L.role === 'focal'; });
       S.mainAsset = a.cutoutOf || id; S.assets.forEach(function (x) { if (x.ownerRole === 'main' && x.id !== S.mainAsset) x.ownerRole = 'auto'; });
-      if (f && f.kind === 'image') { f.asset = id; if (a.focus) f.focus = a.focus; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; } }
+      if (f && f.kind === 'image') { f.asset = id; if (a.focus) f.focus = a.focus; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; f.mask = 'none'; } } // a cutout floats free: no frame
       else hero.layers.unshift({ id: 'focal-main', kind: 'image', role: 'focal', asset: id, box: { d: [52, 10, 42, 80], m: [8, 4, 84, 92] }, z: 5, entrance: { kind: 'rise' }, loop: { kind: 'float', amp: 1, period: 9 }, scroll: { kind: 'parallax', amount: 0.3 } });
       S.plan = settle(S.plan, 'safety', [hero.id]); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
     }
