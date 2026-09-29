@@ -567,3 +567,14 @@ test('watermark check: the picked pictures are judged together; the answer is bo
   assert.deepEqual(r.results, { p1: { watermark: true, text: 'HYRO ART' }, p2: { watermark: false, text: '' } });
   assert.ok(r.usd > 0);
 });
+
+test('server (MOCK provider): picked pictures are checked for watermarks; junk is refused; each check is a ledger row', async () => {
+  const png = 'data:image/png;base64,' + Buffer.from('\x89PNG\r\n\x1a\n0000000000000000', 'latin1').toString('base64');
+  await withServer({ MOCK_WATERMARK: 'p2' }, async (call, dir) => {
+    const r = await call('POST', '/api/creative/check-pictures', { pictures: [{ id: 'p1', dataUrl: png }, { id: 'p2', dataUrl: png }] });
+    assert.equal(r.body.ok, true); assert.equal(r.body.results.p1.watermark, false); assert.equal(r.body.results.p2.watermark, true);
+    assert.equal((await call('POST', '/api/creative/check-pictures', { pictures: [{ id: 'x', dataUrl: 'data:text/html;base64,PGI+' }] })).status, 400);
+    for (let i = 0; i < 40 && !ledger(dir).some(x => x.kind === 'creative_picturecheck'); i++) await new Promise(res => setTimeout(res, 50));
+    const row = ledger(dir).find(x => x.kind === 'creative_picturecheck'); assert.ok(row); assert.equal(row.flagged, 1); assert.equal(row.pictures, 2);
+  });
+});
