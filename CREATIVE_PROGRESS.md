@@ -231,3 +231,15 @@ stand-in shapes), one caught by validation, one now in the prompt.
   at the gate with official candidates (none with a stated licence); SpongeBob automatic (Nickelodeon CC BY on Commons).
   BMO's remaining candidates are weak (small official renders; two drawings the check called official look fan-made).
 - Spend: >= 43 SerpApi searches (plus up to ~8 unlogged in two runs), ~$0.5 model calls; no directions.
+
+## Google Images only + owner pick (2026-09-29, fb558c7 → latest)
+- Owner decision: Wikimedia Commons is no longer searched for pictures when SerpApi is configured (Wikipedia still
+  gives the facts). One picture check per page instead of two; one SerpApi search per page; 30-day result cache.
+- The understanding says how a subject is seen (artwork / photo): characters get "<name> official render" (Kirby and
+  Silver Surfer had been labelled "recognizable" and got a photo query); real things get a photo query that excludes
+  stock libraries. Watermarking stock and PNG-stock hosts (Shutterstock ... Pngtree, Magnific) are never offered --
+  a Pngtree preview covered in watermarks had been the toilet-paper top pick.
+- The gate is a pick screen: the best fetchable picture pre-selected as main; "Build with this picture". Picked pictures
+  are credited to their source as "no licence stated; chosen by the page owner" (AI-directed and built-in layouts).
+- Verified on production with the direction blocked (no paid page): all seven cases picked, fetched and made main;
+  pick screen in 14-54 s. Searches used for these checks: 10.

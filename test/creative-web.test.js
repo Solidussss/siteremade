@@ -223,7 +223,7 @@ test('the search follows how the subject is seen: artwork for any drawn or game 
   const photo = serp.searchQueries({ identity: { name: 'Toilet paper', kind: 'recognizable' }, visuals: { depiction: 'photo' } }, 1)[0].q;
   assert.match(photo, /^Toilet paper high resolution photo/); assert.match(photo, /-site:shutterstock\.com/); assert.match(photo, /-site:dreamstime\.com/);
   const { discoverImages, STOCK } = require('../lib/creative/webimages');
-  assert.ok(STOCK.test('www.dreamstime.com') && STOCK.test('stock.adobe.com') && !STOCK.test('www.nintendo.com'));
+  assert.ok(STOCK.test('www.dreamstime.com') && STOCK.test('stock.adobe.com') && STOCK.test('pngtree.com') && STOCK.test('www.magnific.com') && !STOCK.test('www.nintendo.com') && !STOCK.test('pngimg.com'));
   const png = n => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(n, 30); return b; };
   const fetched = [];
   await discoverImages({ identity: { name: 'X' } }, {
