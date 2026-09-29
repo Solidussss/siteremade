@@ -2546,7 +2546,11 @@ function buildImagePlan(project, category, remainingCredits) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
   const composed = project.design.dimensions;
-  const providerConfigured = !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
+  // Business generator intentionally uses SiteRemade's deterministic
+  // mockup/starter visual system for unsupplied imagery. External image
+  // generation is not part of this flow; keeping this false guarantees an
+  // OpenAI/API-key state can never stall or alter a Business generation.
+  const providerConfigured = false;
   const slots = [];
   const pages = (Array.isArray(project.pages) && project.pages.length) ? project.pages : [{ slug: '', sections: project.sections || [] }];
   const homePage = pages[0];
