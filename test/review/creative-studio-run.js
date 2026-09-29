@@ -37,6 +37,7 @@ const SUMMARY = `(() => { const S = SiteRemadeCreativeStudio.state(); const p = 
   understanding: S.understanding, cost: S.cost, htmlBytes: (S.lastHtml || '').length } })()`;
 
 app.whenReady().then(async () => {
+  await require('electron').session.defaultSession.clearCache(); // a review must never run a cached older studio
   fs.mkdirSync(job.outDir, { recursive: true });
   const w = new BrowserWindow({ width: 1440, height: 900, show: true, useContentSize: true, webPreferences: { backgroundThrottling: false } });
   const results = { cases: [] };

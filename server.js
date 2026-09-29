@@ -2355,6 +2355,10 @@ async function creativeModelCall({ model, system, content, messages, tool, maxTo
     return { input: block.input, toolUseId: block.id, usage: data.usage || {}, model: data.model || model, ms: Date.now() - t0 };
   } finally { clearTimeout(timer); }
 }
+// the deployed build, so the Creative studio files are loaded as one matching set (never a stale
+// cached studio against a newer server). Public and uncached; it carries no data.
+const CREATIVE_BUILD = String(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_VERSION || `boot-${Date.now().toString(36)}`).slice(0, 40);
+app.get('/api/creative/version', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ v: CREATIVE_BUILD }); });
 function creativeLedger(row) { const s = creativeSpendToday(); s.usd += Number(row.usd) || 0; premiumAppend('creative-ledger.jsonl', Object.assign({ at: new Date().toISOString() }, row)); }
 
 app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {

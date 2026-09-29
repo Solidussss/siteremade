@@ -18,8 +18,13 @@
     if (window.SiteRemadeCreativeStudio) return Promise.resolve(window.SiteRemadeCreativeStudio);
     if (loading) return loading;
     function script(src) { return new Promise(function (resolve, reject) { var s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = function () { reject(new Error('Could not load ' + src)); }; document.head.appendChild(s); }); }
-    var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'creative-studio.css'; document.head.appendChild(css);
-    loading = script('creative-core.js').then(function () { return script('creative.js'); }).then(function () { return window.SiteRemadeCreativeStudio; });
+    // the deployed build id, uncached: the studio files load as one set that matches the server
+    var version = fetch('/api/creative/version', { cache: 'no-store', credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) { return String(d && d.v || ''); }).catch(function () { return ''; });
+    loading = version.then(function (v) {
+      var q = v ? '?v=' + encodeURIComponent(v) : '?t=' + Math.floor(Date.now() / 60000);
+      var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'creative-studio.css' + q; document.head.appendChild(css);
+      return script('creative-core.js' + q).then(function () { return script('creative.js' + q); });
+    }).then(function () { return window.SiteRemadeCreativeStudio; });
     loading.catch(function () { loading = null; });
     return loading;
   }
