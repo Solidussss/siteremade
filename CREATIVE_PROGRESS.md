@@ -160,27 +160,60 @@ Unverified (no model credit left): whether the director, sent back once with "..
 owner's picture; the picture check's corrected role wording. Both are covered by tests and by re-validating the real
 failed plan offline (it is sent back, and marked degraded until it complies).
 
-Open / next
-- Pictures: Commons covers far more than stage 2 found (forms of fictional subjects, artefacts, precedents), but not
-  official art, original meme photographs or most brand imagery. A licensed-imagery route (a source with redistribution
-  rights, or the owner's licensed artwork via upload) is the next step for those; downloadable is not reusable.
-- A page takes ~75–120 s end to end (research + picture check + direction + claim check); no streaming yet.
-- The claim check is a model verdict with evidence ids, not proof; it caught and removed unsupported lines, and in stage 2
-  it missed some. Accounting is now complete, the judgement is still a model's.
+Known limits after stage 3 (superseded by the completion record below)
+- A page takes ~75–150 s end to end (research + picture check + direction + claim check); no streaming.
+- The claim check is a model verdict with evidence ids, not proof.
 
-## Release completion (2026-09-29, from 55296cd) — working checklist
+## Release completion (2026-09-28/29, 55296cd → 665f532)
 Decisions: broader discovery = Anthropic web search (server tool, existing key; $10/1k searches + tokens) to find
-pages that show the exact subject, then our own hardened fetcher reads each page's declared image (og:image etc.) and
-licence evidence; the existing picture check judges thumbnails. Not chosen: Google CSE (closed to new customers, ends
-2027-01-01), Bing (retired), Brave image API (new paid credential; storing results needs a special plan).
-- [ ] navigation: reproduce in studio srcdoc + export; fix
-- [ ] web discovery: adapter, SSRF-safe fetch, permissions + evidence, review-only candidates, tests
-- [ ] missing-imagery gate before direction (supply / pick candidate / refine / explicit abstract)
-- [ ] uploads: roles, "Use as main" enforced, reach inventory, survive save/reopen/export; verify with real model
-- [ ] object cutouts preferred where the subject is independent (floating roll)
-- [ ] motion defects from recordings (loop jumps, crossing text, drift out of bounds, blank pins)
-- [ ] claims: stale UI copy ("no paid AI calls"), repair edge cases
-- [ ] failure states: provider down / balance / search credential; no repeated calls; duplicate clicks; progress
-- [ ] intermittent server test: find the cause
-- [ ] Business minimal planning request after top-up; regression checks
-- [ ] acceptance: Pokémon Gen I, supplied Zelda main upload, one kept page, 2 unfamiliar; desktop+phone; nav; export
+pages that show the exact subject; our hardened fetcher reads each page's declared image and its permission evidence;
+the picture check judges them. Not chosen: Google CSE (closed to new customers, ends 2027-01-01), Bing (retired), Brave
+image API (new paid credential; storing results needs a special plan). No Pexels/Unsplash/Openverse; no image generation.
+
+Done (each verified as noted)
+- Navigation: every `#` link was loading the parent site inside the studio's srcdoc preview; now handled in-page
+  (sticky offset, Sources opens, phone menu closes, focus). Real studio on production: 52/52 (completion set) and
+  38/38 (characters) menu items and CTAs landed; exports: clicked as plain page, in a srcdoc frame and via the phone menu.
+- Web discovery + permission kept apart: free only when stated FOR the picture (image structured data, the picture's own
+  page, or a Commons file's own record); an article's text licence does not cover its images (a real Triforce case was
+  credited with Wikipedia's text licence before the fix). Unclear/restricted -> review links only.
+- Missing-imagery gate before any paid direction: upload / adopt a reviewed picture with the owner's rights / search
+  again / explicit abstract; buttons lock; "What we checked" shows the evidence and where it stopped.
+- Owner roles for uploads; the owner's main picture leads (real model: Zelda upload became the hero focal).
+  "Use as main" on a cutout floats it (toilet paper, production, no AI call, survives save + reopen).
+- Characters: a real-world form (cosplay, figure, merchandise, product photo, painted vehicle) is never the subject;
+  not downloaded, used or offered. Director: shapes never impersonate the subject (prompt; not yet exercised by a paid run).
+- Diagnostics per stage with every candidate's visual verdict, technical result and permission evidence.
+- Licence delivery: every v2 page had cited Wikipedia facts with NO source credited (director never wrote sources);
+  now the research article is credited in every path, including pages saved earlier. Exports ship only the pictures
+  the page shows (an abstract page had shipped 5 uncredited Commons files).
+- Failure states: provider balance/key refusal trips a 10-minute circuit with a stated reason; no automatic retries
+  beyond the one repair and one claim follow-up; a repeated gate click cannot start a second direction (one plan call
+  measured). Regression found and fixed in the real run: the first repeated-click guard stopped every direction.
+- Intermittent server test: the Creative ledger's parallel appends landed out of order; now one ordered queue.
+- Business: minimal planning request on production after the top-up returned a plan (claude-sonnet-5, 49 s).
+  business-preservation 6/6 identical to f8550a3 at every commit; premium 172/172; no Business file changed.
+
+Real runs (estimated from tokens; the provider invoice is the real charge)
+| set | cases | outcome | est. cost |
+|---|---|---|---|
+| completion | Pokémon Gen I, Zelda + owner main upload, toilet paper, Bubbles, Tamagotchi, Voynich | Pokémon: gate, then owner chose abstract; others automatic or supplied; all saved, reopened identical, exported | ~$1.46 |
+| aborted | first Pokémon run (stalled by the guard regression), one killed launch | no direction | ~$0.10 |
+| characters | Link, Kirby, Pikachu, BMO, SpongeBob, Silver Surfer | 3 gates (no direction), 3 generated pages | ~$0.92 |
+| re-check | Pikachu, discovery only after the product-photo fix | gate (permission); direction blocked by the harness | ~$0.08 |
+| Business | one planning request | plan returned | not reported by the route |
+Total ~$2.6 estimated over two days, within the unchanged $6/day Creative cap.
+
+Characters (same pipeline; main visual must be the character's own depiction)
+| character | where it stopped | best depiction found | permission |
+|---|---|---|---|
+| Link | gate: Commons only forms (6 cosplay/figure); web 5 of 7 pages refused (HTTP 403), official art 264x377 local non-free | Wikipedia art (too small) | non-free local file |
+| Kirby | generated; one small CC BY-SA gameplay graphic (414x396); director first left it out (repaired); later scenes used discs | Commons gameplay graphic | CC BY-SA 3.0 per its Commons record |
+| Pikachu | generated on a merchandise photo (virtual-pet toy) misjudged as the character; fixed; re-check stops at the gate | pokemon.com official art 475x475; wallpapers to 7100x4440 | unclear (no licence stated) |
+| BMO | gate: permission | PNG Mart full-body 3156x4544 | unclear |
+| SpongeBob | generated; strong | Commons, Nickelodeon (NickRewind) character + Bikini Bottom + Krusty Krab | CC BY 3.0 per Commons |
+| Silver Surfer | gate: permission | Printler poster 571x800 | unclear |
+Main constraint for franchise characters: permission (depictions exist and are found, but their pages state no free
+licence), then access (wikis and publishers refuse automated fetching; not bypassed). Discovery, processing and
+rendering were not the limiting stage for these six; planning had two defects (subject left out of the first plan,
+stand-in shapes), one caught by validation, one now in the prompt.

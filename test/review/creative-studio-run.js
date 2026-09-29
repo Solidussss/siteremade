@@ -90,6 +90,8 @@ app.whenReady().then(async () => {
         if (ok === 'gate') {
           r.gate = await js(w, `(() => { const g = document.querySelector('.cs-gate'); const S = SiteRemadeCreativeStudio.state(); return { text: g.innerText.slice(0, 1500), review: (S.research.review || []).map(x => ({ depicts: x.depicts, site: x.site, pageUrl: x.pageUrl, status: x.permission.status, licence: x.permission.licence, note: x.permission.note })), diagnostics: S.research.diagnostics || null, understanding: S.understanding, buttons: [...g.querySelectorAll('button')].map(b => b.textContent), curation: S.research.curation, cost: S.cost }; })()`);
           r.timings.gateMs = Date.now() - t0;
+          // the gate may carry large review previews: let them decode and paint before the screenshot (a stale frame was captured)
+          await js(w, `Promise.all([...document.querySelectorAll('.cs-gate img')].map(i => i.decode ? i.decode().catch(() => {}) : 0)).then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))).then(() => true)`); await sleep(1500);
           r.shots.push(await shot(w, `${c.id}-studio-gate`));
           log(`${c.id}: gate after ${r.timings.gateMs}ms (${r.gate.review.length} to review)`);
           const g = c.gate || 'stop';
