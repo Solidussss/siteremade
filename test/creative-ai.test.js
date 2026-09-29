@@ -110,6 +110,12 @@ test('v2 persistence: an accepted plan is stored as validated and reopens identi
   assert.equal(c1.understanding.identity.what, 'the product'); assert.equal(c1.understanding.tone.register, 'extravagant');
 });
 
+test('a personal subject\'s name is never researched (no "Bubbles the chimpanzee"), only its general type', () => {
+  const u = ai.normaliseUnderstanding({ identity: { name: 'Bubbles', kind: 'personal', ownerSubject: { name: 'Bubbles', type: 'goldfish' } }, research: { scope: 'subject', wikipediaTitles: ['Bubbles'] }, clarify: { needed: true, options: [{ label: 'Bubbles (chimpanzee)' }, { label: 'Bubbles (The Wire)' }] }, tone: { register: 'playful' } }, 'A page for my goldfish Bubbles');
+  assert.equal(u.query, 'goldfish'); assert.equal(u.research.scope, 'general-topic'); assert.deepEqual(u.research.wikipediaTitles, []); assert.equal(u.clarify, null);
+  assert.equal(u.kind, 'personal');
+});
+
 test('cost estimates come from the configured per-million prices', () => {
   const L = ai.limits({ PREMIUM_PRICE_STRONG_INPUT: '3', PREMIUM_PRICE_STRONG_OUTPUT: '15' });
   assert.equal(ai.estimateUsd({ input_tokens: 10000, output_tokens: 4000 }, L.prices.strong), 0.09);

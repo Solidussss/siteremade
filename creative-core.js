@@ -711,6 +711,8 @@
             scroll: { kind: oneOf(s.kind, VOCAB.scroll, 'none'), amount: num(s.amount, -1, 1, 0.4) },
             hideM: !!rl.hideM,
           };
+          // the outer margin belongs to the thread that runs down the page: layers stay inside it unless they are full-bleed
+          if (role !== 'backdrop' && role !== 'texture' && L.box.d[2] <= 90) { const b = L.box.d; const x = Math.max(5, Math.min(95 - b[2], b[0])); if (x !== b[0]) L.box.d = [x, b[1], b[2], b[3]]; }
           if (kind === 'image') {
             const a = byId.get(rl.asset);
             if (!a) { (role === 'focal' ? errors : warnings).push(`${where}: picture "${cap(rl.asset, 40)}" does not exist${role === 'focal' ? ' -- use an asset from the inventory or a shape/word focal' : ' -- layer removed'}`); return null; }
@@ -767,6 +769,12 @@
       if (!scenes.some(s => s.text.heading || s.text.body || s.text.items.length)) errors.push('copy: the page has no words');
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
       scenes.forEach(s => { s.ink = sceneInk(s.background, palette); });
+      // a cut-out subject almost the colour of its stage (a black silhouette on a dark scene) gets a light rim so it reads
+      scenes.forEach(s => s.layers.forEach(L => {
+        const a = L.kind === 'image' && byId.get(L.asset); if (!a || !(a.cutout || (a.assess && a.assess.transparent)) || !(a.assess && typeof a.assess.luminance === 'number')) return;
+        const hx = s.ink.surface; const stage = 0.2126 * parseInt(hx.slice(1, 3), 16) + 0.7152 * parseInt(hx.slice(3, 5), 16) + 0.0722 * parseInt(hx.slice(5, 7), 16); // same scale as assess.luminance
+        if (Math.abs(a.assess.luminance - stage) < 45 && (L.treatment === 'none' || L.treatment === 'shadow')) { L.treatment = 'glow'; fixes.push(`scene ${s.id}: ${a.id} nearly matches its background -- given a light rim to stay visible`); }
+      }));
       // credits for every picture shown, limited to those
       const shown = new Set(); scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
       const credits = assets.filter(a => shown.has(a.id) && a.origin !== 'upload' && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
@@ -801,6 +809,8 @@
         if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged to stay the main visual`);
       }
       if (focal.role === 'backdrop' || focal.box.d[2] >= 90) return; // a full-bleed focal carries the words over a scrim
+      // a ghost word or a faint shape behind the words is a background, not something the words hide
+      if (focal.kind === 'word' || (focal.kind === 'shape' && focal.opacity < 0.5)) return;
       if (!(scene.text.heading || scene.text.body || scene.text.items.length)) return;
       let tb = REGION_BOXES[scene.text.region]; let r = rect('d');
       if (overlap(r, tb) > area(r) * 0.06) {
@@ -1756,7 +1766,7 @@
       const credit = heroFocal ? c.creditOf(c.byId.get(heroFocal.asset)) : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}">
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}"${t.entrance === 'split-words' ? '' : c.edit(`${k}.heading`)} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' ? '' : c.edit(`${k}.heading`)} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
           ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"><span${c.edit(`${k}.body`)}>${esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
@@ -1778,7 +1788,9 @@
       const d = plan.type.display;
       return `
     :root{--bg:${P.bg};--bg2:${P.bg2};--ink:${P.ink};--muted:${P.muted};--accent:${P.accent};--glow:${P.glow};--accent-rgb:${hexRgb(P.accent)};--glow-rgb:${hexRgb(P.glow)};--ink-rgb:${hexRgb(P.ink)};--bg-rgb:${hexRgb(P.bg)};
-    --display:${FONT2[d]};--dw:${WEIGHT[d]};--body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--k:1;--nav:58px}
+    --display:${FONT2[d]};--fit:165cqi;--dw:${WEIGHT[d]};--body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--k:1;--nav:58px}
+    /* how many average characters fit the heading's width: wide faces and capitals need more room (no mid-word breaks) */
+    html[data-case="upper"]{--fit:125cqi}html[data-display="slab"],html[data-display="grotesk"],html[data-display="rounded"]{--fit:150cqi}html[data-display="slab"][data-case="upper"],html[data-display="grotesk"][data-case="upper"],html[data-display="rounded"][data-case="upper"]{--fit:116cqi}html[data-display="condensed"]{--fit:210cqi}html[data-display="condensed"][data-case="upper"]{--fit:170cqi}
     html[data-tempo="slow"]{--k:.6}html[data-tempo="lively"]{--k:1.25}html[data-tempo="still"]{--k:0}
     *{box-sizing:border-box}html{scroll-behavior:smooth}html[data-motion="reduced"]{scroll-behavior:auto}
     body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--body);overflow-x:clip}
@@ -1810,13 +1822,16 @@
     .sc-text.has-scrim{padding:22px 26px;border-radius:14px;background:rgba(var(--bg-rgb),.72);backdrop-filter:blur(6px)}
     .sc-kicker{margin:0 0 14px;text-transform:uppercase;letter-spacing:.22em;font-size:12.5px;font-weight:700;color:var(--accent)}
     .sc[data-bg="accent"] .sc-kicker,.sc[data-bg="invert"] .sc-kicker{color:var(--s-ink)}
-    .sc-heading{margin:0;font-family:var(--display);font-weight:var(--dw);line-height:1;letter-spacing:-.015em;text-wrap:balance;overflow-wrap:break-word}
+    .sc-heading{margin:0;font-family:var(--display);font-weight:var(--dw);line-height:1;letter-spacing:-.015em;text-wrap:balance;overflow-wrap:normal;hyphens:manual}
     html[data-case="upper"] .sc-heading{text-transform:uppercase;letter-spacing:.01em}
-    .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.8rem,7.2vw,7.4rem),calc(170cqi / var(--lw)));line-height:.94}
-    html[data-scale="monumental"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(3.2rem,9vw,9.5rem),calc(175cqi / var(--lw)))}
-    html[data-scale="quiet"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.4rem,5vw,5rem),calc(170cqi / var(--lw)))}
-    .sc-text[data-size="large"] .sc-heading{font-size:min(clamp(2rem,4.4vw,4rem),calc(170cqi / var(--lw)))}
-    .sc-text[data-size="medium"] .sc-heading{font-size:min(clamp(1.6rem,3vw,2.7rem),calc(170cqi / var(--lw)))}
+    .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.8rem,7.2vw,7.4rem),calc(var(--fit) / var(--lw)));line-height:.94}
+    html[data-scale="monumental"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(3.2rem,9vw,9.5rem),calc(var(--fit) / var(--lw)))}
+    html[data-scale="quiet"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.4rem,5vw,5rem),calc(var(--fit) / var(--lw)))}
+    .sc-text[data-size="large"] .sc-heading{font-size:min(clamp(2rem,4.4vw,4rem),calc(var(--fit) / var(--lw)))}
+    /* a long title steps down rather than stacking into a tower of huge lines */
+    html .sc-text[data-size="display"] .sc-heading[data-len="l"]{font-size:min(clamp(2.4rem,4.9vw,5.2rem),calc(var(--fit) / var(--lw)))}
+    html .sc-text[data-size="display"] .sc-heading[data-len="xl"],html .sc-text[data-size="large"] .sc-heading[data-len="xl"]{font-size:min(clamp(2rem,3.6vw,3.8rem),calc(var(--fit) / var(--lw)))}
+    .sc-text[data-size="medium"] .sc-heading{font-size:min(clamp(1.6rem,3vw,2.7rem),calc(var(--fit) / var(--lw)))}
     .sc-text[data-size="small"] .sc-heading{font-size:clamp(1.3rem,2vw,1.8rem)}
     .sc-body{margin:20px 0 0;font-size:clamp(16px,1.25vw,19px);color:var(--s-muted,var(--muted))}
     .sc-text[data-region="center"] .sc-body,.sc-text[data-region="top"] .sc-body,.sc-text[data-region="bottom"] .sc-body{margin-left:auto;margin-right:auto}
@@ -1977,8 +1992,12 @@
       .sc[data-pin]{height:180vh}.sc[data-pin] .sc-pin{height:100svh;justify-content:center}.sc[data-pin] .sc-stage{height:min(100vw,52svh)}
       .ly{left:calc(var(--mx)*1%);top:calc(var(--my)*1%);width:calc(var(--mw)*1%);height:calc(var(--mh)*1%)}
       .ly[data-hide-m]{display:none}
-      .sc-text[data-size="display"] .sc-heading{font-size:min(14vw,calc(160cqi / var(--lw)))}
-      .sc-text[data-size="large"] .sc-heading{font-size:min(10vw,calc(160cqi / var(--lw)))}
+      .sc-text[data-size="display"] .sc-heading{font-size:min(14vw,calc(var(--fit) / var(--lw)))}
+      .sc-text[data-size="large"] .sc-heading{font-size:min(10vw,calc(var(--fit) / var(--lw)))}
+      html .sc-text[data-size] .sc-heading[data-len="s"]{font-size:min(14vw,calc(var(--fit) / var(--lw)))}
+      html .sc-text[data-size] .sc-heading[data-len="l"]{font-size:min(10.5vw,calc(var(--fit) / var(--lw)))}
+      html .sc-text[data-size] .sc-heading[data-len="xl"]{font-size:min(8.5vw,calc(var(--fit) / var(--lw)))}
+      html .sc-text[data-size="medium"] .sc-heading,html .sc-text[data-size="small"] .sc-heading{font-size:min(7.5vw,calc(var(--fit) / var(--lw)))}
       .sc-body{font-size:15.5px;margin-top:12px}
       .cr-herocredit{position:static;padding:0 20px 0 26px;order:4;max-width:none;text-align:left}
       .cr-foot{padding:36px 20px 28px 26px}

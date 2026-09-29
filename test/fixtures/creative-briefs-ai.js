@@ -20,8 +20,12 @@ const A = [
   },
   { set: 'A', id: 'tunguska', brief: 'The Tunguska event of 1908 — told seriously, with a sense of scale' },
 ];
-// chosen after the implementation was finished (unseen during tuning)
-const B = [];
+// chosen after the implementation was finished (unseen during tuning; no prompt or renderer change was made for them)
+const B = [
+  { set: 'B', id: 'axolotl', brief: 'A page about axolotls — dreamy, soft and a little bit silly' },
+  { set: 'B', id: 'distracted-boyfriend', brief: 'The distracted boyfriend meme, retold as a Shakespearean tragedy' },
+  { set: 'B', id: 'rosetta', brief: 'The Rosetta Stone — restrained and scholarly' },
+];
 
 module.exports = A.concat(B);
 module.exports.A = A; module.exports.B = B;

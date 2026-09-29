@@ -2400,6 +2400,9 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: false, ms: Date.now() - startedAt, paidCalls: 0, usd: 0 });
     return res.status(200).json({ ok: false, understanding, message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' });
   }
+  // a general-topic lookup for a personal subject never turns into a question for the owner (nor does an
+  // AI-resolved identity that the encyclopedia happens to file under a disambiguation page)
+  if (result.status === 'ambiguous' && (understanding.kind === 'personal' || (understanding.research && understanding.research.scope === 'general-topic'))) result = { status: 'skipped', facts: [], images: [], options: [], log: result.log };
   if (result.status === 'ambiguous') understanding.kind = 'ambiguous';
   if (result.page && result.page.category && understanding.kind === 'recognizable') understanding.category = result.page.category;
   const images = (result.images || []).map((i, n) => ({

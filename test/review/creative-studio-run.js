@@ -60,6 +60,7 @@ app.whenReady().then(async () => {
       try {
         await js(w, `SiteRemadeCreativeEntry.open()`);
         await until(w, `!!window.SiteRemadeCreativeStudio && !document.getElementById('creativeStudio').hidden`, 20000);
+        await js(w, `SiteRemadeCreativeStudio.reset(); true`); // every case starts from an empty studio
         if (c.fixture) await js(w, `SiteRemadeCreativeStudio.setFixture(${JSON.stringify(c.fixture)})`);
         for (const f of c.uploads || []) await js(w, `SiteRemadeCreativeStudio.addFiles([${fileJs(f)}])`);
         await js(w, `(() => { const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('input')); }; set('csBrief', ${JSON.stringify(c.brief)}); set('csSupplied', ${JSON.stringify((c.supplied || []).join('\n'))}); set('csMemories', ${JSON.stringify((c.memories || []).join('\n'))}); if (${!!(c.supplied || c.uploads)}) document.getElementById('csPersonal').open = true; return true; })()`);

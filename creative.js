@@ -270,7 +270,9 @@
       var d = r.data || {};
       if (r.ok && d.ok && d.plan) {
         var v = C.validate2.validatePlan2(d.plan, ctx2()); var plan = v.plan; if (S.fixture) plan.fixture = S.fixture;
-        S.plan = plan; S.lastFixes = (d.fixes || []).concat(v.fixes); S.lastWarnings = (d.warnings || []).concat(v.warnings);
+        // the server and the studio both validate: each note once
+        var uniq = function (xs) { return xs.filter(function (x, i) { return xs.indexOf(x) === i; }); };
+        S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings));
         S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired };
         S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + S.planMeta.attempts;
         step('direct', 'done', (S.planMeta.source === 'mock' ? 'MOCKED plan · ' : 'AI direction · ') + (plan.concept.title ? plan.concept.title + ' — ' : '') + plan.concept.logline + ' (' + (S.planMeta.ms / 1000).toFixed(1) + 's' + (S.planMeta.repaired ? ', repaired once' : '') + ')');
@@ -576,5 +578,7 @@
     setFixture: function (text) { if (!root) { build(); S = fresh(); resetUI(); } S.fixture = String(text || '').slice(0, 160); showFixture(); },
     addFiles: function (files) { return addUploads(files); },
     anotherDirection: function () { return anotherDirection(); }, previousDirection: function () { previousDirection(); },
+    // the same as "Start a different page", without the confirmation
+    reset: function () { if (!root) build(); S = fresh(); resetUI(); var dp = document.getElementById('csDirection'); if (dp) dp.innerHTML = ''; },
   };
 })();
