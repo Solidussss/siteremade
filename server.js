@@ -3881,6 +3881,62 @@ app.get('/api/app-bridge/website/:projectId/preview', appBridgeRateLimit, requir
   }
 });
 
+// 2a. GET /api/app-bridge/website/:projectId/download -- the actual
+// ownership handoff for the Client App. It compiles from the same immutable
+// purchased snapshot (or latest explicitly published revision) as the normal
+// builder export route and streams the real ZIP bytes back through the
+// authenticated bridge. No Workspace subscription is involved.
+app.get('/api/app-bridge/website/:projectId/download', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const projectId = clean(req.params.projectId, 120);
+  const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
+  if (!status) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  if (status.status !== 'purchased') return bridgeError(res, 403, 'not_purchased', 'This website has not been purchased yet.');
+
+  const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, projectId);
+  if (!ensured.ok) return bridgeError(res, 500, 'snapshot_missing', 'Could not locate the purchased website snapshot.');
+  const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
+  let published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
+  if (published && directionModeOf(published.directionsState, published.directionIndex) !== directionModeOf(snapshot.directionsState, snapshot.directionIndex)) published = null;
+  const source = published
+    ? { revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
+    : { revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
+
+  const exportSource = { id: projectId, revision: source.revision, directionsState: source.directionsState };
+  ensureExportsDir();
+  const deploymentId = deploymentStore.genId('dep');
+  const workDir = path.join(EXPORTS_DIR, deploymentId);
+  let result;
+  try {
+    result = exportCompiler.compileExport(db, {
+      project: exportSource, directionIndex: source.directionIndex, workDir,
+      hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
+    });
+    zipDirectory(result.workDir, workDir + '.zip');
+  } catch (e) {
+    deploymentStore.recordFailedDeployment(db, {
+      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
+      target: 'local', failureReason: (e && e.message) || 'Export failed.',
+      runtimeType: result && result.runtimeType, runtimeReasons: result && result.runtimeReasons,
+      manifest: result && result.manifest, artifactHash: result && result.artifactHash,
+      compilerVersion: exportCompiler.COMPILER_VERSION,
+    });
+    return bridgeError(res, 500, 'export_failed', 'Could not prepare the website download.');
+  }
+
+  deploymentStore.createReadyDeployment(db, {
+    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
+    compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
+    runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
+    manifest: result.manifest, artifactPath: workDir + '.zip',
+  });
+
+  const summary = buildWebsiteSummary(req.accountId, projectId);
+  const rawName = (summary && (summary.businessName || summary.name)) || 'SiteRemade-website';
+  const safeName = String(rawName).replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'SiteRemade-website';
+  res.set('Cache-Control', 'no-store');
+  return res.download(workDir + '.zip', safeName + '.zip');
+});
+
 // 2. GET /api/app-bridge/website/:projectId/deployment
 app.get('/api/app-bridge/website/:projectId/deployment', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
