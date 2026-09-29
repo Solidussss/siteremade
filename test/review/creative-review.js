@@ -72,7 +72,7 @@ async function main() {
   if (!args.includes('--skip-capture') && pages.length) {
     const jobFile = path.join(outDir, 'capture-job.json');
     fs.writeFileSync(jobFile, JSON.stringify({ outDir, pages, ffmpeg: process.env.FFMPEG_BIN || 'C:/Users/jayde/AppData/Local/Microsoft/WinGet/Packages/yt-dlp.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-N-125365-g9a01c1cb6a-win64-gpl/bin/ffmpeg.exe' }));
-    electron('creative-capture.js', jobFile, 40 * 60 * 1000);
+    electron('creative-capture.js', jobFile, 120 * 60 * 1000);
   }
   const calls = fs.readFileSync(callLog, 'utf8').trim().split('\n').filter(Boolean);
   console.log(`provider calls during the run: ${calls.length}`);

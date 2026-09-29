@@ -116,6 +116,24 @@ test('a personal subject\'s name is never researched (no "Bubbles the chimpanzee
   assert.equal(u.kind, 'personal');
 });
 
+test('"supplied" means the owner\'s words: an embellished line is relabelled imagined, a close restatement stays supplied', () => {
+  const supplied = ['He is a common goldfish with bright orange scales.', 'He races to the front of the tank whenever someone walks into the kitchen.'];
+  const p = { identity: { name: 'Bubbles', kind: 'personal' }, concept: { logline: 'x' }, scenes: [
+    { id: 'a', purpose: 'p', layers: [], text: { heading: 'Bubbles', body: 'Bright orange, endlessly curious, and utterly convinced the kitchen exists to greet him.', kind: 'supplied' } },
+    { id: 'b', purpose: 'p', layers: [], text: { heading: 'Family', body: 'A common goldfish with bright orange scales who races to the front of the tank when someone walks into the kitchen.', kind: 'supplied' } }] };
+  const { plan } = validatePlan2(p, { assets: [], facts: [], supplied });
+  assert.deepEqual(plan.scenes.map(s => s.text.kind), ['imagined', 'supplied']);
+});
+
+test('numbers in "imagined" copy must come from the facts: restated ones become cited, invented ones go back for repair', () => {
+  const facts = [{ id: 'f1', text: 'A stony asteroid some 50 to 60 metres across.' }];
+  const mk = body => ({ identity: { name: 'T' }, concept: { logline: 'x' }, scenes: [{ id: 'a', purpose: 'p', layers: [], text: { heading: 'T', body, kind: 'imagined' } }, { id: 'b', purpose: 'p', layers: [], text: { heading: 'x' } }] });
+  let v = validatePlan2(mk('It measured fifty to sixty metres.'), { assets: [], facts });
+  assert.equal(v.plan.scenes[0].text.kind, 'sourced'); assert.equal(v.plan.scenes[0].text.cite, 'f1');
+  v = validatePlan2(mk('Taller than 300 metres.'), { assets: [], facts }); assert.ok(v.errors.some(e => /no given fact supports/.test(e)));
+  v = validatePlan2(mk('Some stories are best told in low light.'), { assets: [], facts }); assert.deepEqual(v.errors, []);
+});
+
 test('cost estimates come from the configured per-million prices', () => {
   const L = ai.limits({ PREMIUM_PRICE_STRONG_INPUT: '3', PREMIUM_PRICE_STRONG_OUTPUT: '15' });
   assert.equal(ai.estimateUsd({ input_tokens: 10000, output_tokens: 4000 }, L.prices.strong), 0.09);

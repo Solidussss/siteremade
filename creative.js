@@ -259,7 +259,7 @@
       }).catch(function () { return null; });
     })).then(function (list) { return list.filter(Boolean); });
   }
-  function ctx2() { return { assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU() }; }
+  function ctx2() { var sp = supplied(); return { assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
   function planDirection(avoid) {
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {

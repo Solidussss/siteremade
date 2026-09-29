@@ -43,11 +43,23 @@ const cases = studio.cases.map(c => {
   const s = c.summary || {}; const id = c.id; const f = (cap[id] || {}).failure || {};
   const assets = (s.assets || []).map(a => `<tr><td>${esc(a.id)}</td><td>${esc(a.origin)}</td><td>${esc(String(a.title).replace(/^File:/, ''))}</td><td>${esc(a.author)}</td><td>${esc(a.license)}</td><td>${esc(a.size)}</td><td>${esc(a.found)}</td><td>${a.relevance}</td><td>${esc(a.processing)}</td><td>${a.removed ? 'removed' : ''}</td></tr>`).join('');
   const secs = (s.sections || []).map(x => `${esc(x.type)}<small> ${esc(x.kind)}</small>`).join(' → ');
+  // v2 (AI-directed) plans: provenance, concept, scenes, what it wanted, cost
+  const v2 = d => {
+    if (!d || d.v !== 2) return '';
+    const m = d.planMeta || {}; const src = m.source === 'ai' ? '<b class="ok">REAL MODEL</b>' : m.source === 'mock' ? '<b class="bad">MOCKED</b>' : '<b class="bad">FALLBACK (built-in)</b>';
+    return `<p>${src} · ${esc(m.model || '')} · ${((m.ms || 0) / 1000).toFixed(1)} s · ${m.attempts || 1} call(s)${m.repaired ? ' (repaired)' : ''} · about $${(m.usdEstimated || 0).toFixed(3)} estimated${d.understandMeta && d.understandMeta.source === 'ai' ? ` · understanding ${esc(d.understandMeta.model)} ${((d.understandMeta.ms || 0) / 1000).toFixed(1)} s ~$${(d.understandMeta.usd || 0).toFixed(4)}` : ''}</p>
+    <p class="concept"><b>${esc(d.concept.title)}</b> — ${esc(d.concept.logline)}</p><p class="cap">${esc(d.concept.why)}</p>
+    <p class="cap">Look: ${esc(d.type.display)} / ${esc(d.type.scale)} · ${esc(d.atmosphere.backdrop)} + ${esc(d.atmosphere.light)} + ${esc(d.atmosphere.particles)} · tempo ${esc(d.motion.tempo)} (${esc(d.motion.signature)}) · thread ${esc(d.thread.kind)}</p>
+    <ol class="small">${d.scenes.map(x => `<li><b>${esc(x.name || x.id)}</b> <small>${esc(x.height)}${x.pin ? ', pinned' : ''}${x.camera !== 'none' ? ', camera ' + esc(x.camera) : ''} · ${x.layers.map(l => esc(l.kind === 'image' ? l.asset : l.kind === 'word' ? '“' + ((l.word && l.word.text) || '') + '”' : (l.shape && l.shape.form) || l.kind)).join(', ')}</small> — ${esc(x.purpose)}<br><small>“${esc(x.text.heading)}”${x.text.items && x.text.items.length ? ` + ${x.text.items.length} lines (${x.text.items.filter(i => i.kind === 'sourced').length} cited)` : ''}</small></li>`).join('')}</ol>
+    ${(d.wants || []).filter(w => w.status === 'missing').length ? `<p class="cap">Wanted but not available: ${esc(d.wants.filter(w => w.status === 'missing').map(w => w.description + (w.fallback ? ' → ' + w.fallback : '')).join(' · '))}</p>` : ''}
+    ${(d.assetNotes || []).length ? `<p class="cap">What the director saw: ${esc(d.assetNotes.map(n => `${n.asset}=${n.matches} (${n.depicts})`).join(' · '))}</p>` : ''}`;
+  };
   return `<section id="${id}"><h2>${esc(c.brief)}</h2>
+  ${s.v === 2 ? `<p class="meta">understood as <b>${esc(s.understanding && s.understanding.identity ? s.understanding.identity.name + ' — ' + s.understanding.identity.what : s.understanding && s.understanding.subject)}</b> · created in ${(c.timings.createMs / 1000).toFixed(1)} s · research ${s.research && s.research.log ? `${s.research.log.requests} requests, ${Math.round(s.research.log.bytes / 1024)} KB` : 'none'}</p>${v2(s)}${c.clarification ? `<p class="cap">Clarification asked: ${esc(c.clarification.question)} → ${esc((c.clarification.options || []).join(' / '))}</p>` : ''}${c.another ? `<h3>Try another direction (${(c.timings.anotherMs / 1000).toFixed(1)} s)</h3>${v2(c.another)}<div class="row">${img(`${id}-b-studio-desktop.png`)}</div>` : ''}` : `
   <p class="meta">understood as <b>${esc(s.understanding && s.understanding.kind)}</b> · subject “${esc(s.understanding && s.understanding.subject)}” · category ${esc(s.category)} · tone ${esc(s.tone)} · created in ${(c.timings.createMs / 1000).toFixed(1)} s · research ${s.research && s.research.log ? `${s.research.log.requests} requests, ${Math.round(s.research.log.bytes / 1024)} KB, ${(s.research.log.ms / 1000).toFixed(1)} s` : 'none'} · page ${Math.round((s.htmlBytes || 0) / 1024)} KB</p>
   <p class="concept">${esc(s.concept)}</p>
   <p>Hero: <b>${esc(s.layout)}</b>, ${(s.layers || []).map(l => `${l.role} ${l.asset} (${l.frame}, ${l.entrance} → ${l.loop})`).join(', ')} · connector <b>${esc(s.connector)}</b></p>
-  <p>Sections: ${secs}</p>
+  <p>Sections: ${secs}</p>`}
   <p class="cap">Composition checks: ${esc((s.fixes || []).join(' · ') || 'none needed')}${(s.warnings || []).length ? ' · warnings: ' + esc(s.warnings.join(' · ')) : ''}</p>
   <div class="row">${img(`${id}-studio-desktop.png`)}${img(`${id}-studio-phone.png`)}${img(`${id}-studio-tab-pictures.png`)}${img(`${id}-studio-tab-sources.png`)}</div>
   <p class="cap">the studio: preview desktop / phone, the Pictures tab (provenance + processing), the Sources tab (facts, credits, cost)</p>

@@ -13,18 +13,71 @@ SiteRemade has two generation modes:
 |---|---|---|
 | Entry | the landing generator form (unchanged) | a Business / Creative switch above the form, shown only in review mode (`?creative=1`, remembered for the tab; `?creative=0` turns it off) or when a saved Creative project is opened |
 | Code loaded | `premium-core.js`, `script.js`, `styles.css` (unchanged) + `creative-entry.js` (4 KB, does nothing unless enabled) | `creative-studio.css`, `creative-core.js` (bundle of `lib/creative`), `creative.js` — downloaded only when Creative is chosen |
-| Planning | business planner / deterministic engine | `understand.js` → `/api/creative/research` (server, `research.js`) → pixel assessment + cutouts in the browser (`assets.js`) → `director.js` → `validate.js` |
+| Planning | business planner / deterministic engine | **AI direction** (stage 2): `/api/creative/research` (model understanding → research) → pixels + cutouts in the browser (`assets.js`) → `/api/creative/plan` (model direction with thumbnails, `ai.js`) → `validate2.js`. **Fallback**, labelled as such: the built-in `understand.js` / `director.js` / `validate.js` path of stage 1 |
 | Rendering | `renderProject` / `lib/site-render.js` into `#builderSite` | `render.js` → one self-contained document (its own CSS and runtime), shown in an `<iframe srcdoc>` in the studio and written as `index.html` on export. Its styles and scripts live inside that document, so nothing can reach the Business page. |
 | Project state | a direction without `mode` | a direction with `mode: 'creative'` and a `creative` block: brief, understanding, supplied details, research (page + facts with sources), assets (pixels + provenance + processing), scene plan, motion, cost |
 | Save / reopen | `/api/projects` + autosave | the same `/api/projects` routes (explicit Save), pictures stored in the same content-addressed asset store; the project list labels it “Creative ·”; opening it from the account routes it to the studio (`adoptServerProject` / `loadSelectedOwnedProjectById` never pass it to the Business builder, and the Business local restore ignores it) |
 | Export | `compileExport` → business renderer | `compileExport` branches on `mode === 'creative'` → the same `render.js` document, pictures written to `assets/`, `ATTRIBUTION.md`, `export-manifest.json` (`mode: 'creative'`, static) |
-| Cost | unchanged | its own ledger (`data/premium/creative-ledger.jsonl`, rows `creative_research`); no credits, no paid calls in stage 1 |
+| Cost | unchanged | its own limits and ledger (`data/premium/creative-ledger.jsonl`: `creative_understand`, `creative_research`, `creative_direct`, `creative_direct_fallback`), never Business credits or budgets — see "AI direction: limits and cost" |
 
 A direction without `mode: 'creative'` is a Business project wherever it is read. `project-store.validateDirection` adds
 `mode`/`creative` only for a Creative direction, so a Business project saves exactly as before (tested: a Business
 project with a stray `mode` value saves identically to the same project without it).
 
-## Pipeline (one path for every brief — nothing refers to a particular subject)
+## AI creative direction (stage 2)
+
+The model makes the visual and editorial decisions; fixed code executes them. Nothing the model writes is executed:
+its output is structured data (tool use), validated, then rendered by one renderer used for every subject.
+
+1. **Understand before research** (`ai.understand`, cheap model, ~3 s, ~$0.003): identity and exactly *which* thing
+   ("the Nintendo franchise, not one game"), kind (recognizable / fictional / personal / invented), tone and whether the
+   brief asked for it, audience, motifs that belong to the subject, uncertainty, the Wikipedia title(s) for that
+   identity and up to three Commons queries. A clarification is asked only when a wrong identity would change the page.
+   A personal subject's *name* is never researched (only its general type), and a general-topic lookup never turns
+   into a question for the owner. If the call fails or the budget is used, the built-in reader takes over (recorded).
+2. **Research** (same sources, now directed): the resolved article titles first; the model's Commons queries added to
+   the searches (results need not share the subject's words — the director checks what they actually show).
+3. **Pictures** (unchanged): read in the browser, real cutouts only.
+4. **Direct** (`ai.direct`, strong model, ~60–75 s, ~$0.11–0.14 estimated): the whole page as a **v2 scene plan** — a
+   named concept and why it suits the brief; 2–9 scenes, each with a purpose and a link to the previous one, its own
+   height, pinning (a scroll-scrubbed hold), camera move and background; per scene up to 6 layers — pictures from the
+   inventory, drawn shapes (circle, ring, triangle, star, wave, sunburst, …) and giant words — with masks, treatments,
+   depth, entrances, ambient loops and scroll-linked movement; words per scene with citations; palette, typography,
+   atmosphere, tempo and thread. The model is shown **small thumbnails of the actual pictures** and records what each
+   depicts and whether it matches the subject; pictures it judges unrelated are not used. It lists what it wanted but
+   could not have, what it did instead, and its limitations; the studio shows these and offers an upload. "Try another
+   direction" sends the previous concept(s) to avoid and keeps identity, facts and uploads.
+5. **Validate** (`validate2.js`, on the server and again in the studio): enums, numbers and counts bounded; assets must
+   exist, match what the director saw, and be the owner's own on a personal page; a flat photo never floats as a bare
+   rectangle; a photo appears at most twice and a cutout three times; uncited "sourced" lines and invented quotations are
+   removed; text is never cut (an overlong paragraph is sent back); motion budget (≤2 looping layers per scene, ≤3
+   pinned scenes, ≤32 layers); the focal layer is grown, never shrunk, and kept clear of the words (secondaries fade or
+   move first; a scrim as last resort); layers stay out of the thread's margin; a cutout nearly the colour of its stage
+   gets a light rim; readable palette. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
+   text) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
+   director and labels the page "Built-in layout — not AI direction" with the reason.
+6. **Render** (`render2.js`): scenes as stages with layers; pinned scenes hold while scroll scrubs their layers;
+   per-scene entrances on arrival; ambient loops after the entrance; camera moves; atmosphere; the thread between scenes;
+   sources and credits folded into the footer; a complete still composition for reduced motion (pins released).
+7. **Persist**: the accepted plan is stored as validated with its provenance (model, time, estimated cost, attempts);
+   reopening and exporting render it without planning again. Text edits change only words; replacing a picture keeps the
+   concept and re-frames the new picture for what it is (framed if flat, free if cut out).
+
+The studio files load with the deployed build id in their URLs (`/api/creative/version`), so a cached studio can never
+run against a newer server (this happened once in review and is why the endpoint exists).
+
+### AI direction: limits and cost
+
+* `CREATIVE_AI_DIRECTION` (on unless "off"), `CREATIVE_MODEL_UNDERSTAND` (default the cheap model),
+  `CREATIVE_MODEL_DIRECTOR` (default the strong model), `CREATIVE_DIRECTOR_MAX_TOKENS` 9000, `CREATIVE_MAX_REPAIRS` 1,
+  `CREATIVE_MAX_THUMBNAILS` 10, `CREATIVE_AI_TIMEOUT_MS` 100000.
+* `CREATIVE_DAILY_USD_CAP` **$6/day** for all Creative AI calls on the server (estimated from tokens × the configured
+  per-million prices, reseeded from the ledger after a restart); `CREATIVE_ACCOUNT_DAILY_PLANS` **20** direction calls per
+  account per day (repairs count). When a limit is reached the studio falls back to the built-in director and says why.
+* No credits are charged for Creative (review only); Business pricing is unchanged. Ledger costs are **estimates**
+  from token counts; the provider invoice is the real charge.
+
+## Built-in pipeline (stage 1; now the labelled fallback)
 
 1. **Understand** (`understand.js`): `recognizable` (a real thing with public facts), `personal` (“my goldfish
    Bubbles” — the owner supplies the facts), `fictional` (an invented idea — never looked up) or `ambiguous` (the
@@ -102,16 +155,24 @@ Business pricing and behaviour are unchanged. Creative stage 1, per page:
   page (entrance, loop, scroll, full page, reduced motion, failed pictures) at 1440×900 and 390×844 with measurements.
 * The personal brief is **synthetic fixture data** (“Bubbles” is invented; his “upload” is a CC0 Commons goldfish
   photo) and both the studio and the page carry a visible TEST FIXTURE label.
+* AI direction: `node --test test/creative-ai.test.js` — the v2 validator against hostile / careless plans, the v2
+  renderer's safety, persistence without re-planning, and the server path with a **mock** provider (understanding →
+  direction → one repair → labelled fallback; limits; ledger). Mocks answer as `mock-creative-*` and every plan they
+  produce is labelled MOCKED; they test plumbing, not creative quality.
+* Real model: `node test/review/creative-review.js <outDir> --remote=https://www.siteremade.com
+  --briefs=test/fixtures/creative-briefs-ai.js` with `CREATIVE_REVIEW_EMAIL` / `CREATIVE_REVIEW_PASSWORD` for a review
+  account — the deployed studio with the real model, within the deployed limits; set A was fixed before tuning, set B
+  after the implementation. `--provider=mock` runs the same harness locally against the mock.
 
 ## Stages
 
-1. **Stage 1 (this change):** review-mode switch; understanding; Wikipedia/Commons research with provenance; pixel
-   assessment and background removal; deterministic director; validator; renderer (entrance / loop / scroll /
-   connector / reduced motion / failure fallbacks); studio (brief, supplied details, uploads, clarification, preview
-   desktop/phone, live text editing, replace / remove / use-as-main, motion, sources, save / reopen); export; tests.
-2. **Stage 2:** model-directed scenes and copy (validated against the same schema) with a measured cost per page and
-   a stated allowance; more worlds and section types; generated scenery within an explicit image allowance; purchase
-   pricing for Creative pages (not offered in the studio yet).
-3. **Stage 3:** Creative in the normal (non-review) flow, hosting parity, analytics.
+1. **Stage 1:** review-mode switch; understanding; Wikipedia/Commons research with provenance; pixel assessment and
+   background removal; deterministic director; validator; renderer; studio; save / reopen; export; tests.
+2. **Stage 2 (this change):** AI creative direction — model understanding before research, model-directed v2 scene
+   plans with vision on the real pictures, validator v2 with one repair and a labelled fallback, renderer v2 (scenes,
+   pinning, shapes, words, masks, camera), "Try another direction", Creative-only limits and ledger.
+3. **Next:** generated or licensed imagery within an explicit allowance (the biggest remaining limit: many subjects —
+   trademarked characters, memes, abstract ideas — have no free pictures); faster direction (streaming or a smaller
+   model for a draft); scene-level "redirect this scene"; purchase pricing for Creative; the normal (non-review) flow.
 
 See `CREATIVE_PROGRESS.md` for the running log.
