@@ -604,7 +604,7 @@
     };
     const LIMITS = { scenes: [2, 9], layersPerScene: 6, layersTotal: 32, pinned: 3, loopsPerScene: 2, scrollPerScene: 4, items: 6, photoUses: 2, cutoutUses: 3, heading: 110, body: 520, item: 260, kicker: 70 };
     // where each text region sits on a desktop scene (x, y, w, h in % of the scene)
-    const REGION_BOXES = { left: [5, 16, 42, 68], right: [53, 16, 42, 68], center: [16, 24, 68, 52], 'bottom-left': [5, 56, 52, 38], 'bottom-right': [43, 56, 52, 38], bottom: [10, 62, 80, 32], 'top-left': [5, 8, 52, 38], 'top-right': [43, 8, 52, 38], top: [10, 8, 80, 32] };
+    const REGION_BOXES = { left: [5, 16, 42, 68], right: [50, 16, 45, 68], center: [16, 24, 68, 52], 'bottom-left': [5, 56, 45, 38], 'bottom-right': [50, 56, 45, 38], bottom: [10, 62, 80, 32], 'top-left': [5, 8, 45, 38], 'top-right': [50, 8, 45, 38], top: [10, 8, 80, 32] };
     const OPPOSITE = { left: 'right', right: 'left', center: 'bottom', 'bottom-left': 'top-right', 'bottom-right': 'top-left', bottom: 'top', 'top-left': 'bottom-right', 'top-right': 'bottom-left', top: 'bottom' };
 
     const HEX = /^#[0-9a-f]{6}$/i;
@@ -702,8 +702,12 @@
         if (text.body && text.kind === 'imagined' && facts.length) {
           const nums = [...numbersIn(text.body)];
           if (nums.length) {
-            const best = facts.map(f => ({ f, hit: nums.filter(n => numbersIn(f.text).has(n)).length })).sort((a, b) => b.hit - a.hit)[0];
+            const ranked = facts.map(f => ({ f, has: numbersIn(f.text) })).map(x => Object.assign(x, { hit: nums.filter(n => x.has.has(n)).length })).filter(x => x.hit).sort((a, b) => b.hit - a.hit);
+            const best = ranked[0];
+            // a summary may draw on a few facts at once (size, speed, height): every number must still come from one of them
+            const top = ranked.slice(0, 3); const covered = nums.every(n => top.some(x => x.has.has(n)));
             if (best && best.hit === nums.length) { text.kind = 'sourced'; text.cite = best.f.id; fixes.push(`${where}: a paragraph restating ${best.f.id} is marked as sourced and cited`); }
+            else if (best && covered) { text.kind = 'sourced'; text.cite = best.f.id; fixes.push(`${where}: a paragraph drawing on ${top.map(x => x.f.id).join(', ')} is marked as sourced and cited`); }
             else errors.push(`${where}: the "imagined" paragraph states numbers (${nums.join(', ')}) that no given fact supports -- cite the fact or remove the numbers`);
           }
         }
@@ -778,9 +782,12 @@
         layersTotal += layers.length;
         if (pin && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
         const bg = rs.background || {};
+        // an "auto" scene is only as tall as its words; pictures and shapes need a stage of their own beside them
+        let sceneHeight = height;
+        if (height === 'auto' && layers.some(L => L.role !== 'backdrop' && L.role !== 'texture')) { sceneHeight = 'short'; fixes.push(`${where}: layers need room -- the scene gets a short stage instead of text height`); }
         const scene = {
           id: sid, name: cap(rs.name, 60), purpose: cap(rs.purpose, 240), link: cap(rs.link, 240), navLabel: cap(rs.navLabel, 24),
-          height, pin, camera: oneOf(rs.camera, VOCAB.camera, 'none'), background: oneOf(bg.style || rs.background, VOCAB.sceneBg, si === 0 ? 'base' : 'base'), atmosphere: !!rs.atmosphere || si === 0,
+          height: sceneHeight, pin, camera: oneOf(rs.camera, VOCAB.camera, 'none'), background: oneOf(bg.style || rs.background, VOCAB.sceneBg, si === 0 ? 'base' : 'base'), atmosphere: !!rs.atmosphere || si === 0,
           mobile: { order: oneOf(rs.mobile && rs.mobile.order, VOCAB.mobileOrder, si === 0 ? 'text-first' : 'text-first') },
           text, layers,
         };
@@ -852,11 +859,18 @@
       if (overlap(r, tb) > area(r) * 0.06) {
         // move the focal to the other side of the words, else move the words
         const b = focal.box.d; const cx = tb[0] + tb[2] / 2;
-        const target = cx < 50 ? Math.max(tb[0] + tb[2] + 2, 100 - b[2]) : Math.min(tb[0] - b[2] - 2, 0);
-        const moved = box([cx < 50 ? Math.min(target, 100 - b[2]) : Math.max(0, target), b[1], b[2], b[3]], b);
+        // to the far side of the words, inside the outer margin the thread runs in
+        const lo = b[2] <= 90 ? 5 : 0, hi = b[2] <= 90 ? 95 : 100;
+        const target = cx < 50 ? Math.max(tb[0] + tb[2] + 2, hi - b[2]) : Math.min(tb[0] - b[2] - 2, lo);
+        const moved = box([cx < 50 ? Math.min(target, hi - b[2]) : Math.max(lo, target), b[1], b[2], b[3]], b);
         const trial = Object.assign({}, focal, { box: Object.assign({}, focal.box, { d: moved }) });
         const r2 = focal.kind === 'image' ? drawnRect(trial, asset, 'd') : moved;
-        if (overlap(r2, tb) <= area(r2) * 0.06) { focal.box.d = moved; fixes.push(`scene ${scene.id}: focal moved clear of the words`); }
+        if (overlap(r2, tb) <= area(r2) * 0.06) {
+          // layers built onto the focal (a hilt on a blade, a halo on a head) travel with it
+          const dx = moved[0] - b[0];
+          scene.layers.forEach(L => { if (L === focal || L.role === 'backdrop' || L.role === 'texture' || !(overlap(L.box.d, b) > 0)) return; const lb = L.box.d; const l0 = lb[2] <= 90 ? 5 : 0, l1 = lb[2] <= 90 ? 95 : 100; L.box.d = [Math.round(Math.max(l0, Math.min(l1 - lb[2], lb[0] + dx)) * 10) / 10, lb[1], lb[2], lb[3]]; });
+          focal.box.d = moved; fixes.push(`scene ${scene.id}: focal moved clear of the words`);
+        }
         else {
           const other = OPPOSITE[scene.text.region]; if (overlap(r, REGION_BOXES[other]) <= area(r) * 0.06) { scene.text.region = other; fixes.push(`scene ${scene.id}: words moved clear of the focal`); }
           else { scene.text.scrim = true; warnings.push(`scene ${scene.id}: words sit over the focal picture -- a scrim keeps them readable`); }
@@ -864,7 +878,17 @@
       }
       // secondaries never cover the words
       tb = REGION_BOXES[scene.text.region];
-      scene.layers.forEach(L => { if (L === focal || L.role === 'backdrop' || L.role === 'texture') return; const lr = L.kind === 'image' ? drawnRect(L, byId.get(L.asset), 'd') : L.box.d; if (overlap(lr, tb) > area(lr) * 0.25 && L.opacity > 0.35) { L.opacity = 0.3; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: ${L.id} faded behind the words`); } });
+      scene.layers.forEach(L => {
+        if (L === focal || L.role === 'backdrop' || L.role === 'texture') return;
+        const lrOf = d => (L.kind === 'image' ? drawnRect(Object.assign({}, L, { box: Object.assign({}, L.box, { d }) }), byId.get(L.asset), 'd') : d);
+        const lr = lrOf(L.box.d); if (!(overlap(lr, tb) > area(lr) * 0.25)) return;
+        // first move it beside the words (and off the focal); only if there is no room does it fade behind them
+        const b = L.box.d; const fr = rect('d');
+        const spots = [tb[0] + tb[2] + 2, tb[0] - b[2] - 2].filter(x => x >= 5 && x + b[2] <= 95).map(x => [x, b[1], b[2], b[3]]);
+        const free = spots.find(d => overlap(lrOf(d), tb) <= area(lrOf(d)) * 0.06 && overlap(d, fr) <= area(d) * 0.25);
+        if (free) { L.box.d = free; fixes.push(`scene ${scene.id}: ${L.id} moved beside the words`); return; }
+        if (L.opacity > 0.35) { L.opacity = 0.3; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: ${L.id} faded behind the words`); }
+      });
     }
 
     module.exports = { validatePlan2, VOCAB, LIMITS, REGION_BOXES, contrast, sceneInk };
@@ -1913,6 +1937,7 @@
     .shape{position:absolute;inset:0;--f:var(--accent)}
     .shape[data-fill="glow"]{--f:var(--glow)}.shape[data-fill="ink"]{--f:var(--ink)}.shape[data-fill="muted"]{--f:var(--muted)}.shape[data-fill="bg2"]{--f:var(--bg2)}
     .shape[data-form="circle"]{border-radius:50%;background:var(--f)}
+    .shape[data-form="circle"],.shape[data-form="sunburst"]{width:100cqmin;height:100cqmin;margin:auto}
     .shape[data-form="ring"]{border-radius:50%;border:max(3px,6cqmin) solid var(--f)}
     .shape[data-form="triangle"]{background:var(--f);clip-path:polygon(50% 0,100% 100%,0 100%)}
     .shape[data-form="diamond"]{background:var(--f);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
@@ -1921,6 +1946,7 @@
     .shape[data-form="blob"]{background:var(--f);border-radius:42% 58% 63% 37% / 41% 44% 56% 59%}
     .shape[data-form="arc"]{border-radius:50%;border:max(3px,4cqmin) solid var(--f);border-bottom-color:transparent;border-left-color:transparent}
     .shape[data-form="line"]{top:calc(50% - 1.5px);bottom:auto;height:3px;background:var(--f)}
+    @container (orientation: portrait){.shape[data-form="line"]{top:0;bottom:0;height:auto;left:calc(50% - 1.5px);right:auto;width:3px}}
     .shape[data-form="dots"]{background:radial-gradient(circle,var(--f) 22%,transparent 24%) 0 0/28px 28px}
     .shape[data-form="sunburst"]{border-radius:50%;background:repeating-conic-gradient(var(--f) 0 6deg,transparent 6deg 15deg);mask:radial-gradient(circle,#000 30%,transparent 70%);-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%)}
     .shape[data-form="stripes"]{background:repeating-linear-gradient(115deg,var(--f) 0 10px,transparent 10px 26px)}

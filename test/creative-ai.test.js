@@ -132,6 +132,33 @@ test('numbers in "imagined" copy must come from the facts: restated ones become 
   assert.equal(v.plan.scenes[0].text.kind, 'sourced'); assert.equal(v.plan.scenes[0].text.cite, 'f1');
   v = validatePlan2(mk('Taller than 300 metres.'), { assets: [], facts }); assert.ok(v.errors.some(e => /no given fact supports/.test(e)));
   v = validatePlan2(mk('Some stories are best told in low light.'), { assets: [], facts }); assert.deepEqual(v.errors, []);
+  // a summary of a few facts is fine when every number comes from one of them; one invented number still goes back
+  const more = facts.concat({ id: 'f2', text: 'It moved at about 27 km/s.' });
+  v = validatePlan2(mk('Fifty to sixty metres wide, at twenty-seven kilometres a second.'), { assets: [], facts: more });
+  assert.deepEqual(v.errors, []); assert.equal(v.plan.scenes[0].text.kind, 'sourced');
+  v = validatePlan2(mk('Fifty to sixty metres wide, at 27 km/s, from 900 km up.'), { assets: [], facts: more }); assert.ok(v.errors.length);
+});
+
+test('composition: a text-height scene with layers gets a stage; built-on layers travel with the focal; secondaries step aside', () => {
+  const p = basePlan();
+  p.scenes[1] = { id: 'sword', purpose: 'a sword', height: 'auto', text: { heading: 'A sword', region: 'right', body: 'It waits.' }, layers: [
+    { id: 'blade', kind: 'shape', role: 'focal', shape: { form: 'line' }, box: box([44, 5, 8, 80]) },
+    { id: 'hilt', kind: 'shape', role: 'support', shape: { form: 'cross' }, box: box([41, 55, 14, 8]) },
+  ] };
+  p.scenes.push({ id: 'three', purpose: 'markers', height: 'auto', text: { heading: 'Markers', region: 'center' }, layers: [
+    { id: 'm1', kind: 'shape', role: 'focal', shape: { form: 'star' }, box: box([6, 30, 20, 30]) },
+    { id: 'm2', kind: 'shape', role: 'support', shape: { form: 'diamond' }, box: box([40, 35, 20, 20]) },
+  ] });
+  const { plan } = validatePlan2(p, { assets: ASSETS, facts: FACTS });
+  const [, sword, three] = plan.scenes;
+  assert.equal(sword.height, 'short'); assert.equal(three.height, 'short');
+  const blade = sword.layers.find(L => L.id === 'blade').box.d, hilt = sword.layers.find(L => L.id === 'hilt').box.d;
+  assert.ok(blade[0] + blade[2] <= 50, 'the blade moved clear of the words');
+  assert.ok(hilt[0] < blade[0] + blade[2] && hilt[0] + hilt[2] > blade[0], 'the hilt stays on the blade');
+  const m2 = three.layers.find(L => L.id === 'm2');
+  assert.equal(m2.opacity, 1, 'moved beside the words rather than faded'); assert.ok(m2.box.d[0] >= 5 && m2.box.d[0] + m2.box.d[2] <= 95);
+  // a page validated again (reopen, export) keeps the same composition
+  assert.deepEqual(validatePlan2(plan, { assets: ASSETS, facts: FACTS }).plan.scenes, plan.scenes);
 });
 
 test('cost estimates come from the configured per-million prices', () => {
