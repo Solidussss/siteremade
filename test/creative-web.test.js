@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { checkUrl, blockedAddress, imageInfo, safeFetch } = require('../lib/creative/webfetch');
-const { readPage, permissionFor, licenceOf, discover } = require('../lib/creative/webimages');
+const { readPage, permissionFor, licenceOf, discover, wikimediaFile } = require('../lib/creative/webimages');
 const ai = require('../lib/creative/ai');
 
 test('fetcher: only public https hosts; private, loopback, link-local, mapped and odd addresses are refused', async () => {
@@ -39,7 +39,7 @@ test('permission comes from what the page states, with its evidence -- never fro
   assert.equal(licenceOf('https://creativecommons.org/licenses/by-nc/2.0/').free, false);
   assert.equal(licenceOf('https://creativecommons.org/publicdomain/zero/1.0/').name, 'CC0');
   const base = 'https://photos.example.org/p/1';
-  const flickrish = readPage('<meta property="og:image" content="https://img.example.org/1.jpg"><meta name="author" content="A. Photographer"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">CC BY</a>', base);
+  const flickrish = readPage('<meta property="og:type" content="photo"><meta property="og:image" content="https://img.example.org/1.jpg"><meta name="author" content="A. Photographer"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">CC BY</a>', base);
   const p1 = permissionFor(flickrish, 'https://img.example.org/1.jpg', base);
   assert.equal(p1.status, 'free'); assert.equal(p1.licence, 'CC BY 2.0'); assert.equal(p1.author, 'A. Photographer'); assert.match(p1.evidence[0], /rel=license/);
   // the same licence, but no creator to credit: not free to use
@@ -50,16 +50,48 @@ test('permission comes from what the page states, with its evidence -- never fro
   // all rights reserved, or a NonCommercial licence -> restricted
   assert.equal(permissionFor(readPage('<meta property="og:image" content="https://img.example.org/2.jpg"><footer>© 2024 Studio. All rights reserved.</footer>', base), 'https://img.example.org/2.jpg', base).status, 'restricted');
   assert.equal(permissionFor(readPage('<meta property="og:image" content="https://img.example.org/3.jpg"><a rel="license" href="https://creativecommons.org/licenses/by-nc/2.0/">x</a>', base), 'https://img.example.org/3.jpg', base).status, 'restricted');
-  // a page licence does not automatically cover a secondary picture on the page
-  const withImg = readPage('<meta property="og:image" content="https://img.example.org/main.jpg"><meta name="author" content="B"><a rel="license" href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a><img src="https://img.example.org/other.jpg" width="900" height="600">', base);
+  // on a photo page, the licence covers its main picture -- not a secondary picture on the page
+  const withImg = readPage('<meta property="og:type" content="photo"><meta property="og:image" content="https://img.example.org/main.jpg"><meta name="author" content="B"><a rel="license" href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a><img src="https://img.example.org/other.jpg" width="900" height="600">', base);
   assert.equal(permissionFor(withImg, 'https://img.example.org/main.jpg', base).status, 'free');
   assert.equal(permissionFor(withImg, 'https://img.example.org/other.jpg', base).status, 'unclear');
+});
+
+test('a licence counts only when it is stated for the picture: an article\'s text licence does not cover its images', async () => {
+  const art = 'https://en.wikipedia.org/wiki/Some_game';
+  const wikiHtml = img => `<meta name="generator" content="MediaWiki 1.45"><meta property="og:title" content="Some game - Wikipedia"><meta property="og:image" content="${img}"><link rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/"><meta name="author" content="Contributors to Wikimedia projects">`;
+  // the text licence of an article: not the picture's
+  const page = readPage(wikiHtml('https://img.example.org/cover.png'), art);
+  const p = permissionFor(page, 'https://img.example.org/cover.png', art);
+  assert.equal(p.status, 'unclear'); assert.match(p.evidence[0], /for the page/); assert.match(p.note, /text/);
+  // a photo page (og:type photo) that states a licence for its main picture: free
+  const photo = readPage('<meta property="og:type" content="flickr_photos:photo"><meta property="og:image" content="https://live.example.org/1.jpg"><meta name="author" content="D"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">x</a>', 'https://photos.example.org/p/1');
+  assert.equal(permissionFor(photo, 'https://live.example.org/1.jpg', 'https://photos.example.org/p/1').status, 'free');
+  // structured data describing the image itself
+  const ld = readPage('<script type="application/ld+json">{"@type":"ImageObject","contentUrl":"https://img.example.org/x.jpg","license":"https://creativecommons.org/publicdomain/zero/1.0/"}</script>', 'https://museum.example.org/obj/1');
+  assert.equal(permissionFor(ld, 'https://img.example.org/x.jpg', 'https://museum.example.org/obj/1').status, 'free');
+  assert.deepEqual(wikimediaFile('https://upload.wikimedia.org/wikipedia/en/a/ab/Some_game_cover.png'), { project: 'en', file: 'File:Some game cover.png' });
+  assert.deepEqual(wikimediaFile('https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Trifuerza.svg/1280px-Trifuerza.svg.png?x=1'), { project: 'commons', file: 'File:Trifuerza.svg' });
+  // discovery: a Commons file takes its own record's licence and creator; a local Wikipedia file stays unclear
+  const png = () => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); return b; };
+  const pages = { [art]: wikiHtml('https://upload.wikimedia.org/wikipedia/commons/2/29/Tri_force.png'), 'https://en.wikipedia.org/wiki/Other': wikiHtml('https://upload.wikimedia.org/wikipedia/en/a/ab/Some_game_cover.png') };
+  let asked = null;
+  const out = await discover({ identity: { name: 'X' } }, {
+    searchPages: async () => ({ pages: Object.keys(pages).map(url => ({ url })), searches: 1, usd: 0.01 }),
+    fetch: async u => ({ ok: true, url: u, body: Buffer.from(pages[u]) }),
+    fetchImg: async u => { const b = png(); b.write(u.slice(-12), 20); return { ok: true, url: u, body: b, mime: 'image/png', width: 900, height: 900 }; },
+    commons: async titles => { asked = titles; return [{ title: 'File:Tri force.png', pageUrl: 'https://commons.wikimedia.org/wiki/File:Tri_force.png', license: 'Public domain', licenseUrl: '', author: '' }]; },
+  });
+  assert.deepEqual(asked, ['File:Tri force.png'], 'only the Commons file is looked up');
+  const byFile = Object.fromEntries(out.candidates.map(c => [c.imageUrl.split('/').pop(), c]));
+  assert.equal(byFile['Tri_force.png'].permission.status, 'free'); assert.match(byFile['Tri_force.png'].permission.evidence[0], /own Commons record/);
+  assert.notEqual(byFile['Tri_force.png'].author, 'Contributors to Wikimedia projects');
+  assert.equal(byFile['Some_game_cover.png'].permission.status, 'unclear'); assert.match(byFile['Some_game_cover.png'].permission.note, /non-free/);
 });
 
 test('discovery: bounded, deduplicated, and only images with a stated free licence count as usable', async () => {
   const jpg = n => { const b = Buffer.alloc(200); Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x03, 0x20]).copy(b); b.writeUInt32BE(n, 100); return b; };
   const pages = {
-    'https://a.example.org/free': '<meta property="og:image" content="https://img.example.org/a.jpg"><meta name="author" content="C"><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">x</a>',
+    'https://a.example.org/free': '<meta property="og:type" content="photo"><meta property="og:image" content="https://img.example.org/a.jpg"><meta name="author" content="C"><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">x</a>',
     'https://b.example.org/official': '<meta property="og:image" content="https://img.example.org/b.jpg">',
     'https://c.example.org/dup': '<meta property="og:image" content="https://img.example.org/a.jpg">',
   };

@@ -2537,7 +2537,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     if (!why) { try { web = await creativeWebDiscovery(understanding, brief, req.accountId, refine); } catch (error) { web = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: String(error && error.message || error).slice(0, 200), searches: 0 }; } }
     const base = images.length;
     (web ? web.images : []).slice(0, Math.max(0, 9 - base)).forEach((v, n) => images.push({
-      id: `r${base + n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: '',
+      id: `r${base + n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: v.permission.licenseUrl || '',
       pageUrl: v.pageUrl, sourceUrl: v.imageUrl, found: 'web', relevance: 1, width: v.width, height: v.height, mime: v.mime, kind: '', curation: v.curation, rightsEvidence: v.permission.evidence,
       retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
     }));
