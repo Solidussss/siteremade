@@ -143,6 +143,12 @@
       setSaveState('Opening checkout…');
       return api('/api/checkout', { method: 'POST', body: { projectId: S.projectId, businessName: S.name || pageTitle(), industry: 'Creative page', sectionsSummary: 'Creative page' } }).then(function (r) {
         done();
+        if (r.ok && r.data.ok && r.data.testerPurchase && r.data.fulfilled) {
+          S.status = 'purchased';
+          showBuy();
+          setSaveState('Tester purchase complete — your real purchased handoff is ready.');
+          return;
+        }
         if (r.ok && r.data.ok && r.data.url) { window.location.href = r.data.url; return; }
         if (r.status === 409 && /already been purchased/.test((r.data && r.data.message) || '')) { S.status = 'purchased'; showBuy(); }
         setSaveState((r.data && r.data.message) || 'Checkout could not start. Try again shortly.');
