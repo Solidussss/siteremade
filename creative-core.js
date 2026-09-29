@@ -871,7 +871,8 @@
         };
         if (si === 0) scene.cta = cap(rs.cta, 40) || 'Begin';
         if (!scene.purpose) warnings.push(`${where}: no stated purpose`);
-        if (!safety) { compose(scene, byId, fixes, warnings, si === 0); legible(scene, byId, fixes); }
+        // (a picture swap re-fits only the scenes that show the new picture: ctx.recompose lists their ids)
+        if (!safety || (c.recompose && c.recompose.includes(sid))) { compose(scene, byId, fixes, warnings, si === 0); legible(scene, byId, fixes); }
         else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
         return scene;
       }).filter(Boolean);
@@ -885,6 +886,22 @@
         errors.push(`copy: ${uncited} of ${sourcedLines} "sourced" lines had no valid fact id${shown ? ` (cite was ${shown})` : ' (cite was empty)'} -- each cite must be exactly one of the given ids (${ids.length ? `${ids[0]}…${ids[ids.length - 1]}` : 'none were given'}); a line drawing on two facts cites the main one; otherwise mark the line imagined`);
       }
       if (!scenes.some(s => s.text.heading || s.text.body || s.text.items.length)) errors.push('copy: the page has no words');
+      // ---- the owner's chosen main picture leads the opening scene: enforced here, not left to the model. Its clean cutout
+      // is used when there is one; the layer keeps its place in the composition and is re-fitted to the new picture.
+      const mainA = !safety && c.mainAsset ? byId.get(c.mainAsset) : null;
+      if (mainA && scenes[0]) {
+        const hs = scenes[0]; const pick = assets.find(a => a.cutoutOf === mainA.id && a.caps && a.caps.moveFreely) || mainA;
+        let f0 = hs.layers.find(L => L.role === 'focal');
+        const leads = f0 && f0.kind === 'image' && (f0.asset === mainA.id || f0.asset === pick.id || (byId.get(f0.asset) || {}).cutoutOf === mainA.id);
+        if (!leads) {
+          if (!f0) { f0 = { id: 'main', kind: 'image', role: 'focal', box: { d: [52, 10, 42, 78], m: [8, 6, 84, 64] }, z: 5, rotate: 0, opacity: 1, mask: 'none', treatment: 'shadow', entrance: { kind: 'rise', delay: 0.2, dur: 1.1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0.4 }, hideM: false }; hs.layers.unshift(f0); }
+          const free = !!(pick.caps && pick.caps.moveFreely);
+          Object.assign(f0, { kind: 'image', asset: pick.id, fit: free ? 'contain' : 'cover', focus: /^\d{1,3}% \d{1,3}%$/.test(mainA.focus || '') ? mainA.focus : '50% 50%', mask: free ? 'none' : (f0.mask && f0.mask !== 'none' ? f0.mask : 'window'), opacity: Math.max(0.9, f0.opacity || 1) });
+          delete f0.shape; delete f0.word;
+          fixes.push(`hero: the owner's chosen main picture (${mainA.id}) leads the opening scene`);
+          compose(hs, byId, fixes, warnings, true); legible(hs, byId, fixes);
+        }
+      }
       // ---- the subject's imagery: a logo is a reference, never the hero's main picture when a real picture of the
       // subject exists; and a page that should show its subject but cannot is marked degraded, never passed off
       const heroFocal = scenes[0] && scenes[0].layers.find(L => L.role === 'focal');
@@ -896,14 +913,15 @@
       // whether the page must show its subject follows what the understanding said it must show; the kind decides only
       // when nothing was said (a meme or a concept "invented" in the brief can still have a picture it cannot do without)
       const needsImagery = visuals && visuals.main ? !/^\s*none\b/i.test(visuals.main) : identity.kind !== 'invented';
-      if (!safety && needsImagery && subjectPics.length) {
+      if (!safety && needsImagery && subjectPics.length && !c.abstractChosen && !mainA) {
         const use = subjectPics.slice(0, 3).map(a => a.id).join(', ');
         if (heroCur && (heroCur.role === 'logo' || heroCur.role === 'reference')) errors.push(`hero: its main picture ${heroFocal.asset} is a ${heroCur.role} -- use a picture of the subject (${use}); logos and references are supporting material`);
         else if (heroCur && (heroCur.role === 'supporting' || heroCur.role === 'environment')) errors.push(`hero: its main picture ${heroFocal.asset} shows ${heroCur.role === 'supporting' ? 'a supporting object' : 'a setting'}, not the subject -- ${use} show${subjectPics.length > 1 ? '' : 's'} the subject; lead with it`);
         else if (heroFocal && heroFocal.kind !== 'image') errors.push(`hero: no picture of the subject although ${use} show${subjectPics.length > 1 ? '' : 's'} it -- make one of them the hero's main visual`);
       }
       let imagery;
-      if (safety && p.imagery && typeof p.imagery === 'object') imagery = { status: oneOf(p.imagery.status, ['strong', 'form', 'weak', 'missing', 'not-needed'], 'weak'), degraded: !!p.imagery.degraded, missing: (Array.isArray(p.imagery.missing) ? p.imagery.missing : []).slice(0, 3).map(x => cap(x, 160)).filter(Boolean), note: cap(p.imagery.note, 240) };
+      if (!safety && c.abstractChosen) imagery = { status: 'abstract', degraded: false, missing: ((coverage && coverage.missing) || []).slice(0, 3).map(x => cap(x, 160)), note: 'an abstract interpretation, chosen by the owner when no usable picture of the subject was found' };
+      else if (safety && p.imagery && typeof p.imagery === 'object') imagery = { status: oneOf(p.imagery.status, ['strong', 'form', 'weak', 'missing', 'not-needed', 'abstract'], 'weak'), degraded: !!p.imagery.degraded, missing: (Array.isArray(p.imagery.missing) ? p.imagery.missing : []).slice(0, 3).map(x => cap(x, 160)).filter(Boolean), note: cap(p.imagery.note, 240) };
       else {
         const heroIsPicture = heroFocal && heroFocal.kind === 'image';
         const status = !needsImagery ? 'not-needed' : !heroIsPicture ? 'missing' : !heroCur ? 'strong' : heroCur.role === 'subject' || heroCur.role === 'detail' ? (heroCur.identity === 'form' ? 'form' : 'strong') : 'weak';
@@ -920,7 +938,8 @@
       }));
       // credits for every picture shown, limited to those
       const shown = new Set(); scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
-      const credits = assets.filter(a => shown.has(a.id) && a.origin !== 'upload' && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
+      // (a picture the owner adopted from the web is credited to its source page, as supplied by the owner)
+      const credits = assets.filter(a => shown.has(a.id) && (a.origin !== 'upload' || a.ownerAffirmed) && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: a.origin === 'upload' ? 'supplied by the page owner, who holds the rights' : cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
       const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
@@ -1916,8 +1935,8 @@
       const cited = [...citeNo.keys()].map(k => factById.get(k));
       const sources = `<footer class="cr-foot" id="cr-sources"><details class="cr-sources"><summary>Sources and credits</summary>
         <p class="cr-kinds">${plan.identity.kind === 'personal' ? 'Words about them come from the family. ' : ''}${plan.identity.kind === 'fictional' ? 'Facts marked with a number describe the stories, as reported by the source below. ' : ''}Headlines and lines not marked with a number are written for this page and are not facts.</p>
-        ${cited.length ? `<h3>Facts</h3><p>From ${plan.sources.map(s => `<a href="${esc(s.url)}" rel="noopener">${esc(s.title)}</a>${s.license ? ` (${esc(s.license)})` : ''}${s.retrieved ? `, retrieved ${esc(String(s.retrieved).slice(0, 10))}` : ''}`).join(', ') || 'the sources below'}.</p><ol class="cr-factlist">${cited.map(f => `<li>${esc(f.text)}</li>`).join('')}</ol>` : ''}
-        ${plan.credits.length ? `<h3>Pictures</h3><ul class="cr-credits">${plan.credits.map(c => `<li><a href="${esc(c.url)}" rel="noopener">${esc(cleanTitle(c.title))}</a>${c.author ? ` by ${esc(c.author)}` : ''}${c.license ? `, ${c.licenseUrl ? `<a href="${esc(c.licenseUrl)}" rel="noopener license">${esc(c.license)}</a>` : esc(c.license)}` : ''}${plan.derived.some(d => d.from === c.asset) ? ' — background removed by SiteRemade' : ''}</li>`).join('')}</ul>` : ''}
+        ${cited.length ? `<h3>Facts</h3><p>From ${plan.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>${s.license ? ` (${esc(s.license)})` : ''}${s.retrieved ? `, retrieved ${esc(String(s.retrieved).slice(0, 10))}` : ''}`).join(', ') || 'the sources below'}.</p><ol class="cr-factlist">${cited.map(f => `<li>${esc(f.text)}</li>`).join('')}</ol>` : ''}
+        ${plan.credits.length ? `<h3>Pictures</h3><ul class="cr-credits">${plan.credits.map(c => `<li><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(cleanTitle(c.title))}</a>${c.author ? ` by ${esc(c.author)}` : ''}${c.license ? `, ${c.licenseUrl ? `<a href="${esc(c.licenseUrl)}" rel="noopener license">${esc(c.license)}</a>` : esc(c.license)}` : ''}${plan.derived.some(d => d.from === c.asset) ? ' — background removed by SiteRemade' : ''}</li>`).join('')}</ul>` : ''}
         </details><p class="cr-footnote">${kindNote}</p><p class="cr-made">Made with SiteRemade Creative</p></footer>`;
       const scene = { thread: plan.thread.kind, tempo: plan.motion.tempo, mode, focal: focalCfg(hero, byId) };
       const t = hero.text;
@@ -2176,7 +2195,7 @@
     @keyframes k-rise{0%{transform:translate3d(0,30vh,0);opacity:0}15%{opacity:.9}100%{transform:translate3d(1.5vw,-60vh,0);opacity:0}}
     @keyframes k-fall{0%{transform:translate3d(0,-20vh,0) rotate(var(--pr));opacity:0}15%{opacity:.85}100%{transform:translate3d(-4vw,70vh,0) rotate(calc(var(--pr) + 300deg));opacity:0}}
     @keyframes k-fog{0%,100%{transform:translate3d(-10vw,0,0)}50%{transform:translate3d(8vw,-2vh,0)}}
-    @keyframes k-cloud{0%{transform:translate3d(-30vw,0,0)}100%{transform:translate3d(30vw,0,0)}}
+    @keyframes k-cloud{0%{transform:translate3d(-30vw,0,0);opacity:0}12%,88%{opacity:1}100%{transform:translate3d(30vw,0,0);opacity:0}}
     @keyframes k-steam{0%{transform:translate3d(0,10vh,0) scale(.6);opacity:0}30%{opacity:1}100%{transform:translate3d(2vw,-30vh,0) scale(1.4);opacity:0}}
     @keyframes k-twinkle{0%{opacity:.35}100%{opacity:1}}
     @keyframes k-rays{0%{transform:translateX(-2%) skewX(-2deg)}100%{transform:translateX(2%) skewX(2deg)}}
@@ -2232,7 +2251,7 @@
     .cr-connector{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
     .cr-connector .cr-dot{transition:opacity .5s ease,transform .6s cubic-bezier(.3,1.4,.5,1);transform-box:fill-box;transform-origin:center}.cr-connector .cr-dot:not(.on){opacity:0;transform:scale(.3)}
     /* sources */
-    .cr-foot{padding:48px clamp(20px,7vw,150px) 36px;font-size:13px;color:var(--muted);border-top:1px solid rgba(var(--ink-rgb),.12)}
+    .cr-foot{scroll-margin-top:calc(var(--nav) + 12px);padding:48px clamp(20px,7vw,150px) 36px;font-size:13px;color:var(--muted);border-top:1px solid rgba(var(--ink-rgb),.12)}
     .cr-sources summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:14px}
     .cr-sources h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin:22px 0 8px}
     .cr-factlist,.cr-credits{padding-left:20px}.cr-factlist li,.cr-credits li{margin:0 0 6px;overflow-wrap:anywhere}
@@ -2337,7 +2356,22 @@
     var rt;W.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(layout,120)});
     if('ResizeObserver' in W&&mainEl){var last=0;new ResizeObserver(function(){var h=mainEl.scrollHeight;if(Math.abs(h-last)>2){last=h;clearTimeout(rt);rt=setTimeout(layout,120)}}).observe(mainEl)}
     if(d.readyState==='complete')layout();else W.addEventListener('load',layout);setTimeout(layout,60);
-    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.cr-cite');if(a){var s=d.querySelector('.cr-sources');if(s)s.open=true}});
+    /* in-page navigation: every "#..." link scrolls within this page and never navigates (in the studio's srcdoc preview a
+       bare "#id" resolves against the parent site and would load it into the preview). Sections scroll to their top (their
+       padding clears the sticky header); other targets sit below the header. Sources and citations open the source list;
+       the phone menu closes; focus moves to the destination. */
+    function navTo(id){var t=id==='top'?hero:d.getElementById(id);if(!t)return false;
+      var det=d.querySelector('.cr-sources');if(det&&(id==='cr-sources'||(t.closest&&t.closest('.cr-foot'))))det.open=true;
+      var nav=d.querySelector('.cr-nav'),off=nav?nav.getBoundingClientRect().height:0,isScene=t.classList&&t.classList.contains('sc');
+      var y=id==='top'?0:Math.max(0,t.getBoundingClientRect().top+(W.scrollY||W.pageYOffset)-(isScene?0:off+12));
+      var m=d.querySelector('details.cr-menu[open]');if(m)m.open=false;
+      try{W.scrollTo({top:y,behavior:reduced()?'auto':'smooth'})}catch(x){W.scrollTo(0,y)}
+      if(!t.hasAttribute('tabindex'))t.setAttribute('tabindex','-1');try{t.focus({preventScroll:true})}catch(x){}
+      try{if(location.protocol==='http:'||location.protocol==='https:'||location.protocol==='file:')history.replaceState(null,'','#'+id)}catch(x){}
+      return true}
+    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var id='';try{id=decodeURIComponent(a.getAttribute('href').slice(1))}catch(x){}e.preventDefault();if(id)navTo(id)});
+    W.__crNav=navTo;
+    if(location.hash&&location.hash.length>1){var h0=location.hash.slice(1);setTimeout(function(){try{navTo(decodeURIComponent(h0))}catch(x){}},450)}
     W.__crLayout=layout;W.__crFrame=frame;
     })();`;
     const PREVIEW2 = `
@@ -2347,7 +2381,9 @@
       else if(m.type==='cr-motion'){html.setAttribute('data-motion',m.motion==='reduced'?'reduced':'full');if(m.tempo)html.setAttribute('data-tempo',m.tempo);[].forEach.call(d.querySelectorAll('.sc'),function(s){s.classList.add('is-in','is-seen')});if(window.__crLayout)window.__crLayout()}
       else if(m.type==='cr-replay'){var h=d.querySelector('.sc');if(h){h.classList.remove('is-in');void h.offsetWidth;setTimeout(function(){h.classList.add('is-in')},80)}}
     });
-    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(h&&h.charAt(0)==='#')return;e.preventDefault()});
+    /* the preview never navigates itself: in-page links are handled by the page runtime; external source links open in a
+       new tab (target=_blank); anything else is inert here */
+    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if((h&&h.charAt(0)==='#')||a.getAttribute('target')==='_blank')return;e.preventDefault()});
     })();`;
 
     module.exports = { renderCreative2 };

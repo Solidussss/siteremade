@@ -261,6 +261,7 @@ test('server (MOCK provider): the claim check sends unsupported words back once,
     assert.ok(reveal.layers.length, 'the scene keeps its pictures, so it stays');
     assert.ok(r.body.fixes.some(f => /"Closer" was taken out/.test(f)));
     assert.deepEqual(r.body.plan.claims, { status: 'verified', checked: r.body.plan.claims.of, of: r.body.plan.claims.of, removed: 1, calls: 1 });
+    for (let i = 0; i < 40 && ledger(dir).length < 4; i++) await new Promise(res => setTimeout(res, 50)); // (the ledger is written in order, after the reply)
     const rows = ledger(dir);
     assert.equal(rows.filter(x => x.kind === 'creative_claims').length, 2); assert.equal(rows.filter(x => x.kind === 'creative_direct').length, 2);
   });

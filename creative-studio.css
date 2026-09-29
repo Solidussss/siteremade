@@ -87,3 +87,13 @@ body.cs-open{overflow:hidden}
 .cs-dir-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .cs-seen{color:#b9c7ff!important}.cs-seen.is-no{color:#ff9b9b!important}
 .cs-scenes{padding-left:18px;font-size:13px;color:#cfcdd6}.cs-scenes li{margin-bottom:6px}
+/* missing imagery: the owner decides before any direction is paid for */
+.cs-gate{background:#1b1f2a;border:1px solid #34405a;border-radius:12px;padding:12px 14px;margin:10px 0;font-size:13.5px}
+.cs-gate p{margin:0 0 8px}.cs-gate-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.cs-refine{display:flex;gap:6px;flex:1 1 100%}.cs-refine input{flex:1;min-width:0;background:#10131a;color:inherit;border:1px solid #34405a;border-radius:8px;padding:7px 9px}
+.cs-review{display:grid;grid-template-columns:84px 1fr;gap:10px;align-items:start;padding:8px 0;border-top:1px solid #2a3143}
+.cs-review-img{width:84px;height:84px;border-radius:8px;overflow:hidden;background:#0d1016;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8b93a7}
+.cs-review-img img{width:100%;height:100%;object-fit:cover}.cs-review small{display:block;color:#a8b0c2}.cs-review .cs-perm{color:#f0c28a;margin:2px 0 4px}
+.cs-review a{font-size:12.5px;margin-right:6px}
+.cs-thumbs figure select{display:block;width:100%;margin-top:4px;font-size:11px;background:#10131a;color:inherit;border:1px solid #34405a;border-radius:6px}
+.cs-thumbs figure small{display:block;font-size:10px;color:#a8b0c2}

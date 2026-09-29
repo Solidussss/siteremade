@@ -15,7 +15,7 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null,
+      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -62,7 +62,7 @@
       '<p class="cs-hint">A personal page only ever shows your own photos of them and only says what you write here.</p></details>',
       '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><div class="cs-thumbs" id="csThumbs"></div></div>',
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
-      '<p class="cs-cost" id="csCostNote">Uses free encyclopedia sources and your own pictures. No AI image generation, no paid AI calls, no credits.</p>',
+      '<p class="cs-cost" id="csCostNote">Uses Wikipedia, Wikimedia Commons, web search and your own pictures, and paid AI calls (understanding, picture checks, direction, fact checks) within this site\'s daily limit. No AI image generation; no credits charged.</p>',
       '</section>',
       '<section class="cs-step" id="csProgress" hidden><h2>Making it</h2><ol class="cs-progress" id="csProgressList"></ol><div id="csChoices"></div><p class="cs-error" id="csError" role="alert" hidden></p></section>',
       '<section class="cs-step" id="csEditor" hidden>',
@@ -175,7 +175,7 @@
       list = list.filter(Boolean); if (!list.length) return;
       return Promise.all(list.map(processAsset)).then(function (groups) {
         groups.forEach(function (g) { S.assets = S.assets.concat(g); });
-        renderThumbs();
+        renderThumbs(); if (S.gate) showGate(S.gate);
         if (S.plan && S.plan.v === 2) { buildEditor(); markDirty(); }
         else if (S.plan) { placeNewUploads(list); rebuildHero(); refresh(); }
       });
@@ -183,13 +183,29 @@
   }
   function renderThumbs() {
     var ups = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    els.csThumbs.innerHTML = ups.map(function (a) { return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button></figure>'; }).join('');
+    var roles = [['auto', 'Let the page decide'], ['main', 'Main subject'], ['supporting', 'Supporting'], ['background', 'Background'], ['logo', 'Logo']];
+    els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
     [].forEach.call(els.csThumbs.querySelectorAll('[data-rm]'), function (b) { b.addEventListener('click', function () { removeAsset(b.getAttribute('data-rm')); }); });
+    [].forEach.call(els.csThumbs.querySelectorAll('[data-role-for]'), function (sel) { sel.addEventListener('change', function () { setUploadRole(sel.getAttribute('data-role-for'), sel.value); }); });
+  }
+
+  // the owner's role for an upload; one main subject at most (it then leads the opening scene)
+  function setUploadRole(id, role) {
+    var a = S.assets.find(function (x) { return x.id === id; }); if (!a) return;
+    if (role === 'main') { S.assets.forEach(function (x) { if (x.ownerRole === 'main') x.ownerRole = 'auto'; }); S.mainAsset = id; }
+    else if (S.mainAsset === id) S.mainAsset = null;
+    a.ownerRole = role === 'main' ? 'main' : role; renderThumbs(); if (S.plan) markDirty();
+    if (S.gate) showGate(S.gate);
   }
 
   // ---------- create ----------
   function steps(list) { els.csProgressList.innerHTML = list.map(function (s) { return '<li data-step="' + s[0] + '"><i></i><span>' + esc(s[1]) + '</span><small></small></li>'; }).join(''); }
-  function step(id, state, note) { var li = els.csProgressList.querySelector('[data-step="' + id + '"]'); if (!li) return; li.setAttribute('data-state', state); if (note != null) li.querySelector('small').textContent = note; }
+  var ticker = null;
+  function step(id, state, note) {
+    var li = els.csProgressList.querySelector('[data-step="' + id + '"]'); if (!li) return; li.setAttribute('data-state', state); if (note != null) li.querySelector('small').textContent = note;
+    if (ticker && (ticker.id === id || state === 'active')) { clearInterval(ticker.t); ticker = null; }
+    if (state === 'active') { var t0 = Date.now(), base = note != null ? note : li.querySelector('small').textContent; ticker = { id: id, t: setInterval(function () { var sec = Math.round((Date.now() - t0) / 1000); li.querySelector('small').textContent = (base ? base + ' · ' : '') + sec + ' s'; }, 1000) }; }
+  }
   function fail(msg) { els.csError.hidden = false; els.csError.textContent = msg; S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; }
   function lines(t) { return String(t || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
 
@@ -203,7 +219,7 @@
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
     steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and free-licence pictures)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    step('understand', 'active');
+    step('understand', 'active', 'Reading the brief, then looking it up: encyclopedia, Wikimedia Commons, web search if needed, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
     return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
@@ -213,10 +229,11 @@
       step('understand', 'done', describeUnderstanding(u) + (S.understandMeta && S.understandMeta.source === 'ai' ? ' · AI (' + ((S.understandMeta.ms || 0) / 1000).toFixed(1) + 's)' : ' · built-in reader' + (S.understandMeta && S.understandMeta.reason ? ' (' + S.understandMeta.reason + ')' : '')));
       if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
       if (d.research.status === 'ambiguous') { step('research', 'wait', d.research.question || 'More than one thing is called that'); return askChoice(d.research.options || [], d.research.question); }
-      var note = d.research.page ? d.research.page.title + ' · ' + (d.research.facts || []).length + ' facts · ' + d.images.length + ' pictures' : (u.kind === 'fictional' || u.kind === 'invented') && !d.research.page ? 'Nothing looked up' : 'Nothing found — the page uses your words and pictures';
+      var cw = (d.research.curation && d.research.curation.web) || null; var fromWeb = (d.images || []).filter(function (i) { return i.found === 'web'; }).length;
+      var note = d.research.page ? d.research.page.title + ' · ' + (d.research.facts || []).length + ' facts · ' + d.images.length + ' pictures' + (cw && cw.ran ? ' (' + fromWeb + ' from a web search of ' + (cw.pages || 0) + ' pages' + (cw.review ? '; ' + cw.review + ' more to review' : '') + ')' : '') : (u.kind === 'fictional' || u.kind === 'invented') && !d.research.page ? 'Nothing looked up' : 'Nothing found — the page uses your words and pictures';
       step('research', 'done', note + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + 's)');
       step('pictures', 'active');
-      var research = (d.images || []).map(function (i) { return { id: i.id, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl, kind: i.kind || '', curation: i.curation || null }; });
+      var research = (d.images || []).map(function (i) { return { id: i.id, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl, kind: i.kind || '', curation: i.curation || null, rightsEvidence: i.rightsEvidence }; });
       // keep the owner's uploads; research pictures are replaced by this run's
       S.assets = S.assets.filter(function (a) { return a.origin === 'upload' || (a.origin === 'derived' && S.assets.some(function (b) { return b.id === a.cutoutOf && b.origin === 'upload'; })); });
       var todo = research.filter(function (a) { return !S.assets.some(function (b) { return b.id === a.id; }); });
@@ -224,13 +241,90 @@
       return todo.reduce(function (p, a) { return p.then(function () { return processAsset(a).then(function (g) { S.assets = S.assets.concat(g); done++; step('pictures', 'active', done + ' of ' + todo.length); return new Promise(function (res) { setTimeout(res, 0); }); }); }); }, Promise.resolve()).then(function () {
         var cut = S.assets.filter(function (a) { return a.cutout; }).length, bad = S.assets.filter(function (a) { return a.failed; }).length;
         step('pictures', 'done', S.assets.filter(function (a) { return !a.cutout; }).length + ' pictures · ' + cut + ' cut out as separate layers' + (bad ? ' · ' + bad + ' unreadable' : ''));
-        return planDirection('').then(function () {
-          step('build', 'active'); refresh(true); step('build', 'done');
-          S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
-          els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
-        });
+        return afterPictures();
       });
     }).catch(function (e) { fail('Something went wrong: ' + (e && e.message || e)); });
+  }
+  // Does the page have a usable picture of its subject? If not, the owner decides BEFORE a direction is paid for:
+  // supply pictures, adopt a found one they have the rights to, search again, or explicitly choose an abstract page.
+  function needsSubjectPicture() {
+    var u = S.understanding || {}; if (u.kind === 'personal' || S.abstractChosen) return false;
+    var v = u.visuals && u.visuals.main; if (v && /^\s*none\b/i.test(v)) return false;
+    if (!v && (u.kind === 'invented' || (u.identity && u.identity.kind === 'invented'))) return false;
+    return true;
+  }
+  function usableSubject() {
+    return S.assets.some(function (a) { if (a.removed || a.failed) return false; if (a.origin === 'upload') return a.ownerRole !== 'logo' && a.ownerRole !== 'background'; var k = a.curation; return !!(k && (k.role === 'subject' || k.role === 'detail') && k.identity !== 'other'); });
+  }
+  function mainProblem() {
+    var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed; }); if (!S.mainAsset) return ''; if (!a) return 'The picture you chose as the main subject is no longer here.';
+    if (a.failed) return 'The picture you chose as the main subject could not be read. Choose another or upload it again.';
+    var w = a.assess && a.assess.width, hh = a.assess && a.assess.height; if (w && hh && Math.max(w, hh) < 300) return 'The picture you chose as the main subject is too small (' + w + '×' + hh + ' px) to lead a page. Upload a larger one.';
+    return '';
+  }
+  function afterPictures() {
+    var problem = mainProblem();
+    if (problem || (needsSubjectPicture() && !usableSubject())) { S.busy = false; showGate({ problem: problem }); return Promise.resolve(); }
+    return proceedToDirection();
+  }
+  function proceedToDirection() {
+    if (S.busy) return Promise.resolve();
+    S.gate = null; els.csChoices.innerHTML = ''; S.busy = true; els.csCreate.disabled = true;
+    return planDirection('').then(function () {
+      step('build', 'active'); refresh(true); step('build', 'done');
+      S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
+      els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
+    });
+  }
+  function showGate(g) {
+    S.gate = g || {}; var u = S.understanding || {}; var name = (u.identity && u.identity.name) || u.subject || 'the subject';
+    var cur = (S.research && S.research.curation) || {}; var review = (S.research && S.research.review) || []; var web = cur.web || {};
+    var sources = 'Wikimedia Commons' + (web.ran ? ' and a web search' : '');
+    step('direct', 'wait', 'Waiting for your choice (nothing is spent until you continue)');
+    var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>' : '<p><strong>We couldn\'t find usable artwork of ' + esc(name) + ' through ' + sources + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Web search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Web search: ' + esc(web.error) + '</p>' : '');
+    var cards = review.map(function (r, i) {
+      return '<div class="cs-review"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + '</small>'
+        + '<small class="cs-perm">' + (r.permission.status === 'restricted' ? 'Rights reserved' : 'Permission unclear') + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') + ' — ' + esc(r.permission.note || '') + '</small>'
+        + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> <button type="button" class="cs-btn cs-ghost" data-adopt="' + i + '">Use it — I have the rights</button></div></div>';
+    }).join('');
+    var ok = usableSubject() && !S.gate.problem;
+    els.csChoices.innerHTML = '<div class="cs-gate">' + h1
+      + (review.length ? '<p>Found, but not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
+      + '<div class="cs-gate-actions">' + (ok ? '<button type="button" class="cs-btn cs-primary" id="csGateGo">Continue with these pictures</button>' : '') + '<button type="button" class="cs-btn" id="csGateUpload">Upload pictures</button>'
+      + (S.refines < 2 ? '<span class="cs-refine"><input type="text" id="csGateQuery" maxlength="100" placeholder="Search again for… (e.g. ' + esc(name) + ' official artwork)"><button type="button" class="cs-btn cs-ghost" id="csGateSearch">Search again</button></span>' : '')
+      + (S.gate.problem ? '' : '<button type="button" class="cs-btn cs-ghost" id="csGateAbstract">Continue with an abstract page instead</button>') + '</div>'
+      + '<p class="cs-hint">Your brief and research are kept whichever you choose.</p></div>';
+    // one choice per gate: the buttons that start paid work lock the gate so a repeated click cannot start it twice
+    var lock = function () { [].forEach.call(els.csChoices.querySelectorAll('.cs-gate button'), function (b) { b.disabled = true; }); };
+    var go = document.getElementById('csGateGo'); if (go) go.addEventListener('click', function () { if (S.busy) return; lock(); proceedToDirection(); });
+    document.getElementById('csGateUpload').addEventListener('click', function () { S.gateUploadPending = true; els.csUpload.click(); });
+    var ab = document.getElementById('csGateAbstract'); if (ab) ab.addEventListener('click', function () { if (S.busy) return; lock(); S.abstractChosen = true; proceedToDirection(); });
+    var sb = document.getElementById('csGateSearch'); if (sb) sb.addEventListener('click', function () { var q = document.getElementById('csGateQuery').value.trim(); if (q && !S.busy) { lock(); refineSearch(q); } });
+    [].forEach.call(els.csChoices.querySelectorAll('[data-adopt]'), function (b) { b.addEventListener('click', function () { adoptFound(review[+b.getAttribute('data-adopt')], b); }); });
+  }
+  // a found picture the owner has the rights to: fetched by the server (only one it offered), then the owner's own
+  function adoptFound(r, btn) {
+    if (!r || !window.confirm('Use this picture on your page? Only do this if you have the rights to use it (your own, licensed to you, or free to reuse). The page will record it as supplied by you.')) return;
+    btn.disabled = true; btn.textContent = 'Fetching…';
+    return api('/api/creative/fetch-image', { method: 'POST', body: { url: r.imageUrl } }).then(function (res) {
+      if (!res.ok || !res.data.ok) { btn.disabled = false; btn.textContent = 'Use it — I have the rights'; els.csError.hidden = false; els.csError.textContent = (res.data && res.data.message) || 'Could not fetch that picture.'; return; }
+      var a = { id: 'u' + Date.now().toString(36) + 'w', origin: 'upload', title: r.depicts || r.title, alt: r.depicts || '', relevance: 2, dataUrl: res.data.dataUrl, mime: res.data.mime, sourceUrl: r.imageUrl, pageUrl: r.pageUrl, ownerAffirmed: true, rightsEvidence: ['supplied by the page owner, who affirmed they have the rights; found at ' + r.pageUrl].concat(r.permission.evidence || []).slice(0, 3), ownerRole: 'auto' };
+      return processAsset(a).then(function (group) { S.assets = S.assets.concat(group); if (!S.mainAsset) { S.mainAsset = a.id; a.ownerRole = 'main'; } renderThumbs(); showGate(S.gate); });
+    });
+  }
+  // search again with the owner's words: the understanding is reused (no new understanding call)
+  function refineSearch(q) {
+    S.refines++; step('research', 'active', 'Searching again for “' + q + '”…'); els.csChoices.innerHTML = '';
+    var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, refine: q, understanding: S.understanding, hasUploads: uploads.length } }).then(function (r) {
+      if (!r.ok || !r.data.ok) { step('research', 'failed', (r.data && r.data.message) || 'The search failed.'); showGate(S.gate); return; }
+      var d = r.data; if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
+      var keepFacts = S.research && S.research.facts; S.research = d.research; if ((!S.research.facts || !S.research.facts.length) && keepFacts) S.research.facts = keepFacts;
+      var research = (d.images || []).map(function (i) { return { id: i.id + 's' + S.refines, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl, kind: i.kind || '', curation: i.curation || null, rightsEvidence: i.rightsEvidence }; });
+      S.assets = S.assets.filter(function (a) { return a.origin === 'upload' || (a.origin === 'derived' && S.assets.some(function (b) { return b.id === a.cutoutOf && b.origin === 'upload'; })); });
+      step('research', 'done', research.length + ' pictures found in the new search');
+      return Promise.all(research.map(processAsset)).then(function (groups) { groups.forEach(function (g) { S.assets = S.assets.concat(g); }); return afterPictures(); });
+    });
   }
   function describeUnderstanding(u) {
     if (!u) return '';
@@ -261,12 +355,13 @@
       }).catch(function () { return null; });
     })).then(function (list) { return list.filter(Boolean); });
   }
-  function ctx2() { var sp = supplied(); return { assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
+  function ctx2() { var sp = supplied(); return { mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
+  function liveMain() { var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; }); return a ? a.id : null; }
   function planDirection(avoid) {
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null } });
+      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
@@ -326,7 +421,7 @@
   }
   function live() { return S.assets.filter(function (a) { return !a.removed && !a.failed; }); }
   // edits, picture swaps and reopening keep the accepted layout (safety checks only); recompose is the owner's explicit choice
-  function settle(plan, mode) { var v = plan.v === 2 ? C.validate2.validatePlan2(plan, Object.assign(ctx2(), { mode: mode || 'safety' })) : C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
+  function settle(plan, mode, recompose) { var v = plan.v === 2 ? C.validate2.validatePlan2(plan, Object.assign(ctx2(), { mode: mode || 'safety', recompose: recompose || null })) : C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
 
   // ---------- preview ----------
   function srcFor(a) {
@@ -478,9 +573,10 @@
     var a = S.assets.find(function (x) { return x.id === id; }); if (!a) return;
     if (S.plan && S.plan.v === 2) {
       var hero = S.plan.scenes[0]; var f = hero.layers.find(function (L) { return L.role === 'focal'; });
-      if (f && f.kind === 'image') { f.asset = id; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; } }
+      S.mainAsset = a.cutoutOf || id; S.assets.forEach(function (x) { if (x.ownerRole === 'main' && x.id !== S.mainAsset) x.ownerRole = 'auto'; });
+      if (f && f.kind === 'image') { f.asset = id; if (a.focus) f.focus = a.focus; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; } }
       else hero.layers.unshift({ id: 'focal-main', kind: 'image', role: 'focal', asset: id, box: { d: [52, 10, 42, 80], m: [8, 4, 84, 92] }, z: 5, entrance: { kind: 'rise' }, loop: { kind: 'float', amp: 1, period: 9 }, scroll: { kind: 'parallax', amount: 0.3 } });
-      S.plan = settle(S.plan); refresh(); buildEditor(); markDirty(); return;
+      S.plan = settle(S.plan, 'safety', [hero.id]); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
     }
     S.assets.forEach(function (x) { if (x.relevance >= 5 && x.id !== id) x.relevance = x.origin === 'upload' ? 2 : 1; }); a.relevance = 5; rebuildHero(); refresh(); buildEditor(); markDirty();
   }
@@ -501,9 +597,10 @@
         var nCut = group.find(function (x) { return x.cutout; });
         if (S.plan.v === 2) {
           // same concept and composition; every layer that showed the old picture now shows the new one, framed for what it is
-          S.plan.scenes.forEach(function (s) { s.layers.forEach(function (L) { if (L.asset === id || (oldCut && L.asset === oldCut.id)) { var free = L.asset === (oldCut && oldCut.id) && nCut; L.asset = free ? nCut.id : na.id; if (!free && (L.mask === 'none' && L.role !== 'backdrop' && L.role !== 'texture')) { L.mask = 'window'; L.fit = 'cover'; } } }); });
+          var touched = []; if (S.mainAsset === id) S.mainAsset = na.id;
+          S.plan.scenes.forEach(function (s) { s.layers.forEach(function (L) { if (L.asset === id || (oldCut && L.asset === oldCut.id)) { if (touched.indexOf(s.id) < 0) touched.push(s.id); var free = L.asset === (oldCut && oldCut.id) && nCut; L.asset = free ? nCut.id : na.id; if (!free && (L.mask === 'none' && L.role !== 'backdrop' && L.role !== 'texture')) { L.mask = 'window'; L.fit = 'cover'; } } }); });
           S.assets.forEach(function (a) { if (a.id === id || a.cutoutOf === id) { a.removed = true; delete a.dataUrl; } });
-          S.assets = S.assets.concat(group); S.plan = settle(S.plan); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
+          S.assets = S.assets.concat(group); S.plan = settle(S.plan, 'safety', touched); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
         }
         var wasMain = S.plan.hero.layers.some(function (l) { return l.role === 'subject' && (l.asset === id || (oldCut && l.asset === oldCut.id)); });
         if (wasMain) na.relevance = 5;
@@ -557,7 +654,7 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, plan: S.plan, planMeta: S.planMeta, history: S.history, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   function save() {
@@ -580,7 +677,7 @@
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
     S.projectId = p.id; S.revision = p.revision; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
-    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || [];
+    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }

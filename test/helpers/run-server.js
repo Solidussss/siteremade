@@ -41,6 +41,8 @@ globalThis.fetch = async function (url, options) {
     log({ provider: 'anthropic', tool });
     // Creative mode's understanding / direction tools: labelled mock answers (test/helpers/mock-creative.js)
     if (tool && tool.startsWith('submit_creative_')) { const r = require('./mock-creative').respond(body, process.env, mockCreativeCounters); return json(r.body, r.status); }
+    // Creative web discovery: the mock cannot search the web -- one search, no results (labelled as a mock model)
+    if ((body.tools || []).some(t => t && t.name === 'submit_image_pages')) return json({ model: 'mock-creative-websearch', stop_reason: 'end_turn', usage: { input_tokens: 800, output_tokens: 60, server_tool_use: { web_search_requests: 1 } }, content: [{ type: 'server_tool_use', id: 'srvtoolu_mock', name: 'web_search', input: { query: 'mock' } }, { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_mock', content: [] }, { type: 'text', text: 'mock: no web search in tests' }] });
     const usage = { input_tokens: 4200, output_tokens: 1800, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
     if (tool === 'submit_website_refinement') {
       const input = { scope: 'section', operations: [], imageActions: [{ action: 'regenerate', slot: process.env.MOCK_REFINEMENT_IMAGE_SLOT || 'hero' }] };

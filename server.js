@@ -2320,6 +2320,8 @@ const creativeResearch = require('./lib/creative/research');
 // neither shared with Business credits or budgets. Every call is written to creative-ledger.jsonl
 // with its tokens and ESTIMATED cost. The key stays here; the browser only ever sees validated plans.
 const creativeAi = require('./lib/creative/ai');
+const creativeWeb = require('./lib/creative/webimages');
+const creativeWebFetch = require('./lib/creative/webfetch');
 const CREATIVE_AI_LIMITS = creativeAi.limits(process.env);
 const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: false };
 function creativeSpendToday() {
@@ -2338,7 +2340,32 @@ function creativeSpendToday() {
   }
   return creativeSpend;
 }
-function creativeAiAvailable() { return CREATIVE_AI_LIMITS.enabled && anthropicProvider.configured(); }
+// When the provider says the account cannot be used (balance used up, key rejected), Creative stops calling it for a
+// while and says why at every step -- instead of each step spending a failing request. Temporary overloads do not count.
+const creativeProvider = { downUntil: 0, reason: '' };
+function creativeProviderTrip(error) {
+  const msg = String(error && error.message || error); const st = Number(error && error.status) || 0;
+  if (/credit balance|billing|payment|insufficient|quota/i.test(msg) || st === 401 || st === 403) {
+    creativeProvider.downUntil = Date.now() + 10 * 60 * 1000;
+    creativeProvider.reason = /credit balance|billing|payment|insufficient|quota/i.test(msg) ? 'the AI provider account has no usable credit balance (Anthropic: "credit balance is too low")' : 'the AI provider rejected the key';
+  }
+}
+function creativeProviderDown() { return Date.now() < creativeProvider.downUntil ? creativeProvider.reason : ''; }
+function creativeAiAvailable() { return CREATIVE_AI_LIMITS.enabled && anthropicProvider.configured() && !creativeProviderDown(); }
+function creativeAiUnavailableReason() { return !CREATIVE_AI_LIMITS.enabled ? 'AI direction is switched off (CREATIVE_AI_DIRECTION)' : !anthropicProvider.configured() ? 'no AI model is configured on this server' : creativeProviderDown() || ''; }
+// a request that may use server tools (web search): the whole response comes back
+async function creativeRawCall({ model, system, messages, tools, maxTokens, timeoutMs }) {
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs || 90000);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, tools }), signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { const e = new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`); e.status = response.status; creativeProviderTrip(e); throw e; }
+    return data;
+  } finally { clearTimeout(timer); }
+}
 async function creativeModelCall({ model, system, content, messages, tool, maxTokens, timeoutMs, cacheSystem }) {
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs || 90000); const t0 = Date.now();
   try {
@@ -2348,7 +2375,7 @@ async function creativeModelCall({ model, system, content, messages, tool, maxTo
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const e = new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`); e.status = response.status; throw e; }
+    if (!response.ok) { const e = new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`); e.status = response.status; creativeProviderTrip(e); throw e; }
     const block = (data.content || []).find(b => b.type === 'tool_use' && b.name === tool.name);
     if (!block || !block.input) throw new Error('the model returned no structured output');
     if (data.stop_reason === 'max_tokens') throw new Error('the model ran out of output room before finishing');
@@ -2359,18 +2386,92 @@ async function creativeModelCall({ model, system, content, messages, tool, maxTo
 // cached studio against a newer server). Public and uncached; it carries no data.
 const CREATIVE_BUILD = String(process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_VERSION || `boot-${Date.now().toString(36)}`).slice(0, 40);
 app.get('/api/creative/version', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ v: CREATIVE_BUILD }); });
-function creativeLedger(row) { const s = creativeSpendToday(); s.usd += Number(row.usd) || 0; premiumAppend('creative-ledger.jsonl', Object.assign({ at: new Date().toISOString() }, row)); }
+// The Creative ledger is appended in order: one write at a time (premiumAppend's parallel appends could land rows out
+// of order -- the cause of an intermittent test failure, and a real ordering fault in the ledger)
+let creativeLedgerQueue = Promise.resolve();
+function creativeAppend(obj) {
+  const line = JSON.stringify(obj) + '\n';
+  creativeLedgerQueue = creativeLedgerQueue.then(() => new Promise(res => { try { premiumFs.mkdirSync(PREMIUM_LOG_DIR, { recursive: true }); premiumFs.appendFile(path.join(PREMIUM_LOG_DIR, 'creative-ledger.jsonl'), line, () => res()); } catch (e) { res(); } }));
+}
+function creativeLedger(row) { const s = creativeSpendToday(); s.usd += Number(row.usd) || 0; creativeAppend(Object.assign({ at: new Date().toISOString() }, row)); }
+
+// Web discovery (webimages.js): when Commons does not cover the subject, the search step finds pages that show it and
+// the hardened fetcher reads their declared images. Pictures whose pages state a free licence are used; relevant ones
+// with restricted or unclear terms are offered to the owner as links to review. Bounded; costed in the ledger.
+const creativeOffers = new Map(); // accountId -> { until, urls: Set } : the review pictures this account was just shown
+function creativeOffer(accountId, urls) { creativeOffers.set(accountId, { until: Date.now() + 2 * 60 * 60 * 1000, urls: new Set(urls) }); if (creativeOffers.size > 5000) creativeOffers.delete(creativeOffers.keys().next().value); }
+async function creativeWebDiscovery(understanding, brief, accountId, refine) {
+  const identity = understanding.identity || { name: understanding.subject, kind: understanding.kind };
+  const input = { identity, visuals: understanding.visuals, brief: refine ? `${brief}\nThe owner asks to look for: ${refine}` : brief };
+  const out = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: '', searches: 0 };
+  const found = await creativeWeb.discover(input, { searchPages: async inp => {
+    try {
+      const r = await creativeAi.webSearchPages(inp, { limits: CREATIVE_AI_LIMITS, raw: creativeRawCall });
+      out.usd += r.usd; out.searches = r.searches;
+      creativeLedger({ kind: 'creative_websearch', accountId, ok: !r.error, model: r.model, searches: r.searches, results: r.results, pages: r.pages.length, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true, error: r.error || undefined });
+      return r;
+    } catch (error) { creativeLedger({ kind: 'creative_websearch', accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
+  } });
+  out.log = found.log; out.error = found.log.searchError || '';
+  if (!found.candidates.length) return out;
+  // the picture check over what was found (the same vision step as for Commons)
+  const viewable = found.candidates.filter(v => /^image\/(jpeg|png|webp)$/.test(v.mime) && v.bytes.length <= 3.5 * 1024 * 1024);
+  let c = null;
+  if (viewable.length && CREATIVE_AI_LIMITS.curate && creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
+    try {
+      c = await creativeAi.curate({ identity, visuals: understanding.visuals, max: 6, candidates: viewable.map(v => ({ id: v.id, title: v.title, description: `${v.site}${v.why ? ' -- ' + v.why : ''}`, categories: '', size: `${v.width}x${v.height}`, thumb: { mime: v.mime, bytes: v.bytes } })) }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+      out.usd += c.usd;
+      creativeLedger({ kind: 'creative_curate', accountId, ok: true, source: 'web', model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length });
+    } catch (error) { creativeLedger({ kind: 'creative_curate', accountId, ok: false, source: 'web', error: String(error && error.message || error).slice(0, 200), usd: 0 }); out.error = out.error || `the picture check failed (${String(error && error.message || error).slice(0, 120)})`; }
+  }
+  if (!c) { out.error = out.error || 'the found pictures could not be judged'; return out; }
+  for (const v of found.candidates) {
+    const k = c.verdicts[v.id]; if (!k || k.role === 'unrelated' || k.identity === 'other' || k.role === 'logo' || k.role === 'reference') continue;
+    if (v.permission.status === 'free' && c.selection.includes(v.id)) out.images.push(Object.assign({}, v, { curation: k }));
+    else if (v.permission.status !== 'free' && (k.role === 'subject' || k.role === 'detail') && out.review.length < 4) out.review.push({ id: v.id, pageUrl: v.pageUrl, imageUrl: v.imageUrl, title: v.title, site: v.site, depicts: k.depicts, role: k.role, identity: k.identity, width: v.width, height: v.height, permission: { status: v.permission.status, licence: v.permission.licence, note: v.permission.note, evidence: v.permission.evidence }, preview: v.bytes.length <= 1.2 * 1024 * 1024 ? `data:${v.mime};base64,${v.bytes.toString('base64')}` : '' });
+  }
+  out.coverage = out.images.some(v => v.curation.role === 'subject' && v.curation.identity === 'exact') ? 'strong' : out.images.some(v => v.curation.role === 'subject' || v.curation.role === 'detail') ? 'partial' : 'none';
+  out.missing = out.coverage === 'strong' ? [] : c.missing;
+  if (out.review.length) creativeOffer(accountId, out.review.map(r => r.imageUrl));
+  return out;
+}
+
+// "Use this picture -- I have the rights to it": only a picture this studio just offered this account, fetched with the
+// hardened fetcher; it becomes the owner's supplied picture (the studio records the source and the owner's affirmation)
+app.post('/api/creative/fetch-image', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const url = clean(req.body && req.body.url, 1000); const o = creativeOffers.get(req.accountId);
+  if (!url || !o || o.until < Date.now() || !o.urls.has(url)) return res.status(400).json({ ok: false, message: 'That picture is not one this studio offered you. Search again, or upload it yourself.' });
+  const r = await creativeWebFetch.fetchImage(url);
+  if (!r.ok) return res.json({ ok: false, message: `Could not fetch that picture (${r.reason}). Download it from its page and upload it instead.` });
+  if (!/^image\/(jpeg|png|webp)$/.test(r.mime)) return res.json({ ok: false, message: 'That picture is in a format the studio cannot use. Download it and upload a JPEG, PNG or WebP.' });
+  res.json({ ok: true, dataUrl: `data:${r.mime};base64,${r.body.toString('base64')}`, width: r.width, height: r.height, mime: r.mime });
+});
 
 app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const brief = clean(req.body && req.body.brief, 1200);
   if (!brief) return res.status(400).json({ ok: false, message: 'Describe what the page should be about.' });
   const supplied = clean(req.body.supplied, 2000);
   const choice = clean(req.body.choice, 160); // the owner's pick after a clarification
+  // "look again": the owner refines the picture search; the understanding they already have is reused (no new call)
+  const refine = clean(req.body.refine, 120);
+  const prior = refine && req.body.understanding && typeof req.body.understanding === 'object' && req.body.understanding.source === 'ai' ? req.body.understanding : null;
   const startedAt = Date.now();
   // 1. what the brief is about -- the model when available (identity before research), else the built-in reader
   let understanding = creativeUnderstand.understandBrief(brief, { supplied, uploads: !!req.body.hasUploads });
-  let understandMeta = { source: 'rules', reason: creativeAiAvailable() ? '' : (CREATIVE_AI_LIMITS.enabled ? 'no model configured' : 'AI direction is switched off') };
-  if (creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
+  let understandMeta = { source: 'rules', reason: creativeAiUnavailableReason() };
+  if (prior) {
+    const s = (v, n) => String(v == null ? '' : v).slice(0, n); const arr = (v, n, m) => (Array.isArray(v) ? v : []).slice(0, n).map(x => s(x, m)).filter(Boolean);
+    const pr = prior.research || {}; const pi = prior.identity || {}; const pv = prior.visuals || {};
+    understanding = Object.assign({}, understanding, {
+      kind: ['recognizable', 'fictional', 'invented'].includes(prior.kind) ? prior.kind : 'recognizable', subject: s(prior.subject, 120), query: s(prior.query, 160) || null, source: 'ai',
+      identity: { name: s(pi.name, 120), kind: s(pi.kind, 20), what: s(pi.what, 240), confidence: s(pi.confidence, 10) },
+      visuals: { main: s(pv.main, 200), setting: s(pv.setting, 200), supporting: arr(pv.supporting, 4, 120) },
+      research: { scope: pr.scope === 'none' ? 'none' : 'subject', wikipediaTitles: arr(pr.wikipediaTitles, 3, 160), commonsQueries: [refine].concat(arr(pr.commonsQueries, 3, 100)), note: '' },
+      tone: prior.tone && typeof prior.tone === 'object' ? { register: s(prior.tone.register, 20), words: arr(prior.tone.words, 5, 30), fromBrief: !!prior.tone.fromBrief } : understanding.tone,
+      motifs: arr(prior.motifs, 8, 80), audience: s(prior.audience, 160), uncertainty: arr(prior.uncertainty, 5, 200),
+    });
+    understandMeta = { source: 'reused', reason: 'the owner refined the picture search' };
+  } else if (creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
     try {
       const r = await creativeAi.understand({ brief, supplied, uploads: Number(req.body.hasUploads) || 0, choice }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
       const u = creativeAi.normaliseUnderstanding(r.raw, brief);
@@ -2383,7 +2484,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
     }
   } else if (creativeAiAvailable()) understandMeta.reason = 'the daily Creative AI budget is used up';
-  if (understanding.clarify && !choice) {
+  if (understanding.clarify && !choice && !prior) {
     return res.json({ ok: true, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], creditsCharged: 0 });
   }
   if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
@@ -2410,7 +2511,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     }
   } catch (error) {
     console.error('Creative research failed:', error);
-    premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: false, ms: Date.now() - startedAt, paidCalls: 0, usd: 0 });
+    creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: false, ms: Date.now() - startedAt, paidCalls: 0, usd: 0 });
     return res.status(200).json({ ok: false, understanding, message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' });
   }
   // a general-topic lookup for a personal subject never turns into a question for the owner
@@ -2424,8 +2525,32 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${i.mime};base64,${i.bytes.toString('base64')}`,
   }));
   const curation = result.curation ? Object.assign({}, result.curation, curateMeta ? { model: curateMeta.model, ms: curateMeta.ms, usd: curateMeta.usd } : {}) : null;
-  premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
-  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation }, images, creditsCharged: 0 });
+  // 3. web discovery, when the page needs pictures of its subject and Commons did not cover it well
+  // (what the understanding says the page must show decides; with nothing stated, only real or fictional subjects)
+  const vMain = understanding.visuals && understanding.visuals.main;
+  const needsPictures = understanding.kind !== 'personal' && result.status !== 'ambiguous' && (vMain ? !/^\s*none\b/i.test(vMain) : understanding.kind !== 'invented');
+  const covered = curation && curation.source === 'ai' && curation.coverage === 'strong';
+  let review = [];
+  if (needsPictures && !covered) {
+    const why = !CREATIVE_AI_LIMITS.webDiscovery ? 'web discovery is switched off (CREATIVE_WEB_DISCOVERY)' : creativeAiUnavailableReason() || (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? 'the daily Creative AI budget is used up' : '');
+    let web = null;
+    if (!why) { try { web = await creativeWebDiscovery(understanding, brief, req.accountId, refine); } catch (error) { web = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: String(error && error.message || error).slice(0, 200), searches: 0 }; } }
+    const base = images.length;
+    (web ? web.images : []).slice(0, Math.max(0, 9 - base)).forEach((v, n) => images.push({
+      id: `r${base + n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: '',
+      pageUrl: v.pageUrl, sourceUrl: v.imageUrl, found: 'web', relevance: 1, width: v.width, height: v.height, mime: v.mime, kind: '', curation: v.curation, rightsEvidence: v.permission.evidence,
+      retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
+    }));
+    review = web ? web.review : [];
+    const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
+    if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
+    merged.web = web ? { ran: true, searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '' } : { ran: false, reason: why };
+    if (!curation) Object.assign(merged, { reason: merged.reason || 'no Commons picture check' });
+    result.curation = merged;
+  }
+  const curationOut = result.curation && result.curation.web ? result.curation : curation;
+  creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
+  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review }, images, creditsCharged: 0 });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the
@@ -2433,7 +2558,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
 // ok:false with the reason -- the studio then uses the built-in director and labels it as such.
 app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const b = req.body || {};
-  if (!creativeAiAvailable()) return res.json({ ok: false, fallback: true, reason: CREATIVE_AI_LIMITS.enabled ? 'no AI model is configured on this server' : 'AI direction is switched off (CREATIVE_AI_DIRECTION)' });
+  if (!creativeAiAvailable()) return res.json({ ok: false, fallback: true, reason: creativeAiUnavailableReason() });
   const spend = creativeSpendToday();
   if (spend.usd >= CREATIVE_AI_LIMITS.dailyUsdCap) return res.json({ ok: false, fallback: true, reason: `the daily Creative AI budget ($${CREATIVE_AI_LIMITS.dailyUsdCap}) is used up` });
   if ((spend.plansByAccount.get(req.accountId) || 0) >= CREATIVE_AI_LIMITS.accountDailyPlans) return res.json({ ok: false, fallback: true, reason: `this account has used today's ${CREATIVE_AI_LIMITS.accountDailyPlans} AI directions` });
@@ -2447,6 +2572,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
     assets, thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
     avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
+    // the owner's choices: a main picture (it must lead), or an explicit abstract interpretation
+    mainAsset: typeof b.mainAsset === 'string' && assets.some(a => a.id === b.mainAsset) ? b.mainAsset : null, abstractChosen: !!b.abstractChosen,
     // what the picture check found (coverage of the subject, the pictures that could not be found)
     coverage: b.coverage && typeof b.coverage === 'object' ? { coverage: ['strong', 'partial', 'none'].includes(b.coverage.coverage) ? b.coverage.coverage : '', missing: arr(b.coverage.missing, 3).map(x => clean(x, 160)).filter(Boolean), note: clean(b.coverage.note, 240) } : null,
   };

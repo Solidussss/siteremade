@@ -167,3 +167,20 @@ Open / next
 - A page takes ~75–120 s end to end (research + picture check + direction + claim check); no streaming yet.
 - The claim check is a model verdict with evidence ids, not proof; it caught and removed unsupported lines, and in stage 2
   it missed some. Accounting is now complete, the judgement is still a model's.
+
+## Release completion (2026-09-29, from 55296cd) — working checklist
+Decisions: broader discovery = Anthropic web search (server tool, existing key; $10/1k searches + tokens) to find
+pages that show the exact subject, then our own hardened fetcher reads each page's declared image (og:image etc.) and
+licence evidence; the existing picture check judges thumbnails. Not chosen: Google CSE (closed to new customers, ends
+2027-01-01), Bing (retired), Brave image API (new paid credential; storing results needs a special plan).
+- [ ] navigation: reproduce in studio srcdoc + export; fix
+- [ ] web discovery: adapter, SSRF-safe fetch, permissions + evidence, review-only candidates, tests
+- [ ] missing-imagery gate before direction (supply / pick candidate / refine / explicit abstract)
+- [ ] uploads: roles, "Use as main" enforced, reach inventory, survive save/reopen/export; verify with real model
+- [ ] object cutouts preferred where the subject is independent (floating roll)
+- [ ] motion defects from recordings (loop jumps, crossing text, drift out of bounds, blank pins)
+- [ ] claims: stale UI copy ("no paid AI calls"), repair edge cases
+- [ ] failure states: provider down / balance / search credential; no repeated calls; duplicate clicks; progress
+- [ ] intermittent server test: find the cause
+- [ ] Business minimal planning request after top-up; regression checks
+- [ ] acceptance: Pokémon Gen I, supplied Zelda main upload, one kept page, 2 unfamiliar; desktop+phone; nav; export
