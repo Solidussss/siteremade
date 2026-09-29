@@ -157,6 +157,10 @@ test('composition: a text-height scene with layers gets a stage; built-on layers
   assert.ok(hilt[0] < blade[0] + blade[2] && hilt[0] + hilt[2] > blade[0], 'the hilt stays on the blade');
   const m2 = three.layers.find(L => L.id === 'm2');
   assert.equal(m2.opacity, 1, 'moved beside the words rather than faded'); assert.ok(m2.box.d[0] >= 5 && m2.box.d[0] + m2.box.d[2] <= 95);
+  // a scene whose only picture was called "support" still gets a main visual, kept clear of the words
+  const q = basePlan(); q.scenes[1] = { id: 'aside', purpose: 'p', height: 'short', text: { heading: 'Before', region: 'right', items: [{ text: 'Sponges.', kind: 'imagined' }] }, layers: [{ id: 'pic', kind: 'image', role: 'support', asset: 'r1', mask: 'circle', box: box([62, 22, 30, 56]) }] };
+  const qa = validatePlan2(q, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0];
+  assert.equal(qa.role, 'focal'); assert.ok(qa.box.d[0] + qa.box.d[2] <= 50, 'moved clear of the right-hand words');
   // a page validated again (reopen, export) keeps the same composition
   assert.deepEqual(validatePlan2(plan, { assets: ASSETS, facts: FACTS }).plan.scenes, plan.scenes);
 });

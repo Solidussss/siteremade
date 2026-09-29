@@ -770,6 +770,11 @@
           return L;
         }).filter(Boolean);
         if (rs.layers && rs.layers.length > LIMITS.layersPerScene) fixes.push(`${where}: only ${LIMITS.layersPerScene} layers kept`);
+        // a stage with things on it has a main one (so it stays large and clear of the words): the largest picture, else the largest layer
+        if (si > 0 && !layers.some(L => L.role === 'focal')) {
+          const main = layers.filter(L => L.kind === 'image' && L.role !== 'backdrop' && L.role !== 'texture').sort((a, b) => area(b.box.d) - area(a.box.d))[0];
+          if (main) { main.role = 'focal'; fixes.push(`${where}: ${main.id} is the scene's main visual`); }
+        }
         // motion budget: a focal point, supporting movement and rest -- not everything moving at once
         let loops = 0, scrolls = 0;
         layers.sort((a, b) => (a.role === 'focal' ? -1 : 0) - (b.role === 'focal' ? -1 : 0));
@@ -839,14 +844,15 @@
       const asset = focal.asset ? byId.get(focal.asset) : null;
       const rect = k => (focal.kind === 'image' ? drawnRect(focal, asset, k) : focal.box[k].slice());
       const min = hero ? MIN_FOCAL.hero : MIN_FOCAL.scene;
-      for (let i = 0; i < 4 && area(rect('d')) < min && focal.role !== 'backdrop'; i++) {
+      // (a box that already spans the stage stops growing, so validating again changes nothing)
+      for (let i = 0; i < 4 && area(rect('d')) < min && focal.role !== 'backdrop' && focal.box.d[2] < 100 && focal.box.d[3] < 100; i++) {
         const b = focal.box.d; const g = Math.min(3, Math.max(1.05, Math.sqrt(min / Math.max(1, area(rect('d')))) * 1.03));
         const w = Math.min(100, b[2] * g), h = Math.min(100, b[3] * g); focal.box.d = box([b[0] - (w - b[2]) / 2, b[1] - (h - b[3]) / 2, w, h], b);
         if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged to stay the main visual`);
       }
       // phones: the words sit above the stage, so the focal can and should fill it
       const minM = hero ? 3000 : 2000; const rectM = () => (focal.kind === 'image' ? drawnRect(focal, asset, 'm') : focal.box.m.slice());
-      for (let i = 0; i < 4 && area(rectM()) < minM && focal.role !== 'backdrop'; i++) {
+      for (let i = 0; i < 4 && area(rectM()) < minM && focal.role !== 'backdrop' && focal.box.m[2] < 100 && focal.box.m[3] < 100; i++) {
         const b = focal.box.m; const g = Math.min(3, Math.max(1.05, Math.sqrt(minM / Math.max(1, area(rectM()))) * 1.03));
         const w = Math.min(100, b[2] * g), h = Math.min(100, b[3] * g); focal.box.m = box([b[0] - (w - b[2]) / 2, b[1] - (h - b[3]) / 2, w, h], b);
         if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged on phones`);
@@ -1914,7 +1920,7 @@
     .ly-art{transform:rotate(var(--rot));container-type:size}
     .ly-img{position:absolute;inset:0;width:100%;height:100%;display:block}
     .ly[data-kind="image"] .ly-art[data-mask="none"] .ly-img{object-position:50% 100%}
-    .ly-art[data-mask="circle"]{clip-path:circle(50% at 50% 50%)}
+    .ly-art[data-mask="circle"]{clip-path:circle(closest-side at 50% 50%)}
     .ly-art[data-mask="diamond"]{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
     .ly-art[data-mask="arch"]{border-radius:999px 999px 16px 16px;overflow:hidden}
     .ly-art[data-mask="window"]{border-radius:18px;overflow:hidden;box-shadow:0 28px 60px rgba(0,0,0,.35)}

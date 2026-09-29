@@ -79,6 +79,12 @@ Found by the real-model review and fixed (general fixes only)
 - headings broke mid-word in capitals/wide faces; long titles stacked into towers; centred text blocks collapsed to
   zero width; numbered lists printed "01 1"; the thread crossed edge pictures; a dark cutout vanished on a dark stage;
   scrims behind ghost words; warnings shown twice; the studio kept the previous page's uploads between pages
+- phone heroes took ~11% of the screen → the focal is grown to fill the phone stage (never shrunk)
+- scenes sized to their text squeezed pictures under the words → scenes with layers get a short stage; the validator's
+  text boxes now match the rendered columns; built-on layers (a hilt on a blade) move with the focal; secondaries
+  step beside the words before being faded; circles stay round; lines in tall boxes draw vertically
+- an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,
+  still never from none
 
 Open / next
 - Pictures are the main limit: trademarked characters, memes and abstract subjects have little or no free imagery.
