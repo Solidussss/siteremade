@@ -5,6 +5,7 @@
 // account -- and records screenshots, timings and what the studio produced.
 //   electron creative-studio-run.js job.json
 // job: { url, outDir, email, cases: [{ id, brief, supplied, memories, uploads: [file], main, fixture, replaceWith, remove, failAsset, gate }] }
+//   discoveryOnly: the direction request is blocked (a picture-search re-check that must not pay for a direction)
 //   main: the first upload is marked "Main subject" through its picture-role menu (as the owner would)
 //   gate: what the owner does if the studio stops because the subject has no usable picture:
 //         'stop' (record the request and end the case), 'abstract', 'continue', { adopt: n } (a review picture, rights
@@ -67,6 +68,9 @@ app.whenReady().then(async () => {
         await until(w, `!!window.SiteRemadeCreativeStudio && !document.getElementById('creativeStudio').hidden`, 20000);
         await js(w, `SiteRemadeCreativeStudio.reset(); true`); // every case starts from an empty studio
         if (c.fixture) await js(w, `SiteRemadeCreativeStudio.setFixture(${JSON.stringify(c.fixture)})`);
+        // discoveryOnly: a re-check of the picture search after a fix -- the direction request is blocked here, so the case can
+        // never become a second paid generation (the studio then shows its labelled built-in layout)
+        if (c.discoveryOnly) await js(w, `(() => { if (window.__crBlock) return true; window.__crBlock = true; const f0 = window.fetch; window.fetch = function (u) { if (String(u).includes('/api/creative/plan')) return Promise.resolve(new Response(JSON.stringify({ ok: false, fallback: true, reason: 'review: discovery-only re-check, no direction requested' }), { status: 200, headers: { 'content-type': 'application/json' } })); return f0.apply(this, arguments); }; return true; })()`);
         for (const f of c.uploads || []) await js(w, `SiteRemadeCreativeStudio.addFiles([${fileJs(f)}])`);
         if (c.main) { await until(w, `!!document.querySelector('[data-role-for]')`, 20000); await js(w, `(() => { const sel = document.querySelector('[data-role-for]'); sel.value = 'main'; sel.dispatchEvent(new Event('change')); return SiteRemadeCreativeStudio.state().mainAsset; })()`); }
         await js(w, `(() => { const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('input')); }; set('csBrief', ${JSON.stringify(c.brief)}); set('csSupplied', ${JSON.stringify((c.supplied || []).join('\n'))}); set('csMemories', ${JSON.stringify((c.memories || []).join('\n'))}); if (${!!(c.supplied || c.uploads)}) document.getElementById('csPersonal').open = true; return true; })()`);
