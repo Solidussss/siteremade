@@ -1,17 +1,9 @@
 /* CREATIVE MODE — entry point (small; the only Creative file the Business page loads).
-   It does nothing unless Creative mode is deliberately enabled for review (?creative=1 in
-   the address, remembered for this tab; ?creative=0 turns it off) or a saved Creative project
-   is opened. Only then does it add the Business / Creative switch and, when Creative is
-   chosen, download the studio (creative-studio.css, creative-core.js, creative.js). */
+   The Business / Creative switch is available on every builder URL. The studio
+   (creative-studio.css, creative-core.js, creative.js) loads only when Creative is chosen. */
 (function () {
   'use strict';
-  var KEY = 'siteremade:creative-enabled';
-  var params = new URLSearchParams(window.location.search);
-  try {
-    if (params.get('creative') === '1') sessionStorage.setItem(KEY, '1');
-    if (params.get('creative') === '0') sessionStorage.removeItem(KEY);
-  } catch (e) { /* storage blocked: only the URL flag works */ }
-  function enabled() { try { return params.get('creative') === '1' || sessionStorage.getItem(KEY) === '1'; } catch (e) { return params.get('creative') === '1'; } }
+  function enabled() { return true; }
 
   var loading = null;
   function load() {

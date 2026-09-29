@@ -10,7 +10,7 @@ const ROOT = path.join(__dirname, '..', '..');
 function browserScripts() {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   return [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)]
-    .map(m => m[1])
+    .map(m => m[1].split(/[?#]/)[0]) // cache-busting URL parts are not part of the file name
     .filter(src => !/^(?:https?:)?\/\//.test(src)) // local files only
     .map(src => ({ src, file: path.join(ROOT, src.replace(/^\//, '')) }));
 }
