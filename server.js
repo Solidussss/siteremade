@@ -2940,12 +2940,30 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
       }
       purchase.cancelIntent(db, req.accountId, open.id);
     }
-    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
+    const testerPurchase = isTesterAccount(req.accountId);
+    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: testerPurchase ? 0 : SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
     if (!intentResult.ok) {
       if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
       return res.status(404).json({ ok: false, message: 'Project not found.' });
     }
     const intentId = intentResult.intent.id;
+
+    // Configured tester accounts can exercise the exact production handoff
+    // without charging a card. This goes through the same purchase intent,
+    // immutable snapshot, export and My Websites path as a paid order; only
+    // the Stripe payment step is skipped.
+    if (testerPurchase) {
+      const fulfillment = purchase.fulfillTesterIntent(db, req.accountId, intentId);
+      if (!fulfillment.ok) return res.status(500).json({ ok: false, message: 'Could not complete the tester purchase.' });
+      if (!fulfillment.alreadyFulfilled && fulfillment.ownerEmail) {
+        const origin = `${req.protocol}://${req.get('host')}`;
+        sendPurchaseConfirmationEmail({
+          to: fulfillment.ownerEmail, projectName: fulfillment.projectName,
+          myWebsitesUrl: `${origin}/#my-websites`,
+        }).catch(error => console.error('Tester purchase confirmation email failed to send:', error));
+      }
+      return res.json({ ok: true, testerPurchase: true, fulfilled: true, intentId, projectId: fulfillment.projectId });
+    }
 
     if (!STRIPE_SECRET_KEY) {
       // Real, honest state: the architecture is wired end-to-end (intent
