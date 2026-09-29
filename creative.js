@@ -254,7 +254,7 @@
     return true;
   }
   function usableSubject() {
-    return S.assets.some(function (a) { if (a.removed || a.failed) return false; if (a.origin === 'upload') return a.ownerRole !== 'logo' && a.ownerRole !== 'background'; var k = a.curation; return !!(k && (k.role === 'subject' || k.role === 'detail') && k.identity === 'exact'); });
+    return S.assets.some(function (a) { if (a.removed || a.failed) return false; if (a.origin === 'upload') return a.ownerRole !== 'logo' && a.ownerRole !== 'background'; var k = a.curation; return !!(k && (k.role === 'subject' || k.role === 'detail') && k.identity === 'exact' && k.origin !== 'fan'); });
   }
   function mainProblem() {
     var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed; }); if (!S.mainAsset) return ''; if (!a) return 'The picture you chose as the main subject is no longer here.';
@@ -290,21 +290,22 @@
     if (dg) {
       var cj = (dg.commons && dg.commons.judged) || [], wj = (dg.web && dg.web.candidates) || [];
       var n = function (list, fn) { return list.filter(fn).length; };
-      var isForm = function (x) { return x.verdict && x.verdict.identity === 'form'; }, isIt = function (x) { return x.verdict && x.verdict.identity === 'exact' && (x.verdict.role === 'subject' || x.verdict.role === 'detail'); };
+      var isForm = function (x) { return x.verdict && x.verdict.identity === 'form'; }, isFan = function (x) { return x.verdict && x.verdict.identity === 'exact' && x.verdict.origin === 'fan'; }, isIt = function (x) { return x.verdict && x.verdict.identity === 'exact' && (x.verdict.role === 'subject' || x.verdict.role === 'detail') && x.verdict.origin !== 'fan'; };
       var stageName = { discovery: 'Nothing found showed it', identity: 'Only real-world forms found', permission: 'Found, but no free licence stated', selection: 'Found, but not selected', provider: 'A provider step failed', processing: 'Found, but could not be read' }[dg.stage] || '';
       checked = '<details class="cs-checked"><summary>What we checked' + (stageName ? ' — ' + esc(stageName) : '') + '</summary><ul>'
         + '<li>Wikimedia Commons: ' + cj.length + ' pictures looked at — ' + n(cj, isIt) + ' showing it, ' + n(cj, isForm) + ' real-world forms (cosplay, figures, merchandise) not used' + (dg.commons && dg.commons.refused && dg.commons.refused.licence ? ', ' + dg.commons.refused.licence + ' refused for their licence' : '') + '</li>'
-        + (dg.web && dg.web.ran !== false ? '<li>' + (dg.web.provider === 'serpapi' ? 'Google Images' + (dg.web.products ? ' (' + dg.web.products + ' shopping results skipped)' : '') : 'Web search') + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(esc).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures from ' + ((dg.web.pagesChosen || 0)) + ' pages — ' + n(wj, isIt) + ' showing it; permission: ' + ['free', 'unclear', 'restricted'].map(function (st) { return n(wj.filter(isIt), function (x) { return x.permission && x.permission.status === st; }) + ' ' + st; }).join(', ') + '</li>' : '<li>Web search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
+        + (dg.web && dg.web.ran !== false ? '<li>' + (dg.web.provider === 'serpapi' ? 'Google Images' + (dg.web.products ? ' (' + dg.web.products + ' shopping results skipped)' : '') : 'Web search') + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(esc).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures looked at — ' + n(wj, isIt) + ' showing it, ' + n(wj, isFan) + ' fan-made and ' + n(wj, isForm) + ' real-world forms not used; licence of those showing it: ' + ['free', 'unclear', 'restricted'].map(function (st) { return n(wj.filter(isIt), function (x) { return x.permission && x.permission.status === st; }) + ' ' + st; }).join(', ') + '</li>' : '<li>Web search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
         + (dg.note ? '<li>Where it stopped: ' + esc(dg.note) + '</li>' : '') + '</ul></details>';
     }
     var cards = review.map(function (r, i) {
       return '<div class="cs-review"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + '</small>'
-        + '<small class="cs-perm">' + (r.permission.status === 'restricted' ? 'Rights reserved' : 'Permission unclear') + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') + ' — ' + esc(r.permission.note || '') + '</small>'
-        + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> <button type="button" class="cs-btn cs-ghost" data-adopt="' + i + '">Use it — I have the rights</button></div></div>';
+        + '<small>Picture: ' + ({ official: 'official material', unknown: 'origin not certain' }[r.origin] || 'official material') + (r.query ? ' · found by “' + esc(String(r.query).replace(/\s-\S+/g, '')) + '”' : '') + '</small>'
+        + '<small class="cs-perm">Licence: ' + (r.permission.status === 'restricted' ? 'rights reserved' : 'none stated for this picture') + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') + ' — ' + esc(r.permission.note || '') + '</small>'
+        + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> ' + (r.adoptable === false ? '<small>This site does not allow the studio to download it: save it from its page and upload it, if you have the rights.</small>' : '<button type="button" class="cs-btn cs-ghost" data-adopt="' + i + '">Use it — I have the rights</button>') + '</div></div>';
     }).join('');
     var ok = usableSubject() && !S.gate.problem;
     els.csChoices.innerHTML = '<div class="cs-gate">' + h1
-      + checked + (review.length ? '<p>Found, but not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
+      + checked + (review.length ? '<p>Pictures of it we found, but that are not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
       + '<div class="cs-gate-actions">' + (ok ? '<button type="button" class="cs-btn cs-primary" id="csGateGo">Continue with these pictures</button>' : '') + '<button type="button" class="cs-btn" id="csGateUpload">Upload pictures</button>'
       + (S.refines < 2 ? '<span class="cs-refine"><input type="text" id="csGateQuery" maxlength="100" placeholder="Search again for… (e.g. ' + esc(name) + ' official artwork)"><button type="button" class="cs-btn cs-ghost" id="csGateSearch">Search again</button></span>' : '')
       + (S.gate.problem ? '' : '<button type="button" class="cs-btn cs-ghost" id="csGateAbstract">Continue with an abstract page instead</button>') + '</div>'

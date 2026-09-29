@@ -154,33 +154,48 @@ test('SerpApi adapter: the documented request; the key never appears in an error
   const empty = await serp.googleImages('q', { key: KEY, fetchImpl: async () => new Response(JSON.stringify({ error: "Google hasn't returned any results for this query." }), { status: 200 }) });
   assert.deepEqual([empty.ok, empty.results.length, empty.error], [true, 0, '']);
   assert.match((await serp.googleImages('q', { key: '' })).error, /not configured/);
-  assert.deepEqual(serp.searchQueries({ identity: { name: 'BMO' }, research: { wikipediaTitles: [] }, pageTitle: 'Adventure Time' }).map(q => q.q), ['BMO Adventure Time official artwork', 'BMO Adventure Time character official art']);
-  assert.equal(serp.searchQueries({ identity: { name: 'Link' }, research: { wikipediaTitles: ['Link (The Legend of Zelda)'] } })[0].q, 'Link The Legend of Zelda official artwork');
+  const qs = serp.searchQueries({ identity: { name: 'BMO' }, research: { wikipediaTitles: [] }, pageTitle: 'Adventure Time' });
+  assert.equal(qs.length, 3); assert.ok(qs.every(q => q.q.startsWith('BMO Adventure Time ') && /-cosplay/.test(q.q) && /-site:deviantart.com/.test(q.q) && !q.licenses));
+  assert.match(qs[0].q, /official render/); assert.match(qs[2].q, /screenshot OR still/);
+  assert.match(serp.searchQueries({ identity: { name: 'Link' }, research: { wikipediaTitles: ['Link (The Legend of Zelda)'] } })[0].q, /^Link The Legend of Zelda official render/);
 });
 
-test('image discovery: shopping results never fetched; permission read from the picture\'s page; the licence filter is a hint, not permission', async () => {
+test('image discovery: pictures are judged from their thumbnails first; only suitable official ones are read and downloaded; licence stays separate', async () => {
   const { discoverImages, samePicture } = require('../lib/creative/webimages');
   assert.equal(samePicture('https://live.example.org/123/4567_abc_b.jpg', 'https://live.example.org/123/4567_abc_h.jpg'), true);
   assert.equal(samePicture('https://a.example.org/one.jpg', 'https://a.example.org/two.jpg'), false);
   const png = n => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); b.writeUInt32BE(n, 30); return b; };
-  const pages = {
-    'https://photos.example.org/p/1': '<meta property="og:type" content="photo"><meta property="og:image" content="https://live.example.org/123/4567_abc_b.jpg"><meta name="author" content="A. Artist"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">CC BY</a>',
-    'https://fans.example.org/art': '<meta property="og:image" content="https://fans.example.org/kirby.png"><footer>no licence here</footer>',
-  };
-  const fetched = [];
-  const out = await discoverImages({ identity: { name: 'Kirby' } }, {
-    imageSearch: async () => ({ searches: 2, results: [
-      { title: 'Kirby photo', pageUrl: 'https://photos.example.org/p/1', imageUrl: 'https://live.example.org/123/4567_abc_h.jpg', source: 'Photos', query: 'Kirby official artwork', licenceFilter: 'Creative Commons licences' },
-      { title: 'Kirby plush', pageUrl: 'https://shop.example.org/p', imageUrl: 'https://img.example.org/plush.jpg', source: 'Shop', isProduct: true },
-      { title: 'Kirby fan art', pageUrl: 'https://fans.example.org/art', imageUrl: 'https://fans.example.org/kirby.png', source: 'Fans', query: 'Kirby official artwork', licenceFilter: 'Creative Commons licences' },
-      { title: 'Blocked', pageUrl: 'https://wiki.example.org/k', imageUrl: 'https://wiki.example.org/k.png', source: 'Wiki', query: 'q' },
-    ] }),
-    fetch: async u => (pages[u] ? { ok: true, url: u, body: Buffer.from(pages[u]) } : { ok: false, reason: 'HTTP 403' }),
-    fetchImg: async u => { fetched.push(u); return { ok: true, url: u, body: png(fetched.length), mime: 'image/png', width: 900, height: 900 }; },
+  const R = (n, extra) => Object.assign({ title: `r${n}`, pageUrl: `https://p${n}.example.org/page`, imageUrl: `https://i${n}.example.org/pic${n}.png`, thumbUrl: `https://thumbs.example.org/t${n}`, width: 1200, height: 1200, source: `Site ${n}`, query: 'X official render', position: n }, extra);
+  const results = [R(1, { pageUrl: 'https://photos.example.org/p/1', imageUrl: 'https://live.example.org/123/4567_abc_h.jpg' }), R(2), R(3), R(4, { isProduct: true }), R(5, { pageUrl: 'https://blocked.example.org/x' }), R(6)];
+  const verdicts = { w1: { role: 'subject', identity: 'exact', origin: 'official', depicts: 'official render', quality: 3 }, w2: { role: 'subject', identity: 'exact', origin: 'fan', depicts: 'fan drawing', quality: 3 }, w3: { role: 'subject', identity: 'form', origin: 'unknown', depicts: 'a cosplayer' }, w4: { role: 'subject', identity: 'exact', origin: 'unknown', depicts: 'the character', quality: 2 }, w5: { role: 'reference', identity: 'related', origin: 'official', depicts: 'a game menu' } };
+  const pages = { 'https://photos.example.org/p/1': '<meta property="og:type" content="photo"><meta property="og:image" content="https://live.example.org/123/4567_abc_b.jpg"><meta name="author" content="A. Artist"><a rel="license" href="https://creativecommons.org/licenses/by/2.0/">CC BY</a>' };
+  const fetched = [], thumbs = [], read = []; let judged = null;
+  const out = await discoverImages({ identity: { name: 'X' } }, {
+    imageSearch: async () => ({ searches: 3, results }),
+    fetchThumb: async u => { thumbs.push(u); return { ok: true, url: u, body: png(thumbs.length), mime: 'image/png', width: 200, height: 200 }; },
+    curate: async ({ candidates }) => { judged = candidates.map(c => c.id); return { verdicts, selection: ['w1'], coverage: 'partial', missing: [] }; },
+    fetch: async u => { read.push(u); return pages[u] ? { ok: true, url: u, body: Buffer.from(pages[u]) } : { ok: false, reason: 'HTTP 403' }; },
+    fetchImg: async u => { fetched.push(u); return /blocked|i5\./.test(u) ? { ok: false, reason: 'HTTP 403' } : { ok: true, url: u, body: png(100 + fetched.length), mime: 'image/png', width: 1200, height: 1200 }; },
   });
-  assert.ok(!fetched.includes('https://img.example.org/plush.jpg'), 'a shopping result is never fetched'); assert.equal(out.log.products, 1);
-  const by = Object.fromEntries(out.candidates.map(c => [c.title, c]));
-  assert.equal(by['Kirby photo'].permission.status, 'free'); assert.equal(by['Kirby photo'].author, 'A. Artist'); assert.equal(by['Kirby photo'].query, 'Kirby official artwork');
-  assert.equal(by['Kirby fan art'].permission.status, 'unclear'); assert.ok(by['Kirby fan art'].permission.evidence.some(e => /search hint, not permission/.test(e)));
-  assert.equal(by['Blocked'].permission.status, 'unclear'); assert.match(by['Blocked'].permission.evidence[0], /could not be read/); assert.match(out.log.pageErrors[0], /403/);
+  assert.equal(out.log.products, 1); assert.ok(!thumbs.includes('https://thumbs.example.org/t4'), 'a shopping result is not even looked at');
+  assert.deepEqual(judged, ['w1', 'w2', 'w3', 'w4', 'w5'], 'every other result is judged from its thumbnail');
+  assert.deepEqual(fetched.sort(), ['https://i5.example.org/pic5.png', 'https://live.example.org/123/4567_abc_h.jpg'].sort(), 'only the suitable pictures (official or unknown origin, the character itself) are downloaded -- not the fan drawing, the cosplay or the menu');
+  const by = Object.fromEntries(out.candidates.map(c => [c.id, c]));
+  assert.equal(by.w1.permission.status, 'free'); assert.equal(by.w1.author, 'A. Artist');
+  assert.equal(by.w4.permission.status, 'unclear'); assert.equal(by.w4.technical.fetched, false); assert.match(by.w4.permission.evidence[0], /could not be read/);
+  assert.equal(by.w2.permission, null, 'a fan drawing is neither read nor marked'); assert.equal(by.w2.verdict.origin, 'fan');
+  assert.ok(out.candidates.every(c => c.query === 'X official render'), 'the search that found each picture is kept');
+});
+
+test('the picture check never selects a fan-made depiction of the character', async () => {
+  const thumb = { mime: 'image/png', bytes: Buffer.from('x') };
+  const call = async () => ({ model: 'm', usage: {}, input: { candidates: [{ id: 'c1', role: 'subject', identity: 'exact', origin: 'fan', depicts: 'fan drawing' }, { id: 'c2', role: 'subject', identity: 'exact', origin: 'official', depicts: 'official render' }], selection: ['c1', 'c2'], coverage: 'strong' } });
+  const c = await ai.curate({ identity: { name: 'X' }, candidates: ['c1', 'c2'].map(id => ({ id, thumb })) }, { limits: ai.limits({}), call });
+  assert.deepEqual(c.selection, ['c2']); assert.equal(c.verdicts.c1.origin, 'fan');
+});
+
+test('stage verdict: fan-made pictures do not count as the character', () => {
+  const { pictureStage } = require('../lib/creative/research');
+  const v = pictureStage({ judged: [{ src: 'commons', verdict: { role: 'subject', identity: 'exact', origin: 'fan' }, outcome: 'fan-made, not official artwork' }] }, { candidates: [] });
+  assert.equal(v.stage, 'identity'); assert.match(v.note, /fan-made pictures \(1\)/);
 });
