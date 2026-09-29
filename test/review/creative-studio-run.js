@@ -4,7 +4,11 @@
 // replace / remove pictures, save, reload the whole page and reopen the project from the
 // account -- and records screenshots, timings and what the studio produced.
 //   electron creative-studio-run.js job.json
-// job: { url, outDir, email, cases: [{ id, brief, supplied, memories, uploads: [file], fixture, replaceWith, remove, failAsset }] }
+// job: { url, outDir, email, cases: [{ id, brief, supplied, memories, uploads: [file], main, fixture, replaceWith, remove, failAsset, gate }] }
+//   main: the first upload is marked "Main subject" through its picture-role menu (as the owner would)
+//   gate: what the owner does if the studio stops because the subject has no usable picture:
+//         'stop' (record the request and end the case), 'abstract', 'continue', { adopt: n } (a review picture, rights
+//         affirmed), { upload: file } (supply a picture as the main subject, then continue)
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -25,7 +29,8 @@ const SUMMARY2 = `(() => { const S = SiteRemadeCreativeStudio.state(); const p =
   scenes: p.scenes.map(s => ({ id: s.id, name: s.name, purpose: s.purpose, link: s.link, height: s.height, pin: s.pin, camera: s.camera, background: s.background, text: { kicker: s.text.kicker, heading: s.text.heading, body: s.text.body, kind: s.text.kind, cite: s.text.cite, items: s.text.items, region: s.text.region, list: s.text.list }, layers: s.layers.map(l => ({ kind: l.kind, role: l.role, asset: l.asset, shape: l.shape, word: l.word, mask: l.mask, treatment: l.treatment, fit: l.fit, entrance: l.entrance.kind, loop: l.loop.kind, scroll: l.scroll.kind, d: l.box.d, m: l.box.m })) })),
   wants: p.wants, limitations: p.limitations, assetNotes: p.assetNotes, credits: p.credits, facts: p.facts.length, fixes: S.lastFixes, warnings: S.lastWarnings, history: S.history,
   assets: S.assets.map(a => ({ id: a.id, origin: a.origin, title: a.title, license: a.license || '', author: (a.author || '').slice(0, 80), found: a.found || '', size: a.assess ? a.assess.width + 'x' + a.assess.height : '', cutout: !!a.cutout, cutoutOf: a.cutoutOf || null, processing: a.processing || '', removed: !!a.removed })),
-  research: S.research ? { status: S.research.status, page: S.research.page && { title: S.research.page.title, url: S.research.page.url }, log: S.research.log, facts: (S.research.facts || []).length } : null,
+  research: S.research ? { status: S.research.status, page: S.research.page && { title: S.research.page.title, url: S.research.page.url }, log: S.research.log, facts: (S.research.facts || []).length, curation: S.research.curation, review: (S.research.review || []).length } : null,
+  mainAsset: S.mainAsset, abstractChosen: S.abstractChosen, imagery: p.imagery, claims: p.claims, heroFocal: (p.scenes[0].layers.find(x => x.role === 'focal') || {}).asset || null,
   understanding: S.understanding, cost: S.cost, htmlBytes: (S.lastHtml || '').length } })()`;
 const SUMMARY = `(() => { const S = SiteRemadeCreativeStudio.state(); const p = S.plan; if (!p) return null; if (p.v === 2) return ${SUMMARY2}; return {
   kind: p.kind, category: p.category, tone: p.tone, world: p.world, concept: p.concept.line, connector: p.connector.kind, layout: p.hero.layout,
@@ -63,11 +68,12 @@ app.whenReady().then(async () => {
         await js(w, `SiteRemadeCreativeStudio.reset(); true`); // every case starts from an empty studio
         if (c.fixture) await js(w, `SiteRemadeCreativeStudio.setFixture(${JSON.stringify(c.fixture)})`);
         for (const f of c.uploads || []) await js(w, `SiteRemadeCreativeStudio.addFiles([${fileJs(f)}])`);
+        if (c.main) { await until(w, `!!document.querySelector('[data-role-for]')`, 20000); await js(w, `(() => { const sel = document.querySelector('[data-role-for]'); sel.value = 'main'; sel.dispatchEvent(new Event('change')); return SiteRemadeCreativeStudio.state().mainAsset; })()`); }
         await js(w, `(() => { const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('input')); }; set('csBrief', ${JSON.stringify(c.brief)}); set('csSupplied', ${JSON.stringify((c.supplied || []).join('\n'))}); set('csMemories', ${JSON.stringify((c.memories || []).join('\n'))}); if (${!!(c.supplied || c.uploads)}) document.getElementById('csPersonal').open = true; return true; })()`);
         r.shots.push(await shot(w, `${c.id}-studio-brief`));
         const t0 = Date.now();
         await js(w, `SiteRemadeCreativeStudio.create()`);
-        const WAIT = `(() => { const S = SiteRemadeCreativeStudio.state(); return (S.plan && !S.busy) ? 'plan' : (!document.getElementById('csError').hidden ? 'error:' + document.getElementById('csError').textContent : (document.querySelector('.cs-choice') ? 'ambiguous' : null)); })()`;
+        const WAIT = `(() => { const S = SiteRemadeCreativeStudio.state(); return (S.plan && !S.busy) ? 'plan' : (!document.getElementById('csError').hidden ? 'error:' + document.getElementById('csError').textContent : (document.querySelector('.cs-gate') && !S.busy ? 'gate' : (document.querySelector('.cs-choice') ? 'ambiguous' : null))); })()`;
         let ok = await until(w, WAIT, 240000, 400);
         // a clarification: record it, then answer as the case says (the owner's choice)
         if (ok === 'ambiguous' && c.choose) {
@@ -75,6 +81,31 @@ app.whenReady().then(async () => {
           r.shots.push(await shot(w, `${c.id}-studio-clarify`));
           await js(w, `(() => { const b = [...document.querySelectorAll('.cs-choice')].find(x => x.textContent.toLowerCase().includes(${JSON.stringify(c.choose.toLowerCase())})) || document.querySelector('.cs-choice'); b.click(); return true; })()`);
           ok = await until(w, WAIT.replace("document.querySelector('.cs-choice') ? 'ambiguous' : null", 'null'), 240000, 400);
+        }
+        // the missing-imagery gate: record exactly what the owner is told and offered, then act as the case says
+        if (ok === 'gate') {
+          r.gate = await js(w, `(() => { const g = document.querySelector('.cs-gate'); const S = SiteRemadeCreativeStudio.state(); return { text: g.innerText.slice(0, 1500), review: (S.research.review || []).map(x => ({ depicts: x.depicts, site: x.site, pageUrl: x.pageUrl, status: x.permission.status, licence: x.permission.licence, note: x.permission.note })), buttons: [...g.querySelectorAll('button')].map(b => b.textContent), curation: S.research.curation, cost: S.cost }; })()`);
+          r.timings.gateMs = Date.now() - t0;
+          r.shots.push(await shot(w, `${c.id}-studio-gate`));
+          log(`${c.id}: gate after ${r.timings.gateMs}ms (${r.gate.review.length} to review)`);
+          const g = c.gate || 'stop';
+          if (g === 'stop') { r.outcome = 'gate'; r.progress = await js(w, `[...document.querySelectorAll('#csProgressList li')].map(li => ({ step: li.dataset.step, state: li.dataset.state || '', note: li.querySelector('small').textContent }))`); fs.writeFileSync(path.join(job.outDir, 'studio-results.json'), JSON.stringify(results, null, 1)); continue; }
+          if (g.upload) {
+            await js(w, `SiteRemadeCreativeStudio.addFiles([${fileJs(g.upload)}])`); await sleep(2500);
+            await js(w, `(() => { const sels = document.querySelectorAll('[data-role-for]'); const sel = sels[sels.length - 1]; sel.value = 'main'; sel.dispatchEvent(new Event('change')); return true; })()`); await sleep(800);
+            r.shots.push(await shot(w, `${c.id}-studio-gate-uploaded`));
+          }
+          if (g.adopt != null) {
+            await js(w, `(() => { window.confirm = () => true; document.querySelector('[data-adopt="${g.adopt}"]').click(); return true; })()`);
+            await until(w, `SiteRemadeCreativeStudio.state().assets.some(a => a.ownerAffirmed) || null`, 60000); await sleep(1500);
+            r.shots.push(await shot(w, `${c.id}-studio-gate-adopted`));
+          }
+          const t1 = Date.now();
+          await js(w, g === 'abstract' ? `document.getElementById('csGateAbstract').click(), true` : `document.getElementById('csGateGo').click(), true`);
+          // a repeated click must not start a second direction
+          await js(w, `(() => { const b = document.getElementById('csGateGo') || document.getElementById('csGateAbstract'); if (b) b.click(); return true; })()`).catch(() => {});
+          ok = await until(w, WAIT.replace("(document.querySelector('.cs-gate') && !S.busy ? 'gate' : (document.querySelector('.cs-choice') ? 'ambiguous' : null))", 'null'), 240000, 400);
+          r.timings.afterGateMs = Date.now() - t1;
         }
         r.timings.createMs = Date.now() - t0; r.outcome = ok;
         r.progress = await js(w, `[...document.querySelectorAll('#csProgressList li')].map(li => ({ step: li.dataset.step, state: li.dataset.state || '', note: li.querySelector('small').textContent }))`);
@@ -86,7 +117,15 @@ app.whenReady().then(async () => {
         r.shots.push(await shot(w, `${c.id}-studio-desktop`));
         await js(w, `document.querySelector('[data-device="phone"]').click()`); await sleep(3500);
         r.shots.push(await shot(w, `${c.id}-studio-phone`));
-        await js(w, `document.querySelector('[data-device="desktop"]').click()`); await sleep(500);
+        await js(w, `document.querySelector('[data-device="desktop"]').click()`); await sleep(1500);
+        r.nav = [];
+        const SEL = `.cr-nav a[href], .sc-cta, a.cr-cta`;
+        const nLinks = await js(w, `document.getElementById('csFrame').contentDocument.querySelectorAll('${SEL}').length`);
+        for (let i = 0; i < nLinks; i++) {
+          await js(w, `(() => { const f = document.getElementById('csFrame').contentWindow; f.scrollTo(0, 0); return true; })()`); await sleep(700);
+          r.nav.push(await js(w, `(async () => { const f = document.getElementById('csFrame'); const win = f.contentWindow, d = win.document; const parent0 = location.href; const a = d.querySelectorAll('${SEL}')[${i}]; const href = a.getAttribute('href') || ''; a.click(); await new Promise(r => setTimeout(r, 1800)); const id = href.replace(/^#/, ''); const t = id ? (id === 'top' ? d.body : d.getElementById(id)) : null; const r = t ? t.getBoundingClientRect() : null; return { text: a.textContent.trim().slice(0, 40), href, found: !!t, targetTop: r ? Math.round(r.top) : null, visible: r ? r.top < win.innerHeight && r.bottom > 0 : null, scrollY: Math.round(win.scrollY), sourcesOpen: !!(d.querySelector('details.cr-sources') || {}).open, parentUnchanged: location.href === parent0, frameStillPage: !!d.querySelector('.sc') }; })()`));
+        }
+        log(`${c.id}: nav ${r.nav.filter(n => n.found && n.visible && n.parentUnchanged).length}/${r.nav.length} landed`);
         for (const tab of ['pictures', 'sources', 'motion']) { await js(w, `document.querySelector('[data-tab="${tab}"]').click()`); await sleep(400); r.shots.push(await shot(w, `${c.id}-studio-tab-${tab}`)); }
         await js(w, `document.querySelector('[data-tab="words"]').click()`);
         // save

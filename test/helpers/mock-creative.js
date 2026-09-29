@@ -5,6 +5,7 @@
 // direction.source = 'mock' and the studio shows as "MOCKED plan". They say nothing about creative
 // quality. MOCK_CREATIVE = ok (default) | repair (first plan invalid, repair valid) | invalid | error
 //   | claims (the claim check always finds the "Closer" heading unsupported: repair, then it is taken out)
+//   | curate-none (the picture check finds nothing showing the subject)
 function payload(body) {
   const text = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : [{ type: 'text', text: String(m.content) }]))).filter(c => c.type === 'text').map(c => c.text).join('\n');
   const i = text.indexOf('{'); let data = {}; try { data = JSON.parse(text.slice(i, text.lastIndexOf('}') + 1)); } catch (e) { data = {}; }
@@ -50,7 +51,9 @@ function respond(body, env, counters) {
   if (tool === 'submit_creative_curation') {
     // no vision here: every candidate is called the subject (labelled as a mock), the first MAX are selected
     const text = payload(body).text; const ids = [...text.matchAll(/Candidate (c\d+):/g)].map(m => m[1]); const max = +((/MAX: (\d+)/.exec(text) || [])[1] || 6);
-    const input = { candidates: ids.map(id => ({ id, role: 'subject', identity: 'exact', depicts: 'mock: not looked at', issues: [], separable: false, quality: 2 })), selection: ids.slice(0, max), coverage: 'partial', missing: ['mock: no real picture check was made'], note: 'mock curation' };
+    // curate-none: nothing found shows the subject (the missing-imagery gate)
+    const none = mode === 'curate-none';
+    const input = { candidates: ids.map(id => ({ id, role: none ? 'unrelated' : 'subject', identity: none ? 'other' : 'exact', depicts: 'mock: not looked at', issues: [], separable: false, quality: 2 })), selection: none ? [] : ids.slice(0, max), coverage: none ? 'none' : 'partial', missing: ['mock: no real picture check was made'], note: 'mock curation' };
     return { status: 200, body: { model: 'mock-creative-curate', usage: { input_tokens: 2500, output_tokens: 600 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'k1', name: tool, input }] } };
   }
   if (tool === 'submit_creative_claims') {

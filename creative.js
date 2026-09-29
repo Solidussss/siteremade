@@ -15,7 +15,7 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0,
+      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -268,13 +268,15 @@
     return proceedToDirection();
   }
   function proceedToDirection() {
-    if (S.busy) return Promise.resolve();
-    S.gate = null; els.csChoices.innerHTML = ''; S.busy = true; els.csCreate.disabled = true;
+    // one direction at a time: a second call (a repeated click at the gate) while one is being planned does nothing
+    if (S.directing) return Promise.resolve();
+    S.directing = true; S.gate = null; els.csChoices.innerHTML = ''; S.busy = true; els.csCreate.disabled = true;
     return planDirection('').then(function () {
+      S.directing = false;
       step('build', 'active'); refresh(true); step('build', 'done');
       S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
       els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
-    });
+    }, function (e) { S.directing = false; throw e; });
   }
   function showGate(g) {
     S.gate = g || {}; var u = S.understanding || {}; var name = (u.identity && u.identity.name) || u.subject || 'the subject';
