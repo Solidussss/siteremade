@@ -86,7 +86,11 @@ Found by the real-model review and fixed (general fixes only)
 - a scene whose only picture was labelled "support" skipped composition (words over it) → the largest picture is the
   main visual; circle masks on wide boxes were cut flat → closest-side
 - a photo clear of the words at rest zoomed over them on scroll → zoom/drift are checked at their largest (with the
-  camera) and reduced, or turned into parallax
+  camera); a zoom is anchored on the edge facing the words so it grows away from them (else reduced, else parallax)
+- scrims used the page colour on inverted scenes (cream words on a cream box) → the scene's own surface
+- a focal too wide to sit beside the words went straight to a scrim → it is made smaller to fit the free side first
+- words straight on full-bleed or backdrop photos had no scrim; faded photos still fought body text; outline words
+  crossed headings; long headings stacked in the narrow column → a legibility pass after composition, every scene
 - an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,
   still never from none
 

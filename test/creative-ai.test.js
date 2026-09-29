@@ -161,13 +161,20 @@ test('composition: a text-height scene with layers gets a stage; built-on layers
   const q = basePlan(); q.scenes[1] = { id: 'aside', purpose: 'p', height: 'short', text: { heading: 'Before', region: 'right', items: [{ text: 'Sponges.', kind: 'imagined' }] }, layers: [{ id: 'pic', kind: 'image', role: 'support', asset: 'r1', mask: 'circle', box: box([62, 22, 30, 56]) }] };
   const qa = validatePlan2(q, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0];
   assert.equal(qa.role, 'focal'); assert.ok(qa.box.d[0] + qa.box.d[2] <= 50, 'moved clear of the right-hand words');
-  // clear at rest but growing over the words on scroll: the zoom is reduced
+  // clear at rest but growing over the words on scroll: the zoom is kept, anchored to grow away from them
   const z = basePlan(); z.scenes[1] = { id: 'zoom', purpose: 'p', height: 'tall', camera: 'none', text: { heading: 'Plies', region: 'right' }, layers: [{ id: 'roll', kind: 'shape', role: 'focal', shape: { form: 'blob' }, box: box([5, 15, 42, 70]), scroll: { kind: 'zoom-in', amount: 0.35 } }] };
   const zl = validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0];
-  assert.equal(zl.scroll.kind, 'zoom-in'); assert.ok(zl.scroll.amount < 0.35);
+  assert.equal(zl.scroll.kind, 'zoom-in'); assert.equal(zl.scroll.amount, 0.35); assert.equal(zl.scroll.anchor, 'right');
+  assert.match(renderCreative2(validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan, [], {}), /data-scroll="zoom-in" data-amount="0.35" data-anchor="right"/);
   // touching the words already: any zoom would cross them, so it moves on scroll without growing sideways
   z.scenes[1].layers[0].box = box([8, 15, 42, 70]);
   assert.equal(validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0].scroll.kind, 'parallax');
+  // legibility: words on a full-bleed photo get a scrim; a word layer across them becomes a ghost; long headings are not towers
+  const g = basePlan(); g.scenes[1] = { id: 'bleed', purpose: 'p', height: 'screen', text: { heading: 'A shockwave that broke windows hundreds of kilometres away', width: 'narrow', region: 'left', body: 'It knocked people off their feet.' }, layers: [
+    { id: 'photo', kind: 'image', role: 'backdrop', asset: 'r1', opacity: 0.5, box: box([0, 0, 100, 100]) },
+    { id: 'date', kind: 'word', role: 'support', word: { text: '30 JUNE 1908', style: 'outline' }, box: box([6, 30, 60, 20]) }] };
+  const gs = validatePlan2(g, { assets: ASSETS, facts: FACTS }).plan.scenes[1];
+  assert.equal(gs.text.scrim, true); assert.equal(gs.text.width, 'medium'); assert.ok(gs.layers.find(L => L.id === 'date').opacity <= 0.2);
   // a page validated again (reopen, export) keeps the same composition
   assert.deepEqual(validatePlan2(plan, { assets: ASSETS, facts: FACTS }).plan.scenes, plan.scenes);
 });
