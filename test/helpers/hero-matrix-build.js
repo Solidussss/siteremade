@@ -22,6 +22,8 @@ async function buildHeroFixture(fixture, opts = {}) {
   });
   const providerStatus = opts.providerStatus === undefined ? fundedProviderStatus() : opts.providerStatus;
   const { proj, usedClaude } = buildProject(client, fixture.text, { claudePlanRaw: fixture.plan || null, providerStatus, credits: opts.credits == null ? 40 : opts.credits, seed: opts.seed || 0 });
+  // opts.savedImages: the ready pictures a project saved before the starter-visual rule carries (photo framing tests)
+  if (opts.savedImages) require('./load-client').seedSavedImages(proj, mockPng);
   client.ctx.__fixtureProj = proj;
   if (providerStatus && providerStatus.configured) await client.run('(project = window.__fixtureProj, resolveImagePlanAssets(project))');
   else client.run('project = window.__fixtureProj');

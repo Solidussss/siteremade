@@ -47,7 +47,7 @@ function loadClient({ fetchHandler } = {}) {
   let handler = fetchHandler || (() => new Promise(() => {}));
   const ctx = {
     console, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, queueMicrotask, structuredClone,
-    URL, URLSearchParams, TextEncoder, TextDecoder, AbortController, Promise, JSON, Math, Date, Map, Set, WeakMap, Intl, atob, btoa,
+    URL, URLSearchParams, TextEncoder, TextDecoder, AbortController, Promise, JSON, Math, Date, Map, Set, WeakMap, Intl, atob, btoa, performance,
     requestAnimationFrame: f => setTimeout(f, 0), cancelAnimationFrame: id => clearTimeout(id),
     document: stub, history: stub, localStorage: storage(), sessionStorage: storage(),
     navigator: { userAgent: 'node-test', clipboard: stub }, location: { hash: '', search: '', pathname: '/', href: 'http://localhost/', origin: 'http://localhost' },
@@ -107,12 +107,14 @@ function fundedProviderStatus(overrides) {
 // Builds a real project through the client's own generation plan, exactly as
 // runGeneration does (minus the network/animation shell). claudePlanRaw, when
 // given, goes through the real normalizeClaudePlan first.
-function buildProject(client, text, { claudePlanRaw = null, providerStatus = null, credits = 40, seed = 0 } = {}) {
+// uploads: [{ type: 'hero'|'gallery'|'team'|'logo', dataUrl, name }] -- staged before the steps run, exactly like
+// pictures attached in the generator box (runGeneration's pendingUploads).
+function buildProject(client, text, { claudePlanRaw = null, providerStatus = null, credits = 40, seed = 0, uploads = [] } = {}) {
   client.ctx.__siteremadeImageProvider = providerStatus;
   client.run(`latestCredits = ${JSON.stringify({ remaining: credits })};`);
-  client.ctx.__testInput = { text, claudePlanRaw, seed };
+  client.ctx.__testInput = { text, claudePlanRaw, seed, uploads };
   return client.run(`(() => {
-    const { text, claudePlanRaw, seed } = window.__testInput;
+    const { text, claudePlanRaw, seed, uploads } = window.__testInput;
     let claudePlan = null;
     if (claudePlanRaw) {
       const catDefaults = categoryDimensionDefaults[analyzeDescription(text).categoryKey] || categoryDimensionDefaults.other;
@@ -120,10 +122,28 @@ function buildProject(client, text, { claudePlanRaw = null, providerStatus = nul
     }
     const src = createGenerationSource(text);
     const { proj, steps } = buildGenerationPlan(src.text, null, claudePlan, seed, src);
+    (uploads || []).forEach(u => proj.assets.items.push(createAsset(u.type, u.dataUrl, u.name)));
     steps.forEach(s => s.run());
     proj.meta.id = proj.meta.id || 'proj_test';
     return { proj, usedClaude: !!claudePlan };
   })()`);
 }
 
-module.exports = { loadClient, fundedProviderStatus, buildProject, permissiveStub };
+// The provider status production reports with PREMIUM_GENERATION_V1 on: a configured OpenAI provider AND the
+// premium core (starter visuals, grounding, composition). The Business generator must still never request an image.
+function premiumProviderStatus(overrides) {
+  const cfg = require('../../lib/premium/config').loadConfig({ PREMIUM_GENERATION_V1: 'true' });
+  return fundedProviderStatus(Object.assign({ premium: { enabled: true, cfg } }, overrides || {}));
+}
+// A project saved BEFORE the starter-visuals-only rule, when its pictures were generated: ready images for the given
+// plan slots (default: every slot that is not an upload), keyed by each entry's cacheKey exactly as they were stored.
+// Rendering and export still show such images; no new one is ever requested.
+function seedSavedImages(proj, mockPng, slots) {
+  proj.assets.generated = proj.assets.generated || {};
+  (proj.imagePlan || []).filter(e => e.sourceType !== 'user' && (!slots || slots.includes(e.slot))).forEach(e => {
+    proj.assets.generated[e.slot] = { cacheKey: e.cacheKey, status: 'ready', dataUrl: mockPng(e.slot, e.aspectRatio || '1:1'), prompt: 'saved before the starter-visual rule' };
+  });
+  return proj;
+}
+
+module.exports = { loadClient, fundedProviderStatus, premiumProviderStatus, seedSavedImages, buildProject, permissiveStub };

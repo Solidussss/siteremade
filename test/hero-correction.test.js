@@ -89,7 +89,7 @@ test('product line-ups across the fixtures keep every label clear; crowded leads
 });
 
 test('photos: the owner\'s focus is never moved to make room -- only drawn artwork is framed around labels', async () => {
-  const b = await buildHeroFixture({ text: fx('ember-salt') }, {});
+  const b = await buildHeroFixture({ text: fx('ember-salt') }, { savedImages: true });
   b.proj.heroStoryboard.layers[0].focal = '20% 80%';
   const fig = b.heroHtml().match(/<figure class="sb-layer[^>]*data-slot="hero"[^>]*>/)[0];
   assert.ok(/--op:20% 80%;--op-m:20% 80%/.test(fig));

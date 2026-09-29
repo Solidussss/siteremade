@@ -1,8 +1,8 @@
 'use strict';
 // The real top-level orchestration (script.js runGeneration: planner call ->
-// use-or-fall-back decision -> build -> paid images -> admit the direction),
+// use-or-fall-back decision -> build -> starter visuals -> admit the direction),
 // with only the network mocked. Pins that every path produces a real,
-// correctly-named direction with its images, and that WHICH engine built it
+// correctly-named direction, and that WHICH engine built it
 // (and why) is reported to private diagnostics.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -35,7 +35,9 @@ test('AI plan used: the direction is built from it and "plan_used" is reported w
   const { direction, outcomes, planRequest } = await generate({ ok: true, plan: FIZZWELL_PLAN, creditsRemaining: 8 });
   assert.equal(direction.meta.planSource, 'anthropic');
   assert.equal(direction.business.name, 'Fizzwell');
-  assert.ok(Object.values(direction.assets.generated).filter(g => g.status === 'ready').length >= 2, 'paid images are on the admitted direction');
+  // the Business generator never generates pictures (lib/premium/visual-mode.js): no image request, none on the direction
+  assert.equal(Object.values(direction.assets.generated || {}).filter(g => g.status === 'ready').length, 0);
+  assert.ok(!direction.imagePlan.some(e => e.sourceType === 'generated'));
   assert.equal(outcomes.length, 1);
   assert.equal(outcomes[0].outcome, 'plan_used');
   assert.ok(planRequest.generationId && outcomes[0].generationId === planRequest.generationId);

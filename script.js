@@ -2264,6 +2264,19 @@ function planAffordableImages({ candidates, remainingUsd, remainingCredits, mode
 // existing USD-only behavior changes unless a caller opts in with a real
 // number.
 // ==========================================================================
+// VISUAL MODE -- THE ONE RULE for where a website's pictures come from
+// (lib/premium/visual-mode.js, the same code the server enforces). The Business
+// generator fills every visual slot with the customer's upload, else a
+// SiteRemade starter/mockup visual (lib/premium/visuals.js), else the designed
+// CSS/SVG treatment -- NEVER a generated (OpenAI) image. buildImagePlan,
+// resolveImagePlanAssets, premiumPreReveal and the cost estimate all read
+// these two functions and nothing else.
+// ==========================================================================
+function visualModeLib() { return (typeof window !== 'undefined' && window.SiteRemadePremium && window.SiteRemadePremium.visualMode) || null; }
+function businessUsesStarterVisualsOnly(project) { const L = visualModeLib(); return L ? L.businessUsesStarterVisualsOnly(project) : !(project && project.mode === 'creative'); }
+// fail safe: if the shared rule could not load, nothing is ever generated
+function projectAllowsGeneratedImages(project) { const L = visualModeLib(); return L ? L.allowsGeneratedImages(project) : false; }
+// ==========================================================================
 // PREMIUM_GENERATION_V1 (client side). Everything here is inert unless the
 // server reports premium.enabled (PREMIUM_GENERATION_V1=true) AND the shared
 // core (premium-core.js, the browser build of lib/premium) loaded. With the
@@ -2391,11 +2404,12 @@ function premiumPlanImages(project, category, slots, remainingCredits) {
   const art = P.art.deriveArtDirection(strategy, project.design.palette);
   const governor = new P.BudgetGovernor(cfg, new P.CostLedger(cfg), 'gen_planonly');
   const keys = imageModelKeys();
-  const credits = (typeof remainingCredits === 'number') ? { remaining: remainingCredits, support: imageCreditCostForRoute(keys.support), premium: imageCreditCostForRoute(keys.premium) } : null;
+  const generatedImages = projectAllowsGeneratedImages(project) && !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
+  const credits = (generatedImages && typeof remainingCredits === 'number') ? { remaining: remainingCredits, support: imageCreditCostForRoute(keys.support), premium: imageCreditCostForRoute(keys.premium) } : null;
   const heroVariant = project.design.dimensions.heroDisplayVariant || project.design.dimensions.hero;
   const heroTextSide = ['centered-oversized', 'poster', 'stacked-image-below'].includes(heroVariant) ? 'center' : 'left';
   const uploads = (project.assets.items || []).map(a => ({ id: a.id, width: a.width, height: a.height }));
-  return P.images.allocateImages({ slots, strategy, art, uploads, credits, heroTextSide, cfg, governor });
+  return P.images.allocateImages({ slots, strategy, art, uploads, credits, heroTextSide, cfg, governor, generatedImages });
 }
 function premiumPlanEntry(project, category, s, pd) {
   const generated = pd.sourceType === 'generated';
@@ -2475,7 +2489,8 @@ function applyPremiumPatch(proj, patch) {
       if (pe.sourceType === 'designed') proj.assets.generated[e.slot] = { cacheKey: e.cacheKey, status: 'error', prompt: e.prompt }; // designed visual instead of a broken/poor image
     }
   });
-  Object.keys(patch.generated || {}).forEach(slot => {
+  // a replacement picture from the review applies only where generated imagery is allowed (never a Business site)
+  Object.keys(projectAllowsGeneratedImages(proj) ? (patch.generated || {}) : {}).forEach(slot => {
     const e = (proj.imagePlan || []).find(x => x.slot === slot);
     if (e && patch.generated[slot].dataUrl) { proj.assets.generated[slot] = { cacheKey: e.cacheKey, status: 'ready', dataUrl: patch.generated[slot].dataUrl, prompt: e.prompt, focal: e.focal || undefined }; changed = true; }
   });
@@ -2500,18 +2515,24 @@ async function premiumVisionThumbs(proj) {
   }
   return out;
 }
-// ONE whole-site review + at most one surgical repair round, before the customer sees the site.
-// Never blocks generation on failure: any error/timeout just reveals the first draft.
+// ONE whole-site review + at most one surgical repair round, before the customer sees the site: grounding, copy,
+// composition, the deterministic visual/starter checks and the real-DOM mobile/overlap measurements. It never blocks
+// generation: an error or timeout reveals the first draft, and its acceptance verdict is recorded, not enforced.
+// VISUAL MODE: for the Business generator (starter visuals only) nothing here waits on, sends or requests a generated
+// image -- the server enforces the same rule (/api/premium/review-repair never regenerates for a Business direction).
+const PREMIUM_REVIEW_TIMEOUT_MS = 60000;
 async function premiumPreReveal(proj) {
   if (!premiumActive() || !proj || !proj.design || !proj.design.premium) return;
   const started = performance.now();
+  const generatedImages = projectAllowsGeneratedImages(proj);
   try {
     updateGenerationGate('finalizing', 'Checking quality');
     renderProject(proj); // make sure the DOM reflects exactly this project before measuring it
-    // The image plan can gain funded slots after the first resolve (sections built later). Resolve them now, as FIRST-DRAFT work,
-    // so the review sees the real result and they are not billed as repair. Idempotent: already-resolved slots are skipped.
-    await resolveImagePlanAssets(proj, () => {}, { suppressRender: true });
-    renderProject(proj);
+    if (generatedImages) {
+      // (a mode with generated imagery) slots funded after the first resolve are first-draft work: resolve them now
+      await resolveImagePlanAssets(proj, () => {}, { suppressRender: true });
+      renderProject(proj);
+    }
     const mobile = window.SiteRemadePremium.mobile.measureMobile(builderSite, [390, 360]);
     // V7 Part 12: same real-DOM technique, but checking process/step rows for overlap at desktop/tablet/mobile widths.
     const processReport = window.SiteRemadePremium.mobile.measureProcessCollisions(builderSite, [1300, 820, 390]);
@@ -2520,22 +2541,22 @@ async function premiumPreReveal(proj) {
     const payload = {
       generationId: proj.design.premium.generationId, projectId: proj.meta && proj.meta.id, description: (proj.source && proj.source.text) || '',
       facts: (proj.source && proj.source.facts) || {}, archetype: strategy.archetype, categoryKey: strategy.categoryKey, direction: premiumDirectionPayload(proj, mobile, processReport),
-      vision: premiumGroundingOn() ? await premiumVisionThumbs(proj) : [],
+      // thumbnails of generated photos for the critic to judge -- there are none on a Business site
+      vision: (generatedImages && premiumGroundingOn()) ? await premiumVisionThumbs(proj) : [],
     };
     const body = JSON.stringify(payload);
-    if (body.length > 850000) return; // over the API body limit: skip rather than fail
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120000); // the whole-site critique + one image replacement may take a while
-    const response = await fetch('/api/premium/review-repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal }).finally(() => clearTimeout(timer));
-    const data = await response.json().catch(() => ({}));
-    if (data && data.ok) {
-      if (applyPremiumPatch(proj, data.patch)) {
-        renderProject(proj);
-        // The review may add sections (secondary-page depth, product visual). Any image slot they create is first-draft work: resolve it now
-        // (governed by the same budget) so the customer never sees an unresolved slot and the site stays admissible.
-        if (data.patch && (data.patch.addedSections || []).length) { await resolveImagePlanAssets(proj, () => {}, { suppressRender: true }); renderProject(proj); }
+    if (body.length <= 850000) { // over the API body limit: the review is skipped, the draft stands
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), PREMIUM_REVIEW_TIMEOUT_MS);
+      const response = await fetch('/api/premium/review-repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal }).finally(() => clearTimeout(timer));
+      const data = await response.json().catch(() => ({}));
+      if (data && data.ok) {
+        if (applyPremiumPatch(proj, data.patch)) {
+          renderProject(proj); // re-plans the visual slots: any section the review added gets its starter/designed visual here
+          if (generatedImages && data.patch && (data.patch.addedSections || []).length) { await resolveImagePlanAssets(proj, () => {}, { suppressRender: true }); renderProject(proj); }
+        }
+        proj.design.premium.review = { before: data.before, after: data.after, repaired: !!data.repaired, accepted: data.acceptance ? !!data.acceptance.accepted : null, blockers: data.acceptance ? (data.acceptance.blockers || []).slice(0, 8) : [], starterVisualsOnly: !generatedImages, ms: Math.round(performance.now() - started) };
       }
-      proj.design.premium.review = { before: data.before, after: data.after, repaired: !!data.repaired, accepted: data.acceptance ? !!data.acceptance.accepted : null, ms: Math.round(performance.now() - started) };
     }
   } catch (e) { /* first draft is revealed as-is */ }
   // Safety net: a generated slot that never resolved must not block the reveal -- it falls back to its starter visual / designed treatment.
@@ -2546,11 +2567,11 @@ function buildImagePlan(project, category, remainingCredits) {
   if (project.meta && project.meta.isDemoShell) return [];
   const plan = project.assets.plan;
   const composed = project.design.dimensions;
-  // Business generator intentionally uses SiteRemade's deterministic
-  // mockup/starter visual system for unsupplied imagery. External image
-  // generation is not part of this flow; keeping this false guarantees an
-  // OpenAI/API-key state can never stall or alter a Business generation.
-  const providerConfigured = false;
+  const providerConfigured = !!(window.__siteremadeImageProvider && window.__siteremadeImageProvider.configured);
+  // VISUAL MODE: a slot is only ever funded for generation where the one rule allows generated imagery -- never for
+  // the Business generator, whatever the provider status, premium flag or credit balance says. Every unsupplied slot
+  // then resolves as the starter/mockup visual (premium allocation) or the designed treatment.
+  const generatedImagesAllowed = providerConfigured && projectAllowsGeneratedImages(project);
   const slots = [];
   const pages = (Array.isArray(project.pages) && project.pages.length) ? project.pages : [{ slug: '', sections: project.sections || [] }];
   const homePage = pages[0];
@@ -2665,8 +2686,10 @@ function buildImagePlan(project, category, remainingCredits) {
   const roleBoost = (IMAGE_STRATEGY_ROLE_PRIORITY_BOOST[(project.intent && project.intent.creativeDirection && project.intent.creativeDirection.imageStrategy)]) || {};
   let fundedRouteBySlotIndex = new Map();
   // PREMIUM_GENERATION_V1: quality-first allocation (roles, source priority, composition prompts, budget tiers). Legacy path untouched when off.
-  const premiumPlan = (providerConfigured && premiumActive()) ? premiumPlanImages(project, category, slots, remainingCredits) : null;
-  if (providerConfigured && !premiumPlan) {
+  // The premium allocator runs whenever premium is on (roles, focal points, starter media types) -- with or without an
+  // image provider, so a Business site is the same whether or not an OpenAI key happens to be configured.
+  const premiumPlan = premiumActive() ? premiumPlanImages(project, category, slots, remainingCredits) : null;
+  if (generatedImagesAllowed && !premiumPlan) {
     const candidates = slots
       .map((s, i) => ({ i, role: s.role, rank: s.rank, idealTier: s.idealTier, aspectRatio: s.aspectRatio, hasUpload: !!s.assetId, storyboardLayer: !!s.storyboardLayer }))
       .filter(s => !s.hasUpload && s.idealTier !== 'none')
@@ -2871,6 +2894,10 @@ function reconcileImageSupplyWithSections(proj, category, remainingCredits) {
 }
 
 // ---- V7.1: real async image generation ------------------------------------
+// VISUAL MODE: unreachable for the Business generator -- resolveImagePlanAssets
+// returns before any request when projectAllowsGeneratedImages(project) is false,
+// and the server refuses the route for Business anyway (lib/premium/visual-mode.js).
+// Kept, behind that one rule, for a mode that legitimately uses generated imagery.
 // The ONLY function that calls POST /api/generate-image. It is invoked from
 // explicit "the image-relevant identity of the project just changed" points
 // (finished a Generate, hit Regenerate, uploaded/removed an asset, toggled a
@@ -2916,7 +2943,10 @@ function reportGenerationDiagnostic(payload) {
 function resolveImagePlanAssets(proj, onProgress, options = {}) {
   if (!proj || (proj.meta && proj.meta.isDemoShell)) return Promise.resolve();
   proj.assets.generated = proj.assets.generated || {};
-  if (!window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) {
+  // VISUAL MODE: the Business generator never requests an image. Its plan has no 'generated' slots; a slot still
+  // marked so (a plan saved before this rule) is settled as its starter/designed visual here, with no network call.
+  // An image a saved project already has stays (renderVisualSlot shows a ready image whose cacheKey matches).
+  if (!projectAllowsGeneratedImages(proj) || !window.__siteremadeImageProvider || !window.__siteremadeImageProvider.configured) {
     (proj.imagePlan || []).forEach(entry => {
       if (entry.sourceType !== 'generated') return;
       const current = proj.assets.generated[entry.slot];
@@ -3051,21 +3081,43 @@ function imagePlanIsTerminal(proj) {
   ));
 }
 
+// The final admission gate: is this a structurally valid website? Every image slot settled (for the Business
+// generator there are no generated slots, so this is true by construction), no slot or section id used twice, and at
+// least one page with sections. What it deliberately does NOT require: a generated photo anywhere, a premium review
+// verdict, or a real business name -- "Your Business" is an editable placeholder the owner can change in the editor.
+// `blockers` names every reason it is not ready (reported by generationFailureDiagnostic).
 function validateProjectQuality(proj) {
   const slots = (proj.imagePlan || []).map(entry => entry.slot);
   const uniqueSlots = new Set(slots);
   const sectionIds = (proj.pages || []).flatMap(page => (page.sections || []).map(section => section.id));
-  return {
-    // A missing explicit business name is not a broken website. Many valid
-    // briefs describe the business without naming it, and the editable
-    // "Your Business" placeholder is intentionally supported by the UI.
-    // Never discard an otherwise complete generation just because the user
-    // did not provide a name in the prompt.
-    ready: imagePlanIsTerminal(proj) && slots.length === uniqueSlots.size && sectionIds.length === new Set(sectionIds).size && !!(proj.business && proj.business.name),
-    unresolvedImageSlots: (proj.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(proj.assets.generated && proj.assets.generated[entry.slot] && ['ready', 'error'].includes(proj.assets.generated[entry.slot].status))).map(entry => entry.slot),
-    duplicateImageSlots: slots.filter((slot, index) => slots.indexOf(slot) !== index),
-    duplicateSectionIds: sectionIds.filter((id, index) => sectionIds.indexOf(id) !== index)
+  const unresolvedImageSlots = (proj.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(proj.assets.generated && proj.assets.generated[entry.slot] && proj.assets.generated[entry.slot].cacheKey === entry.cacheKey && ['ready', 'error'].includes(proj.assets.generated[entry.slot].status))).map(entry => entry.slot);
+  const duplicateImageSlots = slots.filter((slot, index) => slots.indexOf(slot) !== index);
+  const duplicateSectionIds = sectionIds.filter((id, index) => sectionIds.indexOf(id) !== index);
+  const hasPages = (proj.pages || []).some(page => (page.sections || []).length);
+  const blockers = [];
+  if (!imagePlanIsTerminal(proj)) blockers.push('unresolved_image_slots');
+  if (duplicateImageSlots.length) blockers.push('duplicate_image_slots');
+  if (duplicateSectionIds.length) blockers.push('duplicate_section_ids');
+  if (!hasPages) blockers.push('no_pages');
+  return { ready: blockers.length === 0, blockers, unresolvedImageSlots, duplicateImageSlots, duplicateSectionIds, starterVisualsOnly: businessUsesStarterVisualsOnly(proj) };
+}
+// A generation that ends without admitting its website says exactly why -- in the console, on
+// window.__lastGenerationFailure, and in the private generation diagnostics (POST /api/generation-diagnostics).
+function generationFailureDiagnostic(proj, phase, generationId, quality, error) {
+  const detail = {
+    outcome: quality ? 'admission_rejected' : 'generation_failed', generationId: generationId || null, projectId: (proj && proj.meta && proj.meta.id) || null,
+    phase: phase || 'unknown', starterVisualsOnly: businessUsesStarterVisualsOnly(proj),
+    blockers: quality ? quality.blockers : [], unresolvedSlots: quality ? quality.unresolvedImageSlots : [], duplicateSlots: quality ? quality.duplicateImageSlots : [], duplicateSectionIds: quality ? quality.duplicateSectionIds : [],
+    error: error ? String((error && error.message) || error).slice(0, 200) : null,
   };
+  try { window.__lastGenerationFailure = detail; console.warn('[SiteRemade] website not admitted', detail); } catch (e) { /* diagnostics are best-effort */ }
+  reportGenerationDiagnostic(detail);
+  return detail;
+}
+const GENERATION_BLOCKER_COPY = { unresolved_image_slots: 'some pictures were not placed', duplicate_image_slots: 'two pictures were given the same place', duplicate_section_ids: 'two sections share an id', no_pages: 'no pages were built' };
+function generationFailureMessage(d) {
+  const why = d.blockers && d.blockers.length ? d.blockers.map(code => GENERATION_BLOCKER_COPY[code] || code).join('; ') : `an unexpected error while ${d.phase === 'review' ? 'checking quality' : d.phase === 'imagery' ? 'placing imagery' : 'building the pages'}`;
+  return `The website could not be completed: ${why}. Your previous version is safe — please try again.`;
 }
 
 function imageSlotDiagnostic(proj) {
@@ -8903,22 +8955,17 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         proj.assets.plan = planAssets(proj.assets);
         ensureAssetDrivenSections(proj);
         // IMAGE COHERENCE PASS: reconciles gallery/caseStudies/team tile
-        // counts DOWN to what the unchanged image budget can actually
-        // fulfill (never up -- see reconcileImageSupplyWithSections' own
-        // comment) before computing the final plan, so a low-budget
-        // archetype never ends up rendering more visual slots than it can
-        // pay to fill. Runs once, here, at real generation time; every
-        // other buildImagePlan call site (ordinary re-render, restore)
-        // just reads the `imageTileCount` this stamps onto the section.
+        // counts DOWN to the imagery that actually exists (uploads) before
+        // computing the final plan (see reconcileImageSupplyWithSections).
+        // Runs once, here, at real generation time; every other
+        // buildImagePlan call site (ordinary re-render, restore) just reads
+        // the `imageTileCount` this stamps onto the section.
         //
-        // DYNAMIC CREDIT COSTING PASS: `latestCredits.remaining` here is
-        // already the account's balance AFTER the base generation charge
-        // -- applyCreditsFromApiResponse (called right after the
-        // plan-website request that started this same generation, above
-        // in runGeneration) patches it down before any step in this array
-        // ever runs. So this is exactly "how many credits can this
-        // generation's images spend" (spec section 4), with no separate
-        // subtraction needed here.
+        // VISUAL MODE: for the Business generator this plan never funds a
+        // generated image (projectAllowsGeneratedImages) -- unsupplied slots
+        // are the starter/mockup visuals applyVisualProfile just switched on.
+        // The credit balance passed along is only read by a mode that allows
+        // generated imagery.
         applyVisualProfile(proj); // V4 (flag-gated): starter visuals + a hero that can carry a product visual
         applyPhotoLayout(proj); // V6 (photo-led businesses): editorial alternating layout + specific content, before images are planned
         groundProject(proj); // V3 (flag-gated, free): remove off-category/invented sections BEFORE the image plan and its spend are decided
@@ -8928,11 +8975,7 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
         proj.heroStoryboard = storyboardForProject(proj, category, usingClaude ? claudePlan.heroStoryboard : null, variationSeed);
         proj.design.heroDirection = proj.heroStoryboard ? null : directHeroForProject(proj); // single-image direction only if the storyboard module is unavailable
         proj.imagePlan = reconcileImageSupplyWithSections(proj, category, latestCredits ? latestCredits.remaining : null);
-        const n = proj.assets.items.length;
-        const generatedCount = proj.imagePlan.filter(p => p.sourceType === 'generated').length;
-        if (n) return `${n} of your images placed`;
-        if (generatedCount) return `${generatedCount} image${generatedCount === 1 ? '' : 's'} generated`;
-        return 'Art-directed imagery matched to your brand';
+        return imageryPlacementNote(proj);
       } },
     { key: 'build', run() {
         // Additive, never blocks reveal -- a real issue is reported (and,
@@ -8943,6 +8986,22 @@ function buildGenerationPlan(text, preserved, claudePlan, variationSeed, canonic
       } }
   ];
   return { proj, category, steps };
+}
+// What the "Placing imagery" step actually did: uploads placed and starter/mockup visuals drawn -- never a count of
+// images being generated for a Business site (there are none).
+function imageryPlacementNote(proj) {
+  const plan = proj.imagePlan || [];
+  const uploads = plan.filter(p => p.sourceType === 'user').length;
+  const generated = plan.filter(p => p.sourceType === 'generated').length;
+  const starters = starterVisualsEnabled(proj) ? plan.filter(p => p.sourceType === 'designed').length : 0;
+  const parts = [];
+  if (uploads) parts.push(`${uploads} of your image${uploads === 1 ? '' : 's'} placed`);
+  if (starters) parts.push(`${starters} starter visual${starters === 1 ? '' : 's'} drawn`);
+  if (generated) parts.push(`${generated} image${generated === 1 ? '' : 's'} to generate`);
+  return parts.length ? parts.join(' · ') : 'Art-directed imagery matched to your brand';
+}
+function imageryGateNote(proj) {
+  return (proj && proj.imagePlan || []).some(e => e.sourceType === 'generated') ? `0 / ${proj.imagePlan.filter(e => e.sourceType === 'generated').length}` : imageryPlacementNote(proj);
 }
 // V8.1: the single place a new WebsiteProject is ever admitted into
 // `directions`. Called once generation (Claude or deterministic) has fully
@@ -9069,7 +9128,7 @@ async function prepareProjectForReveal(proj, mode = 'restore', token = lifecycle
   updateGenerationGate('finalizing');
   const quality = validateProjectQuality(proj);
   if (!quality.ready) {
-    failGenerationGate();
+    failGenerationGate(generationFailureMessage(generationFailureDiagnostic(proj, mode === 'switch' ? 'switch' : 'restore', null, quality)));
     setLifecycleState('failed', proj);
     return false;
   }
@@ -9161,6 +9220,8 @@ function updateGenerateButtonLabel() {
 // once generation actually finishes.
 function estimatedCostLine(proj) {
   if (!latestCredits || typeof latestCredits.generationCost !== 'number') return '';
+  // VISUAL MODE: the Business generator's pictures are uploads and starter visuals -- free. Only the base charge.
+  if (!projectAllowsGeneratedImages(proj)) return `Estimated cost: ${latestCredits.generationCost} credit${latestCredits.generationCost === 1 ? '' : 's'}`;
   const generated = (proj && proj.imagePlan || []).filter(entry => entry.sourceType === 'generated');
   const imageCredits = generated.reduce((sum, entry) => sum + (typeof entry.creditCost === 'number' ? entry.creditCost : 0), 0);
   const total = latestCredits.generationCost + imageCredits;
@@ -9301,6 +9362,8 @@ async function runGeneration(text) {
   const previousProject = project;
   let admitted = false; // set true only by a successful finishGeneration call below
   let failureMessage = null; // UNIFIED ACCOUNT pass: an optional specific reason for the failure gate (e.g. out of credits), read by the finally block below
+  let phase = 'planning'; // where this attempt is, for the failure diagnostic (generationFailureDiagnostic)
+  let generationId = null;
   // DYNAMIC CREDIT COSTING PASS: the balance as of right now, before this
   // attempt's own base reservation or any image charge -- see
   // generationCreditsBeforeCharge's own comment. Captured unconditionally
@@ -9335,7 +9398,7 @@ async function runGeneration(text) {
     window.__premiumPendingGenerationId = premiumActive() ? premiumNewGenerationId() : null; // one generation session per fresh Generate (its own budget)
     // Diagnostics id for this one attempt -- the premium session id when there
     // is one, so both records of the same generation share a single id.
-    const generationId = window.__premiumPendingGenerationId || ('gen_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
+    generationId = window.__premiumPendingGenerationId || ('gen_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
     const result = await requestClaudePlan(text, variationSeed > 0 ? 'NEW_DIRECTION' : 'NEW_SITE', generationId);
     if (result && result.status === 401) {
       // Session expired mid-visit (spec: "session expiry during use" must
@@ -9413,6 +9476,7 @@ async function runGeneration(text) {
     // function already reserved this attempt's place in the 3-direction
     // budget before any network call.
 
+    phase = 'building';
     const { proj, steps } = buildGenerationPlan(generationSession.text, project, claudePlan, variationSeed, generationSession);
     if (premiumActive() && window.__premiumPendingGenerationId) attachPremiumDesign(proj, window.__premiumPendingGenerationId);
     // Durable, private record of which engine actually built this direction
@@ -9443,25 +9507,17 @@ async function runGeneration(text) {
       // skipped, matching the person's reduced-motion preference.
       steps.forEach(s => s.run());
       setLifecycleState('generating_images', proj);
-      updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+      phase = 'imagery';
+      updateGenerationGate('imagery', imageryGateNote(proj));
       if (generationGateCost) generationGateCost.textContent = estimatedCostLine(proj);
       await resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj)));
       setLifecycleState('finalizing', proj);
       updateGenerationGate('finalizing');
+      phase = 'review';
       await premiumPreReveal(proj);
+      phase = 'admission';
       const quality = validateProjectQuality(proj);
-      if (!quality.ready) {
-        reportGenerationDiagnostic({
-          outcome: 'final_quality_refused',
-          generationId,
-          projectId: proj.meta && proj.meta.id,
-          unresolvedImageSlots: quality.unresolvedImageSlots,
-          duplicateImageSlots: quality.duplicateImageSlots,
-          duplicateSectionIds: quality.duplicateSectionIds,
-          businessName: proj.business && proj.business.name
-        });
-        throw new Error('Generated project failed its deterministic quality gate');
-      }
+      if (!quality.ready) { failureMessage = generationFailureMessage(generationFailureDiagnostic(proj, phase, generationId, quality)); return; }
       admitted = finishGeneration(proj, expectedDirectionIndex);
       return;
     }
@@ -9497,30 +9553,23 @@ async function runGeneration(text) {
         try {
           if (i >= steps.length) {
             setLifecycleState('generating_images', proj);
-            updateGenerationGate('imagery', `0 / ${(proj.imagePlan || []).filter(entry => entry.sourceType === 'generated').length}`);
+            phase = 'imagery';
+            updateGenerationGate('imagery', imageryGateNote(proj));
             if (generationGateCost) generationGateCost.textContent = estimatedCostLine(proj);
             resolveImagePlanAssets(proj, () => updateGenerationGate('imagery', imageProgressNote(proj))).then(async () => {
               setLifecycleState('finalizing', proj);
               updateGenerationGate('finalizing');
+              phase = 'review';
               await premiumPreReveal(proj);
+              phase = 'admission';
               const quality = validateProjectQuality(proj);
               if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
-              else {
-                reportGenerationDiagnostic({
-                  outcome: 'final_quality_refused',
-                  generationId,
-                  projectId: proj.meta && proj.meta.id,
-                  unresolvedImageSlots: quality.unresolvedImageSlots,
-                  duplicateImageSlots: quality.duplicateImageSlots,
-                  duplicateSectionIds: quality.duplicateSectionIds,
-                  businessName: proj.business && proj.business.name
-                });
-                resetGenerationChromeUI();
-              }
+              else { failureMessage = generationFailureMessage(generationFailureDiagnostic(proj, phase, generationId, quality)); resetGenerationChromeUI(); }
               resolve();
-            }).catch(() => { resetGenerationChromeUI(); resolve(); });
+            }).catch(error => { failureMessage = generationFailureMessage(generationFailureDiagnostic(proj, phase, generationId, null, error)); resetGenerationChromeUI(); resolve(); });
             return;
           }
+          phase = 'step:' + steps[i].key;
           const note = steps[i].run(); // the real work for this step happens here
           const gateStep = { understand: 'understand', structure: 'pages', typography: 'creative', sections: 'copy', imagery: 'imagery', build: 'finalizing' }[steps[i].key] || 'copy';
           updateGenerationGate(gateStep, note);
@@ -9531,6 +9580,7 @@ async function runGeneration(text) {
           // the whole 6-step pipeline finishes in well under 150ms.
           requestAnimationFrame(nextStep);
         } catch (error) {
+          failureMessage = generationFailureMessage(generationFailureDiagnostic(proj, phase, generationId, null, error));
           resetGenerationChromeUI();
           updateDirectionControls();
           resolve();

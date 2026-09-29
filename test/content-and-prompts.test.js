@@ -105,7 +105,9 @@ test('AI image prompts: every planned prompt can reach a slot (not one per role)
   assert.equal(new Set(used).size, used.length, 'a planned prompt was assigned to two slots');
   assert.equal(used.length, Math.min(planned.size, rest.length), 'planned prompts were discarded while slots fell back to generic ones');
   const galleryPrompts = proj.imagePlan.filter(e => e.role === 'gallery').map(e => e.prompt);
-  assert.ok(galleryPrompts.length >= 2 && new Set(galleryPrompts).size === galleryPrompts.length, 'gallery tiles each get a different planned shot');
+  // (a Business gallery with no photos of its own collapses to one designed tile -- lib/premium/visual-mode.js -- so
+  // there may be a single gallery slot; whatever slots exist never share a shot)
+  assert.ok(galleryPrompts.length >= 1 && new Set(galleryPrompts).size === galleryPrompts.length, 'gallery tiles each get a different planned shot');
 });
 
 test('saved projects keep the planner\'s prompts intact (they were clipped to 200 chars / wiped on every save)', () => {

@@ -1015,8 +1015,11 @@
         rest.forEach(s => { if (s.type === 'about' && !bag.about) bag.about = s; else if (s.type === 'services' && !bag.services) bag.services = s; else if (s.type === 'faq' && !bag.faq) bag.faq = s; else if (s.type === 'process' && !bag.process) bag.process = s; else if (s.type === 'ctaBanner' && !bag.cta) bag.cta = s; else if (s.type === 'contact' && !bag.contact) bag.contact = s; else if ((s.type === 'gallery' || s.type === 'caseStudies') && !bag.gallery) bag.gallery = s; });
         // planning twice must not create new feature sections (each one is an image slot = money): reuse the existing section for a shot id
         const existing = new Map(rest.filter(s => s.type === 'editorialFeature' && s.copy && s.copy.shot).map(s => [s.copy.shot, s]));
+        // An existing section is reused ONCE: a pack that lists the same shot twice gets a second section of its own (as on
+        // the first plan), never the same section placed twice on a page -- re-planning an already-planned page (the
+        // server-side review does) used to duplicate a section id here.
         let featIndex = 0;
-        const feat = spec => existing.get(spec.id) || featureSection(byId[spec.id] || shots[shots.length - 1], spec, featIndex++);
+        const feat = spec => { const reused = existing.get(spec.id); if (reused) { existing.delete(spec.id); return reused; } return featureSection(byId[spec.id] || shots[shots.length - 1], spec, featIndex++); };
         const withItems = (s, type, items, variant) => { const sec = s || newSection(type, variant, null); sec.copy = setItems(Object.assign({}, sec.copy), items); if (variant) sec.variant = variant; return sec; };
         const statement = (s, headline, body) => { const sec = s || newSection('about', 'statement', null); sec.variant = 'statement'; sec.imageDisplayVariant = 'statement'; sec.copy = Object.assign({}, sec.copy, { headline, body }); return sec; };
         const cta = bag.cta || newSection('ctaBanner', 'accent', null);
@@ -1105,8 +1108,12 @@
       const visible = plan.filter(e => /^(hero|gallery-featured|about|product|.*feature-|.*gallery-)/.test(e.slot || '') || true);
       const generated = plan.filter(e => e.sourceType === 'generated'); const starters = plan.filter(e => e.sourceType === 'designed' && e.starter);
       const need = minPhotos(g);
-      if (generated.length < need) add({ category: 'MEDIA_COMPLETENESS', code: 'photo_set_incomplete', severity: 3, detail: `${generated.length} generated photo slot(s), ${need} expected for ${g.family}`, repair: { kind: 'plan_photo_layout' } });
-      if (plan.length && starters.length >= Math.max(2, plan.length / 2)) add({ category: 'INDUSTRY_VISUAL_FIT', code: 'photo_led_mostly_starter_art', severity: 3, detail: `${starters.length} of ${plan.length} visual slots are starter graphics on a photo-led site`, target: { kind: 'site', id: null } });
+      // a generated photo set is expected only where generated imagery exists at all (lib/premium/visual-mode.js): a
+      // Business website is complete with uploads and starter/mockup visuals, so their absence is never a defect there
+      if (require('./visual-mode').allowsGeneratedImages(direction)) {
+        if (generated.length < need) add({ category: 'MEDIA_COMPLETENESS', code: 'photo_set_incomplete', severity: 3, detail: `${generated.length} generated photo slot(s), ${need} expected for ${g.family}`, repair: { kind: 'plan_photo_layout' } });
+        if (plan.length && starters.length >= Math.max(2, plan.length / 2)) add({ category: 'INDUSTRY_VISUAL_FIT', code: 'photo_led_mostly_starter_art', severity: 3, detail: `${starters.length} of ${plan.length} visual slots are starter graphics on a photo-led site`, target: { kind: 'site', id: null } });
+      }
       const hero = plan.find(e => e.slot === 'hero'); const dims = (direction.design && direction.design.dimensions) || {}; const hv = dims.heroDisplayVariant || dims.hero;
       if (['centered-oversized', 'minimal-text-only', 'poster'].includes(hv) || (hero && hero.sourceType === 'designed' && !hero.starter)) add({ category: 'HERO_VISUAL_STRENGTH', code: 'photo_led_hero_without_anchor', severity: 3, detail: `hero layout ${hv} / ${hero ? hero.sourceType : 'no hero slot'}`, target: { kind: 'hero', id: 'hero' } });
       // repeated generic card sections on one page
@@ -5897,9 +5904,13 @@
 
     // input: { slots:[{slot,role,sectionType,assetId,aspectRatio,rank,cacheKey,...}], strategy, art, uploads:[{id,type,width,height}],
     //          cfg, governor, credits?:{remaining, support, premium}, heroTextSide }
+    // input.generatedImages === false (the Business generator -- lib/premium/visual-mode.js): no slot is ever funded for
+    // image generation. Uploads keep their slots; every other slot is the deterministic starter/mockup visual (or the
+    // designed treatment where the role never shows one), at $0 and 0 credits.
     function allocateImages(input) {
       const { slots, strategy, art, cfg, governor } = input;
       const uploads = input.uploads || [];
+      const generatedImages = input.generatedImages !== false;
       const credits = input.credits || null;
       let committed = 0, primaryFunded = 0, creditsLeft = credits && Number.isFinite(credits.remaining) ? credits.remaining : Infinity;
       const notes = [];
@@ -5917,7 +5928,7 @@
         const own = s.assetId ? uploads.find(u => u.id === s.assetId) : null;
         if (s.assetId) {
           const q = uploadQuality(own);
-          if (q !== 'poor' || ROLE_TIER[role] === 'decorative') {
+          if (q !== 'poor' || ROLE_TIER[role] === 'decorative' || !generatedImages) { // no generated alternative exists: the customer's own picture stays
             const adv = own ? cropAdvice(own.width, own.height, aspect) : { loss: 0, recommend: 'cover' };
             out[i] = Object.assign(base, { sourceType: 'user', reason: 'real_image_supplied', focal: focalFor(role, { subjectSide: 'center' }), crop: adv, estimatedUsd: 0 });
             return;
@@ -5927,6 +5938,10 @@
         // HERO STORYBOARD (lib/premium/hero-storyboard.js): each layer is a separate real photograph the storyboard already art-directed
         // (its own subject and prompt) -- never swapped for a starter graphic or dropped by the gallery rules. Lead on the hero tier,
         // supporting layers on the primary tier.
+        if (s.storyboardLayer && !generatedImages) {
+          // the layer draws its own deterministic art (hero-storyboard.js renderStoryboardHero)
+          out[i] = Object.assign(base, { tier: s.heroLayerRole === 'lead' ? 'hero' : 'primary', sourceType: 'designed', reason: 'starter_visuals_only', starter: true, mediaType: 'ILLUSTRATION', estimatedUsd: 0 }); return;
+        }
         if (s.storyboardLayer) {
           const sbTier = s.heroLayerRole === 'lead' ? 'hero' : 'primary';
           const sbCap = cfg.imageTierCaps[sbTier] != null ? cfg.imageTierCaps[sbTier] : 0;
@@ -5950,6 +5965,8 @@
         if (role === 'testimonial') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'no_generated_image_for_testimonials', omitImage: true, estimatedUsd: 0 }); return; }
         if (role === 'team') { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_team_photos_only', omitImage: true, estimatedUsd: 0 }, vprof ? { starter: true, mediaType: 'ABSTRACT_GRAPHIC' } : {}); return; }
         if (role === 'gallery' && !GALLERY_GENERATION_OK.includes(strategy.archetype) && !(vprof && vprof.photoLed)) { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'real_project_media_only', omitImage: true, estimatedUsd: 0 }); return; }
+        // starter visuals only: the industry's starter/mockup visual for this role, never a generated image
+        if (!generatedImages) { out[i] = Object.assign(base, { sourceType: 'designed', reason: 'starter_visuals_only', estimatedUsd: 0 }, vprof ? { starter: true, mediaType: require('./visuals').DETERMINISTIC.has(vmedia) ? vmedia : 'GRAPHIC_FALLBACK' } : {}); return; }
         // 3/4. generated photography or abstract graphic, by budget tier
         const tier = ROLE_TIER[role];
         const cap = cfg.imageTierCaps[tier] != null ? cfg.imageTierCaps[tier] : 0;
@@ -6185,8 +6202,8 @@
       budget() { return this.governor.summary(); }
 
       // ---- images ---------------------------------------------------------------
-      planImages({ slots, uploads, credits, heroTextSide }) {
-        return this.time('imagePlanning', () => imageLib.allocateImages({ slots, strategy: this.strategy, art: this.art, uploads, credits, heroTextSide, cfg: this.cfg, governor: this.governor }));
+      planImages({ slots, uploads, credits, heroTextSide, generatedImages }) {
+        return this.time('imagePlanning', () => imageLib.allocateImages({ slots, strategy: this.strategy, art: this.art, uploads, credits, heroTextSide, generatedImages, cfg: this.cfg, governor: this.governor }));
       }
 
       // ---- review + repair (one pass, one round) ---------------------------------
@@ -6194,7 +6211,11 @@
       // deps (all optional): critic({system,user,tool}) -> {input, usage}; regenerateImage({slot, prompt, aspectRatio, ...}) -> {ok, dataUrl, evaluation};
       //                      rewriteCopy({targetId, field, current, constraint}) -> {ok, text, usage}
       async reviewAndRepair(direction, ctx, deps) {
-        const d = deps || {};
+        const d = Object.assign({}, deps || {});
+        // lib/premium/visual-mode.js: a Business direction never has pictures (re)generated here, whatever the caller
+        // passed -- a critic's "replace this image" becomes the designed/starter treatment instead
+        const starterOnly = !require('./visual-mode').allowsGeneratedImages(direction);
+        if (starterOnly) delete d.regenerateImage;
         const c = Object.assign({ strategy: this.strategy, cfg: this.cfg, premiumEnabled: true, compositionV2: !!this.cfg.compositionV2, groundingV3: !!this.cfg.groundingV3, visualsV4: !!this.cfg.visualsV4, photoLedV6: !!this.cfg.photoLedV6 }, ctx || {});
         let semanticResult = null;
         if (c.groundingV3) { semanticResult = await this.semanticPass(direction, c, d); direction = semanticResult.direction; c.grounding = semanticResult.grounding; }
@@ -6228,7 +6249,10 @@
         let work = free.direction;
         const executed = free.applied.slice();
         for (const a of free.pending) {
-          if (a.executor === 'image' && d.regenerateImage) {
+          if (a.executor === 'image' && starterOnly) {
+            const fb = repairLib.applyFreeRepairs(work, [{ kind: 'use_designed_fallback', slot: a.slot, executor: 'free', defectCode: a.defectCode }], {});
+            work = fb.direction; executed.push(Object.assign({}, a, { kind: 'use_designed_fallback', downgradedFrom: 'regenerate_image', reason: 'starter_visuals_only' }));
+          } else if (a.executor === 'image' && d.regenerateImage) {
             const entry = (work.imagePlan || []).find(e => e.slot === a.slot) || {};
             const res = await this.time('repair', () => d.regenerateImage({ slot: a.slot, prompt: entry.promptSimplified || entry.prompt, aspectRatio: entry.aspectRatio, model: entry.model, quality: entry.quality, routeKind: entry.routeKind }));
             if (!d.selfRecorded) this.recordImage({ model: entry.model, imageTier: entry.routeKind, quality: entry.quality, aspectRatio: entry.aspectRatio, phase: 'repair', retryCount: 1, ok: !!(res && res.ok), providerReached: true, slot: a.slot });
@@ -6271,7 +6295,7 @@
 
     module.exports = {
       createPremiumCore, loadConfig, OPERATIONS, routeOperation, imageCostUsd, textCostUsd,
-      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), heroDirection: require('./hero-direction'), heroStoryboard: require('./hero-storyboard'), offeringCopy: require('./offering-copy'), heroCopy: require('./hero-copy'), sectionVoice: require('./section-voice'), metrics: metricsLib,
+      strategy: strategyLib, art: artLib, images: imageLib, tokens: tokenLib, sections: stateLib, review: reviewLib, repair: repairLib, composition: compositionLib, stamp: stampLib, grounding: groundingLib, semantic: semanticLib, visuals: visualsLib, visualMode: require('./visual-mode'), editorial: require('./editorial'), visualEngine: require('./visual-engine'), motionEngine: require('./motion-engine'), heroDirection: require('./hero-direction'), heroStoryboard: require('./hero-storyboard'), offeringCopy: require('./offering-copy'), heroCopy: require('./hero-copy'), sectionVoice: require('./section-voice'), metrics: metricsLib,
       CostLedger, BudgetGovernor,
     };
 
@@ -8139,6 +8163,44 @@
       HERO_REQUIREMENTS, heroCompatible, RETAIL_SUBTYPE_HERO, SAAS_CONCEPT_HERO, textSignalFamily, selectHeroFamily,
       depthForSection, pickTexturedSection, contrastOk, safeToTexture,
     };
+
+  });
+  __define("visual-mode", function (module, exports, require) {
+    'use strict';
+    // THE ONE RULE for where a website's pictures come from -- shared by the browser (premium-core.js) and the server.
+    //
+    // The Business generator never uses externally generated (OpenAI) imagery. Every visual slot resolves as:
+    //   1. the customer's own uploaded picture
+    //   2. otherwise SiteRemade's deterministic starter / mockup visual (lib/premium/visuals.js: product UI, diagrams,
+    //      industry scenes, hero storyboard art -- inline SVG, identical in the preview and the export)
+    //   3. otherwise the designed CSS/SVG treatment
+    // It is never a reason to call /api/generate-image, to reserve image credits, to retry or regenerate a picture during
+    // the quality review, or to reject a finished website because no generated photo exists.
+    //
+    // Everything else the premium generator does -- planning, strategy, typography, composition, copy, starter visual
+    // profile selection, deterministic and responsive checks -- is unaffected by this rule.
+    //
+    // A future mode that legitimately uses generated imagery gets its own entry here with generatedImages: true; nothing
+    // else in the code decides this.
+    const MODES = {
+      business: { generatedImages: false, visuals: 'upload > starter/mockup > designed' },
+      creative: { generatedImages: false, visuals: 'upload > researched picture > designed' }, // Creative mode has its own pipeline
+    };
+
+    // A saved direction is Creative only when it says so (lib/project-store.js writes mode:'creative'); everything else,
+    // including every existing project and any direction with no mode at all, is the Business generator.
+    function generatorModeOf(project) {
+      return project && project.mode === 'creative' ? 'creative' : 'business';
+    }
+    function businessUsesStarterVisualsOnly(project) {
+      return generatorModeOf(project) === 'business' && !MODES.business.generatedImages;
+    }
+    function allowsGeneratedImages(project) {
+      const m = MODES[generatorModeOf(project)];
+      return !!(m && m.generatedImages);
+    }
+
+    module.exports = { MODES, generatorModeOf, businessUsesStarterVisualsOnly, allowsGeneratedImages };
 
   });
   __define("visual-subjects", function (module, exports, require) {

@@ -166,10 +166,16 @@ test('testimonial wording follows the business in the export too, and is never l
 });
 
 test('a gallery never pads a real image with an empty placeholder tile (both renderers)', async () => {
-  const { c, proj, cat } = await generated(F.FIZZWELL_TEXT, { plan: F.FIZZWELL_PLAN });
+  // real imagery is the owner's: a hero photo and two gallery photos (the Business generator never generates any)
+  const c = loadClient({ fetchHandler: () => new Promise(() => {}) });
+  const pic = n => ({ type: n === 0 ? 'hero' : 'gallery', dataUrl: mockPng('upload ' + n, '1:1'), name: 'photo-' + n + '.png' });
+  const { proj } = buildProject(c, F.FIZZWELL_TEXT, { providerStatus: fundedProviderStatus(), claudePlanRaw: F.FIZZWELL_PLAN, uploads: [0, 1, 2].map(pic) });
+  c.ctx.__p = proj; c.run('project = window.__p; renderProject(project)');
+  const cat = c.run(`categories[${JSON.stringify(proj.business.categoryKey)}]`);
   const gallery = proj.sections.find(s => s.type === 'gallery');
-  const funded = proj.imagePlan.filter(e => e.section === gallery.id && e.sourceType === 'generated').length;
-  assert.ok(funded >= 1 && funded < proj.imagePlan.filter(e => e.section === gallery.id).length, 'precondition: some but not all tiles are funded');
+  const funded = proj.imagePlan.filter(e => e.section === gallery.id && e.sourceType === 'user').length;
+  assert.ok(funded >= 1, 'precondition: the owner photos fill gallery tiles');
+  assert.equal(c.fetchCalls.filter(x => x.url === '/api/generate-image').length, 0);
   const saved = projectStore.validateDirectionsState({ directions: [plain(proj)], activeDirectionIndex: 0 }).normalized.directions[0];
   for (const html of [c.ctx.renderSectionHTML(proj, gallery, cat), siteRender.renderSectionHTML(saved, saved.pages[0].sections.find(s => s.type === 'gallery'), siteRender.categoryFor(saved))]) {
     assert.ok(!html.includes('visual-generated-unfunded'), 'no dotted placeholder tile');

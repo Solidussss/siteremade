@@ -11,7 +11,7 @@ const path = require('path');
 const { HERO_MATRIX, PLANNED } = require('./fixtures/hero-matrix');
 const F = require('./fixtures/businesses');
 const { buildHeroFixture } = require('./helpers/hero-matrix-build');
-const { loadClient, fundedProviderStatus, buildProject } = require('./helpers/load-client');
+const { loadClient, fundedProviderStatus, premiumProviderStatus, buildProject } = require('./helpers/load-client');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const S = require('../lib/premium/hero-storyboard');
 const siteRender = require('../lib/site-render');
@@ -48,30 +48,21 @@ test('the fixture matrix covers EVERY category the generator supports, each fixt
   assert.ok(HERO_MATRIX.length >= categories.length + 10, 'plus several same-category businesses');
 });
 
-test('every generated hero has at least three DISTINCT visuals, each with its own motion track; every image layer is its own generated image', async () => {
+test('every Business hero has at least three visuals, each drawn by SiteRemade with its own motion track -- no layer is ever a generated image', async () => {
   const all = await built();
   for (const [id, b] of Object.entries(all)) {
     const sb = b.proj.heroStoryboard;
     assert.ok(sb && sb.layers.length >= 3, `${id}: storyboard with 3+ layers`);
-    assert.equal(new Set(sb.layers.map(l => l.slot)).size, sb.layers.length, `${id}: one image slot per layer`);
-    // image layers: requested through the real image pipeline, one request per layer, each a different prompt.
-    // A software lead is a drawn interface (readable labels) and is never bought as an image.
-    const imageLayers = sb.layers.filter(l => l.render !== 'art');
-    assert.ok(imageLayers.length >= (b.proj.business.categoryKey === 'tech' ? 2 : 3), `${id}: ${imageLayers.length} generated image layers`);
-    assert.ok(sb.layers.filter(l => l.render === 'art').every(l => b.proj.business.categoryKey === 'tech' && l.role === 'lead' && l.art.kind === 'interface'), `${id}: only a software lead is drawn instead of generated`);
-    const heroRequests = b.requests.filter(r => r.heroLayer === true);
-    assert.equal(heroRequests.length, imageLayers.length, `${id}: every image layer requested as its own image`);
-    assert.equal(new Set(heroRequests.map(r => r.prompt)).size, heroRequests.length, `${id}: every hero image a different prompt`);
-    assert.equal(new Set(heroRequests.map(r => r.requestKey)).size, heroRequests.length, `${id}: separate stored assets`);
-    // stored as separate assets
-    const stored = imageLayers.map(l => b.proj.assets.generated[l.slot]);
-    stored.forEach((g, i) => assert.ok(g && g.status === 'ready' && g.dataUrl, `${id}: ${imageLayers[i].slot} stored`));
-    assert.equal(new Set(stored.map(g => g.dataUrl)).size, stored.length, `${id}: the images are different pictures, not one duplicated`);
-    // rendered: every layer drawn, each its own image and its own motion
+    assert.equal(new Set(sb.layers.map(l => l.slot)).size, sb.layers.length, `${id}: one slot per layer`);
+    // the Business generator (lib/premium/visual-mode.js): no hero layer is requested or planned as a generated image
+    assert.equal(b.requests.length, 0, `${id}: no image requested`);
+    const entries = b.proj.imagePlan.filter(e => e.storyboardLayer);
+    assert.ok(entries.length && entries.every(e => e.sourceType === 'designed' && !e.creditCost), `${id}: every photo layer is a designed (drawn) visual at no cost`);
+    // rendered: every layer drawn as its own deterministic art, with its own motion
     const layers = layersOf(b.heroHtml());
     assert.ok(layers.length >= 3, `${id}: ${layers.length} layers rendered`);
     assert.equal(layers.length, sb.layers.length, `${id}: every layer rendered`);
-    assert.equal(new Set(layers.map(l => l.src)).size, layers.length, `${id}: rendered visuals are distinct`);
+    assert.ok(layers.every(l => l.source === 'art' && l.art), `${id}: every layer is drawn art`);
     assert.equal(new Set(layers.map(l => `${l.track}|${l.delay}`)).size, layers.length, `${id}: every layer has its own motion track and phase`);
     layers.forEach(l => assert.ok(l.track && /--tx:/.test(l.track), `${id}: ${l.slot} carries a frame track`));
   }
@@ -209,26 +200,24 @@ test('reduced motion: every image stays visible, at rest in its composed positio
   assert.ok(!/\.sb-copy[^{]*\{[^}]*animation:[^}]*infinite/.test(CSS));
 });
 
-test('the hero budget funds the three-image minimum -- at the repo route and at 12 cents an image', async () => {
-  // repo route (default price table): a premium lead + supporting images, all funded
-  const b = await buildHeroFixture({ text: F.GREENLINE_TEXT });
-  const hero = b.proj.imagePlan.filter(e => e.storyboardLayer);
-  assert.ok(hero.length >= 3 && hero.every(e => e.sourceType === 'generated'), 'all hero layers funded');
-  // 12c per image on every route (the rate this deployment reports), the server's own allowance formula
+test('the hero never buys an image, whatever the budget, prices, credits or premium flag say', async () => {
   const twelve = { low: 0.12, medium: 0.12, high: 0.12 };
-  const status = fundedProviderStatus({ costEstimateUsd: { 'gpt-image-1-mini': twelve, 'gpt-image-1': twelve }, budgetUsd: 0.10, landscapeCostMultiplier: 1 });
-  status.heroBudgetUsd = 0.12 + 3 * 0.12; // server.js SITEREMADE_HERO_IMAGE_BUDGET_USD default at these prices
-  const pricey = await buildHeroFixture({ text: F.GREENLINE_TEXT }, { providerStatus: status });
-  const pHero = pricey.proj.imagePlan.filter(e => e.storyboardLayer);
-  assert.ok(pHero.length >= 3 && pHero.every(e => e.sourceType === 'generated'), 'three hero images funded at 12c each even with a $0.10 site budget');
-  const heroCost = pHero.reduce((n, e) => n + e.estimatedCostUsd, 0);
-  assert.ok(Math.abs(heroCost - 0.12 * pHero.length) < 1e-9, `expected hero cost ${0.12 * pHero.length}, got ${heroCost}`);
-  // too few credits for three images: nothing is silently cut to one -- the lead is never upgraded at the expense of the others
-  const tight = await buildHeroFixture({ text: F.GREENLINE_TEXT }, { credits: 3 });
-  assert.equal(tight.proj.imagePlan.filter(e => e.storyboardLayer && e.sourceType === 'generated').length, 3, 'three credits buy three support-model hero images');
+  const statuses = [
+    fundedProviderStatus(),
+    fundedProviderStatus({ costEstimateUsd: { 'gpt-image-1-mini': twelve, 'gpt-image-1': twelve }, budgetUsd: 100, heroBudgetUsd: 100 }),
+    premiumProviderStatus(),
+  ];
+  for (const status of statuses) {
+    for (const credits of [3, 500]) {
+      const b = await buildHeroFixture({ text: F.GREENLINE_TEXT }, { providerStatus: status, credits });
+      const hero = b.proj.imagePlan.filter(e => e.storyboardLayer);
+      assert.ok(hero.length >= 3 && hero.every(e => e.sourceType === 'designed' && !e.estimatedCostUsd && !e.creditCost), 'every hero layer is drawn, at no cost');
+      assert.equal(b.requests.length, 0, 'no image requested');
+    }
+  }
 });
 
-test('server: hero images spend from their own allowance, so a tiny site budget still funds all of them', async () => {
+test('server: a hero image request for a Business site is refused before any credit or provider call', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-hero-budget-'));
   const env = {
     SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'assets'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'premium'),
@@ -242,22 +231,22 @@ test('server: hero images spend from their own allowance, so a tiny site budget 
     const status = await call('GET', '/api/image-provider-status');
     assert.ok(status.body.heroBudgetUsd >= 0.21 + 2 * 0.021 - 1e-9, `hero allowance ${status.body.heroBudgetUsd} cannot fund a lead + two supporting images`);
     assert.equal(status.body.heroMinImages, 3);
+    const before = (await call('GET', '/api/credits')).body.credits.remaining;
     const req = (slot, extra) => call('POST', '/api/generate-image', { prompt: `Greenline Landscapes backyard ${slot}, garden detail, no text`, aspectRatio: '4:5', model: 'gpt-image-1-mini', quality: 'medium', projectId: 'proj_budget', requestKey: `proj_budget::${slot}::k`, ...extra });
     for (const slot of ['hero', 'hero-2', 'hero-3']) {
       const r = await req(slot, { heroLayer: true });
-      assert.equal(r.body.ok, true, `${slot}: ${JSON.stringify(r.body)}`);
+      assert.equal(r.body.ok, false); assert.equal(r.body.starterVisualsOnly, true, `${slot}: ${JSON.stringify(r.body)}`); assert.equal(r.body.creditsCharged, 0);
     }
-    const other = await call('POST', '/api/generate-image', { prompt: 'Greenline gallery tile, no text', aspectRatio: '4:5', model: 'gpt-image-1-mini', quality: 'high', projectId: 'proj_budget', requestKey: 'proj_budget::gallery-1::k' });
-    assert.equal(other.body.budgetExceeded, true, 'the site budget itself is still enforced for everything else');
+    assert.equal((await call('GET', '/api/credits')).body.credits.remaining, before, 'no credit reserved or charged');
   } finally { await server.stop(); }
-  assert.equal(providerCalls(env.MOCK_CALL_LOG).filter(c => c.provider === 'openai').length, 3, 'three (mocked) provider calls, one per hero image');
+  assert.equal(providerCalls(env.MOCK_CALL_LOG).filter(c => c.provider === 'openai').length, 0, 'the image provider is never called');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('server: a project carrying several generated images saves (the 900kb parser used to reject it with a 413)', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-bigsave-'));
   const env = { SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'assets'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'premium'), STRIPE_SECRET_KEY: '', NODE_ENV: 'test' };
-  const b = await buildHeroFixture({ text: F.FIZZWELL_TEXT });
+  const b = await buildHeroFixture({ text: F.FIZZWELL_TEXT }, { savedImages: true }); // a project saved with its pictures
   const body = { name: 'Fizzwell', directionsState: { directions: [plain(b.proj)], activeDirectionIndex: 0 } };
   assert.ok(JSON.stringify(body).length > 900 * 1024, 'precondition: bigger than the generic parser limit');
   const server = await startServer(env);
@@ -279,7 +268,7 @@ test('server: a project carrying several generated images saves (the 900kb parse
 test('no real provider call happens anywhere in the tests or the review harness', async () => {
   // the client harness answers every request itself -- there is no network in the vm
   const b = await buildHeroFixture({ text: F.FIZZWELL_TEXT });
-  assert.ok(b.requests.length >= 3 && b.client.fetchCalls.every(c => c.url.startsWith('/')), 'only relative same-origin calls, all answered by the mock');
+  assert.ok(b.requests.length === 0 && b.client.fetchCalls.every(c => c.url.startsWith('/')), 'only relative same-origin calls, all answered by the mock -- and no image request at all');
   // the server harness intercepts both paid providers at the network edge and logs every call it answers
   const runner = fs.readFileSync(path.join(__dirname, 'helpers', 'run-server.js'), 'utf8');
   assert.match(runner, /u\.startsWith\('https:\/\/api\.openai\.com\/'\)/);

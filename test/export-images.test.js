@@ -3,24 +3,26 @@
 // only the ones that belong to the current plan. Both used to be broken:
 // lib/site-render.js never rendered generated images at all, and the server's
 // save whitelist dropped the image plan it needed to match them.
+// The Business generator no longer generates pictures (lib/premium/visual-mode.js), so these images are the ones a
+// project saved before that rule already has: they must still render in the preview and the export.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadClient, fundedProviderStatus, buildProject } = require('./helpers/load-client');
+const { loadClient, fundedProviderStatus, buildProject, seedSavedImages } = require('./helpers/load-client');
 const { mockPng } = require('./helpers/mock-image');
 const projectStore = require('../lib/project-store');
 const siteRender = require('../lib/site-render');
 
 const TEXT = 'Glow Theory is an online skincare store in Vancouver selling gentle cleansers, serums and moisturizers for sensitive skin.';
 
-// A project exactly as the server stores it: built by the real client, its
-// images resolved, then passed through the real save validator.
+// A project exactly as the server stores it: built by the real client, with the images a project saved before the
+// starter-visual rule carries, then passed through the real save validator.
 async function savedProject({ breakHero } = {}) {
-  const c = loadClient({ fetchHandler: (url, options) => url === '/api/generate-image'
-    ? { ok: true, dataUrl: mockPng(JSON.parse(options.body).prompt, JSON.parse(options.body).aspectRatio), creditsCharged: 1 }
-    : new Promise(() => {}) });
+  const c = loadClient({ fetchHandler: () => new Promise(() => {}) });
   const { proj } = buildProject(c, TEXT, { providerStatus: fundedProviderStatus() });
+  seedSavedImages(proj, mockPng);
   c.ctx.__p = proj;
   await c.run('(project = window.__p, resolveImagePlanAssets(project))');
+  assert.equal(c.fetchCalls.filter(x => x.url === '/api/generate-image').length, 0, 'no picture is ever requested for a Business site');
   c.run('renderProject(project)');
   if (breakHero) proj.assets.generated.hero = { ...proj.assets.generated.hero, status: 'error', dataUrl: undefined };
   const saved = projectStore.validateDirectionsState({ directions: [JSON.parse(JSON.stringify(proj))], activeDirectionIndex: 0 }).normalized.directions[0];

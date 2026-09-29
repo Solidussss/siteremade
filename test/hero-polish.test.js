@@ -114,9 +114,9 @@ test('every drawing either marks its subject or is a whole-frame scene (a textur
 });
 
 test('photos are framed per view too: the owner\'s focus wins everywhere, otherwise the middle is kept clear of what covers it', async () => {
-  const b = await buildHeroFixture({ text: fx('summit-roofing') }, {});
+  const b = await buildHeroFixture({ text: fx('summit-roofing') }, { savedImages: true });
   const fig = b.heroHtml().match(/<figure class="sb-layer[^>]*data-slot="hero"[^>]*>/)[0];
-  assert.ok(/--op:\d+% \d+%;--op-m:\d+% \d+%/.test(fig), 'a generated lead carries a desktop and a phone position');
+  assert.ok(/--op:\d+% \d+%;--op-m:\d+% \d+%/.test(fig), 'a photo lead (saved before the starter-visual rule) carries a desktop and a phone position');
   b.proj.heroStoryboard.layers[0].focal = '30% 70%';
   const fig2 = b.heroHtml().match(/<figure class="sb-layer[^>]*data-slot="hero"[^>]*>/)[0];
   assert.ok(/--op:30% 70%;--op-m:30% 70%/.test(fig2), 'the owner\'s focus applies on both');

@@ -140,7 +140,8 @@ test('the planner is checked for sense, not just keywords: a wrong container or 
 });
 
 test('each hero image can be replaced with the owner\'s photo -- placement, motion and focus kept, through save, reopen and export', async () => {
-  const b = await buildHeroFixture(HERO_MATRIX.find(f => f.id === 'greenline'));
+  // a project saved with its pictures (before the starter-visual rule), so the untouched layers show photos too
+  const b = await buildHeroFixture(HERO_MATRIX.find(f => f.id === 'greenline'), { savedImages: true });
   const { client, proj, category } = b;
   const before = b.heroHtml().match(/<figure class="sb-layer[^>]*data-slot="hero-2"[^>]*>/)[0];
   // exactly what the editor's "Use my photo" does (script.js heroLayerInput handler)
@@ -172,14 +173,11 @@ test('each hero image can be replaced with the owner\'s photo -- placement, moti
   assert.ok(!b.heroHtml().includes(photo.slice(0, 60)));
 });
 
-test('cost: the same single planning call, the same image budget; software heroes buy one image fewer', async () => {
+test('cost: the hero costs nothing beyond the website itself -- no image requested, no image credit planned, for any business', async () => {
   for (const f of HERO_MATRIX) {
     const b = await buildHeroFixture(f);
-    const n = b.requests.filter(r => r.heroLayer === true).length;
-    assert.equal(n, b.proj.business.categoryKey === 'tech' ? 2 : 3, `${f.id}: ${n} hero images requested`);
+    assert.equal(b.requests.length, 0, `${f.id}: no image requested`);
+    const hero = b.proj.imagePlan.filter(e => e.storyboardLayer);
+    assert.ok(hero.every(e => e.sourceType === 'designed' && !e.creditCost && !e.model), `${f.id}: every hero layer is drawn at no cost`);
   }
-  // quality and model routing unchanged: the hero layers still ask for the same tiers as before
-  const b = await buildHeroFixture(HERO_MATRIX.find(f => f.id === 'fizzwell'));
-  const tiers = b.proj.imagePlan.filter(e => e.storyboardLayer).map(e => e.quality);
-  assert.ok(tiers.every(q => ['low', 'medium', 'high'].includes(q)));
 });

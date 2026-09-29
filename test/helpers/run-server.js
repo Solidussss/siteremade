@@ -11,6 +11,7 @@
 //     premium critics) answers 529, so those paths take their no-Claude fallback.
 //   MOCK_IMAGE_DELAY_MS = ms before a mock image response (default 0)
 //   MOCK_REFINEMENT_IMAGE_SLOT = slot the mock Workplace-edit plan regenerates (default hero)
+//   MOCK_REFINEMENT_COPY = a hero headline the mock Workplace-edit plan also sets (unset: the update is only a picture)
 //   MOCK_SUPABASE_USER_ID / MOCK_SUPABASE_EMAIL = the identity any bearer token verifies as
 // Prints "LISTENING <port>" once ready. Counts every provider call it
 // answers into MOCK_CALL_LOG (a file) so a test can prove what was "paid".
@@ -55,7 +56,9 @@ globalThis.fetch = async function (url, options) {
     if ((body.tools || []).some(t => t && t.name === 'submit_image_pages')) return json({ model: 'mock-creative-websearch', stop_reason: 'end_turn', usage: { input_tokens: 800, output_tokens: 60, server_tool_use: { web_search_requests: 1 } }, content: [{ type: 'server_tool_use', id: 'srvtoolu_mock', name: 'web_search', input: { query: 'mock' } }, { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_mock', content: [] }, { type: 'text', text: 'mock: no web search in tests' }] });
     const usage = { input_tokens: 4200, output_tokens: 1800, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
     if (tool === 'submit_website_refinement') {
-      const input = { scope: 'section', operations: [], imageActions: [{ action: 'regenerate', slot: process.env.MOCK_REFINEMENT_IMAGE_SLOT || 'hero' }] };
+      // MOCK_REFINEMENT_COPY: also change the hero headline to this text (an update that is not only about a picture)
+      const operations = process.env.MOCK_REFINEMENT_COPY ? [{ action: 'edit-copy', targetId: 'hero', changes: { headline: process.env.MOCK_REFINEMENT_COPY } }] : [];
+      const input = { scope: 'section', operations, imageActions: [{ action: 'regenerate', slot: process.env.MOCK_REFINEMENT_IMAGE_SLOT || 'hero' }] };
       return json({ model: body.model, usage, content: [{ type: 'tool_use', name: tool, input }] });
     }
     const mode = process.env.MOCK_PLANNER || 'success';

@@ -15,7 +15,7 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
-const { loadClient, fundedProviderStatus, buildProject } = require('./helpers/load-client');
+const { loadClient, fundedProviderStatus, buildProject, seedSavedImages } = require('./helpers/load-client');
 const { mockPng } = require('./helpers/mock-image');
 const { signBody } = require('../lib/billing');
 
@@ -83,14 +83,12 @@ const openai = calls => calls().filter(c => c.provider === 'openai').length;
 const DAY = 86400000;
 const period = (fromDays, toDays) => ({ periodStart: new Date(Date.now() + fromDays * DAY).toISOString(), periodEnd: new Date(Date.now() + toDays * DAY).toISOString() });
 
-// a saved Business direction with a generated hero (so an app AI update can regenerate it)
+// a saved Business direction carrying the pictures a site saved before the starter-visual rule has (so an app AI
+// update could ask to regenerate its hero -- which a Business site never does)
 async function businessDirection() {
-  const c = loadClient({ fetchHandler: (url, options) => url === '/api/generate-image'
-    ? { ok: true, dataUrl: mockPng(JSON.parse(options.body).prompt, JSON.parse(options.body).aspectRatio), creditsCharged: 1 }
-    : new Promise(() => {}) });
+  const c = loadClient({ fetchHandler: () => new Promise(() => {}) });
   const { proj } = buildProject(c, TEXT, { providerStatus: fundedProviderStatus() });
-  c.ctx.__p = proj;
-  await c.run('(project = window.__p, resolveImagePlanAssets(project))');
+  seedSavedImages(proj, mockPng);
   return JSON.parse(JSON.stringify(proj));
 }
 // a finished Creative page (the built-in director, synthetic pictures)
@@ -180,7 +178,8 @@ test('zero balance: every paid path refuses before the provider -- research, pic
     assert.equal((await call('POST', '/api/plan-website', { text: TEXT, generationId: 'gen_zeroaaaa' })).body.creditsExceeded, true);
     // an edit the browser labels as a free colour change still needs the AI update's credit to reach the model
     assert.equal((await call('POST', '/api/refine-website', { taskType: 'COLOR_CHANGE', request: 'make it blue' })).body.creditsExceeded, true);
-    assert.equal((await call('POST', '/api/generate-image', { prompt: 'a calm spa interior, no text', model: 'gpt-image-1-mini', quality: 'medium', aspectRatio: '1:1' })).body.creditsExceeded, true);
+    // (a Business site never generates a picture at all -- refused before any balance check; lib/premium/visual-mode.js)
+    assert.equal((await call('POST', '/api/generate-image', { prompt: 'a calm spa interior, no text', model: 'gpt-image-1-mini', quality: 'medium', aspectRatio: '1:1' })).body.starterVisualsOnly, true);
     assert.equal(anthropic(calls), 0, 'no model call was made'); assert.equal(openai(calls), 0, 'no image was generated');
     // manual edits and saves are free
     const project = await saveProject(call, 'Manual', await businessDirection());
@@ -230,7 +229,7 @@ test('parallel generations can never overspend: 6 credits buy exactly three Busi
 
 // ------------------------------------------------------------------------------------------------ subscribers
 test('Workspace plan: 100 credits a month, verified server to server, granted once, one balance in the builder and the app', async () => {
-  await withServer({}, async ({ port, app, calls }) => {
+  await withServer({ MOCK_REFINEMENT_COPY: 'Gentle skincare, made in Vancouver' }, async ({ port, app, calls }) => {
     app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_test_1', workspaceId: 'ws_1', cancelAtPeriodEnd: false }, period(-10, 20));
     const call = await appUser(port);
     const builder = await balance(call);
@@ -246,11 +245,11 @@ test('Workspace plan: 100 credits a month, verified server to server, granted on
     const project = await saveProject(call, 'Glow Theory', await businessDirection());
     const before = openai(calls);
     const edit = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request: 'Give the homepage a fresh hero photo.' }, { authorization: 'Bearer test-access-token-1', 'idempotency-key': 'app-edit-1' });
-    assert.equal(edit.status, 200, JSON.stringify(edit.body)); assert.equal(edit.body.creditsCharged, 2, '1 AI update + 1 support image');
-    assert.equal((await balance(call)).remaining, 104);
+    assert.equal(edit.status, 200, JSON.stringify(edit.body)); assert.equal(edit.body.creditsCharged, 1, '1 AI update; the requested picture is not generated');
+    assert.equal((await balance(call)).remaining, 105);
     // the app retrying that update (a lost response) gets the result back: no second edit, charge or image
     const retried = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request: 'Give the homepage a fresh hero photo.' }, { authorization: 'Bearer test-access-token-1', 'idempotency-key': 'app-edit-1' });
-    assert.equal(retried.body.replayed, true); assert.equal(openai(calls), before + 1); assert.equal((await balance(call)).remaining, 104);
+    assert.equal(retried.body.replayed, true); assert.equal(openai(calls), before); assert.equal((await balance(call)).remaining, 105);
     // the billing request is signed and carries only the Supabase user id -- never an email or a browser field
     assert.equal(app.state.rejected, 0);
     app.state.bodies.forEach(b => assert.deepEqual(Object.keys(b), ['supabaseUserId']));

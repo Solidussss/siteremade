@@ -853,7 +853,10 @@ async function generatePremiumImage({ accountId, prompt, promptAlt, model, quali
 // made one step earlier is now released. Previously that path returned
 // without releasing it, leaving those credits "reserved" (unusable) until
 // the next UTC-day rollover.
-async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null, spendBucket = null }) {
+async function generateImageWithCredits({ accountId, prompt, model, quality, aspectRatio, reservationKey, taskType, projectId, anonId, deferSettlement = false, generationId = null, promptAlt = null, premiumTier = null, phase = null, spendBucket = null, direction = null }) {
+  // Every caller today serves the Business generator; `direction` names the website when the caller has it. Refused
+  // before any credit reservation or provider call.
+  if (!visualMode.allowsGeneratedImages(direction)) return { ok: false, reason: 'starter_visuals_only' };
   if (!activeImageProvider.configured()) return { ok: false, reason: 'not_configured' };
   await prepareCredits(accountId);
   const premiumOn =premiumCore.cfg.enabled && !!generationId && /^gen_[a-z0-9]{6,40}$/.test(generationId);
@@ -1010,6 +1013,7 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
     // A replayed/joined result is 0 -- that image was already paid for once.
     return res.json({ ok: true, dataUrl: result.dataUrl, quality: result.quality, model: result.model, evaluation: result.evaluation || undefined, creditsCharged: result.creditsCharged, replayed: !!result.replayed, creditsRemaining: req.accountId ? creditsSummaryFor(req.accountId).remaining : null });
   }
+  if (result.reason === 'starter_visuals_only') return res.status(200).json({ ok: false, configured: true, starterVisualsOnly: true, creditsCharged: 0, message: 'This website uses SiteRemade starter visuals and your own uploads; no image was generated and no credits were used.' });
   if (result.reason === 'not_configured') return res.status(200).json({ ok: false, configured: false, message: 'Image generation is not configured on this environment yet.' });
   if (result.reason === 'credits_exceeded') return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: result.creditsRemaining, message: 'Not enough credits for this image.' });
   if (result.reason === 'budget_exceeded') return res.status(200).json({ ok: false, configured: true, budgetExceeded: true, message: 'This generation reached its image limit, so this picture was not made. Your credits were not used for it.' });
@@ -1383,6 +1387,10 @@ const operationLedger = [];
 // PREMIUM_GENERATION_V1=true. recordOperation stays the single funnel for every
 // provider call, so the USD ledger cannot miss an operation.
 const premiumLib = require('./lib/premium');
+// THE ONE RULE for pictures (lib/premium/visual-mode.js): the Business generator never uses generated imagery. Enforced
+// here on the server, not only in the browser -- see generateImageWithCredits, /api/premium/review-repair and the
+// app-bridge edits below.
+const visualMode = require('./lib/premium/visual-mode');
 const premiumFs = require('fs');
 const PREMIUM_LOG_DIR = process.env.SITEREMADE_PREMIUM_LOG_DIR || path.join(__dirname, 'data', 'premium');
 function premiumAppend(file, obj) { try { premiumFs.mkdirSync(PREMIUM_LOG_DIR, { recursive: true }); premiumFs.appendFile(path.join(PREMIUM_LOG_DIR, file), JSON.stringify(obj) + '\n', () => {}); } catch (_) { /* diagnostics only */ } }
@@ -2065,8 +2073,16 @@ app.get('/api/generation-status', (req, res) => {
 // for a plan that had already changed (so it was correctly not shown). Every
 // field is allowlisted/clipped; nothing here is ever rendered anywhere. Its
 // own small rate limit so it never eats the generation budget.
-const CLIENT_OUTCOMES = ['plan_used', 'plan_fallback', 'image_superseded', 'image_failed'];
+const CLIENT_OUTCOMES = ['plan_used', 'plan_fallback', 'image_superseded', 'image_failed', 'admission_rejected', 'generation_failed'];
 const CLIENT_FALLBACK_REASONS = ['server_not_ok', 'plan_rejected_by_client', 'network', 'not_configured', 'credits_exceeded', 'timeout', 'provider_error', 'unknown'];
+function diagnosticFailureDetail(body) {
+  const ids = v => (Array.isArray(v) ? v.slice(0, 20).map(x => clean(x, 120)).filter(Boolean) : []);
+  return {
+    phase: clean(body.phase, 40) || null, starterVisualsOnly: body.starterVisualsOnly === true,
+    blockers: ids(body.blockers), unresolvedSlots: ids(body.unresolvedSlots), duplicateSlots: ids(body.duplicateSlots), duplicateSectionIds: ids(body.duplicateSectionIds),
+    error: clean(body.error, 200) || null,
+  };
+}
 const diagnosticsRateLimit = rateLimitMiddleware(req => `diagnostics:${req.accountId || req.ip}`, { max: 60, windowMs: 60 * 1000 }, 'Too many requests in a short time.');
 app.post('/api/generation-diagnostics', requireAuth, diagnosticsRateLimit, (req, res) => {
   const body = req.body || {};
@@ -2081,6 +2097,9 @@ app.post('/api/generation-diagnostics', requireAuth, diagnosticsRateLimit, (req,
       slot: clean(body.slot, 120) || null,
       imagesRequested: Number.isFinite(body.imagesRequested) ? Math.max(0, Math.min(64, Math.round(body.imagesRequested))) : null,
       imagesReady: Number.isFinite(body.imagesReady) ? Math.max(0, Math.min(64, Math.round(body.imagesReady))) : null,
+      // why a finished Business website was not admitted (script.js generationFailureDiagnostic): lists of slot /
+      // section ids and blocker codes only, never page content
+      ...(['admission_rejected', 'generation_failed'].includes(outcome) ? diagnosticFailureDetail(body) : {}),
     },
   });
   res.json({ ok: true });
@@ -3124,7 +3143,8 @@ app.post('/api/premium/review-repair', requireAuth, generationRateLimit, async (
     critic: ANTHROPIC_API_KEY ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 900, taskType: 'QUALITY_REPAIR', projectId, generationId, phase: 'first_draft' }) : undefined,
     semanticCritic: (premiumCore.cfg.groundingV3 && ANTHROPIC_API_KEY) ? async ({ system, user, tool, images }) => anthropicSmallCall({ model: strongModel, system, user, tool, images, maxTokens: 3200, timeoutMs: 60000, taskType: 'SEMANTIC_CRITIQUE', projectId, generationId, phase: 'first_draft' }) : undefined,
     visualBrief: (premiumCore.cfg.visualsV4 && ANTHROPIC_API_KEY) ? async ({ system, user, tool }) => anthropicSmallCall({ model: strongModel, system, user, tool, maxTokens: 300, taskType: 'VISUAL_BRIEF', projectId, generationId, phase: 'first_draft' }) : undefined,
-    regenerateImage: activeImageProvider.configured() ? async spec => generateImageWithCredits({ accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
+    // never for a Business direction (lib/premium/visual-mode.js; the review library enforces the same rule itself)
+    regenerateImage: (activeImageProvider.configured() && visualMode.allowsGeneratedImages(direction)) ? async spec => generateImageWithCredits({ direction, accountId: null, prompt: spec.prompt, model: spec.model, quality: spec.quality, aspectRatio: spec.aspectRatio, reservationKey: projectId || generationId, taskType: 'QUALITY_REPAIR', projectId, anonId: null, generationId, premiumTier: 'primary', phase: 'repair' }) : undefined,
     rewriteCopy: ANTHROPIC_API_KEY ? async ({ targetId, field, maxChars, removeClaim, direction: cur }) => {
       const current = premiumCurrentCopy(cur, targetId, field);
       const limit = Math.min(Number(maxChars) || 200, 400);
@@ -3877,6 +3897,14 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
     if (!applied.ok) return fail(422, 'edit_failed', 'That change couldn\'t be applied cleanly, so nothing on your website was changed.');
     const changeSummary = applied.summary.slice();
     const appliedOperations = applied.applied.slice();
+    if (applied.imageRequests.length && !visualMode.allowsGeneratedImages(direction)) {
+      // a Business website's pictures are the owner's uploads and SiteRemade's starter visuals: a request for a new
+      // generated picture is not carried out. Other changes in the same update still apply; an update that was only
+      // about a picture changes nothing and is not charged.
+      if (!appliedOperations.length) return fail(422, 'edit_failed', 'New pictures aren\'t generated for this website. Upload your own photo in the builder to replace a picture. Nothing was changed and no credits were used.', { reason: 'starter_visuals_only' });
+      changeSummary.push('Pictures were left as they are: upload your own photo in the builder to replace one.');
+      applied.imageRequests.length = 0;
+    }
     if (applied.imageRequests.length) {
       if (!activeImageProvider.configured()) return fail(503, 'edit_failed', 'This change needs a new image, and new images can\'t be created right now. Nothing on your website was changed.', { reason: 'images_unavailable' });
       for (const imageRequest of applied.imageRequests) {
@@ -3893,7 +3921,7 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
           // Re-keyed on purpose: the server's real projects.id, not a
           // browser-supplied id (this flow has none) -- see
           // generateImageWithCredits' header comment.
-          reservationKey: project.id,
+          reservationKey: project.id, direction,
           taskType: 'IMAGE_REGENERATE', projectId: project.id, anonId: null, deferSettlement: true,
         });
         if (!image.ok) {

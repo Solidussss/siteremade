@@ -9,7 +9,30 @@ const P = require('./lib/premium');
 const { PNG_BLANK, PNG_PHOTO } = makePngs();
 
 let passed = 0, failed = 0;
-async function t(name, fn) { try { await fn(); passed++; console.log('  ok   ' + name); } catch (e) { failed++; console.log('  FAIL ' + name + '\n       ' + (e && e.stack || e)); } }
+// The review's image-repair machinery (regenerate a failed or poor photo, photo-set gates) is dormant for the Business
+// generator: lib/premium/visual-mode.js allows no generated imagery there, and the review enforces it. The tests named
+// here exercise that machinery exactly as a mode that allows generated imagery would use it -- the rule is switched for
+// the duration of the one test and always restored. The Business rule itself is proved by the 'Business directions'
+// tests at the end and by test/business-starter-visuals.test.js.
+const VISUAL_MODE = require('./lib/premium/visual-mode');
+const GENERATED_IMAGE_MODE_TESTS = new Set([
+  'repairs only flagged targets, at most 3 actions, one round; untouched sections are byte-identical',
+  'a poor regenerated image triggers designed fallback, not a second generation',
+  'image repair: the critic may request ONE replacement of a primary image; it is governed, verified and recorded',
+  'image repair: an off-subject or UI-word critic prompt falls back to the planner prompt; a poor result never replaces the image',
+  'photo-set gates: incomplete photo set, mostly-starter art, no hero anchor, sparse pages, generic FAQ and instruction text are all flagged',
+  'session V6: failed photo slots are retried (max 3, governed, ledgered); the layout repair runs through review-repair',
+  'whole-site critic: sees the new criteria (hero image quality, premium feel, collisions, truthfulness) and can request one image replacement',
+]);
+async function asGeneratedImageMode(fn) {
+  const was = VISUAL_MODE.MODES.business.generatedImages;
+  VISUAL_MODE.MODES.business.generatedImages = true;
+  try { return await fn(); } finally { VISUAL_MODE.MODES.business.generatedImages = was; }
+}
+async function t(name, fn) {
+  const run = GENERATED_IMAGE_MODE_TESTS.has(name) ? () => asGeneratedImageMode(fn) : fn;
+  try { await run(); passed++; console.log('  ok   ' + name); } catch (e) { failed++; console.log('  FAIL ' + name + '\n       ' + (e && e.stack || e)); }
+}
 
 function makePngs() {
   // minimal PNG headers with declared dimensions; payload size decides "flat vs photo"
@@ -1471,6 +1494,26 @@ const sample = () => ({
     const store = require('./lib/project-store');
     const sec = store.validateSection({ id: 'x', type: 'editorialFeature', variant: 'image-left', stickyMode: 'SCROLLJACK_EVERYTHING' });
     assert.strictEqual(sec.stickyMode, 'NONE');
+  });
+
+  // ---- the Business rule (lib/premium/visual-mode.js): the same scenarios regenerate nothing ------------------------------
+  await t('Business directions: a failed or poor photo is never regenerated -- the review falls back to the designed/starter visual', async () => {
+    assert.strictEqual(VISUAL_MODE.allowsGeneratedImages({}), false);
+    const c = core(), s = startRoofing(c), d = sample(); d.assets.generated.hero = { status: 'error' }; d.design.premiumTokens = s.tokens;
+    let calls = 0;
+    const out = await s.reviewAndRepair(d, { description: 'x' }, { regenerateImage: async () => { calls++; return { ok: true, dataUrl: PNG_PHOTO }; } });
+    assert.strictEqual(calls, 0, 'the image regenerator is never called for a Business direction');
+    assert.ok(out.actions.every(a => a.kind !== 'regenerate_image'));
+    assert.ok(!out.direction.assets.generated.hero || out.direction.assets.generated.hero.status !== 'ready');
+    assert.ok(out.acceptance, 'the review still completes with a verdict');
+  });
+  await t('Business directions: missing generated photos are never a photo-set defect', () => {
+    const G = require('./lib/premium/grounding');
+    const g = G.deriveGrounding({ description: 'Wild Rose Yoga is a yoga studio in Calgary with small classes', categoryKey: 'fitness' });
+    const d = { business: { categoryKey: 'fitness' }, source: { text: 'Wild Rose Yoga is a yoga studio in Calgary with small classes' }, design: { dimensions: { hero: 'fullbleed-image' } }, imagePlan: [{ slot: 'hero', sourceType: 'designed', starter: true }, { slot: 'about', sourceType: 'designed', starter: true }, { slot: 'gallery-0', sourceType: 'designed', starter: true }], pages: [{ label: 'Home', slug: '', sections: [] }] };
+    assert.ok(P.editorial.isPhotoLed(g, d.source.text), 'precondition: a photo-led business');
+    const codes = P.editorial.checkPhotoLed(d, g, d.source.text).map(x => x.code);
+    assert.ok(!codes.includes('photo_set_incomplete') && !codes.includes('photo_led_mostly_starter_art'), codes.join(','));
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
