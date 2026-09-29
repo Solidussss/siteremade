@@ -103,9 +103,67 @@ Found by the real-model review and fixed (general fixes only)
 - an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,
   still never from none
 
+## Stage 3 — subject imagery and composition (2026-09-29)
+
+Diagnosis first (traced with `research(u, { trace })` and the saved stage-2 projects, not assumed)
+- Zelda had real imagery on Commons ("Link ... cosplay at Anime Boston 2025"); it was a candidate and was ranked out:
+  every directed-query result got a flat 0.5, and ties broke on resolution, so fourteen 9504-px photos of a German
+  street festival won. Logos ranked high because only the file NAME was checked for "logo" ("The Legend of Zelda
+  Skyward Sword.png" is a wordmark). Six downloads were chosen blind; vision only saw what was already downloaded.
+- Pikachu (unseen) had figures, plush, cosplay and parade balloons on Commons, also chosen by keyword alone; batch
+  uploads of one shoot crowded the list; the page was even classified an "animal".
+- The seedling cutout kept a background patch (a separate piece touching two frame edges; the crop rule only refused
+  three) and pale shadow rims (one-ring-per-pass peeling stopped at JPEG-noise pixels).
+- Zelda's blade and hilt: moving the focal clear of the words left attached layers behind; nothing grouped them.
+- Distracted-boyfriend's hero never moved: the director gave it no loop, and a flat painting cannot do its intended
+  "head turn". Rosetta's stillness was intended (restrained, tempo still), but its "light passes across the stone"
+  had no mechanic.
+- Claim check: missing verdicts passed silently; a checker error let the page through; removal left a heading with no
+  paragraph; a replacement heading (the scene label) was never checked.
+- Reopening re-ran today's composition, so saved pages moved when the rules changed.
+
+What changed (all general; nothing refers to a review subject) — see CREATIVE_MODE.md
+- understanding states the visuals the page must show and queries photographable forms; research scores directed
+  results on their own query, reads Commons categories, collapses series; one cheap vision call judges the shortlist
+  before download (roles, identity, issues, coherent set, what is missing); verdicts persist with the assets
+- director and validator use the verdicts: a subject picture (or the owner's upload) leads; a logo never does; a
+  supporting picture may not lead instead of a subject; a page that cannot show its subject is marked degraded with the
+  missing picture and an upload button; whether imagery is needed follows the stated visuals, not the kind label
+- cutouts drop frame-touching background pieces and peel shadow rims; logos are never cut out
+- groups (one wrapper, one motion; parts keep their places); collision order moves before it shrinks; small decorations
+  keep off words and buttons
+- accept/safety validation with layout.version: reopen, export, edits and picture swaps never move anything
+- claim check with complete accounting (see CREATIVE_MODE.md); plan.claims records the result
+- kenburns and sheen loops; an opening subject is never frozen when the tempo calls for movement
+- an 'invented' page that cites real facts no longer claims to describe no real events
+
+Real-model review (production, claude-sonnet-5 director, claude-haiku-4-5 checks; estimated from tokens)
+| brief | set | result | calls | est. $ | time* |
+|---|---|---|---|---|---|
+| Zelda (automatic) | R | AI, 1st attempt; Link cosplay photos, Master Sword replica, Triforce detail; imagery "form"; claims 18/18 | 2 + check | 0.117 + 0.012 | 96 s |
+| toilet paper | R | AI, 1st attempt; six real roll photos; claims 30/30 | 2 + check | 0.108 + 0.012 | 82 s |
+| distracted boyfriend | R | AI, repaired; Reynolds painting, Chaplin, High Noon still; claims 31/31 | 4 + check | 0.208 + 0.007 | 120 s |
+| Bubbles (synthetic) | R | AI, repaired; owner's photo only; claims 31/31 | 3 | 0.216 | 104 s |
+| Antikythera mechanism | U | AI, repaired; real fragments, museum case, labelled reconstruction; claims 25/25 | 3 + check | 0.212 + 0.007 | 107 s |
+| The Backrooms | U | AI, 1st attempt; real hallways toned yellow, fan art withheld; claims 28/28 | 2 + check | 0.086 + 0.010 | 76 s |
+| Zelda + supplied artwork | S | AI, but the upload was NOT used (ocarina hero) -- page marked degraded; fixed in 75c675e | 2 + check | 0.118 + 0.014 | 108 s |
+| Zelda + supplied artwork, re-run | S | **not run by the model**: the Anthropic account ran out of credit; labelled fallback, $0 | 1 failed | 0 | 4 s |
+(* create to plan, including understanding, research, picture check and direction; understanding ~$0.004 each)
+Total this round ~$1.16 estimated (~$2.1 for the day with the stage-2 checks), within the $6 cap. The prepaid provider
+balance ran out during the last run -- a separate limit from the Creative cap, shared with anything else on that key.
+
+Found by the real review and fixed (75c675e): the owner's upload avoided as "unlicensed"; memes/concepts escaping the
+degraded check; a painting called a "reference"; real hallways called "exact" for an invented place; the false
+"nothing here describes real events" footer.
+
+Unverified (no model credit left): whether the director, sent back once with "... lead with the upload", uses the
+owner's picture; the picture check's corrected role wording. Both are covered by tests and by re-validating the real
+failed plan offline (it is sent back, and marked degraded until it complies).
+
 Open / next
-- Pictures are the main limit: trademarked characters, memes and abstract subjects have little or no free imagery.
-  The director composes honestly with shapes and type and asks for uploads; it does not substitute other subjects.
-- Direction takes ~50–90 s (one strong-model call); no streaming or draft preview yet.
-- Model self-labelling of copy kinds is imperfect; the validator catches numbers, citations and owner-words, not every
-  factual claim phrased without numbers.
+- Pictures: Commons covers far more than stage 2 found (forms of fictional subjects, artefacts, precedents), but not
+  official art, original meme photographs or most brand imagery. A licensed-imagery route (a source with redistribution
+  rights, or the owner's licensed artwork via upload) is the next step for those; downloadable is not reusable.
+- A page takes ~75–120 s end to end (research + picture check + direction + claim check); no streaming yet.
+- The claim check is a model verdict with evidence ids, not proof; it caught and removed unsupported lines, and in stage 2
+  it missed some. Accounting is now complete, the judgement is still a model's.
