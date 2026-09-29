@@ -3815,6 +3815,22 @@ function previewMime(file) {
   return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.avif':'image/avif','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'})[ext] || 'application/octet-stream';
 }
 function inlinePreviewAssets(html, root) {
+  // The Business export is a real multi-file package: index.html links
+  // styles.css and site.js, while visual assets live under assets/. A
+  // single-document app preview must inline ALL of those dependencies or
+  // it will look like raw browser HTML even though the downloaded export is
+  // correctly styled. Keep this sourced from the compiled export itself so
+  // preview and handoff cannot drift apart.
+  const cssFile = path.join(root, 'styles.css');
+  if (fs.existsSync(cssFile)) {
+    const css = fs.readFileSync(cssFile, 'utf8').replace(/<\/style/gi, '<\\/style');
+    html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']styles\.css["']\s*\/?>(?:\s*)/i, `<style data-siteremade-preview-css>${css}</style>`);
+  }
+  const jsFile = path.join(root, 'site.js');
+  if (fs.existsSync(jsFile)) {
+    const js = fs.readFileSync(jsFile, 'utf8').replace(/<\/script/gi, '<\\/script');
+    html = html.replace(/<script\s+src=["']site\.js["']\s*><\/script>/i, `<script data-siteremade-preview-js>${js}<\/script>`);
+  }
   const dir = path.join(root, 'assets');
   if (!fs.existsSync(dir)) return html;
   for (const name of fs.readdirSync(dir)) {
