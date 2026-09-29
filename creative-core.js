@@ -647,6 +647,13 @@
       const assets = (c.assets || []).filter(a => a && a.id && !a.removed && !a.failed);
       const byId = new Map(assets.map(a => [a.id, a]));
       const facts = (c.facts || []).filter(f => f && f.id && f.text); const factIds = new Set(facts.map(f => f.id));
+      // a citation as the model writes it -- "f3", "F3", "[f3]", "fact 3", or "f2, f3" for a line drawing on two facts --
+      // is read as the first real fact id in it; nothing that is not a given fact id is ever accepted
+      const citeOf = v => {
+        if (typeof v !== 'string' || !v) return null; if (factIds.has(v)) return v;
+        for (const m of v.matchAll(/(?:^|[^a-z0-9])(?:f|fact)[\s_#-]*0*(\d+)/gi)) { const idv = `f${m[1]}`; if (factIds.has(idv)) return idv; }
+        return null;
+      };
       const u = c.understanding || {}; const personal = (p.identity && p.identity.kind === 'personal') || u.kind === 'personal';
 
       // ---- identity, concept, look ----
@@ -680,7 +687,7 @@
       if (rawScenes.length < LIMITS.scenes[0]) errors.push(`scenes: at least ${LIMITS.scenes[0]} scenes are needed`);
       if (rawScenes.length > LIMITS.scenes[1]) fixes.push(`scenes: ${rawScenes.length - LIMITS.scenes[1]} scene(s) beyond ${LIMITS.scenes[1]} dropped`);
       const uses = new Map(); let layersTotal = 0, pinned = 0; const seenIds = new Set();
-      let sourcedLines = 0, uncited = 0;
+      let sourcedLines = 0, uncited = 0; const badCites = [];
       const scenes = rawScenes.slice(0, LIMITS.scenes[1]).map((rs, si) => {
         if (!rs || typeof rs !== 'object') return null;
         let sid = id(rs.id, `scene-${si + 1}`); while (seenIds.has(sid)) sid += 'x'; seenIds.add(sid);
@@ -691,10 +698,10 @@
         if (pin) pinned++;
         // words
         const tx = rs.text || {};
-        const text = { kicker: cap(tx.kicker, LIMITS.kicker), heading: clean(tx.heading), body: clean(tx.body), kind: oneOf(tx.kind, VOCAB.copyKind, 'imagined'), cite: factIds.has(tx.cite) ? tx.cite : null, region: oneOf(tx.region, VOCAB.region, si === 0 ? 'left' : 'center'), size: oneOf(tx.size, VOCAB.textSize, si === 0 ? 'display' : 'large'), width: oneOf(tx.width, VOCAB.textWidth, 'medium'), list: oneOf(tx.list, VOCAB.list, 'plain'), entrance: oneOf(tx.entrance, VOCAB.textEntrance, 'rise'), items: [] };
+        const text = { kicker: cap(tx.kicker, LIMITS.kicker), heading: clean(tx.heading), body: clean(tx.body), kind: oneOf(tx.kind, VOCAB.copyKind, 'imagined'), cite: citeOf(tx.cite), region: oneOf(tx.region, VOCAB.region, si === 0 ? 'left' : 'center'), size: oneOf(tx.size, VOCAB.textSize, si === 0 ? 'display' : 'large'), width: oneOf(tx.width, VOCAB.textWidth, 'medium'), list: oneOf(tx.list, VOCAB.list, 'plain'), entrance: oneOf(tx.entrance, VOCAB.textEntrance, 'rise'), items: [] };
         if (text.heading.length > LIMITS.heading) { errors.push(`${where}: heading is ${text.heading.length} characters (max ${LIMITS.heading}) -- write a shorter one, never cut it off`); text.heading = text.heading.slice(0, LIMITS.heading); }
         if (text.body.length > LIMITS.body) { errors.push(`${where}: body is ${text.body.length} characters (max ${LIMITS.body})`); text.body = ''; }
-        if (text.body && text.kind === 'sourced') { sourcedLines++; if (!text.cite) { uncited++; fixes.push(`${where}: an uncited "sourced" paragraph was removed`); text.body = ''; } }
+        if (text.body && text.kind === 'sourced') { sourcedLines++; if (!text.cite) { uncited++; if (tx.cite) badCites.push(String(tx.cite).slice(0, 30)); fixes.push(`${where}: an uncited "sourced" paragraph was removed`); text.body = ''; } }
         if (text.body && text.kind === 'imagined' && ATTRIBUTED_QUOTE.test(text.body)) { fixes.push(`${where}: an invented quotation was removed`); text.body = ''; }
         // a paragraph that cites a real fact rests on it: it is sourced, whatever the model labelled it
         if (text.body && text.kind === 'imagined' && text.cite) { text.kind = 'sourced'; fixes.push(`${where}: a paragraph citing ${text.cite} is marked as sourced`); }
@@ -715,11 +722,11 @@
         if (text.body && text.kind === 'supplied' && c.supplied && suppliedShare(text.body, c.supplied) < 0.5) { text.kind = 'imagined'; fixes.push(`${where}: a paragraph labelled as the owner's words is mostly new wording -- labelled imagined`); }
         (Array.isArray(tx.items) ? tx.items : []).slice(0, LIMITS.items).forEach(it => {
           if (!it || typeof it !== 'object') return;
-          const item = { label: cap(it.label, 40), text: clean(it.text), kind: oneOf(it.kind, VOCAB.copyKind, 'imagined'), cite: factIds.has(it.cite) ? it.cite : null };
+          const item = { label: cap(it.label, 40), text: clean(it.text), kind: oneOf(it.kind, VOCAB.copyKind, 'imagined'), cite: citeOf(it.cite) };
           if (!item.text) return;
           if (item.kind === 'imagined' && item.cite) item.kind = 'sourced'; // cites a real fact: it rests on it
           if (item.text.length > LIMITS.item) { fixes.push(`${where}: a ${item.text.length}-character line was left out (never cut mid-sentence)`); return; }
-          if (item.kind === 'sourced') { sourcedLines++; if (!item.cite) { uncited++; fixes.push(`${where}: an uncited "sourced" line was removed`); return; } }
+          if (item.kind === 'sourced') { sourcedLines++; if (!item.cite) { uncited++; if (it.cite) badCites.push(String(it.cite).slice(0, 30)); fixes.push(`${where}: an uncited "sourced" line was removed`); return; } }
           if (item.kind === 'imagined' && ATTRIBUTED_QUOTE.test(item.text)) { fixes.push(`${where}: an invented quotation was removed`); return; }
           if (item.kind === 'supplied' && c.supplied && suppliedShare(item.text, c.supplied) < 0.5) { item.kind = 'imagined'; fixes.push(`${where}: a line labelled as the owner's words is mostly new wording -- labelled imagined`); }
           text.items.push(item);
@@ -807,7 +814,10 @@
         const heavy = scenes[0].layers.slice().sort((a, b) => area(b.box.d) - area(a.box.d))[0];
         if (heavy) { heavy.role = 'focal'; fixes.push('hero: the largest layer made the focal point'); } else warnings.push('hero: no picture or drawn focal -- the title carries the first scene');
       }
-      if (sourcedLines && uncited / sourcedLines > 0.4) errors.push(`copy: ${uncited} of ${sourcedLines} "sourced" lines had no valid fact id -- cite the fact ids given, or mark the line imagined`);
+      if (sourcedLines && uncited / sourcedLines > 0.4) {
+        const ids = [...factIds]; const shown = [...new Set(badCites)].slice(0, 6).map(x => `"${x}"`).join(', ');
+        errors.push(`copy: ${uncited} of ${sourcedLines} "sourced" lines had no valid fact id${shown ? ` (cite was ${shown})` : ' (cite was empty)'} -- each cite must be exactly one of the given ids (${ids.length ? `${ids[0]}…${ids[ids.length - 1]}` : 'none were given'}); a line drawing on two facts cites the main one; otherwise mark the line imagined`);
+      }
       if (!scenes.some(s => s.text.heading || s.text.body || s.text.items.length)) errors.push('copy: the page has no words');
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
       scenes.forEach(s => { s.ink = sceneInk(s.background, palette); });

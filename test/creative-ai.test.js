@@ -181,6 +181,16 @@ test('composition: a text-height scene with layers gets a stage; built-on layers
   assert.deepEqual(validatePlan2(plan, { assets: ASSETS, facts: FACTS }).plan.scenes, plan.scenes);
 });
 
+test('citations are read as the model writes them, but only given fact ids are ever accepted', () => {
+  const facts = [{ id: 'f2', text: 'It approached at about 27 km/s.' }, { id: 'f3', text: 'It exploded 5 to 10 km above the ground.' }];
+  const mk = cites => ({ identity: { name: 'T' }, concept: { logline: 'x' }, scenes: [{ id: 'a', purpose: 'p', layers: [], text: { heading: 'T', items: cites.map(c => ({ text: 'A line about the event.', kind: 'sourced', cite: c })) } }, { id: 'b', purpose: 'p', layers: [], text: { heading: 'x' } }] });
+  const v = validatePlan2(mk(['f2, f3', 'F3', '[f2]', 'fact 3', 'f03']), { assets: [], facts });
+  assert.deepEqual(v.plan.scenes[0].text.items.map(i => i.cite), ['f2', 'f3', 'f2', 'f3', 'f3']); assert.deepEqual(v.errors, []);
+  const bad = validatePlan2(mk(['f9', 'source 2', 'f9', 'f2']), { assets: [], facts });
+  assert.equal(bad.plan.scenes[0].text.items.length, 1, 'lines citing no given fact are removed');
+  assert.ok(bad.errors.some(e => /"f9"/.test(e) && /f2…f3/.test(e)), 'the repair message names the bad cites and the valid ids');
+});
+
 test('cost estimates come from the configured per-million prices', () => {
   const L = ai.limits({ PREMIUM_PRICE_STRONG_INPUT: '3', PREMIUM_PRICE_STRONG_OUTPUT: '15' });
   assert.equal(ai.estimateUsd({ input_tokens: 10000, output_tokens: 4000 }, L.prices.strong), 0.09);
