@@ -3052,7 +3052,12 @@ function validateProjectQuality(proj) {
   const uniqueSlots = new Set(slots);
   const sectionIds = (proj.pages || []).flatMap(page => (page.sections || []).map(section => section.id));
   return {
-    ready: imagePlanIsTerminal(proj) && slots.length === uniqueSlots.size && sectionIds.length === new Set(sectionIds).size && !!(proj.business && proj.business.name) && proj.business.name !== 'Your Business',
+    // A missing explicit business name is not a broken website. Many valid
+    // briefs describe the business without naming it, and the editable
+    // "Your Business" placeholder is intentionally supported by the UI.
+    // Never discard an otherwise complete generation just because the user
+    // did not provide a name in the prompt.
+    ready: imagePlanIsTerminal(proj) && slots.length === uniqueSlots.size && sectionIds.length === new Set(sectionIds).size && !!(proj.business && proj.business.name),
     unresolvedImageSlots: (proj.imagePlan || []).filter(entry => entry.sourceType === 'generated' && !(proj.assets.generated && proj.assets.generated[entry.slot] && ['ready', 'error'].includes(proj.assets.generated[entry.slot].status))).map(entry => entry.slot),
     duplicateImageSlots: slots.filter((slot, index) => slots.indexOf(slot) !== index),
     duplicateSectionIds: sectionIds.filter((id, index) => sectionIds.indexOf(id) !== index)
@@ -9441,7 +9446,18 @@ async function runGeneration(text) {
       updateGenerationGate('finalizing');
       await premiumPreReveal(proj);
       const quality = validateProjectQuality(proj);
-      if (!quality.ready) throw new Error('Generated project failed its deterministic quality gate');
+      if (!quality.ready) {
+        reportGenerationDiagnostic({
+          outcome: 'final_quality_refused',
+          generationId,
+          projectId: proj.meta && proj.meta.id,
+          unresolvedImageSlots: quality.unresolvedImageSlots,
+          duplicateImageSlots: quality.duplicateImageSlots,
+          duplicateSectionIds: quality.duplicateSectionIds,
+          businessName: proj.business && proj.business.name
+        });
+        throw new Error('Generated project failed its deterministic quality gate');
+      }
       admitted = finishGeneration(proj, expectedDirectionIndex);
       return;
     }
@@ -9485,7 +9501,18 @@ async function runGeneration(text) {
               await premiumPreReveal(proj);
               const quality = validateProjectQuality(proj);
               if (quality.ready) admitted = finishGeneration(proj, expectedDirectionIndex);
-              else resetGenerationChromeUI();
+              else {
+                reportGenerationDiagnostic({
+                  outcome: 'final_quality_refused',
+                  generationId,
+                  projectId: proj.meta && proj.meta.id,
+                  unresolvedImageSlots: quality.unresolvedImageSlots,
+                  duplicateImageSlots: quality.duplicateImageSlots,
+                  duplicateSectionIds: quality.duplicateSectionIds,
+                  businessName: proj.business && proj.business.name
+                });
+                resetGenerationChromeUI();
+              }
               resolve();
             }).catch(() => { resetGenerationChromeUI(); resolve(); });
             return;
