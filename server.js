@@ -443,6 +443,10 @@ async function sendEmail(payload) {
 // snapshot themselves are already durable regardless of whether this
 // email succeeds, and a failure here is caught and logged, never allowed
 // to fail the webhook response Stripe is waiting on.
+function purchaseMyWebsitesUrl() {
+  const appBase = String(process.env.SITEREMADE_APP_URL || 'https://app.siteremade.com').replace(/\/$/, '');
+  return appBase + '/?view=website';
+}
 async function sendPurchaseConfirmationEmail({ to, projectName, myWebsitesUrl }) {
   if (!RESEND_API_KEY || !to) return { sent: false, reason: !RESEND_API_KEY ? 'not_configured' : 'no_recipient' };
   const name = escapeHtml(projectName || 'Your website');
@@ -2985,7 +2989,7 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
         const origin = `${req.protocol}://${req.get('host')}`;
         sendPurchaseConfirmationEmail({
           to: fulfillment.ownerEmail, projectName: fulfillment.projectName,
-          myWebsitesUrl: `${origin}/#my-websites`,
+          myWebsitesUrl: purchaseMyWebsitesUrl(),
         }).catch(error => console.error('Tester purchase confirmation email failed to send:', error));
       }
       return res.json({ ok: true, testerPurchase: true, fulfilled: true, intentId, projectId: fulfillment.projectId });
@@ -3072,7 +3076,7 @@ app.post('/api/stripe/webhook', (req, res) => {
         const origin = `${req.protocol}://${req.get('host')}`;
         sendPurchaseConfirmationEmail({
           to: fulfillment.ownerEmail, projectName: fulfillment.projectName,
-          myWebsitesUrl: `${origin}/#my-websites`,
+          myWebsitesUrl: purchaseMyWebsitesUrl(),
         }).catch(error => console.error('Purchase confirmation email failed to send:', error));
       }
     } else if ((event.type === 'checkout.session.expired') && session && session.id) {
