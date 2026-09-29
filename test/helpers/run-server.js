@@ -21,6 +21,7 @@ const { FIZZWELL_PLAN, GREENLINE_PLAN } = require('../fixtures/businesses');
 const MOCK_PLANS = [FIZZWELL_PLAN, GREENLINE_PLAN];
 
 const realFetch = globalThis.fetch;
+const mockCreativeCounters = {};
 const log = entry => { if (process.env.MOCK_CALL_LOG) fs.appendFileSync(process.env.MOCK_CALL_LOG, JSON.stringify(entry) + '\n'); };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -38,6 +39,8 @@ globalThis.fetch = async function (url, options) {
     const body = JSON.parse(options.body);
     const tool = body.tool_choice && body.tool_choice.name;
     log({ provider: 'anthropic', tool });
+    // Creative mode's understanding / direction tools: labelled mock answers (test/helpers/mock-creative.js)
+    if (tool && tool.startsWith('submit_creative_')) { const r = require('./mock-creative').respond(body, process.env, mockCreativeCounters); return json(r.body, r.status); }
     const usage = { input_tokens: 4200, output_tokens: 1800, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
     if (tool === 'submit_website_refinement') {
       const input = { scope: 'section', operations: [], imageActions: [{ action: 'regenerate', slot: process.env.MOCK_REFINEMENT_IMAGE_SLOT || 'hero' }] };

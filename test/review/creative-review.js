@@ -14,7 +14,8 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { startServer } = require('../helpers/server-process');
-const CASES = require('../fixtures/creative-briefs');
+const briefsArg = (process.argv.find(a => a.startsWith('--briefs=')) || '').slice(9);
+const CASES = require(briefsArg ? path.resolve(briefsArg) : '../fixtures/creative-briefs');
 
 const ELECTRON = process.env.ELECTRON_BIN || 'C:/Users/jayde/AppData/Local/Temp/claude/c--Users-jayde-Documents-BeatBlock/f77ec6d4-71d7-4500-b46b-68165439e77a/scratchpad/v3/node_modules/electron/dist/electron.exe';
 const args = process.argv.slice(2);
@@ -32,10 +33,16 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-creative-'));
   const callLog = path.join(outDir, 'provider-calls.log'); fs.writeFileSync(callLog, '');
-  if (!args.includes('--skip-studio')) {
+  const remote = (args.find(a => a.startsWith('--remote=')) || '').slice(9); // e.g. https://www.siteremade.com (real model, real limits)
+  const provider = (args.find(a => a.startsWith('--provider=')) || '--provider=none').slice(11); // local: none | mock
+  if (!args.includes('--skip-studio') && remote) {
+    const jobFile = path.join(outDir, 'studio-job.json');
+    fs.writeFileSync(jobFile, JSON.stringify({ url: remote.replace(/\/$/, ''), outDir, email: process.env.CREATIVE_REVIEW_EMAIL, password: process.env.CREATIVE_REVIEW_PASSWORD, cases }));
+    electron('creative-studio-run.js', jobFile, 60 * 60 * 1000);
+  } else if (!args.includes('--skip-studio')) {
     const env = {
       SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(scratch, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(scratch, 'assets'),
-      SITEREMADE_PREMIUM_LOG_DIR: path.join(outDir, 'ledger'), OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', STRIPE_SECRET_KEY: '', MOCK_CALL_LOG: callLog, NODE_ENV: 'test',
+      SITEREMADE_PREMIUM_LOG_DIR: path.join(outDir, 'ledger'), OPENAI_API_KEY: '', ANTHROPIC_API_KEY: provider === 'mock' ? 'mock-only' : '', MOCK_CREATIVE: process.env.MOCK_CREATIVE || 'ok', STRIPE_SECRET_KEY: '', MOCK_CALL_LOG: callLog, NODE_ENV: 'test',
     };
     const server = await startServer(env);
     const jobFile = path.join(outDir, 'studio-job.json');
@@ -50,8 +57,9 @@ async function main() {
   const { compileExport } = require('../../lib/export-compiler');
   const db = getDatabaseAdapter(':memory:');
   const pages = [];
-  for (const c of cases) {
-    const f = path.join(outDir, `${c.id}.project.json`); if (!fs.existsSync(f)) { console.log(`${c.id}: no saved project`); continue; }
+  for (const id of cases.flatMap(c => [c.id, c.id + '-b'])) {
+    const c = { id };
+    const f = path.join(outDir, `${c.id}.project.json`); if (!fs.existsSync(f)) { if (!/-b$/.test(id)) console.log(`${c.id}: no saved project`); continue; }
     const proj = JSON.parse(fs.readFileSync(f, 'utf8'));
     const check = projectStore.validateDirectionsState(proj.directionsState);
     if (!check.valid) { console.log(`${c.id}: save validator rejected: ${check.error}`); continue; }

@@ -15,7 +15,8 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0 } };
+      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null,
+      cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return C.render.esc(s); }
@@ -173,7 +174,8 @@
       return Promise.all(list.map(processAsset)).then(function (groups) {
         groups.forEach(function (g) { S.assets = S.assets.concat(g); });
         renderThumbs();
-        if (S.plan) { placeNewUploads(list); rebuildHero(); refresh(); }
+        if (S.plan && S.plan.v === 2) { buildEditor(); markDirty(); }
+        else if (S.plan) { placeNewUploads(list); rebuildHero(); refresh(); }
       });
     });
   }
@@ -197,19 +199,19 @@
     if (S.dirty && S.plan && !choice && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
     S.busy = true; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
-    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and free-licence pictures)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the scene'], ['build', 'Building the page']]);
+    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and free-licence pictures)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    var u = C.understand.understandBrief(S.brief, { supplied: S.suppliedText, uploads: uploads.length });
-    step('understand', 'done', u.kind === 'personal' ? 'A personal page about ' + (u.name || 'your ' + u.noun) : u.kind === 'fictional' ? 'An invented subject' : u.subject ? '“' + u.subject + '”' : '');
-    step('research', 'active', u.kind === 'fictional' ? 'Not looked up: invented subjects stay invented' : '');
+    step('understand', 'active');
     var t0 = Date.now();
-    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length > 0 } }).then(function (r) {
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
-      if (!r.ok || !r.data.ok) { step('research', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
-      var d = r.data; S.understanding = d.understanding; S.research = d.research; S.choice = choice || '';
+      if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
+      var d = r.data; S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || '';
+      var u = d.understanding || {};
+      step('understand', 'done', describeUnderstanding(u) + (S.understandMeta && S.understandMeta.source === 'ai' ? ' · AI (' + ((S.understandMeta.ms || 0) / 1000).toFixed(1) + 's)' : ' · built-in reader' + (S.understandMeta && S.understandMeta.reason ? ' (' + S.understandMeta.reason + ')' : '')));
       if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
-      if (d.research.status === 'ambiguous') { step('research', 'wait', 'More than one thing is called that'); return askChoice(d.research.options || []); }
-      var note = d.research.page ? d.research.page.title + ' · ' + (d.research.facts || []).length + ' facts · ' + d.images.length + ' pictures' : d.understanding.kind === 'fictional' ? 'Nothing looked up' : 'Nothing found — the page uses your words and pictures';
+      if (d.research.status === 'ambiguous') { step('research', 'wait', d.research.question || 'More than one thing is called that'); return askChoice(d.research.options || [], d.research.question); }
+      var note = d.research.page ? d.research.page.title + ' · ' + (d.research.facts || []).length + ' facts · ' + d.images.length + ' pictures' : (u.kind === 'fictional' || u.kind === 'invented') && !d.research.page ? 'Nothing looked up' : 'Nothing found — the page uses your words and pictures';
       step('research', 'done', note + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + 's)');
       step('pictures', 'active');
       var research = (d.images || []).map(function (i) { return { id: i.id, origin: 'research', title: i.title, description: i.description, alt: cleanAlt(i), author: i.author, license: i.license, licenseUrl: i.licenseUrl, pageUrl: i.pageUrl, sourceUrl: i.sourceUrl, found: i.found, relevance: i.relevance, retrieved: i.retrieved, mime: i.mime, dataUrl: i.dataUrl }; });
@@ -220,31 +222,102 @@
       return todo.reduce(function (p, a) { return p.then(function () { return processAsset(a).then(function (g) { S.assets = S.assets.concat(g); done++; step('pictures', 'active', done + ' of ' + todo.length); return new Promise(function (res) { setTimeout(res, 0); }); }); }); }, Promise.resolve()).then(function () {
         var cut = S.assets.filter(function (a) { return a.cutout; }).length, bad = S.assets.filter(function (a) { return a.failed; }).length;
         step('pictures', 'done', S.assets.filter(function (a) { return !a.cutout; }).length + ' pictures · ' + cut + ' cut out as separate layers' + (bad ? ' · ' + bad + ' unreadable' : ''));
-        step('direct', 'active');
-        direct();
-        step('direct', 'done', S.plan.concept.line);
-        step('build', 'active'); refresh(true); step('build', 'done');
-        S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = S.plan.hero.title.text; setSaveState('Not saved yet'); els.csSave.disabled = false;
-        els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
+        return planDirection('').then(function () {
+          step('build', 'active'); refresh(true); step('build', 'done');
+          S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
+          els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor();
+        });
       });
     }).catch(function (e) { fail('Something went wrong: ' + (e && e.message || e)); });
   }
+  function describeUnderstanding(u) {
+    if (!u) return '';
+    if (u.identity && u.identity.what) return u.identity.name + ' — ' + u.identity.what;
+    return u.kind === 'personal' ? 'A personal page about ' + (u.name || 'your ' + u.noun) : (u.kind === 'fictional' || u.kind === 'invented') ? 'An invented subject' : u.subject ? '“' + u.subject + '”' : '';
+  }
+  function pageTitle() { return S.plan.v === 2 ? (S.plan.scenes[0] && S.plan.scenes[0].text.heading) || S.plan.identity.name : S.plan.hero.title.text; }
+
+  // ---------- the AI director (server), with the built-in director as an explicit, labelled fallback ----------
+  // the built-in director reads the rules-style understanding; an AI understanding is mapped onto it
+  var TONE_MAP = { extravagant: 'absurd', cinematic: 'cinematic', playful: 'playful', absurd: 'absurd', tender: 'tender', restrained: 'editorial', lyrical: 'lyrical', editorial: 'editorial', retro: 'retro', serious: 'editorial', reverent: 'lyrical' };
+  function legacyU() {
+    var u = S.understanding || {}; if (u.source !== 'ai') return u;
+    var local = C.understand.understandBrief(S.brief, { supplied: S.suppliedText, uploads: S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; }).length });
+    return Object.assign({}, local, { kind: u.kind === 'invented' ? 'fictional' : u.kind === 'ambiguous' ? 'recognizable' : u.kind, subject: u.subject || local.subject, name: u.name || local.name, species: u.species || local.species, noun: u.noun || local.noun, query: u.query, tone: TONE_MAP[u.tone && u.tone.register] || local.tone, brief: S.brief });
+  }
+  function inventory() {
+    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime }; });
+  }
+  // small thumbnails so the director can SEE what each picture depicts (transparent cutouts shown on grey)
+  function thumbnails() {
+    var order = live().slice().sort(function (a, b) { var s = function (x) { return (x.origin === 'upload' ? 4 : 0) + (x.cutout ? 2 : 0) + (x.relevance || 0); }; return s(b) - s(a); }).slice(0, 10);
+    return Promise.all(order.map(function (a) {
+      return loadImage(a.dataUrl).then(function (im) {
+        var k = Math.min(1, 320 / Math.max(im.naturalWidth, im.naturalHeight)); var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+        var ctx = cv.getContext('2d'); ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.drawImage(im, 0, 0, cv.width, cv.height);
+        return { id: a.id, dataUrl: cv.toDataURL('image/jpeg', 0.72) };
+      }).catch(function () { return null; });
+    })).then(function (list) { return list.filter(Boolean); });
+  }
+  function ctx2() { return { assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU() }; }
+  function planDirection(avoid) {
+    step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
+    return thumbnails().then(function (th) {
+      var research = S.research || {};
+      return api('/api/creative/plan', { method: 'POST', body: { brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()) } });
+    }).then(function (r) {
+      if (r.status === 401) throw new Error('signed out');
+      var d = r.data || {};
+      if (r.ok && d.ok && d.plan) {
+        var v = C.validate2.validatePlan2(d.plan, ctx2()); var plan = v.plan; if (S.fixture) plan.fixture = S.fixture;
+        S.plan = plan; S.lastFixes = (d.fixes || []).concat(v.fixes); S.lastWarnings = (d.warnings || []).concat(v.warnings);
+        S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired };
+        S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + S.planMeta.attempts;
+        step('direct', 'done', (S.planMeta.source === 'mock' ? 'MOCKED plan · ' : 'AI direction · ') + (plan.concept.title ? plan.concept.title + ' — ' : '') + plan.concept.logline + ' (' + (S.planMeta.ms / 1000).toFixed(1) + 's' + (S.planMeta.repaired ? ', repaired once' : '') + ')');
+        return;
+      }
+      useFallback(d.reason || 'the AI director did not answer');
+      if (d.meta && d.meta.usdEstimated) { S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + d.meta.usdEstimated; S.planMeta.usdEstimated = d.meta.usdEstimated; }
+    }).catch(function (e) { useFallback('the AI director could not be reached (' + (e && e.message || e) + ')'); });
+  }
+  function useFallback(reason) {
+    direct(); S.planMeta = { source: 'fallback', reason: reason, at: new Date().toISOString() };
+    step('direct', 'wait', 'Built-in layout, not AI direction: ' + reason);
+  }
+  function rememberDirection() {
+    if (!S.plan) return; var c = S.plan.v === 2 ? S.plan.concept : { title: '', logline: S.plan.concept.line };
+    S.history = (S.history || []).concat([{ title: c.title || '', logline: c.logline || '', source: (S.planMeta && S.planMeta.source) || 'rules', at: new Date().toISOString() }]).slice(-6);
+    S.previous = { plan: S.plan, planMeta: S.planMeta };
+  }
+  function anotherDirection() {
+    if (S.busy || !S.plan) return Promise.resolve();
+    if (S.dirty && !window.confirm('Try another direction? The current layout is kept so you can go back, but text edits made to it stay with it.')) return Promise.resolve();
+    var avoid = S.plan.v === 2 ? (S.plan.concept.title + ': ' + S.plan.concept.logline + ' | scenes: ' + S.plan.scenes.map(function (s) { return s.name || s.purpose; }).join(' / ')) : S.plan.concept.line;
+    rememberDirection(); S.busy = true; els.csProgress.hidden = false; steps([['direct', 'Directing the page again, differently'], ['build', 'Building the page']]);
+    return planDirection((S.history || []).map(function (h) { return h.title + ': ' + h.logline; }).slice(-3).concat([avoid]).join(' || ')).then(function () {
+      refresh(true); step('build', 'done'); S.busy = false; els.csProgress.hidden = true; S.name = pageTitle(); markDirty(); buildEditor();
+    });
+  }
+  function previousDirection() {
+    if (!S.previous) return; var cur = { plan: S.plan, planMeta: S.planMeta };
+    S.plan = S.previous.plan; S.planMeta = S.previous.planMeta; S.previous = cur; refresh(true); markDirty(); buildEditor();
+  }
   function cleanAlt(i) { var t = String(i.description || '').trim(); if (t.length > 8 && t.length < 200) return t; return C.render.cleanTitle(i.title); }
-  function askChoice(options) {
+  function askChoice(options, question) {
     S.busy = false; els.csCreate.disabled = false;
-    els.csChoices.innerHTML = '<p>Which one did you mean?</p>' + options.map(function (o, i) { return '<button type="button" class="cs-choice" data-i="' + i + '"><strong>' + esc(o.title) + '</strong><small>' + esc(o.description || '') + '</small></button>'; }).join('') + '<button type="button" class="cs-btn cs-ghost" id="csChoiceBack">Change the description</button>';
-    [].forEach.call(els.csChoices.querySelectorAll('.cs-choice'), function (b) { b.addEventListener('click', function () { create(options[+b.getAttribute('data-i')].title); }); });
+    els.csChoices.innerHTML = '<p>' + esc(question || 'Which one did you mean?') + '</p>' + options.map(function (o, i) { return '<button type="button" class="cs-choice" data-i="' + i + '"><strong>' + esc(o.title) + '</strong><small>' + esc(o.description || '') + '</small></button>'; }).join('') + '<button type="button" class="cs-btn cs-ghost" id="csChoiceBack">Change the description</button>';
+    [].forEach.call(els.csChoices.querySelectorAll('.cs-choice'), function (b) { b.addEventListener('click', function () { var o = options[+b.getAttribute('data-i')]; create(o.wikipediaTitle || o.title); }); });
     document.getElementById('csChoiceBack').addEventListener('click', function () { els.csProgress.hidden = true; els.csBriefStep.hidden = false; });
   }
   function supplied() { return { facts: lines(S.suppliedText).slice(0, 12), memories: lines(S.memoriesText).slice(0, 8) }; }
   function direct() {
-    var u = S.understanding; var research = S.research || {};
+    var u = legacyU(); var research = S.research || {};
     var plan = C.director.direct({ understanding: u, research: { page: research.page, facts: research.facts || [] }, assets: live(), supplied: supplied(), seed: S.brief + '|' + (S.choice || '') });
     if (S.fixture) plan.fixture = S.fixture;
     S.plan = settle(plan);
   }
   function live() { return S.assets.filter(function (a) { return !a.removed && !a.failed; }); }
-  function settle(plan) { var v = C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
+  function settle(plan) { var v = plan.v === 2 ? C.validate2.validatePlan2(plan, ctx2()) : C.validate.validatePlan(plan, live()); S.lastFixes = v.fixes; S.lastWarnings = v.warnings; return v.plan; }
 
   // ---------- preview ----------
   function srcFor(a) {
@@ -257,7 +330,7 @@
     } catch (e) { return a.dataUrl; }
   }
   function refresh(first) {
-    var html = C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
+    var html = S.plan.v === 2 ? C.render2.renderCreative2(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion }) : C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
     var y = 0; try { y = first ? 0 : frame.contentWindow.scrollY; } catch (e) { y = 0; }
     frame.onload = function () { try { if (y) frame.contentWindow.scrollTo(0, y); } catch (e) { /* ignore */ } };
     frame.srcdoc = html; S.lastHtml = html;
@@ -290,18 +363,46 @@
     });
     return f;
   }
+  function fieldsFor2(plan) {
+    return plan.scenes.map(function (s, i) {
+      var k = 'scenes.' + i + '.text.'; var list = [];
+      if (s.text.kicker || i === 0) list.push([k + 'kicker', 'Small line above']);
+      if (s.text.heading || i === 0) list.push([k + 'heading', i === 0 ? 'Title' : 'Heading']);
+      if (s.text.body) list.push([k + 'body', s.text.kind === 'sourced' ? 'Text (from the source)' : s.text.kind === 'supplied' ? 'Text (your words)' : 'Text (imagined)']);
+      s.text.items.forEach(function (it, j) { if (it.label) list.push([k + 'items.' + j + '.label', 'Label ' + (j + 1)]); list.push([k + 'items.' + j + '.text', (it.kind === 'sourced' ? 'Fact ' : it.kind === 'supplied' ? 'Your line ' : 'Line ') + (j + 1)]); });
+      return [(i === 0 ? 'Opening scene' : 'Scene ' + (i + 1)) + (s.name ? ' — ' + s.name : ''), list];
+    }).filter(function (g) { return g[1].length; });
+  }
+  // what the direction is, where it came from, what it cost, and what it wanted but could not have
+  function directionPanel() {
+    var m = S.planMeta || { source: 'rules' }; var p = S.plan; var u = S.understanding || {};
+    var badge = m.source === 'ai' ? '<span class="cs-src is-ai">AI direction</span>' : m.source === 'mock' ? '<span class="cs-src is-mock">MOCKED plan (test provider)</span>' : '<span class="cs-src is-fallback">Built-in layout — not AI direction</span>';
+    var head = p.v === 2 ? '<strong>' + esc(p.concept.title || 'Untitled concept') + '</strong><p>' + esc(p.concept.logline) + '</p>' + (p.concept.why ? '<p class="cs-hint">' + esc(p.concept.why) + '</p>' : '') : '<p>' + esc(p.concept.line) + '</p>';
+    var meta = m.source === 'ai' || m.source === 'mock' ? '<p class="cs-hint">' + esc(m.model || '') + ' · ' + ((m.ms || 0) / 1000).toFixed(1) + ' s · ' + (m.attempts || 1) + ' call' + ((m.attempts || 1) > 1 ? 's (one repair)' : '') + ' · about $' + (m.usdEstimated || 0).toFixed(3) + ' (estimated)</p>' : '<p class="cs-hint">Why: ' + esc(m.reason || 'AI direction is not available here') + '</p>';
+    var ident = u.identity ? '<p class="cs-hint">Understood as: <strong>' + esc(u.identity.name) + '</strong> — ' + esc(u.identity.what || u.identity.kind) + (u.tone && u.tone.register ? ' · tone: ' + esc(u.tone.register) : '') + (u.motifs && u.motifs.length ? ' · motifs: ' + esc(u.motifs.slice(0, 5).join(', ')) : '') + '</p>' + (u.uncertainty && u.uncertainty.length ? '<p class="cs-hint">Uncertain: ' + esc(u.uncertainty.join(' · ')) + '</p>' : '') : '';
+    var missing = p.v === 2 ? p.wants.filter(function (w) { return w.status === 'missing'; }) : [];
+    var wants = missing.length ? '<div class="cs-wants"><p><strong>The direction wanted, but no usable picture exists:</strong></p><ul>' + missing.map(function (w) { return '<li>' + esc(w.description) + (w.fallback ? ' <small>— instead: ' + esc(w.fallback) + '</small>' : '') + '</li>'; }).join('') + '</ul><button type="button" class="cs-btn cs-ghost" id="csWantUpload">Upload a picture</button></div>' : '';
+    var lim = p.v === 2 && p.limitations.length ? '<details><summary>Limitations noted by the director (' + p.limitations.length + ')</summary><ul>' + p.limitations.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '';
+    var hist = (S.history || []).length ? '<details><summary>Earlier directions (' + S.history.length + ')</summary><ul>' + S.history.map(function (h) { return '<li>' + esc(h.title ? h.title + ': ' : '') + esc(h.logline) + ' <small>(' + esc(h.source) + ')</small></li>'; }).join('') + '</ul></details>' : '';
+    return '<div class="cs-direction">' + badge + head + meta + ident + wants + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
+  }
   function buildEditor() {
     showFixture();
     var u = S.understanding || {}; var asks = [];
     if (u.kind === 'personal') {
-      if (!S.assets.some(function (a) { return a.origin === 'upload' && !a.removed; })) asks.push('Add a photo of ' + (u.name || 'your ' + u.noun) + ' — the page never uses other pictures for them.');
+      if (!S.assets.some(function (a) { return a.origin === 'upload' && !a.removed; })) asks.push('Add a photo of ' + (u.name || 'your ' + (u.noun || 'subject')) + ' — the page never uses other pictures for them.');
       if (!lines(S.suppliedText).length) asks.push('Add a few true details about ' + (u.name || 'them') + ' under “Your own details”, then create the page again.');
     }
     (S.lastWarnings || []).forEach(function (w) { asks.push(w); });
     els.csAsks.hidden = !asks.length; els.csAsks.innerHTML = asks.map(function (a) { return '<p>' + esc(a) + '</p>'; }).join('');
+    var dp = document.getElementById('csDirection'); if (!dp) { dp = h('div', { id: 'csDirection' }); els.csEditor.insertBefore(dp, els.csEditor.firstChild); }
+    dp.innerHTML = directionPanel();
+    document.getElementById('csAnother').addEventListener('click', function () { anotherDirection(); });
+    if (document.getElementById('csPrevious')) document.getElementById('csPrevious').addEventListener('click', previousDirection);
+    if (document.getElementById('csWantUpload')) document.getElementById('csWantUpload').addEventListener('click', function () { els.csUpload.click(); });
     // words
     var words = root.querySelector('[data-panel="words"]');
-    words.innerHTML = '<p class="cs-hint">Edits show on the page as you type. A fact you rewrite becomes your own words and loses its source mark.</p>' + fieldsFor(S.plan).map(function (g) {
+    words.innerHTML = '<p class="cs-hint">Edits show on the page as you type (the design stays as it is). A fact you rewrite becomes your own words and loses its source mark.</p>' + (S.plan.v === 2 ? fieldsFor2(S.plan) : fieldsFor(S.plan)).map(function (g) {
       return '<fieldset><legend>' + esc(g[0]) + '</legend>' + g[1].map(function (f) { var v = getPath(S.plan, f[0]); return '<label>' + esc(f[1]) + '<textarea rows="' + (String(v || '').length > 90 ? 3 : 1) + '" data-key="' + esc(f[0]) + '">' + esc(v || '') + '</textarea></label>'; }).join('') + '</fieldset>';
     }).join('');
     [].forEach.call(words.querySelectorAll('textarea[data-key]'), function (ta) {
@@ -309,6 +410,10 @@
         var key = ta.getAttribute('data-key'); setPath(S.plan, key, ta.value);
         var m = /^sections\.(\d+)\.items\.(\d+)\.text$/.exec(key);
         if (m) { var it = S.plan.sections[+m[1]].items[+m[2]]; if (it.kind === 'sourced') { it.kind = 'supplied'; delete it.cite; } }
+        var m2 = /^scenes\.(\d+)\.text\.items\.(\d+)\.text$/.exec(key);
+        if (m2) { var it2 = S.plan.scenes[+m2[1]].text.items[+m2[2]]; if (it2.kind === 'sourced') { it2.kind = 'supplied'; it2.cite = null; } }
+        var m3 = /^scenes\.(\d+)\.text\.body$/.exec(key);
+        if (m3) { var tx = S.plan.scenes[+m3[1]].text; if (tx.kind === 'sourced') { tx.kind = 'supplied'; tx.cite = null; } }
         if (key === 'hero.title.lede' && S.plan.hero.title.ledeKind === 'sourced') { S.plan.hero.title.ledeKind = 'supplied'; S.plan.hero.title.cite = null; }
         post({ type: 'cr-edit', key: key, text: ta.value }); markDirty();
       });
@@ -318,6 +423,10 @@
   }
   function roleOf(a) {
     var p = S.plan; if (!p) return 'Unused';
+    if (p.v === 2) {
+      var n2 = 0, focal = false; p.scenes.forEach(function (s, si) { s.layers.forEach(function (L) { if (L.asset === a.id) { n2++; if (si === 0 && L.role === 'focal') focal = true; } }); });
+      return focal ? 'Main picture' + (n2 > 1 ? ' (+' + (n2 - 1) + ' more scene' + (n2 > 2 ? 's' : '') + ')' : '') : n2 ? 'In ' + n2 + ' scene' + (n2 > 1 ? 's' : '') : 'Unused';
+    }
     if (p.hero.layers.some(function (l) { return l.asset === a.id && l.role === 'subject'; })) return 'Main picture';
     if (p.hero.layers.some(function (l) { return l.asset === a.id; })) return 'Hero companion';
     var n = p.sections.filter(function (s) { return s.asset === a.id || (s.assets || []).indexOf(a.id) >= 0; }).length;
@@ -334,6 +443,7 @@
         return '<div class="cs-pic' + (a.failed ? ' is-failed' : '') + '"><img src="' + esc(cut ? cut.dataUrl : a.dataUrl) + '" alt=""' + (cut ? ' class="is-cut"' : '') + '>'
           + '<div><strong>' + esc(C.render.cleanTitle(a.title).slice(0, 70)) + '</strong><small>' + (a.pageUrl ? '<a href="' + esc(a.pageUrl) + '" target="_blank" rel="noopener">' + src + '</a>' : src) + '</small>'
           + '<small>' + (a.assess ? a.assess.width + '×' + a.assess.height : '') + ' · ' + esc(cut ? cutRole : role) + '</small><small class="cs-proc">' + esc((cut && cut.processing) || a.processing || '') + '</small>'
+          + (function () { var n = S.plan && S.plan.v === 2 && S.plan.assetNotes.find(function (x) { return x.asset === a.id || (cut && x.asset === cut.id); }); return n ? '<small class="cs-seen' + (n.matches === 'no' ? ' is-no' : '') + '">The director saw: ' + esc(n.depicts) + ' — ' + (n.matches === 'yes' ? 'shows the subject' : n.matches === 'partly' ? 'partly the subject' : n.matches === 'no' ? 'not the subject, so not used' : 'unsure') + '</small>' : ''; })()
           + '<div class="cs-pic-actions"><button type="button" data-main="' + esc(cut ? cut.id : a.id) + '">Use as main</button><button type="button" data-replace="' + esc(a.id) + '">Replace…</button><button type="button" data-remove="' + esc(a.id) + '">Remove</button></div></div></div>';
       }).join('') + '<button type="button" class="cs-btn cs-ghost" id="csAddPic">+ Add a picture</button>';
     [].forEach.call(panel.querySelectorAll('[data-main]'), function (b) { b.addEventListener('click', function () { useAsMain(b.getAttribute('data-main')); }); });
@@ -342,11 +452,22 @@
     document.getElementById('csAddPic').addEventListener('click', function () { els.csUpload.click(); });
   }
   function pickFile(cb) { var inp = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' }); inp.addEventListener('change', function () { if (inp.files && inp.files[0]) cb(inp.files[0]); }); inp.click(); }
-  function rebuildHero() { var u = S.understanding || {}; S.plan = settle(C.director.redirectHero(S.plan, live(), u)); }
-  function useAsMain(id) { S.assets.forEach(function (a) { if (a.relevance >= 5 && a.id !== id) a.relevance = a.origin === 'upload' ? 2 : 1; }); var a = S.assets.find(function (x) { return x.id === id; }); if (!a) return; a.relevance = 5; rebuildHero(); refresh(); buildEditor(); markDirty(); }
+  function rebuildHero() { S.plan = settle(C.director.redirectHero(S.plan, live(), legacyU())); }
+  // v2: the concept stays; the chosen picture takes the opening scene's focal place and the validator re-frames it
+  function useAsMain(id) {
+    var a = S.assets.find(function (x) { return x.id === id; }); if (!a) return;
+    if (S.plan && S.plan.v === 2) {
+      var hero = S.plan.scenes[0]; var f = hero.layers.find(function (L) { return L.role === 'focal'; });
+      if (f && f.kind === 'image') { f.asset = id; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; } }
+      else hero.layers.unshift({ id: 'focal-main', kind: 'image', role: 'focal', asset: id, box: { d: [52, 10, 42, 80], m: [8, 4, 84, 92] }, z: 5, entrance: { kind: 'rise' }, loop: { kind: 'float', amp: 1, period: 9 }, scroll: { kind: 'parallax', amount: 0.3 } });
+      S.plan = settle(S.plan); refresh(); buildEditor(); markDirty(); return;
+    }
+    S.assets.forEach(function (x) { if (x.relevance >= 5 && x.id !== id) x.relevance = x.origin === 'upload' ? 2 : 1; }); a.relevance = 5; rebuildHero(); refresh(); buildEditor(); markDirty();
+  }
   function removeAsset(id) {
     S.assets.forEach(function (a) { if (a.id === id || a.cutoutOf === id) { a.removed = true; delete a.dataUrl; } });
     renderThumbs(); if (!S.plan) return;
+    if (S.plan.v === 2) { S.plan = settle(S.plan); refresh(); buildEditor(); markDirty(); return; }
     var inHero = S.plan.hero.layers.some(function (l) { var a = S.assets.find(function (x) { return x.id === l.asset; }); return a && a.removed; });
     if (inHero) rebuildHero(); else S.plan = settle(S.plan);
     refresh(); buildEditor(); markDirty();
@@ -358,6 +479,12 @@
       if (old && old.relevance >= 5) na.relevance = 5; else na.relevance = Math.max(2, (old && old.relevance) || 0);
       return processAsset(na).then(function (group) {
         var nCut = group.find(function (x) { return x.cutout; });
+        if (S.plan.v === 2) {
+          // same concept and composition; every layer that showed the old picture now shows the new one, framed for what it is
+          S.plan.scenes.forEach(function (s) { s.layers.forEach(function (L) { if (L.asset === id || (oldCut && L.asset === oldCut.id)) { var free = L.asset === (oldCut && oldCut.id) && nCut; L.asset = free ? nCut.id : na.id; if (!free && (L.mask === 'none' && L.role !== 'backdrop' && L.role !== 'texture')) { L.mask = 'window'; L.fit = 'cover'; } } }); });
+          S.assets.forEach(function (a) { if (a.id === id || a.cutoutOf === id) { a.removed = true; delete a.dataUrl; } });
+          S.assets = S.assets.concat(group); S.plan = settle(S.plan); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
+        }
         var wasMain = S.plan.hero.layers.some(function (l) { return l.role === 'subject' && (l.asset === id || (oldCut && l.asset === oldCut.id)); });
         if (wasMain) na.relevance = 5;
         S.plan.sections.forEach(function (s) { if (s.asset === id || (oldCut && s.asset === oldCut.id)) s.asset = (s.type === 'specimen' && nCut ? nCut.id : na.id); if (s.assets) s.assets = s.assets.map(function (x) { return x === id ? na.id : x; }); });
@@ -369,12 +496,24 @@
     });
   }
   function placeNewUploads(list) {
+    if (S.plan.v === 2) return; // v2: new uploads join the inventory; "Use as main" or "Try another direction" places them
     var ids = list.map(function (a) { return a.id; }); var g = S.plan.sections.find(function (s) { return s.type === 'gallery'; });
     if (g) g.assets = (g.assets || []).concat(ids).slice(0, 6);
     else { var at = Math.max(0, S.plan.sections.findIndex(function (s) { return s.type === 'closing' || s.type === 'sources'; })); S.plan.sections.splice(at, 0, { id: 's-gallery-u', type: 'gallery', kind: S.understanding && S.understanding.kind === 'personal' ? 'supplied' : 'mixed', eyebrow: 'Pictures', title: 'Moments', assets: ids, layout: 'scatter' }); }
   }
   function buildMotion() {
     var panel = root.querySelector('[data-panel="motion"]'); var p = S.plan;
+    if (p.v === 2) {
+      var pinned = p.scenes.filter(function (s) { return s.pin; }).length; var layers = p.scenes.reduce(function (t, s) { return t + s.layers.length; }, 0);
+      panel.innerHTML = '<fieldset><legend>Tempo</legend>' + ['still', 'slow', 'measured', 'lively'].map(function (t) { return '<label class="cs-radio"><input type="radio" name="csTempo" value="' + t + '"' + (p.motion.tempo === t ? ' checked' : '') + '> ' + t.charAt(0).toUpperCase() + t.slice(1) + '</label>'; }).join('') + '</fieldset>'
+        + '<fieldset><legend>Preview</legend><label class="cs-radio"><input type="checkbox" id="csReduced"' + (S.previewMotion === 'reduced' ? ' checked' : '') + '> Show the reduced-motion version</label><p class="cs-hint">Visitors who ask their device for less motion always get the still version.</p><button type="button" class="cs-btn cs-ghost" id="csReplay">Replay the entrance</button></fieldset>'
+        + '<fieldset><legend>The direction</legend><p class="cs-hint">' + esc(p.motion.signature || '') + '</p><p class="cs-hint">' + p.scenes.length + ' scenes · ' + layers + ' layers · ' + pinned + ' pinned · thread: ' + esc(p.thread.kind) + ' · ' + esc(p.atmosphere.backdrop) + ' backdrop, ' + esc(p.atmosphere.particles) + '</p><ol class="cs-scenes">' + p.scenes.map(function (s) { return '<li><strong>' + esc(s.name || s.id) + '</strong> <small>' + esc(s.height + (s.pin ? ', pinned' : '') + (s.camera !== 'none' ? ', camera ' + s.camera : '')) + '</small><br><small>' + esc(s.purpose) + '</small></li>'; }).join('') + '</ol>'
+        + ((S.lastFixes || []).length ? '<details><summary>Checks and corrections (' + S.lastFixes.length + ')</summary><ul>' + S.lastFixes.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></details>' : '') + '</fieldset>';
+      [].forEach.call(panel.querySelectorAll('input[name="csTempo"]'), function (r) { r.addEventListener('change', function () { S.plan.motion.tempo = r.value; post({ type: 'cr-motion', motion: S.previewMotion, tempo: r.value }); markDirty(); }); });
+      document.getElementById('csReduced').addEventListener('change', function (e) { S.previewMotion = e.target.checked ? 'reduced' : 'full'; refresh(); });
+      document.getElementById('csReplay').addEventListener('click', function () { post({ type: 'cr-replay' }); });
+      return;
+    }
     panel.innerHTML = '<fieldset><legend>How much it moves</legend><label class="cs-radio"><input type="radio" name="csInt" value="lively"' + (p.motion.intensity === 'lively' ? ' checked' : '') + '> Lively</label><label class="cs-radio"><input type="radio" name="csInt" value="calm"' + (p.motion.intensity === 'calm' ? ' checked' : '') + '> Calm</label></fieldset>'
       + '<fieldset><legend>Preview</legend><label class="cs-radio"><input type="checkbox" id="csReduced"' + (S.previewMotion === 'reduced' ? ' checked' : '') + '> Show the reduced-motion version</label><p class="cs-hint">Visitors who ask their device for less motion always get the still version.</p><button type="button" class="cs-btn cs-ghost" id="csReplay">Replay the entrance</button></fieldset>'
       + '<fieldset><legend>The scene</legend><p class="cs-hint">' + esc(p.concept.line) + '</p><p class="cs-hint">World: ' + esc(p.world) + ' · connector: ' + esc(p.connector.kind) + ' · hero: ' + esc(p.hero.layout) + ' with ' + p.hero.layers.length + ' layer' + (p.hero.layers.length === 1 ? '' : 's') + '</p>'
@@ -388,7 +527,7 @@
     var kb = Math.round((S.cost.researchBytes || 0) / 1024);
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
-      + '<p class="cs-hint">Cost of this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · 0 paid AI calls · 0 generated images · 0 credits.</p>';
+      + '<p class="cs-hint">Cost of this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI direction call(s), about $' + (S.cost.aiUsdEstimated || 0).toFixed(3) + ' estimated' + (S.understandMeta && S.understandMeta.source === 'ai' ? ' + understanding about $' + (S.understandMeta.usd || 0).toFixed(4) : '') + ' · 0 generated images · 0 credits.</p>';
   }
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }
@@ -398,13 +537,13 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, plan: S.plan, motion: { intensity: S.plan.motion.intensity }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, plan: S.plan, planMeta: S.planMeta, history: S.history, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   function save() {
     if (!S.plan || S.saving) return; if (!signedIn()) { needSignIn('Sign in to save your Creative page.'); return; }
     S.saving = true; els.csSave.disabled = true; setSaveState('Saving…');
-    var body = { name: S.name || S.plan.hero.title.text, directionsState: { directions: [direction()], activeDirectionIndex: 0 } };
+    var body = { name: S.name || pageTitle(), directionsState: { directions: [direction()], activeDirectionIndex: 0 } };
     var req = S.projectId ? api('/api/projects/' + encodeURIComponent(S.projectId), { method: 'PUT', body: Object.assign({ expectedRevision: S.revision }, body) }) : api('/api/projects', { method: 'POST', body: body });
     return req.then(function (r) {
       S.saving = false;
@@ -421,7 +560,7 @@
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
     S.projectId = p.id; S.revision = p.revision; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
-    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || '';
+    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || [];
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }
@@ -436,5 +575,6 @@
     state: function () { return S; }, html: function () { return S && S.lastHtml; }, save: save, create: create,
     setFixture: function (text) { if (!root) { build(); S = fresh(); resetUI(); } S.fixture = String(text || '').slice(0, 160); showFixture(); },
     addFiles: function (files) { return addUploads(files); },
+    anotherDirection: function () { return anotherDirection(); }, previousDirection: function () { previousDirection(); },
   };
 })();

@@ -553,6 +553,277 @@
     module.exports = { validatePlan, subjectRect, drawnRect, overlap, area, usedAssets, TITLE_BOXES, STAGES, WORLDS, SECTION_TYPES, CONNECTORS };
 
   });
+  __define("validate2", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — scene plans, version 2 (AI-directed). A v2 plan is a sequence of SCENES the model
+    // composes from reusable mechanics: layered stages (pictures, drawn shapes, giant words), masks,
+    // treatments, depth, entrance choreography, ambient loops, scroll-linked movement, pinned
+    // scroll-scrubbed scenes and camera moves, plus the words for each scene. The model decides how
+    // those mechanics serve the subject; the renderer (render2.js) is the same for every subject.
+    //
+    //   VOCAB                         every enum and bound (the model's tool schema is built from it)
+    //   validatePlan2(raw, ctx)       -> { plan, fixes, warnings, errors }
+    //     ctx: { assets, facts, understanding }
+    //   errors are problems worth one repair attempt (the plan cannot honestly be shown as it is);
+    //   fixes are corrections made in place; warnings are kept for the studio.
+    // Data only: nothing in a plan is executed, and every string is escaped by the renderer.
+
+    const { drawnRect, overlap, area } = require('./validate');
+
+    const VOCAB = {
+      display: ['didone', 'grotesk', 'serif', 'rounded', 'slab', 'mono', 'condensed', 'script'],
+      typeScale: ['monumental', 'large', 'quiet'],
+      typeCase: ['normal', 'upper'],
+      backdrop: ['solid', 'gradient', 'spotlight', 'fog', 'water', 'stars', 'sky', 'paper', 'grain', 'horizon', 'vignette', 'sunrise', 'grid'],
+      light: ['spot', 'lamp', 'caustics', 'rim', 'sun', 'none'],
+      particles: ['dust', 'fog', 'bubbles', 'stars', 'clouds', 'steam', 'petals', 'sparks', 'snow', 'confetti', 'none'],
+      tempo: ['still', 'slow', 'measured', 'lively'],
+      thread: ['ribbon', 'thread', 'bubbles', 'orbit', 'line', 'stitch', 'none'],
+      height: ['screen', 'tall', 'short', 'auto'],
+      sceneBg: ['base', 'deep', 'invert', 'tint', 'accent'],
+      camera: ['none', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'rise'],
+      region: ['left', 'right', 'center', 'bottom-left', 'bottom-right', 'bottom', 'top-left', 'top-right', 'top'],
+      textSize: ['display', 'large', 'medium', 'small'],
+      textWidth: ['narrow', 'medium', 'wide'],
+      list: ['plain', 'numbered', 'labelled', 'timeline', 'notes'],
+      textEntrance: ['rise', 'fade', 'split-words', 'none'],
+      mobileOrder: ['text-first', 'stage-first'],
+      layerKind: ['image', 'shape', 'word'],
+      role: ['focal', 'support', 'backdrop', 'texture', 'echo'],
+      fit: ['contain', 'cover'],
+      mask: ['none', 'circle', 'arch', 'window', 'frame', 'porthole', 'torn', 'blob', 'diamond', 'polaroid', 'slit'],
+      treatment: ['none', 'shadow', 'glow', 'duotone', 'mono', 'grain', 'outline', 'soft'],
+      shape: ['circle', 'ring', 'triangle', 'diamond', 'star', 'wave', 'arc', 'line', 'blob', 'dots', 'sunburst', 'stripes', 'cross'],
+      fill: ['accent', 'glow', 'ink', 'muted', 'bg2'],
+      wordStyle: ['solid', 'outline', 'ghost'],
+      entrance: ['rise', 'descend', 'pop', 'fade', 'unveil', 'dolly', 'slide-left', 'slide-right', 'spin-in', 'drop', 'none'],
+      loop: ['float', 'sway', 'swim', 'breathe', 'drift', 'spin', 'pulse', 'orbit', 'bob', 'none'],
+      scroll: ['none', 'parallax', 'drift-x', 'rise', 'sink', 'zoom-in', 'zoom-out', 'rotate', 'pass-through', 'reveal'],
+      copyKind: ['sourced', 'supplied', 'imagined'],
+      matches: ['yes', 'partly', 'no', 'unsure'],
+    };
+    const LIMITS = { scenes: [2, 9], layersPerScene: 6, layersTotal: 32, pinned: 3, loopsPerScene: 2, scrollPerScene: 4, items: 6, photoUses: 2, cutoutUses: 3, heading: 110, body: 520, item: 260, kicker: 70 };
+    // where each text region sits on a desktop scene (x, y, w, h in % of the scene)
+    const REGION_BOXES = { left: [5, 16, 42, 68], right: [53, 16, 42, 68], center: [16, 24, 68, 52], 'bottom-left': [5, 56, 52, 38], 'bottom-right': [43, 56, 52, 38], bottom: [10, 62, 80, 32], 'top-left': [5, 8, 52, 38], 'top-right': [43, 8, 52, 38], top: [10, 8, 80, 32] };
+    const OPPOSITE = { left: 'right', right: 'left', center: 'bottom', 'bottom-left': 'top-right', 'bottom-right': 'top-left', bottom: 'top', 'top-left': 'bottom-right', 'top-right': 'bottom-left', top: 'bottom' };
+
+    const HEX = /^#[0-9a-f]{6}$/i;
+    const clean = (v, n) => (typeof v === 'string' ? v : v == null ? '' : String(v)).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
+    const cap = (v, n) => clean(v).slice(0, n);
+    const oneOf = (v, list, d) => (list.includes(v) ? v : d);
+    const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    const id = (v, d) => (clean(v).replace(/[^\w-]/g, '').slice(0, 40) || d);
+    function lum(hex) { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+    function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    function mix(a, b, t) { const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16)), pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16)); return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
+    function box(raw, d, loose) {
+      const lo = loose ? -30 : 0, hiW = loose ? 160 : 100;
+      const b = Array.isArray(raw) && raw.length === 4 && raw.every(v => typeof v === 'number' && isFinite(v)) ? raw.slice() : d.slice();
+      b[2] = Math.max(3, Math.min(hiW, b[2])); b[3] = Math.max(3, Math.min(hiW, b[3]));
+      b[0] = Math.max(lo, Math.min((loose ? 130 : 100) - b[2], b[0])); b[1] = Math.max(lo, Math.min((loose ? 130 : 100) - b[3], b[1]));
+      return b.map(v => Math.round(v * 10) / 10);
+    }
+    // a model sometimes writes a quotation into invented copy; quotes attributed to anyone are never invented
+    const ATTRIBUTED_QUOTE = /["“][^"”]{8,}["”]\s*[,—–-]?\s*(?:said|says|wrote|writes|according to)\b|\b(?:said|says|wrote|once wrote)\s*[,:]?\s*["“]/i;
+
+    function validatePlan2(raw, ctx) {
+      const c = ctx || {}; const fixes = [], warnings = [], errors = [];
+      const p = raw && typeof raw === 'object' ? raw : {};
+      const assets = (c.assets || []).filter(a => a && a.id && !a.removed && !a.failed);
+      const byId = new Map(assets.map(a => [a.id, a]));
+      const facts = (c.facts || []).filter(f => f && f.id && f.text); const factIds = new Set(facts.map(f => f.id));
+      const u = c.understanding || {}; const personal = (p.identity && p.identity.kind === 'personal') || u.kind === 'personal';
+
+      // ---- identity, concept, look ----
+      const identity = { name: cap(p.identity && p.identity.name, 120) || cap(u.subject, 120), kind: oneOf(p.identity && p.identity.kind, ['recognizable', 'fictional', 'personal', 'invented'], u.kind === 'ambiguous' ? 'recognizable' : (u.kind || 'recognizable')), note: cap(p.identity && p.identity.note, 200) };
+      if (personal) identity.kind = 'personal';
+      const concept = { title: cap(p.concept && p.concept.title, 80), logline: cap(p.concept && p.concept.logline, 300), why: cap(p.concept && p.concept.why, 300) };
+      if (!concept.logline) errors.push('concept: no logline -- say what the page is, in one or two sentences');
+      const palette = {}; const pal = p.palette || {};
+      [['bg', '#111114'], ['bg2', '#22222a'], ['ink', '#f4f2ee'], ['muted', '#b9b5ad'], ['accent', '#e0b44c'], ['glow', '#fff3d6']].forEach(([k, d]) => { palette[k] = HEX.test(pal[k] || '') ? pal[k].toLowerCase() : d; });
+      if (contrast(palette.ink, palette.bg) < 7) { palette.ink = lum(palette.bg) > 0.3 ? '#141414' : '#f6f3ee'; fixes.push('palette: text colour changed for legibility'); }
+      if (contrast(palette.muted, palette.bg) < 4.5) palette.muted = mix(palette.ink, palette.bg, 0.3);
+      for (let i = 0; i < 12 && contrast(palette.accent, palette.bg) < 3.2; i++) palette.accent = mix(palette.accent, lum(palette.bg) > 0.3 ? '#000000' : '#ffffff', 0.18);
+      const t = p.type || {};
+      const type = { display: oneOf(t.display, VOCAB.display, 'serif'), scale: oneOf(t.scale, VOCAB.typeScale, 'large'), case: oneOf(t.case, VOCAB.typeCase, 'normal') };
+      const at = p.atmosphere || {};
+      const atmosphere = { backdrop: oneOf(at.backdrop, VOCAB.backdrop, 'gradient'), light: oneOf(at.light, VOCAB.light, 'none'), particles: oneOf(at.particles, VOCAB.particles, 'none'), density: num(at.density, 0, 1, 0.4), grain: !!at.grain };
+      const motion = { tempo: oneOf(p.motion && p.motion.tempo, VOCAB.tempo, 'measured'), signature: cap(p.motion && p.motion.signature, 200) };
+      const thread = { kind: oneOf(p.thread && p.thread.kind, VOCAB.thread, 'none'), colour: HEX.test((p.thread || {}).colour || '') ? p.thread.colour : palette.accent };
+
+      // ---- what the director saw in each picture (vision) and what it wanted but could not have ----
+      const assetNotes = (Array.isArray(p.assetNotes) ? p.assetNotes : []).slice(0, 24).filter(n => n && byId.has(n.asset)).map(n => ({ asset: n.asset, depicts: cap(n.depicts, 200), matches: oneOf(n.matches, VOCAB.matches, 'unsure'), useFor: cap(n.useFor, 120) }));
+      const verdict = new Map(assetNotes.map(n => [n.asset, n.matches]));
+      const baseOf = a => (a && a.cutoutOf ? byId.get(a.cutoutOf) || a : a);
+      const verdictOf = a => verdict.get(a.id) || (a.cutoutOf ? verdict.get(a.cutoutOf) : null) || 'unsure';
+      const wants = (Array.isArray(p.wants) ? p.wants : []).slice(0, 10).map(w => w && { description: cap(w.description, 200), role: cap(w.role, 40), asset: byId.has(w.asset) ? w.asset : null, fallback: cap(w.fallback, 200) }).filter(w => w && w.description);
+      wants.forEach(w => { w.status = w.asset ? 'fulfilled' : 'missing'; });
+      const limitations = (Array.isArray(p.limitations) ? p.limitations : []).slice(0, 8).map(x => cap(x, 240)).filter(Boolean);
+
+      // ---- scenes ----
+      const rawScenes = Array.isArray(p.scenes) ? p.scenes : [];
+      if (rawScenes.length < LIMITS.scenes[0]) errors.push(`scenes: at least ${LIMITS.scenes[0]} scenes are needed`);
+      if (rawScenes.length > LIMITS.scenes[1]) fixes.push(`scenes: ${rawScenes.length - LIMITS.scenes[1]} scene(s) beyond ${LIMITS.scenes[1]} dropped`);
+      const uses = new Map(); let layersTotal = 0, pinned = 0; const seenIds = new Set();
+      let sourcedLines = 0, uncited = 0;
+      const scenes = rawScenes.slice(0, LIMITS.scenes[1]).map((rs, si) => {
+        if (!rs || typeof rs !== 'object') return null;
+        let sid = id(rs.id, `scene-${si + 1}`); while (seenIds.has(sid)) sid += 'x'; seenIds.add(sid);
+        const where = `scene ${si + 1} (${sid})`;
+        const height = oneOf(rs.height, VOCAB.height, si === 0 ? 'screen' : 'auto');
+        let pin = !!rs.pin && height === 'tall';
+        if (pin && pinned >= LIMITS.pinned) { pin = false; fixes.push(`${where}: more than ${LIMITS.pinned} pinned scenes -- unpinned`); }
+        if (pin) pinned++;
+        // words
+        const tx = rs.text || {};
+        const text = { kicker: cap(tx.kicker, LIMITS.kicker), heading: clean(tx.heading), body: clean(tx.body), kind: oneOf(tx.kind, VOCAB.copyKind, 'imagined'), cite: factIds.has(tx.cite) ? tx.cite : null, region: oneOf(tx.region, VOCAB.region, si === 0 ? 'left' : 'center'), size: oneOf(tx.size, VOCAB.textSize, si === 0 ? 'display' : 'large'), width: oneOf(tx.width, VOCAB.textWidth, 'medium'), list: oneOf(tx.list, VOCAB.list, 'plain'), entrance: oneOf(tx.entrance, VOCAB.textEntrance, 'rise'), items: [] };
+        if (text.heading.length > LIMITS.heading) { errors.push(`${where}: heading is ${text.heading.length} characters (max ${LIMITS.heading}) -- write a shorter one, never cut it off`); text.heading = text.heading.slice(0, LIMITS.heading); }
+        if (text.body.length > LIMITS.body) { errors.push(`${where}: body is ${text.body.length} characters (max ${LIMITS.body})`); text.body = ''; }
+        if (text.body && text.kind === 'sourced') { sourcedLines++; if (!text.cite) { uncited++; fixes.push(`${where}: an uncited "sourced" paragraph was removed`); text.body = ''; } }
+        if (text.body && text.kind === 'imagined' && ATTRIBUTED_QUOTE.test(text.body)) { fixes.push(`${where}: an invented quotation was removed`); text.body = ''; }
+        if (personal && text.body && text.kind === 'sourced' && !/general|in general|most |many |typically/i.test(`${text.kicker} ${text.heading}`)) warnings.push(`${where}: a sourced paragraph on a personal page -- make sure it reads as general, not about them`);
+        (Array.isArray(tx.items) ? tx.items : []).slice(0, LIMITS.items).forEach(it => {
+          if (!it || typeof it !== 'object') return;
+          const item = { label: cap(it.label, 40), text: clean(it.text), kind: oneOf(it.kind, VOCAB.copyKind, 'imagined'), cite: factIds.has(it.cite) ? it.cite : null };
+          if (!item.text) return;
+          if (item.text.length > LIMITS.item) { fixes.push(`${where}: a ${item.text.length}-character line was left out (never cut mid-sentence)`); return; }
+          if (item.kind === 'sourced') { sourcedLines++; if (!item.cite) { uncited++; fixes.push(`${where}: an uncited "sourced" line was removed`); return; } }
+          if (item.kind === 'imagined' && ATTRIBUTED_QUOTE.test(item.text)) { fixes.push(`${where}: an invented quotation was removed`); return; }
+          text.items.push(item);
+        });
+        if (tx.items && tx.items.length > LIMITS.items) fixes.push(`${where}: only the first ${LIMITS.items} lines kept`);
+        // a numbered list already numbers its lines
+        if (text.list === 'numbered') text.items.forEach(it => { if (/^\d+\.?$/.test(it.label)) it.label = ''; });
+        if (si === 0 && !text.heading) errors.push('hero: the first scene needs a heading (the page title)');
+        // layers
+        let layers = (Array.isArray(rs.layers) ? rs.layers : []).slice(0, LIMITS.layersPerScene).map((rl, li) => {
+          if (!rl || typeof rl !== 'object') return null;
+          const kind = oneOf(rl.kind, VOCAB.layerKind, rl.asset ? 'image' : 'shape');
+          const role = oneOf(rl.role, VOCAB.role, li === 0 ? 'focal' : 'support');
+          const e = rl.entrance || {}, l = rl.loop || {}, s = rl.scroll || {};
+          const L = {
+            id: id(rl.id, `l${li + 1}`), kind, role,
+            box: { d: box(rl.box && rl.box.d, [50, 10, 40, 80], role === 'backdrop' || role === 'texture'), m: box(rl.box && rl.box.m, [10, 10, 80, 80], role === 'backdrop' || role === 'texture') },
+            z: Math.round(num(rl.z, 1, 9, role === 'focal' ? 5 : role === 'backdrop' ? 1 : 3)), rotate: num(rl.rotate, -45, 45, 0), opacity: num(rl.opacity, 0.05, 1, 1),
+            mask: oneOf(rl.mask, VOCAB.mask, 'none'), treatment: oneOf(rl.treatment, VOCAB.treatment, 'none'),
+            entrance: { kind: oneOf(e.kind, VOCAB.entrance, 'fade'), delay: num(e.delay, 0, 4, 0.2), dur: num(e.dur, 0.2, 3, 1.1) },
+            loop: { kind: oneOf(l.kind, VOCAB.loop, 'none'), amp: num(l.amp, 0, 3, 1), period: num(l.period, 3, 30, 9) },
+            scroll: { kind: oneOf(s.kind, VOCAB.scroll, 'none'), amount: num(s.amount, -1, 1, 0.4) },
+            hideM: !!rl.hideM,
+          };
+          if (kind === 'image') {
+            const a = byId.get(rl.asset);
+            if (!a) { (role === 'focal' ? errors : warnings).push(`${where}: picture "${cap(rl.asset, 40)}" does not exist${role === 'focal' ? ' -- use an asset from the inventory or a shape/word focal' : ' -- layer removed'}`); return null; }
+            if (verdictOf(a) === 'no') { fixes.push(`${where}: ${a.id} does not show the subject (the director's own look at it) -- layer removed`); return null; }
+            if (personal && baseOf(a).origin !== 'upload') { fixes.push(`${where}: ${a.id} is not the owner's own photo -- removed from a personal page`); return null; }
+            L.asset = a.id; L.fit = oneOf(rl.fit, VOCAB.fit, (a.caps && a.caps.moveFreely) ? 'contain' : 'cover'); L.focus = /^\d{1,3}% \d{1,3}%$/.test(rl.focus || '') ? rl.focus : '50% 50%';
+            // a flat photo never floats as a bare rectangle: framed, masked, or used as a full backdrop
+            const free = !!(a.caps && a.caps.moveFreely);
+            if (!free && L.mask === 'none' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
+            if (!free && L.fit === 'contain' && L.mask !== 'none') L.fit = 'cover';
+            const k = baseOf(a).id; uses.set(k, (uses.get(k) || 0) + 1);
+            const max = a.cutout || (a.assess && a.assess.transparent) ? LIMITS.cutoutUses : LIMITS.photoUses;
+            if (uses.get(k) > max) { fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
+          } else if (kind === 'shape') {
+            const sh = rl.shape || {};
+            L.shape = { form: oneOf(sh.form, VOCAB.shape, 'circle'), fill: oneOf(sh.fill, VOCAB.fill, 'accent'), stroke: !!sh.stroke };
+          } else {
+            const w = cap(rl.word && rl.word.text, 24);
+            if (!w) { warnings.push(`${where}: an empty word layer was removed`); return null; }
+            L.word = { text: w, style: oneOf(rl.word && rl.word.style, VOCAB.wordStyle, 'outline') };
+          }
+          return L;
+        }).filter(Boolean);
+        if (rs.layers && rs.layers.length > LIMITS.layersPerScene) fixes.push(`${where}: only ${LIMITS.layersPerScene} layers kept`);
+        // motion budget: a focal point, supporting movement and rest -- not everything moving at once
+        let loops = 0, scrolls = 0;
+        layers.sort((a, b) => (a.role === 'focal' ? -1 : 0) - (b.role === 'focal' ? -1 : 0));
+        layers.forEach(L => {
+          if (L.loop.kind !== 'none') { if (loops >= LIMITS.loopsPerScene) { L.loop.kind = 'none'; fixes.push(`${where}: ${L.id} held still (at most ${LIMITS.loopsPerScene} moving layers per scene)`); } else loops++; }
+          if (L.scroll.kind !== 'none') { if (scrolls >= LIMITS.scrollPerScene) L.scroll.kind = 'none'; else scrolls++; }
+        });
+        if (motion.tempo === 'still') layers.forEach(L => { L.loop.kind = 'none'; });
+        if (layersTotal + layers.length > LIMITS.layersTotal) { layers = layers.slice(0, Math.max(0, LIMITS.layersTotal - layersTotal)); fixes.push(`${where}: layer budget reached`); }
+        layersTotal += layers.length;
+        if (pin && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
+        const bg = rs.background || {};
+        const scene = {
+          id: sid, name: cap(rs.name, 60), purpose: cap(rs.purpose, 240), link: cap(rs.link, 240), navLabel: cap(rs.navLabel, 24),
+          height, pin, camera: oneOf(rs.camera, VOCAB.camera, 'none'), background: oneOf(bg.style || rs.background, VOCAB.sceneBg, si === 0 ? 'base' : 'base'), atmosphere: !!rs.atmosphere || si === 0,
+          mobile: { order: oneOf(rs.mobile && rs.mobile.order, VOCAB.mobileOrder, si === 0 ? 'text-first' : 'text-first') },
+          text, layers,
+        };
+        if (si === 0) scene.cta = cap(rs.cta, 40) || 'Begin';
+        if (!scene.purpose) warnings.push(`${where}: no stated purpose`);
+        compose(scene, byId, fixes, warnings, si === 0);
+        return scene;
+      }).filter(Boolean);
+      if (scenes.length && !scenes[0].layers.some(L => L.role === 'focal')) {
+        // no focal in the hero: the heaviest layer becomes it, else the page title itself carries the scene
+        const heavy = scenes[0].layers.slice().sort((a, b) => area(b.box.d) - area(a.box.d))[0];
+        if (heavy) { heavy.role = 'focal'; fixes.push('hero: the largest layer made the focal point'); } else warnings.push('hero: no picture or drawn focal -- the title carries the first scene');
+      }
+      if (sourcedLines && uncited / sourcedLines > 0.4) errors.push(`copy: ${uncited} of ${sourcedLines} "sourced" lines had no valid fact id -- cite the fact ids given, or mark the line imagined`);
+      if (!scenes.some(s => s.text.heading || s.text.body || s.text.items.length)) errors.push('copy: the page has no words');
+      // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
+      scenes.forEach(s => { s.ink = sceneInk(s.background, palette); });
+      // credits for every picture shown, limited to those
+      const shown = new Set(); scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
+      const credits = assets.filter(a => shown.has(a.id) && a.origin !== 'upload' && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
+      const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
+      const plan = {
+        v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes,
+        facts: facts.map(f => ({ id: f.id, text: cap(f.text, 600), section: cap(f.section, 80) })),
+        sources: Array.isArray(p.sources) ? p.sources.slice(0, 6).filter(s => s && s.title).map(s => ({ title: cap(s.title, 200), url: /^https:\/\//.test(s.url || '') ? cap(s.url, 400) : '', license: cap(s.license, 80), retrieved: cap(s.retrieved, 40) })) : [],
+        credits, derived,
+        direction: p.direction && typeof p.direction === 'object' ? { source: oneOf(p.direction.source, ['ai', 'mock'], 'ai'), model: cap(p.direction.model, 60), at: cap(p.direction.at, 40), attempt: num(p.direction.attempt, 1, 9, 1), repaired: !!p.direction.repaired, seed: cap(p.direction.seed, 40) } : { source: 'ai', model: '', at: '', attempt: 1, repaired: false, seed: '' },
+        ...(p.fixture ? { fixture: cap(p.fixture, 160) } : {}),
+      };
+      return { plan, fixes, warnings, errors };
+    }
+
+    function sceneInk(bg, P) {
+      if (bg === 'invert') return { ink: P.bg, muted: mix(P.bg, P.ink, 0.3), surface: P.ink };
+      if (bg === 'accent') { const dark = contrast('#111111', P.accent) >= contrast('#f7f5f0', P.accent); return { ink: dark ? '#111111' : '#f7f5f0', muted: dark ? '#2a2a2a' : '#ece8e0', surface: P.accent }; }
+      return { ink: P.ink, muted: P.muted, surface: bg === 'deep' ? P.bg2 : P.bg };
+    }
+
+    // composition: the focal layer stays large and clear of the words; secondaries give way first
+    const MIN_FOCAL = { hero: 1300, scene: 650 };
+    function compose(scene, byId, fixes, warnings, hero) {
+      const focal = scene.layers.find(L => L.role === 'focal'); if (!focal) return;
+      const asset = focal.asset ? byId.get(focal.asset) : null;
+      const rect = k => (focal.kind === 'image' ? drawnRect(focal, asset, k) : focal.box[k].slice());
+      const min = hero ? MIN_FOCAL.hero : MIN_FOCAL.scene;
+      for (let i = 0; i < 4 && area(rect('d')) < min && focal.role !== 'backdrop'; i++) {
+        const b = focal.box.d; const g = Math.min(3, Math.max(1.05, Math.sqrt(min / Math.max(1, area(rect('d')))) * 1.03));
+        const w = Math.min(100, b[2] * g), h = Math.min(100, b[3] * g); focal.box.d = box([b[0] - (w - b[2]) / 2, b[1] - (h - b[3]) / 2, w, h], b);
+        if (i === 0) fixes.push(`scene ${scene.id}: focal picture enlarged to stay the main visual`);
+      }
+      if (focal.role === 'backdrop' || focal.box.d[2] >= 90) return; // a full-bleed focal carries the words over a scrim
+      if (!(scene.text.heading || scene.text.body || scene.text.items.length)) return;
+      let tb = REGION_BOXES[scene.text.region]; let r = rect('d');
+      if (overlap(r, tb) > area(r) * 0.06) {
+        // move the focal to the other side of the words, else move the words
+        const b = focal.box.d; const cx = tb[0] + tb[2] / 2;
+        const target = cx < 50 ? Math.max(tb[0] + tb[2] + 2, 100 - b[2]) : Math.min(tb[0] - b[2] - 2, 0);
+        const moved = box([cx < 50 ? Math.min(target, 100 - b[2]) : Math.max(0, target), b[1], b[2], b[3]], b);
+        const trial = Object.assign({}, focal, { box: Object.assign({}, focal.box, { d: moved }) });
+        const r2 = focal.kind === 'image' ? drawnRect(trial, asset, 'd') : moved;
+        if (overlap(r2, tb) <= area(r2) * 0.06) { focal.box.d = moved; fixes.push(`scene ${scene.id}: focal moved clear of the words`); }
+        else {
+          const other = OPPOSITE[scene.text.region]; if (overlap(r, REGION_BOXES[other]) <= area(r) * 0.06) { scene.text.region = other; fixes.push(`scene ${scene.id}: words moved clear of the focal`); }
+          else { scene.text.scrim = true; warnings.push(`scene ${scene.id}: words sit over the focal picture -- a scrim keeps them readable`); }
+        }
+      }
+      // secondaries never cover the words
+      tb = REGION_BOXES[scene.text.region];
+      scene.layers.forEach(L => { if (L === focal || L.role === 'backdrop' || L.role === 'texture') return; const lr = L.kind === 'image' ? drawnRect(L, byId.get(L.asset), 'd') : L.box.d; if (overlap(lr, tb) > area(lr) * 0.25 && L.opacity > 0.35) { L.opacity = 0.3; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: ${L.id} faded behind the words`); } });
+    }
+
+    module.exports = { validatePlan2, VOCAB, LIMITS, REGION_BOXES, contrast, sceneInk };
+
+  });
   __define("director", function (module, exports, require) {
     'use strict';
     // CREATIVE — the scene director. Turns what is known about a subject (understanding,
@@ -1372,7 +1643,439 @@
     module.exports = { renderCreative, esc, cleanTitle, FONTS };
 
   });
-  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), director: __require('director'), render: __require('render') };
+  __define("render2", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — renderer for v2 (scene) plans. The same reusable mechanics serve every subject:
+    //   scenes of any number and height, optionally PINNED (the scene holds while scroll scrubs its
+    //   layers), a stage of layers per scene (pictures, drawn shapes, giant words) with masks,
+    //   treatments, depth, entrance choreography, ambient loops and scroll-linked movement, a
+    //   per-scene camera, page atmosphere, a thread that runs through the page, and a complete
+    //   reduced-motion composition. The plan (validated data) decides how they are used; nothing in it
+    //   is executed. Output: one self-contained document, used for the studio preview and the export.
+    //
+    //   renderCreative2(plan, assets, { src(asset) -> url, mode: 'preview'|'export', motion: 'full'|'reduced' })
+
+    const { esc, cleanTitle, FONTS } = require('./render');
+    const { drawnRect } = require('./validate');
+
+    const FONT2 = Object.assign({}, FONTS, {
+      mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
+      condensed: `"Arial Narrow", "Roboto Condensed", "Helvetica Neue Condensed", "Franklin Gothic Medium Cond", "Segoe UI", sans-serif`,
+      script: `"Segoe Script", "Brush Script MT", "Snell Roundhand", cursive`,
+    });
+    const WEIGHT = { didone: 700, grotesk: 800, serif: 700, rounded: 700, slab: 700, mono: 700, condensed: 700, script: 400 };
+    const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
+    const HEIGHT_VH = { screen: 100, tall: 100, short: 64, auto: 0 };
+
+    function renderCreative2(plan, assets, opts) {
+      const o = opts || {}; const mode = o.mode === 'export' ? 'export' : 'preview';
+      const byId = new Map((assets || []).filter(a => a && !a.removed).map(a => [a.id, a]));
+      const src = a => (a && o.src ? o.src(a) : '') || '';
+      const P = plan.palette; const hero = plan.scenes[0];
+      // facts numbered in reading order; only cited ones are listed
+      const citeNo = new Map(); const factById = new Map(plan.facts.map(f => [f.id, f]));
+      plan.scenes.forEach(s => { [s.text.cite, ...s.text.items.map(i => i.cite)].forEach(c => { if (c && factById.has(c) && !citeNo.has(c)) citeNo.set(c, citeNo.size + 1); }); });
+      const cite = c => (c && citeNo.has(c) ? `<a class="cr-cite" href="#cr-sources" aria-label="Source ${citeNo.get(c)}">[${citeNo.get(c)}]</a>` : '');
+      const edit = k => ` data-edit="${esc(k)}"`;
+      const creditOf = a => { const base = a && a.cutoutOf ? byId.get(a.cutoutOf) : a; if (!base || base.origin === 'upload') return ''; const cr = plan.credits.find(x => x.asset === base.id); return cr ? [cr.author && cr.author.slice(0, 60), cr.license].filter(Boolean).join(' · ') : ''; };
+
+      const sceneHtml = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode })).join('\n');
+      const navItems = plan.scenes.slice(1).filter(s => s.navLabel).slice(0, 5).map(s => `<li><a href="#${esc(s.id)}">${esc(s.navLabel)}</a></li>`).join('') + '<li><a href="#cr-sources">Sources</a></li>';
+      const nav = `<header class="cr-nav"><a class="cr-brand" href="#top">${esc(hero.text.heading || plan.identity.name)}</a><nav aria-label="Scenes"><ul class="cr-links">${navItems}</ul><details class="cr-menu"><summary>Contents</summary><ul>${navItems}</ul></details></nav></header>`;
+      const kindNote = plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? 'A work of imagination: nothing on this page describes real events.' : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
+      const cited = [...citeNo.keys()].map(k => factById.get(k));
+      const sources = `<footer class="cr-foot" id="cr-sources"><details class="cr-sources"><summary>Sources and credits</summary>
+        <p class="cr-kinds">${plan.identity.kind === 'personal' ? 'Words about them come from the family. ' : ''}${plan.identity.kind === 'fictional' ? 'Facts marked with a number describe the stories, as reported by the source below. ' : ''}Headlines and lines not marked with a number are written for this page and are not facts.</p>
+        ${cited.length ? `<h3>Facts</h3><p>From ${plan.sources.map(s => `<a href="${esc(s.url)}" rel="noopener">${esc(s.title)}</a>${s.license ? ` (${esc(s.license)})` : ''}${s.retrieved ? `, retrieved ${esc(String(s.retrieved).slice(0, 10))}` : ''}`).join(', ') || 'the sources below'}.</p><ol class="cr-factlist">${cited.map(f => `<li>${esc(f.text)}</li>`).join('')}</ol>` : ''}
+        ${plan.credits.length ? `<h3>Pictures</h3><ul class="cr-credits">${plan.credits.map(c => `<li><a href="${esc(c.url)}" rel="noopener">${esc(cleanTitle(c.title))}</a>${c.author ? ` by ${esc(c.author)}` : ''}${c.license ? `, ${c.licenseUrl ? `<a href="${esc(c.licenseUrl)}" rel="noopener license">${esc(c.license)}</a>` : esc(c.license)}` : ''}${plan.derived.some(d => d.from === c.asset) ? ' — background removed by SiteRemade' : ''}</li>`).join('')}</ul>` : ''}
+        </details><p class="cr-footnote">${kindNote}</p><p class="cr-made">Made with SiteRemade Creative</p></footer>`;
+      const scene = { thread: plan.thread.kind, tempo: plan.motion.tempo, mode, focal: focalCfg(hero, byId) };
+      const t = hero.text;
+      return `<!doctype html>
+    <html lang="en" class="cr cr2" data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${esc(t.heading || plan.identity.name)}</title>
+    <meta name="description" content="${esc((plan.concept.logline || t.body || '').slice(0, 160))}">
+    <meta name="generator" content="SiteRemade Creative">
+    <script>document.documentElement.classList.add('cr-js')</script>
+    <style>${css(plan, P)}</style>
+    </head>
+    <body>
+    <a class="cr-skip" href="#main">Skip to content</a>
+    ${nav}
+    <main id="main">
+    <svg class="cr-connector" aria-hidden="true" focusable="false"></svg>
+    ${sceneHtml}
+    ${sources}
+    </main>
+    ${plan.fixture ? `<p class="cr-fixture" role="note">${esc(plan.fixture)}</p>` : ''}
+    <script type="application/json" id="cr-scene">${JSON.stringify(scene).replace(/</g, '\\u003c')}</script>
+    <script>${RUNTIME2}${mode === 'preview' ? PREVIEW2 : ''}</script>
+    </body>
+    </html>`;
+    }
+
+    function focalCfg(s, byId) {
+      const f = s.layers.find(L => L.role === 'focal' && L.kind === 'image'); if (!f) return null;
+      const a = byId.get(f.asset); return { fit: f.fit, aspect: (a && a.assess && a.assess.aspect) || 1, bbox: (a && a.assess && a.assess.subject) || [0, 0, 1, 1] };
+    }
+    function initials(t) { return String(t || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''); }
+
+    function particles(atm, count) {
+      if (atm.particles === 'none' || !count) return '';
+      let seed = 11; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      if (atm.particles === 'stars') { const dots = []; for (let i = 0; i < count * 3; i++) dots.push(`${(r() * 100).toFixed(1)}vw ${(r() * 100).toFixed(1)}vh 0 ${r() < 0.15 ? 1 : 0}px rgba(255,255,255,${(0.3 + r() * 0.6).toFixed(2)})`); return `<div class="pt" data-kind="stars" aria-hidden="true"><i class="pt-stars" style="box-shadow:${dots.join(',')}"></i></div>`; }
+      const parts = []; for (let i = 0; i < count; i++) { const k = atm.particles; const size = k === 'fog' ? 40 + r() * 50 : k === 'clouds' ? 14 + r() * 18 : k === 'steam' ? 6 + r() * 8 : k === 'bubbles' ? 0.4 + r() * 1.4 : k === 'petals' || k === 'confetti' ? 0.5 + r() * 0.7 : 0.15 + r() * 0.35; parts.push(`<i style="--px:${(r() * 100).toFixed(1)};--py:${(r() * 100).toFixed(1)};--ps:${size.toFixed(2)};--pd:${(r() * -20).toFixed(1)}s;--pt:${(9 + r() * 16).toFixed(1)}s;--pr:${Math.round(r() * 360)}deg"></i>`); }
+      return `<div class="pt" data-kind="${atm.particles}" aria-hidden="true">${parts.join('')}</div>`;
+    }
+
+    function renderLayer(L, si, c) {
+      const [x, y, w, h] = L.box.d; const [mx, my, mw, mh] = L.box.m;
+      const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s`;
+      let art = '';
+      if (L.kind === 'image') {
+        const a = c.byId.get(L.asset); if (!a) return '';
+        const wd = (a.assess && a.assess.width) || 1200, ht = (a.assess && a.assess.height) || 900;
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" style="object-fit:${L.fit};object-position:${L.focus}"><div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+      } else if (L.kind === 'shape') {
+        art = `<div class="shape" data-form="${L.shape.form}" data-fill="${L.shape.fill}"${L.shape.stroke ? ' data-stroke' : ''}>${L.shape.form === 'wave' ? '<svg viewBox="0 0 200 40" preserveAspectRatio="none"><path d="M0 20 Q 25 0 50 20 T 100 20 T 150 20 T 200 20" /></svg>' : ''}</div>`;
+      } else {
+        art = `<span class="ly-word" data-style="${L.word.style}" style="--len:${Math.max(2, L.word.text.length)}">${esc(L.word.text)}</span>`;
+      }
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}">${art}</div></div></div></div></div>`;
+    }
+
+    function renderScene(s, si, c) {
+      const k = `scenes.${si}.text`; const t = s.text; const hero = si === 0;
+      const H = hero ? 'h1' : 'h2';
+      const words = t.entrance === 'split-words' ? String(t.heading).split(/\s+/).map((w, j) => `<span class="w" style="--i:${j}">${esc(w)}</span>`).join(' ') : esc(t.heading);
+      const items = t.items.length ? `<ol class="sc-list" data-list="${t.list}">${t.items.map((it, j) => `<li class="sc-item" style="--i:${j}">${it.label ? `<span class="sc-label"${c.edit(`${k}.items.${j}.label`)}>${esc(it.label)}</span>` : ''}<span${c.edit(`${k}.items.${j}.text`)}>${esc(it.text)}</span>${c.cite(it.cite)}</li>`).join('')}</ol>` : '';
+      const heroFocal = hero ? s.layers.find(L => L.role === 'focal' && L.kind === 'image') : null;
+      const credit = heroFocal ? c.creditOf(c.byId.get(heroFocal.asset)) : '';
+      const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}">
+          ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}"${t.entrance === 'split-words' ? '' : c.edit(`${k}.heading`)} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
+          ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"><span${c.edit(`${k}.body`)}>${esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
+          ${items}
+          ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
+        </div>`;
+      const count = hero || s.atmosphere ? Math.round(c.plan.atmosphere.density * (c.plan.atmosphere.particles === 'stars' ? 60 : 22)) : 0;
+      const atmos = hero || s.atmosphere ? `<div class="sc-world" aria-hidden="true"><div class="sc-backdrop"></div><div class="sc-light" data-light="${c.plan.atmosphere.light}"></div>${particles(c.plan.atmosphere, count)}${c.plan.atmosphere.grain ? '<div class="sc-grain"></div>' : ''}</div>` : '';
+      const ink = s.ink || {};
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}" data-camera="${s.camera}" data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      <div class="sc-pin">${atmos}
+        <div class="sc-stage">${s.layers.map(L => renderLayer(L, si, c)).join('')}</div>
+        ${text}
+        ${credit ? `<p class="cr-herocredit">Picture: ${esc(credit)}</p>` : ''}
+      </div>
+    </section>`;
+    }
+
+    // ---------------------------------------------------------------- CSS
+    function css(plan, P) {
+      const d = plan.type.display;
+      return `
+    :root{--bg:${P.bg};--bg2:${P.bg2};--ink:${P.ink};--muted:${P.muted};--accent:${P.accent};--glow:${P.glow};--accent-rgb:${hexRgb(P.accent)};--glow-rgb:${hexRgb(P.glow)};--ink-rgb:${hexRgb(P.ink)};--bg-rgb:${hexRgb(P.bg)};
+    --display:${FONT2[d]};--dw:${WEIGHT[d]};--body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--k:1;--nav:58px}
+    html[data-tempo="slow"]{--k:.6}html[data-tempo="lively"]{--k:1.25}html[data-tempo="still"]{--k:0}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}html[data-motion="reduced"]{scroll-behavior:auto}
+    body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--body);overflow-x:clip}
+    main{position:relative;display:block;overflow-x:clip}a{color:inherit}img{max-width:none}
+    .cr-skip{position:absolute;left:-999px;top:8px;background:var(--ink);color:var(--bg);padding:8px 12px;z-index:50}.cr-skip:focus{left:8px}
+    .cr-nav{position:fixed;inset:0 0 auto 0;height:var(--nav);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 clamp(16px,3vw,40px);z-index:40;background:linear-gradient(rgba(var(--bg-rgb),.7),rgba(var(--bg-rgb),0));color:var(--ink)}
+    .cr-brand{font-family:var(--display);font-weight:var(--dw);text-decoration:none;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45vw}
+    .cr-links{display:flex;gap:clamp(12px,2vw,26px);list-style:none;margin:0;padding:0;font-size:13px;letter-spacing:.05em}.cr-links a{text-decoration:none;opacity:.8}.cr-links a:hover,.cr-links a:focus{opacity:1;text-decoration:underline}
+    .cr-menu{display:none;position:relative}.cr-menu summary{cursor:pointer;list-style:none;font-size:14px;padding:8px 12px;border:1px solid rgba(var(--ink-rgb),.35);border-radius:99px}.cr-menu summary::-webkit-details-marker{display:none}
+    .cr-menu ul{position:absolute;right:0;top:44px;list-style:none;margin:0;padding:10px 0;background:var(--bg);border:1px solid rgba(var(--ink-rgb),.2);border-radius:12px;min-width:180px}.cr-menu li a{display:block;padding:10px 18px;text-decoration:none}
+    /* scenes */
+    .sc{position:relative;color:var(--s-ink,var(--ink));background:var(--s-surface,var(--bg))}
+    .sc[data-bg="deep"]{background:linear-gradient(180deg,var(--bg2),var(--bg))}
+    .sc[data-bg="tint"]{background:linear-gradient(180deg,rgba(var(--accent-rgb),.10),rgba(var(--accent-rgb),.04))}
+    .sc-pin{position:relative;min-height:calc(var(--sh,0)*1vh);display:grid;grid-template-columns:5% 1fr 1fr 5%;grid-template-rows:auto;align-items:center;padding:calc(var(--nav) + 4vh) 0 6vh;overflow:clip;isolation:isolate}
+    .sc[data-height="screen"],.sc[data-height="tall"]{--sh:100}.sc[data-height="short"]{--sh:64}.sc[data-height="auto"]{--sh:0}
+    .sc[data-height="auto"] .sc-pin{padding:clamp(80px,12vh,150px) 0}
+    .sc[data-pin]{height:230vh}.sc[data-pin] .sc-pin{position:sticky;top:0;height:100vh;min-height:0}
+    .sc-world{position:absolute;inset:0;z-index:0;overflow:hidden}.sc-backdrop{position:absolute;inset:-6%}.sc-light{position:absolute;inset:0;pointer-events:none}
+    .sc-stage{position:absolute;inset:0;z-index:3;will-change:transform;transform-origin:60% 55%}
+    .sc-text{position:relative;z-index:6;grid-row:1;width:100%;max-width:100%;container-type:inline-size}
+    .sc-text[data-region="left"],.sc-text[data-region="top-left"],.sc-text[data-region="bottom-left"]{grid-column:2}
+    .sc-text[data-region="right"],.sc-text[data-region="top-right"],.sc-text[data-region="bottom-right"]{grid-column:3}
+    /* centred blocks keep a definite width (they are size containers for their heading), centred by margins */
+    .sc-text[data-region="center"],.sc-text[data-region="top"],.sc-text[data-region="bottom"]{grid-column:2 / 4;text-align:center;margin-inline:auto}
+    .sc-text[data-region^="top"]{align-self:start}.sc-text[data-region^="bottom"]{align-self:end}
+    .sc-text[data-width="narrow"]{max-width:34ch}.sc-text[data-width="medium"]{max-width:52ch}.sc-text[data-width="wide"]{max-width:70ch}
+    .sc-text[data-region="center"][data-width="wide"],.sc-text[data-region="top"][data-width="wide"],.sc-text[data-region="bottom"][data-width="wide"]{max-width:min(64ch,86vw)}
+    .sc-text.has-scrim{padding:22px 26px;border-radius:14px;background:rgba(var(--bg-rgb),.72);backdrop-filter:blur(6px)}
+    .sc-kicker{margin:0 0 14px;text-transform:uppercase;letter-spacing:.22em;font-size:12.5px;font-weight:700;color:var(--accent)}
+    .sc[data-bg="accent"] .sc-kicker,.sc[data-bg="invert"] .sc-kicker{color:var(--s-ink)}
+    .sc-heading{margin:0;font-family:var(--display);font-weight:var(--dw);line-height:1;letter-spacing:-.015em;text-wrap:balance;overflow-wrap:break-word}
+    html[data-case="upper"] .sc-heading{text-transform:uppercase;letter-spacing:.01em}
+    .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.8rem,7.2vw,7.4rem),calc(170cqi / var(--lw)));line-height:.94}
+    html[data-scale="monumental"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(3.2rem,9vw,9.5rem),calc(175cqi / var(--lw)))}
+    html[data-scale="quiet"] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(2.4rem,5vw,5rem),calc(170cqi / var(--lw)))}
+    .sc-text[data-size="large"] .sc-heading{font-size:min(clamp(2rem,4.4vw,4rem),calc(170cqi / var(--lw)))}
+    .sc-text[data-size="medium"] .sc-heading{font-size:min(clamp(1.6rem,3vw,2.7rem),calc(170cqi / var(--lw)))}
+    .sc-text[data-size="small"] .sc-heading{font-size:clamp(1.3rem,2vw,1.8rem)}
+    .sc-body{margin:20px 0 0;font-size:clamp(16px,1.25vw,19px);color:var(--s-muted,var(--muted))}
+    .sc-text[data-region="center"] .sc-body,.sc-text[data-region="top"] .sc-body,.sc-text[data-region="bottom"] .sc-body{margin-left:auto;margin-right:auto}
+    .sc-cta{display:inline-flex;align-items:center;gap:10px;margin-top:26px;padding:12px 20px;border-radius:99px;background:var(--accent);color:var(--bg);text-decoration:none;font-weight:700;font-size:15px}
+    .sc-cta:focus-visible,.cr-links a:focus-visible{outline:3px solid var(--glow);outline-offset:3px}
+    .sc-list{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:14px;text-align:left}
+    .sc-item{position:relative;font-size:clamp(15px,1.15vw,18px)}
+    .sc-label{display:block;font-family:var(--display);font-weight:var(--dw);color:var(--accent);font-size:1.5em;line-height:1.1}
+    .sc[data-bg="accent"] .sc-label,.sc[data-bg="invert"] .sc-label{color:var(--s-ink)}
+    .sc-list[data-list="numbered"]{counter-reset:n}.sc-list[data-list="numbered"] .sc-item{counter-increment:n;padding-left:58px}.sc-list[data-list="numbered"] .sc-item::before{content:counter(n,decimal-leading-zero);position:absolute;left:0;top:-4px;font-family:var(--display);font-weight:var(--dw);font-size:28px;color:var(--accent)}
+    .sc-list[data-list="timeline"]{border-left:2px solid rgba(var(--accent-rgb),.55);padding-left:24px;gap:22px}.sc-list[data-list="timeline"] .sc-item::before{content:"";position:absolute;left:-32px;top:7px;width:13px;height:13px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 5px rgba(var(--accent-rgb),.2)}
+    .sc-list[data-list="notes"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}.sc-list[data-list="notes"] .sc-item{background:rgba(var(--glow-rgb),.12);border:1px solid rgba(var(--glow-rgb),.3);padding:18px;border-radius:14px 14px 14px 2px;font-family:var(--display)}
+    .sc-list[data-list="labelled"] .sc-item{border-top:1px solid rgba(var(--ink-rgb),.18);padding-top:12px}
+    .cr-cite{font-size:.62em;vertical-align:super;margin-left:3px;text-decoration:none;color:var(--accent)}
+    .cr-herocredit{position:absolute;right:14px;bottom:8px;margin:0;font-size:11px;opacity:.6;z-index:6;max-width:50%;text-align:right}
+    /* layers */
+    .ly{position:absolute;left:calc(var(--x)*1%);top:calc(var(--y)*1%);width:calc(var(--w)*1%);height:calc(var(--h)*1%);z-index:var(--z);opacity:var(--op)}
+    .ly-scroll,.ly-in,.ly-loop,.ly-art{position:absolute;inset:0}
+    .ly-scroll{will-change:transform}
+    .ly-art{transform:rotate(var(--rot));container-type:size}
+    .ly-img{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .ly[data-kind="image"] .ly-art[data-mask="none"] .ly-img{object-position:50% 100%}
+    .ly-art[data-mask="circle"]{clip-path:circle(50% at 50% 50%)}
+    .ly-art[data-mask="diamond"]{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+    .ly-art[data-mask="arch"]{border-radius:999px 999px 16px 16px;overflow:hidden}
+    .ly-art[data-mask="window"]{border-radius:18px;overflow:hidden;box-shadow:0 28px 60px rgba(0,0,0,.35)}
+    .ly-art[data-mask="frame"]{border:clamp(7px,1vw,14px) solid #2b2016;outline:2px solid rgba(var(--accent-rgb),.8);outline-offset:-6px;overflow:hidden;box-shadow:0 28px 60px rgba(0,0,0,.45);background:#111}
+    .ly-art[data-mask="porthole"]{border-radius:50%;overflow:hidden;border:clamp(9px,1.3vw,18px) solid #b8893d;box-shadow:inset 0 0 40px rgba(0,0,0,.45),0 0 0 4px #6d4b1c,0 28px 60px rgba(0,0,0,.4)}
+    .ly-art[data-mask="torn"]{clip-path:polygon(0 3%,8% 0,17% 4%,26% 1%,35% 5%,46% 1%,57% 4%,68% 0,79% 5%,90% 1%,100% 4%,98% 16%,100% 30%,97% 45%,100% 60%,97% 75%,100% 90%,96% 100%,85% 96%,74% 100%,62% 97%,50% 100%,38% 96%,27% 100%,15% 97%,4% 100%,0 88%,3% 74%,0 60%,3% 45%,0 30%,2% 15%)}
+    .ly-art[data-mask="blob"]{border-radius:42% 58% 63% 37% / 41% 44% 56% 59%;overflow:hidden}
+    .ly-art[data-mask="polaroid"]{background:#f4efe6;padding:4% 4% 14%;box-shadow:0 22px 50px rgba(0,0,0,.35)}.ly-art[data-mask="polaroid"] .ly-img{position:relative;height:100%}
+    .ly-art[data-mask="slit"]{clip-path:inset(0 30% 0 30% round 999px)}
+    .ly-art[data-treatment="shadow"] .ly-img,.ly-art[data-treatment="shadow"] .shape{filter:drop-shadow(0 22px 26px rgba(0,0,0,.4))}
+    .ly-art[data-treatment="glow"] .ly-img,.ly-art[data-treatment="glow"] .shape{filter:drop-shadow(0 0 1.2px rgba(var(--glow-rgb),.75)) drop-shadow(0 0 26px rgba(var(--glow-rgb),.5))}
+    .ly-art[data-treatment="mono"] .ly-img{filter:grayscale(1) contrast(1.08)}
+    .ly-art[data-treatment="duotone"] .ly-img{filter:grayscale(1) contrast(1.15)}.ly-art[data-treatment="duotone"]::after{content:"";position:absolute;inset:0;background:var(--accent);mix-blend-mode:color;pointer-events:none}
+    .ly-art[data-treatment="outline"] .ly-img{filter:drop-shadow(0 0 0 var(--ink)) drop-shadow(1px 0 0 var(--ink)) drop-shadow(-1px 0 0 var(--ink)) drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink))}
+    .ly-art[data-treatment="soft"] .ly-img{filter:blur(1.5px) saturate(.9)}
+    .ly-art[data-treatment="grain"]::after,.sc-grain{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-radial-gradient(circle at 17% 32%,rgba(255,255,255,.035) 0 1px,transparent 1px 3px),repeating-radial-gradient(circle at 71% 64%,rgba(0,0,0,.05) 0 1px,transparent 1px 4px);mix-blend-mode:overlay}
+    .cr-missing{display:none}[data-img].is-missing .ly-img{visibility:hidden}
+    [data-img].is-missing .cr-missing{display:flex;position:absolute;inset:0;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,rgba(var(--accent-rgb),.32),rgba(var(--accent-rgb),.06) 60%,transparent 72%);font-family:var(--display);font-weight:var(--dw);color:var(--ink);font-size:clamp(24px,6vw,96px)}
+    /* drawn shapes */
+    .shape{position:absolute;inset:0;--f:var(--accent)}
+    .shape[data-fill="glow"]{--f:var(--glow)}.shape[data-fill="ink"]{--f:var(--ink)}.shape[data-fill="muted"]{--f:var(--muted)}.shape[data-fill="bg2"]{--f:var(--bg2)}
+    .shape[data-form="circle"]{border-radius:50%;background:var(--f)}
+    .shape[data-form="ring"]{border-radius:50%;border:max(3px,6cqmin) solid var(--f)}
+    .shape[data-form="triangle"]{background:var(--f);clip-path:polygon(50% 0,100% 100%,0 100%)}
+    .shape[data-form="diamond"]{background:var(--f);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+    .shape[data-form="star"]{background:var(--f);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+    .shape[data-form="cross"]{background:var(--f);clip-path:polygon(38% 0,62% 0,62% 38%,100% 38%,100% 62%,62% 62%,62% 100%,38% 100%,38% 62%,0 62%,0 38%,38% 38%)}
+    .shape[data-form="blob"]{background:var(--f);border-radius:42% 58% 63% 37% / 41% 44% 56% 59%}
+    .shape[data-form="arc"]{border-radius:50%;border:max(3px,4cqmin) solid var(--f);border-bottom-color:transparent;border-left-color:transparent}
+    .shape[data-form="line"]{top:calc(50% - 1.5px);bottom:auto;height:3px;background:var(--f)}
+    .shape[data-form="dots"]{background:radial-gradient(circle,var(--f) 22%,transparent 24%) 0 0/28px 28px}
+    .shape[data-form="sunburst"]{border-radius:50%;background:repeating-conic-gradient(var(--f) 0 6deg,transparent 6deg 15deg);mask:radial-gradient(circle,#000 30%,transparent 70%);-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%)}
+    .shape[data-form="stripes"]{background:repeating-linear-gradient(115deg,var(--f) 0 10px,transparent 10px 26px)}
+    .shape[data-form="wave"] svg{width:100%;height:100%}.shape[data-form="wave"] path{fill:none;stroke:var(--f);stroke-width:3}
+    .shape[data-stroke]:not([data-form="ring"]):not([data-form="arc"]):not([data-form="wave"]):not([data-form="line"]){background:transparent;box-shadow:inset 0 0 0 3px var(--f)}
+    /* giant words */
+    .ly-word{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:var(--dw);line-height:.85;white-space:nowrap;font-size:min(92cqh,calc(165cqw / var(--len)));color:var(--accent)}
+    .ly-word[data-style="outline"]{color:transparent;-webkit-text-stroke:max(1px,.6cqmin) var(--accent)}
+    .ly-word[data-style="ghost"]{color:var(--ink);opacity:.08}
+    /* atmosphere */
+    html[data-backdrop="gradient"] .sc-backdrop{background:radial-gradient(ellipse at 70% 30%,var(--bg2),var(--bg) 70%)}
+    html[data-backdrop="spotlight"] .sc-backdrop{background:radial-gradient(ellipse 55% 75% at 68% -5%,rgba(var(--glow-rgb),.5),rgba(var(--glow-rgb),0) 60%),radial-gradient(ellipse 80% 40% at 68% 100%,var(--bg2),var(--bg) 70%)}
+    html[data-backdrop="fog"] .sc-backdrop{background:radial-gradient(ellipse 40% 50% at 78% 18%,rgba(var(--glow-rgb),.3),transparent 65%),linear-gradient(180deg,var(--bg2),var(--bg) 75%)}
+    html[data-backdrop="water"] .sc-backdrop{background:linear-gradient(180deg,var(--bg2) 0,var(--bg) 75%)}
+    html[data-backdrop="water"] .sc-backdrop::before{content:"";position:absolute;inset:-20% 0 0 0;background:repeating-linear-gradient(100deg,rgba(255,255,255,.09) 0 3%,transparent 3% 9%);-webkit-mask-image:linear-gradient(180deg,#000,transparent 70%);mask-image:linear-gradient(180deg,#000,transparent 70%);animation:k-rays calc(14s / max(var(--k),.1)) ease-in-out infinite alternate}
+    html[data-backdrop="stars"] .sc-backdrop{background:radial-gradient(circle at 100% 110%,rgba(var(--accent-rgb),.45),transparent 38%),radial-gradient(ellipse at 30% 20%,var(--bg2),var(--bg) 70%)}
+    html[data-backdrop="sky"] .sc-backdrop{background:linear-gradient(180deg,var(--bg2),var(--bg))}
+    html[data-backdrop="paper"] .sc-backdrop{background:repeating-linear-gradient(0deg,rgba(0,0,0,.02) 0 2px,transparent 2px 5px),radial-gradient(ellipse at 60% 40%,var(--bg),var(--bg2))}
+    html[data-backdrop="grain"] .sc-backdrop{background:var(--bg)}html[data-backdrop="grain"] .sc-backdrop::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 30% 40%,rgba(var(--ink-rgb),.05) 0 1px,transparent 1px 3px)}
+    html[data-backdrop="horizon"] .sc-backdrop{background:linear-gradient(180deg,var(--bg) 0,var(--bg) 62%,var(--bg2) 62.3%,var(--bg) 100%)}
+    html[data-backdrop="vignette"] .sc-backdrop{background:radial-gradient(ellipse at 50% 45%,var(--bg2),var(--bg) 68%)}
+    html[data-backdrop="sunrise"] .sc-backdrop{background:radial-gradient(circle at 70% 105%,rgba(var(--glow-rgb),.9),rgba(var(--accent-rgb),.45) 22%,transparent 52%),linear-gradient(180deg,var(--bg),var(--bg2))}
+    html[data-backdrop="grid"] .sc-backdrop{background:linear-gradient(rgba(var(--ink-rgb),.06) 1px,transparent 1px) 0 0/56px 56px,linear-gradient(90deg,rgba(var(--ink-rgb),.06) 1px,transparent 1px) 0 0/56px 56px,var(--bg)}
+    .sc-light[data-light="spot"]{background:conic-gradient(from 180deg at 66% -10%,transparent 0 160deg,rgba(var(--glow-rgb),.13) 170deg,rgba(var(--glow-rgb),.2) 180deg,rgba(var(--glow-rgb),.13) 190deg,transparent 200deg);animation:k-breath calc(9s / max(var(--k),.1)) ease-in-out infinite}
+    .sc-light[data-light="lamp"]{background:radial-gradient(circle at 80% 16%,rgba(var(--glow-rgb),.35),transparent 35%)}
+    .sc-light[data-light="caustics"]{background:radial-gradient(ellipse 30% 12% at 30% 20%,rgba(255,255,255,.12),transparent 70%),radial-gradient(ellipse 25% 10% at 70% 35%,rgba(255,255,255,.1),transparent 70%);animation:k-caustic calc(11s / max(var(--k),.1)) ease-in-out infinite alternate}
+    .sc-light[data-light="rim"]{background:radial-gradient(circle at 75% 45%,rgba(var(--glow-rgb),.16),transparent 45%)}
+    .sc-light[data-light="sun"]{background:radial-gradient(circle at 85% 10%,rgba(255,255,255,.85),rgba(255,248,220,.3) 12%,transparent 40%)}
+    .pt{position:absolute;inset:0}.pt i{position:absolute;left:calc(var(--px)*1%);top:calc(var(--py)*1%);width:calc(var(--ps)*1vw);height:calc(var(--ps)*1vw);border-radius:50%;animation:k-dust var(--pt) linear infinite;animation-delay:var(--pd)}
+    .pt[data-kind="dust"] i,.pt[data-kind="sparks"] i{background:rgba(var(--glow-rgb),.75);box-shadow:0 0 6px rgba(var(--glow-rgb),.6)}
+    .pt[data-kind="sparks"] i{animation-name:k-rise}
+    .pt[data-kind="bubbles"] i{border:1.5px solid rgba(255,255,255,.55);background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5),rgba(255,255,255,.04) 60%);animation-name:k-rise}
+    .pt[data-kind="fog"] i{background:radial-gradient(closest-side,rgba(200,210,220,.13),transparent);animation-name:k-fog;border-radius:40%}
+    .pt[data-kind="clouds"] i{height:calc(var(--ps)*.4vw);background:radial-gradient(closest-side,rgba(255,255,255,.85),rgba(255,255,255,0));animation-name:k-cloud}
+    .pt[data-kind="steam"] i{height:calc(var(--ps)*2.4vw);background:radial-gradient(closest-side,rgba(255,255,255,.14),transparent);animation-name:k-steam}
+    .pt[data-kind="petals"] i,.pt[data-kind="confetti"] i{border-radius:60% 0 60% 0;background:var(--accent);opacity:.8;animation-name:k-fall}
+    .pt[data-kind="confetti"] i{border-radius:2px;height:calc(var(--ps)*.45vw)}
+    .pt[data-kind="snow"] i{background:rgba(255,255,255,.85);animation-name:k-fall}
+    .pt-stars{position:absolute;left:0;top:0;width:1px;height:1px;border-radius:50%;animation:k-twinkle 5s ease-in-out infinite alternate}
+    @keyframes k-dust{0%{transform:translate3d(0,0,0);opacity:0}20%{opacity:.8}100%{transform:translate3d(3vw,-18vh,0);opacity:0}}
+    @keyframes k-rise{0%{transform:translate3d(0,30vh,0);opacity:0}15%{opacity:.9}100%{transform:translate3d(1.5vw,-60vh,0);opacity:0}}
+    @keyframes k-fall{0%{transform:translate3d(0,-20vh,0) rotate(var(--pr));opacity:0}15%{opacity:.85}100%{transform:translate3d(-4vw,70vh,0) rotate(calc(var(--pr) + 300deg));opacity:0}}
+    @keyframes k-fog{0%,100%{transform:translate3d(-10vw,0,0)}50%{transform:translate3d(8vw,-2vh,0)}}
+    @keyframes k-cloud{0%{transform:translate3d(-30vw,0,0)}100%{transform:translate3d(30vw,0,0)}}
+    @keyframes k-steam{0%{transform:translate3d(0,10vh,0) scale(.6);opacity:0}30%{opacity:1}100%{transform:translate3d(2vw,-30vh,0) scale(1.4);opacity:0}}
+    @keyframes k-twinkle{0%{opacity:.35}100%{opacity:1}}
+    @keyframes k-rays{0%{transform:translateX(-2%) skewX(-2deg)}100%{transform:translateX(2%) skewX(2deg)}}
+    @keyframes k-breath{0%,100%{opacity:.75}50%{opacity:1}}
+    @keyframes k-caustic{0%{transform:translate3d(-2%,0,0)}100%{transform:translate3d(3%,2%,0) scale(1.08)}}
+    /* entrances (only with scripting) */
+    .cr-js .ly-in{transition:transform var(--dur) cubic-bezier(.2,.9,.25,1) var(--delay),opacity calc(var(--dur)*.7) ease var(--delay),clip-path var(--dur) cubic-bezier(.6,0,.2,1) var(--delay)}
+    .cr-js .sc:not(.is-in) [data-entrance="rise"].ly-in{transform:translate3d(0,14%,0);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="descend"].ly-in{transform:translate3d(0,-45%,0) rotate(-4deg);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="drop"].ly-in{transform:translate3d(0,-110%,0);opacity:0}
+    .cr-js [data-entrance="drop"].ly-in,.cr-js [data-entrance="descend"].ly-in,.cr-js [data-entrance="pop"].ly-in{transition-timing-function:cubic-bezier(.3,1.35,.45,1),ease,ease}
+    .cr-js .sc:not(.is-in) [data-entrance="pop"].ly-in{transform:scale(.55);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="fade"].ly-in{opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="unveil"].ly-in{clip-path:inset(100% 0 0 0)}
+    .cr-js [data-entrance="unveil"].ly-in{clip-path:inset(0 0 0 0)}
+    .cr-js .sc:not(.is-in) [data-entrance="dolly"].ly-in{transform:scale(1.18);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="slide-left"].ly-in{transform:translate3d(18%,0,0);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="slide-right"].ly-in{transform:translate3d(-18%,0,0);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="spin-in"].ly-in{transform:rotate(-90deg) scale(.5);opacity:0}
+    .cr-js .sc-text>*{transition:transform .9s cubic-bezier(.2,.9,.25,1),opacity .8s ease}
+    .cr-js .sc:not(.is-in) .sc-text[data-entrance="rise"]>*{opacity:0;transform:translate3d(0,24px,0)}
+    .cr-js .sc:not(.is-in) .sc-text[data-entrance="fade"]>*{opacity:0}
+    .cr-js .sc-text>*:nth-child(2){transition-delay:.1s}.cr-js .sc-text>*:nth-child(3){transition-delay:.2s}.cr-js .sc-text>*:nth-child(4){transition-delay:.3s}.cr-js .sc-text>*:nth-child(5){transition-delay:.4s}
+    .cr-js .sc-text[data-entrance="split-words"] .w{display:inline-block;transition:opacity .6s ease calc(var(--i)*.06s),transform .7s cubic-bezier(.2,.9,.25,1) calc(var(--i)*.06s)}
+    .cr-js .sc:not(.is-in) .sc-text[data-entrance="split-words"] .w{opacity:0;transform:translate3d(0,.4em,0)}
+    .cr-js .sc-item{transition:opacity .6s ease calc(.3s + var(--i)*.09s),transform .7s cubic-bezier(.2,.9,.25,1) calc(.3s + var(--i)*.09s)}
+    .cr-js .sc:not(.is-in) .sc-item{opacity:0;transform:translate3d(0,18px,0)}
+    /* ambient loops, after the entrance */
+    .sc.is-in .ly-loop{animation:var(--ln,none) calc(var(--period) / max(var(--k),.1)) ease-in-out calc(var(--delay) + var(--dur)) infinite}
+    [data-loop="float"]{--ln:k-float}[data-loop="sway"]{--ln:k-sway}[data-loop="swim"]{--ln:k-swim}[data-loop="breathe"]{--ln:k-breathe}[data-loop="drift"]{--ln:k-drift}[data-loop="spin"]{--ln:k-spin}[data-loop="pulse"]{--ln:k-pulse}[data-loop="orbit"]{--ln:k-orbit}[data-loop="bob"]{--ln:k-bob}
+    .sc.is-in .ly-loop[data-loop="spin"]{animation-timing-function:linear}
+    @keyframes k-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,calc(var(--amp)*var(--k)*-1.4%),0)}}
+    @keyframes k-sway{0%,100%{transform:rotate(calc(var(--amp)*var(--k)*-1.4deg))}50%{transform:rotate(calc(var(--amp)*var(--k)*1.4deg))}}
+    @keyframes k-swim{0%,100%{transform:translate3d(0,0,0) rotate(0)}25%{transform:translate3d(calc(var(--amp)*var(--k)*1.6%),calc(var(--amp)*var(--k)*-1%),0) rotate(calc(var(--amp)*var(--k)*1deg))}75%{transform:translate3d(calc(var(--amp)*var(--k)*-1.6%),calc(var(--amp)*var(--k)*.6%),0) rotate(calc(var(--amp)*var(--k)*-1deg))}}
+    @keyframes k-breathe{0%,100%{transform:scale(1)}50%{transform:scale(calc(1 + var(--amp)*var(--k)*.015))}}
+    @keyframes k-drift{0%,100%{transform:translate3d(calc(var(--amp)*var(--k)*-1%),0,0)}50%{transform:translate3d(calc(var(--amp)*var(--k)*1%),calc(var(--amp)*var(--k)*-.6%),0)}}
+    @keyframes k-spin{to{transform:rotate(360deg)}}
+    @keyframes k-pulse{0%,100%{opacity:1}50%{opacity:calc(1 - var(--amp)*.2)}}
+    @keyframes k-orbit{0%{transform:rotate(0) translate3d(calc(var(--amp)*var(--k)*2%),0,0) rotate(0)}100%{transform:rotate(360deg) translate3d(calc(var(--amp)*var(--k)*2%),0,0) rotate(-360deg)}}
+    @keyframes k-bob{0%,100%{transform:translate3d(0,0,0) rotate(0)}30%{transform:translate3d(0,calc(var(--amp)*var(--k)*-2%),0) rotate(calc(var(--amp)*var(--k)*-2deg))}60%{transform:translate3d(0,calc(var(--amp)*var(--k)*.6%),0) rotate(calc(var(--amp)*var(--k)*1.5deg))}}
+    /* thread */
+    .cr-connector{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
+    .cr-connector .cr-dot{transition:opacity .5s ease,transform .6s cubic-bezier(.3,1.4,.5,1);transform-box:fill-box;transform-origin:center}.cr-connector .cr-dot:not(.on){opacity:0;transform:scale(.3)}
+    /* sources */
+    .cr-foot{padding:48px clamp(20px,7vw,150px) 36px;font-size:13px;color:var(--muted);border-top:1px solid rgba(var(--ink-rgb),.12)}
+    .cr-sources summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:14px}
+    .cr-sources h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin:22px 0 8px}
+    .cr-factlist,.cr-credits{padding-left:20px}.cr-factlist li,.cr-credits li{margin:0 0 6px;overflow-wrap:anywhere}
+    .cr-footnote,.cr-made{margin:16px 0 0;max-width:70ch}
+    .cr-fixture{position:fixed;left:10px;bottom:10px;z-index:60;margin:0;max-width:min(340px,calc(100vw - 20px));padding:6px 10px;border-radius:6px;background:#ffe14d;color:#111;font:600 12px/1.35 var(--body);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+    /* phones: words and stage stacked; the stage keeps each scene's composition in its own boxes */
+    @media (max-width:720px){
+      body{font-size:16px}.cr-links{display:none}.cr-menu{display:block}
+      .sc-pin{display:flex;flex-direction:column;align-items:stretch;padding:calc(var(--nav) + 12px) 0 40px;min-height:0}
+      .sc[data-height="auto"] .sc-pin{padding:64px 0}
+      .sc-text{order:1;padding:0 20px 0 26px;text-align:left!important;justify-self:auto;max-width:none!important}
+      .sc-text.has-scrim{margin:0 14px;padding:16px}
+      .sc[data-morder="stage-first"] .sc-text{order:3}
+      .sc-stage{order:2;position:relative;inset:auto;flex:0 0 auto;height:min(112vw,64svh);margin:16px 0}
+      .sc[data-height="short"] .sc-stage{height:min(80vw,46svh)}.sc[data-height="auto"] .sc-stage{height:min(96vw,56svh)}
+      .sc[data-pin]{height:180vh}.sc[data-pin] .sc-pin{height:100svh;justify-content:center}.sc[data-pin] .sc-stage{height:min(100vw,52svh)}
+      .ly{left:calc(var(--mx)*1%);top:calc(var(--my)*1%);width:calc(var(--mw)*1%);height:calc(var(--mh)*1%)}
+      .ly[data-hide-m]{display:none}
+      .sc-text[data-size="display"] .sc-heading{font-size:min(14vw,calc(160cqi / var(--lw)))}
+      .sc-text[data-size="large"] .sc-heading{font-size:min(10vw,calc(160cqi / var(--lw)))}
+      .sc-body{font-size:15.5px;margin-top:12px}
+      .cr-herocredit{position:static;padding:0 20px 0 26px;order:4;max-width:none;text-align:left}
+      .cr-foot{padding:36px 20px 28px 26px}
+    }
+    /* reduced motion: the complete still composition */
+    html[data-motion="reduced"] *,html[data-motion="reduced"] *::before,html[data-motion="reduced"] *::after{animation:none!important;transition:none!important}
+    html[data-motion="reduced"] .ly-in,html[data-motion="reduced"] .sc-text>*,html[data-motion="reduced"] .sc-item,html[data-motion="reduced"] .w{opacity:1!important;transform:none!important;clip-path:none!important}
+    html[data-motion="reduced"] .ly-scroll,html[data-motion="reduced"] .sc-stage{transform:none!important;clip-path:none!important}
+    html[data-motion="reduced"] .sc[data-pin]{height:auto}html[data-motion="reduced"] .sc[data-pin] .sc-pin{position:relative;height:auto;min-height:100vh}
+    html[data-motion="reduced"] .cr-connector .cr-dot{opacity:1;transform:none}
+    @media print{.cr-nav,.cr-connector,.sc-world{display:none}}
+    `;
+    }
+
+    // ---------------------------------------------------------------- runtime (fixed code; reads only numbers/enums)
+    const RUNTIME2 = `
+    (function(){
+    var d=document,html=d.documentElement,W=window,cfg={};try{cfg=JSON.parse(d.getElementById('cr-scene').textContent)}catch(e){}
+    function reduced(){return html.getAttribute('data-motion')==='reduced'}
+    if(W.matchMedia&&W.matchMedia('(prefers-reduced-motion: reduce)').matches)html.setAttribute('data-motion','reduced');
+    var scenes=[].slice.call(d.querySelectorAll('.sc')),hero=scenes[0],mainEl=d.getElementById('main');
+    function markMissing(img){var f=img.closest('[data-img]');if(f)f.classList.add('is-missing');W.__crMissing=(W.__crMissing||0)+1}
+    [].forEach.call(d.querySelectorAll('img[data-asset]'),function(img){if(!img.getAttribute('src')){markMissing(img);return}img.addEventListener('error',function(){markMissing(img)});img.addEventListener('load',function(){var f=img.closest('[data-img]');if(f)f.classList.remove('is-missing');layout()});if(img.complete&&img.naturalWidth===0)markMissing(img)});
+    /* entrances: the hero when its focal picture has decoded; every other scene as it arrives */
+    function enter(s){if(!s.classList.contains('is-in')){s.classList.add('is-in');if(s===hero)W.__crEntered=Date.now()}}
+    if(hero){var f=hero.querySelector('[data-role="subject"] img');var go=function(){requestAnimationFrame(function(){enter(hero)})};if(!f||reduced())enter(hero);else{if(f.decode)f.decode().then(go,go);else go();setTimeout(function(){enter(hero)},2500)}}
+    var io=('IntersectionObserver' in W)?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){enter(e.target);e.target.classList.add('is-seen');io.unobserve(e.target)}})},{rootMargin:'0px 0px -12% 0px',threshold:0}):null;
+    scenes.slice(1).forEach(function(s){if(io&&!reduced())io.observe(s);else{enter(s);s.classList.add('is-seen')}});
+    /* scroll: each scene's progress p (0 arriving .. 1 leaving; pinned scenes: through their hold) drives its layers and camera */
+    var ticking=false;
+    function prog(s,vh){var r=s.getBoundingClientRect();if(s.hasAttribute('data-pin')){var span=r.height-vh;return span>0?Math.max(0,Math.min(1,-r.top/span)):0}return Math.max(0,Math.min(1,(vh-r.top)/(vh+r.height)))}
+    function tf(kind,a,p,vw,vh){var q=p-.5;switch(kind){
+     case 'parallax':return 'translate3d(0,'+(-q*a*vh*.3).toFixed(1)+'px,0)';
+     case 'drift-x':return 'translate3d('+(q*a*vw*.35).toFixed(1)+'px,0,0)';
+     case 'rise':return 'translate3d(0,'+((1-p)*a*vh*.35).toFixed(1)+'px,0)';
+     case 'sink':return 'translate3d(0,'+(p*a*vh*.3).toFixed(1)+'px,0)';
+     case 'zoom-in':return 'scale('+(1+p*Math.abs(a)*.55).toFixed(3)+')';
+     case 'zoom-out':return 'scale('+(1+(1-p)*Math.abs(a)*.55).toFixed(3)+')';
+     case 'rotate':return 'rotate('+(q*a*80).toFixed(1)+'deg)';
+     case 'pass-through':return 'translate3d('+(-q*a*vw*1.1).toFixed(1)+'px,0,0)';
+     default:return ''}}
+    function cam(kind,p){var q=p-.5;switch(kind){case 'push-in':return 'scale('+(1+p*.12).toFixed(3)+')';case 'pull-out':return 'scale('+(1.12-p*.12).toFixed(3)+')';case 'pan-left':return 'translate3d('+(-q*6).toFixed(2)+'%,0,0)';case 'pan-right':return 'translate3d('+(q*6).toFixed(2)+'%,0,0)';case 'rise':return 'translate3d(0,'+(-q*8).toFixed(2)+'%,0)';default:return ''}}
+    function frame(){ticking=false;var vh=W.innerHeight,vw=W.innerWidth,red=reduced();
+      scenes.forEach(function(s){var r=s.getBoundingClientRect();if(r.bottom<-vh||r.top>vh*2)return;var p=prog(s,vh);var st=s.querySelector('.sc-stage');
+        if(st)st.style.transform=red?'':cam(s.getAttribute('data-camera'),p);
+        [].forEach.call(s.querySelectorAll('.ly-scroll'),function(l){var k=l.getAttribute('data-scroll');if(k==='none'){return}if(red){l.style.transform='';l.style.clipPath='';return}var a=+l.getAttribute('data-amount')||0;
+          if(k==='reveal'){var v=Math.min(1,p*1.8);l.style.clipPath='inset(0 0 '+((1-v)*100).toFixed(1)+'% 0)';return}l.style.transform=tf(k,a,p,vw,vh)})});
+      if(mask){var y=W.scrollY||W.pageYOffset,mt=mainEl.getBoundingClientRect().top+y,tY=Math.min(y+vh*.66-mt,startY+y*1.6),drawn=red?len:Math.max(0,Math.min(len,lenAtY(tY)));mask.setAttribute('stroke-dashoffset',(len-drawn).toFixed(1));dots.forEach(function(c){c.classList.toggle('on',c._at<=drawn+1)})}
+    }
+    function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(frame)}}
+    W.addEventListener('scroll',onScroll,{passive:true});
+    /* the thread: from the hero down the side margins, crossing only between scenes */
+    var svg=d.querySelector('.cr-connector'),NS='http://www.w3.org/2000/svg',mask=null,len=0,table=[],dots=[],startY=0;
+    function el(n,a){var e=d.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+    function lenAtY(y){if(!table.length||y<=table[0][0])return 0;for(var i=1;i<table.length;i++){if(table[i][0]>=y){var a=table[i-1],b=table[i];return a[1]+(b[1]-a[1])*((y-a[0])/Math.max(1,b[0]-a[0]))}}return len}
+    function focalPoint(){var f=hero&&hero.querySelector('[data-role="subject"]');if(!f||!cfg.focal||cfg.focal.fit!=='contain')return null;var r=f.getBoundingClientRect(),m=mainEl.getBoundingClientRect(),w=r.width,h=r.height,x=r.left-m.left,y=r.top-m.top,a=cfg.focal.aspect;if(w/h>a){var nw=h*a;x+=(w-nw)/2;w=nw}else{var nh=w/a;y+=h-nh;h=nh}var b=cfg.focal.bbox;return{x:x+w*(b[0]+(b[2]-b[0])*.5),y:y+h*(b[1]+(b[3]-b[1])*.97)}}
+    function layout(){
+      if(!svg||!mainEl||cfg.thread==='none'){frame();return}
+      var mw=mainEl.clientWidth,mh=mainEl.scrollHeight,phone=mw<=720;svg.setAttribute('viewBox','0 0 '+mw+' '+mh);svg.setAttribute('width',mw);svg.setAttribute('height',mh);while(svg.firstChild)svg.removeChild(svg.firstChild);dots=[];mask=null;
+      var rest=scenes.slice(1);if(!rest.length){frame();return}
+      var side=phone?10:Math.max(12,Math.min(80,mw*.035)),left=side,right=mw-side,band=phone?30:46,hb=hero.offsetTop+hero.offsetHeight,sp=phone?null:focalPoint(),pts=[];
+      pts.push(sp?{x:sp.x,y:sp.y}:{x:left,y:hb-band});
+      rest.forEach(function(s,i){pts.push({x:phone?left:(i%2?left:right),y:s.offsetTop+Math.min(s.offsetHeight*.5,W.innerHeight*.6),top:s.offsetTop})});
+      startY=pts[0].y;var f=function(v){return v.toFixed(1)},p='M'+f(pts[0].x)+' '+f(pts[0].y);
+      for(var i=1;i<pts.length;i++){var a=pts[i-1],b=pts[i],yb=Math.max(a.y+band+2,b.top);p+=' L'+f(a.x)+' '+f(yb-band)+' C'+f(a.x)+' '+f(yb)+' '+f(b.x)+' '+f(yb)+' '+f(b.x)+' '+f(yb+band)+' L'+f(b.x)+' '+f(b.y)}
+      var k=cfg.thread,accent=getComputedStyle(html).getPropertyValue('--accent').trim()||'#c33',wide=phone?8:28;
+      var defs=el('defs',{});mask=el('path',{d:p,fill:'none',stroke:'#fff','stroke-width':wide+16,'stroke-linecap':'butt'});var mk=el('mask',{id:'cr-thread-mask',maskUnits:'userSpaceOnUse',x:0,y:0,width:mw,height:mh});mk.appendChild(mask);defs.appendChild(mk);svg.appendChild(defs);
+      var g=el('g',{mask:'url(#cr-thread-mask)'});
+      if(k==='ribbon'){g.appendChild(el('path',{d:p,fill:'none',stroke:'rgba(0,0,0,.25)','stroke-width':wide,transform:'translate(3 6)'}));g.appendChild(el('path',{d:p,fill:'none',stroke:'#fbfaf6','stroke-width':wide}));g.appendChild(el('path',{d:p,fill:'none',stroke:'rgba(120,110,95,.5)','stroke-width':wide,'stroke-dasharray':'1.2 '+(phone?40:90)}))}
+      else if(k==='thread'){g.appendChild(el('path',{d:p,fill:'none',stroke:accent,'stroke-width':phone?1.6:2.4}))}
+      else if(k==='stitch'){g.appendChild(el('path',{d:p,fill:'none',stroke:accent,'stroke-width':phone?2:3,'stroke-dasharray':'10 8','stroke-linecap':'round'}))}
+      else if(k==='orbit'){g.appendChild(el('path',{d:p,fill:'none',stroke:accent,'stroke-width':phone?2:3,'stroke-dasharray':'0.1 12','stroke-linecap':'round',opacity:.85}))}
+      else if(k==='line'){g.appendChild(el('path',{d:p,fill:'none',stroke:accent,'stroke-width':phone?1.5:2,opacity:.8}))}
+      svg.appendChild(g);len=mask.getTotalLength();table=[];for(var s=0;s<=240;s++){var q=mask.getPointAtLength(len*s/240);table.push([q.y,len*s/240])}
+      if(k==='bubbles'){for(var t=40;t<len;t+=phone?46:70){var q2=mask.getPointAtLength(t),rr=(phone?3:5)+((t*7919)%9);var c=el('circle',{cx:f(q2.x),cy:f(q2.y),r:rr,fill:'rgba(255,255,255,.12)',stroke:'rgba(255,255,255,.6)','stroke-width':1.3,'class':'cr-dot'});c._at=t;svg.appendChild(c);dots.push(c)}}
+      if(k==='thread'){pts.slice(1).forEach(function(pt){var c=el('circle',{cx:pt.x,cy:pt.y,r:phone?4:6,fill:accent,stroke:'#fff','stroke-width':2,'class':'cr-dot'});c._at=lenAtY(pt.y);svg.appendChild(c);dots.push(c)})}
+      mask.setAttribute('stroke-dasharray',len+' '+len);frame()}
+    var rt;W.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(layout,120)});
+    if('ResizeObserver' in W&&mainEl){var last=0;new ResizeObserver(function(){var h=mainEl.scrollHeight;if(Math.abs(h-last)>2){last=h;clearTimeout(rt);rt=setTimeout(layout,120)}}).observe(mainEl)}
+    if(d.readyState==='complete')layout();else W.addEventListener('load',layout);setTimeout(layout,60);
+    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('.cr-cite');if(a){var s=d.querySelector('.cr-sources');if(s)s.open=true}});
+    W.__crLayout=layout;W.__crFrame=frame;
+    })();`;
+    const PREVIEW2 = `
+    (function(){var d=document,html=d.documentElement;
+    window.addEventListener('message',function(e){if(e.source!==window.parent)return;var m=e.data||{};
+      if(m.type==='cr-edit'){[].forEach.call(d.querySelectorAll('[data-edit]'),function(n){if(n.getAttribute('data-edit')===m.key)n.textContent=String(m.text==null?'':m.text)});if(window.__crLayout)window.__crLayout()}
+      else if(m.type==='cr-motion'){html.setAttribute('data-motion',m.motion==='reduced'?'reduced':'full');if(m.tempo)html.setAttribute('data-tempo',m.tempo);[].forEach.call(d.querySelectorAll('.sc'),function(s){s.classList.add('is-in','is-seen')});if(window.__crLayout)window.__crLayout()}
+      else if(m.type==='cr-replay'){var h=d.querySelector('.sc');if(h){h.classList.remove('is-in');void h.offsetWidth;setTimeout(function(){h.classList.add('is-in')},80)}}
+    });
+    d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(h&&h.charAt(0)==='#')return;e.preventDefault()});
+    })();`;
+
+    module.exports = { renderCreative2 };
+
+  });
+  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), validate2: __require('validate2'), director: __require('director'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

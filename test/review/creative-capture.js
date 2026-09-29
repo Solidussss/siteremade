@@ -30,9 +30,9 @@ function lumaStats(img) { const bmp = img.toBitmap(); const { width, height } = 
 function diffShare(a, b) { const A = a.toBitmap(), B = b.toBitmap(); const { width, height } = a.getSize(); const s2 = b.getSize(); if (s2.width !== width || s2.height !== height) return null; let n = 0, d = 0; for (let y = 0; y < height; y += 4) for (let x = 0; x < width; x += 4) { const i = (y * width + x) * 4; n++; if (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) > 24) d++; } return +(100 * d / n).toFixed(2); }
 
 const MEASURE_HERO = `(() => {
-  const vw = document.documentElement.clientWidth; const f = document.querySelector('.cr-layer[data-role="subject"]'); let s = null;
+  const vw = document.documentElement.clientWidth; const f = document.querySelector('.cr-hero [data-role="subject"]'); let s = null;
   if (f && getComputedStyle(f).display !== 'none') { const r = f.getBoundingClientRect(); const img = f.querySelector('img'); let x = r.left, y = r.top, w = r.width, h = r.height;
-    if (f.dataset.fit === 'contain' && img && img.naturalWidth) { const a = img.naturalWidth / img.naturalHeight; if (w / h > a) { const nw = h * a; x += (w - nw) / 2; w = nw; } else { const nh = w / a; y += h - nh; h = nh; } }
+    if ((f.dataset.fit || (img && img.style.objectFit) || 'cover') === 'contain' && img && img.naturalWidth) { const a = img.naturalWidth / img.naturalHeight; if (w / h > a) { const nw = h * a; x += (w - nw) / 2; w = nw; } else { const nh = w / a; y += h - nh; h = nh; } }
     const cx0 = Math.max(0, x), cy0 = Math.max(0, y), cx1 = Math.min(innerWidth, x + w), cy1 = Math.min(innerHeight, y + h);
     let ok = 0, n = 0; for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) { const px = x + w * (i + .5) / 12, py = y + h * (j + .5) / 12; if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue; n++; const hit = document.elementFromPoint(px, py); if (hit && (f.contains(hit) || hit === f)) ok++; }
     s = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), viewportShare: +(Math.max(0, cx1 - cx0) * Math.max(0, cy1 - cy0) / (innerWidth * innerHeight)).toFixed(3), onScreen: +((Math.max(0, cx1 - cx0) * Math.max(0, cy1 - cy0)) / Math.max(1, w * h)).toFixed(2), uncovered: n ? +(ok / n).toFixed(2) : null }; }
@@ -41,7 +41,7 @@ const MEASURE_HERO = `(() => {
     let ok = 0, n = 0; for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) { const x = b.left + 1 + (b.width - 2) * i / 5, y = b.top + b.height * (j + .5) / 3; if (y < 0 || y >= innerHeight || x < 0 || x >= innerWidth) continue; n++; const hit = document.elementFromPoint(x, y); if (hit && (el.contains(hit) || hit.contains(el))) ok++; }
     return { el: el.className.split(' ')[0], text: el.textContent.trim().slice(0, 50), left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom), inside: b.left >= 0 && b.right <= vw + .5, clipped: el.scrollWidth > el.clientWidth + 1, overSubject: +(ov / Math.max(1, b.width * b.height)).toFixed(3), readable: n ? +(ok / n).toFixed(2) : null }; });
   const se = document.scrollingElement; const hero = document.querySelector('.cr-hero');
-  return { subject: s, texts, horizontalOverflow: se.scrollWidth > se.clientWidth + 1, missing: window.__crMissing || 0, entered: hero.classList.contains('is-in'), heroHeight: Math.round(hero.getBoundingClientRect().height), layers: document.querySelectorAll('.cr-layer').length };
+  return { subject: s, texts, horizontalOverflow: se.scrollWidth > se.clientWidth + 1, missing: window.__crMissing || 0, entered: hero.classList.contains('is-in'), heroHeight: Math.round(hero.getBoundingClientRect().height), layers: document.querySelectorAll('.cr-layer, .ly').length };
 })()`;
 const AFTER_SCROLL = `(() => { const m = document.querySelector('.cr-connector mask path'); const len = m ? m.getTotalLength() : 0; const off = m ? +m.getAttribute('stroke-dashoffset') : 0;
   const imgs = [...document.querySelectorAll('img[data-asset]')]; const se = document.scrollingElement;
@@ -108,7 +108,7 @@ async function capturePage(w, pg, view, width, height) {
   return rec;
 }
 async function fullPage(w, out, name, height) {
-  await js(w, `(() => { const s = document.createElement('style'); s.id = '__unpin'; s.textContent = '.cr-nav{position:absolute!important}.cr-fixture{position:absolute!important}'; document.head.appendChild(s); document.querySelectorAll('.cr-reveal').forEach(e => e.classList.add('is-seen')); return true; })()`);
+  await js(w, `(() => { const s = document.createElement('style'); s.id = '__unpin'; s.textContent = '.cr-nav{position:absolute!important}.cr-fixture{position:absolute!important}'; document.head.appendChild(s); document.querySelectorAll('.cr-reveal, .sc').forEach(e => e.classList.add('is-seen', 'is-in')); return true; })()`);
   const docH = await js(w, 'document.scrollingElement.scrollHeight'); const n = Math.min(24, Math.ceil(docH / height)); const files = [];
   const dir = path.join(out, name + '-parts'); fs.mkdirSync(dir, { recursive: true });
   for (let i = 0; i < n; i++) { const y = Math.min(i * height, docH - height); await js(w, `window.scrollTo({ top: ${y}, behavior: 'instant' }); true`); await sleep(260); const img = await grab(w); if (!img) continue; let im = img; if (i === n - 1 && i * height > docH - height) { const cut = Math.round((i * height - (docH - height)) * (img.getSize().height / height)); im = img.crop({ x: 0, y: cut, width: img.getSize().width, height: img.getSize().height - cut }); } const f = path.join(dir, `${String(i).padStart(2, '0')}.png`); fs.writeFileSync(f, im.toPNG()); files.push(f); }
@@ -119,7 +119,9 @@ async function fullPage(w, out, name, height) {
 }
 
 function newWindow() {
-  const w = new BrowserWindow({ width: 1440, height: 900, show: true, useContentSize: true, webPreferences: { backgroundThrottling: false } });
+  // visible (so it paints) but deaf to real mouse/keyboard input -- a stray wheel over it must not scroll a recording
+  const w = new BrowserWindow({ width: 1440, height: 900, show: true, focusable: false, useContentSize: true, webPreferences: { backgroundThrottling: false } });
+  w.setIgnoreMouseEvents(true);
   w.webContents.debugger.attach('1.3');
   return w;
 }
@@ -141,7 +143,7 @@ app.whenReady().then(async () => {
     try {
       const html = fs.readFileSync(pg.file, 'utf8');
       const subj = (/data-role="subject"[\s\S]*?src="(assets\/[^"]+)"/.exec(html) || [])[1];
-      const other = [...html.matchAll(/class="cr-(?:plate|photo)"[^>]*>\s*<img[^>]*src="(assets\/[^"]+)"/g)].map(m => m[1]).find(s => s !== subj);
+      const other = [...html.matchAll(/<img[^>]*src="(assets\/[^"]+)"/g)].map(m => m[1]).find(s => s !== subj);
       const fdir = path.join(job.outDir, 'pages', pg.id, 'failed-export'); fs.rmSync(fdir, { recursive: true, force: true }); fs.cpSync(pg.dir, fdir, { recursive: true });
       [subj, other].filter(Boolean).forEach(f => fs.rmSync(path.join(fdir, f), { force: true }));
       r.failure = { removed: [subj, other].filter(Boolean) };
@@ -149,7 +151,7 @@ app.whenReady().then(async () => {
         await load(w, null, width, height, false); await w.loadURL(pathToFileURL(path.join(fdir, 'index.html')).href).catch(() => {}); await sleep(3500);
         const img = await grab(w); if (img) fs.writeFileSync(path.join(job.outDir, 'pages', pg.id, view, 'failed-hero.png'), img.toPNG());
         r.failure[view] = await js(w, MEASURE_HERO);
-        r.failure[view + 'After'] = await js(w, `(() => { document.querySelectorAll('.cr-reveal').forEach(e => e.classList.add('is-seen')); const m = document.querySelectorAll('[data-img].is-missing'); const el = m[m.length - 1]; if (el) el.scrollIntoView({ block: 'center' }); return { missingFigures: m.length }; })()`);
+        r.failure[view + 'After'] = await js(w, `(() => { document.querySelectorAll('.cr-reveal, .sc').forEach(e => e.classList.add('is-seen', 'is-in')); const m = document.querySelectorAll('[data-img].is-missing'); const el = m[m.length - 1]; if (el) el.scrollIntoView({ block: 'center' }); return { missingFigures: m.length }; })()`);
         await sleep(600); const img2 = await grab(w); if (img2) fs.writeFileSync(path.join(job.outDir, 'pages', pg.id, view, 'failed-section.png'), img2.toPNG());
       }
     } catch (e) { r.failure = { error: String(e).slice(0, 300) }; }

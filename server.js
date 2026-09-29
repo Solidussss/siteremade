@@ -2313,18 +2313,83 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
 // ledger (data/premium/creative-ledger.jsonl), separate from Business costs.
 const creativeUnderstand = require('./lib/creative/understand');
 const creativeResearch = require('./lib/creative/research');
+// CREATIVE AI DIRECTION (lib/creative/ai.js): the model resolves what a brief is about (cheap
+// model) and directs the page (strong model, with thumbnails of the actual pictures). Creative-only
+// limits: a daily USD ceiling for all Creative AI calls on this server and a daily per-account cap
+// on direction calls -- both configurable (CREATIVE_DAILY_USD_CAP, CREATIVE_ACCOUNT_DAILY_PLANS),
+// neither shared with Business credits or budgets. Every call is written to creative-ledger.jsonl
+// with its tokens and ESTIMATED cost. The key stays here; the browser only ever sees validated plans.
+const creativeAi = require('./lib/creative/ai');
+const CREATIVE_AI_LIMITS = creativeAi.limits(process.env);
+const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: false };
+function creativeSpendToday() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; }
+  if (!creativeSpend.seeded) {
+    creativeSpend.seeded = true; // survive a restart: today's rows from the ledger
+    try {
+      premiumFs.readFileSync(path.join(PREMIUM_LOG_DIR, 'creative-ledger.jsonl'), 'utf8').split('\n').forEach(l => {
+        if (!l) return; let r; try { r = JSON.parse(l); } catch (e) { return; }
+        if (!r.at || r.at.slice(0, 10) !== day) return;
+        creativeSpend.usd += Number(r.usd) || 0;
+        if (r.kind === 'creative_direct' && r.accountId) creativeSpend.plansByAccount.set(r.accountId, (creativeSpend.plansByAccount.get(r.accountId) || 0) + 1);
+      });
+    } catch (e) { /* no ledger yet */ }
+  }
+  return creativeSpend;
+}
+function creativeAiAvailable() { return CREATIVE_AI_LIMITS.enabled && anthropicProvider.configured(); }
+async function creativeModelCall({ model, system, content, messages, tool, maxTokens, timeoutMs, cacheSystem }) {
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs || 90000); const t0 = Date.now();
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model, max_tokens: maxTokens, thinking: { type: 'disabled' }, system: [{ type: 'text', text: system, ...(cacheSystem ? { cache_control: { type: 'ephemeral' } } : {}) }], messages: messages || [{ role: 'user', content }], tools: [tool], tool_choice: { type: 'tool', name: tool.name } }),
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { const e = new Error((data && data.error && data.error.message) || `Anthropic returned ${response.status}`); e.status = response.status; throw e; }
+    const block = (data.content || []).find(b => b.type === 'tool_use' && b.name === tool.name);
+    if (!block || !block.input) throw new Error('the model returned no structured output');
+    if (data.stop_reason === 'max_tokens') throw new Error('the model ran out of output room before finishing');
+    return { input: block.input, toolUseId: block.id, usage: data.usage || {}, model: data.model || model, ms: Date.now() - t0 };
+  } finally { clearTimeout(timer); }
+}
+function creativeLedger(row) { const s = creativeSpendToday(); s.usd += Number(row.usd) || 0; premiumAppend('creative-ledger.jsonl', Object.assign({ at: new Date().toISOString() }, row)); }
+
 app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const brief = clean(req.body && req.body.brief, 1200);
   if (!brief) return res.status(400).json({ ok: false, message: 'Describe what the page should be about.' });
   const supplied = clean(req.body.supplied, 2000);
-  const choice = clean(req.body.choice, 120); // the owner's pick after an ambiguous result
-  const understanding = creativeUnderstand.understandBrief(brief, { supplied, uploads: !!req.body.hasUploads });
-  if (choice && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
+  const choice = clean(req.body.choice, 160); // the owner's pick after a clarification
   const startedAt = Date.now();
+  // 1. what the brief is about -- the model when available (identity before research), else the built-in reader
+  let understanding = creativeUnderstand.understandBrief(brief, { supplied, uploads: !!req.body.hasUploads });
+  let understandMeta = { source: 'rules', reason: creativeAiAvailable() ? '' : (CREATIVE_AI_LIMITS.enabled ? 'no model configured' : 'AI direction is switched off') };
+  if (creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
+    try {
+      const r = await creativeAi.understand({ brief, supplied, uploads: Number(req.body.hasUploads) || 0, choice }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+      const u = creativeAi.normaliseUnderstanding(r.raw, brief);
+      if (choice) { u.kind = u.identity.kind === 'ambiguous' ? 'recognizable' : u.identity.kind; u.clarify = null; }
+      understanding = Object.assign(u, { legacy: { tone: understanding.tone, purpose: understanding.purpose, asks: understanding.asks } });
+      understandMeta = { source: 'ai', model: r.model, ms: r.ms, usd: r.usd, usage: r.usage };
+      creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: true, model: r.model, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true, identity: u.identity.name, identityKind: u.identity.kind, clarify: !!u.clarify });
+    } catch (error) {
+      understandMeta = { source: 'rules', reason: `the understanding call failed (${String(error && error.message || error).slice(0, 120)})` };
+      creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
+    }
+  } else if (creativeAiAvailable()) understandMeta.reason = 'the daily Creative AI budget is used up';
+  if (understanding.clarify && !choice) {
+    return res.json({ ok: true, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], creditsCharged: 0 });
+  }
+  if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
   let result = { status: 'skipped', facts: [], images: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
   try {
-    if (understanding.kind === 'recognizable' || (understanding.kind === 'personal' && understanding.query)) {
-      result = await creativeResearch.research(understanding, { maxImages: 6, textOnly: understanding.kind === 'personal' });
+    const scope = understanding.research ? understanding.research.scope : (understanding.kind === 'recognizable' ? 'subject' : understanding.kind === 'personal' && understanding.query ? 'general-topic' : 'none');
+    if (scope !== 'none' && (understanding.query || (understanding.research && understanding.research.wikipediaTitles.length))) {
+      const titles = understanding.research ? understanding.research.wikipediaTitles.slice() : [];
+      if (choice) titles.unshift(choice);
+      result = await creativeResearch.research(understanding, { maxImages: 7, textOnly: understanding.kind === 'personal' || scope === 'general-topic', titles, queries: understanding.research ? understanding.research.commonsQueries : [] });
     }
   } catch (error) {
     console.error('Creative research failed:', error);
@@ -2339,7 +2404,52 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${i.mime};base64,${i.bytes.toString('base64')}`,
   }));
   premiumAppend('creative-ledger.jsonl', { at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
-  res.json({ ok: true, understanding, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log }, images, creditsCharged: 0 });
+  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log }, images, creditsCharged: 0 });
+});
+
+// The model directs the page. The browser sends what it has (understanding, the research facts, the
+// owner's details, the asset inventory with small thumbnails); the reply is a VALIDATED v2 plan, or
+// ok:false with the reason -- the studio then uses the built-in director and labels it as such.
+app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const b = req.body || {};
+  if (!creativeAiAvailable()) return res.json({ ok: false, fallback: true, reason: CREATIVE_AI_LIMITS.enabled ? 'no AI model is configured on this server' : 'AI direction is switched off (CREATIVE_AI_DIRECTION)' });
+  const spend = creativeSpendToday();
+  if (spend.usd >= CREATIVE_AI_LIMITS.dailyUsdCap) return res.json({ ok: false, fallback: true, reason: `the daily Creative AI budget ($${CREATIVE_AI_LIMITS.dailyUsdCap}) is used up` });
+  if ((spend.plansByAccount.get(req.accountId) || 0) >= CREATIVE_AI_LIMITS.accountDailyPlans) return res.json({ ok: false, fallback: true, reason: `this account has used today's ${CREATIVE_AI_LIMITS.accountDailyPlans} AI directions` });
+  const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : []);
+  const assets = arr(b.assets, 24).filter(a => a && typeof a.id === 'string').map(a => require('./lib/creative/store').cleanAsset(Object.assign({}, a, { dataUrl: undefined, assetRef: a.assetRef || '0'.repeat(64) }))).filter(Boolean);
+  const facts = arr(b.facts, 40).filter(f => f && f.id && f.text).map(f => ({ id: clean(f.id, 20), text: clean(f.text, 600), section: clean(f.section, 80) }));
+  const u = b.understanding && typeof b.understanding === 'object' ? b.understanding : {};
+  const input = {
+    brief: clean(b.brief, 1200), understanding: u, understandingLegacy: { kind: clean(u.kind, 20), subject: clean(u.subject, 120) },
+    page: b.page && typeof b.page === 'object' ? { title: clean(b.page.title, 200), description: clean(b.page.description, 300), url: clean(b.page.url, 400) } : null,
+    facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
+    assets, thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
+    avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
+  };
+  const startedAt = Date.now();
+  let r;
+  try {
+    r = await creativeAi.direct(input, {
+      limits: CREATIVE_AI_LIMITS, call: creativeModelCall,
+      budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out during this direction' } : { ok: true }),
+      onUsage: x => {
+        const s = creativeSpendToday(); s.plansByAccount.set(req.accountId, (s.plansByAccount.get(req.accountId) || 0) + 1);
+        creativeLedger({ kind: 'creative_direct', accountId: req.accountId, ok: true, attempt: x.attempt, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, cacheReadTokens: x.usage.cache_read_input_tokens || 0, cacheWriteTokens: x.usage.cache_creation_input_tokens || 0, ms: x.ms, usd: x.usd, estimated: true, thumbnails: input.thumbnails.length, anotherDirection: !!input.avoid });
+      },
+    });
+  } catch (error) {
+    console.error('Creative direction failed:', error);
+    creativeLedger({ kind: 'creative_direct', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
+    return res.json({ ok: false, fallback: true, reason: 'the AI direction failed unexpectedly' });
+  }
+  const usd = +(r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0).toFixed(5);
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error })), usdEstimated: usd, ms: Date.now() - startedAt };
+  if (!r.ok) {
+    creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
+    return res.json({ ok: false, fallback: true, reason: r.reason, meta });
+  }
+  res.json({ ok: true, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta });
 });
 
 // V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE

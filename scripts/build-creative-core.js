@@ -12,7 +12,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'creative');
 const OUT = path.join(ROOT, 'creative-core.js');
-const MODULES = ['understand', 'assets', 'validate', 'director', 'render']; // server-only: png, research, store
+const MODULES = ['understand', 'assets', 'validate', 'validate2', 'director', 'render', 'render2']; // server-only: ai, png, research, store
 
 function build() {
   const parts = MODULES.map(name => {
@@ -34,7 +34,7 @@ function build() {
     return m.exports;
   }
 ${parts.join('\n')}
-  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), director: __require('director'), render: __require('render') };
+  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), validate2: __require('validate2'), director: __require('director'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
