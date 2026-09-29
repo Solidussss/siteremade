@@ -633,11 +633,13 @@
 
     // numbers in a sentence (digits, and number words up to the thousands) -- an "imagined" line may not carry its own
     const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100, thousand: 1000 };
+    // ordinals, so "the eighteenth century" in a fact supports "18th century" in a label
+    const ORDW = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20, thirtieth: 30, fortieth: 40, fiftieth: 50, sixtieth: 60, seventieth: 70, eightieth: 80, ninetieth: 90, hundredth: 100, thousandth: 1000 };
     function numbersIn(t) {
       const out = new Set(); const s = String(t || '').toLowerCase().replace(/(\d),(\d{3})/g, '$1$2');
       (s.match(/\d+(?:\.\d+)?/g) || []).forEach(n => out.add(String(+n)));
-      s.replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine)\b/g, (m, a, b) => { out.add(String(NUMW[a] + NUMW[b])); return ' '; })
-        .split(/[^a-z]+/).forEach(w => { if (NUMW[w] && NUMW[w] > 2) out.add(String(NUMW[w])); });
+      s.replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b/g, (m, a, b) => { out.add(String(NUMW[a] + (NUMW[b] || ORDW[b]))); return ' '; })
+        .split(/[^a-z]+/).forEach(w => { const v = NUMW[w] || ORDW[w]; if (v && v > 2) out.add(String(v)); });
       return out;
     }
 
@@ -661,6 +663,12 @@
       if (personal) identity.kind = 'personal';
       const concept = { title: cap(p.concept && p.concept.title, 80), logline: cap(p.concept && p.concept.logline, 300), why: cap(p.concept && p.concept.why, 300) };
       if (!concept.logline) errors.push('concept: no logline -- say what the page is, in one or two sentences');
+      // headings, kickers, labels and the concept may not bring numbers of their own ("eighty million trees"): anything
+      // above a small count must be stated by a given fact or the owner's own details
+      const knownNums = new Set(); facts.concat((c.supplied || []).map(t => ({ text: t }))).forEach(f => numbersIn(f.text).forEach(n => knownNums.add(n)));
+      const unsupported = s => [...numbersIn(s)].filter(n => +n > 12 && !knownNums.has(n));
+      const checkNums = (where, what, s) => { const bad = unsupported(s); if (bad.length) errors.push(`${where}: the ${what} states ${bad.join(', ')}, which no given fact supports -- use a number from the facts, or none`); };
+      if (facts.length || (c.supplied || []).length) { checkNums('concept', 'title', concept.title); checkNums('concept', 'logline', concept.logline); }
       const palette = {}; const pal = p.palette || {};
       [['bg', '#111114'], ['bg2', '#22222a'], ['ink', '#f4f2ee'], ['muted', '#b9b5ad'], ['accent', '#e0b44c'], ['glow', '#fff3d6']].forEach(([k, d]) => { palette[k] = HEX.test(pal[k] || '') ? pal[k].toLowerCase() : d; });
       if (contrast(palette.ink, palette.bg) < 7) { palette.ink = lum(palette.bg) > 0.3 ? '#141414' : '#f6f3ee'; fixes.push('palette: text colour changed for legibility'); }
@@ -734,6 +742,7 @@
         if (tx.items && tx.items.length > LIMITS.items) fixes.push(`${where}: only the first ${LIMITS.items} lines kept`);
         // a numbered list already numbers its lines
         if (text.list === 'numbered') text.items.forEach(it => { if (/^\d+\.?$/.test(it.label)) it.label = ''; });
+        if (facts.length || (c.supplied || []).length) { checkNums(where, 'kicker', text.kicker); checkNums(where, 'heading', text.heading); text.items.forEach(it => checkNums(where, 'label', it.label)); }
         if (si === 0 && !text.heading) errors.push('hero: the first scene needs a heading (the page title)');
         // layers
         let layers = (Array.isArray(rs.layers) ? rs.layers : []).slice(0, LIMITS.layersPerScene).map((rl, li) => {

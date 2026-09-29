@@ -191,6 +191,20 @@ test('citations are read as the model writes them, but only given fact ids are e
   assert.ok(bad.errors.some(e => /"f9"/.test(e) && /f2…f3/.test(e)), 'the repair message names the bad cites and the valid ids');
 });
 
+test('headings, kickers, labels and the concept may not bring numbers no fact states (small counts are fine)', () => {
+  const facts = [{ id: 'f1', text: 'Trees were felled over an area of 2,150 km2 by the eighteenth century standards.' }];
+  const mk = (heading, kicker, logline) => ({ identity: { name: 'T' }, concept: { title: 'T', logline }, scenes: [{ id: 'a', purpose: 'p', layers: [], text: { heading, kicker } }, { id: 'b', purpose: 'p', layers: [], text: { heading: 'x', items: [{ label: '18th century', text: 'A line.', kind: 'imagined' }] } }] });
+  assert.deepEqual(validatePlan2(mk('Across 2,150 square kilometres', 'Two-ply. Twelve rolls.', 'A forest lies down.'), { assets: [], facts }).errors, []);
+  const v = validatePlan2(mk('Eighty million trees, pointed away', 'At 7:14', 'Eighty million trees fell.'), { assets: [], facts });
+  assert.ok(v.errors.some(e => /heading states 80/.test(e))); assert.ok(v.errors.some(e => /logline states 80/.test(e))); assert.ok(v.errors.some(e => /kicker states 14/.test(e)));
+});
+
+test('research keeps a date with an old-style bracket in one sentence', () => {
+  const { splitSentences } = require('../lib/creative/research');
+  const s = splitSentences('The explosion occurred on 30 June [O.S. 17 June] 1908, at around 7:14 in the morning. Trees fell.');
+  assert.equal(s[0], 'The explosion occurred on 30 June [O.S. 17 June] 1908, at around 7:14 in the morning.');
+});
+
 test('cost estimates come from the configured per-million prices', () => {
   const L = ai.limits({ PREMIUM_PRICE_STRONG_INPUT: '3', PREMIUM_PRICE_STRONG_OUTPUT: '15' });
   assert.equal(ai.estimateUsd({ input_tokens: 10000, output_tokens: 4000 }, L.prices.strong), 0.09);

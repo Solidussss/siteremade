@@ -91,6 +91,12 @@ Found by the real-model review and fixed (general fixes only)
 - a focal too wide to sit beside the words went straight to a scrim → it is made smaller to fit the free side first
 - words straight on full-bleed or backdrop photos had no scrim; faded photos still fought body text; outline words
   crossed headings; long headings stacked in the narrow column → a legibility pass after composition, every scene
+- real direction on the final deployment fell back: "5 of 10 sourced lines had no valid fact id" twice → citations are
+  read as written ("f2, f3", "F3", "[f3]" → the first given id); the repair message names the bad values and valid ids
+- the next real run put "Eighty million trees" in a heading, the logline and the page description -- true, but in no
+  given fact → numbers above twelve in kickers, headings, labels and the concept must come from a fact or the owner
+- research dropped the start of sentences with a stop that is not a boundary ("30 June [O.S. 17 June] 1908" became
+  "S. 17 June] 1908 …") → such stops stay inside the sentence
 - an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,
   still never from none
 
