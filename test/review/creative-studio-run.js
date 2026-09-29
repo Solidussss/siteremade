@@ -9,7 +9,8 @@
 //   main: the first upload is marked "Main subject" through its picture-role menu (as the owner would)
 //   gate: what the owner does if the studio stops because the subject has no usable picture:
 //         'stop' (record the request and end the case), 'abstract', 'continue', { adopt: n } (a review picture, rights
-//         affirmed), { upload: file } (supply a picture as the main subject, then continue)
+//         affirmed), { upload: file } (supply a picture as the main subject, then continue), 'pick' (build with the pre-selected
+//         best picture), { pick: [indexes] }
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -108,13 +109,18 @@ app.whenReady().then(async () => {
             await js(w, `(() => { const sels = document.querySelectorAll('[data-role-for]'); const sel = sels[sels.length - 1]; sel.value = 'main'; sel.dispatchEvent(new Event('change')); return true; })()`); await sleep(800);
             r.shots.push(await shot(w, `${c.id}-studio-gate-uploaded`));
           }
+          // the owner's pick: the pre-selected best picture (or the ones the case names), then Build
+          if (g === 'pick' || g.pick) {
+            if (g.pick) await js(w, `(() => { const S = SiteRemadeCreativeStudio.state(); S.picked = ${JSON.stringify(g.pick)}; return true; })()`);
+            r.picked = await js(w, `SiteRemadeCreativeStudio.state().picked`);
+          }
           if (g.adopt != null) {
             await js(w, `(() => { window.confirm = () => true; document.querySelector('[data-adopt="${g.adopt}"]').click(); return true; })()`);
             await until(w, `SiteRemadeCreativeStudio.state().assets.some(a => a.ownerAffirmed) || null`, 60000); await sleep(1500);
             r.shots.push(await shot(w, `${c.id}-studio-gate-adopted`));
           }
           const t1 = Date.now();
-          await js(w, g === 'abstract' ? `document.getElementById('csGateAbstract').click(), true` : `document.getElementById('csGateGo').click(), true`);
+          await js(w, g === 'abstract' ? `document.getElementById('csGateAbstract').click(), true` : (g === 'pick' || g.pick) ? `document.getElementById('csGatePick').click(), true` : `document.getElementById('csGateGo').click(), true`);
           // a repeated click must not start a second direction
           await js(w, `(() => { const b = document.getElementById('csGateGo') || document.getElementById('csGateAbstract'); if (b) b.click(); return true; })()`).catch(() => {});
           ok = await until(w, WAIT.replace("(document.querySelector('.cs-gate') && !S.busy ? 'gate' : (document.querySelector('.cs-choice') ? 'ambiguous' : null))", 'null'), 240000, 400);

@@ -15,7 +15,7 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false,
+      projectId: null, revision: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -184,7 +184,7 @@
   function renderThumbs() {
     var ups = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     var roles = [['auto', 'Let the page decide'], ['main', 'Main subject'], ['supporting', 'Supporting'], ['background', 'Background'], ['logo', 'Logo']];
-    els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
+    els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerPicked ? '<small title="' + esc(a.pageUrl || '') + '">picked from ' + esc(a.author || 'the web') + '</small>' : a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
     [].forEach.call(els.csThumbs.querySelectorAll('[data-rm]'), function (b) { b.addEventListener('click', function () { removeAsset(b.getAttribute('data-rm')); }); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-role-for]'), function (sel) { sel.addEventListener('change', function () { setUploadRole(sel.getAttribute('data-role-for'), sel.value); }); });
   }
@@ -215,11 +215,11 @@
     if (!S.brief) { els.csBrief.focus(); return; }
     if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
     if (S.dirty && S.plan && !choice && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
-    S.busy = true; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
+    S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
-    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and free-licence pictures)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
+    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    step('understand', 'active', 'Reading the brief, then looking it up: encyclopedia, Wikimedia Commons, web search if needed, and a check of the pictures (up to a minute)');
+    step('understand', 'active', 'Reading the brief, then looking it up: the encyclopedia for facts, a picture search, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
     return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
@@ -283,49 +283,72 @@
   function showGate(g) {
     S.gate = g || {}; var u = S.understanding || {}; var name = (u.identity && u.identity.name) || u.subject || 'the subject';
     var cur = (S.research && S.research.curation) || {}; var review = (S.research && S.research.review) || []; var web = cur.web || {};
-    var sources = 'Wikimedia Commons' + (web.ran ? (web.provider === 'google-images' ? ' and Google Images' : ' and a web search') : '');
-    step('direct', 'wait', 'Waiting for your choice (nothing is spent until you continue)');
-    var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>' : '<p><strong>We couldn\'t find usable artwork of ' + esc(name) + ' through ' + sources + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Web search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Web search: ' + esc(web.error) + '</p>' : '');
-    var dg = (S.research && S.research.diagnostics) || null; var checked = '';
+    var dg = (S.research && S.research.diagnostics) || null;
+    var parts = []; if (dg && dg.commons) parts.push('Wikimedia Commons'); if (web.ran) parts.push(web.provider === 'google-images' ? 'Google Images' : 'a web search');
+    var sources = parts.join(' and ') || 'our picture sources';
+    // the pick: the best picture the studio can fetch is pre-selected as the main picture; the owner decides
+    if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false) { S.picked.push(p); break; } }
+    step('direct', 'wait', review.length ? 'Pick the pictures to build with (nothing is spent until you do)' : 'Waiting for your choice (nothing is spent until you continue)');
+    var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>'
+      : review.length ? '<p><strong>Pictures of ' + esc(name) + ' found on ' + esc(sources) + '.</strong> Pick the ones to build with. The main picture leads the page.</p><p class="cs-hint">None of these states a licence. Whoever uses one is responsible for having the right to. Each picture is credited to its source on the page.</p>'
+      : '<p><strong>We couldn\'t find usable artwork of ' + esc(name) + ' through ' + esc(sources) + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Picture search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Picture search: ' + esc(web.error) + '</p>' : '');
+    var checked = '';
     if (dg) {
       var cj = (dg.commons && dg.commons.judged) || [], wj = (dg.web && dg.web.candidates) || [];
       var n = function (list, fn) { return list.filter(fn).length; };
       var isForm = function (x) { return x.verdict && x.verdict.identity === 'form'; }, isFan = function (x) { return x.verdict && x.verdict.identity === 'exact' && x.verdict.origin === 'fan'; }, isIt = function (x) { return x.verdict && x.verdict.identity === 'exact' && (x.verdict.role === 'subject' || x.verdict.role === 'detail') && x.verdict.origin !== 'fan'; };
-      var stageName = { discovery: 'Nothing found showed it', identity: 'Only real-world forms found', permission: 'Found, but no free licence stated', selection: 'Found, but not selected', provider: 'A provider step failed', processing: 'Found, but could not be read' }[dg.stage] || '';
-      checked = '<details class="cs-checked"><summary>What we checked' + (stageName ? ' — ' + esc(stageName) : '') + '</summary><ul>'
-        + '<li>Wikimedia Commons: ' + cj.length + ' pictures looked at — ' + n(cj, isIt) + ' showing it, ' + n(cj, isForm) + ' real-world forms (cosplay, figures, merchandise) not used' + (dg.commons && dg.commons.refused && dg.commons.refused.licence ? ', ' + dg.commons.refused.licence + ' refused for their licence' : '') + '</li>'
-        + (dg.web && dg.web.ran !== false ? '<li>' + (dg.web.provider === 'serpapi' ? 'Google Images' + (dg.web.products ? ' (' + dg.web.products + ' shopping results skipped)' : '') : 'Web search') + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(esc).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures looked at — ' + n(wj, isIt) + ' showing it, ' + n(wj, isFan) + ' fan-made and ' + n(wj, isForm) + ' real-world forms not used; licence of those showing it: ' + ['free', 'unclear', 'restricted'].map(function (st) { return n(wj.filter(isIt), function (x) { return x.permission && x.permission.status === st; }) + ' ' + st; }).join(', ') + '</li>' : '<li>Web search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
-        + (dg.note ? '<li>Where it stopped: ' + esc(dg.note) + '</li>' : '') + '</ul></details>';
+      checked = '<details class="cs-checked"><summary>What we checked</summary><ul>'
+        + (dg.commons ? '<li>Wikimedia Commons: ' + cj.length + ' pictures looked at — ' + n(cj, isIt) + ' showing it, ' + n(cj, isForm) + ' real-world forms not used</li>' : '')
+        + (dg.web && dg.web.ran !== false ? '<li>' + (dg.web.provider === 'serpapi' ? 'Google Images' + (dg.web.cached ? ' (saved results, no new search)' : '') + (dg.web.products ? ' (' + dg.web.products + ' shopping results skipped)' : '') : 'Web search') + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(function (q) { return esc(String(q).replace(/\s-\S+/g, '')); }).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures looked at — ' + n(wj, isIt) + ' showing it, ' + n(wj, isFan) + ' fan-made and ' + n(wj, isForm) + ' real-world forms (cosplay, figures, merchandise) left out</li>' : '<li>Picture search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
+        + (dg.note ? '<li>' + esc(dg.note) + '</li>' : '') + '</ul></details>';
     }
     var cards = review.map(function (r, i) {
-      return '<div class="cs-review"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + '</small>'
-        + '<small>Picture: ' + ({ official: 'official material', unknown: 'origin not certain' }[r.origin] || 'official material') + (r.query ? ' · found by “' + esc(String(r.query).replace(/\s-\S+/g, '')) + '”' : '') + '</small>'
-        + '<small class="cs-perm">Licence: ' + (r.permission.status === 'restricted' ? 'rights reserved' : 'none stated for this picture') + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') + ' — ' + esc(r.permission.note || '') + '</small>'
-        + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> ' + (r.adoptable === false ? '<small>This site does not allow the studio to download it: save it from its page and upload it, if you have the rights.</small>' : '<button type="button" class="cs-btn cs-ghost" data-adopt="' + i + '">Use it — I have the rights</button>') + '</div></div>';
+      var at = S.picked.indexOf(i), can = r.adoptable !== false;
+      return '<div class="cs-review' + (at >= 0 ? ' is-picked' : '') + '"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + ' · ' + ({ official: 'official material', unknown: 'origin not certain' }[r.origin] || 'official material') + '</small>'
+        + '<small class="cs-perm">Licence: ' + (r.permission.status === 'restricted' ? 'rights reserved' + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') : 'none stated') + '</small>'
+        + '<a href="' + esc(r.pageUrl) + '" target="_blank" rel="noopener">Open its page ↗</a> '
+        + (can ? '<span class="cs-pick-actions">' + (at === 0 ? '<span class="cs-main-badge">Main picture</span> ' : '') + '<button type="button" class="cs-btn cs-ghost" data-pick="' + i + '">' + (at >= 0 ? 'Remove' : 'Use this picture') + '</button>' + (at > 0 ? ' <button type="button" class="cs-btn cs-ghost" data-main="' + i + '">Make it the main picture</button>' : '') + '</span>'
+          : '<small>This site does not let the studio download it: save it from its page and upload it.</small>') + '</div></div>';
     }).join('');
     var ok = usableSubject() && !S.gate.problem;
-    els.csChoices.innerHTML = '<div class="cs-gate">' + h1
-      + checked + (review.length ? '<p>Pictures of it we found, but that are not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
-      + '<div class="cs-gate-actions">' + (ok ? '<button type="button" class="cs-btn cs-primary" id="csGateGo">Continue with these pictures</button>' : '') + '<button type="button" class="cs-btn" id="csGateUpload">Upload pictures</button>'
-      + (S.refines < 2 ? '<span class="cs-refine"><input type="text" id="csGateQuery" maxlength="100" placeholder="Search again for… (e.g. ' + esc(name) + ' official artwork)"><button type="button" class="cs-btn cs-ghost" id="csGateSearch">Search again</button></span>' : '')
+    var pickN = S.picked.length;
+    els.csChoices.innerHTML = '<div class="cs-gate">' + h1 + cards
+      + '<div class="cs-gate-actions">' + (pickN ? '<button type="button" class="cs-btn cs-primary" id="csGatePick">Build with ' + (pickN === 1 ? 'this picture' : 'these ' + pickN + ' pictures') + '</button>' : '')
+      + (ok ? '<button type="button" class="cs-btn' + (pickN ? ' cs-ghost' : ' cs-primary') + '" id="csGateGo">Continue with the pictures I have</button>' : '') + '<button type="button" class="cs-btn" id="csGateUpload">Upload pictures</button>'
+      + (S.refines < 2 ? '<span class="cs-refine"><input type="text" id="csGateQuery" maxlength="100" placeholder="Search again for… (e.g. ' + esc(name) + ' official art)"><button type="button" class="cs-btn cs-ghost" id="csGateSearch">Search again</button></span>' : '')
       + (S.gate.problem ? '' : '<button type="button" class="cs-btn cs-ghost" id="csGateAbstract">Continue with an abstract page instead</button>') + '</div>'
-      + '<p class="cs-hint">Your brief and research are kept whichever you choose.</p></div>';
+      + checked + '<p class="cs-hint">Your brief and research are kept whichever you choose.</p></div>';
     // one choice per gate: the buttons that start paid work lock the gate so a repeated click cannot start it twice
     var lock = function () { [].forEach.call(els.csChoices.querySelectorAll('.cs-gate button'), function (b) { b.disabled = true; }); };
+    var pk = document.getElementById('csGatePick'); if (pk) pk.addEventListener('click', function () { if (S.busy) return; lock(); buildWithPicked(review); });
     var go = document.getElementById('csGateGo'); if (go) go.addEventListener('click', function () { if (S.busy) return; lock(); proceedToDirection(); });
     document.getElementById('csGateUpload').addEventListener('click', function () { S.gateUploadPending = true; els.csUpload.click(); });
     var ab = document.getElementById('csGateAbstract'); if (ab) ab.addEventListener('click', function () { if (S.busy) return; lock(); S.abstractChosen = true; proceedToDirection(); });
-    var sb = document.getElementById('csGateSearch'); if (sb) sb.addEventListener('click', function () { var q = document.getElementById('csGateQuery').value.trim(); if (q && !S.busy) { lock(); refineSearch(q); } });
-    [].forEach.call(els.csChoices.querySelectorAll('[data-adopt]'), function (b) { b.addEventListener('click', function () { adoptFound(review[+b.getAttribute('data-adopt')], b); }); });
+    var sb = document.getElementById('csGateSearch'); if (sb) sb.addEventListener('click', function () { var q = document.getElementById('csGateQuery').value.trim(); if (q && !S.busy) { lock(); S.picked = null; refineSearch(q); } });
+    [].forEach.call(els.csChoices.querySelectorAll('[data-pick]'), function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-pick'), at = S.picked.indexOf(i); if (at >= 0) S.picked.splice(at, 1); else if (S.picked.length < 4) S.picked.push(i); showGate(S.gate); }); });
+    [].forEach.call(els.csChoices.querySelectorAll('[data-main]'), function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-main'); S.picked = [i].concat(S.picked.filter(function (x) { return x !== i; })); showGate(S.gate); }); });
   }
-  // a found picture the owner has the rights to: fetched by the server (only one it offered), then the owner's own
-  function adoptFound(r, btn) {
-    if (!r || !window.confirm('Use this picture on your page? Only do this if you have the rights to use it (your own, licensed to you, or free to reuse). The page will record it as supplied by you.')) return;
-    btn.disabled = true; btn.textContent = 'Fetching…';
-    return api('/api/creative/fetch-image', { method: 'POST', body: { url: r.imageUrl } }).then(function (res) {
-      if (!res.ok || !res.data.ok) { btn.disabled = false; btn.textContent = 'Use it — I have the rights'; els.csError.hidden = false; els.csError.textContent = (res.data && res.data.message) || 'Could not fetch that picture.'; return; }
-      var a = { id: 'u' + Date.now().toString(36) + 'w', origin: 'upload', title: r.depicts || r.title, alt: r.depicts || '', relevance: 2, dataUrl: res.data.dataUrl, mime: res.data.mime, sourceUrl: r.imageUrl, pageUrl: r.pageUrl, ownerAffirmed: true, rightsEvidence: ['supplied by the page owner, who affirmed they have the rights; found at ' + r.pageUrl].concat(r.permission.evidence || []).slice(0, 3), ownerRole: 'auto' };
-      return processAsset(a).then(function (group) { S.assets = S.assets.concat(group); if (!S.mainAsset) { S.mainAsset = a.id; a.ownerRole = 'main'; } renderThumbs(); showGate(S.gate); });
+  // the owner's pick: each picture is fetched by the server (only pictures it just offered), credited to its source page,
+  // and recorded as chosen by the owner -- never as licensed; the first is the main picture; then the page is directed
+  function buildWithPicked(review) {
+    var chosen = S.picked.map(function (i) { return review[i]; }).filter(Boolean); if (!chosen.length) return Promise.resolve();
+    step('direct', 'active', 'Fetching the picture' + (chosen.length > 1 ? 's' : '') + ' you picked…');
+    var got = [];
+    return chosen.reduce(function (p, r, k) {
+      return p.then(function () {
+        return api('/api/creative/fetch-image', { method: 'POST', body: { url: r.imageUrl } }).then(function (res) {
+          if (!res.ok || !res.data.ok) { got.push(null); return; }
+          var a = { id: 'p' + Date.now().toString(36) + k, origin: 'upload', ownerPicked: true, title: r.depicts || r.title, alt: r.depicts || '', author: r.site || '', relevance: 2, dataUrl: res.data.dataUrl, mime: res.data.mime, sourceUrl: r.imageUrl, pageUrl: r.pageUrl,
+            curation: { role: r.role || 'subject', identity: r.identity || 'exact', depicts: r.depicts || '', origin: r.origin || 'unknown', issues: [] },
+            rightsEvidence: ['chosen by the page owner from ' + r.pageUrl + '; no licence stated there'], ownerRole: got.filter(Boolean).length ? 'supporting' : 'main' };
+          return processAsset(a).then(function (group) { S.assets = S.assets.concat(group); got.push(a); });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      var first = got.filter(Boolean)[0];
+      if (!first) { els.csError.hidden = false; els.csError.textContent = 'None of the pictures you picked could be fetched. Save one from its page and upload it, or pick another.'; S.picked = null; showGate(S.gate); return; }
+      S.mainAsset = first.id; renderThumbs(); S.picked = null;
+      return proceedToDirection();
     });
   }
   // search again with the owner's words: the understanding is reused (no new understanding call)

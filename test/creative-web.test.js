@@ -154,10 +154,11 @@ test('SerpApi adapter: the documented request; the key never appears in an error
   const empty = await serp.googleImages('q', { key: KEY, fetchImpl: async () => new Response(JSON.stringify({ error: "Google hasn't returned any results for this query." }), { status: 200 }) });
   assert.deepEqual([empty.ok, empty.results.length, empty.error], [true, 0, '']);
   assert.match((await serp.googleImages('q', { key: '' })).error, /not configured/);
-  const qs = serp.searchQueries({ identity: { name: 'BMO' }, research: { wikipediaTitles: [] }, pageTitle: 'Adventure Time' });
+  const qs = serp.searchQueries({ identity: { name: 'BMO', kind: 'fictional' }, research: { wikipediaTitles: [] }, pageTitle: 'Adventure Time' });
+  assert.match(serp.searchQueries({ identity: { name: 'Toilet paper', kind: 'recognizable' } }, 1)[0].q, /^Toilet paper high resolution photo/, 'a real-world subject is searched as a photograph');
   assert.equal(qs.length, 3); assert.ok(qs.every(q => q.q.startsWith('BMO Adventure Time ') && /-cosplay/.test(q.q) && /-site:deviantart.com/.test(q.q) && !q.licenses));
   assert.match(qs[0].q, /official render/); assert.match(qs[2].q, /screenshot OR still/);
-  assert.match(serp.searchQueries({ identity: { name: 'Link' }, research: { wikipediaTitles: ['Link (The Legend of Zelda)'] } })[0].q, /^Link The Legend of Zelda official render/);
+  assert.match(serp.searchQueries({ identity: { name: 'Link', kind: 'fictional' }, research: { wikipediaTitles: ['Link (The Legend of Zelda)'] } })[0].q, /^Link The Legend of Zelda official render/);
 });
 
 test('image discovery: pictures are judged from their thumbnails first; only suitable official ones are read and downloaded; licence stays separate', async () => {

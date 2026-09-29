@@ -520,3 +520,16 @@ test('research: for a fictional character, a Commons file credited as someone\'s
   const r2 = await research({ query: 'X' }, { fictional: false, fetchImpl, queries: ['X artwork'], maxImages: 3, curate });
   assert.ok(r2.diagnostics.judged.every(j => j.outcome === 'used'));
 });
+
+test('a picture the owner picked from the web is credited to its source, with no licence claimed, on the page and in the footer', () => {
+  const picked = A('p1', { origin: 'upload', ownerPicked: true, title: 'Official X art', author: 'Example Games', license: '', pageUrl: 'https://www.example.org/x', curation: { role: 'subject', identity: 'exact', depicts: 'X', origin: 'official' } });
+  const p = basePlan(); p.scenes[0].layers[0].asset = 'p1';
+  const v = validatePlan2(p, { assets: [picked].concat(ASSETS), facts: FACTS });
+  const cr = v.plan.credits.find(c => c.asset === 'p1');
+  assert.ok(cr); assert.equal(cr.license, 'no licence stated; chosen by the page owner'); assert.equal(cr.url, 'https://www.example.org/x'); assert.equal(cr.author, 'Example Games');
+  const html = renderCreative2(v.plan, [picked].concat(ASSETS), { mode: 'export', src: a => a.id + '.png' });
+  assert.match(html, /Example Games · no licence stated; chosen by the page owner/); assert.doesNotMatch(html, /who holds the rights/);
+  // a saved project keeps the flag and the picture's origin
+  const saved = sanitizeCreative({ assets: [Object.assign({ assetRef: '0'.repeat(64) }, picked)], plan: v.plan });
+  assert.equal(saved.assets[0].ownerPicked, true); assert.equal(saved.assets[0].curation.origin, 'official');
+});

@@ -941,7 +941,7 @@
       // credits for every picture shown, limited to those
       const shown = new Set(); scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
       // (a picture the owner adopted from the web is credited to its source page, as supplied by the owner)
-      const credits = assets.filter(a => shown.has(a.id) && (a.origin !== 'upload' || a.ownerAffirmed) && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: a.origin === 'upload' ? 'supplied by the page owner, who holds the rights' : cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
+      const credits = assets.filter(a => shown.has(a.id) && (a.origin !== 'upload' || a.ownerAffirmed || a.ownerPicked) && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: a.ownerPicked ? 'no licence stated; chosen by the page owner' : a.origin === 'upload' ? 'supplied by the page owner, who holds the rights' : cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
       const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
@@ -1930,7 +1930,7 @@
       plan.scenes.forEach(s => { [s.text.cite, ...s.text.items.map(i => i.cite)].forEach(c => { if (c && factById.has(c) && !citeNo.has(c)) citeNo.set(c, citeNo.size + 1); }); });
       const cite = c => (c && citeNo.has(c) ? `<a class="cr-cite" href="#cr-sources" aria-label="Source ${citeNo.get(c)}">[${citeNo.get(c)}]</a>` : '');
       const edit = k => ` data-edit="${esc(k)}"`;
-      const creditOf = a => { const base = a && a.cutoutOf ? byId.get(a.cutoutOf) : a; if (!base || base.origin === 'upload') return ''; const cr = plan.credits.find(x => x.asset === base.id); return cr ? [cr.author && cr.author.slice(0, 60), cr.license].filter(Boolean).join(' · ') : ''; };
+      const creditOf = a => { const base = a && a.cutoutOf ? byId.get(a.cutoutOf) : a; if (!base || (base.origin === 'upload' && !base.ownerPicked)) return ''; const cr = plan.credits.find(x => x.asset === base.id); return cr ? [cr.author && cr.author.slice(0, 60), cr.license].filter(Boolean).join(' · ') : ''; };
 
       const sceneHtml = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode })).join('\n');
       const navItems = plan.scenes.slice(1).filter(s => s.navLabel).slice(0, 5).map(s => `<li><a href="#${esc(s.id)}">${esc(s.navLabel)}</a></li>`).join('') + '<li><a href="#cr-sources">Sources</a></li>';

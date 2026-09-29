@@ -152,6 +152,15 @@ run against a newer server.
   `CREATIVE_AI_TIMEOUT_MS` 100000, `CREATIVE_CURATE` (on unless "off"; `CREATIVE_CURATE_MAX_TOKENS` 3500),
   `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt),
   `CREATIVE_WEB_DISCOVERY` (on unless "off"), `CREATIVE_WEB_SEARCHES` 3 per discovery, `CREATIVE_WEB_SEARCH_USD` 0.01.
+* **Pictures come from Google Images only** when SerpApi is configured: Wikimedia Commons is no longer searched for pictures
+  (the encyclopedia is still read for facts), so there is one picture check per page, not two. One search per page
+  (`CREATIVE_SERPAPI_SEARCHES` 1): "<name> official render" (minus cosplay, merchandise and fan-art sites) for a fictional
+  character, "<name> high resolution photo" for a real-world subject. Results are kept for 30 days
+  (`CREATIVE_SERPAPI_CACHE_DAYS`), so a subject searched once costs no second search.
+* **The owner picks.** The studio shows the suitable pictures with the best one the studio can fetch pre-selected as the
+  main picture; "Build with this picture" fetches the picked ones (up to four) and directs the page. A picked picture is
+  credited to its source site and page as "no licence stated; chosen by the page owner" -- never as licensed; whoever
+  uses one is responsible for having the right to.
 * **Google Images via SerpApi** (`lib/creative/serpapi.js`): when the server has `SERPAPI_API_KEY` (a Railway variable;
   read only on the server, never logged, returned or stored -- error text is scrubbed of it), discovery searches Google
   Images instead of the Anthropic web-search step: three searches for OFFICIAL material (`CREATIVE_SERPAPI_SEARCHES` 3) --

@@ -2328,8 +2328,20 @@ const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: fals
 // Searches are counted against a daily cap that protects the SerpApi plan's monthly allowance; CREATIVE_SERPAPI_USD
 // (default 0: the plan is paid monthly, not per call) adds a per-search amount to the Creative spend if set.
 const creativeSerpApi = require('./lib/creative/serpapi');
-const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(4, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || 3)), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
+const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(4, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || 1)), cacheDays: Math.max(0, Number(process.env.CREATIVE_SERPAPI_CACHE_DAYS) || 30), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
 function creativeSerpKey() { return String(process.env.SERPAPI_API_KEY || '').trim(); }
+const creativeSerpCache = { loaded: false, map: new Map() }; // query -> { at, results } (metadata only: titles and URLs, never the key)
+function creativeSerpCacheFile() { return path.join(PREMIUM_LOG_DIR, 'creative-serp-cache.json'); }
+function creativeSerpCacheGet(q) {
+  if (!creativeSerpCache.loaded) { creativeSerpCache.loaded = true; try { JSON.parse(premiumFs.readFileSync(creativeSerpCacheFile(), 'utf8')).forEach(e => creativeSerpCache.map.set(e.q, e)); } catch (e) { /* none yet */ } }
+  const e = creativeSerpCache.map.get(q); return e && Date.now() - e.at < CREATIVE_SERPAPI.cacheDays * 86400000 ? e : null;
+}
+function creativeSerpCachePut(q, results) {
+  creativeSerpCache.map.set(q, { q, at: Date.now(), results });
+  const keep = [...creativeSerpCache.map.values()].sort((a, b) => b.at - a.at).slice(0, 500);
+  creativeSerpCache.map = new Map(keep.map(e => [e.q, e]));
+  try { premiumFs.mkdirSync(PREMIUM_LOG_DIR, { recursive: true }); premiumFs.writeFile(creativeSerpCacheFile(), JSON.stringify(keep), () => {}); } catch (e) { /* the cache is an optimisation */ }
+}
 function creativeSpendToday() {
   const day = new Date().toISOString().slice(0, 10);
   if (creativeSpend.day !== day) { creativeSpend.day = day; creativeSpend.usd = 0; creativeSpend.plansByAccount = new Map(); creativeSpend.seeded = false; creativeSpend.imageSearches = 0; }
@@ -2427,6 +2439,11 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
     if (refine) qs.unshift({ q: `${String(refine).slice(0, 120)} -cosplay -plush -figure -site:deviantart.com`, licenses: '' });
     const results = []; let searches = 0; let error = '';
     for (const q of qs.slice(0, CREATIVE_SERPAPI.searches)) {
+      const hit = CREATIVE_SERPAPI.cacheDays ? creativeSerpCacheGet(q.q) : null;
+      if (hit) {
+        creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: true, cached: true, searches: 0, results: hit.results.length, query: q.q.slice(0, 120), usd: 0 });
+        out.diag.queries.push(q.q); out.diag.cached = true; hit.results.forEach(x => results.push(Object.assign({}, x, { query: q.q }))); continue;
+      }
       if (spend.imageSearches >= CREATIVE_SERPAPI.daily) { error = error || `the daily image-search limit (${CREATIVE_SERPAPI.daily}, CREATIVE_SERPAPI_DAILY) is used up`; break; }
       const r = await creativeSerpApi.googleImages(q.q, { key: serpKey, licenses: q.licenses });
       // a refused or failed call is counted too (SerpApi may still bill it); an empty result counts as a search
@@ -2434,6 +2451,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
       creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: r.ok, status: r.status, searches: 1, results: r.results.length, query: q.q.slice(0, 120), licenses: q.licenses || '', error: r.error || '', usd });
       out.diag.queries.push(q.q);
       if (!r.ok) { error = r.error; if (r.status === 401 || r.status === 403 || r.status === 429) break; continue; }
+      if (CREATIVE_SERPAPI.cacheDays && r.results.length) creativeSerpCachePut(q.q, r.results); // an empty answer is not kept (it may be transient)
       r.results.forEach(x => results.push(Object.assign({}, x, { query: q.q })));
     }
     out.searches = searches; Object.assign(out.diag, { provider: 'serpapi', results: results.length, products: results.filter(x => x.isProduct).length, searchError: error });
@@ -2569,7 +2587,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
           return c;
         } catch (error) { creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
       } : null;
-      result = await creativeResearch.research(understanding, { fictional: understanding.kind === 'fictional' || !!(understanding.identity && understanding.identity.kind === 'fictional'), maxImages: 7, textOnly: understanding.kind === 'personal', titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
+      result = await creativeResearch.research(understanding, { textOnly: understanding.kind === 'personal' || !!creativeSerpKey(), fictional: understanding.kind === 'fictional' || !!(understanding.identity && understanding.identity.kind === 'fictional'), maxImages: 7, titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
     }
   } catch (error) {
     console.error('Creative research failed:', error);
