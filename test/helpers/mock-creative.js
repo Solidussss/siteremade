@@ -4,6 +4,7 @@
 // labelled as mocks: the model name is "mock-creative-*", which the server turns into
 // direction.source = 'mock' and the studio shows as "MOCKED plan". They say nothing about creative
 // quality. MOCK_CREATIVE = ok (default) | repair (first plan invalid, repair valid) | invalid | error
+//   | claims (the claim check always finds the "Closer" heading unsupported: repair, then it is taken out)
 function payload(body) {
   const text = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : [{ type: 'text', text: String(m.content) }]))).filter(c => c.type === 'text').map(c => c.text).join('\n');
   const i = text.indexOf('{'); let data = {}; try { data = JSON.parse(text.slice(i, text.lastIndexOf('}') + 1)); } catch (e) { data = {}; }
@@ -46,6 +47,11 @@ function respond(body, env, counters) {
   const usage = { input_tokens: 5200, output_tokens: 2400, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   if (mode === 'error') return { status: 529, body: { error: { message: 'mock: overloaded' } } };
   if (tool === 'submit_creative_understanding') return { status: 200, body: { model: 'mock-creative-understand', usage: { input_tokens: 900, output_tokens: 300 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'u1', name: tool, input: understanding(body) }] } };
+  if (tool === 'submit_creative_claims') {
+    const lines = (payload(body).data.lines || []).map(l => ({ ref: l.ref, verdict: mode === 'claims' && /\.heading$/.test(l.ref) && l.text === 'Closer' ? 'unsupported' : 'supported', claim: 'Closer' }));
+    counters.claims = (counters.claims || 0) + 1;
+    return { status: 200, body: { model: 'mock-creative-claims', usage: { input_tokens: 1500, output_tokens: 200 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `c${counters.claims}`, name: tool, input: { lines } }] } };
+  }
   counters.plans = (counters.plans || 0) + 1;
   const bad = mode === 'invalid' || (mode === 'repair' && counters.plans % 2 === 1);
   return { status: 200, body: { model: 'mock-creative-director', usage, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `p${counters.plans}`, name: tool, input: plan(body, bad ? 'invalid' : 'ok') }] } };

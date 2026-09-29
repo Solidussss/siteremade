@@ -250,6 +250,26 @@ test('server (MOCK provider): one bounded repair, then an explicit fallback with
   });
 });
 
+test('server (MOCK provider): the claim check sends unsupported words back once, then takes them out; its cost is its own ledger row', async () => {
+  await withServer({ MOCK_CREATIVE: 'claims' }, async (call, dir) => {
+    const body = Object.assign(planBody({ kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
+    const r = await call('POST', '/api/creative/plan', body);
+    assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 2, 'one repair for the unsupported heading');
+    assert.ok(r.body.meta.attempts.every(a => a.claims && a.claims.unsupported === 1));
+    const reveal = r.body.plan.scenes.find(s => s.id === 'reveal');
+    assert.equal(reveal.text.heading, 'The reveal', 'the unsupported heading fell back to the scene label');
+    assert.ok(r.body.fixes.some(f => /"Closer" was taken out/.test(f)));
+    const rows = ledger(dir);
+    assert.equal(rows.filter(x => x.kind === 'creative_claims').length, 2); assert.equal(rows.filter(x => x.kind === 'creative_direct').length, 2);
+  });
+  // switched off: no claim call at all
+  await withServer({ MOCK_CREATIVE: 'claims', CREATIVE_CLAIM_CHECK: 'off' }, async (call, dir) => {
+    const body = Object.assign(planBody({ kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
+    const r = await call('POST', '/api/creative/plan', body);
+    assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 1); assert.equal(ledger(dir).filter(x => x.kind === 'creative_claims').length, 0);
+  });
+});
+
 test('server: limits are explicit -- account cap, off switch, no key', async () => {
   await withServer({ CREATIVE_ACCOUNT_DAILY_PLANS: '1' }, async call => {
     assert.equal((await call('POST', '/api/creative/plan', planBody({ kind: 'invented' }))).body.ok, true);

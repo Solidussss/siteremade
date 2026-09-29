@@ -95,6 +95,9 @@ Found by the real-model review and fixed (general fixes only)
   read as written ("f2, f3", "F3", "[f3]" → the first given id); the repair message names the bad values and valid ids
 - the next real run put "Eighty million trees" in a heading, the logline and the page description -- true, but in no
   given fact → numbers above twelve in kickers, headings, labels and the concept must come from a fact or the owner
+- the third real run (repaired once, no number errors) still claimed "a shockwave that circled the planet" and "the
+  width of a stadium", and added "Washington, D.C." to a cited paragraph -- claims without numbers, which the validator
+  cannot see → a claim check by the cheap model on every accepted plan (repair, then removal)
 - research dropped the start of sentences with a stop that is not a boundary ("30 June [O.S. 17 June] 1908" became
   "S. 17 June] 1908 …") → such stops stay inside the sentence
 - an accurate summary drawing numbers from three cited facts was refused → numbers may come from up to three facts,

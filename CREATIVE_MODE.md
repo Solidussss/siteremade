@@ -59,7 +59,12 @@ its output is structured data (tool use), validated, then rendered by one render
    zoom is anchored to grow away from the words; layers stay out of the thread's margin; a cutout nearly the colour of
    its stage gets a light rim; readable palette. **Legibility**, after composition: words on a full-bleed or backdrop
    photo get a scrim in the scene's own colour; word layers across the words become ghosts; long headings never sit in
-   the narrow column. Validating a stored plan again changes nothing, so reopen and export show the accepted design. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
+   the narrow column. Validating a stored plan again changes nothing, so reopen and export show the accepted design.
+   **Claim check** (`ai.js`, cheap model, `CREATIVE_CLAIM_CHECK`, on by default): a plan that passes validation has every
+   kicker, heading, paragraph, list line, word layer and its concept read against the given facts and the owner's
+   details; a line that states anything they do not ("circled the planet", "the width of a stadium") goes back in the
+   one repair, and whatever is still unsupported after it is taken out (a heading falls back to the scene's plain label)
+   and listed in the studio's notes. Its cost is its own ledger row (`creative_claims`) and counts toward the daily cap. **Errors** (missing focal picture, no title, most sourced lines uncited, overlong
    text) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
    director and labels the page "Built-in layout — not AI direction" with the reason.
 6. **Render** (`render2.js`): scenes as stages with layers; pinned scenes hold while scroll scrubs their layers;

@@ -2442,6 +2442,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
       limits: CREATIVE_AI_LIMITS, call: creativeModelCall,
       budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out during this direction' } : { ok: true }),
       onUsage: x => {
+        // the claim check (cheap model) is its own row: it costs, but is not a direction
+        if (x.step === 'claims') return creativeLedger({ kind: 'creative_claims', accountId: req.accountId, ok: true, attempt: x.attempt, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true });
         const s = creativeSpendToday(); s.plansByAccount.set(req.accountId, (s.plansByAccount.get(req.accountId) || 0) + 1);
         creativeLedger({ kind: 'creative_direct', accountId: req.accountId, ok: true, attempt: x.attempt, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, cacheReadTokens: x.usage.cache_read_input_tokens || 0, cacheWriteTokens: x.usage.cache_creation_input_tokens || 0, ms: x.ms, usd: x.usd, estimated: true, thumbnails: input.thumbnails.length, anotherDirection: !!input.avoid });
       },
@@ -2452,7 +2454,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     return res.json({ ok: false, fallback: true, reason: 'the AI direction failed unexpectedly' });
   }
   const usd = +(r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0).toFixed(5);
-  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error })), usdEstimated: usd, ms: Date.now() - startedAt };
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     return res.json({ ok: false, fallback: true, reason: r.reason, meta });

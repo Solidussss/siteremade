@@ -274,18 +274,20 @@
         var uniq = function (xs) { return xs.filter(function (x, i) { return xs.indexOf(x) === i; }); };
         S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings));
         S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired };
-        S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + S.planMeta.attempts;
+        S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + modelCalls(d.meta, S.planMeta.attempts);
         step('direct', 'done', (S.planMeta.source === 'mock' ? 'MOCKED plan · ' : 'AI direction · ') + (plan.concept.title ? plan.concept.title + ' — ' : '') + plan.concept.logline + ' (' + (S.planMeta.ms / 1000).toFixed(1) + 's' + (S.planMeta.repaired ? ', repaired once' : '') + ')');
         return;
       }
       useFallback(d.reason || 'the AI director did not answer', d.meta, Date.now() - t0);
     }).catch(function (e) { useFallback('the AI director could not be reached (' + (e && e.message || e) + ')', null, Date.now() - t0); });
   }
+  // model calls behind a direction: each attempt, plus the claim check that ran on it
+  function modelCalls(meta, fallback) { var a = (meta && meta.attempts) || []; return a.length ? a.length + a.filter(function (x) { return x.claims && !x.claims.error; }).length : fallback; }
   // the model calls that were made (and paid for) before falling back are still recorded
   function useFallback(reason, meta, ms) {
     var tries = (meta && meta.attempts) || [];
     direct(); S.planMeta = { source: 'fallback', reason: reason, at: new Date().toISOString(), model: (tries[0] && tries[0].model) || '', usdEstimated: (meta && meta.usdEstimated) || 0, ms: (meta && meta.ms) || ms || 0, attempts: tries.length, repaired: false };
-    if (tries.length) { S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + tries.length; }
+    if (tries.length) { S.cost.aiUsdEstimated = (S.cost.aiUsdEstimated || 0) + S.planMeta.usdEstimated; S.cost.aiCalls = (S.cost.aiCalls || 0) + modelCalls(meta, tries.length); }
     step('direct', 'wait', 'Built-in layout, not AI direction: ' + reason);
   }
   function rememberDirection() {
@@ -531,7 +533,7 @@
     var kb = Math.round((S.cost.researchBytes || 0) / 1024);
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
-      + '<p class="cs-hint">Cost of this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI direction call(s), about $' + (S.cost.aiUsdEstimated || 0).toFixed(3) + ' estimated' + (S.understandMeta && S.understandMeta.source === 'ai' ? ' + understanding about $' + (S.understandMeta.usd || 0).toFixed(4) : '') + ' · 0 generated images · 0 credits.</p>';
+      + '<p class="cs-hint">Cost of this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks), about $' + (S.cost.aiUsdEstimated || 0).toFixed(3) + ' estimated' + (S.understandMeta && S.understandMeta.source === 'ai' ? ' + understanding about $' + (S.understandMeta.usd || 0).toFixed(4) : '') + ' · 0 generated images · 0 credits.</p>';
   }
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }
