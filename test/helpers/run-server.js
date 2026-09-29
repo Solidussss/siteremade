@@ -89,6 +89,10 @@ globalThis.fetch = async function (url, options) {
   }
   if (process.env.SUPABASE_URL && u.startsWith(process.env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user')) {
     log({ provider: 'supabase' });
+    // a second identity for ownership tests: any token containing "test-access-token-other" is a different user
+    const h = (options && options.headers) || {};
+    const auth = String(h.Authorization || h.authorization || '');
+    if (/test-access-token-other/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000009', email: 'other-owner@example.com' });
     return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com' });
   }
   return realFetch(url, options);

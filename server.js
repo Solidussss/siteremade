@@ -100,7 +100,7 @@ const hosting = require('./lib/hosting.js');
 const runtimeClassifier = require('./lib/runtime-classifier.js');
 const domainLib = require('./lib/domain.js');
 const siteImport = require('./lib/site-import.js'); // Phase 9: "Redesign my existing website" extraction, see /api/redesign/extract below
-const { zipDirectory } = require('./lib/archive.js');
+const { zipDirectory, listFilesSafely } = require('./lib/archive.js');
 
 // Deployment-safety pass: refuses to boot at all if this looks like a
 // production deployment on the local (SQLite + filesystem) backend with
@@ -3843,17 +3843,20 @@ function inlinePreviewAssets(html, root) {
   }
   return html;
 }
+// The preview shows exactly what the download contains: the same source (purchasedHandoffSource -- the published
+// revision, else the purchase snapshot), never the live draft.
 function compileOwnedPreviewHtml(accountId, projectId) {
-  const raw = projectStore.getOwnedProjectRaw(db, accountId, projectId);
-  if (!raw || raw.status !== 'purchased') return null;
-  const directionIndex = canonicalDirectionIndex(accountId, projectId, raw.directionsState);
-  const previewId = 'preview-' + crypto.createHash('sha1').update(projectId + ':' + raw.revision + ':' + directionIndex).digest('hex').slice(0, 20);
+  const sel = purchasedHandoffSource(accountId, projectId);
+  if (!sel.ok) return null;
+  const { source, snapshot } = sel;
+  const directionIndex = source.directionIndex;
+  const previewId = 'preview-' + crypto.createHash('sha1').update(projectId + ':' + source.kind + ':' + source.revision + ':' + directionIndex + ':' + process.hrtime.bigint()).digest('hex').slice(0, 20);
   const workDir = path.join(EXPORTS_DIR, previewId);
   ensureExportsDir();
   try {
     const result = exportCompiler.compileExport(db, {
-      project: { id: raw.id, revision: raw.revision, directionsState: raw.directionsState },
-      directionIndex, workDir, hostingChoice: null, purchaseDate: null,
+      project: { id: projectId, revision: source.revision, directionsState: source.directionsState },
+      directionIndex, workDir, hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
     });
     const indexFile = path.join(result.workDir, 'index.html');
     if (!fs.existsSync(indexFile)) throw new Error('Preview homepage was not compiled.');
@@ -3886,55 +3889,31 @@ app.get('/api/app-bridge/website/:projectId/preview', appBridgeRateLimit, requir
 // purchased snapshot (or latest explicitly published revision) as the normal
 // builder export route and streams the real ZIP bytes back through the
 // authenticated bridge. No Workspace subscription is involved.
+// Purchased ownership: no Workspace subscription is involved, ever. Returns the ZIP BYTES (application/zip), or a
+// specific bridge error: not_found 404 · not_purchased 403 · snapshot_missing / storage_unavailable / compile_failed /
+// package_failed / artifact_missing / stream_failed 500 -- the same code the deployment history records.
+const HANDOFF_MESSAGES = {
+  not_found: 'Website not found.', not_purchased: 'This website has not been purchased yet.',
+  snapshot_missing: 'The purchased version of this website could not be found.', storage_unavailable: 'The website files could not be stored for download.',
+  compile_failed: 'The website files could not be built.', package_failed: 'The website files could not be packaged as a ZIP.', artifact_missing: 'The website ZIP could not be created.',
+};
 app.get('/api/app-bridge/website/:projectId/download', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
-  const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
-  if (!status) return bridgeError(res, 404, 'not_found', 'Website not found.');
-  if (status.status !== 'purchased') return bridgeError(res, 403, 'not_purchased', 'This website has not been purchased yet.');
-
-  const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, projectId);
-  if (!ensured.ok) return bridgeError(res, 500, 'snapshot_missing', 'Could not locate the purchased website snapshot.');
-  const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
-  let published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
-  if (published && directionModeOf(published.directionsState, published.directionIndex) !== directionModeOf(snapshot.directionsState, snapshot.directionIndex)) published = null;
-  const source = published
-    ? { revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
-    : { revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
-
-  const exportSource = { id: projectId, revision: source.revision, directionsState: source.directionsState };
-  ensureExportsDir();
-  const deploymentId = deploymentStore.genId('dep');
-  const workDir = path.join(EXPORTS_DIR, deploymentId);
-  let result;
-  try {
-    result = exportCompiler.compileExport(db, {
-      project: exportSource, directionIndex: source.directionIndex, workDir,
-      hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
-    });
-    zipDirectory(result.workDir, workDir + '.zip');
-  } catch (e) {
-    deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
-      target: 'local', failureReason: (e && e.message) || 'Export failed.',
-      runtimeType: result && result.runtimeType, runtimeReasons: result && result.runtimeReasons,
-      manifest: result && result.manifest, artifactHash: result && result.artifactHash,
-      compilerVersion: exportCompiler.COMPILER_VERSION,
-    });
-    return bridgeError(res, 500, 'export_failed', 'Could not prepare the website download.');
-  }
-
-  deploymentStore.createReadyDeployment(db, {
-    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
-    compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
-    runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
-    manifest: result.manifest, artifactPath: workDir + '.zip',
-  });
-
+  let out;
+  try { out = buildHandoffArtifact(req.accountId, projectId, { via: 'app-bridge' }); }
+  catch (e) { console.error('[handoff] app-bridge unexpected failure:', e && e.stack || e); return bridgeError(res, 500, 'handoff_failed', 'The website files could not be prepared.'); }
+  if (!out.ok) return bridgeError(res, out.httpStatus, out.code, HANDOFF_MESSAGES[out.code] || 'The website files could not be prepared.', { stage: out.stage, deploymentId: out.deployment ? out.deployment.id : undefined });
   const summary = buildWebsiteSummary(req.accountId, projectId);
-  const rawName = (summary && (summary.businessName || summary.name)) || 'SiteRemade-website';
-  const safeName = String(rawName).replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'SiteRemade-website';
-  res.set('Cache-Control', 'no-store');
-  return res.download(workDir + '.zip', safeName + '.zip');
+  const name = (summary && (summary.businessName || summary.name)) || 'SiteRemade-website';
+  res.status(200);
+  res.set({ 'Content-Type': 'application/zip', 'Content-Length': String(out.zipBytes), 'Content-Disposition': handoffContentDisposition(name), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-SiteRemade-Deployment': out.deploymentId });
+  const stream = fs.createReadStream(out.zipPath);
+  stream.on('error', e => {
+    console.error(`[handoff] app-bridge ${projectId} ${out.deploymentId} FAILED at stream (stream_failed): ${e.message}`);
+    if (!res.headersSent) bridgeError(res, 500, 'stream_failed', 'The website files could not be sent.'); else res.destroy(e);
+  });
+  res.on('finish', () => console.log('[handoff] ' + JSON.stringify({ via: 'app-bridge', projectId, stage: 'sent', deploymentId: out.deploymentId, bytes: out.zipBytes })));
+  stream.pipe(res);
 });
 
 // 2. GET /api/app-bridge/website/:projectId/deployment
@@ -4144,6 +4123,88 @@ function directionModeOf(directionsState, index) {
 }
 function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
 
+// ---- THE PURCHASED-WEBSITE HANDOFF ------------------------------------------------------------------------------------
+// ONE definition of "the website this customer bought", used by the builder's My Websites export
+// (POST /api/projects/:id/export), the Client App download (GET /api/app-bridge/website/:id/download) and the Client
+// App preview (GET /api/app-bridge/website/:id/preview) -- so the preview, the ZIP and the builder export are always
+// the same site. It is the latest explicitly PUBLISHED revision when there is one (and it is the same kind of website
+// that was bought), otherwise the immutable PURCHASE SNAPSHOT. Never the live, still-editable draft.
+function purchasedHandoffSource(accountId, projectId) {
+  const status = projectStore.getOwnedProjectStatus(db, accountId, projectId);
+  if (!status) return { ok: false, httpStatus: 404, code: 'not_found', stage: 'ownership' }; // a stranger's id and a missing one look the same
+  if (status.status !== 'purchased') return { ok: false, httpStatus: 403, code: 'not_purchased', stage: 'ownership' };
+  // a one-time backfill for a purchased project that predates snapshots; a no-op normally
+  const ensured = purchase.ensureSnapshotForOwnedProject(db, accountId, projectId);
+  const snapshot = ensured.ok ? purchase.getOwnedPurchaseSnapshotRaw(db, accountId, projectId) : null;
+  if (!snapshot) return { ok: false, httpStatus: 500, code: 'snapshot_missing', stage: 'purchase_snapshot', error: ensured.reason || 'no purchase snapshot' };
+  let published = publishedSnapshots.getLatestOwnedPublishedRaw(db, accountId, projectId);
+  let publishedIgnored = false;
+  // a published revision of a different kind than what was bought never replaces the purchased website
+  if (published && directionModeOf(published.directionsState, published.directionIndex) !== directionModeOf(snapshot.directionsState, snapshot.directionIndex)) { published = null; publishedIgnored = true; }
+  const source = published
+    ? { kind: 'published', revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
+    : { kind: 'purchase_snapshot', revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
+  return { ok: true, snapshot, source, publishedIgnored };
+}
+
+// Compile the purchased website, package it as a ZIP (lib/archive.js -- Node only, no system zip), record the
+// deployment and return where the artifact is. Every stage is logged on one line ([handoff] {...}) with ids, counts,
+// sizes and paths -- never a token, cookie or customer content. A failure is recorded in deployment history with its
+// stage and the real reason, and returned with a specific machine-readable code.
+function buildHandoffArtifact(accountId, projectId, { via }) {
+  const t0 = Date.now();
+  const log = (stage, detail) => { try { console.log('[handoff] ' + JSON.stringify(Object.assign({ via, projectId, stage, ms: Date.now() - t0 }, detail || {}))); } catch (e) { /* logging never breaks the handoff */ } };
+  log('start');
+  const sel = purchasedHandoffSource(accountId, projectId);
+  if (!sel.ok) { log(sel.stage + '_refused', { code: sel.code, error: sel.error || null }); return sel; }
+  const { snapshot, source } = sel;
+  log('source_selected', { source: source.kind, revision: source.revision, directionIndex: source.directionIndex, purchaseSnapshotRevision: snapshot.projectRevision, publishedIgnoredAsDifferentKind: sel.publishedIgnored });
+  try { ensureExportsDir(); } catch (e) {
+    log('exports_dir_failed', { dir: EXPORTS_DIR, error: e.message });
+    return { ok: false, httpStatus: 500, code: 'storage_unavailable', stage: 'exports_dir', error: e.message };
+  }
+  const deploymentId = deploymentStore.genId('dep');
+  const workDir = path.join(EXPORTS_DIR, deploymentId);
+  const zipPath = workDir + '.zip';
+  const base = { id: deploymentId, ownerId: accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex, target: 'local' };
+  const fail = (httpStatus, code, stage, error, extra) => {
+    console.error(`[handoff] ${via} ${projectId} ${deploymentId} FAILED at ${stage} (${code}): ${error}`);
+    const failed = deploymentStore.recordFailedDeployment(db, Object.assign({}, base, { failureReason: `${code} at ${stage}: ${error}`.slice(0, 500), compilerVersion: exportCompiler.COMPILER_VERSION }, extra || {}));
+    return { ok: false, httpStatus, code, stage, error, deployment: failed };
+  };
+  log('compile_start', { deploymentId, exportsDir: EXPORTS_DIR });
+  let result;
+  try {
+    result = exportCompiler.compileExport(db, { project: { id: projectId, revision: source.revision, directionsState: source.directionsState }, directionIndex: source.directionIndex, workDir, hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt });
+  } catch (e) {
+    log('compile_failed', { error: e && e.message });
+    return fail(500, 'compile_failed', 'compile', (e && e.message) || 'Export failed.');
+  }
+  const compiled = { runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, manifest: result.manifest, artifactHash: result.artifactHash };
+  let files = [];
+  try { files = listFilesSafely(result.workDir).map(f => f.split(path.sep).join('/')).sort(); } catch (e) { /* reported below */ }
+  log('compile_done', { workDir: result.workDir, workDirExists: fs.existsSync(result.workDir), fileCount: files.length, files: files.slice(0, 80), runtimeType: result.runtimeType });
+  if (!files.length) return fail(500, 'compile_failed', 'compile', 'the compiler produced no files', compiled);
+  log('zip_start', { zipPath });
+  let zipped;
+  try { zipped = zipDirectory(result.workDir, zipPath); } catch (e) {
+    log('zip_failed', { error: e && e.message, code: e && e.code });
+    return fail(500, 'package_failed', 'zip', (e && e.message) || 'Could not build the ZIP.', compiled);
+  }
+  const exists = fs.existsSync(zipPath); const bytes = exists ? fs.statSync(zipPath).size : 0;
+  log('zip_done', { zipPath, exists, bytes, entries: zipped.fileCount, uncompressedBytes: zipped.totalBytes });
+  if (!exists || !bytes) return fail(500, 'artifact_missing', 'zip', `no ZIP at ${zipPath} after packaging`, compiled);
+  const deployment = deploymentStore.createReadyDeployment(db, Object.assign({}, base, compiled, { compilerVersion: exportCompiler.COMPILER_VERSION, artifactPath: zipPath }));
+  log('deployment_recorded', { deploymentId, state: deployment && deployment.state });
+  return { ok: true, deployment, deploymentId, zipPath, zipBytes: bytes, files, source, result };
+}
+// A download filename built only from server-known values: an ASCII fallback plus the UTF-8 form (RFC 6266 / 5987).
+function handoffContentDisposition(name) {
+  const clean = String(name || '').normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'SiteRemade-website';
+  const utf8 = String(name || '').replace(/[\u0000-\u001f"\\/]+/g, ' ').trim().slice(0, 80) || clean;
+  return `attachment; filename="${clean}.zip"; filename*=UTF-8''${encodeURIComponent(utf8 + '.zip')}`;
+}
+
 // Compiles + archives + records a new deployment for an owned, PURCHASED
 // project. Never trusts localStorage/UI badges/client-supplied status --
 // `project.status` is read straight from the authoritative row (spec §4).
@@ -4159,64 +4220,16 @@ function ensureExportsDir() { fs.mkdirSync(EXPORTS_DIR, { recursive: true }); }
 // be stale against. A request body is no longer required.
 app.post('/api/projects/:id/export', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
   const projectId = req.params.id;
-  const status = projectStore.getOwnedProjectStatus(db, req.accountId, projectId);
-  if (!status) return res.status(404).json({ ok: false, message: 'Project not found.' });
-  if (status.status !== 'purchased') return res.status(403).json({ ok: false, message: 'This project has not been purchased yet.' });
-  // ensureSnapshotForOwnedProject is a one-time, best-effort backfill for a
-  // purchased project that (for any reason) predates this feature -- a
-  // true no-op if a snapshot already exists, which is the normal case
-  // (the Stripe webhook already created it atomically at fulfillment).
-  const ensured = purchase.ensureSnapshotForOwnedProject(db, req.accountId, projectId);
-  if (!ensured.ok) return res.status(500).json({ ok: false, message: 'Could not locate a purchased snapshot for this project.' });
-  const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
-  // App bridge pass (Phase 4): if this project has ever been published
-  // through POST /api/app-bridge/website/:id/publish, compile from the
-  // LATEST published snapshot (post-purchase edits become exportable);
-  // otherwise -- every project that never used that flow -- compile from
-  // the original purchase snapshot exactly as before (same revision, same
-  // direction, same state). purchaseDate/hostingChoice always still come
-  // from the purchase snapshot: publishing doesn't change what was bought.
-  let published = publishedSnapshots.getLatestOwnedPublishedRaw(db, req.accountId, projectId);
-  // a published revision of a different kind than what was bought never replaces the purchased website
-  if (published && directionModeOf(published.directionsState, published.directionIndex) !== directionModeOf(snapshot.directionsState, snapshot.directionIndex)) published = null;
-  const source = published
-    ? { revision: published.revision, directionIndex: published.directionIndex, directionsState: published.directionsState }
-    : { revision: snapshot.projectRevision, directionIndex: snapshot.directionIndex, directionsState: snapshot.directionsState };
-  const exportSource = { id: projectId, revision: source.revision, directionsState: source.directionsState };
-  ensureExportsDir();
-  const deploymentId = deploymentStore.genId('dep');
-  const workDir = path.join(EXPORTS_DIR, deploymentId);
-  let result;
-  try {
-    result = exportCompiler.compileExport(db, {
-      project: exportSource, directionIndex: source.directionIndex, workDir,
-      hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
-    });
-  } catch (e) {
-    const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
-      target: 'local', failureReason: (e && e.message) || 'Export failed.',
-    });
-    return res.status(400).json({ ok: false, message: (e && e.message) || 'Export failed.', deployment: failed });
+  // the purchased (or latest published) website, compiled and packaged -- see buildHandoffArtifact
+  const out = buildHandoffArtifact(req.accountId, projectId, { via: 'builder-export' });
+  if (!out.ok) {
+    if (out.code === 'not_found') return res.status(404).json({ ok: false, code: out.code, message: 'Project not found.' });
+    if (out.code === 'not_purchased') return res.status(403).json({ ok: false, code: out.code, message: 'This project has not been purchased yet.' });
+    if (out.code === 'snapshot_missing') return res.status(500).json({ ok: false, code: out.code, message: 'Could not locate a purchased snapshot for this project.' });
+    if (out.code === 'compile_failed') return res.status(400).json({ ok: false, code: out.code, message: out.error || 'Export failed.', deployment: out.deployment });
+    return res.status(500).json({ ok: false, code: out.code, message: 'Could not build a downloadable archive.', deployment: out.deployment });
   }
-  try {
-    zipDirectory(result.workDir, workDir + '.zip');
-  } catch (e) {
-    const failed = deploymentStore.recordFailedDeployment(db, {
-      id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
-      target: 'local', failureReason: 'Could not build a downloadable archive: ' + ((e && e.message) || 'unknown error'),
-      runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, manifest: result.manifest,
-      artifactHash: result.artifactHash, compilerVersion: exportCompiler.COMPILER_VERSION,
-    });
-    return res.status(500).json({ ok: false, message: 'Could not build a downloadable archive.', deployment: failed });
-  }
-  const deployment = deploymentStore.createReadyDeployment(db, {
-    id: deploymentId, ownerId: req.accountId, projectId, projectRevision: source.revision, directionIndex: source.directionIndex,
-    compilerVersion: exportCompiler.COMPILER_VERSION, artifactHash: result.artifactHash,
-    runtimeType: result.runtimeType, runtimeReasons: result.runtimeReasons, target: 'local',
-    manifest: result.manifest, artifactPath: workDir + '.zip',
-  });
-  return res.status(201).json({ ok: true, deployment, manifest: result.manifest });
+  return res.status(201).json({ ok: true, deployment: out.deployment, manifest: out.result.manifest });
 });
 
 // ---- Product-flow pass: purchase snapshot / hosting choice / My Websites --
@@ -4289,11 +4302,12 @@ app.get('/api/deployments/:id', requireAuth, (req, res) => {
 app.get('/api/deployments/:id/download', requireAuth, (req, res) => {
   const deployment = deploymentStore.getOwnedDeployment(db, req.accountId, req.params.id);
   if (!deployment || !['ready', 'live'].includes(deployment.state)) return res.status(404).json({ ok: false, message: 'Export not available.' });
-  const zipPath = path.join(EXPORTS_DIR, `${req.params.id}.zip`);
-  if (!fs.existsSync(zipPath)) return res.status(404).json({ ok: false, message: 'Export artifact missing.' });
-  const safeName = `siteremade-export-${req.params.id}.zip`.replace(/[^a-zA-Z0-9._-]/g, '');
+  const zipPath = path.resolve(EXPORTS_DIR, `${deployment.id}.zip`);
+  if (!fs.existsSync(zipPath)) { console.error(`[handoff] artifact missing for ready deployment ${deployment.id} at ${zipPath}`); return res.status(404).json({ ok: false, code: 'artifact_missing', message: 'Export artifact missing.' }); }
+  const safeName = `siteremade-export-${deployment.id}.zip`.replace(/[^a-zA-Z0-9._-]/g, '');
   res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
   res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Cache-Control', 'no-store');
   return res.sendFile(zipPath);
 });
 // Redeploy-to-target (spec §15/§26/§29): attempts to hand an EXISTING,
