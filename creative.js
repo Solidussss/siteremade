@@ -254,7 +254,7 @@
     return true;
   }
   function usableSubject() {
-    return S.assets.some(function (a) { if (a.removed || a.failed) return false; if (a.origin === 'upload') return a.ownerRole !== 'logo' && a.ownerRole !== 'background'; var k = a.curation; return !!(k && (k.role === 'subject' || k.role === 'detail') && k.identity !== 'other'); });
+    return S.assets.some(function (a) { if (a.removed || a.failed) return false; if (a.origin === 'upload') return a.ownerRole !== 'logo' && a.ownerRole !== 'background'; var k = a.curation; return !!(k && (k.role === 'subject' || k.role === 'detail') && k.identity === 'exact'); });
   }
   function mainProblem() {
     var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed; }); if (!S.mainAsset) return ''; if (!a) return 'The picture you chose as the main subject is no longer here.';
@@ -263,6 +263,8 @@
     return '';
   }
   function afterPictures() {
+    var dg = S.research && S.research.diagnostics;
+    if (dg && dg.stage === 'none' && !usableSubject()) { dg.stage = 'processing'; dg.note = 'usable pictures of the subject were found, but none could be read here: ' + S.assets.filter(function (a) { return a.failed; }).map(function (a) { return a.title + ' (' + (a.processing || 'unreadable') + ')'; }).join('; '); }
     var problem = mainProblem();
     if (problem || (needsSubjectPicture() && !usableSubject())) { S.busy = false; showGate({ problem: problem }); return Promise.resolve(); }
     return proceedToDirection();
@@ -284,6 +286,17 @@
     var sources = 'Wikimedia Commons' + (web.ran ? ' and a web search' : '');
     step('direct', 'wait', 'Waiting for your choice (nothing is spent until you continue)');
     var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>' : '<p><strong>We couldn\'t find usable artwork of ' + esc(name) + ' through ' + sources + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Web search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Web search: ' + esc(web.error) + '</p>' : '');
+    var dg = (S.research && S.research.diagnostics) || null; var checked = '';
+    if (dg) {
+      var cj = (dg.commons && dg.commons.judged) || [], wj = (dg.web && dg.web.candidates) || [];
+      var n = function (list, fn) { return list.filter(fn).length; };
+      var isForm = function (x) { return x.verdict && x.verdict.identity === 'form'; }, isIt = function (x) { return x.verdict && x.verdict.identity === 'exact' && (x.verdict.role === 'subject' || x.verdict.role === 'detail'); };
+      var stageName = { discovery: 'Nothing found showed it', identity: 'Only real-world forms found', permission: 'Found, but no free licence stated', selection: 'Found, but not selected', provider: 'A provider step failed', processing: 'Found, but could not be read' }[dg.stage] || '';
+      checked = '<details class="cs-checked"><summary>What we checked' + (stageName ? ' — ' + esc(stageName) : '') + '</summary><ul>'
+        + '<li>Wikimedia Commons: ' + cj.length + ' pictures looked at — ' + n(cj, isIt) + ' showing it, ' + n(cj, isForm) + ' real-world forms (cosplay, figures, merchandise) not used' + (dg.commons && dg.commons.refused && dg.commons.refused.licence ? ', ' + dg.commons.refused.licence + ' refused for their licence' : '') + '</li>'
+        + (dg.web && dg.web.ran !== false ? '<li>Web search' + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(esc).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures from ' + ((dg.web.pagesChosen || 0)) + ' pages — ' + n(wj, isIt) + ' showing it; permission: ' + ['free', 'unclear', 'restricted'].map(function (st) { return n(wj.filter(isIt), function (x) { return x.permission && x.permission.status === st; }) + ' ' + st; }).join(', ') + '</li>' : '<li>Web search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
+        + (dg.note ? '<li>Where it stopped: ' + esc(dg.note) + '</li>' : '') + '</ul></details>';
+    }
     var cards = review.map(function (r, i) {
       return '<div class="cs-review"><div class="cs-review-img">' + (r.preview ? '<img src="' + esc(r.preview) + '" alt="">' : '<span>No preview</span>') + '</div><div><strong>' + esc(r.depicts || r.title) + '</strong><small>' + esc(r.site || '') + ' · ' + esc(r.width + '×' + r.height) + '</small>'
         + '<small class="cs-perm">' + (r.permission.status === 'restricted' ? 'Rights reserved' : 'Permission unclear') + (r.permission.licence ? ' (' + esc(r.permission.licence) + ')' : '') + ' — ' + esc(r.permission.note || '') + '</small>'
@@ -291,7 +304,7 @@
     }).join('');
     var ok = usableSubject() && !S.gate.problem;
     els.csChoices.innerHTML = '<div class="cs-gate">' + h1
-      + (review.length ? '<p>Found, but not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
+      + checked + (review.length ? '<p>Found, but not free to republish automatically — open the page, and use one only if you have the rights to it:</p>' + cards : '')
       + '<div class="cs-gate-actions">' + (ok ? '<button type="button" class="cs-btn cs-primary" id="csGateGo">Continue with these pictures</button>' : '') + '<button type="button" class="cs-btn" id="csGateUpload">Upload pictures</button>'
       + (S.refines < 2 ? '<span class="cs-refine"><input type="text" id="csGateQuery" maxlength="100" placeholder="Search again for… (e.g. ' + esc(name) + ' official artwork)"><button type="button" class="cs-btn cs-ghost" id="csGateSearch">Search again</button></span>' : '')
       + (S.gate.problem ? '' : '<button type="button" class="cs-btn cs-ghost" id="csGateAbstract">Continue with an abstract page instead</button>') + '</div>'

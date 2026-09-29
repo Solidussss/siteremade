@@ -115,3 +115,23 @@ test('search step: the model may only submit pages the search itself returned; c
   const e = await ai.webSearchPages({ identity: { name: 'X' } }, { limits: ai.limits({}), raw: async () => ({ usage: {}, content: [{ type: 'web_search_tool_result', content: { type: 'web_search_tool_result_error', error_code: 'unavailable' } }] }) });
   assert.equal(e.error, 'unavailable'); assert.deepEqual(e.pages, []);
 });
+
+test('a real-world form (cosplay, figure, merchandise) is never selected as a picture of the subject', async () => {
+  const thumb = { mime: 'image/png', bytes: Buffer.from('x') };
+  const call = async () => ({ model: 'm', usage: {}, input: { candidates: [{ id: 'c1', role: 'subject', identity: 'form', depicts: 'a cosplayer dressed as the character' }, { id: 'c2', role: 'subject', identity: 'exact', depicts: 'official artwork of the character' }, { id: 'c3', role: 'environment', identity: 'related', depicts: 'a forest' }], selection: ['c1', 'c2', 'c3'], coverage: 'strong' } });
+  const c = await ai.curate({ identity: { name: 'X' }, candidates: ['c1', 'c2', 'c3'].map(id => ({ id, thumb })) }, { limits: ai.limits({}), call });
+  assert.deepEqual(c.selection, ['c2', 'c3']);
+});
+
+test('where the pictures stopped is judged from the evidence, stage by stage', () => {
+  const { pictureStage } = require('../lib/creative/research');
+  const v = (identity, role) => ({ identity, role: role || 'subject' });
+  const W = (identity, status, outcome) => ({ src: 'web', verdict: v(identity), permission: { status }, outcome });
+  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('exact'), outcome: 'used' }] }, null).stage, 'none');
+  const p = pictureStage({ judged: [{ src: 'commons', verdict: v('form'), outcome: 'a real-world form' }] }, { candidates: [W('exact', 'unclear', 'offered'), W('exact', 'restricted', 'offered')] });
+  assert.equal(p.stage, 'permission'); assert.match(p.note, /1 unclear, 1 restricted/);
+  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('form') }] }, { candidates: [W('other', 'unclear', 'not the subject')] }).stage, 'identity');
+  assert.equal(pictureStage({ judged: [] }, { candidates: [], searchError: 'unavailable' }).stage, 'provider');
+  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('other', 'unrelated') }] }, { candidates: [] }).stage, 'discovery');
+  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('exact'), outcome: 'not selected' }] }, null).stage, 'selection');
+});

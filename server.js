@@ -2403,16 +2403,22 @@ function creativeOffer(accountId, urls) { creativeOffers.set(accountId, { until:
 async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   const identity = understanding.identity || { name: understanding.subject, kind: understanding.kind };
   const input = { identity, visuals: understanding.visuals, brief: refine ? `${brief}\nThe owner asks to look for: ${refine}` : brief };
-  const out = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: '', searches: 0 };
+  const out = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: '', searches: 0, diag: { queries: [], stop: '', results: 0, pagesChosen: 0, pageErrors: [], imageErrors: [], candidates: [] } };
   const found = await creativeWeb.discover(input, { searchPages: async inp => {
     try {
       const r = await creativeAi.webSearchPages(inp, { limits: CREATIVE_AI_LIMITS, raw: creativeRawCall });
-      out.usd += r.usd; out.searches = r.searches;
+      out.usd += r.usd; out.searches = r.searches; Object.assign(out.diag, { queries: r.queries || [], stop: r.stop || '', results: r.results || 0, pagesChosen: (r.pages || []).length, searchError: r.error || '' });
       creativeLedger({ kind: 'creative_websearch', accountId, ok: !r.error, model: r.model, searches: r.searches, results: r.results, pages: r.pages.length, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true, error: r.error || undefined });
       return r;
     } catch (error) { creativeLedger({ kind: 'creative_websearch', accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
   } });
   out.log = found.log; out.error = found.log.searchError || '';
+  out.diag.pageErrors = (found.log.pageErrors || []).slice(0, 8); out.diag.imageErrors = (found.log.imageErrors || []).slice(0, 10);
+  // every found picture, assessed three separate ways: what it shows, whether it is technically usable, what its page permits
+  const record = (v, k, outcome) => out.diag.candidates.push({ src: 'web', pageUrl: v.pageUrl, imageUrl: v.imageUrl, site: v.site, title: String(v.title || '').slice(0, 120),
+    technical: { size: `${v.width}x${v.height}`, mime: v.mime, kb: Math.round(v.bytes.length / 1024), viewable: /^image\/(jpeg|png|webp)$/.test(v.mime) && v.bytes.length <= 3.5 * 1024 * 1024 },
+    permission: { status: v.permission.status, licence: v.permission.licence, evidence: v.permission.evidence, note: v.permission.note },
+    verdict: k ? { role: k.role, identity: k.identity, depicts: k.depicts, issues: k.issues, quality: k.quality } : null, outcome });
   if (!found.candidates.length) return out;
   // the picture check over what was found (the same vision step as for Commons)
   const viewable = found.candidates.filter(v => /^image\/(jpeg|png|webp)$/.test(v.mime) && v.bytes.length <= 3.5 * 1024 * 1024);
@@ -2424,11 +2430,18 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
       creativeLedger({ kind: 'creative_curate', accountId, ok: true, source: 'web', model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length });
     } catch (error) { creativeLedger({ kind: 'creative_curate', accountId, ok: false, source: 'web', error: String(error && error.message || error).slice(0, 200), usd: 0 }); out.error = out.error || `the picture check failed (${String(error && error.message || error).slice(0, 120)})`; }
   }
-  if (!c) { out.error = out.error || 'the found pictures could not be judged'; return out; }
+  if (!c) { out.error = out.error || 'the found pictures could not be judged'; found.candidates.forEach(v => record(v, null, 'not judged')); return out; }
   for (const v of found.candidates) {
-    const k = c.verdicts[v.id]; if (!k || k.role === 'unrelated' || k.identity === 'other' || k.role === 'logo' || k.role === 'reference') continue;
-    if (v.permission.status === 'free' && c.selection.includes(v.id)) out.images.push(Object.assign({}, v, { curation: k }));
-    else if (v.permission.status !== 'free' && (k.role === 'subject' || k.role === 'detail') && out.review.length < 4) out.review.push({ id: v.id, pageUrl: v.pageUrl, imageUrl: v.imageUrl, title: v.title, site: v.site, depicts: k.depicts, role: k.role, identity: k.identity, width: v.width, height: v.height, permission: { status: v.permission.status, licence: v.permission.licence, note: v.permission.note, evidence: v.permission.evidence }, preview: v.bytes.length <= 1.2 * 1024 * 1024 ? `data:${v.mime};base64,${v.bytes.toString('base64')}` : '' });
+    const k = c.verdicts[v.id];
+    if (!k) { record(v, null, 'not judged (not viewable)'); continue; }
+    if (k.role === 'unrelated' || k.identity === 'other') { record(v, k, 'not the subject'); continue; }
+    if (k.identity === 'form') { record(v, k, 'a real-world form, not the subject itself'); continue; }
+    if (k.role === 'logo' || k.role === 'reference') { record(v, k, 'a logo or reference'); continue; }
+    if (v.permission.status === 'free' && c.selection.includes(v.id)) { out.images.push(Object.assign({}, v, { curation: k })); record(v, k, 'used'); }
+    else if (v.permission.status === 'free') record(v, k, 'free, but not selected');
+    else if (!((k.role === 'subject' || k.role === 'detail') && k.identity === 'exact')) record(v, k, `not free (${v.permission.status}); not a picture of the subject itself`);
+    else if (out.review.length >= 4) record(v, k, `not free (${v.permission.status}); beyond the four offered for review`);
+    else { record(v, k, `offered to the owner for review (${v.permission.status})`); out.review.push({ id: v.id, pageUrl: v.pageUrl, imageUrl: v.imageUrl, title: v.title, site: v.site, depicts: k.depicts, role: k.role, identity: k.identity, width: v.width, height: v.height, permission: { status: v.permission.status, licence: v.permission.licence, note: v.permission.note, evidence: v.permission.evidence }, preview: v.bytes.length <= 1.2 * 1024 * 1024 ? `data:${v.mime};base64,${v.bytes.toString('base64')}` : '' }); }
   }
   out.coverage = out.images.some(v => v.curation.role === 'subject' && v.curation.identity === 'exact') ? 'strong' : out.images.some(v => v.curation.role === 'subject' || v.curation.role === 'detail') ? 'partial' : 'none';
   out.missing = out.coverage === 'strong' ? [] : c.missing;
@@ -2530,7 +2543,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   const vMain = understanding.visuals && understanding.visuals.main;
   const needsPictures = understanding.kind !== 'personal' && result.status !== 'ambiguous' && (vMain ? !/^\s*none\b/i.test(vMain) : understanding.kind !== 'invented');
   const covered = curation && curation.source === 'ai' && curation.coverage === 'strong';
-  let review = [];
+  let review = []; let webDiag = null;
   if (needsPictures && !covered) {
     const why = !CREATIVE_AI_LIMITS.webDiscovery ? 'web discovery is switched off (CREATIVE_WEB_DISCOVERY)' : creativeAiUnavailableReason() || (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? 'the daily Creative AI budget is used up' : '');
     let web = null;
@@ -2542,6 +2555,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
     }));
     review = web ? web.review : [];
+    webDiag = web ? web.diag : { ran: false, reason: why };
     const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
     if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
     merged.web = web ? { ran: true, searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '' } : { ran: false, reason: why };
@@ -2550,7 +2564,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   }
   const curationOut = result.curation && result.curation.web ? result.curation : curation;
   creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
-  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review }, images, creditsCharged: 0 });
+  res.json({ ok: true, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ commons: result.diagnostics || null, web: webDiag }, creativeResearch.pictureStage(result.diagnostics, webDiag)) : null }, images, creditsCharged: 0 });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the
