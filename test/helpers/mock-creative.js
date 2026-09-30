@@ -6,6 +6,8 @@
 // quality. MOCK_CREATIVE = ok (default) | repair (first plan invalid, repair valid) | invalid | error
 //   | claims (the claim check always finds the "Closer" heading unsupported: repair, then it is taken out)
 //   | curate-none (the picture check finds nothing showing the subject)
+// A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
+// type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
 function payload(body) {
   const text = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : [{ type: 'text', text: String(m.content) }]))).filter(c => c.type === 'text').map(c => c.text).join('\n');
   const i = text.indexOf('{'); let data = {}; try { data = JSON.parse(text.slice(i, text.lastIndexOf('}') + 1)); } catch (e) { data = {}; }
@@ -20,25 +22,37 @@ function understanding(body) {
   const subject = brief.replace(/^(a|an)\s+(website|page|site)\s+(about|for)\s+/i, '').split(/[,.—–-]/)[0].trim() || 'Subject';
   return { identity: { name: subject, kind: 'recognizable', what: `the everyday ${subject}`, confidence: 'high' }, research: { scope: 'subject', wikipediaTitles: [subject.replace(/^./, c => c.toUpperCase())], commonsQueries: [`${subject} white background`] }, tone: { register: /absurd|grand/i.test(brief) ? 'extravagant' : 'editorial', words: [], fromBrief: /absurd|grand/i.test(brief) }, audience: 'general', motifs: ['spotlight', 'stage'], uncertainty: [] };
 }
-function plan(body, attempt) {
+function plan(body, attempt, env) {
   const { data } = payload(body); const assets = data.assets || []; const facts = data.facts || [];
   const free = assets.find(a => a.transparent) || null; const photo = assets.find(a => !a.transparent) || null;
   const name = (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject';
   const focal = free ? { kind: 'image', role: 'focal', asset: free.id, box: { d: [54, 10, 40, 82], m: [10, 4, 80, 92] }, entrance: { kind: 'descend', delay: 0.3, dur: 1.4 }, loop: { kind: 'float', amp: 1.2, period: 9 }, scroll: { kind: 'parallax', amount: 0.4 }, treatment: 'shadow' }
     : photo ? { kind: 'image', role: 'focal', asset: photo.id, box: { d: [52, 12, 42, 76], m: [8, 6, 84, 88] }, mask: 'arch', fit: 'cover', entrance: { kind: 'unveil' }, loop: { kind: 'drift', amp: 0.8, period: 14 } }
       : { kind: 'shape', role: 'focal', shape: { form: 'circle', fill: 'accent' }, box: { d: [56, 16, 34, 58], m: [22, 10, 56, 60] }, entrance: { kind: 'pop' }, loop: { kind: 'breathe' } };
+  // a revision comes back changed -- unless it was asked to keep the page as it is (MOCK_CREATIVE_REVISE=same, or said so)
+  const revised = !!(data.revise && !(env && env.MOCK_CREATIVE_REVISE === 'same') && !/as it is|unchanged/i.test(data.revise.ownerRequest || ''));
   const cited = facts.filter(f => f.text.length <= 240).slice(0, 3).map((f, i) => ({ label: String(i + 1), text: f.text, kind: 'sourced', cite: f.id }));
   const scenes = [
     { id: 'arrival', name: 'Arrival', purpose: 'Introduce the subject as the star', height: 'screen', layers: [focal, { kind: 'shape', role: 'support', shape: { form: 'ring', fill: 'glow' }, box: { d: [60, 6, 30, 48], m: [50, 0, 46, 40] }, opacity: 0.4, loop: { kind: 'spin', period: 30 } }], text: { kicker: 'A mock direction', heading: name, body: 'This plan was produced by the test provider, not a real model.', kind: 'imagined', region: 'left', size: 'display' }, cta: 'Begin' },
     { id: 'reveal', name: 'The reveal', purpose: 'Scroll-scrubbed close-up', link: 'follows the subject closer', height: 'tall', pin: true, camera: 'push-in', background: 'deep', layers: [Object.assign({}, focal, { box: { d: [30, 8, 40, 84], m: [10, 6, 80, 88] }, scroll: { kind: 'zoom-in', amount: 0.5 }, loop: { kind: 'none' } }), { kind: 'word', role: 'texture', word: { text: name.slice(0, 12).toUpperCase(), style: 'outline' }, box: { d: [-10, 30, 120, 40], m: [-10, 30, 120, 30] }, opacity: 0.35, scroll: { kind: 'pass-through', amount: 0.6 } }], text: { heading: 'Closer', items: cited, list: 'numbered', region: 'right', size: 'large' } },
     { id: 'rest', name: 'Rest', purpose: 'A quiet ending', link: 'lets the page settle', height: 'short', background: 'invert', layers: [{ kind: 'shape', role: 'focal', shape: { form: 'line', fill: 'accent' }, box: { d: [20, 48, 60, 4], m: [10, 48, 80, 4] }, entrance: { kind: 'unveil' } }], text: { heading: 'The end of the mock.', kind: 'imagined', region: 'center', size: 'medium' } },
   ];
+  if (revised) {
+    scenes.splice(1, 0, { id: 'detail', name: 'Detail', purpose: 'A closer look, added by the revision', link: 'moves in closer', height: 'tall', background: 'tint', layers: [{ kind: 'shape', role: 'focal', shape: { form: 'circle', fill: 'accent' }, box: { d: [20, 20, 40, 60], m: [10, 10, 80, 60] }, entrance: { kind: 'pop' } }], text: { heading: 'Closer still.', kind: 'imagined', region: 'right', size: 'large' } });
+    scenes.reverse(); scenes.unshift(scenes.pop());
+  }
   if (attempt === 'invalid') { scenes[0].layers[0] = { kind: 'image', role: 'focal', asset: 'does-not-exist', box: { d: [50, 10, 40, 80], m: [10, 10, 80, 80] } }; scenes[0].text.heading = ''; }
   return {
     identity: { name, kind: (data.understanding && data.understanding.identity && data.understanding.identity.kind) || 'recognizable' },
-    concept: { title: 'Mock Stage', logline: `A mock three-scene direction for ${name}, used only to test the plumbing.`, why: 'test' },
-    palette: { bg: '#15120f', bg2: '#2b231b', ink: '#f6efe3', muted: '#bfb2a0', accent: '#d8b46a', glow: '#fff1cf' },
-    type: { display: 'didone', scale: 'monumental', case: 'normal' }, atmosphere: { backdrop: 'spotlight', light: 'spot', particles: 'dust', density: 0.4 }, motion: { tempo: 'measured', signature: 'the subject descends' }, thread: { kind: 'line' },
+    ...(revised ? {
+      concept: { title: 'Mock Stage, revised', logline: `A revised mock direction for ${name}, used only to test the plumbing.`, why: 'test revision' },
+      palette: { bg: '#f4efe6', bg2: '#e6dccb', ink: '#1d1a16', muted: '#6d6456', accent: '#b0412e', glow: '#ffe2c4' },
+      type: { display: 'grotesk', scale: 'large', case: 'upper' }, atmosphere: { backdrop: 'paper', light: 'sun', particles: 'none', density: 0.2 }, motion: { tempo: 'lively', signature: 'the page snaps between scenes' }, thread: { kind: 'ribbon' },
+    } : {
+      concept: { title: 'Mock Stage', logline: `A mock three-scene direction for ${name}, used only to test the plumbing.`, why: 'test' },
+      palette: { bg: '#15120f', bg2: '#2b231b', ink: '#f6efe3', muted: '#bfb2a0', accent: '#d8b46a', glow: '#fff1cf' },
+      type: { display: 'didone', scale: 'monumental', case: 'normal' }, atmosphere: { backdrop: 'spotlight', light: 'spot', particles: 'dust', density: 0.4 }, motion: { tempo: 'measured', signature: 'the subject descends' }, thread: { kind: 'line' },
+    }),
     assetNotes: assets.map(a => ({ asset: a.id, depicts: `mock: ${a.title || a.id}`, matches: 'unsure' })), wants: [{ description: 'a cut-out of the subject', asset: free ? free.id : '', fallback: free ? '' : 'a drawn circle' }], limitations: free ? [] : ['no cut-out available'],
     scenes,
   };
@@ -71,6 +85,6 @@ function respond(body, env, counters) {
   }
   counters.plans = (counters.plans || 0) + 1;
   const bad = mode === 'invalid' || (mode === 'repair' && counters.plans % 2 === 1);
-  return { status: 200, body: { model: 'mock-creative-director', usage, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `p${counters.plans}`, name: tool, input: plan(body, bad ? 'invalid' : 'ok') }] } };
+  return { status: 200, body: { model: 'mock-creative-director', usage, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `p${counters.plans}`, name: tool, input: plan(body, bad ? 'invalid' : 'ok', env) }] } };
 }
-module.exports = { respond };
+module.exports = { respond, plan };

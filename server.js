@@ -62,6 +62,13 @@ const { createRequireAppBridgeAuth } = require('./lib/app-bridge-auth.js');
 const publishedSnapshots = require('./lib/published-snapshots.js');
 const { normalizeServerRefinementPlan, buildRefinementContext } = require('./lib/refinement-normalizer.js');
 const { applyRefinementPlan, setGeneratedImage, imageSummary } = require('./lib/apply-refinement-plan.js');
+// UPDATE INTELLIGENCE: "Update My Website" decides between the surgical operation plan above and a redesign of the
+// whole site (Business: lib/deep-refinement.js; Creative: lib/creative-refinement.js), and checks that a redesign
+// changed enough to be worth saving (lib/refinement-change.js).
+const { classifyEditRequest } = require('./lib/edit-classifier.js');
+const deepRefinement = require('./lib/deep-refinement.js');
+const creativeRefinement = require('./lib/creative-refinement.js');
+const refinementChange = require('./lib/refinement-change.js');
 // A real feature flag, not a code comment -- spec item 34 ("we need the
 // ability to stop rollout without reverting the whole codebase"). Default
 // 'disabled': every /api/identity/* route below fails closed (404, the
@@ -1080,7 +1087,7 @@ function recordPlannerAttempt(attempt, context) {
 // knowing what expensive work actually happened.
 const OPERATION_COST_CLASS = {
   NEW_SITE: 'standard', NEW_DIRECTION: 'standard',
-  COPY_REWRITE: 'cheap', COPY_TARGET_CHANGE: 'cheap', QUALITY_REPAIR: 'cheap',
+  COPY_REWRITE: 'cheap', COPY_TARGET_CHANGE: 'cheap', QUALITY_REPAIR: 'cheap', SITE_REDESIGN: 'cheap',
   IMAGE_REGENERATE: 'standard', IMAGE_ADD: 'standard', IMAGE_GENERATE: 'standard',
   SECTION_REORDER: 'free', STYLE_CHANGE: 'free', COLOR_CHANGE: 'free', TYPOGRAPHY_CHANGE: 'free',
   LAYOUT_CHANGE: 'free', IMAGE_REMOVE: 'free', PAGE_ADD: 'free', PAGE_REMOVE: 'free',
@@ -1874,6 +1881,19 @@ const REFINEMENT_TOOL = {
   }
 };
 
+// UPDATE INTELLIGENCE: the redesign tool is built from the SAME enum vocabularies as submit_website_plan above, so a
+// redesign can make every decision the original planner makes -- and nothing it can't.
+const REDESIGN_VOCAB = {
+  sectionTypes: SECTION_TYPE_KEYS, heroKeys: HERO_KEYS, typeKeys: TYPE_KEYS, navKeys: NAV_KEYS, cardKeys: CARD_KEYS, imageryKeys: IMAGERY_KEYS, ctaKeys: CTA_KEYS,
+  colorBehaviorKeys: COLOR_BEHAVIOR_KEYS, motionKeys: MOTION_KEYS, spacingKeys: SPACING_KEYS, patternKeys: PATTERN_KEYS, contentWidthKeys: CONTENT_WIDTH_KEYS,
+  imageDominanceKeys: IMAGE_DOMINANCE_KEYS, imageArrangementKeys: IMAGE_ARRANGEMENT_KEYS, sectionRhythmKeys: SECTION_RHYTHM_KEYS, sectionAlignmentKeys: SECTION_ALIGNMENT_KEYS,
+  typographyScaleKeys: TYPOGRAPHY_SCALE_KEYS, headingWidthKeys: HEADING_WIDTH_KEYS, cardDensityKeys: CARD_DENSITY_KEYS, cardShapeKeys: CARD_SHAPE_KEYS, splitRatioKeys: SPLIT_RATIO_KEYS,
+  creativeConceptKeys: CREATIVE_CONCEPT_KEYS, creativeMoodKeys: CREATIVE_MOOD_KEYS, creativeNarrativeKeys: CREATIVE_NARRATIVE_KEYS, creativeImageStrategyKeys: CREATIVE_IMAGE_STRATEGY_KEYS,
+  creativeSignatureKeys: CREATIVE_SIGNATURE_KEYS, creativeHeroStrategyKeys: CREATIVE_HERO_STRATEGY_KEYS, creativePageRhythmKeys: CREATIVE_PAGE_RHYTHM_KEYS, creativeAvoidKeys: CREATIVE_AVOID_KEYS,
+  sectionIntentKeys: SECTION_INTENT_KEYS, headlineRoleKeys: HEADLINE_ROLE_KEYS,
+};
+const REDESIGN_TOOL = deepRefinement.redesignTool(REDESIGN_VOCAB);
+
 const PLANNER_SYSTEM_PROMPT = `You are SiteRemade's website-planning engine. Given a short small-business description, reason about what THIS specific business needs and call submit_website_plan with a structured plan -- never HTML, CSS, or code.
 
 Rules:
@@ -2157,6 +2177,58 @@ async function requestRefinementPlan({ request, context }) {
     clearTimeout(timeout);
   }
 }
+// UPDATE INTELLIGENCE: the redesign planner. Same rules as the original planner -- the fact, copy-quality and design
+// rules below are taken VERBATIM from PLANNER_SYSTEM_PROMPT (one text, never a weaker copy) -- applied to a site that
+// already exists and must keep its business, facts and pictures.
+function plannerRules(numbers) {
+  return numbers.map(n => { const m = new RegExp('^' + n + '\\. [^\\n]*', 'm').exec(PLANNER_SYSTEM_PROMPT); return m ? m[0] : ''; }).filter(Boolean).join('\n');
+}
+const REDESIGN_SYSTEM_PROMPT = `You are SiteRemade's website-redesign engine. The owner already has this website -- it is theirs -- and asked for a change that describes a RESULT rather than one field. Study the whole site you are given and call submit_website_redesign with the revised structured website -- never HTML, CSS, or code.
+
+How to work:
+A. Decide what must materially change to deliver the request. A broad request ("feel premium", "less generic", "more editorial", "redesign the hero", "like a fashion brand") needs several coordinated decisions -- the type system and type scale, spacing and density, the hero composition and headline, which sections appear and in what order and layout, the colour treatment, the creative direction, the copy tone -- not a single tweak. Change enough that the owner sees their request in the preview at a glance: "yes, it understood me".
+B. Keep what the request does not touch: the business, its offer, its facts, and pages that do not need to change. You are revising this site, not generating a different one.
+C. design is the complete revised set of values (repeat the ones that stay). Return only the pages that change, each with its complete section list in order; keep an existing section by giving its id as ref (that keeps its pictures, form and settings). Sections that hold a form, and the owner's uploaded pictures, are always kept.
+D. Respect the scope you are given. A hero request changes the hero -- its copy, its composition or layout, and the design values that shape it -- and leaves the pages. A homepage request restructures only the homepage (design values still apply site-wide).
+E. No new pictures are created for this website: re-use sections that already have a picture for image-led moments. You cannot add testimonials, team, proof, metrics, pricing or integrations sections -- they would need facts the owner has not given.
+F. These rules from the original plan apply exactly:
+${plannerRules([1, 5, 7, 10, 11, 12, 13, 15])}`;
+const REDESIGN_TOOL_CACHED = { ...REDESIGN_TOOL, cache_control: { type: 'ephemeral' } };
+// A full-site revision returns much more than an operation list (a complete design + revised pages), so it gets the
+// planner's larger budget and more time (env-overridable). The app waits up to 150s for an update (lib/generator-bridge.js).
+const REDESIGN_REQUEST_TIMEOUT_MS = Number(process.env.SITEREMADE_REDESIGN_TIMEOUT_MS) || 100000;
+const REDESIGN_MAX_TOKENS = Number(process.env.SITEREMADE_REDESIGN_MAX_TOKENS) || 8000;
+// Same return shape as requestRefinementPlan; THROWS on a network error/timeout.
+async function requestDeepRefinementPlan({ request, context, classification }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REDESIGN_REQUEST_TIMEOUT_MS);
+  const model = (premiumCore && premiumCore.cfg && premiumCore.cfg.enabled && premiumCore.cfg.models.planner) || ANTHROPIC_MODEL;
+  const scopeLine = classification.scope === 'hero' ? 'The request is about the hero (the top of the homepage).'
+    : classification.scope === 'page' ? 'The request is about the homepage: restructure only the homepage (design values still apply site-wide).'
+      : 'The request is about the whole website.';
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model, max_tokens: REDESIGN_MAX_TOKENS, thinking: { type: 'disabled' },
+        system: [{ type: 'text', text: REDESIGN_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: `The owner's request (verbatim): "${request}"\n${scopeLine}\n\nThe current website:\n${JSON.stringify(context).slice(0, 150000)}` }],
+        tools: [REDESIGN_TOOL_CACHED], tool_choice: { type: 'tool', name: 'submit_website_redesign' },
+      }),
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    const usage = data.usage || {};
+    if (!response.ok) return { providerOk: false, usage, model };
+    const toolUse = (data.content || []).find(block => block.type === 'tool_use' && block.name === 'submit_website_redesign');
+    const ok = !!(toolUse && toolUse.input);
+    return { providerOk: true, ok, plan: ok ? toolUse.input : null, usage, model: data.model || model };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass: same enforcement as
 // /api/plan-website above -- requireAuth instead of withOptionalAuth.
 // App bridge pass (Phase 4): the Claude call now goes through
@@ -3613,6 +3685,105 @@ const REFINEMENT_VOCAB = {
   spacingKeys: SPACING_KEYS, imageStrategyKeys: CREATIVE_IMAGE_STRATEGY_KEYS, heroStrategyKeys: CREATIVE_HERO_STRATEGY_KEYS,
   pageRhythmKeys: CREATIVE_PAGE_RHYTHM_KEYS,
 };
+
+// ---- UPDATE INTELLIGENCE: deep refinement ------------------------------------------------------------------------------
+// A redesign costs ONE AI update, the same as a surgical edit (BILLING.md: "AI update ... 1"). Kept as its own
+// constant so a different price is one visible change here, never a side effect -- it is not changed by this pass.
+const DEEP_REFINEMENT_CREDIT_COST = CREDIT_COSTS.aiUpdate;
+// Creative pages: a revision is meaningful when it moves at least this much, across at least two areas
+// (words / look / motion / structure -- lib/refinement-change.js measureCreativeChange).
+const CREATIVE_REDESIGN_THRESHOLD = { score: 3.5, areas: 2 };
+const NO_MEANINGFUL_CHANGE = 'The redesign did not produce a meaningful enough change, so nothing was saved and no credits were used. Try describing what you want to see, or send it to the SiteRemade team.';
+const sumUsage = list => list.reduce((t, u) => ({ input_tokens: (t.input_tokens || 0) + ((u && u.input_tokens) || 0), output_tokens: (t.output_tokens || 0) + ((u && u.output_tokens) || 0), cache_read_input_tokens: (t.cache_read_input_tokens || 0) + ((u && u.cache_read_input_tokens) || 0), cache_creation_input_tokens: (t.cache_creation_input_tokens || 0) + ((u && u.cache_creation_input_tokens) || 0) }), {});
+const sameJson = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
+// The validated state for saving, or null. validateDirectionsState is the same gate every save goes through.
+function validatedRevision(state, directionIndex) {
+  const check = projectStore.validateDirectionsState(state);
+  if (!check.valid || check.normalized.directions.length !== state.directions.length) return null;
+  return { state: check.normalized, after: check.normalized.directions[directionIndex] };
+}
+// -> { ok: true, state, changeSummary, counts, usage, model } | { ok: false, status, code, message, extra, usage, model }
+async function businessRedesign({ directionsState, directionIndex, direction, request, classification, intel }) {
+  const fail = (status, code, message, extra, more) => Object.assign({ ok: false, status, code, message, extra }, more || {});
+  const t0 = Date.now();
+  const context = deepRefinement.buildRedesignContext(direction, { classification });
+  let r;
+  try { r = await requestDeepRefinementPlan({ request, context, classification }); }
+  catch (e) { intel.planningMs = Date.now() - t0; return fail(502, 'edit_failed', 'We couldn\'t work out that redesign right now. Nothing on your website was changed.', undefined, { reason: e && e.name === 'AbortError' ? 'timeout' : 'network' }); }
+  intel.planningMs = Date.now() - t0;
+  const more = { usage: r.usage, model: r.model };
+  if (!r.providerOk || !r.ok) return fail(502, 'edit_failed', 'We couldn\'t work out that redesign right now. Nothing on your website was changed.', undefined, more);
+  const norm = deepRefinement.normalizeRedesignPlan(r.plan, direction, { vocab: REDESIGN_VOCAB, classification, request });
+  intel.droppedInvalid = norm ? norm.dropped.length : null;
+  intel.droppedFields = norm ? norm.dropped.slice(0, 12) : null;
+  if (!norm) return fail(422, 'edit_failed', 'That redesign didn\'t turn into changes we can make safely, so nothing on your website was changed.', undefined, more);
+  const p = norm.plan;
+  const counts = { designValues: Object.keys(p.design).length, typeSystem: Object.keys(p.typeSystem).length, creativeDirection: Object.keys(p.creativeDirection).length, heroFields: Object.keys(p.hero).length, pages: p.pages.length, sections: p.pages.reduce((n, pg) => n + pg.sections.length, 0), removedPages: p.removePages.length };
+  intel.operationCount = counts.designValues + counts.typeSystem + counts.creativeDirection + counts.heroFields + counts.sections + counts.removedPages + (p.motionIntensity ? 1 : 0);
+  const applied = deepRefinement.applyRedesignPlan(directionsState, directionIndex, p);
+  if (!applied.ok) return fail(422, 'edit_failed', 'That redesign couldn\'t be applied cleanly, so nothing on your website was changed.', undefined, more);
+  intel.preserved = applied.preserved;
+  const v = validatedRevision(applied.state, directionIndex);
+  if (!v) return fail(422, 'edit_failed', 'That redesign produced a website we couldn\'t save, so nothing was changed.', undefined, more);
+  // A Business website's pictures are the owner's uploads, then SiteRemade's starter visuals, then designed graphics:
+  // a redesign never adds, removes or generates one (lib/premium/visual-mode.js). Checked, not assumed.
+  if (!sameJson(v.after.assets, direction.assets) || !sameJson(v.after.imagePlan, direction.imagePlan)) {
+    console.error('[update-intel] redesign would have changed pictures -- refused', intel.projectId);
+    return fail(422, 'edit_failed', 'That redesign would have changed your pictures, so nothing was changed.', undefined, more);
+  }
+  const measure = refinementChange.measureBusinessChange(direction, v.after);
+  const verdict = refinementChange.isMeaningful(measure, classification.scope);
+  intel.meaningfulChange = { ok: verdict.ok, score: measure.score, areas: measure.areas, reason: verdict.reason || undefined };
+  if (!verdict.ok) return fail(422, 'no_meaningful_change', NO_MEANINGFUL_CHANGE, { reason: 'no_meaningful_change' }, more);
+  const changeSummary = refinementChange.describeBusinessChange(direction, v.after, measure);
+  if (applied.preserved.some(x => x.why === 'holds a working form')) changeSummary.push('Kept your form where visitors can use it');
+  return Object.assign({ ok: true, state: v.state, changeSummary, counts }, more);
+}
+async function creativeRedesign({ accountId, directionsState, directionIndex, direction, request, intel }) {
+  const fail = (status, code, message, extra, more) => Object.assign({ ok: false, status, code, message, extra }, more || {});
+  if (!direction.creative || !direction.creative.plan) return fail(422, 'edit_failed', 'This page couldn\'t be read for a redesign. Nothing was changed.');
+  if (!creativeAiAvailable()) return fail(503, 'ai_unavailable', 'Automatic redesigns aren\'t available right now. Nothing on your website was changed.');
+  const spend = creativeSpendToday();
+  if ((spend.plansByAccount.get(accountId) || 0) >= CREATIVE_AI_LIMITS.accountDailyPlans) return fail(429, 'edit_failed', 'You\'ve used today\'s AI redesigns for Creative pages. Nothing was changed and no credits were used -- try again tomorrow.', { reason: 'daily_limit' });
+  const releaseBudget = creativeBudgetTake(creativeBoundUsd('direction'));
+  if (!releaseBudget) return fail(503, 'edit_failed', CREATIVE_BUDGET_MSG, { reason: 'provider_budget' });
+  const t0 = Date.now();
+  const input = creativeRefinement.buildCreativeReviseInput(direction, request);
+  const usages = []; let model = null;
+  // one bounded repair at most, and a per-call ceiling, so the whole update fits the app's wait
+  const limits = Object.assign({}, CREATIVE_AI_LIMITS, { repairs: Math.min(CREATIVE_AI_LIMITS.repairs, 1), timeoutMs: Math.min(CREATIVE_AI_LIMITS.timeoutMs, 90000) });
+  let r;
+  try {
+    r = await creativeAi.direct(input, {
+      limits, call: creativeModelCall,
+      budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
+      onUsage: x => {
+        usages.push(x.usage); if (x.step !== 'claims') model = x.model;
+        if (x.step === 'claims') return creativeLedger({ kind: 'creative_claims', accountId, ok: true, attempt: x.attempt, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true, via: 'app_update' });
+        const s = creativeSpendToday(); s.plansByAccount.set(accountId, (s.plansByAccount.get(accountId) || 0) + 1);
+        creativeLedger({ kind: 'creative_direct', accountId, ok: true, attempt: x.attempt, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true, via: 'app_update' });
+      },
+    });
+  } catch (e) {
+    r = { ok: false, reason: String(e && e.message || e).slice(0, 160) };
+  } finally { releaseBudget(); }
+  intel.planningMs = Date.now() - t0;
+  const more = { usage: sumUsage(usages), model: model || CREATIVE_AI_LIMITS.directorModel };
+  if (!r.ok) { intel.plannerError = String(r.reason || '').slice(0, 200); return fail(502, 'edit_failed', 'We couldn\'t work out that redesign right now. Nothing on your website was changed.', undefined, more); }
+  intel.droppedInvalid = (r.fixes || []).length;
+  intel.operationCount = Array.isArray(r.plan.scenes) ? r.plan.scenes.length : 0;
+  const v = validatedRevision(creativeRefinement.applyCreativeRevision(directionsState, directionIndex, r.plan, { model: more.model }), directionIndex);
+  if (!v || !v.after.creative || !v.after.creative.plan) return fail(422, 'edit_failed', 'That redesign produced a page we couldn\'t save, so nothing was changed.', undefined, more);
+  // the research, its sources, the pictures and their licences are the page's evidence: never touched by an update
+  if (!sameJson(v.after.creative.research, direction.creative.research) || !sameJson(v.after.creative.assets, direction.creative.assets) || !sameJson(v.after.creative.supplied, direction.creative.supplied)) {
+    return fail(422, 'edit_failed', 'That redesign would have changed the page\'s sources or pictures, so nothing was changed.', undefined, more);
+  }
+  const measure = refinementChange.measureCreativeChange(direction.creative.plan, v.after.creative.plan);
+  const ok = measure.score >= CREATIVE_REDESIGN_THRESHOLD.score && measure.areas.length >= CREATIVE_REDESIGN_THRESHOLD.areas;
+  intel.meaningfulChange = { ok, score: measure.score, areas: measure.areas };
+  if (!ok) return fail(422, 'no_meaningful_change', NO_MEANINGFUL_CHANGE, { reason: 'no_meaningful_change' }, more);
+  return Object.assign({ ok: true, state: v.state, changeSummary: refinementChange.describeCreativeChange(measure), counts: { scenes: intel.operationCount } }, more);
+}
 // "Which project is this customer's website?" -- resolved by the generator
 // itself, from the authenticated account alone (no client-supplied id): the
 // most recently PURCHASED project still in
@@ -3839,6 +4010,21 @@ function compileOwnedPreviewHtml(accountId, projectId) {
   const sel = purchasedHandoffSource(accountId, projectId);
   if (!sel.ok) return null;
   const { source, snapshot } = sel;
+  return compilePreviewHtml({ projectId, source, hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt });
+}
+// UPDATE INTELLIGENCE: the DRAFT an update just saved, so the owner can review it before publishing. Compiled by the
+// same export compiler from the project's current revision of the direction the bridge edits and publishes
+// (canonicalDirectionIndex) -- exactly what POST .../publish would freeze, so after publishing, the download is this
+// preview. Owner-only like every bridge route; nothing is saved, published or deployed.
+function compileOwnedDraftPreviewHtml(accountId, projectId) {
+  const project = projectStore.getOwnedProjectRaw(db, accountId, projectId);
+  if (!project || project.status === 'archived') return null;
+  const directionIndex = canonicalDirectionIndex(accountId, projectId, project.directionsState);
+  const snapshot = purchase.getOwnedPurchaseSnapshotRaw(db, accountId, projectId);
+  const html = compilePreviewHtml({ projectId, source: { kind: 'draft', revision: project.revision, directionIndex, directionsState: project.directionsState }, hostingChoice: snapshot ? snapshot.hostingChoice : null, purchaseDate: snapshot ? snapshot.createdAt : null });
+  return { html, revision: project.revision };
+}
+function compilePreviewHtml({ projectId, source, hostingChoice, purchaseDate }) {
   const directionIndex = source.directionIndex;
   const previewId = 'preview-' + crypto.createHash('sha1').update(projectId + ':' + source.kind + ':' + source.revision + ':' + directionIndex + ':' + process.hrtime.bigint()).digest('hex').slice(0, 20);
   const workDir = path.join(EXPORTS_DIR, previewId);
@@ -3846,7 +4032,7 @@ function compileOwnedPreviewHtml(accountId, projectId) {
   try {
     const result = exportCompiler.compileExport(db, {
       project: { id: projectId, revision: source.revision, directionsState: source.directionsState },
-      directionIndex, workDir, hostingChoice: snapshot.hostingChoice, purchaseDate: snapshot.createdAt,
+      directionIndex, workDir, hostingChoice, purchaseDate,
     });
     const indexFile = path.join(result.workDir, 'index.html');
     if (!fs.existsSync(indexFile)) throw new Error('Preview homepage was not compiled.');
@@ -3864,9 +4050,16 @@ function compileOwnedPreviewHtml(accountId, projectId) {
 app.get('/api/app-bridge/website/:projectId/preview', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
   const projectId = clean(req.params.projectId, 120);
   try {
+    // ?source=draft: the latest saved draft (what an update just changed), for review before publishing
+    if (req.query.source === 'draft') {
+      const draft = compileOwnedDraftPreviewHtml(req.accountId, projectId);
+      if (!draft) return bridgeError(res, 404, 'not_found', 'Website not found.');
+      res.set({ 'Cache-Control': 'no-store', 'X-SiteRemade-Preview': 'draft', 'X-SiteRemade-Revision': String(draft.revision) });
+      return res.type('html').send(draft.html);
+    }
     const html = compileOwnedPreviewHtml(req.accountId, projectId);
     if (!html) return bridgeError(res, 404, 'not_found', 'Purchased website not found.');
-    res.set('Cache-Control', 'no-store');
+    res.set({ 'Cache-Control': 'no-store', 'X-SiteRemade-Preview': 'published' });
     res.type('html').send(html);
   } catch (e) {
     console.error('[app-bridge] preview failed:', e && e.message);
@@ -3955,12 +4148,17 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   const direction = project.directionsState.directions[directionIndex];
   if (!direction) return bridgeError(res, 422, 'edit_failed', 'This website couldn\'t be read for editing. Nothing was changed.');
 
+  // UPDATE INTELLIGENCE: a specific change (the operation plan below) or a redesign (deep refinement) -- decided
+  // deterministically, before anything is spent (lib/edit-classifier.js).
+  const classification = classifyEditRequest(request);
+  const deep = classification.mode === 'deep';
   // Same task type (and therefore the same 'cheap' credit class/price) that
   // /api/refine-website defaults to -- no new price is invented here.
   // BILLING PASS: one AI update (CREDIT_COSTS.aiUpdate) from the same ledger the builder spends from. The app sends
   // an idempotency key per update, so a retried or reconnected request never plans (or charges) twice.
-  const taskType = 'COPY_REWRITE';
-  const refineCost = CREDIT_COSTS.aiUpdate;
+  // A redesign is also one AI update (DEEP_REFINEMENT_CREDIT_COST).
+  const taskType = deep ? 'SITE_REDESIGN' : 'COPY_REWRITE';
+  const refineCost = deep ? DEEP_REFINEMENT_CREDIT_COST : CREDIT_COSTS.aiUpdate;
   let refineReserved = false, refineOp = null;
   if (refineCost > 0) {
     await prepareCredits(req.accountId);
@@ -3976,7 +4174,16 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   let plannerModel = ANTHROPIC_MODEL;
   const recordRefine = (ok) => recordOperation({ operationType: taskType, provider: 'anthropic', model: plannerModel, ok, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: refineReserved ? refineCost : null, creditsCharged: (ok && refineReserved) ? refineCost : 0, latencyMs: Date.now() - startedAt, projectId: project.id, accountId: req.accountId, anonId: null });
   let settled = false; // true once credits are committed -- a late error must never release a committed charge
+  // One structured line per update ([update-intel] {...}): ids, the classification, timings, counts, what was dropped
+  // and why, the meaningful-change verdict, and what was saved and charged. Never a token, a secret or image bytes.
+  const intel = { requestId: editOpId || null, projectId: project.id, baseRevision, mode: deep ? 'deep_refinement' : 'surgical_edit', scope: classification.scope, classifier: classification.scores, websiteKind: direction.mode === 'creative' ? 'creative' : 'business' };
+  let intelLogged = false;
+  const logIntel = (outcome, extra) => {
+    if (intelLogged) return; intelLogged = true;
+    try { console.log('[update-intel] ' + JSON.stringify(Object.assign(intel, { outcome, plannerModel, totalMs: Date.now() - startedAt }, extra || {}))); } catch (e) { /* logging never breaks an update */ }
+  };
   const fail = (status, code, message, extra) => {
+    logIntel(code === 'no_meaningful_change' ? 'no_meaningful_change' : 'failed', { code, httpStatus: status, saved: false, creditsCharged: 0 });
     if (!settled) {
       settled = true;
       if (refineReserved) releaseCredit(refineOp);
@@ -3987,16 +4194,44 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
     return bridgeError(res, status, code, message, extra);
   };
   try {
+    if (deep) {
+      // DEEP REFINEMENT: the whole site studied and revised as a structured direction, validated, checked for a
+      // meaningful change, and saved atomically as ONE new draft revision -- or nothing is saved and nothing charged.
+      const out = direction.mode === 'creative'
+        ? await creativeRedesign({ accountId: req.accountId, directionsState: project.directionsState, directionIndex, direction, request, intel })
+        : await businessRedesign({ directionsState: project.directionsState, directionIndex, direction, request, classification, intel });
+      if (out.usage) usage = out.usage;
+      if (out.model) plannerModel = out.model;
+      if (!out.ok) return fail(out.status, out.code, out.message, out.extra);
+      const saved = projectStore.updateOwnedProject(db, req.accountId, project.id, { directionsState: out.state, expectedRevision: baseRevision });
+      if (!saved.ok) {
+        if (saved.reason === 'conflict') return fail(409, 'revision_conflict', 'This website changed while your update was being prepared. Nothing was changed -- refresh and try again.', { currentRevision: saved.current ? saved.current.revision : null });
+        if (saved.reason === 'not_found') return fail(404, 'not_found', 'Website not found.');
+        return fail(422, 'edit_failed', 'That redesign produced a website we couldn\'t save, so nothing was changed.');
+      }
+      settled = true;
+      if (refineReserved) commitCredit(refineOp);
+      recordRefine(true);
+      let creditsRemaining = null;
+      try { creditsRemaining = creditsRemainingFor(req.accountId); } catch (e) { /* informational only -- the update IS saved */ }
+      const edited = { ok: true, mode: 'deep', scope: classification.scope, revision: saved.project.revision, changeSummary: out.changeSummary, appliedOperations: [Object.assign({ action: 'redesign', scope: classification.scope }, out.counts)], creditsCharged: refineReserved ? refineCost : 0, creditsRemaining };
+      rememberPaid(refineOp, edited);
+      logIntel('saved', { saved: true, revision: edited.revision, creditsCharged: edited.creditsCharged });
+      return res.json(edited);
+    }
     let planResult;
     try {
       planResult = await requestRefinementPlan({ request, context: buildRefinementContext(direction) });
     } catch (error) {
+      intel.planningMs = Date.now() - startedAt;
       return fail(502, 'edit_failed', 'We couldn\'t work out that change right now. Nothing on your website was changed.');
     }
+    intel.planningMs = Date.now() - startedAt;
     usage = planResult.usage || {};
     if (planResult.model) plannerModel = planResult.model;
     if (!planResult.providerOk || !planResult.ok) return fail(502, 'edit_failed', 'We couldn\'t work out that change right now. Nothing on your website was changed.');
     const plan = normalizeServerRefinementPlan(planResult.plan, direction, REFINEMENT_VOCAB);
+    if (plan) { intel.operationCount = plan.operations.length + plan.imageActions.length; intel.droppedInvalid = plan.droppedCount; }
     if (!plan) return fail(422, 'edit_failed', 'That request didn\'t turn into a change we can make automatically. Nothing on your website was changed -- try describing it another way, or send it to the SiteRemade team.');
     const applied = applyRefinementPlan(project.directionsState, directionIndex, plan);
     if (!applied.ok) return fail(422, 'edit_failed', 'That change couldn\'t be applied cleanly, so nothing on your website was changed.');
@@ -4054,8 +4289,9 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
     const imageCredits = appliedOperations.filter(o => o.action === 'regenerate-image').reduce((n, o) => n + (o.creditsCharged || 0), 0);
     let creditsRemaining = null;
     try { creditsRemaining = creditsRemainingFor(req.accountId); } catch (e) { /* informational only -- the edit IS saved; never report it as failed */ }
-    const edited = { ok: true, revision: saved.project.revision, changeSummary, appliedOperations, creditsCharged: (refineReserved ? refineCost : 0) + imageCredits, creditsRemaining };
+    const edited = { ok: true, mode: 'surgical', revision: saved.project.revision, changeSummary, appliedOperations, creditsCharged: (refineReserved ? refineCost : 0) + imageCredits, creditsRemaining };
     rememberPaid(refineOp, edited);
+    logIntel('saved', { saved: true, revision: edited.revision, creditsCharged: edited.creditsCharged });
     return res.json(edited);
   } catch (error) {
     console.error('App bridge edit failed:', error && error.message);

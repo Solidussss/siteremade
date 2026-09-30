@@ -13,6 +13,8 @@
 //   MOCK_REFINEMENT_IMAGE_SLOT = slot the mock Workplace-edit plan regenerates (default hero)
 //   MOCK_REFINEMENT_COPY = a hero headline the mock Workplace-edit plan also sets (unset: the update is only a picture)
 //   MOCK_SUPABASE_USER_ID / MOCK_SUPABASE_EMAIL = the identity any bearer token verifies as
+//   MOCK_REDESIGN = premium | editorial | creative | hero | noop | invent | drop-form | malformed (the redesign planner,
+//     test/helpers/mock-redesign.js); MOCK_CREATIVE_REVISE = same (a Creative revision comes back unchanged)
 // Prints "LISTENING <port>" once ready. Counts every provider call it
 // answers into MOCK_CALL_LOG (a file) so a test can prove what was "paid".
 const fs = require('fs');
@@ -47,6 +49,8 @@ globalThis.fetch = async function (url, options) {
   if (u.startsWith('https://api.anthropic.com/')) {
     const body = JSON.parse(options.body);
     const tool = body.tool_choice && body.tool_choice.name;
+    // the "Update My Website" redesign planner: answers read the real site context (test/helpers/mock-redesign.js)
+    if (tool === 'submit_website_redesign') { const r = require('./mock-redesign').respond(body, process.env); log(Object.assign({ provider: 'anthropic' }, r.log)); return json(r.body); }
     log({ provider: 'anthropic', tool });
     // Creative mode's understanding / direction tools: labelled mock answers (test/helpers/mock-creative.js)
     // the watermark check on picked pictures (labelled mock: nothing is flagged unless MOCK_WATERMARK names an id)

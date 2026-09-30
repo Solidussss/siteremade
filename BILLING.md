@@ -10,6 +10,7 @@ One account system across the builder (Business and Creative) and the SiteRemade
 | Creative page: research, picture search and checks, direction, claim checks, automatic repairs | 4 (1 research + 3 direction) |
 | Another direction for the same Creative page | 3 |
 | AI update (builder refinement or client-app update), whatever the browser calls it | 1 |
+| Client-app redesign ("make it feel premium" -- a whole-site deep refinement; nothing charged if it changes too little) | 1 (the same AI update, DEEP_REFINEMENT_CREDIT_COST) |
 | Optional generated image | 1 support / 2 premium |
 | Manual edits, uploads, saving | 0 |
 
