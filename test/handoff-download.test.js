@@ -101,7 +101,7 @@ test('A/B. a purchased Business website downloads as a real ZIP with every hando
   assert.equal(Number(r.headers.get('content-length')), r.body.length);
   assert.ok(r.body.length > 1000);
   const files = readZip(r.body);
-  for (const f of ['index.html', 'styles.css', 'site.js', 'README.md', 'HANDOFF.md', 'export-manifest.json']) assert.ok(files.has(f), `${f} in the ZIP`);
+  for (const f of ['START-HERE.md', 'index.html', 'styles.css', 'site.js', 'README.md', 'HANDOFF.md', 'export-manifest.json']) assert.ok(files.has(f), `${f} in the ZIP`);
   assert.ok(![...files.keys()].some(n => n.startsWith('/') || n.includes('..') || n.includes('\\')), 'relative, forward-slash paths only');
 });
 
