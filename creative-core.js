@@ -2392,6 +2392,12 @@
       .sc-body{font-size:15.5px;margin-top:12px}
       .cr-herocredit{position:static;padding:0 20px 0 26px;order:4;max-width:none;text-align:left}
       .cr-foot{padding:36px 20px 28px 26px}
+      /* phones: the fixed header is a solid bar (its fade let dark scenes' words run under the page title), and every tap
+         target is finger-sized; citation numbers readable */
+      .cr-nav{background:rgba(var(--bg-rgb),.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+      .cr-brand{display:flex;align-items:center;min-height:44px}
+      .cr-menu summary,.cr-sources summary{display:flex;align-items:center;min-height:44px}
+      .cr-cite{font-size:12px;padding:6px 2px}
     }
     /* reduced motion: the complete still composition */
     html[data-motion="reduced"] *,html[data-motion="reduced"] *::before,html[data-motion="reduced"] *::after{animation:none!important;transition:none!important}

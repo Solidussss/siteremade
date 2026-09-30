@@ -305,9 +305,9 @@ footer .footer-logo img{width:72px;height:64px}
 
   .builder-site .site-nav { height:62px; padding:0 14px; gap:10px; }
   .builder-site .site-nav > div:nth-child(2) { display:none; }
-  .builder-site .site-nav button { padding:9px 11px; font-size:8px; white-space:nowrap; }
+  .builder-site .site-nav button { padding:10px 14px; font-size:13px; min-height:40px; white-space:nowrap; } /* was 8px: unreadable on a phone */
   .site-brand-lockup { max-width:55%; overflow:hidden; }
-  .site-brand-lockup #siteBusiness { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+  .site-brand-lockup #siteBusiness { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
   .site-brand-lockup #siteLogo.active { max-width:104px; max-height:30px; }
 
   .builder-site .site-hero,
@@ -355,6 +355,37 @@ footer .footer-logo img{width:72px;height:64px}
   .ownership-section { padding-left:20px; padding-right:20px; }
   footer { gap:18px; }
   footer div { flex-wrap:wrap; }
+
+  /* Mobile QA pass: readable builder text on phones -- the interface's labels, notes and buttons were 9-11px.
+     (The pictured browser mock at the top of the page is an illustration and keeps its miniature type.) */
+  .control-label, .editor-hero-select-label, .hero-layer-focal-label, .editor-page-tab, output { font-size:12px; }
+  .asset-block-note, .generator-ai-hint, .editor-home-note, .account-save-status, .example-chip, .hero-layer-replace, .starter-replace { font-size:12.5px; }
+  :is(.builder-controls, .account-panel, .section-toggles, .editor-control-block) label:not(.control-label),
+  .tone-toggle button, .device-toggle button, .reset-colors, .asset-add-button, .logo-upload-button, .link-button, .client-login, .builder-section summary { font-size:13px; }
+  footer div { gap:4px 18px; }
+}
+
+/* Mobile QA pass: text fields of 16px or more on tablets and touch screens -- iOS zooms the whole page when a smaller
+   field gets focus. The builder's fields, the auth gate, the Creative studio, and the forms on generated websites. */
+@media (max-width: 1024px), (pointer: coarse) {
+  :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), select, textarea) { font-size:16px!important; }
+
+  /* Finger-sized controls (44px, Apple HIG / WCAG 2.5.5) across the builder's own interface on phones and tablets --
+     the generator box, example chips, editor (reorder arrows included), account panel, purchase and handoff, the auth
+     gate, the Creative studio. The generated website preview (.builder-site) keeps the website's own design; the
+     editor's own Replace buttons laid over it are controls, so they are included. */
+  :is(.nav, .hero, .builder-section, .purchase-section, .handoff-section, footer, .generation-gate-overlay, #creativeStudio) :is(button, select, summary, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file])):not(.builder-site *),
+  .builder-site :is(.starter-replace, .hero-layer-replace) { min-height:44px; }
+  [data-action$="-up"], [data-action$="-down"] { min-width:44px; }
+  :is(.nav, .hero, .builder-section, .purchase-section, .handoff-section, footer) :is(.link-button, .client-login, footer a):not(.builder-site *) { display:inline-flex; align-items:center; justify-content:center; min-height:44px; min-width:44px; }
+
+  /* Generated websites on tablets and phones: the site's small print was sized for the builder's scaled-down preview
+     frame (9px buttons -- the hero's .hero-cta-btn 13px lost to .site-actions button 9px -- 11px form labels and
+     card text). Real devices get readable sizes; the desktop design is unchanged. */
+  .builder-site .site-actions :is(button, a) { font-size:14px; }
+  .builder-site .module-field label { font-size:13px; }
+  .builder-site :is(.service-card, .feature-card, .icon-led-row-body) p { font-size:13px; }
+  .builder-site .site-nav-link { font-size:13px; }
 }
 
 @media (max-width: 430px) {
@@ -411,10 +442,10 @@ footer .footer-logo img{width:72px;height:64px}
   .logo-remove-button { width:100%; }
 
   .preview-toolbar { align-items:flex-start; }
-  .device-toggle { width:100%; margin:0; display:grid; grid-template-columns:1fr 1fr; }
+  .device-toggle { width:100%; margin:0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); } /* Desktop / Tablet / Mobile on one row */
   .device-toggle button { width:100%; }
   .builder-site .site-nav { padding:0 11px; }
-  .builder-site .site-nav button { padding:8px 9px; }
+  .builder-site .site-nav button { padding:8px 12px; }
   .builder-site .site-hero,
   .builder-site[data-layout="split"] .site-hero { padding:24px 16px!important; }
   .builder-site .site-copy h3,
@@ -466,7 +497,7 @@ html,body{max-width:100%;overflow-x:hidden}
   .brand-logo{width:56px;height:52px}
   .brand-logo img{width:52px;height:48px}
   .nav-actions{gap:6px}
-  .nav-actions .client-login{min-height:36px;padding:0 11px;font-size:10px}
+  .nav-actions .client-login{min-height:44px;padding:0 12px;font-size:13px}
   .hero,.modes-section,.builder-section,.handoff-section,.why-section,.pricing-section,footer{width:calc(100% - 22px)}
   .hero{padding:56px 0 64px;gap:36px}
   .hero-copy{text-align:left}
@@ -514,7 +545,7 @@ html,body{max-width:100%;overflow-x:hidden}
   .full-color-grid{grid-template-columns:1fr}
   .builder-preview-wrap{padding:7px}
   .preview-toolbar{gap:8px;align-items:flex-start;flex-direction:column}
-  .device-toggle{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .device-toggle{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))} /* Desktop / Tablet / Mobile on one row */
   .device-toggle button{width:100%}
   .builder-device{min-height:0;padding:0;display:block;overflow:hidden;border-radius:14px}
   .builder-site{min-width:0!important;width:100%!important;transform:none!important;border-radius:12px}
@@ -532,7 +563,7 @@ html,body{max-width:100%;overflow-x:hidden}
   .pricing-section{gap:24px}
 }
 @media(max-width:430px){
-  .nav-actions .client-login{padding:0 9px;font-size:9px}
+  .nav-actions .client-login{padding:0 12px;font-size:13px} /* was 9px */
   .hero{padding-top:42px}
   .hero h1{font-size:clamp(42px,13.5vw,54px)}
   .hero-demo{min-height:300px}
@@ -1530,7 +1561,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .refinement-row{display:flex;gap:10px;align-items:flex-end}
 .refinement-row textarea{flex:1;min-height:52px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;font-size:13px}
 .refinement-status{min-height:16px;margin:8px 0 0;font-size:11px;color:var(--muted)}
-@media(max-width:720px){.refinement-row{display:block}.refinement-row button{width:100%;margin-top:8px}}
+@media(max-width:720px){.refinement-row{display:block}.refinement-row textarea,.refinement-row input{width:100%;box-sizing:border-box}.refinement-row button{width:100%;margin-top:8px}}
 .purchase-price{gap:10px}
 .purchase-price span{letter-spacing:-.03em}
 .purchase-price small{letter-spacing:.04em}
@@ -2104,8 +2135,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .module-field{display:flex;flex-direction:column;gap:5px}
 .module-field label{font-size:11px;color:color-mix(in srgb,var(--site-text) 72%,transparent)}
 .module-required-mark{color:#ff7a7a}
+/* Field border and fill come from the site's own palette: a fixed white-on-dark border (rgba(255,255,255,.16)) made every
+   field invisible on a light site -- the form showed labels over blank space. Dark sites look as before. */
 .module-field input,.module-field select,.module-field textarea{
-  width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.03);
+  width:100%;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--site-text) 20%,transparent);background:color-mix(in srgb,var(--site-bg) 92%,var(--site-text) 8%);
   color:inherit;border-radius:9px;padding:12px 13px;font-size:13px;font-family:inherit;outline:none
 }
 .module-field textarea{resize:vertical;min-height:90px}
@@ -2453,7 +2486,10 @@ body.generation-gate-open{overflow:hidden}
 .builder-site[data-comp="v2"] [data-comp-moment="contrastband"] .site-section-label{font-size:calc(var(--site-h2) * 1.2)}
 .builder-site[data-comp="v2"] .site-section-about[data-comp-layout="offset"]{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(24px,5cqw,64px);align-items:center}
 .builder-site[data-comp="v2"] [data-comp-layout="offset"] .about-visual{transform:translateY(-14px)}
-.builder-site[data-comp="v2"] [data-comp-layout="large-steps"] :is([class*="-num"],[class*="node"]){font-size:clamp(2.6rem,7cqw,4.6rem);line-height:.9;font-weight:800;letter-spacing:-.04em;color:var(--site-accent);opacity:.95}
+/* the step NUMBERS only -- a substring match ([class*="-num"]) also caught the list containers (process-flow-large-number,
+   process-flow-numbered), so every step title inherited the numbers' 42px size and -.04em tracking as a fixed -1.7px:
+   "Reach out" rendered as "Reachout" */
+.builder-site[data-comp="v2"] [data-comp-layout="large-steps"] :is(.process-flow-num,.process-large-num,.process-editorial-num,.process-compact-num,.process-icon-node){font-size:clamp(2.6rem,7cqw,4.6rem);line-height:.9;font-weight:800;letter-spacing:-.04em;color:var(--site-accent);opacity:.95}
 .builder-site[data-comp="v2"] [data-comp-layout="quiet-air"]{padding-top:calc(var(--site-space-major) * 1.05);padding-bottom:calc(var(--site-space-major) * 1.05)}
 
 /* open composition: repeated-unit sections keep their frame, everything else loses the box */
