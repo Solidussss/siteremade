@@ -69,6 +69,8 @@ const { classifyEditRequest } = require('./lib/edit-classifier.js');
 const deepRefinement = require('./lib/deep-refinement.js');
 const creativeRefinement = require('./lib/creative-refinement.js');
 const refinementChange = require('./lib/refinement-change.js');
+// Every website saved to an account (drafts and purchased) for the Client App's list -- GET /api/app-bridge/websites.
+const savedWebsites = require('./lib/saved-websites.js');
 // A real feature flag, not a code comment -- spec item 34 ("we need the
 // ability to stop rollout without reverting the whole codebase"). Default
 // 'disabled': every /api/identity/* route below fails closed (404, the
@@ -3927,6 +3929,17 @@ app.get('/api/app-bridge/website/candidates', appBridgeRateLimit, requireAppBrid
   }
   for (const p of owned.values()) if (p.status === 'purchased' && !seen.has(p.id)) add(p, null);
   return res.json({ ok: true, candidates: candidates.slice(0, 50) });
+});
+
+// 1d. GET /api/app-bridge/websites -- EVERY website saved to this account, drafts and purchased (lib/saved-websites.js).
+// Route 1b (candidates) lists only purchases, and GET /api/my-websites builds only from purchase snapshots, so a
+// project saved to the account as a draft never reached the Client App. Built from the owned-projects table, with
+// purchase and publish facts folded in from batch reads. Metadata only (no state, no image bytes); scoped to the
+// verified account alone, so it can never list anyone else's projects. Registered BEFORE route 1c so the plural path
+// is never read as a project id (they differ anyway: /websites vs /website/:id).
+app.get('/api/app-bridge/websites', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const websites = savedWebsites.listSavedWebsites(db, req.accountId).slice(0, 200);
+  return res.json({ ok: true, websites });
 });
 
 // 1c. GET /api/app-bridge/website/:projectId -- Phase 9 (multi-project).

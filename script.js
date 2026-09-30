@@ -6812,9 +6812,25 @@ function loadProjectFromStorage() {
     } else {
       throw new Error('Unrecognized saved format');
     }
+    const openFirstId = directions[0] && directions[0].meta && directions[0].meta.id;
     applyDirectionsState(restored, restoredIndex);
     setProjectStatus(`Loaded your saved project${directions.length > 1 ? ` (${directions.length} directions)` : ''}.`);
+    adoptLocalWebsiteForAccount(openFirstId);
   } catch (e) { setProjectStatus('Saved project could not be read.'); }
+}
+// SAVE TO ACCOUNT: a website restored from this browser while signed in belongs on the account too -- as its own
+// project (reattached through the migration map if it was saved before, created once otherwise). A DIFFERENT website
+// than the one being synced first stops that sync, so it can never be written into the other website's project.
+function adoptLocalWebsiteForAccount(previousFirstId) {
+  if (!currentAccount) return;
+  const firstId = directions[0] && directions[0].meta && directions[0].meta.id;
+  if (serverProjectId && firstId && firstId !== previousFirstId) {
+    serverSyncEpoch++;
+    if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+    autosavePendingWhileInFlight = false;
+    serverProjectId = null; serverProjectRevision = null;
+  }
+  if (!serverProjectId) saveNewWebsiteToAccount();
 }
 
 // ---- DOM refs -------------------------------------------------------------
@@ -9344,10 +9360,20 @@ async function runGeneration(text) {
     showAuthGate();
     return;
   }
-  if (directions.length >= MAX_DIRECTIONS) {
+  // SAVE TO ACCOUNT: a description of a DIFFERENT website (not "Try another direction" of the open one) starts a new
+  // website -- its own directions and, once admitted, its own saved project -- instead of being appended as another
+  // direction of whatever is open (which autosave would then have written into that website's saved project). The
+  // open website's last edits reach ITS saved project first.
+  const freshWebsite = isDifferentWebsite(text);
+  if (freshWebsite) {
+    await settleServerAutosave();
+    if (generationInFlight) return;
+  }
+  if (directions.length >= MAX_DIRECTIONS && !freshWebsite) {
     announceDirectionLimitReached();
     return;
   }
+  const parkedWebsite = freshWebsite ? parkCurrentWebsite() : null; // synchronous from here to generationInFlight = true
   const expectedDirectionIndex = directions.length; // the exact slot this transaction is reserved for
   const variationSeed = expectedDirectionIndex; // 0, 1, 2 -- which direction this attempt will become if it succeeds
   const submittedSource = createGenerationSource(text);
@@ -9615,6 +9641,10 @@ async function runGeneration(text) {
     // has been admitted yet at all. This only re-renders an already-built
     // project -- it never calls resolveImagePlanAssets, so restoring can't
     // cause a new image request.
+    // SAVE TO ACCOUNT: a new website that didn't make it gives the open one back, still synced to its saved project;
+    // one that did is saved to the account as its OWN project, once.
+    if (!admitted && parkedWebsite) restoreParkedWebsite(parkedWebsite);
+    if (admitted && currentAccount && !serverProjectId) saveNewWebsiteToAccount();
     if (!admitted) {
       project = directions.length ? directions[activeDirectionIndex] : previousProject;
       renderProject(project);
@@ -9655,6 +9685,8 @@ let autosavePendingWhileInFlight = false;
 let autosaveRequestSeq = 0;
 let autosaveHighestAppliedSeq = 0; // a response is only ever applied if no NEWER request has already completed -- see doAutosaveSave
 let autosaveState = 'idle'; // idle | dirty | saving | saved | failed | conflict
+let serverSyncEpoch = 0; // bumped when the browser stops being synced to a project (a new website started) -- see parkCurrentWebsite
+let newWebsiteSaveInFlight = null; // the one in-flight "create this new website's saved project" -- never two
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const AUTOSAVE_RETRY_MS = 5000;
 // UNIFIED ACCOUNT / AUTH-GATED GENERATION pass -----------------------------
@@ -9902,8 +9934,10 @@ function updateAccountUI() {
   }
   if (accountProjectsSelect) {
     const previousValue = accountProjectsSelect.value;
+    // Saved projects = every project on the account, drafts and owned (purchased) alike; an archived draft is gone
+    const PROJECT_STATUS_WORDS = { draft: 'Draft', checkout_pending: 'Checkout in progress', purchased: 'Owned' };
     accountProjectsSelect.innerHTML = '<option value="">— select a project —</option>' +
-      ownedProjectsCache.map(p => `<option value="${escapeHtml(p.id)}">${p.mode === 'creative' ? 'Creative · ' : ''}${escapeHtml(p.name)} (${escapeHtml(p.status)})</option>`).join('');
+      ownedProjectsCache.filter(p => p.status !== 'archived').map(p => `<option value="${escapeHtml(p.id)}">${p.mode === 'creative' ? 'Creative · ' : ''}${escapeHtml(p.name)} — ${escapeHtml(PROJECT_STATUS_WORDS[p.status] || p.status)}</option>`).join('');
     if (previousValue && ownedProjectsCache.some(p => p.id === previousValue)) accountProjectsSelect.value = previousValue;
   }
   updatePurchaseOwnershipBadge();
@@ -10127,6 +10161,7 @@ function flushServerAutosave() {
   return currentFlushPromise;
 }
 async function doAutosaveSave() {
+  const epoch = serverSyncEpoch; // a new website started while this save was in flight: its answer is for the old one
   setAutosaveState('saving');
   // Read at send time, not schedule time -- a coalesced follow-up flush
   // (above) always sends whatever `directions`/`activeDirectionIndex` look
@@ -10140,6 +10175,7 @@ async function doAutosaveSave() {
   const name = accountProjectNameInput && accountProjectNameInput.value.trim() ? accountProjectNameInput.value.trim() : undefined;
   const payload = { directionsState: { directions, activeDirectionIndex }, expectedRevision: serverProjectRevision, ...(name ? { name } : {}) };
   const { ok, data } = await apiFetch(`/api/projects/${encodeURIComponent(serverProjectId)}`, { method: 'PUT', body: payload });
+  if (epoch !== serverSyncEpoch) return !!(ok && data.ok);
   // A later flush's response may already have landed and been applied
   // while this one was in flight (shouldn't happen given the in-flight
   // guard above, but this is real defense in depth, not decorative) -- a
@@ -10157,11 +10193,71 @@ function scheduleServerAutosave() {
   // handles that) -- and paused entirely while a conflict is being shown,
   // so further local edits don't spam repeat conflicts against a revision
   // the visitor hasn't yet chosen to keep or discard.
+  // a new website whose first save to the account failed: the next edit tries that save again (never a second project)
+  if (currentAccount && !serverProjectId && directions.length && autosaveState === 'failed') { saveNewWebsiteToAccount(); return; }
   if (!currentAccount || !serverProjectId || autosaveState === 'conflict') return;
   setAutosaveState('dirty');
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => { autosaveTimer = null; flushServerAutosave(); }, AUTOSAVE_DEBOUNCE_MS);
 }
+// ---- SAVE TO ACCOUNT: one website, one saved project ------------------------------------------------------------------
+// "Try another direction" (and typing the same description again) adds a direction to the open website. A description
+// of a DIFFERENT website starts a new one: generating it must never be appended to -- and autosaved into -- the saved
+// project that happens to be open.
+function isDifferentWebsite(text) {
+  const open = directions[0] && directions[0].source && directions[0].source.text;
+  if (!open) return false;
+  const key = createGenerationSource(text).key;
+  return key !== createGenerationSource(open).key && !(generationSession && generationSession.key === key);
+}
+// Waits out any save still on its way for the open website (same loop as checkout's forceSyncBeforeCheckout).
+async function settleServerAutosave() {
+  if (!currentAccount || !serverProjectId) return;
+  for (let guard = 0; guard < 6 && (currentFlushPromise || autosavePendingWhileInFlight || autosaveState === 'dirty'); guard++) {
+    await flushServerAutosave();
+  }
+}
+// Sets the open website aside (in memory) and stops syncing to its saved project, so the new website starts empty
+// and unsynced. Returned so a new website that fails to generate can give it back exactly as it was.
+function parkCurrentWebsite() {
+  const parked = {
+    directions, activeDirectionIndex, serverProjectId, serverProjectRevision, autosaveState,
+    name: accountProjectNameInput ? accountProjectNameInput.value : '',
+  };
+  serverSyncEpoch++;
+  if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+  autosavePendingWhileInFlight = false;
+  hideConflict();
+  serverProjectId = null;
+  serverProjectRevision = null;
+  if (accountProjectNameInput) accountProjectNameInput.value = '';
+  directions = [];
+  activeDirectionIndex = -1;
+  setAutosaveState('idle', 'New website — it is saved to your account as its own project once it is generated.');
+  updatePurchaseOwnershipBadge();
+  return parked;
+}
+function restoreParkedWebsite(parked) {
+  if (directions.length) return; // something was admitted after all -- never throw it away
+  directions = parked.directions;
+  activeDirectionIndex = parked.activeDirectionIndex;
+  serverProjectId = parked.serverProjectId;
+  serverProjectRevision = parked.serverProjectRevision;
+  if (accountProjectNameInput) accountProjectNameInput.value = parked.name;
+  setAutosaveState(parked.serverProjectId ? (parked.autosaveState === 'failed' ? 'failed' : 'saved') : 'idle');
+  updatePurchaseOwnershipBadge();
+}
+// A website generated while signed in is saved to the account right away, as a NEW project, exactly once
+// (migrateLocalProjectToAccount: POST /api/projects keyed by this website's own local id, so even a repeat call can
+// only ever resolve to the same project). "Saved to your account." appears only when the server has stored it.
+function saveNewWebsiteToAccount() {
+  if (!currentAccount || serverProjectId) return Promise.resolve();
+  if (newWebsiteSaveInFlight) return newWebsiteSaveInFlight;
+  setAutosaveState('saving');
+  newWebsiteSaveInFlight = migrateLocalProjectToAccount().finally(() => { newWebsiteSaveInFlight = null; });
+  return newWebsiteSaveInFlight;
+}
+
 // Guarantees the exact on-screen project state reaches the server before
 // checkout binds a purchase intent to it (spec: "payment must grant
 // ownership of the EXACT project intended") -- waits out any in-flight/
@@ -10169,7 +10265,7 @@ function scheduleServerAutosave() {
 // the time this is called.
 async function forceSyncBeforeCheckout() {
   if (!currentAccount) return false;
-  if (!serverProjectId) { await migrateLocalProjectToAccount(); }
+  if (!serverProjectId) { await saveNewWebsiteToAccount(); }
   if (!serverProjectId) return false;
   for (let guard = 0; guard < 6 && (currentFlushPromise || autosavePendingWhileInFlight || autosaveState === 'dirty'); guard++) {
     await flushServerAutosave();
