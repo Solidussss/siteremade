@@ -200,6 +200,50 @@ run against a newer server.
 * No credits are charged for Creative (review only); Business pricing is unchanged. Ledger costs are **estimates**
   from token counts; the provider invoice is the real charge.
 
+## Art direction (layout archetypes, scroll choreography, image framing)
+
+Why pages looked alike before: every scene was the same structure (a stage of boxes plus one text block in one of nine
+regions), the composition rules pushed every focal picture beside the words, motion was a list of unrelated per-layer
+effects, pictures were cover-cropped into masks and enlarged to fill containers, and nothing varied the recipe between
+generations (the `seed` was stored, never used). The art-direction layer fixes that at the level of structure:
+
+* **Recipe** (`art.js`, `choose`): one coherent decision per page, made before the scenes are written -- a motion
+  **personality** (editorial, cinematic, kinetic, playful, luxe, mechanical, chaotic, still), a **scroll model** (flow,
+  sequence, continuous, track, stack, snap), typography, navigation treatment, density, background progression, depth,
+  and the **scene architecture** (a layout archetype, a choreography and a handoff per scene, and what each scene
+  carries). The subject's genre and register weight the personalities; the pictures that exist decide which archetypes
+  are possible (a cinematic band needs a wide, sharp, uncropped photo; a floating composition needs a cut-out; a strip
+  needs three pictures; each picture may appear two or three times); the seed picks among good options; and recipes
+  this account made recently (read from its saved projects) and this page's previous direction are steered away from.
+  The server passes the recipe to the model (`artDirection`) and the validator; the built-in director (`director2.js`)
+  uses the same recipe, so a page without the AI is art-directed too.
+* **Archetypes** (`archetypes.js`): 20 real compositions (editorial-hero, cinematic, split, giant-type, shrine,
+  offcanvas, framed, floating, collage, poster, magazine, strip, sticky-steps, text, image, luxe, dense, depth,
+  brutalist, gallery) plus `free` (the plan's own boxes, as before). Each places the words on a 12-column grid, the
+  pictures in slots through the framing engine, its own decoration, height, pin and phone composition (its own stage
+  height and whether the words sit above, below or over the picture). A scene whose pictures cannot carry its archetype
+  is recomposed as the nearest one that can, and says so.
+* **Choreography** (renderer): settle, pin-steps (the picture holds while each line takes its turn, pictures can change
+  with them), zoom-away, scale-through, mask-reveal, type-wipe, track (vertical scroll moves a strip sideways), stack,
+  depth, travel; **handoffs** between scenes: cut, overlap (the next scene slides over the seam), bleed (the colour
+  evolves), carry (a picture leaves one side as the next scene's arrives from the other), stack (the previous scene
+  holds while it is covered). The runtime writes two numbers per moving scene (`--p`, and `--pe` eased in the page's
+  personality); effects use the individual transform properties, so they never fight entrances and loops. One scroll
+  listener; reduced motion and no-script show every choreography in its finished composition; held scenes are bounded
+  (≤ 4.2 screens on desktop, ≤ 3 on phones).
+* **Framing** (`framing.js`): every picture says what it is for (full, contain, light, editorial, detail, bleed, framed,
+  floating, cutout, masked, texture, collage), each with a crop budget (light 14 %, editorial / masked 30 %, bleed 34 %;
+  only an explicit `detail` may crop harder). A container that does not suit the picture is reshaped toward it, or the
+  picture is shown whole; a picture whose subject already fills it (measured from the pixels, or said by the picture
+  check's new `framing` field) is never cropped further. The crop window keeps the measured subject in view (a tall
+  subject keeps its top). Zoom ceilings: an ambient zoom ≤ 6 %, a scroll zoom ≤ 15 %, a camera push halved over cropped
+  pictures, an entrance ≤ 8 % -- for every page, old ones included. The export carries each picture's budget and subject,
+  and a runtime guard re-checks the crop against the real viewport.
+* **Stability**: a plan without `art` renders exactly as before (only the zoom ceilings apply); an accepted art plan is
+  returned in its stored form, so save, reopen and export never change it (layout rules version 5). "Update My
+  Website" offers the page's current art direction to the director as its starting point; a revision that keeps the
+  page as it is is never re-art-directed.
+
 ## Built-in pipeline (stage 1; now the labelled fallback)
 
 1. **Understand** (`understand.js`): `recognizable` (a real thing with public facts), `personal` (“my goldfish
@@ -303,6 +347,14 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   item and CTA inside the studio preview. Run it locally first with `--provider=mock` (`MOCK_CREATIVE=curate-none`
   forces the gate) — it costs nothing and catches studio-flow breaks before a paid run.
 * Stability: `test/fixtures/creative-saved-stage2.json` is a page saved by the stage-2 code; it must reopen unchanged.
+* Art direction: `node --test test/creative-art.test.js` -- different recipes for different subjects and seeds,
+  anti-repetition, every archetype a distinct composition, every choreography rendered with a reduced-motion version,
+  personality changing rendered behaviour, framing (whole subject, tight pictures never cropped further, aggressive crops
+  only when planned), save / reopen / export / revision round trips, phone compositions. `node
+  test/review/creative-art-qa.js <outDir> --run` -- the real studio on eight deliberately different briefs
+  (`test/fixtures/creative-briefs-art.js`, no model calls), exported and captured at desktop, tablet and six phone
+  widths (320-430) with crop, overflow, off-screen-text and held-scene measurements, and contact sheets to judge
+  diversity by eye.
 
 ## Stages
 
@@ -319,5 +371,8 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
    reviewed picture with the owner's rights, search again, explicit abstract); owner roles for uploads with an enforced
    main picture; in-page navigation that works in the studio preview and exports; provider-outage handling; ordered
    Creative ledger. Creative remains review-only (`?creative=1`), with no Creative pricing.
+5. **Art direction:** recipes with motion personalities and scroll models, 20 layout archetypes, scene choreography and
+   handoffs, image framing with crop budgets and zoom ceilings, anti-repetition across an account's pages, an
+   art-directed built-in director, and the picture check's framing judgement.
 
 See `CREATIVE_PROGRESS.md` for the running log.

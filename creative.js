@@ -486,13 +486,15 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
       creditsFrom(d);
       // not enough credits, or no page job: nothing was spent, and the page is not swapped for a free layout
       if (d.creditsExceeded || d.needsJob || d.inProgress) return { stop: d.message || d.reason || 'This direction could not start.' };
+      // (what this account made recently, so a built-in page steers away from it too)
+      if (Array.isArray(d.recentRecipes)) S.recentRecipes = d.recentRecipes.filter(function (x) { return typeof x === 'string'; }).slice(0, 10);
       if (r.ok && d.ok && d.plan) rememberJob(true);
       if (r.ok && d.ok && d.plan) {
         var v = C.validate2.validatePlan2(d.plan, Object.assign(ctx2(), { mode: 'safety' })); var plan = v.plan; // accepted by the server: kept as composed if (S.fixture) plan.fixture = S.fixture;
@@ -520,7 +522,7 @@
   }
   function rememberDirection() {
     if (!S.plan) return; var c = S.plan.v === 2 ? S.plan.concept : { title: '', logline: S.plan.concept.line };
-    S.history = (S.history || []).concat([{ title: c.title || '', logline: c.logline || '', source: (S.planMeta && S.planMeta.source) || 'rules', at: new Date().toISOString() }]).slice(-6);
+    S.history = (S.history || []).concat([{ title: c.title || '', logline: c.logline || '', source: (S.planMeta && S.planMeta.source) || 'rules', at: new Date().toISOString(), recipe: (S.plan.art && S.plan.art.recipe) || undefined }]).slice(-6);
     S.previous = { plan: S.plan, planMeta: S.planMeta };
   }
   function anotherDirection() {
@@ -545,11 +547,16 @@
     document.getElementById('csChoiceBack').addEventListener('click', function () { els.csProgress.hidden = true; els.csBriefStep.hidden = false; });
   }
   function supplied() { return { facts: lines(S.suppliedText).slice(0, 12), memories: lines(S.memoriesText).slice(0, 8) }; }
+  // the built-in director (no AI, or the AI could not answer): an art-directed page all the same -- the same recipe
+  // chooser as the AI path picks its motion, scroll and scene architecture, away from this account's recent recipes
+  function recentRecipes() { return (S.history || []).map(function (h) { return h.recipe; }).filter(Boolean).concat(S.recentRecipes || []).slice(-10); }
   function direct() {
-    var u = legacyU(); var research = S.research || {};
-    var plan = C.director.direct({ understanding: u, research: { page: research.page, facts: research.facts || [] }, assets: live(), supplied: supplied(), seed: S.brief + '|' + (S.choice || '') });
-    if (S.fixture) plan.fixture = S.fixture;
-    S.plan = settle(plan);
+    var u = legacyU(); var research = S.research || {}; var ai = S.understanding && S.understanding.source === 'ai' ? S.understanding : null;
+    var und = Object.assign({}, u, ai ? { tone: ai.tone || u.tone, motifs: ai.motifs, identity: ai.identity, kind: ai.kind === 'invented' ? 'invented' : u.kind } : {});
+    var res = C.director2.direct({ understanding: und, research: { page: research.page, facts: research.facts || [] }, assets: live(), supplied: supplied(), seed: String(Date.now()), history: recentRecipes(), avoid: S.plan && S.plan.art ? S.plan.art.recipe : '', mainAsset: liveMain() });
+    if (S.fixture) res.plan.fixture = S.fixture;
+    var v = C.validate2.validatePlan2(res.plan, Object.assign(ctx2(), { art: res.recipe, mainAsset: liveMain() }));
+    S.plan = v.plan; S.lastFixes = v.fixes; S.lastWarnings = v.warnings;
   }
   function live() { return S.assets.filter(function (a) { return !a.removed && !a.failed; }); }
   // edits, picture swaps and reopening keep the accepted layout (safety checks only); recompose is the owner's explicit choice
@@ -715,7 +722,7 @@
     if (S.plan && S.plan.v === 2) {
       var hero = S.plan.scenes[0]; var f = hero.layers.find(function (L) { return L.role === 'focal'; });
       S.mainAsset = a.cutoutOf || id; S.assets.forEach(function (x) { if (x.ownerRole === 'main' && x.id !== S.mainAsset) x.ownerRole = 'auto'; });
-      if (f && f.kind === 'image') { f.asset = id; if (a.focus) f.focus = a.focus; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; f.mask = 'none'; } } // a cutout floats free: no frame
+      if (f && f.kind === 'image') { f.asset = id; delete f.frame; delete f.mfit; delete f.mfocus; if (a.focus) f.focus = a.focus; if (!(a.caps && a.caps.moveFreely)) { f.fit = 'cover'; if (f.mask === 'none') f.mask = 'window'; } else { f.fit = 'contain'; f.mask = 'none'; } } // a cutout floats free: no frame
       else hero.layers.unshift({ id: 'focal-main', kind: 'image', role: 'focal', asset: id, box: { d: [52, 10, 42, 80], m: [8, 4, 84, 92] }, z: 5, entrance: { kind: 'rise' }, loop: { kind: 'float', amp: 1, period: 9 }, scroll: { kind: 'parallax', amount: 0.3 } });
       S.plan = settle(S.plan, 'safety', [hero.id]); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
     }
@@ -739,7 +746,7 @@
         if (S.plan.v === 2) {
           // same concept and composition; every layer that showed the old picture now shows the new one, framed for what it is
           var touched = []; if (S.mainAsset === id) S.mainAsset = na.id;
-          S.plan.scenes.forEach(function (s) { s.layers.forEach(function (L) { if (L.asset === id || (oldCut && L.asset === oldCut.id)) { if (touched.indexOf(s.id) < 0) touched.push(s.id); var free = L.asset === (oldCut && oldCut.id) && nCut; L.asset = free ? nCut.id : na.id; if (!free && (L.mask === 'none' && L.role !== 'backdrop' && L.role !== 'texture')) { L.mask = 'window'; L.fit = 'cover'; } } }); });
+          S.plan.scenes.forEach(function (s) { s.layers.forEach(function (L) { if (L.asset === id || (oldCut && L.asset === oldCut.id)) { if (touched.indexOf(s.id) < 0) touched.push(s.id); var free = L.asset === (oldCut && oldCut.id) && nCut; L.asset = free ? nCut.id : na.id; delete L.frame; delete L.mfit; delete L.mfocus; if (!free && (L.mask === 'none' && L.role !== 'backdrop' && L.role !== 'texture')) { L.mask = 'window'; L.fit = 'cover'; } } }); });
           S.assets.forEach(function (a) { if (a.id === id || a.cutoutOf === id) { a.removed = true; delete a.dataUrl; } });
           S.assets = S.assets.concat(group); S.plan = settle(S.plan, 'safety', touched); refresh(); buildEditor(); renderThumbs(); markDirty(); return;
         }

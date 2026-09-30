@@ -2480,6 +2480,16 @@ const creativeResearch = require('./lib/creative/research');
 // neither shared with Business credits or budgets. Every call is written to creative-ledger.jsonl
 // with its tokens and ESTIMATED cost. The key stays here; the browser only ever sees validated plans.
 const creativeAi = require('./lib/creative/ai');
+const creativeArt = require('./lib/creative/art');
+// ART DIRECTION: the recipes (motion personality / scroll model / scene architecture) this account's most recent Creative
+// pages were built on -- read from the saved projects themselves, newest first -- so a new page steers away from them
+function creativeRecentRecipes(accountId) {
+  try {
+    return projectStore.listOwnedProjectsRaw(db, accountId).filter(p => p.mode === 'creative').sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))).slice(0, 12)
+      .map(p => { const st = p.directionsState || {}; const d = (st.directions || [])[st.activeDirectionIndex || 0]; const pl = d && d.creative && d.creative.plan; return (pl && pl.art && typeof pl.art.recipe === 'string' && pl.art.recipe) || ''; })
+      .filter(Boolean).slice(0, 10);
+  } catch (e) { return []; }
+}
 const creativeWeb = require('./lib/creative/webimages');
 const creativeWebFetch = require('./lib/creative/webfetch');
 const CREATIVE_AI_LIMITS = creativeAi.limits(process.env);
@@ -2899,7 +2909,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   if (!creativeAiAvailable()) {
     // nothing paid runs: the built-in layout builds the page, and nothing still held for it is charged
     if (job && job.status === 'open') { creativeJobs.directionFailed(db, job, creativeJobs.directionOp(job)); if (!job.directions) credits.release(db, `${job.id}:research`); }
-    return res.json({ ok: false, fallback: true, reason: creativeAiUnavailableReason(), ...creativeCredits(req.accountId) });
+    return res.json({ ok: false, fallback: true, reason: creativeAiUnavailableReason(), recentRecipes: creativeRecentRecipes(req.accountId), ...creativeCredits(req.accountId) });
   }
   if (!job) return res.status(402).json({ ok: false, needsJob: true, ...creativeCredits(req.accountId), reason: 'this page has no active job -- start it from its brief', message: `Start the page from its brief to direct it (${CREDIT_COSTS.creativePage} credits).` });
   await prepareCredits(req.accountId);
@@ -2923,6 +2933,9 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
     assets, thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
     avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
+    // the art direction for this page: chosen here for the subject, its register and the pictures that exist, away from
+    // this account's recent recipes and (for another direction) from this page's current one
+    art: null,
     // the owner's choices: a main picture (it must lead), or an explicit abstract interpretation
     mainAsset: typeof b.mainAsset === 'string' && assets.some(a => a.id === b.mainAsset) ? b.mainAsset : null, abstractChosen: !!b.abstractChosen,
     // the main picture's own colours (measured in the browser): the palette is built from them
@@ -2930,6 +2943,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     // what the picture check found (coverage of the subject, the pictures that could not be found)
     coverage: b.coverage && typeof b.coverage === 'object' ? { coverage: ['strong', 'partial', 'none'].includes(b.coverage.coverage) ? b.coverage.coverage : '', missing: arr(b.coverage.missing, 3).map(x => clean(x, 160)).filter(Boolean), note: clean(b.coverage.note, 240) } : null,
   };
+  const recent = creativeRecentRecipes(req.accountId);
+  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160) });
   const startedAt = Date.now();
   let r;
   try {
@@ -2955,7 +2970,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });
-    return res.json({ ok: false, fallback: true, reason: r.reason, meta, ...creativeCredits(req.accountId) });
+    return res.json({ ok: false, fallback: true, reason: r.reason, meta, recentRecipes: recent, ...creativeCredits(req.accountId) });
   }
   const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
   creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd });
@@ -3750,7 +3765,7 @@ async function creativeRedesign({ accountId, directionsState, directionIndex, di
   const releaseBudget = creativeBudgetTake(creativeBoundUsd('direction'));
   if (!releaseBudget) return fail(503, 'edit_failed', CREATIVE_BUDGET_MSG, { reason: 'provider_budget' });
   const t0 = Date.now();
-  const input = creativeRefinement.buildCreativeReviseInput(direction, request);
+  const input = creativeRefinement.buildCreativeReviseInput(direction, request, String(Date.now()));
   const usages = []; let model = null;
   // one bounded repair at most, and a per-call ceiling, so the whole update fits the app's wait
   const limits = Object.assign({}, CREATIVE_AI_LIMITS, { repairs: Math.min(CREATIVE_AI_LIMITS.repairs, 1), timeoutMs: Math.min(CREATIVE_AI_LIMITS.timeoutMs, 90000) });

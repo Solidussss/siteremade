@@ -42,7 +42,9 @@ async function main() {
   } else if (!args.includes('--skip-studio')) {
     const env = {
       SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(scratch, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(scratch, 'assets'),
-      SITEREMADE_PREMIUM_LOG_DIR: path.join(outDir, 'ledger'), OPENAI_API_KEY: '', ANTHROPIC_API_KEY: provider === 'mock' ? 'mock-only' : '', MOCK_CREATIVE: process.env.MOCK_CREATIVE || 'ok', STRIPE_SECRET_KEY: '', MOCK_CALL_LOG: callLog, NODE_ENV: 'test',
+      SITEREMADE_PREMIUM_LOG_DIR: path.join(outDir, 'ledger'), OPENAI_API_KEY: '', ANTHROPIC_API_KEY: provider === 'mock' ? 'mock-only' : '', MOCK_CREATIVE: process.env.MOCK_CREATIVE || 'ok', STRIPE_SECRET_KEY: '',
+      // a local review account makes several pages: its trial allowance covers them (nothing here is real money)
+      SITEREMADE_TRIAL_CREDITS: process.env.SITEREMADE_TRIAL_CREDITS || '400', MOCK_CALL_LOG: callLog, NODE_ENV: 'test',
     };
     const server = await startServer(env);
     const jobFile = path.join(outDir, 'studio-job.json');

@@ -578,6 +578,796 @@
     module.exports = { validatePlan, subjectRect, drawnRect, overlap, area, usedAssets, TITLE_BOXES, STAGES, WORLDS, SECTION_TYPES, CONNECTORS };
 
   });
+  __define("framing", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — image framing. Every picture on a Creative page is framed on purpose: the plan says what the picture is
+    // FOR (show the whole subject, a light crop, an editorial crop, an explicit detail crop, full bleed, a framed print, a
+    // floating cut-out, a masked shape, a texture, a collage piece), and this module turns that intention into a fit, a
+    // crop position and -- when the container does not suit the picture -- a container reshaped to the picture.
+    //
+    // What it knows about a picture is only what was measured or seen:
+    //   - its pixel size and aspect (assets.assess),
+    //   - where the subject sits, when that could be read from the pixels (a transparent picture's opaque area, or the part
+    //     of a plain-background picture unlike its background -- assets.assess.subject),
+    //   - what the picture check (a vision call over the thumbnail) said about its framing ("whole", "tight", "cropped"...)
+    //     and where its important part is (curation.framing / curation.focus), and an owner-set focus.
+    // Nothing is guessed beyond that: a busy photo with no measured subject is treated as "unknown" and cropped gently.
+    //
+    //   profile(asset)                                -> { aspect, free, subject, fill, edges, tight, focus, source }
+    //   frameLayer(layer, asset, stageKey, opts)      -> { fit, focus, box, crop, zoom, intent, notes[] }  (a pure decision)
+    //   coverCrop(imageAspect, boxAspect)             -> { crop, axis, zoom }
+    //   ZOOM                                          the ceilings for every artificial enlargement
+    // Data only: the renderer applies it (object-fit / object-position), and its runtime guard re-checks the crop against
+    // the real viewport (a viewport wider than planned never crops past the budget).
+
+    // the framing intentions (the plan's `frame` on an image layer)
+    const FRAMES = ['auto', 'full', 'contain', 'light', 'editorial', 'detail', 'bleed', 'framed', 'floating', 'cutout', 'masked', 'texture', 'collage'];
+    // how much of a picture an intention may cut away along its cropped axis (share of that axis; 0 = nothing)
+    const BUDGET = { full: 0, contain: 0, framed: 0, floating: 0, cutout: 0, collage: 0.1, light: 0.14, masked: 0.3, editorial: 0.3, bleed: 0.34, detail: 0.62, texture: 1 };
+    // the most any artificial enlargement may add: an ambient loop, scroll-linked zoom, a scene camera, an entrance, and a
+    // deliberate detail (an explicit "detail" framing or a transitional zoom-away that settles back to 1)
+    // the most a picture whose subject was never located may lose
+    const UNKNOWN = 0.2;
+    const ZOOM = { loop: 1.06, scroll: 1.15, camera: 1.06, entrance: 1.06, detail: 1.35 };
+    // the stages the plan's boxes are drawn on (desktop scene, phone stage): real width / height
+    const STAGE = { d: 1.6, m: 0.9 };
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const r1 = v => Math.round(v * 10) / 10;
+
+    function coverCrop(ai, ab) {
+      if (!(ai > 0) || !(ab > 0)) return { crop: 0, axis: 'x', zoom: 1 };
+      // an image wider than its box loses width; a taller one loses height
+      return ai > ab ? { crop: 1 - ab / ai, axis: 'x', zoom: ai / ab } : { crop: 1 - ai / ab, axis: 'y', zoom: ab / ai };
+    }
+
+    // what is known about a picture's framing
+    function profile(asset) {
+      const a = (asset && asset.assess) || {}; const k = (asset && asset.curation) || {};
+      const aspect = a.aspect > 0 ? a.aspect : (a.width && a.height ? a.width / a.height : 1);
+      const free = !!(asset && (asset.cutout || a.transparent || (asset.caps && asset.caps.moveFreely)));
+      const s = Array.isArray(a.subject) && a.subject.length === 4 && a.subject[2] > a.subject[0] && a.subject[3] > a.subject[1] ? a.subject.slice() : null;
+      const fill = s ? (s[2] - s[0]) * (s[3] - s[1]) : null;
+      const edges = s ? [s[0] <= 0.02, s[1] <= 0.02, s[2] >= 0.98, s[3] >= 0.98].filter(Boolean).length : null;
+      const seen = typeof k.framing === 'string' ? k.framing : '';
+      const issues = Array.isArray(k.issues) ? k.issues : [];
+      // tight: the subject already fills the frame (or runs off it) -- cropping it further cuts the subject itself.
+      // A clean cut-out is the whole object by construction (a cut touching three edges is refused), so it is never tight.
+      const tight = !free && (seen === 'tight' || seen === 'cropped' || issues.includes('cropped') || (s != null && (fill > 0.74 || (edges >= 2 && fill > 0.5))));
+      const parse = v => { const m = /^(\d{1,3})% (\d{1,3})%$/.exec(v || ''); return m ? [clamp(+m[1] / 100, 0, 1), clamp(+m[2] / 100, 0, 1)] : null; };
+      const vision = Array.isArray(k.focus) && k.focus.length === 2 && k.focus.every(v => typeof v === 'number' && v >= 0 && v <= 1) ? k.focus.slice() : null;
+      // where the important part is: the owner's choice, the picture check's, the measured subject's centre (upper third of
+      // a tall subject, where a head or the top of an object is); unknown -> slightly above centre
+      const focus = parse(asset && asset.focus) || vision || (s ? [(s[0] + s[2]) / 2, s[1] + (s[3] - s[1]) * (s[3] - s[1] > 0.5 ? 0.38 : 0.5)] : [0.5, aspect < 0.9 ? 0.36 : 0.45]);
+      return { aspect, free, subject: s, fill, edges, tight, seen, focus, source: s ? 'pixels' : seen ? 'vision' : 'unknown', wide: aspect >= 1.45, tall: aspect <= 0.8, big: (a.width || 0) >= 1100 || (a.height || 0) >= 1100 };
+    }
+
+    // the crop window start (0..1-v) along one axis: centred on the focus, holding the whole subject span when it fits;
+    // a subject taller than the window keeps its top (heads, the top of an object), a wider one stays centred
+    function windowStart(v, f, s0, s1, keepTop) {
+      if (v >= 1) return 0;
+      let st = clamp(f - v / 2, 0, 1 - v);
+      if (s0 != null) {
+        if (s1 - s0 <= v) st = clamp(st, s1 - v, s0);
+        else st = keepTop ? s0 : clamp((s0 + s1) / 2 - v / 2, 0, 1 - v);
+      }
+      return clamp(st, 0, 1 - v);
+    }
+    function objectPosition(p, crop) {
+      const v = 1 - crop.crop; const s = p.subject;
+      if (crop.crop <= 0.001) return '50% 50%';
+      if (crop.axis === 'x') { const st = windowStart(v, p.focus[0], s && s[0], s && s[2], false); return `${Math.round(st / (1 - v) * 100)}% ${Math.round(p.focus[1] * 100)}%`; }
+      const st = windowStart(v, p.focus[1], s && s[1], s && s[3], true); return `${Math.round(p.focus[0] * 100)}% ${Math.round(st / (1 - v) * 100)}%`;
+    }
+    // reshape a box toward an aspect (real proportions) inside itself, holding one side/corner (anchor: 'l','r','c' x 't','b','m')
+    function reshape(box, stageAspect, target, anchor) {
+      const [x, y, w, h] = box; const cur = (w * stageAspect) / h; const an = anchor || 'cm';
+      let nw = w, nh = h;
+      if (cur > target) nw = (h * target) / stageAspect; else nh = (w * stageAspect) / target;
+      const ax = an.includes('l') ? 0 : an.includes('r') ? 1 : 0.5; const ay = an.includes('t') ? 0 : an.includes('b') ? 1 : 0.5;
+      return [r1(x + (w - nw) * ax), r1(y + (h - nh) * ay), r1(nw), r1(nh)];
+    }
+
+    // The decision for one image layer on one stage. opts: { stageAspect, anchor, role, mask, allowReshape (default true),
+    // minKeep (smallest share of the box a reshape may keep, default .45) }
+    function frameLayer(layer, asset, stageKey, opts) {
+      const o = opts || {}; const notes = [];
+      const sa = o.stageAspect || STAGE[stageKey] || 1.6;
+      const p = profile(asset);
+      const box = (layer.box && layer.box[stageKey] ? layer.box[stageKey] : [0, 0, 100, 100]).slice();
+      let intent = FRAMES.includes(layer.frame) ? layer.frame : 'auto';
+      const role = o.role || layer.role;
+      const mask = o.mask != null ? o.mask : layer.mask || 'none';
+      if (intent === 'auto') intent = p.free ? 'floating' : role === 'backdrop' ? 'bleed' : role === 'texture' ? 'texture' : mask && mask !== 'none' ? 'masked' : 'light';
+      // a cut-out is shown whole; it never fills a box by cropping
+      if (p.free && !['texture', 'collage', 'detail'].includes(intent)) intent = intent === 'cutout' ? 'cutout' : 'floating';
+      // an already tight picture is never cropped further: it is shown whole, in a frame, with space around it
+      if (p.tight && BUDGET[intent] > 0.06 && intent !== 'texture') {
+        const to = mask && !['none', 'window', 'frame', 'polaroid'].includes(mask) ? 'framed' : intent === 'bleed' ? 'framed' : 'contain';
+        notes.push(`${asset && asset.id}: already tightly framed (${p.source === 'pixels' ? 'the subject fills the picture' : 'the picture check said so'}) -- shown ${to === 'framed' ? 'whole in a frame' : 'whole'} instead of a ${intent} crop`);
+        intent = to;
+      }
+      // (unknown subject: at most a light crop's share more than a light crop -- nothing is guessed about where it is)
+      const budget = p.source === 'unknown' && !['texture', 'detail'].includes(intent) ? Math.min(BUDGET[intent], UNKNOWN) : BUDGET[intent];
+      const ab = (box[2] * sa) / box[3];
+      if (budget === 0 || p.free) {
+        // shown whole: the frame hugs the picture (no letterbox bands inside a frame); a free cut-out keeps its box and
+        // stands on its floor (drawnRect)
+        const nb = p.free || o.allowReshape === false ? box : reshape(box, sa, p.aspect, o.anchor);
+        // (a free cut-out stands on its box's floor -- the composition's overlap checks assume it: validate.js drawnRect)
+        return { fit: 'contain', focus: p.free ? '50% 100%' : '50% 50%', box: nb, crop: 0, zoom: 1, intent, profile: p, notes };
+      }
+      let c = coverCrop(p.aspect, ab);
+      let nb = box;
+      if (c.crop > budget + 0.005) {
+        // the container does not suit the picture: reshape it toward the picture until the crop is inside the budget
+        const target = c.axis === 'x' ? p.aspect * (1 - budget) : p.aspect / (1 - budget);
+        const cand = o.allowReshape === false ? box : reshape(box, sa, target, o.anchor);
+        const keep = (cand[2] * cand[3]) / Math.max(1, box[2] * box[3]);
+        if (o.allowReshape !== false && keep >= (o.minKeep || 0.45)) { nb = cand; c = coverCrop(p.aspect, (nb[2] * sa) / nb[3]); notes.push(`${asset && asset.id}: its ${intent} frame was reshaped to the picture (a ${Math.round(coverCrop(p.aspect, ab).crop * 100)}% crop would have cut it)`); }
+        else {
+          // no shape of this container keeps the crop honest: the picture is shown whole instead
+          notes.push(`${asset && asset.id}: a ${intent} crop here would cut ${Math.round(c.crop * 100)}% of it -- shown whole instead`);
+          const whole = o.allowReshape === false ? box : reshape(box, sa, p.aspect, o.anchor);
+          return { fit: 'contain', focus: '50% 50%', box: whole, crop: 0, zoom: 1, intent: intent === 'bleed' ? 'framed' : 'contain', profile: p, notes };
+        }
+      }
+      return { fit: 'cover', focus: objectPosition(p, c), box: nb, crop: +c.crop.toFixed(3), zoom: +c.zoom.toFixed(3), intent, profile: p, notes };
+    }
+
+    // the ceiling for a layer's artificial zoom: a deliberate detail may go further, nothing else does
+    function zoomCeiling(layer) { return layer && layer.frame === 'detail' ? ZOOM.detail : ZOOM.scroll; }
+
+    function budgetFor(asset, intent) { const p = profile(asset); const b = BUDGET[intent] == null ? BUDGET.light : BUDGET[intent]; return p.source === 'unknown' && !['texture', 'detail'].includes(intent) ? Math.min(b, UNKNOWN) : b; }
+
+    module.exports = { UNKNOWN, budgetFor, FRAMES, BUDGET, ZOOM, STAGE, profile, frameLayer, coverCrop, objectPosition, reshape, zoomCeiling };
+
+  });
+  __define("art", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — art direction. One coherent decision per page, made BEFORE the scenes are written, so a page has a
+    // language of its own instead of a list of unrelated effects:
+    //   personality   how things move (editorial, cinematic, kinetic, playful, luxe, mechanical, chaotic, still)
+    //   scroll        what scrolling does to the page (flow, sequence, continuous, track, stack, snap)
+    //   typo / nav / density / progression / depth / intensity
+    //   scenes        the scene architecture: a layout ARCHETYPE per scene (real, different compositions -- see
+    //                 archetypes.js), a scene choreography (what scroll does inside it) and a handoff (how it meets the
+    //                 previous scene), with what each scene carries (a statement, facts, pictures...)
+    //
+    //   choose(input) -> recipe      input: { understanding, assets, facts, supplied, seed, history, avoid }
+    //   normaliseArt(raw) -> art     the page-level part as stored in a plan (enums whitelisted)
+    //   fingerprint(recipe|plan), similarity(a, b)
+    //
+    // The choice is REASONED variation: the subject and its register (from the understanding) weight the personalities;
+    // the pictures that exist decide which archetypes are possible (a cinematic full-bleed needs a wide, sharp picture that
+    // is not already tightly cropped; a floating composition needs a cut-out); the seed picks among the good options; and
+    // recipes this account made recently (and this page's previous direction) are steered away from. Nothing here writes
+    // words or invents facts.
+
+    const F = require('./framing');
+
+    const PERSONALITIES = ['editorial', 'cinematic', 'kinetic', 'playful', 'luxe', 'mechanical', 'chaotic', 'still'];
+    const SCROLLS = ['flow', 'sequence', 'continuous', 'track', 'stack', 'snap'];
+    const LAYOUTS = ['free', 'editorial-hero', 'split', 'giant-type', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'strip', 'sticky-steps', 'text', 'image', 'luxe', 'dense', 'depth', 'brutalist', 'cinematic', 'gallery'];
+    const CHOREOS = ['settle', 'pin-steps', 'zoom-away', 'scale-through', 'mask-reveal', 'type-wipe', 'track', 'stack', 'depth', 'travel'];
+    const HANDOFFS = ['cut', 'overlap', 'bleed', 'carry', 'stack'];
+    const TYPOS = ['editorial', 'giant', 'minimal', 'poster', 'mixed'];
+    const NAVS = ['bar', 'minimal', 'index'];
+    const DENSITIES = ['sparse', 'balanced', 'dense'];
+    const PROGRESSIONS = ['steady', 'deepen', 'journey', 'invert'];
+    const DEPTHS = ['flat', 'layered', 'deep'];
+
+    // how each personality moves: the renderer reads these as CSS variables and runtime factors
+    const MOTION = {
+      editorial: { range: 0.6, ease: 'cubic-bezier(.25,.8,.25,1)', pin: 110, loops: 'gentle', text: 'lines', label: 'restrained editorial' },
+      cinematic: { range: 1, ease: 'cubic-bezier(.45,.05,.25,1)', pin: 150, loops: 'gentle', text: 'fade', label: 'smooth cinematic' },
+      kinetic: { range: 1.35, ease: 'cubic-bezier(.7,0,.2,1)', pin: 90, loops: 'lively', text: 'slide', label: 'kinetic graphic' },
+      playful: { range: 1.2, ease: 'cubic-bezier(.34,1.56,.64,1)', pin: 100, loops: 'lively', text: 'spring', label: 'playful elastic' },
+      luxe: { range: 0.5, ease: 'cubic-bezier(.22,.61,.36,1)', pin: 160, loops: 'gentle', text: 'spaced', label: 'luxurious, slow' },
+      mechanical: { range: 1, ease: 'cubic-bezier(.83,0,.17,1)', pin: 95, loops: 'none', text: 'type', label: 'mechanical, geometric' },
+      chaotic: { range: 1.5, ease: 'cubic-bezier(.68,-.35,.27,1.35)', pin: 90, loops: 'lively', text: 'jump', label: 'chaotic, controlled' },
+      still: { range: 0.25, ease: 'ease', pin: 120, loops: 'none', text: 'fade', label: 'still, respectful' },
+    };
+
+    // what each personality reaches for -- the pools the recipe is drawn from (weights)
+    const STYLE = {
+      editorial: { scroll: { flow: 3, continuous: 1.5, snap: 1 }, hero: { 'editorial-hero': 3, split: 3, magazine: 2, 'giant-type': 1.5, framed: 1.5 }, body: { magazine: 3, split: 2, text: 2, framed: 2, 'sticky-steps': 2.5, image: 1.5, gallery: 1.5, dense: 1 }, choreo: { settle: 3, 'type-wipe': 2, 'mask-reveal': 2, 'pin-steps': 2 }, handoff: { cut: 3, bleed: 2, overlap: 1 }, typo: { editorial: 3, minimal: 1.5, mixed: 1 }, nav: { bar: 2, index: 2 }, density: { balanced: 3, dense: 1 }, progression: { steady: 2, journey: 2 }, depth: { flat: 2, layered: 1 } },
+      cinematic: { scroll: { sequence: 3, continuous: 2.5, flow: 1 }, hero: { cinematic: 3, 'editorial-hero': 2.5, offcanvas: 2, shrine: 1.5 }, body: { cinematic: 2.5, image: 2, depth: 2.5, 'sticky-steps': 2, gallery: 2, split: 1.5, text: 1.5 }, choreo: { 'zoom-away': 3, depth: 2.5, 'mask-reveal': 2, 'pin-steps': 2, 'scale-through': 1.5 }, handoff: { bleed: 3, overlap: 2, carry: 1.5 }, typo: { minimal: 3, giant: 1.5 }, nav: { minimal: 3, bar: 1 }, density: { sparse: 2, balanced: 2 }, progression: { deepen: 3, journey: 1.5 }, depth: { deep: 3, layered: 1 } },
+      kinetic: { scroll: { track: 3, stack: 2, sequence: 2 }, hero: { 'giant-type': 3, poster: 2.5, offcanvas: 2, split: 1 }, body: { strip: 3, poster: 2, 'giant-type': 2, dense: 2, collage: 1.5, gallery: 1.5, 'sticky-steps': 1.5 }, choreo: { track: 3, 'type-wipe': 2.5, stack: 2, 'scale-through': 2, travel: 1.5 }, handoff: { cut: 2, stack: 2, carry: 1.5 }, typo: { giant: 3, poster: 2 }, nav: { minimal: 2, index: 2 }, density: { dense: 2.5, balanced: 1.5 }, progression: { invert: 2.5, journey: 1.5 }, depth: { layered: 2, flat: 1 } },
+      playful: { scroll: { stack: 2.5, flow: 2, track: 1.5 }, hero: { shrine: 3, floating: 2.5, poster: 2, collage: 2, offcanvas: 1.5 }, body: { collage: 2.5, floating: 2, strip: 2, dense: 1.5, 'giant-type': 1.5, 'sticky-steps': 2, shrine: 1 }, choreo: { travel: 3, stack: 2.5, 'pin-steps': 2, track: 1.5, 'scale-through': 1.5 }, handoff: { carry: 2.5, overlap: 2, cut: 1 }, typo: { poster: 2.5, giant: 2, mixed: 1 }, nav: { bar: 2, minimal: 1.5 }, density: { dense: 2, balanced: 2 }, progression: { journey: 3, invert: 1 }, depth: { layered: 3 } },
+      luxe: { scroll: { flow: 2.5, sequence: 2, snap: 1.5 }, hero: { luxe: 3, shrine: 2, framed: 2, 'editorial-hero': 1.5 }, body: { luxe: 2.5, framed: 2.5, text: 2, image: 2, 'sticky-steps': 1.5, magazine: 1.5, gallery: 1.5 }, choreo: { settle: 3, 'mask-reveal': 2.5, 'zoom-away': 2, 'pin-steps': 1.5 }, handoff: { bleed: 3, cut: 2 }, typo: { minimal: 3, editorial: 2 }, nav: { minimal: 3, index: 1.5 }, density: { sparse: 3 }, progression: { steady: 2, deepen: 2 }, depth: { flat: 2, layered: 1 } },
+      mechanical: { scroll: { snap: 2, sequence: 2, track: 2 }, hero: { brutalist: 3, 'giant-type': 2.5, split: 1.5, poster: 1.5 }, body: { brutalist: 3, dense: 2.5, strip: 2, 'sticky-steps': 2, text: 1.5, gallery: 1.5 }, choreo: { 'type-wipe': 3, track: 2, 'pin-steps': 2, travel: 1.5, stack: 1.5 }, handoff: { cut: 3, stack: 2 }, typo: { poster: 2.5, giant: 2 }, nav: { index: 3, bar: 1 }, density: { dense: 3 }, progression: { invert: 2.5, steady: 1.5 }, depth: { flat: 3 } },
+      chaotic: { scroll: { stack: 2, track: 2, continuous: 2 }, hero: { collage: 3, poster: 2.5, 'giant-type': 2, offcanvas: 2, brutalist: 1.5 }, body: { collage: 3, poster: 2.5, depth: 2, strip: 2, brutalist: 1.5, 'giant-type': 2, floating: 1.5 }, choreo: { travel: 2.5, 'scale-through': 2.5, depth: 2, stack: 2, 'type-wipe': 2, track: 1.5 }, handoff: { overlap: 2.5, carry: 2, stack: 2 }, typo: { poster: 3, giant: 2, mixed: 1.5 }, nav: { minimal: 2, index: 1.5 }, density: { dense: 3 }, progression: { invert: 2, journey: 2 }, depth: { deep: 2, layered: 2 } },
+      still: { scroll: { flow: 3 }, hero: { framed: 3, luxe: 2, 'editorial-hero': 2, shrine: 1.5, text: 1 }, body: { framed: 3, text: 2.5, image: 2, magazine: 2, luxe: 1.5, gallery: 1.5 }, choreo: { settle: 4, 'mask-reveal': 1 }, handoff: { cut: 3, bleed: 2 }, typo: { editorial: 3, minimal: 2 }, nav: { bar: 3 }, density: { sparse: 2, balanced: 2 }, progression: { steady: 3 }, depth: { flat: 3 } },
+    };
+
+    // the subject's genre, from what the understanding and research say it is (words only; no guessing about pictures)
+    const GENRES = [
+      ['brutal', /\bbrutalis[mt]\b|\bbrutalist\b/i],
+      ['tribute', /\b(in memory|memorial|remember(ed|ing)?|passed away|grandad|grandpa|grandma|granny|nan|funeral|tribute to (my|our))\b/i],
+      ['meme', /\b(meme|shrine|cursed|absurd|parody|shitpost|lol|vibe|internet (culture|famous)|viral|brainrot|goofy|silly)\b/i],
+      ['fashion', /\b(fashion|couture|runway|designer|apparel|clothing|garment|luxury|jewel(le)?ry|perfume|fragrance|handbag|atelier|haute|tailor)\b/i],
+      ['music', /\b(music|musician|band|album|synth|synthesi[sz]er|dj|techno|jazz|song|producer|composer|experimental|noise|record label|vinyl|concert|rapper|singer)\b/i],
+      ['tech', /\b(software|app|platform|startup|saas|api|robot|cyber|quantum|computer|algorithm|artificial intelligence|machine learning|futur(e|istic)|sci-?fi|spacecraft|code|developer)\b/i],
+      ['film', /\b(film|movie|cinema|director|screenplay|trailer|noir|premiere|documentary|hollywood|silent film)\b/i],
+      ['food', /\b(food|dish|burger|sandwich|pizza|cake|bread|coffee|tea|cookie|snack|dessert|soup|chocolate|kitchen|restaurant|bakery|sauce|noodle|taco|donut|doughnut|candy|ice cream|cheese|fruit)\b/i],
+      ['art', /\b(art|artist|artwork|gallery|exhibition|brutalis[mt]|sculpture|installation|zine|printmak|painting|painter|mural|collective)\b/i],
+      ['editorial', /\b(magazine|journal|essay|issue|editorial|review|column|publication|newspaper|story of|long-?read)\b/i],
+      ['nature', /\b(animal|bird|fish|forest|ocean|sea|plant|flower|tree|mountain|river|insect|whale|wildlife|reef|species)\b/i],
+      ['history', /\b(history|historic|ancient|war|museum|artefact|artifact|empire|dynasty|century|medieval|archaeolog)\b/i],
+    ];
+    const GENRE_WEIGHTS = {
+      tribute: { still: 3.5, editorial: 2, luxe: 1.2 },
+      brutal: { mechanical: 4, chaotic: 1.2, editorial: 0.8 },
+      meme: { playful: 3, chaotic: 3, cinematic: 1.3, kinetic: 1 },
+      fashion: { luxe: 3, editorial: 2.5, cinematic: 1.5, kinetic: 1 },
+      music: { kinetic: 3, chaotic: 2.5, cinematic: 1.5, mechanical: 1.5 },
+      tech: { mechanical: 3, kinetic: 2, cinematic: 1.3, editorial: 0.8 },
+      film: { cinematic: 3.5, editorial: 1.5, kinetic: 1 },
+      food: { playful: 3, kinetic: 1.5, editorial: 1.2, luxe: 1 },
+      art: { chaotic: 2.2, mechanical: 2.2, editorial: 2, kinetic: 1 },
+      editorial: { editorial: 3.5, luxe: 1.5, cinematic: 1.2 },
+      nature: { cinematic: 2.5, editorial: 2, luxe: 1.2, playful: 1 },
+      history: { editorial: 3, cinematic: 2.5, still: 0.8 },
+      object: { editorial: 2, playful: 1.5, luxe: 1.5, cinematic: 1.5, kinetic: 1 },
+    };
+    // the register the understanding reports (or the rules reader's tone word) shifts them
+    const TONE_SHIFT = {
+      extravagant: { chaotic: 1.5, playful: 1, cinematic: 1 }, absurd: { chaotic: 2, playful: 1.5, cinematic: 0.8 },
+      playful: { playful: 2, kinetic: 0.8 }, cinematic: { cinematic: 2 }, retro: { mechanical: 1.5, playful: 1 },
+      tender: { still: 2.5, editorial: 1, luxe: 1, chaotic: -3, kinetic: -2, playful: -1 },
+      reverent: { still: 2, luxe: 1.2, chaotic: -3, playful: -2 }, serious: { editorial: 1.5, still: 1.5, chaotic: -3, playful: -2.5 },
+      restrained: { luxe: 1.5, editorial: 1.5, still: 1, chaotic: -2.5, kinetic: -1.5 }, lyrical: { luxe: 1.5, editorial: 1, cinematic: 0.8 },
+      editorial: { editorial: 1.5 },
+    };
+
+    // ---- helpers
+    function rng(seed) { let s = 2166136261; for (const ch of String(seed)) { s ^= ch.charCodeAt(0); s = Math.imul(s, 16777619); } return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+    function weighted(r, table, filter) {
+      const entries = Object.entries(table).filter(([k, w]) => w > 0 && (!filter || filter(k)));
+      if (!entries.length) return null;
+      const total = entries.reduce((t, [, w]) => t + w, 0); let x = r() * total;
+      for (const [k, w] of entries) { x -= w; if (x <= 0) return k; }
+      return entries[entries.length - 1][0];
+    }
+    const oneOf = (v, list, d) => (list.includes(v) ? v : d);
+    function registerOf(u) { const t = u && u.tone; return String((t && typeof t === 'object' ? t.register : t) || '').toLowerCase(); }
+    function genreOf(u, page) {
+      const text = [u && u.subject, u && u.brief, u && u.identity && u.identity.what, ...((u && u.motifs) || []), page && page.title, page && page.description].filter(Boolean).join(' ');
+      const hit = GENRES.find(([, re]) => re.test(text));
+      return hit ? hit[0] : 'object';
+    }
+
+    // ---- what the pictures make possible
+    // the same picture reached twice -- an owner's upload and the Commons file it came from, or two sizes of one file -- has
+    // the same shape and the same measured colours: it is one picture, however many times it is in the inventory
+    function sameAs(a, b) { const x = a.assess, y = b.assess; return !!(x && y && Math.abs((x.aspect || 0) - (y.aspect || 0)) < 0.006 && (x.colours || []).length >= 3 && (x.colours || []).slice(0, 3).join() === (y.colours || []).slice(0, 3).join()); }
+    function distinctPictures(list) { const out = []; list.forEach(a => { if (!a.cutoutOf && out.some(b => !b.cutoutOf && sameAs(a, b))) return; out.push(a); }); return out; }
+    function inventory(assets) {
+      const live = distinctPictures((assets || []).filter(a => a && !a.removed && !a.failed && a.assess).sort((a, b) => (b.origin === 'upload') - (a.origin === 'upload')));
+      const usable = live.filter(a => !(a.curation && (a.curation.role === 'unrelated' || a.curation.role === 'logo' || a.curation.role === 'reference' || a.curation.identity === 'other')));
+      const withP = usable.map(a => ({ a, p: F.profile(a) }));
+      const cut = withP.filter(x => x.p.free);
+      const photos = withP.filter(x => !x.p.free && !(x.a.cutout));
+      const subjectish = x => x.a.origin === 'upload' || !x.a.curation || x.a.curation.role === 'subject' || x.a.curation.role === 'detail';
+      const main = (cut.find(subjectish) || photos.filter(subjectish).sort((x, y) => (y.p.big - x.p.big) || ((x.p.tight ? 1 : 0) - (y.p.tight ? 1 : 0)))[0] || cut[0] || photos[0]) || null;
+      // photos that fill a desktop scene without losing more than a bleed's share, and are not already tight
+      const bleedable = photos.filter(x => !x.p.tight && F.coverCrop(x.p.aspect, 1.6).crop <= F.budgetFor(x.a, 'bleed') && (x.p.big || x.a.origin === 'upload'));
+      const cinema = photos.filter(x => !x.p.tight && x.p.aspect >= 1.4 && x.p.big);
+      // cut-outs of the same original count once (a picture and its cut-out are one picture)
+      const distinct = new Set(withP.map(x => x.a.cutoutOf || x.a.id)).size;
+      // how many times pictures may appear on the page in all (validate2: a photo twice, a picture with a cut-out three times)
+      const ids = [...new Set(withP.map(x => x.a.cutoutOf || x.a.id))];
+      const uses = ids.reduce((t, id) => t + (withP.some(x => x.a.cutoutOf === id) ? 3 : 2), 0);
+      return { all: withP, cut, photos, main, bleedable, cinema, distinct, uses };
+    }
+    // how many picture appearances an archetype needs (required, and what it takes when pictures are plentiful)
+    const NEED = { 'editorial-hero': [1, 1], cinematic: [1, 1], split: [1, 2], 'giant-type': [0, 1], shrine: [1, 1], offcanvas: [1, 1], framed: [1, 2], floating: [1, 3], collage: [3, 4], poster: [1, 1], magazine: [0, 1], strip: [3, 6], 'sticky-steps': [0, 2], text: [0, 0], image: [1, 1], luxe: [1, 1], dense: [0, 0], depth: [1, 2], brutalist: [0, 1], gallery: [2, 4] };
+
+    // which archetypes this page's pictures and words can carry (for the hero, `main` is the opening picture)
+    function eligible(layout, inv, content, hero) {
+      const m = inv.main; const n = inv.distinct;
+      switch (layout) {
+        case 'editorial-hero': return hero ? !!(m && inv.bleedable.some(x => x.a.id === m.a.id || x.a.id === m.a.cutoutOf)) : inv.bleedable.length > 0;
+        case 'cinematic': return hero ? !!(m && inv.cinema.some(x => x.a.id === m.a.id || x.a.id === m.a.cutoutOf)) : inv.cinema.length > 0;
+        case 'offcanvas': case 'floating': return inv.cut.length > 0;
+        case 'shrine': case 'luxe': case 'framed': case 'split': case 'image': case 'depth': return n >= 1;
+        case 'poster': return n >= 1 && content.shortName;
+        case 'giant-type': return content.shortName || !hero;
+        case 'collage': return n >= 3;
+        case 'strip': return n >= 3;
+        case 'gallery': return n >= 2;
+        case 'magazine': return content.prose;
+        case 'sticky-steps': return content.items >= 2;
+        case 'dense': return content.items >= 3;
+        case 'text': case 'brutalist': return true;
+        default: return false;
+      }
+    }
+    // the choreography an archetype supports (its natural scroll event first) -- only ones it has something to play with:
+    // a zoom-away needs a picture, a scale-through a word or halo to pass through, steps need lines, a track pictures
+    const NATURAL = {
+      'editorial-hero': ['zoom-away', 'settle', 'depth'], cinematic: ['zoom-away', 'mask-reveal', 'depth'], offcanvas: ['travel', 'depth', 'settle'], floating: ['depth', 'travel', 'settle'],
+      shrine: ['scale-through', 'settle', 'travel'], luxe: ['mask-reveal', 'settle'], framed: ['mask-reveal', 'settle', 'zoom-away'], split: ['settle', 'mask-reveal', 'type-wipe'],
+      image: ['zoom-away', 'mask-reveal', 'settle'], depth: ['depth'], poster: ['scale-through', 'type-wipe', 'depth'], 'giant-type': ['type-wipe', 'settle'],
+      collage: ['depth', 'travel'], strip: ['track'], gallery: ['stack', 'pin-steps'], magazine: ['settle', 'type-wipe', 'mask-reveal'], 'sticky-steps': ['pin-steps'],
+      dense: ['settle', 'type-wipe'], text: ['type-wipe', 'settle'], brutalist: ['type-wipe', 'settle', 'travel'],
+    };
+    // what content an archetype suits
+    const CARRIES = {
+      'editorial-hero': 'opening', cinematic: 'picture', offcanvas: 'statement', floating: 'statement', shrine: 'statement', luxe: 'statement', framed: 'picture', split: 'statement',
+      image: 'picture', depth: 'statement', poster: 'statement', 'giant-type': 'statement', collage: 'pictures', strip: 'pictures', gallery: 'pictures', magazine: 'prose',
+      'sticky-steps': 'facts', dense: 'facts', text: 'statement', brutalist: 'facts',
+    };
+
+    // ---- the recipe
+    function contentOf(input) {
+      const facts = (input.facts || []).filter(f => f && f.text);
+      const sup = input.supplied || {}; const supN = ((sup.facts || []).length + (sup.memories || []).length);
+      const name = String((input.understanding && (input.understanding.name || (input.understanding.identity && input.understanding.identity.name) || input.understanding.subject)) || '');
+      return { facts: facts.length, items: Math.max(facts.filter(f => f.text.length <= 240).length, supN), prose: facts.some(f => f.text.length > 120) || supN >= 2, dated: facts.filter(f => /\b(1[0-9]{3}|20[0-4][0-9])\b/.test(f.text)).length, shortName: name.length > 0 && name.length <= 22 && name.split(/\s+/).length <= 3 };
+    }
+
+    function sceneCount(density, content, inv, r) {
+      const base = density === 'sparse' ? 4 : density === 'dense' ? 6 : 5;
+      const matter = Math.ceil(content.items / 3) + Math.min(3, Math.max(0, inv.distinct - 1)) + (content.prose ? 1 : 0);
+      return Math.max(3, Math.min(8, Math.round((base + Math.min(base + 1, matter + 2)) / 2 + (r() < 0.5 ? 0 : 1) - (content.facts === 0 && inv.distinct <= 1 ? 1 : 0))));
+    }
+
+    function buildRecipe(r, input, personality, inv, content, genre) {
+      const st = STYLE[personality];
+      const scroll = weighted(r, st.scroll);
+      const typo = weighted(r, st.typo); const nav = weighted(r, st.nav); const density = weighted(r, st.density);
+      const progression = weighted(r, st.progression); const depth = weighted(r, st.depth);
+      const hero = weighted(r, st.hero, k => eligible(k, inv, content, true)) || (inv.main ? (inv.main.p.free ? 'shrine' : 'split') : 'giant-type');
+      const n = sceneCount(density, content, inv, r);
+      const scenes = [{ layout: hero, choreo: weighted(r, Object.fromEntries((NATURAL[hero] || ['settle']).map((c, i) => [c, (st.choreo[c] || 0.6) * (i ? 1 : 1.6)]))) || 'settle', handoff: 'cut', carries: 'opening' }];
+      // the body: drawn from the personality's pool, each archetype suited to what is left to say, never the same twice in
+      // a row (and at most twice in all), with at least one real scroll event when the personality moves at all
+      // the budgets the scenes draw on: picture appearances (each picture may appear two or three times) and lines of
+      // facts (the opening quotes one)
+      let usesLeft = inv.uses - ((NEED[hero] || [0])[0] || (inv.main ? 1 : 0));
+      let itemsLeft = Math.max(0, content.items - (content.facts ? 1 : 0)); let prose = content.prose;
+      const used = new Map([[hero, 1]]);
+      for (let i = 1; i < n; i++) {
+        const last = i === n - 1;
+        const pool = Object.assign({}, st.body);
+        if (last) { pool.text = (pool.text || 1) + 1; ['shrine', 'luxe', 'image', 'framed', 'poster', 'giant-type'].forEach(k => { if (pool[k]) pool[k] += 0.8; }); }
+        const layout = weighted(r, pool, k => {
+          if (k === scenes[i - 1].layout || (used.get(k) || 0) >= 2) return false;
+          if (!eligible(k, inv, { ...content, items: itemsLeft, prose }, false)) return false;
+          if ((NEED[k] || [0])[0] > usesLeft) return false;
+          if (k === 'dense' && itemsLeft < 3) return false;
+          if (k === 'sticky-steps' && itemsLeft < 2) return false;
+          return true;
+        }) || (itemsLeft >= 2 ? 'sticky-steps' : 'text');
+        used.set(layout, (used.get(layout) || 0) + 1);
+        const c = CARRIES[layout]; const need = NEED[layout] || [0, 0];
+        usesLeft -= Math.min(usesLeft, Math.max(need[0], Math.min(need[1], usesLeft - (n - 1 - i))));
+        itemsLeft -= Math.min(itemsLeft, layout === 'dense' ? 5 : layout === 'sticky-steps' || layout === 'brutalist' ? 4 : c === 'facts' ? 3 : 1);
+        if (c === 'prose') prose = false;
+        const nat = NATURAL[layout] || ['settle'];
+        const choreo = weighted(r, Object.fromEntries(nat.map((k, j) => [k, (st.choreo[k] || 0.5) * (j ? 1 : 1.5)]))) || nat[0];
+        const handoff = weighted(r, st.handoff) || 'cut';
+        scenes.push({ layout, choreo, handoff, carries: last ? 'closing' : c });
+      }
+      // the scroll model shapes the whole: a track page has its horizontal passage, a sequence holds several scenes, a
+      // stack page stacks, a continuous page hides its seams, a snapping page has no pinned scene
+      const pinnedChoreos = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'mask-reveal'];
+      if (scroll === 'track' && !scenes.some(s => s.layout === 'strip')) { const i = scenes.findIndex((s, k) => k > 0 && CARRIES[s.layout] !== 'closing' && eligible('strip', inv, content, false)); if (i > 0) Object.assign(scenes[i], { layout: 'strip', choreo: 'track', carries: 'pictures' }); }
+      if (scroll === 'stack') scenes.forEach((s, i) => { if (i > 0 && i % 2 === 1) s.handoff = 'stack'; });
+      if (scroll === 'continuous') scenes.forEach((s, i) => { if (i > 0 && s.handoff === 'cut') s.handoff = i % 2 ? 'overlap' : 'bleed'; });
+      if (scroll === 'snap') scenes.forEach(s => { if (pinnedChoreos.includes(s.choreo) && s.choreo !== 'mask-reveal') s.choreo = 'settle'; if (s.handoff === 'stack') s.handoff = 'cut'; });
+      if (scroll === 'sequence') { let k = 0; scenes.forEach((s, i) => { if (i > 0 && k < 3 && !pinnedChoreos.includes(s.choreo)) { const nat = (NATURAL[s.layout] || []).find(c => pinnedChoreos.includes(c)); if (nat) { s.choreo = nat; k++; } } }); }
+      if (personality === 'still') scenes.forEach(s => { if (s.choreo !== 'settle' && s.choreo !== 'mask-reveal') s.choreo = 'settle'; if (s.handoff === 'carry' || s.handoff === 'stack') s.handoff = 'cut'; });
+      // a carry needs a picture on both sides of the seam
+      scenes.forEach((s, i) => { if (s.handoff === 'carry' && (i === 0 || ['text', 'dense', 'brutalist', 'magazine'].includes(s.layout) || ['text', 'dense', 'brutalist', 'magazine', 'strip'].includes(scenes[i - 1].layout))) s.handoff = 'overlap'; });
+      // at most three pinned scenes (the same limit the validator enforces)
+      let pins = 0; scenes.forEach(s => { if (pinnedChoreos.includes(s.choreo) && s.choreo !== 'mask-reveal') { pins++; if (pins > 3) s.choreo = 'settle'; } });
+      const M = MOTION[personality];
+      const intensity = Math.max(1, Math.min(5, Math.round(M.range * 3 + (scroll === 'track' || scroll === 'stack' ? 0.5 : 0))));
+      const recipe = { personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes };
+      recipe.recipe = fingerprint(recipe);
+      recipe.why = `${genre === 'object' ? 'this subject' : `a ${genre} subject`}${registerOf(input.understanding) ? `, ${registerOf(input.understanding)}` : ''}: ${M.label} motion, ${scroll} scroll, opening on a ${hero} composition`;
+      return recipe;
+    }
+
+    function fingerprint(x) {
+      if (!x) return '';
+      if (typeof x === 'string') return x;
+      const a = x.art || x; const scenes = x.scenes || [];
+      return `${a.personality || '?'}/${a.scroll || '?'}/${scenes.map(s => s.layout || 'free').join(',')}`.slice(0, 160);
+    }
+    function parseFp(fp) { const [personality, scroll, list] = String(fp || '').split('/'); const layouts = (list || '').split(',').filter(Boolean); return { personality, scroll, hero: layouts[0] || '', body: layouts.slice(1) }; }
+    function similarity(a, b) {
+      const x = parseFp(fingerprint(a)), y = parseFp(fingerprint(b));
+      if (!x.personality || !y.personality) return 0;
+      const A = new Set(x.body), B = new Set(y.body); const inter = [...A].filter(k => B.has(k)).length; const uni = new Set([...A, ...B]).size || 1;
+      return 0.3 * (x.personality === y.personality) + 0.15 * (x.scroll === y.scroll) + 0.2 * (x.hero === y.hero) + 0.35 * (inter / uni);
+    }
+
+    // input: { understanding, assets, facts, supplied, page, seed, history: [fingerprints], avoid: fingerprint, prefer: {personality?} }
+    function choose(input) {
+      const inp = input || {}; const u = inp.understanding || {};
+      const r = rng(`${inp.seed || ''}|${u.subject || ''}|${u.brief || ''}`);
+      const genre = genreOf(u, inp.page); const reg = registerOf(u);
+      const w = Object.assign({}, GENRE_WEIGHTS[genre] || GENRE_WEIGHTS.object);
+      Object.entries(TONE_SHIFT[reg] || {}).forEach(([k, v]) => { w[k] = (w[k] || 0) + v; });
+      if (u.kind === 'personal' && genre !== 'tribute') { w.chaotic = (w.chaotic || 0) - 1.5; w.editorial = (w.editorial || 0) + 1; }
+      PERSONALITIES.forEach(k => { w[k] = Math.max(0, w[k] || 0); });
+      if (inp.prefer && PERSONALITIES.includes(inp.prefer.personality)) w[inp.prefer.personality] += 6;
+      const inv = inventory(inp.assets); const content = contentOf(inp);
+      const history = (inp.history || []).map(fingerprint).filter(Boolean).slice(-10);
+      const avoid = inp.avoid ? fingerprint(inp.avoid) : '';
+      // several candidates, each drawn from the weighted pools; the best is the one that suits the subject and differs
+      // most from what this account (and this page) already has
+      let best = null;
+      for (let i = 0; i < 10; i++) {
+        const personality = weighted(r, w) || 'editorial';
+        const cand = buildRecipe(r, inp, personality, inv, content, genre);
+        const suit = w[personality] / Math.max(...Object.values(w), 1);
+        const past = history.length ? Math.max(...history.map(h => similarity(cand.recipe, h))) : 0;
+        const again = avoid ? similarity(cand.recipe, avoid) : 0;
+        const variety = new Set(cand.scenes.map(s => s.layout)).size / cand.scenes.length + new Set(cand.scenes.map(s => s.choreo)).size / cand.scenes.length * 0.5;
+        const score = suit * 2 + variety - past * 1.6 - again * 3 + r() * 0.15;
+        if (!best || score > best.score) best = { score, cand, past, again };
+      }
+      return Object.assign(best.cand, { novelty: +(1 - Math.max(best.past, best.again)).toFixed(2) });
+    }
+
+    // the page-level art as it is stored in a plan
+    function normaliseArt(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const personality = oneOf(raw.personality, PERSONALITIES, null); if (!personality) return null;
+      const s = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, '').slice(0, n);
+      return {
+        personality, scroll: oneOf(raw.scroll, SCROLLS, 'flow'), typo: oneOf(raw.typo, TYPOS, 'editorial'), nav: oneOf(raw.nav, NAVS, 'bar'),
+        density: oneOf(raw.density, DENSITIES, 'balanced'), progression: oneOf(raw.progression, PROGRESSIONS, 'steady'), depth: oneOf(raw.depth, DEPTHS, 'layered'),
+        intensity: Math.max(1, Math.min(5, Math.round(Number(raw.intensity) || 3))), recipe: s(raw.recipe, 160), why: s(raw.why, 240), genre: s(raw.genre, 20),
+      };
+    }
+
+    module.exports = { distinctPictures, sameAs, PERSONALITIES, SCROLLS, LAYOUTS, CHOREOS, HANDOFFS, TYPOS, NAVS, DENSITIES, PROGRESSIONS, DEPTHS, MOTION, STYLE, NATURAL, CARRIES, NEED, choose, normaliseArt, fingerprint, similarity, genreOf, inventory, eligible, rng };
+
+  });
+  __define("archetypes", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — layout archetypes. A scene's `layout` is a real composition, not a label: each archetype decides where the
+    // words sit (on a 12-column grid, top/middle/bottom), how much of the scene the pictures take and where, how they are
+    // framed (through framing.js, so the container adapts to the picture), what is layered over what, how tall the scene is,
+    // what scroll does inside it (its choreography), and how it recomposes on a phone.
+    //
+    //   composeScene(scene, env)   mutates a validated v2 scene whose layout is not 'free'
+    //     env: { byId, si, hero, art, motion, rng, name, fixes, warnings }
+    //   MSTAGE                     the phone stage height per archetype (vw) -- the renderer's CSS uses the same table
+    //   PINNED                     choreographies that hold the scene while scroll plays them
+    //
+    // The model (or the built-in director) chooses the archetype, the pictures and the words; this module places them.
+    // A scene whose pictures cannot carry its archetype (a cinematic band for a tight portrait, a collage of one picture)
+    // is recomposed as the nearest archetype that can -- and says so.
+
+    const F = require('./framing');
+    const { MOTION, NATURAL } = require('./art');
+
+    const PINNED = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack'];
+    const SHAPED = ['circle', 'arch', 'blob', 'diamond', 'slit', 'porthole', 'torn'];
+    // phone stage height in vw (its aspect is 100 / MSTAGE); strip's stage is its horizontal track
+    const MSTAGE = { 'editorial-hero': 128, cinematic: 64, split: 108, 'giant-type': 96, shrine: 110, offcanvas: 112, framed: 112, floating: 104, collage: 120, poster: 118, magazine: 108, strip: 96, 'sticky-steps': 74, text: 56, image: 104, luxe: 92, dense: 56, depth: 108, brutalist: 96, gallery: 112 };
+    const FALLBACK = { 'editorial-hero': ['split', 'framed'], cinematic: ['image', 'framed'], offcanvas: ['floating', 'shrine', 'framed'], floating: ['shrine', 'framed'], collage: ['gallery', 'framed', 'text'], strip: ['gallery', 'framed', 'text'], gallery: ['framed', 'image', 'text'], 'sticky-steps': ['split', 'text'], dense: ['brutalist', 'text'], magazine: ['split', 'text'], poster: ['giant-type', 'shrine', 'text'], shrine: ['framed', 'text'], luxe: ['text'], framed: ['text'], split: ['text'], image: ['text'], depth: ['framed', 'text'], 'giant-type': ['split', 'text'], brutalist: ['text'], text: [] };
+    const COL = c => 5 + (c - 1) * 7.5; // left edge (in % of the scene) of grid column c (12 columns across the middle 90%)
+
+    // how tall a text block is on a 1440x900 desktop scene (% of its height) -- to keep pictures clear of it
+    function textHeight(t, cols) {
+      const w = cols / 12 * 0.9 * 1440; const fs = { display: 92, large: 56, medium: 40, small: 26 }[t.size] || 56;
+      const lines = (len, px) => Math.max(1, Math.ceil(len * px * 0.52 / Math.min(w, t.width === 'narrow' ? 560 : t.width === 'wide' ? 1100 : 820)));
+      let h = t.kicker ? 34 : 0;
+      if (t.heading) h += lines(t.heading.length, fs) * fs * 1.02;
+      if (t.body) h += 20 + lines(t.body.length, 18) * 29;
+      (t.items || []).forEach(it => { h += 14 + lines((it.label ? it.label.length + 2 : 0) + it.text.length, 17) * 28; });
+      return h / 900 * 100;
+    }
+    function textRect(t, place) {
+      const [c0, c1] = place.gc; const hgt = Math.min(92, textHeight(t, c1 - c0 + 1) + 4);
+      const y = place.v === 'top' ? 12 : place.v === 'bottom' ? 94 - hgt : 50 - hgt / 2;
+      return [COL(c0), Math.max(6, y), COL(c1 + 1) - COL(c0), hgt];
+    }
+    const overlap = (a, b) => Math.max(0, Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]));
+
+    // ---------------------------------------------------------------- the archetypes
+    // each returns { place, mplace, slots: [{ d, m, intent, anchor, manchor, z, rot, mask, role, step }], decos: [...],
+    //   height, choreos (allowed), stepFx } -- or null when the scene cannot be this archetype
+    const A = {};
+    A['editorial-hero'] = (S, e) => ({
+      place: { gc: [1, 8], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'screen', shade: 'bottom',
+      slots: [{ d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', needs: 'bleed' }],
+    });
+    A.cinematic = (S, e) => ({
+      place: { gc: [3, 10], v: 'bottom', align: 'center' }, mplace: 'below', height: 'screen', shade: 'band',
+      slots: [{ d: [0, 13, 100, 74], m: [0, 8, 100, 84], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', needs: 'bleed' }],
+    });
+    A.split = (S, e) => {
+      const right = e.side === 'right';
+      return {
+        place: right ? { gc: [1, 5], v: 'middle', align: 'left' } : { gc: [8, 12], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+        slots: [{ d: right ? [44, 0, 56, 100] : [0, 0, 56, 100], m: [0, 0, 100, 100], intent: 'editorial', anchor: right ? 'rm' : 'lm', manchor: 'cm', z: 3, role: 'focal' },
+          { d: right ? [34, 60, 17, 30] : [49, 60, 17, 30], m: [58, 62, 38, 34], intent: 'framed', mask: 'window', anchor: 'cb', z: 6, role: 'support', optional: true }],
+      };
+    };
+    // (giant type is for a few words: a sentence set that large is a wall, not a composition)
+    A['giant-type'] = (S, e) => ((S.text.heading || '').length > 30 || (S.text.heading || '').split(/\s+/).length > 4 ? null : {
+      place: { gc: [1, 12], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen', giant: true,
+      // the picture stands behind the first words of the heading; the paragraph sits to the right, clear of it
+      slots: [e.focalAspect >= 1.2 ? { d: [5, 46, 48, 48], m: [4, 20, 92, 76], intent: 'framed', mask: 'window', anchor: 'lb', z: 3, role: 'focal', optional: true }
+        : { d: [8, 12, 30, 82], m: [18, 0, 64, 100], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 3, role: 'focal', optional: true }],
+    });
+    A.shrine = (S, e) => {
+      const long = (S.text.body || '').length > 170 || S.text.items.length > 0;
+      if (long) return null;
+      return {
+        place: { gc: [3, 10], v: 'top', align: 'center' }, mplace: 'above', height: 'screen', shrineTitle: true,
+        slots: [{ d: [35, 42, 30, 56], m: [18, 2, 64, 94], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 5, role: 'focal' }],
+        decos: [{ kind: 'shape', form: e.personality === 'playful' || e.personality === 'chaotic' ? 'sunburst' : 'circle', fill: 'glow', d: [30, 34, 40, 66], m: [8, 0, 84, 96], z: 2, opacity: 0.5, role: 'backdrop' },
+          { kind: 'shape', form: 'line', fill: 'accent', d: [30, 96, 40, 1], m: [14, 97, 72, 1], z: 3, opacity: 0.8, role: 'support' }],
+      };
+    };
+    A.offcanvas = (S, e) => (e.freeFirst ? {
+      place: { gc: [1, 5], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+      // the subject is larger than the scene and runs off its right and bottom edges -- never its top (a head stays whole)
+      slots: [{ d: [44, 6, 72, 118], m: [26, 4, 96, 112], intent: 'floating', anchor: 'lt', z: 5, role: 'focal', bleed: true }],
+      decos: [{ kind: 'shape', form: 'ring', fill: 'accent', d: [40, 8, 50, 80], m: [10, 6, 90, 84], z: 2, opacity: 0.35, role: 'backdrop' }],
+    } : null);
+    A.framed = (S, e) => {
+      const right = e.side === 'right';
+      return {
+        place: right ? { gc: [1, 5], v: 'middle', align: 'left' } : { gc: [8, 12], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+        slots: [{ d: right ? [52, 12, 38, 76] : [10, 12, 38, 76], m: [10, 4, 80, 92], intent: 'framed', mask: e.personality === 'luxe' || e.personality === 'still' ? 'window' : e.personality === 'playful' ? 'polaroid' : 'frame', anchor: 'cm', z: 5, role: 'focal' },
+          { d: right ? [46, 58, 16, 30] : [42, 58, 16, 30], m: [60, 58, 34, 38], intent: 'framed', mask: 'polaroid', rot: right ? -4 : 4, anchor: 'cb', z: 6, role: 'support', optional: true }],
+      };
+    };
+    A.floating = (S, e) => (e.free >= 1 ? {
+      place: { gc: [1, 5], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+      slots: [{ d: [50, 8, 40, 80], m: [14, 4, 72, 80], intent: 'floating', anchor: 'cb', z: 5, role: 'focal', freeOnly: true },
+        { d: [82, 56, 15, 32], m: [66, 56, 30, 36], intent: 'floating', anchor: 'cb', z: 7, role: 'support', optional: true, freeOnly: true, rot: 6 },
+        { d: [40, 64, 12, 24], m: [2, 60, 28, 32], intent: 'floating', anchor: 'cb', z: 3, role: 'support', optional: true, freeOnly: true, rot: -8 }],
+    } : null);
+    A.collage = (S, e) => (e.images >= 2 ? {
+      place: { gc: [1, 4], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+      slots: [{ d: [40, 8, 30, 52], m: [4, 2, 56, 46], intent: 'collage', mask: 'polaroid', rot: -4, anchor: 'cm', z: 5, role: 'focal' },
+        { d: [66, 26, 28, 48], m: [42, 22, 54, 42], intent: 'collage', mask: 'polaroid', rot: 5, anchor: 'cm', z: 6, role: 'support' },
+        { d: [44, 56, 24, 38], m: [8, 56, 48, 40], intent: 'collage', mask: 'torn', rot: 3, anchor: 'cm', z: 4, role: 'support', optional: true },
+        { d: [74, 4, 18, 26], m: [60, 64, 36, 32], intent: 'collage', mask: 'polaroid', rot: -7, anchor: 'cm', z: 7, role: 'support', optional: true }],
+      decos: e.shortName ? [{ kind: 'word', text: e.name, style: 'ghost', d: [34, 34, 66, 30], m: [0, 36, 100, 26], z: 1, opacity: 0.12, role: 'texture' }] : [],
+    } : null);
+    A.poster = (S, e) => (e.shortName ? {
+      place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', smallHeading: true,
+      slots: [{ d: [42, 4, 32, 92], m: [20, 4, 60, 94], intent: e.freeFirst ? 'floating' : 'masked', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 6, role: 'focal' }],
+      decos: [{ kind: 'word', text: e.name, style: e.personality === 'mechanical' ? 'solid' : 'outline', d: [-6, 16, 112, 44], m: [-8, 18, 116, 36], z: 3, opacity: 1, role: 'echo' },
+        { kind: 'shape', form: e.personality === 'mechanical' ? 'stripes' : 'circle', fill: 'accent', d: [30, 14, 42, 70], m: [10, 10, 80, 70], z: 2, opacity: 0.4, role: 'backdrop' }],
+    } : null);
+    A.magazine = (S, e) => ({
+      place: { gc: [7, 12], v: 'top', align: 'left' }, mplace: 'below', height: 'screen', columns: (S.text.body || '').length > 220,
+      slots: [{ d: [0, 0, 48, 100], m: [0, 0, 100, 100], intent: 'editorial', anchor: 'lm', z: 3, role: 'focal', optional: true }],
+    });
+    A.strip = (S, e) => (e.images >= 3 ? { track: true, place: { gc: [1, 4], v: 'middle', align: 'left' }, mplace: 'above', height: 'tall' } : null);
+    A['sticky-steps'] = (S, e) => (S.text.items.length >= 2 ? {
+      place: { gc: [1, 5], v: 'middle', align: 'left' }, mplace: 'below', height: 'tall', steps: true,
+      slots: [{ d: [52, 10, 42, 80], m: [6, 4, 88, 92], intent: 'editorial', anchor: 'cm', z: 5, role: 'focal', optional: true, stepped: true }],
+    } : null);
+    A.text = (S, e) => ({
+      place: { gc: [2, 11], v: 'middle', align: e.rng() < 0.55 ? 'left' : 'center' }, mplace: 'above', height: (S.text.body || '').length + S.text.items.length * 120 > 360 ? 'auto' : 'short', columns: (S.text.body || '').length > 260,
+      slots: [{ d: [82, 58, 11, 30], m: [70, 8, 26, 84], intent: 'framed', mask: 'window', anchor: 'cb', z: 4, role: 'support', optional: true }],
+      decos: [{ kind: 'shape', form: 'line', fill: 'accent', d: [5, 90, 30, 0.6], m: [6, 94, 50, 1], z: 2, opacity: 0.7, role: 'support' }],
+    });
+    A.image = (S, e) => ({
+      place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', caption: true,
+      slots: [{ d: [4, 4, 92, 74], m: [0, 0, 100, 100], intent: 'editorial', anchor: 'ct', z: 3, role: 'focal' }],
+    });
+    A.luxe = (S, e) => ({
+      place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen',
+      slots: [{ d: [42, 16, 16, 54], m: [28, 8, 44, 84], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'window', anchor: 'cb', z: 5, role: 'focal' }],
+      decos: [{ kind: 'shape', form: 'line', fill: 'muted', d: [42, 76, 16, 0.4], m: [28, 96, 44, 0.6], z: 3, opacity: 0.6, role: 'support' }],
+    });
+    A.dense = (S, e) => (S.text.items.length >= 3 ? {
+      place: { gc: [1, 12], v: 'top', align: 'left' }, mplace: 'above', height: 'auto', grid: true,
+      slots: [{ d: [84, 4, 11, 16], m: [70, 4, 26, 90], intent: 'masked', mask: 'circle', anchor: 'cm', z: 3, role: 'support', optional: true }],
+      decos: [{ kind: 'shape', form: e.personality === 'playful' ? 'dots' : 'stripes', fill: 'accent', d: [0, 82, 100, 18], m: [0, 70, 100, 30], z: 1, opacity: 0.14, role: 'texture' }],
+    } : null);
+    A.depth = (S, e) => ({
+      place: { gc: [1, 5], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+      slots: [{ d: [46, 8, 44, 84], m: [12, 4, 76, 92], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 5, role: 'focal' },
+        { d: [-6, -6, 112, 112], m: [-8, -8, 116, 116], intent: 'texture', anchor: 'cm', z: 1, role: 'texture', optional: true, opacity: 0.26, textureOnly: true }],
+      decos: [{ kind: 'shape', form: 'ring', fill: 'glow', d: [78, 60, 16, 30], m: [70, 66, 28, 30], z: 8, opacity: 0.45, role: 'support' },
+        { kind: 'shape', form: 'circle', fill: 'accent', d: [38, 70, 10, 16], m: [2, 70, 20, 22], z: 2, opacity: 0.35, role: 'support' }],
+    });
+    A.brutalist = (S, e) => ({
+      place: { gc: [1, 7], v: 'top', align: 'left' }, mplace: 'above', height: 'screen', table: true,
+      slots: [{ d: [60, 6, 34, 60], m: [4, 4, 92, 92], intent: 'framed', mask: 'none', anchor: 'lt', z: 5, role: 'focal', optional: true, hard: true }],
+      decos: [{ kind: 'shape', form: 'block', fill: 'accent', d: [64, 12, 34, 60], m: [10, 10, 90, 90], z: 3, opacity: 1, role: 'backdrop' }],
+    });
+    A.gallery = (S, e) => (e.images >= 2 ? {
+      place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'above', height: 'tall', steps: true, gallery: true,
+      slots: [{ d: [34, 8, 56, 84], m: [6, 2, 88, 96], intent: 'framed', mask: 'window', anchor: 'cm', z: 5, role: 'focal', stepped: true }],
+    } : null);
+
+    // ---------------------------------------------------------------- motion by personality
+    const ENTRANCE = { editorial: ['fade', 'unveil'], cinematic: ['fade', 'fade'], kinetic: ['slide-left', 'slide-right'], playful: ['pop', 'drop'], luxe: ['fade', 'fade'], mechanical: ['unveil', 'slide-left'], chaotic: ['spin-in', 'drop'], still: ['fade', 'fade'] };
+    const TEXT_IN = { editorial: 'rise', cinematic: 'fade', kinetic: 'split-words', playful: 'split-words', luxe: 'fade', mechanical: 'split-words', chaotic: 'split-words', still: 'fade' };
+    function motionFor(L, e, i, free) {
+      const M = MOTION[e.personality] || MOTION.editorial; const en = ENTRANCE[e.personality] || ENTRANCE.editorial;
+      const slow = e.personality === 'luxe' || e.personality === 'cinematic' || e.personality === 'still';
+      L.entrance = { kind: en[i % 2], delay: +(0.15 + i * (slow ? 0.25 : 0.12)).toFixed(2), dur: slow ? 1.6 : e.personality === 'kinetic' || e.personality === 'mechanical' ? 0.8 : 1.1 };
+      // ambient life: a cut-out breathes or floats; a framed picture holds still (no zoom creeping into its crop)
+      if (M.loops === 'none' || L.role === 'texture' || L.role === 'backdrop') L.loop = { kind: 'none', amp: 1, period: 9 };
+      else if (L.kind === 'image') L.loop = free && i === 0 ? { kind: e.personality === 'playful' || e.personality === 'chaotic' ? 'bob' : 'float', amp: M.loops === 'lively' ? 1.2 : 0.8, period: slow ? 12 : 8 } : L.kind === 'image' && L.fit === 'cover' && M.loops === 'gentle' && i === 0 ? { kind: 'sheen', amp: 0.6, period: 11 } : { kind: 'none', amp: 1, period: 9 };
+      else L.loop = L.kind === 'shape' && i < 2 && M.loops !== 'none' ? { kind: L.shape && L.shape.form === 'ring' ? 'spin' : 'breathe', amp: 0.8, period: 24 } : { kind: 'none', amp: 1, period: 9 };
+      L.scroll = { kind: 'none', amount: 0 };
+    }
+
+    // ---------------------------------------------------------------- compose
+    function composeScene(S, env) {
+      const e = Object.assign({}, env);
+      const byId = e.byId; const fixes = e.fixes || []; const warnings = e.warnings || [];
+      e.personality = (e.art && e.art.personality) || 'editorial';
+      const imgs = S.layers.filter(L => L.kind === 'image' && byId.get(L.asset));
+      const decosIn = S.layers.filter(L => L.kind !== 'image');
+      // the focal picture first, then the rest in the plan's order
+      imgs.sort((a, b) => (b.role === 'focal') - (a.role === 'focal'));
+      const isFree = L => F.profile(byId.get(L.asset)).free;
+      e.freeFirst = !!(imgs[0] && isFree(imgs[0])); e.free = imgs.filter(isFree).length; e.focalAspect = imgs[0] ? F.profile(byId.get(imgs[0].asset)).aspect : 1;
+      e.images = new Set(imgs.map(L => { const a = byId.get(L.asset); return (a && a.cutoutOf) || L.asset; })).size;
+      e.name = String(e.name || '').slice(0, 24); e.shortName = e.name.length > 0 && e.name.length <= 18 && e.name.split(/\s+/).length <= 3;
+      e.side = e.side || (e.rng() < 0.5 ? 'right' : 'left');
+      let layout = S.layout; let spec = A[layout] ? A[layout](S, e) : null;
+      // the first archetype (in the fallback chain) that this scene's pictures and words can carry
+      // (an archetype needs a picture for each of its required slots)
+      const tryLayout = l => { const sp = A[l] && A[l](S, e); return sp && (sp.slots || []).filter(s => !s.optional).length > imgs.length ? null : sp; };
+      if (spec && (spec.slots || []).filter(s => !s.optional).length > imgs.length) spec = null;
+      if (spec && spec.slots && spec.slots.some(s => s.needs === 'bleed') && imgs[0]) {
+        const a = byId.get(imgs[0].asset); const p = F.profile(a);
+        const slot = spec.slots[0]; const ab = slot.d[2] * 1.6 / slot.d[3];
+        if (p.free || p.tight || F.coverCrop(p.aspect, ab).crop > F.budgetFor(a, 'bleed') + 0.02) { spec = null; }
+      }
+      for (const alt of FALLBACK[layout] || []) { if (spec) break; spec = tryLayout(alt); if (spec) layout = alt; }
+      if (!spec) { layout = 'text'; spec = A.text(S, e); }
+      if (layout !== S.layout) fixes.push(`scene ${S.id}: a ${S.layout} composition needs ${S.layout === 'editorial-hero' || S.layout === 'cinematic' ? 'a wide, uncropped picture' : S.layout === 'collage' || S.layout === 'strip' || S.layout === 'gallery' ? 'more pictures' : S.layout === 'sticky-steps' || S.layout === 'dense' ? 'more lines' : 'a different picture'} -- composed as ${layout}`);
+      S.layout = layout;
+      const stageM = 100 / (MSTAGE[layout] || 108);
+      const out = [];
+      // ---- pictures into their slots
+      const slots = (spec.slots || []).slice();
+      let pool = imgs.slice();
+      if (spec.track) {
+        // a horizontal strip: every picture at one height, each shown whole at its own width, one after another
+        // (the renderer lays the panels out in a row at one height, each as wide as its own picture: the boxes are nominal)
+        pool.slice(0, 6).forEach((L, i) => {
+          const a = byId.get(L.asset); const p = F.profile(a); const asp = Math.max(0.62, Math.min(1.8, p.aspect));
+          L.box = { d: [0, 0, 100, 100], m: [0, 0, 100, 100] }; L.track = true;
+          // a picture far wider or taller than a panel may be is lightly cropped to it (at most ~15%); the rest are whole
+          Object.assign(L, { fit: Math.abs(p.aspect - asp) < 0.01 ? 'contain' : 'cover', focus: '50% 50%', frame: Math.abs(p.aspect - asp) < 0.01 ? 'framed' : 'light', mask: p.free ? 'none' : 'window', rotate: 0, z: 5, opacity: 1, role: i === 0 ? 'focal' : 'support' });
+          if (L.fit === 'cover') L.focus = F.objectPosition(p, F.coverCrop(p.aspect, asp));
+          delete L.mfit; delete L.mfocus; delete L.step;
+          out.push(L); motionFor(L, e, i, p.free);
+        });
+        if (pool.length > 6) fixes.push(`scene ${S.id}: a strip shows at most six pictures`);
+        pool = [];
+      }
+      slots.forEach((slot, si) => {
+        let L = null;
+        if (slot.textureOnly) { const k = pool.findIndex(x => { const a = byId.get(x.asset); const c = a && a.curation; return c && (c.role === 'environment' || c.role === 'detail') && !F.profile(a).free; }); if (k >= 0) L = pool.splice(k, 1)[0]; }
+        else if (slot.freeOnly) { const k = pool.findIndex(isFree); if (k >= 0) L = pool.splice(k, 1)[0]; }
+        else L = pool.shift() || null;
+        if (!L) return;
+        const a = byId.get(L.asset);
+        L.box = { d: slot.d.slice(), m: slot.m.slice() }; L.role = slot.role === 'focal' ? 'focal' : slot.role;
+        L.z = slot.z; L.rotate = slot.rot || 0; L.opacity = slot.opacity || 1;
+        L.mask = F.profile(a).free ? 'none' : (slot.mask || (slot.intent === 'framed' ? 'window' : 'none'));
+        L.frame = L.frame && F.FRAMES.includes(L.frame) && L.frame !== 'auto' && slot.intent !== 'texture' && slot.intent !== 'bleed' && slot.intent !== 'collage' ? L.frame : slot.intent;
+        // the plan may ask for an explicit detail crop -- only where the archetype frames a picture in its own container
+        if (L.frame === 'detail' && !['split', 'image', 'magazine', 'sticky-steps', 'framed'].includes(layout)) L.frame = slot.intent;
+        const fd = F.frameLayer(L, a, 'd', { stageAspect: spec.height === 'short' ? 2.5 : 1.6, anchor: slot.anchor, mask: L.mask });
+        const fm = F.frameLayer(L, a, 'm', { stageAspect: stageM, anchor: slot.manchor || slot.anchor, mask: L.mask });
+        fd.notes.concat(fm.notes).forEach(n => { if (!fixes.includes(`scene ${S.id}: ${n}`)) fixes.push(`scene ${S.id}: ${n}`); });
+        L.box = { d: fd.box, m: fm.box }; L.fit = fd.fit; L.focus = fd.focus; L.frame = fd.intent;
+        if (fm.fit !== fd.fit || fm.focus !== fd.focus) { L.mfit = fm.fit; L.mfocus = fm.focus; } else { delete L.mfit; delete L.mfocus; }
+        // a framed or contained flat photo is framed deliberately (never a bare rectangle), a cover crop inside a shaped mask
+        if (!fd.profile.free && L.mask === 'none' && fd.intent !== 'bleed' && fd.intent !== 'texture' && !slot.hard) L.mask = fd.fit === 'contain' ? 'window' : 'none';
+        // a shaped mask (circle, arch...) cuts into whatever it holds: only a picture cropped within its budget goes in one;
+        // a picture shown whole gets a rectangular frame instead
+        if (fd.fit === 'contain' && SHAPED.includes(L.mask)) L.mask = 'window';
+        if (slot.hard) L.mask = 'none';
+        delete L.edge; delete L.group;
+        if (slot.stepped) L.step = 0;
+        out.push(L); motionFor(L, e, out.length - 1, fd.profile.free);
+      });
+      // stepped scenes: the remaining pictures take later steps in the same slot (the visual changes with the words)
+      const stepSlot = slots.find(s => s.stepped);
+      if (stepSlot && pool.length) {
+        const steps = spec.gallery ? Math.min(5, 1 + pool.length) : Math.max(2, Math.min(6, S.text.items.length));
+        pool.splice(0, steps - 1).forEach((L, k) => {
+          const a = byId.get(L.asset);
+          L.box = { d: stepSlot.d.slice(), m: stepSlot.m.slice() }; L.role = 'support'; L.z = stepSlot.z + 1 + k; L.rotate = spec.gallery && e.personality !== 'luxe' ? [-2, 2.5, -1.5, 3][k % 4] : 0; L.opacity = 1;
+          L.mask = F.profile(a).free ? 'none' : (stepSlot.mask || 'window'); L.frame = stepSlot.intent;
+          const fd = F.frameLayer(L, a, 'd', { stageAspect: 1.6, anchor: stepSlot.anchor, mask: L.mask }); const fm = F.frameLayer(L, a, 'm', { stageAspect: stageM, anchor: stepSlot.anchor, mask: L.mask });
+          L.box = { d: fd.box, m: fm.box }; L.fit = fd.fit; L.focus = fd.focus; L.frame = fd.intent; if (fm.fit !== fd.fit || fm.focus !== fd.focus) { L.mfit = fm.fit; L.mfocus = fm.focus; }
+          if (!fd.profile.free && L.mask === 'none') L.mask = 'window';
+          L.step = k + 1; delete L.edge; delete L.group; out.push(L); motionFor(L, e, 1, fd.profile.free);
+        });
+      }
+      if (pool.length) fixes.push(`scene ${S.id}: ${pool.length} picture(s) beyond what a ${layout} composition shows were left out of this scene`);
+      // ---- decoration: the plan's own shapes and words take the archetype's decoration places; the archetype adds its own
+      // only where it needs them (a poster's giant word is the subject's own name -- never a new claim)
+      const decos = (spec.decos || []).slice(); const given = decosIn.slice();
+      decos.forEach((dk, k) => {
+        let L = given.findIndex(g => g.kind === dk.kind);
+        L = L >= 0 ? given.splice(L, 1)[0] : null;
+        if (!L) {
+          if (dk.kind === 'word' && !dk.text) return;
+          L = { id: `art-${dk.kind}-${k + 1}`, kind: dk.kind, role: dk.role, rotate: 0, mask: 'none', treatment: 'none', entrance: { kind: 'fade', delay: 0.2, dur: 1.2 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 }, hideM: false };
+          if (dk.kind === 'shape') L.shape = { form: dk.form, fill: dk.fill, stroke: false }; else L.word = { text: dk.text, style: dk.style };
+        } else if (dk.kind === 'shape' && L.shape && dk.form === 'block') L.shape.form = 'block';
+        L.box = { d: dk.d.slice(), m: dk.m.slice() }; L.z = dk.z; L.opacity = dk.opacity; L.role = dk.role; L.rotate = L.rotate || 0;
+        if (dk.kind === 'word' && L.word && dk.style) L.word.style = dk.style;
+        motionFor(L, e, out.length, false);
+        out.push(L);
+      });
+      if (given.length) fixes.push(`scene ${S.id}: ${given.length} decorative layer(s) the ${layout} composition has no place for were left out`);
+      S.layers = out;
+      // ---- the words
+      const t = S.text;
+      t.place = Object.assign({}, spec.place); t.mplace = spec.mplace;
+      if (spec.giant) { t.size = 'display'; t.giant = true; } else delete t.giant;
+      if (spec.smallHeading || spec.shrineTitle) t.size = e.hero ? 'large' : 'medium';
+      if (layout === 'cinematic') S.tone = '#0b0b0d'; else if (S.tone === '#0b0b0d') delete S.tone;
+      if (layout === 'luxe' || layout === 'image') t.size = t.size === 'display' && e.hero ? 'large' : 'medium';
+      if (layout === 'editorial-hero' && e.hero) t.size = 'display';
+      if (spec.columns) t.columns = true; else delete t.columns;
+      if (layout === 'dense') t.list = t.list === 'plain' ? 'labelled' : t.list;
+      if (layout === 'sticky-steps' || layout === 'gallery') t.list = t.list === 'timeline' ? 'timeline' : 'labelled';
+      t.entrance = TEXT_IN[e.personality] || 'rise';
+      if (t.entrance === 'split-words' && (t.heading || '').length > 60) t.entrance = 'rise';
+      t.width = layout === 'luxe' ? 'narrow' : layout === 'text' || layout === 'dense' ? 'wide' : t.width;
+      // the legacy region (for anything that still reads it) follows the new place
+      const [c0, c1] = t.place.gc; const cx = (COL(c0) + COL(c1 + 1)) / 2;
+      t.region = c1 - c0 >= 8 ? (t.place.v === 'bottom' ? 'bottom' : t.place.v === 'top' ? 'top' : 'center') : `${t.place.v === 'bottom' ? 'bottom-' : t.place.v === 'top' ? 'top-' : ''}${cx < 50 ? 'left' : 'right'}`;
+      if (!['left', 'right', 'center', 'bottom-left', 'bottom-right', 'bottom', 'top-left', 'top-right', 'top'].includes(t.region)) t.region = 'left';
+      delete t.scrim;
+      // the words must stay clear of the main picture unless the archetype layers them on purpose (a caption on a
+      // full-bleed picture sits on a shade; giant type crosses the picture behind it)
+      const tr = textRect(t, t.place);
+      const deliberate = spec.shade || spec.giant || spec.track || layout === 'poster' || layout === 'dense';
+      if (!deliberate) out.filter(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0)).forEach(L => {
+        const d = L.box.d; if (overlap(d, tr) > Math.min(d[2] * d[3], tr[2] * tr[3]) * 0.12) { t.scrim = true; warnings.push(`scene ${S.id}: the words are long for a ${layout} composition -- they sit on a panel over the picture`); }
+      });
+      if (spec.shade) t.shade = spec.shade; else delete t.shade;
+      // ---- height, pin, choreography
+      const allowed = (NATURAL[layout] || ['settle']).concat(['settle']);
+      let ch = allowed.includes(S.choreo) ? S.choreo : allowed[0];
+      if (e.personality === 'still' && ch !== 'settle' && ch !== 'mask-reveal') ch = 'settle';
+      if (spec.track) ch = 'track'; if (spec.steps) ch = spec.gallery ? (S.choreo === 'pin-steps' ? 'pin-steps' : 'stack') : 'pin-steps';
+      // a choreography needs something to play with: otherwise the scene settles (no held scroll with nothing happening)
+      const has = { 'zoom-away': out.some(L => L.kind === 'image' && L.role === 'focal'), 'scale-through': out.some(L => L.role === 'echo' || L.role === 'backdrop' || L.kind === 'word'), 'mask-reveal': out.some(L => L.role === 'focal'), travel: out.some(L => L.role === 'focal'), depth: out.length >= 2 };
+      if (has[ch] === false) { const alt = allowed.find(x => x !== ch && has[x] !== false && !PINNED.includes(x)) || 'settle'; fixes.push(`scene ${S.id}: nothing here for a ${ch} to move -- it ${alt === 'settle' ? 'settles' : `plays as ${alt}`}`); ch = alt; }
+      S.choreo = ch;
+      S.pin = PINNED.includes(ch); S.height = S.pin ? 'tall' : spec.height;
+      if (S.pin) { const st = spec.steps ? Math.max(2, Math.min(6, Math.max(S.text.items.length, 1 + out.filter(L => L.step > 0).length))) : 1; S.steps = st; } else delete S.steps;
+      S.camera = 'none';
+      S.mobile = { order: t.mplace === 'below' ? 'stage-first' : 'text-first' };
+      return S;
+    }
+
+    // the carry between two scenes: the previous scene's main picture leaves toward one side as this one's arrives from
+    // the other, so one object seems to travel across the seam
+    function linkCarry(prev, S) {
+      const a = prev.layers.find(L => L.role === 'focal' && L.kind === 'image'); const b = S.layers.find(L => L.role === 'focal' && L.kind === 'image');
+      if (!a || !b) return false;
+      const side = a.box.d[0] + a.box.d[2] / 2 >= 50 ? 'right' : 'left';
+      a.exit = side; b.enter = side === 'right' ? 'left' : 'right';
+      return true;
+    }
+
+    module.exports = { composeScene, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
+
+  });
   __define("validate2", function (module, exports, require) {
     'use strict';
     // CREATIVE — scene plans, version 2 (AI-directed). A v2 plan is a sequence of SCENES the model
@@ -594,8 +1384,14 @@
     // Data only: nothing in a plan is executed, and every string is escaped by the renderer.
 
     const { drawnRect, overlap, area } = require('./validate');
+    const ART = require('./art');
+    const FR = require('./framing');
+    const ARCH = require('./archetypes');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
-    const LAYOUT_VERSION = 4; // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
+    // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
+    // 5: art direction -- layout archetypes, scene choreography and handoffs, explicit image framing with crop budgets and
+    //    zoom ceilings (a plan without them is composed exactly as under 4)
+    const LAYOUT_VERSION = 5;
 
     const VOCAB = {
       display: ['didone', 'grotesk', 'serif', 'rounded', 'slab', 'mono', 'condensed', 'script'],
@@ -620,7 +1416,10 @@
       fit: ['contain', 'cover'],
       mask: ['none', 'circle', 'arch', 'window', 'frame', 'porthole', 'torn', 'blob', 'diamond', 'polaroid', 'slit'],
       treatment: ['none', 'shadow', 'glow', 'duotone', 'mono', 'grain', 'outline', 'soft'],
-      shape: ['circle', 'ring', 'triangle', 'diamond', 'star', 'wave', 'arc', 'line', 'blob', 'dots', 'sunburst', 'stripes', 'cross'],
+      shape: ['circle', 'ring', 'triangle', 'diamond', 'star', 'wave', 'arc', 'line', 'blob', 'dots', 'sunburst', 'stripes', 'cross', 'block'],
+      // art direction (art.js / archetypes.js / framing.js)
+      layout: ART.LAYOUTS, choreo: ART.CHOREOS, handoff: ART.HANDOFFS, frame: FR.FRAMES,
+      personality: ART.PERSONALITIES, scrollModel: ART.SCROLLS, mplace: ['above', 'below', 'overlay'], textV: ['top', 'middle', 'bottom'], textAlign: ['left', 'center', 'right'],
       fill: ['accent', 'glow', 'ink', 'muted', 'bg2'],
       wordStyle: ['solid', 'outline', 'ghost'],
       entrance: ['rise', 'descend', 'pop', 'fade', 'unveil', 'dolly', 'slide-left', 'slide-right', 'spin-in', 'drop', 'none'],
@@ -636,7 +1435,8 @@
 
     const HEX = /^#[0-9a-f]{6}$/i;
     const clean = (v, n) => (typeof v === 'string' ? v : v == null ? '' : String(v)).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
-    const cap = (v, n) => clean(v).slice(0, n);
+    // (shortened, then trimmed: a cut that ends on a space would otherwise lose it on the next pass -- reopening must not change a thing)
+    const cap = (v, n) => clean(v).slice(0, n).trim();
     const oneOf = (v, list, d) => (list.includes(v) ? v : d);
     const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
     const id = (v, d) => (clean(v).replace(/[^\w-]/g, '').slice(0, 40) || d);
@@ -712,6 +1512,15 @@
       const atmosphere = { backdrop: oneOf(at.backdrop, VOCAB.backdrop, 'gradient'), light: oneOf(at.light, VOCAB.light, 'none'), particles: oneOf(at.particles, VOCAB.particles, 'none'), density: num(at.density, 0, 1, 0.4), grain: !!at.grain };
       const motion = { tempo: oneOf(p.motion && p.motion.tempo, VOCAB.tempo, 'measured'), signature: cap(p.motion && p.motion.signature, 200) };
       const thread = { kind: oneOf(p.thread && p.thread.kind, VOCAB.thread, 'none'), colour: HEX.test((p.thread || {}).colour || '') ? p.thread.colour : palette.accent };
+      // ---- art direction: the plan's own (a saved page, or the model's), else -- for a new plan -- the recipe the art
+      // director chose for this page (ctx.art). A plan with neither is composed exactly as before (every scene 'free').
+      // (a revision offers the recipe without imposing it: it applies only when the director adopted it -- a page asked to
+      // stay as it is stays as it is)
+      const useRecipe = !safety && !!c.art && !(c.artOptional && !(p.art && typeof p.art === 'object'));
+      const art = ART.normaliseArt(p.art) || (useRecipe ? ART.normaliseArt(c.art) : null);
+      const recipeScenes = useRecipe && Array.isArray(c.art.scenes) ? c.art.scenes : [];
+      const planRng = ART.rng(`${(p.direction && p.direction.seed) || c.seed || ''}|${cap(p.identity && p.identity.name, 60) || cap(u.subject, 60)}`);
+      const flip = planRng() < 0.5 ? 1 : 0;
 
       // ---- what the director saw in each picture (vision) and what it wanted but could not have ----
       const assetNotes = (Array.isArray(p.assetNotes) ? p.assetNotes : []).slice(0, 24).filter(n => n && byId.has(n.asset)).map(n => ({ asset: n.asset, depicts: cap(n.depicts, 200), matches: oneOf(n.matches, VOCAB.matches, 'unsure'), useFor: cap(n.useFor, 120) }));
@@ -733,7 +1542,13 @@
         let sid = id(rs.id, `scene-${si + 1}`); while (seenIds.has(sid)) sid += 'x'; seenIds.add(sid);
         const where = `scene ${si + 1} (${sid})`;
         const height = oneOf(rs.height, VOCAB.height, si === 0 ? 'screen' : 'auto');
-        let pin = !!rs.pin && height === 'tall';
+        // the scene's composition: an archetype (composed by archetypes.js) or 'free' (the plan's own boxes)
+        const rec = recipeScenes[si] || null;
+        const layout = oneOf(rs.layout, VOCAB.layout, art && rec && !rs.layout ? oneOf(rec.layout, VOCAB.layout, 'free') : 'free');
+        const artScene = layout !== 'free';
+        const composing = !safety || !!(c.recompose && c.recompose.includes(sid));
+        // (an archetype decides its own pin when it is composed; a saved one keeps what it had)
+        let pin = !!rs.pin && height === 'tall' && !(artScene && composing);
         if (pin && pinned >= LIMITS.pinned) { pin = false; fixes.push(`${where}: more than ${LIMITS.pinned} pinned scenes -- unpinned`); }
         if (pin) pinned++;
         // words
@@ -776,6 +1591,14 @@
         if (text.list === 'numbered') text.items.forEach(it => { if (/^\d+\.?$/.test(it.label)) it.label = ''; });
         if (facts.length || (c.supplied || []).length) { checkNums(where, 'kicker', text.kicker); checkNums(where, 'heading', text.heading); text.items.forEach(it => checkNums(where, 'label', it.label)); }
         if (si === 0 && !text.heading) errors.push('hero: the first scene needs a heading (the page title)');
+        // where an archetype put the words (kept as composed on a saved page)
+        if (artScene) {
+          const pl = tx.place && typeof tx.place === 'object' && Array.isArray(tx.place.gc) ? tx.place : null;
+          if (pl) { const g0 = Math.round(num(pl.gc[0], 1, 12, 1)); const g1 = Math.round(num(pl.gc[1], g0, 12, 12)); text.place = { gc: [g0, g1], v: oneOf(pl.v, VOCAB.textV, 'middle'), align: oneOf(pl.align, VOCAB.textAlign, 'left') }; }
+          text.mplace = oneOf(tx.mplace, VOCAB.mplace, 'above');
+          if (tx.giant) text.giant = true; if (tx.columns) text.columns = true;
+          if (tx.shade === 'bottom' || tx.shade === 'band') text.shade = tx.shade;
+        }
         // layers
         let layers = (Array.isArray(rs.layers) ? rs.layers : []).slice(0, LIMITS.layersPerScene).map((rl, li) => {
           if (!rl || typeof rl !== 'object') return null;
@@ -784,7 +1607,8 @@
           const e = rl.entrance || {}, l = rl.loop || {}, s = rl.scroll || {};
           const L = {
             id: id(rl.id, `l${li + 1}`), kind, role,
-            box: { d: box(rl.box && rl.box.d, [50, 10, 40, 80], role === 'backdrop' || role === 'texture' || !!rl.group), m: box(rl.box && rl.box.m, [10, 10, 80, 80], role === 'backdrop' || role === 'texture' || !!rl.group) },
+            // (an archetype may deliberately run a layer off the scene -- an off-canvas subject, a poster's giant word)
+            box: { d: box(rl.box && rl.box.d, [50, 10, 40, 80], role === 'backdrop' || role === 'texture' || !!rl.group || artScene), m: box(rl.box && rl.box.m, [10, 10, 80, 80], role === 'backdrop' || role === 'texture' || !!rl.group || artScene) },
             z: Math.round(num(rl.z, 1, 9, role === 'focal' ? 5 : role === 'backdrop' ? 1 : 3)), rotate: num(rl.rotate, -45, 45, 0), opacity: num(rl.opacity, 0.05, 1, 1),
             mask: oneOf(rl.mask, VOCAB.mask, 'none'), treatment: oneOf(rl.treatment, VOCAB.treatment, 'none'),
             entrance: { kind: oneOf(e.kind, VOCAB.entrance, 'fade'), delay: num(e.delay, 0, 4, 0.2), dur: num(e.dur, 0.2, 3, 1.1) },
@@ -794,10 +1618,14 @@
             ...(rl.edge === 'fade' ? { edge: 'fade' } : {}),
             // layers sharing a group move as one object (one entrance, loop and scroll; relative placement kept)
             ...(/^[a-z0-9][a-z0-9-]{0,23}$/i.test(rl.group || '') ? { group: String(rl.group).toLowerCase() } : {}),
+            // the art-directed page: a step of a pinned scene, a carry across a seam, a strip's panel
+            ...(typeof rl.step === 'number' && isFinite(rl.step) ? { step: Math.round(num(rl.step, 0, 6, 0)) } : {}),
+            ...(rl.exit === 'left' || rl.exit === 'right' ? { exit: rl.exit } : {}), ...(rl.enter === 'left' || rl.enter === 'right' ? { enter: rl.enter } : {}),
+            ...(rl.track ? { track: true } : {}),
           };
           // the outer margin belongs to the thread that runs down the page: layers stay inside it unless they are full-bleed
           // (a member of a group follows its focal, so the group is kept whole rather than clamped piece by piece)
-          if (!safety && !(L.group && role !== 'focal') && role !== 'backdrop' && role !== 'texture' && L.box.d[2] <= 90) { const b = L.box.d; const x = Math.max(5, Math.min(95 - b[2], b[0])); if (x !== b[0]) L.box.d = [x, b[1], b[2], b[3]]; }
+          if (!safety && !artScene && !(L.group && role !== 'focal') && role !== 'backdrop' && role !== 'texture' && L.box.d[2] <= 90) { const b = L.box.d; const x = Math.max(5, Math.min(95 - b[2], b[0])); if (x !== b[0]) L.box.d = [x, b[1], b[2], b[3]]; }
           if (kind === 'image') {
             const a = byId.get(rl.asset);
             if (!a) { (role === 'focal' ? errors : warnings).push(`${where}: picture "${cap(rl.asset, 40)}" does not exist${role === 'focal' ? ' -- use an asset from the inventory or a shape/word focal' : ' -- layer removed'}`); return null; }
@@ -805,10 +1633,16 @@
             const k0 = curOf(a); if (k0 && (k0.role === 'unrelated' || k0.identity === 'other')) { fixes.push(`${where}: ${a.id} does not show the subject (the picture check: ${k0.depicts || 'unrelated'}) -- layer removed`); return null; }
             if (personal && baseOf(a).origin !== 'upload') { fixes.push(`${where}: ${a.id} is not the owner's own photo -- removed from a personal page`); return null; }
             L.asset = a.id; L.fit = oneOf(rl.fit, VOCAB.fit, (a.caps && a.caps.moveFreely) ? 'contain' : 'cover'); L.focus = /^\d{1,3}% \d{1,3}%$/.test(rl.focus || '') ? rl.focus : '50% 50%';
-            // a flat photo never floats as a bare rectangle: framed, masked, or used as a full backdrop
+            // the framing intention (framing.js), and the phone's own fit and crop position where they differ
+            if (VOCAB.frame.includes(rl.frame)) L.frame = rl.frame;
+            if (VOCAB.fit.includes(rl.mfit)) L.mfit = rl.mfit;
+            if (/^\d{1,3}% \d{1,3}%$/.test(rl.mfocus || '')) L.mfocus = rl.mfocus;
+            // a flat photo never floats as a bare rectangle: framed, masked, or used as a full backdrop (an archetype frames
+            // its own pictures, and a deliberate full bleed or texture is not a rectangle floating on the page)
             const free = !!(a.caps && a.caps.moveFreely);
-            if (!free && L.mask === 'none' && L.edge !== 'fade' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
-            if (!free && L.fit === 'contain' && L.mask !== 'none') L.fit = 'cover';
+            if (!free && !artScene && L.frame !== 'bleed' && L.frame !== 'texture' && L.mask === 'none' && L.edge !== 'fade' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
+            // (a shaped mask needs the picture to fill it; a picture framed whole keeps its contain -- framing.js shaped its frame)
+            if (!free && L.fit === 'contain' && L.mask !== 'none' && !L.frame) L.fit = 'cover';
             const k = baseOf(a).id; uses.set(k, (uses.get(k) || 0) + 1);
             const max = a.cutout || (a.assess && a.assess.transparent) ? LIMITS.cutoutUses : LIMITS.photoUses;
             if (uses.get(k) > max) { fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
@@ -849,7 +1683,7 @@
         if (motion.tempo === 'still') layers.forEach(L => { if (L.loop.kind !== 'sheen') L.loop.kind = 'none'; });
         // when the tempo calls for movement, the opening subject is never frozen: a subject the director left without
         // an ambient loop gets the gentle one that suits what it is (a framed picture drifts inside its frame)
-        if (!safety && si === 0 && motion.tempo !== 'still') {
+        if (!safety && !artScene && si === 0 && motion.tempo !== 'still') {
           const f0 = layers.find(L => L.role === 'focal');
           if (f0 && f0.loop.kind === 'none' && f0.kind !== 'word' && f0.box.d[2] < 95) {
             const a0 = f0.kind === 'image' ? byId.get(f0.asset) : null; const free = !!(a0 && a0.caps && a0.caps.moveFreely);
@@ -859,11 +1693,12 @@
         }
         if (layersTotal + layers.length > LIMITS.layersTotal) { layers = layers.slice(0, Math.max(0, LIMITS.layersTotal - layersTotal)); fixes.push(`${where}: layer budget reached`); }
         layersTotal += layers.length;
-        if (pin && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
+        // (an archetype's choreography is its scroll movement; its layers need no scroll kind of their own to hold it)
+        if (pin && !(artScene && ARCH.PINNED.includes(rs.choreo)) && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
         const bg = rs.background || {};
         // an "auto" scene is only as tall as its words; pictures and shapes need a stage of their own beside them
         let sceneHeight = height;
-        if (!safety && height === 'auto' && layers.some(L => L.role !== 'backdrop' && L.role !== 'texture')) { sceneHeight = 'short'; fixes.push(`${where}: layers need room -- the scene gets a short stage instead of text height`); }
+        if (!safety && !artScene && height === 'auto' && layers.some(L => L.role !== 'backdrop' && L.role !== 'texture')) { sceneHeight = 'short'; fixes.push(`${where}: layers need room -- the scene gets a short stage instead of text height`); }
         const scene = {
           id: sid, name: cap(rs.name, 60), purpose: cap(rs.purpose, 240), link: cap(rs.link, 240), navLabel: cap(rs.navLabel, 24),
           height: sceneHeight, pin, camera: oneOf(rs.camera, VOCAB.camera, 'none'), background: oneOf(bg.style || rs.background, VOCAB.sceneBg, si === 0 ? 'base' : 'base'), atmosphere: !!rs.atmosphere || si === 0,
@@ -871,11 +1706,26 @@
           text, layers,
           ...(HEX.test(rs.tone || '') ? { tone: String(rs.tone).toLowerCase() } : {}),
         };
+        if (artScene || rs.choreo || rs.handoff || (art && rec)) {
+          scene.layout = layout;
+          scene.choreo = oneOf(rs.choreo, VOCAB.choreo, rec ? oneOf(rec.choreo, VOCAB.choreo, 'settle') : 'settle');
+          scene.handoff = si === 0 ? 'cut' : oneOf(rs.handoff, VOCAB.handoff, rec ? oneOf(rec.handoff, VOCAB.handoff, 'cut') : 'cut');
+          if (pin && typeof rs.steps === 'number') scene.steps = Math.round(num(rs.steps, 1, 6, 1));
+        }
         if (si === 0) scene.cta = cap(rs.cta, 40) || 'Begin';
         if (!scene.purpose) warnings.push(`${where}: no stated purpose`);
         // (a picture swap re-fits only the scenes that show the new picture: ctx.recompose lists their ids)
-        if (!safety || (c.recompose && c.recompose.includes(sid))) { compose(scene, byId, fixes, warnings, si === 0); legible(scene, byId, fixes); }
+        if (composing && artScene) {
+          // an archetype composes the scene: pictures with a plain background float as their cut-outs first, so the
+          // composition is made for the picture that will actually be shown
+          swapCutouts(scene, byId, assets, fixes);
+          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, side: (si + flip) % 2 ? 'left' : 'right' });
+          if (scene.pin) { if (pinned >= LIMITS.pinned) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; delete scene.steps; fixes.push(`${where}: more than ${LIMITS.pinned} held scenes -- this one plays as it passes`); } else pinned++; }
+        } else if (composing) { compose(scene, byId, fixes, warnings, si === 0); if (!safety) frameFree(scene, byId, fixes); legible(scene, byId, fixes); }
         else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
+        // every enlargement stays inside its ceiling (framing.js ZOOM): a picture is never blown up to fill a container --
+        // only a deliberate "detail" framing goes further (a saved page keeps its numbers; the renderer caps them as it draws)
+        if (!safety) boundZoom(scene, byId, fixes);
         return scene;
       }).filter(Boolean);
       if (!safety && scenes.length && !scenes[0].layers.some(L => L.role === 'focal')) {
@@ -899,10 +1749,20 @@
           if (!f0) { f0 = { id: 'main', kind: 'image', role: 'focal', box: { d: [52, 10, 42, 78], m: [8, 6, 84, 64] }, z: 5, rotate: 0, opacity: 1, mask: 'none', treatment: 'shadow', entrance: { kind: 'rise', delay: 0.2, dur: 1.1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0.4 }, hideM: false }; hs.layers.unshift(f0); }
           const free = !!(pick.caps && pick.caps.moveFreely);
           Object.assign(f0, { kind: 'image', asset: pick.id, fit: free ? 'contain' : 'cover', focus: /^\d{1,3}% \d{1,3}%$/.test(mainA.focus || '') ? mainA.focus : '50% 50%', mask: free ? 'none' : (f0.mask && f0.mask !== 'none' ? f0.mask : 'window'), opacity: Math.max(0.9, f0.opacity || 1) });
-          delete f0.shape; delete f0.word;
+          delete f0.shape; delete f0.word; delete f0.mfit; delete f0.mfocus;
           fixes.push(`hero: the owner's chosen main picture (${mainA.id}) leads the opening scene`);
-          compose(hs, byId, fixes, warnings, true); legible(hs, byId, fixes);
+          if (hs.layout && hs.layout !== 'free') { f0.frame = 'auto'; delete f0.frame; ARCH.composeScene(hs, { byId, si: 0, hero: true, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${hs.id}`), name: identity.name, fixes, warnings, side: flip ? 'left' : 'right' }); }
+          else { compose(hs, byId, fixes, warnings, true); frameFree(hs, byId, fixes); legible(hs, byId, fixes); }
+          boundZoom(hs, byId, fixes);
         }
+      }
+      // ---- the art-directed page as a whole: a carry needs a picture on both sides of its seam; the background follows the
+      // page's progression where a scene has no colour of its own; at most three scenes hold the scroll
+      if (!safety && art) {
+        scenes.forEach((s, i) => { if (i && s.handoff === 'carry') { scenes[i - 1].layers.forEach(L => { delete L.exit; }); s.layers.forEach(L => { delete L.enter; }); if (!ARCH.linkCarry(scenes[i - 1], s)) { s.handoff = 'overlap'; fixes.push(`scene ${s.id}: nothing to carry across the seam -- it slides over the previous scene instead`); } } });
+        // (a stack holds the previous scene while this one covers it: the previous scene must fit the screen, and must not be
+        // stacking onto its own predecessor -- one hold at a time)
+        scenes.forEach((s, i) => { if (i && s.handoff === 'stack' && (scenes[i - 1].pin || scenes[i - 1].height === 'auto' || scenes[i - 1].height === 'tall' || scenes[i - 1].handoff === 'stack')) s.handoff = 'overlap'; });
       }
       // ---- the subject's imagery: a logo is a reference, never the hero's main picture when a real picture of the
       // subject exists; and a page that should show its subject but cannot is marked degraded, never passed off
@@ -932,7 +1792,19 @@
       }
       // ---- the page blends into its pictures (a new or recomposed plan; a saved page keeps what it had)
       if (!safety) blendPictures(scenes, palette, byId, assets, fixes, warnings);
-      if (!safety) scenes.forEach(s => calmShapes(s, fixes));
+      // (an archetype places its own decoration deliberately; the one-shape rule is for free compositions)
+      if (!safety) scenes.forEach(s => { if (!s.layout || s.layout === 'free') calmShapes(s, fixes); });
+      // the background's progression down the page, for scenes that have no colour of their own (a picture's tone wins)
+      if (!safety && art && art.progression !== 'steady') {
+        const n = scenes.length; const dark = lum(palette.bg) < 0.3;
+        scenes.forEach((s, i) => {
+          if (!i || s.tone || s.background !== 'base') return;
+          if (art.progression === 'invert') { if (i % 2 === 1) s.background = 'invert'; return; }
+          const t = i / Math.max(1, n - 1);
+          const target = art.progression === 'deepen' ? mix(palette.bg2, dark ? '#000000' : '#ffffff', dark ? 0.45 : 0.25) : [palette.bg2, mix(palette.bg, palette.accent, 0.2), mix(palette.bg2, palette.glow, 0.25)][i % 3];
+          s.tone = mix(palette.bg, target, art.progression === 'deepen' ? t : 0.75);
+        });
+      }
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
       scenes.forEach(s => { s.ink = sceneInk(s.background, palette, s.tone); });
       // the main subject is never blurred: "soft" is for backdrops and textures (a blurred focal picture read as washed out)
@@ -950,6 +1822,8 @@
       const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
+        // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
+        ...(art ? { art } : {}),
         // the layout rules a plan was composed under: a saved page keeps its geometry; only an explicit recompose updates it
         layout: { version: safety ? num(p.layout && p.layout.version, 0, 99, 0) : LAYOUT_VERSION },
         // how the words were checked against the facts (set by the direction; carried, never invented here)
@@ -959,9 +1833,15 @@
         // write sources; without this a page cited facts and credited nothing -- Wikipedia text is CC BY-SA and needs credit)
         sources: (Array.isArray(p.sources) && p.sources.length ? p.sources : c.page && c.page.title && facts.length ? [c.page] : []).slice(0, 6).filter(s => s && s.title).map(s => ({ title: cap(s.title, 200), url: /^https:\/\//.test(s.url || '') ? cap(s.url, 400) : '', license: cap(s.license, 80) || (/^https:\/\/[a-z-]+\.wikipedia\.org\//.test(s.url || '') ? 'CC BY-SA 4.0' : ''), retrieved: cap(s.retrieved, 40) })),
         credits, derived,
-        direction: p.direction && typeof p.direction === 'object' ? { source: oneOf(p.direction.source, ['ai', 'mock'], 'ai'), model: cap(p.direction.model, 60), at: cap(p.direction.at, 40), attempt: num(p.direction.attempt, 1, 9, 1), repaired: !!p.direction.repaired, seed: cap(p.direction.seed, 40) } : { source: 'ai', model: '', at: '', attempt: 1, repaired: false, seed: '' },
+        direction: p.direction && typeof p.direction === 'object' ? { source: oneOf(p.direction.source, ['ai', 'mock', 'built-in'], 'ai'), model: cap(p.direction.model, 60), at: cap(p.direction.at, 40), attempt: num(p.direction.attempt, 1, 9, 1), repaired: !!p.direction.repaired, seed: cap(p.direction.seed, 40) } : { source: 'ai', model: '', at: '', attempt: 1, repaired: false, seed: '' },
         ...(p.fixture ? { fixture: cap(p.fixture, 160) } : {}),
       };
+      // an art-directed plan is returned in exactly the form it will be stored and reopened in (every bound applied, keys in
+      // their saved order), so saving, reopening and exporting it never changes a byte of the design
+      if (!safety && (plan.art || plan.scenes.some(s => s.layout && s.layout !== 'free'))) {
+        const canonical = validatePlan2(plan, Object.assign({}, c, { mode: 'safety', recompose: null })).plan;
+        return { plan: canonical, fixes, warnings, errors };
+      }
       return { plan, fixes, warnings, errors };
     }
 
@@ -976,7 +1856,9 @@
       const cutOf = a => assets.find(x => x.cutoutOf === a.id && x.caps && x.caps.moveFreely);
       scenes.forEach((s, si) => {
         let changed = false;
-        s.layers.forEach(L => {
+        // (an archetype scene swapped its cut-outs before it was composed, and keeps the frames it chose)
+        const artScene = s.layout && s.layout !== 'free';
+        if (!artScene) s.layers.forEach(L => {
           if (L.kind !== 'image' || L.role === 'backdrop' || L.role === 'texture') return;
           const a = byId.get(L.asset); if (!a || floats(a)) return;
           const cut = cutOf(a); if (!cut) return;
@@ -992,10 +1874,13 @@
           let tone = main.a.assess.background.colour.toLowerCase(); const toLight = lum(tone) > 0.18;
           for (let i = 0; i < 20 && contrast(tone, toLight ? '#141414' : '#f6f3ee') < 7; i++) tone = mix(tone, toLight ? '#ffffff' : '#000000', 0.12);
           s.tone = tone;
-          if (['none', 'window', 'frame', 'polaroid'].includes(main.L.mask) && main.L.role !== 'backdrop') { main.L.mask = 'none'; main.L.edge = 'fade'; if (main.L.fit === 'contain') main.L.fit = 'cover'; }
+          // its frame dissolves into the scene -- unless dissolving would mean cropping a picture shown whole beyond an
+          // editorial crop (it then keeps its frame, on its own colour)
+          const cropIf = main.L.fit === 'contain' ? FR.coverCrop(FR.profile(main.a).aspect, (main.L.box.d[2] * FR.STAGE.d) / main.L.box.d[3]).crop : 0;
+          if (!artScene && ['none', 'window', 'frame', 'polaroid'].includes(main.L.mask) && main.L.role !== 'backdrop' && cropIf <= FR.BUDGET.editorial && !FR.profile(main.a).tight) { main.L.mask = 'none'; main.L.edge = 'fade'; if (main.L.fit === 'contain') main.L.fit = 'cover'; }
           changed = true; fixes.push(`scene ${s.id}: takes the tone of its picture (${s.tone}) so the picture sits in its own world`);
         }
-        if (changed) { compose(s, byId, fixes, warnings, si === 0); legible(s, byId, fixes); }
+        if (changed && !artScene) { compose(s, byId, fixes, warnings, si === 0); frameFree(s, byId, fixes); legible(s, byId, fixes); boundZoom(s, byId, fixes); }
       });
       const h = scenes[0] && scenes[0].tone;
       if (h) {
@@ -1048,6 +1933,47 @@
       scene.layers.forEach(L => { if (L.kind === 'word' && L.opacity > 0.2 && overlap(L.box.d, tb) > area(L.box.d) * 0.15) { L.opacity = 0.16; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: the word "${L.word.text}" is a ghost behind the words`); } });
       // words directly on a photo that fills their area (a full-bleed focal or a backdrop picture) get a scrim
       if (!t.scrim && scene.layers.some(L => L.kind === 'image' && L.opacity > 0.3 && overlap(drawnRect(L, byId.get(L.asset), 'd'), tb) > area(tb) * 0.3)) { t.scrim = true; fixes.push(`scene ${scene.id}: the words sit on a picture -- a scrim keeps them readable`); }
+    }
+
+    // a picture on a plain background floats as its clean cut-out (before an archetype composes around it)
+    function swapCutouts(scene, byId, assets, fixes) {
+      scene.layers.forEach(L => {
+        if (L.kind !== 'image' || L.role === 'backdrop' || L.role === 'texture') return;
+        const a = byId.get(L.asset); if (!a || a.cutout || (a.assess && a.assess.transparent)) return;
+        const cut = assets.find(x => x.cutoutOf === a.id && x.caps && x.caps.moveFreely); if (!cut) return;
+        // (a picture chosen as a texture or a full bleed stays a picture)
+        if (L.frame === 'bleed' || L.frame === 'texture' || L.frame === 'detail') return;
+        L.asset = cut.id; L.mask = 'none'; L.fit = 'contain'; delete L.edge; delete L.frame; if (L.treatment === 'none') L.treatment = 'shadow';
+        fixes.push(`scene ${scene.id}: ${a.id} has a plain background -- its cut-out floats in the scene instead`);
+      });
+    }
+    // a free composition's pictures are framed as deliberately as an archetype's: a cover crop stays inside its budget
+    // (the container reshapes toward the picture, or the picture is shown whole), and the crop keeps the subject in view
+    function frameFree(scene, byId, fixes) {
+      scene.layers.forEach(L => {
+        if (L.kind !== 'image' || L.group || L.role === 'backdrop' || L.role === 'texture') return;
+        const a = byId.get(L.asset); if (!a) return; const pr = FR.profile(a); if (pr.free) return;
+        const intent = L.frame && L.frame !== 'auto' ? L.frame : L.edge === 'fade' ? 'editorial' : L.mask !== 'none' ? 'masked' : 'light';
+        const probe = Object.assign({}, L, { frame: intent });
+        const fd = FR.frameLayer(probe, a, 'd', { anchor: 'cm' }); const fm = FR.frameLayer(probe, a, 'm', { anchor: 'cm' });
+        [...new Set(fd.notes.concat(fm.notes))].forEach(n => fixes.push(`scene ${scene.id}: ${n}`));
+        L.box = { d: fd.box, m: fm.box }; L.frame = fd.intent;
+        if (fd.fit !== L.fit || L.focus === '50% 50%') L.focus = fd.focus;
+        L.fit = fd.fit;
+        if (fm.fit !== fd.fit || fm.focus !== fd.focus) { L.mfit = fm.fit; L.mfocus = fm.focus; } else { delete L.mfit; delete L.mfocus; }
+        if (L.fit === 'contain' && ['circle', 'arch', 'blob', 'diamond', 'slit', 'porthole', 'torn'].includes(L.mask)) L.mask = 'window';
+        if (L.fit === 'contain' && L.edge === 'fade') { delete L.edge; if (L.mask === 'none') L.mask = 'window'; }
+      });
+    }
+    // the ceilings on artificial enlargement (framing.js ZOOM): an ambient zoom and a scroll zoom on a picture stay small;
+    // an explicit detail framing may go further
+    function boundZoom(scene, byId, fixes) {
+      scene.layers.forEach(L => {
+        if (L.kind !== 'image') return;
+        const detail = L.frame === 'detail';
+        if (L.loop.kind === 'kenburns') { const max = ((detail ? FR.ZOOM.detail : FR.ZOOM.loop) - 1.02) / 0.05; if (L.loop.amp > max) { L.loop.amp = Math.round(max * 100) / 100; fixes.push(`scene ${scene.id}: ${L.id}'s slow zoom kept small (no creeping crop)`); } }
+        if (L.scroll.kind === 'zoom-in' || L.scroll.kind === 'zoom-out') { const max = ((detail ? FR.ZOOM.detail : FR.ZOOM.scroll) - 1) / 0.55; if (Math.abs(L.scroll.amount) > max) { L.scroll.amount = Math.round(Math.sign(L.scroll.amount || 1) * max * 100) / 100; fixes.push(`scene ${scene.id}: ${L.id}'s scroll zoom kept inside ${Math.round(((detail ? FR.ZOOM.detail : FR.ZOOM.scroll) - 1) * 100)}%`); } }
+      });
     }
 
     // a member's box, carried from its group's old anchor box to the new one (moved and scaled with it)
@@ -1391,6 +2317,196 @@
     }
 
     module.exports = { direct, redirectHero, castAssets, chooseWorld, WORLDS, MOOD_LINES };
+
+  });
+  __define("director2", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — the built-in art director (v2 plans). When the AI director is unavailable (no key, a budget, a failure),
+    // or for local review, the page is still ART-DIRECTED: the same recipe chooser the AI path uses (art.js) picks a motion
+    // personality, a scroll model and a scene architecture for this subject and these pictures (steering away from what this
+    // account made recently), and this module fills each scene with the right material -- the facts it carries (cited),
+    // the owner's own words (supplied), or clearly imagined mood lines -- and the pictures that suit its archetype. The
+    // archetypes then compose it (archetypes.js, through validatePlan2).
+    //
+    //   direct(input) -> { plan (raw v2, for validatePlan2 with ctx.art = recipe), recipe }
+    //   input: { understanding, research: { page, facts }, assets, supplied: { facts, memories }, seed, history, avoid,
+    //            mainAsset }
+    // Nothing here invents facts: every factual line is a given fact with its id; everything else is marked imagined.
+
+    const ART = require('./art');
+    const F = require('./framing');
+    const { chooseWorld, WORLDS, MOOD_LINES } = require('./director');
+    const { titleCase } = require('./understand');
+
+    const KICKERS = { absurd: 'A monument to', cinematic: 'The legend of', playful: 'All about', lyrical: 'In praise of', editorial: 'A closer look at', retro: 'Press start for', tender: 'For', extravagant: 'Behold', serious: 'On', restrained: 'On', reverent: 'In honour of' };
+    const HEADS = {
+      facts: ['Worth knowing', 'The record', 'What we know', 'On the record', 'The particulars', 'In brief'],
+      pictures: ['In pictures', 'Seen elsewhere', 'A few more looks', 'From every side'],
+      picture: ['A closer look', 'Look again', 'Up close', 'Study'],
+      prose: ['The longer story', 'A closer reading', 'The story so far'],
+      statement: null, closing: null, opening: null,
+    };
+    // the look each personality reaches for (display face, scale, case, backdrop, light, particles, tempo, thread)
+    const LOOK = {
+      editorial: { display: ['serif', 'didone'], scale: 'large', case: 'normal', backdrop: ['paper', 'grain', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['line', 'none'] },
+      cinematic: { display: ['didone', 'serif', 'condensed'], scale: 'monumental', case: 'normal', backdrop: ['vignette', 'spotlight', 'fog'], light: 'spot', particles: 'dust', tempo: 'slow', thread: ['none'] },
+      kinetic: { display: ['condensed', 'grotesk'], scale: 'monumental', case: 'upper', backdrop: ['solid', 'grid'], light: 'none', particles: 'none', tempo: 'lively', thread: ['none'] },
+      playful: { display: ['rounded', 'slab'], scale: 'monumental', case: 'normal', backdrop: ['gradient', 'sunrise', 'solid'], light: 'sun', particles: 'confetti', tempo: 'lively', thread: ['ribbon', 'stitch'] },
+      luxe: { display: ['didone', 'serif'], scale: 'quiet', case: 'upper', backdrop: ['solid', 'vignette'], light: 'none', particles: 'none', tempo: 'slow', thread: ['none'] },
+      mechanical: { display: ['mono', 'grotesk', 'condensed'], scale: 'large', case: 'upper', backdrop: ['grid', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['none', 'line'] },
+      chaotic: { display: ['condensed', 'slab', 'grotesk'], scale: 'monumental', case: 'upper', backdrop: ['grain', 'gradient', 'solid'], light: 'none', particles: 'sparks', tempo: 'lively', thread: ['stitch', 'none'] },
+      still: { display: ['serif'], scale: 'quiet', case: 'normal', backdrop: ['solid', 'paper'], light: 'lamp', particles: 'none', tempo: 'still', thread: ['none'] },
+    };
+    // palettes per personality, light and dark (a picture on a light background asks for a light page, and the reverse)
+    const PALETTES = {
+      editorial: { light: { bg: '#f1ece2', bg2: '#e3dacb', ink: '#1a1612', muted: '#5f564b', accent: '#a63a24', glow: '#fff8ea' }, dark: { bg: '#15130f', bg2: '#27231d', ink: '#f2ece2', muted: '#b3a998', accent: '#e0795a', glow: '#fff1d8' } },
+      cinematic: { light: { bg: '#e9e4dc', bg2: '#cfc6b8', ink: '#15120e', muted: '#5a5147', accent: '#8f3b1f', glow: '#fff6e6' }, dark: { bg: '#0b0c10', bg2: '#1c1f28', ink: '#f1efe9', muted: '#a7a39a', accent: '#d9a441', glow: '#ffe8b8' } },
+      kinetic: { light: { bg: '#f4f4f0', bg2: '#e1e1da', ink: '#0d0d0d', muted: '#4a4a46', accent: '#ff3b1f', glow: '#ffffff' }, dark: { bg: '#0a0a0a', bg2: '#1b1b1b', ink: '#f5f5f0', muted: '#a9a9a2', accent: '#d7ff3a', glow: '#ffffff' } },
+      playful: { light: { bg: '#fff1e0', bg2: '#ffd9c2', ink: '#241410', muted: '#6e4f43', accent: '#e8452c', glow: '#fff7ef' }, dark: { bg: '#2a1840', bg2: '#452a63', ink: '#fff5ec', muted: '#d7c3e8', accent: '#ffb629', glow: '#ffe9f6' } },
+      luxe: { light: { bg: '#f3efe8', bg2: '#e4ddd1', ink: '#1b1814', muted: '#6b6257', accent: '#8c6d3f', glow: '#fffaf1' }, dark: { bg: '#0f0e0c', bg2: '#1e1b17', ink: '#efe9df', muted: '#a8a092', accent: '#c9a96a', glow: '#fff4dc' } },
+      mechanical: { light: { bg: '#ededea', bg2: '#d9d9d4', ink: '#111111', muted: '#50504c', accent: '#1f4dff', glow: '#ffffff' }, dark: { bg: '#0c0d0f', bg2: '#1a1c20', ink: '#e9ebee', muted: '#9ca1aa', accent: '#39ff88', glow: '#e9fff2' } },
+      chaotic: { light: { bg: '#f7f24a', bg2: '#ffd400', ink: '#111111', muted: '#3a3a1a', accent: '#e4002b', glow: '#ffffff' }, dark: { bg: '#16001f', bg2: '#33004a', ink: '#fff4fb', muted: '#d7b8e6', accent: '#ff2e88', glow: '#fff0f8' } },
+      still: { light: { bg: '#efebe4', bg2: '#ded7cb', ink: '#1d1a16', muted: '#625a50', accent: '#6f5a3c', glow: '#fffaf2' }, dark: { bg: '#141412', bg2: '#22211d', ink: '#ece8e1', muted: '#a39d92', accent: '#bfa57a', glow: '#fff6e8' } },
+    };
+    // a few imagined words, for compositions made of giant type (never a claim)
+    const SHORT = { absurd: ['Behold.', 'All hail.', 'The icon.', 'Unbothered.'], playful: ['Yes, really.', 'Go on.', 'More, please.', 'Why not.'], cinematic: ['Look closer.', 'Out of the dark.', 'The frame.', 'Silence.'], editorial: ['In focus.', 'Look again.', 'Consider it.', 'The detail.'], lyrical: ['Quietly.', 'Look again.', 'Still.', 'Slowly.'], tender: ['Always.', 'Remembered.', 'Home.'], retro: ['Press start.', 'Level up.', 'Insert coin.'] };
+    const PARTICLES_BY_WORLD = { underwater: 'bubbles', night: 'stars', fog: 'fog', sky: 'clouds', warm: 'steam' };
+
+    const short = (s, n) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); if (t.length <= n) return t; const cut = t.slice(0, n); const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); return end > n * 0.5 ? cut.slice(0, end + 1) : ''; };
+    function lum(hex) { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+    function saturated(hex) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx > 60 && (mx - mn) / mx > 0.45; }
+    const pick = (r, list) => list[Math.floor(r() * list.length) % list.length];
+    function registerOf(u) { const t = u && u.tone; return String((t && typeof t === 'object' ? t.register : t) || '').toLowerCase(); }
+
+    function direct(input) {
+      const inp = input || {}; const u = inp.understanding || {}; const research = inp.research || {}; const page = research.page || null;
+      const facts = (research.facts || []).filter(f => f && f.id && f.text);
+      const sup = inp.supplied || { facts: [], memories: [] };
+      const assets = (inp.assets || []).filter(a => a && !a.removed && !a.failed && a.assess);
+      const kind = u.kind === 'personal' ? 'personal' : u.kind === 'fictional' ? 'fictional' : u.kind === 'invented' ? 'invented' : 'recognizable';
+      const reg = registerOf(u) || 'editorial';
+      const name = kind === 'personal' ? (u.name || titleCase(u.noun || u.subject || 'Them')) : (page && page.title) || titleCase(u.subject || 'The subject');
+      // personal pages: only the owner's own photos show the subject
+      const usable = kind === 'personal' ? assets.filter(a => a.origin === 'upload' || (a.cutoutOf && assets.some(b => b.id === a.cutoutOf && b.origin === 'upload'))) : assets.filter(a => !(a.curation && (a.curation.role === 'unrelated' || a.curation.identity === 'other' || a.curation.identity === 'form')));
+      const recipe = ART.choose({ understanding: Object.assign({}, u, { name }), assets: usable, facts, supplied: sup, page, seed: inp.seed, history: inp.history, avoid: inp.avoid });
+      const r = ART.rng(`${inp.seed || ''}|${name}|words`);
+      const P0 = recipe.personality; const look = LOOK[P0];
+      // ---- the pictures: the owner's main picture (or the best picture of the subject) leads, as its cut-out when it has one
+      const cutOf = a => usable.find(x => x.cutoutOf === a.id && x.caps && x.caps.moveFreely);
+      const score = a => (a.id === inp.mainAsset ? 100 : 0) + (a.origin === 'upload' ? 4 : 0) + (a.curation && a.curation.role === 'subject' ? 3 : 0) + (a.relevance || 0) + (F.profile(a).big ? 0.5 : 0) - (F.profile(a).tight ? 0.5 : 0);
+      const heroLayout = recipe.scenes[0].layout;
+      // compositions that stand a subject on the stage want its cut-out; these frame a photograph
+      const FREE = ['offcanvas', 'floating', 'shrine', 'poster', 'luxe', 'depth', 'giant-type'];
+      const WIDE = ['editorial-hero', 'cinematic', 'image', 'split', 'magazine'];
+      const wantsWhole = WIDE.includes(heroLayout);
+      const originals = ART.distinctPictures(usable.filter(a => !a.cutoutOf).sort((a, b) => (b.origin === 'upload') - (a.origin === 'upload'))).sort((a, b) => (score(b) + (FREE.includes(heroLayout) && cutOf(b) ? 6 : 0)) - (score(a) + (FREE.includes(heroLayout) && cutOf(a) ? 6 : 0)));
+      const mainOrig = originals[0] || usable[0] || null;
+      const mainPic = mainOrig ? (!wantsWhole && cutOf(mainOrig)) || mainOrig : null;
+      const others = originals.filter(a => a !== mainOrig);
+      const env = others.filter(a => a.curation && (a.curation.role === 'environment' || a.curation.role === 'detail'));
+      // every picture may appear twice (three times when its cut-out is shown): the least used suitable picture comes next
+      const uses = new Map(); const limit = a => (cutOf(a) ? 3 : 2);
+      const note = a => { if (a) { const k = a.cutoutOf || a.id; uses.set(k, (uses.get(k) || 0) + 1); } return a; };
+      note(mainPic);
+      // (a composition that frames a wide photograph asks for one: a wide, uncropped picture comes first)
+      const wideOk = a => { const p = F.profile(a); return !p.free && !p.tight && F.coverCrop(p.aspect, 1.6).crop <= F.budgetFor(a, 'bleed'); };
+      const pickPic = (free, exclude, wide) => {
+        const c = originals.filter(a => (uses.get(a.id) || 0) < limit(a) && !(exclude || []).includes(a.id)).sort((a, b) => (wide ? wideOk(b) - wideOk(a) : 0) || (uses.get(a.id) || 0) - (uses.get(b.id) || 0) || score(b) - score(a));
+        const a = (free && c.find(x => cutOf(x))) || c[0]; if (!a) return null;
+        return note(free && cutOf(a) ? cutOf(a) : (uses.get(a.id) || 0) >= 2 && cutOf(a) ? cutOf(a) : a);
+      };
+      const take = (n, free) => { const got = []; for (let k = 0; k < n; k++) { const a = pickPic(free, got.map(x => x.cutoutOf || x.id)); if (!a) break; got.push(a); } return got; };
+      // ---- the words
+      const factsLeft = facts.slice(); const use = f => { const i = factsLeft.indexOf(f); if (i >= 0) factsLeft.splice(i, 1); return f; };
+      const takeFacts = (n, max) => factsLeft.filter(f => f.text.length <= (max || 240)).slice(0, n).map(use);
+      const lede = facts.find(f => f.text.length >= 40 && f.text.length <= 200) || null; if (lede) use(lede);
+      const moods = (MOOD_LINES[{ extravagant: 'absurd', restrained: 'editorial', serious: 'editorial', reverent: 'lyrical' }[reg] || reg] || MOOD_LINES.editorial).slice();
+      const mood = () => moods.splice(Math.floor(r() * moods.length) % Math.max(1, moods.length), 1)[0] || 'Some things deserve a second look.';
+      const supLines = (sup.facts || []).map(t => ({ text: t, kind: 'supplied' })); const memLines = (sup.memories || []).map(t => ({ text: t, kind: 'supplied' }));
+      const usedHeads = new Set();
+      const head = key => { const list = (HEADS[key] || []).filter(h => !usedHeads.has(h)); const h = list.length ? pick(r, list) : mood(); usedHeads.add(h); return h; };
+      const img = (a, role, frame) => (a ? Object.assign({ kind: 'image', role: role || 'focal', asset: a.id, box: { d: [50, 10, 40, 80], m: [10, 10, 80, 80] } }, frame ? { frame } : {}) : null);
+      const scenes = recipe.scenes.map((rs, i) => {
+        const s = { id: i === 0 ? 'opening' : `scene-${i + 1}`, name: '', purpose: '', height: 'screen', layout: rs.layout, choreo: rs.choreo, handoff: rs.handoff, layers: [], text: { kind: 'imagined', region: 'left', size: i === 0 ? 'display' : 'large', width: 'medium', items: [] } };
+        const t = s.text; const L = rs.layout;
+        if (i === 0) {
+          s.name = 'Opening'; s.purpose = 'the subject, as the page first shows it';
+          t.kicker = kind === 'personal' ? (u.purpose === 'memorial' ? 'In memory' : `${u.relation === 'my' ? 'My' : 'Our'} ${u.noun || 'friend'}`) : kind === 'invented' || kind === 'fictional' ? 'An invented world' : (KICKERS[reg] || KICKERS.editorial);
+          t.heading = name.slice(0, 100);
+          if (kind === 'personal' && supLines[0]) { t.body = supLines.shift().text.slice(0, 300); t.kind = 'supplied'; }
+          else if (lede && kind !== 'invented') { t.body = short(lede.text, 220) || ''; if (t.body) { t.kind = 'sourced'; t.cite = lede.id; } }
+          if (mainPic) s.layers.push(img(mainPic, 'focal'));
+          if (L === 'collage' || L === 'floating') take(L === 'collage' ? 3 : 2, L === 'floating').forEach(a => s.layers.push(img(a, 'support')));
+          s.cta = kind === 'personal' ? `Meet ${name}`.slice(0, 40) : pick(r, ['Begin', 'Scroll the story', 'Step inside', 'Look closer']);
+          return s;
+        }
+        const last = i === recipe.scenes.length - 1; const carries = rs.carries;
+        s.name = { facts: 'The facts', pictures: 'Pictures', picture: 'A closer look', prose: 'The story', statement: 'Statement', closing: 'Closing' }[carries] || 'Scene';
+        s.purpose = { facts: 'what is known, one line at a time', pictures: 'the pictures together', picture: 'one picture, looked at properly', prose: 'the longer story', statement: 'one thought, given room', closing: 'a quiet ending' }[carries] || 'a scene of the page';
+        s.navLabel = { facts: 'Facts', pictures: 'Pictures', picture: 'Detail', prose: 'Story', statement: '', closing: '' }[carries] || '';
+        if (carries === 'facts') {
+          const lines = kind === 'personal' ? supLines.splice(0, 5).concat(memLines.splice(0, Math.max(0, 5 - supLines.length))) : takeFacts(L === 'dense' ? 6 : 5).map(f => ({ text: f.text, kind: 'sourced', cite: f.id }));
+          t.heading = head('facts'); t.items = lines.map(x => Object.assign({}, x, { label: x.cite ? ((/\b(1[0-9]{3}|20[0-4][0-9])\b/.exec(x.text) || [])[1] || '') : '' }));
+          t.list = t.items.some(x => x.label) ? 'timeline' : 'labelled';
+          if (L === 'sticky-steps') { take(Math.min(3, Math.max(1, t.items.length - 1))).forEach((b, k) => s.layers.push(img(b, k ? 'support' : 'focal'))); }
+          else if (L === 'brutalist' || L === 'dense') { const a = take(1)[0]; if (a) s.layers.push(img(a, 'focal')); }
+        } else if (carries === 'pictures') {
+          t.heading = head('pictures');
+          const picks = take(L === 'strip' ? 6 : L === 'gallery' ? 5 : 4);
+          picks.forEach((a, k) => s.layers.push(img(a, k ? 'support' : 'focal')));
+          if (L === 'gallery' || L === 'strip') { const f = takeFacts(1, 200)[0]; if (f) { t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } }
+        } else if (carries === 'picture') {
+          const a = pickPic(false, null, WIDE.includes(L)); t.heading = head('picture');
+          if (a) { s.layers.push(img(a, 'focal')); const f = takeFacts(1, 220)[0]; if (f) { t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } }
+        } else if (carries === 'prose') {
+          const f = factsLeft.filter(x => x.text.length > 90 && x.text.length <= 500).sort((a, b) => b.text.length - a.text.length)[0];
+          t.heading = head('prose'); if (f) { use(f); t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } else if (kind === 'personal' && memLines[0]) { t.body = memLines.shift().text; t.kind = 'supplied'; }
+          const a = L !== 'text' ? take(1)[0] : null; if (a) s.layers.push(img(a, 'focal'));
+        } else if (carries === 'closing' || last) {
+          t.heading = mood(); t.size = 'large';
+          if (['shrine', 'luxe', 'floating', 'offcanvas', 'poster', 'depth', 'framed', 'split', 'image', 'cinematic'].includes(L)) { const a = pickPic(FREE.includes(L), null, WIDE.includes(L)); if (a) s.layers.push(img(a, 'focal')); }
+          s.name = 'Closing'; s.purpose = 'a quiet ending';
+        } else {
+          // a statement: one thought -- a short fact given room, or an imagined line -- and the subject again, differently
+          const f = takeFacts(1, 180)[0];
+          const few = () => { const list = (SHORT[{ extravagant: 'absurd', restrained: 'editorial', serious: 'editorial', reverent: 'lyrical' }[reg] || reg] || SHORT.editorial).filter(h => !usedHeads.has(h)); const h = list.length ? pick(r, list) : mood(); usedHeads.add(h); return h; };
+          const head0 = L === 'giant-type' || L === 'poster' ? few() : mood();
+          if (f) { t.heading = head0; t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } else { t.heading = head0; }
+          const a = L === 'text' ? null : pickPic(FREE.includes(L), null, WIDE.includes(L));
+          if (a) s.layers.push(img(a, 'focal'));
+          const tex = L === 'depth' && env.find(x => x.id !== (a && (a.cutoutOf || a.id)) && (uses.get(x.id) || 0) < 2);
+          if (tex) { note(tex); s.layers.push(img(tex, 'texture', 'texture')); }
+        }
+        if (!t.heading) t.heading = mood();
+        return s;
+      });
+      // the page has at least its opening and one more scene with words
+      const personalOrTender = P0 === 'still';
+      const bright = mainOrig && mainOrig.assess && mainOrig.assess.background && lum(mainOrig.assess.background.colour || '#000000') > 0.45 && mainOrig.assess.background.uniformity > 0.5;
+      const lightPage = P0 === 'chaotic' ? r() < 0.55 : P0 === 'playful' ? r() < 0.7 : bright ? r() < 0.75 : r() < 0.35;
+      const palette = Object.assign({}, PALETTES[P0][lightPage ? 'light' : 'dark']);
+      // the subject's own strong colour tints the accent (an orange goldfish, a red jacket)
+      const col = mainOrig && mainOrig.assess && (mainOrig.assess.colours || []).find(c => /^#[0-9a-f]{6}$/i.test(c) && saturated(c));
+      if (col && P0 !== 'mechanical' && P0 !== 'luxe') palette.accent = col;
+      const worldText = `${u.subject || ''} ${page ? `${page.title} ${page.description || ''}` : ''} ${u.brief || ''}`;
+      const world = chooseWorld(worldText, page && page.category, reg, mainOrig);
+      const particles = personalOrTender || P0 === 'mechanical' || P0 === 'luxe' || P0 === 'kinetic' ? 'none' : PARTICLES_BY_WORLD[world] || look.particles;
+      const plan = {
+        identity: { name: name.slice(0, 120), kind },
+        concept: { title: `${name}: ${ART.MOTION[P0].label}`.slice(0, 80), logline: `${name}, told in ${recipe.scenes.length} scenes -- ${recipe.why}.`.slice(0, 300), why: recipe.why },
+        palette, type: { display: pick(r, look.display), scale: look.scale, case: name.length > 18 ? 'normal' : look.case },
+        atmosphere: { backdrop: pick(r, look.backdrop), light: look.light, particles, density: particles === 'none' ? 0 : 0.35, grain: P0 === 'editorial' || P0 === 'chaotic' },
+        motion: { tempo: look.tempo, signature: `${ART.MOTION[P0].label}: ${recipe.scenes.map(s => s.choreo).filter(c => c !== 'settle').slice(0, 2).join(' and ') || 'a quiet settle'}` },
+        thread: { kind: pick(r, look.thread) },
+        art: recipe,
+        assetNotes: [], wants: mainPic ? [] : [{ description: `a clear picture of ${name}`, role: 'subject', fallback: 'the page is built around its words and colours' }], limitations: mainPic ? [] : ['no picture of the subject was available'],
+        scenes,
+        direction: { source: 'built-in', model: '', at: new Date().toISOString(), attempt: 1, repaired: false, seed: String(inp.seed || '').slice(0, 40) },
+      };
+      return { plan, recipe };
+    }
+
+    module.exports = { direct, LOOK, PALETTES };
 
   });
   __define("render", function (module, exports, require) {
@@ -1980,6 +3096,9 @@
 
     const { esc, cleanTitle, FONTS } = require('./render');
     const { drawnRect } = require('./validate');
+    const FR = require('./framing');
+    const ARCH = require('./archetypes');
+    const ART = require('./art');
 
     const FONT2 = Object.assign({}, FONTS, {
       mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
@@ -2002,7 +3121,18 @@
       const edit = k => ` data-edit="${esc(k)}"`;
       const creditOf = a => { const base = a && a.cutoutOf ? byId.get(a.cutoutOf) : a; if (!base || (base.origin === 'upload' && !base.ownerPicked)) return ''; const cr = plan.credits.find(x => x.asset === base.id); return cr ? [cr.author && cr.author.slice(0, 60), cr.license].filter(Boolean).join(' · ') : ''; };
 
-      const sceneHtml = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode })).join('\n');
+      const arted0 = !!plan.art || plan.scenes.some(s => s.layout && s.layout !== 'free');
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0 }));
+      // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
+      // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
+      const sceneHtml = parts.map((h, si) => {
+        const cur = plan.scenes[si];
+        // (a scene stacking onto its predecessor never holds for the next one: one hold at a time)
+        const opens = k => !!(plan.scenes[k + 1] && plan.scenes[k + 1].handoff === 'stack' && plan.scenes[k].handoff !== 'stack');
+        if (arted0 && opens(si)) return `<div class="sc-pair">\n${h}`;
+        if (arted0 && si > 0 && cur.handoff === 'stack' && opens(si - 1)) return `${h}\n</div>`;
+        return h;
+      }).join('\n');
       const navItems = plan.scenes.slice(1).filter(s => s.navLabel).slice(0, 5).map(s => `<li><a href="#${esc(s.id)}">${esc(s.navLabel)}</a></li>`).join('') + '<li><a href="#cr-sources">Sources</a></li>';
       const nav = `<header class="cr-nav"><a class="cr-brand" href="#top">${esc(hero.text.heading || plan.identity.name)}</a><nav aria-label="Scenes"><ul class="cr-links">${navItems}</ul><details class="cr-menu"><summary>Contents</summary><ul>${navItems}</ul></details></nav></header>`;
       const kindNote = plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? (citeNo.size ? 'An unofficial page. The numbered lines come from the sources below; everything else on it is imagined.' : 'A work of imagination: nothing on this page describes real events.') : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
@@ -2012,10 +3142,13 @@
         ${cited.length ? `<h3>Facts</h3><p>From ${plan.sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>${s.license ? ` (${esc(s.license)})` : ''}${s.retrieved ? `, retrieved ${esc(String(s.retrieved).slice(0, 10))}` : ''}`).join(', ') || 'the sources below'}.</p><ol class="cr-factlist">${cited.map(f => `<li>${esc(f.text)}</li>`).join('')}</ol>` : ''}
         ${plan.credits.length ? `<h3>Pictures</h3><ul class="cr-credits">${plan.credits.map(c => `<li><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(cleanTitle(c.title))}</a>${c.author ? ` by ${esc(c.author)}` : ''}${c.license ? `, ${c.licenseUrl ? `<a href="${esc(c.licenseUrl)}" rel="noopener license">${esc(c.license)}</a>` : esc(c.license)}` : ''}${plan.derived.some(d => d.from === c.asset) ? ' — background removed by SiteRemade' : ''}</li>`).join('')}</ul>` : ''}
         </details><p class="cr-footnote">${kindNote}</p><p class="cr-made">Made with SiteRemade Creative</p></footer>`;
-      const scene = { thread: plan.thread.kind, tempo: plan.motion.tempo, mode, focal: focalCfg(hero, byId) };
+      const art = plan.art || null; const arted = arted0;
+      const M = art ? ART.MOTION[art.personality] || ART.MOTION.editorial : null;
+      const scene = Object.assign({ thread: plan.thread.kind, tempo: plan.motion.tempo, mode, focal: focalCfg(hero, byId) }, art ? { personality: art.personality, range: M.range } : {});
       const t = hero.text;
+      const artAttrs = art ? ` data-personality="${art.personality}" data-scroll="${art.scroll}" data-typo="${art.typo}" data-nav="${art.nav}" data-density="${art.density}" data-depth="${art.depth}" style="--range:${M.range};--ease:${M.ease};--pinv:${M.pin}"` : '';
       return `<!doctype html>
-    <html lang="en" class="cr cr2" data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}">
+    <html lang="en" class="cr cr2" data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}>
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2023,7 +3156,7 @@
     <meta name="description" content="${esc((plan.concept.logline || t.body || '').slice(0, 160))}">
     <meta name="generator" content="SiteRemade Creative">
     <script>document.documentElement.classList.add('cr-js')</script>
-    <style>${css(plan, P)}</style>
+    <style>${css(plan, P)}${arted ? ARTCSS : ''}</style>
     </head>
     <body>
     <a class="cr-skip" href="#main">Skip to content</a>
@@ -2035,7 +3168,7 @@
     </main>
     ${plan.fixture ? `<p class="cr-fixture" role="note">${esc(plan.fixture)}</p>` : ''}
     <script type="application/json" id="cr-scene">${JSON.stringify(scene).replace(/</g, '\\u003c')}</script>
-    <script>${RUNTIME2}${mode === 'preview' ? PREVIEW2 : ''}</script>
+    <script>${RUNTIME2}${arted ? ART_RUNTIME : ''}${mode === 'preview' ? PREVIEW2 : ''}</script>
     </body>
     </html>`;
     }
@@ -2056,7 +3189,11 @@
 
     function renderLayer(L, si, c, groupInner) {
       const [x, y, w, h] = L.box.d; const [mx, my, mw, mh] = L.box.m;
-      const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s`;
+      const a0 = L.kind === 'image' ? c.byId.get(L.asset) : null;
+      // the art-directed page: a layer's depth (its z) for depth choreography, its step, a strip panel's own aspect
+      const extra = c.arted ? `;--dz:${((L.z - 4) * 0.3).toFixed(2)}${L.step != null ? `;--sti:${L.step}` : ''}${L.track && a0 ? `;--ar:${Math.max(0.62, Math.min(1.8, FR.profile(a0).aspect)).toFixed(3)}` : ''}` : '';
+      const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s${extra}`;
+      const artAttrs = `${L.step != null ? ` data-step="${L.step}"` : ''}${L.exit ? ` data-exit="${L.exit}"` : ''}${L.enter ? ` data-enter="${L.enter}"` : ''}${L.track ? ' data-track' : ''}${L.frame ? ` data-frame="${L.frame}"` : ''}`;
       let art = '';
       if (groupInner != null) {
         return `<div class="ly ly-group" data-kind="group" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}" style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art ly-group-art">${groupInner}</div></div></div></div></div>`;
@@ -2064,7 +3201,15 @@
       if (L.kind === 'image') {
         const a = c.byId.get(L.asset); if (!a) return '';
         const wd = (a.assess && a.assess.width) || 1200, ht = (a.assess && a.assess.height) || 900;
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" style="object-fit:${L.fit};object-position:${L.focus}"><div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        // a framed picture (framing.js) carries its framing to the page: fit and crop position per breakpoint (as CSS
+        // variables, so they hold without scripting), its crop budget and where its subject is -- the runtime guard
+        // re-checks the crop against the real viewport and never lets it pass the budget
+        let imgAttr = `style="object-fit:${L.fit};object-position:${L.focus}"`;
+        if (L.frame) {
+          const pr = FR.profile(a); const budget = FR.budgetFor(a, L.frame);
+          imgAttr = `data-fit="${L.fit}"${L.mfit ? ` data-mfit="${L.mfit}"` : ''} data-crop="${budget}" data-f="${pr.focus.map(v => v.toFixed(3)).join(' ')}"${pr.subject ? ` data-subj="${pr.subject.join(' ')}"` : ''} style="--of:${L.fit};--oq:${L.focus};--mof:${L.mfit || L.fit};--moq:${L.mfocus || L.focus}"`;
+        }
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}><div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';
@@ -2072,7 +3217,9 @@
       } else {
         art = `<span class="ly-word" data-style="${L.word.style}" style="--len:${Math.max(2, L.word.text.length)}">${esc(L.word.text)}</span>`;
       }
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}">${art}</div></div></div></div></div>`;
+      // (the ceiling on a picture's scroll zoom travels with it: framing.js ZOOM)
+      const zmax = L.kind === 'image' && (L.scroll.kind === 'zoom-in' || L.scroll.kind === 'zoom-out') ? ` data-zmax="${FR.zoomCeiling(L)}"` : '';
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}>${art}</div></div></div></div></div>`;
     }
 
     // a group is ONE object on the stage: a wrapper at the union of its members' boxes carries the anchor's entrance,
@@ -2101,13 +3248,25 @@
     function renderScene(s, si, c) {
       const k = `scenes.${si}.text`; const t = s.text; const hero = si === 0;
       const H = hero ? 'h1' : 'h2';
-      const words = t.entrance === 'split-words' ? String(t.heading).split(/\s+/).map((w, j) => `<span class="w" style="--i:${j}">${esc(w)}</span>`).join(' ') : esc(t.heading);
+      const artOn = !!(s.layout && s.layout !== 'free'); const art = c.plan.art || null;
+      const wlist = String(t.heading).split(/\s+/).filter(Boolean);
+      const wordHtml = (w, j) => (t.entrance === 'split-words' ? `<span class="w" style="--i:${j}">${esc(w)}</span>` : esc(w));
+      // a short opening title set in staggered lines (giant and poster typography): two or three lines, each stepped in
+      const stagger = artOn && hero && art && (art.typo === 'giant' || art.typo === 'poster') && wlist.length >= 3 && t.heading.length <= 44;
+      let words;
+      if (stagger) {
+        const n = wlist.length >= 5 ? 3 : 2; const per = t.heading.length / n; const lines = [[]]; let len = 0;
+        wlist.forEach((w, j) => { if (len > per * lines.length && lines.length < n) lines.push([]); lines[lines.length - 1].push([w, j]); len += w.length + 1; });
+        words = lines.map(l => `<span class="ln">${l.map(([w, j]) => wordHtml(w, j)).join(' ')}</span>`).join(' ');
+      } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(t.heading);
       const items = t.items.length ? `<ol class="sc-list" data-list="${t.list}">${t.items.map((it, j) => `<li class="sc-item" style="--i:${j}">${it.label ? `<span class="sc-label"${c.edit(`${k}.items.${j}.label`)}>${esc(it.label)}</span>` : ''}<span${c.edit(`${k}.items.${j}.text`)}>${esc(it.text)}</span>${c.cite(it.cite)}</li>`).join('')}</ol>` : '';
       const heroFocal = hero ? s.layers.find(L => L.role === 'focal' && L.kind === 'image') : null;
       const credit = heroFocal ? c.creditOf(c.byId.get(heroFocal.asset)) : '';
-      const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}">
+      const place = artOn && t.place ? t.place : null;
+      const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${place ? ` style="--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}"` : ''}` : '';
+      const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' ? '' : c.edit(`${k}.heading`)} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
           ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"><span${c.edit(`${k}.body`)}>${esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
@@ -2120,11 +3279,25 @@
       const amb = `<div class="sc-amb" aria-hidden="true"><i class="amb-haze"></i><i class="amb-haze amb-b"></i><i class="amb-vig"></i><span class="amb-near">${near}</span></div>`;
       const ink = s.ink || {};
       const prev = si > 0 && c.plan.scenes[si - 1] && c.plan.scenes[si - 1].ink ? c.plan.scenes[si - 1].ink.surface : '';
-      const flow = prev && ink.surface && prev.toLowerCase() !== String(ink.surface).toLowerCase();
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}" data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow ? `;--prev:${prev}` : ''}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      const changes = prev && ink.surface && prev.toLowerCase() !== String(ink.surface).toLowerCase();
+      // the art-directed seam: a bleed evolves the colour as the scene arrives (instead of the fixed fade); an overlap or a
+      // stack covers the previous scene; a scene followed by a stacking one holds while it is covered
+      const handoff = s.handoff || 'cut'; const nextS = c.plan.scenes[si + 1];
+      const flow = changes && !(c.arted && ['bleed', 'overlap', 'stack'].includes(handoff));
+      const bleed = changes && c.arted && handoff === 'bleed';
+      const hold = !!(c.arted && nextS && nextS.handoff === 'stack' && handoff !== 'stack');
+      const overlapped = !!(c.arted && nextS && nextS.handoff === 'overlap');
+      const carries = s.layers.some(L => L.exit || L.enter);
+      const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' || bleed || carries || hold);
+      const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
+      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}` : '';
+      const counter = s.steps && s.pin && s.steps > 1 ? `<p class="sc-count" aria-hidden="true"><b>01</b><span> / ${String(s.steps).padStart(2, '0')}</span></p>` : '';
+      const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
+      const trackStage = artOn && s.choreo === 'track';
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}
-        <div class="sc-stage">${renderStage(s, si, c)}</div>
-        ${text}
+        <div class="sc-stage"${trackStage ? ' data-track' : ''}>${renderStage(s, si, c)}</div>
+        ${shade}${text}${counter}
         ${credit ? `<p class="cr-herocredit">Picture: ${esc(credit)}</p>` : ''}
       </div>
     </section>`;
@@ -2324,7 +3497,7 @@
     .cr-js .sc:not(.is-in) [data-entrance="fade"].ly-in{opacity:0}
     .cr-js .sc:not(.is-in) [data-entrance="unveil"].ly-in{clip-path:inset(100% 0 0 0)}
     .cr-js [data-entrance="unveil"].ly-in{clip-path:inset(0 0 0 0)}
-    .cr-js .sc:not(.is-in) [data-entrance="dolly"].ly-in{transform:scale(1.18);opacity:0}
+    .cr-js .sc:not(.is-in) [data-entrance="dolly"].ly-in{transform:scale(1.08);opacity:0}
     .cr-js .sc:not(.is-in) [data-entrance="slide-left"].ly-in{transform:translate3d(18%,0,0);opacity:0}
     .cr-js .sc:not(.is-in) [data-entrance="slide-right"].ly-in{transform:translate3d(-18%,0,0);opacity:0}
     .cr-js .sc:not(.is-in) [data-entrance="spin-in"].ly-in{transform:rotate(-90deg) scale(.5);opacity:0}
@@ -2343,7 +3516,9 @@
     /* kenburns: the picture itself drifts and zooms slowly INSIDE its frame (the frame stays put) -- life for photos and paintings */
     .sc.is-in .ly-loop[data-loop="kenburns"]{animation:none}
     .sc.is-in [data-loop="kenburns"] .ly-img{animation:k-kenburns calc(var(--period) * 2 / max(var(--k),.1)) ease-in-out calc(var(--delay) + var(--dur)) infinite alternate;transform-origin:var(--kb-o,40% 45%)}
-    @keyframes k-kenburns{0%{transform:scale(1.02) translate3d(0,0,0)}100%{transform:scale(calc(1.02 + var(--amp) * .05)) translate3d(calc(var(--amp) * -1.6%),calc(var(--amp) * -1%),0)}}
+    /* (the slow zoom never creeps past its ceiling: 6%, or a deliberate detail's 35% -- framing.js ZOOM) */
+    @keyframes k-kenburns{0%{transform:scale(1.02) translate3d(0,0,0)}100%{transform:scale(min(var(--kbmax,1.06),calc(1.02 + var(--amp) * .05))) translate3d(calc(min(var(--amp),1) * -1.6%),calc(min(var(--amp),1) * -1%),0)}}
+    .ly[data-frame="detail"]{--kbmax:1.35}
     /* sheen: light passes across the picture -- a band over a framed picture, a gentle brightening on a cut-out; allowed on still pages */
     .sc.is-in .ly-loop[data-loop="sheen"]{animation:none}
     [data-loop="sheen"] .ly-art:not([data-mask="none"])::before{content:"";position:absolute;inset:-10% -60%;z-index:2;pointer-events:none;background:linear-gradient(105deg,transparent 42%,rgba(255,250,235,.22) 50%,transparent 58%);transform:translate3d(-60%,0,0);mix-blend-mode:screen}
@@ -2426,22 +3601,25 @@
     /* scroll: each scene's progress p (0 arriving .. 1 leaving; pinned scenes: through their hold) drives its layers and camera */
     var ticking=false;
     function prog(s,vh){var r=s.getBoundingClientRect();if(s.hasAttribute('data-pin')){var span=r.height-vh;return span>0?Math.max(0,Math.min(1,-r.top/span)):0}return Math.max(0,Math.min(1,(vh-r.top)/(vh+r.height)))}
-    function tf(kind,a,p,vw,vh){var q=p-.5;switch(kind){
+    /* zm: the ceiling on a picture's zoom (data-zmax, framing.js ZOOM) */
+    function tf(kind,a,p,vw,vh,zm){var q=p-.5;switch(kind){
      case 'parallax':return 'translate3d(0,'+(-q*a*vh*.3).toFixed(1)+'px,0)';
      case 'drift-x':return 'translate3d('+(q*a*vw*.35).toFixed(1)+'px,0,0)';
      case 'rise':return 'translate3d(0,'+((1-p)*a*vh*.35).toFixed(1)+'px,0)';
      case 'sink':return 'translate3d(0,'+(p*a*vh*.3).toFixed(1)+'px,0)';
-     case 'zoom-in':return 'scale('+(1+p*Math.abs(a)*.55).toFixed(3)+')';
-     case 'zoom-out':return 'scale('+(1+(1-p)*Math.abs(a)*.55).toFixed(3)+')';
+     case 'zoom-in':return 'scale('+Math.min(zm||9,1+p*Math.abs(a)*.55).toFixed(3)+')';
+     case 'zoom-out':return 'scale('+Math.min(zm||9,1+(1-p)*Math.abs(a)*.55).toFixed(3)+')';
      case 'rotate':return 'rotate('+(q*a*80).toFixed(1)+'deg)';
      case 'pass-through':return 'translate3d('+(-q*a*vw*1.1).toFixed(1)+'px,0,0)';
      default:return ''}}
-    function cam(kind,p){var q=p-.5;switch(kind){case 'push-in':return 'scale('+(1+p*.12).toFixed(3)+')';case 'pull-out':return 'scale('+(1.12-p*.12).toFixed(3)+')';case 'pan-left':return 'translate3d('+(-q*6).toFixed(2)+'%,0,0)';case 'pan-right':return 'translate3d('+(q*6).toFixed(2)+'%,0,0)';case 'rise':return 'translate3d(0,'+(-q*8).toFixed(2)+'%,0)';default:return ''}}
+    /* k: a scene showing cropped pictures pushes in half as far (no compounding zoom into a crop) */
+    function cam(kind,p,k){var q=p-.5;k=k||.12;switch(kind){case 'push-in':return 'scale('+(1+p*k).toFixed(3)+')';case 'pull-out':return 'scale('+(1+k-p*k).toFixed(3)+')';case 'pan-left':return 'translate3d('+(-q*6).toFixed(2)+'%,0,0)';case 'pan-right':return 'translate3d('+(q*6).toFixed(2)+'%,0,0)';case 'rise':return 'translate3d(0,'+(-q*8).toFixed(2)+'%,0)';default:return ''}}
     function frame(){ticking=false;var vh=W.innerHeight,vw=W.innerWidth,red=reduced();
       scenes.forEach(function(s){var r=s.getBoundingClientRect();if(r.bottom<-vh||r.top>vh*2)return;var p=prog(s,vh);var st=s.querySelector('.sc-stage');
-        if(st)st.style.transform=red?'':cam(s.getAttribute('data-camera'),p);
+        if(st&&!st.hasAttribute('data-track'))st.style.transform=red?'':cam(s.getAttribute('data-camera'),p,s.hasAttribute('data-camcap')?.06:.12);
         [].forEach.call(s.querySelectorAll('.ly-scroll'),function(l){var k=l.getAttribute('data-scroll');if(k==='none'){return}if(red){l.style.transform='';l.style.clipPath='';return}var a=+l.getAttribute('data-amount')||0;
-          if(k==='reveal'){var v=Math.min(1,p*1.8);l.style.clipPath='inset(0 0 '+((1-v)*100).toFixed(1)+'% 0)';return}l.style.transform=tf(k,a,p,vw,vh)})});
+          if(k==='reveal'){var v=Math.min(1,p*1.8);l.style.clipPath='inset(0 0 '+((1-v)*100).toFixed(1)+'% 0)';return}l.style.transform=tf(k,a,p,vw,vh,+l.getAttribute('data-zmax')||0)})});
+      if(W.__crArtFrame)W.__crArtFrame(vh,vw,red);
       if(mask){var y=W.scrollY||W.pageYOffset,mt=mainEl.getBoundingClientRect().top+y,tY=Math.min(y+vh*.66-mt,startY+y*1.6),drawn=red?len:Math.max(0,Math.min(len,lenAtY(tY)));mask.setAttribute('stroke-dashoffset',(len-drawn).toFixed(1));dots.forEach(function(c){c.classList.toggle('on',c._at<=drawn+1)})}
     }
     function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(frame)}}
@@ -2452,6 +3630,7 @@
     function lenAtY(y){if(!table.length||y<=table[0][0])return 0;for(var i=1;i<table.length;i++){if(table[i][0]>=y){var a=table[i-1],b=table[i];return a[1]+(b[1]-a[1])*((y-a[0])/Math.max(1,b[0]-a[0]))}}return len}
     function focalPoint(){var f=hero&&hero.querySelector('[data-role="subject"]');if(!f||!cfg.focal||cfg.focal.fit!=='contain')return null;var r=f.getBoundingClientRect(),m=mainEl.getBoundingClientRect(),w=r.width,h=r.height,x=r.left-m.left,y=r.top-m.top,a=cfg.focal.aspect;if(w/h>a){var nw=h*a;x+=(w-nw)/2;w=nw}else{var nh=w/a;y+=h-nh;h=nh}var b=cfg.focal.bbox;return{x:x+w*(b[0]+(b[2]-b[0])*.5),y:y+h*(b[1]+(b[3]-b[1])*.97)}}
     function layout(){
+      if(W.__crArtLayout)W.__crArtLayout();
       if(!svg||!mainEl||cfg.thread==='none'){frame();return}
       var mw=mainEl.clientWidth,mh=mainEl.scrollHeight,phone=mw<=720;svg.setAttribute('viewBox','0 0 '+mw+' '+mh);svg.setAttribute('width',mw);svg.setAttribute('height',mh);while(svg.firstChild)svg.removeChild(svg.firstChild);dots=[];mask=null;
       var rest=scenes.slice(1);if(!rest.length){frame();return}
@@ -2505,10 +3684,228 @@
     d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if((h&&h.charAt(0)==='#')||a.getAttribute('target')==='_blank')return;e.preventDefault()});
     })();`;
 
+    // ---------------------------------------------------------------- art direction (only on art-directed pages)
+    // Layout archetypes (archetypes.js), scene choreography, handoffs, motion personality, typography, navigation and
+    // density. Scroll-linked effects read two numbers the runtime writes on each moving scene -- --p (its scroll progress)
+    // and --pe (that progress through the choreography's window, eased in the page's personality) -- and use the
+    // individual transform properties (translate / scale / rotate), so they never fight the entrance and loop transforms.
+    // Without scripting, or with reduced motion, every one of them rests in its finished composition.
+    const ARTCSS = `
+    /* ===== art direction ===== */
+    html.cr-js[data-personality] .ly-in{transition-timing-function:var(--ease),ease,var(--ease)}
+    html.cr-js[data-personality] .sc-text>*{transition-timing-function:var(--ease),ease}
+    html[data-personality="luxe"] .ly-in,html[data-personality="cinematic"] .ly-in{transition-duration:calc(var(--dur) * 1.25),calc(var(--dur) * .9),calc(var(--dur) * 1.25)}
+    html[data-personality="editorial"] .amb-near,html[data-personality="luxe"] .amb-near,html[data-personality="mechanical"] .amb-near,html[data-personality="still"] .amb-near{display:none}
+    html[data-personality="mechanical"] .amb-haze,html[data-personality="still"] .amb-haze,html[data-personality="editorial"] .amb-haze.amb-b{display:none}
+    /* the composition grid: twelve columns inside the page margins; the words take the columns the archetype gave them */
+    .sc[data-layout]:not([data-layout="free"]) .sc-pin{grid-template-columns:5% repeat(12,minmax(0,1fr)) 5%}
+    .sc[data-layout]:not([data-layout="free"]) .sc-text{grid-column:var(--gc,2 / 8);max-width:none;margin-inline:0}
+    .sc-text[data-v="top"]{align-self:start}.sc-text[data-v="middle"]{align-self:center}.sc-text[data-v="bottom"]{align-self:end}
+    .sc-text[data-v][data-align="center"]{text-align:center}.sc-text[data-v][data-align="right"]{text-align:right}
+    .sc-text[data-v][data-align="center"] .sc-body,.sc-text[data-v][data-align="center"] .sc-list{margin-inline:auto}
+    .sc-text[data-v][data-width="narrow"] :is(.sc-body,.sc-list){max-width:34ch}.sc-text[data-v][data-width="medium"] :is(.sc-body,.sc-list){max-width:52ch}.sc-text[data-v][data-width="wide"] :is(.sc-body,.sc-list){max-width:72ch}
+    .sc-text[data-v][data-width="narrow"] .sc-heading{max-width:14ch}.sc-text[data-v][data-align="center"][data-width="narrow"] .sc-heading{margin-inline:auto}
+    /* density: how much air a page breathes */
+    html[data-density="sparse"] .sc[data-layout] .sc-pin{padding-top:calc(var(--nav) + 9vh);padding-bottom:10vh}
+    html[data-density="dense"] .sc[data-layout] .sc-pin{padding-top:calc(var(--nav) + 2vh);padding-bottom:4vh}
+    /* typography does the work: giant, poster, minimal, editorial and mixed faces of the same page */
+    html[data-typo="giant"] .sc[data-layout] .sc-text[data-size="display"] .sc-heading{font-size:min(clamp(3.4rem,9.5vw,11rem),calc(var(--fit) * 1.08 / var(--lw)));line-height:.86;letter-spacing:-.035em}
+    html[data-typo="poster"] .sc[data-layout] .sc-heading{text-transform:uppercase;letter-spacing:-.005em;line-height:.9}
+    html[data-typo="minimal"] .sc[data-layout] .sc-heading{font-weight:500;letter-spacing:-.01em}
+    html[data-typo="minimal"] .sc[data-layout] .sc-kicker{letter-spacing:.34em;font-weight:600}
+    html[data-typo="editorial"] .sc[data-layout] .sc-kicker{letter-spacing:.18em;border-top:1px solid currentColor;padding-top:10px;display:inline-block}
+    html[data-typo="mixed"] .sc[data-layout]:nth-of-type(even) .sc-heading{font-style:italic;font-weight:400}
+    .sc-heading[data-stagger] .ln{display:block}.sc-heading[data-stagger] .ln:nth-child(2){padding-left:.9em}.sc-heading[data-stagger] .ln:nth-child(3){padding-left:.35em}
+    .sc-text[data-align="center"] .sc-heading[data-stagger] .ln{padding-left:0}
+    @media (min-width:721px){html[data-typo="editorial"] .sc[data-layout] .sc-text[data-align="left"][data-v="middle"]>.sc-kicker{position:absolute;right:calc(100% + clamp(14px,1.6vw,26px));top:0;writing-mode:vertical-rl;transform:rotate(180deg);border:0;padding:0;margin:0;white-space:nowrap}}
+    /* giant type across the scene, its picture behind it */
+    .sc-text[data-giant] .sc-heading{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)));line-height:.82;letter-spacing:-.04em;text-shadow:0 0 .35em var(--s-surface,var(--bg))}
+    .sc-text[data-giant] :is(.sc-body,.sc-list){max-width:36ch;margin-left:auto;margin-right:0}
+    .sc-text[data-giant][data-align="center"] :is(.sc-body,.sc-list){margin-inline:auto}
+    /* a caption on its picture sits on a shade of the scene's own colour */
+    .sc-shade{position:absolute;left:0;right:0;bottom:0;height:62%;z-index:5;pointer-events:none;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--s-surface,var(--bg)) 76%,transparent) 55%,color-mix(in srgb,var(--s-surface,var(--bg)) 94%,transparent))}
+    .sc-shade[data-shade="band"]{bottom:13%;height:34%;z-index:21}
+    .sc[data-layout="cinematic"] .sc-stage::before,.sc[data-layout="cinematic"] .sc-stage::after{content:"";position:absolute;left:0;right:0;height:13%;background:var(--s-surface,var(--bg));z-index:20}
+    .sc[data-layout="cinematic"] .sc-stage::before{top:0}.sc[data-layout="cinematic"] .sc-stage::after{bottom:0}
+    .sc[data-layout="cinematic"] .sc-text{z-index:21}
+    /* archetype faces */
+    .sc-text[data-columns] .sc-body{columns:2 22ch;column-gap:2.4em}
+    .sc[data-layout="magazine"] .sc-text{border-top:2px solid currentColor;padding-top:18px}
+    .sc[data-layout="magazine"] .sc-body>span::first-letter{float:left;font-family:var(--display);font-weight:var(--dw);font-size:3.4em;line-height:.8;padding:.06em .1em 0 0;color:var(--s-accent,var(--accent))}
+    .sc[data-layout="brutalist"] .sc-text{font-family:"Cascadia Mono","SF Mono",Consolas,"Courier New",monospace}
+    .sc[data-layout="brutalist"] .sc-heading{text-transform:uppercase;letter-spacing:-.02em;border-bottom:3px solid currentColor;padding-bottom:.16em}
+    .sc[data-layout="brutalist"] .sc-list{gap:0;border-top:2px solid currentColor}.sc[data-layout="brutalist"] .sc-item{border-bottom:2px solid currentColor;padding:12px 0}
+    .sc[data-layout="brutalist"] .ly-art{border-radius:0!important;box-shadow:none!important}.sc[data-layout="brutalist"] .ly[data-kind="image"] .ly-art{outline:3px solid var(--s-ink,var(--ink));outline-offset:0}
+    .shape[data-form="block"]{background:var(--f)}.shape[data-light][data-form="block"]{background:var(--f);opacity:.9}
+    .sc[data-layout="dense"] .sc-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:20px 30px}
+    .sc[data-layout="dense"] .sc-item{border-top:2px solid rgba(var(--ink-rgb),.22);padding-top:12px}
+    .sc[data-layout="luxe"] .sc-kicker{letter-spacing:.42em;font-weight:500}.sc[data-layout="luxe"] .sc-heading{font-weight:400}
+    .ly-art[data-fit="contain"]:is([data-mask="window"],[data-mask="frame"]){background:color-mix(in srgb,var(--s-surface,var(--bg)) 90%,var(--s-ink,var(--ink)))}
+    .ly-img[data-crop]{object-fit:var(--of,cover);object-position:var(--oq,50% 50%)}
+    /* a strip: pictures in a row at one height, each as wide as its own picture, moved sideways by the vertical scroll */
+    .sc[data-choreo="track"] .sc-stage[data-track]{display:flex;align-items:center;gap:clamp(18px,3vw,48px);padding:0 10vw 0 38vw;width:max-content;right:auto;transform-origin:0 50%}
+    .sc[data-choreo="track"] .ly[data-track]{position:relative;left:auto;top:auto;width:auto;height:min(62vh,50vw);aspect-ratio:var(--ar,1);flex:0 0 auto}
+    .sc[data-choreo="track"] .sc-pin::after{content:"";position:absolute;left:0;top:0;bottom:0;width:37vw;background:linear-gradient(90deg,var(--s-surface,var(--bg)) 82%,transparent);z-index:5;pointer-events:none}
+    .sc[data-choreo="track"] .sc-text{z-index:7}
+    /* held scenes: the pin lasts as long as the choreography needs (the runtime sets a strip's exact length) */
+    html.cr-js .sc[data-pin][data-choreo="zoom-away"],html.cr-js .sc[data-pin][data-choreo="scale-through"]{height:calc(100vh + var(--pinv,110) * 1vh)}
+    html.cr-js .sc[data-pin][data-steps]{height:min(calc(100vh + var(--steps,2) * var(--pinv,110) * .62vh),420vh)}
+    html.cr-js .sc[data-pin][data-choreo="track"]{height:300vh}
+    html:not(.cr-js) .sc[data-layout][data-pin]{height:auto}html:not(.cr-js) .sc[data-layout][data-pin] .sc-pin{position:relative;height:auto;min-height:100vh}
+    /* steps: the words change while the picture holds (or the picture changes with them) */
+    html.cr-js .sc[data-steps] .sc-list{display:grid}
+    html.cr-js .sc[data-steps] .sc-item{grid-area:1/1;align-self:start}
+    html.cr-js .sc[data-steps].is-in .sc-item{transition:opacity .45s var(--ease),transform .6s var(--ease)}
+    html.cr-js .sc[data-steps].is-in .sc-item:not(.is-on){opacity:0;transform:translate3d(0,20px,0);pointer-events:none}
+    html.cr-js .sc[data-steps].is-in .sc-item.is-on{opacity:1;transform:none;transition-delay:0s}
+    .ly[data-step]{transition:opacity .7s var(--ease,ease),translate .9s var(--ease,ease),scale .9s var(--ease,ease),filter .9s ease}
+    html.cr-js .sc[data-steps] .ly[data-step]:not(.is-on){opacity:0}
+    html.cr-js .sc[data-choreo="stack"] .ly[data-step]:not(.is-on):not(.is-past){opacity:var(--op);translate:0 120vh}
+    html.cr-js .sc[data-choreo="stack"] .ly[data-step].is-past{opacity:var(--op);scale:.93;translate:0 -2%;filter:brightness(.7)}
+    .sc-count{position:absolute;right:5%;bottom:5vh;z-index:7;margin:0;font-family:var(--display);font-weight:var(--dw);font-size:13px;letter-spacing:.2em;color:var(--s-muted,var(--muted))}.sc-count b{font-size:30px;margin-right:4px;color:var(--s-ink,var(--ink));letter-spacing:0}
+    html:not(.cr-js) .sc-count{display:none}
+    html:not(.cr-js) .sc[data-steps] .ly[data-step],html[data-motion="reduced"] .sc[data-steps] .ly[data-step]{translate:calc(var(--sti,0) * 5%) calc(var(--sti,0) * 4%)!important;rotate:calc(var(--sti,0) * 2deg)!important;scale:calc(1 - var(--sti,0) * .07)!important;opacity:var(--op)!important;filter:none!important}
+    /* choreography */
+    .sc[data-choreo="zoom-away"] .ly:is([data-role="focal"],[data-role="subject"]){scale:calc(1 - var(--pe,0) * min(.18, .12 * var(--range,1)));transform-origin:50% 45%}
+    .sc[data-choreo="zoom-away"] .ly:is([data-role="focal"],[data-role="subject"]) .ly-art{border-radius:calc(var(--pe,0) * 28px);overflow:hidden}
+    .sc[data-choreo="scale-through"] .ly:is([data-role="echo"],[data-role="backdrop"],[data-kind="word"]){scale:calc(1 + var(--pe,0) * 2.4 * var(--range,1));opacity:calc(var(--op) * (1 - var(--pe,0) * .92))}
+    .sc[data-choreo="scale-through"] .ly:is([data-role="focal"],[data-role="subject"]){translate:0 calc((1 - var(--pe,1)) * 5vh);scale:calc(.95 + var(--pe,1) * .05)}
+    .sc[data-choreo="mask-reveal"] .ly:is([data-role="focal"],[data-role="subject"]) .ly-loop{clip-path:inset(calc((1 - var(--pe,1)) * 44%) calc((1 - var(--pe,1)) * 28%) round calc((1 - var(--pe,1)) * 40px))}
+    .sc[data-choreo="type-wipe"] .sc-heading{clip-path:inset(-.25em calc((1 - var(--pe,1)) * 100%) -.25em -.1em);translate:calc((1 - var(--pe,1)) * -5vw) 0}
+    .sc[data-choreo="type-wipe"] .ly[data-kind="word"]{translate:calc((.5 - var(--p,.5)) * 56vw * var(--range,1)) 0}
+    .sc[data-choreo="depth"] .ly{translate:0 calc((.5 - var(--p,.5)) * var(--dz,0) * 24vh * var(--range,1))}
+    html[data-depth="deep"] .sc[data-choreo="depth"] .ly{translate:0 calc((.5 - var(--p,.5)) * var(--dz,0) * 34vh * var(--range,1))}
+    .sc[data-choreo="travel"] .ly:is([data-role="focal"],[data-role="subject"]){translate:calc((var(--p,.5) - .5) * 26vw * var(--range,1)) calc((.5 - var(--p,.5)) * 8vh);rotate:calc((var(--p,.5) - .5) * 24deg * var(--range,1))}
+    .sc[data-choreo="travel"] .ly[data-role="support"]{translate:calc((.5 - var(--p,.5)) * 14vw * var(--range,1)) 0;rotate:calc((.5 - var(--p,.5)) * 30deg)}
+    /* the seams between scenes */
+    .ly[data-exit="right"] .ly-scroll{translate:calc(max(0, var(--p,0) - .6) * 150vw) 0}.ly[data-exit="left"] .ly-scroll{translate:calc(max(0, var(--p,0) - .6) * -150vw) 0}
+    .ly[data-enter="left"] .ly-scroll{translate:calc(max(0, .42 - var(--p,1)) * -150vw) 0}.ly[data-enter="right"] .ly-scroll{translate:calc(max(0, .42 - var(--p,1)) * 150vw) 0}
+    /* (desktop: the stage is absolute, so it can end above the strip the next scene will cover; on phones the stage is in the
+       flow and the scene simply keeps extra room at its foot) */
+    @media (min-width:721px){.sc[data-overlapped] .sc-stage{bottom:14vh}.sc[data-overlapped] .sc-pin{padding-bottom:calc(6vh + 14vh)}.sc[data-overlapped]:not([data-pin]) .sc-pin{min-height:calc(var(--sh,0) * 1vh + 14vh)}}
+    .sc[data-handoff="overlap"]{margin-top:-14vh;z-index:2;border-radius:clamp(20px,3vw,44px) clamp(20px,3vw,44px) 0 0;box-shadow:0 -28px 60px rgba(0,0,0,.28);overflow:clip}
+    .sc[data-handoff="stack"]{z-index:2;box-shadow:0 -30px 70px rgba(0,0,0,.34)}
+    /* (a sticky scene is held only within its parent: the pair; the pair itself is not positioned, so every scene keeps main as
+       its offset parent and the thread's path is unchanged) */
+    .sc-pair{display:block}.sc[data-hold]{position:sticky;top:var(--hold,0px);z-index:1}
+    .sc[data-hold] .sc-pin::after{content:"";position:absolute;inset:0;background:#000;opacity:calc(var(--cover,0) * .5);pointer-events:none;z-index:30}
+    .sc[data-bleed]{background:color-mix(in srgb,var(--s-surface) calc(var(--mix,1) * 100%),var(--prev))!important}
+    /* navigation treatments */
+    html[data-nav="minimal"] .cr-nav{background:none;transition:transform .5s var(--ease,ease)}
+    html[data-nav="minimal"] .cr-nav.is-away{transform:translate3d(0,-110%,0)}
+    @media (min-width:721px){
+      html[data-nav="minimal"] .cr-links{display:none}html[data-nav="minimal"] .cr-menu{display:block}
+      html[data-nav="index"] .cr-nav{background:none}
+      html[data-nav="index"] .cr-links{position:fixed;right:clamp(14px,2vw,28px);top:50%;transform:translateY(-50%);flex-direction:column;align-items:flex-end;gap:12px;counter-reset:ix}
+      html[data-nav="index"] .cr-links li{counter-increment:ix}
+      html[data-nav="index"] .cr-links a{display:flex;align-items:center;gap:10px;font-size:0;opacity:.6;min-height:24px}
+      html[data-nav="index"] .cr-links a::after{content:counter(ix,decimal-leading-zero);font-size:12px;letter-spacing:.12em;font-variant-numeric:tabular-nums;border-top:1px solid currentColor;padding-top:3px;min-width:24px;text-align:right}
+      html[data-nav="index"] .cr-links a:is(:hover,:focus-visible,.is-active){font-size:12px;opacity:1;text-decoration:none;letter-spacing:.14em;text-transform:uppercase}
+      html[data-scroll="snap"]{scroll-snap-type:y proximity}html[data-scroll="snap"] .sc{scroll-snap-align:start}
+    }
+    /* phones: every archetype recomposes -- its own stage height, the words above, below or over the picture, shorter holds,
+       smaller movements -- and keeps its idea */
+    @media (max-width:720px){
+      .sc[data-layout]:not([data-layout="free"]) .sc-text{grid-column:auto}
+    ${Object.entries(ARCH.MSTAGE).map(([k, v]) => `  .sc[data-layout="${k}"] .sc-stage{height:min(${v}vw,${Math.min(86, Math.round(v * 0.72))}svh)}`).join('\n')}
+      .sc[data-mplace="overlay"] .sc-pin{display:grid;grid-template-columns:100%;padding:0}
+      .sc[data-mplace="overlay"] .sc-stage{grid-area:1/1;margin:0;height:min(128vw,86svh)}
+      .sc[data-mplace="overlay"] .sc-text{grid-area:1/1;align-self:end;z-index:6;padding:0 20px 30px 26px}
+      .sc[data-mplace="overlay"] .sc-shade{height:70%}
+      .sc[data-mplace="below"] .sc-text{order:3}
+      .sc-text[data-giant] .sc-heading{font-size:min(17vw,calc(var(--fit) * 1.1 / var(--lw)))}
+      .sc[data-layout="giant-type"] .sc-stage{margin-top:-8vw}
+      html[data-typo="giant"] .sc[data-layout] .sc-text[data-size="display"] .sc-heading{font-size:min(15vw,calc(var(--fit) / var(--lw)))}
+      .sc-text[data-columns] .sc-body{columns:auto}
+      html.cr-js .sc[data-pin][data-choreo="zoom-away"],html.cr-js .sc[data-pin][data-choreo="scale-through"]{height:calc(100svh + var(--pinv,110) * .6svh)}
+      html.cr-js .sc[data-pin][data-steps]{height:min(calc(100svh + var(--steps,2) * var(--pinv,110) * .42svh),300svh)}
+      .sc[data-pin][data-steps] .sc-pin{justify-content:flex-start}
+      .sc[data-choreo="track"] .sc-stage[data-track]{position:relative;inset:auto;height:min(64vw,46svh);padding:0 12vw 0 6vw;margin:18px 0}
+      .sc[data-choreo="track"] .ly[data-track]{height:100%}
+      .sc[data-choreo="track"] .sc-pin::after{display:none}
+      .sc[data-handoff="overlap"]{margin-top:-6vh}
+      .sc[data-overlapped] .sc-pin{padding-bottom:calc(40px + 6vh)}.sc[data-overlapped]:not([data-pin]) .sc-pin{min-height:0}
+      .sc[data-hold]{position:relative}
+      .sc-count{right:18px;bottom:14px}
+      .sc[data-choreo="travel"] .ly:is([data-role="focal"],[data-role="subject"]){translate:calc((var(--p,.5) - .5) * 14vw) 0;rotate:calc((var(--p,.5) - .5) * 14deg)}
+      .sc[data-choreo="depth"] .ly{translate:0 calc((.5 - var(--p,.5)) * var(--dz,0) * 12vh)}
+      .sc[data-choreo="type-wipe"] .ly[data-kind="word"]{translate:calc((.5 - var(--p,.5)) * 40vw) 0}
+    }
+    /* reduced motion (and no scripting): the finished composition of every choreography */
+    html[data-motion="reduced"] .ly{translate:none!important;scale:none!important;rotate:none!important}
+    html[data-motion="reduced"] .ly-scroll{translate:none!important}
+    html[data-motion="reduced"] .ly-loop{clip-path:none!important}
+    html[data-motion="reduced"] .sc-heading{clip-path:none!important;translate:none!important}
+    html[data-motion="reduced"] .sc[data-hold]{position:relative}
+    html[data-motion="reduced"] .sc[data-bleed]{background:var(--s-surface)!important}
+    html[data-motion="reduced"] .sc-count{display:none}
+    :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .sc-stage[data-track]{position:relative;inset:auto;grid-column:1 / -1;grid-row:2;width:auto;max-width:100%;overflow-x:auto;transform:none!important;padding:0 5vw;height:min(60vh,64vw);scroll-snap-type:x mandatory}
+    :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .ly[data-track]{scroll-snap-align:start}
+    :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .sc-pin::after{display:none}
+    `;
+
+    const ART_RUNTIME = `
+    (function(){
+    var d=document,html=d.documentElement,W=window,cfg={};try{cfg=JSON.parse(d.getElementById('cr-scene').textContent)}catch(e){}
+    function reduced(){return html.getAttribute('data-motion')==='reduced'}
+    function cl(v){return v<0?0:v>1?1:v}
+    var EZ={ss:function(t){return t*t*(3-2*t)},io:function(t){return t<.5?16*t*t*t*t*t:1-Math.pow(-2*t+2,5)/2},ob:function(t){var a=1.70158,b=a+1;return 1+b*Math.pow(t-1,3)+a*Math.pow(t-1,2)}};
+    var ease=({kinetic:EZ.io,mechanical:EZ.io,playful:EZ.ob,chaotic:EZ.ob})[cfg.personality]||EZ.ss;
+    /* each choreography plays over its own part of the scene's progress */
+    var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4]};
+    var all=[].slice.call(d.querySelectorAll('.sc')),scenes=all.filter(function(s){return s.hasAttribute('data-p')});
+    scenes.forEach(function(s){s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
+    function prog(s,vh){var r=s.getBoundingClientRect();if(s.hasAttribute('data-pin')){var span=r.height-vh;return span>0?cl(-r.top/span):0}return cl((vh-r.top)/(vh+r.height))}
+    /* steps: the words (and pictures) of a held scene, one state at a time */
+    function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
+      s._items.forEach(function(el,k){el.classList.toggle('is-on',k===ii)});
+      s._ly.forEach(function(el){var k=+el.getAttribute('data-step');el.classList.toggle('is-on',k===li);el.classList.toggle('is-past',k<li)});
+      if(s._count)s._count.textContent=(i<9?'0':'')+(i+1)}
+    function frameArt(vh,vw,red){
+      scenes.forEach(function(s){var r=s.getBoundingClientRect();if(r.bottom<-vh||r.top>vh*2)return;
+        if(red){s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
+        var p=prog(s,vh),w=WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
+        s.style.setProperty('--p',p.toFixed(4));s.style.setProperty('--pe',pe.toFixed(4));
+        if(s.hasAttribute('data-bleed'))s.style.setProperty('--mix',cl((vh-r.top)/(vh*.85)).toFixed(3));
+        if(s._steps&&s.hasAttribute('data-pin'))setStep(s,Math.min(s._steps-1,Math.floor(p*s._steps*.9999)));
+        if(s._track&&s.hasAttribute('data-pin'))s._track.style.transform='translate3d('+(-p*(s._travel||0)).toFixed(1)+'px,0,0)';
+        if(s.hasAttribute('data-hold')&&s._next){var nt=s._next.getBoundingClientRect().top;s.style.setProperty('--cover',cl(1-nt/vh).toFixed(3))}
+      });
+      navFrame(vh)}
+    /* navigation: a minimal bar steps aside while reading down and returns on the way up; an index marks where you are */
+    var nav=d.querySelector('.cr-nav'),navMode=html.getAttribute('data-nav'),lastY=0,links=[].slice.call(d.querySelectorAll('.cr-links a[href^="#"]'));
+    function navFrame(vh){var y=W.scrollY||W.pageYOffset;
+      if(navMode==='minimal'&&nav){var open=d.querySelector('details.cr-menu[open]');if(y>lastY+4&&y>vh*.5&&!open)nav.classList.add('is-away');else if(y<lastY-4||y<vh*.5)nav.classList.remove('is-away')}
+      lastY=y;
+      if(navMode==='index'){var cur=null;links.forEach(function(a){var t=d.getElementById(a.getAttribute('href').slice(1));if(t){var r=t.getBoundingClientRect();if(r.top<vh*.5&&r.bottom>vh*.5)cur=a}});links.forEach(function(a){a.classList.toggle('is-active',a===cur)})}}
+    /* framing guard: the plan framed each picture for a planned shape; the real viewport may differ -- a crop never
+       passes the picture's budget (it is then shown whole), and the crop window always holds the measured subject */
+    function win(v,f,s0,s1,top){if(v>=1)return 0;var st=Math.max(0,Math.min(1-v,f-v/2));if(s0!=null){if(s1-s0<=v)st=Math.max(s1-v,Math.min(s0,st));else st=top?s0:Math.max(0,Math.min(1-v,(s0+s1)/2-v/2))}return Math.max(0,Math.min(1-v,st))}
+    function guard(img){if(!img.naturalWidth||!img.hasAttribute('data-crop'))return;var w=img.offsetWidth,h=img.offsetHeight;if(!w||!h)return;
+      var fit=(W.innerWidth<=720&&img.getAttribute('data-mfit'))||img.getAttribute('data-fit')||'cover';
+      if(fit!=='cover'){img.style.objectFit='';img.style.objectPosition='';img.classList.remove('is-whole');return}
+      var ai=img.naturalWidth/img.naturalHeight,ab=w/h,cx=ai>ab,crop=cx?1-ab/ai:1-ai/ab,max=+img.getAttribute('data-crop');
+      if(crop>max+.08){img.style.objectFit='contain';img.style.objectPosition='50% 50%';img.classList.add('is-whole');return}
+      img.classList.remove('is-whole');img.style.objectFit='cover';if(crop<.002){img.style.objectPosition='50% 50%';return}
+      var f=(img.getAttribute('data-f')||'.5 .45').split(' ').map(Number),s=(img.getAttribute('data-subj')||'').split(' ').map(Number),has=s.length===4&&!isNaN(s[0]),v=1-crop;
+      if(cx){img.style.objectPosition=(win(v,f[0],has?s[0]:null,has?s[2]:null,false)/(1-v)*100).toFixed(1)+'% '+(f[1]*100).toFixed(1)+'%'}
+      else{img.style.objectPosition=(f[0]*100).toFixed(1)+'% '+(win(v,f[1],has?s[1]:null,has?s[3]:null,true)/(1-v)*100).toFixed(1)+'%'}}
+    function layoutArt(){var vh=W.innerHeight,vw=W.innerWidth,red=reduced();
+      scenes.forEach(function(s){
+        if(s._track){if(red||!s.hasAttribute('data-pin')){s.style.height='';s._travel=0;s._track.style.transform='';return}var sw=s._track.scrollWidth,travel=Math.max(0,sw-vw*.96);s._travel=travel;s.style.height=Math.round(vh+Math.min(travel*1.05,vh*2.4))+'px'}
+        if(s._steps&&s._i<0&&!red)setStep(s,0);
+      });
+      all.forEach(function(s){if(s.hasAttribute('data-hold'))s.style.setProperty('--hold',Math.min(0,vh-s.offsetHeight)+'px')});
+      [].forEach.call(d.querySelectorAll('img[data-crop]'),guard)}
+    W.__crArtFrame=frameArt;W.__crArtLayout=layoutArt;
+    [].forEach.call(d.querySelectorAll('img[data-crop]'),function(img){img.addEventListener('load',function(){guard(img)})});
+    layoutArt();if(W.__crFrame)W.__crFrame();
+    })();`;
+
     module.exports = { renderCreative2 };
 
   });
-  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), validate2: __require('validate2'), director: __require('director'), render: __require('render'), render2: __require('render2') };
+  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

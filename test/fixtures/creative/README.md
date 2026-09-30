@@ -12,3 +12,6 @@ Bubbles and every detail about him are invented for testing; these photos are no
 The studio and the rendered page both carry a visible TEST FIXTURE label whenever this brief is used.
 
 `fixture-zelda-botw-cosplay-ccby.jpg` stands in for artwork an owner would upload in the **supplied-artwork** Zelda review brief (`creative-briefs-r3.js`). It is a real CC BY photo of cosplayers, not official art; that run is labelled as a test fixture and is reported separately from automatic sourcing.
+
+`fixture-grumpy-cat-ccbysa.jpg` stands in for an owner's upload in the art-direction review's meme-shrine brief
+(`creative-briefs-art.js`): Wikimedia Commons, [File:Grumpy Cat by Gage Skidmore.jpg](https://commons.wikimedia.org/wiki/File:Grumpy_Cat_by_Gage_Skidmore.jpg), Gage Skidmore (960px thumbnail), CC BY-SA 3.0. That run is labelled as a test fixture.

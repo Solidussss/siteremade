@@ -120,7 +120,8 @@ app.whenReady().then(async () => {
             r.shots.push(await shot(w, `${c.id}-studio-gate-adopted`));
           }
           const t1 = Date.now();
-          await js(w, g === 'abstract' ? `document.getElementById('csGateAbstract').click(), true` : (g === 'pick' || g.pick) ? `document.getElementById('csGatePick').click(), true` : `document.getElementById('csGateGo').click(), true`);
+          // (a pick with nothing pre-selected continues with the pictures there are; with none, the abstract page)
+          await js(w, g === 'abstract' ? `document.getElementById('csGateAbstract').click(), true` : (g === 'pick' || g.pick) ? `(document.getElementById('csGatePick') || document.getElementById('csGateGo') || document.getElementById('csGateAbstract')).click(), true` : `(document.getElementById('csGateGo') || document.getElementById('csGateAbstract')).click(), true`);
           // a repeated click must not start a second direction
           await js(w, `(() => { const b = document.getElementById('csGateGo') || document.getElementById('csGateAbstract'); if (b) b.click(); return true; })()`).catch(() => {});
           ok = await until(w, WAIT.replace("(document.querySelector('.cs-gate') && !S.busy ? 'gate' : (document.querySelector('.cs-choice') ? 'ambiguous' : null))", 'null'), 240000, 400);
