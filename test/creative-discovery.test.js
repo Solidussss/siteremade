@@ -205,3 +205,57 @@ test('the owner sees what was found apart from what may be used: the studio mess
   assert.match(D.messageFor('nothing-found', 'X', c), /couldn't find pictures of X in 3 image searches/);
   assert.match(D.messageFor('found-rights-unverified', 'X', Object.assign({}, c, { reviewOnly: 0 })), /did not let the studio download them/);
 });
+
+// ---------------------------------------------------------------- Wikipedia = facts; pictures never from Wikimedia
+test('without SERPAPI_API_KEY, Creative never falls back to Wikimedia pictures: Wikipedia gives facts only (the real server)', async () => {
+  const fs = require('fs'); const os = require('os'); const path = require('path');
+  const { startServer, client } = require('./helpers/server-process');
+  // the stubbed Wikimedia hosts WOULD answer with a free (CC0) picture and its bytes: if any Commons picture path were
+  // still alive, the picture would be there for it to take
+  for (const ai of ['', 'mock-only']) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-no-commons-')); const calls = path.join(dir, 'calls.log');
+    const s = await startServer({ SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'a'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'p'), ANTHROPIC_API_KEY: ai, OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', SERPAPI_API_KEY: '', MOCK_WIKI: '1', MOCK_CALL_LOG: calls, NODE_ENV: 'test' });
+    try {
+      const call = client(s.port);
+      await call('POST', '/api/auth/signup', { email: `no-commons-${ai || 'rules'}-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' });
+      const r = await call('POST', '/api/creative/research', { brief: 'toilet paper' });
+      const label = ai ? 'with the (mock) AI' : 'without AI';
+      assert.equal(r.body.ok, true, label); assert.equal(r.body.research.status, 'ok', label);
+      assert.equal(r.body.research.page.title, 'Toilet paper'); assert.ok(r.body.research.facts.length >= 2, 'Wikipedia still gives the facts');
+      assert.deepEqual(r.body.images, [], `${label}: no picture from Wikimedia`);
+      assert.deepEqual(r.body.research.review || [], [], `${label}: nothing from Wikimedia offered for review either`);
+      const dg = r.body.research.diagnostics || {};
+      assert.ok(!('commons' in dg), `${label}: Commons is not part of the picture diagnostics`);
+      assert.doesNotMatch(JSON.stringify(r.body.research), /commons|wikimedia\.org/i, `${label}: nothing about Commons anywhere in the research answer`);
+      const asked = (fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : []).filter(c => c.provider === 'wikimedia');
+      assert.ok(asked.length > 0 && asked.every(c => c.host === 'en.wikipedia.org'), `${label}: only Wikipedia was asked -- ${JSON.stringify(asked.map(c => c.host))}`);
+      assert.ok(asked.every(c => c.what !== 'images'), `${label}: not even the article's file list is asked for`);
+      if (ai) assert.ok(dg.web, 'with AI, the picture step is the web search (never Commons)');
+    } finally { await s.stop(); }
+  }
+});
+
+test('the research module itself can no longer fetch pictures: facts only, one host, whatever it is asked', async () => {
+  const asked = [];
+  const fetchImpl = async url => { asked.push(String(url)); const u = new URL(url);
+    if (/page\/summary/.test(u.pathname)) return new Response(JSON.stringify({ type: 'standard', title: 'Toilet paper', extract: 'Toilet paper is a tissue paper product used for cleaning after using a toilet.' }), { status: 200 });
+    if (u.searchParams.get('prop') === 'extracts') return new Response(JSON.stringify({ query: { pages: { 1: { extract: 'Toilet paper is a tissue paper product used for cleaning after using a toilet.' } } } }), { status: 200 });
+    return new Response('{}', { status: 200 }); };
+  // the old picture options (textOnly off, directed searches, a picture check) are ignored
+  const r = await research({ query: 'toilet paper', kind: 'recognizable' }, { fetchImpl, textOnly: false, queries: ['toilet paper white background'], maxImages: 7, curate: async () => { throw new Error('never called'); } });
+  assert.equal(r.status, 'ok'); assert.equal(r.images, undefined); assert.equal(r.curation, undefined); assert.equal(r.diagnostics, undefined);
+  assert.ok(asked.every(u => new URL(u).hostname === 'en.wikipedia.org'), asked.join(' '));
+  const R = require('../lib/creative/research');
+  ['commonsInfo', 'REUSABLE', 'relevance'].forEach(k => assert.equal(R[k], undefined, `${k} is gone`));
+  const W = require('../lib/creative/webimages');
+  ['wikimediaFile', 'commonsPermission'].forEach(k => assert.equal(W[k], undefined, `${k} is gone`));
+  // and a Google Images result hosted on Wikimedia is never a candidate
+  const found = await W.discoverImages({ identity: { name: 'X' } }, {
+    imageSearch: async () => ({ searches: 1, results: [{ title: 'X', pageUrl: 'https://commons.wikimedia.org/wiki/File:X.png', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/x/xx/X.png', thumbUrl: 'https://t.example.org/1', width: 1600, height: 1200, source: 'Wikimedia Commons', query: 'X', position: 1 },
+      { title: 'X', pageUrl: 'https://en.wikipedia.org/wiki/X', imageUrl: 'https://upload.wikimedia.org/wikipedia/en/x/xx/X.png', thumbUrl: 'https://t.example.org/2', width: 1600, height: 1200, source: 'Wikipedia', query: 'X', position: 2 }] }),
+    fetchThumb: async () => { throw new Error('never looked at'); }, curate: async () => { throw new Error('never judged'); },
+  });
+  assert.equal(found.candidates.length, 0);
+  const run = await D.runSearches(SSBU.understanding, { search: async () => ({ ok: true, status: 200, results: [{ title: 'Super Smash Bros. Ultimate', pageUrl: 'https://en.wikipedia.org/wiki/SSBU', imageUrl: 'https://upload.wikimedia.org/wikipedia/en/5/50/SSBU.jpg', width: 1600, height: 900, position: 1 }] }), budget: 1 });
+  assert.equal(run.results.length, 0, 'not counted as a usable result either');
+});

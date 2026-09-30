@@ -79,7 +79,7 @@ img.thumb{height:90px;vertical-align:middle;border:1px solid #ccc}img.full{width
 table{border-collapse:collapse;margin:6px 0 10px}td,th{border:1px solid #ddd;padding:3px 6px;text-align:left;vertical-align:top}table.small{font-size:12px}.ok{color:#08711b}.bad{color:#b00020}.miss{color:#b00020}.view{margin:10px 0 18px;padding:10px;background:#fff;border:1px solid #e3e1dc}
 .meta{color:#333}small{color:#777}</style></head><body>
 <h1>Creative mode — review run</h1>
-<p>Real studio (Electron) against a local server.js with every provider key blank; real Wikipedia / Wikimedia Commons; exports compiled by lib/export-compiler.js; captured by test/review/creative-capture.js. Paid provider calls during the run: <b>${esc(calls)}</b>. The Bubbles brief is <b>synthetic test data</b> (labelled on the page).</p>
+<p>Real studio (Electron) against a local server.js with every provider key blank; real Wikipedia (facts only; pictures from Google Images when configured, or the owner); exports compiled by lib/export-compiler.js; captured by test/review/creative-capture.js. Paid provider calls during the run: <b>${esc(calls)}</b>. The Bubbles brief is <b>synthetic test data</b> (labelled on the page).</p>
 <p>${studio.cases.map(c => `<a href="#${c.id}">${esc(c.brief)}</a>`).join(' · ')}</p>
 <p class="cap">Business page before Creative was chosen: switch shown ${yes(studio.businessBefore && studio.businessBefore.switch)} (review mode) · Creative code loaded ${studio.businessBefore && studio.businessBefore.creativeLoaded ? '<b class="bad">yes</b>' : 'no (lazy)'} ${img('business-with-switch.png', 'thumb')}</p>
 ${cases}</body></html>`);

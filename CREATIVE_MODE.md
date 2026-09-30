@@ -33,56 +33,45 @@ its output is structured data (tool use), validated, then rendered by one render
    ("the Nintendo franchise, not one game"), kind (recognizable / fictional / personal / invented), tone and whether the
    brief asked for it, audience, motifs, uncertainty, the Wikipedia title(s) for that identity, **what the page must
    show** (`visuals`: the main picture it cannot do without, the setting, up to four supporting objects — or "none"
-   for an idea with no likeness) and up to four Commons queries written like Commons file names. For a fictional
-   character or other fictional, branded or trademarked subject the main visual is its **own depiction** (artwork, a
-   render, a sprite, a show or game still) and the queries look for that and for fitting scenery -- never for
-   photographable forms (cosplay, figures, merchandise), which are not the character. A clarification is asked only when a wrong identity would change the page. A
+   for an idea with no likeness). For a fictional character or other fictional, branded or trademarked subject the main
+   visual is its **own depiction** (artwork, a render, a sprite, a show or game still) -- never a photographable form
+   (cosplay, figures, merchandise), which is not the character. A clarification is asked only when a wrong identity would change the page. A
    personal subject's *name* is never researched (only its general type). If the call fails or the budget is used, the
    built-in reader takes over (recorded).
-2. **Research** (`research.js`, same sources): the resolved article, the article's files, a Commons search for the
-   subject, one for a layer-friendly version, and the directed queries. Candidates are scored on the subject's words —
-   and a directed result on **its own query's** words — in the file's name, description and **Commons categories**
-   (a flat score for directed results once let unrelated 9504-px festival photos outrank a cosplay photo of the
-   subject). Logos, maps, diagrams, timelines and screenshots are recognised from their categories and rank low; batch
-   uploads of one shoot count once. Only free licences; only fixed Wikimedia hosts; model-written text never becomes a
-   URL (queries are search terms sent to the Commons search API).
-3. **Picture check** (`ai.curate`, cheap model, one call, ~10 s, ~$0.01): a shortlist of up to 16 candidates, balanced
-   across where they came from, is judged from **330-px thumbnails before anything is downloaded**: role (subject /
-   environment / supporting / detail / logo / reference / unrelated), identity (exact / **form** = a real-world form such
-   as a cosplayer, figure, merchandise or painted vehicle -- recorded, **never selected, never coverage**, never downloaded
-   or used; a page whose subject has only forms stops at the missing-imagery gate / related / other), what it depicts, issues (cropped, watermark, text-heavy, busy, …), whether
-   it could be cut out. It selects a coherent set (the main picture first, complementary roles, no near-duplicates),
-   states coverage of the main visual (strong / partial / none) and names the pictures that are **missing**. Only the
-   selection is downloaded (≤ 7). The verdicts travel with the assets and are saved with the project, so reopening
-   never judges again. Without it (off, over budget, failed) the ranking alone picks, and the studio says so.
-   **Where the pictures stopped** is recorded with the research (`research.diagnostics`): the Commons queries, licence /
-   type / size refusals, low relevance, the candidates ranked below the shortlist (never looked at), every judged
-   candidate with its verdict, licence and outcome; the web search's queries, stop reason or refusal, page and image
-   errors, and every found picture assessed separately for what it shows, technical usability and stated permission.
-   A stage verdict -- none, discovery, identity (only forms), permission, selection, provider, or processing (found but
-   unreadable in the browser) -- is shown at the gate under "What we checked".
-   **Web discovery** (`webimages.js`, `webfetch.js`, `CREATIVE_WEB_DISCOVERY`): when the page needs a picture of its
-   subject and Commons did not cover it, one cheap-model call with Anthropic's **web search** server tool (the existing
-   API key; $10 per 1,000 searches plus tokens; ≤ 3 searches) finds pages that show the subject. The model may submit
-   only URLs the search itself returned. A hardened fetcher reads ≤ 8 of those pages: https on port 443 only, no
-   credentials, every DNS answer checked against private / loopback / link-local / mapped ranges and the connection
-   pinned to the checked address, ≤ 3 redirects each re-checked, timeouts, size caps; no cookies, no sign-in, nothing
-   behind an access control. From each page it takes the declared images (og:image, JSON-LD, large `<img>`), fetches
-   ≤ 10 (≤ 6 MB, ≥ 300 px, real JPEG/PNG/WebP signatures and dimensions — not headers or names), deduplicates by
-   content, and records **permission separately from discovery**: a picture is *free* only when its page states a free
-   licence (Creative Commons BY/BY-SA/CC0/public domain, via rel=license, licence metadata or a licence link) that covers
-   the page's primary image, with a creator to credit when the licence requires one; "All rights reserved" or a
-   NonCommercial/NoDerivatives licence is *restricted*; anything else — an official site, a wiki, a fan page, a
-   transparent PNG, a code licence — is *unclear*. The same picture check judges what was found. Free pictures that show
-   the subject join the page with their source, creator, licence and evidence; relevant restricted or unclear ones (≤ 4)
-   are shown to the owner only as **links to review**.
+**Where things come from:** Wikipedia = facts and identity; Google Images through SerpApi = pictures found on the web;
+the owner = uploads and pictures they choose. Wikipedia and Wikimedia Commons are **never** a picture source: no Commons
+search, no Commons file record, no Commons licence lookup, no Wikimedia-hosted result -- not as a provider, a fallback,
+a candidate, a picture-check input, a permission source or a line in the picture diagnostics.
+2. **Research** (`research.js`): facts and identity only -- the resolved article (the titles the understanding step gave,
+   else the subject's own title, else a full-text search hit whose title names the subject), its text split into
+   sourced facts, and its category. Only en.wikipedia.org is contacted; model-written text never becomes a URL.
+3. **Pictures of the subject** (`discovery.js`, `webimages.js`, `webfetch.js`): with `SERPAPI_API_KEY`, Google Images
+   (see "Discovery is kept apart from permission" below); without it, when the AI provider is available, one cheap-model
+   call with Anthropic's **web search** server tool (≤ 3 searches) finds pages that show the subject -- the model may
+   submit only URLs the search itself returned. Either way, a result hosted on Wikimedia or Wikipedia is left out before
+   it is looked at. The **picture check** (`ai.curate`, cheap model, one call) judges up to 18 thumbnails before
+   anything is downloaded: role (subject / environment / supporting / detail / logo / reference / unrelated), identity
+   (exact / **form** = a real-world form such as a cosplayer, figure or merchandise -- recorded, never selected or used /
+   related / other), origin (official / fan / unknown), what it depicts, issues, whether it could be cut out. A hardened
+   fetcher reads the suitable pictures' pages and originals: https on port 443 only, no credentials, every DNS answer
+   checked against private / loopback / link-local / mapped ranges and the connection pinned to the checked address,
+   ≤ 3 redirects each re-checked, timeouts, size caps; real JPEG/PNG/WebP signatures and dimensions. **Permission is
+   recorded separately from discovery**: a picture is *free* only when its own page states a free licence (Creative
+   Commons BY/BY-SA/CC0/public domain) that covers it, with a creator to credit when the licence requires one; "All rights
+   reserved" or a NonCommercial/NoDerivatives licence is *restricted*; anything else is *unclear*. Free pictures the check
+   selected join the page with their source, creator, licence and evidence; relevant restricted or unclear pictures of
+   the subject itself (≤ 6) are shown to the owner to review. Without SerpApi and without the AI provider, no picture is
+   found automatically: the owner uploads, or continues with an abstract page -- there is no other fallback.
+   **Where the pictures stopped** is recorded (`research.diagnostics`): the searches and their counts, and a stage
+   verdict -- none, discovery, identity (only forms or fan-made), permission, selection, provider, or processing (found but
+   unreadable in the browser) -- shown at the gate under "What we checked".
 4. **Pictures** (browser): size, background, cutouts. A cutout drops separate background patches that touch the frame
    (a wall or window the fill did not reach) and peels pale shadow rims along the subject's base; logos and references
    are never cut out; a doubtful cut stays a framed picture. Original bytes are kept.
    **Missing imagery — the owner decides before any direction is paid for.** If the page should show its subject and no
-   usable picture of it exists (nothing the check calls subject/detail, no upload), the studio stops and says "We
-   couldn't find usable artwork of X through Wikimedia Commons and a web search" (never "no artwork exists"), with what
-   is missing and the review links. The owner can upload pictures, use a reviewed picture after affirming they have the
+   usable picture of it exists (nothing the check calls subject/detail, no upload), the studio stops and says what was
+   found apart from what may be used ("We found pictures of X, but their reuse rights could not be verified
+   automatically", "only fan-made ones", or -- only when true -- "We couldn't find pictures of X"), with the review cards. The owner can upload pictures, use a reviewed picture after affirming they have the
    rights (the server fetches only a URL it just offered; the page credits it as supplied by the owner), search again
    with their own words (≤ 2; the understanding is reused), or continue with an explicitly **abstract** page. The brief
    and research are kept whichever they choose; the gate's buttons lock so a repeated click cannot start two directions.
@@ -152,8 +141,8 @@ run against a newer server.
   `CREATIVE_AI_TIMEOUT_MS` 100000, `CREATIVE_CURATE` (on unless "off"; `CREATIVE_CURATE_MAX_TOKENS` 3500),
   `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt),
   `CREATIVE_WEB_DISCOVERY` (on unless "off"), `CREATIVE_WEB_SEARCHES` 3 per discovery, `CREATIVE_WEB_SEARCH_USD` 0.01.
-* **Pictures come from Google Images only** when SerpApi is configured: Wikimedia Commons is no longer searched for pictures
-  (the encyclopedia is still read for facts), so there is one picture check per page, not two.
+* **Pictures come from Google Images** (SerpApi) and the owner. Wikimedia Commons is not a picture source at all, with or
+  without SerpApi (the encyclopedia is read for facts only), so there is one picture check per page.
 * **Discovery is kept apart from permission** (`lib/creative/discovery.js`). Finding the subject and being allowed to use
   a picture of it are two questions, answered and reported separately. (One search per page was too narrow: a
   recognizable subject whose first search came back as shopping results, figures and cosplay looked "not found".)
@@ -209,7 +198,7 @@ run against a newer server.
   licence status; the owner decides. Each keeps its query, position, source site, page and image URL.
   `CREATIVE_SERPAPI_DAILY` 60 searches per day protects the plan's allowance; `CREATIVE_SERPAPI_USD` (default 0) adds a
   per-search amount to the Creative spend if set. 401/403/429 stop further searches (429 = hourly limit or the plan's
-  searches used up); 45 s per search. The same origin rule applies to Commons: a fan-made depiction never leads the page.
+  searches used up); 45 s per search. A fan-made depiction never leads the page.
   Without the key, the Anthropic web-search step is used as before.
 * **Provider unavailable**: an answer saying the account has no usable balance or the key is refused (401/403) stops
   Creative calling the provider for 10 minutes; every step then says why (research uses the built-in reader and ranking,
@@ -334,13 +323,10 @@ technology (particle fields, real 3D morphs, video-like flights) are not attempt
    tender, retro, editorial) and the purpose (showcase, fan page, tribute, memorial, joke, story).
 2. **Research** (`research.js`, server): Wikipedia summary + plain-text article for facts — sentences that stand on
    their own (no “Most are…”, no half quotations, abbreviations handled, references sections skipped), each kept with
-   its section, article URL and licence. Wikimedia Commons for pictures: the article's own files plus two searches
-   (one for pictures a scene can use as a separate layer, e.g. “… white background”), **only** public domain, CC0,
-   CC BY and CC BY-SA (never NonCommercial/NoDerivatives), each with author, licence, source page. Titles that name
-   something else (“toilet paper seedlings cup”) rank below pictures of the thing itself. Only https Wikimedia hosts
-   are contacted; retrieved text is stripped to plain text and handled as data. Pictures are downloaded once, sent to
-   the browser as data, and saved into the project's asset store — the page never hotlinks. Personal subjects get
-   general species facts only (never pictures of other animals as “theirs”).
+   its section, article URL and licence. **Facts only**: no pictures come from Wikipedia or Wikimedia Commons (pictures
+   come from Google Images or the owner; see above). Only https://en.wikipedia.org is contacted; retrieved text is
+   stripped to plain text and handled as data. Found pictures are downloaded once, sent to the browser as data, and saved
+   into the project's asset store — the page never hotlinks. Personal subjects get general species facts only.
 3. **Assets** (`assets.js`, runs in the browser on `<canvas>` pixels): size, aspect, transparency, where the subject
    sits, background uniformity, colours. A **cutout** is made only by a real step: flood-fill from the edges on a
    plain background, soft grey cast shadows removed, enclosed background pockets removed (not for illustrations),
@@ -384,23 +370,22 @@ to a sourced line in the studio turns it into the owner's words and removes its 
 
 Business pricing and behaviour are unchanged. No credits are charged for Creative (review only). Per page:
 
-* **research** (no AI): ≈ 15–35 requests to Wikipedia / Wikimedia Commons (summary, article text, article files,
-  Commons searches, licence metadata, ≤ 16 shortlist thumbnails of ≤ 300 KB, ≤ 7 picture downloads of ≤ 4 MB, stopping
-  at 16 MB), recorded in the ledger (`creative_research`: requests, bytes, ms, `usd: 0`).
+* **research** (no AI): 2–4 requests to Wikipedia (summary, article text; a search when the title is not exact), recorded
+  in the ledger (`creative_research`: requests, bytes, ms, `usd: 0`). Pictures: up to three Google Images searches
+  (SerpApi plan), ≤ 18 thumbnails, ≤ 8 pages and originals.
 * **AI calls** (estimated from token counts × configured prices; the invoice is the real charge): understanding
   ~$0.004; picture check ~$0.01; direction ~$0.10–0.15 per attempt (one repair at most); claim check ~$0.005–0.01
-  per attempt (≤ 2 calls); web discovery, only when Commons does not cover the subject, ~$0.03–0.08 (≤ 3 searches at
-  $0.01 plus tokens) and a second picture check. Typical page: **$0.13–0.45**, 60–180 s. Measured figures for each review run are in
+  per attempt (≤ 2 calls); without SerpApi, web discovery ~$0.03–0.08 (≤ 3 searches at $0.01 plus tokens). Typical page: **$0.13–0.45**, 60–180 s. Measured figures for each review run are in
   `CREATIVE_PROGRESS.md`.
 * No image generation, no OpenAI. Pictures are stored once per project (content-addressed, deduplicated).
 
 ## Verification
 
 * `node --test test/creative.test.js` — separation from Business, honesty and composition rules, cutouts on synthetic
-  pictures, licence filter, renderer escaping / no remote loads / reduced motion / preview = export, save → asset
+  pictures, renderer escaping / no remote loads / reduced motion / preview = export, save → asset
   store → reopen → export, research route guards (no network).
 * `node test/review/creative-review.js <outDir>` — the real studio in Electron against a local `server.js` (every
-  provider key blank; the mock call log must stay empty), real Wikipedia / Commons, for the four briefs in
+  provider key blank; the mock call log must stay empty), real Wikipedia, for the four briefs in
   `test/fixtures/creative-briefs.js`; then the real export compiler; then `creative-capture.js` records each exported
   page (entrance, loop, scroll, full page, reduced motion, failed pictures) at 1440×900 and 390×844 with measurements.
 * The personal brief is **synthetic fixture data** (“Bubbles” is invented; his “upload” is a CC0 Commons goldfish
@@ -450,13 +435,14 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
 
 ## Stages
 
-1. **Stage 1:** review-mode switch; understanding; Wikipedia/Commons research with provenance; pixel assessment and
+1. **Stage 1:** review-mode switch; understanding; Wikipedia/Commons research with provenance (Commons pictures since
+   removed: Wikipedia is facts only); pixel assessment and
    background removal; deterministic director; validator; renderer; studio; save / reopen; export; tests.
 2. **Stage 2:** AI creative direction — model understanding before research, model-directed v2 scene plans with vision
    on the real pictures, validator v2 with one repair and a labelled fallback, renderer v2 (scenes, pinning, shapes,
    words, masks, camera), "Try another direction", Creative-only limits and ledger, claim check.
 3. **Stage 3 (this change):** subject imagery and composition — visual needs and photographable-form queries, query-aware
-   scoring with Commons categories, the picture check before download, picture roles through to the director and the
+   scoring with Commons categories (since removed), the picture check before download, picture roles through to the director and the
    studio, degraded-imagery reporting with uploads, cleaner cutouts, grouped layers, collision order that keeps the
    subject large, accept/safety validation with layout versions, complete claim-check accounting, kenburns and sheen.
 4. **Completion round:** web discovery with permission kept apart from discovery; the missing-imagery gate (upload,

@@ -386,34 +386,6 @@ test('footer: an "invented" subject that cites real facts is never called a work
   assert.match(renderCreative2(validatePlan2(p, { assets: ASSETS, facts: [] }).plan, ASSETS, {}), /nothing on this page describes real events/);
 });
 
-test('research: directed results must match their own search, logos are recognised by their categories, one shoot counts once', async () => {
-  const { research } = require('../lib/creative/research');
-  const info = (t, extra) => Object.assign({ imageinfo: [{ url: 'https://upload.wikimedia.org/x.jpg', thumburl: 'https://upload.wikimedia.org/x.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/' + encodeURIComponent(t), width: 3000, height: 2000, mime: 'image/jpeg', extmetadata: Object.assign({ LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: 'Someone' } }, extra || {}) }] }, { title: t });
-  const files = {
-    'File:Volksfestumzug in Hof 20230728 HOF04609.jpg': info('File:Volksfestumzug in Hof 20230728 HOF04609.jpg', { ImageDescription: { value: 'Street parade' } }),
-    'File:Volksfestumzug in Hof 20230728 HOF04610.jpg': info('File:Volksfestumzug in Hof 20230728 HOF04610.jpg', { ImageDescription: { value: 'Street parade' } }),
-    'File:Link cosplay at a convention 2025.jpg': info('File:Link cosplay at a convention 2025.jpg'),
-    'File:Ocarina Chronicle.png': (() => { const x = info('File:Ocarina Chronicle.png', { Categories: { value: 'Video game logos|Ocarina' } }); x.imageinfo[0].mime = 'image/png'; return x; })(),
-  };
-  const fetchImpl = async url => {
-    const json = x => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => JSON.stringify(x), arrayBuffer: async () => new ArrayBuffer(0) });
-    if (/rest_v1\/page\/summary/.test(url)) return json({ type: 'standard', title: 'Ocarina', description: 'a game', extract: 'Ocarina is a game about a hero in a green tunic who explores a kingdom.' });
-    if (/prop=extracts/.test(url)) return json({ query: { pages: { 1: { extract: 'Ocarina is a game about a hero in a green tunic who explores a kingdom of forests.' } } } });
-    if (/prop=images/.test(url)) return json({ query: { pages: { 1: { images: [] } } } });
-    if (/list=search/.test(url)) return json({ query: { search: /cosplay/.test(decodeURIComponent(url)) ? Object.keys(files).map(title => ({ title })) : [] } });
-    if (/prop=imageinfo/.test(url)) return json({ query: { pages: Object.fromEntries(Object.values(files).map((v, i) => [i, v])) } });
-    return { ok: true, status: 200, headers: { get: () => 'image/jpeg' }, arrayBuffer: async () => new ArrayBuffer(8) };
-  };
-  const trace = [];
-  await research({ query: 'Ocarina' }, { fetchImpl, queries: ['Link cosplay Ocarina'], trace, maxImages: 3 });
-  const row = t => trace.find(x => x.title === t && x.relevance != null);
-  assert.ok(row('File:Link cosplay at a convention 2025.jpg').picked, 'the photo that matches its search is picked');
-  assert.equal(row('File:Link cosplay at a convention 2025.jpg').kind, 'form');
-  assert.equal(row('File:Ocarina Chronicle.png').kind, 'logo', 'a wordmark whose name hides it is known by its categories');
-  assert.ok(row('File:Ocarina Chronicle.png').relevance < row('File:Link cosplay at a convention 2025.jpg').relevance);
-  assert.ok(!row('File:Volksfestumzug in Hof 20230728 HOF04609.jpg').picked && !row('File:Volksfestumzug in Hof 20230728 HOF04610.jpg').picked, 'a large photo matching nothing is not picked for its size');
-});
-
 // ---- the claim check's accounting, against a scripted checker (every failure mode found in stage 2)
 const LIM = ai.limits({});
 const claimPlan = () => validatePlan2({ identity: { name: 'Tunguska event' }, concept: { title: 'The Sky Split', logline: 'A morning in Siberia.' }, scenes: [
@@ -500,29 +472,6 @@ test('the main picture is never blurred on a new plan; a saved page keeps what i
   const p = basePlan(); p.scenes[0].layers[0].treatment = 'soft';
   assert.equal(validatePlan2(p, { assets: ASSETS, facts: FACTS }).plan.scenes[0].layers[0].treatment, 'none');
   assert.equal(validatePlan2(p, { assets: ASSETS, facts: FACTS, mode: 'safety' }).plan.scenes[0].layers[0].treatment, 'soft');
-});
-
-test('research: for a fictional character, a Commons file credited as someone\'s own work is not the official depiction', async () => {
-  const { research } = require('../lib/creative/research');
-  const info = (t, credit) => ({ title: t, imageinfo: [{ url: 'https://upload.wikimedia.org/x.png', thumburl: 'https://upload.wikimedia.org/x.png', descriptionurl: 'https://commons.wikimedia.org/wiki/' + encodeURIComponent(t), width: 900, height: 900, mime: 'image/png', extmetadata: { LicenseShortName: { value: 'CC BY-SA 3.0' }, Artist: { value: 'Someone' }, Credit: { value: credit }, ImageDescription: { value: 'X the character' } } }] });
-  const files = { 'File:X drawing.png': info('File:X drawing.png', 'Own work'), 'File:X official.png': info('File:X official.png', 'The Studio (official channel)') };
-  const fetchImpl = async url => {
-    const json = x => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => JSON.stringify(x), arrayBuffer: async () => new ArrayBuffer(0) });
-    if (/rest_v1\/page\/summary/.test(url)) return json({ type: 'standard', title: 'X', description: 'a character', extract: 'X is a character in a video game series who explores a kingdom.' });
-    if (/prop=extracts/.test(url)) return json({ query: { pages: { 1: { extract: 'X is a character in a video game series who explores a kingdom of forests.' } } } });
-    if (/prop=images/.test(url)) return json({ query: { pages: { 1: { images: [] } } } });
-    if (/list=search/.test(url)) return json({ query: { search: Object.keys(files).map(title => ({ title })) } });
-    if (/prop=imageinfo/.test(url)) return json({ query: { pages: Object.fromEntries(Object.values(files).map((v, i) => [i, v])) } });
-    return { ok: true, status: 200, headers: { get: () => 'image/png' }, arrayBuffer: async () => new ArrayBuffer(8) };
-  };
-  const curate = async ({ candidates }) => ({ verdicts: Object.fromEntries(candidates.map(c => [c.id, { role: 'subject', identity: 'exact', origin: 'official', depicts: 'X', quality: 3 }])), selection: candidates.map(c => c.id), coverage: 'strong', missing: [], judged: candidates.length, of: candidates.length });
-  const r = await research({ query: 'X' }, { fictional: true, fetchImpl, queries: ['X artwork'], maxImages: 3, curate });
-  const byTitle = Object.fromEntries(r.diagnostics.judged.map(j => [j.title, j]));
-  assert.equal(byTitle['File:X drawing.png'].outcome, 'fan-made, not official artwork');
-  assert.equal(byTitle['File:X official.png'].outcome, 'used');
-  // a real-world subject is not affected by the rule
-  const r2 = await research({ query: 'X' }, { fictional: false, fetchImpl, queries: ['X artwork'], maxImages: 3, curate });
-  assert.ok(r2.diagnostics.judged.every(j => j.outcome === 'used'));
 });
 
 test('a picture the owner picked from the web is credited to its source, with no licence claimed, on the page and in the footer', () => {

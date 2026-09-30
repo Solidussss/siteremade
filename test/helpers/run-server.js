@@ -46,6 +46,21 @@ globalThis.fetch = async function (url, options) {
     if (process.env.MOCK_SERPAPI === 'refused') return json({ error: `Invalid API key ${q.get('api_key')}. Your API key should be here: https://serpapi.com/manage-api-key` }, 401);
     return json({ search_metadata: { status: 'Success' }, error: "Google hasn't returned any results for this query." });
   }
+  // MOCK_WIKI: Wikipedia answers with a small article about toilet paper; Wikimedia Commons and upload.wikimedia.org
+  // answer TOO -- a free (CC0) picture record and its bytes -- and every request is logged, so a test can prove Creative
+  // never asks Commons for a picture (if it did, the picture would be there to take)
+  if (process.env.MOCK_WIKI && /^https:\/\/([a-z0-9-]+\.)*(wikipedia|wikimedia)\.org\//.test(u)) {
+    const x = new URL(u); const q = x.searchParams;
+    log({ provider: 'wikimedia', host: x.hostname, path: x.pathname, what: q.get('list') || q.get('prop') || '' });
+    const file = { title: 'File:Toilet paper roll.jpg', imageinfo: [{ url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Toilet_paper_roll.jpg', thumburl: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Toilet_paper_roll.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Toilet_paper_roll.jpg', mime: 'image/jpeg', width: 1600, height: 1200, thumbwidth: 1600, thumbheight: 1200, extmetadata: { LicenseShortName: { value: 'CC0' }, Artist: { value: 'A. Photographer' } } }] };
+    if (x.hostname === 'en.wikipedia.org' && /\/page\/summary\//.test(x.pathname)) return json({ type: 'standard', title: 'Toilet paper', description: 'tissue paper product', extract: 'Toilet paper is a tissue paper product used for cleaning after using a toilet.', content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Toilet_paper' } } });
+    if (x.hostname === 'en.wikipedia.org' && q.get('prop') === 'extracts') return json({ query: { pages: { 1: { extract: 'Toilet paper is a tissue paper product used for cleaning after using a toilet.\n\n== History ==\nThe first documented use of toilet paper dates to the 6th century in China, according to written records.\nModern rolls of toilet paper were first sold in the United States in the late nineteenth century.' } } } });
+    if (x.hostname === 'en.wikipedia.org' && q.get('prop') === 'images') return json({ query: { pages: { 1: { images: [{ title: file.title }] } } } });
+    if (x.hostname === 'commons.wikimedia.org' && q.get('list') === 'search') return json({ query: { search: [{ title: file.title }] } });
+    if (x.hostname === 'commons.wikimedia.org' && q.get('prop') === 'imageinfo') return json({ query: { pages: { 1: file } } });
+    if (x.hostname === 'upload.wikimedia.org') return new Response(Buffer.from(mockPng('toilet paper', '1:1').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
+    return json({}, 404);
+  }
   if (u.startsWith('https://api.anthropic.com/')) {
     const body = JSON.parse(options.body);
     const tool = body.tool_choice && body.tool_choice.name;

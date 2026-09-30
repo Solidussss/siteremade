@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { checkUrl, blockedAddress, imageInfo, safeFetch } = require('../lib/creative/webfetch');
-const { readPage, permissionFor, licenceOf, discover, wikimediaFile } = require('../lib/creative/webimages');
+const { readPage, permissionFor, licenceOf, discover, excludedSource } = require('../lib/creative/webimages');
 const ai = require('../lib/creative/ai');
 
 test('fetcher: only public https hosts; private, loopback, link-local, mapped and odd addresses are refused', async () => {
@@ -69,23 +69,23 @@ test('a licence counts only when it is stated for the picture: an article\'s tex
   // structured data describing the image itself
   const ld = readPage('<script type="application/ld+json">{"@type":"ImageObject","contentUrl":"https://img.example.org/x.jpg","license":"https://creativecommons.org/publicdomain/zero/1.0/"}</script>', 'https://museum.example.org/obj/1');
   assert.equal(permissionFor(ld, 'https://img.example.org/x.jpg', 'https://museum.example.org/obj/1').status, 'free');
-  assert.deepEqual(wikimediaFile('https://upload.wikimedia.org/wikipedia/en/a/ab/Some_game_cover.png'), { project: 'en', file: 'File:Some game cover.png' });
-  assert.deepEqual(wikimediaFile('https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Trifuerza.svg/1280px-Trifuerza.svg.png?x=1'), { project: 'commons', file: 'File:Trifuerza.svg' });
-  // discovery: a Commons file takes its own record's licence and creator; a local Wikipedia file stays unclear
+  // Wikimedia is not a Creative picture source: an article page, a Commons file page and a file hosted on
+  // upload.wikimedia.org are never read, fetched or offered -- and nothing asks Commons for a picture's licence
+  ['https://en.wikipedia.org/wiki/X', 'https://commons.wikimedia.org/wiki/File:X.png', 'https://upload.wikimedia.org/wikipedia/commons/2/29/X.png', 'https://www.wikidata.org/wiki/Q1'].forEach(u => assert.ok(excludedSource(u), u));
+  ['https://www.nintendo.com/x', 'https://ssb.wiki.gg/x', 'https://zelda.fandom.com/wiki/Link'].forEach(u => assert.ok(!excludedSource(u), u));
   const png = () => { const b = Buffer.alloc(40); b.write('\x89PNG\r\n\x1a\n', 0, 'latin1'); return b; };
-  const pages = { [art]: wikiHtml('https://upload.wikimedia.org/wikipedia/commons/2/29/Tri_force.png'), 'https://en.wikipedia.org/wiki/Other': wikiHtml('https://upload.wikimedia.org/wikipedia/en/a/ab/Some_game_cover.png') };
-  let asked = null;
+  const pages = { [art]: wikiHtml('https://upload.wikimedia.org/wikipedia/commons/2/29/Tri_force.png'), 'https://official.example.org/game': '<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/en/a/ab/Some_game_cover.png"><meta property="og:image" content="https://official.example.org/key-art.png">' };
+  const read = [], fetched = [];
   const out = await discover({ identity: { name: 'X' } }, {
     searchPages: async () => ({ pages: Object.keys(pages).map(url => ({ url })), searches: 1, usd: 0.01 }),
-    fetch: async u => ({ ok: true, url: u, body: Buffer.from(pages[u]) }),
-    fetchImg: async u => { const b = png(); b.write(u.slice(-12), 20); return { ok: true, url: u, body: b, mime: 'image/png', width: 900, height: 900 }; },
-    commons: async titles => { asked = titles; return [{ title: 'File:Tri force.png', pageUrl: 'https://commons.wikimedia.org/wiki/File:Tri_force.png', license: 'Public domain', licenseUrl: '', author: '' }]; },
+    fetch: async u => { read.push(u); return { ok: true, url: u, body: Buffer.from(pages[u]) }; },
+    fetchImg: async u => { fetched.push(u); const b = png(); b.write(u.slice(-12), 20); return { ok: true, url: u, body: b, mime: 'image/png', width: 900, height: 900 }; },
   });
-  assert.deepEqual(asked, ['File:Tri force.png'], 'only the Commons file is looked up');
-  const byFile = Object.fromEntries(out.candidates.map(c => [c.imageUrl.split('/').pop(), c]));
-  assert.equal(byFile['Tri_force.png'].permission.status, 'free'); assert.match(byFile['Tri_force.png'].permission.evidence[0], /own Commons record/);
-  assert.notEqual(byFile['Tri_force.png'].author, 'Contributors to Wikimedia projects');
-  assert.equal(byFile['Some_game_cover.png'].permission.status, 'unclear'); assert.match(byFile['Some_game_cover.png'].permission.note, /non-free/);
+  assert.deepEqual(read, ['https://official.example.org/game'], 'the Wikipedia article is never read');
+  assert.deepEqual(fetched, ['https://official.example.org/key-art.png'], 'no Wikimedia-hosted picture is downloaded');
+  assert.deepEqual(out.candidates.map(c => c.imageUrl), ['https://official.example.org/key-art.png']);
+  assert.equal(out.candidates[0].permission.status, 'unclear', 'judged from its own page only');
+  assert.equal(out.log.commonsLookups, undefined);
 });
 
 test('discovery: bounded, deduplicated, and only images with a stated free licence count as usable', async () => {
@@ -127,13 +127,14 @@ test('where the pictures stopped is judged from the evidence, stage by stage', (
   const { pictureStage } = require('../lib/creative/research');
   const v = (identity, role) => ({ identity, role: role || 'subject' });
   const W = (identity, status, outcome) => ({ src: 'web', verdict: v(identity), permission: { status }, outcome });
-  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('exact'), outcome: 'used' }] }, null).stage, 'none');
-  const p = pictureStage({ judged: [{ src: 'commons', verdict: v('form'), outcome: 'a real-world form' }] }, { candidates: [W('exact', 'unclear', 'offered'), W('exact', 'restricted', 'offered')] });
+  assert.equal(pictureStage({ candidates: [W('exact', 'free', 'used')] }).stage, 'none');
+  const p = pictureStage({ candidates: [W('form', 'unclear', 'a real-world form'), W('exact', 'unclear', 'offered'), W('exact', 'restricted', 'offered')] });
   assert.equal(p.stage, 'permission'); assert.match(p.note, /1 unclear, 1 restricted/);
-  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('form') }] }, { candidates: [W('other', 'unclear', 'not the subject')] }).stage, 'identity');
-  assert.equal(pictureStage({ judged: [] }, { candidates: [], searchError: 'unavailable' }).stage, 'provider');
-  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('other', 'unrelated') }] }, { candidates: [] }).stage, 'discovery');
-  assert.equal(pictureStage({ judged: [{ src: 'commons', verdict: v('exact'), outcome: 'not selected' }] }, null).stage, 'selection');
+  assert.equal(pictureStage({ candidates: [W('form', 'unclear', 'a form'), W('other', 'unclear', 'not the subject')] }).stage, 'identity');
+  assert.equal(pictureStage({ candidates: [], searchError: 'unavailable' }).stage, 'provider');
+  assert.equal(pictureStage({ candidates: [W('other', 'unclear', 'not the subject')] }).stage, 'discovery');
+  assert.equal(pictureStage({ candidates: [W('exact', 'free', 'not selected')] }).stage, 'selection');
+  assert.equal(pictureStage(null).stage, 'discovery', 'no search at all is nothing looked at -- never another source');
 });
 
 test('SerpApi adapter: the documented request; the key never appears in an error; empty results are a search, not a failure', async () => {
@@ -197,7 +198,7 @@ test('the picture check never selects a fan-made depiction of the character', as
 
 test('stage verdict: fan-made pictures do not count as the character', () => {
   const { pictureStage } = require('../lib/creative/research');
-  const v = pictureStage({ judged: [{ src: 'commons', verdict: { role: 'subject', identity: 'exact', origin: 'fan' }, outcome: 'fan-made, not official artwork' }] }, { candidates: [] });
+  const v = pictureStage({ candidates: [{ src: 'web', verdict: { role: 'subject', identity: 'exact', origin: 'fan' }, outcome: 'fan-made, not official artwork' }] });
   assert.equal(v.stage, 'identity'); assert.match(v.note, /fan-made pictures \(1\)/);
 });
 

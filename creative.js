@@ -343,7 +343,7 @@
     S.gate = g || {}; var u = S.understanding || {}; var name = (u.identity && u.identity.name) || u.subject || 'the subject';
     var cur = (S.research && S.research.curation) || {}; var review = (S.research && S.research.review) || []; var web = cur.web || {};
     var dg = (S.research && S.research.diagnostics) || null;
-    var parts = []; if (dg && dg.commons) parts.push('Wikimedia Commons'); if (web.ran) parts.push(web.provider === 'google-images' ? 'Google Images' : 'a web search');
+    var parts = []; if (web.ran) parts.push(web.provider === 'google-images' ? 'Google Images' : 'a web search');
     var sources = parts.join(' and ') || 'our picture sources';
     // the pick: the best picture the studio can fetch is pre-selected as the main picture; the owner decides
     if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false && !review[p].watermarked) { S.picked.push(p); break; } }
@@ -354,11 +354,10 @@
       : '<p><strong>We couldn\'t find pictures of ' + esc(name) + ' through ' + esc(sources) + '.</strong></p>' + (cur.missing && cur.missing.length ? '<p class="cs-hint">Missing: ' + cur.missing.map(esc).join(' · ') + '</p>' : '') + (web.ran === false && web.reason ? '<p class="cs-hint">Picture search did not run: ' + esc(web.reason) + '</p>' : web.error ? '<p class="cs-hint">Picture search: ' + esc(web.error) + '</p>' : '');
     var checked = '';
     if (dg) {
-      var cj = (dg.commons && dg.commons.judged) || [], wj = (dg.web && dg.web.candidates) || [];
+      var wj = (dg.web && dg.web.candidates) || [];
       var n = function (list, fn) { return list.filter(fn).length; };
       var isForm = function (x) { return x.verdict && x.verdict.identity === 'form'; }, isFan = function (x) { return x.verdict && x.verdict.identity === 'exact' && x.verdict.origin === 'fan'; }, isIt = function (x) { return x.verdict && x.verdict.identity === 'exact' && (x.verdict.role === 'subject' || x.verdict.role === 'detail') && x.verdict.origin !== 'fan'; };
       checked = '<details class="cs-checked"><summary>What we checked</summary><ul>'
-        + (dg.commons ? '<li>Wikimedia Commons: ' + cj.length + ' pictures looked at — ' + n(cj, isIt) + ' showing it, ' + n(cj, isForm) + ' real-world forms not used</li>' : '')
         + (dg.web && dg.web.ran !== false ? '<li>' + (dg.web.provider === 'serpapi' ? 'Google Images' + (dg.web.cached ? ' (saved results, no new search)' : '') + (dg.web.products ? ' (' + dg.web.products + ' shopping results skipped)' : '') : 'Web search') + ((dg.web.queries || []).length ? ' (“' + dg.web.queries.map(function (q) { return esc(String(q).replace(/\s-\S+/g, '')); }).join('”, “') + '”)' : '') + ': ' + wj.length + ' pictures looked at — ' + n(wj, isIt) + ' showing it, ' + n(wj, isFan) + ' fan-made and ' + n(wj, isForm) + ' real-world forms (cosplay, figures, merchandise) left out</li>' : '<li>Picture search did not run' + (dg.web && dg.web.reason ? ': ' + esc(dg.web.reason) : '') + '</li>')
         + (dg.web && dg.web.searchLog && dg.web.searchLog.length ? '<li>Searches: ' + dg.web.searchLog.map(function (q) { return esc(q.family) + (q.cached ? ' (saved)' : '') + ' — ' + q.results + ' results, ' + q.good + ' usable' + (q.weak ? ' (weak: ' + esc(q.why) + ')' : ''); }).join('; ') + (dg.web.stop ? ' · stopped: ' + esc(dg.web.stop) : '') + '</li>' : '')
         + (dg.web && dg.web.counts ? '<li>' + (function (c) { return c.uniqueResults + ' distinct results · ' + c.productsSkipped + ' shopping skipped · ' + c.visionJudged + ' looked at · ' + c.exactSubject + ' showing it (' + c.permissionFree + ' free, ' + c.permissionRestricted + ' rights reserved, ' + c.permissionUnclear + ' licence not stated) · ' + c.fanMade + ' fan-made · ' + c.formsCosplayMerch + ' cosplay/figures/merchandise · ' + c.logos + ' logos · ' + c.technicalFailures + ' could not be downloaded · ' + c.autoUsed + ' used automatically · ' + c.reviewOnly + ' for you to review'; })(dg.web.counts) + '</li>' : '')
@@ -623,7 +622,7 @@
   // where this page's pictures came from (the sources that actually ran), for the studio's wording
   function pictureSources() {
     var r = S.research || {}; var cur = r.curation || {}; var parts = [];
-    if (r.diagnostics && r.diagnostics.commons) parts.push('Wikimedia Commons');
+    // (pictures come from Google Images or the owner -- the encyclopedia is for facts only)
     if (cur.web && cur.web.ran) parts.push(cur.web.provider === 'google-images' ? 'Google Images' : 'a web search');
     parts.push('your uploads'); return parts.join(', ');
   }
@@ -700,11 +699,11 @@
   function buildPictures() {
     var panel = root.querySelector('[data-panel="pictures"]');
     var list = S.assets.filter(function (a) { return !a.removed && a.origin !== 'derived'; });
-    panel.innerHTML = '<p class="cs-hint">Pictures come from your uploads or from Wikimedia Commons (free licences only, credited on the page). Cutouts are made here in your browser.</p>'
+    panel.innerHTML = '<p class="cs-hint">Pictures come from your uploads, from Google Images results whose pages state a free licence, or from found pictures you chose yourself -- each credited on the page. Cutouts are made here in your browser.</p>'
       + list.map(function (a) {
         var cut = S.assets.find(function (x) { return x.cutoutOf === a.id && !x.removed; });
         var role = roleOf(a); var cutRole = cut ? roleOf(cut) : '';
-        var src = a.origin === 'upload' ? 'Your upload' + (S.fixture ? ' (test fixture)' : '') : 'Wikimedia Commons' + (a.author ? ' · ' + esc(a.author.slice(0, 60)) : '') + ' · ' + esc(a.license || '');
+        var src = a.origin === 'upload' ? 'Your upload' + (S.fixture ? ' (test fixture)' : '') : 'Found online' + (a.author ? ' · ' + esc(a.author.slice(0, 60)) : '') + ' · ' + esc(a.license || 'licence as stated on its page');
         return '<div class="cs-pic' + (a.failed ? ' is-failed' : '') + '"><img src="' + esc(cut ? cut.dataUrl : a.dataUrl) + '" alt=""' + (cut ? ' class="is-cut"' : '') + '>'
           + '<div><strong>' + esc(C.render.cleanTitle(a.title).slice(0, 70)) + '</strong><small>' + (a.pageUrl ? '<a href="' + esc(a.pageUrl) + '" target="_blank" rel="noopener">' + src + '</a>' : src) + '</small>'
           + '<small>' + (a.assess ? a.assess.width + '×' + a.assess.height : '') + ' · ' + esc(cut ? cutRole : role) + '</small><small class="cs-proc">' + esc((cut && cut.processing) || a.processing || '') + '</small>'
@@ -795,7 +794,7 @@
     var kb = Math.round((S.cost.researchBytes || 0) / 1024);
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
-      + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia / Wikimedia Commons (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: 4 for the page (research and direction), 3 for each further direction.</p>';
+      + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia for facts (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: 4 for the page (research and direction), 3 for each further direction.</p>';
   }
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }

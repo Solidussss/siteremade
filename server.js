@@ -2463,8 +2463,8 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
 });
 
 // CREATIVE MODE (see CREATIVE_MODE.md): research for a Creative page -- what the brief is
-// about, and, for a recognizable subject, its encyclopedia facts and reusable-licence
-// pictures from Wikipedia / Wikimedia Commons (free public APIs, fixed host allow-list, no
+// about, and, for a recognizable subject, its encyclopedia facts (Wikipedia: facts and identity
+// only, fixed host) and its pictures (Google Images through SerpApi -- never Wikimedia; no
 // image generation). It starts (or continues) the page's paid job -- see the BILLING PASS note in the route -- and
 // creates no project; it is rate-limited like generation. Personal
 // subjects get general facts about their species only (never pictures of other animals as
@@ -2608,8 +2608,8 @@ function creativeAppend(obj) {
 }
 function creativeLedger(row) { const s = creativeSpendToday(); s.usd += Number(row.usd) || 0; creativeAppend(Object.assign({ at: new Date().toISOString() }, row)); }
 
-// Web discovery (webimages.js): when Commons does not cover the subject, the search step finds pages that show it and
-// the hardened fetcher reads their declared images. Pictures whose pages state a free licence are used; relevant ones
+// Picture discovery (discovery.js / webimages.js): Google Images through SerpApi -- or, without it, the bounded web-search
+// step -- finds pictures of the subject; the hardened fetcher reads their pages and declared images. Never Wikimedia. Pictures whose pages state a free licence are used; relevant ones
 // with restricted or unclear terms are offered to the owner as links to review. Bounded; costed in the ledger.
 const creativeOffers = new Map(); // accountId -> { until, urls: Set } : the review pictures this account was just shown
 function creativeOffer(accountId, urls) { creativeOffers.set(accountId, { until: Date.now() + 2 * 60 * 60 * 1000, urls: new Set(urls) }); if (creativeOffers.size > 5000) creativeOffers.delete(creativeOffers.keys().next().value); }
@@ -2787,7 +2787,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       kind: ['recognizable', 'fictional', 'invented'].includes(prior.kind) ? prior.kind : 'recognizable', subject: s(prior.subject, 120), query: s(prior.query, 160) || null, source: 'ai',
       identity: { name: s(pi.name, 120), kind: s(pi.kind, 20), what: s(pi.what, 240), confidence: s(pi.confidence, 10) },
       visuals: Object.assign({ main: s(pv.main, 200), setting: s(pv.setting, 200), supporting: arr(pv.supporting, 4, 120) }, ['artwork', 'photo', 'none'].includes(pv.depiction) ? { depiction: pv.depiction } : {}),
-      research: { scope: pr.scope === 'none' ? 'none' : 'subject', wikipediaTitles: arr(pr.wikipediaTitles, 3, 160), commonsQueries: [refine].concat(arr(pr.commonsQueries, 3, 100)), note: '' },
+      research: { scope: pr.scope === 'none' ? 'none' : 'subject', wikipediaTitles: arr(pr.wikipediaTitles, 3, 160), note: '' },
       tone: prior.tone && typeof prior.tone === 'object' ? { register: s(prior.tone.register, 20), words: arr(prior.tone.words, 5, 30), fromBrief: !!prior.tone.fromBrief } : understanding.tone,
       motifs: arr(prior.motifs, 8, 80), audience: s(prior.audience, 160), uncertainty: arr(prior.uncertainty, 5, 200),
     });
@@ -2811,27 +2811,14 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     return res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], ...creativeCredits(req.accountId, charged) });
   }
   if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
-  let result = { status: 'skipped', facts: [], images: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
-  let curateMeta = null;
+  let result = { status: 'skipped', facts: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
   try {
     const scope = understanding.research ? understanding.research.scope : (understanding.kind === 'recognizable' ? 'subject' : understanding.kind === 'personal' && understanding.query ? 'general-topic' : 'none');
     if (scope !== 'none' && (understanding.query || (understanding.research && understanding.research.wikipediaTitles.length))) {
       const titles = understanding.research ? understanding.research.wikipediaTitles.slice() : [];
       if (choice) titles.unshift(choice);
-      // pictures are skipped only for a personal subject (never other animals or people as "theirs") -- an everyday
-      // object the model calls a "general topic" still gets its pictures
-      // the picture check: one cheap vision call over the shortlist's thumbnails, when AI is on and within budget
-      const curate = creativeAiAvailable() && CREATIVE_AI_LIMITS.curate ? async ({ candidates, max }) => {
-        if (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap) throw new Error('the daily Creative AI budget is used up');
-        try {
-          const c = await creativeAi.curate({ identity: understanding.identity || { name: understanding.subject, kind: understanding.kind }, visuals: understanding.visuals, max, candidates }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
-          curateMeta = { source: 'ai', model: c.model, ms: c.ms, usd: c.usd, judged: c.judged, of: c.of };
-          paidOk = true; paidUsd += Number(c.usd) || 0;
-          creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: true, model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length, coverage: c.coverage });
-          return c;
-        } catch (error) { creativeLedger({ kind: 'creative_curate', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
-      } : null;
-      result = await creativeResearch.research(understanding, { textOnly: understanding.kind === 'personal' || !!creativeSerpKey(), fictional: understanding.kind === 'fictional' || !!(understanding.identity && understanding.identity.kind === 'fictional'), maxImages: 7, titles, queries: understanding.research ? understanding.research.commonsQueries : [], curate });
+      // Wikipedia: facts and identity only -- never pictures (those come from Google Images or the owner)
+      result = await creativeResearch.research(understanding, { titles });
     }
   } catch (error) {
     console.error('Creative research failed:', error);
@@ -2841,45 +2828,36 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     return res.status(200).json({ ok: false, jobId: alive ? job.id : null, understanding, ...creativeCredits(req.accountId, charged), message: 'Could not reach the encyclopedia right now. You can still build the page from your own words and pictures.' + (alive ? '' : ' Your credits were not used.') });
   }
   // a general-topic lookup for a personal subject never turns into a question for the owner
-  if (result.status === 'ambiguous' && understanding.kind === 'personal') result = { status: 'skipped', facts: [], images: [], options: [], log: result.log };
+  if (result.status === 'ambiguous' && understanding.kind === 'personal') result = { status: 'skipped', facts: [], options: [], log: result.log };
   if (result.status === 'ambiguous') understanding.kind = 'ambiguous';
   if (result.page && result.page.category && understanding.kind === 'recognizable') understanding.category = result.page.category;
-  const images = (result.images || []).map((i, n) => ({
-    id: `r${n + 1}`, origin: 'research', title: i.title, description: i.description, author: i.author, credit: i.credit, license: i.license, licenseUrl: i.licenseUrl,
-    pageUrl: i.pageUrl, sourceUrl: i.fileUrl, found: i.found, relevance: i.relevance, width: i.width, height: i.height, mime: i.mime,
-    kind: i.kind || '', curation: i.curation || null,
-    retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${i.mime};base64,${i.bytes.toString('base64')}`,
-  }));
-  const curation = result.curation ? Object.assign({}, result.curation, curateMeta ? { model: curateMeta.model, ms: curateMeta.ms, usd: curateMeta.usd } : {}) : null;
-  // 3. web discovery, when the page needs pictures of its subject and Commons did not cover it well
+  // 3. pictures of the subject: Google Images through SerpApi (or, without it, the bounded web-search step) -- never
+  // Wikimedia. Owner uploads and pictures the owner picks are added in the studio.
+  const images = [];
   // (what the understanding says the page must show decides; with nothing stated, only real or fictional subjects)
   const vMain = understanding.visuals && understanding.visuals.main;
   const needsPictures = understanding.kind !== 'personal' && result.status !== 'ambiguous' && (vMain ? !/^\s*none\b/i.test(vMain) : understanding.kind !== 'invented');
-  const covered = curation && curation.source === 'ai' && curation.coverage === 'strong';
   let review = []; let webDiag = null;
-  if (needsPictures && !covered) {
+  if (needsPictures) {
     const why = !CREATIVE_AI_LIMITS.webDiscovery ? 'web discovery is switched off (CREATIVE_WEB_DISCOVERY)' : creativeAiUnavailableReason() || (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? 'the daily Creative AI budget is used up' : '');
     let web = null;
     if (!why) { try { web = await creativeWebDiscovery(Object.assign({}, understanding, { pageTitle: (result.page && result.page.title) || '' }), brief, req.accountId, refine); } catch (error) { web = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: String(error && error.message || error).slice(0, 200), searches: 0 }; } }
-    const base = images.length;
-    (web ? web.images : []).slice(0, Math.max(0, 9 - base)).forEach((v, n) => images.push({
-      id: `r${base + n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: v.permission.licenseUrl || '',
+    (web ? web.images : []).slice(0, 9).forEach((v, n) => images.push({
+      id: `r${n + 1}`, origin: 'research', title: v.title, description: v.why, author: v.permission.author || v.author || '', credit: '', license: v.permission.licence, licenseUrl: v.permission.licenseUrl || '',
       pageUrl: v.pageUrl, sourceUrl: v.imageUrl, found: 'web', relevance: 1, width: v.width, height: v.height, mime: v.mime, kind: '', curation: v.curation, rightsEvidence: v.permission.evidence,
       retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
     }));
     review = web ? web.review : [];
     if (web) { paidUsd += Number(web.usd) || 0; if (web.searches > 0 || web.usd > 0 || (web.diag && web.diag.judged)) paidOk = true; }
     webDiag = web ? web.diag : { ran: false, reason: why };
-    const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
-    if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
+    const merged = { source: web && web.discovery ? 'ai' : 'rules', coverage: web ? web.coverage : 'none', missing: web ? web.missing : [] };
     merged.web = web ? { ran: true, provider: creativeSerpKey() ? 'google-images' : 'web-search', searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '', ...(web.discovery ? { status: web.discovery.status, discovery: web.discovery.discovery, permission: web.discovery.permission, message: web.discovery.message } : {}) } : { ran: false, reason: why };
-    if (!curation) Object.assign(merged, { reason: merged.reason || 'no Commons picture check' });
     result.curation = merged;
   }
-  const curationOut = result.curation && result.curation.web ? result.curation : curation;
+  const curationOut = result.curation || null;
   creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
   const charged = settleResearch(false);
-  res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ commons: result.diagnostics || null, web: webDiag }, creativeResearch.pictureStage(result.diagnostics, webDiag)) : null }, images, ...creativeCredits(req.accountId, charged) });
+  res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ web: webDiag }, creativeResearch.pictureStage(webDiag)) : null }, images, ...creativeCredits(req.accountId, charged) });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the

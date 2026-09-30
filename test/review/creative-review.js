@@ -4,7 +4,7 @@
 // 1. starts the REAL server.js locally (paid providers stubbed at the network edge and every
 //    provider key blank -- a Creative run must make no paid call; the mock call log proves it),
 // 2. drives the real studio in Electron for each brief (creative-studio-run.js): research
-//    against the real Wikipedia / Wikimedia Commons, pictures read in the browser, direction,
+//    against the real Wikipedia (facts), pictures read in the browser, direction,
 //    edit, replace, save, reload + reopen,
 // 3. compiles each saved project with the real export compiler (lib/export-compiler.js),
 // 4. captures every exported page at desktop and phone size -- entrance, loop, scroll, reduced
