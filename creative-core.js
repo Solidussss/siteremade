@@ -733,6 +733,13 @@
     //   scenes        the scene architecture: a layout ARCHETYPE per scene (real, different compositions -- see
     //                 archetypes.js), a scene choreography (what scroll does inside it) and a handoff (how it meets the
     //                 previous scene), with what each scene carries (a statement, facts, pictures...)
+    //   family        the choreography FAMILY the scenes are built from -- a designed arc, not a mix (object story,
+    //                 cinematic chapters, editorial sticky, layered parallax, typography-led, horizontal gallery, mask
+    //                 transitions, poster-to-scene, gallery progression, colour progression)
+    //   mode          the interaction intensity (quiet, editorial, expressive, immersive): how many held scenes, how far
+    //                 things move, whether a persistent actor carries the page
+    //   actor         (object story) a run of scenes one subject lives across -- ONE actor that moves, scales and turns
+    //                 from pose to pose between them, instead of the same picture pasted into every scene
     //
     //   choose(input) -> recipe      input: { understanding, assets, facts, supplied, seed, history, avoid }
     //   normaliseArt(raw) -> art     the page-level part as stored in a plan (enums whitelisted)
@@ -748,14 +755,32 @@
 
     const PERSONALITIES = ['editorial', 'cinematic', 'kinetic', 'playful', 'luxe', 'mechanical', 'chaotic', 'still'];
     const SCROLLS = ['flow', 'sequence', 'continuous', 'track', 'stack', 'snap'];
-    const LAYOUTS = ['free', 'editorial-hero', 'split', 'giant-type', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'strip', 'sticky-steps', 'text', 'image', 'luxe', 'dense', 'depth', 'brutalist', 'cinematic', 'gallery'];
-    const CHOREOS = ['settle', 'pin-steps', 'zoom-away', 'scale-through', 'mask-reveal', 'type-wipe', 'track', 'stack', 'depth', 'travel'];
+    const LAYOUTS = ['free', 'editorial-hero', 'split', 'giant-type', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'strip', 'sticky-steps', 'text', 'image', 'luxe', 'dense', 'depth', 'brutalist', 'cinematic', 'gallery',
+      // the scene model's second vocabulary: an actor scene, campaigns and takeovers, image-led narrative, lineups...
+      'stage', 'campaign', 'splitscreen', 'fullscreen-object', 'orbit', 'index', 'scrapbook', 'takeover', 'chapters', 'lineup', 'cardstream', 'edge-crop'];
+    const CHOREOS = ['settle', 'pin-steps', 'zoom-away', 'scale-through', 'mask-reveal', 'type-wipe', 'track', 'stack', 'depth', 'travel', 'actor', 'word-fill', 'chapters', 'cardstream', 'expand'];
     const HANDOFFS = ['cut', 'overlap', 'bleed', 'carry', 'stack'];
     const TYPOS = ['editorial', 'giant', 'minimal', 'poster', 'mixed'];
     const NAVS = ['bar', 'minimal', 'index'];
     const DENSITIES = ['sparse', 'balanced', 'dense'];
-    const PROGRESSIONS = ['steady', 'deepen', 'journey', 'invert'];
+    const PROGRESSIONS = ['steady', 'deepen', 'journey', 'invert', 'dark-to-light', 'warm-to-cool', 'muted-to-saturated', 'accent-takeover', 'gradient'];
     const DEPTHS = ['flat', 'layered', 'deep'];
+    const FAMILIES = ['object-story', 'cinematic-chapters', 'editorial-sticky', 'layered-parallax', 'typography-led', 'horizontal-gallery', 'mask-transition', 'poster-to-scene', 'gallery-progression', 'colour-progression'];
+    const MODES = ['quiet', 'editorial', 'expressive', 'immersive'];
+    // what a scene is, beyond its composition (derived from its archetype and choreography when a plan does not say)
+    const SCENE_TYPES = ['section', 'pinned', 'cinematic', 'transition', 'carry', 'sticky-editorial', 'takeover', 'gallery', 'typography'];
+    // how a scene's own content leaves as the scene scrolls away
+    const EXITS = ['none', 'fade', 'shrink', 'lift'];
+    // how a scene's words are set
+    const TREATMENTS = ['standard', 'word-fill', 'letter-spread', 'stagger', 'vertical', 'outline'];
+    // the interaction modes: how many scenes may hold the scroll, how many may be driven by it, how far things move, and
+    // whether one actor may carry the page
+    const MODE_LIMITS = {
+      quiet: { pins: 0, driven: 2, range: 0.45, actor: 0, rotate: 0 },
+      editorial: { pins: 1, driven: 3, range: 0.75, actor: 0, rotate: 0.5 },
+      expressive: { pins: 2, driven: 5, range: 1, actor: 3, rotate: 1 },
+      immersive: { pins: 3, driven: 7, range: 1.2, actor: 5, rotate: 1.25 },
+    };
 
     // how each personality moves: the renderer reads these as CSS variables and runtime factors
     const MOTION = {
@@ -843,6 +868,7 @@
     // the same shape and the same measured colours: it is one picture, however many times it is in the inventory
     function sameAs(a, b) { const x = a.assess, y = b.assess; return !!(x && y && Math.abs((x.aspect || 0) - (y.aspect || 0)) < 0.006 && (x.colours || []).length >= 3 && (x.colours || []).slice(0, 3).join() === (y.colours || []).slice(0, 3).join()); }
     function distinctPictures(list) { const out = []; list.forEach(a => { if (!a.cutoutOf && out.some(b => !b.cutoutOf && sameAs(a, b))) return; out.push(a); }); return out; }
+    const subjectish = x => x.a.origin === 'upload' || !x.a.curation || x.a.curation.role === 'subject' || x.a.curation.role === 'detail' || x.a.curation.role === 'environment';
     function inventory(assets) {
       const live = distinctPictures((assets || []).filter(a => a && !a.removed && !a.failed && a.assess).sort((a, b) => (b.origin === 'upload') - (a.origin === 'upload')));
       const usable = live.filter(a => !(a.curation && (a.curation.role === 'unrelated' || a.curation.role === 'logo' || a.curation.role === 'reference' || a.curation.identity === 'other')));
@@ -862,25 +888,33 @@
       return { all: withP, cut, photos, main, bleedable, cinema, distinct, uses };
     }
     // how many picture appearances an archetype needs (required, and what it takes when pictures are plentiful)
-    const NEED = { 'editorial-hero': [1, 1], cinematic: [1, 1], split: [1, 2], 'giant-type': [0, 1], shrine: [1, 1], offcanvas: [1, 1], framed: [1, 2], floating: [1, 3], collage: [3, 4], poster: [1, 1], magazine: [0, 1], strip: [3, 6], 'sticky-steps': [0, 2], text: [0, 0], image: [1, 1], luxe: [1, 1], dense: [0, 0], depth: [1, 2], brutalist: [0, 1], gallery: [2, 4] };
+    // (an actor scene -- `stage` -- takes none of its own: the actor is one picture, shown once, living across the run)
+    const NEED = { 'editorial-hero': [1, 1], cinematic: [1, 1], split: [1, 2], 'giant-type': [0, 1], shrine: [1, 1], offcanvas: [1, 1], framed: [1, 2], floating: [1, 3], collage: [3, 4], poster: [1, 1], magazine: [0, 1], strip: [3, 6], 'sticky-steps': [0, 2], text: [0, 0], image: [1, 1], luxe: [1, 1], dense: [0, 0], depth: [1, 2], brutalist: [0, 1], gallery: [2, 4],
+      stage: [0, 0], campaign: [1, 1], splitscreen: [1, 1], 'fullscreen-object': [1, 1], orbit: [1, 1], index: [3, 6], scrapbook: [2, 4], takeover: [0, 0], chapters: [2, 5], lineup: [3, 6], cardstream: [3, 5], 'edge-crop': [1, 1] };
 
     // which archetypes this page's pictures and words can carry (for the hero, `main` is the opening picture)
     function eligible(layout, inv, content, hero) {
       const m = inv.main; const n = inv.distinct;
       switch (layout) {
-        case 'editorial-hero': return hero ? !!(m && inv.bleedable.some(x => x.a.id === m.a.id || x.a.id === m.a.cutoutOf)) : inv.bleedable.length > 0;
-        case 'cinematic': return hero ? !!(m && inv.cinema.some(x => x.a.id === m.a.id || x.a.id === m.a.cutoutOf)) : inv.cinema.length > 0;
-        case 'offcanvas': case 'floating': return inv.cut.length > 0;
-        case 'shrine': case 'luxe': case 'framed': case 'split': case 'image': case 'depth': return n >= 1;
+        // (a full-bleed opening takes the best wide picture of the subject -- the director chooses it for this composition)
+        case 'editorial-hero': return inv.bleedable.some(x => subjectish(x));
+        case 'cinematic': return inv.cinema.some(x => subjectish(x));
+        case 'offcanvas': case 'floating': case 'fullscreen-object': case 'stage': return inv.cut.length > 0;
+        case 'shrine': case 'luxe': case 'framed': case 'split': case 'image': case 'depth': case 'campaign': return n >= 1;
+        case 'splitscreen': return inv.photos.length >= 1;
         case 'poster': return n >= 1 && content.shortName;
         case 'giant-type': return content.shortName || !hero;
-        case 'collage': return n >= 3;
-        case 'strip': return n >= 3;
-        case 'gallery': return n >= 2;
+        case 'collage': case 'strip': case 'index': case 'cardstream': return n >= 3;
+        case 'gallery': case 'scrapbook': return n >= 2;
+        case 'chapters': return inv.bleedable.length >= 2;
+        case 'lineup': return inv.cut.length >= 3 || n >= 4;
+        case 'orbit': return n >= 1 && content.items >= 3;
+        // an intentional edge crop needs a picture whose subject was located, with room around it
+        case 'edge-crop': return inv.photos.some(x => !x.p.tight && x.p.source !== 'unknown' && x.p.big);
         case 'magazine': return content.prose;
         case 'sticky-steps': return content.items >= 2;
         case 'dense': return content.items >= 3;
-        case 'text': case 'brutalist': return true;
+        case 'text': case 'brutalist': case 'takeover': return true;
         default: return false;
       }
     }
@@ -888,17 +922,107 @@
     // a zoom-away needs a picture, a scale-through a word or halo to pass through, steps need lines, a track pictures
     const NATURAL = {
       'editorial-hero': ['zoom-away', 'settle', 'depth'], cinematic: ['zoom-away', 'mask-reveal', 'depth'], offcanvas: ['travel', 'depth', 'settle'], floating: ['depth', 'travel', 'settle'],
-      shrine: ['scale-through', 'settle', 'travel'], luxe: ['mask-reveal', 'settle'], framed: ['mask-reveal', 'settle', 'zoom-away'], split: ['settle', 'mask-reveal', 'type-wipe'],
-      image: ['zoom-away', 'mask-reveal', 'settle'], depth: ['depth'], poster: ['scale-through', 'type-wipe', 'depth'], 'giant-type': ['type-wipe', 'settle'],
+      shrine: ['scale-through', 'settle', 'travel'], luxe: ['mask-reveal', 'settle', 'expand'], framed: ['mask-reveal', 'settle', 'expand', 'zoom-away'], split: ['settle', 'mask-reveal', 'type-wipe'],
+      image: ['expand', 'zoom-away', 'mask-reveal', 'settle'], depth: ['depth'], poster: ['scale-through', 'type-wipe', 'depth'], 'giant-type': ['type-wipe', 'settle'],
       collage: ['depth', 'travel'], strip: ['track'], gallery: ['stack', 'pin-steps'], magazine: ['settle', 'type-wipe', 'mask-reveal'], 'sticky-steps': ['pin-steps'],
       dense: ['settle', 'type-wipe'], text: ['type-wipe', 'settle'], brutalist: ['type-wipe', 'settle', 'travel'],
+      stage: ['actor'], campaign: ['scale-through', 'settle'], splitscreen: ['mask-reveal', 'settle'], 'fullscreen-object': ['travel', 'scale-through', 'settle'], orbit: ['travel', 'settle'],
+      index: ['settle', 'mask-reveal'], scrapbook: ['depth', 'travel'], takeover: ['word-fill'], chapters: ['chapters'], lineup: ['depth', 'settle'], cardstream: ['cardstream'], 'edge-crop': ['depth', 'mask-reveal', 'settle'],
     };
+    // choreographies that hold the scroll while they play
+    const PINNED_CHOREOS = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'chapters', 'cardstream', 'expand'];
     // what content an archetype suits
     const CARRIES = {
       'editorial-hero': 'opening', cinematic: 'picture', offcanvas: 'statement', floating: 'statement', shrine: 'statement', luxe: 'statement', framed: 'picture', split: 'statement',
       image: 'picture', depth: 'statement', poster: 'statement', 'giant-type': 'statement', collage: 'pictures', strip: 'pictures', gallery: 'pictures', magazine: 'prose',
       'sticky-steps': 'facts', dense: 'facts', text: 'statement', brutalist: 'facts',
+      stage: 'statement', campaign: 'statement', splitscreen: 'statement', 'fullscreen-object': 'statement', orbit: 'facts', index: 'pictures', scrapbook: 'pictures', takeover: 'statement',
+      chapters: 'pictures', lineup: 'pictures', cardstream: 'pictures', 'edge-crop': 'picture',
     };
+
+    // ---- choreography families: each is a designed arc (its beats), with the subjects, personalities, modes and
+    // pictures it suits. A beat is a small pool of archetypes; the builder takes the one this page can carry.
+    const pool = s => Object.fromEntries(s.split('|').map(x => { const [k, w] = x.split(':'); return [k, Number(w || 1)]; }));
+    const FAMILY = {
+      'object-story': {
+        modes: ['expressive', 'immersive'], needs: inv => inv.cut.length > 0 && !!(inv.main && inv.main.p.free),
+        genre: { meme: 2.5, food: 2.5, object: 2.5, fashion: 1.5, tech: 1.5, music: 1, art: 1 }, personality: { playful: 2.5, kinetic: 2, chaotic: 2, cinematic: 1.5, luxe: 1.5, mechanical: 1 },
+        scroll: { sequence: 2, continuous: 1.5 }, progression: { 'accent-takeover': 2.5, 'muted-to-saturated': 1.5, invert: 1 }, handoff: { overlap: 1.5, bleed: 1.5, cut: 1 },
+        beats: (r, c) => { const L = Math.max(2, Math.min(c.lim.actor, c.mode === 'immersive' ? 3 + (r() < 0.5 ? 1 : 0) : 2 + (r() < 0.5 ? 1 : 0)));
+          const run = Array.from({ length: L }, (_, i) => ({ run: true, carries: i ? (i === 1 && c.content.items >= 2 ? 'facts' : 'statement') : 'opening' }));
+          return run.concat([{ pool: pool('lineup:2.5|shrine:1|gallery:1|collage:1'), release: true }, { body: true }, { closing: true }]); },
+      },
+      'cinematic-chapters': {
+        modes: ['editorial', 'expressive', 'immersive'], needs: inv => inv.bleedable.length >= 2,
+        genre: { film: 3, nature: 2.5, history: 2, fashion: 1.5, editorial: 1, object: 1, art: 1 }, personality: { cinematic: 3, luxe: 2, editorial: 1.5, still: 1 },
+        scroll: { sequence: 2, continuous: 1.5 }, progression: { 'dark-to-light': 2, deepen: 1.5, gradient: 1 }, handoff: { bleed: 2, overlap: 1.5 },
+        beats: () => [{ pool: pool('editorial-hero:3|cinematic:2|split:1'), hero: true }, { pool: pool('chapters') }, { pool: pool('takeover:2|text:1') }, { pool: pool('image:1|split:1|framed:1|edge-crop:1') }, { closing: true }],
+      },
+      'editorial-sticky': {
+        modes: ['quiet', 'editorial', 'expressive'], needs: (inv, c) => c.items >= 2 || c.prose,
+        genre: { editorial: 3, history: 2.5, art: 1.5, tech: 1, object: 1, nature: 1, tribute: 1.5 }, personality: { editorial: 3, still: 2, luxe: 1.5, mechanical: 1 },
+        scroll: { flow: 3, snap: 1 }, progression: { steady: 2, journey: 1.5, 'warm-to-cool': 1 }, handoff: { cut: 2, overlap: 1 },
+        beats: () => [{ pool: pool('split:2|magazine:2|framed:1|editorial-hero:1'), hero: true }, { pool: pool('sticky-steps:3|orbit:1') }, { pool: pool('takeover:2|text:1') }, { pool: pool('magazine:1|framed:1|index:1|edge-crop:1') }, { closing: true }],
+      },
+      'layered-parallax': {
+        modes: ['editorial', 'expressive', 'immersive'], needs: inv => inv.distinct >= 2,
+        genre: { nature: 1.5, meme: 1.5, music: 1.5, art: 1, object: 1 }, personality: { cinematic: 2, chaotic: 2, playful: 1.5, luxe: 1 },
+        scroll: { continuous: 2, flow: 1 }, progression: { deepen: 2, gradient: 1.5 }, handoff: { overlap: 1.5, carry: 1, bleed: 1 },
+        beats: () => [{ pool: pool('offcanvas:2|floating:2|depth:1|poster:1'), hero: true }, { pool: pool('depth') }, { pool: pool('floating:1|collage:1|scrapbook:1') }, { pool: pool('text:1|takeover:1') }, { pool: pool('depth:1|image:1|edge-crop:1') }, { closing: true }],
+      },
+      'typography-led': {
+        modes: ['quiet', 'editorial', 'expressive', 'immersive'], needs: () => true,
+        genre: { tech: 2, art: 2, music: 2, editorial: 1.5, meme: 1, brutal: 2 }, personality: { mechanical: 3, kinetic: 2.5, editorial: 1.5, chaotic: 1.5 },
+        scroll: { snap: 1.5, flow: 1.5, sequence: 1 }, progression: { invert: 2, 'muted-to-saturated': 1.5 }, handoff: { cut: 2, stack: 1 },
+        beats: () => [{ pool: pool('giant-type:2|poster:1|takeover:1'), hero: true }, { pool: pool('takeover') }, { pool: pool('brutalist:1|dense:1|giant-type:1') }, { pool: pool('split:1|framed:1|edge-crop:1') }, { pool: pool('takeover:1|text:1') }, { closing: true }],
+      },
+      'horizontal-gallery': {
+        modes: ['editorial', 'expressive', 'immersive'], needs: inv => inv.distinct >= 3,
+        genre: { food: 1.5, art: 1.5, nature: 1.5, fashion: 1, object: 1 }, personality: { kinetic: 2.5, playful: 2, chaotic: 1.5, editorial: 1 },
+        scroll: { track: 3 }, progression: { journey: 2, invert: 1 }, handoff: { cut: 1.5, overlap: 1 },
+        beats: () => [{ pool: pool('split:1|giant-type:1|poster:1|campaign:1'), hero: true }, { pool: pool('strip') }, { pool: pool('text:1|dense:1|takeover:1') }, { pool: pool('index:1|gallery:1|cardstream:1') }, { closing: true }],
+      },
+      'mask-transition': {
+        modes: ['editorial', 'expressive', 'immersive'], needs: inv => inv.distinct >= 2,
+        genre: { fashion: 2, nature: 1.5, editorial: 1.5, history: 1 }, personality: { cinematic: 2, editorial: 2, luxe: 2 },
+        scroll: { flow: 2, continuous: 1 }, progression: { 'warm-to-cool': 2, 'dark-to-light': 1.5 }, handoff: { overlap: 2.5, cut: 1 },
+        beats: () => [{ pool: pool('framed:2|luxe:1|split:1'), hero: true }, { pool: pool('framed:1|image:1'), choreo: 'expand' }, { pool: pool('text:1|takeover:1') }, { pool: pool('splitscreen:1|framed:1') }, { pool: pool('image:1|edge-crop:1'), choreo: 'mask-reveal' }, { closing: true }],
+      },
+      'poster-to-scene': {
+        modes: ['expressive', 'immersive'], needs: (inv, c) => c.shortName && inv.distinct >= 1,
+        genre: { music: 2, meme: 2, art: 1.5, food: 1 }, personality: { chaotic: 2, kinetic: 2, playful: 1.5, mechanical: 1 },
+        scroll: { sequence: 2, stack: 1 }, progression: { invert: 2, 'accent-takeover': 1.5 }, handoff: { stack: 1, overlap: 1.5, cut: 1 },
+        beats: () => [{ pool: pool('poster'), hero: true }, { pool: pool('image:1|framed:1'), choreo: 'expand' }, { pool: pool('giant-type:1|takeover:1') }, { pool: pool('collage:1|strip:1|scrapbook:1') }, { closing: true }],
+      },
+      'gallery-progression': {
+        modes: ['quiet', 'editorial', 'expressive'], needs: inv => inv.distinct >= 3,
+        genre: { art: 2, nature: 1.5, tribute: 2, food: 1, fashion: 1 }, personality: { playful: 1.5, editorial: 1.5, still: 1.5, luxe: 1 },
+        scroll: { flow: 2, stack: 1 }, progression: { steady: 1.5, journey: 1.5 }, handoff: { cut: 1.5, overlap: 1 },
+        beats: () => [{ pool: pool('framed:1|index:1|collage:1|luxe:1'), hero: true }, { pool: pool('gallery') }, { pool: pool('scrapbook:1|collage:1|index:1') }, { pool: pool('text') }, { closing: true }],
+      },
+      'colour-progression': {
+        modes: ['editorial', 'expressive', 'immersive'], needs: inv => inv.distinct >= 1,
+        genre: { food: 2, meme: 1.5, music: 1.5, fashion: 1, tech: 1 }, personality: { playful: 2.5, kinetic: 2, chaotic: 2, mechanical: 1 },
+        scroll: { flow: 1.5, continuous: 1.5 }, progression: { 'accent-takeover': 3 }, handoff: { bleed: 3 },
+        beats: () => [{ pool: pool('campaign:2|splitscreen:1'), hero: true }, { pool: pool('splitscreen:1|campaign:1|fullscreen-object:1') }, { pool: pool('giant-type:1|takeover:1') }, { pool: pool('campaign:1|lineup:1|fullscreen-object:1') }, { closing: true }],
+      },
+    };
+    // the mode a personality tends to (a register can pull it quieter)
+    const MODE_W = {
+      still: { quiet: 4, editorial: 1 }, luxe: { quiet: 2, editorial: 2.5, expressive: 1 }, editorial: { quiet: 1.5, editorial: 3, expressive: 1 },
+      cinematic: { editorial: 1, expressive: 2, immersive: 2.5 }, kinetic: { expressive: 2.5, immersive: 2 }, playful: { editorial: 1, expressive: 3, immersive: 1.5 },
+      mechanical: { editorial: 2, expressive: 2, immersive: 1 }, chaotic: { expressive: 2, immersive: 2.5 },
+    };
+    const QUIET_REGISTERS = ['tender', 'reverent', 'serious', 'restrained'];
+    // the actor's poses along its run (x, y: offset from the scene's centre in vw / vh; s: scale; r: degrees). Rotation is
+    // scaled by the mode and dropped for calm personalities; the renderer halves every range on a phone.
+    const POSES = {
+      showcase: [{ x: 18, y: 2, s: 1, r: -6 }, { x: -22, y: 0, s: 1.12, r: 8 }, { x: 20, y: 2, s: 1.26, r: -4 }, { x: -16, y: 4, s: 0.9, r: 10 }, { x: 0, y: 6, s: 0.72, r: 0 }],
+      journey: [{ x: -18, y: 2, s: 0.95, r: 4 }, { x: 20, y: 0, s: 1.05, r: -6 }, { x: -20, y: 3, s: 1.15, r: 6 }, { x: 18, y: 4, s: 0.9, r: -4 }, { x: 0, y: 4, s: 0.8, r: 0 }],
+      monument: [{ x: 18, y: 2, s: 1.08, r: 0 }, { x: -20, y: 0, s: 1.18, r: 0 }, { x: 20, y: 0, s: 1.18, r: 0 }, { x: 0, y: 0, s: 1.3, r: 0 }, { x: 0, y: 4, s: 0.85, r: 0 }],
+      turn: [{ x: 16, y: 2, s: 1, r: -12 }, { x: -18, y: 0, s: 1.1, r: 12 }, { x: 18, y: 2, s: 1.2, r: -10 }, { x: -12, y: 3, s: 0.95, r: 14 }, { x: 0, y: 5, s: 0.8, r: 0 }],
+    };
+    const POSE_BY = { playful: 'turn', chaotic: 'turn', kinetic: 'showcase', mechanical: 'showcase', cinematic: 'monument', luxe: 'monument', editorial: 'journey', still: 'monument' };
 
     // ---- the recipe
     function contentOf(input) {
@@ -907,68 +1031,75 @@
       const name = String((input.understanding && (input.understanding.name || (input.understanding.identity && input.understanding.identity.name) || input.understanding.subject)) || '');
       return { facts: facts.length, items: Math.max(facts.filter(f => f.text.length <= 240).length, supN), prose: facts.some(f => f.text.length > 120) || supN >= 2, dated: facts.filter(f => /\b(1[0-9]{3}|20[0-4][0-9])\b/.test(f.text)).length, shortName: name.length > 0 && name.length <= 22 && name.split(/\s+/).length <= 3 };
     }
+    function familyFits(family, mode, inv, content) { const f = FAMILY[family]; return !!f && f.modes.includes(mode) && f.needs(inv, content); }
 
-    function sceneCount(density, content, inv, r) {
-      const base = density === 'sparse' ? 4 : density === 'dense' ? 6 : 5;
-      const matter = Math.ceil(content.items / 3) + Math.min(3, Math.max(0, inv.distinct - 1)) + (content.prose ? 1 : 0);
-      return Math.max(3, Math.min(8, Math.round((base + Math.min(base + 1, matter + 2)) / 2 + (r() < 0.5 ? 0 : 1) - (content.facts === 0 && inv.distinct <= 1 ? 1 : 0))));
-    }
-
-    function buildRecipe(r, input, personality, inv, content, genre) {
-      const st = STYLE[personality];
-      const scroll = weighted(r, st.scroll);
-      const typo = weighted(r, st.typo); const nav = weighted(r, st.nav); const density = weighted(r, st.density);
-      const progression = weighted(r, st.progression); const depth = weighted(r, st.depth);
-      const hero = weighted(r, st.hero, k => eligible(k, inv, content, true)) || (inv.main ? (inv.main.p.free ? 'shrine' : 'split') : 'giant-type');
-      const n = sceneCount(density, content, inv, r);
-      const scenes = [{ layout: hero, choreo: weighted(r, Object.fromEntries((NATURAL[hero] || ['settle']).map((c, i) => [c, (st.choreo[c] || 0.6) * (i ? 1 : 1.6)]))) || 'settle', handoff: 'cut', carries: 'opening' }];
-      // the body: drawn from the personality's pool, each archetype suited to what is left to say, never the same twice in
-      // a row (and at most twice in all), with at least one real scroll event when the personality moves at all
-      // the budgets the scenes draw on: picture appearances (each picture may appear two or three times) and lines of
-      // facts (the opening quotes one)
-      let usesLeft = inv.uses - ((NEED[hero] || [0])[0] || (inv.main ? 1 : 0));
-      let itemsLeft = Math.max(0, content.items - (content.facts ? 1 : 0)); let prose = content.prose;
-      const used = new Map([[hero, 1]]);
-      for (let i = 1; i < n; i++) {
-        const last = i === n - 1;
-        const pool = Object.assign({}, st.body);
-        if (last) { pool.text = (pool.text || 1) + 1; ['shrine', 'luxe', 'image', 'framed', 'poster', 'giant-type'].forEach(k => { if (pool[k]) pool[k] += 0.8; }); }
-        const layout = weighted(r, pool, k => {
-          if (k === scenes[i - 1].layout || (used.get(k) || 0) >= 2) return false;
-          if (!eligible(k, inv, { ...content, items: itemsLeft, prose }, false)) return false;
-          if ((NEED[k] || [0])[0] > usesLeft) return false;
-          if (k === 'dense' && itemsLeft < 3) return false;
-          if (k === 'sticky-steps' && itemsLeft < 2) return false;
-          return true;
-        }) || (itemsLeft >= 2 ? 'sticky-steps' : 'text');
+    function buildRecipe(r, input, personality, family, mode, inv, content, genre) {
+      const st = STYLE[personality]; const fam = FAMILY[family]; const lim = MODE_LIMITS[mode];
+      const typo = weighted(r, st.typo); const nav = weighted(r, st.nav); const density = weighted(r, st.density); const depth = weighted(r, st.depth);
+      const scroll = weighted(r, fam.scroll) || weighted(r, st.scroll); const progression = weighted(r, fam.progression) || weighted(r, st.progression);
+      const beats = fam.beats(r, { mode, inv, content, lim });
+      // the budgets the scenes draw on: picture appearances (each picture may appear two or three times; the actor is one) and
+      // lines of facts (the opening quotes one)
+      let usesLeft = inv.uses - (inv.main ? 1 : 0); let itemsLeft = Math.max(0, content.items - (content.facts ? 1 : 0)); let prose = content.prose;
+      const used = new Map(); const scenes = [];
+      const fits = (k, i, hero) => {
+        if (i && k === scenes[i - 1].layout && k !== 'stage') return false;
+        if ((used.get(k) || 0) >= 2 && k !== 'stage') return false;
+        if (!eligible(k, inv, { ...content, items: itemsLeft, prose }, hero)) return false;
+        if (!hero && (NEED[k] || [0])[0] > usesLeft) return false;
+        if (k === 'dense' && itemsLeft < 3) return false;
+        if ((k === 'sticky-steps' || k === 'orbit') && itemsLeft < 2) return false;
+        if (mode === 'quiet' && ['track', 'chapters', 'cardstream'].includes((NATURAL[k] || [])[0])) return false;
+        return true;
+      };
+      beats.forEach((b, i) => {
+        const hero = i === 0; const last = i === beats.length - 1;
+        let layout;
+        if (b.run) layout = 'stage';
+        else {
+          let p = b.pool;
+          if (b.body) p = st.body;
+          if (b.closing) { p = { text: 2 }; ['shrine', 'luxe', 'image', 'framed', 'poster', 'giant-type', 'takeover'].forEach(k => { if (st.body[k] || st.hero[k]) p[k] = 0.8; }); }
+          layout = weighted(r, p, k => fits(k, i, hero)) || weighted(r, st.body, k => fits(k, i, hero)) || (hero ? (inv.main ? (inv.main.p.free ? 'shrine' : 'split') : 'giant-type') : itemsLeft >= 2 ? 'sticky-steps' : 'text');
+        }
         used.set(layout, (used.get(layout) || 0) + 1);
         const c = CARRIES[layout]; const need = NEED[layout] || [0, 0];
-        usesLeft -= Math.min(usesLeft, Math.max(need[0], Math.min(need[1], usesLeft - (n - 1 - i))));
-        itemsLeft -= Math.min(itemsLeft, layout === 'dense' ? 5 : layout === 'sticky-steps' || layout === 'brutalist' ? 4 : c === 'facts' ? 3 : 1);
+        if (!hero) usesLeft -= Math.min(usesLeft, Math.max(need[0], Math.min(need[1], usesLeft - (beats.length - 1 - i))));
+        const carries = hero ? 'opening' : last ? 'closing' : b.carries || c;
+        itemsLeft -= Math.min(itemsLeft, layout === 'dense' ? 5 : layout === 'sticky-steps' || layout === 'brutalist' || layout === 'orbit' ? 4 : carries === 'facts' ? 3 : 1);
         if (c === 'prose') prose = false;
         const nat = NATURAL[layout] || ['settle'];
-        const choreo = weighted(r, Object.fromEntries(nat.map((k, j) => [k, (st.choreo[k] || 0.5) * (j ? 1 : 1.5)]))) || nat[0];
-        const handoff = weighted(r, st.handoff) || 'cut';
-        scenes.push({ layout, choreo, handoff, carries: last ? 'closing' : c });
+        let choreo = b.choreo && (nat.includes(b.choreo) || b.choreo === 'mask-reveal') ? b.choreo : weighted(r, Object.fromEntries(nat.map((k, j) => [k, (st.choreo[k] || 0.6) * (j ? 1 : 1.5)]))) || nat[0];
+        if (b.run && carries === 'facts') choreo = 'pin-steps'; // the actor holds while each line takes its turn
+        const handoff = hero ? 'cut' : b.run || (beats[i - 1] && beats[i - 1].run && !b.release) ? 'cut' : weighted(r, fam.handoff) || 'cut';
+        scenes.push({ layout, choreo, handoff, carries, ...(b.run ? { run: true } : {}) });
+      });
+      // the mode bounds the whole: how many scenes hold the scroll, and how many are driven by it at all
+      let pins = 0, driven = 0;
+      scenes.forEach(s => {
+        const pinned = PINNED_CHOREOS.includes(s.choreo) || (s.layout === 'takeover' && lim.pins > 1);
+        if (pinned) { if (pins >= lim.pins) { s.choreo = (NATURAL[s.layout] || []).find(c => !PINNED_CHOREOS.includes(c) && c !== 'word-fill') || (s.layout === 'takeover' ? 'word-fill' : 'settle'); } else pins++; }
+        if (s.choreo !== 'settle' && !s.run) { if (driven >= lim.driven) s.choreo = s.layout === 'takeover' ? 'word-fill' : 'settle'; else driven++; }
+      });
+      if (mode === 'quiet') scenes.forEach(s => { if (!['settle', 'mask-reveal', 'type-wipe', 'word-fill'].includes(s.choreo)) s.choreo = 'settle'; if (s.handoff === 'carry' || s.handoff === 'stack') s.handoff = 'cut'; });
+      // scroll-model touches that do not break the family's arc
+      if (scroll === 'stack') scenes.forEach((s, i) => { if (i > 1 && !s.run && !(scenes[i - 1] && scenes[i - 1].run) && i % 2 === 0 && s.handoff !== 'stack') s.handoff = 'stack'; });
+      if (scroll === 'snap') scenes.forEach(s => { if (s.handoff === 'stack') s.handoff = 'cut'; });
+      // a carry needs a picture on both sides of the seam (and never inside the actor's run -- the actor is the carry there)
+      scenes.forEach((s, i) => { if (s.handoff === 'carry' && (i === 0 || s.run || scenes[i - 1].run || ['text', 'dense', 'brutalist', 'magazine', 'takeover'].includes(s.layout) || ['text', 'dense', 'brutalist', 'magazine', 'strip', 'takeover'].includes(scenes[i - 1].layout))) s.handoff = 'overlap'; });
+      // the actor's run: its poses, scaled for the mode (calm personalities never tilt the subject)
+      let actor = null;
+      const runIdx = scenes.map((s, i) => (s.run ? i : -1)).filter(i => i >= 0);
+      if (runIdx.length >= 2) {
+        const set = POSES[POSE_BY[personality] || 'showcase']; const rot = ['luxe', 'still', 'cinematic'].includes(personality) ? 0 : lim.rotate;
+        actor = { from: runIdx[0], to: runIdx[runIdx.length - 1], poses: runIdx.map((_, k) => { const p = set[Math.min(k, set.length - 1)]; return { x: p.x, y: p.y, s: p.s, r: Math.round(p.r * rot) }; }), exit: scenes[runIdx[runIdx.length - 1] + 1] && scenes[runIdx[runIdx.length - 1] + 1].layout === 'lineup' ? 'rejoin' : r() < 0.5 ? 'offstage' : 'shrink' };
       }
-      // the scroll model shapes the whole: a track page has its horizontal passage, a sequence holds several scenes, a
-      // stack page stacks, a continuous page hides its seams, a snapping page has no pinned scene
-      const pinnedChoreos = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'mask-reveal'];
-      if (scroll === 'track' && !scenes.some(s => s.layout === 'strip')) { const i = scenes.findIndex((s, k) => k > 0 && CARRIES[s.layout] !== 'closing' && eligible('strip', inv, content, false)); if (i > 0) Object.assign(scenes[i], { layout: 'strip', choreo: 'track', carries: 'pictures' }); }
-      if (scroll === 'stack') scenes.forEach((s, i) => { if (i > 0 && i % 2 === 1) s.handoff = 'stack'; });
-      if (scroll === 'continuous') scenes.forEach((s, i) => { if (i > 0 && s.handoff === 'cut') s.handoff = i % 2 ? 'overlap' : 'bleed'; });
-      if (scroll === 'snap') scenes.forEach(s => { if (pinnedChoreos.includes(s.choreo) && s.choreo !== 'mask-reveal') s.choreo = 'settle'; if (s.handoff === 'stack') s.handoff = 'cut'; });
-      if (scroll === 'sequence') { let k = 0; scenes.forEach((s, i) => { if (i > 0 && k < 3 && !pinnedChoreos.includes(s.choreo)) { const nat = (NATURAL[s.layout] || []).find(c => pinnedChoreos.includes(c)); if (nat) { s.choreo = nat; k++; } } }); }
-      if (personality === 'still') scenes.forEach(s => { if (s.choreo !== 'settle' && s.choreo !== 'mask-reveal') s.choreo = 'settle'; if (s.handoff === 'carry' || s.handoff === 'stack') s.handoff = 'cut'; });
-      // a carry needs a picture on both sides of the seam
-      scenes.forEach((s, i) => { if (s.handoff === 'carry' && (i === 0 || ['text', 'dense', 'brutalist', 'magazine'].includes(s.layout) || ['text', 'dense', 'brutalist', 'magazine', 'strip'].includes(scenes[i - 1].layout))) s.handoff = 'overlap'; });
-      // at most three pinned scenes (the same limit the validator enforces)
-      let pins = 0; scenes.forEach(s => { if (pinnedChoreos.includes(s.choreo) && s.choreo !== 'mask-reveal') { pins++; if (pins > 3) s.choreo = 'settle'; } });
+      scenes.forEach(s => { delete s.run; });
       const M = MOTION[personality];
-      const intensity = Math.max(1, Math.min(5, Math.round(M.range * 3 + (scroll === 'track' || scroll === 'stack' ? 0.5 : 0))));
-      const recipe = { personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes };
+      const intensity = Math.max(1, Math.min(5, MODES.indexOf(mode) + 1 + (M.range > 1 ? 1 : 0)));
+      const recipe = { family, mode, personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes, ...(actor ? { actor } : {}) };
       recipe.recipe = fingerprint(recipe);
-      recipe.why = `${genre === 'object' ? 'this subject' : `a ${genre} subject`}${registerOf(input.understanding) ? `, ${registerOf(input.understanding)}` : ''}: ${M.label} motion, ${scroll} scroll, opening on a ${hero} composition`;
+      recipe.why = `${genre === 'object' ? 'this subject' : `a ${genre} subject`}${registerOf(input.understanding) ? `, ${registerOf(input.understanding)}` : ''}: a ${family.replace(/-/g, ' ')} arc, ${mode}, with ${M.label} motion${actor ? ' and one subject carried across the opening scenes' : ''}`;
       return recipe;
     }
 
@@ -976,17 +1107,24 @@
       if (!x) return '';
       if (typeof x === 'string') return x;
       const a = x.art || x; const scenes = x.scenes || [];
-      return `${a.personality || '?'}/${a.scroll || '?'}/${scenes.map(s => s.layout || 'free').join(',')}`.slice(0, 160);
+      const head = a.family ? `${a.family}.${a.mode || '?'}.${a.personality || '?'}` : `${a.personality || '?'}`;
+      return `${head}/${a.scroll || '?'}/${scenes.map(s => s.layout || 'free').join(',')}`.slice(0, 200);
     }
-    function parseFp(fp) { const [personality, scroll, list] = String(fp || '').split('/'); const layouts = (list || '').split(',').filter(Boolean); return { personality, scroll, hero: layouts[0] || '', body: layouts.slice(1) }; }
+    function parseFp(fp) {
+      const [head, scroll, list] = String(fp || '').split('/'); const h = String(head || '').split('.');
+      const layouts = (list || '').split(',').filter(Boolean);
+      return h.length === 3 ? { family: h[0], mode: h[1], personality: h[2], scroll, hero: layouts[0] || '', body: layouts.slice(1) } : { family: '', mode: '', personality: head, scroll, hero: layouts[0] || '', body: layouts.slice(1) };
+    }
     function similarity(a, b) {
       const x = parseFp(fingerprint(a)), y = parseFp(fingerprint(b));
       if (!x.personality || !y.personality) return 0;
       const A = new Set(x.body), B = new Set(y.body); const inter = [...A].filter(k => B.has(k)).length; const uni = new Set([...A, ...B]).size || 1;
-      return 0.3 * (x.personality === y.personality) + 0.15 * (x.scroll === y.scroll) + 0.2 * (x.hero === y.hero) + 0.35 * (inter / uni);
+      const fam = x.family && y.family ? 0.2 * (x.family === y.family) + 0.1 * (x.mode === y.mode) : 0;
+      const w = x.family && y.family ? 1 : 1 / 0.7; // (an old fingerprint has no family or mode: the rest counts for all of it)
+      return +Math.min(1, fam + w * (0.2 * (x.personality === y.personality) + 0.1 * (x.scroll === y.scroll) + 0.15 * (x.hero === y.hero) + 0.25 * (inter / uni))).toFixed(3);
     }
 
-    // input: { understanding, assets, facts, supplied, page, seed, history: [fingerprints], avoid: fingerprint, prefer: {personality?} }
+    // input: { understanding, assets, facts, supplied, page, seed, history: [fingerprints], avoid: fingerprint, prefer: {personality?, family?, mode?} }
     function choose(input) {
       const inp = input || {}; const u = inp.understanding || {};
       const r = rng(`${inp.seed || ''}|${u.subject || ''}|${u.brief || ''}`);
@@ -995,23 +1133,35 @@
       Object.entries(TONE_SHIFT[reg] || {}).forEach(([k, v]) => { w[k] = (w[k] || 0) + v; });
       if (u.kind === 'personal' && genre !== 'tribute') { w.chaotic = (w.chaotic || 0) - 1.5; w.editorial = (w.editorial || 0) + 1; }
       PERSONALITIES.forEach(k => { w[k] = Math.max(0, w[k] || 0); });
-      if (inp.prefer && PERSONALITIES.includes(inp.prefer.personality)) w[inp.prefer.personality] += 6;
+      const pref = inp.prefer || {};
+      if (PERSONALITIES.includes(pref.personality)) w[pref.personality] += 6;
       const inv = inventory(inp.assets); const content = contentOf(inp);
       const history = (inp.history || []).map(fingerprint).filter(Boolean).slice(-10);
       const avoid = inp.avoid ? fingerprint(inp.avoid) : '';
-      // several candidates, each drawn from the weighted pools; the best is the one that suits the subject and differs
-      // most from what this account (and this page) already has
+      // several candidates, each a personality, a mode and a family that suit the subject and each other; the best is the
+      // one that suits the subject and differs most from what this account (and this page) already has
       let best = null;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 14; i++) {
         const personality = weighted(r, w) || 'editorial';
-        const cand = buildRecipe(r, inp, personality, inv, content, genre);
-        const suit = w[personality] / Math.max(...Object.values(w), 1);
+        const mw = Object.assign({}, MODE_W[personality] || MODE_W.editorial);
+        if (QUIET_REGISTERS.includes(reg) || u.kind === 'personal') { mw.quiet = (mw.quiet || 0) + 2; mw.editorial = (mw.editorial || 0) + 1; mw.immersive = 0; }
+        if (MODES.includes(pref.mode)) mw[pref.mode] = (mw[pref.mode] || 0) + 6;
+        const mode = weighted(r, mw) || 'editorial';
+        const fw = {}; FAMILIES.forEach(f => { if (!familyFits(f, mode, inv, content)) return; const F0 = FAMILY[f]; fw[f] = (0.4 + (F0.genre[genre] || 0.3)) * (0.4 + (F0.personality[personality] || 0.2)) + (pref.family === f ? 20 : 0); });
+        const family = weighted(r, fw) || 'typography-led';
+        if (!familyFits(family, mode, inv, content)) continue;
+        const cand = buildRecipe(r, inp, personality, family, mode, inv, content, genre);
+        const suit = w[personality] / Math.max(...Object.values(w), 1) + (fw[family] || 0) / Math.max(...Object.values(fw), 1);
         const past = history.length ? Math.max(...history.map(h => similarity(cand.recipe, h))) : 0;
         const again = avoid ? similarity(cand.recipe, avoid) : 0;
         const variety = new Set(cand.scenes.map(s => s.layout)).size / cand.scenes.length + new Set(cand.scenes.map(s => s.choreo)).size / cand.scenes.length * 0.5;
-        const score = suit * 2 + variety - past * 1.6 - again * 3 + r() * 0.15;
+        // (a family this account used recently costs more than its share of the fingerprint: the arc is what reads as sameness)
+        const famSeen = history.filter(h => parseFp(h).family === family).length;
+        const wanted = (pref.mode === mode ? 2 : 0) + (pref.family === family ? 2 : 0);
+        const score = suit * 1.5 + variety - past * 2 - again * 3 - famSeen * 0.6 + wanted + r() * 0.15;
         if (!best || score > best.score) best = { score, cand, past, again };
       }
+      if (!best) { const cand = buildRecipe(r, inp, 'editorial', 'typography-led', 'editorial', inv, content, genre); best = { cand, past: 0, again: 0 }; }
       return Object.assign(best.cand, { novelty: +(1 - Math.max(best.past, best.again)).toFixed(2) });
     }
 
@@ -1023,11 +1173,13 @@
       return {
         personality, scroll: oneOf(raw.scroll, SCROLLS, 'flow'), typo: oneOf(raw.typo, TYPOS, 'editorial'), nav: oneOf(raw.nav, NAVS, 'bar'),
         density: oneOf(raw.density, DENSITIES, 'balanced'), progression: oneOf(raw.progression, PROGRESSIONS, 'steady'), depth: oneOf(raw.depth, DEPTHS, 'layered'),
-        intensity: Math.max(1, Math.min(5, Math.round(Number(raw.intensity) || 3))), recipe: s(raw.recipe, 160), why: s(raw.why, 240), genre: s(raw.genre, 20),
+        intensity: Math.max(1, Math.min(5, Math.round(Number(raw.intensity) || 3))), recipe: s(raw.recipe, 200), why: s(raw.why, 240), genre: s(raw.genre, 20),
+        // (the family and mode were added later: a page saved before them keeps exactly what it had)
+        ...(FAMILIES.includes(raw.family) ? { family: raw.family } : {}), ...(MODES.includes(raw.mode) ? { mode: raw.mode } : {}),
       };
     }
 
-    module.exports = { distinctPictures, sameAs, PERSONALITIES, SCROLLS, LAYOUTS, CHOREOS, HANDOFFS, TYPOS, NAVS, DENSITIES, PROGRESSIONS, DEPTHS, MOTION, STYLE, NATURAL, CARRIES, NEED, choose, normaliseArt, fingerprint, similarity, genreOf, inventory, eligible, rng };
+    module.exports = { FAMILIES, MODES, MODE_LIMITS, FAMILY, SCENE_TYPES, EXITS, TREATMENTS, POSES, PINNED_CHOREOS, familyFits, distinctPictures, sameAs, PERSONALITIES, SCROLLS, LAYOUTS, CHOREOS, HANDOFFS, TYPOS, NAVS, DENSITIES, PROGRESSIONS, DEPTHS, MOTION, STYLE, NATURAL, CARRIES, NEED, choose, normaliseArt, fingerprint, similarity, genreOf, inventory, eligible, rng };
 
   });
   __define("archetypes", function (module, exports, require) {
@@ -1047,13 +1199,16 @@
     // is recomposed as the nearest archetype that can -- and says so.
 
     const F = require('./framing');
-    const { MOTION, NATURAL } = require('./art');
+    const { MOTION, NATURAL, MODE_LIMITS } = require('./art');
 
-    const PINNED = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack'];
+    const PINNED = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'chapters', 'cardstream', 'expand'];
     const SHAPED = ['circle', 'arch', 'blob', 'diamond', 'slit', 'porthole', 'torn'];
     // phone stage height in vw (its aspect is 100 / MSTAGE); strip's stage is its horizontal track
-    const MSTAGE = { 'editorial-hero': 128, cinematic: 64, split: 108, 'giant-type': 96, shrine: 110, offcanvas: 112, framed: 112, floating: 104, collage: 120, poster: 118, magazine: 108, strip: 96, 'sticky-steps': 74, text: 56, image: 104, luxe: 92, dense: 56, depth: 108, brutalist: 96, gallery: 112 };
-    const FALLBACK = { 'editorial-hero': ['split', 'framed'], cinematic: ['image', 'framed'], offcanvas: ['floating', 'shrine', 'framed'], floating: ['shrine', 'framed'], collage: ['gallery', 'framed', 'text'], strip: ['gallery', 'framed', 'text'], gallery: ['framed', 'image', 'text'], 'sticky-steps': ['split', 'text'], dense: ['brutalist', 'text'], magazine: ['split', 'text'], poster: ['giant-type', 'shrine', 'text'], shrine: ['framed', 'text'], luxe: ['text'], framed: ['text'], split: ['text'], image: ['text'], depth: ['framed', 'text'], 'giant-type': ['split', 'text'], brutalist: ['text'], text: [] };
+    const MSTAGE = { 'editorial-hero': 128, cinematic: 64, split: 108, 'giant-type': 96, shrine: 110, offcanvas: 112, framed: 112, floating: 104, collage: 120, poster: 118, magazine: 108, strip: 96, 'sticky-steps': 74, text: 56, image: 104, luxe: 92, dense: 56, depth: 108, brutalist: 96, gallery: 112,
+      stage: 40, campaign: 110, splitscreen: 96, 'fullscreen-object': 128, orbit: 100, index: 150, scrapbook: 124, takeover: 30, chapters: 150, lineup: 88, cardstream: 112, 'edge-crop': 112 };
+    const FALLBACK = { 'editorial-hero': ['split', 'framed'], cinematic: ['image', 'framed'], offcanvas: ['floating', 'shrine', 'framed'], floating: ['shrine', 'framed'], collage: ['gallery', 'framed', 'text'], strip: ['gallery', 'framed', 'text'], gallery: ['framed', 'image', 'text'], 'sticky-steps': ['split', 'text'], dense: ['brutalist', 'text'], magazine: ['split', 'text'], poster: ['giant-type', 'shrine', 'text'], shrine: ['framed', 'text'], luxe: ['text'], framed: ['text'], split: ['text'], image: ['text'], depth: ['framed', 'text'], 'giant-type': ['split', 'text'], brutalist: ['text'], text: [],
+      stage: ['fullscreen-object', 'shrine', 'text'], campaign: ['shrine', 'framed', 'text'], splitscreen: ['split', 'framed', 'text'], 'fullscreen-object': ['shrine', 'framed', 'text'], orbit: ['sticky-steps', 'split', 'text'],
+      index: ['gallery', 'framed', 'text'], scrapbook: ['collage', 'framed', 'text'], takeover: ['text'], chapters: ['gallery', 'image', 'text'], lineup: ['index', 'collage', 'gallery', 'framed', 'text'], cardstream: ['gallery', 'collage', 'framed', 'text'], 'edge-crop': ['split', 'framed', 'text'] };
     const COL = c => 5 + (c - 1) * 7.5; // left edge (in % of the scene) of grid column c (12 columns across the middle 90%)
 
     // how tall a text block is on a 1440x900 desktop scene (% of its height) -- to keep pictures clear of it
@@ -1189,6 +1344,93 @@
       slots: [{ d: [34, 8, 56, 84], m: [6, 2, 88, 96], intent: 'framed', mask: 'window', anchor: 'cm', z: 5, role: 'focal', stepped: true }],
     } : null);
 
+
+    // ---- the second vocabulary: an actor's scene, campaigns and takeovers, image-led narrative, lineups, streams, orbits
+    // An actor scene (inside a persistent actor's run): the actor is NOT one of the scene's layers -- it lives on the run's
+    // rail and moves between its poses; the scene composes its words on the side the actor has left free, with a halo where
+    // the actor stands and, on an opening or a type-led page, the subject's name set huge behind it.
+    A.stage = (S, e) => {
+      if (!e.actorPose) return null;
+      const x = e.actorPose.x; const cx = 50 + x; const steps = S.text.items.length >= 2;
+      // (the words keep clear of the actor: the far side when it stands aside, above or below it when it stands in the middle)
+      const place = x <= -8 ? { gc: [8, 12], v: 'middle', align: 'left' } : x >= 8 ? { gc: [1, 5], v: 'middle', align: 'left' } : e.hero ? { gc: [1, 5], v: 'bottom', align: 'left' } : { gc: [1, 4], v: 'top', align: 'left' };
+      // the subject's name set huge behind the actor, on the actor's own side of the scene -- never under the words
+      const wordBox = x <= -8 ? [-10, 30, 60, 38] : x >= 8 ? [50, 30, 60, 38] : [-4, 64, 108, 30];
+      return {
+        place, mplace: 'below', height: 'screen', steps, actorScene: true,
+        decos: [{ kind: 'shape', form: 'circle', fill: 'glow', d: [Math.max(-10, cx - 22), 14, 44, 76], m: [10, 0, 80, 96], z: 1, opacity: 0.45, role: 'backdrop' }]
+          .concat((e.hero || e.typo === 'giant' || e.typo === 'poster') && e.shortName ? [{ kind: 'word', text: e.name, style: e.personality === 'mechanical' || e.personality === 'kinetic' ? 'solid' : 'outline', d: wordBox, m: [-6, 30, 112, 30], z: 2, opacity: e.personality === 'luxe' ? 0.35 : 0.9, role: 'echo' }] : []),
+      };
+    };
+    // a campaign: the name centred and large, the subject presented beneath it, the scene flooded in the accent colour
+    A.campaign = (S, e) => ({
+      place: { gc: [2, 11], v: 'top', align: 'center' }, mplace: 'above', height: 'screen', takeover: 'accent',
+      slots: [{ d: [33, 34, 34, 62], m: [16, 2, 68, 94], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'window', anchor: 'cb', z: 5, role: 'focal' }],
+      decos: [{ kind: 'shape', form: 'circle', fill: 'glow', d: [28, 30, 44, 70], m: [6, 0, 88, 96], z: 2, opacity: 0.45, role: 'backdrop' }],
+    });
+    // a hard split screen: a picture fills one half, the other half is the accent colour field holding the words
+    A.splitscreen = (S, e) => {
+      const right = e.side === 'right';
+      return {
+        place: right ? { gc: [1, 5], v: 'middle', align: 'left' } : { gc: [8, 12], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen', takeover: 'accent', verticalKicker: true,
+        slots: [{ d: right ? [50, 0, 50, 100] : [0, 0, 50, 100], m: [0, 0, 100, 100], intent: 'editorial', anchor: right ? 'rm' : 'lm', manchor: 'cm', z: 3, role: 'focal', hard: true }],
+      };
+    };
+    // the object fills the screen: one cut-out subject nearly the scene's full height, the words small in its corner
+    A['fullscreen-object'] = (S, e) => (e.freeFirst ? {
+      place: { gc: [1, 4], v: 'top', align: 'left' }, mplace: 'above', height: 'screen', smallHeading: true, verticalKicker: true,
+      slots: [{ d: [24, 2, 52, 96], m: [8, 2, 84, 96], intent: 'floating', anchor: 'cb', z: 5, role: 'focal', freeOnly: true }],
+      decos: [{ kind: 'shape', form: 'ring', fill: 'accent', d: [26, 6, 48, 88], m: [6, 4, 88, 92], z: 2, opacity: 0.3, role: 'backdrop' }],
+    } : null);
+    // object and text orbit: the subject at the centre, each line of the scene placed around it
+    A.orbit = (S, e) => (S.text.items.length >= 3 && S.text.items.every(it => it.text.length <= 150) ? {
+      place: { gc: [1, 4], v: 'top', align: 'left' }, mplace: 'above', height: 'screen', orbit: true,
+      slots: [{ d: [38, 24, 24, 56], m: [22, 4, 56, 92], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'circle', anchor: 'cm', z: 5, role: 'focal' }],
+      decos: [{ kind: 'shape', form: 'ring', fill: 'muted', d: [30, 14, 40, 76], m: [10, 0, 80, 100], z: 2, opacity: 0.35, role: 'backdrop' }],
+    } : null);
+    // a minimal index: small pictures, each whole, in an even grid with a great deal of space
+    A.index = (S, e) => (e.images >= 3 ? {
+      place: { gc: [1, 3], v: 'top', align: 'left' }, mplace: 'above', height: 'screen',
+      slots: Array.from({ length: Math.min(6, e.images) }, (_, k) => ({ d: [36 + (k % 3) * 20, 16 + Math.floor(k / 3) * 40, 16, 30], m: [4 + (k % 2) * 48, 2 + Math.floor(k / 2) * 33, 44, 30], intent: 'framed', mask: 'window', anchor: 'cm', z: 4, role: k ? 'support' : 'focal', optional: k > 2 })),
+    } : null);
+    // a scrapbook: pictures pinned at angles with tape, and the lines written beside them like notes
+    A.scrapbook = (S, e) => (e.images >= 2 ? {
+      place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'above', height: 'screen', notes: true,
+      slots: [{ d: [38, 8, 28, 50], m: [4, 2, 54, 46], intent: 'collage', mask: 'polaroid', rot: -5, anchor: 'cm', z: 5, role: 'focal' },
+        { d: [64, 30, 26, 44], m: [44, 30, 52, 40], intent: 'collage', mask: 'polaroid', rot: 4, anchor: 'cm', z: 6, role: 'support' },
+        { d: [46, 58, 22, 36], m: [10, 64, 44, 34], intent: 'collage', mask: 'torn', rot: -2, anchor: 'cm', z: 4, role: 'support', optional: true }],
+      decos: [{ kind: 'shape', form: 'tape', fill: 'glow', d: [44, 6, 10, 4], m: [16, 0, 22, 5], z: 8, opacity: 0.75, role: 'support', rot: -8 },
+        { kind: 'shape', form: 'tape', fill: 'glow', d: [72, 28, 10, 4], m: [62, 28, 22, 5], z: 8, opacity: 0.75, role: 'support', rot: 12 }],
+    } : null);
+    // a typographic takeover: one statement fills the scene, its words filling in as it is read
+    A.takeover = (S, e) => ((S.text.body || S.text.heading || '').split(/\s+/).length >= 6 ? {
+      place: { gc: [1, 11], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen', takeoverType: true,
+    } : null);
+    // chapters: full-bleed pictures one after another while the scroll holds, each with its own title at the foot
+    A.chapters = (S, e) => (e.images >= 2 ? {
+      place: { gc: [1, 6], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'tall', steps: true, chapters: true, shade: 'bottom',
+      slots: [{ d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 3, role: 'focal', stepped: true }],
+    } : null);
+    // a lineup: the subject and its kin in a row, in perspective, the centre one lifted on a plinth
+    A.lineup = (S, e) => {
+      const n = Math.min(7, e.images); if (n < 3) return null; const mid = (n - 1) / 2;
+      return {
+        place: { gc: [3, 10], v: 'bottom', align: 'center' }, mplace: 'below', height: 'screen', smallHeading: true,
+        slots: Array.from({ length: n }, (_, k) => { const off = Math.abs(k - mid); const w = 76 / n; return { d: [12 + k * w, 22 + off * 5, w * 0.9, 50 - off * 7], m: [2 + k * (96 / n), 20 + off * 6, (96 / n) * 0.92, 60 - off * 8], intent: 'floating', mask: 'window', anchor: 'cb', z: 7 - Math.round(off), role: k === Math.round(mid) ? 'focal' : 'support', rot: (k - mid) * 3, optional: k >= 3 }; }),
+        decos: [{ kind: 'shape', form: 'circle', fill: 'glow', d: [36, 60, 28, 18], m: [20, 76, 60, 20], z: 1, opacity: 0.55, role: 'backdrop' }],
+      };
+    };
+    // a card stream: framed pictures in depth, flying toward the viewer one after another while the scroll holds
+    A.cardstream = (S, e) => (e.images >= 3 ? {
+      place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'above', height: 'tall', cards: true,
+      slots: Array.from({ length: Math.min(5, e.images) }, (_, k) => ({ d: [36 + ((k % 2) ? 10 : -6), 18 + (k % 3) * 4, 30, 60], m: [12 + ((k % 2) ? 6 : -4), 6, 76, 88], intent: 'framed', mask: 'window', anchor: 'cm', z: 8 - k, role: k ? 'support' : 'focal', optional: k > 2, card: k })),
+    } : null);
+    // an edge crop: one picture flush to the scene's edge, cropped close on purpose around its (located) subject
+    A['edge-crop'] = (S, e) => (e.focalKnown ? {
+      place: { gc: [1, 5], v: 'middle', align: 'left' }, mplace: 'above', height: 'screen',
+      slots: [{ d: [42, 0, 58, 100], m: [0, 0, 100, 100], intent: 'detail', anchor: 'rm', manchor: 'cm', z: 3, role: 'focal', hard: true }],
+    } : null);
+
     // ---------------------------------------------------------------- motion by personality
     const ENTRANCE = { editorial: ['fade', 'unveil'], cinematic: ['fade', 'fade'], kinetic: ['slide-left', 'slide-right'], playful: ['pop', 'drop'], luxe: ['fade', 'fade'], mechanical: ['unveil', 'slide-left'], chaotic: ['spin-in', 'drop'], still: ['fade', 'fade'] };
     const TEXT_IN = { editorial: 'rise', cinematic: 'fade', kinetic: 'split-words', playful: 'split-words', luxe: 'fade', mechanical: 'split-words', chaotic: 'split-words', still: 'fade' };
@@ -1214,6 +1456,9 @@
       imgs.sort((a, b) => (b.role === 'focal') - (a.role === 'focal'));
       const isFree = L => F.profile(byId.get(L.asset)).free;
       e.freeFirst = !!(imgs[0] && isFree(imgs[0])); e.free = imgs.filter(isFree).length; e.focalAspect = imgs[0] ? F.profile(byId.get(imgs[0].asset)).aspect : 1;
+      // (an intentional close crop needs a subject that was located, with room around it)
+      const p0 = imgs[0] ? F.profile(byId.get(imgs[0].asset)) : null; e.focalKnown = !!(p0 && !p0.free && !p0.tight && p0.source !== 'unknown' && p0.big);
+      e.typo = e.art && e.art.typo; e.mode = (e.art && e.art.mode) || 'expressive';
       e.images = new Set(imgs.map(L => { const a = byId.get(L.asset); return (a && a.cutoutOf) || L.asset; })).size;
       e.name = String(e.name || '').slice(0, 24); e.shortName = e.name.length > 0 && e.name.length <= 18 && e.name.split(/\s+/).length <= 3;
       e.side = e.side || (e.rng() < 0.5 ? 'right' : 'left');
@@ -1276,7 +1521,8 @@
         if (fd.fit === 'contain' && SHAPED.includes(L.mask)) L.mask = 'window';
         if (slot.hard) L.mask = 'none';
         delete L.edge; delete L.group;
-        if (slot.stepped) L.step = 0;
+        if (slot.stepped) L.step = 0; else delete L.step;
+        if (slot.card != null) L.seq = slot.card; else delete L.seq;
         out.push(L); motionFor(L, e, out.length - 1, fd.profile.free);
       });
       // stepped scenes: the remaining pictures take later steps in the same slot (the visual changes with the words)
@@ -1305,7 +1551,7 @@
           L = { id: `art-${dk.kind}-${k + 1}`, kind: dk.kind, role: dk.role, rotate: 0, mask: 'none', treatment: 'none', entrance: { kind: 'fade', delay: 0.2, dur: 1.2 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 }, hideM: false };
           if (dk.kind === 'shape') L.shape = { form: dk.form, fill: dk.fill, stroke: false }; else L.word = { text: dk.text, style: dk.style };
         } else if (dk.kind === 'shape' && L.shape && dk.form === 'block') L.shape.form = 'block';
-        L.box = { d: dk.d.slice(), m: dk.m.slice() }; L.z = dk.z; L.opacity = dk.opacity; L.role = dk.role; L.rotate = L.rotate || 0;
+        L.box = { d: dk.d.slice(), m: dk.m.slice() }; L.z = dk.z; L.opacity = dk.opacity; L.role = dk.role; L.rotate = dk.rot || L.rotate || 0;
         if (dk.kind === 'word' && L.word && dk.style) L.word.style = dk.style;
         motionFor(L, e, out.length, false);
         out.push(L);
@@ -1320,12 +1566,23 @@
       if (layout === 'cinematic') S.tone = '#0b0b0d'; else if (S.tone === '#0b0b0d') delete S.tone;
       if (layout === 'luxe' || layout === 'image') t.size = t.size === 'display' && e.hero ? 'large' : 'medium';
       if (layout === 'editorial-hero' && e.hero) t.size = 'display';
+      if (layout === 'campaign') t.size = 'display';
       if (spec.columns) t.columns = true; else delete t.columns;
       if (layout === 'dense') t.list = t.list === 'plain' ? 'labelled' : t.list;
-      if (layout === 'sticky-steps' || layout === 'gallery') t.list = t.list === 'timeline' ? 'timeline' : 'labelled';
+      if (layout === 'sticky-steps' || layout === 'gallery' || layout === 'chapters' || layout === 'orbit' || (layout === 'stage' && spec.steps)) t.list = t.list === 'timeline' && layout !== 'orbit' && layout !== 'chapters' ? 'timeline' : 'labelled';
+      if (spec.notes) t.list = 'notes';
+      // a campaign or a split screen floods its scene in the accent colour (the words are re-coloured against it)
+      if (spec.takeover === 'accent' && !S.tone) S.background = 'accent';
       t.entrance = TEXT_IN[e.personality] || 'rise';
       if (t.entrance === 'split-words' && (t.heading || '').length > 60) t.entrance = 'rise';
-      t.width = layout === 'luxe' ? 'narrow' : layout === 'text' || layout === 'dense' ? 'wide' : t.width;
+      t.width = layout === 'luxe' ? 'narrow' : layout === 'text' || layout === 'dense' || layout === 'takeover' ? 'wide' : t.width;
+      // how the words are set: a takeover's statement fills in word by word; a short giant headline spreads its letters as it
+      // plays on an expressive page; a split screen or a full-screen object runs its kicker up the edge
+      delete t.treatment;
+      if (spec.takeoverType) { t.treatment = 'word-fill'; t.size = 'display'; }
+      else if ((layout === 'giant-type' || layout === 'poster' || layout === 'campaign') && (t.heading || '').length <= 18 && ['kinetic', 'mechanical', 'chaotic'].includes(e.personality) && (e.mode === 'expressive' || e.mode === 'immersive')) t.treatment = 'letter-spread';
+      else if (spec.verticalKicker && t.kicker) t.treatment = 'vertical';
+      else if (layout === 'campaign' && e.personality === 'chaotic') t.treatment = 'outline';
       // the legacy region (for anything that still reads it) follows the new place
       const [c0, c1] = t.place.gc; const cx = (COL(c0) + COL(c1 + 1)) / 2;
       t.region = c1 - c0 >= 8 ? (t.place.v === 'bottom' ? 'bottom' : t.place.v === 'top' ? 'top' : 'center') : `${t.place.v === 'bottom' ? 'bottom-' : t.place.v === 'top' ? 'top-' : ''}${cx < 50 ? 'left' : 'right'}`;
@@ -1334,7 +1591,7 @@
       // the words must stay clear of the main picture unless the archetype layers them on purpose (a caption on a
       // full-bleed picture sits on a shade; giant type crosses the picture behind it)
       const tr = textRect(t, t.place);
-      const deliberate = spec.shade || spec.giant || spec.track || layout === 'poster' || layout === 'dense';
+      const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
       if (!deliberate) out.filter(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0)).forEach(L => {
         const d = L.box.d; if (overlap(d, tr) > Math.min(d[2] * d[3], tr[2] * tr[3]) * 0.12) { t.scrim = true; warnings.push(`scene ${S.id}: the words are long for a ${layout} composition -- they sit on a panel over the picture`); }
       });
@@ -1343,13 +1600,43 @@
       const allowed = (NATURAL[layout] || ['settle']).concat(['settle']);
       let ch = allowed.includes(S.choreo) ? S.choreo : allowed[0];
       if (e.personality === 'still' && ch !== 'settle' && ch !== 'mask-reveal') ch = 'settle';
-      if (spec.track) ch = 'track'; if (spec.steps) ch = spec.gallery ? (S.choreo === 'pin-steps' ? 'pin-steps' : 'stack') : 'pin-steps';
+      if (spec.track) ch = 'track';
+      if (spec.steps) ch = spec.chapters ? 'chapters' : spec.gallery ? (S.choreo === 'pin-steps' ? 'pin-steps' : 'stack') : 'pin-steps';
+      if (spec.cards) ch = 'cardstream';
+      if (spec.takeoverType) ch = 'word-fill';
+      if (spec.actorScene && !spec.steps) ch = 'actor';
       // a choreography needs something to play with: otherwise the scene settles (no held scroll with nothing happening)
-      const has = { 'zoom-away': out.some(L => L.kind === 'image' && L.role === 'focal'), 'scale-through': out.some(L => L.role === 'echo' || L.role === 'backdrop' || L.kind === 'word'), 'mask-reveal': out.some(L => L.role === 'focal'), travel: out.some(L => L.role === 'focal'), depth: out.length >= 2 };
+      const focalImg = out.find(L => L.kind === 'image' && L.role === 'focal');
+      const has = { 'zoom-away': !!focalImg, 'scale-through': out.some(L => L.role === 'echo' || L.role === 'backdrop' || L.kind === 'word'), 'mask-reveal': out.some(L => L.role === 'focal'), travel: out.some(L => L.role === 'focal'), depth: out.length >= 2, expand: !!focalImg, cardstream: out.filter(L => L.seq != null).length >= 3, chapters: out.filter(L => L.step != null).length >= 2, actor: !!e.actorPose };
       if (has[ch] === false) { const alt = allowed.find(x => x !== ch && has[x] !== false && !PINNED.includes(x)) || 'settle'; fixes.push(`scene ${S.id}: nothing here for a ${ch} to move -- it ${alt === 'settle' ? 'settles' : `plays as ${alt}`}`); ch = alt; }
+      // the mode decides what may hold the scroll: a quiet page holds nothing; an editorial page one scene
+      const lim = MODE_LIMITS[e.mode] || MODE_LIMITS.expressive;
+      if (lim.pins === 0 && PINNED.includes(ch)) { const alt = allowed.find(x => !PINNED.includes(x)) || 'settle'; fixes.push(`scene ${S.id}: a quiet page holds nothing -- the ${ch} ${alt === 'settle' ? 'settles' : `plays as ${alt}`}`); ch = alt; }
+      // an expanding picture: the picture is laid out at full bleed and seen first through its own window, which opens to
+      // fill the scene -- the picture itself is never enlarged. A picture that cannot fill the scene within its bleed
+      // budget reveals itself in its frame instead.
+      if (ch === 'expand' && focalImg) {
+        const a = byId.get(focalImg.asset); const probe = Object.assign({}, focalImg, { frame: 'bleed', box: { d: [0, 0, 100, 100], m: [0, 0, 100, 100] } });
+        const fd = F.frameLayer(probe, a, 'd', { stageAspect: 1.6, anchor: 'cm' }); const fm = F.frameLayer(probe, a, 'm', { stageAspect: 100 / (MSTAGE[layout] || 108), anchor: 'cm' });
+        const fills = r => r.fit === 'cover' && (!r.box || (r.box[2] >= 99 && r.box[3] >= 99));
+        if (fills(fd) && fills(fm)) {
+          focalImg.win = focalImg.box.d.map(v => Math.round(v * 10) / 10); focalImg.box = { d: [0, 0, 100, 100], m: [0, 0, 100, 100] };
+          Object.assign(focalImg, { fit: 'cover', focus: fd.focus, frame: 'bleed', mask: 'none', rotate: 0 }); delete focalImg.mfit; if (fm.focus !== fd.focus) focalImg.mfocus = fm.focus; else delete focalImg.mfocus;
+          out.forEach(L => { if (L !== focalImg && L.kind === 'image') L.hideM = true; });
+        } else { ch = 'mask-reveal'; fixes.push(`scene ${S.id}: ${a && a.id} cannot fill the scene without a heavy crop -- it is revealed in its frame instead of expanding`); }
+      }
+      if (ch !== 'expand' && out.some(L => L.win)) out.forEach(L => { delete L.win; });
       S.choreo = ch;
-      S.pin = PINNED.includes(ch); S.height = S.pin ? 'tall' : spec.height;
-      if (S.pin) { const st = spec.steps ? Math.max(2, Math.min(6, Math.max(S.text.items.length, 1 + out.filter(L => L.step > 0).length))) : 1; S.steps = st; } else delete S.steps;
+      // a takeover holds the scroll while its words fill in only on an expressive page; elsewhere it fills as it passes
+      S.pin = PINNED.includes(ch) || (ch === 'word-fill' && lim.pins > 1);
+      S.height = S.pin ? 'tall' : spec.height;
+      if (!S.pin) unstep(S);
+      if (S.pin && spec.steps) { const n = spec.chapters ? Math.max(2, Math.min(5, out.filter(L => L.step != null).length)) : Math.max(2, Math.min(6, Math.max(S.text.items.length, 1 + out.filter(L => L.step > 0).length))); S.steps = spec.chapters ? Math.max(n, Math.min(5, S.text.items.length)) : n; } else if (S.pin) S.steps = 1; else delete S.steps;
+      // what the scene is, and how its own content leaves as it scrolls away (only a scene the scroll already drives)
+      S.sceneType = layout === 'stage' ? 'carry' : layout === 'chapters' || layout === 'cinematic' || layout === 'editorial-hero' ? 'cinematic' : layout === 'takeover' ? 'typography' : layout === 'sticky-steps' ? 'sticky-editorial'
+        : ['gallery', 'index', 'cardstream', 'strip', 'lineup', 'scrapbook', 'collage'].includes(layout) ? 'gallery' : spec.takeover ? 'takeover' : ch === 'expand' ? 'transition' : S.pin ? 'pinned' : 'section';
+      const EXIT_BY = { cinematic: 'fade', luxe: 'fade', kinetic: 'lift', mechanical: 'lift', playful: 'shrink', chaotic: 'shrink' };
+      if (!e.hero && !S.pin && ch !== 'settle' && ch !== 'actor' && EXIT_BY[e.personality]) S.exit = EXIT_BY[e.personality]; else delete S.exit;
       S.camera = 'none';
       S.mobile = { order: t.mplace === 'below' ? 'stage-first' : 'text-first' };
       return S;
@@ -1365,7 +1652,10 @@
       return true;
     }
 
-    module.exports = { composeScene, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
+    // a scene that does not hold the scroll shows no steps: its first picture stays, the pictures of later steps go (they would
+    // otherwise sit on top of one another in the same place), and its lines are listed one under another
+    function unstep(S) { if (!S.layers.some(L => L.step > 0)) { S.layers.forEach(L => { delete L.step; }); return; } S.layers = S.layers.filter(L => !(L.step > 0)); S.layers.forEach(L => { delete L.step; }); delete S.steps; }
+    module.exports = { composeScene, unstep, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
 
   });
   __define("validate2", function (module, exports, require) {
@@ -1416,7 +1706,7 @@
       fit: ['contain', 'cover'],
       mask: ['none', 'circle', 'arch', 'window', 'frame', 'porthole', 'torn', 'blob', 'diamond', 'polaroid', 'slit'],
       treatment: ['none', 'shadow', 'glow', 'duotone', 'mono', 'grain', 'outline', 'soft'],
-      shape: ['circle', 'ring', 'triangle', 'diamond', 'star', 'wave', 'arc', 'line', 'blob', 'dots', 'sunburst', 'stripes', 'cross', 'block'],
+      shape: ['circle', 'ring', 'triangle', 'diamond', 'star', 'wave', 'arc', 'line', 'blob', 'dots', 'sunburst', 'stripes', 'cross', 'block', 'tape'],
       // art direction (art.js / archetypes.js / framing.js)
       layout: ART.LAYOUTS, choreo: ART.CHOREOS, handoff: ART.HANDOFFS, frame: FR.FRAMES,
       personality: ART.PERSONALITIES, scrollModel: ART.SCROLLS, mplace: ['above', 'below', 'overlay'], textV: ['top', 'middle', 'bottom'], textAlign: ['left', 'center', 'right'],
@@ -1473,6 +1763,7 @@
     function validatePlan2(raw, ctx) {
       const c = ctx || {}; const fixes = [], warnings = [], errors = [];
       const p = raw && typeof raw === 'object' ? raw : {};
+      const rawScenes0 = () => (Array.isArray(p.scenes) ? p.scenes : []);
       const assets = (c.assets || []).filter(a => a && a.id && !a.removed && !a.failed);
       const byId = new Map(assets.map(a => [a.id, a]));
       const facts = (c.facts || []).filter(f => f && f.id && f.text); const factIds = new Set(facts.map(f => f.id));
@@ -1517,7 +1808,9 @@
       // (a revision offers the recipe without imposing it: it applies only when the director adopted it -- a page asked to
       // stay as it is stays as it is)
       const useRecipe = !safety && !!c.art && !(c.artOptional && !(p.art && typeof p.art === 'object'));
-      const art = ART.normaliseArt(p.art) || (useRecipe ? ART.normaliseArt(c.art) : null);
+      const art0 = ART.normaliseArt(p.art); const artR = useRecipe ? ART.normaliseArt(c.art) : null;
+      const art = art0 && artR ? Object.assign({}, artR, art0, { recipe: artR.recipe || art0.recipe }) : art0 || artR;
+      const modeLim = ART.MODE_LIMITS[(art && art.mode) || 'expressive'] || ART.MODE_LIMITS.expressive;
       const recipeScenes = useRecipe && Array.isArray(c.art.scenes) ? c.art.scenes : [];
       const planRng = ART.rng(`${(p.direction && p.direction.seed) || c.seed || ''}|${cap(p.identity && p.identity.name, 60) || cap(u.subject, 60)}`);
       const flip = planRng() < 0.5 ? 1 : 0;
@@ -1531,8 +1824,37 @@
       wants.forEach(w => { w.status = w.asset ? 'fulfilled' : 'missing'; });
       const limitations = (Array.isArray(p.limitations) ? p.limitations : []).slice(0, 8).map(x => cap(x, 240)).filter(Boolean);
 
+      // ---- the persistent actor (an object story): ONE picture of the subject that lives across a run of scenes, moving
+      // from pose to pose between them -- never the same picture pasted into each. It must be a clean cut-out of the subject
+      // (the owner's own on a personal page), never a tight crop; its poses are bounded, and it is never enlarged past what
+      // its pixels can hold.
+      const rawActor = p.actor && typeof p.actor === 'object' ? p.actor : (useRecipe && c.art && c.art.actor ? c.art.actor : null);
+      let actor = null;
+      if (rawActor && art && rawScenes0().length >= 2) {
+        const n = Math.min(rawScenes0().length, LIMITS.scenes[1]); const maxLen = safety ? 5 : modeLim.actor;
+        const from = Math.round(num(rawActor.from, 0, n - 1, 0)); let to = Math.round(num(rawActor.to, from, n - 1, from));
+        if (to - from + 1 > maxLen) to = from + maxLen - 1;
+        const okActor = a => !!(a && (a.cutout || (a.assess && a.assess.transparent)) && !(curOf(a) && (curOf(a).role === 'unrelated' || curOf(a).identity === 'other' || curOf(a).identity === 'form')) && !(personal && baseOf(a).origin !== 'upload') && verdictOf(a) !== 'no');
+        let a = byId.get(rawActor.asset);
+        if (!okActor(a) && !safety) {
+          const main = c.mainAsset && byId.get(c.mainAsset); const rank = x => (baseOf(x).origin === 'upload' ? 4 : 0) + (curOf(x) && curOf(x).role === 'subject' ? 2 : 0) + (x.relevance || 0);
+          a = (main && assets.find(x => x.cutoutOf === main.id && okActor(x))) || assets.filter(okActor).sort((x, y) => rank(y) - rank(x))[0] || null;
+        }
+        // (a run that opens the page carries the owner's chosen main picture -- or starts after the opening scene)
+        let from1 = from; const mainC = !safety && c.mainAsset ? byId.get(c.mainAsset) : null;
+        if (mainC && from1 === 0 && a && a.id !== mainC.id && a.cutoutOf !== mainC.id) { const own = assets.find(x => (x.id === mainC.id || x.cutoutOf === mainC.id) && okActor(x)); if (own) a = own; else from1 = 1; }
+        if (maxLen >= 2 && to > from1 && okActor(a)) {
+          const res = a.assess && a.assess.height ? Math.max(0.5, Math.min(1.4, a.assess.height * 1.15 / 670)) : 1.2;
+          const raw = Array.isArray(rawActor.poses) ? rawActor.poses : []; const poses = [];
+          for (let k = 0; k <= to - from1; k++) { const q = raw[Math.min(k, raw.length - 1)] || {}; poses.push({ x: Math.round(num(q.x, -30, 30, 0)), y: Math.round(num(q.y, -20, 20, 0)), s: Math.round(num(q.s, 0.5, res, 1) * 100) / 100, r: Math.round(num(q.r, -18, 18, 0)) }); }
+          actor = { asset: a.id, from: from1, to, poses, exit: oneOf(rawActor.exit, ['offstage', 'shrink', 'rejoin'], 'offstage') };
+          if (!safety && rawActor.asset && rawActor.asset !== a.id) fixes.push(`actor: ${a.id} carries the run (the picture given could not)`);
+        } else if (!safety) fixes.push(modeLim.actor < 2 ? 'actor: a quiet or editorial page carries no actor -- each scene composes on its own' : 'actor: no clean cut-out of the subject to carry across scenes -- each scene composes on its own');
+      }
+      const inRun = si => !!(actor && si >= actor.from && si <= actor.to);
+
       // ---- scenes ----
-      const rawScenes = Array.isArray(p.scenes) ? p.scenes : [];
+      const rawScenes = rawScenes0();
       if (rawScenes.length < LIMITS.scenes[0]) errors.push(`scenes: at least ${LIMITS.scenes[0]} scenes are needed`);
       if (rawScenes.length > LIMITS.scenes[1]) fixes.push(`scenes: ${rawScenes.length - LIMITS.scenes[1]} scene(s) beyond ${LIMITS.scenes[1]} dropped`);
       const uses = new Map(); let layersTotal = 0, pinned = 0; const seenIds = new Set();
@@ -1544,7 +1866,8 @@
         const height = oneOf(rs.height, VOCAB.height, si === 0 ? 'screen' : 'auto');
         // the scene's composition: an archetype (composed by archetypes.js) or 'free' (the plan's own boxes)
         const rec = recipeScenes[si] || null;
-        const layout = oneOf(rs.layout, VOCAB.layout, art && rec && !rs.layout ? oneOf(rec.layout, VOCAB.layout, 'free') : 'free');
+        const layout0 = oneOf(rs.layout, VOCAB.layout, art && rec && !rs.layout ? oneOf(rec.layout, VOCAB.layout, 'free') : 'free');
+        const layout = inRun(si) && (!safety || (c.recompose && c.recompose.includes(id(rs.id, `scene-${si + 1}`)))) ? 'stage' : layout0;
         const artScene = layout !== 'free';
         const composing = !safety || !!(c.recompose && c.recompose.includes(sid));
         // (an archetype decides its own pin when it is composed; a saved one keeps what it had)
@@ -1598,6 +1921,7 @@
           text.mplace = oneOf(tx.mplace, VOCAB.mplace, 'above');
           if (tx.giant) text.giant = true; if (tx.columns) text.columns = true;
           if (tx.shade === 'bottom' || tx.shade === 'band') text.shade = tx.shade;
+          if (ART.TREATMENTS.includes(tx.treatment) && tx.treatment !== 'standard') text.treatment = tx.treatment;
         }
         // layers
         let layers = (Array.isArray(rs.layers) ? rs.layers : []).slice(0, LIMITS.layersPerScene).map((rl, li) => {
@@ -1622,6 +1946,8 @@
             ...(typeof rl.step === 'number' && isFinite(rl.step) ? { step: Math.round(num(rl.step, 0, 6, 0)) } : {}),
             ...(rl.exit === 'left' || rl.exit === 'right' ? { exit: rl.exit } : {}), ...(rl.enter === 'left' || rl.enter === 'right' ? { enter: rl.enter } : {}),
             ...(rl.track ? { track: true } : {}),
+            ...(typeof rl.seq === 'number' && isFinite(rl.seq) ? { seq: Math.round(num(rl.seq, 0, 9, 0)) } : {}),
+            ...(Array.isArray(rl.win) && rl.win.length === 4 && rl.win.every(v => typeof v === 'number' && isFinite(v)) ? { win: box(rl.win, [10, 10, 80, 80], true) } : {}),
           };
           // the outer margin belongs to the thread that runs down the page: layers stay inside it unless they are full-bleed
           // (a member of a group follows its focal, so the group is kept whole rather than clamped piece by piece)
@@ -1677,7 +2003,7 @@
         layers.sort((a, b) => (a.role === 'focal' ? -1 : 0) - (b.role === 'focal' ? -1 : 0));
         layers.forEach(L => {
           if (L.loop.kind !== 'none') { if (loops >= LIMITS.loopsPerScene) { L.loop.kind = 'none'; fixes.push(`${where}: ${L.id} held still (at most ${LIMITS.loopsPerScene} moving layers per scene)`); } else loops++; }
-          if (L.scroll.kind !== 'none') { if (scrolls >= LIMITS.scrollPerScene) L.scroll.kind = 'none'; else scrolls++; }
+          if (L.scroll.kind !== 'none') { if (scrolls >= (art && art.mode ? 3 : LIMITS.scrollPerScene)) L.scroll.kind = 'none'; else scrolls++; }
         });
         // a still page keeps nothing moving but light passing across (sheen)
         if (motion.tempo === 'still') layers.forEach(L => { if (L.loop.kind !== 'sheen') L.loop.kind = 'none'; });
@@ -1710,6 +2036,10 @@
           scene.layout = layout;
           scene.choreo = oneOf(rs.choreo, VOCAB.choreo, rec ? oneOf(rec.choreo, VOCAB.choreo, 'settle') : 'settle');
           scene.handoff = si === 0 ? 'cut' : oneOf(rs.handoff, VOCAB.handoff, rec ? oneOf(rec.handoff, VOCAB.handoff, 'cut') : 'cut');
+          // (inside the actor's run the actor is the continuity: scenes meet with a cut or a colour bleed, never sliding over it)
+          if (inRun(si) && si > actor.from && !['cut', 'bleed'].includes(scene.handoff)) scene.handoff = 'cut';
+          if (ART.SCENE_TYPES.includes(rs.sceneType)) scene.sceneType = rs.sceneType;
+          if (ART.EXITS.includes(rs.exit) && rs.exit !== 'none') scene.exit = rs.exit;
           if (pin && typeof rs.steps === 'number') scene.steps = Math.round(num(rs.steps, 1, 6, 1));
         }
         if (si === 0) scene.cta = cap(rs.cta, 40) || 'Begin';
@@ -1719,8 +2049,9 @@
           // an archetype composes the scene: pictures with a plain background float as their cut-outs first, so the
           // composition is made for the picture that will actually be shown
           swapCutouts(scene, byId, assets, fixes);
-          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, side: (si + flip) % 2 ? 'left' : 'right' });
-          if (scene.pin) { if (pinned >= LIMITS.pinned) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; delete scene.steps; fixes.push(`${where}: more than ${LIMITS.pinned} held scenes -- this one plays as it passes`); } else pinned++; }
+          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, side: (si + flip) % 2 ? 'left' : 'right' });
+          const pinCap = art && art.mode ? Math.min(LIMITS.pinned, modeLim.pins) : LIMITS.pinned;
+          if (scene.pin) { if (pinned >= pinCap) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; ARCH.unstep(scene); fixes.push(`${where}: ${pinCap ? `more than ${pinCap} held scene${pinCap > 1 ? 's' : ''} on ${art && art.mode ? `a${art.mode === 'editorial' || art.mode === 'expressive' || art.mode === 'immersive' ? 'n' : ''} ${art.mode}` : 'the'} page` : `a ${art.mode} page holds nothing`} -- this one plays as it passes`); } else pinned++; }
         } else if (composing) { compose(scene, byId, fixes, warnings, si === 0); if (!safety) frameFree(scene, byId, fixes); legible(scene, byId, fixes); }
         else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
         // every enlargement stays inside its ceiling (framing.js ZOOM): a picture is never blown up to fill a container --
@@ -1728,7 +2059,8 @@
         if (!safety) boundZoom(scene, byId, fixes);
         return scene;
       }).filter(Boolean);
-      if (!safety && scenes.length && !scenes[0].layers.some(L => L.role === 'focal')) {
+      // (an opening inside the actor's run has the actor as its focal point)
+      if (!safety && scenes.length && !inRun(0) && !scenes[0].layers.some(L => L.role === 'focal')) {
         // no focal in the hero: the heaviest layer becomes it, else the page title itself carries the scene
         const heavy = scenes[0].layers.slice().sort((a, b) => area(b.box.d) - area(a.box.d))[0];
         if (heavy) { heavy.role = 'focal'; fixes.push('hero: the largest layer made the focal point'); } else warnings.push('hero: no picture or drawn focal -- the title carries the first scene');
@@ -1741,7 +2073,7 @@
       // ---- the owner's chosen main picture leads the opening scene: enforced here, not left to the model. Its clean cutout
       // is used when there is one; the layer keeps its place in the composition and is re-fitted to the new picture.
       const mainA = !safety && c.mainAsset ? byId.get(c.mainAsset) : null;
-      if (mainA && scenes[0]) {
+      if (mainA && scenes[0] && !inRun(0)) {
         const hs = scenes[0]; const pick = assets.find(a => a.cutoutOf === mainA.id && a.caps && a.caps.moveFreely) || mainA;
         let f0 = hs.layers.find(L => L.role === 'focal');
         const leads = f0 && f0.kind === 'image' && (f0.asset === mainA.id || f0.asset === pick.id || (byId.get(f0.asset) || {}).cutoutOf === mainA.id);
@@ -1759,6 +2091,9 @@
       // ---- the art-directed page as a whole: a carry needs a picture on both sides of its seam; the background follows the
       // page's progression where a scene has no colour of its own; at most three scenes hold the scroll
       if (!safety && art) {
+        // (the actor's run is one wrapper on the page: its scenes meet with a cut or a colour bleed, and nothing stacks onto
+        // its last scene -- a held pair never straddles the run)
+        if (actor) scenes.forEach((s, i) => { if (i && inRun(i) && !['cut', 'bleed'].includes(s.handoff)) s.handoff = 'cut'; if (i === actor.to + 1 && s.handoff === 'stack') s.handoff = 'overlap'; });
         scenes.forEach((s, i) => { if (i && s.handoff === 'carry') { scenes[i - 1].layers.forEach(L => { delete L.exit; }); s.layers.forEach(L => { delete L.enter; }); if (!ARCH.linkCarry(scenes[i - 1], s)) { s.handoff = 'overlap'; fixes.push(`scene ${s.id}: nothing to carry across the seam -- it slides over the previous scene instead`); } } });
         // (a stack holds the previous scene while this one covers it: the previous scene must fit the screen, and must not be
         // stacking onto its own predecessor -- one hold at a time)
@@ -1766,7 +2101,7 @@
       }
       // ---- the subject's imagery: a logo is a reference, never the hero's main picture when a real picture of the
       // subject exists; and a page that should show its subject but cannot is marked degraded, never passed off
-      const heroFocal = scenes[0] && scenes[0].layers.find(L => L.role === 'focal');
+      const heroFocal = inRun(0) ? { kind: 'image', role: 'focal', asset: actor.asset } : scenes[0] && scenes[0].layers.find(L => L.role === 'focal');
       // (the owner's uploads count as pictures of the subject -- they are the owner's choice -- unless the director saw
       // that one does not show it)
       const subjectPics = assets.filter(a => { if (baseOf(a).origin === 'upload') return verdictOf(a) !== 'no'; const k = curOf(a); return k && k.role === 'subject' && (k.identity === 'exact' || k.identity === 'form'); });
@@ -1792,14 +2127,41 @@
       }
       // ---- the page blends into its pictures (a new or recomposed plan; a saved page keeps what it had)
       if (!safety) blendPictures(scenes, palette, byId, assets, fixes, warnings);
+      // (a campaign or a split screen IS its accent field: the colour takeover wins over a tone taken from its picture)
+      if (!safety) scenes.forEach(s => { if (s.layout === 'campaign' || s.layout === 'splitscreen') { s.background = 'accent'; delete s.tone; } });
       // (an archetype places its own decoration deliberately; the one-shape rule is for free compositions)
       if (!safety) scenes.forEach(s => { if (!s.layout || s.layout === 'free') calmShapes(s, fixes); });
       // the background's progression down the page, for scenes that have no colour of their own (a picture's tone wins)
+      if (!safety && art && art.mode) {
+        // at most so many scenes driven by the scroll for the page's mode (an actor's run counts once)
+        let driven = 0; const PINNED = ARCH.PINNED;
+        scenes.forEach(s => {
+          if (!s.choreo || s.choreo === 'settle' || s.choreo === 'actor') return;
+          if (driven < modeLim.driven) { driven++; return; }
+          fixes.push(`scene ${s.id}: the page already has ${modeLim.driven} scenes driven by the scroll -- this one settles`);
+          if (PINNED.includes(s.choreo) || s.pin) { s.pin = false; s.height = 'screen'; ARCH.unstep(s); }
+          s.choreo = s.layout === 'takeover' ? 'word-fill' : 'settle'; if (s.exit) delete s.exit;
+        });
+        // at most two expensive effects at once in a scene (a clip-driven reveal, a blurred panel, a colour blend, a blur)
+        scenes.forEach(s => {
+          let cost = (['mask-reveal', 'expand', 'cardstream', 'chapters'].includes(s.choreo) ? 1 : 0) + (s.text.scrim ? 1 : 0);
+          s.layers.forEach(L => {
+            const c1 = (L.kind === 'image' && (L.treatment === 'duotone' || L.treatment === 'soft')) || (L.kind === 'shape' && L.shape.form === 'blob') ? 1 : 0;
+            if (!c1) return;
+            if (cost >= 2) { if (L.kind === 'image') { L.treatment = L.treatment === 'duotone' ? 'mono' : 'none'; } else L.opacity = Math.min(L.opacity, 0.15); fixes.push(`scene ${s.id}: ${L.id} simplified (at most two expensive effects in a scene)`); } else cost += 1;
+          });
+        });
+      }
       if (!safety && art && art.progression !== 'steady') {
         const n = scenes.length; const dark = lum(palette.bg) < 0.3;
         scenes.forEach((s, i) => {
           if (!i || s.tone || s.background !== 'base') return;
           if (art.progression === 'invert') { if (i % 2 === 1) s.background = 'invert'; return; }
+          // a colour takeover: alternate scenes flood in the accent colour (the words re-coloured against it)
+          if (art.progression === 'accent-takeover') { if (i % 2 === 1) s.background = 'accent'; return; }
+          const t0 = i / Math.max(1, n - 1); const light = lum(palette.bg) > 0.3;
+          const ends = { 'dark-to-light': [light ? mix(palette.bg, '#000000', 0.82) : palette.bg, light ? palette.bg : mix(palette.bg, '#ffffff', 0.86)], 'warm-to-cool': [mix(palette.bg, '#ff8a3d', 0.2), mix(palette.bg, '#3d7bff', 0.2)], 'muted-to-saturated': [mix(palette.bg, '#808080', 0.3), mix(palette.bg, palette.accent, 0.38)], gradient: [palette.bg, mix(palette.bg2, palette.accent, 0.25)] }[art.progression];
+          if (ends) { s.tone = mix(ends[0], ends[1], t0); return; }
           const t = i / Math.max(1, n - 1);
           const target = art.progression === 'deepen' ? mix(palette.bg2, dark ? '#000000' : '#ffffff', dark ? 0.45 : 0.25) : [palette.bg2, mix(palette.bg, palette.accent, 0.2), mix(palette.bg2, palette.glow, 0.25)][i % 3];
           s.tone = mix(palette.bg, target, art.progression === 'deepen' ? t : 0.75);
@@ -1816,7 +2178,7 @@
         if (Math.abs(a.assess.luminance - stage) < 45 && (L.treatment === 'none' || L.treatment === 'shadow')) { L.treatment = 'glow'; fixes.push(`scene ${s.id}: ${a.id} nearly matches its background -- given a light rim to stay visible`); }
       }));
       // credits for every picture shown, limited to those
-      const shown = new Set(); scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
+      const shown = new Set(); if (actor) { shown.add(actor.asset); const aa = byId.get(actor.asset); if (aa && aa.cutoutOf) shown.add(aa.cutoutOf); } scenes.forEach(s => s.layers.forEach(L => { if (L.asset) { shown.add(L.asset); const a = byId.get(L.asset); if (a && a.cutoutOf) shown.add(a.cutoutOf); } }));
       // (a picture the owner adopted from the web is credited to its source page, as supplied by the owner)
       const credits = assets.filter(a => shown.has(a.id) && (a.origin !== 'upload' || a.ownerAffirmed || a.ownerPicked) && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: a.ownerPicked ? 'no licence stated; chosen by the page owner' : a.origin === 'upload' ? 'supplied by the page owner, who holds the rights' : cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
       const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
@@ -1824,6 +2186,8 @@
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
         // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
         ...(art ? { art } : {}),
+        // the persistent actor (a run of scenes one subject lives across)
+        ...(actor ? { actor } : {}),
         // the layout rules a plan was composed under: a saved page keeps its geometry; only an explicit recompose updates it
         layout: { version: safety ? num(p.layout && p.layout.version, 0, 99, 0) : LAYOUT_VERSION },
         // how the words were checked against the facts (set by the direction; carried, never invented here)
@@ -2388,7 +2752,7 @@
       const name = kind === 'personal' ? (u.name || titleCase(u.noun || u.subject || 'Them')) : (page && page.title) || titleCase(u.subject || 'The subject');
       // personal pages: only the owner's own photos show the subject
       const usable = kind === 'personal' ? assets.filter(a => a.origin === 'upload' || (a.cutoutOf && assets.some(b => b.id === a.cutoutOf && b.origin === 'upload'))) : assets.filter(a => !(a.curation && (a.curation.role === 'unrelated' || a.curation.identity === 'other' || a.curation.identity === 'form')));
-      const recipe = ART.choose({ understanding: Object.assign({}, u, { name }), assets: usable, facts, supplied: sup, page, seed: inp.seed, history: inp.history, avoid: inp.avoid });
+      const recipe = ART.choose({ understanding: Object.assign({}, u, { name }), assets: usable, facts, supplied: sup, page, seed: inp.seed, history: inp.history, avoid: inp.avoid, prefer: inp.prefer });
       const r = ART.rng(`${inp.seed || ''}|${name}|words`);
       const P0 = recipe.personality; const look = LOOK[P0];
       // ---- the pictures: the owner's main picture (or the best picture of the subject) leads, as its cut-out when it has one
@@ -2396,8 +2760,8 @@
       const score = a => (a.id === inp.mainAsset ? 100 : 0) + (a.origin === 'upload' ? 4 : 0) + (a.curation && a.curation.role === 'subject' ? 3 : 0) + (a.relevance || 0) + (F.profile(a).big ? 0.5 : 0) - (F.profile(a).tight ? 0.5 : 0);
       const heroLayout = recipe.scenes[0].layout;
       // compositions that stand a subject on the stage want its cut-out; these frame a photograph
-      const FREE = ['offcanvas', 'floating', 'shrine', 'poster', 'luxe', 'depth', 'giant-type'];
-      const WIDE = ['editorial-hero', 'cinematic', 'image', 'split', 'magazine'];
+      const FREE = ['offcanvas', 'floating', 'shrine', 'poster', 'luxe', 'depth', 'giant-type', 'stage', 'campaign', 'fullscreen-object', 'orbit', 'lineup'];
+      const WIDE = ['editorial-hero', 'cinematic', 'image', 'split', 'magazine', 'splitscreen', 'chapters'];
       const wantsWhole = WIDE.includes(heroLayout);
       const originals = ART.distinctPictures(usable.filter(a => !a.cutoutOf).sort((a, b) => (b.origin === 'upload') - (a.origin === 'upload'))).sort((a, b) => (score(b) + (FREE.includes(heroLayout) && cutOf(b) ? 6 : 0)) - (score(a) + (FREE.includes(heroLayout) && cutOf(a) ? 6 : 0)));
       const mainOrig = originals[0] || usable[0] || null;
@@ -2435,7 +2799,8 @@
           t.heading = name.slice(0, 100);
           if (kind === 'personal' && supLines[0]) { t.body = supLines.shift().text.slice(0, 300); t.kind = 'supplied'; }
           else if (lede && kind !== 'invented') { t.body = short(lede.text, 220) || ''; if (t.body) { t.kind = 'sourced'; t.cite = lede.id; } }
-          if (mainPic) s.layers.push(img(mainPic, 'focal'));
+          // (an opening inside the actor's run shows the subject as the actor, not as a picture of its own)
+          if (mainPic && L !== 'stage') s.layers.push(img(mainPic, 'focal'));
           if (L === 'collage' || L === 'floating') take(L === 'collage' ? 3 : 2, L === 'floating').forEach(a => s.layers.push(img(a, 'support')));
           s.cta = kind === 'personal' ? `Meet ${name}`.slice(0, 40) : pick(r, ['Begin', 'Scroll the story', 'Step inside', 'Look closer']);
           return s;
@@ -2449,12 +2814,12 @@
           t.heading = head('facts'); t.items = lines.map(x => Object.assign({}, x, { label: x.cite ? ((/\b(1[0-9]{3}|20[0-4][0-9])\b/.exec(x.text) || [])[1] || '') : '' }));
           t.list = t.items.some(x => x.label) ? 'timeline' : 'labelled';
           if (L === 'sticky-steps') { take(Math.min(3, Math.max(1, t.items.length - 1))).forEach((b, k) => s.layers.push(img(b, k ? 'support' : 'focal'))); }
-          else if (L === 'brutalist' || L === 'dense') { const a = take(1)[0]; if (a) s.layers.push(img(a, 'focal')); }
+          else if (L === 'brutalist' || L === 'dense' || L === 'orbit') { const a = take(1, L === 'orbit')[0]; if (a) s.layers.push(img(a, 'focal')); }
         } else if (carries === 'pictures') {
           t.heading = head('pictures');
-          const picks = take(L === 'strip' ? 6 : L === 'gallery' ? 5 : 4);
+          const picks = take(L === 'strip' || L === 'index' ? 6 : L === 'gallery' || L === 'cardstream' || L === 'lineup' ? 5 : L === 'scrapbook' ? 3 : 4, L === 'lineup');
           picks.forEach((a, k) => s.layers.push(img(a, k ? 'support' : 'focal')));
-          if (L === 'gallery' || L === 'strip') { const f = takeFacts(1, 200)[0]; if (f) { t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } }
+          if (L === 'gallery' || L === 'strip' || L === 'chapters' || L === 'cardstream' || L === 'index') { const f = takeFacts(1, 200)[0]; if (f) { t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } }
         } else if (carries === 'picture') {
           const a = pickPic(false, null, WIDE.includes(L)); t.heading = head('picture');
           if (a) { s.layers.push(img(a, 'focal')); const f = takeFacts(1, 220)[0]; if (f) { t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } }
@@ -2464,15 +2829,15 @@
           const a = L !== 'text' ? take(1)[0] : null; if (a) s.layers.push(img(a, 'focal'));
         } else if (carries === 'closing' || last) {
           t.heading = mood(); t.size = 'large';
-          if (['shrine', 'luxe', 'floating', 'offcanvas', 'poster', 'depth', 'framed', 'split', 'image', 'cinematic'].includes(L)) { const a = pickPic(FREE.includes(L), null, WIDE.includes(L)); if (a) s.layers.push(img(a, 'focal')); }
+          if (['shrine', 'luxe', 'floating', 'offcanvas', 'poster', 'depth', 'framed', 'split', 'image', 'cinematic', 'campaign', 'fullscreen-object', 'splitscreen'].includes(L)) { const a = pickPic(FREE.includes(L), null, WIDE.includes(L)); if (a) s.layers.push(img(a, 'focal')); }
           s.name = 'Closing'; s.purpose = 'a quiet ending';
         } else {
           // a statement: one thought -- a short fact given room, or an imagined line -- and the subject again, differently
           const f = takeFacts(1, 180)[0];
           const few = () => { const list = (SHORT[{ extravagant: 'absurd', restrained: 'editorial', serious: 'editorial', reverent: 'lyrical' }[reg] || reg] || SHORT.editorial).filter(h => !usedHeads.has(h)); const h = list.length ? pick(r, list) : mood(); usedHeads.add(h); return h; };
-          const head0 = L === 'giant-type' || L === 'poster' ? few() : mood();
+          const head0 = L === 'giant-type' || L === 'poster' || L === 'campaign' || L === 'fullscreen-object' ? few() : mood();
           if (f) { t.heading = head0; t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } else { t.heading = head0; }
-          const a = L === 'text' ? null : pickPic(FREE.includes(L), null, WIDE.includes(L));
+          const a = L === 'text' || L === 'takeover' || L === 'stage' ? null : pickPic(FREE.includes(L), null, WIDE.includes(L));
           if (a) s.layers.push(img(a, 'focal'));
           const tex = L === 'depth' && env.find(x => x.id !== (a && (a.cutoutOf || a.id)) && (uses.get(x.id) || 0) < 2);
           if (tex) { note(tex); s.layers.push(img(tex, 'texture', 'texture')); }
@@ -2480,6 +2845,8 @@
         if (!t.heading) t.heading = mood();
         return s;
       });
+      // (a navigation label names one scene: a second scene of the same kind is reached by scrolling, not listed twice)
+      const navSeen = new Set(); scenes.forEach(s => { if (!s.navLabel) return; if (navSeen.has(s.navLabel)) s.navLabel = ''; else navSeen.add(s.navLabel); });
       // the page has at least its opening and one more scene with words
       const personalOrTender = P0 === 'still';
       const bright = mainOrig && mainOrig.assess && mainOrig.assess.background && lum(mainOrig.assess.background.colour || '#000000') > 0.45 && mainOrig.assess.background.uniformity > 0.5;
@@ -2499,6 +2866,8 @@
         motion: { tempo: look.tempo, signature: `${ART.MOTION[P0].label}: ${recipe.scenes.map(s => s.choreo).filter(c => c !== 'settle').slice(0, 2).join(' and ') || 'a quiet settle'}` },
         thread: { kind: pick(r, look.thread) },
         art: recipe,
+        // the persistent actor: the subject's own cut-out carries the run (the validator re-checks it, or drops the run)
+        ...(recipe.actor && mainOrig && cutOf(mainOrig) ? { actor: Object.assign({}, recipe.actor, { asset: cutOf(mainOrig).id }) } : {}),
         assetNotes: [], wants: mainPic ? [] : [{ description: `a clear picture of ${name}`, role: 'subject', fallback: 'the page is built around its words and colours' }], limitations: mainPic ? [] : ['no picture of the subject was available'],
         scenes,
         direction: { source: 'built-in', model: '', at: new Date().toISOString(), attempt: 1, repaired: false, seed: String(inp.seed || '').slice(0, 40) },
@@ -3122,15 +3491,25 @@
       const creditOf = a => { const base = a && a.cutoutOf ? byId.get(a.cutoutOf) : a; if (!base || (base.origin === 'upload' && !base.ownerPicked)) return ''; const cr = plan.credits.find(x => x.asset === base.id); return cr ? [cr.author && cr.author.slice(0, 60), cr.license].filter(Boolean).join(' · ') : ''; };
 
       const arted0 = !!plan.art || plan.scenes.some(s => s.layout && s.layout !== 'free');
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0 }));
+      const actor = plan.actor && byId.get(plan.actor.asset) && plan.scenes[plan.actor.to] ? plan.actor : null;
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0, actor }));
+      // the persistent actor: ONE picture of the subject on a rail that stays with the reader through its run of scenes,
+      // moving between its poses (numbers only; the runtime interpolates them). Without scripting, or with reduced motion, it
+      // rests in its first pose at the top of the run and scrolls away with it.
+      const rail = actor ? (() => {
+        const a = byId.get(actor.asset); const p0 = actor.poses[0]; const wd = (a.assess && a.assess.width) || 800, ht = (a.assess && a.assess.height) || 1000;
+        return `<div class="actor-rail"><div class="actor" data-img data-poses="${actor.poses.map(q => [q.x, q.y, q.s, q.r].join(',')).join(';')}" style="--aa:${(wd / ht).toFixed(3)};--ax:${p0.x};--ay:${p0.y};--as:${p0.s};--ar:${p0.r}"><img class="actor-img" data-asset="${esc(a.id)}" src="${esc(src(a))}" alt="${esc(a.alt || plan.identity.name)}" width="${wd}" height="${ht}" decoding="async"><div class="cr-missing" aria-hidden="true"><span>${esc(initials(plan.identity.name))}</span></div></div></div>`;
+      })() : '';
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
         const cur = plan.scenes[si];
         // (a scene stacking onto its predecessor never holds for the next one: one hold at a time)
         const opens = k => !!(plan.scenes[k + 1] && plan.scenes[k + 1].handoff === 'stack' && plan.scenes[k].handoff !== 'stack');
-        if (arted0 && opens(si)) return `<div class="sc-pair">\n${h}`;
-        if (arted0 && si > 0 && cur.handoff === 'stack' && opens(si - 1)) return `${h}\n</div>`;
+        if (arted0 && opens(si)) h = `<div class="sc-pair">\n${h}`;
+        else if (arted0 && si > 0 && cur.handoff === 'stack' && opens(si - 1)) h = `${h}\n</div>`;
+        if (actor && si === actor.from) h = `<div class="sc-run" data-exit="${actor.exit}">${rail}<div class="sc-run-in">\n${h}`;
+        if (actor && si === actor.to) h = `${h}\n</div></div>`;
         return h;
       }).join('\n');
       const navItems = plan.scenes.slice(1).filter(s => s.navLabel).slice(0, 5).map(s => `<li><a href="#${esc(s.id)}">${esc(s.navLabel)}</a></li>`).join('') + '<li><a href="#cr-sources">Sources</a></li>';
@@ -3191,9 +3570,9 @@
       const [x, y, w, h] = L.box.d; const [mx, my, mw, mh] = L.box.m;
       const a0 = L.kind === 'image' ? c.byId.get(L.asset) : null;
       // the art-directed page: a layer's depth (its z) for depth choreography, its step, a strip panel's own aspect
-      const extra = c.arted ? `;--dz:${((L.z - 4) * 0.3).toFixed(2)}${L.step != null ? `;--sti:${L.step}` : ''}${L.track && a0 ? `;--ar:${Math.max(0.62, Math.min(1.8, FR.profile(a0).aspect)).toFixed(3)}` : ''}` : '';
+      const extra = c.arted ? `;--dz:${((L.z - 4) * 0.3).toFixed(2)}${L.step != null ? `;--sti:${L.step}` : ''}${L.seq != null ? `;--sq:${L.seq}` : ''}${L.win ? `;--wx:${L.win[0]};--wy:${L.win[1]};--ww:${L.win[2]};--wh:${L.win[3]}` : ''}${L.track && a0 ? `;--ar:${Math.max(0.62, Math.min(1.8, FR.profile(a0).aspect)).toFixed(3)}` : ''}` : '';
       const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s${extra}`;
-      const artAttrs = `${L.step != null ? ` data-step="${L.step}"` : ''}${L.exit ? ` data-exit="${L.exit}"` : ''}${L.enter ? ` data-enter="${L.enter}"` : ''}${L.track ? ' data-track' : ''}${L.frame ? ` data-frame="${L.frame}"` : ''}`;
+      const artAttrs = `${L.seq != null ? ' data-seq' : ''}${L.win ? ' data-win' : ''}${L.step != null ? ` data-step="${L.step}"` : ''}${L.exit ? ` data-exit="${L.exit}"` : ''}${L.enter ? ` data-enter="${L.enter}"` : ''}${L.track ? ' data-track' : ''}${L.frame ? ` data-frame="${L.frame}"` : ''}`;
       let art = '';
       if (groupInner != null) {
         return `<div class="ly ly-group" data-kind="group" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}" style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art ly-group-art">${groupInner}</div></div></div></div></div>`;
@@ -3259,15 +3638,25 @@
         wlist.forEach((w, j) => { if (len > per * lines.length && lines.length < n) lines.push([]); lines[lines.length - 1].push([w, j]); len += w.length + 1; });
         words = lines.map(l => `<span class="ln">${l.map(([w, j]) => wordHtml(w, j)).join(' ')}</span>`).join(' ');
       } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(t.heading);
+      const tr = artOn ? t.treatment || '' : '';
+      // (letters spread apart and gather as the scene arrives: each letter moved by translate only, words kept whole)
+      let ci = 0; const cn = String(t.heading).replace(/\s+/g, '').length;
+      if (tr === 'letter-spread' && !stagger) words = wlist.map(w => `<span class="lw">${[...w].map(ch => `<span class="ch" style="--ci:${ci++}">${esc(ch)}</span>`).join('')}</span>`).join(' ');
+      // (a statement fills in word by word as it is read: the body, else the heading)
+      const fillBody = tr === 'word-fill' && !!t.body; const fillHead = tr === 'word-fill' && !t.body && !stagger;
+      const fill = str => String(str).split(/\s+/).filter(Boolean).map((w, j) => `<span class="wf" style="--i:${j}">${esc(w)}</span>`).join(' ');
+      if (fillHead) words = fill(t.heading);
+      const wn = fillBody ? String(t.body).split(/\s+/).filter(Boolean).length : fillHead ? wlist.length : 0;
       const items = t.items.length ? `<ol class="sc-list" data-list="${t.list}">${t.items.map((it, j) => `<li class="sc-item" style="--i:${j}">${it.label ? `<span class="sc-label"${c.edit(`${k}.items.${j}.label`)}>${esc(it.label)}</span>` : ''}<span${c.edit(`${k}.items.${j}.text`)}>${esc(it.text)}</span>${c.cite(it.cite)}</li>`).join('')}</ol>` : '';
       const heroFocal = hero ? s.layers.find(L => L.role === 'focal' && L.kind === 'image') : null;
-      const credit = heroFocal ? c.creditOf(c.byId.get(heroFocal.asset)) : '';
+      const inRun = !!(c.actor && si >= c.actor.from && si <= c.actor.to);
+      const credit = heroFocal ? c.creditOf(c.byId.get(heroFocal.asset)) : hero && inRun ? c.creditOf(c.byId.get(c.actor.asset)) : '';
       const place = artOn && t.place ? t.place : null;
-      const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${place ? ` style="--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}"` : ''}` : '';
+      const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${place || wn || tr === 'letter-spread' ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' ? `--cn:${cn}` : ''].filter(Boolean).join(';')}"` : ''}` : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
-          ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"><span${c.edit(`${k}.body`)}>${esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}">${words}</${H}>` : ''}
+          ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"${fillBody ? ` data-blen="${t.body.length > 240 ? 'l' : t.body.length > 120 ? 'm' : 's'}"` : ''}><span${c.edit(`${k}.body`)}>${fillBody ? fill(t.body) : esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
         </div>`;
@@ -3288,15 +3677,15 @@
       const hold = !!(c.arted && nextS && nextS.handoff === 'stack' && handoff !== 'stack');
       const overlapped = !!(c.arted && nextS && nextS.handoff === 'overlap');
       const carries = s.layers.some(L => L.exit || L.enter);
-      const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' || bleed || carries || hold);
+      const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill');
       const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
-      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}` : '';
+      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}` : '';
       const counter = s.steps && s.pin && s.steps > 1 ? `<p class="sc-count" aria-hidden="true"><b>01</b><span> / ${String(s.steps).padStart(2, '0')}</span></p>` : '';
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}" data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}" aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}
-        <div class="sc-stage"${trackStage ? ' data-track' : ''}>${renderStage(s, si, c)}</div>
+        <div class="sc-stage"${trackStage ? ' data-track' : ''}${s.layers.some(L => L.seq != null) ? ` style="--n:${s.layers.filter(L => L.seq != null).length}"` : ''}>${renderStage(s, si, c)}</div>
         ${shade}${text}${counter}
         ${credit ? `<p class="cr-herocredit">Picture: ${esc(credit)}</p>` : ''}
       </div>
@@ -3327,7 +3716,7 @@
     .sc[data-bg="tint"]{background:linear-gradient(180deg,rgba(var(--accent-rgb),.10),rgba(var(--accent-rgb),.04))}
     /* the air of a scene: far haze in the palette's colours, a vignette, near out-of-focus sparkles (depth) */
     .sc-amb{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-    .amb-haze{position:absolute;width:72vmax;height:72vmax;left:-18vmax;top:-28vmax;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--s-accent,var(--accent)) 13%,transparent),transparent 66%);filter:blur(18px);animation:k-haze calc(40s / max(var(--k),.4)) ease-in-out infinite alternate}
+    .amb-haze{position:absolute;width:72vmax;height:72vmax;left:-18vmax;top:-28vmax;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--s-accent,var(--accent)) 13%,transparent),transparent 66%);animation:k-haze calc(40s / max(var(--k),.4)) ease-in-out infinite alternate}
     .amb-haze.amb-b{left:auto;top:auto;right:-22vmax;bottom:-32vmax;background:radial-gradient(circle,color-mix(in srgb,var(--glow) 10%,transparent),transparent 66%);animation-duration:calc(52s / max(var(--k),.4));animation-direction:alternate-reverse}
     .amb-vig{position:absolute;inset:0;background:radial-gradient(ellipse 90% 80% at 50% 45%,transparent 58%,color-mix(in srgb,var(--s-surface,var(--bg)) 72%,#000) 100%);opacity:.5}
     .amb-near i{position:absolute;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--glow) 42%,transparent),transparent 70%);filter:blur(3px);opacity:0;animation:k-near var(--t) linear infinite;animation-delay:var(--d)}
@@ -3599,8 +3988,13 @@
     var io=('IntersectionObserver' in W)?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){enter(e.target);e.target.classList.add('is-seen');io.unobserve(e.target)}})},{rootMargin:'0px 0px -12% 0px',threshold:0}):null;
     scenes.slice(1).forEach(function(s){if(io&&!reduced())io.observe(s);else{enter(s);s.classList.add('is-seen')}});
     /* scroll: each scene's progress p (0 arriving .. 1 leaving; pinned scenes: through their hold) drives its layers and camera */
-    var ticking=false;
-    function prog(s,vh){var r=s.getBoundingClientRect();if(s.hasAttribute('data-pin')){var span=r.height-vh;return span>0?Math.max(0,Math.min(1,-r.top/span)):0}return Math.max(0,Math.min(1,(vh-r.top)/(vh+r.height)))}
+    var ticking=false,measured=false,mainTop=0;
+    /* geometry is read only when the layout changes (load, resize, a picture arriving) -- never while scrolling: each scene's
+       top and height are kept, and a frame works from the scroll position alone (a held scene is measured by its pair) */
+    scenes.forEach(function(s){s._st=s.querySelector('.sc-stage');s._cam=s.getAttribute('data-camera');s._ls=[].slice.call(s.querySelectorAll('.ly-scroll')).filter(function(l){return l.getAttribute('data-scroll')!=='none'})});
+    function topOf(e){return e.getBoundingClientRect().top+(W.scrollY||W.pageYOffset)}
+    function measure(){measured=true;mainTop=mainEl?topOf(mainEl):0;scenes.forEach(function(s){var p=s.parentNode;s._top=topOf(s.hasAttribute('data-hold')&&p&&p.classList&&p.classList.contains('sc-pair')?p:s);s._h=s.offsetHeight});if(W.__crArtMeasure)W.__crArtMeasure()}
+    function prog(s,vh,y){var top=s._top-y;if(s.hasAttribute('data-pin')){var span=s._h-vh;return span>0?Math.max(0,Math.min(1,-top/span)):0}return Math.max(0,Math.min(1,(vh-top)/(vh+s._h)))}
     /* zm: the ceiling on a picture's zoom (data-zmax, framing.js ZOOM) */
     function tf(kind,a,p,vw,vh,zm){var q=p-.5;switch(kind){
      case 'parallax':return 'translate3d(0,'+(-q*a*vh*.3).toFixed(1)+'px,0)';
@@ -3614,13 +4008,13 @@
      default:return ''}}
     /* k: a scene showing cropped pictures pushes in half as far (no compounding zoom into a crop) */
     function cam(kind,p,k){var q=p-.5;k=k||.12;switch(kind){case 'push-in':return 'scale('+(1+p*k).toFixed(3)+')';case 'pull-out':return 'scale('+(1+k-p*k).toFixed(3)+')';case 'pan-left':return 'translate3d('+(-q*6).toFixed(2)+'%,0,0)';case 'pan-right':return 'translate3d('+(q*6).toFixed(2)+'%,0,0)';case 'rise':return 'translate3d(0,'+(-q*8).toFixed(2)+'%,0)';default:return ''}}
-    function frame(){ticking=false;var vh=W.innerHeight,vw=W.innerWidth,red=reduced();
-      scenes.forEach(function(s){var r=s.getBoundingClientRect();if(r.bottom<-vh||r.top>vh*2)return;var p=prog(s,vh);var st=s.querySelector('.sc-stage');
-        if(st&&!st.hasAttribute('data-track'))st.style.transform=red?'':cam(s.getAttribute('data-camera'),p,s.hasAttribute('data-camcap')?.06:.12);
-        [].forEach.call(s.querySelectorAll('.ly-scroll'),function(l){var k=l.getAttribute('data-scroll');if(k==='none'){return}if(red){l.style.transform='';l.style.clipPath='';return}var a=+l.getAttribute('data-amount')||0;
+    function frame(){ticking=false;if(!measured)measure();var vh=W.innerHeight,vw=W.innerWidth,red=reduced(),y=W.scrollY||W.pageYOffset;
+      scenes.forEach(function(s){var top=s._top-y;if(top+s._h<-vh||top>vh*2)return;var p=prog(s,vh,y);var st=s._st;
+        if(st&&s._cam!=='none'&&!st.hasAttribute('data-track'))st.style.transform=red?'':cam(s._cam,p,s.hasAttribute('data-camcap')?.06:.12);
+        s._ls.forEach(function(l){var k=l.getAttribute('data-scroll');if(red){l.style.transform='';l.style.clipPath='';return}var a=+l.getAttribute('data-amount')||0;
           if(k==='reveal'){var v=Math.min(1,p*1.8);l.style.clipPath='inset(0 0 '+((1-v)*100).toFixed(1)+'% 0)';return}l.style.transform=tf(k,a,p,vw,vh,+l.getAttribute('data-zmax')||0)})});
       if(W.__crArtFrame)W.__crArtFrame(vh,vw,red);
-      if(mask){var y=W.scrollY||W.pageYOffset,mt=mainEl.getBoundingClientRect().top+y,tY=Math.min(y+vh*.66-mt,startY+y*1.6),drawn=red?len:Math.max(0,Math.min(len,lenAtY(tY)));mask.setAttribute('stroke-dashoffset',(len-drawn).toFixed(1));dots.forEach(function(c){c.classList.toggle('on',c._at<=drawn+1)})}
+      if(mask){var mt=mainTop,tY=Math.min(y+vh*.66-mt,startY+y*1.6),drawn=red?len:Math.max(0,Math.min(len,lenAtY(tY)));mask.setAttribute('stroke-dashoffset',(len-drawn).toFixed(1));dots.forEach(function(c){c.classList.toggle('on',c._at<=drawn+1)})}
     }
     function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(frame)}}
     W.addEventListener('scroll',onScroll,{passive:true});
@@ -3631,6 +4025,7 @@
     function focalPoint(){var f=hero&&hero.querySelector('[data-role="subject"]');if(!f||!cfg.focal||cfg.focal.fit!=='contain')return null;var r=f.getBoundingClientRect(),m=mainEl.getBoundingClientRect(),w=r.width,h=r.height,x=r.left-m.left,y=r.top-m.top,a=cfg.focal.aspect;if(w/h>a){var nw=h*a;x+=(w-nw)/2;w=nw}else{var nh=w/a;y+=h-nh;h=nh}var b=cfg.focal.bbox;return{x:x+w*(b[0]+(b[2]-b[0])*.5),y:y+h*(b[1]+(b[3]-b[1])*.97)}}
     function layout(){
       if(W.__crArtLayout)W.__crArtLayout();
+      measure();
       if(!svg||!mainEl||cfg.thread==='none'){frame();return}
       var mw=mainEl.clientWidth,mh=mainEl.scrollHeight,phone=mw<=720;svg.setAttribute('viewBox','0 0 '+mw+' '+mh);svg.setAttribute('width',mw);svg.setAttribute('height',mh);while(svg.firstChild)svg.removeChild(svg.firstChild);dots=[];mask=null;
       var rest=scenes.slice(1);if(!rest.length){frame();return}
@@ -3670,7 +4065,7 @@
     d.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var id='';try{id=decodeURIComponent(a.getAttribute('href').slice(1))}catch(x){}e.preventDefault();if(id)navTo(id)});
     W.__crNav=navTo;
     if(location.hash&&location.hash.length>1){var h0=location.hash.slice(1);setTimeout(function(){try{navTo(decodeURIComponent(h0))}catch(x){}},450)}
-    W.__crLayout=layout;W.__crFrame=frame;
+    W.__crLayout=layout;W.__crFrame=frame;W.__crMeasure=measure;
     })();`;
     const PREVIEW2 = `
     (function(){var d=document,html=d.documentElement;
@@ -3742,6 +4137,8 @@
     .sc[data-layout="luxe"] .sc-kicker{letter-spacing:.42em;font-weight:500}.sc[data-layout="luxe"] .sc-heading{font-weight:400}
     .ly-art[data-fit="contain"]:is([data-mask="window"],[data-mask="frame"]){background:color-mix(in srgb,var(--s-surface,var(--bg)) 90%,var(--s-ink,var(--ink)))}
     .ly-img[data-crop]{object-fit:var(--of,cover);object-position:var(--oq,50% 50%)}
+    /* (a phone has its own fit and crop position for each framed picture: a wide picture shown whole there is never cropped) */
+    @media (max-width:720px){.ly-img[data-crop]{object-fit:var(--mof,var(--of,cover));object-position:var(--moq,var(--oq,50% 50%))}}
     /* a strip: pictures in a row at one height, each as wide as its own picture, moved sideways by the vertical scroll */
     .sc[data-choreo="track"] .sc-stage[data-track]{display:flex;align-items:center;gap:clamp(18px,3vw,48px);padding:0 10vw 0 38vw;width:max-content;right:auto;transform-origin:0 50%}
     .sc[data-choreo="track"] .ly[data-track]{position:relative;left:auto;top:auto;width:auto;height:min(62vh,50vw);aspect-ratio:var(--ar,1);flex:0 0 auto}
@@ -3808,9 +4205,9 @@
     @media (max-width:720px){
       .sc[data-layout]:not([data-layout="free"]) .sc-text{grid-column:auto}
     ${Object.entries(ARCH.MSTAGE).map(([k, v]) => `  .sc[data-layout="${k}"] .sc-stage{height:min(${v}vw,${Math.min(86, Math.round(v * 0.72))}svh)}`).join('\n')}
-      .sc[data-mplace="overlay"] .sc-pin{display:grid;grid-template-columns:100%;padding:0}
-      .sc[data-mplace="overlay"] .sc-stage{grid-area:1/1;margin:0;height:min(128vw,86svh)}
-      .sc[data-mplace="overlay"] .sc-text{grid-area:1/1;align-self:end;z-index:6;padding:0 20px 30px 26px}
+      .sc[data-layout][data-mplace="overlay"]:not([data-layout="free"]) .sc-pin{display:grid;grid-template-columns:100%;padding:0}
+      .sc[data-layout][data-mplace="overlay"] .sc-stage{grid-area:1/1;margin:0;height:min(128vw,86svh)}
+      .sc[data-layout][data-mplace="overlay"]:not([data-layout="free"]) .sc-text{grid-area:1/1;grid-column:1;align-self:end;z-index:6;padding:0 20px 30px 26px}
       .sc[data-mplace="overlay"] .sc-shade{height:70%}
       .sc[data-mplace="below"] .sc-text{order:3}
       .sc-text[data-giant] .sc-heading{font-size:min(17vw,calc(var(--fit) * 1.1 / var(--lw)))}
@@ -3826,11 +4223,77 @@
       .sc[data-handoff="overlap"]{margin-top:-6vh}
       .sc[data-overlapped] .sc-pin{padding-bottom:calc(40px + 6vh)}.sc[data-overlapped]:not([data-pin]) .sc-pin{min-height:0}
       .sc[data-hold]{position:relative}
-      .sc-count{right:18px;bottom:14px}
+      .sc-count{right:18px;bottom:auto;top:calc(var(--nav) + 10px)}
       .sc[data-choreo="travel"] .ly:is([data-role="focal"],[data-role="subject"]){translate:calc((var(--p,.5) - .5) * 14vw) 0;rotate:calc((var(--p,.5) - .5) * 14deg)}
       .sc[data-choreo="depth"] .ly{translate:0 calc((.5 - var(--p,.5)) * var(--dz,0) * 12vh)}
       .sc[data-choreo="type-wipe"] .ly[data-kind="word"]{translate:calc((.5 - var(--p,.5)) * 40vw) 0}
+    }/* ===== the second vocabulary: the actor, campaigns and takeovers, chapters, card streams, expanding pictures ===== */
+    /* the actor's run: the actor's rail and the run's scenes share one grid cell; the rail stays on screen while the run
+       passes (above the scenes' colour, never catching the pointer) and leaves with the run's last screen. Its pose is four
+       numbers: --ax / --ay (vw / vh from the centre), --as (scale), --ar (degrees). Only translate, scale and rotate move. */
+    .sc-run{display:grid;isolation:isolate}
+    .sc-run>.actor-rail,.sc-run>.sc-run-in{grid-area:1/1;min-width:0}
+    .actor-rail{position:relative;align-self:start;height:100vh;height:100svh;z-index:8;pointer-events:none;overflow:clip}
+    html.cr-js:not([data-motion="reduced"]) .actor-rail{position:sticky;top:0}
+    .actor{position:absolute;left:50%;top:50%;height:60vh;height:60svh;aspect-ratio:var(--aa,.8);max-width:38vw;translate:calc(-50% + var(--ax,0) * 1vw) calc(-50% + var(--ay,0) * 1vh);scale:var(--as,1);rotate:calc(var(--ar,0) * 1deg);opacity:var(--ao,1);will-change:translate,scale,rotate}
+    .actor-img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 28px 34px rgba(0,0,0,.32))}
+    .actor.is-missing .actor-img{visibility:hidden}.actor .cr-missing{display:none}.actor.is-missing .cr-missing{display:grid}
+    .sc[data-layout="stage"] .sc-text{z-index:9}
+    /* a campaign: the name huge and centred over its subject, the scene flooded in the accent colour */
+    .sc[data-layout="campaign"] .sc-heading{font-size:min(clamp(3.2rem,11vw,12rem),calc(var(--fit) * 1.05 / var(--lw)));line-height:.86;letter-spacing:-.03em}
+    /* a typographic takeover: one statement set large, filling in word by word as it is read */
+    .sc[data-layout="takeover"] .sc-text[data-v] .sc-body{font-family:var(--display);font-weight:var(--dw);font-size:min(clamp(1.7rem,4.2vw,4.4rem),6.4vh);line-height:1.08;letter-spacing:-.015em;color:var(--s-ink,var(--ink));max-width:24ch}
+    .sc[data-layout="takeover"] .sc-text[data-v] .sc-body[data-blen="m"]{font-size:min(clamp(1.5rem,3.1vw,3.3rem),5vh);max-width:30ch}.sc[data-layout="takeover"] .sc-text[data-v] .sc-body[data-blen="l"]{font-size:min(clamp(1.3rem,2.2vw,2.4rem),3.8vh);max-width:40ch}
+    .sc[data-layout] .sc-text[data-treatment="word-fill"]:has(.sc-body) .sc-heading{font-family:var(--body)!important;font-size:clamp(.9rem,1.1vw,1.05rem)!important;font-weight:700!important;letter-spacing:.16em!important;text-transform:uppercase;line-height:1.3!important;color:var(--s-muted,var(--muted));max-width:none}
+    .wf{opacity:calc(.16 + .84 * clamp(0, var(--pe,1) * (var(--wn,10) + 2) - var(--i,0), 1))}
+    /* letters that spread apart and gather as the scene arrives (translate only; the scene clips them) */
+    .sc-heading .lw{display:inline-block;white-space:nowrap}
+    .sc-text[data-treatment="letter-spread"] .ch{display:inline-block;translate:calc((var(--ci,0) - (var(--cn,8) - 1) / 2) * max(0, 1 - var(--p,1) * 2.2) * .22em) 0}
+    /* an outlined headline */
+    .sc-text[data-treatment="outline"] .sc-heading{color:transparent;-webkit-text-stroke:max(1.5px,.018em) var(--s-ink,var(--ink))}
+    /* a kicker that runs up the edge beside the words */
+    @media (min-width:721px){.sc-text[data-treatment="vertical"]>.sc-kicker{position:absolute;right:calc(100% + clamp(12px,1.4vw,22px));top:0;writing-mode:vertical-rl;rotate:180deg;margin:0;white-space:nowrap;letter-spacing:.3em;border:0;padding:0}}
+    /* chapters: full-bleed pictures crossfading while the scroll holds, each settling with a slight, bounded push */
+    .sc[data-choreo="chapters"] .ly[data-step]{transition:opacity 1s var(--ease,ease),scale 1.8s var(--ease,ease)}
+    html.cr-js .sc[data-choreo="chapters"] .ly[data-step].is-on{scale:1.04}
+    .sc[data-choreo="chapters"] .sc-item{font-family:var(--display);font-weight:var(--dw);font-size:clamp(1.25rem,2.3vw,2.1rem);line-height:1.15;color:var(--s-ink,var(--ink))}
+    /* a card stream: framed pictures in depth, each coming forward and passing as the scroll holds (the last one stays) */
+    .sc[data-choreo="cardstream"] .ly[data-seq]{--t:clamp(-2, calc(var(--pe,0) * (var(--n,3) - 1) - var(--sq,0)), 1.2);translate:0 calc(var(--t) * -7vh);scale:calc(1 + var(--t) * .1);opacity:calc(var(--op) * (1 - max(0, var(--t) - .35) * 1.6))}
+    html.cr-js .sc[data-pin]:is([data-choreo="cardstream"],[data-choreo="expand"]){height:calc(100vh + var(--pinv,110) * 1.3vh)}
+    /* an expanding picture: laid out at full bleed and first seen through its own window, which opens to fill the scene --
+       the picture itself is never enlarged; the words sit on a panel of the scene's colour over it */
+    .sc[data-choreo="expand"] .ly[data-win] .ly-loop{clip-path:inset(calc((1 - var(--pe,1)) * var(--wy,10) * 1%) calc((1 - var(--pe,1)) * (100 - var(--wx,10) - var(--ww,80)) * 1%) calc((1 - var(--pe,1)) * (100 - var(--wy,10) - var(--wh,80)) * 1%) calc((1 - var(--pe,1)) * var(--wx,10) * 1%) round calc((1 - var(--pe,1)) * 22px))}
+    .sc[data-choreo="expand"] .sc-text{background:color-mix(in srgb,var(--s-surface,var(--bg)) 86%,transparent);padding:clamp(16px,2vw,30px);border-radius:14px}
+    /* object and text orbit: the lines placed either side of the subject */
+    @media (min-width:721px){
+      .sc[data-layout="orbit"] .sc-text[data-v]{grid-column:2 / 14;align-self:stretch;display:flex;flex-direction:column;min-height:calc(100vh - var(--nav) - 12vh)}
+      .sc[data-layout="orbit"] .sc-text[data-v] .sc-list{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 34% minmax(0,1fr);grid-auto-rows:1fr;column-gap:4%;align-items:center;max-width:none;margin-top:2vh}
+      .sc[data-layout="orbit"] .sc-item{max-width:30ch}
+      .sc[data-layout="orbit"] .sc-item:nth-child(odd){grid-column:1;justify-self:end;text-align:right}
+      .sc[data-layout="orbit"] .sc-item:nth-child(even){grid-column:3;justify-self:start}
     }
+    /* a lineup stands on its floor; a scrapbook's pictures are taped down */
+    .sc[data-layout="lineup"] .ly[data-kind="image"] .ly-art{filter:drop-shadow(0 18px 16px rgba(0,0,0,.26))}
+    .shape[data-form="tape"]{background:color-mix(in srgb,var(--f) 58%,transparent);border-radius:2px;filter:none!important;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+    /* how a scene's own content leaves as it scrolls away (only a scene the scroll already drives, never a held one) */
+    .sc[data-exit]:not([data-pin]) :is(.sc-stage,.sc-text){--xe:clamp(0, (var(--p,0) - .7) * 3.4, 1)}
+    .sc[data-exit="fade"]:not([data-pin]) :is(.sc-stage,.sc-text){opacity:calc(1 - var(--xe) * .85)}
+    .sc[data-exit="lift"]:not([data-pin]) :is(.sc-stage,.sc-text){translate:0 calc(var(--xe) * -12vh)}
+    .sc[data-exit="shrink"]:not([data-pin]) .sc-stage{scale:calc(1 - var(--xe) * .14)}
+    .sc[data-exit="shrink"]:not([data-pin]) .sc-text{opacity:calc(1 - var(--xe) * .7)}
+    /* phones: the actor stands in the top of the screen, its scene's words below it; every movement is smaller */
+    @media (max-width:720px){
+      .actor{top:calc(var(--nav) + 1svh);height:36svh;max-width:72vw;translate:calc(-50% + var(--ax,0) * .35vw) calc(var(--ay,0) * .3vh);rotate:clamp(-8deg, calc(var(--ar,0) * 1deg), 8deg)}
+      .sc[data-layout="stage"] .sc-stage{height:38svh}
+      .sc[data-layout="takeover"] .sc-text[data-v] .sc-body{font-size:clamp(1.5rem,7.4vw,2.4rem);max-width:none;margin-inline:0}.sc[data-layout="takeover"] .sc-text[data-v] .sc-body[data-blen="m"]{font-size:clamp(1.3rem,6vw,2rem);max-width:none}.sc[data-layout="takeover"] .sc-text[data-v] .sc-body[data-blen="l"]{font-size:clamp(1.1rem,4.8vw,1.6rem);max-width:none}
+      .sc[data-choreo="cardstream"] .ly[data-seq]{translate:0 calc(var(--t) * -3vh);scale:calc(1 + var(--t) * .06)}
+      html.cr-js .sc[data-pin]:is([data-choreo="cardstream"],[data-choreo="expand"]){height:calc(100svh + var(--pinv,110) * .8svh)}
+      .sc[data-choreo="expand"] .sc-text{background:none;padding:0}
+      .sc[data-exit="lift"]:not([data-pin]) :is(.sc-stage,.sc-text){translate:0 calc(var(--xe) * -5vh)}
+      .sc[data-exit="shrink"]:not([data-pin]) .sc-stage{scale:calc(1 - var(--xe) * .08)}
+      .sc-text[data-treatment="letter-spread"] .ch{translate:calc((var(--ci,0) - (var(--cn,8) - 1) / 2) * max(0, 1 - var(--p,1) * 2.2) * .1em) 0}
+    }
+
     /* reduced motion (and no scripting): the finished composition of every choreography */
     html[data-motion="reduced"] .ly{translate:none!important;scale:none!important;rotate:none!important}
     html[data-motion="reduced"] .ly-scroll{translate:none!important}
@@ -3842,6 +4305,16 @@
     :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .sc-stage[data-track]{position:relative;inset:auto;grid-column:1 / -1;grid-row:2;width:auto;max-width:100%;overflow-x:auto;transform:none!important;padding:0 5vw;height:min(60vh,64vw);scroll-snap-type:x mandatory}
     :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .ly[data-track]{scroll-snap-align:start}
     :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="track"] .sc-pin::after{display:none}
+    /* (the second vocabulary at rest: every word filled, letters gathered, cards dealt as a deck, the first chapter shown with
+       all its titles, nothing leaving; a held scene is only as tall as its composition, its lines listed one under another) */
+    html[data-motion="reduced"] .sc-text .ch{translate:none!important}
+    html[data-motion="reduced"] .wf{opacity:1!important}
+    html[data-motion="reduced"] .sc[data-exit] :is(.sc-stage,.sc-text){opacity:1!important;translate:none!important;scale:none!important}
+    html[data-motion="reduced"] .sc[data-choreo="cardstream"] .ly[data-seq]{opacity:var(--op)!important}
+    :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="chapters"] .ly[data-step]:not([data-step="0"]){opacity:0!important}
+    :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="chapters"] .ly[data-step]{translate:none!important;rotate:none!important;scale:none!important}
+    html[data-motion="reduced"] .sc[data-pin][data-pin]{height:auto!important}
+    html[data-motion="reduced"] .sc[data-steps] .sc-item{grid-area:auto!important}
     `;
 
     const ART_RUNTIME = `
@@ -3852,38 +4325,50 @@
     var EZ={ss:function(t){return t*t*(3-2*t)},io:function(t){return t<.5?16*t*t*t*t*t:1-Math.pow(-2*t+2,5)/2},ob:function(t){var a=1.70158,b=a+1;return 1+b*Math.pow(t-1,3)+a*Math.pow(t-1,2)}};
     var ease=({kinetic:EZ.io,mechanical:EZ.io,playful:EZ.ob,chaotic:EZ.ob})[cfg.personality]||EZ.ss;
     /* each choreography plays over its own part of the scene's progress */
-    var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4]};
+    var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4],cardstream:[.04,.96],expand:[.05,.72]};
     var all=[].slice.call(d.querySelectorAll('.sc')),scenes=all.filter(function(s){return s.hasAttribute('data-p')});
-    scenes.forEach(function(s){s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
-    function prog(s,vh){var r=s.getBoundingClientRect();if(s.hasAttribute('data-pin')){var span=r.height-vh;return span>0?cl(-r.top/span):0}return cl((vh-r.top)/(vh+r.height))}
+    scenes.forEach(function(s){s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
+    function prog(s,vh,y){var top=s._top-y;if(s.hasAttribute('data-pin')){var span=s._h-vh;return span>0?cl(-top/span):0}return cl((vh-top)/(vh+s._h))}
+    /* the actor's run: between two scenes the actor eases from one pose to the next; while a scene holds, so does the actor;
+       at the end of the run it leaves (offstage or shrinking) or stays to rejoin the next scene. Five numbers are written, and
+       only when they change. */
+    var runs=[].slice.call(d.querySelectorAll('.sc-run')).map(function(r){var a=r.querySelector('.actor');return{a:a,P:((a&&a.getAttribute('data-poses'))||'0,0,1,0').split(';').map(function(t){return t.split(',').map(Number)}),sc:[].slice.call(r.querySelectorAll('.sc-run-in > .sc')),exit:r.getAttribute('data-exit'),k:''}}).filter(function(R){return R.a&&R.sc.length});
+    function pose(R,y,vh,red){var P=R.P,sc=R.sc,n=sc.length,f=0,k;
+      if(!red)for(k=0;k<n;k++){var s=sc[k],hold=s._top+Math.max(0,s._h-vh),nx=sc[k+1];if(y<=hold||!nx){f=k;break}if(y<nx._top){f=k+EZ.ss(cl((y-hold)/Math.max(1,nx._top-hold)));break}}
+      var i=Math.min(P.length-1,Math.floor(f)),t=f-Math.floor(f),A=P[i],B=P[Math.min(P.length-1,i+1)],L=function(j){return A[j]+(B[j]-A[j])*t};
+      var x=L(0),yy=L(1),sz=L(2),r=L(3),o=1;
+      if(!red&&R.exit!=='rejoin'){var last=sc[n-1],end=last._top+last._h-vh,e=cl((y-(end-vh*.6))/(vh*.6));if(e>0){if(R.exit==='shrink'){sz*=1-e*.55;o=1-e}else{x+=e*(x<0?-75:75);o=1-e*.3}}}
+      var key=x.toFixed(2)+'|'+yy.toFixed(2)+'|'+sz.toFixed(3)+'|'+r.toFixed(2)+'|'+o.toFixed(2);if(key===R.k)return;R.k=key;
+      var st=R.a.style;st.setProperty('--ax',x.toFixed(2));st.setProperty('--ay',yy.toFixed(2));st.setProperty('--as',sz.toFixed(3));st.setProperty('--ar',r.toFixed(2));st.setProperty('--ao',o.toFixed(2))}
     /* steps: the words (and pictures) of a held scene, one state at a time */
     function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
       s._items.forEach(function(el,k){el.classList.toggle('is-on',k===ii)});
       s._ly.forEach(function(el){var k=+el.getAttribute('data-step');el.classList.toggle('is-on',k===li);el.classList.toggle('is-past',k<li)});
       if(s._count)s._count.textContent=(i<9?'0':'')+(i+1)}
-    function frameArt(vh,vw,red){
-      scenes.forEach(function(s){var r=s.getBoundingClientRect();if(r.bottom<-vh||r.top>vh*2)return;
+    function frameArt(vh,vw,red){var y=W.scrollY||W.pageYOffset;
+      runs.forEach(function(R){var a=R.sc[0],z=R.sc[R.sc.length-1];if(a._top==null||y>z._top+z._h||y+vh<a._top)return;pose(R,y,vh,red)});
+      scenes.forEach(function(s){if(s._top==null)return;var top=s._top-y;if(top+s._h<-vh||top>vh*2)return;
         if(red){s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
-        var p=prog(s,vh),w=WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
+        var p=prog(s,vh,y),w=s._ch==='word-fill'||(s._wf&&s._ch==='settle')?(s.hasAttribute('data-pin')?[.04,.9]:[.18,.62]):WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
         s.style.setProperty('--p',p.toFixed(4));s.style.setProperty('--pe',pe.toFixed(4));
-        if(s.hasAttribute('data-bleed'))s.style.setProperty('--mix',cl((vh-r.top)/(vh*.85)).toFixed(3));
+        if(s.hasAttribute('data-bleed'))s.style.setProperty('--mix',cl((vh-top)/(vh*.85)).toFixed(3));
         if(s._steps&&s.hasAttribute('data-pin'))setStep(s,Math.min(s._steps-1,Math.floor(p*s._steps*.9999)));
         if(s._track&&s.hasAttribute('data-pin'))s._track.style.transform='translate3d('+(-p*(s._travel||0)).toFixed(1)+'px,0,0)';
-        if(s.hasAttribute('data-hold')&&s._next){var nt=s._next.getBoundingClientRect().top;s.style.setProperty('--cover',cl(1-nt/vh).toFixed(3))}
+        if(s.hasAttribute('data-hold')&&s._next&&s._next._top!=null){var nt=s._next._top-y;s.style.setProperty('--cover',cl(1-nt/vh).toFixed(3))}
       });
-      navFrame(vh)}
+      navFrame(vh,y)}
     /* navigation: a minimal bar steps aside while reading down and returns on the way up; an index marks where you are */
-    var nav=d.querySelector('.cr-nav'),navMode=html.getAttribute('data-nav'),lastY=0,links=[].slice.call(d.querySelectorAll('.cr-links a[href^="#"]'));
-    function navFrame(vh){var y=W.scrollY||W.pageYOffset;
-      if(navMode==='minimal'&&nav){var open=d.querySelector('details.cr-menu[open]');if(y>lastY+4&&y>vh*.5&&!open)nav.classList.add('is-away');else if(y<lastY-4||y<vh*.5)nav.classList.remove('is-away')}
+    var nav=d.querySelector('.cr-nav'),menuEl=d.querySelector('details.cr-menu'),navMode=html.getAttribute('data-nav'),lastY=0,links=[].slice.call(d.querySelectorAll('.cr-links a[href^="#"]'));
+    function navFrame(vh,y){
+      if(navMode==='minimal'&&nav){var open=menuEl&&menuEl.open;if(y>lastY+4&&y>vh*.5&&!open)nav.classList.add('is-away');else if(y<lastY-4||y<vh*.5)nav.classList.remove('is-away')}
       lastY=y;
-      if(navMode==='index'){var cur=null;links.forEach(function(a){var t=d.getElementById(a.getAttribute('href').slice(1));if(t){var r=t.getBoundingClientRect();if(r.top<vh*.5&&r.bottom>vh*.5)cur=a}});links.forEach(function(a){a.classList.toggle('is-active',a===cur)})}}
+      if(navMode==='index'){var cur=null;links.forEach(function(a){var t=a._t;if(t&&t._top!=null){var top=t._top-y;if(top<vh*.5&&top+t._h>vh*.5)cur=a}});links.forEach(function(a){a.classList.toggle('is-active',a===cur)})}}
     /* framing guard: the plan framed each picture for a planned shape; the real viewport may differ -- a crop never
        passes the picture's budget (it is then shown whole), and the crop window always holds the measured subject */
     function win(v,f,s0,s1,top){if(v>=1)return 0;var st=Math.max(0,Math.min(1-v,f-v/2));if(s0!=null){if(s1-s0<=v)st=Math.max(s1-v,Math.min(s0,st));else st=top?s0:Math.max(0,Math.min(1-v,(s0+s1)/2-v/2))}return Math.max(0,Math.min(1-v,st))}
     function guard(img){if(!img.naturalWidth||!img.hasAttribute('data-crop'))return;var w=img.offsetWidth,h=img.offsetHeight;if(!w||!h)return;
       var fit=(W.innerWidth<=720&&img.getAttribute('data-mfit'))||img.getAttribute('data-fit')||'cover';
-      if(fit!=='cover'){img.style.objectFit='';img.style.objectPosition='';img.classList.remove('is-whole');return}
+      if(fit!=='cover'){img.style.objectFit=fit;img.style.objectPosition='';img.classList.remove('is-whole');return}
       var ai=img.naturalWidth/img.naturalHeight,ab=w/h,cx=ai>ab,crop=cx?1-ab/ai:1-ai/ab,max=+img.getAttribute('data-crop');
       if(crop>max+.08){img.style.objectFit='contain';img.style.objectPosition='50% 50%';img.classList.add('is-whole');return}
       img.classList.remove('is-whole');img.style.objectFit='cover';if(crop<.002){img.style.objectPosition='50% 50%';return}
@@ -3897,7 +4382,10 @@
       });
       all.forEach(function(s){if(s.hasAttribute('data-hold'))s.style.setProperty('--hold',Math.min(0,vh-s.offsetHeight)+'px')});
       [].forEach.call(d.querySelectorAll('img[data-crop]'),guard)}
-    W.__crArtFrame=frameArt;W.__crArtLayout=layoutArt;
+    /* (the index's targets that are not scenes -- the sources -- are measured with the scenes) */
+    links.forEach(function(a){a._t=d.getElementById(a.getAttribute('href').slice(1))});
+    function measureArt(){links.forEach(function(a){var t=a._t;if(t&&!(t.classList&&t.classList.contains('sc'))){t._top=t.getBoundingClientRect().top+(W.scrollY||W.pageYOffset);t._h=t.offsetHeight}})}
+    W.__crArtFrame=frameArt;W.__crArtLayout=layoutArt;W.__crArtMeasure=measureArt;
     [].forEach.call(d.querySelectorAll('img[data-crop]'),function(img){img.addEventListener('load',function(){guard(img)})});
     layoutArt();if(W.__crFrame)W.__crFrame();
     })();`;

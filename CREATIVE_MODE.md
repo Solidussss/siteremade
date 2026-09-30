@@ -244,6 +244,66 @@ generations (the `seed` was stored, never used). The art-direction layer fixes t
   Website" offers the page's current art direction to the director as its starting point; a revision that keeps the
   page as it is is never re-art-directed.
 
+## Scroll storytelling (families, intensity modes, the persistent actor)
+
+What still read as a template after art direction (measured against the scroll references in
+`references/creative-scroll/`, including an older SiteRemade page): every scene was composed on its own, so the subject
+was pasted again into each one; there was no arc across the page (scenes were picked one at a time); every page moved
+with the same energy; typography had few moves; and the runtime read the layout of every scene on every scroll frame.
+The second layer works at the level of the whole scroll, still only through fixed vocabularies and bounded numbers
+(the model never writes CSS, HTML or script):
+
+* **Families** (`art.js` `FAMILY`): a designed arc of beats per page -- object story, cinematic chapters, editorial
+  sticky, layered parallax, typography-led, horizontal gallery, mask transition, poster to scene, gallery progression,
+  colour progression. Each says which subjects, personalities, pictures and modes it suits; its beats are small pools of
+  archetypes. The chooser weighs subject fit against what this account made recently (a family used recently costs more
+  than its share of the fingerprint, so consecutive pages change arc). Fingerprint: `family.mode.personality/scroll/layouts`.
+* **Intensity modes** (`MODE_LIMITS`): quiet (nothing holds the scroll, at most 2 scenes driven by it, no actor, no tilt),
+  editorial (1 held scene, 3 driven, no actor), expressive (2 held, 5 driven, an actor run of up to 3 scenes), immersive
+  (3 held, 7 driven, runs of up to 5). Calm registers (tender, reverent, serious, restrained) and personal pages are never
+  immersive. The validator enforces the mode whatever a model returns (plans saved before modes keep their own limits).
+* **The persistent actor** (object stories): ONE clean cut-out of the subject (the owner's own on a personal page, never a
+  tight crop, never a photo with a background) lives on a sticky rail across a run of `stage` scenes and eases from pose
+  to pose between them (`{x, y}` offset in vw / vh within 30 / 20, scale 0.5-1.4 and never past what its pixels hold,
+  rotation within 18 degrees, scaled by the mode; calm personalities never tilt it). It holds while a scene holds, and at
+  the end of the run leaves offstage, shrinks away, or scrolls on to rejoin a lineup. The run's scenes carry only words
+  (placed on the side the actor leaves free) and a halo or the subject's name set huge behind it; they meet with cuts or
+  colour bleeds, and nothing held straddles the run. On phones the actor stands in the top of the screen, the words
+  below, with a third of the movement and at most 8 degrees of turn. Reduced motion or no script: the actor rests in its
+  first pose at the top of the run.
+* **Second vocabulary of archetypes** (32 in all): stage (actor scene), campaign (the name over the subject on an accent
+  flood), splitscreen, fullscreen-object, orbit (lines either side of the subject), index, scrapbook (taped pictures),
+  takeover (one statement set huge), chapters (full-bleed pictures crossfading while the scroll holds), lineup,
+  cardstream (framed cards passing toward the viewer), edge-crop (an intentional close crop, only of a picture whose
+  subject was located with room around it).
+* **New choreographies**: actor, word-fill (a statement fills in word by word), chapters, cardstream, expand (a picture
+  laid out at full bleed seen first through its own window, which opens -- the picture is never enlarged; a picture
+  that cannot fill the scene within its bleed budget is revealed in its frame instead). **Text treatments**: word-fill,
+  letter-spread (short giant headings on kinetic pages, by translate only), vertical kicker, outline. **Scene exits**
+  (only for scenes the scroll already drives, never held ones): fade, lift, shrink. **Background progressions**:
+  dark-to-light, warm-to-cool, muted-to-saturated, accent-takeover, gradient (a campaign or split screen always floods
+  in the accent colour). **Scene types** (carry, cinematic, typography, sticky-editorial, gallery, takeover, transition,
+  pinned, section) name what a scene is.
+* **Budgets**: one actor per page; at most three layers moving with the scroll in a scene; at most two expensive
+  effects at once in a scene (a clip-driven reveal, a panel, a duotone or blur) -- a third is simplified.
+
+### Performance
+
+Only `transform`-family properties (`translate`, `scale`, `rotate`), `opacity` and `clip-path` change while scrolling.
+Geometry is measured when the layout changes (load, resize, a picture arriving, a font settling -- a ResizeObserver
+on the page) and cached; each animation frame works from the scroll position alone. Measured by
+`perf-probe` (Electron, software rendering, 240 scroll steps, 1440x900), eight pages made before this change against
+eleven made after it:
+
+| | layout reads per scroll frame | median frame | 95th percentile |
+|---|---|---|---|
+| before | 13 - 25 (`getBoundingClientRect` per scene, nav target and hold, every frame) | 6 - 24 ms | 6 - 36 ms |
+| after | 0 | 6 ms (one page 12 ms) | 6 - 24 ms |
+
+The far ambient haze no longer blurs a 72vmax animated layer (the gradient was already soft). No WebGL, canvas or
+third-party script is used; the whole runtime remains a few kilobytes of fixed code. Effects that would need heavier
+technology (particle fields, real 3D morphs, video-like flights) are not attempted.
+
 ## Built-in pipeline (stage 1; now the labelled fallback)
 
 1. **Understand** (`understand.js`): `recognizable` (a real thing with public facts), `personal` (“my goldfish
@@ -355,6 +415,11 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   (`test/fixtures/creative-briefs-art.js`, no model calls), exported and captured at desktop, tablet and six phone
   widths (320-430) with crop, overflow, off-screen-text and held-scene measurements, and contact sheets to judge
   diversity by eye.
+* Scroll storytelling: `node --test test/creative-scroll.test.js` -- families and modes and their limits, the persistent
+  actor (one picture, bounded poses, runs joined by cuts, a clean cut-out only), the schema dropping anything outside the
+  vocabulary, clamped transforms, effect budgets, phone and reduced-motion compositions, no enlargement (actor, chapters,
+  cards, expanding pictures), the edge crop only for a located subject, save / reopen / export round trips with the
+  actor shipped and credited, and a runtime that reads no layout while scrolling.
 
 ## Stages
 
