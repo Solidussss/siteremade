@@ -2618,10 +2618,12 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   const input = { identity, visuals: understanding.visuals, brief: refine ? `${brief}\nThe owner asks to look for: ${refine}` : brief };
   const out = { images: [], review: [], coverage: 'none', missing: [], log: null, usd: 0, error: '', searches: 0, diag: { queries: [], stop: '', results: 0, pagesChosen: 0, pageErrors: [], imageErrors: [], candidates: [] } };
   const serpKey = creativeSerpKey();
+  // what the page's motion will probably need from its pictures (timeline.motionIntent): searched for, and asked of the check
+  const intent = require('./lib/creative/timeline').motionIntent(understanding);
   const webCurate = async (candidates, max) => {
     if (!(CREATIVE_AI_LIMITS.curate && creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap)) throw new Error(creativeAiUnavailableReason() || 'the picture check is off or the daily budget is used up');
     try {
-      const c = await creativeAi.curate({ identity, visuals: understanding.visuals, max, candidates }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
+      const c = await creativeAi.curate({ identity, visuals: understanding.visuals, wants: intent.why, max, candidates }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
       out.usd += c.usd;
       creativeLedger({ kind: 'creative_curate', accountId, ok: true, source: 'web', model: c.model, inputTokens: c.usage.input_tokens || 0, outputTokens: c.usage.output_tokens || 0, ms: c.ms, usd: c.usd, estimated: true, candidates: c.of, judged: c.judged, selected: c.selection.length });
       return c;
@@ -2631,7 +2633,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   const found = serpKey ? await creativeWeb.discoverImages(input, { curate: ({ candidates, max }) => webCurate(candidates, max), imageSearch: async () => {
     const spend = creativeSpendToday();
     search = await creativeDiscovery.runSearches(understanding, {
-      budget: CREATIVE_SERPAPI.searches, refine, brief,
+      budget: CREATIVE_SERPAPI.searches, refine, brief, needs: intent,
       cacheGet: key => (CREATIVE_SERPAPI.cacheDays ? creativeSerpCacheGet(key) : null),
       cachePut: (key, results, quality) => { if (CREATIVE_SERPAPI.cacheDays) creativeSerpCachePut(key, results, quality); }, // an empty answer is never kept
       dailyLeft: () => CREATIVE_SERPAPI.daily - spend.imageSearches,
@@ -2645,7 +2647,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
     });
     search.queries.filter(q => q.cached).forEach(q => creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: true, cached: true, searches: 0, results: q.results, query: q.q.slice(0, 120), usd: 0 }));
     out.searches = search.searches;
-    Object.assign(out.diag, { provider: 'serpapi', queries: search.queries.map(q => q.q), searchLog: search.queries.map(q => ({ family: q.family, fallback: !!q.fallback, cached: q.cached, ok: q.ok, results: q.results || 0, newResults: q.newResults || 0, good: q.quality ? q.quality.good : 0, weak: !!q.weak, why: q.why || q.error || '' })), stop: search.stop, cached: search.cachedQueries > 0, results: search.results.length, products: search.results.filter(x => x.isProduct).length, searchError: search.error });
+    Object.assign(out.diag, { provider: 'serpapi', queries: search.queries.map(q => q.q), needs: search.needs || {}, searchLog: search.queries.map(q => ({ family: q.family, need: q.need || undefined, fallback: !!q.fallback, cached: q.cached, ok: q.ok, results: q.results || 0, newResults: q.newResults || 0, good: q.quality ? q.quality.good : 0, weak: !!q.weak, why: q.why || q.error || '' })), stop: search.stop, cached: search.cachedQueries > 0, results: search.results.length, products: search.results.filter(x => x.isProduct).length, searchError: search.error });
     return { results: search.results, searches: search.searches, error: search.error };
   } }) : await creativeWeb.discover(input, { searchPages: async inp => {
     try {

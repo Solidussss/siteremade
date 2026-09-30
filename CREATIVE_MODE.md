@@ -298,6 +298,64 @@ The second layer works at the level of the whole scroll, still only through fixe
 * **Budgets**: one actor per page; at most three layers moving with the scroll in a scene; at most two expensive
   effects at once in a scene (a clip-driven reveal, a panel, a duotone or blur) -- a third is simplified.
 
+## The page as one timeline (`lib/creative/timeline.js`)
+
+Scenes with their own choreography still read as section -> section. The timeline makes the page one directed
+experience: what lives ACROSS scenes, what happens INSIDE them, how one BECOMES the next, and the page's rhythm. Every
+part is structured data from fixed vocabularies with bounded numbers; the model or the built-in director chooses, the
+validator bounds, the renderer implements (`plan.timeline`).
+
+* **One scroll axis.** `g` = scene index + progress through that scene (0 when its top reaches the top of the screen, 1
+  when its bottom does), computed from cached geometry.
+* **Actors** (at most four, by mode: quiet none, editorial one, expressive two, immersive three): `primary` (the
+  persistent actor's picture), `secondary` (a second cut-out that joins the end of the run, immersive only),
+  `typography` (the subject's name as an object: breaking apart and receding, sitting behind the subject, or becoming
+  the mask onto the next picture), `background` (a colour field drifting behind). Each is ONE element with keyframes
+  `{ g, x, y, s, r, o, sp }` -- so a scene's end state IS the next scene's start state (`sceneStates` proves it); the
+  validator forbids a fade-out-and-back inside a run (a respawn) and a jump between two close keys. The actor holds its
+  pose through the middle of a scene and travels between scenes over six tenths of one, eased smoothly.
+* **Beats** (at most three per scene): translate, scale, rotate, opacity, clip, crossfade, text-swap (`text.alt`: a
+  short second line, no numbers), word-fill, letter-spread, depth-shift, perspective, background (the scene floods its
+  new colour), takeover (a circle of the new colour grows across it); on the heading, body, focal picture, stage or
+  scene; each on its own window of the scene's progress, `in` (into the scene's rest) or `out`. A beat never drives a
+  property the scene's choreography already drives (`CHOREO_OWNS`).
+* **Transitions** (per seam): cut, color-bleed, actor-carry, image-expand (the next picture grows from a window into its
+  scene -- a clip, never a zoom), card-expand, foreground-wipe (a panel passes across and hides the change),
+  type-mask (the name becomes the window onto the next scene's own picture, shown at cover size, then opens),
+  shape-takeover (a circle of the next scene's colour takes the screen), depth-handoff (the scene moves toward the
+  camera as the next appears behind). Each is checked against the two scenes (a picture to expand, a card to open, a
+  word to mask with) and against the mode's budget of signature transitions (editorial one, expressive three,
+  immersive four, quiet none); otherwise it becomes a colour bleed.
+* **Rhythm and moments.** setup -> event -> rest -> escalation -> payoff, never two events side by side; two or three
+  memorable moments on an expressive or immersive page (one on an editorial page, none on a quiet one), each what its
+  scene can carry (an actor turning, a word takeover, a chapter flight, a lineup rush, a colour flood...). The big
+  moves (perspective, takeover, letter-spread, flood, clip, depth-shift) happen only at events; a resting scene gets at
+  most a gentle beat. At most three things move at once in a scene (its choreography, the actors on stage, its beats --
+  the beats give way first); phones show at most the primary and typography actors.
+* **One surface.** The scenes an actor crosses are transparent over a fixed backdrop whose two colour sheets crossfade
+  from each scene's colour to the next as the seam approaches (opacity only); the typography and background actors
+  live behind the scenes' content, the picture actors and the transitions' own elements in front.
+* **Asset needs follow the motion.** Before any picture is found, `motionIntent` says what the kind of subject will
+  probably need (a clean cut-out to carry across scenes, a wide picture to fill the screen); discovery searches for a
+  need the results do not meet (one extra search, bounded) and tells the picture check. After direction the timeline
+  records `needs` -- what its choreography needed and whether this page's pictures met it -- and a transition whose
+  picture is missing falls back.
+* **Behavioural anti-repetition.** A page's fingerprint is `layout#behavior`: the actors' lifecycle, the signature
+  transitions, the rhythm, the moments, the typography's behaviour, the progression and the scroll model. Similarity
+  weighs both halves, so two pages with different layouts but the same choreography count as alike.
+* **Renderer tiers** (`lib/creative/renderers.js`): `dom` (this renderer, the default and the only one implemented) and
+  `spatial` (WebGL / Three.js / 3D models / particles / shaders / a real camera -- an interface only: a plan may ask for
+  it, the page says `data-renderer="dom"` and is rendered by dom). A spatial renderer must render from the same
+  timeline, bundle its dependencies with the export, embed the dom page as its fallback (phones, reduced motion, no
+  WebGL, no script) and keep the dom tier's rules.
+* **Phones** recompose: every beat moves half as far (`--mk`), the picture actor stands in the top of the screen above
+  its scene's words, rotation is clamped to 8 degrees, secondary and background actors are not shown, the wipe loses its
+  skew, held scenes are shorter. **Reduced motion and no scripting**: the cast does not play; the actor rests, as a real
+  picture with its alternative text, in the scene it opens; every beat and seam shows its finished state (the CSS
+  fallbacks of the progress variables are the rest composition).
+* **Saved pages** keep exactly their timeline (the accept pass returns the canonical form); pages saved before the
+  timeline (or before modes) render as they did -- no timeline is invented on reopening.
+
 ### Performance
 
 Only `transform`-family properties (`translate`, `scale`, `rotate`), `opacity` and `clip-path` change while scrolling.
@@ -422,6 +480,10 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   (`test/fixtures/creative-briefs-art.js`, no model calls), exported and captured at desktop, tablet and six phone
   widths (320-430) with crop, overflow, off-screen-text and held-scene measurements, and contact sheets to judge
   diversity by eye.
+* The timeline: `node --test test/creative-timeline.test.js` -- actor state continuity at every seam, no respawns or
+  jumps, transitions validated, every number bounded, at most three moving things a scene, hero moments and rhythm,
+  typography as an actor, image expand, type mask, colour bleed and takeovers, phone recomposition, reduced motion,
+  behavioural anti-repetition, save / reopen / export byte for byte, old pages untouched, renderer tiers, asset needs.
 * Picture discovery: `node --test test/creative-discovery.test.js` -- several distinct search families by default, a
   weak first search followed by others, shopping results never counting as the subject, fan-made-only reported as found
   but not official, unclear rights reported apart from discovery and reaching the owner's review, free pictures still

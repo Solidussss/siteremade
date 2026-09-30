@@ -101,11 +101,12 @@ test('3. a persistent actor: ONE picture of the subject lives across its run -- 
     assert.ok(!P.scenes[i].layers.some(L => L.kind === 'image' && (L.asset === act.asset || L.asset === a.cutoutOf)), `scene ${i} does not paste the subject again`);
   }
   const h = html(P);
-  assert.equal((h.match(/class="actor"/g) || []).length, 1, 'one actor on the page');
-  assert.equal((h.match(/class="sc-run"/g) || []).length, 1);
-  const run = h.slice(h.indexOf('<div class="sc-run-in">'), h.indexOf('<section', h.indexOf(`data-scene="${act.to}"`) + 1) >= 0 ? h.indexOf('</div></div>', h.indexOf(`data-scene="${act.to}"`)) : undefined);
-  assert.equal((run.match(/data-scene="\d+"/g) || []).length, act.to - act.from + 1, 'the run wraps exactly its scenes');
-  assert.match(h, new RegExp(`class="actor-img" data-asset="${act.asset}"`));
+  // one element on the cast layer carries it through the run (plus its resting copy for reduced motion / no scripting)
+  assert.equal((h.match(/class="ca" data-role="primary"/g) || []).length, 1, 'one actor on the page');
+  assert.equal((h.match(/class="ca-img" data-asset="/g) || []).filter(Boolean).length, (P.timeline.actors.filter(x => x.kind === 'image').length), 'one picture element per picture actor');
+  assert.equal((h.match(/class="actor-static"/g) || []).length, 1, 'and one resting copy, in the scene it opens');
+  for (let i = act.from; i <= act.to; i++) assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-cast`), `scene ${i} is part of the actor's run`);
+  assert.match(h, new RegExp(`class="ca-img" data-asset="${act.asset}"`));
   // its picture is credited like any other
   assert.ok(P.credits.some(c => c.asset === a.cutoutOf) && P.derived.some(d => d.asset === act.asset));
   // quiet and editorial pages carry no actor
@@ -121,17 +122,17 @@ test('4. the actor carries between scenes: bounded poses, eased by the runtime, 
   for (let i = act.from + 1; i <= act.to; i++) assert.ok(['cut', 'bleed'].includes(P.scenes[i].handoff), `scene ${i} meets the run with ${P.scenes[i].handoff}`);
   if (P.scenes[act.to + 1]) assert.notEqual(P.scenes[act.to + 1].handoff, 'stack', 'nothing holds across the end of the run');
   const h = html(P);
-  const poses = /data-poses="([^"]*)"/.exec(h)[1]; assert.match(poses, /^[-\d.,;]+$/, 'numbers only');
-  assert.equal(poses.split(';').length, act.poses.length);
-  // the renderer moves it with translate, scale and rotate only, from four numbers
-  const actorCss = /\.actor\{[^}]*\}/.exec(h)[0];
+  const keys = /class="ca" data-role="primary"[^>]*data-keys="([^"]*)"/.exec(h)[1]; assert.match(keys, /^[-\d.,;]+$/, 'numbers only');
+  const prim = P.timeline.actors.find(x => x.role === 'primary'); assert.equal(keys.split(';').length, prim.keys.length);
+  // the renderer moves it with translate, scale, rotate and opacity only, from its numbers
+  const actorCss = /\n\.ca\{[^}]*\}/.exec(h)[0];
   assert.match(actorCss, /translate:calc\(-50% \+ var\(--ax,0\) \* 1vw\)/); assert.match(actorCss, /scale:var\(--as,1\)/); assert.match(actorCss, /rotate:calc\(var\(--ar,0\) \* 1deg\)/);
   assert.doesNotMatch(actorCss, /left:calc|width:calc\(var/, 'no layout properties are animated');
-  assert.match(h, /function pose\(R,y,vh,red\)/);
+  assert.match(h, /function sample\(A,g\)/);
   // a model's run inside which scenes slide or stack is joined by cuts instead, and the scene after it cannot stack
   const raw = rawPlan([rawScene('a', { layout: 'stage' }), rawScene('b', { layout: 'stage', handoff: 'overlap' }), rawScene('c', { handoff: 'stack', layout: 'framed' })], { art: { personality: 'playful', scroll: 'sequence', family: 'object-story', mode: 'expressive' }, actor: { asset: 'c-plain', from: 0, to: 1, poses: [{ x: -10, y: 0, s: 1, r: 4 }, { x: 12, y: 2, s: 1.1, r: -4 }], exit: 'shrink' } });
   const v = validatePlan2(raw, ctxOf(u('Doughnut', 'x', 'playful')));
-  assert.deepEqual(v.plan.scenes.map(s => s.handoff), ['cut', 'cut', 'overlap']);
+  assert.deepEqual(v.plan.scenes.slice(0, 2).map(s => s.handoff), ['cut', 'cut']); assert.notEqual(v.plan.scenes[2].handoff, 'stack', 'nothing holds across the end of the run');
 });
 
 // ---------------------------------------------------------------- 5, 6, 7 (the schema is the only door)
@@ -193,11 +194,12 @@ test('7. bounded counts: one actor, runs no longer than the mode allows, at most
 test('8. phones: the actor and every new choreography stay inside the screen and move less', () => {
   const P = story('m1').plan; const h = html(P);
   const phone = h.slice(h.indexOf('/* phones: the actor stands in the top of the screen'));
-  const actor = /\.actor\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:72vw;translate:calc\(-50% \+ var\(--ax,0\) \* \.35vw\) calc\(var\(--ay,0\) \* \.3vh\);rotate:clamp\(-8deg, calc\(var\(--ar,0\) \* 1deg\), 8deg\)\}/;
+  const actor = /\.ca\[data-img\],\.actor-static\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:72vw;translate:calc\(-50% \+ var\(--ax,0\) \* \.35vw\) calc\(var\(--ay,0\) \* \.3vh\);rotate:clamp\(-8deg, calc\(var\(--ar,0\) \* 1deg\), 8deg\)\}/;
   assert.match(phone, actor, 'smaller moves, at most 8 degrees of turn');
+  assert.match(phone, /\.ca\[data-role="secondary"\],\.ca\[data-role="background"\]\{display:none\}/, 'fewer actors at once on a phone');
   // every pose the validator allows keeps the actor's centre on a phone screen, and the rail clips anything larger
   const maxX = 30 * 0.35; assert.ok(50 + maxX < 100 && 50 - maxX > 0);
-  assert.match(h, /\.actor-rail\{position:relative;align-self:start;height:100vh;height:100svh;z-index:8;pointer-events:none;overflow:clip\}/);
+  assert.match(h, /\.cr-cast\{position:fixed;inset:0;pointer-events:none;overflow:clip;display:none\}/, 'the cast layer clips anything larger than the screen');
   assert.match(phone, /\.sc\[data-layout="stage"\] \.sc-stage\{height:38svh\}/, 'the actor scene keeps room for the actor above its words');
   assert.match(phone, /html\.cr-js \.sc\[data-pin\]:is\(\[data-choreo="cardstream"\],\[data-choreo="expand"\]\)\{height:calc\(100svh \+ var\(--pinv,110\) \* \.8svh\)\}/, 'shorter holds on phones');
   // letters spread less, lifts are shorter
@@ -210,7 +212,8 @@ test('8. phones: the actor and every new choreography stay inside the screen and
 
 test('9. reduced motion (and no scripting): the finished composition of every new choreography', () => {
   const h = html(story('r1').plan, 'export');
-  assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.actor-rail\{position:sticky;top:0\}/, 'the actor rides along only with motion on (and scripting)');
+  assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.cr-cast\{display:block\}/, 'the cast plays only with motion on (and scripting)');
+  assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.actor-static\{display:none\}/, 'otherwise the actor rests in its first scene');
   ['html[data-motion="reduced"] .wf{opacity:1!important}', 'html[data-motion="reduced"] .sc-text .ch{translate:none!important}', 'html[data-motion="reduced"] .sc[data-pin][data-pin]{height:auto!important}', 'html[data-motion="reduced"] .sc[data-steps] .sc-item{grid-area:auto!important}',
     'html[data-motion="reduced"] .sc[data-exit] :is(.sc-stage,.sc-text){opacity:1!important;translate:none!important;scale:none!important}', 'html[data-motion="reduced"] .ly-loop{clip-path:none!important}',
     ':is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="chapters"] .ly[data-step]:not([data-step="0"]){opacity:0!important}']
@@ -218,7 +221,7 @@ test('9. reduced motion (and no scripting): the finished composition of every ne
   // the fallbacks of the scroll variables are the finished state: words filled (pe 1), cards dealt (pe 0), windows open (pe 1)
   assert.match(h, /\.wf\{opacity:calc\(\.16 \+ \.84 \* clamp\(0, var\(--pe,1\)/); assert.match(h, /inset\(calc\(\(1 - var\(--pe,1\)\)/);
   // the runtime rests the actor in its first pose when reduced
-  assert.match(h, /if\(!red\)for\(k=0;k<n;k\+\+\)/);
+  assert.match(h, /function frameCast\(y,red\)\{if\(red/, 'with reduced motion the cast does not play at all');
 });
 
 // ---------------------------------------------------------------- 10, 11, 12 (framing stays honest)
@@ -294,7 +297,7 @@ test('14. the export is the page the studio previewed, actor and all', () => {
   const preview = renderCreative2(v.plan, assets, { mode: 'preview', src: srcOf });
   const strip = h => h.replace(/data-mode="\w+"/, '').replace(/"mode":"\w+"/, '').replace(/<script>\n\(function\(\)\{\nvar d=document[\s\S]*<\/script>/, '');
   assert.equal(strip(out), strip(preview), 'identical page apart from the preview-only script');
-  assert.match(out, /class="sc-run" data-exit="\w+"/); assert.match(out, /data-poses="[-\d.,;]+"/);
+  assert.match(out, /class="cr-cast cr-front"/); assert.match(out, /data-role="primary"[^>]*data-keys="[-\d.,;]+"/);
   // the actor's picture is shipped with the page and credited
   const actorFile = srcOf({ id: v.plan.actor.asset }); assert.ok(actorFile && fs.existsSync(path.join(workDir, actorFile)), 'the actor picture is in the export');
   assert.match(out, /<h3>Pictures<\/h3>/);
@@ -305,7 +308,7 @@ test('15. what the scroll runtime reads: cached geometry, never a layout read pe
   const rt = h.slice(h.indexOf('<script>\n(function(){'));
   // the per-frame functions work from the scroll position and cached tops and heights
   const body = name => { const i = rt.indexOf(`function ${name}(`); let depth = 0, j = rt.indexOf('{', i); for (let k = j; k < rt.length; k++) { if (rt[k] === '{') depth++; else if (rt[k] === '}') { depth--; if (!depth) return rt.slice(i, k + 1); } } return ''; };
-  ['frame', 'frameArt', 'navFrame', 'pose', 'prog'].forEach(n => { const b = body(n); assert.ok(b, n); assert.doesNotMatch(b, /getBoundingClientRect|offsetTop|offsetHeight|getComputedStyle|querySelector/, `${n} reads no layout`); });
+  ['frame', 'frameArt', 'navFrame', 'frameCast', 'sample', 'G', 'prog'].forEach(n => { const b = body(n); assert.ok(b, n); assert.doesNotMatch(b, /getBoundingClientRect|offsetTop|offsetHeight|getComputedStyle|querySelector/, `${n} reads no layout`); });
   assert.match(body('measure'), /topOf\(/, 'measured when the layout changes'); assert.match(body('topOf'), /getBoundingClientRect/);
   // the far haze no longer blurs a huge animated layer
   assert.doesNotMatch(h, /\.amb-haze\{[^}]*filter:blur/);
@@ -318,7 +321,7 @@ test('16. old pages are untouched: a saved page without the new fields renders w
   const ctx = { mode: 'safety', assets: old.assets, facts: old.plan.facts, understanding: old.understanding };
   const v = validatePlan2(old.plan, ctx);
   const h = renderCreative2(v.plan, old.assets, { mode: 'export', src: a => a.id });
-  assert.doesNotMatch(h, /<div class="sc-run"|<section[^>]*data-(exit|type)=|<div class="sc-text[^>]*data-treatment=/);
+  assert.doesNotMatch(h, /<div class="cr-cast|<section[^>]*data-(exit|type|cast|beats)=|<div class="sc-text[^>]*data-treatment=/);
   assert.equal(v.plan.actor, undefined);
   // an art page saved before families and modes keeps its own limits (three held scenes) on reopening
   const legacy = JSON.parse(JSON.stringify(page('Metropolis', 'a cinematic page for the 1927 film', 'cinematic', 'l').plan)); delete legacy.art.family; delete legacy.art.mode;
