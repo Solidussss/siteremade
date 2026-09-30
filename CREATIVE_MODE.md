@@ -153,10 +153,33 @@ run against a newer server.
   `CREATIVE_CLAIM_CHECK` (on unless "off"; `CREATIVE_CLAIMS_MAX_TOKENS` 3000; at most two checker calls per attempt),
   `CREATIVE_WEB_DISCOVERY` (on unless "off"), `CREATIVE_WEB_SEARCHES` 3 per discovery, `CREATIVE_WEB_SEARCH_USD` 0.01.
 * **Pictures come from Google Images only** when SerpApi is configured: Wikimedia Commons is no longer searched for pictures
-  (the encyclopedia is still read for facts), so there is one picture check per page, not two. One search per page
-  (`CREATIVE_SERPAPI_SEARCHES` 1): "<name> official render" (minus cosplay, merchandise and fan-art sites) for a fictional
-  character, "<name> high resolution photo" for a real-world subject. Results are kept for 30 days
-  (`CREATIVE_SERPAPI_CACHE_DAYS`), so a subject searched once costs no second search.
+  (the encyclopedia is still read for facts), so there is one picture check per page, not two.
+* **Discovery is kept apart from permission** (`lib/creative/discovery.js`). Finding the subject and being allowed to use
+  a picture of it are two questions, answered and reported separately. (One search per page was too narrow: a
+  recognizable subject whose first search came back as shopping results, figures and cosplay looked "not found".)
+  * **Several distinct searches** (`CREATIVE_SERPAPI_SEARCHES`, default 3, at most 5), each a different INTENT for the
+    subject itself, chosen by what the subject is -- a game: official render, key art, gameplay screenshot; a drawn or
+    animated character: official render, promotional art, stills; a meme: the meme, the character image, the original
+    image; a real thing: a high-resolution photo, an isolated shot, the thing in its setting. Never generic mood searches;
+    the name is never doubled from the article title.
+  * **Fallback**: each result set is assessed before any picture is judged (shopping results, stock previews,
+    art-community hosts, cosplay / figure / merchandise titles, logos, too small, off-topic). A weak set -- fewer than six
+    usable results, or mostly repeats -- is followed by the next family; when every search so far was weak, one extra
+    fallback family runs beyond the budget. An excellent first set stops after a second family (kept for variety).
+  * **Cache**: keyed by the plan's version and the query; a strong answer keeps 30 days (`CREATIVE_SERPAPI_CACHE_DAYS`),
+    a weak one two days, an empty one is never kept; a weak cached answer counts as weak, so it never stops a better search.
+  * **Outcome**: discovery (the subject itself found / fan-made only / cosplay, figures or merchandise only / logos only /
+    related only / nothing) is reported apart from permission (free / restricted / unclear). A picture of the subject whose
+    page states no free licence is still a successful discovery: it goes to the owner to review, with "We found pictures
+    of X, but their reuse rights could not be verified automatically." Automatic use is unchanged: only a picture whose
+    page states a free licence, selected by the picture check.
+  * **Diagnostics**: every generation records (ledger row `creative_discovery`, and the studio's "What we checked") the
+    count at every stage -- queries, fresh and cached searches, weak searches and why, raw and distinct results, shopping
+    skipped, shortlisted, thumbnails loaded, pictures judged, the subject itself, fan-made, forms, logos, free / restricted
+    / unclear, download failures, used automatically, offered to review. `node test/review/creative-discovery-diagnose.js
+    [subject]` prints the same stage by stage (live with the keys set, otherwise replayed from controlled fixtures).
+  * **The encyclopedia lookup** accepts a full-text search hit only when its title names the subject ("Neegy" is never the
+    article on a rapper born Neegy Neegyson).
 * **The page blends into its pictures** (layout version 4; new or recomposed plans -- a saved page keeps its look until
   "Re-apply today's layout rules"): a picture on a plain background floats as its clean cut-out; a scene whose main picture
   keeps its own background (and does not already fill the scene) takes that background's tone, nudged until text reads at
@@ -177,8 +200,7 @@ run against a newer server.
   uses one is responsible for having the right to.
 * **Google Images via SerpApi** (`lib/creative/serpapi.js`): when the server has `SERPAPI_API_KEY` (a Railway variable;
   read only on the server, never logged, returned or stored -- error text is scrubbed of it), discovery searches Google
-  Images instead of the Anthropic web-search step: three searches for OFFICIAL material (`CREATIVE_SERPAPI_SEARCHES` 3) --
-  renders, promotional art, stills of the game/show -- with cosplay, plush, figures, toys, merchandise, fan art, DeviantArt
+  Images instead of the Anthropic web-search step: up to three distinct searches for the subject itself (above) -- with cosplay, plush, figures, toys, merchandise, fan art, DeviantArt
   and Pinterest excluded in the query. Shopping results (`is_product`) are dropped. Every other result is LOOKED AT first:
   its search thumbnail goes to the picture check, which also judges **origin** (official / fan-made / unknown) from the
   picture and its source site. Only suitable pictures -- the character itself, not fan-made, not a form, logo or interface --
@@ -415,6 +437,11 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   (`test/fixtures/creative-briefs-art.js`, no model calls), exported and captured at desktop, tablet and six phone
   widths (320-430) with crop, overflow, off-screen-text and held-scene measurements, and contact sheets to judge
   diversity by eye.
+* Picture discovery: `node --test test/creative-discovery.test.js` -- several distinct search families by default, a
+  weak first search followed by others, shopping results never counting as the subject, fan-made-only reported as found
+  but not official, unclear rights reported apart from discovery and reaching the owner's review, free pictures still
+  used automatically, a weak cached answer never blocking a better search, everything bounded, and no picture used
+  without the permission reading saying free (controlled fixtures for Super Smash Bros. Ultimate and Neegy).
 * Scroll storytelling: `node --test test/creative-scroll.test.js` -- families and modes and their limits, the persistent
   actor (one picture, bounded poses, runs joined by cuts, a clean cut-out only), the schema dropping anything outside the
   vocabulary, clamped transforms, effect budgets, phone and reduced-motion compositions, no enlargement (actor, chapters,

@@ -2498,16 +2498,19 @@ const creativeSpend = { day: '', usd: 0, plansByAccount: new Map(), seeded: fals
 // Searches are counted against a daily cap that protects the SerpApi plan's monthly allowance; CREATIVE_SERPAPI_USD
 // (default 0: the plan is paid monthly, not per call) adds a per-search amount to the Creative spend if set.
 const creativeSerpApi = require('./lib/creative/serpapi');
-const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(4, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || 1)), cacheDays: Math.max(0, Number(process.env.CREATIVE_SERPAPI_CACHE_DAYS) || 30), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
+const creativeDiscovery = require('./lib/creative/discovery');
+// up to three DISTINCT searches per page when the subject needs them (one was too narrow to find recognizable subjects)
+const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(creativeDiscovery.LIMITS.maxBudget, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || creativeDiscovery.LIMITS.defaultBudget)), cacheDays: Math.max(0, Number(process.env.CREATIVE_SERPAPI_CACHE_DAYS) || 30), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
 function creativeSerpKey() { return String(process.env.SERPAPI_API_KEY || '').trim(); }
 const creativeSerpCache = { loaded: false, map: new Map() }; // query -> { at, results } (metadata only: titles and URLs, never the key)
 function creativeSerpCacheFile() { return path.join(PREMIUM_LOG_DIR, 'creative-serp-cache.json'); }
 function creativeSerpCacheGet(q) {
   if (!creativeSerpCache.loaded) { creativeSerpCache.loaded = true; try { JSON.parse(premiumFs.readFileSync(creativeSerpCacheFile(), 'utf8')).forEach(e => creativeSerpCache.map.set(e.q, e)); } catch (e) { /* none yet */ } }
-  const e = creativeSerpCache.map.get(q); return e && Date.now() - e.at < CREATIVE_SERPAPI.cacheDays * 86400000 ? e : null;
+  // (a weak answer -- few usable results -- is kept two days only, so it never traps a subject for the cache's whole life)
+  const e = creativeSerpCache.map.get(q); return e && Date.now() - e.at < creativeDiscovery.cacheDaysFor(e, CREATIVE_SERPAPI.cacheDays) * 86400000 ? e : null;
 }
-function creativeSerpCachePut(q, results) {
-  creativeSerpCache.map.set(q, { q, at: Date.now(), results });
+function creativeSerpCachePut(q, results, quality) {
+  creativeSerpCache.map.set(q, { q, at: Date.now(), results, good: quality ? quality.good : 0 });
   const keep = [...creativeSerpCache.map.values()].sort((a, b) => b.at - a.at).slice(0, 500);
   creativeSerpCache.map = new Map(keep.map(e => [e.q, e]));
   try { premiumFs.mkdirSync(PREMIUM_LOG_DIR, { recursive: true }); premiumFs.writeFile(creativeSerpCacheFile(), JSON.stringify(keep), () => {}); } catch (e) { /* the cache is an optimisation */ }
@@ -2624,29 +2627,26 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
       return c;
     } catch (error) { creativeLedger({ kind: 'creative_curate', accountId, ok: false, source: 'web', error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
   };
+  let search = null;
   const found = serpKey ? await creativeWeb.discoverImages(input, { curate: ({ candidates, max }) => webCurate(candidates, max), imageSearch: async () => {
     const spend = creativeSpendToday();
-    const qs = creativeSerpApi.searchQueries(Object.assign({}, understanding, { pageTitle: understanding.pageTitle || '' }), CREATIVE_SERPAPI.searches);
-    if (refine) qs.unshift({ q: `${String(refine).slice(0, 120)} -cosplay -plush -figure -site:deviantart.com`, licenses: '' });
-    const results = []; let searches = 0; let error = '';
-    for (const q of qs.slice(0, CREATIVE_SERPAPI.searches)) {
-      const hit = CREATIVE_SERPAPI.cacheDays ? creativeSerpCacheGet(q.q) : null;
-      if (hit) {
-        creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: true, cached: true, searches: 0, results: hit.results.length, query: q.q.slice(0, 120), usd: 0 });
-        out.diag.queries.push(q.q); out.diag.cached = true; hit.results.forEach(x => results.push(Object.assign({}, x, { query: q.q }))); continue;
-      }
-      if (spend.imageSearches >= CREATIVE_SERPAPI.daily) { error = error || `the daily image-search limit (${CREATIVE_SERPAPI.daily}, CREATIVE_SERPAPI_DAILY) is used up`; break; }
-      const r = await creativeSerpApi.googleImages(q.q, { key: serpKey, licenses: q.licenses });
-      // a refused or failed call is counted too (SerpApi may still bill it); an empty result counts as a search
-      searches++; spend.imageSearches++; const usd = CREATIVE_SERPAPI.usd; spend.usd += usd; out.usd += usd;
-      creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: r.ok, status: r.status, searches: 1, results: r.results.length, query: q.q.slice(0, 120), licenses: q.licenses || '', error: r.error || '', usd });
-      out.diag.queries.push(q.q);
-      if (!r.ok) { error = r.error; if (r.status === 401 || r.status === 403 || r.status === 429) break; continue; }
-      if (CREATIVE_SERPAPI.cacheDays && r.results.length) creativeSerpCachePut(q.q, r.results); // an empty answer is not kept (it may be transient)
-      r.results.forEach(x => results.push(Object.assign({}, x, { query: q.q })));
-    }
-    out.searches = searches; Object.assign(out.diag, { provider: 'serpapi', results: results.length, products: results.filter(x => x.isProduct).length, searchError: error });
-    return { results, searches, error };
+    search = await creativeDiscovery.runSearches(understanding, {
+      budget: CREATIVE_SERPAPI.searches, refine, brief,
+      cacheGet: key => (CREATIVE_SERPAPI.cacheDays ? creativeSerpCacheGet(key) : null),
+      cachePut: (key, results, quality) => { if (CREATIVE_SERPAPI.cacheDays) creativeSerpCachePut(key, results, quality); }, // an empty answer is never kept
+      dailyLeft: () => CREATIVE_SERPAPI.daily - spend.imageSearches,
+      search: async (q, licenses) => {
+        const r = await creativeSerpApi.googleImages(q, { key: serpKey, licenses });
+        // a refused or failed call is counted too (SerpApi may still bill it); an empty result counts as a search
+        spend.imageSearches++; const usd = CREATIVE_SERPAPI.usd; spend.usd += usd; out.usd += usd;
+        creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: r.ok, status: r.status, searches: 1, results: r.results.length, query: q.slice(0, 120), licenses: licenses || '', error: r.error || '', usd });
+        return r;
+      },
+    });
+    search.queries.filter(q => q.cached).forEach(q => creativeAppend({ at: new Date().toISOString(), kind: 'creative_imagesearch', provider: 'serpapi', accountId, ok: true, cached: true, searches: 0, results: q.results, query: q.q.slice(0, 120), usd: 0 }));
+    out.searches = search.searches;
+    Object.assign(out.diag, { provider: 'serpapi', queries: search.queries.map(q => q.q), searchLog: search.queries.map(q => ({ family: q.family, fallback: !!q.fallback, cached: q.cached, ok: q.ok, results: q.results || 0, newResults: q.newResults || 0, good: q.quality ? q.quality.good : 0, weak: !!q.weak, why: q.why || q.error || '' })), stop: search.stop, cached: search.cachedQueries > 0, results: search.results.length, products: search.results.filter(x => x.isProduct).length, searchError: search.error });
+    return { results: search.results, searches: search.searches, error: search.error };
   } }) : await creativeWeb.discover(input, { searchPages: async inp => {
     try {
       const r = await creativeAi.webSearchPages(inp, { limits: CREATIVE_AI_LIMITS, raw: creativeRawCall });
@@ -2660,11 +2660,18 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   out.diag.pageErrors = (found.log.pageErrors || []).slice(0, 8); out.diag.imageErrors = (found.log.imageErrors || []).slice(0, 10);
   // every found picture, assessed three separate ways: what it shows (and whether it is official), whether it is
   // technically usable, what its page permits -- a picture that was not suitable is not read or downloaded at all
+  // found vs. allowed: what the searches found (the subject itself, fan-made, forms, logos, nothing) and, separately,
+  // what may be done with the pictures of the subject itself (free, restricted, unclear) -- recorded with every count
+  const summariseDiscovery = () => {
+    const sum = creativeDiscovery.summarise({ name: (identity && identity.name) || understanding.subject || 'the subject', search: search || { queries: (out.diag.queries || []).map(q => ({ q })), results: [], searches: out.searches, error: out.error }, log: found.log, candidates: found.candidates, used: out.images.map(v => v.id), review: out.review.map(r => r.id) });
+    out.discovery = sum; Object.assign(out.diag, { counts: sum.counts, discovery: sum.discovery, permission: sum.permission, status: sum.status, message: sum.message });
+    creativeAppend({ at: new Date().toISOString(), kind: 'creative_discovery', accountId, subject: String((identity && identity.name) || '').slice(0, 80), status: sum.status, discovery: sum.discovery, permission: sum.permission, counts: sum.counts, queries: (search ? search.queries : []).map(q => ({ family: q.family, cached: q.cached, results: q.results || 0, weak: !!q.weak })), stop: search ? search.stop : '', usd: 0 });
+  };
   const record = (v, k, outcome) => out.diag.candidates.push({ src: 'web', pageUrl: v.pageUrl, imageUrl: v.imageUrl, site: v.site, title: String(v.title || '').slice(0, 120), query: v.query || '', position: v.searchPosition || 0,
     technical: { size: `${v.width}x${v.height}`, mime: v.mime, kb: v.bytes ? Math.round(v.bytes.length / 1024) : 0, fetched: v.technical ? v.technical.fetched : !!v.bytes, reason: v.technical ? v.technical.reason : '', viewable: !!v.bytes && /^image\/(jpeg|png|webp)$/.test(v.mime) && v.bytes.length <= 3.5 * 1024 * 1024 },
     permission: v.permission ? { status: v.permission.status, licence: v.permission.licence, evidence: v.permission.evidence, note: v.permission.note } : { status: 'not checked', licence: '', evidence: [], note: 'not read: the picture was not suitable' },
     verdict: k ? { role: k.role, identity: k.identity, origin: k.origin || 'unknown', depicts: k.depicts, issues: k.issues, quality: k.quality } : null, outcome });
-  if (!found.candidates.length) return out;
+  if (!found.candidates.length) { summariseDiscovery(); return out; }
   // the picture check: the image-search path has already looked at every thumbnail; the page-search path looks now
   let c = serpKey ? found.curation : null;
   if (!serpKey) {
@@ -2674,37 +2681,15 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
       catch (error) { out.error = out.error || `the picture check failed (${String(error && error.message || error).slice(0, 120)})`; }
     }
   }
-  if (!c) { out.error = out.error || 'the found pictures could not be judged'; found.candidates.forEach(v => record(v, null, 'not judged')); return out; }
-  const offer = [];
-  for (const v of found.candidates) {
-    const k = c.verdicts[v.id];
-    if (!k) { record(v, null, 'not judged (no viewable picture)'); continue; }
-    if (k.role === 'unrelated' || k.identity === 'other') { record(v, k, 'not the subject'); continue; }
-    if (k.identity === 'form') { record(v, k, 'a real-world form (cosplay, figure, merchandise...), not the subject itself'); continue; }
-    if (k.role === 'logo' || k.role === 'reference') { record(v, k, 'a logo, reference or interface capture'); continue; }
-    if (k.identity === 'exact' && k.origin === 'fan') { record(v, k, 'fan-made, not official artwork'); continue; }
-    if ((k.issues || []).includes('watermark')) { record(v, k, 'watermarked (a stock-photo preview or similar)'); continue; }
-    const itself = (k.role === 'subject' || k.role === 'detail') && k.identity === 'exact';
-    const free = v.permission && v.permission.status === 'free';
-    if (free && v.bytes && c.selection.includes(v.id)) { out.images.push(Object.assign({}, v, { curation: k })); record(v, k, 'used'); }
-    else if (free && v.bytes) record(v, k, 'free, but not selected');
-    else if (!itself) record(v, k, `supporting picture, not free (${v.permission ? v.permission.status : 'not checked'})`);
-    else offer.push({ v, k });
-  }
-  // the best pictures of the character itself, shown to the owner with their source and licence status (never marked free)
-  offer.sort((a, b) => (b.k.origin === 'official') - (a.k.origin === 'official') || (b.k.quality || 0) - (a.k.quality || 0) || (b.v.width * b.v.height) - (a.v.width * a.v.height));
-  offer.forEach(({ v, k }, n) => {
-    if (n >= 6) { record(v, k, 'suitable, not offered (beyond the six shown)'); return; }
-    const status = v.permission ? v.permission.status : 'unclear';
-    record(v, k, `offered to the owner for review (${status}${v.bytes ? '' : '; the original could not be downloaded here'})`);
-    const pv = v.bytes && v.bytes.length <= 1.2 * 1024 * 1024 ? `data:${v.mime};base64,${v.bytes.toString('base64')}` : v.thumb ? `data:${v.thumb.mime};base64,${v.thumb.bytes.toString('base64')}` : '';
-    out.review.push({ id: v.id, pageUrl: v.pageUrl, imageUrl: v.imageUrl, title: v.title, site: v.site, depicts: k.depicts, role: k.role, identity: k.identity, origin: k.origin || 'unknown', query: v.query || '', width: v.width, height: v.height,
-      adoptable: !!v.bytes, technical: v.technical ? v.technical.reason : '',
-      permission: v.permission ? { status: v.permission.status, licence: v.permission.licence, note: v.permission.note, evidence: v.permission.evidence } : { status: 'unclear', licence: '', note: 'Its page was not read.', evidence: [] }, preview: pv });
-  });
+  if (!c) { out.error = out.error || 'the found pictures could not be judged'; found.candidates.forEach(v => record(v, null, 'not judged')); summariseDiscovery(); return out; }
+  // what each judged picture becomes (discovery.settle): used automatically ONLY when its page states a free licence and
+  // the check selected it; a picture of the subject itself with restricted or unclear terms goes to the owner to review
+  const settled = creativeDiscovery.settle(found.candidates, c, { record });
+  out.images.push(...settled.images); out.review.push(...settled.review);
   out.coverage = out.images.some(v => v.curation.role === 'subject' && v.curation.identity === 'exact') ? 'strong' : out.images.some(v => v.curation.role === 'subject' || v.curation.role === 'detail') ? 'partial' : 'none';
   out.missing = out.coverage === 'strong' ? [] : c.missing;
   if (out.review.length) creativeOffer(accountId, out.review.filter(r => r.adoptable).map(r => r.imageUrl));
+  summariseDiscovery();
   return out;
 }
 
@@ -2887,7 +2872,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     webDiag = web ? web.diag : { ran: false, reason: why };
     const rank = { none: 0, partial: 1, strong: 2 }; const merged = curation || { source: 'rules', coverage: 'none', missing: [] };
     if (web && rank[web.coverage] > (rank[merged.coverage] || 0)) { merged.coverage = web.coverage; merged.missing = web.missing; }
-    merged.web = web ? { ran: true, provider: creativeSerpKey() ? 'google-images' : 'web-search', searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '' } : { ran: false, reason: why };
+    merged.web = web ? { ran: true, provider: creativeSerpKey() ? 'google-images' : 'web-search', searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '', ...(web.discovery ? { status: web.discovery.status, discovery: web.discovery.discovery, permission: web.discovery.permission, message: web.discovery.message } : {}) } : { ran: false, reason: why };
     if (!curation) Object.assign(merged, { reason: merged.reason || 'no Commons picture check' });
     result.curation = merged;
   }
