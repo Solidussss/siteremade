@@ -87,6 +87,13 @@ globalThis.fetch = async function (url, options) {
     }
     return json({ error: { message: `mock: unhandled Stripe endpoint ${endpoint}` } }, 400);
   }
+  // Resend (transactional email; never the real API in tests): the full payload is logged so a test can read exactly
+  // what would have been sent
+  if (u === 'https://api.resend.com/emails') {
+    const body = JSON.parse(options.body);
+    log({ provider: 'resend', auth: /^Bearer .+/.test(String((options.headers || {}).Authorization || '')), ...body });
+    return json({ id: 'email_mock_' + Date.now() });
+  }
   if (process.env.SUPABASE_URL && u.startsWith(process.env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user')) {
     log({ provider: 'supabase' });
     // a second identity for ownership tests: any token containing "test-access-token-other" is a different user

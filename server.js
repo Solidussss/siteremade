@@ -443,28 +443,18 @@ async function sendEmail(payload) {
 // snapshot themselves are already durable regardless of whether this
 // email succeeds, and a failure here is caught and logged, never allowed
 // to fail the webhook response Stripe is waiting on.
+const { buildPurchaseConfirmationEmail } = require('./lib/purchase-email.js');
 function purchaseMyWebsitesUrl() {
   const appBase = String(process.env.SITEREMADE_APP_URL || 'https://app.siteremade.com').replace(/\/$/, '');
   return appBase + '/?view=website';
 }
 async function sendPurchaseConfirmationEmail({ to, projectName, myWebsitesUrl }) {
   if (!RESEND_API_KEY || !to) return { sent: false, reason: !RESEND_API_KEY ? 'not_configured' : 'no_recipient' };
-  const name = escapeHtml(projectName || 'Your website');
-  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#101114">
-    <p style="font-size:12px;letter-spacing:.12em;font-weight:700">SITEREMADE</p>
-    <h1 style="font-size:28px;line-height:1.2">Your purchase is confirmed.</h1>
-    <p style="font-size:16px;line-height:1.7;color:#555"><strong>${name}</strong> is ready. It's yours -- the real, standalone website files, not something that only works inside SiteRemade.</p>
-    <p style="font-size:15px;line-height:1.7">Head to <a href="${myWebsitesUrl}">My Websites</a> in your account to:</p>
-    <ul style="font-size:15px;line-height:1.9;color:#333">
-      <li>Download your website as a .zip (real source files -- HTML/CSS/JS, a developer README, and a plain-language handoff guide)</li>
-      <li>Choose a hosting recommendation, or skip it and host it yourself -- either way, the download is already yours</li>
-      <li>Find setup resources for uploading your site, connecting a domain, and publishing future changes</li>
-    </ul>
-    <p style="font-size:14px;line-height:1.7;color:#777;margin-top:28px">Questions? Reply to this email.</p>
-  </div>`;
+  // the branded handoff email (lib/purchase-email.js): HTML for every client, plus a plain-text version
+  const { subject, html, text } = buildPurchaseConfirmationEmail({ projectName, myWebsitesUrl });
   const result = await sendEmail({
     from: 'SiteRemade <hello@siteremade.com>', to: [to], reply_to: 'hello@siteremade.com',
-    subject: `Your website "${projectName || 'your SiteRemade site'}" is ready`, html,
+    subject, html, text,
   });
   return { sent: true, result };
 }
