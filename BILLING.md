@@ -100,9 +100,23 @@ exceeds it.
 ## Premium media (Higgsfield) -- optional, Creative only (`lib/media/`)
 
 SiteRemade remains the foundation (direction, timeline, DOM and spatial renderers, storage, export). Premium media is
-only for a meaningful improvement the rest cannot give: the Creative director may name at most two needs (an intent from
-a fixed list and a source picture); the owner sees the quote and confirms; then the server submits fixed presets
-(Higgsfield's documented image-to-video endpoint; an image endpoint only if configured), at most one submit per asset,
+only for a meaningful improvement the rest cannot give.
+
+**In the generation itself.** When the brief explicitly asks for it (cinematic hero video, image-to-video, premium hero
+media, strong camera movement, product turn, alternate angle, environment motion, premium transition --
+`premium-media.requestedIntents`), the ONE Creative quote includes it (e.g. 6 + spatial 2 + cinematic hero 3 = up to 11;
+a 4K model is priced in the 5-credit tier from its estimated cost), the owner confirms once, the job reserves it with the
+page, and right after the direction the studio runs `/api/creative/premium` on its own: it picks the source picture (the
+director's pick, else the page's opening picture, else the owner's uploads), checks permission, calls Higgsfield and
+settles at what was delivered. Every generation shows **"Premium media planned: Yes / No"** with the reason (not
+requested, no source picture, source image not eligible for transformation, missing API key, missing / invalid video or
+image endpoint, budget, renderer handled it, provider failed), as a progress step and in the direction panel, and the
+server logs one `[premium-media]` line per quote and per execution (never a key). A suggestion the director makes on its
+own, without a request, stays an explicitly labelled optional extra ("not in your quote").
+
+The server submits fixed presets (the model in `HIGGSFIELD_VIDEO_ENDPOINT`, required -- a model id or a pasted full
+Higgsfield URL, normalised; parameters by model family, e.g. Kling 3.0: duration 5, sound off; an image endpoint only if
+configured), at most one submit per asset,
 inside the budget (a 1080p preset steps down; anything else that does not fit is not submitted). Sources: the owner's
 own upload, a cut-out of it, a discovered picture whose stated licence allows modification (never NoDerivatives), or a
 picture the owner picked AND confirmed for transformation -- rights-unclear discovered imagery and Wikimedia never.
@@ -126,7 +140,9 @@ ownership, downloads, editing, the app itself -- depends on a subscription. Canc
 | `HIGGSFIELD_API_KEY` | builder | `<key id>:<key secret>` from Higgsfield. Without it premium media reports itself unavailable |
 | `STRIPE_PRICE_BUSINESS_WEBSITE`, `STRIPE_PRICE_CREATIVE_WEBSITE` | builder | optional Stripe Price ids (amounts must match) |
 | `STRIPE_PRICE_CREDITS_10`, `_30`, `_75`, `_200` | builder | optional Stripe Price ids for the packs |
-| `HIGGSFIELD_VIDEO_ENDPOINT` / `HIGGSFIELD_IMAGE_ENDPOINT` | builder | optional model endpoints (video defaults to `wan/v2.7/image-to-video`) |
+| `HIGGSFIELD_VIDEO_ENDPOINT` | builder | **required** for video intents: a model id (`kling-video/v3.0/4k/image-to-video`) or the full Higgsfield URL |
+| `HIGGSFIELD_IMAGE_ENDPOINT` | builder | optional: image intents (alternate angle, enhancement) run only with it |
+| `SITEREMADE_HIGGSFIELD_USD_VIDEO_4K` | builder | the estimated cost of one 4K video (default 0.90 USD, unverified) -- decides its credit tier |
 | `SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P` (and `_1080P`, `_IMAGE_STANDARD`), `SITEREMADE_SERPAPI_USD_PER_SEARCH` | builder | budgeting estimates, once verified on the providers' consoles |
 | `PUBLIC_BASE_URL` | builder | the public origin Higgsfield fetches a source picture from (defaults to the request's host) |
 | `ALLOW_PAID_PROVIDER_CALLS` | never in production | leave unset; `false` switches paid providers off |

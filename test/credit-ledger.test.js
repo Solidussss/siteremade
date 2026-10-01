@@ -177,8 +177,8 @@ const quotes = require('../lib/quotes');
 const pricing = require('../lib/pricing');
 test('quotes are built from the planned work: Creative base + spatial + a cinematic asset; updates by size; never provider costs', () => {
   const c = quotes.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero' }] });
-  assert.deepEqual(c.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, false]]);
-  assert.equal(c.credits, 11); assert.equal(c.minCredits, 9);
+  assert.deepEqual(c.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, true]], 'premium media is charged only if it is delivered');
+  assert.equal(c.credits, 11); assert.equal(c.minCredits, 6);
   assert.match(c.message, /^This generation will use up to 11 credits/);
   assert.equal(c.ceilingUsd, +(11 * pricing.USD_PER_CREDIT_CEILING).toFixed(4));
   assert.equal(quotes.build('business_generation').credits, 4);

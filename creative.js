@@ -282,11 +282,14 @@
 
   // OWNERSHIP + CREDITS: dynamic work is quoted first and runs only once the owner confirms what it will use
   function confirmQuote(operation, preface) {
-    return api('/api/quotes', { method: 'POST', body: { operation: operation, projectId: S.projectId || '' } }).then(function (r) {
+    return api('/api/quotes', { method: 'POST', body: { operation: operation, projectId: S.projectId || '', request: operation === 'creative_generation' ? S.brief : '' } }).then(function (r) {
       if (r.status === 401) { needSignIn('Sign in to continue.'); return null; }
       if (!r.ok || !r.data || !r.data.ok) { els.csError.hidden = false; els.csError.textContent = (r.data && r.data.message) || 'Could not price this right now.'; return null; }
       var q = r.data.quote; var left = typeof r.data.creditsRemaining === 'number' ? '\n\nYou have ' + r.data.creditsRemaining + ' credit' + (r.data.creditsRemaining === 1 ? '' : 's') + '.' : '';
-      return window.confirm((preface ? preface + '\n\n' : '') + q.message + left + '\n\nContinue?') ? q.id : null;
+      if (r.data.premium) S.premium = r.data.premium;
+      var lines = (q.items || []).length > 1 ? '\n\n' + q.items.map(function (i) { return '• ' + i.label + ': ' + i.credits; }).join('\n') : '';
+      var pm = r.data.premium ? '\n\n' + premiumHeadline(r.data.premium) : '';
+      return window.confirm((preface ? preface + '\n\n' : '') + q.message + lines + pm + left + '\n\nContinue?') ? q.id : null;
     });
   }
   function create(choice, quoteId) {
@@ -298,7 +301,7 @@
     if (!choice && !quoteId && !openJobFor(S.brief)) return confirmQuote('creative_generation').then(function (q) { if (q) return create(choice, q); });
     S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
-    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
+    steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page'], ['premium', 'Premium media (Higgsfield)']]);
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     step('understand', 'active', 'Reading the brief, then looking it up: the encyclopedia for facts, a picture search, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
@@ -306,11 +309,11 @@
     return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, jobId: jobId || '', quoteId: quoteId || '' } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
       // the price changed or the quote ran out: confirm the new one (nothing was reserved or spent)
-      if (r.data && r.data.needsConfirmation && r.data.quote) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; if (window.confirm(r.data.quote.message + '\n\nContinue?')) return create(choice, r.data.quote.id); return; }
+      if (r.data && r.data.needsConfirmation && r.data.quote) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; if (r.data.premium) S.premium = r.data.premium; if (window.confirm(r.data.quote.message + (r.data.premium ? '\n\n' + premiumHeadline(r.data.premium) : '') + '\n\nContinue?')) return create(choice, r.data.quote.id); return; }
       creditsFrom(r.data);
       if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
-      var d = r.data; S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || ''; S.spatialOn = !!d.spatial;
+      var d = r.data; if (d.premium) { S.premium = d.premium; S.premiumResult = null; step('premium', 'wait', premiumHeadline(d.premium)); } S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || ''; S.spatialOn = !!d.spatial;
       var u = d.understanding || {};
       step('understand', 'done', describeUnderstanding(u) + (S.understandMeta && S.understandMeta.source === 'ai' ? ' · AI (' + ((S.understandMeta.ms || 0) / 1000).toFixed(1) + 's)' : ' · built-in reader' + (S.understandMeta && S.understandMeta.reason ? ' (' + S.understandMeta.reason + ')' : '')));
       if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
@@ -355,6 +358,26 @@
     if (problem || (needsSubjectPicture() && !usableSubject())) { S.busy = false; showGate({ problem: problem }); return Promise.resolve(); }
     return proceedToDirection();
   }
+  // PREMIUM MEDIA in the generation: planned in the confirmed quote -> made here, right after the direction, with no
+  // further offer or confirmation. Planned or not, made or not, the owner is told in plain words (and why).
+  function premiumHeadline(st) { if (!st) return ''; if (st.made && st.made.length) return st.message; return st.planned ? 'Premium media planned: Yes — ' + st.message.replace(/^Premium media planned: /, '') : 'Premium media planned: No — ' + st.message; }
+  function heroAsset() { var s0 = S.plan && S.plan.scenes && S.plan.scenes[0]; var L = s0 && (s0.layers || []).find(function (l) { return l.kind === 'image' && l.asset; }); return (S.plan && S.plan.actor && S.plan.actor.asset) || (L && L.asset) || liveMain() || ''; }
+  function runPremium() {
+    if (!S.premium || !S.premium.planned || S.premiumResult || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
+    step('premium', 'active', 'Making the premium media with Higgsfield (this can take a few minutes)…');
+    var cand = live(); var picks = ((S.plan && S.plan.premiumMedia) || []).map(function (m) { return m.asset; }).concat([heroAsset()]);
+    var send = cand.map(function (a) { var o = { id: a.id, origin: a.origin, title: a.title, license: a.license, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, cutoutOf: a.cutoutOf, mime: a.mime, assetRef: a.assetRef, curation: a.curation }; if (picks.indexOf(a.id) >= 0 || (a.origin === 'upload' && !a.ownerPicked) || a.id === (cand.find(function (x) { return x.id === picks[picks.length - 1]; }) || {}).cutoutOf) o.dataUrl = a.dataUrl; return o; });
+    return api('/api/creative/premium', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: send, models: modelMeta() } }).then(function (r) {
+      var d = r.data || {}; creditsFrom(d);
+      var st = d.premium && d.premium.status ? d.premium.status : { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not run.') + ' Its credits were returned.' };
+      S.premiumResult = st;
+      (d.assets || []).forEach(function (m) { if (m.kind === 'video') { var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } } });
+      var imgs = (d.assets || []).filter(function (m) { return m.kind === 'image' && m.asset && m.asset.dataUrl; });
+      return Promise.all(imgs.map(function (m) { return processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }); })).then(function () {
+        step('premium', st.made && st.made.length ? 'done' : 'failed', premiumHeadline(st)); if (st.made && st.made.length) refresh(true);
+      });
+    }).catch(function () { S.premiumResult = { planned: true, reason: 'not_run', message: 'The premium media step could not be reached. Its credits were returned.' }; step('premium', 'failed', premiumHeadline(S.premiumResult)); });
+  }
   function proceedToDirection() {
     // one direction at a time: a second call (a repeated click at the gate) while one is being planned does nothing
     if (S.directing) return Promise.resolve();
@@ -363,8 +386,10 @@
       S.directing = false;
       if (res && res.stop) { step('direct', 'failed', res.stop); return fail(res.stop); }
       step('build', 'active'); refresh(true); step('build', 'done');
-      S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
-      els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
+      return runPremium().then(function () {
+        S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
+        els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
+      });
     }, function (e) { S.directing = false; throw e; });
   }
   function preselect(review) {
@@ -701,7 +726,8 @@
     var old = p.v === 2 && p.layout && p.layout.version < C.validate2.LAYOUT_VERSION ? '<p class="cs-hint">This page was composed under older layout rules and stays exactly as saved. <button type="button" class="cs-btn cs-ghost" id="csRecompose">Re-apply today\'s layout rules</button></p>' : '';
     var lim = p.v === 2 && p.limitations.length ? '<details><summary>Limitations noted by the director (' + p.limitations.length + ')</summary><ul>' + p.limitations.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>' : '';
     var hist = (S.history || []).length ? '<details><summary>Earlier directions (' + S.history.length + ')</summary><ul>' + S.history.map(function (h) { return '<li>' + esc(h.title ? h.title + ': ' : '') + esc(h.logline) + ' <small>(' + esc(h.source) + ')</small></li>'; }).join('') + '</ul></details>' : '';
-    return '<div class="cs-direction">' + badge + head + meta + ident + imagery + check + claims + wants + old + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction · 3 credits</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
+    var pst = S.premiumResult || S.premium; var prem = pst ? '<p class="cs-premium-status" data-planned="' + (pst.planned ? 'yes' : 'no') + '" data-made="' + (pst.made && pst.made.length ? 'yes' : 'no') + '"><strong>' + esc(premiumHeadline(pst)) + '</strong></p>' : '';
+    return '<div class="cs-direction">' + badge + head + meta + ident + prem + imagery + check + claims + wants + old + lim + hist + '<div class="cs-dir-actions"><button type="button" class="cs-btn" id="csAnother">Try another direction (priced before it runs)</button>' + (S.previous ? '<button type="button" class="cs-btn cs-ghost" id="csPrevious">Back to the previous one</button>' : '') + '</div></div>';
   }
   function buildEditor() {
     showFixture();
@@ -855,10 +881,10 @@
   // then made on the server; the finished media is stored with the project (a video plays over its picture).
   var PREMIUM_LABEL = { cinematic_hero: 'a cinematic hero move', object_motion: 'the object in motion', image_to_video: 'this picture in motion', environment_motion: 'ambient motion in the scene', premium_transition: 'a cinematic transition', alternate_angle: 'another angle of the subject', image_enhance: 'an enhanced version of the picture', stylized_treatment: 'a stylised treatment of the picture' };
   function offerPremium() {
-    var box = document.getElementById('csPremium'); var list = (S.plan && S.plan.premiumMedia) || [];
+    var box = document.getElementById('csPremium'); var inQuote = (S.premium && S.premium.planned && S.premium.intents) || []; var list = ((S.plan && S.plan.premiumMedia) || []).filter(function (m) { return inQuote.indexOf(m.intent) < 0; });
     if (!list.length) { if (box) box.remove(); return; }
     if (!box) { box = h('div', { id: 'csPremium', class: 'cs-premium' }); els.csEditor.insertBefore(box, document.getElementById('csDirection').nextSibling); }
-    box.innerHTML = '<p><strong>Optional premium media</strong> — made only if you choose it, priced before anything runs.</p>' + list.map(function (m, i) { return '<p class="cs-hint">' + esc(PREMIUM_LABEL[m.intent] || m.intent) + (m.why ? ': ' + esc(m.why) : '') + ' <button type="button" class="cs-btn cs-ghost" data-pm="' + i + '">Price it</button></p>'; }).join('');
+    box.innerHTML = '<p><strong>Optional extra suggested by the director (not in your quote)</strong> — made only if you choose it, priced before anything runs.</p>' + list.map(function (m, i) { return '<p class="cs-hint">' + esc(PREMIUM_LABEL[m.intent] || m.intent) + (m.why ? ': ' + esc(m.why) : '') + ' <button type="button" class="cs-btn cs-ghost" data-pm="' + i + '">Price it</button></p>'; }).join('');
     [].forEach.call(box.querySelectorAll('[data-pm]'), function (b) { b.addEventListener('click', function () { makePremium(list[+b.getAttribute('data-pm')]); }); });
   }
   function makePremium(sug) {

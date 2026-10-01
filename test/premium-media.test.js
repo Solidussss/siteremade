@@ -53,7 +53,7 @@ function fakeProvider(outcome) {
   return { log, submit: async (endpoint, params) => { log.push({ endpoint, params }); return { requestId: 'req_1' }; }, waitFor: async () => (outcome === 'completed' ? { status: 'completed', outputUrl: 'https://out.example/x.mp4', mediaType: 'video' } : { status: outcome }), download: async () => ({ bytes: Buffer.from('mp4-bytes'), mime: 'video/mp4' }) };
 }
 const req = { intent: 'cinematic_hero', mediaType: 'video', preset: 'video_5s_720p', sourceAssetId: 'u1', subject: 'a red sneaker' };
-const deps = (provider, budget, extra) => Object.assign({ db: fakeDb(), provider, budget, costs: costs({}), presets: PM.presets({}), store: () => 'a'.repeat(64), sourceUrl: async () => 'https://siteremade.test/api/premium-media/source/tok', accountId: 'acct', projectId: 'p', opId: 'quote:q1' }, extra || {});
+const deps = (provider, budget, extra) => Object.assign({ db: fakeDb(), provider, budget, costs: costs({}), presets: PM.presets({ HIGGSFIELD_VIDEO_ENDPOINT: 'wan/v2.7/image-to-video' }), store: () => 'a'.repeat(64), sourceUrl: async () => 'https://siteremade.test/api/premium-media/source/tok', accountId: 'acct', projectId: 'p', opId: 'quote:q1' }, extra || {});
 
 test('budget ceiling: a premium job is submitted only if its estimated cost fits the operation\'s provider budget; an extended preset steps down; nothing is silently exceeded', async () => {
   const tight = createBudget({ ceilingUsd: 0.1 });
@@ -109,7 +109,7 @@ test('the Higgsfield adapter: server-side Key auth, bounded polling with cancel,
 const HF_KEY = 'hfkeyid_test_0001:hfsecret_test_never_shown';
 async function withServer(env, fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-premium-media-'));
-  const e = Object.assign({ SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'assets'), SITEREMADE_EXPORTS_DIR: path.join(dir, 'exports'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'p'), ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', SITEREMADE_TRIAL_CREDITS: '10', MOCK_CALL_LOG: path.join(dir, 'calls.log'), NODE_ENV: 'test', HIGGSFIELD_API_KEY: HF_KEY }, env);
+  const e = Object.assign({ SITEREMADE_BACKEND: 'local', SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'assets'), SITEREMADE_EXPORTS_DIR: path.join(dir, 'exports'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'p'), ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '', STRIPE_SECRET_KEY: '', SITEREMADE_TRIAL_CREDITS: '10', MOCK_CALL_LOG: path.join(dir, 'calls.log'), NODE_ENV: 'test', HIGGSFIELD_API_KEY: HF_KEY, HIGGSFIELD_VIDEO_ENDPOINT: 'wan/v2.7/image-to-video' }, env);
   const s = await startServer(e);
   const call = client(s.port);
   await call('POST', '/api/auth/signup', { email: `pm-${process.pid}-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' });
@@ -202,4 +202,148 @@ test('export: a bought Creative website ships its premium video as a file of the
   // and the export compiler writes that file under assets/ (by its content hash), like every other picture
   const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'export-compiler.js'), 'utf8');
   assert.match(src, /'video\/mp4': 'mp4'/); assert.match(src, /videoSrc: a => \(a\.video && a\.video\.exportPath\) \|\| ''/);
+});
+
+// ================================================================ premium media INSIDE the Creative generation
+// (production bug: a brief asking for a cinematic hero video never reached Higgsfield -- premium media was never in the
+// main quote, depended on the director volunteering it, and then waited behind a hidden "Price it" button)
+const Q = require('../lib/quotes');
+const live = (env) => ({ hasKey: true, mode: 'live', env: Object.assign({ HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' }, env || {}) });
+const plan = (brief, provider) => PM.planForBrief({ brief, provider: provider || live(), costs: costs({}), tierFor: (intent, est) => Q.premiumTier(PM.INTENTS[intent].mediaType, est) });
+
+test('an explicit cinematic / premium-media brief is planned into the generation; a brief without one is not -- and says so', () => {
+  for (const [brief, intent] of [['A Creative site for my sneaker brand with a cinematic hero video', 'cinematic_hero'], ['Use image-to-video on the product photo', 'image_to_video'], ['Premium hero media with strong camera movement', 'cinematic_hero'], ['Show a product turn of the watch', 'object_motion'], ['Add an alternate angle of the chair', 'alternate_angle'], ['ambient environment motion behind the text', 'environment_motion'], ['cinematic transitions between scenes', 'premium_transition']]) {
+    const p = plan(brief);
+    assert.equal(p.requested, true, brief); assert.ok(p.intents.includes(intent), `${brief}: ${p.intents}`);
+  }
+  const p = plan('A Creative site for my sneaker brand with a cinematic hero video');
+  assert.deepEqual(p.planned.map(x => x.intent), ['cinematic_hero']); assert.equal(p.status.planned, true);
+  assert.match(p.status.message, /^Premium media planned: cinematic hero/);
+  const none = plan('A bold page about the history of the bicycle');
+  assert.equal(none.requested, false); assert.equal(none.status.planned, false); assert.equal(none.status.reason, 'not_requested'); assert.match(none.status.message, /^Not requested/);
+});
+
+test('Higgsfield unavailable is never silent: missing key, missing / invalid video endpoint, missing image endpoint, paid calls off -- each with its reason', () => {
+  const reason = (provider, brief) => plan(brief || 'a cinematic hero video', provider).status;
+  assert.equal(reason({ hasKey: false, mode: 'live', env: { HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' } }).reason, 'missing_api_key');
+  assert.match(reason({ hasKey: false, mode: 'live', env: {} }).message, /missing API key/);
+  assert.equal(reason({ hasKey: true, mode: 'live', env: {} }).reason, 'missing_video_endpoint');
+  assert.match(reason({ hasKey: true, mode: 'live', env: {} }).message, /missing video endpoint/);
+  assert.equal(reason({ hasKey: true, mode: 'live', env: { HIGGSFIELD_VIDEO_ENDPOINT: 'https://evil.example/kling/x' } }).reason, 'invalid_endpoint');
+  assert.equal(reason({ hasKey: true, mode: 'live', env: { HIGGSFIELD_VIDEO_ENDPOINT: 'not an endpoint' } }).reason, 'invalid_endpoint');
+  assert.equal(reason(live(), 'an alternate angle of the lamp').reason, 'missing_image_endpoint');
+  assert.equal(reason({ hasKey: true, mode: 'off', env: { HIGGSFIELD_VIDEO_ENDPOINT: 'wan/v2.7/image-to-video' } }).reason, 'paid_providers_off');
+});
+
+test('endpoint configuration: a model id or a pasted full URL (API or docs page) normalise to the model id; anything else is a clear error; Kling gets its own parameters', () => {
+  for (const v of ['kling-video/v3.0/4k/image-to-video', 'https://api.higgsfield.ai/kling-video/v3.0/4k/image-to-video', ' https://api.higgsfield.ai/kling-video/v3.0/4k/image-to-video/ ', 'https://open.higgsfield.ai/models/kling-video/v3.0/4k/image-to-video/api-reference']) {
+    assert.deepEqual(PM.normalizeEndpoint(v), { ok: true, endpoint: 'kling-video/v3.0/4k/image-to-video', reason: '' }, v);
+  }
+  assert.equal(PM.normalizeEndpoint('').reason, 'missing'); assert.equal(PM.normalizeEndpoint('https://evil.example/a/b').reason, 'wrong_host');
+  assert.equal(PM.normalizeEndpoint('kling').reason, 'invalid_format'); assert.equal(PM.normalizeEndpoint('../../etc/passwd').reason, 'invalid_format');
+  assert.deepEqual(PM.paramsFor('kling-video/v3.0/4k/image-to-video', 'video'), { duration: 5, sound: 'off' }, 'Kling 3.0 documents no resolution and has sound on by default');
+  assert.deepEqual(PM.paramsFor('wan/v2.7/image-to-video', 'video'), { duration: 5, resolution: '720p' });
+});
+
+test('the one main quote includes the premium media: Creative 6 + spatial 2 + cinematic hero 3 = up to 11; a costlier model is priced in its own tier', () => {
+  const q = Q.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero', tier: Q.premiumTier('video', 0.35) }] });
+  assert.equal(q.credits, 11); assert.equal(q.minCredits, 6);
+  assert.deepEqual(q.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, true]]);
+  assert.match(q.items[2].label, /Cinematic hero video \(premium media, only if it is made\)/);
+  // a 4K model costs more than a 3-credit asset may spend: it is quoted in the 5-credit tier, never run over budget
+  assert.equal(plan('a cinematic hero video').planned[0].tier, 'premium_expensive');
+  assert.equal(Q.premiumTier('video', 5), null);
+});
+
+// ---------------------------------------------------------------- the real server, end to end (Higgsfield mocked)
+const SNEAKER = 'A cinematic hero video for an imaginary sneaker brand called Zorbo, with premium motion';
+async function start(call, brief) {
+  const ask = await call('POST', '/api/creative/research', { brief });
+  if (!ask.body.needsConfirmation) return { ask, r: ask };
+  const r = await call('POST', '/api/creative/research', { brief, quoteId: ask.body.quote.id });
+  return { ask, r };
+}
+const direct = (call, brief, r) => call('POST', '/api/creative/plan', { brief, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: [], thumbnails: [] });
+const upload = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', dataUrl: mockPng('sneaker', '16:9') };
+const unclear = { id: 'r1', origin: 'research', title: 'sneaker on a website', license: '', pageUrl: 'https://shop.example/sneaker', mime: 'image/png', dataUrl: mockPng('found', '16:9') };
+const AI = { ANTHROPIC_API_KEY: 'test-only', SITEREMADE_TRIAL_CREDITS: '20', HIGGSFIELD_VIDEO_ENDPOINT: 'https://api.higgsfield.ai/kling-video/v3.0/4k/image-to-video' };
+
+test('server: an explicit cinematic brief -> one quote with the premium media -> one confirmation -> direction -> Higgsfield runs on its own, with Kling\'s parameters, and the page knows it was made', async () => {
+  await withServer(AI, async ({ call, calls }) => {
+    const { ask, r } = await start(call, SNEAKER);
+    assert.equal(ask.body.premium.planned, true, JSON.stringify(ask.body.premium)); assert.deepEqual(ask.body.premium.intents, ['cinematic_hero']);
+    assert.equal(ask.body.quote.credits, 11, '6 + the 4K cinematic asset (5)'); assert.ok(ask.body.quote.items.some(i => /Cinematic hero video/.test(i.label)));
+    assert.equal(r.body.ok, true, JSON.stringify(r.body)); assert.equal(r.body.premium.planned, true);
+    assert.equal(r.body.creditsRemaining, 9, 'the whole quote (11) is reserved before anything paid runs');
+    const d = await direct(call, SNEAKER, r); assert.equal(d.body.ok, true, JSON.stringify(d.body).slice(0, 300));
+    assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0, 'nothing before the premium step');
+    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload], premiumMedia: [] });
+    assert.equal(p.body.ok, true, JSON.stringify(p.body)); const st = p.body.premium.status;
+    assert.equal(p.body.premium.executionStarted, true); assert.deepEqual(p.body.premium.delivered, ['cinematic_hero']);
+    assert.deepEqual(st.made, ['cinematic_hero']); assert.match(st.message, /^Premium media made with Higgsfield: cinematic hero/);
+    const submit = calls().find(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint));
+    assert.equal(submit.endpoint, '/kling-video/v3.0/4k/image-to-video', 'the pasted full URL became the model id');
+    assert.equal(submit.auth, true); assert.equal(submit.params.sound, 'off'); assert.equal(submit.params.duration, 5); assert.ok(!('resolution' in submit.params));
+    assert.match(submit.params.image_url, /\/api\/premium-media\/source\//);
+    assert.equal(p.body.assets[0].kind, 'video'); assert.equal(p.body.assets[0].sourceAssetId, 'u1');
+    assert.equal(p.body.creditsCharged, 5); assert.equal(p.body.creditsRemaining, 9, 'the premium part was charged once (it was already reserved)');
+    const again = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+    assert.equal(again.body.replayed, true); assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'made once');
+  });
+});
+
+test('server: a brief without premium media -> not planned, said plainly; Higgsfield is never called', async () => {
+  await withServer(AI, async ({ call, calls }) => {
+    const brief = 'An imaginary kingdom run entirely by cats';
+    const { ask, r } = await start(call, brief);
+    assert.equal(ask.body.quote.credits, 6); assert.equal(ask.body.premium.planned, false); assert.equal(ask.body.premium.reason, 'not_requested');
+    await direct(call, brief, r);
+    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief, assets: [upload] });
+    assert.equal(p.body.premium.status.planned, false); assert.equal(p.body.premium.status.reason, 'not_requested'); assert.equal(p.body.premium.executionStarted, false);
+    assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
+  });
+});
+
+test('server: blocked premium media says exactly why and costs nothing -- a rights-unclear picture, no picture at all', async () => {
+  await withServer(AI, async ({ call, calls }) => {
+    const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
+    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'r1', assets: [unclear] });
+    const st = p.body.premium.status;
+    assert.equal(st.planned, true); assert.equal(st.reason, 'source_not_eligible');
+    assert.match(st.message, /Premium media blocked: source image not eligible for transformation/);
+    assert.equal(p.body.premium.executionStarted, false); assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 5);
+    assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
+  });
+  await withServer(AI, async ({ call }) => {
+    const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
+    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, assets: [] });
+    assert.equal(p.body.premium.status.reason, 'no_source'); assert.match(p.body.premium.status.message, /No picture to start from/); assert.equal(p.body.creditsRefunded, 5);
+  });
+});
+
+test('server: Higgsfield not configured -> the quote does not include it and the owner is told why (missing key, missing endpoint)', async () => {
+  await withServer(Object.assign({}, AI, { HIGGSFIELD_API_KEY: '' }), async ({ call }) => {
+    const { ask } = await start(call, SNEAKER);
+    assert.equal(ask.body.quote.credits, 6); assert.equal(ask.body.premium.planned, false); assert.equal(ask.body.premium.reason, 'missing_api_key');
+    assert.match(ask.body.premium.message, /missing API key/);
+  });
+  await withServer(Object.assign({}, AI, { HIGGSFIELD_VIDEO_ENDPOINT: '' }), async ({ call }) => {
+    const q = await call('POST', '/api/quotes', { operation: 'creative_generation', request: SNEAKER });
+    assert.equal(q.body.quote.credits, 6); assert.equal(q.body.premium.reason, 'missing_video_endpoint'); assert.match(q.body.premium.message, /missing video endpoint/);
+  });
+});
+
+test('the studio says it every time: "Premium media planned: Yes/No" with the reason, a progress step, the automatic step after direction', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'creative.js'), 'utf8');
+  const fnSrc = /function premiumHeadline\(st\) \{[^\n]*\}/.exec(src)[0];
+  const premiumHeadline = new Function(`${fnSrc}; return premiumHeadline;`)();
+  assert.equal(premiumHeadline({ planned: false, reason: 'not_requested', message: PM.REASONS.not_requested }), `Premium media planned: No — ${PM.REASONS.not_requested}`);
+  assert.equal(premiumHeadline({ planned: false, reason: 'missing_api_key', message: PM.REASONS.missing_api_key }), `Premium media planned: No — ${PM.REASONS.missing_api_key}`);
+  assert.match(premiumHeadline({ planned: true, message: 'Premium media planned: cinematic hero (made with Higgsfield after ...)' }), /^Premium media planned: Yes — cinematic hero/);
+  assert.match(premiumHeadline({ planned: true, made: ['cinematic_hero'], message: 'Premium media made with Higgsfield: cinematic hero.' }), /^Premium media made with Higgsfield/);
+  assert.match(premiumHeadline({ planned: true, reason: 'source_not_eligible', message: 'Premium media was planned but not made: Premium media blocked: source image not eligible for transformation.' }), /source image not eligible/);
+  assert.match(src, /\['premium', 'Premium media \(Higgsfield\)'\]/, 'a progress step on every Creative generation');
+  assert.match(src, /class=\\"cs-premium-status\\"|class="cs-premium-status"/, 'the direction panel shows the status');
+  assert.match(src, /return runPremium\(\)\.then/, 'the premium step runs after the direction, on its own');
+  assert.match(src, /request: operation === 'creative_generation' \? S\.brief : ''/, 'the quote is priced from the brief');
 });

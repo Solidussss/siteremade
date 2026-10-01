@@ -128,3 +128,5 @@ body.cs-open{overflow:hidden}
 .cs-thumbs figure small{display:block;font-size:10px;color:#a8b0c2}
 .cs-review.is-picked{outline:2px solid #7aa2ff;outline-offset:2px;border-radius:6px}.cs-main-badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;background:#7aa2ff;color:#0d1220}.cs-pick-actions{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
 .cs-checked{margin:8px 0 10px;font-size:13px;color:#c9d0de}.cs-checked summary{cursor:pointer;color:#e8ecf4;font-weight:600}.cs-checked ul{margin:6px 0 0;padding-left:18px}.cs-checked li{margin:4px 0;overflow-wrap:anywhere}
+/* premium media: planned / made / not planned -- always said, never hidden */
+.cs-premium-status{margin:10px 0;padding:10px 12px;border-radius:10px;border:1px solid rgba(127,127,127,.25);font-size:13px;line-height:1.45}.cs-premium-status[data-made="yes"]{border-color:rgba(46,160,90,.55);background:rgba(46,160,90,.08)}.cs-premium-status[data-planned="no"]{opacity:.85}
