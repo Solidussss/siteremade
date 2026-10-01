@@ -104,6 +104,15 @@ a candidate, a picture-check input, a permission source or a line in the picture
    **Errors** (missing focal picture, no title, most sourced lines uncited, unsupported numbers, overlong text, a logo
    hero) trigger **one repair call** with the exact problems; if the plan still fails, the studio uses the built-in
    director and labels the page "Built-in layout — not AI direction" with the reason and the calls it cost.
+
+   **Structure.** Real calls showed the model occasionally (2 of 14 direct calls) passing the whole plan as ONE argument
+   -- `{ plan: { identity, concept, scenes, ... } }` -- which the validator read as a page with no logline, no scenes and
+   no words; the repair, shown that wrapped output, repeated it, and the page fell back to the built-in director (the
+   earlier real-prompt fallbacks). A plan nested under one wrapper key, with none of its fields at the top, is now lifted
+   out before validation (`unwrapPlan`; the attempt records `unwrapped`), a repair is shown the plan unwrapped, and the
+   tool's description says the fields go at the top level. The validator still checks the plan in full -- nothing is
+   loosened. For diagnosis, `CREATIVE_DEBUG_DIR` (local only) keeps every rejected direction attempt and every repair:
+   the model's structured output, its stop reason and the validator's errors -- never a key, a header or a request.
 7. **Claim check** (`ai.verifyClaims`, cheap model, `CREATIVE_CLAIM_CHECK`, on by default): every kicker, heading,
    paragraph, list line, word layer and the concept of an accepted plan is checked against the given facts and the
    owner's details. **Coverage is accounted for line by line**: each line needs exactly one valid verdict; "supported"
@@ -149,8 +158,22 @@ run against a newer server.
   * **Several distinct searches** (`CREATIVE_SERPAPI_SEARCHES`, default 3, at most 5), each a different INTENT for the
     subject itself, chosen by what the subject is -- a game: official render, key art, gameplay screenshot; a drawn or
     animated character: official render, promotional art, stills; a meme: the meme, the character image, the original
-    image; a real thing: a high-resolution photo, an isolated shot, the thing in its setting. Never generic mood searches;
-    the name is never doubled from the article title.
+    image; a real thing: a high-resolution photo, an isolated shot, the thing in its setting; a real PRODUCT: a product
+    photo, isolated on white, in use, from the side; a real PLACE: a photo, a wide panorama, at night, aerial. Never
+    generic mood searches; the name is never doubled from the article title. (A physical product wins over the bare words
+    "film" or "show": an "instant film camera, photographed to show its design" was once searched as a film.)
+  * **At least two distinct families** run before results count as enough (real prompts: the first family alone
+    returned 30+ results counted good, and every candidate then came from one intent).
+  * **Near-duplicates** -- one listing at several addresses (the same title stem and shape), one file on another host --
+    are skipped before the picture check, so its eighteen looks go to different pictures.
+  * **The picture check judges every candidate** (it once returned 8 verdicts for 18, reading the selection limit as
+    the number to judge; each call's schema now asks for exactly one verdict per candidate), and a photograph of a real
+    product or place is the subject itself -- "form" is only for a fictional or trademarked character made physical
+    (all 17 photographs of a Polaroid camera had been judged "form").
+  * **A second chance**: when fewer than three usable pictures of the subject survive the check, the next family not yet
+    searched runs once (within the budget and its one fallback) and its new pictures get their own look.
+  * **The owner's pick**: the studio pre-selects the main picture and up to two that add something different (another
+    shape or framing, else another source); the owner still builds only with the pictures they confirm.
   * **Fallback**: each result set is assessed before any picture is judged (shopping results, stock previews,
     art-community hosts, cosplay / figure / merchandise titles, logos, too small, off-topic). A weak set -- fewer than six
     usable results, or mostly repeats -- is followed by the next family; when every search so far was weak, one extra

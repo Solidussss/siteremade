@@ -355,6 +355,16 @@
       els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
     }, function (e) { S.directing = false; throw e; });
   }
+  function preselect(review) {
+    var ok = function (r) { return r.adoptable !== false && !r.watermarked; };
+    var shape = function (r) { var a = (r.width || 1) / Math.max(1, r.height || 1); return a > 1.25 ? 'wide' : a < 0.8 ? 'tall' : 'square'; };
+    var picked = [], kinds = [], sites = [];
+    review.forEach(function (r, i) { if (picked.length || !ok(r)) return; picked.push(i); kinds.push(shape(r) + '|' + (r.framing || '')); sites.push(r.site || ''); });
+    if (!picked.length) return picked;
+    review.forEach(function (r, i) { var k = shape(r) + '|' + (r.framing || ''); if (picked.length >= 3 || picked.indexOf(i) >= 0 || !ok(r) || kinds.indexOf(k) >= 0) return; picked.push(i); kinds.push(k); sites.push(r.site || ''); });
+    review.forEach(function (r, i) { if (picked.length >= 3 || picked.indexOf(i) >= 0 || !ok(r) || sites.indexOf(r.site || '') >= 0) return; picked.push(i); sites.push(r.site || ''); });
+    return picked;
+  }
   function showGate(g) {
     S.gate = g || {}; var u = S.understanding || {}; var name = (u.identity && u.identity.name) || u.subject || 'the subject';
     var cur = (S.research && S.research.curation) || {}; var review = (S.research && S.research.review) || []; var web = cur.web || {};
@@ -362,7 +372,10 @@
     var parts = []; if (web.ran) parts.push(web.provider === 'google-images' ? 'Google Images' : 'a web search');
     var sources = parts.join(' and ') || 'our picture sources';
     // the pick: the best picture the studio can fetch is pre-selected as the main picture; the owner decides
-    if (!S.picked) { S.picked = []; for (var p = 0; p < review.length; p++) if (review[p].adoptable !== false && !review[p].watermarked) { S.picked.push(p); break; } }
+    // (real prompts: 15 usable pictures of the Opera House were found, 6 offered, and the page was built with one -- the
+    // pre-selection now offers the main picture and up to two that add something different: another shape or framing,
+    // else another source. Nothing changes about permission: the owner still builds only with what they confirm)
+    if (!S.picked) S.picked = preselect(review);
     step('direct', 'wait', review.length ? 'Pick the pictures to build with (the page\'s price already includes this step)' : 'Waiting for your choice (the page\'s price already includes this step)');
     var h1 = S.gate.problem ? '<p><strong>' + esc(S.gate.problem) + '</strong></p>'
       : review.length ? '<p><strong>We found pictures of ' + esc(name) + ' on ' + esc(sources) + ', but their reuse rights could not be verified automatically.</strong> Pick the ones you have the right to use, or upload your own. The main picture leads the page.</p><p class="cs-hint">None of these states a free licence, so none is used without your choice. Whoever uses one is responsible for having the right to. Each picture is credited to its source on the page.</p>'
@@ -419,6 +432,15 @@
         if (!bad.length) return false;
         bad.forEach(function (p) { p.r.watermarked = res.data.results[p.a.id].text || true; S.assets = S.assets.filter(function (x) { return x.id !== p.a.id && x.cutoutOf !== p.a.id; }); });
         if (bad.some(function (p) { return p.a.id === S.mainAsset; })) S.mainAsset = null;
+        // (real prompts: one of three confirmed pictures carried a title caption, and the whole build stopped -- the clean
+        // pictures the owner confirmed go ahead; only when none is left does the owner pick again)
+        var clean = picks.filter(function (p) { return bad.indexOf(p) < 0; });
+        if (clean.length) {
+          if (!S.mainAsset) S.mainAsset = clean[0].a.id;
+          renderThumbs(); S.picked = null;
+          step('direct', 'active', 'Left out ' + bad.length + ' picture' + (bad.length > 1 ? 's' : '') + ' carrying a watermark or caption (' + bad.map(function (p) { return '“' + (p.r.watermarked === true ? 'watermark' : p.r.watermarked) + '”'; }).join(', ') + '); building with the other' + (clean.length > 1 ? 's' : '') + '.');
+          return false;
+        }
         renderThumbs(); S.picked = null;
         els.csError.hidden = false; els.csError.textContent = 'The picture' + (bad.length > 1 ? 's' : '') + ' you picked ' + (bad.length > 1 ? 'carry' : 'carries') + ' a watermark (' + bad.map(function (p) { return '“' + (p.r.watermarked === true ? 'watermark' : p.r.watermarked) + '”'; }).join(', ') + '). Pick another picture.';
         showGate(S.gate); return true;
@@ -442,7 +464,8 @@
       return checkWatermarks(got, chosen);
     }).then(function (flagged) {
       if (flagged) return;
-      var first = got.filter(Boolean)[0];
+      // (the first picture fetched that is still in the project: one left out for a watermark is never the main picture)
+      var first = got.filter(function (a) { return a && S.assets.some(function (x) { return x.id === a.id; }); })[0];
       if (!first) { els.csError.hidden = false; els.csError.textContent = 'None of the pictures you picked could be fetched. Save one from its page and upload it, or pick another.'; S.picked = null; showGate(S.gate); return; }
       S.mainAsset = first.id; renderThumbs(); S.picked = null;
       return proceedToDirection();

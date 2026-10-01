@@ -454,6 +454,24 @@ test('direction: an unchecked page is accepted only as explicitly degraded, with
   assert.deepEqual(r.plan.scenes.find(s => s.id === 'rest').text.items, [], 'the invented line is gone');
 });
 
+test('direction: a plan the model passes wrapped in one argument ({ plan: {...} }, seen in real calls) is read as the plan -- the same page, no repair, no fallback', async () => {
+  const planInput = JSON.parse(JSON.stringify(claimPlan())); delete planInput.claims;
+  const run = async input => { const calls = []; const deps = { limits: Object.assign({}, LIM, { repairs: 1, claimCheck: false }), call: async req => { calls.push(req); return { input: JSON.parse(JSON.stringify(input)), usage: { input_tokens: 1, output_tokens: 1 }, model: 'test-director' }; } };
+    const r = await ai.direct({ facts: claimInput.facts, supplied: claimInput.supplied, assets: ASSETS.filter(a => a.origin !== 'upload'), thumbnails: [], seed: 's1' }, deps); return { r, calls }; };
+  const direct = await run(planInput); const wrapped = await run({ plan: planInput });
+  assert.equal(wrapped.r.ok, true, wrapped.r.reason); assert.equal(wrapped.calls.length, 1, 'no repair was needed'); assert.equal(wrapped.r.attempts[0].unwrapped, 'plan');
+  const strip = p => JSON.stringify(Object.assign({}, p, { direction: Object.assign({}, p.direction, { at: '' }) }));
+  assert.equal(strip(wrapped.r.plan), strip(direct.r.plan), 'exactly the page the same plan makes when passed directly');
+  // a wrapped plan with a real problem is repaired -- and the repair is shown the plan unwrapped, never its wrapper to copy
+  const broken = JSON.parse(JSON.stringify(planInput)); broken.scenes[0].text.heading = '';
+  const rep = await run({ plan: broken });
+  assert.equal(rep.calls.length, 2); const shown = rep.calls[1].messages.find(m => m.role === 'assistant').content[0].input;
+  assert.ok(!('plan' in shown) && Array.isArray(shown.scenes), 'the repair sees the plan itself');
+  // only a plan nested under ONE key with none of its fields at the top is lifted out
+  assert.equal(ai.unwrapPlan({ plan: planInput, scenes: [] }).unwrapped, ''); assert.equal(ai.unwrapPlan({ data: { foo: 1 } }).unwrapped, ''); assert.equal(ai.unwrapPlan({ page: planInput }).unwrapped, 'page');
+  assert.match(ai.DIRECTOR_TOOL.description, /never wrapped in another object/);
+});
+
 test('server: limits are explicit -- account cap, off switch, no key', async () => {
   await withServer({ CREATIVE_ACCOUNT_DAILY_PLANS: '1' }, async call => {
     const body = await planFor(call, { kind: 'invented' });

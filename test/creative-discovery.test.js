@@ -259,3 +259,77 @@ test('the research module itself can no longer fetch pictures: facts only, one h
   const run = await D.runSearches(SSBU.understanding, { search: async () => ({ ok: true, status: 200, results: [{ title: 'Super Smash Bros. Ultimate', pageUrl: 'https://en.wikipedia.org/wiki/SSBU', imageUrl: 'https://upload.wikimedia.org/wikipedia/en/5/50/SSBU.jpg', width: 1600, height: 900, position: 1 }] }), budget: 1 });
   assert.equal(run.results.length, 0, 'not counted as a usable result either');
 });
+// ---------------------------------------------------------------- regressions found with real prompts (discovery quality)
+const goodResults = (q, n, tag) => Array.from({ length: n }, (_, i) => ({ title: `Sydney Opera House ${tag} view ${i}`, pageUrl: `https://site${i % 7}.example/${tag}/${i}`, imageUrl: `https://img${i % 7}.example/${tag}-${i}-unique.jpg`, thumbUrl: `https://t.example/${tag}${i}.jpg`, width: 1600 + i, height: 1000, source: `site${i % 7}`, position: i + 1 }));
+const PLACE = { identity: { name: 'Sydney Opera House', kind: 'recognizable', what: 'the performing arts venue and architectural landmark in Sydney' } };
+
+test('real prompts: the kind of subject decides the searches -- a product beats the bare words "film" and "show"; a place gets wide and night views', () => {
+  assert.equal(D.subjectType({ identity: { what: 'A modern instant film camera by Polaroid' }, visuals: { main: 'The camera itself, photographed to show its design' } }), 'product');
+  assert.equal(D.subjectType({ identity: { what: 'an American TV show about doctors' } }), 'screen');
+  assert.equal(D.subjectType({ identity: { what: 'the 1927 silent science-fiction film' } }), 'screen');
+  assert.equal(D.subjectType(PLACE), 'place');
+  const prod = D.planSearches({ identity: { name: 'Polaroid Now', what: 'an instant camera' } }).map(p => p.family);
+  assert.deepEqual(prod.slice(0, 3), ['product', 'isolated', 'in-use']); assert.ok(prod.includes('angle'));
+  const place = D.planSearches(PLACE).map(p => norm(p.q)); assert.ok(place.some(q => /wide angle panorama/.test(q)) && place.some(q => /at night/.test(q)));
+  assert.ok(!D.planSearches(PLACE).some(p => /isolated on white|character render|official poster/.test(p.q)));
+});
+
+test('real prompts: at least two distinct search families run, even when the first alone returns plenty (one intent made every candidate alike)', async () => {
+  const qs = []; const run = await D.runSearches(PLACE, { budget: 3, search: async q => { qs.push(q); return { ok: true, status: 200, results: goodResults(q, 40, `f${qs.length}`) }; } });
+  assert.ok(qs.length >= 2, qs.join(' | ')); assert.notEqual(norm(qs[0]), norm(qs[1])); assert.equal(run.stop, 'enough good results');
+  // more(): the next family not yet searched, once, within the budget
+  const before = run.searches; const m = await run.more(); assert.ok(m && m.results.length && m.family); assert.equal(run.searches, before + 1);
+  assert.equal(await run.more(), null, 'once per generation');
+  const tight = await D.runSearches(PLACE, { budget: 2, search: async q => ({ ok: true, status: 200, results: goodResults(q, 40, `t${q.length}`) }) });
+  tight.searches = 2 + D.LIMITS.extraFallback; assert.equal(await tight.more(), null, 'never past the budget and its one fallback');
+});
+
+test('real prompts: near-duplicates (one listing at several addresses, one file on another host) are skipped before the picture check', async () => {
+  const dup = i => ({ title: 'Polaroid Now instant camera generation 3 white', pageUrl: `https://shop${i}.example/p/${i}`, imageUrl: `https://cdn${i}.example/polaroid-now-white-${i}.jpg`, thumbUrl: `https://t.example/d${i}.jpg`, width: 1000, height: 1000, source: 'x', position: i, query: 'q' });
+  const same = i => ({ title: `Camera review ${i}`, pageUrl: `https://blog${i}.example/a`, imageUrl: `https://media${i}.example/uploads/polaroid-now-front-view.jpg`, thumbUrl: `https://t.example/s${i}.jpg`, width: 1200, height: 800, source: 'y', position: 10 + i, query: 'q' });
+  const results = [dup(1), dup(2), dup(3), same(1), same(2), { title: 'Polaroid Now in a hand outdoors', pageUrl: 'https://z.example/a', imageUrl: 'https://z.example/hand.jpg', thumbUrl: 'https://t.example/z.jpg', width: 1500, height: 1000, source: 'z', position: 20, query: 'q' }];
+  let judged = 0;
+  const out = await discoverImages({ identity: { name: 'Polaroid Now' } }, { imageSearch: async () => ({ results, searches: 1 }), fetchThumb: async u => ({ ok: true, url: u, body: png(u.length), mime: 'image/png' }),
+    curate: async ({ candidates }) => { judged += candidates.length; const verdicts = {}; candidates.forEach(c => { verdicts[c.id] = { role: 'subject', identity: 'exact', origin: 'unknown', depicts: 'it', quality: 3, issues: [] }; }); return { verdicts, selection: [], coverage: 'strong' }; },
+    fetch: async u => ({ ok: true, url: u, body: Buffer.from('<html></html>') }), fetchImg: async u => ({ ok: true, url: u, body: png(u.length + 999), mime: 'image/png', width: 1500, height: 1000 }) });
+  assert.equal(judged, 3, 'one of each picture is judged'); assert.equal(out.log.nearDuplicates, 3);
+  const { nearKeys } = require('../lib/creative/webimages');
+  assert.ok(nearKeys(dup(1)).some(k => nearKeys(dup(2)).includes(k)) && !nearKeys(dup(1)).some(k => nearKeys(same(1)).includes(k)));
+});
+
+test('real prompts: when fewer than three usable pictures of the subject survive the picture check, one more family is searched and its new pictures judged -- and never when enough did', async () => {
+  const mk = (tag, n) => Array.from({ length: n }, (_, i) => ({ title: `Starlink ${tag} ${i}`, pageUrl: `https://${tag}${i}.example/p`, imageUrl: `https://${tag}${i}.example/${tag}-${i}-pic.jpg`, thumbUrl: `https://t.example/${tag}${i}.jpg`, width: 1600, height: 1000, source: tag, position: i + 1, query: tag }));
+  const run = async (exactFirst) => {
+    const calls = []; let moreCalls = 0;
+    const out = await discoverImages({ identity: { name: 'Starlink' } }, { imageSearch: async () => ({ results: mk('a', 6), searches: 1 }), more: async () => { moreCalls++; return { family: 'context', results: mk('b', 5) }; },
+      fetchThumb: async u => ({ ok: true, url: u, body: png(u.length), mime: 'image/png' }),
+      curate: async ({ candidates }) => { calls.push(candidates.length); const verdicts = {}; candidates.forEach((c, i) => { const ok = /Starlink b/.test(c.title) || i < exactFirst; verdicts[c.id] = ok ? { role: 'subject', identity: 'exact', origin: 'unknown', depicts: 'it', quality: 3, issues: [] } : { role: 'reference', identity: 'related', depicts: 'a logo', quality: 1, issues: [] }; }); return { verdicts, selection: candidates.map(c => c.id).filter(id => verdicts[id].identity === 'exact'), coverage: 'partial' }; },
+      fetch: async u => ({ ok: true, url: u, body: Buffer.from('<html></html>') }), fetchImg: async u => ({ ok: true, url: u, body: Buffer.concat([png(5000), Buffer.from(u)]), mime: 'image/png', width: 1600, height: 1000 }) });
+    return { out, calls, moreCalls };
+  };
+  const thin = await run(1); assert.equal(thin.moreCalls, 1); assert.deepEqual(thin.calls, [6, 5], 'the new pictures get their own look');
+  assert.ok(thin.out.candidates.filter(c => c.verdict && c.verdict.identity === 'exact').length >= 6); assert.equal(thin.out.log.more.family, 'context');
+  const rich = await run(4); assert.equal(rich.moreCalls, 0, 'enough usable pictures: no extra search');
+});
+
+test('real prompts: the picture check judges EVERY candidate (it once judged 8 of 18), and a photograph of a real product is the subject, never a "form"', async () => {
+  const ai = require('../lib/creative/ai'); let req = null;
+  const cands = Array.from({ length: 12 }, (_, i) => ({ id: `w${i + 1}`, title: `Polaroid Now ${i}`, description: 'x', size: '800x800', thumb: { mime: 'image/png', bytes: png(i + 10) } }));
+  await ai.curate({ identity: { name: 'Polaroid Now' }, visuals: {}, max: 8, candidates: cands }, { limits: ai.limits({}), call: async r => { req = r; return { input: { candidates: [], selection: [], coverage: 'none' }, usage: {}, model: 'test' }; } });
+  assert.equal(req.tool.input_schema.properties.candidates.minItems, 12); assert.equal(req.tool.input_schema.properties.candidates.maxItems, 12);
+  assert.match(req.system, /verdict for EVERY candidate/); assert.match(req.system, /at most 8 pictures/);
+  assert.match(req.system, /a photograph of that product or place is "exact", never "form"/);
+  assert.equal(ai.CURATE_TOOL.input_schema.properties.candidates.minItems, undefined, 'the shared tool is not changed');
+});
+
+test('real prompts: at the picture gate the owner is offered the main picture and up to two that add something different -- and still builds only with what they confirm', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'creative.js'), 'utf8');
+  const body = src.slice(src.indexOf('  function preselect(review) {'), src.indexOf('  function showGate(g) {'));
+  const preselect = new Function(`${body}; return preselect;`)();
+  const r = (w, h, framing, site, extra) => Object.assign({ width: w, height: h, framing, site, adoptable: true }, extra || {});
+  assert.deepEqual(preselect([r(1000, 1400, 'whole', 'a'), r(1000, 1400, 'whole', 'a'), r(1920, 1080, 'scene', 'b'), r(1000, 1000, 'tight', 'c')]), [0, 2, 3]);
+  assert.deepEqual(preselect([r(800, 800, 'whole', 'a', { watermarked: 'shutterstock' }), r(800, 800, 'whole', 'b', { adoptable: false }), r(900, 900, 'whole', 'c')]), [2], 'never a watermarked or unfetchable picture');
+  assert.deepEqual(preselect([r(800, 800, 'whole', 'a'), r(800, 800, 'whole', 'a'), r(800, 800, 'whole', 'b')]), [0, 2], 'the same kind of picture from the same source is not picked twice');
+  assert.deepEqual(preselect([]), []);
+  assert.match(src, /Build with ' \+ \(pickN === 1 \? 'this picture' : 'these ' \+ pickN \+ ' pictures'\)/, 'building stays the owner\'s explicit choice');
+});

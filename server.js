@@ -2549,6 +2549,12 @@ function creativeProviderTrip(error) {
 // the spatial tier (lib/creative/spatial.js): off unless CREATIVE_SPATIAL=on -- it gates whether a NEW page may be composed
 // as spatial; a page accepted as spatial renders the same everywhere afterwards
 const CREATIVE_SPATIAL_ON = require('./lib/creative/renderers').enabled(process.env);
+// (diagnosis, local only: with CREATIVE_DEBUG_DIR set, every direction attempt the validator rejects is written there --
+// the model's own structured output, its stop reason and the validator's errors; never a key, a header or a request)
+function creativeDebugDump(rec) {
+  const dir = process.env.CREATIVE_DEBUG_DIR; if (!dir) return;
+  try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, `direction-${Date.now()}-a${rec.attempt}.json`), JSON.stringify(rec, null, 1)); } catch (e) { /* diagnosis only */ }
+}
 const CREATIVE_BUDGET_MSG = 'Creative has reached its daily AI limit on our side, so this step did not run. Your credits were not used -- please try again tomorrow (UTC).';
 function creativeBoundUsd(step) {
   const L = CREATIVE_AI_LIMITS, P = L.prices, M = 1e6;
@@ -2595,7 +2601,7 @@ async function creativeModelCall({ model, system, content, messages, tool, maxTo
     const block = (data.content || []).find(b => b.type === 'tool_use' && b.name === tool.name);
     if (!block || !block.input) throw new Error('the model returned no structured output');
     if (data.stop_reason === 'max_tokens') throw new Error('the model ran out of output room before finishing');
-    return { input: block.input, toolUseId: block.id, usage: data.usage || {}, model: data.model || model, ms: Date.now() - t0 };
+    return { input: block.input, toolUseId: block.id, usage: data.usage || {}, model: data.model || model, ms: Date.now() - t0, stopReason: data.stop_reason || '', blocks: (data.content || []).map(b => b.type) };
   } finally { clearTimeout(timer); }
 }
 // the deployed build, so the Creative studio files are loaded as one matching set (never a stale
@@ -2635,7 +2641,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
     } catch (error) { creativeLedger({ kind: 'creative_curate', accountId, ok: false, source: 'web', error: String(error && error.message || error).slice(0, 200), usd: 0 }); throw error; }
   };
   let search = null;
-  const found = serpKey ? await creativeWeb.discoverImages(input, { curate: ({ candidates, max }) => webCurate(candidates, max), imageSearch: async () => {
+  const found = serpKey ? await creativeWeb.discoverImages(input, { curate: ({ candidates, max }) => webCurate(candidates, max), more: async () => (search && search.more ? search.more() : null), imageSearch: async () => {
     const spend = creativeSpendToday();
     search = await creativeDiscovery.runSearches(understanding, {
       budget: CREATIVE_SERPAPI.searches, refine, brief, needs: intent,
@@ -2919,7 +2925,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   let r;
   try {
     r = await creativeAi.direct(input, {
-      limits: CREATIVE_AI_LIMITS, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON,
+      limits: CREATIVE_AI_LIMITS, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON, onInvalid: creativeDebugDump,
       budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out during this direction' } : { ok: true }),
       onUsage: x => {
         // the claim check (cheap model) is its own row: it costs, but is not a direction
@@ -3743,7 +3749,7 @@ async function creativeRedesign({ accountId, directionsState, directionIndex, di
   let r;
   try {
     r = await creativeAi.direct(input, {
-      limits, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON,
+      limits, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON, onInvalid: creativeDebugDump,
       budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
       onUsage: x => {
         usages.push(x.usage); if (x.step !== 'claims') model = x.model;
