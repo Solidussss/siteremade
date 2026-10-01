@@ -430,12 +430,24 @@ pictures, words, colours) plus a few bounded fields of its own. The model never 
   reasons are decorative (particles, card planes) gives phones the DOM page.
 * **Reduced motion**: the spatial layer never starts; the DOM page shows its complete still composition (a globe is
   drawn there as a still SVG of the same points).
-* **Failure**: no hardware WebGL (software emulation counts as none), a context that throws, a driver error, a lost
-  context, a picture WebGL may not read (a page opened from disk), a model that will not load, or any error -- the layer
+* **Failure** (reported as it happened -- the layer's own teardown is never mistaken for a lost context): no hardware
+  WebGL (software emulation counts as none), a context that throws, a driver error, a lost context, a picture WebGL may not read (a page opened from disk), a model that will not load, or any error -- the layer
   removes itself (or the one piece) and the DOM page is exactly what it would have been.
 * **Export and ownership**: the runtime is part of `index.html`; pictures and models are files in `assets/`; nothing is
   loaded from SiteRemade or any other server; README.md says the 3D layer needs the folder to be served by a web host
   (opened from disk it shows the flat page).
+* **What real prompts taught it** (Super Smash Bros. Ultimate, Neegy, a Polaroid camera, Starlink, the Sydney Opera
+  House, ambient music, Comme des Garcons -- through the real pipeline, real discovery and real AI direction):
+  the director's own `renderer: dom` is its default, never a veto; the concept is read from the SUBJECT (its name,
+  what it is, how it looks) -- never from the page's generated title or logline -- and with narrow words (a camera's
+  "digital-era" is not a data network, ambient music's "Internet Age" and "listening space" are not a globe or a
+  starfield; the globe needs satellites, networks, logistics... and never a product or a character); a flat picture
+  turns at most 16 degrees (a wide or group picture 8) -- further, it reads as a card; only the scenes the layer draws
+  behind (a picture actor's run, a set piece) give up their surface and atmosphere, and a spatial transition plays
+  only between two such scenes (elsewhere the DOM one does) -- a designed opening or a closing card keeps its look; a
+  globe is drawn in the page's ink when its accent is too close to the scene; on a phone the actor steps back while a
+  scene's words pass through its band, and clears quickly once its run ends; another-angle searches only for physical
+  products. Thin real inputs (one picture, no cut-out) make a DOM page, by design.
 * **Anti-repetition**: the fingerprint gains `x:<camera moves>/<depth>/<spatial transitions>/<particles>/<actor
   forms>/<set pieces>`; two DOM pages compare exactly as before, and a spatial page never reads as the same as a DOM one.
 * **Asset planning**: a spatial page records what it wanted -- a transparent cut-out, another angle of the subject, an

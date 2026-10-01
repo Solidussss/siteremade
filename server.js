@@ -2624,7 +2624,7 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   // what the page's motion will probably need from its pictures (timeline.motionIntent): searched for, and asked of the check
   const intent = require('./lib/creative/timeline').motionIntent(understanding);
   // (with the spatial tier on, a subject that may turn in depth also asks for another angle of itself)
-  if (CREATIVE_SPATIAL_ON && intent.cutout) { intent.alternate = true; intent.why = intent.why.concat(['the same subject from another angle, to turn it in depth']); }
+  if (CREATIVE_SPATIAL_ON && intent.cutout && require('./lib/creative/spatial').wantsAlternate(understanding)) { intent.alternate = true; intent.why = intent.why.concat(['the same subject from another angle, to turn it in depth']); }
   const webCurate = async (candidates, max) => {
     if (!(CREATIVE_AI_LIMITS.curate && creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap)) throw new Error(creativeAiUnavailableReason() || 'the picture check is off or the daily budget is used up');
     try {

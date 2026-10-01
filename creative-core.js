@@ -784,7 +784,8 @@
     const CAM = { dz: [-0.3, 0.5], dx: [-0.12, 0.12], dy: [-0.12, 0.12], yaw: [-14, 14], pitch: [-8, 8] };
     // the fastest each camera number may change per unit of the scroll axis
     const CAM_RATE = { dz: 0.9, dx: 0.3, dy: 0.3, yaw: 30, pitch: 20 };
-    const ACTOR3D = { z: [-0.6, 0.35], ry: { billboard: [0, 0], plane: [-40, 40], model: [-360, 360] } };
+    // (a flat picture turned past ~16 degrees reads as a card; a wide or group picture past ~8 -- real prompts showed both)
+    const ACTOR3D = { z: [-0.6, 0.35], ry: { billboard: [0, 0], plane: [-16, 16], model: [-360, 360] }, wideTurn: 8 };
     const PARTICLE_MAX = { none: 0, burst: 700, ambient: 900, dust: 800, stars: 1600, points: 1400, data: 1200 };
 
     const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
@@ -796,15 +797,18 @@
     const RX = {
       product: /\b(products?|bottles?|cans?|drinks?|soda|sneakers?|shoes?|watch(es)?|phones?|headphones?|gadgets?|devices?|perfume|cosmetics?|snacks?|launch|packaging|chairs?|lamps?|cars?|bikes?|cameras?|consoles?|toys?|doughnuts?|donuts?|burgers?|coffee|energy drink)\b/i,
       character: /\b(games?|gaming|video game|characters?|mascots?|fighters?|franchise|anime|cartoons?|esports|meme|figurine)\b/i,
-      tech: /\b(data|network|logistics|shipping|freight|supply chain|platform|software|cloud|a\.?i\.?|artificial intelligence|internet|satellites?|global|globe|worldwide|airlines?|telecom|fintech|analytics|infrastructure|technology|tech|quantum|computing|digital)\b/i,
-      place: /\b(travel|city|cities|architecture|buildings?|towers?|hotels?|resorts?|islands?|mountains?|coast|landscapes?|destinations?|residences?|skyline|airports?|harbou?rs?|yachts?|aviation|flight)\b/i,
+      tech: /\b(data|network|logistics|shipping|freight|supply chain|software|cloud computing|artificial intelligence|satellites?|airlines?|telecom|fintech|analytics|infrastructure|technology|quantum|computing|semiconductors?|processors?)\b/i,
+      // a subject that IS a network spread over the world (the point globe): never merely 'digital' or 'online'
+      data: /\b(data|networks?|logistics|shipping|freight|supply chain|satellites?|constellation|telecom|airlines?|global (trade|network|internet|coverage)|worldwide network|infrastructure)\b/i,
+      place: /\b(travel|city|cities|architecture|buildings?|towers?|hotels?|resorts?|islands?|mountains?|coast|landscapes?|destinations?|residences?|skyline|airports?|harbou?rs?|yachts?|aviation|flight|landmarks?|venues?|opera house|cathedrals?|bridges?|monuments?|heritage site|temples?|castles?|palaces?|stadiums?)\b/i,
       abstract: /\b(abstract|experimental|generative|art project|installation|ambient|synth|electronic music|visual art|sound art|kinetic)\b/i,
       editorial: /\b(fashion|couture|runway|designer|portfolio|photographer|editorial|magazine|memoir|poem|poetry|wedding|memorial|obituary|tribute to my)\b/i,
-      space: /\b(space|stars?|galaxy|galaxies|cosmos|astronom\w*|nebula|night sky|planets?)\b/i,
+      space: /\b(outer space|space (exploration|travel|station|flight|telescope|mission)|spacecraft|rockets?|galaxy|galaxies|cosmos|astronom\w*|nebula|night sky|planets?|starfield)\b/i,
     };
     function conceptOf(ctx) {
       const c = ctx || {}; const text = [c.name, c.title, c.logline, c.what, c.visuals, (c.motifs || []).join(' ')].filter(Boolean).join(' ');
       const o = {}; Object.keys(RX).forEach(k => { o[k] = RX[k].test(text); });
+      const subject = [c.name, c.what, c.visuals].filter(Boolean).join(' '); o.editorial = RX.editorial.test(subject);
       if (c.kind === 'invented' && !o.product && !o.character && !o.tech && !o.place) o.abstract = true;
       return o;
     }
@@ -871,7 +875,7 @@
       if (model) why.push('model');
       if (primary && cutoutOf(pa) && sharp(pa, 700) && (con.product || con.character) && moments.some(k => ['actor-turn', 'actor-entrance', 'reveal'].includes(k))) why.push('object-turn');
       if (found.flight && (moments.some(k => ['chapter-flight', 'depth-dive', 'world-change'].includes(k)) || con.place || ['cinematic-chapters', 'layered-parallax', 'mask-transition'].includes(c.family))) why.push('camera-flight');
-      if (con.tech && !con.editorial) { found.globe = globeScene(scenes, taken); if (found.globe != null) why.push('globe'); }
+      if (con.data && !con.product && !con.character && !con.editorial) { found.globe = globeScene(scenes, taken); if (found.globe != null) why.push('globe'); }
       if (found.lineup && (con.product || con.character)) why.push('lineup');
       if ((con.character || con.product || con.abstract || con.space || con.tech) && ['expressive', 'immersive'].includes(c.mode)) why.push('particles');
       if (found.cards && (con.abstract || con.tech)) why.push('card-planes');
@@ -936,9 +940,9 @@
         const z = [], ry = [];
         a.keys.forEach((k, j) => {
           const R = tl.rhythm[Math.max(0, Math.min(n - 1, Math.floor(k.g)))]; const big = ['event', 'escalation'].includes(R) && k.g - Math.floor(k.g) >= 0.45;
-          if (k.o === 0 && j === 0) { z.push(-0.45); ry.push(form === 'model' ? -90 : turn * -30); return; }
-          if (j === a.keys.length - 1 && a.exit !== 'none') { z.push(a.exit === 'offstage' ? 0.25 : a.exit === 'shrink' ? -0.5 : -0.3); ry.push(form === 'model' ? 180 * flip : turn * 20 * flip); return; }
-          if (big) { flip = -flip; z.push(0.12); ry.push(form === 'model' ? 180 * (j % 2 ? 1 : -1) : turn * 32 * flip); return; }
+          if (k.o === 0 && j === 0) { z.push(-0.45); ry.push(form === 'model' ? -90 : turn * -12); return; }
+          if (j === a.keys.length - 1 && a.exit !== 'none') { z.push(a.exit === 'offstage' ? 0.25 : a.exit === 'shrink' ? -0.5 : -0.3); ry.push(form === 'model' ? 180 * flip : turn * 10 * flip); return; }
+          if (big) { flip = -flip; z.push(0.12); ry.push(form === 'model' ? 180 * (j % 2 ? 1 : -1) : turn * 14 * flip); return; }
           z.push(0); ry.push(form === 'model' ? 0 : 0);
         });
         return Object.assign({ role: a.role, form }, model ? { model: model.id } : {}, { z, ry });
@@ -991,7 +995,8 @@
         // (a model that is not in the project is not drawn: the actor's own picture takes its place)
         if (form === 'model' && (!model || a.role !== 'primary' || (Array.isArray(models) && !models.some(m => m && m.id === model && m.format === 'glb' && !(m.bytes > CAPS.modelBytes))))) { form = 'plane'; model = ''; }
         if (form !== 'model') model = '';
-        const zr = ACTOR3D.ry[form]; const K = a.keys.length;
+        const pic = byId.get(a.asset); const wideish = form === 'plane' && pic && pic.assess && pic.assess.aspect >= 1.25;
+        const zr = wideish ? [-ACTOR3D.wideTurn, ACTOR3D.wideTurn] : ACTOR3D.ry[form]; const K = a.keys.length;
         const z = Array.from({ length: K }, (_, j) => r2(num((x.z || [])[j], ACTOR3D.z[0], ACTOR3D.z[1], 0)));
         const ry = Array.from({ length: K }, (_, j) => Math.round(num((x.ry || [])[j], zr[0], zr[1], 0)));
         // (no jumps between two close keys)
@@ -1052,6 +1057,9 @@
 
     // ---------------------------------------------------------------- what the spatial layer needs from the pictures
     // (asked of discovery and the picture check alongside timeline.assetNeeds: never required -- every need has a fallback)
+    // another angle of the subject is worth a search only for a physical product (a game, a character or a person turns as
+    // a picture, within a small angle; a 'side view' search for them brings in fan renders)
+    function wantsAlternate(u) { const x = u || {}; const c = conceptOf({ name: x.identity && x.identity.name, what: x.identity && x.identity.what, visuals: x.visuals && x.visuals.main }); return !!(c.product && !c.character); }
     function assetNeeds(intent) {
       const i = intent || {}; const out = [];
       if (i.cutout) out.push({ need: 'transparent', for: 'the subject on a transparent background (a PNG cut-out) to move and turn in depth' }, { need: 'alternate', for: 'the same subject from another angle or pose' });
@@ -1060,7 +1068,7 @@
       return out;
     }
 
-    module.exports = { CAMERA_MOVES, DEPTHS, PARTICLES, FORMS, PIECES, FILLS, SEAM_MAP, SPATIAL_SEAMS, MORPHS, WHY, WHY_CODES, QUALITY, CAPS, CAM, CAM_RATE, ACTOR3D, PARTICLE_MAX, conceptOf, decide, compose, normalise, cleanWhy, fingerprint, parseX, similarity, assetNeeds };
+    module.exports = { CAMERA_MOVES, DEPTHS, PARTICLES, FORMS, PIECES, FILLS, SEAM_MAP, SPATIAL_SEAMS, MORPHS, WHY, WHY_CODES, QUALITY, CAPS, CAM, CAM_RATE, ACTOR3D, PARTICLE_MAX, conceptOf, wantsAlternate, decide, compose, normalise, cleanWhy, fingerprint, parseX, similarity, assetNeeds };
 
   });
   __define("timeline", function (module, exports, require) {
@@ -1544,6 +1552,8 @@
       var all = [].slice.call(d.querySelectorAll('.sc')), MAXY = 0, gMax = 0, camRest = 0, vw = 0, vh = 0, D = 1, fovY = 35 * Math.PI / 180, lastT = 0, ema = 16, slow = 0, t0 = Date.now();
       var owned = [], surf = [], model = null, animated = false;
       function cl(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function lum(c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+      function seen(c) { return Math.abs(lum(c) - lum(fogC)) >= 0.28 ? c : (Math.abs(lum(S.pal.ink) - lum(fogC)) >= Math.abs(lum(S.pal.glow) - lum(fogC)) ? S.pal.ink : S.pal.glow); }
       function sm(t) { t = cl(t); return t * t * (3 - 2 * t); }
       function reduced() { return html.getAttribute('data-motion') === 'reduced'; }
       function hex(h) { h = String(h || '').replace('#', ''); if (h.length !== 6) return [0, 0, 0]; return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255]; }
@@ -1691,13 +1701,14 @@
       // ------------------------------------------------------------ geometry of the page (measured on load and resize only)
       function measure() {
         vw = W.innerWidth; vh = W.innerHeight; D = (vh / 2) / Math.tan(fovY / 2); MAXY = Math.max(0, d.scrollingElement.scrollHeight - vh); gMax = G(MAXY);
-        all.forEach(function (s) { var pin = s.querySelector('.sc-pin'), st = s.querySelector('.sc-stage'); if (!pin) return; var pr = pin.getBoundingClientRect(), sr = st ? st.getBoundingClientRect() : pr; s._sp = { dx: sr.left - pr.left, dy: sr.top - pr.top, w: sr.width, h: sr.height, ph: pr.height, pin: s.hasAttribute('data-pin') }; });
+        all.forEach(function (s) { var pin = s.querySelector('.sc-pin'), st = s.querySelector('.sc-stage'); if (!pin) return; var pr = pin.getBoundingClientRect(), sr = st ? st.getBoundingClientRect() : pr, tx = s.querySelector('.sc-text'), tr0 = tx ? tx.getBoundingClientRect() : null; s._sp = { dx: sr.left - pr.left, dy: sr.top - pr.top, w: sr.width, h: sr.height, ph: pr.height, pin: s.hasAttribute('data-pin'), ty: tr0 ? tr0.top - pr.top : 0, th: tr0 ? tr0.height : 0 }; });
         if (cv) { var w = Math.round(vw * dpr), h = Math.round(vh * dpr); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } }
       }
       function G(y) { var n = all.length, k = 0; if (!n || all[0]._top == null) return -1; for (var i = 0; i < n; i++) { if (all[i]._top <= y + 1) k = i; else break; } var s = all[k]; return k + cl((y - s._top) / Math.max(1, s._h)); }
       function progOf(s, y) { var top = s._top - y; if (s.hasAttribute('data-pin')) { var span = s._h - vh; return span > 0 ? cl(-top / span) : 0; } return cl((vh - top) / (vh + s._h)); }
       // the centre of a scene's stage on screen now (a held scene keeps it in place while it holds)
       function anchor(i, y) { var s = all[i]; if (!s || s._top == null || !s._sp) return null; var t0 = s._top - y, t = s._sp.pin ? (t0 > 0 ? t0 : Math.min(0, t0 + s._h - s._sp.ph)) : t0; return { x: s._sp.dx + s._sp.w / 2 - vw / 2, y: vh / 2 - (t + s._sp.dy + s._sp.h / 2), w: s._sp.w, h: s._sp.h }; }
+      function wordsIn(y, b0, b1) { var m = 0; for (var i = 0; i < all.length; i++) { var s = all[i]; if (!s._sp || !s._sp.th || s._top == null) continue; var t0 = s._top - y, t = s._sp.pin ? (t0 > 0 ? t0 : Math.min(0, t0 + s._h - s._sp.ph)) : t0, a0 = t + s._sp.ty, a1 = a0 + s._sp.th; if (a1 < b0 - 40 || a0 > b1 + 40) continue; var ov = (Math.min(a1, b1) - Math.max(a0, b0)) / Math.max(1, b1 - b0); m = Math.max(m, cl(ov * 3 + 0.2)); } return m; }
       function sample(K, g, dim) { var n = K.length, i = 0; if (g <= K[0][0]) return K[0]; if (g >= K[n - 1][0]) return K[n - 1]; while (i < n - 2 && K[i + 1][0] < g) i++; var a = K[i], b = K[i + 1], t = sm((g - a[0]) / Math.max(1e-6, b[0] - a[0])), o = [g]; for (var j = 1; j < dim; j++) o.push(a[j] + (b[j] - a[j]) * t); return o; }
 
       // ------------------------------------------------------------ the objects
@@ -1785,7 +1796,7 @@
         // particles first (far field), then everything else back to front
         if (parts) drawParticles(g, y, time);
         pieces.forEach(function (P2) { collectPiece(P2, g, y, time, list); });
-        actors.forEach(function (A) { collectActor(A, g, list); });
+        actors.forEach(function (A) { collectActor(A, g, y, list); });
         seams.forEach(function (o) { collectSeam(o, y, list); });
         list.sort(function (a, b) { return b.z - a.z; });
         use(P.q); gl.uniformMatrix4fv(P.q.u.uV, false, V); gl.uniformMatrix4fv(P.q.u.uP, false, PR); gl.uniform1f(P.q.u.uFog, S.fog); gl.uniform3fv(P.q.u.uFogC, fogC); gl.uniform2fv(P.q.u.uFogR, fogR); gl.uniform1i(P.q.u.uT, 0); gl.uniform1i(P.q.u.uT2, 1);
@@ -1798,9 +1809,15 @@
       var cbA = d.querySelector('.cb-a'), cbB = d.querySelector('.cb-b'), BA = '', BB = '', BT = -1;
       function backdrop(g) { if (!cbA || !cbB) return; var n = all.length, k = Math.max(0, Math.min(n - 1, Math.floor(g))), t = Math.round(sm((g - k - 0.6) / 0.4) * 100) / 100, a = all[k].getAttribute('data-surf') || '', b = (all[k + 1] && all[k + 1].getAttribute('data-surf')) || a; if (a !== BA) { BA = a; cbA.style.backgroundColor = a; } if (b !== BB) { BB = b; cbB.style.backgroundColor = b; } if (t !== BT) { BT = t; cbB.style.opacity = String(t); } }
       function presence(i, g, before, after) { return sm((g - i + before) / 0.45) * (1 - sm((g - i - after) / 0.45)); }
-      function collectActor(A, g, list) {
+      function collectActor(A, g, y, list) {
         var a = A.a; if (!A.tex && !A.mesh) return; if (g < a.from - 0.7 || g > a.to + 1.3) return;
-        var v = sample(a.K, g, 8), o = cl(v[5]); if (o <= 0.01) return;
+        var v = sample(a.K, g, 8), o = cl(v[5]);
+        // (on a phone the actor shares the top of the screen with the next scene's words: once its run ends it clears quickly)
+        if (phone) o *= 1 - sm((g - a.to - 0.25) / 0.3);
+        // (on a phone the actor stands in the top band: while a scene's words pass through that band it steps back, so the
+        // words are never read over the picture)
+        if (phone) o *= 1 - 0.78 * wordsIn(y, S.nav + vh * 0.01, S.nav + vh * 0.37);
+        if (o <= 0.01) return;
         var h, w, cx, cy, rot = v[4];
         if (phone) { var hb = vh * 0.36; h = hb; w = h * a.aa; if (w > vw * 0.72) { w = vw * 0.72; h = w / a.aa; } cx = v[1] * 0.35 * vw / 100; cy = vh / 2 - (S.nav + vh * 0.01 + v[2] * 0.3 * vh / 100 + hb / 2); rot = Math.max(-8, Math.min(8, rot)); }
         else { var big = a.role === 'secondary'; h = vh * (big ? 0.44 : 0.54); w = h * a.aa; var mw = vw * (big ? 0.28 : 0.34); if (w > mw) { w = mw; h = w / a.aa; } cx = v[1] * vw / 100; cy = -v[2] * vh / 100; }
@@ -1868,11 +1885,11 @@
         if (kind === 'globe') {
           // (beside the scene's words -- on the side they leave free -- and on a phone behind them, dimmer)
           var R2 = phone ? vw * 0.42 : Math.min(vw, vh) * (P2.side ? 0.3 : 0.36), gx = phone ? 0 : P2.side * vw * 0.2, gy = at.y + (phone ? vh * 0.12 : P2.side ? 0 : -vh * 0.14);
-          var yawG = pg * 2.4 + (tier === 'low' ? 0 : time * 0.05), m2 = chain(tr(gx, gy, -0.1 * D), rx(0.38), ry(yawG), sc3(R2, R2, R2)), c = S.pal[p.fill] || S.pal.accent, a2 = pr * (phone ? 0.6 : P2.side ? 1 : 0.6);
+          var yawG = pg * 2.4 + (tier === 'low' ? 0 : time * 0.05), m2 = chain(tr(gx, gy, -0.1 * D), rx(0.38), ry(yawG), sc3(R2, R2, R2)), c = seen(S.pal[p.fill] || S.pal.accent), a2 = pr * (phone ? 0.6 : P2.side ? 1 : 0.6);
           list.push({ z: viewZ(V, m2), f: function () {
             use(P.pt); var u = P.pt.u; gl.uniformMatrix4fv(u.uM, false, m2); gl.uniformMatrix4fv(u.uV, false, V); gl.uniformMatrix4fv(u.uP, false, PR); gl.uniform1f(u.uS, 0); gl.uniform1f(u.uSz, phone ? 2.4 : 3.2); gl.uniform1f(u.uDpr, dpr); gl.uniform1f(u.uD, D); gl.uniform1f(u.uA, a2); gl.uniform1f(u.uFog, 0); gl.uniform3fv(u.uC, c);
             gl.bindBuffer(gl.ARRAY_BUFFER, P2.gb); gl.enableVertexAttribArray(P.pt.a.aR); gl.vertexAttribPointer(P.pt.a.aR, 4, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.POINTS, 0, P2.gn); draws++;
-            if (P2.lb) { use(P.ln); var u2 = P.ln.u; gl.uniformMatrix4fv(u2.uM, false, m2); gl.uniformMatrix4fv(u2.uV, false, V); gl.uniformMatrix4fv(u2.uP, false, PR); gl.uniform1f(u2.uQ, pg); gl.uniform3fv(u2.uC, S.pal.glow); gl.uniform1f(u2.uA, a2 * 0.8);
+            if (P2.lb) { use(P.ln); var u2 = P.ln.u; gl.uniformMatrix4fv(u2.uM, false, m2); gl.uniformMatrix4fv(u2.uV, false, V); gl.uniformMatrix4fv(u2.uP, false, PR); gl.uniform1f(u2.uQ, pg); gl.uniform3fv(u2.uC, c); gl.uniform1f(u2.uA, a2 * 0.8);
               gl.bindBuffer(gl.ARRAY_BUFFER, P2.lb); gl.enableVertexAttribArray(P.ln.a.aL); gl.vertexAttribPointer(P.ln.a.aL, 4, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.LINES, 0, P2.ln); draws++; }
             bindQuad(); } });
         }
@@ -1881,7 +1898,7 @@
         var s = o.s, sc = all[s.at]; if (!sc || sc._top == null) return;
         var end = Math.min(sc._top, MAXY ? Math.max(0, MAXY - vh * 0.3) : sc._top), span = Math.max(1, Math.min(s.span * vh, end)), w = cl((y - (end - span)) / span);
         if (w <= 0.001 || w >= 0.999) return; var e = sm(w);
-        if (s.fam === 'object-pass') { var z = -1.4 * D + w * 2.3 * D; if (z > 0.9 * D) return; var m = chain(tr((0.45 - 0.9 * w) * vw * 0.5, 0, z), ry(0.45 * (1 - w)), sc3(vw * 1.25, vh * 1.25, 1));
+        if (s.fam === 'object-pass') { var z = -1.4 * D + w * 2.3 * D; if (z > 0.9 * D) return; var m = chain(tr((0.45 - 0.9 * w) * vw * 0.5, 0, z), ry(0.12 * (1 - w)), sc3(vw * 1.25, vh * 1.25, 1));
           list.push({ z: viewZ(V, m), f: function () { quad(m, { mode: 3, c: s.c, a: sm(w / 0.08) * (1 - sm((w - 0.9) / 0.1)) }); } }); return; }
         if (s.fam === 'disc-approach') { var m2 = chain(tr(0, -0.08 * vh, -3 * D * (1 - e)), sc3(Math.max(vw, vh) * 1.55, Math.max(vw, vh) * 1.55, 1));
           list.push({ z: viewZ(V, m2), f: function () { quad(m2, { mode: 2, c: s.c, a: sm(w / 0.06) * (1 - sm((w - 0.9) / 0.1)) }); } }); return; }
@@ -1939,7 +1956,7 @@
           gl = cv.getContext('webgl', opts) || cv.getContext('experimental-webgl', opts);
           if (!gl) { cv = null; ST.state = 'dom'; ST.why = 'no hardware WebGL'; return; }
           var back = d.querySelector('.cr-back'); if (back && back.parentNode) back.parentNode.insertBefore(cv, back.nextSibling); else d.body.insertBefore(cv, d.body.firstChild);
-          cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); fail('context lost'); ST.state = 'failed'; }, false);
+          cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); if (!alive) return; fail('context lost'); ST.state = 'failed'; }, false);
           alive = true;
           P.q = prog(QUAD_VS, QUAD_FS, ['aP']); P.pt = prog(PT_VS, PT_FS, ['aR']); P.ln = prog(LN_VS, LN_FS, ['aL']); P.m = prog(MS_VS, MS_FS, ['aP', 'aN', 'aU']);
           B.quad = buf3(new Float32Array([-0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5]));
@@ -3456,7 +3473,7 @@
         // the renderer (spatial.js): DOM unless the concept genuinely gains from real depth -- an object that turns, a camera
         // flying through chapters, a lineup in perspective, a globe of data, particles -- and only with the spatial tier
         // enabled (CREATIVE_SPATIAL=on). Immersive mode alone is never a reason. Why is recorded on the timeline.
-        const sctx = { enabled: c.spatial, mode: art.mode, family: art.family, personality: art.personality, kind: identity.kind, name: identity.name, title: concept.title, logline: concept.logline, what: c.what || (u.identity && u.identity.what), visuals: (u.visuals && u.visuals.main) || (c.visuals && c.visuals.main), motifs: c.motifs || u.motifs, scenes, timeline, byId, models: c.models, request: raw.renderer === 'dom' && p.timeline ? 'dom' : '' };
+        const sctx = { enabled: c.spatial, mode: art.mode, family: art.family, personality: art.personality, kind: identity.kind, name: identity.name, title: concept.title, logline: concept.logline, what: c.what || (u.identity && u.identity.what), visuals: (u.visuals && u.visuals.main) || (c.visuals && c.visuals.main), motifs: c.motifs || u.motifs, scenes, timeline, byId, models: c.models };
         const dec = SP.decide(sctx); timeline.why = dec.why;
         const spatial = dec.renderer === 'spatial' ? SP.compose(sctx, dec) : null;
         if (spatial) {
@@ -3466,7 +3483,8 @@
           const alt = pa && assets.find(a => a.id !== pa.id && a.id !== pa.cutoutOf && (a.cutout || (a.assess && a.assess.transparent)) && curOf(a) && curOf(a).identity === 'exact');
           const met = { transparent: pa && (pa.cutout || (pa.assess && pa.assess.transparent)) ? pa.id : '', alternate: alt ? alt.id : '', environment: fl ? fl.assets[0] : '', foreground: '', model: mdl ? mdl.model : '' };
           const sn = SP.assetNeeds({ cutout: !!actor, bleed: !!fl, object: !!actor }).map(x => Object.assign(x, { met: met[x.need] || '' }));
-          timeline.needs = (timeline.needs || []).concat(sn).slice(0, 10);
+          // (a plan accepted again -- a recompose, a revision -- replaces its spatial needs, never repeats them)
+          const kinds = new Set(sn.map(x => x.need)); timeline.needs = (timeline.needs || []).filter(x => !kinds.has(x.need)).concat(sn).slice(0, 10);
         }
         else { if (raw.renderer === 'spatial') fixes.push(`renderer: DOM -- spatial was asked for but is not justified here (${dec.why.join(', ')})`); timeline.renderer = 'dom'; delete timeline.spatial; }
         timeline.behavior = TL.behavior(timeline, art);
@@ -4821,7 +4839,12 @@
       // which draws the scenes it takes over in depth behind the words and hands them back on any failure
       const renderer = tl ? RENDERERS.resolve(plan).id : 'dom'; const spatial = renderer === 'spatial' ? tl.spatial : null;
       const spScenes = new Map(); if (spatial) spatial.pieces.forEach(p => (p.scenes || [p.scene]).forEach(i => spScenes.set(i, p.kind)));
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null }));
+      // (the scenes the spatial layer draws behind: a picture actor's run and the set pieces -- only these give up their own
+      // surface and atmosphere while it runs; a typography actor is DOM and leaves its scene as designed)
+      const spBehind = new Set(spScenes.keys()); if (spatial) actors.filter(a => a.kind === 'image' && spatial.actors.some(x => x.role === a.role)).forEach(a => { for (let i = a.from; i <= Math.min(a.to, plan.scenes.length - 1); i++) spBehind.add(i); });
+      const behind = i => spBehind.has(i);
+      const glSeams = spatial ? spatial.seams.filter(s => SEAM_SPAN[s.family] && behind(s.at - 1) && behind(s.at)) : [];
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -4868,7 +4891,7 @@
     </main>
     ${cast.front}${plan.fixture ? `<p class="cr-fixture" role="note">${esc(plan.fixture)}</p>` : ''}
     <script type="application/json" id="cr-scene">${JSON.stringify(scene).replace(/</g, '\\u003c')}</script>
-    ${spatial ? `<script type="application/json" id="cr-spatial">${spatialData(plan, spatial, actors, byId, src)}</script>\n` : ''}<script>${RUNTIME2}${arted ? ART_RUNTIME : ''}${spatial ? SPR.RUNTIME : ''}${mode === 'preview' ? PREVIEW2 : ''}</script>
+    ${spatial ? `<script type="application/json" id="cr-spatial">${spatialData(plan, spatial, actors, byId, src, glSeams)}</script>\n` : ''}<script>${RUNTIME2}${arted ? ART_RUNTIME : ''}${spatial ? SPR.RUNTIME : ''}${mode === 'preview' ? PREVIEW2 : ''}</script>
     </body>
     </html>`;
     }
@@ -4903,7 +4926,7 @@
 
     // what the spatial runtime draws, as numbers and file paths only (validated: spatial.js normalise)
     const SEAM_SPAN = { 'object-pass': 0.6, 'disc-approach': 0.45, 'plane-approach': 0.7, 'card-flight': 0.7 };
-    function spatialData(plan, sp, actors, byId, src) {
+    function spatialData(plan, sp, actors, byId, src, glSeams) {
       const rgb = h => [1, 3, 5].map(i => +(parseInt(String(h).slice(i, i + 2), 16) / 255).toFixed(3));
       const aspect = a => +(((a.assess && a.assess.width) || 800) / ((a.assess && a.assess.height) || 1000)).toFixed(3);
       const out = {
@@ -4917,7 +4940,7 @@
         pieces: sp.pieces.map(p => (p.kind === 'globe' ? { kind: p.kind, scene: p.scene, points: p.points, arcs: p.arcs, fill: p.fill }
           : { kind: p.kind, scene: p.scene, scenes: p.scenes || [p.scene], steps: !!p.steps, planes: p.assets.map(id => byId.get(id)).filter(Boolean).map(a => ({ url: src(a), aa: aspect(a) })) })),
         particles: sp.particles,
-        seams: sp.seams.filter(s => SEAM_SPAN[s.family]).map(s => {
+        seams: (glSeams || []).map(s => {
           const next = plan.scenes[s.at]; const L = next && next.layers.find(x => x.role === 'focal' && x.kind === 'image'); const a = L && byId.get(L.asset);
           return { at: s.at, fam: s.family, span: SEAM_SPAN[s.family], c: rgb((next && next.ink && next.ink.surface) || plan.palette.accent), url: (s.family === 'plane-approach' || s.family === 'card-flight') && a ? src(a) : '' };
         }),
@@ -5087,7 +5110,7 @@
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, c, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}</div>
@@ -5883,8 +5906,8 @@
     // transparent over the backdrop (their colours still flow from scene to scene), and a DOM picture it has redrawn hides
     const SPATIAL_CSS = `
     .sp-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
-    html.sp-on .sc{background:transparent!important}
-    html.sp-on .sc-backdrop,html.sp-on .sc-bgx,html.sp-on .sc-take,html.sp-on .sc[data-flow] .sc-pin::before,html.sp-on .amb-vig{display:none}
+    html.sp-on .sc[data-sp-behind]{background:transparent!important}
+    html.sp-on .sc[data-sp-behind] :is(.sc-backdrop,.sc-bgx,.sc-take,.amb-vig),html.sp-on .sc[data-flow][data-sp-behind] .sc-pin::before{display:none}
     html.sp-on .sp-own{visibility:hidden!important}
     html.sp-on .sc[data-sp-live]:not([data-sp="globe"]) .sc-stage{visibility:hidden}
     html.sp-on.sp-pt .pt{display:none}

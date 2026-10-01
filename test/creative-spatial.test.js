@@ -156,17 +156,20 @@ test('9. image-plane fallback: every model actor carries its picture; the page d
 
 // ---------------------------------------------------------------- 10..13: the runtime in a browser that cannot, or should not
 function run(opts) {
-  const o = Object.assign({ motion: 'full', width: 1440, gl: 'ok', spatial: null, fetch: null }, opts || {});
+  const o = Object.assign({ motion: 'full', width: 1440, gl: 'ok', spatial: null, fetch: null, scenes: [] }, opts || {});
+  // (frames: animation frames are captured so a test can run them; pictures load as soon as they are asked for)
+  const rafs = []; const Image = function () { const self = this; Object.defineProperty(this, 'src', { set() { self.naturalWidth = 800; self.naturalHeight = 1000; setTimeout(() => self.onload && self.onload(), 0); } }); };
   const classes = new Set(); const attrs = { 'data-motion': o.motion }; const listeners = {}; const created = [];
   const html = { getAttribute: k => (k in attrs ? attrs[k] : null), setAttribute: (k, v) => { attrs[k] = v; }, classList: { add: c => classes.add(c), remove: c => classes.delete(c), contains: c => classes.has(c) } };
   const glStub = new Proxy({}, { get: (t, k) => (k === 'getShaderParameter' || k === 'getProgramParameter' ? () => true : k === 'getAttribLocation' ? () => 0 : k === 'getExtension' ? () => null : k === 'getActiveUniform' ? () => ({ name: 'u' }) : typeof k === 'string' && /^[A-Z_0-9]+$/.test(k) ? 1 : () => ({})) });
   const canvas = { className: '', setAttribute() {}, addEventListener: (k, f) => { listeners[k] = f; }, parentNode: null, getContext: () => { if (o.gl === 'throw') throw new Error('no'); if (o.gl === 'broken') return new Proxy({}, { get: () => () => { throw new Error('driver'); } }); return o.gl === 'null' ? null : glStub; } };
-  const document = { documentElement: html, hidden: false, getElementById: id => (id === 'cr-spatial' ? { textContent: JSON.stringify(o.spatial) } : null), querySelectorAll: () => [], querySelector: () => null, createElement: t => { const el = t === 'canvas' ? canvas : { getContext: () => ({ drawImage() {} }) }; created.push(t); return el; }, body: { insertBefore: el => { el.parentNode = document.body; }, removeChild() {} }, scrollingElement: { scrollHeight: 4000 }, addEventListener() {} };
+  const document = { documentElement: html, hidden: false, getElementById: id => (id === 'cr-spatial' ? { textContent: JSON.stringify(o.spatial) } : null), querySelectorAll: sel => (sel === '.sc' ? o.scenes : []), querySelector: () => null, createElement: t => { const el = t === 'canvas' ? canvas : { getContext: () => ({ drawImage() {} }) }; created.push(t); return el; }, body: { insertBefore: el => { el.parentNode = document.body; }, removeChild() {} }, scrollingElement: { scrollHeight: 4000 }, addEventListener() {} };
   const window = { innerWidth: o.width, innerHeight: 900, devicePixelRatio: 2, navigator: { deviceMemory: 8, hardwareConcurrency: 8 }, scrollY: 0, addEventListener() {}, fetch: o.fetch, TextDecoder, performance: { now: () => 1 } };
-  const box = { window, document, getComputedStyle: () => ({ getPropertyValue: () => '56px' }), requestAnimationFrame: () => 1, cancelAnimationFrame() {}, Image: function () {}, Blob: function () {}, URL: { createObjectURL: () => 'blob:x' }, Date, Math, JSON, Float32Array, Uint8Array, Uint16Array, Uint32Array, DataView, setTimeout, clearInterval, setInterval };
+  const box = { window, document, getComputedStyle: () => ({ getPropertyValue: () => '56px' }), requestAnimationFrame: f => { rafs.push(f); return rafs.length; }, cancelAnimationFrame() {}, Image, Blob: function () {}, URL: { createObjectURL: () => 'blob:x' }, Date, Math, JSON, Float32Array, Uint8Array, Uint16Array, Uint32Array, DataView, setTimeout, clearInterval, setInterval };
   vm.runInNewContext(RUNTIME, box);
-  return { ST: window.__crSpatial, classes, created, listeners, window };
+  return { ST: window.__crSpatial, classes, created, listeners, window, frames: n => { for (let i = 0; i < n; i++) { const f = rafs.shift(); if (f) f(16 * (i + 1)); } } };
 }
+const fakeScene = (top, h) => ({ _top: top, _h: h, hasAttribute: () => false, getAttribute: () => '#101418', querySelector: () => null, setAttribute() {}, removeAttribute() {} });
 const spatialJson = (extra) => Object.assign({ v: 1, q: 'high', phone: 'lite', depth: 'deep', fog: 0.35, Q: SP.QUALITY, caps: { modelBytes: SP.CAPS.modelBytes }, pal: { accent: [1, 0, 0], glow: [1, 1, 1], ink: [0, 0, 0] }, cam: [[0, 0, 0, 0, 0, 0], [3, 0, 0, 0, 0, 0]], actors: [], pieces: [], particles: { style: 'ambient', count: 300, fill: 'glow' }, seams: [] }, extra || {});
 
 test('10. WebGL failure fallback: no WebGL, a context that throws, a driver error and a lost context all leave the DOM page', () => {
@@ -309,6 +312,66 @@ test('asset planning for depth: a spatial page records what it wanted from its p
   const plan = D.planSearches({ identity: { name: 'Neon Brawl', kind: 'fictional', what: 'a fighting video game' }, visuals: { depiction: 'artwork' } }, { needs: { cutout: true, alternate: true } });
   assert.ok(plan.some(p => p.need === 'alternate' && /side view/.test(p.q)), JSON.stringify(plan.map(p => p.q)));
   assert.ok(plan.findIndex(p => p.need === 'cutout') < plan.findIndex(p => p.need === 'alternate'), 'the cut-out comes first');
+});
+
+// ---------------------------------------------------------------- regressions found with real prompts
+test('real prompts: the AI director\'s default renderer ("dom") is not a request -- an AI-directed page can still be spatial; and its prompt no longer says spatial is unavailable', () => {
+  const v = product(); const raw = JSON.parse(JSON.stringify(v.raw)); raw.timeline = { renderer: 'dom', actors: [], beats: [], transitions: [], moments: [] };
+  const again = validatePlan2(raw, { assets: ASSETS, facts: FACTS, understanding: v.und, page: PAGE, art: v.recipe, spatial: 'on' });
+  assert.ok(!again.plan.timeline.why.includes('dom-requested'), again.plan.timeline.why.join());
+  assert.equal(again.plan.timeline.renderer, v.plan.timeline.renderer, 'the same page decides the same with or without the model\'s default');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'creative', 'ai.js'), 'utf8'); assert.doesNotMatch(src, /not available in this build/); assert.match(src, /decided afterwards by the system/);
+});
+test('real prompts: another angle is searched for only for a physical product -- never for a game, a character or a person (a side-view search there returns fan renders)', () => {
+  assert.equal(SP.wantsAlternate({ identity: { name: 'Super Smash Bros. Ultimate', what: 'a crossover fighting video game' } }), false);
+  assert.equal(SP.wantsAlternate({ identity: { name: 'Neegy', what: 'a golden cartoon character meme' } }), false);
+  assert.equal(SP.wantsAlternate({ identity: { name: 'Brian Eno', what: 'an ambient music pioneer' } }), false);
+  assert.equal(SP.wantsAlternate({ identity: { name: 'Polaroid Now', what: 'an instant camera product' } }), true);
+});
+
+test('real prompts: concept words come from the subject -- a camera\'s "digital-era", ambient music\'s "Internet Age" and "listening space" never make a data globe or a starfield; a page\'s own logline never vetoes it as editorial', () => {
+  const polaroid = SP.conceptOf({ name: 'Polaroid Now', what: 'An instant camera by Polaroid, designed for modern digital-era instant photography', logline: 'the whole ritual of instant photography staged as one kinetic unveiling' });
+  assert.ok(polaroid.product && !polaroid.data, JSON.stringify(polaroid));
+  const ambient = SP.conceptOf({ name: 'Ambient music', title: 'Furniture Music for the Internet Age', what: 'A genre of music', motifs: ['drift', 'listening space'] });
+  assert.ok(!ambient.data && !ambient.space && !ambient.tech, JSON.stringify(ambient));
+  const starlink = SP.conceptOf({ name: 'Starlink', what: "SpaceX's satellite internet network and mega-constellation" }); assert.ok(starlink.data, JSON.stringify(starlink));
+  const opera = SP.conceptOf({ name: 'Sydney Opera House', what: 'An iconic performing arts venue in Sydney', logline: 'told in 5 scenes -- a editorial sticky arc' }); assert.ok(opera.place && !opera.editorial, JSON.stringify(opera));
+  assert.ok(SP.conceptOf({ name: 'Comme des Garcons', what: 'the Japanese fashion house' }).editorial);
+  // a product with a data word gets no globe
+  const d = SP.decide(decideCtx({ mode: 'expressive', family: 'typography-led', what: 'a digital camera product with cloud networks of data' })); assert.ok(!d.why.includes('globe'), d.why.join());
+});
+
+test('real prompts: a plan accepted twice (a recompose, a revision) keeps its spatial needs once', () => {
+  const v = product({ models: [MODEL] }); const again = validatePlan2(JSON.parse(JSON.stringify(v.plan)), { assets: ASSETS, facts: FACTS, understanding: v.und, page: PAGE, spatial: 'on', models: [MODEL] });
+  const kinds = again.plan.timeline.needs.map(n => n.need); assert.equal(new Set(kinds).size, kinds.length, kinds.join());
+});
+
+test('real prompts: a flat picture turns only a little -- at most 16 degrees, a wide or group picture at most 8 (a stronger turn reads as a card)', () => {
+  assert.deepEqual(SP.ACTOR3D.ry.plane, [-16, 16]);
+  const v = product(); const prim = v.plan.timeline.spatial.actors.find(a => a.role === 'primary'); assert.equal(prim.form, 'plane'); assert.ok(prim.ry.every(r => Math.abs(r) <= 16), prim.ry.join());
+  const wideCut = Object.assign({}, CUT, { assess: Object.assign({}, CUT.assess, { width: 1600, height: 900, aspect: 1.778 }) });
+  const out = SP.normalise({ actors: [{ role: 'primary', form: 'plane', ry: [40, -40, 40, -40] }] }, { scenes: v.plan.scenes, timeline: v.plan.timeline, byId: new Map([[CUT.id, wideCut]]) });
+  assert.ok(out.actors[0].ry.every(r => Math.abs(r) <= SP.ACTOR3D.wideTurn), out.actors[0].ry.join());
+});
+
+test('real prompts: only the scenes the spatial layer draws behind give up their own surface -- a typography-only actor scene keeps its designed atmosphere, and a spatial transition plays only between such scenes', () => {
+  const v = product(); const h = html(v.plan); const sp = v.plan.timeline.spatial;
+  assert.match(h, /html\.sp-on \.sc\[data-sp-behind\]\{background:transparent!important\}/); assert.doesNotMatch(h, /html\.sp-on \.sc\{background:transparent/);
+  const prim = v.plan.timeline.actors.find(a => a.role === 'primary');
+  for (let i = 0; i < v.plan.scenes.length; i++) { const tag = h.match(new RegExp(`<section [^>]*data-scene="${i}"[^>]*>`))[0]; const drawn = (i >= prim.from && i <= prim.to) || sp.pieces.some(p => (p.scenes || [p.scene]).includes(i)); assert.equal(/data-sp-behind/.test(tag), drawn, `scene ${i + 1}`); }
+  const data = JSON.parse(h.match(/id="cr-spatial">([\s\S]*?)<\/script>/)[1]); const behind = i => /data-sp-behind/.test(h.match(new RegExp(`<section [^>]*data-scene="${i}"[^>]*>`))[0]);
+  data.seams.forEach(s => assert.ok(behind(s.at - 1) && behind(s.at), `the transition into scene ${s.at + 1}`));
+});
+
+test('real prompts: a runtime error on a phone with a carried actor hands the page back to the DOM and says why -- and the layer\'s own teardown is never reported as a lost context', async () => {
+  const actor = { role: 'primary', form: 'plane', url: 'c.png', aa: 0.8, model: '', from: 0, to: 1, K: [[0, 0, 0, 1, 0, 1, 0, 0], [2, 0, 0, 1, 0, 1, 0, 0]] };
+  // the phone path that crashed: an actor drawn on a phone, its words measured, real frames run
+  const r = run({ width: 390, spatial: spatialJson({ actors: [actor] }), scenes: [fakeScene(0, 900), fakeScene(900, 900), fakeScene(1800, 900)] });
+  await new Promise(res => setTimeout(res, 10)); r.frames(3);
+  assert.equal(r.ST.state, 'on', r.ST.why); assert.ok(r.ST.frames >= 2);
+  // a failure's teardown releases the context: that is not a second failure, and the true reason stays
+  const broken = run({ gl: 'broken', spatial: spatialJson() }); const why = broken.ST.why; broken.listeners.webglcontextlost({ preventDefault() {} });
+  assert.equal(broken.ST.state, 'dom'); assert.equal(broken.ST.why, why);
 });
 
 // ---------------------------------------------------------------- 20: Business is untouched
