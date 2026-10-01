@@ -10,6 +10,7 @@ const os = require('os');
 const path = require('path');
 const TL = require('../lib/creative/timeline');
 const CT = require('../lib/creative/continuity');
+const COMP = require('../lib/creative/composition');
 const AI = require('../lib/creative/ai');
 const D2 = require('../lib/creative/director2');
 const { validatePlan2 } = require('../lib/creative/validate2');
@@ -45,6 +46,8 @@ const html = (plan, extra) => renderCreative2(plan, (extra && extra.assets) || A
 const BRIEFS = [['Grumpy Cat', 'An absurd shrine to Grumpy Cat, the internet meme', 'absurd'], ['Birkin bag', 'a quiet, expensive luxury fashion page', 'restrained'], ['Brian Eno', 'an experimental page for an ambient music pioneer', 'extravagant'], ['Quantum computer', 'a futuristic page about quantum computers', 'editorial'], ['Doughnut', 'a playful page about doughnuts', 'playful'], ['Tokyo', 'a cinematic travel page about Tokyo', 'cinematic']];
 const ALL = BRIEFS.flatMap(([s, b, t]) => ['1', '2', '3'].map(seed => page(s, b, t, seed))).concat(['s1', 's2', 's3'].map(sd => story(sd)), ['e1', 'e2'].map(sd => story(sd, 'expressive')));
 const withTl = ALL.filter(v => v.plan.timeline);
+// (more pages, made only when a test needs a kind of page the first set does not happen to contain)
+let more = null; const MORE_PAGES = () => more || (more = BRIEFS.flatMap(([s, b, t]) => ['4', '5', '6', '7', '8', '9'].map(seed => page(s, b, t, seed))).filter(v => v.plan.timeline));
 const contractAt = (plan, at) => plan.timeline.continuity.contracts.find(k => k.at === at);
 const familyAt = (plan, at) => plan.timeline.transitions.find(t => t.at === at).family;
 // a saved page reopens exactly as it was (the continuity block included)
@@ -114,7 +117,9 @@ test('2. a persistent hero actor: one picture of the subject carried across its 
 
 // ================================================================ 3. image-expand into the next background
 test('3. image-expand: the next scene\'s picture opens from the window the previous frame (or the hero\'s subject) filled, and becomes the background', () => {
-  const v = withTl.find(x => familyAt(x.plan, 1) === 'image-expand' && x.plan.art.family === 'cinematic-chapters'); assert.ok(v, 'a page whose hero expands into scene 2');
+  // (a scene that continues the hero's own subject keeps it centred instead: the crop is for a NEW picture)
+  const opens = x => familyAt(x.plan, 1) === 'image-expand' && x.plan.timeline.continuity.hero && !CT.related(contractAt(x.plan, 1).carriedAsset, x.plan.timeline.continuity.hero.asset, byId);
+  const v = withTl.concat(MORE_PAGES()).find(opens); assert.ok(v, 'a page whose hero expands into scene 2');
   const P = v.plan; const k = contractAt(P, 1); const hero = P.timeline.continuity.hero;
   assert.equal(k.family, 'image-expand'); assert.equal(k.mask, 'inset'); assert.equal(k.background, 'expand');
   assert.equal(k.carriedAsset, P.scenes[1].layers.find(L => L.role === 'focal' && L.kind === 'image').asset);
@@ -128,21 +133,22 @@ test('3. image-expand: the next scene\'s picture opens from the window the previ
   const w = withTl.map(x => ({ x, at: x.plan.timeline.transitions.find(t => t.family === 'image-expand' && t.at > 1) })).find(o => o.at);
   if (w) {
     const prevF = w.x.plan.scenes[w.at.at - 1].layers.find(L => L.role === 'focal' && L.kind === 'image'); const kk = contractAt(w.x.plan, w.at.at);
-    if (prevF && prevF.box.d[2] < 90) { const d = prevF.box.d; assert.deepEqual(kk.outgoing.inset, [d[1], 100 - d[0] - d[2], 100 - d[1] - d[3], d[0]].map(x => Math.round(Math.max(0, Math.min(60, x))))); }
+    // (when the actor is what leaves, it is the actor -- not a frame -- that the next picture opens from)
+    if (prevF && prevF.box.d[2] < 90 && kk.outgoing.el === 'frame') { const d = prevF.box.d; assert.deepEqual(kk.outgoing.inset, [d[1], 100 - d[0] - d[2], 100 - d[1] - d[3], d[0]].map(x => Math.round(Math.max(0, Math.min(60, x))))); }
   }
 });
 
 // ================================================================ 4. card-expand into a full-screen scene
 test('4. card-expand: a card of the gallery opens into the next, full-screen scene', () => {
   // (a card opens only when the next scene's picture IS one of the cards -- seams are chosen from their pictures)
-  const v = page('Doughnut', 'a playful page about doughnuts', 'playful', 'g5', { prefer: { family: 'horizontal-gallery', mode: 'expressive' } });
-  const at = v.plan.timeline.transitions.find(t => t.family === 'card-expand'); assert.ok(at, 'the gallery page opens a card');
+  let v = null; for (let i = 1; i <= 40 && !v; i++) { const x = page('Doughnut', 'a playful page about doughnuts', 'playful', `g${i}`, { prefer: { family: 'horizontal-gallery', mode: 'expressive' } }); if (x.plan.timeline && x.plan.timeline.transitions.some(t => t.family === 'card-expand')) v = x; }
+  const at = v && v.plan.timeline.transitions.find(t => t.family === 'card-expand'); assert.ok(at, 'the gallery page opens a card');
   const nextPic = v.plan.scenes[at.at].layers.find(L => L.role === 'focal' && L.kind === 'image').asset;
   assert.ok(v.plan.scenes[at.at - 1].layers.some(L => L.kind === 'image' && CT.related(L.asset, nextPic, byId)), 'the picture that opens is one of the cards');
   const k = contractAt(v.plan, at.at);
   assert.equal(k.family, 'card-expand'); assert.equal(k.mask, 'inset'); assert.equal(k.outgoing.el, 'frame');
   assert.deepEqual(k.outgoing.inset, CT.FRAME['card-expand'], 'from the card\'s place in the strip'); assert.deepEqual(k.incoming, k.outgoing);
-  assert.ok(['cardstream', 'index', 'gallery', 'strip'].includes(v.plan.scenes[at.at - 1].layout));
+  assert.ok(['cardstream', 'index', 'gallery', 'strip', 'image-wall'].includes(v.plan.scenes[at.at - 1].layout));
   const h = html(v.plan);
   assert.match(h, new RegExp(`data-scene="${at.at}"[^>]*data-seam-in="card-expand"[^>]*--sit:38%;--sir:52%;--sib:16%;--sil:12%`));
   assert.match(h, /\.sc\[data-seam-in="card-expand"\][^{]*\{clip-path:inset\(calc\(\(1 - var\(--sn,1\)\) \* var\(--sit,38%\)\)/, 'it grows to the whole screen as the scene arrives');
@@ -194,7 +200,7 @@ test('6. overlap: the next scene starts while the last is leaving -- bounded, ne
 
 // ================================================================ 7. Higgsfield hero -> DOM handoff
 test('7. the hero video hands into the page: planned at direction time, it settles into its own still frame as the next scene takes over', async () => {
-  const v = withTl.find(x => familyAt(x.plan, 1) === 'image-expand' && x.plan.art.family === 'cinematic-chapters');
+  const v = withTl.concat(MORE_PAGES()).find(x => familyAt(x.plan, 1) === 'image-expand' && x.plan.timeline.continuity.hero && !CT.related(contractAt(x.plan, 1).carriedAsset, x.plan.timeline.continuity.hero.asset, byId));
   const heroId = v.plan.timeline.continuity.hero.asset;
   assert.equal(v.plan.timeline.continuity.hero.video, false, 'no premium video asked for: none planned');
   // the confirmed premium hero is part of the plan: its end state is planned before the video exists
@@ -217,7 +223,7 @@ test('7. the hero video hands into the page: planned at direction time, it settl
   // a video that just stops where the page starts (a hard cut into scene 2) is caught and connected
   const cut = await run({ plan: planned, und: v.und }, { submit_creative_continuity: echo(c => { c[0].family = 'cut'; c[0].intent = 'reset'; }), submit_creative_continuity_fixes: NO_FIXES });
   assert.ok(cut.meta.found.includes('pasted-video') || cut.meta.found.includes('hard-reset'), JSON.stringify(cut.meta.found));
-  assert.notEqual(familyAt(cut.plan, 1), 'cut'); assert.deepEqual(cut.meta.remaining, []);
+  assert.notEqual(familyAt(cut.plan, 1), 'cut'); assert.deepEqual(cut.meta.remaining.filter(i => !COMP.AUDIT.includes(i.code)), []);
 });
 
 // ================================================================ 8. asset-aware planning
@@ -232,7 +238,7 @@ test('8. asset-aware: the plan reads the USED pictures\' subject position, negat
   assert.ok(fit.why.includes('arrives into the empty side') && fit.why.includes('colours meet'), JSON.stringify(fit));
   assert.deepEqual(CT.pairFit(CT.profileOf(PLAIN), C, byId).why, ['the same subject']);
   // the choreography call sees ONLY the pictures the page uses: their profiles, the seams' fit, their thumbnails
-  const v = withTl.find(x => familyAt(x.plan, 1) === 'image-expand' && x.plan.art.family === 'cinematic-chapters');
+  const v = withTl.concat(MORE_PAGES()).find(x => familyAt(x.plan, 1) === 'image-expand');
   const used = CT.usedAssets(v.plan, byId); assert.ok(used.length < ASSETS.length, 'some inventory pictures are not on the page');
   const thumbs = ASSETS.map(a => ({ id: a.id, dataUrl: 'data:image/png;base64,iVBORw0KGgo=' }));
   let seen = null;
@@ -254,27 +260,33 @@ test('9. the critic catches a hard reset and connects it', async () => {
   // ...and so is a model asking for a hard cut into scene 2
   const v = withTl.find(x => x.plan.art.family === 'cinematic-chapters');
   const r = await run(v, { submit_creative_continuity: echo(c => { c[0].family = 'cut'; c[0].intent = 'reset'; }), submit_creative_continuity_fixes: q => ({ fixes: headOf(q).found.map(f => ({ at: f.at, code: f.code, family: 'color-bleed', intent: 'continue' })) }) });
-  assert.ok(r.meta.found.includes('hard-reset')); assert.notEqual(familyAt(r.plan, 1), 'cut'); assert.deepEqual(r.meta.remaining, []);
-  assert.deepEqual(r.plan.timeline.continuity.critic.remaining, []); assert.ok(r.plan.timeline.continuity.critic.found.includes('hard-reset'));
+  // (the seams are all connected; a page-level finding its pictures cannot carry a fix for may remain, reported)
+  const seamsLeft = x => x.filter(i => !COMP.AUDIT.includes(i.code));
+  assert.ok(r.meta.found.includes('hard-reset')); assert.notEqual(familyAt(r.plan, 1), 'cut'); assert.deepEqual(seamsLeft(r.meta.remaining), []);
+  assert.deepEqual(seamsLeft(r.plan.timeline.continuity.critic.remaining), []); assert.ok(r.plan.timeline.continuity.critic.found.includes('hard-reset'));
   // the quiet page: each run of cuts is connected
   const q = await run(quiet, { submit_creative_continuity: echo(), submit_creative_continuity_fixes: NO_FIXES });
-  assert.ok(q.meta.found.includes('hard-reset')); assert.ok(q.plan.timeline.transitions.filter(t => t.family === 'cut').length <= 1); assert.deepEqual(q.meta.remaining, []);
+  assert.ok(q.meta.found.includes('hard-reset')); assert.ok(q.plan.timeline.transitions.filter(t => t.family === 'cut').length <= 1); assert.deepEqual(seamsLeft(q.meta.remaining), []);
 });
 
 // ================================================================ 10. the critic catches competing motion
 test('10. the critic catches competing motion in one overlap and calms it', async () => {
-  const v = withTl.find(x => CT.critique(x.plan, byId).some(i => i.code === 'competing-motion')); assert.ok(v, 'some built-in seam piles moves up');
-  const at = CT.critique(v.plan, byId).find(i => i.code === 'competing-motion').at;
-  const before = CT.movingAt(v.plan, contractAt(v.plan, at)); assert.ok(before > CT.LIMITS.moving);
+  // (a composed scene owns its planes, so the built-in pages keep their seams within the budget; a model asking for a
+  // loud seam with a long overlap over a scene that already moves piles moves up -- that is what the critic must catch)
+  const loudK = k => Object.assign({}, k, { family: 'foreground-wipe', overlap: { from: -0.6, to: 0.3 } });
+  const early = (x, c) => x.plan.timeline.beats.filter(b => b.scene === c.at && b.from <= 0.4).length;
+  let v = null, at = 0; for (const x of withTl.concat(MORE_PAGES())) { const k = x.plan.timeline.continuity.contracts.find(c => CT.movingAt(x.plan, loudK(c)) > CT.LIMITS.moving && CT.movingAt(x.plan, loudK(c)) - early(x, c) <= CT.LIMITS.moving); if (k) { v = x; at = k.at; break; } }
+  assert.ok(v, 'a seam a model can overload');
+  const loud = echo(c => { const k = c.find(x => x.at === at); Object.assign(k, { family: 'foreground-wipe', overlap: { from: -0.6, to: 0.3 } }); });
   // the critic's own fix (calm: the incoming scene's moves wait for the seam)
-  const r = await run(v, { submit_creative_continuity: echo(), submit_creative_continuity_fixes: q => ({ fixes: headOf(q).found.filter(f => f.code === 'competing-motion').map(f => ({ at: f.at, code: f.code, calm: true })) }) });
+  const r = await run(v, { submit_creative_continuity: loud, submit_creative_continuity_fixes: q => ({ fixes: headOf(q).found.filter(f => f.code === 'competing-motion').map(f => ({ at: f.at, code: f.code, calm: true })) }) });
   assert.ok(r.meta.found.includes('competing-motion'));
   assert.ok(CT.movingAt(r.plan, contractAt(r.plan, at)) <= CT.LIMITS.moving, `${CT.movingAt(r.plan, contractAt(r.plan, at))} moving`);
   const k = contractAt(r.plan, at);
   assert.ok(r.plan.timeline.beats.filter(b => b.scene === at).every(b => b.from > Math.max(0, k.overlap.to) + 0.1 - 1e-9), 'the next scene\'s own moves wait');
   // a silent critic changes nothing about the outcome: the built-in fix applies
-  const s = await run(v, { submit_creative_continuity: echo(), submit_creative_continuity_fixes: NO_FIXES });
-  assert.ok(CT.movingAt(s.plan, contractAt(s.plan, at)) <= CT.LIMITS.moving); assert.deepEqual(s.meta.remaining, []);
+  const s = await run(v, { submit_creative_continuity: loud, submit_creative_continuity_fixes: NO_FIXES });
+  assert.ok(CT.movingAt(s.plan, contractAt(s.plan, at)) <= CT.LIMITS.moving); assert.deepEqual(s.meta.remaining.filter(i => !COMP.AUDIT.includes(i.code)), []);
 });
 
 // ================================================================ 11. a failed choreography falls back safely
@@ -294,7 +306,7 @@ test('11. a failed, useless or unaffordable choreography falls back to the built
   assert.ok(broke.plan.timeline.continuity.contracts.length, 'the page keeps its built-in contracts');
   // switched off: no calls, the built-in critic still runs
   const off = await run(v, {}, { limits: { continuity: false, continuityCritic: false } });
-  assert.deepEqual(off.log, []); assert.equal(off.meta.choreography, 'off'); assert.deepEqual(off.meta.remaining, []);
+  assert.deepEqual(off.log, []); assert.equal(off.meta.choreography, 'off'); assert.deepEqual(off.meta.remaining.filter(i => !COMP.AUDIT.includes(i.code)), []);
 });
 
 // ================================================================ 12. a failed critic does not break the generation
@@ -303,11 +315,11 @@ test('12. a failed critic never breaks the generation: the rules\' own fixes app
   const r = await run(v, { submit_creative_continuity: echo(), submit_creative_continuity_fixes: new Error('mock: critic down') });
   assert.equal(r.meta.critic, 'built-in'); assert.ok(r.meta.errors.some(e => /^critic: mock: critic down/.test(e)));
   assert.deepEqual(r.log, ['submit_creative_continuity', 'submit_creative_continuity_fixes'], 'one critic call, no retry');
-  assert.deepEqual(r.meta.remaining, []); assert.equal(r.plan.timeline.continuity.critic.source, 'built-in');
+  assert.deepEqual(r.meta.remaining.filter(i => !COMP.AUDIT.includes(i.code)), []); assert.equal(r.plan.timeline.continuity.critic.source, 'built-in');
   assert.deepEqual(canonical(v, r.plan), r.plan);
   // a critic answer outside the vocabulary is ignored
   const junk = await run(v, { submit_creative_continuity: echo(), submit_creative_continuity_fixes: { fixes: [{ at: 1, code: 'make-it-pop', family: 'explode' }, { at: 77, code: 'hard-reset' }, 'x'] } });
-  assert.deepEqual(junk.meta.remaining, []); assert.equal(junk.plan.v, 2);
+  assert.deepEqual(junk.meta.remaining.filter(i => !COMP.AUDIT.includes(i.code)), []); assert.equal(junk.plan.v, 2);
 });
 
 // ================================================================ cost controls (unit)

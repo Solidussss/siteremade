@@ -85,7 +85,7 @@ test('2. the archetypes are real compositions: every one places words and pictur
   const shapes = {};
   ARCH.ARCHETYPES.forEach(layout => {
     const S = { id: 's', layout, choreo: 'settle', handoff: 'cut', height: 'screen', pin: false, camera: 'none', layers: [
-      { id: 'a', kind: 'image', role: 'focal', asset: ['offcanvas', 'floating', 'fullscreen-object', 'lineup'].includes(layout) ? 'c-plain' : 'wide', box: { d: [50, 10, 40, 80], m: [10, 10, 80, 80] }, z: 5, rotate: 0, opacity: 1, mask: 'none', treatment: 'none', fit: 'cover', focus: '50% 50%', entrance: { kind: 'fade', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 } },
+      { id: 'a', kind: 'image', role: 'focal', asset: ['offcanvas', 'floating', 'fullscreen-object', 'lineup', 'object-stage', 'depth-stack'].includes(layout) ? 'c-plain' : 'wide', box: { d: [50, 10, 40, 80], m: [10, 10, 80, 80] }, z: 5, rotate: 0, opacity: 1, mask: 'none', treatment: 'none', fit: 'cover', focus: '50% 50%', entrance: { kind: 'fade', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 } },
       ...['more', 'setting', 'tall'].map((id, i) => ({ id: `x${i}`, kind: 'image', role: 'support', asset: id, box: { d: [10, 10, 20, 20], m: [10, 10, 20, 20] }, z: 3, rotate: 0, opacity: 1, mask: 'none', treatment: 'none', fit: 'cover', focus: '50% 50%', entrance: { kind: 'fade', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 } }))],
       text: { kicker: 'Kicker', heading: 'Doughnut', body: 'A short line, said in six words.', kind: 'imagined', region: 'left', size: 'large', width: 'medium', list: 'plain', entrance: 'rise', items: ['sticky-steps', 'dense', 'brutalist', 'gallery', 'orbit', 'chapters'].includes(layout) ? [1, 2, 3, 4].map(i => ({ label: '', text: `Line ${i} of the facts.`, kind: 'imagined' })) : [] } };
     ARCH.composeScene(S, { byId, si: 1, hero: false, art: { personality: 'editorial' }, actorPose: layout === 'stage' ? { x: -20, y: 0, s: 1, r: 0 } : null, rng: ART.rng('x'), name: 'Doughnut', fixes: [], warnings: [], side: 'right' });
@@ -100,7 +100,8 @@ test('2. the archetypes are real compositions: every one places words and pictur
 // ---------------------------------------------------------------- 3, 4 (scroll and motion)
 test('3. several scroll models and scene choreographies exist, each with its own rendered behaviour', () => {
   const scrolls = new Set(), choreos = new Set();
-  BRIEFS.forEach(([s, b, t]) => ['1', '2', '3'].forEach(seed => { const p = page(s, b, t, seed).plan; scrolls.add(p.art.scroll); p.scenes.forEach(x => choreos.add(x.choreo)); }));
+  // (a composed scene's behaviour is its composition's: composition.js -- each one a different coordinated move)
+  BRIEFS.forEach(([s, b, t]) => ['1', '2', '3'].forEach(seed => { const p = page(s, b, t, seed).plan; scrolls.add(p.art.scroll); p.scenes.forEach(x => choreos.add(x.composition ? `compose:${x.composition}` : x.choreo)); }));
   assert.ok(scrolls.size >= 4, `scroll models: ${[...scrolls]}`);
   assert.ok(choreos.size >= 8, `choreographies: ${[...choreos]}`);
   // every choreography has rendered behaviour (CSS keyed on it) and a still version for reduced motion

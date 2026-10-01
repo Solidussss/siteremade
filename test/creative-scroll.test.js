@@ -59,11 +59,13 @@ const rawPlan = (scenes, extra) => Object.assign({ identity: { name: 'Doughnut',
 
 // ---------------------------------------------------------------- 1, 2 (variety at the level of the arc)
 test('1. different subjects get different compositions, drawn from the second vocabulary too', () => {
-  const recipes = new Set(ALL.map(v => v.plan.art.recipe)); const heroes = new Set(ALL.map(v => v.plan.scenes[0].layout));
+  // (an opening's structure is its composition when it has one: composition.js)
+  const recipes = new Set(ALL.map(v => v.plan.art.recipe)); const heroes = new Set(ALL.map(v => v.plan.scenes[0].composition || v.plan.scenes[0].layout));
   const layouts = new Set(ALL.flatMap(v => v.plan.scenes.map(s => s.layout)));
   assert.ok(recipes.size >= 28, `${ALL.length} pages, ${recipes.size} distinct recipes`);
   assert.ok(heroes.size >= 7, `opening compositions: ${[...heroes]}`);
-  const fresh = NEW.filter(k => layouts.has(k));
+  // (and the motion-first stages the compositions are staged on: composition.js)
+  const fresh = NEW.concat(['object-stage', 'depth-stack', 'type-stage', 'mask-stage', 'image-wall', 'canvas']).filter(k => layouts.has(k));
   assert.ok(fresh.length >= 7, `new archetypes in use: ${fresh}`);
   // each page is several different compositions, not one repeated
   ALL.forEach(v => { const L = v.plan.scenes.map(s => s.layout).filter(k => k !== 'stage'); assert.ok(new Set(L).size >= Math.min(L.length, 3), `${v.plan.art.recipe}`); });

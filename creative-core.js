@@ -682,13 +682,17 @@
       // a cut-out is shown whole; it never fills a box by cropping
       if (p.free && !['texture', 'collage', 'detail'].includes(intent)) intent = intent === 'cutout' ? 'cutout' : 'floating';
       // an already tight picture is never cropped further: it is shown whole, in a frame, with space around it
-      if (p.tight && BUDGET[intent] > 0.06 && intent !== 'texture') {
+      // (a tight picture that fills a full-bleed box at no more than a light crop's share keeps the bleed: a starfield or a
+      // busy scene measures as 'tight' everywhere, and boxing it in a frame is the editorial look a full screen is meant to
+      // leave behind -- the crop stays inside the light budget)
+      const tightBleed = p.tight && intent === 'bleed' && coverCrop(p.aspect, (box[2] * sa) / box[3]).crop <= BUDGET.light + 0.005;
+      if (p.tight && BUDGET[intent] > 0.06 && intent !== 'texture' && !tightBleed) {
         const to = mask && !['none', 'window', 'frame', 'polaroid'].includes(mask) ? 'framed' : intent === 'bleed' ? 'framed' : 'contain';
         notes.push(`${asset && asset.id}: already tightly framed (${p.source === 'pixels' ? 'the subject fills the picture' : 'the picture check said so'}) -- shown ${to === 'framed' ? 'whole in a frame' : 'whole'} instead of a ${intent} crop`);
         intent = to;
       }
       // (unknown subject: at most a light crop's share more than a light crop -- nothing is guessed about where it is)
-      const budget = p.source === 'unknown' && !['texture', 'detail'].includes(intent) ? Math.min(BUDGET[intent], UNKNOWN) : BUDGET[intent];
+      const budget = tightBleed ? BUDGET.light : p.source === 'unknown' && !['texture', 'detail'].includes(intent) ? Math.min(BUDGET[intent], UNKNOWN) : BUDGET[intent];
       const ab = (box[2] * sa) / box[3];
       if (budget === 0 || p.free) {
         // shown whole: the frame hugs the picture (no letterbox bands inside a frame); a free cut-out keeps its box and
@@ -720,7 +724,10 @@
 
     function budgetFor(asset, intent) { const p = profile(asset); const b = BUDGET[intent] == null ? BUDGET.light : BUDGET[intent]; return p.source === 'unknown' && !['texture', 'detail'].includes(intent) ? Math.min(b, UNKNOWN) : b; }
 
-    module.exports = { UNKNOWN, budgetFor, FRAMES, BUDGET, ZOOM, STAGE, profile, frameLayer, coverCrop, objectPosition, reshape, zoomCeiling };
+    // whether a picture can fill a screen-shaped box (aspect `sa`) by cover: within its bleed budget, or -- an already tight
+    // picture -- within a light crop
+    function canBleed(asset, sa) { const p = profile(asset); if (p.free) return false; const c = coverCrop(p.aspect, sa || 1.6).crop; return p.tight ? c <= BUDGET.light + 0.005 : c <= budgetFor(asset, 'bleed'); }
+    module.exports = { UNKNOWN, budgetFor, FRAMES, BUDGET, ZOOM, STAGE, profile, frameLayer, coverCrop, objectPosition, reshape, zoomCeiling, canBleed };
 
   });
   __define("palette", function (module, exports, require) {
@@ -923,10 +930,12 @@
     }
 
     // layouts and how many pictures each takes in the visual plan (0: a scene that carries words by design)
-    const TAKES = { strip: 4, index: 4, gallery: 3, cardstream: 4, lineup: 4, collage: 3, scrapbook: 3, chapters: 3, floating: 2, 'sticky-steps': 2 };
+    const TAKES = { strip: 4, index: 4, gallery: 3, cardstream: 4, lineup: 4, collage: 3, scrapbook: 3, chapters: 3, floating: 2, 'sticky-steps': 2,
+      // (the motion-first compositions' stages: composition.js)
+      'image-wall': 5, canvas: 3, 'depth-stack': 2 };
     const NONE = ['text', 'takeover', 'dense', 'brutalist', 'stage'];
     // layouts that stand a subject on the stage (its cut-out when it has one)
-    const FREE = ['offcanvas', 'floating', 'shrine', 'poster', 'luxe', 'depth', 'giant-type', 'campaign', 'fullscreen-object', 'orbit', 'lineup'];
+    const FREE = ['offcanvas', 'floating', 'shrine', 'poster', 'luxe', 'depth', 'giant-type', 'campaign', 'fullscreen-object', 'orbit', 'lineup', 'object-stage', 'depth-stack', 'type-stage'];
     const RELATIONS = ['opens', 'continues', 'shifts', 'contrasts', 'returns'];
     // how many times one photo may appear on a page with `n` distinct pictures (two normally; a weak pool shows its few
     // pictures more often -- a detail crop, a full bleed, its cut-out -- rather than leave scenes as words alone)
@@ -1347,6 +1356,7 @@
     //   }
 
     const SP = require('./spatial');
+    const COMP = require('./composition');
 
     const ROLES = ['primary', 'secondary', 'typography', 'background'];
     const KINDS = { primary: 'image', secondary: 'image', typography: 'word', background: 'shape' };
@@ -1419,18 +1429,21 @@
       'gallery-progression': ['card-expand', 'color-bleed'], 'colour-progression': ['shape-takeover', 'color-bleed', 'foreground-wipe'],
     };
     // the moment a scene can carry, from what it is
+    // (a motion-first composition is its own moment: composition.js)
+    const COMP_MOMENT = { 'object-stage': 'reveal', 'fullscreen-subject': 'reveal', 'image-takeover': 'image-expand', 'depth-stack': 'depth-dive', 'orbit-stage': 'reveal', 'split-transform': 'image-expand', 'type-takeover': 'word-takeover', 'mask-stage': 'type-break', 'tunnel-stage': 'chapter-flight', 'gallery-collapse': 'image-expand', 'perspective-lineup': 'lineup-rush', 'floating-canvas': 'world-change', 'cinematic-chapter': 'chapter-flight', 'image-wall': 'image-expand', 'object-focus': 'reveal' };
     function momentFor(sc, i, spec) {
       if (sc.run) return i === (spec.actor && spec.actor.from) ? 'actor-entrance' : 'actor-turn';
+      if (sc.composition && COMP_MOMENT[sc.composition]) return COMP_MOMENT[sc.composition];
       return ({ takeover: 'word-takeover', chapters: 'chapter-flight', cardstream: 'lineup-rush', lineup: 'lineup-rush', campaign: 'color-flood', splitscreen: 'color-flood', depth: 'depth-dive', 'fullscreen-object': 'reveal', 'giant-type': 'type-break', poster: 'type-break', strip: 'world-change' })[sc.layout]
         || (sc.choreo === 'expand' ? 'image-expand' : sc.choreo === 'scale-through' ? 'reveal' : '');
     }
     // which transitions two neighbouring scenes can carry, from their archetypes (the validator re-checks with the pictures)
-    const WITH_PICTURE = ['editorial-hero', 'cinematic', 'split', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'image', 'luxe', 'depth', 'gallery', 'campaign', 'splitscreen', 'fullscreen-object', 'orbit', 'chapters', 'lineup', 'edge-crop', 'scrapbook'];
-    const FULL_BLEED = ['editorial-hero', 'cinematic', 'image', 'chapters', 'splitscreen', 'edge-crop'];
+    const WITH_PICTURE = ['editorial-hero', 'cinematic', 'split', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'image', 'luxe', 'depth', 'gallery', 'campaign', 'splitscreen', 'fullscreen-object', 'orbit', 'chapters', 'lineup', 'edge-crop', 'scrapbook', 'object-stage', 'depth-stack', 'type-stage', 'mask-stage', 'image-wall', 'canvas'];
+    const FULL_BLEED = ['editorial-hero', 'cinematic', 'image', 'chapters', 'splitscreen', 'edge-crop', 'mask-stage'];
     function feasible(fam, prev, next, spec) {
       switch (fam) {
         case 'image-expand': return WITH_PICTURE.includes(next.layout);
-        case 'card-expand': return ['cardstream', 'index', 'gallery', 'strip'].includes(prev.layout) && WITH_PICTURE.includes(next.layout);
+        case 'card-expand': return ['cardstream', 'index', 'gallery', 'strip', 'image-wall'].includes(prev.layout) && WITH_PICTURE.includes(next.layout);
         case 'type-mask': return FULL_BLEED.includes(next.layout) && !!spec.shortName;
         case 'depth-handoff': return WITH_PICTURE.includes(prev.layout) && prev.layout !== 'stage';
         default: return true;
@@ -1441,15 +1454,22 @@
       const scenes = spec.scenes.map((s, i) => Object.assign({}, s, { run: !!(spec.actor && i >= spec.actor.from && i <= spec.actor.to) }));
       // rhythm: the opening sets up; the scenes that can carry a moment become events (never two events side by side --
       // rest between them); the last one pays off on an expressive page
-      const rhythm = scenes.map((s, i) => (i === 0 ? 'setup' : 'rest'));
+      let rhythm = scenes.map((s, i) => (i === 0 ? 'setup' : 'rest'));
       const candidates = scenes.map((s, i) => ({ i, kind: momentFor(s, i, spec) })).filter(c => c.kind && c.i > 0);
       const events = [];
-      candidates.forEach(c => { if (events.length < Math.max(0, cast.moments) && !events.some(e => Math.abs(e.i - c.i) < 2)) events.push(c); });
-      events.forEach((e, k) => { rhythm[e.i] = k === 0 ? 'event' : 'escalation'; });
+      // a page planned as an arc of compositions (composition.js) plays that arc: hook, transformation, reveal, breath,
+      // escalation, takeover, payoff -- its loud scenes are its events
+      if (Array.isArray(spec.arc) && spec.arc.length === n) {
+        rhythm = COMP.rhythmOf(spec.arc);
+        candidates.forEach(c => { if (['event', 'escalation'].includes(rhythm[c.i]) && events.length < Math.max(0, cast.moments)) events.push(c); });
+      } else {
+        candidates.forEach(c => { if (events.length < Math.max(0, cast.moments) && !events.some(e => Math.abs(e.i - c.i) < 2)) events.push(c); });
+        events.forEach((e, k) => { rhythm[e.i] = k === 0 ? 'event' : 'escalation'; });
+      }
       if (cast.moments >= 2 && n >= 4 && rhythm[n - 1] === 'rest' && rhythm[n - 2] === 'rest') rhythm[n - 1] = 'payoff';
       // the opening's own moment: its type breaking apart, or the actor arriving -- when the page has a moment to spare
       const moments = [];
-      const open = scenes[0].run ? 'actor-entrance' : ['giant-type', 'poster'].includes(scenes[0].layout) && spec.shortName ? 'type-break' : '';
+      const open = scenes[0].run ? 'actor-entrance' : scenes[0].composition && COMP_MOMENT[scenes[0].composition] ? COMP_MOMENT[scenes[0].composition] : ['giant-type', 'poster'].includes(scenes[0].layout) && spec.shortName ? 'type-break' : '';
       if (open && cast.moments >= 2 && events.length < cast.moments) moments.push({ scene: 0, kind: open });
       events.forEach(e => { if (moments.length < cast.moments) moments.push({ scene: e.i, kind: e.kind }); });
       moments.sort((a, b) => a.scene - b.scene);
@@ -1695,7 +1715,7 @@
         const focalOf = s => s.layers.find(L => L.role === 'focal' && L.kind === 'image');
         const ok = {
           'actor-carry': actors.some(a => (a.role === 'primary' || a.role === 'secondary') && a.from <= at - 1 && a.to >= at),
-          'image-expand': !!focalOf(next), 'card-expand': ['cardstream', 'index', 'gallery', 'strip'].includes(prev.layout) && !!focalOf(next),
+          'image-expand': !!focalOf(next), 'card-expand': ['cardstream', 'index', 'gallery', 'strip', 'image-wall'].includes(prev.layout) && !!focalOf(next),
           'type-mask': !!focalOf(next) && bleedable(next) && actors.some(a => a.role === 'typography' && a.to === at - 1),
           'depth-handoff': !!focalOf(prev), 'foreground-wipe': true, 'shape-takeover': true, 'color-bleed': true, cut: true,
         };
@@ -1723,7 +1743,7 @@
       return { timeline: tl, fixes };
     }
     // the properties each scene choreography already drives: a beat never fights them (one owner per property per element)
-    const CHOREO_OWNS = { 'zoom-away': ['focal:scale'], 'scale-through': ['focal:scale', 'focal:translate'], travel: ['focal:translate', 'focal:rotate'], depth: ['focal:translate', 'stage:translate', 'heading:translate'], 'mask-reveal': ['focal:clip'], expand: ['focal:clip', 'focal:scale'], 'type-wipe': ['heading:translate', 'heading:clip'], chapters: ['focal:scale', 'focal:opacity', 'focal:clip'], cardstream: ['focal:scale', 'focal:translate', 'focal:opacity'], track: ['stage:translate'], stack: ['focal:translate', 'focal:scale'], 'pin-steps': ['focal:opacity'] };
+    const CHOREO_OWNS = { compose: ['focal:scale', 'focal:translate', 'focal:rotate', 'focal:clip', 'focal:opacity', 'stage:translate', 'stage:scale', 'stage:rotate', 'heading:translate', 'heading:scale', 'heading:opacity', 'body:translate', 'body:opacity'], 'zoom-away': ['focal:scale'], 'scale-through': ['focal:scale', 'focal:translate'], travel: ['focal:translate', 'focal:rotate'], depth: ['focal:translate', 'stage:translate', 'heading:translate'], 'mask-reveal': ['focal:clip'], expand: ['focal:clip', 'focal:scale'], 'type-wipe': ['heading:translate', 'heading:clip'], chapters: ['focal:scale', 'focal:opacity', 'focal:clip'], cardstream: ['focal:scale', 'focal:translate', 'focal:opacity'], track: ['stage:translate'], stack: ['focal:translate', 'focal:scale'], 'pin-steps': ['focal:opacity'] };
     // (two beats that drive the same CSS property of the same element would fight: one each)
     function prop(op) { return { translate: 'translate', 'depth-shift': 'translate', scale: 'scale', rotate: 'rotate', perspective: 'rotate', opacity: 'opacity', crossfade: 'opacity', clip: 'clip' }[op] || op; }
 
@@ -1762,6 +1782,8 @@
     const TL = require('./timeline');
     const FR = require('./framing');
     const PAL = require('./palette');
+    const COMP = require('./composition');
+    const F0 = a => require('./framing').profile(a);
 
     const INTENTS = ['carry', 'continue', 'rest', 'reset'];
     const CARRIED = ['none', 'primary', 'secondary', 'typography', 'background'];
@@ -1772,13 +1794,15 @@
     const CAMERAS = ['none', 'push', 'pull', 'pan', 'depth'];
     const VIDEO_ENDS = ['subject-centred', 'detail-crop', 'static-frame'];
     const VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
-    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest', 'too-quiet', 'same-direction', 'same-scale', 'no-payoff'];
+    // (the seams' own findings, then the page's as a whole: composition.js audit -- too editorial, framed, no takeover...)
+    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest', 'too-quiet', 'same-direction', 'same-scale', 'no-payoff'].concat(COMP.AUDIT);
     const SOURCES = ['built-in', 'ai', 'mock'];
     // a seam's overlap, in scenes, around the seam (g = at): the outgoing scene is still leaving while the incoming one
     // arrives -- never "ends, empty gap, starts", never a pile-up
     const OVERLAP = { from: [-0.6, -0.15], to: [0, 0.3], min: 0.25, max: 0.8 };
     const LIMITS = { assets: 12, fixes: 6, spatial: 3, issues: 8, thumbs: 6, moving: TL.LIMITS.moving + 1, resets: 1 };
-    const CARDS = ['cardstream', 'index', 'gallery', 'strip'];
+    // (a wall of pictures is a gallery too: its chosen tile can open into the next scene)
+    const CARDS = ['cardstream', 'index', 'gallery', 'strip', 'image-wall'];
 
     // what each family may be (the first value is its default)
     const FAMILY = {
@@ -2298,11 +2322,22 @@
       // a pasted-in hero video: a video that just stops where the page starts
       const h = cont.hero; const k1 = h ? K.find(k => k.at === h.into && h.into > h.scene) : null;
       if (h && h.video && k1 && (k1.family === 'cut' || (k1.carriedActor === 'none' && !related(k1.carriedAsset, h.asset, byId) && k1.overlap.to - k1.overlap.from < 0.35))) add('pasted-video', k1.at);
+      // the page as a whole: is it six variants of image + copy, or does the composition itself change through the scroll?
+      // (each finding names the scene it is about; `at` stays a seam for the seam-shaped fields)
+      const subject = plan.scenes.some(sc => (sc.layers || []).some(L => L.kind === 'image' && byId.get(L.asset) && (F0(byId.get(L.asset)).free || [...byId.values()].some(x => x.cutoutOf === L.asset))));
+      COMP.audit(plan, { subject }).forEach(x => { if (!issues.some(y => y.code === x.code)) issues.push({ code: x.code, at: Math.max(1, Math.min(plan.scenes.length - 1, x.at)), scene: x.at }); });
       return issues.slice(0, LIMITS.issues);
     }
     // the built-in fix for each finding
-    function fixesFor(issues, plan) {
+    function fixesFor(issues, plan, byId) {
       const K = (plan.timeline && plan.timeline.continuity && plan.timeline.continuity.contracts) || []; const out = [];
+      // the page-level findings: the composition each asks for, on a scene whose own pictures can carry it
+      const pageIssues = issues.filter(x => COMP.AUDIT.includes(x.code)).map(x => ({ code: x.code, at: x.scene != null ? x.scene : x.at }));
+      if (pageIssues.length && byId) {
+        const hero = plan.timeline && plan.timeline.continuity && plan.timeline.continuity.hero; const name = plan.identity && plan.identity.name;
+        const can = (at, k) => { const sc = plan.scenes[at]; return !!(sc && sc.layout && sc.layout !== 'stage' && (sc.layers || []).some(L => L.kind === 'image')) && COMP.fit(k, COMP.carryOf(sc, byId, { video: !!(hero && hero.video && (hero.scene || 0) === at), name })); };
+        COMP.fixesFor(pageIssues, plan, can).forEach(f => out.push({ at: Math.max(1, Math.min(plan.scenes.length - 1, f.at)), scene: f.at, code: f.code, composition: f.composition }));
+      }
       issues.forEach(x => {
         const k = K.find(c => c.at === x.at);
         if (x.code === 'hard-reset' || x.code === 'unrelated-swap') out.push({ at: x.at, code: x.code, family: 'color-bleed', intent: 'continue', background: 'blend', overlap: { from: -0.45, to: 0.05 } });
@@ -2334,6 +2369,8 @@
         if (f.motionVector === 'none') o.motionVector = 'none';
         if (f.carry === 'none' || f.carry === 'light') o.carry = f.carry;
         if (f.payoff === true) o.payoff = true;
+        // (a page-level fix names a scene and a composition from the vocabulary -- the scene is composed again around it)
+        if (COMP.AUDIT.includes(f.code) && COMP.COMPOSITIONS.includes(f.composition) && Number.isInteger(f.scene) && f.scene >= 0 && f.scene < n) { o.scene = f.scene; o.composition = f.composition; }
         return o;
       }).filter(Boolean);
     }
@@ -2341,6 +2378,7 @@
     function withFixes(cont, fixes) {
       const c = JSON.parse(JSON.stringify(cont || {})); c.contracts = Array.isArray(c.contracts) ? c.contracts : [];
       (fixes || []).forEach(f => {
+        if (f.composition) return; // (a composition fix changes a scene, not a seam: ai.js recomposes it)
         let k = c.contracts.find(x => x.at === f.at); if (!k) { k = { at: f.at }; c.contracts.push(k); }
         if (f.reset) { delete k.carriedActor; delete k.carriedAsset; }
         ['family', 'intent', 'background', 'typography', 'overlap', 'motionVector', 'carry'].forEach(p => { if (f[p] !== undefined) k[p] = f[p]; });
@@ -2939,6 +2977,456 @@
     module.exports = { carryPlan, carryAt, cover, SOURCE };
 
   });
+  __define("composition", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — the motion-first composition layer (shared: server validation, studio bundle, tests).
+    //
+    // A layout archetype (archetypes.js) says where things REST. A composition says what the scene IS while it plays: what
+    // dominates the screen, what moves, what stays fixed, what transforms, what enters and leaves, and what it becomes for the
+    // next scene. It sits above the layouts: each composition is staged on a base archetype (an existing one, or one of the
+    // few made for it) and adds ONE coordinated set of plane tracks over the held scene's progress -- a camera with depth, not
+    // five unrelated animations. Everything here is data from fixed vocabularies with bounded numbers: a model may NAME a
+    // composition, never describe motion; the renderer computes the tracks from the name and the measured pictures.
+    //
+    //   COMPOSITIONS, SPEC[name]          the vocabulary
+    //   ARC                                a page's visual rhythm (hook, transformation, reveal, breath, escalation, takeover,
+    //                                      payoff) -- planned with the compositions
+    //   TYPE_ACTS                          what the words do as part of the composition
+    //   artDirection(understanding)        what the subject IS, visually (traits that weight the compositions)
+    //   planPage(scenes, ctx)              art.js: a composition (and arc role) per scene, from the pictures that exist
+    //   fit(comp, x)                       whether a scene's pictures can carry a composition (x: what the scene has)
+    //   baseFor(comp, x)                   the archetype a composition is staged on, for those pictures
+    //   audit(plan) / repairs(...)         the page-level structure rules (too editorial, no takeover, ...)
+    //   tracks(scene, si, ctx)             the renderer's plane keyframes (bounded numbers)
+    //   metrics(plan)                      structural metrics of a page (tests, QA, the report)
+
+    const F = require('./framing');
+
+    const COMPOSITIONS = ['object-stage', 'fullscreen-subject', 'image-takeover', 'depth-stack', 'orbit-stage', 'split-transform', 'type-takeover', 'mask-stage', 'tunnel-stage', 'gallery-collapse', 'perspective-lineup', 'floating-canvas', 'cinematic-chapter', 'image-wall', 'object-focus'];
+    const ARC = ['hook', 'transformation', 'reveal', 'breath', 'escalation', 'takeover', 'payoff'];
+    const TYPE_ACTS = ['none', 'word-takeover', 'word-mask', 'letter-spread', 'word-stack', 'vertical', 'baseline', 'behind-subject', 'depth', 'pinned', 'word-replace', 'scale-through', 'edge'];
+    const CAMERAS = ['hold', 'push', 'pull', 'lateral', 'orbit', 'fly-through', 'zoom-through', 'rise'];
+    // how the words serve the composition: a label (small, at an edge), a statement (large, short), the headline pinned while
+    // the visual changes, giant type that is the visual -- or, in a breath, ordinary reading copy
+    const TEXT_ROLES = ['label', 'statement', 'pinned', 'giant', 'reading'];
+    // the most body text each role SHOWS as reading copy; longer words become a caption revealed late in the scene (nothing is
+    // dropped -- the facts stay on the page, the picture leads)
+    const COPY = { label: 90, statement: 160, pinned: 120, giant: 0, reading: 520 };
+
+    // ---------------------------------------------------------------- the vocabulary
+    // planes: subject (the focal picture), bg (environment / backdrop / decoration behind), fg (supporting pictures in front),
+    // type (a giant word layer on the stage), text (the scene's words). A key is [p, x vw, y vh, s, r deg, o, c, ry deg]:
+    // p the held scene's progress, c how CLOSED the plane's window is (1 = only its window shows, 0 = the whole plane).
+    // `rest` is the progress the composition reads best at: shown with reduced motion and without scripts.
+    const K = (p, x, y, s, r, o, c, ry) => [p, x || 0, y || 0, s == null ? 1 : s, r || 0, o == null ? 1 : o, c || 0, ry || 0];
+    const SPEC = {
+      'object-stage': {
+        what: 'the subject alone at the centre of the screen while its world changes around it', dominant: 'subject', needs: ['cut'], intensity: 'stage', hold: true, camera: 'push',
+        frame: 'cutout', text: 'label', act: 'behind-subject', becomes: 'depth-handoff', fixed: 'the subject', moves: 'the giant name behind it and the light around it', arcs: ['hook', 'reveal', 'payoff'], rest: 0.45,
+        planes: { subject: [K(0, 0, 7, 0.84, -3), K(0.45, 0, 0, 1, 0), K(1, 0, -3, 1.12, 3)], type: [K(0, 9, 0, 0.92, 0, 0.3), K(0.45, 0, 0, 1, 0, 0.9), K(1, -9, 0, 1.12, 0, 0.55)], bg: [K(0, 0, 0, 1.1), K(1, 0, 0, 1)], text: [K(0, 0, 4, 1, 0, 0), K(0.3, 0, 0, 1, 0, 1), K(1, 0, -2, 1, 0, 1)] },
+      },
+      'fullscreen-subject': {
+        what: 'one picture of the subject owns the whole screen; the camera pushes in', dominant: 'image', needs: ['bleed|cut'], intensity: 'takeover', hold: true, camera: 'push',
+        frame: 'bleed', text: 'label', act: 'none', becomes: 'image-expand', fixed: 'the words at the edge', moves: 'the camera toward the subject', arcs: ['hook', 'takeover', 'payoff'], rest: 0.3,
+        planes: { subject: [K(0, 0, 0, 1), K(1, 0, 0, 1.14)], fg: [K(0, -4, 0, 1.05), K(1, 6, 0, 1.2)], text: [K(0, 0, 3, 1, 0, 0), K(0.15, 0, 0, 1, 0, 1), K(0.8, 0, 0, 1, 0, 1), K(1, 0, -4, 1, 0, 0)] },
+      },
+      'image-takeover': {
+        what: 'a picture first seen as a window in the empty side opens until it owns the screen', dominant: 'image', needs: ['bleed'], intensity: 'takeover', hold: true, camera: 'push',
+        frame: 'expand', text: 'pinned', act: 'pinned', becomes: 'image-expand', fixed: 'the headline', moves: 'the window, opening to full bleed', arcs: ['transformation', 'takeover'], rest: 0,
+        window: [56, 16, 34, 58],
+        planes: { subject: [K(0, 0, 0, 1.06, 0, 1, 1), K(0.6, 0, 0, 1, 0, 1, 0), K(1, 0, 0, 1.05, 0, 1, 0)], text: [K(0), K(1)] },
+      },
+      'depth-stack': {
+        what: 'foreground, subject, words and background on separate planes: the background recedes, a foreground passes', dominant: 'subject', needs: ['cut'], intensity: 'hit', hold: true, camera: 'push',
+        frame: 'cutout', text: 'statement', act: 'depth', becomes: 'depth-handoff', fixed: 'nothing: every plane moves at its own depth', moves: 'the camera, through the planes', arcs: ['reveal', 'escalation'], rest: 0.5,
+        planes: { bg: [K(0, 0, 0, 1.16), K(1, 0, 0, 1)], subject: [K(0, 0, 8, 0.9), K(0.5, 0, 0, 1), K(1, 0, -6, 1.12)], fg: [K(0, -26, 8, 1.25), K(1, 26, -8, 1.45)], text: [K(0, 0, 3, 1), K(1, 0, -5, 1)] },
+      },
+      'orbit-stage': {
+        what: 'the subject stays fixed at the centre while its lines turn around it', dominant: 'subject', needs: ['items'], intensity: 'stage', hold: true, camera: 'orbit',
+        frame: 'cutout', text: 'reading', act: 'none', becomes: 'color-bleed', fixed: 'the subject', moves: 'the ring of lines and light around it', arcs: ['reveal', 'escalation'], rest: 0.5,
+        planes: { subject: [K(0, 0, 0, 1, -4), K(1, 0, 0, 1.06, 4)], bg: [K(0, 0, 0, 1, -30), K(1, 0, 0, 1.1, 30)] },
+      },
+      'split-transform': {
+        what: 'it begins as a split; the picture half takes over the screen and the words step out', dominant: 'image', needs: ['bleed'], intensity: 'hit', hold: true, camera: 'lateral',
+        frame: 'expand', text: 'statement', act: 'none', becomes: 'image-expand', fixed: 'the picture', moves: 'its frame, from half to the whole screen', arcs: ['transformation'], rest: 0,
+        window: [50, 0, 50, 100],
+        planes: { subject: [K(0, 0, 0, 1.04, 0, 1, 1), K(0.62, 0, 0, 1, 0, 1, 0), K(1, 0, 0, 1.04, 0, 1, 0)], text: [K(0), K(0.3, 0, 0, 1, 0, 1), K(0.6, -10, 0, 1, 0, 0), K(1, -10, 0, 1, 0, 0)] },
+      },
+      'type-takeover': {
+        what: 'a few words fill the screen; the subject rises behind them, then the type scales through the camera', dominant: 'type', needs: ['short'], intensity: 'takeover', hold: true, camera: 'zoom-through',
+        frame: 'cutout', text: 'giant', act: 'scale-through', becomes: 'shape-takeover', fixed: 'the words, until they pass the camera', moves: 'the subject behind the type, then the type itself', arcs: ['takeover', 'hook', 'escalation'], rest: 0.4,
+        planes: { text: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.68, 0, 0, 1.08, 0, 1), K(1, 0, 0, 3.4, 0, 0)], type: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.68, 0, 0, 1.08, 0, 1), K(1, 0, 0, 3.4, 0, 0)], subject: [K(0, 0, 26, 0.82, 0, 0), K(0.35, 0, 8, 0.96, 0, 1), K(0.75, 0, -4, 1.06, 0, 1), K(1, 0, -16, 1.16, 0, 1)] },
+      },
+      'mask-stage': {
+        what: 'the picture is seen only through the words; the words grow until the picture is the whole screen', dominant: 'type', needs: ['bleed', 'short'], intensity: 'takeover', hold: true, camera: 'zoom-through',
+        frame: 'mask', text: 'giant', act: 'word-mask', becomes: 'image-expand', fixed: 'the picture behind the mask', moves: 'the masking words, toward the camera', arcs: ['transformation', 'takeover'], rest: 0.2,
+        planes: { text: [K(0, 0, 0, 0.94), K(0.5, 0, 0, 1.5), K(0.82, 0, 0, 5.5, 0, 0), K(1, 0, 0, 6, 0, 0)], type: [K(0, 0, 0, 0.94), K(0.5, 0, 0, 1.5), K(0.82, 0, 0, 5.5, 0, 0), K(1, 0, 0, 6, 0, 0)], subject: [K(0, 0, 0, 1.12, 0, 0), K(0.6, 0, 0, 1.08, 0, 0), K(0.84, 0, 0, 1.02, 0, 1), K(1, 0, 0, 1, 0, 1)] },
+      },
+      'tunnel-stage': {
+        what: 'pictures arranged in depth along one axis; the camera flies through them', dominant: 'images', needs: ['three'], intensity: 'hit', hold: true, camera: 'fly-through',
+        frame: 'depth', text: 'label', act: 'none', becomes: 'card-expand', fixed: 'the axis', moves: 'the camera, past each picture', arcs: ['escalation'], rest: 0.3, keepChoreo: 'cardstream',
+        planes: { bg: [K(0, 0, 0, 1), K(1, 0, 0, 1.3)], text: [K(0, 0, 0, 1, 0, 1), K(0.8, 0, 0, 1, 0, 1), K(1, 0, -4, 1, 0, 0)] },
+      },
+      'gallery-collapse': {
+        what: 'a wall of pictures collapses inward into one subject that takes the screen', dominant: 'images', needs: ['three', 'bleed'], intensity: 'takeover', hold: true, camera: 'push',
+        frame: 'expand', text: 'statement', act: 'none', becomes: 'image-expand', fixed: 'the chosen picture', moves: 'the others, into it', arcs: ['takeover', 'transformation', 'escalation'], rest: 0, collapse: true,
+        planes: { subject: [K(0, 0, 0, 1, 0, 1, 1), K(0.35, 0, 0, 1, 0, 1, 1), K(0.8, 0, 0, 1, 0, 1, 0), K(1, 0, 0, 1.04, 0, 1, 0)], text: [K(0, 0, 0, 1, 0, 1), K(0.4, 0, 0, 1, 0, 1), K(0.62, 0, -4, 1, 0, 0), K(1, 0, -4, 1, 0, 0)] },
+      },
+      'perspective-lineup': {
+        what: 'the subject and its kin in a row in perspective; the row converges and the centre one comes forward', dominant: 'images', needs: ['three'], intensity: 'stage', hold: true, camera: 'orbit',
+        frame: 'cutout', text: 'label', act: 'none', becomes: 'actor-carry', fixed: 'the centre of the row', moves: 'the row, turning toward the centre', arcs: ['reveal', 'escalation', 'payoff'], rest: 0.6, lineup: true,
+        planes: { subject: [K(0, 0, 4, 0.92), K(0.6, 0, 0, 1.08), K(1, 0, -2, 1.18)], text: [K(0, 0, 0, 1, 0, 0), K(0.3, 0, 0, 1, 0, 1), K(1, 0, 0, 1, 0, 1)] },
+      },
+      'floating-canvas': {
+        what: 'pictures float free of frames at different depths, drifting past one another', dominant: 'images', needs: ['two'], intensity: 'stage', hold: false, camera: 'rise',
+        frame: 'unframed', text: 'statement', act: 'baseline', becomes: 'depth-handoff', fixed: 'the words', moves: 'each picture at its own depth', arcs: ['escalation', 'breath', 'reveal'], rest: 0.5, drift: true,
+        planes: { subject: [K(0, 0, 6, 1), K(1, 0, -6, 1.04)], text: [K(0), K(1)] },
+      },
+      'cinematic-chapter': {
+        what: 'a full-bleed chapter with a small label; the camera pushes in and zooms through into the next', dominant: 'image', needs: ['bleed'], intensity: 'hit', hold: true, camera: 'zoom-through',
+        frame: 'bleed', text: 'label', act: 'pinned', becomes: 'image-expand', fixed: 'the label', moves: 'the camera, through the picture', arcs: ['hook', 'reveal', 'breath', 'payoff'], rest: 0.25,
+        planes: { subject: [K(0, 0, 0, 1), K(0.7, 0, 0, 1.08), K(1, 0, 0, 1.14)], text: [K(0, 0, 2, 1, 0, 0), K(0.12, 0, 0, 1, 0, 1), K(0.86, 0, 0, 1, 0, 1), K(1, 0, 0, 1, 0, 0)] },
+      },
+      'image-wall': {
+        what: 'a wall of pictures edge to edge; the camera pushes into one tile until it is the screen', dominant: 'images', needs: ['three'], intensity: 'takeover', hold: true, camera: 'zoom-through',
+        frame: 'wall', text: 'label', act: 'none', becomes: 'image-expand', fixed: 'the chosen tile', moves: 'the camera, into it', arcs: ['escalation', 'payoff', 'takeover'], rest: 0, wall: true,
+        planes: { text: [K(0, 0, 0, 1, 0, 1), K(0.45, 0, 0, 1, 0, 1), K(0.7, 0, -3, 1, 0, 0), K(1, 0, -3, 1, 0, 0)] },
+      },
+      'object-focus': {
+        what: 'the subject at the centre, then the camera moves in until a detail of it fills the screen', dominant: 'subject', needs: ['zoom'], intensity: 'hit', hold: true, camera: 'push',
+        frame: 'detail', text: 'label', act: 'edge', becomes: 'image-expand', fixed: 'the label at the edge', moves: 'the camera, into the detail', arcs: ['transformation', 'reveal'], rest: 0.2, focus: true,
+        planes: { subject: [K(0, 0, 0, 1), K(0.3, 0, 0, 1.02), K(1, 0, 0, 1.6)], text: [K(0, 0, 0, 1, 0, 1), K(0.55, 0, 0, 1, 0, 1), K(0.86, 0, 0, 1, 0, 0), K(1, 0, 0, 1, 0, 0)] },
+      },
+    };
+
+    // the compositions that make a takeover moment, that put a visual full-screen, that centre the subject, that let the words
+    // lead -- what the page-level rules count
+    const TAKEOVER = COMPOSITIONS.filter(k => SPEC[k].intensity === 'takeover');
+    const FULLSCREEN = ['fullscreen-subject', 'image-takeover', 'split-transform', 'mask-stage', 'gallery-collapse', 'cinematic-chapter', 'image-wall'];
+    const CENTRED = ['object-stage', 'fullscreen-subject', 'depth-stack', 'orbit-stage', 'object-focus', 'type-takeover', 'perspective-lineup'];
+    const TYPE_LED = ['type-takeover', 'mask-stage'];
+    const TRANSFORMS = ['image-takeover', 'split-transform', 'mask-stage', 'gallery-collapse', 'object-focus', 'image-wall'];
+    // the layouts that read as an editorial split (a picture beside a block of copy) and the masks that read as a framed card
+    const EDITORIAL = ['split', 'framed', 'magazine', 'splitscreen', 'image', 'edge-crop', 'luxe', 'sticky-steps'];
+    const CARD_MASKS = ['window', 'frame', 'polaroid', 'arch', 'circle', 'torn', 'blob', 'diamond', 'slit', 'porthole'];
+
+    // ---------------------------------------------------------------- what the subject IS
+    // a small lexicon of visual traits, read from what the understanding says the subject is (never from a name alone): each
+    // trait weights the compositions and sets the field the subject lives in (the page's backdrop and light)
+    const TRAITS = [
+      ['cosmic', /\b(space|cosmic|cosmos|galax(?:y|ies)|universe|stars?|starfield|planets?|nebula|astronaut|interstellar|orbit(?:al)?|void)\b/i, { field: 'void', scale: 'vast', w: { 'fullscreen-subject': 1.6, 'depth-stack': 1.5, 'object-stage': 1.4, 'type-takeover': 1.3, 'tunnel-stage': 1.2, 'floating-canvas': 1.1, 'split-transform': 0.7, 'image-wall': 0.6 } }],
+      ['chrome', /\b(chrome|chromed|silver|metal(?:lic)?|steel|mirror(?:ed)?|reflective|liquid metal|polished)\b/i, { light: 'specular', w: { 'object-stage': 1.5, 'object-focus': 1.4, 'depth-stack': 1.1 } }],
+      ['speed', /\b(speed|fast|racing|race|surf(?:er|ing|board)?|fly(?:ing)?|flight|rocket|jet|velocity|streak|board)\b/i, { motion: 'streak', w: { 'split-transform': 1.3, 'tunnel-stage': 1.3, 'depth-stack': 1.2, 'fullscreen-subject': 1.2 } }],
+      ['product', /\b(product|sneakers?|shoes?|trainers?|cans?|bottles?|gadget|watch(?:es)?|phone|headphones|bag|packaging|flavou?rs?|drink)\b/i, { field: 'studio', w: { 'object-stage': 1.6, 'perspective-lineup': 1.5, 'object-focus': 1.5, 'orbit-stage': 1.3, 'type-takeover': 1.1, 'cinematic-chapter': 0.6 } }],
+      ['tech', /\b(tech|technology|software|ai|artificial intelligence|data|digital|interface|cyber|code|network|platform|device|processor|chip)\b/i, { field: 'grid', w: { 'tunnel-stage': 1.5, 'floating-canvas': 1.4, 'type-takeover': 1.4, 'depth-stack': 1.2, 'mask-stage': 1.2 } }],
+      ['world', /\b(city|landscape|place|world|building|architecture|island|mountains?|coast|resort|travel|destination|interior)\b/i, { field: 'atmos', w: { 'cinematic-chapter': 1.6, 'image-takeover': 1.4, 'image-wall': 1.3, 'mask-stage': 1.2, 'object-stage': 0.6 } }],
+      ['figure', /\b(character|hero|superhero|person|portrait|face|figure|mascot|warrior|herald|creature|robot|man|woman)\b/i, { w: { 'object-stage': 1.4, 'fullscreen-subject': 1.3, 'object-focus': 1.2, 'type-takeover': 1.1 } }],
+      ['isolated', /\b(alone|lone|lonely|isolat(?:ed|ion)|solitary|vast|empty|silence|silent)\b/i, { scale: 'vast', w: { 'fullscreen-subject': 1.3, 'object-stage': 1.2 } }],
+    ];
+    function artDirection(u) {
+      const x = u || {}; const text = [x.subject, x.brief, x.identity && x.identity.what, x.visuals && x.visuals.main, ...(x.motifs || []), x.tone && x.tone.register].filter(Boolean).join(' ');
+      const traits = []; const w = {}; let field = '', light = '', motion = '', scale = '';
+      TRAITS.forEach(([name, re, t]) => { if (!re.test(text)) return; traits.push(name); Object.entries(t.w).forEach(([k, v]) => { w[k] = (w[k] || 1) * v; }); field = field || t.field || ''; light = light || t.light || ''; motion = motion || t.motion || ''; scale = scale || t.scale || ''; });
+      return { traits, weights: w, field: field || 'none', light: light || 'none', motion: motion || 'none', scale: scale || 'none' };
+    }
+
+    // ---------------------------------------------------------------- what a scene's pictures can carry
+    // x: { cut (a clean cut-out of the scene's subject), bleed (a wide photo that can fill the screen), located (a photo whose
+    // subject was found, with room around it), pictures (distinct pictures the scene can show), items (lines), short (a
+    // heading or name of a few words), video (the premium hero video is this scene's picture) }
+    function fit(comp, x) {
+      const S = SPEC[comp]; if (!S) return false; const v = x || {};
+      return S.needs.every(n => n.split('|').some(k => ({ zoom: !!v.zoom, cut: !!v.cut, bleed: !!v.bleed, located: !!v.located, items: (v.items || 0) >= 3, short: !!v.short, three: (v.pictures || 0) >= 3, two: (v.pictures || 0) >= 2 })[k]));
+    }
+    // the archetype a composition is staged on, for the pictures it has (a cut-out stands on a stage; a photo fills the screen)
+    function baseFor(comp, x) {
+      const v = x || {};
+      switch (comp) {
+        case 'object-stage': return 'object-stage';
+        case 'fullscreen-subject': return v.bleed || v.video ? 'editorial-hero' : 'fullscreen-object';
+        case 'image-takeover': case 'split-transform': return 'editorial-hero';
+        case 'depth-stack': return 'depth-stack';
+        case 'orbit-stage': return 'orbit';
+        case 'type-takeover': return 'type-stage';
+        case 'mask-stage': return 'mask-stage';
+        case 'tunnel-stage': return 'cardstream';
+        case 'gallery-collapse': case 'image-wall': return 'image-wall';
+        case 'perspective-lineup': return 'lineup';
+        case 'floating-canvas': return 'canvas';
+        case 'cinematic-chapter': return v.bleeds >= 2 ? 'chapters' : 'editorial-hero';
+        case 'object-focus': return v.cut ? 'fullscreen-object' : 'editorial-hero';
+        default: return 'split';
+      }
+    }
+    // carryOf(scene, byId, { video, name }) -> what a composed scene's pictures can carry (the x that fit and baseFor read):
+    // a clean cut-out of its subject, a wide photo that fills the screen (never a studio shot: a photo whose plain background
+    // gave it a cut-out has nothing to fill a screen with), a located subject, how many pictures, a few words to set giant
+    const fewWords = (h, n, len) => (h || '').length <= len && (h || '').split(/\s+/).filter(Boolean).length <= n;
+    function carryOf(scene, byId, o) {
+      const opt = o || {}; const all = [...byId.values()]; const base = a => (a && a.cutoutOf && byId.get(a.cutoutOf)) || a;
+      const imgs = (scene.layers || []).filter(L => L.kind === 'image' && byId.get(L.asset)); const f = imgs.find(L => L.role === 'focal') || imgs[0];
+      const a = f && byId.get(f.asset); const pr = a ? F.profile(a) : null; const studio = b => !!(b && all.some(x => x.cutoutOf === b.id));
+      const wide = b => !!(b && !F.profile(b).free && F.canBleed(b, 1.6) && !studio(b));
+      const cut = !!(a && (pr.free || all.some(x => x.cutoutOf === base(a).id && x.caps && x.caps.moveFreely && !(x.curation && x.curation.role === 'unrelated'))));
+      const name = String(opt.name || ''); const t = scene.text || {};
+      const located = !!(pr && !pr.free && !pr.tight && pr.source !== 'unknown' && pr.big);
+      // (a detail the camera can move into: a cut-out with the pixels for 1.3x, or a photo whose subject was found)
+      const tall = x => !!(x && (x.cutout || (x.assess && x.assess.transparent)) && ((x.assess && x.assess.height) || 0) * 1.15 / 520 >= 1.3);
+      const zoom = located || (!!a && pr.free ? tall(a) : !!a && all.some(x => x.cutoutOf === base(a).id && tall(x)));
+      return { zoom, cut, bleed: wide(base(a)) || !!opt.video, located, pictures: new Set(imgs.map(L => base(byId.get(L.asset)).id)).size, items: (t.items || []).length,
+        short: fewWords(t.heading, 4, 32) || (!!name && fewWords(name, 3, 18)), video: !!opt.video, bleeds: imgs.filter(L => wide(base(byId.get(L.asset)))).length };
+    }
+    // how many pictures a composition's base shows (the visual plan assigns them)
+    const TAKES = { 'object-stage': 1, 'depth-stack': 2, 'type-stage': 1, 'mask-stage': 1, 'image-wall': 5, canvas: 3 };
+    // every base a composition may be staged on (a scene whose pictures pushed it onto another layout loses the composition)
+    const BASES = { 'object-stage': ['object-stage'], 'fullscreen-subject': ['editorial-hero', 'fullscreen-object'], 'image-takeover': ['editorial-hero'], 'depth-stack': ['depth-stack'], 'orbit-stage': ['orbit'], 'split-transform': ['editorial-hero'],
+      'type-takeover': ['type-stage'], 'mask-stage': ['mask-stage'], 'tunnel-stage': ['cardstream'], 'gallery-collapse': ['image-wall'], 'perspective-lineup': ['lineup'], 'floating-canvas': ['canvas'], 'cinematic-chapter': ['chapters', 'editorial-hero'], 'image-wall': ['image-wall'], 'object-focus': ['fullscreen-object', 'editorial-hero'] };
+    // the composition a scene's pictures still allow when they cannot carry the one it was given (closest idea first)
+    const NEAREST = { 'object-stage': ['object-focus', 'fullscreen-subject'], 'depth-stack': ['object-stage', 'fullscreen-subject'], 'type-takeover': ['mask-stage', 'image-takeover'], 'mask-stage': ['type-takeover', 'image-takeover'], 'gallery-collapse': ['image-takeover', 'floating-canvas'], 'image-wall': ['floating-canvas', 'fullscreen-subject'],
+      'perspective-lineup': ['floating-canvas', 'object-stage'], 'tunnel-stage': ['floating-canvas', 'depth-stack'], 'floating-canvas': ['fullscreen-subject', 'object-focus'], 'orbit-stage': ['object-stage', 'object-focus'], 'image-takeover': ['fullscreen-subject', 'object-focus'], 'split-transform': ['image-takeover', 'fullscreen-subject'],
+      'fullscreen-subject': ['object-focus', 'cinematic-chapter'], 'cinematic-chapter': ['fullscreen-subject', 'image-takeover'], 'object-focus': ['fullscreen-subject', 'object-stage'] };
+
+    // ---------------------------------------------------------------- the page's visual rhythm
+    // not section 1, 2, 3: a hook, a transformation, a reveal, a breath, an escalation, a takeover, a payoff -- sized to the
+    // page, never two loud beats without a breath between on a long page
+    // (a few designed arcs per length -- the page picks one, so pages of one length do not all beat the same way)
+    const ARCS = {
+      3: [['hook', 'takeover', 'payoff'], ['hook', 'transformation', 'payoff']],
+      4: [['hook', 'transformation', 'takeover', 'payoff'], ['hook', 'reveal', 'takeover', 'payoff'], ['hook', 'takeover', 'breath', 'payoff']],
+      5: [['hook', 'transformation', 'breath', 'takeover', 'payoff'], ['hook', 'reveal', 'breath', 'escalation', 'payoff'], ['hook', 'takeover', 'breath', 'reveal', 'payoff']],
+      6: [['hook', 'transformation', 'reveal', 'breath', 'takeover', 'payoff'], ['hook', 'reveal', 'breath', 'transformation', 'takeover', 'payoff'], ['hook', 'takeover', 'breath', 'reveal', 'escalation', 'payoff']],
+      7: [['hook', 'transformation', 'reveal', 'breath', 'escalation', 'takeover', 'payoff'], ['hook', 'reveal', 'transformation', 'breath', 'takeover', 'escalation', 'payoff'], ['hook', 'takeover', 'breath', 'reveal', 'escalation', 'transformation', 'payoff']],
+    };
+    function arcFor(n, mode, pick) {
+      if (mode !== 'expressive' && mode !== 'immersive') return Array.from({ length: n }, (_, i) => (i === 0 ? 'hook' : i === n - 1 ? 'payoff' : 'breath'));
+      if (n <= 2) return ['hook', 'payoff'].slice(0, n);
+      const set = ARCS[Math.min(7, n)]; const base = set[Math.min(set.length - 1, Math.floor((pick || 0) * set.length))].slice();
+      if (n <= 7) return base;
+      const out = base.slice(0, 6); while (out.length < n - 1) out.push(out.length % 2 ? 'breath' : 'escalation'); out.push('payoff'); return out;
+    }
+    // the page rhythm (timeline.js RHYTHM) each arc role plays as -- never two events side by side
+    const ARC_RHYTHM = { hook: 'setup', transformation: 'event', reveal: 'event', breath: 'rest', escalation: 'acceleration', takeover: 'escalation', payoff: 'payoff' };
+    function rhythmOf(arc) {
+      const r = arc.map(a => ARC_RHYTHM[a] || 'rest');
+      for (let i = 1; i < r.length; i++) if (['event', 'escalation'].includes(r[i]) && ['event', 'escalation'].includes(r[i - 1])) r[i - 1] = 'acceleration';
+      return r;
+    }
+    // what each arc role reaches for, in order of preference
+    const ARC_POOL = {
+      hook: ['fullscreen-subject', 'object-stage', 'cinematic-chapter', 'type-takeover', 'image-takeover', 'perspective-lineup', 'depth-stack', 'mask-stage'],
+      transformation: ['split-transform', 'image-takeover', 'object-focus', 'mask-stage', 'gallery-collapse'],
+      reveal: ['object-stage', 'depth-stack', 'perspective-lineup', 'object-focus', 'orbit-stage', 'cinematic-chapter'],
+      breath: ['floating-canvas', 'cinematic-chapter'],
+      escalation: ['depth-stack', 'tunnel-stage', 'image-wall', 'perspective-lineup', 'floating-canvas'],
+      takeover: ['type-takeover', 'image-takeover', 'mask-stage', 'gallery-collapse', 'fullscreen-subject', 'image-wall'],
+      payoff: ['object-stage', 'fullscreen-subject', 'perspective-lineup', 'cinematic-chapter', 'image-wall'],
+    };
+    // the composition a family's own designed scene already is (the recipe's arc keeps its identity: an object story's lineup
+    // release stays a lineup, a cinematic arc's chapters stay chapters -- only editorial compositions are replaced)
+    const NATIVE = { lineup: 'perspective-lineup', chapters: 'cinematic-chapter', cardstream: 'tunnel-stage', orbit: 'orbit-stage', 'giant-type': 'type-takeover', poster: 'type-takeover', campaign: 'type-takeover', takeover: 'type-takeover', depth: 'depth-stack', shrine: 'object-stage', offcanvas: 'object-stage', collage: 'floating-canvas', scrapbook: 'floating-canvas', floating: 'floating-canvas', index: 'image-wall', cinematic: 'cinematic-chapter', 'fullscreen-object': 'fullscreen-subject' };
+    // how many scenes may hold the scroll for their composition, by mode (separate from the layout choreographies' own pins)
+    const HOLDS = { quiet: 0, editorial: 1, expressive: 4, immersive: 5 };
+
+    // planPage(scenes, ctx) -- art.js, before the visual plan. scenes: the recipe's [{ layout, choreo, carries, run? }];
+    // ctx: { mode, inv (art.js inventory), content, direction (artDirection), premium, rng }. Sets scene.composition,
+    // scene.arc and scene.layout (the composition's base) on expressive and immersive pages with pictures; a breath may stay
+    // an ordinary composition (the page's reading moment). Returns the arc.
+    function planPage(scenes, ctx) {
+      const c = ctx || {}; const n = scenes.length; const inv = c.inv; const r = c.rng || Math.random;
+      if (!inv || !inv.main || !n || (c.mode !== 'expressive' && c.mode !== 'immersive')) return null;
+      const arc = arcFor(n, c.mode, r()); const w = (c.direction && c.direction.weights) || {};
+      const located = inv.photos.some(p => !p.p.tight && p.p.source !== 'unknown' && p.p.big);
+      const zoom = located || inv.cut.some(x => ((x.a.assess && x.a.assess.height) || 0) * 1.15 / 520 >= 1.3);
+      const have = { zoom, cut: inv.cut.length > 0, bleed: inv.bleedable.length > 0, located, pictures: inv.distinct, items: (c.content && c.content.items) || 0, short: !!(c.content && c.content.shortName), bleeds: inv.bleedable.length };
+      const used = new Map(); let holds = 0; const maxHolds = HOLDS[c.mode] || 0;
+      scenes.forEach((s, i) => {
+        const role = arc[i]; s.arc = role;
+        if (s.run) return; // (an actor's run is its own composition: the actor IS the subject on stage)
+        // a breath on a page with copy to read keeps a calm reading composition; otherwise it floats its pictures
+        if (role === 'breath' && (s.carries === 'facts' || s.carries === 'prose')) return;
+        const x = Object.assign({}, have, i === 0 && c.premium ? { video: true, bleed: true } : {});
+        let pool = ARC_POOL[role].filter(k => fit(k, x) && k !== (scenes[i - 1] || {}).composition && (used.get(k) || 0) < 2);
+        // the premium hero video opens on a composition that shows a moving picture full-screen
+        if (i === 0 && c.premium) pool = ['fullscreen-subject', 'cinematic-chapter'].filter(k => fit(k, x));
+        // (a scene the family designed as a motion-first layout keeps that idea, as its composition)
+        // (a strong preference, not a rule: the page still varies)
+        const nat = !(i === 0 && c.premium) && NATIVE[s.layout]; const native = nat && fit(nat, x) && nat !== (scenes[i - 1] || {}).composition && (used.get(nat) || 0) < 2 ? nat : '';
+        if (native && !pool.includes(native)) pool.unshift(native);
+        if (!pool.length) return;
+        // (weighted: the arc role's preference order, what the subject IS, and away from compositions the page already has)
+        const table = Object.fromEntries(pool.map((k, j) => [k, (w[k] || 1) * (1 + (pool.length - j) * 0.35) * (used.has(k) ? 0.35 : 1) * (k === native ? 2.5 : 1)]));
+        let pick = pool[0]; let t = r() * Object.values(table).reduce((a, b) => a + b, 0);
+        for (const [k, v] of Object.entries(table)) { t -= v; if (t <= 0) { pick = k; break; } }
+        // (past the mode's holds the composition still plays -- as the scene passes; validate2 decides which ones hold)
+        if (SPEC[pick].hold) holds++; void maxHolds;
+        used.set(pick, (used.get(pick) || 0) + 1);
+        s.composition = pick; s.layout = baseFor(pick, x);
+        s.choreo = SPEC[pick].keepChoreo || (pick === 'cinematic-chapter' && s.layout === 'chapters' ? 'chapters' : pick === 'orbit-stage' ? 'travel' : 'compose');
+      });
+      return arc;
+    }
+
+    // ---------------------------------------------------------------- the page as a whole
+    // what a scene IS structurally (for the rules and the metrics)
+    function shapeOf(s) {
+      const imgs = (s.layers || []).filter(L => L.kind === 'image'); const f = imgs.find(L => L.role === 'focal') || imgs[0];
+      const area = f && f.box ? (f.box.d[2] * f.box.d[3]) / 100 : 0; const comp = s.composition || '';
+      // (an actor's scene is a subject moving in depth across the page; a scene flooded in one bold colour around one object
+      // is a takeover that owns the screen)
+      const run = s.layout === 'stage'; const flood = (s.background === 'accent' || s.background === 'invert') && (run || CENTRED.includes(comp));
+      const framed = !!(f && CARD_MASKS.includes(f.mask) && area < 60 && !['image-takeover', 'split-transform', 'gallery-collapse', 'image-wall'].includes(comp));
+      const editorial = !comp && EDITORIAL.includes(s.layout) && !!f && area < 75;
+      // (one bold colour and one object owns the whole screen too: a type takeover's flood)
+      const full = (FULLSCREEN.includes(comp) && ['editorial-hero', 'chapters', 'image-wall', 'mask-stage'].includes(s.layout)) || (comp === 'type-takeover' && s.background === 'accent') || flood || (!!f && area >= 90) || (!comp && ['editorial-hero', 'cinematic', 'chapters'].includes(s.layout));
+      const side = f && f.box ? (f.box.d[0] + f.box.d[2] / 2 < 45 ? 'left' : f.box.d[0] + f.box.d[2] / 2 > 55 ? 'right' : 'centre') : 'none';
+      const typeLed = TYPE_LED.includes(comp) || ['takeover', 'giant-type', 'poster'].includes(s.layout) || ['letter-spread', 'word-fill'].includes((s.text || {}).treatment) || ['word-takeover', 'word-mask', 'scale-through', 'word-stack', 'behind-subject'].includes((s.text || {}).act);
+      return { comp, framed, editorial, full, side, centred: CENTRED.includes(comp) || run || s.layout === 'fullscreen-object', takeover: TAKEOVER.includes(comp) || s.layout === 'campaign' || flood, typeLed, transforms: TRANSFORMS.includes(comp) || s.choreo === 'expand', camera: (!!comp && SPEC[comp].camera !== 'hold') || run, depth: ['depth-stack', 'tunnel-stage', 'object-stage', 'floating-canvas', 'perspective-lineup'].includes(comp) || s.choreo === 'depth' || run, words: ((s.text || {}).body || '').length + ((s.text || {}).items || []).reduce((t, it) => t + (it.text || '').length, 0) };
+    }
+    // audit(plan) -> [{ code, at }]: the structure rules for a page meant to move. A page of image + copy blocks, framed cards,
+    // no takeover, no full-screen visual, no centred subject, no typography moment, no camera, no transformation fails them.
+    const AUDIT = ['too-editorial', 'repeated-split', 'framed-images', 'same-alternation', 'same-composition', 'no-takeover', 'no-fullscreen', 'weak-subject', 'no-type-moment', 'no-transformation', 'flat-depth', 'no-camera', 'no-hook', 'weak-payoff', 'premium-underused'];
+    function audit(plan, opts) {
+      const o = opts || {}; const scenes = plan.scenes || []; const mode = (plan.art && plan.art.mode) || o.mode || 'editorial';
+      if (!(mode === 'expressive' || mode === 'immersive') || scenes.length < 3) return [];
+      const sh = scenes.map(shapeOf); const issues = []; const add = (code, at) => { if (!issues.some(x => x.code === code)) issues.push({ code, at }); };
+      const pictured = sh.filter(x => x.side !== 'none').length; if (!pictured) return [];
+      const ed = sh.map((x, i) => (x.editorial ? i : -1)).filter(i => i >= 0);
+      if (ed.length >= 3) add('too-editorial', ed[2]);
+      for (let i = 2; i < sh.length; i++) if (sh[i].editorial && sh[i - 1].editorial && sh[i - 2].editorial) add('repeated-split', i);
+      const fr = sh.map((x, i) => (x.framed ? i : -1)).filter(i => i >= 0);
+      if (fr.length >= 3) add('framed-images', fr[2]);
+      for (let i = 2; i < sh.length; i++) if (sh[i].editorial && sh[i - 1].editorial && sh[i - 2].editorial && sh[i].side !== 'centre' && sh[i].side === sh[i - 2].side && sh[i - 1].side !== sh[i].side) add('same-alternation', i);
+      // (variety that fits the subject, never one structure repeated: a composition three times is one too many)
+      const seen = {}; sh.forEach((x, i) => { if (!x.comp) return; seen[x.comp] = (seen[x.comp] || 0) + 1; if (seen[x.comp] === 3) add('same-composition', i); });
+      const best = k => { const i = sh.findIndex((x, j) => j > 0 && !x[k]); return i > 0 ? i : 1; };
+      if (!sh.some(x => x.takeover)) add('no-takeover', best('takeover'));
+      if (!sh.some(x => x.full)) add('no-fullscreen', 0);
+      if (o.subject && !sh.some(x => x.centred)) add('weak-subject', best('centred'));
+      if (!sh.some(x => x.typeLed)) add('no-type-moment', best('typeLed'));
+      if (!sh.some(x => x.transforms)) add('no-transformation', best('transforms'));
+      if (!sh.some(x => x.depth)) add('flat-depth', best('depth'));
+      if (!sh.some(x => x.camera)) add('no-camera', best('camera'));
+      if (!(sh[0].full || sh[0].centred || sh[0].typeLed)) add('no-hook', 0);
+      const last = scenes[scenes.length - 1]; const cb = plan.timeline && plan.timeline.continuity && plan.timeline.continuity.callback;
+      if (!cb && !(last.composition && SPEC[last.composition].arcs.includes('payoff'))) add('weak-payoff', scenes.length - 1);
+      const hv = plan.timeline && plan.timeline.continuity && plan.timeline.continuity.hero;
+      if (hv && hv.video && !(sh[hv.scene || 0].full)) add('premium-underused', hv.scene || 0);
+      return issues;
+    }
+    // the composition each finding asks for (bounded: from the vocabulary, the scene's own pictures permitting)
+    const WANTS = { 'same-composition': ['object-stage', 'depth-stack', 'image-takeover', 'object-focus', 'type-takeover', 'perspective-lineup', 'cinematic-chapter', 'floating-canvas'], 'too-editorial': ['object-stage', 'depth-stack', 'image-takeover', 'split-transform', 'floating-canvas'], 'repeated-split': ['split-transform', 'image-takeover', 'object-focus'], 'framed-images': ['image-takeover', 'object-stage', 'floating-canvas'], 'same-alternation': ['object-stage', 'depth-stack', 'fullscreen-subject'],
+      'no-takeover': ['type-takeover', 'image-takeover', 'mask-stage', 'fullscreen-subject', 'gallery-collapse'], 'no-fullscreen': ['fullscreen-subject', 'cinematic-chapter', 'image-takeover'], 'weak-subject': ['object-stage', 'object-focus', 'depth-stack', 'fullscreen-subject'], 'no-type-moment': ['type-takeover', 'mask-stage'],
+      'no-transformation': ['split-transform', 'image-takeover', 'object-focus', 'mask-stage'], 'flat-depth': ['depth-stack', 'object-stage', 'floating-canvas'], 'no-camera': ['fullscreen-subject', 'cinematic-chapter', 'object-focus'], 'no-hook': ['fullscreen-subject', 'object-stage', 'cinematic-chapter', 'type-takeover'],
+      'weak-payoff': ['object-stage', 'fullscreen-subject', 'cinematic-chapter'], 'premium-underused': ['fullscreen-subject', 'cinematic-chapter'] };
+    // fixesFor(issues, plan, can(at, comp)) -> [{ at, code, composition }]: each finding moved onto the scene that can carry
+    // the composition it wants (the found scene first, then the nearest editorial or framed scene)
+    function fixesFor(issues, plan, can) {
+      const out = []; const scenes = plan.scenes || []; const taken = new Set();
+      issues.forEach(x => {
+        // (a scene that already has a composition is only taken when it is the found one; the closing only for the payoff)
+        const dup = i => scenes[i].composition && (scenes.filter(s => s.composition === scenes[i].composition).length > 1 || scenes[i].composition === 'floating-canvas');
+        const free = i => i !== x.at && i > 0 && (!scenes[i].composition || dup(i)) && (i !== scenes.length - 1 || x.code === 'weak-payoff');
+        const any = i => i !== x.at && i > 0 && !free(i) && i !== scenes.length - 1;
+        const near = (a, b) => Math.abs(a - x.at) - Math.abs(b - x.at);
+        const order = [x.at].concat(scenes.map((s, i) => i).filter(free).sort(near), scenes.map((s, i) => i).filter(any).sort(near));
+        for (const at of order) {
+          if (taken.has(at) || at == null || at < 0 || at >= scenes.length) continue;
+          // (the compositions the page already has twice are not given again)
+          const count = k => scenes.filter((s, j) => j !== at && s.composition === k).length;
+          const comp = (WANTS[x.code] || []).filter(k => count(k) < 2 && k !== scenes[at].composition).sort((a, b) => count(a) - count(b)).find(k => k !== (scenes[at - 1] || {}).composition && k !== (scenes[at + 1] || {}).composition && can(at, k));
+          if (comp) { out.push({ at, code: x.code, composition: comp }); taken.add(at); return; }
+        }
+      });
+      return out;
+    }
+
+    // ---------------------------------------------------------------- the renderer's tracks
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const r2 = v => Math.round(v * 100) / 100;
+    // the bounds every key is held to (phone halves the travel at runtime)
+    const KB = { x: [-60, 60], y: [-40, 40], s: [0.2, 6.5], r: [-40, 40], o: [0, 1], c: [0, 1], ry: [-40, 40] };
+    const boundKey = (k, sMax) => [clamp(r2(k[0]), 0, 1), clamp(r2(k[1]), ...KB.x), clamp(r2(k[2]), ...KB.y), clamp(r2(k[3]), KB.s[0], sMax), clamp(r2(k[4]), ...KB.r), clamp(r2(k[5]), ...KB.o), clamp(r2(k[6]), ...KB.c), clamp(r2(k[7]), ...KB.ry)];
+    // the hero video's measured motion continues through the next two scenes' cameras: a push-in pushes, a pull-back pulls,
+    // a pan travels the same way (ctx.lead: 'in'|'out'|'lr'|'rl'|'none'; ctx.leadNear: true within two scenes of the hero)
+    function cameraKeys(keys, comp, ctx) {
+      const lead = ctx && ctx.leadNear ? ctx.lead : 'none'; if (!lead || lead === 'none') return keys;
+      return keys.map(k => { const q = k.slice(); const t = q[0];
+        if (lead === 'lr' || lead === 'rl') q[1] = q[1] + (lead === 'lr' ? 1 : -1) * (t - 0.5) * 8;
+        else if (lead === 'in') q[3] = q[3] * (1 + t * 0.04); else if (lead === 'out') q[3] = q[3] * (1.04 - t * 0.04);
+        return q; });
+    }
+    // tracks(scene, si, ctx) -> { comp, camera, hold, rest, planes: { [layerId]: { plane, keys, win? } }, text: { keys } }
+    // ctx: { byId, lead, leadNear, mirror (the words sit right: windows open from the left) }
+    function tracks(scene, si, ctx) {
+      const comp = scene && scene.composition; const S = SPEC[comp]; if (!S) return null; const c = ctx || {};
+      const out = { comp, camera: S.camera, hold: !!scene.pin, rest: S.rest, act: (scene.text && scene.text.act) || S.act, planes: {}, text: null };
+      const layers = scene.layers || []; const focal = layers.find(L => L.role === 'focal' && L.kind === 'image');
+      // how far a picture may be enlarged: a photo within the scroll zoom ceiling (a deliberate detail further), a cut-out within
+      // what its pixels hold
+      const sMaxOf = L => { if (!L || L.kind !== 'image') return KB.s[1]; const a = c.byId && c.byId.get(L.asset); const free = !!(a && ((a.caps && a.caps.moveFreely) || a.cutout || (a.assess && a.assess.transparent))); if (!free) return L.frame === 'detail' ? F.ZOOM.detail : F.ZOOM.scroll; const h = (a && a.assess && a.assess.height) || 900; return clamp(h * 1.15 / 520, 1.05, 1.9); };
+      const keysFor = (plane, L) => (S.planes[plane] ? cameraKeys(S.planes[plane], comp, c).map(k => boundKey(k, sMaxOf(L))) : null);
+      const mirror = !!c.mirror; const flipX = k => k.map(q => [q[0], -q[1], q[2], q[3], -q[4], q[5], q[6], -q[7]]);
+      const put = (L, plane, keys, extra) => { if (keys) out.planes[L.id] = Object.assign({ plane, keys: mirror ? flipX(keys) : keys }, extra || {}); };
+      // the window a picture opens from: the composition's card place (mirrored to the side away from the words), or the
+      // tile the picture had in the wall
+      const winOf = () => { if (!S.window) return null; const w = S.window.slice(); if (mirror) w[0] = 100 - w[0] - w[2]; return w; };
+      if (focal) {
+        let keys = keysFor('subject', focal);
+        // the detail the camera moves into: toward the picture's measured subject (object-focus)
+        if (S.focus && keys) { const a = c.byId && c.byId.get(focal.asset); const pr = a ? F.profile(a) : null; const fx = pr ? (pr.focus[0] - 0.5) : 0, fy = pr ? (pr.focus[1] - 0.45) : 0; keys = keys.map(q => { const k = q.slice(); const z = k[3] - 1; k[1] = clamp(r2(-fx * z * 60), ...KB.x); k[2] = clamp(r2(-fy * z * 40), ...KB.y); return k; }); }
+        // (the wall's chosen tile is where the camera goes: it grows to the screen while the others pass the edges)
+        if (S.wall) put(focal, 'subject', [boundKey(K(0), 3.4), boundKey(K(0.45, 0, 0, 1), 3.4), boundKey(K(1, 0, 0, 3.2), 3.4)]);
+        else if (S.collapse) put(focal, 'subject', keys, { win: (focal.win || [35, 30, 30, 40]).slice() });
+        else if (S.window) put(focal, 'subject', keys, { win: winOf() });
+        else if (keys) put(focal, 'subject', keys);
+      }
+      const fc = focal && focal.box ? [focal.box.d[0] + focal.box.d[2] / 2, focal.box.d[1] + focal.box.d[3] / 2] : [50, 50];
+      layers.forEach((L, j) => {
+        if (L === focal) return;
+        const box = L.box ? L.box.d : [0, 0, 100, 100]; const cx = box[0] + box[2] / 2, cy = box[1] + box[3] / 2;
+        if (L.kind === 'word' && S.planes.type) { put(L, 'type', keysFor('type', L)); return; }
+        if (S.wall && L.kind === 'image') {
+          // the camera pushes into the chosen tile: every tile scales about the chosen tile's centre (a wall that collapses
+          // instead pulls its tiles into it and lets them go)
+          const Z = 3.2; const dx = (cx - fc[0]) * (Z - 1), dy = (cy - fc[1]) * (Z - 1);
+          put(L, 'fg', [boundKey(K(0), 3.4), boundKey(K(0.45, 0, 0, 1), 3.4), boundKey(K(1, dx, dy * 0.62, Z, 0, 0.6), 3.4)]);
+          return;
+        }
+        if (S.collapse && L.kind === 'image') { put(L, 'fg', [boundKey(K(0), 2), boundKey(K(0.3, 0, 0, 1), 2), boundKey(K(0.7, (fc[0] - cx) * 0.9, (fc[1] - cy) * 0.55, 0.45, 0, 0), 2), boundKey(K(1, (fc[0] - cx) * 0.9, (fc[1] - cy) * 0.55, 0.45, 0, 0), 2)]); return; }
+        if (S.lineup && L.kind === 'image') { const off = (cx - 50) / 50; put(L, 'fg', [boundKey(K(0, off * 10, 2, 0.94, 0, 1, 0, off * 28), 1.3), boundKey(K(0.6, -off * 4, 0, 0.9, 0, 0.9, 0, off * 34), 1.3), boundKey(K(1, -off * 8, 2, 0.84, 0, 0.75, 0, off * 38), 1.3)]); return; }
+        if (S.drift && L.kind === 'image') { const d = ((L.z || 4) - 4) * 0.5 + (j % 2 ? 0.4 : -0.3); put(L, 'fg', [boundKey(K(0, d * -3, 8 + d * 8, 1), 1.2), boundKey(K(1, d * 3, -8 - d * 8, 1.03), 1.2)]); return; }
+        if (L.role === 'backdrop' || L.role === 'texture' || L.kind === 'shape' || (L.kind === 'image' && box[2] >= 95 && box[3] >= 95)) { put(L, 'bg', keysFor('bg', L)); return; }
+        if (L.kind === 'image') put(L, 'fg', keysFor('fg', L));
+      });
+      const label = (comp === 'type-takeover' || comp === 'mask-stage') && !(scene.text && scene.text.giant);
+      const tk = label ? [K(0, 0, 3, 1, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(1, 0, 0, 1, 0, 1)] : S.planes.text;
+      if (tk) out.text = { keys: (() => { const k = tk.map(q => boundKey(q, 6.5)); return mirror ? flipX(k) : k; })() };
+      return out;
+    }
+    // a track sampled at p (the same function the runtime implements; the smooth step between keys)
+    function sample(keys, p) {
+      if (!keys || !keys.length) return null; if (p <= keys[0][0]) return keys[0].slice(1); const n = keys.length; if (p >= keys[n - 1][0]) return keys[n - 1].slice(1);
+      let i = 0; while (i < n - 2 && keys[i + 1][0] < p) i++; const A = keys[i], B = keys[i + 1]; let t = (p - A[0]) / Math.max(1e-6, B[0] - A[0]); t = t * t * (3 - 2 * t);
+      return A.slice(1).map((v, j) => v + (B[j + 1] - v) * t);
+    }
+
+    // ---------------------------------------------------------------- metrics
+    // metrics(plan) -> the page's structure in numbers: how editorial, how framed, how many takeovers, full-screen visuals,
+    // centred subjects, typography moments, transformations, camera moves, held scenes, average copy per scene
+    function metrics(plan) {
+      const sh = (plan.scenes || []).map(shapeOf); const n = sh.length || 1; let runE = 0, runF = 0, maxE = 0, maxF = 0;
+      sh.forEach(x => { runE = x.editorial ? runE + 1 : 0; runF = x.framed ? runF + 1 : 0; maxE = Math.max(maxE, runE); maxF = Math.max(maxF, runF); });
+      return { scenes: sh.length, compositions: sh.filter(x => x.comp).length, editorial: sh.filter(x => x.editorial).length, framed: sh.filter(x => x.framed).length, longestEditorialRun: maxE, longestFramedRun: maxF,
+        takeovers: sh.filter(x => x.takeover).length, fullscreen: sh.filter(x => x.full).length, centred: sh.filter(x => x.centred).length, typeLed: sh.filter(x => x.typeLed).length, transforms: sh.filter(x => x.transforms).length,
+        camera: sh.filter(x => x.camera).length, depth: sh.filter(x => x.depth).length, avgCopy: Math.round(sh.reduce((t, x) => t + x.words, 0) / n), distinctStructures: new Set((plan.scenes || []).map(s => s.composition || s.layout)).size };
+    }
+
+    // alternatives(comp, arc) -> the compositions to try, in order, when a scene's pictures cannot carry `comp`
+    function alternatives(comp, arc) { return [...new Set((NEAREST[comp] || []).concat(ARC_POOL[arc] || [], ['object-focus', 'fullscreen-subject', 'object-stage', 'floating-canvas', 'image-takeover']))].filter(k => k !== comp); }
+    module.exports = { NATIVE, alternatives, carryOf, COMPOSITIONS, SPEC, ARC, ARC_RHYTHM, ARC_POOL, TYPE_ACTS, CAMERAS, TEXT_ROLES, COPY, TAKEOVER, FULLSCREEN, CENTRED, TYPE_LED, TRANSFORMS, EDITORIAL, CARD_MASKS, HOLDS, TAKES, BASES, NEAREST, AUDIT, WANTS, KB, TRAITS,
+      artDirection, fit, baseFor, arcFor, rhythmOf, planPage, shapeOf, audit, fixesFor, tracks, sample, boundKey, metrics };
+
+  });
   __define("art", function (module, exports, require) {
     'use strict';
     // CREATIVE — art direction. One coherent decision per page, made BEFORE the scenes are written, so a page has a
@@ -2969,13 +3457,17 @@
 
     const F = require('./framing');
     const POOL = require('./pool');
+    const COMP = require('./composition');
 
     const PERSONALITIES = ['editorial', 'cinematic', 'kinetic', 'playful', 'luxe', 'mechanical', 'chaotic', 'still'];
     const SCROLLS = ['flow', 'sequence', 'continuous', 'track', 'stack', 'snap'];
     const LAYOUTS = ['free', 'editorial-hero', 'split', 'giant-type', 'shrine', 'offcanvas', 'framed', 'floating', 'collage', 'poster', 'magazine', 'strip', 'sticky-steps', 'text', 'image', 'luxe', 'dense', 'depth', 'brutalist', 'cinematic', 'gallery',
       // the scene model's second vocabulary: an actor scene, campaigns and takeovers, image-led narrative, lineups...
-      'stage', 'campaign', 'splitscreen', 'fullscreen-object', 'orbit', 'index', 'scrapbook', 'takeover', 'chapters', 'lineup', 'cardstream', 'edge-crop'];
-    const CHOREOS = ['settle', 'pin-steps', 'zoom-away', 'scale-through', 'mask-reveal', 'type-wipe', 'track', 'stack', 'depth', 'travel', 'actor', 'word-fill', 'chapters', 'cardstream', 'expand'];
+      'stage', 'campaign', 'splitscreen', 'fullscreen-object', 'orbit', 'index', 'scrapbook', 'takeover', 'chapters', 'lineup', 'cardstream', 'edge-crop',
+      // the motion-first stages the compositions are staged on (composition.js)
+      'object-stage', 'depth-stack', 'type-stage', 'mask-stage', 'image-wall', 'canvas'];
+    // ('compose': a composition's own coordinated plane tracks over the held scene -- composition.js)
+    const CHOREOS = ['settle', 'pin-steps', 'zoom-away', 'scale-through', 'mask-reveal', 'type-wipe', 'track', 'stack', 'depth', 'travel', 'actor', 'word-fill', 'chapters', 'cardstream', 'expand', 'compose'];
     const HANDOFFS = ['cut', 'overlap', 'bleed', 'carry', 'stack'];
     const TYPOS = ['editorial', 'giant', 'minimal', 'poster', 'mixed'];
     const NAVS = ['bar', 'minimal', 'index'];
@@ -3202,7 +3694,10 @@
       const own = pool.main && withP.find(x => x.a.id === (pool.main.cut || pool.main.id));
       const main = own || (cut.find(subjectish) || photos.filter(subjectish).sort((x, y) => (y.p.big - x.p.big) || ((x.p.tight ? 1 : 0) - (y.p.tight ? 1 : 0)))[0] || cut[0] || photos[0]) || null;
       // photos that fill a desktop scene without losing more than a bleed's share, and are not already tight
-      const bleedable = photos.filter(x => !x.p.tight && F.coverCrop(x.p.aspect, 1.6).crop <= F.budgetFor(x.a, 'bleed') && (x.p.big || x.a.origin === 'upload'));
+      // (a studio shot -- a photo whose plain background gave it a clean cut-out -- has nothing to fill a screen with: its
+      // cut-out stands on the stage instead)
+      const studio = new Set(withP.filter(x => x.a.cutoutOf).map(x => x.a.cutoutOf));
+      const bleedable = photos.filter(x => F.canBleed(x.a, 1.6) && !studio.has(x.a.id) && (x.p.big || x.a.origin === 'upload'));
       const cinema = photos.filter(x => !x.p.tight && x.p.aspect >= 1.4 && x.p.big);
       // cut-outs of the same original count once (a picture and its cut-out are one picture)
       const distinct = new Set(withP.map(x => x.a.cutoutOf || x.a.id)).size;
@@ -3214,7 +3709,8 @@
     // how many picture appearances an archetype needs (required, and what it takes when pictures are plentiful)
     // (an actor scene -- `stage` -- takes none of its own: the actor is one picture, shown once, living across the run)
     const NEED = { 'editorial-hero': [1, 1], cinematic: [1, 1], split: [1, 2], 'giant-type': [0, 1], shrine: [1, 1], offcanvas: [1, 1], framed: [1, 2], floating: [1, 3], collage: [3, 4], poster: [1, 1], magazine: [0, 1], strip: [3, 6], 'sticky-steps': [0, 2], text: [0, 0], image: [1, 1], luxe: [1, 1], dense: [0, 0], depth: [1, 2], brutalist: [0, 1], gallery: [2, 4],
-      stage: [0, 0], campaign: [1, 1], splitscreen: [1, 1], 'fullscreen-object': [1, 1], orbit: [1, 1], index: [3, 6], scrapbook: [2, 4], takeover: [0, 0], chapters: [2, 5], lineup: [3, 6], cardstream: [3, 5], 'edge-crop': [1, 1] };
+      stage: [0, 0], campaign: [1, 1], splitscreen: [1, 1], 'fullscreen-object': [1, 1], orbit: [1, 1], index: [3, 6], scrapbook: [2, 4], takeover: [0, 0], chapters: [2, 5], lineup: [3, 6], cardstream: [3, 5], 'edge-crop': [1, 1],
+      'object-stage': [1, 1], 'depth-stack': [1, 2], 'type-stage': [0, 1], 'mask-stage': [1, 1], 'image-wall': [3, 6], canvas: [2, 3] };
 
     // which archetypes this page's pictures and words can carry (for the hero, `main` is the opening picture)
     function eligible(layout, inv, content, hero) {
@@ -3235,6 +3731,11 @@
         case 'orbit': return n >= 1 && content.items >= 3;
         // an intentional edge crop needs a picture whose subject was located, with room around it
         case 'edge-crop': return inv.photos.some(x => !x.p.tight && x.p.source !== 'unknown' && x.p.big);
+        case 'object-stage': case 'depth-stack': return inv.cut.length > 0;
+        case 'type-stage': return content.shortName || !hero;
+        case 'mask-stage': return inv.bleedable.length > 0 && content.shortName;
+        case 'image-wall': return n >= 3;
+        case 'canvas': return n >= 2;
         case 'magazine': return content.prose;
         case 'sticky-steps': return content.items >= 2;
         case 'dense': return content.items >= 3;
@@ -3252,6 +3753,7 @@
       dense: ['settle', 'type-wipe'], text: ['type-wipe', 'settle'], brutalist: ['type-wipe', 'settle', 'travel'],
       stage: ['actor'], campaign: ['scale-through', 'settle'], splitscreen: ['mask-reveal', 'settle'], 'fullscreen-object': ['travel', 'scale-through', 'settle'], orbit: ['travel', 'settle'],
       index: ['settle', 'mask-reveal'], scrapbook: ['depth', 'travel'], takeover: ['word-fill'], chapters: ['chapters'], lineup: ['depth', 'settle'], cardstream: ['cardstream'], 'edge-crop': ['depth', 'mask-reveal', 'settle'],
+      'object-stage': ['compose', 'settle'], 'depth-stack': ['compose', 'depth'], 'type-stage': ['compose', 'settle'], 'mask-stage': ['compose', 'settle'], 'image-wall': ['compose', 'settle'], canvas: ['compose', 'depth', 'settle'],
     };
     // choreographies that hold the scroll while they play
     const PINNED_CHOREOS = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'chapters', 'cardstream', 'expand'];
@@ -3262,6 +3764,7 @@
       'sticky-steps': 'facts', dense: 'facts', text: 'statement', brutalist: 'facts',
       stage: 'statement', campaign: 'statement', splitscreen: 'statement', 'fullscreen-object': 'statement', orbit: 'facts', index: 'pictures', scrapbook: 'pictures', takeover: 'statement',
       chapters: 'pictures', lineup: 'pictures', cardstream: 'pictures', 'edge-crop': 'picture',
+      'object-stage': 'statement', 'depth-stack': 'statement', 'type-stage': 'statement', 'mask-stage': 'statement', 'image-wall': 'pictures', canvas: 'pictures',
     };
 
     // ---- choreography families: each is a designed arc (its beats), with the subjects, personalities, modes and
@@ -3400,7 +3903,17 @@
       });
       // the pictures: the chosen page is held to the pictures it has and planned around them (its candidates are compared as
       // their families designed them -- coverage never decides which direction wins)
-      if (cover) { coverPictures(r, scenes, inv, content, st, input); planVisuals(scenes, inv, content); }
+      // the motion-first compositions (composition.js): on a page meant to move, what each scene IS while it plays -- a
+      // hook, a transformation, a takeover... -- planned with the pictures, from a stream of their own (a page that gets
+      // none plans exactly as before)
+      let arc = null;
+      if (cover) {
+        coverPictures(r, scenes, inv, content, st, input);
+        const direction = COMP.artDirection(input && input.understanding);
+        arc = COMP.planPage(scenes, { mode, inv, content, direction, premium: !!(input && input.premium && input.premium.video), rng: rng(`${(input && input.seed) || ''}|compose|${(input && input.understanding && input.understanding.subject) || ''}`) });
+        planVisuals(scenes, inv, content, { premium: !!(input && input.premium && input.premium.video) });
+        if (arc) scenes.direction = direction;
+      }
       // the mode bounds the whole: how many scenes hold the scroll, and how many are driven by it at all
       let pins = 0, driven = 0;
       scenes.forEach(s => {
@@ -3423,11 +3936,12 @@
       }
       // the page as one timeline: its rhythm, its two or three memorable moments, how each scene becomes the next, and who
       // lives across scenes (timeline.js) -- planned now, so pages can be compared by how they move, not only by layout
-      const flow = require('./timeline').planFlow(r, { family, mode, personality, typo, scenes: scenes.map(x => ({ layout: x.layout, choreo: x.choreo, carries: x.carries })), actor: actor ? { from: actor.from, to: actor.to } : null, shortName: content.shortName });
+      const flow = require('./timeline').planFlow(r, { family, mode, personality, typo, scenes: scenes.map(x => ({ layout: x.layout, choreo: x.choreo, carries: x.carries, composition: x.composition })), actor: actor ? { from: actor.from, to: actor.to } : null, shortName: content.shortName, arc });
+      const direction = scenes.direction; delete scenes.direction;
       scenes.forEach(s => { delete s.run; delete s.covered; });
       const M = MOTION[personality];
       const intensity = Math.max(1, Math.min(5, MODES.indexOf(mode) + 1 + (M.range > 1 ? 1 : 0)));
-      const recipe = { family, mode, personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes, ...(actor ? { actor } : {}), flow };
+      const recipe = { family, mode, personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes, ...(actor ? { actor } : {}), flow, ...(direction && direction.traits.length ? { direction: { traits: direction.traits, field: direction.field, light: direction.light, motion: direction.motion, scale: direction.scale } } : {}) };
       recipe.behavior = require('./timeline').behavior(flow, { progression, scroll });
       recipe.recipe = fingerprint(recipe);
       recipe.why = `${genre === 'object' ? 'this subject' : `a ${genre} subject`}${registerOf(input.understanding) ? `, ${registerOf(input.understanding)}` : ''}: a ${family.replace(/-/g, ' ')} arc, ${mode}, with ${M.label} motion${actor ? ' and one subject carried across the opening scenes' : ''}`;
@@ -3443,7 +3957,8 @@
     // opens on a composition that shows a moving picture large.
     const WORDS_ONLY = ['text', 'takeover', 'dense'];
     const HERO_WEAK = ['text', 'takeover', 'dense', 'brutalist', 'giant-type', 'magazine'];
-    const VIDEO_HERO = ['editorial-hero', 'cinematic', 'image', 'splitscreen', 'split'];
+    // (the premium hero video is the opening event: it fills the screen -- never half of a split, never a card)
+    const VIDEO_HERO = ['editorial-hero', 'cinematic', 'image'];
     // every composition that shows a picture as its subject (the widest set a covered scene may become)
     const PICTURE_LED = ['split', 'image', 'framed', 'edge-crop', 'splitscreen', 'luxe', 'shrine', 'offcanvas', 'depth', 'campaign', 'fullscreen-object', 'poster', 'cinematic', 'floating'];
     const PICTURE_FOR = { facts: ['sticky-steps', 'split', 'framed', 'edge-crop'], statement: ['split', 'image', 'edge-crop', 'splitscreen', 'framed', 'luxe', 'shrine', 'offcanvas'], closing: ['image', 'luxe', 'framed', 'shrine', 'split'], prose: ['magazine', 'split', 'framed'], pictures: ['gallery', 'collage', 'index', 'scrapbook', 'framed'], picture: ['image', 'framed', 'edge-crop', 'split'], opening: ['split', 'editorial-hero', 'framed', 'shrine', 'image'] };
@@ -3480,13 +3995,29 @@
     // the visual plan (pool.js): every scene's picture(s), decided with the scenes and before any words. A composition that
     // only stands cut-outs on its stage (a shrine's plinth, an off-canvas figure, floating layers) is given a photo
     // composition when its picture has no cut-out -- otherwise the photo is shown small in a large, empty scene.
-    const CUT_ONLY = { shrine: 'image', luxe: 'image', offcanvas: 'split', floating: 'split', 'fullscreen-object': 'split', orbit: 'split' };
-    function planVisuals(scenes, inv, content) {
+    const CUT_ONLY = { shrine: 'image', luxe: 'image', offcanvas: 'split', floating: 'split', 'fullscreen-object': 'split', orbit: 'split', 'object-stage': 'image', 'depth-stack': 'image', 'type-stage': 'giant-type' };
+    function planVisuals(scenes, inv, content, opts) {
       if (!inv.pool) return;
       const free = id => { const x = inv.all.find(y => y.a.id === id); return !!(x && x.p.free); };
       let changed = false;
+      const bleed = id => inv.bleedable.some(x => x.a.id === id);
       POOL.assign(scenes, inv.pool).forEach((v, i) => {
         if (!v) return; const s = scenes[i];
+        // a composition is held to the picture its scene gets: a cut-out stage given a flat photo becomes the nearest
+        // composition the photo can carry (or the scene's own layout when none can)
+        if (s.composition) {
+          const video = i === 0 && !!(opts && opts.premium);
+          const tall = y => !!(y && y.p.free && ((y.a.assess && y.a.assess.height) || 0) * 1.15 / 520 >= 1.3); const zoomable = inv.all.some(y => (y.a.id === v.asset || y.a.cutoutOf === v.base) && tall(y));
+          const x = { video, zoom: zoomable || inv.photos.some(p => p.a.id === v.base && !p.p.tight && p.p.source !== 'unknown' && p.p.big), cut: free(v.asset) || inv.all.some(y => y.a.cutoutOf === v.base), bleed: video || bleed(v.asset) || bleed(v.base), located: inv.photos.some(p => p.a.id === v.base && !p.p.tight && p.p.source !== 'unknown' && p.p.big), pictures: (v.assets || []).length >= 3 ? (v.assets || []).length : inv.distinct, items: content.items, short: content.shortName, bleeds: inv.bleedable.length };
+          if (!COMP.fit(s.composition, x) || !COMP.BASES[s.composition].includes(COMP.baseFor(s.composition, x))) {
+            const alt = COMP.alternatives(s.composition, s.arc).find(k => COMP.fit(k, x) && k !== (scenes[i - 1] || {}).composition);
+            if (alt) { s.composition = alt; s.layout = COMP.baseFor(alt, x); s.choreo = COMP.SPEC[alt].keepChoreo || (s.layout === 'chapters' ? 'chapters' : s.layout === 'orbit' ? 'travel' : 'compose'); }
+            else { delete s.composition; s.layout = i === 0 ? (eligible('editorial-hero', inv, content, true) ? 'editorial-hero' : 'split') : CUT_ONLY[s.layout] || (bleed(v.base) ? 'image' : 'split'); s.choreo = (NATURAL[s.layout] || ['settle'])[0]; }
+            changed = true; return;
+          }
+          if (COMP.baseFor(s.composition, x) !== s.layout) { s.layout = COMP.baseFor(s.composition, x); changed = true; }
+          return;
+        }
         if (CUT_ONLY[s.layout] && !free(v.asset)) {
           s.layout = i === 0 ? (eligible('editorial-hero', inv, content, true) ? 'editorial-hero' : 'split') : CUT_ONLY[s.layout];
           s.choreo = (NATURAL[s.layout] || ['settle'])[0]; changed = true;
@@ -3502,7 +4033,8 @@
       if (typeof x === 'string') return x;
       const a = x.art || x; const scenes = x.scenes || [];
       const head = a.family ? `${a.family}.${a.mode || '?'}.${a.personality || '?'}` : `${a.personality || '?'}`;
-      const layout = `${head}/${a.scroll || '?'}/${scenes.map(s => s.layout || 'free').join(',')}`.slice(0, 200);
+      // (a composed scene is named by its composition -- what it does -- not by the stage it is set on)
+      const layout = `${head}/${a.scroll || '?'}/${scenes.map(s => (s.composition ? `=${s.composition}` : s.layout || 'free')).join(',')}`.slice(0, 260);
       // (how the page moves travels with how it is laid out: a stored page's behaviour is its timeline's)
       const beh = a.behavior || (x.timeline && x.timeline.behavior) || '';
       return beh ? `${layout}#${beh}`.slice(0, 560) : layout;
@@ -3608,6 +4140,8 @@
         ...(FAMILIES.includes(raw.family) ? { family: raw.family } : {}), ...(MODES.includes(raw.mode) ? { mode: raw.mode } : {}),
         ...(AMBITIONS.includes(raw.ambition) ? { ambition: raw.ambition } : {}), ...(CONCEPT_NAMES.includes(raw.concept) ? { concept: raw.concept } : {}),
         ...(typeof raw.behavior === 'string' && raw.behavior ? { behavior: s(raw.behavior, 360) } : {}),
+        // (what the subject IS, visually -- composition.js artDirection: known traits and fields only)
+        ...(raw.direction && typeof raw.direction === 'object' ? { direction: { traits: (Array.isArray(raw.direction.traits) ? raw.direction.traits : []).filter(t => COMP.TRAITS.some(x => x[0] === t)).slice(0, 8), field: oneOf(raw.direction.field, ['none', 'void', 'studio', 'grid', 'atmos'], 'none'), light: oneOf(raw.direction.light, ['none', 'specular'], 'none'), motion: oneOf(raw.direction.motion, ['none', 'streak'], 'none'), scale: oneOf(raw.direction.scale, ['none', 'vast'], 'none') } } : {}),
       };
     }
 
@@ -3632,15 +4166,19 @@
 
     const F = require('./framing');
     const { MOTION, NATURAL, MODE_LIMITS } = require('./art');
+    const COMP = require('./composition');
 
     const PINNED = ['pin-steps', 'zoom-away', 'scale-through', 'track', 'stack', 'chapters', 'cardstream', 'expand'];
     const SHAPED = ['circle', 'arch', 'blob', 'diamond', 'slit', 'porthole', 'torn'];
     // phone stage height in vw (its aspect is 100 / MSTAGE); strip's stage is its horizontal track
     const MSTAGE = { 'editorial-hero': 128, cinematic: 64, split: 108, 'giant-type': 96, shrine: 110, offcanvas: 112, framed: 112, floating: 104, collage: 120, poster: 118, magazine: 108, strip: 96, 'sticky-steps': 74, text: 56, image: 104, luxe: 92, dense: 56, depth: 108, brutalist: 96, gallery: 112,
-      stage: 40, campaign: 110, splitscreen: 96, 'fullscreen-object': 128, orbit: 100, index: 150, scrapbook: 124, takeover: 30, chapters: 150, lineup: 88, cardstream: 112, 'edge-crop': 112 };
+      stage: 40, campaign: 110, splitscreen: 96, 'fullscreen-object': 128, orbit: 100, index: 150, scrapbook: 124, takeover: 30, chapters: 150, lineup: 88, cardstream: 112, 'edge-crop': 112,
+      'object-stage': 124, 'depth-stack': 128, 'type-stage': 118, 'mask-stage': 128, 'image-wall': 136, canvas: 124 };
     const FALLBACK = { 'editorial-hero': ['split', 'framed'], cinematic: ['image', 'framed'], offcanvas: ['floating', 'shrine', 'framed'], floating: ['shrine', 'framed'], collage: ['gallery', 'framed', 'text'], strip: ['gallery', 'framed', 'text'], gallery: ['framed', 'image', 'text'], 'sticky-steps': ['split', 'text'], dense: ['brutalist', 'text'], magazine: ['split', 'text'], poster: ['giant-type', 'shrine', 'text'], shrine: ['framed', 'text'], luxe: ['text'], framed: ['text'], split: ['text'], image: ['text'], depth: ['framed', 'text'], 'giant-type': ['split', 'text'], brutalist: ['text'], text: [],
       stage: ['fullscreen-object', 'shrine', 'text'], campaign: ['shrine', 'framed', 'text'], splitscreen: ['split', 'framed', 'text'], 'fullscreen-object': ['shrine', 'framed', 'text'], orbit: ['sticky-steps', 'split', 'text'],
-      index: ['gallery', 'framed', 'text'], scrapbook: ['collage', 'framed', 'text'], takeover: ['text'], chapters: ['gallery', 'image', 'text'], lineup: ['index', 'collage', 'gallery', 'framed', 'text'], cardstream: ['gallery', 'collage', 'framed', 'text'], 'edge-crop': ['split', 'framed', 'text'] };
+      index: ['gallery', 'framed', 'text'], scrapbook: ['collage', 'framed', 'text'], takeover: ['text'], chapters: ['gallery', 'image', 'text'], lineup: ['index', 'collage', 'gallery', 'framed', 'text'], cardstream: ['gallery', 'collage', 'framed', 'text'], 'edge-crop': ['split', 'framed', 'text'],
+      // (a motion-first stage that its pictures cannot carry falls back to the nearest stage that shows them large)
+      'object-stage': ['fullscreen-object', 'editorial-hero', 'shrine', 'image'], 'depth-stack': ['object-stage', 'fullscreen-object', 'editorial-hero', 'image'], 'type-stage': ['giant-type', 'poster', 'editorial-hero', 'image'], 'mask-stage': ['editorial-hero', 'type-stage', 'image'], 'image-wall': ['index', 'collage', 'canvas', 'image'], canvas: ['collage', 'floating', 'image'] };
     // compositions that show one picture of any kind (a photo or a cut-out): the last resort before words alone
     const PICTURE_SAFE = ['split', 'framed', 'image', 'shrine', 'floating', 'offcanvas'];
     const COL = c => 5 + (c - 1) * 7.5; // left edge (in % of the scene) of grid column c (12 columns across the middle 90%)
@@ -3870,6 +4408,58 @@
       slots: [{ d: [42, 0, 58, 100], m: [0, 0, 100, 100], intent: 'detail', anchor: 'rm', manchor: 'cm', z: 3, role: 'focal', hard: true }],
     } : null);
 
+    // ---- the motion-first stages (composition.js stages its compositions on these; they also stand alone)
+    // the object stage: one cut-out alone at the centre, the subject's name set huge BEHIND it, the words a small label
+    A['object-stage'] = (S, e) => (e.freeFirst ? {
+      place: { gc: [1, 3], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', smallHeading: true, stageText: true,
+      slots: [{ d: [34, 12, 38, 82], m: [12, 6, 76, 90], intent: 'floating', anchor: 'cb', z: 6, role: 'focal', freeOnly: true }],
+      decos: (e.shortName ? [{ kind: 'word', text: e.name, style: e.personality === 'luxe' || e.personality === 'still' ? 'ghost' : 'solid', d: [-4, 28, 108, 42], m: [-6, 36, 112, 26], z: 3, opacity: e.personality === 'luxe' ? 0.35 : 0.92, role: 'echo' }] : [])
+        .concat([{ kind: 'shape', form: 'circle', fill: 'glow', d: [24, 8, 52, 84], m: [4, 8, 92, 84], z: 2, opacity: 0.5, role: 'backdrop' }]),
+    } : null);
+    // the depth stack: a photo far back, the cut-out subject in the middle, a light passing in front -- separate planes
+    A['depth-stack'] = (S, e) => (e.freeFirst ? {
+      place: { gc: [1, 4], v: 'top', align: 'left' }, mplace: 'below', height: 'screen', stageText: true,
+      slots: [{ d: [30, 6, 40, 90], m: [10, 4, 80, 92], intent: 'floating', anchor: 'cb', z: 6, role: 'focal', freeOnly: true },
+        { d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 1, role: 'backdrop', optional: true, photoOnly: true, opacity: 0.55 }],
+      decos: [{ kind: 'shape', form: 'blob', fill: 'glow', d: [58, 54, 34, 46], m: [40, 60, 60, 36], z: 8, opacity: 0.45, role: 'support' }],
+    } : null);
+    // the type stage: a few words fill the screen; the subject stands behind them (a cut-out rising, or a photo far back).
+    // A heading of a few words IS the type; a longer one stays a label and the subject's own name is set giant instead (in
+    // front of the subject: it rises behind the word) -- never a new claim
+    const fewWords = (h, n, len) => (h || '').length <= len && (h || '').split(/\s+/).filter(Boolean).length <= n;
+    A['type-stage'] = (S, e) => { const own = fewWords(S.text.heading, 5, 40); if (!own && !e.shortName) return null;
+      return {
+        place: own ? { gc: [1, 12], v: 'middle', align: 'center' } : { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'above', height: 'screen', giant: own, smallHeading: !own, stageText: true, shade: e.freeFirst ? '' : own ? 'center' : 'bottom',
+        slots: [e.freeFirst ? { d: [33, 26, 34, 74], m: [16, 30, 68, 70], intent: 'floating', anchor: 'cb', z: 3, role: 'focal', freeOnly: true, optional: true }
+          : { d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', optional: true }],
+        decos: own ? [] : [{ kind: 'word', text: e.name, style: 'solid', d: [-4, 26, 108, 46], m: [-6, 30, 112, 30], z: 4, opacity: 1, role: 'echo' }],
+      }; };
+    // the mask stage: a full-bleed picture, seen at first only through the giant words laid over it (the heading when it is a
+    // word or three; else the subject's own name, the heading a label at the foot)
+    A['mask-stage'] = (S, e) => { const own = fewWords(S.text.heading, 3, 26); if (!own && !e.shortName) return null;
+      return {
+        place: own ? { gc: [1, 12], v: 'middle', align: 'center' } : { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'screen', giant: own, smallHeading: !own, stageText: true, shade: own ? '' : 'bottom',
+        slots: [{ d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', needs: 'bleed' }],
+        decos: own ? [] : [{ kind: 'word', text: e.name, style: 'solid', d: [-4, 30, 108, 40], m: [-6, 36, 112, 26], z: 5, opacity: 1, role: 'echo' }],
+      }; };
+    // the image wall: pictures edge to edge, no frames, no gaps -- the words a label on a band at the foot
+    const TILES = n => (n >= 6 ? [0, 1, 2, 3, 4, 5].map(k => [(k % 3) * 33.34, Math.floor(k / 3) * 50, 33.33, 50]) : n === 5 ? [[0, 0, 33.34, 50], [33.34, 0, 33.33, 50], [66.67, 0, 33.33, 50], [0, 50, 50, 50], [50, 50, 50, 50]] : n === 4 ? [[0, 0, 50, 50], [50, 0, 50, 50], [0, 50, 50, 50], [50, 50, 50, 50]] : [[0, 0, 33.34, 100], [33.34, 0, 33.33, 100], [66.67, 0, 33.33, 100]]);
+    const MTILES = n => Array.from({ length: n }, (_, k) => (n === 3 ? [0, k * 33.34, 100, 33.33] : [(k % 2) * 50, Math.floor(k / 2) * (100 / Math.ceil(n / 2)), n % 2 && k === n - 1 ? 100 : 50, 100 / Math.ceil(n / 2)]));
+    A['image-wall'] = (S, e) => { const n = Math.min(6, e.images); if (n < 3) return null; const T = TILES(n), M = MTILES(n);
+      // (the chosen picture takes a tile near the centre: the camera goes into it)
+      const order = n === 3 ? [1, 0, 2] : n === 4 ? [1, 0, 2, 3] : n === 5 ? [1, 0, 2, 3, 4] : [1, 0, 2, 3, 4, 5];
+      return {
+        place: { gc: [1, 6], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', shade: 'bottom', wall: true,
+        slots: order.map((t, k) => ({ d: T[t], m: M[t], intent: 'bleed', anchor: 'cm', z: k ? 3 : 4, role: k ? 'support' : 'focal', hard: true, optional: k >= 3 })),
+      }; };
+    // the canvas: several pictures floating free of frames at different sizes and depths, the words among them
+    A.canvas = (S, e) => (e.images >= 2 ? {
+      place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', stageText: true,
+      slots: [{ d: [40, 8, 40, 62], m: [10, 4, 76, 50], intent: 'light', anchor: 'cm', z: 5, role: 'focal', hard: true },
+        { d: [6, 6, 24, 34], m: [2, 56, 44, 30], intent: 'light', anchor: 'cm', z: 3, role: 'support', hard: true },
+        { d: [70, 56, 24, 38], m: [52, 60, 44, 32], intent: 'light', anchor: 'cm', z: 7, role: 'support', optional: true, hard: true }],
+    } : null);
+
     // ---------------------------------------------------------------- motion by personality
     const ENTRANCE = { editorial: ['fade', 'unveil'], cinematic: ['fade', 'fade'], kinetic: ['slide-left', 'slide-right'], playful: ['pop', 'drop'], luxe: ['fade', 'fade'], mechanical: ['unveil', 'slide-left'], chaotic: ['spin-in', 'drop'], still: ['fade', 'fade'] };
     const TEXT_IN = { editorial: 'rise', cinematic: 'fade', kinetic: 'split-words', playful: 'split-words', luxe: 'fade', mechanical: 'split-words', chaotic: 'split-words', still: 'fade' };
@@ -3909,7 +4499,7 @@
       if (spec && spec.slots && spec.slots.some(s => s.needs === 'bleed') && imgs[0]) {
         const a = byId.get(imgs[0].asset); const p = F.profile(a);
         const slot = spec.slots[0]; const ab = slot.d[2] * 1.6 / slot.d[3];
-        if (p.free || p.tight || F.coverCrop(p.aspect, ab).crop > F.budgetFor(a, 'bleed') + 0.02) { spec = null; }
+        if (p.free || (p.tight ? !F.canBleed(a, ab) : F.coverCrop(p.aspect, ab).crop > F.budgetFor(a, 'bleed') + 0.02)) { spec = null; }
       }
       for (const alt of FALLBACK[layout] || []) { if (spec) break; if (alt === 'text' && imgs.length) continue; spec = tryLayout(alt); if (spec) layout = alt; }
       // a scene that has a picture is never composed as words alone (the picture would be dropped and the scene left as a
@@ -3942,6 +4532,7 @@
         let L = null;
         if (slot.textureOnly) { const k = pool.findIndex(x => { const a = byId.get(x.asset); const c = a && a.curation; return c && (c.role === 'environment' || c.role === 'detail') && !F.profile(a).free; }); if (k >= 0) L = pool.splice(k, 1)[0]; }
         else if (slot.freeOnly) { const k = pool.findIndex(isFree); if (k >= 0) L = pool.splice(k, 1)[0]; }
+        else if (slot.photoOnly) { const k = pool.findIndex(x => !isFree(x)); if (k >= 0) L = pool.splice(k, 1)[0]; }
         else L = pool.shift() || null;
         if (!L) return;
         const a = byId.get(L.asset);
@@ -4033,11 +4624,13 @@
       // the words must stay clear of the main picture unless the archetype layers them on purpose (a caption on a
       // full-bleed picture sits on a shade; giant type crosses the picture behind it)
       const tr = textRect(t, t.place);
-      const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
+      const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || spec.wall || spec.stageText || !!S.composition || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
       if (!deliberate) out.filter(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0)).forEach(L => {
         const d = L.box.d; if (overlap(d, tr) > Math.min(d[2] * d[3], tr[2] * tr[3]) * 0.12) { t.scrim = true; warnings.push(`scene ${S.id}: the words are long for a ${layout} composition -- they sit on a panel over the picture`); }
       });
       if (spec.shade) t.shade = spec.shade; else delete t.shade;
+      // the motion-first composition the scene is staged as (composition.js): what dominates, how the words serve it
+      const composed = S.composition ? applyComposition(S, e, layout, out, fixes) : false;
       // ---- height, pin, choreography
       const allowed = (NATURAL[layout] || ['settle']).concat(['settle']);
       let ch = allowed.includes(S.choreo) ? S.choreo : allowed[0];
@@ -4047,9 +4640,10 @@
       if (spec.cards) ch = 'cardstream';
       if (spec.takeoverType) ch = 'word-fill';
       if (spec.actorScene && !spec.steps) ch = 'actor';
+      if (composed) ch = composed;
       // a choreography needs something to play with: otherwise the scene settles (no held scroll with nothing happening)
       const focalImg = out.find(L => L.kind === 'image' && L.role === 'focal');
-      const has = { 'zoom-away': !!focalImg, 'scale-through': out.some(L => L.role === 'echo' || L.role === 'backdrop' || L.kind === 'word'), 'mask-reveal': out.some(L => L.role === 'focal'), travel: out.some(L => L.role === 'focal'), depth: out.length >= 2, expand: !!focalImg, cardstream: out.filter(L => L.seq != null).length >= 3, chapters: out.filter(L => L.step != null).length >= 2, actor: !!e.actorPose };
+      const has = { 'zoom-away': !!focalImg, 'scale-through': out.some(L => L.role === 'echo' || L.role === 'backdrop' || L.kind === 'word'), 'mask-reveal': out.some(L => L.role === 'focal'), travel: out.some(L => L.role === 'focal'), depth: out.length >= 2, expand: !!focalImg, cardstream: out.filter(L => L.seq != null).length >= 3, chapters: out.filter(L => L.step != null).length >= 2, actor: !!e.actorPose, compose: true };
       if (has[ch] === false) { const alt = allowed.find(x => x !== ch && has[x] !== false && !PINNED.includes(x)) || 'settle'; fixes.push(`scene ${S.id}: nothing here for a ${ch} to move -- it ${alt === 'settle' ? 'settles' : `plays as ${alt}`}`); ch = alt; }
       // the mode decides what may hold the scroll: a quiet page holds nothing; an editorial page one scene
       const lim = MODE_LIMITS[e.mode] || MODE_LIMITS.expressive;
@@ -4070,18 +4664,54 @@
       if (ch !== 'expand' && out.some(L => L.win)) out.forEach(L => { delete L.win; });
       S.choreo = ch;
       // a takeover holds the scroll while its words fill in only on an expressive page; elsewhere it fills as it passes
-      S.pin = PINNED.includes(ch) || (ch === 'word-fill' && lim.pins > 1);
+      S.pin = PINNED.includes(ch) || (ch === 'word-fill' && lim.pins > 1) || (ch === 'compose' && !!COMP.SPEC[S.composition] && COMP.SPEC[S.composition].hold && (COMP.HOLDS[e.mode] || 0) > 0);
       S.height = S.pin ? 'tall' : spec.height;
       if (!S.pin) unstep(S);
       if (S.pin && spec.steps) { const n = spec.chapters ? Math.max(2, Math.min(5, out.filter(L => L.step != null).length)) : Math.max(2, Math.min(6, Math.max(S.text.items.length, 1 + out.filter(L => L.step > 0).length))); S.steps = spec.chapters ? Math.max(n, Math.min(5, S.text.items.length)) : n; } else if (S.pin) S.steps = 1; else delete S.steps;
       // what the scene is, and how its own content leaves as it scrolls away (only a scene the scroll already drives)
-      S.sceneType = layout === 'stage' ? 'carry' : layout === 'chapters' || layout === 'cinematic' || layout === 'editorial-hero' ? 'cinematic' : layout === 'takeover' ? 'typography' : layout === 'sticky-steps' ? 'sticky-editorial'
+      S.sceneType = S.composition && COMP.SPEC[S.composition] ? (COMP.SPEC[S.composition].intensity === 'takeover' ? 'takeover' : S.pin ? 'pinned' : 'cinematic') : layout === 'stage' ? 'carry' : layout === 'chapters' || layout === 'cinematic' || layout === 'editorial-hero' ? 'cinematic' : layout === 'takeover' ? 'typography' : layout === 'sticky-steps' ? 'sticky-editorial'
         : ['gallery', 'index', 'cardstream', 'strip', 'lineup', 'scrapbook', 'collage'].includes(layout) ? 'gallery' : spec.takeover ? 'takeover' : ch === 'expand' ? 'transition' : S.pin ? 'pinned' : 'section';
       const EXIT_BY = { cinematic: 'fade', luxe: 'fade', kinetic: 'lift', mechanical: 'lift', playful: 'shrink', chaotic: 'shrink' };
       if (!e.hero && !S.pin && ch !== 'settle' && ch !== 'actor' && EXIT_BY[e.personality]) S.exit = EXIT_BY[e.personality]; else delete S.exit;
       S.camera = 'none';
       S.mobile = { order: t.mplace === 'below' ? 'stage-first' : 'text-first' };
       return S;
+    }
+
+    // ---------------------------------------------------------------- the composition on its stage
+    // applyComposition(S, e, layout, out, fixes) -> the scene's choreography for the composition, or false when its pictures
+    // pushed it onto a layout the composition cannot be staged on (it is then that layout's own scene, and says so).
+    // What it decides: the subject escapes its card (no window or polaroid around what dominates the screen), the words take
+    // the composition's role (a label at the edge, a short statement, the headline pinned while the visual changes, giant
+    // type that IS the visual), longer copy becomes a caption revealed late (nothing is dropped), the typography's act, and a
+    // premium hero video is never covered by giant type.
+    function applyComposition(S, e, layout, out, fixes) {
+      const comp = S.composition; const C = COMP.SPEC[comp];
+      if (!C || !(COMP.BASES[comp] || []).includes(layout)) { if (C) fixes.push(`scene ${S.id}: its pictures cannot carry a ${comp} -- composed as ${layout}`); delete S.composition; delete S.arc; return false; }
+      const t = S.text; const focal = out.find(L => L.kind === 'image' && L.role === 'focal');
+      // the frame breaks: what dominates is never a card (a wall's tiles and a lineup's row keep their own edges)
+      const keepEdges = ['tunnel-stage', 'perspective-lineup'].includes(comp);
+      out.forEach(L => { if (L.kind !== 'image') return; if (L === focal && !keepEdges && COMP.CARD_MASKS.includes(L.mask)) L.mask = 'none'; if (['image-wall', 'gallery-collapse', 'floating-canvas'].includes(comp) && COMP.CARD_MASKS.includes(L.mask)) L.mask = 'none'; });
+      // the words serve the visual event
+      const role = C.text === 'giant' && !t.giant ? 'label' : C.text; t.role = role;
+      if (role === 'label') { t.size = e.hero ? 'large' : 'medium'; if (t.width === 'wide') t.width = 'medium'; }
+      else if (role === 'pinned' || role === 'statement') t.size = e.hero ? 'display' : 'large';
+      else if (role === 'giant') { t.size = 'display'; t.giant = true; }
+      // (reading copy beyond what the role shows becomes a caption revealed as the scene plays -- every fact stays)
+      if (role !== 'reading' && (t.body || '').length > COMP.COPY[role]) t.copy = 'caption'; else delete t.copy;
+      // the typography's act: a few words stacked one per line for a type takeover; the vertical kicker for an edge label
+      let act = C.act; const words = String(t.heading || '').split(/\s+/).filter(Boolean).length;
+      if (comp === 'type-takeover' && words >= 2 && words <= 4) act = 'word-stack';
+      if (act === 'behind-subject' && !out.some(L => L.kind === 'word')) act = 'none';
+      if (act === 'edge') { if (t.kicker) t.treatment = 'vertical'; }
+      if (act === 'word-stack' || act === 'baseline') t.entrance = 'split-words';
+      // the premium hero video leads: the words stay a label in its empty side -- never giant type over the moving picture
+      if (e.video && e.hero) { act = 'pinned'; t.size = 'large'; delete t.giant; if (t.treatment === 'letter-spread') delete t.treatment; }
+      t.act = act;
+      if (e.art && e.art.direction && e.art.direction.light === 'specular' && focal && F.profile(e.byId.get(focal.asset)).free && ['object-stage', 'object-focus', 'fullscreen-subject', 'depth-stack', 'type-takeover'].includes(comp)) focal.loop = { kind: 'sheen', amp: 0.8, period: 9 };
+      // one bold colour and one object: a type takeover floods its scene (a photo behind the type keeps its own colour)
+      if (comp === 'type-takeover' && (!focal || F.profile(e.byId.get(focal.asset)).free)) { S.background = 'accent'; delete S.tone; }
+      return C.keepChoreo || (layout === 'chapters' ? 'chapters' : layout === 'orbit' ? 'travel' : 'compose');
     }
 
     // the carry between two scenes: the previous scene's main picture leaves toward one side as this one's arrives from
@@ -4097,7 +4727,7 @@
     // a scene that does not hold the scroll shows no steps: its first picture stays, the pictures of later steps go (they would
     // otherwise sit on top of one another in the same place), and its lines are listed one under another
     function unstep(S) { if (!S.layers.some(L => L.step > 0)) { S.layers.forEach(L => { delete L.step; }); return; } S.layers = S.layers.filter(L => !(L.step > 0)); S.layers.forEach(L => { delete L.step; }); delete S.steps; }
-    module.exports = { composeScene, unstep, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
+    module.exports = { composeScene, applyComposition, unstep, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
 
   });
   __define("validate2", function (module, exports, require) {
@@ -4127,6 +4757,7 @@
     const VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
     const FR = require('./framing');
     const ARCH = require('./archetypes');
+    const COMP = require('./composition');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
     // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
     // 5: art direction -- layout archetypes, scene choreography and handoffs, explicit image framing with crop budgets and
@@ -4269,6 +4900,18 @@
         if (moved.length) fixes.push(`art: the chosen ${moved.join(', ')} kept (${moved.map(k => `${art0[k] || '-'} -> ${artR[k]}`).join(', ')})`);
       }
       const modeLim = ART.MODE_LIMITS[(art && art.mode) || 'expressive'] || ART.MODE_LIMITS.expressive;
+      // the field the subject lives in (composition.js artDirection): a cosmic subject lives in a void, a digital one on a dark
+      // grid -- the page is dark whatever the director's first palette (a new page only; a saved page keeps its colours)
+      const field = art && art.direction ? art.direction.field : 'none';
+      if (!safety && (field === 'void' || field === 'grid') && lum(palette.bg) > 0.08) {
+        const deep = field === 'void' ? '#04060f' : '#05090d';
+        palette.bg = mix(palette.accent, deep, 0.9); palette.bg2 = mix(palette.accent, deep, 0.78); palette.ink = '#f2f4fa'; palette.muted = mix(palette.ink, palette.bg, 0.32);
+        for (let i = 0; i < 12 && contrast(palette.accent, palette.bg) < 3.2; i++) palette.accent = mix(palette.accent, '#ffffff', 0.18);
+        palette.glow = mix(palette.glow, '#ffffff', 0.4);
+        fixes.push(`palette: a ${field === 'void' ? 'cosmic' : 'digital'} subject lives in a dark field -- the page is dark`);
+      }
+      // (a void is full of stars -- the subject's field, not a decorative choice)
+      if (!safety && field === 'void' && !['stars', 'sparks'].includes(atmosphere.particles)) { atmosphere.particles = 'stars'; atmosphere.density = Math.max(atmosphere.density, 0.5); }
       const recipeScenes = useRecipe && Array.isArray(c.art.scenes) ? c.art.scenes : [];
       const planRng = ART.rng(`${(p.direction && p.direction.seed) || c.seed || ''}|${cap(p.identity && p.identity.name, 60) || cap(u.subject, 60)}`);
       const flip = planRng() < 0.5 ? 1 : 0;
@@ -4332,6 +4975,10 @@
         return { side, textSide };
       };
       const useMax = { photo: LIMITS.photoUses + extra, cut: LIMITS.cutoutUses + extra };
+      let compsSoFar = 0, holds = 0; const holdCap = COMP.HOLDS[(art && art.mode) || 'quiet'] || 0;
+      // what a scene's pictures can carry, for its composition: a clean cut-out, a wide photo that fills the screen, a located
+      // subject, how many pictures (composition.js fit / baseFor)
+      const carryOf = (scene, si) => COMP.carryOf(scene, byId, { video: !!(si === 0 && c.premiumHero), name: identity.name });
       let sourcedLines = 0, uncited = 0; const badCites = [];
       const scenes = rawScenes.slice(0, LIMITS.scenes[1]).map((rs, si) => {
         if (!rs || typeof rs !== 'object') return null;
@@ -4394,7 +5041,9 @@
           if (pl) { const g0 = Math.round(num(pl.gc[0], 1, 12, 1)); const g1 = Math.round(num(pl.gc[1], g0, 12, 12)); text.place = { gc: [g0, g1], v: oneOf(pl.v, VOCAB.textV, 'middle'), align: oneOf(pl.align, VOCAB.textAlign, 'left') }; }
           text.mplace = oneOf(tx.mplace, VOCAB.mplace, 'above');
           if (tx.giant) text.giant = true; if (tx.columns) text.columns = true;
-          if (['bottom', 'band', 'left', 'right', 'top'].includes(tx.shade)) text.shade = tx.shade;
+          if (['bottom', 'band', 'left', 'right', 'top', 'center'].includes(tx.shade)) text.shade = tx.shade;
+          // (how the words serve a composition: their role, their typographic act, a caption revealed late)
+          if (COMP.TEXT_ROLES.includes(tx.role)) text.role = tx.role; if (COMP.TYPE_ACTS.includes(tx.act) && tx.act !== 'none') text.act = tx.act; if (tx.copy === 'caption') text.copy = 'caption';
           if (ART.TREATMENTS.includes(tx.treatment) && tx.treatment !== 'standard') text.treatment = tx.treatment;
           // (the line a text-swap shows first, before the heading settles in its place -- plain words, never facts or numbers)
           const alt = cap(tx.alt, 60); if (alt && !/\d/.test(alt)) text.alt = alt;
@@ -4529,6 +5178,14 @@
         };
         if (artScene || rs.choreo || rs.handoff || (art && rec)) {
           scene.layout = layout;
+          // the motion-first composition (composition.js): one the model named from the vocabulary, else the recipe's for this
+          // scene when the model kept its layout; never inside an actor's run, never on a quiet page, one on an editorial page
+          const asked = oneOf(rs.composition, COMP.COMPOSITIONS, '');
+          const fromRec = !asked && rec && COMP.COMPOSITIONS.includes(rec.composition) && (!rs.layout || rs.layout === rec.layout || (COMP.BASES[rec.composition] || []).includes(rs.layout)) ? rec.composition : '';
+          // (a saved page keeps the composition it was made with -- it was validated then)
+          const comp = (asked || fromRec) && !inRun(si) && (safety && !composing ? !!asked : art && art.mode && art.mode !== 'quiet' && !(art.mode === 'editorial' && compsSoFar >= 1)) ? (asked || fromRec) : '';
+          if (comp) { scene.composition = comp; compsSoFar++; const arc = oneOf(rs.arc, COMP.ARC, rec && COMP.ARC.includes(rec.arc) ? rec.arc : ''); if (arc) scene.arc = arc; }
+          else if (asked || rs.composition) fixes.push(`${where}: the ${cap(rs.composition, 30)} composition is not available here -- composed as ${layout}`);
           scene.choreo = oneOf(rs.choreo, VOCAB.choreo, rec ? oneOf(rec.choreo, VOCAB.choreo, 'settle') : 'settle');
           scene.handoff = si === 0 ? 'cut' : oneOf(rs.handoff, VOCAB.handoff, rec ? oneOf(rec.handoff, VOCAB.handoff, 'cut') : 'cut');
           // (inside the actor's run the actor is the continuity: scenes meet with a cut or a colour bleed, never sliding over it)
@@ -4543,10 +5200,13 @@
         if (composing && artScene) {
           // an archetype composes the scene: pictures with a plain background float as their cut-outs first, so the
           // composition is made for the picture that will actually be shown
+          if (scene.composition) { BYID.set(scene, byId); stageComposition(scene, carryOf(scene, si), fixes, where); }
           swapCutouts(scene, byId, assets, fixes);
-          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
+          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, video: !!(si === 0 && c.premiumHero), ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
           const pinCap = art && art.mode ? Math.min(LIMITS.pinned, modeLim.pins) : LIMITS.pinned;
-          if (scene.pin) { if (pinned >= pinCap) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; ARCH.unstep(scene); fixes.push(`${where}: ${pinCap ? `more than ${pinCap} held scene${pinCap > 1 ? 's' : ''} on ${art && art.mode ? `a${art.mode === 'editorial' || art.mode === 'expressive' || art.mode === 'immersive' ? 'n' : ''} ${art.mode}` : 'the'} page` : `a ${art.mode} page holds nothing`} -- this one plays as it passes`); } else pinned++; }
+          // (a composition held while it plays counts against the mode's composition holds, not the layout pins)
+          if (scene.pin && scene.choreo === 'compose') { if (holds >= holdCap) { scene.pin = false; scene.height = 'screen'; fixes.push(`${where}: the page already holds ${holdCap} composition(s) -- this one plays as it passes`); } else holds++; }
+          else if (scene.pin) { if (pinned >= pinCap) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; ARCH.unstep(scene); fixes.push(`${where}: ${pinCap ? `more than ${pinCap} held scene${pinCap > 1 ? 's' : ''} on ${art && art.mode ? `a${art.mode === 'editorial' || art.mode === 'expressive' || art.mode === 'immersive' ? 'n' : ''} ${art.mode}` : 'the'} page` : `a ${art.mode} page holds nothing`} -- this one plays as it passes`); } else pinned++; }
         } else if (composing) { compose(scene, byId, fixes, warnings, si === 0); if (!safety) frameFree(scene, byId, fixes); legible(scene, byId, fixes); }
         else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
         // every enlargement stays inside its ceiling (framing.js ZOOM): a picture is never blown up to fill a container --
@@ -4646,10 +5306,37 @@
         const missing = ((coverage && coverage.missing) || []).slice(0, 3).map(x => cap(x, 160));
         imagery = { status, degraded: status === 'missing' || status === 'weak', missing, note: status === 'missing' ? `no picture of ${identity.name || 'the subject'} to show${missing[0] ? ` (missing: ${missing[0]})` : ''}` : status === 'weak' ? `the main picture does not show ${identity.name || 'the subject'} itself` : status === 'form' ? `shown through a real-world form (${(heroCur && heroCur.depicts) || 'a costume, figure or replica'}), not the subject itself` : '' };
       }
+      // ---- the page as a whole (composition.js audit): a page meant to move is not six variants of image + copy. Too many
+      // editorial splits or framed cards, no takeover, no full-screen visual, no centred subject, no typography moment, no
+      // transformation, flat depth, no camera: each finding is moved onto the scene that can carry the composition it asks
+      // for (the scene's own pictures permitting), and that scene is composed again -- bounded, from the vocabulary
+      if (!safety && art && (art.mode === 'expressive' || art.mode === 'immersive')) {
+        const subject = scenes.some(sc => sc.layers.some(L => L.kind === 'image' && byId.get(L.asset) && (FR.profile(byId.get(L.asset)).free || assets.some(x => x.cutoutOf === baseOf(byId.get(L.asset)).id))));
+        const can = (at, k) => { const sc = scenes[at]; if (!sc || inRun(at) || !sc.layout || sc.layout === 'free' || !sc.layers.some(L => L.kind === 'image')) return false; return COMP.fit(k, carryOf(sc, at)) && (!COMP.SPEC[k].hold || sc.pin || holds < holdCap); };
+        // (in rounds: a change is kept only when the page has fewer findings after it -- a fix never trades one for another)
+        for (let round = 0; round < 3; round++) { const issues = COMP.audit({ scenes, art }, { subject }); if (!issues.length) break; let kept = 0;
+        COMP.fixesFor(issues, { scenes }, can).forEach(f => {
+          const sc = scenes[f.at]; const was = sc.composition || sc.layout; const wasHeld = sc.pin && sc.choreo === 'compose';
+          // (a repair never costs a scene one of its pictures: one the new composition cannot show keeps the scene as it was)
+          const snap = JSON.stringify(sc); const pics = () => new Set(sc.layers.filter(L => L.kind === 'image' && byId.get(L.asset)).map(L => baseOf(byId.get(L.asset)).id)); const had = pics();
+          sc.composition = f.composition; sc.arc = sc.arc || (f.at === 0 ? 'hook' : f.at === scenes.length - 1 ? 'payoff' : COMP.SPEC[f.composition].arcs[0]);
+          BYID.set(sc, byId); stageComposition(sc, carryOf(sc, f.at), fixes, `scene ${f.at + 1} (${sc.id})`); swapCutouts(sc, byId, assets, fixes);
+          ARCH.composeScene(sc, { byId, si: f.at, hero: f.at === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sc.id}|whole`), name: identity.name, fixes, warnings, video: !!(f.at === 0 && c.premiumHero), ...placeFor(sc, (f.at + flip) % 2 ? 'left' : 'right') });
+          const undo = () => { Object.keys(sc).forEach(k => delete sc[k]); Object.assign(sc, JSON.parse(snap)); };
+          if ([...had].some(id => !pics().has(id))) { undo(); return; }
+          if (COMP.audit({ scenes, art }, { subject }).length >= issues.length) { undo(); return; }
+          kept++;
+          if (wasHeld && !(sc.pin && sc.choreo === 'compose')) holds--;
+          if (sc.pin && sc.choreo === 'compose' && !wasHeld) { if (holds >= holdCap) { sc.pin = false; sc.height = 'screen'; } else holds++; }
+          fixes.push(`page: ${f.code} -- scene ${f.at + 1} becomes ${sc.composition || sc.layout} (was ${was})`);
+        });
+        if (!kept) break; }
+      }
       // ---- the page blends into its pictures (a new or recomposed plan; a saved page keeps what it had)
       if (!safety) blendPictures(scenes, palette, byId, assets, fixes, warnings);
       // (a campaign or a split screen IS its accent field: the colour takeover wins over a tone taken from its picture)
-      if (!safety) scenes.forEach(s => { if (s.layout === 'campaign' || s.layout === 'splitscreen') { s.background = 'accent'; delete s.tone; } });
+      // (and a type takeover of one object: one bold colour and the object -- composition.js)
+      if (!safety) scenes.forEach(s => { if (s.layout === 'campaign' || s.layout === 'splitscreen' || (s.composition === 'type-takeover' && !s.layers.some(L => L.kind === 'image' && byId.get(L.asset) && !FR.profile(byId.get(L.asset)).free))) { s.background = 'accent'; delete s.tone; } });
       // (an archetype places its own decoration deliberately; the one-shape rule is for free compositions)
       if (!safety) scenes.forEach(s => { if (!s.layout || s.layout === 'free') calmShapes(s, fixes); });
       // the background's progression down the page, for scenes that have no colour of their own (a picture's tone wins)
@@ -4712,6 +5399,10 @@
         // (each seam follows how its two pictures relate -- continuity.js chooseSeams -- within the mode's budget)
         const cs = CT.chooseSeams(raw, { scenes, byId, mode: art.mode, premiumHero: hasPremium, name: identity.name });
         if (cs.changed) fixes.push(`timeline: ${cs.changed} seam(s) chosen from how their pictures relate (${cs.seams.map(s => `${s.at}:${s.relationship}->${s.family}`).join(', ')})`);
+        // (a type takeover whose giant word is the subject's name IS the name's moment: no second name travels across it)
+        const named = scenes.map((sc, i) => (['type-takeover', 'mask-stage'].includes(sc.composition) && sc.layers.some(L => L.kind === 'word') ? i : -1)).filter(i => i >= 0);
+        const ty0 = named.length && Array.isArray(raw.actors) ? raw.actors.find(a => a && a.role === 'typography') : null;
+        if (ty0 && named.some(i => i >= (ty0.from || 0) - 1 && i <= (ty0.to || 0) + 1)) { raw.actors = raw.actors.filter(a => a !== ty0); fixes.push('timeline: the name is the type takeover\'s own word -- it does not also travel as an actor'); }
         const nt = TL.normalise(raw, tctx); timeline = nt.timeline; nt.fixes.slice(0, 12).forEach(x => fixes.push(x));
         // what the timeline does to the scenes themselves: a flood or a takeover leaves the scene in its new colour (the words
         // are coloured for it); a signature transition owns its seam (no overlap or stack fighting it)
@@ -4748,6 +5439,8 @@
         const ids = scenes.map(s => (s.visual && s.visual.palette) || '');
         if (ids.some(Boolean)) {
           const flooded = new Set(timeline ? timeline.beats.filter(b => b.op === 'background' || b.op === 'takeover').map(b => b.scene) : []);
+          // (a type takeover's flood is its moment too: one bold colour and one object)
+          scenes.forEach((s, i) => { if (s.composition === 'type-takeover' && s.background === 'accent') flooded.add(i); });
           const src = c.premiumHero && c.premiumHero.source && byId.get(c.premiumHero.source);
           const tones = PAL.sceneTones(scenes.length, palette, ids, { hero: src ? PAL.identity(src).hex : '' });
           scenes.forEach((s, i) => { if (flooded.has(i) || !tones[i]) return; if (s.visual || !s.background || s.background === 'base') { s.background = 'base'; s.tone = tones[i]; } });
@@ -4913,6 +5606,27 @@
     }
 
     // a picture on a plain background floats as its clean cut-out (before an archetype composes around it)
+    // a composition is staged on the base its pictures can carry (composition.js baseFor); pictures it shows as photos -- a
+    // full bleed, a wall, a mask, the far plane of a depth stack -- stay photos (marked bleed before the cut-out swap), a
+    // stage that stands its subject alone takes the cut-out. A scene whose pictures cannot carry its composition takes the
+    // nearest one they can, or composes as its own layout.
+    function stageComposition(scene, x, fixes, where) {
+      let comp = scene.composition;
+      if (!COMP.fit(comp, x)) {
+        const alt = COMP.alternatives(comp, scene.arc).find(k => COMP.fit(k, x));
+        fixes.push(`${where}: its pictures cannot carry a ${comp}${alt ? ` -- staged as ${alt}` : ''}`);
+        if (!alt) { delete scene.composition; delete scene.arc; return; }
+        comp = alt; scene.composition = alt;
+      }
+      const base = COMP.baseFor(comp, x); scene.layout = base;
+      scene.choreo = COMP.SPEC[comp].keepChoreo || (base === 'chapters' ? 'chapters' : base === 'orbit' ? 'travel' : 'compose');
+      const photo = ['editorial-hero', 'mask-stage', 'image-wall', 'chapters'].includes(base) || (base === 'type-stage' && !x.cut);
+      const imgs = scene.layers.filter(L => L.kind === 'image'); const f = imgs.find(L => L.role === 'focal') || imgs[0];
+      // (a stage that shows the photo full-screen shows the photo -- a cut-out the plan gave it goes back to its original)
+      if (photo && f && byIdOf(scene) && x.video) { const a = byIdOf(scene).get(f.asset); if (a && a.cutoutOf && byIdOf(scene).get(a.cutoutOf)) { f.asset = a.cutoutOf; f.fit = 'cover'; } }
+      imgs.forEach(L => { if (photo || (base === 'depth-stack' && L !== f)) { L.frame = 'bleed'; L.mask = 'none'; } });
+    }
+    const BYID = new WeakMap(); const byIdOf = scene => BYID.get(scene);
     function swapCutouts(scene, byId, assets, fixes) {
       scene.layers.forEach(L => {
         if (L.kind !== 'image' || L.role === 'backdrop' || L.role === 'texture') return;
@@ -6117,6 +6831,7 @@
     const RENDERERS = require('./renderers');
     const SPR = require('./spatial-runtime');
     const CR = require('./carry-route');
+    const COMP = require('./composition');
 
     const FONT2 = Object.assign({}, FONTS, {
       mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
@@ -6173,7 +6888,11 @@
         const v = [base, a].concat((plan.premiumMedia || []).map(m => byId.get(m.asset))).filter(Boolean).find(x => videoSrc(x));
         return v ? { asset: v, scene: ct.hero.scene, end: ct.hero.end } : null;
       })();
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
+      // the motion-first compositions (composition.js): each composed scene's plane tracks, computed here from its name and its
+      // pictures -- the hero video's measured motion continues through the next two scenes' cameras
+      const lead = ct && ct.hero && ct.hero.video ? ct.hero.motion || 'none' : 'none'; const heroAt = ct && ct.hero ? ct.hero.scene || 0 : 0;
+      const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead, leadNear: si > heroAt && si <= heroAt + 2, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll, ctrack: compOf(s, si), mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -6339,11 +7058,12 @@
       const extra = c.arted ? `;--dz:${((L.z - 4) * 0.3).toFixed(2)}${L.step != null ? `;--sti:${L.step}` : ''}${L.seq != null ? `;--sq:${L.seq}` : ''}${L.win ? `;--wx:${L.win[0]};--wy:${L.win[1]};--ww:${L.win[2]};--wh:${L.win[3]}` : ''}${L.track && a0 ? `;--ar:${Math.max(0.62, Math.min(1.8, FR.profile(a0).aspect)).toFixed(3)}` : ''}` : '';
       const isFocal = L.kind === 'image' && L.role === 'focal' && c.focalBeat && !c.focalDone; if (isFocal) c.focalDone = true;
       const xfPartner = c.xf && !isFocal && L.kind === 'image' && L.role !== 'focal' && L.role !== 'texture' && !c.xfDone; if (xfPartner) c.xfDone = true;
-      const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s${extra}${isFocal && c.focalBeat.vars ? ';' + c.focalBeat.vars : ''}`;
-      const artAttrs = `${isFocal ? c.focalBeat.attrs : ''}${xfPartner ? ` data-xf="${c.xf.j}" data-xfdir="${c.xf.b.dir}"` : ''}${L.seq != null ? ' data-seq' : ''}${L.win ? ' data-win' : ''}${L.step != null ? ` data-step="${L.step}"` : ''}${L.exit ? ` data-exit="${L.exit}"` : ''}${L.enter ? ` data-enter="${L.enter}"` : ''}${L.track ? ' data-track' : ''}${L.frame ? ` data-frame="${L.frame}"` : ''}`;
+      const pl = c.ctrack ? c.ctrack.planes[L.id] || null : null;
+      const style = `--x:${x};--y:${y};--w:${w};--h:${h};--mx:${mx};--my:${my};--mw:${mw};--mh:${mh};--z:${L.z};--rot:${L.rotate}deg;--op:${L.opacity};--delay:${L.entrance.delay}s;--dur:${L.entrance.dur}s;--amp:${L.loop.amp};--period:${L.loop.period}s${extra}${isFocal && c.focalBeat.vars ? ';' + c.focalBeat.vars : ''}${pl ? ';' + planeStyle(pl, c.ctrack.rest) : ''}`;
+      const artAttrs = `${pl ? planeAttrs(pl) : ''}${isFocal ? c.focalBeat.attrs : ''}${xfPartner ? ` data-xf="${c.xf.j}" data-xfdir="${c.xf.b.dir}"` : ''}${L.seq != null ? ' data-seq' : ''}${L.win ? ' data-win' : ''}${L.step != null ? ` data-step="${L.step}"` : ''}${L.exit ? ` data-exit="${L.exit}"` : ''}${L.enter ? ` data-enter="${L.enter}"` : ''}${L.track ? ' data-track' : ''}${L.frame ? ` data-frame="${L.frame}"` : ''}`;
       let art = '';
       if (groupInner != null) {
-        return `<div class="ly ly-group" data-kind="group" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}" style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art ly-group-art">${groupInner}</div></div></div></div></div>`;
+        return `<div class="ly ly-group" data-kind="group" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${pl ? planeAttrs(pl) : ''} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art ly-group-art">${groupInner}</div></div></div></div></div>`;
       }
       if (L.kind === 'image') {
         const a = c.byId.get(L.asset); if (!a) return '';
@@ -6370,6 +7090,14 @@
       return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}>${art}</div></div></div></div></div>`;
     }
 
+    // a plane of a composition (composition.js tracks): its keys as numbers, the window it opens from, and its resting state
+    // (transform, opacity, clip) written inline -- what reduced motion and a page without scripting show
+    const planeAttrs = (pl, plane) => ` data-plane="${plane || pl.plane}" data-tk="${pl.keys.map(k => k.join(',')).join(';')}"${pl.win ? ` data-win4="${pl.win.map(v => Math.round(v * 100) / 100).join(',')}"` : ''}`;
+    function planeStyle(pl, rest) {
+      const v = COMP.sample(pl.keys, rest); const f = n => Math.round(n * 1000) / 1000;
+      const clip = pl.win && v[5] > 0.001 ? `;clip-path:inset(${f(pl.win[1] * v[5])}% ${f((100 - pl.win[0] - pl.win[2]) * v[5])}% ${f((100 - pl.win[1] - pl.win[3]) * v[5])}% ${f(pl.win[0] * v[5])}% round ${f(v[5] * 18)}px)` : '';
+      return `--ko:${f(v[4])};transform:translate3d(${f(v[0])}vw,${f(v[1])}vh,0) rotateY(${f(v[6])}deg) rotate(${f(v[3])}deg) scale(${f(v[2])})${clip}`;
+    }
     // a group is ONE object on the stage: a wrapper at the union of its members' boxes carries the anchor's entrance,
     // loop and scroll (the focal's, else the first member's); members sit inside it at their relative places and keep
     // only their own ambient loop -- so a blade and its hilt, or a head and its halo, never come apart
@@ -6386,7 +7114,7 @@
         const members = s.layers.filter(M => M.group === L.group);
         const anchor = members.find(M => M.role === 'focal') || members[0];
         const ud = union(members.map(M => M.box.d)), um = union(members.map(M => M.box.m));
-        const inner = members.map(M => renderLayer(Object.assign({}, M, { box: { d: rel(M.box.d, ud), m: rel(M.box.m, um) }, entrance: Object.assign({}, M.entrance, { kind: 'none' }), scroll: { kind: 'none', amount: 0 }, loop: M === anchor ? Object.assign({}, M.loop, { kind: 'none' }) : M.loop, role: M.role === 'focal' ? 'part' : M.role }), si, c)).join('');
+        const inner = members.map(M => renderLayer(Object.assign({}, M, { box: { d: rel(M.box.d, ud), m: rel(M.box.m, um) }, entrance: Object.assign({}, M.entrance, { kind: 'none' }), scroll: { kind: 'none', amount: 0 }, loop: M === anchor ? Object.assign({}, M.loop, { kind: 'none' }) : M.loop, role: M.role === 'focal' ? 'part' : M.role }), si, Object.assign({}, c, { ctrack: null }))).join('');
         const wrap = Object.assign({}, anchor, { box: { d: ud, m: um }, rotate: 0, opacity: 1, z: Math.max(...members.map(M => M.z)), mask: 'none', treatment: 'none', role: anchor.role });
         out.push(renderLayer(wrap, si, c, inner));
       });
@@ -6429,7 +7157,8 @@
       // (a text-swap shows its second line first, then the heading settles in its place)
       if (has('text-swap') && t.alt) words = `<span class="hs"><span class="hs-alt" aria-hidden="true">${esc(t.alt)}</span><span class="hs-main">${words}</span></span>`;
       const place = artOn && t.place ? t.place : null;
-      const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${place || wn || tr === 'letter-spread' || has('letter-spread') ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' || has('letter-spread') ? `--cn:${cn}` : ''].filter(Boolean).join(';')}"` : ''}` : '';
+      const tpl = artOn && c.ctrack && c.ctrack.text ? c.ctrack.text : null;
+      const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${t.role ? ` data-role="${t.role}"` : ''}${t.act ? ` data-act="${t.act}"` : ''}${t.copy ? ` data-copy="${t.copy}"` : ''}${tpl ? planeAttrs(tpl, 'text') : ''}${place || wn || tpl || tr === 'letter-spread' || has('letter-spread') ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' || has('letter-spread') ? `--cn:${cn}` : '', tpl ? planeStyle(tpl, c.ctrack.rest) : ''].filter(Boolean).join(';')}"` : ''}` : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
           ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
@@ -6489,14 +7218,14 @@
       const glowC = c.flowAll && s.visual && s.visual.palette ? PAL.glow(PAL.secondary(c.byId.get(s.visual.asset)) || s.visual.palette, c.plan.palette) : '';
       const inCast = !!(c.cast && c.cast.has(si));
       const beatWin = beats.map(b => { const f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; const t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
-      const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill' || beats.length > 0 || !!seamAttr);
+      const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || !!c.ctrack || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill' || beats.length > 0 || !!seamAttr);
       const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
-      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit && seamOut !== 'depth-handoff' ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${inCast ? ' data-cast' : ''}${seamAttr}${beats.length ? ` data-beats="${beatWin}"` : ''}${has('perspective') ? ' data-persp' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}${bgw != null ? ` data-bgw="${bgw}"` : ''}${pal ? ` data-pal="${pal}"` : ''}${glowC ? ` data-glow="${glowC}"` : ''}${callback ? ` data-callback="${callback}"` : ''}${echo ? ' data-echo' : ''}` : '';
+      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit && seamOut !== 'depth-handoff' ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${inCast ? ' data-cast' : ''}${seamAttr}${beats.length ? ` data-beats="${beatWin}"` : ''}${has('perspective') ? ' data-persp' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}${bgw != null ? ` data-bgw="${bgw}"` : ''}${pal ? ` data-pal="${pal}"` : ''}${glowC ? ` data-glow="${glowC}"` : ''}${callback ? ` data-callback="${callback}"` : ''}${echo ? ' data-echo' : ''}${c.ctrack ? ` data-comp="${c.ctrack.comp}" data-cam="${c.ctrack.camera}" data-rest="${c.ctrack.rest}"` : ''}${c.ctrack && s.arc ? ` data-arc="${s.arc}"` : ''}` : '';
       const counter = s.steps && s.pin && s.steps > 1 ? `<p class="sc-count" aria-hidden="true"><b>01</b><span> / ${String(s.steps).padStart(2, '0')}</span></p>` : '';
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}</div>
@@ -7267,6 +7996,29 @@
     :is(html[data-motion="reduced"],html:not(.cr-js)) .sc[data-choreo="chapters"] .ly[data-step]{translate:none!important;rotate:none!important;scale:none!important}
     html[data-motion="reduced"] .sc[data-pin][data-pin]{height:auto!important}
     html[data-motion="reduced"] .sc[data-steps] .sc-item{grid-area:auto!important}
+    /* ---- motion-first compositions (composition.js): planes moved by one camera; the composition's own scene length */
+    html.cr-js .sc[data-pin][data-choreo="compose"]{height:190vh}
+    .sc[data-comp] [data-plane]{transform-origin:50% 50%;will-change:transform}
+    .sc[data-comp] .ly[data-plane]{opacity:calc(var(--op,1) * var(--ko,1))}.sc[data-comp] .sc-text[data-plane]{opacity:var(--ko,1)}
+    .sc[data-comp="perspective-lineup"] .sc-stage{perspective:1500px}
+    /* what dominates is never a card: the focal of a composition carries no frame chrome; a wall's tiles meet edge to edge */
+    .sc[data-comp]:not([data-comp="tunnel-stage"]):not([data-comp="perspective-lineup"]) .ly[data-role="focal"] .ly-art,.sc[data-comp]:not([data-comp="tunnel-stage"]):not([data-comp="perspective-lineup"]) .ly[data-role="subject"] .ly-art{border-radius:0;box-shadow:none;border:0;padding:0;background:none}
+    .sc[data-layout="image-wall"] .ly[data-kind="image"] .ly-art{border-radius:0;box-shadow:none;border:0;padding:0}
+    .sc[data-layout="canvas"] .ly[data-kind="image"] .ly-art{border-radius:2px;box-shadow:0 40px 80px -30px rgba(0,0,0,.55)}
+    .sc[data-layout="object-stage"] .ly[data-kind="word"],.sc[data-layout="type-stage"] .ly[data-kind="word"],.sc[data-layout="mask-stage"] .ly[data-kind="word"]{display:flex;align-items:center;justify-content:center}
+    /* the words serve the visual event: a label is small and sits at the edge; giant type is the visual; copy beyond what the
+       role shows is a caption revealed late; a scene's lines are micro-labels (a breath keeps ordinary reading copy) */
+    .sc[data-comp] .sc-text[data-role="label"]{max-width:min(36rem,40vw)}
+    .sc[data-comp] .sc-text[data-copy="caption"] .sc-body{font-size:clamp(13px,1vw,15px);line-height:1.5;max-width:36ch;opacity:clamp(0,calc((var(--p,1) - .42) * 4),1);letter-spacing:.01em}
+    .sc[data-comp] .sc-text:not([data-role="reading"]) .sc-list{font-size:12px;letter-spacing:.08em;text-transform:uppercase;max-width:44ch;opacity:.86}
+    .sc[data-comp] .sc-text:not([data-role="reading"]) .sc-list .sc-item{margin:.2em 0}
+    .sc-text[data-act="word-stack"] .sc-heading .w{display:block;line-height:.88}
+    .sc-text[data-act="baseline"] .sc-heading .w{display:inline-block}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(odd){translate:0 calc((1 - var(--p,1)) * -.32em)}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(even){translate:0 calc((1 - var(--p,1)) * .32em)}
+    /* a word mask: the picture is seen only through the giant words until they pass the camera */
+    .sc[data-comp="mask-stage"] :is(.sc-text[data-giant] .sc-heading,.ly[data-kind="word"] .ly-word){background:var(--mimg) 50% 50%/cover no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0}
+    .sc-shade[data-shade="center"]{inset:0;height:auto;background:radial-gradient(ellipse 72% 58% at 50% 50%,color-mix(in srgb,var(--s-surface,var(--bg)) 74%,transparent),transparent 78%)}
+    @media (max-width:720px){html.cr-js .sc[data-pin][data-choreo="compose"]{height:160svh}.sc[data-comp] .sc-text[data-role="label"]{max-width:none}}
+    html[data-motion="reduced"] .sc[data-comp][data-pin]{height:auto}
     `;
 
     const ART_RUNTIME = `
@@ -7279,7 +8031,7 @@
     /* each choreography plays over its own part of the scene's progress */
     var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4],cardstream:[.04,.96],expand:[.05,.72]};
     var all=[].slice.call(d.querySelectorAll('.sc')),scenes=all.filter(function(s){return s.hasAttribute('data-p')});
-    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie')||s.hasAttribute('data-vin')||s.hasAttribute('data-vout');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
+    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie')||s.hasAttribute('data-vin')||s.hasAttribute('data-vout');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._ct=s.hasAttribute('data-comp');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
     function prog(s,vh,y){var top=s._top-y;if(s.hasAttribute('data-pin')){var span=s._h-vh;return span>0?cl(-top/span):0}return cl((vh-top)/(vh+s._h))}
     /* the page as one timeline: g = scene index + progress through that scene (0 when its top reaches the top of the screen,
        1 when its bottom does), from the cached geometry. Each actor samples its keyframes at g -- one track, so a scene's end
@@ -7326,6 +8078,16 @@
       /* each scene's own copy stays until the carried one has taken over, and is back before it lets go */
       S.A.style.visibility=P.lift>0&&w<P.lift+.06?'':'hidden';S.B.style.visibility=P.land<1&&w>P.land-.06?'':'hidden';
       S.ib.style.opacity=EZ.ss(cl((w-.3)/.4)).toFixed(3)}
+    /* a composition (composition.js): each of its planes follows its own keys over the scene's progress -- one camera with
+       depth, the same smooth step the tracks were planned with; on a phone the travel is shorter; with reduced motion every
+       plane holds the composition's resting state */
+    function compPlanes(s){if(!s._cp){s._cp=[].slice.call(s.querySelectorAll('[data-tk]')).map(function(el){return{el:el,K:el.getAttribute('data-tk').split(';').map(function(t){return t.split(',').map(Number)}),w:(el.getAttribute('data-win4')||'').split(',').filter(Boolean).map(Number),k:''}});s._rest=+(s.getAttribute('data-rest')||0)}return s._cp}
+    function ksample(K,p){var n=K.length,i=0;if(p<=K[0][0])return K[0].slice(1);if(p>=K[n-1][0])return K[n-1].slice(1);while(i<n-2&&K[i+1][0]<p)i++;var a=K[i],b=K[i+1],t=(p-a[0])/Math.max(1e-6,b[0]-a[0]),o=[];t=t*t*(3-2*t);for(var j=1;j<a.length;j++)o.push(a[j]+(b[j]-a[j])*t);return o}
+    function compApply(P,v,m){var x=v[0]*m,y=v[1]*m,s=1+(v[2]-1)*(m<1?.82:1),r=v[3]*m,ry=v[6]*m,key=x.toFixed(2)+'|'+y.toFixed(2)+'|'+s.toFixed(3)+'|'+r.toFixed(2)+'|'+v[4].toFixed(3)+'|'+v[5].toFixed(3)+'|'+ry.toFixed(1);if(key===P.k)return;P.k=key;var st=P.el.style;
+      st.transform='translate3d('+x.toFixed(2)+'vw,'+y.toFixed(2)+'vh,0) rotateY('+ry.toFixed(1)+'deg) rotate('+r.toFixed(2)+'deg) scale('+s.toFixed(3)+')';st.setProperty('--ko',v[4].toFixed(3));
+      if(P.w.length===4){var c=v[5],w=P.w;st.clipPath=c>.001?'inset('+(w[1]*c).toFixed(2)+'% '+((100-w[0]-w[2])*c).toFixed(2)+'% '+((100-w[1]-w[3])*c).toFixed(2)+'% '+(w[0]*c).toFixed(2)+'% round '+(c*18).toFixed(1)+'px)':'none'}}
+    function compFrame(s,p,vw){var m=vw<=720?.55:1;compPlanes(s).forEach(function(P){compApply(P,ksample(P.K,p),m)})}
+    function compRest(s){compPlanes(s).forEach(function(P){compApply(P,ksample(P.K,s._rest),1)})}
     /* steps: the words (and pictures) of a held scene, one state at a time */
     function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
       s._items.forEach(function(el,k){el.classList.toggle('is-on',k===ii)});
@@ -7334,9 +8096,10 @@
     function frameArt(vh,vw,red){var y=W.scrollY||W.pageYOffset;
       frameCast(y,red);
       scenes.forEach(function(s){if(s._top==null)return;var top=s._top-y;if(top+s._h<-vh||top>vh*2)return;
-        if(red){s._bw.forEach(function(b,j){s.style.removeProperty('--b'+j)});s.style.removeProperty('--sn');s.style.removeProperty('--sx');s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
+        if(red){if(s._ct)compRest(s);s._bw.forEach(function(b,j){s.style.removeProperty('--b'+j)});s.style.removeProperty('--sn');s.style.removeProperty('--sx');s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
         var p=prog(s,vh,y),w=s._ch==='word-fill'||(s._wf&&s._ch==='settle')?(s.hasAttribute('data-pin')?[.04,.9]:[.18,.62]):WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
         s.style.setProperty('--p',p.toFixed(4));s.style.setProperty('--pe',pe.toFixed(4));
+        if(s._ct)compFrame(s,p,vw);
         /* each beat plays over its own window of the scene's progress */
         s._bw.forEach(function(b,j){s.style.setProperty('--b'+j,EZ.ss(cl((p-b[0])/Math.max(.01,b[1]-b[0]))).toFixed(4))});
         if(s._seam){s.style.setProperty('--sn',cl(1-top/vh).toFixed(4));s.style.setProperty('--sx',cl(1-(top+s._h)/vh).toFixed(4))}
@@ -7397,7 +8160,7 @@
     module.exports = { renderCreative2 };
 
   });
-  var api = { understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
+  var api = { composition: __require('composition'), understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

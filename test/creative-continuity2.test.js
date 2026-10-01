@@ -112,7 +112,8 @@ test('4. a premium hero video shapes the next scenes: its motion continues acros
   // a measurement that comes back unsure clears an earlier direction: the seams go back to their own pictures' direction
   const unsure = validatePlan2(PAL.retune(tuned, null, 'none'), { mode: 'safety', assets: ASSETS, facts: FACTS, understanding: UND }).plan;
   assert.equal(unsure.timeline.continuity.hero.motion, 'none');
-  unsure.timeline.continuity.contracts.forEach(k => assert.equal(k.motionVector, plain.timeline.continuity.contracts.find(x => x.at === k.at).motionVector));
+  // (the same page before its video was measured: the premium hero shapes the composition, so another page is no measure)
+  unsure.timeline.continuity.contracts.forEach(k => assert.equal(k.motionVector, P.timeline.continuity.contracts.find(x => x.at === k.at).motionVector));
 });
 
 // ================================================================ 4b. the video's motion, measured honestly
@@ -197,7 +198,9 @@ test('6. the main picture is a recurring identity (opening, echoes, closing) and
   });
   // a rest scene is never an empty field: it carries an echo (its own picture, or the main picture)
   const P = page('1'); const h = html(P);
-  P.scenes.forEach((s, i) => { if (i && ['rest', 'acceleration'].includes(P.timeline.rhythm[i]) && !(P.actor && i >= P.actor.from && i <= P.actor.to)) assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-echo`), `scene ${i + 1} rests with an echo`); });
+  // (a rest that is itself a composition, or whose own picture fills half the screen, is not an empty field)
+  const cover = s => s.layers.filter(L => L.kind === 'image').reduce((t, L) => t + (L.box.d[2] * L.box.d[3]) / 10000, 0);
+  P.scenes.forEach((s, i) => { if (i && ['rest', 'acceleration'].includes(P.timeline.rhythm[i]) && !(P.actor && i >= P.actor.from && i <= P.actor.to) && !s.composition && cover(s) < 0.5) assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-echo`), `scene ${i + 1} rests with an echo`); });
   assert.match(h, /<div class="sc-ghost" aria-hidden="true"><img src="[\w-]+\.png"/);
 });
 

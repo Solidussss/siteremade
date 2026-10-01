@@ -212,7 +212,7 @@ test('13. reduced motion (and no scripting): the cast does not play, the actor r
   const P = story('r13').plan; const h = html(P);
   assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.cr-cast\{display:block\}/); assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.actor-static\{display:none\}/);
   assert.match(h, /<div class="actor-static" data-img style="--aa:[\d.]+;--ax:-?\d+;--ay:-?\d+;--as:[\d.]+;--ar:-?\d+"><img class="actor-img" data-asset="c-plain"[^>]*alt="[^"]+"/, 'a real picture with its alternative text');
-  assert.match(h, /function frameCast\(y,red\)\{if\(red/); assert.match(h, /if\(red\)\{s\._bw\.forEach\(function\(b,j\)\{s\.style\.removeProperty\('--b'\+j\)\}\)/);
+  assert.match(h, /function frameCast\(y,red\)\{if\(red/); assert.match(h, /if\(red\)\{(?:if\(s\._ct\)compRest\(s\);)?s\._bw\.forEach\(function\(b,j\)\{s\.style\.removeProperty\('--b'\+j\)\}\)/);
   // with no beat progress, every rule falls back to the scene at rest: in-beats read 1, out-beats read 0
   assert.match(h, /\[data-b0="scale-in"\]\{scale:calc\(1 \+ \(var\(--v0,0\) - 1\) \* \(1 - var\(--b0,1\)\) \* var\(--mk,1\)\)\}/);
   assert.match(h, /\[data-b0="translate-out"\]\{translate:calc\(var\(--v0,0\) \* var\(--b0,0\) \* 1vw/);
