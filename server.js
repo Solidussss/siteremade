@@ -2555,12 +2555,17 @@ function creativeDebugDump(rec) {
   const dir = process.env.CREATIVE_DEBUG_DIR; if (!dir) return;
   try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, `direction-${Date.now()}-a${rec.attempt}.json`), JSON.stringify(rec, null, 1)); } catch (e) { /* diagnosis only */ }
 }
-const CREATIVE_BUDGET_MSG = 'Creative has reached its daily AI limit on our side, so this step did not run. Your credits were not used -- please try again tomorrow (UTC).';
+// (and every accepted direction's art: the system's recipe, what the model returned, what the page kept -- local only)
+function creativeArtDump(rec) {
+  const dir = process.env.CREATIVE_DEBUG_DIR; if (!dir) return;
+  try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, `art-${Date.now()}.json`), JSON.stringify(rec, null, 1)); } catch (e) { /* diagnosis only */ }
+}
+const CREATIVE_BUDGET_MSG ='Creative has reached its daily AI limit on our side, so this step did not run. Your credits were not used -- please try again tomorrow (UTC).';
 function creativeBoundUsd(step) {
   const L = CREATIVE_AI_LIMITS, P = L.prices, M = 1e6;
   const cheap = (out, inp) => (out * P.cheap.output + inp * P.cheap.input) / M;
   if (step === 'check') return cheap(1500, 12000);
-  if (step === 'research') return cheap(L.understandMaxTokens, 8000) + 2 * cheap(L.curateMaxTokens, 45000) + L.webSearches * L.webSearchUsd + CREATIVE_SERPAPI.searches * CREATIVE_SERPAPI.usd;
+  if (step === 'research') return 2 * cheap(L.understandMaxTokens, 8000) +2 * cheap(L.curateMaxTokens, 45000) + L.webSearches * L.webSearchUsd + CREATIVE_SERPAPI.searches * CREATIVE_SERPAPI.usd;
   const attempts = 1 + L.repairs; // 'direction': the direction, its bounded repairs and their claim checks
   return attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0));
 }
@@ -2588,12 +2593,12 @@ async function creativeRawCall({ model, system, messages, tools, maxTokens, time
     return data;
   } finally { clearTimeout(timer); }
 }
-async function creativeModelCall({ model, system, content, messages, tool, maxTokens, timeoutMs, cacheSystem }) {
+async function creativeModelCall({ model, system, content, messages, tool, maxTokens, timeoutMs, cacheSystem, temperature }) {
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs || 90000); const t0 = Date.now();
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST', headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: maxTokens, thinking: { type: 'disabled' }, system: [{ type: 'text', text: system, ...(cacheSystem ? { cache_control: { type: 'ephemeral' } } : {}) }], messages: messages || [{ role: 'user', content }], tools: [tool], tool_choice: { type: 'tool', name: tool.name } }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, thinking: { type: 'disabled' }, ...(typeof temperature === 'number' ? { temperature } : {}), system: [{ type: 'text', text: system, ...(cacheSystem ? { cache_control: { type: 'ephemeral' } } : {}) }], messages: messages || [{ role: 'user', content }], tools: [tool], tool_choice: { type: 'tool', name: tool.name } }),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
@@ -2706,6 +2711,31 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   return out;
 }
 
+// IDENTITY EVIDENCE (lib/creative/identity.js): one Google web search for the subject's NAME -- never the brief, never a
+// personal subject -- read for what the open web says it is. Cached with the picture searches (the same answer for the
+// same name for the cache's days: one brief resolves the same way on every run), counted against the daily SerpApi cap.
+const creativeIdentity = require('./lib/creative/identity');
+async function creativeIdentityWeb(name, accountId) {
+  const q = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80); const key = `web|i1|${q.toLowerCase()}`;
+  if (!q || !creativeSerpKey()) return { ran: false, reason: !q ? 'no name' : 'SERPAPI_API_KEY is not configured', evidence: null };
+  const hit = CREATIVE_SERPAPI.cacheDays ? creativeSerpCacheGet(key) : null;
+  if (hit && hit.results && hit.results.web) return { ran: true, cached: true, evidence: creativeIdentity.webEvidence(hit.results.web) };
+  const spend = creativeSpendToday();
+  if (CREATIVE_SERPAPI.daily - spend.imageSearches <= 0) return { ran: false, reason: 'the daily search allowance is used up', evidence: null };
+  const r = await creativeSerpApi.googleWeb(q, { key: creativeSerpKey() });
+  spend.imageSearches++; spend.usd += CREATIVE_SERPAPI.usd;
+  creativeAppend({ at: new Date().toISOString(), kind: 'creative_identitysearch', provider: 'serpapi', accountId, ok: r.ok, status: r.status, searches: 1, results: r.results.length, panel: !!r.kg, query: q, error: r.error || '', usd: CREATIVE_SERPAPI.usd });
+  if (!r.ok) return { ran: true, ok: false, reason: r.error, evidence: null };
+  const web = { kg: r.kg, results: r.results };
+  if (CREATIVE_SERPAPI.cacheDays && (r.kg || r.results.length)) creativeSerpCachePut(key, { web }, { good: 10 });
+  return { ran: true, cached: false, evidence: creativeIdentity.webEvidence(web) };
+}
+// the evidence lines the understanding model may read (data): the search panel and the results' titles and snippets
+function creativeEvidenceLines(ev) {
+  if (!ev) return [];
+  return [].concat(ev.kg ? [`search panel: ${ev.kg.title}${ev.kg.type ? ` -- ${ev.kg.type}` : ''}${ev.kg.description ? `: ${ev.kg.description}` : ''}`] : [], (ev.results || []).slice(0, 8).map(x => `${x.host}: ${x.title}${x.snippet ? ` -- ${x.snippet}` : ''}`));
+}
+
 const creativePictureChecks = new Map(); // job id -> picture checks run (a bounded part of the page's price)
 const CREATIVE_PICTURE_CHECKS_PER_JOB = 6;
 // The pictures the owner picked, checked for watermarks at up to 1024 px before the page is built (the search thumbnails
@@ -2798,7 +2828,8 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     const pr = prior.research || {}; const pi = prior.identity || {}; const pv = prior.visuals || {};
     understanding = Object.assign({}, understanding, {
       kind: ['recognizable', 'fictional', 'invented'].includes(prior.kind) ? prior.kind : 'recognizable', subject: s(prior.subject, 120), query: s(prior.query, 160) || null, source: 'ai',
-      identity: { name: s(pi.name, 120), kind: s(pi.kind, 20), what: s(pi.what, 240), confidence: s(pi.confidence, 10) },
+      identity: Object.assign({ name: s(pi.name, 120), kind: s(pi.kind, 20), what: s(pi.what, 240), confidence: s(pi.confidence, 10) }, creativeIdentity.TYPES.includes(pi.type) ? { type: pi.type, status: ['resolved', 'invented'].includes(pi.status) ? pi.status : 'resolved' } : {}),
+      ...(['meme', 'game', 'screen', 'product', 'place', 'character', 'real'].includes(prior.searchIntent) ? { searchIntent: prior.searchIntent } : {}),
       visuals: Object.assign({ main: s(pv.main, 200), setting: s(pv.setting, 200), supporting: arr(pv.supporting, 4, 120) }, ['artwork', 'photo', 'none'].includes(pv.depiction) ? { depiction: pv.depiction } : {}),
       research: { scope: pr.scope === 'none' ? 'none' : 'subject', wikipediaTitles: arr(pr.wikipediaTitles, 3, 160), note: '' },
       tone: prior.tone && typeof prior.tone === 'object' ? { register: s(prior.tone.register, 20), words: arr(prior.tone.words, 5, 30), fromBrief: !!prior.tone.fromBrief } : understanding.tone,
@@ -2807,13 +2838,34 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     understandMeta = { source: 'reused', reason: 'the owner refined the picture search' };
   } else if (creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
     try {
-      const r = await creativeAi.understand({ brief, supplied, uploads: Number(req.body.hasUploads) || 0, choice }, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall });
-      const u = creativeAi.normaliseUnderstanding(r.raw, brief);
-      if (choice) { u.kind = u.identity.kind === 'ambiguous' ? 'recognizable' : u.identity.kind; u.clarify = null; }
-      understanding = Object.assign(u, { legacy: { tone: understanding.tone, purpose: understanding.purpose, asks: understanding.asks } });
-      understandMeta = { source: 'ai', model: r.model, ms: r.ms, usd: r.usd, usage: r.usage };
+      // IDENTITY (lib/creative/identity.js): the model READS the brief; what the subject IS is then decided by rules from
+      // that reading, the brief's own words and -- for a named subject -- what the open web says, so one brief resolves
+      // the same way on every run. A name nothing explains is asked about with fixed options, never guessed.
+      const uploads = Number(req.body.hasUploads) || 0; const deps = { limits: CREATIVE_AI_LIMITS, call: creativeModelCall };
+      const picked = creativeIdentity.choiceType(choice);
+      const ledgerU = (x, idn, step) => creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: true, step, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true, identity: String((x.raw && x.raw.identity && x.raw.identity.name) || '').slice(0, 120), identityType: idn ? idn.type : String((x.raw && x.raw.identity && x.raw.identity.type) || ''), identityStatus: idn ? idn.status : '' });
+      let r = await creativeAi.understand({ brief, supplied, uploads, choice: picked ? '' : choice, settled: picked ? `${creativeIdentity.LABELS[picked][0]} (${picked})` : '' }, deps);
       paidOk = true; paidUsd += Number(r.usd) || 0;
-      creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: true, model: r.model, inputTokens: r.usage.input_tokens || 0, outputTokens: r.usage.output_tokens || 0, ms: r.ms, usd: r.usd, estimated: true, identity: u.identity.name, identityKind: u.identity.kind, clarify: !!u.clarify });
+      let web = { ran: false, reason: picked ? 'the owner chose what it is' : 'not needed', evidence: null };
+      if (!picked && !choice && creativeIdentity.wantsWeb(r.raw, brief)) {
+        try { web = await creativeIdentityWeb((r.raw && r.raw.identity && r.raw.identity.name) || creativeIdentity.cues(brief).name, req.accountId); } catch (e) { web = { ran: false, reason: 'the search failed', evidence: null }; }
+      }
+      const idn = creativeIdentity.resolve({ raw: r.raw, brief, web: web.evidence, choice });
+      ledgerU(r, idn, 'read');
+      // the model did not know the thing and the evidence does: it reads the brief again WITH that evidence (what the thing
+      // is, what it looks like) -- the identity stays exactly the one decided above
+      let raw = r.raw; const rid = (r.raw && r.raw.identity) || {};
+      const knew = rid.recognized === true && rid.confidence !== 'low';
+      if (idn.status === 'resolved' && idn.source === 'web' && web.evidence && !knew && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap) {
+        try {
+          const r2 = await creativeAi.understand({ brief, supplied, uploads, settled: `${idn.name}: ${creativeIdentity.LABELS[idn.type][0]} (${idn.type})`, evidence: creativeEvidenceLines(web.evidence) }, deps);
+          paidUsd += Number(r2.usd) || 0; ledgerU(r2, idn, 'reread'); raw = r2.raw;
+          r = Object.assign({}, r2, { usd: +(r.usd + r2.usd).toFixed(5), ms: r.ms + r2.ms });
+        } catch (e) { /* the first reading stands */ }
+      }
+      const u = creativeIdentity.applyIdentity(creativeAi.normaliseUnderstanding(raw, brief), idn, raw);
+      understanding = Object.assign(u, { legacy: { tone: understanding.tone, purpose: understanding.purpose, asks: understanding.asks } });
+      understandMeta = { source: 'ai', model: r.model, ms: r.ms, usd: r.usd, usage: r.usage, identity: { type: idn.type, status: idn.status, confidence: idn.confidence, source: idn.source, evidence: idn.evidence }, web: { ran: !!web.ran, cached: !!web.cached, reason: web.reason || '' } };
     } catch (error) {
       understandMeta = { source: 'rules', reason: `the understanding call failed (${String(error && error.message || error).slice(0, 120)})` };
       creativeLedger({ kind: 'creative_understand', accountId: req.accountId, ok: false, error: String(error && error.message || error).slice(0, 200), usd: 0 });
@@ -2829,7 +2881,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     const scope = understanding.research ? understanding.research.scope : (understanding.kind === 'recognizable' ? 'subject' : understanding.kind === 'personal' && understanding.query ? 'general-topic' : 'none');
     if (scope !== 'none' && (understanding.query || (understanding.research && understanding.research.wikipediaTitles.length))) {
       const titles = understanding.research ? understanding.research.wikipediaTitles.slice() : [];
-      if (choice) titles.unshift(choice);
+      if (choice && !creativeIdentity.choiceType(choice)) titles.unshift(choice); // (a kind of thing is not an article)
       // Wikipedia: facts and identity only -- never pictures (those come from Google Images or the owner)
       result = await creativeResearch.research(understanding, { titles });
     }
@@ -2948,6 +3000,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });
     return res.json({ ok: false, fallback: true, reason: r.reason, meta, recentRecipes: recent, ...creativeCredits(req.accountId) });
   }
+  creativeArtDump({ identity: u.identity && { name: u.identity.name, type: u.identity.type, status: u.identity.status, confidence: u.identity.confidence }, register: u.tone && u.tone.register, recipe: input.art && { ambition: input.art.ambition, concept: input.art.concept, personality: input.art.personality, mode: input.art.mode, family: input.art.family, genre: input.art.genre, why: input.art.why }, model: r.raw && r.raw.art && { personality: r.raw.art.personality, mode: r.raw.art.mode, family: r.raw.art.family }, final: r.plan.art && { ambition: r.plan.art.ambition, concept: r.plan.art.concept, personality: r.plan.art.personality, mode: r.plan.art.mode, family: r.plan.art.family }, renderer: (r.plan.timeline && r.plan.timeline.renderer) || 'dom', spatialWhy: (r.plan.timeline && r.plan.timeline.why) || null, moments: ((r.plan.timeline && r.plan.timeline.moments) || []).map(m => m.kind), history: recent.length, fixes: (r.fixes || []).filter(f => /^art:/.test(f)) });
   const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
   creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd });
   res.json(Object.assign({ spatial: CREATIVE_SPATIAL_ON }, directed, creativeCredits(req.accountId, CREDIT_COSTS.creativeDirection)));

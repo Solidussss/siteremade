@@ -38,6 +38,24 @@ its output is structured data (tool use), validated, then rendered by one render
    (cosplay, figures, merchandise), which is not the character. A clarification is asked only when a wrong identity would change the page. A
    personal subject's *name* is never researched (only its general type). If the call fails or the budget is used, the
    built-in reader takes over (recorded).
+   **Identity is decided by rules, not sampled** (`identity.js`). The model *reads* the brief at temperature 0 and says
+   the subject's `type` (known-entity / meme / fictional-character / real-person / product / place / franchise /
+   invented / personal / unknown) and whether it actually `recognized` it. For a named subject that is not the owner's
+   own and not a described invention, the server then asks the open web once (`serpapi.googleWeb`: one Google web search
+   for the *name* only -- never the brief -- cached with the picture searches for the cache's days, counted against the
+   daily SerpApi cap, a `creative_identitysearch` ledger row). `identity.resolve` scores the evidence -- the model's
+   reading (full weight only when it knows the thing), the brief's own words ("my dog" -> personal, "an imaginary
+   country" -> invented), the search panel's type, Know Your Meme / game / film / travel / shop hosts, result text -- and
+   returns `identity.{type, status: resolved | ambiguous | invented, confidence 0..1, candidates, evidence, source}`.
+   A bare, unfamiliar name is never made invented or personal by the model's guess; a name nothing explains is
+   **ambiguous** and the owner is asked with **fixed** options (evidence-supported kinds first, then every kind in a
+   fixed order; never rewritten per run). The owner's pick decides the type (a kind of thing is never sent as a
+   Wikipedia title); several real things sharing a name ("Zelda") keep the model's article options. When the web
+   resolved what the model did not know (a new meme), the model reads the brief once more WITH the evidence lines (data,
+   not instructions) and the settled type, so its visuals and motifs describe the right thing. The identity type sets
+   the picture-search intent (`searchIntent`: a meme is searched as a meme on every run) and the art direction's genre.
+   (Measured: eight real calls on "Make a website based off of Neegy." returned invented x4, "<UNKNOWN>" x3, fictional
+   x1, all low confidence, with differently worded options each time; Google says it is an internet meme.)
 **Where things come from:** Wikipedia = facts and identity; Google Images through SerpApi = pictures found on the web;
 the owner = uploads and pictures they choose. Wikipedia and Wikimedia Commons are **never** a picture source: no Commons
 search, no Commons file record, no Commons licence lookup, no Wikimedia-hosted result -- not as a provider, a fallback,
@@ -251,6 +269,24 @@ generations (the `seed` was stored, never used). The art-direction layer fixes t
   this account made recently (read from its saved projects) and this page's previous direction are steered away from.
   The server passes the recipe to the model (`artDirection`) and the validator; the built-in director (`director2.js`)
   uses the same recipe, so a page without the AI is art-directed too.
+* **Genre, visual ambition and concept** (`genreOf`, `ambitionOf`, `CONCEPTS`). The genre comes from the settled
+  identity type first (a franchise with game words -> game; a product -> its domain genre, tech for futuristic
+  technology, else product; a place -> place; a meme -> meme), the words only when there is no type (and "satellite
+  dish" is no longer food, "instant film camera" no longer a film). The **ambition** (restrained | expressive | cinematic
+  | experimental) is chosen before anything else -- the owner's own words first ("minimal", "bold", "cinematic",
+  "experimental"), then the purpose (personal, a tribute, a page to be read -> restrained), then the subject (game,
+  film, futuristic tech, iconic place -> cinematic; product, character, food, art -> expressive; meme -> experimental;
+  fashion, history, text-led -> restrained; a solemn place -> restrained), then the pictures (no picture to stage ->
+  expressive). It bends the personalities and sets the modes (restrained never immersive; the others never quiet). The
+  **concept** -- campaign, cinematic, object-led, world-building, kinetic-type, visual-journey, spatial-showcase,
+  editorial -- is the page's named idea, built only from the existing families (no new renderer). Account history
+  still steers between suitable recipes but no longer out of them (the ambition and concept are part of each
+  candidate's score). Why: the director copies the recipe it is given (15/15 measured), and real pages re-derived
+  exactly from `choose(seed, history)` showed a game franchise drawn luxe/editorial and an iconic building drawn
+  editorial-sticky 98% of the time -- the chooser, not the model, was the source of the editorial bias.
+* **The director keeps it**: on a new page the validator keeps the recipe's personality, family, mode, ambition and
+  concept whatever the model returns (recorded as an `art:` fix); a revision the owner asked for may change them. The
+  renderer is never part of the recipe: spatial stays the system's own decision (`spatial.decide`, unchanged).
 * **Archetypes** (`archetypes.js`): 20 real compositions (editorial-hero, cinematic, split, giant-type, shrine,
   offcanvas, framed, floating, collage, poster, magazine, strip, sticky-steps, text, image, luxe, dense, depth,
   brutalist, gallery) plus `free` (the plan's own boxes, as before). Each places the words on a 12-column grid, the
