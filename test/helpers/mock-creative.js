@@ -23,8 +23,34 @@ function understanding(body) {
   const subject = brief.replace(/^(a|an)\s+(website|page|site)\s+(about|for)\s+/i, '').split(/[,.—–-]/)[0].trim() || 'Subject';
   return { identity: { name: subject, kind: 'recognizable', what: `the everyday ${subject}`, confidence: 'high' }, research: { scope: 'subject', wikipediaTitles: [subject.replace(/^./, c => c.toUpperCase())] }, tone: { register: /absurd|grand/i.test(brief) ? 'extravagant' : 'editorial', words: [], fromBrief: /absurd|grand/i.test(brief) }, audience: 'general', motifs: ['spotlight', 'stage'], uncertainty: [] };
 }
+// MOCK_DIRECTOR=follow: a mock that behaves like an instructed director -- one scene per artDirection scene, each built
+// around the picture the visual plan assigned it, its scene.visual filled first and its words written from what that
+// picture shows (keyword rules, labelled mock). Used by the browser QA of the asset-first pipeline; says nothing about
+// a real model's quality.
+const COPY = [
+  [/airborne|jump|air|flying/i, 'Launch. Hang time. Land it.', 'Off the ramp and into the air -- every jump ends in a landing that counts.', 'momentum', 'airborne, mid-jump'],
+  [/lineup|grid|starting|rivals/i, 'Meet the grid', 'Every rival lined up, engines hot, waiting for the lights.', 'roster', 'the starting grid'],
+  [/item|box|power/i, 'Chaos in a box', 'Grab the box, roll the dice, turn the race on its head.', 'detail', 'the item box, up close'],
+  [/sunset|track|race|racing/i, 'Into the sunset', 'The last lap burns orange -- the track runs out before the light does.', 'celebrate', 'the track at sunset'],
+];
+function followPlan(data, name) {
+  const scenesIn = (data.artDirection && data.artDirection.scenes) || []; const inv = data.assets || [];
+  const scenes = scenesIn.map((x, i) => {
+    const pic = x.picture; const ids = pic ? [pic.asset].concat(pic.also || []) : [];
+    const shows = (pic && pic.shows) || ((inv.find(a => a.id === (pic && pic.asset)) || {}).title) || '';
+    const c = COPY.find(([re]) => re.test(shows)) || [null, shows ? shows.replace(/^./, s => s.toUpperCase()) : 'The next chapter', 'Another angle on the same race.', 'celebrate', shows || 'the subject'];
+    const layers = ids.filter(id => inv.some(a => a.id === id)).map((id, k) => ({ kind: 'image', role: k ? 'support' : 'focal', asset: id, box: { d: [50, 10, 42, 78], m: [8, 6, 84, 64] } }));
+    return { id: i ? `scene-${i + 1}` : 'opening', name: i ? c[1] : 'Opening', purpose: `built around ${shows || 'the subject'}`, height: 'screen', layout: x.layout, choreo: x.choreo, handoff: x.handoff, layers,
+      visual: pic ? { asset: pic.asset, subject: shows, moment: c[4], intent: i ? c[3] : 'introduce', relation: pic.relation } : undefined,
+      text: i ? { kicker: shows.slice(0, 40), heading: c[1], body: c[2], kind: 'imagined', region: 'left', size: 'large' } : { kicker: 'Mock direction', heading: name, body: c[2], kind: 'imagined', region: 'left', size: 'display' }, ...(i ? {} : { cta: 'Start the race' }) };
+  });
+  return { identity: { name, kind: (data.understanding && data.understanding.identity && data.understanding.identity.kind) || 'recognizable' }, concept: { title: `${name}, in motion`, logline: `A mock direction for ${name} that follows its pictures.`, why: 'test' },
+    palette: { bg: '#0d1020', bg2: '#171b33', ink: '#f4f2ee', muted: '#b9b5ad', accent: '#ffb629', glow: '#fff3d6' }, type: { display: 'grotesk', scale: 'monumental', case: 'upper' }, atmosphere: { backdrop: 'gradient', light: 'none', particles: 'none', density: 0.2 }, motion: { tempo: 'lively', signature: 'the race carries through' }, thread: { kind: 'none' },
+    assetNotes: inv.map(a => ({ asset: a.id, depicts: `mock: ${a.title || a.id}`, matches: 'yes' })), wants: [], limitations: [], scenes };
+}
 function plan(body, attempt, env) {
   const { data } = payload(body); const assets = data.assets || []; const facts = data.facts || [];
+  if (env && env.MOCK_DIRECTOR === 'follow' && data.artDirection && (data.artDirection.scenes || []).length >= 2 && attempt !== 'invalid') return followPlan(data, (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject');
   const free = assets.find(a => a.transparent) || null; const photo = assets.find(a => !a.transparent) || null;
   const name = (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject';
   const focal = free ? { kind: 'image', role: 'focal', asset: free.id, box: { d: [54, 10, 40, 82], m: [10, 4, 80, 92] }, entrance: { kind: 'descend', delay: 0.3, dur: 1.4 }, loop: { kind: 'float', amp: 1.2, period: 9 }, scroll: { kind: 'parallax', amount: 0.4 }, treatment: 'shadow' }

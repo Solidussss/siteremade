@@ -89,7 +89,8 @@ globalThis.fetch = async function (url, options) {
   }
   if (u.startsWith('https://higgsfield-output.test/')) {
     log({ provider: 'higgsfield', endpoint: 'download', url: u });
-    if (u.endsWith('.mp4')) return new Response(Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42mock-video-bytes')]), { status: 200, headers: { 'content-type': 'video/mp4' } });
+    // (MOCK_HIGGSFIELD_VIDEO_FILE: a real local mp4 served as the "delivered" video -- browser QA plays it; no provider)
+    if (u.endsWith('.mp4')) return new Response(process.env.MOCK_HIGGSFIELD_VIDEO_FILE ? fs.readFileSync(process.env.MOCK_HIGGSFIELD_VIDEO_FILE) : Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42mock-video-bytes')]), { status: 200, headers: { 'content-type': 'video/mp4' } });
     return new Response(Buffer.from(mockPng('higgsfield', '16:9').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
   }
   if (u.startsWith('https://api.anthropic.com/')) {

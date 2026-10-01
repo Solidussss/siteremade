@@ -2537,6 +2537,8 @@ const creativeResearch = require('./lib/creative/research');
 // with its tokens and ESTIMATED cost. The key stays here; the browser only ever sees validated plans.
 const creativeAi = require('./lib/creative/ai');
 const creativeArt = require('./lib/creative/art');
+const creativePool = require('./lib/creative/pool');
+const PREMIUM_VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
 // ART DIRECTION: the recipes (motion personality / scroll model / scene architecture) this account's most recent Creative
 // pages were built on -- read from the saved projects themselves, newest first -- so a new page steers away from them
 function creativeRecentRecipes(accountId) {
@@ -3247,8 +3249,26 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     // what the picture check found (coverage of the subject, the pictures that could not be found)
     coverage: b.coverage && typeof b.coverage === 'object' ? { coverage: ['strong', 'partial', 'none'].includes(b.coverage.coverage) ? b.coverage.coverage : '', missing: arr(b.coverage.missing, 3).map(x => clean(x, 160)).filter(Boolean), note: clean(b.coverage.note, 240) } : null,
   };
+  // ---- ASSET-FIRST: the visuals are decided before a word is written
+  // (1) one pool: every usable picture -- discovered AND uploaded AND picked -- with the main picture (the owner's choice,
+  //     unless it cannot lead: then the reason is kept and shown) and the logo kept apart from the scenes
+  const pool = creativePool.build(assets, { mainAsset: input.mainAsset, personal: u.kind === 'personal' });
+  // (2) the premium hero's source and role, BEFORE the direction, so the page is planned around the video: the main picture
+  //     when it may be transformed, else the next pool picture that may (the same permission gate the premium step uses)
+  const videoIntent = input.premiumRequested.find(i => PREMIUM_VIDEO_INTENTS.includes(i));
+  if (videoIntent) {
+    const byIdP = new Map(assets.map(a => [a.id, a]));
+    const verdicts = pool.pictures.map(p => ({ id: p.id, v: premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, confirmed: [] }) }));
+    const ok = verdicts.find(x => x.v.ok);
+    input.premiumHero = ok ? { intent: videoIntent, source: ok.id, role: 'hero motion', note: pool.main && ok.id !== pool.main.id ? `the main picture is not used for the video: ${(verdicts.find(x => x.id === pool.main.id) || { v: {} }).v.reason || 'not eligible'}` : '' }
+      : { intent: videoIntent, source: null, role: 'hero motion', note: verdicts.length ? `no picture may be sent for the video: ${verdicts[0].v.reason}` : 'no picture to start the video from' };
+  }
+  input.pool = pool;
+  // (3) the recipe and its visual plan: scenes built around those pictures (every picture shown before any repeats, the
+  //     colours of neighbouring scenes leading into each other, the page closing on its main picture)
   const recent = creativeRecentRecipes(req.accountId);
-  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160) });
+  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? { video: true, intent: input.premiumHero.intent, source: input.premiumHero.source } : null });
+  // (4) the words are written next, by the director, for those pictures (lib/creative/ai.js); (5) continuity + critic
   const startedAt = Date.now();
   let r;
   try {
@@ -3296,7 +3316,10 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     return res.json({ ok: false, fallback: true, reason: r.reason, meta, recentRecipes: recent, ...creativeCredits(req.accountId) });
   }
   creativeArtDump({ identity: u.identity && { name: u.identity.name, type: u.identity.type, status: u.identity.status, confidence: u.identity.confidence }, register: u.tone && u.tone.register, recipe: input.art && { ambition: input.art.ambition, concept: input.art.concept, personality: input.art.personality, mode: input.art.mode, family: input.art.family, genre: input.art.genre, why: input.art.why }, model: r.raw && r.raw.art && { personality: r.raw.art.personality, mode: r.raw.art.mode, family: r.raw.art.family }, final: r.plan.art && { ambition: r.plan.art.ambition, concept: r.plan.art.concept, personality: r.plan.art.personality, mode: r.plan.art.mode, family: r.plan.art.family }, renderer: (r.plan.timeline && r.plan.timeline.renderer) || 'dom', spatialWhy: (r.plan.timeline && r.plan.timeline.why) || null, moments: ((r.plan.timeline && r.plan.timeline.moments) || []).map(m => m.kind), history: recent.length, fixes: (r.fixes || []).filter(f => /^art:/.test(f)) });
-  const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
+  // what the page was planned around (shown in the studio): the pool, its main picture and the premium hero's source
+  const visualPlan = { counts: pool.counts, main: pool.main ? { id: pool.main.id, chosen: !!pool.main.chosen } : null, mainReason: pool.mainReason || '', logo: pool.logo, excluded: pool.excluded.slice(0, 12), premiumHero: input.premiumHero || null,
+    used: [...new Set(r.plan.scenes.flatMap(s => s.layers.filter(L => L.kind === 'image').map(L => { const a = assets.find(x => x.id === L.asset); return (a && a.cutoutOf) || L.asset; })).concat(r.plan.actor ? [(assets.find(x => x.id === r.plan.actor.asset) || {}).cutoutOf || r.plan.actor.asset] : []))] };
+  const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta, visualPlan };
   // settled at what the page IS: the spatial surcharge stays only if the system rendered it spatial
   const renderer = (r.plan.timeline && r.plan.timeline.renderer) || 'dom';
   const heldOp = credits.findOperation(db, directionOpId); const nowIso = new Date().toISOString();

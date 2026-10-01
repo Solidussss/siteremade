@@ -61,7 +61,7 @@
       '<label for="csSupplied">True details, one per line</label><textarea id="csSupplied" rows="4" maxlength="2000" placeholder="Bubbles lived with us for nine years.\nHe raced to the glass whenever someone came home."></textarea>',
       '<label for="csMemories">Favourite memories, one per line (optional)</label><textarea id="csMemories" rows="3" maxlength="2000"></textarea>',
       '<p class="cs-hint">A personal page only ever shows your own photos of them and only says what you write here.</p></details>',
-      '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><input type="file" id="csModel" accept=".glb,model/gltf-binary" hidden><button type="button" class="cs-btn cs-ghost" id="csModelBtn" title="Optional: a 3D model of your main subject, used only on pages with a 3D layer">+ Add a 3D model (.glb)</button><div class="cs-thumbs" id="csThumbs"></div></div>',
+      '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><input type="file" id="csLogo" accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="cs-btn cs-ghost" id="csLogoBtn" title="Optional: shown top-left in the page header, never as a scene picture">+ Add your logo</button><input type="file" id="csModel" accept=".glb,model/gltf-binary" hidden><button type="button" class="cs-btn cs-ghost" id="csModelBtn" title="Optional: a 3D model of your main subject, used only on pages with a 3D layer">+ Add a 3D model (.glb)</button><div class="cs-thumbs" id="csThumbs"></div></div>',
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
       '<p class="cs-cost" id="csCostNote">A Creative page costs <strong>4 credits</strong>: the research, picture search and checks, the direction and its automatic fixes. Another direction for the same page costs 3. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
@@ -87,6 +87,9 @@
     var mb = document.getElementById('csModelBtn'), mi = document.getElementById('csModel');
     if (mb && mi) { mb.addEventListener('click', function () { mi.click(); }); mi.addEventListener('change', function () { addModel(mi.files && mi.files[0]); mi.value = ''; }); }
     els.csUpload.addEventListener('change', function () { addUploads([].slice.call(els.csUpload.files || [])); els.csUpload.value = ''; });
+    // the logo: one picture, kept as it is (no cut-out, never regenerated), shown in the page header
+    var lb = document.getElementById('csLogoBtn'), li = document.getElementById('csLogo');
+    if (lb && li) { lb.addEventListener('click', function () { li.click(); }); li.addEventListener('change', function () { var f = li.files && li.files[0]; li.value = ''; if (f) addUploads([f], 'logo'); }); }
     els.csSave.addEventListener('click', save);
     els.csBuy.addEventListener('click', buyOrDownload);
     els.csNew.addEventListener('click', function () { if (S.dirty && !window.confirm('Start a different page? Unsaved changes to this one will be lost.')) return; S = fresh(); resetUI(); });
@@ -200,7 +203,7 @@
       asset.caps = C.assets.capabilities(asset);
       var out = [asset];
       // a logo or a map is never lifted out as a floating layer
-      var reference = asset.curation && (asset.curation.role === 'logo' || asset.curation.role === 'reference');
+      var reference = asset.ownerRole === 'logo' || (asset.curation && (asset.curation.role === 'logo' || asset.curation.role === 'reference'));
       if (!a.transparent && !reference && a.background && a.background.uniformity >= 0.8) {
         var cut = C.assets.cutout(px.img, { holes: !asset.illustration });
         if (cut.clean && cut.img) {
@@ -226,14 +229,16 @@
       }).catch(function () { return null; });
     });
   }
-  function addUploads(files) {
+  function addUploads(files, role) {
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     return Promise.all(files.slice(0, Math.max(0, 8 - uploads.length)).map(fileToAsset)).then(function (list) {
       list = list.filter(Boolean); if (!list.length) return;
+      // (one logo at most: a new one replaces the role of the last)
+      if (role === 'logo') { S.assets.forEach(function (x) { if (x.ownerRole === 'logo') x.ownerRole = 'auto'; }); list.forEach(function (a) { a.ownerRole = 'logo'; a.title = a.title || 'logo'; a.relevance = 0; }); }
       return Promise.all(list.map(processAsset)).then(function (groups) {
         groups.forEach(function (g) { S.assets = S.assets.concat(g); });
         renderThumbs(); if (S.gate) showGate(S.gate);
-        if (S.plan && S.plan.v === 2) { buildEditor(); markDirty(); }
+        if (S.plan && S.plan.v === 2) { if (role === 'logo') { S.plan = settle(S.plan); refresh(); } buildEditor(); markDirty(); }
         else if (S.plan) { placeNewUploads(list); rebuildHero(); refresh(); }
       });
     });
@@ -361,6 +366,41 @@
   // PREMIUM MEDIA in the generation: planned in the confirmed quote -> made here, right after the direction, with no
   // further offer or confirmation. Planned or not, made or not, the owner is told in plain words (and why).
   function premiumHeadline(st) { if (!st) return ''; if (st.made && st.made.length) return st.message; return st.planned ? 'Premium media planned: Yes — ' + st.message.replace(/^Premium media planned: /, '') : 'Premium media planned: No — ' + st.message; }
+  // what the page was planned around, in plain words: the one pool (found + yours), how much of it is on the page, the
+  // main picture (and why the owner's choice could not lead, when it could not), the logo, the premium video's source
+  function visualNote() {
+    var v = S.visualPlan; if (!v || !v.counts) return '';
+    var name = function (id) { var a = S.assets.find(function (x) { return x.id === id; }); return a ? '“' + String(a.title || a.alt || id).replace(/^File:/, '').slice(0, 40) + '”' : id; };
+    var c = v.counts; var yours = (c.uploaded || 0) + (c.picked || 0);
+    return 'Pictures: ' + (c.discovered || 0) + ' found + ' + yours + ' of yours — ' + (v.used || []).length + ' of ' + (c.total || 0) + ' on the page'
+      + (v.main ? ' · main: ' + name(v.main.id) + (v.mainReason ? ' (your choice could not lead: ' + v.mainReason + ')' : '') : '')
+      + (v.logo ? ' · your logo is in the header' : '')
+      + (v.premiumHero ? (v.premiumHero.source ? ' · the premium video starts from ' + name(v.premiumHero.source) + (v.premiumHero.note ? ' (' + v.premiumHero.note + ')' : '') : ' · premium video: ' + v.premiumHero.note) : '');
+  }
+  // the delivered video's colour cast, measured from two of its frames (same-origin file: the canvas stays readable)
+  function videoCast(url) {
+    return new Promise(function (resolve) {
+      var v = document.createElement('video'); var done = false; var cols = []; var times = []; var i = 0;
+      var finish = function (x) { if (done) return; done = true; clearTimeout(t); try { v.removeAttribute('src'); v.load(); } catch (e) { /* gone */ } resolve(x); };
+      var t = setTimeout(function () { finish(cols.length ? C.palette.fromColours(cols).hex || null : null); }, 15000);
+      var grab = function () { if (i >= times.length) return finish(cols.length ? C.palette.fromColours(cols).hex || null : null); v.currentTime = times[i++]; };
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      v.addEventListener('error', function () { finish(null); });
+      v.addEventListener('seeked', function () { try { var cv = document.createElement('canvas'); cv.width = 64; cv.height = 40; var ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(v, 0, 0, 64, 40); cols = cols.concat(C.assets.palette({ width: 64, height: 40, data: ctx.getImageData(0, 0, 64, 40).data }, 4)); } catch (e) { /* unreadable frame */ } grab(); });
+      v.addEventListener('loadeddata', function () { var d = isFinite(v.duration) && v.duration > 0 ? v.duration : 2; times = [Math.min(1, d * 0.2), d * 0.65]; grab(); });
+      v.src = url;
+    });
+  }
+  // a delivered premium hero video becomes part of the page: shown in the opening, and the page's colours re-tuned to the
+  // colour it actually has (the planning used its source picture's colour)
+  function integrateVideo(asset) {
+    if (!asset || !asset.video || !S.plan || S.plan.v !== 2) return Promise.resolve('');
+    return videoCast('/api/premium-media/' + encodeURIComponent(asset.video.mediaId) + '/file').then(function (cast) {
+      if (cast) { asset.video.cast = cast; S.plan = settle(C.palette.retune(S.plan, cast)); }
+      var hero = S.plan.timeline && S.plan.timeline.continuity && S.plan.timeline.continuity.hero;
+      return 'Shown in the opening scene' + (hero && hero.end ? ', settling into its still frame as the page moves on' : '') + (cast ? ' · page colours tuned to its colour (' + cast + ')' : '');
+    });
+  }
   function heroAsset() { var s0 = S.plan && S.plan.scenes && S.plan.scenes[0]; var L = s0 && (s0.layers || []).find(function (l) { return l.kind === 'image' && l.asset; }); return (S.plan && S.plan.actor && S.plan.actor.asset) || (L && L.asset) || liveMain() || ''; }
   function runPremium() {
     if (!S.premium || !S.premium.planned || S.premiumResult || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
@@ -373,8 +413,11 @@
       S.premiumResult = st;
       (d.assets || []).forEach(function (m) { if (m.kind === 'video') { var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } } });
       var imgs = (d.assets || []).filter(function (m) { return m.kind === 'image' && m.asset && m.asset.dataUrl; });
+      var vidAsset = (d.assets || []).filter(function (m) { return m.kind === 'video'; }).map(function (m) { return S.assets.find(function (x) { return x.id === m.sourceAssetId; }); }).filter(Boolean)[0] || null;
       return Promise.all(imgs.map(function (m) { return processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }); })).then(function () {
-        step('premium', st.made && st.made.length ? 'done' : 'failed', premiumHeadline(st)); if (st.made && st.made.length) refresh(true);
+        return integrateVideo(vidAsset);
+      }).then(function (where) {
+        step('premium', st.made && st.made.length ? 'done' : 'failed', premiumHeadline(st) + (where ? ' — ' + where : '')); if (st.made && st.made.length) refresh(true);
       });
     }).catch(function () { S.premiumResult = { planned: true, reason: 'not_run', message: 'The premium media step could not be reached. Its credits were returned.' }; step('premium', 'failed', premiumHeadline(S.premiumResult)); });
   }
@@ -385,7 +428,7 @@
     return planDirection('').then(function (res) {
       S.directing = false;
       if (res && res.stop) { step('direct', 'failed', res.stop); return fail(res.stop); }
-      step('build', 'active'); refresh(true); step('build', 'done');
+      step('build', 'active'); refresh(true); step('build', 'done', visualNote());
       return runPremium().then(function () {
         S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
         els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
@@ -539,7 +582,9 @@
     return Object.assign({}, local, { kind: u.kind === 'invented' ? 'fictional' : u.kind === 'ambiguous' ? 'recognizable' : u.kind, subject: u.subject || local.subject, name: u.name || local.name, species: u.species || local.species, noun: u.noun || local.noun, query: u.query, tone: TONE_MAP[u.tone && u.tone.register] || local.tone, brief: S.brief });
   }
   function inventory() {
-    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime, kind: a.kind, curation: a.curation }; });
+    // (the owner's roles travel with the pictures: which one is the logo, which the main picture, which were picked from the
+    // web rather than owned -- the pool, the logo and the premium permission gate depend on them)
+    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime, kind: a.kind, curation: a.curation, ownerRole: a.ownerRole, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, rightsEvidence: a.rightsEvidence, premium: a.premium, video: a.video }; });
   }
   // small thumbnails so the director can SEE what each picture depicts (transparent cutouts shown on grey)
   function thumbnails() {
@@ -579,7 +624,7 @@
         var v = C.validate2.validatePlan2(d.plan, Object.assign(ctx2(), { mode: 'safety' })); var plan = v.plan; // accepted by the server: kept as composed if (S.fixture) plan.fixture = S.fixture;
         // the server and the studio both validate: each note once
         var uniq = function (xs) { return xs.filter(function (x, i) { return xs.indexOf(x) === i; }); };
-        S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings));
+        S.plan = plan; S.lastFixes = uniq((d.fixes || []).concat(v.fixes)); S.lastWarnings = uniq((d.warnings || []).concat(v.warnings)); S.visualPlan = d.visualPlan || null;
         S.planMeta = { source: plan.direction.source === 'mock' ? 'mock' : 'ai', model: plan.direction.model, at: plan.direction.at, usdEstimated: (d.meta && d.meta.usdEstimated) || 0, ms: (d.meta && d.meta.ms) || (Date.now() - t0), attempts: (d.meta && d.meta.attempts && d.meta.attempts.length) || 1, repaired: !!plan.direction.repaired,
           // what the one repair was for (this session only; not saved)
           repairFor: ((d.meta && d.meta.attempts) || []).filter(function (a) { return a.errors && a.errors.length; }).slice(0, 1).map(function (a) { return a.errors.slice(0, 4).map(function (e) { return String(e).slice(0, 160); }); })[0] || [] };
