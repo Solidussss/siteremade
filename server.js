@@ -4508,7 +4508,8 @@ app.get('/api/app-bridge/credits/history', appBridgeRateLimit, requireAppBridgeA
 // public preview URL. Nothing is deployed and no database state is changed.
 function previewMime(file) {
   const ext = path.extname(file).toLowerCase();
-  return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.avif':'image/avif','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'})[ext] || 'application/octet-stream';
+  // (.mp4: a Creative page's premium videos -- inlined as application/octet-stream, a browser may refuse to play them)
+  return ({'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.avif':'image/avif','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.mp4':'video/mp4'})[ext] || 'application/octet-stream';
 }
 function inlinePreviewAssets(html, root) {
   // The Business export is a real multi-file package: index.html links
