@@ -2546,6 +2546,9 @@ function creativeProviderTrip(error) {
 // customer's balance. Every paid step first reserves its WORST-CASE cost (from the configured token limits and prices),
 // and what is reserved counts against the cap until the step settles -- so steps already running cannot jointly
 // overshoot it. A refusal says so plainly and never touches the customer's credits.
+// the spatial tier (lib/creative/spatial.js): off unless CREATIVE_SPATIAL=on -- it gates whether a NEW page may be composed
+// as spatial; a page accepted as spatial renders the same everywhere afterwards
+const CREATIVE_SPATIAL_ON = require('./lib/creative/renderers').enabled(process.env);
 const CREATIVE_BUDGET_MSG = 'Creative has reached its daily AI limit on our side, so this step did not run. Your credits were not used -- please try again tomorrow (UTC).';
 function creativeBoundUsd(step) {
   const L = CREATIVE_AI_LIMITS, P = L.prices, M = 1e6;
@@ -2620,6 +2623,8 @@ async function creativeWebDiscovery(understanding, brief, accountId, refine) {
   const serpKey = creativeSerpKey();
   // what the page's motion will probably need from its pictures (timeline.motionIntent): searched for, and asked of the check
   const intent = require('./lib/creative/timeline').motionIntent(understanding);
+  // (with the spatial tier on, a subject that may turn in depth also asks for another angle of itself)
+  if (CREATIVE_SPATIAL_ON && intent.cutout) { intent.alternate = true; intent.why = intent.why.concat(['the same subject from another angle, to turn it in depth']); }
   const webCurate = async (candidates, max) => {
     if (!(CREATIVE_AI_LIMITS.curate && creativeAiAvailable() && creativeSpendToday().usd < CREATIVE_AI_LIMITS.dailyUsdCap)) throw new Error(creativeAiUnavailableReason() || 'the picture check is off or the daily budget is used up');
     try {
@@ -2810,7 +2815,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   } else if (creativeAiAvailable()) understandMeta.reason = 'the daily Creative AI budget is used up';
   if (understanding.clarify && !choice && !prior) {
     const charged = settleResearch(false);
-    return res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], ...creativeCredits(req.accountId, charged) });
+    return res.json({ ok: true, spatial: CREATIVE_SPATIAL_ON, jobId: job.id, understanding, understandMeta, research: { status: 'ambiguous', page: null, facts: [], options: understanding.clarify.options, question: understanding.clarify.question, log: { requests: 0, bytes: 0, ms: 0 } }, images: [], ...creativeCredits(req.accountId, charged) });
   }
   if (choice && understandMeta.source === 'rules' && understanding.kind !== 'personal') Object.assign(understanding, { kind: 'recognizable', subject: choice, query: choice });
   let result = { status: 'skipped', facts: [], options: [], log: { requests: 0, bytes: 0, ms: 0 } };
@@ -2859,7 +2864,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   const curationOut = result.curation || null;
   creativeAppend({ at: new Date().toISOString(), kind: 'creative_research', accountId: req.accountId, ok: true, status: result.status, subjectKind: understanding.kind, requests: result.log.requests, bytes: result.log.bytes, ms: Date.now() - startedAt, images: images.length, facts: (result.facts || []).length, paidCalls: 0, usd: 0 });
   const charged = settleResearch(false);
-  res.json({ ok: true, jobId: job.id, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ web: webDiag }, creativeResearch.pictureStage(webDiag)) : null }, images, ...creativeCredits(req.accountId, charged) });
+  res.json({ ok: true, spatial: CREATIVE_SPATIAL_ON, jobId: job.id, understanding, understandMeta, research: { status: result.status, page: result.page || null, facts: result.facts || [], options: result.options || [], log: result.log, curation: curationOut, review, diagnostics: needsPictures ? Object.assign({ web: webDiag }, creativeResearch.pictureStage(webDiag)) : null }, images, ...creativeCredits(req.accountId, charged) });
 });
 
 // The model directs the page. The browser sends what it has (understanding, the research facts, the
@@ -2896,7 +2901,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     brief: clean(b.brief, 1200), understanding: u, understandingLegacy: { kind: clean(u.kind, 20), subject: clean(u.subject, 120) },
     page: b.page && typeof b.page === 'object' ? { title: clean(b.page.title, 200), description: clean(b.page.description, 300), url: clean(b.page.url, 400) } : null,
     facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
-    assets, thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
+    assets, models: arr(b.models, 2).map(m => require('./lib/creative/store').cleanModel(Object.assign({}, m, { dataUrl: undefined, assetRef: (m && m.assetRef) || '0'.repeat(64) }))).filter(Boolean), thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
     avoid: clean(b.avoid, 600), seed: clean(b.seed, 40),
     // the art direction for this page: chosen here for the subject, its register and the pictures that exist, away from
     // this account's recent recipes and (for another direction) from this page's current one
@@ -2914,7 +2919,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   let r;
   try {
     r = await creativeAi.direct(input, {
-      limits: CREATIVE_AI_LIMITS, call: creativeModelCall,
+      limits: CREATIVE_AI_LIMITS, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON,
       budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out during this direction' } : { ok: true }),
       onUsage: x => {
         // the claim check (cheap model) is its own row: it costs, but is not a direction
@@ -2939,7 +2944,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   }
   const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
   creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd });
-  res.json(Object.assign({}, directed, creativeCredits(req.accountId, CREDIT_COSTS.creativeDirection)));
+  res.json(Object.assign({ spatial: CREATIVE_SPATIAL_ON }, directed, creativeCredits(req.accountId, CREDIT_COSTS.creativeDirection)));
 });
 
 // V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE
@@ -3731,13 +3736,14 @@ async function creativeRedesign({ accountId, directionsState, directionIndex, di
   if (!releaseBudget) return fail(503, 'edit_failed', CREATIVE_BUDGET_MSG, { reason: 'provider_budget' });
   const t0 = Date.now();
   const input = creativeRefinement.buildCreativeReviseInput(direction, request, String(Date.now()));
+  input.models = (direction.creative.models || []).map(m => ({ id: m.id, format: 'glb', of: m.of || '', bytes: m.bytes || 0 }));
   const usages = []; let model = null;
   // one bounded repair at most, and a per-call ceiling, so the whole update fits the app's wait
   const limits = Object.assign({}, CREATIVE_AI_LIMITS, { repairs: Math.min(CREATIVE_AI_LIMITS.repairs, 1), timeoutMs: Math.min(CREATIVE_AI_LIMITS.timeoutMs, 90000) });
   let r;
   try {
     r = await creativeAi.direct(input, {
-      limits, call: creativeModelCall,
+      limits, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON,
       budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
       onUsage: x => {
         usages.push(x.usage); if (x.step !== 'claims') model = x.model;

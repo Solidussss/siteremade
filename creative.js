@@ -16,7 +16,7 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
-      projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null,
+      projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null, models: [], spatialOn: false,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -61,7 +61,7 @@
       '<label for="csSupplied">True details, one per line</label><textarea id="csSupplied" rows="4" maxlength="2000" placeholder="Bubbles lived with us for nine years.\nHe raced to the glass whenever someone came home."></textarea>',
       '<label for="csMemories">Favourite memories, one per line (optional)</label><textarea id="csMemories" rows="3" maxlength="2000"></textarea>',
       '<p class="cs-hint">A personal page only ever shows your own photos of them and only says what you write here.</p></details>',
-      '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><div class="cs-thumbs" id="csThumbs"></div></div>',
+      '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><input type="file" id="csModel" accept=".glb,model/gltf-binary" hidden><button type="button" class="cs-btn cs-ghost" id="csModelBtn" title="Optional: a 3D model of your main subject, used only on pages with a 3D layer">+ Add a 3D model (.glb)</button><div class="cs-thumbs" id="csThumbs"></div></div>',
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
       '<p class="cs-cost" id="csCostNote">A Creative page costs <strong>4 credits</strong>: the research, picture search and checks, the direction and its automatic fixes. Another direction for the same page costs 3. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
@@ -84,6 +84,8 @@
     els.csClose.addEventListener('click', close);
     els.csCreate.addEventListener('click', function () { create(); });
     els.csUploadBtn.addEventListener('click', function () { els.csUpload.click(); });
+    var mb = document.getElementById('csModelBtn'), mi = document.getElementById('csModel');
+    if (mb && mi) { mb.addEventListener('click', function () { mi.click(); }); mi.addEventListener('change', function () { addModel(mi.files && mi.files[0]); mi.value = ''; }); }
     els.csUpload.addEventListener('change', function () { addUploads([].slice.call(els.csUpload.files || [])); els.csUpload.value = ''; });
     els.csSave.addEventListener('click', save);
     els.csBuy.addEventListener('click', buyOrDownload);
@@ -236,10 +238,24 @@
       });
     });
   }
+  // a 3D model (GLB): checked for its signature and size here, stored with the project like its pictures, drawn only by a
+  // page with a 3D layer -- a page without one, or a browser that cannot draw it, shows the main picture instead
+  function addModel(file) {
+    if (!file) return; if (file.size > 8 * 1024 * 1024) { els.csError.hidden = false; els.csError.textContent = 'That 3D model is larger than 8 MB. Please use a smaller .glb file.'; return; }
+    var r = new FileReader(); r.onload = function () {
+      var url = String(r.result || ''); var i = url.indexOf(','); var head = ''; try { head = atob(url.slice(i + 1, i + 9)).slice(0, 4); } catch (e) { head = ''; }
+      if (i < 0 || head !== 'glTF') { els.csError.hidden = false; els.csError.textContent = 'That file is not a binary glTF (.glb) model.'; return; }
+      S.models = [{ id: 'm' + Date.now().toString(36), format: 'glb', origin: 'upload', title: file.name.replace(/\.[a-z0-9]+$/i, ''), of: liveMain() || '', bytes: file.size, mime: 'model/gltf-binary', dataUrl: 'data:model/gltf-binary;base64,' + url.slice(i + 1) }];
+      renderThumbs(); if (S.plan) markDirty();
+    }; r.readAsDataURL(file);
+  }
+  function modelMeta() { return (S.models || []).map(function (m) { return { id: m.id, format: 'glb', of: m.of || '', bytes: m.bytes || 0, title: m.title }; }); }
   function renderThumbs() {
     var ups = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     var roles = [['auto', 'Let the page decide'], ['main', 'Main subject'], ['supporting', 'Supporting'], ['background', 'Background'], ['logo', 'Logo']];
     els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerPicked ? '<small title="' + esc(a.pageUrl || '') + '">picked from ' + esc(a.author || 'the web') + '</small>' : a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
+    (S.models || []).forEach(function (m) { els.csThumbs.insertAdjacentHTML('beforeend', '<figure class="cs-model"><span>3D · ' + esc(m.title || 'model') + '</span><button type="button" data-rm-model="' + esc(m.id) + '" aria-label="Remove the 3D model">×</button></figure>'); });
+    [].forEach.call(els.csThumbs.querySelectorAll('[data-rm-model]'), function (b) { b.addEventListener('click', function () { S.models = S.models.filter(function (m) { return m.id !== b.getAttribute('data-rm-model'); }); renderThumbs(); if (S.plan) markDirty(); }); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-rm]'), function (b) { b.addEventListener('click', function () { removeAsset(b.getAttribute('data-rm')); }); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-role-for]'), function (sel) { sel.addEventListener('change', function () { setUploadRole(sel.getAttribute('data-role-for'), sel.value); }); });
   }
@@ -282,7 +298,7 @@
       creditsFrom(r.data);
       if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
-      var d = r.data; S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || '';
+      var d = r.data; S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || ''; S.spatialOn = !!d.spatial;
       var u = d.understanding || {};
       step('understand', 'done', describeUnderstanding(u) + (S.understandMeta && S.understandMeta.source === 'ai' ? ' · AI (' + ((S.understandMeta.ms || 0) / 1000).toFixed(1) + 's)' : ' · built-in reader' + (S.understandMeta && S.understandMeta.reason ? ' (' + S.understandMeta.reason + ')' : '')));
       if (d.research.log) { S.cost.researchRequests += d.research.log.requests || 0; S.cost.researchBytes += d.research.log.bytes || 0; }
@@ -476,7 +492,7 @@
       }).catch(function () { return null; });
     })).then(function (list) { return list.filter(Boolean); });
   }
-  function ctx2() { var sp = supplied(); return { page: (S.research && S.research.page) || null, mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
+  function ctx2() { var sp = supplied(); return { spatial: S.spatialOn ? 'on' : '', models: modelMeta(), page: (S.research && S.research.page) || null, mainAsset: null, assets: live(), facts: (S.research && S.research.facts) || (S.plan && S.plan.facts) || [], understanding: legacyU(), supplied: sp.facts.concat(sp.memories) }; }
   // the main picture's own colours, for the palette: the owner's main picture, else the best picture of the subject
   function pictureColours() {
     var pick = (S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; })) || live().filter(function (a) { return !a.cutoutOf; }).sort(function (a, b) { var s = function (x) { var k = x.curation; return (x.origin === 'upload' ? 4 : 0) + (k && k.role === 'subject' ? 2 : 0) + (x.relevance || 0); }; return s(b) - s(a); })[0];
@@ -488,11 +504,11 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), thumbnails: th, avoid: avoid || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
-      creditsFrom(d);
+      creditsFrom(d); if (typeof d.spatial === 'boolean') S.spatialOn = d.spatial;
       // not enough credits, or no page job: nothing was spent, and the page is not swapped for a free layout
       if (d.creditsExceeded || d.needsJob || d.inProgress) return { stop: d.message || d.reason || 'This direction could not start.' };
       // (what this account made recently, so a built-in page steers away from it too)
@@ -575,7 +591,7 @@
     } catch (e) { return a.dataUrl; }
   }
   function refresh(first) {
-    var html = S.plan.v === 2 ? C.render2.renderCreative2(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion }) : C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
+    var html = S.plan.v === 2 ? C.render2.renderCreative2(S.plan, (S.models || []).length ? live().concat(S.models) : live(), { mode: 'preview', src: srcFor, motion: S.previewMotion }) : C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
     var y = 0; try { y = first ? 0 : frame.contentWindow.scrollY; } catch (e) { y = 0; }
     frame.onload = function () { try { if (y) frame.contentWindow.scrollTo(0, y); } catch (e) { /* ignore */ } };
     frame.srcdoc = html; S.lastHtml = html;
@@ -804,7 +820,7 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   function save() {
@@ -827,7 +843,7 @@
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
     S.projectId = p.id; S.revision = p.revision; S.status = p.status || null; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
-    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
+    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.models = c.models || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }

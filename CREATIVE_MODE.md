@@ -343,11 +343,8 @@ validator bounds, the renderer implements (`plan.timeline`).
 * **Behavioural anti-repetition.** A page's fingerprint is `layout#behavior`: the actors' lifecycle, the signature
   transitions, the rhythm, the moments, the typography's behaviour, the progression and the scroll model. Similarity
   weighs both halves, so two pages with different layouts but the same choreography count as alike.
-* **Renderer tiers** (`lib/creative/renderers.js`): `dom` (this renderer, the default and the only one implemented) and
-  `spatial` (WebGL / Three.js / 3D models / particles / shaders / a real camera -- an interface only: a plan may ask for
-  it, the page says `data-renderer="dom"` and is rendered by dom). A spatial renderer must render from the same
-  timeline, bundle its dependencies with the export, embed the dom page as its fallback (phones, reduced motion, no
-  WebGL, no script) and keep the dom tier's rules.
+* **Renderer tiers** (`lib/creative/renderers.js`): `dom` (this renderer, the default) and `spatial` (the optional
+  WebGL layer over the same DOM page -- see "The spatial tier" below).
 * **Phones** recompose: every beat moves half as far (`--mk`), the picture actor stands in the top of the screen above
   its scene's words, rotation is clamped to 8 degrees, secondary and background actors are not shown, the wipe loses its
   skew, held scenes are shorter. **Reduced motion and no scripting**: the cast does not play; the actor rests, as a real
@@ -369,9 +366,81 @@ eleven made after it:
 | before | 13 - 25 (`getBoundingClientRect` per scene, nav target and hold, every frame) | 6 - 24 ms | 6 - 36 ms |
 | after | 0 | 6 ms (one page 12 ms) | 6 - 24 ms |
 
-The far ambient haze no longer blurs a 72vmax animated layer (the gradient was already soft). No WebGL, canvas or
-third-party script is used; the whole runtime remains a few kilobytes of fixed code. Effects that would need heavier
-technology (particle fields, real 3D morphs, video-like flights) are not attempted.
+The far ambient haze no longer blurs a 72vmax animated layer (the gradient was already soft). The DOM tier uses no
+WebGL, canvas or third-party script; its runtime remains a few kilobytes of fixed code. Depth, particles and camera
+flights belong to the optional spatial tier (below); real 3D morphs are not attempted.
+
+## The spatial tier (`lib/creative/spatial.js`, `spatial-runtime.js`)
+
+An optional layer for the few concepts that genuinely gain from real depth. It is **off unless `CREATIVE_SPATIAL=on`**,
+and even then most pages stay DOM. The architecture is unchanged -- director -> validated timeline -> renderer selection
+-> renderer -- and the spatial layer reads the SAME validated timeline (scenes, actors, moments, rhythm, transitions,
+pictures, words, colours) plus a few bounded fields of its own. The model never writes code; it may ask for
+`renderer: 'spatial'`, and the decision below has the last word.
+
+* **The decision** (`decide`, deterministic, recorded as `timeline.why` and in the direction's notes). Reasons for
+  spatial: `model` (a GLB the owner supplied for the subject), `object-turn` (a clean, sharp cut-out of a product or
+  character whose page has an actor-turn/entrance moment), `camera-flight` (2-5 neighbouring wide, sharp pictures -- or
+  the steps of one held chapters scene -- on a place/flight/chapters page), `globe` (a technology / data / global
+  concept), `lineup` (a lineup scene of 3+ pictures of a product or character), `particles`, `card-planes`. Strong
+  reasons count twice; spatial needs a score of 2. Reasons to stay DOM, any one enough: the flag off, a quiet or
+  editorial mode or family, a fashion/portfolio/editorial/memorial subject, a personal page, a calm personality (luxe,
+  still, editorial), no sharp picture (`weak-pictures`), nothing that needs depth (`no-reason`). **Immersive mode is
+  never a reason.** The flag gates the choice when a page is composed; a page accepted as spatial stays spatial on
+  reopening and in its export (the render follows the validated plan, never the environment).
+* **The block** (`timeline.spatial`, validated by `normalise` on every save, reopen and export): quality ceiling
+  (high|medium), phone policy (lite|dom), depth pattern (layered|deep|tunnel), fog; **camera keys** `{g, dz, dx, dy,
+  yaw, pitch}` (bounded: dz -0.3..0.5 of the camera distance, dx/dy +-12% of the screen, yaw +-14 deg, pitch +-8 deg; at
+  most 24; start and end at rest; a rate limit per unit of scroll so the camera never jumps) with the move each scene
+  makes (hold, push-in, pull-back, lateral, rise, fall, orbit, handoff, reveal, fly-through); **actors in depth** (per
+  timeline key: z and a Y turn; form billboard | plane | model); **set pieces** (flight, lineup, cards, globe); **one
+  particle field** (burst, ambient, dust, stars, points, data -- capped per style); the timeline's transitions mapped to
+  their spatial meaning (derived, never chosen apart from it); image morphs (dissolve, cross).
+* **The camera follows the rhythm**: an event moves it (orbit for an actor's turn, fly-through for a chapter flight or a
+  dive, lateral for a lineup rush, rise for a colour flood or world change, pull-back for a type break), an escalation
+  moves it further, a rest holds it still, a depth hand-off dives through its seam, and the last scene holds at rest so
+  the page ends on its designed composition.
+* **Transitions in depth**: actor-carry -> the actor moving through world space; depth-handoff -> a camera dive;
+  foreground-wipe -> a slab passing the camera; image-expand -> the next picture approaching until it fills the screen;
+  card-expand -> a card flying forward; shape-takeover -> a disc approaching; colour-bleed -> the fog changing colour;
+  type-mask stays a DOM effect (a word as a window is sharpest as type).
+* **Morphs**: a dissolve (a picture leaving through fine screen-space grain) and a cross-morph (one picture becoming the
+  next in the same place). **No geometry morphs**: they need two models with matching morph targets, which this tier
+  does not support (morph targets in a GLB are ignored).
+* **Models**: one GLB (binary glTF 2.0), uploaded by the owner in the studio ("+ Add a 3D model (.glb)", at most 8 MB),
+  stored like the pictures (content-addressed) and exported as a file under `assets/`. The runtime reads a subset:
+  triangle meshes, float positions, optional normals and texture coordinates, node transforms, base colour and an
+  embedded base colour texture, at most 8 primitives and 80,000 triangles. Not supported (the model is then not drawn):
+  skins, animations, Draco/meshopt compression, sparse accessors, required extensions. **A model is never required**: an
+  actor always carries its picture, drawn as a turning plane until the model has loaded, and for good if it does not.
+* **The runtime** (`spatial-runtime.js`, ~38 KB, inlined in the page -- no CDN, no library): WebGL 1 with picture
+  planes (cover-cropped, never stretched, mipmapped, premultiplied), billboards, a GLB mesh, GPU point fields, globe arcs,
+  fog and a perspective camera whose rest view maps the page 1:1 (an actor at rest lands where the DOM actor would: 8-11
+  px on desktop, 0 px on phones in the review). It draws BEHIND the DOM words (which stay sharp, selectable, editable and
+  accessible) and above the backdrop; while it runs the scenes are transparent over the backdrop, and a DOM picture,
+  actor or transition element is hidden only after its replacement has been drawn. Three.js was not used: the page needs
+  about six primitives, and three.js plus its GLB loader would add ~800 KB to every spatial page.
+* **Budgets** (`QUALITY`, per device tier; the plan sets the ceiling): high -- DPR 1.75, 1,600 particles, 2,400 globe
+  points, 12 arcs, 16 textures up to 2,048 px, 1 model, 80k triangles, 40 draw calls; medium -- DPR 1.25, 800, 1,400, 8,
+  12 at 1,600 px, 28 draw calls; low -- DPR 1, 260 particles, 600 points, 4 arcs, 8 textures at 1,024 px, no model, 16
+  draw calls. Pictures are uploaded no larger than they are seen (actors, lineups and cards at most 1,024 px, 512 px on a
+  phone). A device that cannot hold its frame rate steps down a tier, and below the lowest hands the page back to DOM.
+* **Phones**: the low tier -- no model, fewer particles, DPR 1, half the depth, no orbit or sideways camera travel,
+  smaller textures, at most 5 cards or lineup pictures, the actor in the same top band as the DOM actor; a page whose only
+  reasons are decorative (particles, card planes) gives phones the DOM page.
+* **Reduced motion**: the spatial layer never starts; the DOM page shows its complete still composition (a globe is
+  drawn there as a still SVG of the same points).
+* **Failure**: no hardware WebGL (software emulation counts as none), a context that throws, a driver error, a lost
+  context, a picture WebGL may not read (a page opened from disk), a model that will not load, or any error -- the layer
+  removes itself (or the one piece) and the DOM page is exactly what it would have been.
+* **Export and ownership**: the runtime is part of `index.html`; pictures and models are files in `assets/`; nothing is
+  loaded from SiteRemade or any other server; README.md says the 3D layer needs the folder to be served by a web host
+  (opened from disk it shows the flat page).
+* **Anti-repetition**: the fingerprint gains `x:<camera moves>/<depth>/<spatial transitions>/<particles>/<actor
+  forms>/<set pieces>`; two DOM pages compare exactly as before, and a spatial page never reads as the same as a DOM one.
+* **Asset planning**: a spatial page records what it wanted -- a transparent cut-out, another angle of the subject, an
+  environment picture, a foreground element, a model -- and whether it had them; discovery may look for another angle
+  within the same single extra search (SerpApi, unchanged; no Wikimedia Commons). Never required.
 
 ## Built-in pipeline (stage 1; now the labelled fallback)
 
@@ -484,6 +553,13 @@ Business pricing and behaviour are unchanged. No credits are charged for Creativ
   jumps, transitions validated, every number bounded, at most three moving things a scene, hero moments and rhythm,
   typography as an actor, image expand, type mask, colour bleed and takeovers, phone recomposition, reduced motion,
   behavioural anti-repetition, save / reopen / export byte for byte, old pages untouched, renderer tiers, asset needs.
+* The spatial tier: `node --test test/creative-spatial.test.js` -- the renderer decision (and that DOM stays the
+  default, that immersive alone is never a reason, that the flag gates it), the validated block, camera / model /
+  particle / texture bounds, the picture fallback for a model, the runtime itself run against browsers with no WebGL, a
+  throwing context, a driver error, a lost context, reduced motion and a phone, a model that will not load, transitions
+  mapped from the timeline, the export (runtime inside, model as a file, no CDN), reopening byte for byte (spatial and
+  old DOM pages), the depth fingerprint, asset planning, and the Business asset path unchanged. Visual review:
+  controlled pages captured through scroll with the GPU on (desktop 1440x900, phone 390x844 emulated).
 * Picture discovery: `node --test test/creative-discovery.test.js` -- several distinct search families by default, a
   weak first search followed by others, shopping results never counting as the subject, fan-made-only reported as found
   but not official, unclear rights reported apart from discovery and reaching the owner's review, free pictures still

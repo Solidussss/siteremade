@@ -266,14 +266,14 @@ test('16. old projects stay valid: pages saved before the timeline (and before m
 });
 
 // ---------------------------------------------------------------- the renderer tiers and the asset needs
-test('renderer tiers: dom always; a spatial request is honoured only when it exists and is switched on -- otherwise dom, and the page says so', () => {
+test('renderer tiers: dom by default; a spatial request without a validated spatial block is dom, and loads nothing heavy (the tier itself: creative-spatial.test.js)', () => {
   assert.equal(RENDERERS.resolve({ timeline: { renderer: 'dom' } }).id, 'dom');
-  assert.equal(RENDERERS.resolve({ timeline: { renderer: 'spatial' } }, { CREATIVE_SPATIAL: 'on' }).id, 'dom', 'not implemented in this build');
-  assert.equal(RENDERERS.RENDERERS.spatial.available, false);
+  assert.equal(RENDERERS.resolve({ timeline: { renderer: 'spatial' } }).id, 'dom', 'no spatial block');
+  assert.equal(RENDERERS.RENDERERS.spatial.available, true);
   const P = JSON.parse(JSON.stringify(story('sp').plan)); P.timeline.renderer = 'spatial';
   const v = validatePlan2(P, ctxOf(u('Doughnut', 'x', 'playful'), { mode: 'safety' }));
-  assert.equal(v.plan.timeline.renderer, 'spatial', 'the request is kept'); assert.match(html(v.plan), /data-renderer="dom"/, 'the page is rendered by dom');
-  assert.doesNotMatch(html(v.plan), /three|webgl|<canvas/i, 'no heavy dependency is loaded');
+  assert.equal(v.plan.timeline.renderer, 'dom', 'nothing spatial to draw: the page is dom'); assert.match(html(v.plan), /data-renderer="dom"/);
+  assert.doesNotMatch(html(v.plan), /three|webgl|<canvas|cr-spatial/i, 'no heavy dependency is loaded');
 });
 
 test('asset needs follow the motion: a page records what its choreography needed from its pictures, and discovery searches for it', () => {
