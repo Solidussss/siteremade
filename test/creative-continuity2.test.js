@@ -97,9 +97,10 @@ test('3. the colour handoff opens before the seam and closes after the next scen
 // ================================================================ 4. the premium hero sets the opening's language
 test('4. a premium hero video shapes the next scenes: its motion continues across two seams, its colour holds and leans into three scenes', () => {
   const P = page('3', { premium: { video: true, intent: 'cinematic_hero', source: 'u1' }, ctx: { premiumHero: { intent: 'cinematic_hero', source: 'u1' } } });
-  const ct = P.timeline.continuity; assert.equal(ct.hero.video, true); assert.equal(ct.hero.motion, 'in', 'before the video exists: a push-in');
+  const ct = P.timeline.continuity; assert.equal(ct.hero.video, true); assert.equal(ct.hero.motion, 'none', 'before the video exists its direction is unknown: nothing is guessed');
   const next = ct.contracts.filter(k => k.at > ct.hero.scene && k.at <= ct.hero.scene + 2 && k.family !== 'actor-carry');
-  assert.ok(next.length >= 1); next.forEach(k => { assert.equal(k.motionVector, 'in'); assert.equal(k.paletteHandoff === 'hold' || k.paletteHandoff === 'sweep', true); });
+  assert.ok(next.length >= 1); next.forEach(k => { assert.equal(k.paletteHandoff === 'hold' || k.paletteHandoff === 'sweep', true, 'its colour holds already'); });
+  const plain = page('3'); next.forEach(k => assert.equal(k.motionVector, plain.timeline.continuity.contracts.find(x => x.at === k.at).motionVector, 'the seams keep their own pictures\' direction'));
   // the measured motion of the delivered video replaces it, and the page re-validates with it
   const tuned = validatePlan2(PAL.retune(P, '#1a7adf', 'lr'), { mode: 'safety', assets: ASSETS, facts: FACTS, understanding: UND }).plan;
   assert.equal(tuned.timeline.continuity.hero.motion, 'lr');
@@ -108,10 +109,49 @@ test('4. a premium hero video shapes the next scenes: its motion continues acros
   const t = PAL.sceneTones(5, { bg: '#101014' }, ['#0b2f8a', '#c81328', '#c81328', '#c81328', '#c81328'], { hero: '#e76917' });
   const d = [1, 2, 3, 4].map(i => PAL.distance(t[i], PAL.tone('#c81328', { bg: '#101014' })));
   assert.ok(d[0] > d[1] && d[1] > d[2] && d[3] === 0, `the lean fades over three scenes: ${d}`);
-  // the measurement itself: a subject moving right; a subject growing (a push-in)
-  const frame = (x0, w) => { const W = 64, H = 40, D = new Uint8ClampedArray(W * H * 4); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; const on = x >= x0 && x < x0 + w && y > 12 && y < 28; D[i] = on ? 250 : 10; D[i + 1] = on ? 250 : 40; D[i + 2] = on ? 250 : 120; D[i + 3] = 255; } return { width: W, height: H, data: D }; };
-  assert.equal(CT.videoMotion(frame(10, 12), frame(30, 12)), 'lr'); assert.equal(CT.videoMotion(frame(30, 12), frame(10, 12)), 'rl');
-  assert.equal(CT.videoMotion(frame(26, 8), frame(20, 22)), 'in'); assert.equal(CT.videoMotion(frame(20, 12), frame(20, 12)), 'none');
+  // a measurement that comes back unsure clears an earlier direction: the seams go back to their own pictures' direction
+  const unsure = validatePlan2(PAL.retune(tuned, null, 'none'), { mode: 'safety', assets: ASSETS, facts: FACTS, understanding: UND }).plan;
+  assert.equal(unsure.timeline.continuity.hero.motion, 'none');
+  unsure.timeline.continuity.contracts.forEach(k => assert.equal(k.motionVector, plain.timeline.continuity.contracts.find(x => x.at === k.at).motionVector));
+});
+
+// ================================================================ 4b. the video's motion, measured honestly
+// a textured synthetic scene filmed through a known camera move (zoom s about the centre, then a shift tx, ty in 64-wide px)
+const TEX = (u, v) => 128 + 50 * Math.sin(u * 0.31 + Math.sin(v * 0.17) * 2) + 40 * Math.cos(v * 0.27 - u * 0.11) + 30 * Math.sin((u + v) * 0.53);
+const OTHER = (u, v) => 128 + 60 * Math.sin(u * 0.7 + v * 0.4) * Math.cos(v * 0.9);
+function film(s, tx, ty, opt) {
+  const o = opt || {}, W = o.W || 64, H = o.H || 40, k = 64 / W, cx = (W - 1) / 2, cy = (H - 1) / 2, D = new Uint8ClampedArray(W * H * 4); let seed = o.noise || 0;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const u = cx + (x - cx - tx / k) / s, v = cy + (y - cy - ty / k) / s, i = (y * W + x) * 4, L = (o.tex || TEX)(u * k, v * k) + (o.noise ? rnd() * 16 : 0) + (o.bright || 0); D[i] = L; D[i + 1] = L * 0.9; D[i + 2] = L * 0.8; D[i + 3] = 255; }
+  return { width: W, height: H, data: D };
+}
+test('4b. the video motion estimator: a true pan, a true push-in and pull-back, and "none" for mixed, ambiguous or static frames', () => {
+  const still = film(1, 0, 0);
+  // a horizontal pan, both ways (and through a little sensor noise)
+  let m = CT.estimateMotion(still, film(1, 6, 0)); assert.equal(m.motion, 'lr'); assert.ok(m.confidence > 0.8); assert.deepEqual(m.pan, [6, 0]);
+  assert.equal(CT.videoMotion(still, film(1, -6, 0)), 'rl');
+  assert.equal(CT.videoMotion(film(1, 0, 0, { noise: 7 }), film(1, 5, 0, { noise: 11 })), 'lr');
+  // a zoom is a zoom -- never read as a sideways move (the earlier estimator's mistake), also toward an off-centre point
+  m = CT.estimateMotion(still, film(1.12, 0, 0)); assert.equal(m.motion, 'in'); assert.ok(Math.abs(m.zoom - 1.12) < 0.02, `zoom ${m.zoom}`);
+  assert.equal(CT.videoMotion(still, film(1.12, -1.2, 0)), 'in', 'a push-in toward a point left of centre');
+  assert.equal(CT.videoMotion(film(1, 0, 0, { W: 160, H: 100 }), film(1.12, 0, 0, { W: 160, H: 100 })), 'in', 'larger frames: the same bounded grid');
+  m = CT.estimateMotion(still, film(0.88, 0, 0)); assert.equal(m.motion, 'out');
+  // mixed or ambiguous: no direction is invented
+  assert.equal(CT.estimateMotion(still, film(1.1, 4, 0)).motion, 'none', 'a pan and a zoom of a size: mixed');
+  assert.equal(CT.estimateMotion(still, film(1, 0, 0, { tex: OTHER })).motion, 'none', 'a cut to another picture: no camera move explains it');
+  assert.equal(CT.estimateMotion(still, film(1, 0, 5)).motion, 'none', 'a vertical move has no left/right/in/out to continue');
+  // static: the same frame, the same frame with noise, the same frame brighter
+  assert.equal(CT.estimateMotion(still, film(1, 0, 0)).why, 'static');
+  assert.equal(CT.videoMotion(film(1, 0, 0, { noise: 3 }), film(1, 0, 0, { noise: 5 })), 'none');
+  assert.equal(CT.videoMotion(still, film(1, 0, 0, { bright: 30 })), 'none', 'a brightening is not a move');
+  // missing or mismatched frames
+  assert.equal(CT.videoMotion(null, still), 'none'); assert.equal(CT.videoMotion(still, film(1, 0, 0, { W: 32, H: 20 })), 'none');
+  // and an unsure reading never steers the seams after the hero
+  const P = page('3', { premium: { video: true, intent: 'cinematic_hero', source: 'u1' }, ctx: { premiumHero: { intent: 'cinematic_hero', source: 'u1' } } });
+  const guess = CT.videoMotion(still, film(1.1, 4, 0)); assert.equal(guess, 'none');
+  const Q = validatePlan2(PAL.retune(P, null, guess), { mode: 'safety', assets: ASSETS, facts: FACTS, understanding: UND }).plan;
+  assert.equal(Q.timeline.continuity.hero.motion, 'none');
+  assert.deepEqual(Q.timeline.continuity.contracts.map(k => k.motionVector), P.timeline.continuity.contracts.map(k => k.motionVector));
 });
 
 // ================================================================ 5. text placement from the picture
@@ -131,6 +171,14 @@ test('5. words go where the picture is empty: a subject on the right puts them l
   const R = comp(right), L = comp(left);
   assert.ok(R.text.place.gc[1] <= 6 && R.text.shade === 'left', `subject right -> words left (${JSON.stringify(R.text.place)}, shade ${R.text.shade})`);
   assert.ok(L.text.place.gc[0] >= 7 && L.text.shade === 'right', `subject left -> words right (${JSON.stringify(L.text.place)}, shade ${L.text.shade})`);
+  // each side's words hug their own frame edge (where the shade is deepest, the subject furthest): mirror images
+  assert.equal(R.text.place.align, 'left'); assert.equal(L.text.place.align, 'right');
+  // on a phone the words sit at the foot of the picture: the side shade becomes a foot shade under them (browser QA found
+  // the side band washing over the picture's subject while the words sat below it)
+  const hp = html(page('2'));
+  assert.match(hp, /@media \(max-width:720px\)\{\.sc\[data-mplace\] \.sc-shade:is\(\[data-shade="left"\],\[data-shade="right"\],\[data-shade="top"\]\)\{top:auto;bottom:0;left:0;right:0;width:auto;height:46%/);
+  assert.match(hp, /\.sc\[data-mplace="overlay"\] \.sc-text\[data-align="right"\]\{text-align:left\}/, 'and read left-aligned there');
+  assert.match(hp, /\.sc-text\[data-v\]\[data-align="right"\] :is\(\.sc-body,\.sc-list\),\.sc-text\[data-v\]\[data-align="right"\]\[data-width="narrow"\] \.sc-heading\{margin-left:auto\}/);
   void S; void E;
   // the contract records where the words sit; the shades are drawn from their side
   assert.equal(CT.placementOf({ text: { region: 'top-right' } }), 'right'); assert.equal(CT.placementOf({ text: { region: 'center' } }), 'center');
@@ -163,8 +211,14 @@ test('7. the page does what the contracts say: a carry travels between the two p
   const withCarry = carried ? P : (() => { const Q = JSON.parse(JSON.stringify(P)); Q.timeline.continuity.contracts[0].carry = 'strong'; Q.scenes[0].layers.find(L => L.role === 'focal' && L.kind === 'image') || Q.scenes[0].layers.unshift({ id: 'x', kind: 'image', role: 'focal', asset: 'u1', box: { d: [0, 0, 60, 100], m: [0, 0, 100, 60] }, z: 3, rotate: 0, opacity: 1, mask: 'none', treatment: 'none', entrance: { kind: 'fade', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 } }); return Q; })();
   const h = html(withCarry);
   if (withCarry.scenes[1].layers.some(L => L.role === 'focal' && L.kind === 'image')) assert.match(h, /<div class="cs cs-carry" data-at="\d+" data-lead="0" data-span="[\d.]+" data-end="[\d.]+" data-carry="(strong|light)"><img class="csc-a"/);
-  assert.match(h, /function carry\(S,w\)\{/); assert.match(h, /S\.A\.getBoundingClientRect\(\),rb=S\.B\.getBoundingClientRect\(\)/, 'both pictures measured live');
-  assert.match(h, /S\.A\.style\.visibility='hidden';S\.B\.style\.visibility='hidden'/, 'the two copies step aside while it travels');
+  assert.match(h, /function carry\(S,w,y0,y1\)\{/); assert.match(h, /var ra=S\.A\.getBoundingClientRect\(\),rb=S\.B\.getBoundingClientRect\(\)/, 'both pictures measured live');
+  assert.match(h, /S\.A\.style\.visibility=P\.lift>0&&w<P\.lift\+\.06\?'':'hidden';S\.B\.style\.visibility=P\.land<1&&w>P\.land-\.06\?'':'hidden'/, 'the two copies step aside while it travels');
+  // its route keeps the words readable: the page carries the planner verbatim, plans from the words' line boxes near the
+  // seam (phone-sized below 720px), and checks again every frame
+  assert.ok(h.includes(require('../lib/creative/carry-route').SOURCE), 'the same planner the tests exercise');
+  assert.match(h, /querySelectorAll\('\.sc-heading,\.sc-kicker,\.sc-body'\)/); assert.match(h, /r\.selectNodeContents\(t\);\[\]\.forEach\.call\(r\.getClientRects\(\)/);
+  assert.match(h, /level:S\.lv,phone:vw<=720\}\)/); assert.match(h, /op=R\.o\*cl\(2-cover\(R,T,vw,vh\)\)/);
+  assert.match(h, /if\(P\.level==='none'\)\{if\(S\.on\)\{S\.on=0;st\.opacity='0';S\.A\.style\.visibility='';S\.B\.style\.visibility=''\}return\}/, 'no safe path: the scenes keep their own pictures');
   // depth and direction
   assert.match(h, /\.sc\[data-seam-out="depth-handoff"\] \.sc-stage\{scale:calc\(1 \+ var\(--sx,0\) \* \.3\);opacity:calc\(1 - var\(--sx,0\) \* \.9\);filter:blur/);
   assert.match(h, /\.sc:is\(\[data-vin\],\[data-vout\]\) \.sc-stage\{translate:calc\(\(\(1 - var\(--sn,1\)\) \* var\(--vi,0\)/);

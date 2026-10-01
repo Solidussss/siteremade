@@ -378,7 +378,8 @@
       + (v.premiumHero ? (v.premiumHero.source ? ' · the premium video starts from ' + name(v.premiumHero.source) + (v.premiumHero.note ? ' (' + v.premiumHero.note + ')' : '') : ' · premium video: ' + v.premiumHero.note) : '');
   }
   // the delivered video's colour cast and the way it moves, measured from two of its frames (same-origin file: the canvas
-  // stays readable) -> { cast, motion } (motion: lr / rl / in / out / none -- the next seams continue it)
+  // stays readable) -> { cast, motion } (motion: lr / rl / in / out -- the next seams continue it -- or none when the
+  // frames do not show one clear camera move)
   function videoCast(url) {
     return new Promise(function (resolve) {
       var v = document.createElement('video'); var done = false; var cols = []; var frames = []; var times = []; var i = 0;
@@ -400,7 +401,7 @@
     return videoCast('/api/premium-media/' + encodeURIComponent(asset.video.mediaId) + '/file').then(function (m) {
       var cast = m && m.cast, motion = m && m.motion;
       if (cast) asset.video.cast = cast;
-      if (cast || (motion && motion !== 'none')) S.plan = settle(C.palette.retune(S.plan, cast, motion));
+      if (cast || motion) S.plan = settle(C.palette.retune(S.plan, cast, motion));
       var hero = S.plan.timeline && S.plan.timeline.continuity && S.plan.timeline.continuity.hero;
       return 'Shown in the opening scene' + (hero && hero.end ? ', settling into its still frame as the page moves on' : '') + (cast ? ' · page colours tuned to its colour (' + cast + ')' : '') + (motion && motion !== 'none' ? ' · the next scenes continue its motion (' + ({ lr: 'left to right', rl: 'right to left', in: 'pushing in', out: 'pulling back' })[motion] + ')' : '');
     });

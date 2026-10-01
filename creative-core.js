@@ -832,7 +832,13 @@
         p.scenes.forEach((s, i) => { if (s.tone && tones[i]) s.tone = tones[i]; });
         if (hero) hero.cast = cast.toLowerCase();
       }
-      if (hero && ['lr', 'rl', 'in', 'out'].includes(motion)) hero.motion = motion;
+      // (a measurement that came back unsure clears any earlier direction: 'none' is an answer too). The next two seams'
+      // stored directions are dropped so the re-validation derives them again -- from the measured motion, or, when there is
+      // none, from their own pictures -- instead of keeping what was there before the video existed
+      if (hero && ['lr', 'rl', 'in', 'out', 'none'].includes(motion)) {
+        hero.motion = motion; const at = hero.scene || 0;
+        ((p.timeline.continuity.contracts) || []).forEach(k => { if (k.at > at && k.at <= at + 2) delete k.motionVector; });
+      }
       return p;
     }
 
@@ -1980,21 +1986,56 @@
       });
       return { changed, seams: seams.map(s => ({ at: s.at, family: s.tr.family, relationship: s.rel ? s.rel.relationship : 'carry' })) };
     }
-    // the direction a delivered video moves, from two of its frames ({ width, height, data } RGBA): where its subject (the
-    // pixels far from the frame's mean colour) sits and how far it spreads -> lr / rl (it travels), in / out (it grows or
-    // shrinks: the camera pushes in or pulls back), none
-    function videoMotion(f1, f2) {
-      const stat = f => {
-        const { width: W, height: H, data: D } = f; let r = 0, g = 0, b = 0, n = 0;
-        for (let i = 0; i < D.length; i += 4) { r += D[i]; g += D[i + 1]; b += D[i + 2]; n++; }
-        r /= n; g /= n; b /= n; let sx = 0, sw = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
-        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; const d = Math.abs(D[i] - r) + Math.abs(D[i + 1] - g) + Math.abs(D[i + 2] - b); if (d > 90) { sx += x; sw++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
-        return sw ? { cx: sx / sw / W, area: ((x1 - x0 + 1) * (y1 - y0 + 1)) / (W * H) } : null;
+    // the way a delivered video moves, from two of its frames ({ width, height, data } RGBA; the studio samples 64 x 40): the
+    // one camera move -- a pan (the picture shifts) or a zoom (it scales about the centre) -- that best turns the first frame
+    // into the second, found by a small bounded search on brightness (at most 64 x 40 samples, a fixed set of candidates).
+    // -> { motion: lr | rl | in | out | none, confidence 0..1, pan: [dx, dy] px, zoom, why }
+    // It never invents a direction: 'none' when the frames barely differ, when no single move explains the change much
+    // better than standing still (a cut, noise, flicker), when the pan and the zoom are of a size (a mixed move has no one
+    // direction to continue), when the best pan and the best zoom explain it about equally, or when the move is vertical.
+    const ZOOMS = [0.8, 0.85, 0.9, 0.94, 0.97, 1, 1.03, 1.06, 1.11, 1.17, 1.25];
+    function estimateMotion(f1, f2) {
+      const none = why => ({ motion: 'none', confidence: 0, pan: [0, 0], zoom: 1, why });
+      if (!f1 || !f2 || !f1.data || !f2.data || f1.width !== f2.width || f1.height !== f2.height || f1.width < 16 || f1.height < 12) return none('no frames');
+      const W = Math.min(64, f1.width), H = Math.min(40, f1.height);
+      // brightness on a fixed small grid, each frame's mean taken away (a frame that only brightens has not moved)
+      const lum = f => {
+        const L = new Float32Array(W * H), sx = f.width / W, sy = f.height / H; let m = 0;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (Math.floor((y + 0.5) * sy) * f.width + Math.floor((x + 0.5) * sx)) * 4; const v = 0.299 * f.data[i] + 0.587 * f.data[i + 1] + 0.114 * f.data[i + 2]; L[y * W + x] = v; m += v; }
+        m /= W * H; for (let i = 0; i < L.length; i++) L[i] -= m; return L;
       };
-      const a = f1 && stat(f1), b = f2 && stat(f2); if (!a || !b) return 'none';
-      const dx = b.cx - a.cx, grow = b.area / Math.max(1e-6, a.area);
-      return Math.abs(dx) > 0.04 ? (dx > 0 ? 'lr' : 'rl') : grow > 1.06 ? 'in' : grow < 0.94 ? 'out' : 'none';
+      const A = lum(f1), B = lum(f2), cx = (W - 1) / 2, cy = (H - 1) / 2, M = 4, need = 0.5 * (W - 2 * M) * (H - 2 * M);
+      // the mean difference between the second frame and the first moved by (zoom s about the centre, then shift tx, ty)
+      const err = (s, tx, ty) => {
+        let e = 0, n = 0;
+        for (let y = M; y < H - M; y++) for (let x = M; x < W - M; x++) {
+          const u = cx + (x - cx - tx) / s, v = cy + (y - cy - ty) / s; if (u < 0 || v < 0 || u > W - 1 || v > H - 1) continue;
+          const x0 = Math.min(W - 2, Math.floor(u)), y0 = Math.min(H - 2, Math.floor(v)), fx = u - x0, fy = v - y0, i = y0 * W + x0;
+          const a = A[i] + (A[i + 1] - A[i]) * fx, b = A[i + W] + (A[i + W + 1] - A[i + W]) * fx;
+          e += Math.abs(B[y * W + x] - (a + (b - a) * fy)); n++;
+        }
+        return n >= need ? e / n : Infinity;
+      };
+      const E0 = err(1, 0, 0); if (E0 < 1.5) return none('static');
+      const tried = []; let best = { s: 1, tx: 0, ty: 0, e: E0 };
+      const look = (s, tx, ty) => { const e = err(s, tx, ty); tried.push({ s, tx, ty, e }); if (e < best.e) best = { s, tx, ty, e }; };
+      for (const s of ZOOMS) for (let tx = -16; tx <= 16; tx += 2) for (let ty = -8; ty <= 8; ty += 2) look(s, tx, ty);
+      const b0 = best; for (const ds of [-0.015, 0, 0.015]) for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) if (ds || dx || dy) look(b0.s + ds, b0.tx + dx, b0.ty + dy);
+      const gain = (E0 - best.e) / E0, zoomPx = Math.abs(best.s - 1) * W / 2, panPx = Math.hypot(best.tx, best.ty);
+      const out = (motion, why) => ({ motion, confidence: motion === 'none' ? 0 : Math.round(gain * 100) / 100, pan: [best.tx, best.ty], zoom: Math.round(best.s * 1000) / 1000, why });
+      if (gain < 0.3) return out('none', 'no single camera move explains the change');
+      if (Math.max(zoomPx, panPx) < 1) return out('none', 'too small to continue');
+      const zoomWins = zoomPx >= 2 * panPx, panWins = panPx >= 2 * zoomPx;
+      if (!zoomWins && !panWins) return out('none', 'mixed pan and zoom');
+      // the other kind of move must explain it clearly worse, or the reading is a guess
+      const rival = tried.filter(c => (zoomWins ? Math.abs(c.s - 1) < 0.02 : Math.abs(c.s - 1) >= 0.03 && Math.hypot(c.tx, c.ty) <= 2)).reduce((m, c) => Math.min(m, c.e), Infinity);
+      if (rival - best.e < 0.1 * E0) return out('none', 'pan and zoom explain it about equally');
+      if (zoomWins) return out(best.s > 1 ? 'in' : 'out', best.s > 1 ? 'push in' : 'pull back');
+      if (Math.abs(best.tx) < 1.5 * Math.abs(best.ty) || Math.abs(best.tx) < 1) return out('none', 'vertical move');
+      return out(best.tx > 0 ? 'lr' : 'rl', 'pan');
     }
+    // (the direction alone: what the page continues; 'none' unless it is sure)
+    function videoMotion(f1, f2) { return estimateMotion(f1, f2).motion; }
     // (the earlier name: one upgrade pass -- now the whole page's seams are chosen from their pictures)
     function upgradeSeams(raw, ctx) { return chooseSeams(raw, ctx).changed; }
 
@@ -2127,9 +2168,10 @@
         hero = { asset: H.id, scene: H.scene, video, end, into, state: state(Object.assign(st, { surface: (hs.ink && HEX.test(hs.ink.surface || '') ? hs.ink.surface.toLowerCase() : '') })) };
         // (the delivered video's measured colour cast, once it exists: the page's colours were re-tuned to it)
         if (r.hero && HEX.test(r.hero.cast || '')) hero.cast = r.hero.cast.toLowerCase();
-        // the hero's motion (measured from the delivered video's frames; before it exists a premium hero is a push-in) and its
-        // language carried into the next two seams: the same direction, and its colour holding before it hands over
-        hero.motion = oneOf(r.hero && r.hero.motion, VECTORS, video ? 'in' : 'none');
+        // the hero's motion (MEASURED from the delivered video's frames -- until then, or when the measurement is unsure, none:
+        // a guessed direction never steers the next seams) and its language carried into the next two seams: the same
+        // direction when there is one, and its colour holding before it hands over
+        hero.motion = video ? oneOf(r.hero && r.hero.motion, VECTORS, 'none') : 'none';
         if (video) contracts.filter(k => k.at > H.scene && k.at <= H.scene + 2).forEach(k => {
           const g = given.get(k.at) || {};
           if (hero.motion !== 'none' && k.family !== 'actor-carry' && g.motionVector !== 'none') k.motionVector = hero.motion;
@@ -2309,7 +2351,7 @@
       return c;
     }
 
-    module.exports = { videoMotion, upgradeSeams, chooseSeams, relationOf, placementOf, RELATIONSHIPS, CARRY, PALETTE_HANDOFFS, DEPTH_HANDOFFS, TEXT_PLACEMENTS, VECTORS, INTENSITY, CARRIES, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
+    module.exports = { videoMotion, estimateMotion, upgradeSeams, chooseSeams, relationOf, placementOf, RELATIONSHIPS, CARRY, PALETTE_HANDOFFS, DEPTH_HANDOFFS, TEXT_PLACEMENTS, VECTORS, INTENSITY, CARRIES, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
 
   });
   __define("renderers", function (module, exports, require) {
@@ -2811,6 +2853,90 @@
     // comments stay in this file, not in every page
     const RUNTIME = '(' + spatialRuntime.toString().replace(/\r?\n[ \t]+/g, '\n').replace(/\n\/\/[^\n]*/g, '').replace(/\n\/\* eslint-disable \*\//g, '') + ')();';
     module.exports = { RUNTIME };
+
+  });
+  __define("carry-route", function (module, exports, require) {
+    'use strict';
+    // Text-safe routing for a subject carried across a seam (render2's .cs-carry). Pure functions, written in the page
+    // runtime's own dialect (ES5) so the SAME source runs in the published page (render2 inlines SOURCE) and in the tests.
+    //
+    //   carryPlan(o) -> { level, lane, scale, lift, land, blocked, why }
+    //     o: { a, b: the two pictures, texts: [{ x, y, w, h, k }] (k 'h' a heading, 'p' other words), all in PAGE
+    //          coordinates (CSS px); y0, y1: the scroll offsets where the carry's window opens and closes; vw, vh: the
+    //          screen; level: the contract's 'strong' | 'light'; phone }
+    //     Tries, in order: the straight path at full size, then an upper or lower edge lane (the side lanes too, on a wide
+    //     screen), then the same at a smaller size (strong -> light); when nothing keeps the headings clear, 'none' -- the
+    //     two scenes keep their own copies and the seam's other handoffs (colour, depth, direction) still tell the story.
+    //     A heading may be touched for at most one sample of the window (a trivial instant), never longer.
+    //   carryAt(plan, ra, rb, w, vw, vh) -> { x, y, w, h, o }: where the carried subject is at window position w (0..1),
+    //     from the two pictures' rects in SCREEN coordinates (live, as measured while the page scrolls); o: its opacity
+    //     (it fades in after lift, out before land -- the scene's own copy shows outside that span).
+    //   cover(R, texts, vw, vh) -> the worst share of any heading (or, at a higher bar, other words) that R hides.
+
+    /* eslint-disable no-var */
+    function carryAt(P, ra, rb, w, vw, vh) {
+      var e = w * w * (3 - 2 * w), bump = Math.sin(Math.PI * w), k = 1 - (1 - P.scale) * bump;
+      var cw = (ra.w + (rb.w - ra.w) * e) * k, ch = (ra.h + (rb.h - ra.h) * e) * k;
+      var cx = ra.x + ra.w / 2 + (rb.x + rb.w / 2 - ra.x - ra.w / 2) * e, cy = ra.y + ra.h / 2 + (rb.y + rb.h / 2 - ra.y - ra.h / 2) * e;
+      var m = Math.max(12, Math.min(vw, vh) * 0.04), top = m + (vw <= 720 ? 56 : 64);
+      if (P.lane === 'top') cy += (top + ch / 2 - cy) * bump;
+      else if (P.lane === 'bottom') cy += (vh - m - ch / 2 - cy) * bump;
+      else if (P.lane === 'left') cx += (m + cw / 2 - cx) * bump;
+      else if (P.lane === 'right') cx += (vw - m - cw / 2 - cx) * bump;
+      var f = 0.06, o = P.level === 'none' ? 0 : Math.min(P.lift > 0 ? Math.max(0, Math.min(1, (w - P.lift) / f)) : 1, P.land < 1 ? Math.max(0, Math.min(1, (P.land - w) / f)) : 1);
+      return { x: cx - cw / 2, y: cy - ch / 2, w: cw, h: ch, o: o };
+    }
+    function cover(R, T, vw, vh) {
+      var worst = 0, i, t, x0, y0, x1, y1, a, s;
+      for (i = 0; i < T.length; i++) {
+        t = T[i]; a = t.w * t.h; if (a <= 0) continue;
+        x0 = Math.max(R.x, t.x, 0); y0 = Math.max(R.y, t.y, 0); x1 = Math.min(R.x + R.w, t.x + t.w, vw); y1 = Math.min(R.y + R.h, t.y + t.h, vh);
+        if (x1 <= x0 || y1 <= y0) continue;
+        // (a heading counts from 4% of it hidden; other words from 25%)
+        s = (x1 - x0) * (y1 - y0) / a / (t.k === 'h' ? 0.04 : 0.25); if (s > worst) worst = s;
+      }
+      return worst;
+    }
+    function carryPlan(o) {
+      var N = 48, phone = !!o.phone, levels = o.level === 'light' ? ['light'] : ['strong', 'light'];
+      var SCALE = phone ? { strong: 0.78, light: 0.5 } : { strong: 1, light: 0.62 };
+      var lanes = phone ? ['direct', 'top', 'bottom'] : ['direct', 'top', 'bottom', 'left', 'right'];
+      var li, ln, P, i, w, Y, R, T, j, hit, best = null, run, r0, bad, b0, k;
+      for (li = 0; li < levels.length; li++) {
+        for (ln = 0; ln < lanes.length; ln++) {
+          P = { level: levels[li], lane: lanes[ln], scale: SCALE[levels[li]], lift: 0, land: 1 };
+          hit = [];
+          for (i = 0; i <= N; i++) {
+            w = i / N; Y = o.y0 + (o.y1 - o.y0) * w;
+            R = carryAt(P, { x: o.a.x, y: o.a.y - Y, w: o.a.w, h: o.a.h }, { x: o.b.x, y: o.b.y - Y, w: o.b.w, h: o.b.h }, w, o.vw, o.vh);
+            T = []; for (j = 0; j < o.texts.length; j++) T.push({ x: o.texts[j].x, y: o.texts[j].y - Y, w: o.texts[j].w, h: o.texts[j].h, k: o.texts[j].k });
+            hit.push(cover(R, T, o.vw, o.vh) >= 1);
+          }
+          // the longest stretch of the window that starts near the first picture, with at most one touched sample, and that
+          // sample never at its edges
+          run = null;
+          for (r0 = 0; r0 <= N * 0.35; r0++) {
+            if (hit[r0]) continue; bad = 0;
+            for (k = r0; k <= N; k++) { if (hit[k]) { bad++; if (bad > 1 || k === N || hit[k + 1]) break; } if (!run || k - r0 > run[1] - run[0]) run = [r0, k, bad]; }
+          }
+          if (!run) continue;
+          P.lift = run[0] ? Math.round(run[0] / N * 1000) / 1000 : 0; P.land = run[1] < N ? Math.round(run[1] / N * 1000) / 1000 : 1;
+          // a carry worth showing leaves near the first picture and travels at least half way; when the arrival sits under
+          // the next scene's own words (type laid over the picture by design) it hands over to that scene's copy -- drawn
+          // beneath its words -- before it gets there
+          if (P.lift > 0.35 || P.land < 0.5 || P.land - P.lift < 0.45) continue;
+          P.blocked = run[2]; b0 = (P.land - P.lift) - ln * 0.02;
+          if (!best || b0 > best.s) best = { s: b0, P: P };
+        }
+        if (best) { best.P.why = (best.P.lane === 'direct' ? 'clear' : best.P.lane + ' lane') + (best.P.level !== levels[0] ? ', smaller' : ''); return best.P; }
+      }
+      return { level: 'none', lane: 'direct', scale: 1, lift: 0, land: 1, blocked: 0, why: 'no text-safe path' };
+    }
+
+    // the page runtime's copy (one source of truth for the page and the tests)
+    const SOURCE = [carryAt, cover, carryPlan].map(f => f.toString()).join('\n');
+
+    module.exports = { carryPlan, carryAt, cover, SOURCE };
 
   });
   __define("art", function (module, exports, require) {
@@ -3541,8 +3667,9 @@
     //   height, choreos (allowed), stepFx } -- or null when the scene cannot be this archetype
     const A = {};
     // (a full-bleed picture: the words sit in the picture's own empty space -- its measured negative space, e.textSide --
-    // shaded from that side, never over its subject; unknown space keeps the masthead at the bottom)
-    const ROOM = { left: { place: { gc: [1, 5], v: 'middle', align: 'left' }, shade: 'left' }, right: { place: { gc: [8, 12], v: 'middle', align: 'left' }, shade: 'right' }, top: { place: { gc: [1, 8], v: 'top', align: 'left' }, shade: 'top' } };
+    // shaded from that side, never over its subject; unknown space keeps the masthead at the bottom. Words on the right hug
+    // the frame's right edge -- where their shade is deepest and the subject furthest -- as words on the left hug the left)
+    const ROOM = { left: { place: { gc: [1, 5], v: 'middle', align: 'left' }, shade: 'left' }, right: { place: { gc: [8, 12], v: 'middle', align: 'right' }, shade: 'right' }, top: { place: { gc: [1, 8], v: 'top', align: 'left' }, shade: 'top' } };
     A['editorial-hero'] = (S, e) => ({
       place: (ROOM[e.textSide] || {}).place || { gc: [1, 8], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'screen', shade: (ROOM[e.textSide] || {}).shade || 'bottom',
       slots: [{ d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', needs: 'bleed' }],
@@ -5989,6 +6116,7 @@
     const SP = require('./spatial');
     const RENDERERS = require('./renderers');
     const SPR = require('./spatial-runtime');
+    const CR = require('./carry-route');
 
     const FONT2 = Object.assign({}, FONTS, {
       mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
@@ -7015,7 +7143,7 @@
     /* the carried subject: one element travelling between the two scenes' pictures; the outgoing shot turns into the next */
     .cs-carry{inset:auto;left:0;top:0;width:0;height:0;border-radius:14px;overflow:hidden;filter:drop-shadow(0 26px 34px rgba(0,0,0,.35));will-change:left,top,width,height}
     .cs-carry img{position:absolute;inset:0;width:100%;height:100%}.cs-carry .csc-b{opacity:0}
-    .cs-carry[data-carry="light"]{filter:none}
+    .cs-carry:is([data-carry="light"],[data-carry-live="light"]){filter:none}
     /* the direction of motion across a seam: the scene arrives along the incoming vector and leaves along the outgoing one */
     .sc[data-vin="lr"]{--vi:-1}.sc[data-vin="rl"]{--vi:1}.sc[data-vout="lr"]{--vo:1}.sc[data-vout="rl"]{--vo:-1}
     html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc:is([data-vin],[data-vout]) .sc-stage{translate:calc(((1 - var(--sn,1)) * var(--vi,0) * var(--vamp,14) + var(--sx,0) * var(--vo,0) * var(--vamp,14) * .85) * 1vw) 0}
@@ -7031,6 +7159,10 @@
     .sc-shade[data-shade="left"],.sc-shade[data-shade="right"]{top:0;bottom:0;height:auto;width:60%;background:linear-gradient(90deg,color-mix(in srgb,var(--s-surface,var(--bg)) 90%,transparent),color-mix(in srgb,var(--s-surface,var(--bg)) 55%,transparent) 55%,transparent)}
     .sc-shade[data-shade="left"]{left:0;right:auto}.sc-shade[data-shade="right"]{right:0;left:auto;background:linear-gradient(270deg,color-mix(in srgb,var(--s-surface,var(--bg)) 90%,transparent),color-mix(in srgb,var(--s-surface,var(--bg)) 55%,transparent) 55%,transparent)}
     .sc-shade[data-shade="top"]{top:0;bottom:auto;height:58%;background:linear-gradient(180deg,color-mix(in srgb,var(--s-surface,var(--bg)) 92%,transparent),transparent)}
+    .sc-text[data-v][data-align="right"] :is(.sc-body,.sc-list),.sc-text[data-v][data-align="right"][data-width="narrow"] .sc-heading{margin-left:auto}
+    /* on a phone those words sit at the foot of the picture, left-aligned: the shade follows them there (a side band would
+       only wash over the picture -- and its subject -- while the words sat below it) */
+    @media (max-width:720px){.sc[data-mplace] .sc-shade:is([data-shade="left"],[data-shade="right"],[data-shade="top"]){top:auto;bottom:0;left:0;right:0;width:auto;height:46%;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--s-surface,var(--bg)) 76%,transparent) 55%,color-mix(in srgb,var(--s-surface,var(--bg)) 94%,transparent))}.sc[data-mplace="overlay"] .sc-text[data-align="right"]{text-align:left}.sc[data-mplace="overlay"] .sc-text[data-align="right"] :is(.sc-body,.sc-list){margin-left:0}}
     /* phones keep the same story, smaller: shorter travel, no blur, a softer echo */
     @media (max-width:720px){.sc{--vamp:5}.sc-ghost{opacity:.16}.cs-carry{filter:none}}
     /* a wipe is a band of the next scene's colour sweeping across, never a flat slab covering the screen */
@@ -7173,16 +7305,27 @@
         t=j?(mode==='hold'?EZ.ss(cl((t-.45)/.55)):EZ.ss(cl(t))):0;
         if(a!==BA){BA=a;cb.style.backgroundColor=a;cb.style.setProperty('--cbc',a);cb.style.setProperty('--cbg',ga||'transparent')}if(b!==BB){BB=b;cb2.style.backgroundColor=b;cb2.style.setProperty('--cbc',b);cb2.style.setProperty('--cbg',gb||'transparent')}
         if(mode!==BM){BM=mode;cb2.setAttribute('data-mode',mode)}t=Math.round(t*100)/100;if(t!==BT){BT=t;cb2.style.setProperty('--t',t);cb2.style.opacity=mode==='sweep'?(t>0?'1':'0'):String(t)}}
-      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+S.end*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
+      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+S.end*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w,end-span,end);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
     function pal(s){return s._pal||(s._pal=(function(v){var p=String(v||'-.4,0,blend').split(',');return[+p[0]||-.4,+p[1]||0,p[2]||'blend']})(s.getAttribute('data-pal')))}
     /* a carried subject: through its window the element follows the live positions of the two scenes' pictures (measured as
        they scroll), from the outgoing one to the incoming one, while both step aside; the outgoing shot turns into the next */
-    function carry(S,w){var el=S.el;if(!S.ok){S.ok=1;var q='.ly:is([data-role="focal"],[data-role="subject"])';S.A=all[S.at-1]&&all[S.at-1].querySelector(q);S.B=all[S.at]&&all[S.at].querySelector(q);S.ib=el.querySelector('.csc-b')}
+    /* its route keeps the words readable (carry-route.js): planned once per pass from the two pictures and the words' line
+       boxes -- straight, an upper/lower (or side) lane, smaller, or not at all -- and checked again every frame */
+    ${CR.SOURCE}
+    function wordsNear(S,sy){var T=[],r=d.createRange();[all[S.at-1],all[S.at],all[S.at+1]].forEach(function(s){if(!s)return;[].forEach.call(s.querySelectorAll('.sc-heading,.sc-kicker,.sc-body'),function(t){var k=t.classList.contains('sc-heading')?'h':'p';r.selectNodeContents(t);[].forEach.call(r.getClientRects(),function(q){if(q.width>1&&q.height>1)T.push({x:q.left,y:q.top+sy,w:q.width,h:q.height,k:k})})})});return T}
+    function box(r,dy){return{x:r.left,y:r.top+(dy||0),w:r.width,h:r.height}}
+    function carry(S,w,y0,y1){var el=S.el,vw=W.innerWidth,vh=W.innerHeight,sy=W.scrollY||W.pageYOffset;if(!S.ok){S.ok=1;var q='.ly:is([data-role="focal"],[data-role="subject"])';S.A=all[S.at-1]&&all[S.at-1].querySelector(q);S.B=all[S.at]&&all[S.at].querySelector(q);S.ib=el.querySelector('.csc-b');S.lv=el.getAttribute('data-carry')}
       if(!S.A||!S.B)return;var on=w>0&&w<1;
-      if(!on){if(S.on){S.on=0;el.style.opacity='0';S.A.style.visibility='';S.B.style.visibility=''}return}
-      var ra=S.A.getBoundingClientRect(),rb=S.B.getBoundingClientRect(),e=EZ.ss(w),L=function(p,q){return(p+(q-p)*e).toFixed(1)+'px'};
-      var st=el.style;st.left=L(ra.left,rb.left);st.top=L(ra.top,rb.top);st.width=L(ra.width,rb.width);st.height=L(ra.height,rb.height);
-      if(!S.on){S.on=1;st.opacity='1';S.A.style.visibility='hidden';S.B.style.visibility='hidden'}S.ib.style.opacity=EZ.ss(cl((w-.3)/.4)).toFixed(3)}
+      if(!on){S.P=null;if(S.on){S.on=0;el.style.opacity='0';S.A.style.visibility='';S.B.style.visibility=''}return}
+      var ra=S.A.getBoundingClientRect(),rb=S.B.getBoundingClientRect();
+      if(!S.P||S.vw!==vw||S.vh!==vh){S.vw=vw;S.vh=vh;S.T=wordsNear(S,sy);S.P=carryPlan({a:box(ra,sy),b:box(rb,sy),texts:S.T,y0:y0,y1:y1,vw:vw,vh:vh,level:S.lv,phone:vw<=720});el.setAttribute('data-carry-live',S.P.level);el.setAttribute('data-lane',S.P.lane)}
+      var P=S.P,st=el.style;
+      if(P.level==='none'){if(S.on){S.on=0;st.opacity='0';S.A.style.visibility='';S.B.style.visibility=''}return}
+      var R=carryAt(P,box(ra),box(rb),w,vw,vh),T=S.T.map(function(t){return{x:t.x,y:t.y-sy,w:t.w,h:t.h,k:t.k}}),op=R.o*cl(2-cover(R,T,vw,vh));
+      st.left=R.x.toFixed(1)+'px';st.top=R.y.toFixed(1)+'px';st.width=R.w.toFixed(1)+'px';st.height=R.h.toFixed(1)+'px';st.opacity=op.toFixed(3);S.on=1;
+      /* each scene's own copy stays until the carried one has taken over, and is back before it lets go */
+      S.A.style.visibility=P.lift>0&&w<P.lift+.06?'':'hidden';S.B.style.visibility=P.land<1&&w>P.land-.06?'':'hidden';
+      S.ib.style.opacity=EZ.ss(cl((w-.3)/.4)).toFixed(3)}
     /* steps: the words (and pictures) of a held scene, one state at a time */
     function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
       s._items.forEach(function(el,k){el.classList.toggle('is-on',k===ii)});

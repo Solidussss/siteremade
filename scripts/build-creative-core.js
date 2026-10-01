@@ -1,6 +1,6 @@
 'use strict';
 // Bundles the browser-safe Creative modules (lib/creative: understand, assets, framing, art,
-// archetypes, validate, validate2, director, director2, render, render2) into ONE file, creative-core.js at the repo root (window.SiteRemadeCreative;
+// archetypes, carry-route, validate, validate2, director, director2, render, render2) into ONE file, creative-core.js at the repo root (window.SiteRemadeCreative;
 // also a CommonJS module). Loaded by creative.js ONLY when someone opens Creative mode --
 // the Business builder never downloads it. Same pattern as scripts/build-premium-core.js.
 //
@@ -12,7 +12,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'creative');
 const OUT = path.join(ROOT, 'creative-core.js');
-const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'art', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
+const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'carry-route', 'art', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
 
 function build() {
   const parts = MODULES.map(name => {
