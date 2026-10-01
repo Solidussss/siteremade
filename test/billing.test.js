@@ -465,8 +465,8 @@ test('paid providers are off outside production: a development server with keys 
     assert.equal(plan.body.configured, false, 'the planner reports itself unavailable');
     const r = await research(call, { brief: BRIEF });
     assert.equal(r.body.understandMeta.source, 'rules', 'Creative uses its built-in reader');
-    const pm = await call('POST', '/api/premium-media/quote', { kind: 'creative', requests: [{ intent: 'cinematic_hero', asset: 'u1' }], assets: [] });
-    assert.equal(pm.body.available, false); assert.match(pm.body.message, /outside production/);
+    const pm = await call('POST', '/api/creative/price', { request: BRIEF, premium: { on: true, moments: 1, eligibleUploads: 1 } });
+    assert.equal(pm.body.premiumAvailable, false); assert.match(pm.body.premiumUnavailable, /unavailable in this environment/); assert.equal(pm.body.credits, 6, 'no premium line while paid providers are off');
     assert.equal(calls().filter(c => ['anthropic', 'serpapi', 'higgsfield', 'openai'].includes(c.provider)).length, 0, 'not one paid request left the server');
     const status = (await call('GET', '/api/admin/paid-providers', null, { 'x-admin-token': 'admin-test' })).body;
     assert.equal(status.mode, 'off');

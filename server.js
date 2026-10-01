@@ -2833,91 +2833,32 @@ app.post('/api/creative/check-pictures', requireAuth, requireSameOrigin, generat
 });
 
 // ---- PREMIUM MEDIA (lib/media/premium-media.js; Higgsfield is the provider today) ---------------------------------------
-// Optional, Creative only, never automatic: the Creative plan (or the owner) names a premium need -- an intent and the
-// picture it starts from -- the owner sees its credit quote, confirms, and only then is anything submitted. At most two
-// per generation; each inside the operation's provider budget; every finished output stored as this project's own asset.
+// PREMIUM MEDIA (Higgsfield): Creative only, uploads only, and ONLY when the owner chose a video mode in the generator
+// (Creative + Cinematic Hero: one clip; Creative Showcase: three). There is one way it is made: the durable premium job
+// of that generation (lib/premium-jobs.js) -- started after the page is directed, followed by polling, settled from the
+// provider's outcome. Nothing else (the brief's wording, the director, the critic, a post-generation suggestion) ever
+// spends provider money.
 const premiumMedia = require('./lib/media/premium-media.js');
 const { createHiggsfield } = require('./lib/media/higgsfield.js');
 const { getAssetStore } = require('./lib/adapters/asset-store.js');
-const premiumSources = new Map(); // token -> { ref, mime, until }: the one picture a provider may fetch, for 30 minutes
-function premiumUnavailable() { return paidProviders.key('higgsfield') ? '' : (paidProviders.mode() === 'off' ? 'Premium media is unavailable in this environment (paid providers are off outside production).' : 'Premium media is unavailable: HIGGSFIELD_API_KEY is not set on this server.'); }
+// THE KILL SWITCH for paid premium generation (server-side only): PREMIUM_PROVIDER_ENABLED=false stops every provider
+// submission that has not happened yet -- the video modes say they are unavailable, a job's unsent clips are not sent
+// (their credits returned), and Creative pages are made as usual. Clips already sent are still collected.
+function premiumProviderEnabled() { return String(process.env.PREMIUM_PROVIDER_ENABLED || 'true').trim().toLowerCase() !== 'false'; }
 function storeBytes(bytes, mime) {
   const { hash, byteLength } = getAssetStore().put(bytes);
   db.assetBlobs.insertIfMissing({ hash, contentType: mime, byteLength, createdAt: new Date().toISOString() });
   return hash;
 }
-app.post('/api/premium-media/quote', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
-  const b = req.body || {}; const projectId = clean(b.projectId, 120) || null;
-  const project = projectId ? projectStore.getOwnedProject(db, req.accountId, projectId) : null;
-  if (projectId && !project) return res.status(404).json({ ok: false, message: 'Website not found.' });
-  // Business websites stay light: premium media is never part of them
-  const kind = project ? (project.mode === 'creative' ? 'creative' : 'business') : clean(b.kind, 20);
-  if (kind !== 'creative') return res.status(409).json({ ok: false, message: 'Premium media is only for Creative websites.' });
-  const why = premiumUnavailable(); if (why) return res.json({ ok: false, available: false, message: why });
-  const assets = (Array.isArray(b.assets) ? b.assets : []).slice(0, 24).map(a => require('./lib/creative/store').cleanAsset(a)).filter(Boolean);
-  const v = premiumMedia.validateRequests(Array.isArray(b.requests) ? b.requests : [], { assets, models: Array.isArray(b.models) ? b.models.slice(0, 2) : [], mode: clean(b.artMode, 20), kind: 'creative', measure: premiumMeasured });
-  if (!v.requests.length) return res.json({ ok: false, dropped: v.dropped, message: v.dropped[0] ? `Nothing to make: ${v.dropped[0].reason}.` : 'Nothing to make.' });
-  // the source pictures are stored now (content-addressed), so what is executed is exactly what was quoted
-  const media = [];
-  for (const r of v.requests) {
-    const a = assets.find(x => x.id === r.sourceAssetId);
-    let ref = a.assetRef || null; let mime = a.mime || 'image/jpeg';
-    if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
-    if (!ref || !db.assetBlobs.find(ref)) continue;
-    // (priced from the configured model's real cost, with the safety buffer -- a 4K video is never quoted as a cheap asset)
-    const price = premiumPriceFor(r.intent); if (!price) { v.dropped.push({ intent: r.intent, reason: premiumMedia.REASONS.budget_blocked }); continue; }
-    media.push({ intent: r.intent, tier: price.code, credits: price.credits, source: { assetId: r.sourceAssetId, ref, mime, subject: r.subject, preset: r.preset, mediaType: r.mediaType } });
-  }
-  if (!media.length) return res.json({ ok: false, dropped: v.dropped, message: v.dropped.length ? v.dropped[v.dropped.length - 1].reason : 'The source picture could not be read.' });
-  await prepareCredits(req.accountId);
-  const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'premium_media', plan: { media } });
-  res.json({ ok: true, quote: quotes.publicView(q), dropped: v.dropped, creditsRemaining: creditsRemainingFor(req.accountId) });
-});
-app.post('/api/premium-media/execute', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
-  const q = quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60));
-  if (!q || q.operation !== 'premium_media') return res.status(404).json({ ok: false, message: 'Quote not found.' });
-  if (q.status === 'settled') return res.status(409).json({ ok: false, message: 'This premium media was already made.' });
-  const why = premiumUnavailable(); if (why) return res.json({ ok: false, available: false, message: why });
-  await prepareCredits(req.accountId);
-  const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: 30 * 60 * 1000 });
-  if (!acc.ok) return res.json({ ok: false, creditsExceeded: acc.reason === 'insufficient', reason: acc.reason, creditsRemaining: acc.remaining, message: acc.reason === 'insufficient' ? `${q.message} Your balance is ${acc.remaining}.` : 'This quote can no longer be used. Ask for a new one.' });
-  if (acc.existing) return res.status(409).json({ ok: false, inProgress: true, message: 'This premium media is already being made.' });
-  const budget = providerBudget.createBudget({ db, opId: acc.opId, ceilingUsd: q.ceilingUsd });
-  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
-  const requests = q.items.filter(i => i.source).map(i => ({ intent: i.intent, mediaType: i.source.mediaType, preset: i.source.preset, sourceAssetId: i.source.assetId, subject: i.source.subject, ref: i.source.ref, mime: i.source.mime }));
-  let out;
-  try {
-    out = await premiumMedia.run(requests, {
-      db, budget, costs: providerBudget.costs(), presets: premiumMedia.presets(), accountId: req.accountId, projectId: q.projectId, opId: acc.opId,
-      provider: createHiggsfield({ key: paidProviders.key('higgsfield') }), store: storeBytes,
-      sourceUrl: async r => { const token = crypto.randomBytes(24).toString('base64url'); premiumSources.set(token, { ref: r.ref, mime: r.mime, until: Date.now() + 30 * 60 * 1000 }); return `${base}/api/premium-media/source/${token}`; },
-    });
-  } catch (error) {
-    quotes.fail(db, q.id); console.error('Premium media failed:', error.message);
-    return res.json({ ok: false, message: 'The premium media could not be made. Your credits were not used.', creditsRemaining: creditsRemainingFor(req.accountId) });
-  }
-  // charged only for what was delivered (each premium item is optional in its quote)
-  const codes = out.delivered.map(intent => (q.items.find(i => i.intent === intent) || {}).code).filter(Boolean);
-  const settled = quotes.settle(db, q.id, { delivered: codes });
-  db.usage.add(acc.opId, { status: out.delivered.length ? 'ok' : 'failed', premium_json: JSON.stringify(out.media.map(m => m.intent)), provider_ids_json: JSON.stringify(out.media.map(m => m.providerJobId)) }, new Date().toISOString());
-  const assets = out.media.map(m => {
-    const premium = { mediaId: m.id, provider: m.provider, providerJobId: m.providerJobId, intent: m.intent, sourceAssetId: m.sourceAssetId };
-    if (m.mediaType === 'video') return { kind: 'video', sourceAssetId: m.sourceAssetId, video: { mediaId: m.id, assetRef: m.assetRef, mime: m.mime, intent: m.intent }, premium };
-    const bytes = getAssetStore().get(m.assetRef);
-    return { kind: 'image', asset: { id: `pm${m.id.slice(3, 14).replace(/[^\w-]/g, '')}`, origin: 'derived', title: `${m.intent.replace(/_/g, ' ')} (premium media)`, alt: '', mime: m.mime, dataUrl: bytes ? `data:${m.mime};base64,${bytes.toString('base64')}` : '', premium, rightsEvidence: [`made for this website from the owner's picture ${m.sourceAssetId}`] } };
-  });
-  res.json({ ok: true, delivered: out.delivered, failed: out.failed, assets, creditsCharged: settled.charged || 0, creditsRefunded: settled.refunded || 0, creditsRemaining: creditsRemainingFor(req.accountId) });
-});
+// the old separate premium-media quote / execute (a director's suggestion made after the page, in one long request) is
+// retired: premium video is chosen with the generation's mode and made by its premium job -- never a second, hidden way
+const PREMIUM_RETIRED = 'Premium video is chosen with the generation mode (Creative + Cinematic Hero or Creative Showcase) and made with the page. Nothing was charged.';
+app.post('/api/premium-media/quote', requireAuth, requireSameOrigin, (req, res) => res.status(410).json({ ok: false, retired: true, message: PREMIUM_RETIRED }));
+app.post('/api/premium-media/execute', requireAuth, requireSameOrigin, (req, res) => res.status(410).json({ ok: false, retired: true, message: PREMIUM_RETIRED }));
 // ---- PREMIUM MEDIA INSIDE THE CREATIVE GENERATION -------------------------------------------------------------------
 // The brief asked for it, the one quote included it, the owner confirmed it: after the page is directed the studio calls
 // this step on its own (no second offer, no second confirmation). Every outcome is reported in plain words -- made,
 // or exactly why not -- and logged ([premium-media], never a key).
-// the credits one premium asset of this intent costs with the configured model (buffered provider cost / per-credit target)
-function premiumPriceFor(intent) {
-  const def = premiumMedia.INTENTS[intent]; if (!def) return null;
-  const pre = premiumMedia.presets()[def.preset]; const table = providerBudget.costs().higgsfieldBudget;
-  return quotes.premiumTier(def.mediaType, table[pre.costKey] || 0);
-}
 function creativePremiumProvider() { return { hasKey: !!paidProviders.key('higgsfield'), mode: paidProviders.mode(), env: process.env }; }
 // PREMIUM VIDEO IS THE OWNER'S CHOICE in the generator (never switched on by the brief's wording, never changed by the
 // quote): { on, moments: 1 hero | 2 hero + takeover | 3 showcase, eligibleUploads: how many of their uploads are good
@@ -2955,11 +2896,18 @@ function premiumStatusForJob(job, brief) {
 // settled once, from what the provider actually delivered. (The old request made every clip in turn inside one HTTP
 // request: a showcase outlived the proxy -- HTTP 499 after about five minutes -- while the provider delivered every clip.)
 const premiumJobs = require('./lib/premium-jobs.js');
+const premiumPolicy = premiumJobs.policy(process.env);
+// the link a provider fetches a role's upload from: unguessable (only its hash is stored), scoped to that one stored
+// upload, durable across restarts (migrations/0012_premium_sources.sql), gone once the role has an outcome or at its expiry
+function premiumSourceLink(r, job) {
+  const token = crypto.randomBytes(32).toString('base64url'); const now = Date.now();
+  db.premiumSources.insert({ tokenHash: crypto.createHash('sha256').update(token).digest('hex'), premiumJobId: job.id, role: r.role, assetRef: r.sourceRef, mime: r.mime, expiresAt: new Date(now + premiumPolicy.holdMs).toISOString(), createdAt: new Date(now).toISOString() });
+  return `${r.sourceBase}/api/premium-media/source/${token}`;
+}
 const premiumWorker = premiumJobs.createWorker({
   db, provider: () => createHiggsfield({ key: paidProviders.key('higgsfield') }), presets: () => premiumMedia.presets(), costs: providerBudget.costs(), store: storeBytes,
-  // (the one picture the provider may fetch, for 30 minutes, from the address the start request came in on)
-  sourceUrl: async r => { const token = crypto.randomBytes(24).toString('base64url'); premiumSources.set(token, { ref: r.sourceRef, mime: r.mime, until: Date.now() + 30 * 60 * 1000 }); return `${r.sourceBase}/api/premium-media/source/${token}`; },
-  policy: premiumJobs.policy(process.env), log: rec => premiumLog(rec),
+  sourceUrl: async (r, job) => premiumSourceLink(r, job), releaseSource: (jobId, role) => db.premiumSources.deleteFor(jobId, role),
+  enabled: () => premiumProviderEnabled() && !!paidProviders.key('higgsfield'), policy: premiumPolicy, log: rec => premiumLog(rec),
 });
 async function startPremium(req, res) {
   const b = req.body || {}; const R = premiumMedia.REASONS; const jobKey = clean(b.jobId, 60);
@@ -3009,10 +2957,12 @@ async function startPremium(req, res) {
   }
   // each planned moment as a role of the job: ready to submit, or blocked with its reason (never charged)
   const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  // (each clip carries what it is OBSERVED to cost and what it is budgeted at -- lib/provider-budget.js clipCost)
+  const clip = providerBudget.clipCost();
   const roles = planned.map(item => {
     const r = requests.find(x => (x.role || '') === (item.role || '') && x.intent === item.intent);
     const key = item.role || 'single';
-    if (r) return { role: key, intent: r.intent, sourceAssetId: r.sourceAssetId, sourceRef: r.ref, mime: r.mime, sourceBase: base, preset: r.preset, mediaType: r.mediaType, subject: r.subject, credits: item.credits, state: 'pending' };
+    if (r) return { role: key, intent: r.intent, sourceAssetId: r.sourceAssetId, sourceRef: r.ref, mime: r.mime, sourceBase: base, preset: r.preset, mediaType: r.mediaType, subject: r.subject, credits: item.credits, estimatedUsd: clip.budgetUsd, observedUsd: clip.observedUsd, state: 'pending' };
     const sk = diag.skipped.find(x => (x.role || x.intent) === (item.role || item.intent)) || diag.skipped.find(x => x.intent === item.intent) || { reason: 'no_source', message: R.no_source };
     return { role: key, intent: item.intent, credits: item.credits, state: 'blocked', failure: { code: sk.reason, reason: sk.message } };
   });
@@ -3025,7 +2975,12 @@ async function startPremium(req, res) {
   db.usage.add(opId, { quoted: op.amount, reserved: op.amount, ceiling_usd: ceiling }, at);
   const project = clean(b.projectId, 120) ? projectStore.getOwnedProject(db, req.accountId, clean(b.projectId, 120)) : null;
   const strategy = planned.length >= 3 ? 'showcase' : planned.length === 2 ? 'cinematic' : 'standard';
-  const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: job.id, projectId: project ? project.id : null, quoteId: q ? q.id : null, opId, mode: strategy === 'standard' ? 'hero' : 'showcase', strategy, creditsReserved: op.amount, roles });
+  // the kill switch: nothing is sent -- every role blocked, its SiteRemade credits returned at once
+  if (!premiumProviderEnabled()) roles.forEach(r => { if (r.state === 'pending') { r.state = 'blocked'; r.failure = { code: 'premium_disabled', reason: R.premium_disabled }; } });
+  // the job's hard limits: its mode's clips (Hero 1, Showcase 3) and their provider budget (clips x 2.25 USD)
+  const mode = strategy === 'standard' ? 'hero' : 'showcase';
+  const budgetUsd = +(Math.min(roles.length, premiumJobs.MAX_CLIPS[mode]) * clip.budgetUsd).toFixed(2);
+  const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: job.id, projectId: project ? project.id : null, quoteId: q ? q.id : null, opId, mode, strategy, creditsReserved: op.amount, budgetUsd, roles });
   if (made.settleNow) premiumJobs.settle(db, made.job.id); else if (!made.reused) premiumWorker.kick(made.job.id);
   premiumLog({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, reused: made.reused, roles: roles.map(r => `${r.role}:${r.state}`), skipped: diag.skipped });
   return reply({ reused: made.reused, job: premiumJobs.view(db.premiumJobs.find(made.job.id)) });
@@ -3056,11 +3011,13 @@ app.get('/api/premium-media/:id/file', requireAuth, (req, res) => {
   res.setHeader('Content-Type', m.mime || 'application/octet-stream'); res.setHeader('Cache-Control', 'private, max-age=3600');
   res.end(bytes);
 });
-// the one source picture a provider may fetch while its request runs: an unguessable, 30-minute link to that picture only
+// the one source picture a provider may fetch for a premium role: an unguessable link (looked up by its hash, in the
+// database -- a restart never loses it) to that one stored upload, until the role has an outcome or the link expires
 app.get('/api/premium-media/source/:token', (req, res) => {
-  const t = premiumSources.get(String(req.params.token || ''));
-  if (!t || t.until < Date.now()) { premiumSources.delete(String(req.params.token || '')); return res.status(404).end(); }
-  const bytes = getAssetStore().get(t.ref); if (!bytes) return res.status(404).end();
+  const token = String(req.params.token || ''); if (!/^[\w-]{20,100}$/.test(token)) return res.status(404).end();
+  const t = db.premiumSources.findByHash(crypto.createHash('sha256').update(token).digest('hex'));
+  if (!t || t.expires_at <= new Date().toISOString()) return res.status(404).end();
+  const bytes = getAssetStore().get(t.asset_ref); if (!bytes) return res.status(404).end();
   res.setHeader('Content-Type', t.mime); res.setHeader('Cache-Control', 'no-store'); res.end(bytes);
 });
 
@@ -4076,7 +4033,9 @@ app.post('/api/creative/price', requireSameOrigin, async (req, res) => {
   const modes = { creative: modeQ({ on: false }), hero: modeQ({ on: true, moments: 1, eligibleUploads: 3 }), showcase: modeQ({ on: true, moments: 3, eligibleUploads: 3 }) };
   const session = getSessionAccount(req); let remaining = null;
   if (session) { await prepareCredits(session.accountId); remaining = creditsRemainingFor(session.accountId); }
-  res.json({ ok: true, items: q.items.map(i => Object.assign({ code: i.code, label: i.label, credits: i.credits, optional: !!i.optional }, i.role ? { role: i.role } : {})), credits: q.credits, minCredits: q.minCredits, baseCredits: base.credits, modes, premium: cp.status, creditsRemaining: remaining });
+  res.json({ ok: true, items: q.items.map(i => Object.assign({ code: i.code, label: i.label, credits: i.credits, optional: !!i.optional }, i.role ? { role: i.role } : {})), credits: q.credits, minCredits: q.minCredits, baseCredits: base.credits, modes, premium: cp.status, creditsRemaining: remaining,
+    // (whether the video modes can run at all: the kill switch, the provider's configuration)
+    ...(() => { const st = premiumMedia.providerState(creativePremiumProvider(), 'cinematic_hero'); return { premiumAvailable: st.ok, premiumUnavailable: st.ok ? '' : premiumMedia.REASONS[st.reason] || 'Premium video is unavailable right now.' }; })() });
 });
 app.get('/api/quotes/:id', requireAuth, (req, res) => {
   const q = quotes.get(db, req.accountId, clean(req.params.id, 60));
@@ -4119,6 +4078,11 @@ app.get('/api/credits/history', requireAuth, (req, res) => {
 app.get('/api/admin/usage-summary', (req, res) => {
   if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
   res.json({ ok: true, since: clean(req.query.since, 40) || null, operations: db.usage.summary(clean(req.query.since, 40) || null), usdPerCreditCeiling: pricing.USD_PER_CREDIT_CEILING, providers: paidProviders.status() });
+});
+app.get('/api/admin/premium-jobs/:id', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
+  const row = db.premiumJobs.find(clean(req.params.id, 60)); if (!row) return res.status(404).json({ ok: false });
+  res.json({ ok: true, telemetry: premiumJobs.telemetry(row), media: db.premiumMedia.forProject(row.project_id || '').filter(m => (JSON.parse(m.provenance_json || '{}').premiumJobId) === row.id).map(m => ({ id: m.id, providerJobId: m.provider_job_id, status: m.status, costUsd: m.cost_usd, preset: m.preset })) });
 });
 app.get('/api/admin/paid-providers', (req, res) => {
   if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });

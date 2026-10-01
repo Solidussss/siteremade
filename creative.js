@@ -357,7 +357,8 @@
     if (!els.csSum) return; var seq = ++priceSeq;
     priceModes().then(function (d) {
       if (seq !== priceSeq || !d) return; if (typeof d.creditsRemaining === 'number') showBalance(d.creditsRemaining);
-      MODES.forEach(function (m) { var el = els.csModes.querySelector('[data-mode-credits="' + m.id + '"]'); var p = d.modes && d.modes[m.id]; if (el) el.textContent = p ? (p.minCredits < p.credits ? 'up to ' : '') + p.credits + ' credits' : ''; });
+      S.premiumOff = d.premiumAvailable === false ? (d.premiumUnavailable || 'Premium video is unavailable right now.') : '';
+      MODES.forEach(function (m) { var el = els.csModes.querySelector('[data-mode-credits="' + m.id + '"]'); var card = els.csModes.querySelector('[data-mode="' + m.id + '"]'); var p = d.modes && d.modes[m.id]; var off = m.on && S.premiumOff; if (card) card.setAttribute('data-unavailable', off ? 'yes' : 'no'); if (el) el.textContent = off ? 'unavailable' : p ? (p.minCredits < p.credits ? 'up to ' : '') + p.credits + ' credits' : ''; });
       els.csSum.innerHTML = '<table class="cs-lines">' + costRows(d.items, d.credits, d.minCredits, d.creditsRemaining).map(function (l) { return '<tr' + (l.cls ? ' class="' + l.cls + '"' : '') + '><td>' + esc(l.label) + '</td><td>' + esc(l.value) + '</td></tr>'; }).join('') + '</table>'
         + (currentMode().on && eligibleCount() < currentMode().needs ? '<p class="cs-hint cs-needs">Needs ' + (currentMode().needs > 1 ? currentMode().needs + ' suitable uploaded photos' : 'a suitable uploaded photo') + ' before it can be created.</p>' : '')
         + (!currentMode().on && d.premium && d.premium.briefAsks ? '<p class="cs-hint">Your description mentions video: choose Cinematic Hero or Showcase to include it.</p>' : '');
@@ -421,7 +422,9 @@
   function afterSwitch(a) { if (a && a.indexOf('mode:') === 0) { setMode(a.slice(5)); return confirmGeneration(); } return null; }
   function confirmGeneration() {
     var m = currentMode(); var have = m.on ? eligibleCount() : 0;
-    return priceModes().then(function () {
+    return priceModes().then(function (pd) {
+      // (video modes are off on the server: the owner chooses Creative or stops -- nothing is quoted for video)
+      if (m.on && pd && pd.premiumAvailable === false) return modal({ title: m.name + ' is unavailable right now', text: pd.premiumUnavailable || 'Premium video is unavailable right now.', actions: [switchAction(MODES[0]), { id: 'cancel', label: 'Cancel' }] }).then(afterSwitch);
       if (m.on && have < m.needs) {
         var bad = pvVerdicts().filter(function (x) { return !x.ok; });
         var lower = MODES.filter(function (x) { return MODES.indexOf(x) < MODES.indexOf(m) && x.needs <= have; }).reverse();
@@ -609,7 +612,7 @@
   // then FOLLOWED by polling. The start returns at once; the provider's minutes happen on the server. A request that ends
   // (a refresh, a closed tab, a proxy timeout, a dropped connection) is never a premium failure: only the job's own outcome
   // is. Each delivered clip is attached to its moment once, measured and the page retuned, then the page is saved again.
-  var PV_STATE = { pending: 'Waiting', submitted: 'Queued', processing: 'Processing', delivered: 'Ready', failed: 'Failed', blocked: 'Not made' };
+  var PV_STATE = { pending: 'Queued', submitting: 'Submitting', submitted: 'Processing at Higgsfield', processing: 'Processing at Higgsfield', downloading: 'Downloading', delivered: 'Ready', failed: 'Failed', blocked: 'Not made' };
   var PV_KEY = 'siteremade:premiumJob';
   function rememberPremium(job) { try { localStorage.setItem(PV_KEY, JSON.stringify({ jobId: job.jobId, creativeJobId: job.creativeJobId, projectId: S.projectId || null })); } catch (e) { /* optional */ } }
   function sendAssets() {
@@ -630,7 +633,7 @@
       var d = (r && r.data) || {}; creditsFrom(d);
       if (d.job) { S.premiumJob = { jobId: d.job.jobId }; rememberPremium(d.job); showPremium(d.job); followPremium(d.job.jobId); return; }
       if (!r || !r.ok && !r.status) throw new Error('unreachable');
-      var st = (d.premium && d.premium.status) || { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not start.') + ' Its credits were returned.' };
+      var st = (d.premium && d.premium.status) || { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not start.') + ' Its SiteRemade credits were returned.' };
       S.premiumResult = st; step('premium', st.planned === false ? 'done' : 'failed', premiumHeadline(st));
     };
     return savedFirst().then(start).then(started).catch(function () {
@@ -647,7 +650,7 @@
     if (!box) { box = h('div', { id: 'csPvLive', class: 'cs-pvlive', 'aria-live': 'polite' }); els.csEditor.insertBefore(box, els.csEditor.firstChild); }
     box.setAttribute('data-state', job.status);
     box.innerHTML = '<p><strong>' + esc(job.message) + '</strong></p>'
-      + (steps ? '<ul class="cs-pvroles">' + job.roles.map(function (r) { return '<li data-state="' + esc(r.state) + '"><span>' + esc(r.label) + '</span><em>' + esc(PV_STATE[r.state] || r.state) + '</em></li>'; }).join('') + '</ul>' : '')
+      + (steps ? '<ul class="cs-pvroles">' + job.roles.map(function (r) { return '<li data-state="' + esc(r.state) + '"><span>' + esc(r.label) + '</span><em>' + esc((PV_STATE[r.state] || r.state) + (r.late ? ' (taking longer than usual)' : '')) + '</em></li>'; }).join('') + '</ul>' : '')
       + (job.terminal ? '' : '<p class="cs-hint">You can keep editing, or close this tab: the videos keep being made on our side and are added to the page when they are ready — reopen the page from your account to see them.</p>');
   }
   // follow a job until it has an outcome: polls back off from 3 s to 15 s; a failed poll is a reconnect, never a failure
@@ -1051,7 +1054,6 @@
     var dp = document.getElementById('csDirection'); if (!dp) { dp = h('div', { id: 'csDirection' }); els.csEditor.insertBefore(dp, els.csEditor.firstChild); }
     dp.innerHTML = directionPanel();
     document.getElementById('csAnother').addEventListener('click', function () { anotherDirection(); });
-    offerPremium();
     if (document.getElementById('csPrevious')) document.getElementById('csPrevious').addEventListener('click', previousDirection);
     [].forEach.call(dp.querySelectorAll('[data-upload]'), function (b) { b.addEventListener('click', function () { els.csUpload.click(); }); });
     if (document.getElementById('csRecompose')) document.getElementById('csRecompose').addEventListener('click', function () { S.plan = settle(S.plan, 'accept'); refresh(); buildEditor(); markDirty(); });
@@ -1185,48 +1187,10 @@
     var kb = Math.round((S.cost.researchBytes || 0) / 1024);
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
-      + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia for facts (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: 4 for the page (research and direction), 3 for each further direction.</p>';
+      + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia for facts (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: as confirmed in the quote for this page (Creative 6, plus 12 for each premium video clip that is made); another direction is priced before it runs.</p>';
   }
-  // PREMIUM MEDIA (optional): what the director suggested -- an intent and the picture it starts from. Quoted, confirmed,
-  // then made on the server; the finished media is stored with the project (a video plays over its picture).
-  var PREMIUM_LABEL = { cinematic_hero: 'a cinematic hero move', object_motion: 'the object in motion', image_to_video: 'this picture in motion', environment_motion: 'ambient motion in the scene', premium_transition: 'a cinematic transition', alternate_angle: 'another angle of the subject', image_enhance: 'an enhanced version of the picture', stylized_treatment: 'a stylised treatment of the picture' };
-  function offerPremium() {
-    var box = document.getElementById('csPremium'); var inQuote = (S.premium && S.premium.planned && S.premium.intents) || []; var byId = new Map(S.assets.map(function (a) { return [a.id, a]; }));
-    // (only from an upload good enough for it: premium media never starts from a web picture -- premium-source.js)
-    var list = ((S.plan && S.plan.premiumMedia) || []).filter(function (m) { return inQuote.indexOf(m.intent) < 0 && C.premiumSource.eligible(byId.get(m.asset), { byId: byId }).ok; });
-    if (!list.length) { if (box) box.remove(); return; }
-    if (!box) { box = h('div', { id: 'csPremium', class: 'cs-premium' }); els.csEditor.insertBefore(box, document.getElementById('csDirection').nextSibling); }
-    box.innerHTML = '<p><strong>Optional extra suggested by the director (not in your quote)</strong> — made only if you choose it, priced before anything runs.</p>' + list.map(function (m, i) { return '<p class="cs-hint">' + esc(PREMIUM_LABEL[m.intent] || m.intent) + (m.why ? ': ' + esc(m.why) : '') + ' <button type="button" class="cs-btn cs-ghost" data-pm="' + i + '">Price it</button></p>'; }).join('');
-    [].forEach.call(box.querySelectorAll('[data-pm]'), function (b) { b.addEventListener('click', function () { makePremium(list[+b.getAttribute('data-pm')]); }); });
-  }
-  function makePremium(sug) {
-    if (S.busy || !sug) return;
-    var src = S.assets.find(function (a) { return a.id === sug.asset; }); if (!src) return;
-    var parent = src.cutoutOf && S.assets.find(function (a) { return a.id === src.cutoutOf; });
-    S.busy = true;
-    var stop = function (msg) { S.busy = false; els.csError.hidden = false; els.csError.textContent = msg; };
-    return api('/api/premium-media/quote', { method: 'POST', body: { projectId: S.projectId || '', kind: 'creative', artMode: (S.plan.art && S.plan.art.mode) || '', requests: [sug], assets: [src].concat(parent ? [parent] : []), models: modelMeta() } }).then(function (r) {
-      var d = r.data || {};
-      if (!r.ok || !d.ok) return stop(d.message || 'Premium media is not available for this picture.');
-      return modal({ title: 'Make this premium media?', lines: costRows(d.quote.items, d.quote.credits, d.quote.minCredits, d.creditsRemaining), note: 'Charged only if it is made.', actions: [{ id: 'go', label: 'Make it (' + d.quote.credits + ' credits)', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (act) {
-      if (act !== 'go') { S.busy = false; return; }
-      return api('/api/premium-media/execute', { method: 'POST', body: { quoteId: d.quote.id } }).then(function (x) {
-        var e = x.data || {}; creditsFrom(e);
-        if (!x.ok || !e.ok) return stop(e.message || 'The premium media could not be made. Your credits were not used.');
-        if (!e.delivered.length) return stop('The premium media could not be made (' + ((e.failed[0] && e.failed[0].reason) || 'no result') + '). Your credits were not used.');
-        var adds = [];
-        (e.assets || []).forEach(function (m) {
-          if (m.kind === 'video') { var a = S.assets.find(function (x2) { return x2.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } }
-          else if (m.asset && m.asset.dataUrl) adds.push(processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }));
-        });
-        return Promise.all(adds).then(function () {
-          S.plan.premiumMedia = (S.plan.premiumMedia || []).filter(function (p) { return p !== sug; });
-          S.busy = false; refresh(true); markDirty(); buildEditor();
-        });
-      });
-      });
-    }).catch(function () { stop('The premium media could not be made. Your credits were not used.'); });
-  }
+  // (premium video is made only in the mode the owner chose for the generation: a director's premiumMedia suggestion is
+  // never offered as a paid extra -- it only helps pick which upload each chosen moment starts from)
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }
 

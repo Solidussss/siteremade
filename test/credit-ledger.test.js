@@ -175,19 +175,21 @@ test('Creative: a direction whose server died mid-call is recovered, not stuck',
 // ---------------------------------------------------------------- quote -> reserve -> execute -> settle
 const quotes = require('../lib/quotes');
 const pricing = require('../lib/pricing');
-test('quotes are built from the planned work: Creative base + spatial + a cinematic asset; updates by size; never provider costs', () => {
+test('quotes are built from the planned work: Creative base + spatial + a premium clip (always at its observed-cost price); updates by size; never provider costs', () => {
   const c = quotes.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero' }] });
-  assert.deepEqual(c.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, true]], 'premium media is charged only if it is delivered');
-  assert.equal(c.credits, 11); assert.equal(c.minCredits, 6);
-  assert.match(c.message, /^This generation will use up to 11 credits/);
-  assert.equal(c.ceilingUsd, +(11 * pricing.USD_PER_CREDIT_CEILING).toFixed(4));
+  assert.deepEqual(c.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_video_4k', 12, true]], 'premium media is charged only if it is delivered');
+  assert.equal(c.credits, 20); assert.equal(c.minCredits, 6);
+  assert.match(c.message, /^This generation will use up to 20 credits/);
+  assert.equal(c.ceilingUsd, +(20 * pricing.USD_PER_CREDIT_CEILING).toFixed(4));
+  // (a caller naming a cheap tier for a video clip does not get it: no path quotes a clip under its observed cost)
+  assert.equal(quotes.build('creative_generation', { premium: [{ intent: 'premium_transition', tier: 'premium_cinematic', credits: 3 }] }).credits, 18);
   assert.equal(quotes.build('business_generation').credits, 4);
   assert.equal(quotes.build('business_generation').message, 'This generation will use 4 credits.');
   assert.equal(quotes.build('website_update', { request: 'Change the hero headline to "Fresh bread daily"' }).credits, 1);
   assert.equal(quotes.build('website_update', { request: 'Move the testimonials above the services section' }).credits, 2);
   assert.equal(quotes.build('website_update', { request: 'Add a new FAQ page' }).credits, 3);
   assert.equal(quotes.build('website_update', { request: 'Redesign the whole website to feel premium and editorial, like a luxury brand' }).credits, 5);
-  assert.equal(quotes.build('premium_media', { media: [{ intent: 'image_enhance' }, { intent: 'object_motion' }, { intent: 'cinematic_hero' }] }).credits, 4, 'at most two premium assets');
+  assert.equal(quotes.build('premium_media', { media: [{ intent: 'image_enhance' }, { intent: 'object_motion' }, { intent: 'cinematic_hero' }] }).credits, 13, 'at most two premium assets (an image 1 + a video clip 12; the third is not quoted)');
   const view = quotes.publicView(Object.assign({ id: 'q', status: 'open', expiresAt: 'x' }, c));
   assert.ok(!JSON.stringify(view).includes('ceiling') && !/usd|\$/i.test(JSON.stringify(view)), 'customers never see provider money');
 });

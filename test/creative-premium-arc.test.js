@@ -92,26 +92,24 @@ test('2. the quote: one priced, optional line per moment (12 credits each at 4K)
 });
 
 // ================================================================ 3. reserve first, run within it, charge per moment
-function fakeDb() { const rows = new Map(); return { rows, premiumMedia: { insert: m => rows.set(m.id, Object.assign({}, m)), update: (id, f) => Object.assign(rows.get(id), f) }, usage: { add() {} }, ledger: { findOp: () => null } }; }
-function provider(failAt) {
-  const log = []; let n = 0;
-  return { log, submit: async (endpoint, params) => { n++; log.push({ endpoint, params }); return { requestId: `req_${n}` }; }, waitFor: async id => (id === `req_${failAt}` ? { status: 'failed' } : { status: 'completed', outputUrl: `https://out.example/${id}.mp4`, mediaType: 'video' }), download: async () => ({ bytes: Buffer.from('mp4-bytes'), mime: 'video/mp4' }) };
+// (the premium job -- lib/premium-jobs.js -- is the only executor: a fake provider on a fake clock, an in-memory ledger)
+const PJ = require('../lib/premium-jobs'); const credits = require('../lib/credits'); const { resetSqliteAdapter } = require('../lib/adapters/sqlite-database-adapter');
+function arcJob(budgetClips, failAt) {
+  const db = resetSqliteAdapter(require('path').join(require('os').tmpdir(), `sr-arc3-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.db`)); let t = Date.parse('2026-10-01T12:00:00Z');
+  credits.grant(db, { id: 'purchase:arc', accountId: 'acct', kind: 'purchase', amount: 100, source: 'test', now: new Date(t) });
+  credits.reserve(db, { accountId: 'acct', opId: 'cj_arcjob00001:premium', amount: 36, kind: 'creative_premium', now: new Date(t) });
+  let n = 0; const log = []; const provider = { submit: async () => { n++; log.push(n); return { requestId: `r${n}` }; }, status: async id => (id === `r${failAt}` ? { status: 'failed' } : { status: 'completed', outputUrl: `https://o.test/${id}.mp4` }), cancel: async () => true, download: async () => ({ bytes: Buffer.from('mp4'), mime: 'video/mp4' }) };
+  const roles = ['hero', 'takeover', 'payoff'].map(role => ({ role, intent: PA.ROLE_INTENT[role], sourceAssetId: role === 'takeover' ? 'world' : 'main', sourceRef: 'a'.repeat(64), mime: 'image/png', sourceBase: 'https://x.test', preset: 'video_clip', mediaType: 'video', credits: 12, estimatedUsd: 2.25, observedUsd: 2.1 }));
+  const job = PJ.create(db, { accountId: 'acct', creativeJobId: 'cj_arcjob00001', opId: 'cj_arcjob00001:premium', mode: 'showcase', strategy: 'showcase', creditsReserved: 36, budgetUsd: budgetClips * 2.25, roles }, t).job;
+  const w = PJ.createWorker({ db, provider, presets: PM.presets({ HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' }), costs: costs({}), store: () => 'b'.repeat(64), sourceUrl: async () => 'https://x.test/s', policy: Object.assign(PJ.policy({}), { firstCheckMs: 1e9, checkMs: 1e9, maxCheckMs: 1e9 }), now: () => t });
+  return { run: async () => { await w.tick(job.id); t += 60000; await w.tick(job.id); t += 60000; await w.tick(job.id); w.stop(); return PJ.view(db.premiumJobs.find(job.id)); }, log };
 }
-const reqs = () => ['hero', 'takeover', 'payoff'].map(role => ({ role, intent: PA.ROLE_INTENT[role], mediaType: 'video', preset: 'video_5s_720p', sourceAssetId: role === 'takeover' ? 'world' : 'main', subject: 'the drifter', credits: 12 }));
-const deps = (p, ceiling) => ({ db: fakeDb(), provider: p, budget: createBudget({ ceilingUsd: require('../lib/pricing').providerCeilingUsd(ceiling) }), costs: costs({}), presets: PM.presets({ HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' }), store: () => 'a'.repeat(64), sourceUrl: async () => 'https://siteremade.test/api/premium-media/source/tok', accountId: 'acct', projectId: 'p', opId: 'quote:q1' });
-test('3. cost: the whole arc must fit its reserve BEFORE the first submit (else the payoff, then the takeover, are dropped and never sent); no retries; each moment delivered or failed on its own', async () => {
-  const full = provider(); const out = await PM.run(reqs(), deps(full, 36));
-  assert.deepEqual(out.deliveredKeys, ['hero', 'takeover', 'payoff']); assert.equal(full.log.length, 3, 'three clips, one submit each');
-  const tight = provider(); const out2 = await PM.run(reqs(), deps(tight, 24));
-  assert.equal(tight.log.length, 2, 'the payoff never reached the provider'); assert.deepEqual(out2.deliveredKeys, ['hero', 'takeover']);
-  assert.deepEqual(out2.failed.map(f => [f.role, f.code]), [['payoff', 'budget_blocked']]);
-  const one = provider(); const out3 = await PM.run(reqs(), deps(one, 12));
-  assert.equal(one.log.length, 1); assert.deepEqual(out3.deliveredKeys, ['hero'], 'the hero is kept first');
-  // a failed takeover is its own failure: never retried, never charged; the others stand
-  const bad = provider(2); const out4 = await PM.run(reqs(), deps(bad, 36));
-  assert.equal(bad.log.length, 3, 'no retry'); assert.deepEqual(out4.deliveredKeys, ['hero', 'payoff']); assert.equal(out4.failed[0].role, 'takeover');
-  // more than three asked for: three run
-  const many = provider(); await PM.run(reqs().concat(reqs()), deps(many, 80)); assert.equal(many.log.length, 3);
+test('3. cost: the job never submits past its provider budget (the payoff, then the takeover, are not sent), never more than its mode\'s three, never retries; each moment delivered or failed on its own', async () => {
+  const full = arcJob(3); const v = await full.run(); assert.equal(full.log.length, 3, 'three clips, one submit each'); assert.equal(v.status, 'completed');
+  const two = arcJob(2); const v2 = await two.run(); assert.equal(two.log.length, 2, 'the payoff never reached the provider'); assert.deepEqual(v2.failed.map(f => [f.role, f.code]), [['payoff', 'budget_blocked']]);
+  const one = arcJob(1); const v3 = await one.run(); assert.equal(one.log.length, 1); assert.deepEqual(v3.delivered.map(m => m.role), ['hero'], 'the hero is kept first');
+  const bad = arcJob(3, 2); const v4 = await bad.run(); assert.equal(bad.log.length, 3, 'no retry'); assert.deepEqual(v4.delivered.map(m => m.role), ['hero', 'payoff']); assert.equal(v4.failed[0].role, 'takeover');
+  assert.deepEqual(v4.credits.charged, 24); assert.deepEqual(v4.credits.returned, 12);
 });
 
 // ================================================================ 4. the arc: hero, takeover, payoff -- one visual story

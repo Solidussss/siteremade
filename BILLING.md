@@ -29,8 +29,7 @@ the action credits live in `lib/pricing.js` (one place); Stripe price ids are en
 | Creative website (DOM) | 6 (1 research + 5 direction) |
 | + spatial (WebGL depth) rendering | +2 -- reserved, kept only if the system renders the page spatial |
 | Another Creative direction | 5 (+2 spatial) |
-| Premium media: image enhancement / short cinematic asset / extended | +1 / +3 / +5 |
-| Premium media: 5-second 4K cinematic hero video (Higgsfield 4K model) | **+12** (cost-based: 2.10 USD confirmed, 2.25 with the buffer, at 0.20 USD per credit; never below 11) |
+| Premium video clip (Higgsfield), only in a video mode, only if delivered | **+12** per clip (Cinematic Hero: 1 clip, up to 18 in all; Showcase: 3 clips, up to 42) |
 | Optional generated picture (support / premium) | 1 / 2 |
 | Manual edits, uploads, saving, downloading an owned website | 0 |
 
@@ -94,39 +93,51 @@ keys are never handed out, and a fetch guard refuses any request to a paid host 
 in the harness's own "mock" mode (`test/helpers/run-server.js` answers every provider; no environment variable can
 select it). Provider keys are read here only; never logged, serialised, exported or returned.
 
-Every operation has a provider-spend ceiling of credits x `USD_PER_CREDIT_CEILING` (0.20 USD, internal, never shown).
+Every operation has a provider-spend ceiling of credits x `USD_PER_CREDIT_CEILING` (0.20 USD of provider spend per credit,
+internal, never shown). It is a **ceiling, not the price of anything**: a premium clip is not 0.20 USD -- see below.
 `lib/provider-budget.js` holds the cost estimates and checks each planned call against what is left; nothing silently
 exceeds it.
 
-## Premium media (Higgsfield) -- optional, Creative only (`lib/media/`)
+## Premium video (Higgsfield) -- Creative only, uploads only, only in a chosen video mode
 
-SiteRemade remains the foundation (direction, timeline, DOM and spatial renderers, storage, export). Premium media is
-only for a meaningful improvement the rest cannot give.
+**What it costs (observed, not guaranteed).** One 5-second premium clip (Higgsfield, kling-video/v3.0/4k/image-to-video)
+has repeatedly taken about **2.10 USD** from the Higgsfield balance. It is budgeted at **2.25 USD** (2.10 x the 1.07
+safety buffer) -- one figure for every video model (`lib/provider-budget.js` `video_clip`, `clipCost()`): a cheaper
+per-model guess is never assumed. One clip: ~2.10 observed / 2.25 budgeted. A Showcase's three: ~6.30 / 6.75. A clip is
+priced at **12 credits** (2.25 USD needs ceil(2.25 / 0.20) = 12 credits of provider ceiling; never below the 11-credit floor).
 
-**In the generation itself.** When the brief explicitly asks for it (cinematic hero video, image-to-video, premium hero
-media, strong camera movement, product turn, alternate angle, environment motion, premium transition --
-`premium-media.requestedIntents`), the ONE Creative quote includes it, priced from the configured model's real cost
-(with the 4K model: 6 + spatial 2 + 4K cinematic hero 12 = up to 20 credits, 6 if the optional parts are not used). One
-premium video per generation (the hero); a second asset only when explicitly asked for and not another video. The owner
-confirms once, the job reserves it with the
-page, and right after the direction the studio runs `/api/creative/premium` on its own: it picks the source picture (the
-director's pick, else the page's opening picture, else the owner's uploads), checks permission, calls Higgsfield and
-settles at what was delivered. Every generation shows **"Premium media planned: Yes / No"** with the reason (not
-requested, no source picture, source image not eligible for transformation, missing API key, missing / invalid video or
-image endpoint, budget, renderer handled it, provider failed), as a progress step and in the direction panel, and the
-server logs one `[premium-media]` line per quote and per execution (never a key). A suggestion the director makes on its
-own, without a request, stays an explicitly labelled optional extra ("not in your quote").
+**Only the owner's choice spends it.** The generator offers Creative (6 credits, no Higgsfield), Creative + Cinematic
+Hero (one clip, up to 18) and Creative Showcase (hero, takeover and payoff, up to 42). Nothing else -- the brief's
+wording, the director's suggestions, the critic, anything after the page -- ever starts provider work: the old
+post-generation `/api/premium-media/quote` / `execute` answer 410. Sources are the owner's own uploads only, good
+enough for full-screen video (`lib/creative/premium-source.js`).
 
-The server submits fixed presets (the model in `HIGGSFIELD_VIDEO_ENDPOINT`, required -- a model id or a pasted full
-Higgsfield URL, normalised; parameters by model family, e.g. Kling 3.0: duration 5, sound off; an image endpoint only if
-configured), at most one submit per asset,
-inside the budget (a 1080p preset steps down; anything else that does not fit is not submitted). Sources: the owner's
-own upload, a cut-out of it, a discovered picture whose stated licence allows modification (never NoDerivatives), or a
-picture the owner picked AND confirmed for transformation -- rights-unclear discovered imagery and Wikimedia never.
-Finished outputs are downloaded and stored as the project's own assets with provenance; a website and its export never
-hotlink a provider URL (Higgsfield keeps outputs for at least 7 days only). Failed and NSFW-flagged requests are not
-charged by Higgsfield and cost the customer nothing; only delivered media is charged. Business websites never use it.
-Higgsfield's commercial-use terms for outputs must be checked separately before promising customers anything about them.
+**One execution system: the durable premium job** (`lib/premium-jobs.js`, migrations 0011 + 0012). After the page is
+directed the studio starts it (`POST /api/creative/premium/start` returns at once) and polls it
+(`GET /api/creative/premium/status/:id`); the server owns its life. Its money rules:
+- at most one provider submission per role, written as "submitting" before the call; one whose outcome is uncertain (no
+  answer, a timeout, a provider 5xx, a crash mid-submit) is NEVER sent again -- recorded internally as a possible
+  provider cost, its SiteRemade credits returned
+- never more clips than the mode (Hero 1, Showcase 3: `max_clips`), never past `budget_usd` (clips x 2.25 USD)
+- no automatic retry of a generation; only the download of a finished clip is retried (bounded: 8 tries)
+- the soft deadline (60 minutes) asks Higgsfield to cancel; only a cancellation Higgsfield confirms ends the role with no
+  provider cost -- otherwise it keeps being checked and a late clip is still delivered and charged; at the hard deadline
+  (6 hours) it is recorded as unresolved (possible provider cost) and its SiteRemade credits returned
+- settled exactly once: delivered clips charged, everything else returned -- the owner reads "12 SiteRemade credits
+  returned", never a word suggesting the provider's money came back
+- the source a provider fetches is a durable, unguessable link (only its hash is stored) to that one upload, removed when
+  the role has an outcome or at its expiry -- a restart never loses it
+- the kill switch `PREMIUM_PROVIDER_ENABLED=false` (server-side only) stops every submission not yet made: video modes
+  say they are unavailable, Creative works as usual, a clip already sent is still collected
+
+**Telemetry.** Per role, without secrets, source links or provider URLs: model, resolution, duration, estimated (2.25)
+and observed (2.10) cost, provider job id, provider state (not_sent / rejected / accepted / completed / failed / cancelled
+/ unknown), outcome, SiteRemade credits charged, times -- in `premium_jobs.roles_json`, `premium_media`, the usage
+ledger, one `[premium-media]` log line per step and `GET /api/admin/premium-jobs/:id` (admin token).
+
+Finished outputs are stored as the project's own assets with provenance (Higgsfield keeps outputs for at least 7 days
+only); a website and its export never hotlink a provider URL. Business websites never use premium video. Higgsfield's
+commercial-use terms for outputs must be checked separately before promising customers anything about them.
 
 ## Legacy Workspace subscriptions (retired)
 
@@ -144,10 +155,12 @@ ownership, downloads, editing, the app itself -- depends on a subscription. Canc
 | `STRIPE_PRICE_BUSINESS_WEBSITE`, `STRIPE_PRICE_CREATIVE_WEBSITE` | builder | optional Stripe Price ids (amounts must match) |
 | `STRIPE_PRICE_CREDITS_10`, `_30`, `_75`, `_200` | builder | optional Stripe Price ids for the packs |
 | `HIGGSFIELD_VIDEO_ENDPOINT` | builder | **required** for video intents: a model id (`kling-video/v3.0/4k/image-to-video`) or the full Higgsfield URL |
-| `HIGGSFIELD_IMAGE_ENDPOINT` | builder | optional: image intents (alternate angle, enhancement) run only with it |
-| `SITEREMADE_HIGGSFIELD_USD_VIDEO_4K` | builder | what one 5-second 4K video costs at Higgsfield (default **2.10 USD**, confirmed from production usage) |
-| `SITEREMADE_HIGGSFIELD_SAFETY_BUFFER` | builder | multiplier on Higgsfield costs for quoting and spend checks (default 1.07: 2.10 -> 2.25; never below 1) |
-| `SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P` (and `_1080P`, `_IMAGE_STANDARD`), `SITEREMADE_SERPAPI_USD_PER_SEARCH` | builder | budgeting estimates, once verified on the providers' consoles |
+| `HIGGSFIELD_IMAGE_ENDPOINT` | builder | optional; no premium image is offered by the generator today |
+| `PREMIUM_PROVIDER_ENABLED` | builder | the kill switch for paid premium video: `false` stops every submission not yet made (default on) |
+| `SITEREMADE_HIGGSFIELD_USD_VIDEO_CLIP` | builder | what one 5-second premium clip is OBSERVED to cost at Higgsfield (default **2.10 USD**; the older name `_VIDEO_4K` still counts) |
+| `SITEREMADE_HIGGSFIELD_SAFETY_BUFFER` | builder | multiplier for budgeting (default 1.07: 2.10 -> 2.25 per clip; never below 1) |
+| `PREMIUM_JOB_ROLE_DEADLINE_MS`, `PREMIUM_JOB_HARD_DEADLINE_MS` | builder | the soft (60 min: ask to cancel) and hard (6 h: unresolved) deadlines of a premium clip |
+| `SITEREMADE_HIGGSFIELD_USD_IMAGE_STANDARD`, `SITEREMADE_SERPAPI_USD_PER_SEARCH` | builder | budgeting estimates, once verified on the providers' consoles |
 | `PUBLIC_BASE_URL` | builder | the public origin Higgsfield fetches a source picture from (defaults to the request's host) |
 | `ALLOW_PAID_PROVIDER_CALLS` | never in production | leave unset; `false` switches paid providers off |
 

@@ -72,6 +72,11 @@ globalThis.fetch = async function (url, options) {
   // n-th request completes that many milliseconds after it was submitted (a showcase's clips finishing at different times;
   // the time is in the request id, so a completion survives a server restart). Every submit is logged with its model
   // endpoint and parameters, so a test can prove what was asked -- and that nothing was asked twice.
+  //   MOCK_HIGGSFIELD_FETCH_SOURCE=1: like the real provider, the mock fetches the source picture from the link it was given
+  //     when it gets to the clip -- through this server's own address (a deployment's public address is stable across a
+  //     restart) -- and fails the clip if the link no longer works
+  //   MOCK_HIGGSFIELD_DOWNLOAD_FAILS=<n>: the first n downloads of finished clips fail (a temporary storage/network error)
+  //   MOCK_HIGGSFIELD_SUBMIT=vanish: the provider takes the submit but the answer never arrives (an uncertain submission)
   if (u.startsWith('https://api.higgsfield.ai/')) {
     const x = new URL(u); const h = (options && options.headers) || {};
     mockCreativeCounters.hf = mockCreativeCounters.hf || 0;
@@ -87,17 +92,28 @@ globalThis.fetch = async function (url, options) {
       const ms = String(process.env.MOCK_HIGGSFIELD_MS || '').split(',').filter(Boolean).map(Number);
       if (ms.length && n && Date.now() - t0 < (ms[(n - 1) % ms.length] || 0)) return json({ status: Date.now() - t0 < 300 ? 'queued' : 'in_progress', request_id: st[1] });
       const nth = /^fail-(\d+)$/.exec(kind); if (nth && Number(nth[1]) === n) return json({ status: 'failed', request_id: st[1] });
+      if (process.env.MOCK_HIGGSFIELD_FETCH_SOURCE === '1' && !(mockCreativeCounters.fetched || {})[st[1]]) {
+        const sub = fs.readFileSync(process.env.MOCK_CALL_LOG, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.provider === 'higgsfield' && e.request === st[1]);
+        const link = sub && sub.params && sub.params.image_url ? sub.params.image_url.replace(/^https?:\/\/[^/]+/, `http://127.0.0.1:${server.address().port}`) : '';
+        const got = link ? await realFetch(link).catch(() => null) : null;
+        log({ provider: 'higgsfield', endpoint: 'source-fetch', request: st[1], status: got ? got.status : 0 });
+        if (!got || got.status !== 200) return json({ status: 'failed', request_id: st[1] });
+        mockCreativeCounters.fetched = Object.assign(mockCreativeCounters.fetched || {}, { [st[1]]: true });
+      }
       const video = /video/.test(st[1]);
       return json(video ? { status: 'completed', request_id: st[1], video: { url: `https://higgsfield-output.test/${st[1]}.mp4` } } : { status: 'completed', request_id: st[1], images: [{ url: `https://higgsfield-output.test/${st[1]}.png` }] });
     }
     const body = JSON.parse((options && options.body) || '{}');
     mockCreativeCounters.hf++;
     const id = `hf_mock_${/video/.test(x.pathname) ? 'video' : 'image'}_${mockCreativeCounters.hf}_${Date.now()}`;
-    log({ provider: 'higgsfield', endpoint: x.pathname, auth: /^Key .+/.test(String(h.Authorization || h.authorization || '')), params: body });
+    log({ provider: 'higgsfield', endpoint: x.pathname, request: id, auth: /^Key .+/.test(String(h.Authorization || h.authorization || '')), params: body });
+    if (process.env.MOCK_HIGGSFIELD_SUBMIT === 'vanish') throw new TypeError('fetch failed (the answer never arrived)');
     return json({ status: 'queued', request_id: id, status_url: `https://api.higgsfield.ai/requests/${id}/status`, cancel_url: `https://api.higgsfield.ai/requests/${id}/cancel` });
   }
   if (u.startsWith('https://higgsfield-output.test/')) {
     log({ provider: 'higgsfield', endpoint: 'download', url: u });
+    mockCreativeCounters.dl = (mockCreativeCounters.dl || 0) + 1;
+    if (mockCreativeCounters.dl <= Number(process.env.MOCK_HIGGSFIELD_DOWNLOAD_FAILS || 0)) return new Response('temporarily unavailable', { status: 503 });
     // (MOCK_HIGGSFIELD_VIDEO_FILE: a real local mp4 served as the "delivered" video -- browser QA plays it; no provider)
     // (MOCK_HIGGSFIELD_VIDEO_FILES: one local mp4 per request, in order -- a showcase's three different clips)
     const many = String(process.env.MOCK_HIGGSFIELD_VIDEO_FILES || '').split(',').filter(Boolean); const k = Number((/_(\d+)_\d+\.mp4$/.exec(u) || [])[1] || 0);

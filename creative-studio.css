@@ -46,6 +46,7 @@ body.cs-open{overflow:hidden}
 .cs-mode em{grid-column:2;grid-row:1 / span 2;align-self:center;font-style:normal;font-size:12px;font-weight:700;color:#ffd98a;white-space:nowrap}
 .cs-mode[aria-checked="true"]{border-color:#ffcf5c;background:#241f12;box-shadow:inset 0 0 0 1px #ffcf5c}
 .cs-mode[aria-checked="true"] strong::before{content:"● ";color:#ffcf5c}
+.cs-mode[data-unavailable="yes"]{opacity:.55}.cs-mode[data-unavailable="yes"] em{color:#a9a8b3}
 .cs-pv .cs-hint{margin:8px 0 4px}
 .cs-pv-state{font-size:12px;color:#cfcdd6;margin:4px 0 0}
 .cs-pv-state:empty{display:none}
