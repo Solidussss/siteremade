@@ -117,7 +117,7 @@
   function resetUI() {
     els.csBrief.value = S.brief; els.csSupplied.value = S.suppliedText; els.csMemories.value = S.memoriesText;
     els.csBriefStep.hidden = false; els.csProgress.hidden = true; els.csEditor.hidden = true; els.csViewport.hidden = true; els.csEmpty.hidden = false;
-    els.csChoices.innerHTML = ''; els.csError.hidden = true; renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
+    els.csChoices.innerHTML = ''; els.csError.hidden = true; var pvl = document.getElementById('csPvLive'); if (pvl) pvl.remove(); renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
   }
   // ---------- credits and the website purchase ----------
   // the balance and prices come from the server (the same numbers the builder and the app show)
@@ -604,28 +604,87 @@
     });
   }
   function heroAsset() { var s0 = S.plan && S.plan.scenes && S.plan.scenes[0]; var L = s0 && (s0.layers || []).find(function (l) { return l.kind === 'image' && l.asset; }); return (S.plan && S.plan.actor && S.plan.actor.asset) || (L && L.asset) || liveMain() || ''; }
-  function runPremium() {
-    if (!S.premium || !S.premium.planned || S.premiumResult || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
-    step('premium', 'active', 'Making the premium media with Higgsfield (this can take a few minutes)…');
+  // ---------- PREMIUM MEDIA: a server-owned job (lib/premium-jobs.js) ----------
+  // Started here -- after the page is saved to the owner's account, so the clips are attached even if this tab closes --
+  // then FOLLOWED by polling. The start returns at once; the provider's minutes happen on the server. A request that ends
+  // (a refresh, a closed tab, a proxy timeout, a dropped connection) is never a premium failure: only the job's own outcome
+  // is. Each delivered clip is attached to its moment once, measured and the page retuned, then the page is saved again.
+  var PV_STATE = { pending: 'Waiting', submitted: 'Queued', processing: 'Processing', delivered: 'Ready', failed: 'Failed', blocked: 'Not made' };
+  var PV_KEY = 'siteremade:premiumJob';
+  function rememberPremium(job) { try { localStorage.setItem(PV_KEY, JSON.stringify({ jobId: job.jobId, creativeJobId: job.creativeJobId, projectId: S.projectId || null })); } catch (e) { /* optional */ } }
+  function sendAssets() {
     var arc = (S.plan && Array.isArray(S.plan.premiumArc) ? S.plan.premiumArc : []).map(function (e) { return { role: e.role, asset: e.asset }; });
     var cand = live(); var picks = ((S.plan && S.plan.premiumMedia) || []).map(function (m) { return m.asset; }).concat(arc.map(function (e) { return e.asset; }), [heroAsset()]);
-    var send = cand.map(function (a) { var o = { id: a.id, origin: a.origin, title: a.title, license: a.license, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, cutoutOf: a.cutoutOf, mime: a.mime, assetRef: a.assetRef, curation: a.curation }; if (picks.indexOf(a.id) >= 0 || (a.origin === 'upload' && !a.ownerPicked) || a.id === (cand.find(function (x) { return x.id === picks[picks.length - 1]; }) || {}).cutoutOf) o.dataUrl = a.dataUrl; return o; });
-    return api('/api/creative/premium', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], premiumArc: arc, heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: send, models: modelMeta() } }).then(function (r) {
-      var d = r.data || {}; creditsFrom(d);
-      var st = d.premium && d.premium.status ? d.premium.status : { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not run.') + ' Its credits were returned.' };
-      S.premiumResult = st;
-      // (a showcase's clips each carry their moment's role: attached together, below; a single hero clip as before)
-      var roled = (d.assets || []).filter(function (m) { return m.kind === 'video' && m.role; });
-      var multi = roled.length && S.plan && Array.isArray(S.plan.premiumArc) && S.plan.premiumArc.length >= 2;
-      if (!multi) (d.assets || []).forEach(function (m) { if (m.kind === 'video') { var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } } });
-      var imgs = (d.assets || []).filter(function (m) { return m.kind === 'image' && m.asset && m.asset.dataUrl; });
-      var vidAsset = (d.assets || []).filter(function (m) { return m.kind === 'video'; }).map(function (m) { return S.assets.find(function (x) { return x.id === m.sourceAssetId; }); }).filter(Boolean)[0] || null;
-      return Promise.all(imgs.map(function (m) { return processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }); })).then(function () {
-        return multi ? integrateArc(roled) : integrateVideo(vidAsset);
-      }).then(function (where) {
-        step('premium', st.made && st.made.length ? 'done' : 'failed', premiumHeadline(st) + (where ? ' — ' + where : '')); if (st.made && st.made.length) refresh(true);
-      });
-    }).catch(function () { S.premiumResult = { planned: true, reason: 'not_run', message: 'The premium media step could not be reached. Its credits were returned.' }; step('premium', 'failed', premiumHeadline(S.premiumResult)); });
+    return { arc: arc, assets: cand.map(function (a) { var o = { id: a.id, origin: a.origin, title: a.title, license: a.license, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, cutoutOf: a.cutoutOf, mime: a.mime, assetRef: a.assetRef, curation: a.curation, assess: a.assess, quality: a.quality, ownerRole: a.ownerRole }; if (picks.indexOf(a.id) >= 0 || (a.origin === 'upload' && !a.ownerPicked) || a.id === (cand.find(function (x) { return x.id === picks[picks.length - 1]; }) || {}).cutoutOf) o.dataUrl = a.dataUrl; return o; }) };
+  }
+  function savedFirst() { return signedIn() && S.plan ? Promise.resolve(save()).catch(function () { return null; }) : Promise.resolve(null); }
+  function runPremium() {
+    if (S.premiumJob) { followPremium(S.premiumJob.jobId); return Promise.resolve(); }
+    if (!S.premium || !S.premium.planned || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
+    step('premium', 'active', 'Saving the page to your account, then starting the premium videos…');
+    var start = function () {
+      var x = sendAssets();
+      return api('/api/creative/premium/start', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], premiumArc: x.arc, heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: x.assets, models: modelMeta() } });
+    };
+    var started = function (r) {
+      var d = (r && r.data) || {}; creditsFrom(d);
+      if (d.job) { S.premiumJob = { jobId: d.job.jobId }; rememberPremium(d.job); showPremium(d.job); followPremium(d.job.jobId); return; }
+      if (!r || !r.ok && !r.status) throw new Error('unreachable');
+      var st = (d.premium && d.premium.status) || { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not start.') + ' Its credits were returned.' };
+      S.premiumResult = st; step('premium', st.planned === false ? 'done' : 'failed', premiumHeadline(st));
+    };
+    return savedFirst().then(start).then(started).catch(function () {
+      // (the start did not come back -- the job may exist all the same: asking again returns that job, never a second one)
+      step('premium', 'active', 'Reconnecting to the premium videos…');
+      return new Promise(function (res) { setTimeout(res, 3000); }).then(start).then(started).catch(function () { step('premium', 'active', 'Premium videos: the connection dropped — reopen this page to see their progress.'); });
+    });
+  }
+  // the live progress, in the progress list while the page is being made and in the editor afterwards
+  function showPremium(job) {
+    if (!job) return; var steps = job.total > 1;
+    step('premium', job.terminal ? (job.completed ? 'done' : 'failed') : 'active', job.message);
+    var box = document.getElementById('csPvLive');
+    if (!box) { box = h('div', { id: 'csPvLive', class: 'cs-pvlive', 'aria-live': 'polite' }); els.csEditor.insertBefore(box, els.csEditor.firstChild); }
+    box.setAttribute('data-state', job.status);
+    box.innerHTML = '<p><strong>' + esc(job.message) + '</strong></p>'
+      + (steps ? '<ul class="cs-pvroles">' + job.roles.map(function (r) { return '<li data-state="' + esc(r.state) + '"><span>' + esc(r.label) + '</span><em>' + esc(PV_STATE[r.state] || r.state) + '</em></li>'; }).join('') + '</ul>' : '')
+      + (job.terminal ? '' : '<p class="cs-hint">You can keep editing, or close this tab: the videos keep being made on our side and are added to the page when they are ready — reopen the page from your account to see them.</p>');
+  }
+  // follow a job until it has an outcome: polls back off from 3 s to 15 s; a failed poll is a reconnect, never a failure
+  function followPremium(jobId) {
+    if (!jobId || (S.pvFollow && S.pvFollow.jobId === jobId)) return; var me = { jobId: jobId, delay: 3000, misses: 0 }; S.pvFollow = me; var mine = S;
+    var next = function () { if (S !== mine || S.pvFollow !== me) return; setTimeout(poll, me.delay); me.delay = Math.min(15000, Math.round(me.delay * 1.4)); };
+    // (a missed poll is a connection problem, not a premium one: said quietly, cleared as soon as a poll comes back)
+    var reconnecting = function (on) { var box = document.getElementById('csPvLive'); if (!box) return; var p = box.querySelector('.cs-pv-reconnect'); if (on && !p) { p = h('p', { class: 'cs-pv-reconnect', text: 'Reconnecting… the videos keep being made on our side.' }); box.appendChild(p); } else if (!on && p) p.remove(); box.setAttribute('data-reconnecting', on ? 'yes' : 'no'); };
+    var missed = function () { me.misses++; if (me.misses >= 2) reconnecting(true); me.delay = Math.min(me.delay, 4000); next(); };
+    var poll = function () {
+      if (S !== mine || S.pvFollow !== me) return;
+      api('/api/creative/premium/status/' + encodeURIComponent(jobId)).then(function (r) {
+        if (S !== mine) return;
+        if (!r.ok || !r.data || !r.data.job) { if (r.status === 404) { S.pvFollow = null; return; } return missed(); }
+        me.misses = 0; me.delay = Math.min(me.delay, 6000); var job = r.data.job; creditsFrom(r.data); showPremium(job); reconnecting(false);
+        return attachDelivered(job).then(function () {
+          if (job.terminal) { S.pvFollow = null; S.premiumResult = { planned: true, made: job.delivered.map(function (m) { return m.video.intent; }), message: job.message, reason: job.completed ? '' : 'provider_failed' }; if (S.plan && els.csEditor && !els.csEditor.hidden) buildEditor(); showPremium(job); return; }
+          next();
+        });
+      }).catch(function () { missed(); });
+    };
+    poll();
+  }
+  // each delivered clip, once: attached to its moment (by its media id -- a repeated poll or a reopen never attaches it
+  // twice), measured, the page retuned and saved
+  function attachedIds() { var ids = {}; S.assets.forEach(function (a) { if (a.video && a.video.mediaId) ids[a.video.mediaId] = true; }); return ids; }
+  function attachDelivered(job) {
+    S.pvQueue = (S.pvQueue || Promise.resolve()).then(function () {
+      var have = attachedIds(); var fresh = (job.delivered || []).filter(function (m) { return m.video && m.video.mediaId && !have[m.video.mediaId]; });
+      if (!fresh.length || !S.plan) return;
+      var multi = fresh.some(function (m) { return m.role; }) && Array.isArray(S.plan.premiumArc) && S.plan.premiumArc.length >= 2;
+      var done;
+      if (multi) done = integrateArc(fresh.filter(function (m) { return m.role; }));
+      else { var m = fresh[0]; var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } done = integrateVideo(a); }
+      return done.then(function () { refresh(true); if (S.projectId) return save(); markDirty(); });
+    }).catch(function () { /* the next poll tries again */ });
+    return S.pvQueue;
   }
   function proceedToDirection() {
     // one direction at a time: a second call (a repeated click at the gate) while one is being planned does nothing
@@ -636,7 +695,7 @@
       if (res && res.stop) { step('direct', 'failed', res.stop); return fail(res.stop); }
       step('build', 'active'); refresh(true); step('build', 'done', visualNote());
       return runPremium().then(function () {
-        S.busy = false; els.csCreate.disabled = false; S.dirty = true; S.name = pageTitle(); setSaveState('Not saved yet'); els.csSave.disabled = false;
+        S.busy = false; els.csCreate.disabled = false; S.name = S.name || pageTitle(); if (!S.projectId) { S.dirty = true; setSaveState('Not saved yet'); els.csSave.disabled = false; }
         els.csProgress.hidden = true; els.csEditor.hidden = false; buildEditor(); showBuy();
       });
     }, function (e) { S.directing = false; throw e; });
@@ -1176,7 +1235,7 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   function save() {
@@ -1195,6 +1254,12 @@
       return r;
     });
   }
+  function resumePremium(projectId, saved) {
+    var mine = S;
+    var go = function (jobId) { if (S === mine && jobId) { S.premiumJob = { jobId: jobId }; followPremium(jobId); } };
+    if (saved && saved.jobId) return go(saved.jobId);
+    api('/api/creative/premium/for-project/' + encodeURIComponent(projectId)).then(function (r) { if (r.ok && r.data && r.data.job) go(r.data.job.jobId); });
+  }
   function loadProject(p) {
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
@@ -1205,6 +1270,7 @@
     if (!c.plan) { els.csEmpty.hidden = false; return; }
     S.plan = settle(c.plan); els.csBriefStep.hidden = true; els.csEditor.hidden = false; buildEditor(); refresh(true); showBuy();
     setSaveState('Opened from your account'); els.csSave.disabled = true;
+    resumePremium(p.id, c.premiumJob);
     try { localStorage.setItem(POINTER, JSON.stringify({ id: p.id, name: p.name })); } catch (e) { /* optional */ }
   }
 

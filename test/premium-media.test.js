@@ -13,6 +13,7 @@ const { createHiggsfield, scrub } = require('../lib/media/higgsfield');
 const { createBudget, costs } = require('../lib/provider-budget');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const { mockPng } = require('./helpers/mock-image');
+const { premiumRun } = require('./helpers/premium-job');
 
 // (an upload as the studio measures it: large enough for full-screen premium video unless a test says otherwise)
 const up = (id, extra) => Object.assign({ id, origin: 'upload', title: id, mime: 'image/png', assess: { width: 1600, height: 900, aspect: 1.778, orientation: 'landscape', subject: null, colours: ['#c0502e'], luminance: 120, background: { colour: '#333333', uniformity: 0.2 } } }, extra || {});
@@ -286,17 +287,17 @@ test('server: an explicit cinematic brief -> one quote with the premium media ->
     assert.equal(r.body.creditsRemaining, 2, 'the whole quote (18) is reserved before anything paid runs');
     const d = await direct(call, SNEAKER, r); assert.equal(d.body.ok, true, JSON.stringify(d.body).slice(0, 300));
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0, 'nothing before the premium step');
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload], premiumMedia: [] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload], premiumMedia: [] });
     assert.equal(p.body.ok, true, JSON.stringify(p.body)); const st = p.body.premium.status;
     assert.equal(p.body.premium.executionStarted, true); assert.deepEqual(p.body.premium.delivered, ['cinematic_hero']);
-    assert.deepEqual(st.made, ['cinematic_hero']); assert.match(st.message, /^Premium media made with Higgsfield: cinematic hero/);
+    assert.deepEqual(st.made, ['cinematic_hero']); assert.equal(st.message, 'Cinematic hero ready');
     const submit = calls().find(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint));
     assert.equal(submit.endpoint, '/kling-video/v3.0/4k/image-to-video', 'the pasted full URL became the model id');
     assert.equal(submit.auth, true); assert.equal(submit.params.sound, 'off'); assert.equal(submit.params.duration, 5); assert.ok(!('resolution' in submit.params));
     assert.match(submit.params.image_url, /\/api\/premium-media\/source\//);
     assert.equal(p.body.assets[0].kind, 'video'); assert.equal(p.body.assets[0].sourceAssetId, 'u1');
     assert.equal(p.body.creditsCharged, 12); assert.equal(p.body.creditsRemaining, 2, 'the premium part was charged once (it was already reserved)');
-    const again = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+    const again = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
     assert.equal(again.body.replayed, true); assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'made once');
   });
 });
@@ -309,7 +310,7 @@ test('server: the Creative mode (no Higgsfield) -> not planned, said plainly; Hi
     const v = await call('POST', '/api/quotes', { operation: 'creative_generation', request: SNEAKER, premium: { on: false } });
     assert.equal(v.body.quote.credits, 6, 'the brief asks for video, but the owner chose Creative: no premium line'); assert.equal(v.body.premium.briefAsks, true);
     await direct(call, brief, r);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief, assets: [upload] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief, assets: [upload] });
     assert.equal(p.body.premium.status.planned, false); assert.equal(p.body.premium.status.reason, 'off'); assert.equal(p.body.premium.executionStarted, false);
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
   });
@@ -318,7 +319,7 @@ test('server: the Creative mode (no Higgsfield) -> not planned, said plainly; Hi
 test('server: blocked premium media says exactly why and costs nothing -- a rights-unclear picture, no picture at all', async () => {
   await withServer(AI, async ({ call, calls }) => {
     const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'r1', assets: [unclear] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'r1', assets: [unclear] });
     const st = p.body.premium.status;
     assert.equal(st.planned, true); assert.equal(st.reason, 'source_not_eligible');
     assert.match(st.message, /premium video uses uploaded images only/);
@@ -327,7 +328,7 @@ test('server: blocked premium media says exactly why and costs nothing -- a righ
   });
   await withServer(AI, async ({ call }) => {
     const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, assets: [] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, assets: [] });
     assert.equal(p.body.premium.status.reason, 'no_source'); assert.match(p.body.premium.status.message, /No picture to start from/); assert.equal(p.body.creditsRefunded, 12);
   });
 });
@@ -399,18 +400,18 @@ test('one premium hero video per generation: a second video is never started aut
 test('server: a delivered 4K hero is charged its 12 credits and records the 2.10 USD it costs; a failed or declined one returns all 12', async () => {
   await withServer(AI, async ({ call, calls }) => {
     const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
     assert.deepEqual(p.body.premium.delivered, ['cinematic_hero']); assert.equal(p.body.creditsCharged, 12); assert.equal(p.body.creditsRefunded, 0);
     assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'one video, never more');
   });
   for (const outcome of ['failed', 'nsfw']) {
     await withServer(Object.assign({ MOCK_HIGGSFIELD: outcome }, AI), async ({ call }) => {
       const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
-      const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+      const p = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
       assert.equal(p.body.premium.executionStarted, true); assert.deepEqual(p.body.premium.delivered, []);
       assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 12, `${outcome}: Higgsfield did not charge, the owner gets the 12 back`);
       assert.equal(p.body.creditsRemaining, 14, 'only the page itself (6) was charged');
-      assert.match(p.body.premium.status.message, /credits were returned/);
+      assert.match(p.body.premium.status.message, /12 credits returned/);
     });
   }
 });

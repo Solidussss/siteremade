@@ -52,6 +52,16 @@ body.cs-open{overflow:hidden}
 .cs-thumbs .cs-pv-tag{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.6;text-align:center;background:rgba(10,40,20,.86);color:#9be8b3;pointer-events:auto}
 .cs-thumbs .cs-pv-tag[data-ok="no"]{background:rgba(60,14,14,.88);color:#ffb3b3}
 .cs-sum{margin-top:12px}
+/* premium videos being made on the server: their progress, role by role */
+.cs-pvlive{border:1px solid #3a3320;background:#1f1b10;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+.cs-pvlive p{margin:4px 0}.cs-pvlive[data-state="completed"]{border-color:#2f5a3a;background:#122017}
+.cs-pvlive[data-state="partial"],.cs-pvlive[data-state="failed"]{border-color:#5a3a2f;background:#21140f}
+.cs-pv-reconnect{color:#a9a8b3;font-size:12px}
+.cs-pvroles{list-style:none;padding:0;margin:6px 0;display:grid;gap:4px}
+.cs-pvroles li{display:flex;justify-content:space-between;gap:10px;color:#cfcdd6}
+.cs-pvroles em{font-style:normal;font-weight:700;color:#a9a8b3}
+.cs-pvroles li[data-state="delivered"] em{color:#7fe0a0}.cs-pvroles li[data-state="processing"] em,.cs-pvroles li[data-state="submitted"] em{color:#ffd98a}
+.cs-pvroles li[data-state="failed"] em,.cs-pvroles li[data-state="blocked"] em{color:#ff9b9b}
 .cs-sum .cs-needs{color:#ffd98a}
 .cs-lines{width:100%;border-collapse:collapse;font-size:13px}
 .cs-lines td{padding:3px 0;color:#cfcdd6}.cs-lines td:last-child{text-align:right;white-space:nowrap;padding-left:10px}

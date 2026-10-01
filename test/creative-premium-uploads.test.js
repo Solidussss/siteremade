@@ -16,6 +16,7 @@ const Q = require('../lib/quotes');
 const { costs } = require('../lib/provider-budget');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const { mockPng } = require('./helpers/mock-image');
+const { premiumRun } = require('./helpers/premium-job');
 
 const assess = (w, h, extra) => Object.assign({ width: w, height: h, aspect: +(w / h).toFixed(3), orientation: w > h * 1.15 ? 'landscape' : h > w * 1.15 ? 'portrait' : 'square', subject: null, colours: ['#c0502e'], luminance: 110, background: { colour: '#333333', uniformity: 0.3 } }, extra || {});
 const up = (id, w, h, extra) => Object.assign({ id, origin: 'upload', title: id, mime: 'image/jpeg', assess: assess(w, h) }, extra || {});
@@ -124,7 +125,7 @@ test('5. server: Creative mode with no uploads makes the page normally -- no pre
     const { ask, r } = await begin(call, MODE.creative);
     assert.equal(ask.body.quote.credits, 6); assert.equal(plannedLines(ask.body.quote).length, 0); assert.equal(ask.body.premium.reason, 'off');
     assert.equal(r.body.ok, true, JSON.stringify(r.body).slice(0, 200)); assert.equal(r.body.creditsRemaining, 44, 'only the page is reserved');
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: BRIEF, assets: [] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: BRIEF, assets: [] });
     assert.equal(p.body.premium.executionStarted, false); assert.equal(submits(calls), 0);
   });
 });
@@ -146,7 +147,7 @@ test('7. server: Cinematic Hero with one suitable upload -> the quote includes t
   await withServer({}, async ({ call, calls }) => {
     const { ask, r } = await begin(call, MODE.hero(1));
     assert.equal(ask.body.quote.credits, 18); assert.deepEqual(plannedLines(ask.body.quote).map(i => i.credits), [12]);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: BRIEF, heroAsset: 'u1', assets: [hd('u1', 'our sneaker')] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: BRIEF, heroAsset: 'u1', assets: [hd('u1', 'our sneaker')] });
     assert.deepEqual(p.body.premium.delivered, ['cinematic_hero']); assert.equal(p.body.creditsCharged, 12); assert.equal(submits(calls), 1);
   });
 });
@@ -155,7 +156,7 @@ test('8. server: an upload too small for full-screen video is never sent -- the 
   await withServer({}, async ({ call, calls }) => {
     const { r } = await begin(call, MODE.hero(1)); // (a studio that miscounted: the server measures the file itself)
     const web = { id: 'r1', origin: 'research', title: 'sneaker on a shop', license: 'CC BY 4.0', pageUrl: 'https://shop.example/s', mime: 'image/png', dataUrl: mockPng('r1', '16:9-hd') };
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: BRIEF, heroAsset: 'r1', assets: [web, small('u1')] });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: BRIEF, heroAsset: 'r1', assets: [web, small('u1')] });
     assert.equal(p.body.premium.executionStarted, false); assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 12);
     assert.equal(p.body.premium.status.reason, 'source_not_eligible'); assert.match(p.body.premium.status.message, /uploaded images only|upload too small/);
     assert.equal(submits(calls), 0, 'neither the licensed web picture nor the small upload reached Higgsfield');

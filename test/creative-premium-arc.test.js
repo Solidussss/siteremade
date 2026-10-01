@@ -23,6 +23,7 @@ const { renderCreative2 } = require('../lib/creative/render2');
 const { createBudget, costs } = require('../lib/provider-budget');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const { mockPng } = require('./helpers/mock-image');
+const { premiumRun } = require('./helpers/premium-job');
 
 // ---------------------------------------------------------------- the fixture: a strong subject, five sources, a logo
 const pic = (id, w, h, colour, extra) => Object.assign({ id, origin: 'upload', title: id, mime: 'image/png',
@@ -308,16 +309,16 @@ test('12. server: a showcase brief -> one quote with three premium lines -> all 
     const { ask, r } = await begin(call);
     assert.deepEqual(ask.body.quote.items.filter(i => /^premium_/.test(i.code)).map(i => i.role), ['hero', 'takeover', 'payoff']);
     assert.equal(ask.body.quote.credits, 42); assert.equal(r.body.creditsRemaining, 8, 'the whole quote is reserved first');
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SHOWCASE, heroAsset: 'main', premiumArc: arcBody, assets: sources });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SHOWCASE, heroAsset: 'main', premiumArc: arcBody, assets: sources });
     assert.equal(p.body.ok, true, JSON.stringify(p.body).slice(0, 400));
     assert.deepEqual(p.body.premium.deliveredRoles, ['hero', 'takeover', 'payoff']); assert.equal(p.body.creditsCharged, 36); assert.equal(p.body.creditsRefunded, 0);
     assert.deepEqual(p.body.assets.map(a => [a.role, a.sourceAssetId]), [['hero', 'main'], ['takeover', 'world'], ['payoff', 'main']]);
     assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 3, 'three, never more, never retried');
-    assert.match(p.body.premium.status.message, /the hero video, the takeover video, the payoff video/);
+    assert.equal(p.body.premium.status.message, 'Premium videos ready');
   });
   await withServer({ MOCK_HIGGSFIELD: 'fail-2' }, async ({ call, calls }) => {
     const { r } = await begin(call);
-    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SHOWCASE, heroAsset: 'main', premiumArc: arcBody, assets: sources });
+    const p = await premiumRun(call, { jobId: r.body.jobId, brief: SHOWCASE, heroAsset: 'main', premiumArc: arcBody, assets: sources });
     assert.deepEqual(p.body.premium.deliveredRoles, ['hero', 'payoff']); assert.equal(p.body.creditsCharged, 24); assert.equal(p.body.creditsRefunded, 12, 'the failed takeover\'s 12 come back');
     assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 3, 'no retry of the failed one');
     assert.ok(p.body.premium.skipped.some(s => s.role === 'takeover'));

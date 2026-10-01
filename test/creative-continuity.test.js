@@ -17,6 +17,7 @@ const { validatePlan2 } = require('../lib/creative/validate2');
 const { renderCreative2 } = require('../lib/creative/render2');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const { mockPng } = require('./helpers/mock-image');
+const { premiumRun } = require('./helpers/premium-job');
 
 // ---------------------------------------------------------------- fixtures (the pictures as measured: assess, curation)
 const A = (id, w, h, extra) => Object.assign({ id, origin: 'research', title: `File:${id}.jpg`, author: 'A. Photographer', license: 'CC BY 4.0', pageUrl: `https://example.org/${id}`,
@@ -371,7 +372,7 @@ test('13 + 14. server: one choreography and one critic call per Creative generat
     // every outbound call was answered by the mock: nothing reached a paid provider
     calls().forEach(c => assert.ok(['anthropic', 'higgsfield'].includes(c.provider), JSON.stringify(c)));
     // the premium hero runs after, on its own, once
-    const pm = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+    const pm = await premiumRun(call, { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
     assert.deepEqual(pm.body.premium.delivered, ['cinematic_hero']);
     assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'still exactly one video');
   });

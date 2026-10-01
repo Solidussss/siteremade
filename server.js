@@ -180,7 +180,7 @@ const OWN_LARGE_JSON_ROUTES = [
   ['POST', /^\/api\/projects\/?$/], ['PUT', /^\/api\/projects\/[^/]+\/?$/], ['POST', /^\/api\/projects\/[^/]+\/export\/?$/],
   ['POST', /^\/api\/projects\/[^/]+\/domain\/?$/], ['POST', /^\/api\/deployments\/[^/]+\/deploy-to\/?$/],
   // (premium media: the source pictures travel with the quote request)
-  ['POST', /^\/api\/premium-media\/quote\/?$/], ['POST', /^\/api\/creative\/premium\/?$/],
+  ['POST', /^\/api\/premium-media\/quote\/?$/], ['POST', /^\/api\/creative\/premium(?:\/start)?\/?$/],
 ];
 const genericJsonParser = express.json({ limit: '900kb' });
 app.use((req, res, next) => (OWN_LARGE_JSON_ROUTES.some(([m, re]) => req.method === m && re.test(req.path)) ? next() : genericJsonParser(req, res, next)));
@@ -2949,22 +2949,38 @@ function premiumStatusForJob(job, brief) {
   if (items.length) return { planned: true, intents: items.map(i => i.intent), reason: '', message: `Premium media planned: ${items.map(i => i.intent.replace(/_/g, ' ')).join(', ')} (made with Higgsfield after the page is directed; charged only if it is delivered).` };
   return creativePremiumPlan(brief, { on: false }).status;
 }
-app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
-  const b = req.body || {}; const job = creativeJobs.get(db, req.accountId, clean(b.jobId, 60));
-  const R = premiumMedia.REASONS;
-  if (!job) return res.status(404).json({ ok: false, premium: { planned: false, reason: 'not_run', message: R.not_run } });
+// PREMIUM MEDIA OF A GENERATION -- a durable, server-owned job (lib/premium-jobs.js, migrations/0011_premium_jobs.sql).
+// The browser STARTS it (this request returns at once, with the job) and POLLS its status; the job's life is the server's.
+// A closed tab, a refresh, an aborted fetch or a proxy timeout never cancels it; a server restart resumes it; it is
+// settled once, from what the provider actually delivered. (The old request made every clip in turn inside one HTTP
+// request: a showcase outlived the proxy -- HTTP 499 after about five minutes -- while the provider delivered every clip.)
+const premiumJobs = require('./lib/premium-jobs.js');
+const premiumWorker = premiumJobs.createWorker({
+  db, provider: () => createHiggsfield({ key: paidProviders.key('higgsfield') }), presets: () => premiumMedia.presets(), costs: providerBudget.costs(), store: storeBytes,
+  // (the one picture the provider may fetch, for 30 minutes, from the address the start request came in on)
+  sourceUrl: async r => { const token = crypto.randomBytes(24).toString('base64url'); premiumSources.set(token, { ref: r.sourceRef, mime: r.mime, until: Date.now() + 30 * 60 * 1000 }); return `${r.sourceBase}/api/premium-media/source/${token}`; },
+  policy: premiumJobs.policy(process.env), log: rec => premiumLog(rec),
+});
+async function startPremium(req, res) {
+  const b = req.body || {}; const R = premiumMedia.REASONS; const jobKey = clean(b.jobId, 60);
+  const reply = (extra) => res.json(Object.assign({ ok: true, creditsRemaining: creditsRemainingFor(req.accountId) }, extra));
+  // this generation already has its premium job (a double click, a retry, a reload): the same job back -- never a second
+  // set of provider submissions, never a second reservation
+  const existing = /^cj_[A-Za-z0-9_-]{8,40}$/.test(jobKey) ? db.premiumJobs.findByCreativeJob(jobKey) : null;
+  if (existing) {
+    if (existing.account_id !== req.accountId) return res.status(404).json({ ok: false, message: 'Not found.' });
+    if (premiumJobs.ACTIVE.has(existing.status)) premiumWorker.kick(existing.id);
+    return reply({ reused: true, job: premiumJobs.view(existing) });
+  }
+  const job = creativeJobs.get(db, req.accountId, jobKey);
+  if (!job) return res.status(404).json({ ok: false, job: null, premium: { status: { planned: false, reason: 'not_run', message: R.not_run } } });
   const q = db.quotes.findByOp(job.id);
   const planned = q ? JSON.parse(q.items_json).filter(i => /^premium_/.test(i.code)) : [];
   const suggested = (Array.isArray(b.premiumMedia) ? b.premiumMedia : []).slice(0, 4).map(m => ({ intent: clean(m && m.intent, 40), asset: clean(m && m.asset, 40) })).filter(m => premiumMedia.INTENTS[m.intent]);
-  const diag = { jobId: job.id, quoteId: q ? q.id : null, requested: planned.map(i => i.intent), suggestedByDirector: suggested.map(s => s.intent), quotedCredits: planned.reduce((n, i) => n + i.credits, 0), executionStarted: false, delivered: [], skipped: [] };
-  const finish = (st, extra) => { const out = Object.assign(diag, { status: st }); premiumLog(Object.assign({ step: 'execute', accountId: req.accountId }, out)); return res.json(Object.assign({ ok: true, premium: out, creditsRemaining: creditsRemainingFor(req.accountId) }, extra || {})); };
-  if (!planned.length) return finish(premiumStatusForJob(job, clean(b.brief, 1200)));
+  const diag = { jobId: job.id, quoteId: q ? q.id : null, requested: planned.map(i => i.intent), skipped: [] };
+  if (!planned.length) return reply({ job: null, premium: { status: premiumStatusForJob(job, clean(b.brief, 1200)) } });
   const opId = creativeJobs.premiumOp(job); const op = credits.findOperation(db, opId);
-  if (!op || op.status !== 'reserved') {
-    const prev = db.usage.find(opId);
-    if (prev && prev.premium_json) return res.json({ ok: true, replayed: true, premium: JSON.parse(prev.premium_json), creditsRemaining: creditsRemainingFor(req.accountId) });
-    return finish({ planned: true, intents: diag.requested, reason: 'not_run', message: R.not_run });
-  }
+  if (!op || op.status !== 'reserved') return reply({ job: null, premium: { status: { planned: true, intents: diag.requested, reason: 'not_run', message: R.not_run } } });
   // the source picture for each planned intent: the director's own pick for it, the page's opening picture, then the
   // owner's uploads and the other pictures -- the first one the permission rules allow
   const assets = (Array.isArray(b.assets) ? b.assets : []).slice(0, 24).map(a => require('./lib/creative/store').cleanAsset(a)).filter(Boolean);
@@ -2973,58 +2989,63 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
   const requests = [];
   for (const item of planned) {
     const intent = item.intent; const st = premiumMedia.providerState(creativePremiumProvider(), intent);
-    if (!st.ok) { diag.skipped.push({ intent, reason: st.reason, message: R[st.reason] }); continue; }
-    if (models.length && ['object_motion', 'alternate_angle'].includes(intent)) { diag.skipped.push({ intent, reason: 'renderer_handled', message: R.renderer_handled }); continue; }
+    if (!st.ok) { diag.skipped.push({ intent, role: item.role, reason: st.reason, message: R[st.reason] }); continue; }
+    if (models.length && ['object_motion', 'alternate_angle'].includes(intent)) { diag.skipped.push({ intent, role: item.role, reason: 'renderer_handled', message: R.renderer_handled }); continue; }
     // (a premium arc: each moment starts from the picture the plan built its scene around -- the hero's, a different one
     // for the takeover, the hero's again for the payoff)
     const arcPick = item.role ? (Array.isArray(b.premiumArc) ? b.premiumArc : []).map(e => ({ role: clean(e && e.role, 20), asset: clean(e && e.asset, 40) })).find(e => e.role === item.role) : null;
     const pick = (arcPick && arcPick.asset) || (suggested.find(s => s.intent === intent) || {}).asset;
     const ids = [pick, clean(b.heroAsset, 40)].concat(assets.slice().sort((x, y) => order(x) - order(y)).map(a => a.id)).filter((id, i, all) => id && byId.has(id) && !byId.get(id).removed && all.indexOf(id) === i);
-    if (!ids.length) { diag.skipped.push({ intent, reason: 'no_source', message: R.no_source }); continue; }
+    if (!ids.length) { diag.skipped.push({ intent, role: item.role, reason: 'no_source', message: R.no_source }); continue; }
     const verdict = id => premiumMedia.sourceEligibility(byId.get(id), { byId, measured: premiumMeasured(byId.get(id)) });
     const ok = ids.find(id => verdict(id).ok);
-    if (!ok) { const why = verdict(ids[0]).reason; diag.skipped.push({ intent, reason: 'source_not_eligible', message: `${R.source_not_eligible} (${why})`, source: ids[0] }); continue; }
+    if (!ok) { const why = verdict(ids[0]).reason; diag.skipped.push({ intent, role: item.role, reason: 'source_not_eligible', message: `${R.source_not_eligible} (${why})`, source: ids[0] }); continue; }
     let a = byId.get(ok); if (a.cutoutOf && byId.get(a.cutoutOf)) a = byId.get(a.cutoutOf); // (transform the whole picture, not its cut-out)
     let ref = a.assetRef || null; let mime = a.mime || 'image/jpeg';
     if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
-    if (!ref || !db.assetBlobs.find(ref)) { diag.skipped.push({ intent, reason: 'no_source', message: R.no_source }); continue; }
+    if (!ref || !db.assetBlobs.find(ref)) { diag.skipped.push({ intent, role: item.role, reason: 'no_source', message: R.no_source }); continue; }
     const def = premiumMedia.INTENTS[intent];
     requests.push(Object.assign({ intent, mediaType: def.mediaType, preset: def.preset, sourceAssetId: a.id, subject: clean(b.subject, 120), ref, mime, credits: item.credits }, item.role ? { role: item.role } : {}));
   }
+  // each planned moment as a role of the job: ready to submit, or blocked with its reason (never charged)
+  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const roles = planned.map(item => {
+    const r = requests.find(x => (x.role || '') === (item.role || '') && x.intent === item.intent);
+    const key = item.role || 'single';
+    if (r) return { role: key, intent: r.intent, sourceAssetId: r.sourceAssetId, sourceRef: r.ref, mime: r.mime, sourceBase: base, preset: r.preset, mediaType: r.mediaType, subject: r.subject, credits: item.credits, state: 'pending' };
+    const sk = diag.skipped.find(x => (x.role || x.intent) === (item.role || item.intent)) || diag.skipped.find(x => x.intent === item.intent) || { reason: 'no_source', message: R.no_source };
+    return { role: key, intent: item.intent, credits: item.credits, state: 'blocked', failure: { code: sk.reason, reason: sk.message } };
+  });
+  // the provider ceiling, before anything is sent: what it cannot cover is not sent (the payoff, then the takeover)
+  const P = premiumMedia.presets(); const table = providerBudget.costs().higgsfieldBudget; const ceiling = pricing.providerCeilingUsd(op.amount);
+  const estOf = r => { const p = P[r.preset]; return p ? table[p.costKey || r.preset] || 0 : 0; };
+  let room = ceiling; premiumMedia.ROLE_ORDER.concat(['single']).forEach(role => roles.filter(r => r.role === role && r.state === 'pending').forEach(r => { const e = estOf(r); if (e > room + 1e-9) { r.state = 'blocked'; r.failure = { code: 'budget_blocked', reason: R.showcase_budget }; } else room -= e; }));
   const at = new Date().toISOString();
   db.usage.ensure({ opId, accountId: req.accountId, operation: 'creative_premium', createdAt: at });
-  db.usage.add(opId, { quoted: op.amount, reserved: op.amount, ceiling_usd: pricing.providerCeilingUsd(op.amount) }, at);
-  let out = { delivered: [], media: [], failed: [] };
-  if (requests.length) {
-    diag.executionStarted = true;
-    const budget = providerBudget.createBudget({ db, opId, ceilingUsd: pricing.providerCeilingUsd(op.amount) });
-    const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
-    try {
-      out = await premiumMedia.run(requests, {
-        db, budget, costs: providerBudget.costs(), presets: premiumMedia.presets(), accountId: req.accountId, projectId: clean(b.projectId, 120) || null, opId,
-        provider: createHiggsfield({ key: paidProviders.key('higgsfield') }), store: storeBytes,
-        sourceUrl: async r => { const token = crypto.randomBytes(24).toString('base64url'); premiumSources.set(token, { ref: r.ref, mime: r.mime, until: Date.now() + 30 * 60 * 1000 }); return `${base}/api/premium-media/source/${token}`; },
-      });
-    } catch (error) { out.failed = requests.map(r => ({ intent: r.intent, code: 'provider_failed', reason: String(error && error.message || error).slice(0, 160) })); }
-  }
-  out.failed.forEach(f => diag.skipped.push({ intent: f.intent, ...(f.role ? { role: f.role } : {}), reason: f.code || 'provider_failed', message: `${R[f.code] || R.provider_failed}${f.code === 'provider_failed' && f.reason ? ' (' + f.reason + ')' : ''}` }));
-  diag.delivered = out.delivered;
-  // (each moment is its own credit line: charged when THAT moment was delivered -- a failed or declined one is returned)
-  const charge = requests.filter(r => (out.deliveredKeys || out.delivered).includes(r.role || r.intent)).reduce((n, r) => n + r.credits, 0);
-  diag.deliveredRoles = requests.filter(r => r.role && (out.deliveredKeys || []).includes(r.role)).map(r => r.role);
-  const s = creativeJobs.premiumDone(db, job, { charge });
-  diag.creditsCharged = s.charged || 0; diag.creditsRefunded = s.refunded || 0;
-  const st = out.delivered.length
-    ? { planned: true, intents: diag.requested, reason: '', made: out.delivered, ...(diag.deliveredRoles.length ? { madeRoles: diag.deliveredRoles } : {}), message: `Premium media made with Higgsfield: ${diag.deliveredRoles.length ? diag.deliveredRoles.map(r => `the ${r} video`).join(', ') : out.delivered.map(i => i.replace(/_/g, ' ')).join(', ')}.${diag.skipped.length ? ' Not made: ' + diag.skipped.map(x => (x.role ? `the ${x.role} video` : x.intent.replace(/_/g, ' ')) + ' -- ' + x.message).join(' ') : ''}` }
-    : { planned: true, intents: diag.requested, reason: (diag.skipped[0] || {}).reason || 'not_run', message: `Premium media was planned but not made: ${(diag.skipped[0] || {}).message || R.not_run} Its credits were returned.` };
-  db.usage.add(opId, { status: out.delivered.length ? 'ok' : 'failed', settled: diag.creditsCharged, refunded: diag.creditsRefunded, premium_json: JSON.stringify(Object.assign({}, diag, { status: st })), provider_ids_json: JSON.stringify(out.media.map(m => m.providerJobId)) }, new Date().toISOString());
-  const assetsOut = out.media.map(m => {
-    const premium = { mediaId: m.id, provider: m.provider, providerJobId: m.providerJobId, intent: m.intent, sourceAssetId: m.sourceAssetId };
-    if (m.mediaType === 'video') return Object.assign({ kind: 'video', sourceAssetId: m.sourceAssetId, video: { mediaId: m.id, assetRef: m.assetRef, mime: m.mime, intent: m.intent }, premium }, m.role ? { role: m.role } : {});
-    const bytes = getAssetStore().get(m.assetRef);
-    return { kind: 'image', asset: { id: `pm${m.id.slice(3, 14).replace(/[^\w-]/g, '')}`, origin: 'derived', title: `${m.intent.replace(/_/g, ' ')} (premium media)`, alt: '', mime: m.mime, dataUrl: bytes ? `data:${m.mime};base64,${bytes.toString('base64')}` : '', premium, rightsEvidence: [`made for this website from the owner's picture ${m.sourceAssetId}`] } };
-  });
-  return finish(st, { assets: assetsOut, creditsCharged: diag.creditsCharged, creditsRefunded: diag.creditsRefunded });
+  db.usage.add(opId, { quoted: op.amount, reserved: op.amount, ceiling_usd: ceiling }, at);
+  const project = clean(b.projectId, 120) ? projectStore.getOwnedProject(db, req.accountId, clean(b.projectId, 120)) : null;
+  const strategy = planned.length >= 3 ? 'showcase' : planned.length === 2 ? 'cinematic' : 'standard';
+  const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: job.id, projectId: project ? project.id : null, quoteId: q ? q.id : null, opId, mode: strategy === 'standard' ? 'hero' : 'showcase', strategy, creditsReserved: op.amount, roles });
+  if (made.settleNow) premiumJobs.settle(db, made.job.id); else if (!made.reused) premiumWorker.kick(made.job.id);
+  premiumLog({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, reused: made.reused, roles: roles.map(r => `${r.role}:${r.state}`), skipped: diag.skipped });
+  return reply({ reused: made.reused, job: premiumJobs.view(db.premiumJobs.find(made.job.id)) });
+}
+app.post('/api/creative/premium/start', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, startPremium);
+// (the old address: the same fast start -- it never waits for the media any more)
+app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, startPremium);
+// the job as it is now: safe to ask as often as the studio likes (it reads; the worker alone writes). A job that should be
+// running but has no scheduled check in this process (it was started before a restart) is picked up again.
+app.get('/api/creative/premium/status/:id', requireAuth, (req, res) => {
+  const row = db.premiumJobs.find(clean(req.params.id, 60));
+  if (!row || row.account_id !== req.accountId) return res.status(404).json({ ok: false, message: 'Premium job not found.' });
+  if (premiumJobs.ACTIVE.has(row.status) && !premiumWorker.scheduled().includes(row.id)) premiumWorker.kick(row.id, 50);
+  res.json({ ok: true, job: premiumJobs.view(row), creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+// a reopened project's premium job (the studio resumes it, or shows it finished)
+app.get('/api/creative/premium/for-project/:projectId', requireAuth, (req, res) => {
+  const row = db.premiumJobs.latestForProject(req.accountId, clean(req.params.projectId, 120));
+  if (row && premiumJobs.ACTIVE.has(row.status) && !premiumWorker.scheduled().includes(row.id)) premiumWorker.kick(row.id, 50);
+  res.json({ ok: true, job: row ? premiumJobs.view(row) : null });
 });
 
 // the finished media, for the owner's own studio preview (the export writes the same bytes as a file of the website)
@@ -5175,10 +5196,10 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 // (require.main === module, true in every real deployment) is completely
 // unaffected: app.listen() still fires exactly as it always has.
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => console.log(`SiteRemade running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); });
 } else {
   // App bridge pass (Phase 4): `app` is also exported so a test harness can
   // listen() on the REAL route table in-process (still never listens on its
   // own when required, exactly as before).
-  module.exports = { app, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
+  module.exports = { app, premiumWorker, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
 }
