@@ -6,6 +6,7 @@
 // quality. MOCK_CREATIVE = ok (default) | repair (first plan invalid, repair valid) | invalid | error
 //   | claims (the claim check always finds the "Closer" heading unsupported: repair, then it is taken out)
 //   | curate-none (the picture check finds nothing showing the subject)
+// The continuity pass: MOCK_CONTINUITY = ok | error | junk | reset; its critic: MOCK_CRITIC = ok | none | error.
 // A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
 // type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
 function payload(body) {
@@ -82,6 +83,25 @@ function respond(body, env, counters) {
     if (mode === 'claims-conflict' && lines[1]) lines.push(Object.assign({}, lines[1], { verdict: 'unsupported', claim: 'conflict' }));
     if (mode === 'claims-junk') lines = [{ ref: 'sX.heading', verdict: 'supported', evidence: [ev] }];
     return { status: 200, body: { model: 'mock-creative-claims', usage: { input_tokens: 1500, output_tokens: 200 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `c${counters.claims}`, name: tool, input: { lines } }] } };
+  }
+  if (tool === 'submit_creative_continuity') {
+    // the continuity pass (labelled mock). MOCK_CONTINUITY = ok (default: every seam overlaps a little more, the hero
+    // video settles into its still frame) | error (the call fails) | junk (nothing usable) | reset (asks for a hard cut
+    // into scene 2, which the critic must catch)
+    counters.continuity = (counters.continuity || 0) + 1; const cm = env.MOCK_CONTINUITY || 'ok';
+    if (cm === 'error') return { status: 500, body: { error: { message: 'mock: choreography down' } } };
+    const data = payload(body).data; const contracts = (data.contracts || []).map(k => ({ at: k.at, family: k.family, intent: k.intent, carriedActor: k.carriedActor, overlap: { from: Math.max(-0.6, Math.min(-0.15, (k.overlap ? k.overlap.from : -0.4) - 0.05)), to: k.overlap ? k.overlap.to : 0 }, depth: k.depth, mask: k.mask, background: k.background, typography: k.typography, camera: k.camera }));
+    if (cm === 'reset' && contracts[0]) Object.assign(contracts[0], { family: 'cut', intent: 'reset' });
+    const input = cm === 'junk' ? { contracts: [{ at: 99, family: 'teleport' }], hero: { end: 'explode' } } : { contracts, hero: { end: 'static-frame' }, spatialUseful: [1] };
+    return { status: 200, body: { model: 'mock-creative-continuity', usage: { input_tokens: 4200, output_tokens: 800 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `ct${counters.continuity}`, name: tool, input }] } };
+  }
+  if (tool === 'submit_creative_continuity_fixes') {
+    // the critic (labelled mock). MOCK_CRITIC = ok (default: fixes exactly what the rules found) | none | error
+    counters.critic = (counters.critic || 0) + 1; const km = env.MOCK_CRITIC || 'ok';
+    if (km === 'error') return { status: 500, body: { error: { message: 'mock: critic down' } } };
+    const found = payload(body).data.found || [];
+    const fixes = km === 'none' ? [] : found.slice(0, 6).map(f => (f.code === 'competing-motion' ? { at: f.at, code: f.code, calm: true } : f.code === 'dead-gap' ? { at: f.at, code: f.code, overlap: { from: -0.5, to: 0.05 } } : { at: f.at, code: f.code, family: 'color-bleed', intent: f.code === 'duplicate-motion' || f.code === 'no-rest' ? 'rest' : 'continue' }));
+    return { status: 200, body: { model: 'mock-creative-critic', usage: { input_tokens: 2100, output_tokens: 160 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `cc${counters.critic}`, name: tool, input: { fixes } }] } };
   }
   counters.plans = (counters.plans || 0) + 1;
   const bad = mode === 'invalid' || (mode === 'repair' && counters.plans % 2 === 1);

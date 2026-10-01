@@ -147,9 +147,11 @@ test('8. typography is an actor: the name breaks apart, sits behind the subject,
     a.keys.forEach(k => assert.ok(k.sp >= 0 && k.sp <= 1 && k.s >= TL.BOUNDS.word.s[0] && k.s <= TL.BOUNDS.word.s[1]));
     if (a.behavior === 'break') { assert.equal(a.keys[0].sp, 1, 'it starts spread apart'); assert.ok(a.keys.some(k => k.sp === 0 && k.s < 0.5), 'and recedes small'); }
     if (a.behavior === 'mask') assert.ok(v.plan.timeline.transitions.some(t => t.family === 'type-mask' && t.at === a.to + 1) || !v.plan.timeline.transitions.some(t => t.family === 'type-mask'), 'a mask word ends where its mask begins');
-    // on the page: behind the content (the back layer), one element, its letters spread by translate only
-    const h = html(v.plan); const back = h.slice(h.indexOf('<div class="cr-cast cr-back"'), h.indexOf('<main'));
-    assert.match(back, /class="ca" data-role="typography"/); assert.match(back, /<span class="ch" style="--ci:0">/);
+    // on the page: behind the content (the back layer) -- or in front of the pictures where its continuity contracts put
+    // it -- one element, its letters spread by translate only
+    const h = html(v.plan); const front = v.plan.timeline.continuity.contracts.some(k => k.typography === 'front');
+    const layer = front ? h.slice(h.indexOf('<div class="cr-cast cr-front"')) : h.slice(h.indexOf('<div class="cr-cast cr-back"'), h.indexOf('<main'));
+    assert.match(layer, front ? /class="ca" data-depth="front" data-role="typography"/ : /class="ca" data-role="typography"/); assert.match(layer, /<span class="ch" style="--ci:0">/);
   });
   assert.match(html(typed[0].v.plan), /\.ca-word \.ch\{display:inline-block;translate:calc\(\(var\(--ci,0\) - \(var\(--cn,8\) - 1\) \/ 2\) \* var\(--sp,0\) \* \.45em\) 0\}/);
 });
@@ -160,7 +162,8 @@ test('9. image expand: the next scene\'s picture grows from a window into the sc
   const at = v.plan.timeline.transitions.find(t => t.family === 'image-expand').at; const h = html(v.plan);
   assert.match(h, new RegExp(`data-scene="${at}"[^>]*data-seam-in="image-expand"`));
   const rule = /\.sc\[data-seam-in="image-expand"\] \.ly:is\(\[data-role="focal"\],\[data-role="subject"\]\) \.ly-loop\{[^}]*\}/.exec(h)[0];
-  assert.match(rule, /clip-path:inset\(calc\(\(1 - var\(--sn,1\)\) \* 30%\)/); assert.doesNotMatch(rule, /scale/);
+  // (it opens from the window its continuity contract names -- the previous scene's frame -- else a centred window)
+  assert.match(rule, /clip-path:inset\(calc\(\(1 - var\(--sn,1\)\) \* var\(--sit,30%\)\)/); assert.doesNotMatch(rule, /scale/);
   assert.ok(v.plan.scenes[at].layers.some(L => L.role === 'focal' && L.kind === 'image'), 'there is a picture to expand');
   assert.match(h, /s\.style\.setProperty\('--sn',cl\(1-top\/vh\)/, 'the runtime drives it from the scene\'s arrival');
 });

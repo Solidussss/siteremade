@@ -2623,7 +2623,8 @@ function creativeBoundUsd(step) {
   if (step === 'check') return cheap(1500, 12000);
   if (step === 'research') return 2 * cheap(L.understandMaxTokens, 8000) +2 * cheap(L.curateMaxTokens, 45000) + L.webSearches * L.webSearchUsd + CREATIVE_SERPAPI.searches * CREATIVE_SERPAPI.usd;
   const attempts = 1 + L.repairs; // 'direction': the direction, its bounded repairs and their claim checks
-  return attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0));
+  // (and, once per page, the continuity pass: one choreography call and one critic call)
+  return attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0)) + creativeAi.continuityBoundUsd(L);
 }
 function creativeBudgetTake(usd) {
   const s = creativeSpendToday();
@@ -3267,9 +3268,28 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     releaseBudget(); creativeJobs.directionFailed(db, job, directionOpId);
     return res.json({ ok: false, fallback: true, ...creativeCredits(req.accountId), reason: 'the AI direction failed unexpectedly -- your credits for it were not used' });
   }
+  // CONTINUITY (lib/creative/continuity.js): with the hero picture and the final set of pictures known, one choreography
+  // call plans every seam of the page and one cheap critic call reviews it -- inside this direction's own provider
+  // ceiling, never retried, never a Higgsfield call; any failure keeps the built-in contracts the page already has
+  let continuityMeta = null;
+  if (r && r.ok) {
+    const directedUsd = (r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0);
+    const held0 = credits.findOperation(db, directionOpId);
+    try {
+      const ct = await creativeAi.continuity(r.plan, input, {
+        limits: CREATIVE_AI_LIMITS, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON,
+        ceilingUsd: held0 ? Math.max(0, pricing.providerCeilingUsd(held0.amount) - directedUsd) : 0,
+        budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
+        onUsage: x => creativeLedger({ kind: x.step === 'critic' ? 'creative_continuity_critic' : 'creative_continuity', accountId: req.accountId, ok: true, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true }),
+      });
+      r.plan = ct.plan; continuityMeta = ct.meta;
+    } catch (error) {
+      continuityMeta = { choreography: 'fallback', critic: 'off', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] };
+    }
+  }
   releaseBudget();
-  const usd = +(r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0).toFixed(5);
-  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt };
+  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0)).toFixed(5);
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}) };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });
