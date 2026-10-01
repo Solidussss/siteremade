@@ -852,6 +852,242 @@
     module.exports = { identity, secondary, glow, fromColours, tone, sceneTones, retune, mix, lum, distance, hsl, fromHsl, describe };
 
   });
+  __define("premium-arc", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — the premium arc (shared: server, studio bundle, tests).
+    //
+    // Premium video is not an asset inside a layout: it is the visual surface of the page. A generation plans its premium
+    // moments BEFORE anything paid runs and before the scenes are composed -- the page is built around them:
+    //   standard   one premium event  (the hero)                                          -- the default
+    //   cinematic  up to two          (hero, takeover)                                    -- asked for explicitly
+    //   showcase   up to three        (hero, takeover, payoff -- one visual arc)          -- SiteRemade's own showcase builds and
+    //                                                                                        explicitly high-ambition requests
+    // Each event has a different job (the hero hooks and sets palette, subject, camera and scale; the takeover escalates --
+    // another environment, angle, scale or intensity -- and replaces the whole surface; the payoff returns to the hero and
+    // concludes), a full-viewport composition, a source picture from the approved pool, and an explicit continuation: what
+    // survives into the next scene (subject, colour, motion) and how the clip becomes it. Everything is a fixed vocabulary;
+    // a model may choose among it, never a provider parameter.
+    //
+    //   STRATEGIES, ROLES, strategyFor(brief, asked)          the premium strategy for a generation (deterministic)
+    //   eventsFor(strategy)                                    the roles a strategy plans, in order
+    //   pickSources(roles, pool, eligible, mainId)             a source picture per event (a different one for the takeover)
+    //   sceneFor(role, n, arc)                                 where each event sits in the page
+    //   normalise(raw, ctx)                                    the plan's premiumArc, validated against its scenes
+    //   attach(assets, delivered)                              delivered clips onto the page's pictures (studio)
+    //   retune(plan, role, measured)                           the page re-tuned to a delivered clip (studio)
+    //   audit(plan, byId) / metrics(plan, byId)                the showcase rules and numbers
+
+    const PAL = require('./palette');
+
+    const STRATEGIES = { standard: { events: 1 }, cinematic: { events: 2 }, showcase: { events: 3 } };
+    const STRATEGY_NAMES = Object.keys(STRATEGIES);
+    const ROLES = ['hero', 'takeover', 'payoff'];
+    // the premium-media intent each role is made with (lib/media/premium-media.js INTENTS -- its fixed prompt and preset)
+    const ROLE_INTENT = { hero: 'cinematic_hero', takeover: 'premium_transition', payoff: 'cinematic_hero' };
+    const VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion', 'premium_transition'];
+    // what each event is for, how it moves, what it does to the palette (bounded choices a director may make)
+    const PURPOSES = ['hook', 'escalate', 'change-world', 'change-angle', 'change-scale', 'intensify', 'return', 'resolve'];
+    const MOTIONS = ['push-in', 'pull-back', 'pan', 'orbit', 'rise', 'drift', 'hold'];
+    const PALETTES = ['establish', 'shift', 'contrast', 'return'];
+    // how a clip becomes the next scene: the final frame freezes and the subject stays while the world changes behind it; the
+    // camera pushes through it and the next picture arrives as a depth plane; it settles on its last frame (the page ends)
+    const CONTINUATIONS = ['freeze-subject', 'push-through', 'settle'];
+    const DEFAULT = {
+      hero: { purpose: 'hook', motion: 'push-in', palette: 'establish', continuation: 'freeze-subject' },
+      takeover: { purpose: 'escalate', motion: 'pan', palette: 'shift', continuation: 'push-through' },
+      payoff: { purpose: 'return', motion: 'pull-back', palette: 'return', continuation: 'settle' },
+    };
+    // the compositions each event may be staged on: the clip owns the viewport (a window that opens to full screen, a split
+    // that becomes the whole surface -- smaller only while the animation takes it INTO the full screen)
+    const COMPOSITIONS_FOR = { hero: ['fullscreen-subject', 'cinematic-chapter'], takeover: ['image-takeover', 'fullscreen-subject', 'cinematic-chapter', 'depth-stack'], payoff: ['fullscreen-subject', 'cinematic-chapter'] };
+    // the seams a continuation asks for, in order (continuity.js chooseSeams reads them)
+    const SEAMS_OUT = { 'freeze-subject': ['depth-handoff', 'image-expand'], 'push-through': ['depth-handoff', 'image-expand'], settle: [] };
+    const SEAMS_IN = { takeover: ['image-expand', 'depth-handoff'], payoff: ['image-expand', 'depth-handoff'] };
+
+    // ---------------------------------------------------------------- the strategy
+    // (explicit words only: three clips cost real money, so a showcase is never inferred from a mood)
+    const ASK = {
+      showcase: /\b(showcase(?: build| mode| page| site)?|demo build|social demo|launch reel|premium showcase|full[- ]premium|three (?:premium|cinematic|hero) (?:videos|clips|moments|shots)|3 (?:premium|cinematic) (?:videos|clips|moments))\b/i,
+      cinematic: /\b(two (?:premium|cinematic) (?:videos|clips|moments)|2 (?:premium|cinematic) (?:videos|clips)|(?:cinematic|premium|video) takeover|multiple (?:premium|cinematic) videos)\b/i,
+    };
+    // strategyFor(brief, asked) -> { strategy, why }. asked: an explicit strategy from the request (a studio control or
+    // SiteRemade's own build tooling); otherwise the brief's own words; otherwise standard.
+    function strategyFor(brief, asked) {
+      if (STRATEGY_NAMES.includes(asked)) return { strategy: asked, why: 'asked for' };
+      const t = String(brief || '');
+      if (ASK.showcase.test(t)) return { strategy: 'showcase', why: 'the brief asks for a showcase' };
+      if (ASK.cinematic.test(t)) return { strategy: 'cinematic', why: 'the brief asks for a cinematic takeover' };
+      return { strategy: 'standard', why: '' };
+    }
+    function eventsFor(strategy) { return ROLES.slice(0, (STRATEGIES[strategy] || STRATEGIES.standard).events); }
+
+    // ---------------------------------------------------------------- sources
+    // pickSources(roles, pictures, eligible, mainId) -> { role: id }. pictures: the pool's pictures in order ({ id, bleed?,
+    // role?, colour? }); eligible(id) -> whether the picture may be transformed (premium-media.js sourceEligibility). The hero
+    // starts from the main picture when it may; the takeover from ANOTHER strong picture when there is one (an environment, a
+    // wide picture, a different colour -- the escalation changes the world); the payoff returns to the hero's picture.
+    function pickSources(roles, pictures, eligible, mainId) {
+      const ok = (pictures || []).filter(p => p && eligible(p.id)); if (!ok.length) return {};
+      const hero = ok.find(p => p.id === mainId) || ok[0];
+      const out = { hero: hero.id };
+      if (roles.includes('takeover')) {
+        const rank = p => (p.bleed ? 2 : 0) + (p.role === 'environment' ? 1.5 : 0) + (p.colour && hero.colour && p.colour !== hero.colour ? 0.5 : 0);
+        const other = ok.filter(p => p.id !== hero.id).sort((a, b) => rank(b) - rank(a))[0];
+        out.takeover = (other || hero).id;
+      }
+      if (roles.includes('payoff')) out.payoff = hero.id;
+      return out;
+    }
+    // where each event sits: the hero opens, the payoff closes, the takeover is the page's takeover beat (else past the middle,
+    // never next to the hero)
+    function sceneFor(role, n, arc) {
+      if (role === 'hero') return 0;
+      if (role === 'payoff') return n - 1;
+      // (with room for it, a breath scene between the takeover and the payoff: the page lands before it concludes)
+      const hi = lastTakeover(n); const t = (arc || []).indexOf('takeover'); if (t > 1 && t <= hi) return t;
+      return Math.max(2, Math.min(hi, Math.round((n - 1) * 0.55)));
+    }
+    function lastTakeover(n) { return n >= 7 ? n - 3 : n - 2;
+    }
+
+    // ---------------------------------------------------------------- the plan's premium arc
+    const oneOf = (v, list, d) => (list.includes(v) ? v : d);
+    // normalise(raw, ctx) -> [{ role, intent, asset, scene, composition, purpose, motion, palette, continuation, callback?,
+    // next? }] -- ctx: { scenes (validated), byId, planned: [{ role, asset }] (the events the generation may make, with their
+    // sources), max }. A model may move an event's purpose, motion or palette within the vocabulary and choose its
+    // composition from the role's list; it may not add an event the quote did not plan, change its role, or name a picture
+    // that is not the planned source (or, when none was planned, an eligible picture already on the page).
+    function normalise(raw, ctx) {
+      const c = ctx || {}; const n = (c.scenes || []).length; const max = Math.min(3, c.max == null ? 3 : c.max);
+      const given = Array.isArray(raw) ? raw : []; const planned = Array.isArray(c.planned) ? c.planned : [];
+      const out = []; const used = new Set();
+      ROLES.forEach(role => {
+        if (out.length >= max) return;
+        const p = planned.find(x => x && x.role === role); const g = given.find(x => x && x.role === role) || {};
+        if (!p && !(planned.length === 0 && g.role === role)) return;
+        const asset = (p && p.asset) || (c.byId && c.byId.get(g.asset) ? g.asset : '');
+        if (!asset || !c.byId || !c.byId.get(asset)) return;
+        let scene = Number.isInteger(g.scene) && g.scene >= 0 && g.scene < n ? g.scene : Number.isInteger(p && p.scene) ? p.scene : sceneFor(role, n, c.arc);
+        if (role === 'hero') scene = 0; if (role === 'payoff') scene = n - 1;
+        if (used.has(scene) || (role === 'takeover' && (scene < 2 || scene > lastTakeover(n)))) scene = sceneFor(role, n, c.arc);
+        if (used.has(scene) || scene < 0 || scene >= n) return; used.add(scene);
+        const d = DEFAULT[role]; const comp = (c.scenes[scene] && c.scenes[scene].composition) || '';
+        out.push({ role, intent: oneOf(p && p.intent, VIDEO_INTENTS, ROLE_INTENT[role]), asset, scene,
+          composition: COMPOSITIONS_FOR[role].includes(g.composition) ? g.composition : COMPOSITIONS_FOR[role].includes(comp) ? comp : COMPOSITIONS_FOR[role][0],
+          purpose: oneOf(g.purpose, PURPOSES, d.purpose), motion: oneOf(g.motion, MOTIONS, d.motion), palette: oneOf(g.palette, PALETTES, d.palette), continuation: d.continuation,
+          ...(role === 'payoff' ? { callback: true } : {}),
+          ...(g.measured && typeof g.measured === 'object' ? { measured: measuredOf(g.measured) } : {}) });
+      });
+      // the takeover must escalate: never the hero's own job again (a different purpose from the hook)
+      const t = out.find(e => e.role === 'takeover'); if (t && t.purpose === 'hook') t.purpose = 'escalate';
+      return out;
+    }
+    const HEX = /^#[0-9a-f]{6}$/i;
+    const SIDES = ['left', 'right', 'centre'];
+    const MOTION_V = ['lr', 'rl', 'in', 'out', 'none'];
+    function measuredOf(m) {
+      const o = {};
+      if (HEX.test(m.cast || '')) o.cast = m.cast.toLowerCase(); if (HEX.test(m.accent || '')) o.accent = m.accent.toLowerCase();
+      if (typeof m.brightness === 'number' && isFinite(m.brightness)) o.brightness = Math.round(Math.max(0, Math.min(1, m.brightness)) * 100) / 100;
+      if (MOTION_V.includes(m.motion)) o.motion = m.motion; if (SIDES.includes(m.side)) o.side = m.side;
+      return o;
+    }
+
+    // ---------------------------------------------------------------- delivered clips onto the page (studio)
+    // attach(assets, delivered) -> { assets, byRole: { role: assetId } }. delivered: [{ role, sourceAssetId, video, premium }].
+    // A clip goes on its source picture; when that picture already carries another event's clip (the payoff starts from the
+    // hero's picture), the clip goes on a copy of the picture made for it -- one picture, one clip, every event its own.
+    function attach(assets, delivered) {
+      const list = (assets || []).slice(); const byRole = {}; const taken = new Set(list.filter(a => a && a.video && a.video.role).map(a => a.id));
+      (delivered || []).forEach(m => {
+        if (!m || !m.video) return; const src = list.find(a => a && a.id === m.sourceAssetId); if (!src) return;
+        const role = ROLES.includes(m.role) ? m.role : 'hero'; const v = Object.assign({}, m.video, { role });
+        if (!src.video || src.video.role === role || !taken.has(src.id)) { Object.assign(src, { video: v, premium: m.premium }); taken.add(src.id); byRole[role] = src.id; return; }
+        const id = `pv-${role}-${src.id}`.slice(0, 40);
+        const copy = Object.assign({}, src, { id, origin: 'derived', derivedFrom: src.id, title: `${src.title || src.id} (${role} video)`, video: v, premium: m.premium });
+        delete copy.cutoutOf;
+        const at = list.findIndex(a => a && a.id === id); if (at >= 0) list[at] = copy; else list.push(copy);
+        byRole[role] = id;
+      });
+      return { assets: list, byRole };
+    }
+    // the plan's events point at the picture that carries their clip (the copy, when one was made)
+    function repoint(plan, byRole) {
+      if (!plan || !Array.isArray(plan.premiumArc)) return plan; const p = JSON.parse(JSON.stringify(plan));
+      p.premiumArc.forEach(e => { const id = byRole && byRole[e.role]; if (!id || id === e.asset) return; const sc = p.scenes[e.scene]; const f = sc && sc.layers.find(L => L.kind === 'image' && L.role === 'focal'); if (f && (f.asset === e.asset || (f.asset || '').includes(e.asset))) f.asset = id; e.asset = id; });
+      return p;
+    }
+
+    // ---------------------------------------------------------------- a delivered clip retunes the page (studio)
+    // retune(plan, role, measured) -> plan. measured: { cast, accent, brightness, motion, side } (measured from two frames in
+    // the browser). The event records it; its scene takes the clip's colour (the next two lean into it); a clip whose subject
+    // sits on the words' side moves the words to the other side; the motion leads the next two cameras (render2, continuity).
+    function retune(plan, role, measured) {
+      if (!plan || !Array.isArray(plan.premiumArc)) return plan; const p = JSON.parse(JSON.stringify(plan));
+      const e = p.premiumArc.find(x => x.role === role); if (!e) return plan; const m = measuredOf(measured || {}); e.measured = Object.assign({}, e.measured || {}, m);
+      const n = p.scenes.length;
+      if (m.cast) { const lean = [0, 0.55, 0.3]; for (let k = 0; k < 3 && e.scene + k < n; k++) { const s = p.scenes[e.scene + k]; if (!s.tone && k) continue; s.tone = k ? PAL.mix(s.tone, PAL.tone(m.cast, p.palette), lean[k]) : PAL.tone(m.cast, p.palette); } }
+      const sc = p.scenes[e.scene]; const t = sc && sc.text; const pl = t && t.place;
+      if (pl && Array.isArray(pl.gc) && (m.side === 'left' || m.side === 'right')) {
+        const textSide = (pl.gc[0] + pl.gc[1]) / 2 < 6.5 ? 'left' : 'right';
+        if (textSide === m.side && pl.gc[1] - pl.gc[0] < 9) { pl.gc = [13 - pl.gc[1], 13 - pl.gc[0]]; pl.align = pl.align === 'left' ? 'right' : pl.align === 'right' ? 'left' : pl.align; if (t.shade === 'left' || t.shade === 'right') t.shade = t.shade === 'left' ? 'right' : 'left'; }
+      }
+      // (a bright clip keeps its words readable: a soft shade under them, on the words' own side)
+      if (t && typeof m.brightness === 'number' && m.brightness >= 0.6 && !t.shade) t.shade = pl && Array.isArray(pl.gc) && pl.gc[1] - pl.gc[0] < 9 ? ((pl.gc[0] + pl.gc[1]) / 2 < 6.5 ? 'left' : 'right') : 'bottom';
+      return p;
+    }
+
+    // ---------------------------------------------------------------- the showcase rules
+    // audit(plan, byId) -> [{ code, at }]: for a page with premium events (every rule; a page without them -> [])
+    const AUDIT = ['premium-hero-not-fullscreen', 'premium-takeover-not-dominant', 'premium-payoff-not-dominant', 'premium-in-card', 'premium-in-split', 'premium-no-continuation', 'premium-same-job', 'premium-no-escalation', 'premium-no-payoff', 'premium-palette-disconnect', 'premium-hard-reset', 'premium-copy-heavy', 'too-many-sections'];
+    const SPLIT = ['split', 'framed', 'magazine', 'splitscreen', 'image', 'edge-crop', 'luxe', 'sticky-steps'];
+    const CARD = ['window', 'frame', 'polaroid', 'arch', 'circle', 'torn', 'blob', 'diamond', 'slit', 'porthole'];
+    // how much of the screen an event's picture covers (its focal box on desktop, %)
+    function coverage(s) { const f = s && (s.layers || []).find(L => L.kind === 'image' && L.role === 'focal'); if (!f || !f.box) return 0; return Math.round(f.box.d[2] * f.box.d[3]) / 100; }
+    function audit(plan, byId) {
+      const A = (plan && plan.premiumArc) || []; if (!A.length) return []; const scenes = plan.scenes || []; const out = []; const add = (code, at) => { if (!out.some(x => x.code === code && x.at === at)) out.push({ code, at }); };
+      const K = (plan.timeline && plan.timeline.continuity && plan.timeline.continuity.contracts) || [];
+      A.forEach(e => {
+        const s = scenes[e.scene]; if (!s) return; const cov = coverage(s); const f = s.layers.find(L => L.kind === 'image' && L.role === 'focal');
+        if (cov < 80) add(e.role === 'hero' ? 'premium-hero-not-fullscreen' : e.role === 'takeover' ? 'premium-takeover-not-dominant' : 'premium-payoff-not-dominant', e.scene);
+        // (a card or a split: the clip framed as a box, or set beside copy -- whatever the scene's composition calls itself)
+        if (f && (CARD.includes(f.mask) || (CARD.includes(s.layout) && cov < 80))) add('premium-in-card', e.scene);
+        if (SPLIT.includes(s.layout) && (!s.composition || !COMPOSITIONS_FOR[e.role].includes(s.composition) || cov < 80)) add('premium-in-split', e.scene);
+        if (e.role !== 'payoff') { const k = K.find(x => x.at === e.scene + 1); if (k && (k.family === 'cut' || k.intent === 'reset')) add('premium-hard-reset', e.scene + 1); else if (k && !(k.family !== 'color-bleed' || k.carry !== 'none' || k.paletteHandoff === 'hold')) add('premium-no-continuation', e.scene + 1); }
+        const t = s.text || {}; if ((t.body || '').length > 160 && t.copy !== 'caption') add('premium-copy-heavy', e.scene);
+        if ((t.items || []).length > 3 && t.role === 'reading') add('premium-copy-heavy', e.scene);
+        // (the clip's colour belongs to the page: a palette that jumps away from it on both sides is disconnected)
+        const near = [scenes[e.scene - 1], scenes[e.scene + 1]].filter(Boolean).map(x => (x.ink && x.ink.surface) || x.tone || '');
+        const mine = (e.measured && e.measured.cast) || (s.ink && s.ink.surface) || '';
+        if (mine && near.length && near.every(h => h && dist(h, mine) > 230)) add('premium-palette-disconnect', e.scene);
+      });
+      if (A.length >= 2) {
+        // (the same job: every clip staged, moved and sourced alike -- or two of them given the same purpose)
+        const same = (A.every(e => e.composition === A[0].composition) && A.every(e => e.motion === A[0].motion) && A.every(e => e.asset === A[0].asset)) || A.some((e, i) => A.some((x, j) => j > i && x.purpose === e.purpose));
+        if (same) add('premium-same-job', A[A.length - 1].scene);
+        const t = A.find(e => e.role === 'takeover'); if (t && (t.purpose === 'hook' || t.purpose === 'return' || t.scene <= 1)) add('premium-no-escalation', t.scene);
+      }
+      if (A.length === 3) { const p = A.find(e => e.role === 'payoff'); if (!p || p.scene !== scenes.length - 1 || !p.callback) add('premium-no-payoff', scenes.length - 1); }
+      // a showcase page is visual: conventional content sections (a picture beside copy, words alone) are the exception
+      const sections = scenes.filter(s => !s.composition && (SPLIT.includes(s.layout) || ['text', 'dense', 'brutalist', 'magazine'].includes(s.layout))).length;
+      if (A.length >= 3 && sections > Math.max(1, Math.floor(scenes.length / 4))) add('too-many-sections', scenes.findIndex(s => !s.composition && SPLIT.includes(s.layout)));
+      return out;
+    }
+    function dist(a, b) { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); if (!HEX.test(a) || !HEX.test(b)) return 0; const x = p(a), y = p(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); }
+
+    // metrics(plan) -> the premium arc in numbers (QA and the report)
+    function metrics(plan) {
+      const A = (plan && plan.premiumArc) || []; const scenes = (plan && plan.scenes) || []; const K = (plan && plan.timeline && plan.timeline.continuity && plan.timeline.continuity.contracts) || [];
+      const span = e => { if (!e) return 0; let k = 0; for (let i = e.scene + 1; i < scenes.length && i <= e.scene + 3; i++) { const c = K.find(x => x.at === i); if (c && (c.paletteHandoff === 'hold' || (c.motionVector && c.motionVector !== 'none') || c.carry !== 'none' || c.family !== 'color-bleed')) k++; else break; } return k; };
+      return { events: A.length, roles: A.map(e => e.role), coverage: A.map(e => coverage(scenes[e.scene])), inCards: A.filter(e => { const f = (scenes[e.scene] || { layers: [] }).layers.find(L => L.kind === 'image' && L.role === 'focal'); return f && CARD.includes(f.mask); }).length,
+        hardResetsAfter: A.filter(e => { const k = K.find(x => x.at === e.scene + 1); return k && k.family === 'cut'; }).length, heroSpan: span(A.find(e => e.role === 'hero')), takeoverSpan: span(A.find(e => e.role === 'takeover')),
+        payoffReferencesOpening: !!(A.find(e => e.role === 'payoff') && (A.find(e => e.role === 'payoff').callback)) || !!(plan && plan.timeline && plan.timeline.continuity && plan.timeline.continuity.callback), sources: [...new Set(A.map(e => e.asset))].length };
+    }
+
+    module.exports = { STRATEGIES, STRATEGY_NAMES, ROLES, ROLE_INTENT, VIDEO_INTENTS, PURPOSES, MOTIONS, PALETTES, CONTINUATIONS, DEFAULT, COMPOSITIONS_FOR, SEAMS_OUT, SEAMS_IN, AUDIT,
+      strategyFor, eventsFor, pickSources, sceneFor, normalise, attach, repoint, retune, audit, metrics, coverage };
+
+  });
   __define("pool", function (module, exports, require) {
     'use strict';
     // CREATIVE — the picture pool and the visual plan: the page is planned around its pictures, before any words exist.
@@ -1783,6 +2019,7 @@
     const FR = require('./framing');
     const PAL = require('./palette');
     const COMP = require('./composition');
+    const PREMIUM = require('./premium-arc');
     const F0 = a => require('./framing').profile(a);
 
     const INTENTS = ['carry', 'continue', 'rest', 'reset'];
@@ -1795,7 +2032,8 @@
     const VIDEO_ENDS = ['subject-centred', 'detail-crop', 'static-frame'];
     const VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
     // (the seams' own findings, then the page's as a whole: composition.js audit -- too editorial, framed, no takeover...)
-    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest', 'too-quiet', 'same-direction', 'same-scale', 'no-payoff'].concat(COMP.AUDIT);
+    // (and the premium arc's: premium-arc.js audit -- a showcase's clips own the screen and carry into the page)
+    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest', 'too-quiet', 'same-direction', 'same-scale', 'no-payoff', 'composition-seam-mismatch'].concat(COMP.AUDIT, PREMIUM.AUDIT);
     const SOURCES = ['built-in', 'ai', 'mock'];
     // a seam's overlap, in scenes, around the seam (g = at): the outgoing scene is still leaving while the incoming one
     // arrives -- never "ends, empty gap, starts", never a pile-up
@@ -1979,23 +2217,52 @@
         const rel = relationOf(sc[at - 1], sc[at], byId, ctx); const fa = focalOf(sc[at - 1]), fb = focalOf(sc[at]);
         const PA = fa && byId.get(fa.asset) ? profileOf(byId.get(fa.asset)) : null, PB = fb && byId.get(fb.asset) ? profileOf(byId.get(fb.asset)) : null;
         const loud = INTENSITY[rhythm[at]] || 2;
-        let want = null; let bonus = 0;
+        let want = null; let bonus = 0; let why = '';
+        // (whether a seam can honestly carry a family between these two scenes: a picture that "becomes" the next one must be
+        // the same or closely fitting picture; a card must be one of the cards; a type mask needs the name ending there)
+        const honest = f => f === 'image-expand' ? !!fb && (['same-picture', 'detail-of', 'same-subject'].includes(rel.relationship) || (PA && PB && pairFit(PA, PB, byId).score >= 0.5))
+          : f === 'card-expand' ? !!fb && CARDS.includes(sc[at - 1].layout) && sc[at - 1].layers.some(L => L.kind === 'image' && related(L.asset, fb.asset, byId))
+          : f === 'type-mask' ? !!fb && (raw.actors || []).some(a => a && a.role === 'typography' && a.to === at - 1)
+          : f === 'depth-handoff' ? !!fa : TL.TRANSITIONS.includes(f) && f !== 'actor-carry';
+        // a premium moment says how its clip becomes the next scene (premium-arc.js): the hero's subject stays while the world
+        // changes, the takeover pushes through into a depth plane; the next media expands into a takeover or the payoff
+        const evOut = (ctx.premiumArc || []).find(e => e.scene === at - 1), evIn = (ctx.premiumArc || []).find(e => e.scene === at && e.role !== 'hero');
+        // and the outgoing composition says what it becomes (composition.js BECOMES)
+        // (when the flow's own move is one of those answers, the flow's move first: the page keeps its own variety)
+        const compWants0 = sc[at - 1].composition ? (COMP.BECOMES[sc[at - 1].composition] || []).filter(f => honest(f) && f !== 'color-bleed') : [];
+        const compWants = compWants0.includes(was) ? [was].concat(compWants0.filter(f => f !== was)) : compWants0; const compWant = compWants[0];
+        // (into a takeover or the payoff, the scene before decides how the clip arrives: the arrivals it can become -- a type
+        // takeover's mask, a gallery's card -- else its own move; out of a clip, the clip's continuation)
+        const becomes0 = sc[at - 1].composition ? COMP.BECOMES[sc[at - 1].composition] || null : null;
+        const inWants = evIn && !evOut ? (PREMIUM.SEAMS_IN[evIn.role] || []).filter(honest) : [];
+        const premiumWants = evOut ? (PREMIUM.SEAMS_OUT[evOut.continuation] || []).filter(honest) : !becomes0 ? inWants : inWants.filter(f => becomes0.includes(f)).length ? inWants.filter(f => becomes0.includes(f)) : evIn ? compWants : [];
+        const premiumWant = premiumWants[0];
         // (a card of a gallery that becomes the next scene: the next picture is one of the cards)
         const fromCards = CARDS.includes(sc[at - 1].layout) && fb && sc[at - 1].layers.some(L => L.kind === 'image' && related(L.asset, fb.asset, byId));
-        if (fromCards) { want = 'card-expand'; bonus = 1; }
+        if (premiumWant) { want = premiumWant; bonus = 3; why = 'premium'; }
+        else if (fromCards) { want = 'card-expand'; bonus = 1; }
         else if (rel.relationship === 'same-picture' || rel.relationship === 'detail-of') want = 'image-expand';
+        // (a composition's own move claims a signature seam when the next scene arrives with weight -- a quiet arrival after
+        // it bleeds, which the composition can always become; the flow keeps its own moves for the rest)
+        else if (compWant && loud >= 4) { want = compWant; bonus = 0.5; why = 'composition'; }
         // (the same subject comes forward out of the last scene -- after a premium hero too: the video's subject carries on)
         else if (rel.relationship === 'same-subject' && PB && PB.carryable && fa) want = 'depth-handoff';
         else if (at === 1 && ctx.premiumHero && fb) want = 'image-expand';
         else if (PB && PB.carryable && PA && !PA.carryable && loud >= 3) want = 'depth-handoff';
         else if (rel.relationship === 'contrast' && loud >= 4) want = 'foreground-wipe';
-        seams.push({ at, tr, was, rel, want, strength: rel.score + loud / 10 + bonus + (at === 1 && ctx.premiumHero ? 1 : 0) });
+        // (a move the pictures suggest but the outgoing composition cannot become gives way to the composition's own answer)
+        const can = sc[at - 1].composition && COMP.BECOMES[sc[at - 1].composition] ? COMP.BECOMES[sc[at - 1].composition] : null;
+        if (want && !why && can && !can.includes(want) && want !== 'card-expand') { if (compWant) { want = compWant; why = 'composition'; } else want = null; }
+        seams.push({ at, tr, was, rel, want, can: sc[at - 1].composition && COMP.BECOMES[sc[at - 1].composition] ? COMP.BECOMES[sc[at - 1].composition] : null, wants: why === 'premium' ? premiumWants : why === 'composition' ? compWants : want ? [want] : [], why: why || (want ? 'pictures' : ''), strength: rel.score + loud / 10 + bonus + (at === 1 && ctx.premiumHero ? 1 : 0) });
       }
       const chosen = new Map(); let used = 0;
+      // (one idea at most twice on a page: a third depth hand-off reads as a loop, not a story)
+      const times = f => [...chosen.values()].filter(x => x === f).length;
       seams.filter(s => s.want).sort((x, y) => y.strength - x.strength || x.at - y.at).forEach(s => {
         if (used >= cast.signature) return;
-        if ([s.at - 1, s.at + 1].some(k => chosen.get(k) === s.want)) return;
-        chosen.set(s.at, s.want); used++;
+        // (the first of its answers the page has not already made twice, and not the same as a neighbour's)
+        const f = s.wants.find(w => ![s.at - 1, s.at + 1].some(k => chosen.get(k) === w) && times(w) < 2); if (!f) return;
+        s.want = f; chosen.set(s.at, f); used++;
       });
       let changed = 0;
       seams.forEach(s => {
@@ -2003,12 +2270,14 @@
         let fam = chosen.get(s.at);
         if (!fam) {
           // the flow's own signature move, while budget is left and its neighbours do not already make the same move
-          if (TL.SIGNATURE.includes(s.was) && used < cast.signature && ![s.at - 1, s.at + 1].some(k => chosen.get(k) === s.was)) { fam = s.was; chosen.set(s.at, fam); used++; }
+          // -- and one the scene before can become (composition.js BECOMES; a composition's seam is never a move it set up against)
+          const can = s.can == null || s.can.includes(s.was);
+          if (TL.SIGNATURE.includes(s.was) && can && used < cast.signature && ![s.at - 1, s.at + 1].some(k => chosen.get(k) === s.was)) { fam = s.was; chosen.set(s.at, fam); used++; }
           else fam = TL.SIGNATURE.includes(s.was) ? 'color-bleed' : s.was;
         }
         if (fam !== s.tr.family) { s.tr.family = fam; changed++; }
       });
-      return { changed, seams: seams.map(s => ({ at: s.at, family: s.tr.family, relationship: s.rel ? s.rel.relationship : 'carry' })) };
+      return { changed, seams: seams.map(s => ({ at: s.at, family: s.tr.family, relationship: s.rel ? s.rel.relationship : 'carry', by: s.tr.family === s.want ? s.why : s.keep ? 'actor' : 'flow' })) };
     }
     // the way a delivered video moves, from two of its frames ({ width, height, data } RGBA; the studio samples 64 x 40): the
     // one camera move -- a pan (the picture shifts) or a zoom (it scales about the centre) -- that best turns the first frame
@@ -2202,6 +2471,16 @@
           if (!PALETTE_HANDOFFS.includes(g.paletteHandoff) && k.paletteHandoff === 'blend') k.paletteHandoff = 'hold';
         });
       }
+      // every other premium moment (premium-arc.js) carries on the same way: its clip's colour holds across the next seam
+      // before it hands over, and its measured motion leads the next two (a takeover's push carries through)
+      (Array.isArray(c.premiumArc) ? c.premiumArc : []).filter(e => e && e.role !== 'hero').forEach(e => {
+        const mv = e.measured && VECTORS.includes(e.measured.motion) ? e.measured.motion : 'none';
+        contracts.filter(k => k.at > e.scene && k.at <= e.scene + 2).forEach((k, j) => {
+          const g = given.get(k.at) || {};
+          if (mv !== 'none' && k.family !== 'actor-carry' && g.motionVector !== 'none') k.motionVector = mv;
+          if (!j && !PALETTE_HANDOFFS.includes(g.paletteHandoff) && k.paletteHandoff === 'blend') k.paletteHandoff = 'hold';
+        });
+      });
       // a physical carry is a statement: the strongest relationships keep theirs, within the mode's number
       const carried = contracts.filter(k => k.carry !== 'none').sort((x, y) => (y.carry === 'strong') - (x.carry === 'strong') || x.at - y.at);
       carried.slice(CARRIES[c.mode] || CARRIES.expressive).forEach(k => { k.carry = 'none'; if (k.depthHandoff === 'forward' && k.family !== 'image-expand' && k.family !== 'card-expand') k.depthHandoff = 'none'; });
@@ -2326,12 +2605,22 @@
       // (each finding names the scene it is about; `at` stays a seam for the seam-shaped fields)
       const subject = plan.scenes.some(sc => (sc.layers || []).some(L => L.kind === 'image' && byId.get(L.asset) && (F0(byId.get(L.asset)).free || [...byId.values()].some(x => x.cutoutOf === L.asset))));
       COMP.audit(plan, { subject }).forEach(x => { if (!issues.some(y => y.code === x.code)) issues.push({ code: x.code, at: Math.max(1, Math.min(plan.scenes.length - 1, x.at)), scene: x.at }); });
+      // a composition and the seam after it are one decision: a seam its composition cannot become (a wipe after a window
+      // that was opening, a cut after a zoom-through) breaks the move it set up
+      K.forEach(k => { const prev = plan.scenes[k.at - 1]; const want = prev && prev.composition ? COMP.BECOMES[prev.composition] : null; if (want && !want.includes(k.family) && !['color-bleed', 'actor-carry'].includes(k.family)) add('composition-seam-mismatch', k.at); });
+      // the premium arc (showcase): each clip owns the screen, does its own job, and carries into the page
+      PREMIUM.audit(plan, byId).forEach(x => { if (!issues.some(y => y.code === x.code && y.scene === x.at)) issues.push({ code: x.code, at: Math.max(1, Math.min(plan.scenes.length - 1, x.at)), scene: x.at }); });
       return issues.slice(0, LIMITS.issues);
     }
     // the built-in fix for each finding
-    function fixesFor(issues, plan, byId) {
+    function fixesFor(issues0, plan, byId) {
+      // (the premium arc's findings first: within the bounded number of fixes, a clip that does not own the screen or a reset
+      // after it matters more than a seam's direction)
+      const issues = (issues0 || []).filter(x => PREMIUM.AUDIT.includes(x.code)).concat((issues0 || []).filter(x => !PREMIUM.AUDIT.includes(x.code)));
       const K = (plan.timeline && plan.timeline.continuity && plan.timeline.continuity.contracts) || []; const out = [];
       // the page-level findings: the composition each asks for, on a scene whose own pictures can carry it
+      const STAGE = ['premium-hero-not-fullscreen', 'premium-takeover-not-dominant', 'premium-payoff-not-dominant', 'premium-in-card', 'premium-in-split', 'premium-same-job', 'premium-copy-heavy'];
+      issues.filter(x => STAGE.includes(x.code)).forEach(x => { const e = (plan.premiumArc || []).find(ev => ev.scene === x.scene); if (!e) return; const cur = plan.scenes[e.scene] && plan.scenes[e.scene].composition; const comp = x.code === 'premium-same-job' ? PREMIUM.COMPOSITIONS_FOR[e.role].find(k => k !== cur) : PREMIUM.COMPOSITIONS_FOR[e.role][0]; if (comp) out.push({ at: Math.max(1, Math.min(plan.scenes.length - 1, e.scene)), scene: e.scene, code: x.code, composition: comp }); });
       const pageIssues = issues.filter(x => COMP.AUDIT.includes(x.code)).map(x => ({ code: x.code, at: x.scene != null ? x.scene : x.at }));
       if (pageIssues.length && byId) {
         const hero = plan.timeline && plan.timeline.continuity && plan.timeline.continuity.hero; const name = plan.identity && plan.identity.name;
@@ -2350,6 +2639,18 @@
         else if (x.code === 'same-direction') out.push({ at: x.at, code: x.code, motionVector: 'none' });
         else if (x.code === 'same-scale') out.push({ at: x.at, code: x.code, family: 'color-bleed', carry: 'light' });
         else if (x.code === 'no-payoff') out.push({ at: x.at, code: x.code, payoff: true });
+        // (a seam after a composition becomes what the composition was making; after a premium clip it continues in depth with
+        // the clip's colour holding -- never a hard reset)
+        else if (x.code === 'composition-seam-mismatch') {
+          // (what the composition becomes -- unless that repeats a neighbour's move or a move the page already made twice: then the colour flows)
+          const prev = plan.scenes[x.at - 1]; const fam0 = at => (K.find(c => c.at === at) || {}).family; const twice = fam => K.filter(c => c.at !== x.at && c.family === fam).length >= 2;
+          const f = ((prev && COMP.BECOMES[prev.composition]) || []).find(fam => feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline }).includes(fam) && fam0(x.at - 1) !== fam && fam0(x.at + 1) !== fam && !twice(fam));
+          out.push({ at: x.at, code: x.code, family: f || 'color-bleed' });
+        }
+        else if (x.code === 'premium-hard-reset' || x.code === 'premium-no-continuation') out.push({ at: x.at, code: x.code, family: feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline }).includes('depth-handoff') ? 'depth-handoff' : 'color-bleed', intent: 'continue', paletteHandoff: 'hold' });
+        else if (x.code === 'premium-palette-disconnect') { [x.scene, x.scene + 1].filter(a => a >= 1 && a < plan.scenes.length).forEach(a => out.push({ at: a, code: x.code, paletteHandoff: 'hold' })); }
+        // (one family per seam: the first fix for a seam decides it -- a later one never undoes a calming fix)
+        const last = out[out.length - 1]; if (last && last.family && out.slice(0, -1).some(o => o.at === last.at && o.family && o.family !== last.family)) delete last.family;
       });
       return out.slice(0, LIMITS.fixes);
     }
@@ -2369,8 +2670,9 @@
         if (f.motionVector === 'none') o.motionVector = 'none';
         if (f.carry === 'none' || f.carry === 'light') o.carry = f.carry;
         if (f.payoff === true) o.payoff = true;
+        if (PALETTE_HANDOFFS.includes(f.paletteHandoff)) o.paletteHandoff = f.paletteHandoff;
         // (a page-level fix names a scene and a composition from the vocabulary -- the scene is composed again around it)
-        if (COMP.AUDIT.includes(f.code) && COMP.COMPOSITIONS.includes(f.composition) && Number.isInteger(f.scene) && f.scene >= 0 && f.scene < n) { o.scene = f.scene; o.composition = f.composition; }
+        if ((COMP.AUDIT.includes(f.code) || PREMIUM.AUDIT.includes(f.code)) && COMP.COMPOSITIONS.includes(f.composition) && Number.isInteger(f.scene) && f.scene >= 0 && f.scene < n) { o.scene = f.scene; o.composition = f.composition; }
         return o;
       }).filter(Boolean);
     }
@@ -2381,7 +2683,7 @@
         if (f.composition) return; // (a composition fix changes a scene, not a seam: ai.js recomposes it)
         let k = c.contracts.find(x => x.at === f.at); if (!k) { k = { at: f.at }; c.contracts.push(k); }
         if (f.reset) { delete k.carriedActor; delete k.carriedAsset; }
-        ['family', 'intent', 'background', 'typography', 'overlap', 'motionVector', 'carry'].forEach(p => { if (f[p] !== undefined) k[p] = f[p]; });
+        ['family', 'intent', 'background', 'typography', 'overlap', 'motionVector', 'carry', 'paletteHandoff'].forEach(p => { if (f[p] !== undefined) k[p] = f[p]; });
         if (f.calm) k.calm = true;
         if (f.heroEnd) c.hero = Object.assign({}, c.hero || {}, { end: f.heroEnd });
         if (f.payoff) c.payoff = true;
@@ -3176,6 +3478,14 @@
       return { zoom, cut, bleed: wide(base(a)) || !!opt.video, located, pictures: new Set(imgs.map(L => base(byId.get(L.asset)).id)).size, items: (t.items || []).length,
         short: fewWords(t.heading, 4, 32) || (!!name && fewWords(name, 3, 18)), video: !!opt.video, bleeds: imgs.filter(L => wide(base(byId.get(L.asset)))).length };
     }
+    // what each composition becomes, as seams in order of preference (continuity.js chooseSeams takes the first one the two
+    // scenes can honestly carry): a window that opened keeps opening into the next picture, a wall's tile becomes the next
+    // scene, type becomes the mask, a subject coming forward hands over in depth, a zoom-through continues the camera
+    // (several meaningful answers each: the subject comes forward or its colour takes the screen; a foreground passing is a wipe;
+    // a lateral split slides on -- the first the two scenes can carry, the next when the page already made that move twice)
+    const BECOMES = { 'object-stage': ['depth-handoff', 'shape-takeover'], 'fullscreen-subject': ['image-expand', 'depth-handoff', 'foreground-wipe'], 'image-takeover': ['image-expand', 'depth-handoff'], 'depth-stack': ['depth-handoff', 'foreground-wipe'], 'orbit-stage': ['depth-handoff', 'shape-takeover'],
+      'split-transform': ['image-expand', 'foreground-wipe'], 'type-takeover': ['type-mask', 'shape-takeover'], 'mask-stage': ['image-expand', 'type-mask'], 'tunnel-stage': ['card-expand', 'depth-handoff'], 'gallery-collapse': ['card-expand', 'image-expand'],
+      'perspective-lineup': ['card-expand', 'depth-handoff', 'foreground-wipe'], 'floating-canvas': ['depth-handoff', 'image-expand', 'color-bleed'], 'cinematic-chapter': ['image-expand', 'depth-handoff'], 'image-wall': ['card-expand', 'image-expand'], 'object-focus': ['image-expand', 'depth-handoff'] };
     // how many pictures a composition's base shows (the visual plan assigns them)
     const TAKES = { 'object-stage': 1, 'depth-stack': 2, 'type-stage': 1, 'mask-stage': 1, 'image-wall': 5, canvas: 3 };
     // every base a composition may be staged on (a scene whose pictures pushed it onto another layout loses the composition)
@@ -3235,13 +3545,19 @@
       const c = ctx || {}; const n = scenes.length; const inv = c.inv; const r = c.rng || Math.random;
       if (!inv || !inv.main || !n || (c.mode !== 'expressive' && c.mode !== 'immersive')) return null;
       const arc = arcFor(n, c.mode, r()); const w = (c.direction && c.direction.weights) || {};
+      // the premium arc first (premium-arc.js): its moments are the page's visual surface -- the scenes are built around them
+      const PA = require('./premium-arc'); const events = Array.isArray(c.premiumArc) ? c.premiumArc.filter(e => e && PA.ROLES.includes(e.role) && e.asset) : [];
+      const taken = new Set();
+      events.forEach(e => { let at = PA.sceneFor(e.role, n, arc); while (taken.has(at) && at < n - 1) at++; if (taken.has(at)) return; taken.add(at); scenes[at].premium = e.role; scenes[at].premiumAsset = e.asset; scenes[at].premiumIntent = e.intent; });
       const located = inv.photos.some(p => !p.p.tight && p.p.source !== 'unknown' && p.p.big);
       const zoom = located || inv.cut.some(x => ((x.a.assess && x.a.assess.height) || 0) * 1.15 / 520 >= 1.3);
       const have = { zoom, cut: inv.cut.length > 0, bleed: inv.bleedable.length > 0, located, pictures: inv.distinct, items: (c.content && c.content.items) || 0, short: !!(c.content && c.content.shortName), bleeds: inv.bleedable.length };
       const used = new Map(); let holds = 0; const maxHolds = HOLDS[c.mode] || 0;
       scenes.forEach((s, i) => {
         const role = arc[i]; s.arc = role;
-        if (s.run) return; // (an actor's run is its own composition: the actor IS the subject on stage)
+        if (s.run && !s.premium) return; // (an actor's run is its own composition: the actor IS the subject on stage)
+        // a premium moment: its clip owns the viewport -- a composition from its role's own list
+        if (s.premium) { const xv = Object.assign({}, have, { video: true, bleed: true }); const pick = PA.COMPOSITIONS_FOR[s.premium].filter(k => fit(k, xv) && k !== (scenes[i - 1] || {}).composition && (used.get(k) || 0) < 2)[0] || PA.COMPOSITIONS_FOR[s.premium][0]; used.set(pick, (used.get(pick) || 0) + 1); if (SPEC[pick].hold) holds++; s.composition = pick; s.layout = baseFor(pick, xv); s.choreo = SPEC[pick].keepChoreo || 'compose'; return; }
         // a breath on a page with copy to read keeps a calm reading composition; otherwise it floats its pictures
         if (role === 'breath' && (s.carries === 'facts' || s.carries === 'prose')) return;
         const x = Object.assign({}, have, i === 0 && c.premium ? { video: true, bleed: true } : {});
@@ -3423,7 +3739,7 @@
 
     // alternatives(comp, arc) -> the compositions to try, in order, when a scene's pictures cannot carry `comp`
     function alternatives(comp, arc) { return [...new Set((NEAREST[comp] || []).concat(ARC_POOL[arc] || [], ['object-focus', 'fullscreen-subject', 'object-stage', 'floating-canvas', 'image-takeover']))].filter(k => k !== comp); }
-    module.exports = { NATIVE, alternatives, carryOf, COMPOSITIONS, SPEC, ARC, ARC_RHYTHM, ARC_POOL, TYPE_ACTS, CAMERAS, TEXT_ROLES, COPY, TAKEOVER, FULLSCREEN, CENTRED, TYPE_LED, TRANSFORMS, EDITORIAL, CARD_MASKS, HOLDS, TAKES, BASES, NEAREST, AUDIT, WANTS, KB, TRAITS,
+    module.exports = { BECOMES, NATIVE, alternatives, carryOf, COMPOSITIONS, SPEC, ARC, ARC_RHYTHM, ARC_POOL, TYPE_ACTS, CAMERAS, TEXT_ROLES, COPY, TAKEOVER, FULLSCREEN, CENTRED, TYPE_LED, TRANSFORMS, EDITORIAL, CARD_MASKS, HOLDS, TAKES, BASES, NEAREST, AUDIT, WANTS, KB, TRAITS,
       artDirection, fit, baseFor, arcFor, rhythmOf, planPage, shapeOf, audit, fixesFor, tracks, sample, boundKey, metrics };
 
   });
@@ -3865,6 +4181,10 @@
       const typo = weighted(r, st.typo); const nav = weighted(r, st.nav); const density = weighted(r, st.density); const depth = weighted(r, st.depth);
       const scroll = weighted(r, fam.scroll) || weighted(r, st.scroll); const progression = weighted(r, fam.progression) || weighted(r, st.progression);
       const beats = fam.beats(r, { mode, inv, content, lim });
+      // (a showcase -- three premium moments -- is a longer arc: at least seven chapters, so each clip has room to arrive and
+      // to carry on, with breath scenes between them; the extra chapters go before the closing)
+      const arcN = input && input.premium && Array.isArray(input.premium.arc) ? input.premium.arc.length : 0;
+      for (let k = 0; arcN >= 3 && beats.length < 7 && k < 4; k++) beats.splice(beats.length - 1, 0, k % 2 ? { body: true } : { pool: pool('image:1|edge-crop:1|cinematic:1|takeover:1|chapters:1') });
       // the budgets the scenes draw on: picture appearances (each picture may appear two or three times; the actor is one) and
       // lines of facts (the opening quotes one)
       let usesLeft = inv.uses - (inv.main ? 1 : 0); let itemsLeft = Math.max(0, content.items - (content.facts ? 1 : 0)); let prose = content.prose;
@@ -3910,7 +4230,8 @@
       if (cover) {
         coverPictures(r, scenes, inv, content, st, input);
         const direction = COMP.artDirection(input && input.understanding);
-        arc = COMP.planPage(scenes, { mode, inv, content, direction, premium: !!(input && input.premium && input.premium.video), rng: rng(`${(input && input.seed) || ''}|compose|${(input && input.understanding && input.understanding.subject) || ''}`) });
+        const premiumArc = input && input.premium && Array.isArray(input.premium.arc) ? input.premium.arc : null;
+        arc = COMP.planPage(scenes, { mode, inv, content, direction, premium: !!(input && input.premium && input.premium.video), premiumArc, rng: rng(`${(input && input.seed) || ''}|compose|${(input && input.understanding && input.understanding.subject) || ''}`) });
         planVisuals(scenes, inv, content, { premium: !!(input && input.premium && input.premium.video) });
         if (arc) scenes.direction = direction;
       }
@@ -3938,10 +4259,12 @@
       // lives across scenes (timeline.js) -- planned now, so pages can be compared by how they move, not only by layout
       const flow = require('./timeline').planFlow(r, { family, mode, personality, typo, scenes: scenes.map(x => ({ layout: x.layout, choreo: x.choreo, carries: x.carries, composition: x.composition })), actor: actor ? { from: actor.from, to: actor.to } : null, shortName: content.shortName, arc });
       const direction = scenes.direction; delete scenes.direction;
-      scenes.forEach(s => { delete s.run; delete s.covered; });
+      // (the premium arc the scenes were built around: each moment, its scene, its source, its composition)
+      const premiumArc = scenes.some(s => s.premium) ? scenes.map((s, i) => (s.premium ? { role: s.premium, intent: s.premiumIntent, asset: s.premiumAsset, scene: i, composition: s.composition } : null)).filter(Boolean) : null;
+      scenes.forEach(s => { delete s.run; delete s.covered; delete s.premium; delete s.premiumAsset; delete s.premiumIntent; });
       const M = MOTION[personality];
       const intensity = Math.max(1, Math.min(5, MODES.indexOf(mode) + 1 + (M.range > 1 ? 1 : 0)));
-      const recipe = { family, mode, personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes, ...(actor ? { actor } : {}), flow, ...(direction && direction.traits.length ? { direction: { traits: direction.traits, field: direction.field, light: direction.light, motion: direction.motion, scale: direction.scale } } : {}) };
+      const recipe = { family, mode, personality, scroll, typo, nav, density, progression, depth, intensity, genre, scenes, ...(actor ? { actor } : {}), flow, ...(premiumArc ? { premiumArc } : {}), ...(direction && direction.traits.length ? { direction: { traits: direction.traits, field: direction.field, light: direction.light, motion: direction.motion, scale: direction.scale } } : {}) };
       recipe.behavior = require('./timeline').behavior(flow, { progression, scroll });
       recipe.recipe = fingerprint(recipe);
       recipe.why = `${genre === 'object' ? 'this subject' : `a ${genre} subject`}${registerOf(input.understanding) ? `, ${registerOf(input.understanding)}` : ''}: a ${family.replace(/-/g, ' ')} arc, ${mode}, with ${M.label} motion${actor ? ' and one subject carried across the opening scenes' : ''}`;
@@ -4006,7 +4329,7 @@
         // a composition is held to the picture its scene gets: a cut-out stage given a flat photo becomes the nearest
         // composition the photo can carry (or the scene's own layout when none can)
         if (s.composition) {
-          const video = i === 0 && !!(opts && opts.premium);
+          const video = (i === 0 && !!(opts && opts.premium)) || !!s.premium;
           const tall = y => !!(y && y.p.free && ((y.a.assess && y.a.assess.height) || 0) * 1.15 / 520 >= 1.3); const zoomable = inv.all.some(y => (y.a.id === v.asset || y.a.cutoutOf === v.base) && tall(y));
           const x = { video, zoom: zoomable || inv.photos.some(p => p.a.id === v.base && !p.p.tight && p.p.source !== 'unknown' && p.p.big), cut: free(v.asset) || inv.all.some(y => y.a.cutoutOf === v.base), bleed: video || bleed(v.asset) || bleed(v.base), located: inv.photos.some(p => p.a.id === v.base && !p.p.tight && p.p.source !== 'unknown' && p.p.big), pictures: (v.assets || []).length >= 3 ? (v.assets || []).length : inv.distinct, items: content.items, short: content.shortName, bleeds: inv.bleedable.length };
           if (!COMP.fit(s.composition, x) || !COMP.BASES[s.composition].includes(COMP.baseFor(s.composition, x))) {
@@ -4025,6 +4348,8 @@
       });
       // (the plan made again on the final compositions: a converted scene takes as many pictures as its composition shows)
       POOL.assign(scenes, inv.pool).forEach((v, i) => { if (v) scenes[i].visual = v; else delete scenes[i].visual; });
+      // (a premium moment is made from its own source: that picture -- the photo, never its cut-out -- leads its scene)
+      scenes.forEach(s => { if (!s.premiumAsset) return; const p = (inv.pool.pictures || []).find(x => x.id === s.premiumAsset); s.visual = { asset: s.premiumAsset, assets: [s.premiumAsset], base: s.premiumAsset, colour: (p && p.colour) || (s.visual && s.visual.colour) || '', subject: (p && p.depicts) || (s.visual && s.visual.subject) || '', relation: (s.visual && s.visual.relation) || 'shifts' }; });
       void changed;
     }
 
@@ -4098,7 +4423,8 @@
         const mw = {}; MODES.forEach(m => { const a = AMB_MODE[amb.level][m]; mw[m] = a > 0 ? (((MODE_W[personality] || MODE_W.editorial)[m] || 0) * 0.5 + a + ((C.modes || {})[m] || 0)) : 0; });
         if (MODES.includes(pref.mode)) mw[pref.mode] = (mw[pref.mode] || 0) + 6;
         const mode = weighted(r, mw) || 'editorial';
-        const fw = {}; FAMILIES.forEach(f => { if (!familyFits(f, mode, inv, content)) return; const F0 = FAMILY[f]; fw[f] = (0.4 + (F0.genre[genre] || 0.3)) * (0.4 + (F0.personality[personality] || 0.2)) * (C.families[f] || 0.15) + (pref.family === f ? 20 : 0); });
+        const arcN = inp.premium && Array.isArray(inp.premium.arc) ? inp.premium.arc.length : 0;
+        const fw = {}; FAMILIES.forEach(f => { if (!familyFits(f, mode, inv, content) || (arcN >= 2 && f === 'object-story')) return; const F0 = FAMILY[f]; fw[f] = (0.4 + (F0.genre[genre] || 0.3)) * (0.4 + (F0.personality[personality] || 0.2)) * (C.families[f] || 0.15) + (pref.family === f ? 20 : 0); });
         const family = weighted(r, fw) || 'typography-led';
         if (!familyFits(family, mode, inv, content)) continue;
         const at = r.at(); const cand = buildRecipe(r, inp, personality, family, mode, inv, content, genre);
@@ -4758,6 +5084,7 @@
     const FR = require('./framing');
     const ARCH = require('./archetypes');
     const COMP = require('./composition');
+    const PA = require('./premium-arc');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
     // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
     // 5: art direction -- layout archetypes, scene choreography and handoffs, explicit image framing with crop budgets and
@@ -4913,6 +5240,17 @@
       // (a void is full of stars -- the subject's field, not a decorative choice)
       if (!safety && field === 'void' && !['stars', 'sparks'].includes(atmosphere.particles)) { atmosphere.particles = 'stars'; atmosphere.density = Math.max(atmosphere.density, 0.5); }
       const recipeScenes = useRecipe && Array.isArray(c.art.scenes) ? c.art.scenes : [];
+      // the premium ARC (premium-arc.js -- cinematic / showcase): the moments the generation planned (the server's, with their
+      // sources), where the recipe placed them, and what the model or a saved page says about them. Each moment's scene
+      // stages its own clip full-screen; a saved page keeps its own.
+      const arcRecipe = useRecipe && c.art && Array.isArray(c.art.premiumArc) ? c.art.premiumArc : [];
+      const arcPlanned = !safety && Array.isArray(c.premiumArc) && c.premiumArc.length >= 2 ? c.premiumArc : arcRecipe.length >= 2 ? arcRecipe : [];
+      const arcGiven = Array.isArray(p.premiumArc) ? p.premiumArc.filter(e => e && typeof e === 'object') : [];
+      const arcIn = (arcPlanned.length ? arcPlanned : safety ? arcGiven : []).map(e => {
+        const g = arcGiven.find(x => x.role === e.role) || {}; const rcp = arcRecipe.find(x => x.role === e.role) || {};
+        return { role: e.role, intent: e.intent || rcp.intent, asset: e.asset || rcp.asset, scene: Number.isInteger(g.scene) ? g.scene : Number.isInteger(rcp.scene) ? rcp.scene : e.scene };
+      }).filter(e => PA.ROLES.includes(e.role) && byId.has(e.asset));
+      const eventAt = new Map(); arcIn.forEach(e => { const n0 = Math.min(rawScenes0().length, LIMITS.scenes[1]); const at = e.role === 'hero' ? 0 : e.role === 'payoff' ? n0 - 1 : Number.isInteger(e.scene) ? e.scene : PA.sceneFor(e.role, n0, []); if (at >= 0 && at < n0 && !eventAt.has(at)) eventAt.set(at, e); });
       const planRng = ART.rng(`${(p.direction && p.direction.seed) || c.seed || ''}|${cap(p.identity && p.identity.name, 60) || cap(u.subject, 60)}`);
       const flip = planRng() < 0.5 ? 1 : 0;
 
@@ -4978,7 +5316,7 @@
       let compsSoFar = 0, holds = 0; const holdCap = COMP.HOLDS[(art && art.mode) || 'quiet'] || 0;
       // what a scene's pictures can carry, for its composition: a clean cut-out, a wide photo that fills the screen, a located
       // subject, how many pictures (composition.js fit / baseFor)
-      const carryOf = (scene, si) => COMP.carryOf(scene, byId, { video: !!(si === 0 && c.premiumHero), name: identity.name });
+      const carryOf = (scene, si) => COMP.carryOf(scene, byId, { video: !!(si === 0 && c.premiumHero) || eventAt.has(si), name: identity.name });
       let sourcedLines = 0, uncited = 0; const badCites = [];
       const scenes = rawScenes.slice(0, LIMITS.scenes[1]).map((rs, si) => {
         if (!rs || typeof rs !== 'object') return null;
@@ -4990,7 +5328,8 @@
         const layout0 = oneOf(rs.layout, VOCAB.layout, art && rec && !rs.layout ? oneOf(rec.layout, VOCAB.layout, 'free') : 'free');
         let layout = inRun(si) && (!safety || (c.recompose && c.recompose.includes(id(rs.id, `scene-${si + 1}`)))) ? 'stage' : layout0;
         const artScene = layout !== 'free';
-        const composing = !safety || !!(c.recompose && c.recompose.includes(sid));
+        // (a premium moment staged outside its role's compositions is restaged even on a saved page: full screen is a hard rule)
+        const composing = !safety || !!(c.recompose && c.recompose.includes(sid)) || !!(eventAt.get(si) && !PA.COMPOSITIONS_FOR[eventAt.get(si).role].includes(rs.composition));
         // (an archetype decides its own pin when it is composed; a saved one keeps what it had)
         let pin = !!rs.pin && height === 'tall' && !(artScene && composing);
         if (pin && pinned >= LIMITS.pinned) { pin = false; fixes.push(`${where}: more than ${LIMITS.pinned} pinned scenes -- unpinned`); }
@@ -5102,7 +5441,9 @@
             const k = baseOf(a).id; const inSet = (POOL.TAKES[layout] || 0) >= 3 && role !== 'focal';
             if (!inSet) uses.set(k, (uses.get(k) || 0) + 1);
             const max = a.cutout || (a.assess && a.assess.transparent) ? useMax.cut : useMax.photo;
-            if (!inSet && uses.get(k) > max) { fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
+            // (a premium moment's scene showing the picture its clip is made from is that moment -- never a repeat as filler)
+            const own = eventAt.get(si) && (eventAt.get(si).asset === k || eventAt.get(si).asset === a.id);
+            if (!inSet && !own && uses.get(k) > max) { fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
           } else if (kind === 'shape') {
             const sh = rl.shape || {};
             L.shape = { form: oneOf(sh.form, VOCAB.shape, 'circle'), fill: oneOf(sh.fill, VOCAB.fill, 'accent'), stroke: !!sh.stroke };
@@ -5183,7 +5524,11 @@
           const asked = oneOf(rs.composition, COMP.COMPOSITIONS, '');
           const fromRec = !asked && rec && COMP.COMPOSITIONS.includes(rec.composition) && (!rs.layout || rs.layout === rec.layout || (COMP.BASES[rec.composition] || []).includes(rs.layout)) ? rec.composition : '';
           // (a saved page keeps the composition it was made with -- it was validated then)
-          const comp = (asked || fromRec) && !inRun(si) && (safety && !composing ? !!asked : art && art.mode && art.mode !== 'quiet' && !(art.mode === 'editorial' && compsSoFar >= 1)) ? (asked || fromRec) : '';
+          const ev = eventAt.get(si);
+          const comp0 = (asked || fromRec) && !inRun(si) && (safety && !composing ? !!asked : art && art.mode && art.mode !== 'quiet' && !(art.mode === 'editorial' && compsSoFar >= 1)) ? (asked || fromRec) : '';
+          // (a premium moment's clip owns the viewport: a composition from its role's list, whatever was asked)
+          const comp = ev && composing ? (PA.COMPOSITIONS_FOR[ev.role].includes(comp0) ? comp0 : PA.COMPOSITIONS_FOR[ev.role][0]) : comp0;
+          if (ev && composing && comp !== comp0) fixes.push(`${where}: the premium ${ev.role} video owns the screen -- staged as ${comp}${comp0 ? ` (not ${comp0})` : ''}`);
           if (comp) { scene.composition = comp; compsSoFar++; const arc = oneOf(rs.arc, COMP.ARC, rec && COMP.ARC.includes(rec.arc) ? rec.arc : ''); if (arc) scene.arc = arc; }
           else if (asked || rs.composition) fixes.push(`${where}: the ${cap(rs.composition, 30)} composition is not available here -- composed as ${layout}`);
           scene.choreo = oneOf(rs.choreo, VOCAB.choreo, rec ? oneOf(rec.choreo, VOCAB.choreo, 'settle') : 'settle');
@@ -5200,9 +5545,12 @@
         if (composing && artScene) {
           // an archetype composes the scene: pictures with a plain background float as their cut-outs first, so the
           // composition is made for the picture that will actually be shown
+          const evS = eventAt.get(si);
+          if (evS) leadWith(scene, evS, byId, fixes, where);
           if (scene.composition) { BYID.set(scene, byId); stageComposition(scene, carryOf(scene, si), fixes, where); }
           swapCutouts(scene, byId, assets, fixes);
           ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, video: !!(si === 0 && c.premiumHero), ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
+          if (evS) fillScreen(scene, byId);
           const pinCap = art && art.mode ? Math.min(LIMITS.pinned, modeLim.pins) : LIMITS.pinned;
           // (a composition held while it plays counts against the mode's composition holds, not the layout pins)
           if (scene.pin && scene.choreo === 'compose') { if (holds >= holdCap) { scene.pin = false; scene.height = 'screen'; fixes.push(`${where}: the page already holds ${holdCap} composition(s) -- this one plays as it passes`); } else holds++; }
@@ -5397,7 +5745,7 @@
           if (n >= 4 && R[n - 1] === 'rest') R[n - 1] = 'payoff';
         }
         // (each seam follows how its two pictures relate -- continuity.js chooseSeams -- within the mode's budget)
-        const cs = CT.chooseSeams(raw, { scenes, byId, mode: art.mode, premiumHero: hasPremium, name: identity.name });
+        const cs = CT.chooseSeams(raw, { scenes, byId, mode: art.mode, premiumHero: hasPremium, name: identity.name, premiumArc: [...eventAt.entries()].map(([at, e]) => ({ role: e.role, scene: at, continuation: PA.DEFAULT[e.role].continuation })) });
         if (cs.changed) fixes.push(`timeline: ${cs.changed} seam(s) chosen from how their pictures relate (${cs.seams.map(s => `${s.at}:${s.relationship}->${s.family}`).join(', ')})`);
         // (a type takeover whose giant word is the subject's name IS the name's moment: no second name travels across it)
         const named = scenes.map((sc, i) => (['type-takeover', 'mask-stage'].includes(sc.composition) && sc.layers.some(L => L.kind === 'word') ? i : -1)).filter(i => i >= 0);
@@ -5447,6 +5795,18 @@
           fixes.push('palette: each scene takes its colour from its picture');
         }
       }
+      // a showcase (premium-arc.js): beside a premium moment the surface continues the clip's world -- never a flat colour
+      // block between two moving pictures (a flood there reads as a new section: the media would end in a hard reset)
+      if (!safety && eventAt.size >= 2) {
+        const calmed = new Set();
+        scenes.forEach((s, i) => {
+          if (eventAt.has(i)) return; const ev = eventAt.get(i - 1) || eventAt.get(i + 1); const src = ev && byId.get(ev.asset);
+          if (!src || !['accent', 'invert'].includes(s.background)) return;
+          s.background = 'base'; s.tone = PAL.tone(PAL.identity(src).hex, palette); calmed.add(i);
+          fixes.push(`scene ${s.id}: next to the premium ${ev.role} video it continues the clip's colour (no flat colour block between moving pictures)`);
+        });
+        if (calmed.size && timeline) timeline.beats = timeline.beats.filter(b => !(calmed.has(b.scene) && (b.op === 'background' || b.op === 'takeover')));
+      }
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
       scenes.forEach(s => { s.ink = sceneInk(s.background, palette, s.tone); });
       // the main subject is never blurred: "soft" is for backdrops and textures (a blurred focal picture read as washed out)
@@ -5475,18 +5835,23 @@
       const ph = !safety && c.premiumHero && VIDEO_INTENTS.includes(c.premiumHero.intent) && byId.has(c.premiumHero.source) ? c.premiumHero : null;
       if (ph && !premiumMedia.some(m => VIDEO_INTENTS.includes(m.intent))) premiumMedia.splice(0, 0, { intent: ph.intent, asset: ph.source, subject: '', why: 'the premium hero video the owner confirmed' });
       if (premiumMedia.length > 2) premiumMedia.length = 2;
+      // the premium arc as the page now has it (its moments in the scenes that stage them), and the premium media it asks
+      // for: one per moment (the hero, the takeover, the payoff), in place of the single hero
+      const premiumArc = arcIn.length >= 2 ? PA.normalise(arcGiven.length ? arcGiven.map(g => Object.assign({}, g, { scene: [...eventAt.entries()].find(([, e]) => e.role === g.role) ? [...eventAt.entries()].find(([, e]) => e.role === g.role)[0] : g.scene })) : [], { scenes, byId, planned: [...eventAt.entries()].map(([at, e]) => ({ role: e.role, intent: e.intent, asset: e.asset, scene: at })), max: 3, arc: scenes.map(s => s.arc) }) : [];
+      if (premiumArc.length >= 2) { premiumMedia.length = 0; premiumArc.forEach(e => premiumMedia.push({ intent: e.intent, asset: e.asset, subject: '', why: `the premium ${e.role} video` })); }
       // the owner's logo: a header mark (kept with the page; never a scene picture)
       const logoA = (p.logo && byId.get(p.logo.asset) && byId.get(p.logo.asset).ownerRole === 'logo' ? byId.get(p.logo.asset) : null) || assets.find(a => a.ownerRole === 'logo' && a.origin === 'upload' && !a.cutoutOf) || null;
       // ---- continuity (continuity.js): every seam between two scenes as a contract -- what crosses it, its state on both
       // sides (one state), the overlap, depth, mask, backdrop, typography and camera -- derived from this timeline and these
       // pictures. A new page gets its built-in contracts (the continuity pass may refine them); a saved page keeps its own.
       if (timeline && (!safety || (p.timeline && p.timeline.continuity))) {
-        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia, mode: art && art.mode, name: identity.name });
+        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia, premiumArc, mode: art && art.mode, name: identity.name });
         if (ct.continuity) timeline.continuity = ct.continuity;
       }
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
         ...(premiumMedia.length ? { premiumMedia } : {}),
+        ...(premiumArc.length >= 2 ? { premiumArc } : {}),
         ...(logoA ? { logo: { asset: logoA.id } } : {}),
         // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
         ...(art ? { art } : {}),
@@ -5627,6 +5992,26 @@
       imgs.forEach(L => { if (photo || (base === 'depth-stack' && L !== f)) { L.frame = 'bleed'; L.mask = 'none'; } });
     }
     const BYID = new WeakMap(); const byIdOf = scene => BYID.get(scene);
+    // a premium moment's scene is led by the picture its clip is made from (the photo, never its cut-out)
+    function leadWith(scene, ev, byId, fixes, where) {
+      const imgs = scene.layers.filter(L => L.kind === 'image'); const f = imgs.find(L => L.role === 'focal') || imgs[0]; const a = byId.get(ev.asset); if (!a) return;
+      const base = x => (x && x.cutoutOf && byId.get(x.cutoutOf)) || x;
+      if (f && base(byId.get(f.asset)) && base(byId.get(f.asset)).id === ev.asset) { f.asset = ev.asset; f.frame = 'bleed'; f.mask = 'none'; return; }
+      scene.layers.forEach(L => { if (L.role === 'focal') L.role = 'support'; });
+      scene.layers.unshift({ id: 'pv', kind: 'image', role: 'focal', asset: ev.asset, box: { d: [0, 0, 100, 100], m: [0, 0, 100, 100] }, z: 2, rotate: 0, opacity: 1, mask: 'none', treatment: 'none', entrance: { kind: 'fade', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0 }, hideM: false, fit: 'cover', focus: '50% 50%', frame: 'bleed' });
+      fixes.push(`${where}: the premium ${ev.role} video starts from ${ev.asset} -- that picture leads the scene`);
+    }
+    // ...and fills the screen on every device: a moving picture is the surface (on a phone too -- full width, full height),
+    // and the words over it stay a label or a caption
+    function fillScreen(scene, byId) {
+      const f = scene.layers.find(L => L.kind === 'image' && L.role === 'focal'); if (!f) return;
+      // (on a phone the tall crop keeps the subject: the crop is centred on where the picture's subject is)
+      const a = byId && byId.get(f.asset); const sb = a && a.assess && Array.isArray(a.assess.subject) ? a.assess.subject : null;
+      const onSubject = sb ? `${Math.round((sb[0] + sb[2]) * 50)}% ${Math.round((sb[1] + sb[3]) * 50)}%` : '';
+      f.box = { d: [0, 0, 100, 100], m: [0, 0, 100, 100] }; f.fit = 'cover'; f.mfit = 'cover'; f.mfocus = onSubject || f.focus || '50% 50%'; f.frame = 'bleed'; f.mask = 'none'; f.rotate = 0;
+      const t = scene.text; if (t && (t.body || '').length > COMP.COPY.label) t.copy = 'caption';
+      if (t && t.size === 'display' && !t.giant) t.size = 'large';
+    }
     function swapCutouts(scene, byId, assets, fixes) {
       scene.layers.forEach(L => {
         if (L.kind !== 'image' || L.role === 'backdrop' || L.role === 'texture') return;
@@ -6891,8 +7276,13 @@
       // the motion-first compositions (composition.js): each composed scene's plane tracks, computed here from its name and its
       // pictures -- the hero video's measured motion continues through the next two scenes' cameras
       const lead = ct && ct.hero && ct.hero.video ? ct.hero.motion || 'none' : 'none'; const heroAt = ct && ct.hero ? ct.hero.scene || 0 : 0;
-      const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead, leadNear: si > heroAt && si <= heroAt + 2, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll, ctrack: compOf(s, si), mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
+      // (a showcase's premium arc, premium-arc.js: each moment's scene is its clip, full-screen; a later moment's measured
+      // motion leads the two cameras after it, as the hero's does)
+      const pvArc = Array.isArray(plan.premiumArc) && plan.premiumArc.length >= 2 ? plan.premiumArc.filter(e => e && Number.isInteger(e.scene) && plan.scenes[e.scene]) : [];
+      const pvAt = new Map(pvArc.map(e => [e.scene, e]));
+      const leadFor = si => { const e = pvArc.filter(x => x.role !== 'hero' && x.scene < si && si <= x.scene + 2 && x.measured && x.measured.motion && x.measured.motion !== 'none').pop(); return e ? { lead: e.measured.motion, near: true } : { lead, near: si > heroAt && si <= heroAt + 2 }; };
+      const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead: leadFor(si).lead, leadNear: leadFor(si).near, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -6922,7 +7312,7 @@
       const t = hero.text;
       const artAttrs = art ? ` data-personality="${art.personality}" data-scroll="${art.scroll}" data-typo="${art.typo}" data-nav="${art.nav}" data-density="${art.density}" data-depth="${art.depth}" style="--range:${M.range};--ease:${M.ease};--pinv:${M.pin}"` : '';
       return `<!doctype html>
-    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo ? ' data-premium="video"' : ''}${logoA ? ' data-logo' : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}>
+    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo || pvArc.length ? ' data-premium="video"' : ''}${pvArc.length ? ` data-pvarc="${pvArc.length}"` : ''}${logoA ? ' data-logo' : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}>
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7073,11 +7463,13 @@
         // re-checks the crop against the real viewport and never lets it pass the budget
         let imgAttr = `style="object-fit:${L.fit};object-position:${L.focus}"`;
         if (L.frame) {
-          const pr = FR.profile(a); const budget = FR.budgetFor(a, L.frame);
+          const pr = FR.profile(a); const budget = c.pv && L.role === 'focal' && L.asset === c.pv.asset ? 1 : FR.budgetFor(a, L.frame);
           imgAttr = `data-fit="${L.fit}"${L.mfit ? ` data-mfit="${L.mfit}"` : ''} data-crop="${budget}" data-f="${pr.focus.map(v => v.toFixed(3)).join(' ')}"${pr.subject ? ` data-subj="${pr.subject.join(' ')}"` : ''} style="--of:${L.fit};--oq:${L.focus};--mof:${L.mfit || L.fit};--moq:${L.mfocus || L.focus}"`;
         }
         const vid = c.videoSrc ? c.videoSrc(a) : '';
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted loop playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        // (the payoff clip plays once and rests on its last frame: the page concludes, it does not loop)
+        const once = c.pv && c.pv.role === 'payoff' && L.asset === c.pv.asset;
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';
@@ -7205,7 +7597,7 @@
       const vin = c.flowAll && kIn && kIn.motionVector && kIn.motionVector !== 'none' ? kIn.motionVector : '';
       const vout = c.flowAll && kOut && kOut.motionVector && kOut.motionVector !== 'none' ? kOut.motionVector : '';
       const pal = c.flowAll && kIn ? `${kIn.overlap.from},${kIn.overlap.to},${kIn.paletteHandoff === 'blend' && kIn.background === 'carry' ? 'hold' : kIn.paletteHandoff || 'blend'}` : '';
-      const seamAttr = (['image-expand', 'card-expand', 'depth-handoff'].includes(seamIn) ? ` data-seam-in="${seamIn}"` : '') + (seamOut === 'depth-handoff' ? ' data-seam-out="depth-handoff"' : '') + (vh ? ` data-vh="${vh}"` : '') + (tie ? ` data-tie="${tie}"` : '') + (vin ? ` data-vin="${vin}"` : '') + (vout ? ` data-vout="${vout}"` : '');
+      const seamAttr = (['image-expand', 'card-expand', 'depth-handoff'].includes(seamIn) ? ` data-seam-in="${seamIn}"` : '') + (seamOut === 'depth-handoff' ? ' data-seam-out="depth-handoff"' : '') + (vh ? ` data-vh="${vh}"` : '') + (tie ? ` data-tie="${tie}"` : '') + (vin ? ` data-vin="${vin}"` : '') + (vout ? ` data-vout="${vout}"` : '') + (c.pv ? ` data-pv="${c.pv.role}" data-pvend="${c.pv.continuation || 'settle'}"` : '') + (c.pvAfter && c.pvAfter.role !== 'hero' ? ` data-pvafter="${c.pvAfter.role}"` : '');
       // a rest scene (or one whose picture is small) is never an empty field: a dim, slow echo of its own picture -- or of the
       // page's main picture, the visual identity coming back in another role -- lies behind it
       const cover = s.layers.filter(L => L.kind === 'image').reduce((t, L) => t + (L.box.d[2] * L.box.d[3]) / 10000, 0);
@@ -7213,7 +7605,9 @@
       // (the closing scene's callback: when the main picture is not its own picture, the main picture returns behind it)
       const callback = c.flowAll && ct && ct.callback && ct.callback.scene === si && ct.callback.kind !== 'none' ? ct.callback.kind : '';
       const echoA = callback && callback !== 'subject' && c.mainAsset ? c.mainAsset
-        : c.flowAll && !inRun && !hero && (rest || cover < 0.3) && cover < 0.5 ? (fL && c.byId.get(fL.asset)) || c.mainAsset || null : null;
+        : c.flowAll && !inRun && !hero && (rest || cover < 0.3) && cover < 0.5 ? (fL && c.byId.get(fL.asset)) || c.mainAsset || null
+        // (the scene after a later premium moment keeps a dim echo of that clip's picture: the takeover's world fades, it does not vanish)
+        : c.flowAll && c.pvAfter && c.pvAfter.role !== 'hero' && cover < 0.6 && c.byId.get(c.pvAfter.asset) ? c.byId.get(c.pvAfter.asset) : null;
       const echo = echoA && c.src(echoA) ? `<div class="sc-ghost" aria-hidden="true"><img src="${esc(c.src(echoA))}" alt="" decoding="async"></div>` : '';
       const glowC = c.flowAll && s.visual && s.visual.palette ? PAL.glow(PAL.secondary(c.byId.get(s.visual.asset)) || s.visual.palette, c.plan.palette) : '';
       const inCast = !!(c.cast && c.cast.has(si));
@@ -7852,6 +8246,32 @@
     .sc[data-vh] .ly-vid{opacity:calc(1 - min(1, var(--sx,0) * 1.6))}
     /* the premium hero video shown full-bleed behind the hero (when its picture is not shown large in a frame of its own):
        unmistakably the opening's moving image, with the scene's own colour under the words so they stay readable */
+    /* ===== the premium arc (showcase: premium-arc.js): each moment's clip IS the screen -- 100% of the viewport, edge to
+       edge, cover, never a card or a column; the words lie over it. How it ends is the next scene's beginning: the hero's
+       subject freezes into its still while the world changes, the takeover pushes through toward the camera, the payoff
+       settles and stays ===== */
+    .sc[data-pv]{min-height:100vh;min-height:100svh}
+    html .sc[data-pv][data-pv] .sc-stage{position:absolute;inset:0;margin:0;height:auto}
+    .sc[data-pv] .ly[data-role="focal"],.sc[data-pv] .ly[data-role="subject"]{left:0;top:0;width:100%;height:100%;rotate:0deg}
+    /* (a composition's window never keeps a premium clip small: the clip arrives through the seam -- --sn, below -- and then
+       owns the whole screen, whatever the composition's planes were doing) */
+    html .sc[data-pv][data-pv] .ly:is([data-role="focal"],[data-role="subject"]){clip-path:none!important}
+    .sc[data-pv] .ly[data-role="focal"] :is(.ly-img,.ly-vid){width:100%;height:100%;object-fit:cover}
+    .sc[data-pv] .sc-text{position:relative;z-index:6}
+    .sc[data-pvend="freeze-subject"] .ly-vid{opacity:calc(1 - min(1, var(--sx,0) * 1.6))}
+    html.cr-js:not([data-motion="reduced"]) .sc[data-pvend="push-through"] .ly[data-role="focal"] .ly-loop{scale:calc(1 + var(--sx,0) * .32);opacity:calc(1 - max(0, var(--sx,0) - .45) * 1.8);transform-origin:50% 50%}
+    html.cr-js:not([data-motion="reduced"]) .sc[data-pv]:not([data-pv="hero"]) .ly[data-role="focal"] .ly-loop{clip-path:inset(calc((1 - var(--sn,1)) * 14%) calc((1 - var(--sn,1)) * 18%) round calc((1 - var(--sn,1)) * 24px))}
+    html.cr-js:not([data-motion="reduced"]) .sc[data-pvafter] .sc-ghost{opacity:.22}
+    @media (max-width:720px){
+      .sc[data-pv] .sc-pin{min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;padding:calc(var(--nav) + 12px) 0 34px}
+      /* (stronger than every layout's own phone stage height: a premium moment's stage is the whole screen) */
+      html .sc[data-pv][data-pv] .sc-stage{position:absolute;inset:0;height:auto;margin:0;grid-area:auto}
+      html .sc[data-pv][data-pv] .ly-vid{object-position:var(--moq,var(--oq,50% 50%))}
+      html .sc[data-pv][data-pv] .ly[data-role="focal"],html .sc[data-pv][data-pv] .ly[data-role="subject"]{left:0;top:0;width:100%;height:100%}
+      .sc[data-pv] .ly:not([data-role="focal"]):not([data-role="subject"]){display:none}
+      .sc[data-pv] .sc-text{order:3}
+      .sc[data-pv] .sc-shade{display:block;top:auto;bottom:0;left:0;right:0;width:auto;height:62%;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--s-surface,var(--bg)) 80%,transparent) 60%,color-mix(in srgb,var(--s-surface,var(--bg)) 90%,transparent))}
+    }
     .sc-herovid{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}
     .sc-herovid :is(video,img){position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .sc-herovid .shv-still{display:none}
@@ -8031,7 +8451,7 @@
     /* each choreography plays over its own part of the scene's progress */
     var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4],cardstream:[.04,.96],expand:[.05,.72]};
     var all=[].slice.call(d.querySelectorAll('.sc')),scenes=all.filter(function(s){return s.hasAttribute('data-p')});
-    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie')||s.hasAttribute('data-vin')||s.hasAttribute('data-vout');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._ct=s.hasAttribute('data-comp');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
+    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie')||s.hasAttribute('data-vin')||s.hasAttribute('data-vout')||s.hasAttribute('data-pv');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._ct=s.hasAttribute('data-comp');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
     function prog(s,vh,y){var top=s._top-y;if(s.hasAttribute('data-pin')){var span=s._h-vh;return span>0?cl(-top/span):0}return cl((vh-top)/(vh+s._h))}
     /* the page as one timeline: g = scene index + progress through that scene (0 when its top reaches the top of the screen,
        1 when its bottom does), from the cached geometry. Each actor samples its keyframes at g -- one track, so a scene's end
@@ -8139,6 +8559,8 @@
     function measureArt(){MAXY=Math.max(0,d.scrollingElement.scrollHeight-W.innerHeight);links.forEach(function(a){var t=a._t;if(t&&!(t.classList&&t.classList.contains('sc'))){t._top=t.getBoundingClientRect().top+(W.scrollY||W.pageYOffset);t._h=t.offsetHeight}})}
     W.__crArtFrame=frameArt;W.__crArtLayout=layoutArt;W.__crArtMeasure=measureArt;
     [].forEach.call(d.querySelectorAll('img[data-crop]'),function(img){img.addEventListener('load',function(){guard(img)})});
+    /* (the payoff clip plays once: it starts from its first frame when its scene is on screen, not at page load) */
+    (function(){var once=[].slice.call(d.querySelectorAll('video[data-once]'));if(!once.length||!('IntersectionObserver' in W))return;once.forEach(function(v){v.removeAttribute('autoplay');v.autoplay=false;try{v.pause();v.currentTime=0}catch(e){}});var po=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&e.intersectionRatio>=.5){var v=e.target;po.unobserve(v);try{v.currentTime=0;var p=v.play();if(p&&p.catch)p.catch(function(){})}catch(err){}}})},{threshold:[.5]});once.forEach(function(v){po.observe(v)})})();
     layoutArt();if(W.__crFrame)W.__crFrame();
     })();`;
 
@@ -8160,7 +8582,7 @@
     module.exports = { renderCreative2 };
 
   });
-  var api = { composition: __require('composition'), understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
+  var api = { composition: __require('composition'), understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), premiumArc: __require('premium-arc'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

@@ -192,7 +192,7 @@ test('6. overlap: the next scene starts while the last is leaving -- bounded, ne
   const prim = r.plan.timeline.actors.find(a => a.role === 'primary');
   assert.ok(prim.keys.some(x => x.g === 0.55) && prim.keys.some(x => x.g === 1.15), JSON.stringify(prim.keys.map(x => x.g)));
   // the rendered seam elements play across their contract's window
-  const wipe = withTl.find(x => x.plan.timeline.transitions.some(t => t.family === 'foreground-wipe'));
+  const wipe = withTl.concat(MORE_PAGES()).find(x => x.plan.timeline.transitions.some(t => t.family === 'foreground-wipe'));
   const t = wipe.plan.timeline.transitions.find(x => x.family === 'foreground-wipe'); const kw = contractAt(wipe.plan, t.at);
   assert.match(html(wipe.plan), new RegExp(`class="cs cs-wipe" data-at="${t.at}" data-lead="\\.3" data-span="${Math.round((kw.overlap.to - kw.overlap.from) * 100) / 100}" data-end="${kw.overlap.to}"`));
   assert.match(html(wipe.plan), /e0=sc\._top\+S\.end\*vh/, 'the runtime ends the seam where its contract says');

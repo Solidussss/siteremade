@@ -2538,6 +2538,8 @@ const creativeResearch = require('./lib/creative/research');
 const creativeAi = require('./lib/creative/ai');
 const creativeArt = require('./lib/creative/art');
 const creativePool = require('./lib/creative/pool');
+const creativeArc = require('./lib/creative/premium-arc');
+const creativeFraming = require('./lib/creative/framing');
 const PREMIUM_VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
 // ART DIRECTION: the recipes (motion personality / scroll model / scene architecture) this account's most recent Creative
 // pages were built on -- read from the saved projects themselves, newest first -- so a new page steers away from them
@@ -2626,7 +2628,10 @@ function creativeBoundUsd(step) {
   if (step === 'research') return 2 * cheap(L.understandMaxTokens, 8000) +2 * cheap(L.curateMaxTokens, 45000) + L.webSearches * L.webSearchUsd + CREATIVE_SERPAPI.searches * CREATIVE_SERPAPI.usd;
   const attempts = 1 + L.repairs; // 'direction': the direction, its bounded repairs and their claim checks
   // (and, once per page, the continuity pass: one choreography call and one critic call)
-  return attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0)) + creativeAi.continuityBoundUsd(L);
+  // (a showcase's single larger answer is covered too: the bound is whichever is larger)
+  const standard = attempts * ((L.directorMaxTokens * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0));
+  const showcase = ((L.showcaseDirectorMaxTokens || 0) * P.strong.output + 60000 * P.strong.input) / M + (L.claimCheck ? cheap(L.claimsMaxTokens, 30000) : 0);
+  return Math.max(standard, showcase) + creativeAi.continuityBoundUsd(L);
 }
 function creativeBudgetTake(usd) {
   const s = creativeSpendToday();
@@ -2913,8 +2918,11 @@ function premiumPriceFor(intent) {
   return quotes.premiumTier(def.mediaType, table[pre.costKey] || 0);
 }
 function creativePremiumProvider() { return { hasKey: !!paidProviders.key('higgsfield'), mode: paidProviders.mode(), env: process.env }; }
-function creativePremiumPlan(brief) {
-  return premiumMedia.planForBrief({ brief, provider: creativePremiumProvider(), costs: providerBudget.costs(), tierFor: (intent, est) => quotes.premiumTier(premiumMedia.INTENTS[intent].mediaType, est) });
+// (the premium strategy -- standard: one hero video; cinematic: hero + takeover; showcase: hero + takeover + payoff -- comes
+// from explicit words in the brief or an explicit request; three clips are never the default: lib/creative/premium-arc.js)
+function creativePremiumPlan(brief, asked) {
+  const strategy = creativeArc.strategyFor(brief, creativeArc.STRATEGY_NAMES.includes(asked) ? asked : '').strategy;
+  return premiumMedia.planForBrief({ brief, strategy, provider: creativePremiumProvider(), costs: providerBudget.costs(), tierFor: (intent, est) => quotes.premiumTier(premiumMedia.INTENTS[intent].mediaType, est) });
 }
 function premiumLog(rec) { try { console.log('[premium-media] ' + JSON.stringify(Object.assign({ at: new Date().toISOString() }, rec))); } catch (e) { /* logging never breaks a page */ } }
 // what the job's confirmed quote planned -> the status the studio shows
@@ -2951,7 +2959,10 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
     const intent = item.intent; const st = premiumMedia.providerState(creativePremiumProvider(), intent);
     if (!st.ok) { diag.skipped.push({ intent, reason: st.reason, message: R[st.reason] }); continue; }
     if (models.length && ['object_motion', 'alternate_angle'].includes(intent)) { diag.skipped.push({ intent, reason: 'renderer_handled', message: R.renderer_handled }); continue; }
-    const pick = (suggested.find(s => s.intent === intent) || {}).asset;
+    // (a premium arc: each moment starts from the picture the plan built its scene around -- the hero's, a different one
+    // for the takeover, the hero's again for the payoff)
+    const arcPick = item.role ? (Array.isArray(b.premiumArc) ? b.premiumArc : []).map(e => ({ role: clean(e && e.role, 20), asset: clean(e && e.asset, 40) })).find(e => e.role === item.role) : null;
+    const pick = (arcPick && arcPick.asset) || (suggested.find(s => s.intent === intent) || {}).asset;
     const ids = [pick, clean(b.heroAsset, 40)].concat(assets.slice().sort((x, y) => order(x) - order(y)).map(a => a.id)).filter((id, i, all) => id && byId.has(id) && !byId.get(id).removed && all.indexOf(id) === i);
     if (!ids.length) { diag.skipped.push({ intent, reason: 'no_source', message: R.no_source }); continue; }
     const ok = ids.find(id => premiumMedia.sourceEligibility(byId.get(id), { byId, confirmed }).ok);
@@ -2961,7 +2972,7 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
     if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
     if (!ref || !db.assetBlobs.find(ref)) { diag.skipped.push({ intent, reason: 'no_source', message: R.no_source }); continue; }
     const def = premiumMedia.INTENTS[intent];
-    requests.push({ intent, mediaType: def.mediaType, preset: def.preset, sourceAssetId: a.id, subject: clean(b.subject, 120), ref, mime, credits: item.credits });
+    requests.push(Object.assign({ intent, mediaType: def.mediaType, preset: def.preset, sourceAssetId: a.id, subject: clean(b.subject, 120), ref, mime, credits: item.credits }, item.role ? { role: item.role } : {}));
   }
   const at = new Date().toISOString();
   db.usage.ensure({ opId, accountId: req.accountId, operation: 'creative_premium', createdAt: at });
@@ -2979,18 +2990,20 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
       });
     } catch (error) { out.failed = requests.map(r => ({ intent: r.intent, code: 'provider_failed', reason: String(error && error.message || error).slice(0, 160) })); }
   }
-  out.failed.forEach(f => diag.skipped.push({ intent: f.intent, reason: f.code || 'provider_failed', message: `${R[f.code] || R.provider_failed}${f.code === 'provider_failed' && f.reason ? ' (' + f.reason + ')' : ''}` }));
+  out.failed.forEach(f => diag.skipped.push({ intent: f.intent, ...(f.role ? { role: f.role } : {}), reason: f.code || 'provider_failed', message: `${R[f.code] || R.provider_failed}${f.code === 'provider_failed' && f.reason ? ' (' + f.reason + ')' : ''}` }));
   diag.delivered = out.delivered;
-  const charge = requests.filter(r => out.delivered.includes(r.intent)).reduce((n, r) => n + r.credits, 0);
+  // (each moment is its own credit line: charged when THAT moment was delivered -- a failed or declined one is returned)
+  const charge = requests.filter(r => (out.deliveredKeys || out.delivered).includes(r.role || r.intent)).reduce((n, r) => n + r.credits, 0);
+  diag.deliveredRoles = requests.filter(r => r.role && (out.deliveredKeys || []).includes(r.role)).map(r => r.role);
   const s = creativeJobs.premiumDone(db, job, { charge });
   diag.creditsCharged = s.charged || 0; diag.creditsRefunded = s.refunded || 0;
   const st = out.delivered.length
-    ? { planned: true, intents: diag.requested, reason: '', made: out.delivered, message: `Premium media made with Higgsfield: ${out.delivered.map(i => i.replace(/_/g, ' ')).join(', ')}.${diag.skipped.length ? ' Not made: ' + diag.skipped.map(x => x.intent.replace(/_/g, ' ') + ' -- ' + x.message).join(' ') : ''}` }
+    ? { planned: true, intents: diag.requested, reason: '', made: out.delivered, ...(diag.deliveredRoles.length ? { madeRoles: diag.deliveredRoles } : {}), message: `Premium media made with Higgsfield: ${diag.deliveredRoles.length ? diag.deliveredRoles.map(r => `the ${r} video`).join(', ') : out.delivered.map(i => i.replace(/_/g, ' ')).join(', ')}.${diag.skipped.length ? ' Not made: ' + diag.skipped.map(x => (x.role ? `the ${x.role} video` : x.intent.replace(/_/g, ' ')) + ' -- ' + x.message).join(' ') : ''}` }
     : { planned: true, intents: diag.requested, reason: (diag.skipped[0] || {}).reason || 'not_run', message: `Premium media was planned but not made: ${(diag.skipped[0] || {}).message || R.not_run} Its credits were returned.` };
   db.usage.add(opId, { status: out.delivered.length ? 'ok' : 'failed', settled: diag.creditsCharged, refunded: diag.creditsRefunded, premium_json: JSON.stringify(Object.assign({}, diag, { status: st })), provider_ids_json: JSON.stringify(out.media.map(m => m.providerJobId)) }, new Date().toISOString());
   const assetsOut = out.media.map(m => {
     const premium = { mediaId: m.id, provider: m.provider, providerJobId: m.providerJobId, intent: m.intent, sourceAssetId: m.sourceAssetId };
-    if (m.mediaType === 'video') return { kind: 'video', sourceAssetId: m.sourceAssetId, video: { mediaId: m.id, assetRef: m.assetRef, mime: m.mime, intent: m.intent }, premium };
+    if (m.mediaType === 'video') return Object.assign({ kind: 'video', sourceAssetId: m.sourceAssetId, video: { mediaId: m.id, assetRef: m.assetRef, mime: m.mime, intent: m.intent }, premium }, m.role ? { role: m.role } : {});
     const bytes = getAssetStore().get(m.assetRef);
     return { kind: 'image', asset: { id: `pm${m.id.slice(3, 14).replace(/[^\w-]/g, '')}`, origin: 'derived', title: `${m.intent.replace(/_/g, ' ')} (premium media)`, alt: '', mime: m.mime, dataUrl: bytes ? `data:${m.mime};base64,${bytes.toString('base64')}` : '', premium, rightsEvidence: [`made for this website from the owner's picture ${m.sourceAssetId}`] } };
   });
@@ -3046,7 +3059,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     // nothing paid runs: the answer is the quote to confirm.
     const q = quotes.get(db, req.accountId, clean(req.body.quoteId, 60));
     if (!q || q.operation !== 'creative_generation' || q.status !== 'open' || q.expiresAt <= new Date().toISOString()) {
-      const cp = creativePremiumPlan(brief);
+      const cp = creativePremiumPlan(brief, clean(req.body.premiumStrategy, 20));
       const nq = quotes.create(db, { accountId: req.accountId, operation: 'creative_generation', plan: { spatialPossible: CREATIVE_SPATIAL_ON, premium: cp.planned } });
       premiumLog({ step: 'quote', accountId: req.accountId, quoteId: nq.id, requested: cp.intents, planned: cp.planned.map(p => p.intent), notPlanned: cp.notPlanned, credits: nq.credits });
       return res.json({ ok: false, needsConfirmation: true, quote: quotes.publicView(nq), premium: cp.status, ...creativeCredits(req.accountId) });
@@ -3263,11 +3276,25 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     input.premiumHero = ok ? { intent: videoIntent, source: ok.id, role: 'hero motion', note: pool.main && ok.id !== pool.main.id ? `the main picture is not used for the video: ${(verdicts.find(x => x.id === pool.main.id) || { v: {} }).v.reason || 'not eligible'}` : '' }
       : { intent: videoIntent, source: null, role: 'hero motion', note: verdicts.length ? `no picture may be sent for the video: ${verdicts[0].v.reason}` : 'no picture to start the video from' };
   }
+  // (2b) a premium ARC (cinematic / showcase): the moments the confirmed quote planned, each with its source -- the hero's
+  //      the main picture when it may be transformed, the takeover's ANOTHER strong picture, the payoff's the hero's again
+  //      (the same permission gate) -- planned now, so the scenes are composed around them
+  const arcItems = (() => { const pq = job && db.quotes.findByOp(job.id); return pq ? JSON.parse(pq.items_json).filter(i => /^premium_/.test(i.code) && i.role) : []; })();
+  // (a standard generation's one hero video is planned exactly as before: premiumHero below)
+  if (arcItems.length >= 2) {
+    const byIdP = new Map(assets.map(a => [a.id, a]));
+    const eligible = id => premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, confirmed: [] }).ok;
+    const pics = pool.pictures.map(p => { const a = byIdP.get(p.id); return { id: p.id, colour: p.colour, bleed: !!(a && creativeFraming.canBleed(a, 1.6)), role: a && a.curation ? a.curation.role : '' }; });
+    const src = creativeArc.pickSources(arcItems.map(i => i.role), pics, eligible, pool.main && pool.main.id);
+    input.premiumArc = arcItems.map(i => ({ role: i.role, intent: i.intent, asset: src[i.role] || null })).filter(e => e.asset);
+    const hero = input.premiumArc.find(e => e.role === 'hero');
+    if (hero) input.premiumHero = { intent: hero.intent, source: hero.asset, role: 'hero motion', note: input.premiumHero && input.premiumHero.note ? input.premiumHero.note : '' };
+  }
   input.pool = pool;
   // (3) the recipe and its visual plan: scenes built around those pictures (every picture shown before any repeats, the
   //     colours of neighbouring scenes leading into each other, the page closing on its main picture)
   const recent = creativeRecentRecipes(req.accountId);
-  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? { video: true, intent: input.premiumHero.intent, source: input.premiumHero.source } : null });
+  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? Object.assign({ video: true, intent: input.premiumHero.intent, source: input.premiumHero.source }, input.premiumArc && input.premiumArc.length ? { arc: input.premiumArc } : {}) : null });
   // (4) the words are written next, by the director, for those pictures (lib/creative/ai.js); (5) continuity + critic
   const startedAt = Date.now();
   let r;
@@ -3991,7 +4018,7 @@ app.post('/api/quotes', requireAuth, requireSameOrigin, async (req, res) => {
   const plan = { request: clean(req.body.request, 1200), deep: req.body.deep === true, premium: operation === 'image' && req.body.premium === true, spatialPossible: operation.startsWith('creative_') ? CREATIVE_SPATIAL_ON : false };
   if (operation === 'website_update' && !plan.request && !plan.deep) return res.status(400).json({ ok: false, message: 'Describe the change first.' });
   // a Creative generation's quote includes the premium media its brief explicitly asks for (one quote, one confirmation)
-  const cp = operation === 'creative_generation' ? creativePremiumPlan(plan.request) : null;
+  const cp = operation === 'creative_generation' ? creativePremiumPlan(plan.request, clean(req.body.premiumStrategy, 20)) : null;
   if (cp) plan.premium = cp.planned;
   await prepareCredits(req.accountId);
   const q = quotes.create(db, { accountId: req.accountId, projectId: clean(req.body.projectId, 60) || null, operation, plan });

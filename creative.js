@@ -378,12 +378,13 @@
       + (v.premiumHero ? (v.premiumHero.source ? ' · the premium video starts from ' + name(v.premiumHero.source) + (v.premiumHero.note ? ' (' + v.premiumHero.note + ')' : '') : ' · premium video: ' + v.premiumHero.note) : '');
   }
   // the delivered video's colour cast and the way it moves, measured from two of its frames (same-origin file: the canvas
-  // stays readable) -> { cast, motion } (motion: lr / rl / in / out -- the next seams continue it -- or none when the
-  // frames do not show one clear camera move)
+  // stays readable) -> { cast, accent, brightness, side, motion } (motion: lr / rl / in / out -- the next seams continue
+  // it -- or none when the frames do not show one clear camera move; side: where its subject sits, from where the last
+  // frame departs most from its own mean)
   function videoCast(url) {
     return new Promise(function (resolve) {
       var v = document.createElement('video'); var done = false; var cols = []; var frames = []; var times = []; var i = 0;
-      var result = function () { return { cast: cols.length ? C.palette.fromColours(cols).hex || null : null, motion: frames.length === 2 ? C.continuity.videoMotion(frames[0], frames[1]) : 'none' }; };
+      var result = function () { var pal = cols.length ? C.palette.fromColours(cols) : null; var f = frames[frames.length - 1]; var lum = f ? frameLight(f) : null; return { cast: pal ? pal.hex || null : null, accent: cols.filter(function (x) { return pal && x !== pal.hex; })[0] || null, brightness: lum ? lum.brightness : null, side: lum ? lum.side : '', motion: frames.length === 2 ? C.continuity.videoMotion(frames[0], frames[1]) : 'none' }; };
       var finish = function () { if (done) return; done = true; clearTimeout(t); try { v.removeAttribute('src'); v.load(); } catch (e) { /* gone */ } resolve(result()); };
       var t = setTimeout(finish, 15000);
       var grab = function () { if (i >= times.length) return finish(); v.currentTime = times[i++]; };
@@ -392,6 +393,37 @@
       v.addEventListener('seeked', function () { try { var cv = document.createElement('canvas'); cv.width = 64; cv.height = 40; var ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(v, 0, 0, 64, 40); var img = { width: 64, height: 40, data: ctx.getImageData(0, 0, 64, 40).data }; frames.push(img); cols = cols.concat(C.assets.palette(img, 4)); } catch (e) { /* unreadable frame */ } grab(); });
       v.addEventListener('loadeddata', function () { var d = isFinite(v.duration) && v.duration > 0 ? v.duration : 2; times = [Math.min(1, d * 0.2), d * 0.65]; grab(); });
       v.src = url;
+    });
+  }
+  // a frame's brightness (0..1) and where its subject sits: the columns that depart most from the frame's mean light
+  function frameLight(f) {
+    var W = f.width, H = f.height, d = f.data, sum = 0, n = W * H, col = []; var L = function (i) { return (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; };
+    for (var p = 0; p < n; p++) sum += L(p * 4); var mean = sum / n; var tot = 0, mx = 0;
+    for (var x = 0; x < W; x++) { var c = 0; for (var y = 0; y < H; y++) c += Math.abs(L((y * W + x) * 4) - mean); col.push(c); tot += c; mx += c * (x + 0.5) / W; }
+    var cx = tot ? mx / tot : 0.5; return { brightness: Math.round(mean * 100) / 100, side: cx < 0.42 ? 'left' : cx > 0.58 ? 'right' : 'centre' };
+  }
+  // a showcase's clips (premium-arc.js): each delivered clip joins its moment -- attached to its source picture (a copy of
+  // it when the picture already carries another moment's clip, as the payoff's return to the hero's picture does), the
+  // plan's moments pointed at it, and the page retuned to what each clip really is: its scene takes the clip's colour,
+  // the next two lean into it, the words move off the subject's side, the next cameras continue its motion
+  function integrateArc(delivered) {
+    if (!S.plan || S.plan.v !== 2 || !Array.isArray(S.plan.premiumArc) || !delivered.length) return Promise.resolve('');
+    var A = C.premiumArc.attach(S.assets, delivered); S.assets = A.assets; S.plan = C.premiumArc.repoint(S.plan, A.byRole);
+    var said = [];
+    return delivered.reduce(function (p, m) {
+      return p.then(function () {
+        var a = S.assets.find(function (x) { return x.id === A.byRole[m.role]; }); if (!a || !a.video) return;
+        return videoCast('/api/premium-media/' + encodeURIComponent(a.video.mediaId) + '/file').then(function (k) {
+          if (k && k.cast) a.video.cast = k.cast;
+          // (the hero keeps its own path -- the whole page's palette follows the opening clip -- and records it on its moment)
+          if (m.role === 'hero' && k && (k.cast || k.motion)) S.plan = C.palette.retune(S.plan, k.cast, k.motion);
+          if (k) S.plan = C.premiumArc.retune(S.plan, m.role, k);
+          said.push(m.role + (k && k.cast ? ' (' + k.cast + (k.motion && k.motion !== 'none' ? ', ' + ({ lr: 'left to right', rl: 'right to left', in: 'pushing in', out: 'pulling back' })[k.motion] : '') + ')' : ''));
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      S.plan = settle(S.plan);
+      return said.length ? 'Full-screen premium moments: ' + said.join(' · ') + ' — the page around each one retuned to the clip it got' : '';
     });
   }
   // a delivered premium hero video becomes part of the page: shown in the opening, and the page's colours re-tuned to the
@@ -410,17 +442,21 @@
   function runPremium() {
     if (!S.premium || !S.premium.planned || S.premiumResult || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
     step('premium', 'active', 'Making the premium media with Higgsfield (this can take a few minutes)…');
-    var cand = live(); var picks = ((S.plan && S.plan.premiumMedia) || []).map(function (m) { return m.asset; }).concat([heroAsset()]);
+    var arc = (S.plan && Array.isArray(S.plan.premiumArc) ? S.plan.premiumArc : []).map(function (e) { return { role: e.role, asset: e.asset }; });
+    var cand = live(); var picks = ((S.plan && S.plan.premiumMedia) || []).map(function (m) { return m.asset; }).concat(arc.map(function (e) { return e.asset; }), [heroAsset()]);
     var send = cand.map(function (a) { var o = { id: a.id, origin: a.origin, title: a.title, license: a.license, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, cutoutOf: a.cutoutOf, mime: a.mime, assetRef: a.assetRef, curation: a.curation }; if (picks.indexOf(a.id) >= 0 || (a.origin === 'upload' && !a.ownerPicked) || a.id === (cand.find(function (x) { return x.id === picks[picks.length - 1]; }) || {}).cutoutOf) o.dataUrl = a.dataUrl; return o; });
-    return api('/api/creative/premium', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: send, models: modelMeta() } }).then(function (r) {
+    return api('/api/creative/premium', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], premiumArc: arc, heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: send, models: modelMeta() } }).then(function (r) {
       var d = r.data || {}; creditsFrom(d);
       var st = d.premium && d.premium.status ? d.premium.status : { planned: true, reason: 'not_run', message: (d.message || 'The premium media step could not run.') + ' Its credits were returned.' };
       S.premiumResult = st;
-      (d.assets || []).forEach(function (m) { if (m.kind === 'video') { var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } } });
+      // (a showcase's clips each carry their moment's role: attached together, below; a single hero clip as before)
+      var roled = (d.assets || []).filter(function (m) { return m.kind === 'video' && m.role; });
+      var multi = roled.length && S.plan && Array.isArray(S.plan.premiumArc) && S.plan.premiumArc.length >= 2;
+      if (!multi) (d.assets || []).forEach(function (m) { if (m.kind === 'video') { var a = S.assets.find(function (x) { return x.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } } });
       var imgs = (d.assets || []).filter(function (m) { return m.kind === 'image' && m.asset && m.asset.dataUrl; });
       var vidAsset = (d.assets || []).filter(function (m) { return m.kind === 'video'; }).map(function (m) { return S.assets.find(function (x) { return x.id === m.sourceAssetId; }); }).filter(Boolean)[0] || null;
       return Promise.all(imgs.map(function (m) { return processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }); })).then(function () {
-        return integrateVideo(vidAsset);
+        return multi ? integrateArc(roled) : integrateVideo(vidAsset);
       }).then(function (where) {
         step('premium', st.made && st.made.length ? 'done' : 'failed', premiumHeadline(st) + (where ? ' — ' + where : '')); if (st.made && st.made.length) refresh(true);
       });

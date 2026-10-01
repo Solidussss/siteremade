@@ -67,7 +67,8 @@ globalThis.fetch = async function (url, options) {
     if (x.hostname === 'upload.wikimedia.org') return new Response(Buffer.from(mockPng('toilet paper', '1:1').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
     return json({}, 404);
   }
-  // Higgsfield (premium media; never the real API in tests). MOCK_HIGGSFIELD = success (default) | failed | nsfw | slow
+  // Higgsfield (premium media; never the real API in tests). MOCK_HIGGSFIELD = success (default) | failed | nsfw | slow |
+  // fail-<n> (only the n-th request fails: one clip of a showcase)
   // (never completes). Every submit is logged with its model endpoint and parameters, so a test can prove what was asked.
   if (u.startsWith('https://api.higgsfield.ai/')) {
     const x = new URL(u); const h = (options && options.headers) || {};
@@ -78,6 +79,7 @@ globalThis.fetch = async function (url, options) {
       log({ provider: 'higgsfield', endpoint: 'status', request: st[1] });
       if (kind === 'slow') return json({ status: 'in_progress', request_id: st[1] });
       if (kind === 'failed' || kind === 'nsfw') return json({ status: kind, request_id: st[1] });
+      const nth = /^fail-(\d+)$/.exec(kind); if (nth && new RegExp('_' + nth[1] + '$').test(st[1])) return json({ status: 'failed', request_id: st[1] });
       const video = /video/.test(st[1]);
       return json(video ? { status: 'completed', request_id: st[1], video: { url: `https://higgsfield-output.test/${st[1]}.mp4` } } : { status: 'completed', request_id: st[1], images: [{ url: `https://higgsfield-output.test/${st[1]}.png` }] });
     }
@@ -90,6 +92,9 @@ globalThis.fetch = async function (url, options) {
   if (u.startsWith('https://higgsfield-output.test/')) {
     log({ provider: 'higgsfield', endpoint: 'download', url: u });
     // (MOCK_HIGGSFIELD_VIDEO_FILE: a real local mp4 served as the "delivered" video -- browser QA plays it; no provider)
+    // (MOCK_HIGGSFIELD_VIDEO_FILES: one local mp4 per request, in order -- a showcase's three different clips)
+    const many = String(process.env.MOCK_HIGGSFIELD_VIDEO_FILES || '').split(',').filter(Boolean); const k = Number((/_(\d+)\.mp4$/.exec(u) || [])[1] || 0);
+    if (u.endsWith('.mp4') && many.length && k) return new Response(fs.readFileSync(many[(k - 1) % many.length]), { status: 200, headers: { 'content-type': 'video/mp4' } });
     if (u.endsWith('.mp4')) return new Response(process.env.MOCK_HIGGSFIELD_VIDEO_FILE ? fs.readFileSync(process.env.MOCK_HIGGSFIELD_VIDEO_FILE) : Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42mock-video-bytes')]), { status: 200, headers: { 'content-type': 'video/mp4' } });
     return new Response(Buffer.from(mockPng('higgsfield', '16:9').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
   }
