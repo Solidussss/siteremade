@@ -185,7 +185,7 @@ test('7. transformations: the hero\'s subject carries into scene 2, the takeover
     // the colour of a non-hero clip holds across the seam after it (no hard reset after premium media)
     assert.equal(contractAt(P, t.scene + 1).paletteHandoff, 'hold', `${tag}: ${contractAt(P, t.scene + 1).paletteHandoff}`);
     // into the takeover and into the payoff: the media arrives by transformation
-    [t, p].forEach(e => assert.ok(['image-expand', 'depth-handoff', 'color-bleed', 'foreground-wipe', 'shape-takeover', 'type-mask'].includes(contractAt(P, e.scene).family), `${tag} into ${e.role}`));
+    [t, p].forEach(e => assert.ok(['image-expand', 'card-expand', 'depth-handoff', 'color-bleed', 'foreground-wipe', 'shape-takeover', 'type-mask'].includes(contractAt(P, e.scene).family), `${tag} into ${e.role}`));
     const m = PA.metrics(P);
     assert.equal(m.inCards, 0); assert.equal(m.hardResetsAfter, 0); assert.equal(m.payoffReferencesOpening, true); assert.deepEqual(m.coverage, [100, 100, 100]);
   });
@@ -292,11 +292,13 @@ async function withServer(env, fn) {
   try { await fn({ call, calls: () => providerCalls(e.MOCK_CALL_LOG) }); } finally { await s.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 }
 const SHOWCASE = 'A showcase build for an imaginary chrome surfer called the Drifter, with three premium videos';
-const up = (id, title) => ({ id, origin: 'upload', title, mime: 'image/png', dataUrl: mockPng(id, '16:9') });
+const up = (id, title) => ({ id, origin: 'upload', title, mime: 'image/png', dataUrl: mockPng(id, '16:9-hd') });
 const sources = [up('main', 'the drifter'), up('world', 'deep space')];
+// (the generator's Creative Showcase mode: three premium videos from two suitable uploads)
+const SHOWCASE_MODE = { on: true, moments: 3, eligibleUploads: 2 };
 async function begin(call) {
-  const ask = await call('POST', '/api/creative/research', { brief: SHOWCASE });
-  const r = ask.body.needsConfirmation ? await call('POST', '/api/creative/research', { brief: SHOWCASE, quoteId: ask.body.quote.id }) : ask;
+  const ask = await call('POST', '/api/creative/research', { brief: SHOWCASE, premium: SHOWCASE_MODE });
+  const r = ask.body.needsConfirmation ? await call('POST', '/api/creative/research', { brief: SHOWCASE, premium: SHOWCASE_MODE, quoteId: ask.body.quote.id }) : ask;
   await call('POST', '/api/creative/plan', { brief: SHOWCASE, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: [], thumbnails: [] });
   return { ask, r };
 }

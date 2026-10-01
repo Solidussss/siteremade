@@ -348,9 +348,13 @@ async function withServer(env, fn) {
   try { await fn({ call, calls: () => providerCalls(e.MOCK_CALL_LOG), dir }); } finally { await s.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 }
 const SNEAKER = 'A cinematic hero video for an imaginary sneaker brand called Zorbo, with premium motion';
-const upload = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', dataUrl: mockPng('sneaker', '16:9') };
-async function start(call, brief) { const ask = await call('POST', '/api/creative/research', { brief }); return ask.body.needsConfirmation ? call('POST', '/api/creative/research', { brief, quoteId: ask.body.quote.id }) : ask; }
-const direct = (call, r) => call('POST', '/api/creative/plan', { brief: SNEAKER, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: [upload], thumbnails: [], mainAsset: 'u1' });
+const upload = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', dataUrl: mockPng('sneaker', '16:9-hd') };
+// (the generator's Creative + Cinematic Hero mode: one premium video from one suitable upload)
+const HERO_MODE = { on: true, moments: 1, eligibleUploads: 1 };
+async function start(call, brief) { const ask = await call('POST', '/api/creative/research', { brief, premium: HERO_MODE }); return ask.body.needsConfirmation ? call('POST', '/api/creative/research', { brief, premium: HERO_MODE, quoteId: ask.body.quote.id }) : ask; }
+// (the planner gets the pictures as the studio measured them -- never their pixels)
+const measured = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', assess: { width: 1280, height: 720, aspect: 1.778, orientation: 'landscape', subject: null, colours: ['#c0502e'], luminance: 110, background: { colour: '#333333', uniformity: 0.3 } } };
+const direct = (call, r) => call('POST', '/api/creative/plan', { brief: SNEAKER, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: [measured], thumbnails: [], mainAsset: 'u1' });
 
 test('13 + 14. server: one choreography and one critic call per Creative generation (mocked), in the usage ledger, no Higgsfield call -- the premium hero is still exactly one video', async () => {
   await withServer({}, async ({ call, calls }) => {

@@ -138,7 +138,7 @@ function pixel(kind, u, v, hue, W, H) {
 }
 
 function mockPng(prompt, aspectRatio) {
-  const [W, H] = aspectRatio === '16:9' ? [640, 360] : aspectRatio === '4:3' ? [480, 360] : aspectRatio === '4:5' ? [320, 400] : aspectRatio === '3:4' ? [300, 400] : [400, 400];
+  const [W, H] = aspectRatio === '16:9-hd' ? [1280, 720] : aspectRatio === '16:9' ? [640, 360] : aspectRatio === '4:3' ? [480, 360] : aspectRatio === '4:5' ? [320, 400] : aspectRatio === '3:4' ? [300, 400] : [400, 400];
   const seed = hash(String(prompt || ''));
   const hue = seed % 360;
   const kind = subjectOf(prompt);

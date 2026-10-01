@@ -2539,6 +2539,7 @@ const creativeAi = require('./lib/creative/ai');
 const creativeArt = require('./lib/creative/art');
 const creativePool = require('./lib/creative/pool');
 const creativeArc = require('./lib/creative/premium-arc');
+const creativeSource = require('./lib/creative/premium-source');
 const creativeFraming = require('./lib/creative/framing');
 const PREMIUM_VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
 // ART DIRECTION: the recipes (motion personality / scroll model / scene architecture) this account's most recent Creative
@@ -2854,7 +2855,7 @@ app.post('/api/premium-media/quote', express.json({ limit: '16mb' }), requireAut
   if (kind !== 'creative') return res.status(409).json({ ok: false, message: 'Premium media is only for Creative websites.' });
   const why = premiumUnavailable(); if (why) return res.json({ ok: false, available: false, message: why });
   const assets = (Array.isArray(b.assets) ? b.assets : []).slice(0, 24).map(a => require('./lib/creative/store').cleanAsset(a)).filter(Boolean);
-  const v = premiumMedia.validateRequests(Array.isArray(b.requests) ? b.requests : [], { assets, models: Array.isArray(b.models) ? b.models.slice(0, 2) : [], mode: clean(b.artMode, 20), kind: 'creative', confirmed: (Array.isArray(b.confirmTransform) ? b.confirmTransform : []).map(x => clean(x, 40)) });
+  const v = premiumMedia.validateRequests(Array.isArray(b.requests) ? b.requests : [], { assets, models: Array.isArray(b.models) ? b.models.slice(0, 2) : [], mode: clean(b.artMode, 20), kind: 'creative', measure: premiumMeasured });
   if (!v.requests.length) return res.json({ ok: false, dropped: v.dropped, message: v.dropped[0] ? `Nothing to make: ${v.dropped[0].reason}.` : 'Nothing to make.' });
   // the source pictures are stored now (content-addressed), so what is executed is exactly what was quoted
   const media = [];
@@ -2918,11 +2919,27 @@ function premiumPriceFor(intent) {
   return quotes.premiumTier(def.mediaType, table[pre.costKey] || 0);
 }
 function creativePremiumProvider() { return { hasKey: !!paidProviders.key('higgsfield'), mode: paidProviders.mode(), env: process.env }; }
-// (the premium strategy -- standard: one hero video; cinematic: hero + takeover; showcase: hero + takeover + payoff -- comes
-// from explicit words in the brief or an explicit request; three clips are never the default: lib/creative/premium-arc.js)
-function creativePremiumPlan(brief, asked) {
-  const strategy = creativeArc.strategyFor(brief, creativeArc.STRATEGY_NAMES.includes(asked) ? asked : '').strategy;
-  return premiumMedia.planForBrief({ brief, strategy, provider: creativePremiumProvider(), costs: providerBudget.costs(), tierFor: (intent, est) => quotes.premiumTier(premiumMedia.INTENTS[intent].mediaType, est) });
+// PREMIUM VIDEO IS THE OWNER'S CHOICE in the generator (never switched on by the brief's wording, never changed by the
+// quote): { on, moments: 1 hero | 2 hero + takeover | 3 showcase, eligibleUploads: how many of their uploads are good
+// enough -- lib/creative/premium-source.js, measured in the studio and checked again here before anything is sent }.
+// Off -> no premium line in the quote; on -> one priced, optional line per moment (premium-media.js planForChoice).
+function cleanPremiumChoice(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  return { on: r.on === true, moments: [1, 2, 3].includes(Number(r.moments)) ? Number(r.moments) : 1, eligibleUploads: Math.max(0, Math.min(24, Math.round(Number(r.eligibleUploads) || 0))) };
+}
+function creativePremiumPlan(brief, choice) {
+  return premiumMedia.planForChoice({ choice: choice || { on: false }, brief, provider: creativePremiumProvider(), costs: providerBudget.costs(), tierFor: (intent, est) => quotes.premiumTier(premiumMedia.INTENTS[intent].mediaType, est) });
+}
+// what an image file itself says (its header and its size) -- the server's own measurement of an upload, which wins over
+// what the browser reported (premium-source.js quality)
+function premiumMeasured(a) {
+  try {
+    let buf = null; let mime = (a && a.mime) || '';
+    const m = a && typeof a.dataUrl === 'string' ? /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl) : null;
+    if (m) { buf = Buffer.from(m[2], 'base64'); mime = m[1]; } else if (a && a.assetRef) buf = getAssetStore().get(a.assetRef);
+    if (!buf) return null; const hs = creativeSource.headerSize(buf); if (!hs) return null;
+    return { width: hs.width, height: hs.height, bytes: buf.length, mime: hs.mime || mime };
+  } catch (e) { return null; }
 }
 function premiumLog(rec) { try { console.log('[premium-media] ' + JSON.stringify(Object.assign({ at: new Date().toISOString() }, rec))); } catch (e) { /* logging never breaks a page */ } }
 // what the job's confirmed quote planned -> the status the studio shows
@@ -2930,7 +2947,7 @@ function premiumStatusForJob(job, brief) {
   const q = job && db.quotes.findByOp(job.id);
   const items = q ? JSON.parse(q.items_json).filter(i => /^premium_/.test(i.code)) : [];
   if (items.length) return { planned: true, intents: items.map(i => i.intent), reason: '', message: `Premium media planned: ${items.map(i => i.intent.replace(/_/g, ' ')).join(', ')} (made with Higgsfield after the page is directed; charged only if it is delivered).` };
-  return creativePremiumPlan(brief).status;
+  return creativePremiumPlan(brief, { on: false }).status;
 }
 app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const b = req.body || {}; const job = creativeJobs.get(db, req.accountId, clean(b.jobId, 60));
@@ -2952,7 +2969,6 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
   // owner's uploads and the other pictures -- the first one the permission rules allow
   const assets = (Array.isArray(b.assets) ? b.assets : []).slice(0, 24).map(a => require('./lib/creative/store').cleanAsset(a)).filter(Boolean);
   const byId = new Map(assets.map(a => [a.id, a])); const models = Array.isArray(b.models) ? b.models.slice(0, 2) : [];
-  const confirmed = (Array.isArray(b.confirmTransform) ? b.confirmTransform : []).map(x => clean(x, 40));
   const order = a => (a.origin === 'upload' && !a.ownerPicked ? 0 : a.cutoutOf ? 1 : a.ownerPicked ? 2 : 3);
   const requests = [];
   for (const item of planned) {
@@ -2965,8 +2981,9 @@ app.post('/api/creative/premium', express.json({ limit: '16mb' }), requireAuth, 
     const pick = (arcPick && arcPick.asset) || (suggested.find(s => s.intent === intent) || {}).asset;
     const ids = [pick, clean(b.heroAsset, 40)].concat(assets.slice().sort((x, y) => order(x) - order(y)).map(a => a.id)).filter((id, i, all) => id && byId.has(id) && !byId.get(id).removed && all.indexOf(id) === i);
     if (!ids.length) { diag.skipped.push({ intent, reason: 'no_source', message: R.no_source }); continue; }
-    const ok = ids.find(id => premiumMedia.sourceEligibility(byId.get(id), { byId, confirmed }).ok);
-    if (!ok) { const why = premiumMedia.sourceEligibility(byId.get(ids[0]), { byId, confirmed }).reason; diag.skipped.push({ intent, reason: 'source_not_eligible', message: `${R.source_not_eligible} (${why})`, source: ids[0] }); continue; }
+    const verdict = id => premiumMedia.sourceEligibility(byId.get(id), { byId, measured: premiumMeasured(byId.get(id)) });
+    const ok = ids.find(id => verdict(id).ok);
+    if (!ok) { const why = verdict(ids[0]).reason; diag.skipped.push({ intent, reason: 'source_not_eligible', message: `${R.source_not_eligible} (${why})`, source: ids[0] }); continue; }
     let a = byId.get(ok); if (a.cutoutOf && byId.get(a.cutoutOf)) a = byId.get(a.cutoutOf); // (transform the whole picture, not its cut-out)
     let ref = a.assetRef || null; let mime = a.mime || 'image/jpeg';
     if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
@@ -3059,7 +3076,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
     // nothing paid runs: the answer is the quote to confirm.
     const q = quotes.get(db, req.accountId, clean(req.body.quoteId, 60));
     if (!q || q.operation !== 'creative_generation' || q.status !== 'open' || q.expiresAt <= new Date().toISOString()) {
-      const cp = creativePremiumPlan(brief, clean(req.body.premiumStrategy, 20));
+      const cp = creativePremiumPlan(brief, cleanPremiumChoice(req.body.premium));
       const nq = quotes.create(db, { accountId: req.accountId, operation: 'creative_generation', plan: { spatialPossible: CREATIVE_SPATIAL_ON, premium: cp.planned } });
       premiumLog({ step: 'quote', accountId: req.accountId, quoteId: nq.id, requested: cp.intents, planned: cp.planned.map(p => p.intent), notPlanned: cp.notPlanned, credits: nq.credits });
       return res.json({ ok: false, needsConfirmation: true, quote: quotes.publicView(nq), premium: cp.status, ...creativeCredits(req.accountId) });
@@ -3271,7 +3288,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   const videoIntent = input.premiumRequested.find(i => PREMIUM_VIDEO_INTENTS.includes(i));
   if (videoIntent) {
     const byIdP = new Map(assets.map(a => [a.id, a]));
-    const verdicts = pool.pictures.map(p => ({ id: p.id, v: premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, confirmed: [] }) }));
+    const verdicts = pool.pictures.map(p => ({ id: p.id, v: premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, measured: premiumMeasured(byIdP.get(p.id)) }) }));
     const ok = verdicts.find(x => x.v.ok);
     input.premiumHero = ok ? { intent: videoIntent, source: ok.id, role: 'hero motion', note: pool.main && ok.id !== pool.main.id ? `the main picture is not used for the video: ${(verdicts.find(x => x.id === pool.main.id) || { v: {} }).v.reason || 'not eligible'}` : '' }
       : { intent: videoIntent, source: null, role: 'hero motion', note: verdicts.length ? `no picture may be sent for the video: ${verdicts[0].v.reason}` : 'no picture to start the video from' };
@@ -3283,7 +3300,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // (a standard generation's one hero video is planned exactly as before: premiumHero below)
   if (arcItems.length >= 2) {
     const byIdP = new Map(assets.map(a => [a.id, a]));
-    const eligible = id => premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, confirmed: [] }).ok;
+    const eligible = id => premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, measured: premiumMeasured(byIdP.get(id)) }).ok;
     const pics = pool.pictures.map(p => { const a = byIdP.get(p.id); return { id: p.id, colour: p.colour, bleed: !!(a && creativeFraming.canBleed(a, 1.6)), role: a && a.curation ? a.curation.role : '' }; });
     const src = creativeArc.pickSources(arcItems.map(i => i.role), pics, eligible, pool.main && pool.main.id);
     input.premiumArc = arcItems.map(i => ({ role: i.role, intent: i.intent, asset: src[i.role] || null })).filter(e => e.asset);
@@ -4018,12 +4035,27 @@ app.post('/api/quotes', requireAuth, requireSameOrigin, async (req, res) => {
   const plan = { request: clean(req.body.request, 1200), deep: req.body.deep === true, premium: operation === 'image' && req.body.premium === true, spatialPossible: operation.startsWith('creative_') ? CREATIVE_SPATIAL_ON : false };
   if (operation === 'website_update' && !plan.request && !plan.deep) return res.status(400).json({ ok: false, message: 'Describe the change first.' });
   // a Creative generation's quote includes the premium media its brief explicitly asks for (one quote, one confirmation)
-  const cp = operation === 'creative_generation' ? creativePremiumPlan(plan.request, clean(req.body.premiumStrategy, 20)) : null;
+  const cp = operation === 'creative_generation' ? creativePremiumPlan(plan.request, cleanPremiumChoice(req.body.premium)) : null;
   if (cp) plan.premium = cp.planned;
   await prepareCredits(req.accountId);
   const q = quotes.create(db, { accountId: req.accountId, projectId: clean(req.body.projectId, 60) || null, operation, plan });
   if (cp) premiumLog({ step: 'quote', accountId: req.accountId, quoteId: q.id, requested: cp.intents, planned: cp.planned.map(p => p.intent), notPlanned: cp.notPlanned, credits: q.credits });
   res.json(Object.assign({ ok: true, quote: quotes.publicView(q), creditsRemaining: creditsRemainingFor(req.accountId) }, cp ? { premium: cp.status } : {}));
+});
+// the generator's live cost summary: the Creative page plus each premium moment the owner's choice would add, what each
+// generation mode costs (Creative, Creative + Cinematic Hero, Creative Showcase -- priced as if its uploads were there),
+// and the balance when signed in -- computed, never stored (the quote the owner confirms is made by /api/quotes or the research
+// route from the same choice)
+app.post('/api/creative/price', requireSameOrigin, async (req, res) => {
+  const choice = cleanPremiumChoice(req.body && req.body.premium);
+  const cp = creativePremiumPlan(clean(req.body && req.body.request, 1200), choice);
+  const q = quotes.build('creative_generation', { spatialPossible: CREATIVE_SPATIAL_ON, premium: cp.planned });
+  const base = quotes.build('creative_generation', { spatialPossible: CREATIVE_SPATIAL_ON, premium: [] });
+  const modeQ = c => { const p = creativePremiumPlan(clean(req.body && req.body.request, 1200), c); const mq = quotes.build('creative_generation', { spatialPossible: CREATIVE_SPATIAL_ON, premium: p.planned }); return { credits: mq.credits, minCredits: mq.minCredits, premium: p.planned.length }; };
+  const modes = { creative: modeQ({ on: false }), hero: modeQ({ on: true, moments: 1, eligibleUploads: 3 }), showcase: modeQ({ on: true, moments: 3, eligibleUploads: 3 }) };
+  const session = getSessionAccount(req); let remaining = null;
+  if (session) { await prepareCredits(session.accountId); remaining = creditsRemainingFor(session.accountId); }
+  res.json({ ok: true, items: q.items.map(i => Object.assign({ code: i.code, label: i.label, credits: i.credits, optional: !!i.optional }, i.role ? { role: i.role } : {})), credits: q.credits, minCredits: q.minCredits, baseCredits: base.credits, modes, premium: cp.status, creditsRemaining: remaining });
 });
 app.get('/api/quotes/:id', requireAuth, (req, res) => {
   const q = quotes.get(db, req.accountId, clean(req.params.id, 60));

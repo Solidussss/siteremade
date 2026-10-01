@@ -211,7 +211,9 @@ test('10. server (mocked providers): pool -> premium source -> recipe + visual p
   try {
     await call('POST', '/api/auth/signup', { email: `af-${process.pid}-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' });
     const brief = 'A page about ZoomKart, our kart racing game: high energy, with a cinematic hero video';
-    let r = await call('POST', '/api/creative/research', { brief, hasUploads: 4 }); if (r.body.needsConfirmation) r = await call('POST', '/api/creative/research', { brief, hasUploads: 4, quoteId: r.body.quote.id });
+    // (the generator's Creative + Cinematic Hero mode)
+    const mode = { on: true, moments: 1, eligibleUploads: 2 };
+    let r = await call('POST', '/api/creative/research', { brief, hasUploads: 4, premium: mode }); if (r.body.needsConfirmation) r = await call('POST', '/api/creative/research', { brief, hasUploads: 4, premium: mode, quoteId: r.body.quote.id });
     const p = await call('POST', '/api/creative/plan', { brief, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: ASSETS.map(a => Object.assign({}, a, { assetRef: undefined })), thumbnails: [], mainAsset: 'u1', seed: 'af1' });
     assert.equal(p.body.ok, true, JSON.stringify(p.body).slice(0, 300));
     const vp = p.body.visualPlan;
@@ -224,11 +226,11 @@ test('10. server (mocked providers): pool -> premium source -> recipe + visual p
     const words = { u1: /Launch|ZoomKart/, u2: /grid/i, u3: /box/i, r1: /sunset/i };
     plan.scenes.forEach(sc => { const a = sc.visual && base(sc.visual.asset); if (a) assert.match(sc.text.heading, words[a], `${sc.id}: "${sc.text.heading}" beside ${a}`); });
     assert.equal(providerCalls(env.MOCK_CALL_LOG).filter(c => c.provider === 'higgsfield').length, 0, 'planning never calls Higgsfield');
-    // a main picture that may not be transformed (picked from the web, not confirmed): the video starts from the next eligible picture, and says why
+    // a main picture that may not be transformed (picked from the web: Higgsfield uses uploads only): the video starts from the next eligible upload, and says why
     const picked = ASSETS.map(a => (a.id === 'u1' ? Object.assign({}, a, { ownerPicked: true, pageUrl: 'https://shop.example/kart' }) : Object.assign({}, a))).map(a => Object.assign(a, { assetRef: undefined }));
-    let r2 = await call('POST', '/api/creative/research', { brief: brief + ' again', hasUploads: 4 }); if (r2.body.needsConfirmation) r2 = await call('POST', '/api/creative/research', { brief: brief + ' again', hasUploads: 4, quoteId: r2.body.quote.id });
+    let r2 = await call('POST', '/api/creative/research', { brief: brief + ' again', hasUploads: 4, premium: mode }); if (r2.body.needsConfirmation) r2 = await call('POST', '/api/creative/research', { brief: brief + ' again', hasUploads: 4, premium: mode, quoteId: r2.body.quote.id });
     const p2 = await call('POST', '/api/creative/plan', { brief: brief + ' again', jobId: r2.body.jobId, understanding: r2.body.understanding, facts: [], supplied: {}, assets: picked, thumbnails: [], mainAsset: 'u1', seed: 'af2' });
     assert.equal(p2.body.ok, true); assert.notEqual(p2.body.visualPlan.premiumHero.source, 'u1');
-    assert.match(p2.body.visualPlan.premiumHero.note, /the main picture is not used for the video: a picture found on the web: the owner must confirm/);
+    assert.match(p2.body.visualPlan.premiumHero.note, /the main picture is not used for the video: a web picture you picked -- premium video uses uploaded images only/);
   } finally { await s.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

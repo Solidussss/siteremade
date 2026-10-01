@@ -36,6 +36,37 @@ body.cs-open{overflow:hidden}
 .cs-thumbs .cs-model{width:auto;min-width:64px;max-width:220px;padding:0 28px 0 10px;display:flex;align-items:center;font-size:12px;color:#dfe6f5;white-space:nowrap;text-overflow:ellipsis}
 .cs-thumbs button{position:absolute;right:2px;top:2px;border:0;border-radius:50%;width:20px;height:20px;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;line-height:1}
 .cs-cost{font-size:12px;color:#8d8c96;margin-top:10px}
+/* premium video: the owner's choice beside the uploads, and the cost of what is chosen */
+.cs-pv{margin-top:14px;border:1px solid #2a2a33;border-radius:12px;padding:10px 12px}
+.cs-pv-head{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#a9a8b3}
+.cs-modes{display:grid;gap:8px}
+.cs-mode{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;border:1px solid #33333d;background:#1b1b22;color:#f1f0ee;border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer}
+.cs-mode strong{font-size:14px}
+.cs-mode span{grid-column:1;font-size:12px;color:#a9a8b3;line-height:1.4}
+.cs-mode em{grid-column:2;grid-row:1 / span 2;align-self:center;font-style:normal;font-size:12px;font-weight:700;color:#ffd98a;white-space:nowrap}
+.cs-mode[aria-checked="true"]{border-color:#ffcf5c;background:#241f12;box-shadow:inset 0 0 0 1px #ffcf5c}
+.cs-mode[aria-checked="true"] strong::before{content:"● ";color:#ffcf5c}
+.cs-pv .cs-hint{margin:8px 0 4px}
+.cs-pv-state{font-size:12px;color:#cfcdd6;margin:4px 0 0}
+.cs-pv-state:empty{display:none}
+.cs-thumbs .cs-pv-tag{position:absolute;left:0;right:0;bottom:0;font-size:10px;line-height:1.6;text-align:center;background:rgba(10,40,20,.86);color:#9be8b3;pointer-events:auto}
+.cs-thumbs .cs-pv-tag[data-ok="no"]{background:rgba(60,14,14,.88);color:#ffb3b3}
+.cs-sum{margin-top:12px}
+.cs-sum .cs-needs{color:#ffd98a}
+.cs-lines{width:100%;border-collapse:collapse;font-size:13px}
+.cs-lines td{padding:3px 0;color:#cfcdd6}.cs-lines td:last-child{text-align:right;white-space:nowrap;padding-left:10px}
+.cs-lines .cs-pvline td{color:#ffd98a}
+.cs-lines .cs-total td{border-top:1px solid #33333d;padding-top:6px;color:#f1f0ee;font-weight:700}
+.cs-lines .cs-muted td{color:#8d8c96;font-size:12px}
+/* the one confirmation: what was chosen, what it costs, and the ways on */
+.cs-modal{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(6,6,10,.72)}
+.cs-modal-card{width:min(480px,100%);max-height:calc(100% - 32px);overflow:auto;background:#17171d;border:1px solid #33333d;border-radius:16px;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.cs-modal-card h2{font-size:18px;margin:0 0 8px}
+.cs-modal-card p{margin:6px 0 10px;color:#dcdbe2;font-size:14px}
+.cs-modal-status{font-size:13px;color:#ffd98a}.cs-modal-status:empty{display:none}
+.cs-modal-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.cs-modal-actions .cs-btn{width:100%;text-align:center}
+.cs-btn.cs-go{background:linear-gradient(135deg,#ffcf5c,#ff7a59);border:0;color:#1a1208}
 .cs-progress{list-style:none;padding:0;margin:10px 0}
 .cs-progress li{display:grid;grid-template-columns:18px 1fr;gap:4px 10px;padding:8px 0;border-bottom:1px solid #22222a;color:#8d8c96}
 .cs-progress li i{width:12px;height:12px;border-radius:50%;border:2px solid #444;margin-top:5px}

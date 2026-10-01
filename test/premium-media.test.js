@@ -14,20 +14,21 @@ const { createBudget, costs } = require('../lib/provider-budget');
 const { startServer, client, providerCalls } = require('./helpers/server-process');
 const { mockPng } = require('./helpers/mock-image');
 
-const up = (id, extra) => Object.assign({ id, origin: 'upload', title: id, mime: 'image/png' }, extra || {});
+// (an upload as the studio measures it: large enough for full-screen premium video unless a test says otherwise)
+const up = (id, extra) => Object.assign({ id, origin: 'upload', title: id, mime: 'image/png', assess: { width: 1600, height: 900, aspect: 1.778, orientation: 'landscape', subject: null, colours: ['#c0502e'], luminance: 120, background: { colour: '#333333', uniformity: 0.2 } } }, extra || {});
 const found = (id, license, extra) => Object.assign({ id, origin: 'research', title: id, license, pageUrl: `https://example.org/${id}` }, extra || {});
 
-test('sources: the owner\'s own pictures and openly licensed ones may be transformed; rights-unclear, NoDerivatives and Wikimedia pictures never are; a picked web picture needs the owner\'s explicit confirmation', () => {
-  const assets = [up('u1'), up('p1', { ownerPicked: true }), found('r1', 'CC BY 4.0'), found('r2', ''), found('r3', 'CC BY-ND 4.0'), found('r4', 'CC0', { pageUrl: 'https://commons.wikimedia.org/wiki/File:x.jpg' }), up('c1', { origin: 'derived', cutoutOf: 'u1' })];
-  const ask = (asset, confirmed) => PM.validateRequests([{ intent: 'image_enhance', asset }], { assets, confirmed });
-  assert.equal(ask('u1').requests.length, 1);
-  assert.equal(ask('c1').requests.length, 1, 'a cut-out of the owner\'s picture');
-  assert.equal(ask('r1').requests.length, 1, 'CC BY permits a modified version');
-  assert.match(ask('r2').dropped[0].reason, /rights are unclear/);
-  assert.match(ask('r3').dropped[0].reason, /unclear/, 'NoDerivatives is not a licence to transform');
-  assert.match(ask('r4').dropped[0].reason, /Wikimedia/);
-  assert.match(ask('p1').dropped[0].reason, /must confirm/);
-  assert.equal(ask('p1', ['p1']).requests.length, 1);
+test('sources: Higgsfield transforms the owner\'s own UPLOADS only -- never a picture found on the web, whatever its licence, and never a web picture the owner picked', () => {
+  const assets = [up('u1'), up('p1', { ownerPicked: true, pageUrl: 'https://shop.example/p1' }), found('r1', 'CC BY 4.0'), found('r2', ''), found('r3', 'CC0'), up('c1', { origin: 'derived', cutoutOf: 'u1' }), up('x1', { pageUrl: 'https://example.org/x1' }), up('lg', { ownerRole: 'logo' })];
+  const ask = id => PM.validateRequests([{ intent: 'image_enhance', asset: id }], { assets });
+  assert.equal(ask('u1').requests.length, 1, 'the owner\'s upload');
+  assert.equal(ask('c1').requests.length, 1, 'a cut-out of the owner\'s upload');
+  for (const id of ['r1', 'r2', 'r3']) assert.match(ask(id).dropped[0].reason, /uploaded images only/, `${id}: web pictures never, even openly licensed`);
+  assert.match(ask('p1').dropped[0].reason, /a web picture you picked/);
+  assert.match(ask('x1').dropped[0].reason, /uploaded images only/, 'a picture with a web address is not an upload, whatever it is labelled');
+  assert.match(ask('lg').dropped[0].reason, /logo/);
+  // (the old per-picture "confirm you may transform it" route is gone: there is nothing to confirm)
+  assert.equal(PM.validateRequests([{ intent: 'image_enhance', asset: 'p1' }], { assets, confirmed: ['p1'] }).requests.length, 0);
 });
 
 test('the hierarchy and the bounds: never for Business, never what the spatial renderer already does, never motion on a restrained page, at most two, intents only', () => {
@@ -118,7 +119,7 @@ async function withServer(env, fn) {
 // a saved Creative page whose opening picture is the owner's own upload
 function creativeProject() {
   const D2 = require('../lib/creative/director2'); const { validatePlan2 } = require('../lib/creative/validate2');
-  const pic = (id, w, h) => ({ id, origin: 'upload', title: id, alt: '', mime: 'image/png', dataUrl: mockPng(id, '16:9'), relevance: 2, assess: { width: w, height: h, aspect: +(w / h).toFixed(3), orientation: 'landscape', subject: [0.2, 0.2, 0.8, 0.8], colours: ['#c0502e', '#223344', '#ddeeff'], luminance: 110, background: { colour: '#333333', uniformity: 0.3 } }, caps: { moveFreely: false, frame: true, backdrop: true, heroSize: true } });
+  const pic = (id, w, h) => ({ id, origin: 'upload', title: id, alt: '', mime: 'image/png', dataUrl: mockPng(id, '16:9-hd'), relevance: 2, assess: { width: w, height: h, aspect: +(w / h).toFixed(3), orientation: 'landscape', subject: [0.2, 0.2, 0.8, 0.8], colours: ['#c0502e', '#223344', '#ddeeff'], luminance: 110, background: { colour: '#333333', uniformity: 0.3 } }, caps: { moveFreely: false, frame: true, backdrop: true, heroSize: true } });
   const assets = [pic('u1', 1800, 1000), pic('u2', 1600, 1000)];
   const und = { kind: 'recognizable', subject: 'Red Sneaker', brief: 'a cinematic page for my red sneaker', tone: { register: 'cinematic' } };
   const { plan, recipe } = D2.direct({ understanding: und, research: { page: null, facts: [] }, assets, supplied: { facts: [], memories: [] }, seed: '1' });
@@ -172,7 +173,7 @@ test('server: Business never uses premium media; no key = clearly unavailable; a
     const r = await call('POST', '/api/premium-media/quote', { kind: 'creative', requests: [{ intent: 'cinematic_hero', asset: 'u1' }], assets: [] });
     assert.equal(r.body.available, false); assert.match(r.body.message, /HIGGSFIELD_API_KEY is not set/);
   });
-  const upload = { id: 'u1', origin: 'upload', title: 'u1', mime: 'image/png', dataUrl: mockPng('u1', '16:9') };
+  const upload = { id: 'u1', origin: 'upload', title: 'u1', mime: 'image/png', dataUrl: mockPng('u1', '16:9-hd') };
   await withServer({ MOCK_HIGGSFIELD: 'failed' }, async ({ call }) => {
     const q = await call('POST', '/api/premium-media/quote', { kind: 'creative', requests: [{ intent: 'cinematic_hero', asset: 'u1' }], assets: [upload] });
     const x = await call('POST', '/api/premium-media/execute', { quoteId: q.body.quote.id });
@@ -262,14 +263,17 @@ test('the one main quote includes the premium media: Creative 6 + spatial 2 + ci
 
 // ---------------------------------------------------------------- the real server, end to end (Higgsfield mocked)
 const SNEAKER = 'A cinematic hero video for an imaginary sneaker brand called Zorbo, with premium motion';
-async function start(call, brief) {
-  const ask = await call('POST', '/api/creative/research', { brief });
+// (the generator's mode: Creative + Cinematic Hero -- one premium video from one suitable upload)
+const HERO_MODE = { on: true, moments: 1, eligibleUploads: 1 };
+async function start(call, brief, premium) {
+  const p = premium === undefined ? HERO_MODE : premium;
+  const ask = await call('POST', '/api/creative/research', { brief, premium: p });
   if (!ask.body.needsConfirmation) return { ask, r: ask };
-  const r = await call('POST', '/api/creative/research', { brief, quoteId: ask.body.quote.id });
+  const r = await call('POST', '/api/creative/research', { brief, premium: p, quoteId: ask.body.quote.id });
   return { ask, r };
 }
 const direct = (call, brief, r) => call('POST', '/api/creative/plan', { brief, jobId: r.body.jobId, understanding: r.body.understanding, facts: [], supplied: {}, assets: [], thumbnails: [] });
-const upload = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', dataUrl: mockPng('sneaker', '16:9') };
+const upload = { id: 'u1', origin: 'upload', title: 'our sneaker', mime: 'image/png', dataUrl: mockPng('sneaker', '16:9-hd') };
 const unclear = { id: 'r1', origin: 'research', title: 'sneaker on a website', license: '', pageUrl: 'https://shop.example/sneaker', mime: 'image/png', dataUrl: mockPng('found', '16:9') };
 const AI = { ANTHROPIC_API_KEY: 'test-only', SITEREMADE_TRIAL_CREDITS: '20', HIGGSFIELD_VIDEO_ENDPOINT: 'https://api.higgsfield.ai/kling-video/v3.0/4k/image-to-video' };
 
@@ -297,14 +301,16 @@ test('server: an explicit cinematic brief -> one quote with the premium media ->
   });
 });
 
-test('server: a brief without premium media -> not planned, said plainly; Higgsfield is never called', async () => {
+test('server: the Creative mode (no Higgsfield) -> not planned, said plainly; Higgsfield is never called -- even when the brief mentions video', async () => {
   await withServer(AI, async ({ call, calls }) => {
     const brief = 'An imaginary kingdom run entirely by cats';
-    const { ask, r } = await start(call, brief);
-    assert.equal(ask.body.quote.credits, 6); assert.equal(ask.body.premium.planned, false); assert.equal(ask.body.premium.reason, 'not_requested');
+    const { ask, r } = await start(call, brief, { on: false });
+    assert.equal(ask.body.quote.credits, 6); assert.equal(ask.body.premium.planned, false); assert.equal(ask.body.premium.reason, 'off');
+    const v = await call('POST', '/api/quotes', { operation: 'creative_generation', request: SNEAKER, premium: { on: false } });
+    assert.equal(v.body.quote.credits, 6, 'the brief asks for video, but the owner chose Creative: no premium line'); assert.equal(v.body.premium.briefAsks, true);
     await direct(call, brief, r);
     const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief, assets: [upload] });
-    assert.equal(p.body.premium.status.planned, false); assert.equal(p.body.premium.status.reason, 'not_requested'); assert.equal(p.body.premium.executionStarted, false);
+    assert.equal(p.body.premium.status.planned, false); assert.equal(p.body.premium.status.reason, 'off'); assert.equal(p.body.premium.executionStarted, false);
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
   });
 });
@@ -315,7 +321,7 @@ test('server: blocked premium media says exactly why and costs nothing -- a righ
     const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'r1', assets: [unclear] });
     const st = p.body.premium.status;
     assert.equal(st.planned, true); assert.equal(st.reason, 'source_not_eligible');
-    assert.match(st.message, /Premium media blocked: source image not eligible for transformation/);
+    assert.match(st.message, /premium video uses uploaded images only/);
     assert.equal(p.body.premium.executionStarted, false); assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 12);
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
   });
@@ -333,7 +339,7 @@ test('server: Higgsfield not configured -> the quote does not include it and the
     assert.match(ask.body.premium.message, /missing API key/);
   });
   await withServer(Object.assign({}, AI, { HIGGSFIELD_VIDEO_ENDPOINT: '' }), async ({ call }) => {
-    const q = await call('POST', '/api/quotes', { operation: 'creative_generation', request: SNEAKER });
+    const q = await call('POST', '/api/quotes', { operation: 'creative_generation', request: SNEAKER, premium: HERO_MODE });
     assert.equal(q.body.quote.credits, 6); assert.equal(q.body.premium.reason, 'missing_video_endpoint'); assert.match(q.body.premium.message, /missing video endpoint/);
   });
 });

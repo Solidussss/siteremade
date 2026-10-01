@@ -12,7 +12,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'creative');
 const OUT = path.join(ROOT, 'creative-core.js');
-const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'carry-route', 'composition', 'art', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
+const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'premium-source', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'carry-route', 'composition', 'art', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
 
 function build() {
   const parts = MODULES.map(name => {
@@ -34,7 +34,7 @@ function build() {
     return m.exports;
   }
 ${parts.join('\n')}
-  var api = { composition: __require('composition'), understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), premiumArc: __require('premium-arc'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
+  var api = { composition: __require('composition'), understand: __require('understand'), assets: __require('assets'), validate: __require('validate'), framing: __require('framing'), spatial: __require('spatial'), timeline: __require('timeline'), continuity: __require('continuity'), palette: __require('palette'), premiumArc: __require('premium-arc'), premiumSource: __require('premium-source'), pool: __require('pool'), renderers: __require('renderers'), art: __require('art'), archetypes: __require('archetypes'), validate2: __require('validate2'), director: __require('director'), director2: __require('director2'), render: __require('render'), render2: __require('render2') };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.SiteRemadeCreative = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

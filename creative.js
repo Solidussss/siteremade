@@ -16,6 +16,8 @@
 
   function fresh() {
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
+      // the generation mode the owner chose (creative | hero | showcase): Creative unless they choose a video mode
+      mode: 'creative', modePrices: null,
       projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null, models: [], spatialOn: false,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
@@ -62,8 +64,12 @@
       '<label for="csMemories">Favourite memories, one per line (optional)</label><textarea id="csMemories" rows="3" maxlength="2000"></textarea>',
       '<p class="cs-hint">A personal page only ever shows your own photos of them and only says what you write here.</p></details>',
       '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><input type="file" id="csLogo" accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="cs-btn cs-ghost" id="csLogoBtn" title="Optional: shown top-left in the page header, never as a scene picture">+ Add your logo</button><input type="file" id="csModel" accept=".glb,model/gltf-binary" hidden><button type="button" class="cs-btn cs-ghost" id="csModelBtn" title="Optional: a 3D model of your main subject, used only on pages with a 3D layer">+ Add a 3D model (.glb)</button><div class="cs-thumbs" id="csThumbs"></div></div>',
+      '<div class="cs-pv" id="csPv"><p class="cs-pv-head">Generation mode</p><div class="cs-modes" id="csModes" role="radiogroup" aria-label="Generation mode">' + MODES.map(function (m) { return '<button type="button" role="radio" class="cs-mode" data-mode="' + m.id + '" aria-checked="' + (m.id === 'creative' ? 'true' : 'false') + '"><strong>' + m.name + '</strong><span>' + m.line + '</span><em data-mode-credits="' + m.id + '"></em></button>'; }).join('') + '</div>',
+      '<p class="cs-hint">Higgsfield video modes require eligible uploaded images. Pictures found on the web are used on the page, never for video.</p>',
+      '<p class="cs-pv-state" id="csPvState" aria-live="polite"></p></div>',
+      '<div class="cs-sum" id="csSum" aria-live="polite"></div>',
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
-      '<p class="cs-cost" id="csCostNote">A Creative page costs <strong>4 credits</strong>: the research, picture search and checks, the direction and its automatic fixes. Another direction for the same page costs 3. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
+      '<p class="cs-cost" id="csCostNote">Another direction for the same page is priced before it runs. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
       '<section class="cs-step" id="csProgress" hidden><h2>Making it</h2><ol class="cs-progress" id="csProgressList"></ol><div id="csChoices"></div><p class="cs-error" id="csError" role="alert" hidden></p></section>',
       '<section class="cs-step" id="csEditor" hidden>',
@@ -76,13 +82,19 @@
       '</div>',
     ].join('');
     document.body.appendChild(root);
-    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal', 'csBuy', 'csBalance'].forEach(function (id) { els[id] = document.getElementById(id); });
+    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal', 'csBuy', 'csBalance', 'csModes', 'csPvState', 'csSum'].forEach(function (id) { els[id] = document.getElementById(id); });
     frame = els.csFrame;
     ['A website about toilet paper — make it grand and a bit absurd', 'Sherlock Holmes fan site, cinematic and moody', 'A tribute to the Big Mac', 'A memorial page for my goldfish Bubbles'].forEach(function (t) {
       var b = h('button', { type: 'button', class: 'cs-chip', text: t.replace(/ —.*| fan site.*/, '') }); b.addEventListener('click', function () { els.csBrief.value = t; if (/my goldfish/.test(t)) els.csPersonal.open = true; els.csBrief.focus(); }); els.csChips.appendChild(b);
     });
     els.csClose.addEventListener('click', close);
     els.csCreate.addEventListener('click', function () { create(); });
+    // the generation mode: a radio group (click, or the arrow keys) -- the cost summary follows it at once
+    [].forEach.call(els.csModes.querySelectorAll('[data-mode]'), function (b) {
+      b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); });
+      b.addEventListener('keydown', function (e) { var k = e.key; if (k !== 'ArrowDown' && k !== 'ArrowRight' && k !== 'ArrowUp' && k !== 'ArrowLeft') return; e.preventDefault(); var i = MODES.indexOf(modeOf(b.getAttribute('data-mode'))); var n = MODES[(i + (k === 'ArrowDown' || k === 'ArrowRight' ? 1 : MODES.length - 1)) % MODES.length]; setMode(n.id); els.csModes.querySelector('[data-mode="' + n.id + '"]').focus(); });
+    });
+    els.csBrief.addEventListener('input', function () { priceSoon(700); });
     els.csUploadBtn.addEventListener('click', function () { els.csUpload.click(); });
     var mb = document.getElementById('csModelBtn'), mi = document.getElementById('csModel');
     if (mb && mi) { mb.addEventListener('click', function () { mi.click(); }); mi.addEventListener('change', function () { addModel(mi.files && mi.files[0]); mi.value = ''; }); }
@@ -167,7 +179,7 @@
   function open(opts) {
     if (!root) { build(); S = fresh(); resetUI(); }
     onClose = opts && opts.onClose;
-    root.hidden = false; document.body.classList.add('cs-open'); refreshBalance();
+    root.hidden = false; document.body.classList.add('cs-open'); refreshBalance(); renderPv(); priceSoon(0);
     if (opts && opts.project) loadProject(opts.project);
     else if (!S.plan) offerLast();
     setTimeout(function () { (S.plan ? els.csSave : els.csBrief).focus(); }, 30);
@@ -224,10 +236,23 @@
       if (!dataUrl) return null;
       return loadImage(dataUrl).then(function (im) {
         // large uploads are resized once, here (a phone photo does not need 12 megapixels)
+        // (its premium-video quality is read from the file as it came, before any resize: premium-source.js)
+        var quality = uploadQuality(im);
         if (Math.max(im.naturalWidth, im.naturalHeight) > 2000 || dataUrl.length > 4e6) { var px = pixels(im, 2000); var alpha = /png|webp/.test(file.type); dataUrl = px.canvas.toDataURL(alpha ? 'image/png' : 'image/jpeg', 0.9); }
-        return { id: 'u' + Date.now().toString(36) + n, origin: 'upload', title: file.name.replace(/\.[a-z]+$/i, ''), alt: '', relevance: 2, dataUrl: dataUrl, mime: dataUrl.slice(5, dataUrl.indexOf(';')) };
+        return { id: 'u' + Date.now().toString(36) + n, origin: 'upload', title: file.name.replace(/\.[a-z]+$/i, ''), alt: '', relevance: 2, dataUrl: dataUrl, mime: dataUrl.slice(5, dataUrl.indexOf(';')), quality: quality || undefined };
       }).catch(function () { return null; });
     });
+  }
+  // how crisp an upload is (at about the size of the video) and how blocky its compression is (a crop at its own
+  // resolution, on the JPEG grid) -> { sharpness, blockiness } | null
+  function uploadQuality(im) {
+    try {
+      var W = im.naturalWidth, H = im.naturalHeight; var sharp = C.premiumSource.sharpness(pixels(im, 1100).img);
+      var s = Math.min(512, W - (W % 8), H - (H % 8)); var sx = Math.max(0, Math.floor((W - s) / 16) * 8), sy = Math.max(0, Math.floor((H - s) / 16) * 8);
+      var cv = document.createElement('canvas'); cv.width = s; cv.height = s; var ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(im, sx, sy, s, s, 0, 0, s, s);
+      var blk = s >= 64 ? C.premiumSource.blockiness({ width: s, height: s, data: ctx.getImageData(0, 0, s, s).data }) : null;
+      var q = {}; if (sharp != null) q.sharpness = sharp; if (blk != null) q.blockiness = blk; return Object.keys(q).length ? q : null;
+    } catch (e) { return null; }
   }
   function addUploads(files, role) {
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
@@ -258,11 +283,13 @@
   function renderThumbs() {
     var ups = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
     var roles = [['auto', 'Let the page decide'], ['main', 'Main subject'], ['supporting', 'Supporting'], ['background', 'Background'], ['logo', 'Logo']];
-    els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); return '<figure><img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerPicked ? '<small title="' + esc(a.pageUrl || '') + '">picked from ' + esc(a.author || 'the web') + '</small>' : a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
+    var pvBy = {}; if (currentMode().on) pvVerdicts().forEach(function (v) { pvBy[v.id] = v; });
+    els.csThumbs.innerHTML = ups.map(function (a) { var r = S.mainAsset === a.id ? 'main' : (a.ownerRole || 'auto'); var pv = pvBy[a.id]; return '<figure>' + (pv ? '<span class="cs-pv-tag" data-ok="' + (pv.ok ? 'yes' : 'no') + '" title="' + esc(pv.ok ? 'Suitable for premium video' : pv.reason) + '">' + (pv.ok ? 'video ✓' : 'not for video') + '</span>' : '') + '<img src="' + esc(a.dataUrl) + '" alt=""><button type="button" data-rm="' + esc(a.id) + '" aria-label="Remove">×</button><select data-role-for="' + esc(a.id) + '" aria-label="Use this picture as">' + roles.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' + (a.ownerPicked ? '<small title="' + esc(a.pageUrl || '') + '">picked from ' + esc(a.author || 'the web') + '</small>' : a.ownerAffirmed ? '<small title="You said you have the rights to use it">from the web · your rights</small>' : '') + '</figure>'; }).join('');
     (S.models || []).forEach(function (m) { els.csThumbs.insertAdjacentHTML('beforeend', '<figure class="cs-model"><span>3D · ' + esc(m.title || 'model') + '</span><button type="button" data-rm-model="' + esc(m.id) + '" aria-label="Remove the 3D model">×</button></figure>'); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-rm-model]'), function (b) { b.addEventListener('click', function () { S.models = S.models.filter(function (m) { return m.id !== b.getAttribute('data-rm-model'); }); renderThumbs(); if (S.plan) markDirty(); }); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-rm]'), function (b) { b.addEventListener('click', function () { removeAsset(b.getAttribute('data-rm')); }); });
     [].forEach.call(els.csThumbs.querySelectorAll('[data-role-for]'), function (sel) { sel.addEventListener('change', function () { setUploadRole(sel.getAttribute('data-role-for'), sel.value); }); });
+    renderPv(); priceSoon();
   }
 
   // the owner's role for an upload; one main subject at most (it then leads the opening scene)
@@ -285,16 +312,153 @@
   function fail(msg) { els.csError.hidden = false; els.csError.textContent = msg; S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; }
   function lines(t) { return String(t || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
 
-  // OWNERSHIP + CREDITS: dynamic work is quoted first and runs only once the owner confirms what it will use
-  function confirmQuote(operation, preface) {
-    return api('/api/quotes', { method: 'POST', body: { operation: operation, projectId: S.projectId || '', request: operation === 'creative_generation' ? S.brief : '' } }).then(function (r) {
+  // ---------- THE GENERATION MODE: Creative, Creative + Cinematic Hero, Creative Showcase ----------
+  // The owner chooses one before anything is quoted. It decides whether Higgsfield is used, how many premium moments are
+  // planned (the standard / showcase strategies underneath: premium-arc.js), the quote and the credit total. The video
+  // modes start only from the owner's own uploads that are good enough for full-screen video (premium-source.js); a
+  // showcase needs two (the hero and the payoff share one picture, the takeover needs another).
+  var MODES = [
+    { id: 'creative', name: 'Creative', line: 'No Higgsfield video. The lowest cost.', on: false, moments: 1, needs: 0 },
+    { id: 'hero', name: 'Creative + Cinematic Hero', line: '1 Higgsfield premium video, made from one of your uploads.', on: true, moments: 1, needs: 1 },
+    { id: 'showcase', name: 'Creative Showcase', line: '3 Higgsfield premium videos: the hero, a mid-page takeover and a closing payoff.', on: true, moments: 3, needs: 2 },
+  ];
+  function modeOf(id) { return MODES.filter(function (m) { return m.id === id; })[0] || MODES[0]; }
+  function currentMode() { return modeOf(S.mode); }
+  // which uploads can become premium video, and why not (the same verdict the server enforces: premium-source.js)
+  function pvVerdicts() {
+    var byId = new Map(S.assets.map(function (a) { return [a.id, a]; }));
+    return S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed && a.ownerRole !== 'logo'; }).map(function (a) { return Object.assign({ id: a.id, title: a.title || 'upload' }, C.premiumSource.eligible(a, { byId: byId })); });
+  }
+  function eligibleCount() { return pvVerdicts().filter(function (v) { return v.ok; }).length; }
+  function premiumChoice(mode) { var m = mode || currentMode(); return { on: m.on, moments: m.moments, eligibleUploads: m.on ? eligibleCount() : 0 }; }
+  function setMode(id) { S.mode = modeOf(id).id; renderThumbs(); }
+  function renderPv() {
+    if (!els.csModes) return; var m = currentMode();
+    [].forEach.call(els.csModes.querySelectorAll('[data-mode]'), function (b) { var on = b.getAttribute('data-mode') === m.id; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    if (!m.on) { els.csPvState.textContent = ''; return; }
+    var v = pvVerdicts(); var ok = v.filter(function (x) { return x.ok; }); var bad = v.filter(function (x) { return !x.ok; });
+    els.csPvState.textContent = (!v.length ? m.name + ' needs ' + (m.needs > 1 ? m.needs + ' suitable uploaded photos' : 'an uploaded photo') + ' (web pictures are never used for video).'
+      : ok.length >= m.needs ? ok.length + ' of ' + v.length + ' upload' + (v.length === 1 ? '' : 's') + ' suitable for premium video.'
+      : m.name + ' needs ' + m.needs + ' suitable uploaded photo' + (m.needs === 1 ? '' : 's') + '; ' + (ok.length ? 'you have ' + ok.length + '.' : 'none of yours is suitable yet.'))
+      + (bad.length ? ' Not suitable: ' + bad.slice(0, 3).map(function (x) { return x.title + ' (' + x.reason + ')'; }).join('; ') + '.' : '');
+  }
+  // the cost of each mode and of the chosen one, as the server prices it (nothing is stored: the quote is made when the
+  // owner creates)
+  var priceTimer = null, priceSeq = 0;
+  function priceSoon(ms) { clearTimeout(priceTimer); priceTimer = setTimeout(priceNow, ms == null ? 250 : ms); }
+  function priceModes() {
+    // (the chosen mode at its own price -- as if its uploads were there: a mode never looks cheaper because a photo is missing)
+    var m = currentMode(); var pc = premiumChoice(m); if (m.on) pc.eligibleUploads = Math.max(pc.eligibleUploads, m.needs);
+    return api('/api/creative/price', { method: 'POST', body: { request: els.csBrief ? els.csBrief.value.trim() : '', premium: pc } }).then(function (r) {
+      if (!r.ok || !r.data || !r.data.ok) return null; S.modePrices = r.data.modes || null; return r.data;
+    });
+  }
+  function priceNow() {
+    if (!els.csSum) return; var seq = ++priceSeq;
+    priceModes().then(function (d) {
+      if (seq !== priceSeq || !d) return; if (typeof d.creditsRemaining === 'number') showBalance(d.creditsRemaining);
+      MODES.forEach(function (m) { var el = els.csModes.querySelector('[data-mode-credits="' + m.id + '"]'); var p = d.modes && d.modes[m.id]; if (el) el.textContent = p ? (p.minCredits < p.credits ? 'up to ' : '') + p.credits + ' credits' : ''; });
+      els.csSum.innerHTML = '<table class="cs-lines">' + costRows(d.items, d.credits, d.minCredits, d.creditsRemaining).map(function (l) { return '<tr' + (l.cls ? ' class="' + l.cls + '"' : '') + '><td>' + esc(l.label) + '</td><td>' + esc(l.value) + '</td></tr>'; }).join('') + '</table>'
+        + (currentMode().on && eligibleCount() < currentMode().needs ? '<p class="cs-hint cs-needs">Needs ' + (currentMode().needs > 1 ? currentMode().needs + ' suitable uploaded photos' : 'a suitable uploaded photo') + ' before it can be created.</p>' : '')
+        + (!currentMode().on && d.premium && d.premium.briefAsks ? '<p class="cs-hint">Your description mentions video: choose Cinematic Hero or Showcase to include it.</p>' : '');
+    });
+  }
+  var LINE = { creative_dom: 'Creative website', spatial_surcharge: 'Spatial depth, only if used' };
+  var ROLE_LINE = { hero: 'Premium hero video', takeover: 'Premium takeover video', payoff: 'Premium payoff video' };
+  function costRows(items, total, min, balance) {
+    var rows = (items || []).map(function (i) { var pv = /^premium_/.test(i.code); return { label: (pv ? (ROLE_LINE[i.role] || 'Premium hero video') : (LINE[i.code] || i.label)), value: (i.optional ? '+' : '') + i.credits + ' credits', cls: pv ? 'cs-pvline' : '' }; });
+    rows.push({ label: 'Total', value: (min < total ? 'up to ' : '') + total + ' credits', cls: 'cs-total' });
+    if (typeof balance === 'number') rows.push({ label: 'Your balance', value: balance + ' credit' + (balance === 1 ? '' : 's'), cls: 'cs-muted' });
+    return rows;
+  }
+  // ONE modal for decisions about cost: it confirms the setup the owner chose, and when that setup cannot run it offers
+  // the ways on -- it never changes the setup by itself. -> Promise<action id>
+  function modal(o) {
+    return new Promise(function (resolve) {
+      var old = document.getElementById('csModal'); if (old) old.remove();
+      var box = h('div', { id: 'csModal', class: 'cs-modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'csModalTitle' });
+      var rows = (o.lines || []).map(function (l) { return '<tr' + (l.cls ? ' class="' + l.cls + '"' : '') + '><td>' + esc(l.label) + '</td><td>' + esc(l.value) + '</td></tr>'; }).join('');
+      box.innerHTML = '<div class="cs-modal-card"><h2 id="csModalTitle">' + esc(o.title) + '</h2>' + (o.text ? '<p>' + esc(o.text) + '</p>' : '') + (rows ? '<table class="cs-lines">' + rows + '</table>' : '') + (o.note ? '<p class="cs-hint">' + esc(o.note) + '</p>' : '')
+        + '<p class="cs-modal-status" id="csModalStatus" aria-live="polite"></p><div class="cs-modal-actions">' + o.actions.map(function (a) { return '<button type="button" class="cs-btn' + (a.primary ? ' cs-go' : ' cs-ghost') + '" data-act="' + esc(a.id) + '">' + esc(a.label) + '</button>'; }).join('') + '</div></div>';
+      root.appendChild(box);
+      var key = function (e) { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } };
+      var done = function (v) { root.removeEventListener('keydown', key, true); box.remove(); resolve(v); };
+      root.addEventListener('keydown', key, true);
+      [].forEach.call(box.querySelectorAll('[data-act]'), function (b) { b.addEventListener('click', function () { var a = b.getAttribute('data-act'); if (o.stay && o.stay(a, box)) return; done(a); }); });
+      var first = box.querySelector('.cs-go') || box.querySelector('[data-act]'); if (first) first.focus();
+    });
+  }
+  // credits are bought in a new tab (the page being made waits here); then the owner comes back and checks the balance
+  function buyCredits(need) {
+    return api('/api/billing/catalog').then(function (r) {
+      var packs = (r.data && r.data.catalog && r.data.catalog.packs) || [];
+      return modal({ title: 'Add credits', text: 'Credits are a one-time purchase and never expire. Checkout opens in a new tab; this page waits here.' + (need > 0 ? ' This setup needs ' + need + ' more.' : ''),
+        actions: packs.map(function (p) { return { id: 'pack:' + p.id, label: p.credits + ' credits · ' + p.display }; }).concat([{ id: 'check', label: 'I have paid: check my balance', primary: true }, { id: 'back', label: 'Back' }]),
+        stay: function (a, box) {
+          if (a.indexOf('pack:') !== 0) return false;
+          var st = box.querySelector('#csModalStatus'); st.textContent = 'Opening secure checkout…'; var w = window.open('', '_blank');
+          api('/api/credits/checkout', { method: 'POST', body: { packId: a.slice(5) } }).then(function (x) {
+            var d = x.data || {};
+            if (d.ok && d.url) { if (w) { w.opener = null; w.location.href = d.url; } else window.open(d.url, '_blank', 'noopener'); st.textContent = 'Finish paying in the new tab, then press "I have paid: check my balance".'; }
+            else { if (w) w.close(); st.textContent = d.message || 'Checkout could not start. Please try again shortly.'; }
+          });
+          return true;
+        } });
+    });
+  }
+  function quoteFor(operation, premium) {
+    return api('/api/quotes', { method: 'POST', body: { operation: operation, projectId: S.projectId || '', request: operation === 'creative_generation' ? S.brief : '', premium: premium || { on: false } } }).then(function (r) {
       if (r.status === 401) { needSignIn('Sign in to continue.'); return null; }
       if (!r.ok || !r.data || !r.data.ok) { els.csError.hidden = false; els.csError.textContent = (r.data && r.data.message) || 'Could not price this right now.'; return null; }
-      var q = r.data.quote; var left = typeof r.data.creditsRemaining === 'number' ? '\n\nYou have ' + r.data.creditsRemaining + ' credit' + (r.data.creditsRemaining === 1 ? '' : 's') + '.' : '';
-      if (r.data.premium) S.premium = r.data.premium;
-      var lines = (q.items || []).length > 1 ? '\n\n' + q.items.map(function (i) { return '• ' + i.label + ': ' + i.credits; }).join('\n') : '';
-      var pm = r.data.premium ? '\n\n' + premiumHeadline(r.data.premium) : '';
-      return window.confirm((preface ? preface + '\n\n' : '') + q.message + lines + pm + left + '\n\nContinue?') ? q.id : null;
+      if (typeof r.data.creditsRemaining === 'number') showBalance(r.data.creditsRemaining);
+      return r.data;
+    });
+  }
+  // a new page: the chosen mode, priced, confirmed -- or, when it cannot run as chosen, the owner picks the way on:
+  // upload suitable photos, a lower mode, buy credits, or cancel. It never changes the mode by itself. -> quoteId | null
+  function modeCredits(m) { var p = S.modePrices && S.modePrices[m.id]; return p ? p.credits : null; }
+  function switchAction(m) { var c = modeCredits(m); return { id: 'mode:' + m.id, label: 'Switch to ' + m.name + (c != null ? ' (' + (m.on ? 'up to ' : '') + c + ' credits)' : '') }; }
+  function afterSwitch(a) { if (a && a.indexOf('mode:') === 0) { setMode(a.slice(5)); return confirmGeneration(); } return null; }
+  function confirmGeneration() {
+    var m = currentMode(); var have = m.on ? eligibleCount() : 0;
+    return priceModes().then(function () {
+      if (m.on && have < m.needs) {
+        var bad = pvVerdicts().filter(function (x) { return !x.ok; });
+        var lower = MODES.filter(function (x) { return MODES.indexOf(x) < MODES.indexOf(m) && x.needs <= have; }).reverse();
+        return modal({ title: m.name + ' needs ' + (m.needs > 1 ? m.needs + ' suitable uploaded photos' : 'a suitable uploaded photo'),
+          text: 'Higgsfield video uses your own uploaded images only' + (have ? '; you have ' + have + ' suitable.' : bad.length ? ', and none of your uploads is suitable for it yet.' : ', and you have not uploaded one yet.'),
+          lines: bad.slice(0, 4).map(function (x) { return { label: x.title, value: x.reason }; }),
+          actions: [{ id: 'upload', label: 'Upload suitable photos' }].concat(lower.map(switchAction), [{ id: 'cancel', label: 'Cancel' }]) }).then(function (a) {
+          if (a === 'upload') { els.csUpload.click(); return null; }
+          return afterSwitch(a);
+        });
+      }
+      return quoteFor('creative_generation', premiumChoice(m)).then(function (d) {
+        if (!d) return null; var q = d.quote; var st = d.premium || null; var bal = d.creditsRemaining; S.premium = st;
+        var lines = [{ label: 'Mode', value: m.name }].concat(costRows(q.items, q.credits, q.minCredits, bal));
+        var prem = q.items.some(function (i) { return /^premium_/.test(i.code); });
+        if (typeof bal === 'number' && bal < q.credits) {
+          // (the cheaper modes this balance covers and these uploads can make)
+          var cheaper = MODES.filter(function (x) { var c = modeCredits(x); return x.id !== m.id && c != null && c < q.credits && c <= bal && x.needs <= eligibleCount(); }).reverse();
+          return modal({ title: 'Not enough credits for ' + m.name, text: 'This mode needs ' + q.credits + ' credits and you have ' + bal + '.', lines: lines,
+            actions: [{ id: 'buy', label: 'Buy more credits', primary: !cheaper.length }].concat(cheaper.map(switchAction), [{ id: 'cancel', label: 'Cancel' }]) }).then(function (a) {
+            if (a === 'buy') return buyCredits(q.credits - bal).then(function () { return confirmGeneration(); });
+            return afterSwitch(a);
+          });
+        }
+        return modal({ title: 'Create this page?', lines: lines, note: [st && st.reduced ? st.reduced.message : '', prem ? 'Each premium video is charged only if it is made; one that is not made is returned.' : 'No Higgsfield video in this mode.'].filter(Boolean).join(' '),
+          actions: [{ id: 'go', label: 'Create (' + (q.minCredits < q.credits ? 'up to ' : '') + q.credits + ' credits)', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (a) { return a === 'go' ? q.id : null; });
+      });
+    });
+  }
+  // OWNERSHIP + CREDITS: other dynamic work (another direction) is quoted first and runs only once the owner confirms it
+  function confirmQuote(operation, preface) {
+    return quoteFor(operation).then(function (d) {
+      if (!d) return null; var q = d.quote; var bal = d.creditsRemaining; var lines = costRows(q.items, q.credits, q.minCredits, bal);
+      if (typeof bal === 'number' && bal < q.credits) return modal({ title: 'Not enough credits', text: (preface ? preface + ' ' : '') + 'This needs ' + q.credits + ' credits and you have ' + bal + '.', lines: lines, actions: [{ id: 'buy', label: 'Buy more credits', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (a) {
+        return a === 'buy' ? buyCredits(q.credits - bal).then(function () { return confirmQuote(operation, preface); }) : null;
+      });
+      return modal({ title: preface || 'Continue?', lines: lines, actions: [{ id: 'go', label: 'Continue (' + (q.minCredits < q.credits ? 'up to ' : '') + q.credits + ' credits)', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (a) { return a === 'go' ? q.id : null; });
     });
   }
   function create(choice, quoteId) {
@@ -303,7 +467,7 @@
     if (!S.brief) { els.csBrief.focus(); return; }
     if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
     if (S.dirty && S.plan && !choice && !quoteId && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
-    if (!choice && !quoteId && !openJobFor(S.brief)) return confirmQuote('creative_generation').then(function (q) { if (q) return create(choice, q); });
+    if (!choice && !quoteId && !openJobFor(S.brief)) return confirmGeneration().then(function (q) { if (q) return create(choice, q); });
     S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
     steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page'], ['premium', 'Premium media (Higgsfield)']]);
@@ -311,10 +475,11 @@
     step('understand', 'active', 'Reading the brief, then looking it up: the encyclopedia for facts, a picture search, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
     var jobId = choice ? S.jobId : openJobFor(S.brief);
-    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, jobId: jobId || '', quoteId: quoteId || '' } }).then(function (r) {
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, premium: premiumChoice(), jobId: jobId || '', quoteId: quoteId || '' } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
       // the price changed or the quote ran out: confirm the new one (nothing was reserved or spent)
-      if (r.data && r.data.needsConfirmation && r.data.quote) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; if (r.data.premium) S.premium = r.data.premium; if (window.confirm(r.data.quote.message + (r.data.premium ? '\n\n' + premiumHeadline(r.data.premium) : '') + '\n\nContinue?')) return create(choice, r.data.quote.id); return; }
+      // (the price changed, the quote ran out, or the balance no longer covers it: the owner sees the setup again and decides)
+      if (r.data && ((r.data.needsConfirmation && r.data.quote) || (r.data.creditsExceeded && !choice))) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; creditsFrom(r.data); return confirmGeneration().then(function (q) { if (q) return create(choice, q); }); }
       creditsFrom(r.data);
       if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
@@ -625,7 +790,7 @@
   function inventory() {
     // (the owner's roles travel with the pictures: which one is the logo, which the main picture, which were picked from the
     // web rather than owned -- the pool, the logo and the premium permission gate depend on them)
-    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime, kind: a.kind, curation: a.curation, ownerRole: a.ownerRole, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, rightsEvidence: a.rightsEvidence, premium: a.premium, video: a.video }; });
+    return live().map(function (a) { return { id: a.id, origin: a.origin, title: a.title, description: a.description, alt: a.alt, author: a.author, license: a.license, licenseUrl: a.licenseUrl, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, found: a.found, relevance: a.relevance, assess: a.assess, caps: a.caps, cutout: a.cutout, cutoutOf: a.cutoutOf, illustration: a.illustration, mime: a.mime, kind: a.kind, curation: a.curation, ownerRole: a.ownerRole, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, rightsEvidence: a.rightsEvidence, premium: a.premium, video: a.video, quality: a.quality }; });
   }
   // small thumbnails so the director can SEE what each picture depicts (transparent cutouts shown on grey)
   function thumbnails() {
@@ -967,7 +1132,9 @@
   // then made on the server; the finished media is stored with the project (a video plays over its picture).
   var PREMIUM_LABEL = { cinematic_hero: 'a cinematic hero move', object_motion: 'the object in motion', image_to_video: 'this picture in motion', environment_motion: 'ambient motion in the scene', premium_transition: 'a cinematic transition', alternate_angle: 'another angle of the subject', image_enhance: 'an enhanced version of the picture', stylized_treatment: 'a stylised treatment of the picture' };
   function offerPremium() {
-    var box = document.getElementById('csPremium'); var inQuote = (S.premium && S.premium.planned && S.premium.intents) || []; var list = ((S.plan && S.plan.premiumMedia) || []).filter(function (m) { return inQuote.indexOf(m.intent) < 0; });
+    var box = document.getElementById('csPremium'); var inQuote = (S.premium && S.premium.planned && S.premium.intents) || []; var byId = new Map(S.assets.map(function (a) { return [a.id, a]; }));
+    // (only from an upload good enough for it: premium media never starts from a web picture -- premium-source.js)
+    var list = ((S.plan && S.plan.premiumMedia) || []).filter(function (m) { return inQuote.indexOf(m.intent) < 0 && C.premiumSource.eligible(byId.get(m.asset), { byId: byId }).ok; });
     if (!list.length) { if (box) box.remove(); return; }
     if (!box) { box = h('div', { id: 'csPremium', class: 'cs-premium' }); els.csEditor.insertBefore(box, document.getElementById('csDirection').nextSibling); }
     box.innerHTML = '<p><strong>Optional extra suggested by the director (not in your quote)</strong> — made only if you choose it, priced before anything runs.</p>' + list.map(function (m, i) { return '<p class="cs-hint">' + esc(PREMIUM_LABEL[m.intent] || m.intent) + (m.why ? ': ' + esc(m.why) : '') + ' <button type="button" class="cs-btn cs-ghost" data-pm="' + i + '">Price it</button></p>'; }).join('');
@@ -977,13 +1144,13 @@
     if (S.busy || !sug) return;
     var src = S.assets.find(function (a) { return a.id === sug.asset; }); if (!src) return;
     var parent = src.cutoutOf && S.assets.find(function (a) { return a.id === src.cutoutOf; });
-    var confirmed = src.ownerPicked && window.confirm('This picture came from the web. Do you have the right to have it transformed into new media?') ? [src.id] : [];
     S.busy = true;
     var stop = function (msg) { S.busy = false; els.csError.hidden = false; els.csError.textContent = msg; };
-    return api('/api/premium-media/quote', { method: 'POST', body: { projectId: S.projectId || '', kind: 'creative', artMode: (S.plan.art && S.plan.art.mode) || '', requests: [sug], assets: [src].concat(parent ? [parent] : []), models: modelMeta(), confirmTransform: confirmed } }).then(function (r) {
+    return api('/api/premium-media/quote', { method: 'POST', body: { projectId: S.projectId || '', kind: 'creative', artMode: (S.plan.art && S.plan.art.mode) || '', requests: [sug], assets: [src].concat(parent ? [parent] : []), models: modelMeta() } }).then(function (r) {
       var d = r.data || {};
       if (!r.ok || !d.ok) return stop(d.message || 'Premium media is not available for this picture.');
-      if (!window.confirm(d.quote.message + '\n\nContinue?')) { S.busy = false; return; }
+      return modal({ title: 'Make this premium media?', lines: costRows(d.quote.items, d.quote.credits, d.quote.minCredits, d.creditsRemaining), note: 'Charged only if it is made.', actions: [{ id: 'go', label: 'Make it (' + d.quote.credits + ' credits)', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (act) {
+      if (act !== 'go') { S.busy = false; return; }
       return api('/api/premium-media/execute', { method: 'POST', body: { quoteId: d.quote.id } }).then(function (x) {
         var e = x.data || {}; creditsFrom(e);
         if (!x.ok || !e.ok) return stop(e.message || 'The premium media could not be made. Your credits were not used.');
@@ -997,6 +1164,7 @@
           S.plan.premiumMedia = (S.plan.premiumMedia || []).filter(function (p) { return p !== sug; });
           S.busy = false; refresh(true); markDirty(); buildEditor();
         });
+      });
       });
     }).catch(function () { stop('The premium media could not be made. Your credits were not used.'); });
   }
