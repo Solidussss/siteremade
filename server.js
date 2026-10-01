@@ -4870,6 +4870,32 @@ app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requi
   return res.json({ ok: true, published: true, alreadyPublished: !!result.alreadyPublished, revision: result.snapshot.revision, publishedAt: result.snapshot.publishedAt, automaticHosting: false });
 });
 
+// Builder-side publish for the Creative generator. This freezes the owner's current
+// purchased revision into the same published_snapshots table the Client App publish
+// route uses, so a premium job that finishes in the generator can become the exact
+// source the app preview/download sees. It does NOT deploy to hosting.
+app.post('/api/projects/:id/publish', requireAuth, requireSameOrigin, projectJsonParser, (req, res) => {
+  const projectId = req.params.id;
+  const body = req.body || {};
+  const revision = Number.isInteger(body.revision) ? body.revision : null;
+  if (revision === null) return res.status(400).json({ ok: false, code: 'invalid_request', message: 'revision is required.' });
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) return res.status(404).json({ ok: false, code: 'not_found', message: 'Project not found.' });
+  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  const bought = purchase.getOwnedPurchaseSnapshotRaw(db, req.accountId, projectId);
+  if (bought && directionModeOf(bought.directionsState, bought.directionIndex) !== directionModeOf(project.directionsState, directionIndex)) {
+    return res.status(409).json({ ok: false, code: 'not_purchased', message: 'This is a different kind of website from the one that was purchased.' });
+  }
+  const result = publishedSnapshots.publishCurrentRevision(db, req.accountId, projectId, { revision, directionIndex });
+  if (!result.ok) {
+    if (result.reason === 'not_found') return res.status(404).json({ ok: false, code: 'not_found', message: 'Project not found.' });
+    if (result.reason === 'conflict') return res.status(409).json({ ok: false, code: 'revision_conflict', message: 'This website changed since it was saved.', currentRevision: result.currentRevision });
+    if (result.reason === 'not_purchased') return res.status(409).json({ ok: false, code: 'not_purchased', message: 'Publishing is available once this website has been purchased.' });
+    return res.status(500).json({ ok: false, code: 'publish_failed', message: 'Publishing did not go through.' });
+  }
+  return res.json({ ok: true, published: true, alreadyPublished: !!result.alreadyPublished, revision: result.snapshot.revision, publishedAt: result.snapshot.publishedAt, automaticHosting: false });
+});
+
 // ---- V8.6: export / deployment / hosting / domain handoff ------------------
 // Export/deploy is an ownership boundary exactly like the project routes
 // above: every route here does its own explicit ownership-scoped lookup

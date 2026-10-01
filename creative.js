@@ -654,6 +654,17 @@
       + (job.terminal ? '' : '<p class="cs-hint">You can keep editing, or close this tab: the videos keep being made on our side and are added to the page when they are ready — reopen the page from your account to see them.</p>');
   }
   // follow a job until it has an outcome: polls back off from 3 s to 15 s; a failed poll is a reconnect, never a failure
+  function publishPremiumRevision() {
+    // Premium completion changes the purchased deliverable itself (the generated MP4s),
+    // not an ordinary draft edit. Freeze that completed revision so the Client App
+    // preview/download and builder export all use the same latest Creative result.
+    if (!S || !S.projectId || S.status !== 'purchased' || !Number.isInteger(S.revision)) return Promise.resolve(null);
+    return api('/api/projects/' + encodeURIComponent(S.projectId) + '/publish', { method: 'POST', body: { revision: S.revision } }).then(function (r) {
+      if (!r.ok || !r.data || !r.data.ok) setSaveState('Saved, but the app preview could not be refreshed yet.');
+      return r;
+    }).catch(function () { setSaveState('Saved, but the app preview could not be refreshed yet.'); return null; });
+  }
+
   function followPremium(jobId) {
     if (!jobId || (S.pvFollow && S.pvFollow.jobId === jobId)) return; var me = { jobId: jobId, delay: 3000, misses: 0 }; S.pvFollow = me; var mine = S;
     var next = function () { if (S !== mine || S.pvFollow !== me) return; setTimeout(poll, me.delay); me.delay = Math.min(15000, Math.round(me.delay * 1.4)); };
@@ -667,7 +678,12 @@
         if (!r.ok || !r.data || !r.data.job) { if (r.status === 404) { S.pvFollow = null; return; } return missed(); }
         me.misses = 0; me.delay = Math.min(me.delay, 6000); var job = r.data.job; creditsFrom(r.data); showPremium(job); reconnecting(false);
         return attachDelivered(job).then(function () {
-          if (job.terminal) { S.pvFollow = null; S.premiumResult = { planned: true, made: job.delivered.map(function (m) { return m.video.intent; }), message: job.message, reason: job.completed ? '' : 'provider_failed' }; if (S.plan && els.csEditor && !els.csEditor.hidden) buildEditor(); showPremium(job); return; }
+          if (job.terminal) {
+            return publishPremiumRevision().then(function () {
+              S.pvFollow = null; S.premiumResult = { planned: true, made: job.delivered.map(function (m) { return m.video.intent; }), message: job.message, reason: job.completed ? '' : 'provider_failed' };
+              if (S.plan && els.csEditor && !els.csEditor.hidden) buildEditor(); showPremium(job);
+            });
+          }
           next();
         });
       }).catch(function () { missed(); });

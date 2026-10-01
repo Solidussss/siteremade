@@ -171,6 +171,28 @@ test('H/I. unpublished draft edits never leak into the handoff; an explicitly pu
   assert.ok((await preview()).includes('DRAFT HEADLINE NOT PUBLISHED'), 'and in the preview');
 });
 
+test('builder publish freezes the latest purchased revision so app preview and export stop using the stale purchase snapshot', async () => {
+  const { server, owner, projectId } = await setup();
+  const current = (await owner('GET', `/api/projects/${projectId}`)).body.project;
+  const next = JSON.parse(JSON.stringify(current.directionsState));
+  next.directions[0].copy.headline = 'PREMIUM COMPLETION REVISION';
+  const put = await owner('PUT', `/api/projects/${projectId}`, { name: current.name, expectedRevision: current.revision, directionsState: next });
+  assert.equal(put.body.ok, true);
+
+  const before = (await raw(server.port, `/api/app-bridge/website/${projectId}/preview`, OWNER)).body.toString('utf8');
+  assert.ok(!before.includes('PREMIUM COMPLETION REVISION'), 'until publish, handoff remains the bought snapshot');
+
+  const pub = await owner('POST', `/api/projects/${projectId}/publish`, { revision: put.body.project.revision });
+  assert.equal(pub.status, 200, JSON.stringify(pub.body));
+  assert.equal(pub.body.ok, true);
+  assert.equal(pub.body.revision, put.body.project.revision);
+
+  const preview = (await raw(server.port, `/api/app-bridge/website/${projectId}/preview`, OWNER)).body.toString('utf8');
+  const zip = readZip((await raw(server.port, `/api/app-bridge/website/${projectId}/download`, OWNER)).body).get('index.html').toString('utf8');
+  assert.ok(preview.includes('PREMIUM COMPLETION REVISION'), 'app preview uses the newly frozen revision');
+  assert.ok(zip.includes('PREMIUM COMPLETION REVISION'), 'handoff ZIP uses the same newly frozen revision');
+});
+
 test('every download is recorded as a ready deployment whose artifact can be downloaded again later', async () => {
   const { server, owner, projectId } = await setup();
   const r = await raw(server.port, `/api/app-bridge/website/${projectId}/download`, OWNER);
