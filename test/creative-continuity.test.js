@@ -134,8 +134,11 @@ test('3. image-expand: the next scene\'s picture opens from the window the previ
 
 // ================================================================ 4. card-expand into a full-screen scene
 test('4. card-expand: a card of the gallery opens into the next, full-screen scene', () => {
-  const v = page('Doughnut', 'a playful page about doughnuts', 'playful', 'g3', { prefer: { family: 'horizontal-gallery', mode: 'expressive' } });
+  // (a card opens only when the next scene's picture IS one of the cards -- seams are chosen from their pictures)
+  const v = page('Doughnut', 'a playful page about doughnuts', 'playful', 'g5', { prefer: { family: 'horizontal-gallery', mode: 'expressive' } });
   const at = v.plan.timeline.transitions.find(t => t.family === 'card-expand'); assert.ok(at, 'the gallery page opens a card');
+  const nextPic = v.plan.scenes[at.at].layers.find(L => L.role === 'focal' && L.kind === 'image').asset;
+  assert.ok(v.plan.scenes[at.at - 1].layers.some(L => L.kind === 'image' && CT.related(L.asset, nextPic, byId)), 'the picture that opens is one of the cards');
   const k = contractAt(v.plan, at.at);
   assert.equal(k.family, 'card-expand'); assert.equal(k.mask, 'inset'); assert.equal(k.outgoing.el, 'frame');
   assert.deepEqual(k.outgoing.inset, CT.FRAME['card-expand'], 'from the card\'s place in the strip'); assert.deepEqual(k.incoming, k.outgoing);

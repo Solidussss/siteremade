@@ -377,16 +377,18 @@
       + (v.logo ? ' · your logo is in the header' : '')
       + (v.premiumHero ? (v.premiumHero.source ? ' · the premium video starts from ' + name(v.premiumHero.source) + (v.premiumHero.note ? ' (' + v.premiumHero.note + ')' : '') : ' · premium video: ' + v.premiumHero.note) : '');
   }
-  // the delivered video's colour cast, measured from two of its frames (same-origin file: the canvas stays readable)
+  // the delivered video's colour cast and the way it moves, measured from two of its frames (same-origin file: the canvas
+  // stays readable) -> { cast, motion } (motion: lr / rl / in / out / none -- the next seams continue it)
   function videoCast(url) {
     return new Promise(function (resolve) {
-      var v = document.createElement('video'); var done = false; var cols = []; var times = []; var i = 0;
-      var finish = function (x) { if (done) return; done = true; clearTimeout(t); try { v.removeAttribute('src'); v.load(); } catch (e) { /* gone */ } resolve(x); };
-      var t = setTimeout(function () { finish(cols.length ? C.palette.fromColours(cols).hex || null : null); }, 15000);
-      var grab = function () { if (i >= times.length) return finish(cols.length ? C.palette.fromColours(cols).hex || null : null); v.currentTime = times[i++]; };
+      var v = document.createElement('video'); var done = false; var cols = []; var frames = []; var times = []; var i = 0;
+      var result = function () { return { cast: cols.length ? C.palette.fromColours(cols).hex || null : null, motion: frames.length === 2 ? C.continuity.videoMotion(frames[0], frames[1]) : 'none' }; };
+      var finish = function () { if (done) return; done = true; clearTimeout(t); try { v.removeAttribute('src'); v.load(); } catch (e) { /* gone */ } resolve(result()); };
+      var t = setTimeout(finish, 15000);
+      var grab = function () { if (i >= times.length) return finish(); v.currentTime = times[i++]; };
       v.muted = true; v.playsInline = true; v.preload = 'auto';
-      v.addEventListener('error', function () { finish(null); });
-      v.addEventListener('seeked', function () { try { var cv = document.createElement('canvas'); cv.width = 64; cv.height = 40; var ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(v, 0, 0, 64, 40); cols = cols.concat(C.assets.palette({ width: 64, height: 40, data: ctx.getImageData(0, 0, 64, 40).data }, 4)); } catch (e) { /* unreadable frame */ } grab(); });
+      v.addEventListener('error', function () { finish(); });
+      v.addEventListener('seeked', function () { try { var cv = document.createElement('canvas'); cv.width = 64; cv.height = 40; var ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(v, 0, 0, 64, 40); var img = { width: 64, height: 40, data: ctx.getImageData(0, 0, 64, 40).data }; frames.push(img); cols = cols.concat(C.assets.palette(img, 4)); } catch (e) { /* unreadable frame */ } grab(); });
       v.addEventListener('loadeddata', function () { var d = isFinite(v.duration) && v.duration > 0 ? v.duration : 2; times = [Math.min(1, d * 0.2), d * 0.65]; grab(); });
       v.src = url;
     });
@@ -395,10 +397,12 @@
   // colour it actually has (the planning used its source picture's colour)
   function integrateVideo(asset) {
     if (!asset || !asset.video || !S.plan || S.plan.v !== 2) return Promise.resolve('');
-    return videoCast('/api/premium-media/' + encodeURIComponent(asset.video.mediaId) + '/file').then(function (cast) {
-      if (cast) { asset.video.cast = cast; S.plan = settle(C.palette.retune(S.plan, cast)); }
+    return videoCast('/api/premium-media/' + encodeURIComponent(asset.video.mediaId) + '/file').then(function (m) {
+      var cast = m && m.cast, motion = m && m.motion;
+      if (cast) asset.video.cast = cast;
+      if (cast || (motion && motion !== 'none')) S.plan = settle(C.palette.retune(S.plan, cast, motion));
       var hero = S.plan.timeline && S.plan.timeline.continuity && S.plan.timeline.continuity.hero;
-      return 'Shown in the opening scene' + (hero && hero.end ? ', settling into its still frame as the page moves on' : '') + (cast ? ' · page colours tuned to its colour (' + cast + ')' : '');
+      return 'Shown in the opening scene' + (hero && hero.end ? ', settling into its still frame as the page moves on' : '') + (cast ? ' · page colours tuned to its colour (' + cast + ')' : '') + (motion && motion !== 'none' ? ' · the next scenes continue its motion (' + ({ lr: 'left to right', rl: 'right to left', in: 'pushing in', out: 'pulling back' })[motion] + ')' : '');
     });
   }
   function heroAsset() { var s0 = S.plan && S.plan.scenes && S.plan.scenes[0]; var L = s0 && (s0.layers || []).find(function (l) { return l.kind === 'image' && l.asset; }); return (S.plan && S.plan.actor && S.plan.actor.asset) || (L && L.asset) || liveMain() || ''; }

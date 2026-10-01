@@ -28,6 +28,7 @@ function understanding(body) {
 // picture shows (keyword rules, labelled mock). Used by the browser QA of the asset-first pipeline; says nothing about
 // a real model's quality.
 const COPY = [
+  [/close|detail/i, 'Built to fly', 'Up close: the same machine that makes the jump -- every panel, every wheel.', 'detail', 'the kart, up close'],
   [/airborne|jump|air|flying/i, 'Launch. Hang time. Land it.', 'Off the ramp and into the air -- every jump ends in a landing that counts.', 'momentum', 'airborne, mid-jump'],
   [/lineup|grid|starting|rivals/i, 'Meet the grid', 'Every rival lined up, engines hot, waiting for the lights.', 'roster', 'the starting grid'],
   [/item|box|power/i, 'Chaos in a box', 'Grab the box, roll the dice, turn the race on its head.', 'detail', 'the item box, up close'],

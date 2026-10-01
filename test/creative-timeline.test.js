@@ -188,7 +188,8 @@ test('11. colour bleed: the scenes an actor crosses share one backdrop whose col
   assert.match(h, /<div class="cr-cast cr-back" aria-hidden="true"><i class="cb cb-a"><\/i><i class="cb cb-b"><\/i>/);
   assert.match(h, /html\.cr-js:not\(\[data-motion="reduced"\]\) \.sc\[data-cast\]\{background:transparent!important\}/);
   v.plan.scenes.forEach((s, i) => assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-surf="${s.ink.surface}"`)));
-  assert.match(h, /cb2\.style\.opacity=String\(t\)/, 'the runtime crossfades two sheets (opacity, never a repaint of a colour per frame)');
+  // (a sweep reveals the second sheet through a moving mask instead of fading it -- still no repaint of a colour per frame)
+  assert.match(h, /cb2\.style\.opacity=mode==='sweep'\?\(t>0\?'1':'0'\):String\(t\)/, 'the runtime crossfades two sheets (opacity, never a repaint of a colour per frame)');
   // a takeover beat: the scene rests in the new colour, which grows as a circle over the old one
   const tk = withTl.find(x => x.plan.timeline.beats.some(b => b.op === 'takeover')); assert.ok(tk, 'some page takes a scene over');
   const b = tk.plan.timeline.beats.find(x => x.op === 'takeover'); assert.equal(tk.plan.scenes[b.scene].background, b.v);

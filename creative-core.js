@@ -802,23 +802,41 @@
         const A = p >= 0 ? own[p] : '', B = q < n ? own[q] : '';
         out[i] = A && B ? mix(A, B, (i - p) / (q - p) * 0.8 + 0.1) : A || B || (page && page.bg) || '';
       }
-      if (o.hero && HEX.test(o.hero)) { const h = tone(o.hero, page); for (let i = at + 1; i < n; i++) out[i] = mix(out[i], h, 0.35 * Math.pow(0.55, i - at - 1)); }
+      // (a premium hero defines the opening's light: the next three scenes lean into its colour -- strongly, then less --
+      // before the page's own pictures take over)
+      if (o.hero && HEX.test(o.hero)) { const h = tone(o.hero, page); const lean = [0.55, 0.35, 0.18]; for (let i = at + 1; i < n && i <= at + lean.length; i++) out[i] = mix(out[i], h, lean[i - at - 1]); }
       return out.map(x => (x ? x.toLowerCase() : x));
+    }
+    // a picture's second colour: the most prominent vivid colour clearly apart from its identity (the accent a scene hands
+    // on to the next one's glow); '' when it has none
+    function secondary(asset) {
+      const a = (asset && asset.assess) || {}; const id = identity(asset); const pool = (a.colours || []).concat(a.background && HEX.test(a.background.colour || '') ? [a.background.colour] : []).filter(x => HEX.test(x || ''));
+      const far = pool.map((x, i) => ({ x, c: hsl(x), i })).filter(o => vivid(o.c) >= 0.18 && (!id.hex || Math.min(Math.abs(o.c.h - id.h), 1 - Math.abs(o.c.h - id.h)) > 0.08 || distance(o.x, id.hex) > 120));
+      return far.length ? far.sort((p, q) => (vivid(q.c) * (PROMINENCE[q.i] || 0.1)) - (vivid(p.c) * (PROMINENCE[p.i] || 0.1)))[0].x.toLowerCase() : '';
+    }
+    // a glow in a colour, set for the page's light (brighter than the surface it lights)
+    function glow(hex, page) {
+      if (!HEX.test(hex || '')) return ''; const bg = (page && page.bg) || '#111114'; const c = hsl(hex); const dark = lum(bg) < 0.3;
+      return fromHsl(c.h, clamp(c.s, 0.4, 0.85), dark ? 0.42 : 0.72).toLowerCase();
     }
     // after a premium hero video is delivered: its MEASURED colour cast (sampled from its frames in the browser) becomes the
     // hero scene's colour and carries into the scenes after it. Only scenes that took their colour from a picture are
     // re-toned (a scene flooded by a timeline beat keeps its flood). Returns a new plan (validate it in safety mode).
-    function retune(plan, cast) {
-      if (!plan || !Array.isArray(plan.scenes) || !HEX.test(cast || '')) return plan;
+    // motion: the video's measured direction (lr, rl, in, out) -- the next seams continue it
+    function retune(plan, cast, motion) {
+      if (!plan || !Array.isArray(plan.scenes) || (!HEX.test(cast || '') && !motion)) return plan;
       const p = JSON.parse(JSON.stringify(plan)); const n = p.scenes.length;
       const hero = p.timeline && p.timeline.continuity && p.timeline.continuity.hero;
-      const tones = sceneTones(n, p.palette, p.scenes.map(s => (s.visual && s.visual.palette) || ''), { hero: cast, heroAt: hero ? hero.scene || 0 : 0 });
-      p.scenes.forEach((s, i) => { if (s.tone && tones[i]) s.tone = tones[i]; });
-      if (hero) hero.cast = cast.toLowerCase();
+      if (HEX.test(cast || '')) {
+        const tones = sceneTones(n, p.palette, p.scenes.map(s => (s.visual && s.visual.palette) || ''), { hero: cast, heroAt: hero ? hero.scene || 0 : 0 });
+        p.scenes.forEach((s, i) => { if (s.tone && tones[i]) s.tone = tones[i]; });
+        if (hero) hero.cast = cast.toLowerCase();
+      }
+      if (hero && ['lr', 'rl', 'in', 'out'].includes(motion)) hero.motion = motion;
       return p;
     }
 
-    module.exports = { identity, fromColours, tone, sceneTones, retune, mix, lum, distance, hsl, fromHsl, describe };
+    module.exports = { identity, secondary, glow, fromColours, tone, sceneTones, retune, mix, lum, distance, hsl, fromHsl, describe };
 
   });
   __define("pool", function (module, exports, require) {
@@ -1333,7 +1351,7 @@
     const TRANSITIONS = ['cut', 'color-bleed', 'actor-carry', 'image-expand', 'card-expand', 'foreground-wipe', 'type-mask', 'shape-takeover', 'depth-handoff'];
     const SIGNATURE = ['image-expand', 'card-expand', 'foreground-wipe', 'type-mask', 'shape-takeover', 'depth-handoff'];
     const MOMENTS = ['type-break', 'actor-entrance', 'actor-turn', 'color-flood', 'world-change', 'image-expand', 'lineup-rush', 'chapter-flight', 'word-takeover', 'depth-dive', 'reveal'];
-    const RHYTHM = ['setup', 'event', 'rest', 'escalation', 'payoff'];
+    const RHYTHM = ['setup', 'acceleration', 'event', 'rest', 'escalation', 'payoff'];
     const EASES = ['smooth', 'snap', 'spring'];
     const EXITS = ['none', 'offstage', 'shrink', 'fade', 'rejoin'];
     const RENDERERS = ['dom', 'spatial'];
@@ -1465,7 +1483,7 @@
       const t = tl || {}; const a = art || {};
       const cast = (t.actors || (t.cast ? Object.entries(t.cast).map(([role, v]) => Object.assign({ role }, v)) : [])).map(x => `${x.role[0].toUpperCase()}${x.from}-${x.to}`).join('.') || 'none';
       const seams = (t.transitions || t.seams || []).map(s => s.family).filter(f => f !== 'cut' && f !== 'color-bleed');
-      const rhythm = (t.rhythm || []).map(x => ({ setup: 'S', event: 'E', rest: 'R', escalation: 'X', payoff: 'P' })[x] || '?').join('');
+      const rhythm = (t.rhythm || []).map(x => ({ setup: 'S', acceleration: 'A', event: 'E', rest: 'R', escalation: 'X', payoff: 'P' })[x] || '?').join('');
       const moments = (t.moments || []).map(m => m.kind);
       const typo = t.typo || (t.actors || []).filter(x => x.role === 'typography').map(x => x.behavior || 'word').concat((t.beats || []).filter(b => ['word-fill', 'letter-spread', 'text-swap'].includes(b.op)).map(b => b.op));
       // (a spatial page adds how it moves in depth: its camera, depth, spatial transitions, particles, actor forms, set pieces)
@@ -1737,6 +1755,7 @@
 
     const TL = require('./timeline');
     const FR = require('./framing');
+    const PAL = require('./palette');
 
     const INTENTS = ['carry', 'continue', 'rest', 'reset'];
     const CARRIED = ['none', 'primary', 'secondary', 'typography', 'background'];
@@ -1747,7 +1766,7 @@
     const CAMERAS = ['none', 'push', 'pull', 'pan', 'depth'];
     const VIDEO_ENDS = ['subject-centred', 'detail-crop', 'static-frame'];
     const VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
-    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest'];
+    const CRITIC = ['hard-reset', 'unrelated-swap', 'dead-gap', 'competing-motion', 'duplicate-motion', 'disconnected', 'pasted-video', 'no-rest', 'too-quiet', 'same-direction', 'same-scale', 'no-payoff'];
     const SOURCES = ['built-in', 'ai', 'mock'];
     // a seam's overlap, in scenes, around the seam (g = at): the outgoing scene is still leaving while the incoming one
     // arrives -- never "ends, empty gap, starts", never a pile-up
@@ -1863,27 +1882,121 @@
       return at > 0 ? { id: focalOf(scenes[at]).asset, layer: focalOf(scenes[at]), actor: null, scene: at } : null;
     }
 
-    // ---------------------------------------------------------------- asset-aware seams
-    // upgradeSeams(rawTimeline, ctx) -> how many seams changed. Before the timeline is validated: a plain colour bleed
-    // between two scenes whose pictures belong together -- the same subject, or a strong fit (colour, position, room) --
-    // becomes an image-expand (the next picture opens out of the last); so does the seam after a premium hero video (the
-    // video's subject crop opens into the next scene). timeline.normalise still enforces the mode's signature budget.
-    // ctx: { scenes, byId, premiumHero }
-    function upgradeSeams(raw, ctx) {
-      if (!raw || typeof raw !== 'object') return 0; if (!Array.isArray(raw.transitions)) raw.transitions = [];
-      // (one seam besides the premium hero's: the best-fitting pair -- an image-expand is a signature move, not a habit)
-      const sc = ctx.scenes || []; const byId = ctx.byId || new Map(); const cands = [];
-      for (let at = 1; at < sc.length; at++) {
-        const tr = raw.transitions.find(x => x && x.at === at); const fam = tr ? tr.family : 'color-bleed';
-        if (fam !== 'color-bleed' && fam !== 'cut') continue;
-        const a = focalOf(sc[at - 1]), b = focalOf(sc[at]); if (!b || !byId.get(b.asset)) continue;
-        const fit = a && byId.get(a.asset) ? (related(a.asset, b.asset, byId) ? 1 : pairFit(profileOf(byId.get(a.asset)), profileOf(byId.get(b.asset)), byId).score) : 0;
-        if (at === 1 && ctx.premiumHero) cands.push({ at, tr, fit: 2 }); else if (fit >= 0.6) cands.push({ at, tr, fit });
+    // ---------------------------------------------------------------- how two neighbouring pictures relate
+    // relationOf(sceneA, sceneB, byId, ctx) -> { relationship, score, vec, distance }. From what was measured and what the
+    // pictures were said to show -- never guessed beyond that:
+    //   same-picture   the same photo (or its cut-out) on both sides         -> continue its crop (image-expand) / carry it
+    //   detail-of      the same photo, the next a close crop of it            -> the crop continues into the detail
+    //   same-subject   another picture of the same thing (what both are said to show shares a noun beyond the page's name;
+    //                  a matching silhouette -- the subject's measured proportions -- makes it stronger) -> carry it across
+    //   palette        different subjects, colours that meet                 -> the colour flows
+    //   contrast       far-apart colours                                     -> a sweep hides the change
+    //   complement     neither                                               -> a plain handoff
+    // vec: which way things move across the seam -- the outgoing subject leaves toward its own side, the next arrives
+    // into its empty side (lr: rightward, rl: leftward).
+    const RELATIONSHIPS = ['same-picture', 'detail-of', 'same-subject', 'palette', 'complement', 'contrast', 'none'];
+    const CARRY = ['none', 'light', 'strong'];
+    const PALETTE_HANDOFFS = ['blend', 'hold', 'sweep', 'accent'];
+    const DEPTH_HANDOFFS = ['none', 'forward', 'back', 'through'];
+    const TEXT_PLACEMENTS = ['left', 'right', 'top', 'bottom', 'center'];
+    const VECTORS = ['none', 'lr', 'rl', 'in', 'out'];
+    // how loud a scene is by its place in the arc (timeline rhythm)
+    const INTENSITY = { setup: 2, acceleration: 3, event: 4, rest: 1, escalation: 5, payoff: 4 };
+    // how many seams may physically carry a subject, by mode (a carry is a statement, not a habit)
+    const CARRIES = { quiet: 1, editorial: 1, expressive: 2, immersive: 3 };
+    const STOP = new Set(['with', 'from', 'that', 'this', 'page', 'picture', 'photo', 'image', 'shows', 'showing', 'into', 'over', 'some', 'their', 'your', 'close', 'closeup', 'upload', 'file', 'shot']);
+    const nouns = s => new Set((String(s || '').toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !STOP.has(w)));
+    const saidOf = (a, sc) => [sc && sc.visual && sc.visual.subject, a && a.curation && a.curation.depicts, a && a.title, a && a.alt].filter(Boolean).join(' ');
+    function relationOf(sa, sb, byId, ctx) {
+      const none = { relationship: 'none', score: 0, vec: 'none', distance: 0 };
+      const a = focalOf(sa), b = focalOf(sb); if (!a || !b) return none;
+      const A = byId.get(a.asset), B = byId.get(b.asset); if (!A || !B) return none;
+      const PA = profileOf(A), PB = profileOf(B); const distance = PAL.distance(PAL.identity(A).hex || PA.colour, PAL.identity(B).hex || PB.colour);
+      let relationship = 'complement', score = 0.35;
+      if (related(a.asset, b.asset, byId)) { relationship = b.frame === 'detail' || (sb && sb.layout === 'edge-crop') ? 'detail-of' : 'same-picture'; score = 1; }
+      else {
+        const name = nouns(ctx && ctx.name); const wa = [...nouns(saidOf(A, sa))].filter(w => !name.has(w)); const wb = nouns(saidOf(B, sb));
+        if (wa.some(w => wb.has(w))) {
+          const sA = FR.profile(A).subject, sB = FR.profile(B).subject; const shape = (s, asp) => (s ? ((s[2] - s[0]) * asp) / Math.max(0.01, s[3] - s[1]) : 0);
+          const silhouette = !!(sA && sB && Math.abs(Math.log(Math.max(0.01, shape(sA, PA.aspect)) / Math.max(0.01, shape(sB, PB.aspect)))) < 0.35);
+          relationship = 'same-subject'; score = r2(0.6 + (silhouette ? 0.2 : 0) + (PA.carryable || PB.carryable ? 0.1 : 0));
+        } else if (distance < 90) { relationship = 'palette'; score = 0.5; } else if (distance > 200) { relationship = 'contrast'; score = 0.3; }
       }
-      const pickd = cands.filter(c => c.fit === 2).concat(cands.filter(c => c.fit < 2).sort((x, y) => y.fit - x.fit).slice(0, 1));
-      pickd.forEach(c => { if (c.tr) c.tr.family = 'image-expand'; else raw.transitions.push({ at: c.at, family: 'image-expand' }); });
-      return pickd.length;
+      const vec = PA.side === 'right' || PB.space === 'left' ? 'lr' : PA.side === 'left' || PB.space === 'right' ? 'rl' : 'none';
+      return { relationship, score, vec, distance };
     }
+
+    // ---------------------------------------------------------------- image-pair-driven seams
+    // chooseSeams(rawTimeline, ctx) -> { changed, seams }. Before the timeline is validated, each seam's family follows how
+    // its two pictures relate (relationOf) and how loud the incoming scene is (its rhythm), within the mode's signature
+    // budget -- the strongest relationships get the signature moves, two neighbouring seams never repeat one, and a seam
+    // whose pictures belong together never stays a generic bleed when a stronger move is free:
+    //   same picture / detail      -> image-expand (the crop continues)
+    //   same subject, a cut-out    -> depth-handoff (the subject comes forward as the last scene recedes)
+    //   a cut-out after a photo    -> depth-handoff on a loud scene
+    //   far-apart colours, loud    -> foreground-wipe (a sweep of the next colour hides the change)
+    //   the premium hero's seam    -> image-expand (the video's subject crop opens into scene 2)
+    // The flow's own signature choices (type-mask, shape-takeover, card-expand...) keep what budget is left. ctx: { scenes,
+    // byId, mode, premiumHero, name }
+    function chooseSeams(raw, ctx) {
+      if (!raw || typeof raw !== 'object') return { changed: 0, seams: [] }; if (!Array.isArray(raw.transitions)) raw.transitions = [];
+      const sc = ctx.scenes || []; const byId = ctx.byId || new Map(); const cast = TL.MODE_CAST[ctx.mode] || TL.MODE_CAST.expressive;
+      const rhythm = Array.isArray(raw.rhythm) ? raw.rhythm : []; const seams = [];
+      for (let at = 1; at < sc.length; at++) {
+        let tr = raw.transitions.find(x => x && x.at === at); if (!tr) { tr = { at, family: 'color-bleed' }; raw.transitions.push(tr); }
+        const was = TL.TRANSITIONS.includes(tr.family) ? tr.family : 'color-bleed';
+        if (was === 'actor-carry') { seams.push({ at, tr, was, keep: true }); continue; }
+        const rel = relationOf(sc[at - 1], sc[at], byId, ctx); const fa = focalOf(sc[at - 1]), fb = focalOf(sc[at]);
+        const PA = fa && byId.get(fa.asset) ? profileOf(byId.get(fa.asset)) : null, PB = fb && byId.get(fb.asset) ? profileOf(byId.get(fb.asset)) : null;
+        const loud = INTENSITY[rhythm[at]] || 2;
+        let want = null; let bonus = 0;
+        // (a card of a gallery that becomes the next scene: the next picture is one of the cards)
+        const fromCards = CARDS.includes(sc[at - 1].layout) && fb && sc[at - 1].layers.some(L => L.kind === 'image' && related(L.asset, fb.asset, byId));
+        if (fromCards) { want = 'card-expand'; bonus = 1; }
+        else if (rel.relationship === 'same-picture' || rel.relationship === 'detail-of') want = 'image-expand';
+        // (the same subject comes forward out of the last scene -- after a premium hero too: the video's subject carries on)
+        else if (rel.relationship === 'same-subject' && PB && PB.carryable && fa) want = 'depth-handoff';
+        else if (at === 1 && ctx.premiumHero && fb) want = 'image-expand';
+        else if (PB && PB.carryable && PA && !PA.carryable && loud >= 3) want = 'depth-handoff';
+        else if (rel.relationship === 'contrast' && loud >= 4) want = 'foreground-wipe';
+        seams.push({ at, tr, was, rel, want, strength: rel.score + loud / 10 + bonus + (at === 1 && ctx.premiumHero ? 1 : 0) });
+      }
+      const chosen = new Map(); let used = 0;
+      seams.filter(s => s.want).sort((x, y) => y.strength - x.strength || x.at - y.at).forEach(s => {
+        if (used >= cast.signature) return;
+        if ([s.at - 1, s.at + 1].some(k => chosen.get(k) === s.want)) return;
+        chosen.set(s.at, s.want); used++;
+      });
+      let changed = 0;
+      seams.forEach(s => {
+        if (s.keep) return;
+        let fam = chosen.get(s.at);
+        if (!fam) {
+          // the flow's own signature move, while budget is left and its neighbours do not already make the same move
+          if (TL.SIGNATURE.includes(s.was) && used < cast.signature && ![s.at - 1, s.at + 1].some(k => chosen.get(k) === s.was)) { fam = s.was; chosen.set(s.at, fam); used++; }
+          else fam = TL.SIGNATURE.includes(s.was) ? 'color-bleed' : s.was;
+        }
+        if (fam !== s.tr.family) { s.tr.family = fam; changed++; }
+      });
+      return { changed, seams: seams.map(s => ({ at: s.at, family: s.tr.family, relationship: s.rel ? s.rel.relationship : 'carry' })) };
+    }
+    // the direction a delivered video moves, from two of its frames ({ width, height, data } RGBA): where its subject (the
+    // pixels far from the frame's mean colour) sits and how far it spreads -> lr / rl (it travels), in / out (it grows or
+    // shrinks: the camera pushes in or pulls back), none
+    function videoMotion(f1, f2) {
+      const stat = f => {
+        const { width: W, height: H, data: D } = f; let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < D.length; i += 4) { r += D[i]; g += D[i + 1]; b += D[i + 2]; n++; }
+        r /= n; g /= n; b /= n; let sx = 0, sw = 0, x0 = W, x1 = 0, y0 = H, y1 = 0;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; const d = Math.abs(D[i] - r) + Math.abs(D[i + 1] - g) + Math.abs(D[i + 2] - b); if (d > 90) { sx += x; sw++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+        return sw ? { cx: sx / sw / W, area: ((x1 - x0 + 1) * (y1 - y0 + 1)) / (W * H) } : null;
+      };
+      const a = f1 && stat(f1), b = f2 && stat(f2); if (!a || !b) return 'none';
+      const dx = b.cx - a.cx, grow = b.area / Math.max(1e-6, a.area);
+      return Math.abs(dx) > 0.04 ? (dx > 0 ? 'lr' : 'rl') : grow > 1.06 ? 'in' : grow < 0.94 ? 'out' : 'none';
+    }
+    // (the earlier name: one upgrade pass -- now the whole page's seams are chosen from their pictures)
+    function upgradeSeams(raw, ctx) { return chooseSeams(raw, ctx).changed; }
 
     // ---------------------------------------------------------------- what a seam can carry
     function feasibleFamilies(at, ctx) {
@@ -1957,11 +2070,32 @@
       const pick = (v, list) => (list.includes(v) ? v : list[0]);
       const typoDefault = !typo ? 'none' : fam === 'type-mask' ? 'mask' : typo.behavior === 'break' ? 'front' : 'behind';
       const typography = !typo ? 'none' : fam === 'type-mask' ? 'mask' : ['front', 'behind'].includes(g.typography) ? g.typography : typoDefault;
+      // ---- how the two pictures relate and what the page does with it -- derived from the pictures; a model may only ask
+      // for less (no carry, no motion) or choose another palette handoff from the fixed list
+      const rel = relationOf(prev, next, c.byId, c);
+      // a subject carried physically across the seam: the same picture, or the same subject, shown on both sides -- unless
+      // an actor already carries the run, or the seam's own move continues the picture (an expand, a card, a mask)
+      const actorNear = t.actors.some(x => x.kind === 'image' && x.from <= at && x.to >= at - 1);
+      // (two different full photos cross-fading in flight read as a slide changing, not a subject moving: another shot of
+      // the subject is carried only when one side is the subject alone -- a cut-out)
+      const alone = x => !!(x && c.byId.get(x.asset) && FR.profile(c.byId.get(x.asset)).free);
+      const carriable = ['same-picture', 'detail-of'].includes(rel.relationship) || (rel.relationship === 'same-subject' && (alone(fo) || alone(fi)));
+      let carry = !pic && !actorNear && fo && fi && !['image-expand', 'card-expand', 'type-mask'].includes(fam) && carriable ? (rel.score >= 0.75 || alone(fi) ? 'strong' : 'light') : 'none';
+      if (g.carry === 'none' || (g.carry === 'light' && carry === 'strong')) carry = g.carry;
+      const paletteHandoff = PALETTE_HANDOFFS.includes(g.paletteHandoff) ? g.paletteHandoff : fam === 'foreground-wipe' || fam === 'shape-takeover' || rel.relationship === 'contrast' ? 'sweep' : 'blend';
+      const depthHandoff = fam === 'depth-handoff' ? 'through' : fam === 'image-expand' || fam === 'card-expand' || carry === 'strong' ? 'forward' : 'none';
+      const motionVector = fam === 'actor-carry' || g.motionVector === 'none' ? 'none' : rel.vec;
       return {
         at, family: fam, intent, carriedActor: carried, carriedAsset: asset,
         outgoing: state(st), incoming: state(st), // (scene N's end IS scene N+1's start: one state, written twice)
         overlap, depth: pick(g.depth, F.depth), mask: pick(g.mask, F.mask), background: pick(g.background, F.background), typography, camera: pick(g.camera, F.camera),
+        relationship: rel.relationship, carry, paletteHandoff, depthHandoff, textPlacement: placementOf(next), motionVector,
       };
+    }
+    // where a scene's words sit (after its composition): left, right, top, bottom or centre of the scene
+    function placementOf(s) {
+      const r = String((s && s.text && s.text.region) || 'center');
+      return /left/.test(r) ? 'left' : /right/.test(r) ? 'right' : /^top/.test(r) ? 'top' : /^bottom/.test(r) ? 'bottom' : 'center';
     }
 
     function normalise(raw, ctx) {
@@ -1993,10 +2127,27 @@
         hero = { asset: H.id, scene: H.scene, video, end, into, state: state(Object.assign(st, { surface: (hs.ink && HEX.test(hs.ink.surface || '') ? hs.ink.surface.toLowerCase() : '') })) };
         // (the delivered video's measured colour cast, once it exists: the page's colours were re-tuned to it)
         if (r.hero && HEX.test(r.hero.cast || '')) hero.cast = r.hero.cast.toLowerCase();
+        // the hero's motion (measured from the delivered video's frames; before it exists a premium hero is a push-in) and its
+        // language carried into the next two seams: the same direction, and its colour holding before it hands over
+        hero.motion = oneOf(r.hero && r.hero.motion, VECTORS, video ? 'in' : 'none');
+        if (video) contracts.filter(k => k.at > H.scene && k.at <= H.scene + 2).forEach(k => {
+          const g = given.get(k.at) || {};
+          if (hero.motion !== 'none' && k.family !== 'actor-carry' && g.motionVector !== 'none') k.motionVector = hero.motion;
+          if (!PALETTE_HANDOFFS.includes(g.paletteHandoff) && k.paletteHandoff === 'blend') k.paletteHandoff = 'hold';
+        });
+      }
+      // a physical carry is a statement: the strongest relationships keep theirs, within the mode's number
+      const carried = contracts.filter(k => k.carry !== 'none').sort((x, y) => (y.carry === 'strong') - (x.carry === 'strong') || x.at - y.at);
+      carried.slice(CARRIES[c.mode] || CARRIES.expressive).forEach(k => { k.carry = 'none'; if (k.depthHandoff === 'forward' && k.family !== 'image-expand' && k.family !== 'card-expand') k.depthHandoff = 'none'; });
+      // the page closes on what it opened with: the main subject returns, or at least its colour
+      let callback = null;
+      if (n >= 3 && hero) {
+        const last = scenes[n - 1]; const lf = focalOf(last); const lt = last.ink && last.ink.surface; const ht = scenes[hero.scene].ink && scenes[hero.scene].ink.surface;
+        callback = { scene: n - 1, kind: lf && related(lf.asset, hero.asset, byId) ? 'subject' : HEX.test(lt || '') && HEX.test(ht || '') && PAL.distance(lt, ht) < 40 ? 'colour' : 'echo' }; // (echo: the main picture returns as the closing scene's backdrop)
       }
       // where depth would help (ADVISORY ONLY: the spatial tier is decided by spatial.js, never by a model)
       const spatialUseful = [...new Set((Array.isArray(r.spatialUseful) ? r.spatialUseful : []).filter(i => Number.isInteger(i) && i >= 0 && i < n))].sort((a, b) => a - b).slice(0, LIMITS.spatial);
-      const out = { v: 1, source: oneOf(r.source, SOURCES, 'built-in'), hero, contracts, spatialUseful };
+      const out = { v: 1, source: oneOf(r.source, SOURCES, 'built-in'), hero, contracts, spatialUseful, ...(callback ? { callback } : {}) };
       if (r.critic && typeof r.critic === 'object') {
         const k = r.critic;
         out.critic = { source: oneOf(k.source, ['built-in', 'ai', 'mock'], 'built-in'), found: (Array.isArray(k.found) ? k.found : []).filter(x => CRITIC.includes(x)).slice(0, LIMITS.issues), fixed: Math.round(num(k.fixed, 0, 20, 0)),
@@ -2025,6 +2176,8 @@
         const A = tl.actors.find(a => a.role === 'primary' && a.from === h.into && a.from > 0);
         if (A && A.keys.length && A.keys[0].g < A.from) { const b = TL.BOUNDS.image; Object.assign(A.keys[0], { x: clamp(h.state.x, b.x[0], b.x[1]), y: b.y[0], s: clamp(h.state.s, b.s[0], b.s[1]), r: 0 }); }
       }
+      // (a page that should end on a payoff does: its last scene becomes one)
+      if (cont && cont.payoff && Array.isArray(tl.rhythm) && tl.rhythm.length) tl.rhythm[tl.rhythm.length - 1] = 'payoff';
       tl.continuity = cont;
       return { timeline: tl, handoffs };
     }
@@ -2086,8 +2239,20 @@
       const sig = K.filter(k => TL.SIGNATURE.includes(k.family));
       K.forEach((k, i) => { if (i && TL.SIGNATURE.includes(k.family) && K[i - 1].family === k.family) add('duplicate-motion', k.at); });
       const count = {}; sig.forEach(k => { count[k.family] = (count[k.family] || 0) + 1; if (count[k.family] === 3) add('duplicate-motion', k.at); });
-      // visual rest: never three loud seams in a row
-      let loud = 0; K.forEach(k => { loud = TL.SIGNATURE.includes(k.family) || (k.intent === 'carry' && t.rhythm[k.at] !== 'rest') ? loud + 1 : 0; if (loud === 3) add('no-rest', k.at); });
+      // visual rest: never three loud seams in a row (a physical carry is a loud move too)
+      let loud = 0; K.forEach(k => { loud = TL.SIGNATURE.includes(k.family) || k.carry === 'strong' || (k.intent === 'carry' && t.rhythm[k.at] !== 'rest') ? loud + 1 : 0; if (loud === 3) add('no-rest', k.at); });
+      // ...and never so quiet that a page meant to move only fades from section to section
+      const mode = (plan.art && plan.art.mode) || 'expressive'; const moving = mode === 'expressive' || mode === 'immersive';
+      if (moving && K.length >= 4 && !K.some(k => TL.SIGNATURE.includes(k.family) || k.family === 'actor-carry' || k.carry !== 'none')) {
+        const best = K.filter(k => focalOf(plan.scenes[k.at])).sort((a, b) => (INTENSITY[t.rhythm[b.at]] || 2) - (INTENSITY[t.rhythm[a.at]] || 2) || a.at - b.at)[0];
+        if (best) add('too-quiet', best.at);
+      }
+      // the same direction, or the same scale behaviour, three seams running reads as a loop, not a story
+      K.forEach((k, i) => { if (i >= 2 && k.motionVector !== 'none' && K[i - 1].motionVector === k.motionVector && K[i - 2].motionVector === k.motionVector) add('same-direction', k.at); });
+      K.forEach((k, i) => { if (i >= 2 && k.depthHandoff !== 'none' && K[i - 1].depthHandoff === k.depthHandoff && K[i - 2].depthHandoff === k.depthHandoff) add('same-scale', k.at); });
+      // a page meant to move ends on a payoff -- or returns to what it opened with
+      const n = plan.scenes.length;
+      if (moving && n >= 4 && !['payoff', 'event', 'escalation'].includes(t.rhythm[n - 1]) && !(cont.callback && cont.callback.kind !== 'none')) add('no-payoff', n - 1);
       // a pasted-in hero video: a video that just stops where the page starts
       const h = cont.hero; const k1 = h ? K.find(k => k.at === h.into && h.into > h.scene) : null;
       if (h && h.video && k1 && (k1.family === 'cut' || (k1.carriedActor === 'none' && !related(k1.carriedAsset, h.asset, byId) && k1.overlap.to - k1.overlap.from < 0.35))) add('pasted-video', k1.at);
@@ -2104,6 +2269,10 @@
         else if (x.code === 'duplicate-motion' || x.code === 'no-rest') out.push({ at: x.at, code: x.code, family: 'color-bleed', intent: 'rest' });
         else if (x.code === 'disconnected') out.push({ at: x.at, code: x.code, reset: true });
         else if (x.code === 'pasted-video') out.push({ at: x.at, code: x.code, family: k && k.family === 'cut' ? 'color-bleed' : undefined, intent: 'continue', overlap: { from: -0.6, to: 0.1 }, heroEnd: 'static-frame' });
+        else if (x.code === 'too-quiet') out.push({ at: x.at, code: x.code, family: 'image-expand', intent: 'continue' });
+        else if (x.code === 'same-direction') out.push({ at: x.at, code: x.code, motionVector: 'none' });
+        else if (x.code === 'same-scale') out.push({ at: x.at, code: x.code, family: 'color-bleed', carry: 'light' });
+        else if (x.code === 'no-payoff') out.push({ at: x.at, code: x.code, payoff: true });
       });
       return out.slice(0, LIMITS.fixes);
     }
@@ -2119,6 +2288,10 @@
         if (f.overlap && typeof f.overlap === 'object') o.overlap = { from: num(f.overlap.from, OVERLAP.from[0], OVERLAP.from[1], -0.4), to: num(f.overlap.to, OVERLAP.to[0], OVERLAP.to[1], 0) };
         if (f.calm === true) o.calm = true;
         if (VIDEO_ENDS.includes(f.heroEnd)) o.heroEnd = f.heroEnd;
+        // (a fix may only take motion away, lighten a carry, or turn the ending into a payoff)
+        if (f.motionVector === 'none') o.motionVector = 'none';
+        if (f.carry === 'none' || f.carry === 'light') o.carry = f.carry;
+        if (f.payoff === true) o.payoff = true;
         return o;
       }).filter(Boolean);
     }
@@ -2128,14 +2301,15 @@
       (fixes || []).forEach(f => {
         let k = c.contracts.find(x => x.at === f.at); if (!k) { k = { at: f.at }; c.contracts.push(k); }
         if (f.reset) { delete k.carriedActor; delete k.carriedAsset; }
-        ['family', 'intent', 'background', 'typography', 'overlap'].forEach(p => { if (f[p] !== undefined) k[p] = f[p]; });
+        ['family', 'intent', 'background', 'typography', 'overlap', 'motionVector', 'carry'].forEach(p => { if (f[p] !== undefined) k[p] = f[p]; });
         if (f.calm) k.calm = true;
         if (f.heroEnd) c.hero = Object.assign({}, c.hero || {}, { end: f.heroEnd });
+        if (f.payoff) c.payoff = true;
       });
       return c;
     }
 
-    module.exports = { upgradeSeams, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
+    module.exports = { videoMotion, upgradeSeams, chooseSeams, relationOf, placementOf, RELATIONSHIPS, CARRY, PALETTE_HANDOFFS, DEPTH_HANDOFFS, TEXT_PLACEMENTS, VECTORS, INTENSITY, CARRIES, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
 
   });
   __define("renderers", function (module, exports, require) {
@@ -3184,13 +3358,17 @@
     function planVisuals(scenes, inv, content) {
       if (!inv.pool) return;
       const free = id => { const x = inv.all.find(y => y.a.id === id); return !!(x && x.p.free); };
+      let changed = false;
       POOL.assign(scenes, inv.pool).forEach((v, i) => {
-        if (!v) return; const s = scenes[i]; s.visual = v;
+        if (!v) return; const s = scenes[i];
         if (CUT_ONLY[s.layout] && !free(v.asset)) {
           s.layout = i === 0 ? (eligible('editorial-hero', inv, content, true) ? 'editorial-hero' : 'split') : CUT_ONLY[s.layout];
-          s.choreo = (NATURAL[s.layout] || ['settle'])[0];
+          s.choreo = (NATURAL[s.layout] || ['settle'])[0]; changed = true;
         }
       });
+      // (the plan made again on the final compositions: a converted scene takes as many pictures as its composition shows)
+      POOL.assign(scenes, inv.pool).forEach((v, i) => { if (v) scenes[i].visual = v; else delete scenes[i].visual; });
+      void changed;
     }
 
     function fingerprint(x) {
@@ -3362,8 +3540,11 @@
     // each returns { place, mplace, slots: [{ d, m, intent, anchor, manchor, z, rot, mask, role, step }], decos: [...],
     //   height, choreos (allowed), stepFx } -- or null when the scene cannot be this archetype
     const A = {};
+    // (a full-bleed picture: the words sit in the picture's own empty space -- its measured negative space, e.textSide --
+    // shaded from that side, never over its subject; unknown space keeps the masthead at the bottom)
+    const ROOM = { left: { place: { gc: [1, 5], v: 'middle', align: 'left' }, shade: 'left' }, right: { place: { gc: [8, 12], v: 'middle', align: 'left' }, shade: 'right' }, top: { place: { gc: [1, 8], v: 'top', align: 'left' }, shade: 'top' } };
     A['editorial-hero'] = (S, e) => ({
-      place: { gc: [1, 8], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'screen', shade: 'bottom',
+      place: (ROOM[e.textSide] || {}).place || { gc: [1, 8], v: 'bottom', align: 'left' }, mplace: 'overlay', height: 'screen', shade: (ROOM[e.textSide] || {}).shade || 'bottom',
       slots: [{ d: [0, 0, 100, 100], m: [0, 0, 100, 100], intent: 'bleed', anchor: 'cm', z: 2, role: 'focal', needs: 'bleed' }],
     });
     A.cinematic = (S, e) => ({
@@ -3444,7 +3625,8 @@
       decos: [{ kind: 'shape', form: 'line', fill: 'accent', d: [5, 90, 30, 0.6], m: [6, 94, 50, 1], z: 2, opacity: 0.7, role: 'support' }],
     });
     A.image = (S, e) => ({
-      place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', caption: true,
+      // (the caption sits under the picture's empty side: a subject on the left leaves its words to the right)
+      place: e.textSide === 'right' ? { gc: [8, 12], v: 'bottom', align: 'left' } : { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', caption: true,
       slots: [{ d: [4, 4, 92, 74], m: [0, 0, 100, 100], intent: 'editorial', anchor: 'ct', z: 3, role: 'focal' }],
     });
     A.luxe = (S, e) => ({
@@ -4011,6 +4193,17 @@
       // pictures, each time framed differently, so a weak search still makes a picture-led page)
       const nPics = new Set(assets.filter(a => a.ownerRole !== 'logo' && !(curOf(a) && (curOf(a).role === 'unrelated' || curOf(a).identity === 'other'))).map(a => baseOf(a).id)).size;
       const extra = Math.max(0, POOL.photoUses(nPics) - LIMITS.photoUses);
+      // where a scene's words go, from its picture: a subject on the left puts the picture on the left and the words on the
+      // right (the picture's empty side faces them); a full-bleed picture keeps its words in its measured negative space
+      // (unknown composition: the archetype's own alternation)
+      const placeFor = (scene, alt) => {
+        const f = scene.layers.find(L => L.role === 'focal' && L.kind === 'image' && byId.get(L.asset)) || scene.layers.find(L => L.kind === 'image' && byId.get(L.asset));
+        if (!f) return { side: alt };
+        const pr = CT.profileOf(byId.get(f.asset));
+        const side = pr.side === 'left' || pr.side === 'right' ? pr.side : alt;
+        const textSide = ['left', 'right', 'top'].includes(pr.space) && pr.room >= 0.22 ? pr.space : pr.side === 'left' ? 'right' : pr.side === 'right' ? 'left' : '';
+        return { side, textSide };
+      };
       const useMax = { photo: LIMITS.photoUses + extra, cut: LIMITS.cutoutUses + extra };
       let sourcedLines = 0, uncited = 0; const badCites = [];
       const scenes = rawScenes.slice(0, LIMITS.scenes[1]).map((rs, si) => {
@@ -4074,7 +4267,7 @@
           if (pl) { const g0 = Math.round(num(pl.gc[0], 1, 12, 1)); const g1 = Math.round(num(pl.gc[1], g0, 12, 12)); text.place = { gc: [g0, g1], v: oneOf(pl.v, VOCAB.textV, 'middle'), align: oneOf(pl.align, VOCAB.textAlign, 'left') }; }
           text.mplace = oneOf(tx.mplace, VOCAB.mplace, 'above');
           if (tx.giant) text.giant = true; if (tx.columns) text.columns = true;
-          if (tx.shade === 'bottom' || tx.shade === 'band') text.shade = tx.shade;
+          if (['bottom', 'band', 'left', 'right', 'top'].includes(tx.shade)) text.shade = tx.shade;
           if (ART.TREATMENTS.includes(tx.treatment) && tx.treatment !== 'standard') text.treatment = tx.treatment;
           // (the line a text-swap shows first, before the heading settles in its place -- plain words, never facts or numbers)
           const alt = cap(tx.alt, 60); if (alt && !/\d/.test(alt)) text.alt = alt;
@@ -4224,7 +4417,7 @@
           // an archetype composes the scene: pictures with a plain background float as their cut-outs first, so the
           // composition is made for the picture that will actually be shown
           swapCutouts(scene, byId, assets, fixes);
-          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, side: (si + flip) % 2 ? 'left' : 'right' });
+          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, actorPose: inRun(si) ? actor.poses[si - actor.from] : null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
           const pinCap = art && art.mode ? Math.min(LIMITS.pinned, modeLim.pins) : LIMITS.pinned;
           if (scene.pin) { if (pinned >= pinCap) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; ARCH.unstep(scene); fixes.push(`${where}: ${pinCap ? `more than ${pinCap} held scene${pinCap > 1 ? 's' : ''} on ${art && art.mode ? `a${art.mode === 'editorial' || art.mode === 'expressive' || art.mode === 'immersive' ? 'n' : ''} ${art.mode}` : 'the'} page` : `a ${art.mode} page holds nothing`} -- this one plays as it passes`); } else pinned++; }
         } else if (composing) { compose(scene, byId, fixes, warnings, si === 0); if (!safety) frameFree(scene, byId, fixes); legible(scene, byId, fixes); }
@@ -4245,7 +4438,7 @@
           scene.layers.forEach(L => { if (L.role === 'focal') L.role = 'support'; });
           scene.layers.unshift({ id: 'said', kind: 'image', role: 'focal', asset: described.id, box: { d: [52, 10, 42, 78], m: [8, 6, 84, 64] }, z: 5, rotate: 0, opacity: 1, mask: 'none', treatment: free ? 'shadow' : 'none', entrance: { kind: 'rise', delay: 0.2, dur: 1.1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0.4 }, hideM: false, fit: free ? 'contain' : 'cover', focus: '50% 50%' });
           const was = scene.layout; scene.layout = free ? 'shrine' : 'split'; scene.choreo = 'settle';
-          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}|said`), name: identity.name, fixes, warnings, side: (si + flip) % 2 ? 'left' : 'right' });
+          ARCH.composeScene(scene, { byId, si, hero: si === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}|said`), name: identity.name, fixes, warnings, ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
           fixes.push(`${where}: its words describe ${described.id}, which the ${was} composition left out -- recomposed around it`);
         }
         const vimgs = scene.layers.filter(L => L.kind === 'image' && byId.get(L.asset)).map(L => L.asset).concat(inRun(si) ? [actor.asset] : []);
@@ -4284,7 +4477,7 @@
           Object.assign(f0, { kind: 'image', asset: pick.id, fit: free ? 'contain' : 'cover', focus: /^\d{1,3}% \d{1,3}%$/.test(mainA.focus || '') ? mainA.focus : '50% 50%', mask: free ? 'none' : (f0.mask && f0.mask !== 'none' ? f0.mask : 'window'), opacity: Math.max(0.9, f0.opacity || 1) });
           delete f0.shape; delete f0.word; delete f0.mfit; delete f0.mfocus;
           fixes.push(`hero: the owner's chosen main picture (${mainA.id}) leads the opening scene`);
-          if (hs.layout && hs.layout !== 'free') { f0.frame = 'auto'; delete f0.frame; ARCH.composeScene(hs, { byId, si: 0, hero: true, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${hs.id}`), name: identity.name, fixes, warnings, side: flip ? 'left' : 'right' }); }
+          if (hs.layout && hs.layout !== 'free') { f0.frame = 'auto'; delete f0.frame; ARCH.composeScene(hs, { byId, si: 0, hero: true, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${hs.id}`), name: identity.name, fixes, warnings, ...placeFor(hs, flip ? 'left' : 'right') }); }
           else { compose(hs, byId, fixes, warnings, true); frameFree(hs, byId, fixes); legible(hs, byId, fixes); }
           boundZoom(hs, byId, fixes);
         }
@@ -4381,9 +4574,17 @@
         // screen, a foreground and a background, room for a close crop)
         if (!raw.needs) { const imgs = scenes.flatMap(sc => sc.layers.filter(L => L.kind === 'image')); const cut = assets.find(a => a.cutout || (a.assess && a.assess.transparent)); const bleedL = imgs.find(L => L.frame === 'bleed');
           raw.needs = TL.assetNeeds(useRecipe && c.art && c.art.flow ? c.art.flow : { cast: actor ? { primary: {} } : {}, seams: raw.transitions || [] }, { scenes }).map(n => Object.assign(n, { met: n.need === 'cutout' ? ((actor && actor.asset) || (cut && cut.id) || '') : n.need === 'bleed' ? ((bleedL && bleedL.asset) || '') : n.need === 'layers' ? (cut && bleedL ? cut.id + '+' + bleedL.asset : '') : (scenes.some(sc => sc.layout === 'edge-crop') ? 'edge-crop' : '') })); }
-        // (seams between pictures that belong together open one picture out of the last; the premium hero opens into scene 2)
-        const up = CT.upgradeSeams(raw, { scenes, byId, premiumHero: !!(c.premiumHero && byId.has(c.premiumHero.source)) });
-        if (up) fixes.push(`timeline: ${up} seam(s) between pictures that belong together open one out of the other (image-expand)`);
+        // the arc: after the opening the page gathers pace before its first event (acceleration -- always after a premium
+        // hero, which sets the pace), and a page meant to move ends on a payoff rather than trailing off
+        const hasPremium = !!(c.premiumHero && byId.has(c.premiumHero.source));
+        if (Array.isArray(raw.rhythm) && raw.rhythm.length === scenes.length && !['quiet', 'editorial'].includes(art.mode)) {
+          const R = raw.rhythm; const n = R.length;
+          if (n >= 4 && R[1] === 'rest' && (hasPremium || ['event', 'escalation'].includes(R[2]))) R[1] = 'acceleration';
+          if (n >= 4 && R[n - 1] === 'rest') R[n - 1] = 'payoff';
+        }
+        // (each seam follows how its two pictures relate -- continuity.js chooseSeams -- within the mode's budget)
+        const cs = CT.chooseSeams(raw, { scenes, byId, mode: art.mode, premiumHero: hasPremium, name: identity.name });
+        if (cs.changed) fixes.push(`timeline: ${cs.changed} seam(s) chosen from how their pictures relate (${cs.seams.map(s => `${s.at}:${s.relationship}->${s.family}`).join(', ')})`);
         const nt = TL.normalise(raw, tctx); timeline = nt.timeline; nt.fixes.slice(0, 12).forEach(x => fixes.push(x));
         // what the timeline does to the scenes themselves: a flood or a takeover leaves the scene in its new colour (the words
         // are coloured for it); a signature transition owns its seam (no overlap or stack fighting it)
@@ -4460,7 +4661,7 @@
       // sides (one state), the overlap, depth, mask, backdrop, typography and camera -- derived from this timeline and these
       // pictures. A new page gets its built-in contracts (the continuity pass may refine them); a saved page keeps its own.
       if (timeline && (!safety || (p.timeline && p.timeline.continuity))) {
-        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia });
+        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia, mode: art && art.mode, name: identity.name });
         if (ct.continuity) timeline.continuity = ct.continuity;
       }
       const plan = {
@@ -5781,6 +5982,7 @@
     const { esc, cleanTitle, FONTS } = require('./render');
     const { drawnRect } = require('./validate');
     const FR = require('./framing');
+    const PAL = require('./palette');
     const ARCH = require('./archetypes');
     const ART = require('./art');
     const TL = require('./timeline');
@@ -5843,7 +6045,7 @@
         const v = [base, a].concat((plan.premiumMedia || []).map(m => byId.get(m.asset))).filter(Boolean).find(x => videoSrc(x));
         return v ? { asset: v, scene: ct.hero.scene, end: ct.hero.end } : null;
       })();
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll }));
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, heroVideo, flowAll, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -5929,8 +6131,24 @@
           return `<div class="cs cs-mask" data-at="${t.at}" ${win(t.at, '.6', '.6')} style="--cn:${Math.max(1, typo.text.replace(/\s/g, '').length)}"><span class="csm-word" style="background-image:url('${u}')">${esc(typo.text)}</span><i class="csm-img" style="background-image:url('${u}')"></i></div>`;
         }
         return '';
-      }).join('');
+      }).join('') + carries(plan, contracts, byId, src);
       return { back: `<div class="cr-cast cr-back" aria-hidden="true"><i class="cb cb-a"></i><i class="cb cb-b"></i>${back}</div>\n`, front: `<div class="cr-cast cr-front" aria-hidden="true">${front}${seams}</div>\n` };
+    }
+
+    // a subject carried physically across a seam (a contract's carry: the same picture or the same subject on both sides):
+    // one element that, through the seam's window, travels from where the subject is in the outgoing scene to where it is in
+    // the incoming one -- both measured live as they scroll -- while the two scenes' own copies step aside; the outgoing
+    // picture turns into the incoming one on the way (a photo into its cut-out, one shot of the subject into the next)
+    function carries(plan, contracts, byId, src) {
+      const focal = s => (s && s.layers.find(L => L.role === 'focal' && L.kind === 'image')) || null;
+      const fit = (a, L) => ((a.caps && a.caps.moveFreely) || L.fit === 'contain' ? 'contain' : 'cover');
+      return contracts.filter(k => k.carry && k.carry !== 'none').map(k => {
+        const LA = focal(plan.scenes[k.at - 1]), LB = focal(plan.scenes[k.at]); const a = LA && byId.get(LA.asset), b = LB && byId.get(LB.asset);
+        if (!a || !b || !src(a) || !src(b)) return '';
+        // (a carry starts a little before the seam's own window and lands a little after the next scene has begun)
+        const from = Math.max(-0.75, k.overlap.from - 0.15), to = Math.min(0.45, k.overlap.to + 0.15);
+        return `<div class="cs cs-carry" data-at="${k.at}" data-lead="0" data-span="${Math.round((to - from) * 100) / 100}" data-end="${to}" data-carry="${k.carry}"><img class="csc-a" src="${esc(src(a))}" alt="" style="object-fit:${fit(a, LA)};object-position:${LA.focus || '50% 50%'}"><img class="csc-b" src="${esc(src(b))}" alt="" style="object-fit:${fit(b, LB)};object-position:${LB.focus || '50% 50%'}"></div>`;
+      }).join('');
     }
 
     // what the spatial runtime draws, as numbers and file paths only (validated: spatial.js normalise)
@@ -6125,18 +6343,33 @@
       // the words enter from the picture's side: they come out of the image as the scene arrives (not laid on top of it)
       const fL = s.layers.find(L => L.role === 'focal' && L.kind === 'image');
       const tie = c.flowAll && fL && fL.box.d[2] < 85 ? (fL.box.d[0] + fL.box.d[2] / 2 >= 50 ? 'right' : 'left') : '';
-      const seamAttr = (['image-expand', 'card-expand', 'depth-handoff'].includes(seamIn) ? ` data-seam-in="${seamIn}"` : '') + (seamOut === 'depth-handoff' ? ' data-seam-out="depth-handoff"' : '') + (vh ? ` data-vh="${vh}"` : '') + (tie ? ` data-tie="${tie}"` : '');
+      // the contracts on the page: the direction things move across each seam (this scene arrives along the incoming one's
+      // vector and leaves along the outgoing one's), and the colour window of the seam it arrives through
+      const vin = c.flowAll && kIn && kIn.motionVector && kIn.motionVector !== 'none' ? kIn.motionVector : '';
+      const vout = c.flowAll && kOut && kOut.motionVector && kOut.motionVector !== 'none' ? kOut.motionVector : '';
+      const pal = c.flowAll && kIn ? `${kIn.overlap.from},${kIn.overlap.to},${kIn.paletteHandoff === 'blend' && kIn.background === 'carry' ? 'hold' : kIn.paletteHandoff || 'blend'}` : '';
+      const seamAttr = (['image-expand', 'card-expand', 'depth-handoff'].includes(seamIn) ? ` data-seam-in="${seamIn}"` : '') + (seamOut === 'depth-handoff' ? ' data-seam-out="depth-handoff"' : '') + (vh ? ` data-vh="${vh}"` : '') + (tie ? ` data-tie="${tie}"` : '') + (vin ? ` data-vin="${vin}"` : '') + (vout ? ` data-vout="${vout}"` : '');
+      // a rest scene (or one whose picture is small) is never an empty field: a dim, slow echo of its own picture -- or of the
+      // page's main picture, the visual identity coming back in another role -- lies behind it
+      const cover = s.layers.filter(L => L.kind === 'image').reduce((t, L) => t + (L.box.d[2] * L.box.d[3]) / 10000, 0);
+      const rest = c.tl && ['rest', 'acceleration'].includes((c.tl.rhythm || [])[si]);
+      // (the closing scene's callback: when the main picture is not its own picture, the main picture returns behind it)
+      const callback = c.flowAll && ct && ct.callback && ct.callback.scene === si && ct.callback.kind !== 'none' ? ct.callback.kind : '';
+      const echoA = callback && callback !== 'subject' && c.mainAsset ? c.mainAsset
+        : c.flowAll && !inRun && !hero && (rest || cover < 0.3) && cover < 0.5 ? (fL && c.byId.get(fL.asset)) || c.mainAsset || null : null;
+      const echo = echoA && c.src(echoA) ? `<div class="sc-ghost" aria-hidden="true"><img src="${esc(c.src(echoA))}" alt="" decoding="async"></div>` : '';
+      const glowC = c.flowAll && s.visual && s.visual.palette ? PAL.glow(PAL.secondary(c.byId.get(s.visual.asset)) || s.visual.palette, c.plan.palette) : '';
       const inCast = !!(c.cast && c.cast.has(si));
       const beatWin = beats.map(b => { const f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; const t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
       const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill' || beats.length > 0 || !!seamAttr);
       const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
-      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit && seamOut !== 'depth-handoff' ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${inCast ? ' data-cast' : ''}${seamAttr}${beats.length ? ` data-beats="${beatWin}"` : ''}${has('perspective') ? ' data-persp' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}${bgw != null ? ` data-bgw="${bgw}"` : ''}` : '';
+      const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit && seamOut !== 'depth-handoff' ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${inCast ? ' data-cast' : ''}${seamAttr}${beats.length ? ` data-beats="${beatWin}"` : ''}${has('perspective') ? ' data-persp' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}${bgw != null ? ` data-bgw="${bgw}"` : ''}${pal ? ` data-pal="${pal}"` : ''}${glowC ? ` data-glow="${glowC}"` : ''}${callback ? ` data-callback="${callback}"` : ''}${echo ? ' data-echo' : ''}` : '';
       const counter = s.steps && s.pin && s.steps > 1 ? `<p class="sc-count" aria-hidden="true"><b>01</b><span> / ${String(s.steps).padStart(2, '0')}</span></p>` : '';
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
       return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
-      <div class="sc-pin">${atmos}${amb}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
+      <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}</div>
         ${c.actor && c.actor.from === si ? actorStatic(c) : ''}
@@ -6663,6 +6896,8 @@
        flow and the scene simply keeps extra room at its foot) */
     @media (min-width:721px){.sc[data-overlapped] .sc-stage{bottom:14vh}.sc[data-overlapped] .sc-pin{padding-bottom:calc(6vh + 14vh)}.sc[data-overlapped]:not([data-pin]) .sc-pin{min-height:calc(var(--sh,0) * 1vh + 14vh)}}
     .sc[data-handoff="overlap"]{margin-top:-14vh;z-index:2;border-radius:clamp(20px,3vw,44px) clamp(20px,3vw,44px) 0 0;box-shadow:0 -28px 60px rgba(0,0,0,.28);overflow:clip}
+    /* (on one continuous surface the overlap is the two scenes sharing the screen -- not a card with an edge sliding up) */
+    html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc[data-handoff="overlap"]{border-radius:0;box-shadow:none}
     .sc[data-handoff="stack"]{z-index:2;box-shadow:0 -30px 70px rgba(0,0,0,.34)}
     /* (a sticky scene is held only within its parent: the pair; the pair itself is not positioned, so every scene keeps main as
        its offset parent and the thread's path is unchanged) */
@@ -6773,7 +7008,31 @@
     html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc .sc-pin::before,html.cr-js[data-flowall]:not([data-motion="reduced"]) .amb-vig{display:none}
     html.cr-js[data-flowall]:not([data-motion="reduced"]) :is(.sc-amb,.sc-world){-webkit-mask-image:linear-gradient(180deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(180deg,transparent,#000 18%,#000 82%,transparent)}
     html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc-backdrop{background:radial-gradient(ellipse 70% 60% at 72% 28%,color-mix(in srgb,var(--s-accent,var(--accent)) 18%,transparent),transparent 70%)!important}
-    html[data-flowall] .cb{background:radial-gradient(130% 100% at 70% 12%,color-mix(in srgb,var(--cbc,var(--bg)) 82%,#fff 18%),var(--cbc,var(--bg)) 52%,color-mix(in srgb,var(--cbc,var(--bg)) 72%,#000) 100%)}
+    html[data-flowall] .cb{background:radial-gradient(58% 52% at 76% 28%,color-mix(in srgb,var(--cbg,transparent) 30%,transparent),transparent 72%),radial-gradient(130% 100% at 70% 12%,color-mix(in srgb,var(--cbc,var(--bg)) 82%,#fff 18%),var(--cbc,var(--bg)) 52%,color-mix(in srgb,var(--cbc,var(--bg)) 72%,#000) 100%)}
+    /* a colour handoff spans its seam (data-pal: it opens before the seam and closes after the next scene has begun); a sweep
+       is the next colour rising from below as a soft front, not a uniform fade */
+    html[data-flowall] .cb-b[data-mode="sweep"]{-webkit-mask-image:linear-gradient(0deg,#000 calc(var(--t,0) * 160% - 60%),transparent calc(var(--t,0) * 160%));mask-image:linear-gradient(0deg,#000 calc(var(--t,0) * 160% - 60%),transparent calc(var(--t,0) * 160%))}
+    /* the carried subject: one element travelling between the two scenes' pictures; the outgoing shot turns into the next */
+    .cs-carry{inset:auto;left:0;top:0;width:0;height:0;border-radius:14px;overflow:hidden;filter:drop-shadow(0 26px 34px rgba(0,0,0,.35));will-change:left,top,width,height}
+    .cs-carry img{position:absolute;inset:0;width:100%;height:100%}.cs-carry .csc-b{opacity:0}
+    .cs-carry[data-carry="light"]{filter:none}
+    /* the direction of motion across a seam: the scene arrives along the incoming vector and leaves along the outgoing one */
+    .sc[data-vin="lr"]{--vi:-1}.sc[data-vin="rl"]{--vi:1}.sc[data-vout="lr"]{--vo:1}.sc[data-vout="rl"]{--vo:-1}
+    html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc:is([data-vin],[data-vout]) .sc-stage{translate:calc(((1 - var(--sn,1)) * var(--vi,0) * var(--vamp,14) + var(--sx,0) * var(--vo,0) * var(--vamp,14) * .85) * 1vw) 0}
+    html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc[data-vin="in"]:not([data-seam-in]) .sc-stage{scale:calc(.84 + var(--sn,1) * .16)}
+    html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc[data-vout="in"]:not([data-seam-out]) .sc-stage{scale:calc(1 + var(--sx,0) * .18)}
+    html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc[data-vin="out"]:not([data-seam-in]) .sc-stage{scale:calc(1.14 - var(--sn,1) * .14)}
+    /* a rest scene's echo: its own picture (or the page's main picture) dim and soft behind it, drifting slowly */
+    .sc-ghost{position:absolute;inset:-4%;z-index:1;pointer-events:none;overflow:hidden;opacity:.24;-webkit-mask-image:radial-gradient(ellipse 78% 72% at 50% 50%,#000 30%,transparent 80%);mask-image:radial-gradient(ellipse 78% 72% at 50% 50%,#000 30%,transparent 80%)}
+    .sc-ghost img{display:block;width:100%;height:100%;object-fit:cover;filter:blur(16px) saturate(.9);scale:1.1}
+    html.cr-js:not([data-motion="reduced"]) .sc-ghost img{translate:0 calc((var(--p,.5) - .5) * -5vh)}
+    .sc[data-callback] .sc-ghost{opacity:.3}
+    /* words placed in a full-bleed picture's empty side are shaded from that side */
+    .sc-shade[data-shade="left"],.sc-shade[data-shade="right"]{top:0;bottom:0;height:auto;width:60%;background:linear-gradient(90deg,color-mix(in srgb,var(--s-surface,var(--bg)) 90%,transparent),color-mix(in srgb,var(--s-surface,var(--bg)) 55%,transparent) 55%,transparent)}
+    .sc-shade[data-shade="left"]{left:0;right:auto}.sc-shade[data-shade="right"]{right:0;left:auto;background:linear-gradient(270deg,color-mix(in srgb,var(--s-surface,var(--bg)) 90%,transparent),color-mix(in srgb,var(--s-surface,var(--bg)) 55%,transparent) 55%,transparent)}
+    .sc-shade[data-shade="top"]{top:0;bottom:auto;height:58%;background:linear-gradient(180deg,color-mix(in srgb,var(--s-surface,var(--bg)) 92%,transparent),transparent)}
+    /* phones keep the same story, smaller: shorter travel, no blur, a softer echo */
+    @media (max-width:720px){.sc{--vamp:5}.sc-ghost{opacity:.16}.cs-carry{filter:none}}
     /* a wipe is a band of the next scene's colour sweeping across, never a flat slab covering the screen */
     html[data-flowall] .cs-wipe{background:linear-gradient(100deg,transparent 0%,color-mix(in srgb,var(--c,var(--accent)) 65%,transparent) 24%,var(--c,var(--accent)) 50%,color-mix(in srgb,var(--c,var(--accent)) 65%,transparent) 76%,transparent 100%);skew:-12deg 0}
     /* full-bleed pictures and text bands melt into the flowing colour at their top and bottom edges: a scene's picture
@@ -6783,8 +7042,10 @@
     /* words tied to their picture: they come out of the picture's side as the scene arrives */
     .sc[data-tie="right"]{--td:1}.sc[data-tie="left"]{--td:-1}
     @media (min-width:721px){html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc[data-tie] .sc-text{translate:calc((1 - var(--sn,1)) * var(--td,0) * 7vw) 0}}
-    .sc[data-seam-out="depth-handoff"] .sc-stage{scale:calc(1 + var(--sx,0) * .14);opacity:calc(1 - var(--sx,0) * .85)}
-    .sc[data-seam-in="depth-handoff"] .sc-stage{scale:calc(.9 + var(--sn,1) * .1)}
+    /* depth: the leaving scene moves toward the camera and goes soft; the next arrives from far behind and sharpens */
+    .sc[data-seam-out="depth-handoff"] .sc-stage{scale:calc(1 + var(--sx,0) * .3);opacity:calc(1 - var(--sx,0) * .9);filter:blur(calc(var(--sx,0) * 6px))}
+    .sc[data-seam-in="depth-handoff"] .sc-stage{scale:calc(.76 + var(--sn,1) * .24);filter:blur(calc((1 - var(--sn,1)) * 5px))}
+    @media (max-width:720px){.sc[data-seam-out="depth-handoff"] .sc-stage{scale:calc(1 + var(--sx,0) * .12);filter:none}.sc[data-seam-in="depth-handoff"] .sc-stage{scale:calc(.9 + var(--sn,1) * .1);filter:none}}
     /* a scene's flood: its previous colour fades from over it, or a circle of its new colour grows across it */
     .sc-bgx{position:absolute;inset:0;z-index:0;background:var(--from,var(--bg));pointer-events:none}
     .sc-take{position:absolute;inset:0;z-index:0;background:var(--s-surface,var(--accent));pointer-events:none}
@@ -6886,7 +7147,7 @@
     /* each choreography plays over its own part of the scene's progress */
     var WIN={'zoom-away':[0,.8],'scale-through':[0,.85],'mask-reveal':[.04,.42],'type-wipe':[.06,.4],cardstream:[.04,.96],expand:[.05,.72]};
     var all=[].slice.call(d.querySelectorAll('.sc')),scenes=all.filter(function(s){return s.hasAttribute('data-p')});
-    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
+    scenes.forEach(function(s){s._bw=(s.getAttribute('data-beats')||'').split(';').filter(Boolean).map(function(t){return t.split(',').map(Number)});s._seam=s.hasAttribute('data-seam-in')||s.hasAttribute('data-seam-out')||s.hasAttribute('data-vh')||s.hasAttribute('data-tie')||s.hasAttribute('data-vin')||s.hasAttribute('data-vout');s._ch=s.getAttribute('data-choreo');s._steps=+s.getAttribute('data-steps')||0;s._track=s.querySelector('.sc-stage[data-track]');s._items=[].slice.call(s.querySelectorAll('.sc-item'));s._ly=[].slice.call(s.querySelectorAll('.ly[data-step]'));s._count=s.querySelector('.sc-count b');s._wf=!!s.querySelector('[data-treatment="word-fill"]');s._i=-1;s._next=all[all.indexOf(s)+1]||null});
     function prog(s,vh,y){var top=s._top-y;if(s.hasAttribute('data-pin')){var span=s._h-vh;return span>0?cl(-top/span):0}return cl((vh-top)/(vh+s._h))}
     /* the page as one timeline: g = scene index + progress through that scene (0 when its top reaches the top of the screen,
        1 when its bottom does), from the cached geometry. Each actor samples its keyframes at g -- one track, so a scene's end
@@ -6894,17 +7155,34 @@
        one scene's colour to the next as the seam approaches; a transition's own element plays across its seam (--w). */
     var EZT={smooth:EZ.ss,snap:function(t){return t<.5?16*Math.pow(t,5):1-Math.pow(-2*t+2,5)/2},spring:function(t){var c=1.4;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)}};
     var castEls=[].slice.call(d.querySelectorAll('.ca[data-keys]')).map(function(el){return{el:el,from:+el.getAttribute('data-from'),to:+el.getAttribute('data-to'),e:EZT[el.getAttribute('data-ease')]||EZT.smooth,K:el.getAttribute('data-keys').split(';').map(function(t){return t.split(',').map(Number)}),k:''}});
-    var seamEls=[].slice.call(d.querySelectorAll('.cs[data-at]')).map(function(el){return{el:el,at:+el.getAttribute('data-at'),lead:+el.getAttribute('data-lead')||.4,span:+el.getAttribute('data-span')||.5,end:+el.getAttribute('data-end')||0,w:-1}});
-    var cb=d.querySelector('.cb-a'),cb2=d.querySelector('.cb-b'),BA='',BB='',BT=-1;
+    var seamEls=[].slice.call(d.querySelectorAll('.cs[data-at]')).map(function(el){return{el:el,at:+el.getAttribute('data-at'),lead:+el.getAttribute('data-lead')||.4,span:+el.getAttribute('data-span')||.5,end:+el.getAttribute('data-end')||0,w:-1,carry:el.classList.contains('cs-carry')}});
+    var cb=d.querySelector('.cb-a'),cb2=d.querySelector('.cb-b'),BA='',BB='',BT=-1,BM='';
     var MAXY=0;
     function G(y){var n=all.length,k=0;if(!n||all[0]._top==null)return 0;for(var i=0;i<n;i++){if(all[i]._top<=y+1)k=i;else break}var s=all[k];return k+cl((y-s._top)/Math.max(1,s._h))}
     function sample(A,g){var K=A.K,n=K.length,i=0;if(g<=K[0][0])return K[0];if(g>=K[n-1][0])return K[n-1];while(i<n-2&&K[i+1][0]<g)i++;var a=K[i],b=K[i+1],t=A.e((g-a[0])/Math.max(1e-6,b[0]-a[0])),o=[g];for(var j=1;j<a.length;j++)o.push(a[j]+((b[j]==null?a[j]:b[j])-a[j])*t);return o}
     function frameCast(y,red){if(red||(!castEls.length&&!seamEls.length&&!cb))return;var g=G(y);
       castEls.forEach(function(A){var on=g>=A.from-.6&&g<=A.to+1.25,v=on?sample(A,g):null,key=v?v[1].toFixed(2)+'|'+v[2].toFixed(2)+'|'+v[3].toFixed(3)+'|'+v[4].toFixed(2)+'|'+cl(v[5]).toFixed(2)+'|'+(v[6]==null?'':v[6].toFixed(2)):'off';if(key===A.k)return;A.k=key;var st=A.el.style;
         if(!v){st.setProperty('--ao','0');return}st.setProperty('--ax',v[1].toFixed(2));st.setProperty('--ay',v[2].toFixed(2));st.setProperty('--as',v[3].toFixed(3));st.setProperty('--ar',v[4].toFixed(2));st.setProperty('--ao',cl(v[5]).toFixed(2));if(v[6]!=null)st.setProperty('--sp',cl(v[6]).toFixed(3))});
-      if(cb){var n=all.length,k=Math.max(0,Math.min(n-1,Math.floor(g))),sk=all[k],w0=sk._bgw==null?(sk._bgw=+sk.getAttribute('data-bgw')||.6):sk._bgw,t=EZ.ss(cl((g-k-w0)/Math.max(.05,1-w0))),a=all[k].getAttribute('data-surf')||'',b=(all[k+1]&&all[k+1].getAttribute('data-surf'))||a;
-        if(a!==BA){BA=a;cb.style.backgroundColor=a;cb.style.setProperty('--cbc',a)}if(b!==BB){BB=b;cb2.style.backgroundColor=b;cb2.style.setProperty('--cbc',b)}t=Math.round(t*100)/100;if(t!==BT){BT=t;cb2.style.opacity=String(t)}}
-      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+S.end*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
+      if(cb){var n=all.length,k=Math.max(0,Math.min(n-1,Math.floor(g))),j=0,t=0,mode='blend',P,f0;
+        /* the seam whose colour window holds g (data-pal: from,to around the seam, and how): it opens while the last scene is
+           still on screen and closes after the next has begun -- before that window the last scene's colour, after it the next */
+        if(k+1<n){P=pal(all[k+1]);f0=k+1+P[0];if(g>=f0){j=k+1;t=(g-f0)/Math.max(.05,P[1]-P[0]);mode=P[2]}}
+        if(!j&&k>0){P=pal(all[k]);if(g<=k+P[1]){j=k;t=(g-(k+P[0]))/Math.max(.05,P[1]-P[0]);mode=P[2]}}
+        var A0=j?all[j-1]:all[k],B0=j?all[j]:all[k],a=A0.getAttribute('data-surf')||'',b=B0.getAttribute('data-surf')||a,ga=A0.getAttribute('data-glow')||'',gb=B0.getAttribute('data-glow')||ga;
+        /* hold: the colour stays until the middle of its window, then turns; sweep: the next colour rises as a soft front */
+        t=j?(mode==='hold'?EZ.ss(cl((t-.45)/.55)):EZ.ss(cl(t))):0;
+        if(a!==BA){BA=a;cb.style.backgroundColor=a;cb.style.setProperty('--cbc',a);cb.style.setProperty('--cbg',ga||'transparent')}if(b!==BB){BB=b;cb2.style.backgroundColor=b;cb2.style.setProperty('--cbc',b);cb2.style.setProperty('--cbg',gb||'transparent')}
+        if(mode!==BM){BM=mode;cb2.setAttribute('data-mode',mode)}t=Math.round(t*100)/100;if(t!==BT){BT=t;cb2.style.setProperty('--t',t);cb2.style.opacity=mode==='sweep'?(t>0?'1':'0'):String(t)}}
+      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+S.end*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
+    function pal(s){return s._pal||(s._pal=(function(v){var p=String(v||'-.4,0,blend').split(',');return[+p[0]||-.4,+p[1]||0,p[2]||'blend']})(s.getAttribute('data-pal')))}
+    /* a carried subject: through its window the element follows the live positions of the two scenes' pictures (measured as
+       they scroll), from the outgoing one to the incoming one, while both step aside; the outgoing shot turns into the next */
+    function carry(S,w){var el=S.el;if(!S.ok){S.ok=1;var q='.ly:is([data-role="focal"],[data-role="subject"])';S.A=all[S.at-1]&&all[S.at-1].querySelector(q);S.B=all[S.at]&&all[S.at].querySelector(q);S.ib=el.querySelector('.csc-b')}
+      if(!S.A||!S.B)return;var on=w>0&&w<1;
+      if(!on){if(S.on){S.on=0;el.style.opacity='0';S.A.style.visibility='';S.B.style.visibility=''}return}
+      var ra=S.A.getBoundingClientRect(),rb=S.B.getBoundingClientRect(),e=EZ.ss(w),L=function(p,q){return(p+(q-p)*e).toFixed(1)+'px'};
+      var st=el.style;st.left=L(ra.left,rb.left);st.top=L(ra.top,rb.top);st.width=L(ra.width,rb.width);st.height=L(ra.height,rb.height);
+      if(!S.on){S.on=1;st.opacity='1';S.A.style.visibility='hidden';S.B.style.visibility='hidden'}S.ib.style.opacity=EZ.ss(cl((w-.3)/.4)).toFixed(3)}
     /* steps: the words (and pictures) of a held scene, one state at a time */
     function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
       s._items.forEach(function(el,k){el.classList.toggle('is-on',k===ii)});
