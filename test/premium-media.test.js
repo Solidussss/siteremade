@@ -178,11 +178,15 @@ test('server: Business never uses premium media; no key = clearly unavailable; a
     const x = await call('POST', '/api/premium-media/execute', { quoteId: q.body.quote.id });
     assert.equal(x.body.ok, true); assert.deepEqual(x.body.delivered, []); assert.equal(x.body.creditsCharged, 0); assert.equal(x.body.creditsRemaining, 10);
   });
-  await withServer({ SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P: '5' }, async ({ call, calls }) => {
+  // an expensive configured model is QUOTED at its cost (never as a cheap asset that would then be blocked or under-paid);
+  // past any sane price it is not offered at all -- nothing submitted, nothing charged
+  await withServer({ SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P: '1.5', SITEREMADE_TRIAL_CREDITS: '20' }, async ({ call }) => {
     const q = await call('POST', '/api/premium-media/quote', { kind: 'creative', requests: [{ intent: 'cinematic_hero', asset: 'u1' }], assets: [upload] });
-    const x = await call('POST', '/api/premium-media/execute', { quoteId: q.body.quote.id });
-    assert.match(x.body.failed[0].reason, /budget/); assert.equal(x.body.creditsCharged, 0);
-    assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0, 'an over-budget job is never submitted');
+    assert.equal(q.body.quote.credits, 11, '1.5 USD (1.61 buffered) -> the video tier above the cheap ones, at its floor');
+  });
+  await withServer({ SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P: '50' }, async ({ call, calls }) => {
+    const q = await call('POST', '/api/premium-media/quote', { kind: 'creative', requests: [{ intent: 'cinematic_hero', asset: 'u1' }], assets: [upload] });
+    assert.equal(q.body.ok, false); assert.match(q.body.message, /would exceed this generation's budget/); assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0, 'never submitted');
   });
 });
 
@@ -246,13 +250,14 @@ test('endpoint configuration: a model id or a pasted full URL (API or docs page)
 });
 
 test('the one main quote includes the premium media: Creative 6 + spatial 2 + cinematic hero 3 = up to 11; a costlier model is priced in its own tier', () => {
-  const q = Q.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero', tier: Q.premiumTier('video', 0.35) }] });
+  const q = Q.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero', tier: Q.premiumTier('video', 0.35).code }] });
   assert.equal(q.credits, 11); assert.equal(q.minCredits, 6);
   assert.deepEqual(q.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, true]]);
   assert.match(q.items[2].label, /Cinematic hero video \(premium media, only if it is made\)/);
   // a 4K model costs more than a 3-credit asset may spend: it is quoted in the 5-credit tier, never run over budget
-  assert.equal(plan('a cinematic hero video').planned[0].tier, 'premium_expensive');
-  assert.equal(Q.premiumTier('video', 5), null);
+  // the configured 4K model costs 2.10 USD a video (confirmed): its own tier, 12 credits
+  assert.deepEqual(plan('a cinematic hero video').planned.map(p => [p.tier, p.credits]), [['premium_video_4k', 12]]);
+  assert.equal(Q.premiumTier('video', 9), null, 'an asset beyond any sane price is not offered at all');
 });
 
 // ---------------------------------------------------------------- the real server, end to end (Higgsfield mocked)
@@ -272,9 +277,9 @@ test('server: an explicit cinematic brief -> one quote with the premium media ->
   await withServer(AI, async ({ call, calls }) => {
     const { ask, r } = await start(call, SNEAKER);
     assert.equal(ask.body.premium.planned, true, JSON.stringify(ask.body.premium)); assert.deepEqual(ask.body.premium.intents, ['cinematic_hero']);
-    assert.equal(ask.body.quote.credits, 11, '6 + the 4K cinematic asset (5)'); assert.ok(ask.body.quote.items.some(i => /Cinematic hero video/.test(i.label)));
+    assert.equal(ask.body.quote.credits, 18, '6 + the 4K cinematic hero (12)'); assert.ok(ask.body.quote.items.some(i => /Cinematic hero video/.test(i.label)));
     assert.equal(r.body.ok, true, JSON.stringify(r.body)); assert.equal(r.body.premium.planned, true);
-    assert.equal(r.body.creditsRemaining, 9, 'the whole quote (11) is reserved before anything paid runs');
+    assert.equal(r.body.creditsRemaining, 2, 'the whole quote (18) is reserved before anything paid runs');
     const d = await direct(call, SNEAKER, r); assert.equal(d.body.ok, true, JSON.stringify(d.body).slice(0, 300));
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0, 'nothing before the premium step');
     const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload], premiumMedia: [] });
@@ -286,7 +291,7 @@ test('server: an explicit cinematic brief -> one quote with the premium media ->
     assert.equal(submit.auth, true); assert.equal(submit.params.sound, 'off'); assert.equal(submit.params.duration, 5); assert.ok(!('resolution' in submit.params));
     assert.match(submit.params.image_url, /\/api\/premium-media\/source\//);
     assert.equal(p.body.assets[0].kind, 'video'); assert.equal(p.body.assets[0].sourceAssetId, 'u1');
-    assert.equal(p.body.creditsCharged, 5); assert.equal(p.body.creditsRemaining, 9, 'the premium part was charged once (it was already reserved)');
+    assert.equal(p.body.creditsCharged, 12); assert.equal(p.body.creditsRemaining, 2, 'the premium part was charged once (it was already reserved)');
     const again = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
     assert.equal(again.body.replayed, true); assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'made once');
   });
@@ -311,13 +316,13 @@ test('server: blocked premium media says exactly why and costs nothing -- a righ
     const st = p.body.premium.status;
     assert.equal(st.planned, true); assert.equal(st.reason, 'source_not_eligible');
     assert.match(st.message, /Premium media blocked: source image not eligible for transformation/);
-    assert.equal(p.body.premium.executionStarted, false); assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 5);
+    assert.equal(p.body.premium.executionStarted, false); assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 12);
     assert.equal(calls().filter(c => c.provider === 'higgsfield').length, 0);
   });
   await withServer(AI, async ({ call }) => {
     const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
     const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, assets: [] });
-    assert.equal(p.body.premium.status.reason, 'no_source'); assert.match(p.body.premium.status.message, /No picture to start from/); assert.equal(p.body.creditsRefunded, 5);
+    assert.equal(p.body.premium.status.reason, 'no_source'); assert.match(p.body.premium.status.message, /No picture to start from/); assert.equal(p.body.creditsRefunded, 12);
   });
 });
 
@@ -346,4 +351,72 @@ test('the studio says it every time: "Premium media planned: Yes/No" with the re
   assert.match(src, /class=\\"cs-premium-status\\"|class="cs-premium-status"/, 'the direction panel shows the status');
   assert.match(src, /return runPremium\(\)\.then/, 'the premium step runs after the direction, on its own');
   assert.match(src, /request: operation === 'creative_generation' \? S\.brief : ''/, 'the quote is priced from the brief');
+});
+
+// ================================================================ the confirmed 4K cost (production: 2.10 USD per video)
+test('cost model: a 5-second 4K video costs 2.10 USD (confirmed), budgeted at 2.25 with the safety buffer; both configurable, the buffer never below 1', () => {
+  const c = costs({});
+  assert.equal(c.higgsfield.video_4k, 2.1); assert.equal(c.higgsfieldBudget.video_4k, 2.25);
+  assert.equal(costs({ SITEREMADE_HIGGSFIELD_USD_VIDEO_4K: '2.40' }).higgsfieldBudget.video_4k, 2.57);
+  assert.equal(costs({ SITEREMADE_HIGGSFIELD_SAFETY_BUFFER: '1.2' }).higgsfieldBudget.video_4k, 2.52);
+  assert.equal(costs({ SITEREMADE_HIGGSFIELD_SAFETY_BUFFER: '0.5' }).higgsfieldBudget.video_4k, 2.1, 'a buffer below 1 would under-budget: ignored');
+  assert.notEqual(c.higgsfield.video_4k, 0.9, 'the old guess is gone');
+});
+
+test('quote math: a 4K cinematic hero is 12 credits (never below 11, never under its cost at 0.20 USD per credit); the Creative quote is 6 + 2 + 12 = up to 20', () => {
+  const pricing = require('../lib/pricing');
+  const t = Q.premiumTier('video', costs({}).higgsfieldBudget.video_4k);
+  assert.deepEqual(t, { code: 'premium_video_4k', credits: 12 });
+  assert.ok(t.credits >= 11, 'the 11-credit floor');
+  assert.ok(pricing.providerCeilingUsd(t.credits) >= costs({}).higgsfieldBudget.video_4k, 'its provider ceiling covers the buffered cost: never under-quoted');
+  // a cheaper confirmed cost never drops the 4K price under its floor
+  assert.equal(Q.premiumTier('video', costs({ SITEREMADE_HIGGSFIELD_USD_VIDEO_4K: '1.2' }).higgsfieldBudget.video_4k).credits, 11);
+  // a dearer one raises it
+  assert.equal(Q.premiumTier('video', costs({ SITEREMADE_HIGGSFIELD_USD_VIDEO_4K: '3' }).higgsfieldBudget.video_4k).credits, 17);
+  const p = plan('A Creative site for my sneaker brand with a cinematic hero video');
+  const q = Q.build('creative_generation', { spatialPossible: true, premium: p.planned });
+  assert.deepEqual(q.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_video_4k', 12, true]]);
+  assert.equal(q.credits, 20); assert.equal(q.minCredits, 6, 'the premium video is charged only if it is delivered');
+  assert.match(p.status.message, /cinematic hero \(12 credits\)/);
+});
+
+test('one premium hero video per generation: a second video is never started automatically; a second asset only when explicitly asked for and not another video', () => {
+  const both = plan('a cinematic hero video and a product turn of the sneaker');
+  assert.deepEqual(both.planned.map(x => x.intent), ['cinematic_hero'], 'the hero leads');
+  assert.deepEqual(both.notPlanned, [{ intent: 'object_motion', reason: 'one_video_per_generation' }]);
+  assert.match(both.status.message, /One premium video per generation/);
+  const withImage = plan('a cinematic hero video and an alternate angle of the chair', live({ HIGGSFIELD_IMAGE_ENDPOINT: 'some-image-model/v1/edit' }));
+  assert.deepEqual(withImage.planned.map(x => x.intent), ['cinematic_hero', 'alternate_angle'], 'an explicitly requested image may join the hero');
+  assert.equal(plan('animate the photo with image-to-video and add cinematic transitions').planned.length, 1);
+});
+
+test('server: a delivered 4K hero is charged its 12 credits and records the 2.10 USD it costs; a failed or declined one returns all 12', async () => {
+  await withServer(AI, async ({ call, calls }) => {
+    const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
+    const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+    assert.deepEqual(p.body.premium.delivered, ['cinematic_hero']); assert.equal(p.body.creditsCharged, 12); assert.equal(p.body.creditsRefunded, 0);
+    assert.equal(calls().filter(c => c.provider === 'higgsfield' && /image-to-video$/.test(c.endpoint)).length, 1, 'one video, never more');
+  });
+  for (const outcome of ['failed', 'nsfw']) {
+    await withServer(Object.assign({ MOCK_HIGGSFIELD: outcome }, AI), async ({ call }) => {
+      const { r } = await start(call, SNEAKER); await direct(call, SNEAKER, r);
+      const p = await call('POST', '/api/creative/premium', { jobId: r.body.jobId, brief: SNEAKER, heroAsset: 'u1', assets: [upload] });
+      assert.equal(p.body.premium.executionStarted, true); assert.deepEqual(p.body.premium.delivered, []);
+      assert.equal(p.body.creditsCharged, 0); assert.equal(p.body.creditsRefunded, 12, `${outcome}: Higgsfield did not charge, the owner gets the 12 back`);
+      assert.equal(p.body.creditsRemaining, 14, 'only the page itself (6) was charged');
+      assert.match(p.body.premium.status.message, /credits were returned/);
+    });
+  }
+});
+
+test('the run budgets against the buffered cost and records the actual one', async () => {
+  const b = createBudget({ ceilingUsd: require('../lib/pricing').providerCeilingUsd(12) });
+  const d = deps(fakeProvider('completed'), b, { presets: PM.presets({ HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' }) });
+  const out = await PM.run([req], d);
+  assert.deepEqual(out.delivered, ['cinematic_hero']); assert.equal(b.spentUsd(), 2.1, 'the actual cost is what was spent');
+  assert.equal([...d.db.rows.values()][0].cost_usd, 2.1);
+  const tooSmall = createBudget({ ceilingUsd: require('../lib/pricing').providerCeilingUsd(11) });
+  const p2 = fakeProvider('completed');
+  const out2 = await PM.run([req], deps(p2, tooSmall, { presets: PM.presets({ HIGGSFIELD_VIDEO_ENDPOINT: 'kling-video/v3.0/4k/image-to-video' }) }));
+  assert.equal(p2.log.length, 0, '11 credits (2.20 USD) do not cover the buffered 2.25: nothing is submitted'); assert.equal(out2.failed[0].code, 'budget_blocked');
 });

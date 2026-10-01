@@ -2855,9 +2855,11 @@ app.post('/api/premium-media/quote', express.json({ limit: '16mb' }), requireAut
     let ref = a.assetRef || null; let mime = a.mime || 'image/jpeg';
     if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
     if (!ref || !db.assetBlobs.find(ref)) continue;
-    media.push({ intent: r.intent, source: { assetId: r.sourceAssetId, ref, mime, subject: r.subject, preset: r.preset, mediaType: r.mediaType } });
+    // (priced from the configured model's real cost, with the safety buffer -- a 4K video is never quoted as a cheap asset)
+    const price = premiumPriceFor(r.intent); if (!price) { v.dropped.push({ intent: r.intent, reason: premiumMedia.REASONS.budget_blocked }); continue; }
+    media.push({ intent: r.intent, tier: price.code, credits: price.credits, source: { assetId: r.sourceAssetId, ref, mime, subject: r.subject, preset: r.preset, mediaType: r.mediaType } });
   }
-  if (!media.length) return res.json({ ok: false, dropped: v.dropped, message: 'The source picture could not be read.' });
+  if (!media.length) return res.json({ ok: false, dropped: v.dropped, message: v.dropped.length ? v.dropped[v.dropped.length - 1].reason : 'The source picture could not be read.' });
   await prepareCredits(req.accountId);
   const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'premium_media', plan: { media } });
   res.json({ ok: true, quote: quotes.publicView(q), dropped: v.dropped, creditsRemaining: creditsRemainingFor(req.accountId) });
@@ -2901,6 +2903,12 @@ app.post('/api/premium-media/execute', requireAuth, requireSameOrigin, generatio
 // The brief asked for it, the one quote included it, the owner confirmed it: after the page is directed the studio calls
 // this step on its own (no second offer, no second confirmation). Every outcome is reported in plain words -- made,
 // or exactly why not -- and logged ([premium-media], never a key).
+// the credits one premium asset of this intent costs with the configured model (buffered provider cost / per-credit target)
+function premiumPriceFor(intent) {
+  const def = premiumMedia.INTENTS[intent]; if (!def) return null;
+  const pre = premiumMedia.presets()[def.preset]; const table = providerBudget.costs().higgsfieldBudget;
+  return quotes.premiumTier(def.mediaType, table[pre.costKey] || 0);
+}
 function creativePremiumProvider() { return { hasKey: !!paidProviders.key('higgsfield'), mode: paidProviders.mode(), env: process.env }; }
 function creativePremiumPlan(brief) {
   return premiumMedia.planForBrief({ brief, provider: creativePremiumProvider(), costs: providerBudget.costs(), tierFor: (intent, est) => quotes.premiumTier(premiumMedia.INTENTS[intent].mediaType, est) });

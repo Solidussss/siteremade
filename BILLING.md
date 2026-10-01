@@ -30,6 +30,7 @@ the action credits live in `lib/pricing.js` (one place); Stripe price ids are en
 | + spatial (WebGL depth) rendering | +2 -- reserved, kept only if the system renders the page spatial |
 | Another Creative direction | 5 (+2 spatial) |
 | Premium media: image enhancement / short cinematic asset / extended | +1 / +3 / +5 |
+| Premium media: 5-second 4K cinematic hero video (Higgsfield 4K model) | **+12** (cost-based: 2.10 USD confirmed, 2.25 with the buffer, at 0.20 USD per credit; never below 11) |
 | Optional generated picture (support / premium) | 1 / 2 |
 | Manual edits, uploads, saving, downloading an owned website | 0 |
 
@@ -104,8 +105,10 @@ only for a meaningful improvement the rest cannot give.
 
 **In the generation itself.** When the brief explicitly asks for it (cinematic hero video, image-to-video, premium hero
 media, strong camera movement, product turn, alternate angle, environment motion, premium transition --
-`premium-media.requestedIntents`), the ONE Creative quote includes it (e.g. 6 + spatial 2 + cinematic hero 3 = up to 11;
-a 4K model is priced in the 5-credit tier from its estimated cost), the owner confirms once, the job reserves it with the
+`premium-media.requestedIntents`), the ONE Creative quote includes it, priced from the configured model's real cost
+(with the 4K model: 6 + spatial 2 + 4K cinematic hero 12 = up to 20 credits, 6 if the optional parts are not used). One
+premium video per generation (the hero); a second asset only when explicitly asked for and not another video. The owner
+confirms once, the job reserves it with the
 page, and right after the direction the studio runs `/api/creative/premium` on its own: it picks the source picture (the
 director's pick, else the page's opening picture, else the owner's uploads), checks permission, calls Higgsfield and
 settles at what was delivered. Every generation shows **"Premium media planned: Yes / No"** with the reason (not
@@ -142,7 +145,8 @@ ownership, downloads, editing, the app itself -- depends on a subscription. Canc
 | `STRIPE_PRICE_CREDITS_10`, `_30`, `_75`, `_200` | builder | optional Stripe Price ids for the packs |
 | `HIGGSFIELD_VIDEO_ENDPOINT` | builder | **required** for video intents: a model id (`kling-video/v3.0/4k/image-to-video`) or the full Higgsfield URL |
 | `HIGGSFIELD_IMAGE_ENDPOINT` | builder | optional: image intents (alternate angle, enhancement) run only with it |
-| `SITEREMADE_HIGGSFIELD_USD_VIDEO_4K` | builder | the estimated cost of one 4K video (default 0.90 USD, unverified) -- decides its credit tier |
+| `SITEREMADE_HIGGSFIELD_USD_VIDEO_4K` | builder | what one 5-second 4K video costs at Higgsfield (default **2.10 USD**, confirmed from production usage) |
+| `SITEREMADE_HIGGSFIELD_SAFETY_BUFFER` | builder | multiplier on Higgsfield costs for quoting and spend checks (default 1.07: 2.10 -> 2.25; never below 1) |
 | `SITEREMADE_HIGGSFIELD_USD_VIDEO_5S_720P` (and `_1080P`, `_IMAGE_STANDARD`), `SITEREMADE_SERPAPI_USD_PER_SEARCH` | builder | budgeting estimates, once verified on the providers' consoles |
 | `PUBLIC_BASE_URL` | builder | the public origin Higgsfield fetches a source picture from (defaults to the request's host) |
 | `ALLOW_PAID_PROVIDER_CALLS` | never in production | leave unset; `false` switches paid providers off |
