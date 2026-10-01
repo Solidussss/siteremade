@@ -245,7 +245,7 @@ test('/api/creative/research needs an account and a brief, and does not look up 
     assert.equal((await call('POST', '/api/creative/research', { brief: 'toilet paper' })).status, 401);
     assert.equal((await call('POST', '/api/auth/signup', { email: 'creative-route@example.com', password: 'correct-horse-battery-staple' })).status, 200);
     assert.equal((await call('POST', '/api/creative/research', { brief: '' })).status, 400);
-    const r = await call('POST', '/api/creative/research', { brief: 'An imaginary kingdom run entirely by cats' });
+    const r = await require('./helpers/server-process').research(call, { brief: 'An imaginary kingdom run entirely by cats' });
     assert.equal(r.body.ok, true); assert.equal(r.body.understanding.kind, 'fictional'); assert.equal(r.body.research.status, 'skipped');
     assert.equal(r.body.creditsCharged, 0); assert.deepEqual(r.body.images, []);
     const ledgerFile = path.join(dir, 'premium', 'creative-ledger.jsonl');

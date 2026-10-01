@@ -46,7 +46,13 @@ async function withBridge(extraEnv, fn) {
   } finally { await server.stop(); }
   fs.rmSync(dir, { recursive: true, force: true });
 }
-const edit = (call, project) => call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request: 'Give the homepage a fresh hero photo.' }, { authorization: 'Bearer test-access-token-1' });
+// (the owner approves the update's quote, as the app asks them to; r.quoted is that price)
+const edit = async (call, project) => {
+  const request = 'Give the homepage a fresh hero photo.'; const auth = { authorization: 'Bearer test-access-token-1' };
+  const quote = (await call('POST', '/api/app-bridge/quotes', { operation: 'website_update', request, projectId: project.id }, auth)).body.quote;
+  const r = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request, quoteId: quote.id }, auth);
+  r.quoted = quote.credits; return r;
+};
 const balance = async call => (await call('GET', '/api/credits')).body.credits.remaining;
 
 for (const premiumFlag of ['true', 'false']) {
@@ -69,7 +75,7 @@ for (const premiumFlag of ['true', 'false']) {
       const savedHero = (await call('GET', `/api/projects/${project.id}`)).body.project.directionsState.directions[0].assets.generated.hero;
       const r = await edit(call, project);
       assert.equal(r.status, 200, JSON.stringify(r.body));
-      assert.equal(r.body.creditsCharged, 1, 'one AI update, no picture');
+      assert.equal(r.body.creditsCharged, r.quoted, 'the quoted update, no picture');
       assert.ok(r.body.changeSummary.some(s => /Pictures were left as they are/.test(s)));
       assert.ok(!r.body.appliedOperations.some(o => o.action === 'regenerate-image'));
       assert.equal(openaiCalls(), 0, 'no picture generated');

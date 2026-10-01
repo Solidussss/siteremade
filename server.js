@@ -1,6 +1,10 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
+// PAID PROVIDERS (lib/paid-providers.js): real Anthropic / SerpApi / Higgsfield / OpenAI calls only in production (or with
+// an explicit ALLOW_PAID_PROVIDER_CALLS=true). Installed before anything else can make a request.
+const paidProviders = require('./lib/paid-providers.js');
+paidProviders.installFetchGuard();
 
 // V8.5: durable account/project/purchase persistence -- see
 // SITE-PROJECT-V8.5.md part 1 for why this is a real, hand-rolled,
@@ -31,6 +35,10 @@ const purchase = require('./lib/purchase.js');
 // file any more.
 const credits = require('./lib/credits.js');
 const { createBilling } = require('./lib/billing.js');
+const pricing = require('./lib/pricing.js');
+const quotes = require('./lib/quotes.js');
+const creditPacks = require('./lib/credit-packs.js');
+const providerBudget = require('./lib/provider-budget.js');
 const creativeJobs = require('./lib/creative-jobs.js');
 // FINAL GENERATOR HARDENING pass: a real, in-memory, bounded rate limiter --
 // see lib/rate-limit.js's own header for the full reasoning (same honesty
@@ -171,6 +179,8 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '2
 const OWN_LARGE_JSON_ROUTES = [
   ['POST', /^\/api\/projects\/?$/], ['PUT', /^\/api\/projects\/[^/]+\/?$/], ['POST', /^\/api\/projects\/[^/]+\/export\/?$/],
   ['POST', /^\/api\/projects\/[^/]+\/domain\/?$/], ['POST', /^\/api\/deployments\/[^/]+\/deploy-to\/?$/],
+  // (premium media: the source pictures travel with the quote request)
+  ['POST', /^\/api\/premium-media\/quote\/?$/],
 ];
 const genericJsonParser = express.json({ limit: '900kb' });
 app.use((req, res, next) => (OWN_LARGE_JSON_ROUTES.some(([m, re]) => req.method === m && re.test(req.path)) ? next() : genericJsonParser(req, res, next)));
@@ -523,7 +533,7 @@ async function stripeRequest(endpoint, params) {
 // server and no client code needs to change. The key is read from the
 // server environment only, used only in this server-side fetch, and is
 // never sent to or readable by the browser.
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = paidProviders.key('openai'); // '' outside production unless ALLOW_PAID_PROVIDER_CALLS=true
 // Control-plane pass: a real key alone is no longer sufficient to activate
 // paid image generation. SITEREMADE_PAID_IMAGES must ALSO be explicitly
 // 'true' -- a deliberate two-key gate (operational readiness vs. "we have
@@ -748,9 +758,13 @@ app.get('/api/image-provider-status', (req, res) => {
 app.get('/api/pricing', (req, res) => {
   res.json({
     ok: true,
+    // (the Business price, under its original names, for older pages)
     websitePriceCents: SITEREMADE_WEBSITE_PRICE_CENTS,
     websitePriceCurrency: SITEREMADE_WEBSITE_PRICE_CURRENCY,
-    websitePriceDisplay: formatWebsitePriceDisplay()
+    websitePriceDisplay: formatWebsitePriceDisplay('business'),
+    // OWNERSHIP + CREDITS: one-time ownership by kind, credit packs, the first-website bonus -- no subscription
+    websitePrices: { business: { cents: websitePriceFor('business').cents, currency: websitePriceFor('business').currency, display: formatWebsitePriceDisplay('business') }, creative: { cents: websitePriceFor('creative').cents, currency: websitePriceFor('creative').currency, display: formatWebsitePriceDisplay('creative') } },
+    catalog: pricing.publicCatalog(),
   });
 });
 
@@ -1043,7 +1057,7 @@ app.post('/api/generate-image', requireAuth, generationRateLimit, async (req, re
 // the model's output structurally impossible to turn into arbitrary
 // HTML/CSS, and what lets the normalization layer in script.js validate
 // every field against a known-safe allowlist rather than trusting free text.
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_API_KEY = paidProviders.key('anthropic'); // '' outside production unless ALLOW_PAID_PROVIDER_CALLS=true
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 const plannerDiagnostics = { lastAttempt: null };
 
@@ -1204,11 +1218,30 @@ async function prepareCredits(accountId) {
 }
 // Every paid action is one ledger operation with a unique id; the default id is fresh (a new action), callers that can
 // be retried pass a stable one. Returns { ok, opId, remaining, existing, status }.
-function reserveCredit(accountId, amount, kind, opId) {
-  return credits.reserve(db, { accountId, opId: opId || `${kind}:${crypto.randomUUID()}`, amount, kind });
+// Every reservation is also a usage-ledger row (usage_ledger): what was reserved, settled or refunded, and what the
+// providers cost -- so the economics of each operation type can be read later (GET /api/admin/usage-summary).
+function reserveCredit(accountId, amount, kind, opId, projectId) {
+  const r = credits.reserve(db, { accountId, opId: opId || `${kind}:${crypto.randomUUID()}`, amount, kind });
+  if (r.ok && !r.existing && amount > 0) { const at = new Date().toISOString(); db.usage.ensure({ opId: r.opId, accountId, projectId, operation: kind, createdAt: at }); db.usage.add(r.opId, { quoted: amount, reserved: amount, ceiling_usd: pricing.providerCeilingUsd(amount) }, at); }
+  return r;
 }
-function commitCredit(opId, providerUsd) { if (opId) credits.commit(db, opId, { providerUsd }); }
-function releaseCredit(opId, providerUsd) { if (opId) credits.release(db, opId, { providerUsd }); }
+// usage: { provider: 'anthropic'|'openai'|'serpapi'|'higgsfield', inputTokens, outputTokens, searches, renderer }
+function recordUsage(opId, usd, usage) {
+  if (!opId || !db.usage.find(opId)) return;
+  const u = usage || {}; const f = {};
+  if (usd > 0 || u.provider) Object.assign(f, { [`${u.provider || 'anthropic'}_usd`]: Math.max(0, Number(usd) || 0) });
+  if (u.inputTokens) f.anthropic_input_tokens = u.inputTokens; if (u.outputTokens) f.anthropic_output_tokens = u.outputTokens;
+  if (u.searches) f.serpapi_searches = u.searches; if (u.renderer) f.renderer = u.renderer;
+  db.usage.add(opId, f, new Date().toISOString());
+}
+function commitCredit(opId, providerUsd, usage) {
+  if (!opId) return; const c = credits.commit(db, opId, { providerUsd });
+  recordUsage(opId, providerUsd, usage); if (db.usage.find(opId)) db.usage.add(opId, { status: 'ok', settled: c.charged || 0 }, new Date().toISOString());
+}
+function releaseCredit(opId, providerUsd, usage) {
+  if (!opId) return; const op = credits.findOperation(db, opId); credits.release(db, opId, { providerUsd });
+  recordUsage(opId, providerUsd, usage); if (db.usage.find(opId)) db.usage.add(opId, { status: 'failed', settled: 0, refunded: op ? op.amount : 0 }, new Date().toISOString());
+}
 // For a route whose caller supplies its own attempt id (double clicks, retries, reconnects): the same id while the
 // first attempt is still running is refused (never a second provider call); an id whose attempt already finished and
 // was charged is a new, separately priced action (never free work); a failed attempt's id may simply retry.
@@ -1225,6 +1258,16 @@ const paidReplays = new Map(); const PAID_REPLAY_MS = 30 * 60 * 1000;
 function rememberPaid(opId, body) { if (!opId) return; paidReplays.set(opId, { at: Date.now(), body }); while (paidReplays.size > 200) paidReplays.delete(paidReplays.keys().next().value); }
 function replayPaid(opId) { const r = opId && paidReplays.get(opId); return r && Date.now() - r.at < PAID_REPLAY_MS ? r.body : null; }
 function creditsRemainingFor(accountId) { return accountId ? credits.available(db, accountId).total : null; }
+// The owner's confirmation of a priced operation: the quote id the request carries, if it is theirs, still open, for
+// this operation, and quotes exactly what the server prices the work at now. -> { ok, quote } -- when not ok, `quote` is
+// a fresh one for the owner to confirm (nothing has been reserved or spent).
+function confirmedQuote(req, operation, plan, projectId) {
+  const built = quotes.build(operation, plan);
+  const q = req.accountId ? quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60)) : null;
+  if (q && q.operation === operation && q.credits === built.credits && (q.status === 'accepted' || (q.status === 'open' && q.expiresAt > new Date().toISOString()))) return { ok: true, quote: q };
+  if (!req.accountId) return { ok: false, quote: Object.assign({ id: null, status: 'open', expiresAt: null }, built) };
+  return { ok: false, quote: quotes.create(db, { accountId: req.accountId, projectId: projectId || null, operation, plan }) };
+}
 // a stable operation id derived from the caller's own request key, scoped to the account (a key can never collide
 // with, or unlock, another account's operation)
 function opIdFromKey(prefix, accountId, key) {
@@ -1235,9 +1278,11 @@ function opIdFromKey(prefix, accountId, key) {
 // BILLING PASS: the agreed customer prices, fixed in code (no environment override -- an old variable left on a
 // deployment must never silently change what a customer is charged): Business generation 2, optional generated image
 // 1 (support) / 2 (premium), AI update 1 (CREDIT_COST_BY_CLASS.cheap), Creative page 4 (lib/creative-jobs.js).
-const SITEREMADE_CREDIT_COST_BASE_GENERATION = 2;
-const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = 1;
-const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = 2;
+// OWNERSHIP + CREDITS: every price comes from lib/pricing.js (one table; Business generation 4, Creative 6 on DOM / 8
+// with the spatial layer, updates by size 1-5, premium media +1 / +3 / +5).
+const SITEREMADE_CREDIT_COST_BASE_GENERATION = pricing.ACTION_CREDITS.business_generation;
+const SITEREMADE_CREDIT_COST_IMAGE_SUPPORT = pricing.ACTION_CREDITS.image_support;
+const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = pricing.ACTION_CREDITS.image_premium;
 // PRICING PASS: the ONE-TIME generated-website purchase price, in CAD cents
 // -- the single canonical source of truth for what Stripe actually charges
 // AND what the frontend displays. Previously this was two separate
@@ -1249,13 +1294,16 @@ const SITEREMADE_CREDIT_COST_IMAGE_PREMIUM = 2;
 // deliberately unrelated to and never conflated with the app's own
 // subscription/monthly pricing, which lives entirely in the separate app
 // repo and is never read, stored, or touched here.
-const SITEREMADE_WEBSITE_PRICE_CENTS = Number(process.env.SITEREMADE_WEBSITE_PRICE_CENTS) || 14999;
-const SITEREMADE_WEBSITE_PRICE_CURRENCY = (process.env.SITEREMADE_WEBSITE_PRICE_CURRENCY || 'cad').toLowerCase();
-function formatWebsitePriceDisplay() {
+// OWNERSHIP + CREDITS: the one-time ownership price depends on the website's kind (lib/pricing.js): Business $149.99 CAD,
+// Creative $499.99 CAD. These two names stay as the Business price for older callers; checkout uses websitePriceFor().
+const SITEREMADE_WEBSITE_PRICE_CENTS = pricing.websitePrice('business').cents;
+const SITEREMADE_WEBSITE_PRICE_CURRENCY = pricing.websitePrice('business').currency;
+function websitePriceFor(mode) { return pricing.websitePrice(mode === 'creative' ? 'creative' : 'business'); }
+function formatWebsitePriceDisplay(mode) {
   // "$149.99" -- always two decimals, no internal cents exposed. Currency
   // code is shown separately (matches the existing "$X <small>CAD</small>"
   // markup pattern), so this only ever formats the numeric amount.
-  return `$${(SITEREMADE_WEBSITE_PRICE_CENTS / 100).toFixed(2)}`;
+  return `$${(websitePriceFor(mode).cents / 100).toFixed(2)}`;
 }
 const CREDIT_COST_BY_CLASS = {
   free: 0,
@@ -1310,8 +1358,8 @@ function nextUtcMidnightIso(now) {
 // The customer-facing credit costs, one table for the builder AND the app (served to both).
 const CREDIT_COSTS = {
   businessGeneration: SITEREMADE_CREDIT_COST_BASE_GENERATION,
-  creativePage: creativeJobs.PRICES.research + creativeJobs.PRICES.direction,
-  creativeResearch: creativeJobs.PRICES.research, creativeDirection: creativeJobs.PRICES.direction,
+  creativePage: creativeJobs.PRICES.research + creativeJobs.PRICES.direction, creativeSpatialSurcharge: creativeJobs.PRICES.spatial,
+  creativeResearch: creativeJobs.PRICES.research, creativeDirection: creativeJobs.PRICES.another,
   aiUpdate: CREDIT_COST_BY_CLASS.cheap,
   imageSupport: SITEREMADE_CREDIT_COST_IMAGE_SUPPORT, imagePremium: SITEREMADE_CREDIT_COST_IMAGE_PREMIUM,
   manualEdit: 0, upload: 0,
@@ -2252,7 +2300,12 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
   // BILLING PASS: every request that reaches this route is a paid model call, so it costs one AI update whatever
   // `taskType` the browser labels it with -- a label can describe the edit but can never make the call free. Edits
   // that need no model (colours, spacing, reordering, typed text) are made in the browser and never come here.
-  const creditCost = CREDIT_COSTS.aiUpdate;
+  // OWNERSHIP + CREDITS: an update is priced by what it changes (lib/quotes.js: text 1, section 2, page 2-3, whole site
+  // 5), read deterministically from the request before any model runs. A simple text update (1 credit, the price on the
+  // button) runs at once; anything larger runs only with the owner's confirmed quote.
+  const priced = confirmedQuote(req, 'website_update', { request }, projectId);
+  const creditCost = priced.quote.credits;
+  if (req.accountId && !priced.ok && creditCost > CREDIT_COSTS.aiUpdate) return res.status(200).json({ ok: false, configured: true, needsConfirmation: true, quote: quotes.publicView(priced.quote), creditsRemaining: creditsRemainingFor(req.accountId) });
   let creditReserved = false, creditOp = null;
   if (req.accountId && creditCost > 0) {
     await prepareCredits(req.accountId);
@@ -2260,9 +2313,10 @@ app.post('/api/refine-website', requireAuth, generationRateLimit, async (req, re
     if (creditReservation.inProgress) return res.status(409).json({ ok: false, configured: true, inProgress: true, message: 'This update is already running.' });
     if (creditReservation.replay) return res.json(Object.assign({}, creditReservation.replay, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) }));
     if (!creditReservation.ok) {
-      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: `This AI update needs ${creditCost} credit and your balance is ${creditReservation.remaining}.` });
+      return res.status(200).json({ ok: false, configured: true, creditsExceeded: true, creditsRemaining: creditReservation.remaining, message: `This update needs ${creditCost} credit${creditCost === 1 ? '' : 's'} and your balance is ${creditReservation.remaining}.` });
     }
     creditReserved = true; creditOp = creditReservation.opId;
+    if (priced.quote.id && priced.quote.status === 'open') db.quotes.setStatus(priced.quote.id, 'open', 'accepted', new Date().toISOString(), creditOp);
   }
   const startedAt = Date.now();
   try {
@@ -2442,7 +2496,9 @@ app.post('/api/plan-website', requireAuth, generationRateLimit, async (req, res)
       hasOfferings: !!(plan.business && Array.isArray(plan.business.offerings) && plan.business.offerings.length),
     }, plannerCtx);
     recordOperation({ operationType: taskType, provider: 'anthropic', model: model || ANTHROPIC_MODEL, ok: true, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens, cacheWriteTokens: usage.cache_creation_input_tokens, creditCost: creditReserved ? creditCost : null, creditsCharged: creditReserved ? creditCost : 0, latencyMs, projectId, accountId: req.accountId, anonId });
-    if (creditReserved) commitCredit(creditOp); // reserved -> used, only on real success
+    // reserved -> used, only on real success -- with what the planner call cost (usage_ledger: the average Business
+    // generation's real cost can be read later)
+    if (creditReserved) commitCredit(creditOp, providerBudget.anthropicUsd(model || ANTHROPIC_MODEL, usage), { provider: 'anthropic', inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0, renderer: 'dom' });
     entry.signatures.push(planSignature(plan));
     if (entry.signatures.length > 5) entry.signatures = entry.signatures.slice(-5);
     entry.history.push({ at: startedAt, model, latencyMs, success: true, tokensIn: usage.input_tokens, tokensOut: usage.output_tokens });
@@ -2501,7 +2557,7 @@ const creativeSerpApi = require('./lib/creative/serpapi');
 const creativeDiscovery = require('./lib/creative/discovery');
 // up to three DISTINCT searches per page when the subject needs them (one was too narrow to find recognizable subjects)
 const CREATIVE_SERPAPI = { searches: Math.max(1, Math.min(creativeDiscovery.LIMITS.maxBudget, Number(process.env.CREATIVE_SERPAPI_SEARCHES) || creativeDiscovery.LIMITS.defaultBudget)), cacheDays: Math.max(0, Number(process.env.CREATIVE_SERPAPI_CACHE_DAYS) || 30), daily: Math.max(0, Number(process.env.CREATIVE_SERPAPI_DAILY) || 60), usd: Math.max(0, Number(process.env.CREATIVE_SERPAPI_USD) || 0) };
-function creativeSerpKey() { return String(process.env.SERPAPI_API_KEY || '').trim(); }
+function creativeSerpKey() { return paidProviders.key('serpapi'); }
 const creativeSerpCache = { loaded: false, map: new Map() }; // query -> { at, results } (metadata only: titles and URLs, never the key)
 function creativeSerpCacheFile() { return path.join(PREMIUM_LOG_DIR, 'creative-serp-cache.json'); }
 function creativeSerpCacheGet(q) {
@@ -2576,7 +2632,7 @@ function creativeBudgetTake(usd) {
   return () => { if (done) return; done = true; if (creativeSpend.day === day) creativeSpend.inflight = Math.max(0, (creativeSpend.inflight || 0) - usd); };
 }
 // what a Creative response says about the owner's credits
-function creativeCredits(accountId, charged) { return { creditsCharged: charged || 0, creditsRemaining: creditsRemainingFor(accountId), creditCosts: { page: CREDIT_COSTS.creativePage, research: CREDIT_COSTS.creativeResearch, direction: CREDIT_COSTS.creativeDirection } }; }
+function creativeCredits(accountId, charged) { return { creditsCharged: charged || 0, creditsRemaining: creditsRemainingFor(accountId), creditCosts: { page: CREDIT_COSTS.creativePage, spatialSurcharge: CREATIVE_SPATIAL_ON ? CREDIT_COSTS.creativeSpatialSurcharge : 0, research: CREDIT_COSTS.creativeResearch, direction: CREDIT_COSTS.creativeDirection } }; }
 function creativeProviderDown() { return Date.now() < creativeProvider.downUntil ? creativeProvider.reason : ''; }
 function creativeAiAvailable() { return CREATIVE_AI_LIMITS.enabled && anthropicProvider.configured() && !creativeProviderDown(); }
 function creativeAiUnavailableReason() { return !CREATIVE_AI_LIMITS.enabled ? 'AI direction is switched off (CREATIVE_AI_DIRECTION)' : !anthropicProvider.configured() ? 'no AI model is configured on this server' : creativeProviderDown() || ''; }
@@ -2767,6 +2823,96 @@ app.post('/api/creative/check-pictures', requireAuth, requireSameOrigin, generat
   }
 });
 
+// ---- PREMIUM MEDIA (lib/media/premium-media.js; Higgsfield is the provider today) ---------------------------------------
+// Optional, Creative only, never automatic: the Creative plan (or the owner) names a premium need -- an intent and the
+// picture it starts from -- the owner sees its credit quote, confirms, and only then is anything submitted. At most two
+// per generation; each inside the operation's provider budget; every finished output stored as this project's own asset.
+const premiumMedia = require('./lib/media/premium-media.js');
+const { createHiggsfield } = require('./lib/media/higgsfield.js');
+const { getAssetStore } = require('./lib/adapters/asset-store.js');
+const premiumSources = new Map(); // token -> { ref, mime, until }: the one picture a provider may fetch, for 30 minutes
+function premiumUnavailable() { return paidProviders.key('higgsfield') ? '' : (paidProviders.mode() === 'off' ? 'Premium media is unavailable in this environment (paid providers are off outside production).' : 'Premium media is unavailable: HIGGSFIELD_API_KEY is not set on this server.'); }
+function storeBytes(bytes, mime) {
+  const { hash, byteLength } = getAssetStore().put(bytes);
+  db.assetBlobs.insertIfMissing({ hash, contentType: mime, byteLength, createdAt: new Date().toISOString() });
+  return hash;
+}
+app.post('/api/premium-media/quote', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const b = req.body || {}; const projectId = clean(b.projectId, 120) || null;
+  const project = projectId ? projectStore.getOwnedProject(db, req.accountId, projectId) : null;
+  if (projectId && !project) return res.status(404).json({ ok: false, message: 'Website not found.' });
+  // Business websites stay light: premium media is never part of them
+  const kind = (project && project.mode) || clean(b.kind, 20);
+  if (kind !== 'creative') return res.status(409).json({ ok: false, message: 'Premium media is only for Creative websites.' });
+  const why = premiumUnavailable(); if (why) return res.json({ ok: false, available: false, message: why });
+  const assets = (Array.isArray(b.assets) ? b.assets : []).slice(0, 24).map(a => require('./lib/creative/store').cleanAsset(a)).filter(Boolean);
+  const v = premiumMedia.validateRequests(Array.isArray(b.requests) ? b.requests : [], { assets, models: Array.isArray(b.models) ? b.models.slice(0, 2) : [], mode: clean(b.artMode, 20), kind: 'creative', confirmed: (Array.isArray(b.confirmTransform) ? b.confirmTransform : []).map(x => clean(x, 40)) });
+  if (!v.requests.length) return res.json({ ok: false, dropped: v.dropped, message: v.dropped[0] ? `Nothing to make: ${v.dropped[0].reason}.` : 'Nothing to make.' });
+  // the source pictures are stored now (content-addressed), so what is executed is exactly what was quoted
+  const media = [];
+  for (const r of v.requests) {
+    const a = assets.find(x => x.id === r.sourceAssetId);
+    let ref = a.assetRef || null; let mime = a.mime || 'image/jpeg';
+    if (!ref && a.dataUrl) { const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(a.dataUrl); if (m) { mime = m[1]; ref = storeBytes(Buffer.from(m[2], 'base64'), mime); } }
+    if (!ref || !db.assetBlobs.find(ref)) continue;
+    media.push({ intent: r.intent, source: { assetId: r.sourceAssetId, ref, mime, subject: r.subject, preset: r.preset, mediaType: r.mediaType } });
+  }
+  if (!media.length) return res.json({ ok: false, dropped: v.dropped, message: 'The source picture could not be read.' });
+  await prepareCredits(req.accountId);
+  const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'premium_media', plan: { media } });
+  res.json({ ok: true, quote: quotes.publicView(q), dropped: v.dropped, creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+app.post('/api/premium-media/execute', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const q = quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60));
+  if (!q || q.operation !== 'premium_media') return res.status(404).json({ ok: false, message: 'Quote not found.' });
+  if (q.status === 'settled') return res.status(409).json({ ok: false, message: 'This premium media was already made.' });
+  const why = premiumUnavailable(); if (why) return res.json({ ok: false, available: false, message: why });
+  await prepareCredits(req.accountId);
+  const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: 30 * 60 * 1000 });
+  if (!acc.ok) return res.json({ ok: false, creditsExceeded: acc.reason === 'insufficient', reason: acc.reason, creditsRemaining: acc.remaining, message: acc.reason === 'insufficient' ? `${q.message} Your balance is ${acc.remaining}.` : 'This quote can no longer be used. Ask for a new one.' });
+  if (acc.existing) return res.status(409).json({ ok: false, inProgress: true, message: 'This premium media is already being made.' });
+  const budget = providerBudget.createBudget({ db, opId: acc.opId, ceilingUsd: q.ceilingUsd });
+  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const requests = q.items.filter(i => i.source).map(i => ({ intent: i.intent, mediaType: i.source.mediaType, preset: i.source.preset, sourceAssetId: i.source.assetId, subject: i.source.subject, ref: i.source.ref, mime: i.source.mime }));
+  let out;
+  try {
+    out = await premiumMedia.run(requests, {
+      db, budget, costs: providerBudget.costs(), presets: premiumMedia.presets(), accountId: req.accountId, projectId: q.projectId, opId: acc.opId,
+      provider: createHiggsfield({ key: paidProviders.key('higgsfield') }), store: storeBytes,
+      sourceUrl: async r => { const token = crypto.randomBytes(24).toString('base64url'); premiumSources.set(token, { ref: r.ref, mime: r.mime, until: Date.now() + 30 * 60 * 1000 }); return `${base}/api/premium-media/source/${token}`; },
+    });
+  } catch (error) {
+    quotes.fail(db, q.id); console.error('Premium media failed:', error.message);
+    return res.json({ ok: false, message: 'The premium media could not be made. Your credits were not used.', creditsRemaining: creditsRemainingFor(req.accountId) });
+  }
+  // charged only for what was delivered (each premium item is optional in its quote)
+  const codes = out.delivered.map(intent => (q.items.find(i => i.intent === intent) || {}).code).filter(Boolean);
+  const settled = quotes.settle(db, q.id, { delivered: codes });
+  db.usage.add(acc.opId, { status: out.delivered.length ? 'ok' : 'failed', premium_json: JSON.stringify(out.media.map(m => m.intent)), provider_ids_json: JSON.stringify(out.media.map(m => m.providerJobId)) }, new Date().toISOString());
+  const assets = out.media.map(m => {
+    const premium = { mediaId: m.id, provider: m.provider, providerJobId: m.providerJobId, intent: m.intent, sourceAssetId: m.sourceAssetId };
+    if (m.mediaType === 'video') return { kind: 'video', sourceAssetId: m.sourceAssetId, video: { mediaId: m.id, assetRef: m.assetRef, mime: m.mime, intent: m.intent }, premium };
+    const bytes = getAssetStore().get(m.assetRef);
+    return { kind: 'image', asset: { id: `pm${m.id.slice(3, 14).replace(/[^\w-]/g, '')}`, origin: 'derived', title: `${m.intent.replace(/_/g, ' ')} (premium media)`, alt: '', mime: m.mime, dataUrl: bytes ? `data:${m.mime};base64,${bytes.toString('base64')}` : '', premium, rightsEvidence: [`made for this website from the owner's picture ${m.sourceAssetId}`] } };
+  });
+  res.json({ ok: true, delivered: out.delivered, failed: out.failed, assets, creditsCharged: settled.charged || 0, creditsRefunded: settled.refunded || 0, creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+// the finished media, for the owner's own studio preview (the export writes the same bytes as a file of the website)
+app.get('/api/premium-media/:id/file', requireAuth, (req, res) => {
+  const m = db.premiumMedia.find(clean(req.params.id, 60));
+  if (!m || m.account_id !== req.accountId || m.status !== 'completed' || !m.asset_ref) return res.status(404).json({ ok: false });
+  const bytes = getAssetStore().get(m.asset_ref); if (!bytes) return res.status(404).json({ ok: false });
+  res.setHeader('Content-Type', m.mime || 'application/octet-stream'); res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.end(bytes);
+});
+// the one source picture a provider may fetch while its request runs: an unguessable, 30-minute link to that picture only
+app.get('/api/premium-media/source/:token', (req, res) => {
+  const t = premiumSources.get(String(req.params.token || ''));
+  if (!t || t.until < Date.now()) { premiumSources.delete(String(req.params.token || '')); return res.status(404).end(); }
+  const bytes = getAssetStore().get(t.ref); if (!bytes) return res.status(404).end();
+  res.setHeader('Content-Type', t.mime); res.setHeader('Cache-Control', 'no-store'); res.end(bytes);
+});
+
 // "Use this picture -- I have the rights to it": only a picture this studio just offered this account, fetched with the
 // hardened fetcher; it becomes the owner's supplied picture (the studio records the source and the owner's affirmation)
 app.post('/api/creative/fetch-image', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
@@ -2795,9 +2941,18 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   let jobNew = false;
   if (!job && askedJob && (refine || choice)) return res.json({ ok: false, jobEnded: true, ...creativeCredits(req.accountId), message: `This page's research session has ended. Start the page again to research it (${CREDIT_COSTS.creativePage} credits).` });
   if (!job) {
-    const begun = creativeJobs.begin(db, req.accountId);
-    if (!begun.ok) return res.json({ ok: false, creditsExceeded: true, ...creativeCredits(req.accountId), message: `A Creative page costs ${CREDIT_COSTS.creativePage} credits (research and direction, automatic fixes included). Your balance is ${begun.remaining}.` });
+    // QUOTE -> CONFIRM -> RESERVE: a new page starts only once the owner has seen and confirmed what it will use ("This
+    // generation will use up to 8 credits (6 if ...)"). Without a confirmed, still-open quote nothing is reserved and
+    // nothing paid runs: the answer is the quote to confirm.
+    const q = quotes.get(db, req.accountId, clean(req.body.quoteId, 60));
+    if (!q || q.operation !== 'creative_generation' || q.status !== 'open' || q.expiresAt <= new Date().toISOString()) {
+      const nq = quotes.create(db, { accountId: req.accountId, operation: 'creative_generation', plan: { spatialPossible: CREATIVE_SPATIAL_ON } });
+      return res.json({ ok: false, needsConfirmation: true, quote: quotes.publicView(nq), ...creativeCredits(req.accountId) });
+    }
+    const begun = creativeJobs.begin(db, req.accountId, { spatial: CREATIVE_SPATIAL_ON });
+    if (!begun.ok) return res.json({ ok: false, creditsExceeded: true, quote: quotes.publicView(q), ...creativeCredits(req.accountId), message: `${q.message} Your balance is ${begun.remaining}.` });
     job = begun.job; jobNew = true;
+    db.quotes.setStatus(q.id, 'open', 'accepted', new Date().toISOString(), job.id);
   }
   if (!creativeJobs.takeResearchRun(db, job)) return res.json({ ok: false, researchUsedUp: true, jobId: job.id, ...creativeCredits(req.accountId), message: `This page has used its ${creativeJobs.RESEARCH_RUNS} included research runs. Build it with the pictures you have or upload your own.` });
   // the server's own AI budget: reserved for the worst case before anything paid runs
@@ -2812,8 +2967,14 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
   // check, a picture search). A run with no paid step (AI off, the free sources only) charges nothing; if a later run of
   // the same job does, it is charged then. A first run that fails outright ends the job and returns all 4 credits.
   let paidUsd = 0, paidOk = false;
+  let researchSearches = 0;
   const settleResearch = (failed) => {
     releaseBudget();
+    // the research operation's economics (usage_ledger): its model calls and its picture searches
+    try {
+      const rop = `${job.id}:research`; const held = credits.findOperation(db, rop); const at = new Date().toISOString();
+      if (held) { db.usage.ensure({ opId: rop, accountId: req.accountId, operation: 'creative_research', createdAt: at }); db.usage.add(rop, { quoted: held.amount, reserved: held.amount, anthropic_usd: Math.max(0, paidUsd), serpapi_searches: researchSearches, serpapi_usd: +(researchSearches * providerBudget.costs().serpapiPerSearch).toFixed(4), status: failed && !paidOk ? 'failed' : 'ok', settled: paidOk ? held.amount : 0 }, at); }
+    } catch (e) { /* the ledger of economics never blocks the customer */ }
     if (failed && jobNew && !paidOk) { creativeJobs.researchFailed(db, job, { providerUsd: paidUsd }); return 0; }
     if (!paidOk) { credits.addProviderUsd(db, `${job.id}:research`, paidUsd); return 0; }
     const c = creativeJobs.researchDone(db, job, { providerUsd: paidUsd });
@@ -2913,7 +3074,7 @@ app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRat
       retrieved: new Date().toISOString().slice(0, 10), dataUrl: `data:${v.mime};base64,${v.bytes.toString('base64')}`,
     }));
     review = web ? web.review : [];
-    if (web) { paidUsd += Number(web.usd) || 0; if (web.searches > 0 || web.usd > 0 || (web.diag && web.diag.judged)) paidOk = true; }
+    if (web) { researchSearches += Number(web.searches) || 0; paidUsd += Number(web.usd) || 0; if (web.searches > 0 || web.usd > 0 || (web.diag && web.diag.judged)) paidOk = true; }
     webDiag = web ? web.diag : { ran: false, reason: why };
     const merged = { source: web && web.discovery ? 'ai' : 'rules', coverage: web ? web.coverage : 'none', missing: web ? web.missing : [] };
     merged.web = web ? { ran: true, provider: creativeSerpKey() ? 'google-images' : 'web-search', searches: web.searches, pages: web.log ? web.log.pages : 0, found: web.log ? web.log.images : 0, used: web.images.length, review: web.review.length, usd: +web.usd.toFixed(5), ms: web.log ? web.log.ms : 0, error: web.error || '', ...(web.discovery ? { status: web.discovery.status, discovery: web.discovery.discovery, permission: web.discovery.permission, message: web.discovery.message } : {}) } : { ran: false, reason: why };
@@ -2941,7 +3102,18 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   }
   if (!job) return res.status(402).json({ ok: false, needsJob: true, ...creativeCredits(req.accountId), reason: 'this page has no active job -- start it from its brief', message: `Start the page from its brief to direct it (${CREDIT_COSTS.creativePage} credits).` });
   await prepareCredits(req.accountId);
-  const started = creativeJobs.beginDirection(db, req.accountId, job, { another: !!clean(b.avoid, 600) });
+  // another direction for a page that already has one is a new, separately quoted operation the owner confirms first
+  const another = !!clean(b.avoid, 600);
+  let anotherQuote = null;
+  if (another && job.directions > 0) {
+    anotherQuote = quotes.get(db, req.accountId, clean(b.quoteId, 60));
+    if (!anotherQuote || anotherQuote.operation !== 'creative_direction' || anotherQuote.status !== 'open' || anotherQuote.expiresAt <= new Date().toISOString()) {
+      const nq = quotes.create(db, { accountId: req.accountId, operation: 'creative_direction', plan: { spatialPossible: CREATIVE_SPATIAL_ON } });
+      return res.json({ ok: false, needsConfirmation: true, quote: quotes.publicView(nq), ...creativeCredits(req.accountId) });
+    }
+  }
+  const started = creativeJobs.beginDirection(db, req.accountId, job, { another, spatial: CREATIVE_SPATIAL_ON });
+  if (started.ok && anotherQuote) db.quotes.setStatus(anotherQuote.id, 'open', 'accepted', new Date().toISOString(), started.op);
   if (started.replay) return res.json(Object.assign({}, started.replay, { replayed: true }, creativeCredits(req.accountId)));
   if (!started.ok && started.reason === 'in_progress') return res.status(409).json({ ok: false, inProgress: true, message: 'This page is already being directed.' });
   if (!started.ok) return res.json({ ok: false, creditsExceeded: true, ...creativeCredits(req.accountId), message: `Another direction costs ${CREDIT_COSTS.creativeDirection} credits. Your balance is ${started.remaining || 0}.` });
@@ -3002,8 +3174,15 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   }
   creativeArtDump({ identity: u.identity && { name: u.identity.name, type: u.identity.type, status: u.identity.status, confidence: u.identity.confidence }, register: u.tone && u.tone.register, recipe: input.art && { ambition: input.art.ambition, concept: input.art.concept, personality: input.art.personality, mode: input.art.mode, family: input.art.family, genre: input.art.genre, why: input.art.why }, model: r.raw && r.raw.art && { personality: r.raw.art.personality, mode: r.raw.art.mode, family: r.raw.art.family }, final: r.plan.art && { ambition: r.plan.art.ambition, concept: r.plan.art.concept, personality: r.plan.art.personality, mode: r.plan.art.mode, family: r.plan.art.family }, renderer: (r.plan.timeline && r.plan.timeline.renderer) || 'dom', spatialWhy: (r.plan.timeline && r.plan.timeline.why) || null, moments: ((r.plan.timeline && r.plan.timeline.moments) || []).map(m => m.kind), history: recent.length, fixes: (r.fixes || []).filter(f => /^art:/.test(f)) });
   const directed = { ok: true, jobId: job.id, plan: r.plan, fixes: r.fixes, warnings: r.warnings, meta };
-  creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd });
-  res.json(Object.assign({ spatial: CREATIVE_SPATIAL_ON }, directed, creativeCredits(req.accountId, CREDIT_COSTS.creativeDirection)));
+  // settled at what the page IS: the spatial surcharge stays only if the system rendered it spatial
+  const renderer = (r.plan.timeline && r.plan.timeline.renderer) || 'dom';
+  const heldOp = credits.findOperation(db, directionOpId); const nowIso = new Date().toISOString();
+  db.usage.ensure({ opId: directionOpId, accountId: req.accountId, operation: heldOp ? heldOp.kind : 'creative_direction', createdAt: nowIso });
+  if (heldOp) db.usage.add(directionOpId, { quoted: heldOp.amount, reserved: heldOp.amount, ceiling_usd: pricing.providerCeilingUsd(heldOp.amount) }, nowIso);
+  const settled = creativeJobs.directionDone(db, job, directionOpId, directed, { providerUsd: usd, renderer });
+  recordUsage(directionOpId, usd, { provider: 'anthropic', renderer });
+  db.usage.add(directionOpId, { status: 'ok', settled: settled.charged, refunded: settled.refunded, premium_json: JSON.stringify((r.plan.premiumMedia || []).map(m => m.intent)) }, nowIso);
+  res.json(Object.assign({ spatial: CREATIVE_SPATIAL_ON }, directed, creativeCredits(req.accountId, settled.charged), { creditsRefunded: settled.refunded }));
 });
 
 // V9 (Phase 9): "Redesign my existing website" -- step 1 of 2. Fetches ONE
@@ -3079,7 +3258,9 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
       purchase.cancelIntent(db, req.accountId, open.id);
     }
     const testerPurchase = isFreePurchaseTester(req.accountEmail);
-    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: testerPurchase ? 0 : SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY });
+    // OWNERSHIP: one-time, by kind -- Business $149.99 CAD, Creative $499.99 CAD (lib/pricing.js). No subscription.
+    const kind = owned.mode === 'creative' ? 'creative' : 'business'; const price = websitePriceFor(kind);
+    const intentResult = purchase.createPurchaseIntent(db, { ownerId: req.accountId, projectId, amount: testerPurchase ? 0 : price.cents, currency: price.currency, kind });
     if (!intentResult.ok) {
       if (intentResult.reason === 'already_purchased') return res.status(409).json({ ok: false, message: 'This project has already been purchased.' });
       return res.status(404).json({ ok: false, message: 'Project not found.' });
@@ -3121,13 +3302,15 @@ app.post('/api/checkout', requireAuth, requireSameOrigin, async (req, res) => {
       // rather than trusting this query string directly.
       success_url: `${origin}/?purchased=1&intent=${encodeURIComponent(intentId)}#buy`,
       cancel_url: `${origin}/?purchase_cancelled=1&intent=${encodeURIComponent(intentId)}#buy`,
-      line_items: [{
+      // a configured Stripe Price (STRIPE_PRICE_BUSINESS_WEBSITE / STRIPE_PRICE_CREATIVE_WEBSITE), else the same amount
+      // inline; either way fulfilment checks the paid amount against lib/pricing.js
+      line_items: [price.stripePriceId ? { quantity: 1, price: price.stripePriceId } : {
         quantity: 1,
         price_data: {
-          currency: SITEREMADE_WEBSITE_PRICE_CURRENCY,
-          unit_amount: SITEREMADE_WEBSITE_PRICE_CENTS,
+          currency: price.currency,
+          unit_amount: price.cents,
           product_data: {
-            name: `SiteRemade website — ${businessName}`,
+            name: `SiteRemade ${price.label} — ${businessName}`,
             description: `${industry} · ${sectionsSummary || 'Generated website'}`.slice(0, 300),
           },
         },
@@ -3174,7 +3357,14 @@ app.post('/api/stripe/webhook', (req, res) => {
   try {
     if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && session && session.id) {
       // unlocked only for what the signed event itself says was paid, in the agreed amount and currency
-      const fulfillment = purchase.fulfillBySessionId(db, session.id, { status: session.payment_status, amountTotal: session.amount_total, currency: session.currency });
+      // a credit pack (lib/credit-packs.js) or a website (lib/purchase.js) -- told apart by our own records, not metadata alone
+      const pack = db.creditPurchases.findBySession(session.id);
+      if (pack) {
+        const got = creditPacks.fulfillBySession(db, session.id, { status: session.payment_status, amountTotal: session.amount_total, currency: session.currency, paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null });
+        if (!got.ok && got.reason !== 'not_paid') console.error('Credit pack not fulfilled:', got.reason, session.id);
+        return res.status(200).json({ ok: true });
+      }
+      const fulfillment = purchase.fulfillBySessionId(db, session.id, { status: session.payment_status, amountTotal: session.amount_total, currency: session.currency, paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null });
       if (!fulfillment.ok && fulfillment.reason !== 'not_paid') console.error('Website purchase not fulfilled:', fulfillment.reason, session.id);
       if (fulfillment.ok && fulfillment.duplicatePayment) console.error('Website paid twice (refund the second payment):', session.id, fulfillment.projectId);
       // Only on a FIRST-TIME fulfillment (never on Stripe's own documented
@@ -3188,9 +3378,15 @@ app.post('/api/stripe/webhook', (req, res) => {
         }).catch(error => console.error('Purchase confirmation email failed to send:', error));
       }
     } else if ((event.type === 'checkout.session.expired') && session && session.id) {
-      purchase.markIntentTerminal(db, session.id, 'cancelled');
+      if (db.creditPurchases.findBySession(session.id)) creditPacks.markTerminal(db, session.id, 'cancelled'); else purchase.markIntentTerminal(db, session.id, 'cancelled');
     } else if (event.type === 'checkout.session.async_payment_failed' && session && session.id) {
-      purchase.markIntentTerminal(db, session.id, 'failed');
+      if (db.creditPurchases.findBySession(session.id)) creditPacks.markTerminal(db, session.id, 'failed'); else purchase.markIntentTerminal(db, session.id, 'failed');
+    } else if (event.type === 'charge.refunded' && session && typeof session.payment_intent === 'string') {
+      // a refund never leaves permanent credits behind: a refunded pack, or the first-website bonus a refunded website
+      // unlocked, loses its UNUSED credits (spent credits paid for work done). Idempotent: a repeated event changes nothing.
+      const refund = { amountRefunded: session.amount_refunded, amount: session.amount };
+      const r = db.creditPurchases.findByPaymentIntent(session.payment_intent) ? creditPacks.refundByPaymentIntent(db, session.payment_intent, refund) : purchase.refundByPaymentIntent(db, session.payment_intent, refund);
+      if (r && r.partial) console.error('Partial refund -- no credits changed automatically:', session.payment_intent);
     }
     // Any other event type is acknowledged (200) without action -- Stripe
     // retries on non-2xx, and this app only cares about the two above.
@@ -3634,6 +3830,71 @@ app.get('/api/credits', requireAuth, async (req, res) => {
   res.json({ ok: true, credits: creditsSummaryFor(req.accountId) });
 });
 
+// ---- OWNERSHIP + CREDITS ---------------------------------------------------------------------------------------------
+// Buy the website once, own it permanently; credits power whatever SiteRemade does afterwards. No subscription exists.
+// What customers see: website prices, credit packs, the first-website bonus and the action credits (never provider costs).
+app.get('/api/billing/catalog', (req, res) => {
+  res.json({ ok: true, catalog: pricing.publicCatalog(), subscriptionRequired: false, ownershipNeedsCredits: false });
+});
+// A quote for planned work: what it will use, before anything paid runs. Accepting happens on the operation's own route
+// (it passes quoteId back), so a quote can never be spent without the work it was made for.
+const QUOTABLE = ['business_generation', 'creative_generation', 'creative_direction', 'website_update', 'image'];
+app.post('/api/quotes', requireAuth, requireSameOrigin, async (req, res) => {
+  const operation = clean(req.body && req.body.operation, 40);
+  if (!QUOTABLE.includes(operation)) return res.status(400).json({ ok: false, message: 'Unknown operation.' });
+  const plan = { request: clean(req.body.request, 1200), deep: req.body.deep === true, premium: req.body.premium === true, spatialPossible: operation.startsWith('creative_') ? CREATIVE_SPATIAL_ON : false };
+  if (operation === 'website_update' && !plan.request && !plan.deep) return res.status(400).json({ ok: false, message: 'Describe the change first.' });
+  await prepareCredits(req.accountId);
+  const q = quotes.create(db, { accountId: req.accountId, projectId: clean(req.body.projectId, 60) || null, operation, plan });
+  res.json({ ok: true, quote: quotes.publicView(q), creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+app.get('/api/quotes/:id', requireAuth, (req, res) => {
+  const q = quotes.get(db, req.accountId, clean(req.params.id, 60));
+  if (!q) return res.status(404).json({ ok: false, message: 'Quote not found.' });
+  res.json({ ok: true, quote: quotes.publicView(q) });
+});
+// Credit packs: one-time Stripe payments. The credits are granted only by the signed webhook (lib/credit-packs.js).
+async function startCreditCheckout(req, res, { returnTo } = {}) {
+  const packId = clean(req.body && req.body.packId, 40);
+  if (!pricing.creditPack(packId)) return res.status(400).json({ ok: false, message: 'Unknown credit pack.' });
+  if (!STRIPE_SECRET_KEY) return res.status(200).json({ ok: false, configured: false, message: 'Checkout is not yet configured on this environment.' });
+  const made = creditPacks.createCheckout(db, { accountId: req.accountId, packId });
+  const pack = made.pack; const origin = returnTo || `${req.protocol}://${req.get('host')}`;
+  try {
+    const session = await stripeRequest('checkout/sessions', {
+      mode: 'payment', client_reference_id: made.purchase.id,
+      success_url: `${origin}/?credits=purchased&purchase=${encodeURIComponent(made.purchase.id)}`, cancel_url: `${origin}/?credits=cancelled`,
+      line_items: [pack.stripePriceId ? { quantity: 1, price: pack.stripePriceId } : { quantity: 1, price_data: { currency: pack.currency, unit_amount: pack.cents, product_data: { name: pack.label, description: 'Credits for SiteRemade AI and media work. One-time purchase; credits do not expire.' } } }],
+      metadata: { kind: 'credit_pack', purchaseId: made.purchase.id, packId: pack.id },
+    });
+    creditPacks.attachSession(db, made.purchase.id, session.id);
+    return res.json({ ok: true, url: session.url, purchaseId: made.purchase.id });
+  } catch (error) {
+    console.error('Credit checkout failed:', error.message);
+    return res.status(500).json({ ok: false, message: 'Could not start checkout. Please try again shortly.' });
+  }
+}
+app.post('/api/credits/checkout', requireAuth, requireSameOrigin, (req, res) => startCreditCheckout(req, res));
+app.get('/api/credits/purchases/:id', requireAuth, (req, res) => {
+  const row = db.creditPurchases.findById(clean(req.params.id, 60));
+  if (!row || row.account_id !== req.accountId) return res.status(404).json({ ok: false });
+  res.json({ ok: true, purchase: { id: row.id, packId: row.pack_id, credits: row.credits, status: row.status }, creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+// the customer's own credit history (the append-only ledger, in plain words)
+app.get('/api/credits/history', requireAuth, (req, res) => {
+  const rows = credits.history(db, req.accountId, Math.min(200, Number(req.query.limit) || 50));
+  res.json({ ok: true, events: rows.map(e => ({ type: e.type, amount: e.amount, reason: e.reason || '', at: e.created_at })) });
+});
+// economics (operators only, fail-closed): what each operation type actually costs SiteRemade on average
+app.get('/api/admin/usage-summary', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
+  res.json({ ok: true, since: clean(req.query.since, 40) || null, operations: db.usage.summary(clean(req.query.since, 40) || null), usdPerCreditCeiling: pricing.USD_PER_CREDIT_CEILING, providers: paidProviders.status() });
+});
+app.get('/api/admin/paid-providers', (req, res) => {
+  if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return res.status(404).json({ ok: false });
+  res.json({ ok: true, ...paidProviders.status() });
+});
+
 // Create (or idempotently resolve, via sourceLocalId) an owned project.
 // This is also the anonymous -> account migration endpoint: the client
 // sends the EXACT in-browser directions state, unmodified, tagged with the
@@ -4021,7 +4282,29 @@ app.get('/api/app-bridge/website/:projectId', appBridgeRateLimit, requireAppBrid
 // right away (after the owner subscribes, changes or cancels), instead of waiting for the few-minute cache.
 app.get('/api/app-bridge/credits', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, async (req, res) => {
   try { await billing.refresh(req.accountId, { force: req.query.refresh === '1' }); } catch (e) { console.error('Billing refresh failed:', e.message); }
-  return res.json({ ok: true, credits: creditsSummaryFor(req.accountId), websitePrice: { cents: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY, display: formatWebsitePriceDisplay() } });
+  return res.json({ ok: true, credits: creditsSummaryFor(req.accountId), websitePrice: { cents: SITEREMADE_WEBSITE_PRICE_CENTS, currency: SITEREMADE_WEBSITE_PRICE_CURRENCY, display: formatWebsitePriceDisplay('business') }, catalog: pricing.publicCatalog(), subscriptionRequired: false });
+});
+// OWNERSHIP + CREDITS for the app: the quote for an update before it runs, a credit-pack checkout (credits are granted
+// by the builder's signed Stripe webhook, never by the app or a redirect), and the credit history.
+app.post('/api/app-bridge/quotes', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, async (req, res) => {
+  const b = req.body || {}; const operation = clean(b.operation, 40) || 'website_update';
+  if (!QUOTABLE.includes(operation)) return bridgeError(res, 400, 'invalid_request', 'Unknown operation.');
+  const request = clean(b.request, 600);
+  if (operation === 'website_update' && !request) return bridgeError(res, 400, 'invalid_request', 'Describe the change you want to make.');
+  const projectId = clean(b.projectId, 120) || null;
+  if (projectId && !projectStore.getOwnedProject(db, req.accountId, projectId)) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  await prepareCredits(req.accountId);
+  const q = quotes.create(db, { accountId: req.accountId, projectId, operation, plan: { request, spatialPossible: operation.startsWith('creative_') ? CREATIVE_SPATIAL_ON : false } });
+  return res.json({ ok: true, quote: quotes.publicView(q), creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+app.post('/api/app-bridge/credits/checkout', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  // back to the app after checkout -- only ever the app's own origin (never a URL the request chooses)
+  const appOrigin = String(process.env.SITEREMADE_APP_URL || 'https://app.siteremade.com').replace(/\/$/, '');
+  return startCreditCheckout(req, res, { returnTo: appOrigin });
+});
+app.get('/api/app-bridge/credits/history', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const rows = credits.history(db, req.accountId, Math.min(200, Number(req.query.limit) || 50));
+  return res.json({ ok: true, events: rows.map(e => ({ type: e.type, amount: e.amount, reason: e.reason || '', at: e.created_at })) });
 });
 
 // Authenticated, non-hosted preview for the Client App. This compiles the
@@ -4216,15 +4499,21 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
   // an idempotency key per update, so a retried or reconnected request never plans (or charges) twice.
   // A redesign is also one AI update (DEEP_REFINEMENT_CREDIT_COST).
   const taskType = deep ? 'SITE_REDESIGN' : 'COPY_REWRITE';
-  const refineCost = deep ? DEEP_REFINEMENT_CREDIT_COST : CREDIT_COSTS.aiUpdate;
+  // OWNERSHIP + CREDITS: My website -> describe the change -> see the credit quote -> approve -> SiteRemade does it.
+  // The price follows what the change touches (text 1, section 2, page 2-3, whole-site redesign 5), read from the
+  // request before anything is spent; the update runs only with the owner's confirmed quote for exactly that price.
+  const priced = confirmedQuote(req, 'website_update', { request }, project.id);
+  if (!priced.ok) return bridgeError(res, 409, 'confirmation_required', priced.quote.message, { quote: quotes.publicView(priced.quote), creditsRemaining: creditsRemainingFor(req.accountId) });
+  const refineCost = priced.quote.credits;
   let refineReserved = false, refineOp = null;
   if (refineCost > 0) {
     await prepareCredits(req.accountId);
     const reservation = reserveAttempt(req.accountId, refineCost, 'ai_update', editOpId);
     if (reservation.inProgress) return bridgeError(res, 409, 'in_progress', 'This update is already being made.');
     if (reservation.replay) return res.json(Object.assign({}, reservation.replay, { creditsCharged: 0, replayed: true, creditsRemaining: creditsRemainingFor(req.accountId) }));
-    if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', `An AI update needs ${refineCost} credit and your balance is ${reservation.remaining}. Nothing was changed.`, { creditsRemaining: reservation.remaining });
+    if (!reservation.ok) return bridgeError(res, 402, 'insufficient_credits', `This update needs ${refineCost} credit${refineCost === 1 ? '' : 's'} and your balance is ${reservation.remaining}. Nothing was changed.`, { creditsRemaining: reservation.remaining, quote: quotes.publicView(priced.quote) });
     refineReserved = true; refineOp = reservation.opId;
+    if (priced.quote.status === 'open') db.quotes.setStatus(priced.quote.id, 'open', 'accepted', new Date().toISOString(), refineOp);
   }
   const imageSettlements = [];
   const startedAt = Date.now();

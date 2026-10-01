@@ -115,13 +115,13 @@
   function refreshBalance() {
     if (!signedIn()) { if (els.csBalance) els.csBalance.textContent = ''; return; }
     api('/api/credits').then(function (r) { if (r.ok && r.data && r.data.credits) { S.planLabel = r.data.credits.planLabel; showBalance(r.data.credits.remaining); } });
-    if (!price) api('/api/pricing').then(function (r) { if (r.ok && r.data && r.data.ok) { price = r.data.websitePriceDisplay + ' ' + String(r.data.websitePriceCurrency || '').toUpperCase(); showBuy(); } });
+    if (!price) api('/api/pricing').then(function (r) { if (r.ok && r.data && r.data.ok) { var p = (r.data.websitePrices && r.data.websitePrices.creative) || { display: r.data.websitePriceDisplay, currency: r.data.websitePriceCurrency }; price = p.display + ' ' + String(p.currency || '').toUpperCase(); showBuy(); } });
   }
   function showBuy() {
     if (!els.csBuy) return;
     els.csBuy.hidden = !S.plan;
     els.csBuy.textContent = S.status === 'purchased' ? 'Download website' : 'Buy this website' + (price ? ' — ' + price : '');
-    els.csBuy.title = S.status === 'purchased' ? 'Download the files of the website you bought' : 'One-time purchase of this page as a website you can download and host. Not included in a Workspace subscription.';
+    els.csBuy.title = S.status === 'purchased' ? 'Download the files of the website you bought' : 'One-time purchase: you own this website permanently and can download and host it anywhere. No subscription, and owning it never needs credits.';
   }
   function rememberJob(directed) { try { if (S.jobId) localStorage.setItem(JOB, JSON.stringify({ jobId: S.jobId, brief: S.brief, directed: !!directed })); } catch (e) { /* optional */ } }
   function openJobFor(brief) { var j = null; try { j = JSON.parse(localStorage.getItem(JOB) || 'null'); } catch (e) { j = null; } return j && !j.directed && j.brief === brief ? j.jobId : null; }
@@ -280,12 +280,22 @@
   function fail(msg) { els.csError.hidden = false; els.csError.textContent = msg; S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; }
   function lines(t) { return String(t || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
 
-  function create(choice) {
+  // OWNERSHIP + CREDITS: dynamic work is quoted first and runs only once the owner confirms what it will use
+  function confirmQuote(operation, preface) {
+    return api('/api/quotes', { method: 'POST', body: { operation: operation, projectId: S.projectId || '' } }).then(function (r) {
+      if (r.status === 401) { needSignIn('Sign in to continue.'); return null; }
+      if (!r.ok || !r.data || !r.data.ok) { els.csError.hidden = false; els.csError.textContent = (r.data && r.data.message) || 'Could not price this right now.'; return null; }
+      var q = r.data.quote; var left = typeof r.data.creditsRemaining === 'number' ? '\n\nYou have ' + r.data.creditsRemaining + ' credit' + (r.data.creditsRemaining === 1 ? '' : 's') + '.' : '';
+      return window.confirm((preface ? preface + '\n\n' : '') + q.message + left + '\n\nContinue?') ? q.id : null;
+    });
+  }
+  function create(choice, quoteId) {
     if (S.busy) return;
     S.brief = els.csBrief.value.trim(); S.suppliedText = els.csSupplied.value; S.memoriesText = els.csMemories.value;
     if (!S.brief) { els.csBrief.focus(); return; }
     if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
-    if (S.dirty && S.plan && !choice && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
+    if (S.dirty && S.plan && !choice && !quoteId && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
+    if (!choice && !quoteId && !openJobFor(S.brief)) return confirmQuote('creative_generation').then(function (q) { if (q) return create(choice, q); });
     S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
     steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page']]);
@@ -293,8 +303,10 @@
     step('understand', 'active', 'Reading the brief, then looking it up: the encyclopedia for facts, a picture search, and a check of the pictures (up to a minute)');
     var t0 = Date.now();
     var jobId = choice ? S.jobId : openJobFor(S.brief);
-    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, jobId: jobId || '' } }).then(function (r) {
+    return api('/api/creative/research', { method: 'POST', body: { brief: S.brief, supplied: S.suppliedText, choice: choice || '', hasUploads: uploads.length, jobId: jobId || '', quoteId: quoteId || '' } }).then(function (r) {
       if (r.status === 401) { S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; needSignIn('Sign in to make a Creative page.'); return; }
+      // the price changed or the quote ran out: confirm the new one (nothing was reserved or spent)
+      if (r.data && r.data.needsConfirmation && r.data.quote) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; if (window.confirm(r.data.quote.message + '\n\nContinue?')) return create(choice, r.data.quote.id); return; }
       creditsFrom(r.data);
       if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
@@ -523,17 +535,18 @@
     return { background: a.background && a.background.colour || '', plainBackground: !!(a.background && a.background.uniformity >= 0.8), colours: (a.colours || []).slice(0, 6) };
   }
   function liveMain() { var a = S.mainAsset && S.assets.find(function (x) { return x.id === S.mainAsset && !x.removed && !x.failed; }); return a ? a.id : null; }
-  function planDirection(avoid) {
+  function planDirection(avoid, quoteId) {
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', quoteId: quoteId || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
       creditsFrom(d); if (typeof d.spatial === 'boolean') S.spatialOn = d.spatial;
       // not enough credits, or no page job: nothing was spent, and the page is not swapped for a free layout
       if (d.creditsExceeded || d.needsJob || d.inProgress) return { stop: d.message || d.reason || 'This direction could not start.' };
+      if (d.needsConfirmation && d.quote) return { stop: d.quote.message + ' Nothing was spent -- try again to confirm it.' };
       // (what this account made recently, so a built-in page steers away from it too)
       if (Array.isArray(d.recentRecipes)) S.recentRecipes = d.recentRecipes.filter(function (x) { return typeof x === 'string'; }).slice(0, 10);
       if (r.ok && d.ok && d.plan) rememberJob(true);
@@ -568,10 +581,12 @@
   }
   function anotherDirection() {
     if (S.busy || !S.plan) return Promise.resolve();
-    if (S.dirty && !window.confirm('Try another direction? The current layout is kept so you can go back, but text edits made to it stay with it.')) return Promise.resolve();
+    return confirmQuote('creative_direction', S.dirty ? 'Try another direction? The current layout is kept so you can go back, but text edits made to it stay with it.' : 'Try another direction?').then(function (quoteId) { if (quoteId) return anotherDirectionConfirmed(quoteId); });
+  }
+  function anotherDirectionConfirmed(quoteId) {
     var avoid = S.plan.v === 2 ? (S.plan.concept.title + ': ' + S.plan.concept.logline + ' | scenes: ' + S.plan.scenes.map(function (s) { return s.name || s.purpose; }).join(' / ')) : S.plan.concept.line;
     rememberDirection(); S.busy = true; els.csProgress.hidden = false; steps([['direct', 'Directing the page again, differently'], ['build', 'Building the page']]);
-    return planDirection((S.history || []).map(function (h) { return h.title + ': ' + h.logline; }).slice(-3).concat([avoid]).join(' || ')).then(function (res) {
+    return planDirection((S.history || []).map(function (h) { return h.title + ': ' + h.logline; }).slice(-3).concat([avoid]).join(' || '), quoteId).then(function (res) {
       if (res && res.stop) { S.plan = S.previous.plan; S.planMeta = S.previous.planMeta; S.previous = null; S.history.pop(); S.busy = false; step('direct', 'failed', res.stop); els.csError.hidden = false; els.csError.textContent = res.stop; buildEditor(); return; }
       refresh(true); step('build', 'done'); S.busy = false; els.csProgress.hidden = true; S.name = pageTitle(); markDirty(); buildEditor();
     });
@@ -700,6 +715,7 @@
     var dp = document.getElementById('csDirection'); if (!dp) { dp = h('div', { id: 'csDirection' }); els.csEditor.insertBefore(dp, els.csEditor.firstChild); }
     dp.innerHTML = directionPanel();
     document.getElementById('csAnother').addEventListener('click', function () { anotherDirection(); });
+    offerPremium();
     if (document.getElementById('csPrevious')) document.getElementById('csPrevious').addEventListener('click', previousDirection);
     [].forEach.call(dp.querySelectorAll('[data-upload]'), function (b) { b.addEventListener('click', function () { els.csUpload.click(); }); });
     if (document.getElementById('csRecompose')) document.getElementById('csRecompose').addEventListener('click', function () { S.plan = settle(S.plan, 'accept'); refresh(); buildEditor(); markDirty(); });
@@ -834,6 +850,43 @@
     panel.innerHTML = (r.page ? '<p><strong>Facts from</strong> <a href="' + esc(r.page.url) + '" target="_blank" rel="noopener">' + esc(r.page.title) + ' — Wikipedia</a> (CC BY-SA 4.0, retrieved ' + esc(r.page.retrieved || '') + '). ' + p.facts.length + ' facts kept with the page; every factual line on it links to its source list.</p>' : '<p>No encyclopedia source: ' + (S.understanding && S.understanding.kind === 'personal' ? 'the words about them are yours.' : S.understanding && S.understanding.kind === 'fictional' ? 'the subject is invented, so everything is marked imagined.' : 'nothing reliable was found.') + '</p>')
       + '<p><strong>Picture credits</strong></p><ul class="cs-credits">' + (p.credits.map(function (c) { return '<li>' + esc(C.render.cleanTitle(c.title)) + (c.author ? ' — ' + esc(c.author) : '') + ' · ' + esc(c.license) + '</li>'; }).join('') || '<li>None (your own pictures only)</li>') + '</ul>'
       + '<p class="cs-hint">Behind this page: ' + (S.cost.researchRequests || 0) + ' requests to Wikipedia for facts (' + kb + ' KB) · ' + (S.cost.aiCalls || 0) + ' AI call(s) (direction and claim checks) · 0 generated images. Credits: 4 for the page (research and direction), 3 for each further direction.</p>';
+  }
+  // PREMIUM MEDIA (optional): what the director suggested -- an intent and the picture it starts from. Quoted, confirmed,
+  // then made on the server; the finished media is stored with the project (a video plays over its picture).
+  var PREMIUM_LABEL = { cinematic_hero: 'a cinematic hero move', object_motion: 'the object in motion', image_to_video: 'this picture in motion', environment_motion: 'ambient motion in the scene', premium_transition: 'a cinematic transition', alternate_angle: 'another angle of the subject', image_enhance: 'an enhanced version of the picture', stylized_treatment: 'a stylised treatment of the picture' };
+  function offerPremium() {
+    var box = document.getElementById('csPremium'); var list = (S.plan && S.plan.premiumMedia) || [];
+    if (!list.length) { if (box) box.remove(); return; }
+    if (!box) { box = h('div', { id: 'csPremium', class: 'cs-premium' }); els.csEditor.insertBefore(box, document.getElementById('csDirection').nextSibling); }
+    box.innerHTML = '<p><strong>Optional premium media</strong> — made only if you choose it, priced before anything runs.</p>' + list.map(function (m, i) { return '<p class="cs-hint">' + esc(PREMIUM_LABEL[m.intent] || m.intent) + (m.why ? ': ' + esc(m.why) : '') + ' <button type="button" class="cs-btn cs-ghost" data-pm="' + i + '">Price it</button></p>'; }).join('');
+    [].forEach.call(box.querySelectorAll('[data-pm]'), function (b) { b.addEventListener('click', function () { makePremium(list[+b.getAttribute('data-pm')]); }); });
+  }
+  function makePremium(sug) {
+    if (S.busy || !sug) return;
+    var src = S.assets.find(function (a) { return a.id === sug.asset; }); if (!src) return;
+    var parent = src.cutoutOf && S.assets.find(function (a) { return a.id === src.cutoutOf; });
+    var confirmed = src.ownerPicked && window.confirm('This picture came from the web. Do you have the right to have it transformed into new media?') ? [src.id] : [];
+    S.busy = true;
+    var stop = function (msg) { S.busy = false; els.csError.hidden = false; els.csError.textContent = msg; };
+    return api('/api/premium-media/quote', { method: 'POST', body: { projectId: S.projectId || '', kind: 'creative', artMode: (S.plan.art && S.plan.art.mode) || '', requests: [sug], assets: [src].concat(parent ? [parent] : []), models: modelMeta(), confirmTransform: confirmed } }).then(function (r) {
+      var d = r.data || {};
+      if (!r.ok || !d.ok) return stop(d.message || 'Premium media is not available for this picture.');
+      if (!window.confirm(d.quote.message + '\n\nContinue?')) { S.busy = false; return; }
+      return api('/api/premium-media/execute', { method: 'POST', body: { quoteId: d.quote.id } }).then(function (x) {
+        var e = x.data || {}; creditsFrom(e);
+        if (!x.ok || !e.ok) return stop(e.message || 'The premium media could not be made. Your credits were not used.');
+        if (!e.delivered.length) return stop('The premium media could not be made (' + ((e.failed[0] && e.failed[0].reason) || 'no result') + '). Your credits were not used.');
+        var adds = [];
+        (e.assets || []).forEach(function (m) {
+          if (m.kind === 'video') { var a = S.assets.find(function (x2) { return x2.id === m.sourceAssetId; }); if (a) { a.video = m.video; a.premium = m.premium; } }
+          else if (m.asset && m.asset.dataUrl) adds.push(processAsset(m.asset).then(function (group) { S.assets = S.assets.concat(group); }));
+        });
+        return Promise.all(adds).then(function () {
+          S.plan.premiumMedia = (S.plan.premiumMedia || []).filter(function (p) { return p !== sug; });
+          S.busy = false; refresh(true); markDirty(); buildEditor();
+        });
+      });
+    }).catch(function () { stop('The premium media could not be made. Your credits were not used.'); });
   }
   function markDirty() { S.dirty = true; setSaveState('Unsaved changes'); els.csSave.disabled = false; }
   function setSaveState(t) { els.csSaveState.textContent = t; }

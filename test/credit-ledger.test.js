@@ -104,12 +104,14 @@ test('a billing month grants once, does not roll over, and an immediate cancella
   assert.equal(credits.available(db, 'acct_a', next).total, 6);
 });
 
-test('Creative: one page reserves 1 + 3 before research; research and direction are each charged once; 4 in all', () => {
+
+// ---------------------------------------------------------------- Creative: one quoted job (OWNERSHIP + CREDITS)
+test('Creative (DOM): one page reserves 1 + 5 before research; research and direction are each charged once; 6 in all', () => {
   const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
-  credits.ensureGrants(db, 'acct_a', trialOnly(6), now);
+  credits.ensureGrants(db, 'acct_a', trialOnly(8), now);
   const b = jobs.begin(db, 'acct_a', { now });
   assert.equal(b.ok, true); assert.equal(credits.available(db, 'acct_a', now).total, 2);
-  assert.equal(jobs.begin(db, 'acct_a', { now }).ok, false, 'a second page needs 4 more');
+  assert.equal(jobs.begin(db, 'acct_a', { now }).ok, false, 'a second page needs 6 more');
   assert.equal(db.ledger.opsForJob(b.job.id).length, 2, 'a refused page leaves no reservation behind');
   const job = jobs.get(db, 'acct_a', b.job.id, { now });
   assert.equal(jobs.get(db, 'acct_b', b.job.id, { now }), null, 'another account cannot continue this job');
@@ -119,40 +121,123 @@ test('Creative: one page reserves 1 + 3 before research; research and direction 
   const d = jobs.beginDirection(db, 'acct_a', job, { now });
   assert.equal(d.ok, true);
   assert.equal(jobs.beginDirection(db, 'acct_a', job, { now }).reason, 'in_progress', 'a double click never directs twice');
-  jobs.directionDone(db, job, d.op, { ok: true, plan: { v: 2 } }, { now });
-  const replay = jobs.beginDirection(db, 'acct_a', job, { now });
-  assert.deepEqual(replay.replay, { ok: true, plan: { v: 2 } }, 'a retry gets the directed page back');
+  const s = jobs.directionDone(db, job, d.op, { ok: true, plan: { v: 2 } }, { now, renderer: 'dom' });
+  assert.deepEqual(s, { charged: 5, refunded: 0 });
+  assert.deepEqual(jobs.beginDirection(db, 'acct_a', job, { now }).replay, { ok: true, plan: { v: 2 } }, 'a retry gets the directed page back');
   const spent = db.ledger.opsForJob(job.id).filter(o => o.status === 'committed').reduce((n, o) => n + o.amount, 0);
-  assert.equal(spent, 4); assert.equal(credits.available(db, 'acct_a', now).total, 2);
-  // another direction is its own 3 credits, and there are only 2
-  assert.equal(jobs.beginDirection(db, 'acct_a', job, { another: true, now }).reason, 'insufficient');
+  assert.equal(spent, 6); assert.equal(credits.available(db, 'acct_a', now).total, 2);
+  assert.equal(jobs.beginDirection(db, 'acct_a', job, { another: true, now }).reason, 'insufficient', 'another direction is 5 more');
 });
-
-test('Creative: a failed direction returns its 3 credits; an abandoned page keeps only the research credit', () => {
+test('Creative (spatial on): the page reserves up to 8; a page the system keeps on DOM gets the 2-credit surcharge back, a spatial one keeps it', () => {
   const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
-  credits.ensureGrants(db, 'acct_a', trialOnly(8), now);
+  credits.ensureGrants(db, 'acct_a', trialOnly(16), now);
+  const a = jobs.begin(db, 'acct_a', { now, spatial: true }).job;
+  assert.equal(credits.available(db, 'acct_a', now).total, 8, '1 + 5 + 2 held');
+  jobs.researchDone(db, a, { now });
+  const da = jobs.beginDirection(db, 'acct_a', a, { now, spatial: true });
+  assert.deepEqual(jobs.directionDone(db, a, da.op, { ok: true }, { now, renderer: 'dom' }), { charged: 5, refunded: 2 });
+  assert.equal(credits.available(db, 'acct_a', now).total, 10, 'a DOM page costs 6');
+  const b = jobs.begin(db, 'acct_a', { now, spatial: true }).job;
+  jobs.researchDone(db, b, { now });
+  const dbb = jobs.beginDirection(db, 'acct_a', b, { now, spatial: true });
+  assert.deepEqual(jobs.directionDone(db, b, dbb.op, { ok: true }, { now, renderer: 'spatial' }), { charged: 7, refunded: 0 });
+  assert.equal(credits.available(db, 'acct_a', now).total, 2, 'a spatial page costs 8');
+  const ev = credits.history(db, 'acct_a', 50).map(e => e.type);
+  assert.ok(ev.includes('refunded') && ev.includes('charged') && ev.includes('reserved') && ev.includes('trial'), ev.join());
+});
+test('Creative: a failed direction returns its credits; an abandoned page keeps only the research credit', () => {
+  const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
+  credits.ensureGrants(db, 'acct_a', trialOnly(12), now);
   const job = jobs.begin(db, 'acct_a', { now }).job;
   jobs.researchDone(db, job, { now });
   const d = jobs.beginDirection(db, 'acct_a', job, { now });
   jobs.directionFailed(db, job, d.op, { now });
-  assert.equal(credits.available(db, 'acct_a', now).total, 7, 'only research is charged after a failed direction');
+  assert.equal(credits.available(db, 'acct_a', now).total, 11, 'only research is charged after a failed direction');
   const job2 = jobs.begin(db, 'acct_a', { now }).job;
   jobs.researchDone(db, job2, { now });
   const dayLater = T('2026-03-02T10:30:00Z');
-  assert.equal(credits.available(db, 'acct_a', dayLater).total, 6, 'the abandoned page released its direction part');
+  assert.equal(credits.available(db, 'acct_a', dayLater).total, 10, 'the abandoned page released its direction part');
   assert.equal(jobs.get(db, 'acct_a', job2.id, { now: dayLater }), null, 'and the job has ended');
 });
-
 test('Creative: a direction whose server died mid-call is recovered, not stuck', () => {
   const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
   credits.ensureGrants(db, 'acct_a', trialOnly(6), now);
   const job = jobs.begin(db, 'acct_a', { now }).job;
   assert.equal(jobs.beginDirection(db, 'acct_a', job, { now }).ok, true);
-  // (no settle: the process crashed)
   const later = T('2026-03-01T10:30:00Z');
   const again = jobs.beginDirection(db, 'acct_a', job, { now: later });
   assert.equal(again.ok, true, again.reason);
   jobs.directionDone(db, job, again.op, { ok: true }, { now: later });
   const spent = db.ledger.opsForJob(job.id).filter(o => o.status === 'committed').reduce((n, o) => n + o.amount, 0);
-  assert.equal(spent, 3, 'the recovered direction is charged once');
+  assert.equal(spent, 5, 'the recovered direction is charged once');
+});
+
+// ---------------------------------------------------------------- quote -> reserve -> execute -> settle
+const quotes = require('../lib/quotes');
+const pricing = require('../lib/pricing');
+test('quotes are built from the planned work: Creative base + spatial + a cinematic asset; updates by size; never provider costs', () => {
+  const c = quotes.build('creative_generation', { spatialPossible: true, premium: [{ intent: 'cinematic_hero' }] });
+  assert.deepEqual(c.items.map(i => [i.code, i.credits, !!i.optional]), [['creative_dom', 6, false], ['spatial_surcharge', 2, true], ['premium_cinematic', 3, false]]);
+  assert.equal(c.credits, 11); assert.equal(c.minCredits, 9);
+  assert.match(c.message, /^This generation will use up to 11 credits/);
+  assert.equal(c.ceilingUsd, +(11 * pricing.USD_PER_CREDIT_CEILING).toFixed(4));
+  assert.equal(quotes.build('business_generation').credits, 4);
+  assert.equal(quotes.build('business_generation').message, 'This generation will use 4 credits.');
+  assert.equal(quotes.build('website_update', { request: 'Change the hero headline to "Fresh bread daily"' }).credits, 1);
+  assert.equal(quotes.build('website_update', { request: 'Move the testimonials above the services section' }).credits, 2);
+  assert.equal(quotes.build('website_update', { request: 'Add a new FAQ page' }).credits, 3);
+  assert.equal(quotes.build('website_update', { request: 'Redesign the whole website to feel premium and editorial, like a luxury brand' }).credits, 5);
+  assert.equal(quotes.build('premium_media', { media: [{ intent: 'image_enhance' }, { intent: 'object_motion' }, { intent: 'cinematic_hero' }] }).credits, 4, 'at most two premium assets');
+  const view = quotes.publicView(Object.assign({ id: 'q', status: 'open', expiresAt: 'x' }, c));
+  assert.ok(!JSON.stringify(view).includes('ceiling') && !/usd|\$/i.test(JSON.stringify(view)), 'customers never see provider money');
+});
+test('accepting a quote reserves once (a double click or retry gets the same reservation); settle charges what was delivered, refunds the rest; a failure releases all', () => {
+  const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
+  credits.ensureGrants(db, 'acct_a', trialOnly(20), now);
+  const q = quotes.create(db, { accountId: 'acct_a', operation: 'creative_generation', plan: { spatialPossible: true }, now });
+  assert.equal(quotes.accept(db, { accountId: 'acct_b', quoteId: q.id, now }).reason, 'not_found', 'another account cannot use it');
+  const a1 = quotes.accept(db, { accountId: 'acct_a', quoteId: q.id, now });
+  const a2 = quotes.accept(db, { accountId: 'acct_a', quoteId: q.id, now });
+  assert.equal(a1.ok && a2.ok, true); assert.equal(a2.existing, true); assert.equal(a1.opId, a2.opId);
+  assert.equal(credits.available(db, 'acct_a', now).total, 12, '8 reserved once');
+  const s = quotes.settle(db, q.id, { delivered: [], now });
+  assert.equal(s.charged, 6); assert.equal(s.refunded, 2);
+  assert.equal(credits.available(db, 'acct_a', now).total, 14);
+  assert.equal(quotes.settle(db, q.id, { now }).already, true, 'settling twice charges nothing more');
+  const u = db.usage.find(a1.opId); assert.equal(u.quoted, 8); assert.equal(u.settled, 6); assert.equal(u.refunded, 2); assert.equal(u.status, 'ok');
+  const f = quotes.create(db, { accountId: 'acct_a', operation: 'business_generation', now });
+  quotes.accept(db, { accountId: 'acct_a', quoteId: f.id, now });
+  assert.equal(credits.available(db, 'acct_a', now).total, 10);
+  quotes.fail(db, f.id, { now });
+  assert.equal(credits.available(db, 'acct_a', now).total, 14, 'a failed operation is never charged');
+  const late = quotes.create(db, { accountId: 'acct_a', operation: 'business_generation', now });
+  assert.equal(quotes.accept(db, { accountId: 'acct_a', quoteId: late.id, now: T('2026-03-01T11:00:00Z') }).reason, 'expired', 'an old quote cannot be used');
+});
+test('concurrency: parallel acceptances of different quotes can never spend the same credits twice', async () => {
+  const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
+  credits.ensureGrants(db, 'acct_a', trialOnly(10), now);
+  const qs = Array.from({ length: 5 }, () => quotes.create(db, { accountId: 'acct_a', operation: 'business_generation', now }));
+  const results = await Promise.all(qs.map(q => Promise.resolve().then(() => quotes.accept(db, { accountId: 'acct_a', quoteId: q.id, now }))));
+  assert.equal(results.filter(r => r.ok).length, 2, '10 credits buy exactly two 4-credit generations');
+  assert.equal(credits.available(db, 'acct_a', now).total, 2);
+  assert.ok(results.filter(r => !r.ok).every(r => r.reason === 'insufficient'));
+});
+test('purchased credits and the first-website bonus are granted once per id; a refund revokes only what is unused; every movement is in the append-only trail', () => {
+  const db = freshDb(); const now = T('2026-03-01T10:00:00Z');
+  const g1 = credits.grant(db, { id: 'purchase:cp_1', accountId: 'acct_a', kind: 'purchase', amount: 30, reason: 'purchased', now });
+  const g2 = credits.grant(db, { id: 'purchase:cp_1', accountId: 'acct_a', kind: 'purchase', amount: 30, reason: 'purchased', now });
+  assert.equal(g1.created, true); assert.equal(g2.created, false, 'a duplicated webhook grants nothing');
+  credits.grant(db, { id: 'bonus:first_website:acct_a', accountId: 'acct_a', kind: 'bonus', amount: 30, reason: 'first_website_bonus', now });
+  credits.grant(db, { id: 'bonus:first_website:acct_a', accountId: 'acct_a', kind: 'bonus', amount: 30, reason: 'first_website_bonus', now });
+  assert.equal(credits.available(db, 'acct_a', now).total, 60);
+  // the bonus is spent before bought credits (bought credits are kept longest)
+  credits.reserve(db, { accountId: 'acct_a', opId: 'op1', amount: 10, kind: 'test', now }); credits.commit(db, 'op1', { now });
+  const r = credits.revokeGrant(db, 'bonus:first_website:acct_a', { reason: 'website purchase refunded', now });
+  assert.equal(r.revoked, 20, 'only the unused 20 are revoked; the 10 spent paid for work done');
+  assert.equal(credits.available(db, 'acct_a', now).total, 30);
+  assert.equal(credits.revokeGrant(db, 'bonus:first_website:acct_a', { now }).revoked, 0, 'a repeated refund event changes nothing');
+  const types = credits.history(db, 'acct_a', 50).map(e => e.type);
+  for (const t of ['purchased', 'first_website_bonus', 'reserved', 'charged', 'revoked']) assert.ok(types.includes(t), `${t} in ${types}`);
+  assert.equal(types.filter(t => t === 'purchased').length, 1);
+  assert.throws(() => credits.grant(db, { id: 'x', accountId: 'acct_a', kind: 'trial', amount: 5 }), /kind/);
 });

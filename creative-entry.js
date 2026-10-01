@@ -51,4 +51,6 @@
     openProject: function (serverProject) { if (!document.getElementById('modeSwitch')) addSwitch(); return openStudio({ project: serverProject }); },
   };
   if (enabled()) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addSwitch); else addSwitch(); }
+  // OWNERSHIP + CREDITS: the client app's "Create" view links here with ?studio=creative to start a Creative website
+  if (enabled() && /(^|[?&])studio=creative(&|$)/.test(location.search)) { var go = function () { openStudio(); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go(); }
 })();

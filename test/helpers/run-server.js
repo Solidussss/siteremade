@@ -24,6 +24,12 @@ const { FIZZWELL_PLAN, GREENLINE_PLAN } = require('../fixtures/businesses');
 const MOCK_PLANS = [FIZZWELL_PLAN, GREENLINE_PLAN];
 
 const realFetch = globalThis.fetch;
+// lib/paid-providers.js: this process answers every paid provider itself (below), so the server may 'call' them -- the
+// only way provider mode 'mock' can exist (no environment variable selects it)
+// (SITEREMADE_TEST_NO_PROVIDER_MOCK=1: run the server exactly as a developer machine would -- keys in the environment,
+// no mock marker -- to prove the paid-provider guard keeps every provider off; any paid request is still logged here)
+if (process.env.SITEREMADE_TEST_NO_PROVIDER_MOCK !== '1') globalThis.__SITEREMADE_PROVIDER_MOCK = true;
+const PAID = require('../../lib/paid-providers.js');
 const mockCreativeCounters = {};
 const log = entry => { if (process.env.MOCK_CALL_LOG) fs.appendFileSync(process.env.MOCK_CALL_LOG, JSON.stringify(entry) + '\n'); };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -60,6 +66,31 @@ globalThis.fetch = async function (url, options) {
     if (x.hostname === 'commons.wikimedia.org' && q.get('prop') === 'imageinfo') return json({ query: { pages: { 1: file } } });
     if (x.hostname === 'upload.wikimedia.org') return new Response(Buffer.from(mockPng('toilet paper', '1:1').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
     return json({}, 404);
+  }
+  // Higgsfield (premium media; never the real API in tests). MOCK_HIGGSFIELD = success (default) | failed | nsfw | slow
+  // (never completes). Every submit is logged with its model endpoint and parameters, so a test can prove what was asked.
+  if (u.startsWith('https://api.higgsfield.ai/')) {
+    const x = new URL(u); const h = (options && options.headers) || {};
+    mockCreativeCounters.hf = mockCreativeCounters.hf || 0;
+    const st = /^\/requests\/([^/]+)\/status$/.exec(x.pathname);
+    if (st) {
+      const kind = process.env.MOCK_HIGGSFIELD || 'success';
+      log({ provider: 'higgsfield', endpoint: 'status', request: st[1] });
+      if (kind === 'slow') return json({ status: 'in_progress', request_id: st[1] });
+      if (kind === 'failed' || kind === 'nsfw') return json({ status: kind, request_id: st[1] });
+      const video = /video/.test(st[1]);
+      return json(video ? { status: 'completed', request_id: st[1], video: { url: `https://higgsfield-output.test/${st[1]}.mp4` } } : { status: 'completed', request_id: st[1], images: [{ url: `https://higgsfield-output.test/${st[1]}.png` }] });
+    }
+    const body = JSON.parse((options && options.body) || '{}');
+    mockCreativeCounters.hf++;
+    const id = `hf_mock_${/video/.test(x.pathname) ? 'video' : 'image'}_${mockCreativeCounters.hf}`;
+    log({ provider: 'higgsfield', endpoint: x.pathname, auth: /^Key .+/.test(String(h.Authorization || h.authorization || '')), params: body });
+    return json({ status: 'queued', request_id: id, status_url: `https://api.higgsfield.ai/requests/${id}/status`, cancel_url: `https://api.higgsfield.ai/requests/${id}/cancel` });
+  }
+  if (u.startsWith('https://higgsfield-output.test/')) {
+    log({ provider: 'higgsfield', endpoint: 'download', url: u });
+    if (u.endsWith('.mp4')) return new Response(Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42mock-video-bytes')]), { status: 200, headers: { 'content-type': 'video/mp4' } });
+    return new Response(Buffer.from(mockPng('higgsfield', '16:9').split(',')[1], 'base64'), { status: 200, headers: { 'content-type': 'image/png' } });
   }
   if (u.startsWith('https://api.anthropic.com/')) {
     const body = JSON.parse(options.body);
@@ -101,7 +132,7 @@ globalThis.fetch = async function (url, options) {
     if (endpoint === 'checkout/sessions') {
       mockCreativeCounters.stripe = (mockCreativeCounters.stripe || 0) + 1;
       const id = `cs_test_mock_${process.pid}_${mockCreativeCounters.stripe}`;
-      log({ provider: 'stripe', endpoint: 'checkout', session: id, mode: form.get('mode'), amount: Number(form.get('line_items[0][price_data][unit_amount]')), currency: form.get('line_items[0][price_data][currency]'), intentId: form.get('metadata[intentId]'), projectId: form.get('metadata[projectId]'), websiteMode: form.get('metadata[mode]') });
+      log({ provider: 'stripe', endpoint: 'checkout', session: id, mode: form.get('mode'), amount: Number(form.get('line_items[0][price_data][unit_amount]')), currency: form.get('line_items[0][price_data][currency]'), price: form.get('line_items[0][price]') || '', kind: form.get('metadata[kind]'), intentId: form.get('metadata[intentId]'), purchaseId: form.get('metadata[purchaseId]'), packId: form.get('metadata[packId]'), projectId: form.get('metadata[projectId]'), websiteMode: form.get('metadata[mode]') });
       return json({ id, url: `https://checkout.stripe.test/${id}` });
     }
     return json({ error: { message: `mock: unhandled Stripe endpoint ${endpoint}` } }, 400);
@@ -121,6 +152,8 @@ globalThis.fetch = async function (url, options) {
     if (/test-access-token-other/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000009', email: 'other-owner@example.com' });
     return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com' });
   }
+  // a paid provider this harness does not answer is refused -- a test can never fall through to a real, billed API
+  if (PAID.providerForUrl(u)) return Promise.reject(new Error(`test harness: unmocked paid provider request refused (${u.slice(0, 60)})`));
   return realFetch(url, options);
 };
 

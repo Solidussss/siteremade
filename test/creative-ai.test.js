@@ -12,7 +12,7 @@ const { validatePlan2, LIMITS } = require('../lib/creative/validate2');
 const { renderCreative2 } = require('../lib/creative/render2');
 const { sanitizeCreative } = require('../lib/creative/store');
 const ai = require('../lib/creative/ai');
-const { startServer, client } = require('./helpers/server-process');
+const { startServer, client, research } = require('./helpers/server-process');
 
 const A = (id, extra) => Object.assign({ id, origin: 'research', title: `File:${id}.jpg`, author: 'A. Photographer', license: 'CC BY-SA 4.0', pageUrl: `https://commons.wikimedia.org/wiki/File:${id}.jpg`, assess: { width: 1200, height: 900, aspect: 1.333, orientation: 'landscape', subject: [0.2, 0.1, 0.8, 0.9], colours: ['#aa7744'] }, caps: { moveFreely: false, frame: true } }, extra);
 const CUT = A('c-r1', { origin: 'derived', cutout: true, cutoutOf: 'r1', assess: { width: 700, height: 900, aspect: 0.78, orientation: 'portrait', transparent: true, subject: [0.02, 0.02, 0.98, 0.98], colours: [] }, caps: { moveFreely: true } });
@@ -218,14 +218,14 @@ async function withServer(env, fn) {
 }
 const BRIEF = 'An imaginary kingdom run entirely by cats'; // invented: no research, so no network in tests
 // a Creative page is one paid job: it starts at research, and the direction continues it (lib/creative-jobs.js)
-const startJob = async call => { const r = await call('POST', '/api/creative/research', { brief: BRIEF }); assert.ok(r.body.jobId, 'research starts the page job'); return r.body.jobId; };
+const startJob = async call => { const r = await research(call, { brief: BRIEF }); assert.ok(r.body.jobId, 'research starts the page job'); return r.body.jobId; };
 const planFor = async (call, u) => Object.assign(planBody(u), { jobId: await startJob(call) });
 const planBody = u => ({ brief: BRIEF, understanding: u, facts: [], supplied: {}, assets: [{ id: 'u1', origin: 'upload', title: 'cat', assess: { width: 800, height: 600, aspect: 1.33, orientation: 'landscape' }, caps: { moveFreely: false } }], thumbnails: [{ id: 'u1', dataUrl: 'data:image/jpeg;base64,/9j/4AAQ' }] });
 const ledger = dir => { const f = path.join(dir, 'p', 'creative-ledger.jsonl'); return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : []; };
 
 test('server (MOCK provider): understanding before research, a validated direction labelled as a mock, costs in the Creative ledger', async () => {
   await withServer({}, async (call, dir) => {
-    const r = await call('POST', '/api/creative/research', { brief: BRIEF });
+    const r = await research(call, { brief: BRIEF });
     assert.equal(r.body.understandMeta.source, 'ai'); assert.equal(r.body.understanding.identity.kind, 'invented'); assert.equal(r.body.research.status, 'skipped');
     const p = await call('POST', '/api/creative/plan', Object.assign(planBody(r.body.understanding), { jobId: r.body.jobId }));
     assert.equal(p.body.ok, true); assert.equal(p.body.plan.v, 2);
@@ -476,13 +476,16 @@ test('server: limits are explicit -- account cap, off switch, no key', async () 
   await withServer({ CREATIVE_ACCOUNT_DAILY_PLANS: '1' }, async call => {
     const body = await planFor(call, { kind: 'invented' });
     assert.equal((await call('POST', '/api/creative/plan', body)).body.ok, true);
-    const second = await call('POST', '/api/creative/plan', Object.assign({}, body, { avoid: 'the first direction' }));
+    // another direction is a new operation: quoted first (nothing runs), then confirmed
+    const asked = await call('POST', '/api/creative/plan', Object.assign({}, body, { avoid: 'the first direction' }));
+    assert.equal(asked.body.needsConfirmation, true); assert.match(asked.body.quote.message, /This generation will use/);
+    const second = await call('POST', '/api/creative/plan', Object.assign({}, body, { avoid: 'the first direction', quoteId: asked.body.quote.id }));
     assert.equal(second.body.ok, false); assert.match(second.body.reason, /today's 1 AI directions/); assert.match(second.body.reason, /credits were not used/);
   });
   await withServer({ CREATIVE_AI_DIRECTION: 'off' }, async call => { const p = await call('POST', '/api/creative/plan', planBody({})); assert.match(p.body.reason, /switched off/); });
   await withServer({ ANTHROPIC_API_KEY: '' }, async call => {
     const p = await call('POST', '/api/creative/plan', planBody({})); assert.match(p.body.reason, /no AI model is configured/);
-    const r = await call('POST', '/api/creative/research', { brief: BRIEF }); assert.equal(r.body.understandMeta.source, 'rules');
+    const r = await research(call, { brief: BRIEF }); assert.equal(r.body.understandMeta.source, 'rules');
   });
 });
 

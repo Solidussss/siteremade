@@ -79,8 +79,8 @@ async function setup() {
   const unpaid = await owner('POST', '/api/projects', { name: 'Not bought', directionsState: { directions: [JSON.parse(JSON.stringify(proj))], activeDirectionIndex: 0 } });
   const buy = async projectId => {
     await owner('POST', '/api/checkout', { projectId, businessName: 'Greenline Landscapes' });
-    const session = providerCalls(env.MOCK_CALL_LOG).filter(x => x.provider === 'stripe' && x.endpoint === 'checkout' && x.projectId === projectId).pop().session;
-    const body = JSON.stringify({ id: 'evt_' + session, type: 'checkout.session.completed', data: { object: { id: session, payment_status: 'paid', amount_total: 14999, currency: 'cad' } } });
+    const asked = providerCalls(env.MOCK_CALL_LOG).filter(x => x.provider === 'stripe' && x.endpoint === 'checkout' && x.projectId === projectId).pop(); const session = asked.session; // (pays exactly what checkout asked: Business 14999, Creative 49999)
+    const body = JSON.stringify({ id: 'evt_' + session, type: 'checkout.session.completed', data: { object: { id: session, payment_status: 'paid', amount_total: asked.amount, currency: 'cad' } } });
     const t = Math.floor(Date.now() / 1000); const sig = crypto.createHmac('sha256', WEBHOOK_SECRET).update(`${t}.${body}`).digest('hex');
     const r = await fetch(`http://127.0.0.1:${server.port}/api/stripe/webhook`, { method: 'POST', headers: { 'content-type': 'application/json', 'stripe-signature': `t=${t},v1=${sig}` }, body });
     assert.equal(r.status, 200);

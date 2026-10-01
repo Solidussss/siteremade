@@ -218,7 +218,7 @@ test('without SERPAPI_API_KEY, Creative never falls back to Wikimedia pictures: 
     try {
       const call = client(s.port);
       await call('POST', '/api/auth/signup', { email: `no-commons-${ai || 'rules'}-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' });
-      const r = await call('POST', '/api/creative/research', { brief: 'toilet paper' });
+      const r = await require('./helpers/server-process').research(call, { brief: 'toilet paper' });
       const label = ai ? 'with the (mock) AI' : 'without AI';
       assert.equal(r.body.ok, true, label); assert.equal(r.body.research.status, 'ok', label);
       assert.equal(r.body.research.page.title, 'Toilet paper'); assert.ok(r.body.research.facts.length >= 2, 'Wikipedia still gives the facts');

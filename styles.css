@@ -3201,3 +3201,7 @@ body.generation-gate-open{overflow:hidden}
   .hero-storyboard .sb-frame{animation:none!important;clip-path:none!important;opacity:1!important}
   .hero-storyboard .sb-light{display:none}
 }
+/* OWNERSHIP + CREDITS: two one-time website prices and the credits note; credit packs in the account panel */
+.pricing-section{grid-template-columns:1fr .78fr .78fr}.pricing-credits{grid-column:1/-1;border-top:1px solid var(--line);padding-top:24px;max-width:760px;color:var(--muted);line-height:1.6}.pricing-credits p{margin:0 0 6px}
+@media(max-width:1100px){.pricing-section{grid-template-columns:minmax(0,1fr)}}
+.account-credit-packs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}.account-credit-packs-label,.account-credit-pack-status{flex-basis:100%;margin:0;font-size:12px;color:var(--muted)}.account-credit-pack{min-height:36px;padding:0 12px;font-size:12px}

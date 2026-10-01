@@ -41,4 +41,12 @@ function client(port) {
 
 const providerCalls = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 
-module.exports = { startServer, client, providerCalls };
+// OWNERSHIP + CREDITS: a new Creative page starts only after the owner confirms its quote. This does what the studio
+// does: ask, read the quote, confirm it (the test's own call -- nothing paid runs before the confirmation).
+async function research(call, body) {
+  const first = await call('POST', '/api/creative/research', body);
+  if (!(first.body && first.body.needsConfirmation && first.body.quote)) return first;
+  return call('POST', '/api/creative/research', Object.assign({}, body, { quoteId: first.body.quote.id }));
+}
+
+module.exports = { startServer, client, providerCalls, research };

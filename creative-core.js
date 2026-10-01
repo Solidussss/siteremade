@@ -3636,8 +3636,15 @@
       // (a picture the owner adopted from the web is credited to its source page, as supplied by the owner)
       const credits = assets.filter(a => shown.has(a.id) && (a.origin !== 'upload' || a.ownerAffirmed || a.ownerPicked) && !a.cutoutOf).map(a => ({ asset: a.id, title: cap(a.title, 200), author: cap(a.author, 200), license: a.ownerPicked ? 'no licence stated; chosen by the page owner' : a.origin === 'upload' ? 'supplied by the page owner, who holds the rights' : cap(a.license, 80), url: /^https:\/\//.test(a.pageUrl || '') ? a.pageUrl : '', licenseUrl: /^https?:\/\//.test(a.licenseUrl || '') ? a.licenseUrl : '' }));
       const derived = assets.filter(a => shown.has(a.id) && a.cutoutOf).map(a => ({ asset: a.id, from: a.cutoutOf, note: 'background removed by SiteRemade' }));
+      // PREMIUM MEDIA needs the director named (lib/media/premium-media.js): intents from the fixed list, pictures from this
+      // inventory, at most two -- a suggestion the owner may buy, never a call. Eligibility and the hierarchy rules are applied
+      // again, by the server, when it is quoted.
+      const PM = ['cinematic_hero', 'object_motion', 'image_to_video', 'environment_motion', 'premium_transition', 'alternate_angle', 'image_enhance', 'stylized_treatment'];
+      const premiumMedia = (Array.isArray(p.premiumMedia) ? p.premiumMedia : []).filter(m => m && PM.includes(m.intent) && byId.has(m.asset)).slice(0, 2)
+        .map(m => ({ intent: m.intent, asset: m.asset, subject: cap(m.subject, 120), why: cap(m.why, 200) }));
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
+        ...(premiumMedia.length ? { premiumMedia } : {}),
         // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
         ...(art ? { art } : {}),
         // the persistent actor (a run of scenes one subject lives across)
@@ -4945,6 +4952,9 @@
       const o = opts || {}; const mode = o.mode === 'export' ? 'export' : 'preview';
       const byId = new Map((assets || []).filter(a => a && !a.removed).map(a => [a.id, a]));
       const src = a => (a && o.src ? o.src(a) : '') || '';
+      // PREMIUM MEDIA: a picture that also has a stored video (a local asset of the project) plays it over the picture; the
+      // export points at the bundled file, the studio at the owner's own file route -- never a provider URL
+      const videoSrc = a => (a && a.video ? (o.videoSrc ? o.videoSrc(a) : (mode === 'export' ? '' : `/api/premium-media/${encodeURIComponent(a.video.mediaId)}/file`)) : '') || '';
       const P = plan.palette; const hero = plan.scenes[0];
       // facts numbered in reading order; only cited ones are listed
       const citeNo = new Map(); const factById = new Map(plan.facts.map(f => [f.id, f]));
@@ -4973,7 +4983,7 @@
       const spBehind = new Set(spScenes.keys()); if (spatial) actors.filter(a => a.kind === 'image' && spatial.actors.some(x => x.role === a.role)).forEach(a => { for (let i = a.from; i <= Math.min(a.to, plan.scenes.length - 1); i++) spBehind.add(i); });
       const behind = i => spBehind.has(i);
       const glSeams = spatial ? spatial.seams.filter(s => SEAM_SPAN[s.family] && behind(s.at - 1) && behind(s.at)) : [];
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind }));
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -5130,7 +5140,8 @@
           const pr = FR.profile(a); const budget = FR.budgetFor(a, L.frame);
           imgAttr = `data-fit="${L.fit}"${L.mfit ? ` data-mfit="${L.mfit}"` : ''} data-crop="${budget}" data-f="${pr.focus.map(v => v.toFixed(3)).join(' ')}"${pr.subject ? ` data-subj="${pr.subject.join(' ')}"` : ''} style="--of:${L.fit};--oq:${L.focus};--mof:${L.mfit || L.fit};--moq:${L.mfocus || L.focus}"`;
         }
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}><div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        const vid = c.videoSrc ? c.videoSrc(a) : '';
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted loop playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';
@@ -5351,6 +5362,7 @@
     .ly-scroll{will-change:transform}.ly-scroll[data-anchor="left"]{transform-origin:0 50%}.ly-scroll[data-anchor="right"]{transform-origin:100% 50%}
     .ly-art{transform:rotate(var(--rot));container-type:size}
     .ly-img{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .ly-vid{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:var(--of,cover);object-position:var(--oq,50% 50%)}html[data-motion="reduced"] .ly-vid{display:none}@media (prefers-reduced-motion:reduce){.ly-vid{display:none}}
     .ly[data-kind="image"] .ly-art[data-mask="none"] .ly-img{object-position:50% 100%}
     .ly-art[data-mask="circle"]{clip-path:circle(closest-side at 50% 50%)}
     .ly-art[data-mask="diamond"]{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}

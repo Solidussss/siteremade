@@ -162,14 +162,21 @@ async function server() {
   };
   const buy = async projectId => {
     await call('POST', '/api/checkout', { projectId, businessName: 'Petal & Stem' });
-    const session = calls().filter(x => x.provider === 'stripe' && x.endpoint === 'checkout' && x.projectId === projectId).pop().session;
-    const body = JSON.stringify({ id: 'evt_' + session, type: 'checkout.session.completed', data: { object: { id: session, payment_status: 'paid', amount_total: 14999, currency: 'cad' } } });
+    const asked = calls().filter(x => x.provider === 'stripe' && x.endpoint === 'checkout' && x.projectId === projectId).pop(); const session = asked.session;
+    const body = JSON.stringify({ id: 'evt_' + session, type: 'checkout.session.completed', data: { object: { id: session, payment_status: 'paid', amount_total: asked.amount, currency: 'cad' } } });
     const t = Math.floor(Date.now() / 1000); const sig = crypto.createHmac('sha256', WEBHOOK_SECRET).update(`${t}.${body}`).digest('hex');
     const r = await fetch(`http://127.0.0.1:${s.port}/api/stripe/webhook`, { method: 'POST', headers: { 'content-type': 'application/json', 'stripe-signature': `t=${t},v1=${sig}` }, body });
     assert.equal(r.status, 200);
   };
   const stored = async id => (await call('GET', `/api/projects/${id}`)).body.project;
-  const edit = (project, request, extra = {}) => call('POST', `/api/app-bridge/website/${project.id}/edits`, Object.assign({ baseRevision: project.revision, request }, extra.body || {}), Object.assign({}, OWNER, extra.headers || {}));
+  // OWNERSHIP + CREDITS: the app shows the update's quote and the owner approves it -- this does the same (r.quoted is
+  // the price the owner saw)
+  const edit = async (project, request, extra = {}) => {
+    const q = await call('POST', '/api/app-bridge/quotes', { operation: 'website_update', request, projectId: project.id }, OWNER);
+    const quote = q.body && q.body.quote;
+    const r = await call('POST', `/api/app-bridge/website/${project.id}/edits`, Object.assign({ baseRevision: project.revision, request }, quote ? { quoteId: quote.id } : {}, extra.body || {}), Object.assign({}, OWNER, extra.headers || {}));
+    r.quoted = quote ? quote.credits : null; return r;
+  };
   const balance = async () => (await call('GET', '/api/credits')).body.credits.remaining;
   const text = async url => { const r = await fetch(`http://127.0.0.1:${s.port}${url}`, { headers: OWNER }); return { status: r.status, headers: r.headers, body: await r.text() }; };
   const bytes = async url => { const r = await fetch(`http://127.0.0.1:${s.port}${url}`, { headers: OWNER }); return { status: r.status, body: Buffer.from(await r.arrayBuffer()) }; };
@@ -190,7 +197,7 @@ test('A/E/H. "Make this website feel way more premium and less generic" -- a rea
   const r = await edit(project, 'Make this website feel way more premium and less generic.');
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.mode, 'deep'); assert.equal(r.body.scope, 'site');
-  assert.equal(r.body.creditsCharged, 1); assert.equal(await balance(), credits - 1, 'one AI update');
+  assert.equal(r.quoted, 5, 'a whole-site redesign is quoted at 5'); assert.equal(r.body.creditsCharged, 5); assert.equal(await balance(), credits - 5, 'the quoted price');
   assert.ok(r.body.changeSummary.length >= 5, r.body.changeSummary.join(' | '));
   assert.ok(r.body.changeSummary.every(s => !/[{}_]|dimensions|typography=|op:/.test(s)), 'plain language, no schema');
   const saved = await stored(project.id);
@@ -323,7 +330,7 @@ test('an unusable redesign plan changes nothing and costs nothing; a retried upd
   const again = await edit(project, 'Make this website feel way more premium', { headers: key });
   assert.equal(again.status, 200); assert.equal(again.body.replayed, true); assert.equal(again.body.creditsCharged, 0);
   assert.equal(again.body.revision, first.body.revision);
-  assert.equal(redesignCalls(calls()).length, planned, 'not planned again'); assert.equal(await balance(), credits - 1);
+  assert.equal(redesignCalls(calls()).length, planned, 'not planned again'); assert.equal(await balance(), credits - first.quoted, 'charged once, at the quoted price');
 });
 
 test('surgical requests still take the operation plan (not the redesign), cost one AI update, and save a draft', async () => {
@@ -403,7 +410,7 @@ test('diagnostics: one [update-intel] line per update -- classification, timing,
   const line = lines.filter(l => l.projectId === project.id).pop();
   assert.ok(line, 'logged');
   for (const k of ['requestId', 'projectId', 'baseRevision', 'mode', 'scope', 'classifier', 'plannerModel', 'planningMs', 'operationCount', 'droppedInvalid', 'droppedFields', 'meaningfulChange', 'saved', 'creditsCharged', 'outcome']) assert.ok(k in line, `has ${k}`);
-  assert.equal(line.mode, 'deep_refinement'); assert.equal(line.outcome, 'saved'); assert.equal(line.saved, true); assert.equal(line.creditsCharged, 1);
+  assert.equal(line.mode, 'deep_refinement'); assert.equal(line.outcome, 'saved'); assert.equal(line.saved, true); assert.equal(line.creditsCharged, r.quoted);
   assert.equal(line.baseRevision, project.revision); assert.equal(line.plannerModel, 'mock-redesign-planner');
   assert.ok(line.droppedInvalid >= 5 && line.droppedFields.some(d => /unsupported claim/.test(d.reason)), 'what was dropped, and why');
   assert.equal(line.meaningfulChange.ok, true);
@@ -435,8 +442,8 @@ test('I. a Creative page is revised by its own director: new concept and scenes;
   const credits = await balance();
   const plannedBusiness = redesignCalls(calls()).length;
   const r = await edit(project, 'Make this page feel more playful and much less dark');
-  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.mode, 'deep'); assert.equal(r.body.creditsCharged, 1);
-  assert.equal(await balance(), credits - 1);
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.mode, 'deep'); assert.equal(r.body.creditsCharged, r.quoted);
+  assert.equal(await balance(), credits - r.quoted);
   assert.ok(calls().some(c => c.provider === 'anthropic' && c.tool === 'submit_creative_plan'), 'the Creative director revised it');
   assert.equal(redesignCalls(calls()).length, plannedBusiness);
   const after = (await stored(project.id)).directionsState.directions[0];

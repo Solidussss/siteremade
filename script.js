@@ -5976,11 +5976,15 @@ async function applyRefinementRequest(request) {
     let plan = classification.executionPlan.needsClaude ? null : classification.localPlan;
     if (classification.executionPlan.needsClaude && window.__siteremadePlanMeter && window.__siteremadePlanMeter.planConfigured) {
       try {
-        const response = await fetch('/api/refine-website', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ request, context: refinementContext(), taskType: classification.executionPlan.taskType, projectId: project.meta && project.meta.id })
-        });
-        const data = await response.json().catch(() => ({}));
+        const refineBody = { request, context: refinementContext(), taskType: classification.executionPlan.taskType, projectId: project.meta && project.meta.id };
+        const send = extra => fetch('/api/refine-website', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, refineBody, extra || {})) }).then(r => r.json().catch(() => ({})));
+        let data = await send();
+        // OWNERSHIP + CREDITS: a larger update is priced first ("This update will use 5 credits.") and runs only once
+        // the owner confirms it -- nothing is charged or planned before that
+        if (data && data.needsConfirmation && data.quote) {
+          if (!window.confirm(`${data.quote.message}\n\nContinue?`)) { if (refinementStatus) refinementStatus.textContent = 'No changes made — nothing was charged.'; return false; }
+          data = await send({ quoteId: data.quote.id });
+        }
         // DYNAMIC CREDIT COSTING PASS: a Claude-reasoning refinement is its
         // own separate charge (the existing 'cheap' 1-credit class -- see
         // server.js's /api/refine-website handler) independent of both the
@@ -9473,7 +9477,7 @@ async function runGeneration(text) {
       // Clear, structured message, never a generic 403/failure (spec item
       // 9), surfaced through the SAME failure/retry gate a normal
       // generation failure already uses (see the finally block below).
-      failureMessage = (result.message || 'Not enough credits for this website.') + ' A Workspace subscription in the SiteRemade app adds 100 credits a month.';
+      failureMessage = (result.message || 'Not enough credits for this website.') + ' Add credits from your account panel (packs from 10 credits, one-time).';
       return;
     }
     if (result && result.ok && result.plan) {
@@ -9825,23 +9829,39 @@ function formatResetTime(resetsAt) {
 // after every fetch AND every account-state change, so the indicator,
 // account-panel line, and Generate button label can never drift out of
 // sync with each other.
-// BILLING PASS: one balance for the builder and the app -- the free trial (one-time), the Workspace plan's month, or
-// the tester allowance -- with what each action costs, from the server's own summary (GET /api/credits).
+// OWNERSHIP + CREDITS: one balance for the builder and the app -- credits from packs, the first-website bonus, the
+// one-time trial (and a tester's daily allowance) -- with what each action costs, from the server's own summary
+// (GET /api/credits). No subscription: a website is bought once and owned; credits pay for AI work.
 function formatCreditDate(iso) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch (e) { return ''; }
 }
 function creditPlanLine(c) {
-  const costs = c.costs ? ` · Business website ${c.costs.businessGeneration} · Creative page ${c.costs.creativePage} · AI update ${c.costs.aiUpdate} · manual edits free` : '';
+  const k = c.costs || {};
+  const costs = c.costs ? ` · Business website ${k.businessGeneration} · Creative page ${k.creativePage}${k.creativeSpatialSurcharge ? ` (${k.creativePage + k.creativeSpatialSurcharge} with 3D depth)` : ''} · updates from ${k.aiUpdate} · manual edits free` : '';
   if (c.plan === 'tester') return `Tester allowance: ${c.remaining} credits${c.tester && c.tester.resetsAt ? ' · resets ' + formatResetTime(c.tester.resetsAt) : ''}${costs}`;
-  if (c.plan === 'workspace') {
-    const s = c.subscription || {};
-    const when = s.renewsAt ? ` · renews ${formatCreditDate(s.renewsAt)} (unused credits don't roll over)` : s.endsAt ? ` · plan ends ${formatCreditDate(s.endsAt)}` : '';
-    return `Workspace plan: ${c.remaining} credits left${when}${costs}`;
-  }
-  const trial = c.trial || {};
-  const problem = c.subscription && c.subscription.paymentProblem ? ' · Workspace payment failed — update it in the app' : '';
-  return `Free trial: ${c.remaining} of ${trial.credits} credits left (one-time)${problem}${costs}`;
+  // (a Workspace month bought before subscriptions were retired is spent first, until it ends)
+  const legacy = c.subscription && c.subscription.active && c.subscription.remaining ? ` · ${c.subscription.remaining} from your Workspace month until ${formatCreditDate(c.subscription.periodEnd)}` : '';
+  return `${c.remaining} credit${c.remaining === 1 ? '' : 's'}${legacy}${costs}. Credits never expire; owning a website never needs them.`;
+}
+// Credit packs: one-time purchases through Stripe; the credits arrive when the payment is confirmed (the server's webhook)
+let creditCatalog = null;
+async function renderCreditPacks() {
+  const box = $('#accountCreditPacks'); if (!box) return;
+  if (!currentAccount) { box.innerHTML = ''; return; }
+  if (!creditCatalog) { try { creditCatalog = (await (await fetch('/api/billing/catalog')).json()).catalog; } catch (e) { return; } }
+  if (!creditCatalog || box.dataset.ready) return;
+  box.dataset.ready = '1';
+  box.innerHTML = `<p class="account-credit-packs-label">Add credits (one-time, never expire)</p>${creditCatalog.packs.map(p => `<button type="button" class="button button-secondary account-credit-pack" data-pack="${p.id}">${p.credits} credits · ${p.display.replace(' CAD', '')}</button>`).join('')}<p class="account-credit-pack-status" id="accountCreditPackStatus" aria-live="polite"></p>`;
+  box.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', async () => {
+    const status = $('#accountCreditPackStatus'); if (status) status.textContent = 'Opening secure checkout…';
+    try {
+      const r = await fetch('/api/credits/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packId: b.dataset.pack }) });
+      const d = await r.json().catch(() => ({}));
+      if (d.ok && d.url) { window.location.href = d.url; return; }
+      if (status) status.textContent = d.message || 'Checkout could not start. Please try again shortly.';
+    } catch (e) { if (status) status.textContent = 'Checkout could not start. Please try again shortly.'; }
+  }));
 }
 function renderCreditsUI() {
   const signedIn = !!currentAccount;
@@ -9854,6 +9874,7 @@ function renderCreditsUI() {
       creditIndicator.classList.toggle('credit-indicator-low', typeof generationCost === 'number' && remaining < generationCost);
     }
     if (accountCreditsLine) accountCreditsLine.textContent = creditPlanLine(latestCredits);
+    renderCreditPacks();
   } else if (signedIn) {
     if (creditIndicatorText) creditIndicatorText.textContent = 'Loading credits…';
     if (accountCreditsLine) accountCreditsLine.textContent = '';
@@ -10830,6 +10851,17 @@ if (buyButton) {
       purchaseStatus.className = 'purchase-status';
       purchaseStatus.textContent = 'Payment is still being confirmed — this will update shortly, or you can reload the page.';
     })();
+  } else if (params.get('credits') === 'purchased' && params.get('purchase')) {
+    // back from a credit-pack checkout: the credits arrive when Stripe confirms the payment (never from this URL)
+    (async () => {
+      for (let i = 0; i < 20; i++) {
+        try { const r = await fetch(`/api/credits/purchases/${encodeURIComponent(params.get('purchase'))}`); const d = await r.json(); if (d.ok && d.purchase.status === 'fulfilled') { await refreshCreditsUI(); purchaseStatus.className = 'purchase-status success'; purchaseStatus.textContent = `${d.purchase.credits} credits added.`; return; } } catch (e) { /* retry */ }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Your payment is still being confirmed — your credits will appear shortly.';
+    })();
+  } else if (params.get('credits') === 'cancelled') {
+    purchaseStatus.className = 'purchase-status'; purchaseStatus.textContent = 'Credit checkout was cancelled — nothing was charged.';
   } else if (params.get('purchase_cancelled') === '1') {
     purchaseStatus.dataset.sticky = '1';
     purchaseStatus.className = 'purchase-status';
