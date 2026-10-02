@@ -18,6 +18,8 @@
     return { brief: '', suppliedText: '', memoriesText: '', choice: '', understanding: null, research: null, assets: [], plan: null,
       // the generation mode the owner chose (creative | hero | showcase): Creative unless they choose a video mode
       mode: 'creative', modePrices: null,
+      // what a premium cinematic clip starts from: the owner's upload ('image') or the page's own 3D model ('model3d')
+      premiumSource: 'image',
       projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null, models: [], spatialOn: false,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
@@ -66,9 +68,10 @@
       '<div class="cs-uploads"><input type="file" id="csUpload" accept="image/png,image/jpeg,image/webp" multiple hidden><button type="button" class="cs-btn cs-ghost" id="csUploadBtn">+ Add your own pictures</button><input type="file" id="csLogo" accept="image/png,image/jpeg,image/webp" hidden><button type="button" class="cs-btn cs-ghost" id="csLogoBtn" title="Optional: shown top-left in the page header, never as a scene picture">+ Add your logo</button><input type="file" id="csModel" accept=".glb,model/gltf-binary" hidden><button type="button" class="cs-btn cs-ghost" id="csModelBtn" title="Optional: a 3D model of your main subject, used only on pages with a 3D layer">+ Add a 3D model (.glb)</button><div class="cs-thumbs" id="csThumbs"></div></div>',
       '<div class="cs-pv" id="csPv"><p class="cs-pv-head">Generation mode</p><div class="cs-modes" id="csModes" role="radiogroup" aria-label="Generation mode">' + MODES.map(function (m) { return '<button type="button" role="radio" class="cs-mode" data-mode="' + m.id + '" aria-checked="' + (m.id === 'creative' ? 'true' : 'false') + '"><strong>' + m.name + '</strong><span>' + m.line + '</span><em data-mode-credits="' + m.id + '"></em></button>'; }).join('') + '</div>',
       '<p class="cs-hint">Higgsfield video modes require eligible uploaded images. Pictures found on the web are used on the page, never for video.</p>',
-      '<p class="cs-pv-state" id="csPvState" aria-live="polite"></p></div>',
+      '<p class="cs-pv-state" id="csPvState" aria-live="polite"></p>',
+      '<div class="cs-pv-src" id="csPvSrc" hidden><p class="cs-pv-head">Source</p><div class="cs-src" role="radiogroup" aria-label="Cinematic source"><button type="button" role="radio" data-src="image" aria-checked="true">Image</button><button type="button" role="radio" data-src="model3d" aria-checked="false">3D Model</button></div><p class="cs-hint" id="csPvSrcNote"></p></div></div>',
       '<div class="cs-sum" id="csSum" aria-live="polite"></div>',
-      '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button>',
+      '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button><button type="button" class="cs-btn cs-ghost" id="csBackToPage" hidden>Back to the page</button>',
       '<p class="cs-cost" id="csCostNote">Another direction for the same page is priced before it runs. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
       '<section class="cs-step" id="csProgress" hidden><h2>Making it</h2><ol class="cs-progress" id="csProgressList"></ol><div id="csChoices"></div><p class="cs-error" id="csError" role="alert" hidden></p></section>',
@@ -95,6 +98,8 @@
       b.addEventListener('keydown', function (e) { var k = e.key; if (k !== 'ArrowDown' && k !== 'ArrowRight' && k !== 'ArrowUp' && k !== 'ArrowLeft') return; e.preventDefault(); var i = MODES.indexOf(modeOf(b.getAttribute('data-mode'))); var n = MODES[(i + (k === 'ArrowDown' || k === 'ArrowRight' ? 1 : MODES.length - 1)) % MODES.length]; setMode(n.id); els.csModes.querySelector('[data-mode="' + n.id + '"]').focus(); });
     });
     els.csBrief.addEventListener('input', function () { priceSoon(700); });
+    [].forEach.call(root.querySelectorAll('#csPvSrc [data-src]'), function (b) { b.addEventListener('click', function () { if (!b.disabled) setSource(b.getAttribute('data-src')); }); });
+    var back = document.getElementById('csBackToPage'); if (back) back.addEventListener('click', backToPage);
     els.csUploadBtn.addEventListener('click', function () { els.csUpload.click(); });
     var mb = document.getElementById('csModelBtn'), mi = document.getElementById('csModel');
     if (mb && mi) { mb.addEventListener('click', function () { mi.click(); }); mi.addEventListener('change', function () { addModel(mi.files && mi.files[0]); mi.value = ''; }); }
@@ -330,12 +335,30 @@
     return S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed && a.ownerRole !== 'logo'; }).map(function (a) { return Object.assign({ id: a.id, title: a.title || 'upload' }, C.premiumSource.eligible(a, { byId: byId })); });
   }
   function eligibleCount() { return pvVerdicts().filter(function (v) { return v.ok; }).length; }
-  function premiumChoice(mode) { var m = mode || currentMode(); return { on: m.on, moments: m.moments, eligibleUploads: m.on ? eligibleCount() : 0 }; }
+  // THE CINEMATIC SOURCE (lib/creative/cinematic-source.js): the owner's upload, or the page's own interactive 3D model --
+  // a still of it, rendered here by the 3D engine, is what the provider animates. 3D Model is offered only when the page
+  // has a finished model; the choice is saved with the page. The source belongs to the CINEMATIC modes only (Creative +
+  // Cinematic Hero, Creative Showcase): base Creative never uses Higgsfield, so there the choice is kept but inactive --
+  // choosing 3D Model never turns Creative into a cinematic generation (and the server refuses one: startPremium).
+  function cineModel() { return C.cinematicSource.modelFor(S.threeD, S.assets); }
+  function cineSource() { return currentMode().on && S.premiumSource === 'model3d' && cineModel() ? 'model3d' : 'image'; }
+  function setSource(v) { S.premiumSource = C.cinematicSource.clean(v); if (S.plan && S.projectId) markDirty(); renderPv(); priceSoon(0); }
+  // (the 3D model is a source of its own: the moments that show the product start from it, so it counts as one more)
+  function sourceCount() { var n = eligibleCount(); var mdl = cineSource() === 'model3d' ? cineModel() : null; return mdl && !pvVerdicts().some(function (v) { return v.ok && v.id === mdl.sourceAssetId; }) ? n + 1 : n; }
+  function premiumChoice(mode) { var m = mode || currentMode(); return { on: m.on, moments: m.moments, eligibleUploads: m.on ? sourceCount() : 0 }; }
   function setMode(id) { S.mode = modeOf(id).id; renderThumbs(); }
   function renderPv() {
     if (!els.csModes) return; var m = currentMode();
     [].forEach.call(els.csModes.querySelectorAll('[data-mode]'), function (b) { var on = b.getAttribute('data-mode') === m.id; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+    var srcBox = document.getElementById('csPvSrc');
+    if (srcBox) {
+      // (shown in the cinematic modes; in base Creative only when the page has a model, and then clearly inactive)
+      var has = !!cineModel(); var cur = cineSource(); var off = !m.on; srcBox.hidden = off && !has; srcBox.setAttribute('data-inactive', off ? 'true' : 'false');
+      [].forEach.call(srcBox.querySelectorAll('[data-src]'), function (b) { var v = b.getAttribute('data-src'); b.setAttribute('aria-checked', !off && v === cur ? 'true' : 'false'); b.disabled = off || (v === 'model3d' && !has); b.tabIndex = !off && v === cur ? 0 : -1; });
+      document.getElementById('csPvSrcNote').textContent = off ? C.cinematicSource.MESSAGES.inactive : has ? C.cinematicSource.MESSAGES.available : C.cinematicSource.MESSAGES.unavailable;
+    }
     if (!m.on) { els.csPvState.textContent = ''; return; }
+    if (cineSource() === 'model3d') { els.csPvState.textContent = m.moments > 1 ? 'The hero and closing videos start from a still of your 3D model; the takeover needs one suitable uploaded photo of its own.' : 'The video starts from a still of your 3D model.'; return; }
     var v = pvVerdicts(); var ok = v.filter(function (x) { return x.ok; }); var bad = v.filter(function (x) { return !x.ok; });
     els.csPvState.textContent = (!v.length ? m.name + ' needs ' + (m.needs > 1 ? m.needs + ' suitable uploaded photos' : 'an uploaded photo') + ' (web pictures are never used for video).'
       : ok.length >= m.needs ? ok.length + ' of ' + v.length + ' upload' + (v.length === 1 ? '' : 's') + ' suitable for premium video.'
@@ -360,7 +383,7 @@
       S.premiumOff = d.premiumAvailable === false ? (d.premiumUnavailable || 'Premium video is unavailable right now.') : '';
       MODES.forEach(function (m) { var el = els.csModes.querySelector('[data-mode-credits="' + m.id + '"]'); var card = els.csModes.querySelector('[data-mode="' + m.id + '"]'); var p = d.modes && d.modes[m.id]; var off = m.on && S.premiumOff; if (card) card.setAttribute('data-unavailable', off ? 'yes' : 'no'); if (el) el.textContent = off ? 'unavailable' : p ? (p.minCredits < p.credits ? 'up to ' : '') + p.credits + ' credits' : ''; });
       els.csSum.innerHTML = '<table class="cs-lines">' + costRows(d.items, d.credits, d.minCredits, d.creditsRemaining).map(function (l) { return '<tr' + (l.cls ? ' class="' + l.cls + '"' : '') + '><td>' + esc(l.label) + '</td><td>' + esc(l.value) + '</td></tr>'; }).join('') + '</table>'
-        + (currentMode().on && eligibleCount() < currentMode().needs ? '<p class="cs-hint cs-needs">Needs ' + (currentMode().needs > 1 ? currentMode().needs + ' suitable uploaded photos' : 'a suitable uploaded photo') + ' before it can be created.</p>' : '')
+        + (currentMode().on && sourceCount() < currentMode().needs ? '<p class="cs-hint cs-needs">Needs ' + (currentMode().needs > 1 ? currentMode().needs + ' suitable uploaded photos' : 'a suitable uploaded photo') + ' before it can be created.</p>' : '')
         + (!currentMode().on && d.premium && d.premium.briefAsks ? '<p class="cs-hint">Your description mentions video: choose Cinematic Hero or Showcase to include it.</p>' : '');
     });
   }
@@ -421,7 +444,8 @@
   function switchAction(m) { var c = modeCredits(m); return { id: 'mode:' + m.id, label: 'Switch to ' + m.name + (c != null ? ' (' + (m.on ? 'up to ' : '') + c + ' credits)' : '') }; }
   function afterSwitch(a) { if (a && a.indexOf('mode:') === 0) { setMode(a.slice(5)); return confirmGeneration(); } return null; }
   function confirmGeneration() {
-    var m = currentMode(); var have = m.on ? eligibleCount() : 0;
+    // (the page's 3D model, when it is the chosen cinematic source, is a source of its own: sourceCount)
+    var m = currentMode(); var have = m.on ? sourceCount() : 0;
     return priceModes().then(function (pd) {
       // (video modes are off on the server: the owner chooses Creative or stops -- nothing is quoted for video)
       if (m.on && pd && pd.premiumAvailable === false) return modal({ title: m.name + ' is unavailable right now', text: pd.premiumUnavailable || 'Premium video is unavailable right now.', actions: [switchAction(MODES[0]), { id: 'cancel', label: 'Cancel' }] }).then(afterSwitch);
@@ -442,7 +466,7 @@
         var prem = q.items.some(function (i) { return /^premium_/.test(i.code); });
         if (typeof bal === 'number' && bal < q.credits) {
           // (the cheaper modes this balance covers and these uploads can make)
-          var cheaper = MODES.filter(function (x) { var c = modeCredits(x); return x.id !== m.id && c != null && c < q.credits && c <= bal && x.needs <= eligibleCount(); }).reverse();
+          var cheaper = MODES.filter(function (x) { var c = modeCredits(x); return x.id !== m.id && c != null && c < q.credits && c <= bal && x.needs <= sourceCount(); }).reverse();
           return modal({ title: 'Not enough credits for ' + m.name, text: 'This mode needs ' + q.credits + ' credits and you have ' + bal + '.', lines: lines,
             actions: [{ id: 'buy', label: 'Buy more credits', primary: !cheaper.length }].concat(cheaper.map(switchAction), [{ id: 'cancel', label: 'Cancel' }]) }).then(function (a) {
             if (a === 'buy') return buyCredits(q.credits - bal).then(function () { return confirmGeneration(); });
@@ -471,7 +495,7 @@
     if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
     if (S.dirty && S.plan && !choice && !quoteId && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
     if (!choice && !quoteId && !openJobFor(S.brief)) return confirmGeneration().then(function (q) { if (q) return create(choice, q); });
-    S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = '';
+    S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = ''; var bk = document.getElementById('csBackToPage'); if (bk) bk.hidden = true;
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
     steps([['understand', 'Understanding the brief'], ['research', 'Looking it up (encyclopedia and picture search)'], ['pictures', 'Reading the pictures (size, background, cutouts)'], ['direct', 'Directing the page'], ['build', 'Building the page'], ['premium', 'Premium media (Higgsfield)']]);
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
@@ -621,13 +645,32 @@
     return { arc: arc, assets: cand.map(function (a) { var o = { id: a.id, origin: a.origin, title: a.title, license: a.license, pageUrl: a.pageUrl, sourceUrl: a.sourceUrl, ownerPicked: a.ownerPicked, ownerAffirmed: a.ownerAffirmed, cutoutOf: a.cutoutOf, mime: a.mime, assetRef: a.assetRef, curation: a.curation, assess: a.assess, quality: a.quality, ownerRole: a.ownerRole }; if (picks.indexOf(a.id) >= 0 || (a.origin === 'upload' && !a.ownerPicked) || a.id === (cand.find(function (x) { return x.id === picks[picks.length - 1]; }) || {}).cutoutOf) o.dataUrl = a.dataUrl; return o; }) };
   }
   function savedFirst() { return signedIn() && S.plan ? Promise.resolve(save()).catch(function () { return null; }) : Promise.resolve(null); }
+  // the 3D engine in this window (the same file the preview uses), for one still of the page's model
+  var engineWait = null;
+  function td3Engine() {
+    if (window.SiteRemade3D && window.SiteRemade3D.still) return Promise.resolve(window.SiteRemade3D); if (engineWait) return engineWait;
+    engineWait = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = C.threeD.RUNTIME.preview; s.async = true; s.onload = function () { if (window.SiteRemade3D && window.SiteRemade3D.still) res(window.SiteRemade3D); else { engineWait = null; rej(new Error('engine')); } }; s.onerror = function () { engineWait = null; rej(new Error('engine')); }; document.head.appendChild(s); });
+    return engineWait;
+  }
+  // the cinematic still: the stored model, drawn by the engine as cinematic-source.js RENDER says -> a PNG data URL
+  function td3Still(model) { var url = srcFor(model); if (!url) return Promise.reject(new Error('no model')); return td3Engine().then(function (E) { return E.still(Object.assign({ model: url, maxBytes: C.threeD.LIMITS.modelBytes }, C.cinematicSource.RENDER)); }).then(function (r) { return r.dataUrl; }); }
   function runPremium() {
     if (S.premiumJob) { followPremium(S.premiumJob.jobId); return Promise.resolve(); }
     if (!S.premium || !S.premium.planned || !S.jobId) { step('premium', 'done', premiumHeadline(S.premiumResult || S.premium) || 'Premium media planned: No'); return Promise.resolve(); }
     step('premium', 'active', 'Saving the page to your account, then starting the premium videos…');
+    // (the 3D source: one still of the page's model, rendered once -- a retry sends the same still; a still that could not
+    // be drawn is said so to the server, which makes nothing from it and returns its credits)
+    var cine = null;
+    var source = function () {
+      if (cineSource() !== 'model3d') return Promise.resolve(null); if (cine) return Promise.resolve(cine); var mdl = cineModel();
+      step('premium', 'active', 'Rendering a still of your 3D model for the cinematic video…');
+      return td3Still(mdl).then(function (png) { cine = { kind: 'model3d', modelId: mdl.id, render: png }; return cine; }, function () { cine = { kind: 'model3d', modelId: mdl.id, render: '' }; return cine; });
+    };
     var start = function () {
-      var x = sendAssets();
-      return api('/api/creative/premium/start', { method: 'POST', body: { jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], premiumArc: x.arc, heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: x.assets, models: modelMeta() } });
+      return source().then(function (cs) {
+        var x = sendAssets();
+        return api('/api/creative/premium/start', { method: 'POST', body: Object.assign({ jobId: S.jobId, projectId: S.projectId || '', brief: S.brief, premiumMedia: (S.plan && S.plan.premiumMedia) || [], premiumArc: x.arc, heroAsset: heroAsset(), subject: (S.understanding && S.understanding.identity && S.understanding.identity.name) || '', assets: x.assets, models: modelMeta() }, cs ? { cinematicSource: cs } : {}) });
+      });
     };
     var started = function (r) {
       var d = (r && r.data) || {}; creditsFrom(d);
@@ -742,9 +785,9 @@
     } else if (shown) {
       var sc0 = block.scenes[0]; var a0 = block.assets.filter(function (a) { return a.id === sc0.assetId; })[0] || block.assets[0];
       html = head + '<p>This page shows a real 3D model' + (a0 && a0.title ? ' of <strong>' + esc(a0.title) + '</strong>' : '') + ' in “' + esc(tdSceneName(sc0.sectionId)) + '”. It turns as visitors scroll. Where 3D cannot run — reduced motion, an old device — they see your picture instead.</p>'
-        + '<button type="button" class="cs-btn cs-ghost" id="cs3dRemove">Take the 3D model off the page</button>' + note;
+        + '<button type="button" class="cs-btn cs-ghost" id="cs3dRemove">Take the 3D model off the page</button>' + (cineModel() ? '<button type="button" class="cs-btn cs-ghost" id="cs3dCine">Make a cinematic video from it</button>' : '') + note;
     } else if (block) {
-      html = head + '<p>You have a 3D model for this page. It is not shown at the moment.</p><button type="button" class="cs-btn" id="cs3dShow">Show it on the page</button>' + note;
+      html = head + '<p>You have a 3D model for this page. It is not shown at the moment.</p><button type="button" class="cs-btn" id="cs3dShow">Show it on the page</button>' + (cineModel() ? '<button type="button" class="cs-btn cs-ghost" id="cs3dCine">Make a cinematic video from it</button>' : '') + note;
     } else if (job && job.terminal && !job.completed) {
       html = head + '<p><strong>' + esc(job.message) + '</strong></p><button type="button" class="cs-btn cs-ghost" id="cs3dAgain">Try again</button>' + note;
     } else if (S.tdQuote) {
@@ -764,12 +807,25 @@
     box.innerHTML = html;
     var on = function (id, fn) { var b = document.getElementById(id); if (b) b.addEventListener('click', fn); };
     [].forEach.call(box.querySelectorAll('[data-td-src]'), function (b) { b.addEventListener('click', function () { S.tdSource = b.getAttribute('data-td-src'); S.tdNote = ''; build3D(); }); });
-    on('cs3dQuote', td3Quote); on('cs3dGo', td3Start);
+    on('cs3dQuote', td3Quote); on('cs3dGo', td3Start); on('cs3dCine', cinematicFrom3D);
     on('cs3dCancel', function () { S.tdQuote = null; S.tdNote = ''; build3D(); });
     on('cs3dAgain', function () { S.tdJob = null; S.tdNote = ''; build3D(); });
     on('cs3dRemove', function () { S.threeD = C.threeD.normalise({ assets: S.threeD.assets, scenes: [] }, {}); refresh(); markDirty(); build3D(); });
     on('cs3dShow', function () { var a = S.threeD.assets[0]; td3Place(a, tdSectionFor(a.sourceAssetId), 'scroll-rotate'); refresh(); markDirty(); build3D(); });
   }
+  // A CINEMATIC VIDEO FROM THE 3D MODEL: a premium clip is made with a generation (its mode, its one quote), so this opens
+  // the generation setup again for this same page -- its pictures and its 3D model kept -- with the 3D source chosen. The
+  // MODE stays the owner's: in base Creative the source is shown inactive until they choose a cinematic mode themselves
+  // (Creative never uses Higgsfield). Nothing is made or charged until the owner creates; 'Back to the page' leaves
+  // everything as it was.
+  function cinematicFrom3D() {
+    if (S.busy || !cineModel()) return; S.premiumSource = 'model3d';
+    els.csBrief.value = S.brief || ''; els.csEditor.hidden = true; els.csBriefStep.hidden = false;
+    var back = document.getElementById('csBackToPage'); if (back) back.hidden = !S.plan;
+    renderThumbs(); renderPv(); priceSoon(0);
+    setTimeout(function () { var pv = document.getElementById('csPv'); if (pv && pv.scrollIntoView) pv.scrollIntoView({ block: 'center' }); }, 30);
+  }
+  function backToPage() { if (!S.plan || S.busy) return; els.csBriefStep.hidden = true; els.csEditor.hidden = false; var back = document.getElementById('csBackToPage'); if (back) back.hidden = true; }
   // the model's scene: one stage, in one section, scroll-rotate (the one composition offered for now)
   function td3Place(asset, sectionId, composition) {
     var cur = tdBlock() || { assets: [], scenes: [] };
@@ -1046,7 +1102,7 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', quoteId: quoteId || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours() } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', quoteId: quoteId || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours(), cinematicSource: cineSource() === 'model3d' ? { kind: 'model3d', sourceAssetId: cineModel().sourceAssetId } : undefined } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};
@@ -1368,7 +1424,7 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, threeD: tdForSave(), plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, threeD: tdForSave(), plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, premiumSource: S.premiumSource === 'model3d' ? 'model3d' : undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   // the page's 3D block as it is SAVED: a model the server already stores goes by its reference, never as bytes (a model
@@ -1404,7 +1460,7 @@
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
     S.projectId = p.id; S.revision = p.revision; S.status = p.status || null; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
-    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.models = c.models || []; S.threeD = c.threeD || null; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
+    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.models = c.models || []; S.threeD = c.threeD || null; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen; S.premiumSource = c.premiumSource === 'model3d' ? 'model3d' : 'image';
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }

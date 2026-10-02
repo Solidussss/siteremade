@@ -54,6 +54,12 @@ body.cs-open{overflow:hidden}
 .cs-thumbs .cs-pv-tag[data-ok="no"]{background:rgba(60,14,14,.88);color:#ffb3b3}
 .cs-sum{margin-top:12px}
 /* premium videos being made on the server: their progress, role by role */
+/* the cinematic source (creative.js renderPv): Image | 3D Model, under the generation modes */
+.cs-pv-src{margin-top:10px}.cs-src{display:inline-flex;border:1px solid #3a3f55;border-radius:10px;overflow:hidden}
+.cs-src button{background:transparent;color:inherit;border:0;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}.cs-src button+button{border-left:1px solid #3a3f55}
+.cs-src button[aria-checked="true"]{background:#ffcf5c;color:#1a1a1a;font-weight:600}.cs-src button[disabled]{opacity:.45;cursor:not-allowed}
+#csBackToPage{margin-left:8px}
+.cs-pv-src[data-inactive="true"] .cs-src{opacity:.45}.cs-pv-src[data-inactive="true"] .cs-src button[disabled]{cursor:default}
 /* Interactive 3D (creative.js build3D): one quiet card above the editor's tabs */
 .cs-3d{border:1px solid #2c3550;background:#121829;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px}
 .cs-3d h3{margin:0 0 6px;font-size:14px;letter-spacing:.02em}.cs-3d p{margin:4px 0}.cs-3d .cs-btn{margin-top:8px}.cs-3d .cs-btn.cs-primary{margin-top:10px}.cs-3d .cs-btn[disabled]{opacity:.55;cursor:default}

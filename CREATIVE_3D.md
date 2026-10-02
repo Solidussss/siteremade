@@ -81,6 +81,41 @@ what comes back with `test/helpers/mock-tripo.js`. If Tripo's GLBs are over the 
 refuses them (credits returned, cost incurred) and a real normaliser — Blender in the image, or gltf-transform — is the
 next step.
 
+## The cinematic source: a premium clip from the 3D model
+
+The premium cinematic controls (the generation mode box) offer **Source: Image | 3D Model**
+(`lib/creative/cinematic-source.js`, shared by the studio and the server).
+
+* **Higgsfield takes a picture and nothing else.** Its image-to-video models take `image_url` (+ prompt, duration);
+  its published OpenAPI documents no video input for them and no 3D input anywhere. So a 3D source is ONE still:
+  `SiteRemade3D.still()` (the same engine, `lib/three-d/runtime-src.js`) draws the page's stored GLB at a fixed
+  three-quarter view, centred, 62 % of the frame, studio light, plain neutral background, 1920×1080 opaque PNG — the same
+  model and spec give the same bytes (`test/fixtures/three-d/product-still.png` is that render of the fixture model, and
+  the studio's live render of it is byte-identical). The camera move (a slow orbit, a slight push-in) is asked for in
+  words (`PROMPT_3D`). The model is never made again; nothing calls Tripo.
+* It is drawn **in the studio**, by our engine: production has no Blender and no server-side WebGL, and no dependency
+  was added. The server checks the still's own header (a PNG of exactly the render size) and that the SAVED project has
+  a finished model made from the owner's upload, stores it, and records it (`role.source`, the clip's provenance:
+  `{ kind: 'model3d', modelAssetId, modelRef, renderRef }`). It trusts the pixels as it trusts an upload.
+* The moments that show the product (the hero, a showcase's payoff) start from the still; a showcase's takeover keeps its
+  own photo. The clip joins the page on the photo the model was made from — attach, save, publish, app preview and
+  export are the image path, unchanged. The planner (`/api/creative/plan`) treats that photo as the video's source, so
+  a photo too small for video by itself still gets its hero clip.
+* The same mode, quote, price, reservation, one-submission rule and settlement as an Image clip: no new tier. A 3D
+  source that cannot be used (no finished model, a bad still) makes nothing; its credits come back.
+* The choice is saved with the page (`creative.premiumSource: 'model3d'`; Image adds nothing). On a page that already
+  exists, the 3D card's **Make a cinematic video from it** opens the generation setup for the same page (its pictures
+  and model kept) with 3D Model chosen. The MODE stays the owner's; nothing runs until they create.
+* **The pricing rule: base Creative (6 credits) never calls Higgsfield.** The source belongs to the cinematic modes
+  (Creative + Cinematic Hero, Creative Showcase). In base Creative the Source control is shown inactive, and choosing 3D
+  Model never changes the mode. The server enforces it, whatever a request says: `startPremium` makes a Higgsfield job
+  only from the premium lines of the generation's CONFIRMED `creative_generation` quote, and base Creative is quoted with
+  none. A 3D source, premium suggestions or an arc sent with a base Creative generation are refused and logged
+  (`start-refused`), and the still is not even stored.
+* Tests: `test/cinematic-source.test.js` (CS-8: base Creative + 3D Model -> 6 credits, no premium job, zero Higgsfield
+  requests; CS-2/CS-3: Cinematic Hero with Image / 3D Model; CS-9: Showcase with 3D Model -- Showcase with Image is the
+  existing showcase tests); in a real browser: `electron test/review/cinematic-3d-flow.js <out>`.
+
 ## The layers, and where each one lives
 
 | | What | Files |

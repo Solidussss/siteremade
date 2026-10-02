@@ -2557,6 +2557,7 @@ const creativeArt = require('./lib/creative/art');
 const creativePool = require('./lib/creative/pool');
 const creativeArc = require('./lib/creative/premium-arc');
 const creativeSource = require('./lib/creative/premium-source');
+const cinematicSource = require('./lib/creative/cinematic-source');
 const creativeFraming = require('./lib/creative/framing');
 const PREMIUM_VIDEO_INTENTS = ['cinematic_hero', 'image_to_video', 'object_motion', 'environment_motion'];
 // ART DIRECTION: the recipes (motion personality / scroll model / scene architecture) this account's most recent Creative
@@ -2943,6 +2944,26 @@ const premiumWorker = premiumJobs.createWorker({
   enabled3D: () => premiumProviderEnabled() && threeD.schema.enabled() && threeD.provider.selected().ok,
   process3D: (file, r, job) => threeD.pipeline.normalise(Object.assign({}, file, { provider: r.provider || '', providerAssetId: r.providerJobId || '', sourceAssetId: r.sourceAssetId || '', requestId: `${job.id}:${r.role}` }), { normalizer: threeD.normalizer().name }),
 });
+// THE CINEMATIC SOURCE of a premium start (lib/creative/cinematic-source.js): 'image' (the owner's upload -- the way it has
+// always worked: nothing below changes for it) or 'model3d' -- the page's own 3D model. Higgsfield animates a picture and
+// nothing else, so the studio renders ONE controlled still of the stored GLB (the 3D engine's still()) and sends it; here
+// it is checked against the SAVED project (a finished model of this page, made from the owner's upload, its GLB stored)
+// and its own file header (a PNG of exactly the render size), then stored like any source. The model is never made again.
+// -> { kind: 'image' } | { kind: 'model3d', ok, uploadId, source: { kind, modelAssetId, modelRef, renderRef } } | { kind: 'model3d', ok: false, reason }
+function cinematicSourceFor(accountId, b) {
+  const c = b && b.cinematicSource; if (!c || cinematicSource.clean(c.kind) !== 'model3d') return { kind: 'image' };
+  const no = reason => ({ kind: 'model3d', ok: false, reason });
+  const raw = clean(b.projectId, 120) ? projectStore.getOwnedProjectRaw(db, accountId, clean(b.projectId, 120)) : null;
+  const dir = raw && ((raw.directionsState && raw.directionsState.directions) || []).find(x => x && x.mode === 'creative' && x.creative);
+  const cr = dir && dir.creative; const model = cr ? cinematicSource.modelFor(cr.threeD, cr.assets) : null;
+  if (!model || (c.modelId && c.modelId !== model.id) || !model.assetRef) return no('model3d_unavailable');
+  const blob = db.assetBlobs.find(model.assetRef); if (!blob || blob.content_type !== 'model/gltf-binary') return no('model3d_unavailable');
+  const m = typeof c.render === 'string' ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(c.render) : null; if (!m) return no('model3d_render');
+  const buf = Buffer.from(m[1], 'base64'); const hs = creativeSource.headerSize(buf);
+  if (!hs || cinematicSource.renderProblem({ mime: hs.mime, width: hs.width, height: hs.height, bytes: buf.length })) return no('model3d_render');
+  const renderRef = storeBytes(buf, 'image/png');
+  return { kind: 'model3d', ok: true, uploadId: model.sourceAssetId, source: { kind: 'model3d', modelAssetId: model.id, modelRef: model.assetRef, renderRef } };
+}
 async function startPremium(req, res) {
   const b = req.body || {}; const R = premiumMedia.REASONS; const jobKey = clean(b.jobId, 60);
   const reply = (extra) => res.json(Object.assign({ ok: true, creditsRemaining: creditsRemainingFor(req.accountId) }, extra));
@@ -2957,10 +2978,17 @@ async function startPremium(req, res) {
   const job = creativeJobs.get(db, req.accountId, jobKey);
   if (!job) return res.status(404).json({ ok: false, job: null, premium: { status: { planned: false, reason: 'not_run', message: R.not_run } } });
   const q = db.quotes.findByOp(job.id);
-  const planned = q ? JSON.parse(q.items_json).filter(i => /^premium_/.test(i.code)) : [];
+  // THE PRICING RULE, enforced here and nowhere else: Higgsfield runs only for what the owner's CONFIRMED quote for this
+  // generation priced -- its premium lines (Creative + Cinematic Hero, Creative Showcase). Base Creative is quoted with
+  // none, so it never gets a premium job, whatever this request says: a cinematic source (3D Model or Image), premium
+  // suggestions, an arc, a hero picture. Nothing in the body can add a premium line; the source is not even read below.
+  const planned = q && q.operation === 'creative_generation' ? JSON.parse(q.items_json).filter(i => /^premium_/.test(i.code)) : [];
   const suggested = (Array.isArray(b.premiumMedia) ? b.premiumMedia : []).slice(0, 4).map(m => ({ intent: clean(m && m.intent, 40), asset: clean(m && m.asset, 40) })).filter(m => premiumMedia.INTENTS[m.intent]);
   const diag = { jobId: job.id, quoteId: q ? q.id : null, requested: planned.map(i => i.intent), skipped: [] };
-  if (!planned.length) return reply({ job: null, premium: { status: premiumStatusForJob(job, clean(b.brief, 1200)) } });
+  if (!planned.length) {
+    if (b.cinematicSource || suggested.length || (Array.isArray(b.premiumArc) && b.premiumArc.length)) premiumLog({ step: 'start-refused', accountId: req.accountId, creativeJobId: job.id, reason: 'no premium line in the confirmed quote (base Creative)', asked: { cinematicSource: !!b.cinematicSource, premiumMedia: suggested.length, premiumArc: Array.isArray(b.premiumArc) ? b.premiumArc.length : 0 } });
+    return reply({ job: null, premium: { status: premiumStatusForJob(job, clean(b.brief, 1200)) } });
+  }
   const opId = creativeJobs.premiumOp(job); const op = credits.findOperation(db, opId);
   if (!op || op.status !== 'reserved') return reply({ job: null, premium: { status: { planned: true, intents: diag.requested, reason: 'not_run', message: R.not_run } } });
   // the source picture for each planned intent: the director's own pick for it, the page's opening picture, then the
@@ -2969,10 +2997,20 @@ async function startPremium(req, res) {
   const byId = new Map(assets.map(a => [a.id, a])); const models = Array.isArray(b.models) ? b.models.slice(0, 2) : [];
   const order = a => (a.origin === 'upload' && !a.ownerPicked ? 0 : a.cutoutOf ? 1 : a.ownerPicked ? 2 : 3);
   const requests = [];
+  // (the cinematic source: the moments that show the product -- the hero, and a showcase's payoff, which returns to the
+  // hero's picture -- start from the still of its 3D model; a showcase's takeover keeps its own photo)
+  const cine = cinematicSourceFor(req.accountId, b); const fromModel = item => cine.kind === 'model3d' && (!item.role || item.role === 'hero' || item.role === 'payoff');
   for (const item of planned) {
     const intent = item.intent; const st = premiumMedia.providerState(creativePremiumProvider(), intent);
     if (!st.ok) { diag.skipped.push({ intent, role: item.role, reason: st.reason, message: R[st.reason] }); continue; }
     if (models.length && ['object_motion', 'alternate_angle'].includes(intent)) { diag.skipped.push({ intent, role: item.role, reason: 'renderer_handled', message: R.renderer_handled }); continue; }
+    if (fromModel(item)) {
+      // the still of the 3D model is the source; the clip joins the page on the photo the model was made from
+      if (!cine.ok) { diag.skipped.push({ intent, role: item.role, reason: cine.reason, message: R[cine.reason] }); continue; }
+      const def3 = premiumMedia.INTENTS[intent];
+      requests.push(Object.assign({ intent, mediaType: def3.mediaType, preset: def3.preset, sourceAssetId: cine.uploadId, subject: clean(b.subject, 120), ref: cine.source.renderRef, mime: 'image/png', credits: item.credits, source: cine.source }, item.role ? { role: item.role } : {}));
+      continue;
+    }
     // (a premium arc: each moment starts from the picture the plan built its scene around -- the hero's, a different one
     // for the takeover, the hero's again for the payoff)
     const arcPick = item.role ? (Array.isArray(b.premiumArc) ? b.premiumArc : []).map(e => ({ role: clean(e && e.role, 20), asset: clean(e && e.asset, 40) })).find(e => e.role === item.role) : null;
@@ -2996,7 +3034,7 @@ async function startPremium(req, res) {
   const roles = planned.map(item => {
     const r = requests.find(x => (x.role || '') === (item.role || '') && x.intent === item.intent);
     const key = item.role || 'single';
-    if (r) return { role: key, intent: r.intent, sourceAssetId: r.sourceAssetId, sourceRef: r.ref, mime: r.mime, sourceBase: base, preset: r.preset, mediaType: r.mediaType, subject: r.subject, credits: item.credits, estimatedUsd: clip.budgetUsd, observedUsd: clip.observedUsd, state: 'pending' };
+    if (r) return Object.assign({ role: key, intent: r.intent, sourceAssetId: r.sourceAssetId, sourceRef: r.ref, mime: r.mime, sourceBase: base, preset: r.preset, mediaType: r.mediaType, subject: r.subject, credits: item.credits, estimatedUsd: clip.budgetUsd, observedUsd: clip.observedUsd, state: 'pending' }, r.source ? { source: r.source } : {});
     const sk = diag.skipped.find(x => (x.role || x.intent) === (item.role || item.intent)) || diag.skipped.find(x => x.intent === item.intent) || { reason: 'no_source', message: R.no_source };
     return { role: key, intent: item.intent, credits: item.credits, state: 'blocked', failure: { code: sk.reason, reason: sk.message } };
   });
@@ -3016,7 +3054,7 @@ async function startPremium(req, res) {
   const budgetUsd = +(Math.min(roles.length, premiumJobs.MAX_CLIPS[mode]) * clip.budgetUsd).toFixed(2);
   const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: job.id, projectId: project ? project.id : null, quoteId: q ? q.id : null, opId, mode, strategy, creditsReserved: op.amount, budgetUsd, roles });
   if (made.settleNow) premiumJobs.settle(db, made.job.id); else if (!made.reused) premiumWorker.kick(made.job.id);
-  premiumLog({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, reused: made.reused, roles: roles.map(r => `${r.role}:${r.state}`), skipped: diag.skipped });
+  premiumLog(Object.assign({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, reused: made.reused, roles: roles.map(r => `${r.role}:${r.state}`), skipped: diag.skipped }, cine.kind === 'model3d' ? { cinematicSource: cine.ok ? { kind: 'model3d', modelAssetId: cine.source.modelAssetId } : { kind: 'model3d', unusable: cine.reason } } : {}));
   return reply({ reused: made.reused, job: premiumJobs.view(db.premiumJobs.find(made.job.id)) });
 }
 app.post('/api/creative/premium/start', express.json({ limit: '16mb' }), requireAuth, requireSameOrigin, generationRateLimit, startPremium);
@@ -3397,9 +3435,14 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // (2) the premium hero's source and role, BEFORE the direction, so the page is planned around the video: the main picture
   //     when it may be transformed, else the next pool picture that may (the same permission gate the premium step uses)
   const videoIntent = input.premiumRequested.find(i => PREMIUM_VIDEO_INTENTS.includes(i));
+  // (the cinematic source is the page's 3D model -- lib/creative/cinematic-source.js: the photo the model was made from, and
+  // its cut-out, ARE the video's source, whatever their own size -- the clip starts from a still of the model. This only
+  // shapes the plan: the premium start checks the model against the saved project, and makes nothing without one)
+  const cine3d = b.cinematicSource && cinematicSource.clean(b.cinematicSource.kind) === 'model3d' ? clean(b.cinematicSource.sourceAssetId, 40) : '';
+  const fromModel = (byIdP, id) => !!cine3d && (id === cine3d || !!(byIdP.get(id) && byIdP.get(id).cutoutOf === cine3d));
   if (videoIntent) {
     const byIdP = new Map(assets.map(a => [a.id, a]));
-    const verdicts = pool.pictures.map(p => ({ id: p.id, v: premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, measured: premiumMeasured(byIdP.get(p.id)) }) }));
+    const verdicts = pool.pictures.map(p => ({ id: p.id, v: fromModel(byIdP, p.id) ? { ok: true } : premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, measured: premiumMeasured(byIdP.get(p.id)) }) }));
     const ok = verdicts.find(x => x.v.ok);
     input.premiumHero = ok ? { intent: videoIntent, source: ok.id, role: 'hero motion', note: pool.main && ok.id !== pool.main.id ? `the main picture is not used for the video: ${(verdicts.find(x => x.id === pool.main.id) || { v: {} }).v.reason || 'not eligible'}` : '' }
       : { intent: videoIntent, source: null, role: 'hero motion', note: verdicts.length ? `no picture may be sent for the video: ${verdicts[0].v.reason}` : 'no picture to start the video from' };
@@ -3411,7 +3454,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // (a standard generation's one hero video is planned exactly as before: premiumHero below)
   if (arcItems.length >= 2) {
     const byIdP = new Map(assets.map(a => [a.id, a]));
-    const eligible = id => premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, measured: premiumMeasured(byIdP.get(id)) }).ok;
+    const eligible = id => fromModel(byIdP, id) || premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, measured: premiumMeasured(byIdP.get(id)) }).ok;
     const pics = pool.pictures.map(p => { const a = byIdP.get(p.id); return { id: p.id, colour: p.colour, bleed: !!(a && creativeFraming.canBleed(a, 1.6)), role: a && a.curation ? a.curation.role : '' }; });
     const src = creativeArc.pickSources(arcItems.map(i => i.role), pics, eligible, pool.main && pool.main.id);
     input.premiumArc = arcItems.map(i => ({ role: i.role, intent: i.intent, asset: src[i.role] || null })).filter(e => e.asset);
