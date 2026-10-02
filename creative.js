@@ -983,7 +983,7 @@
     } catch (e) { return a.dataUrl; }
   }
   function refresh(first) {
-    var html = S.plan.v === 2 ? C.render2.renderCreative2(S.plan, (S.models || []).length ? live().concat(S.models) : live(), { mode: 'preview', src: srcFor, motion: S.previewMotion }) : C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
+    var html = S.plan.v === 2 ? C.render2.renderCreative2(S.plan, (S.models || []).length ? live().concat(S.models) : live(), { mode: 'preview', src: srcFor, motion: S.previewMotion, threeD: S.threeD || undefined }) : C.render.renderCreative(S.plan, live(), { mode: 'preview', src: srcFor, motion: S.previewMotion });
     var y = 0; try { y = first ? 0 : frame.contentWindow.scrollY; } catch (e) { y = 0; }
     frame.onload = function () { try { if (y) frame.contentWindow.scrollTo(0, y); } catch (e) { /* ignore */ } };
     frame.srcdoc = html; S.lastHtml = html;
@@ -1215,7 +1215,7 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, threeD: S.threeD || undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
   }
   function save() {
@@ -1244,7 +1244,7 @@
     var d = (p.directionsState.directions || []).find(function (x) { return x && x.mode === 'creative'; }); if (!d || !d.creative) return fail('That project has no Creative page.');
     var c = d.creative; S = fresh();
     S.projectId = p.id; S.revision = p.revision; S.status = p.status || null; S.name = p.name; S.localId = d.meta && d.meta.id; S.createdAt = d.meta && d.meta.createdAt;
-    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.models = c.models || []; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
+    S.brief = c.brief || ''; S.understanding = c.understanding; S.research = c.research; S.assets = c.assets || []; S.models = c.models || []; S.threeD = c.threeD || null; S.fixture = c.fixture || ''; S.planMeta = c.planMeta || null; S.history = c.history || []; S.mainAsset = c.mainAsset || null; S.abstractChosen = !!c.abstractChosen;
     S.suppliedText = ((c.supplied && c.supplied.facts) || []).join('\n'); S.memoriesText = ((c.supplied && c.supplied.memories) || []).join('\n'); S.cost = Object.assign(S.cost, c.cost || {});
     resetUI();
     if (!c.plan) { els.csEmpty.hidden = false; return; }

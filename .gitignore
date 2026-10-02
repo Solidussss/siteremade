@@ -11,3 +11,6 @@
 # them (harmless here, but a normal thing for a repo's .gitignore to have).
 .DS_Store
 node_modules/
+
+# A developer's own portable tools (e.g. .tools/blender -- see CREATIVE_3D.md): never committed, never deployed.
+/.tools/

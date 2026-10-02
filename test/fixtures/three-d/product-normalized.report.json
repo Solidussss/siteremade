@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "blender": "4.5.9",
+  "static": true,
+  "applied_transforms": true,
+  "scale": 0.02450979979668041,
+  "center": [
+    3.1999998092651367,
+    18.399999618530273,
+    -1.499997615814209
+  ],
+  "origin": "center",
+  "up_axis": "Z",
+  "triangles_before": 4224,
+  "triangles_after": 4224,
+  "decimated": false,
+  "textures": [
+    {
+      "name": "label",
+      "from": [
+        4096,
+        1024
+      ],
+      "to": [
+        2048,
+        512
+      ]
+    }
+  ],
+  "parts": [
+    "Body",
+    "Cap",
+    "Label"
+  ],
+  "animations": [],
+  "warnings": []
+}

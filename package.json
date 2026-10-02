@@ -7,12 +7,19 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test \"test/*.test.js\"",
-    "fixtures:export": "node test/fixtures/render-export-fixtures.js"
+    "fixtures:export": "node test/fixtures/render-export-fixtures.js",
+    "build:creative-core": "node scripts/build-creative-core.js",
+    "build:3d-engine": "node scripts/build-three-d-runtime.js",
+    "demo:3d": "node scripts/three-d-demo.js --serve"
   },
   "engines": {
     "node": ">=22.13 <23"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.186.1"
   }
 }

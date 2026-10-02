@@ -56,7 +56,7 @@ test('the static mount is an exact allow-list: the repository root is never serv
   // the list: a handful of browser files, each one a real file, none of them a folder, a dot-entry or server-side code
   assert.ok(PUBLIC.length >= 10 && PUBLIC.length <= 24, `${PUBLIC.length} public files`); assert.equal(new Set(PUBLIC).size, PUBLIC.length);
   PUBLIC.filter(p => p !== '/').forEach(p => {
-    assert.match(p, /^\/[A-Za-z0-9][A-Za-z0-9/_-]*(\.[A-Za-z0-9-]+)*\.(html|css|js|png)$/, p); assert.ok(!p.includes('..') && !/\/\./.test(p), p);
+    assert.match(p, /^\/[A-Za-z0-9][A-Za-z0-9/_-]*(\.[A-Za-z0-9-]+)*\.(html|css|js|png|txt)$/, p); assert.ok(!p.includes('..') && !/\/\./.test(p), p);
     assert.ok(fs.statSync(path.join(ROOT, p)).isFile(), `${p} exists`);
     assert.doesNotMatch(p, /^\/(server\.js|lib\/|test\/|scripts\/|migrations\/|data\/|node_modules\/|premium-fixtures\/|references\/)|package|\.md$|\.json$|\.sql$|\.py$|\.db$/, p);
   });
@@ -65,15 +65,16 @@ test('the static mount is an exact allow-list: the repository root is never serv
 test('the public list is exactly what the pages load: nothing a page needs is missing from it', () => {
   const need = new Set(['/']);
   ['index.html', 'privacy.html', 'terms.html'].forEach(f => { need.add('/' + f); [...fs.readFileSync(path.join(ROOT, f), 'utf8').matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"]*)?"/g)].map(m => m[1]).filter(u => !/^(https?:|mailto:|tel:|data:|\/\/)/.test(u) && /\.[a-z0-9]+$/i.test(u)).forEach(u => need.add('/' + u.replace(/^\//, ''))); });
-  // the Creative studio's own set (creative-entry.js loads them when Creative is chosen)
+  // the Creative studio's own set (creative-entry.js loads them when Creative is chosen), and the 3D preview engine
   [...fs.readFileSync(path.join(ROOT, 'creative-entry.js'), 'utf8').matchAll(/'([a-z0-9-]+\.(?:js|css))'/g)].forEach(m => need.add('/' + m[1]));
+  need.add(require('../lib/creative/three-d').RUNTIME.preview);
   [...need].forEach(u => assert.ok(PUBLIC.includes(u), `${u} is loaded by a page but is not public`));
-  // and nothing is public that no page loads
-  PUBLIC.forEach(u => assert.ok(need.has(u), `${u} is public but nothing loads it`));
+  // and nothing is public that no page loads (the engine's licence text is the one deliberate extra)
+  PUBLIC.forEach(u => assert.ok(need.has(u) || u === '/vendor/three-d/LICENSE-three.txt', `${u} is public but nothing loads it`));
 });
 
 test('normal website assets still work: every public file is served whole, with its type and its caching, by GET and HEAD', async () => {
-  const TYPE = { html: 'text/html', css: 'text/css', js: /^(application|text)\/javascript$/, png: 'image/png' };
+  const TYPE = { html: 'text/html', css: 'text/css', js: /^(application|text)\/javascript$/, png: 'image/png', txt: 'text/plain' };
   for (const p of PUBLIC) {
     const file = fs.readFileSync(path.join(ROOT, p === '/' ? 'index.html' : p)); const ext = p === '/' ? 'html' : p.split('.').pop();
     const r = await get(p); assert.equal(r.status, 200, p); assert.ok(r.body.equals(file), `${p}: the whole file, byte for byte`);
@@ -96,15 +97,15 @@ test('normal website assets still work: every public file is served whole, with 
 
 test('no other file of the repository can be fetched: every one of them is asked for by name, and none comes back', async (t) => {
   // every file under the root -- all of the code, tests, documents, fixtures and migrations; a sample of the very large
-  // folders (dependencies, git's objects)
-  const SAMPLE = { node_modules: 60, '.git': 25 }; const files = [];
+  // folders (dependencies, git's objects, a developer's portable tools)
+  const SAMPLE = { node_modules: 60, '.git': 25, '.tools': 4 }; const files = [];
   const walk = (dir, budget) => { for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) { if (budget.n <= 0) return; const rel = dir ? `${dir}/${e.name}` : e.name; if (e.isDirectory()) walk(rel, budget); else if (e.isFile()) { files.push(rel); budget.n--; } } };
   for (const e of fs.readdirSync(ROOT, { withFileTypes: true })) { if (e.isFile()) files.push(e.name); else if (e.isDirectory()) walk(e.name, { n: SAMPLE[e.name] || 5000 }); }
   // (and, from the sampled folders, the files most worth asking for by name)
   ['node_modules/express/package.json', 'node_modules/express/lib/express.js', '.git/config', '.git/HEAD'].forEach(f => { if (!files.includes(f) && fs.existsSync(path.join(ROOT, f))) files.push(f); });
   const priv = files.filter(f => !PUBLIC.includes('/' + f));
-  assert.ok(priv.length > 300, `asked for ${priv.length} files`);
-  ['server.js', 'package.json', 'lib/credits.js', 'lib/auth.js', 'lib/paid-providers.js', 'lib/media/higgsfield.js', 'lib/creative/ai.js', 'lib/adapters/sqlite-database-adapter.js', 'scripts/build-creative-core.js', 'scripts/build-premium-core.js', 'migrations/0001_init.sql', 'test/static-exposure.test.js', 'test/helpers/run-server.js', 'BILLING.md', 'PRODUCTION-ADAPTERS.md', 'premium-fixtures/mock-providers.js', 'test-premium-generation.js', 'node_modules/express/package.json']
+  assert.ok(priv.length > 400, `asked for ${priv.length} files`);
+  ['server.js', 'package.json', 'lib/credits.js', 'lib/auth.js', 'lib/paid-providers.js', 'lib/media/higgsfield.js', 'lib/creative/ai.js', 'lib/adapters/sqlite-database-adapter.js', 'lib/three-d/blender.js', 'scripts/blender/prepare_asset.py', 'scripts/build-creative-core.js', 'migrations/0001_init.sql', 'test/static-exposure.test.js', 'test/helpers/run-server.js', 'BILLING.md', 'PRODUCTION-ADAPTERS.md', 'premium-fixtures/mock-providers.js', 'test-premium-generation.js', 'node_modules/express/package.json']
     .forEach(f => assert.ok(priv.includes(f), `${f} is among them`));
   let served = 0; const leaked = [];
   await each(priv, 24, async rel => {
@@ -118,14 +119,14 @@ test('no other file of the repository can be fetched: every one of them is asked
   assert.deepEqual(leaked, [], 'files handed out that are not public');
   assert.equal(served, priv.length); t.diagnostic(`asked for ${priv.length} non-public files by name: none was served`);
   // a file-shaped request gets a 404 (not the app's page with a 200): the source, a config file, a document, a schema
-  for (const u of ['/server.js', '/package.json', '/package-lock.json', '/lib/credits.js', '/BILLING.md', '/migrations/0001_init.sql', '/scripts/build-creative-core.js', '/scripts/build-premium-core.js', '/test/creative.test.js', '/test/helpers/run-server.js', '/node_modules/express/package.json', '/favicon.ico', '/robots.txt'])
+  for (const u of ['/server.js', '/package.json', '/package-lock.json', '/lib/credits.js', '/BILLING.md', '/migrations/0001_init.sql', '/scripts/blender/prepare_asset.py', '/test/creative.test.js', '/node_modules/express/package.json', '/favicon.ico', '/robots.txt'])
     assert.equal((await get(u)).status, 404, u);
   // folders are not listed, not redirected to, and say nothing about whether they exist
-  for (const u of ['/lib', '/lib/', '/data/', '/scripts/', '/test/', '/migrations/', '/node_modules/', '/premium-fixtures/', '/no-such-folder/']) { const r = await get(u); assert.ok(isShell(r), `${u}: ${r.status}`); assert.equal(r.headers.location, undefined, u); }
+  for (const u of ['/lib', '/lib/', '/data/', '/scripts/', '/test/', '/migrations/', '/node_modules/', '/vendor/', '/vendor/three-d/', '/no-such-folder/']) { const r = await get(u); assert.ok(isShell(r), `${u}: ${r.status}`); assert.equal(r.headers.location, undefined, u); }
 });
 
 test('dot-entries are not exposed: not a dotfile, not a file inside a dot-folder (the old mount served those)', async () => {
-  const want = ['/.git/config', '/.git/HEAD', '/.git/index', '/.gitignore', '/.env', '/.env.example', '/.env.local', '/.npmrc', '/.config/secret.json', '/.vscode/settings.json', '/node_modules/.package-lock.json', '/lib/.env', '/lib/creative/.env'];
+  const want = ['/.git/config', '/.git/HEAD', '/.git/index', '/.gitignore', '/.env', '/.env.example', '/.env.local', '/.npmrc', '/.tools/blender/blender.exe', '/.vscode/settings.json', '/node_modules/.package-lock.json', '/lib/.env', '/vendor/three-d/.env'];
   for (const u of want) { const r = await get(u); assert.equal(r.status, 404, u); const f = path.join(ROOT, u); if (fs.existsSync(f) && fs.statSync(f).isFile() && fs.statSync(f).size < 4e6) assert.ok(!r.body.equals(fs.readFileSync(f)), u); }
   // (the ones that really exist here were really asked for)
   assert.ok(fs.existsSync(path.join(ROOT, '.gitignore')), 'a real dotfile was among them');
@@ -153,7 +154,7 @@ test('no directory traversal and no encoding trick: a path that is not exactly o
   const outside = (() => { for (const f of ['C:/Windows/win.ini', '/etc/passwd', '/etc/hosts']) { try { return fs.readFileSync(f); } catch (e) { /* not this OS */ } } return null; })();
   const SERVER = fs.readFileSync(path.join(ROOT, 'server.js')); const CREDITS = fs.readFileSync(path.join(ROOT, 'lib', 'credits.js'));
   const tries = [
-    '/../server.js', '/..%2fserver.js', '/%2e%2e/server.js', '/lib/../server.js', '/lib/%2e%2e/server.js', '/lib%2fcredits.js', '/lib%5ccredits.js', '/lib\\credits.js', '/./server.js', '//server.js', '/index.html/../server.js', '/lib/creative/../../server.js', '/lib/creative/%2e%2e/%2e%2e/server.js', '/lib/..%2fserver.js',
+    '/../server.js', '/..%2fserver.js', '/%2e%2e/server.js', '/lib/../server.js', '/lib/%2e%2e/server.js', '/lib%2fcredits.js', '/lib%5ccredits.js', '/lib\\credits.js', '/./server.js', '//server.js', '/index.html/../server.js', '/vendor/three-d/../../server.js', '/vendor/three-d/%2e%2e/%2e%2e/server.js', '/vendor/..%2fserver.js',
     '/%2e%2e/%2e%2e/%2e%2e/Windows/win.ini', '/..%2f..%2f..%2f..%2fetc%2fpasswd', '/..%5c..%5c..%5cWindows%5cwin.ini', '/lib/../../../../Windows/win.ini', '/lib/../../../../etc/passwd', '/%252e%252e/%252e%252e/etc/passwd', '/C:/Windows/win.ini', '//C:/Windows/win.ini', '/C:%5cWindows%5cwin.ini', '/....//....//etc/passwd',
     '/server.js%00', '/server.js%00.png', '/index.html%00/../server.js', '/server.js/', '/server.js.', '/SERVER.JS', '/Server.Js', '/server.js%20', '/server%2ejs', '/%73erver.js', '/styles.css/../server.js', '/STYLES.CSS', '/index.html/', '/%', '/%ff', '/%c0%ae%c0%ae/server.js',
   ];
@@ -165,10 +166,10 @@ test('no directory traversal and no encoding trick: a path that is not exactly o
     assert.doesNotMatch(r.body.toString('utf8', 0, 300), /\[extensions\]|root:.*:0:0|const express = require/, JSON.stringify(u));
   }
   // an exact public path is the only thing that opens the static handler: a near miss of one does not
-  for (const u of ['/styles.css%00', '/styles.css/', '/styles%2ecss', '/script.js/', '/creative-core.js%00', '/creative%2dcore.js', '/favicon.png/']) { const r = await get(u); assert.ok(r.status === 404 || isShell(r), `${u}: ${r.status}`); assert.ok(r.body.length < 100 || isShell(r), u); }
+  for (const u of ['/styles.css%00', '/styles.css/', '/styles%2ecss', '/vendor/three-d/sr3d.min.js/', '/vendor%2fthree-d%2fsr3d.min.js', '/vendor/three-d/manifest.json', '/vendor/three-d/']) { const r = await get(u); assert.ok(r.status === 404 || isShell(r), `${u}: ${r.status}`); assert.ok(r.body.length < 100 || isShell(r), u); }
 });
 
-test('Creative preview still works: the studio\'s files load from the server, evaluate, and render the same page the server\'s own code renders', async () => {
+test('Creative preview still works: the studio\'s files load from the server, evaluate, and render the same page the server\'s own code renders -- 3D preview engine included', async () => {
   // what creative-entry.js does when Creative is chosen: the build id, then the studio's three files, with that id
   const v = JSON.parse((await get('/api/creative/version')).body.toString()).v; assert.ok(v);
   const q = '?v=' + encodeURIComponent(v);
@@ -176,7 +177,7 @@ test('Creative preview still works: the studio\'s files load from the server, ev
   [css, core, studio, entry].forEach(r => assert.equal(r.status, 200));
   // the served bundle IS the Creative core: evaluated as the browser evaluates it, it renders a preview page
   const win = {}; vm.runInNewContext(core.body.toString('utf8'), { window: win, console });
-  const C = win.SiteRemadeCreative; assert.ok(C && C.render2 && C.validate2 && C.director2, 'the studio core loaded');
+  const C = win.SiteRemadeCreative; assert.ok(C && C.render2 && C.validate2 && C.director2 && C.threeD, 'the studio core loaded');
   const old = require('./fixtures/creative-saved-stage2.json').creative;
   const plan = C.validate2.validatePlan2(old.plan, { mode: 'safety', assets: old.assets, facts: old.plan.facts, understanding: old.understanding }).plan;
   const src = a => `blob:${a.id}`; const page = C.render2.renderCreative2(plan, old.assets, { mode: 'preview', src });
@@ -184,8 +185,11 @@ test('Creative preview still works: the studio\'s files load from the server, ev
   // (the bundle's copy of the renderer is indented, so its page's lines are too: the page is the same, line for line)
   const lines = s => s.replace(/\r?\n[ \t]+/g, '\n');
   assert.equal(lines(page), lines(require('../lib/creative/render2').renderCreative2(require('../lib/creative/validate2').validatePlan2(old.plan, { mode: 'safety', assets: old.assets, facts: old.plan.facts, understanding: old.understanding }).plan, old.assets, { mode: 'preview', src })), 'the studio preview and the server render are the same page');
-  // ...while the studio's own sources, and the script that builds its bundle, are not handed out
-  for (const u of ['/lib/creative/render2.js', '/lib/creative/validate2.js', '/lib/creative/ai.js', '/scripts/build-creative-core.js']) assert.equal((await get(u)).status, 404, u);
+  // a page with a 3D scene asks for its engine at the address the studio serves it from -- which is public, and is the built engine
+  const runtime = C.threeD.RUNTIME.preview; assert.equal(runtime, '/vendor/three-d/sr3d.min.js');
+  const eng = await get(runtime); assert.equal(eng.status, 200); assert.match(String(eng.headers['content-type']), /javascript/); assert.equal(sha(eng.body), JSON.parse(fs.readFileSync(path.join(ROOT, 'vendor', 'three-d', 'manifest.json'), 'utf8')).sha256);
+  // ...while the engine's neighbours and sources are not
+  for (const u of ['/vendor/three-d/manifest.json', '/lib/three-d/runtime-src.js', '/lib/creative/three-d.js', '/lib/creative/render2.js', '/scripts/build-three-d-runtime.js', '/test/fixtures/three-d/product-raw.glb']) assert.equal((await get(u)).status, 404, u);
 });
 
 test('Creative export still works, and does not depend on the web server\'s static files: the customer\'s folder is built from disk, with its own copies', () => {
@@ -201,6 +205,6 @@ test('Creative export still works, and does not depend on the web server\'s stat
   ['index.html', 'README.md', 'START-HERE.md', 'ATTRIBUTION.md', 'export-manifest.json'].forEach(f => assert.ok(fs.existsSync(path.join(workDir, f)), f));
   // every file the exported page names is in the customer's own folder; it names nothing of this server
   [...html.matchAll(/(?:src|href|poster)="([^"#]+)"/g)].map(m => m[1]).filter(u => !/^(https?:|mailto:)/.test(u)).forEach(u => assert.ok(fs.existsSync(path.join(workDir, u)), u));
-  assert.doesNotMatch(html, /\/api\/|creative-core\.js|siteremade\.com/);
+  assert.doesNotMatch(html, /\/vendor\/|\/api\/|creative-core\.js|siteremade\.com/);
   const zip = zipDirectory(workDir, path.join(dir, 'site.zip')); assert.ok(zip.fileCount >= 5 && zip.zipBytes > 1000);
 });

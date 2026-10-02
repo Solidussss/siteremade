@@ -206,6 +206,8 @@ const PUBLIC_FILES = new Set([
   '/styles.css', '/script.js', '/icons-data.js', '/premium-core.js',
   '/creative-entry.js', '/creative.js', '/creative-core.js', '/creative-studio.css',
   '/favicon.png', '/siteremade-logo-black.png',
+  // the 3D engine a Creative page's studio preview loads (lib/creative/three-d.js RUNTIME.preview), and its licence
+  '/vendor/three-d/sr3d.min.js', '/vendor/three-d/LICENSE-three.txt',
 ]);
 const servePublicFile = express.static(__dirname,{
   dotfiles:'deny', redirect:false,
@@ -2919,10 +2921,19 @@ function premiumSourceLink(r, job) {
   db.premiumSources.insert({ tokenHash: crypto.createHash('sha256').update(token).digest('hex'), premiumJobId: job.id, role: r.role, assetRef: r.sourceRef, mime: r.mime, expiresAt: new Date(now + premiumPolicy.holdMs).toISOString(), createdAt: new Date(now).toISOString() });
   return `${r.sourceBase}/api/premium-media/source/${token}`;
 }
+// TRUE 3D (lib/three-d, CREATIVE_3D.md): a 3D model is one more premium asset type of the SAME durable job -- reserved,
+// sent once, followed, normalised by Blender, stored, charged only if delivered. PHASE 1 HAS NO REAL PROVIDER and no route
+// starts a 3D job: without CREATIVE_3D=on and a registered THREE_D_PROVIDER nothing 3D is ever sent. The only adapter is
+// the mock (a fixture file, no network), and it is never registered where paid providers are live.
+const threeD = require('./lib/three-d');
+if (String(process.env.THREE_D_PROVIDER || '').trim().toLowerCase() === 'mock' && paidProviders.mode() !== 'live') threeD.provider.register(threeD.createMockProvider());
 const premiumWorker = premiumJobs.createWorker({
   db, provider: () => createHiggsfield({ key: paidProviders.key('higgsfield') }), presets: () => premiumMedia.presets(), costs: providerBudget.costs(), store: storeBytes,
   sourceUrl: async (r, job) => premiumSourceLink(r, job), releaseSource: (jobId, role) => db.premiumSources.deleteFor(jobId, role),
   enabled: () => premiumProviderEnabled() && !!paidProviders.key('higgsfield'), policy: premiumPolicy, log: rec => premiumLog(rec),
+  provider3D: () => { const s = threeD.provider.selected(); return s.ok ? s.adapter : null; },
+  enabled3D: () => premiumProviderEnabled() && threeD.schema.enabled() && threeD.provider.selected().ok,
+  process3D: (file, r, job) => threeD.pipeline.normalise(Object.assign({}, file, { provider: r.provider || '', providerAssetId: r.providerJobId || '', sourceAssetId: r.sourceAssetId || '', requestId: `${job.id}:${r.role}` })),
 });
 async function startPremium(req, res) {
   const b = req.body || {}; const R = premiumMedia.REASONS; const jobKey = clean(b.jobId, 60);
