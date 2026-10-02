@@ -194,7 +194,21 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.use(express.urlencoded({ extended: false, limit: '900kb' }));
-app.use(express.static(__dirname,{
+// THE PUBLIC FILES -- the ONLY files of this repository the web server hands out, by exact path. This repository's root is
+// also where the server's own code, its libraries, migrations, tests, internal documents and (by default) its data live;
+// serving the root as a static folder handed every one of them to anyone who asked for it by name (/server.js,
+// /lib/credits.js, /data/siteremade.db, /.git/config ...). So nothing is public unless it is listed here: a new file is
+// private until someone adds it on purpose. The path is compared as it arrived (no decoding, no normalising): "..", an
+// encoded slash or dot, a different case or a trailing slash is simply not on the list.
+// (test/static-exposure.test.js holds this list to what the pages actually load, and asks for everything else.)
+const PUBLIC_FILES = new Set([
+  '/', '/index.html', '/privacy.html', '/terms.html',
+  '/styles.css', '/script.js', '/icons-data.js', '/premium-core.js',
+  '/creative-entry.js', '/creative.js', '/creative-core.js', '/creative-studio.css',
+  '/favicon.png', '/siteremade-logo-black.png',
+]);
+const servePublicFile = express.static(__dirname,{
+  dotfiles:'deny', redirect:false,
   setHeaders(res,filePath){
     if(/\.(?:png|jpg|jpeg|webp|svg|ico)$/i.test(filePath)){
       res.setHeader('Cache-Control','public, max-age=604800, stale-while-revalidate=86400');
@@ -202,7 +216,8 @@ app.use(express.static(__dirname,{
       res.setHeader('Cache-Control','public, max-age=3600, stale-while-revalidate=86400');
     }
   }
-}));
+});
+app.use((req, res, next) => (PUBLIC_FILES.has(req.path) ? servePublicFile(req, res, next) : next()));
 
 function escapeHtml(value = '') {
   return String(value)
@@ -5171,7 +5186,15 @@ app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, 
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// Everything else is the app's own page (it routes in the browser) -- except a path that names a FILE or a dot-entry
+// (/server.js, /lib/credits.js, /.env, /.git/config, /favicon.ico): that is a file this server does not hand out, and it
+// says so with a 404 instead of answering 200 with the app's page.
+function namesAFile(reqPath) {
+  let p; try { p = decodeURIComponent(reqPath); } catch (e) { return true; }
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  return parts.some(s => s[0] === '.') || /\./.test(parts[parts.length - 1] || '') || /[\u0000-\u001f]/.test(p);
+}
+app.get('*', (req, res) => (namesAFile(req.path) ? res.status(404).type('text/plain').send('Not found') : res.sendFile(path.join(__dirname, 'index.html'))));
 // PLANNER HARDENING PASS: requiring this file as a module (instead of
 // running it with `node server.js`) skips app.listen() below and exposes a
 // small set of pure functions so a test can exercise the REAL
