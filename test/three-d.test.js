@@ -424,7 +424,8 @@ test('F. the budget is enforced on the file itself: an oversized or foreign mode
 
 // ================================================================ D. THE PAGE: the loader, in a browser that can, cannot or should not
 // a page as the loader sees it. opts: { data (the page's cr-3d), width, motion, prefersReduced, gl, protocol, saveData,
-// memory, io (IntersectionObserver present), pin, hidden } -> what happened, and levers to make things happen
+// memory, io (IntersectionObserver present), pin, hidden, carry (the page also carries the subject's picture between its
+// scenes: an actor and a seam's carrier -- and a carrier of some other picture) } -> what happened, and levers
 function browser(opts) {
   const o = Object.assign({ width: 1440, motion: 'full', prefersReduced: false, gl: true, protocol: 'http:', saveData: false, memory: 8, io: true, pin: false, hidden: false }, opts);
   const cls = () => { const s = new Set(); return { add: c => s.add(c), remove: c => s.delete(c), contains: c => s.has(c), set: s }; };
@@ -435,15 +436,17 @@ function browser(opts) {
     const a = { 'data-td': sc.id }; const el = { classList: cls(), getAttribute: k => a[k], setAttribute: (k, v) => { a[k] = v; }, removeAttribute: k => { delete a[k]; }, hasAttribute: k => k in a, offsetWidth: o.hidden ? 0 : 520, offsetHeight: o.hidden ? 0 : 640, closest: () => sec, getBoundingClientRect: () => sec.getBoundingClientRect() };
     return { el, sec, ly };
   });
+  const carry = { ca: { classList: cls() }, seam: { classList: cls(), querySelectorAll: () => [{ getAttribute: () => 'c-bottle.png' }, { getAttribute: () => 'c-bottle.png' }] }, other: { classList: cls(), querySelectorAll: () => [{ getAttribute: () => 'other.png' }] } };
+  const pictures = [{ getAttribute: k => (k === 'data-asset' ? ((o.data.scenes[0] || {}).posters || [])[0] || 'c-bottle' : 'c-bottle.png'), closest: s => (s === '.ca' ? carry.ca : null) }, { getAttribute: k => (k === 'data-asset' ? 'another-picture' : 'other.png'), closest: () => ({ classList: cls() }) }];
   const canvas = { getContext: () => (o.gl === 'throw' ? (() => { throw new Error('no'); })() : o.gl ? { getExtension: () => ({ loseContext() {} }) } : null) };
-  const document = { documentElement: html, getElementById: id => (id === 'cr-3d' ? { textContent: JSON.stringify(o.data) } : null), querySelectorAll: s => (s === '.td-stage' ? stages.map(x => x.el) : []), createElement: t => (t === 'canvas' ? canvas : { tag: t }), head: { appendChild: el => scripts.push(el) }, body: {} };
+  const document = { documentElement: html, getElementById: id => (id === 'cr-3d' ? { textContent: JSON.stringify(o.data) } : null), querySelectorAll: s => (s === '.td-stage' ? stages.map(x => x.el) : o.carry && s === 'img[data-asset]' ? pictures : o.carry && s === '.cs-carry' ? [carry.seam, carry.other] : []), createElement: t => (t === 'canvas' ? canvas : { tag: t }), head: { appendChild: el => scripts.push(el) }, body: {} };
   const window = { innerWidth: o.width, innerHeight: 900, get scrollY() { return scrollY; }, location: { protocol: o.protocol }, navigator: { deviceMemory: o.memory, connection: o.saveData ? { saveData: true } : undefined }, matchMedia: () => ({ matches: o.prefersReduced }),
     addEventListener: (k, f) => { (listeners[k] = listeners[k] || []).push(f); }, requestAnimationFrame: f => { f(); return 1; }, MutationObserver: function (cb) { moCb = cb; this.observe = () => {}; } };
   if (o.io) window.IntersectionObserver = function (cb) { ioCb = cb; this.observe = () => {}; };
   vm.runInNewContext(TD.LOADER, { window, document, setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; }, clearTimeout: n => { if (timers[n - 1]) timers[n - 1].f = null; } });
   const handle = () => ({ progress: [], visible: [], destroyed: 0, setProgress(p) { this.progress.push(p); }, setVisible(v) { this.visible.push(v); }, destroy() { this.destroyed++; } });
   return {
-    ST: window.__sr3d, scripts, mounts, stages, timers, window,
+    ST: window.__sr3d, scripts, mounts, stages, timers, window, carry,
     near: (i, on) => ioCb && ioCb([{ target: stages[i].el, isIntersecting: on !== false }]),
     engineLoaded() { window.SiteRemade3D = { mount: (el, cfg, cb) => { const h = handle(); mounts.push({ el, cfg, cb, handle: h }); return h; } }; scripts.forEach(s => s.onload && s.onload()); },
     engineFailed() { scripts.forEach(s => s.onerror && s.onerror()); },
@@ -476,6 +479,21 @@ test('D. the 3D engine is fetched lazily, after the page and only when a stage c
   assert.ok(st.includes(`--x:${L.box.d[0]};--y:${L.box.d[1]};--w:${L.box.d[2]};--h:${L.box.d[3]};--mx:${L.box.m[0]};--my:${L.box.m[1]};--mw:${L.box.m[2]};--mh:${L.box.m[3]}`), st); assert.match(st, /aria-hidden="true"/);
   assert.match(TD.CSS, /\.td-stage\{[^}]*max-width:100%;overflow:hidden;pointer-events:none/); assert.match(TD.CSS, /\.td-canvas\{[^}]*touch-action:pan-y;pointer-events:none/);
   assert.ok(TD.LOADER.length < 9000, `the inline loader is small (${TD.LOADER.length} bytes)`); assert.doesNotMatch(TD.LOADER, /https?:|eval\(|new Function|innerHTML|document\.write/);
+});
+
+test('D. one subject on screen, never two: where the page carries the subject\'s picture between scenes, those copies rest while its 3D model is on screen -- and are back whenever it is not', () => {
+  const p = browser({ data: DATA(), carry: true }); const away = () => [p.carry.ca, p.carry.seam, p.carry.other].map(e => e.classList.contains('td-away'));
+  assert.deepEqual(away(), [false, false, false], 'at load: the page is exactly the page');
+  p.near(0); p.engineLoaded(); p.scrollTo(2000 - 900 + 400); assert.deepEqual(away(), [false, false, false], 'the model is still loading: the picture is still the subject');
+  p.mounts[0].cb.ready({}); assert.deepEqual([...away(), p.ST.stages[0].away], [true, true, false, true], 'drawn, and its scene fills the screen: the travelling copies of THIS subject rest; another picture\'s carrier is untouched');
+  p.scrollTo(2000 - 900 + 100); assert.deepEqual(away(), [false, false, false], 'the scene is only arriving (a sliver): the picture still travels');
+  p.scrollTo(2000); assert.deepEqual(away(), [true, true, false]); p.scrollTo(2000 + 800); assert.deepEqual([...away(), p.ST.stages[0].away], [false, false, false, false], 'the scene has all but left: the picture is back for the next one');
+  // every way the model can go down brings them back at once
+  p.scrollTo(2000); assert.deepEqual(away(), [true, true, false]); p.setMotion('reduced'); assert.deepEqual([...away(), p.ST.stages[0].state], [false, false, false, 'poster']);
+  const lost = browser({ data: DATA(), carry: true }); lost.near(0); lost.engineLoaded(); lost.mounts[0].cb.ready({}); lost.scrollTo(2000); assert.equal(lost.carry.ca.classList.contains('td-away'), true); lost.mounts[0].cb.error('context lost'); assert.equal(lost.carry.ca.classList.contains('td-away'), false);
+  // a page that carries nothing is untouched, and resting is a fade the print style and reduced motion never see
+  const plain = browser({ data: DATA() }); plain.near(0); plain.engineLoaded(); plain.mounts[0].cb.ready({}); plain.scrollTo(2000); assert.equal(plain.ST.stages[0].away, false);
+  assert.match(TD.CSS, /\.td-away\{animation:td-away \.25s ease forwards\}@keyframes td-away\{to\{opacity:0;visibility:hidden\}\}/); assert.match(TD.CSS, /@media print\{[^@]*\.td-away\{animation:none\}/);
 });
 
 test('10. mobile fallback: a phone gets the lighter draw -- or the picture, when the plan keeps phones flat, the model is too heavy for one, or the device is too small', () => {

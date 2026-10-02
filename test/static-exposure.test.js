@@ -109,9 +109,12 @@ test('no other file of the repository can be fetched: every one of them is asked
     .forEach(f => assert.ok(priv.includes(f), `${f} is among them`));
   let served = 0; const leaked = [];
   await each(priv, 24, async rel => {
-    const r = await get('/' + rel.split('/').map(encodeURIComponent).join('/')); const st = fs.statSync(path.join(ROOT, rel));
+    const r = await get('/' + rel.split('/').map(encodeURIComponent).join('/'));
+    // (another test, running beside this one, may remove a scratch file it made in the tree: a file that is gone cannot be
+    // compared -- its answer is still held to "404 or the app's page" below)
+    let st = null; let bytes = null; try { st = fs.statSync(path.join(ROOT, rel)); if (r.status === 200 && r.body.length === st.size && st.size > 0) bytes = fs.readFileSync(path.join(ROOT, rel)); } catch (e) { st = { size: -1 }; bytes = null; }
     // (compared by size first: only a response as long as the file is read against it)
-    const same = r.status === 200 && r.body.length === st.size && st.size > 0 && r.body.equals(fs.readFileSync(path.join(ROOT, rel)));
+    const same = !!bytes && r.body.equals(bytes);
     if (same && !(st.size === INDEX.length && r.body.equals(INDEX))) leaked.push(rel);
     if (!(r.status === 404 || isShell(r))) leaked.push(`${rel} -> ${r.status}`);
     served++;

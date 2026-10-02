@@ -2921,19 +2921,27 @@ function premiumSourceLink(r, job) {
   db.premiumSources.insert({ tokenHash: crypto.createHash('sha256').update(token).digest('hex'), premiumJobId: job.id, role: r.role, assetRef: r.sourceRef, mime: r.mime, expiresAt: new Date(now + premiumPolicy.holdMs).toISOString(), createdAt: new Date(now).toISOString() });
   return `${r.sourceBase}/api/premium-media/source/${token}`;
 }
-// TRUE 3D (lib/three-d, CREATIVE_3D.md): a 3D model is one more premium asset type of the SAME durable job -- reserved,
-// sent once, followed, normalised by Blender, stored, charged only if delivered. PHASE 1 HAS NO REAL PROVIDER and no route
-// starts a 3D job: without CREATIVE_3D=on and a registered THREE_D_PROVIDER nothing 3D is ever sent. The only adapter is
-// the mock (a fixture file, no network), and it is never registered where paid providers are live.
+// TRUE 3D (lib/three-d, CREATIVE_3D.md): a 3D model is one more premium asset type of the SAME durable job -- quoted,
+// reserved, sent once, followed, downloaded, checked, stored, charged only if delivered. Nothing 3D is ever sent without
+// ALL of: CREATIVE_3D=on, a price (SITEREMADE_3D_PROVIDER_USD), a provider named by THREE_D_PROVIDER whose key this
+// environment may use (lib/paid-providers.js: production only), and the premium kill switch on.
+//   tripo   the real provider (lib/three-d/providers/tripo.js). Its key is read through the paid-provider guard on every
+//           call, so outside production it has none and cannot reach the network -- whatever is in the environment.
+//   mock    a fixture file, no network; never registered where paid providers are live.
+// A delivered model is processed by the normaliser THREE_D_NORMALIZER names (default verify: the provider's GLB is
+// checked against the shipping budget and stored as it is -- production has no Blender; blender is the reference).
 const threeD = require('./lib/three-d');
-if (String(process.env.THREE_D_PROVIDER || '').trim().toLowerCase() === 'mock' && paidProviders.mode() !== 'live') threeD.provider.register(threeD.createMockProvider());
+const THREE_D_PROVIDER = String(process.env.THREE_D_PROVIDER || '').trim().toLowerCase();
+if (THREE_D_PROVIDER === 'mock' && paidProviders.mode() !== 'live') threeD.provider.register(threeD.createMockProvider());
+// (SITEREMADE_3D_PROVIDER_TIMEOUT_MS: how long one request to the provider may take before it counts as unanswered)
+if (THREE_D_PROVIDER === 'tripo') threeD.provider.register(threeD.createTripo({ key: () => paidProviders.key('tripo'), model: process.env.SITEREMADE_3D_MODEL_VERSION, timeoutMs: Math.max(1000, Math.min(120000, Number(process.env.SITEREMADE_3D_PROVIDER_TIMEOUT_MS) || 30000)) }));
 const premiumWorker = premiumJobs.createWorker({
   db, provider: () => createHiggsfield({ key: paidProviders.key('higgsfield') }), presets: () => premiumMedia.presets(), costs: providerBudget.costs(), store: storeBytes,
   sourceUrl: async (r, job) => premiumSourceLink(r, job), releaseSource: (jobId, role) => db.premiumSources.deleteFor(jobId, role),
   enabled: () => premiumProviderEnabled() && !!paidProviders.key('higgsfield'), policy: premiumPolicy, log: rec => premiumLog(rec),
   provider3D: () => { const s = threeD.provider.selected(); return s.ok ? s.adapter : null; },
   enabled3D: () => premiumProviderEnabled() && threeD.schema.enabled() && threeD.provider.selected().ok,
-  process3D: (file, r, job) => threeD.pipeline.normalise(Object.assign({}, file, { provider: r.provider || '', providerAssetId: r.providerJobId || '', sourceAssetId: r.sourceAssetId || '', requestId: `${job.id}:${r.role}` })),
+  process3D: (file, r, job) => threeD.pipeline.normalise(Object.assign({}, file, { provider: r.provider || '', providerAssetId: r.providerJobId || '', sourceAssetId: r.sourceAssetId || '', requestId: `${job.id}:${r.role}` }), { normalizer: threeD.normalizer().name }),
 });
 async function startPremium(req, res) {
   const b = req.body || {}; const R = premiumMedia.REASONS; const jobKey = clean(b.jobId, 60);
@@ -3024,7 +3032,106 @@ app.get('/api/creative/premium/status/:id', requireAuth, (req, res) => {
 });
 // a reopened project's premium job (the studio resumes it, or shows it finished)
 app.get('/api/creative/premium/for-project/:projectId', requireAuth, (req, res) => {
-  const row = db.premiumJobs.latestForProject(req.accountId, clean(req.params.projectId, 120));
+  const row = db.premiumJobs.latestForProject(req.accountId, clean(req.params.projectId, 120), 'video');
+  if (row && premiumJobs.ACTIVE.has(row.status) && !premiumWorker.scheduled().includes(row.id)) premiumWorker.kick(row.id, 50);
+  res.json({ ok: true, job: row ? premiumJobs.view(row) : null });
+});
+
+// ---- INTERACTIVE 3D OF A CREATIVE PAGE --------------------------------------------------------------------------------
+// One of the owner's own uploaded pictures becomes a real 3D model on the page (lib/three-d). The same road as premium
+// video, in the same family of routes: QUOTE (credits, shown before anything is spent) -> START (the quote is accepted:
+// its credits are reserved, and the durable premium job is created -- once per quote, however often it is asked) ->
+// STATUS (the existing /api/creative/premium/status/:id). The browser names a picture of a SAVED project by its id and
+// nothing else: the server reads that picture from its own store, so no pixels, no address and no price are ever taken
+// from the browser. The source is an upload, never a picture found on the web.
+const THREE_D_COMPOSITION = 'scroll-rotate'; // (the one composition offered; the others stay internal for now)
+const threeDMessage = reason => threeD.schema.REASONS[reason] || '3D is unavailable right now.';
+async function threeDAvailability() {
+  if (!premiumProviderEnabled()) return { ok: false, reason: 'provider_unavailable' };
+  return threeD.availability(process.env);
+}
+function threeDLog(rec) { premiumLog(Object.assign({ kind: 'model3d' }, rec)); }
+// whether 3D can be offered here at all (and what a model costs, in credits): never a provider's name, price or state
+app.get('/api/creative/premium/3d/availability', async (req, res) => {
+  const av = await threeDAvailability(); res.setHeader('Cache-Control', 'no-store');
+  res.json(av.ok ? { ok: true, available: true, credits: av.estimate.credits, composition: THREE_D_COMPOSITION } : { ok: true, available: false, message: threeDMessage(av.reason) });
+});
+// the picture a 3D model would be made from, read from the saved project: -> { ok, source, sectionId } | { ok: false, reason, message }
+function threeDSource(accountId, projectId, assetId, sectionId) {
+  const no = (reason, message) => ({ ok: false, reason, message });
+  const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null;
+  if (!p) return no('not_found', 'Save the page to your account first.');
+  const dir = ((p.directionsState && p.directionsState.directions) || []).find(x => x && x.mode === 'creative' && x.creative);
+  const c = dir && dir.creative; if (!c || !c.plan || c.plan.v !== 2 || !Array.isArray(c.plan.scenes)) return no('no_page', 'This project has no Creative page yet.');
+  if (c.threeD && Array.isArray(c.threeD.assets) && c.threeD.assets.length >= threeD.schema.LIMITS.assets) return no('limit', `A page can carry at most ${threeD.schema.LIMITS.assets} 3D models.`);
+  const assets = (c.assets || []).filter(a => a && a.id && !a.removed); const byId = new Map(assets.map(a => [a.id, a]));
+  let a = byId.get(assetId); if (a && a.cutoutOf && byId.get(a.cutoutOf)) a = byId.get(a.cutoutOf); // (the whole photo, not its cut-out)
+  const el = threeD.schema.sourceEligible(a, { byId });
+  if (!el.ok) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (${el.reason})`);
+  // the stored file itself: what its own header says wins over anything the project says about it
+  const buf = typeof a.assetRef === 'string' && db.assetBlobs.find(a.assetRef) ? getAssetStore().get(a.assetRef) : null;
+  const hs = buf ? creativeSource.headerSize(buf) : null;
+  if (!buf || !hs) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (the stored picture could not be read)`);
+  const bad = require('./lib/three-d/providers/tripo').inputProblem({ mime: hs.mime, bytes: buf.length });
+  if (bad) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (${bad})`);
+  if (Math.min(hs.width, hs.height) < threeD.schema.SOURCE.minShort) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (the upload is too small for a 3D model)`);
+  // the section the model stands in: the one asked for, else the first after the opening that shows this subject's picture
+  const family = new Set(assets.filter(x => x.id === a.id || x.cutoutOf === a.id || x.derivedFrom === a.id).map(x => x.id));
+  const shows = s => (s.layers || []).some(L => L && L.kind === 'image' && family.has(L.asset));
+  const scenes = c.plan.scenes; const asked = scenes.find(s => s.id === sectionId);
+  const section = asked || scenes.find((s, i) => i > 0 && shows(s)) || scenes.find(shows) || scenes[1] || scenes[0];
+  if (!section) return no('no_page', 'This page has no section for a 3D model.');
+  if (c.threeD && (c.threeD.scenes || []).some(s => s.sectionId === section.id)) return no('limit', 'That section already shows a 3D model.');
+  return { ok: true, source: { assetId: a.id, ref: a.assetRef, mime: hs.mime, bytes: buf.length }, sectionId: section.id, subject: clean((c.understanding && c.understanding.subject) || '', 120) };
+}
+// QUOTE: what a 3D model of this picture will use, before anything is reserved or sent. Nothing here costs anything.
+app.post('/api/creative/premium/3d/quote', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const b = req.body || {}; const projectId = clean(b.projectId, 120);
+  const av = await threeDAvailability();
+  if (!av.ok) return res.json({ ok: false, available: false, reason: av.reason, message: threeDMessage(av.reason) });
+  // (one 3D job at a time per page: the one already being made is the answer)
+  const running = db.premiumJobs.latestForProject(req.accountId, projectId, '3d');
+  if (running && premiumJobs.ACTIVE.has(running.status)) return res.json({ ok: false, reason: 'in_progress', message: 'A 3D model is already being made for this page.', job: premiumJobs.view(running) });
+  const src = threeDSource(req.accountId, projectId, clean(b.assetId, 40), clean(b.sectionId, 60));
+  if (!src.ok) return res.status(src.reason === 'not_found' ? 404 : 200).json(src);
+  const est = av.estimate;
+  const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'creative_3d', plan: { credits: est.credits, budgetUsd: est.budgetUsd, source: src.source, sectionId: src.sectionId, composition: THREE_D_COMPOSITION } });
+  await prepareCredits(req.accountId); const remaining = creditsRemainingFor(req.accountId);
+  threeDLog({ step: 'quote', accountId: req.accountId, projectId, quoteId: q.id, credits: q.credits, sourceAssetId: src.source.assetId, sectionId: src.sectionId });
+  res.json({ ok: true, quote: quotes.publicView(q), sourceAssetId: src.source.assetId, sectionId: src.sectionId, composition: THREE_D_COMPOSITION, creditsRemaining: remaining, enough: remaining >= q.credits });
+});
+// START: the owner confirmed the quote. Its credits are reserved (once) and its job created (once): asking again -- a
+// double click, a retry after a lost answer, a reload -- returns the same job, never a second reservation or submission.
+app.post('/api/creative/premium/3d/start', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const q = quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60));
+  if (!q || q.operation !== 'creative_3d') return res.status(404).json({ ok: false, reason: 'not_found', message: 'That quote was not found. Ask for the cost again.' });
+  const reply = extra => res.json(Object.assign({ ok: true, creditsRemaining: creditsRemainingFor(req.accountId) }, extra));
+  const existing = db.premiumJobs.findByCreativeJob(q.id);
+  if (existing) { if (premiumJobs.ACTIVE.has(existing.status)) premiumWorker.kick(existing.id); return reply({ reused: true, job: premiumJobs.view(existing) }); }
+  // (one 3D job at a time per page, whichever quote it came from: the one being made is the answer -- nothing is reserved)
+  const running = db.premiumJobs.latestForProject(req.accountId, q.projectId, '3d');
+  if (running && premiumJobs.ACTIVE.has(running.status)) return res.json({ ok: false, reason: 'in_progress', message: 'A 3D model is already being made for this page.', job: premiumJobs.view(running), creditsRemaining: creditsRemainingFor(req.accountId) });
+  const av = await threeDAvailability();
+  if (!av.ok) return res.json({ ok: false, available: false, reason: av.reason, message: threeDMessage(av.reason) + ' Nothing was charged.' });
+  if (q.status === 'open' && q.expiresAt <= new Date().toISOString()) return res.json({ ok: false, reason: 'expired', message: 'That quote has expired. Ask for the cost again.' });
+  const it = q.items[0];
+  // (what was confirmed must still cover what a model costs now: a price that rose since is quoted again, never absorbed)
+  if (!it || !it.source || av.estimate.credits > it.credits) return res.json({ ok: false, reason: 'price_changed', message: 'The cost of a 3D model has changed. Ask for the cost again.' });
+  if (!db.assetBlobs.find(it.source.ref)) return res.json({ ok: false, reason: 'source_not_eligible', message: `${threeDMessage('source_not_eligible')} (the stored picture is gone)` });
+  await prepareCredits(req.accountId);
+  const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: premiumPolicy.holdMs });
+  if (!acc.ok) return res.status(acc.reason === 'insufficient' ? 402 : 409).json({ ok: false, reason: acc.reason, creditsExceeded: acc.reason === 'insufficient', creditsRemaining: creditsRemainingFor(req.accountId), quote: quotes.publicView(q),
+    message: acc.reason === 'insufficient' ? `${q.message} Your balance is ${acc.remaining}.` : 'That quote can no longer be used. Ask for the cost again.' });
+  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const role = threeD.cost.role(av.estimate, { credits: it.credits, provider: av.provider, sourceAssetId: it.source.assetId, sourceRef: it.source.ref, mime: it.source.mime, sourceBytes: it.source.bytes, sourceBase: base, sectionId: it.sectionId, composition: it.composition, subject: clean(req.body && req.body.subject, 120) });
+  const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: q.id, projectId: q.projectId, quoteId: q.id, opId: acc.opId, mode: 'model3d', strategy: 'standard', creditsReserved: q.credits, budgetUsd: av.estimate.budgetUsd, roles: [role] });
+  if (!made.reused) premiumWorker.kick(made.job.id);
+  threeDLog({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, quoteId: q.id, reused: made.reused, credits: q.credits });
+  return reply({ reused: made.reused, job: premiumJobs.view(db.premiumJobs.find(made.job.id)) });
+});
+// a reopened project's 3D job (the studio resumes it, or attaches a model that finished while the tab was closed)
+app.get('/api/creative/premium/3d/for-project/:projectId', requireAuth, (req, res) => {
+  const row = db.premiumJobs.latestForProject(req.accountId, clean(req.params.projectId, 120), '3d');
   if (row && premiumJobs.ACTIVE.has(row.status) && !premiumWorker.scheduled().includes(row.id)) premiumWorker.kick(row.id, 50);
   res.json({ ok: true, job: row ? premiumJobs.view(row) : null });
 });

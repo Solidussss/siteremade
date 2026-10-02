@@ -181,10 +181,22 @@ globalThis.fetch = async function (url, options) {
     if (/test-access-token-other/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000009', email: 'other-owner@example.com' });
     return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com' });
   }
+  // Tripo (image-to-3D; never the real API in tests): the whole provider -- its API and its signed output addresses -- is
+  // the fake of test/helpers/mock-tripo.js. MOCK_TRIPO = success (default) | queued | slow | failed | banned | busy |
+  // expired-url | download-retry | oversized | malformed | compressed | heavy-texture | submit-timeout | vanish;
+  // MOCK_TRIPO_MS (how long a task is queued/running), MOCK_TRIPO_BUSY, MOCK_TRIPO_DOWNLOAD_FAILS,
+  // MOCK_TRIPO_FETCH_SOURCE=1 (the fake fetches the source picture from the link it was given, through this server).
+  // Every request is logged (never the key), so a test can prove what was asked -- and that nothing was asked twice.
+  if (/^https:\/\/([a-z0-9-]+\.)*tripo3d\.(ai|com)\//i.test(u)) { const r = await fakeTripo.fetch(u, options); if (r) return r; }
   // a paid provider this harness does not answer is refused -- a test can never fall through to a real, billed API
   if (PAID.providerForUrl(u)) return Promise.reject(new Error(`test harness: unmocked paid provider request refused (${u.slice(0, 60)})`));
   return realFetch(url, options);
 };
+const numEnv = k => (process.env[k] != null && process.env[k] !== '' ? Number(process.env[k]) : undefined);
+const fakeTripo = require('./mock-tripo').createFakeTripo({
+  mode: () => process.env.MOCK_TRIPO, queuedMs: numEnv('MOCK_TRIPO_MS'), busy: numEnv('MOCK_TRIPO_BUSY'), downloadFails: numEnv('MOCK_TRIPO_DOWNLOAD_FAILS'), log,
+  fetchSource: process.env.MOCK_TRIPO_FETCH_SOURCE === '1' ? link => realFetch(String(link).replace(/^https?:\/\/[^/]+/, `http://127.0.0.1:${server.address().port}`)) : null,
+});
 
 // server.js's premium cost ledger defaults to <repo>/data/premium even with
 // PREMIUM_GENERATION_V1 off -- keep mock-run costs out of the repo.

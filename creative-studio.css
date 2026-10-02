@@ -54,6 +54,14 @@ body.cs-open{overflow:hidden}
 .cs-thumbs .cs-pv-tag[data-ok="no"]{background:rgba(60,14,14,.88);color:#ffb3b3}
 .cs-sum{margin-top:12px}
 /* premium videos being made on the server: their progress, role by role */
+/* Interactive 3D (creative.js build3D): one quiet card above the editor's tabs */
+.cs-3d{border:1px solid #2c3550;background:#121829;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px}
+.cs-3d h3{margin:0 0 6px;font-size:14px;letter-spacing:.02em}.cs-3d p{margin:4px 0}.cs-3d .cs-btn{margin-top:8px}.cs-3d .cs-btn.cs-primary{margin-top:10px}.cs-3d .cs-btn[disabled]{opacity:.55;cursor:default}
+.cs-3d-srcs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.cs-3d-srcs button{width:64px;height:64px;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#222;cursor:pointer}
+.cs-3d-srcs button[aria-checked="true"]{border-color:#ffcf5c}.cs-3d-srcs img,.cs-3d-pick img{width:100%;height:100%;object-fit:cover;display:block}
+.cs-3d-pick{display:flex;gap:10px;align-items:center}.cs-3d-pick figure{margin:0;flex:0 0 56px;width:56px;height:56px;border-radius:8px;overflow:hidden;background:#222}
+.cs-3d-list{margin:8px 0 2px;padding-left:18px;color:#c9cbe0}.cs-3d-list li{margin:2px 0}.cs-3d-note{color:#ffb3a3}
+.cs-3d-phase{color:#9fb6ff}.cs-3d-phase[data-phase="ready"]{color:#9be8b3}
 .cs-pvlive{border:1px solid #3a3320;background:#1f1b10;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px}
 .cs-pvlive p{margin:4px 0}.cs-pvlive[data-state="completed"]{border-color:#2f5a3a;background:#122017}
 .cs-pvlive[data-state="partial"],.cs-pvlive[data-state="failed"]{border-color:#5a3a2f;background:#21140f}

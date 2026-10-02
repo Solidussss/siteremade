@@ -117,7 +117,7 @@
   function resetUI() {
     els.csBrief.value = S.brief; els.csSupplied.value = S.suppliedText; els.csMemories.value = S.memoriesText;
     els.csBriefStep.hidden = false; els.csProgress.hidden = true; els.csEditor.hidden = true; els.csViewport.hidden = true; els.csEmpty.hidden = false;
-    els.csChoices.innerHTML = ''; els.csError.hidden = true; var pvl = document.getElementById('csPvLive'); if (pvl) pvl.remove(); renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
+    els.csChoices.innerHTML = ''; els.csError.hidden = true; var pvl = document.getElementById('csPvLive'); if (pvl) pvl.remove(); var td0 = document.getElementById('cs3d'); if (td0) td0.remove(); renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
   }
   // ---------- credits and the website purchase ----------
   // the balance and prices come from the server (the same numbers the builder and the app show)
@@ -705,6 +705,153 @@
     }).catch(function () { /* the next poll tries again */ });
     return S.pvQueue;
   }
+  // ---------- INTERACTIVE 3D ----------
+  // One of the owner's own uploaded pictures as a real 3D model on the page (lib/three-d; creative-core's threeD). Shown
+  // only on a Creative page, only when the server says 3D can be made, and only when there is an upload that suits it --
+  // it is never switched on for a page by itself. The cost is shown before anything is made; the model is made by the
+  // server's durable premium job (the same one as premium video) and followed here; when it is ready it is added to the
+  // page ONCE, in the section its picture is in, previewed and saved. Closing the tab changes nothing: reopening the
+  // page finds the job, or the finished model, again.
+  var TD_PHASE = { queued: 'Waiting to start', submitting: 'Sending your picture', processing: 'Making the 3D model', downloading: 'Collecting the model', verifying: 'Checking the model', ready: 'Ready', failed: 'Not made', 'possible-cost': 'Not made' };
+  function tdBlock() { return S.threeD && Array.isArray(S.threeD.assets) && S.threeD.assets.length ? S.threeD : null; }
+  function tdSources() { var all = live(); var byId = new Map(all.map(function (a) { return [a.id, a]; })); return all.filter(function (a) { return a.origin === 'upload' && !a.cutoutOf && C.threeD.sourceEligible(a, { byId: byId }).ok; }); }
+  function tdSceneName(id) { var s = (S.plan.scenes || []).find(function (x) { return x.id === id; }); return s ? (s.navLabel || (s.text && s.text.heading) || s.name || 'this section') : 'this section'; }
+  // the section a model of this picture stands in: the first one after the opening that shows it (or its cut-out)
+  function tdSectionFor(assetId) {
+    var fam = {}; live().forEach(function (a) { if (a.id === assetId || a.cutoutOf === assetId || a.derivedFrom === assetId) fam[a.id] = true; });
+    var shows = function (s) { return (s.layers || []).some(function (L) { return L.kind === 'image' && fam[L.asset]; }); }; var sc = S.plan.scenes || [];
+    var hit = sc.filter(function (s, i) { return i > 0 && shows(s); })[0] || sc.filter(shows)[0] || sc[1] || sc[0]; return hit ? hit.id : '';
+  }
+  function load3D() {
+    if (S.tdAvail !== undefined) return; S.tdAvail = null; var mine = S;
+    api('/api/creative/premium/3d/availability').then(function (r) { if (S !== mine) return; S.tdAvail = r.ok && r.data && r.data.available ? r.data : false; build3D(); }).catch(function () { if (S === mine) S.tdAvail = false; });
+  }
+  function build3D() {
+    var box = document.getElementById('cs3d'); if (!els.csEditor) return;
+    if (S.plan && S.plan.v === 2 && S.tdAvail === undefined) load3D();
+    var block = tdBlock(); var shown = block && (block.scenes || []).length; var job = S.tdJob; var sources = S.plan && S.plan.v === 2 ? tdSources() : [];
+    var can = S.tdAvail && S.tdAvail.available;
+    if (!S.plan || S.plan.v !== 2 || !(shown || block || job || (can && sources.length))) { if (box) box.remove(); return; }
+    if (!box) { box = h('section', { id: 'cs3d', class: 'cs-3d', 'aria-live': 'polite' }); els.csEditor.insertBefore(box, els.csEditor.querySelector('.cs-tabs')); }
+    var head = '<h3>Interactive 3D</h3>'; var note = S.tdNote ? '<p class="cs-3d-note" role="alert">' + esc(S.tdNote) + '</p>' : '';
+    var html;
+    if (job && !job.terminal) {
+      var r0 = (job.roles || [])[0] || {};
+      html = head + '<p><strong>' + esc(job.message) + '</strong></p><p class="cs-3d-phase" data-phase="' + esc(r0.phase || 'queued') + '">' + esc(TD_PHASE[r0.phase] || 'Working') + (r0.late ? ' (taking longer than usual)' : '') + '</p>'
+        + '<p class="cs-hint">You can keep editing, or close this tab: the model keeps being made on our side and is added to the page when it is ready.</p>';
+    } else if (shown) {
+      var sc0 = block.scenes[0]; var a0 = block.assets.filter(function (a) { return a.id === sc0.assetId; })[0] || block.assets[0];
+      html = head + '<p>This page shows a real 3D model' + (a0 && a0.title ? ' of <strong>' + esc(a0.title) + '</strong>' : '') + ' in “' + esc(tdSceneName(sc0.sectionId)) + '”. It turns as visitors scroll. Where 3D cannot run — reduced motion, an old device — they see your picture instead.</p>'
+        + '<button type="button" class="cs-btn cs-ghost" id="cs3dRemove">Take the 3D model off the page</button>' + note;
+    } else if (block) {
+      html = head + '<p>You have a 3D model for this page. It is not shown at the moment.</p><button type="button" class="cs-btn" id="cs3dShow">Show it on the page</button>' + note;
+    } else if (job && job.terminal && !job.completed) {
+      html = head + '<p><strong>' + esc(job.message) + '</strong></p><button type="button" class="cs-btn cs-ghost" id="cs3dAgain">Try again</button>' + note;
+    } else if (S.tdQuote) {
+      var q = S.tdQuote.quote; var src = live().filter(function (a) { return a.id === S.tdQuote.sourceAssetId; })[0]; var n = q.credits; var bal = S.creditsRemaining;
+      var short = typeof bal === 'number' && bal < n;
+      html = head + '<div class="cs-3d-pick">' + (src ? '<figure><img src="' + esc(srcFor(src)) + '" alt=""></figure>' : '') + '<p><strong>This will use ' + n + ' credit' + (n === 1 ? '' : 's') + '</strong> — charged only if the model is made.' + (typeof bal === 'number' ? ' Your balance: ' + bal + '.' : '') + '</p></div>'
+        + '<ul class="cs-3d-list"><li>A real 3D model of this picture, standing where the picture is in “' + esc(tdSceneName(S.tdQuote.sectionId)) + '”</li><li>Visitors turn it by scrolling</li><li>It is part of your website’s own files when you download them</li></ul>'
+        + (short ? '<p class="cs-3d-note" role="alert">You need ' + (n - bal) + ' more credit' + (n - bal === 1 ? '' : 's') + ' for this.</p>' : '')
+        + '<button type="button" class="cs-btn cs-primary" id="cs3dGo"' + (short || S.tdBusy ? ' disabled' : '') + '>' + (S.tdBusy ? 'Starting…' : 'Create the 3D model — ' + n + ' credit' + (n === 1 ? '' : 's')) + '</button><button type="button" class="cs-btn cs-ghost" id="cs3dCancel">Not now</button>' + note;
+    } else {
+      if (!S.tdSource || !sources.some(function (a) { return a.id === S.tdSource; })) S.tdSource = sources[0].id;
+      html = head + '<p>Turn one of your uploaded product or object pictures into a real interactive 3D element.</p>'
+        + '<div class="cs-3d-srcs" role="radiogroup" aria-label="Picture to turn into 3D">' + sources.map(function (a) { return '<button type="button" role="radio" aria-checked="' + (a.id === S.tdSource ? 'true' : 'false') + '" data-td-src="' + esc(a.id) + '" title="' + esc(a.title || 'Your upload') + '"><img src="' + esc(srcFor(a)) + '" alt="' + esc(a.alt || a.title || 'Your upload') + '"></button>'; }).join('') + '</div>'
+        + '<p class="cs-hint">Works best with one clear object on a plain background. The model is made by AI from a single picture: sides the picture does not show are estimated, so it will not be a perfect copy.</p>'
+        + '<button type="button" class="cs-btn" id="cs3dQuote"' + (S.tdBusy ? ' disabled' : '') + '>' + (S.tdBusy ? 'Working out the cost…' : 'See what it costs') + '</button>' + note;
+    }
+    box.innerHTML = html;
+    var on = function (id, fn) { var b = document.getElementById(id); if (b) b.addEventListener('click', fn); };
+    [].forEach.call(box.querySelectorAll('[data-td-src]'), function (b) { b.addEventListener('click', function () { S.tdSource = b.getAttribute('data-td-src'); S.tdNote = ''; build3D(); }); });
+    on('cs3dQuote', td3Quote); on('cs3dGo', td3Start);
+    on('cs3dCancel', function () { S.tdQuote = null; S.tdNote = ''; build3D(); });
+    on('cs3dAgain', function () { S.tdJob = null; S.tdNote = ''; build3D(); });
+    on('cs3dRemove', function () { S.threeD = C.threeD.normalise({ assets: S.threeD.assets, scenes: [] }, {}); refresh(); markDirty(); build3D(); });
+    on('cs3dShow', function () { var a = S.threeD.assets[0]; td3Place(a, tdSectionFor(a.sourceAssetId), 'scroll-rotate'); refresh(); markDirty(); build3D(); });
+  }
+  // the model's scene: one stage, in one section, scroll-rotate (the one composition offered for now)
+  function td3Place(asset, sectionId, composition) {
+    var cur = tdBlock() || { assets: [], scenes: [] };
+    var next = C.threeD.normalise({ assets: cur.assets.filter(function (a) { return a.id !== asset.id; }).concat([asset]), scenes: (cur.scenes || []).filter(function (s) { return s.sectionId !== sectionId; }).concat([{ id: 'td-' + sectionId, assetId: asset.id, sectionId: sectionId, composition: composition || 'scroll-rotate' }]) }, { sectionIds: (S.plan.scenes || []).map(function (s) { return s.id; }) });
+    if (next) S.threeD = next; return !!next;
+  }
+  // QUOTE: the page is saved first (the server reads the picture from the saved project -- nothing is sent from here)
+  function td3Quote() {
+    if (!signedIn()) { needSignIn('Sign in to add a 3D model to your page.'); return; }
+    if (S.tdBusy) return; S.tdBusy = true; S.tdNote = ''; build3D(); var mine = S;
+    var saved = !S.projectId || S.dirty ? td3Save() : Promise.resolve(null);
+    saved.then(function () {
+      if (S !== mine) return null; if (!S.projectId || S.dirty) throw new Error('unsaved');
+      return api('/api/creative/premium/3d/quote', { method: 'POST', body: { projectId: S.projectId, assetId: S.tdSource } });
+    }).then(function (r) {
+      if (S !== mine || !r) return; S.tdBusy = false; var d = r.data || {}; creditsFrom(d);
+      if (r.ok && d.ok) S.tdQuote = d; else if (d.job) { S.tdJob = d.job; follow3D(d.job.jobId); } else S.tdNote = d.message || 'The cost could not be worked out. Please try again.';
+      build3D();
+    }).catch(function () { if (S !== mine) return; S.tdBusy = false; S.tdNote = 'Save the page to your account first, then try again.'; build3D(); });
+  }
+  // START: the quote is confirmed. Asking twice (a double click, a retry) returns the same job -- never a second model.
+  function td3Start() {
+    if (S.tdBusy || !S.tdQuote) return; S.tdBusy = true; S.tdNote = ''; build3D(); var mine = S; var quoteId = S.tdQuote.quote.id;
+    var subject = (S.understanding && (S.understanding.subject || (S.understanding.identity && S.understanding.identity.name))) || '';
+    var ask = function () { return api('/api/creative/premium/3d/start', { method: 'POST', body: { quoteId: quoteId, subject: subject } }); };
+    var done = function (r) {
+      if (S !== mine) return; var d = (r && r.data) || {}; creditsFrom(d);
+      if (!r || (!r.ok && !r.status)) throw new Error('unreachable');
+      S.tdBusy = false;
+      if (d.job) { S.tdJob = d.job; S.tdQuote = null; build3D(); follow3D(d.job.jobId); return; }
+      S.tdNote = d.message || 'The 3D model could not be started. Nothing was charged.'; if (d.reason === 'expired' || d.reason === 'price_changed' || d.reason === 'not_found') S.tdQuote = null; build3D();
+    };
+    ask().then(done).catch(function () { return new Promise(function (res) { setTimeout(res, 2500); }).then(ask).then(done); })
+      .catch(function () { if (S !== mine) return; S.tdBusy = false; S.tdNote = 'The connection dropped. If the model was started it keeps being made — reopen this page to see it.'; build3D(); });
+  }
+  // follow the job to its outcome: a missed poll is a connection problem, never a failure of the model
+  function follow3D(jobId) {
+    if (!jobId || (S.tdFollow && S.tdFollow.jobId === jobId)) return; var me = { jobId: jobId, delay: 2000 }; S.tdFollow = me; var mine = S;
+    var next = function () { if (S !== mine || S.tdFollow !== me) return; setTimeout(poll, me.delay); me.delay = Math.min(12000, Math.round(me.delay * 1.3)); };
+    var poll = function () {
+      if (S !== mine || S.tdFollow !== me) return;
+      api('/api/creative/premium/status/' + encodeURIComponent(jobId)).then(function (r) {
+        if (S !== mine) return;
+        if (!r.ok || !r.data || !r.data.job) { if (r.status === 404) { S.tdFollow = null; S.tdJob = null; build3D(); return; } return next(); }
+        var job = r.data.job; creditsFrom(r.data); S.tdJob = job; build3D();
+        return attach3D(job).then(function () { if (job.terminal) { S.tdFollow = null; if (job.completed) S.tdJob = null; build3D(); } else next(); });
+      }).catch(function () { next(); });
+    };
+    poll();
+  }
+  // the delivered model, once: its file comes from this account's own stored copy (never a provider's address), it gets its
+  // scene, the page is previewed with it and saved
+  function td3File(mediaId) {
+    return fetch('/api/premium-media/' + encodeURIComponent(mediaId) + '/file', { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('file'); return r.blob(); })
+      .then(function (b) { return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res('data:model/gltf-binary;base64,' + String(fr.result).split(',')[1]); }; fr.onerror = rej; fr.readAsDataURL(b); }); });
+  }
+  function attach3D(job) {
+    S.tdQueue = (S.tdQueue || Promise.resolve()).then(function () {
+      var mine = S; var have = {}; ((tdBlock() || {}).assets || []).forEach(function (a) { have[a.id] = true; });
+      var m = (job.delivered || []).filter(function (x) { return x.kind === 'model3d' && x.threeD && x.threeD.id && !have[x.threeD.id]; })[0];
+      if (!m || !S.plan) return;
+      return td3File(m.premium.mediaId).then(function (dataUrl) {
+        if (S !== mine) return; var asset = Object.assign({}, m.threeD, { dataUrl: dataUrl }); delete asset.assetRef;
+        var sec = (S.plan.scenes || []).some(function (s) { return s.id === m.sectionId; }) ? m.sectionId : tdSectionFor(m.sourceAssetId);
+        if (!td3Place(asset, sec, m.composition)) { S.tdNote = 'The 3D model was made, but could not be placed on this page.'; return; }
+        refresh(true); markDirty(); build3D();
+        if (S.projectId) return td3Save().then(publishPremiumRevision);
+      });
+    }).catch(function () { /* the next poll, or reopening the page, tries again */ });
+    return S.tdQueue;
+  }
+  // (a save already on its way is waited for, then the page WITH the model is saved)
+  function td3Save(n) { if (S.saving && (n || 0) < 40) return new Promise(function (res) { setTimeout(res, 250); }).then(function () { return td3Save((n || 0) + 1); }); return Promise.resolve(save()); }
+  // a reopened page: its 3D job is followed again, or the model that finished while the tab was closed is added now
+  function resume3D(projectId) {
+    var mine = S;
+    api('/api/creative/premium/3d/for-project/' + encodeURIComponent(projectId)).then(function (r) {
+      if (S !== mine || !r.ok || !r.data || !r.data.job) return; var job = r.data.job;
+      if (!job.terminal) { S.tdJob = job; build3D(); follow3D(job.jobId); } else if (job.completed) attach3D(job);
+    }).catch(function () { /* optional */ });
+  }
+
   function proceedToDirection() {
     // one direction at a time: a second call (a repeated click at the gate) while one is being planned does nothing
     if (S.directing) return Promise.resolve();
@@ -1092,7 +1239,7 @@
       });
       ta.addEventListener('change', function () { S.plan = settle(S.plan); refresh(); });
     });
-    buildPictures(); buildMotion(); buildSources();
+    buildPictures(); buildMotion(); buildSources(); build3D();
   }
   function roleOf(a) {
     var p = S.plan; if (!p) return 'Unused';
@@ -1250,7 +1397,7 @@
     if (!c.plan) { els.csEmpty.hidden = false; return; }
     S.plan = settle(c.plan); els.csBriefStep.hidden = true; els.csEditor.hidden = false; buildEditor(); refresh(true); showBuy();
     setSaveState('Opened from your account'); els.csSave.disabled = true;
-    resumePremium(p.id, c.premiumJob);
+    resumePremium(p.id, c.premiumJob); resume3D(p.id);
     try { localStorage.setItem(POINTER, JSON.stringify({ id: p.id, name: p.name })); } catch (e) { /* optional */ }
   }
 

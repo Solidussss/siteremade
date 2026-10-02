@@ -3636,8 +3636,9 @@
     .td-stage.td-on .td-canvas{opacity:1}.td-stage[data-td-press] .td-canvas{pointer-events:auto;cursor:pointer}
     .td-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
     .td-stage.td-on .td-poster{visibility:hidden}.sc.td-live .td-src{visibility:hidden!important}
+    .td-away{animation:td-away .25s ease forwards}@keyframes td-away{to{opacity:0;visibility:hidden}}
     @media (max-width:720px){.td-stage{left:calc(var(--mx)*1%);top:calc(var(--my)*1%);width:calc(var(--mw)*1%);height:calc(var(--mh)*1%)}}
-    @media print{.td-canvas{display:none}.td-stage.td-on .td-poster{visibility:visible}.sc.td-live .td-src{visibility:visible!important}}
+    @media print{.td-canvas{display:none}.td-stage.td-on .td-poster{visibility:visible}.sc.td-live .td-src{visibility:visible!important}.td-away{animation:none}}
     `;
 
     // ---------------------------------------------------------------- the loader
@@ -3682,7 +3683,13 @@
         if (s.handle) { try { s.handle.destroy(); } catch (e) {} s.handle = null; }
         s.el.classList.remove('td-on'); s.el.removeAttribute('data-td-press');
         if (s.sec) s.sec.classList.remove('td-live');
-        s.st.state = 'poster'; s.st.why = why || s.st.why;
+        s.st.state = 'poster'; s.st.why = why || s.st.why; away(s, false);
+      }
+      // the same subject's travelling pictures (the page carries its picture from scene to scene): they rest while the model
+      // is the subject on screen, and come back the moment it is not
+      function away(s, on) {
+        if (on === s.away) return; s.away = on; s.st.away = on;
+        s.carry.forEach(function (el) { el.classList[on ? 'add' : 'remove']('td-away'); });
       }
       function all(why) { stages.forEach(function (s) { poster(s, why); }); ST.state = 'poster'; ST.why = why; }
       // the engine: one script, a file of the page itself, asked for once
@@ -3734,7 +3741,11 @@
       }
       function frame() {
         ticking = false; var y = W.scrollY || W.pageYOffset || 0, vh = W.innerHeight || 1;
-        stages.forEach(function (s) { if (s.handle) { s.st.p = progress(s, y, vh); s.handle.setProgress(s.st.p); } });
+        stages.forEach(function (s) {
+          if (s.handle) { s.st.p = progress(s, y, vh); s.handle.setProgress(s.st.p); }
+          // (how much of the screen the model's scene fills: past a fifth, the model is the subject)
+          var top = s.top - y; if (s.carry.length) away(s, s.st.state === 'on' && (Math.min(vh, top + s.h) - Math.max(0, top)) / vh > 0.2);
+        });
       }
       function onScroll() { if (!ticking) { ticking = true; (W.requestAnimationFrame || setTimeout)(frame); } }
       function start() {
@@ -3769,8 +3780,17 @@
           if ((cfg.posters || []).indexOf(im.getAttribute('data-asset')) < 0) return;
           var ly = im.closest('.ly'); if (ly) { ly.classList.add('td-src'); src.push(ly); }
         });
-        var st = { id: cfg.id, state: 'idle', why: '', p: 0, frames: 0 }; ST.stages.push(st);
-        stages.push({ cfg: cfg, el: el, sec: sec, src: src, pin: !!(sec && sec.hasAttribute('data-pin')), st: st, handle: null, near: false, top: 0, h: 1, timer: 0 });
+        // ...and the same pictures where the page carries them between scenes (an actor, a seam's carrier)
+        var carry = [], urls = [];
+        [].forEach.call(d.querySelectorAll('img[data-asset]'), function (im) {
+          if ((cfg.posters || []).indexOf(im.getAttribute('data-asset')) < 0) return;
+          var u = im.getAttribute('src'), ca = im.closest('.ca'); if (u && urls.indexOf(u) < 0) urls.push(u); if (ca && carry.indexOf(ca) < 0) carry.push(ca);
+        });
+        [].forEach.call(d.querySelectorAll('.cs-carry'), function (cs) {
+          if ([].some.call(cs.querySelectorAll('img'), function (im) { return urls.indexOf(im.getAttribute('src')) >= 0; })) carry.push(cs);
+        });
+        var st = { id: cfg.id, state: 'idle', why: '', p: 0, frames: 0, away: false }; ST.stages.push(st);
+        stages.push({ cfg: cfg, el: el, sec: sec, src: src, carry: carry, away: false, pin: !!(sec && sec.hasAttribute('data-pin')), st: st, handle: null, near: false, top: 0, h: 1, timer: 0 });
       });
       if (!stages.length) return;
       // (the studio switches motion without reloading the page: 3D follows it)
