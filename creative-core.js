@@ -3487,12 +3487,16 @@
         // where it came from, in words only: never a provider URL, a signed link, a path or a key
         provenance: { provider: s(pv.provider, 30).replace(/[^\w-]/g, ''), providerAssetId: s(pv.providerAssetId, 120).replace(/[^\w.:-]/g, ''), processor: s(pv.processor, 60), requestId: s(pv.requestId, 80).replace(/[^\w.:-]/g, ''), at: s(pv.at, 40) },
       };
+      // the file: its stored copy (assetRef -- what a saved project carries) and/or its bytes (what the studio holds to preview
+      // it). Both are kept when both are given: the studio saves the reference alone, so a model of any allowed size adds
+      // nothing to a save. (On the server, bytes that arrive are stored and their own hash replaces any reference sent.)
+      const ref = typeof raw.assetRef === 'string' && REF.test(raw.assetRef) ? raw.assetRef : '';
       if (typeof raw.dataUrl === 'string' && raw.dataUrl) {
         const m = DATA_URL.exec(raw.dataUrl);
         if (!m || Math.floor(m[1].length * 0.75) > LIMITS.modelBytes) return null;
         out.dataUrl = raw.dataUrl;
-      } else if (typeof raw.assetRef === 'string' && REF.test(raw.assetRef)) out.assetRef = raw.assetRef;
-      else return null;
+      } else if (!ref) return null;
+      if (ref) out.assetRef = ref;
       return out;
     }
 

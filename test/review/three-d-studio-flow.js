@@ -3,6 +3,8 @@
 // run-server.js + test/helpers/mock-tripo.js). Not part of `npm test` (it needs Electron and a GPU):
 //
 //   electron test/review/three-d-studio-flow.js <out folder>
+//   electron test/review/three-d-studio-flow.js <out folder> --realistic   (photo-sized pictures, a ~6 MB model: the size
+//                                                                             of a real textured model, not the 0.14 MB fixture)
 //   (inside VS Code's terminal, clear ELECTRON_RUN_AS_NODE first -- with it set, Electron runs as plain Node)
 //
 // REAL PROVIDER SPEND: $0. The server is the test harness's: Tripo is the fake, every other paid provider is refused, and
@@ -25,12 +27,18 @@ const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.resolve(process.argv.slice(2).filter(a => !/three-d-studio-flow\.js$/.test(a) && !a.startsWith('--'))[0] || path.join(os.tmpdir(), 'sr-3d-studio-flow'));
 const KEY = 'tsk_TESTONLYnotarealkey0123456789abcdef'; // (not a key: nothing answers it but the fake)
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const REALISTIC = process.argv.includes('--realistic');
 app.on('window-all-closed', () => {});
 
 // ---- the page the owner already has: a Creative page with their own product photo (planned in-process, no provider)
 function page() {
   const D2 = require(path.join(ROOT, 'lib/creative/director2')); const { validatePlan2 } = require(path.join(ROOT, 'lib/creative/validate2')); const FX = require(path.join(ROOT, 'test/fixtures/three-d/make-fixture'));
-  const png = cut => 'data:image/png;base64,' + FX.productPhoto(640, 800, cut).toString('base64');
+  // (--realistic: photo-sized pictures -- noise does not compress, as photos mostly do not; ~3 MB each, as the studio keeps them)
+  const noise = (w, h) => { const zlib = require('zlib'); const T = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; T[n] = c >>> 0; } const crc = b => { let c = 0xffffffff; for (const x of b) c = T[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+    const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+    const ih = Buffer.alloc(13); ih.writeUInt32BE(w, 0); ih.writeUInt32BE(h, 4); ih[8] = 8; ih[9] = 2; const raw = crypto.randomBytes((w * 3 + 1) * h); for (let y = 0; y < h; y++) raw[y * (w * 3 + 1)] = 0;
+    return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ih), chunk('IDAT', zlib.deflateSync(raw, { level: 1 })), chunk('IEND', Buffer.alloc(0))]); };
+  const png = cut => 'data:image/png;base64,' + (REALISTIC ? noise(900, 1125) : FX.productPhoto(640, 800, cut)).toString('base64');
   const assess = extra => Object.assign({ width: 640, height: 800, aspect: 0.8, orientation: 'portrait', subject: [0.15, 0.07, 0.85, 0.93], colours: ['#1a528c', '#d49e38'], luminance: 130, background: { colour: '#f1ece2', uniformity: 0.95, tolerance: 12 }, transparent: false, transparentShare: 0, megapixels: 0.51 }, extra || {});
   const assets = [
     { id: 'u-bottle', origin: 'upload', title: 'Aurelia tonic', alt: 'A bottle of Aurelia tonic', mime: 'image/png', dataUrl: png(false), assess: assess(), caps: { moveFreely: false, frame: true, backdrop: false, heroSize: true, lowRes: false }, curation: { role: 'subject', identity: 'exact', depicts: 'the bottle', issues: [], separable: true, quality: 3, framing: 'whole' } },
@@ -57,7 +65,7 @@ app.whenReady().then(async () => {
   const env = { SITEREMADE_BACKEND: 'local', NODE_ENV: 'test', ANTHROPIC_API_KEY: 'test-only', OPENAI_API_KEY: '', HIGGSFIELD_API_KEY: 'hf-test-key:secret', SUPABASE_URL: '', ELECTRON_RUN_AS_NODE: '',
     SITEREMADE_DB_PATH: path.join(dir, 'app.db'), SITEREMADE_ASSET_STORE_DIR: path.join(dir, 'assets'), SITEREMADE_EXPORTS_DIR: path.join(dir, 'exports'), SITEREMADE_PREMIUM_LOG_DIR: path.join(dir, 'premium'), MOCK_CALL_LOG: path.join(dir, 'provider-calls.log'),
     STRIPE_SECRET_KEY: 'sk_test_mock_only', STRIPE_WEBHOOK_SECRET: 'whsec_3d_flow', SITEREMADE_TRIAL_CREDITS: '60',
-    CREATIVE_3D: 'on', THREE_D_PROVIDER: 'tripo', TRIPO_API_KEY: KEY, SITEREMADE_3D_PROVIDER_USD: '0.50', MOCK_TRIPO: 'success', MOCK_TRIPO_MS: '6000', MOCK_TRIPO_FETCH_SOURCE: '1' };
+    CREATIVE_3D: 'on', THREE_D_PROVIDER: 'tripo', TRIPO_API_KEY: KEY, SITEREMADE_3D_PROVIDER_USD: '0.50', MOCK_TRIPO: REALISTIC ? 'large' : 'success', MOCK_TRIPO_MS: '6000', MOCK_TRIPO_FETCH_SOURCE: '1' };
   const server = await startServer(env); const base = `http://127.0.0.1:${server.port}`;
   const calls = () => (fs.existsSync(env.MOCK_CALL_LOG) ? fs.readFileSync(env.MOCK_CALL_LOG, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : []);
   const tripo = () => calls().filter(c => c.provider === 'tripo'); const submits = () => tripo().filter(c => c.endpoint === 'submit').length;
@@ -68,8 +76,10 @@ app.whenReady().then(async () => {
     const api = async (method, url, body) => { const res = await fetch(base + url, { method, headers: Object.assign({ 'content-type': 'application/json' }, jar.size ? { cookie: cookie() } : {}), body: body ? JSON.stringify(body) : undefined }); (res.headers.getSetCookie ? res.headers.getSetCookie() : []).forEach(c => { const [pair] = c.split(';'); const i = pair.indexOf('='); jar.set(pair.slice(0, i).trim(), pair.slice(i + 1)); }); return { status: res.status, body: await res.json().catch(() => null) }; };
     const who = { email: `flow-${Date.now()}@example.com`, password: 'correct-horse-battery-staple' };
     const up = await api('POST', '/api/auth/signup', who); if (up.status >= 300) throw new Error('signup failed: ' + JSON.stringify(up.body));
-    const saved = await api('POST', '/api/projects', { name: 'Aurelia Tonic', directionsState: { directions: [page()], activeDirectionIndex: 0 } }); if (!saved.body || !saved.body.project) throw new Error('save failed: ' + JSON.stringify(saved.body).slice(0, 300));
+    const first = { name: 'Aurelia Tonic', directionsState: { directions: [page()], activeDirectionIndex: 0 } }; const saved = await api('POST', '/api/projects', first); if (!saved.body || !saved.body.project) throw new Error('save failed: ' + JSON.stringify(saved.body).slice(0, 300));
     const projectId = saved.body.project.id; report.projectId = projectId;
+    const savedNow = async () => { const p = (await api('GET', `/api/projects/${projectId}`)).body.project; const c = p.directionsState.directions[0].creative; const t = c.threeD; return { revision: p.revision, models: t ? t.assets.map(a => ({ id: a.id, bytes: a.bytes, assetRef: a.assetRef || null })) : [], scenes: t ? t.scenes.map(s => s.sectionId + ':' + s.composition) : [] }; };
+    report.pageBytes = Buffer.byteLength(JSON.stringify(first));
     // (a session of its own, in memory: nothing from an earlier run, nothing left behind)
     const ses = session.fromPartition('sr3d-flow-' + process.pid);
     for (const [name, value] of jar) await ses.cookies.set({ url: base, name, value, httpOnly: true });
@@ -119,8 +129,9 @@ app.whenReady().then(async () => {
       await sleep(120);
     }
     // ---- 4. on the page, saved
-    await b.until('!window.SiteRemadeCreativeStudio.state().dirty && !window.SiteRemadeCreativeStudio.state().saving', 15000, 'the save');
-    report.steps.delivered = { panel: await b.panel(), state: await b.state(), submits: submits(), seconds: +((Date.now() - t0) / 1000).toFixed(1) }; await b.shot('04-on-page');
+    // (a save that fails is a finding, not a crash of this run: it is recorded, and the account is checked below)
+    report.savedInStudio = await b.until('!window.SiteRemadeCreativeStudio.state().dirty && !window.SiteRemadeCreativeStudio.state().saving', 15000, 'the save').then(() => true, () => false);
+    report.steps.delivered = { panel: await b.panel(), state: await b.state(), submits: submits(), seconds: +((Date.now() - t0) / 1000).toFixed(1), saved: await savedNow() }; await b.shot('04-on-page');
     // the preview: scroll to the model's section, wait for it to be drawn, then scroll through it
     const f0 = await b.frame(); await b.scrollFrame(f0.top - 200);
     let f1 = null; for (let i = 0; i < 150; i++) { f1 = await b.frame(); if (f1.stageState === 'on' || f1.stageState === 'poster') break; await sleep(150); }
@@ -130,12 +141,14 @@ app.whenReady().then(async () => {
     report.steps.preview.requests3D = report.requests3D.slice();
     b.w.destroy();
 
-    // ---- 5. closed and reopened: the model is there; nothing is made again
+    // ---- 5. closed and reopened: the model is there; nothing is made again. First: what the account has saved, as a
+    // brand-new reader sees it (before the studio could re-attach anything)
+    report.steps.savedBeforeReopen = await savedNow();
     b = await openStudio();
     await b.until('!!document.getElementById("cs3dRemove")', 15000, 'the reopened page with its model'); await sleep(2500);
     const r0 = await b.frame(); await b.scrollFrame(r0.top - 200); let r1 = null; for (let i = 0; i < 150; i++) { r1 = await b.frame(); if (r1.stageState === 'on' || r1.stageState === 'poster') break; await sleep(150); }
     await sleep(700);
-    report.steps.reopened = { panel: await b.panel(), state: await b.state(), preview: await b.frame(), submits: submits() }; await b.shot('07-reopened');
+    report.steps.reopened = { panel: await b.panel(), state: await b.state(), preview: await b.frame(), submits: submits(), saved: await savedNow() }; await b.shot('07-reopened');
     b.w.destroy();
 
     // ---- 6. purchased (mocked Stripe), published, exported -> the customer's own ZIP, unpacked for the standalone probe

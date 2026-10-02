@@ -146,6 +146,11 @@ plan.premium3D = { planned, reason, sourceAssetId, composition }   // intent onl
   engine and the same `pose()` function, unit-tested but not yet reviewed visually.
 * Nothing is code. An unknown enum becomes the default, a number is clamped, an unknown key is dropped, a scene whose
   section or model is not there is dropped. A model record that claims to be over the budget is rejected, not clamped.
+* **A saved model is a reference, never bytes.** The 3D job stores the GLB (`assetRef`, content-addressed); the studio keeps
+  that reference on the record next to the bytes it previews, and saves the reference alone (`tdForSave` in
+  `creative.js`). Inline, a model of up to 8 MB plus the page's pictures passes the project store's 14 MB per-direction
+  limit and the whole save is refused (the bug `test/three-d-persistence.test.js` holds). Bytes that do arrive in a save
+  are stored under their own hash, whatever reference came with them.
 * `sectionId` is a plan scene's id. The stage takes the box of that section's picture of the same subject (the upload,
   its cut-out or a copy) per breakpoint; that picture is the fallback and is hidden only while the model is drawn.
 * One subject on screen, never two: where the page carries that same picture between scenes (a `.ca` actor, a seam's

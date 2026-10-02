@@ -832,11 +832,17 @@
       var m = (job.delivered || []).filter(function (x) { return x.kind === 'model3d' && x.threeD && x.threeD.id && !have[x.threeD.id]; })[0];
       if (!m || !S.plan) return;
       return td3File(m.premium.mediaId).then(function (dataUrl) {
-        if (S !== mine) return; var asset = Object.assign({}, m.threeD, { dataUrl: dataUrl }); delete asset.assetRef;
+        // (the model keeps the reference to the copy the job stored -- that is what the page saves; the bytes fetched here
+        // are only this tab's preview of it)
+        if (S !== mine) return; var asset = Object.assign({}, m.threeD, { dataUrl: dataUrl });
         var sec = (S.plan.scenes || []).some(function (s) { return s.id === m.sectionId; }) ? m.sectionId : tdSectionFor(m.sourceAssetId);
         if (!td3Place(asset, sec, m.composition)) { S.tdNote = 'The 3D model was made, but could not be placed on this page.'; return; }
         refresh(true); markDirty(); build3D();
-        if (S.projectId) return td3Save().then(publishPremiumRevision);
+        if (S.projectId) return td3Save().then(function (r) {
+          // (only a page that was saved is published: a save that failed leaves the app on the version it already has)
+          if (r && r.ok && r.data && r.data.ok) return publishPremiumRevision();
+          S.tdNote = 'The 3D model is on the page, but the page could not be saved yet' + (r && r.data && r.data.message ? ' (' + r.data.message + ')' : '') + '. Save it to keep the model.'; build3D();
+        });
       });
     }).catch(function () { /* the next poll, or reopening the page, tries again */ });
     return S.tdQueue;
@@ -1362,8 +1368,15 @@
     return {
       mode: 'creative', meta: { id: S.localId || (S.localId = 'creative_' + Date.now().toString(36)), createdAt: S.createdAt || (S.createdAt = new Date().toISOString()), version: 'creative-1' },
       pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
-      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, threeD: S.threeD || undefined, plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
+      creative: { v: 1, brief: S.brief, understanding: S.understanding, supplied: supplied(), research: S.research, assets: S.assets, models: (S.models || []).length ? S.models : undefined, threeD: tdForSave(), plan: S.plan, planMeta: S.planMeta, history: S.history, mainAsset: liveMain() || undefined, abstractChosen: S.abstractChosen || undefined, premiumJob: S.premiumJob || undefined, motion: { intensity: (S.plan.motion && S.plan.motion.intensity) || 'lively' }, cost: S.cost, fixture: S.fixture || undefined, updatedAt: new Date().toISOString() },
     };
+  }
+  // the page's 3D block as it is SAVED: a model the server already stores goes by its reference, never as bytes (a model
+  // may be up to 8 MB -- inline, with the page's pictures, it would push the save past the server's size limit and the
+  // whole save would be refused). A model with no stored copy yet (none today) still goes as bytes.
+  function tdForSave() {
+    var b = S.threeD; if (!b || !Array.isArray(b.assets)) return b || undefined;
+    return Object.assign({}, b, { assets: b.assets.map(function (a) { if (!a || !a.assetRef || !a.dataUrl) return a; var o = Object.assign({}, a); delete o.dataUrl; return o; }) });
   }
   function save() {
     if (!S.plan || S.saving) return; if (!signedIn()) { needSignIn('Sign in to save your Creative page.'); return; }

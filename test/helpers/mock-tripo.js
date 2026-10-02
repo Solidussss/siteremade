@@ -19,6 +19,7 @@
 //   expired-url    the first download address handed out has already expired (403): only a FRESH one works
 //                  (opts.expiredUrls: how many of the first addresses are expired; default 1)
 //   download-retry the first downloads fail with 503 (MOCK_TRIPO_DOWNLOAD_FAILS of them)
+//   large          a valid model of about 6 MB -- inside the limits, the size a real textured model is (the fixture is 0.14 MB)
 //   oversized      a valid model over the size a website may ship
 //   malformed      bytes that are not a model
 //   compressed     a model that REQUIRES meshopt decompression (what Tripo's `compress` option produces)
@@ -32,7 +33,7 @@ const path = require('path');
 
 const FIX = path.join(__dirname, '..', 'fixtures', 'three-d');
 const API = 'openapi.tripo3d.ai'; const CDN = 'mock-output.tripo3d.com';
-const MODES = ['success', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish'];
+const MODES = ['success', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'large', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish'];
 const json = (body, status, extra) => new Response(JSON.stringify(body), { status: status || 200, headers: Object.assign({ 'content-type': 'application/json' }, extra || {}) });
 
 // ---- the fixture models, as each mode needs them (made from the two committed GLBs; nothing new on disk)
@@ -51,6 +52,8 @@ function models() {
   cache = {
     normal,
     // (the same model with 9 MB of unused data after its geometry: a real, readable GLB that is simply too large)
+    // (6 MB: the same model with extra data in its buffer, as a heavier texture would add -- it passes every 3D limit)
+    large: glbFrom(p.json, Buffer.concat([p.bin, Buffer.alloc(6 * 1024 * 1024 - normal.length, 7)])),
     oversized: glbFrom(p.json, Buffer.concat([p.bin, Buffer.alloc(9 * 1024 * 1024, 1)])),
     malformed: Buffer.from('<html><body>503 Service Unavailable</body></html>'.repeat(30)),
     compressed: glbFrom(Object.assign({}, p.json, { extensionsUsed: ['EXT_meshopt_compression'], extensionsRequired: ['EXT_meshopt_compression'] }), p.bin),
