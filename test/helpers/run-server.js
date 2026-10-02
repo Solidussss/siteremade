@@ -178,8 +178,14 @@ globalThis.fetch = async function (url, options) {
     // a second identity for ownership tests: any token containing "test-access-token-other" is a different user
     const h = (options && options.headers) || {};
     const auth = String(h.Authorization || h.authorization || '');
-    if (/test-access-token-other/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000009', email: 'other-owner@example.com' });
-    return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com' });
+    const confirmed = '2026-01-01T00:00:00.000Z';
+    if (/test-access-token-other/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000009', email: 'other-owner@example.com', email_confirmed_at: confirmed });
+    // the website admin (lib/website-admin.js) -- and two identities that must NOT be it: the same address unconfirmed, and
+    // a look-alike address
+    if (/test-access-token-admin-unconfirmed/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000008', email: 'jaydenflynn9@gmail.com', email_confirmed_at: null });
+    if (/test-access-token-admin-lookalike/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000006', email: 'jaydenflynn9@gmail.com.example.com', email_confirmed_at: confirmed });
+    if (/test-access-token-admin/.test(auth)) return json({ id: '00000000-0000-4000-8000-000000000007', email: 'JaydenFlynn9@gmail.com', email_confirmed_at: confirmed });
+    return json({ id: process.env.MOCK_SUPABASE_USER_ID || '00000000-0000-4000-8000-000000000001', email: process.env.MOCK_SUPABASE_EMAIL || 'bridge-test@example.com', email_confirmed_at: confirmed });
   }
   // Tripo (image-to-3D; never the real API in tests): the whole provider -- its API and its signed output addresses -- is
   // the fake of test/helpers/mock-tripo.js. MOCK_TRIPO = success (default) | queued | slow | failed | banned | busy |

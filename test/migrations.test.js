@@ -16,6 +16,15 @@ const { DatabaseSync } = require('node:sqlite');
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 const files = () => fs.readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort();
 
+// existing projects after an upgrade: every original column exactly as it was; the website-removal columns
+// (0013_project_removal.sql) are added EMPTY -- no existing website is ever marked removed by an upgrade
+function projectsAsBefore(raw) {
+  return raw.prepare('SELECT * FROM projects ORDER BY 1').all().map(r => {
+    if ('removed_at' in r) { assert.equal(r.removed_at, null, 'no existing website is removed by an upgrade'); assert.equal(r.removed_by, null); }
+    const o = Object.assign(Object.create(null), r); delete o.removed_at; delete o.removed_by; return o;
+  });
+}
+
 test('migration numbers are unique and contiguous, with generation events at 0008 after 0007_project_source', () => {
   const list = files();
   const numbers = list.map(f => f.slice(0, 4));
@@ -61,7 +70,7 @@ test('a database at 0007 upgrades by applying 0008 and then 0009, keeping existi
     const applied = raw.prepare('SELECT id, applied_at FROM schema_migrations ORDER BY id').all();
     assert.deepEqual(applied.map(r => r.id), files());
     const fresh = applied.filter(r => r.applied_at !== now).map(r => r.id);
-    assert.deepEqual(fresh, ['0008_generation_events.sql', '0009_credit_ledger.sql', '0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql'], 'only the newer migrations ran');
+    assert.deepEqual(fresh, ['0008_generation_events.sql', '0009_credit_ledger.sql', '0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql', '0013_project_removal.sql'], 'only the newer migrations ran');
     const project = raw.prepare('SELECT source_type, source_url FROM projects WHERE id = ?').get('proj_1');
     assert.equal(project.source_type, 'redesign', 'live 0007 provenance data survives the upgrade');
     assert.equal(project.source_url, 'https://example.com');
@@ -106,8 +115,8 @@ test('a database at live 0008 upgrades by applying only 0009; purchases, snapsho
   try {
     const raw = db.raw;
     const applied = raw.prepare('SELECT id, applied_at FROM schema_migrations ORDER BY id').all();
-    assert.deepEqual(applied.filter(r => r.applied_at !== now).map(r => r.id), ['0009_credit_ledger.sql', '0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql']);
-    assert.deepEqual(raw.prepare('SELECT * FROM projects ORDER BY 1').all(), snapshot.projects, 'projects are unchanged');
+    assert.deepEqual(applied.filter(r => r.applied_at !== now).map(r => r.id), ['0009_credit_ledger.sql', '0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql', '0013_project_removal.sql']);
+    assert.deepEqual(projectsAsBefore(raw), snapshot.projects, 'projects are unchanged');
     assert.deepEqual(raw.prepare('SELECT * FROM purchase_snapshots ORDER BY 1').all(), snapshot.purchase_snapshots, 'purchase snapshots are unchanged');
     assert.deepEqual(raw.prepare('SELECT * FROM credit_ledger ORDER BY 1').all(), snapshot.credit_ledger, 'the old daily counter is kept for history');
     const intents = raw.prepare('SELECT * FROM purchase_intents ORDER BY 1').all();
@@ -160,8 +169,8 @@ test('a database at live 0009 upgrades by applying only 0010; owned websites, gr
   try {
     const raw = db.raw;
     const plain = rows => JSON.parse(JSON.stringify(rows));
-    assert.deepEqual(raw.prepare('SELECT id, applied_at FROM schema_migrations ORDER BY id').all().filter(r => r.applied_at !== now).map(r => r.id), ['0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql']);
-    for (const t of Object.keys(snapshot)) assert.deepEqual(plain(raw.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()), plain(snapshot[t]), `${t} is unchanged`);
+    assert.deepEqual(raw.prepare('SELECT id, applied_at FROM schema_migrations ORDER BY id').all().filter(r => r.applied_at !== now).map(r => r.id), ['0010_credits_ownership.sql', '0011_premium_jobs.sql', '0012_premium_sources.sql', '0013_project_removal.sql']);
+    for (const t of Object.keys(snapshot)) assert.deepEqual(plain(t === 'projects' ? projectsAsBefore(raw) : raw.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()), plain(snapshot[t]), `${t} is unchanged`);
     const purchase = require('../lib/purchase');
     assert.equal(purchase.getOwnedPurchaseSnapshotRaw(db, 'acct_1', 'proj_bought').projectRevision, 3, 'the purchased website still resolves its snapshot');
     const credits = require('../lib/credits');

@@ -4617,6 +4617,36 @@ app.get('/api/app-bridge/websites', appBridgeRateLimit, requireAppBridgeAuth, ap
   const websites = savedWebsites.listSavedWebsites(db, req.accountId).slice(0, 200);
   return res.json({ ok: true, websites });
 });
+// ---- WEBSITE REMOVAL (lib/website-admin.js): the website admin -- one named account, by its Supabase-verified and
+// confirmed email; no role grants it -- removes a website from SiteRemade: any account's, draft or purchased. A soft
+// delete (migrations/0013_project_removal.sql): the website leaves every account (Saved Websites, the Website view,
+// preview, download, reopen, save, checkout), while its project row, revisions, purchase snapshot, payments, credit
+// ledger, premium media, 3D models and stored files stay -- billing and audit history are never deleted. Files a
+// customer already downloaded are theirs and untouched. Checked here on its own, whatever the app checked first.
+const websiteAdmin = require('./lib/website-admin');
+function requireWebsiteAdmin(req, res, next) {
+  if (websiteAdmin.isWebsiteAdmin(req.appBridge)) return next();
+  console.warn('[website-admin] ' + JSON.stringify({ step: 'refused', supabaseUserId: req.appBridge && req.appBridge.supabaseUserId, path: req.path }));
+  return bridgeError(res, 403, 'forbidden', 'Only the SiteRemade admin account can delete websites.');
+}
+// every active website, any account -- what the admin can delete
+app.get('/api/app-bridge/admin/websites', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, requireWebsiteAdmin, (req, res) => {
+  const websites = db.projects.listForAdmin(500).map(p => {
+    let mode = 'business'; try { const st = JSON.parse(p.state_json || '{}'); if ((st.directions || []).some(d => d && d.mode === 'creative')) mode = 'creative'; } catch (e) { /* unreadable: business */ }
+    return { projectId: p.id, name: p.name, mode, status: p.status, isPurchased: p.status === 'purchased', ownerEmail: p.owner_email || '', createdAt: p.created_at, updatedAt: p.updated_at };
+  });
+  return res.json({ ok: true, websites });
+});
+// remove one website. Idempotent: a website already removed answers alreadyRemoved and nothing changes.
+app.post('/api/app-bridge/admin/websites/:projectId/remove', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, requireWebsiteAdmin, (req, res) => {
+  const projectId = String(req.params.projectId || ''); if (!/^proj_[A-Za-z0-9_-]{8,64}$/.test(projectId)) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  const row = db.projects.findById(projectId); if (!row) return bridgeError(res, 404, 'not_found', 'Website not found.');
+  if (row.removed_at) return res.json({ ok: true, projectId, removed: true, alreadyRemoved: true, removedAt: row.removed_at, status: row.status });
+  const at = new Date().toISOString(); const done = db.projects.markRemoved(projectId, req.appBridge.supabaseUserId, at);
+  const now = db.projects.findById(projectId);
+  console.log('[website-admin] ' + JSON.stringify({ step: 'removed', projectId, ownerId: row.owner_id, status: row.status, by: req.appBridge.supabaseUserId, at: now.removed_at, changed: done.changes === 1 }));
+  return res.json({ ok: true, projectId, removed: true, alreadyRemoved: done.changes === 0, removedAt: now.removed_at, status: row.status });
+});
 
 // 1c. GET /api/app-bridge/website/:projectId -- Phase 9 (multi-project).
 // The explicit-id sibling of route 1 above, for when the caller already
