@@ -12,10 +12,12 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'creative');
 const OUT = path.join(ROOT, 'creative-core.js');
-const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'premium-source', 'cinematic-source', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'three-d-pose', 'three-d', 'carry-route', 'composition', 'art', 'look', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
+const MODULES = ['fonts', 'fonts-data.json', 'understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'premium-source', 'cinematic-source', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'three-d-pose', 'three-d', 'carry-route', 'composition', 'art', 'look', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
 
 function build() {
   const parts = MODULES.map(name => {
+    // (a .json module -- the font registry's measured data -- is its parsed value)
+    if (name.endsWith('.json')) return `  __define(${JSON.stringify(name)}, function (module) { module.exports = ${JSON.stringify(JSON.parse(fs.readFileSync(path.join(DIR, name), 'utf8')))}; });`;
     const src = fs.readFileSync(path.join(DIR, `${name}.js`), 'utf8').replace(/\r\n/g, '\n');
     return `  __define(${JSON.stringify(name)}, function (module, exports, require) {\n${src.split('\n').map(l => (l ? '    ' + l : l)).join('\n')}\n  });`;
   });

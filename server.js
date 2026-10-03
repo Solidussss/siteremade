@@ -222,6 +222,17 @@ const servePublicFile = express.static(__dirname,{
   }
 });
 app.use((req, res, next) => (PUBLIC_FILES.has(req.path) ? servePublicFile(req, res, next) : next()));
+// THE CREATIVE WEB FONTS (lib/creative/fonts.js): the studio's preview and the Client App's font picker load a page's
+// open-source faces from here -- exactly the vendored files the registry names (the name compared as it arrived, no path
+// is ever built from anything else), immutable, readable across origins as fonts must be. The repo folder itself stays
+// private (vendor/ is not public).
+const CREATIVE_FONT_FILES = new Set(require('./lib/creative/fonts').FILES);
+app.get('/creative-fonts/:file', (req, res, next) => {
+  const file = req.params.file;
+  if (!CREATIVE_FONT_FILES.has(file) || req.path !== `/creative-fonts/${file}`) return next();
+  res.set({ 'Content-Type': 'font/woff2', 'Cache-Control': 'public, max-age=31536000, immutable', 'Access-Control-Allow-Origin': '*', 'X-Content-Type-Options': 'nosniff' });
+  return res.sendFile(path.join(__dirname, 'vendor', 'creative-fonts', file));
+});
 
 function escapeHtml(value = '') {
   return String(value)

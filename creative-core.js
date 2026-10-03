@@ -12,6 +12,184 @@
     __mods[name](m, m.exports, __require);
     return m.exports;
   }
+  __define("fonts", function (module, exports, require) {
+    'use strict';
+    // CREATIVE FONTS: the one vocabulary of typefaces a Creative page may use -- the editor's picker, the renderer, validation
+    // and the export all read this list, and a page stores only these ids (plan.fonts: { headline, body, label, preset }),
+    // never a font-family string. Two kinds:
+    //   web     an open-source face (SIL Open Font License 1.1, from Fontsource -- see vendor/creative-fonts/manifest.json): its
+    //           Latin .woff2 files are vendored at the weights a page uses, a page loads ONLY the faces it uses, and an exported
+    //           website carries ONLY those files (with the licence beside them). Nothing is loaded from a third party.
+    //   system  a stack of faces the visitor's own device has. Nothing is downloaded -- in particular no proprietary face is
+    //           ever shipped: "Apple / System" asks for the device's own San Francisco through -apple-system, on Apple
+    //           devices only, and falls back to Helvetica Neue / Arial elsewhere.
+    // Every face carries its measured width (fonts-data.json, made by scripts/vendor-creative-fonts.js from the font files
+    // themselves): the headline fitting (look.js fitFor / measure) sizes a heading in a chosen face by that face's own
+    // width, so a narrow, a wide, a heavy or a serif display face fits its column the same way.
+    // Data only, browser-safe (bundled into creative-core.js).
+
+    const DATA = require('./fonts-data.json');
+
+    // (kind: the generic family a stack ends with; hw: the weight a headline is set in; lw: an eyebrow/label; caps: a face
+    // that has only capitals; track / lead: the letter-spacing and line height a headline is set with)
+    const F = (id, label, kind, extra) => Object.assign({ id, label, kind, source: 'web', hw: 700, lw: 700, track: -0.01, lead: 0.98 }, extra || {});
+    const S = (id, label, kind, stack, extra) => Object.assign({ id, label, kind, source: 'system', stack, hw: 700, lw: 700, track: -0.01, lead: 0.98 }, extra || {});
+    const LIST = [
+      // ---- system faces (nothing downloaded)
+      S('apple-system', 'Apple / System', 'sans-serif', '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif', { metrics: { adv: 0.6, upper: 1.25 } }),
+      S('avenir-next', 'Avenir Next', 'sans-serif', '"Avenir Next", Avenir, "SR Nunito Sans", "Segoe UI", sans-serif', { fallback: 'nunito-sans', metrics: { adv: 0.62, upper: 1.27 } }),
+      S('helvetica', 'Helvetica', 'sans-serif', '"Helvetica Neue", Helvetica, Arial, sans-serif', { metrics: { adv: 0.58, upper: 1.27 } }),
+      S('arial', 'Arial', 'sans-serif', 'Arial, "Helvetica Neue", Helvetica, sans-serif', { metrics: { adv: 0.58, upper: 1.27 } }),
+      S('georgia', 'Georgia', 'serif', 'Georgia, "Times New Roman", serif', { metrics: { adv: 0.6, upper: 1.3 } }),
+      S('times-new-roman', 'Times New Roman', 'serif', '"Times New Roman", Times, serif', { metrics: { adv: 0.55, upper: 1.44 } }),
+      S('garamond', 'Garamond', 'serif', 'Garamond, "Garamond Premier Pro", "Adobe Garamond Pro", "Times New Roman", serif', { metrics: { adv: 0.55, upper: 1.45 } }),
+      S('system-mono', 'System Mono', 'monospace', 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace', { track: 0, metrics: { adv: 0.66, upper: 1 } }),
+      // ---- open-source web faces
+      F('inter', 'Inter', 'sans-serif', { hw: 800, track: -0.025 }),
+      F('manrope', 'Manrope', 'sans-serif', { hw: 800, track: -0.02 }),
+      F('geist', 'Geist', 'sans-serif', { hw: 800, track: -0.025 }),
+      F('dm-sans', 'DM Sans', 'sans-serif', { track: -0.02 }),
+      F('plus-jakarta-sans', 'Plus Jakarta Sans', 'sans-serif', { hw: 800, track: -0.02 }),
+      F('poppins', 'Poppins', 'sans-serif', { track: -0.015 }),
+      F('montserrat', 'Montserrat', 'sans-serif', { hw: 800, track: -0.015 }),
+      F('nunito-sans', 'Nunito Sans', 'sans-serif', { hw: 800, track: -0.015 }),
+      F('urbanist', 'Urbanist', 'sans-serif', { hw: 800, track: -0.015 }),
+      F('source-sans-3', 'Source Sans 3', 'sans-serif', { hw: 700 }),
+      F('bodoni-moda', 'Bodoni Moda', 'serif', { lead: 1.02, track: -0.01 }),
+      F('cormorant-garamond', 'Cormorant Garamond', 'serif', { hw: 600, lead: 1.02, track: -0.01 }),
+      F('dm-serif-display', 'DM Serif Display', 'serif', { hw: 400, lw: 400, lead: 1.02, track: -0.01 }),
+      F('playfair-display', 'Playfair Display', 'serif', { lead: 1.02, track: -0.01 }),
+      F('libre-baskerville', 'Libre Baskerville', 'serif', { lead: 1.04, track: -0.015 }),
+      F('instrument-serif', 'Instrument Serif', 'serif', { hw: 400, lw: 400, lead: 1, track: -0.01 }),
+      F('source-serif-4', 'Source Serif 4', 'serif', { lead: 1.04 }),
+      F('lora', 'Lora', 'serif', { lead: 1.04 }),
+      F('merriweather', 'Merriweather', 'serif', { hw: 900, lead: 1.06, track: -0.015 }),
+      F('newsreader', 'Newsreader', 'serif', { hw: 600, lead: 1.02 }),
+      F('space-grotesk', 'Space Grotesk', 'sans-serif', { track: -0.02 }),
+      F('sora', 'Sora', 'sans-serif', { track: -0.02 }),
+      F('archivo', 'Archivo', 'sans-serif', { hw: 800, track: -0.015 }),
+      F('ibm-plex-sans', 'IBM Plex Sans', 'sans-serif', { track: -0.015 }),
+      F('outfit', 'Outfit', 'sans-serif', { hw: 800, track: -0.015 }),
+      F('anton', 'Anton', 'sans-serif', { hw: 400, lw: 400, lead: 0.92, track: 0 }),
+      F('archivo-black', 'Archivo Black', 'sans-serif', { hw: 400, lw: 400, lead: 0.94, track: -0.02 }),
+      F('league-spartan', 'League Spartan', 'sans-serif', { hw: 800, lead: 0.92, track: -0.02 }),
+      F('bebas-neue', 'Bebas Neue', 'sans-serif', { hw: 400, lw: 400, caps: true, lead: 0.9, track: 0.01 }),
+      F('oswald', 'Oswald', 'sans-serif', { hw: 600, lead: 0.96, track: 0 }),
+      F('syne', 'Syne', 'sans-serif', { hw: 800, track: -0.02 }),
+      F('unbounded', 'Unbounded', 'sans-serif', { track: -0.02 }),
+      F('bricolage-grotesque', 'Bricolage Grotesque', 'sans-serif', { hw: 800, track: -0.025 }),
+      F('space-mono', 'Space Mono', 'monospace', { track: -0.02 }),
+      F('fraunces', 'Fraunces', 'serif', { hw: 800, lead: 1, track: -0.015 }),
+      F('quicksand', 'Quicksand', 'sans-serif', { track: -0.01 }),
+      F('nunito', 'Nunito', 'sans-serif', { hw: 800, track: -0.01 }),
+      F('rubik', 'Rubik', 'sans-serif', { track: -0.015 }),
+      F('varela-round', 'Varela Round', 'sans-serif', { hw: 400, lw: 400, track: -0.01 }),
+      F('comfortaa', 'Comfortaa', 'sans-serif', { track: -0.01 }),
+      F('jetbrains-mono', 'JetBrains Mono', 'monospace', { hw: 800, track: -0.02 }),
+      F('ibm-plex-mono', 'IBM Plex Mono', 'monospace', { track: -0.02 }),
+      F('roboto-mono', 'Roboto Mono', 'monospace', { track: -0.02 }),
+    ];
+    const BY_ID = new Map(LIST.map(f => [f.id, f]));
+
+    const CATEGORIES = [
+      ['apple', 'Apple / Clean UI', ['apple-system', 'inter', 'manrope', 'geist', 'dm-sans', 'plus-jakarta-sans']],
+      ['social', 'Social / Instagram-style', ['avenir-next', 'dm-sans', 'poppins', 'montserrat', 'nunito-sans', 'urbanist']],
+      ['luxury', 'Luxury / Fashion', ['bodoni-moda', 'cormorant-garamond', 'dm-serif-display', 'playfair-display', 'libre-baskerville', 'instrument-serif']],
+      ['editorial', 'Editorial', ['instrument-serif', 'source-serif-4', 'lora', 'merriweather', 'newsreader', 'source-sans-3']],
+      ['tech', 'Modern Tech', ['space-grotesk', 'sora', 'archivo', 'ibm-plex-sans', 'urbanist', 'outfit']],
+      ['bold', 'Bold / Brutalist', ['anton', 'archivo-black', 'league-spartan', 'bebas-neue', 'oswald']],
+      ['creative', 'Creative / Experimental', ['syne', 'unbounded', 'bricolage-grotesque', 'space-mono', 'fraunces']],
+      ['friendly', 'Friendly / Soft', ['quicksand', 'nunito', 'rubik', 'varela-round', 'comfortaa']],
+      ['mono', 'Monospace', ['jetbrains-mono', 'ibm-plex-mono', 'roboto-mono', 'space-mono', 'system-mono']],
+      ['classic', 'Classic / System', ['georgia', 'times-new-roman', 'helvetica', 'arial', 'garamond']],
+    ].map(([id, label, fonts]) => ({ id, label, fonts }));
+
+    // pairings: a headline, a body and an eyebrow/label face that belong together
+    const PRESETS = [
+      ['apple', 'Apple', 'apple-system', 'apple-system', 'apple-system'],
+      ['instagram', 'Instagram', 'dm-sans', 'nunito-sans', 'dm-sans'],
+      ['minimal', 'Minimal', 'inter', 'inter', 'inter'],
+      ['luxury', 'Luxury', 'bodoni-moda', 'manrope', 'manrope'],
+      ['editorial', 'Editorial', 'instrument-serif', 'source-sans-3', 'inter'],
+      ['tech', 'Tech', 'space-grotesk', 'inter', 'ibm-plex-mono'],
+      ['streetwear', 'Streetwear', 'anton', 'archivo', 'archivo'],
+      ['bold-campaign', 'Bold Campaign', 'archivo-black', 'dm-sans', 'dm-sans'],
+      ['friendly', 'Friendly', 'nunito', 'nunito', 'quicksand'],
+      ['classic', 'Classic', 'georgia', 'georgia', 'helvetica'],
+    ].map(([id, name, headline, body, label]) => ({ id, name, headline, body, label }));
+    const PRESET_BY_ID = new Map(PRESETS.map(p => [p.id, p]));
+
+    const ROLES = ['headline', 'body', 'label'];
+    const ID = /^[a-z0-9-]{2,40}$/;
+    const get = id => (typeof id === 'string' && ID.test(id) ? BY_ID.get(id) || null : null);
+    const known = id => !!get(id);
+    // the CSS family name a web face is declared under -- namespaced, so a face the visitor happens to have installed under the
+    // same name (perhaps another version) is never used in its place
+    const faceName = f => `SR ${f.label}`;
+    const GENERIC = { 'sans-serif': 'sans-serif', serif: 'serif', monospace: 'monospace' };
+    const FALLBACK = { 'sans-serif': '"Helvetica Neue", Arial, sans-serif', serif: 'Georgia, "Times New Roman", serif', monospace: 'ui-monospace, Menlo, Consolas, monospace' };
+    function stack(id) { const f = get(id); if (!f) return null; return f.source === 'system' ? f.stack : `"${faceName(f)}", ${FALLBACK[f.kind] || GENERIC[f.kind]}`; }
+    // the weights a web face was vendored at (fonts-data.json), and the nearest of them to the one asked for
+    const weightsOf = id => Object.keys((DATA.fonts[id] || {}).weights || {}).map(Number).sort((a, b) => a - b);
+    function nearest(id, w) { const ws = weightsOf(id); if (!ws.length) return null; return ws.reduce((b, x) => (Math.abs(x - w) < Math.abs(b - w) ? x : b), ws[0]); }
+    const fileOf = (id, w) => { const d = DATA.fonts[id]; const x = d && d.weights[String(w)]; return x ? x.file : null; };
+    // the faces a page needs for the fonts it uses: [{ id, weight, file, family }] -- a headline face at its headline weight,
+    // the body at 400 and 700, a label at its label weight; a system face that stands in for a web one (Avenir Next) brings
+    // that web face as its fallback. Nothing else.
+    function facesFor(fonts) {
+      const want = []; const f = fonts || {};
+      const add = (id, w) => { const x = get(id); if (!x) return; if (x.source === 'system') { if (x.fallback) add(x.fallback, w); return; } const n = nearest(id, w); if (n != null) want.push({ id, weight: n }); };
+      if (f.headline) add(f.headline, get(f.headline).hw);
+      if (f.body) { add(f.body, 400); add(f.body, 700); }
+      if (f.label) add(f.label, get(f.label).lw);
+      const seen = new Set();
+      return want.filter(x => { const k = x.id + ':' + x.weight; if (seen.has(k)) return false; seen.add(k); return true; })
+        .map(x => ({ id: x.id, weight: x.weight, file: fileOf(x.id, x.weight), family: faceName(get(x.id)) })).filter(x => x.file);
+    }
+    // @font-face rules for exactly those faces; src(file) -> the URL the page loads it from
+    function fontFaceCss(fonts, src) {
+      return facesFor(fonts).map(x => `@font-face{font-family:"${x.family}";font-style:normal;font-weight:${x.weight};font-display:swap;src:url("${src(x.file)}") format("woff2")}`).join('\n');
+    }
+    // how wide a face sets a headline (em per character, and its capitals as a factor) -- measured from its own file at the
+    // weight a headline uses, with the same headroom the look's own families carry (look.js FAMILIES)
+    const HEADROOM = 1.15;
+    function metrics(id) {
+      const f = get(id); if (!f) return null;
+      if (f.source === 'system') return { adv: f.metrics.adv, upper: f.caps ? 1 : f.metrics.upper };
+      const d = DATA.fonts[id]; const w = nearest(id, f.hw); const m = d && d.weights[String(w)];
+      if (!m) return null;
+      return { adv: +(m.adv * HEADROOM).toFixed(3), upper: f.caps ? 1 : +m.upper.toFixed(3) };
+    }
+    // the type a page's headlines are fitted with when its headline face is chosen: that face's own width, weight and setting
+    // (case stays the page's own -- a face of capitals only is always set as capitals)
+    function headlineType(fonts, base) {
+      const f = fonts && get(fonts.headline); if (!f) return null; const m = metrics(f.id); if (!m) return null;
+      const b = base || {};
+      return { family: f.id, case: f.caps ? 'upper' : (b.case || 'normal'), adv: m.adv, upper: m.upper, track: f.track, lead: f.lead, weight: f.hw, fontId: f.id };
+    }
+    // plan.fonts as it may be stored: known ids only, never a family string; null when nothing is chosen
+    function sanitize(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const out = {}; ROLES.forEach(r => { if (known(raw[r])) out[r] = raw[r]; });
+      if (typeof raw.preset === 'string' && PRESET_BY_ID.has(raw.preset)) out.preset = raw.preset;
+      return Object.keys(out).filter(k => k !== 'preset').length ? out : null;
+    }
+    // what the editor's picker shows (no file names, no stacks it does not need)
+    function catalogue() {
+      return {
+        fonts: LIST.map(f => ({ id: f.id, label: f.label, kind: f.kind, source: f.source, caps: !!f.caps, categories: CATEGORIES.filter(c => c.fonts.includes(f.id)).map(c => c.id),
+          specimen: f.source === 'web' ? { weight: nearest(f.id, f.hw), file: fileOf(f.id, nearest(f.id, f.hw)) } : null, stack: stack(f.id) })),
+        categories: CATEGORIES.map(c => ({ id: c.id, label: c.label, fonts: c.fonts.slice() })),
+        presets: PRESETS.map(p => Object.assign({}, p)),
+      };
+    }
+    // every vendored file (the builder serves exactly these at /creative-fonts/<file>)
+    const FILES = Object.values(DATA.fonts).reduce((all, d) => all.concat(Object.values(d.weights).map(w => w.file)), []);
+
+    module.exports = { LIST, CATEGORIES, PRESETS, ROLES, get, known, stack, faceName, facesFor, fontFaceCss, metrics, headlineType, sanitize, catalogue, nearest, preset: id => PRESET_BY_ID.get(id) || null, FILES, DATA };
+
+  });
+  __define("fonts-data.json", function (module) { module.exports = {"note":"Generated by scripts/vendor-creative-fonts.js -- do not edit by hand.","source":"Fontsource (npm @fontsource/<id>)","fonts":{"inter":{"pkg":"@fontsource/inter","version":"5.3.0","license":"OFL-1.1","licenseFile":"inter.LICENSE.txt","weights":{"400":{"file":"inter-400.woff2","bytes":23664,"sha256":"8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc","adv":0.4709,"upper":1.2537},"700":{"file":"inter-700.woff2","bytes":24356,"sha256":"6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491","adv":0.4831,"upper":1.2288},"800":{"file":"inter-800.woff2","bytes":24400,"sha256":"a7d0a50f15d389cad679238466bdb5fc9787aa0715719064ce25abaff042820d","adv":0.4881,"upper":1.2191}}},"manrope":{"pkg":"@fontsource/manrope","version":"5.3.0","license":"OFL-1.1","licenseFile":"manrope.LICENSE.txt","weights":{"400":{"file":"manrope-400.woff2","bytes":14108,"sha256":"849290ef12a2eeb9af5c11924120d11aa4ae8b435ed3347d7fc8bc240c293ca3","adv":0.4528,"upper":1.1915},"700":{"file":"manrope-700.woff2","bytes":14212,"sha256":"d2a12c85a831e4b5db341767d0347fa3d1361d22a1fcb3e361a16b6c90080f71","adv":0.4766,"upper":1.1791},"800":{"file":"manrope-800.woff2","bytes":13648,"sha256":"74c161dbcbce7c3590803cc72dc1f63313c360e13367aba5075a7b7b3818ea49","adv":0.4846,"upper":1.1751}}},"geist":{"pkg":"@fontsource/geist","version":"5.3.0","license":"OFL-1.1","licenseFile":"geist.LICENSE.txt","weights":{"400":{"file":"geist-400.woff2","bytes":12956,"sha256":"ead637fd0b6b887d829b3ce3f25fdc242b1de0cfb69c0d97987933675d1315ba","adv":0.4625,"upper":1.2335},"700":{"file":"geist-700.woff2","bytes":13364,"sha256":"728e76ff0b76212419e83011f5202c2fd1144da9d7915a4fa787561f5a3f334d","adv":0.4931,"upper":1.1986},"800":{"file":"geist-800.woff2","bytes":13396,"sha256":"4def20882cb74bf7e9cf2994058ed8d1236f6a53045cda277472bbc553714995","adv":0.5033,"upper":1.1881}}},"dm-sans":{"pkg":"@fontsource/dm-sans","version":"5.3.0","license":"OFL-1.1","licenseFile":"dm-sans.LICENSE.txt","weights":{"400":{"file":"dm-sans-400.woff2","bytes":14200,"sha256":"4ab51eb2cd7305d177187908d6397474d4520663f6c6e572feb0a64f4fa80006","adv":0.4625,"upper":1.1913},"700":{"file":"dm-sans-700.woff2","bytes":14348,"sha256":"35c5efa0e5daa52ee5c6500f5be354bf751fb65c4e49e1d6806c6eb5883e8fe9","adv":0.4868,"upper":1.1707}}},"plus-jakarta-sans":{"pkg":"@fontsource/plus-jakarta-sans","version":"5.3.0","license":"OFL-1.1","licenseFile":"plus-jakarta-sans.LICENSE.txt","weights":{"400":{"file":"plus-jakarta-sans-400.woff2","bytes":11816,"sha256":"221a4135d06a4b33abbd535e9a0da4e565d19545ddd9267c4e678a916d54d9b6","adv":0.4597,"upper":1.2227},"700":{"file":"plus-jakarta-sans-700.woff2","bytes":12244,"sha256":"2050755bf475817c96ac7d914c7f07cc3c2d11ff4b3fb4747b8d41de584aad17","adv":0.4725,"upper":1.2145},"800":{"file":"plus-jakarta-sans-800.woff2","bytes":11896,"sha256":"5f301a8ef9c266c8b596e6793d3cc826daeff9849c5af035f5386439137955ad","adv":0.4765,"upper":1.212}}},"poppins":{"pkg":"@fontsource/poppins","version":"5.3.0","license":"OFL-1.1","licenseFile":"poppins.LICENSE.txt","weights":{"400":{"file":"poppins-400.woff2","bytes":7884,"sha256":"7d93459d86585bfcdbb7e0376056226adb25821ee54b96236fe2123e9560929f","adv":0.4998,"upper":1.0935},"700":{"file":"poppins-700.woff2","bytes":7816,"sha256":"9338e65fc077355c7a87ae0d64cc101e23b9bf8ad78ae65f0f319c857311b526","adv":0.5097,"upper":1.1115}}},"montserrat":{"pkg":"@fontsource/montserrat","version":"5.3.0","license":"OFL-1.1","licenseFile":"montserrat.LICENSE.txt","weights":{"400":{"file":"montserrat-400.woff2","bytes":18780,"sha256":"e66bcd2761ab6924b25ce70dafe10e57a39193c4fea1516730bd9cb5240af6c8","adv":0.4991,"upper":1.2349},"700":{"file":"montserrat-700.woff2","bytes":18824,"sha256":"f9d9e65b15372cebcafc3acd1e664a564c5c4b23278de4d5760de9a13c530371","adv":0.5247,"upper":1.207},"800":{"file":"montserrat-800.woff2","bytes":19012,"sha256":"ba826fb84c2e961578adf3a08b5778b87905d4443445d1d56d84f9f157d5ea4b","adv":0.5346,"upper":1.1971}}},"nunito-sans":{"pkg":"@fontsource/nunito-sans","version":"5.3.0","license":"OFL-1.1","licenseFile":"nunito-sans.LICENSE.txt","weights":{"400":{"file":"nunito-sans-400.woff2","bytes":13892,"sha256":"d9976dd1dc9c0d65046b52810e7cc69cfc229ee9939628ffe637e17efe4ef1ed","adv":0.4464,"upper":1.2973},"700":{"file":"nunito-sans-700.woff2","bytes":13836,"sha256":"cb84238e7b852f2d22b91a598289f13b31cbc7a2d618fd2c0628ecb69459fbeb","adv":0.4641,"upper":1.2809},"800":{"file":"nunito-sans-800.woff2","bytes":13876,"sha256":"4c839e56cbef1bbdfd509670f523730e24298aaf9a7791e0151031b023c12e4c","adv":0.4748,"upper":1.2713}}},"urbanist":{"pkg":"@fontsource/urbanist","version":"5.3.0","license":"OFL-1.1","licenseFile":"urbanist.LICENSE.txt","weights":{"400":{"file":"urbanist-400.woff2","bytes":11984,"sha256":"526bab743f8aeba2df182767150d7a354bf57b885f6ff2eab184cd27264b90aa","adv":0.4367,"upper":1.2341},"700":{"file":"urbanist-700.woff2","bytes":12032,"sha256":"ede48e359fb3f70d13b558e4bf8aea2697e3c86c267cfb4b360fe2d7a621df18","adv":0.4523,"upper":1.2365},"800":{"file":"urbanist-800.woff2","bytes":11992,"sha256":"830d1f9909ee9ac4af0e93d1da0ec170f05627aa9ae8186147aad4c8354eee4e","adv":0.4571,"upper":1.2369}}},"source-sans-3":{"pkg":"@fontsource/source-sans-3","version":"5.3.0","license":"OFL-1.1","licenseFile":"source-sans-3.LICENSE.txt","weights":{"400":{"file":"source-sans-3-400.woff2","bytes":15696,"sha256":"0f73f35e08cde0a2f10c109c6e01d71459d97e4099ecd9a50f1b6c0209e4de2b","adv":0.4124,"upper":1.1953},"700":{"file":"source-sans-3-700.woff2","bytes":15596,"sha256":"ae35266f2ab0d5314ff9a04127931eb26c793e4f1269bb240046d4d2db4b7bb1","adv":0.4355,"upper":1.1802}}},"bodoni-moda":{"pkg":"@fontsource/bodoni-moda","version":"5.3.0","license":"OFL-1.1","licenseFile":"bodoni-moda.LICENSE.txt","weights":{"400":{"file":"bodoni-moda-400.woff2","bytes":14528,"sha256":"e2863d3bbe2e094f1ce98053ee3c6200cfa35f82b9f4cc6fd95fbaead4125d4f","adv":0.4576,"upper":1.3124},"700":{"file":"bodoni-moda-700.woff2","bytes":14988,"sha256":"595d28347ea02f9adccab277f49a122f04212fd220e972ce0c80fe933c915541","adv":0.4812,"upper":1.3009}}},"cormorant-garamond":{"pkg":"@fontsource/cormorant-garamond","version":"5.3.0","license":"OFL-1.1","licenseFile":"cormorant-garamond.LICENSE.txt","weights":{"400":{"file":"cormorant-garamond-400.woff2","bytes":22876,"sha256":"8048ac209bec741e1c29cd0cfac5aac1c0c2ba8c3ddbd4a58fa9bd92ef5c63c2","adv":0.3839,"upper":1.4427},"600":{"file":"cormorant-garamond-600.woff2","bytes":23396,"sha256":"ae062b6d5ae308e7edf61b28b07b9984bbb6e961b1f34d9b2c2f4389c33f21ea","adv":0.387,"upper":1.4485},"700":{"file":"cormorant-garamond-700.woff2","bytes":22340,"sha256":"21a0fc1c5c22708cf4aa0c147fd32982e25bf9e21efec0ca31a4495ba41753eb","adv":0.3887,"upper":1.4511}}},"dm-serif-display":{"pkg":"@fontsource/dm-serif-display","version":"5.3.0","license":"OFL-1.1","licenseFile":"dm-serif-display.LICENSE.txt","weights":{"400":{"file":"dm-serif-display-400.woff2","bytes":24744,"sha256":"fdf61e20fd2c0108e0ea28da4daca0035205b4b7fc031a3974b865b704de160a","adv":0.4397,"upper":1.208}}},"playfair-display":{"pkg":"@fontsource/playfair-display","version":"5.3.0","license":"OFL-1.1","licenseFile":"playfair-display.LICENSE.txt","weights":{"400":{"file":"playfair-display-400.woff2","bytes":21856,"sha256":"1fe9ad5d8b2ebd8ecb8fbd05bed1e3fdfa52dae3f1a04e1c219918442fe9394d","adv":0.4453,"upper":1.2698},"700":{"file":"playfair-display-700.woff2","bytes":23224,"sha256":"28453852ea165c47b5a941be00e418402e1407002ed87507f062a1e316328fe6","adv":0.4548,"upper":1.3034}}},"libre-baskerville":{"pkg":"@fontsource/libre-baskerville","version":"5.3.0","license":"OFL-1.1","licenseFile":"libre-baskerville.LICENSE.txt","weights":{"400":{"file":"libre-baskerville-400.woff2","bytes":20108,"sha256":"3eb80fbca70498126925ce16ff5c20b2fa35e67ae7123ddb46302d2778dfbf0e","adv":0.5059,"upper":1.3679},"700":{"file":"libre-baskerville-700.woff2","bytes":20436,"sha256":"96fa63376eed93029fa2514a02f5cb80276b016e239426858787de6e794d8619","adv":0.5177,"upper":1.3699}}},"instrument-serif":{"pkg":"@fontsource/instrument-serif","version":"5.3.0","license":"OFL-1.1","licenseFile":"instrument-serif.LICENSE.txt","weights":{"400":{"file":"instrument-serif-400.woff2","bytes":21032,"sha256":"5eb09b5ac0e28b67c2f041c8ba6d244604ca0c0980d65912ab2d47fed84ddc31","adv":0.333,"upper":1.2533}}},"source-serif-4":{"pkg":"@fontsource/source-serif-4","version":"5.3.0","license":"OFL-1.1","licenseFile":"source-serif-4.LICENSE.txt","weights":{"400":{"file":"source-serif-4-400.woff2","bytes":20088,"sha256":"02194deb92d3975dd30e11a3824a1f1db32b48c93654e60560cb81ce8e7b5f95","adv":0.4714,"upper":1.2553},"700":{"file":"source-serif-4-700.woff2","bytes":21716,"sha256":"7691c51bc286a9014db0048277d2c3f2ad0a90b533dc8adfb16cb22a95390d39","adv":0.4854,"upper":1.2287}}},"lora":{"pkg":"@fontsource/lora","version":"5.3.0","license":"OFL-1.1","licenseFile":"lora.LICENSE.txt","weights":{"400":{"file":"lora-400.woff2","bytes":21148,"sha256":"ac079950fd9885261c0f73d9e87233f31b5427333ce0eb20e26c119458493c40","adv":0.4611,"upper":1.2644},"700":{"file":"lora-700.woff2","bytes":21044,"sha256":"c05fd5289492ed310ed882259b944ca5287e76e572a65d92d3941f9f44f0342a","adv":0.4743,"upper":1.2669}}},"merriweather":{"pkg":"@fontsource/merriweather","version":"5.3.0","license":"OFL-1.1","licenseFile":"merriweather.LICENSE.txt","weights":{"400":{"file":"merriweather-400.woff2","bytes":49168,"sha256":"66f5bd22d738a801a9e58d71920559743b0baaced04be299e3c4feca3dce3556","adv":0.4746,"upper":1.2619},"700":{"file":"merriweather-700.woff2","bytes":48660,"sha256":"4e1ab49396c02be0d9a2a25eed7bc73781c047d85fcb5dfc2889873eaf992b09","adv":0.4878,"upper":1.253},"900":{"file":"merriweather-900.woff2","bytes":47292,"sha256":"497819fa4d31fd54583812db5ae9f6956635000d4d0b1648b8edc183cc940439","adv":0.4957,"upper":1.2479}}},"newsreader":{"pkg":"@fontsource/newsreader","version":"5.3.0","license":"OFL-1.1","licenseFile":"newsreader.LICENSE.txt","weights":{"400":{"file":"newsreader-400.woff2","bytes":22480,"sha256":"e66067814f1c672d33a457e4f4d102c818b481420e2234cf685ebdbf2f443904","adv":0.4155,"upper":1.4273},"600":{"file":"newsreader-600.woff2","bytes":23876,"sha256":"05c91a26d19a61eafe7ce8e0b77eff3fd279ce994dc89f432f4cd06784935e84","adv":0.4356,"upper":1.4177},"700":{"file":"newsreader-700.woff2","bytes":23796,"sha256":"8b5c3b65cbda1d79ed371d23df3ef1fe194e590558965cf9942042441480ec61","adv":0.4463,"upper":1.4127}}},"space-grotesk":{"pkg":"@fontsource/space-grotesk","version":"5.3.0","license":"OFL-1.1","licenseFile":"space-grotesk.LICENSE.txt","weights":{"400":{"file":"space-grotesk-400.woff2","bytes":13388,"sha256":"65fd17fcbd2e2f522940b5f67ead3d23329e02891aa5495e74d11a499c0b0673","adv":0.4838,"upper":1.1255},"700":{"file":"space-grotesk-700.woff2","bytes":12840,"sha256":"35f8aec56cfd5cbfdb03cc68733a54a0b05bb3617ffcd5fd332badc0b045ca55","adv":0.4838,"upper":1.1271}}},"sora":{"pkg":"@fontsource/sora","version":"5.3.0","license":"OFL-1.1","licenseFile":"sora.LICENSE.txt","weights":{"400":{"file":"sora-400.woff2","bytes":14724,"sha256":"98141d7eaa6e9ee35e0827d279018cd33c3e59c6650541ec7de1c692efd93942","adv":0.4979,"upper":1.2193},"700":{"file":"sora-700.woff2","bytes":15128,"sha256":"c3337a673c9bbbfe433091d3831714dd9a257951f16f41eb3fc650ec593cfac2","adv":0.5076,"upper":1.2037}}},"archivo":{"pkg":"@fontsource/archivo","version":"5.3.0","license":"OFL-1.1","licenseFile":"archivo.LICENSE.txt","weights":{"400":{"file":"archivo-400.woff2","bytes":14700,"sha256":"07f9160163da2ec0f6376ef9d27a2bb8163f98019ba798da4baafb154e30056e","adv":0.4314,"upper":1.3592},"700":{"file":"archivo-700.woff2","bytes":14508,"sha256":"abada6cd4c92a9a706f6d7ed3189f322ff43dd78b9402c7d1137465b861d2a04","adv":0.463,"upper":1.298},"800":{"file":"archivo-800.woff2","bytes":14416,"sha256":"c26cda2400b374eb1adb6e0973c86f455e2df17ca57c6755eb37d7bde47663fb","adv":0.486,"upper":1.2748}}},"ibm-plex-sans":{"pkg":"@fontsource/ibm-plex-sans","version":"5.3.0","license":"OFL-1.1","licenseFile":"ibm-plex-sans.LICENSE.txt","weights":{"400":{"file":"ibm-plex-sans-400.woff2","bytes":22588,"sha256":"3b646991d30055a93a4ecc499713d4347953a74a947ecab435ab72070cbdab0e","adv":0.4445,"upper":1.2338},"700":{"file":"ibm-plex-sans-700.woff2","bytes":22832,"sha256":"42e7b0c143c19df9d99fd896e76b48f846edf0902d200bc29796b34d12c33aa7","adv":0.4656,"upper":1.2255}}},"outfit":{"pkg":"@fontsource/outfit","version":"5.3.0","license":"OFL-1.1","licenseFile":"outfit.LICENSE.txt","weights":{"400":{"file":"outfit-400.woff2","bytes":14032,"sha256":"71f028fd2349990b3f8aa643abe767e82e0f596be407ae66f0004ff164121bdb","adv":0.4346,"upper":1.2866},"700":{"file":"outfit-700.woff2","bytes":14060,"sha256":"5d5e3734089a74707292ce8a3e186def34cd63e33879f9ac3689a8d8da9d0706","adv":0.4489,"upper":1.276},"800":{"file":"outfit-800.woff2","bytes":14048,"sha256":"eabf8cb2c01d0345e2eb19a49d04e8f8d0d520b74959b173d5ea6c2dcb95e4cd","adv":0.4558,"upper":1.2719}}},"anton":{"pkg":"@fontsource/anton","version":"5.3.0","license":"OFL-1.1","licenseFile":"anton.LICENSE.txt","weights":{"400":{"file":"anton-400.woff2","bytes":18612,"sha256":"d0fa07ff63dd60cbc0e2f58e29c802dca2a5ae0276c999f59c6111ab7bbaec3b","adv":0.4057,"upper":1.0244}}},"archivo-black":{"pkg":"@fontsource/archivo-black","version":"5.3.0","license":"OFL-1.1","licenseFile":"archivo-black.LICENSE.txt","weights":{"400":{"file":"archivo-black-400.woff2","bytes":18604,"sha256":"25f33e61cf995abd6be62931cf03bf427286259177b43618cc410ee0157cfd30","adv":0.5485,"upper":1.2297}}},"league-spartan":{"pkg":"@fontsource/league-spartan","version":"5.3.0","license":"OFL-1.1","licenseFile":"league-spartan.LICENSE.txt","weights":{"400":{"file":"league-spartan-400.woff2","bytes":12804,"sha256":"9f5cd7d11e59cbacc68a708cfa8f355893e4ac207b280965fbb267d7eae4575f","adv":0.4068,"upper":1.235},"700":{"file":"league-spartan-700.woff2","bytes":12888,"sha256":"c53c80ed16b2ec8a8be3fefb51ff257646aaf62a8ff8489d8cadaeea3a4bf1fa","adv":0.4362,"upper":1.2172},"800":{"file":"league-spartan-800.woff2","bytes":12848,"sha256":"36a831b0a06413983b99d09b075d9743d608ef5c7eb2e38a46fd2f8dc57184f5","adv":0.4474,"upper":1.2114}}},"bebas-neue":{"pkg":"@fontsource/bebas-neue","version":"5.3.0","license":"OFL-1.1","licenseFile":"bebas-neue.LICENSE.txt","weights":{"400":{"file":"bebas-neue-400.woff2","bytes":13768,"sha256":"a7c90c89240c134f7fdd33d40c000ec90b79d675ea53e8cc5a6d423c073de412","adv":0.3414,"upper":1}}},"oswald":{"pkg":"@fontsource/oswald","version":"5.3.0","license":"OFL-1.1","licenseFile":"oswald.LICENSE.txt","weights":{"400":{"file":"oswald-400.woff2","bytes":12248,"sha256":"e902b779e43944c300cf8ae5e4a1affa68cb8a823fd263dd2f479c4cdfbd213c","adv":0.36,"upper":1.1992},"600":{"file":"oswald-600.woff2","bytes":12740,"sha256":"f6cb541f4d9794b86145c9c3e7d778ffb78c92f8180c577e245238991503da6f","adv":0.398,"upper":1.1718},"700":{"file":"oswald-700.woff2","bytes":12672,"sha256":"aae665c75af89ea7cb7d8ccc8b0911ea72267442ebcd84f6e3efa041ad3b3c16","adv":0.4084,"upper":1.1654}}},"syne":{"pkg":"@fontsource/syne","version":"5.3.0","license":"OFL-1.1","licenseFile":"syne.LICENSE.txt","weights":{"400":{"file":"syne-400.woff2","bytes":13264,"sha256":"98ffc84a339a19a2b3af38d8ead818823eed865bdc419693c77c9929494acca2","adv":0.4333,"upper":1.2642},"700":{"file":"syne-700.woff2","bytes":14072,"sha256":"0aad69416fc0ccf6f340647c46e759d5c6e4628d92576b279ec5ada0afbd9d35","adv":0.5393,"upper":1.2767},"800":{"file":"syne-800.woff2","bytes":13684,"sha256":"1a340e84b78c7e1e7ed24306d682fdcd6dc8cc6cb52b158fbaf22c03f7f001c3","adv":0.7756,"upper":1.2902}}},"unbounded":{"pkg":"@fontsource/unbounded","version":"5.3.0","license":"OFL-1.1","licenseFile":"unbounded.LICENSE.txt","weights":{"400":{"file":"unbounded-400.woff2","bytes":19980,"sha256":"b0a91553c77f72f04eb4e8756003d926a0414c1710236caeb42fa4854bf6217e","adv":0.592,"upper":1.2232},"700":{"file":"unbounded-700.woff2","bytes":21092,"sha256":"477fa23002517a32f232316d859e7b672a044f20073babec8ed3dbcfdb8e041a","adv":0.6227,"upper":1.2027}}},"bricolage-grotesque":{"pkg":"@fontsource/bricolage-grotesque","version":"5.3.0","license":"OFL-1.1","licenseFile":"bricolage-grotesque.LICENSE.txt","weights":{"400":{"file":"bricolage-grotesque-400.woff2","bytes":22364,"sha256":"826772cb1251f09b4c9d76fc6266993d67b03507bee337ea2eac0fb3e0879de3","adv":0.4672,"upper":1.1951},"700":{"file":"bricolage-grotesque-700.woff2","bytes":22384,"sha256":"4c373ce3c1cca41c864eb3e27c059a59fc6310547ab9c9b6cd780d387ba24206","adv":0.484,"upper":1.1859},"800":{"file":"bricolage-grotesque-800.woff2","bytes":21844,"sha256":"3e1b5f0a56ee995b7c1445bc54e6ec98c5dffb585ef5c4baf86731cf68e27c61","adv":0.4899,"upper":1.1827}}},"space-mono":{"pkg":"@fontsource/space-mono","version":"5.3.0","license":"OFL-1.1","licenseFile":"space-mono.LICENSE.txt","weights":{"400":{"file":"space-mono-400.woff2","bytes":16520,"sha256":"fb4a81a2d0a893e5c38c394a7e716a1cef0b24610a0af49c96f6d529bd66bf2b","adv":0.612,"upper":1},"700":{"file":"space-mono-700.woff2","bytes":16724,"sha256":"2d46bd159b53f55c41167a4f1540a074649464194fd1e416f5b4694a6c0f282c","adv":0.612,"upper":1}}},"fraunces":{"pkg":"@fontsource/fraunces","version":"5.3.0","license":"OFL-1.1","licenseFile":"fraunces.LICENSE.txt","weights":{"400":{"file":"fraunces-400.woff2","bytes":17968,"sha256":"e558f39453a9c611908be04294b50dea5f21ae6c49b41c6e47f4115e91f90209","adv":0.4598,"upper":1.3142},"700":{"file":"fraunces-700.woff2","bytes":18212,"sha256":"c38570d224b830056e69484bb9e768e1d3fa7ba4755c8891a3c6d366194d2ff3","adv":0.4884,"upper":1.2972},"800":{"file":"fraunces-800.woff2","bytes":18224,"sha256":"daf58e7501e629454cb9749ba92db31c5fb540f29d25097aafadf09ca60ee9d5","adv":0.4956,"upper":1.2932}}},"quicksand":{"pkg":"@fontsource/quicksand","version":"5.3.0","license":"OFL-1.1","licenseFile":"quicksand.LICENSE.txt","weights":{"400":{"file":"quicksand-400.woff2","bytes":15776,"sha256":"fee25690fddfdf52d7c88f8460260998c523b762e1a53fc91561b179835e3316","adv":0.4621,"upper":1.2168},"700":{"file":"quicksand-700.woff2","bytes":15124,"sha256":"00bfba44dde0dd81d9296cacc53f0ffa3ceff85997e69abd2891cbb9518ff40e","adv":0.4856,"upper":1.1732}}},"nunito":{"pkg":"@fontsource/nunito","version":"5.3.0","license":"OFL-1.1","licenseFile":"nunito.LICENSE.txt","weights":{"400":{"file":"nunito-400.woff2","bytes":16316,"sha256":"a5906e15ceb68f73d3b2c2076b4057c3f6ed401186d56283b45ce12944ca0735","adv":0.4466,"upper":1.2973},"700":{"file":"nunito-700.woff2","bytes":16228,"sha256":"fa89300b9bbb3bd0f60d6991aa055965d98e2ccca27bf8688fe0c39cdc796846","adv":0.4643,"upper":1.281},"800":{"file":"nunito-800.woff2","bytes":16520,"sha256":"2363d3ed037283ebb961e8c4b4917e40a8bc8853cf9965cf1ea7b4daa1df630a","adv":0.475,"upper":1.2714}}},"rubik":{"pkg":"@fontsource/rubik","version":"5.3.0","license":"OFL-1.1","licenseFile":"rubik.LICENSE.txt","weights":{"400":{"file":"rubik-400.woff2","bytes":18936,"sha256":"82ac0e78285c43d0cd203427c57ab30fb07b18f8e6166045f729442eb1abfa26","adv":0.4621,"upper":1.2105},"700":{"file":"rubik-700.woff2","bytes":19112,"sha256":"e423f8ae1668156addf5e32f1056d5b22b5b113a9a23afd364df84a6fa88602d","adv":0.4919,"upper":1.1864}}},"varela-round":{"pkg":"@fontsource/varela-round","version":"5.3.0","license":"OFL-1.1","licenseFile":"varela-round.LICENSE.txt","weights":{"400":{"file":"varela-round-400.woff2","bytes":22948,"sha256":"03871f86c86fc776f89d0cb947502f3957181b63327fecaec724bc39d082319f","adv":0.4697,"upper":1.2834}}},"comfortaa":{"pkg":"@fontsource/comfortaa","version":"5.3.0","license":"OFL-1.1","licenseFile":"comfortaa.LICENSE.txt","weights":{"400":{"file":"comfortaa-400.woff2","bytes":13576,"sha256":"4e86e54d50483956c59a01b5b671b6807fa7235d94e5716cffc5cf390544b1bc","adv":0.5219,"upper":1.2088},"700":{"file":"comfortaa-700.woff2","bytes":13416,"sha256":"ed9f328cf6aaa4c14dfb464d215e8a0d8d56b675a72fb601b819e95a1cb4e45d","adv":0.5256,"upper":1.2193}}},"jetbrains-mono":{"pkg":"@fontsource/jetbrains-mono","version":"5.3.0","license":"OFL-1.1","licenseFile":"jetbrains-mono.LICENSE.txt","weights":{"400":{"file":"jetbrains-mono-400.woff2","bytes":21168,"sha256":"14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb","adv":0.6,"upper":1},"700":{"file":"jetbrains-mono-700.woff2","bytes":21908,"sha256":"d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8","adv":0.6,"upper":1},"800":{"file":"jetbrains-mono-800.woff2","bytes":21236,"sha256":"237d0cbcf1aacd607e07f610d79cbc880edbffcc99ebcf417c502f8fa873ee53","adv":0.6,"upper":1}}},"ibm-plex-mono":{"pkg":"@fontsource/ibm-plex-mono","version":"5.3.0","license":"OFL-1.1","licenseFile":"ibm-plex-mono.LICENSE.txt","weights":{"400":{"file":"ibm-plex-mono-400.woff2","bytes":14708,"sha256":"08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7","adv":0.6,"upper":1},"700":{"file":"ibm-plex-mono-700.woff2","bytes":14908,"sha256":"4f84d86cfd060f4ded334358ff8a4c81d4db2ed5addd568359d693f44a87765a","adv":0.6,"upper":1}}},"roboto-mono":{"pkg":"@fontsource/roboto-mono","version":"5.3.0","license":"OFL-1.1","licenseFile":"roboto-mono.LICENSE.txt","weights":{"400":{"file":"roboto-mono-400.woff2","bytes":12680,"sha256":"e03013e0baa5690a803c188da2214d920c3245b25ad78421ecc8ae86cd842ae9","adv":0.6001,"upper":1},"700":{"file":"roboto-mono-700.woff2","bytes":12696,"sha256":"283fbef73f42c21722c5a3efc7a44b0c38aac1ada665602b2144c13ed58c0e99","adv":0.6001,"upper":1}}}}}; });
   __define("understand", function (module, exports, require) {
     'use strict';
     // CREATIVE — what a brief is asking for, before anything is researched or drawn.
@@ -6155,6 +6333,7 @@
     const PA = require('./premium-arc');
     const TD = require('./three-d');
     const LOOK = require('./look');
+    const FONTS = require('./fonts');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
     // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
     // 5: art direction -- layout archetypes, scene choreography and handoffs, explicit image framing with crop budgets and
@@ -6999,6 +7178,8 @@
         ...(logoA ? { logo: { asset: logoA.id } } : {}),
         // the page's look (look.js): its typography, brand colours and devices -- a page without one renders as it always did
         ...(look ? { look } : {}),
+        // the owner's chosen typefaces (fonts.js): known ids only, never a family string -- a page without them keeps its own type
+        ...(FONTS.sanitize(p.fonts) ? { fonts: FONTS.sanitize(p.fonts) } : {}),
         // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
         ...(art ? { art } : {}),
         // the persistent actor (a run of scenes one subject lives across)
@@ -8463,6 +8644,7 @@
     const COMP = require('./composition');
     const TD = require('./three-d');
     const LOOK = require('./look');
+    const TYPEFACES = require('./fonts');
 
     const FONT2 = Object.assign({}, FONTS, {
       mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
@@ -8487,6 +8669,10 @@
       // export points at the bundled file, the studio at the owner's own file route -- never a provider URL
       const videoSrc = a => (a && a.video ? (o.videoSrc ? o.videoSrc(a) : (mode === 'export' ? '' : `/api/premium-media/${encodeURIComponent(a.video.mediaId)}/file`)) : '') || '';
       const P = plan.palette; const hero = plan.scenes[0];
+      // the owner's chosen typefaces (fonts.js -- ids only): the faces this page loads, and the type its headlines are fitted
+      // with -- the chosen headline face's own measured width. A page without them renders exactly as it always did.
+      const fonts = TYPEFACES.sanitize(plan.fonts); const fontType = fonts ? TYPEFACES.headlineType(fonts, plan.look ? plan.look.type : { case: plan.type.case }) : null;
+      const fontSrc = o.fontSrc || (file => (mode === 'export' ? `assets/${file}` : `/creative-fonts/${encodeURIComponent(file)}`));
       // facts numbered in reading order; only cited ones are listed
       const citeNo = new Map(); const factById = new Map(plan.facts.map(f => [f.id, f]));
       plan.scenes.forEach(s => { [s.text.cite, ...s.text.items.map(i => i.cite)].forEach(c => { if (c && factById.has(c) && !citeNo.has(c)) citeNo.set(c, citeNo.size + 1); }); });
@@ -8537,7 +8723,7 @@
       // stays until the model has been drawn, and for good when it cannot be. A page without a 3D scene gets none of this.
       const td = o.threeD ? TD.forPage(o.threeD, { scenes: plan.scenes, byId, src, runtime: o.threeDRuntime || TD.RUNTIME[mode] }) : null;
       const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead: leadFor(si).lead, leadNear: leadFor(si).near, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, td: td ? td.stages : null, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, fontType, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, td: td ? td.stages : null, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -8567,7 +8753,7 @@
       const t = hero.text;
       const artAttrs = art ? ` data-personality="${art.personality}" data-scroll="${art.scroll}" data-typo="${art.typo}" data-nav="${art.nav}" data-density="${art.density}" data-depth="${art.depth}" style="--range:${M.range};--ease:${M.ease};--pinv:${M.pin}"` : '';
       return `<!doctype html>
-    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo || pvArc.length ? ' data-premium="video"' : ''}${td ? ' data-3d' : ''}${pvArc.length ? ` data-pvarc="${pvArc.length}"` : ''}${logoA ? ' data-logo' : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}${plan.look ? ` data-look="${plan.look.type.family}" data-devices="${plan.look.devices.join(' ')}" data-enter="${plan.look.enter}"` : ''}>
+    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo || pvArc.length ? ' data-premium="video"' : ''}${td ? ' data-3d' : ''}${pvArc.length ? ` data-pvarc="${pvArc.length}"` : ''}${logoA ? ' data-logo' : ''}${fonts ? ` data-fonts="${esc(fonts.headline || 'chosen')}"` : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}${plan.look ? ` data-look="${plan.look.type.family}" data-devices="${plan.look.devices.join(' ')}" data-enter="${plan.look.enter}"` : ''}>
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8575,7 +8761,7 @@
     <meta name="description" content="${esc((plan.concept.logline || t.body || '').slice(0, 160))}">
     <meta name="generator" content="SiteRemade Creative">
     <script>document.documentElement.classList.add('cr-js')</script>
-    <style>${css(plan, P)}${arted ? ARTCSS : ''}${spatial ? SPATIAL_CSS : ''}${td ? td.css : ''}${plan.look ? lookCss(plan.look) : ''}</style>
+    <style>${css(plan, P)}${arted ? ARTCSS : ''}${spatial ? SPATIAL_CSS : ''}${td ? td.css : ''}${plan.look ? lookCss(plan.look) : ''}${fonts ? fontsCss(fonts, fontType, fontSrc) : ''}</style>
     </head>
     <body>
     <a class="cr-skip" href="#main">Skip to content</a>
@@ -8779,17 +8965,18 @@
       // the text-layout rules the scene's words were set by (validate2 text.fit, LOOK.TEXT_FIT): a scene saved before today's keeps
       // rendering exactly as it did until it is re-fitted ("Fix text layout", an edit, a recompose); a page with a look always
       // fitted its headlines to a measure
-      const fitV = Number.isInteger(t.fit) ? t.fit : 0; const fitted = !!c.plan.look || fitV >= 2;
+      const fitV = Number.isInteger(t.fit) ? t.fit : 0; const fitted = !!c.plan.look || fitV >= 2 || !!c.fontType;
       // (today's rules measure a heading written in capitals as capitals: a family set in mixed case fits its measure to
       // lower-case letters, and capitals are wider -- by the family's own capitals factor)
-      const lt = (c.plan.look && c.plan.look.type) || {}; const caseUpper = c.plan.look ? lt.case === 'upper' : !!(c.plan.type && c.plan.type.case === 'upper');
+      // (a chosen headline face is measured by its own width and capitals -- fonts.js headlineType)
+      const lt = c.fontType || (c.plan.look && c.plan.look.type) || {}; const caseUpper = c.fontType || c.plan.look ? lt.case === 'upper' : !!(c.plan.type && c.plan.type.case === 'upper');
       const letters = String(t.heading).match(/\p{L}/gu) || []; const capsShare = letters.length ? letters.filter(ch => ch !== ch.toLowerCase()).length / letters.length : 0;
-      const capsK = fitV >= 2 && !caseUpper && capsShare > 0.6 ? (lt.upper || 1.2) : 1;
+      const capsK = (fitV >= 2 || c.fontType) && !caseUpper && capsShare > 0.6 ? (lt.upper || 1.2) : 1;
       let words; let lw = fitted ? Math.ceil(LOOK.measure(t.heading) * capsK) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length));
       if (stagger && fitV >= 2) {
         // (today's rules break the title where the fitted headline breaks -- LOOK.lines, the same measure -- and size it so its
         // longest line, with that line's step, still fits: never a lone last word, never a line pushed past its column)
-        const L = LOOK.lines(t.heading); let j = 0; const adv = c.plan.look ? (lt.adv || 0.55) * (caseUpper ? lt.upper || 1.2 : 1) : 0.5;
+        const L = LOOK.lines(t.heading); let j = 0; const adv = c.fontType || c.plan.look ? (lt.adv || 0.55) * (caseUpper ? lt.upper || 1.2 : 1) : 0.5;
         const step = t.place && t.place.align === 'center' ? [0, 0, 0] : [0, 0.9, 0.35];
         lw = Math.max(lw, ...L.map((l, i) => Math.ceil(l.length * capsK + (step[i] || 0) / adv) + 1));
         words = L.map(l => `<span class="ln">${l.split(' ').map(u => u.split(' ').map(w => wordHtml(w, j++)).join(' ')).join(' ')}</span>`).join(' ');
@@ -8928,6 +9115,18 @@
     ${R} .sc:not(.is-in) :is(.sc-text>*,.sc-item,.w){opacity:1!important;transform:none!important}
     ${R}[data-enter="camera"] .sc .ly-in{transition:transform 1.4s cubic-bezier(.2,.8,.2,1),opacity .6s ease}
     `;
+    }
+
+    // ---------------------------------------------------------------- the chosen typefaces (fonts.js)
+    // Only the faces the page uses are declared (and so only they are ever loaded: an exported site carries just their files);
+    // the headline face sets the fit the headings are sized by -- its own measured width, tracking and leading -- above the
+    // look's and the display family's; the body and the eyebrow/label faces are the page's reading and label type.
+    function fontsCss(fonts, ty, src) {
+      const H = 'html[data-fonts][data-fonts][data-display][data-case]';
+      return `\n${TYPEFACES.fontFaceCss(fonts, src)}\n` +
+        (ty ? `${H}{--display:${TYPEFACES.stack(fonts.headline)};--dw:${ty.weight};--fit:${LOOK.fitFor(ty)}cqi;--dtrack:${ty.track}em;--dlead:${ty.lead}}\nhtml[data-fonts] .sc-heading,html[data-fonts] .cr-brand{letter-spacing:var(--dtrack)!important;line-height:var(--dlead)!important}\n${ty.case === 'upper' ? 'html[data-fonts] .sc-heading{text-transform:uppercase}\n' : ''}` : '') +
+        (fonts.body ? `${H}{--body:${TYPEFACES.stack(fonts.body)}}\n` : '') +
+        (fonts.label ? `${H}{--label:${TYPEFACES.stack(fonts.label)}}\nhtml[data-fonts] :is(.sc-kicker,.cr-kicker,.cr-nav a,.sc-cta,.sc-count){font-family:var(--label)}\n` : '');
     }
 
     // ---------------------------------------------------------------- CSS
