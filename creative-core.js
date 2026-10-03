@@ -5192,6 +5192,10 @@
     const ART = require('./art');
 
     const VERSION = 1;
+    // the text-layout rules a scene's words are set by (stored per scene as text.fit): 2 -- every headline fitted to a measure
+    // with its short words held, and a staggered opening title broken by LOOK.lines. A scene saved with older rules renders as
+    // it was saved until it is re-fitted; raise this when the rules change what a saved scene would look like.
+    const TEXT_FIT = 2;
     const HEX = /^#[0-9a-f]{6}$/i;
 
     // ---------------------------------------------------------------- type
@@ -5469,7 +5473,7 @@
       return a;
     }
 
-    module.exports = { VERSION, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, lines, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
+    module.exports = { VERSION, TEXT_FIT, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, lines, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
 
   });
   __define("archetypes", function (module, exports, require) {
@@ -6460,6 +6464,10 @@
         if (text.list === 'numbered') text.items.forEach(it => { if (/^\d+\.?$/.test(it.label)) it.label = ''; });
         if (facts.length || (c.supplied || []).length) { checkNums(where, 'kicker', text.kicker); checkNums(where, 'heading', text.heading); text.items.forEach(it => checkNums(where, 'label', it.label)); }
         if (si === 0 && !text.heading) errors.push('hero: the first scene needs a heading (the page title)');
+        // the text-layout rules the words are set by (LOOK.TEXT_FIT): a saved scene keeps its own -- it renders as it did -- and a
+        // scene made, composed or re-fitted now is set by today's
+        if (Number.isInteger(tx.fit) && tx.fit >= 1 && tx.fit <= LOOK.TEXT_FIT) text.fit = tx.fit;
+        if (!safety || composing || refit.has(sid)) text.fit = LOOK.TEXT_FIT;
         // where an archetype put the words (kept as composed on a saved page)
         if (artScene) {
           const pl = tx.place && typeof tx.place === 'object' && Array.isArray(tx.place.gc) ? tx.place : null;
@@ -8768,19 +8776,28 @@
       const wordHtml = (w, j) => (t.entrance === 'split-words' ? `<span class="w" style="--i:${j}">${esc(w)}</span>` : esc(w));
       // a short opening title set in staggered lines (giant and poster typography): two or three lines, each stepped in
       const stagger = artOn && hero && art && (art.typo === 'giant' || art.typo === 'poster') && wlist.length >= 3 && t.heading.length <= 44;
-      let words; let lw = c.plan.look ? LOOK.measure(t.heading) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length));
-      if (stagger && c.plan.look) {
-        // (a page with a look breaks its title where the fitted headline breaks -- LOOK.lines, the same measure -- and sizes it
-        // so its longest line, with that line's step, still fits: never a lone last word, never a line pushed past its column)
-        const L = LOOK.lines(t.heading); let j = 0; const lt = c.plan.look.type || {}; const adv = (lt.adv || 0.55) * (lt.case === 'upper' ? lt.upper || 1.2 : 1);
+      // the text-layout rules the scene's words were set by (validate2 text.fit, LOOK.TEXT_FIT): a scene saved before today's keeps
+      // rendering exactly as it did until it is re-fitted ("Fix text layout", an edit, a recompose); a page with a look always
+      // fitted its headlines to a measure
+      const fitV = Number.isInteger(t.fit) ? t.fit : 0; const fitted = !!c.plan.look || fitV >= 2;
+      // (today's rules measure a heading written in capitals as capitals: a family set in mixed case fits its measure to
+      // lower-case letters, and capitals are wider -- by the family's own capitals factor)
+      const lt = (c.plan.look && c.plan.look.type) || {}; const caseUpper = c.plan.look ? lt.case === 'upper' : !!(c.plan.type && c.plan.type.case === 'upper');
+      const letters = String(t.heading).match(/\p{L}/gu) || []; const capsShare = letters.length ? letters.filter(ch => ch !== ch.toLowerCase()).length / letters.length : 0;
+      const capsK = fitV >= 2 && !caseUpper && capsShare > 0.6 ? (lt.upper || 1.2) : 1;
+      let words; let lw = fitted ? Math.ceil(LOOK.measure(t.heading) * capsK) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length));
+      if (stagger && fitV >= 2) {
+        // (today's rules break the title where the fitted headline breaks -- LOOK.lines, the same measure -- and size it so its
+        // longest line, with that line's step, still fits: never a lone last word, never a line pushed past its column)
+        const L = LOOK.lines(t.heading); let j = 0; const adv = c.plan.look ? (lt.adv || 0.55) * (caseUpper ? lt.upper || 1.2 : 1) : 0.5;
         const step = t.place && t.place.align === 'center' ? [0, 0, 0] : [0, 0.9, 0.35];
-        lw = Math.max(lw, ...L.map((l, i) => Math.ceil(l.length + (step[i] || 0) / adv) + 1));
+        lw = Math.max(lw, ...L.map((l, i) => Math.ceil(l.length * capsK + (step[i] || 0) / adv) + 1));
         words = L.map(l => `<span class="ln">${l.split(' ').map(u => u.split(' ').map(w => wordHtml(w, j++)).join(' ')).join(' ')}</span>`).join(' ');
       } else if (stagger) {
         const n = wlist.length >= 5 ? 3 : 2; const per = t.heading.length / n; const lines = [[]]; let len = 0;
         wlist.forEach((w, j) => { if (len > per * lines.length && lines.length < n) lines.push([]); lines[lines.length - 1].push([w, j]); len += w.length + 1; });
         words = lines.map(l => `<span class="ln">${l.map(([w, j]) => wordHtml(w, j)).join(' ')}</span>`).join(' ');
-      } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(c.plan.look ? LOOK.keep(t.heading) : t.heading);
+      } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(fitted ? LOOK.keep(t.heading) : t.heading);
       const tr = artOn ? t.treatment || '' : '';
       // this scene's beats (timeline.js): each on an element of the scene, driven by its own window of the scene's progress
       const beats = c.tl ? c.tl.beats.filter(b => b.scene === si) : [];

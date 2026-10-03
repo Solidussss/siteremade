@@ -210,3 +210,72 @@ test('TL-6. a page saved before this fix (the Studio\'s own text save: new words
   assert.equal((await w.owner('GET', `${P}/preview`)).text, published0, 'the published site waits for Publish');
   const draft = await w.owner('GET', `${P}/preview?source=draft`); assert.equal(draft.status, 200); assert.ok(draft.text.includes('Every summer the whole world'), 'the draft shows the words');
 });
+
+// ================================================================ an OLD saved page: the render changed, the plan did not
+// (a page saved before today's text-layout rules carries no text.fit: it renders exactly as it was saved -- the broken
+// title included -- until "Fix text layout" sets that scene by today's rules: judged by the render, not by its fields)
+const oldSave = P => { const O = copy(P); O.scenes.forEach(s => { delete s.text.fit; }); return validatePlan2(O, { assets: ASSETS, facts: FACTS, understanding: UND, mode: 'safety' }).plan; };
+test('TL-7. the old broken title: a page saved before today\'s rules still renders THE WORLD / RAISES ONE / GLASS -- "Fix text layout" re-sets it (a new draft, the words identical, nothing else touched) and pressing it again says the text already fits; with a look and from before looks', () => {
+  [false, true].forEach(preLook => {
+    const P0 = STAGGER[0]; const edited = copy(P0); edited.scenes[0].text.heading = GLASS; if (preLook) delete edited.look;
+    const O = oldSave(edited); assert.equal(O.scenes[0].text.fit, undefined, 'saved before the rules: no marker');
+    assert.deepEqual(titleLines(html(O)).lines, ['THE WORLD', 'RAISES ONE', 'GLASS'], `${preLook ? 'pre-look' : 'look'} page: renders as it was saved -- broken`);
+    const out = editor.applyEdit(direction(O), { type: 'text-layout', sceneId: O.scenes[0].id });
+    assert.equal(out.ok, true, out.message); assert.ok(!out.unchanged, 'the render changes: a new draft'); assert.ok(out.fitted.some(f => /line-fitting/.test(f)), out.fitted.join(' | '));
+    const F = out.creative.plan; assert.equal(F.scenes[0].text.fit, LOOK.TEXT_FIT);
+    assert.deepEqual(editor.textOf(F.scenes[0]), editor.textOf(O.scenes[0]), 'the words identical');
+    const t = titleLines(html(F)); assert.deepEqual(t.lines, ['THE WORLD RAISES', 'ONE GLASS'], 'today\'s balanced fit');
+    // only this scene's words' layout: its pictures, colour, composition and every other scene as saved
+    const noFit = s => { const c = withoutType(s); return c; };
+    assert.deepEqual(noFit(F.scenes[0]), noFit(O.scenes[0])); F.scenes.slice(1).forEach((s, i) => assert.deepEqual(s, O.scenes[i + 1]));
+    assert.deepEqual(F.look, O.look); assert.deepEqual(F.palette, O.palette);
+    const again = editor.applyEdit({ mode: 'creative', creative: out.creative }, { type: 'text-layout', sceneId: O.scenes[0].id });
+    assert.equal(again.unchanged, true); assert.match(again.summary, /^Text already fits/);
+  });
+  // a scene saved before the rules whose render they would not change: already fits -- the marker alone is never a draft
+  const O = oldSave(STAGGER[0]); const quiet = O.scenes.find((s, i) => i > 0 && s.text.heading);
+  const r = editor.applyEdit(direction(O), { type: 'text-layout', sceneId: quiet.id }); assert.equal(r.unchanged, true, (r.fitted || []).join(' | '));
+  // pages made now are set by today's rules from the start
+  STAGGER.forEach(P => P.scenes.forEach(s => assert.equal(s.text.fit, LOOK.TEXT_FIT)));
+});
+
+test('TL-8. through the bridge, an old saved Creative website with the broken title: "Fix text layout" makes a new DRAFT that renders the balanced title (0 credits, 0 provider calls, the same words); the published site keeps the old render until Publish, then shows the fix; pressing it again creates nothing', async () => {
+  const w = await world(); const P = `/api/app-bridge/website/${w.projectId}`;
+  // the website as it was saved before today's rules: its opening title THE WORLD RAISES ONE GLASS, set in staggered lines
+  const project = (await w.call('GET', `/api/projects/${w.projectId}`)).body.project; const ds = project.directionsState; const cr = ds.directions[0].creative;
+  [].concat(cr.assets || [], (cr.threeD && cr.threeD.assets) || []).forEach(x => { if (x && x.assetRef && x.dataUrl) delete x.dataUrl; });
+  cr.plan.art = Object.assign({}, cr.plan.art, { typo: 'poster' }); cr.plan.scenes[0].text.heading = GLASS; cr.plan.scenes.forEach(s => { delete s.text.fit; });
+  assert.notEqual(cr.plan.scenes[0].layout || 'free', 'free', 'the opening scene is composed (its title can be staggered)');
+  const put = await w.call('PUT', `/api/projects/${w.projectId}`, { name: project.name, expectedRevision: project.revision, directionsState: ds }); assert.equal(put.body.ok, true, JSON.stringify(put.body));
+  let rev = (await w.owner('GET', `${P}/creative`)).body.revision;
+  assert.equal((await w.owner('POST', `${P}/publish`, { revision: rev })).status, 200);
+  const live0 = titleLines((await w.owner('GET', `${P}/preview`)).text); assert.ok(live0, 'the published title is staggered');
+  assert.deepEqual(live0.lines, ['THE WORLD', 'RAISES ONE', 'GLASS'], 'the published site: broken');
+  const c0 = await credits(w); const p0 = paid(w).length; const sceneId = (await planOf(w)).scenes[0].id; const words0 = editorTextOf((await planOf(w)).scenes[0]);
+  const fix = await w.owner('POST', `${P}/creative/edit`, { baseRevision: rev, op: { type: 'text-layout', sceneId } });
+  assert.equal(fix.status, 200, JSON.stringify(fix.body)); assert.equal(fix.body.unchanged, undefined, 'not "already fits": the render changes');
+  assert.equal(fix.body.revision, rev + 1, 'a new draft'); assert.equal(fix.body.creditsCharged, 0);
+  assert.deepEqual(editorTextOf((await planOf(w)).scenes[0]), words0, 'the words identical');
+  assert.deepEqual(titleLines((await w.owner('GET', `${P}/preview?source=draft`)).text).lines, ['THE WORLD RAISES', 'ONE GLASS'], 'the draft: today\'s fit');
+  assert.deepEqual(titleLines((await w.owner('GET', `${P}/preview`)).text).lines, live0.lines, 'the published site waits for Publish');
+  assert.equal(await credits(w), c0, '0 credits'); assert.deepEqual(paid(w).slice(p0), [], '0 paid provider calls');
+  // again: already fits, nothing saved
+  const again = await w.owner('POST', `${P}/creative/edit`, { baseRevision: fix.body.revision, op: { type: 'text-layout', sceneId } });
+  assert.equal(again.body.unchanged, true); assert.equal(again.body.revision, fix.body.revision); assert.match(again.body.changeSummary[0], /^Text already fits/);
+  // Publish: the fix goes live
+  assert.equal((await w.owner('POST', `${P}/publish`, { revision: fix.body.revision })).status, 200);
+  assert.deepEqual(titleLines((await w.owner('GET', `${P}/preview`)).text).lines, ['THE WORLD RAISES', 'ONE GLASS'], 'published: the fix is live');
+});
+
+test('TL-9. a headline typed in capitals on a family set in mixed case is measured as capitals (today\'s rules): THE WORLD RAISES ONE GLASS fits its column in a condensed mixed-case face -- the same words in mixed case keep the plain measure, and a scene saved before the rules renders as it did', () => {
+  const P0 = copy(STAGGER[0]); P0.look.type = Object.assign({}, P0.look.type, { family: 'condensed', case: 'normal', adv: 0.46, upper: 1.22 });
+  const lwOf = P => +/<h1 class="sc-heading[^"]*"[^>]*style="--lw:(\d+)/.exec(html(P))[1];
+  const caps = editor.applyEdit(direction(P0), { type: 'text', sceneId: P0.scenes[0].id, field: 'heading', value: GLASS }).creative.plan;
+  const t = titleLines(html(caps)); assert.deepEqual(t.lines, ['THE WORLD RAISES', 'ONE GLASS']);
+  // (the longest line, 16 capitals, at the family's capitals factor -- inside the measure the size is fitted to)
+  assert.ok(t.lw - 1 >= Math.ceil(16 * 1.22), `--lw ${t.lw} holds 16 capitals`);
+  const mixed = editor.applyEdit(direction(P0), { type: 'text', sceneId: P0.scenes[0].id, field: 'heading', value: 'The world raises one glass' }).creative.plan;
+  assert.equal(lwOf(mixed), LOOK.measure('The world raises one glass'), 'mixed case: the plain measure');
+  // a scene saved before today's rules: exactly the old size until it is re-fitted
+  const O = copy(caps); delete O.scenes[0].text.fit; assert.equal(lwOf(O), LOOK.measure(GLASS));
+});
