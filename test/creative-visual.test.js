@@ -85,7 +85,7 @@ test('3. the opening is judged for its genre: a luxury page may breathe, a car m
   assert.ok(mob.some(x => x.view === 'mobile' && x.issue === 'mobile_loses_impact')); assert.ok(!mob.some(x => x.view === 'desktop' && /hero_/.test(x.issue)));
   // an ending quieter than the scene before it
   const end = VIS.detect({ desktop: [scene(0.4), scene(0.4, { impact: 0.9 }), scene(0.05, { impact: 0.3 })], mobile: [] }, { concept: { genre: 'product' } });
-  assert.ok(end.some(x => x.scene === 2 && x.issue === 'payoff_weaker_than_previous'));
+  assert.ok(end.some(x => x.scene === 2 && ['payoff_weaker_than_previous', 'weak_final_payoff'].includes(x.issue)));
 });
 
 // ================================================================ 4. versioning: old pages untouched
@@ -193,4 +193,50 @@ test('17. server with a browser: exactly one visual review call (mocked) with tw
   await withServer({ CREATIVE_VISUAL_BROWSER: BROWSER, CREATIVE_VISUAL_REVIEW: 'off' }, async ({ call, calls }) => {
     const p = await generate(call); assert.equal(p.body.ok, true); assert.equal(p.body.meta.visual.visual, 'off'); assert.equal(visualCalls(calls).length, 0); assert.equal(p.body.plan.visualReview, undefined);
   });
+});
+
+// ================================================================ 18..24. the ending, and type over the heading (deterministic)
+const ofIssue = (out, sid, issue) => out.meta.found.some(x => x.scene === sid && x.issue === issue);
+test('18. a final product that is a speck after a text-only scene is caught as a weak ending (the old comparison stays silent), and repaired', { skip: NO_BROWSER }, async () => {
+  const f = fx('PA'); const n = f.plan.scenes.length; const sid = f.plan.scenes[n - 1].id;
+  assert.equal(f.plan.scenes[n - 2].layers.filter(L => L.kind === 'image').length, 0, 'the scene before the ending shows no picture');
+  const out = await runOn(f, model(measuredFirst(f.expect)));
+  assert.ok(ofIssue(out, sid, 'weak_final_payoff'), JSON.stringify(out.meta.found)); assert.ok(!ofIssue(out, sid, 'payoff_weaker_than_previous'), 'the previous-scene comparison alone would have missed it');
+  const kept = out.meta.kept.find(x => x.scene === sid && x.issue === 'weak_final_payoff'); assert.ok(kept, JSON.stringify(out.meta));
+  assert.ok(['increase_subject_dominance', 'strengthen_payoff', 'switch_to_full_bleed', 'simplify_scene'].includes(kept.repair));
+  assert.equal(JSON.stringify(reopen(out.plan, f.input).plan), JSON.stringify(out.plan));
+});
+test('19. endings that are quiet on purpose are accepted: a restrained luxury close, an editorial page ending on its type', { skip: NO_BROWSER }, async () => {
+  for (const name of ['PB', 'PC']) {
+    const f = fx(name); const out = await runOn(f, model({ verdict: 'strong', issues: [] })); const sid = f.plan.scenes[f.plan.scenes.length - 1].id;
+    f.absent.forEach(issue => assert.ok(!ofIssue(out, sid, issue), `${name}: ${issue} -- ${JSON.stringify(out.meta.found)}`));
+  }
+});
+test('20. a ghost copy of the heading lying over it is caught and the secondary type removed; the heading stays', { skip: NO_BROWSER }, async () => {
+  const f = fx('TD'); const sid = f.plan.scenes[1].id; const out = await runOn(f, model(measuredFirst(f.expect)));
+  assert.ok(ofIssue(out, sid, 'competing_heading_overlap'), JSON.stringify(out.meta.found));
+  const kept = out.meta.kept.find(x => x.scene === sid && x.issue === 'competing_heading_overlap'); assert.ok(kept, JSON.stringify(out.meta));
+  const sc = out.plan.scenes[1]; assert.equal(sc.text.heading, f.plan.scenes[1].text.heading); assert.ok(!sc.layers.some(L => L.kind === 'word' && L.id === 'ghost'), 'the ghost is gone');
+  assert.equal(JSON.stringify(reopen(out.plan, f.input).plan), JSON.stringify(out.plan));
+});
+test('21. intentional layered type is left alone: a word behind the product, a faint display word, an edge label, editorial display type', { skip: NO_BROWSER }, async () => {
+  for (const name of ['TE', 'TF', 'TG', 'F']) {
+    const f = fx(name); const out = await runOn(f, model({ verdict: 'strong', issues: [] }));
+    assert.ok(!out.meta.found.some(x => x.issue === 'competing_heading_overlap'), `${name}: ${JSON.stringify(out.meta.found)}`); assert.deepEqual(out.plan.scenes, f.plan.scenes, `${name}: untouched`);
+  }
+});
+test('22. a harmful repair for the ending is undone: shrinking a speck of a final product -- the page as it was', { skip: NO_BROWSER }, async () => {
+  const f = fx('PA'); const n = f.plan.scenes.length;
+  const out = await runOn(f, model({ verdict: 'weak', issues: [{ scene: n - 1, view: 'desktop', issue: 'weak_final_payoff', severity: 'high', repair: 'decrease_subject_dominance' }] }));
+  assert.ok(out.meta.reverted.some(x => x.repair === 'decrease_subject_dominance'), JSON.stringify(out.meta)); assert.ok(!out.meta.kept.some(x => x.repair === 'decrease_subject_dominance'));
+  assert.deepEqual(out.plan.scenes[n - 1], f.plan.scenes[n - 1]);
+});
+test('23. both new findings are in the closed vocabulary with bounded repairs, and stored records from before them still reopen', () => {
+  ['weak_final_payoff', 'competing_heading_overlap'].forEach(k => { assert.ok(VIS.ISSUES.includes(k)); assert.ok(VIS.FOR[k].length >= 2); VIS.FOR[k].forEach(r => assert.ok(VIS.REPAIRS.includes(r))); });
+  assert.deepEqual(VR.VISUAL_TOOL.input_schema.properties.issues.items.properties.issue.enum, VIS.ISSUES);
+  // a record written before these codes existed is still a valid record, unchanged
+  const old = { v: 1, source: 'ai+measure', verdict: 'almost', before: 6, after: 3, found: [{ scene: 'opening', issue: 'hero_lacks_dominance', view: 'desktop', severity: 'medium' }], kept: [{ scene: 'opening', issue: 'hero_lacks_dominance', view: 'desktop', severity: 'medium', repair: 'increase_subject_dominance' }], reverted: [] };
+  assert.deepEqual(VIS.normalise(old), old);
+  const LEGACY = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'creative', 'legacy-pre-direction.json'), 'utf8'));
+  Object.entries(LEGACY).forEach(([id, plan]) => { const s = SUBJECTS[id]; assert.equal(JSON.stringify(reopen(plan, { assets: s.assets, facts: s.facts, understandingLegacy: s.understanding }).plan), JSON.stringify(plan), id); });
 });

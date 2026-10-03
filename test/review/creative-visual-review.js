@@ -37,6 +37,8 @@ function real(id) {
 }
 const pictures = a => (a.file ? { buf: fs.readFileSync(a.file), mime: a.mime } : { buf: Buffer.from(svgOf(a)), mime: 'image/svg+xml' });
 const shape = sc => sc.composition || sc.layout;
+const RANK = ['hero_subject_too_small', 'weak_final_payoff', 'competing_heading_overlap', 'looks_unfinished', 'headline_lost_in_image', 'mobile_loses_impact', 'hero_lacks_dominance', 'payoff_weaker_than_previous'];
+const rank = (a, b) => ((b.severity === 'high') - (a.severity === 'high')) || ((RANK.includes(a.issue) ? RANK.indexOf(a.issue) : 99) - (RANK.includes(b.issue) ? RANK.indexOf(b.issue) : 99));
 
 (async () => {
   fs.mkdirSync(outDir, { recursive: true }); const br = await VC.launch(VC.findBrowser({ CREATIVE_VISUAL_BROWSER: process.env.CREATIVE_VISUAL_BROWSER || 'auto' }));
@@ -49,7 +51,7 @@ const shape = sc => sc.composition || sc.layout;
       if (v.errors.length) throw new Error(`${id}: ${v.errors[0]}`);
       const input = { assets: s.assets, facts: s.facts, understandingLegacy: s.understanding, mainAsset: s.mainAsset };
       const call = async q => { const t = q.content.find(c => c.type === 'text' && c.text.startsWith('What was measured')).text; const h = JSON.parse(t.slice(t.indexOf('{')));
-        return { model: 'mock-measured', usage: { input_tokens: 3400, output_tokens: 160 }, input: { verdict: h.measured.length ? 'almost' : 'strong', issues: h.measured.filter(m => m.offered.length && m.severity !== 'low').sort((a, b) => (b.severity === 'high') - (a.severity === 'high')).slice(0, 6).map(m => ({ scene: m.scene, view: m.view, issue: m.issue, severity: m.severity, repair: m.offered[0] })) } }; };
+        return { model: 'mock-measured', usage: { input_tokens: 3400, output_tokens: 160 }, input: { verdict: h.measured.length ? 'almost' : 'strong', issues: h.measured.filter(m => m.offered.length && m.severity !== 'low').sort(rank).slice(0, 6).map(m => ({ scene: m.scene, view: m.view, issue: m.issue, severity: m.severity, repair: m.offered[0] })) } }; };
       const out = await AI.visualReview(v.plan, input, { limits: Object.assign(AI.limits({}), { visual: true }), call, liveBrowser: br, pictures });
       // before / after, every scene, at both widths
       const b = await VR.look(v.plan, input, { pictures }, br); const a = await VR.look(out.plan, input, { pictures }, br);

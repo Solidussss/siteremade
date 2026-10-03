@@ -532,6 +532,16 @@ crops, headline contrast, a lost picture, the structured critique, any new serio
 six tried. A measured problem whose first repair is undone may try the next one offered; a judgement nothing measured
 gets only the model's own repair.
 
+Two checks need no model at all. **The ending** (`weak_final_payoff`) is judged as an ending, against the page's recent
+visual high point (the last three scenes before it that show a real subject -- a text-only scene in between does not
+excuse it): a subject that is a speck (under 2% of the screen), or one short of its genre's ending bar and well below that
+high point. Luxury may end quietly but not on a speck; editorial and personal pages, or a page whose bookend is not an
+image or actor callback, may end on legible display type. **Type over the heading** (`competing_heading_overlap`): every
+large piece of type in the scene (the heading's settled line, a text-swap's other line, word layers -- size and colour read
+from the letters themselves) against the heading: both at least 20% opaque, overlapping at least a quarter of the smaller,
+at least half the heading's size, and not a clear hierarchy (twice the size and under 35% of its visual weight). A word
+behind the product, an edge label, a faint watermark and deliberate layered display type are left alone.
+
 The page records `plan.visualReview` (`v` = creativeVisualDirectorVersion). Saved pages without it render as before; a
 reopened page is never reviewed again; a plan cannot bring its own record.
 

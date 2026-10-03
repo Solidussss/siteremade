@@ -37,7 +37,7 @@ const BUILD = {
   B() { const { plan, input } = page('editorial', '1'); return { plan, input, expect: { issue: ['headline_lost_in_image'], scene: 0, view: 'desktop' } }; },
   C() { const { plan, input } = page('software', '1'); const p = deep(plan); p.scenes[2].layers.filter(L => L.kind === 'image').forEach(L => { L.box.d = [L.box.d[0] + L.box.d[2] * 0.4, L.box.d[1] + L.box.d[3] * 0.4, L.box.d[2] * 0.2, L.box.d[3] * 0.2]; }); return { plan: saved(p, input), input, expect: { issue: ['too_much_dead_space'], scene: 2, view: 'desktop' } }; },
   D() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[2]; sc.layers.filter(L => L.kind === 'image').forEach((L, k) => { L.box.d = [2, 8 + k * 30, 22, 26]; }); if (sc.text.place) sc.text.place = Object.assign({}, sc.text.place, { gc: [1, 3] }); return { plan: saved(p, input), input, expect: { issue: ['crowded_one_side', 'poor_balance'], scene: 2, view: 'desktop' } }; },
-  E() { const { plan, input } = page('editorial', '2'); const p = deep(plan); const n = p.scenes.length; const L = focal(p.scenes[n - 1]); L.box.d = [42, 38, 16, 22]; L.box.m = [30, 30, 40, 24]; return { plan: saved(p, input), input, expect: { issue: ['payoff_weaker_than_previous'], scene: n - 1, view: 'desktop' } }; },
+  E() { const { plan, input } = page('editorial', '2'); const p = deep(plan); const n = p.scenes.length; const L = focal(p.scenes[n - 1]); L.box.d = [42, 38, 16, 22]; L.box.m = [30, 30, 40, 24]; return { plan: saved(p, input), input, expect: { issue: ['payoff_weaker_than_previous', 'weak_final_payoff'], scene: n - 1, view: 'desktop' } }; },
   F() { const { plan, input } = page('editorial', '2'); return { plan, input, expect: null }; },
   G() {
     // the 3D test page (an uploaded bottle, its cut-out) with the committed, normalised model staged in its opening
@@ -65,5 +65,26 @@ const BUILD = {
   I() { const { plan, input } = page('software', '1'); const p = deep(plan); focal(p.scenes[0]).box.m = [70, 62, 14, 8]; return { plan: saved(p, input), input, expect: { issue: ['mobile_loses_impact'], scene: 0, view: 'mobile' } }; },
 };
 const NAMES = Object.keys(BUILD);
-function fixture(name) { const f = BUILD[name](); return Object.assign({ name, pictures }, f); }
-module.exports = { NAMES, fixture, pictures, page };
+
+// THE ENDING AND THE TYPE (the two blind spots of the first real-photo review): endings judged as endings, and a second
+// piece of large type over the heading -- with the intentional layering that must stay untouched
+//   PA  the final product a speck, after a text-only scene               -> weak_final_payoff
+//   PB  a restrained luxury ending (a small, deliberate subject)           -> nothing
+//   PC  an editorial page ending on typography (editorial, seed 3)         -> nothing
+//   TD  a solid copy of the heading lying over it                         -> competing_heading_overlap
+//   TE  a giant word behind the product, clear of the heading             -> nothing
+//   TF  a faint display word behind a readable heading                    -> nothing
+//   TG  an edge label beside the heading                                  -> nothing
+const word = (id, text, d, m, z, opacity, style) => ({ id, kind: 'word', role: 'echo', word: { text, style: style || 'solid' }, box: { d, m }, z, rotate: 0, opacity, mask: 'none', treatment: 'none', entrance: { kind: 'none', delay: 0, dur: 1 }, loop: { kind: 'none', amp: 1, period: 9 }, scroll: { kind: 'none', amount: 0.4 }, hideM: false });
+const BUILD2 = {
+  PA() { const { plan, input } = page('skincare', '1'); const p = deep(plan); const n = p.scenes.length; const L = focal(p.scenes[n - 1]); L.box.d = [48, 44, 3.5, 5]; L.box.m = [46, 44, 8, 6]; return { plan: saved(p, input), input, expect: { issue: ['weak_final_payoff'], scene: n - 1, view: 'desktop' } }; },
+  PB() { const { plan, input } = page('skincare', '1'); return { plan, input, expect: null, absent: ['weak_final_payoff'] }; },
+  PC() { const { plan, input } = page('editorial', '3'); if (plan.scenes[plan.scenes.length - 1].layout !== 'giant-type') throw new Error('PC: editorial seed 3 no longer ends on giant type'); return { plan, input, expect: null, absent: ['weak_final_payoff', 'payoff_weaker_than_previous'] }; },
+  TD() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[1]; sc.layers.push(word('ghost', sc.text.heading.slice(0, 24), [4, 46, 32, 16], [6, 60, 88, 10], 4, 0.85)); return { plan: saved(p, input), input, expect: { issue: ['competing_heading_overlap'], scene: 1, view: 'desktop' } }; },
+  TE() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[1]; sc.layers.unshift(word('behind', 'ORBITLY', [46, 10, 52, 70], [0, 4, 100, 40], 1, 1)); return { plan: saved(p, input), input, expect: null, absent: ['competing_heading_overlap'] }; },
+  TF() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[1]; sc.layers.unshift(word('watermark', 'LOOKS', [0, 30, 100, 44], [0, 40, 100, 30], 1, 0.12)); return { plan: saved(p, input), input, expect: null, absent: ['competing_heading_overlap'] }; },
+  TG() { const { plan, input } = page('software', '1'); const p = deep(plan); const t = p.scenes[1].text; t.kicker = 'Detail'; t.treatment = 'vertical'; return { plan: saved(p, input), input, expect: null, absent: ['competing_heading_overlap'] }; },
+};
+const NAMES2 = Object.keys(BUILD2);
+function fixture(name) { const f = (BUILD[name] || BUILD2[name])(); return Object.assign({ name, pictures }, f); }
+module.exports = { NAMES, NAMES2, fixture, pictures, page };

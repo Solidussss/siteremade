@@ -11,6 +11,8 @@
 // The visual director: MOCK_VISUAL = ok (the measured problems, each with its first offered repair) | none | error | junk.
 // A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
 // type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
+const RANK = ['hero_subject_too_small', 'weak_final_payoff', 'competing_heading_overlap', 'looks_unfinished', 'headline_lost_in_image', 'mobile_loses_impact', 'hero_lacks_dominance', 'payoff_weaker_than_previous'];
+const rank = (a, b) => ((b.severity === 'high') - (a.severity === 'high')) || ((RANK.includes(a.issue) ? RANK.indexOf(a.issue) : 99) - (RANK.includes(b.issue) ? RANK.indexOf(b.issue) : 99));
 function payload(body) {
   const text = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : [{ type: 'text', text: String(m.content) }]))).filter(c => c.type === 'text').map(c => c.text).join('\n');
   const i = text.indexOf('{'); let data = {}; try { data = JSON.parse(text.slice(i, text.lastIndexOf('}') + 1)); } catch (e) { data = {}; }
@@ -163,7 +165,7 @@ function respond(body, env, counters) {
     let data = {}; try { data = JSON.parse(text.slice(text.indexOf('{'))); } catch (e) { data = {}; }
     const images = parts.filter(c => c.type === 'image').length; const measured = data.measured || [];
     const input = km === 'junk' ? { verdict: 'gorgeous', issues: [{ scene: 0, view: 'desktop', issue: 'too_purple', severity: 'high', repair: 'add_sparkles' }, { scene: 0, view: 'desktop', issue: 'hero_subject_too_small', severity: 'high', repair: 'move_3d_back' }] }
-      : { verdict: measured.length ? 'almost' : 'strong', issues: km === 'none' ? [] : measured.filter(f => (f.offered || []).length && f.severity !== 'low').sort((a, b) => (b.severity === 'high') - (a.severity === 'high')).slice(0, 6).map(f => ({ scene: f.scene, view: f.view, issue: f.issue, severity: f.severity, repair: f.offered[0] })) };
+      : { verdict: measured.length ? 'almost' : 'strong', issues: km === 'none' ? [] : measured.filter(f => (f.offered || []).length && f.severity !== 'low').sort(rank).slice(0, 6).map(f => ({ scene: f.scene, view: f.view, issue: f.issue, severity: f.severity, repair: f.offered[0] })) };
     return { status: 200, body: { model: 'mock-creative-visual', usage: { input_tokens: 1800 + images * 900, output_tokens: 160 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'vr' + counters.visual, name: tool, input }] } };
   }
   if (tool === 'submit_creative_review') {

@@ -562,7 +562,7 @@
     const ISSUES = ['hero_subject_too_small', 'hero_lacks_dominance', 'subject_lost', 'too_much_dead_space', 'weak_text_contrast', 'headline_lost_in_image',
       'weak_hierarchy', 'visually_boring', 'no_focal_point', 'looks_unfinished', 'accidental_composition', '3d_disconnected', '3d_too_small', 'video_underused',
       'payoff_weaker_than_previous', 'opening_weaker_than_later', 'poor_balance', 'crowded_one_side', 'subject_fights_type', 'wrong_crop', 'generic_template',
-      'mobile_loses_impact', 'type_unreadable_oversized', 'accidental_overlap', 'abrupt_transition', 'competing_focal_points'];
+      'mobile_loses_impact', 'type_unreadable_oversized', 'accidental_overlap', 'abrupt_transition', 'competing_focal_points', 'weak_final_payoff', 'competing_heading_overlap'];
     const REPAIRS = ['increase_subject_dominance', 'decrease_subject_dominance', 'move_copy_left', 'move_copy_right', 'move_copy_up', 'move_copy_down',
       'increase_text_contrast', 'simplify_background', 'switch_to_full_bleed', 'switch_to_takeover', 'switch_to_typography_stage', 'reduce_dead_space',
       'increase_negative_space', 'enlarge_3d', 'reduce_3d', 'move_3d_forward', 'move_3d_back', 'strengthen_payoff', 'strengthen_opening',
@@ -616,6 +616,17 @@
       sec.querySelectorAll('.ly-vid').forEach(el => { const ly = el.closest('.ly'); const img = ly && ly.querySelector('.ly-img'); const c = clip((shown(el) ? el : img || el).getBoundingClientRect()); if (c) out.video.push({ rect: c, hero: false }); });
       sec.querySelectorAll('.td-stage, .td-poster').forEach(el => { if (!shown(el)) return; const c = clip(el.getBoundingClientRect()); if (c) out.model.push({ rect: c }); });
       sec.querySelectorAll('.ly[data-kind="shape"], .ly[data-kind="word"]').forEach(el => { if (!shown(el)) return; const c = clip(el.getBoundingClientRect()); if (c) out.decor.push({ kind: el.getAttribute('data-kind'), role: el.getAttribute('data-role') || '', rect: c }); });
+      // the type that could compete with the heading: the heading's settled line, a text-swap's other line, word layers --
+      // each with what the eye gets of it (opacity through every parent, colour, size) and where it sits in the stacking
+      out.type = [];
+      const eff = el => { let o = 1; for (let p = el; p && p !== document.documentElement; p = p.parentElement) o *= +getComputedStyle(p).opacity; return o; };
+      const glyphs = el => { const rg = document.createRange(); rg.selectNodeContents(el); const rs = [...rg.getClientRects()].filter(r => r.width > 2 && r.height > 2); if (!rs.length) return null; return clip({ left: Math.min(...rs.map(r => r.left)), top: Math.min(...rs.map(r => r.top)), right: Math.max(...rs.map(r => r.right)), bottom: Math.max(...rs.map(r => r.bottom)) }); };
+      const zOf = el => { for (let p = el; p && p !== sec; p = p.parentElement) { const z = getComputedStyle(p).zIndex; if (z !== 'auto') return +z || 0; } return 0; };
+      // (a word layer draws each letter in its own span: its size and colour are the letters', not the container's)
+      const typeOf = (el, k) => { if (!el || !el.textContent.trim()) return; const r = glyphs(el); if (!r) return; const g = [...el.querySelectorAll('*')].find(x => x.children.length === 0 && x.textContent.trim()) || el; const cs = getComputedStyle(g);
+        out.type.push({ k, text: el.textContent.trim().slice(0, 80), rect: r, px: parseFloat(cs.fontSize) || 0, opacity: Math.round(eff(el) * 1000) / 1000, color: cs.color, fill: cs.webkitTextFillColor || '', stroke: parseFloat(cs.webkitTextStrokeWidth) || 0, z: zOf(el) }); };
+      const HD = sec.querySelector('.sc-heading'); if (HD) { typeOf(HD.querySelector('.hs-main') || HD, 'heading'); typeOf(HD.querySelector('.hs-alt'), 'swap'); }
+      sec.querySelectorAll('.ly[data-kind="word"]').forEach(el => { const t = el.querySelector('.lw') || el; typeOf(t, 'word'); });
       [['heading', '.sc-heading'], ['kicker', '.sc-kicker'], ['body', '.sc-body']].forEach(([k, q]) => sec.querySelectorAll(q).forEach(el => { if (!shown(el) || !el.textContent.trim()) return;
         const rg = document.createRange(); rg.selectNodeContents(el); const rs = [...rg.getClientRects()].filter(r => r.width > 2 && r.height > 2); if (!rs.length) return;
         const u = rs.reduce((a, r) => [Math.min(a[0], r.left), Math.min(a[1], r.top), Math.max(a[2], r.right), Math.max(a[3], r.bottom)], [1e9, 1e9, -1e9, -1e9]);
@@ -672,6 +683,28 @@
       return n ? hit / n : 0;
     }
 
+    // competing type: the heading and any other headline-sized type over it, both visible, neither clearly beneath the other.
+    // Not a fault: type that does not touch the heading (a word behind the product, an edge label), a faint watermark
+    // (under 20% opacity), or layered type with a clear hierarchy (twice the heading's size or more, and well under half its
+    // visual weight). Weight = what the eye gets: opacity x the contrast of its colour on the surface (an outline reads light).
+    const tokens = x => new Set(String(x || '').toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, ' ').split(/\s+/).filter(Boolean));
+    function typeOverlapOf(m, surfaceHex) {
+      const T = m.type || []; const P = T.find(x => x.k === 'heading'); if (!P || !P.rect) return null;
+      const sl = (() => { const h = /^#([0-9a-f]{6})$/i.exec(surfaceHex || ''); if (!h) return lumOf(128, 128, 128); const v = parseInt(h[1], 16); return lumOf((v >> 16) & 255, (v >> 8) & 255, v & 255); })();
+      const weight = x => { const fill = rgbOf(x.fill) && rgbOf(x.fill).a > 0.05 ? rgbOf(x.fill) : null; const c = fill || rgbOf(x.color); if (!c) return 0;
+        const legible = Math.min(1, (ratio(lumOf(c.r, c.g, c.b), sl) - 1) / 3); return x.opacity * (c.a == null ? 1 : c.a) * (fill || c.a > 0.05 ? legible : 0.35); };
+      const wp = weight(P); let worst = null;
+      T.filter(x => x !== P && x.rect).forEach(S => {
+        const o = meet(P.rect, S.rect); if (!o) return; const ov = area(o) / Math.max(1, Math.min(area(P.rect), area(S.rect)));
+        const size = S.px / Math.max(1, P.px); const ws = weight(S); if (ov < 0.25 || size < 0.5) return;
+        if (S.opacity < 0.2 || P.opacity < 0.2 || ws < 0.12) return;                       // (a watermark, or only one of them is really there)
+        if (size >= 2 && ws <= 0.35 * wp) return;                                          // (deliberate layering: a clear hierarchy)
+        const a = tokens(P.text), b = tokens(S.text); const same = a.size && b.size ? [...a].filter(t => b.has(t)).length / new Set([...a, ...b]).size : 0;
+        const score = +(ov * Math.min(1, ws / Math.max(0.05, wp))).toFixed(3);
+        if (!worst || score > worst.score) worst = { score, kind: S.k, overlap: +ov.toFixed(2), size: +size.toFixed(2), weight: +ws.toFixed(2), primary: +wp.toFixed(2), similar: +same.toFixed(2), text: S.text.slice(0, 40) };
+      });
+      return worst;
+    }
     // metrics(scene capture { m, shot, bare } (PNGs decoded { width, height, data }), { focal ids }) -> the scene's visual facts
     function metrics(cap, ctx) {
       const m = cap.m; if (!m) return null; const V = m.vw * m.vh; const k = cap.shot ? cap.shot.width / m.vw : 0.5; const c = ctx || {};
@@ -698,7 +731,7 @@
         heading: head ? { px: +headPx.toFixed(3), share: +(area(head.rect) / V).toFixed(3), over: +over.toFixed(2), off: !!head.off, chars: head.chars } : null,
         contrast: con, dead: field ? field.dead : null, balance: field ? { cx: field.cx, side: field.side, lean: field.lean } : null, busy: field ? field.busy : null,
         focal: big.length, focalTop: big.slice(0, 2).map(v => +v.toFixed(3)), video: video == null ? null : +video.toFixed(3), model: model == null ? null : +model.toFixed(3),
-        pictures: pics.length, textOff: m.words.filter(w => w.off).length, cropOver: m.pics.filter(p => p.over).length, actor: pics.some(p => p.role === 'actor'), impact: +impact.toFixed(3), lowFi: !!(c.lowFi && subjP && c.lowFi.includes(subjP.asset)),
+        typeOverlap: typeOverlapOf(m, m.surface), pictures: pics.length, textOff: m.words.filter(w => w.off).length, cropOver: m.pics.filter(p => p.over).length, actor: pics.some(p => p.role === 'actor'), impact: +impact.toFixed(3), lowFi: !!(c.lowFi && subjP && c.lowFi.includes(subjP.asset)),
       };
     }
 
@@ -724,6 +757,8 @@
           if (!mob && x.balance && Math.abs(x.balance.cx - 0.5) >= 0.2 && x.balance.side >= 0.62) add(i, view, 'crowded_one_side', 'low', { cx: x.balance.cx, side: x.balance.side, lean: x.balance.lean });
           // too many things asking to be looked at, none winning
           if (x.focal >= 3 && x.focalTop[0] < 1.5 * x.focalTop[1]) add(i, view, 'competing_focal_points', 'medium', { large: x.focal, top: x.focalTop });
+          // two headline-sized pieces of type in one place, both legible enough to fight
+          if (x.typeOverlap && x.typeOverlap.score >= 0.3) add(i, view, 'competing_heading_overlap', x.typeOverlap.score >= 0.55 || x.typeOverlap.similar >= 0.5 || x.typeOverlap.kind === 'swap' ? 'high' : 'medium', x.typeOverlap);
           if (x.video != null && !c.heroOnly && x.video < 0.35) add(i, view, 'video_underused', 'high', { video: x.video });
           if (x.model != null && x.model < (mob ? 0.1 : 0.12)) add(i, view, '3d_too_small', 'high', { model: x.model });
         });
@@ -745,10 +780,27 @@
         }
         // the ending should feel like one: not quieter than the scene before it
         const L = S[n - 1], P = S[n - 2];
-        if (!mob && L && P && n >= 3 && L.impact < 0.82 * P.impact && L.impact < 0.55) add(n - 1, view, 'payoff_weaker_than_previous', L.impact < 0.65 * P.impact ? 'high' : 'medium', { impact: L.impact, previous: P.impact });
+        // ...and judged as an ending in its own right, against the page's recent visual high point (the last three scenes
+        // before it that show a real subject -- a text-only scene in between does not excuse it): a subject that is a speck,
+        // or one that falls well short of that high point and of what its genre's ending needs. Luxury may end quietly but
+        // not on a speck; editorial and personal pages may end on type; an actor or image callback promises a subject.
+        let finalWeak = false; let typeEnds = false;
+        if (L && n >= 3) {
+          const k = c.concept || {}; const lead = x => (x ? Math.max(x.subject, x.video ? x.video * 0.8 : 0, x.model || 0) : 0);
+          const promised = ['actor-return', 'image-callback'].includes(k.bookend); typeEnds = !!((B.type || !promised) && L.heading && L.heading.px >= (mob ? 0.05 : 0.08) && !(L.contrast.heading && L.contrast.heading.low >= 0.25));
+          const need = B.subject * (B.genre === 'luxury' ? 0.45 : B.type ? 0.5 : 0.7) * (mob ? 0.75 : 1);
+          const recent = S.slice(Math.max(0, n - 4), n - 1).filter(x => x && lead(x) >= 0.05); const high = recent.length ? recent : S.slice(0, n - 1).filter(x => x && lead(x) >= 0.05);
+          const hiLead = Math.max(0, ...high.map(lead)), hiImpact = Math.max(0, ...high.map(x => x.impact)); const l = lead(L);
+          const speck = L.pictures > 0 && l < 0.02 && !typeEnds; const short = l < need && (l < 0.45 * hiLead || L.impact < 0.6 * hiImpact) && !typeEnds;
+          const empty = L.pictures === 0 && L.video == null && L.model == null && promised && !typeEnds;
+          if (speck || short || empty) { finalWeak = true; add(n - 1, view, 'weak_final_payoff', speck || empty || l < need * 0.5 ? 'high' : 'medium', { subject: l, need: +need.toFixed(3), recentHigh: +hiLead.toFixed(3), impact: L.impact, recentImpact: +hiImpact.toFixed(3), speck, genre: B.genre }); }
+        }
+        // (an ending carried by its type, where the genre lets type lead, is not a quiet picture)
+        if (!mob && !finalWeak && !typeEnds && L && P && n >= 3 && L.impact < 0.82 * P.impact && L.impact < 0.55) add(n - 1, view, 'payoff_weaker_than_previous', L.impact < 0.65 * P.impact ? 'high' : 'medium', { impact: L.impact, previous: P.impact });
       });
-      // (a mobile finding that only repeats the desktop one is the same failure)
-      const seen = new Set(); return out.filter(f => { const key = `${f.scene}|${f.issue === 'mobile_loses_impact' ? 'm' : f.issue}`; if (f.view === 'mobile' && seen.has(`${f.scene}|${f.issue}`)) return false; seen.add(key); return true; });
+      // (desktop and phone are separate questions: each view's findings stand on their own -- a phone problem is never folded
+      // into the desktop one, or it could neither be offered nor repaired for the phone)
+      return out;
     }
     const score = list => (list || []).reduce((t, f) => t + (SW[f.severity] || 1), 0);
 
@@ -773,12 +825,15 @@
       video_underused: ['switch_to_full_bleed', 'increase_image_dominance'], wrong_crop: ['change_crop_focus', 'remove_unnecessary_frame'],
       generic_template: ['switch_to_takeover', 'switch_to_typography_stage', 'switch_to_full_bleed'], visually_boring: ['switch_to_takeover', 'increase_subject_dominance', 'switch_to_typography_stage'],
       weak_hierarchy: ['simplify_scene', 'increase_subject_dominance', 'switch_to_typography_stage'], no_focal_point: ['increase_subject_dominance', 'switch_to_full_bleed', 'strengthen_opening'],
+      // the ending judged as an ending (whatever the scene before it is); a second piece of large type over the heading
+      weak_final_payoff: ['increase_subject_dominance', 'strengthen_payoff', 'switch_to_full_bleed', 'simplify_scene'],
+      competing_heading_overlap: ['reduce_competing_elements', 'simplify_scene', 'move_copy_up', 'move_copy_down'],
       // (type too large for its screen, a seam that jars: named, not repaired here -- text fitting and continuity own them)
       type_unreadable_oversized: [], abrupt_transition: [],
     };
     function capable(scene, m, ctx) {
       const c = ctx || {}; const L = scene.layers || []; const img = L.some(x => x.kind === 'image'); const open = !c.run && !c.event && scene.layout && scene.layout !== 'free';
-      const t = scene.text || {}; const words = !!(t.heading || t.kicker || t.body); const decor = L.filter(x => (x.kind === 'shape' || x.kind === 'word') && x.role !== 'focal').length;
+      const t = scene.text || {}; const words = !!(t.heading || t.kicker || t.body); const decor = L.filter(x => (x.kind === 'shape' || x.kind === 'word') && x.role !== 'focal').length + (t.alt ? 1 : 0);
       const ok = new Set();
       if (img || c.run) { ok.add('increase_subject_dominance'); ok.add('decrease_subject_dominance'); ok.add('reduce_dead_space'); ok.add('increase_negative_space'); }
       if (img) { ok.add('increase_image_dominance'); ok.add('decrease_image_dominance'); }
