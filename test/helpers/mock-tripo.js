@@ -19,6 +19,7 @@
 //   expired-url    the first download address handed out has already expired (403): only a FRESH one works
 //                  (opts.expiredUrls: how many of the first addresses are expired; default 1)
 //   download-retry the first downloads fail with 503 (MOCK_TRIPO_DOWNLOAD_FAILS of them)
+//   alternate      a normal model, then the large one, in turn: two jobs make two different models (two pictures)
 //   large          a valid model of about 6 MB -- inside the limits, the size a real textured model is (the fixture is 0.14 MB)
 //   oversized      a valid model over the size a website may ship
 //   malformed      bytes that are not a model
@@ -33,7 +34,7 @@ const path = require('path');
 
 const FIX = path.join(__dirname, '..', 'fixtures', 'three-d');
 const API = 'openapi.tripo3d.ai'; const CDN = 'mock-output.tripo3d.com';
-const MODES = ['success', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'large', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish'];
+const MODES = ['success', 'alternate', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'large', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish'];
 const json = (body, status, extra) => new Response(JSON.stringify(body), { status: status || 200, headers: Object.assign({ 'content-type': 'application/json' }, extra || {}) });
 
 // ---- the fixture models, as each mode needs them (made from the two committed GLBs; nothing new on disk)
@@ -114,7 +115,7 @@ function createFakeTripo(opts) {
     count.downloads++; const exp = Number(u.searchParams.get('Expires')); const id = (/^\/output\/([\w-]+)\//.exec(u.pathname) || [])[1];
     if (!(exp > clock())) { say({ endpoint: 'download', task: id, status: 403, why: 'expired' }); return new Response('<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>', { status: 403 }); }
     if (mode() === 'download-retry' && count.downloads <= (o.downloadFails != null ? o.downloadFails : 2)) { say({ endpoint: 'download', task: id, status: 503 }); return new Response('temporarily unavailable', { status: 503 }); }
-    const all = models(); const bytes = all[mode()] || all.normal; count.served++;
+    const all = models(); const bytes = mode() === 'alternate' ? (count.served % 2 ? all.large : all.normal) : all[mode()] || all.normal; count.served++;
     say({ endpoint: 'download', task: id, status: 200, bytes: bytes.length });
     return new Response(bytes, { status: 200, headers: { 'content-type': 'model/gltf-binary', 'content-length': String(bytes.length) } });
   }

@@ -49,8 +49,33 @@ function followPlan(data, name) {
     palette: { bg: '#0d1020', bg2: '#171b33', ink: '#f4f2ee', muted: '#b9b5ad', accent: '#ffb629', glow: '#fff3d6' }, type: { display: 'grotesk', scale: 'monumental', case: 'upper' }, atmosphere: { backdrop: 'gradient', light: 'none', particles: 'none', density: 0.2 }, motion: { tempo: 'lively', signature: 'the race carries through' }, thread: { kind: 'none' },
     assetNotes: inv.map(a => ({ asset: a.id, depicts: `mock: ${a.title || a.id}`, matches: 'yes' })), wants: [], limitations: [], scenes };
 }
+// A SCOPED revision (the Client App's Website editor -- server.js creativeScopedRevision): the request names the scene(s) it is
+// about ('... scene "scene-2" ...'); the mock changes only those, as an instructed director would, and keeps every other scene
+// exactly as it is (ids, words, pictures). MOCK_CREATIVE_REVISE=words: a page-wide words request ("change the headline to
+// \"X\"") sets the opening heading; MOCK_CREATIVE_REVISE=same: nothing changes (the no-op refusal is exercised). Labelled mock.
+function scopedRevision(data, env) {
+  const r = data.revise; const cur = r && r.currentPage; if (!cur || !Array.isArray(cur.scenes)) return null;
+  const req = String(r.ownerRequest || ''); const ids = [...req.matchAll(/scene "([\w-]+)"/g)].map(m => m[1]);
+  const wordsMode = env && env.MOCK_CREATIVE_REVISE === 'words'; const same = env && env.MOCK_CREATIVE_REVISE === 'same';
+  if (!ids.length && !wordsMode) return null;
+  const quoted = (/(?:to|says?|reads?)\s*["\u201c]([^"\u201d]{1,100})["\u201d]/i.exec(req) || [])[1];
+  const field = (/only the (kicker|heading|body)/.exec(req) || [])[1] || 'heading'; const redesign = /^Redesign only/.test(req);
+  const scenes = cur.scenes.map((sc, i) => {
+    const hit = ids.length ? ids.includes(sc.id) : i === 0; const text = Object.assign({}, sc.text || {}, { items: [], kind: 'imagined' });
+    if (hit && !same) {
+      if (redesign) text.heading = ('Redesigned: ' + (text.heading || '')).slice(0, 100);
+      else text[field] = (quoted || ('Rewritten: ' + (text[field] || ''))).slice(0, field === 'body' ? 300 : 100);
+    }
+    const layers = (sc.layers || []).map(L => Object.assign({ kind: L.kind, role: L.role }, L.asset ? { asset: L.asset } : {}, L.word ? { word: { text: L.word } } : {}, L.kind === 'shape' ? { shape: { form: 'circle' } } : {}));
+    return Object.assign({ id: sc.id, name: sc.name, purpose: sc.purpose || 'scene', height: sc.height || 'screen', layout: sc.layout, choreo: sc.choreo, text, layers }, hit && redesign && !same ? { composition: 'type-takeover' } : {});
+  });
+  return { identity: { name: (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject', kind: 'recognizable' },
+    concept: Object.assign({ title: 'Mock scoped revision', logline: 'A mock scoped revision, used only to test the plumbing.' }, cur.concept || {}),
+    palette: cur.palette, type: cur.type, atmosphere: cur.atmosphere, motion: cur.motion, thread: cur.thread, art: cur.art, scenes, assetNotes: [], wants: [], limitations: [] };
+}
 function plan(body, attempt, env) {
   const { data } = payload(body); const assets = data.assets || []; const facts = data.facts || [];
+  const scoped = scopedRevision(data, env); if (scoped) return scoped;
   if (env && env.MOCK_DIRECTOR === 'follow' && data.artDirection && (data.artDirection.scenes || []).length >= 2 && attempt !== 'invalid') return followPlan(data, (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject');
   const free = assets.find(a => a.transparent) || null; const photo = assets.find(a => !a.transparent) || null;
   const name = (data.understanding && data.understanding.identity && data.understanding.identity.name) || 'The subject';

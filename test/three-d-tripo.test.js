@@ -411,9 +411,10 @@ test('P2-15. a submission nobody can vouch for is never sent again: a timeout, o
 });
 
 test('P2-16. every way the fake provider can behave is covered above, and a video job is still a video job', () => {
-  assert.deepEqual(MODES, ['success', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'large', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish']);
-  // ('large' -- a real-sized model -- is exercised by test/three-d-persistence.test.js)
-  const me = fs.readFileSync(__filename, 'utf8') + fs.readFileSync(path.join(__dirname, 'three-d-persistence.test.js'), 'utf8'); for (const m of MODES) assert.ok(me.includes(`'${m}'`), `${m} is exercised`);
+  assert.deepEqual(MODES, ['success', 'alternate', 'queued', 'slow', 'failed', 'banned', 'busy', 'expired-url', 'download-retry', 'large', 'oversized', 'malformed', 'compressed', 'heavy-texture', 'submit-timeout', 'vanish']);
+  // ('large' -- a real-sized model -- is exercised by test/three-d-persistence.test.js; 'alternate' -- two different models
+  // from two pictures -- by test/creative-website-editor.test.js)
+  const me = fs.readFileSync(__filename, 'utf8') + fs.readFileSync(path.join(__dirname, 'three-d-persistence.test.js'), 'utf8') + fs.readFileSync(path.join(__dirname, 'creative-website-editor.test.js'), 'utf8'); for (const m of MODES) assert.ok(me.includes(`'${m}'`), `${m} is exercised`);
   assert.ok(PJ.ROLE_STATES.includes('verifying')); assert.equal(PJ.MAX_CLIPS.model3d, 1);
   // a video role never gets a 3D phase, and a 3D job never says "video"
   const db = newDb(); credits.grant(db, { id: 'purchase:v', accountId: 'acct_v', kind: 'purchase', amount: 50, source: 'test', now: new Date() });

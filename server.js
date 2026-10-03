@@ -181,6 +181,8 @@ const OWN_LARGE_JSON_ROUTES = [
   ['POST', /^\/api\/projects\/[^/]+\/domain\/?$/], ['POST', /^\/api\/deployments\/[^/]+\/deploy-to\/?$/],
   // (premium media: the source pictures travel with the quote request)
   ['POST', /^\/api\/premium-media\/quote\/?$/], ['POST', /^\/api\/creative\/premium(?:\/start)?\/?$/],
+  // (the Website editor: an owner picture, a 3D model's still)
+  ['POST', /^\/api\/app-bridge\/website\/[^/]+\/creative\/(?:upload|start)\/?$/],
 ];
 const genericJsonParser = express.json({ limit: '900kb' });
 app.use((req, res, next) => (OWN_LARGE_JSON_ROUTES.some(([m, re]) => req.method === m && re.test(req.path)) ? next() : genericJsonParser(req, res, next)));
@@ -3142,10 +3144,11 @@ app.post('/api/creative/premium/3d/quote', requireAuth, requireSameOrigin, gener
 });
 // START: the owner confirmed the quote. Its credits are reserved (once) and its job created (once): asking again -- a
 // double click, a retry after a lost answer, a reload -- returns the same job, never a second reservation or submission.
-app.post('/api/creative/premium/3d/start', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
-  const q = quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60));
-  if (!q || q.operation !== 'creative_3d') return res.status(404).json({ ok: false, reason: 'not_found', message: 'That quote was not found. Ask for the cost again.' });
-  const reply = extra => res.json(Object.assign({ ok: true, creditsRemaining: creditsRemainingFor(req.accountId) }, extra));
+// (one implementation for the studio's route and the Client App's Website editor: start3DFromQuote)
+async function start3DFromQuote(accountId, q, base) {
+  const out = { status: 200, body: null }; const res = { status(n) { out.status = n; return res; }, json(b) { out.body = b; return out; } };
+  const req = { accountId, protocol: 'https', get: () => '' };
+  const reply = extra => res.json(Object.assign({ ok: true }, extra));
   const existing = db.premiumJobs.findByCreativeJob(q.id);
   if (existing) { if (premiumJobs.ACTIVE.has(existing.status)) premiumWorker.kick(existing.id); return reply({ reused: true, job: premiumJobs.view(existing) }); }
   // (one 3D job at a time per page, whichever quote it came from: the one being made is the answer -- nothing is reserved)
@@ -3162,12 +3165,18 @@ app.post('/api/creative/premium/3d/start', requireAuth, requireSameOrigin, gener
   const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: premiumPolicy.holdMs });
   if (!acc.ok) return res.status(acc.reason === 'insufficient' ? 402 : 409).json({ ok: false, reason: acc.reason, creditsExceeded: acc.reason === 'insufficient', creditsRemaining: creditsRemainingFor(req.accountId), quote: quotes.publicView(q),
     message: acc.reason === 'insufficient' ? `${q.message} Your balance is ${acc.remaining}.` : 'That quote can no longer be used. Ask for the cost again.' });
-  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
   const role = threeD.cost.role(av.estimate, { credits: it.credits, provider: av.provider, sourceAssetId: it.source.assetId, sourceRef: it.source.ref, mime: it.source.mime, sourceBytes: it.source.bytes, sourceBase: base, sectionId: it.sectionId, composition: it.composition, subject: clean(req.body && req.body.subject, 120) });
   const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: q.id, projectId: q.projectId, quoteId: q.id, opId: acc.opId, mode: 'model3d', strategy: 'standard', creditsReserved: q.credits, budgetUsd: av.estimate.budgetUsd, roles: [role] });
   if (!made.reused) premiumWorker.kick(made.job.id);
   threeDLog({ step: 'start', accountId: req.accountId, premiumJobId: made.job.id, quoteId: q.id, reused: made.reused, credits: q.credits });
   return reply({ reused: made.reused, job: premiumJobs.view(db.premiumJobs.find(made.job.id)) });
+}
+app.post('/api/creative/premium/3d/start', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  const q = quotes.get(db, req.accountId, clean(req.body && req.body.quoteId, 60));
+  if (!q || q.operation !== 'creative_3d') return res.status(404).json({ ok: false, reason: 'not_found', message: 'That quote was not found. Ask for the cost again.' });
+  const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const out = await start3DFromQuote(req.accountId, q, base);
+  return res.status(out.status).json(Object.assign({ creditsRemaining: creditsRemainingFor(req.accountId) }, out.body));
 });
 // a reopened project's 3D job (the studio resumes it, or attaches a model that finished while the tab was closed)
 app.get('/api/creative/premium/3d/for-project/:projectId', requireAuth, (req, res) => {
@@ -4418,7 +4427,10 @@ async function businessRedesign({ directionsState, directionIndex, direction, re
   if (applied.preserved.some(x => x.why === 'holds a working form')) changeSummary.push('Kept your form where visitors can use it');
   return Object.assign({ ok: true, state: v.state, changeSummary, counts }, more);
 }
-async function creativeRedesign({ accountId, directionsState, directionIndex, direction, request, intel }) {
+// The Creative director asked to revise this page (one bounded call: lib/creative/ai.js direct with `revise`) -- shared by
+// the whole-page redesign below and the Website editor's scoped revisions (one scene, one line: lib/creative-editor.js
+// takes only the scoped part of what comes back). -> { ok, plan, fixes, usage, model } | { ok:false, status, code, message }
+async function runCreativeRevise({ accountId, direction, request, intel }) {
   const fail = (status, code, message, extra, more) => Object.assign({ ok: false, status, code, message, extra }, more || {});
   if (!direction.creative || !direction.creative.plan) return fail(422, 'edit_failed', 'This page couldn\'t be read for a redesign. Nothing was changed.');
   if (!creativeAiAvailable()) return fail(503, 'ai_unavailable', 'Automatic redesigns aren\'t available right now. Nothing on your website was changed.');
@@ -4449,7 +4461,14 @@ async function creativeRedesign({ accountId, directionsState, directionIndex, di
   } finally { releaseBudget(); }
   intel.planningMs = Date.now() - t0;
   const more = { usage: sumUsage(usages), model: model || CREATIVE_AI_LIMITS.directorModel };
-  if (!r.ok) { intel.plannerError = String(r.reason || '').slice(0, 200); return fail(502, 'edit_failed', 'We couldn\'t work out that redesign right now. Nothing on your website was changed.', undefined, more); }
+  if (!r.ok) { intel.plannerError = String(r.reason || '').slice(0, 200); return fail(502, 'edit_failed', 'We couldn\'t work out that change right now. Nothing on your website was changed.', undefined, more); }
+  return Object.assign({ ok: true, plan: r.plan, fixes: r.fixes || [] }, more);
+}
+async function creativeRedesign({ accountId, directionsState, directionIndex, direction, request, intel }) {
+  const fail = (status, code, message, extra, more) => Object.assign({ ok: false, status, code, message, extra }, more || {});
+  const rr = await runCreativeRevise({ accountId, direction, request, intel });
+  if (!rr.ok) return rr;
+  const r = rr; const more = { usage: rr.usage, model: rr.model };
   intel.droppedInvalid = (r.fixes || []).length;
   intel.operationCount = Array.isArray(r.plan.scenes) ? r.plan.scenes.length : 0;
   const v = validatedRevision(creativeRefinement.applyCreativeRevision(directionsState, directionIndex, r.plan, { model: more.model }), directionIndex);
@@ -4525,6 +4544,9 @@ function buildWebsiteSummary(accountId, projectId) {
     purchaseRef: project.purchaseRef, createdAt: project.createdAt, updatedAt: project.updatedAt,
     deploymentStatus: projectStore.getOwnedProjectDeploymentStatus(db, accountId, projectId),
     businessName: (direction.business && typeof direction.business.name === 'string' && direction.business.name.trim()) ? direction.business.name.trim() : null,
+    // what kind of website this is -- the project's own direction mode, never a guess: the app's Website view shows the
+    // Creative editor for 'creative' and the Business update flow for 'business'
+    kind: direction.mode === 'creative' ? 'creative' : 'business',
     domains: bridgeDomains(accountId, projectId),
     lastPublishedAt: published ? published.publishedAt : null,
     publishedRevision: published ? published.revision : null,
@@ -4969,6 +4991,34 @@ app.post('/api/app-bridge/website/:projectId/edits', appBridgeRateLimit, require
       logIntel('saved', { saved: true, revision: edited.revision, creditsCharged: edited.creditsCharged });
       return res.json(edited);
     }
+    // A CREATIVE page's specific change ("change the headline to X"): its words live in creative.plan, never in the
+    // Business fields the refinement planner below edits (copy, pages, sections -- the Creative renderer reads none of them).
+    // So it goes through the Creative director and only the words it changed are taken (lib/creative-editor.js mergeWords);
+    // a request that changes no word on the page is refused -- no revision saved, the reservation released, nothing charged.
+    if (direction.mode === 'creative') {
+      if (!creativeEditor.creativeOf(direction)) return fail(422, 'edit_failed', 'This page couldn\'t be read for editing. Nothing was changed.');
+      const out = await creativeScopedRevision({ accountId: req.accountId, direction, kind: 'ai-page-words', target: { request }, intel });
+      if (out.usage) usage = out.usage;
+      if (out.model) plannerModel = out.model;
+      if (!out.ok) return fail(out.status || 422, out.code || 'edit_failed', out.message, out.extra);
+      const state = JSON.parse(JSON.stringify(project.directionsState)); state.directions[directionIndex] = Object.assign({}, state.directions[directionIndex], { creative: out.creative });
+      const v = validatedRevision(state, directionIndex);
+      if (!v) return fail(422, 'edit_failed', 'That change produced a page we couldn\'t save, so nothing was changed.');
+      const saved = projectStore.updateOwnedProject(db, req.accountId, project.id, { directionsState: v.state, expectedRevision: baseRevision });
+      if (!saved.ok) {
+        if (saved.reason === 'conflict') return fail(409, 'revision_conflict', 'This website changed while your update was being prepared. Nothing was changed -- refresh and try again.', { currentRevision: saved.current ? saved.current.revision : undefined });
+        return fail(422, 'edit_failed', 'That change produced a page we couldn\'t save, so nothing was changed.');
+      }
+      settled = true;
+      if (refineReserved) commitCredit(refineOp);
+      recordRefine(true);
+      let creditsRemaining = null;
+      try { creditsRemaining = creditsRemainingFor(req.accountId); } catch (e) { /* informational only */ }
+      const edited = { ok: true, mode: 'surgical', revision: saved.project.revision, changeSummary: [out.summary], appliedOperations: [{ action: 'creative-words' }], creditsCharged: refineReserved ? refineCost : 0, creditsRemaining };
+      rememberPaid(refineOp, edited);
+      logIntel('saved', { saved: true, revision: edited.revision, creditsCharged: edited.creditsCharged, creative: true });
+      return res.json(edited);
+    }
     let planResult;
     try {
       planResult = await requestRefinementPlan({ request, context: buildRefinementContext(direction) });
@@ -5077,6 +5127,312 @@ app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requi
     return bridgeError(res, 500, 'publish_failed', 'Publishing didn\'t go through. Nothing was changed.');
   }
   return res.json({ ok: true, published: true, alreadyPublished: !!result.alreadyPublished, revision: result.snapshot.revision, publishedAt: result.snapshot.publishedAt, automaticHosting: false });
+});
+
+
+// ============================================================================
+// THE CREATIVE WEBSITE EDITOR (the Client App's Website view for a Creative website) -- /api/app-bridge/website/:id/creative/*
+// ============================================================================
+// The app is the control surface; the builder stays authoritative for the page (creative.plan, its pictures and their
+// provenance, its 3D block, its premium media), its validation, revisions, quotes, credits, provider jobs and publishing.
+// Every route: the bridge's own identity check (requireAppBridgeAuth -- a verified Supabase token, re-resolved to this
+// builder account on every call), the project read through the ownership-scoped store (a project id alone never
+// authorizes anything: a missing and a not-owned project are the same 404), the revision checked before anything is
+// written, every quote checked to be this account's AND this project's. Every change is a new DRAFT revision -- nothing
+// here publishes; the owner publishes through POST .../publish.
+//   GET  .../creative             the editable outline (finished 3D / clip jobs of this page are attached first, once)
+//   POST .../creative/edit        a free change: text, picture, composition, colour, layout rules, 3D placement, clip
+//   POST .../creative/upload      an owner picture (a PNG the app's browser made; measured HERE), optionally into a scene
+//   POST .../creative/quote       the authoritative price of a paid action (AI rewrite / scene / rebuild / site, a 3D
+//                                 model, a cinematic clip -- from a picture or from the page's 3D model); reuse is free
+//   POST .../creative/start       the owner confirmed that quote: reserve -> run (AI) or start the durable job (3D, clip)
+//   GET  .../creative/jobs        this page's 3D and clip jobs (finished ones attached first, once)
+//   GET  .../creative/still       the page to draw the 3D model's cinematic still (the 3D engine, run in the app's browser)
+const creativeEditor = require('./lib/creative-editor');
+const CREATIVE_EDIT_KINDS = ['ai-text', 'ai-scene', 'ai-rebuild', 'ai-site'];
+// the bridge's view of a Creative project: -> { project, directionIndex, direction } or the error was sent
+function bridgeCreative(req, res) {
+  const projectId = clean(req.params.projectId, 120);
+  const project = projectStore.getOwnedProjectRaw(db, req.accountId, projectId);
+  if (!project) { bridgeError(res, 404, 'not_found', 'Website not found.'); return null; }
+  const directionIndex = canonicalDirectionIndex(req.accountId, projectId, project.directionsState);
+  const direction = project.directionsState.directions[directionIndex];
+  if (!creativeEditor.creativeOf(direction)) { bridgeError(res, 409, 'not_creative', 'This website is not a Creative page.'); return null; }
+  return { project, directionIndex, direction };
+}
+// a new draft revision with this direction.creative -> { ok, project } | { ok:false, status, code, message, currentRevision }
+function saveCreativeDraft(accountId, project, directionIndex, creative, expectedRevision) {
+  if (project.status === 'archived') return { ok: false, status: 409, code: 'not_editable', message: 'This website can no longer be edited.' };
+  const state = JSON.parse(JSON.stringify(project.directionsState)); state.directions[directionIndex] = Object.assign({}, state.directions[directionIndex], { creative });
+  const v = validatedRevision(state, directionIndex);
+  if (!v || !creativeEditor.creativeOf(v.after)) return { ok: false, status: 422, code: 'edit_failed', message: 'That change produced a page we couldn\'t save, so nothing was changed.' };
+  const saved = projectStore.updateOwnedProject(db, accountId, project.id, { directionsState: v.state, expectedRevision });
+  if (!saved.ok) {
+    if (saved.reason === 'conflict') return { ok: false, status: 409, code: 'revision_conflict', message: 'This website changed since you opened it. Refresh and try again -- nothing was changed.', currentRevision: saved.current ? saved.current.revision : undefined };
+    if (saved.reason === 'not_found') return { ok: false, status: 404, code: 'not_found', message: 'Website not found.' };
+    return { ok: false, status: 422, code: 'edit_failed', message: 'That change produced a page we couldn\'t save, so nothing was changed.' };
+  }
+  return { ok: true, project: saved.project };
+}
+// the finished clips this account's jobs made for this project (what the job delivered: its stored file, never a provider
+// address) -- to put one back on its picture, free
+function projectClips(accountId, projectId) {
+  const out = [];
+  db.premiumJobs.forProject(accountId, projectId).forEach(row => premiumJobs.view(row).delivered.forEach(d => {
+    if (d.kind === 'video' && d.video && d.video.mediaId && d.video.assetRef && !out.some(x => x.mediaId === d.video.mediaId)) out.push({ mediaId: d.video.mediaId, assetRef: d.video.assetRef, intent: d.video.intent || '', sourceAssetId: d.sourceAssetId, provider: 'higgsfield', providerJobId: (d.premium && d.premium.providerJobId) || '' });
+  }));
+  return out;
+}
+const completedMediaFor = (accountId, projectId, rootId) => projectClips(accountId, projectId).filter(m => m.sourceAssetId === rootId);
+// FINISHED JOBS OF THIS PAGE, attached ONCE, server-side (the studio does this in its tab; the app has no tab of the
+// page): a 3D model into the page's 3D block, a clip made from the Website editor onto its picture. A premium job of a
+// GENERATION (a showcase's moments) is the studio's to integrate and is never touched here. Saved as a draft.
+// -> the project as it is now (a new revision when something was attached)
+function attachFinishedJobs(accountId, project, directionIndex) {
+  let cur = project;
+  for (const row of db.premiumJobs.forProject(accountId, project.id)) {
+    if (premiumJobs.ACTIVE.has(row.status) || !row.completed) continue;
+    const q = row.quote_id ? quotes.get(db, accountId, row.quote_id) : null;
+    if (row.mode !== 'model3d' && !(q && q.operation === 'premium_media')) continue;
+    const target = q && q.items && q.items[0] && q.items[0].source ? { sceneId: q.items[0].source.sceneId, layerId: q.items[0].source.layerId } : null;
+    const out = creativeEditor.attachDelivered(cur.directionsState.directions[directionIndex], premiumJobs.view(row), target);
+    if (!out.changed) continue;
+    const saved = saveCreativeDraft(accountId, cur, directionIndex, out.creative, cur.revision);
+    if (saved.ok) { cur = projectStore.getOwnedProjectRaw(db, accountId, project.id); premiumLog({ step: 'app-attach', accountId, projectId: project.id, premiumJobId: row.id, revision: cur.revision }); }
+  }
+  return cur;
+}
+async function creativeCan() {
+  const av = await threeDAvailability(); const st = premiumMedia.providerState(creativePremiumProvider(), 'image_to_video');
+  return { model3d: !!av.ok, motion: !!(st.ok && premiumProviderEnabled()), ai: creativeAiAvailable() };
+}
+const jobView = row => { const v = premiumJobs.view(row); return { jobId: v.jobId, kind: row.mode === 'model3d' ? 'model3d' : 'motion', status: v.status, terminal: v.terminal, completed: v.completed, message: v.message, credits: v.credits, createdAt: v.createdAt, completedAt: v.completedAt }; };
+
+app.get('/api/app-bridge/website/:projectId/creative', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, async (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const project = attachFinishedJobs(req.accountId, got.project, got.directionIndex);
+  const direction = project.directionsState.directions[got.directionIndex];
+  const can = await creativeCan();
+  const allMedia = projectClips(req.accountId, project.id).map(m => ({ mediaId: m.mediaId, sourceAssetId: m.sourceAssetId, intent: m.intent }));
+  const outline = creativeEditor.outline(direction, { can, media: allMedia });
+  const jobs = db.premiumJobs.forProject(req.accountId, project.id).filter(r => r.mode === 'model3d' || ((quotes.get(db, req.accountId, r.quote_id) || {}).operation === 'premium_media')).slice(0, 10).map(jobView);
+  return res.json({ ok: true, projectId: project.id, revision: project.revision, kind: 'creative', outline, jobs, creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+
+app.post('/api/app-bridge/website/:projectId/creative/edit', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {}; const op = b.op && typeof b.op === 'object' ? b.op : null;
+  if (!Number.isInteger(b.baseRevision)) return bridgeError(res, 400, 'invalid_request', 'Refresh your website before changing it.');
+  if (!op) return bridgeError(res, 400, 'invalid_request', 'Unknown change.');
+  if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
+  // FREE: no provider is asked, no credit is reserved -- the change is applied to the real Creative plan and validated
+  const out = creativeEditor.applyEdit(got.direction, op, { media: rootId => completedMediaFor(req.accountId, got.project.id, rootId) });
+  if (!out.ok) return bridgeError(res, out.code === 'not_found' ? 404 : 422, out.code, out.message);
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, out.creative, b.baseRevision);
+  if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
+  return res.json({ ok: true, revision: saved.project.revision, changeSummary: [out.summary], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+
+app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ limit: '16mb' }), appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {};
+  if (!Number.isInteger(b.baseRevision)) return bridgeError(res, 400, 'invalid_request', 'Refresh your website before changing it.');
+  if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
+  const up = creativeEditor.addUpload(got.direction, b.png, { title: b.title, alt: b.alt, store: storeBytes });
+  if (!up.ok) return bridgeError(res, 422, up.code, up.message);
+  let creative = up.creative; const summary = ['Added your picture to the page’s pictures'];
+  if (b.sceneId && b.layerId) {
+    const d2 = Object.assign({}, got.direction, { creative });
+    const r = creativeEditor.applyEdit(d2, { type: 'picture-replace', sceneId: b.sceneId, layerId: b.layerId, assetId: up.asset.id });
+    if (!r.ok) return bridgeError(res, 422, r.code, r.message);
+    creative = r.creative; summary.push(r.summary);
+  }
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, creative, b.baseRevision);
+  if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
+  return res.json({ ok: true, revision: saved.project.revision, assetId: up.asset.id, measured: { width: up.asset.assess.width, height: up.asset.assess.height, transparent: !!up.asset.assess.transparent }, changeSummary: summary, creditsCharged: 0 });
+});
+
+// the scoped words or scenes of a revision, applied to the real plan -> { ok, creative, summary } | { ok:false, status, code, message }
+async function creativeScopedRevision({ accountId, direction, kind, target, intel }) {
+  const c = creativeEditor.creativeOf(direction); const plan = c.plan; const ids = (target.sceneIds || []).filter(id => plan.scenes.some(s => s.id === id));
+  if (kind !== 'ai-site' && kind !== 'ai-page-words' && !ids.length) return { ok: false, status: 404, code: 'not_found', message: 'That scene is not on the page any more. Nothing was changed.' };
+  const name = id => { const s = plan.scenes.find(x => x.id === id); return s ? `scene "${id}"` : ''; };
+  const note = clean(target.request, 400);
+  const field = ['kicker', 'heading', 'body'].includes(target.field) ? target.field : null;
+  const request = kind === 'ai-text'
+    ? `Rewrite only the ${field || 'words'} of ${name(ids[0])}${field ? ` (now: "${clean((plan.scenes.find(s => s.id === ids[0]).text || {})[field], 200)}")` : ''}. Keep every other scene, word and picture exactly as it is.${note ? ` The owner asks: ${note}` : ''}`
+    : kind === 'ai-page-words' ? note
+      : `Redesign only ${ids.map(name).join(' and ')} -- composition, staging and words -- around the pictures already in ${ids.length > 1 ? 'them' : 'it'}. Keep every other scene exactly as it is.${note ? ` The owner asks: ${note}` : ''}`;
+  const rr = await runCreativeRevise({ accountId, direction, request, intel });
+  if (!rr.ok) return rr;
+  const byId = new Map((c.assets || []).filter(a => a && !a.removed).map(a => [a.id, a]));
+  const words = kind === 'ai-text' || kind === 'ai-page-words';
+  const merged = words ? creativeEditor.mergeWords(plan, rr.plan, { sceneIds: kind === 'ai-text' ? ids : null, field: kind === 'ai-text' ? field : null }) : creativeEditor.mergeScenes(plan, rr.plan, ids, byId);
+  // (what the page already had is never held against the change -- an owner's own number already in a headline stays theirs;
+  // a NEW unsupported claim the director writes is refused)
+  const baseline = creativeEditor.baselineErrors(c);
+  const v = creativeEditor.revalidate(c, merged, words ? {} : { recompose: ids }, { baseline });
+  if (!v.ok) return { ok: false, status: 422, code: 'edit_failed', message: 'That change couldn\'t be made safely, so nothing was changed and no credits were used.' };
+  // a change that changed nothing is refused -- never charged, never saved as a revision
+  const changed = words ? creativeEditor.wordsOf(plan, kind === 'ai-text' ? ids : null) !== creativeEditor.wordsOf(v.plan, kind === 'ai-text' ? ids : null) : creativeEditor.sceneDiff(plan, v.plan, ids);
+  if (!changed) return { ok: false, status: 422, code: 'no_meaningful_change', message: 'That request didn\'t change anything on your Creative page, so nothing was saved and no credits were used. Try describing the new words, or use the Website editor to change a picture, a scene or its colour.', usage: rr.usage, model: rr.model };
+  const creative = Object.assign({}, JSON.parse(JSON.stringify(c)), { plan: v.plan, updatedAt: new Date().toISOString() });
+  const summary = words ? (kind === 'ai-text' ? `Rewrote the ${field || 'words'} of a scene` : 'Updated the words on your Creative page') : `Redesigned ${ids.length > 1 ? `${ids.length} scenes` : 'a scene'}`;
+  return { ok: true, creative, summary, usage: rr.usage, model: rr.model };
+}
+
+app.post('/api/app-bridge/website/:projectId/creative/quote', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, async (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {}; const action = clean(b.action, 30); const c = creativeEditor.creativeOf(got.direction); const plan = c.plan; const projectId = got.project.id;
+  const assets = (c.assets || []).filter(a => a && a.id && !a.removed); const byId = new Map(assets.map(a => [a.id, a]));
+  const reply = (q, extra) => res.json(Object.assign({ ok: true, quote: quotes.publicView(q), creditsRemaining: creditsRemainingFor(req.accountId), enough: creditsRemainingFor(req.accountId) >= q.credits }, extra || {}));
+  await prepareCredits(req.accountId);
+  if (CREATIVE_EDIT_KINDS.includes(action)) {
+    if (!creativeAiAvailable()) return bridgeError(res, 503, 'ai_unavailable', 'AI changes aren\'t available right now. Nothing was charged.');
+    const sceneIds = (Array.isArray(b.sceneIds) ? b.sceneIds : b.sceneId ? [b.sceneId] : []).map(x => clean(x, 60)).filter(id => plan.scenes.some(s => s.id === id)).slice(0, 4);
+    if (action !== 'ai-site' && !sceneIds.length) return bridgeError(res, 400, 'invalid_request', 'Choose the scene first.');
+    if (action === 'ai-rebuild' && sceneIds.length < 2) return bridgeError(res, 400, 'invalid_request', 'Choose at least two scenes to rebuild together.');
+    const request = clean(b.request, 600); if (action === 'ai-site' && !request) return bridgeError(res, 400, 'invalid_request', 'Describe the change you want to make.');
+    const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'creative_edit', plan: { kind: action, target: { sceneIds, field: ['kicker', 'heading', 'body'].includes(b.field) ? b.field : null, request } } });
+    return reply(q);
+  }
+  if (action === 'model3d') {
+    const layerAsset = byId.get(clean(b.assetId, 40)); if (!layerAsset) return bridgeError(res, 404, 'not_found', 'That picture is not in this project.');
+    const root = threeD.schema.rootPicture(layerAsset, byId) || layerAsset;
+    // a model of this picture already exists (on the page or not): reuse it -- free, no provider
+    const have = c.threeD && Array.isArray(c.threeD.assets) ? c.threeD.assets.find(m => m.sourceAssetId && (threeD.schema.rootPicture(byId.get(m.sourceAssetId), byId) || {}).id === root.id) : null;
+    if (have) return res.json({ ok: true, reuse: true, modelId: have.id, credits: 0, message: 'This picture already has a 3D model -- placing it is free.' });
+    const done3d = db.premiumJobs.forProject(req.accountId, projectId).find(r => r.mode === 'model3d' && r.completed && premiumJobs.view(r).delivered.some(d => d.sourceAssetId === root.id));
+    if (done3d) return res.json({ ok: true, reuse: true, pendingAttach: true, credits: 0, message: 'This picture already has a finished 3D model -- it is added to the page for free.' });
+    const av = await threeDAvailability(); if (!av.ok) return res.json({ ok: false, available: false, reason: av.reason, message: threeDMessage(av.reason) });
+    const running = db.premiumJobs.latestForProject(req.accountId, projectId, '3d');
+    if (running && premiumJobs.ACTIVE.has(running.status)) return res.json({ ok: false, reason: 'in_progress', message: 'A 3D model is already being made for this page.', job: jobView(running) });
+    const src = threeDSource(req.accountId, projectId, root.id, clean(b.sceneId, 60));
+    if (!src.ok) return res.json(src);
+    const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'creative_3d', plan: { credits: av.estimate.credits, budgetUsd: av.estimate.budgetUsd, source: src.source, sectionId: src.sectionId, composition: THREE_D_COMPOSITION } });
+    threeDLog({ step: 'quote', via: 'app', accountId: req.accountId, projectId, quoteId: q.id, credits: q.credits, sourceAssetId: src.source.assetId });
+    return reply(q, { sourceAssetId: src.source.assetId, sectionId: src.sectionId });
+  }
+  if (action === 'motion' || action === 'motion3d') {
+    const st = premiumMedia.providerState(creativePremiumProvider(), 'image_to_video');
+    if (!st.ok || !premiumProviderEnabled()) return res.json({ ok: false, available: false, reason: st.reason || 'premium_disabled', message: premiumMedia.REASONS[st.reason] || 'Cinematic clips aren\'t available right now. Nothing was charged.' });
+    const sceneId = clean(b.sceneId, 60); const layerId = clean(b.layerId, 60); let source;
+    if (action === 'motion3d') {
+      const model = cinematicSource.modelFor(c.threeD, c.assets); if (!model || !model.assetRef || !db.assetBlobs.find(model.assetRef)) return res.json({ ok: false, reason: 'model3d_unavailable', message: cinematicSource.MESSAGES.unavailable });
+      source = { kind: 'model3d', assetId: model.sourceAssetId, modelAssetId: model.id, modelRef: model.assetRef, sceneId, layerId };
+    } else {
+      const a = byId.get(clean(b.assetId, 40)); if (!a) return bridgeError(res, 404, 'not_found', 'That picture is not in this project.');
+      const root = threeD.schema.rootPicture(a, byId) || a;
+      // a picture that already moves: its clip is reused for free unless the owner asks for a brand-new one
+      if (root.video && root.video.mediaId && b.fresh !== true) return res.json({ ok: true, reuse: true, credits: 0, mediaId: root.video.mediaId, message: 'This picture already has a cinematic clip -- it is kept, free. Ask for a new one to make another.' });
+      const el = premiumMedia.sourceEligibility(root, { byId, measured: premiumMeasured(root) });
+      if (!el.ok) return res.json({ ok: false, reason: 'source_not_eligible', message: `${premiumMedia.REASONS.source_not_eligible} (${el.reason})` });
+      if (!root.assetRef || !db.assetBlobs.find(root.assetRef)) return res.json({ ok: false, reason: 'no_source', message: premiumMedia.REASONS.no_source });
+      source = { kind: 'image', assetId: root.id, ref: root.assetRef, mime: root.mime || 'image/jpeg', sceneId, layerId };
+    }
+    const running = db.premiumJobs.forProject(req.accountId, projectId).find(r => r.mode !== 'model3d' && premiumJobs.ACTIVE.has(r.status) && (quotes.get(db, req.accountId, r.quote_id) || {}).operation === 'premium_media');
+    if (running) return res.json({ ok: false, reason: 'in_progress', message: 'A cinematic clip is already being made for this page.', job: jobView(running) });
+    const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'premium_media', plan: { media: [{ intent: 'image_to_video', source }] } });
+    premiumLog({ step: 'quote', via: 'app', accountId: req.accountId, projectId, quoteId: q.id, credits: q.credits, source: source.kind, sourceAssetId: source.assetId });
+    return reply(q, { sourceKind: source.kind, needsRender: source.kind === 'model3d' });
+  }
+  return bridgeError(res, 400, 'invalid_request', 'Unknown action.');
+});
+
+app.post('/api/app-bridge/website/:projectId/creative/start', express.json({ limit: '16mb' }), appBridgeRateLimit, requireAppBridgeAuth, generationRateLimit, async (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {}; const projectId = got.project.id;
+  const q = quotes.get(db, req.accountId, clean(b.quoteId, 60));
+  // the quote is this account's AND this page's -- a quote of another project never runs here
+  if (!q || q.projectId !== projectId || !['creative_edit', 'creative_3d', 'premium_media'].includes(q.operation)) return bridgeError(res, 404, 'not_found', 'That quote was not found. Ask for the cost again.');
+  const remain = () => creditsRemainingFor(req.accountId);
+  // ---- a paid PROVIDER JOB (3D, clip): once per quote, however often it is asked (a double click, a retry, a reload)
+  if (q.operation === 'creative_3d' || q.operation === 'premium_media') {
+    const existing = db.premiumJobs.findByCreativeJob(q.id);
+    if (existing) { if (premiumJobs.ACTIVE.has(existing.status)) premiumWorker.kick(existing.id); return res.json({ ok: true, reused: true, job: jobView(existing), creditsRemaining: remain() }); }
+    if (q.status === 'open' && q.expiresAt <= new Date().toISOString()) return res.json({ ok: false, reason: 'expired', message: 'That quote has expired. Ask for the cost again.' });
+    const base = String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    if (q.operation === 'creative_3d') {
+      const out = await start3DFromQuote(req.accountId, q, base);
+      return res.status(out.status || 200).json(Object.assign({ creditsRemaining: remain() }, out.body, out.body.job ? { job: jobView(db.premiumJobs.find(out.body.job.jobId)) } : {}));
+    }
+    const it = q.items[0]; const src = it && it.source;
+    const st = premiumMedia.providerState(creativePremiumProvider(), 'image_to_video');
+    if (!src || !st.ok || !premiumProviderEnabled()) return res.json({ ok: false, reason: 'unavailable', message: 'Cinematic clips aren\'t available right now. Nothing was charged.' });
+    let source = null; let sourceRef = src.ref; let mime = src.mime;
+    if (src.kind === 'model3d') {
+      // the 3D model's still, drawn by the 3D engine in the owner's browser (GET .../creative/still): checked here by its
+      // own file header -- a PNG of exactly the render size -- then stored like any source. The model is never made again.
+      const m = typeof b.render === 'string' ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(b.render) : null;
+      const buf = m ? Buffer.from(m[1], 'base64') : null; const hs = buf ? creativeSource.headerSize(buf) : null;
+      if (!hs || cinematicSource.renderProblem({ mime: hs.mime, width: hs.width, height: hs.height, bytes: buf.length })) return res.json({ ok: false, reason: 'model3d_render', message: 'The still of your 3D model could not be prepared. Nothing was charged.' });
+      if (!db.assetBlobs.find(src.modelRef)) return res.json({ ok: false, reason: 'model3d_unavailable', message: cinematicSource.MESSAGES.unavailable });
+      sourceRef = storeBytes(buf, 'image/png'); mime = 'image/png';
+      source = { kind: 'model3d', modelAssetId: src.modelAssetId, modelRef: src.modelRef, renderRef: sourceRef };
+    } else if (!db.assetBlobs.find(src.ref)) return res.json({ ok: false, reason: 'no_source', message: `${premiumMedia.REASONS.no_source} Nothing was charged.` });
+    const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: premiumPolicy.holdMs });
+    if (!acc.ok) return res.status(acc.reason === 'insufficient' ? 402 : 409).json({ ok: false, reason: acc.reason, creditsExceeded: acc.reason === 'insufficient', creditsRemaining: remain(), quote: quotes.publicView(q),
+      message: acc.reason === 'insufficient' ? `${q.message} Your balance is ${acc.remaining}. Nothing was charged.` : 'That quote can no longer be used. Ask for the cost again.' });
+    const def = premiumMedia.INTENTS[it.intent || 'image_to_video']; const clip = providerBudget.clipCost();
+    const subject = clean((creativeEditor.creativeOf(got.direction).understanding || {}).subject || '', 120);
+    const role = Object.assign({ role: 'single', intent: it.intent || 'image_to_video', sourceAssetId: src.assetId, sourceRef, mime, sourceBase: base, preset: def.preset, mediaType: def.mediaType, subject, credits: it.credits, estimatedUsd: clip.budgetUsd, observedUsd: clip.observedUsd, state: 'pending' }, source ? { source } : {});
+    const made = premiumJobs.create(db, { accountId: req.accountId, creativeJobId: q.id, projectId, quoteId: q.id, opId: acc.opId, mode: 'hero', strategy: 'standard', creditsReserved: q.credits, budgetUsd: clip.budgetUsd, roles: [role] });
+    if (made.settleNow) premiumJobs.settle(db, made.job.id); else if (!made.reused) premiumWorker.kick(made.job.id);
+    premiumLog({ step: 'start', via: 'app', accountId: req.accountId, premiumJobId: made.job.id, quoteId: q.id, reused: made.reused, source: src.kind });
+    return res.json({ ok: true, reused: made.reused, job: jobView(db.premiumJobs.find(made.job.id)), creditsRemaining: remain() });
+  }
+  // ---- an AI revision (creative_edit): reserve -> the director -> the scoped part applied -> saved -> charged; anything
+  // short of a real change releases the reservation (no charge, no revision)
+  const it = q.items[0] || {}; const target = it.target || {}; const kind = it.kind || '';
+  const opId = quotes.opIdFor(q.id); const earlier = replayPaid(opId);
+  if (q.status === 'settled') return earlier ? res.json(Object.assign({}, earlier, { creditsCharged: 0, replayed: true, creditsRemaining: remain() })) : bridgeError(res, 409, 'closed', 'That change was already made. Refresh to see it.');
+  if (q.status === 'accepted') return bridgeError(res, 409, 'in_progress', 'This change is already being made.');
+  if (!Number.isInteger(b.baseRevision) || got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
+  if (!creativeAiAvailable()) return bridgeError(res, 503, 'ai_unavailable', 'AI changes aren\'t available right now. Nothing was charged.');
+  const acc = quotes.accept(db, { accountId: req.accountId, quoteId: q.id, ttlMs: 10 * 60 * 1000 });
+  if (!acc.ok) return bridgeError(res, acc.reason === 'insufficient' ? 402 : 409, acc.reason === 'insufficient' ? 'insufficient_credits' : 'closed', acc.reason === 'insufficient' ? `This change needs ${q.credits} credit${q.credits === 1 ? '' : 's'} and your balance is ${acc.remaining}. Nothing was changed.` : 'That quote can no longer be used. Ask for the cost again.', { creditsRemaining: remain() });
+  const intel = { requestId: opId, projectId, baseRevision: b.baseRevision, mode: 'creative_editor', scope: kind, websiteKind: 'creative' };
+  let out;
+  try {
+    out = kind === 'ai-site'
+      ? await creativeRedesign({ accountId: req.accountId, directionsState: got.project.directionsState, directionIndex: got.directionIndex, direction: got.direction, request: target.request, intel })
+      : await creativeScopedRevision({ accountId: req.accountId, direction: got.direction, kind, target, intel });
+  } catch (e) { out = { ok: false, status: 500, code: 'edit_failed', message: 'Something went wrong, so nothing on your website was changed.' }; }
+  if (out.ok && out.state) out.creative = out.state.directions[got.directionIndex].creative; // (the whole-site redesign returns the state)
+  const saved = out.ok ? saveCreativeDraft(req.accountId, got.project, got.directionIndex, out.creative, b.baseRevision) : null;
+  if (!out.ok || !saved.ok) {
+    quotes.fail(db, q.id); // (released: never a charge for a change that was not made)
+    const e = out.ok ? saved : out;
+    return bridgeError(res, e.status || 422, e.code || 'edit_failed', `${e.message || 'Nothing was changed.'}`.replace(/\.?$/, '.'), Object.assign({ creditsCharged: 0, creditsRemaining: remain() }, e.currentRevision != null ? { currentRevision: e.currentRevision } : {}));
+  }
+  quotes.settle(db, q.id, {});
+  const result = { ok: true, revision: saved.project.revision, changeSummary: [].concat(out.changeSummary || out.summary || []), creditsCharged: q.credits };
+  rememberPaid(opId, result);
+  return res.json(Object.assign({}, result, { creditsRemaining: remain() }));
+});
+
+app.get('/api/app-bridge/website/:projectId/creative/jobs', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const rows = db.premiumJobs.forProject(req.accountId, got.project.id);
+  // (a job that should be running but has no scheduled check in this process -- a restart -- is picked up again)
+  rows.filter(r => premiumJobs.ACTIVE.has(r.status) && !premiumWorker.scheduled().includes(r.id)).forEach(r => premiumWorker.kick(r.id, 50));
+  const project = attachFinishedJobs(req.accountId, got.project, got.directionIndex);
+  const mine = r => r.mode === 'model3d' || (quotes.get(db, req.accountId, r.quote_id) || {}).operation === 'premium_media';
+  return res.json({ ok: true, revision: project.revision, jobs: rows.filter(mine).slice(0, 10).map(r => jobView(db.premiumJobs.find(r.id))), creditsRemaining: creditsRemainingFor(req.accountId) });
+});
+
+// the page that draws the 3D model's cinematic still (cinematic-source.js RENDER) with the 3D engine, in the owner's
+// browser -- the same engine path the studio uses -- and hands the PNG to the page that opened it (postMessage). The
+// model and the engine are inlined: nothing is fetched, no address of this server is in it.
+app.get('/api/app-bridge/website/:projectId/creative/still', appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const c = creativeEditor.creativeOf(got.direction); const model = cinematicSource.modelFor(c.threeD, c.assets);
+  if (!model || !model.assetRef || !db.assetBlobs.find(model.assetRef)) return bridgeError(res, 404, 'model3d_unavailable', cinematicSource.MESSAGES.unavailable);
+  const glb = getAssetStore().get(model.assetRef); let engine;
+  try { engine = fs.readFileSync(path.join(__dirname, 'vendor', 'three-d', 'sr3d.min.js')); } catch (e) { return bridgeError(res, 503, 'engine_unavailable', 'The 3D engine is not available on this server.'); }
+  const spec = JSON.stringify(Object.assign({ model: 'data:model/gltf-binary;base64,' + glb.toString('base64'), maxBytes: threeD.schema.LIMITS.modelBytes }, cinematicSource.RENDER)).replace(/</g, '\\u003c');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>3D still</title></head><body style="margin:0"><script>${engine.toString('utf8').replace(/<\/script/gi, '<\\/script')}</script><script>(function(){var S=${spec};function say(m){try{parent.postMessage(m,'*')}catch(e){}}try{window.SiteRemade3D.still(S).then(function(r){say({type:'sr-3d-still',modelId:${JSON.stringify(model.id)},dataUrl:r.dataUrl,width:r.width,height:r.height})},function(e){say({type:'sr-3d-still',error:String(e&&e.message||e).slice(0,120)})})}catch(e){say({type:'sr-3d-still',error:'engine'})}})();</script></body></html>`;
+  res.set({ 'Cache-Control': 'no-store', 'X-SiteRemade-Model': model.id }); return res.type('html').send(html);
 });
 
 // Builder-side publish for the Creative generator. This freezes the owner's current
