@@ -17,7 +17,9 @@ const { pathToFileURL } = require('url');
 const job = JSON.parse(fs.readFileSync(process.argv[process.argv.length - 1], 'utf8'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 app.disableHardwareAcceleration();
-const VIEWS = [['desktop', 1440, 900, false], ['tablet', 768, 1024, true], ['p320', 320, 640, true], ['p360', 360, 760, true], ['p375', 375, 812, true], ['p390', 390, 844, true], ['p412', 412, 900, true], ['p430', 430, 932, true]];
+const VIEWS_ALL = [['desktop', 1440, 900, false], ['tablet', 768, 1024, true], ['p320', 320, 640, true], ['p360', 360, 760, true], ['p375', 375, 812, true], ['p390', 390, 844, true], ['p412', 412, 900, true], ['p430', 430, 932, true]];
+// (job.views: only these views -- e.g. ['desktop', 'p390'] for a quick review)
+const VIEWS = Array.isArray(job.views) ? VIEWS_ALL.filter(v => job.views.includes(v[0])) : VIEWS_ALL;
 
 const MEASURE = `(() => {
   const vw = document.documentElement.clientWidth, vh = innerHeight; const out = { overflowX: document.scrollingElement.scrollWidth - vw, textOff: [], crops: [], scaleMax: 1 };

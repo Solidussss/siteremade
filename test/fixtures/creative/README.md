@@ -15,3 +15,7 @@ The studio and the rendered page both carry a visible TEST FIXTURE label wheneve
 
 `fixture-grumpy-cat-ccbysa.jpg` stands in for an owner's upload in the art-direction review's meme-shrine brief
 (`creative-briefs-art.js`): Wikimedia Commons, [File:Grumpy Cat by Gage Skidmore.jpg](https://commons.wikimedia.org/wiki/File:Grumpy_Cat_by_Gage_Skidmore.jpg), Gage Skidmore (960px thumbnail), CC BY-SA 3.0. That run is labelled as a test fixture.
+
+`legacy-pre-direction.json` is data, not a picture: six Creative pages (one per subject in `test/helpers/creative-subjects.js`, seed 1)
+exactly as the code saved them before creative direction existed (commit 1f40e12). `test/creative-direction.test.js` reopens
+them with the current code and requires them byte-identical -- old pages never gain an idea, a review or beats. Never regenerate it.

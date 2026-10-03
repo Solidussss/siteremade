@@ -3127,12 +3127,14 @@ function threeDSource(accountId, projectId, assetId, sectionId) {
   const bad = require('./lib/three-d/providers/tripo').inputProblem({ mime: hs.mime, bytes: buf.length });
   if (bad) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (${bad})`);
   if (Math.min(hs.width, hs.height) < threeD.schema.SOURCE.minShort) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (the upload is too small for a 3D model)`);
-  // the section the model stands in: the one asked for, else the first after the opening that shows this subject's picture
+  // the section the model stands in: the one asked for, else the one the page's concept planned for it (plan.idea.model,
+  // when it shows this picture), else the first after the opening that shows this subject's picture
   // (every picture on the page that comes from this photo -- its cut-out, a copy, a copy of its cut-out -- is its placement)
   const family = new Set(assets.filter(x => { const r = threeD.schema.rootPicture(x, byId); return r && r.id === a.id; }).map(x => x.id));
   const shows = s => (s.layers || []).some(L => L && L.kind === 'image' && family.has(L.asset));
   const scenes = c.plan.scenes; const asked = scenes.find(s => s.id === sectionId);
-  const section = asked || scenes.find((s, i) => i > 0 && shows(s)) || scenes.find(shows) || scenes[1] || scenes[0];
+  const pm = c.plan.idea && c.plan.idea.model; const planned = pm ? scenes.find(s => s.id === pm.scene && shows(s)) : null;
+  const section = asked || planned || scenes.find((s, i) => i > 0 && shows(s)) || scenes.find(shows) || scenes[1] || scenes[0];
   if (!section) return no('no_page', 'This page has no section for a 3D model.');
   if (c.threeD && (c.threeD.scenes || []).some(s => s.sectionId === section.id)) return no('limit', 'That section already shows a 3D model.');
   return { ok: true, source: { assetId: a.id, ref: a.assetRef, mime: hs.mime, bytes: buf.length }, sectionId: section.id, subject: clean((c.understanding && c.understanding.subject) || '', 120) };
@@ -3527,9 +3529,26 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
       continuityMeta = { choreography: 'fallback', critic: 'off', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] };
     }
   }
+  // THE WHOLE-PAGE REVIEW (lib/creative/direction.js): the rules already judged the page as one composition and repaired its
+  // weakest scenes; ONE cheap creative-director call now reviews the finished page and may choose up to three of the repairs
+  // the rules allow -- inside what this direction may still spend, never retried; a failure keeps the reviewed page
+  let reviewMeta = null;
+  if (r && r.ok) {
+    const spent = (r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0);
+    const held1 = credits.findOperation(db, directionOpId);
+    try {
+      const rv = await creativeAi.review(r.plan, input, {
+        limits: CREATIVE_AI_LIMITS, call: creativeModelCall,
+        ceilingUsd: held1 ? Math.max(0, pricing.providerCeilingUsd(held1.amount) - spent) : 0,
+        budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
+        onUsage: x => creativeLedger({ kind: 'creative_director_review', accountId: req.accountId, ok: true, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true }),
+      });
+      r.plan = rv.plan; reviewMeta = rv.meta;
+    } catch (error) { reviewMeta = { review: 'fallback', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] }; }
+  }
   releaseBudget();
-  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0)).toFixed(5);
-  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}) };
+  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0)).toFixed(5);
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}), ...(reviewMeta ? { review: reviewMeta } : {}) };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });

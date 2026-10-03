@@ -197,8 +197,9 @@ test('6. the main picture opens the page and the last scene calls back to it -- 
     const again = P.scenes.slice(1).filter(s => s.layers.some(L => L.kind === 'image' && ['u1', 'c-u1'].includes(L.asset)));
     assert.ok(again.every(s => s === P.scenes[P.scenes.length - 1] && s.layers.some(L => L.callback)), `${P.art.recipe}: the main picture returns only as the marked callback`);
   });
-  // a page saved before looks keeps its echoes exactly as it was (renderer compatibility)
-  const P = JSON.parse(JSON.stringify(page('1'))); delete P.look; const h = html(P);
+  // a page saved before looks keeps its echoes exactly as it was (renderer compatibility) -- a page with a resting scene to
+  // echo into (since direction.js some pages are recomposed so that no scene is an empty rest: seed 4 keeps one)
+  const P = JSON.parse(JSON.stringify(page('4'))); delete P.look; const h = html(P);
   // (a rest that is itself a composition, or whose own picture fills half the screen, is not an empty field)
   const cover = s => s.layers.filter(L => L.kind === 'image').reduce((t, L) => t + (L.box.d[2] * L.box.d[3]) / 10000, 0);
   P.scenes.forEach((s, i) => { if (i && ['rest', 'acceleration'].includes(P.timeline.rhythm[i]) && !(P.actor && i >= P.actor.from && i <= P.actor.to) && !s.composition && cover(s) < 0.5) assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-echo`), `scene ${i + 1} rests with an echo`); });

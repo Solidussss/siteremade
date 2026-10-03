@@ -7,6 +7,7 @@
 //   | claims (the claim check always finds the "Closer" heading unsupported: repair, then it is taken out)
 //   | curate-none (the picture check finds nothing showing the subject)
 // The continuity pass: MOCK_CONTINUITY = ok | error | junk | reset; its critic: MOCK_CRITIC = ok | none | error.
+// The whole-page review: MOCK_REVIEW = ok (the first offered repair) | none | error | junk (unoffered repair, unknown codes).
 // A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
 // type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
 function payload(body) {
@@ -151,6 +152,14 @@ function respond(body, env, counters) {
     if (cm === 'reset' && contracts[0]) Object.assign(contracts[0], { family: 'cut', intent: 'reset' });
     const input = cm === 'junk' ? { contracts: [{ at: 99, family: 'teleport' }], hero: { end: 'explode' } } : { contracts, hero: { end: 'static-frame' }, spatialUseful: [1] };
     return { status: 200, body: { model: 'mock-creative-continuity', usage: { input_tokens: 4200, output_tokens: 800 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `ct${counters.continuity}`, name: tool, input }] } };
+  }
+  if (tool === 'submit_creative_review') {
+    counters.review = (counters.review || 0) + 1; const km = env.MOCK_REVIEW || 'ok';
+    if (km === 'error') return { status: 500, body: { error: { message: 'mock: review down' } } };
+    const data = payload(body).data; const sc = (data.scenes || []).find(x => (x.options || []).length);
+    const input = km === 'junk' ? { verdict: 'magnificent', findings: [{ code: 'too-pretty', scene: 99 }], repairs: [{ scene: 0, to: 'marquee-of-doom' }] }
+      : { verdict: (data.found || []).length ? 'almost' : 'art-directed', findings: [], repairs: km === 'none' || !sc ? [] : [{ scene: sc.i, to: sc.options[0] }] };
+    return { status: 200, body: { model: 'mock-creative-review', usage: { input_tokens: 2600, output_tokens: 140 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `rv${counters.review}`, name: tool, input }] } };
   }
   if (tool === 'submit_creative_continuity_fixes') {
     // the critic (labelled mock). MOCK_CRITIC = ok (default: fixes exactly what the rules found) | none | error

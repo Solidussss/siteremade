@@ -193,7 +193,8 @@ test('7. an aggressive crop happens only when it is planned (an explicit detail 
   const pos = g.focus.split(' ').map(p => parseFloat(p) / 100); const v = 1 - g.crop; const top = pos[1] * (1 - v);
   if (g.fit === 'cover' && FR.coverCrop(person.assess.aspect, 60 * 1.6 / 100).axis === 'y') assert.ok(top <= 0.1 + 1e-6, 'the crop window starts at or above the head');
   // the renderer carries the budget and the subject so the runtime guard holds them on any viewport
-  const html = renderCreative2(page('Doughnut', 'a playful page about doughnuts', 'playful', '3').plan, ASSETS, { mode: 'export', src: a => a.id + '.jpg' });
+  // (a page that crops a picture -- seed 3's whole-page review now stands every picture whole, so seed 1)
+  const html = renderCreative2(page('Doughnut', 'a playful page about doughnuts', 'playful', '1').plan, ASSETS, { mode: 'export', src: a => a.id + '.jpg' });
   assert.match(html, /data-crop="0\.\d+"/); assert.match(html, /function guard\(img\)/); assert.match(html, /if\(crop>max\+\.08\)\{img\.style\.objectFit='contain'/);
 });
 

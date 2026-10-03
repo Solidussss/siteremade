@@ -238,10 +238,10 @@ test('server (MOCK provider): understanding before research, a validated directi
     assert.equal(p.body.ok, true); assert.equal(p.body.plan.v, 2);
     assert.equal(p.body.plan.direction.source, 'mock', 'a mock is never labelled as AI direction');
     assert.ok(p.body.meta.usdEstimated > 0);
-    for (let i = 0; i < 40 && ledger(dir).length < 5; i++) await new Promise(res => setTimeout(res, 50));
+    for (let i = 0; i < 40 && ledger(dir).length < 6; i++) await new Promise(res => setTimeout(res, 50));
     const rows = ledger(dir);
-    // (the continuity pass costs its own two rows: one choreography call, one critic call)
-    assert.deepEqual(rows.map(x => x.kind), ['creative_understand', 'creative_research', 'creative_direct', 'creative_continuity', 'creative_continuity_critic']);
+    // (the continuity pass costs its own two rows: one choreography call, one critic call; the whole-page review one)
+    assert.deepEqual(rows.map(x => x.kind), ['creative_understand', 'creative_research', 'creative_direct', 'creative_continuity', 'creative_continuity_critic', 'creative_director_review']);
     assert.ok(rows.every(x => x.estimated !== false)); assert.equal(rows[2].estimated, true);
   });
 });
