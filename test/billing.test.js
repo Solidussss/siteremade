@@ -141,7 +141,7 @@ test('credits, not plans: a new account has its one-time trial; a Business websi
   await withServer({}, async ({ port, calls }) => {
     const call = await signUp(port);
     const start = await balance(call);
-    assert.equal(start.plan, 'credits'); assert.equal(start.remaining, 6); assert.equal(start.trial.oneTime, true); assert.equal(start.subscription, null);
+    assert.equal(start.plan, 'credits'); assert.equal(start.remaining, 6); assert.equal(start.trial.oneTime, true); assert.equal('subscription' in start, false);
     assert.deepEqual([start.costs.businessGeneration, start.costs.creativePage, start.costs.aiUpdate, start.costs.imageSupport, start.costs.imagePremium, start.costs.manualEdit], [4, 6, 1, 1, 2, 0]);
     const r = await call('POST', '/api/plan-website', { text: TEXT, generationId: 'gen_free0aa' });
     assert.equal(r.body.ok, true, JSON.stringify(r.body)); assert.equal(r.body.creditsCharged, 4); assert.equal(r.body.creditsRemaining, 2);
@@ -247,69 +247,21 @@ test('parallel generations can never overspend: 12 credits buy exactly three Bus
   });
 });
 
-// ------------------------------------------------------------------------------------------------ legacy subscribers
-test('no subscription is required or sold: a legacy Workspace subscriber keeps the month already paid for; the app reads the same balance; an app update runs only with a confirmed quote', async () => {
-  await withServer({ MOCK_REFINEMENT_COPY: 'Gentle skincare, made in Vancouver' }, async ({ port, app, calls }) => {
-    app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_test_1', workspaceId: 'ws_1', cancelAtPeriodEnd: false }, period(-10, 20));
+// ------------------------------------------------------------------------------------------------ no Workspace subscription
+test('no Workspace subscription exists: linked app users have the same credit-only balance and app updates still require a confirmed quote', async () => {
+  await withServer({ MOCK_REFINEMENT_COPY: 'Gentle skincare, made in Vancouver' }, async ({ port, calls }) => {
     const call = await appUser(port);
     const builder = await balance(call);
-    assert.equal(builder.plan, 'credits'); assert.equal(builder.remaining, 106, 'the legacy month (100) + the trial (6)');
-    assert.equal(builder.subscription.legacy, true); assert.equal(builder.subscription.credits, 100);
-    for (let i = 0; i < 3; i++) assert.equal((await balance(call)).remaining, 106, 'asking again never grants again');
+    assert.equal(builder.plan, 'credits'); assert.equal(builder.remaining, 6);
+    assert.equal('subscription' in builder, false);
     const inApp = await call('GET', '/api/app-bridge/credits?refresh=1', null, bearer());
-    assert.equal(inApp.status, 200); assert.equal(inApp.body.credits.remaining, 106); assert.equal(inApp.body.subscriptionRequired, false);
-    assert.deepEqual(inApp.body.credits.costs, builder.costs);
-    assert.deepEqual([inApp.body.catalog.websites.business.cents, inApp.body.catalog.websites.creative.cents], [14999, 49999]);
+    assert.equal(inApp.status, 200); assert.equal(inApp.body.credits.remaining, 6); assert.equal(inApp.body.subscriptionRequired, false);
     const project = await saveProject(call, 'Glow Theory', await businessDirection());
     const request = 'Give the homepage a fresh hero photo.';
-    const before = openai(calls); const planned = anthropic(calls);
+    const planned = anthropic(calls);
     const ask = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request }, Object.assign({ 'idempotency-key': 'app-edit-1' }, bearer()));
-    assert.equal(ask.status, 409); assert.equal(ask.body.error.code, 'confirmation_required'); assert.ok(ask.body.error.quote.credits >= 1);
-    assert.equal(anthropic(calls), planned, 'nothing runs before the owner approves'); assert.equal((await balance(call)).remaining, 106);
-    const q = await call('POST', '/api/app-bridge/quotes', { operation: 'website_update', request, projectId: project.id }, bearer());
-    assert.equal(q.status, 200); assert.equal(q.body.quote.credits, ask.body.error.quote.credits, 'the same price from the app quote');
-    const edit = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request, quoteId: q.body.quote.id }, Object.assign({ 'idempotency-key': 'app-edit-1' }, bearer()));
-    assert.equal(edit.status, 200, JSON.stringify(edit.body)); assert.equal(edit.body.creditsCharged, q.body.quote.credits, 'the quoted price; the requested picture is not generated');
-    assert.equal((await balance(call)).remaining, 106 - q.body.quote.credits);
-    const retried = await call('POST', `/api/app-bridge/website/${project.id}/edits`, { baseRevision: project.revision, request, quoteId: q.body.quote.id }, Object.assign({ 'idempotency-key': 'app-edit-1' }, bearer()));
-    assert.equal(retried.body.replayed, true); assert.equal(openai(calls), before); assert.equal((await balance(call)).remaining, 106 - q.body.quote.credits);
-    assert.equal(app.state.rejected, 0);
-    app.state.bodies.forEach(b => assert.deepEqual(Object.keys(b), ['supabaseUserId']));
-  });
-});
-
-test('legacy subscriptions wind down safely: cancellation ends only that month\'s plan credits; stale answers never restore; payment failure grants nothing; projects and purchases stay', async () => {
-  await withServer({}, async ({ port, app }) => {
-    const P1 = period(-10, 20);
-    app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_a', workspaceId: 'ws_1', cancelAtPeriodEnd: false }, P1);
-    const call = await appUser(port, 'test-access-token-2');
-    assert.equal((await balance(call)).remaining, 106);
-    const project = await saveProject(call, 'Kept', await businessDirection());
-    app.state.entitlement = Object.assign({}, app.state.entitlement, { cancelAtPeriodEnd: true });
-    const scheduled = await balance(call);
-    assert.equal(scheduled.remaining, 106); assert.equal(scheduled.subscription.renewsAt, null); assert.equal(scheduled.subscription.endsAt, P1.periodEnd);
-    app.state.entitlement = Object.assign({}, app.state.entitlement, { status: 'canceled' });
-    const cancelled = await balance(call);
-    assert.equal(cancelled.plan, 'credits'); assert.equal(cancelled.remaining, 6);
-    assert.ok((await call('GET', '/api/projects')).body.projects.some(p => p.id === project.id), 'cancellation never deletes a project');
-    app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_a', workspaceId: 'ws_1', cancelAtPeriodEnd: false }, P1);
-    assert.equal((await balance(call)).remaining, 6);
-    app.state.entitlement = Object.assign({ status: 'past_due', subscriptionId: 'sub_b', workspaceId: 'ws_1', cancelAtPeriodEnd: false }, period(-1, 29));
-    const pastDue = await balance(call);
-    assert.equal(pastDue.remaining, 6); assert.equal(pastDue.subscription.paymentProblem, true);
-  });
-});
-
-test('fail closed: without the shared secret, or with an answer that is not signed correctly, an account simply has its own credits', async () => {
-  await withServer({ SITEREMADE_BILLING_SECRET: '' }, async ({ port, app }) => {
-    app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_x', workspaceId: 'ws_1' }, period(-1, 29));
-    const c = await balance(await appUser(port, 'test-access-token-3'));
-    assert.equal(c.plan, 'credits'); assert.equal(c.remaining, 6); assert.equal(c.billingVerified, false); assert.equal(app.state.calls, 0);
-  });
-  await withServer({ SITEREMADE_BILLING_SECRET: 'not-the-app-secret' }, async ({ port, app }) => {
-    app.state.entitlement = Object.assign({ status: 'active', subscriptionId: 'sub_x', workspaceId: 'ws_1' }, period(-1, 29));
-    const c = await balance(await appUser(port, 'test-access-token-4'));
-    assert.equal(c.plan, 'credits'); assert.equal(c.remaining, 6); assert.ok(app.state.rejected > 0);
+    assert.equal(ask.status, 409); assert.equal(ask.body.error.code, 'confirmation_required');
+    assert.equal(anthropic(calls), planned, 'nothing runs before the owner approves');
   });
 });
 
@@ -374,7 +326,7 @@ test('an owned website stays downloadable with zero credits and no subscription'
     const bought = await call('POST', '/api/checkout', { projectId: project.id, businessName: 'Owned' });
     assert.equal(bought.body.testerPurchase, true); assert.equal(bought.body.fulfilled, true);
     const b = await balance(call);
-    assert.equal(b.remaining, 0, 'a tester purchase is not a payment: no first-website bonus'); assert.equal(b.subscription, null);
+    assert.equal(b.remaining, 0, 'a tester purchase is not a payment: no first-website bonus'); assert.equal('subscription' in b, false);
     exportedDeployment(await call('POST', `/api/projects/${project.id}/export`));
     exportedDeployment(await call('POST', `/api/projects/${project.id}/export`));
     assert.ok((await call('GET', '/api/projects')).body.projects.some(p => p.id === project.id && p.status === 'purchased'));
