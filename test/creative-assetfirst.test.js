@@ -41,6 +41,10 @@ function page(seed, assets, extra) {
 }
 const SEEDS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const shown = (P, i) => P.scenes[i].layers.filter(L => L.kind === 'image').map(L => L.asset).concat(P.actor && i >= P.actor.from && i <= P.actor.to ? [P.actor.asset] : []);
+// (what a page shows ONCE: its pictures, without the closing scene's one marked callback -- the image ledger's only
+// exception, at most one, in the last scene)
+const once = (P, i) => (P.actor && i > P.actor.from && i <= P.actor.to ? [] : P.scenes[i].layers.filter(L => L.kind === 'image' && !L.callback).map(L => L.asset).concat(P.actor && i === P.actor.from ? [P.actor.asset] : []));
+const callbacksOk = P => { const cb = P.scenes.flatMap((s, i) => s.layers.filter(L => L.callback).map(() => i)); return cb.length <= 1 && cb.every(i => i === P.scenes.length - 1); };
 const html = (P, extra) => renderCreative2(P, (extra && extra.assets) || ASSETS, Object.assign({ mode: 'export', src: a => `${a.id}.png` }, extra || {}));
 
 // ================================================================ 1. one pool
@@ -62,12 +66,14 @@ test('1. one pool: discovered and uploaded pictures together -- neither replaces
 });
 
 // ================================================================ 2. every picture on the page, none as filler, the logo never
-test('2. with 1 discovered + 3 uploads every picture is used, the logo never appears in a scene, and no scene is words alone', () => {
+test('2. with 1 discovered + 3 uploads every picture is used ONCE, the logo never appears in a scene, and a scene past the pictures is carried by its words', () => {
   SEEDS.forEach(seed => {
-    const P = page(seed).plan; const used = new Set(P.scenes.flatMap((s, i) => shown(P, i)).map(base));
+    const P = page(seed).plan; const all = P.scenes.flatMap((s, i) => once(P, i)).map(base); assert.ok(callbacksOk(P), 'at most one callback, in the closing scene'); const used = new Set(all);
     assert.deepEqual([...used].sort(), ['r1', 'u1', 'u2', 'u3'], `${P.art.recipe}: every picture in the pool is used`);
+    assert.equal(all.length, used.size, `${P.art.recipe}: each picture appears once (the image ledger) -- ${all.join(',')}`);
     assert.ok(!used.has('lg'), 'the logo is never a scene picture');
-    P.scenes.forEach((s, i) => assert.ok(shown(P, i).length, `${P.art.recipe}: scene ${i + 1} (${s.layout}) shows a picture`));
+    assert.ok(shown(P, 0).length, `${P.art.recipe}: the opening shows a picture`);
+    P.scenes.forEach((s, i) => assert.ok(shown(P, i).length || s.text.heading || s.text.body || s.text.items.length, `${P.art.recipe}: scene ${i + 1} (${s.layout}) has a picture or words`));
   });
   // the director putting the logo in a scene is corrected
   const raw = JSON.parse(JSON.stringify(page('1').plan)); raw.scenes[1].layers.unshift({ kind: 'image', role: 'focal', asset: 'lg', box: { d: [0, 0, 50, 50], m: [0, 0, 50, 50] } });
@@ -145,7 +151,11 @@ test('6. colour comes from the pictures: each scene\'s surface is its picture\'s
   // on the page: the surfaces follow the pictures, scene by scene
   SEEDS.slice(0, 4).forEach(seed => {
     const P = page(seed).plan;
-    P.scenes.forEach(s => { if (!s.visual || !s.visual.palette || s.background !== 'base') return; assert.ok(Math.abs(PAL.hsl(s.ink.surface).h - PAL.hsl(s.visual.palette).h) < 0.08 || PAL.describe(s.visual.palette).neutral, `${P.art.recipe}: ${s.id} ${s.ink.surface} follows ${s.visual.palette}`); });
+    // (a page with the brand's colour field -- look.js -- stands a free subject, a cut-out, on one of the brand's colours;
+    // a photograph keeps its own world)
+    const field = P.look && P.look.devices.includes('colour-field') ? [P.look.brand.primary, P.look.brand.light, P.look.brand.deep] : [];
+    const byIdP = new Map(ASSETS.map(a => [a.id, a])); const freeOnly = s => s.layers.filter(L => L.kind === 'image').every(L => (byIdP.get(L.asset) || {}).cutout);
+    P.scenes.forEach(s => { if (s.background === 'base' && field.includes(s.ink.surface)) { assert.ok(freeOnly(s), `${s.id}: only a free subject stands on a brand field`); return; } if (!s.visual || !s.visual.palette || s.background !== 'base') return; assert.ok(Math.abs(PAL.hsl(s.ink.surface).h - PAL.hsl(s.visual.palette).h) < 0.08 || PAL.describe(s.visual.palette).neutral, `${P.art.recipe}: ${s.id} ${s.ink.surface} follows ${s.visual.palette}`); });
   });
   const h = html(page('1').plan);
   assert.match(h, /<html[^>]* data-flowall/, 'one continuous surface'); assert.match(h, /html\.cr-js\[data-flowall\]:not\(\[data-motion="reduced"\]\) \.sc\{background:transparent!important\}/);
@@ -193,14 +203,18 @@ test('8. a premium hero video: planned from the main picture before it exists; s
 });
 
 // ================================================================ 9. weak discovery
-test('9. a weak search (one picture, or one + one upload) still makes a picture-led page: its pictures reused through different framings', () => {
-  const one = [SUNSET]; let pics = 0, scenes = 0;
-  SEEDS.forEach(seed => { const P = page(seed, one, { mainAsset: null }).plan; P.scenes.forEach((s, i) => { scenes++; if (shown(P, i).length) pics++; }); });
-  assert.ok(pics / scenes >= 0.75, `${pics} of ${scenes} scenes show the one picture`);
+test('9. a weak search (one picture, or one + one upload) still makes a page led by its picture: shown once, never repeated as filler -- the other scenes are carried by words and colour', () => {
+  for (const set of [[SUNSET], [SUNSET, BOX, BOXCUT]]) {
+    const n = new Set(set.map(a => base(a.id))).size;
+    SEEDS.forEach(seed => {
+      const P = page(seed, set, { mainAsset: null }).plan; const all = P.scenes.flatMap((s, i) => once(P, i)).map(base); assert.ok(callbacksOk(P), 'at most one callback, in the closing scene');
+      assert.ok(shown(P, 0).length, `${P.art.recipe}: the opening shows the picture`);
+      assert.equal(all.length, new Set(all).size, `${P.art.recipe}: no picture repeated (${all.join(',')})`); assert.ok(new Set(all).size <= n);
+      P.scenes.forEach(s => assert.ok(!P.scenes.some(x => x !== s) || s.text.heading || s.layers.length));
+    });
+  }
+  // (the saved pages made before the ledger keep the old allowance when they are reopened: validate2 safety)
   assert.equal(POOL.photoUses(1), 4); assert.equal(POOL.photoUses(2), 3); assert.equal(POOL.photoUses(5), 2);
-  const two = [SUNSET, BOX, BOXCUT]; pics = 0; scenes = 0;
-  SEEDS.forEach(seed => { const P = page(seed, two, { mainAsset: null }).plan; P.scenes.forEach((s, i) => { scenes++; if (shown(P, i).length) pics++; }); });
-  assert.ok(pics / scenes >= 0.85, `${pics} of ${scenes} scenes show a picture`);
 });
 
 // ================================================================ 10. the server, asset-first, mocked

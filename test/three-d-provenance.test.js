@@ -101,7 +101,8 @@ test('PROV-4. a copy of the cut-out on the page leads to the upload; an upload u
     // (the extra pictures are small: what matters here is who they are, not their pixels -- the page must stay under the
     // project store's size limit)
     const copy = Object.assign({}, c.assets[1], { id: 'pv-hero-c-bottle', derivedFrom: 'c-bottle', dataUrl: small('copy') }); delete copy.cutoutOf; delete copy.cutout; copy.origin = 'derived';
-    const section = c.plan.scenes.find((s, i) => i > 0 && s.layers.some(L => L.asset === 'c-bottle'));
+    const showsBottle = s => s.layers.some(L => L.asset === 'c-bottle'); // (the opening, and the closing callback when the page ends on one)
+    const section = c.plan.scenes.find((s, i) => i > 0 && showsBottle(s)) || c.plan.scenes.find(showsBottle);
     section.layers.forEach(L => { if (L.asset === 'c-bottle') L.asset = copy.id; });
     // an unused second upload; an unrelated derived picture (a cut-out of a web picture) on the page; a web picture
     const unused = Object.assign({}, big, { id: 'u-unused', title: 'another photo', dataUrl: 'data:image/png;base64,' + require('./fixtures/three-d/make-fixture').productPhoto(600, 750, false).toString('base64'), assess: Object.assign({}, big.assess, { width: 600, height: 750 }) });

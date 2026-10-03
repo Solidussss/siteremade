@@ -192,8 +192,11 @@ test('6. overlap: the next scene starts while the last is leaving -- bounded, ne
   const k = contractAt(r.plan, 1); assert.deepEqual(k.overlap, { from: -0.45, to: 0.15 });
   const prim = r.plan.timeline.actors.find(a => a.role === 'primary');
   assert.ok(prim.keys.some(x => x.g === 0.55) && prim.keys.some(x => x.g === 1.15), JSON.stringify(prim.keys.map(x => x.g)));
-  // the rendered seam elements play across their contract's window
-  const wipe = withTl.concat(MORE_PAGES()).find(x => x.plan.timeline.transitions.some(t => t.family === 'foreground-wipe'));
+  // (a new page never crosses a seam with a flat shape -- look.js -- its seams are made of its pictures and colour)
+  withTl.forEach(x => assert.ok(!x.plan.timeline.transitions.some(t => ['foreground-wipe', 'shape-takeover'].includes(t.family)), x.plan.art.recipe));
+  // the rendered seam elements play across their contract's window (a page saved before looks keeps its wipe)
+  const saved = JSON.parse(JSON.stringify(withTl[0].plan)); delete saved.look; saved.timeline.transitions[0].family = 'foreground-wipe';
+  const wipe = { plan: saved };
   const t = wipe.plan.timeline.transitions.find(x => x.family === 'foreground-wipe'); const kw = contractAt(wipe.plan, t.at);
   assert.match(html(wipe.plan), new RegExp(`class="cs cs-wipe" data-at="${t.at}" data-lead="\\.3" data-span="${Math.round((kw.overlap.to - kw.overlap.from) * 100) / 100}" data-end="${kw.overlap.to}"`));
   assert.match(html(wipe.plan), /e0=sc\._top\+S\.end\*vh/, 'the runtime ends the seam where its contract says');
@@ -213,7 +216,7 @@ test('7. the hero video hands into the page: planned at direction time, it settl
   // the video arrives (premium media delivered): the hero scene hands it over
   const withVideo = ASSETS.map(a => (a.id === heroId ? Object.assign({}, a, { video: { mediaId: 'pm_test_000001', assetRef: 'a'.repeat(64), mime: 'video/mp4', intent: 'cinematic_hero' } }) : a));
   const h = html(planned, { assets: withVideo, videoSrc: a => (a.video ? `${a.id}.mp4` : '') });
-  assert.match(h, /<section class="sc cr-hero"[^>]*data-vh="detail-crop"/); assert.match(h, /<video class="ly-vid"/);
+  assert.match(h, /<section class="sc cr-hero"[^>]*data-vh="detail-crop"/); assert.match(h, /<video class="(ly-vid|shv-vid)"/);
   assert.match(h, /\.sc\[data-vh\] \.ly-vid\{opacity:calc\(1 - min\(1, var\(--sx,0\) \* 1\.6\)\)\}/, 'it settles into its still frame as the hero leaves');
   assert.match(h, /s\._seam=s\.hasAttribute\('data-seam-in'\)\|\|s\.hasAttribute\('data-seam-out'\)\|\|s\.hasAttribute\('data-vh'\)/);
   // the model's choice is checked: "subject-centred" needs the subject to continue -- here it does not

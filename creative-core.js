@@ -1281,9 +1281,10 @@
     //       pool.excluded   [{ id, reason }]
     //       pool.counts     { discovered, uploaded, picked, premium, total }
     //   assign(scenes, pool, opts) -> per recipe scene { asset, assets, colour, subject, relation } | null: the visual plan.
-    //     The main picture opens; every picture in the pool is shown before any is repeated; neighbouring scenes are ordered so
-    //     their colours lead into each other; the last scene returns to the main picture (the page closes on what it opened
-    //     with). Multi-picture layouts take several. Scenes that carry no pictures by design get none.
+    //     The main picture opens; every picture in the pool is shown ONCE (the image ledger -- a cut-out is the same picture,
+    //     a gallery's set counts too); neighbouring scenes are ordered so their colours lead into each other. Multi-picture
+    //     layouts take several. Scenes that carry no pictures by design, or that come after the pictures run out, get none --
+    //     except the closing scene, which may return to the main picture as the page's one marked callback.
     // Browser-safe (bundled into creative-core.js); data only.
 
     const F = require('./framing');
@@ -1361,9 +1362,9 @@
     function assign(scenes, pool, opts) {
       const o = opts || {}; const P = (pool && pool.pictures) || []; if (!P.length) return scenes.map(() => null);
       const main = pool.main ? P.find(p => p.id === pool.main.id) : P[0];
-      // (a photo may appear twice; a picture with a clean cut-out a third time -- as its cut-out: validate2's own limits; a
-      // small pool reuses its pictures more, through different framings, rather than leave scenes without one)
-      const uses = new Map(); const limit = p => photoUses(P.length) + (p.cut ? 1 : 0); const left = p => (uses.get(p.id) || 0) < limit(p);
+      // (every picture appears once -- as itself or as its cut-out, never both: a crop, an echo or a cut-out of a picture
+      // already shown is the same picture shown again. A small pool leaves scenes to their words and colour instead)
+      const uses = new Map(); const left = p => !uses.get(p.id);
       const asset = new Map(); let layoutNow = '';
       const note = p => { const n = uses.get(p.id) || 0; asset.set(p, (FREE.includes(layoutNow) || n >= 2) && p.cut ? p.cut : p.id); uses.set(p.id, n + 1); return p; };
       const pickAsset = p => asset.get(p);
@@ -1380,17 +1381,22 @@
       const last = scenes.length - 1;
       return scenes.map((s, i) => {
         const layout = s && s.layout; if (!layout || NONE.includes(layout)) return null;
-        layoutNow = layout; let picks;
+        layoutNow = layout; let picks; let callback = false;
         if (i === 0 && main) picks = [main];
-        else if (i === last && main && left(main) && i > 1 && !TAKES[layout]) picks = [main];
         else picks = next(TAKES[layout] || 1);
+        // THE ONE NARRATIVE CALLBACK: when the pool has nothing left to show, the closing scene returns to the opening picture --
+        // marked as a callback (the only repeat the image ledger allows), so the page ends on its payoff, not on an empty stage
+        if (!picks.length && i === last && main && i > 1) { picks = [main]; callback = true; }
         if (!picks.length) return null;
         // (a gallery-type scene shows the set: only its lead picture counts as an appearance -- validate2 counts the same)
-        picks.forEach((p, k) => { if (k === 0 || (TAKES[layout] || 0) < 3) note(p); else asset.set(p, p.id); });
+        // (a multi-picture scene's lead claims its picture; the others may yet be left out by the composition the scene ends up
+        // with, so they stay available to lead a later scene -- the image ledger over the finished page keeps each picture to
+        // one appearance: validate2 applyLook)
+        picks.forEach((p, k) => { if (k === 0) note(p); else asset.set(p, p.id); });
         const lead = picks[0];
         const relation = i === 0 ? 'opens' : lead.id === prevBase ? 'continues' : i === last && main && lead.id === main.id ? 'returns' : PAL.distance(prevColour, lead.colour) > 200 ? 'contrasts' : 'shifts';
         prevColour = lead.colour || prevColour; prevBase = lead.id;
-        return { asset: pickAsset(lead), assets: picks.map(pickAsset), base: lead.id, colour: lead.colour || '', subject: lead.depicts || '', relation };
+        return Object.assign({ asset: pickAsset(lead), assets: picks.map(pickAsset), base: lead.id, colour: lead.colour || '', subject: lead.depicts || '', relation }, callback ? { callback: true } : {});
       });
     }
 
@@ -2513,6 +2519,14 @@
     function upgradeSeams(raw, ctx) { return chooseSeams(raw, ctx).changed; }
 
     // ---------------------------------------------------------------- what a seam can carry
+    // (a page with a look -- look.js -- never crosses a seam with a flat shape: a slab wiping across, a circle of colour.
+    // What a composition becomes on such a page is its content seams, with the pictures' own moves -- the next picture
+    // opening out of a window, the stage handing its depth over -- in place of the flat ones)
+    const FLAT_SEAMS = ['foreground-wipe', 'shape-takeover'];
+    function becomesFor(plan, comp) {
+      const w = COMP.BECOMES[comp] || null; if (!w || !(plan && plan.look) || !w.some(f => FLAT_SEAMS.includes(f))) return w;
+      return w.filter(f => !FLAT_SEAMS.includes(f)).concat(['image-expand', 'depth-handoff'].filter(f => !w.includes(f)));
+    }
     function feasibleFamilies(at, ctx) {
       const t = ctx.timeline; const prev = ctx.scenes[at - 1], next = ctx.scenes[at]; if (!prev || !next) return ['color-bleed'];
       const bleedable = s => s.layers.some(L => L.kind === 'image' && (L.frame === 'bleed' || (L.box && L.box.d && L.box.d[2] >= 99 && L.box.d[3] >= 99)));
@@ -2520,7 +2534,7 @@
         'actor-carry': t.actors.some(a => (a.role === 'primary' || a.role === 'secondary') && a.from <= at - 1 && a.to >= at),
         'image-expand': !!focalOf(next), 'card-expand': CARDS.includes(prev.layout) && !!focalOf(next),
         'type-mask': !!focalOf(next) && bleedable(next) && t.actors.some(a => a.role === 'typography' && a.to === at - 1),
-        'depth-handoff': !!focalOf(prev), 'foreground-wipe': true, 'shape-takeover': true, 'color-bleed': true, cut: true,
+        'depth-handoff': !!focalOf(prev), 'foreground-wipe': !ctx.look, 'shape-takeover': !ctx.look, 'color-bleed': true, cut: true,
       };
       return TL.TRANSITIONS.filter(f => ok[f]);
     }
@@ -2787,7 +2801,7 @@
       COMP.audit(plan, { subject }).forEach(x => { if (!issues.some(y => y.code === x.code)) issues.push({ code: x.code, at: Math.max(1, Math.min(plan.scenes.length - 1, x.at)), scene: x.at }); });
       // a composition and the seam after it are one decision: a seam its composition cannot become (a wipe after a window
       // that was opening, a cut after a zoom-through) breaks the move it set up
-      K.forEach(k => { const prev = plan.scenes[k.at - 1]; const want = prev && prev.composition ? COMP.BECOMES[prev.composition] : null; if (want && !want.includes(k.family) && !['color-bleed', 'actor-carry'].includes(k.family)) add('composition-seam-mismatch', k.at); });
+      K.forEach(k => { const prev = plan.scenes[k.at - 1]; const want = prev && prev.composition ? becomesFor(plan, prev.composition) : null; if (want && want.length && !want.includes(k.family) && !['color-bleed', 'actor-carry'].includes(k.family)) add('composition-seam-mismatch', k.at); });
       // the premium arc (showcase): each clip owns the screen, does its own job, and carries into the page
       PREMIUM.audit(plan, byId).forEach(x => { if (!issues.some(y => y.code === x.code && y.scene === x.at)) issues.push({ code: x.code, at: Math.max(1, Math.min(plan.scenes.length - 1, x.at)), scene: x.at }); });
       return issues.slice(0, LIMITS.issues);
@@ -2824,10 +2838,10 @@
         else if (x.code === 'composition-seam-mismatch') {
           // (what the composition becomes -- unless that repeats a neighbour's move or a move the page already made twice: then the colour flows)
           const prev = plan.scenes[x.at - 1]; const fam0 = at => (K.find(c => c.at === at) || {}).family; const twice = fam => K.filter(c => c.at !== x.at && c.family === fam).length >= 2;
-          const f = ((prev && COMP.BECOMES[prev.composition]) || []).find(fam => feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline }).includes(fam) && fam0(x.at - 1) !== fam && fam0(x.at + 1) !== fam && !twice(fam));
+          const f = ((prev && becomesFor(plan, prev.composition)) || []).find(fam => feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline, look: !!plan.look }).includes(fam) && fam0(x.at - 1) !== fam && fam0(x.at + 1) !== fam && !twice(fam));
           out.push({ at: x.at, code: x.code, family: f || 'color-bleed' });
         }
-        else if (x.code === 'premium-hard-reset' || x.code === 'premium-no-continuation') out.push({ at: x.at, code: x.code, family: feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline }).includes('depth-handoff') ? 'depth-handoff' : 'color-bleed', intent: 'continue', paletteHandoff: 'hold' });
+        else if (x.code === 'premium-hard-reset' || x.code === 'premium-no-continuation') out.push({ at: x.at, code: x.code, family: feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline, look: !!plan.look }).includes('depth-handoff') ? 'depth-handoff' : 'color-bleed', intent: 'continue', paletteHandoff: 'hold' });
         else if (x.code === 'premium-palette-disconnect') { [x.scene, x.scene + 1].filter(a => a >= 1 && a < plan.scenes.length).forEach(a => out.push({ at: a, code: x.code, paletteHandoff: 'hold' })); }
         // (one family per seam: the first fix for a seam decides it -- a later one never undoes a calming fix)
         const last = out[out.length - 1]; if (last && last.family && out.slice(0, -1).some(o => o.at === last.at && o.family && o.family !== last.family)) delete last.family;
@@ -2871,7 +2885,7 @@
       return c;
     }
 
-    module.exports = { videoMotion, estimateMotion, upgradeSeams, chooseSeams, relationOf, placementOf, RELATIONSHIPS, CARRY, PALETTE_HANDOFFS, DEPTH_HANDOFFS, TEXT_PLACEMENTS, VECTORS, INTENSITY, CARRIES, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
+    module.exports = { becomesFor, FLAT_SEAMS, videoMotion, estimateMotion, upgradeSeams, chooseSeams, relationOf, placementOf, RELATIONSHIPS, CARRY, PALETTE_HANDOFFS, DEPTH_HANDOFFS, TEXT_PLACEMENTS, VECTORS, INTENSITY, CARRIES, INTENTS, CARRIED, DEPTHS, MASKS, BACKGROUNDS, TYPOGRAPHY, CAMERAS, VIDEO_ENDS, CRITIC, OVERLAP, LIMITS, FAMILY, FRAME, usedAssets, profileOf, assetProfiles, pairFit, seamFit, heroOf, related, feasibleFamilies, normalise, apply, critique, fixesFor, cleanFixes, withFixes, movingAt, colourDistance };
 
   });
   __define("renderers", function (module, exports, require) {
@@ -4694,9 +4708,9 @@
       const cinema = photos.filter(x => !x.p.tight && x.p.aspect >= 1.4 && x.p.big);
       // cut-outs of the same original count once (a picture and its cut-out are one picture)
       const distinct = new Set(withP.map(x => x.a.cutoutOf || x.a.id)).size;
-      // how many times pictures may appear on the page in all (validate2: a photo twice, a picture with a cut-out three times)
-      const ids = [...new Set(withP.map(x => x.a.cutoutOf || x.a.id))];
-      const uses = ids.reduce((t, id) => t + POOL.photoUses(ids.length) + (withP.some(x => x.a.cutoutOf === id) ? 1 : 0), 0);
+      // how many picture appearances the page has in all: each picture once (the image ledger -- look.js; a cut-out is the
+      // same picture)
+      const uses = new Set(withP.map(x => x.a.cutoutOf || x.a.id)).size;
       return { all: withP, cut, photos, main, bleedable, cinema, distinct, uses, pool };
     }
     // how many picture appearances an archetype needs (required, and what it takes when pictures are plentiful)
@@ -5149,6 +5163,306 @@
     }
 
     module.exports = { layoutSimilarity, FAMILIES, MODES, MODE_LIMITS, FAMILY, SCENE_TYPES, EXITS, TREATMENTS, POSES, PINNED_CHOREOS, familyFits, distinctPictures, sameAs, PERSONALITIES, SCROLLS, LAYOUTS, CHOREOS, HANDOFFS, TYPOS, NAVS, DENSITIES, PROGRESSIONS, DEPTHS, MOTION, STYLE, NATURAL, CARRIES, NEED, choose, normaliseArt, fingerprint, similarity, genreOf, inventory, eligible, rng, ambitionOf, AMBITIONS, CONCEPTS, CONCEPT_NAMES };
+
+  });
+  __define("look", function (module, exports, require) {
+    'use strict';
+    // CREATIVE — the page's LOOK: one committed visual system per page, decided once from what the page is about and what it
+    // has to show, instead of a pile of independent effects. It is stored with the plan (plan.look) and every part of the
+    // pipeline reads the same decision:
+    //
+    //   type      the typographic system: a family chosen from the brand's category, its imagery, its logo, its energy,
+    //             the length of its copy and its compositions (never "premium = thin serif"), with the case, tracking,
+    //             leading and average advance the renderer fits headlines with
+    //   brand     the palette roles: primary (the brand's own colour), light, deep -- from the logo, the dominant colours of
+    //             the pictures and a semantic colour when one is confidently known -- and how confident that is
+    //   devices   the 2-4 visual devices the page commits to (DEVICES); everything outside them is left out
+    //   enter     how a scene arrives: ONE composed event (one mask over the stage, one camera settle, the words with it)
+    //
+    //   direct({ plan, assets, understanding, page, rng }) -> look       (a new or recomposed page)
+    //   normalise(raw) -> look | null                                     (a saved page keeps its own; null: no look)
+    //   root(asset, byId) -> the picture an asset comes from (cut-out, copy) -- the image ledger counts roots
+    //   measure(text) -> characters per line a headline is fitted to; keep(text) -> the text with its short words held
+    //   brandPalette(brand, page) -> { bg, bg2, ink, muted, accent, glow }
+    //   fields(n, brand, opts) -> one surface per scene from the brand roles
+    //   devicesFor(plan, signals) -> ['colour-field', ...]
+    // Data only, browser-safe (bundled into creative-core.js). Nothing here knows any brand by name.
+
+    const PAL = require('./palette');
+    const ART = require('./art');
+
+    const VERSION = 1;
+    const HEX = /^#[0-9a-f]{6}$/i;
+
+    // ---------------------------------------------------------------- type
+    // adv: average advance of a character in em (capitals wider: x UPPER); lead: line height; track: letter spacing (em)
+    const FAMILIES = {
+      campaign: { adv: 0.47, upper: 1.18, lead: 0.88, track: 0, case: 'upper' },      // heavy uppercase campaign type
+      block: { adv: 0.66, upper: 1.2, lead: 0.9, track: -0.035, case: 'normal' },     // bold grotesk / block sans
+      condensed: { adv: 0.46, upper: 1.22, lead: 0.92, track: 0, case: 'upper' },      // condensed display
+      wide: { adv: 0.72, upper: 1.18, lead: 1.02, track: 0.03, case: 'upper' },        // wide geometric
+      neutral: { adv: 0.57, upper: 1.25, lead: 0.98, track: -0.025, case: 'normal' },  // neutral modern sans
+      humanist: { adv: 0.55, upper: 1.25, lead: 1.02, track: -0.01, case: 'normal' },  // humanist sans
+      serif: { adv: 0.55, upper: 1.3, lead: 1.04, track: -0.01, case: 'normal' },      // editorial serif
+      didone: { adv: 0.54, upper: 1.32, lead: 1.02, track: -0.01, case: 'normal' },    // high-contrast serif (luxury)
+      rounded: { adv: 0.6, upper: 1.22, lead: 0.98, track: -0.015, case: 'normal' },   // playful
+      grotesk: { adv: 0.6, upper: 1.24, lead: 0.94, track: -0.03, case: 'normal' },
+      slab: { adv: 0.6, upper: 1.22, lead: 0.96, track: -0.01, case: 'normal' },
+      mono: { adv: 0.6, upper: 1.0, lead: 1.02, track: -0.02, case: 'upper' },
+      script: { adv: 0.5, upper: 1.4, lead: 1.1, track: 0, case: 'normal' },
+    };
+    const FAMILY_NAMES = Object.keys(FAMILIES);
+    // what draws a page to each family: its genre, the personality it moves with, its signals. "gate": the family is only
+    // eligible when one of these holds (a thin high-contrast serif is for luxury and fashion, not for anything "premium")
+    const TYPE_W = {
+      campaign: { genre: { product: 2, food: 2, music: 1.5, meme: 1.2, brutal: 1, game: 0.8 }, personality: { kinetic: 1.5, chaotic: 1.5, playful: 1, cinematic: 0.5 }, consumer: 3, saturated: 1.5, poster: 1.2, short: 1.5, long: -3 },
+      block: { genre: { product: 2, tech: 1.5, game: 1.5, music: 1, art: 1, character: 0.8 }, personality: { kinetic: 1.5, cinematic: 1, mechanical: 1, chaotic: 0.8 }, consumer: 2, saturated: 1, poster: 1, short: 1, long: -1 },
+      condensed: { genre: { film: 2.2, game: 1.8, music: 1.5, place: 1.2, history: 0.6 }, personality: { cinematic: 2, kinetic: 1.2, chaotic: 0.8 }, poster: 0.8, short: 0.6, long: -1.5 },
+      wide: { genre: { tech: 2.5, fashion: 1, place: 0.8 }, personality: { mechanical: 2, luxe: 1.2, cinematic: 0.8 }, short: 1, long: -2.5 },
+      neutral: { base: 1.2, genre: { object: 1, tech: 1, editorial: 0.6, nature: 0.6, product: 0.5 }, personality: { editorial: 1, mechanical: 0.6 }, long: 1.5 },
+      humanist: { base: 0.4, genre: { nature: 2, tribute: 1.6, place: 1, food: 0.6, history: 0.6 }, personality: { still: 1.6, editorial: 0.8 }, long: 1 },
+      serif: { genre: { editorial: 3, history: 2.5, tribute: 1.4, art: 0.8 }, personality: { editorial: 1.2, still: 1 }, long: 1, gate: ['editorial', 'history', 'tribute', 'art', 'reading'] },
+      didone: { genre: { fashion: 3.5 }, personality: { luxe: 1.5 }, luxury: 3, gate: ['fashion', 'luxury'] },
+      rounded: { genre: { character: 2, meme: 1.5, food: 0.8 }, personality: { playful: 2.2 }, consumer: 0.4, gate: ['playful', 'character', 'meme'] },
+      mono: { genre: { brutal: 2, tech: 0.8 }, personality: { mechanical: 1.2 }, gate: ['brutal', 'tech', 'mechanical'] },
+      slab: { genre: { brutal: 1, history: 0.4 }, personality: { chaotic: 0.6 }, gate: ['brutal', 'chaotic', 'history'] },
+      grotesk: { gate: [] }, script: { gate: [] }, // (kept readable for saved pages; never chosen as a new page's system)
+    };
+    // a consumer brand: a drink, a snack, trainers -- a product people buy off a shelf, sold with campaign type
+    const CONSUMER = /\b(cola|soda|soft ?drinks?|beverages?|energy drinks?|sports drinks?|drinks? brand|snacks?|crisps|chips|cereal|candy|sweets|chocolate bar|fast[- ]food|burgers?|sneakers?|trainers|sportswear|streetwear|brand|retail|supermarket|toys?)\b/i;
+    const LUXURY = /\b(luxury|luxe|couture|haute|jewel(?:le)?ry|perfume|fragrance|watchmaker|champagne|atelier|maison)\b/i;
+    const READING = /\b(essay|journal|magazine|blog|newsletter|long-?read|memoir|biography|obituary|history of)\b/i;
+
+    function registerOf(u) { const t = u && u.tone; return String((t && typeof t === 'object' ? t.register : t) || '').toLowerCase(); }
+    function satOf(hex) { if (!HEX.test(hex || '')) return 0; const h = PAL.hsl(hex); return h.l > 0.12 && h.l < 0.9 ? h.s : 0; }
+
+    // what the page is, as the look reads it
+    function signals(input) {
+      const i = input || {}; const plan = i.plan || {}; const u = i.understanding || {}; const page = i.page || null;
+      const assets = (i.assets || []).filter(a => a && a.id && !a.removed && !a.failed);
+      const byId = new Map(assets.map(a => [a.id, a]));
+      const genre = ART.genreOf(u, page);
+      const text = [u.subject, u.brief, u.identity && u.identity.what, ...(u.motifs || []), page && page.title, page && page.description, page && page.category].filter(Boolean).join(' ');
+      const art = plan.art || {}; const personality = art.personality || 'editorial';
+      const heads = (plan.scenes || []).map(s => String((s.text && s.text.heading) || '').trim()).filter(Boolean);
+      const meanHead = heads.length ? heads.reduce((t, h) => t + h.length, 0) / heads.length : 20;
+      const maxHead = heads.reduce((m, h) => Math.max(m, h.length), 0);
+      const layouts = (plan.scenes || []).map(s => s.composition || s.layout || '');
+      const poster = layouts.filter(l => ['giant-type', 'poster', 'campaign', 'type-stage', 'type-takeover', 'takeover', 'brutalist'].includes(l)).length;
+      const logo = assets.find(a => !a.cutoutOf && a.ownerRole === 'logo') || assets.find(a => !a.cutoutOf && a.curation && a.curation.role === 'logo') || (plan.logo && byId.get(plan.logo.asset)) || null;
+      const pictures = assets.filter(a => a !== logo && a.ownerRole !== 'logo' && !(a.curation && (a.curation.role === 'logo' || a.curation.role === 'unrelated' || a.curation.identity === 'other')));
+      const mainId = i.mainAsset || null;
+      const main = (mainId && byId.get(mainId)) || pictures.find(a => !a.cutoutOf && a.origin === 'upload') || pictures.find(a => !a.cutoutOf) || null;
+      const sat = Math.max(0, ...pictures.slice(0, 6).flatMap(a => ((a.assess && a.assess.colours) || []).slice(0, 3).map(satOf)), ...(logo && logo.assess ? (logo.assess.colours || []).map(satOf) : []));
+      const reg = registerOf(u);
+      return {
+        genre, personality, register: reg, text,
+        // (luxury is what the subject IS -- couture, jewellery, perfume -- never a quiet register or a slow personality: a
+        // premium kettle is not a fashion house)
+        consumer: CONSUMER.test(text), luxury: LUXURY.test(text) || genre === 'fashion',
+        reading: READING.test(text) || genre === 'editorial',
+        meanHead, maxHead, short: meanHead <= 18, long: meanHead > 34 || maxHead > 60, poster, layouts,
+        saturated: sat >= 0.55, logo, main, pictures, byId,
+        semantic: [].concat((u.identity && u.identity.colours) || [], u.colours || []).filter(c => HEX.test(c || '')).map(c => c.toLowerCase()).slice(0, 3),
+      };
+    }
+
+    // the family: every family scored against the signals; a gated family needs its reason. hint: the director's own
+    // choice counts for a little when it is eligible (a model's "serif" for a soft drink is not)
+    function chooseType(sig, hint, rng) {
+      const gates = { editorial: sig.genre === 'editorial', history: sig.genre === 'history', tribute: sig.genre === 'tribute', art: sig.genre === 'art', reading: sig.reading, fashion: sig.genre === 'fashion', luxury: sig.luxury, playful: sig.personality === 'playful', character: sig.genre === 'character', meme: sig.genre === 'meme', brutal: sig.genre === 'brutal', tech: sig.genre === 'tech', mechanical: sig.personality === 'mechanical', chaotic: sig.personality === 'chaotic' };
+      const scored = FAMILY_NAMES.filter(f => TYPE_W[f]).map(f => {
+        const w = TYPE_W[f];
+        if (w.gate && !w.gate.some(g => gates[g])) return { f, s: -Infinity };
+        let s = (w.base || 0) + ((w.genre || {})[sig.genre] || 0) + ((w.personality || {})[sig.personality] || 0);
+        if (sig.consumer) s += w.consumer || 0; if (sig.luxury) s += w.luxury || 0; if (sig.saturated) s += w.saturated || 0;
+        if (sig.poster) s += (w.poster || 0) * Math.min(2, sig.poster); if (sig.short) s += w.short || 0; if (sig.long) s += w.long || 0;
+        if (hint && (hint === f || (hint === 'grotesk' && f === 'block'))) s += 1;
+        return { f, s: s + (rng ? rng() * 0.3 : 0) };
+      }).sort((a, b) => b.s - a.s);
+      return scored[0] && scored[0].s > -Infinity ? scored[0].f : 'neutral';
+    }
+    function typeSystem(sig, hint, rng) {
+      const family = chooseType(sig, hint, rng); const F = FAMILIES[family];
+      // capitals only while the lines stay short enough to read as one shape
+      const cs = F.case === 'upper' && sig.maxHead <= (family === 'campaign' ? 48 : 36) ? 'upper' : 'normal';
+      return { family, case: cs, track: F.track, lead: F.lead, adv: F.adv, upper: F.upper };
+    }
+
+    // ---------------------------------------------------------------- headline fitting
+    // A headline is set as UNITS that never break apart: an article holds to the word after it ("the dark"), and the last
+    // line is never one short word (the last two words hold together when the last is short). Then the characters per line it
+    // is fitted to: never only its longest word (that sized a short phrase so large every word took its own line) -- the
+    // narrowest measure that sets the phrase on as few balanced lines as its length asks for, its longest unit always whole.
+    const ARTICLES = /^(a|an|the|&)$/i;
+    function units(text) {
+      const w = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean); const out = [];
+      for (let i = 0; i < w.length; i++) { if (ARTICLES.test(w[i]) && i < w.length - 1) { out.push(w[i] + '\u00a0' + w[i + 1]); i++; } else out.push(w[i]); }
+      if (out.length > 2 && out[out.length - 1].length <= 4) out.splice(out.length - 2, 2, out[out.length - 2] + '\u00a0' + out[out.length - 1]);
+      return out;
+    }
+    function keep(text) { return units(text).join(' '); }
+    function measure(text) {
+      const u = units(text).map(x => x.length); const n = u.reduce((t, x) => t + x, 0) + Math.max(0, u.length - 1); if (!n) return 4;
+      const target = n <= 12 ? 1 : n <= 26 ? 2 : n <= 46 ? 3 : 4;
+      const linesAt = w => { let lines = 1, cur = 0; u.forEach(x => { if (!cur) cur = x; else if (cur + 1 + x <= w) cur += 1 + x; else { lines++; cur = x; } }); return lines; };
+      let w = Math.max(...u); while (w < n && linesAt(w) > target) w++;
+      return Math.max(4, w + 1);
+    }
+    // fit = how many characters of this family fit 100cqi at 1em, a little under for the faces each stack falls back to
+    function fitFor(type) { const adv = type.adv * (type.case === 'upper' ? type.upper : 1); return Math.round(100 / adv * 0.94); }
+
+    // ---------------------------------------------------------------- colour
+    function contrast(a, b) { const x = PAL.lum(a), y = PAL.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    const hueGap = (a, b) => { const d = Math.abs(a - b) % 1; return Math.min(d, 1 - d); };
+    // the brand's colours: the logo first, then the main picture, then the other pictures, then a semantic colour the
+    // understanding is sure of -- weighted, chromatic hues merged, plus the lightest and the darkest colour the brand shows
+    function brand(sig) {
+      const votes = []; const add = (hex, w, from) => { if (HEX.test(hex || '')) votes.push({ hex: hex.toLowerCase(), w, from, ...PAL.hsl(hex) }); };
+      const cols = a => ((a && a.assess && a.assess.colours) || []);
+      const bgOf = a => (a && a.assess && a.assess.background && a.assess.background.uniformity > 0.6 ? a.assess.background.colour : null);
+      if (sig.logo) { cols(sig.logo).slice(0, 4).forEach((c, k) => add(c, 3 - k * 0.5, 'logo')); add(bgOf(sig.logo), 1.2, 'logo'); }
+      if (sig.main) cols(sig.main).slice(0, 4).forEach((c, k) => add(c, 2 - k * 0.35, 'image'));
+      sig.pictures.filter(a => a !== sig.main && !a.cutoutOf).slice(0, 5).forEach(a => cols(a).slice(0, 3).forEach((c, k) => add(c, 0.8 - k * 0.2, 'image')));
+      sig.semantic.forEach(c => add(c, 3, 'semantic'));
+      const chroma = votes.filter(v => v.s >= 0.4 && v.l >= 0.2 && v.l <= 0.72);
+      const groups = []; chroma.forEach(v => { const g = groups.find(x => hueGap(x.h, v.h) < 0.05); if (g) { g.w += v.w; g.from.add(v.from); if (v.w > g.best.w) g.best = v; } else groups.push({ h: v.h, w: v.w, best: v, from: new Set([v.from]) }); });
+      groups.sort((a, b) => b.w - a.w);
+      const top = groups[0] || null;
+      // confident: the brand's own mark names it -- the logo, or a colour the subject is known by. Pictures alone are not a
+      // brand (their colours already give each scene its tone: palette.js)
+      const confident = !!top && (top.from.has('logo') || top.from.has('semantic'));
+      const primary = top ? top.best.hex : null;
+      const lights = votes.filter(v => v.l >= 0.86 && v.s <= 0.4).sort((a, b) => b.w - a.w);
+      const darks = votes.filter(v => v.l <= 0.26 && v.l >= 0.03).sort((a, b) => (b.s * b.w) - (a.s * a.w));
+      const light = lights[0] ? PAL.mix(lights[0].hex, '#ffffff', 0.3) : primary ? PAL.mix(primary, '#ffffff', 0.94) : null;
+      // (the deep colour keeps its own warmth -- a dark brown stays brown -- and is dark enough to carry light words)
+      let deep = darks[0] ? darks[0].hex : primary ? PAL.mix(primary, '#0b0b0b', 0.82) : null;
+      if (deep) for (let k = 0; k < 8 && PAL.lum(deep) > 0.04; k++) deep = PAL.mix(deep, '#000000', 0.2);
+      const second = groups.find(g => g !== top && hueGap(g.h, top.h) > 0.08 && g.w >= 1.2);
+      return { confident, primary, light, deep, second: second ? second.best.hex : null, from: top ? [...top.from] : [] };
+    }
+    // the page's palette from the brand roles: a light page with the brand's colour as its accent and its deep colour for
+    // words (or a dark page when its pictures are dark), every pair readable
+    function brandPalette(b, base, dark) {
+      const P = Object.assign({}, base);
+      if (!b || !b.primary) return P;
+      const light = b.light || '#f6f4ef', deep = b.deep || '#141210';
+      if (dark) { P.bg = deep; P.bg2 = PAL.mix(deep, b.primary, 0.18); P.ink = light; P.glow = light; }
+      else { P.bg = light; P.bg2 = PAL.mix(light, b.primary, 0.1); P.ink = contrast(deep, light) >= 7 ? deep : '#141414'; P.glow = '#ffffff'; }
+      P.accent = b.primary;
+      for (let i = 0; i < 12 && contrast(P.ink, P.bg) < 7; i++) P.ink = PAL.mix(P.ink, dark ? '#ffffff' : '#000000', 0.25);
+      P.muted = PAL.mix(P.ink, P.bg, 0.3); for (let i = 0; i < 8 && contrast(P.muted, P.bg) < 4.5; i++) P.muted = PAL.mix(P.muted, P.ink, 0.3);
+      return P;
+    }
+    // one surface per scene from the brand roles (the colour field), chosen from what the scene shows: words alone stand on
+    // the brand's own colour when the page sells with it (type on red is the campaign move), a free-standing subject on the
+    // light or the deep one -- never on its own colour (a red can on a red field disappears) -- and never the same field twice
+    // in a row. opts.fixed(i): the colour a scene already has of its own (a flood, a photograph's tone) -- kept, and its
+    // neighbours step away from it. opts.pictureHex(s): the colour of the scene's subject ('' for words alone)
+    function fields(scenes, b, opts) {
+      const o = opts || {}; if (!b || !b.primary) return scenes.map(() => '');
+      const roles = { primary: b.primary, light: b.light || '#f6f4ef', deep: b.deep || '#141210' };
+      const fixed = i => (o.fixed && o.fixed(i)) || '';
+      let prev = '';
+      return scenes.map((s, i) => {
+        const own = fixed(i); if (own) { prev = own; return ''; }
+        const pic = o.pictureHex && o.pictureHex(s); const next = fixed(i + 1);
+        const ok = r => (!prev || PAL.distance(roles[r], prev) > 40) && !(next && PAL.distance(roles[r], next) <= 40) && !(pic && PAL.distance(pic, roles[r]) < 90);
+        const want = !pic ? (o.loud ? ['primary', 'deep', 'light'] : ['deep', 'light', 'primary']) : (i === 0 ? ['light', 'deep', 'primary'] : ['deep', 'light', 'primary']);
+        const r = want.find(ok) || want.find(x => !(pic && PAL.distance(pic, roles[x]) < 90)) || want[0];
+        prev = roles[r]; return roles[r];
+      });
+    }
+
+    // ---------------------------------------------------------------- devices
+    // The devices a page commits to. Each names what it allows; what the page does not commit to is left out (validate2):
+    //   colour-field  scenes on flat colour fields from the brand roles, colour floods between them
+    //   bleed-crop    pictures cropped hard, bleeding off the edges and overlapping the grid
+    //   camera        one camera through the scenes: push, pull, zoom, depth (the choreographies that move the stage)
+    //   mask-reveal   a shaped window: geometric masks, a word that becomes the window onto the next picture
+    //   type-motion   words that move: fill, spread, swap, the name carried as a word actor
+    //   handoff       a subject carried from one scene into the next (carries, the actor, image-expand)
+    //   parallax      layers at different depths drifting at different rates (scroll parallax, ambient loops)
+    const DEVICES = ['colour-field', 'bleed-crop', 'camera', 'mask-reveal', 'type-motion', 'handoff', 'parallax'];
+    const CAMERA_CHOREO = ['zoom-away', 'scale-through', 'depth', 'expand'];
+    const TYPE_CHOREO = ['type-wipe', 'word-fill'];
+    const MASK_CHOREO = ['mask-reveal'];
+    const SHAPED = ['circle', 'arch', 'diamond', 'slit'];
+    const TEXT_MOVES = ['word-fill', 'letter-spread', 'stagger', 'outline', 'vertical'];
+    // what the plan already uses: a choreography or an actor is the page's architecture (never stripped: it forces its
+    // device); the rest are counted so the choice keeps what the composition leans on
+    function usage(plan) {
+      const sc = plan.scenes || []; const tl = plan.timeline || null; const contracts = (tl && tl.continuity && tl.continuity.contracts) || [];
+      const layers = sc.flatMap(s => s.layers || []);
+      const forced = new Set(); const count = Object.fromEntries(DEVICES.map(d => [d, 0]));
+      sc.forEach(s => { if (CAMERA_CHOREO.includes(s.choreo)) forced.add('camera'); if (TYPE_CHOREO.includes(s.choreo)) forced.add('type-motion'); if (MASK_CHOREO.includes(s.choreo)) forced.add('mask-reveal'); });
+      if (plan.actor) forced.add('handoff');
+      layers.forEach(L => { if (L.kind === 'image' && SHAPED.includes(L.mask)) count['mask-reveal']++; if (L.kind === 'image' && L.frame === 'bleed') count['bleed-crop']++; if ((L.scroll && L.scroll.kind !== 'none') || (L.loop && L.loop.kind !== 'none')) count.parallax++; });
+      sc.forEach(s => { if (s.text && TEXT_MOVES.includes(s.text.treatment)) count['type-motion']++; if (['accent', 'invert'].includes(s.background)) count['colour-field']++; });
+      contracts.forEach(k => { if (k.carry && k.carry !== 'none') count.handoff++; if (k.camera && k.camera !== 'none') count.camera++; });
+      ((tl && tl.transitions) || []).forEach(t => { if (['image-expand', 'actor-carry', 'depth-handoff', 'card-expand'].includes(t.family)) count.handoff++; if (t.family === 'type-mask') count['mask-reveal']++; if (t.family === 'color-bleed') count['colour-field']++; });
+      return { forced, count };
+    }
+    function devicesFor(plan, sig, b, type) {
+      const { forced, count } = usage(plan);
+      const P = sig.personality;
+      const score = {
+        'colour-field': (b && b.confident ? 3 : 0) + (sig.consumer ? 1.5 : 0) + count['colour-field'] * 0.5,
+        'bleed-crop': (sig.pictures.filter(a => !a.cutoutOf).length >= 2 ? 2 : 0.5) + count['bleed-crop'] * 0.4 + (P === 'cinematic' ? 1 : 0),
+        camera: (P === 'cinematic' ? 2 : 0) + (P === 'luxe' ? 1 : 0) + count.camera * 0.3,
+        'mask-reveal': count['mask-reveal'] * 0.6 + (P === 'editorial' || P === 'luxe' ? 0.6 : 0),
+        'type-motion': (['campaign', 'block', 'condensed'].includes(type.family) ? 1.2 : 0) + (['kinetic', 'chaotic', 'playful'].includes(P) ? 1.2 : 0) + count['type-motion'] * 0.4,
+        handoff: count.handoff * 0.5 + (P === 'cinematic' || P === 'kinetic' ? 0.6 : 0),
+        parallax: (P === 'cinematic' || P === 'playful' ? 0.8 : 0) + count.parallax * 0.15,
+      };
+      const chosen = DEVICES.filter(d => forced.has(d)).sort((a, b2) => score[b2] - score[a]).slice(0, 4);
+      DEVICES.filter(d => !chosen.includes(d)).sort((a, b2) => score[b2] - score[a] || DEVICES.indexOf(a) - DEVICES.indexOf(b2)).forEach(d => { if (chosen.length < 2 || (chosen.length < 3 && score[d] >= 1.5) || (chosen.length < 4 && score[d] >= 3)) chosen.push(d); });
+      return DEVICES.filter(d => chosen.includes(d));
+    }
+
+    // ---------------------------------------------------------------- the decision
+    function direct(input) {
+      const i = input || {}; const sig = signals(i); const plan = i.plan || {};
+      const hint = plan.type && plan.type.display;
+      const type = typeSystem(sig, hint, i.rng);
+      const b = brand(sig);
+      const devices = devicesFor(plan, sig, b, type);
+      return {
+        v: VERSION,
+        type: { family: type.family, case: type.case, track: type.track, lead: type.lead, adv: type.adv, upper: type.upper },
+        brand: { confident: b.confident, primary: b.primary || '', light: b.light || '', deep: b.deep || '', second: b.second || '', from: b.from },
+        devices,
+        enter: devices.includes('mask-reveal') ? 'mask' : devices.includes('camera') ? 'camera' : 'mask',
+        loud: !!(sig.consumer || ['campaign', 'block'].includes(type.family) && b.confident),
+        _sig: sig,
+      };
+    }
+    const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    const hex = v => (HEX.test(v || '') ? v.toLowerCase() : '');
+    function normalise(raw) {
+      if (!raw || typeof raw !== 'object' || raw.v !== VERSION) return null;
+      const t = raw.type || {}; const fam = FAMILY_NAMES.includes(t.family) ? t.family : 'neutral'; const F = FAMILIES[fam];
+      const b = raw.brand || {};
+      return {
+        v: VERSION,
+        type: { family: fam, case: t.case === 'upper' ? 'upper' : 'normal', track: num(t.track, -0.08, 0.2, F.track), lead: num(t.lead, 0.75, 1.4, F.lead), adv: num(t.adv, 0.3, 1, F.adv), upper: num(t.upper, 1, 1.6, F.upper) },
+        brand: { confident: !!b.confident, primary: hex(b.primary), light: hex(b.light), deep: hex(b.deep), second: hex(b.second), from: (Array.isArray(b.from) ? b.from : []).filter(x => ['logo', 'image', 'semantic'].includes(x)) },
+        devices: DEVICES.filter(d => (Array.isArray(raw.devices) ? raw.devices : []).includes(d)).slice(0, 4),
+        enter: raw.enter === 'camera' ? 'camera' : 'mask',
+        loud: !!raw.loud,
+      };
+    }
+
+    // the picture an asset comes from: its cut-out's photo, a copy's original (persisted links only; a broken or looping
+    // chain ends at the last picture reached)
+    function root(asset, byId) {
+      let a = asset; const seen = new Set();
+      for (let k = 0; a && k < 9; k++) { const up = a.cutoutOf || a.derivedFrom; if (!up || seen.has(a.id) || !byId.get(up)) return a; seen.add(a.id); a = byId.get(up); }
+      return a;
+    }
+
+    module.exports = { VERSION, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
 
   });
   __define("archetypes", function (module, exports, require) {
@@ -5763,14 +6077,17 @@
     const COMP = require('./composition');
     const PA = require('./premium-arc');
     const TD = require('./three-d');
+    const LOOK = require('./look');
     // the composition rules' version, stamped on every accepted plan (0 = a plan saved before versioning)
     // 4: the page blends into its pictures (cut-outs, scene tones, dissolving frames, page tone)
     // 5: art direction -- layout archetypes, scene choreography and handoffs, explicit image framing with crop budgets and
     //    zoom ceilings (a plan without them is composed exactly as under 4)
-    const LAYOUT_VERSION = 5;
+    const LAYOUT_VERSION = 6;
 
     const VOCAB = {
-      display: ['didone', 'grotesk', 'serif', 'rounded', 'slab', 'mono', 'condensed', 'script'],
+      // (block: bold grotesk; campaign: heavy uppercase; wide: wide geometric; neutral: modern sans; humanist: humanist sans --
+      // look.js chooses among them from what the page is about; serif and didone are for editorial and luxury pages)
+      display: ['didone', 'grotesk', 'serif', 'rounded', 'slab', 'mono', 'condensed', 'script', 'block', 'campaign', 'wide', 'neutral', 'humanist'],
       typeScale: ['monumental', 'large', 'quiet'],
       typeCase: ['normal', 'upper'],
       backdrop: ['solid', 'gradient', 'spotlight', 'fog', 'water', 'stars', 'sky', 'paper', 'grain', 'horizon', 'vignette', 'sunrise', 'grid'],
@@ -5917,6 +6234,22 @@
       }
       // (a void is full of stars -- the subject's field, not a decorative choice)
       if (!safety && field === 'void' && !['stars', 'sparks'].includes(atmosphere.particles)) { atmosphere.particles = 'stars'; atmosphere.density = Math.max(atmosphere.density, 0.5); }
+      // ---- the page's LOOK (look.js): one committed visual system -- its typography, its brand colours, the few devices it
+      // commits to. A new or recomposed page gets one; a saved page keeps its own, and a page saved before looks existed has
+      // none (it renders exactly as it was)
+      const look = safety ? LOOK.normalise(p.look) : LOOK.direct({ plan: Object.assign({}, p, { art }), assets, understanding: u, page: c.page || null, mainAsset: c.mainAsset || null, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${identity.name}|look`) });
+      const lookSig = look && look._sig; if (look) delete look._sig;
+      if (look && !safety) {
+        type.display = look.type.family; type.case = look.type.case;
+        // (the brand's own colours when they are known: the logo, the pictures, a colour the subject is known by)
+        if (look.brand.confident) { Object.assign(palette, LOOK.brandPalette(look.brand, palette, field === 'void' || field === 'grid' || (!look.loud && lum(palette.bg) < 0.2))); fixes.push(`palette: the brand's colours (${look.brand.from.join(', ')})`); }
+        // (continuity comes from the camera, colour, subject and light -- never a decorative line down the page)
+        thread.kind = 'none';
+        // (a background is the brand's colour or its world, never a generic gradient or drifting decoration)
+        if (!['solid', 'grain', 'paper', 'grid', 'water', 'stars'].includes(atmosphere.backdrop)) atmosphere.backdrop = 'solid';
+        if (!['bubbles', 'stars', 'snow', 'none'].includes(atmosphere.particles)) { atmosphere.particles = 'none'; atmosphere.density = 0; }
+        atmosphere.light = 'none';
+      }
       const recipeScenes = useRecipe && Array.isArray(c.art.scenes) ? c.art.scenes : [];
       // the premium ARC (premium-arc.js -- cinematic / showcase): the moments the generation planned (the server's, with their
       // sources), where the recipe placed them, and what the model or a saved page says about them. Each moment's scene
@@ -5974,7 +6307,7 @@
       const rawScenes = rawScenes0();
       if (rawScenes.length < LIMITS.scenes[0]) errors.push(`scenes: at least ${LIMITS.scenes[0]} scenes are needed`);
       if (rawScenes.length > LIMITS.scenes[1]) fixes.push(`scenes: ${rawScenes.length - LIMITS.scenes[1]} scene(s) beyond ${LIMITS.scenes[1]} dropped`);
-      const uses = new Map(); let layersTotal = 0, pinned = 0; const seenIds = new Set();
+      const uses = new Map(); let layersTotal = 0, pinned = 0; const seenIds = new Set(); let calledBack = false;
       // (how often one picture may appear: twice -- three times as its cut-out -- and more on a page with only one or two
       // pictures, each time framed differently, so a weak search still makes a picture-led page)
       const nPics = new Set(assets.filter(a => a.ownerRole !== 'logo' && !(curOf(a) && (curOf(a).role === 'unrelated' || curOf(a).identity === 'other'))).map(a => baseOf(a).id)).size;
@@ -6111,17 +6444,28 @@
             // a flat photo never floats as a bare rectangle: framed, masked, or used as a full backdrop (an archetype frames
             // its own pictures, and a deliberate full bleed or texture is not a rectangle floating on the page)
             const free = !!(a.caps && a.caps.moveFreely);
-            if (!free && !artScene && L.frame !== 'bleed' && L.frame !== 'texture' && L.mask === 'none' && L.edge !== 'fade' && role !== 'backdrop' && role !== 'texture') { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
+            // (with a look: decorative frames -- a rounded window, a picture frame, a porthole, a polaroid, a blob, a torn edge -- are
+            // never the default: the photo is cropped hard instead, to bleed, overlap and break the grid)
+            if (look && !safety && LOOK_DECOR.includes(L.mask)) { L.mask = 'none'; if (!free && !L.frame) L.frame = 'bleed'; }
+            if (!free && !artScene && L.frame !== 'bleed' && L.frame !== 'texture' && L.mask === 'none' && L.edge !== 'fade' && role !== 'backdrop' && role !== 'texture') {
+              if (look) { L.frame = 'bleed'; fixes.push(`${where}: ${a.id} is a flat photo -- cropped to bleed instead of floating as a bare rectangle`); }
+              else { L.mask = 'window'; fixes.push(`${where}: ${a.id} is a flat photo -- framed instead of floating as a bare rectangle`); }
+            }
             // (a shaped mask needs the picture to fill it; a picture framed whole keeps its contain -- framing.js shaped its frame)
             if (!free && L.fit === 'contain' && L.mask !== 'none' && !L.frame) L.fit = 'cover';
             // (a supporting picture in a gallery-type scene -- a strip, an index, a lineup -- shows the set, it is not a repeat
             // of the picture as filler: only a scene's lead picture counts toward how often a picture may appear)
-            const k = baseOf(a).id; const inSet = (POOL.TAKES[layout] || 0) >= 3 && role !== 'focal';
-            if (!inSet) uses.set(k, (uses.get(k) || 0) + 1);
-            const max = a.cutout || (a.assess && a.assess.transparent) ? useMax.cut : useMax.photo;
+            // (with a look: THE IMAGE LEDGER -- a picture appears once on the page. Its cut-out, a crop, a copy are the same
+            // picture (LOOK.root, through the persisted links); a gallery's set counts too; the one exception is an explicit
+            // narrative callback in the closing scene. Here only a scene's MAIN picture claims it -- a supporting picture may yet be
+            // left out by its scene's composition; the ledger over the finished page settles the rest: applyLook)
+            const k = (look ? LOOK.root(a, byId) : baseOf(a)).id; const inSet = (POOL.TAKES[layout] || 0) >= 3 && role !== 'focal';
+            if (look ? (uses.get(k) || 0) >= 1 || role === 'focal' : !inSet) uses.set(k, (uses.get(k) || 0) + 1);
+            const max = look ? 1 : a.cutout || (a.assess && a.assess.transparent) ? useMax.cut : useMax.photo;
+            if (look && rl.callback === true && si === Math.min(rawScenes.length, LIMITS.scenes[1]) - 1 && uses.get(k) >= 2 && !calledBack) { calledBack = true; L.callback = true; return L; }
             // (a premium moment's scene showing the picture its clip is made from is that moment -- never a repeat as filler)
-            const own = eventAt.get(si) && (eventAt.get(si).asset === k || eventAt.get(si).asset === a.id);
-            if (!inSet && !own && uses.get(k) > max) { fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
+            const own = eventAt.get(si) && (eventAt.get(si).asset === k || eventAt.get(si).asset === a.id || (look && LOOK.root(byId.get(eventAt.get(si).asset), byId).id === k)) || (look && inRun(si) && LOOK.root(byId.get(actor.asset) || a, byId).id === k);
+            if (!inSet && !own && uses.get(k) > max) { if (look) uses.set(k, uses.get(k) - 1); fixes.push(`${where}: ${a.id} already appears ${max} times -- not repeated again as filler`); return null; }
           } else if (kind === 'shape') {
             const sh = rl.shape || {};
             L.shape = { form: oneOf(sh.form, VOCAB.shape, 'circle'), fill: oneOf(sh.fill, VOCAB.fill, 'accent'), stroke: !!sh.stroke };
@@ -6458,6 +6802,10 @@
         // (the page's fingerprint says how it actually moves: the validated timeline's behaviour, not the recipe's first plan)
         if (art) { art.behavior = timeline.behavior; art.recipe = (String(art.recipe || '').split('#')[0] + '#' + timeline.behavior).slice(0, 560); }
       }
+      if (look) applyLook(look, { scenes, timeline, actor, byId, eventAt, inRun, safety, sig: lookSig, art, fixes });
+      // (the ledger may have taken a picture a seam relied on: the timeline is held to the finished scenes exactly as a reopened
+      // page holds it, so the page saves and reopens unchanged)
+      if (look && !safety && timeline) timeline = TL.normalise(timeline, tctx).timeline;
       // ---- image-driven colour (palette.js): each scene's surface is its picture's colour; a scene without a picture sits
       // between its neighbours' colours; a confirmed premium hero's colour carries into the scenes after it. (A scene a
       // timeline beat floods keeps its flood: that colour change IS its moment.)
@@ -6486,7 +6834,21 @@
         if (calmed.size && timeline) timeline.beats = timeline.beats.filter(b => !(calmed.has(b.scene) && (b.op === 'background' || b.op === 'takeover')));
       }
       // a scene's asset used on a background colour that clashes: accent/invert scenes get their own text colour
-      scenes.forEach(s => { s.ink = sceneInk(s.background, palette, s.tone); });
+      // (a look's colour field: a scene whose subject stands free -- a cut-out, an actor, or words alone -- stands on one of
+      // the brand's own colours, and its words, accent and transition colour follow from it (sceneInk); a photograph brings
+      // its own world -- its scene keeps the picture's tone -- and a timeline flood keeps its flood)
+      if (look && !safety && look.devices.includes('colour-field') && look.brand.confident) {
+        const flooded = new Set(timeline ? timeline.beats.filter(b => b.op === 'background' || b.op === 'takeover').map(b => b.scene) : []);
+        const fullBleed = s => s.layers.some(L => L.kind === 'image' && L.box.d[2] >= 90 && L.box.d[3] >= 90 && L.opacity > 0.6);
+        // (the colour of the scene's biggest picture -- a red can never stands on a red field)
+        // (in an actor's run the actor is the scene's picture)
+        const picHex = (s, i) => { const L = s.layers.filter(x => x.kind === 'image' && byId.get(x.asset)).sort((x, y) => y.box.d[2] * y.box.d[3] - x.box.d[2] * x.box.d[3])[0]; const a0 = (L && byId.get(L.asset)) || (actor && inRun(i) && byId.get(actor.asset)); return a0 ? ((a0.assess && (a0.assess.colours || []).find(c => /^#[0-9a-f]{6}$/i.test(c) && PAL.hsl(c).s > 0.35)) || PAL.identity(a0).hex) : ''; };
+        const photo = s => s.layers.some(L => L.kind === 'image' && byId.get(L.asset) && !(byId.get(L.asset).cutout || (byId.get(L.asset).assess && byId.get(L.asset).assess.transparent)) && L.role !== 'texture');
+        const own = i => { const s = scenes[i]; if (!s) return ''; if (flooded.has(i)) return s.background === 'invert' ? palette.ink : s.background === 'accent' ? palette.accent : s.background === 'deep' ? palette.bg2 : s.tone || palette.bg; return fullBleed(s) || eventAt.has(i) || (photo(s) && s.tone) ? s.tone || picHex(s, i) || palette.bg : ''; };
+        LOOK.fields(scenes, look.brand, { loud: look.loud, pictureHex: s => picHex(s, scenes.indexOf(s)), fixed: own }).forEach((hx, i) => { if (!hx) return; scenes[i].background = 'base'; scenes[i].tone = hx; });
+        fixes.push('look: each scene stands on one of the brand\'s colours');
+      }
+      scenes.forEach(s => { s.ink = sceneInk(s.background, palette, s.tone, !!look); });
       // the main subject is never blurred: "soft" is for backdrops and textures (a blurred focal picture read as washed out)
       if (!safety) scenes.forEach(s => s.layers.forEach(L => { if (L.kind === 'image' && L.role === 'focal' && L.treatment === 'soft') { L.treatment = 'none'; fixes.push(`scene ${s.id}: the main picture is shown sharp (no soft blur)`); } }));
       // a cut-out subject almost the colour of its stage (a black silhouette on a dark scene) gets a light rim so it reads
@@ -6531,15 +6893,21 @@
       // sides (one state), the overlap, depth, mask, backdrop, typography and camera -- derived from this timeline and these
       // pictures. A new page gets its built-in contracts (the continuity pass may refine them); a saved page keeps its own.
       if (timeline && (!safety || (p.timeline && p.timeline.continuity))) {
-        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia, premiumArc, mode: art && art.mode, name: identity.name });
+        const ct = CT.normalise(p.timeline && p.timeline.continuity, { scenes, timeline, byId, premiumMedia, premiumArc, mode: art && art.mode, name: identity.name, look: !!look });
         if (ct.continuity) timeline.continuity = ct.continuity;
+        // (a carried subject is the handoff device: a page that does not commit to it crosses its seams with colour and camera)
+        if (look && !safety && !look.devices.includes('handoff') && timeline.continuity) (timeline.continuity.contracts || []).forEach(k => { if (k.carry && k.carry !== 'none') k.carry = 'none'; });
       }
+      // (a look's page: its fingerprint says how it actually moves, now its seams and actors are the look's -- after continuity)
+      if (look && !safety && timeline && art && art.mode) { timeline.behavior = TL.behavior(timeline, art); art.behavior = timeline.behavior; art.recipe = (String(art.recipe || '').split('#')[0] + '#' + timeline.behavior).slice(0, 560); }
       const plan = {
         v: 2, identity, concept, palette, type, atmosphere, motion, thread, scenes, wants, limitations, assetNotes, imagery,
         ...(premiumMedia.length ? { premiumMedia } : {}),
         ...(premiumArc.length >= 2 ? { premiumArc } : {}),
         ...(premium3D ? { premium3D } : {}),
         ...(logoA ? { logo: { asset: logoA.id } } : {}),
+        // the page's look (look.js): its typography, brand colours and devices -- a page without one renders as it always did
+        ...(look ? { look } : {}),
         // the page's art direction (motion personality, scroll model, typography, navigation...), when it has one
         ...(art ? { art } : {}),
         // the persistent actor (a run of scenes one subject lives across)
@@ -6631,9 +6999,93 @@
         if (overlap(L.box.d, tb) > Math.min(area(L.box.d), area(tb)) * 0.12) { L.opacity = 0.18; L.z = Math.min(L.z, 2); fixes.push(`scene ${scene.id}: a ${L.shape.form} passing behind the words fades almost away`); }
       });
     }
-    function sceneInk(bg, P, tone) {
+    // THE LOOK over the finished page (look.js). Always: the image ledger -- every picture once, its cut-outs and copies
+    // counted as the same picture; an actor's own run, a premium moment's own picture, one marked callback, and a picture
+    // physically handed across a seam (a card of the last scene opening into this one, an actor carried over it: one picture
+    // continuing, never a second copy) excepted.
+    // A new page also: the devices it commits to (2-4) and nothing outside them -- shaped masks, moving type, carried
+    // subjects, parallax and loops each belong to a device; flat shape transitions become content transitions; decorative
+    // background actors go; and each scene enters as ONE composed event (one entrance, no stagger).
+    const LOOK_DECOR = ['window', 'frame', 'porthole', 'polaroid', 'blob', 'torn'];
+    const LOOK_GLOWS = ['blob', 'circle', 'star', 'dots', 'sunburst'];
+    const SCROLL_DEVICE = { parallax: 'parallax', 'drift-x': 'parallax', rise: 'parallax', sink: 'parallax', rotate: 'parallax', 'pass-through': 'parallax', 'zoom-in': 'camera', 'zoom-out': 'camera', reveal: 'mask-reveal' };
+    function applyLook(look, x) {
+      const { scenes, timeline, actor, byId, eventAt, inRun, safety, sig, fixes } = x;
+      const rootOf = id => { const a = byId.get(id); return a ? LOOK.root(a, byId).id : ''; };
+      const actorRoot = actor ? rootOf(actor.asset) : '';
+      const seen = new Set(actorRoot ? [actorRoot] : []); const shownIn = new Map();
+      const handedOver = i => !!(timeline && timeline.transitions.some(t => t.at === i && ['card-expand', 'actor-carry'].includes(t.family)));
+      scenes.forEach((s, i) => {
+        const ev = eventAt.get(i); const evRoot = ev ? rootOf(ev.asset) : '';
+        s.layers = s.layers.filter(L => {
+          if (L.kind !== 'image' || !byId.get(L.asset)) return true;
+          const r = rootOf(L.asset);
+          const handed = L.role === 'focal' && handedOver(i) && shownIn.get(r) === i - 1;
+          if (!seen.has(r) || L.callback || handed || (actorRoot && r === actorRoot && inRun(i)) || (evRoot && r === evRoot)) { seen.add(r); if (!shownIn.has(r)) shownIn.set(r, i); return true; }
+          fixes.push(`scene ${s.id}: ${L.asset} is a picture already on the page -- not shown again`); return false;
+        });
+      });
+      if (timeline) timeline.actors = timeline.actors.filter(a => {
+        if (a.role === 'secondary' && a.asset && seen.has(rootOf(a.asset))) { fixes.push('timeline: the secondary actor is a picture already on the page -- left out'); return false; }
+        if (!safety && a.role === 'background') { fixes.push('timeline: no decorative background shape (the look takes its backgrounds from the brand)'); return false; }
+        return true;
+      });
+      if (safety) return;
+      // (flat shape transitions -- a slab wiping across, a circle of colour -- become content: what the outgoing composition
+      // can become (COMP.BECOMES) that is made of the pictures -- the next picture opening out of a window, the stage handing
+      // its depth over -- else the next scene's colour bleeding in)
+      if (timeline) timeline.transitions.forEach(t => {
+        if (!['shape-takeover', 'foreground-wipe'].includes(t.family)) return;
+        const next = scenes[t.at], prev = scenes[t.at - 1]; const pic = next && next.layers.some(L => L.kind === 'image' && L.role === 'focal' && byId.get(L.asset));
+        const allowed = (prev && prev.composition && CT.becomesFor({ look }, prev.composition)) || (pic ? ['image-expand'] : []);
+        // (never the same move twice in a row: the seam before this one is not repeated when another content move fits)
+        const before = (timeline.transitions.find(x => x.at === t.at - 1) || {}).family;
+        const prevPic = prev && prev.layers.some(L => L.kind === 'image' && L.role === 'focal' && byId.get(L.asset));
+        const fits = ['image-expand', 'depth-handoff', 'card-expand'].filter(f => allowed.includes(f) && (f === 'depth-handoff' ? prevPic : pic));
+        const was = t.family; t.family = fits.find(f => f !== before) || fits[0] || 'color-bleed';
+        fixes.push(`timeline: seam ${t.at} -- ${was} becomes ${t.family} (a transition made of the content, not a flat shape)`);
+      });
+      look.devices = LOOK.devicesFor({ scenes, timeline, actor }, sig || LOOK.signals({ plan: { scenes, art: x.art } }), look.brand, look.type);
+      const has = d => look.devices.includes(d);
+      if (timeline && !has('type-motion')) timeline.actors = timeline.actors.filter(a => a.role !== 'typography');
+      if (timeline && !has('mask-reveal')) timeline.transitions.forEach(t => { if (t.family === 'type-mask') t.family = 'color-bleed'; });
+      if (timeline && !has('handoff')) timeline.transitions.forEach(t => { if (t.family === 'actor-carry' && !actor) t.family = 'color-bleed'; });
+      const enter = look.enter === 'camera' ? 'dolly' : 'none';
+      scenes.forEach(s => {
+        if (s.background === 'tint') s.background = 'base';
+        if (s.text.treatment && LOOK.TEXT_MOVES.includes(s.text.treatment) && !has('type-motion') && !['word-fill', 'type-wipe'].includes(s.choreo)) delete s.text.treatment;
+        s.layers.forEach(L => {
+          // (decoration drawn as a soft glow -- a blob, a blurred disc, a twinkle, a haze of dots -- is a blurred blob: a page with a
+          // look takes its backgrounds from the brand and its pictures; crisp geometry, and a scene's own main shape, stay)
+          if (L.kind === 'shape' && L.shape && LOOK_GLOWS.includes(L.shape.form) && L.role !== 'focal') { L.drop = true; return; }
+          if (L.kind === 'image' && LOOK.SHAPED.includes(L.mask) && !has('mask-reveal')) { L.mask = 'none'; if (L.fit === 'contain' && !(byId.get(L.asset) && byId.get(L.asset).caps && byId.get(L.asset).caps.moveFreely)) L.fit = 'cover'; }
+          // (a loop that moves a layer is parallax; light catching a surface -- sheen -- is the subject's material, and a slow
+          // zoom is the camera)
+          const loopDevice = L.loop && (L.loop.kind === 'sheen' ? '' : L.loop.kind === 'kenburns' ? 'camera' : 'parallax');
+          if (L.loop && L.loop.kind !== 'none' && loopDevice && !has(loopDevice)) L.loop = Object.assign({}, L.loop, { kind: 'none' });
+          if (L.scroll && SCROLL_DEVICE[L.scroll.kind] && !has(SCROLL_DEVICE[L.scroll.kind])) L.scroll = Object.assign({}, L.scroll, { kind: 'none', amount: 0 });
+          // (one composed entrance: every layer arrives with the stage -- one mask, one camera -- never on its own clock)
+          L.entrance = { kind: enter, delay: 0, dur: 1.2 };
+        });
+        // (no blurred blob as decoration: the look's backgrounds are the brand's colours and the pictures' own)
+        s.layers = s.layers.filter(L => !L.drop);
+        // (the words ride the same mask as the picture they belong to)
+        s.text.entrance = 'none';
+      });
+      fixes.push(`look: ${look.type.family} type; devices ${look.devices.join(', ')}; each scene enters as one composed event`);
+    }
+
+    function sceneInk(bg, P, tone, look) {
+      const r = sceneInk0(bg, P, tone, look);
+      // (a page with a look reads at 4.5:1 on any of its colours -- on a saturated brand colour the words go pure white or black)
+      if (look && contrast(r.ink, r.surface) < 4.5) { r.ink = [r.ink, '#ffffff', '#000000'].sort((a, b) => contrast(b, r.surface) - contrast(a, r.surface))[0]; r.muted = mix(r.ink, r.surface, 0.2); for (let i = 0; i < 8 && contrast(r.muted, r.surface) < 4.5; i++) r.muted = mix(r.muted, r.ink, 0.3); }
+      return r;
+    }
+    function sceneInk0(bg, P, tone, look) {
       if (tone) {
-        const light = contrast('#141414', tone) >= contrast('#f6f3ee', tone); const ink = contrast(P.ink, tone) >= 7 ? P.ink : light ? '#141414' : '#f6f3ee';
+        // (a page with a look reads at 4.5:1 on any of its colours -- on a saturated brand red the words go pure white or black)
+        const light = contrast('#141414', tone) >= contrast('#f6f3ee', tone); const ink0 = contrast(P.ink, tone) >= 7 ? P.ink : light ? '#141414' : '#f6f3ee';
+        const ink = look && contrast(ink0, tone) < 4.5 ? [P.ink, '#ffffff', '#000000'].sort((a, b) => contrast(b, tone) - contrast(a, tone))[0] : ink0;
         let accent = P.accent; for (let i = 0; i < 12 && contrast(accent, tone) < 3.2; i++) accent = mix(accent, light ? '#000000' : '#ffffff', 0.18);
         let muted = mix(ink, tone, 0.3); for (let i = 0; i < 8 && contrast(muted, tone) < 4.5; i++) muted = mix(muted, ink, 0.3);
         return { ink, muted, surface: tone, accent };
@@ -7109,16 +7561,18 @@
       prose: ['The longer story', 'A closer reading', 'The story so far'],
       statement: null, closing: null, opening: null,
     };
-    // the look each personality reaches for (display face, scale, case, backdrop, light, particles, tempo, thread)
+    // the look each personality reaches for (display face, scale, case, backdrop, light, particles, tempo, thread). The display
+    // face is only a hint: look.js chooses the page's type system from what the page is about (validate2), and no page gets a
+    // decorative line down its side (thread: none)
     const LOOK = {
-      editorial: { display: ['serif', 'didone'], scale: 'large', case: 'normal', backdrop: ['paper', 'grain', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['line', 'none'] },
-      cinematic: { display: ['didone', 'serif', 'condensed'], scale: 'monumental', case: 'normal', backdrop: ['vignette', 'spotlight', 'fog'], light: 'spot', particles: 'dust', tempo: 'slow', thread: ['none'] },
-      kinetic: { display: ['condensed', 'grotesk'], scale: 'monumental', case: 'upper', backdrop: ['solid', 'grid'], light: 'none', particles: 'none', tempo: 'lively', thread: ['none'] },
-      playful: { display: ['rounded', 'slab'], scale: 'monumental', case: 'normal', backdrop: ['gradient', 'sunrise', 'solid'], light: 'sun', particles: 'confetti', tempo: 'lively', thread: ['ribbon', 'stitch'] },
-      luxe: { display: ['didone', 'serif'], scale: 'quiet', case: 'upper', backdrop: ['solid', 'vignette'], light: 'none', particles: 'none', tempo: 'slow', thread: ['none'] },
-      mechanical: { display: ['mono', 'grotesk', 'condensed'], scale: 'large', case: 'upper', backdrop: ['grid', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['none', 'line'] },
-      chaotic: { display: ['condensed', 'slab', 'grotesk'], scale: 'monumental', case: 'upper', backdrop: ['grain', 'gradient', 'solid'], light: 'none', particles: 'sparks', tempo: 'lively', thread: ['stitch', 'none'] },
-      still: { display: ['serif'], scale: 'quiet', case: 'normal', backdrop: ['solid', 'paper'], light: 'lamp', particles: 'none', tempo: 'still', thread: ['none'] },
+      editorial: { display: ['serif', 'neutral', 'humanist'], scale: 'large', case: 'normal', backdrop: ['paper', 'grain', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['none'] },
+      cinematic: { display: ['condensed', 'block', 'neutral'], scale: 'monumental', case: 'normal', backdrop: ['vignette', 'spotlight', 'fog'], light: 'spot', particles: 'dust', tempo: 'slow', thread: ['none'] },
+      kinetic: { display: ['condensed', 'block', 'campaign'], scale: 'monumental', case: 'upper', backdrop: ['solid', 'grid'], light: 'none', particles: 'none', tempo: 'lively', thread: ['none'] },
+      playful: { display: ['rounded', 'block'], scale: 'monumental', case: 'normal', backdrop: ['gradient', 'sunrise', 'solid'], light: 'sun', particles: 'confetti', tempo: 'lively', thread: ['none'] },
+      luxe: { display: ['didone', 'wide', 'neutral'], scale: 'quiet', case: 'upper', backdrop: ['solid', 'vignette'], light: 'none', particles: 'none', tempo: 'slow', thread: ['none'] },
+      mechanical: { display: ['mono', 'wide', 'neutral'], scale: 'large', case: 'upper', backdrop: ['grid', 'solid'], light: 'none', particles: 'none', tempo: 'measured', thread: ['none'] },
+      chaotic: { display: ['campaign', 'condensed', 'slab'], scale: 'monumental', case: 'upper', backdrop: ['grain', 'gradient', 'solid'], light: 'none', particles: 'sparks', tempo: 'lively', thread: ['none'] },
+      still: { display: ['humanist', 'serif'], scale: 'quiet', case: 'normal', backdrop: ['solid', 'paper'], light: 'lamp', particles: 'none', tempo: 'still', thread: ['none'] },
     };
     // palettes per personality, light and dark (a picture on a light background asks for a light page, and the reverse)
     const PALETTES = {
@@ -7181,8 +7635,9 @@
       const mainPic = mainOrig ? (!wantsWhole && cutOf(mainOrig)) || mainOrig : null;
       const others = originals.filter(a => a !== mainOrig);
       const env = others.filter(a => a.curation && (a.curation.role === 'environment' || a.curation.role === 'detail'));
-      // every picture may appear twice (three times when its cut-out is shown): the least used suitable picture comes next
-      const uses = new Map(); const limit = a => (cutOf(a) ? 3 : 2);
+      // every picture appears ONCE (its cut-out is the same picture -- the image ledger, look.js): the next unused suitable
+      // picture comes next, and a scene with none left is carried by its words and colour
+      const uses = new Map(); const limit = () => 1;
       const note = a => { if (a) { const k = a.cutoutOf || a.id; uses.set(k, (uses.get(k) || 0) + 1); } return a; };
       note(mainPic);
       // (a composition that frames a wide photograph asks for one: a wide, uncropped picture comes first)
@@ -7253,7 +7708,7 @@
           if (f) { t.heading = head0; t.body = f.text; t.kind = 'sourced'; t.cite = f.id; } else { t.heading = head0; }
           const a = L === 'text' || L === 'takeover' || L === 'stage' ? null : pickPic(FREE.includes(L), null, WIDE.includes(L));
           if (a) s.layers.push(img(a, 'focal'));
-          const tex = L === 'depth' && env.find(x => x.id !== (a && (a.cutoutOf || a.id)) && (uses.get(x.id) || 0) < 2);
+          const tex = L === 'depth' && env.find(x => x.id !== (a && (a.cutoutOf || a.id)) && (uses.get(x.id) || 0) < 1);
           if (tex) { note(tex); s.layers.push(img(tex, 'texture', 'texture')); }
         }
         if (!t.heading) t.heading = mood();
@@ -7264,6 +7719,8 @@
           const pics = (vis.assets || [vis.asset]).map(id => byIdU.get(id)).filter(Boolean);
           if (pics.length) {
             s.layers = pics.map((a, k) => img(a, k ? 'support' : 'focal')).concat(s.layers.filter(x => x.role === 'texture' && !pics.some(a => a.id === x.asset)));
+            // (the closing scene's return to the opening picture is a marked narrative callback -- the ledger's one exception)
+            if (vis.callback && s.layers[0]) s.layers[0].callback = true;
             const said = meaningful(vis.subject);
             if (said && i > 0 && carries !== 'facts') t.kicker = said.slice(0, 40);
             s.visual = { asset: pics[0].id, subject: said, intent: intentOf(L, carries, P0, i, last), relation: vis.relation };
@@ -7906,13 +8363,20 @@
     const CR = require('./carry-route');
     const COMP = require('./composition');
     const TD = require('./three-d');
+    const LOOK = require('./look');
 
     const FONT2 = Object.assign({}, FONTS, {
       mono: `"Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace`,
       condensed: `"Arial Narrow", "Roboto Condensed", "Helvetica Neue Condensed", "Franklin Gothic Medium Cond", "Segoe UI", sans-serif`,
       script: `"Segoe Script", "Brush Script MT", "Snell Roundhand", cursive`,
+      // the look's families (look.js): system faces only -- the page never loads a font from elsewhere
+      block: `"Arial Black", "Segoe UI Black", "Helvetica Neue", Helvetica, Arial, sans-serif`,
+      campaign: `Impact, Haettenschweiler, "Franklin Gothic Heavy", "Arial Narrow Bold", "Arial Black", sans-serif`,
+      wide: `"Century Gothic", Futura, "Avenir Next", Avenir, "Segoe UI", "Trebuchet MS", sans-serif`,
+      neutral: `"Helvetica Neue", "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif`,
+      humanist: `"Gill Sans", "Gill Sans MT", Seravek, Candara, Optima, "Segoe UI", sans-serif`,
     });
-    const WEIGHT = { didone: 700, grotesk: 800, serif: 700, rounded: 700, slab: 700, mono: 700, condensed: 700, script: 400 };
+    const WEIGHT = { didone: 700, grotesk: 800, serif: 700, rounded: 700, slab: 700, mono: 700, condensed: 700, script: 400, block: 900, campaign: 400, wide: 700, neutral: 700, humanist: 600 };
     const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
     const HEIGHT_VH = { screen: 100, tall: 100, short: 64, auto: 0 };
 
@@ -8004,7 +8468,7 @@
       const t = hero.text;
       const artAttrs = art ? ` data-personality="${art.personality}" data-scroll="${art.scroll}" data-typo="${art.typo}" data-nav="${art.nav}" data-density="${art.density}" data-depth="${art.depth}" style="--range:${M.range};--ease:${M.ease};--pinv:${M.pin}"` : '';
       return `<!doctype html>
-    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo || pvArc.length ? ' data-premium="video"' : ''}${td ? ' data-3d' : ''}${pvArc.length ? ` data-pvarc="${pvArc.length}"` : ''}${logoA ? ' data-logo' : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}>
+    <html lang="en" class="cr cr2"${tl ? ` data-renderer="${renderer}"` : ''}${flowAll ? ' data-flowall' : ''}${heroVideo || pvArc.length ? ' data-premium="video"' : ''}${td ? ' data-3d' : ''}${pvArc.length ? ` data-pvarc="${pvArc.length}"` : ''}${logoA ? ' data-logo' : ''} data-display="${plan.type.display}" data-scale="${plan.type.scale}" data-case="${plan.type.case}" data-tempo="${plan.motion.tempo}" data-backdrop="${plan.atmosphere.backdrop}" data-motion="${o.motion === 'reduced' ? 'reduced' : 'full'}" data-mode="${mode}" data-connector="${plan.thread.kind}"${artAttrs}${plan.look ? ` data-look="${plan.look.type.family}" data-devices="${plan.look.devices.join(' ')}" data-enter="${plan.look.enter}"` : ''}>
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8012,7 +8476,7 @@
     <meta name="description" content="${esc((plan.concept.logline || t.body || '').slice(0, 160))}">
     <meta name="generator" content="SiteRemade Creative">
     <script>document.documentElement.classList.add('cr-js')</script>
-    <style>${css(plan, P)}${arted ? ARTCSS : ''}${spatial ? SPATIAL_CSS : ''}${td ? td.css : ''}</style>
+    <style>${css(plan, P)}${arted ? ARTCSS : ''}${spatial ? SPATIAL_CSS : ''}${td ? td.css : ''}${plan.look ? lookCss(plan.look) : ''}</style>
     </head>
     <body>
     <a class="cr-skip" href="#main">Skip to content</a>
@@ -8218,7 +8682,7 @@
         const n = wlist.length >= 5 ? 3 : 2; const per = t.heading.length / n; const lines = [[]]; let len = 0;
         wlist.forEach((w, j) => { if (len > per * lines.length && lines.length < n) lines.push([]); lines[lines.length - 1].push([w, j]); len += w.length + 1; });
         words = lines.map(l => `<span class="ln">${l.map(([w, j]) => wordHtml(w, j)).join(' ')}</span>`).join(' ');
-      } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(t.heading);
+      } else words = t.entrance === 'split-words' ? wlist.map(wordHtml).join(' ') : esc(c.plan.look ? LOOK.keep(t.heading) : t.heading);
       const tr = artOn ? t.treatment || '' : '';
       // this scene's beats (timeline.js): each on an element of the scene, driven by its own window of the scene's progress
       const beats = c.tl ? c.tl.beats.filter(b => b.scene === si) : [];
@@ -8245,7 +8709,7 @@
       const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${t.role ? ` data-role="${t.role}"` : ''}${t.act ? ` data-act="${t.act}"` : ''}${t.copy ? ` data-copy="${t.copy}"` : ''}${tpl ? planeAttrs(tpl, 'text') : ''}${place || wn || tpl || tr === 'letter-spread' || has('letter-spread') ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' || has('letter-spread') ? `--cn:${cn}` : '', tpl ? planeStyle(tpl, c.ctrack.rest) : ''].filter(Boolean).join(';')}"` : ''}` : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${c.plan.look ? LOOK.measure(t.heading) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
           ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"${battr('body')}${bvars('body') ? ` style="${bvars('body')}"` : ''}${fillBody && tr === 'word-fill' ? ` data-blen="${t.body.length > 240 ? 'l' : t.body.length > 120 ? 'm' : 's'}"` : ''}><span${c.edit(`${k}.body`)}>${fillBody ? fill(t.body) : esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
@@ -8255,7 +8719,8 @@
       // every scene has its own air: a far haze in the palette's colours, a vignette, and a few near, out-of-focus sparkles
       let seed = 97 + si * 31; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
       const near = [0, 1, 2, 3].map(() => `<i style="left:${(rnd() * 96).toFixed(1)}%;top:${(30 + rnd() * 65).toFixed(1)}%;width:${(0.6 + rnd() * 1.4).toFixed(2)}vw;height:${(0.6 + rnd() * 1.4).toFixed(2)}vw;--t:${(16 + rnd() * 14).toFixed(1)}s;--d:${(-rnd() * 20).toFixed(1)}s"></i>`).join('');
-      const amb = `<div class="sc-amb" aria-hidden="true"><i class="amb-haze"></i><i class="amb-haze amb-b"></i><i class="amb-vig"></i><span class="amb-near">${near}</span></div>`;
+      // (a page with a look takes its air from the brand and its pictures: no drifting haze, no sparkles)
+      const amb = c.plan.look ? '' : `<div class="sc-amb" aria-hidden="true"><i class="amb-haze"></i><i class="amb-haze amb-b"></i><i class="amb-vig"></i><span class="amb-near">${near}</span></div>`;
       const ink = s.ink || {};
       const prev = si > 0 && c.plan.scenes[si - 1] && c.plan.scenes[si - 1].ink ? c.plan.scenes[si - 1].ink.surface : '';
       const changes = prev && ink.surface && prev.toLowerCase() !== String(ink.surface).toLowerCase();
@@ -8300,7 +8765,8 @@
         : c.flowAll && !inRun && !hero && (rest || cover < 0.3) && cover < 0.5 ? (fL && c.byId.get(fL.asset)) || c.mainAsset || null
         // (the scene after a later premium moment keeps a dim echo of that clip's picture: the takeover's world fades, it does not vanish)
         : c.flowAll && c.pvAfter && c.pvAfter.role !== 'hero' && cover < 0.6 && c.byId.get(c.pvAfter.asset) ? c.byId.get(c.pvAfter.asset) : null;
-      const echo = echoA && c.src(echoA) ? `<div class="sc-ghost" aria-hidden="true"><img src="${esc(c.src(echoA))}" alt="" decoding="async"></div>` : '';
+      // (a page with a look never shows a picture twice: no echo -- its callback is a real, marked layer -- look.js ledger)
+      const echo = echoA && !c.plan.look && c.src(echoA) ? `<div class="sc-ghost" aria-hidden="true"><img src="${esc(c.src(echoA))}" alt="" decoding="async"></div>` : '';
       const glowC = c.flowAll && s.visual && s.visual.palette ? PAL.glow(PAL.secondary(c.byId.get(s.visual.asset)) || s.visual.palette, c.plan.palette) : '';
       const inCast = !!(c.cast && c.cast.has(si));
       const beatWin = beats.map(b => { const f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; const t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
@@ -8320,6 +8786,33 @@
         ${credit ? `<p class="cr-herocredit">Picture: ${esc(credit)}</p>` : ''}
       </div>
     </section>`;
+    }
+
+    // ---------------------------------------------------------------- the look (look.js)
+    // A page with a look: its type system (the family's fit, tracking and leading), no glass, no rounded frames, no
+    // generic gradients -- and each scene arriving as ONE composed event: one mask opens over the whole stage while the
+    // camera settles, the words ride the same mask, nothing staggers on its own clock. Reduced motion shows it all at once.
+    function lookCss(L) {
+      const t = L.type; const R = 'html.cr-js[data-look]:not([data-motion="reduced"])';
+      return `
+    html[data-look][data-display][data-case]{--fit:${LOOK.fitFor(t)}cqi;--dtrack:${t.track}em;--dlead:${t.lead}}
+    html[data-look] .sc-heading,html[data-look] .cr-brand{letter-spacing:var(--dtrack)!important;line-height:var(--dlead)!important;text-wrap:balance}
+    html[data-look][data-case="upper"] .sc-heading{text-transform:uppercase}
+    html[data-look] .sc-text.has-scrim{background:var(--s-surface,var(--bg));border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+    html[data-look] .sc-list[data-list="notes"] .sc-item{background:none;border:0;border-top:3px solid var(--s-accent,var(--accent));border-radius:0;padding:14px 0 0}
+    html[data-look] .ly-art:is([data-mask="window"],[data-mask="frame"],[data-mask="porthole"],[data-mask="polaroid"]){border:0;outline:0;border-radius:0;box-shadow:none;padding:0;background:none}
+    html[data-look] .cs-carry{border-radius:0;filter:none}
+    html[data-look] .sc[data-seam-in="card-expand"] .ly:is([data-role="focal"],[data-role="subject"]) .ly-loop{clip-path:inset(calc((1 - var(--sn,1)) * var(--sit,38%)) calc((1 - var(--sn,1)) * var(--sir,52%)) calc((1 - var(--sn,1)) * var(--sib,16%)) calc((1 - var(--sn,1)) * var(--sil,12%)))}
+    html[data-look] .cb{background:var(--cbc,var(--bg))!important}
+    html.cr2[data-look][data-look] .sc .sc-backdrop{background:none!important}html[data-look] .sc-backdrop::before,html[data-look] .sc-backdrop::after{display:none}
+    html[data-look] .sc[data-bg="deep"]{background:var(--s-surface,var(--bg2))}
+    ${R} .sc .sc-stage,${R} .sc .sc-text{transition:clip-path 1.15s cubic-bezier(.65,0,.2,1)}
+    ${R} .sc:not(.is-in) .sc-stage,${R} .sc:not(.is-in) .sc-text{clip-path:inset(0 0 100% 0)}
+    ${R} .sc.is-in .sc-stage,${R} .sc.is-in .sc-text{clip-path:inset(-60% -60% -60% -60%)}
+    ${R} .sc .sc-text>*,${R} .sc .sc-item,${R} .sc .w{transition-delay:0s!important}
+    ${R} .sc:not(.is-in) :is(.sc-text>*,.sc-item,.w){opacity:1!important;transform:none!important}
+    ${R}[data-enter="camera"] .sc .ly-in{transition:transform 1.4s cubic-bezier(.2,.8,.2,1),opacity .6s ease}
+    `;
     }
 
     // ---------------------------------------------------------------- CSS

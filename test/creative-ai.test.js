@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { validatePlan2, LIMITS } = require('../lib/creative/validate2');
+const { validatePlan2, LIMITS, VOCAB } = require('../lib/creative/validate2');
 const { renderCreative2 } = require('../lib/creative/render2');
 const { sanitizeCreative } = require('../lib/creative/store');
 const ai = require('../lib/creative/ai');
@@ -51,10 +51,12 @@ test('v2 validator: hostile or careless model output is bounded, made honest, or
   p.scenes[1].text.body = 'x'.repeat(LIMITS.body + 10);
   p.scenes.push({ id: 'pin', purpose: 'p', height: 'tall', pin: true, layers: [{ kind: 'shape', role: 'focal', shape: { form: 'star' }, box: box([40, 20, 20, 40]) }], text: { heading: 'Pinned with nothing moving' } });
   const { plan, fixes, errors } = validatePlan2(p, { assets: ASSETS.concat([A('r3')]), facts: FACTS });
-  assert.equal(plan.type.display, 'serif'); assert.equal(plan.atmosphere.particles, 'none');
+  // (an unknown face is replaced by the page's own type system -- look.js -- never a default serif)
+  assert.equal(plan.type.display, plan.look.type.family); assert.ok(VOCAB.display.includes(plan.type.display)); assert.equal(plan.atmosphere.particles, 'none');
   const flat = plan.scenes[0].layers.find(l => l.asset === 'r3');
   assert.ok(flat.box.d.every(v => v >= 0 && v <= 100), 'box clamped'); assert.equal(flat.loop.kind, 'none');
-  assert.notEqual(flat.mask, 'none', 'a flat photo never floats as a bare rectangle');
+  assert.ok(flat.mask !== 'none' || flat.frame === 'bleed', 'a flat photo never floats as a bare rectangle: it is cropped hard (bleed), never put in a default frame');
+  assert.ok(!['window', 'frame', 'polaroid', 'porthole'].includes(flat.mask), 'no default frame');
   assert.ok(!plan.scenes[0].layers.some(l => l.asset === 'r2'), 'a picture the director saw is not the subject is not used');
   assert.deepEqual(plan.scenes[1].text.items.map(i => i.text), ['Packaged toilet paper arrived.'], 'uncited "sourced" line and invented quote removed');
   assert.ok(errors.some(e => /body is \d+ characters/.test(e)), 'an overlong paragraph is sent back, never cut mid-sentence');
@@ -160,20 +162,25 @@ test('composition: a text-height scene with layers gets a stage; built-on layers
   const m2 = three.layers.find(L => L.id === 'm2');
   assert.equal(m2.opacity, 1, 'moved beside the words rather than faded'); assert.ok(m2.box.d[0] >= 5 && m2.box.d[0] + m2.box.d[2] <= 95);
   // a scene whose only picture was called "support" still gets a main visual, kept clear of the words
-  const q = basePlan(); q.scenes[1] = { id: 'aside', purpose: 'p', height: 'short', text: { heading: 'Before', region: 'right', items: [{ text: 'Sponges.', kind: 'imagined' }] }, layers: [{ id: 'pic', kind: 'image', role: 'support', asset: 'r1', mask: 'circle', box: box([62, 22, 30, 56]) }] };
+  // (a picture not already on the page: the opening shows r1's cut-out, and a picture appears once -- the image ledger)
+  const q = basePlan(); q.scenes[1] = { id: 'aside', purpose: 'p', height: 'short', text: { heading: 'Before', region: 'right', items: [{ text: 'Sponges.', kind: 'imagined' }] }, layers: [{ id: 'pic', kind: 'image', role: 'support', asset: 'u1', mask: 'circle', box: box([62, 22, 30, 56]) }] };
   const qa = validatePlan2(q, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0];
   assert.equal(qa.role, 'focal'); assert.ok(qa.box.d[0] + qa.box.d[2] <= 50, 'moved clear of the right-hand words');
   // clear at rest but growing over the words on scroll: the zoom is kept, anchored to grow away from them
   const z = basePlan(); z.scenes[1] = { id: 'zoom', purpose: 'p', height: 'tall', camera: 'none', text: { heading: 'Plies', region: 'right' }, layers: [{ id: 'roll', kind: 'shape', role: 'focal', shape: { form: 'blob' }, box: box([5, 15, 42, 70]), scroll: { kind: 'zoom-in', amount: 0.35 } }] };
-  const zl = validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0];
-  assert.equal(zl.scroll.kind, 'zoom-in'); assert.equal(zl.scroll.amount, 0.35); assert.equal(zl.scroll.anchor, 'right');
-  assert.match(renderCreative2(validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan, [], {}), /data-scroll="zoom-in" data-amount="0.35" data-anchor="right"/);
+  // (a zoom on scroll is the camera device: kept and anchored when the page commits to the camera, left out when it
+  // does not -- a page commits to a few devices, look.js)
+  const zv = validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan; const zl = zv.scenes[1].layers[0];
+  if (zv.look.devices.includes('camera')) {
+    assert.equal(zl.scroll.kind, 'zoom-in'); assert.equal(zl.scroll.amount, 0.35); assert.equal(zl.scroll.anchor, 'right');
+    assert.match(renderCreative2(zv, [], {}), /data-scroll="zoom-in" data-amount="0.35" data-anchor="right"/);
+  } else assert.equal(zl.scroll.kind, 'none');
   // touching the words already: any zoom would cross them, so it moves on scroll without growing sideways
   z.scenes[1].layers[0].box = box([8, 15, 42, 70]);
-  assert.equal(validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan.scenes[1].layers[0].scroll.kind, 'parallax');
+  const zp = validatePlan2(z, { assets: ASSETS, facts: FACTS }).plan; assert.equal(zp.scenes[1].layers[0].scroll.kind, zp.look.devices.includes('parallax') ? 'parallax' : 'none');
   // legibility: words on a full-bleed photo get a scrim; a word layer across them becomes a ghost; long headings are not towers
   const g = basePlan(); g.scenes[1] = { id: 'bleed', purpose: 'p', height: 'screen', text: { heading: 'A shockwave that broke windows hundreds of kilometres away', width: 'narrow', region: 'left', body: 'It knocked people off their feet.' }, layers: [
-    { id: 'photo', kind: 'image', role: 'backdrop', asset: 'r1', opacity: 0.5, box: box([0, 0, 100, 100]) },
+    { id: 'photo', kind: 'image', role: 'backdrop', asset: 'u1', opacity: 0.5, box: box([0, 0, 100, 100]) }, // (a picture not already on the page)
     { id: 'date', kind: 'word', role: 'support', word: { text: '30 JUNE 1908', style: 'outline' }, box: box([6, 30, 60, 20]) }] };
   const gs = validatePlan2(g, { assets: ASSETS, facts: FACTS }).plan.scenes[1];
   assert.equal(gs.text.scrim, true); assert.equal(gs.text.width, 'medium'); assert.ok(gs.layers.find(L => L.id === 'date').opacity <= 0.2);
@@ -257,6 +264,8 @@ test('server (MOCK provider): one bounded repair, then an explicit fallback with
 test('server (MOCK provider): the claim check sends unsupported words back once, then takes them out; its cost is its own ledger row', async () => {
   await withServer({ MOCK_CREATIVE: 'claims' }, async (call, dir) => {
     const body = Object.assign(await planFor(call, { kind: 'recognizable', subject: 'Cats', identity: { name: 'Cats', kind: 'recognizable' } }), { facts: [{ id: 'f1', text: 'Cats are small carnivorous mammals.' }] });
+    // (a second picture for the reveal: each picture appears once on a page -- the image ledger)
+    body.assets.push({ id: 'u2', origin: 'upload', title: 'cat close-up', assess: { width: 800, height: 600, aspect: 1.33, orientation: 'landscape' }, caps: { moveFreely: false } }); body.thumbnails.push({ id: 'u2', dataUrl: 'data:image/jpeg;base64,/9j/4AAQ' });
     const r = await call('POST', '/api/creative/plan', body);
     assert.equal(r.body.ok, true); assert.equal(r.body.meta.attempts.length, 2, 'one repair for the unsupported heading');
     assert.ok(r.body.meta.attempts.every(a => a.claims && a.claims.unsupported === 1));
@@ -336,12 +345,21 @@ test('groups: parts of one object render inside one wrapper that carries the mot
     { id: 'blade', kind: 'shape', role: 'focal', group: 'sword', shape: { form: 'line' }, box: box([20, 5, 6, 80], [40, 5, 6, 80]), entrance: { kind: 'descend' }, loop: { kind: 'float' }, scroll: { kind: 'parallax', amount: 0.3 } },
     { id: 'hilt', kind: 'shape', role: 'support', group: 'sword', shape: { form: 'cross' }, box: box([15, 55, 16, 8], [35, 55, 16, 8]), entrance: { kind: 'pop' }, loop: { kind: 'sway' } },
   ] };
+  // (a saved page -- composed before looks -- keeps its group's own motion: the wrapper carries it, members have none)
+  const savedHtml = renderCreative2(validatePlan2(p, { assets: ASSETS, facts: FACTS, mode: 'safety' }).plan, ASSETS, {});
+  const sg = savedHtml.slice(savedHtml.indexOf('data-kind="group"')); const swrap = sg.slice(0, sg.indexOf('ly-group-art'));
+  assert.match(swrap, /data-scroll="parallax"/); assert.match(swrap, /data-entrance="descend"/); assert.match(swrap, /data-loop="float"/);
+  const sinner = sg.slice(sg.indexOf('ly-group-art'), sg.indexOf('</section>'));
+  assert.equal((sinner.match(/data-entrance="none"/g) || []).length, 2, 'members have no entrance of their own'); assert.match(sinner, /data-loop="sway"/, 'a member keeps its own ambient loop');
+  // (a new page: the group still moves as one object, and it arrives with its scene -- one composed entrance)
   const { plan } = validatePlan2(p, { assets: ASSETS, facts: FACTS });
   const html = renderCreative2(plan, ASSETS, {});
+  const lead = plan.scenes[1].layers.find(L => L.id === 'blade');
   const g = html.slice(html.indexOf('data-kind="group"')); const wrap = g.slice(0, g.indexOf('ly-group-art'));
-  assert.match(wrap, /data-scroll="parallax"/); assert.match(wrap, /data-entrance="descend"/); assert.match(wrap, /data-loop="float"/);
+  assert.match(wrap, new RegExp(`data-scroll="${lead.scroll.kind}"`)); assert.match(wrap, new RegExp(`data-entrance="${lead.entrance.kind}"`)); assert.match(wrap, new RegExp(`data-loop="${lead.loop.kind}"`));
+  assert.deepEqual([...new Set(plan.scenes[1].layers.map(L => `${L.entrance.kind}@${L.entrance.delay}`))], [`${lead.entrance.kind}@0`], 'one entrance for the whole scene');
   const inner = g.slice(g.indexOf('ly-group-art'), g.indexOf('</section>'));
-  assert.equal((inner.match(/data-entrance="none"/g) || []).length, 2, 'members have no entrance of their own'); assert.match(inner, /data-loop="sway"/, 'a member keeps its own ambient loop');
+  assert.doesNotMatch(inner, /data-entrance="(?!none")/, 'members have no entrance of their own');
   // moving the focal clear of the words moves the whole object
   const q = basePlan(); q.scenes[1] = { id: 'sword', purpose: 'p', height: 'screen', text: { heading: 'A sword', region: 'right', body: 'It waits.' }, layers: [
     { id: 'blade', kind: 'shape', role: 'focal', shape: { form: 'line' }, box: box([46, 5, 8, 80]) },
@@ -569,7 +587,10 @@ test('decoration: one deliberate shape per scene, none across the words, drawn a
   assert.ok(deco[0].opacity <= 0.18, 'a shape passing behind the words fades almost away');
   const html = renderCreative2(v.plan, ASSETS, { mode: 'export', src: a => a.id + '.png' });
   assert.match(html, /class="shape" data-form="ring"[^>]*data-light/, 'decoration is drawn as light');
-  assert.equal((html.match(/class="sc-amb"/g) || []).length, v.plan.scenes.length, 'every scene has its ambient layer');
+  // (a new page takes its air from its brand and pictures: no drifting haze or sparkles -- look.js; a saved page keeps its own)
+  assert.equal((html.match(/class="sc-amb"/g) || []).length, 0, 'no ambient haze on a page with a look');
+  const old = Object.assign({}, v.plan); delete old.look;
+  assert.equal((renderCreative2(old, ASSETS, { mode: 'export', src: a => a.id + '.png' }).match(/class="sc-amb"/g) || []).length, v.plan.scenes.length, 'a page saved before looks keeps every scene\'s ambient layer');
   // an explicitly abstract page keeps its focal shape solid (it is the page's main visual)
   const a = basePlan(); a.scenes[0].layers[0] = { kind: 'shape', role: 'focal', shape: { form: 'circle' }, box: box([55, 10, 35, 60]) };
   const va = validatePlan2(a, { assets: ASSETS, facts: FACTS, abstractChosen: true });

@@ -438,7 +438,10 @@ const cutout = () => ({ id: 'c-bottle', origin: 'derived', cutout: true, cutoutO
 const UND = { kind: 'invented', subject: 'Aurelia Tonic', brief: 'a launch page for Aurelia, a small-batch tonic in a blue glass bottle', tone: { register: 'cinematic' }, identity: { name: 'Aurelia Tonic', kind: 'invented', what: 'a small-batch tonic drink product in a blue glass bottle' } };
 const ASSETS = [upload(), cutout()];
 const PLAN = (() => { const d = D2.direct({ understanding: UND, research: { page: null, facts: [] }, assets: ASSETS, supplied: { facts: ['Aurelia is bottled in small batches.'], memories: [] }, seed: '1', prefer: { family: 'object-story', mode: 'expressive' } }); return validatePlan2(d.plan, { assets: ASSETS, facts: [], understanding: UND, page: null, art: d.recipe }).plan; })();
-const SECTIONS = PLAN.scenes.filter((s, i) => i > 0 && s.layers.some(L => L.kind === 'image' && L.asset === 'c-bottle')).map(s => s.id);
+// (the image ledger shows each picture once -- look.js: the section that shows the subject first, then the sections
+// after the opening, where a model may also stand)
+const SHOWS = s => s.layers.some(L => L.kind === 'image' && L.asset === 'c-bottle');
+const SECTIONS = PLAN.scenes.filter(SHOWS).concat(PLAN.scenes.filter((s, i) => i > 0 && !SHOWS(s))).map(s => s.id);
 const direction = (assets, extra) => ({ mode: 'creative', meta: { id: 'c3d' }, pages: [{ id: 'creative', label: 'Creative page', sections: [] }],
   creative: Object.assign({ v: 1, brief: UND.brief, understanding: UND, supplied: { facts: ['Aurelia is bottled in small batches.'], memories: [] }, research: { status: 'none', page: null, facts: [] }, assets: assets || ASSETS, plan: PLAN, motion: { intensity: 'lively' }, cost: {} }, extra || {}) });
 

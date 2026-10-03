@@ -187,17 +187,18 @@ test('5. words go where the picture is empty: a subject on the right puts them l
 });
 
 // ================================================================ 6. the main picture recurs; the page closes on its opening
-test('6. the main picture is a recurring identity (opening, echoes, closing) and the last scene calls back to the opening', () => {
+test('6. the main picture opens the page and the last scene calls back to it -- never as a faded echo: a picture appears once, and the one return is a marked callback (the image ledger)', () => {
   SEEDS.forEach(seed => {
     const P = page(seed); const h = html(P); const ct = P.timeline.continuity;
-    const roles = (h.match(/src="u1\.png"/g) || []).length + (h.match(/src="c-u1\.png"/g) || []).length;
-    assert.ok(roles >= 2, `${P.art.recipe}: the main picture appears in more than one role (${roles})`);
     assert.ok(ct.callback && ['subject', 'colour', 'echo'].includes(ct.callback.kind), `${P.art.recipe}: a callback (${JSON.stringify(ct.callback)})`);
-    if (ct.callback.kind !== 'subject') { const tail = h.slice(h.indexOf(`data-scene="${ct.callback.scene}"`)); assert.match(tail.slice(0, tail.indexOf('</section>')), /<div class="sc-ghost" aria-hidden="true"><img src="u1\.png"/, 'the main picture returns behind the closing scene'); }
     assert.match(h, new RegExp(`data-scene="${P.scenes.length - 1}"[^>]*data-callback="${ct.callback.kind}"`));
+    assert.doesNotMatch(h, /class="sc-ghost"/, `${P.art.recipe}: no faded echo of a picture already on the page`);
+    // (the main picture's appearances: the opening, and at most the closing scene's one marked callback layer)
+    const again = P.scenes.slice(1).filter(s => s.layers.some(L => L.kind === 'image' && ['u1', 'c-u1'].includes(L.asset)));
+    assert.ok(again.every(s => s === P.scenes[P.scenes.length - 1] && s.layers.some(L => L.callback)), `${P.art.recipe}: the main picture returns only as the marked callback`);
   });
-  // a rest scene is never an empty field: it carries an echo (its own picture, or the main picture)
-  const P = page('1'); const h = html(P);
+  // a page saved before looks keeps its echoes exactly as it was (renderer compatibility)
+  const P = JSON.parse(JSON.stringify(page('1'))); delete P.look; const h = html(P);
   // (a rest that is itself a composition, or whose own picture fills half the screen, is not an empty field)
   const cover = s => s.layers.filter(L => L.kind === 'image').reduce((t, L) => t + (L.box.d[2] * L.box.d[3]) / 10000, 0);
   P.scenes.forEach((s, i) => { if (i && ['rest', 'acceleration'].includes(P.timeline.rhythm[i]) && !(P.actor && i >= P.actor.from && i <= P.actor.to) && !s.composition && cover(s) < 0.5) assert.match(h, new RegExp(`data-scene="${i}"[^>]*data-echo`), `scene ${i + 1} rests with an echo`); });
@@ -235,7 +236,9 @@ test('7. the page does what the contracts say: a carry travels between the two p
   assert.match(h, /html\.cr-js\[data-flowall\]:not\(\[data-motion="reduced"\]\) \.sc\{background:transparent!important\}/, 'only the moving page shares one surface');
   assert.ok(!/\[data-motion="reduced"\][^{]*\.sc-ghost\{display:none/.test(h), 'the echoes stay');
   const reduced = renderCreative2(P, ASSETS, { mode: 'export', src: a => `${a.id}.png`, motion: 'reduced' });
-  assert.match(reduced, /data-motion="reduced"/); assert.match(reduced, /class="sc-ghost"/);
+  assert.match(reduced, /data-motion="reduced"/); assert.doesNotMatch(reduced, /class="sc-ghost"/, 'a page with a look shows no echo, moving or not');
+  const old = JSON.parse(JSON.stringify(P)); delete old.look;
+  assert.match(renderCreative2(old, ASSETS, { mode: 'export', src: a => `${a.id}.png`, motion: 'reduced' }), /class="sc-ghost"/, 'a page saved before looks keeps its echoes in reduced motion');
 });
 
 // ================================================================ 8. the critic hears the rhythm

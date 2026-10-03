@@ -73,7 +73,11 @@ test('1. different subjects get different compositions, drawn from the second vo
   const hist = []; const fams = [];
   BRIEFS.forEach(([s, b, t]) => { const v = page(s, b, t, 'h', { history: hist.slice(-10) }); hist.push(v.plan.art.recipe); fams.push(v.plan.art.family); });
   const sims = []; for (let i = 0; i < hist.length; i++) for (let j = i + 1; j < hist.length; j++) sims.push(ART.similarity(hist[i], hist[j]));
-  assert.ok(sims.reduce((a, b) => a + b, 0) / sims.length < 0.2, `mean similarity ${sims.reduce((a, b) => a + b, 0) / sims.length}`);
+  // (0.22, was 0.2: a page with a look commits to a few devices and never crosses a seam with a flat shape, so how pages
+  // MOVE has fewer, stronger options -- their families, layouts and arcs still differ: layout similarity stays near 0.1)
+  assert.ok(sims.reduce((a, b) => a + b, 0) / sims.length < 0.22, `mean similarity ${sims.reduce((a, b) => a + b, 0) / sims.length}`);
+  const lsim = []; for (let i = 0; i < hist.length; i++) for (let j = i + 1; j < hist.length; j++) lsim.push(ART.layoutSimilarity(hist[i].split('#')[0], hist[j].split('#')[0]));
+  assert.ok(lsim.reduce((a, b) => a + b, 0) / lsim.length < 0.15, 'the compositions themselves stay far apart');
   assert.ok(new Set(fams).size >= 6, `families in a row of eight: ${fams}`);
 });
 
@@ -170,7 +174,8 @@ test('6. out-of-range transforms are clamped: actor poses, card places, windows'
   assert.deepEqual(act.poses[2], { x: 0, y: 0, s: 1, r: 0 }, 'nonsense becomes the rest pose');
   assert.equal(act.exit, 'offstage');
   // a layer's card place and window
-  const raw2 = rawPlan([rawScene('a'), rawScene('b', { layers: [{ id: 'l1', kind: 'image', role: 'focal', asset: 'wide', seq: 44, win: [-50, 400, 900, -3] }] })]);
+  // (scene b shows a picture of its own: a picture appears once on a page -- the image ledger)
+  const raw2 = rawPlan([rawScene('a'), rawScene('b', { layers: [{ id: 'l1', kind: 'image', role: 'focal', asset: 'setting', seq: 44, win: [-50, 400, 900, -3] }] })]);
   const L = validatePlan2(raw2, ctxOf(u('Doughnut', 'x', 'playful'))).plan.scenes[1].layers[0];
   assert.equal(L.seq, 9); assert.ok(L.win.every(n => typeof n === 'number' && Number.isFinite(n)));
 });

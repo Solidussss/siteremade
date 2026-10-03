@@ -12,7 +12,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'creative');
 const OUT = path.join(ROOT, 'creative-core.js');
-const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'premium-source', 'cinematic-source', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'three-d-pose', 'three-d', 'carry-route', 'composition', 'art', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
+const MODULES = ['understand', 'assets', 'validate', 'framing', 'palette', 'premium-arc', 'premium-source', 'cinematic-source', 'pool', 'spatial', 'timeline', 'continuity', 'renderers', 'spatial-runtime', 'three-d-pose', 'three-d', 'carry-route', 'composition', 'art', 'look', 'archetypes', 'validate2', 'director', 'director2', 'render', 'render2']; // server-only: ai, png, research, store
 
 function build() {
   const parts = MODULES.map(name => {

@@ -163,7 +163,7 @@ test('6. the composition and the seam after it are one decision: what a composit
   let linked = 0, total = 0;
   PAGES.forEach(v => v.plan.timeline.transitions.forEach(tr => {
     const prev = v.plan.scenes[tr.at - 1]; if (!prev || !prev.composition || ['color-bleed', 'actor-carry'].includes(tr.family)) return;
-    total++; if (COMP.BECOMES[prev.composition].includes(tr.family)) linked++;
+    total++; if (require('../lib/creative/continuity').becomesFor(v.plan, prev.composition).includes(tr.family)) linked++; // (a page with a look: its content seams -- no flat shapes)
   }));
   assert.ok(total > 0); assert.equal(linked, total, `${linked} of ${total} signature seams follow their composition`);
   // the critic names a seam that breaks it, and its fix is one the composition becomes

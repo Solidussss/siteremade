@@ -132,11 +132,13 @@ test('4. motion personality changes rendered behaviour, not just a label', () =>
   assert.equal(lp, 'luxe'); assert.equal(kp, 'kinetic');
   assert.ok(+kr > +lr * 2, `movement range ${kr} vs ${lr}`); assert.notEqual(ke, le, 'different easing'); assert.ok(+lpin > +kpin, 'luxe holds scenes longer');
   assert.match(luxe, /"personality":"luxe"/); assert.match(kinetic, /"personality":"kinetic"/); // the runtime eases in the page's language
-  // and the director composes each scene in its language: entrances and text reveals differ by personality
+  // and each scene arrives as ONE composed event in every language (look.js): one entrance for all its layers, no
+  // stagger, the words riding the same mask -- the personality moves the page (range, easing, holds), not each layer
   const d = x => x.scenes.flatMap(s => s.layers.map(L => L.entrance.kind).concat([s.text.entrance]));
   const P1 = page('Birkin bag', 'a quiet, expensive luxury fashion page', 'restrained', '2').plan; const P2 = page('Brian Eno', 'an experimental page for an ambient music pioneer', 'extravagant', '2').plan;
   assert.notEqual(P1.art.personality, P2.art.personality);
-  assert.notDeepEqual([...new Set(d(P1))].sort(), [...new Set(d(P2))].sort(), `${P1.art.personality} vs ${P2.art.personality}`);
+  for (const P of [P1, P2]) P.scenes.forEach(s => { assert.equal(new Set(s.layers.map(L => `${L.entrance.kind}@${L.entrance.delay}`)).size <= 1, true, `${P.art.personality}: one entrance in ${s.id}`); assert.ok(s.layers.every(L => L.entrance.delay === 0)); assert.equal(s.text.entrance, 'none'); });
+  assert.ok(d(P1).length && d(P2).length);
 });
 
 // ---------------------------------------------------------------- 5, 6, 7 (framing)

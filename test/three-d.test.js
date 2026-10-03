@@ -68,13 +68,18 @@ const cutout = () => ({ id: 'c-bottle', origin: 'derived', cutout: true, cutoutO
   assess: { width: 1200, height: 1500, aspect: 0.8, orientation: 'portrait', subject: [0.15, 0.07, 0.85, 0.93], colours: ['#1a528c'], luminance: 110, transparent: true, transparentShare: 0.5, megapixels: 1.8 }, caps: { moveFreely: true, frame: false, backdrop: false, heroSize: true, lowRes: false } });
 const UND = { kind: 'invented', subject: 'Aurelia Tonic', brief: 'a launch page for Aurelia, a small-batch tonic in a blue glass bottle', tone: { register: 'cinematic' }, identity: { name: 'Aurelia Tonic', kind: 'invented', what: 'a small-batch tonic drink product in a blue glass bottle' } };
 const ASSETS = [upload(), cutout()];
+// (a poster-to-scene page: the bottle is a picture in the opening section -- shown once, by the image ledger -- where its
+// model stands in the picture's own box)
 function pageFor(ctx) {
-  const d = D2.direct({ understanding: UND, research: { page: null, facts: [] }, assets: ASSETS, supplied: { facts: ['Aurelia is bottled in small batches.'], memories: [] }, seed: '1', prefer: { family: 'object-story', mode: 'expressive' } });
+  const d = D2.direct({ understanding: UND, research: { page: null, facts: [] }, assets: ASSETS, supplied: { facts: ['Aurelia is bottled in small batches.'], memories: [] }, seed: '1', prefer: { family: 'poster-to-scene', mode: 'expressive' } });
   return Object.assign(validatePlan2(d.plan, Object.assign({ assets: ASSETS, facts: [], understanding: UND, page: null, art: d.recipe }, ctx || {})), { raw: d.plan, recipe: d.recipe });
 }
 const PLAN = pageFor().plan;
 // the sections of this page that show the subject's picture (where a model may stand)
-const SECTIONS = PLAN.scenes.filter((s, i) => i > 0 && s.layers.some(L => L.kind === 'image' && L.asset === 'c-bottle')).map(s => s.id);
+// (the image ledger shows each picture once -- look.js: the section that shows the subject first, then the sections
+// after the opening, where a model may also stand)
+const SHOWS = s => s.layers.some(L => L.kind === 'image' && L.asset === 'c-bottle');
+const SECTIONS = PLAN.scenes.filter(SHOWS).concat(PLAN.scenes.filter((s, i) => i > 0 && !SHOWS(s))).map(s => s.id);
 // the stored model as the pipeline records it (from the committed, already-normalised fixture)
 function modelRecord(extra) {
   const i = GLB.inspect(NORMAL).info;
