@@ -3108,6 +3108,16 @@ app.get('/api/creative/premium/3d/availability', async (req, res) => {
   res.json(av.ok ? { ok: true, available: true, credits: av.estimate.credits, composition: THREE_D_COMPOSITION } : { ok: true, available: false, message: threeDMessage(av.reason) });
 });
 // the picture a 3D model would be made from, read from the saved project: -> { ok, source, sectionId } | { ok: false, reason, message }
+// the visual director's browser (lib/creative/visual-capture.js): a Chromium the server is told to use, or none
+const creativeVisualBrowser = (() => { let v; return () => (v === undefined ? (v = require('./lib/creative/visual-capture').findBrowser(process.env)) : v); })();
+// what the server has of a picture for the capture: the stored file, else the studio's small thumbnail (marked: its
+// pixels are not the picture's -- the visual director does not judge contrast on it)
+function creativeVisualPicture(a, input) {
+  const ref = a && typeof a.assetRef === 'string' && /^[a-f0-9]{64}$/.test(a.assetRef) && !/^0+$/.test(a.assetRef) ? a.assetRef : null;
+  if (ref && db.assetBlobs.find(ref)) { try { const buf = getAssetStore().get(ref); if (buf) return { buf, mime: a.mime || 'image/jpeg' }; } catch (e) { /* the thumbnail, then */ } }
+  const t = (input.thumbnails || []).find(x => x && x.id === (a && a.id)); const m = t && /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(t.dataUrl || '');
+  return m ? { buf: Buffer.from(m[2], 'base64'), mime: m[1], lowFi: true } : null;
+}
 function threeDSource(accountId, projectId, assetId, sectionId) {
   const no = (reason, message) => ({ ok: false, reason, message });
   const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null;
@@ -3546,9 +3556,26 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
       r.plan = rv.plan; reviewMeta = rv.meta;
     } catch (error) { reviewMeta = { review: 'fallback', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] }; }
   }
+  // THE VISUAL DIRECTOR (lib/creative/visual-review.js): the finished page rendered in a headless browser, judged by eye in ONE
+  // cheap vision call, at most three bounded repairs -- each kept only when the page measurably looks better. Only where a
+  // browser is configured (CREATIVE_VISUAL_BROWSER); off, unavailable, over budget or failing: the page ships as reviewed.
+  let visualMeta = null;
+  if (r && r.ok) {
+    const spent = (r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0);
+    const held2 = credits.findOperation(db, directionOpId);
+    try {
+      const vr = await creativeAi.visualReview(r.plan, input, {
+        limits: CREATIVE_AI_LIMITS, call: creativeModelCall, spatial: CREATIVE_SPATIAL_ON, browser: creativeVisualBrowser(), pictures: a => creativeVisualPicture(a, input),
+        ceilingUsd: held2 ? Math.max(0, pricing.providerCeilingUsd(held2.amount) - spent) : 0,
+        budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
+        onUsage: x => creativeLedger({ kind: 'creative_visual_review', accountId: req.accountId, ok: true, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true }),
+      });
+      r.plan = vr.plan; visualMeta = vr.meta;
+    } catch (error) { visualMeta = { visual: 'fallback', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] }; }
+  }
   releaseBudget();
-  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0)).toFixed(5);
-  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}), ...(reviewMeta ? { review: reviewMeta } : {}) };
+  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0) + ((visualMeta && visualMeta.usd) || 0)).toFixed(5);
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}), ...(reviewMeta ? { review: reviewMeta } : {}), ...(visualMeta ? { visual: visualMeta } : {}) };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });

@@ -513,6 +513,36 @@ pictures, words, colours) plus a few bounded fields of its own. The model never 
   environment picture, a foreground element, a model -- and whether it had them; discovery may look for another angle
   within the same single extra search (SerpApi, unchanged; no Wikimedia Commons). Never required.
 
+## The visual director (`lib/creative/visual.js`, `visual-capture.js`, `visual-review.js`)
+
+After the structured review, the finished page is rendered in a headless Chromium (driven over the DevTools protocol with
+Node's own WebSocket -- no dependency), captured scene by scene at 1440 and 390 in full motion with every entrance stilled
+at its end, and measured: how much of the screen the subject commands (through its crop), the contrast of each line of
+words against what it actually stands on (the same screen with the words hidden; the worst letter-sized patch counts),
+dead space, balance, competing focal points, video and 3D presence, and each scene's visual impact. Genre-aware bars
+(`GENRE` in visual.js) decide what is a fault: a luxury page may breathe, a car or a product should command its opening,
+editorial type may lead.
+
+ONE cheap vision call (`CREATIVE_MODEL_VISUAL`, default the cheap model; at most `CREATIVE_VISUAL_MAX_TOKENS` = 600 out)
+sees two contact sheets and what was measured, and answers `submit_creative_visual_review`: problems from a fixed list,
+each with ONE repair chosen from the repairs offered for that scene and view (never CSS, HTML, code, copy or a plan). Each
+repair is a bounded change through the existing composition system, validated as a saved page, rendered and measured
+again, and kept only when the problem it was for measurably eases and nothing else got worse (overflow, words off screen,
+crops, headline contrast, a lost picture, the structured critique, any new serious visual fault). At most three kept,
+six tried. A measured problem whose first repair is undone may try the next one offered; a judgement nothing measured
+gets only the model's own repair.
+
+The page records `plan.visualReview` (`v` = creativeVisualDirectorVersion). Saved pages without it render as before; a
+reopened page is never reviewed again; a plan cannot bring its own record.
+
+- `CREATIVE_VISUAL_BROWSER` -- the Chromium/Chrome/Edge executable for the capture, or `auto` (the usual places). Unset:
+  the visual director is unavailable and makes no call. Production (Railway) needs a Chromium installed and this set.
+- `CREATIVE_VISUAL_REVIEW=off` -- the structured result ships exactly as before.
+- No browser, a failed capture, a failed or invalid answer, over budget: no repair, the page ships as reviewed.
+
+Verification: `test/creative-visual.test.js` (fixtures A-I in `test/helpers/visual-fixtures.js`, a real browser when one
+exists) and `test/review/creative-visual-review.js` (the six subjects on real photographs).
+
 ## Built-in pipeline (stage 1; now the labelled fallback)
 
 1. **Understand** (`understand.js`): `recognizable` (a real thing with public facts), `personal` (“my goldfish

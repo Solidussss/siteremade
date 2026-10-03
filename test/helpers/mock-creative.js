@@ -8,6 +8,7 @@
 //   | curate-none (the picture check finds nothing showing the subject)
 // The continuity pass: MOCK_CONTINUITY = ok | error | junk | reset; its critic: MOCK_CRITIC = ok | none | error.
 // The whole-page review: MOCK_REVIEW = ok (the first offered repair) | none | error | junk (unoffered repair, unknown codes).
+// The visual director: MOCK_VISUAL = ok (the measured problems, each with its first offered repair) | none | error | junk.
 // A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
 // type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
 function payload(body) {
@@ -152,6 +153,18 @@ function respond(body, env, counters) {
     if (cm === 'reset' && contracts[0]) Object.assign(contracts[0], { family: 'cut', intent: 'reset' });
     const input = cm === 'junk' ? { contracts: [{ at: 99, family: 'teleport' }], hero: { end: 'explode' } } : { contracts, hero: { end: 'static-frame' }, spatialUseful: [1] };
     return { status: 200, body: { model: 'mock-creative-continuity', usage: { input_tokens: 4200, output_tokens: 800 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `ct${counters.continuity}`, name: tool, input }] } };
+  }
+  if (tool === 'submit_creative_visual_review') {
+    // (a mock cannot see: it answers with what was measured -- each measured problem with the first repair offered for it)
+    counters.visual = (counters.visual || 0) + 1; const km = env.MOCK_VISUAL || 'ok';
+    if (km === 'error') return { status: 500, body: { error: { message: 'mock: visual review down' } } };
+    const parts = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : [])));
+    const text = parts.filter(c => c.type === 'text').map(c => c.text).find(x => x.startsWith('What was measured')) || '';
+    let data = {}; try { data = JSON.parse(text.slice(text.indexOf('{'))); } catch (e) { data = {}; }
+    const images = parts.filter(c => c.type === 'image').length; const measured = data.measured || [];
+    const input = km === 'junk' ? { verdict: 'gorgeous', issues: [{ scene: 0, view: 'desktop', issue: 'too_purple', severity: 'high', repair: 'add_sparkles' }, { scene: 0, view: 'desktop', issue: 'hero_subject_too_small', severity: 'high', repair: 'move_3d_back' }] }
+      : { verdict: measured.length ? 'almost' : 'strong', issues: km === 'none' ? [] : measured.filter(f => (f.offered || []).length && f.severity !== 'low').sort((a, b) => (b.severity === 'high') - (a.severity === 'high')).slice(0, 6).map(f => ({ scene: f.scene, view: f.view, issue: f.issue, severity: f.severity, repair: f.offered[0] })) };
+    return { status: 200, body: { model: 'mock-creative-visual', usage: { input_tokens: 1800 + images * 900, output_tokens: 160 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'vr' + counters.visual, name: tool, input }] } };
   }
   if (tool === 'submit_creative_review') {
     counters.review = (counters.review || 0) + 1; const km = env.MOCK_REVIEW || 'ok';
