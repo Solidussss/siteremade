@@ -59,7 +59,7 @@
       '<div class="cs-body"><aside class="cs-panel" id="csPanel">',
       '<section class="cs-step" id="csBriefStep"><h2>What is the page about?</h2>',
       '<p class="cs-hint">Anything: a character, a game, an everyday object, a food, your pet, a person you love. Say how it should feel.</p>',
-      '<textarea id="csBrief" rows="3" maxlength="600" placeholder="A website about toilet paper — make it grand and a bit absurd"></textarea>',
+      '<textarea id="csBrief" rows="3" maxlength="6000" placeholder="A website about toilet paper — make it grand and a bit absurd"></textarea>',
       '<div class="cs-chips" id="csChips"></div>',
       '<details class="cs-personal" id="csPersonal"><summary>Your own details and photos <small>(for a personal page)</small></summary>',
       '<label for="csSupplied">True details, one per line</label><textarea id="csSupplied" rows="4" maxlength="2000" placeholder="Bubbles lived with us for nine years.\nHe raced to the glass whenever someone came home."></textarea>',

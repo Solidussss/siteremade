@@ -3244,7 +3244,7 @@ app.post('/api/creative/fetch-image', requireAuth, requireSameOrigin, generation
 });
 
 app.post('/api/creative/research', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
-  const brief = clean(req.body && req.body.brief, 1200);
+  const brief = clean(req.body && req.body.brief, 6000);
   if (!brief) return res.status(400).json({ ok: false, message: 'Describe what the page should be about.' });
   const supplied = clean(req.body.supplied, 2000);
   const choice = clean(req.body.choice, 160); // the owner's pick after a clarification
@@ -3451,7 +3451,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   const facts = arr(b.facts, 40).filter(f => f && f.id && f.text).map(f => ({ id: clean(f.id, 20), text: clean(f.text, 600), section: clean(f.section, 80) }));
   const u = b.understanding && typeof b.understanding === 'object' ? b.understanding : {};
   const input = {
-    brief: clean(b.brief, 1200), understanding: u, understandingLegacy: { kind: clean(u.kind, 20), subject: clean(u.subject, 120) },
+    brief: clean(b.brief, 6000), understanding: u, understandingLegacy: { kind: clean(u.kind, 20), subject: clean(u.subject, 120) },
     page: b.page && typeof b.page === 'object' ? { title: clean(b.page.title, 200), description: clean(b.page.description, 300), url: clean(b.page.url, 400) } : null,
     facts, supplied: { facts: arr(b.supplied && b.supplied.facts, 12).map(x => clean(x, 300)), memories: arr(b.supplied && b.supplied.memories, 8).map(x => clean(x, 300)) },
     assets, models: arr(b.models, 2).map(m => require('./lib/creative/store').cleanModel(Object.assign({}, m, { dataUrl: undefined, assetRef: (m && m.assetRef) || '0'.repeat(64) }))).filter(Boolean), thumbnails: arr(b.thumbnails, CREATIVE_AI_LIMITS.thumbnails).filter(t => t && typeof t.id === 'string' && typeof t.dataUrl === 'string'), maxThumbs: CREATIVE_AI_LIMITS.thumbnails,
