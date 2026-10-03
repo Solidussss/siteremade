@@ -513,6 +513,44 @@ pictures, words, colours) plus a few bounded fields of its own. The model never 
   environment picture, a foreground element, a model -- and whether it had them; discovery may look for another angle
   within the same single extra search (SerpApi, unchanged; no Wikimedia Commons). Never required.
 
+## The asset director (`lib/creative/asset-director.js`)
+
+Before the pool, the visual plan and any composition, the asset director decides which pictures the page is built from:
+the smallest strong, coherent set that carries the idea. It measures nothing new and searches nothing new: it reads what
+the studio already measured (`assets.assess`: size, subject box, background, colours -- and, for pictures measured from
+now on, a 64-bit perceptual signature `sig` and `sharp`), what the picture check already saw (`curation`: role,
+identity, issues, framing, separable, quality), where a picture came from (owner upload, host, address) and the existing
+gates (`premium-source.js` for video, `three-d.js` for 3D).
+
+- **Profile** per picture: identity (exact / form / related / other / owner -- demoted when it shows the right kind of
+  thing in the wrong colour or form: orange soda for lime soda, a sneaker for a loafer, an SUV for a coupe), resolution,
+  sharpness, subject dominance, crop flexibility, negative space, background cleanliness, isolation, light, contamination
+  (watermark, text, marketplace presentation -- never a plain background as such), generic stock; and a suitability per
+  role (hero, full bleed, cutout, actor, 3D source, cinematic source, detail, support, callback). Never one score.
+- **Near-duplicates**: the same picture resized, mirrored (the signature and its reflection), re-hosted (one file name on
+  two sites), cropped (what it shows and its colours) -- the stronger copy stays.
+- **Floor** for pictures the owner did not supply: watermarked, marketplace listings, text or screenshots, other subjects,
+  thumbnails, another product, generic stock when anything better exists are left out, with the reason. No picture is
+  better than a bad one; with nothing above the floor the page is carried by type and colour.
+- **Decisions**: the hero (the owner's main picture always -- a weak one leads, staged around; else the existing choice
+  unless it is below the floor, weak, or clearly beaten), the actor (only a picture that really separates), the detail,
+  the 3D and cinematic sources among what the gates allow (today's choice unless clearly beaten), the support (at most six
+  found pictures; one whose light fights the set's is left out), and scarcity (one strong picture: shown at most twice).
+- **Owner and permissions first**: an owner upload is never rejected for quality; the decision only ever narrows what the
+  permission rules allowed. A logo is navigation and brand, never a scene picture or a source.
+- **Ownership downstream**: `plan.assetDirector` (`v` = creativeAssetDirectorVersion) records it; every later stage may
+  scale, crop and stage its pictures but never show one it rejected (validate2.js drops such a layer). Saved pages without
+  the record reopen exactly as before and are never rescored.
+- **One optional look**: only when the rules are unsure (two heroes too close to call, nothing surely of the subject) ONE
+  cheap call (`submit_creative_asset_choice`, the cheap model, at most 300 output tokens) sees the shortlist's thumbnails
+  and answers with candidate ids only, validated (known, shortlisted, not rejected, not a logo, able to carry the role).
+- **Search by role**: drinks, vehicles, fashion, beauty and software are searched for the roles their pictures play
+  (`discovery.js`, query plan q3), within the same bounds and the one fallback as before.
+- `CREATIVE_ASSET_DIRECTOR=off`: the pool, the pictures and the pages are exactly as before.
+
+Verification: `test/creative-asset-director.test.js` (fixtures A-P) and `test/review/creative-asset-review.js` (the six
+subjects on real photographs, before and after, through the visual review to the final page).
+
 ## The visual director (`lib/creative/visual.js`, `visual-capture.js`, `visual-review.js`)
 
 After the structured review, the finished page is rendered in a headless Chromium (driven over the DevTools protocol with

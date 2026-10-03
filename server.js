@@ -2568,6 +2568,7 @@ const creativeResearch = require('./lib/creative/research');
 const creativeAi = require('./lib/creative/ai');
 const creativeArt = require('./lib/creative/art');
 const creativePool = require('./lib/creative/pool');
+const creativeAssetDirector = require('./lib/creative/asset-director');
 const creativeArc = require('./lib/creative/premium-arc');
 const creativeSource = require('./lib/creative/premium-source');
 const cinematicSource = require('./lib/creative/cinematic-source');
@@ -3118,6 +3119,11 @@ function creativeVisualPicture(a, input) {
   const t = (input.thumbnails || []).find(x => x && x.id === (a && a.id)); const m = t && /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(t.dataUrl || '');
   return m ? { buf: Buffer.from(m[2], 'base64'), mime: m[1], lowFi: true } : null;
 }
+// the picture a page's own plan decided a 3D model should come from (plan.assetDirector, else plan.idea.model), or ''
+function threeDDecided(accountId, projectId) {
+  const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null; const dir = p && ((p.directionsState && p.directionsState.directions) || []).find(x => x && x.mode === 'creative' && x.creative);
+  const plan = dir && dir.creative && dir.creative.plan; return (plan && ((plan.assetDirector && plan.assetDirector.model3d) || (plan.idea && plan.idea.model && plan.idea.model.asset))) || '';
+}
 function threeDSource(accountId, projectId, assetId, sectionId) {
   const no = (reason, message) => ({ ok: false, reason, message });
   const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null;
@@ -3157,7 +3163,7 @@ app.post('/api/creative/premium/3d/quote', requireAuth, requireSameOrigin, gener
   // (one 3D job at a time per page: the one already being made is the answer)
   const running = db.premiumJobs.latestForProject(req.accountId, projectId, '3d');
   if (running && premiumJobs.ACTIVE.has(running.status)) return res.json({ ok: false, reason: 'in_progress', message: 'A 3D model is already being made for this page.', job: premiumJobs.view(running) });
-  const src = threeDSource(req.accountId, projectId, clean(b.assetId, 40), clean(b.sectionId, 60));
+  const src = threeDSource(req.accountId, projectId, clean(b.assetId, 40) || threeDDecided(req.accountId, projectId), clean(b.sectionId, 60));
   if (!src.ok) return res.status(src.reason === 'not_found' ? 404 : 200).json(src);
   const est = av.estimate;
   const q = quotes.create(db, { accountId: req.accountId, projectId, operation: 'creative_3d', plan: { credits: est.credits, budgetUsd: est.budgetUsd, source: src.source, sectionId: src.sectionId, composition: THREE_D_COMPOSITION } });
@@ -3465,7 +3471,27 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // ---- ASSET-FIRST: the visuals are decided before a word is written
   // (1) one pool: every usable picture -- discovered AND uploaded AND picked -- with the main picture (the owner's choice,
   //     unless it cannot lead: then the reason is kept and shown) and the logo kept apart from the scenes
-  const pool = creativePool.build(assets, { mainAsset: input.mainAsset, personal: u.kind === 'personal' });
+  // (0) THE ASSET DIRECTOR (lib/creative/asset-director.js): which of those pictures the page is built from -- the smallest
+  //     strong, coherent set, its hero, actor, detail and sources -- by rules; one cheap look at the shortlist only when the
+  //     rules are unsure. Owner pictures are never rejected; permissions are never widened. Off or failing: as before.
+  let assetDecision = null; let assetMeta = null;
+  if (CREATIVE_AI_LIMITS.assetDirector) {
+    try {
+      const adCtx = { mainAsset: input.mainAsset, want: [(u.identity && u.identity.what) || '', (u.visuals && u.visuals.main) || ''].join(' '), genre: require('./lib/creative/direction').genreOf(u), personal: u.kind === 'personal' };
+      assetDecision = creativeAssetDirector.decide(assets, adCtx); assetMeta = { asset: 'rules', calls: 0, usd: 0, rejected: assetDecision.rejected.length, uncertain: assetDecision.uncertain.slice(), errors: [] };
+      if (assetDecision.uncertain.length) {
+        const held0 = credits.findOperation(db, directionOpId);
+        const ac = await creativeAi.assetChoice(assetDecision, input, { limits: CREATIVE_AI_LIMITS, call: creativeModelCall, ceilingUsd: held0 ? pricing.providerCeilingUsd(held0.amount) : 0,
+          budgetCheck: () => (creativeSpendToday().usd >= CREATIVE_AI_LIMITS.dailyUsdCap ? { ok: false, reason: 'the daily Creative AI budget ran out' } : { ok: true }),
+          onUsage: x => creativeLedger({ kind: 'creative_asset_director', accountId: req.accountId, ok: true, model: x.model, inputTokens: x.usage.input_tokens || 0, outputTokens: x.usage.output_tokens || 0, ms: x.ms, usd: x.usd, estimated: true }) });
+        assetMeta = Object.assign(assetMeta, ac.meta, { rejected: assetMeta.rejected });
+        if (ac.choice) { assetDecision = creativeAssetDirector.decide(assets, Object.assign({}, adCtx, { choice: ac.choice })); assetMeta.rejected = assetDecision.rejected.length; }
+      }
+      const out = new Set(assetDecision.rejected.map(x => x.id));
+      input.assets = input.assets.filter(a => !out.has(a.id) && !(a.cutoutOf && out.has(a.cutoutOf)));
+    } catch (error) { assetDecision = null; assetMeta = { asset: 'fallback', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] }; }
+  }
+  const pool = creativePool.build(assets, { mainAsset: input.mainAsset, personal: u.kind === 'personal', director: assetDecision });
   // (2) the premium hero's source and role, BEFORE the direction, so the page is planned around the video: the main picture
   //     when it may be transformed, else the next pool picture that may (the same permission gate the premium step uses)
   const videoIntent = input.premiumRequested.find(i => PREMIUM_VIDEO_INTENTS.includes(i));
@@ -3476,7 +3502,9 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   const fromModel = (byIdP, id) => !!cine3d && (id === cine3d || !!(byIdP.get(id) && byIdP.get(id).cutoutOf === cine3d));
   if (videoIntent) {
     const byIdP = new Map(assets.map(a => [a.id, a]));
-    const verdicts = pool.pictures.map(p => ({ id: p.id, v: fromModel(byIdP, p.id) ? { ok: true } : premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, measured: premiumMeasured(byIdP.get(p.id)) }) }));
+    // (the asset director's cinematic source first, when it may be sent -- the same permission gate decides)
+    const order = pool.pictures.slice().sort((x, y) => (assetDecision && y.id === assetDecision.cinematic) - (assetDecision && x.id === assetDecision.cinematic));
+    const verdicts = order.map(p => ({ id: p.id, v: fromModel(byIdP, p.id) ? { ok: true } : premiumMedia.sourceEligibility(byIdP.get(p.id), { byId: byIdP, measured: premiumMeasured(byIdP.get(p.id)) }) }));
     const ok = verdicts.find(x => x.v.ok);
     input.premiumHero = ok ? { intent: videoIntent, source: ok.id, role: 'hero motion', note: pool.main && ok.id !== pool.main.id ? `the main picture is not used for the video: ${(verdicts.find(x => x.id === pool.main.id) || { v: {} }).v.reason || 'not eligible'}` : '' }
       : { intent: videoIntent, source: null, role: 'hero motion', note: verdicts.length ? `no picture may be sent for the video: ${verdicts[0].v.reason}` : 'no picture to start the video from' };
@@ -3490,7 +3518,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     const byIdP = new Map(assets.map(a => [a.id, a]));
     const eligible = id => fromModel(byIdP, id) || premiumMedia.sourceEligibility(byIdP.get(id), { byId: byIdP, measured: premiumMeasured(byIdP.get(id)) }).ok;
     const pics = pool.pictures.map(p => { const a = byIdP.get(p.id); return { id: p.id, colour: p.colour, bleed: !!(a && creativeFraming.canBleed(a, 1.6)), role: a && a.curation ? a.curation.role : '' }; });
-    const src = creativeArc.pickSources(arcItems.map(i => i.role), pics, eligible, pool.main && pool.main.id);
+    const src = creativeArc.pickSources(arcItems.map(i => i.role), pics, eligible, (assetDecision && assetDecision.cinematic && eligible(assetDecision.cinematic) && assetDecision.cinematic) || (pool.main && pool.main.id));
     input.premiumArc = arcItems.map(i => ({ role: i.role, intent: i.intent, asset: src[i.role] || null })).filter(e => e.asset);
     const hero = input.premiumArc.find(e => e.role === 'hero');
     if (hero) input.premiumHero = { intent: hero.intent, source: hero.asset, role: 'hero motion', note: input.premiumHero && input.premiumHero.note ? input.premiumHero.note : '' };
@@ -3499,7 +3527,7 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // (3) the recipe and its visual plan: scenes built around those pictures (every picture shown before any repeats, the
   //     colours of neighbouring scenes leading into each other, the page closing on its main picture)
   const recent = creativeRecentRecipes(req.accountId);
-  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? Object.assign({ video: true, intent: input.premiumHero.intent, source: input.premiumHero.source }, input.premiumArc && input.premiumArc.length ? { arc: input.premiumArc } : {}) : null });
+  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, ...(assetDecision ? { assetDecision } : { assetDirector: false }), mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? Object.assign({ video: true, intent: input.premiumHero.intent, source: input.premiumHero.source }, input.premiumArc && input.premiumArc.length ? { arc: input.premiumArc } : {}) : null });
   // (4) the words are written next, by the director, for those pictures (lib/creative/ai.js); (5) continuity + critic
   const startedAt = Date.now();
   let r;
@@ -3574,8 +3602,8 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
     } catch (error) { visualMeta = { visual: 'fallback', calls: 0, usd: 0, errors: [String(error && error.message || error).slice(0, 160)] }; }
   }
   releaseBudget();
-  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0) + ((visualMeta && visualMeta.usd) || 0)).toFixed(5);
-  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}), ...(reviewMeta ? { review: reviewMeta } : {}), ...(visualMeta ? { visual: visualMeta } : {}) };
+  const usd = +((r.attempts || []).reduce((t, a) => t + (a.usd || 0), 0) + ((continuityMeta && continuityMeta.usd) || 0) + ((reviewMeta && reviewMeta.usd) || 0) + ((visualMeta && visualMeta.usd) || 0) + ((assetMeta && assetMeta.usd) || 0)).toFixed(5);
+  const meta = { attempts: (r.attempts || []).map(a => ({ attempt: a.attempt, ms: a.ms, usd: a.usd, model: a.model, inputTokens: a.usage && a.usage.input_tokens, outputTokens: a.usage && a.usage.output_tokens, errors: a.errors, error: a.error, claims: a.claims })), usdEstimated: usd, ms: Date.now() - startedAt, ...(continuityMeta ? { continuity: continuityMeta } : {}), ...(reviewMeta ? { review: reviewMeta } : {}), ...(visualMeta ? { visual: visualMeta } : {}), ...(assetMeta ? { assetDirector: assetMeta } : {}) };
   if (!r.ok) {
     creativeLedger({ kind: 'creative_direct_fallback', accountId: req.accountId, ok: false, reason: String(r.reason).slice(0, 300), usd: 0 });
     creativeJobs.directionFailed(db, job, directionOpId, { providerUsd: usd });

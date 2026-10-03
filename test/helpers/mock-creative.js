@@ -9,6 +9,7 @@
 // The continuity pass: MOCK_CONTINUITY = ok | error | junk | reset; its critic: MOCK_CRITIC = ok | none | error.
 // The whole-page review: MOCK_REVIEW = ok (the first offered repair) | none | error | junk (unoffered repair, unknown codes).
 // The visual director: MOCK_VISUAL = ok (the measured problems, each with its first offered repair) | none | error | junk.
+// The asset director's one look (only when the rules are unsure): MOCK_ASSET = ok (the first candidate as hero) | none | error | junk.
 // A revision ("Update My Website", the request carries `revise`) comes back visibly revised -- a new concept, palette,
 // type, tempo and an extra scene -- unless MOCK_CREATIVE_REVISE=same (the page comes back as it was).
 const RANK = ['hero_subject_too_small', 'weak_final_payoff', 'competing_heading_overlap', 'looks_unfinished', 'headline_lost_in_image', 'mobile_loses_impact', 'hero_lacks_dominance', 'payoff_weaker_than_previous'];
@@ -155,6 +156,14 @@ function respond(body, env, counters) {
     if (cm === 'reset' && contracts[0]) Object.assign(contracts[0], { family: 'cut', intent: 'reset' });
     const input = cm === 'junk' ? { contracts: [{ at: 99, family: 'teleport' }], hero: { end: 'explode' } } : { contracts, hero: { end: 'static-frame' }, spatialUseful: [1] };
     return { status: 200, body: { model: 'mock-creative-continuity', usage: { input_tokens: 4200, output_tokens: 800 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: `ct${counters.continuity}`, name: tool, input }] } };
+  }
+  if (tool === 'submit_creative_asset_choice') {
+    // (a mock cannot see: it takes the first candidate it was shown as the hero -- MOCK_ASSET = ok | none | error | junk)
+    counters.asset = (counters.asset || 0) + 1; const km = env.MOCK_ASSET || 'ok';
+    if (km === 'error') return { status: 500, body: { error: { message: 'mock: asset choice down' } } };
+    const parts = [].concat(...(body.messages || []).map(m => (Array.isArray(m.content) ? m.content : []))); const first = (parts.map(c => /^Candidate ([\w-]+) /.exec(c.text || '')).find(Boolean) || [])[1];
+    const input = km === 'junk' ? { hero: 'not-a-picture', actor: 'logo', reject: ['nope'] } : km === 'none' || !first ? {} : { hero: first };
+    return { status: 200, body: { model: 'mock-creative-asset', usage: { input_tokens: 900 + parts.filter(c => c.type === 'image').length * 300, output_tokens: 40 }, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'as' + counters.asset, name: tool, input }] } };
   }
   if (tool === 'submit_creative_visual_review') {
     // (a mock cannot see: it answers with what was measured -- each measured problem with the first repair offered for it)
