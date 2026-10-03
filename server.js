@@ -5228,9 +5228,11 @@ app.post('/api/app-bridge/website/:projectId/creative/edit', appBridgeRateLimit,
   // FREE: no provider is asked, no credit is reserved -- the change is applied to the real Creative plan and validated
   const out = creativeEditor.applyEdit(got.direction, op, { media: rootId => completedMediaFor(req.accountId, got.project.id, rootId) });
   if (!out.ok) return bridgeError(res, out.code === 'not_found' ? 404 : 422, out.code, out.message);
+  // (a change that leaves the page as it is -- its words already fit -- saves nothing: no new draft, still free)
+  if (out.unchanged) return res.json({ ok: true, unchanged: true, revision: got.project.revision, changeSummary: [out.summary], fitted: [], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
   const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, out.creative, b.baseRevision);
   if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
-  return res.json({ ok: true, revision: saved.project.revision, changeSummary: [out.summary], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
+  return res.json({ ok: true, revision: saved.project.revision, changeSummary: [out.summary], fitted: out.fitted || [], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
 });
 
 app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ limit: '16mb' }), appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
@@ -5271,7 +5273,8 @@ async function creativeScopedRevision({ accountId, direction, kind, target, inte
   // (what the page already had is never held against the change -- an owner's own number already in a headline stays theirs;
   // a NEW unsupported claim the director writes is refused)
   const baseline = creativeEditor.baselineErrors(c);
-  const v = creativeEditor.revalidate(c, merged, words ? {} : { recompose: ids }, { baseline });
+  // (rewritten words are set again for what they say now -- the same re-fit as a manual edit; a redesigned scene is composed afresh)
+  const v = creativeEditor.revalidate(c, merged, words ? { refit: creativeEditor.changedWordScenes(plan, merged) } : { recompose: ids }, { baseline });
   if (!v.ok) return { ok: false, status: 422, code: 'edit_failed', message: 'That change couldn\'t be made safely, so nothing was changed and no credits were used.' };
   // a change that changed nothing is refused -- never charged, never saved as a revision
   const changed = words ? creativeEditor.wordsOf(plan, kind === 'ai-text' ? ids : null) !== creativeEditor.wordsOf(v.plan, kind === 'ai-text' ? ids : null) : creativeEditor.sceneDiff(plan, v.plan, ids);

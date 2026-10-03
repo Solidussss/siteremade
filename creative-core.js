@@ -5309,6 +5309,13 @@
       let w = Math.max(...u); while (w < n && linesAt(w) > target) w++;
       return Math.max(4, w + 1);
     }
+    // the lines themselves: the units set at that measure -- what a headline set in explicit lines (a staggered title) uses,
+    // so it breaks exactly where the fitted headline would (never one short word left alone on the last line)
+    function lines(text) {
+      const u = units(text); if (!u.length) return []; const w = measure(text) - 1; const out = [];
+      u.forEach(x => { const last = out[out.length - 1]; if (last != null && last.length + 1 + x.length <= w) out[out.length - 1] = last + ' ' + x; else out.push(x); });
+      return out;
+    }
     // fit = how many characters of this family fit 100cqi at 1em, a little under for the faces each stack falls back to
     function fitFor(type) { const adv = type.adv * (type.case === 'upper' ? type.upper : 1); return Math.round(100 / adv * 0.94); }
 
@@ -5462,7 +5469,7 @@
       return a;
     }
 
-    module.exports = { VERSION, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
+    module.exports = { VERSION, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, lines, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
 
   });
   __define("archetypes", function (module, exports, require) {
@@ -5792,12 +5799,51 @@
     }
 
     // ---------------------------------------------------------------- compose
-    function composeScene(S, env) {
-      const e = Object.assign({}, env);
-      const byId = e.byId; const fixes = e.fixes || []; const warnings = e.warnings || [];
+    // ---- how a composition sets its words: place, size, measure, entrance, treatment -- typography only, never a picture, a
+    // colour or the list form. composeScene sets them as it composes; fitWords sets them again for the words a scene has NOW.
+    function typeset(S, spec, layout, e) {
+      const t = S.text;
+      t.place = Object.assign({}, spec.place); t.mplace = spec.mplace;
+      if (spec.giant) { t.size = 'display'; t.giant = true; } else delete t.giant;
+      if (spec.smallHeading || spec.shrineTitle) t.size = e.hero ? 'large' : 'medium';
+      if (layout === 'luxe' || layout === 'image') t.size = t.size === 'display' && e.hero ? 'large' : 'medium';
+      if (layout === 'editorial-hero' && e.hero) t.size = 'display';
+      if (layout === 'campaign') t.size = 'display';
+      if (spec.columns) t.columns = true; else delete t.columns;
+      t.entrance = TEXT_IN[e.personality] || 'rise';
+      if (t.entrance === 'split-words' && (t.heading || '').length > 60) t.entrance = 'rise';
+      t.width = layout === 'luxe' ? 'narrow' : layout === 'text' || layout === 'dense' || layout === 'takeover' ? 'wide' : t.width;
+      // how the words are set: a takeover's statement fills in word by word; a short giant headline spreads its letters as it
+      // plays on an expressive page; a split screen or a full-screen object runs its kicker up the edge
+      delete t.treatment;
+      if (spec.takeoverType) { t.treatment = 'word-fill'; t.size = 'display'; }
+      else if ((layout === 'giant-type' || layout === 'poster' || layout === 'campaign') && (t.heading || '').length <= 18 && ['kinetic', 'mechanical', 'chaotic'].includes(e.personality) && (e.mode === 'expressive' || e.mode === 'immersive')) t.treatment = 'letter-spread';
+      else if (spec.verticalKicker && t.kicker) t.treatment = 'vertical';
+      else if (layout === 'campaign' && e.personality === 'chaotic') t.treatment = 'outline';
+      // the legacy region (for anything that still reads it) follows the new place
+      const [c0, c1] = t.place.gc; const cx = (COL(c0) + COL(c1 + 1)) / 2;
+      t.region = c1 - c0 >= 8 ? (t.place.v === 'bottom' ? 'bottom' : t.place.v === 'top' ? 'top' : 'center') : `${t.place.v === 'bottom' ? 'bottom-' : t.place.v === 'top' ? 'top-' : ''}${cx < 50 ? 'left' : 'right'}`;
+      if (!['left', 'right', 'center', 'bottom-left', 'bottom-right', 'bottom', 'top-left', 'top-right', 'top'].includes(t.region)) t.region = 'left';
+    }
+    // the words must stay clear of the main picture unless the archetype layers them on purpose (a caption on a full-bleed
+    // picture sits on a shade; giant type crosses the picture behind it)
+    function wordsClear(S, spec, layout, layers, warnings) {
+      const t = S.text;
+      delete t.scrim;
+      if (crossesPicture(S, spec, layout, layers)) { t.scrim = true; warnings.push(`scene ${S.id}: the words are long for a ${layout} composition -- they sit on a panel over the picture`); }
+      if (spec.shade) t.shade = spec.shade; else delete t.shade;
+    }
+    // (do the words, at the size they are set, cross a picture they are not layered over on purpose)
+    function crossesPicture(S, spec, layout, layers) {
+      const t = S.text; const tr = textRect(t, t.place);
+      const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || spec.wall || spec.stageText || !!S.composition || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
+      return !deliberate && layers.some(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0) && overlap(L.box.d, tr) > Math.min(L.box.d[2] * L.box.d[3], tr[2] * tr[3]) * 0.12);
+    }
+    // what an archetype reads about a scene and its page (composeScene, and fitWords for the words alone)
+    function envFor(S, env) {
+      const e = Object.assign({}, env); const byId = e.byId;
       e.personality = (e.art && e.art.personality) || 'editorial';
       const imgs = S.layers.filter(L => L.kind === 'image' && byId.get(L.asset));
-      const decosIn = S.layers.filter(L => L.kind !== 'image');
       // the focal picture first, then the rest in the plan's order
       imgs.sort((a, b) => (b.role === 'focal') - (a.role === 'focal'));
       const isFree = L => F.profile(byId.get(L.asset)).free;
@@ -5808,6 +5854,12 @@
       e.images = new Set(imgs.map(L => { const a = byId.get(L.asset); return (a && a.cutoutOf) || L.asset; })).size;
       e.name = String(e.name || '').slice(0, 24); e.shortName = e.name.length > 0 && e.name.length <= 18 && e.name.split(/\s+/).length <= 3;
       e.side = e.side || (e.rng() < 0.5 ? 'right' : 'left');
+      return { e, imgs, isFree };
+    }
+    function composeScene(S, env) {
+      const { e, imgs, isFree } = envFor(S, env);
+      const byId = e.byId; const fixes = e.fixes || []; const warnings = e.warnings || [];
+      const decosIn = S.layers.filter(L => L.kind !== 'image');
       let layout = S.layout; let spec = A[layout] ? A[layout](S, e) : null;
       // the first archetype (in the fallback chain) that this scene's pictures and words can carry
       // (an archetype needs a picture for each of its required slots)
@@ -5910,42 +5962,14 @@
       S.layers = out;
       // ---- the words
       const t = S.text;
-      t.place = Object.assign({}, spec.place); t.mplace = spec.mplace;
-      if (spec.giant) { t.size = 'display'; t.giant = true; } else delete t.giant;
-      if (spec.smallHeading || spec.shrineTitle) t.size = e.hero ? 'large' : 'medium';
+      typeset(S, spec, layout, e);
       if (layout === 'cinematic') S.tone = '#0b0b0d'; else if (S.tone === '#0b0b0d') delete S.tone;
-      if (layout === 'luxe' || layout === 'image') t.size = t.size === 'display' && e.hero ? 'large' : 'medium';
-      if (layout === 'editorial-hero' && e.hero) t.size = 'display';
-      if (layout === 'campaign') t.size = 'display';
-      if (spec.columns) t.columns = true; else delete t.columns;
       if (layout === 'dense') t.list = t.list === 'plain' ? 'labelled' : t.list;
       if (layout === 'sticky-steps' || layout === 'gallery' || layout === 'chapters' || layout === 'orbit' || (layout === 'stage' && spec.steps)) t.list = t.list === 'timeline' && layout !== 'orbit' && layout !== 'chapters' ? 'timeline' : 'labelled';
       if (spec.notes) t.list = 'notes';
       // a campaign or a split screen floods its scene in the accent colour (the words are re-coloured against it)
       if (spec.takeover === 'accent' && !S.tone) S.background = 'accent';
-      t.entrance = TEXT_IN[e.personality] || 'rise';
-      if (t.entrance === 'split-words' && (t.heading || '').length > 60) t.entrance = 'rise';
-      t.width = layout === 'luxe' ? 'narrow' : layout === 'text' || layout === 'dense' || layout === 'takeover' ? 'wide' : t.width;
-      // how the words are set: a takeover's statement fills in word by word; a short giant headline spreads its letters as it
-      // plays on an expressive page; a split screen or a full-screen object runs its kicker up the edge
-      delete t.treatment;
-      if (spec.takeoverType) { t.treatment = 'word-fill'; t.size = 'display'; }
-      else if ((layout === 'giant-type' || layout === 'poster' || layout === 'campaign') && (t.heading || '').length <= 18 && ['kinetic', 'mechanical', 'chaotic'].includes(e.personality) && (e.mode === 'expressive' || e.mode === 'immersive')) t.treatment = 'letter-spread';
-      else if (spec.verticalKicker && t.kicker) t.treatment = 'vertical';
-      else if (layout === 'campaign' && e.personality === 'chaotic') t.treatment = 'outline';
-      // the legacy region (for anything that still reads it) follows the new place
-      const [c0, c1] = t.place.gc; const cx = (COL(c0) + COL(c1 + 1)) / 2;
-      t.region = c1 - c0 >= 8 ? (t.place.v === 'bottom' ? 'bottom' : t.place.v === 'top' ? 'top' : 'center') : `${t.place.v === 'bottom' ? 'bottom-' : t.place.v === 'top' ? 'top-' : ''}${cx < 50 ? 'left' : 'right'}`;
-      if (!['left', 'right', 'center', 'bottom-left', 'bottom-right', 'bottom', 'top-left', 'top-right', 'top'].includes(t.region)) t.region = 'left';
-      delete t.scrim;
-      // the words must stay clear of the main picture unless the archetype layers them on purpose (a caption on a
-      // full-bleed picture sits on a shade; giant type crosses the picture behind it)
-      const tr = textRect(t, t.place);
-      const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || spec.wall || spec.stageText || !!S.composition || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
-      if (!deliberate) out.filter(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0)).forEach(L => {
-        const d = L.box.d; if (overlap(d, tr) > Math.min(d[2] * d[3], tr[2] * tr[3]) * 0.12) { t.scrim = true; warnings.push(`scene ${S.id}: the words are long for a ${layout} composition -- they sit on a panel over the picture`); }
-      });
-      if (spec.shade) t.shade = spec.shade; else delete t.shade;
+      wordsClear(S, spec, layout, out, warnings);
       // the motion-first composition the scene is staged as (composition.js): what dominates, how the words serve it
       const composed = S.composition ? applyComposition(S, e, layout, out, fixes) : false;
       // ---- height, pin, choreography
@@ -6009,7 +6033,16 @@
       // the frame breaks: what dominates is never a card (a wall's tiles and a lineup's row keep their own edges)
       const keepEdges = ['tunnel-stage', 'perspective-lineup'].includes(comp);
       out.forEach(L => { if (L.kind !== 'image') return; if (L === focal && !keepEdges && COMP.CARD_MASKS.includes(L.mask)) L.mask = 'none'; if (['image-wall', 'gallery-collapse', 'floating-canvas'].includes(comp) && COMP.CARD_MASKS.includes(L.mask)) L.mask = 'none'; });
-      // the words serve the visual event
+      compositionWords(S, e, out);
+      if (e.art && e.art.direction && e.art.direction.light === 'specular' && focal && F.profile(e.byId.get(focal.asset)).free && ['object-stage', 'object-focus', 'fullscreen-subject', 'depth-stack', 'type-takeover'].includes(comp)) focal.loop = { kind: 'sheen', amp: 0.8, period: 9 };
+      // one bold colour and one object: a type takeover floods its scene (a photo behind the type keeps its own colour)
+      if (comp === 'type-takeover' && (!focal || F.profile(e.byId.get(focal.asset)).free)) { S.background = 'accent'; delete S.tone; }
+      return C.keepChoreo || (layout === 'chapters' ? 'chapters' : layout === 'orbit' ? 'travel' : 'compose');
+    }
+    // the words serve the composition's visual event: their role, size, caption, act -- typography only (applyComposition,
+    // and fitWords for the words a scene has now)
+    function compositionWords(S, e, out) {
+      const comp = S.composition; const C = COMP.SPEC[comp]; const t = S.text;
       const role = C.text === 'giant' && !t.giant ? 'label' : C.text; t.role = role;
       if (role === 'label') { t.size = e.hero ? 'large' : 'medium'; if (t.width === 'wide') t.width = 'medium'; }
       else if (role === 'pinned' || role === 'statement') t.size = e.hero ? 'display' : 'large';
@@ -6025,10 +6058,50 @@
       // the premium hero video leads: the words stay a label in its empty side -- never giant type over the moving picture
       if (e.video && e.hero) { act = 'pinned'; t.size = 'large'; delete t.giant; if (t.treatment === 'letter-spread') delete t.treatment; }
       t.act = act;
-      if (e.art && e.art.direction && e.art.direction.light === 'specular' && focal && F.profile(e.byId.get(focal.asset)).free && ['object-stage', 'object-focus', 'fullscreen-subject', 'depth-stack', 'type-takeover'].includes(comp)) focal.loop = { kind: 'sheen', amp: 0.8, period: 9 };
-      // one bold colour and one object: a type takeover floods its scene (a photo behind the type keeps its own colour)
-      if (comp === 'type-takeover' && (!focal || F.profile(e.byId.get(focal.asset)).free)) { S.background = 'accent'; delete S.tone; }
-      return C.keepChoreo || (layout === 'chapters' ? 'chapters' : layout === 'orbit' ? 'travel' : 'compose');
+    }
+
+    // ---------------------------------------------------------------- re-fitting the words
+    // fitWords(S, env): the words a scene has NOW (after an edit, a rewrite, or "Fix text layout") checked against the
+    // decisions its composition made for the words it had then -- each decided by the same rule that made it (the archetype's
+    // own spec, typeset, wordsClear, compositionWords, the legible column) -- and every decision the words no longer suit set
+    // again. Typography only: never a word, a picture, a layer, a colour or the composition. A decision the words still suit
+    // is left exactly as it is, so a scene that already fits is unchanged (fitting twice changes nothing).
+    // env: as composeScene's (byId, si, hero, art, rng, name, video, side, textSide, fixes, warnings).
+    // -> what was set again (plain sentences; empty when the words already fit)
+    const TYPE_FIELDS = ['place', 'mplace', 'region', 'size', 'giant', 'shade', 'scrim', 'role', 'act', 'copy', 'width', 'treatment', 'entrance', 'columns'];
+    function fitWords(S, env) {
+      const t = S && S.text; if (!t) return [];
+      const done = []; const heading = String(t.heading || ''); const nWords = heading.split(/\s+/).filter(Boolean).length;
+      const layout = S.layout; const e = A[layout] ? envFor(S, env).e : null;
+      const C = S.composition && COMP.SPEC[S.composition] && (COMP.BASES[S.composition] || []).includes(layout) ? COMP.SPEC[S.composition] : null;
+      const spec = e ? A[layout](S, e) : null;
+      // (the words as the archetype would set them now -- worked out on a copy, read from it field by field)
+      const candidate = sp => { const c = JSON.parse(JSON.stringify(S)); typeset(c, sp, layout, e); wordsClear(c, sp, layout, c.layers, []); if (C) compositionWords(c, e, c.layers); return c.text; };
+      // 1. giant type the words no longer suit (a sentence on a giant-type or type stage): set as that stage's label
+      if (e && t.giant && !(spec && spec.giant)) {
+        const label = spec || { place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: t.mplace || 'above', smallHeading: true, stageText: true, shade: 'bottom' };
+        const c = candidate(label);
+        TYPE_FIELDS.forEach(k => { if (c[k] === undefined) delete t[k]; else t[k] = c[k]; });
+        done.push('the heading is too long to be set as giant type here -- it is the scene\'s label');
+      }
+      // 2. letters spread apart only across a short heading
+      if (t.treatment === 'letter-spread' && heading.length > 18) { delete t.treatment; done.push('the heading is too long to spread its letters'); }
+      // 3. a word stack (one word a line) only for two to four words
+      if (t.act === 'word-stack' && (nWords < 2 || nWords > 4)) {
+        t.act = C && C.act !== 'word-stack' ? (C.act === 'behind-subject' && !S.layers.some(L => L.kind === 'word') ? 'none' : C.act) : 'none';
+        if (t.entrance === 'split-words') t.entrance = 'rise';
+        done.push(`${nWords} words are not stacked one a line`);
+      }
+      // 4. word by word only for a heading of a line or two
+      if (t.entrance === 'split-words' && heading.length > 60) { t.entrance = 'rise'; done.push('the heading arrives whole, not word by word'); }
+      // 5. a long heading in the narrow column stacks into a tower of one or two words a line (validate2 legible)
+      if (t.width === 'narrow' && heading.length > 40) { t.width = 'medium'; done.push('the long heading takes the medium column'); }
+      // 6. reading copy beyond what the words' role shows is revealed as a caption (every word stays)
+      if (C && t.role && t.role !== 'reading' && t.copy !== 'caption' && (t.body || '').length > COMP.COPY[t.role]) { t.copy = 'caption'; done.push('the longer paragraph is revealed as a caption'); }
+      // 7. words that now run over the main picture sit on a panel
+      if (e && !t.scrim && t.place && Array.isArray(t.place.gc) && crossesPicture(S, Object.assign({}, spec || {}, { shade: t.shade, giant: t.giant }), layout, S.layers)) { t.scrim = true; done.push('the words sit on a panel where they cross the picture'); }
+      const fixes = env && env.fixes; if (fixes) done.forEach(d => fixes.push(`scene ${S.id}: text layout -- ${d}`));
+      return done;
     }
 
     // the carry between two scenes: the previous scene's main picture leaves toward one side as this one's arrives from
@@ -6044,7 +6117,7 @@
     // a scene that does not hold the scroll shows no steps: its first picture stays, the pictures of later steps go (they would
     // otherwise sit on top of one another in the same place), and its lines are listed one under another
     function unstep(S) { if (!S.layers.some(L => L.step > 0)) { S.layers.forEach(L => { delete L.step; }); return; } S.layers = S.layers.filter(L => !(L.step > 0)); S.layers.forEach(L => { delete L.step; }); delete S.steps; }
-    module.exports = { composeScene, applyComposition, unstep, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
+    module.exports = { composeScene, applyComposition, fitWords, unstep, linkCarry, textHeight, textRect, MSTAGE, PINNED, FALLBACK, ARCHETYPES: Object.keys(A) };
 
   });
   __define("validate2", function (module, exports, require) {
@@ -6182,6 +6255,8 @@
       // "safety" (reopening, exporting, loading a saved page) only enforces what must always hold -- bounds, existing
       // assets, the owner's-photos rule, honest labels -- and never moves anything, so a saved design stays as accepted
       const safety = c.mode === 'safety';
+      // (scenes whose words changed on a saved page: their words are set again for what they say now -- ARCH.fitWords)
+      const refit = new Set(Array.isArray(c.refit) ? c.refit : []);
       const curOf = a => (a && (a.curation || (a.cutoutOf && byId.get(a.cutoutOf) && byId.get(a.cutoutOf).curation))) || null;
 
       // ---- identity, concept, look ----
@@ -6578,7 +6653,13 @@
           if (scene.pin && scene.choreo === 'compose') { if (holds >= holdCap) { scene.pin = false; scene.height = 'screen'; fixes.push(`${where}: the page already holds ${holdCap} composition(s) -- this one plays as it passes`); } else holds++; }
           else if (scene.pin) { if (pinned >= pinCap) { scene.pin = false; scene.choreo = 'settle'; scene.height = scene.height === 'tall' ? 'screen' : scene.height; ARCH.unstep(scene); fixes.push(`${where}: ${pinCap ? `more than ${pinCap} held scene${pinCap > 1 ? 's' : ''} on ${art && art.mode ? `a${art.mode === 'editorial' || art.mode === 'expressive' || art.mode === 'immersive' ? 'n' : ''} ${art.mode}` : 'the'} page` : `a ${art.mode} page holds nothing`} -- this one plays as it passes`); } else pinned++; }
         } else if (composing) { compose(scene, byId, fixes, warnings, si === 0); if (!safety) frameFree(scene, byId, fixes); legible(scene, byId, fixes); }
-        else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
+        else if (refit.has(sid)) {
+          // (words that changed on a saved page -- an edit, a rewrite, "Fix text layout": set again the way this scene's
+          // composition sets words, on the pictures it already has -- ARCH.fitWords: only what the new words no longer suit)
+          if (rs.text && rs.text.scrim) scene.text.scrim = true;
+          ARCH.fitWords(scene, { byId, si, hero: si === 0, art, rng: ART.rng(`${(p.direction && p.direction.seed) || ''}|${sid}`), name: identity.name, fixes, warnings, video: !!(si === 0 && c.premiumHero), ...placeFor(scene, (si + flip) % 2 ? 'left' : 'right') });
+          if (eventAt.get(si)) fillScreenWords(scene);
+        } else if (rs.text && rs.text.scrim) scene.text.scrim = true; // a saved scrim stays
         // every enlargement stays inside its ceiling (framing.js ZOOM): a picture is never blown up to fill a container --
         // only a deliberate "detail" framing goes further (a saved page keeps its numbers; the renderer caps them as it draws)
         if (!safety) boundZoom(scene, byId, fixes);
@@ -6803,6 +6884,8 @@
         if (art) { art.behavior = timeline.behavior; art.recipe = (String(art.recipe || '').split('#')[0] + '#' + timeline.behavior).slice(0, 560); }
       }
       if (look) applyLook(look, { scenes, timeline, actor, byId, eventAt, inRun, safety, sig: lookSig, art, fixes });
+      // (re-set words on a saved page with a look keep the look's rules for words -- applyLook leaves a saved page as it is)
+      if (look && safety && refit.size) scenes.forEach(s => { if (refit.has(s.id)) lookWords(s, d => (look.devices || []).includes(d)); });
       // (the ledger may have taken a picture a seam relied on: the timeline is held to the finished scenes exactly as a reopened
       // page holds it, so the page saves and reopens unchanged)
       if (look && !safety && timeline) timeline = TL.normalise(timeline, tctx).timeline;
@@ -7053,7 +7136,7 @@
       const enter = look.enter === 'camera' ? 'dolly' : 'none';
       scenes.forEach(s => {
         if (s.background === 'tint') s.background = 'base';
-        if (s.text.treatment && LOOK.TEXT_MOVES.includes(s.text.treatment) && !has('type-motion') && !['word-fill', 'type-wipe'].includes(s.choreo)) delete s.text.treatment;
+        lookWords(s, has);
         s.layers.forEach(L => {
           // (decoration drawn as a soft glow -- a blob, a blurred disc, a twinkle, a haze of dots -- is a blurred blob: a page with a
           // look takes its backgrounds from the brand and its pictures; crisp geometry, and a scene's own main shape, stay)
@@ -7069,10 +7152,14 @@
         });
         // (no blurred blob as decoration: the look's backgrounds are the brand's colours and the pictures' own)
         s.layers = s.layers.filter(L => !L.drop);
-        // (the words ride the same mask as the picture they belong to)
-        s.text.entrance = 'none';
       });
       fixes.push(`look: ${look.type.family} type; devices ${look.devices.join(', ')}; each scene enters as one composed event`);
+    }
+    // a page with a look sets every scene's words by its devices: a text move only when the look moves type (or the scene's
+    // own choreography is a word fill or a type wipe), and the words ride the same mask as the picture they belong to
+    function lookWords(s, has) {
+      if (s.text.treatment && LOOK.TEXT_MOVES.includes(s.text.treatment) && !has('type-motion') && !['word-fill', 'type-wipe'].includes(s.choreo)) delete s.text.treatment;
+      s.text.entrance = 'none';
     }
 
     function sceneInk(bg, P, tone, look) {
@@ -7148,6 +7235,10 @@
       const a = byId && byId.get(f.asset); const sb = a && a.assess && Array.isArray(a.assess.subject) ? a.assess.subject : null;
       const onSubject = sb ? `${Math.round((sb[0] + sb[2]) * 50)}% ${Math.round((sb[1] + sb[3]) * 50)}%` : '';
       f.box = { d: [0, 0, 100, 100], m: [0, 0, 100, 100] }; f.fit = 'cover'; f.mfit = 'cover'; f.mfocus = onSubject || f.focus || '50% 50%'; f.frame = 'bleed'; f.mask = 'none'; f.rotate = 0;
+      fillScreenWords(scene);
+    }
+    // (the words over a moving picture that fills the screen stay a label or a caption)
+    function fillScreenWords(scene) {
       const t = scene.text; if (t && (t.body || '').length > COMP.COPY.label) t.copy = 'caption';
       if (t && t.size === 'display' && !t.giant) t.size = 'large';
     }
@@ -8677,8 +8768,15 @@
       const wordHtml = (w, j) => (t.entrance === 'split-words' ? `<span class="w" style="--i:${j}">${esc(w)}</span>` : esc(w));
       // a short opening title set in staggered lines (giant and poster typography): two or three lines, each stepped in
       const stagger = artOn && hero && art && (art.typo === 'giant' || art.typo === 'poster') && wlist.length >= 3 && t.heading.length <= 44;
-      let words;
-      if (stagger) {
+      let words; let lw = c.plan.look ? LOOK.measure(t.heading) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length));
+      if (stagger && c.plan.look) {
+        // (a page with a look breaks its title where the fitted headline breaks -- LOOK.lines, the same measure -- and sizes it
+        // so its longest line, with that line's step, still fits: never a lone last word, never a line pushed past its column)
+        const L = LOOK.lines(t.heading); let j = 0; const lt = c.plan.look.type || {}; const adv = (lt.adv || 0.55) * (lt.case === 'upper' ? lt.upper || 1.2 : 1);
+        const step = t.place && t.place.align === 'center' ? [0, 0, 0] : [0, 0.9, 0.35];
+        lw = Math.max(lw, ...L.map((l, i) => Math.ceil(l.length + (step[i] || 0) / adv) + 1));
+        words = L.map(l => `<span class="ln">${l.split(' ').map(u => u.split(' ').map(w => wordHtml(w, j++)).join(' ')).join(' ')}</span>`).join(' ');
+      } else if (stagger) {
         const n = wlist.length >= 5 ? 3 : 2; const per = t.heading.length / n; const lines = [[]]; let len = 0;
         wlist.forEach((w, j) => { if (len > per * lines.length && lines.length < n) lines.push([]); lines[lines.length - 1].push([w, j]); len += w.length + 1; });
         words = lines.map(l => `<span class="ln">${l.map(([w, j]) => wordHtml(w, j)).join(' ')}</span>`).join(' ');
@@ -8709,7 +8807,7 @@
       const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${t.role ? ` data-role="${t.role}"` : ''}${t.act ? ` data-act="${t.act}"` : ''}${t.copy ? ` data-copy="${t.copy}"` : ''}${tpl ? planeAttrs(tpl, 'text') : ''}${place || wn || tpl || tr === 'letter-spread' || has('letter-spread') ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' || has('letter-spread') ? `--cn:${cn}` : '', tpl ? planeStyle(tpl, c.ctrack.rest) : ''].filter(Boolean).join(';')}"` : ''}` : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${c.plan.look ? LOOK.measure(t.heading) : Math.max(4, ...String(t.heading).split(/\s+/).map(w => w.length))}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${lw}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
           ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"${battr('body')}${bvars('body') ? ` style="${bvars('body')}"` : ''}${fillBody && tr === 'word-fill' ? ` data-blen="${t.body.length > 240 ? 'l' : t.body.length > 120 ? 'm' : 's'}"` : ''}><span${c.edit(`${k}.body`)}>${fillBody ? fill(t.body) : esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
