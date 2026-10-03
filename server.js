@@ -3103,7 +3103,8 @@ function threeDSource(accountId, projectId, assetId, sectionId) {
   const c = dir && dir.creative; if (!c || !c.plan || c.plan.v !== 2 || !Array.isArray(c.plan.scenes)) return no('no_page', 'This project has no Creative page yet.');
   if (c.threeD && Array.isArray(c.threeD.assets) && c.threeD.assets.length >= threeD.schema.LIMITS.assets) return no('limit', `A page can carry at most ${threeD.schema.LIMITS.assets} 3D models.`);
   const assets = (c.assets || []).filter(a => a && a.id && !a.removed); const byId = new Map(assets.map(a => [a.id, a]));
-  let a = byId.get(assetId); if (a && a.cutoutOf && byId.get(a.cutoutOf)) a = byId.get(a.cutoutOf); // (the whole photo, not its cut-out)
+  // (the whole photo, not its cut-out or a copy of it: followed through the project's own persisted links -- rootPicture)
+  let a = byId.get(assetId); const root = a ? threeD.schema.rootPicture(a, byId) : null; if (root) a = root;
   const el = threeD.schema.sourceEligible(a, { byId });
   if (!el.ok) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (${el.reason})`);
   // the stored file itself: what its own header says wins over anything the project says about it
@@ -3114,7 +3115,8 @@ function threeDSource(accountId, projectId, assetId, sectionId) {
   if (bad) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (${bad})`);
   if (Math.min(hs.width, hs.height) < threeD.schema.SOURCE.minShort) return no('source_not_eligible', `${threeDMessage('source_not_eligible')} (the upload is too small for a 3D model)`);
   // the section the model stands in: the one asked for, else the first after the opening that shows this subject's picture
-  const family = new Set(assets.filter(x => x.id === a.id || x.cutoutOf === a.id || x.derivedFrom === a.id).map(x => x.id));
+  // (every picture on the page that comes from this photo -- its cut-out, a copy, a copy of its cut-out -- is its placement)
+  const family = new Set(assets.filter(x => { const r = threeD.schema.rootPicture(x, byId); return r && r.id === a.id; }).map(x => x.id));
   const shows = s => (s.layers || []).some(L => L && L.kind === 'image' && family.has(L.asset));
   const scenes = c.plan.scenes; const asked = scenes.find(s => s.id === sectionId);
   const section = asked || scenes.find((s, i) => i > 0 && shows(s)) || scenes.find(shows) || scenes[1] || scenes[0];

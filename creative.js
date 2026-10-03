@@ -761,7 +761,9 @@
   function tdSceneName(id) { var s = (S.plan.scenes || []).find(function (x) { return x.id === id; }); return s ? (s.navLabel || (s.text && s.text.heading) || s.name || 'this section') : 'this section'; }
   // the section a model of this picture stands in: the first one after the opening that shows it (or its cut-out)
   function tdSectionFor(assetId) {
-    var fam = {}; live().forEach(function (a) { if (a.id === assetId || a.cutoutOf === assetId || a.derivedFrom === assetId) fam[a.id] = true; });
+    // (every picture that comes from this photo -- its cut-out, a copy, a copy of its cut-out: C.threeD.rootPicture)
+    var all = live(); var byIdT = new Map(all.map(function (a) { return [a.id, a]; }));
+    var fam = {}; all.forEach(function (a) { var r = C.threeD.rootPicture(a, byIdT); if (r && r.id === assetId) fam[a.id] = true; });
     var shows = function (s) { return (s.layers || []).some(function (L) { return L.kind === 'image' && fam[L.asset]; }); }; var sc = S.plan.scenes || [];
     var hit = sc.filter(function (s, i) { return i > 0 && shows(s); })[0] || sc.filter(shows)[0] || sc[1] || sc[0]; return hit ? hit.id : '';
   }

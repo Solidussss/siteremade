@@ -3598,15 +3598,30 @@
     };
     const SOURCE = { minShort: 512, minSubject: 0.06 };
     const SOURCE_MESSAGE = {
-      missing: 'the picture is not on the page', not_upload: 'found on the web -- 3D uses uploaded pictures only', picked_web: 'a web picture you picked -- 3D uses uploaded pictures only',
+      missing: 'the picture is not in the saved page', not_upload: 'found on the web -- 3D uses uploaded pictures only', picked_web: 'a web picture you picked -- 3D uses uploaded pictures only',
       logo: 'a logo is not turned into a 3D model', too_small: 'the upload is too small for a 3D model', not_an_object: 'the upload shows a scene, not one object',
     };
     const no = code => ({ ok: false, code, reason: SOURCE_MESSAGE[code] });
-    // whether one picture may become a 3D model. ctx: { byId } (a cut-out is judged by the photo it came from)
+    // PROVENANCE: the picture a picture comes from -- a cut-out of a photo (cutoutOf), a copy of one (derivedFrom: e.g. the copy
+    // made to carry another premium moment's clip) -- followed through the project's own PERSISTED links to the end of the
+    // chain. Never by name, address, look or anything a request says. byId: the project's pictures.
+    // -> the root picture, or null when a link points at a picture the project does not have (or the chain loops)
+    const MAX_CHAIN = 8;
+    function rootPicture(asset, byId) {
+      let a = asset; const seen = new Set();
+      for (let i = 0; a && i <= MAX_CHAIN; i++) {
+        const up = a.cutoutOf || a.derivedFrom; if (!up) return a;
+        if (seen.has(a.id)) return null; seen.add(a.id);
+        a = byId && typeof byId.get === 'function' ? byId.get(up) : null;
+      }
+      return null;
+    }
+    // whether one picture may become a 3D model. ctx: { byId } (a cut-out or a copy is judged by the photo it came from:
+    // rootPicture -- so a web picture never passes for an upload, and an upload never inherits a web picture's standing)
     function sourceEligible(asset, ctx) {
       const c = ctx || {}; const a = asset;
       if (!a || a.removed || a.failed) return no('missing');
-      if (a.cutoutOf) { const p = c.byId && c.byId.get(a.cutoutOf); return p ? sourceEligible(p, c) : no('missing'); }
+      if (a.cutoutOf || a.derivedFrom) { const p = rootPicture(a, c.byId); return p ? sourceEligible(p, c) : no('missing'); }
       if (a.ownerPicked) return no('picked_web');
       // (an upload carries no web address: a picture that does came from the web, whatever it is labelled)
       if (a.origin !== 'upload' || a.pageUrl || a.sourceUrl) return no('not_upload');
@@ -3631,7 +3646,7 @@
       if (!uploads.length) return off('needs_upload');
       // the picture the page is built around first, then the one the plan named, then the other uploads
       const order = [c.mainAsset, req.sourceAssetId].concat(uploads.map(a => a.id)).filter((id, i, all) => id && byId.has(id) && all.indexOf(id) === i);
-      const pick = order.map(id => { const a = byId.get(id); return a.cutoutOf && byId.get(a.cutoutOf) ? byId.get(a.cutoutOf) : a; }).find(a => sourceEligible(a, { byId }).ok);
+      const pick = order.map(id => { const a = byId.get(id); return rootPicture(a, byId) || a; }).find(a => sourceEligible(a, { byId }).ok);
       if (!pick) return off('source_not_eligible');
       const k = c.concept || {};
       if (c.kind === 'personal' || k.editorial || (k.place && !k.product && !k.character)) return off('subject_not_suitable');
@@ -3854,7 +3869,7 @@
     // the CREATIVE_3D flag, read where pages are composed (the server): 3D may be planned only with it on
     function enabled(env) { const e = env || (typeof process !== 'undefined' && process.env) || {}; return String(e.CREATIVE_3D || '').toLowerCase() === 'on'; }
 
-    module.exports = { LIMITS, MIME, RUNTIME, ASSET_ID, DATA_URL, REASONS, SOURCE, POSE, COMPOSITIONS: POSE.COMPOSITIONS, COMPOSITION_NAMES: POSE.COMPOSITION_NAMES, INTERACTIONS: POSE.INTERACTIONS, cleanAsset, cleanScene, normalise, sourceEligible, intent, cleanIntent, forPage, DEFAULT_BOX, CSS, LOADER, enabled };
+    module.exports = { LIMITS, MIME, RUNTIME, ASSET_ID, DATA_URL, REASONS, SOURCE, POSE, COMPOSITIONS: POSE.COMPOSITIONS, COMPOSITION_NAMES: POSE.COMPOSITION_NAMES, INTERACTIONS: POSE.INTERACTIONS, cleanAsset, cleanScene, normalise, sourceEligible, rootPicture, intent, cleanIntent, forPage, DEFAULT_BOX, CSS, LOADER, enabled };
 
   });
   __define("carry-route", function (module, exports, require) {
