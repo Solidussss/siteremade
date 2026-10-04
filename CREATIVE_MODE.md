@@ -650,6 +650,10 @@ closed where it is made rather than left to the visual director:
 - **The carried subject at full size** (a page with a look, desktop): the subject carried across the opening scenes takes
   up to 44% of the screen's width and 64% of its height (was 34% / 54%) -- a wide product as large as a tall one -- the
   words on the other side.
+- **An empty list is a bare scene**: a layout made to hold a list (a table, steps, an orbit of points) with nothing in it
+  and nothing to read is recomposed like a scene left without its picture -- words set large.
+- **The visual director's empty space**: a monumental headline (12% of the screen's height or more; 10% on a type-led
+  page) on a field is the scene, never "too much dead space" -- the giant statement is the creative choice.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a

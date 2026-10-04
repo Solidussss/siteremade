@@ -394,7 +394,9 @@
         const typeLed = sh.typeLed || TYPE_LAYOUTS.includes(s.layout) || !!(s.text && s.text.giant);
         // (a scene built to show a picture that has none left to show -- the ledger took them all -- is an empty field: never a
         // full-screen event, never a stage)
-        const bare = !imgs.length && !typeLed && !run && !!s.layout && s.layout !== 'free' && !WORD_LAYOUTS.includes(s.layout);
+        // (and a layout made to hold a list -- a table, steps, an orbit of points -- with nothing in it and nothing to read)
+        const listless = ['dense', 'sticky-steps', 'orbit', 'brutalist'].includes(s.layout) && !((s.text && s.text.items) || []).length && ((s.text && s.text.body) || '').length < 40;
+        const bare = !imgs.length && !run && !!s.layout && s.layout !== 'free' && ((!typeLed && !WORD_LAYOUTS.includes(s.layout)) || listless);
         const full = !bare && (sh.full || area >= 90 || ['editorial-hero', 'cinematic', 'campaign', 'fullscreen-object'].includes(s.layout));
         // (a scene the arc made a breath, or a calm floating composition, rests -- whatever it is built from)
         const rests = s.arc === 'breath' || s.composition === 'floating-canvas' || ['luxe', 'canvas'].includes(s.layout);
@@ -765,8 +767,9 @@
           if (PICTURED.includes(x.layout) && x.pictures === 0 && x.video == null && x.model == null) add(i, view, 'looks_unfinished', 'high', { layout: x.layout, picture: x.picture });
           ['kicker', 'body'].forEach(k => { const t = x.contrast[k]; if (t && !x.lowFi && t.low >= 0.5) add(i, view, 'weak_text_contrast', 'medium', { words: k, low: t.low, median: t.median }); });
           if (x.heading && x.heading.off) add(i, view, 'type_unreadable_oversized', 'high', { textOff: x.textOff });
-          // dead space: a flat, empty screen with no picture large enough to make the emptiness a choice
-          if (x.dead != null && x.dead >= B.dead && x.picture < 0.3 && !(B.type && x.heading && x.heading.px >= 0.1)) add(i, view, 'too_much_dead_space', x.dead >= B.dead + 0.1 ? 'medium' : 'low', { dead: x.dead, limit: +B.dead.toFixed(2) });
+          // dead space: a flat, empty screen with no picture large enough to make the emptiness a choice -- nor a monumental
+          // headline (a giant statement on a field is the scene, on any page; on a type-led page a large one is)
+          if (x.dead != null && x.dead >= B.dead && x.picture < 0.3 && !(x.heading && x.heading.px >= (B.type ? 0.1 : 0.12))) add(i, view, 'too_much_dead_space', x.dead >= B.dead + 0.1 ? 'medium' : 'low', { dead: x.dead, limit: +B.dead.toFixed(2) });
           // balance (desktop: the screen leans hard to one side and nothing answers it)
           if (!mob && x.balance && Math.abs(x.balance.cx - 0.5) >= 0.2 && x.balance.side >= 0.62) add(i, view, 'crowded_one_side', 'low', { cx: x.balance.cx, side: x.balance.side, lean: x.balance.lean });
           // too many things asking to be looked at, none winning
@@ -8054,7 +8057,7 @@
             if (changed.size >= 3) break;
             for (const cand of DIR.candidates(f, scenes, dctx).slice(0, 8)) {
               const at = cand.at; const sc = scenes[at];
-              if (!sc || changed.has(at) || inRun(at) || eventAt.get(at) || !sc.layout || sc.layout === 'free' || !sc.layers.some(L => L.kind === 'image')) { if (c.onDirection) c.onDirection({ at, cand, why: 'scene not open to repair' }); continue; }
+              if (!sc || changed.has(at) || inRun(at) || eventAt.get(at) || !sc.layout || sc.layout === 'free' || (!sc.layers.some(L => L.kind === 'image') && f.code !== 'bare')) { if (c.onDirection) c.onDirection({ at, cand, why: 'scene not open to repair' }); continue; }
               // (a scene that is the page's only typography moment, only full-screen event or only field of the brand colour keeps
               // that -- unless the finding is about the scene itself)
               if (!['weak-hero', 'small-hero', 'weak-payoff', 'no-return', 'video-small', 'bare'].includes(f.code)) {
@@ -8233,7 +8236,7 @@
           if (t.heading.length > 64) return;
           t.size = 'display'; t.giant = true; t.role = 'giant'; t.place = { gc: [1, 12], v: 'middle', align: 'center' }; t.width = 'wide';
           s.layers = s.layers.filter(L => !(L.kind === 'word' && L.role === 'echo'));
-        } else if (s.layout === 'text' || s.layout === 'luxe' || s.layout === 'shrine' || s.layout === 'image' || s.layout === 'framed' || s.layout === 'split') {
+        } else if (['text', 'luxe', 'shrine', 'image', 'framed', 'split', 'giant-type'].includes(s.layout)) {
           // (a short statement becomes the scene: giant, across the whole width)
           if (t.heading.length <= 64) { t.size = 'display'; t.giant = true; t.place = { gc: [1, 12], v: 'middle', align: t.place && t.place.align === 'center' ? 'center' : 'left' }; t.width = 'wide'; if (s.height === 'short' || s.height === 'auto') s.height = 'screen'; }
           else t.size = 'display';
