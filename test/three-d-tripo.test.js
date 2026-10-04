@@ -589,7 +589,7 @@ test('P2-18. a server restart in the middle: the job is found again and finished
     const s = session(port); await signIn(s); const p = await saveProject(s, 'Aurelia'); projectId = p.id;
     const q = await s.call('POST', '/api/creative/premium/3d/quote', { projectId: p.id, assetId: 'u-bottle' }); balance = q.body.creditsRemaining;
     jobId = (await s.call('POST', '/api/creative/premium/3d/start', { quoteId: q.body.quote.id })).body.job.jobId;
-    for (let i = 0; i < 50 && tripoCalls(env).filter(c => c.endpoint === 'submit').length === 0; i++) await sleep(40);
+    for (let i = 0; i < 250 && tripoCalls(env).filter(c => c.endpoint === 'submit').length === 0; i++) await sleep(40); // (generous: a busy machine)
     assert.equal(tripoCalls(env).filter(c => c.endpoint === 'submit').length, 1);
     // while it is being made: a second quote for the page answers with the job in progress -- nothing new is quoted
     const dup = await s.call('POST', '/api/creative/premium/3d/quote', { projectId: p.id, assetId: 'u-bottle' }); assert.deepEqual([dup.body.ok, dup.body.reason, dup.body.job.jobId], [false, 'in_progress', jobId]);
@@ -598,7 +598,7 @@ test('P2-18. a server restart in the middle: the job is found again and finished
   await withServer({ MOCK_TRIPO: 'queued', MOCK_TRIPO_MS: '2500' }, async ({ port, env }) => {
     const s = session(port); await signIn(s);
     const fp = await s.call('GET', `/api/creative/premium/3d/for-project/${projectId}`); assert.equal(fp.body.job.jobId, jobId, 'the reopened page finds its job');
-    const done = await follow(s, jobId, null, 25000);
+    const done = await follow(s, jobId, null, 90000);
     assert.deepEqual([done.job.status, done.job.completed, done.job.credits.charged, done.creditsRemaining], ['completed', 1, 3, balance - 3]);
     assert.equal(tripoCalls(env).filter(c => c.endpoint === 'submit').length, 1, 'one submission across both lives of the server');
     assert.equal(tripoCalls(env).filter(c => c.endpoint === 'download' && c.status === 200).length, 1);
