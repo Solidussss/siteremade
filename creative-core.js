@@ -390,11 +390,25 @@
     html.k-go:not([data-motion="reduced"]) .sc[data-knock] .sc-heading{opacity:var(--ko,0);transition:opacity .2s linear}
     /* a full-screen clip scene melts into the page's colour at its foot */
     html.k-go:not([data-motion="reduced"]) .sc[data-pv] .ly[data-role="focal"] .ly-art::after{content:"";position:absolute;inset:auto 0 0;height:22%;background:linear-gradient(to bottom,transparent,var(--s-surface,transparent));pointer-events:none;z-index:2}
+    /* PIXELS: a reveal's photograph arrives as big blocks that sharpen into the picture (a flat 2D drawing over it, gone once sharp) */
+    .k-pix{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;image-rendering:pixelated;z-index:1}
+    /* THE INTRO: the first visit of a session opens on the name and a count, then the page is uncovered */
+    .k-intro{position:fixed;inset:0;z-index:2147482500;display:grid;place-items:center;background:var(--kbg,#111);color:var(--kink,#fff);clip-path:inset(0 0 0 0);transition:clip-path .9s cubic-bezier(.76,0,.24,1)}
+    .k-intro.is-out{clip-path:inset(0 0 100% 0)}
+    .k-intro-n{font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(48px,11vw,190px);letter-spacing:-.02em;text-transform:uppercase;line-height:1;overflow:hidden;padding:.05em .1em .1em}
+    .k-intro-n span{display:inline-block;transform:translateY(110%);animation:k-in-up .9s cubic-bezier(.16,1,.3,1) forwards;animation-delay:calc(var(--i) * 55ms)}
+    .k-intro-c{position:absolute;right:4vw;bottom:4vh;font:600 clamp(14px,1.4vw,20px)/1 system-ui,sans-serif;letter-spacing:.12em;font-variant-numeric:tabular-nums}
+    @keyframes k-in-up{to{transform:none}}
+    html[data-motion="reduced"] .k-intro{display:none}
+    /* THE PROGRESS LINE: how far down the page the visitor is */
+    .k-prog{position:fixed;left:0;top:0;height:2px;width:100%;transform-origin:0 50%;transform:scaleX(var(--kprog,0));background:var(--accent,currentColor);z-index:2147481500;pointer-events:none}
+    html[data-motion="reduced"] .k-prog{display:none}
     /* THE BAND: the page's name runs across the page between scenes, faster as the visitor scrolls faster, turning with the scroll */
     .k-mq{position:relative;z-index:3;overflow:hidden;padding:2.2vh 0;pointer-events:none;background:var(--bg,#111);border-block:1px solid color-mix(in srgb,var(--ink,#fff) 14%,transparent)}
     .k-mq-t{display:inline-flex;white-space:nowrap;will-change:transform;font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(56px,12vw,220px);line-height:1;letter-spacing:-.02em;text-transform:uppercase;color:transparent;-webkit-text-stroke:1.5px var(--ink,#fff)}
     .k-mq-t span{padding:0 .35em}.k-mq-t span:nth-child(2n){color:var(--accent,var(--ink,#fff));-webkit-text-stroke:0}
     html[data-motion="reduced"] .k-mq{display:none}
+    .k-mq-t .k-mq-f{display:inline-block;height:.78em;aspect-ratio:16/9;margin:0 .3em;vertical-align:-.08em;border-radius:.08em;object-fit:cover;-webkit-text-stroke:0;box-shadow:0 .05em .2em rgba(0,0,0,.35)}
     /* THE TRAIL: in one scene, the mouse leaves the page's own pictures behind it */
     .k-trail{position:fixed;left:0;top:0;width:clamp(120px,14vw,240px);aspect-ratio:4/5;object-fit:cover;border-radius:10px;pointer-events:none;z-index:2147481000;box-shadow:0 18px 40px rgba(0,0,0,.35);animation:k-trail 1.15s cubic-bezier(.16,1,.3,1) forwards}
     @keyframes k-trail{0%{opacity:0;scale:.4}14%{opacity:1;scale:1}70%{opacity:1;scale:1}100%{opacity:0;scale:.86;translate:0 40px}}
@@ -419,9 +433,9 @@
     var CH={luxe:[.55,0,0,1.35,95,.08,.55],still:[.45,0,0,1.4,100,.075,.45],editorial:[.75,1,1.2,1.15,80,.09,.75],cinematic:[1,1.6,2,1.25,85,.085,1],kinetic:[1.25,3.2,6,.9,55,.12,1.25],playful:[1.3,3,7,.85,55,.13,1.3],chaotic:[1.5,4,9,.8,45,.14,1.5],mechanical:[1,0,0,.75,40,.12,.9]};
     var pers=H.getAttribute('data-personality')||'editorial',ch=CH[pers]||CH.editorial;K.personality=pers;
     H.style.setProperty('--kI',ch[0]);H.style.setProperty('--kS',ch[1]);H.style.setProperty('--kR',ch[2]);H.style.setProperty('--kT',ch[3]);H.style.setProperty('--kW',ch[4]);H.style.setProperty('--k3',ch[6]);H.style.setProperty('--k3c',ch[6]);var GL=ch[5];
-    var ARC={takeover:'grow',payoff:'grow',reveal:'tilt',transformation:'turn',breath:'drift',escalation:'rush'};
-    (function(){var kinds=['grow','tilt','drift','turn','rush'],last='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
-    if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'))k='drift';sc.setAttribute('data-kp',k);last=k}
+    var ARC={takeover:'grow',payoff:'grow',reveal:/^(mechanical|kinetic|playful|chaotic)$/.test(pers)?'pixel':'tilt',transformation:'turn',breath:'drift',escalation:'rush'};
+    (function(){var kinds=['grow','tilt','drift','turn','rush','pixel'],last='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
+    if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'||k==='pixel'))k='drift';sc.setAttribute('data-kp',k);last=k}
     var h=sc.querySelector('.sc-heading');if(h&&(i===0||/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]')))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&h.querySelectorAll('.kw').length>=5&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
     if(i<all.length-1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-seam-in'))sc.setAttribute('data-kx','')})})();
     /* ---- decode (a mechanical page): each headline's letters resolve out of noise, left to right, as its scene arrives */
@@ -446,6 +460,7 @@
     function follow(){px+=(tx-px)*.08;py+=(ty-py)*.08;rx+=(mx-rx)*.22;ry+=(my-ry)*.22;if(!reduced()){H.style.setProperty('--kpx',px.toFixed(4));H.style.setProperty('--kpy',py.toFixed(4))}
     if(ring)ring.style.transform='translate3d('+rx.toFixed(1)+'px,'+ry.toFixed(1)+'px,0)';
     if(Math.abs(tx-px)>.001||Math.abs(ty-py)>.001||Math.abs(mx-rx)>.3||Math.abs(my-ry)>.3)requestAnimationFrame(follow);else moving=false}
+    var prog=null;if(!RM){prog=d.createElement('div');prog.className='k-prog';prog.setAttribute('aria-hidden','true');d.body.appendChild(prog)}
     /* ---- scrubbed clips: the visitor plays them. Their scenes' places are measured when the layout changes (load, resize, the
        page growing) -- never read while scrolling */
     var clips=[],hero=null,firstSc=d.querySelector('.sc');
@@ -467,7 +482,7 @@
     /* ---- the scroll's speed: pictures lean with it (--kv), settling when it stops */
     var ly0=W.scrollY||0,kvIn=0,kv=0,kvRun=false;function speed(){kv+=(kvIn-kv)*.14;kvIn*=.7;if(Math.abs(kv)<.002&&Math.abs(kvIn)<.002){kv=0;kvRun=false}H.style.setProperty('--kv',reduced()?'0':kv.toFixed(3));if(kvRun)requestAnimationFrame(speed)}
     /* ---- one scroll listener for the whole page: the page's own frame (render2) calls this with where the page is */
-    W.__crKinFrame=function(y){SY=y;if(!gliding)cur=target=y;heroScrolled=y>8;kvIn=Math.max(-1,Math.min(1,(y-ly0)/60));ly0=y;if(!kvRun){kvRun=true;requestAnimationFrame(speed)}kick()};
+    W.__crKinFrame=function(y){SY=y;if(prog)H.style.setProperty('--kprog',Math.max(0,Math.min(1,y/Math.max(1,(d.scrollingElement||H).scrollHeight-innerHeight))).toFixed(4));if(!gliding)cur=target=y;heroScrolled=y>8;kvIn=Math.max(-1,Math.min(1,(y-ly0)/60));ly0=y;if(!kvRun){kvRun=true;requestAnimationFrame(speed)}kick()};
     /* ---- the lens: the main photograph bends, ripples and splits its colour around the mouse (WebGL; a mouse only; drawn
        only while the mouse is over it -- otherwise the photograph itself, untouched) */
     var lenses=[];
@@ -528,14 +543,35 @@
     if(W.IntersectionObserver)new IntersectionObserver(function(es){mqOn=es[0].isIntersecting;if(mqOn)requestAnimationFrame(band)}).observe(box);else{mqOn=true;requestAnimationFrame(band)}
     W.dispatchEvent(new Event('resize'))})();
     function band(t){if(!mq||!mqOn)return;var dt=Math.min(64,t-(mqLast||t));mqLast=t;mqW=mq.scrollWidth/2||1;mqX-=(.045+Math.abs(kv)*2.4)*dt*(kv<-.02?-1:1);if(mqX<-mqW)mqX+=mqW;if(mqX>0)mqX-=mqW;if(!reduced())mq.style.transform='translate3d('+mqX.toFixed(1)+'px,0,0) rotate('+(kv*-2).toFixed(2)+'deg)';requestAnimationFrame(band)}
+    /* ---- THE CLIP'S OWN FRAMES IN THE BAND: when the page has a premium clip, moments of it (sampled here from the clip itself,
+       a few small stills) run through the band between the name -- the footage carries on down the page */
+    (function(){if(!mq||RM||!hero||!hero.v)return;var src=hero.v.getAttribute('src');if(!src)return;var v=d.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=src;var shots=[],times=[.12,.3,.48,.66,.84],k=0;
+    function grab(){try{var cv=d.createElement('canvas');cv.width=320;cv.height=180;var g=cv.getContext('2d'),vw=v.videoWidth||16,vh=v.videoHeight||9,sc=Math.max(320/vw,180/vh);g.drawImage(v,(320-vw*sc)/2,(180-vh*sc)/2,vw*sc,vh*sc);shots.push(cv.toDataURL('image/jpeg',.72))}catch(e){shots=null;return}next()}
+    function next(){if(!shots)return;if(k>=times.length){place();return}v.currentTime=Math.max(0,(v.duration||1)*times[k++])}
+    function place(){if(!shots||!shots.length)return;var spans=[].slice.call(mq.children);spans.forEach(function(sp,i){if(sp.textContent==='\u2726'){var im=d.createElement('img');im.className='k-mq-f';im.alt='';im.src=shots[i%shots.length];sp.textContent='';sp.appendChild(im)}});K.frames=shots.length}
+    v.addEventListener('seeked',grab);v.addEventListener('loadeddata',function(){next()},{once:true})})();
     /* ---- THE TRAIL: one scene (a breath of the story, else the middle one) leaves the page's pictures behind the mouse */
     (function(){if(!fine||RM)return;var all=[].slice.call(d.querySelectorAll('.sc')),srcs=[].slice.call(d.querySelectorAll('.ly-img')).map(function(i){return i.currentSrc||i.src}).filter(function(u,k,a){return u&&a.indexOf(u)===k}).slice(0,10);if(srcs.length<3||all.length<3)return;
     var sc=all.filter(function(x,k){return k>0&&k<all.length-1&&x.getAttribute('data-arc')==='breath'})[0]||all[Math.floor(all.length/2)];sc.setAttribute('data-ktrail','');K.trail=true;var lx=-999,ly=-999,n=0,alive=0;
     sc.addEventListener('pointermove',function(e){if(reduced()||e.pointerType!=='mouse'||e.target.closest('a,button'))return;var dx=e.clientX-lx,dy=e.clientY-ly;if(dx*dx+dy*dy<90*90||alive>9)return;lx=e.clientX;ly=e.clientY;
     var im=d.createElement('img');im.className='k-trail';im.alt='';im.src=srcs[n++%srcs.length];im.style.left=(e.clientX-70)+'px';im.style.top=(e.clientY-90)+'px';im.style.rotate=((Math.random()*16)-8).toFixed(1)+'deg';d.body.appendChild(im);alive++;setTimeout(function(){im.remove();alive--},1200)})})();
+    /* ---- PIXELS: as a 'pixel' scene arrives, its photographs draw from big blocks to sharp (cover-fitted like the picture) */
+    function pixelate(img){var art=img.closest('.ly-art');if(!art||!img.complete||!img.naturalWidth)return;var r=art.getBoundingClientRect();if(r.width<40||r.height<40)return;var cv=d.createElement('canvas');cv.className='k-pix';cv.setAttribute('aria-hidden','true');var Wd=Math.round(r.width),Hd=Math.round(r.height);cv.width=Wd;cv.height=Hd;var g=cv.getContext('2d');if(!g)return;g.imageSmoothingEnabled=false;
+    var iw=img.naturalWidth,ih=img.naturalHeight,k=Math.max(Wd/iw,Hd/ih),dw=iw*k,dh=ih*k,op=(getComputedStyle(img).objectPosition||'50% 50%').split(' '),ox=parseFloat(op[0])/100,oy=parseFloat(op[1]||op[0])/100;if(isNaN(ox))ox=.5;if(isNaN(oy))oy=.5;var left=(Wd-dw)*ox,top=(Hd-dh)*oy,off=d.createElement('canvas'),og=off.getContext('2d');
+    art.appendChild(cv);var steps=[56,40,28,18,11,6,3],k2=0;img.style.visibility='hidden';(function step(){if(k2>=steps.length||reduced()){cv.remove();img.style.visibility='';return}var b=steps[k2++],w=Math.max(1,Math.round(Wd/b)),h=Math.max(1,Math.round(Hd/b));off.width=w;off.height=h;og.imageSmoothingEnabled=true;og.clearRect(0,0,w,h);try{og.drawImage(img,left/b,top/b,dw/b,dh/b)}catch(e){cv.remove();img.style.visibility='';return}g.clearRect(0,0,Wd,Hd);g.drawImage(off,0,0,w,h,0,0,Wd,Hd);setTimeout(step,85)})()}
+    if(!RM&&W.MutationObserver)[].forEach.call(d.querySelectorAll('.sc[data-kp="pixel"]'),function(sc){var done=false;function go(){if(done||!sc.classList.contains('is-in')||reduced())return;done=true;[].forEach.call(sc.querySelectorAll('.ly:is([data-role="focal"],[data-role="support"],[data-role="subject"]) .ly-img'),function(img){if(getComputedStyle(img).objectFit==='cover')pixelate(img)})}go();new MutationObserver(go).observe(sc,{attributes:true,attributeFilter:['class']})});
+    /* ---- on a mouse, the picture under it tilts toward it like a card in the hand */
+    var tiltEl=null;function tilt(e){var sc=e.target&&e.target.closest?e.target.closest('.sc'):null,hit=null;if(sc&&!reduced())[].some.call(sc.querySelectorAll('.ly:is([data-role="focal"],[data-role="support"]) .ly-in'),function(el){var r=el.getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom&&r.width>60){hit={el:el,r:r};return true}return false});
+    if(tiltEl&&(!hit||hit.el!==tiltEl)){tiltEl.style.rotate='';tiltEl=null}if(!hit)return;var nx=(e.clientX-hit.r.left)/hit.r.width*2-1,ny=(e.clientY-hit.r.top)/hit.r.height*2-1,mag=Math.min(1,Math.sqrt(nx*nx+ny*ny));tiltEl=hit.el;hit.el.style.rotate=(-ny).toFixed(3)+' '+nx.toFixed(3)+' 0 '+(mag*7*(ch[0]||1)).toFixed(2)+'deg'}
+    if(fine&&!RM){var tq=null;W.addEventListener('pointermove',function(e){if(e.pointerType&&e.pointerType!=='mouse')return;if(!tq){tq=e;requestAnimationFrame(function(){tilt(tq);tq=null})}else tq=e},{passive:true})}
+    /* ---- THE INTRO: once a session, the page's name rises with a count to 100, then the page is uncovered and its opening plays */
+    var intro=null;(function(){var first=d.querySelector('.sc'),hh=first&&first.querySelector('.sc-heading');if(RM||!first||!hh||location.hash)return;try{if(W.sessionStorage.getItem('k-intro'))return;W.sessionStorage.setItem('k-intro','1')}catch(e){return}
+    var name=(d.title||'').split(/ [-|\u2013\u2014] /)[0].trim()||hh.textContent.trim();if(!name||name.length>24)return;intro=d.createElement('div');intro.className='k-intro';intro.setAttribute('aria-hidden','true');var surf=first.getAttribute('data-surf'),ink=first.style.getPropertyValue('--s-ink');if(surf)intro.style.setProperty('--kbg',surf);if(ink)intro.style.setProperty('--kink',ink);var ff=getComputedStyle(hh).fontFamily;if(ff)intro.style.setProperty('--kmf',ff);
+    var nm=d.createElement('div');nm.className='k-intro-n';[].forEach.call(name,function(c,i){var sp=d.createElement('span');sp.textContent=c===' '?'\u00a0':c;sp.style.setProperty('--i',i);nm.appendChild(sp)});var cn=d.createElement('div');cn.className='k-intro-c';cn.textContent='000';intro.appendChild(nm);intro.appendChild(cn);d.body.appendChild(intro);
+    var t0=performance.now(),dur=1250;(function count(t){var k=Math.min(1,(t-t0)/dur),v=Math.round((1-Math.pow(1-k,3))*100);cn.textContent=(v<10?'00':v<100?'0':'')+v;if(k<1)requestAnimationFrame(count);else{intro.classList.add('is-out');setTimeout(function(){if(intro){intro.remove();intro=null}},1000);goNow()}})(t0)})();
     /* ---- on: the next frame, so a scene that is already in still plays its entrance */
     /* (two steps: every word takes its start first, then the scenes already in play their entrance like the rest) */
-    H.classList.add('k-on');void H.offsetWidth;requestAnimationFrame(function(){requestAnimationFrame(function(){H.classList.add('k-go')})});
+    H.classList.add('k-on');void H.offsetWidth;function goNow(){requestAnimationFrame(function(){requestAnimationFrame(function(){H.classList.add('k-go')})})}if(!intro)goNow();
     })();
     `;
 

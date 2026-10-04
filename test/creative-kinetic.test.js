@@ -34,8 +34,11 @@ test('K2. one scroll listener for the whole page, runtime included; per-frame wo
 });
 
 test('K3. reduced motion turns every part of it off', () => {
-  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock/.test(r.trim()));
-  // (the band and the clip in the name are not drawn at all for reduced motion; the trail is never made for it)
+  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock|^\s*\.k-intro|^\s*\.k-pix|^\s*\.k-prog/.test(r.trim()));
+  // (the band, the clip in the name, the intro and the progress line are not drawn at all for reduced motion; the trail and
+  // the pixels are never made for it)
+  ['k-intro', 'k-prog'].forEach(k => assert.match(KIN.css, new RegExp(`html\\[data-motion="reduced"\\] \\.${k}\\{display:none\\}`), k));
+  assert.match(KIN.js, /if\(!RM&&W\.MutationObserver\)\[\]\.forEach\.call\(d\.querySelectorAll\('\.sc\[data-kp="pixel"\]'\)/, 'no pixels for reduced motion');
   assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-mq\{display:none\}/); assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-knock\{display:none\}/);
   assert.match(KIN.js, /\(function\(\)\{if\(!fine\|\|RM\)return;var all=/, 'no trail for reduced motion'); assert.match(KIN.js, /sc\.addEventListener\('pointermove',function\(e\)\{if\(reduced\(\)/);
   rules.forEach(r => assert.match(r, /:not\(\[data-motion="reduced"\]\)/, `gated: ${r.trim().slice(0, 90)}`));
@@ -51,7 +54,7 @@ test('K4. a premium clip is played by the visitor -- its scene\'s scroll, and th
 
 test('K5. the motion follows the page\'s direction: its personality sets how far and how fast, each scene\'s arc which move', () => {
   ['luxe', 'still', 'editorial', 'cinematic', 'kinetic', 'playful', 'chaotic', 'mechanical'].forEach(p => assert.match(KIN.js, new RegExp(`${p}:\\[`), p));
-  assert.match(KIN.js, /var ARC=\{takeover:'grow',payoff:'grow',reveal:'tilt',transformation:'turn',breath:'drift',escalation:'rush'\};/);
+  assert.match(KIN.js, /var ARC=\{takeover:'grow',payoff:'grow',reveal:\/\^\(mechanical\|kinetic\|playful\|chaotic\)\$\/\.test\(pers\)\?'pixel':'tilt',transformation:'turn',breath:'drift',escalation:'rush'\};/);
   ['grow', 'tilt', 'drift', 'turn', 'rush'].forEach(k => assert.ok(KIN.css.includes(`[data-kp="${k}"]`), k));
   assert.match(KIN.js, /if\(pers==='mechanical'&&!RM&&W\.MutationObserver\)/, 'a mechanical page decodes its words');
 });
@@ -88,4 +91,18 @@ test('K10. a page in a real browser-like render carries the set pieces: the band
   const h = render(page('sneaker', '3'));
   assert.match(KIN.js, /var words=\[name,'\u2726'\];/); assert.match(KIN.js, /var surf=first\.getAttribute\('data-surf'\);if\(surf\)box\.style\.background=surf;/);
   assert.match(KIN.js, /sc\.setAttribute\('data-ktrail',''\)/); assert.ok(h.includes(KIN.js));
+});
+
+test('K11. the intro (once a session, never for reduced motion or a deep link) holds the entrances until the page is uncovered; reveals arrive in pixels on a lively or mechanical page; the picture under the mouse tilts; a progress line follows the scroll', () => {
+  assert.match(KIN.js, /if\(RM\|\|!first\|\|!hh\|\|location\.hash\)return;try\{if\(W\.sessionStorage\.getItem\('k-intro'\)\)return;/);
+  assert.match(KIN.js, /if\(!intro\)goNow\(\);/, 'the entrances wait for the intro'); assert.ok(KIN.js.includes("intro.classList.add('is-out');setTimeout(function(){if(intro){intro.remove();intro=null}},1000);goNow()"), 'the page is uncovered, then its opening plays');
+  assert.match(KIN.js, /reveal:\/\^\(mechanical\|kinetic\|playful\|chaotic\)\$\/\.test\(pers\)\?'pixel':'tilt'/);
+  assert.match(KIN.js, /function pixelate\(img\)\{/); assert.match(KIN.js, /if\(k2>=steps\.length\|\|reduced\(\)\)\{cv\.remove\(\);img\.style\.visibility='';return\}/, 'the picture itself always comes back');
+  assert.match(KIN.js, /hit\.el\.style\.rotate=/); assert.match(KIN.css, /\.k-prog\{position:fixed;/); assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-intro\{display:none\}/);
+});
+
+test('K12. the clip carries on down the page: moments of it, sampled from the clip itself, run through the name band', () => {
+  assert.match(KIN.js, /times=\[\.12,\.3,\.48,\.66,\.84\]/); assert.match(KIN.js, /cv\.toDataURL\('image\/jpeg',\.72\)/);
+  assert.match(KIN.js, /if\(sp\.textContent==='\u2726'\)\{var im=d\.createElement\('img'\);im\.className='k-mq-f';/, 'between the name, in place of the mark');
+  assert.match(KIN.js, /\(function\(\)\{if\(!mq\|\|RM\|\|!hero\|\|!hero\.v\)return;/, 'only with a clip, never for reduced motion');
 });
