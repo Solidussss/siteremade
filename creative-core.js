@@ -602,7 +602,8 @@
     if(c!==hero)p=p<.5?2*p*p:1-2*(1-p)*(1-p);c.want=p*Math.max(0,dur-.05);c.at+=(c.want-c.at)*.18;if(Math.abs(c.want-c.at)>.004)live=true;if(!c.busy&&Math.abs(c.v.currentTime-c.at)>1/30){c.busy=true;try{if(c.v.fastSeek&&Math.abs(c.v.currentTime-c.at)>.5)c.v.fastSeek(c.at);else c.v.currentTime=c.at}catch(e){c.busy=false}}});
     if(live)requestAnimationFrame(scrubFrame);else scrubbing=false}
     function kick(){if((clips.length||knock)&&!scrubbing){scrubbing=true;requestAnimationFrame(scrubFrame)}}
-    if(true){measureK();W.addEventListener('resize',function(){measureK();kick()});W.addEventListener('load',function(){measureK();kick()});if(W.ResizeObserver){try{new W.ResizeObserver(function(){measureK();kick()}).observe(d.body)}catch(e){}}kick()}
+    var kw0=W.innerWidth,kh0=W.innerHeight;
+    if(true){measureK();W.addEventListener('resize',function(){var w=W.innerWidth,h=W.innerHeight;if(w===kw0&&Math.abs(h-kh0)<180)return;kw0=w;kh0=h;measureK();kick()});W.addEventListener('load',function(){measureK();kick()});if(W.ResizeObserver){try{new W.ResizeObserver(function(){measureK();kick()}).observe(d.body)}catch(e){}}kick()}
     /* ---- the scroll's speed: pictures lean with it (--kv), settling when it stops */
     var ly0=W.scrollY||0,kvIn=0,kv=0,kvRun=false;function speed(){kv+=(kvIn-kv)*.14;kvIn*=.7;if(Math.abs(kv)<.002&&Math.abs(kvIn)<.002){kv=0;kvRun=false}H.style.setProperty('--kv',reduced()?'0':kv.toFixed(3));if(kvRun)requestAnimationFrame(speed)}
     /* ---- one scroll listener for the whole page: the page's own frame (render2) calls this with where the page is */
@@ -5661,7 +5662,8 @@
         if (started) { stages.forEach(function (s) { if (s.near) mount(s); }); return; }
         started = true; ST.state = 'waiting'; measure();
         W.addEventListener('scroll', onScroll, { passive: true });
-        W.addEventListener('resize', function () { measure(); onScroll(); });
+        var tw0 = W.innerWidth, th0 = W.innerHeight;
+        W.addEventListener('resize', function () { var w = W.innerWidth, h = W.innerHeight; if (w === tw0 && Math.abs(h - th0) < 180) return; tw0 = w; th0 = h; measure(); onScroll(); });
         W.addEventListener('load', function () { measure(); onScroll(); });
         W.addEventListener('pagehide', function () { all('page hidden'); });
         W.addEventListener('pageshow', function (e) { if (e && e.persisted) start(); });
@@ -11505,7 +11507,8 @@
       if(k==='bubbles'){for(var t=40;t<len;t+=phone?46:70){var q2=mask.getPointAtLength(t),rr=(phone?3:5)+((t*7919)%9);var c=el('circle',{cx:f(q2.x),cy:f(q2.y),r:rr,fill:'rgba(255,255,255,.12)',stroke:'rgba(255,255,255,.6)','stroke-width':1.3,'class':'cr-dot'});c._at=t;svg.appendChild(c);dots.push(c)}}
       if(k==='thread'){pts.slice(1).forEach(function(pt){var c=el('circle',{cx:pt.x,cy:pt.y,r:phone?4:6,fill:accent,stroke:'#fff','stroke-width':2,'class':'cr-dot'});c._at=lenAtY(pt.y);svg.appendChild(c);dots.push(c)})}
       mask.setAttribute('stroke-dasharray',len+' '+len);frame()}
-    var rt;W.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(layout,120)});
+    var rw0=W.innerWidth,rh0=W.innerHeight;function realResize(){var w=W.innerWidth,h=W.innerHeight;if(w===rw0&&Math.abs(h-rh0)<180)return false;rw0=w;rh0=h;return true}
+    var rt;W.addEventListener('resize',function(){if(!realResize())return;clearTimeout(rt);rt=setTimeout(layout,120)});
     if('ResizeObserver' in W&&mainEl){var last=0;new ResizeObserver(function(){var h=mainEl.scrollHeight;if(Math.abs(h-last)>2){last=h;clearTimeout(rt);rt=setTimeout(layout,120)}}).observe(mainEl)}
     if(d.readyState==='complete')layout();else W.addEventListener('load',layout);setTimeout(layout,60);
     /* in-page navigation: every "#..." link scrolls within this page and never navigates (in the studio's srcdoc preview a

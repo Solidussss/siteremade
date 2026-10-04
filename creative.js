@@ -218,6 +218,26 @@
   function toDataUrl(img, type, q) { var cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; var ctx = cv.getContext('2d'); var id = ctx.createImageData(img.width, img.height); id.data.set(img.data); ctx.putImageData(id, 0, 0); return cv.toDataURL(type || 'image/png', q); }
   var ILLUSTRATION = /\b(illustration|drawing|engraving|sketch|etching|lithograph|woodcut|cartoon|poster|painting)\b/i;
   // assess one picture; when its background is plain, cut the subject out as a separate asset
+  // the cutter's version: a cut-out made by an older one (a soft floor shadow left in it) is made again from the owner's own
+  // upload when the project is opened -- the page then shows the clean one, once it is saved
+  var CUT_VERSION = 2;
+  function recutOld() {
+    var mine = S; var old = S.assets.filter(function (a) { return a && a.cutout && a.cutoutOf && !a.removed && (a.cutVersion || 1) < CUT_VERSION; });
+    if (!old.length) return Promise.resolve(0);
+    return old.reduce(function (chain, a) { return chain.then(function (n) {
+      var src = S.assets.find(function (x) { return x.id === a.cutoutOf && x.dataUrl; }); if (!src || S !== mine) return n;
+      return loadImage(src.dataUrl).then(function (im) {
+        var px = pixels(im, 1100); var cut = C.assets.cutout(px.img, { holes: !src.illustration });
+        if (!cut.clean || !cut.img) { a.cutVersion = CUT_VERSION; return n; }
+        var cropped = C.assets.crop(cut.img, cut.bbox, 0.02);
+        a.dataUrl = toDataUrl(cropped, 'image/png'); a.mime = 'image/png'; a.assess = C.assets.assess(cropped); a.caps = C.assets.capabilities(a); a.cutVersion = CUT_VERSION; delete a.assetRef;
+        return n + 1;
+      }).catch(function () { return n; });
+    }); }, Promise.resolve(0)).then(function (n) {
+      if (n && S === mine) { if (S.plan) refresh(); markDirty(); setSaveState(n === 1 ? 'A cut-out was made cleaner — save to keep it.' : n + ' cut-outs were made cleaner — save to keep them.'); }
+      return n;
+    });
+  }
   function processAsset(asset) {
     return loadImage(asset.dataUrl).then(function (im) {
       var px = pixels(im, 1100); var a = C.assets.assess(px.img);
@@ -232,7 +252,7 @@
         if (cut.clean && cut.img) {
           var cropped = C.assets.crop(cut.img, cut.bbox, 0.02); var ca = C.assets.assess(cropped);
           var derived = { id: 'c-' + asset.id, origin: 'derived', cutout: true, cutoutOf: asset.id, title: asset.title, alt: asset.alt, relevance: asset.relevance, illustration: asset.illustration, kind: asset.kind, curation: asset.curation,
-            dataUrl: toDataUrl(cropped, 'image/png'), mime: 'image/png', assess: ca, processing: 'Background removed in the browser (plain background, edge flood fill, ' + Math.round(cut.removedShare * 100) + '% removed), cropped to the subject' };
+            dataUrl: toDataUrl(cropped, 'image/png'), mime: 'image/png', assess: ca, cutVersion: CUT_VERSION, processing: 'Background removed in the browser (plain background, edge flood fill, ' + Math.round(cut.removedShare * 100) + '% removed), cropped to the subject' };
           derived.caps = C.assets.capabilities(derived); out.push(derived);
           asset.processing = 'Cut out as a separate layer (see its cutout)';
         } else asset.processing = 'Kept as a framed picture: ' + (cut.reason || 'no clean cut');
@@ -1520,7 +1540,7 @@
     if (!c.plan) { els.csEmpty.hidden = false; return; }
     S.plan = settle(c.plan); els.csBriefStep.hidden = true; els.csEditor.hidden = false; buildEditor(); refresh(true); showBuy();
     setSaveState('Opened from your account'); els.csSave.disabled = true;
-    resumePremium(p.id, c.premiumJob); resume3D(p.id);
+    resumePremium(p.id, c.premiumJob); resume3D(p.id); recutOld();
     try { localStorage.setItem(POINTER, JSON.stringify({ id: p.id, name: p.name })); } catch (e) { /* optional */ }
   }
 

@@ -225,3 +225,10 @@ test('K20. a touch screen plays its clips (muted, looping, inline) -- iPhone Saf
   assert.match(KIN.js, /if\(!fine\)\{v\.muted=true;v\.setAttribute\('muted',''\);v\.loop=true;v\.playsInline=true;v\.setAttribute\('playsinline',''\);v\.autoplay=true;/);
   assert.match(KIN.js, /if\(!hv\|\|!hh\|\|RM\|\|!fine\)return;/);
 });
+
+test('K21. a phone\'s browser bars sliding away (a resize of the height alone, less than a bar) never re-measures the page mid-scroll -- it made the page jump under the finger', () => {
+  const R2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib', 'creative', 'render2.js'), 'utf8');
+  assert.match(R2, /function realResize\(\)\{var w=W\.innerWidth,h=W\.innerHeight;if\(w===rw0&&Math\.abs\(h-rh0\)<180\)return false;/);
+  assert.match(R2, /W\.addEventListener\('resize',function\(\)\{if\(!realResize\(\)\)return;/);
+  assert.match(KIN.js, /if\(w===kw0&&Math\.abs\(h-kh0\)<180\)return;kw0=w;kh0=h;measureK\(\)/);
+});
