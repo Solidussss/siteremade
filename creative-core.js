@@ -8246,6 +8246,18 @@
         } else return;
         fixes.push(`scene ${s.id}: words alone -- set large across the screen`);
       });
+      // ---- the ending is the page's high point (a new page with a look): an object closing the page -- a shrine, a quiet close,
+      // an object stage -- stands larger than anywhere before it, its words set large above it
+      if (look && !safety && scenes.length >= 3) {
+        const s = scenes[scenes.length - 1]; const objectEnd = (!s.composition && ['shrine', 'luxe'].includes(s.layout)) || s.composition === 'object-stage';
+        const f = objectEnd && !inRun(scenes.length - 1) && s.layers.find(L => L.kind === 'image' && L.role === 'focal' && byId.get(L.asset));
+        if (f && f.box && Array.isArray(f.box.d)) {
+          const grow = b => { const k = Math.min(1.35, 92 / Math.max(1, b[2]), 92 / Math.max(1, b[3])); if (k <= 1.02) return b; const w = b[2] * k, h = b[3] * k; const cx = b[0] + b[2] / 2, bottom = Math.min(100, b[1] + b[3]); const r = v => Math.round(v * 10) / 10; return [r(Math.max(2, Math.min(98 - w, cx - w / 2))), r(Math.max(2, bottom - h)), r(w), r(h)]; };
+          f.box = Object.assign({}, f.box, { d: grow(f.box.d) });
+          if (s.text && s.text.heading && !s.text.giant && s.text.size !== 'display' && s.layout !== 'luxe') s.text.size = 'display';
+          fixes.push(`scene ${s.id}: the ending's object stands larger than anywhere before it`);
+        }
+      }
       // ---- giant words over a photograph (a new page with a look): a type takeover's giant words crossing a full-bleed picture
       // stand on a soft shade of their own field behind them -- the picture stays the picture around them
       if (look && !safety) scenes.forEach(s => {

@@ -656,6 +656,8 @@ closed where it is made rather than left to the visual director:
   page) on a field is the scene, never "too much dead space" -- the giant statement is the creative choice.
 - **Openings**: an opening shrine sets the brand's name monumental over its object (display size, up to 9vw, on a quiet
   page too); a type takeover's giant words crossing a full-bleed photograph stand on a soft centre shade of their own field.
+- **The ending is the high point**: an object closing a new page (a shrine, a quiet close, an object stage) stands up to
+  1.35x larger than it was composed (bounded to the screen, on its own base), its words set at display size above it.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
