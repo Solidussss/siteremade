@@ -7022,7 +7022,7 @@
       const t = S.text;
       t.place = Object.assign({}, spec.place); t.mplace = spec.mplace;
       if (spec.giant) { t.size = 'display'; t.giant = true; } else delete t.giant;
-      if (spec.smallHeading || spec.shrineTitle) t.size = e.hero ? 'large' : 'medium';
+      if (spec.smallHeading || spec.shrineTitle) t.size = e.hero ? (spec.shrineTitle ? 'display' : 'large') : 'medium';
       if (layout === 'luxe' || layout === 'image') t.size = t.size === 'display' && e.hero ? 'large' : 'medium';
       if (layout === 'editorial-hero' && e.hero) t.size = 'display';
       if (layout === 'campaign') t.size = 'display';
@@ -8245,6 +8245,12 @@
           t.size = 'display'; if (t.place && Array.isArray(t.place.gc) && t.place.gc[1] - t.place.gc[0] < 6) t.place = Object.assign({}, t.place, { gc: [t.place.gc[0], Math.min(12, t.place.gc[0] + 6)] });
         } else return;
         fixes.push(`scene ${s.id}: words alone -- set large across the screen`);
+      });
+      // ---- giant words over a photograph (a new page with a look): a type takeover's giant words crossing a full-bleed picture
+      // stand on a soft shade of their own field behind them -- the picture stays the picture around them
+      if (look && !safety) scenes.forEach(s => {
+        if (s.composition !== 'type-takeover' || !s.text || !s.text.giant || s.text.shade) return;
+        if (s.layers.some(L => L.kind === 'image' && byId.get(L.asset) && L.frame === 'bleed' && !(byId.get(L.asset).cutout || (byId.get(L.asset).assess && byId.get(L.asset).assess.transparent)))) { s.text.shade = 'center'; fixes.push(`scene ${s.id}: the giant words over the picture stand on a shade of their own`); }
       });
       // ---- one page, one shoot (a new page with a look): the pictures it shows are graded together -- look.js grade
       if (look && !safety) {
@@ -10330,6 +10336,8 @@
     @media (max-width:45em){html[data-look] .sc[data-alone] .sc-stage{display:none}html[data-look] .sc[data-alone] .sc-pin{justify-content:center;min-height:100svh}html[data-look][data-look] .sc:not([data-comp="mask-stage"]) .sc-text[data-giant] .sc-heading[data-len]{font-size:min(19vw,calc(var(--fit) * 1.06 / var(--lwm,var(--lw))))}html[data-look] .sc[data-comp] .sc-text[data-giant]{text-align:center!important;transform-origin:50% 50%}}
     /* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
     html[data-look] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)))}
+    /* an opening shrine is the brand's name set monumental over its object -- on a quiet page too */
+    html[data-look] .sc.cr-hero[data-layout="shrine"] .sc-text[data-size="display"] .sc-heading[data-len]{font-size:min(clamp(3rem,9vw,9.5rem),calc(var(--fit) / var(--lw)))}
     /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
     html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}
     html[data-look] .sc-text.has-scrim{background:var(--s-surface,var(--bg));border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}

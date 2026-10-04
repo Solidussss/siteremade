@@ -654,6 +654,8 @@ closed where it is made rather than left to the visual director:
   and nothing to read is recomposed like a scene left without its picture -- words set large.
 - **The visual director's empty space**: a monumental headline (12% of the screen's height or more; 10% on a type-led
   page) on a field is the scene, never "too much dead space" -- the giant statement is the creative choice.
+- **Openings**: an opening shrine sets the brand's name monumental over its object (display size, up to 9vw, on a quiet
+  page too); a type takeover's giant words crossing a full-bleed photograph stand on a soft centre shade of their own field.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
