@@ -1946,6 +1946,29 @@
           for (const q of nb) if (q >= 0 && !mask[q] && (!o.shadowWall || open(q)) && shadowy(q, p)) { mask[q] = 2; stack.push(q); }
         }
       }
+      // what is left of a soft shadow: a pale, colourless, smooth patch, darker than the background, touching it, low on the
+      // subject -- the shadow the fill could not follow past its own soft edge. A real pale part of the subject (a white heel,
+      // a silver lid) is as light as the background or textured, and a highlight inside the subject never touches the background
+      if (bgNeutral && o.shadows !== false) {
+        let fy0 = h, fy1 = -1; for (let p = 0; p < w * h; p++) if (!mask[p]) { const y = (p / w) | 0; if (y < fy0) fy0 = y; if (y > fy1) fy1 = y; }
+        const L = p => { const i2 = p * 4; return lum(data[i2], data[i2 + 1], data[i2 + 2]); };
+        const pale = p => { const l = L(p); return chroma(p * 4) < 18 && l > bgLum * 0.6 && l < bgLum - 4; };
+        const seen2 = new Uint8Array(w * h); const minPatch = w * h * 0.0006;
+        for (let p0 = 0; p0 < w * h; p0++) {
+          if (mask[p0] || seen2[p0] || !pale(p0)) continue;
+          const comp = [p0]; seen2[p0] = 1; let border = 0, sumL = 0, sumY = 0, rough = 0, pairs = 0;
+          for (let k = 0; k < comp.length; k++) {
+            const p = comp[k]; const x = p % w, y = (p / w) | 0; const lp = L(p); sumL += lp; sumY += y;
+            for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1]) {
+              if (q < 0) continue;
+              if (mask[q]) { border++; continue; }
+              if (pale(q)) { rough += Math.abs(L(q) - lp); pairs++; if (!seen2[q]) { seen2[q] = 1; comp.push(q); } }
+            }
+          }
+          const n = comp.length; const low = sumY / n > fy0 + (fy1 - fy0) * 0.55;
+          if (n >= minPatch && border > 0 && sumL / n < bgLum - 10 && rough / Math.max(1, pairs) < 4 && low) for (const p of comp) mask[p] = 2;
+        }
+      }
       // background showing through enclosed gaps (between a plant's stems, inside a handle): pockets of
       // smooth, exactly-background colour are background too. Not for illustrations, whose white eyes
       // and highlights can be enclosed the same way.
@@ -9847,7 +9870,7 @@
         const t = s.text; const L = rs.layout; const last = i === recipe.scenes.length - 1;
         if (i === 0) {
           s.name = 'Opening'; s.purpose = 'the subject, as the page first shows it';
-          t.kicker = kind === 'personal' ? (u.purpose === 'memorial' ? 'In memory' : `${u.relation === 'my' ? 'My' : 'Our'} ${u.noun || 'friend'}`) : kind === 'invented' || kind === 'fictional' ? 'An invented world' : (KICKERS[reg] || KICKERS.editorial);
+          t.kicker = kind === 'personal' ? (u.purpose === 'memorial' ? 'In memory' : `${u.relation === 'my' ? 'My' : 'Our'} ${u.noun || 'friend'}`) : (kind === 'invented' && !(inp.assets || []).some(x => x && x.origin === 'upload' && (x.ownerRole === 'main' || x.ownerRole === 'logo'))) || kind === 'fictional' ? 'An invented world' : (KICKERS[reg] || KICKERS.editorial);
           t.heading = name.slice(0, 100);
           if (kind === 'personal' && supLines[0]) { t.body = supLines.shift().text.slice(0, 300); t.kind = 'supplied'; }
           else if (lede && kind !== 'invented') { t.body = short(lede.text, 220) || ''; if (t.body) { t.kind = 'sourced'; t.cite = lede.id; } }
@@ -10649,7 +10672,10 @@
       const logoA = plan.logo && byId.get(plan.logo.asset); const brandName = hero.text.heading || plan.identity.name;
       const brand = logoA && src(logoA) ? `<a class="cr-brand cr-brand-logo" href="#top"><img class="cr-logo" src="${esc(src(logoA))}" alt="${esc(brandName)}" width="${(logoA.assess && logoA.assess.width) || 200}" height="${(logoA.assess && logoA.assess.height) || 60}" decoding="async"></a>` : `<a class="cr-brand" href="#top">${esc(brandName)}</a>`;
       const nav = `<header class="cr-nav">${brand}<nav aria-label="Scenes"><ul class="cr-links">${navItems}</ul><details class="cr-menu"><summary>Contents</summary><ul>${navItems}</ul></details></nav></header>`;
-      const kindNote = plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? (citeNo.size ? 'An unofficial page. The numbered lines come from the sources below; everything else on it is imagined.' : 'A work of imagination: nothing on this page describes real events.') : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
+      // (the owner's own brand -- their logo, or their own product photo as the main picture of a name nobody knows: the page is
+      // theirs, so it carries their copyright, never an 'unofficial' or 'imagined' disclaimer)
+      const ownBrand = (assets || []).some(a => a && a.origin === 'upload' && (a.ownerRole === 'logo' || (a.ownerRole === 'main' && plan.identity.kind === 'invented')));
+      const kindNote = ownBrand ? `© ${new Date().getFullYear()} ${esc(plan.identity.name)}.` : plan.identity.kind === 'personal' ? 'A personal page. Everything here about them was written by the family.' : plan.identity.kind === 'fictional' ? `An unofficial fan page about a work of fiction. Not affiliated with, or endorsed by, its creators or owners.` : plan.identity.kind === 'invented' ? (citeNo.size ? 'An unofficial page. The numbered lines come from the sources below; everything else on it is imagined.' : 'A work of imagination: nothing on this page describes real events.') : `An unofficial page made for fun. Not affiliated with, or endorsed by, anyone connected with ${esc(plan.identity.name)}.`;
       const cited = [...citeNo.keys()].map(k => factById.get(k));
       const sources = `<footer class="cr-foot" id="cr-sources"><details class="cr-sources"><summary>Sources and credits</summary>
         <p class="cr-kinds">${plan.identity.kind === 'personal' ? 'Words about them come from the family. ' : ''}${plan.identity.kind === 'fictional' ? 'Facts marked with a number describe the stories, as reported by the source below. ' : ''}Headlines and lines not marked with a number are written for this page and are not facts.</p>
@@ -10833,11 +10859,13 @@
       // (a photograph placed in the scene melts into it: which of its edges, per breakpoint -- an edge on the screen's edge stays)
       const ma = L.kind === 'image' && c.plan.look ? c.byId.get(L.asset) : null;
       const meltBox = (b, p) => { if (!Array.isArray(b) || b.length < 4) return ''; const l = b[0] > 1.5, r = b[0] + b[2] < 98.5, t = b[1] > 1.5, bo = b[1] + b[3] < 98.5; return l && r && t && bo ? `${p}-all ${p}-l ${p}-r ${p}-t ${p}-b` : [l && 'l', r && 'r', t && 't', bo && 'b'].filter(Boolean).map(x => `${p}-${x}`).join(' '); };
+      // (the owner's own product photos are shown as shot -- never greyed, tinted or blurred by a treatment)
+      const ownShot = !!(ma && c.plan.look && (ma.origin === 'upload' || (ma.cutoutOf && (c.byId.get(ma.cutoutOf) || {}).origin === 'upload')) && ma.ownerRole !== 'logo');
       const meltable = ma && !ma.cutout && !(ma.assess && ma.assess.transparent) && !['backdrop', 'texture'].includes(L.role) && ['none', 'window', 'frame', 'polaroid'].includes(L.mask);
       const melt = meltable && L.track ? 'd-all d-l d-r d-t d-b m-all m-l m-r m-t m-b' : meltable && L.box ? [meltBox(L.box.d, 'd'), meltBox(L.box.m, 'm')].filter(Boolean).join(' ') : '';
       const gr = L.kind === 'image' && c.plan.look && c.plan.look.grade && L.treatment === 'none' ? c.plan.look.grade.per[L.asset] : null; const ga = gr ? c.byId.get(L.asset) : null;
       const gradeAttr = gr ? ` data-grade="${ga && !ga.cutout && !(ga.assess && ga.assess.transparent) && L.fit === 'cover' ? 'tint' : 'tone'}" style="--gf:brightness(${gr[0]}) saturate(${gr[1]}) contrast(${c.plan.look.grade.c})"` : '';
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${melt ? ` data-melt="${melt}"` : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${melt ? ` data-melt="${melt}"` : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${ownShot && ['mono', 'duotone', 'soft'].includes(L.treatment) ? 'none' : L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
     }
 
     // a plane of a composition (composition.js tracks): its keys as numbers, the window it opens from, and its resting state
@@ -11843,7 +11871,7 @@
     /* phones: the actor stands in the top of the screen, its scene's words below it; every movement is smaller */
     @media (max-width:720px){
       html{--mk:.5}
-      .ca[data-img],.actor-static{top:calc(var(--nav) + 1svh);height:36svh;max-width:72vw;translate:calc(-50% + var(--ax,0) * .35vw + (max(var(--ax,0), 34) - 34) * 2.4vw + (min(var(--ax,0), -34) + 34) * 2.4vw) calc(var(--ay,0) * .3vh);rotate:clamp(-8deg, calc(var(--ar,0) * 1deg), 8deg)}
+      .ca[data-img],.actor-static{top:calc(var(--nav) + 1svh);height:36svh;max-width:88vw;translate:calc(-50% + var(--ax,0) * .35vw + (max(var(--ax,0), 34) - 34) * 2.4vw + (min(var(--ax,0), -34) + 34) * 2.4vw) calc(var(--ay,0) * .3vh);rotate:clamp(-8deg, calc(var(--ar,0) * 1deg), 8deg)}
       .ca[data-role="secondary"],.ca[data-role="background"]{display:none}
       html.cr-js:not([data-motion="reduced"]) .sc[data-actor] .sc-pin{padding-top:calc(var(--nav) + 40svh)}
       html.cr-js:not([data-motion="reduced"]) .sc[data-actor] .sc-stage{display:none}

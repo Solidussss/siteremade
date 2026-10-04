@@ -204,3 +204,19 @@ test('K18. polish: the page\'s colour morphs from scene to scene (a scene slidin
   assert.match(KIN.js, /mark\.className='k-mark';mark\.setAttribute\('aria-hidden','true'\)/, 'the closing name is decoration, never read twice');
   assert.doesNotMatch(KIN.js + KIN.css, /signature=/i, 'an exported page never carries what looks like a signed link');
 });
+
+test('K19. the owner\'s own brand: their logo, or their product photo as the main picture of a name nobody knows -- the page carries their copyright (never an "unofficial" or "imagined" disclaimer), and their own photos are never greyed, tinted or blurred by a treatment', () => {
+  const { ASSETS, UND, FACTS } = require('./helpers/brand-fixture');
+  const d = D2.direct({ understanding: UND, research: { page: null, facts: FACTS }, assets: ASSETS, supplied: { facts: [], memories: [] }, seed: '3', mainAsset: 'can' });
+  const v = validatePlan2(d.plan, { assets: ASSETS, facts: FACTS, understanding: UND, art: d.recipe, mainAsset: 'can' });
+  const sc = v.plan.scenes.find(s => s.layers.some(L => L.kind === 'image' && L.asset === 'can'));
+  if (sc) sc.layers.filter(L => L.asset === 'can').forEach(L => { L.treatment = 'mono'; });
+  const h = renderCreative2(v.plan, ASSETS, { mode: 'export', src: a => `${a.id}.png` });
+  assert.ok(h.includes(`class="cr-footnote">© ${new Date().getFullYear()} ${v.plan.identity.name}.<`), 'the owner\'s logo: their copyright');
+  assert.doesNotMatch(h, /An unofficial page made for fun|A work of imagination/);
+  if (sc) { const sec = h.slice(h.indexOf(`id="${sc.id}"`), h.indexOf('</section>', h.indexOf(`id="${sc.id}"`))); assert.doesNotMatch(sec, /data-treatment="mono"/, 'the owner\'s product photo is never greyed'); }
+  // without a logo, a recognised brand's page is still unofficial
+  const noLogo = ASSETS.filter(a => a.id !== 'logo');
+  const h2 = renderCreative2(v.plan, noLogo, { mode: 'export', src: a => `${a.id}.png` });
+  assert.match(h2, /An unofficial page made for fun/);
+});

@@ -205,7 +205,7 @@ test('7. bounded counts: one actor, runs no longer than the mode allows, at most
 test('8. phones: the actor and every new choreography stay inside the screen and move less', () => {
   const P = story('m1').plan; const h = html(P);
   const phone = h.slice(h.indexOf('/* phones: the actor stands in the top of the screen'));
-  const actor = /\.ca\[data-img\],\.actor-static\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:72vw;translate:calc\(-50% \+ var\(--ax,0\) \* \.35vw \+ \(max\(var\(--ax,0\), 34\) - 34\) \* 2\.4vw \+ \(min\(var\(--ax,0\), -34\) \+ 34\) \* 2\.4vw\) calc\(var\(--ay,0\) \* \.3vh\);rotate:clamp\(-8deg, calc\(var\(--ar,0\) \* 1deg\), 8deg\)\}/;
+  const actor = /\.ca\[data-img\],\.actor-static\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:88vw;translate:calc\(-50% \+ var\(--ax,0\) \* \.35vw \+ \(max\(var\(--ax,0\), 34\) - 34\) \* 2\.4vw \+ \(min\(var\(--ax,0\), -34\) \+ 34\) \* 2\.4vw\) calc\(var\(--ay,0\) \* \.3vh\);rotate:clamp\(-8deg, calc\(var\(--ar,0\) \* 1deg\), 8deg\)\}/;
   assert.match(phone, actor, 'smaller moves, at most 8 degrees of turn');
   assert.match(phone, /\.ca\[data-role="secondary"\],\.ca\[data-role="background"\]\{display:none\}/, 'fewer actors at once on a phone');
   // every pose the validator allows keeps the actor's centre on a phone screen, and the rail clips anything larger

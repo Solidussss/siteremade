@@ -201,7 +201,7 @@ test('12. phones recompose the timeline: smaller moves, fewer actors, the actor 
   const h = html(story('p12').plan); const phone = h.slice(h.lastIndexOf('@media (max-width:720px)'));
   const all = h.slice(h.indexOf('/* phones: every archetype recomposes'));
   assert.match(all, /html\{--mk:\.5\}/, 'every beat moves half as far'); assert.match(h, /\* var\(--mk,1\)\)/);
-  assert.match(all, /\.ca\[data-img\],\.actor-static\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:72vw;/, 'the picture actor stands in the top of the screen');
+  assert.match(all, /\.ca\[data-img\],\.actor-static\{top:calc\(var\(--nav\) \+ 1svh\);height:36svh;max-width:88vw;/, 'the picture actor stands in the top of the screen');
   assert.match(all, /rotate:clamp\(-8deg, calc\(var\(--ar,0\) \* 1deg\), 8deg\)/); assert.match(all, /\.cs-wipe\{skew:0deg 0\}/);
   assert.match(all, /\.ca\[data-role="typography"\]\{translate:calc\(-50% \+ var\(--ax,0\) \* \.4vw\)/);
   assert.match(h, /\.cr-cast\{position:fixed;inset:0;pointer-events:none;overflow:clip;display:none\}/); assert.match(h, /body\{[^}]*overflow-x:clip\}/);
