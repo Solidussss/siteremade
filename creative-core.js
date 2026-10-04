@@ -278,6 +278,12 @@
     //                     clip follows the mouse across the screen) -- never a few seconds looping on their own
     // Exports { css, js, on(plan, opts) }: render2 adds both to a page when on() says so.
 
+    // THE MOTION VOCABULARY the director chooses from, per scene (scene.move): how its headline arrives and how its pictures
+    // move through the scroll. A scene without a choice gets the layer's own rule (its arc role, the personality's pool).
+    const MOVES = {
+      words: ['3d', 'blur', 'pop', 'split', 'cascade', 'flip', 'type', 'sweep', 'fill', 'rise'],
+      picture: ['grow', 'tilt', 'drift', 'turn', 'rush', 'pixel', 'still'],
+    };
     const on = (plan, opts) => !!(plan && plan.look) && !(opts && opts.kinetic === false);
 
     const css = `
@@ -377,7 +383,7 @@
     html.k-on:not([data-motion="reduced"]) .sc .sc-kicker{transition:opacity .9s ease,filter .9s ease,translate 1s cubic-bezier(.16,1,.3,1),letter-spacing 1.4s cubic-bezier(.16,1,.3,1)}
     html.k-on:not([data-motion="reduced"]) .sc:not(.is-in) .sc-kicker{letter-spacing:.7em}
     /* words that drift apart and back with the scroll (a long headline on a lively page) */
-    html.k-go:not([data-motion="reduced"]) .sc[data-kd] .kw{translate:calc((var(--p,.5) - .5) * var(--wd,1) * 9vw * var(--kI,1)) 0}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kd] .kw{translate:calc(max(0, .55 - var(--p,.5)) * var(--wd,1) * 16vw * var(--kI,1)) 0}
     /* on a mouse, a headline's letters ripple as the mouse crosses it */
     @media (hover:hover) and (pointer:fine){html.k-go:not([data-motion="reduced"]) .sc[data-kt]:is([data-kt="cascade"],[data-kt="flip"],[data-kt="type"]).is-in .sc-heading:hover .kc{animation:k-wave .9s ease-in-out calc(var(--ci) * 35ms)}}
     @keyframes k-wave{0%,100%{translate:0 0}35%{translate:0 -.16em}70%{translate:0 .04em}}
@@ -442,8 +448,8 @@
     function clear(h,sc){var a=lumi(rgb(getComputedStyle(h).color)),b=lumi(rgb(sc.getAttribute('data-surf')));if(a==null||b==null)return true;return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=3.2}
     var ARC={takeover:'grow',payoff:'grow',reveal:/^(mechanical|kinetic|playful|chaotic)$/.test(pers)?'pixel':'tilt',transformation:'turn',breath:'drift',escalation:'rush'};
     (function(){var kinds=['grow','tilt','drift','turn','rush','pixel'],last='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
-    if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'||k==='pixel'))k='drift';sc.setAttribute('data-kp',k);last=k}
-    var h=sc.querySelector('.sc-heading');if(h&&clear(h,sc)&&(i===0||/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]')))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&h.querySelectorAll('.kw').length>=5&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
+    if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var want=sc.getAttribute('data-kmp');if(want==='still'){last=''}else if(kinds.indexOf(want)>=0){sc.setAttribute('data-kp',want);last=want}else{var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'||k==='pixel'))k='drift';sc.setAttribute('data-kp',k);last=k}}
+    var h=sc.querySelector('.sc-heading'),mw=sc.getAttribute('data-kmw')||'',nw=h?h.querySelectorAll('.kw').length:0;if(h&&clear(h,sc)&&(i===0||(mw==='3d'&&nw<=6)||(!mw&&(/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]')))))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&(mw==='fill'?nw>=3:!mw&&nw>=5)&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
     if(i<all.length-1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-seam-in'))sc.setAttribute('data-kx','')})})();
     /* ---- decode (a mechanical page): each headline's letters resolve out of noise, left to right, as its scene arrives */
     function decode(h){if(h._dec)return;h._dec=1;var ws=[].slice.call(h.querySelectorAll('.kc').length?h.querySelectorAll('.kc'):h.querySelectorAll('.kw>i')),fin=ws.map(function(w){return w.textContent}),G='ABCDEFGHJKLMNPRSTUVWXYZ0123456789#%&*/<>',t0=performance.now(),total=fin.join('').length,dur=650+total*18;
@@ -479,7 +485,7 @@
     /* (on a phone the product carried between scenes stands fixed at the top of the screen: a scene's words that scroll up under it fade there, and come back below it) */
     var navPx=56,under=[].slice.call(d.querySelectorAll('.sc[data-actor] .sc-text')).map(function(t){return{t:t,top:0,h:0}});
     function keepClear(y){if(innerWidth>720||reduced()){under.forEach(function(u){u.t.style.opacity=''});return}var zone=navPx+innerHeight*.38;under.forEach(function(u){var top=u.top-y,o=Math.max(0,Math.min(1,(top-zone)/90));u.t.style.opacity=o<1?o.toFixed(3):''})}
-    function measureK(){var y=W.scrollY||0;navPx=parseFloat(getComputedStyle(H).getPropertyValue('--nav'))||56;under.forEach(function(u){var r=u.t.getBoundingClientRect();u.top=r.top+y;u.h=r.height});clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)});if(knock){var r=knock.sc.getBoundingClientRect();knock.top=r.top+y;knock.h=Math.max(1,r.height)}}
+    function measureK(){var y=W.scrollY||0;kdLines();navPx=parseFloat(getComputedStyle(H).getPropertyValue('--nav'))||56;under.forEach(function(u){var r=u.t.getBoundingClientRect();u.top=r.top+y;u.h=r.height});clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)});if(knock){var r=knock.sc.getBoundingClientRect();knock.top=r.top+y;knock.h=Math.max(1,r.height)}}
     function clipAt(c,y,vh){var top=c.top-y,tall=c.h>vh*1.05,span=tall?c.h-vh:c.h+vh,p=tall?-top/span:(vh-top)/span;return Math.max(0,Math.min(1,p))}
     var heroScrolled=false,scrubbing=false,SY=W.scrollY||0;
     function flood(y){if(!knock)return;var q=Math.max(0,Math.min(1,(-(knock.top-y)/knock.h-.02)/.34)),e=q*q*(3-2*q);knock.sc.style.setProperty('--kz',(1+e*e*7).toFixed(3));knock.sc.style.setProperty('--ko',Math.max(0,Math.min(1,(e-.3)/.6)).toFixed(3))}
@@ -518,12 +524,14 @@
     if(on&&L.ok===null&&L.img.complete&&L.img.naturalWidth)lensInit(L);L.ts=on&&L.ok?1:0;if(on){L.tx=(e.clientX-r.left)/r.width;L.ty=(e.clientY-r.top)/r.height;hit=true}});if(!lensRun){lensRun=true;requestAnimationFrame(lensTick)}},{passive:true});
     if(pers==='mechanical'&&!RM&&W.MutationObserver){var heads=[].slice.call(d.querySelectorAll('.sc'));heads.forEach(function(sc){var h=sc.querySelector('.sc-heading');if(!h)return;if(sc.classList.contains('is-in'))setTimeout(function(){if(!reduced())decode(h)},120);new MutationObserver(function(){if(sc.classList.contains('is-in')&&!reduced())decode(h)}).observe(sc,{attributes:true,attributeFilter:['class']})})}
     /* ---- each scene's headline entrance, from the page's character; letters where the entrance works letter by letter */
+    /* (the drifting lines: a line is the words that share a top -- measured with the layout, never while scrolling) */
+    function kdLines(){[].forEach.call(d.querySelectorAll('.sc[data-kd] .sc-heading'),function(h){var ws=[].slice.call(h.querySelectorAll('.kw')),tops=[],al=getComputedStyle(h).textAlign;ws.forEach(function(w){var t=Math.round(w.offsetTop/8);if(tops.indexOf(t)<0)tops.push(t)});tops.sort(function(a,b){return a-b});ws.forEach(function(w){var L=tops.indexOf(Math.round(w.offsetTop/8));w.style.setProperty('--wd',al==='center'?(L%2?1:-1):(/right|end/.test(al)?-1:1)*(L+1)*.5)})})}
     var TK={luxe:['blur','sweep','blur','rise'],still:['blur','rise'],editorial:['blur','sweep','type','rise'],cinematic:['blur','flip','split','rise'],kinetic:['pop','cascade','split','flip','sweep'],playful:['pop','cascade','sweep','split','flip'],chaotic:['cascade','pop','split','flip','sweep'],mechanical:['type','flip','rise']};
-    (function(){var pool=TK[pers]||TK.editorial,lastT='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){var h=sc.querySelector('.sc-heading');if(!h||i===0||sc.hasAttribute('data-k3'))return;var k=pool[i%pool.length];if(k===lastT)k=pool[(pool.indexOf(k)+1)%pool.length];if(sc.hasAttribute('data-kf'))k='rise';lastT=k;
+    (function(){var pool=TK[pers]||TK.editorial,lastT='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){var h=sc.querySelector('.sc-heading');if(!h||i===0||sc.hasAttribute('data-k3'))return;var mw=sc.getAttribute('data-kmw')||'',k=/^(blur|pop|split|cascade|flip|type|sweep|rise)$/.test(mw)?mw:pool[i%pool.length];if(k!==mw&&k===lastT)k=pool[(pool.indexOf(k)+1)%pool.length];if(sc.hasAttribute('data-kf'))k='rise';lastT=k;
     var ws=h.querySelectorAll('.kw');if(k==='split'&&ws.length<2)k='blur';if(k!=='rise')sc.setAttribute('data-kt',k);
     if(k==='split')[].forEach.call(ws,function(w,j){w.firstChild.style.setProperty('--side',j<ws.length/2?-1:1)});
     if(/^(cascade|flip|type)$/.test(k)){var n=0;[].forEach.call(h.querySelectorAll('.kw>i'),function(w){var t=w.textContent;w.textContent='';[].forEach.call(t,function(c){var sp=d.createElement('span');sp.className='kc';sp.textContent=c;sp.style.setProperty('--ci',n);sp.style.setProperty('--rr0',((n%2?1:-1)*(8+n*7%14)));w.appendChild(sp);n++})})}
-    if(ws.length>=4&&ch[0]>=1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-kf')){sc.setAttribute('data-kd','');[].forEach.call(ws,function(w,j){w.style.setProperty('--wd',j%2?1:-1)})}});K.text=[].map.call(d.querySelectorAll('.sc'),function(x){return x.getAttribute('data-kt')||(x.hasAttribute('data-k3')?'3d':'rise')}).join(' ')})();
+    if(ws.length>=4&&ch[0]>=1&&i<all.length-1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-kf'))sc.setAttribute('data-kd','')});kdLines();K.text=[].map.call(d.querySelectorAll('.sc'),function(x){return x.getAttribute('data-kt')||(x.hasAttribute('data-k3')?'3d':'rise')}).join(' ')})();
     /* ---- the clip in the name: the page's name drawn once (in the headline's own face) as the clip's mask */
     var knock=null;(function(){var hv=firstSc&&firstSc.querySelector('.sc-herovid video,.ly-vid'),hh=firstSc&&firstSc.querySelector('.sc-heading'),pin=firstSc&&(firstSc.querySelector('.sc-pin')||firstSc);if(!hv||!hh||RM)return;var name=hh.textContent.trim(),src=hv.getAttribute('src');if(!name||name.length>16||!src)return;
     var lay=d.createElement('div');lay.className='k-knock';lay.setAttribute('aria-hidden','true');var kv0=d.createElement('video');kv0.src=src;kv0.muted=true;kv0.playsInline=true;kv0.setAttribute('playsinline','');kv0.preload='auto';kv0.className='k-knock-v';lay.appendChild(kv0);var surf=firstSc.getAttribute('data-surf');if(surf)lay.style.setProperty('--kbg',surf);pin.insertBefore(lay,pin.firstChild);
@@ -589,7 +597,7 @@
     })();
     `;
 
-    module.exports = { on, css, js };
+    module.exports = { on, css, js, MOVES };
 
   });
   __define("direction", function (module, exports, require) {
@@ -7856,6 +7864,7 @@
     const FR = require('./framing');
     const ARCH = require('./archetypes');
     const COMP = require('./composition');
+    const KIN = require('./kinetic');
     const PA = require('./premium-arc');
     const TD = require('./three-d');
     const LOOK = require('./look');
@@ -8343,6 +8352,11 @@
           text, layers,
           ...(HEX.test(rs.tone || '') ? { tone: String(rs.tone).toLowerCase() } : {}),
         };
+        // (the director's motion for this scene: only words from the vocabulary survive; the kinetic layer decides the rest)
+        const mv = rs.move && typeof rs.move === 'object' ? rs.move : {};
+        const move = { words: oneOf(mv.words, KIN.MOVES.words, ''), picture: oneOf(mv.picture, KIN.MOVES.picture, '') };
+        if (move.words || move.picture) scene.move = Object.fromEntries(Object.entries(move).filter(e => e[1]));
+        else if (rs.move) fixes.push(`${where}: its motion was not from the vocabulary -- the page chooses`);
         if (artScene || rs.choreo || rs.handoff || (art && rec)) {
           scene.layout = layout;
           // the motion-first composition (composition.js): one the model named from the vocabulary, else the recipe's for this
@@ -10810,7 +10824,7 @@
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${has3d ? ' data-3d' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${has3d ? ' data-3d' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt}${s.move && s.move.words ? ` data-kmw="${s.move.words}"` : ''}${s.move && s.move.picture ? ` data-kmp="${s.move.picture}"` : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}${(c.td && c.td.get(si)) || ''}</div>

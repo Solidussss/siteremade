@@ -82,7 +82,7 @@ test('K8. the opening clip in the name: its own layer, the page\'s name as its m
 
 test('K9. the words have a range of entrances, chosen by the page\'s character and never the same twice in a row; 3D headlines burst into letters as they are left', () => {
   ['blur', 'pop', 'split', 'cascade', 'flip', 'type', 'sweep'].forEach(k => assert.ok(KIN.css.includes(`[data-kt="${k}"]`), k));
-  assert.match(KIN.js, /if\(k===lastT\)k=pool\[\(pool\.indexOf\(k\)\+1\)%pool\.length\];/);
+  assert.match(KIN.js, /if\(k!==mw&&k===lastT\)k=pool\[\(pool\.indexOf\(k\)\+1\)%pool\.length\];/);
   assert.match(KIN.css, /\.sc\[data-k3\]:is\(:first-of-type,\[data-hero\]\) \.kc\{--kb:clamp\(0, \(var\(--p,0\) - \.1\) \* 3\.1, 1\)\}/, 'only the opening bursts');
   assert.match(KIN.css, /\.sc\[data-k3\] \.kc\{transform:translate3d\(calc\(var\(--kb,0\)/, 'a later 3D headline stays whole');
 });
@@ -112,4 +112,22 @@ test('K13. the glide moves the page in instant steps: the page\'s own smooth scr
   assert.match(KIN.js, /function to\(y\)\{try\{W\.scrollTo\(\{top:y,left:0,behavior:'instant'\}\)\}catch\(e\)\{W\.scrollTo\(0,y\)\}\}/);
   assert.match(KIN.js, /function glide\(\)\{cur\+=\(target-cur\)\*GL;if\(Math\.abs\(target-cur\)<\.6\)cur=target;to\(cur\);/);
   assert.doesNotMatch(KIN.js.slice(KIN.js.indexOf('function glide'), KIN.js.indexOf('function glide') + 200), /W\.scrollTo\(0,cur\)/);
+});
+
+test('K14. the director chooses each scene\'s motion (scene.move): only the vocabulary survives, the page carries it, and the layer follows it before its own rules', () => {
+  const A = require('../lib/creative/ai');
+  const sch = A.DIRECTOR_TOOL.input_schema.properties.scenes.items.properties.move.properties;
+  assert.deepEqual(sch.words.enum, KIN.MOVES.words); assert.deepEqual(sch.picture.enum, KIN.MOVES.picture);
+  assert.match(A.DIRECTOR_SYSTEM, /MOTION \(scene\.move\)/, 'the director is told what each move is for');
+  const s = SUBJECTS.beverage; const d = D2.direct({ understanding: s.understanding, research: { page: null, facts: s.facts }, assets: s.assets, supplied: { facts: [], memories: [] }, seed: '1', mainAsset: s.mainAsset });
+  d.plan.scenes[1].move = { words: 'cascade', picture: 'rush' }; d.plan.scenes[2].move = { words: 'explode', picture: 'still' };
+  const v = validatePlan2(d.plan, { assets: s.assets, facts: s.facts, understanding: s.understanding, art: d.recipe, mainAsset: s.mainAsset });
+  assert.deepEqual(v.plan.scenes[1].move, { words: 'cascade', picture: 'rush' });
+  assert.deepEqual(v.plan.scenes[2].move, { picture: 'still' }, 'a move outside the vocabulary is dropped, the rest kept');
+  assert.equal(v.plan.scenes[3].move, undefined, 'a scene without a choice carries none');
+  const h = render({ plan: v.plan, assets: s.assets });
+  assert.match(h, /data-kmw="cascade" data-kmp="rush"/); assert.match(h, /data-kmp="still"/);
+  assert.match(KIN.js, /var want=sc\.getAttribute\('data-kmp'\);if\(want==='still'\)\{last=''\}else if\(kinds\.indexOf\(want\)>=0\)\{sc\.setAttribute\('data-kp',want\)/, 'a chosen picture move is used as chosen');
+  assert.match(KIN.js, /\(mw==='3d'&&nw<=6\)/, 'a chosen 3D headline is short enough to stand as an object');
+  assert.match(KIN.js, /k=\/\^\(blur\|pop\|split\|cascade\|flip\|type\|sweep\|rise\)\$\/\.test\(mw\)\?mw:pool/, 'a chosen entrance beats the pool');
 });
