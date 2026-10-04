@@ -34,7 +34,7 @@ test('K2. one scroll listener for the whole page, runtime included; per-frame wo
 });
 
 test('K3. reduced motion turns every part of it off', () => {
-  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock|^\s*\.k-intro|^\s*\.k-pix|^\s*\.k-prog|^\s*\.k-wall|^\s*\.k-spot/.test(r.trim()));
+  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock|^\s*\.k-intro|^\s*\.k-pix|^\s*\.k-prog|^\s*\.k-wall|^\s*\.k-spot|^\s*\.k-mark\{/.test(r.trim()));
   // (the signature's wall and light are not drawn at all without motion)
   assert.match(KIN.css, /html:not\(\.k-go\) \.k-wall,html\[data-motion="reduced"\] \.k-wall\{display:none\}/); assert.match(KIN.css, /html:not\(\.k-go\) \.k-spot,html\[data-motion="reduced"\] \.k-spot\{display:none\}/);
   // (the band, the clip in the name, the intro and the progress line are not drawn at all for reduced motion; the trail and
@@ -191,4 +191,16 @@ test('K17. the signature moment: one set piece per page, the director\'s if it f
   assert.equal((h.match(/ data-ksig="/g) || []).length, 1, 'exactly one scene carries it');
   const A = require('../lib/creative/ai'); assert.deepEqual(A.DIRECTOR_TOOL.input_schema.properties.signature.properties.kind.enum, KIN.SIGNATURES);
   assert.match(KIN.css, /\.sc\[data-ksig="pour"\] \.sc-heading :is\(\.kw,\.kw>i,\.kc\)\{[^}]*transform:none!important/, 'the pour heading\'s words stay in its text (a transformed word would leave the liquid)');
+});
+
+test('K18. polish: the page\'s colour morphs from scene to scene (a scene sliding over the last keeps its own); the nav steps aside going down and returns going up; the call to action fills on hover; the closing carries the brand\'s name at the page\'s width -- all measured with the layout, never per frame', () => {
+  assert.match(KIN.css, /html\.k-morph:not\(\[data-motion="reduced"\]\) \.sc:not\(\[data-handoff="overlap"\]\):not\(\[data-handoff="stack"\]\):not\(\[data-overlapped\]\)\{background:transparent!important\}/);
+  assert.match(KIN.js, /function paint\(y\)\{var vh=innerHeight,c=morph\.cols\[0\]\.slice\(\);/, 'per frame: numbers and one colour');
+  assert.doesNotMatch(KIN.js.slice(KIN.js.indexOf('function paint(y)'), KIN.js.indexOf('function paint(y)') + 400), /getBoundingClientRect|offsetTop|getComputedStyle/, 'no layout read while scrolling');
+  assert.match(KIN.js, /function measureM\(\)\{if\(!morph\)return;/); assert.match(KIN.js, /function measureK\(\)\{var y=W\.scrollY\|\|0;kdLines\(\);meltFit\(\);measureM\(\);fitMark\(\);/);
+  assert.match(KIN.js, /if\(y>140&&y>navY\+6\)\{if\(!navOff\)\{navOff=true;H\.classList\.add\('k-navhide'\)\}\}/);
+  assert.match(KIN.css, /\.k-navhide \.cr-nav:not\(:has\(details\[open\]\)\)\{translate:0 -110%;opacity:0\}/, 'never while its menu is open');
+  assert.match(KIN.css, /html\[data-kinetic\] \.sc-cta:is\(:hover,:focus-visible\)::before\{clip-path:inset\(0\)\}/);
+  assert.match(KIN.js, /mark\.className='k-mark';mark\.setAttribute\('aria-hidden','true'\)/, 'the closing name is decoration, never read twice');
+  assert.doesNotMatch(KIN.js + KIN.css, /signature=/i, 'an exported page never carries what looks like a signed link');
 });
