@@ -56,7 +56,7 @@ test('Q1. the critique finds a scene left without its picture and a photograph s
 });
 
 // ================================================================ 2. finished pages, many subjects
-test('Q2. finished pages: no picture-led scene without a picture, no empty accent block, no caption cut off as a label', () => {
+test('Q2. finished pages: no picture-led scene without a picture, no empty accent block, no caption cut off as a label, words alone set giant', () => {
   PAGES.forEach(v => {
     const tag = `${v.id}/${v.seed}`; const byId = byIdOf(v.s); assert.deepEqual(v.errors, [], tag);
     const sv = DIR.survey(v.plan.scenes, AI.reviewContext(v.plan, byId, inputOf(v)));
@@ -64,6 +64,9 @@ test('Q2. finished pages: no picture-led scene without a picture, no empty accen
     v.plan.scenes.forEach(s => {
       const block = s.layers.some(L => L.kind === 'shape' && L.shape && L.shape.form === 'block');
       if (block) assert.ok(s.layers.some(L => L.kind === 'image' && L.role === 'focal'), `${tag} ${s.id}: an accent block only behind a picture`);
+      // (words alone are a statement across the screen: giant, a whole screen tall -- never a small line in an empty field)
+      const t = s.text || {};
+      if (v.plan.look && s.layout === 'text' && !s.layers.some(L => L.kind === 'image') && t.heading && t.heading.length <= 64 && !(t.items || []).length && (t.body || '').length <= 220) { assert.equal(t.giant, true, `${tag} ${s.id}: words alone set giant`); assert.equal(s.height, 'screen'); }
       const k = s.text && s.text.kicker;
       if (k) v.s.assets.forEach(a => { const d = a.curation && a.curation.depicts; if (d && d.length > k.length) assert.ok(!d.toLowerCase().startsWith(k.toLowerCase()), `${tag} ${s.id}: "${k}" is "${d}" cut short`); });
     });
@@ -92,6 +95,7 @@ test('Q4. the renderer: a wash ends by the arrival, a mask stage rests where it 
   assert.match(h, /if\(s\._ct\)compFrame\(s,s\.hasAttribute\('data-pin'\)\?p:unheld\(s,p,vh\),vw\)/, 'a composition that is not held rests where the scene fills the screen');
   assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading \.hs>span\{background:var\(--mimg\)/);
   assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\{font-size:min\(13vw,calc\(var\(--fit\) \* \.86 \/ var\(--lw\)\)\)\}/);
+  assert.match(h, /html\[data-look\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(clamp\(4rem,15vw,17rem\)/, 'a giant statement is never capped as a long heading');
   assert.ok(v.plan.look); assert.match(h, /html\[data-look\] main>\.sc:last-of-type:not\(\[data-pin\]\) \.sc-pin\{min-height:100vh;min-height:100svh;justify-content:center\}/);
   const old = JSON.parse(JSON.stringify(v.plan)); delete old.look; assert.doesNotMatch(html(old), /main>\.sc:last-of-type/, 'a page saved before looks keeps its own ending');
 });

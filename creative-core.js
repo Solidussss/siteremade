@@ -6740,9 +6740,9 @@
       if (long) return null;
       return {
         place: { gc: [3, 10], v: 'top', align: 'center' }, mplace: 'above', height: 'screen', shrineTitle: true,
-        slots: [{ d: [35, 42, 30, 56], m: [18, 2, 64, 94], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 5, role: 'focal' }],
-        decos: [{ kind: 'shape', form: e.personality === 'playful' || e.personality === 'chaotic' ? 'sunburst' : 'circle', fill: 'glow', d: [30, 34, 40, 66], m: [8, 0, 84, 96], z: 2, opacity: 0.5, role: 'backdrop' },
-          { kind: 'shape', form: 'line', fill: 'accent', d: [30, 96, 40, 1], m: [14, 97, 72, 1], z: 3, opacity: 0.8, role: 'support' }],
+        slots: [{ d: [29, 28, 42, 70], m: [12, 2, 76, 94], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'arch', anchor: 'cb', z: 5, role: 'focal' }],
+        decos: [{ kind: 'shape', form: e.personality === 'playful' || e.personality === 'chaotic' ? 'sunburst' : 'circle', fill: 'glow', d: [22, 20, 56, 80], m: [4, 0, 92, 96], z: 2, opacity: 0.5, role: 'backdrop' },
+          { kind: 'shape', form: 'line', fill: 'accent', d: [26, 98, 48, 1], m: [10, 97, 80, 1], z: 3, opacity: 0.8, role: 'support' }],
       };
     };
     A.offcanvas = (S, e) => (e.freeFirst ? {
@@ -6800,8 +6800,10 @@
     });
     A.luxe = (S, e) => ({
       place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen',
-      slots: [{ d: [42, 16, 16, 54], m: [28, 8, 44, 84], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'window', anchor: 'cb', z: 5, role: 'focal' }],
-      decos: [{ kind: 'shape', form: 'line', fill: 'muted', d: [42, 76, 16, 0.4], m: [28, 96, 44, 0.6], z: 3, opacity: 0.6, role: 'support' }],
+      // (the object is the scene: quiet around it, never small in it)
+      // (wide enough for a wide object, tall enough for a tall one: either fills it)
+      slots: [{ d: [35, 8, 42, 82], m: [8, 6, 84, 86], intent: e.freeFirst ? 'floating' : 'framed', mask: e.freeFirst ? 'none' : 'window', anchor: 'cb', z: 5, role: 'focal' }],
+      decos: [{ kind: 'shape', form: 'line', fill: 'muted', d: [35, 93, 42, 0.4], m: [8, 96, 84, 0.6], z: 3, opacity: 0.6, role: 'support' }],
     });
     A.dense = (S, e) => (S.text.items.length >= 3 ? {
       place: { gc: [1, 12], v: 'top', align: 'left' }, mplace: 'above', height: 'auto', grid: true,
@@ -8184,6 +8186,21 @@
       // (the ledger may have taken a picture a seam relied on: the timeline is held to the finished scenes exactly as a reopened
       // page holds it, so the page saves and reopens unchanged)
       if (look && !safety && timeline) timeline = TL.normalise(timeline, tctx).timeline;
+      // ---- words alone are set large (a new page with a look): a scene with no picture to show -- made of words, or left
+      // without its picture by the ledger -- is a statement across the screen, never a small line in an empty field
+      if (look && !safety) scenes.forEach((s, i) => {
+        const t = s.text; if (inRun(i) || s.composition || !t || !t.heading || s.layers.some(L => L.kind === 'image' && byId.get(L.asset))) return;
+        if ((t.items && t.items.length) || (t.body || '').length > 220 || t.giant) return;
+        if (s.layout === 'text' || s.layout === 'luxe' || s.layout === 'shrine' || s.layout === 'image' || s.layout === 'framed' || s.layout === 'split') {
+          // (a short statement becomes the scene: giant, across the whole width)
+          if (t.heading.length <= 64) { t.size = 'display'; t.giant = true; t.place = { gc: [1, 12], v: 'middle', align: t.place && t.place.align === 'center' ? 'center' : 'left' }; t.width = 'wide'; if (s.height === 'short' || s.height === 'auto') s.height = 'screen'; }
+          else t.size = 'display';
+        } else if (s.layout === 'poster' || s.layout === 'brutalist') {
+          // (the poster's giant word stays the poster's: its heading is set large beside it, never a label)
+          t.size = 'display'; if (t.place && Array.isArray(t.place.gc) && t.place.gc[1] - t.place.gc[0] < 6) t.place = Object.assign({}, t.place, { gc: [t.place.gc[0], Math.min(12, t.place.gc[0] + 6)] });
+        } else return;
+        fixes.push(`scene ${s.id}: words alone -- set large across the screen`);
+      });
       // ---- image-driven colour (palette.js): each scene's surface is its picture's colour; a scene without a picture sits
       // between its neighbours' colours; a confirmed premium hero's colour carries into the scenes after it. (A scene a
       // timeline beat floods keeps its flood: that colour change IS its moment.)
@@ -10234,6 +10251,8 @@
     html[data-look][data-display][data-case]{--fit:${LOOK.fitFor(t)}cqi;--dtrack:${t.track}em;--dlead:${t.lead}}
     html[data-look] .sc-heading,html[data-look] .cr-brand{letter-spacing:var(--dtrack)!important;line-height:var(--dlead)!important;text-wrap:balance}
     html[data-look][data-case="upper"] .sc-heading{text-transform:uppercase}
+    /* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
+    html[data-look] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)))}
     /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
     html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}
     html[data-look] .sc-text.has-scrim{background:var(--s-surface,var(--bg));border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}

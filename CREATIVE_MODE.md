@@ -622,6 +622,11 @@ closed where it is made rather than left to the visual director:
   the page's move is what the composition before it becomes, and the built-in fixes run again (at most three times) when
   one fix leaves the next seam with a problem.
 - **The credits in the closing screen** (a page with a look): the closing scene owns a whole screen, on a phone too.
+- **A small line in an empty field** (`validate2.js`, a new page with a look): a scene with no picture to show is a
+  statement -- a short one set giant across the whole width, a whole screen tall (the size cap for long headings never
+  applies to it); a poster's heading beside its giant word is set large, not as a label. These fixes go up, never down:
+  bigger type and bigger pictures (the luxe object takes 42% of the width, the shrine's 42% x 70%, either shape filling its
+  box), never a quieter page.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
