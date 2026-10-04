@@ -90,3 +90,15 @@ test('L5. the free model fills its place: the label-turn camera stands close, an
   const page = TD.forPage(saved, { scenes: [{ id: 's1', layers: [], text: {} }], byId: new Map(), src: () => 'm.glb', runtime: 'sr3d.min.js' });
   assert.equal(JSON.parse(page.json).scenes[0].camera.distance, 1);
 });
+
+test('L6. a tall model in a wide picture\'s place on a phone grows up into the room above it (at most 1.6 times); a desktop box and a wide model keep the picture\'s place', () => {
+  const mk = (min, max) => TD.cleanAsset({ id: 'tdl-x', sourceAssetId: 'a', title: 'x', bytes: 1000, bounds: { min, max }, center: [0, 0, 0], scale: 1, triangles: 10, textures: 1, parts: 1, animations: [], normalized: true, assetRef: 'a'.repeat(64) });
+  const place = A => { const block = { assets: [A], scenes: [{ id: 'td-1', assetId: A.id, sectionId: 's1', composition: 'label-turn', interaction: 'scroll-rotate', camera: { fov: 30, azimuth: 0, elevation: 7, distance: 1 }, lighting: 'studio', background: 'transparent', turns: 0.25, phone: 'lite' }] };
+    const pic = { id: 'p', origin: 'upload', mime: 'image/jpeg' };
+    const page = TD.forPage(block, { scenes: [{ id: 's1', layers: [{ kind: 'image', asset: 'p', role: 'focal', box: { d: [40, 6, 56, 56], m: [0, 20, 100, 40] }, z: 5 }], text: {} }], byId: new Map([['p', pic]]), src: () => 'm.glb', runtime: 'sr3d.min.js' });
+    return page.stages.get(0); };
+  const tall = place(mk([-0.25, -0.5, -0.25], [0.25, 0.5, 0.25]));
+  assert.match(tall, /--x:40;--y:6;--w:56;--h:56;--mx:0;--my:0;--mw:100;--mh:60;/, 'grows up to the top: 1.5x, within 1.6x');
+  const wide = place(mk([-0.5, -0.2, -0.5], [0.5, 0.2, 0.5]));
+  assert.match(wide, /--mx:0;--my:20;--mw:100;--mh:40;/);
+});

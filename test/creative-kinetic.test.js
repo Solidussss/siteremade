@@ -145,3 +145,26 @@ test('K15. a phone\'s tilt is its mouse: it steers the same depth (pictures lean
   const still = POSE.pose({ composition: 'label-turn' }, { p: 0.5 }), leaned = POSE.pose({ composition: 'label-turn' }, { p: 0.5, gx: 1, gy: -1 });
   assert.ok(Math.abs(leaned.rotY - still.rotY - POSE.GYRO.y) < 1e-9 && Math.abs(leaned.rotX - still.rotX + POSE.GYRO.x) < 1e-9, 'the product leans on top of its own staging');
 });
+
+test('K16. photographs never sit in a box: a photo placed in a scene melts into its colour (no frame, no shadow); a cut-out, a backdrop or a shaped mask never does; an edge on the screen\'s edge stays', () => {
+  const s = SUBJECTS.beverage; const d = D2.direct({ understanding: s.understanding, research: { page: null, facts: s.facts }, assets: s.assets, supplied: { facts: [], memories: [] }, seed: '2', mainAsset: s.mainAsset });
+  const v = validatePlan2(d.plan, { assets: s.assets, facts: s.facts, understanding: s.understanding, art: d.recipe, mainAsset: s.mainAsset });
+  const sc = v.plan.scenes.find((x, i) => i > 0 && x.layers.some(L => L.kind === 'image'));
+  const ph = { id: 'ph', origin: 'upload', title: 'p', alt: 'p', mime: 'image/jpeg', relevance: 4, assess: { width: 1600, height: 900 } };
+  const cut = Object.assign({}, ph, { id: 'cu', cutout: true, mime: 'image/png' });
+  sc.layers = [
+    { kind: 'image', asset: 'ph', role: 'support', mask: 'none', treatment: 'none', fit: 'cover', focus: '50% 50%', box: { d: [44, 64, 24, 30], m: [4, 56, 44, 40] }, entrance: { kind: 'none' }, loop: { kind: 'none' }, scroll: { kind: 'none', amount: 0 } },
+    { kind: 'image', asset: 'ph', role: 'support', mask: 'none', treatment: 'none', fit: 'cover', focus: '50% 50%', box: { d: [0, 10, 100, 40], m: [0, 0, 100, 50] }, entrance: { kind: 'none' }, loop: { kind: 'none' }, scroll: { kind: 'none', amount: 0 } },
+    { kind: 'image', asset: 'cu', role: 'focal', mask: 'none', treatment: 'none', fit: 'contain', focus: '50% 50%', box: { d: [10, 10, 30, 60], m: [4, 0, 92, 50] }, entrance: { kind: 'none' }, loop: { kind: 'none' }, scroll: { kind: 'none', amount: 0 } },
+    { kind: 'image', asset: 'ph', role: 'support', mask: 'circle', treatment: 'none', fit: 'cover', focus: '50% 50%', box: { d: [60, 10, 20, 30], m: [4, 0, 40, 30] }, entrance: { kind: 'none' }, loop: { kind: 'none' }, scroll: { kind: 'none', amount: 0 } },
+  ];
+  const h = renderCreative2(v.plan, s.assets.concat([ph, cut]), { mode: 'export', src: a => `${a.id}.png` });
+  const sec = h.slice(h.indexOf(`id="${sc.id}"`)); const own = sec.slice(0, sec.indexOf('</section>'));
+  assert.ok(own.includes('data-melt="d-all d-l d-r d-t d-b m-all m-l m-r m-t m-b"'), 'a photo inside the page melts on every side');
+  assert.ok(own.includes('data-melt="d-t d-b m-b"'), 'a full-width photo melts only the edges that face into the page');
+  assert.match(h, /\.ly\[data-melt~="d-l"\] \.ly-art\{--ml:var\(--kf\)\}/, 'each side melts on its own');
+  assert.match(h, /html\[data-look\] \.ly\[data-melt\] \.ly-art\{[^}]*box-shadow:none!important/, 'no drop shadow');
+  assert.match(KIN.js, /function meltFit\(\)/, 'a fitted picture melts at its own painted edges');
+  const tags = own.match(/<div class="ly"[^>]*>/g).join(' ');
+  assert.equal((tags.match(/data-melt=/g) || []).length, 2, 'the cut-out and the shaped mask never melt');
+});

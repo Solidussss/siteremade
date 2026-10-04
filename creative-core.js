@@ -502,7 +502,10 @@
     /* (on a phone the product carried between scenes stands fixed at the top of the screen: a scene's words that scroll up under it fade there, and come back below it) */
     var navPx=56,under=[].slice.call(d.querySelectorAll('.sc[data-actor] .sc-text')).map(function(t){return{t:t,top:0,h:0}});
     function keepClear(y){if(innerWidth>720||reduced()){under.forEach(function(u){u.t.style.opacity=''});return}var zone=navPx+innerHeight*.38;under.forEach(function(u){var top=u.top-y,o=Math.max(0,Math.min(1,(top-zone)/90));u.t.style.opacity=o<1?o.toFixed(3):''})}
-    function measureK(){var y=W.scrollY||0;kdLines();navPx=parseFloat(getComputedStyle(H).getPropertyValue('--nav'))||56;under.forEach(function(u){var r=u.t.getBoundingClientRect();u.top=r.top+y;u.h=r.height});clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)});if(knock){var r=knock.sc.getBoundingClientRect();knock.top=r.top+y;knock.h=Math.max(1,r.height)}}
+    /* (a melted picture fitted inside its frame melts at its own edges: its mask is sized to where it is painted) */
+    function meltFit(){[].forEach.call(d.querySelectorAll('.ly[data-melt] .ly-img'),function(img){var art=img.closest('.ly-art');if(!art)return;var cs=getComputedStyle(img),iw=img.naturalWidth,ih=img.naturalHeight,w=img.clientWidth,h=img.clientHeight;if(cs.objectFit!=='contain'||!iw||!ih||!w||!h){art.style.removeProperty('--kmz');art.style.removeProperty('--kmo');return}var r=iw/ih,pw=w,ph=h;if(r>w/h)ph=w/r;else pw=h*r;var op=cs.objectPosition.split(' '),ox=parseFloat(op[0]),oy=parseFloat(op[1]);ox=isNaN(ox)?.5:ox/100;oy=isNaN(oy)?.5:oy/100;art.style.setProperty('--kmz',pw.toFixed(1)+'px '+ph.toFixed(1)+'px');art.style.setProperty('--kmo',(img.offsetLeft+(w-pw)*ox).toFixed(1)+'px '+(img.offsetTop+(h-ph)*oy).toFixed(1)+'px')})}
+    [].forEach.call(d.querySelectorAll('.ly[data-melt] .ly-img'),function(img){if(!img.complete)img.addEventListener('load',meltFit)});
+    function measureK(){var y=W.scrollY||0;kdLines();meltFit();navPx=parseFloat(getComputedStyle(H).getPropertyValue('--nav'))||56;under.forEach(function(u){var r=u.t.getBoundingClientRect();u.top=r.top+y;u.h=r.height});clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)});if(knock){var r=knock.sc.getBoundingClientRect();knock.top=r.top+y;knock.h=Math.max(1,r.height)}}
     function clipAt(c,y,vh){var top=c.top-y,tall=c.h>vh*1.05,span=tall?c.h-vh:c.h+vh,p=tall?-top/span:(vh-top)/span;return Math.max(0,Math.min(1,p))}
     var heroScrolled=false,scrubbing=false,SY=W.scrollY||0;
     function flood(y){if(!knock)return;var q=Math.max(0,Math.min(1,(-(knock.top-y)/knock.h-.02)/.34)),e=q*q*(3-2*q);knock.sc.style.setProperty('--kz',(1+e*e*7).toFixed(3));knock.sc.style.setProperty('--ko',Math.max(0,Math.min(1,(e-.3)/.6)).toFixed(3))}
@@ -5362,6 +5365,10 @@
         // centre stage, and at the top of a phone's screen with the words below it, as the carried picture does)
         const run = c.actor && Number.isInteger(c.actor.from) && Number.isInteger(c.actor.to) && si >= c.actor.from && si <= c.actor.to;
         const box = L && L.box ? { d: L.box.d, m: L.box.m } : L ? DEFAULT_BOX : run ? RUN_BOX : freeSide(c.scenes[si]); const z = L ? (L.z || 0) + 1 : 6;
+        // (a tall model standing in a WIDE picture's place on a phone -- a can where a landscape photo was -- would be small in that
+        // short box: it grows up into the room above it, to at most 1.6 times the height)
+        const bn = a.bounds && Array.isArray(a.bounds.min) && Array.isArray(a.bounds.max) ? a.bounds : null; const sz = k => bn ? bn.max[k] - bn.min[k] : 0; const tall = !!bn && sz(1) > 1.2 * Math.max(sz(0), sz(2));
+        if (tall && L && box.m && box.m[2] > box.m[3] * 1.2) { const m = box.m; const top = Math.max(0, m[1] + m[3] - m[3] * 1.6); box.m = [m[0], Math.round(top * 10) / 10, m[2], Math.round((m[1] + m[3] - top) * 10) / 10]; }
         const own = !L && byId.get(a.sourceAssetId) && src(byId.get(a.sourceAssetId)) ? `<img class="td-poster" src="${attr(src(byId.get(a.sourceAssetId)))}" alt="" decoding="async">` : '';
         stages.set(si, `<div class="td-stage" data-td="${attr(sc.id)}" data-td-comp="${sc.composition}" data-td-bg="${sc.background}" aria-hidden="true" style="--x:${box.d[0]};--y:${box.d[1]};--w:${box.d[2]};--h:${box.d[3]};--mx:${box.m[0]};--my:${box.m[1]};--mw:${box.m[2]};--mh:${box.m[3]};--z:${z}">${own}</div>`);
         data.push({ id: sc.id, model, bytes: a.bytes, triangles: a.triangles, bounds: a.bounds, composition: sc.composition, interaction: sc.interaction, camera: OLD_DEFAULT(sc.composition, sc.camera) ? POSE.COMPOSITIONS[sc.composition].camera : sc.camera, turns: sc.turns, lighting: sc.lighting, background: sc.background, phone: sc.phone, posters });
@@ -7227,7 +7234,7 @@
     // phone stage height in vw (its aspect is 100 / MSTAGE); strip's stage is its horizontal track
     const MSTAGE = { 'editorial-hero': 128, cinematic: 64, split: 108, 'giant-type': 96, shrine: 110, offcanvas: 112, framed: 112, floating: 104, collage: 120, poster: 118, magazine: 108, strip: 96, 'sticky-steps': 74, text: 56, image: 104, luxe: 92, dense: 56, depth: 108, brutalist: 96, gallery: 112,
       stage: 40, campaign: 110, splitscreen: 96, 'fullscreen-object': 128, orbit: 100, index: 150, scrapbook: 124, takeover: 30, chapters: 150, lineup: 88, cardstream: 112, 'edge-crop': 112,
-      'object-stage': 124, 'depth-stack': 128, 'type-stage': 118, 'mask-stage': 128, 'image-wall': 136, canvas: 124 };
+      'object-stage': 124, 'depth-stack': 128, 'type-stage': 118, 'mask-stage': 128, 'image-wall': 136, canvas: 138 };
     const FALLBACK = { 'editorial-hero': ['split', 'framed'], cinematic: ['image', 'framed'], offcanvas: ['floating', 'shrine', 'framed'], floating: ['shrine', 'framed'], collage: ['gallery', 'framed', 'text'], strip: ['gallery', 'framed', 'text'], gallery: ['framed', 'image', 'text'], 'sticky-steps': ['split', 'text'], dense: ['brutalist', 'text'], magazine: ['split', 'text'], poster: ['giant-type', 'shrine', 'text'], shrine: ['framed', 'text'], luxe: ['text'], framed: ['text'], split: ['text'], image: ['text'], depth: ['framed', 'text'], 'giant-type': ['split', 'text'], brutalist: ['text'], text: [],
       stage: ['fullscreen-object', 'shrine', 'text'], campaign: ['shrine', 'framed', 'text'], splitscreen: ['split', 'framed', 'text'], 'fullscreen-object': ['shrine', 'framed', 'text'], orbit: ['sticky-steps', 'split', 'text'],
       index: ['gallery', 'framed', 'text'], scrapbook: ['collage', 'framed', 'text'], takeover: ['text'], chapters: ['gallery', 'image', 'text'], lineup: ['index', 'collage', 'gallery', 'framed', 'text'], cardstream: ['gallery', 'collage', 'framed', 'text'], 'edge-crop': ['split', 'framed', 'text'],
@@ -7512,10 +7519,14 @@
       }; };
     // the canvas: several pictures floating free of frames at different sizes and depths, the words among them
     A.canvas = (S, e) => (e.images >= 2 ? {
+      // (a full grid, never overlapping and never leaving a corner empty: the main picture large on the right, a picture over
+      // the words in the left column, the third under the main one -- the same gap everywhere, every edge on the same lines)
       place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: 'below', height: 'screen', stageText: true,
-      slots: [{ d: [40, 8, 40, 62], m: [10, 4, 76, 50], intent: 'light', anchor: 'cm', z: 5, role: 'focal', hard: true },
-        { d: [6, 6, 24, 34], m: [2, 56, 44, 30], intent: 'light', anchor: 'cm', z: 3, role: 'support', hard: true },
-        { d: [70, 56, 24, 38], m: [52, 60, 44, 32], intent: 'light', anchor: 'cm', z: 7, role: 'support', optional: true, hard: true }],
+      slots: e.images >= 3 ? [{ d: [40, 6, 56, 56], m: [0, 0, 100, 62], intent: 'light', anchor: 'cm', z: 5, role: 'focal', hard: true },
+        { d: [2, 28, 37, 46], m: [4, 56, 44, 30], intent: 'light', anchor: 'cm', z: 4, role: 'support', hard: true },
+        { d: [40, 66, 56, 28], m: [52, 56, 44, 30], intent: 'light', anchor: 'cm', z: 4, role: 'support', optional: true, hard: true }]
+        : [{ d: [40, 6, 56, 88], m: [0, 0, 100, 64], intent: 'light', anchor: 'cm', z: 5, role: 'focal', hard: true },
+          { d: [2, 28, 37, 46], m: [4, 68, 92, 28], intent: 'light', anchor: 'cm', z: 4, role: 'support', hard: true }],
     } : null);
 
     // ---------------------------------------------------------------- motion by personality
@@ -10676,9 +10687,14 @@
       }
       // (the ceiling on a picture's scroll zoom travels with it: framing.js ZOOM)
       const zmax = L.kind === 'image' && (L.scroll.kind === 'zoom-in' || L.scroll.kind === 'zoom-out') ? ` data-zmax="${FR.zoomCeiling(L)}"` : '';
+      // (a photograph placed in the scene melts into it: which of its edges, per breakpoint -- an edge on the screen's edge stays)
+      const ma = L.kind === 'image' && c.plan.look ? c.byId.get(L.asset) : null;
+      const meltBox = (b, p) => { if (!Array.isArray(b) || b.length < 4) return ''; const l = b[0] > 1.5, r = b[0] + b[2] < 98.5, t = b[1] > 1.5, bo = b[1] + b[3] < 98.5; return l && r && t && bo ? `${p}-all ${p}-l ${p}-r ${p}-t ${p}-b` : [l && 'l', r && 'r', t && 't', bo && 'b'].filter(Boolean).map(x => `${p}-${x}`).join(' '); };
+      const melt = ma && !ma.cutout && !(ma.assess && ma.assess.transparent) && !['backdrop', 'texture'].includes(L.role) && ['none', 'window', 'frame', 'polaroid'].includes(L.mask) && L.box
+        ? [meltBox(L.box.d, 'd'), meltBox(L.box.m, 'm')].filter(Boolean).join(' ') : '';
       const gr = L.kind === 'image' && c.plan.look && c.plan.look.grade && L.treatment === 'none' ? c.plan.look.grade.per[L.asset] : null; const ga = gr ? c.byId.get(L.asset) : null;
       const gradeAttr = gr ? ` data-grade="${ga && !ga.cutout && !(ga.assess && ga.assess.transparent) && L.fit === 'cover' ? 'tint' : 'tone'}" style="--gf:brightness(${gr[0]}) saturate(${gr[1]}) contrast(${c.plan.look.grade.c})"` : '';
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${melt ? ` data-melt="${melt}"` : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
     }
 
     // a plane of a composition (composition.js tracks): its keys as numbers, the window it opens from, and its resting state
@@ -10896,6 +10912,16 @@
     html[data-look] .sc-list[data-list="notes"] .sc-item{background:none;border:0;border-top:3px solid var(--s-accent,var(--accent));border-radius:0;padding:14px 0 0}
     html[data-look] .ly-art:is([data-mask="window"],[data-mask="frame"],[data-mask="porthole"],[data-mask="polaroid"]){border:0;outline:0;border-radius:0;box-shadow:none;padding:0;background:none}
     html[data-look] .cs-carry{border-radius:0;filter:none}
+    /* photographs never sit in a box: the edges that face into the page melt into the scene's own colour -- no frame, no hard
+       edge, no drop shadow (an edge on the screen's edge stays) */
+    html[data-look] .ly[data-melt] .ly-art{--kf:15%;--kfy:13%;--ml:0%;--mr:0%;--mt:0%;--mb:0%;border:0;outline:0;padding:0;background:none;box-shadow:none!important;-webkit-mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent);mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent);-webkit-mask-composite:source-in;mask-composite:intersect;-webkit-mask-size:var(--kmz,100% 100%);mask-size:var(--kmz,100% 100%);-webkit-mask-position:var(--kmo,0 0);mask-position:var(--kmo,0 0);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+    @media (min-width:45.01em){
+      html[data-look] .ly[data-melt~="d-l"] .ly-art{--ml:var(--kf)}html[data-look] .ly[data-melt~="d-r"] .ly-art{--mr:var(--kf)}html[data-look] .ly[data-melt~="d-t"] .ly-art{--mt:var(--kfy)}html[data-look] .ly[data-melt~="d-b"] .ly-art{--mb:var(--kfy)}
+      html[data-look] .ly[data-melt~="d-all"] .ly-art{-webkit-mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent),radial-gradient(ellipse 80% 80% at 50% 50%,#000 64%,transparent 100%);mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent),radial-gradient(ellipse 80% 80% at 50% 50%,#000 64%,transparent 100%);}}
+    @media (max-width:45em){
+      html[data-look] .ly[data-melt] .ly-art{--kf:12%;--kfy:11%}
+      html[data-look] .ly[data-melt~="m-l"] .ly-art{--ml:var(--kf)}html[data-look] .ly[data-melt~="m-r"] .ly-art{--mr:var(--kf)}html[data-look] .ly[data-melt~="m-t"] .ly-art{--mt:var(--kfy)}html[data-look] .ly[data-melt~="m-b"] .ly-art{--mb:var(--kfy)}
+      html[data-look] .ly[data-melt~="m-all"] .ly-art{-webkit-mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent),radial-gradient(ellipse 80% 80% at 50% 50%,#000 64%,transparent 100%);mask-image:linear-gradient(to right,transparent,#000 var(--ml),#000 calc(100% - var(--mr)),transparent),linear-gradient(to bottom,transparent,#000 var(--mt),#000 calc(100% - var(--mb)),transparent),radial-gradient(ellipse 80% 80% at 50% 50%,#000 64%,transparent 100%);}}
     html[data-look] .sc[data-seam-in="card-expand"] .ly:is([data-role="focal"],[data-role="subject"]) .ly-loop{clip-path:inset(calc((1 - var(--sn,1)) * var(--sit,38%)) calc((1 - var(--sn,1)) * var(--sir,52%)) calc((1 - var(--sn,1)) * var(--sib,16%)) calc((1 - var(--sn,1)) * var(--sil,12%)))}
     html[data-look] .cb{background:var(--cbc,var(--bg))!important}
     html.cr2[data-look][data-look] .sc .sc-backdrop{background:none!important}html[data-look] .sc-backdrop::before,html[data-look] .sc-backdrop::after{display:none}
