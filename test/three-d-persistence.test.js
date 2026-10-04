@@ -128,11 +128,15 @@ test('3D-P1. a real-sized model is saved by REFERENCE: the old inline save is re
     const file = await s.raw(`/api/premium-media/${d.premium.mediaId}/file`); assert.ok(file.buf.equals(LARGE));
     const inline = Object.assign({}, d.threeD, { dataUrl: 'data:model/gltf-binary;base64,' + file.buf.toString('base64') });
     const scene = { id: 'td-' + sectionId, assetId: threeDId, sectionId, composition: d.composition };
-    // THE BUG, reproduced: the studio used to drop the reference and save the bytes -- with this page, the save is refused
-    // whole, and the account stays at the revision without the model
-    const before = await put(s, projectId, c => { const a = Object.assign({}, inline); delete a.assetRef; c.threeD = { assets: [a], scenes: [scene] }; });
-    assert.equal(before.status, 400, 'the inline save is refused'); assert.match(before.body.message, /No valid direction in project state/); assert.ok(before.bytes > 14 * 1048576, `it is ${(before.bytes / 1048576).toFixed(1)} MB`);
-    assert.equal((await s.call('GET', `/api/projects/${projectId}`)).body.project.directionsState.directions[0].creative.threeD, undefined, 'and nothing of the model was kept');
+    // THE OLD BUG: the studio used to drop the reference and save the bytes, and a page this size was refused whole. Since
+    // the size check counts a save without its embedded files (0f200fb), and the save stores a model's bytes as a file
+    // (project-store internalizeAssets), a save that still carries the bytes is accepted -- and keeps the model BY
+    // REFERENCE, the same stored file (checked on a second project, so this flow's revisions stay as they were)
+    const other = await s.call('POST', '/api/projects', { name: 'Aurelia inline', directionsState: { directions: [creativeDirection()], activeDirectionIndex: 0 } });
+    const before = await put(s, other.body.project.id, c => { const a = Object.assign({}, inline); delete a.assetRef; c.threeD = { assets: [a], scenes: [scene] }; });
+    assert.equal(before.status, 200, 'an inline save is accepted'); assert.ok(before.bytes > 14 * 1048576, `it is ${(before.bytes / 1048576).toFixed(1)} MB on the wire`);
+    const kept = (await s.call('GET', `/api/projects/${other.body.project.id}`)).body.project.directionsState.directions[0].creative.threeD;
+    assert.equal(kept && kept.assets[0].assetRef, ref, 'and the model was kept as the same stored file, by reference');
     // 3. THE FIX: the studio saves what it holds (bytes for its preview AND the reference) as the reference alone
     const block = TD.normalise({ assets: [inline], scenes: [scene] }, { sectionIds: PLAN.scenes.map(x => x.id) });
     assert.deepEqual([block.assets[0].assetRef, !!block.assets[0].dataUrl], [ref, true], 'the studio\'s copy keeps the reference next to the preview bytes');
