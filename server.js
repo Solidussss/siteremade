@@ -3125,6 +3125,17 @@ function threeDDecided(accountId, projectId) {
   const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null; const dir = p && ((p.directionsState && p.directionsState.directions) || []).find(x => x && x.mode === 'creative' && x.creative);
   const plan = dir && dir.creative && dir.creative.plan; return (plan && ((plan.assetDirector && plan.assetDirector.model3d) || (plan.idea && plan.idea.model && plan.idea.model.asset))) || '';
 }
+// HOW MANY 3D MODELS A PAGE MAY HAVE MADE, by the mode it was made in: Creative 1, Creative + Cinematic 2, Creative
+// Showcase 4 -- read from the page's own generation job (its premium job, this account's), never from the request. A
+// model the page already has may be shown in any scene, one per scene, for free; that is never counted.
+const THREE_D_MADE = { creative: 1, cinematic: 2, showcase: 4 };
+const THREE_D_MODE_NAME = { creative: 'Creative', cinematic: 'Creative + Cinematic', showcase: 'Creative Showcase' };
+function pageMode(accountId, c) {
+  const id = c && c.premiumJob && c.premiumJob.jobId; const row = id ? db.premiumJobs.find(id) : null;
+  if (!row || row.account_id !== accountId || row.mode === 'model3d') return 'creative';
+  return row.strategy === 'showcase' ? 'showcase' : 'cinematic';
+}
+function threeDMade(accountId, projectId) { return db.premiumJobs.forProject(accountId, projectId).filter(r => r.mode === 'model3d' && (r.completed || premiumJobs.ACTIVE.has(r.status))).length; }
 function threeDSource(accountId, projectId, assetId, sectionId) {
   const no = (reason, message) => ({ ok: false, reason, message });
   const p = projectId ? projectStore.getOwnedProjectRaw(db, accountId, projectId) : null;
@@ -3132,6 +3143,8 @@ function threeDSource(accountId, projectId, assetId, sectionId) {
   const dir = ((p.directionsState && p.directionsState.directions) || []).find(x => x && x.mode === 'creative' && x.creative);
   const c = dir && dir.creative; if (!c || !c.plan || c.plan.v !== 2 || !Array.isArray(c.plan.scenes)) return no('no_page', 'This project has no Creative page yet.');
   if (c.threeD && Array.isArray(c.threeD.assets) && c.threeD.assets.length >= threeD.schema.LIMITS.assets) return no('limit', `A page can carry at most ${threeD.schema.LIMITS.assets} 3D models.`);
+  const mode = pageMode(accountId, c); const allowed = THREE_D_MADE[mode];
+  if (threeDMade(accountId, projectId) >= allowed) return no('mode_limit', `A ${THREE_D_MODE_NAME[mode]} page makes ${allowed === 1 ? 'one 3D model' : `up to ${allowed} 3D models`}, and this one has. Show ${allowed === 1 ? 'it' : 'them'} in any scene for free.` + (mode === 'showcase' ? '' : ` Pages made as ${mode === 'creative' ? 'Creative + Cinematic make up to 2, Creative Showcase up to 4' : 'Creative Showcase make up to 4'}.`));
   const assets = (c.assets || []).filter(a => a && a.id && !a.removed); const byId = new Map(assets.map(a => [a.id, a]));
   // (the whole photo, not its cut-out or a copy of it: followed through the project's own persisted links -- rootPicture)
   let a = byId.get(assetId); const root = a ? threeD.schema.rootPicture(a, byId) : null; if (root) a = root;

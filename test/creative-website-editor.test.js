@@ -65,6 +65,15 @@ const raw = async w => (await w.call('GET', `/api/projects/${w.projectId}`)).bod
 const creativeOf = p => p.directionsState.directions[0].creative;
 const balance = async w => (await w.call('GET', '/api/credits')).body.credits.remaining;
 const outline = async w => { const r = await w.owner('GET', `/api/app-bridge/website/${w.projectId}/creative`); assert.equal(r.status, 200, JSON.stringify(r.body)); return r.body; };
+// THE MODE A PAGE WAS MADE IN: its generation's premium job, linked from the page the way the studio links it
+// (creative.premiumJob) -- the fixture for how many 3D models a page may make (Creative 1, Cinematic 2, Showcase 4)
+async function madeAs(w, strategy) {
+  const db = require('../lib/adapters/database-adapter.js').getDatabaseAdapter(w.env.SITEREMADE_DB_PATH);
+  const me = (await w.call('GET', '/api/auth/me')).body.account.id; const id = 'pj_fixture' + crypto.randomBytes(6).toString('hex'); const at = new Date().toISOString();
+  db.premiumJobs.insertIfNew({ id, accountId: me, creativeJobId: 'cj_fixture' + id, projectId: null, quoteId: null, opId: 'op-' + id, mode: strategy === 'showcase' ? 'showcase' : 'hero', strategy, status: 'completed', rolesJson: '[]', total: 0, completed: 0, createdAt: at });
+  const p = await raw(w); const ds = p.directionsState; ds.directions[0].creative.premiumJob = { jobId: id };
+  const r = await w.call('PUT', `/api/projects/${w.projectId}`, { directionsState: ds, expectedRevision: p.revision }); assert.equal(r.status, 200, JSON.stringify(r.body));
+}
 async function followJobs(w, until) { for (let i = 0; i < 300; i++) { const r = await w.owner('GET', `/api/app-bridge/website/${w.projectId}/creative/jobs`); if (until(r.body)) return r.body; await sleep(120); } throw new Error('the job did not finish'); }
 
 // ================================================================ kind, outline
@@ -221,7 +230,11 @@ test('WE-7. an owner upload (a PNG the app made): measured by the builder -- nev
 
 // ================================================================ 3D
 test('WE-8. Make interactive 3D: the builder quotes, the owner confirms, ONE mocked Tripo job, the model attached to the draft, previewed, published and exported; asking again never makes a second model', async () => {
-  const w = await world(); const o = await outline(w); const before = counts(w.env);
+  const w = await world(); const before = counts(w.env);
+  // HOW MANY A PAGE MAKES, by the mode it was made in: made as Creative, this page has its one model -- a second is refused
+  const one = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/quote`, { action: 'model3d', assetId: shared.upload });
+  assert.deepEqual([one.body.ok, one.body.reason], [false, 'mode_limit'], JSON.stringify(one.body)); assert.match(one.body.message, /A Creative page makes one 3D model.*Creative Showcase up to 4/);
+  await madeAs(w, 'showcase'); const o = await outline(w); void o; // made as Creative Showcase: up to 4
   const q = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/quote`, { action: 'model3d', assetId: shared.upload });
   assert.equal(q.status, 200, JSON.stringify(q.body)); assert.ok(q.body.quote.credits >= 1, 'the authoritative 3D price'); assert.equal(counts(w.env).tripo, before.tripo, 'a quote calls nothing');
   const credits = await balance(w);

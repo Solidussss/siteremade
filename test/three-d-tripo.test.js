@@ -547,7 +547,7 @@ test('P2-17. THE CUSTOMER FLOW on the real server: upload -> cost shown -> credi
     assert.equal((await again.call('GET', `/api/creative/premium/for-project/${project.id}`)).body.job, null, 'the video job of a page is a different question: a 3D job is never mistaken for one');
     // the same quote again, a new quote for the same place: no second model
     const late = await again.call('POST', '/api/creative/premium/3d/start', { quoteId: q.body.quote.id }); assert.deepEqual([late.body.reused, late.body.job.jobId, late.body.creditsRemaining], [true, jobId, balance - 3]);
-    const twice = await again.call('POST', '/api/creative/premium/3d/quote', { projectId: project.id, assetId: 'u-bottle' }); assert.deepEqual([twice.body.ok, twice.body.reason], [false, 'limit']);
+    const twice = await again.call('POST', '/api/creative/premium/3d/quote', { projectId: project.id, assetId: 'u-bottle' }); assert.deepEqual([twice.body.ok, twice.body.reason], [false, 'mode_limit'], 'a Creative page makes one 3D model');
     // PURCHASED, PUBLISHED, EXPORTED: the builder's export and the app handoff both carry the model and the engine
     await s.call('POST', '/api/checkout', { projectId: project.id, businessName: 'Aurelia' });
     const asked = providerCalls(env.MOCK_CALL_LOG).filter(x => x.provider === 'stripe' && x.endpoint === 'checkout' && x.projectId === project.id).pop(); assert.ok(asked, 'checkout asked the (mocked) Stripe');

@@ -475,7 +475,9 @@ test('D. the 3D engine is fetched lazily, after the page and only when a stage c
   // scroll drives it: the scene's progress, 0 as it arrives .. 1 as it leaves, from cached geometry
   p.scrollTo(2000 - 900); p.scrollTo(2000); p.scrollTo(2000 + 900); const pr = m.handle.progress;
   assert.ok(near(pr[pr.length - 3], 0) && near(pr[pr.length - 2], 0.5) && near(pr[pr.length - 1], 1), pr.join());
-  p.near(0, false); assert.deepEqual(m.handle.visible.slice(-1), [false], 'off screen: it rests');
+  // (a model may stand in every scene: a stage a screen away gives its 3D context back -- the picture again -- and mounts anew when near)
+  p.near(0, false); assert.deepEqual([m.handle.destroyed, p.ST.stages[0].state, p.stages[0].el.classList.contains('td-on'), p.stages[0].sec.classList.contains('td-live')], [1, 'idle', false, false], 'off screen: it rests, its context released');
+  p.near(0); assert.equal(p.mounts.length, 2, 'near again: mounted anew'); p.mounts[1].cb.ready({ triangles: 4224 }); assert.equal(p.ST.stages[0].state, 'on');
   // a pinned scene turns through its hold (anchor 0)
   const pin = browser({ data: DATA(), pin: true }); pin.near(0); pin.engineLoaded(); assert.equal(pin.mounts[0].cfg.anchor, 0);
   // the page's own markup: the stage sits in the picture's own box, per breakpoint, and never takes a touch
@@ -741,3 +743,24 @@ test('14. no real network or provider call occurred in this whole file: the prov
 });
 
 test.after(() => { try { fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch (e) { /* the OS clears its temp folder */ } });
+
+// A MODEL IN EVERY SCENE (one per scene): where it stands in a scene that does not show its own picture
+test('3D-E. a model in a scene without its picture takes the place of the scene\'s own main picture (its fallback); in a scene of words alone, the side the words leave free', () => {
+  const src = a => `x/${a.id}`; const model = { id: 'tdcan', sourceAssetId: 'can', bytes: 1000, triangles: 100, bounds: { min: [-1, -1, -1], max: [1, 1, 1] } };
+  const byId = new Map([['can', { id: 'can' }], ['pour', { id: 'pour' }]]);
+  const scenes = [
+    { id: 's1', layers: [{ kind: 'image', role: 'focal', asset: 'can', box: { d: [60, 10, 30, 80], m: [10, 5, 80, 50] }, z: 4 }], text: {} },
+    { id: 's2', layers: [{ kind: 'image', role: 'backdrop', asset: 'pour', box: { d: [0, 0, 100, 100], m: [0, 0, 100, 100] } }, { kind: 'image', role: 'focal', asset: 'pour', box: { d: [8, 12, 40, 70], m: [6, 50, 88, 44] }, z: 3 }], text: { place: { gc: [8, 12] } } },
+    { id: 's3', layers: [], text: { place: { gc: [1, 5] }, mplace: 'above' } },
+    { id: 's4', layers: [], text: { place: { gc: [8, 12] }, mplace: 'below' } },
+  ];
+  const block = { assets: [model], scenes: scenes.map(s => ({ id: `td-${s.id}`, assetId: 'tdcan', sectionId: s.id, composition: 'scroll-rotate' })) };
+  const out = TD.forPage(block, { scenes, byId, src, runtime: 'sr3d.min.js' }); const cfg = JSON.parse(out.json).scenes;
+  const box = i => (out.stages.get(i).match(/--x:([\d.]+);--y:([\d.]+);--w:([\d.]+);--h:([\d.]+);--mx:([\d.]+);--my:([\d.]+)/) || []).slice(1).map(Number);
+  assert.deepEqual(box(0).slice(0, 4), [60, 10, 30, 80], 'its own picture: the model stands in it'); assert.deepEqual(cfg[0].posters, ['can']);
+  assert.deepEqual(box(1).slice(0, 6), [8, 12, 40, 70, 6, 50], 'another scene: the place of its main picture (never its backdrop)'); assert.ok(cfg[1].posters.includes('pour'), 'that picture is its fallback');
+  assert.doesNotMatch(out.stages.get(1), /td-poster/, 'no second picture drawn over the scene');
+  assert.deepEqual(box(2).slice(0, 6), [52, 10, 44, 80, 8, 48], 'words on the left: the model on the right (below them on a phone)');
+  assert.deepEqual(box(3).slice(0, 6), [4, 10, 44, 80, 8, 6], 'words on the right: the model on the left (above them on a phone)');
+  assert.equal(TD.LIMITS.scenes, 9, 'a model may stand in every scene a page can have'); assert.equal(TD.LIMITS.assets, 4, 'Creative Showcase makes up to 4');
+});
