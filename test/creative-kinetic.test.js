@@ -95,7 +95,8 @@ test('K10. a page in a real browser-like render carries the set pieces: the band
 
 test('K11. the intro (once a session, never for reduced motion or a deep link) holds the entrances until the page is uncovered; reveals arrive in pixels on a lively or mechanical page; the picture under the mouse tilts; a progress line follows the scroll', () => {
   assert.match(KIN.js, /if\(RM\|\|!first\|\|!hh\|\|location\.hash\)return;try\{if\(W\.sessionStorage\.getItem\('k-intro'\)\)return;/);
-  assert.match(KIN.js, /if\(!intro\)goNow\(\);/, 'the entrances wait for the intro'); assert.ok(KIN.js.includes("intro.classList.add('is-out');setTimeout(function(){if(intro){intro.remove();intro=null}},1000);goNow()"), 'the page is uncovered, then its opening plays');
+  assert.match(KIN.js, /if\(!intro\)goNow\(\);/, 'the entrances wait for the intro'); assert.ok(KIN.js.includes("intro.classList.add('is-out');setTimeout(function(){if(intro){intro.remove();intro=null}},1000);goNow()"), 'the page is uncovered, then its opening plays'); assert.ok(KIN.js.includes('setTimeout(finish,2600)'), 'never left covering the page');
+  assert.match(KIN.js, /function clear\(h,sc\)\{/, 'a headline that barely reads is never made 3D'); assert.match(KIN.css, /@media \(max-width:720px\)\{[^}]*\.sc\[data-kd\] \.kw\{translate:none\}/, 'nothing drifts off a phone');
   assert.match(KIN.js, /reveal:\/\^\(mechanical\|kinetic\|playful\|chaotic\)\$\/\.test\(pers\)\?'pixel':'tilt'/);
   assert.match(KIN.js, /function pixelate\(img\)\{/); assert.match(KIN.js, /if\(k2>=steps\.length\|\|reduced\(\)\)\{cv\.remove\(\);img\.style\.visibility='';return\}/, 'the picture itself always comes back');
   assert.match(KIN.js, /hit\.el\.style\.rotate=/); assert.match(KIN.css, /\.k-prog\{position:fixed;/); assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-intro\{display:none\}/);
@@ -105,4 +106,10 @@ test('K12. the clip carries on down the page: moments of it, sampled from the cl
   assert.match(KIN.js, /times=\[\.12,\.3,\.48,\.66,\.84\]/); assert.match(KIN.js, /cv\.toDataURL\('image\/jpeg',\.72\)/);
   assert.match(KIN.js, /if\(sp\.textContent==='\u2726'\)\{var im=d\.createElement\('img'\);im\.className='k-mq-f';/, 'between the name, in place of the mark');
   assert.match(KIN.js, /\(function\(\)\{if\(!mq\|\|RM\|\|!hero\|\|!hero\.v\)return;/, 'only with a clip, never for reduced motion');
+});
+
+test('K13. the glide moves the page in instant steps: the page\'s own smooth scrolling (for its contents links) would restart on every step and crawl', () => {
+  assert.match(KIN.js, /function to\(y\)\{try\{W\.scrollTo\(\{top:y,left:0,behavior:'instant'\}\)\}catch\(e\)\{W\.scrollTo\(0,y\)\}\}/);
+  assert.match(KIN.js, /function glide\(\)\{cur\+=\(target-cur\)\*GL;if\(Math\.abs\(target-cur\)<\.6\)cur=target;to\(cur\);/);
+  assert.doesNotMatch(KIN.js.slice(KIN.js.indexOf('function glide'), KIN.js.indexOf('function glide') + 200), /W\.scrollTo\(0,cur\)/);
 });
