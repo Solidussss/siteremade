@@ -5057,7 +5057,7 @@
       'hero-sculpture': { interaction: 'pointer-tilt', camera: { fov: 28, azimuth: 20, elevation: 10, distance: 1 }, turns: 0, float: 0.4, reveal: 0, dolly: 0 },
       'object-reveal': { interaction: 'scroll-rotate', camera: { fov: 32, azimuth: 0, elevation: 10, distance: 1 }, turns: 0.5, float: 0, reveal: 1, dolly: 0 },
       // (a model shaped from the owner's single photo -- three-d/lathe.js: it turns only through the side the photo shows)
-      'label-turn': { interaction: 'scroll-rotate', camera: { fov: 30, azimuth: 0, elevation: 7, distance: 1.3 }, turns: 0.25, float: 0.25, reveal: 0, dolly: 0 },
+      'label-turn': { interaction: 'scroll-rotate', camera: { fov: 30, azimuth: 0, elevation: 7, distance: 1 }, turns: 0.25, float: 0.25, reveal: 0, dolly: 0 },
     };
     const COMPOSITION_NAMES = Object.keys(COMPOSITIONS);
     // (the one composition proven end to end in a browser in phase 1; the others are presets of the same engine)
@@ -5209,6 +5209,10 @@
       Object.keys(POSE.CAMERA).forEach(k => { out[k] = r3(num(c[k], POSE.CAMERA[k][0], POSE.CAMERA[k][1], preset[k])); });
       return out;
     }
+    // (a staging whose default camera has since changed: a page saved with the OLD default gets the new one -- the label-turn
+    // camera came closer, the free model filled only ~60% of its place)
+    const OLD_DEFAULTS = { 'label-turn': { fov: 30, azimuth: 0, elevation: 7, distance: 1.3 } };
+    const OLD_DEFAULT = (comp, cam) => !!(OLD_DEFAULTS[comp] && cam && typeof cam === 'object' && Object.keys(OLD_DEFAULTS[comp]).every(k => Number(cam[k]) === OLD_DEFAULTS[comp][k]));
     // ctx: { assetIds: Set of this block's model ids, sectionIds: Set of the plan's scene ids | null (not known: kept as saved) }
     function cleanScene(raw, i, ctx) {
       if (!raw || typeof raw !== 'object' || !ctx.assetIds.has(raw.assetId)) return null;
@@ -5217,7 +5221,7 @@
       const composition = oneOf(raw.composition, POSE.COMPOSITION_NAMES, POSE.DEMO_COMPOSITION); const C = POSE.COMPOSITIONS[composition];
       return {
         id: ID.test(raw.id || '') ? raw.id.slice(0, 40) : `td-scene-${i + 1}`, assetId: raw.assetId, sectionId, composition,
-        interaction: oneOf(raw.interaction, POSE.INTERACTIONS, C.interaction), camera: cleanCamera(raw.camera, C.camera),
+        interaction: oneOf(raw.interaction, POSE.INTERACTIONS, C.interaction), camera: cleanCamera(OLD_DEFAULT(composition, raw.camera) ? null : raw.camera, C.camera),
         lighting: oneOf(raw.lighting, POSE.LIGHTING, 'studio'), background: oneOf(raw.background, POSE.BACKGROUNDS, 'transparent'),
         turns: r3(num(raw.turns, POSE.TURNS[0], POSE.TURNS[1], C.turns)), phone: oneOf(raw.phone, POSE.PHONE, 'lite'),
       };
@@ -5360,7 +5364,7 @@
         const box = L && L.box ? { d: L.box.d, m: L.box.m } : L ? DEFAULT_BOX : run ? RUN_BOX : freeSide(c.scenes[si]); const z = L ? (L.z || 0) + 1 : 6;
         const own = !L && byId.get(a.sourceAssetId) && src(byId.get(a.sourceAssetId)) ? `<img class="td-poster" src="${attr(src(byId.get(a.sourceAssetId)))}" alt="" decoding="async">` : '';
         stages.set(si, `<div class="td-stage" data-td="${attr(sc.id)}" data-td-comp="${sc.composition}" data-td-bg="${sc.background}" aria-hidden="true" style="--x:${box.d[0]};--y:${box.d[1]};--w:${box.d[2]};--h:${box.d[3]};--mx:${box.m[0]};--my:${box.m[1]};--mw:${box.m[2]};--mh:${box.m[3]};--z:${z}">${own}</div>`);
-        data.push({ id: sc.id, model, bytes: a.bytes, triangles: a.triangles, bounds: a.bounds, composition: sc.composition, interaction: sc.interaction, camera: sc.camera, turns: sc.turns, lighting: sc.lighting, background: sc.background, phone: sc.phone, posters });
+        data.push({ id: sc.id, model, bytes: a.bytes, triangles: a.triangles, bounds: a.bounds, composition: sc.composition, interaction: sc.interaction, camera: OLD_DEFAULT(sc.composition, sc.camera) ? POSE.COMPOSITIONS[sc.composition].camera : sc.camera, turns: sc.turns, lighting: sc.lighting, background: sc.background, phone: sc.phone, posters });
       });
       if (!data.length) return null;
       const json = JSON.stringify({ v: 1, runtime: c.runtime, limits: { bytes: LIMITS.modelBytes, triangles: LIMITS.triangles, dpr: LIMITS.dpr, phone: LIMITS.phone, timeoutMs: LIMITS.loadTimeoutMs }, scenes: data }).replace(/</g, '\\u003c');

@@ -77,3 +77,16 @@ test('L4. the studio\'s route: the cut-out it made (a PNG) becomes a stored mode
   assert.match(studio, /Make 3D from this picture — free/); assert.match(studio, /on\('cs3dFree', td3Free\)/, 'only on a click');
   assert.doesNotMatch(studio, /autoFree3D|td3Free\(\)\s*;\s*\}\s*\)\s*;?\s*$/m, 'never by itself');
 });
+
+test('L5. the free model fills its place: the label-turn camera stands close, and a page saved with the old (farther) default gets the new one; a camera of its own is kept', () => {
+  const POSE = require('../lib/creative/three-d-pose');
+  assert.equal(POSE.COMPOSITIONS['label-turn'].camera.distance, 1);
+  const A = TD.cleanAsset({ id: 'tdl-x', sourceAssetId: 'a', title: 'x', bytes: 1000, bounds: [1, 2, 1], center: [0, 0, 0], scale: 1, triangles: 10, textures: 1, parts: 1, animations: [], normalized: true, assetRef: 'a'.repeat(64) });
+  const old = { fov: 30, azimuth: 0, elevation: 7, distance: 1.3 };
+  const b = TD.normalise({ assets: [A], scenes: [{ id: 'td-1', assetId: A.id, sectionId: 's1', composition: 'label-turn', camera: old }, { id: 'td-2', assetId: A.id, sectionId: 's2', composition: 'label-turn', camera: Object.assign({}, old, { distance: 1.6 }) }] }, { sectionIds: ['s1', 's2'] });
+  assert.equal(b.scenes[0].camera.distance, 1); assert.equal(b.scenes[1].camera.distance, 1.6);
+  // (a block saved before the change -- never normalised again -- is upgraded where the page is drawn)
+  const saved = { assets: [A], scenes: [{ id: 'td-1', assetId: A.id, sectionId: 's1', composition: 'label-turn', interaction: 'scroll-rotate', camera: old, lighting: 'studio', background: 'transparent', turns: 0.25, phone: 'lite' }] };
+  const page = TD.forPage(saved, { scenes: [{ id: 's1', layers: [], text: {} }], byId: new Map(), src: () => 'm.glb', runtime: 'sr3d.min.js' });
+  assert.equal(JSON.parse(page.json).scenes[0].camera.distance, 1);
+});
