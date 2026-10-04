@@ -467,7 +467,7 @@
 
     /* ---- THE SIGNATURE MOMENT */
     /* pour: the headline is an outline its liquid rises in -- a wave moving across the top of it as the scene is read */
-    html.k-go:not([data-motion="reduced"]) .sc[data-ksig="pour"] .sc-heading{--fill:clamp(0, (var(--p,0) - .1) * 2.1, 1);color:transparent;-webkit-text-stroke:max(1.5px,.024em) var(--kpi,currentColor);text-shadow:none;background-image:var(--kpour,none);background-size:2.4em 300%;background-repeat:repeat-x;background-position:0 calc((var(--fill) - 1) * 50%);-webkit-background-clip:text;background-clip:text;animation:k-pour 2.6s linear infinite}
+    html.k-go:not([data-motion="reduced"]) .sc[data-ksig="pour"] .sc-heading{--fill:clamp(0, (var(--p,0) - .1) * 2.1, 1);color:transparent;-webkit-text-stroke:max(2px,.03em) var(--kpi,currentColor);text-shadow:none;background-image:var(--kpour,none),linear-gradient(color-mix(in srgb,var(--kpi,currentColor) 30%,transparent),color-mix(in srgb,var(--kpi,currentColor) 30%,transparent));background-size:2.4em 300%,100% 100%;background-repeat:repeat-x,no-repeat;background-position:0 calc((var(--fill) - 1) * 50%),0 0;-webkit-background-clip:text;background-clip:text;animation:k-pour 2.6s linear infinite}
     html.k-go:not([data-motion="reduced"]) .sc[data-ksig="pour"] .sc-heading :is(.kw,.kw>i,.kc){color:transparent;will-change:auto;text-shadow:none;transform:none!important;translate:none!important;rotate:none!important;scale:none!important;filter:none!important}
     @keyframes k-pour{to{background-position-x:2.4em}}
     /* spotlight: the scene's colour lies over its pictures, and a soft light opens it where the visitor looks -- wide open once
@@ -540,9 +540,9 @@
     function lumi(c){return c?[0,1,2].reduce(function(a,k){var v=c[k]/255;v=v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);return a+v*[.2126,.7152,.0722][k]},0):null}
     function clear(h,sc){var a=lumi(rgb(getComputedStyle(h).color)),b=lumi(rgb(sc.getAttribute('data-surf')));if(a==null||b==null)return true;return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=3.2}
     var ARC={takeover:'grow',payoff:'grow',reveal:/^(mechanical|kinetic|playful|chaotic)$/.test(pers)?'pixel':'tilt',transformation:'turn',breath:'drift',escalation:'rush'};
-    (function(){var kinds=['grow','tilt','drift','turn','rush','pixel'],last='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
+    (function(){var kinds=['grow','tilt','drift','turn','rush','pixel'],last='',k3n=0,all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
     if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand|track)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var want=sc.getAttribute('data-kmp');if(want==='still'){last=''}else if(kinds.indexOf(want)>=0){sc.setAttribute('data-kp',want);last=want}else{var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'||k==='pixel'))k='drift';sc.setAttribute('data-kp',k);last=k}}
-    var h=sc.querySelector('.sc-heading'),mw=sc.getAttribute('data-kmw')||'',nw=h?h.querySelectorAll('.kw').length:0;if(h&&clear(h,sc)&&(i===0||(mw==='3d'&&nw<=6)||(!mw&&(/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]')))))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&(mw==='fill'?nw>=3:!mw&&nw>=5)&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
+    var h=sc.querySelector('.sc-heading'),mw=sc.getAttribute('data-kmw')||'',nw=h?h.querySelectorAll('.kw').length:0;if(h&&clear(h,sc)&&(i===0||(mw==='3d'&&nw<=6)||(!mw&&k3n<1&&(/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]'))&&++k3n)))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&(mw==='fill'?nw>=3:!mw&&nw>=5)&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
     if(i<all.length-1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-seam-in'))sc.setAttribute('data-kx','')})})();
     /* ---- decode (a mechanical page): each headline's letters resolve out of noise, left to right, as its scene arrives */
     function decode(h){if(h._dec)return;h._dec=1;var ws=[].slice.call(h.querySelectorAll('.kc').length?h.querySelectorAll('.kc'):h.querySelectorAll('.kw>i')),fin=ws.map(function(w){return w.textContent}),G='ABCDEFGHJKLMNPRSTUVWXYZ0123456789#%&*/<>',t0=performance.now(),total=fin.join('').length,dur=650+total*18;
@@ -587,7 +587,7 @@
     clips.push(c);if(sc===firstSc)hero=c});K.scrub=clips.length;
     /* (on a phone the product carried between scenes stands fixed at the top of the screen: a scene's words that scroll up under it fade there, and come back below it) */
     var navPx=56,under=[].slice.call(d.querySelectorAll('.sc[data-actor] .sc-text')).map(function(t){return{t:t,top:0,h:0}});
-    function keepClear(y){if(innerWidth>720||reduced()){under.forEach(function(u){u.t.style.opacity=''});return}var zone=navPx+innerHeight*.38;under.forEach(function(u){var top=u.top-y,o=Math.max(0,Math.min(1,(top-zone)/90));u.t.style.opacity=o<1?o.toFixed(3):''})}
+    function keepClear(y){if(innerWidth>720||reduced()){under.forEach(function(u){u.t.style.opacity=''});return}var zone=navPx+innerHeight*.37;under.forEach(function(u){var top=u.top-y,o=Math.max(0,Math.min(1,(top-zone+50)/50));u.t.style.opacity=o<1?o.toFixed(3):''})}
     /* (a melted picture fitted inside its frame melts at its own edges: its mask is sized to where it is painted) */
     function meltFit(){[].forEach.call(d.querySelectorAll('.ly[data-melt] .ly-img'),function(img){var art=img.closest('.ly-art');if(!art)return;var cs=getComputedStyle(img),iw=img.naturalWidth,ih=img.naturalHeight,w=img.clientWidth,h=img.clientHeight;if(cs.objectFit!=='contain'||!iw||!ih||!w||!h){art.style.removeProperty('--kmz');art.style.removeProperty('--kmo');return}var r=iw/ih,pw=w,ph=h;if(r>w/h)ph=w/r;else pw=h*r;var op=cs.objectPosition.split(' '),ox=parseFloat(op[0]),oy=parseFloat(op[1]);ox=isNaN(ox)?.5:ox/100;oy=isNaN(oy)?.5:oy/100;art.style.setProperty('--kmz',pw.toFixed(1)+'px '+ph.toFixed(1)+'px');art.style.setProperty('--kmo',(img.offsetLeft+(w-pw)*ox).toFixed(1)+'px '+(img.offsetTop+(h-ph)*oy).toFixed(1)+'px')})}
     [].forEach.call(d.querySelectorAll('.ly[data-melt] .ly-img'),function(img){if(!img.complete)img.addEventListener('load',meltFit)});
@@ -644,7 +644,7 @@
     (function(){if(RM)return;var all=[].slice.call(d.querySelectorAll('main .sc'));if(all.length<2)return;var cols=all.map(function(s){return rgb(s.getAttribute('data-surf'))||rgb(getComputedStyle(s).backgroundColor)});if(cols.some(function(c){return !c}))return;
     morph={all:all,cols:cols,tops:all.map(function(){return 0}),last:''};K.morph=morph;H.classList.add('k-morph')})();
     function measureM(){if(!morph)return;var y=W.scrollY||0;morph.all.forEach(function(s,i){morph.tops[i]=s.getBoundingClientRect().top+y});morph.last='';paint(y)}
-    function paint(y){var vh=innerHeight,c=morph.cols[0].slice();for(var k=1;k<morph.cols.length;k++){var w=Math.max(0,Math.min(1,(vh*.62-(morph.tops[k]-y))/(vh*.3)));if(w<=0)break;for(var j=0;j<3;j++)c[j]+=(morph.cols[k][j]-c[j])*w}
+    function paint(y){var vh=innerHeight,c=morph.cols[0].slice();for(var k=1;k<morph.cols.length;k++){var w=Math.max(0,Math.min(1,(vh*.85-(morph.tops[k]-y))/(vh*.35)));if(w<=0)break;for(var j=0;j<3;j++)c[j]+=(morph.cols[k][j]-c[j])*w}
     var v='rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')';if(v!==morph.last){morph.last=v;d.body.style.backgroundColor=v}}
     /* ---- the closing: the brand's name, set to the width of the page */
     var mark=null;(function(){var f=d.querySelector('.cr-foot'),b=d.querySelector('.cr-brand');var name=b&&b.textContent.trim();if(!f||!name||name.length>18)return;mark=d.createElement('div');mark.className='k-mark';mark.setAttribute('aria-hidden','true');mark.textContent=name;var hh=d.querySelector('.sc-heading');if(hh){var hs=getComputedStyle(hh);mark.style.fontFamily=hs.fontFamily;mark.style.fontWeight=hs.fontWeight;mark.style.letterSpacing=hs.letterSpacing}f.appendChild(mark)})();
@@ -3577,7 +3577,9 @@
       const out = { x: L('x'), y: L('y'), s: L('s'), r: L('r'), o: Math.max(0, Math.min(1, L('o'))) };
       if (A.sp != null || B.sp != null) out.sp = Math.max(0, Math.min(1, L('sp')));
       // (a spring may overshoot a little; it never leaves the bounds)
-      ['x', 'y', 's', 'r'].forEach(f => { out[f] = Math.max(b[f][0], Math.min(b[f][1], out[f])); });
+      // (an exit offstage travels past the stage bounds -- the same range its last key was allowed)
+      const bx = actor.exit === 'offstage' && g > actor.to ? [-80, 80] : b.x;
+      ['x', 'y', 's', 'r'].forEach(f => { const r = f === 'x' ? bx : b[f]; out[f] = Math.max(r[0], Math.min(r[1], out[f])); });
       return out;
     }
     function pick(k) { const o = { x: k.x, y: k.y, s: k.s, r: k.r, o: k.o }; if (k.sp != null) o.sp = k.sp; return o; }
@@ -3743,10 +3745,12 @@
           keys.push({ g: k + (k === 0 ? 0 : 0.3), x: p.x, y: p.y, s: p.s, r: p.r, o: 1 });
           // inside an event the actor transforms while the scene holds: it grows a little, turns, shifts toward centre
           if (big) keys.push({ g: k + 0.5, x: p.x, y: p.y - 3, s: r2(p.s * 1.1), r: Math.round(p.r + (p.x >= 0 ? -6 : 6) * rot), o: 1 });
-          keys.push({ g: k + 0.7, x: p.x, y: big ? p.y - 3 : p.y, s: big ? r2(p.s * 1.1) : p.s, r: big ? Math.round(p.r + (p.x >= 0 ? -6 : 6) * rot) : p.r, o: 1 });
+          // (the last scene of a run that leaves the stage lets go sooner: the actor is gone before the next scene's words arrive)
+          const hold = k === A.to && A.exit === 'offstage' ? 0.4 : 0.7;
+          keys.push({ g: k + hold, x: p.x, y: big ? p.y - 3 : p.y, s: big ? r2(p.s * 1.1) : p.s, r: big ? Math.round(p.r + (p.x >= 0 ? -6 : 6) * rot) : p.r, o: 1 });
         }
         const last = P(A.to); const out = A.exit === 'rejoin' ? { g: A.to + 1.05, x: 0, y: 12, s: r2(last.s * 0.55), r: 0, o: 0 } : A.exit === 'shrink' ? { g: A.to + 1, x: last.x, y: last.y + 6, s: r2(last.s * 0.4), r: last.r, o: 0 }
-          : { g: A.to + 1, x: last.x >= 0 ? 72 : -72, y: last.y, s: last.s, r: last.r + (last.x >= 0 ? 10 : -10) * rot, o: 0.85 };
+          : { g: A.to + 0.7, x: last.x >= 0 ? 72 : -72, y: last.y, s: last.s, r: last.r + (last.x >= 0 ? 10 : -10) * rot, o: 0.85 }; // (gone before the next scene's words settle)
         keys.push(out);
         // (scroll-linked travel eases smoothly: a snap or a spring is steep in the middle, and a steep move under the finger reads
         // as a jump; the personality shows in the poses -- tilt, reach, scale -- instead)
@@ -3833,7 +3837,9 @@
         const seen = new Set(); let keys = [];
         (Array.isArray(a.keys) ? a.keys : []).slice(0, 40).forEach(k => {
           if (!k || typeof k !== 'object' || typeof k.g !== 'number' || !isFinite(k.g)) return; const g = q05(num(k.g, lo, hi, lo)); if (seen.has(g)) return; seen.add(g);
-          const key = { g, x: Math.round(num(k.x, b.x[0], b.x[1], 0)), y: Math.round(num(k.y, b.y[0], b.y[1], 0)), s: Math.floor(num(k.s, b.s[0], cap, Math.min(1, cap)) * 100 + 1e-6) / 100, r: Math.round(num(k.r, b.r[0], b.r[1], 0)), o: r2(num(k.o, 0, 1, 1)) };
+          // (an exit offstage leaves the screen: its last key may go past the stage bounds)
+          const bx = out.exit === 'offstage' && g > out.to ? [-80, 80] : b.x;
+          const key = { g, x: Math.round(num(k.x, bx[0], bx[1], 0)), y: Math.round(num(k.y, b.y[0], b.y[1], 0)), s: Math.floor(num(k.s, b.s[0], cap, Math.min(1, cap)) * 100 + 1e-6) / 100, r: Math.round(num(k.r, b.r[0], b.r[1], 0)), o: r2(num(k.o, 0, 1, 1)) };
           if (kind === 'word') key.sp = r2(num(k.sp, 0, 1, 0));
           keys.push(key);
         });
@@ -5842,7 +5848,7 @@
       'type-takeover': {
         what: 'a few words fill the screen; the subject rises behind them, then the type scales through the camera', dominant: 'type', needs: ['short'], intensity: 'takeover', hold: true, camera: 'zoom-through',
         frame: 'cutout', text: 'giant', act: 'scale-through', becomes: 'shape-takeover', fixed: 'the words, until they pass the camera', moves: 'the subject behind the type, then the type itself', arcs: ['takeover', 'hook', 'escalation'], rest: 0.4,
-        planes: { text: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.68, 0, 0, 1.08, 0, 1), K(1, 0, 0, 3.4, 0, 0)], type: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.68, 0, 0, 1.08, 0, 1), K(1, 0, 0, 3.4, 0, 0)], subject: [K(0, 0, 26, 0.82, 0, 0), K(0.35, 0, 8, 0.96, 0, 1), K(0.75, 0, -4, 1.06, 0, 1), K(1, 0, -16, 1.16, 0, 1)] },
+        planes: { text: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.8, 0, 0, 1.1, 0, 1), K(1, 0, 0, 3.4, 0, 0)], type: [K(0, 0, 0, 0.86, 0, 0), K(0.2, 0, 0, 1, 0, 1), K(0.8, 0, 0, 1.1, 0, 1), K(1, 0, 0, 3.4, 0, 0)], subject: [K(0, 0, 26, 0.82, 0, 0), K(0.35, 0, 8, 0.96, 0, 1), K(0.75, 0, -4, 1.06, 0, 1), K(1, 0, -16, 1.16, 0, 1)] },
       },
       'mask-stage': {
         what: 'the picture is seen only through the words; the words grow until the picture is the whole screen', dominant: 'type', needs: ['bleed', 'short'], intensity: 'takeover', hold: true, camera: 'zoom-through',
@@ -11829,7 +11835,7 @@
     /* phones: the actor stands in the top of the screen, its scene's words below it; every movement is smaller */
     @media (max-width:720px){
       html{--mk:.5}
-      .ca[data-img],.actor-static{top:calc(var(--nav) + 1svh);height:36svh;max-width:72vw;translate:calc(-50% + var(--ax,0) * .35vw) calc(var(--ay,0) * .3vh);rotate:clamp(-8deg, calc(var(--ar,0) * 1deg), 8deg)}
+      .ca[data-img],.actor-static{top:calc(var(--nav) + 1svh);height:36svh;max-width:72vw;translate:calc(-50% + var(--ax,0) * .35vw + (max(var(--ax,0), 34) - 34) * 2.4vw + (min(var(--ax,0), -34) + 34) * 2.4vw) calc(var(--ay,0) * .3vh);rotate:clamp(-8deg, calc(var(--ar,0) * 1deg), 8deg)}
       .ca[data-role="secondary"],.ca[data-role="background"]{display:none}
       html.cr-js:not([data-motion="reduced"]) .sc[data-actor] .sc-pin{padding-top:calc(var(--nav) + 40svh)}
       html.cr-js:not([data-motion="reduced"]) .sc[data-actor] .sc-stage{display:none}
@@ -11936,7 +11942,8 @@
         if(a!==BA){BA=a;cb.style.backgroundColor=a;cb.style.setProperty('--cbc',a);cb.style.setProperty('--cbg',ga||'transparent')}if(b!==BB){BB=b;cb2.style.backgroundColor=b;cb2.style.setProperty('--cbc',b);cb2.style.setProperty('--cbg',gb||'transparent')}
         if(mode!==BM){BM=mode;cb2.setAttribute('data-mode',mode)}t=Math.round(t*100)/100;if(t!==BT){BT=t;cb2.style.setProperty('--t',t);cb2.style.opacity=mode==='sweep'?(t>0?'1':'0'):String(t)}}
       var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+(S.carry?S.end:Math.min(0,S.end))*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w,end-span,end);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
-    function pal(s){return s._pal||(s._pal=(function(v){var p=String(v||'-.4,0,blend').split(',');return[+p[0]||-.4,+p[1]||0,p[2]||'blend']})(s.getAttribute('data-pal')))}
+    /* (with a look the next colour is in place a quarter of a scene earlier: a scene's words never arrive on the last scene's colour) */
+    function pal(s){return s._pal||(s._pal=(function(v){var p=String(v||'-.4,0,blend').split(','),sh=d.documentElement.hasAttribute('data-look')?(window.innerWidth<=720?.45:.25):0;return[(+p[0]||-.4)-sh,(+p[1]||0)-sh,p[2]||'blend']})(s.getAttribute('data-pal')))}
     /* a carried subject: through its window the element follows the live positions of the two scenes' pictures (measured as
        they scroll), from the outgoing one to the incoming one, while both step aside; the outgoing shot turns into the next */
     /* its route keeps the words readable (carry-route.js): planned once per pass from the two pictures and the words' line
