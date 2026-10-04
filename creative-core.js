@@ -8264,6 +8264,15 @@
           fixes.push('palette: each scene takes its colour from its picture');
         }
       }
+      // (a mask stage's words are windows onto its picture: the field around them is set against the picture -- light around a
+      // dark photograph, dark around a light one -- so the letters read as the picture, never as a shadow of the field)
+      if (!safety && look) scenes.forEach(s => {
+        if (s.composition !== 'mask-stage' || !s.text || !s.text.giant) return; const f = s.layers.find(L => L.kind === 'image' && L.role === 'focal'); const a = f && byId.get(f.asset);
+        if (!a || !a.assess || typeof a.assess.luminance !== 'number') return; const field = s.tone || palette.bg; if (!HEX.test(field || '')) return;
+        const dark = a.assess.luminance < 115; const fl = PAL.lum(field);
+        if (dark && fl < 0.45) { s.background = 'base'; s.tone = PAL.mix(field, '#f5f2ec', 0.86).toLowerCase(); fixes.push(`scene ${s.id}: a light field around a dark picture's letters`); }
+        else if (!dark && fl > 0.35) { s.background = 'base'; s.tone = PAL.mix(field, '#0d0c0b', 0.86).toLowerCase(); fixes.push(`scene ${s.id}: a dark field around a light picture's letters`); }
+      });
       // a showcase (premium-arc.js): beside a premium moment the surface continues the clip's world -- never a flat colour
       // block between two moving pictures (a flood there reads as a new section: the media would end in a hard reset)
       if (!safety && eventAt.size >= 2) {

@@ -645,6 +645,8 @@ closed where it is made rather than left to the visual director:
   centred so the camera's scale grows them evenly; a mask stage's words are the window in the middle of the picture,
   sized to the narrow screen; the lineup becomes a cascade of large overlapping pictures, and on a desktop its row spans
   the screen.
+- **A mask stage reads as its picture**: the field around the words is set against the picture -- light around a dark
+  photograph, dark around a light one -- so the letters are windows onto it, never shadows on a field of the same tone.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
