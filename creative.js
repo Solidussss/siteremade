@@ -788,6 +788,20 @@
   var TD_PHASE = { queued: 'Waiting to start', submitting: 'Sending your picture', processing: 'Making the 3D model', downloading: 'Collecting the model', verifying: 'Checking the model', ready: 'Ready', failed: 'Not made', 'possible-cost': 'Not made' };
   function tdBlock() { return S.threeD && Array.isArray(S.threeD.assets) && S.threeD.assets.length ? S.threeD : null; }
   function tdSources() { var all = live(); var byId = new Map(all.map(function (a) { return [a.id, a]; })); return all.filter(function (a) { return a.origin === 'upload' && !a.cutoutOf && C.threeD.sourceEligible(a, { byId: byId }).ok; }); }
+  // the cut-out of an upload (made here in the browser), if it has one: the free 3D model is shaped from it
+  function tdCut(id) { return live().filter(function (a) { return a.cutoutOf === id && /^data:image\/png;base64,/.test(a.dataUrl || ''); })[0] || null; }
+  // FREE 3D: the cut-out goes to the builder, which shapes the model (round products only) -- placed where the picture stands
+  function td3Free() {
+    var cut = tdCut(S.tdSource); if (!cut || S.tdBusy) return; var src = live().filter(function (a) { return a.id === S.tdSource; })[0] || {};
+    S.tdBusy = true; S.tdNote = ''; build3D(); var mine = S;
+    api('/api/creative/3d/lathe', { method: 'POST', body: { png: cut.dataUrl, sourceAssetId: S.tdSource, title: src.title || '' } }).then(function (r) {
+      if (S !== mine) return; S.tdBusy = false;
+      if (!r.ok || !r.data || !r.data.ok) { S.tdNote = (r.data && r.data.message) || 'The 3D model could not be made.'; build3D(); return; }
+      var asset = Object.assign({}, r.data.asset, { dataUrl: r.data.dataUrl });
+      if (!td3Place(asset, tdSectionFor(S.tdSource), r.data.composition || 'label-turn')) { S.tdNote = 'The 3D model was made, but could not be placed on this page.'; build3D(); return; }
+      refresh(); markDirty(); build3D(); setSaveState('3D model added — free. Save to keep it.');
+    }).catch(function () { if (S !== mine) return; S.tdBusy = false; S.tdNote = 'The 3D model could not be made.'; build3D(); });
+  }
   function tdSceneName(id) { var s = (S.plan.scenes || []).find(function (x) { return x.id === id; }); return s ? (s.navLabel || (s.text && s.text.heading) || s.name || 'this section') : 'this section'; }
   // the section a model of this picture stands in: the first one after the opening that shows it (or its cut-out)
   function tdSectionFor(assetId) {
@@ -806,7 +820,8 @@
     if (S.plan && S.plan.v === 2 && S.tdAvail === undefined) load3D();
     var block = tdBlock(); var shown = block && (block.scenes || []).length; var job = S.tdJob; var sources = S.plan && S.plan.v === 2 ? tdSources() : [];
     var can = S.tdAvail && S.tdAvail.available;
-    if (!S.plan || S.plan.v !== 2 || !(shown || block || job || (can && sources.length))) { if (box) box.remove(); return; }
+    var freeOk = sources.some(function (a) { return tdCut(a.id); });
+    if (!S.plan || S.plan.v !== 2 || !(shown || block || job || ((can || freeOk) && sources.length))) { if (box) box.remove(); return; }
     if (!box) { box = h('section', { id: 'cs3d', class: 'cs-3d', 'aria-live': 'polite' }); els.csEditor.insertBefore(box, els.csEditor.querySelector('.cs-tabs')); }
     var head = '<h3>Interactive 3D</h3>'; var note = S.tdNote ? '<p class="cs-3d-note" role="alert">' + esc(S.tdNote) + '</p>' : '';
     var html;
@@ -834,12 +849,13 @@
       html = head + '<p>Turn one of your uploaded product or object pictures into a real interactive 3D element.</p>'
         + '<div class="cs-3d-srcs" role="radiogroup" aria-label="Picture to turn into 3D">' + sources.map(function (a) { return '<button type="button" role="radio" aria-checked="' + (a.id === S.tdSource ? 'true' : 'false') + '" data-td-src="' + esc(a.id) + '" title="' + esc(a.title || 'Your upload') + '"><img src="' + esc(srcFor(a)) + '" alt="' + esc(a.alt || a.title || 'Your upload') + '"></button>'; }).join('') + '</div>'
         + '<p class="cs-hint">Works best with one clear object on a plain background. The model is made by AI from a single picture: sides the picture does not show are estimated, so it will not be a perfect copy.</p>'
-        + '<button type="button" class="cs-btn" id="cs3dQuote"' + (S.tdBusy ? ' disabled' : '') + '>' + (S.tdBusy ? 'Working out the cost…' : 'See what it costs') + '</button>' + note;
+        + (tdCut(S.tdSource) ? '<button type="button" class="cs-btn cs-primary" id="cs3dFree"' + (S.tdBusy ? ' disabled' : '') + '>' + (S.tdBusy ? 'Shaping it…' : 'Make 3D from this picture — free') + '</button><p class="cs-hint">Free for something round about its upright axis — a can, a bottle, a jar: shaped from your own picture, it turns as visitors scroll.</p>' : '')
+        + (can ? '<button type="button" class="cs-btn" id="cs3dQuote"' + (S.tdBusy ? ' disabled' : '') + '>' + (S.tdBusy ? 'Working out the cost…' : 'See what it costs') + '</button>' : '') + note;
     }
     box.innerHTML = html;
     var on = function (id, fn) { var b = document.getElementById(id); if (b) b.addEventListener('click', fn); };
     [].forEach.call(box.querySelectorAll('[data-td-src]'), function (b) { b.addEventListener('click', function () { S.tdSource = b.getAttribute('data-td-src'); S.tdNote = ''; build3D(); }); });
-    on('cs3dQuote', td3Quote); on('cs3dGo', td3Start); on('cs3dCine', cinematicFrom3D);
+    on('cs3dQuote', td3Quote); on('cs3dGo', td3Start); on('cs3dCine', cinematicFrom3D); on('cs3dFree', td3Free);
     on('cs3dCancel', function () { S.tdQuote = null; S.tdNote = ''; build3D(); });
     on('cs3dAgain', function () { S.tdJob = null; S.tdNote = ''; build3D(); });
     on('cs3dRemove', function () { S.threeD = C.threeD.normalise({ assets: S.threeD.assets, scenes: [] }, {}); refresh(); markDirty(); build3D(); });

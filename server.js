@@ -3170,6 +3170,24 @@ function threeDSource(accountId, projectId, assetId, sectionId) {
   return { ok: true, source: { assetId: a.id, ref: a.assetRef, mime: hs.mime, bytes: buf.length }, sectionId: section.id, subject: clean((c.understanding && c.understanding.subject) || '', 120) };
 }
 // QUOTE: what a 3D model of this picture will use, before anything is reserved or sent. Nothing here costs anything.
+// A 3D MODEL FROM THE OWNER'S OWN CUT-OUT, FREE (lib/three-d/lathe.js): the studio sends the cut-out it made in the
+// browser (a PNG); a product round about its upright axis -- a can, a bottle, a jar -- becomes a stored model the page
+// shows turning through the side the photo shows. Anything else stays a picture. Nothing is asked of any provider.
+app.post('/api/creative/3d/lathe', express.json({ limit: '12mb' }), requireAuth, requireSameOrigin, generationRateLimit, (req, res) => {
+  const b = req.body || {}; const m = typeof b.png === 'string' ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(b.png) : null;
+  if (!m) return res.status(400).json({ ok: false, message: 'Send the cut-out as a PNG.' });
+  const buf = Buffer.from(m[1], 'base64'); const PNGC = require('./lib/creative/png');
+  if (!buf.length || buf.length > 12 * 1024 * 1024 || !PNGC.isPng(buf)) return res.status(400).json({ ok: false, message: 'That is not a PNG cut-out.' });
+  let img = null; try { img = PNGC.decode(buf); } catch (e) { img = null; } if (!img || !img.data) return res.status(400).json({ ok: false, message: 'The cut-out could not be read.' });
+  const made = require('./lib/three-d/lathe').fromCutout(img);
+  if (!made.ok) return res.json({ ok: false, reason: made.reason, message: `A free 3D model is made from something round about its upright axis (a can, a bottle, a jar) -- this one is ${made.reason}. It stays a picture.` });
+  const seen = threeD.glb.inspect(made.glb); if (!threeD.glb.check(seen.info, threeD.schema.LIMITS).ok) return res.json({ ok: false, message: 'The model came out too heavy for a page.' });
+  const src = clean(b.sourceAssetId, 60); const ref = storeBytes(made.glb, threeD.schema.MIME);
+  const asset = threeD.schema.cleanAsset({ id: ('tdl-' + src.replace(/[^\w-]/g, '')).slice(0, 40), sourceAssetId: src, title: clean(b.title, 120) || 'Product', bytes: seen.info.bytes, bounds: seen.info.bounds, center: seen.info.center, scale: 1, triangles: seen.info.triangles, textures: seen.info.textures, parts: seen.info.parts, animations: seen.info.animations, normalized: true, provenance: { provider: 'siteremade-lathe', processor: 'lathe (from the owner\'s cut-out)', at: new Date().toISOString() }, assetRef: ref });
+  if (!asset) return res.json({ ok: false, message: 'The model could not be made.' });
+  threeDLog({ step: 'lathe', accountId: req.accountId, sourceAssetId: src, triangles: seen.info.triangles, bytes: seen.info.bytes });
+  return res.json({ ok: true, asset, composition: 'label-turn', dataUrl: 'data:' + threeD.schema.MIME + ';base64,' + made.glb.toString('base64') });
+});
 app.post('/api/creative/premium/3d/quote', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
   const b = req.body || {}; const projectId = clean(b.projectId, 120);
   const av = await threeDAvailability();
@@ -5328,7 +5346,7 @@ app.post('/api/app-bridge/website/:projectId/creative/edit', appBridgeRateLimit,
   if (!op) return bridgeError(res, 400, 'invalid_request', 'Unknown change.');
   if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
   // FREE: no provider is asked, no credit is reserved -- the change is applied to the real Creative plan and validated
-  const out = creativeEditor.applyEdit(got.direction, op, { media: rootId => completedMediaFor(req.accountId, got.project.id, rootId) });
+  const out = creativeEditor.applyEdit(got.direction, op, { media: rootId => completedMediaFor(req.accountId, got.project.id, rootId), read: ref => (db.assetBlobs.find(ref) ? getAssetStore().get(ref) : null), store: storeBytes });
   if (!out.ok) return bridgeError(res, out.code === 'not_found' ? 404 : 422, out.code, out.message);
   // (a change that leaves the page as it is -- its words already fit -- saves nothing: no new draft, still free)
   if (out.unchanged) return res.json({ ok: true, unchanged: true, revision: got.project.revision, changeSummary: [out.summary], fitted: [], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });

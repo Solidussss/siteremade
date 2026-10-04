@@ -288,7 +288,7 @@ test('C. the 3D block is bounded data: a strict vocabulary, clamped numbers, kno
   assert.deepEqual([b.scenes[1].composition, b.scenes[1].interaction], ['orbit-product', 'scroll-orbit'], 'a composition brings its own interaction');
   assert.doesNotMatch(JSON.stringify(b.scenes), /eval|alert|javascript|while|steal|script/);
   // the vocabulary the brief asks for, exactly
-  assert.deepEqual(TD.COMPOSITION_NAMES, ['scroll-rotate', 'orbit-product', 'floating-object', 'camera-pass', 'hero-sculpture', 'object-reveal']);
+  assert.deepEqual(TD.COMPOSITION_NAMES, ['scroll-rotate', 'orbit-product', 'floating-object', 'camera-pass', 'hero-sculpture', 'object-reveal', 'label-turn']);
   assert.deepEqual(TD.INTERACTIONS, ['none', 'scroll-rotate', 'scroll-orbit', 'pointer-tilt', 'click-rotate']);
   // nothing 3D in it: no block at all (the project saves as it did before 3D existed)
   assert.equal(TD.normalise({ assets: [], scenes: [{ id: 'a' }] }), null); assert.equal(TD.normalise(null), null); assert.equal(TD.normalise('x'), null);
