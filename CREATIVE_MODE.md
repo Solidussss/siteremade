@@ -662,6 +662,10 @@ closed where it is made rather than left to the visual director:
   the headline the eye reads and the heading stays for screen readers and search -- never the same name twice, one under
   the other. On a phone (where the giant word runs off both edges) the heading stays; a faint or small copy is a ghost the
   visual director removes.
+- **No blank screen between scenes** (`render2.js` runtime): a held composition composes itself as it scrolls in, arriving at
+  its rest the moment it fills the screen; it plays its camera while it holds; and it makes its last move (words through
+  the camera, a picture opening out) as it scrolls away over the next scene -- never fading to nothing while it still
+  covers the screen. The visual director reads it where it arrives.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a

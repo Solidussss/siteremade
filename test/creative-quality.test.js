@@ -119,7 +119,9 @@ test('Q4. the renderer: a wash ends by the arrival, a mask stage rests where it 
   const v = PAGES[0]; const html = (plan, extra) => renderCreative2(plan, v.s.assets, Object.assign({ mode: 'export', src: a => `${a.id}.png` }, extra || {}));
   const h = html(v.plan);
   assert.match(h, /e0=sc\._top\+\(S\.carry\?S\.end:Math\.min\(0,S\.end\)\)\*vh/, 'a wash or a panel never past the arrival');
-  assert.match(h, /if\(s\._ct\)compFrame\(s,s\.hasAttribute\('data-pin'\)\?p:unheld\(s,p,vh\),vw\)/, 'a composition that is not held rests where the scene fills the screen');
+  assert.match(h, /if\(s\._ct\)compFrame\(s,hp!=null\?hp:s\.hasAttribute\('data-pin'\)\?p:unheld\(s,p,vh\),vw\)/, 'a composition that is not held rests where the scene fills the screen');
+  // (a held one arrives composed, holds, and makes its last move as it leaves over the next -- never a blank screen)
+  assert.match(h, /function held\(s,vh,y\)\{compPlanes\(s\);var top=s\._top-y,span=Math\.max\(1,s\._h-vh\),r=s\._rest\|\|0,d=\.85;/);
   assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading \.hs>span\{background:var\(--mimg\)/);
   // (above the look's giant-statement size: a mask stage's words fit the screen at the size they rest at, on a phone too)
   assert.match(h, /html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(13vw,calc\(var\(--fit\) \* \.86 \/ var\(--lw\)\)\)\}/);

@@ -605,10 +605,10 @@
 
     // ---------------------------------------------------------------- in the page
     // PAGE: where each scene starts, and the page's own layout faults (a held scene rests in the middle of its hold -- a held
-    // composition where it reads best, its own rest: the state its camera is designed around)
+    // composition where it arrives: at its own rest, the state its camera is designed around, the moment it fills the screen)
     const PAGE = `(() => { const vw = document.documentElement.clientWidth; const sc = [...document.querySelectorAll('section.sc')];
       return { vw, vh: innerHeight, height: document.scrollingElement.scrollHeight, overflowX: Math.max(0, document.scrollingElement.scrollWidth - vw),
-        scenes: sc.map((s, i) => { const r = s.getBoundingClientRect(); const at = Math.max(0, Math.round(r.top + scrollY)); return { i, id: s.id, layout: s.dataset.layout || 'free', at, h: Math.round(r.height), rest: at + Math.max(0, Math.round((r.height - innerHeight) * (s.hasAttribute('data-pin') && s.dataset.comp && s.dataset.rest != null && isFinite(+s.dataset.rest) ? Math.min(0.9, Math.max(0.05, +s.dataset.rest)) : 0.5))) }; }) }; })()`;
+        scenes: sc.map((s, i) => { const r = s.getBoundingClientRect(); const at = Math.max(0, Math.round(r.top + scrollY)); return { i, id: s.id, layout: s.dataset.layout || 'free', at, h: Math.round(r.height), rest: s.hasAttribute('data-pin') && s.dataset.comp && s.dataset.rest != null ? at + 1 : at + Math.max(0, Math.round((r.height - innerHeight) / 2)) }; }) }; })()`;
     // MEASURE(i, subjects): scene i as it rests on screen. subjects: { assetId: [x0, y0, x1, y1] } (the measured subject, for
     // pictures that do not carry it -- the actor's cut-out)
     function MEASURE(i, subjects) {
@@ -11277,6 +11277,10 @@
        state it reads best at) -- its travel before and after spread over the arrival and the leaving, never the words still
        half-way to the camera when the scene has come to rest */
     function unheld(s,p,vh){compPlanes(s);var p0=vh/(vh+s._h),r=s._rest;return p<=p0?r*p/Math.max(1e-6,p0):r+(1-r)*(p-p0)/Math.max(1e-6,1-p0)}
+    /* a held composition plays as it arrives, holds and leaves -- never a blank screen: it composes itself as it scrolls in (arriving at its rest, the
+       state it reads best at, the moment it fills the screen), plays its camera while it holds, and makes its last move as it
+       scrolls away over the next scene -- never fading to nothing while it still covers the screen */
+    function held(s,vh,y){compPlanes(s);var top=s._top-y,span=Math.max(1,s._h-vh),r=s._rest||0,d=.85;if(top>0)return r*cl(1-top/vh);var q=-top/span;if(q<=1)return r+(d-r)*q;return d+(1-d)*cl((-top-span)/vh)}
     /* (the same arrival for the beats of a scene that is not held: half-way through their passage when it fills the screen) */
     function arrive(s,p,vh){var p0=vh/(vh+s._h);return p<=p0?.5*p/Math.max(1e-6,p0):.5+.5*(p-p0)/Math.max(1e-6,1-p0)}
     function compRest(s){compPlanes(s).forEach(function(P){compApply(P,ksample(P.K,s._rest),1)})}
@@ -11291,9 +11295,10 @@
         if(red){if(s._ct)compRest(s);s._bw.forEach(function(b,j){s.style.removeProperty('--b'+j)});s.style.removeProperty('--sn');s.style.removeProperty('--sx');s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
         var p=prog(s,vh,y),w=s._ch==='word-fill'||(s._wf&&s._ch==='settle')?(s.hasAttribute('data-pin')?[.04,.9]:[.18,.62]):WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
         s.style.setProperty('--p',p.toFixed(4));s.style.setProperty('--pe',pe.toFixed(4));
-        if(s._ct)compFrame(s,s.hasAttribute('data-pin')?p:unheld(s,p,vh),vw);
+        var hp=s._ct&&s.hasAttribute('data-pin')?held(s,vh,y):null;
+        if(s._ct)compFrame(s,hp!=null?hp:s.hasAttribute('data-pin')?p:unheld(s,p,vh),vw);
         /* each beat plays over its own window of the scene's progress */
-        var pb=s.hasAttribute('data-pin')?p:arrive(s,p,vh);s._bw.forEach(function(b,j){s.style.setProperty('--b'+j,EZ.ss(cl((pb-b[0])/Math.max(.01,b[1]-b[0]))).toFixed(4))});
+        var pb=hp!=null?hp:s.hasAttribute('data-pin')?p:arrive(s,p,vh);s._bw.forEach(function(b,j){s.style.setProperty('--b'+j,EZ.ss(cl((pb-b[0])/Math.max(.01,b[1]-b[0]))).toFixed(4))});
         if(s._seam){s.style.setProperty('--sn',cl(1-top/vh).toFixed(4));s.style.setProperty('--sx',cl(1-(top+s._h)/vh).toFixed(4))}
         if(s.hasAttribute('data-bleed'))s.style.setProperty('--mix',cl((vh-top)/(vh*.85)).toFixed(3));
         if(s._steps&&s.hasAttribute('data-pin'))setStep(s,Math.min(s._steps-1,Math.floor(p*s._steps*.9999)));
