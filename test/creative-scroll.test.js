@@ -88,7 +88,10 @@ test('2. choreography families and intensity modes: several arcs, several intens
   ALL.forEach(v => {
     const a = v.plan.art; const lim = ART.MODE_LIMITS[a.mode];
     assert.ok(ART.FAMILY[a.family].modes.includes(a.mode), `${a.recipe}: ${a.family} is never played ${a.mode}`);
-    const pins = v.plan.scenes.filter(s => s.pin).length; assert.ok(pins <= lim.pins, `${a.recipe}: ${pins} held scenes, ${a.mode} allows ${lim.pins}`);
+    // (a composition held while its camera plays counts against the mode's composition holds, a layout's pin against its pins)
+    const COMP = require('../lib/creative/composition'); const comp = s => s.choreo === 'compose' && COMP.SPEC[s.composition] && COMP.SPEC[s.composition].hold;
+    const pins = v.plan.scenes.filter(s => s.pin && !comp(s)).length; assert.ok(pins <= lim.pins, `${a.recipe}: ${pins} held scenes, ${a.mode} allows ${lim.pins}`);
+    const holds = v.plan.scenes.filter(s => s.pin && comp(s)).length; assert.ok(holds <= (COMP.HOLDS[a.mode] || 0), `${a.recipe}: ${holds} held compositions, ${a.mode} allows ${COMP.HOLDS[a.mode] || 0}`);
     const driven = v.plan.scenes.filter(s => s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor').length; assert.ok(driven <= lim.driven, `${a.recipe}: ${driven} driven scenes`);
     if (a.mode === 'quiet') assert.ok(v.plan.scenes.every(s => ['settle', 'mask-reveal', 'type-wipe', 'word-fill'].includes(s.choreo) && !s.pin), `${a.recipe}: a quiet page only settles and reveals`);
   });

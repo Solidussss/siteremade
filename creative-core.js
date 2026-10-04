@@ -602,10 +602,11 @@
     }
 
     // ---------------------------------------------------------------- in the page
-    // PAGE: where each scene starts, and the page's own layout faults
+    // PAGE: where each scene starts, and the page's own layout faults (a held scene rests in the middle of its hold -- a held
+    // composition where it reads best, its own rest: the state its camera is designed around)
     const PAGE = `(() => { const vw = document.documentElement.clientWidth; const sc = [...document.querySelectorAll('section.sc')];
       return { vw, vh: innerHeight, height: document.scrollingElement.scrollHeight, overflowX: Math.max(0, document.scrollingElement.scrollWidth - vw),
-        scenes: sc.map((s, i) => { const r = s.getBoundingClientRect(); const at = Math.max(0, Math.round(r.top + scrollY)); return { i, id: s.id, layout: s.dataset.layout || 'free', at, h: Math.round(r.height), rest: at + Math.max(0, Math.round((r.height - innerHeight) / 2)) }; }) }; })()`;
+        scenes: sc.map((s, i) => { const r = s.getBoundingClientRect(); const at = Math.max(0, Math.round(r.top + scrollY)); return { i, id: s.id, layout: s.dataset.layout || 'free', at, h: Math.round(r.height), rest: at + Math.max(0, Math.round((r.height - innerHeight) * (s.hasAttribute('data-pin') && s.dataset.comp && s.dataset.rest != null && isFinite(+s.dataset.rest) ? Math.min(0.9, Math.max(0.05, +s.dataset.rest)) : 0.5))) }; }) }; })()`;
     // MEASURE(i, subjects): scene i as it rests on screen. subjects: { assetId: [x0, y0, x1, y1] } (the measured subject, for
     // pictures that do not carry it -- the actor's cut-out)
     function MEASURE(i, subjects) {
@@ -6478,9 +6479,10 @@
       return out;
     }
     function keep(text) { return units(text).join(' '); }
-    function measure(text) {
+    function measure(text, phone) {
       const u = units(text).map(x => x.length); const n = u.reduce((t, x) => t + x, 0) + Math.max(0, u.length - 1); if (!n) return 4;
-      const target = n <= 12 ? 1 : n <= 26 ? 2 : n <= 46 ? 3 : 4;
+      // (on a phone a statement takes more, shorter lines -- the narrow screen's way to set it large)
+      const target = phone ? (n <= 10 ? 1 : n <= 20 ? 2 : n <= 32 ? 3 : n <= 46 ? 4 : 5) : n <= 12 ? 1 : n <= 26 ? 2 : n <= 46 ? 3 : 4;
       const linesAt = w => { let lines = 1, cur = 0; u.forEach(x => { if (!cur) cur = x; else if (cur + 1 + x <= w) cur += 1 + x; else { lines++; cur = x; } }); return lines; };
       let w = Math.max(...u); while (w < n && linesAt(w) > target) w++;
       return Math.max(4, w + 1);
@@ -6927,7 +6929,9 @@
       const n = Math.min(7, e.images); if (n < 3) return null; const mid = (n - 1) / 2;
       return {
         place: { gc: [3, 10], v: 'bottom', align: 'center' }, mplace: 'below', height: 'screen', smallHeading: true,
-        slots: Array.from({ length: n }, (_, k) => { const off = Math.abs(k - mid); const w = 76 / n; return { d: [12 + k * w, 22 + off * 5, w * 0.9, 50 - off * 7], m: [2 + k * (96 / n), 20 + off * 6, (96 / n) * 0.92, 60 - off * 8], intent: 'floating', mask: 'window', anchor: 'cb', z: 7 - Math.round(off), role: k === Math.round(mid) ? 'focal' : 'support', rot: (k - mid) * 3, optional: k >= 3 }; }),
+        // (the row spans the screen, each picture as large as the row allows; on a phone the row becomes a cascade of large
+        // overlapping pictures down the screen -- never a strip of thumbnails)
+        slots: Array.from({ length: n }, (_, k) => { const off = Math.abs(k - mid); const w = 92 / n; return { d: [4 + k * w, 16 + off * 4, w * 0.94, 62 - off * 6], m: [k % 2 ? 32 : 4, 2 + k * (70 / n), 64, 96 / n + 14], intent: 'floating', mask: 'window', anchor: 'cb', z: 7 - Math.round(off), role: k === Math.round(mid) ? 'focal' : 'support', rot: (k - mid) * 3, optional: k >= 3 }; }),
         decos: [{ kind: 'shape', form: 'circle', fill: 'glow', d: [36, 60, 28, 18], m: [20, 76, 60, 20], z: 1, opacity: 0.55, role: 'backdrop' }],
       };
     };
@@ -7836,8 +7840,10 @@
         }
         if (layersTotal + layers.length > LIMITS.layersTotal) { layers = layers.slice(0, Math.max(0, LIMITS.layersTotal - layersTotal)); fixes.push(`${where}: layer budget reached`); }
         layersTotal += layers.length;
-        // (an archetype's choreography is its scroll movement; its layers need no scroll kind of their own to hold it)
-        if (pin && !(artScene && ARCH.PINNED.includes(rs.choreo)) && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
+        // (an archetype's choreography is its scroll movement; its layers need no scroll kind of their own to hold it -- nor do a
+        // held composition's planes: its camera is the movement)
+        const heldComp = rs.choreo === 'compose' && COMP.SPEC[rs.composition] && COMP.SPEC[rs.composition].hold;
+        if (pin && !(artScene && (ARCH.PINNED.includes(rs.choreo) || heldComp)) && !layers.some(L => L.scroll.kind !== 'none')) { pin = false; pinned--; fixes.push(`${where}: pinned without anything moving on scroll -- unpinned`); }
         const bg = rs.background || {};
         // an "auto" scene is only as tall as its words; pictures and shapes need a stage of their own beside them
         let sceneHeight = height;
@@ -10206,7 +10212,7 @@
       const textArt = artOn ? ` data-v="${place ? place.v : 'middle'}" data-align="${place ? place.align : 'left'}" data-mplace="${t.mplace || 'above'}"${t.giant ? ' data-giant' : ''}${t.columns ? ' data-columns' : ''}${t.shade ? ` data-shade="${t.shade}"` : ''}${tr ? ` data-treatment="${tr}"` : ''}${t.role ? ` data-role="${t.role}"` : ''}${t.act ? ` data-act="${t.act}"` : ''}${t.copy ? ` data-copy="${t.copy}"` : ''}${tpl ? planeAttrs(tpl, 'text') : ''}${place || wn || tpl || tr === 'letter-spread' || has('letter-spread') ? ` style="${[place ? `--gc:${place.gc[0] + 1} / ${place.gc[1] + 2}` : '', wn ? `--wn:${wn}` : '', tr === 'letter-spread' || has('letter-spread') ? `--cn:${cn}` : '', tpl ? planeStyle(tpl, c.ctrack.rest) : ''].filter(Boolean).join(';')}"` : ''}` : '';
       const text = `<div class="sc-text${t.scrim ? ' has-scrim' : ''}" data-region="${t.region}" data-size="${t.size}" data-width="${t.width}" data-entrance="${t.entrance}"${textArt}>
           ${t.kicker ? `<p class="sc-kicker${hero ? ' cr-kicker' : ''}"${c.edit(`${k}.kicker`)}>${esc(t.kicker)}</p>` : ''}
-          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${lw}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
+          ${t.heading ? `<${H} class="sc-heading${hero ? ' cr-h1' : ''}" data-len="${t.heading.length > 40 ? 'xl' : t.heading.length > 22 ? 'l' : 's'}"${t.entrance === 'split-words' || stagger || tr === 'letter-spread' || fillHead || has('letter-spread') || has('text-swap') ? '' : c.edit(`${k}.heading`)}${stagger ? ' data-stagger' : ''}${battr('heading')} style="--lw:${lw}${t.giant && c.plan.look ? `;--lwm:${Math.ceil(LOOK.measure(t.heading, true) * capsK)}` : ''}${bvars('heading') ? ';' + bvars('heading') : ''}">${words}</${H}>` : ''}
           ${t.body ? `<p class="sc-body${hero ? ' cr-lede' : ''}"${battr('body')}${bvars('body') ? ` style="${bvars('body')}"` : ''}${fillBody && tr === 'word-fill' ? ` data-blen="${t.body.length > 240 ? 'l' : t.body.length > 120 ? 'm' : 's'}"` : ''}><span${c.edit(`${k}.body`)}>${fillBody ? fill(t.body) : esc(t.body)}</span>${c.cite(t.cite)}</p>` : ''}
           ${items}
           ${hero && s.cta && c.plan.scenes[1] ? `<a class="sc-cta cr-cta" href="#${esc(c.plan.scenes[1].id)}">${esc(s.cta)}<span aria-hidden="true">↓</span></a>` : ''}
@@ -10266,7 +10272,13 @@
       const echo = echoA && !c.plan.look && c.src(echoA) ? `<div class="sc-ghost" aria-hidden="true"><img src="${esc(c.src(echoA))}" alt="" decoding="async"></div>` : '';
       const glowC = c.flowAll && s.visual && s.visual.palette ? PAL.glow(PAL.secondary(c.byId.get(s.visual.asset)) || s.visual.palette, c.plan.palette) : '';
       const inCast = !!(c.cast && c.cast.has(si));
-      const beatWin = beats.map(b => { const f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; const t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
+      // (in a held composition everything that arrives has arrived by the composition's rest -- where the scene is read: the
+      // heading it is about shows, never the line before it; a word spreading its letters has spread, never half over the
+      // heading. What leaves still leaves after it)
+      const cRest = s.pin && c.ctrack && typeof c.ctrack.rest === 'number' ? c.ctrack.rest : null;
+      // (words alone, set giant -- a look's statement scene: on a phone it is the whole screen, the empty stage gone)
+      const alone = !!c.plan.look && artOn && !!t.giant && !s.layers.some(L => L.kind === 'image');
+      const beatWin = beats.map(b => { let f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; let t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; if (b.dir !== 'out' && cRest != null && t0 > cRest) { t0 = Math.max(0.04, cRest); f0 = Math.max(0, Math.min(f0, t0 - 0.12)); } return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
       const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || !!c.ctrack || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill' || beats.length > 0 || !!seamAttr);
       const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
       const sceneArt = c.arted && (artOn || s.handoff) ? ` data-layout="${s.layout || 'free'}" data-choreo="${s.choreo || 'settle'}" data-handoff="${handoff}"${artOn ? ` data-mplace="${t.mplace || 'above'}"` : ''}${s.steps && s.pin ? ` data-steps="${s.steps}"` : ''}${s.sceneType ? ` data-type="${s.sceneType}"` : ''}${s.exit && seamOut !== 'depth-handoff' ? ` data-exit="${s.exit}"` : ''}${inRun ? ' data-actor' : ''}${inCast ? ' data-cast' : ''}${seamAttr}${beats.length ? ` data-beats="${beatWin}"` : ''}${has('perspective') ? ' data-persp' : ''}${needsP ? ' data-p' : ''}${hold ? ' data-hold' : ''}${overlapped ? ' data-overlapped' : ''}${bleed ? ' data-bleed' : ''}${bgw != null ? ` data-bgw="${bgw}"` : ''}${pal ? ` data-pal="${pal}"` : ''}${glowC ? ` data-glow="${glowC}"` : ''}${callback ? ` data-callback="${callback}"` : ''}${echo ? ' data-echo' : ''}${c.ctrack ? ` data-comp="${c.ctrack.comp}" data-cam="${c.ctrack.camera}" data-rest="${c.ctrack.rest}"` : ''}${c.ctrack && s.arc ? ` data-arc="${s.arc}"` : ''}` : '';
@@ -10274,7 +10286,7 @@
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}${(c.td && c.td.get(si)) || ''}</div>
@@ -10299,7 +10311,9 @@
     ${L.grade ? `html[data-look]{--gtint:${L.grade.tint};--galpha:${L.grade.alpha}}
     html[data-look] .ly-art[data-grade] :is(.ly-img,.ly-vid){filter:var(--gf)}
     html[data-look] .ly-art[data-grade="tint"]::after{content:"";position:absolute;inset:0;background:var(--gtint);mix-blend-mode:soft-light;opacity:var(--galpha);pointer-events:none;border-radius:inherit}
-    ` : ''}/* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
+    ` : ''}/* a statement scene on a phone: the whole screen, the words in its middle, no empty stage under them */
+    @media (max-width:45em){html[data-look] .sc[data-alone] .sc-stage{display:none}html[data-look] .sc[data-alone] .sc-pin{justify-content:center;min-height:100svh}html[data-look][data-look] .sc:not([data-comp="mask-stage"]) .sc-text[data-giant] .sc-heading[data-len]{font-size:min(19vw,calc(var(--fit) * 1.06 / var(--lwm,var(--lw))))}html[data-look] .sc[data-comp] .sc-text[data-giant]{text-align:center!important;transform-origin:50% 50%}}
+    /* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
     html[data-look] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)))}
     /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
     html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}
@@ -11142,7 +11156,9 @@
     /* (a heading whose words swap: each version is its own window onto the picture -- a window cut through the whole heading
        would show the hidden version too, both sets of letters at once) */
     /* (the words of a mask stage still grow toward the camera where the scene rests: they are set to fit the screen at that size) */
-    .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading{font-size:min(13vw,calc(var(--fit) * .86 / var(--lw)))}
+    html .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(13vw,calc(var(--fit) * .86 / var(--lw)))}
+    /* (on a phone the words are the window in the middle of the picture, sized to the narrow screen -- never a caption at its foot) */
+    @media (max-width:720px){html .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(13vw,calc(var(--fit) * .78 / var(--lwm,var(--lw))))}.sc[data-layout][data-comp="mask-stage"][data-mplace="overlay"]:not([data-layout="free"]) .sc-text[data-giant]{align-self:center;padding:0 16px}}
     .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading:has(.hs){background:none}.sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading .hs>span{background:var(--mimg) 50% 50%/cover no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
     .sc-shade[data-shade="center"]{inset:0;height:auto;background:radial-gradient(ellipse 72% 58% at 50% 50%,color-mix(in srgb,var(--s-surface,var(--bg)) 74%,transparent),transparent 78%)}
     @media (max-width:720px){html.cr-js .sc[data-pin][data-choreo="compose"]{height:160svh}.sc[data-comp] .sc-text[data-role="label"]{max-width:none}}

@@ -121,7 +121,12 @@ test('Q4. the renderer: a wash ends by the arrival, a mask stage rests where it 
   assert.match(h, /e0=sc\._top\+\(S\.carry\?S\.end:Math\.min\(0,S\.end\)\)\*vh/, 'a wash or a panel never past the arrival');
   assert.match(h, /if\(s\._ct\)compFrame\(s,s\.hasAttribute\('data-pin'\)\?p:unheld\(s,p,vh\),vw\)/, 'a composition that is not held rests where the scene fills the screen');
   assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading \.hs>span\{background:var\(--mimg\)/);
-  assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\{font-size:min\(13vw,calc\(var\(--fit\) \* \.86 \/ var\(--lw\)\)\)\}/);
+  // (above the look's giant-statement size: a mask stage's words fit the screen at the size they rest at, on a phone too)
+  assert.match(h, /html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(13vw,calc\(var\(--fit\) \* \.86 \/ var\(--lw\)\)\)\}/);
+  assert.match(h, /@media \(max-width:720px\)\{html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(13vw,calc\(var\(--fit\) \* \.78 \/ var\(--lwm,var\(--lw\)\)\)\)/);
+  // (held compositions stay held through the page's final check: their camera is their movement)
+  const held = PAGES.flatMap(v => v.plan.scenes.filter(s => s.choreo === 'compose' && s.composition && require('../lib/creative/composition').SPEC[s.composition].hold));
+  assert.ok(held.length && held.some(s => s.pin), 'held compositions keep their hold');
   assert.match(h, /html\[data-look\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(clamp\(4rem,15vw,17rem\)/, 'a giant statement is never capped as a long heading');
   assert.ok(v.plan.look); assert.match(h, /html\[data-look\] main>\.sc:last-of-type:not\(\[data-pin\]\) \.sc-pin\{min-height:100vh;min-height:100svh;justify-content:center\}/);
   const old = JSON.parse(JSON.stringify(v.plan)); delete old.look; assert.doesNotMatch(html(old), /main>\.sc:last-of-type/, 'a page saved before looks keeps its own ending');

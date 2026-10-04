@@ -635,6 +635,16 @@ closed where it is made rather than left to the visual director:
   never muted below x0.97: a vivid product stays vivid), a touch of shared contrast, and one light soft-light cast (the
   photographs' own common hue, 12%) over the photographs that fill their frames -- never over a cut-out or a letterboxed
   picture, never over a picture with a treatment of its own. A look saved before the grade renders exactly as it did.
+- **The set-pieces hold the scroll** (`validate2.js`): a held composition (the mask stage's reveal, the type takeover, the
+  tunnel, the lineup...) was pinned when composed and then unpinned by the final check as "pinned without anything moving"
+  -- its camera is its movement, and it now keeps its hold (within the mode's holds). In a held composition everything
+  that arrives has arrived by the composition's rest (a swapped heading, a word spreading its letters), and the visual
+  director measures it there, at its rest -- the state its camera is designed around.
+- **Phones at full size**: a statement scene is the whole phone screen, its words in the middle (no empty stage); a giant
+  heading on a phone is set on a phone's measure (more, shorter lines -- larger type); a composition's giant words are
+  centred so the camera's scale grows them evenly; a mask stage's words are the window in the middle of the picture,
+  sized to the narrow screen; the lineup becomes a cascade of large overlapping pictures, and on a desktop its row spans
+  the screen.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
