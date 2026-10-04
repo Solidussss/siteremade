@@ -10162,6 +10162,16 @@ async function onSignedIn() {
   await loadOwnedProjectsList();
   await migrateLocalProjectToAccount();
   updateAccountUI();
+  openLinkedProject();
+}
+// SAVED DRAFTS: the client app's "Continue in the builder" on a saved draft lands here with ?project=<id> (through the
+// sign-in handoff) -- once the account is known, that exact project opens, a Creative draft in the Creative studio,
+// ready to edit and save. The id leaves the address bar so a refresh doesn't reopen it over later work.
+function openLinkedProject() {
+  const m = /(?:^|[?&])project=([A-Za-z0-9_-]{1,80})(?:&|$)/.exec(window.location.search); if (!m) return;
+  const u = new URL(window.location.href); u.searchParams.delete('project');
+  history.replaceState(null, '', u.pathname + u.search + u.hash);
+  loadSelectedOwnedProjectById(m[1]);
 }
 
 // Sends the CURRENT directions/activeDirectionIndex now, coalescing any

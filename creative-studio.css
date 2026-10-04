@@ -140,7 +140,8 @@ body.cs-open{overflow:hidden}
      into a tiny grid row above a 70vh preview. The controls must remain fully
      reachable; the generated page sits below them and can never cover them. */
   .cs-body{
-    display:block;
+    display:flex;
+    flex-direction:column;
     overflow-y:auto;
     overflow-x:hidden;
     min-height:0;
@@ -159,6 +160,10 @@ body.cs-open{overflow:hidden}
     min-height:60vh;
     height:min(72vh,760px);
   }
+  .cs-body>*{flex:0 0 auto}
+  /* a page exists: on a phone it comes first -- the owner sees their website, the editor follows below */
+  .cs-body:has(.cs-viewport:not([hidden])) .cs-stage{order:-1}
+  .cs-jump{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:5;border:0;border-radius:99px;padding:10px 16px;font:inherit;font-weight:600;font-size:14px;color:#1a1208;background:linear-gradient(135deg,#ffcf5c,#ff7a59);box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer}
   .cs-tabs{
     overflow-x:auto;
     overflow-y:hidden;
@@ -169,6 +174,8 @@ body.cs-open{overflow:hidden}
   .cs-tabs button{flex:0 0 auto}
 }
 .cs.cs-behind{z-index:50}
+.cs-jump{display:none}
+@media (max-width:860px){.cs-jump:not([hidden]){display:block}}
 .cs-direction{border:1px solid #2e2e38;border-radius:12px;padding:12px 14px;margin:0 0 14px;background:#17171d}
 .cs-direction p{margin:6px 0}.cs-direction strong{font-size:15px}
 .cs-src{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:99px;margin-bottom:6px}

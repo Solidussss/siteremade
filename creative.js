@@ -20,7 +20,7 @@
       mode: 'creative', modePrices: null,
       // what a premium cinematic clip starts from: the owner's upload ('image') or the page's own 3D model ('model3d')
       premiumSource: 'image',
-      projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null, models: [], spatialOn: false,
+      projectId: null, revision: null, status: null, jobId: null, name: '', dirty: false, busy: false, device: narrowScreen() ? 'phone' : 'desktop', previewMotion: 'full', fixture: '', planMeta: null, history: [], previous: null, understandMeta: null, mainAsset: null, abstractChosen: false, refines: 0, directing: false, picked: null, models: [], spatialOn: false,
       cost: { researchRequests: 0, researchBytes: 0, paidCalls: 0, credits: 0, aiCalls: 0, aiUsdEstimated: 0 } };
   }
   function h(tag, attrs, html) { var e = document.createElement(tag); if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'class') e.className = attrs[k]; else if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }); if (html != null) e.innerHTML = html; return e; }
@@ -115,6 +115,9 @@
     [].forEach.call(root.querySelectorAll('[data-device]'), function (b) { b.addEventListener('click', function () { S.device = b.getAttribute('data-device'); [].forEach.call(root.querySelectorAll('[data-device]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); fit(); }); });
     [].forEach.call(root.querySelectorAll('[data-tab]'), function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
     window.addEventListener('resize', fit);
+    var jump = document.createElement('button'); jump.type = 'button'; jump.className = 'cs-jump'; jump.id = 'csJump'; jump.hidden = true; jump.textContent = 'See the page \u2191';
+    jump.addEventListener('click', function () { els.csStage.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); root.appendChild(jump);
+    if (window.IntersectionObserver) new IntersectionObserver(function (es) { jump.hidden = es[0].isIntersecting || els.csViewport.hidden; }, { root: root.querySelector('.cs-body'), threshold: 0.15 }).observe(els.csStage);
     root.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !S.busy) close(); });
   }
   function showTab(name) {
@@ -125,6 +128,7 @@
     els.csBrief.value = S.brief; els.csSupplied.value = S.suppliedText; els.csMemories.value = S.memoriesText;
     els.csBriefStep.hidden = false; els.csProgress.hidden = true; els.csEditor.hidden = true; els.csViewport.hidden = true; els.csEmpty.hidden = false;
     els.csChoices.innerHTML = ''; els.csError.hidden = true; var pvl = document.getElementById('csPvLive'); if (pvl) pvl.remove(); var td0 = document.getElementById('cs3d'); if (td0) td0.remove(); renderThumbs(); setSaveState(''); els.csSave.disabled = true; showFixture(); showBuy();
+    fit();
   }
   // ---------- credits and the website purchase ----------
   // the balance and prices come from the server (the same numbers the builder and the app show)
@@ -316,7 +320,15 @@
     if (ticker && (ticker.id === id || state === 'active')) { clearInterval(ticker.t); ticker = null; }
     if (state === 'active') { var t0 = Date.now(), base = note != null ? note : li.querySelector('small').textContent; ticker = { id: id, t: setInterval(function () { var sec = Math.round((Date.now() - t0) / 1000); li.querySelector('small').textContent = (base ? base + ' · ' : '') + sec + ' s'; }, 1000) }; }
   }
-  function fail(msg) { els.csError.hidden = false; els.csError.textContent = msg; S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; }
+  function usedUp() {
+    var box = h('div', { class: 'cs-dir-actions', id: 'csUsedUp' });
+    var ptr = null; try { ptr = JSON.parse(localStorage.getItem(POINTER) || 'null'); } catch (e) { ptr = null; }
+    if (ptr && ptr.id) { var o = h('button', { type: 'button', class: 'cs-btn', text: 'Open \u201c' + (ptr.name || 'your saved page') + '\u201d' }); o.addEventListener('click', function () { o.disabled = true; api('/api/projects/' + encodeURIComponent(ptr.id)).then(function (r) { if (r.ok && r.data.ok) loadProject(r.data.project); else fail('That page could not be loaded from your account.'); }); }); box.appendChild(o); }
+    var f = h('button', { type: 'button', class: 'cs-btn cs-ghost', text: 'Start this page fresh (priced first)' }); f.addEventListener('click', function () { try { localStorage.removeItem(JOB); } catch (e) { /* optional */ } S.jobId = null; create(); }); box.appendChild(f);
+    els.csError.appendChild(box);
+  }
+  // (brought into view: on a phone the message would otherwise sit far below where the owner is looking)
+  function fail(msg) { els.csError.hidden = false; els.csError.textContent = msg; S.busy = false; els.csCreate.disabled = false; els.csBriefStep.hidden = false; try { els.csError.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* older browsers */ } }
   function lines(t) { return String(t || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }
 
   // ---------- THE GENERATION MODE: Creative, Creative + Cinematic Hero, Creative Showcase ----------
@@ -524,6 +536,9 @@
       if (r.data && ((r.data.needsConfirmation && r.data.quote) || (r.data.creditsExceeded && !choice))) { S.busy = false; els.csCreate.disabled = false; els.csProgress.hidden = true; els.csBriefStep.hidden = false; creditsFrom(r.data); return confirmGeneration().then(function (q) { if (q) return create(choice, q); }); }
       creditsFrom(r.data);
       if (r.data && r.data.jobId) { S.jobId = r.data.jobId; rememberJob(false); } else if (r.data && (r.data.jobEnded || r.data.creditsExceeded)) S.jobId = null;
+      // this page's included research runs are used up (a phone that dropped the page mid-generation and reloaded it):
+      // never a dead end -- open the page already saved, or start this page fresh (a new job, priced and confirmed first)
+      if (r.data && r.data.researchUsedUp) { step('understand', 'failed', r.data.message); fail(r.data.message); return usedUp(); }
       if (!r.ok || !r.data.ok) { step('understand', 'failed', (r.data && r.data.message) || 'The lookup failed.'); return fail((r.data && r.data.message) || 'The lookup failed. Please try again.'); }
       var d = r.data; if (d.premium) { S.premium = d.premium; S.premiumResult = null; step('premium', 'wait', premiumHeadline(d.premium)); } S.understanding = d.understanding; S.understandMeta = d.understandMeta || null; S.research = d.research; S.choice = choice || ''; S.spatialOn = !!d.spatial;
       var u = d.understanding || {};
@@ -1215,7 +1230,9 @@
     frame.srcdoc = html; S.lastHtml = html;
     els.csEmpty.hidden = true; els.csViewport.hidden = false; fit();
   }
+  function narrowScreen() { try { return window.matchMedia('(max-width:860px)').matches; } catch (e) { return false; } }
   function fit() {
+    [].forEach.call(root.querySelectorAll('[data-device]'), function (x) { x.setAttribute('aria-pressed', String(x.getAttribute('data-device') === S.device)); });
     if (!frame || els.csViewport.hidden) return;
     var stage = els.csStage.getBoundingClientRect(); var phone = S.device === 'phone';
     var W = phone ? 390 : 1440, H = phone ? 844 : 900; var k = Math.min((stage.width - 32) / W, (stage.height - 32) / H, 1);
