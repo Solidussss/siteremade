@@ -267,11 +267,15 @@
   }
   function addUploads(files, role) {
     var uploads = S.assets.filter(function (a) { return a.origin === 'upload' && !a.removed; });
-    return Promise.all(files.slice(0, Math.max(0, 8 - uploads.length)).map(fileToAsset)).then(function (list) {
+    // (one photo at a time: each is decoded at full size before it is resized, and eight 12-megapixel photos decoded at
+    // once is more than a phone's browser allows a tab -- it closes the page)
+    var picked = files.slice(0, Math.max(0, 8 - uploads.length));
+    return picked.reduce(function (chain, file, n) { return chain.then(function (acc) { return fileToAsset(file, n).then(function (a) { acc.push(a); return acc; }); }); }, Promise.resolve([])).then(function (list) {
       list = list.filter(Boolean); if (!list.length) return;
       // (one logo at most: a new one replaces the role of the last)
       if (role === 'logo') { S.assets.forEach(function (x) { if (x.ownerRole === 'logo') x.ownerRole = 'auto'; }); list.forEach(function (a) { a.ownerRole = 'logo'; a.title = a.title || 'logo'; a.relevance = 0; }); }
-      return Promise.all(list.map(processAsset)).then(function (groups) {
+      // (and measured and cut out one at a time, for the same reason)
+      return list.reduce(function (chain, a) { return chain.then(function (acc) { return processAsset(a).then(function (g) { acc.push(g); return acc; }); }); }, Promise.resolve([])).then(function (groups) {
         groups.forEach(function (g) { S.assets = S.assets.concat(g); });
         renderThumbs(); if (S.gate) showGate(S.gate);
         if (S.plan && S.plan.v === 2) { if (role === 'logo') { S.plan = settle(S.plan); refresh(); } buildEditor(); markDirty(); }
