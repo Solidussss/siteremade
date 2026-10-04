@@ -346,3 +346,25 @@ test('WE-12. not enough credits: the provider is never called; another account c
     assert.equal(counts(env).higgsfield, 0, 'Higgsfield never called');
   } finally { await srv.stop(); }
 });
+
+// ================================================================ add a picture
+test('WE-13. Add a picture: an upload (or a picture the project already has) goes on the page as its own new scene after the chosen one, shown big -- free, and every other scene exactly as it was', async () => {
+  const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
+  const at = o.outline.scenes[1]; assert.ok(at.actions.includes('picture-scene'), 'offered while the page has room');
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/upload`, { baseRevision: o.revision, png: png(1600, 1000), title: 'Behind the counter', after: at.id });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /new scene/);
+  const after = creativeOf(await raw(w)).plan.scenes; assert.equal(after.length, n + 1);
+  const added = after.find(s => !before.some(b => b.id === s.id)); const k = after.indexOf(added);
+  assert.ok(k >= 1 && k <= n - 1, 'never after the ending'); assert.ok(added.layers.some(L => L.kind === 'image' && L.asset === r.body.assetId), 'the picture is on the page');
+  assert.deepEqual(after.filter(s => s !== added), before, 'every other scene exactly as it was');
+  // a picture the project already has but does not show: the same, through the free edit
+  const o2 = await outline(w); const spare = o2.outline.pictures.find(p => !p.onPage);
+  if (spare) {
+    const e = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o2.revision, op: { type: 'picture-scene', sceneId: o2.outline.scenes[0].id, assetId: spare.assetId } });
+    assert.equal(e.status, 200, JSON.stringify(e.body)); assert.equal(creativeOf(await raw(w)).plan.scenes.length, n + 2);
+    const again = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: e.body.revision, op: { type: 'picture-scene', sceneId: o2.outline.scenes[0].id, assetId: spare.assetId } });
+    assert.equal(again.status, 422); assert.equal(again.body.error.code, 'already_on_page', 'each picture appears once');
+  }
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free: no provider, no credit');
+});

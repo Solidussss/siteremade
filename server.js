@@ -5231,6 +5231,7 @@ app.post('/api/app-bridge/website/:projectId/publish', appBridgeRateLimit, requi
 //   GET  .../creative             the editable outline (finished 3D / clip jobs of this page are attached first, once)
 //   POST .../creative/edit        a free change: text, picture, composition, colour, layout rules, 3D placement, clip
 //   POST .../creative/upload      an owner picture (a PNG the app's browser made; measured HERE), optionally into a scene
+//                                 (sceneId + layerId: in place of that picture; after: as a new scene after that one)
 //   POST .../creative/quote       the authoritative price of a paid action (AI rewrite / scene / rebuild / site, a 3D
 //                                 model, a cinematic clip -- from a picture or from the page's 3D model); reuse is free
 //   POST .../creative/start       the owner confirmed that quote: reserve -> run (AI) or start the durable job (3D, clip)
@@ -5336,6 +5337,12 @@ app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ li
     const r = creativeEditor.applyEdit(d2, { type: 'picture-replace', sceneId: b.sceneId, layerId: b.layerId, assetId: up.asset.id });
     if (!r.ok) return bridgeError(res, 422, r.code, r.message);
     creative = r.creative; summary.push(r.summary);
+  } else if (b.after) {
+    // ("Add a picture": the picture as a new scene after the one named -- creative-editor.js picture-scene)
+    const d2 = Object.assign({}, got.direction, { creative });
+    const r = creativeEditor.applyEdit(d2, { type: 'picture-scene', sceneId: clean(b.after, 60), assetId: up.asset.id });
+    if (!r.ok) return bridgeError(res, 422, r.code, r.message);
+    creative = r.creative; summary.length = 0; summary.push(r.summary);
   }
   const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, creative, b.baseRevision);
   if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
