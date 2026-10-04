@@ -279,7 +279,10 @@ test('renderer tiers: dom by default; a spatial request without a validated spat
   const P = JSON.parse(JSON.stringify(story('sp').plan)); P.timeline.renderer = 'spatial';
   const v = validatePlan2(P, ctxOf(u('Doughnut', 'x', 'playful'), { mode: 'safety' }));
   assert.equal(v.plan.timeline.renderer, 'dom', 'nothing spatial to draw: the page is dom'); assert.match(html(v.plan), /data-renderer="dom"/);
-  assert.doesNotMatch(html(v.plan), /three|webgl|<canvas|cr-spatial/i, 'no heavy dependency is loaded');
+  // (the kinetic layer's hover lens is a few lines of inline WebGL made on a mouse hover -- kinetic.js -- it loads nothing)
+  const KIN = require('../lib/creative/kinetic');
+  assert.doesNotMatch(html(v.plan).replace(KIN.js, ''), /three|webgl|<canvas|cr-spatial/i, 'no heavy dependency is loaded');
+  assert.doesNotMatch(KIN.js, /three|<canvas|<script|import\(|fetch\(|XMLHttpRequest/i, 'the kinetic layer loads nothing');
 });
 
 test('asset needs follow the motion: a page records what its choreography needed from its pictures, and discovery searches for it', () => {

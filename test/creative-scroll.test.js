@@ -323,8 +323,15 @@ test('15. what the scroll runtime reads: cached geometry, never a layout read pe
   assert.match(body('measure'), /topOf\(/, 'measured when the layout changes'); assert.match(body('topOf'), /getBoundingClientRect/);
   // the far haze no longer blurs a huge animated layer
   assert.doesNotMatch(h, /\.amb-haze\{[^}]*filter:blur/);
-  // no WebGL, no canvas, no third-party script
-  assert.doesNotMatch(h, /webgl|<canvas|three(\.min)?\.js|<script src=/i);
+  // no WebGL at load, no canvas, no third-party script -- the one WebGL context is the kinetic layer's hover lens
+  // (kinetic.js), made only when a mouse is over a photograph
+  const KIN = require('../lib/creative/kinetic');
+  assert.doesNotMatch(h.replace(KIN.js, ''), /webgl|<canvas|three(\.min)?\.js|<script src=/i);
+  assert.doesNotMatch(h, /<canvas|three(\.min)?\.js|<script src=/i);
+  const lensInit = KIN.js.slice(KIN.js.indexOf('function lensInit('), KIN.js.indexOf('function lensDraw('));
+  assert.match(lensInit, /getContext\('webgl'/, 'the lens makes its context itself');
+  assert.equal((KIN.js.match(/getContext\(/g) || []).length, 1, 'and nothing else in the layer does');
+  assert.match(KIN.js, /if\(on&&L\.ok===null&&L\.img\.complete&&L\.img\.naturalWidth\)lensInit\(L\)/, 'only when the mouse is over the photograph');
 });
 
 test('16. old pages are untouched: a saved page without the new fields renders without any of them', () => {
