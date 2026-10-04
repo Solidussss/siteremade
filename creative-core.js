@@ -3742,12 +3742,15 @@
           const p = P(k); const big = ['event', 'escalation'].includes(tl.rhythm[k]);
           // (the actor holds its pose through the middle of a scene and moves between scenes over six tenths of one -- a move
           // tied to the scroll reads as travel when it is given room, as a lurch when it is squeezed)
-          keys.push({ g: k + (k === 0 ? 0 : 0.3), x: p.x, y: p.y, s: p.s, r: p.r, o: 1 });
+          keys.push({ g: k + (k === 0 ? 0 : 0.2), x: p.x, y: p.y, s: p.s, r: p.r, o: 1 });
           // inside an event the actor transforms while the scene holds: it grows a little, turns, shifts toward centre
           if (big) keys.push({ g: k + 0.5, x: p.x, y: p.y - 3, s: r2(p.s * 1.1), r: Math.round(p.r + (p.x >= 0 ? -6 : 6) * rot), o: 1 });
           // (the last scene of a run that leaves the stage lets go sooner: the actor is gone before the next scene's words arrive)
-          const hold = k === A.to && A.exit === 'offstage' ? 0.4 : 0.7;
+          const hold = k === A.to && A.exit === 'offstage' ? 0.4 : 0.6;
           keys.push({ g: k + hold, x: p.x, y: big ? p.y - 3 : p.y, s: big ? r2(p.s * 1.1) : p.s, r: big ? Math.round(p.r + (p.x >= 0 ? -6 : 6) * rot) : p.r, o: 1 });
+          // (crossing the screen to its next pose it takes the upper lane, a little smaller: over the words of the two scenes it
+          // passes between, never through them)
+          if (k < A.to) { const q = P(k + 1); if (Math.abs(q.x - p.x) >= 20) keys.push({ g: k + 0.9, x: Math.round((p.x + q.x) / 2), y: Math.min(p.y, q.y) - 12, s: r2(Math.min(p.s, q.s) * 0.8), r: Math.round((p.r + q.r) / 2), o: 1 }); }
         }
         const last = P(A.to); const out = A.exit === 'rejoin' ? { g: A.to + 1.05, x: 0, y: 12, s: r2(last.s * 0.55), r: 0, o: 0 } : A.exit === 'shrink' ? { g: A.to + 1, x: last.x, y: last.y + 6, s: r2(last.s * 0.4), r: last.r, o: 0 }
           : { g: A.to + 0.7, x: last.x >= 0 ? 72 : -72, y: last.y, s: last.s, r: last.r + (last.x >= 0 ? 10 : -10) * rot, o: 0.85 }; // (gone before the next scene's words settle)
@@ -4293,9 +4296,12 @@
       return TL.TRANSITIONS.filter(f => ok[f]);
     }
     // the actor's move across a seam: its last key before the seam and its first after it
+    // (the upper lane a move crosses the screen through -- higher and smaller than the poses on both sides of it -- is part of
+    // the move, never its start or its end)
+    const laneKey = (k, i) => i > 0 && i < k.length - 1 && k[i].y < k[i - 1].y && k[i].y < k[i + 1].y && k[i].s < k[i - 1].s && k[i].s < k[i + 1].s;
     function keyWindow(A, at) {
       const k = A.keys; let before = -1, after = -1;
-      k.forEach((x, i) => { if (x.g <= at && x.g >= at - 1) before = i; if (after < 0 && x.g > at && x.g <= at + 1) after = i; });
+      k.forEach((x, i) => { if (laneKey(k, i)) return; if (x.g <= at && x.g >= at - 1) before = i; if (after < 0 && x.g > at && x.g <= at + 1) after = i; });
       return { before, after, from: before >= 0 ? r2(k[before].g - at) : -0.3, to: after >= 0 ? r2(k[after].g - at) : 0.3 };
     }
     const state = (o) => ({ el: o.el, x: o.x, y: o.y, s: o.s, o: o.o, ...(o.inset ? { inset: o.inset.slice() } : {}), surface: o.surface });
@@ -4478,6 +4484,8 @@
       const k = A.keys; const w = keyWindow(A, at);
       if (w.before >= 0) { const lo = w.before > 0 ? k[w.before - 1].g + 0.1 : -Infinity; k[w.before].g = q05(Math.max(lo, at + ov.from)); }
       if (w.after >= 0) { const hi = w.after < k.length - 1 ? k[w.after + 1].g - 0.1 : Infinity; k[w.after].g = q05(Math.min(hi, Math.max(at + ov.to, w.before >= 0 ? k[w.before].g + 0.25 : -Infinity))); }
+      // (its lane stays in the middle of the move)
+      if (w.before >= 0 && w.after > w.before + 1) for (let i = w.before + 1; i < w.after; i++) if (laneKey(k, i)) k[i].g = q05((k[w.before].g + k[w.after].g) / 2);
     }
     // calm: the incoming scene's own beats wait until the seam's overlap is over (one thing arrives at a time)
     function calmBeats(tl, k) {
