@@ -34,7 +34,9 @@ test('K2. one scroll listener for the whole page, runtime included; per-frame wo
 });
 
 test('K3. reduced motion turns every part of it off', () => {
-  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock|^\s*\.k-intro|^\s*\.k-pix|^\s*\.k-prog/.test(r.trim()));
+  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock|^\s*\.k-intro|^\s*\.k-pix|^\s*\.k-prog|^\s*\.k-wall|^\s*\.k-spot/.test(r.trim()));
+  // (the signature's wall and light are not drawn at all without motion)
+  assert.match(KIN.css, /html:not\(\.k-go\) \.k-wall,html\[data-motion="reduced"\] \.k-wall\{display:none\}/); assert.match(KIN.css, /html:not\(\.k-go\) \.k-spot,html\[data-motion="reduced"\] \.k-spot\{display:none\}/);
   // (the band, the clip in the name, the intro and the progress line are not drawn at all for reduced motion; the trail and
   // the pixels are never made for it)
   ['k-intro', 'k-prog'].forEach(k => assert.match(KIN.css, new RegExp(`html\\[data-motion="reduced"\\] \\.${k}\\{display:none\\}`), k));
@@ -167,4 +169,26 @@ test('K16. photographs never sit in a box: a photo placed in a scene melts into 
   assert.match(KIN.js, /function meltFit\(\)/, 'a fitted picture melts at its own painted edges');
   const tags = own.match(/<div class="ly"[^>]*>/g).join(' ');
   assert.equal((tags.match(/data-melt=/g) || []).length, 2, 'the cut-out and the shaped mask never melt');
+});
+
+test('K17. the signature moment: one set piece per page, the director\'s if it fits, else the brand\'s -- a drink pours, a loud brand gets the type wall, otherwise the spotlight; never the opening or the closing; a saved page keeps only what it was saved with', () => {
+  const byId = new Map([['photo', { id: 'photo', assess: {} }], ['cut', { id: 'cut', cutout: true }]]);
+  const sc = (id, heading, layers, arc) => ({ id, text: { heading }, layers: layers || [], arc });
+  const scenes = [sc('opening', 'Kolaro', [{ kind: 'image', asset: 'cut', role: 'focal' }]), sc('s2', 'A long heading of many many words here', [{ kind: 'image', asset: 'photo', role: 'focal' }], 'reveal'),
+    sc('s3', 'From every side', [{ kind: 'image', asset: 'cut', role: 'focal' }], 'takeover'), sc('end', 'Bye', [{ kind: 'image', asset: 'photo', role: 'focal' }])];
+  assert.deepEqual(KIN.signature(scenes, { understanding: { subject: 'a cola soft drink' }, byId }), { kind: 'pour', scene: 's3' });
+  assert.deepEqual(KIN.signature(scenes, { understanding: { subject: 'a streetwear sneaker' }, byId }), { kind: 'typewall', scene: 's3' });
+  assert.deepEqual(KIN.signature(scenes, { understanding: { subject: 'a garden' }, byId, personality: 'luxe' }), { kind: 'spotlight', scene: 's2' });
+  assert.deepEqual(KIN.signature(scenes, { ask: { kind: 'spotlight', scene: 's2' }, understanding: { subject: 'a cola' }, byId }), { kind: 'spotlight', scene: 's2' }, 'the director\'s choice when it fits');
+  assert.deepEqual(KIN.signature(scenes, { ask: { kind: 'pour', scene: 'end' }, understanding: { subject: 'a cola' }, byId }), { kind: 'pour', scene: 's3' }, 'never the closing: the brand decides instead');
+  assert.equal(KIN.signature(scenes, { understanding: { subject: 'a cola' }, byId, keep: true }), null, 'a saved page never gains one');
+  assert.deepEqual(KIN.signature(scenes, { ask: { kind: 'typewall', scene: 's3' }, byId, keep: true }), { kind: 'typewall', scene: 's3' });
+  // through the validator and onto the page
+  const s = SUBJECTS.beverage; const d = D2.direct({ understanding: s.understanding, research: { page: null, facts: s.facts }, assets: s.assets, supplied: { facts: [], memories: [] }, seed: '1', mainAsset: s.mainAsset });
+  const v = validatePlan2(d.plan, { assets: s.assets, facts: s.facts, understanding: s.understanding, art: d.recipe, mainAsset: s.mainAsset });
+  assert.ok(v.plan.signature && KIN.SIGNATURES.includes(v.plan.signature.kind), 'a page with a look gets one');
+  const h = render({ plan: v.plan, assets: s.assets });
+  assert.equal((h.match(/ data-ksig="/g) || []).length, 1, 'exactly one scene carries it');
+  const A = require('../lib/creative/ai'); assert.deepEqual(A.DIRECTOR_TOOL.input_schema.properties.signature.properties.kind.enum, KIN.SIGNATURES);
+  assert.match(KIN.css, /\.sc\[data-ksig="pour"\] \.sc-heading :is\(\.kw,\.kw>i,\.kc\)\{[^}]*transform:none!important/, 'the pour heading\'s words stay in its text (a transformed word would leave the liquid)');
 });
