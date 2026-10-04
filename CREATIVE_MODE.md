@@ -591,6 +591,18 @@ reopened page is never reviewed again; a plan cannot bring its own record.
 Verification: `test/creative-visual.test.js` (fixtures A-I in `test/helpers/visual-fixtures.js`, a real browser when one
 exists) and `test/review/creative-visual-review.js` (the six subjects on real photographs).
 
+## The direction asks (`lib/creative/asks.js`)
+
+After the brief and before anything is priced or spent, the studio asks a few quick questions -- how it should feel (bold
+and loud, clean and premium, dark and cinematic, playful), how much it should move (calm, moves as you scroll, a full
+show), what should lead (the product, the name, full-screen photos) and colour (its own, dark, light and airy). Each is
+one tap; any may be left open, and "Skip" leaves all of them to the director. What the brief already says is chosen for
+the owner. Asked once per brief.
+
+The answers steer what already exists: the art direction's preference (`art.choose` input.prefer: personality, mode,
+family -- a family the pictures cannot carry is still never forced) and one line to the director (`ownerDirection`).
+Nothing here calls a model. Verification: `test/creative-asks.test.js`.
+
 ## The quality floor (stress-tested across unrelated subjects)
 
 Faults a stress run (six unrelated subjects, three seeds each, real photographs, rendered and measured with the visual

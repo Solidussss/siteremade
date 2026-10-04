@@ -74,6 +74,8 @@
       '<button type="button" class="cs-btn cs-primary" id="csCreate">Create the page</button><button type="button" class="cs-btn cs-ghost" id="csBackToPage" hidden>Back to the page</button>',
       '<p class="cs-cost" id="csCostNote">Another direction for the same page is priced before it runs. Editing by hand is free. Downloading the finished website is a separate one-time purchase, the same as a Business website.</p><p class="cs-cost" id="csBalance" aria-live="polite"></p>',
       '</section>',
+      '<section class="cs-step" id="csAskStep" hidden><h2>A few quick choices</h2><p class="cs-hint">Point the director your way. Leave any open and it chooses.</p><div id="csAskList"></div>',
+      '<button type="button" class="cs-btn cs-primary" id="csAskGo">Make it this way</button><button type="button" class="cs-btn cs-ghost" id="csAskSkip">Skip, let the director choose</button><button type="button" class="cs-btn cs-ghost" id="csAskBack">Back to the description</button></section>',
       '<section class="cs-step" id="csProgress" hidden><h2>Making it</h2><ol class="cs-progress" id="csProgressList"></ol><div id="csChoices"></div><p class="cs-error" id="csError" role="alert" hidden></p></section>',
       '<section class="cs-step" id="csEditor" hidden>',
       '<div class="cs-asks" id="csAsks" hidden></div>',
@@ -85,7 +87,7 @@
       '</div>',
     ].join('');
     document.body.appendChild(root);
-    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal', 'csBuy', 'csBalance', 'csModes', 'csPvState', 'csSum'].forEach(function (id) { els[id] = document.getElementById(id); });
+    ['csBrief', 'csSupplied', 'csMemories', 'csUpload', 'csUploadBtn', 'csThumbs', 'csCreate', 'csProgress', 'csProgressList', 'csChoices', 'csError', 'csEditor', 'csBriefStep', 'csStage', 'csViewport', 'csEmpty', 'csFrame', 'csSave', 'csSaveState', 'csClose', 'csNew', 'csAsks', 'csChips', 'csFixture', 'csPersonal', 'csBuy', 'csBalance', 'csModes', 'csPvState', 'csSum', 'csAskStep', 'csAskList', 'csAskGo', 'csAskSkip', 'csAskBack'].forEach(function (id) { els[id] = document.getElementById(id); });
     frame = els.csFrame;
     ['A website about toilet paper — make it grand and a bit absurd', 'Sherlock Holmes fan site, cinematic and moody', 'A tribute to the Big Mac', 'A memorial page for my goldfish Bubbles'].forEach(function (t) {
       var b = h('button', { type: 'button', class: 'cs-chip', text: t.replace(/ —.*| fan site.*/, '') }); b.addEventListener('click', function () { els.csBrief.value = t; if (/my goldfish/.test(t)) els.csPersonal.open = true; els.csBrief.focus(); }); els.csChips.appendChild(b);
@@ -488,12 +490,25 @@
       return modal({ title: preface || 'Continue?', lines: lines, actions: [{ id: 'go', label: 'Continue (' + (q.minCredits < q.credits ? 'up to ' : '') + q.credits + ' credits)', primary: true }, { id: 'cancel', label: 'Cancel' }] }).then(function (a) { return a === 'go' ? q.id : null; });
     });
   }
+  // the direction asks (lib/creative/asks.js): a few taps that steer the page before it is made -- what the brief already
+  // says is chosen for the owner; any question may be left open. Resolves the answers ({} when skipped), null to go back.
+  function askDirection() {
+    var A = C.asks; var picked = A.guess(S.brief);
+    els.csAskList.innerHTML = A.QUESTIONS.map(function (q) { return '<div class="cs-ask"><p class="cs-ask-q">' + esc(q.title) + '</p><div class="cs-ask-opts">' + q.options.map(function (o) { return '<button type="button" class="cs-ask-opt" data-q="' + q.id + '" data-o="' + o.id + '" aria-pressed="' + (picked[q.id] === o.id) + '"><strong>' + esc(o.label) + '</strong><small>' + esc(o.hint || '') + '</small></button>'; }).join('') + '</div></div>'; }).join('');
+    [].forEach.call(els.csAskList.querySelectorAll('.cs-ask-opt'), function (b) { b.addEventListener('click', function () { var q = b.getAttribute('data-q'), o = b.getAttribute('data-o'); if (picked[q] === o) delete picked[q]; else picked[q] = o; [].forEach.call(els.csAskList.querySelectorAll('.cs-ask-opt[data-q="' + q + '"]'), function (x) { x.setAttribute('aria-pressed', String(picked[q] === x.getAttribute('data-o'))); }); }); });
+    els.csBriefStep.hidden = true; els.csAskStep.hidden = false;
+    return new Promise(function (resolve) {
+      function done(v) { els.csAskStep.hidden = true; els.csBriefStep.hidden = false; els.csAskGo.onclick = els.csAskSkip.onclick = els.csAskBack.onclick = null; resolve(v); }
+      els.csAskGo.onclick = function () { done(A.normalise(picked)); }; els.csAskSkip.onclick = function () { done({}); }; els.csAskBack.onclick = function () { done(null); };
+    });
+  }
   function create(choice, quoteId) {
     if (S.busy) return;
     S.brief = els.csBrief.value.trim(); S.suppliedText = els.csSupplied.value; S.memoriesText = els.csMemories.value;
     if (!S.brief) { els.csBrief.focus(); return; }
     if (!signedIn()) { needSignIn('Sign in to make a Creative page — it saves to your account like any website.'); return; }
     if (S.dirty && S.plan && !choice && !quoteId && !window.confirm('Make a new page from this description? Your changes to the current page will be replaced.')) return;
+    if (!choice && !quoteId && S.asksFor !== S.brief) return askDirection().then(function (a) { if (!a) return; S.asks = a; S.asksFor = S.brief; return create(); });
     if (!choice && !quoteId && !openJobFor(S.brief)) return confirmGeneration().then(function (q) { if (q) return create(choice, q); });
     S.busy = true; S.picked = null; els.csCreate.disabled = true; els.csError.hidden = true; els.csChoices.innerHTML = ''; var bk = document.getElementById('csBackToPage'); if (bk) bk.hidden = true;
     els.csProgress.hidden = false; els.csEditor.hidden = true; els.csBriefStep.hidden = true;
@@ -1104,7 +1119,7 @@
     step('direct', 'active', 'The AI director is composing the page…'); var t0 = Date.now();
     return thumbnails().then(function (th) {
       var research = S.research || {};
-      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', quoteId: quoteId || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours(), cinematicSource: cineSource() === 'model3d' ? { kind: 'model3d', sourceAssetId: cineModel().sourceAssetId } : undefined } });
+      return api('/api/creative/plan', { method: 'POST', body: { jobId: S.jobId || '', brief: S.brief, understanding: S.understanding, page: research.page, facts: research.facts || [], supplied: supplied(), assets: inventory(), models: modelMeta(), thumbnails: th, avoid: avoid || '', quoteId: quoteId || '', avoidRecipe: avoid && S.plan && S.plan.art ? S.plan.art.recipe : '', recipes: recentRecipes(), asks: S.asks || null, seed: String(Date.now()), coverage: research.curation || null, mainAsset: liveMain(), abstractChosen: !!S.abstractChosen, pictureColours: pictureColours(), cinematicSource: cineSource() === 'model3d' ? { kind: 'model3d', sourceAssetId: cineModel().sourceAssetId } : undefined } });
     }).then(function (r) {
       if (r.status === 401) throw new Error('signed out');
       var d = r.data || {};

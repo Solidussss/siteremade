@@ -2567,6 +2567,7 @@ const creativeResearch = require('./lib/creative/research');
 // with its tokens and ESTIMATED cost. The key stays here; the browser only ever sees validated plans.
 const creativeAi = require('./lib/creative/ai');
 const creativeArt = require('./lib/creative/art');
+const creativeAsks = require('./lib/creative/asks');
 const creativePool = require('./lib/creative/pool');
 const creativeAssetDirector = require('./lib/creative/asset-director');
 const creativeArc = require('./lib/creative/premium-arc');
@@ -3527,7 +3528,9 @@ app.post('/api/creative/plan', requireAuth, requireSameOrigin, generationRateLim
   // (3) the recipe and its visual plan: scenes built around those pictures (every picture shown before any repeats, the
   //     colours of neighbouring scenes leading into each other, the page closing on its main picture)
   const recent = creativeRecentRecipes(req.accountId);
-  input.art = creativeArt.choose({ understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, ...(assetDecision ? { assetDecision } : { assetDirector: false }), mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? Object.assign({ video: true, intent: input.premiumHero.intent, source: input.premiumHero.source }, input.premiumArc && input.premiumArc.length ? { arc: input.premiumArc } : {}) : null });
+  // (the direction the owner chose in the studio's quick questions: the recipe leans that way, the director is told -- asks.js)
+  input.asks = creativeAsks.words(b.asks);
+  input.art = creativeArt.choose({ prefer: creativeAsks.prefer(b.asks), understanding: Object.assign({}, u, { name: clean(u.name || (u.identity && u.identity.name) || u.subject, 120) }), assets, facts, supplied: input.supplied, page: input.page, seed: input.seed || String(Date.now()), history: recent.concat(arr(b.recipes, 10).filter(x => typeof x === 'string').map(x => clean(x, 160))), avoid: clean(b.avoidRecipe, 160), pool, ...(assetDecision ? { assetDecision } : { assetDirector: false }), mainAsset: input.mainAsset, premium: input.premiumHero && input.premiumHero.source ? Object.assign({ video: true, intent: input.premiumHero.intent, source: input.premiumHero.source }, input.premiumArc && input.premiumArc.length ? { arc: input.premiumArc } : {}) : null });
   // (4) the words are written next, by the director, for those pictures (lib/creative/ai.js); (5) continuity + critic
   const startedAt = Date.now();
   let r;
