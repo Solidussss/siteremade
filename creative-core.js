@@ -10320,7 +10320,10 @@
     ${L.grade ? `html[data-look]{--gtint:${L.grade.tint};--galpha:${L.grade.alpha}}
     html[data-look] .ly-art[data-grade] :is(.ly-img,.ly-vid){filter:var(--gf)}
     html[data-look] .ly-art[data-grade="tint"]::after{content:"";position:absolute;inset:0;background:var(--gtint);mix-blend-mode:soft-light;opacity:var(--galpha);pointer-events:none;border-radius:inherit}
-    ` : ''}/* a statement scene on a phone: the whole screen, the words in its middle, no empty stage under them */
+    ` : ''}/* the subject carried across the opening is the scene's object at full size: up to 44% of the screen's width (a wide
+       product), most of its height (a tall one) -- the words keep the other side */
+    @media (min-width:45.01em){html[data-look] .ca[data-img]{height:64vh;height:64svh;max-width:44vw}}
+    /* a statement scene on a phone: the whole screen, the words in its middle, no empty stage under them */
     @media (max-width:45em){html[data-look] .sc[data-alone] .sc-stage{display:none}html[data-look] .sc[data-alone] .sc-pin{justify-content:center;min-height:100svh}html[data-look][data-look] .sc:not([data-comp="mask-stage"]) .sc-text[data-giant] .sc-heading[data-len]{font-size:min(19vw,calc(var(--fit) * 1.06 / var(--lwm,var(--lw))))}html[data-look] .sc[data-comp] .sc-text[data-giant]{text-align:center!important;transform-origin:50% 50%}}
     /* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
     html[data-look] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)))}

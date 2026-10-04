@@ -647,6 +647,9 @@ closed where it is made rather than left to the visual director:
   the screen.
 - **A mask stage reads as its picture**: the field around the words is set against the picture -- light around a dark
   photograph, dark around a light one -- so the letters are windows onto it, never shadows on a field of the same tone.
+- **The carried subject at full size** (a page with a look, desktop): the subject carried across the opening scenes takes
+  up to 44% of the screen's width and 64% of its height (was 34% / 54%) -- a wide product as large as a tall one -- the
+  words on the other side.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
