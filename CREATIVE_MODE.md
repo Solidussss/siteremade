@@ -627,6 +627,14 @@ closed where it is made rather than left to the visual director:
   applies to it); a poster's heading beside its giant word is set large, not as a label. These fixes go up, never down:
   bigger type and bigger pictures (the luxe object takes 42% of the width, the shrine's 42% x 70%, either shape filling its
   box), never a quieter page.
+- **A type takeover with nothing behind its words**: the statement itself is the giant type, centred, in place of the
+  echo of the name (never a second headline beside it), and it still scales through the camera as it plays. "Fix text
+  layout" agrees: a words-alone statement of up to 64 characters may stay giant.
+- **One page, one shoot** (`look.js` grade, `plan.look.grade`): the pictures a new page shows are graded together -- each
+  pulled part of the way toward the page's own middle in brightness (x0.92-1.12) and colour strength (lifted up to x1.16,
+  never muted below x0.97: a vivid product stays vivid), a touch of shared contrast, and one light soft-light cast (the
+  photographs' own common hue, 12%) over the photographs that fill their frames -- never over a cut-out or a letterboxed
+  picture, never over a picture with a treatment of its own. A look saved before the grade renders exactly as it did.
 
 Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
 runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a

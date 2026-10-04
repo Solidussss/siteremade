@@ -6634,7 +6634,35 @@
         devices: DEVICES.filter(d => (Array.isArray(raw.devices) ? raw.devices : []).includes(d)).slice(0, 4),
         enter: raw.enter === 'camera' ? 'camera' : 'mask',
         loud: !!raw.loud,
+        // (a look saved before the grade has none: its pictures render exactly as they did)
+        ...(raw.grade && normaliseGrade(raw.grade) ? { grade: normaliseGrade(raw.grade) } : {}),
       };
+    }
+
+    // ---------------------------------------------------------------- the grade
+    // grade(pictures) -> { tint, alpha, c, per: { id: [brightness, saturation] } } | null
+    // One page, one shoot: every picture the page shows is pulled part of the way toward the page's own middle -- its brightness
+    // and its colour strength -- and every photograph shares one light colour cast, the pictures' own common hue (never a colour
+    // from outside them). Small, bounded corrections: a picture is never made dull or blown out to match another. Fewer than
+    // two pictures: nothing to make one.
+    const GRADE = { b: [0.92, 1.12], s: [0.97, 1.16], c: 1.04, alpha: 0.12 }; // (colour strength is lifted, never muted: a vivid product stays vivid)
+    function grade(pictures) {
+      const pics = (pictures || []).filter(a => a && a.id && a.assess && typeof a.assess.luminance === 'number' && Array.isArray(a.assess.colours) && a.assess.colours.some(x => HEX.test(x || '')));
+      if (pics.length < 2) return null;
+      const sat = a => { const c = a.assess.colours.filter(x => HEX.test(x || '')).map(x => PAL.hsl(x)); return Math.max(0.04, c.reduce((t, x) => t + x.s * (1 - Math.abs(2 * x.l - 1)), 0) / c.length); };
+      const med = v => { const s = v.slice().sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+      const lt = Math.max(70, Math.min(170, med(pics.map(a => a.assess.luminance)))); const st = med(pics.map(sat));
+      const r2 = v => Math.round(v * 100) / 100; const cl = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
+      const per = {}; pics.slice().sort((a, b) => (a.id < b.id ? -1 : 1)).forEach(a => { per[a.id] = [r2(cl(Math.sqrt(lt / Math.max(8, a.assess.luminance)), GRADE.b)), r2(cl(Math.sqrt(st / sat(a)), GRADE.s))]; });
+      // (the common cast: the circular mean of the photographs' chromatic colours, held light and soft)
+      let x = 0, y = 0, w = 0; pics.filter(a => !a.cutout && !(a.assess && a.assess.transparent)).forEach(a => a.assess.colours.filter(c => HEX.test(c || '')).forEach(c => { const h = PAL.hsl(c); const k = h.s * (1 - Math.abs(2 * h.l - 1)); x += Math.cos(h.h * 2 * Math.PI) * k; y += Math.sin(h.h * 2 * Math.PI) * k; w += k; }));
+      const hue = w > 0.05 ? ((Math.atan2(y, x) / (2 * Math.PI)) + 1) % 1 : 0.08;
+      return { tint: PAL.fromHsl(hue, 0.42, 0.5).toLowerCase(), alpha: GRADE.alpha, c: GRADE.c, per };
+    }
+    function normaliseGrade(g) {
+      if (!g || typeof g !== 'object' || !HEX.test(g.tint || '')) return null;
+      const per = {}; Object.keys(g.per && typeof g.per === 'object' ? g.per : {}).sort().slice(0, 40).forEach(id => { const v = g.per[id]; if (Array.isArray(v) && v.length === 2 && /^[\w.-]{1,80}$/.test(id)) per[id] = [num(v[0], GRADE.b[0], GRADE.b[1], 1), num(v[1], GRADE.s[0], GRADE.s[1], 1)]; });
+      return { tint: g.tint.toLowerCase(), alpha: num(g.alpha, 0, 0.2, GRADE.alpha), c: num(g.c, 1, 1.1, GRADE.c), per };
     }
 
     // the picture an asset comes from: its cut-out's photo, a copy's original (persisted links only; a broken or looping
@@ -6645,7 +6673,7 @@
       return a;
     }
 
-    module.exports = { VERSION, TEXT_FIT, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, lines, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
+    module.exports = { VERSION, grade, GRADE, TEXT_FIT, FAMILIES, FAMILY_NAMES, TYPE_W, DEVICES, SHAPED, TEXT_MOVES, CAMERA_CHOREO, signals, chooseType, typeSystem, measure, keep, units, lines, fitFor, brand, brandPalette, fields, devicesFor, usage, direct, normalise, root, contrast };
 
   });
   __define("archetypes", function (module, exports, require) {
@@ -7263,8 +7291,10 @@
       const spec = e ? A[layout](S, e) : null;
       // (the words as the archetype would set them now -- worked out on a copy, read from it field by field)
       const candidate = sp => { const c = JSON.parse(JSON.stringify(S)); typeset(c, sp, layout, e); wordsClear(c, sp, layout, c.layers, []); if (C) compositionWords(c, e, c.layers); return c.text; };
-      // 1. giant type the words no longer suit (a sentence on a giant-type or type stage): set as that stage's label
-      if (e && t.giant && !(spec && spec.giant)) {
+      // 1. giant type the words no longer suit (a sentence on a giant-type or type stage): set as that stage's label -- unless
+      // the scene is words alone and the words a statement: then the statement is the giant type (validate2, words alone)
+      const alone = !S.layers.some(L => L.kind === 'image') && heading.length <= 64 && !(t.items || []).length && (t.body || '').length <= 220;
+      if (e && t.giant && !(spec && spec.giant) && !alone) {
         const label = spec || { place: { gc: [1, 5], v: 'bottom', align: 'left' }, mplace: t.mplace || 'above', smallHeading: true, stageText: true, shade: 'bottom' };
         const c = candidate(label);
         TYPE_FIELDS.forEach(k => { if (c[k] === undefined) delete t[k]; else t[k] = c[k]; });
@@ -8189,9 +8219,15 @@
       // ---- words alone are set large (a new page with a look): a scene with no picture to show -- made of words, or left
       // without its picture by the ledger -- is a statement across the screen, never a small line in an empty field
       if (look && !safety) scenes.forEach((s, i) => {
-        const t = s.text; if (inRun(i) || s.composition || !t || !t.heading || s.layers.some(L => L.kind === 'image' && byId.get(L.asset))) return;
+        const t = s.text; if (inRun(i) || (s.composition && s.composition !== 'type-takeover') || !t || !t.heading || s.layers.some(L => L.kind === 'image' && byId.get(L.asset))) return;
         if ((t.items && t.items.length) || (t.body || '').length > 220 || t.giant) return;
-        if (s.layout === 'text' || s.layout === 'luxe' || s.layout === 'shrine' || s.layout === 'image' || s.layout === 'framed' || s.layout === 'split') {
+        if (s.composition === 'type-takeover') {
+          // (a type takeover with nothing behind its words: the statement itself is the giant type -- it takes the place of the
+          // echo of the name, never a second headline beside it -- and still scales through the camera as it plays)
+          if (t.heading.length > 64) return;
+          t.size = 'display'; t.giant = true; t.role = 'giant'; t.place = { gc: [1, 12], v: 'middle', align: 'center' }; t.width = 'wide';
+          s.layers = s.layers.filter(L => !(L.kind === 'word' && L.role === 'echo'));
+        } else if (s.layout === 'text' || s.layout === 'luxe' || s.layout === 'shrine' || s.layout === 'image' || s.layout === 'framed' || s.layout === 'split') {
           // (a short statement becomes the scene: giant, across the whole width)
           if (t.heading.length <= 64) { t.size = 'display'; t.giant = true; t.place = { gc: [1, 12], v: 'middle', align: t.place && t.place.align === 'center' ? 'center' : 'left' }; t.width = 'wide'; if (s.height === 'short' || s.height === 'auto') s.height = 'screen'; }
           else t.size = 'display';
@@ -8201,6 +8237,12 @@
         } else return;
         fixes.push(`scene ${s.id}: words alone -- set large across the screen`);
       });
+      // ---- one page, one shoot (a new page with a look): the pictures it shows are graded together -- look.js grade
+      if (look && !safety) {
+        const shown = new Set(scenes.flatMap(s => s.layers.filter(L => L.kind === 'image' && byId.get(L.asset)).map(L => L.asset)).concat(actor && byId.get(actor.asset) ? [actor.asset] : []));
+        const g = LOOK.grade([...shown].map(id => byId.get(id)).filter(a => a.ownerRole !== 'logo' && !(a.curation && a.curation.role === 'logo')));
+        if (g) { look.grade = g; fixes.push(`look: ${Object.keys(g.per).length} pictures graded as one shoot (${g.tint})`); } else delete look.grade;
+      }
       // ---- image-driven colour (palette.js): each scene's surface is its picture's colour; a scene without a picture sits
       // between its neighbours' colours; a confirmed premium hero's colour carries into the scenes after it. (A scene a
       // timeline beat floods keeps its flood: that colour change IS its moment.)
@@ -10071,7 +10113,9 @@
       }
       // (the ceiling on a picture's scroll zoom travels with it: framing.js ZOOM)
       const zmax = L.kind === 'image' && (L.scroll.kind === 'zoom-in' || L.scroll.kind === 'zoom-out') ? ` data-zmax="${FR.zoomCeiling(L)}"` : '';
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}>${art}</div></div></div></div></div>`;
+      const gr = L.kind === 'image' && c.plan.look && c.plan.look.grade && L.treatment === 'none' ? c.plan.look.grade.per[L.asset] : null; const ga = gr ? c.byId.get(L.asset) : null;
+      const gradeAttr = gr ? ` data-grade="${ga && !ga.cutout && !(ga.assess && ga.assess.transparent) && L.fit === 'cover' ? 'tint' : 'tone'}" style="--gf:brightness(${gr[0]}) saturate(${gr[1]}) contrast(${c.plan.look.grade.c})"` : '';
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
     }
 
     // a plane of a composition (composition.js tracks): its keys as numbers, the window it opens from, and its resting state
@@ -10251,7 +10295,11 @@
     html[data-look][data-display][data-case]{--fit:${LOOK.fitFor(t)}cqi;--dtrack:${t.track}em;--dlead:${t.lead}}
     html[data-look] .sc-heading,html[data-look] .cr-brand{letter-spacing:var(--dtrack)!important;line-height:var(--dlead)!important;text-wrap:balance}
     html[data-look][data-case="upper"] .sc-heading{text-transform:uppercase}
-    /* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
+    /* one page, one shoot: each picture's own correction, and one light cast over the photographs that fill their frames */
+    ${L.grade ? `html[data-look]{--gtint:${L.grade.tint};--galpha:${L.grade.alpha}}
+    html[data-look] .ly-art[data-grade] :is(.ly-img,.ly-vid){filter:var(--gf)}
+    html[data-look] .ly-art[data-grade="tint"]::after{content:"";position:absolute;inset:0;background:var(--gtint);mix-blend-mode:soft-light;opacity:var(--galpha);pointer-events:none;border-radius:inherit}
+    ` : ''}/* a statement set giant stays giant however long it is: its size comes from its longest line, never from a cap for long headings */
     html[data-look] .sc-text[data-giant] .sc-heading[data-len]{font-size:min(clamp(4rem,15vw,17rem),calc(var(--fit) * 1.12 / var(--lw)))}
     /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
     html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}

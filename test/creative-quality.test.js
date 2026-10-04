@@ -87,6 +87,33 @@ test('Q3. a page-level recomposition that would take an uploaded picture off the
   assert.equal(run(true).ok, false, 'the uploads of the owner: never taken off the page');
 });
 
+// ================================================================ 3b. one page, one shoot
+test('Q3b. the pictures of a new page are graded as one shoot: bounded, never muting a picture, saved and reopened exactly', () => {
+  const LOOK = require('../lib/creative/look');
+  // (real measures: a dark road, a bright can -- each pulled part of the way, within bounds; colour strength only lifted)
+  const pics = [{ id: 'dark', assess: { luminance: 40, colours: ['#2a2018', '#3b2a1c', '#55402a'] } }, { id: 'bright', assess: { luminance: 200, colours: ['#e8a020', '#f0c040', '#ffffff'] } }, { id: 'mid', assess: { luminance: 120, colours: ['#8090a0', '#506070', '#203040'] } }];
+  const g = LOOK.grade(pics); assert.ok(g && /^#[0-9a-f]{6}$/.test(g.tint));
+  assert.ok(g.per.dark[0] > 1 && g.per.bright[0] < 1, 'brightness pulled toward the middle');
+  Object.values(g.per).forEach(([b, s]) => { assert.ok(b >= LOOK.GRADE.b[0] && b <= LOOK.GRADE.b[1]); assert.ok(s >= LOOK.GRADE.s[0] && s <= LOOK.GRADE.s[1] && LOOK.GRADE.s[0] >= 0.95, 'never muted'); });
+  assert.equal(LOOK.grade(pics.slice(0, 1)), null, 'one picture: nothing to make one');
+  PAGES.forEach(v => {
+    const tag = `${v.id}/${v.seed}`; if (!v.plan.look) return;
+    const shown = new Set(v.plan.scenes.flatMap(s => s.layers.filter(L => L.kind === 'image').map(L => L.asset)));
+    if (v.plan.look.grade) assert.ok(Object.keys(v.plan.look.grade.per).every(id => shown.has(id) || (v.plan.actor && v.plan.actor.asset === id)), `${tag}: only pictures the page shows`);
+    const r = validatePlan2(JSON.parse(JSON.stringify(v.plan)), { assets: v.s.assets, facts: v.s.facts, understanding: v.s.understanding, mode: 'safety' });
+    assert.equal(JSON.stringify(r.plan.look), JSON.stringify(v.plan.look), `${tag}: the grade reopens exactly`);
+    // (a type takeover with nothing behind it is the giant statement itself, never a label beside an echo)
+    v.plan.scenes.forEach(s => { if (s.composition === 'type-takeover' && !s.layers.some(L => L.kind === 'image') && (s.text.heading || '').length <= 64 && !(s.text.items || []).length && (s.text.body || '').length <= 220) { assert.equal(s.text.giant, true, `${tag} ${s.id}`); assert.equal(s.text.role, 'giant'); } });
+  });
+  const v = PAGES.find(x => x.plan.look && x.plan.look.grade); assert.ok(v, 'pages are graded');
+  const h = renderCreative2(v.plan, v.s.assets, { mode: 'export', src: a => `${a.id}.png` });
+  assert.match(h, /data-grade="(tint|tone)" style="--gf:brightness\([\d.]+\) saturate\([\d.]+\) contrast\([\d.]+\)"/);
+  assert.match(h, /html\[data-look\] \.ly-art\[data-grade="tint"\]::after\{content:"";position:absolute;inset:0;background:var\(--gtint\);mix-blend-mode:soft-light/);
+  // (a look saved before the grade renders exactly as it did: no grade, no grading rules)
+  const old = JSON.parse(JSON.stringify(v.plan)); delete old.look.grade; const ho = renderCreative2(old, v.s.assets, { mode: 'export', src: a => `${a.id}.png` });
+  assert.doesNotMatch(ho, /data-grade=|--gtint/);
+});
+
 // ================================================================ 4. the renderer
 test('Q4. the renderer: a wash ends by the arrival, a mask stage rests where it reads, each swapped heading its own window, the ending owns its screen', () => {
   const v = PAGES[0]; const html = (plan, extra) => renderCreative2(plan, v.s.assets, Object.assign({ mode: 'export', src: a => `${a.id}.png` }, extra || {}));
