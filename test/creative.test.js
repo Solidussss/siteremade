@@ -82,6 +82,19 @@ test('a subject on a plain background is cut out; a subject the colour of its ba
   assert.equal(capabilities({ assess: assess(busy) }).moveFreely, false, 'a flat photo is never treated as a free layer');
 });
 
+// THE CAN WHOSE LID WENT MISSING: a product's light part (a silver lid, a cream band, a white heel) can be nearly the
+// backdrop's colour -- colour alone let the fill run straight into it. The fill now stops at the subject's outline.
+test('a light part of the subject that touches its outline stays: the fill crosses only smooth background', () => {
+  const w = 300, h = 400, data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; const can = x >= 100 && x < 200 && y >= 80 && y < 330;
+    const c = !can ? [240, 238, 232] : y < 130 ? [226, 226, 228] : [200, 40, 50]; data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = 255; }
+  const img = { width: w, height: h, data }; const a = (r, x, y) => r.img.data[(y * w + x) * 4 + 3];
+  const cut = cutout(img); assert.equal(cut.clean, true, cut.reason);
+  assert.equal(a(cut, 150, 105), 255, 'the silver lid is kept'); assert.equal(a(cut, 150, 250), 255, 'the red body is kept'); assert.equal(a(cut, 20, 20), 0, 'the backdrop is removed');
+  assert.equal(a(cut, 103, 84), 255, 'the lid right up to its edge');
+  const old = cutout(img, { edges: false }); assert.ok(!old.clean || a(old, 150, 105) === 0, 'colour alone (the old fill) took the lid');
+});
+
 test('the PNG codec round-trips pixels', () => {
   const back = png.decode(png.encode(redDisc));
   assert.equal(back.width, 200); assert.deepEqual([...back.data.slice(0, 8)], [...redDisc.data.slice(0, 8)]);
