@@ -122,3 +122,13 @@ test('L7. the editor sets each scene\'s motion and the page\'s set piece: only t
   assert.equal(editor.applyEdit(direction, { type: 'signature', sceneId: out.scenes[0].id, kind: 'pour' }).ok, false, 'never the opening');
   const off = editor.applyEdit({ mode: 'creative', creative: g.creative }, { type: 'signature', kind: 'none' }); assert.equal(off.ok, true); assert.equal(off.creative.plan.signature, undefined);
 });
+
+test('L8. a scene can be taken off the page (free): never the opening; the page keeps its fewest scenes; the carried subject\'s run moves up with it; its picture can be added again', () => {
+  const { plan, recipe } = D2.direct({ understanding: UND, research: { page: null, facts: FACTS }, assets: ASSETS, supplied: { facts: [], memories: [] }, seed: '3', mainAsset: 'can' });
+  const p = validatePlan2(plan, { assets: ASSETS, facts: FACTS, understanding: UND, art: recipe, mainAsset: 'can' }).plan;
+  const direction = { mode: 'creative', creative: { v: 1, plan: p, assets: ASSETS, understanding: UND, research: { page: null, facts: FACTS }, supplied: { facts: [], memories: [] }, mainAsset: 'can' } };
+  const out = editor.outline(direction); assert.ok(!out.scenes[0].actions.includes('scene-remove')); assert.ok(out.scenes[1].actions.includes('scene-remove'));
+  assert.equal(editor.applyEdit(direction, { type: 'scene-remove', sceneId: p.scenes[0].id }).ok, false, 'never the opening');
+  const victim = p.scenes[p.scenes.length - 2]; const r = editor.applyEdit(direction, { type: 'scene-remove', sceneId: victim.id }); assert.equal(r.ok, true, r.message);
+  assert.equal(r.creative.plan.scenes.length, p.scenes.length - 1); assert.ok(!r.creative.plan.scenes.some(s => s.id === victim.id));
+});
