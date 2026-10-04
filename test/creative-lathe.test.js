@@ -102,3 +102,23 @@ test('L6. a tall model in a wide picture\'s place on a phone grows up into the r
   const wide = place(mk([-0.5, -0.2, -0.5], [0.5, 0.2, 0.5]));
   assert.match(wide, /--mx:0;--my:20;--mw:100;--mh:40;/);
 });
+
+test('L7. the editor sets each scene\'s motion and the page\'s set piece: only the vocabulary, only a scene that can carry it, kept through the save', () => {
+  const KIN = require('../lib/creative/kinetic');
+  const { plan, recipe } = D2.direct({ understanding: UND, research: { page: null, facts: FACTS }, assets: ASSETS, supplied: { facts: [], memories: [] }, seed: '3', mainAsset: 'can' });
+  const p = validatePlan2(plan, { assets: ASSETS, facts: FACTS, understanding: UND, art: recipe, mainAsset: 'can' }).plan;
+  const direction = { mode: 'creative', creative: { v: 1, plan: p, assets: ASSETS, understanding: UND, research: { page: null, facts: FACTS }, supplied: { facts: [], memories: [] }, mainAsset: 'can' } };
+  const out = editor.outline(direction); assert.deepEqual(out.moves, KIN.MOVES); assert.deepEqual(out.signatures, KIN.SIGNATURES);
+  const s1 = out.scenes[1]; assert.ok(s1.actions.includes('scene-move') && s1.actions.includes('signature'));
+  const r = editor.applyEdit(direction, { type: 'scene-move', sceneId: s1.id, words: 'cascade', picture: 'rush' }); assert.equal(r.ok, true, r.message);
+  assert.deepEqual(r.creative.plan.scenes[1].move, { words: 'cascade', picture: 'rush' });
+  const r2 = editor.applyEdit({ mode: 'creative', creative: r.creative }, { type: 'scene-move', sceneId: s1.id, words: '' }); assert.equal(r2.ok, true);
+  assert.deepEqual(r2.creative.plan.scenes[1].move, { picture: 'rush' }, 'clearing one choice keeps the other');
+  assert.equal(editor.applyEdit(direction, { type: 'scene-move', sceneId: s1.id, words: 'explode' }).ok, false, 'only the vocabulary');
+  // the set piece: a scene that can carry it, never the opening
+  const fits = out.scenes.find(s => (s.signatures || []).length); assert.ok(fits, 'some scene can carry a set piece');
+  const kind = fits.signatures[0]; const g = editor.applyEdit(direction, { type: 'signature', sceneId: fits.id, kind }); assert.equal(g.ok, true, g.message);
+  assert.deepEqual(g.creative.plan.signature, { kind, scene: fits.id });
+  assert.equal(editor.applyEdit(direction, { type: 'signature', sceneId: out.scenes[0].id, kind: 'pour' }).ok, false, 'never the opening');
+  const off = editor.applyEdit({ mode: 'creative', creative: g.creative }, { type: 'signature', kind: 'none' }); assert.equal(off.ok, true); assert.equal(off.creative.plan.signature, undefined);
+});
