@@ -104,7 +104,7 @@ test('CS-1. the cinematic source rules: Image unless a finished 3D model exists;
   assert.equal(PS.eligible({ id: 'r', origin: 'upload', assess: { width: 1920, height: 1080, subject: [0.337, 0.223, 0.663, 0.843], transparent: false } }, {}).ok, true);
   // the prompt: an Image clip is asked for in its intent's own words (unchanged); a 3D clip for the controlled camera move
   for (const intent of PM.INTENT_NAMES) {
-    assert.equal(PM.promptFor({ intent, subject: SUBJECT }), `${PM.INTENTS[intent].prompt}. Subject: ${SUBJECT}`.slice(0, 400));
+    assert.equal(PM.promptFor({ intent, subject: SUBJECT }), `${PM.INTENTS[intent].prompt}. Subject: ${SUBJECT}`.slice(0, PM.PROMPT_MAX)); if (PM.INTENTS[intent].mediaType === 'video') assert.match(PM.promptFor({ intent, subject: SUBJECT }), /Keep the subject exactly as in the picture.*. Subject: /, "the subject's design rule and the subject are never cut off");
     assert.equal(PM.promptFor({ intent, subject: SUBJECT, source: 'image' }), PM.promptFor({ intent, subject: SUBJECT }));
   }
   assert.equal(PM.promptFor({ intent: 'cinematic_hero', subject: SUBJECT, source: 'model3d' }), `${CS.PROMPT_3D}. Subject: ${SUBJECT}`);
