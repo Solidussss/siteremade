@@ -410,9 +410,16 @@
     .k-prog{position:fixed;left:0;top:0;height:2px;width:100%;transform-origin:0 50%;transform:scaleX(var(--kprog,0));background:var(--accent,currentColor);z-index:2147481500;pointer-events:none}
     html[data-motion="reduced"] .k-prog{display:none}
     /* (a phone has no room to spare at its sides: the words never drift off it, a 3D word tips forward only, a little shallower) */
+    /* (a phone's tilt is its mouse: the pictures lean by their depth, the 3D words turn with it) */
+    @media (hover:none),(pointer:coarse){
+      html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly{translate:calc(var(--kpx,0) * var(--kdp,0) * 2.6vw) calc(var(--kpy,0) * var(--kdp,0) * 1.3vh)}
+      html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="focal"],html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="subject"]{--kdp:1.3}
+      html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="support"]{--kdp:.8}
+      html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="backdrop"],html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="texture"]{--kdp:.35}
+      html.k-on:not([data-motion="reduced"]):where(.k-tilt) .ly[data-role="backdrop"] .ly-art{scale:1.06}}
     @media (max-width:720px){html.k-go:not([data-motion="reduced"]) .sc[data-kd] .kw{translate:none}
       html.k-go:not([data-motion="reduced"]) .sc[data-k3] .sc-heading{--k3:calc(var(--k3c,1) * .6)}
-      html.k-go:not([data-motion="reduced"]) .sc[data-k3] .kw{transform:rotateX(calc((8deg - (var(--p,.5) - .5) * 24deg) * var(--k3,1)))}}
+      html.k-go:not([data-motion="reduced"]) .sc[data-k3] .kw{transform:rotateY(calc(var(--kpx,0) * 18deg * var(--k3,1))) rotateX(calc((8deg - (var(--p,.5) - .5) * 24deg - var(--kpy,0) * 8deg) * var(--k3,1)))}}
     /* THE BAND: the page's name runs across the page between scenes, faster as the visitor scrolls faster, turning with the scroll */
     .k-mq{position:relative;z-index:3;overflow:hidden;padding:2.2vh 0;pointer-events:none;background:var(--bg,#111);border-block:1px solid color-mix(in srgb,var(--ink,#fff) 14%,transparent)}
     .k-mq-t{display:inline-flex;white-space:nowrap;will-change:transform;font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(56px,12vw,220px);line-height:1;letter-spacing:-.02em;text-transform:uppercase;color:transparent;-webkit-text-stroke:1.5px var(--ink,#fff)}
@@ -471,9 +478,19 @@
     [].forEach.call(d.querySelectorAll('.cr-cta'),function(b){var r=b.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=mx-cx,dy=my-cy,dist=Math.sqrt(dx*dx+dy*dy);if(dist<160){b.style.setProperty('--kmx',(dx*.28).toFixed(1)+'px');b.style.setProperty('--kmy',(dy*.28).toFixed(1)+'px')}else{b.style.removeProperty('--kmx');b.style.removeProperty('--kmy')}});
     if(hero)kick();if(!moving){moving=true;requestAnimationFrame(follow)}},{passive:true});
     d.addEventListener('pointerleave',function(){ring.classList.remove('is-on')})}
+    /* ---- tilt (a touch screen): the phone's angle against where it is held -- that rest angle follows the hand over a
+       couple of seconds -- steers the same depth the mouse does; tiny shakes are ignored */
+    var tilting=false;
+    if(!fine&&!RM&&W.DeviceOrientationEvent){var g0=null,b0=null;
+    function onTilt(e){if(e.gamma==null||e.beta==null||reduced())return;var a=(screen.orientation&&screen.orientation.angle)||W.orientation||0,gx=e.gamma,gy=e.beta;if(a===90){gx=e.beta;gy=-e.gamma}else if(a===-90||a===270){gx=-e.beta;gy=e.gamma}
+    if(g0==null){g0=gx;b0=gy}g0+=(gx-g0)*.005;b0+=(gy-b0)*.005;var nx=Math.max(-1,Math.min(1,(gx-g0)/18)),ny=Math.max(-1,Math.min(1,(gy-b0)/18));if(Math.abs(nx-tx)<.01&&Math.abs(ny-ty)<.01)return;
+    tx=nx;ty=ny;if(!tilting){tilting=true;H.classList.add('k-tilt');K.tilt=true}if(!moving){moving=true;requestAnimationFrame(follow)}}
+    var heard=false;function listen(){if(heard)return;heard=true;W.addEventListener('deviceorientation',onTilt,{passive:true})}
+    var DOE=W.DeviceOrientationEvent;if(typeof DOE.requestPermission==='function'){var ask=function(){d.removeEventListener('click',ask,true);d.removeEventListener('touchend',ask,true);try{DOE.requestPermission().then(function(r){if(r==='granted')listen()},function(){})}catch(e){}};d.addEventListener('click',ask,true);d.addEventListener('touchend',ask,true)}listen()}
     var rx=0,ry=0;
     function follow(){px+=(tx-px)*.08;py+=(ty-py)*.08;rx+=(mx-rx)*.22;ry+=(my-ry)*.22;if(!reduced()){H.style.setProperty('--kpx',px.toFixed(4));H.style.setProperty('--kpy',py.toFixed(4))}
     if(ring)ring.style.transform='translate3d('+rx.toFixed(1)+'px,'+ry.toFixed(1)+'px,0)';
+    if(tilting&&W.CustomEvent)W.dispatchEvent(new CustomEvent('cr-tilt',{detail:{x:px,y:py}}));
     if(Math.abs(tx-px)>.001||Math.abs(ty-py)>.001||Math.abs(mx-rx)>.3||Math.abs(my-ry)>.3)requestAnimationFrame(follow);else moving=false}
     var prog=null;if(!RM){prog=d.createElement('div');prog.className='k-prog';prog.setAttribute('aria-hidden','true');d.body.appendChild(prog)}
     /* ---- scrubbed clips: the visitor plays them. Their scenes' places are measured when the layout changes (load, resize, the
@@ -5053,6 +5070,8 @@
     const TURNS = [0, 4];
     // pointer tilt (radians) and click steps
     const TILT = { y: 0.42, x: 0.22 };
+    // (a phone's tilt -- sent by the page's kinetic layer as 'cr-tilt' -- leans any staging a little, on top of its own move)
+    const GYRO = { y: 0.38, x: 0.16 };
     const CLICK_STEP = Math.PI / 2;
 
     const TAU = Math.PI * 2;
@@ -5079,13 +5098,14 @@
       else if (kind === 'scroll-orbit') out.azimuth += (p - anchor) * turns * 360;
       else if (kind === 'pointer-tilt') { out.rotY = cl(fin(i.px, 0), -1, 1) * TILT.y; out.rotX = cl(fin(i.py, 0), -1, 1) * TILT.x; }
       else if (kind === 'click-rotate') out.rotY = Math.round(fin(i.clicks, 0)) * CLICK_STEP;
+      if (i.gx || i.gy) { out.rotY += cl(fin(i.gx, 0), -1, 1) * GYRO.y; out.rotX += cl(fin(i.gy, 0), -1, 1) * GYRO.x; }
       if (C.dolly) out.distance *= 1 - C.dolly * smooth(p);
       if (C.reveal) { const r = smooth(p / 0.35); out.scale = 0.62 + 0.38 * r; out.opacity = r; }
       if (C.float) out.lift = Math.sin(fin(i.t, 0) * 0.9) * 0.018 * C.float;
       return out;
     }
 
-    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, CLICK_STEP, pose };
+    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, GYRO, CLICK_STEP, pose };
 
   });
   __define("three-d", function (module, exports, require) {

@@ -131,3 +131,17 @@ test('K14. the director chooses each scene\'s motion (scene.move): only the voca
   assert.match(KIN.js, /\(mw==='3d'&&nw<=6\)/, 'a chosen 3D headline is short enough to stand as an object');
   assert.match(KIN.js, /k=\/\^\(blur\|pop\|split\|cascade\|flip\|type\|sweep\|rise\)\$\/\.test\(mw\)\?mw:pool/, 'a chosen entrance beats the pool');
 });
+
+test('K15. a phone\'s tilt is its mouse: it steers the same depth (pictures lean, 3D words turn) and leans the 3D product; iOS is asked once on a tap', () => {
+  assert.match(KIN.js, /if\(!fine&&!RM&&W\.DeviceOrientationEvent\)/, 'only a touch screen, never for reduced motion');
+  assert.match(KIN.js, /W\.addEventListener\('deviceorientation',onTilt,\{passive:true\}\)/);
+  assert.match(KIN.js, /typeof DOE\.requestPermission==='function'/, 'iOS asks permission, on the first tap');
+  assert.match(KIN.js, /d\.addEventListener\('touchend',ask,true\)\}listen\(\)\}/, 'and every phone listens at once (a browser that never asks is never kept waiting)');
+  assert.match(KIN.js, /g0\+=\(gx-g0\)\*\.005/, 'the rest angle follows the hand, so the page settles wherever the phone is held');
+  assert.match(KIN.js, /W\.dispatchEvent\(new CustomEvent\('cr-tilt'/, 'the 3D product is told');
+  assert.match(KIN.css, /@media \(hover:none\),\(pointer:coarse\)\{[^@]*:where\(\.k-tilt\) \.ly\{translate:/, 'pictures lean only once the phone has actually tilted');
+  assert.match(KIN.css, /\.sc\[data-k3\] \.kw\{transform:rotateY\(calc\(var\(--kpx,0\) \* 18deg/, 'the 3D words turn with the phone');
+  const POSE = require('../lib/creative/three-d-pose');
+  const still = POSE.pose({ composition: 'label-turn' }, { p: 0.5 }), leaned = POSE.pose({ composition: 'label-turn' }, { p: 0.5, gx: 1, gy: -1 });
+  assert.ok(Math.abs(leaned.rotY - still.rotY - POSE.GYRO.y) < 1e-9 && Math.abs(leaned.rotX - still.rotX + POSE.GYRO.x) < 1e-9, 'the product leans on top of its own staging');
+});
