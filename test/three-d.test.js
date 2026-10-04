@@ -764,3 +764,18 @@ test('3D-E. a model in a scene without its picture takes the place of the scene\
   assert.deepEqual(box(3).slice(0, 6), [4, 10, 44, 80, 8, 6], 'words on the right: the model on the left (above them on a phone)');
   assert.equal(TD.LIMITS.scenes, 9, 'a model may stand in every scene a page can have'); assert.equal(TD.LIMITS.assets, 4, 'Creative Showcase makes up to 4');
 });
+
+// THE OPENING THAT HID ITS MODEL: on a phone a scene of words alone, and a scene the page carries its subject through
+// (an actor run), hide their stage -- a 3D model placed there was never seen. A scene holding a model keeps its stage.
+test('3D-F. a scene with a 3D model is never hidden as "words alone" or as a run scene on a phone; in a run it stands where the carried picture stands', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'lib', 'creative', 'render2.js'), 'utf8');
+  assert.doesNotMatch(css, /data-3d\]/, 'a page without 3D carries no 3D rule (only the 3D stylesheet does)');
+  const tdcss = fs.readFileSync(path.join(__dirname, '..', 'lib', 'creative', 'three-d.js'), 'utf8');
+  assert.match(tdcss, /\.sc\[data-actor\]\[data-3d\] \.sc-stage\{display:block;position:absolute;left:0;right:0;top:calc\(var\(--nav\) \+ 1svh\);height:36svh\}/, 'a run scene holding a model keeps its stage, where the carried picture stands');
+  assert.match(css, /&& !s\.layers\.some\(L => L\.kind === 'image'\) && !has3d;/, 'a scene with a model is not words alone');
+  const scenes = [{ id: 'a', layers: [], text: {} }, { id: 'b', layers: [], text: {} }, { id: 'c', layers: [], text: {} }];
+  const out = TD.forPage({ assets: [{ id: 'tdm', sourceAssetId: 'shoe', bytes: 10, triangles: 10, bounds: { min: [-1, -1, -1], max: [1, 1, 1] } }], scenes: [{ id: 'td-a', assetId: 'tdm', sectionId: 'a', composition: 'scroll-rotate' }, { id: 'td-c', assetId: 'tdm', sectionId: 'c', composition: 'scroll-rotate' }] },
+    { scenes, byId: new Map(), src: () => 'm.glb', runtime: 'sr3d.min.js', actor: { from: 0, to: 1 } });
+  assert.match(out.stages.get(0), /--x:32;--y:8;--w:36;--h:84;--mx:14;--my:0;--mw:72;--mh:100/, 'in the run: centre stage, and on a phone the whole carried-picture spot');
+  assert.doesNotMatch(out.stages.get(2), /--x:32;--y:8/, 'outside the run: the free side of its words');
+});

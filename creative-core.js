@@ -4963,6 +4963,7 @@
     // ---------------------------------------------------------------- the page
     // where a stage sits when its section does not show the source picture itself: [x, y, w, h] in percent of the scene's stage
     const DEFAULT_BOX = { d: [50, 10, 44, 80], m: [8, 6, 84, 46] };
+    const RUN_BOX = { d: [32, 8, 36, 84], m: [14, 0, 72, 100] };
     // a section of words alone: the model stands on the side the words leave free (and, on a phone, above or below them)
     function freeSide(s) {
       const t = (s && s.text) || {}; const g = (t.place && Array.isArray(t.place.gc) && t.place.gc) || [1, 5]; const mid = (g[0] + g[1]) / 2;
@@ -4994,7 +4995,10 @@
           const main = (c.scenes[si].layers || []).filter(x => x.kind === 'image' && x.box && x.role !== 'texture' && x.role !== 'backdrop' && x.role !== 'echo').sort((x, y) => ((y.role === 'focal') - (x.role === 'focal')) || (area(y) - area(x)))[0];
           if (main) { L = main; posters.push(main.asset); }
         }
-        const box = L && L.box ? { d: L.box.d, m: L.box.m } : L ? DEFAULT_BOX : freeSide(c.scenes[si]); const z = L ? (L.z || 0) + 1 : 6;
+        // (a scene the page carries its subject through -- the actor run: the model stands where the carried picture stands,
+        // centre stage, and at the top of a phone's screen with the words below it, as the carried picture does)
+        const run = c.actor && Number.isInteger(c.actor.from) && Number.isInteger(c.actor.to) && si >= c.actor.from && si <= c.actor.to;
+        const box = L && L.box ? { d: L.box.d, m: L.box.m } : L ? DEFAULT_BOX : run ? RUN_BOX : freeSide(c.scenes[si]); const z = L ? (L.z || 0) + 1 : 6;
         const own = !L && byId.get(a.sourceAssetId) && src(byId.get(a.sourceAssetId)) ? `<img class="td-poster" src="${attr(src(byId.get(a.sourceAssetId)))}" alt="" decoding="async">` : '';
         stages.set(si, `<div class="td-stage" data-td="${attr(sc.id)}" data-td-comp="${sc.composition}" data-td-bg="${sc.background}" aria-hidden="true" style="--x:${box.d[0]};--y:${box.d[1]};--w:${box.d[2]};--h:${box.d[3]};--mx:${box.m[0]};--my:${box.m[1]};--mw:${box.m[2]};--mh:${box.m[3]};--z:${z}">${own}</div>`);
         data.push({ id: sc.id, model, bytes: a.bytes, triangles: a.triangles, bounds: a.bounds, composition: sc.composition, interaction: sc.interaction, camera: sc.camera, turns: sc.turns, lighting: sc.lighting, background: sc.background, phone: sc.phone, posters });
@@ -5016,6 +5020,8 @@
     .td-stage.td-on .td-poster{visibility:hidden}.sc.td-live .td-src{visibility:hidden!important}
     .td-away{animation:td-away .25s ease forwards}@keyframes td-away{to{opacity:0;visibility:hidden}}
     @media (max-width:720px){.td-stage{left:calc(var(--mx)*1%);top:calc(var(--my)*1%);width:calc(var(--mw)*1%);height:calc(var(--mh)*1%)}}
+    /* a run scene holding a model keeps its stage on a phone: where the carried picture stands, the words below it */
+    @media (max-width:720px){html.cr-js:not([data-motion="reduced"]) .sc[data-actor][data-3d] .sc-stage{display:block;position:absolute;left:0;right:0;top:calc(var(--nav) + 1svh);height:36svh}}
     @media print{.td-canvas{display:none}.td-stage.td-on .td-poster{visibility:visible}.sc.td-live .td-src{visibility:visible!important}.td-away{animation:none}}
     `;
 
@@ -10097,7 +10103,7 @@
       const leadFor = si => { const e = pvArc.filter(x => x.role !== 'hero' && x.scene < si && si <= x.scene + 2 && x.measured && x.measured.motion && x.measured.motion !== 'none').pop(); return e ? { lead: e.measured.motion, near: true } : { lead, near: si > heroAt && si <= heroAt + 2 }; };
       // TRUE 3D (three-d.js): a stage in each section that shows a model, where the subject's own picture sits -- the picture
       // stays until the model has been drawn, and for good when it cannot be. A page without a 3D scene gets none of this.
-      const td = o.threeD ? TD.forPage(o.threeD, { scenes: plan.scenes, byId, src, runtime: o.threeDRuntime || TD.RUNTIME[mode] }) : null;
+      const td = o.threeD ? TD.forPage(o.threeD, { scenes: plan.scenes, byId, src, runtime: o.threeDRuntime || TD.RUNTIME[mode], actor: plan.actor }) : null;
       const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead: leadFor(si).lead, leadNear: leadFor(si).near, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
       const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, fontType, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, td: td ? td.stages : null, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
@@ -10459,7 +10465,8 @@
       // heading. What leaves still leaves after it)
       const cRest = s.pin && c.ctrack && typeof c.ctrack.rest === 'number' ? c.ctrack.rest : null;
       // (words alone, set giant -- a look's statement scene: on a phone it is the whole screen, the empty stage gone)
-      const alone = !!c.plan.look && artOn && !!t.giant && !s.layers.some(L => L.kind === 'image');
+      const has3d = !!(c.td && c.td.has(si));
+      const alone = !!c.plan.look && artOn && !!t.giant && !s.layers.some(L => L.kind === 'image') && !has3d;
       const beatWin = beats.map(b => { let f0 = s.pin ? b.from : b.dir === 'out' ? 0.55 + b.from * 0.4 : 0.08 + b.from * 0.47; let t0 = s.pin ? b.to : b.dir === 'out' ? 0.55 + b.to * 0.4 : 0.08 + b.to * 0.47; if (b.dir !== 'out' && cRest != null && t0 > cRest) { t0 = Math.max(0.04, cRest); f0 = Math.max(0, Math.min(f0, t0 - 0.12)); } return `${f0.toFixed(3)},${t0.toFixed(3)}`; }).join(';');
       const needsP = c.arted && (artOn && s.choreo && s.choreo !== 'settle' && s.choreo !== 'actor' || !!c.ctrack || bleed || carries || hold || !!s.exit || tr === 'letter-spread' || tr === 'word-fill' || beats.length > 0 || !!seamAttr);
       const covers = s.layers.some(L => L.kind === 'image' && L.fit === 'cover');
@@ -10468,7 +10475,7 @@
       const shade = artOn && t.shade ? `<div class="sc-shade" data-shade="${t.shade}" aria-hidden="true"></div>` : '';
       const trackStage = artOn && s.choreo === 'track';
       const spKind = c.sp ? c.sp.get(si) || '' : ''; const spPiece = spKind === 'globe' ? c.tl.spatial.pieces.find(p => p.kind === 'globe' && p.scene === si) : null;
-      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
+      return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${has3d ? ' data-3d' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
         <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}${(c.td && c.td.get(si)) || ''}</div>
