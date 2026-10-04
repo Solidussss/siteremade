@@ -82,8 +82,11 @@ test('LOOK-4. no rail, no translucent boxes, no default frames, no blurred blobs
     assert.ok(['solid', 'grain', 'paper', 'grid', 'water', 'stars'].includes(P.atmosphere.backdrop), P.atmosphere.backdrop); assert.equal(P.atmosphere.particles, 'none'); assert.equal(P.atmosphere.light, 'none');
     assert.ok(!P.timeline || !P.timeline.actors.some(a => a.role === 'background'), 'no decorative background shape');
     assert.ok(!P.scenes.some(s => s.background === 'tint'), 'no translucent tint');
-    // the words that need a ground stand on an opaque block of the scene's colour, never glass
-    assert.match(h, /html\[data-look\] \.sc-text\.has-scrim\{background:var\(--s-surface,var\(--bg\)\);border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none/);
+    // the words never stand in a box (no panel, no band, never glass): where they need the picture held back, a glow of the
+    // scene's own colour blends into the background with no edge
+    assert.match(h, /html\[data-look\] :is\(\.sc-text\.has-scrim,[^)]*\)\{background:none;padding:0;border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none/);
+    assert.match(h, /::before\{content:"";position:absolute;inset:-38% -32%;z-index:-1;pointer-events:none;background:radial-gradient\(closest-side,/);
+    assert.match(h, /html\[data-look\] \.sc-shade\[data-shade="band"\]\{display:none\}/);
     assert.match(h, /html\[data-look\] \.cs-carry\{border-radius:0;filter:none\}/);
   });
 });

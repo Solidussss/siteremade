@@ -330,7 +330,7 @@ test('15. what the scroll runtime reads: cached geometry, never a layout read pe
   assert.doesNotMatch(h, /<canvas|three(\.min)?\.js|<script src=/i);
   const lensInit = KIN.js.slice(KIN.js.indexOf('function lensInit('), KIN.js.indexOf('function lensDraw('));
   assert.match(lensInit, /getContext\('webgl'/, 'the lens makes its context itself');
-  assert.equal((KIN.js.match(/getContext\(/g) || []).length, 1, 'and nothing else in the layer does');
+  assert.equal((KIN.js.match(/getContext\('webgl'/g) || []).length, 1, 'and nothing else in the layer makes one (the name\'s mask is a flat 2D drawing, made once)');
   assert.match(KIN.js, /if\(on&&L\.ok===null&&L\.img\.complete&&L\.img\.naturalWidth\)lensInit\(L\)/, 'only when the mouse is over the photograph');
 });
 

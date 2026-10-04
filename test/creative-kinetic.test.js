@@ -34,7 +34,10 @@ test('K2. one scroll listener for the whole page, runtime included; per-frame wo
 });
 
 test('K3. reduced motion turns every part of it off', () => {
-  const rules = KIN.css.split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*(0|20|40|60|80|100)%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub/.test(r));
+  const rules = KIN.css.replace(/\/\*[\s\S]*?\*\//g, '').split('}').filter(r => /translate|rotate|scale|transform|opacity|filter|animation/.test(r) && !/@keyframes|^\s*[\d.,% ]+%/.test(r.trim()) && !/^\s*\.k-cur|\.k-lens|\.k-cur\.is|\.kw\{|\.kw>i\{display|data-scrub|^\s*\.k-mq|^\s*\.k-trail|^\s*\.k-knock/.test(r.trim()));
+  // (the band and the clip in the name are not drawn at all for reduced motion; the trail is never made for it)
+  assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-mq\{display:none\}/); assert.match(KIN.css, /html\[data-motion="reduced"\] \.k-knock\{display:none\}/);
+  assert.match(KIN.js, /\(function\(\)\{if\(!fine\|\|RM\)return;var all=/, 'no trail for reduced motion'); assert.match(KIN.js, /sc\.addEventListener\('pointermove',function\(e\)\{if\(reduced\(\)/);
   rules.forEach(r => assert.match(r, /:not\(\[data-motion="reduced"\]\)/, `gated: ${r.trim().slice(0, 90)}`));
   assert.match(KIN.js, /function reduced\(\)\{return RM\|\|H\.getAttribute\('data-motion'\)==='reduced'\}/);
   assert.match(KIN.js, /if\(fine&&!RM\)\{K\.smooth=true;/, 'no smooth scroll for reduced motion or a touch screen');
@@ -57,4 +60,32 @@ test('K6. the hover lens: only a mouse, only a photograph, only while the mouse 
   assert.match(KIN.js, /if\(fine&&!RM&&W\.WebGLRenderingContext\)/);
   assert.match(KIN.js, /if\(!art\|\|img\.closest\('\[data-loop="kenburns"\]'\)\|\|art\.querySelector\('\.ly-vid'\)\)return;if\(getComputedStyle\(img\)\.objectFit!=='cover'\)return;/, 'never over a clip or a moving picture');
   assert.match(KIN.js, /L\.cv\.style\.opacity='0'/, 'gone when the mouse leaves');
+});
+
+test('K7. 3D words are solid blocks seen at an angle: a deep extrusion shaded from the face back, turned toward the visitor around one vanishing point, lit from the mouse -- and never in a box', () => {
+  const rule = KIN.css.slice(KIN.css.indexOf('.sc[data-k3] .sc-heading{--kex:'), KIN.css.indexOf('}', KIN.css.indexOf('.sc[data-k3] .sc-heading{--kex:')));
+  assert.ok((rule.match(/color-mix\(in srgb,currentColor \d+%,var\(--s-surface,#000\)\)/g) || []).length >= 20, 'at least 20 layers of depth, their sides blending into the scene\'s own colour');
+  const shades = [...rule.matchAll(/currentColor (\d+)%/g)].map(m => +m[1]); assert.ok(shades[0] > shades[shades.length - 1], 'lighter at the face, darker at the back');
+  assert.match(rule, /perspective:1100px/); assert.match(rule, /--kex:calc\(\.62 - var\(--kpx,0\) \* \.9\)/, 'the light comes from the mouse');
+  assert.match(KIN.css, /\.sc\[data-k3\] \.kw\{transform:rotateY\(calc\(\(-16deg \+ var\(--kpx,0\) \* 22deg\)/, 'a resting angle, moved by the mouse');
+  const h = render(page('beverage', '2')); assert.match(h, /html\[data-look\] \.sc-shade\[data-shade="band"\]\{display:none\}/);
+});
+
+test('K8. the opening clip in the name: its own layer, the page\'s name as its mask (standing up on a tall screen), the scroll floods it -- and it is the clip the visitor plays', () => {
+  assert.match(KIN.js, /lay\.className='k-knock'/); assert.match(KIN.js, /if\(port\)g\.rotate\(-Math\.PI\/2\)/);
+  assert.match(KIN.js, /function flood\(y\)\{if\(!knock\)return;/); assert.match(KIN.js, /clips=clips\.filter\(function\(x\)\{return x\.sc!==firstSc\}\);clips\.push\(c\);hero=c;/);
+  assert.match(KIN.css, /\.sc\[data-knock\] \.k-knock video\{-webkit-mask-image:var\(--kmask\),linear-gradient/);
+});
+
+test('K9. the words have a range of entrances, chosen by the page\'s character and never the same twice in a row; 3D headlines burst into letters as they are left', () => {
+  ['blur', 'pop', 'split', 'cascade', 'flip', 'type', 'sweep'].forEach(k => assert.ok(KIN.css.includes(`[data-kt="${k}"]`), k));
+  assert.match(KIN.js, /if\(k===lastT\)k=pool\[\(pool\.indexOf\(k\)\+1\)%pool\.length\];/);
+  assert.match(KIN.css, /\.sc\[data-k3\]:is\(:first-of-type,\[data-hero\]\) \.kc\{--kb:clamp\(0, \(var\(--p,0\) - \.1\) \* 3\.1, 1\)\}/, 'only the opening bursts');
+  assert.match(KIN.css, /\.sc\[data-k3\] \.kc\{transform:translate3d\(calc\(var\(--kb,0\)/, 'a later 3D headline stays whole');
+});
+
+test('K10. a page in a real browser-like render carries the set pieces: the band (the page\'s name, its colours), the trail, the letters', () => {
+  const h = render(page('sneaker', '3'));
+  assert.match(KIN.js, /var words=\[name,'\u2726'\];/); assert.match(KIN.js, /var surf=first\.getAttribute\('data-surf'\);if\(surf\)box\.style\.background=surf;/);
+  assert.match(KIN.js, /sc\.setAttribute\('data-ktrail',''\)/); assert.ok(h.includes(KIN.js));
 });

@@ -326,6 +326,78 @@
     html.k-go:not([data-motion="reduced"]) .sc[data-kx] .sc-pin{scale:calc(1 - clamp(0, (var(--p,0) - .7) * 3.4, 1) * .07);filter:brightness(calc(1 - clamp(0, (var(--p,0) - .7) * 3.4, 1) * .4));transform-origin:50% 0;border-radius:calc(clamp(0, (var(--p,0) - .7) * 3.4, 1) * 28px);overflow:hidden}
     /* film grain: the page has a surface */
     html[data-kinetic]:not([data-motion="reduced"]) body::after{content:"";position:fixed;inset:-50%;z-index:2147482000;pointer-events:none;opacity:.07;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");animation:k-grain .9s steps(6) infinite}
+
+    /* 3D WORDS: the big headlines have depth -- an extrusion in a darker shade of their own colour, lit from the mouse's side
+       -- and each word turns toward the mouse (on a touch screen, with the scroll). The page's character sets how deep. */
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3] .sc-heading{--kex:calc(.62 - var(--kpx,0) * .9);--key:calc(.8 - var(--kpy,0) * .9);perspective:1100px;perspective-origin:50% 40%;transform-style:preserve-3d;
+      text-shadow:calc(var(--kex) * 0.0105em * var(--k3,1)) calc(var(--key) * 0.0105em * var(--k3,1)) 0 color-mix(in srgb,currentColor 76%,var(--s-surface,#000)),calc(var(--kex) * 0.0210em * var(--k3,1)) calc(var(--key) * 0.0210em * var(--k3,1)) 0 color-mix(in srgb,currentColor 73%,var(--s-surface,#000)),calc(var(--kex) * 0.0315em * var(--k3,1)) calc(var(--key) * 0.0315em * var(--k3,1)) 0 color-mix(in srgb,currentColor 71%,var(--s-surface,#000)),calc(var(--kex) * 0.0420em * var(--k3,1)) calc(var(--key) * 0.0420em * var(--k3,1)) 0 color-mix(in srgb,currentColor 69%,var(--s-surface,#000)),calc(var(--kex) * 0.0525em * var(--k3,1)) calc(var(--key) * 0.0525em * var(--k3,1)) 0 color-mix(in srgb,currentColor 66%,var(--s-surface,#000)),calc(var(--kex) * 0.0630em * var(--k3,1)) calc(var(--key) * 0.0630em * var(--k3,1)) 0 color-mix(in srgb,currentColor 64%,var(--s-surface,#000)),calc(var(--kex) * 0.0735em * var(--k3,1)) calc(var(--key) * 0.0735em * var(--k3,1)) 0 color-mix(in srgb,currentColor 61%,var(--s-surface,#000)),calc(var(--kex) * 0.0840em * var(--k3,1)) calc(var(--key) * 0.0840em * var(--k3,1)) 0 color-mix(in srgb,currentColor 59%,var(--s-surface,#000)),calc(var(--kex) * 0.0945em * var(--k3,1)) calc(var(--key) * 0.0945em * var(--k3,1)) 0 color-mix(in srgb,currentColor 57%,var(--s-surface,#000)),calc(var(--kex) * 0.1050em * var(--k3,1)) calc(var(--key) * 0.1050em * var(--k3,1)) 0 color-mix(in srgb,currentColor 54%,var(--s-surface,#000)),calc(var(--kex) * 0.1155em * var(--k3,1)) calc(var(--key) * 0.1155em * var(--k3,1)) 0 color-mix(in srgb,currentColor 52%,var(--s-surface,#000)),calc(var(--kex) * 0.1260em * var(--k3,1)) calc(var(--key) * 0.1260em * var(--k3,1)) 0 color-mix(in srgb,currentColor 50%,var(--s-surface,#000)),calc(var(--kex) * 0.1365em * var(--k3,1)) calc(var(--key) * 0.1365em * var(--k3,1)) 0 color-mix(in srgb,currentColor 47%,var(--s-surface,#000)),calc(var(--kex) * 0.1470em * var(--k3,1)) calc(var(--key) * 0.1470em * var(--k3,1)) 0 color-mix(in srgb,currentColor 45%,var(--s-surface,#000)),calc(var(--kex) * 0.1575em * var(--k3,1)) calc(var(--key) * 0.1575em * var(--k3,1)) 0 color-mix(in srgb,currentColor 43%,var(--s-surface,#000)),calc(var(--kex) * 0.1680em * var(--k3,1)) calc(var(--key) * 0.1680em * var(--k3,1)) 0 color-mix(in srgb,currentColor 40%,var(--s-surface,#000)),calc(var(--kex) * 0.1785em * var(--k3,1)) calc(var(--key) * 0.1785em * var(--k3,1)) 0 color-mix(in srgb,currentColor 38%,var(--s-surface,#000)),calc(var(--kex) * 0.1890em * var(--k3,1)) calc(var(--key) * 0.1890em * var(--k3,1)) 0 color-mix(in srgb,currentColor 35%,var(--s-surface,#000)),calc(var(--kex) * 0.1995em * var(--k3,1)) calc(var(--key) * 0.1995em * var(--k3,1)) 0 color-mix(in srgb,currentColor 33%,var(--s-surface,#000)),calc(var(--kex) * 0.2100em * var(--k3,1)) calc(var(--key) * 0.2100em * var(--k3,1)) 0 color-mix(in srgb,currentColor 31%,var(--s-surface,#000)),calc(var(--kex) * 0.2205em * var(--k3,1)) calc(var(--key) * 0.2205em * var(--k3,1)) 0 color-mix(in srgb,currentColor 28%,var(--s-surface,#000)),calc(var(--kex) * 0.2310em * var(--k3,1)) calc(var(--key) * 0.2310em * var(--k3,1)) 0 color-mix(in srgb,currentColor 26%,var(--s-surface,#000)),calc(var(--kex) * .3em) calc(var(--key) * .38em) .4em rgba(0,0,0,.32),0 0 .55em color-mix(in srgb,var(--s-surface,#000) 50%,transparent)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3].k-done .kw{overflow:visible}
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3] .kw{transform:rotateY(calc((-16deg + var(--kpx,0) * 22deg) * var(--k3,1))) rotateX(calc((9deg - var(--kpy,0) * 16deg) * var(--k3,1))) skewX(calc(var(--kv,0) * -7deg * var(--kI,1)));transform-style:preserve-3d}
+    @media (hover:none){html.k-go:not([data-motion="reduced"]) .sc[data-k3] .kw{transform:rotateY(calc((-14deg + (var(--p,.5) - .5) * 30deg) * var(--k3,1))) rotateX(calc((9deg - (var(--p,.5) - .5) * 30deg) * var(--k3,1)))}
+      html.k-go:not([data-motion="reduced"]) .sc[data-k3] .sc-heading{--kex:calc(.55 + (var(--p,.5) - .5) * 1.4);--key:.85}}
+    /* every headline leans with the scroll's speed */
+    html.k-go:not([data-motion="reduced"]) .sc:not([data-k3]) .kw{transform:skewX(calc(var(--kv,0) * -7deg * var(--kI,1)))}
+
+    /* LETTERS: a 3D headline is made of letters -- they burst apart in 3D as their scene is left (the opening's as soon as the
+       page scrolls) and come back together on the way up; on a mouse they scatter from the cursor and spring back */
+    .kc{display:inline-block}
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3] .kc{transform:translate3d(calc(var(--kb,0) * var(--rx) * 1vw), calc(var(--kb,0) * var(--ry) * 1vh), 0) rotate(calc(var(--kb,0) * var(--rr) * 1deg)) scale(calc(1 + var(--kb) * var(--rs)));opacity:calc(1 - var(--kb,0) * .92);transition:translate .6s cubic-bezier(.2,.9,.3,1.35),rotate .6s cubic-bezier(.2,.9,.3,1.35)}
+    /* (giant words carry half the depth and angle: on monumental type a full extrusion becomes a slab) */
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3]:not(:first-of-type):not([data-hero]) .sc-text[data-giant]{--k3:calc(var(--k3c,1) * .45)}
+    /* (only the opening bursts -- as soon as the page scrolls; a later 3D headline keeps its depth and its scatter, never shards) */
+    html.k-go:not([data-motion="reduced"]) .sc[data-k3]:is(:first-of-type,[data-hero]) .kc{--kb:clamp(0, (var(--p,0) - .1) * 3.1, 1)}
+
+    /* THE WORDS' ENTRANCES: each scene's headline arrives its own way (chosen by the page's character, never the same twice in
+       a row) -- blur, pop, cascade, flip, split, type, sweep -- the opening and the 3D headlines keep their rise */
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt] .kw>i{transform:none}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt]:not([data-kt="sweep"]) .kw{overflow:visible}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="blur"] .kw>i{opacity:0;filter:blur(18px);scale:1.3;transition:opacity .9s ease calc(var(--wi) * 85ms),filter 1.1s ease calc(var(--wi) * 85ms),scale 1.2s cubic-bezier(.16,1,.3,1) calc(var(--wi) * 85ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="blur"].is-in .kw>i{opacity:1;filter:none;scale:1}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="pop"] .kw>i{opacity:0;scale:.15;rotate:-10deg;transition:opacity .35s ease calc(var(--wi) * 75ms),scale .75s cubic-bezier(.34,1.7,.64,1) calc(var(--wi) * 75ms),rotate .75s cubic-bezier(.34,1.7,.64,1) calc(var(--wi) * 75ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="pop"].is-in .kw>i{opacity:1;scale:1;rotate:0deg}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="split"] .kw>i{opacity:0;translate:calc(var(--side,1) * 46vw) 0;transition:opacity .8s ease calc(var(--wi) * 40ms),translate 1.25s cubic-bezier(.16,1,.3,1) calc(var(--wi) * 40ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="split"].is-in .kw>i{opacity:1;translate:0 0}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="cascade"] .kc{opacity:0;translate:0 -1.1em;rotate:calc(var(--rr0,12) * 1deg);transition:opacity .4s ease calc(var(--ci) * 30ms),translate .8s cubic-bezier(.34,1.56,.64,1) calc(var(--ci) * 30ms),rotate .8s cubic-bezier(.34,1.56,.64,1) calc(var(--ci) * 30ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="cascade"].is-in .kc{opacity:1;translate:0 0;rotate:0deg}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="flip"] .kw>i{perspective:700px}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="flip"] .kc{opacity:0;rotate:x -100deg;transform-origin:50% 0;transition:opacity .5s ease calc(var(--ci) * 34ms),rotate 1s cubic-bezier(.16,1,.3,1) calc(var(--ci) * 34ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="flip"].is-in .kc{opacity:1;rotate:x 0deg}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="type"] .kc{opacity:0;transition:opacity 0s linear calc(.2s + var(--ci) * 48ms)}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="type"].is-in .kc{opacity:1}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="type"] .sc-heading::after{content:"";display:inline-block;width:.07em;height:.85em;margin-left:.06em;vertical-align:-.05em;background:currentColor;animation:k-caret 1s steps(1) infinite}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="sweep"] .kw{position:relative}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt="sweep"] .kw>i{opacity:0}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="sweep"].is-in .kw>i{animation:k-sweepw 1s linear calc(var(--wi) * 110ms) both}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="sweep"] .kw::after{content:"";position:absolute;inset:.04em -.02em .1em;background:var(--s-accent,var(--accent,currentColor));transform:scaleX(0);transform-origin:0 50%}
+    html.k-go:not([data-motion="reduced"]) .sc[data-kt="sweep"].is-in .kw::after{animation:k-sweep 1s cubic-bezier(.7,0,.3,1) calc(var(--wi) * 110ms) both}
+    @keyframes k-sweep{0%{transform:scaleX(0);transform-origin:0 50%}50%{transform:scaleX(1);transform-origin:0 50%}50.1%{transform:scaleX(1);transform-origin:100% 50%}100%{transform:scaleX(0);transform-origin:100% 50%}}
+    @keyframes k-sweepw{0%,49%{opacity:0}50%,100%{opacity:1}}
+    @keyframes k-caret{0%,49%{opacity:1}50%,100%{opacity:0}}
+    /* the small line above a headline tightens into place */
+    html.k-on:not([data-motion="reduced"]) .sc .sc-kicker{transition:opacity .9s ease,filter .9s ease,translate 1s cubic-bezier(.16,1,.3,1),letter-spacing 1.4s cubic-bezier(.16,1,.3,1)}
+    html.k-on:not([data-motion="reduced"]) .sc:not(.is-in) .sc-kicker{letter-spacing:.7em}
+    /* words that drift apart and back with the scroll (a long headline on a lively page) */
+    html.k-go:not([data-motion="reduced"]) .sc[data-kd] .kw{translate:calc((var(--p,.5) - .5) * var(--wd,1) * 9vw * var(--kI,1)) 0}
+    /* on a mouse, a headline's letters ripple as the mouse crosses it */
+    @media (hover:hover) and (pointer:fine){html.k-go:not([data-motion="reduced"]) .sc[data-kt]:is([data-kt="cascade"],[data-kt="flip"],[data-kt="type"]).is-in .sc-heading:hover .kc{animation:k-wave .9s ease-in-out calc(var(--ci) * 35ms)}}
+    @keyframes k-wave{0%,100%{translate:0 0}35%{translate:0 -.16em}70%{translate:0 .04em}}
+    /* THE CLIP IN THE NAME: a page that opens on a premium clip shows the clip only inside its name's letters; as the page
+       scrolls, the letters grow past the camera and the footage floods the screen (--kz, --ko from the scroll) */
+    .k-knock{position:absolute;inset:0;z-index:5;overflow:hidden;pointer-events:none;background:var(--kbg,#111)}
+    .k-knock video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    html[data-motion="reduced"] .k-knock{display:none}
+    html.k-go:not([data-motion="reduced"]) .sc[data-knock] .k-knock video{-webkit-mask-image:var(--kmask),linear-gradient(rgba(0,0,0,var(--ko,0)),rgba(0,0,0,var(--ko,0)));mask-image:var(--kmask),linear-gradient(rgba(0,0,0,var(--ko,0)),rgba(0,0,0,var(--ko,0)));-webkit-mask-size:calc(var(--kz,1) * 100%) auto,100% 100%;mask-size:calc(var(--kz,1) * 100%) auto,100% 100%;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+    html.k-go:not([data-motion="reduced"]) .sc[data-knock] .sc-heading{opacity:var(--ko,0);transition:opacity .2s linear}
+    /* a full-screen clip scene melts into the page's colour at its foot */
+    html.k-go:not([data-motion="reduced"]) .sc[data-pv] .ly[data-role="focal"] .ly-art::after{content:"";position:absolute;inset:auto 0 0;height:22%;background:linear-gradient(to bottom,transparent,var(--s-surface,transparent));pointer-events:none;z-index:2}
+    /* THE BAND: the page's name runs across the page between scenes, faster as the visitor scrolls faster, turning with the scroll */
+    .k-mq{position:relative;z-index:3;overflow:hidden;padding:2.2vh 0;pointer-events:none;background:var(--bg,#111);border-block:1px solid color-mix(in srgb,var(--ink,#fff) 14%,transparent)}
+    .k-mq-t{display:inline-flex;white-space:nowrap;will-change:transform;font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(56px,12vw,220px);line-height:1;letter-spacing:-.02em;text-transform:uppercase;color:transparent;-webkit-text-stroke:1.5px var(--ink,#fff)}
+    .k-mq-t span{padding:0 .35em}.k-mq-t span:nth-child(2n){color:var(--accent,var(--ink,#fff));-webkit-text-stroke:0}
+    html[data-motion="reduced"] .k-mq{display:none}
+    /* THE TRAIL: in one scene, the mouse leaves the page's own pictures behind it */
+    .k-trail{position:fixed;left:0;top:0;width:clamp(120px,14vw,240px);aspect-ratio:4/5;object-fit:cover;border-radius:10px;pointer-events:none;z-index:2147481000;box-shadow:0 18px 40px rgba(0,0,0,.35);animation:k-trail 1.15s cubic-bezier(.16,1,.3,1) forwards}
+    @keyframes k-trail{0%{opacity:0;scale:.4}14%{opacity:1;scale:1}70%{opacity:1;scale:1}100%{opacity:0;scale:.86;translate:0 40px}}
     @keyframes k-grain{0%{translate:0 0}20%{translate:-4% 3%}40%{translate:3% -5%}60%{translate:-6% -2%}80%{translate:5% 4%}100%{translate:0 0}}
     `;
 
@@ -344,16 +416,16 @@
        fills as it is read, and the sink as it is left. The opening, a premium clip's scene and a 3D scene keep their own. */
     /* THE PAGE'S CHARACTER (its art direction's personality) sets how everything moves -- how far, how fast, how much it leans
        -- and EACH SCENE'S PLACE IN THE STORY (its arc) sets which move its pictures make: one grammar, the whole page */
-    var CH={luxe:[.55,0,0,1.35,95,.08],still:[.45,0,0,1.4,100,.075],editorial:[.75,1,1.2,1.15,80,.09],cinematic:[1,1.6,2,1.25,85,.085],kinetic:[1.25,3.2,6,.9,55,.12],playful:[1.3,3,7,.85,55,.13],chaotic:[1.5,4,9,.8,45,.14],mechanical:[1,0,0,.75,40,.12]};
+    var CH={luxe:[.55,0,0,1.35,95,.08,.55],still:[.45,0,0,1.4,100,.075,.45],editorial:[.75,1,1.2,1.15,80,.09,.75],cinematic:[1,1.6,2,1.25,85,.085,1],kinetic:[1.25,3.2,6,.9,55,.12,1.25],playful:[1.3,3,7,.85,55,.13,1.3],chaotic:[1.5,4,9,.8,45,.14,1.5],mechanical:[1,0,0,.75,40,.12,.9]};
     var pers=H.getAttribute('data-personality')||'editorial',ch=CH[pers]||CH.editorial;K.personality=pers;
-    H.style.setProperty('--kI',ch[0]);H.style.setProperty('--kS',ch[1]);H.style.setProperty('--kR',ch[2]);H.style.setProperty('--kT',ch[3]);H.style.setProperty('--kW',ch[4]);var GL=ch[5];
+    H.style.setProperty('--kI',ch[0]);H.style.setProperty('--kS',ch[1]);H.style.setProperty('--kR',ch[2]);H.style.setProperty('--kT',ch[3]);H.style.setProperty('--kW',ch[4]);H.style.setProperty('--k3',ch[6]);H.style.setProperty('--k3c',ch[6]);var GL=ch[5];
     var ARC={takeover:'grow',payoff:'grow',reveal:'tilt',transformation:'turn',breath:'drift',escalation:'rush'};
     (function(){var kinds=['grow','tilt','drift','turn','rush'],last='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){
     if(i>0&&!sc.hasAttribute('data-pv')&&!('3d' in sc.dataset)&&!/^(mask-reveal|expand)$/.test(sc.getAttribute('data-choreo')||'')&&sc.querySelector('.ly[data-kind="image"],.ly .ly-img')){var k=ARC[sc.getAttribute('data-arc')]||kinds[i%kinds.length];if(k===last)k=kinds[(kinds.indexOf(k)+1)%kinds.length];if(ch[0]<.6&&(k==='rush'||k==='turn'))k='drift';sc.setAttribute('data-kp',k);last=k}
-    var h=sc.querySelector('.sc-heading');if(i>0&&i<all.length-1&&h&&h.querySelectorAll('.kw').length>=5&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
+    var h=sc.querySelector('.sc-heading');if(h&&(i===0||/^(takeover|payoff)$/.test(sc.getAttribute('data-arc')||'')||h.hasAttribute('data-giant')||sc.querySelector('.sc-text[data-giant]')))sc.setAttribute('data-k3','');if(i>0&&i<all.length-1&&h&&h.querySelectorAll('.kw').length>=5&&!sc.hasAttribute('data-pin'))sc.setAttribute('data-kf','');
     if(i<all.length-1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-seam-in'))sc.setAttribute('data-kx','')})})();
     /* ---- decode (a mechanical page): each headline's letters resolve out of noise, left to right, as its scene arrives */
-    function decode(h){if(h._dec)return;h._dec=1;var ws=[].slice.call(h.querySelectorAll('.kw>i')),fin=ws.map(function(w){return w.textContent}),G='ABCDEFGHJKLMNPRSTUVWXYZ0123456789#%&*/<>',t0=performance.now(),total=fin.join('').length,dur=650+total*18;
+    function decode(h){if(h._dec)return;h._dec=1;var ws=[].slice.call(h.querySelectorAll('.kc').length?h.querySelectorAll('.kc'):h.querySelectorAll('.kw>i')),fin=ws.map(function(w){return w.textContent}),G='ABCDEFGHJKLMNPRSTUVWXYZ0123456789#%&*/<>',t0=performance.now(),total=fin.join('').length,dur=650+total*18;
     (function step(t){var k=Math.min(1,(t-t0)/dur),n=Math.floor(k*total),c=0;ws.forEach(function(w,j){var f=fin[j],o='';for(var x=0;x<f.length;x++,c++)o+=c<n||/[^A-Za-z0-9]/.test(f[x])?f[x]:G[(Math.random()*G.length)|0];w.textContent=o});if(k<1)requestAnimationFrame(step);else ws.forEach(function(w,j){w.textContent=fin[j]})})(t0)}
     /* ---- smooth scroll (wheel only) */
     var target=W.scrollY||0,cur=target,gliding=false;
@@ -380,17 +452,18 @@
     [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
     var c={v:v,sc:sc,want:0,at:0,busy:false,ready:false,top:0,h:1};v.addEventListener('loadedmetadata',function(){c.ready=v.duration>0;kick()});v.addEventListener('seeked',function(){c.busy=false});if(v.readyState>=1&&v.duration>0)c.ready=true;
     clips.push(c);if(sc===firstSc)hero=c});K.scrub=clips.length;
-    function measureK(){var y=W.scrollY||0;clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)})}
+    function measureK(){var y=W.scrollY||0;clips.forEach(function(c){var r=c.sc.getBoundingClientRect();c.top=r.top+y;c.h=Math.max(1,r.height)});if(knock){var r=knock.sc.getBoundingClientRect();knock.top=r.top+y;knock.h=Math.max(1,r.height)}}
     function clipAt(c,y,vh){var top=c.top-y,tall=c.h>vh*1.05,span=tall?c.h-vh:c.h+vh,p=tall?-top/span:(vh-top)/span;return Math.max(0,Math.min(1,p))}
     var heroScrolled=false,scrubbing=false,SY=W.scrollY||0;
-    function scrubFrame(){var vh=innerHeight,y=SY,live=false;if(!reduced())clips.forEach(function(c){if(!c.ready)return;var top=c.top-y;if(top+c.h<-50||top>vh+50)return;var dur=c.v.duration,p=c===hero?Math.max(0,Math.min(1,-top/c.h)):clipAt(c,y,vh);
+    function flood(y){if(!knock)return;var q=Math.max(0,Math.min(1,(-(knock.top-y)/knock.h-.02)/.34)),e=q*q*(3-2*q);knock.sc.style.setProperty('--kz',(1+e*e*7).toFixed(3));knock.sc.style.setProperty('--ko',Math.max(0,Math.min(1,(e-.3)/.6)).toFixed(3))}
+    function scrubFrame(){var vh=innerHeight,y=SY,live=false;flood(y);if(!reduced())clips.forEach(function(c){if(!c.ready)return;var top=c.top-y;if(top+c.h<-50||top>vh+50)return;var dur=c.v.duration,p=c===hero?Math.max(0,Math.min(1,-top/c.h)):clipAt(c,y,vh);
     /* (the opening clip: the mouse plays it -- on a touch screen it plays by itself; once the page scrolls, the scroll carries it on
        from where it was) */
     if(c===hero){if(!heroScrolled){if(fine&&mx>=0)p=mx/innerWidth;else{p=(Date.now()/1000/Math.max(2,dur))%1;live=true}c.base=p}else p=(c.base||0)+(1-(c.base||0))*p}
-    c.want=p*Math.max(0,dur-.05);c.at+=(c.want-c.at)*.18;if(Math.abs(c.want-c.at)>.004)live=true;if(!c.busy&&Math.abs(c.v.currentTime-c.at)>1/30){c.busy=true;try{if(c.v.fastSeek&&Math.abs(c.v.currentTime-c.at)>.5)c.v.fastSeek(c.at);else c.v.currentTime=c.at}catch(e){c.busy=false}}});
+    if(c!==hero)p=p<.5?2*p*p:1-2*(1-p)*(1-p);c.want=p*Math.max(0,dur-.05);c.at+=(c.want-c.at)*.18;if(Math.abs(c.want-c.at)>.004)live=true;if(!c.busy&&Math.abs(c.v.currentTime-c.at)>1/30){c.busy=true;try{if(c.v.fastSeek&&Math.abs(c.v.currentTime-c.at)>.5)c.v.fastSeek(c.at);else c.v.currentTime=c.at}catch(e){c.busy=false}}});
     if(live)requestAnimationFrame(scrubFrame);else scrubbing=false}
-    function kick(){if(clips.length&&!scrubbing){scrubbing=true;requestAnimationFrame(scrubFrame)}}
-    if(clips.length){measureK();W.addEventListener('resize',function(){measureK();kick()});W.addEventListener('load',function(){measureK();kick()});if(W.ResizeObserver){try{new W.ResizeObserver(function(){measureK();kick()}).observe(d.body)}catch(e){}}kick()}
+    function kick(){if((clips.length||knock)&&!scrubbing){scrubbing=true;requestAnimationFrame(scrubFrame)}}
+    if(clips.length||knock){measureK();W.addEventListener('resize',function(){measureK();kick()});W.addEventListener('load',function(){measureK();kick()});if(W.ResizeObserver){try{new W.ResizeObserver(function(){measureK();kick()}).observe(d.body)}catch(e){}}kick()}
     /* ---- the scroll's speed: pictures lean with it (--kv), settling when it stops */
     var ly0=W.scrollY||0,kvIn=0,kv=0,kvRun=false;function speed(){kv+=(kvIn-kv)*.14;kvIn*=.7;if(Math.abs(kv)<.002&&Math.abs(kvIn)<.002){kv=0;kvRun=false}H.style.setProperty('--kv',reduced()?'0':kv.toFixed(3));if(kvRun)requestAnimationFrame(speed)}
     /* ---- one scroll listener for the whole page: the page's own frame (render2) calls this with where the page is */
@@ -417,6 +490,49 @@
     if(lenses.length)W.addEventListener('pointermove',function(e){if(e.pointerType&&e.pointerType!=='mouse')return;var hit=false;lenses.forEach(function(L){var r=L.art.getBoundingClientRect(),on=!reduced()&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom&&r.width>40;
     if(on&&L.ok===null&&L.img.complete&&L.img.naturalWidth)lensInit(L);L.ts=on&&L.ok?1:0;if(on){L.tx=(e.clientX-r.left)/r.width;L.ty=(e.clientY-r.top)/r.height;hit=true}});if(!lensRun){lensRun=true;requestAnimationFrame(lensTick)}},{passive:true});
     if(pers==='mechanical'&&!RM&&W.MutationObserver){var heads=[].slice.call(d.querySelectorAll('.sc'));heads.forEach(function(sc){var h=sc.querySelector('.sc-heading');if(!h)return;if(sc.classList.contains('is-in'))setTimeout(function(){if(!reduced())decode(h)},120);new MutationObserver(function(){if(sc.classList.contains('is-in')&&!reduced())decode(h)}).observe(sc,{attributes:true,attributeFilter:['class']})})}
+    /* ---- each scene's headline entrance, from the page's character; letters where the entrance works letter by letter */
+    var TK={luxe:['blur','sweep','blur','rise'],still:['blur','rise'],editorial:['blur','sweep','type','rise'],cinematic:['blur','flip','split','rise'],kinetic:['pop','cascade','split','flip','sweep'],playful:['pop','cascade','sweep','split','flip'],chaotic:['cascade','pop','split','flip','sweep'],mechanical:['type','flip','rise']};
+    (function(){var pool=TK[pers]||TK.editorial,lastT='',all=[].slice.call(d.querySelectorAll('.sc'));all.forEach(function(sc,i){var h=sc.querySelector('.sc-heading');if(!h||i===0||sc.hasAttribute('data-k3'))return;var k=pool[i%pool.length];if(k===lastT)k=pool[(pool.indexOf(k)+1)%pool.length];if(sc.hasAttribute('data-kf'))k='rise';lastT=k;
+    var ws=h.querySelectorAll('.kw');if(k==='split'&&ws.length<2)k='blur';if(k!=='rise')sc.setAttribute('data-kt',k);
+    if(k==='split')[].forEach.call(ws,function(w,j){w.firstChild.style.setProperty('--side',j<ws.length/2?-1:1)});
+    if(/^(cascade|flip|type)$/.test(k)){var n=0;[].forEach.call(h.querySelectorAll('.kw>i'),function(w){var t=w.textContent;w.textContent='';[].forEach.call(t,function(c){var sp=d.createElement('span');sp.className='kc';sp.textContent=c;sp.style.setProperty('--ci',n);sp.style.setProperty('--rr0',((n%2?1:-1)*(8+n*7%14)));w.appendChild(sp);n++})})}
+    if(ws.length>=4&&ch[0]>=1&&!sc.hasAttribute('data-pin')&&!sc.hasAttribute('data-kf')){sc.setAttribute('data-kd','');[].forEach.call(ws,function(w,j){w.style.setProperty('--wd',j%2?1:-1)})}});K.text=[].map.call(d.querySelectorAll('.sc'),function(x){return x.getAttribute('data-kt')||(x.hasAttribute('data-k3')?'3d':'rise')}).join(' ')})();
+    /* ---- the clip in the name: the page's name drawn once (in the headline's own face) as the clip's mask */
+    var knock=null;(function(){var hv=firstSc&&firstSc.querySelector('.sc-herovid video,.ly-vid'),hh=firstSc&&firstSc.querySelector('.sc-heading'),pin=firstSc&&(firstSc.querySelector('.sc-pin')||firstSc);if(!hv||!hh||RM)return;var name=hh.textContent.trim(),src=hv.getAttribute('src');if(!name||name.length>16||!src)return;
+    var lay=d.createElement('div');lay.className='k-knock';lay.setAttribute('aria-hidden','true');var kv0=d.createElement('video');kv0.src=src;kv0.muted=true;kv0.playsInline=true;kv0.setAttribute('playsinline','');kv0.preload='auto';kv0.className='k-knock-v';lay.appendChild(kv0);var surf=firstSc.getAttribute('data-surf');if(surf)lay.style.setProperty('--kbg',surf);pin.insertBefore(lay,pin.firstChild);
+    firstSc.setAttribute('data-knock','');K.knock=true;var cs=getComputedStyle(hh),txt=cs.textTransform==='uppercase'?name.toUpperCase():name;
+    /* (a tall screen gets the name standing up the full height of it) */
+    var port=null;function draw(){port=innerWidth<innerHeight*.8;var cv=d.createElement('canvas'),Wd=port?900:1600,Hd=port?1600:900,run=port?Hd:Wd,across=port?Wd:Hd;cv.width=Wd;cv.height=Hd;var g=cv.getContext('2d');var font=function(px){return (cs.fontStyle||'')+' '+(cs.fontWeight||'800')+' '+px+'px '+cs.fontFamily};g.font=font(300);var tw=g.measureText(txt).width||1,px=Math.min(300*run*.9/tw,across*.62);g.font=font(px);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.translate(Wd/2,Hd/2);if(port)g.rotate(-Math.PI/2);g.fillText(txt,0,px*.04);
+    try{firstSc.style.setProperty('--kmask','url('+cv.toDataURL('image/png')+')')}catch(e){firstSc.removeAttribute('data-knock');K.knock=false}}
+    if(d.fonts&&d.fonts.ready)d.fonts.ready.then(draw);else draw();knock={sc:firstSc,top:0,h:1};W.addEventListener('resize',function(){if(port!==(innerWidth<innerHeight*.8))draw()});
+    /* (the layer's clip is now the opening clip the visitor plays; the opening's own stays still behind it) */
+    var c={v:kv0,sc:firstSc,want:0,at:0,busy:false,ready:false,top:0,h:1};kv0.addEventListener('loadedmetadata',function(){c.ready=kv0.duration>0;kick()});kv0.addEventListener('seeked',function(){c.busy=false});clips.forEach(function(x){if(x.sc===firstSc)try{x.v.pause()}catch(e){}});clips=clips.filter(function(x){return x.sc!==firstSc});clips.push(c);hero=c;K.scrub=clips.length;measureK();kick();})();
+    /* ---- letters: a 3D headline's words become letters, each with its own way to fly */
+    var ci=0;[].forEach.call(d.querySelectorAll('.sc[data-k3]:not([data-knock]) .kw>i'),function(w){var t=w.textContent;if(!t||t.length>24)return;w.textContent='';[].forEach.call(t,function(c){var sp=d.createElement('span');sp.className='kc';sp.textContent=c;sp.style.setProperty('--ci',ci);var r=function(k){var x=Math.sin((ci+1)*12.9898+k*78.233)*43758.5453;return x-Math.floor(x)};
+    sp.style.setProperty('--rx',((r(1)-.5)*70).toFixed(1));sp.style.setProperty('--ry',((r(2)-.7)*80).toFixed(1));sp.style.setProperty('--rr',((r(3)-.5)*220).toFixed(0));sp.style.setProperty('--rs',(r(4)*1.4-.2).toFixed(2));w.appendChild(sp);ci++})});K.letters=ci;
+    /* ---- on a mouse, a headline's letters scatter from the cursor and spring back */
+    var near=null;function scatter(e){var sc=e.target&&e.target.closest?e.target.closest('.sc[data-k3]'):null,h=sc&&sc.querySelector('.sc-heading');if(near&&near!==h)[].forEach.call(near.querySelectorAll('.kc'),function(c){c.style.translate='';c.style.rotate=''});near=h;if(!h||reduced())return;
+    [].forEach.call(h.querySelectorAll('.kc'),function(c){var r=c.getBoundingClientRect(),dx=r.left+r.width/2-e.clientX,dy=r.top+r.height/2-e.clientY,dd=Math.sqrt(dx*dx+dy*dy),R=Math.max(90,r.height*1.6);if(dd<R&&dd>0){var f=(1-dd/R),k=f*f*Math.min(60,r.height*.55);c.style.translate=(dx/dd*k).toFixed(1)+'px '+(dy/dd*k).toFixed(1)+'px';c.style.rotate=(dx/dd*f*24).toFixed(1)+'deg'}else{c.style.translate='';c.style.rotate=''}})}
+    if(fine&&!RM){var sq=null;W.addEventListener('pointermove',function(e){if(e.pointerType&&e.pointerType!=='mouse')return;if(!sq){sq=e;requestAnimationFrame(function(){scatter(sq);sq=null})}else sq=e},{passive:true})}
+    /* ---- a call to action decodes its words when the mouse arrives */
+    if(fine&&!RM)[].forEach.call(d.querySelectorAll('.cr-cta,.cr-links a'),function(a){var tn=null;for(var k=0;k<a.childNodes.length;k++)if(a.childNodes[k].nodeType===3&&a.childNodes[k].nodeValue.trim()){tn=a.childNodes[k];break}if(!tn)return;var fin=tn.nodeValue,G='ABCDEFGHJKLMNPRSTUVWXYZ#%&*',run=0;
+    a.addEventListener('pointerenter',function(){if(reduced()||run)return;var t0=performance.now();run=1;(function st(t){var k=Math.min(1,(t-t0)/420),n=Math.floor(k*fin.length),o='';for(var x=0;x<fin.length;x++)o+=x<n||fin[x]===' '?fin[x]:G[(Math.random()*G.length)|0];tn.nodeValue=o;if(k<1)requestAnimationFrame(st);else{tn.nodeValue=fin;run=0}})(t0)})});
+    /* ---- once a scene's words have risen, they leave their masks (a 3D word needs room to turn) */
+    if(W.MutationObserver)[].forEach.call(d.querySelectorAll('.sc[data-k3]'),function(sc){var tm=0;function chk(){clearTimeout(tm);if(sc.classList.contains('is-in'))tm=setTimeout(function(){sc.classList.add('k-done')},1500);else sc.classList.remove('k-done')}chk();new MutationObserver(chk).observe(sc,{attributes:true,attributeFilter:['class']})});
+    /* ---- THE BAND: after the opening, the page's name (and the opening's line) runs across the page */
+    var mq=null,mqX=0,mqW=1,mqOn=false,mqLast=0;
+    (function(){var first=d.querySelector('.sc'),hh=first&&first.querySelector('.sc-heading');if(!first||!hh||RM)return;var name=(d.title||'').split(/ [-|\u2013\u2014] /)[0].trim()||hh.textContent.trim();var line=(first.querySelector('.sc-kicker')||{}).textContent||'';
+    var words=[name,'\u2726'];void line;if(!name||name.length>40)return;var box=d.createElement('div');box.className='k-mq';box.setAttribute('aria-hidden','true');var t=d.createElement('div');t.className='k-mq-t';
+    for(var k=0;k<8;k++){var sp=d.createElement('span');sp.textContent=words[k%words.length];t.appendChild(sp)}box.appendChild(t);var ff=getComputedStyle(hh).fontFamily;if(ff)box.style.setProperty('--kmf',ff);
+    var surf=first.getAttribute('data-surf');if(surf)box.style.background=surf;var ink=first.style.getPropertyValue('--s-ink'),acc=first.style.getPropertyValue('--s-accent');if(ink)box.style.setProperty('--ink',ink);if(acc)box.style.setProperty('--accent',acc);var after=first.closest('.sc-pair')||first;after.parentNode.insertBefore(box,after.nextSibling);mq=t;
+    if(W.IntersectionObserver)new IntersectionObserver(function(es){mqOn=es[0].isIntersecting;if(mqOn)requestAnimationFrame(band)}).observe(box);else{mqOn=true;requestAnimationFrame(band)}
+    W.dispatchEvent(new Event('resize'))})();
+    function band(t){if(!mq||!mqOn)return;var dt=Math.min(64,t-(mqLast||t));mqLast=t;mqW=mq.scrollWidth/2||1;mqX-=(.045+Math.abs(kv)*2.4)*dt*(kv<-.02?-1:1);if(mqX<-mqW)mqX+=mqW;if(mqX>0)mqX-=mqW;if(!reduced())mq.style.transform='translate3d('+mqX.toFixed(1)+'px,0,0) rotate('+(kv*-2).toFixed(2)+'deg)';requestAnimationFrame(band)}
+    /* ---- THE TRAIL: one scene (a breath of the story, else the middle one) leaves the page's pictures behind the mouse */
+    (function(){if(!fine||RM)return;var all=[].slice.call(d.querySelectorAll('.sc')),srcs=[].slice.call(d.querySelectorAll('.ly-img')).map(function(i){return i.currentSrc||i.src}).filter(function(u,k,a){return u&&a.indexOf(u)===k}).slice(0,10);if(srcs.length<3||all.length<3)return;
+    var sc=all.filter(function(x,k){return k>0&&k<all.length-1&&x.getAttribute('data-arc')==='breath'})[0]||all[Math.floor(all.length/2)];sc.setAttribute('data-ktrail','');K.trail=true;var lx=-999,ly=-999,n=0,alive=0;
+    sc.addEventListener('pointermove',function(e){if(reduced()||e.pointerType!=='mouse'||e.target.closest('a,button'))return;var dx=e.clientX-lx,dy=e.clientY-ly;if(dx*dx+dy*dy<90*90||alive>9)return;lx=e.clientX;ly=e.clientY;
+    var im=d.createElement('img');im.className='k-trail';im.alt='';im.src=srcs[n++%srcs.length];im.style.left=(e.clientX-70)+'px';im.style.top=(e.clientY-90)+'px';im.style.rotate=((Math.random()*16)-8).toFixed(1)+'deg';d.body.appendChild(im);alive++;setTimeout(function(){im.remove();alive--},1200)})})();
     /* ---- on: the next frame, so a scene that is already in still plays its entrance */
     /* (two steps: every word takes its start first, then the scenes already in play their entrance like the rest) */
     H.classList.add('k-on');void H.offsetWidth;requestAnimationFrame(function(){requestAnimationFrame(function(){H.classList.add('k-go')})});
@@ -10681,7 +10797,12 @@
     html[data-look] .sc.cr-hero[data-layout="shrine"] .sc-text[data-size="display"] .sc-heading[data-len]{font-size:min(clamp(3rem,9vw,9.5rem),calc(var(--fit) / var(--lw)))}
     /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
     html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}
-    html[data-look] .sc-text.has-scrim{background:var(--s-surface,var(--bg));border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+    /* words never sit in a box: no panel, no band -- where they need the picture held back behind them, a soft glow in the
+       scene's own colour blends into the background with no edge at all */
+    html[data-look] :is(.sc-text.has-scrim,.sc[data-choreo="expand"] .sc-text){background:none;padding:0;border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;position:relative;isolation:isolate}
+    html[data-look] :is(.sc-text.has-scrim,.sc[data-choreo="expand"] .sc-text,.sc:has(.sc-shade[data-shade="band"]) .sc-text)::before{content:"";position:absolute;inset:-38% -32%;z-index:-1;pointer-events:none;background:radial-gradient(closest-side,color-mix(in srgb,var(--s-surface,var(--bg)) 84%,transparent),color-mix(in srgb,var(--s-surface,var(--bg)) 46%,transparent) 58%,transparent)}
+    html[data-look] .sc:has(.sc-shade[data-shade="band"]) .sc-text{position:relative;isolation:isolate}
+    html[data-look] .sc-shade[data-shade="band"]{display:none}
     html[data-look] .sc-list[data-list="notes"] .sc-item{background:none;border:0;border-top:3px solid var(--s-accent,var(--accent));border-radius:0;padding:14px 0 0}
     html[data-look] .ly-art:is([data-mask="window"],[data-mask="frame"],[data-mask="porthole"],[data-mask="polaroid"]){border:0;outline:0;border-radius:0;box-shadow:none;padding:0;background:none}
     html[data-look] .cs-carry{border-radius:0;filter:none}
