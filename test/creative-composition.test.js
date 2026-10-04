@@ -42,7 +42,7 @@ const html = (P, extra) => renderCreative2(P, (extra && extra.assets) || ASSETS,
 
 // ================================================================ 1. the vocabulary
 test('1. a bounded vocabulary of compositions: each says what dominates, what moves, what stays, what it becomes -- staged on a real archetype', () => {
-  assert.equal(COMP.COMPOSITIONS.length, 15);
+  assert.equal(COMP.COMPOSITIONS.length, 16);
   COMP.COMPOSITIONS.forEach(k => {
     const S = COMP.SPEC[k];
     ['what', 'dominant', 'intensity', 'camera', 'frame', 'text', 'act', 'becomes', 'fixed', 'moves'].forEach(f => assert.ok(S[f] != null && S[f] !== '', `${k}.${f}`));
@@ -244,4 +244,19 @@ test('12. a page plays an arc -- hook, transformation, reveal, breath, takeover,
   assert.notDeepEqual(COMP.arcFor(6, 'expressive', 0), COMP.arcFor(6, 'expressive', 0.9), 'more than one arc per length');
   // the fingerprint names a composed scene by its composition
   const fp = ART.fingerprint(moving[0].plan); moving[0].plan.scenes.filter(s => s.composition).forEach(s => assert.ok(fp.includes(`=${s.composition}`), fp));
+});
+
+test('SIDE-RUN. a composition the composer can choose: the scene holds while three or more photographs run past sideways (the strip\'s track), never straight after the carried subject\'s run; straight, melted, cropped to fill', () => {
+  const S = COMP.SPEC['side-run'];
+  assert.ok(S && S.hold && S.keepChoreo === 'track' && S.needs.includes('photos'));
+  assert.deepEqual(COMP.BASES['side-run'], ['strip']); assert.equal(COMP.baseFor('side-run', {}), 'strip');
+  assert.equal(COMP.fit('side-run', { photos: 3 }), true); assert.equal(COMP.fit('side-run', { photos: 2, pictures: 5 }), false, 'cut-outs do not make a run');
+  assert.ok(COMP.ARC_POOL.escalation.includes('side-run') && COMP.ARC_POOL.breath.includes('side-run'));
+  assert.ok(!COMP.BECOMES['side-run'].includes('card-expand'), 'a run hands over in depth, never as one of its cards');
+  const R2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib', 'creative', 'render2.js'), 'utf8');
+  assert.match(R2, /html\[data-look\] \.ly\[data-track\]\[data-melt\]\{--rot:0deg!important\}/, 'straight, never tilted cards');
+  assert.match(R2, /\.sc\[data-choreo="track"\] \.ly\[data-track\] :is\(\.ly-img,\.ly-vid\)\{object-fit:cover!important\}/);
+  const V = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib', 'creative', 'validate2.js'), 'utf8');
+  assert.match(V, /if \(sc\.composition !== 'side-run' \|\| !sc\.pin\) return; const n = sc\.layers\.filter\(L => L\.kind === 'image'\)\.length; if \(n >= 3\) return; sc\.pin = false;/, 'a run left with fewer than three pictures is not held');
+  assert.match(V, /its card left the gallery, so it hands over as/, 'a card seam whose card the ledger removed is re-chosen');
 });
