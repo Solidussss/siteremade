@@ -240,7 +240,7 @@
     const CROPS = ['none', 'light', 'generous'];
     const BEATS = ['hook', 'reveal', 'acceleration', 'transformation', 'takeover', 'detail', 'breath', 'typography', 'interaction', 'callback', 'payoff'];
     // what the critique may find (and validate2 may repair) -- nothing else is ever stored
-    const FINDINGS = ['weak-hero', 'small-hero', 'cards', 'splits', 'repeats', 'no-full', 'no-type', 'weak-payoff', 'no-return', 'no-breath', 'spent-early', 'video-small', 'same-words', 'one-asset'];
+    const FINDINGS = ['weak-hero', 'small-hero', 'cards', 'splits', 'repeats', 'no-full', 'no-type', 'weak-payoff', 'no-return', 'no-breath', 'spent-early', 'video-small', 'same-words', 'one-asset', 'bare'];
 
     const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f<>{}`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
     const oneOf = (v, list, d) => (list.includes(v) ? v : d);
@@ -374,6 +374,8 @@
     }
 
     // ---------------------------------------------------------------- the page as composed: a structured picture of it
+    // (the layouts made of words alone: a scene in one of them needs no picture)
+    const WORD_LAYOUTS = ['text', 'dense', 'sticky-steps', 'takeover', 'brutalist', 'magazine', 'orbit'];
     const PAYOFF_LAYOUTS = ['shrine', 'editorial-hero', 'fullscreen-object', 'campaign', 'poster', 'object-stage', 'lineup', 'image', 'cinematic', 'luxe', 'giant-type'];
     const HERO_LAYOUTS = ['shrine', 'luxe', 'editorial-hero', 'fullscreen-object', 'campaign', 'object-stage', 'stage', 'cinematic', 'giant-type', 'poster', 'type-stage', 'mask-stage', 'depth-stack'];
     const CARD_LAYOUTS = ['framed', 'gallery', 'collage', 'scrapbook', 'strip'];
@@ -390,7 +392,10 @@
         const f = imgs.find(L => L.role === 'focal') || imgs[0]; const area = f && f.box ? Math.round((f.box.d[2] * f.box.d[3]) / 100) : 0;
         const shape = s.composition || s.layout || 'free'; const run = !!(c.run && c.run(i));
         const typeLed = sh.typeLed || TYPE_LAYOUTS.includes(s.layout) || !!(s.text && s.text.giant);
-        const full = sh.full || area >= 90 || ['editorial-hero', 'cinematic', 'campaign', 'fullscreen-object'].includes(s.layout);
+        // (a scene built to show a picture that has none left to show -- the ledger took them all -- is an empty field: never a
+        // full-screen event, never a stage)
+        const bare = !imgs.length && !typeLed && !run && !!s.layout && s.layout !== 'free' && !WORD_LAYOUTS.includes(s.layout);
+        const full = !bare && (sh.full || area >= 90 || ['editorial-hero', 'cinematic', 'campaign', 'fullscreen-object'].includes(s.layout));
         // (a scene the arc made a breath, or a calm floating composition, rests -- whatever it is built from)
         const rests = s.arc === 'breath' || s.composition === 'floating-canvas' || ['luxe', 'canvas'].includes(s.layout);
         const intensity = rests && !s.pin ? (['text', 'dense'].includes(s.layout) ? 0 : 1) : s.pin || full || sh.takeover ? 3 : run || sh.centred || !!s.composition || typeLed ? 2 : ['text', 'dense', 'sticky-steps'].includes(s.layout) ? 0 : 1;
@@ -400,8 +405,8 @@
         const clips = imgs.filter(L => (c.video || []).includes(root(L.asset))); const hero = i === 0 && !!c.heroVideo;
         return {
           id: s.id, i, shape, layout: s.layout, composition: s.composition || null, beat: s.beat || null,
-          focal: f ? root(f.asset) : null, roots: [...new Set(imgs.map(L => root(L.asset)))], area: run ? Math.max(area, 40) : area,
-          framed: sh.framed || (!s.composition && CARD_LAYOUTS.includes(s.layout)), split: !s.composition && SPLIT_LAYOUTS.includes(s.layout),
+          focal: f ? root(f.asset) : null, free: !!(f && (fa => fa && (fa.cutout || (fa.caps && fa.caps.moveFreely) || (fa.assess && fa.assess.transparent)))(byId.get(f.asset))), roots: [...new Set(imgs.map(L => root(L.asset)))], area: run ? Math.max(area, 40) : area,
+          bare, framed: sh.framed || (!s.composition && CARD_LAYOUTS.includes(s.layout)), split: !s.composition && SPLIT_LAYOUTS.includes(s.layout),
           full, typeLed, centred: sh.centred || run || ['shrine', 'luxe', 'fullscreen-object', 'object-stage'].includes(s.layout), run,
           intensity, words: `${t.size || ''}|${t.place ? `${t.place.v}/${t.place.align}` : t.region || ''}|${t.width || ''}|${t.body ? 'body' : ''}`,
           motion: s.choreo || 'settle', surface: (s.ink && s.ink.surface) || '', callback: imgs.some(L => L.callback),
@@ -412,7 +417,7 @@
 
     // ---------------------------------------------------------------- the critique: the page judged as one composition
     // ctx: survey's ctx + { concept, mode } -> [{ code, at, w }] (at: the scene a repair should start from)
-    const W = { 'weak-hero': 3, 'small-hero': 2, cards: 2, splits: 1.5, repeats: 1.5, 'no-full': 1.5, 'no-type': 1, 'weak-payoff': 2, 'no-return': 1.5, 'no-breath': 1, 'spent-early': 1, 'video-small': 3, 'same-words': 1, 'one-asset': 0.5 };
+    const W = { 'weak-hero': 3, 'small-hero': 2, cards: 2, splits: 1.5, repeats: 1.5, 'no-full': 1.5, 'no-type': 1, 'weak-payoff': 2, 'no-return': 1.5, 'no-breath': 1, 'spent-early': 1, 'video-small': 3, 'same-words': 1, 'one-asset': 0.5, bare: 3 };
     function critique(scenes, ctx) {
       const c = ctx || {}; const k = c.concept || {}; const g = k.genre || 'other'; const sv = survey(scenes, c); const n = sv.length; const out = [];
       const add = (code, at) => { if (!out.some(x => x.code === code)) out.push({ code, at: Math.max(0, Math.min(n - 1, at)), w: W[code] }); };
@@ -427,8 +432,12 @@
       const count = {}; sv.forEach(x => { if (x.run) return; count[x.shape] = (count[x.shape] || 0) + 1; if (count[x.shape] === 3) add('repeats', x.i); });
       if (visual && pictured >= 2 && n >= 3 && !sv.some(x => x.full)) add('no-full', Math.max(1, sv.findIndex((x, i) => i > 0 && i < n - 1 && x.focal)));
       if (['product', 'fashion', 'automotive', 'editorial'].includes(g) && n >= 3 && !sv.some(x => x.typeLed)) add('no-type', Math.max(1, sv.findIndex((x, i) => i > 0 && i < n - 1)));
+      sv.filter(x => x.bare).forEach(x => out.push({ code: 'bare', at: x.i, w: W.bare })); // (each one: every empty scene counts)
       const last = sv[n - 1];
       if (n >= 3 && !(PAYOFF_LAYOUTS.includes(last.layout) || (last.composition && (COMP.SPEC[last.composition] || { arcs: [] }).arcs.includes('payoff')))) add('weak-payoff', n - 1);
+      // (a shrine or a quiet close is a payoff for an object standing free -- a photograph with its own background set small
+      // in an empty field there is a picture left on a table, not an ending)
+      else if (n >= 3 && !last.composition && ['shrine', 'luxe'].includes(last.layout) && last.focal && !last.free && !last.full && last.area < 30) add('weak-payoff', n - 1);
       if (n >= 3 && ['actor-return', 'image-callback'].includes(k.bookend) && c.main && !last.roots.includes(c.main)) add('no-return', n - 1);
       const middle = sv.slice(1, -1);
       if (n >= 5 && !restrained && middle.length && middle.every(x => x.intensity >= 2)) add('no-breath', middle.sort((a, b) => b.intensity - a.intensity)[Math.floor(middle.length / 2)].i);
@@ -473,6 +482,10 @@
         case 'no-type': return near(f.at).slice(0, 3).flatMap(at => list(TARGETS.type, at));
         case 'weak-payoff': case 'no-return': return list(['editorial', 'personal'].includes(k.genre) ? TARGETS.payoffWork : TARGETS.payoff, n - 1, { callback: f.code === 'no-return' || ['actor-return', 'image-callback'].includes(k.bookend) });
         case 'no-breath': return list(TARGETS.breath, f.at);
+        // (an empty closing scene becomes the return of the hero first -- the page's payoff -- else words set large)
+        case 'bare': return (f.at === n - 1 ? list(['editorial', 'personal'].includes(k.genre) ? TARGETS.payoffWork : TARGETS.payoff, f.at, { callback: true }) : []).concat(list(TARGETS.type, f.at), [{ at: f.at, layout: 'giant-type' }, { at: f.at, layout: 'text' }])
+          // (never the shape of the scene beside it: two empty scenes in a row become two different ones)
+          .filter(c => ![scenes[f.at - 1], scenes[f.at + 1]].some(x => x && (x.composition || x.layout) === (c.composition || c.layout)));
         case 'spent-early': return near(f.at).slice(0, 2).flatMap(at => list(TARGETS.escalate, at));
         case 'video-small': return list(['c:fullscreen-subject', 'c:cinematic-chapter', 'editorial-hero', 'cinematic'], f.at);
         default: return [];
@@ -3924,8 +3937,10 @@
       let loud = 0; K.forEach(k => { loud = TL.SIGNATURE.includes(k.family) || k.carry === 'strong' || (k.intent === 'carry' && t.rhythm[k.at] !== 'rest') ? loud + 1 : 0; if (loud === 3) add('no-rest', k.at); });
       // ...and never so quiet that a page meant to move only fades from section to section
       const mode = (plan.art && plan.art.mode) || 'expressive'; const moving = mode === 'expressive' || mode === 'immersive';
-      if (moving && K.length >= 4 && !K.some(k => TL.SIGNATURE.includes(k.family) || k.family === 'actor-carry' || k.carry !== 'none')) {
-        const best = K.filter(k => focalOf(plan.scenes[k.at])).sort((a, b) => (INTENSITY[t.rhythm[b.at]] || 2) - (INTENSITY[t.rhythm[a.at]] || 2) || a.at - b.at)[0];
+      // (a seam another finding will calm into a colour flow is not the page's move: it cannot carry it, and does not count as one)
+      const calmed = new Set(issues.filter(x => ['hard-reset', 'unrelated-swap', 'duplicate-motion', 'no-rest'].includes(x.code)).map(x => x.at));
+      if (moving && K.length >= 4 && !K.some(k => !calmed.has(k.at) && (TL.SIGNATURE.includes(k.family) || k.family === 'actor-carry' || k.carry !== 'none'))) {
+        const best = K.filter(k => focalOf(plan.scenes[k.at]) && !calmed.has(k.at)).sort((a, b) => (INTENSITY[t.rhythm[b.at]] || 2) - (INTENSITY[t.rhythm[a.at]] || 2) || a.at - b.at)[0];
         if (best) add('too-quiet', best.at);
       }
       // the same direction, or the same scale behaviour, three seams running reads as a loop, not a story
@@ -3971,7 +3986,8 @@
         else if (x.code === 'duplicate-motion' || x.code === 'no-rest') out.push({ at: x.at, code: x.code, family: 'color-bleed', intent: 'rest' });
         else if (x.code === 'disconnected') out.push({ at: x.at, code: x.code, reset: true });
         else if (x.code === 'pasted-video') out.push({ at: x.at, code: x.code, family: k && k.family === 'cut' ? 'color-bleed' : undefined, intent: 'continue', overlap: { from: -0.6, to: 0.1 }, heroEnd: 'static-frame' });
-        else if (x.code === 'too-quiet') out.push({ at: x.at, code: x.code, family: 'image-expand', intent: 'continue' });
+        // (the page's one big move is what the composition before it becomes, when that is a move -- else its picture opening out)
+        else if (x.code === 'too-quiet') { const prev = plan.scenes[x.at - 1]; const feas = feasibleFamilies(x.at, { scenes: plan.scenes, timeline: plan.timeline, look: !!plan.look }); const f = ((prev && becomesFor(plan, prev.composition)) || []).find(fam => TL.SIGNATURE.includes(fam) && feas.includes(fam)); out.push({ at: x.at, code: x.code, family: f || 'image-expand', intent: 'continue' }); }
         else if (x.code === 'same-direction') out.push({ at: x.at, code: x.code, motionVector: 'none' });
         else if (x.code === 'same-scale') out.push({ at: x.at, code: x.code, family: 'color-bleed', carry: 'light' });
         else if (x.code === 'no-payoff') out.push({ at: x.at, code: x.code, payoff: true });
@@ -6802,7 +6818,7 @@
     A.brutalist = (S, e) => ({
       place: { gc: [1, 7], v: 'top', align: 'left' }, mplace: 'above', height: 'screen', table: true,
       slots: [{ d: [60, 6, 34, 60], m: [4, 4, 92, 92], intent: 'framed', mask: 'none', anchor: 'lt', z: 5, role: 'focal', optional: true, hard: true }],
-      decos: [{ kind: 'shape', form: 'block', fill: 'accent', d: [64, 12, 34, 60], m: [10, 10, 90, 90], z: 3, opacity: 1, role: 'backdrop' }],
+      decos: [{ kind: 'shape', form: 'block', fill: 'accent', d: [64, 12, 34, 60], m: [10, 10, 90, 90], z: 3, opacity: 1, role: 'backdrop', withFocal: true }],
     });
     A.gallery = (S, e) => (e.images >= 2 ? {
       place: { gc: [1, 4], v: 'bottom', align: 'left' }, mplace: 'above', height: 'tall', steps: true, gallery: true,
@@ -6998,10 +7014,12 @@
       if (spec.shade) t.shade = spec.shade; else delete t.shade;
     }
     // (do the words, at the size they are set, cross a picture they are not layered over on purpose)
+    // (a picture behind the whole scene is still a picture under the words unless it is faint: a backdrop at half strength or
+    // more needs the same protection as any other)
     function crossesPicture(S, spec, layout, layers) {
       const t = S.text; const tr = textRect(t, t.place);
       const deliberate = spec.shade || spec.giant || spec.track || spec.cards || spec.orbit || spec.wall || spec.stageText || !!S.composition || ['poster', 'dense', 'lineup', 'index', 'takeover', 'stage'].includes(layout);
-      return !deliberate && layers.some(L => L.kind === 'image' && L.role !== 'texture' && L.role !== 'backdrop' && (L.step == null || L.step === 0) && overlap(L.box.d, tr) > Math.min(L.box.d[2] * L.box.d[3], tr[2] * tr[3]) * 0.12);
+      return !deliberate && layers.some(L => L.kind === 'image' && L.role !== 'texture' && (L.role !== 'backdrop' || !(L.opacity < 0.5)) && (L.step == null || L.step === 0) && overlap(L.box.d, tr) > Math.min(L.box.d[2] * L.box.d[3], tr[2] * tr[3]) * 0.12);
     }
     // what an archetype reads about a scene and its page (composeScene, and fitWords for the words alone)
     function envFor(S, env) {
@@ -7110,6 +7128,8 @@
       // only where it needs them (a poster's giant word is the subject's own name -- never a new claim)
       const decos = (spec.decos || []).slice(); const given = decosIn.slice();
       decos.forEach((dk, k) => {
+        // (a block offset behind the picture is that picture's shadow: with no picture it is an empty box that reads as one missing)
+        if (dk.withFocal && !out.some(x => x.kind === 'image' && x.role === 'focal')) return;
         let L = given.findIndex(g => g.kind === dk.kind);
         L = L >= 0 ? given.splice(L, 1)[0] : null;
         if (!L) {
@@ -7371,6 +7391,8 @@
     const clean = (v, n) => (typeof v === 'string' ? v : v == null ? '' : String(v)).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
     // (shortened, then trimmed: a cut that ends on a space would otherwise lose it on the next pass -- reopening must not change a thing)
     const cap = (v, n) => clean(v).slice(0, n).trim();
+    // (a label cut to its limit ends on a whole word)
+    const capWords = (v, n) => { const s = clean(v); if (s.length <= n) return s; const t = s.slice(0, n + 1); const k = t.lastIndexOf(' '); return (k > n * 0.5 ? t.slice(0, k) : s.slice(0, n)).replace(/[\s,;:-]+$/, '').trim(); };
     const oneOf = (v, list, d) => (list.includes(v) ? v : d);
     const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
     const id = (v, d) => (clean(v).replace(/[^\w-]/g, '').slice(0, 40) || d);
@@ -7594,7 +7616,7 @@
         if (pin) pinned++;
         // words
         const tx = rs.text || {};
-        const text = { kicker: cap(tx.kicker, LIMITS.kicker), heading: clean(tx.heading), body: clean(tx.body), kind: oneOf(tx.kind, VOCAB.copyKind, 'imagined'), cite: citeOf(tx.cite), region: oneOf(tx.region, VOCAB.region, si === 0 ? 'left' : 'center'), size: oneOf(tx.size, VOCAB.textSize, si === 0 ? 'display' : 'large'), width: oneOf(tx.width, VOCAB.textWidth, 'medium'), list: oneOf(tx.list, VOCAB.list, 'plain'), entrance: oneOf(tx.entrance, VOCAB.textEntrance, 'rise'), items: [] };
+        const text = { kicker: capWords(tx.kicker, LIMITS.kicker), heading: clean(tx.heading), body: clean(tx.body), kind: oneOf(tx.kind, VOCAB.copyKind, 'imagined'), cite: citeOf(tx.cite), region: oneOf(tx.region, VOCAB.region, si === 0 ? 'left' : 'center'), size: oneOf(tx.size, VOCAB.textSize, si === 0 ? 'display' : 'large'), width: oneOf(tx.width, VOCAB.textWidth, 'medium'), list: oneOf(tx.list, VOCAB.list, 'plain'), entrance: oneOf(tx.entrance, VOCAB.textEntrance, 'rise'), items: [] };
         if (text.heading.length > LIMITS.heading) { errors.push(`${where}: heading is ${text.heading.length} characters (max ${LIMITS.heading}) -- write a shorter one, never cut it off`); text.heading = text.heading.slice(0, LIMITS.heading); }
         if (text.body.length > LIMITS.body) { errors.push(`${where}: body is ${text.body.length} characters (max ${LIMITS.body})`); text.body = ''; }
         if (text.body && text.kind === 'sourced') { sourcedLines++; if (!text.cite) { uncited++; if (tx.cite) badCites.push(String(tx.cite).slice(0, 30)); fixes.push(`${where}: an uncited "sourced" paragraph was removed`); text.body = ''; } }
@@ -7997,7 +8019,7 @@
               if (!sc || changed.has(at) || inRun(at) || eventAt.get(at) || !sc.layout || sc.layout === 'free' || !sc.layers.some(L => L.kind === 'image')) { if (c.onDirection) c.onDirection({ at, cand, why: 'scene not open to repair' }); continue; }
               // (a scene that is the page's only typography moment, only full-screen event or only field of the brand colour keeps
               // that -- unless the finding is about the scene itself)
-              if (!['weak-hero', 'small-hero', 'weak-payoff', 'no-return', 'video-small'].includes(f.code)) {
+              if (!['weak-hero', 'small-hero', 'weak-payoff', 'no-return', 'video-small', 'bare'].includes(f.code)) {
                 const sv = DIR.survey(scenes, dctx); const brandC = look && look.brand && look.brand.primary;
                 const only = k => sv[at][k] && sv.filter(x => x[k]).length === 1;
                 const flood = x => x.background === 'accent' || (!!brandC && x.ink && x.ink.surface === brandC);
@@ -8029,11 +8051,12 @@
               if (sc.layers.some(L => L.kind === 'image' && byId.get(L.asset) && !L.callback && elsewhere(rootOf(L.asset)) && !had.has(rootOf(L.asset)))) { if (c.onDirection) c.onDirection({ at, cand, why: 'would repeat a picture' }); undo(); continue; }
               // (kept only as asked -- the scene became what the finding needed -- with every picture it had, and a better page)
               if (cand.composition ? sc.composition !== cand.composition : sc.layout !== cand.layout) { if (c.onDirection) c.onDirection({ at, cand, why: 'became ' + (sc.composition || sc.layout) }); undo(); continue; }
-              // (a repair may let go of ONE supporting picture -- never the hero -- while the page still shows three pictures, or all it has)
+              // (a repair may let go of ONE supporting picture -- never the hero, never one the owner uploaded -- while the page still
+              // shows three pictures, or all it has)
               const pageRoots = () => new Set(scenes.flatMap(x => x.layers.filter(L => L.kind === 'image' && byId.get(L.asset)).map(L => baseOf(byId.get(L.asset)).id)));
               const lost = [...had].filter(id => !pics().has(id) && !scenes.some((x, j) => j !== at && x.layers.some(L => L.kind === 'image' && byId.get(L.asset) && baseOf(byId.get(L.asset)).id === id)));
               const said = sc.visual && byId.get(sc.visual.asset) ? baseOf(byId.get(sc.visual.asset)).id : null;
-              if (lost.length > 1 || lost.includes(main) || (said && lost.includes(said)) || (lost.length && pageRoots().size < Math.min(3, idea.assets.length))) { if (c.onDirection) c.onDirection({ at, cand, why: 'lost a picture' }); undo(); continue; }
+              if (lost.length > 1 || lost.includes(main) || (said && lost.includes(said)) || lost.some(id => byId.get(id) && byId.get(id).origin === 'upload') || (lost.length && pageRoots().size < Math.min(3, idea.assets.length))) { if (c.onDirection) c.onDirection({ at, cand, why: 'lost a picture' }); undo(); continue; }
               if (DIR.score(DIR.critique(scenes, dctx)) >= now) { if (c.onDirection) c.onDirection({ at, cand, why: 'no better: ' + DIR.critique(scenes, dctx).map(x => x.code).join(',') }); undo(); continue; }
               if (wasHeld && !(sc.pin && sc.choreo === 'compose')) holds--;
               if (sc.pin && sc.choreo === 'compose' && !wasHeld) { if (holds >= holdCap) { sc.pin = false; sc.height = 'screen'; } else holds++; }
@@ -9111,7 +9134,8 @@
             // (the closing scene's return to the opening picture is a marked narrative callback -- the ledger's one exception)
             if (vis.callback && s.layers[0]) s.layers[0].callback = true;
             const said = meaningful(vis.subject);
-            if (said && i > 0 && carries !== 'facts') t.kicker = said.slice(0, 40);
+            // (a picture's description is a label only when it is one: a few words, never a caption cut off mid-word)
+            if (said && i > 0 && carries !== 'facts' && said.length <= 34 && said.split(/\s+/).length <= 5) t.kicker = said;
             s.visual = { asset: pics[0].id, subject: said, intent: intentOf(L, carries, P0, i, last), relation: vis.relation };
           }
         }
@@ -9905,7 +9929,8 @@
       // the transitions that are elements of their own: a panel wiping across, a colour taking the screen over, a word that
       // becomes the window onto the next picture (the next scene's own picture, shown at the size that scene shows it).
       // Each plays across its contract's overlap: it starts while the outgoing scene is still leaving (data-span, in screens)
-      // and finishes as -- or just after -- the next one arrives (data-end)
+      // and finishes as the next one arrives (data-end; only a carried subject may land just after: a wash or a panel never
+      // still covers a scene that has come to rest at the top of the screen)
       const typo = actors.find(a => a.role === 'typography');
       const win = (at, lead, span) => { const k = contracts.find(x => x.at === at); return k ? `data-lead="${lead}" data-span="${Math.round((k.overlap.to - k.overlap.from) * 100) / 100}" data-end="${k.overlap.to}"` : `data-lead="${lead}" data-span="${span}"`; };
       const seams = tl.transitions.map(t => {
@@ -10209,6 +10234,8 @@
     html[data-look][data-display][data-case]{--fit:${LOOK.fitFor(t)}cqi;--dtrack:${t.track}em;--dlead:${t.lead}}
     html[data-look] .sc-heading,html[data-look] .cr-brand{letter-spacing:var(--dtrack)!important;line-height:var(--dlead)!important;text-wrap:balance}
     html[data-look][data-case="upper"] .sc-heading{text-transform:uppercase}
+    /* the closing scene owns the whole screen -- on a phone too: the credits follow it, never share its screen */
+    html[data-look] main>.sc:last-of-type:not([data-pin]) .sc-pin{min-height:100vh;min-height:100svh;justify-content:center}
     html[data-look] .sc-text.has-scrim{background:var(--s-surface,var(--bg));border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
     html[data-look] .sc-list[data-list="notes"] .sc-item{background:none;border:0;border-top:3px solid var(--s-accent,var(--accent));border-radius:0;padding:14px 0 0}
     html[data-look] .ly-art:is([data-mask="window"],[data-mask="frame"],[data-mask="porthole"],[data-mask="polaroid"]){border:0;outline:0;border-radius:0;box-shadow:none;padding:0;background:none}
@@ -10538,7 +10565,8 @@
         });
         o += `${A}"crossfade-out"]{opacity:calc(1 - ${O})}[data-xf="${j}"][data-xfdir="out"]{opacity:${O};left:auto}\n`;
         o += `${A}"crossfade-in"]{opacity:${B}}[data-xf="${j}"][data-xfdir="in"]{opacity:calc(1 - ${B})}\n`;
-        o += `${A}"text-swap-in"] .hs-alt{opacity:calc(1 - ${B});translate:0 calc(${B} * -.35em)}${A}"text-swap-in"] .hs-main{opacity:${B};translate:0 calc(${I} * .35em)}\n`;
+        // (one line, then the other -- never both in one place at once, a doubled headline)
+        o += `${A}"text-swap-in"] .hs-alt{opacity:clamp(0, 1 - ${B} * 2.2, 1);translate:0 calc(${B} * -.35em)}${A}"text-swap-in"] .hs-main{opacity:clamp(0, ${B} * 2.2 - 1.2, 1);translate:0 calc(${I} * .35em)}\n`;
         o += `${A}"word-fill-in"] .wf{opacity:calc(.16 + .84 * clamp(0, ${B} * (var(--wn,10) + 2) - var(--i,0), 1))}\n`;
         o += `.sc-bgx${A}"background-in"]{opacity:calc(1 - ${B})}.sc-take${A}"takeover-in"]{clip-path:circle(calc(${B} * 150%) at 50% 58%)}\n`;
       }
@@ -11044,6 +11072,11 @@
     .sc-text[data-act="baseline"] .sc-heading .w{display:inline-block}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(odd){translate:0 calc((1 - var(--p,1)) * -.32em)}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(even){translate:0 calc((1 - var(--p,1)) * .32em)}
     /* a word mask: the picture is seen only through the giant words until they pass the camera */
     .sc[data-comp="mask-stage"] :is(.sc-text[data-giant] .sc-heading,.ly[data-kind="word"] .ly-word){background:var(--mimg) 50% 50%/cover no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0}
+    /* (a heading whose words swap: each version is its own window onto the picture -- a window cut through the whole heading
+       would show the hidden version too, both sets of letters at once) */
+    /* (the words of a mask stage still grow toward the camera where the scene rests: they are set to fit the screen at that size) */
+    .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading{font-size:min(13vw,calc(var(--fit) * .86 / var(--lw)))}
+    .sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading:has(.hs){background:none}.sc[data-comp="mask-stage"] .sc-text[data-giant] .sc-heading .hs>span{background:var(--mimg) 50% 50%/cover no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
     .sc-shade[data-shade="center"]{inset:0;height:auto;background:radial-gradient(ellipse 72% 58% at 50% 50%,color-mix(in srgb,var(--s-surface,var(--bg)) 74%,transparent),transparent 78%)}
     @media (max-width:720px){html.cr-js .sc[data-pin][data-choreo="compose"]{height:160svh}.sc[data-comp] .sc-text[data-role="label"]{max-width:none}}
     html[data-motion="reduced"] .sc[data-comp][data-pin]{height:auto}
@@ -11085,7 +11118,7 @@
         t=j?(mode==='hold'?EZ.ss(cl((t-.45)/.55)):EZ.ss(cl(t))):0;
         if(a!==BA){BA=a;cb.style.backgroundColor=a;cb.style.setProperty('--cbc',a);cb.style.setProperty('--cbg',ga||'transparent')}if(b!==BB){BB=b;cb2.style.backgroundColor=b;cb2.style.setProperty('--cbc',b);cb2.style.setProperty('--cbg',gb||'transparent')}
         if(mode!==BM){BM=mode;cb2.setAttribute('data-mode',mode)}t=Math.round(t*100)/100;if(t!==BT){BT=t;cb2.style.setProperty('--t',t);cb2.style.opacity=mode==='sweep'?(t>0?'1':'0'):String(t)}}
-      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+S.end*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w,end-span,end);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
+      var vh=W.innerHeight;seamEls.forEach(function(S){var sc=all[S.at];if(!sc||sc._top==null)return;var e0=sc._top+(S.carry?S.end:Math.min(0,S.end))*vh,end=Math.min(e0,MAXY?Math.max(0,MAXY-vh*.3):e0),span=Math.max(1,Math.min(S.span*vh,end)),w=Math.round(cl((y-(end-span))/span)*1000)/1000;if(S.carry){carry(S,w,end-span,end);return}if(w===S.w)return;S.w=w;S.el.style.setProperty('--w',w)})}
     function pal(s){return s._pal||(s._pal=(function(v){var p=String(v||'-.4,0,blend').split(',');return[+p[0]||-.4,+p[1]||0,p[2]||'blend']})(s.getAttribute('data-pal')))}
     /* a carried subject: through its window the element follows the live positions of the two scenes' pictures (measured as
        they scroll), from the outgoing one to the incoming one, while both step aside; the outgoing shot turns into the next */
@@ -11115,6 +11148,12 @@
       st.transform='translate3d('+x.toFixed(2)+'vw,'+y.toFixed(2)+'vh,0) rotateY('+ry.toFixed(1)+'deg) rotate('+r.toFixed(2)+'deg) scale('+s.toFixed(3)+')';st.setProperty('--ko',v[4].toFixed(3));
       if(P.w.length===4){var c=v[5],w=P.w;st.clipPath=c>.001?'inset('+(w[1]*c).toFixed(2)+'% '+((100-w[0]-w[2])*c).toFixed(2)+'% '+((100-w[1]-w[3])*c).toFixed(2)+'% '+(w[0]*c).toFixed(2)+'% round '+(c*18).toFixed(1)+'px)':'none'}}
     function compFrame(s,p,vw){var m=vw<=720?.55:1;compPlanes(s).forEach(function(P){compApply(P,ksample(P.K,p),m)})}
+    /* a composition in a scene that is not held: the moment the scene fills the screen is the composition at its rest (the
+       state it reads best at) -- its travel before and after spread over the arrival and the leaving, never the words still
+       half-way to the camera when the scene has come to rest */
+    function unheld(s,p,vh){compPlanes(s);var p0=vh/(vh+s._h),r=s._rest;return p<=p0?r*p/Math.max(1e-6,p0):r+(1-r)*(p-p0)/Math.max(1e-6,1-p0)}
+    /* (the same arrival for the beats of a scene that is not held: half-way through their passage when it fills the screen) */
+    function arrive(s,p,vh){var p0=vh/(vh+s._h);return p<=p0?.5*p/Math.max(1e-6,p0):.5+.5*(p-p0)/Math.max(1e-6,1-p0)}
     function compRest(s){compPlanes(s).forEach(function(P){compApply(P,ksample(P.K,s._rest),1)})}
     /* steps: the words (and pictures) of a held scene, one state at a time */
     function setStep(s,i){if(i===s._i)return;s._i=i;var n=s._steps,m=s._ly.length,it=s._items.length,li=m?Math.min(m-1,Math.floor(i*m/n)):-1,ii=it?Math.min(it-1,Math.floor(i*it/n)):-1;
@@ -11127,9 +11166,9 @@
         if(red){if(s._ct)compRest(s);s._bw.forEach(function(b,j){s.style.removeProperty('--b'+j)});s.style.removeProperty('--sn');s.style.removeProperty('--sx');s.style.removeProperty('--p');s.style.removeProperty('--pe');s.style.removeProperty('--mix');s.style.removeProperty('--cover');if(s._track)s._track.style.transform='';return}
         var p=prog(s,vh,y),w=s._ch==='word-fill'||(s._wf&&s._ch==='settle')?(s.hasAttribute('data-pin')?[.04,.9]:[.18,.62]):WIN[s._ch],pe=w?ease(cl((p-w[0])/(w[1]-w[0]))):p;
         s.style.setProperty('--p',p.toFixed(4));s.style.setProperty('--pe',pe.toFixed(4));
-        if(s._ct)compFrame(s,p,vw);
+        if(s._ct)compFrame(s,s.hasAttribute('data-pin')?p:unheld(s,p,vh),vw);
         /* each beat plays over its own window of the scene's progress */
-        s._bw.forEach(function(b,j){s.style.setProperty('--b'+j,EZ.ss(cl((p-b[0])/Math.max(.01,b[1]-b[0]))).toFixed(4))});
+        var pb=s.hasAttribute('data-pin')?p:arrive(s,p,vh);s._bw.forEach(function(b,j){s.style.setProperty('--b'+j,EZ.ss(cl((pb-b[0])/Math.max(.01,b[1]-b[0]))).toFixed(4))});
         if(s._seam){s.style.setProperty('--sn',cl(1-top/vh).toFixed(4));s.style.setProperty('--sx',cl(1-(top+s._h)/vh).toFixed(4))}
         if(s.hasAttribute('data-bleed'))s.style.setProperty('--mix',cl((vh-top)/(vh*.85)).toFixed(3));
         if(s._steps&&s.hasAttribute('data-pin'))setStep(s,Math.min(s._steps-1,Math.floor(p*s._steps*.9999)));

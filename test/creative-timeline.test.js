@@ -217,7 +217,9 @@ test('13. reduced motion (and no scripting): the cast does not play, the actor r
   assert.match(h, /\[data-b0="scale-in"\]\{scale:calc\(1 \+ \(var\(--v0,0\) - 1\) \* \(1 - var\(--b0,1\)\) \* var\(--mk,1\)\)\}/);
   assert.match(h, /\[data-b0="translate-out"\]\{translate:calc\(var\(--v0,0\) \* var\(--b0,0\) \* 1vw/);
   assert.match(h, /\.sc-bgx\[data-b0="background-in"\]\{opacity:calc\(1 - var\(--b0,1\)\)\}/);
-  assert.match(h, /\[data-b0="text-swap-in"\] \.hs-main\{opacity:var\(--b0,1\)/);
+  // (unset, a beat is finished: the swapped-in heading shows whole -- and the swap is one line, then the other, never both)
+  assert.match(h, /\[data-b0="text-swap-in"\] \.hs-main\{opacity:clamp\(0, var\(--b0,1\) \* 2\.2 - 1\.2, 1\)/);
+  assert.match(h, /\[data-b0="text-swap-in"\] \.hs-alt\{opacity:clamp\(0, 1 - var\(--b0,1\) \* 2\.2, 1\)/);
   assert.match(h, /\.sc\[data-seam-in="image-expand"\][^{]*\{clip-path:inset\(calc\(\(1 - var\(--sn,1\)\)/, 'an expanding picture rests open');
 });
 

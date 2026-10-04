@@ -36,7 +36,7 @@ const BUILD = {
   A() { const { plan, input } = page('software', '1'); const p = deep(plan); focal(p.scenes[0]).box.d = [78, 70, 12, 12]; return { plan: saved(p, input), input, expect: { issue: ['hero_subject_too_small', 'hero_lacks_dominance'], scene: 0, view: 'desktop' } }; },
   B() { const { plan, input } = page('editorial', '1'); return { plan, input, expect: { issue: ['headline_lost_in_image'], scene: 0, view: 'desktop' } }; },
   C() { const { plan, input } = page('software', '1'); const p = deep(plan); p.scenes[2].layers.filter(L => L.kind === 'image').forEach(L => { L.box.d = [L.box.d[0] + L.box.d[2] * 0.4, L.box.d[1] + L.box.d[3] * 0.4, L.box.d[2] * 0.2, L.box.d[3] * 0.2]; }); return { plan: saved(p, input), input, expect: { issue: ['too_much_dead_space'], scene: 2, view: 'desktop' } }; },
-  D() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[2]; sc.layers.filter(L => L.kind === 'image').forEach((L, k) => { L.box.d = [2, 8 + k * 30, 22, 26]; }); if (sc.text.place) sc.text.place = Object.assign({}, sc.text.place, { gc: [1, 3] }); return { plan: saved(p, input), input, expect: { issue: ['crowded_one_side', 'poor_balance'], scene: 2, view: 'desktop' } }; },
+  D() { const { plan, input } = page('software', '1'); const p = deep(plan); const sc = p.scenes[2]; sc.layers.filter(L => L.kind === 'image').forEach((L, k) => { L.box.d = [2, 8 + k * 30, 16, 22]; }); if (sc.text.place) sc.text.place = Object.assign({}, sc.text.place, { gc: [1, 3] }); return { plan: saved(p, input), input, expect: { issue: ['crowded_one_side', 'poor_balance'], scene: 2, view: 'desktop' } }; },
   E() { const { plan, input } = page('editorial', '2'); const p = deep(plan); const n = p.scenes.length; const L = focal(p.scenes[n - 1]); L.box.d = [42, 38, 16, 22]; L.box.m = [30, 30, 40, 24]; return { plan: saved(p, input), input, expect: { issue: ['payoff_weaker_than_previous', 'weak_final_payoff'], scene: n - 1, view: 'desktop' } }; },
   F() { const { plan, input } = page('editorial', '2'); return { plan, input, expect: null }; },
   G() {
@@ -59,10 +59,10 @@ const BUILD = {
     const pics = a => ({ buf: a.id === 'c-bottle' ? CUT : PHOTO, mime: 'image/png' });
     return { plan: saved(p, input), input, pictures: pics, threeD, model: NORMAL, expect: { issue: ['3d_too_small'], scene: at, view: 'desktop' } };
   },
-  H() { const { plan, input } = page('software', '1'); const p = deep(plan); const L = focal(p.scenes[1]); L.box.d = [70, 60, 18, 18]; const clip = L.asset;
+  H() { const { plan, input } = page('software', '1'); const p = deep(plan); const L = focal(p.scenes[1]); L.box.d = [44, 30, 50, 55]; const clip = L.asset;
     const assets = input.assets.map(a => (a.id === clip ? Object.assign({}, a, { video: { mediaId: 'pm_fixture', assetRef: 'c'.repeat(64), mime: 'video/mp4', intent: 'cinematic_hero' } }) : a));
     const inp = Object.assign({}, input, { assets }); return { plan: saved(p, inp), input: inp, videoSrc: a => (a.video ? 'clip.mp4' : ''), expect: { issue: ['video_underused'], scene: 1, view: 'desktop' } }; },
-  I() { const { plan, input } = page('software', '1'); const p = deep(plan); focal(p.scenes[0]).box.m = [70, 62, 14, 8]; return { plan: saved(p, input), input, expect: { issue: ['mobile_loses_impact'], scene: 0, view: 'mobile' } }; },
+  I() { const { plan, input } = page('software', '1'); const p = deep(plan); focal(p.scenes[0]).box.m = [56, 58, 30, 18]; return { plan: saved(p, input), input, expect: { issue: ['mobile_loses_impact'], scene: 0, view: 'mobile' } }; },
 };
 const NAMES = Object.keys(BUILD);
 

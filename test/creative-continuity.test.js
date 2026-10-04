@@ -199,7 +199,8 @@ test('6. overlap: the next scene starts while the last is leaving -- bounded, ne
   const wipe = { plan: saved };
   const t = wipe.plan.timeline.transitions.find(x => x.family === 'foreground-wipe'); const kw = contractAt(wipe.plan, t.at);
   assert.match(html(wipe.plan), new RegExp(`class="cs cs-wipe" data-at="${t.at}" data-lead="\\.3" data-span="${Math.round((kw.overlap.to - kw.overlap.from) * 100) / 100}" data-end="${kw.overlap.to}"`));
-  assert.match(html(wipe.plan), /e0=sc\._top\+S\.end\*vh/, 'the runtime ends the seam where its contract says');
+  // (a wash or a panel is gone by the time the next scene arrives -- never later; only a carried subject may land just after)
+  assert.match(html(wipe.plan), /e0=sc\._top\+\(S\.carry\?S\.end:Math\.min\(0,S\.end\)\)\*vh/, 'the runtime ends the seam where its contract says, a wash never past the arrival');
 });
 
 // ================================================================ 7. Higgsfield hero -> DOM handoff
@@ -279,7 +280,9 @@ test('10. the critic catches competing motion in one overlap and calms it', asyn
   // loud seam with a long overlap over a scene that already moves piles moves up -- that is what the critic must catch)
   const loudK = k => Object.assign({}, k, { family: 'foreground-wipe', overlap: { from: -0.6, to: 0.3 } });
   const early = (x, c) => x.plan.timeline.beats.filter(b => b.scene === c.at && b.from <= 0.4).length;
-  let v = null, at = 0; for (const x of withTl.concat(MORE_PAGES())) { const k = x.plan.timeline.continuity.contracts.find(c => CT.movingAt(x.plan, loudK(c)) > CT.LIMITS.moving && CT.movingAt(x.plan, loudK(c)) - early(x, c) <= CT.LIMITS.moving); if (k) { v = x; at = k.at; break; } }
+  // (into a scene with a picture: a new page turns a flat wipe into a move made of that picture -- into words alone it only
+  // flows colour, and nothing piles up)
+  let v = null, at = 0; for (const x of withTl.concat(MORE_PAGES())) { const k = x.plan.timeline.continuity.contracts.find(c => x.plan.scenes[c.at].layers.some(L => L.kind === 'image') && CT.movingAt(x.plan, loudK(c)) > CT.LIMITS.moving &&CT.movingAt(x.plan, loudK(c)) - early(x, c) <= CT.LIMITS.moving); if (k) { v = x; at = k.at; break; } }
   assert.ok(v, 'a seam a model can overload');
   const loud = echo(c => { const k = c.find(x => x.at === at); Object.assign(k, { family: 'foreground-wipe', overlap: { from: -0.6, to: 0.3 } }); });
   // the critic's own fix (calm: the incoming scene's moves wait for the seam)

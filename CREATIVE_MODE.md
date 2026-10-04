@@ -591,6 +591,42 @@ reopened page is never reviewed again; a plan cannot bring its own record.
 Verification: `test/creative-visual.test.js` (fixtures A-I in `test/helpers/visual-fixtures.js`, a real browser when one
 exists) and `test/review/creative-visual-review.js` (the six subjects on real photographs).
 
+## The quality floor (stress-tested across unrelated subjects)
+
+Faults a stress run (six unrelated subjects, three seeds each, real photographs, rendered and measured with the visual
+director's own measures -- with the visual director off, as production runs today) kept finding on finished pages, each
+closed where it is made rather than left to the visual director:
+
+- **A scene left without its picture** (`direction.js`, finding `bare`): a scene composed to show pictures whose pictures
+  the image ledger takes away (each picture once per page) was an empty field -- a blank full-screen composition. The page
+  critique now sees it (its survey applies the ledger) and recomposes it: a middle scene in words set large (type
+  takeover, giant type, poster -- never the shape of the scene beside it), an empty closing scene as the return of the hero
+  first. Every empty scene counts in the score.
+- **An ending that is a photograph set small in an empty field** (`weak-payoff`): a shrine or quiet close is a payoff for an
+  object standing free (a cut-out); a framed photograph with its own background at under 30% of the screen is not.
+- **A caption cut off as a label** (`director2.js`, `validate2.js`): a picture's description is a kicker only when it is a
+  few words; a label cut to its limit ends on a whole word.
+- **An empty accent block** (`archetypes.js`): the brutalist block offset behind a picture is drawn only with the picture.
+- **Words over a strong backdrop** (`archetypes.js`): a backdrop picture at half strength or more counts as a picture under
+  the words (they get their scrim).
+- **A colour wash over a scene at rest** (`render2.js` runtime): a wash or a panel crossing a seam is gone by the time the
+  next scene arrives; only a carried subject may land just after.
+- **Moves still half-way when a scene comes to rest** (`render2.js` runtime): a composition in a scene that is not held
+  rests where the scene fills the screen (its keys' own rest), and its beats are half-way through their passage there.
+- **Doubled headlines**: a text swap shows one line, then the other -- never both in one place; on a mask stage each version
+  of a swapped heading is its own window onto the picture, and the giant words are set to fit the screen at the size they
+  rest at.
+- **An owner's upload dropped** (`ai.js` recompose, `validate2.js` page review): a recomposition never takes a picture the
+  owner uploaded off the page.
+- **Seams that cascade** (`continuity.js`, `ai.js`): a seam another finding will calm does not count as the page's move,
+  the page's move is what the composition before it becomes, and the built-in fixes run again (at most three times) when
+  one fix leaves the next seam with a problem.
+- **The credits in the closing screen** (a page with a look): the closing scene owns a whole screen, on a phone too.
+
+Old saved pages reopen exactly as stored (no plan field changed; the closing-screen rule is a look rule). The renderer's
+runtime fixes (the wash, the arrival of moves, the text swap) apply to every page when it is shown -- they remove states a
+visitor could only ever see as faults. Verification: `test/creative-quality.test.js`.
+
 ## Built-in pipeline (stage 1; now the labelled fallback)
 
 1. **Understand** (`understand.js`): `recognizable` (a real thing with public facts), `personal` (“my goldfish

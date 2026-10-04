@@ -74,8 +74,9 @@ test('1. different subjects get different compositions, drawn from the second vo
   BRIEFS.forEach(([s, b, t]) => { const v = page(s, b, t, 'h', { history: hist.slice(-10) }); hist.push(v.plan.art.recipe); fams.push(v.plan.art.family); });
   const sims = []; for (let i = 0; i < hist.length; i++) for (let j = i + 1; j < hist.length; j++) sims.push(ART.similarity(hist[i], hist[j]));
   // (0.22, was 0.2: a page with a look commits to a few devices and never crosses a seam with a flat shape, so how pages
-  // MOVE has fewer, stronger options -- their families, layouts and arcs still differ: layout similarity stays near 0.1)
-  assert.ok(sims.reduce((a, b) => a + b, 0) / sims.length < 0.22, `mean similarity ${sims.reduce((a, b) => a + b, 0) / sims.length}`);
+  // MOVE has fewer, stronger options -- their families, layouts and arcs still differ: layout similarity stays near 0.1;
+  // 0.23, was 0.22: a scene left without a picture is set in words, so a few more pages share a typographic device)
+  assert.ok(sims.reduce((a, b) => a + b, 0) / sims.length < 0.23, `mean similarity ${sims.reduce((a, b) => a + b, 0) / sims.length}`);
   const lsim = []; for (let i = 0; i < hist.length; i++) for (let j = i + 1; j < hist.length; j++) lsim.push(ART.layoutSimilarity(hist[i].split('#')[0], hist[j].split('#')[0]));
   assert.ok(lsim.reduce((a, b) => a + b, 0) / lsim.length < 0.15, 'the compositions themselves stay far apart');
   assert.ok(new Set(fams).size >= 6, `families in a row of eight: ${fams}`);
