@@ -361,6 +361,21 @@ test('WE-12. not enough credits: the provider is never called; another account c
 });
 
 // ================================================================ add a picture
+test('WE-13b. Add a picture to THIS scene: an upload goes into the chosen scene beside its words (a page that holds as many scenes as it can still takes it) -- free, its words and every other scene as they were', async () => {
+  const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
+  const at = o.outline.scenes.find(x => !x.pictures.length) || o.outline.scenes.find(x => x.actions.includes('picture-add'));
+  assert.ok(at && at.actions.includes('picture-add'), 'offered on a scene with room for a picture');
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/upload`, { baseRevision: o.revision, png: png(1600, 1000), title: 'Behind the counter', into: at.id });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /Added your picture to/);
+  const after = creativeOf(await raw(w)).plan.scenes; assert.equal(after.length, n, 'no new scene');
+  const sc = after.find(x => x.id === at.id); assert.ok(sc.layers.some(L => L.kind === 'image' && L.asset === r.body.assetId), 'the picture is in that scene');
+  const words = t => [t.kicker, t.heading, t.body, t.items]; assert.deepEqual(words(sc.text), words(before.find(x => x.id === at.id).text), 'its words as they were (set again around the picture)');
+  assert.deepEqual(after.filter(x => x.id !== at.id), before.filter(x => x.id !== at.id), 'every other scene exactly as it was');
+  const o2 = await outline(w); assert.ok(o2.outline.scenes.find(x => x.id === at.id).pictures.some(p => p.assetId === r.body.assetId), 'the editor lists it in that scene');
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free: no provider, no credit');
+});
+
 test('WE-13. Add a picture: an upload (or a picture the project already has) goes on the page as its own new scene after the chosen one, shown big -- free, and every other scene exactly as it was', async () => {
   const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
   const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;

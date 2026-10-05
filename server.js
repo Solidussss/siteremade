@@ -5368,6 +5368,12 @@ app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ li
     const r = creativeEditor.applyEdit(d2, { type: 'picture-replace', sceneId: b.sceneId, layerId: b.layerId, assetId: up.asset.id });
     if (!r.ok) return bridgeError(res, 422, r.code, r.message);
     creative = r.creative; summary.push(r.summary);
+  } else if (b.into) {
+    // ("Add a picture to this scene": the picture in the scene named, beside its words -- creative-editor.js picture-add)
+    const d2 = Object.assign({}, got.direction, { creative });
+    const r = creativeEditor.applyEdit(d2, { type: 'picture-add', sceneId: clean(b.into, 60), assetId: up.asset.id });
+    if (!r.ok) return bridgeError(res, 422, r.code, r.message);
+    creative = r.creative; summary.length = 0; summary.push(r.summary);
   } else if (b.after) {
     // ("Add a picture": the picture as a new scene after the one named -- creative-editor.js picture-scene)
     const d2 = Object.assign({}, got.direction, { creative });
