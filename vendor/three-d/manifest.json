@@ -2,10 +2,10 @@
   "engine": "sr3d",
   "file": "sr3d.min.js",
   "three": "0.186.1",
-  "bytes": 629338,
-  "gzipBytes": 161482,
-  "sha256": "b90c5af43b1cf653312d0c422eedf61c361240062575107454ef23f2d28310b7",
-  "sourceSha256": "51c2ee267bb804fc5fb226109e2379b064b803b8fb13ed71eee852cfd19f62c5",
+  "bytes": 629531,
+  "gzipBytes": 161570,
+  "sha256": "4884e3c53fb21b153945a35ee240965390dbf9c025854c608e943836bb00c2db",
+  "sourceSha256": "dac39e7c36759ecafc13a0b79f2395d7e16393cd97446e6f60d1af0ac59445e1",
   "sources": [
     "lib/three-d/runtime-src.js",
     "lib/creative/three-d-pose.js"

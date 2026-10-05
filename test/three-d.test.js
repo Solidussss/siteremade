@@ -779,3 +779,13 @@ test('3D-F. a scene with a 3D model is never hidden as "words alone" or as a run
   assert.match(out.stages.get(0), /--x:32;--y:8;--w:36;--h:84;--mx:14;--my:0;--mw:72;--mh:100/, 'in the run: centre stage, and on a phone the whole carried-picture spot');
   assert.doesNotMatch(out.stages.get(2), /--x:32;--y:8/, 'outside the run: the free side of its words');
 });
+
+test('on a touch screen a model never stands still: a staging that follows the pointer or a click turns with the scroll too', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  for (const s of [{ composition: 'hero-sculpture' }, { composition: 'floating-object' }, { composition: 'scroll-rotate', interaction: 'click-rotate' }]) {
+    const a = POSE.pose(s, { p: 0, anchor: 0.5, touch: true }), b = POSE.pose(s, { p: 1, anchor: 0.5, touch: true });
+    assert.ok(near(b.rotY - a.rotY, POSE.TOUCH.turns * 2 * Math.PI), `${s.composition}/${s.interaction || ''}: half a turn through the scene`);
+    assert.ok(near(POSE.pose(s, { p: 1, anchor: 0.5 }).rotY, POSE.pose(s, { p: 0, anchor: 0.5 }).rotY), '(with a mouse it follows the pointer, as before)');
+  }
+  const sr = POSE.pose({ composition: 'scroll-rotate' }, { p: 1, anchor: 0, touch: true }); assert.ok(near(sr.rotY, 2 * Math.PI), 'a scroll staging turns as it always did');
+});

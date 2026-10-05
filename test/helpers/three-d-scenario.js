@@ -47,8 +47,8 @@ function creativePage() {
     creative: { v: 1, brief: und.brief, understanding: und, supplied: { facts: ['Aurelia is bottled in small batches.'], memories: [] }, research: { status: 'none', page: null, facts: [] }, assets, plan, motion: { intensity: 'lively' }, cost: {} } };
 }
 
-// opts: { port, env, token, publish (default true) } -> { projectId, jobId, assetRef, revision, sectionId, handoffZipBytes }
-async function buildThreeDScenario({ port, env, token = 'test-access-token-owner', publish = true }) {
+// opts: { port, env, token, publish (default true), composition (default: the one the job chose) } -> { projectId, jobId, assetRef, revision, sectionId, handoffZipBytes }
+async function buildThreeDScenario({ port, env, token = 'test-access-token-owner', publish = true, composition = null }) {
   const call = client(port);
   assert.equal((await call('POST', '/api/identity/supabase/session', { supabaseAccessToken: token })).status, 200);
   const page = creativePage();
@@ -60,7 +60,7 @@ async function buildThreeDScenario({ port, env, token = 'test-access-token-owner
   assert.equal(job.status, 'completed', JSON.stringify(job).slice(0, 300)); const d = job.delivered[0];
   // the studio's save: the model by its stored reference (creative.js tdForSave), one scroll-rotate scene in its section
   const cur = (await call('GET', `/api/projects/${projectId}`)).body.project; const next = JSON.parse(JSON.stringify(cur.directionsState));
-  next.directions[0].creative.threeD = TD.normalise({ assets: [d.threeD], scenes: [{ id: 'td-' + d.sectionId, assetId: d.threeD.id, sectionId: d.sectionId, composition: d.composition }] }, { sectionIds: page.creative.plan.scenes.map(s => s.id) });
+  next.directions[0].creative.threeD = TD.normalise({ assets: [d.threeD], scenes: [{ id: 'td-' + d.sectionId, assetId: d.threeD.id, sectionId: d.sectionId, composition: composition || d.composition }] }, { sectionIds: page.creative.plan.scenes.map(s => s.id) });
   assert.equal(next.directions[0].creative.threeD.assets[0].dataUrl, undefined, 'saved by reference');
   const saved = await call('PUT', `/api/projects/${projectId}`, { name: cur.name, expectedRevision: cur.revision, directionsState: next }); assert.equal(saved.status, 200, JSON.stringify(saved.body).slice(0, 300));
   // purchased (mocked Stripe), then published as the studio does after a save
