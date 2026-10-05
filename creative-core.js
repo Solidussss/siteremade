@@ -10841,6 +10841,12 @@
       return `<div class="pt" data-kind="${atm.particles}" aria-hidden="true">${parts.join('')}</div>`;
     }
 
+    // (a picture past the first two scenes loads as it comes near -- except where it starts clipped, carried or pinned: Safari
+    // never starts a lazy picture its reveal has clipped shut, and a pinned or sliding scene moves its pictures by transform)
+    function lazyAt(c, si, L) {
+      if (si < 2 || L.track) return false; const s = c.plan && c.plan.scenes && c.plan.scenes[si]; if (!s) return false;
+      return !s.pin && !/reveal|mask|track|wipe|travel/.test(s.choreo || '') && !['mask', 'window'].includes(L.mask);
+    }
     function renderLayer(L, si, c, groupInner) {
       const [x, y, w, h] = L.box.d; const [mx, my, mw, mh] = L.box.m;
       const a0 = L.kind === 'image' ? c.byId.get(L.asset) : null;
@@ -10869,7 +10875,7 @@
         const vid = c.videoSrc ? c.videoSrc(a) : '';
         // (the payoff clip plays once and rests on its last frame: the page concludes, it does not loop)
         const once = c.pv && c.pv.role === 'payoff' && L.asset === c.pv.asset;
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}"${c.srcset && c.srcset(a) ? ` srcset="${esc(c.srcset(a))}" sizes="(max-width:720px) 100vw, 70vw"` : ''} alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}"${c.srcset && c.srcset(a) ? ` srcset="${esc(c.srcset(a))}" sizes="(max-width:720px) 100vw, 70vw"` : ''} alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async"${lazyAt(c, si, L) ? ' loading="lazy"' : si === 0 && L.role === 'focal' ? ' fetchpriority="high"' : ''} ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';

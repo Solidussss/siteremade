@@ -54,6 +54,8 @@ function build(id, seed) {
         const v = await pg.evaluate(() => {
           const out = []; const W = innerWidth;
           if (document.documentElement.scrollWidth > W + 1) out.push(`the page scrolls sideways (${document.documentElement.scrollWidth}px on a ${W}px screen)`);
+          // (a picture on the screen has arrived -- a lazily loaded one included)
+          document.querySelectorAll('.ly-img').forEach(img => { const r = img.getBoundingClientRect(); if (r.width > 20 && r.height > 20 && r.bottom > 40 && r.top < innerHeight - 40 && getComputedStyle(img).visibility !== 'hidden' && !(img.complete && img.naturalWidth)) out.push(`a picture on the screen has not loaded (${img.getAttribute('data-asset')}${img.loading === 'lazy' ? ', lazy' : ''})`); });
           // (measured where it rests: a word sliding in from the side is not a heading running off the screen)
           const still = document.createElement('style'); still.textContent = '*,*::before,*::after{transform:none!important;translate:none!important;rotate:none!important;scale:none!important;transition:none!important;animation:none!important}'; document.head.appendChild(still);
           document.querySelectorAll('.sc-heading').forEach(h => { const r = h.getBoundingClientRect(); if (r.height && r.bottom > 0 && r.top < innerHeight && (r.right > W + 2 || r.left < -2) && getComputedStyle(h).visibility !== 'hidden') out.push(`a heading runs off the screen: "${h.textContent.trim().slice(0, 40)}" (${Math.round(r.left)}..${Math.round(r.right)} on ${W})`); });
