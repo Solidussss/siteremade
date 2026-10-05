@@ -490,7 +490,10 @@
     html.k-morph:not([data-motion="reduced"]) .sc:not([data-handoff="overlap"]):not([data-handoff="stack"]):not([data-overlapped]){background:transparent!important}
     html.k-morph:not([data-motion="reduced"]) .sc[data-flow] .sc-pin::before{display:none}
     html.k-morph:not([data-motion="reduced"]) body{transition:none}
-    html.k-morph .k-bg{position:fixed;inset:0;z-index:-1;pointer-events:none}html[data-motion="reduced"] .k-bg{display:none}
+    html.k-morph .k-bg{position:fixed;inset:0;z-index:-1;pointer-events:none}
+    .k-tap{position:absolute;left:50%;top:50%;margin:-22px 0 0 -22px;z-index:3;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none;animation:k-tap 1.6s ease-in-out infinite}.k-tap::after{content:"";position:absolute;left:17px;top:13px;border-style:solid;border-width:9px 0 9px 14px;border-color:transparent transparent transparent #fff}
+    @keyframes k-tap{50%{opacity:.6}}
+    @media (max-width:720px){.sc-herovid>.k-tap{top:57%}}html[data-motion="reduced"] .k-bg{display:none}
     /* ---- the nav steps aside while the visitor reads down, and is back the moment they turn up */
     html.k-on:not([data-motion="reduced"]) .cr-nav{transition:translate .5s cubic-bezier(.16,1,.3,1),opacity .4s ease}
     html.k-on:not([data-motion="reduced"]).k-navhide .cr-nav:not(:has(details[open])){translate:0 -110%;opacity:0}
@@ -584,7 +587,7 @@
     /* ---- scrubbed clips: the visitor plays them. Their scenes' places are measured when the layout changes (load, resize, the
        page growing) -- never read while scrolling */
     var clips=[],hero=null,firstSc=d.querySelector('.sc');
-    var heldV=[];function held(v){if(heldV.indexOf(v)>=0)return;heldV.push(v);if(heldV.length>1)return;var go=function(){var q=heldV;heldV=[];d.removeEventListener('touchend',go,true);d.removeEventListener('click',go,true);q.forEach(function(x){try{var r=x.play();if(r&&r.catch)r.catch(function(){})}catch(e){}})};d.addEventListener('touchend',go,true);d.addEventListener('click',go,true)}
+    var heldV=[];function held(v){if(heldV.indexOf(v)>=0)return;heldV.push(v);var p=v.parentNode;if(p&&!p.querySelector(':scope>.k-tap')){var t=d.createElement('span');t.className='k-tap';t.setAttribute('aria-hidden','true');p.appendChild(t)}if(heldV.length>1)return;var go=function(){var q=heldV;heldV=[];d.removeEventListener('touchend',go,true);d.removeEventListener('click',go,true);[].forEach.call(d.querySelectorAll('.k-tap'),function(t){t.remove()});q.forEach(function(x){try{var r=x.play();if(r&&r.catch)r.catch(function(){})}catch(e){}})};d.addEventListener('touchend',go,true);d.addEventListener('click',go,true)}
     [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;if(!fine){v.muted=true;v.setAttribute('muted','');v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.autoplay=true;try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){held(v)})}catch(e){held(v)}return}v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
     var c={v:v,sc:sc,want:0,at:0,busy:false,ready:false,top:0,h:1};v.addEventListener('loadedmetadata',function(){c.ready=v.duration>0;kick()});v.addEventListener('seeked',function(){c.busy=false});if(v.readyState>=1&&v.duration>0)c.ready=true;
     clips.push(c);if(sc===firstSc)hero=c});K.scrub=clips.length;

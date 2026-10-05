@@ -240,3 +240,8 @@ test('K22. the intro name breaks between words only; letters that drop or hinge 
   assert.ok(KIN.css.includes('.k-intro-w{display:inline-block;white-space:nowrap;overflow:hidden'), 'a word never breaks');
   assert.ok(KIN.css.includes('.sc[data-kt]:not([data-kt="sweep"]):not([data-kt="cascade"]):not([data-kt="flip"]) .kw{overflow:visible}'), 'cascade and flip keep the word clip');
 });
+
+test('K23. a clip the phone will not start (Low Power Mode) shows a play mark on it until the first tap starts every held clip', () => {
+  assert.ok(KIN.js.includes("t.className='k-tap'"), 'the mark'); assert.ok(KIN.js.includes("[].forEach.call(d.querySelectorAll('.k-tap'),function(t){t.remove()})"), 'gone on the tap');
+  assert.ok(KIN.css.includes('.k-tap{position:absolute;left:50%;top:50%;'), 'centred on the clip');
+});
