@@ -390,6 +390,10 @@ test('WE-13d. The website ships each photo at the sizes a screen needs: smaller 
   const sets = [...html.matchAll(/srcset="([^"]*)"/g)].map(m => m[1]); assert.ok(sets.length, 'pictures carry a srcset');
   const set = [null, sets.find(x => x.includes('-640.jpg 640w') && x.includes('-1200.jpg 1200w'))]; assert.ok(set[1], 'the wide photo: a phone copy and a 1200 copy -- ' + sets.join(' | ')); assert.ok(html.includes('sizes="(max-width:720px) 100vw, 70vw"'), 'the sizes a screen picks by');
   for (const p of set[1].split(', ').map(x => x.split(' ')[0])) assert.ok(zip.get(p), `${p} ships`);
+  // the share card: what a link to the site shows in a message or a post
+  const og = /<meta property="og:image" content="([^"]+)">/.exec(html); assert.ok(og, 'an og:image'); const card = zip.get(og[1]); assert.ok(card, og[1] + ' ships');
+  assert.equal(card.subarray(0, 2).toString('hex'), 'ffd8'); assert.ok(html.includes('<meta name="twitter:card" content="summary_large_image">')); assert.ok(html.includes('<meta property="og:title"'));
+  const sof = card.indexOf(Buffer.from([0xff, 0xc0])); assert.deepEqual([card.readUInt16BE(sof + 7), card.readUInt16BE(sof + 5)], [1200, 630], 'a 1200x630 card');
   const small = zip.get(set[1].split(', ')[0].split(' ')[0]); assert.ok(small.length < 60000, `the phone copy is light (${small.length} bytes)`); assert.equal(small.subarray(0, 2).toString('hex'), 'ffd8', 'a JPEG');
 });
 
