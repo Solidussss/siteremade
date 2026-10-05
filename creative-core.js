@@ -582,7 +582,8 @@
     /* ---- scrubbed clips: the visitor plays them. Their scenes' places are measured when the layout changes (load, resize, the
        page growing) -- never read while scrolling */
     var clips=[],hero=null,firstSc=d.querySelector('.sc');
-    [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;if(!fine){v.muted=true;v.setAttribute('muted','');v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.autoplay=true;try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){})}catch(e){}return}v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
+    var heldV=[];function held(v){if(heldV.indexOf(v)>=0)return;heldV.push(v);if(heldV.length>1)return;var go=function(){var q=heldV;heldV=[];d.removeEventListener('touchend',go,true);d.removeEventListener('click',go,true);q.forEach(function(x){try{var r=x.play();if(r&&r.catch)r.catch(function(){})}catch(e){}})};d.addEventListener('touchend',go,true);d.addEventListener('click',go,true)}
+    [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;if(!fine){v.muted=true;v.setAttribute('muted','');v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.autoplay=true;try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){held(v)})}catch(e){held(v)}return}v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
     var c={v:v,sc:sc,want:0,at:0,busy:false,ready:false,top:0,h:1};v.addEventListener('loadedmetadata',function(){c.ready=v.duration>0;kick()});v.addEventListener('seeked',function(){c.busy=false});if(v.readyState>=1&&v.duration>0)c.ready=true;
     clips.push(c);if(sc===firstSc)hero=c});K.scrub=clips.length;
     /* (on a phone the product carried between scenes stands fixed at the top of the screen: a scene's words that scroll up under it fade there, and come back below it) */
@@ -5222,6 +5223,9 @@
     // (a phone's tilt -- sent by the page's kinetic layer as 'cr-tilt' -- leans any staging a little, on top of its own move)
     const GYRO = { y: 0.38, x: 0.16 };
     const CLICK_STEP = Math.PI / 2;
+    // (a touch screen has no pointer to follow: a staging that follows one turns with the scroll there instead -- half a turn
+    // through the scene, leaning back a little -- so a phone never shows a model standing still)
+    const TOUCH = { turns: 0.5, lean: 0.12 };
 
     const TAU = Math.PI * 2;
     const cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -5232,7 +5236,7 @@
     //   scene: { composition, interaction, camera: { fov, azimuth, elevation, distance }, turns }  (validated: three-d.js)
     //   input: { p: the scene's scroll progress 0..1, anchor: the progress at which the model rests facing front (0 for a
     //            pinned scene -- it turns through its hold -- 0.5 for a scene that scrolls by), px, py: pointer -1..1,
-    //            clicks: whole clicks so far, t: seconds }
+    //            clicks: whole clicks so far, t: seconds, touch: a touch screen (no pointer to follow) }
     // -> { rotY, rotX (the model, radians), azimuth, elevation (the camera, degrees), distance (multiple of the fit
     //      distance), fov, lift (fraction of the model's size), scale, opacity }
     function pose(scene, input) {
@@ -5247,6 +5251,7 @@
       else if (kind === 'scroll-orbit') out.azimuth += (p - anchor) * turns * 360;
       else if (kind === 'pointer-tilt') { out.rotY = cl(fin(i.px, 0), -1, 1) * TILT.y; out.rotX = cl(fin(i.py, 0), -1, 1) * TILT.x; }
       else if (kind === 'click-rotate') out.rotY = Math.round(fin(i.clicks, 0)) * CLICK_STEP;
+      if (i.touch && (kind === 'pointer-tilt' || kind === 'click-rotate' || kind === 'none')) { out.rotY += (p - anchor) * TOUCH.turns * TAU; out.rotX += (p - anchor) * TOUCH.lean; }
       if (i.gx || i.gy) { out.rotY += cl(fin(i.gx, 0), -1, 1) * GYRO.y; out.rotX += cl(fin(i.gy, 0), -1, 1) * GYRO.x; }
       if (C.dolly) out.distance *= 1 - C.dolly * smooth(p);
       if (C.reveal) { const r = smooth(p / 0.35); out.scale = 0.62 + 0.38 * r; out.opacity = r; }
@@ -5254,7 +5259,7 @@
       return out;
     }
 
-    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, GYRO, CLICK_STEP, pose };
+    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, GYRO, CLICK_STEP, TOUCH, pose };
 
   });
   __define("three-d", function (module, exports, require) {
@@ -5298,7 +5303,9 @@
       triangles: 200000, trianglesTarget: 100000,
       textureSize: 2048,
       dpr: 2,
-      phone: { width: 720, modelBytes: 4 * 1024 * 1024, triangles: 100000, dpr: 1.5 },
+      // (a phone draws what a page may ship: a made model is ~6 MB, and a 4 MB line left every phone with the picture; it loads
+      // over a phone's connection, so it has longer to arrive)
+      phone: { width: 720, modelBytes: 8 * 1024 * 1024, triangles: 200000, dpr: 1.5, timeoutMs: 45000 },
       loadTimeoutMs: 20000,
     };
     const ASSET_ID = /^td[\w-]{1,38}$/;
@@ -5620,7 +5627,7 @@
         engine(function (err) {
           if (err) { all(err); return; }
           if (s.st.state !== 'loading') return;
-          s.timer = setTimeout(function () { poster(s, 'timeout'); }, C.limits.timeoutMs);
+          s.timer = setTimeout(function () { poster(s, 'timeout'); }, (phone() && C.limits.phone.timeoutMs) || C.limits.timeoutMs);
           try {
             s.handle = W.SiteRemade3D.mount(s.el, { model: s.cfg.model, bounds: s.cfg.bounds, composition: s.cfg.composition, interaction: s.cfg.interaction, camera: s.cfg.camera, turns: s.cfg.turns, lighting: s.cfg.lighting, tier: phone() ? 'lite' : 'full', dpr: phone() ? C.limits.phone.dpr : C.limits.dpr, maxBytes: C.limits.bytes, maxTriangles: C.limits.triangles, anchor: s.pin ? 0 : 0.5 }, {
               ready: function (info) {
@@ -10999,6 +11006,10 @@
       const vh = HV ? HV.end || 'static-frame' : '';
       const heroVid = HV && !inFrame ? `<div class="sc-herovid" aria-hidden="true"><img class="shv-still" src="${esc(c.src(HV.asset))}" alt=""><video class="shv-vid" src="${esc(c.videoSrc(HV.asset))}" poster="${esc(c.src(HV.asset))}" muted loop playsinline autoplay preload="auto"></video></div>` : '';
       const stageVideo = HV && !inFrame ? Object.assign({}, c, { videoSrc: a => (a && a.id === HV.asset.id ? '' : c.videoSrc(a)) }) : c;
+      // (the clip playing full-bleed behind the scene IS that photo: the same photo is not drawn again, still, over its own
+      // clip -- the photo itself, a copy of it, or the same file uploaded again; a cut-out of the subject still floats over it)
+      const sameAsClip = L => { if (L.kind !== 'image') return false; const a = c.byId.get(L.asset); if (!a || a.cutout || a.cutoutOf || (a.assess && a.assess.transparent)) return false; const h = HV.asset; return a.id === h.id || a.derivedFrom === h.id || (!!a.assetRef && a.assetRef === h.assetRef) || (!!c.src(a) && c.src(a) === c.src(h)); };
+      const stageScene = HV && !inFrame && s.layers.some(sameAsClip) ? Object.assign({}, s, { layers: s.layers.filter(L => !sameAsClip(L)) }) : s;
       // the words enter from the picture's side: they come out of the image as the scene arrives (not laid on top of it)
       const fL = s.layers.find(L => L.role === 'focal' && L.kind === 'image');
       const tie = c.flowAll && fL && fL.box.d[2] < 85 ? (fL.box.d[0] + fL.box.d[2] / 2 >= 50 ? 'right' : 'left') : '';
@@ -11040,7 +11051,7 @@
       return `<section class="sc${hero ? ' cr-hero' : ' cr-reveal'}" id="${hero ? 'top' : esc(s.id)}" data-scene="${si}"${spKind ? ` data-sp="${spKind}"` : ''}${c.spBehind && c.spBehind.has(si) ? ' data-sp-behind' : ''} data-height="${s.height}"${alone ? ' data-alone' : ''}${has3d ? ' data-3d' : ''}${s.pin ? ' data-pin' : ''} data-bg="${s.background}"${s.tone ? ' data-tone' : ''}${flow ? ' data-flow' : ''} data-camera="${s.camera}"${covers && s.camera !== 'none' ? ' data-camcap' : ''} data-morder="${s.mobile.order}"${hero ? ' data-hero' : ''}${sceneArt}${s.move && s.move.words ? ` data-kmw="${s.move.words}"` : ''}${s.move && s.move.picture ? ` data-kmp="${s.move.picture}"` : ''}${c.plan.signature && c.plan.signature.scene === s.id ? ` data-ksig="${c.plan.signature.kind}"` : ''} style="--s-ink:${ink.ink};--s-muted:${ink.muted};--s-surface:${ink.surface}${ink.accent ? `;--s-accent:${ink.accent}` : ''}${flow || bleed ? `;--prev:${prev}` : ''}${s.steps && s.pin ? `;--steps:${s.steps}` : ''}${opensFrom ? `;--sit:${opensFrom[0]}%;--sir:${opensFrom[1]}%;--sib:${opensFrom[2]}%;--sil:${opensFrom[3]}%` : ''}${c.ctrack && c.ctrack.comp === 'mask-stage' && fL && c.byId.get(fL.asset) ? `;--mimg:url('${esc(c.src(c.byId.get(fL.asset))).replace(/'/g, '%27').replace(/[()]/g, ch => (ch === '(' ? '%28' : '%29'))}')` : ''}"${c.arted ? ` data-surf="${ink.surface}"` : ''} aria-label="${esc(t.heading || s.name || `Scene ${si + 1}`)}">
       <div class="sc-pin">${atmos}${amb}${echo}${heroVid}${spPiece ? globeSvg(spPiece) : ''}
         ${beatOf('scene').map(({ b, j }) => (b.op === 'takeover' ? `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i><i class="sc-take" aria-hidden="true" data-b${j}="takeover-in"></i>` : `<i class="sc-bgx" aria-hidden="true" data-b${j}="background-in" style="--from:${prev || 'var(--bg)'}"></i>`)).join('')}
-        <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(s, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}${(c.td && c.td.get(si)) || ''}</div>
+        <div class="sc-stage"${trackStage ? ' data-track' : ''}${battr('stage')}${s.layers.some(L => L.seq != null) || bvars('stage') ? ` style="${[s.layers.some(L => L.seq != null) ? `--n:${s.layers.filter(L => L.seq != null).length}` : '', bvars('stage')].filter(Boolean).join(';')}"` : ''}>${renderStage(stageScene, si, Object.assign({}, stageVideo, { focalBeat: { attrs: battr('focal'), vars: bvars('focal') }, xf: beatOf('focal').find(x => x.b.op === 'crossfade') }))}${(c.td && c.td.get(si)) || ''}</div>
         ${c.actor && c.actor.from === si ? actorStatic(c) : ''}
         ${shade}${text}${counter}
         ${credit ? `<p class="cr-herocredit">Picture: ${esc(credit)}</p>` : ''}
@@ -11775,6 +11786,7 @@
     .sc[data-vh] .sc-herovid video{opacity:calc(1 - min(1, var(--sx,0) * 1.6))}
     html[data-motion="reduced"] .sc-herovid video{display:none}html[data-motion="reduced"] .sc-herovid .shv-still{display:block}
     @media (prefers-reduced-motion:reduce){.sc-herovid video{display:none}.sc-herovid .shv-still{display:block}}
+    @media (max-width:720px){.sc-herovid .shv-still{display:block;object-fit:cover;filter:blur(26px) saturate(1.15);transform:scale(1.18)}.sc-herovid video{object-fit:contain;object-position:50% 34%}html[data-motion="reduced"] .sc-herovid .shv-still{filter:none;transform:none}}
     /* ===== one surface (continuity contracts): the scenes are transparent over the fixed backdrop, whose colour flows from
        each scene's picture-driven colour into the next across the seam's overlap -- no "new section, new block" edge ===== */
     html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc{background:transparent!important}

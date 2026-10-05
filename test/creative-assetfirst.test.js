@@ -203,6 +203,11 @@ test('8. a premium hero video: planned from the main picture before it exists; s
     assert.match(h3, /class="sc-herovid"/, `${asset}: the clip full-bleed`);
     assert.ok(!new RegExp(`<img class="ly-img" data-asset="${asset}"`).test(h3), `${asset}: the same photo is not drawn over its own clip`);
   }
+  // the editor lists the clip on its own, in its scene, apart from the pictures: where it plays, and a free way off
+  const ED = require('../lib/creative-editor');
+  const ol = ED.outline({ mode: 'creative', creative: { v: 1, assets: withVideo, plan: P } }, {});
+  const k = ol.scenes[P.timeline.continuity.hero.scene || 0].clips; assert.equal(k.length, 1); assert.equal(k[0].assetId, 'u1'); assert.ok(['picture', 'behind'].includes(k[0].where)); assert.deepEqual(k[0].actions, ['motion-remove']);
+  assert.ok(ol.scenes.filter((x, i) => i !== (P.timeline.continuity.hero.scene || 0)).every(x => !x.clips.length), 'only its own scene');
   // delivered: its measured cast becomes the opening's colour and carries on; it is saved with the page
   const before = P.scenes.map(s => s.ink.surface);
   const tuned = validatePlan2(PAL.retune(P, '#1a7adf'), { mode: 'safety', assets: withVideo, facts: FACTS, understanding: UND }).plan;
