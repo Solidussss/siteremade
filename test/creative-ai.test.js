@@ -596,3 +596,11 @@ test('decoration: one deliberate shape per scene, none across the words, drawn a
   const va = validatePlan2(a, { assets: ASSETS, facts: FACTS, abstractChosen: true });
   assert.match(renderCreative2(va.plan, ASSETS, { mode: 'export', src: x => x.id }), /data-form="circle" data-fill="[a-z0-9]+">/);
 });
+
+test('generic section labels the model writes (The craft, The object, The rush) are dropped before the page is made; specific ones stay', () => {
+  const src = fs.readFileSync(require('path').join(__dirname, '..', 'lib', 'creative', 'ai.js'), 'utf8'); const re = eval(/^const GENERIC_KICKER = (.*);$/m.exec(src)[1]);
+  for (const k of ['The craft', 'THE OBJECT', 'The rush', 'A closer look.', 'The details']) assert.ok(re.test(k), k + ' dropped');
+  for (const k of ['Golden hour', 'Hand-cut acetate', 'Made in Cadore', 'The collection', 'Model 04']) assert.ok(!re.test(k), k + ' kept');
+  assert.ok(src.includes('const given = unwrapPlan(r.input); dropGenericKickers(given.plan);'), 'applied to what the model wrote');
+  assert.ok(src.includes('never a generic section label like'), 'and asked of the model');
+});
