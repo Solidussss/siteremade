@@ -193,6 +193,16 @@ test('8. a premium hero video: planned from the main picture before it exists; s
   P2.timeline.continuity.hero.asset = 'c-u3'; P2.premiumMedia = [{ intent: 'cinematic_hero', asset: 'u3', subject: '', why: '' }];
   const box = ASSETS.map(a => (a.id === 'u3' ? Object.assign({}, a, { video: { mediaId: 'pm_qa_000002', assetRef: 'c'.repeat(64), mime: 'video/mp4' } }) : a));
   assert.match(html(P2, { assets: box, videoSrc: a => (a.video ? `${a.id}.mp4` : '') }), /<div class="sc-herovid" aria-hidden="true"><img class="shv-still" src="u3\.png" alt=""><video class="shv-vid" src="u3\.mp4"/);
+  // the photo put back in a small frame (deleted, then added again -- or the same file uploaded again): the clip plays
+  // full-bleed behind the opening and the same photo is NOT drawn again, still, over its own clip
+  const hero0 = h2 => h2.slice(h2.indexOf('<section class="sc cr-hero"'), h2.indexOf('</section>', h2.indexOf('<section class="sc cr-hero"')));
+  const ref = 'd'.repeat(64); const again = withVideo.map(x => (x.id === 'u1' ? Object.assign({}, x, { assetRef: ref }) : x)).concat([Object.assign({}, ASSETS.find(x => x.id === 'u1'), { id: 'u9', assetRef: ref, video: undefined })]);
+  for (const asset of ['u1', 'u9']) {
+    const P3 = JSON.parse(JSON.stringify(P)); const f3 = P3.scenes[0].layers.find(L => L.role === 'focal'); f3.asset = asset; f3.box = { d: [56, 10, 30, 40], m: [10, 50, 80, 40] };
+    const h3 = hero0(html(P3, { assets: again, videoSrc: x => (x.video ? `${x.id}.mp4` : '') }));
+    assert.match(h3, /class="sc-herovid"/, `${asset}: the clip full-bleed`);
+    assert.ok(!new RegExp(`<img class="ly-img" data-asset="${asset}"`).test(h3), `${asset}: the same photo is not drawn over its own clip`);
+  }
   // delivered: its measured cast becomes the opening's colour and carries on; it is saved with the page
   const before = P.scenes.map(s => s.ink.surface);
   const tuned = validatePlan2(PAL.retune(P, '#1a7adf'), { mode: 'safety', assets: withVideo, facts: FACTS, understanding: UND }).plan;
