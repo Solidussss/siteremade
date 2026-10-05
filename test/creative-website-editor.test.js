@@ -379,6 +379,20 @@ test('WE-13c. The owner\'s own 3D model (.glb): checked as every model, shown in
   assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free: no provider, no credit');
 });
 
+test('WE-13d. The website ships each photo at the sizes a screen needs: smaller JPEG copies beside it, and a srcset a phone picks from', async () => {
+  const w = await world(); const o = await outline(w);
+  const at = o.outline.scenes.find(x => x.actions.includes('picture-add'));
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/upload`, { baseRevision: o.revision, png: png(1600, 1000, [180, 90, 40]), title: 'Wide photo', into: at.id });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const rev = (await raw(w)).revision; assert.equal((await w.owner('POST', `/api/app-bridge/website/${w.projectId}/publish`, { revision: rev })).status, 200);
+  const zip = readZip((await w.owner('GET', `/api/app-bridge/website/${w.projectId}/download`)).buf);
+  const html = zip.get('index.html').toString('utf8');
+  const sets = [...html.matchAll(/srcset="([^"]*)"/g)].map(m => m[1]); assert.ok(sets.length, 'pictures carry a srcset');
+  const set = [null, sets.find(x => x.includes('-640.jpg 640w') && x.includes('-1200.jpg 1200w'))]; assert.ok(set[1], 'the wide photo: a phone copy and a 1200 copy -- ' + sets.join(' | ')); assert.ok(html.includes('sizes="(max-width:720px) 100vw, 70vw"'), 'the sizes a screen picks by');
+  for (const p of set[1].split(', ').map(x => x.split(' ')[0])) assert.ok(zip.get(p), `${p} ships`);
+  const small = zip.get(set[1].split(', ')[0].split(' ')[0]); assert.ok(small.length < 60000, `the phone copy is light (${small.length} bytes)`); assert.equal(small.subarray(0, 2).toString('hex'), 'ffd8', 'a JPEG');
+});
+
 test('WE-13b. Add a picture to THIS scene: an upload goes into the chosen scene beside its words (a page that holds as many scenes as it can still takes it) -- free, its words and every other scene as they were', async () => {
   const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
   const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
