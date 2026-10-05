@@ -195,7 +195,9 @@ test('K17. the signature moment: one set piece per page, the director\'s if it f
 
 test('K18. polish: the page\'s colour morphs from scene to scene (a scene sliding over the last keeps its own); the nav steps aside going down and returns going up; the call to action fills on hover; the closing carries the brand\'s name at the page\'s width -- all measured with the layout, never per frame', () => {
   assert.match(KIN.css, /html\.k-morph:not\(\[data-motion="reduced"\]\) \.sc:not\(\[data-handoff="overlap"\]\):not\(\[data-handoff="stack"\]\):not\(\[data-overlapped\]\)\{background:transparent!important\}/);
-  assert.match(KIN.js, /function paint\(y\)\{var vh=innerHeight,c=morph\.cols\[0\]\.slice\(\);/, 'per frame: numbers and one colour');
+  assert.match(KIN.js, /function paint\(y\)\{var vh=innerHeight,n=morph\.cols\.length,s=Math\.round\(vh\*\.1\)/, 'per frame: numbers and one gradient');
+  // (each scene keeps its colour behind its own words; only the seam melts -- a heading never sits on the next scene's colour)
+  assert.match(KIN.js, /morph\.bg\.style\.background=v/); assert.match(KIN.css, /html\.k-morph \.k-bg\{position:fixed;inset:0;z-index:-1;pointer-events:none\}/);
   assert.doesNotMatch(KIN.js.slice(KIN.js.indexOf('function paint(y)'), KIN.js.indexOf('function paint(y)') + 400), /getBoundingClientRect|offsetTop|getComputedStyle/, 'no layout read while scrolling');
   assert.match(KIN.js, /function measureM\(\)\{if\(!morph\)return;/); assert.match(KIN.js, /function measureK\(\)\{var y=W\.scrollY\|\|0;kdLines\(\);meltFit\(\);measureM\(\);fitMark\(\);/);
   assert.match(KIN.js, /if\(y>140&&y>navY\+6\)\{if\(!navOff\)\{navOff=true;H\.classList\.add\('k-navhide'\)\}\}/);

@@ -489,6 +489,7 @@
     html.k-morph:not([data-motion="reduced"]) .sc:not([data-handoff="overlap"]):not([data-handoff="stack"]):not([data-overlapped]){background:transparent!important}
     html.k-morph:not([data-motion="reduced"]) .sc[data-flow] .sc-pin::before{display:none}
     html.k-morph:not([data-motion="reduced"]) body{transition:none}
+    html.k-morph .k-bg{position:fixed;inset:0;z-index:-1;pointer-events:none}html[data-motion="reduced"] .k-bg{display:none}
     /* ---- the nav steps aside while the visitor reads down, and is back the moment they turn up */
     html.k-on:not([data-motion="reduced"]) .cr-nav{transition:translate .5s cubic-bezier(.16,1,.3,1),opacity .4s ease}
     html.k-on:not([data-motion="reduced"]).k-navhide .cr-nav:not(:has(details[open])){translate:0 -110%;opacity:0}
@@ -644,10 +645,12 @@
        blend of numbers and one colour on the page */
     var morph=null,navY=0,navOff=false;
     (function(){if(RM)return;var all=[].slice.call(d.querySelectorAll('main .sc'));if(all.length<2)return;var cols=all.map(function(s){return rgb(s.getAttribute('data-surf'))||rgb(getComputedStyle(s).backgroundColor)});if(cols.some(function(c){return !c}))return;
-    morph={all:all,cols:cols,tops:all.map(function(){return 0}),last:''};K.morph=morph;H.classList.add('k-morph')})();
+    var bg=d.createElement('div');bg.className='k-bg';bg.setAttribute('aria-hidden','true');d.body.insertBefore(bg,d.body.firstChild);
+    morph={all:all,cols:cols,tops:all.map(function(){return 0}),last:'',bg:bg};K.morph=morph;H.classList.add('k-morph')})();
     function measureM(){if(!morph)return;var y=W.scrollY||0;morph.all.forEach(function(s,i){morph.tops[i]=s.getBoundingClientRect().top+y});morph.last='';paint(y)}
-    function paint(y){var vh=innerHeight,c=morph.cols[0].slice();for(var k=1;k<morph.cols.length;k++){var w=Math.max(0,Math.min(1,(vh*.85-(morph.tops[k]-y))/(vh*.35)));if(w<=0)break;for(var j=0;j<3;j++)c[j]+=(morph.cols[k][j]-c[j])*w}
-    var v='rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')';if(v!==morph.last){morph.last=v;d.body.style.backgroundColor=v}}
+    function rgbS(c){return 'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')'}
+    function paint(y){var vh=innerHeight,n=morph.cols.length,s=Math.round(vh*.1),i=0,k;for(k=1;k<n;k++)if(morph.tops[k]-y<=0)i=k;var st=[rgbS(morph.cols[i])+' 0px'];for(k=i+1;k<n;k++){var b=Math.round(morph.tops[k]-y);if(b>=vh+s)break;st.push(rgbS(morph.cols[k-1])+' '+Math.max(0,b-s)+'px',rgbS(morph.cols[k])+' '+(b+s)+'px')}
+    var v=st.length>1?'linear-gradient(180deg,'+st.join(',')+')':rgbS(morph.cols[i]);if(v!==morph.last){morph.last=v;morph.bg.style.background=v;d.body.style.backgroundColor=rgbS(morph.cols[i])}}
     /* ---- the closing: the brand's name, set to the width of the page */
     var mark=null;(function(){var f=d.querySelector('.cr-foot'),b=d.querySelector('.cr-brand');var name=b&&b.textContent.trim();if(!f||!name||name.length>18)return;mark=d.createElement('div');mark.className='k-mark';mark.setAttribute('aria-hidden','true');mark.textContent=name;var hh=d.querySelector('.sc-heading');if(hh){var hs=getComputedStyle(hh);mark.style.fontFamily=hs.fontFamily;mark.style.fontWeight=hs.fontWeight;mark.style.letterSpacing=hs.letterSpacing}f.appendChild(mark)})();
     function fitMark(){if(!mark)return;mark.style.fontSize='100px';var w=mark.scrollWidth,room=mark.parentElement.clientWidth-parseFloat(getComputedStyle(mark.parentElement).paddingLeft)-parseFloat(getComputedStyle(mark.parentElement).paddingRight);if(w>0&&room>0)mark.style.fontSize=Math.floor(100*room/w*.98)+'px'}
@@ -5226,6 +5229,10 @@
     // (a touch screen has no pointer to follow: a staging that follows one turns with the scroll there instead -- half a turn
     // through the scene, leaning back a little -- so a phone never shows a model standing still)
     const TOUCH = { turns: 0.5, lean: 0.12 };
+    // (a model is never a still: it turns on its own, slowly and always -- a full turn in about 13 s -- and the scroll, the
+    // pointer or the phone's tilt move it on top of that; a staging turned by clicks keeps to its clicks)
+    const SPIN = 0.48;
+    const spins = scene => { const s = scene || {}; const C = COMPOSITIONS[s.composition] || COMPOSITIONS[DEMO_COMPOSITION]; return (INTERACTIONS.includes(s.interaction) ? s.interaction : C.interaction) !== 'click-rotate'; };
 
     const TAU = Math.PI * 2;
     const cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -5256,10 +5263,11 @@
       if (C.dolly) out.distance *= 1 - C.dolly * smooth(p);
       if (C.reveal) { const r = smooth(p / 0.35); out.scale = 0.62 + 0.38 * r; out.opacity = r; }
       if (C.float) out.lift = Math.sin(fin(i.t, 0) * 0.9) * 0.018 * C.float;
+      if (kind !== 'click-rotate') out.rotY += fin(i.t, 0) * SPIN;
       return out;
     }
 
-    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, GYRO, CLICK_STEP, TOUCH, pose };
+    module.exports = { INTERACTIONS, COMPOSITIONS, COMPOSITION_NAMES, DEMO_COMPOSITION, LIGHTING, BACKGROUNDS, PHONE, CAMERA, TURNS, TILT, GYRO, CLICK_STEP, TOUCH, SPIN, spins, pose };
 
   });
   __define("three-d", function (module, exports, require) {
@@ -11386,7 +11394,9 @@
       .sc[data-height="auto"] .sc-pin{padding:64px 0}
       .sc-text{order:1;padding:0 20px 0 26px;text-align:left!important;justify-self:auto;max-width:none!important}
       .sc-text.has-scrim{margin:0 14px;padding:16px}
-      .sc[data-morder="stage-first"] .sc-text{order:3}
+      /* (on a phone a scene reads words first, its pictures under them -- each scene one group, never pictures between two
+         scenes' words; the opening keeps the order it was made with) */
+      .sc[data-hero][data-morder="stage-first"] .sc-text{order:3}
       .sc-stage{order:2;position:relative;inset:auto;flex:0 0 auto;height:min(112vw,64svh);margin:16px 0}
       .sc[data-height="short"] .sc-stage{height:min(80vw,46svh)}.sc[data-height="auto"] .sc-stage{height:min(96vw,56svh)}
       .sc[data-pin]{height:180vh}.sc[data-pin] .sc-pin{height:100svh;justify-content:center}.sc[data-pin] .sc-stage{height:min(100vw,52svh)}
@@ -11786,7 +11796,7 @@
     .sc[data-vh] .sc-herovid video{opacity:calc(1 - min(1, var(--sx,0) * 1.6))}
     html[data-motion="reduced"] .sc-herovid video{display:none}html[data-motion="reduced"] .sc-herovid .shv-still{display:block}
     @media (prefers-reduced-motion:reduce){.sc-herovid video{display:none}.sc-herovid .shv-still{display:block}}
-    @media (max-width:720px){.sc-herovid .shv-still{display:block;object-fit:cover;filter:blur(26px) saturate(1.15);transform:scale(1.18)}.sc-herovid video{object-fit:contain;object-position:50% 34%}html[data-motion="reduced"] .sc-herovid .shv-still{filter:none;transform:none}}
+    @media (max-width:720px){.sc-herovid video{inset:auto;left:-8%;top:57%;width:116%;height:auto;max-height:100%;transform:translateY(-50%);object-fit:contain;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 16%,#000 84%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 16%,#000 84%,transparent)}.sc-herovid .shv-still{object-fit:contain}}
     /* ===== one surface (continuity contracts): the scenes are transparent over the fixed backdrop, whose colour flows from
        each scene's picture-driven colour into the next across the seam's overlap -- no "new section, new block" edge ===== */
     html.cr-js[data-flowall]:not([data-motion="reduced"]) .sc{background:transparent!important}
