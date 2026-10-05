@@ -262,6 +262,8 @@ test('WE-9. existing 3D reuse and free 3D controls: place, move, resize, restage
   const q = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/quote`, { action: 'model3d', assetId: 'u-bottle' });
   assert.deepEqual([q.body.reuse, q.body.credits], [true, 0], 'the page already has a model of this picture');
   let o = await outline(w); const placed = o.outline.scenes.find(s => s.models.length); const sc = placed.models[0];
+  // (the page has made the one model a Creative page makes: no picture offers a paid model it would refuse)
+  const acts = o.outline.scenes.flatMap(s => s.pictures).flatMap(p => p.actions || []); assert.ok(!acts.includes('model3d'), 'no paid model offered: ' + acts.join(' '));
   const free = o.outline.scenes.find(s => !s.models.length);
   const ops = [{ type: 'model-resize', modelSceneId: sc.id, distance: 1.4 }, { type: 'model-turn', modelSceneId: sc.id, azimuth: 30 }, { type: 'model-composition', modelSceneId: sc.id, composition: 'orbit-product' }, { type: 'model-move', modelSceneId: sc.id, sectionId: free.id }];
   for (const op of ops) { o = await outline(w); const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op }); assert.equal(r.status, 200, `${op.type}: ${JSON.stringify(r.body)}`); }

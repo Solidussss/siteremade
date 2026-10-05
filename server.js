@@ -5332,7 +5332,9 @@ app.get('/api/app-bridge/website/:projectId/creative', appBridgeRateLimit, requi
   const got = bridgeCreative(req, res); if (!got) return;
   const project = attachFinishedJobs(req.accountId, got.project, got.directionIndex);
   const direction = project.directionsState.directions[got.directionIndex];
-  const can = await creativeCan();
+  let can = await creativeCan();
+  // (a page that has made the 3D models its kind makes: the editor says so instead of offering a paid model it would refuse)
+  if (can.model3d && THREE_D_MADE[pageMode(req.accountId, creativeEditor.creativeOf(direction))] - threeDMade(req.accountId, project.id) <= 0) can = Object.assign({}, can, { model3d: false, model3dUsed: true });
   const allMedia = projectClips(req.accountId, project.id).map(m => ({ mediaId: m.mediaId, sourceAssetId: m.sourceAssetId, intent: m.intent }));
   const outline = creativeEditor.outline(direction, { can, media: allMedia });
   const jobs = db.premiumJobs.forProject(req.accountId, project.id).filter(r => r.mode === 'model3d' || ((quotes.get(db, req.accountId, r.quote_id) || {}).operation === 'premium_media')).slice(0, 10).map(jobView);
