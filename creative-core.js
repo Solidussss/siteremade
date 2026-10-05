@@ -587,8 +587,9 @@
     /* ---- scrubbed clips: the visitor plays them. Their scenes' places are measured when the layout changes (load, resize, the
        page growing) -- never read while scrolling */
     var clips=[],hero=null,firstSc=d.querySelector('.sc');
+    var nearIO=null;function nearV(v){var go=function(on){if(on){v.preload='auto';try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){held(v)})}catch(e){held(v)}}else{try{v.pause()}catch(e){}}};if(!('IntersectionObserver' in W)){go(true);return}if(!nearIO)nearIO=new W.IntersectionObserver(function(es){es.forEach(function(e){if(e.target.__kn)e.target.__kn(e.isIntersecting)})},{rootMargin:'50% 0px'});v.__kn=go;nearIO.observe(v)}
     var heldV=[];function held(v){if(heldV.indexOf(v)>=0)return;heldV.push(v);var p=v.parentNode;if(p&&!p.querySelector(':scope>.k-tap')){var t=d.createElement('span');t.className='k-tap';t.setAttribute('aria-hidden','true');p.appendChild(t)}if(heldV.length>1)return;var go=function(){var q=heldV;heldV=[];d.removeEventListener('touchend',go,true);d.removeEventListener('click',go,true);[].forEach.call(d.querySelectorAll('.k-tap'),function(t){t.remove()});q.forEach(function(x){try{var r=x.play();if(r&&r.catch)r.catch(function(){})}catch(e){}})};d.addEventListener('touchend',go,true);d.addEventListener('click',go,true)}
-    [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;if(!fine){v.muted=true;v.setAttribute('muted','');v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.autoplay=true;try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){held(v)})}catch(e){held(v)}return}v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
+    [].forEach.call(d.querySelectorAll('.ly-vid,.shv-vid'),function(v){var sc=v.closest('.sc');if(!sc)return;if(!fine){v.muted=true;v.setAttribute('muted','');v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');if(v.hasAttribute('data-near')){nearV(v);return}v.autoplay=true;try{var pp=v.play();if(pp&&pp.catch)pp.catch(function(){held(v)})}catch(e){held(v)}nearV(v);return}v.setAttribute('data-scrub','');v.removeAttribute('autoplay');v.removeAttribute('loop');v.autoplay=false;v.loop=false;v.preload='auto';try{v.pause()}catch(e){}
     var c={v:v,sc:sc,want:0,at:0,busy:false,ready:false,top:0,h:1};v.addEventListener('loadedmetadata',function(){c.ready=v.duration>0;kick()});v.addEventListener('seeked',function(){c.busy=false});if(v.readyState>=1&&v.duration>0)c.ready=true;
     clips.push(c);if(sc===firstSc)hero=c});K.scrub=clips.length;
     /* (on a phone the product carried between scenes stands fixed at the top of the screen: a scene's words that scroll up under it fade there, and come back below it) */
@@ -10718,7 +10719,15 @@
     <title>${esc(t.heading || plan.identity.name)}</title>
     <meta name="description" content="${esc((plan.concept.logline || t.body || '').slice(0, 160))}">
     <meta name="generator" content="SiteRemade Creative">
-    <script>document.documentElement.classList.add('cr-js')</script>
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${esc(plan.identity.name || t.heading || '')}">
+    <meta property="og:description" content="${esc((plan.concept.logline || t.body || '').slice(0, 200))}">
+    ${o.share && o.share.image ? `<meta property="og:image" content="${esc(o.share.image)}">
+    <meta property="og:image:width" content="${o.share.w || 1200}">
+    <meta property="og:image:height" content="${o.share.h || 630}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="${esc(o.share.image)}">
+    ` : '<meta name="twitter:card" content="summary">\n'}<script>document.documentElement.classList.add('cr-js')</script>
     <style>${css(plan, P)}${arted ? ARTCSS : ''}${spatial ? SPATIAL_CSS : ''}${td ? td.css : ''}${kin ? KIN.css : ''}${plan.look ? lookCss(plan.look) : ''}${fonts ? fontsCss(fonts, fontType, fontSrc) : ''}</style>
     </head>
     <body>
@@ -10875,7 +10884,7 @@
         const vid = c.videoSrc ? c.videoSrc(a) : '';
         // (the payoff clip plays once and rests on its last frame: the page concludes, it does not loop)
         const once = c.pv && c.pv.role === 'payoff' && L.asset === c.pv.asset;
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}"${c.srcset && c.srcset(a) ? ` srcset="${esc(c.srcset(a))}" sizes="(max-width:720px) 100vw, 70vw"` : ''} alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async"${lazyAt(c, si, L) ? ' loading="lazy"' : si === 0 && L.role === 'focal' ? ' fetchpriority="high"' : ''} ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}"${c.srcset && c.srcset(a) ? ` srcset="${esc(c.srcset(a))}" sizes="(max-width:720px) 100vw, 70vw"` : ''} alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async"${lazyAt(c, si, L) ? ' loading="lazy"' : si === 0 && L.role === 'focal' ? ' fetchpriority="high"' : ''} ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline${si >= 1 && !once ? ' data-near preload="none"' : ' autoplay preload="metadata"'} aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';
@@ -12121,6 +12130,7 @@
     W.__crArtFrame=frameArt;W.__crArtLayout=layoutArt;W.__crArtMeasure=measureArt;
     [].forEach.call(d.querySelectorAll('img[data-crop]'),function(img){img.addEventListener('load',function(){guard(img)})});
     /* (the payoff clip plays once: it starts from its first frame when its scene is on screen, not at page load) */
+    (function(){var near=[].slice.call(d.querySelectorAll('video[data-near]'));if(!near.length)return;var go=function(v,on){if(v.hasAttribute('data-scrub'))return;if(on){v.preload='auto';try{var p=v.play();if(p&&p.catch)p.catch(function(){})}catch(e){}}else{try{v.pause()}catch(e){}}};if(!('IntersectionObserver' in W)){near.forEach(function(v){go(v,true)});return}var io=new W.IntersectionObserver(function(es){es.forEach(function(e){go(e.target,e.isIntersecting)})},{rootMargin:'50% 0px'});near.forEach(function(v){io.observe(v)})})();
     (function(){var once=[].slice.call(d.querySelectorAll('video[data-once]'));if(!once.length||!('IntersectionObserver' in W))return;once.forEach(function(v){v.removeAttribute('autoplay');v.autoplay=false;try{v.pause();v.currentTime=0}catch(e){}});var po=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&e.intersectionRatio>=.5){var v=e.target;po.unobserve(v);try{v.currentTime=0;var p=v.play();if(p&&p.catch)p.catch(function(){})}catch(err){}}})},{threshold:[.5]});once.forEach(function(v){po.observe(v)})})();
     layoutArt();if(W.__crFrame)W.__crFrame();
     })();`;

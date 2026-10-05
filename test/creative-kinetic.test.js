@@ -224,7 +224,9 @@ test('K19. the owner\'s own brand: their logo, or their product photo as the mai
 });
 
 test('K20. a touch screen plays its clips (muted, looping, inline) -- iPhone Safari never loads a paused clip\'s frames, so a scroll-driven clip stays blank there; the clip in the name (a second copy) is a mouse page\'s alone', () => {
-  assert.match(KIN.js, /if\(!fine\)\{v\.muted=true;v\.setAttribute\('muted',''\);v\.loop=true;v\.playsInline=true;v\.setAttribute\('playsinline',''\);v\.autoplay=true;/);
+  assert.match(KIN.js, /if\(!fine\)\{v\.muted=true;v\.setAttribute\('muted',''\);v\.loop=true;v\.playsInline=true;v\.setAttribute\('playsinline',''\);if\(v\.hasAttribute\('data-near'\)\)\{nearV\(v\);return\}v\.autoplay=true;/);
+  // (a clip past the opening is asked for only when it comes near, and every clip pauses off the screen)
+  assert.ok(KIN.js.includes('function nearV(v){') && KIN.js.includes("{rootMargin:'50% 0px'}"), 'clips play near the screen');
   assert.match(KIN.js, /if\(!hv\|\|!hh\|\|RM\|\|!fine\)return;/);
 });
 
