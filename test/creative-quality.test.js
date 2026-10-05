@@ -125,7 +125,7 @@ test('Q4. the renderer: a wash ends by the arrival, a mask stage rests where it 
   assert.match(h, /\.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading \.hs>span\{background:var\(--mimg\)/);
   // (above the look's giant-statement size: a mask stage's words fit the screen at the size they rest at, on a phone too)
   assert.match(h, /html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(13vw,calc\(var\(--fit\) \* \.86 \/ var\(--lw\)\)\)\}/);
-  assert.match(h, /@media \(max-width:720px\)\{html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(22vw,calc\(var\(--fit\) \* \.78 \/ var\(--lwm,var\(--lw\)\)\)\)/);
+  assert.match(h, /@media \(max-width:720px\)\{html \.sc\[data-comp="mask-stage"\] \.sc-text\[data-giant\] \.sc-heading\[data-len\]\{font-size:min\(24vw,calc\(var\(--fit\) \* \.9 \/ var\(--lwm,var\(--lw\)\)\)\)/);
   // (the subject carried across the opening is the scene's object at full size on a desktop -- a phone keeps its own)
   const hl = renderCreative2(PAGES.find(x => x.plan.look).plan, PAGES[0].s.assets, { mode: 'export', src: a => `${a.id}.png` });
   assert.match(hl, /@media \(min-width:45\.01em\)\{html\[data-look\] \.ca\[data-img\]\{height:64vh;height:64svh;max-width:44vw\}\}/);
