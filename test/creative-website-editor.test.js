@@ -426,6 +426,31 @@ test('WE-13f. Undo last change (free): each editor change can be taken back, one
   assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free');
 });
 
+test('WE-13g. Duplicate a scene (free): a copy right after it, every other scene as it was; never the opening', async () => {
+  const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const before = creativeOf(await raw(w)).plan.scenes.map(s => s.id);
+  assert.ok(!o.outline.scenes[0].actions.includes('scene-duplicate'), 'not the opening');
+  const k = o.outline.scenes.findIndex(x => x.actions.includes('scene-duplicate')); assert.ok(k > 0, 'a scene that can be duplicated');
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'scene-duplicate', sceneId: before[k] } });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /Duplicated/);
+  const after = creativeOf(await raw(w)).plan.scenes; assert.equal(after.length, before.length + 1);
+  assert.equal(after[k + 1].id, before[k] + '-copy'); assert.deepEqual(after.filter(x => x.id !== before[k] + '-copy').map(x => x.id), before, 'every other scene in its place');
+  assert.equal(after[k + 1].text.heading, after[k].text.heading, 'the same words');
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free');
+});
+
+test('WE-13h. Delete a picture from your pictures (free): only one not on the page; it is never offered again', async () => {
+  const w = await world(); let o = await outline(w);
+  const up = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/upload`, { baseRevision: o.revision, png: png(900, 600, [20, 120, 200]), title: 'Spare photo' });
+  assert.equal(up.status, 200, JSON.stringify(up.body)); o = await outline(w);
+  const spare = o.outline.pictures.find(p => p.assetId === up.body.assetId); assert.ok(spare && !spare.onPage, 'in the pictures, not on the page');
+  const onPage = o.outline.pictures.find(p => p.onPage);
+  if (onPage) { const no = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'picture-delete', assetId: onPage.assetId } }); assert.equal(no.status, 422, 'one on the page stays'); }
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'picture-delete', assetId: up.body.assetId } });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /Deleted/);
+  o = await outline(w); assert.ok(!o.outline.pictures.some(p => p.assetId === up.body.assetId), 'never offered again');
+});
+
 test('WE-13b. Add a picture to THIS scene: an upload goes into the chosen scene beside its words (a page that holds as many scenes as it can still takes it) -- free, its words and every other scene as they were', async () => {
   const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
   const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
