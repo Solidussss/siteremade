@@ -5386,6 +5386,20 @@ app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ li
   return res.json({ ok: true, revision: saved.project.revision, assetId: up.asset.id, measured: { width: up.asset.assess.width, height: up.asset.assess.height, transparent: !!up.asset.assess.transparent }, changeSummary: summary, creditsCharged: 0 });
 });
 
+// the owner's own 3D model (a .glb), shown in a scene -- free (creative-editor.js addModelUpload checks it as every model)
+app.post('/api/app-bridge/website/:projectId/creative/model-upload', express.json({ limit: '16mb' }), appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {};
+  if (!Number.isInteger(b.baseRevision)) return bridgeError(res, 400, 'invalid_request', 'Refresh your website before changing it.');
+  if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
+  const up = creativeEditor.addModelUpload(got.direction, b.glb, { sceneId: clean(b.sceneId, 60), title: b.title, store: (buf, mime) => storeBytes(buf, mime) });
+  if (!up.ok) return bridgeError(res, 422, up.code, up.message);
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, up.creative, b.baseRevision);
+  if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
+  threeDLog({ step: 'owner-model', via: 'app', accountId: req.accountId, projectId: got.project.id, modelId: up.modelId });
+  return res.json({ ok: true, revision: saved.project.revision, modelId: up.modelId, changeSummary: [up.summary], creditsCharged: 0 });
+});
+
 // the scoped words or scenes of a revision, applied to the real plan -> { ok, creative, summary } | { ok:false, status, code, message }
 async function creativeScopedRevision({ accountId, direction, kind, target, intel }) {
   const c = creativeEditor.creativeOf(direction); const plan = c.plan; const ids = (target.sceneIds || []).filter(id => plan.scenes.some(s => s.id === id));

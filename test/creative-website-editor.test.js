@@ -361,6 +361,22 @@ test('WE-12. not enough credits: the provider is never called; another account c
 });
 
 // ================================================================ add a picture
+test('WE-13c. The owner\'s own 3D model (.glb): checked as every model, shown in the chosen scene turning with the scroll, its picture the stand-in -- free; a file that is not a model, or is too large, changes nothing', async () => {
+  const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const at = o.outline.scenes.find(x => x.pictures.some(p => p.layerId)) || o.outline.scenes[1];
+  const glb = fs.readFileSync(path.join(__dirname, 'fixtures', 'three-d', 'product-normalized.glb'));
+  const send = (buf, rev, type) => w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/model-upload`, { baseRevision: rev, glb: `data:${type || 'model/gltf-binary'};base64,${buf.toString('base64')}`, sceneId: at.id, title: 'My orb' });
+  const bad = await send(Buffer.from('<html>not a model</html>'), o.revision); assert.equal(bad.status, 422); assert.equal(bad.body.error.code, 'invalid_file');
+  const big = await send(Buffer.concat([glb, Buffer.alloc(9 * 1024 * 1024)]), o.revision); assert.ok([413, 422].includes(big.status), 'too large: ' + big.status);
+  const r = await send(glb, o.revision, 'application/octet-stream'); assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /3D model/);
+  const td = creativeOf(await raw(w)).threeD; const m = td.assets.find(x => x.id === r.body.modelId);
+  assert.ok(m && m.assetRef, 'stored by reference ' + JSON.stringify({ id: r.body.modelId, assets: td && td.assets.map(x => [x.id, !!x.assetRef, !!x.dataUrl]) })); assert.equal(m.provenance.provider, 'owner');
+  const sc = td.scenes.find(x => x.sectionId === at.id); assert.equal(sc.assetId, m.id); assert.equal(sc.composition, 'scroll-rotate');
+  if (at.pictures.some(p => p.layerId)) assert.ok(m.sourceAssetId, 'the scene picture is its stand-in');
+  const o2 = await outline(w); assert.ok(o2.outline.scenes.find(x => x.id === at.id).models.length, 'the editor shows the model in that scene');
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free: no provider, no credit');
+});
+
 test('WE-13b. Add a picture to THIS scene: an upload goes into the chosen scene beside its words (a page that holds as many scenes as it can still takes it) -- free, its words and every other scene as they were', async () => {
   const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
   const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
