@@ -234,3 +234,9 @@ test('K21. a phone\'s browser bars sliding away (a resize of the height alone, l
   assert.match(R2, /W\.addEventListener\('resize',function\(\)\{if\(!realResize\(\)\)return;/);
   assert.match(KIN.js, /if\(w===kw0&&Math\.abs\(h-kh0\)<180\)return;kw0=w;kh0=h;measureK\(\)/);
 });
+
+test('K22. the intro name breaks between words only; letters that drop or hinge in stay inside their own line', () => {
+  assert.ok(KIN.js.includes("wd=d.createElement('span');wd.className='k-intro-w'"), 'letters grouped by word');
+  assert.ok(KIN.css.includes('.k-intro-w{display:inline-block;white-space:nowrap;overflow:hidden'), 'a word never breaks');
+  assert.ok(KIN.css.includes('.sc[data-kt]:not([data-kt="sweep"]):not([data-kt="cascade"]):not([data-kt="flip"]) .kw{overflow:visible}'), 'cascade and flip keep the word clip');
+});

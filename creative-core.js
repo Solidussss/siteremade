@@ -400,7 +400,7 @@
     /* THE WORDS' ENTRANCES: each scene's headline arrives its own way (chosen by the page's character, never the same twice in
        a row) -- blur, pop, cascade, flip, split, type, sweep -- the opening and the 3D headlines keep their rise */
     html.k-on:not([data-motion="reduced"]) .sc[data-kt] .kw>i{transform:none}
-    html.k-on:not([data-motion="reduced"]) .sc[data-kt]:not([data-kt="sweep"]) .kw{overflow:visible}
+    html.k-on:not([data-motion="reduced"]) .sc[data-kt]:not([data-kt="sweep"]):not([data-kt="cascade"]):not([data-kt="flip"]) .kw{overflow:visible}
     html.k-on:not([data-motion="reduced"]) .sc[data-kt="blur"] .kw>i{opacity:0;filter:blur(18px);scale:1.3;transition:opacity .9s ease calc(var(--wi) * 85ms),filter 1.1s ease calc(var(--wi) * 85ms),scale 1.2s cubic-bezier(.16,1,.3,1) calc(var(--wi) * 85ms)}
     html.k-go:not([data-motion="reduced"]) .sc[data-kt="blur"].is-in .kw>i{opacity:1;filter:none;scale:1}
     html.k-on:not([data-motion="reduced"]) .sc[data-kt="pop"] .kw>i{opacity:0;scale:.15;rotate:-10deg;transition:opacity .35s ease calc(var(--wi) * 75ms),scale .75s cubic-bezier(.34,1.7,.64,1) calc(var(--wi) * 75ms),rotate .75s cubic-bezier(.34,1.7,.64,1) calc(var(--wi) * 75ms)}
@@ -445,8 +445,9 @@
     /* THE INTRO: the first visit of a session opens on the name and a count, then the page is uncovered */
     .k-intro{position:fixed;inset:0;z-index:2147482500;display:grid;place-items:center;background:var(--kbg,#111);color:var(--kink,#fff);clip-path:inset(0 0 0 0);transition:clip-path .9s cubic-bezier(.76,0,.24,1)}
     .k-intro.is-out{clip-path:inset(0 0 100% 0)}
-    .k-intro-n{font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(48px,11vw,190px);letter-spacing:-.02em;text-transform:uppercase;line-height:1;overflow:hidden;padding:.05em .1em .1em}
-    .k-intro-n span{display:inline-block;transform:translateY(110%);animation:k-in-up .9s cubic-bezier(.16,1,.3,1) forwards;animation-delay:calc(var(--i) * 55ms)}
+    .k-intro-n{font-family:var(--kmf,inherit);font-weight:800;font-size:clamp(48px,11vw,190px);letter-spacing:-.02em;text-transform:uppercase;line-height:1.02;text-align:center;max-width:92vw;padding:.05em .1em .1em}
+    .k-intro-w{display:inline-block;white-space:nowrap;overflow:hidden;vertical-align:top;padding-bottom:.06em}
+    .k-intro-w span{display:inline-block;transform:translateY(110%);animation:k-in-up .9s cubic-bezier(.16,1,.3,1) forwards;animation-delay:calc(var(--i) * 55ms)}
     .k-intro-c{position:absolute;right:4vw;bottom:4vh;font:600 clamp(14px,1.4vw,20px)/1 system-ui,sans-serif;letter-spacing:.12em;font-variant-numeric:tabular-nums}
     @keyframes k-in-up{to{transform:none}}
     html[data-motion="reduced"] .k-intro{display:none}
@@ -720,7 +721,7 @@
     /* ---- THE INTRO: once a session, the page's name rises with a count to 100, then the page is uncovered and its opening plays */
     var intro=null;(function(){var first=d.querySelector('.sc'),hh=first&&first.querySelector('.sc-heading');if(RM||!first||!hh||location.hash)return;try{if(W.sessionStorage.getItem('k-intro'))return;W.sessionStorage.setItem('k-intro','1')}catch(e){return}
     var name=(d.title||'').split(/ [-|\u2013\u2014] /)[0].trim()||hh.textContent.trim();if(!name||name.length>24)return;intro=d.createElement('div');intro.className='k-intro';intro.setAttribute('aria-hidden','true');var surf=first.getAttribute('data-surf'),ink=first.style.getPropertyValue('--s-ink');if(surf)intro.style.setProperty('--kbg',surf);if(ink)intro.style.setProperty('--kink',ink);var ff=getComputedStyle(hh).fontFamily;if(ff)intro.style.setProperty('--kmf',ff);
-    var nm=d.createElement('div');nm.className='k-intro-n';[].forEach.call(name,function(c,i){var sp=d.createElement('span');sp.textContent=c===' '?'\u00a0':c;sp.style.setProperty('--i',i);nm.appendChild(sp)});var cn=d.createElement('div');cn.className='k-intro-c';cn.textContent='000';intro.appendChild(nm);intro.appendChild(cn);d.body.appendChild(intro);
+    var nm=d.createElement('div');nm.className='k-intro-n';var wd=null,li=0;[].forEach.call(name,function(c){if(c===' '){nm.appendChild(d.createTextNode(' '));wd=null;return}if(!wd){wd=d.createElement('span');wd.className='k-intro-w';nm.appendChild(wd)}var sp=d.createElement('span');sp.textContent=c;sp.style.setProperty('--i',li++);wd.appendChild(sp)});var cn=d.createElement('div');cn.className='k-intro-c';cn.textContent='000';intro.appendChild(nm);intro.appendChild(cn);d.body.appendChild(intro);
     var t0=performance.now(),dur=1250,out=false;function finish(){if(out)return;out=true;cn.textContent='100';intro.classList.add('is-out');setTimeout(function(){if(intro){intro.remove();intro=null}},1000);goNow()}
     (function count(t){if(out)return;var k=Math.min(1,(t-t0)/dur),v=Math.round((1-Math.pow(1-k,3))*100);cn.textContent=(v<10?'00':v<100?'0':'')+v;if(k<1)requestAnimationFrame(count);else finish()})(t0);
     /* (never left covering the page: frames pause in a hidden tab, a timer still runs) */setTimeout(finish,2600)})();
@@ -10880,9 +10881,15 @@
       const ownShot = !!(ma && c.plan.look && (ma.origin === 'upload' || (ma.cutoutOf && (c.byId.get(ma.cutoutOf) || {}).origin === 'upload')) && ma.ownerRole !== 'logo');
       const meltable = ma && !ma.cutout && !(ma.assess && ma.assess.transparent) && !['backdrop', 'texture'].includes(L.role) && ['none', 'window', 'frame', 'polaroid'].includes(L.mask);
       const melt = meltable && L.track ? 'd-all d-l d-r d-t d-b m-all m-l m-r m-t m-b' : meltable && L.box ? [meltBox(L.box.d, 'd'), meltBox(L.box.m, 'm')].filter(Boolean).join(' ') : '';
+      // (a wide photograph in a tall phone box: covering it cut away most of the photo and blew its middle up soft -- a 16:9
+      // product shot in a portrait box showed half its width. Past about 40% cut, on a phone the box takes the photo's own
+      // shape, centred where the box was: the whole photograph, sharp, still melting into the scene)
+      const wa = L.kind === 'image' && si > 0 && !L.track && L.fit !== 'contain' && L.box && Array.isArray(L.box.m) ? c.byId.get(L.asset) : null;
+      const war = wa && !wa.cutout && !(wa.assess && wa.assess.transparent) && wa.assess && wa.assess.width && wa.assess.height ? wa.assess.width / wa.assess.height : 0;
+      const wide = war >= 1.2 && !(c.pv && L.asset === c.pv.asset) && war / ((L.box.m[2] / Math.max(1, L.box.m[3])) * 0.89) > 1.6;
       const gr = L.kind === 'image' && c.plan.look && c.plan.look.grade && L.treatment === 'none' ? c.plan.look.grade.per[L.asset] : null; const ga = gr ? c.byId.get(L.asset) : null;
       const gradeAttr = gr ? ` data-grade="${ga && !ga.cutout && !(ga.assess && ga.assess.transparent) && L.fit === 'cover' ? 'tint' : 'tone'}" style="--gf:brightness(${gr[0]}) saturate(${gr[1]}) contrast(${c.plan.look.grade.c})"` : '';
-      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${melt ? ` data-melt="${melt}"` : ''}${artAttrs} style="${style}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${ownShot && ['mono', 'duotone', 'soft'].includes(L.treatment) ? 'none' : L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
+      return `<div class="ly" data-kind="${L.kind}" data-role="${L.role === 'focal' && si === 0 ? 'subject' : L.role}"${L.hideM ? ' data-hide-m' : ''}${L.kind === 'image' ? ' data-img' : ''}${L.edge === 'fade' ? ' data-edge="fade"' : ''}${melt ? ` data-melt="${melt}"` : ''}${wide ? ' data-wide' : ''}${artAttrs} style="${style}${wide ? `;--war:${war.toFixed(3)};--wmw:${Math.max(L.box.m[2], 92)}` : ''}"><div class="ly-scroll" data-scroll="${L.scroll.kind}" data-amount="${L.scroll.amount}"${zmax}${L.scroll.anchor ? ` data-anchor="${L.scroll.anchor === 'left' ? 'left' : 'right'}"` : ''}><div class="ly-in" data-entrance="${L.entrance.kind}"><div class="ly-loop" data-loop="${L.loop.kind}"><div class="ly-art" data-mask="${L.mask}" data-treatment="${ownShot && ['mono', 'duotone', 'soft'].includes(L.treatment) ? 'none' : L.treatment}"${L.frame ? ` data-fit="${L.fit}"` : ''}${gradeAttr}>${art}</div></div></div></div></div>`;
     }
 
     // a plane of a composition (composition.js tracks): its keys as numbers, the window it opens from, and its resting state
@@ -11695,6 +11702,7 @@
       .sc[data-layout][data-mplace="overlay"]:not([data-layout="free"]) .sc-text{grid-area:1/1;grid-column:1;align-self:end;z-index:6;padding:0 20px 30px 26px}
       .sc[data-mplace="overlay"] .sc-shade{height:70%}
       .sc[data-hero][data-mplace="below"] .sc-text{order:3}
+      .sc .ly[data-img][data-wide]{width:calc(var(--wmw) * 1%);left:calc(50% - var(--wmw) * .5%);height:auto;aspect-ratio:var(--war);top:calc(var(--my) * 1% + var(--mh) * .5% - var(--wmw) * .5vw / var(--war))}
       /* (a scene made words-below now reads words first: its words and pictures sit together in the middle of the screen) */
       .sc[data-mplace="below"]:not([data-hero]) .sc-pin{justify-content:center!important}.sc[data-mplace="below"]:not([data-hero]):not([data-pin]) .sc-pin{min-height:100svh}
       .sc-text[data-giant] .sc-heading{font-size:min(17vw,calc(var(--fit) * 1.1 / var(--lw)))}

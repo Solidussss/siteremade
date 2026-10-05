@@ -263,3 +263,16 @@ test('10. server (mocked providers): pool -> premium source -> recipe + visual p
     assert.match(p2.body.visualPlan.premiumHero.note, /the main picture is not used for the video: a web picture you picked -- premium video uses uploaded images only/);
   } finally { await s.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('a wide photograph in a tall phone box is shown whole on a phone (its box takes the photo\'s shape), a mild crop keeps its box', () => {
+  const P = JSON.parse(JSON.stringify(page('3').plan));
+  const si = P.scenes.findIndex((s, i) => i > 0 && s.layers.some(L => L.kind === 'image' && L.box && !L.track));
+  const L = P.scenes[si].layers.find(x => x.kind === 'image' && x.box && !x.track); L.fit = 'cover';
+  const wideAsset = id => ASSETS.map(a => (a.id === L.asset ? Object.assign({}, a, { cutout: false, cutoutOf: undefined, assess: Object.assign({}, a.assess, { width: 1920, height: 1080, transparent: false }) }) : a));
+  L.box.m = [6, 10, 88, 86]; // (a portrait box: a 16:9 photo would lose over half its width)
+  let h = html(P, { assets: wideAsset() }); const sec = x => x.slice(x.indexOf(`data-scene="${si}"`), x.indexOf('</section>', x.indexOf(`data-scene="${si}"`)));
+  assert.match(sec(h), /data-wide[^>]*--war:1\.778;--wmw:92/, 'shown whole, near full width');
+  assert.match(h, /\.sc \.ly\[data-img\]\[data-wide\]\{width:calc\(var\(--wmw\) \* 1%\)/);
+  L.box.m = [6, 10, 88, 40]; // (a wide box: a mild crop, kept)
+  h = html(P, { assets: wideAsset() }); assert.ok(!/data-wide/.test(sec(h)), 'a mild crop keeps its box');
+});
