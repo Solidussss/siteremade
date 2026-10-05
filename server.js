@@ -5281,8 +5281,14 @@ function bridgeCreative(req, res) {
   return { project, directionIndex, direction };
 }
 // a new draft revision with this direction.creative -> { ok, project } | { ok:false, status, code, message, currentRevision }
-function saveCreativeDraft(accountId, project, directionIndex, creative, expectedRevision) {
+function saveCreativeDraft(accountId, project, directionIndex, creative, expectedRevision, opts) {
   if (project.status === 'archived') return { ok: false, status: 409, code: 'not_editable', message: 'This website can no longer be edited.' };
+  // (every change remembers the page as it was -- "Undo last change" puts it back; an undo itself does not add to the list)
+  const o = opts || {};
+  if (!o.undo) {
+    const prev = creativeEditor.creativeOf(project.directionsState.directions[directionIndex]);
+    if (prev && prev.plan) creative = Object.assign({}, creative, { undo: [{ plan: prev.plan, threeD: prev.threeD, summary: clean(o.summary || '', 160), at: new Date().toISOString() }].concat(Array.isArray(prev.undo) ? prev.undo : []).slice(0, 5) });
+  }
   const state = JSON.parse(JSON.stringify(project.directionsState)); state.directions[directionIndex] = Object.assign({}, state.directions[directionIndex], { creative });
   const v = validatedRevision(state, directionIndex);
   if (!v || !creativeEditor.creativeOf(v.after)) return { ok: false, status: 422, code: 'edit_failed', message: 'That change produced a page we couldn\'t save, so nothing was changed.' };
@@ -5352,7 +5358,7 @@ app.post('/api/app-bridge/website/:projectId/creative/edit', appBridgeRateLimit,
   if (!out.ok) return bridgeError(res, out.code === 'not_found' ? 404 : 422, out.code, out.message);
   // (a change that leaves the page as it is -- its words already fit -- saves nothing: no new draft, still free)
   if (out.unchanged) return res.json({ ok: true, unchanged: true, revision: got.project.revision, changeSummary: [out.summary], fitted: [], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
-  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, out.creative, b.baseRevision);
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, out.creative, b.baseRevision, { summary: out.summary });
   if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
   return res.json({ ok: true, revision: saved.project.revision, changeSummary: [out.summary], fitted: out.fitted || [], creditsCharged: 0, creditsRemaining: creditsRemainingFor(req.accountId) });
 });
@@ -5383,9 +5389,24 @@ app.post('/api/app-bridge/website/:projectId/creative/upload', express.json({ li
     if (!r.ok) return bridgeError(res, 422, r.code, r.message);
     creative = r.creative; summary.length = 0; summary.push(r.summary);
   }
-  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, creative, b.baseRevision);
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, creative, b.baseRevision, { summary: summary[0] });
   if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
   return res.json({ ok: true, revision: saved.project.revision, assetId: up.asset.id, measured: { width: up.asset.assess.width, height: up.asset.assess.height, transparent: !!up.asset.assess.transparent }, changeSummary: summary, creditsCharged: 0 });
+});
+
+// UNDO LAST CHANGE (free): the page as it was before the owner's last editor change -- its plan and 3D placement (the
+// pictures it had stay in the project); one step back each time, at most five
+app.post('/api/app-bridge/website/:projectId/creative/undo', express.json({ limit: '64kb' }), appBridgeRateLimit, requireAppBridgeAuth, appBridgeAccountRateLimit, (req, res) => {
+  const got = bridgeCreative(req, res); if (!got) return;
+  const b = req.body || {};
+  if (!Number.isInteger(b.baseRevision)) return bridgeError(res, 400, 'invalid_request', 'Refresh your website before changing it.');
+  if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
+  const c = creativeEditor.creativeOf(got.direction); const u = c && Array.isArray(c.undo) ? c.undo[0] : null;
+  if (!u) return bridgeError(res, 404, 'nothing_to_undo', 'There is no change to undo.');
+  const next = Object.assign({}, c, { plan: u.plan, undo: c.undo.slice(1) }); if (u.threeD) next.threeD = u.threeD; else delete next.threeD;
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, next, b.baseRevision, { undo: true });
+  if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
+  return res.json({ ok: true, revision: saved.project.revision, changeSummary: [u.summary ? `Undid: ${u.summary}` : 'Undid the last change'], creditsCharged: 0 });
 });
 
 // the owner's own 3D model (a .glb), shown in a scene -- free (creative-editor.js addModelUpload checks it as every model)
@@ -5396,7 +5417,7 @@ app.post('/api/app-bridge/website/:projectId/creative/model-upload', express.jso
   if (got.project.revision !== b.baseRevision) return bridgeError(res, 409, 'revision_conflict', 'This website changed since you opened it. Refresh and try again -- nothing was changed.', { currentRevision: got.project.revision });
   const up = creativeEditor.addModelUpload(got.direction, b.glb, { sceneId: clean(b.sceneId, 60), title: b.title, store: (buf, mime) => storeBytes(buf, mime) });
   if (!up.ok) return bridgeError(res, 422, up.code, up.message);
-  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, up.creative, b.baseRevision);
+  const saved = saveCreativeDraft(req.accountId, got.project, got.directionIndex, up.creative, b.baseRevision, { summary: up.summary });
   if (!saved.ok) return bridgeError(res, saved.status, saved.code, saved.message, saved.currentRevision != null ? { currentRevision: saved.currentRevision } : undefined);
   threeDLog({ step: 'owner-model', via: 'app', accountId: req.accountId, projectId: got.project.id, modelId: up.modelId });
   return res.json({ ok: true, revision: saved.project.revision, modelId: up.modelId, changeSummary: [up.summary], creditsCharged: 0 });

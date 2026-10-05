@@ -393,6 +393,35 @@ test('WE-13d. The website ships each photo at the sizes a screen needs: smaller 
   const small = zip.get(set[1].split(', ')[0].split(' ')[0]); assert.ok(small.length < 60000, `the phone copy is light (${small.length} bytes)`); assert.equal(small.subarray(0, 2).toString('hex'), 'ffd8', 'a JPEG');
 });
 
+test('WE-13e. A scene moves up or down the page (free): the opening stays first, the carried run stays together, every scene kept', async () => {
+  const w = await world(); let o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const before = creativeOf(await raw(w)).plan.scenes.map(s => s.id);
+  assert.ok(!o.outline.scenes[0].actions.includes('scene-up') && !o.outline.scenes[0].actions.includes('scene-down'), 'the opening does not move');
+  const k = o.outline.scenes.findIndex(x => x.actions.includes('scene-up')); assert.ok(k > 1, 'a scene that can move up');
+  const r = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'scene-order', sceneId: before[k], dir: 'up' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body)); assert.match(r.body.changeSummary[0], /Moved/);
+  const after = creativeOf(await raw(w)).plan.scenes.map(s => s.id);
+  assert.deepEqual([after[k - 1], after[k]], [before[k], before[k - 1]], 'swapped with the one above'); assert.deepEqual([...after].sort(), [...before].sort(), 'every scene kept');
+  o = await outline(w); const bad = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'scene-order', sceneId: after[1], dir: 'up' } });
+  assert.equal(bad.status, 422, 'never above the opening');
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free');
+});
+
+test('WE-13f. Undo last change (free): each editor change can be taken back, one step at a time, up to five', async () => {
+  const w = await world(); let o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
+  const n0 = o.outline.undo.steps; // (the world's own setup -- the 3D model attached -- may already be a step)
+  const before = JSON.stringify(creativeOf(await raw(w)).plan.scenes.map(s => [s.id, s.text.heading]));
+  const sc = o.outline.scenes[1]; const e = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/edit`, { baseRevision: o.revision, op: { type: 'text', sceneId: sc.id, field: 'heading', value: 'A heading to take back' } });
+  assert.equal(e.status, 200, JSON.stringify(e.body));
+  o = await outline(w); assert.equal(o.outline.undo.steps, Math.min(5, n0 + 1)); assert.ok(o.outline.undo.last, 'what the last change was');
+  const u = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/undo`, { baseRevision: o.revision }); assert.equal(u.status, 200, JSON.stringify(u.body)); assert.match(u.body.changeSummary[0], /Undid/);
+  assert.equal(JSON.stringify(creativeOf(await raw(w)).plan.scenes.map(s => [s.id, s.text.heading])), before, 'the page as it was');
+  o = await outline(w); assert.equal(o.outline.undo.steps, Math.min(5, n0 + 1) - 1, 'an undo does not add a step');
+  for (let i = 0; i < 6 && o.outline.undo.steps; i++) { assert.equal((await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/undo`, { baseRevision: o.revision })).status, 200); o = await outline(w); }
+  const none = await w.owner('POST', `/api/app-bridge/website/${w.projectId}/creative/undo`, { baseRevision: o.revision }); assert.equal(none.status, 404, 'nothing left to undo');
+  assert.equal(await balance(w), credits); assert.deepEqual(counts(w.env), calls, 'free');
+});
+
 test('WE-13b. Add a picture to THIS scene: an upload goes into the chosen scene beside its words (a page that holds as many scenes as it can still takes it) -- free, its words and every other scene as they were', async () => {
   const w = await world(); const o = await outline(w); const calls = counts(w.env); const credits = await balance(w);
   const before = creativeOf(await raw(w)).plan.scenes; const n = before.length;
