@@ -6,7 +6,8 @@
 // error, a refused resource (Content Security Policy), the page scrolling sideways, a heading wider than the screen, or the
 // page closing. $0: nothing is generated, no provider is asked.
 //
-//   PLAYWRIGHT_DIR=<a folder with playwright installed> node test/review/creative-safari.js <photoDir> <outDir> [subjects] [seeds]
+//   PLAYWRIGHT_DIR=<a folder with playwright installed> [VIEW=desktop] node test/review/creative-safari.js <photoDir> <outDir> [subjects] [seeds]
+//   (VIEW=desktop: Safari on a Mac -- WebKit in a 1440x900 window; otherwise an iPhone 13)
 //   (photoDir: the stress harness's photo folder -- measured.json, subjects.json and the photos)
 const fs = require('fs'); const path = require('path'); const http = require('http');
 const R = path.join(__dirname, '..', '..');
@@ -41,7 +42,7 @@ function build(id, seed) {
   const browser = await PW.webkit.launch(); const report = []; let failed = 0;
   for (const id of subjects) for (const seed of seeds) {
     const dir = build(id, seed); if (!dir) continue; const tag = path.basename(dir);
-    const ctx = await browser.newContext({ ...PW.devices['iPhone 13'] }); const pg = await ctx.newPage(); const problems = []; let closed = false;
+    const ctx = await browser.newContext(process.env.VIEW === 'desktop' ? { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 } : { ...PW.devices['iPhone 13'] }); const pg = await ctx.newPage(); const problems = []; let closed = false;
     pg.on('pageerror', e => problems.push('script error: ' + String(e.message).slice(0, 160)));
     pg.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/Failed to load resource: the server responded with a status of 404/.test(t)) problems.push((/Content Security Policy|Refused/.test(t) ? 'refused: ' : 'console: ') + t.slice(0, 160)); });
     pg.on('crash', () => { closed = true; problems.push('the page crashed'); });
@@ -69,6 +70,6 @@ function build(id, seed) {
   }
   await browser.close(); srv.close();
   fs.writeFileSync(path.join(OUT, 'safari-report.json'), JSON.stringify(report, null, 1));
-  console.log(`\n${report.length} pages in WebKit as an iPhone 13 -- ${failed} with problems`);
+  console.log(`\n${report.length} pages in WebKit ${process.env.VIEW === 'desktop' ? 'as Safari on a Mac (1440x900)' : 'as an iPhone 13'} -- ${failed} with problems`);
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
