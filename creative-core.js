@@ -10615,6 +10615,8 @@
       const o = opts || {}; const mode = o.mode === 'export' ? 'export' : 'preview';
       const byId = new Map((assets || []).filter(a => a && !a.removed).map(a => [a.id, a]));
       const src = a => (a && o.src ? o.src(a) : '') || '';
+      // (a picture's smaller copies, when the build made them: a screen loads the size it needs -- lib/creative/variants.js)
+      const srcset = a => (a && o.srcset ? o.srcset(a) : '') || '';
       // PREMIUM MEDIA: a picture that also has a stored video (a local asset of the project) plays it over the picture; the
       // export points at the bundled file, the studio at the owner's own file route -- never a provider URL
       const videoSrc = a => (a && a.video ? (o.videoSrc ? o.videoSrc(a) : (mode === 'export' ? '' : `/api/premium-media/${encodeURIComponent(a.video.mediaId)}/file`)) : '') || '';
@@ -10676,7 +10678,7 @@
       const kin = KIN.on(plan, o);
       const td = o.threeD ? TD.forPage(o.threeD, { scenes: plan.scenes, byId, src, runtime: o.threeDRuntime || TD.RUNTIME[mode], actor: plan.actor }) : null;
       const compOf = (s, si) => (arted0 && s.composition && COMP.SPEC[s.composition] ? COMP.tracks(s, si, { byId, lead: leadFor(si).lead, leadNear: leadFor(si).near, mirror: !!(s.text.place && s.text.place.gc[0] >= 7) }) : null);
-      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, cite, edit, creditOf, mode, fontType, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, td: td ? td.stages : null, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
+      const parts = plan.scenes.map((s, si) => renderScene(s, si, { plan, byId, src, videoSrc, srcset, cite, edit, creditOf, mode, fontType, arted: arted0, actor, tl, cast: castScenes, seamIn, sp: spatial ? spScenes : null, spBehind, td: td ? td.stages : null, heroVideo, flowAll, ctrack: compOf(s, si), pv: pvAt.get(si) || null, pvAfter: pvAt.get(si - 1) || null, mainAsset: ct && ct.hero ? (byId.get((byId.get(ct.hero.asset) || {}).cutoutOf) || byId.get(ct.hero.asset) || null) : null }));
       // a scene that holds while the next one stacks over it is held only for that: the two share a wrapper, so the hold
       // ends once it is covered and both then scroll on (never a scene stuck under the rest of the page)
       const sceneHtml = parts.map((h, si) => {
@@ -10867,7 +10869,7 @@
         const vid = c.videoSrc ? c.videoSrc(a) : '';
         // (the payoff clip plays once and rests on its last frame: the page concludes, it does not loop)
         const once = c.pv && c.pv.role === 'payoff' && L.asset === c.pv.asset;
-        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}" alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
+        art = `<img class="ly-img" data-asset="${esc(a.id)}" src="${esc(c.src(a))}"${c.srcset && c.srcset(a) ? ` srcset="${esc(c.srcset(a))}" sizes="(max-width:720px) 100vw, 70vw"` : ''} alt="${esc(a.alt || '')}" width="${wd}" height="${ht}" decoding="async" ${imgAttr}>${vid ? `<video class="ly-vid" data-asset="${esc(a.id)}" src="${esc(vid)}" poster="${esc(c.src(a))}" muted${once ? ' data-once' : ' loop'} playsinline autoplay preload="metadata" aria-hidden="true" ${imgAttr}></video>` : ''}<div class="cr-missing" aria-hidden="true"><span>${esc(initials(c.plan.identity.name))}</span></div>`;
       } else if (L.kind === 'shape') {
         // drawn as light (thin glowing strokes, glows, sparkles) -- except the focal shape of an explicitly abstract page
         const solid = c.plan.imagery && c.plan.imagery.status === 'abstract' && L.role === 'focal';
@@ -11966,6 +11968,9 @@
     .sc-text[data-act="word-stack"] .sc-heading .w{display:block;line-height:.88}
     .sc-text[data-act="baseline"] .sc-heading .w{display:inline-block}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(odd){translate:0 calc((1 - var(--p,1)) * -.32em)}.sc-text[data-act="baseline"] .sc-heading .w:nth-child(even){translate:0 calc((1 - var(--p,1)) * .32em)}
     /* a word mask: the picture is seen only through the giant words until they pass the camera */
+    /* (an opening seen only through its words showed a pale screen until it was scrolled: the photo is there from the first frame,
+       soft and full-bleed behind the words, and the words still carry it) */
+    .sc[data-hero][data-comp="mask-stage"]::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:var(--mimg) 50% 50%/cover no-repeat;opacity:.26;-webkit-mask-image:radial-gradient(ellipse 85% 75% at 50% 50%,#000 35%,transparent 85%);mask-image:radial-gradient(ellipse 85% 75% at 50% 50%,#000 35%,transparent 85%)}
     .sc[data-comp="mask-stage"] :is(.sc-text[data-giant] .sc-heading,.ly[data-kind="word"] .ly-word){background:var(--mimg) 50% 50%/cover no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:max(1px,.014em) color-mix(in srgb,var(--s-ink,currentColor) 72%,transparent);paint-order:stroke fill}
     /* (a heading whose words swap: each version is its own window onto the picture -- a window cut through the whole heading
        would show the hidden version too, both sets of letters at once) */
