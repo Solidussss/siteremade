@@ -1,0 +1,296 @@
+{
+  "business": {
+    "name": "Redline Auto Repair"
+  },
+  "brand": {
+    "name": "Redline"
+  },
+  "contact": {
+    "phone": "(602) 555-0148"
+  },
+  "nav": {
+    "prices": "Pricing",
+    "promise": "Why us",
+    "book": "Schedule",
+    "cta": "Schedule"
+  },
+  "hero": {
+    "eyebrow": "Redline · auto repair, Phoenix",
+    "title": "Built for the heat.",
+    "titleEm": "Honest about the rest.",
+    "lede": "Batteries, A/C, brakes and maintenance, with a photo and a price for anything we find before we touch it. Scroll and follow one SUV through the shop.",
+    "cta": "Schedule service",
+    "cta2": "See pricing",
+    "hint": "Scroll to inspect it"
+  },
+  "car": {
+    "reg": "8KTR219",
+    "body": "suv",
+    "paint": "#9A2B2B"
+  },
+  "checks": [
+    {
+      "n": "Battery",
+      "key": "battery",
+      "v": "9.8 V",
+      "s": "bad"
+    },
+    {
+      "n": "Coolant",
+      "key": "coolant",
+      "v": "Low",
+      "s": "warn"
+    },
+    {
+      "n": "Brakes",
+      "key": "brakes",
+      "v": "6 mm",
+      "s": "ok"
+    },
+    {
+      "n": "Tires",
+      "key": "tyres",
+      "v": "6/32",
+      "s": "ok"
+    },
+    {
+      "n": "Oil",
+      "key": "oil",
+      "v": "Due",
+      "s": "warn"
+    },
+    {
+      "n": "Lights",
+      "key": "lights",
+      "v": "All on",
+      "s": "ok"
+    }
+  ],
+  "fix": {
+    "what": "New battery, terminals cleaned",
+    "price": "$189"
+  },
+  "labels": {
+    "bay": "Bay 3",
+    "ready": "Ready for pickup",
+    "approve": "Approve",
+    "approved": "Approved",
+    "fresh": "New"
+  },
+  "stages": [
+    {
+      "n": "Checked in",
+      "c": "Dropped off before work. Keys in, mileage logged, and straight into bay three.",
+      "clock": "7:30"
+    },
+    {
+      "n": "On the lift",
+      "c": "Up on the lift to see everything underneath: brakes, tires, suspension, leaks.",
+      "clock": "7:45"
+    },
+    {
+      "n": "Inspected",
+      "c": "Our 30-point inspection, every item marked green, yellow or red.",
+      "clock": "8:10"
+    },
+    {
+      "n": "Sent to you",
+      "c": "The battery tests at 9.8 volts: summer killed it. You get a photo and a price, and tap approve.",
+      "clock": "8:40"
+    },
+    {
+      "n": "Fixed",
+      "c": "A new heat-rated battery in, the terminals cleaned, the charging system tested.",
+      "clock": "9:30"
+    },
+    {
+      "n": "Ready",
+      "c": "Test driven, A/C checked, and a text to say it is ready, with the full report.",
+      "clock": "11:15"
+    }
+  ],
+  "prices": {
+    "eyebrow": "Pricing",
+    "title": "Upfront pricing, every time.",
+    "sub": "Pick your vehicle and what it needs. Prices include parts, labor and shop fees. Anything else we find, we show you first.",
+    "sizes": [
+      {
+        "n": "Compact",
+        "d": "Civic, Corolla, Elantra",
+        "shape": "small"
+      },
+      {
+        "n": "Sedan",
+        "d": "Camry, Accord, Altima",
+        "shape": "medium"
+      },
+      {
+        "n": "SUV",
+        "d": "Explorer, Highlander, Tahoe",
+        "shape": "large"
+      }
+    ],
+    "jobs": [
+      {
+        "n": "Synthetic oil change",
+        "d": "Up to 6 quarts, filter and top-offs",
+        "p": [
+          79,
+          89,
+          109
+        ]
+      },
+      {
+        "n": "A/C recharge",
+        "d": "Leak check and refill",
+        "p": [
+          149,
+          149,
+          179
+        ]
+      },
+      {
+        "n": "Battery replacement",
+        "d": "Heat-rated, 3-year warranty",
+        "p": [
+          169,
+          179,
+          189
+        ]
+      },
+      {
+        "n": "Front brake pads",
+        "d": "Pads, hardware and road test",
+        "p": [
+          199,
+          219,
+          259
+        ]
+      },
+      {
+        "n": "Emissions test",
+        "d": "Arizona state test",
+        "p": [
+          17,
+          17,
+          17
+        ]
+      },
+      {
+        "n": "Check engine light",
+        "d": "Read, diagnosed and explained",
+        "p": [
+          89,
+          89,
+          89
+        ]
+      }
+    ],
+    "start": {
+      "size": 2,
+      "jobs": [
+        0,
+        1
+      ]
+    },
+    "note": "Most work is done the same day. We call before anything changes, and never go over what you approve.",
+    "cta": "Schedule these"
+  },
+  "promise": {
+    "eyebrow": "Why us",
+    "title": "You approve every dollar.",
+    "sub": "Anything we find comes to your phone with a photo and a price. Nothing gets done until you say yes.",
+    "promises": [
+      {
+        "k": "3 yr",
+        "b": "Nationwide warranty",
+        "s": "Parts and labor, 36 months or 36,000 miles."
+      },
+      {
+        "k": "Photos",
+        "b": "Of anything we find",
+        "s": "Sent to your phone with a price before we start."
+      },
+      {
+        "k": "Shuttle",
+        "b": "Free rides",
+        "s": "Anywhere within five miles while we work."
+      }
+    ],
+    "ask": {
+      "from": "Redline shop · bay 3",
+      "items": [
+        {
+          "n": "Battery, failed load test",
+          "s": "bad",
+          "p": 189
+        },
+        {
+          "n": "Coolant low, no leak found",
+          "s": "warn",
+          "p": 0
+        }
+      ],
+      "yes": "Approved. We will text you when it is done.",
+      "no": "No problem. We will note it on your report."
+    },
+    "askTitle": "Try it: a text from the shop",
+    "askText": "This is what you get when we find something. Approve or decline right from your phone.",
+    "creds": [
+      {
+        "k": "ASE",
+        "n": "ASE certified technicians"
+      },
+      {
+        "k": "AAA",
+        "n": "AAA approved auto repair"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Schedule",
+    "title": "Drop it off. We will text you.",
+    "sub": "Pick a day and a drop-off time, and how you will get around while we have it.",
+    "drops": [
+      "7:00",
+      "7:30",
+      "8:00",
+      "12:00"
+    ],
+    "closed": [
+      0
+    ],
+    "opts": [
+      {
+        "n": "Wait for it",
+        "d": "Air-conditioned lounge, coffee and wifi",
+        "p": "Free"
+      },
+      {
+        "n": "Shuttle ride",
+        "d": "Within five miles of the shop",
+        "p": "Free"
+      },
+      {
+        "n": "Loaner car",
+        "d": "Reserve a day ahead",
+        "p": "$29"
+      }
+    ],
+    "plate": "plain",
+    "regLabel": "License plate",
+    "cta": "Schedule it",
+    "note": "Open Monday to Saturday, 7 to 6. Pay at pickup by card.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(602) 555-0123"
+  },
+  "footer": {
+    "fine": "Redline Auto Repair is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#E8A33C"
+  }
+}

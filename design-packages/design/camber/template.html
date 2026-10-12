@@ -1,0 +1,628 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: an independent garage. One pinned workshop bay where a car is checked over as you scroll (in on the lift,
+   every system checked green, amber or red, the red one sent to you to approve, fixed and road-tested), then what a
+   driver needs: prices for their size of car, what the garage promises, and a slot to drop the car off. */
+:root{
+  color-scheme:dark;
+  --bay:#101418;
+  --bay-2:#161B21;
+  --panel:#1C2229;
+  --panel-2:#232A32;
+  --ink:#EDF1F4;
+  --ink-2:#AEB8C2;
+  --muted:#7D8894;
+  --line:#2E3740;
+  --accent:{{A:#F26B1D}};       /* the garage's colour: actions, the lift, the scan line, picked options */
+  --accent-2:{{A:#FF7F33}};
+  --accent-text:{{A:#FF8A47}};
+  --accent-soft:{{A:#3A2416}};
+  --on-accent:#14100C;
+  --ok:#3DD68C;
+  --warn:#F5B83D;
+  --bad:#F0524A;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"Schibsted Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bay);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1;letter-spacing:-.01em;margin:0;text-wrap:balance;text-transform:uppercase}
+p{margin:0}
+.eyebrow{font:500 11px/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:4px;padding:15px 22px;font:700 15px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s;clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--panel-2);color:var(--ink)}
+.btn.ghost:hover{background:var(--line)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 10px) var(--gut) 10px;display:flex;align-items:center;gap:20px;background:rgba(16,20,24,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:700 22px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.brand svg{width:30px;height:30px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:600 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:500 12px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:12px 16px;font-size:13px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:20px}}
+
+/* hero: the bay */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--bay)}
+#bay{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:560px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(16,20,24,.95),rgba(16,20,24,.75) 55%,rgba(16,20,24,0));pointer-events:none}
+.hero h1{font-size:clamp(2.6rem,min(5.4vw,8.4vh),5.2rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 18px;border-radius:6px;background:var(--panel);border:1px solid var(--line);box-shadow:0 24px 60px -28px rgba(0,0,0,.8)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .clock{color:var(--accent-text)}
+.card h3{font-size:clamp(24px,2.3vw,30px);margin-top:10px}
+.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
+.lights{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.lights li{font:500 10.5px var(--f-mono);letter-spacing:.04em;text-transform:uppercase;border-radius:3px;padding:5px 8px;background:var(--panel-2);color:var(--muted);display:flex;align-items:center;gap:6px}
+.lights li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line)}
+.lights li.ok{color:var(--ink)}.lights li.ok::before{background:var(--ok)}
+.lights li.warn{color:var(--ink)}.lights li.warn::before{background:var(--warn)}
+.lights li.bad{color:var(--ink)}.lights li.bad::before{background:var(--bad)}
+.dash{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:6px;background:var(--panel);border:1px solid var(--line);box-shadow:0 24px 60px -28px rgba(0,0,0,.8);overflow:hidden}
+.dash div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.dash div:nth-child(2n){border-right:0}
+.dash div:nth-child(n+3){border-bottom:0}
+.dash dt{font:500 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.dash dd{margin:6px 0 0;font:700 26px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dash dd small{font:500 11px var(--f-mono);color:var(--muted);margin-left:4px}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .dash{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(3,minmax(0,.9fr)) minmax(0,1.3fr);bottom:calc(206px + env(safe-area-inset-bottom,0px))}
+  .dash div{padding:9px 10px;border-bottom:0}
+  .dash div:nth-child(2n){border-right:1px solid var(--line)}
+  .dash div:last-child{border-right:0}
+  .dash dt{font-size:8px;letter-spacing:.04em}
+  .dash dd{font-size:clamp(16px,4.6vw,20px)}
+  .dash dd small{display:none}
+  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
+  .card p{font-size:14px;min-height:4.4em}
+  .lights{display:none}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:760px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.3rem,5vw,4.2rem)}
+.head p{color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--panel);border-radius:6px;border:1px solid var(--line)}
+.lbl{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.seg button{border:1px solid var(--line);background:var(--panel-2);border-radius:4px;padding:11px 15px;font:600 14px var(--f-body);cursor:pointer;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+
+/* prices */
+.sizes{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:10px;margin-bottom:18px}
+.size{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:14px 12px 12px;cursor:pointer;display:grid;gap:8px;justify-items:center;text-align:center;color:var(--ink-2)}
+.size svg{width:min(110px,100%);height:40px}
+.size svg path{fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.size svg circle{fill:var(--bay);stroke:currentColor;stroke-width:2}
+.size b{font:700 15px var(--f-display);letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.size small{font-size:12px;color:var(--muted);line-height:1.3}
+.size[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
+.prices{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.jobs{list-style:none;margin:0;padding:6px 0}
+.jobs li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);cursor:pointer}
+.jobs li:last-child{border-bottom:0}
+.jobs li i{width:22px;height:22px;border-radius:3px;border:1.5px solid var(--muted);display:grid;place-items:center}
+.jobs li[aria-checked="true"] i{background:var(--accent);border-color:var(--accent)}
+.jobs li[aria-checked="true"] i::after{content:"";width:10px;height:6px;border:2px solid var(--on-accent);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.jobs b{display:block;font-weight:600}
+.jobs small{display:block;font-size:13px;color:var(--muted)}
+.jobs span{font:500 14px var(--f-mono);white-space:nowrap}
+.total{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px}
+.total .big{font:700 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.total ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px;color:var(--ink-2)}
+.total li{display:flex;justify-content:space-between;gap:12px}
+.total li span{font-family:var(--f-mono);font-size:13px}
+.total .note{font-size:13px;color:var(--muted)}
+
+/* promise */
+.promise{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:14px}
+.pr{padding:22px;display:grid;gap:10px;align-content:start}
+.pr .k{font:700 44px/1 var(--f-display);color:var(--accent-text)}
+.pr b{font:700 19px/1.15 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+.pr span{font-size:14px;color:var(--ink-2)}
+.approve{margin-top:18px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:center;padding:clamp(22px,3vw,30px)}
+.approve h3{font-size:clamp(24px,2.6vw,34px)}
+.approve p{color:var(--ink-2);margin-top:10px}
+.msg{background:var(--bay-2);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:10px}
+.msg .from{font:500 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.msg .item{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);border-radius:4px}
+.msg .item i{width:10px;height:10px;border-radius:50%}
+.msg .item span{font:500 13px var(--f-mono)}
+.msg .acts{display:flex;gap:8px;flex-wrap:wrap}
+.msg .acts button{border:1px solid var(--line);background:var(--panel-2);border-radius:4px;padding:10px 14px;font:600 14px var(--f-body);cursor:pointer}
+.msg .acts button.yes{background:var(--ok);border-color:var(--ok);color:#06140C}
+.msg .said{font-size:14px;color:var(--ok)}
+.creds{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.cred{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:4px;padding:10px 14px;font-size:14px;color:var(--ink-2)}
+.cred b{font:700 13px var(--f-display);letter-spacing:.06em;color:var(--ink);background:var(--panel-2);border-radius:3px;padding:4px 7px}
+
+/* booking */
+.book{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.form{padding:clamp(22px,3vw,32px);display:grid;gap:20px}
+.form select,.form input,.form textarea{border:1px solid var(--line);border-radius:4px;padding:12px 14px;background:var(--bay-2);font-size:15px;width:100%;color:var(--ink)}
+.form input::placeholder,.form textarea::placeholder{color:var(--muted)}
+.form textarea{min-height:84px;resize:vertical}
+.form label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.plate{font:700 22px/1 var(--f-display)!important;letter-spacing:.12em;text-transform:uppercase;background:#F4C430!important;color:#111!important;border-color:#F4C430!important;max-width:240px}
+.plate::placeholder{color:rgba(0,0,0,.4)!important}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.days{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px}
+.day{border:1px solid var(--line);border-radius:4px;background:var(--panel-2);padding:8px 2px;cursor:pointer;display:grid;gap:2px;justify-items:center;font:500 10px var(--f-mono);text-transform:uppercase;color:var(--muted)}
+.day b{font:700 21px/1 var(--f-display);color:var(--ink)}
+.day[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.opts{display:grid;gap:8px;margin-top:8px}
+.opt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:12px 14px;background:var(--panel-2);cursor:pointer;text-align:left}
+.opt b{display:block;font-weight:600}
+.opt small{display:block;font-size:13px;color:var(--muted)}
+.opt span{font:500 13px var(--f-mono);color:var(--ink-2);white-space:nowrap}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.err{color:var(--bad);font-size:14px;font-weight:600}
+.confirm{border-radius:4px;background:var(--accent-soft);border:1px solid var(--accent);padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.summary{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
+.summary h3{font-size:26px}
+.summary dl{margin:0}
+.summary dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.summary dt{color:var(--ink-2)}
+.summary dd{margin:0;font-weight:600;text-align:right}
+.summary .note{font-size:13px;color:var(--muted)}
+
+footer{background:#0A0D10;color:#fff;padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden;border-top:1px solid var(--line)}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:700 min(17vw,230px)/.86 var(--f-display);letter-spacing:-.01em;text-transform:uppercase;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:var(--accent)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(255,255,255,.55)}
+.foot-row a{color:#fff}
+
+@media (max-width:980px){
+  .prices,.book,.approve{grid-template-columns:minmax(0,1fr)}
+  .promise{grid-template-columns:minmax(0,1fr)}
+  .total,.summary{position:static}
+}
+@media (max-width:560px){
+  .sizes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .two{grid-template-columns:minmax(0,1fr)}
+  .days{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .jobs li{padding:12px 14px;gap:10px}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 30 30" aria-hidden="true"><path d="M3 4h24l-4 22H7z" fill="{{A:#F26B1D}}"/><path d="M10 9l5 12 5-12" fill="none" stroke="#14100C" stroke-width="2.6" stroke-linejoin="round"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#prices">{{nav.prices}}</a></li><li><a href="#promise">{{nav.promise}}</a></li><li><a href="#book">{{nav.book}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#book">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A car checked over in the workshop, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="bay" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#book">{{hero.cta}}</a><a class="btn ghost" href="#prices">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="dash" id="dash" aria-live="off">
+      <div><dt>Checked</dt><dd id="dChecked">0<small>/ {{$.checkCount}}</small></dd></div>
+      <div><dt>Advised</dt><dd id="dAdvised">0</dd></div>
+      <div><dt>Fixed</dt><dd id="dFixed">0</dd></div>
+      <div><dt>Approved</dt><dd id="dPrice">{{$.priceZero}}</dd></div>
+    </dl>
+    <div class="card" id="card" aria-live="polite">
+      <div class="row"><span><b id="cReg">{{car.reg}}</b> · <b id="cNum">1</b> of 6</span><span class="clock" id="cClock">{{stages.0.clock}}</span></div>
+      <h3 id="cTitle">{{stages.0.n}}</h3>
+      <p id="cText">{{stages.0.c}}</p>
+      <ul class="lights" id="lights" aria-hidden="true"></ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="prices" aria-labelledby="prices-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{prices.eyebrow}}</p>
+      <h2 id="prices-h">{{prices.title}}</h2>
+      <p>{{prices.sub}}</p>
+    </div>
+    <div class="sizes" id="sizes" role="group" aria-label="Size of car"></div>
+    <div class="prices">
+      <ul class="panel jobs" id="jobs" role="group" aria-label="Jobs"></ul>
+      <aside class="panel total" aria-live="polite">
+        <span class="lbl">Your estimate</span>
+        <div class="big" id="tTotal">{{$.priceZero}}</div>
+        <ul id="tLines"></ul>
+        <p class="note" id="tNote">{{prices.note}}</p>
+        <a class="btn" href="#book" id="tBook">{{prices.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="promise" aria-labelledby="promise-h" style="background:var(--bay-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{promise.eyebrow}}</p>
+      <h2 id="promise-h">{{promise.title}}</h2>
+      <p>{{promise.sub}}</p>
+    </div>
+    <div class="promise" id="promises"></div>
+    <div class="panel approve">
+      <div>
+        <h3 id="aTitle">{{promise.askTitle}}</h3>
+        <p id="aText">{{promise.askText}}</p>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="creds" id="creds"></div>
+  </div>
+</section>
+
+<section class="block" id="book" aria-labelledby="book-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{book.eyebrow}}</p>
+      <h2 id="book-h">{{book.title}}</h2>
+      <p>{{book.sub}}</p>
+    </div>
+    <div class="book">
+      <form class="panel form" id="bookForm" novalidate>
+        <label>{{book.regLabel}}<input class="plate" id="fReg" autocomplete="off" placeholder="{{car.reg|attr}}" maxlength="10"></label>
+        <div><span class="lbl">Day</span><div class="days" id="days"></div></div>
+        <div><span class="lbl">Drop off</span><div class="seg" id="drops" role="group" aria-label="Drop-off time"></div></div>
+        <div><span class="lbl">While we have it</span><div class="opts" id="opts" role="group" aria-label="While we have it"></div></div>
+        <div class="two">
+          <label>Your name<input id="fName" autocomplete="name" placeholder="{{book.nameExample|attr}}"></label>
+          <label>Phone<input id="fPhone" type="tel" autocomplete="tel" placeholder="{{book.phoneExample|attr}}"></label>
+        </div>
+        <button class="btn" type="submit">{{book.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+      <aside class="panel summary" aria-live="polite">
+        <h3>Your booking</h3>
+        <dl>
+          <div><dt>Car</dt><dd id="bCar">—</dd></div>
+          <div><dt>Work</dt><dd id="bWork">—</dd></div>
+          <div><dt>When</dt><dd id="bWhen">—</dd></div>
+          <div><dt>While we have it</dt><dd id="bOpt">—</dd></div>
+          <div><dt>Estimate</dt><dd id="bPrice">—</dd></div>
+        </dl>
+        <p class="note" id="bNote">{{book.note}}</p>
+      </aside>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+
+/* ============ THE CAR AND THE CHECK (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the car: its registration, shape (hatch, suv or van) and colour
+const CAR={reg:{{car.reg|js}},body:{{car.body|js}},paint:{{car.paint|js}}};
+// what's checked: where on the car (tyres, brakes, oil, coolant, battery, lights, wipers, suspension, exhaust, steering),
+// the reading and the result; the one marked bad is the job sent for approval and fixed
+const CHECKS=[
+{{$.checksJs|raw}}
+];
+const FIX={what:{{fix.what|js}},price:{{fix.price|js}}};
+// words drawn in the bay
+const LABELS={bay:{{labels.bay|js}},ready:{{labels.ready|js}},approve:{{labels.approve|js}},approved:{{labels.approved|js}},fresh:{{labels.fresh|js}}};
+const ACCENT='{{A:#F26B1D}}', OK='#3DD68C', WARN='#F5B83D', BAD='#F0524A';
+
+/* ============ THE BAY (scene units: x across, y down; the floor is y=8) ============ */
+const FLOOR=8, CX0=10;
+const BODY={
+ hatch:{len:8.6,wb:[1.7,7.0],wr:.72,ride:.55,pts:[[.1,.55],[0,1.0],[.15,1.55],[.45,2.5],[1.2,2.85],[4.6,2.9],[5.9,2.05],[8.1,1.75],[8.6,1.2],[8.5,.55]],glass:[[.7,2.42],[1.35,2.72],[4.45,2.76],[5.55,2.08],[.75,2.08]],doors:[3.2,5.6]},
+ suv:{len:9,wb:[1.8,7.3],wr:.82,ride:.75,pts:[[.1,.75],[0,1.25],[.12,1.9],[.35,2.95],[1.0,3.3],[5.0,3.32],[6.2,2.35],[8.5,2.05],[9,1.45],[8.9,.75]],glass:[[.6,2.85],[1.2,3.15],[4.85,3.17],[5.85,2.4],[.65,2.4]],doors:[3.4,5.9]},
+ van:{len:9.4,wb:[1.6,7.4],wr:.74,ride:.6,pts:[[0,.6],[0,3.5],[.25,3.7],[6,3.7],[6.85,2.45],[8.8,2.05],[9.4,1.3],[9.3,.6]],glass:[[6.15,3.3],[6.75,2.55],[6.15,2.55]],doors:[6.0]}
+};
+const SPOT={tyres:[1,.12,'down'],brakes:[0,0,'down'],oil:[.84,1.62,'up'],coolant:[.92,1.55,'up'],battery:[.75,1.75,'up'],lights:[.99,1.32,'up'],wipers:[.66,2.12,'up'],suspension:[1,1.25,'down'],exhaust:[.03,.45,'down'],steering:[.72,1.0,'down']};
+const car=BODY[CAR.body]||BODY.hatch;
+const ORDER=CHECKS.map((c,i)=>({c,i,x:spotX(c.key)})).sort((a,b)=>a.x-b.x);
+const BADI=CHECKS.findIndex(c=>c.s==='bad');
+function spotX(key){const s=SPOT[key];if(key==='tyres'||key==='suspension')return car.wb[0];if(key==='brakes')return car.wb[1];return s[0]*car.len;}
+function spotH(key){const s=SPOT[key];if(key==='tyres')return car.wr*.25;if(key==='brakes')return car.wr;if(key==='suspension')return car.wr+.55;return s[1]*(car.pts.reduce((a,p)=>Math.max(a,p[1]),0)/2.9);}
+
+/* ============ GEOMETRY ============ */
+const cv=$('#bay'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,S=40,OX=0,OY=0,LA=null,LB=null;
+const P=(x,y)=>[OX+x*S,OY+y*S];
+function fit(ax,ay,bx,by){const S=Math.min((ax[1]-ax[0])/(bx[1]-bx[0]),(ay[1]-ay[0])/(by[1]-by[0]));return{S,X:(ax[0]+ax[1])/2-S*(bx[0]+bx[1])/2,Y:(ay[0]+ay[1])/2-S*(by[0]+by[1])/2};}
+function place(L){S=L.S;OX=L.X;OY=L.Y;}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(64,H*.1), dh=$('#dash').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){const bx=[CX0-car.len/2-.6,CX0+car.len/2+.6];LA=LB=fit([W*.03,W*.97],[Math.max(top,(dh.top-stg.top)*.38),dh.top-stg.top-18],bx,[1.6,FLOOR+.5]);}
+  else{const bx=[CX0-7.2,CX0+7.2], by=[.9,FLOOR+.9];const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(dh.top,cd.top)-stg.top;
+    const side=fit([cr+24,W*.97],[H*.12,Math.min(H*.8,low-30)],bx,by), under=fit([W*.04,W*.96],[cb+28,low-24],bx,by);
+    LA=side.S>=under.S*.8?side:under;LB=fit([W*.06,W*.94],[top+8,Math.min(dh.top,cd.top-46)-stg.top-18],bx,by);}
+  last=-1;}
+
+/* ============ DRAWING ============ */
+function bay(time){// the wall, the light strip, the floor and the bay number, across the whole screen
+  const fl=P(0,FLOOR)[1];
+  const g=ctx.createLinearGradient(0,0,0,fl);g.addColorStop(0,'#0C1013');g.addColorStop(1,'#151B21');ctx.fillStyle=g;ctx.fillRect(0,0,W,fl);
+  ctx.strokeStyle='rgba(255,255,255,.035)';ctx.lineWidth=1;for(let x=P(-30,0)[0];x<W;x+=S*2.4){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,fl);ctx.stroke();}
+  const lt=P(CX0-6,1.2),lr=P(CX0+6,1.2);ctx.save();ctx.translate((lt[0]+lr[0])/2,lt[1]);ctx.scale(1,.42);const lg=ctx.createRadialGradient(0,0,0,0,0,(lr[0]-lt[0])*.62);lg.addColorStop(0,'rgba(220,235,255,.13)');lg.addColorStop(1,'rgba(220,235,255,0)');ctx.fillStyle=lg;ctx.beginPath();ctx.arc(0,0,(lr[0]-lt[0])*.62,0,Math.PI);ctx.fill();ctx.restore();
+  ctx.fillStyle='rgba(225,238,255,.55)';ctx.fillRect(lt[0],lt[1]-S*.08,lr[0]-lt[0],S*.08);
+  const fg=ctx.createLinearGradient(0,fl,0,H);fg.addColorStop(0,'#1E252C');fg.addColorStop(1,'#12171B');ctx.fillStyle=fg;ctx.fillRect(0,fl,W,H-fl);
+  ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(0,fl,W,1.5);
+  // bay lines and number
+  ctx.fillStyle='rgba(245,184,61,.5)';const a=P(CX0-6.4,FLOOR+.25), b=P(CX0+6.4,FLOOR+.25);ctx.fillRect(a[0],a[1],S*.12,S*.6);ctx.fillRect(b[0]-S*.12,b[1],S*.12,S*.6);
+  ctx.font=`700 ${Math.round(S*.62)}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.07)';const n=P(CX0,FLOOR+.85);ctx.fillText(LABELS.bay.toUpperCase(),n[0],n[1]);ctx.textAlign='left';}
+
+function lift(h,carX){// the post behind, the arms and pads under the sills
+  const p0=P(CX0-.25,FLOOR-5.6), p1=P(CX0+.25,FLOOR);ctx.fillStyle='#2A323B';ctx.fillRect(p0[0],p0[1],p1[0]-p0[0],p1[1]-p0[1]);
+  ctx.fillStyle=ACCENT;const c=P(CX0-.35,FLOOR-.3-h);ctx.fillRect(c[0],c[1],S*.7,S*.5);
+  ctx.strokeStyle='#4A5561';ctx.lineWidth=S*.16;const y=FLOOR-h-.05;[[car.wb[0]+.9],[car.wb[1]-.9]].forEach(([x])=>{const ax=carX+x;const a=P(CX0,y),b=P(ax,y);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();const q=P(ax-.3,y-.12);ctx.fillStyle='#E0B23A';ctx.fillRect(q[0],q[1],S*.6,S*.14);});}
+
+function body(x0,lift,spin,time,lightsOn){const base=FLOOR-lift;const Y=h=>base-h;
+  // shadow on the floor
+  const sh=P(x0+car.len/2,FLOOR);ctx.fillStyle=`rgba(0,0,0,${(.45-lift*.12).toFixed(3)})`;ctx.beginPath();ctx.ellipse(sh[0],sh[1],S*car.len*.5,S*(.18+lift*.05),0,0,7);ctx.fill();
+  // headlight beam when it's on the road test
+  if(lightsOn>0){const hl=P(x0+car.len,Y(1.35));const g=ctx.createLinearGradient(hl[0],0,hl[0]+S*5,0);g.addColorStop(0,`rgba(255,240,200,${(.35*lightsOn).toFixed(3)})`);g.addColorStop(1,'rgba(255,240,200,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(hl[0],hl[1]-S*.1);ctx.lineTo(hl[0]+S*5,hl[1]-S*.9);ctx.lineTo(hl[0]+S*5,hl[1]+S*1.1);ctx.closePath();ctx.fill();}
+  // the body, with arches cut for the wheels
+  ctx.beginPath();car.pts.forEach(([x,h],i)=>{const q=P(x0+x,Y(h));i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
+  [...car.wb].reverse().forEach(wx=>{const r=car.wr+.2;const a=P(x0+wx+r,Y(car.ride));ctx.lineTo(a[0],a[1]);const c=P(x0+wx,Y(car.wr));ctx.arc(c[0],c[1],r*S,0,Math.PI,true);});
+  ctx.closePath();const bg=ctx.createLinearGradient(0,P(0,Y(3))[1],0,P(0,Y(.5))[1]);bg.addColorStop(0,shade(CAR.paint,.18));bg.addColorStop(1,shade(CAR.paint,-.35));ctx.fillStyle=bg;ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1.4;ctx.stroke();
+  // glass, doors, handles, lamps
+  ctx.beginPath();car.glass.forEach(([x,h],i)=>{const q=P(x0+x,Y(h));i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fillStyle='rgba(18,26,34,.88)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.18)';ctx.stroke();
+  ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.2;car.doors.forEach(dx=>{const a=P(x0+dx,Y(car.ride+.15)),b=P(x0+dx,Y(car.glass[car.glass.length-1][1]));ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();});
+  const hl=P(x0+car.len-.35,Y(1.4));ctx.fillStyle=lightsOn>0?'#FFF4D6':'#9AA6B2';ctx.fillRect(hl[0],hl[1],S*.3,S*.16);
+  const tl=P(x0+.05,Y(1.6));ctx.fillStyle='#B3352E';ctx.fillRect(tl[0],tl[1],S*.18,S*.28);
+  // wheels
+  car.wb.forEach(wx=>wheel(x0+wx,Y(car.wr),spin));}
+function wheel(x,y,spin,alpha){const c=P(x,y), r=car.wr*S;ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;ctx.fillStyle='#0E1215';ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.strokeStyle='#2C343C';ctx.lineWidth=r*.12;ctx.beginPath();ctx.arc(c[0],c[1],r*.92,0,7);ctx.stroke();
+  ctx.fillStyle='#8C98A4';ctx.beginPath();ctx.arc(c[0],c[1],r*.58,0,7);ctx.fill();ctx.strokeStyle='#5D6873';ctx.lineWidth=r*.1;for(let i=0;i<5;i++){const a=spin+i*Math.PI*2/5;ctx.beginPath();ctx.moveTo(c[0]+Math.cos(a)*r*.15,c[1]+Math.sin(a)*r*.15);ctx.lineTo(c[0]+Math.cos(a)*r*.55,c[1]+Math.sin(a)*r*.55);ctx.stroke();}
+  ctx.fillStyle='#C9D3DC';ctx.beginPath();ctx.arc(c[0],c[1],r*.12,0,7);ctx.fill();ctx.restore();}
+function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16&255,g=n>>8&255,b=n&255;const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`;}
+const COL={ok:OK,warn:WARN,bad:BAD};
+
+function scan(x0,lift,k){if(k<=0||k>=1)return;const x=x0-.4+(car.len+.8)*k;const a=P(x,FLOOR-lift-3.6),b=P(x,FLOOR-lift+.1);const g=ctx.createLinearGradient(a[0]-S*.8,0,a[0],0);g.addColorStop(0,'{{A:rgba(242,107,29,0)}}');g.addColorStop(1,'{{A:rgba(242,107,29,.22)}}');ctx.fillStyle=g;ctx.fillRect(a[0]-S*.8,a[1],S*.8,b[1]-a[1]);ctx.fillStyle=ACCENT;ctx.fillRect(a[0]-1,a[1],2,b[1]-a[1]);}
+function dots(x0,lift,shown,fixedK,time){ORDER.forEach(({c,i},j)=>{const t=shown[i];if(t<=0)return;const st=i===BADI&&fixedK>=1?'ok':c.s;const q=P(x0+spotX(c.key),FLOOR-lift-spotH(c.key));const pulse=RM?0:(Math.sin(time*4+j)*.5+.5);
+  ctx.fillStyle=COL[st];ctx.globalAlpha=t*(.25+.2*pulse);ctx.beginPath();ctx.arc(q[0],q[1],S*(.32+.1*pulse),0,7);ctx.fill();ctx.globalAlpha=t;ctx.beginPath();ctx.arc(q[0],q[1],Math.max(3,S*.12),0,7);ctx.fill();ctx.strokeStyle='#0C1013';ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1;});}
+// callouts on a wide screen: lanes above the roof and under the car, spread so they never overlap
+function callouts(x0,lift,shown,fixedK,fade){if(mobile||fade<=0)return;ctx.font=`500 ${Math.max(10,Math.round(S*.24))}px "Martian Mono",monospace`;const padX=S*.18, hgt=Math.max(22,S*.62);
+  const lanes={up:[],down:[]};ORDER.forEach(({c,i})=>{if(shown[i]<=0)return;const dir=SPOT[c.key][2];const st=i===BADI&&fixedK>=1?'ok':c.s;const text=`${c.n.toUpperCase()}  ${i===BADI&&fixedK>=1?LABELS.fresh.toUpperCase():c.v}`;lanes[dir].push({c,i,st,text,w:ctx.measureText(text).width+padX*2+S*.3,px:P(x0+spotX(c.key),FLOOR-lift-spotH(c.key))});});
+  const roof=car.pts.reduce((a,p)=>Math.max(a,p[1]),0);
+  [['up',P(0,FLOOR-lift-roof-.95)[1]],['down',Math.min(P(0,FLOOR+.55)[1],P(0,FLOOR-lift+.95)[1])]].forEach(([dir,ly])=>{const L=lanes[dir];let cursor=-1e9;const tw=L.reduce((a,l)=>a+l.w,0)+8*Math.max(0,L.length-1), mid=L.reduce((a,l)=>a+l.px[0],0)/Math.max(1,L.length);cursor=clamp(mid-tw/2,12,Math.max(12,W-12-tw));L.forEach(l=>{l.x=cursor;cursor+=l.w+8;});
+    L.forEach(l=>{const t=shown[l.i]*fade;ctx.globalAlpha=t;ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(l.px[0],l.px[1]);ctx.lineTo(l.x+l.w/2,ly+(dir==='up'?hgt/2:-hgt/2));ctx.stroke();
+      ctx.fillStyle='rgba(28,34,41,.96)';ctx.fillRect(l.x,ly-hgt/2,l.w,hgt);ctx.strokeStyle=COL[l.st];ctx.strokeRect(l.x+.5,ly-hgt/2+.5,l.w-1,hgt-1);
+      ctx.fillStyle=COL[l.st];ctx.beginPath();ctx.arc(l.x+padX+S*.06,ly,S*.07+1,0,7);ctx.fill();ctx.fillStyle='#EDF1F4';ctx.textBaseline='middle';ctx.fillText(l.text,l.x+padX+S*.26,ly+1);ctx.textBaseline='alphabetic';ctx.globalAlpha=1;});});}
+
+/* the message to your phone, beside the bad check */
+function phone(x0,lift,k,ok,time){if(k<=0||BADI<0)return;const c=CHECKS[BADI];const q=P(x0+spotX(c.key),FLOOR-lift-spotH(c.key));
+  const w=Math.min(S*4.4,W*.62), h=w*1.12;let x=q[0]+S*1.2, y=q[1]-h-S*.9;if(x+w>W-12)x=q[0]-w-S*1.2;if(mobile)x=(W-w)/2;y=clamp(y,72,Math.max(72,H-h-220));x=clamp(x,12,W-w-12);
+  ctx.save();ctx.globalAlpha=k;ctx.translate(0,(1-k)*20);
+  ctx.fillStyle='#0A0D10';rr(x,y,w,h,14);ctx.fill();ctx.strokeStyle='#3A444F';ctx.lineWidth=2;ctx.stroke();
+  const pad=w*.08;ctx.fillStyle='#1C2229';rr(x+pad,y+pad*1.4,w-pad*2,h*.4,6);ctx.fill();
+  // the "video": the part, with a play badge
+  partIcon(c.key,x+w/2,y+pad*1.4+h*.2,w*.22,0,BAD);ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();const pb=[x+w-pad*2.2,y+pad*2.6];ctx.moveTo(pb[0],pb[1]-7);ctx.lineTo(pb[0]+10,pb[1]);ctx.lineTo(pb[0],pb[1]+7);ctx.closePath();ctx.fill();
+  const fs=Math.max(11,Math.round(w*.062));ctx.fillStyle='#EDF1F4';ctx.font=`700 ${fs}px "Schibsted Grotesk",sans-serif`;ctx.fillText(FIX.what,x+pad,y+pad*1.4+h*.4+fs*1.6,w-pad*2);
+  ctx.fillStyle='#AEB8C2';ctx.font=`500 ${Math.round(fs*.85)}px "Martian Mono",monospace`;ctx.fillText(`${c.n.toUpperCase()} ${c.v}`,x+pad,y+pad*1.4+h*.4+fs*2.9,w-pad*2);
+  const by=y+h-pad-fs*2.4;ctx.fillStyle=ok>0?OK:ACCENT;rr(x+pad,by,w-pad*2,fs*2.4,5);ctx.fill();ctx.fillStyle='#0B1210';ctx.font=`700 ${fs}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(ok>0?`✓ ${LABELS.approved.toUpperCase()} · ${FIX.price}`:`${LABELS.approve.toUpperCase()} · ${FIX.price}`,x+w/2,by+fs*1.2+1,w-pad*3);ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  if(ok>0&&ok<1){ctx.strokeStyle=OK;ctx.lineWidth=3;ctx.globalAlpha=k*(1-ok);rr(x-6*ok,y-6*ok,w+12*ok,h+12*ok,16);ctx.stroke();}
+  ctx.restore();}
+function rr(x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h);}
+
+/* the close-up: the worn part out, the new one in */
+function lens(x0,lift,k,swap,time){if(k<=0||BADI<0)return;const c=CHECKS[BADI];const q=P(x0+spotX(c.key),FLOOR-lift-spotH(c.key));
+  const R=Math.min(LB.S*(mobile?2.6:1.8),W*.3), r=R*sm(k);let x=clamp(q[0]-R*1.4,R+12,W-R-12), y=Math.max(72+R,q[1]-R*1.9);if(mobile)x=W/2;
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(x,y);ctx.stroke();
+  ctx.fillStyle='#0E1317';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.strokeStyle=swap>=1?OK:ACCENT;ctx.lineWidth=3;ctx.stroke();ctx.clip();
+  const old=1-sm(seg(swap,.15,.55)), nu=sm(seg(swap,.4,.85));
+  ctx.fillStyle='rgba(255,255,255,.04)';ctx.beginPath();ctx.arc(x,y,r*.82,0,7);ctx.fill();
+  if(old>0){ctx.globalAlpha=old;partIcon(c.key,x-(1-old)*r*1.1,y,r*.55,1,BAD);ctx.globalAlpha=1;}
+  if(nu>0){ctx.globalAlpha=nu;partIcon(c.key,x+(1-nu)*r*1.1,y,r*.55,0,OK);ctx.globalAlpha=1;}
+  ctx.font=`500 ${Math.max(10,Math.round(r*.12))}px "Martian Mono",monospace`;ctx.textAlign='center';ctx.fillStyle=nu>.5?OK:BAD;ctx.fillText(nu>.5?LABELS.fresh.toUpperCase():c.v.toUpperCase(),x,y+r*.78);ctx.textAlign='left';
+  ctx.restore();
+  // a spanner turning while it's swapped
+  if(swap>0&&swap<1&&!RM){ctx.save();ctx.translate(x+r*.7,y-r*.7);ctx.rotate(time*5);ctx.strokeStyle='#C9D3DC';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-8,0);ctx.lineTo(8,0);ctx.stroke();ctx.beginPath();ctx.arc(10,0,4,0,7);ctx.stroke();ctx.restore();}}
+function partIcon(key,x,y,s,worn,col){ctx.save();ctx.translate(x,y);ctx.lineWidth=Math.max(2,s*.08);ctx.strokeStyle=col;ctx.fillStyle='#2A323B';
+  if(key==='brakes'){ctx.beginPath();ctx.arc(0,0,s,0,7);ctx.fillStyle='#55606B';ctx.fill();ctx.fillStyle='#2A323B';ctx.beginPath();ctx.arc(0,0,s*.35,0,7);ctx.fill();if(worn){ctx.strokeStyle='rgba(0,0,0,.4)';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(0,0,s*(.5+i*.12),0,7);ctx.stroke();}}
+    ctx.fillStyle=col;const t=worn?s*.12:s*.34;ctx.fillRect(s*.55,-s*.6,t,s*1.2);ctx.fillStyle='#8C98A4';ctx.fillRect(s*.55+t,-s*.7,s*.18,s*1.4);}
+  else if(key==='tyres'){ctx.beginPath();ctx.arc(0,0,s,0,7);ctx.fillStyle='#14191D';ctx.fill();ctx.strokeStyle=col;ctx.stroke();ctx.strokeStyle=worn?'rgba(255,255,255,.12)':'rgba(255,255,255,.4)';for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.beginPath();ctx.moveTo(Math.cos(a)*s*.72,Math.sin(a)*s*.72);ctx.lineTo(Math.cos(a)*s*.95,Math.sin(a)*s*.95);ctx.stroke();}}
+  else if(key==='battery'){ctx.fillRect(-s*.8,-s*.5,s*1.6,s*1.1);ctx.strokeRect(-s*.8,-s*.5,s*1.6,s*1.1);ctx.fillStyle=col;ctx.fillRect(-s*.55,-s*.72,s*.25,s*.22);ctx.fillRect(s*.3,-s*.72,s*.25,s*.22);ctx.fillRect(-s*.7,-s*.38,s*1.4*(worn?.2:.95),s*.12);}
+  else if(key==='lights'){ctx.beginPath();ctx.arc(0,-s*.15,s*.55,0,7);ctx.fillStyle=worn?'#3A3F44':'#FFF2C2';ctx.fill();ctx.stroke();ctx.fillStyle='#8C98A4';ctx.fillRect(-s*.25,s*.38,s*.5,s*.35);}
+  else if(key==='wipers'){ctx.strokeStyle='#8C98A4';ctx.beginPath();ctx.moveTo(-s,s*.5);ctx.lineTo(s,-s*.5);ctx.stroke();ctx.strokeStyle=col;ctx.lineWidth=s*(worn?.08:.16);ctx.beginPath();ctx.moveTo(-s*.9,s*.62);ctx.lineTo(s*.9,-s*.3);ctx.stroke();}
+  else if(key==='suspension'){ctx.strokeStyle=col;ctx.beginPath();for(let i=0;i<=8;i++){const yy=-s+i*s*.25;ctx.lineTo((i%2?1:-1)*s*.45*(worn?.6:1),yy);}ctx.stroke();}
+  else if(key==='exhaust'){ctx.fillStyle='#55606B';ctx.fillRect(-s,-s*.25,s*2,s*.5);if(worn){ctx.fillStyle='#7A3B1E';ctx.beginPath();ctx.arc(-s*.2,0,s*.2,0,7);ctx.fill();}ctx.strokeStyle=col;ctx.strokeRect(-s,-s*.25,s*2,s*.5);}
+  else if(key==='steering'){ctx.beginPath();ctx.arc(0,0,s*.8,0,7);ctx.stroke();ctx.beginPath();ctx.moveTo(-s*.8,0);ctx.lineTo(s*.8,0);ctx.moveTo(0,0);ctx.lineTo(0,s*.8);ctx.stroke();}
+  else{// oil and coolant: a drop, low or full
+    ctx.beginPath();ctx.moveTo(0,-s);ctx.bezierCurveTo(s*.8,-s*.1,s*.7,s*.8,0,s*.8);ctx.bezierCurveTo(-s*.7,s*.8,-s*.8,-s*.1,0,-s);ctx.fillStyle=key==='oil'?'#6B4A1E':'#2E8FBF';ctx.globalAlpha=worn?.35:1;ctx.fill();ctx.globalAlpha=1;ctx.stroke();}
+  ctx.restore();}
+
+/* ============ HUD ============ */
+const lights=$('#lights');let shownIdx=-1;
+lights.innerHTML=CHECKS.map(c=>`<li>${c.n.replace(/[<>&]/g,'')}</li>`).join('');
+function hud(p,shown,fixedK,approved){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shownIdx){shownIdx=idx;$('#cNum').textContent=idx+1;$('#cTitle').textContent=STAGES[idx].n;$('#cText').textContent=STAGES[idx].c;$('#cClock').textContent=STAGES[idx].clock;}
+  let n=0,adv=0;[...lights.children].forEach((li,i)=>{const on=shown[i]>=.5;if(on)n++;const st=on?(i===BADI&&fixedK>=1?'ok':CHECKS[i].s):'';if(on&&st==='warn')adv++;li.className=st;});
+  lights.hidden=n===0;$('#dChecked').innerHTML=`${n}<small>/ ${CHECKS.length}</small>`;$('#dAdvised').textContent=adv;$('#dFixed').textContent=fixedK>=1?1:0;$('#dPrice').textContent=approved?FIX.price:FIX.price.replace(/[\d.,]+/,'0');}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0,last=-1;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#101418';ctx.fillRect(0,0,cv.width,cv.height);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  // the camera: framed on the bay, leaning in on the bad check while it's fixed
+  const L={S:lerp(LA.S,LB.S,m),X:lerp(LA.X,LB.X,m),Y:lerp(LA.Y,LB.Y,m)};
+  const zoom=sm(seg(f[4],0,.2))*(1-sm(seg(f[4],.85,1)))*(mobile?.55:.35);
+  const liftH=2.1*sm(f[1])*(1-sm(seg(f[5],0,.45)));
+  // it drives in from off the left edge of the screen
+  const xEnd=CX0-car.len/2, run=Math.max(8,xEnd-(-L.X/L.S-car.len-1)), x0=xEnd-(1-sm(seg(f[0],.45,1)))*run;
+  if(zoom>0&&BADI>=0){const c=CHECKS[BADI];const fx=x0+spotX(c.key), fy=FLOOR-liftH-spotH(c.key);const s2=L.S*(1+zoom);const sx=L.X+fx*L.S, sy=L.Y+fy*L.S;L.X=sx-fx*s2+(W/2-sx)*zoom*.6;L.Y=sy-fy*s2+(H*.42-sy)*zoom*.6;L.S=s2;}
+  place(L);ctx.setTransform(DPR,0,0,DPR,0,0);
+  bay(time);lift(liftH,x0);
+  const drive=1-sm(seg(f[0],.45,1)), test=seg(f[5],.45,1);const spin=-(drive*run/car.wr)-(RM?0:test*time*9);
+  body(x0,liftH,spin,time,sm(seg(f[5],.4,.7)));
+  // the checks appear as the scan passes them
+  const shown=CHECKS.map(()=>0);ORDER.forEach(({i},j)=>{shown[i]=sm(seg(f[2],.05+j*.85/ORDER.length,.05+(j+1)*.85/ORDER.length));});
+  scan(x0,liftH,seg(f[2],.02,.95));
+  const fixedK=seg(f[4],.75,.85), approved=f[3]>=.55;
+  dots(x0,liftH,shown,fixedK,time);ctx.setTransform(DPR,0,0,DPR,0,0);
+  callouts(x0,liftH,shown,fixedK,1-.85*sm(seg(f[3],0,.2))*(1-sm(seg(f[4],.85,1))));
+  phone(x0,liftH,sm(seg(f[3],0,.25))*(1-sm(seg(f[3],.85,1))),sm(seg(f[3],.45,.65)),time);
+  lens(x0,liftH,sm(seg(f[4],.08,.25))*(1-sm(seg(f[4],.88,1))),seg(f[4],.3,.75),time);
+  // ready: a stamp over the bay
+  const rk=sm(seg(f[5],.7,.95));if(rk>0){const q=P(CX0,FLOOR+1.75);ctx.save();ctx.globalAlpha=rk;ctx.font=`700 ${Math.round(Math.min(S*.62,W/16))}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillStyle=OK;ctx.fillText('✓ '+LABELS.ready.toUpperCase(),q[0],q[1]);ctx.restore();}
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,shown,fixedK,approved);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const SHAPE={
+ small:'<path d="M14 30h-6v-7l4-6 10-3h22l12 8 10 2 2 6h-6"/><path d="M34 30H26"/><circle cx="20" cy="30" r="6"/><circle cx="58" cy="30" r="6"/>',
+ medium:'<path d="M12 30H5v-6l5-6 12-4h24l14 8 12 2 3 6h-7"/><path d="M40 30H24"/><circle cx="18" cy="30" r="6"/><circle cx="66" cy="30" r="6"/>',
+ large:'<path d="M12 30H4v-9l4-9 6-3h32l12 10 14 2 3 9h-7"/><path d="M42 30H26"/><circle cx="19" cy="30" r="7"/><circle cx="68" cy="30" r="7"/>',
+ van:'<path d="M12 30H4V6h56l10 12 9 3 1 9h-8"/><path d="M58 6v14h22"/><path d="M44 30H26"/><circle cx="19" cy="30" r="6"/><circle cx="66" cy="30" r="6"/>'
+};
+
+/* ============ PRICES ============ */
+// sizes of car (the shape drawn for each), and the jobs with a price for each size, in the same order
+const SIZES=[
+{{$.sizesJs|raw}}
+];
+const JOBS=[
+{{$.jobsJs|raw}}
+];
+const START={size:{{prices.start.size}},jobs:[{{$.startJobsJs|raw}}]};
+let size=START.size;const sel=new Set(START.jobs);
+$('#sizes').style.setProperty('--n',SIZES.length);
+$('#sizes').innerHTML=SIZES.map((s,i)=>`<button type="button" class="size" aria-pressed="${i===size}" data-i="${i}"><svg viewBox="0 0 84 38" aria-hidden="true">${SHAPE[s.shape]}</svg><b>${esc(s.n)}</b><small>${esc(s.d)}</small></button>`).join('');
+const total=()=>JOBS.reduce((a,j,i)=>a+(sel.has(i)?j.p[size]:0),0);
+function draw(){$('#jobs').innerHTML=JOBS.map((j,i)=>`<li role="checkbox" tabindex="0" aria-checked="${sel.has(i)}" data-i="${i}"><i></i><div><b>${esc(j.n)}</b><small>${esc(j.d)}</small></div><span>${money(j.p[size])}</span></li>`).join('');
+  const t=total();$('#tTotal').textContent=sel.size?money(t):'—';
+  $('#tLines').innerHTML=JOBS.map((j,i)=>sel.has(i)?`<li>${esc(j.n)}<span>${money(j.p[size])}</span></li>`:'').join('')||'<li>Tick a job to see a price.</li>';
+  summary();}
+$('#sizes').addEventListener('click',e=>{const b=e.target.closest('.size');if(!b)return;size=+b.dataset.i;press($('#sizes'),b);draw();});
+const toggle=li=>{const i=+li.dataset.i;sel.has(i)?sel.delete(i):sel.add(i);draw();const n=$(`#jobs li[data-i="${i}"]`);if(n)n.focus();};
+$('#jobs').addEventListener('click',e=>{const li=e.target.closest('li');if(li)toggle(li);});
+$('#jobs').addEventListener('keydown',e=>{const li=e.target.closest('li');if(li&&(e.key===' '||e.key==='Enter')){e.preventDefault();toggle(li);}});
+
+/* ============ OUR PROMISE ============ */
+const PROMISES=[
+{{$.promisesJs|raw}}
+];
+// the sample message: what was found (bad needs doing, warn is advised) and the price to approve
+const ASK={{$.askJs|raw}};
+const CREDS=[{{$.credsJs|raw}}];
+$('#promises').style.setProperty('--n',Math.min(3,PROMISES.length));
+$('#promises').innerHTML=PROMISES.map(p=>`<div class="panel pr"><span class="k">${esc(p.k)}</span><b>${esc(p.b)}</b><span>${esc(p.s)}</span></div>`).join('');
+const askTotal=ASK.items.reduce((a,x)=>a+(x.s==='bad'?x.p:0),0);
+const COLS={bad:'var(--bad)',warn:'var(--warn)',ok:'var(--ok)'};
+function msg(state){$('#msg').innerHTML=`<span class="from">${esc(ASK.from)}</span>${ASK.items.map(x=>`<div class="item"><i style="background:${COLS[x.s]}"></i><b>${esc(x.n)}</b><span>${x.p?money(x.p):'Advised'}</span></div>`).join('')}`+
+  (state?`<p class="said">${esc(state==='yes'?ASK.yes:ASK.no)}</p>`:`<div class="acts"><button type="button" class="yes" data-a="yes">Approve ${money(askTotal)}</button><button type="button" data-a="no">Not now</button></div>`);}
+$('#msg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)msg(b.dataset.a);});
+msg('');
+$('#creds').innerHTML=CREDS.map(c=>`<span class="cred"><b>${esc(c.k)}</b>${esc(c.n)}</span>`).join('');
+
+/* ============ BOOK ============ */
+const DROPS=[{{$.dropsJs|raw}}];
+const CLOSED=[{{$.closedJs|raw}}]; // days of the week the garage is shut (0 is Sunday)
+const OPTS=[
+{{$.optsJs|raw}}
+];
+const PLATE={{book.plate|js}}; // 'uk' draws the registration box as a yellow rear plate
+if(PLATE!=='uk')$('#fReg').classList.remove('plate');
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const days=[];for(let d=1;days.length<6&&d<30;d++){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()+d);if(!CLOSED.includes(day.getDay()))days.push(day);}
+let dSel=0,tSel=0,oSel=0;
+$('#days').innerHTML=days.map((d,i)=>`<button type="button" class="day" aria-pressed="${i===dSel}" data-i="${i}">${DOW[d.getDay()]}<b>${d.getDate()}</b></button>`).join('');
+$('#drops').innerHTML=DROPS.map((t,i)=>`<button type="button" aria-pressed="${i===tSel}" data-i="${i}">${esc(t)}</button>`).join('');
+$('#opts').innerHTML=OPTS.map((o,i)=>`<button type="button" class="opt" aria-pressed="${i===oSel}" data-i="${i}"><div><b>${esc(o.n)}</b><small>${esc(o.d)}</small></div><span>${esc(o.p)}</span></button>`).join('');
+const when=()=>`${DOW[days[dSel].getDay()]} ${days[dSel].getDate()} ${MON[days[dSel].getMonth()]}, ${DROPS[tSel]}`;
+function summary(){const reg=$('#fReg').value.trim().toUpperCase();$('#bCar').textContent=(reg?reg+' · ':'')+SIZES[size].n;
+  const names=JOBS.filter((_,i)=>sel.has(i)).map(j=>j.n);$('#bWork').textContent=names.length?names.join(', '):'A look at it';
+  $('#bWhen').textContent=when();$('#bOpt').textContent=OPTS[oSel].n;$('#bPrice').textContent=sel.size?money(total()):'—';}
+$('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);summary();$('#confirm').hidden=true;});
+$('#drops').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tSel=+b.dataset.i;press($('#drops'),b);summary();$('#confirm').hidden=true;});
+$('#opts').addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b)return;oSel=+b.dataset.i;press($('#opts'),b);summary();$('#confirm').hidden=true;});
+$('#fReg').addEventListener('input',summary);
+$('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  const reg=$('#fReg').value.trim(), nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
+  if(reg.replace(/\s/g,'').length<2)return fail({{$.regErr|js}},$('#fReg'));
+  if(!nm)return fail('Add your name.',$('#fName'));
+  if(ph.length<7)return fail('Add a phone number so we can text you.',$('#fPhone'));
+  err.hidden=true;const c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, ${esc(reg.toUpperCase())} is booked in for ${esc(when())}.</b><span>On a live site you'd get a text to confirm, and the check-over sent to your phone on the day.</span>`;c.hidden=false;});
+
+draw();
+})();
+</script>
+
+</body></html>

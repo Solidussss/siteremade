@@ -1,0 +1,333 @@
+{
+  "business": {
+    "name": "Camber Garage"
+  },
+  "brand": {
+    "name": "Camber"
+  },
+  "contact": {
+    "phone": "0161 249 0377"
+  },
+  "nav": {
+    "prices": "Prices",
+    "promise": "Our promise",
+    "book": "Book",
+    "cta": "Book in"
+  },
+  "hero": {
+    "eyebrow": "Camber · independent garage, Manchester",
+    "title": "Every check.",
+    "titleEm": "Every part. Shown to you.",
+    "lede": "Servicing, MOTs and repairs with a video of anything we find, and nothing done until you say yes. Scroll and follow one car through the workshop.",
+    "cta": "Book in",
+    "cta2": "See prices",
+    "hint": "Scroll to check it over"
+  },
+  "car": {
+    "reg": "MA19 KRT",
+    "body": "hatch",
+    "paint": "#3B6F9E"
+  },
+  "checks": [
+    {
+      "n": "Tyres",
+      "key": "tyres",
+      "v": "3 mm",
+      "s": "warn"
+    },
+    {
+      "n": "Brakes",
+      "key": "brakes",
+      "v": "2 mm",
+      "s": "bad"
+    },
+    {
+      "n": "Oil",
+      "key": "oil",
+      "v": "Full",
+      "s": "ok"
+    },
+    {
+      "n": "Coolant",
+      "key": "coolant",
+      "v": "OK",
+      "s": "ok"
+    },
+    {
+      "n": "Battery",
+      "key": "battery",
+      "v": "12.6 V",
+      "s": "ok"
+    },
+    {
+      "n": "Lights",
+      "key": "lights",
+      "v": "All on",
+      "s": "ok"
+    },
+    {
+      "n": "Wipers",
+      "key": "wipers",
+      "v": "Clean",
+      "s": "ok"
+    },
+    {
+      "n": "Suspension",
+      "key": "suspension",
+      "v": "Tight",
+      "s": "ok"
+    }
+  ],
+  "fix": {
+    "what": "Front pads and discs",
+    "price": "£164"
+  },
+  "labels": {
+    "bay": "Bay 02",
+    "ready": "Ready for collection",
+    "approve": "Approve",
+    "approved": "Approved",
+    "fresh": "New"
+  },
+  "stages": [
+    {
+      "n": "Booked in",
+      "c": "Dropped off on the way to work. Keys in, mileage noted, and the car straight into bay two.",
+      "clock": "08:10"
+    },
+    {
+      "n": "On the lift",
+      "c": "Up on the lift so we can see everything underneath: brakes, tyres, suspension, exhaust.",
+      "clock": "08:25"
+    },
+    {
+      "n": "Checked over",
+      "c": "Every system checked against the list, each one marked green, amber or red.",
+      "clock": "08:40"
+    },
+    {
+      "n": "Sent to you",
+      "c": "The front brake pads are down to 2 mm. You get a video and a price, and tap approve.",
+      "clock": "09:15"
+    },
+    {
+      "n": "Fixed",
+      "c": "New pads and discs on the front, bedded in, and the check marked green.",
+      "clock": "11:30"
+    },
+    {
+      "n": "Ready",
+      "c": "Road tested, the car washed, and a text to say it is ready, with the full report.",
+      "clock": "15:45"
+    }
+  ],
+  "prices": {
+    "eyebrow": "Prices",
+    "title": "Prices for your car, up front.",
+    "sub": "Pick the size of your car and tick what it needs. Prices include parts, labour and VAT. If we find anything else, we show you before we touch it.",
+    "sizes": [
+      {
+        "n": "Small",
+        "d": "Fiesta, Corsa, Polo",
+        "shape": "small"
+      },
+      {
+        "n": "Medium",
+        "d": "Focus, Golf, Qashqai",
+        "shape": "medium"
+      },
+      {
+        "n": "Large",
+        "d": "Estates, SUVs, 7-seaters",
+        "shape": "large"
+      },
+      {
+        "n": "Van",
+        "d": "Transit Custom, Vivaro",
+        "shape": "van"
+      }
+    ],
+    "jobs": [
+      {
+        "n": "MOT",
+        "d": "With a free retest within 10 days",
+        "p": [
+          54.85,
+          54.85,
+          54.85,
+          54.85
+        ]
+      },
+      {
+        "n": "Interim service",
+        "d": "Oil, filter and 50 checks",
+        "p": [
+          129,
+          149,
+          169,
+          179
+        ]
+      },
+      {
+        "n": "Full service",
+        "d": "Oil, filters, plugs and 80 checks",
+        "p": [
+          219,
+          249,
+          289,
+          299
+        ]
+      },
+      {
+        "n": "Front brake pads",
+        "d": "Fitted and road tested",
+        "p": [
+          119,
+          139,
+          169,
+          179
+        ]
+      },
+      {
+        "n": "Air-con regas",
+        "d": "Leak test and refill",
+        "p": [
+          69,
+          69,
+          79,
+          89
+        ]
+      },
+      {
+        "n": "Diagnostics",
+        "d": "Warning light read and explained",
+        "p": [
+          45,
+          45,
+          45,
+          45
+        ]
+      },
+      {
+        "n": "Clutch",
+        "d": "Kit fitted, labour included",
+        "p": [
+          495,
+          595,
+          695,
+          750
+        ]
+      }
+    ],
+    "start": {
+      "size": 1,
+      "jobs": [
+        0,
+        1
+      ]
+    },
+    "note": "Most jobs are done the same day. We'll call if anything changes, and we never go over the price you approve.",
+    "cta": "Book these in"
+  },
+  "promise": {
+    "eyebrow": "Our promise",
+    "title": "No surprises on the bill.",
+    "sub": "You see what we see. Anything we find comes to your phone with a video and a price, and nothing gets done until you say yes.",
+    "promises": [
+      {
+        "k": "12 mo",
+        "b": "Guarantee on every repair",
+        "s": "Parts and labour, for 12 months or 12,000 miles."
+      },
+      {
+        "k": "Video",
+        "b": "Of anything we find",
+        "s": "Sent to your phone with a price, before we start."
+      },
+      {
+        "k": "Same day",
+        "b": "For most jobs",
+        "s": "Drop off by nine, collect after four."
+      }
+    ],
+    "ask": {
+      "from": "Camber workshop · bay 2",
+      "items": [
+        {
+          "n": "Front pads and discs",
+          "s": "bad",
+          "p": 164
+        },
+        {
+          "n": "Rear tyres at 3 mm",
+          "s": "warn",
+          "p": 0
+        }
+      ],
+      "yes": "Approved. We'll text you when it's done.",
+      "no": "No problem. We'll put it on your report and leave it there."
+    },
+    "askTitle": "Try it: a message from the workshop",
+    "askText": "This is what lands on your phone when we find something. Tap to approve or decline, and the job goes on or stops right there.",
+    "creds": [
+      {
+        "k": "MOT",
+        "n": "DVSA approved test centre"
+      },
+      {
+        "k": "IMI",
+        "n": "Qualified technicians"
+      },
+      {
+        "k": "12m",
+        "n": "Nationwide guarantee"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Drop it off. We'll text you.",
+    "sub": "Pick a day and a drop-off time, and how you'll get about while we have it. We text when it's checked, and again when it's ready.",
+    "drops": [
+      "8:00",
+      "8:30",
+      "9:00",
+      "12:30"
+    ],
+    "closed": [
+      0
+    ],
+    "opts": [
+      {
+        "n": "Wait for it",
+        "d": "Lounge with wifi, for jobs under an hour",
+        "p": "Free"
+      },
+      {
+        "n": "Courtesy car",
+        "d": "Book it a day ahead",
+        "p": "Free"
+      },
+      {
+        "n": "Collect and deliver",
+        "d": "Within five miles of the garage",
+        "p": "£15"
+      }
+    ],
+    "plate": "uk",
+    "regLabel": "Registration",
+    "cta": "Book it in",
+    "note": "Open Monday to Saturday, 8 till 6. Pay when you collect, by card or bank transfer.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Camber Garage is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#F26B1D"
+  }
+}

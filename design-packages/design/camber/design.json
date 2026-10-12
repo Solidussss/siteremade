@@ -1,0 +1,70 @@
+{
+  "name": "camber",
+  "category": "garage or car repair",
+  "reference": "reference/camber-original.html",
+  "referenceSha256": "5372bd0b55f05166e8af388e96643fb96824860b7e4c0def11d5f19bc73ce5d9",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#F26B1D",
+      "target": "theme.accent",
+      "about": "the garage's colour: buttons, the logo, the lift, the scan line, the close-up ring, picked sizes, jobs and slots"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.42, 0.68] }
+    ],
+    "contrast": [
+      ["#14100C", "A:#F26B1D", 4.5, "button text on the accent"],
+      ["A:#FF8A47", "#101418", 4.5, "accent text on the page"],
+      ["A:#FF8A47", "#1C2229", 4.5, "accent text on a panel"],
+      ["#EDF1F4", "A:#3A2416", 4.5, "text on a picked option"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.01em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap", "family": "Chakra Petch" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.01em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap", "family": "Chakra Petch" }
+      }
+    },
+    "brand": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:.02em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap", "family": "Chakra Petch" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:.06em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap", "family": "Chakra Petch" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 17, 230],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
