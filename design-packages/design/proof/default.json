@@ -1,0 +1,330 @@
+{
+  "business": {
+    "name": "Proof Bakehouse"
+  },
+  "brand": {
+    "name": "Proof"
+  },
+  "contact": {
+    "phone": "01865 960241"
+  },
+  "nav": {
+    "today": "Today",
+    "cakes": "Cakes",
+    "order": "Order",
+    "cta": "Order ahead"
+  },
+  "hero": {
+    "label": "A loaf baked through the night, scroll to run it",
+    "eyebrow": "Proof · sourdough bakery, Oxford",
+    "title": "Baked while",
+    "titleEm": "you were asleep.",
+    "lede": "Slow sourdough, laminated pastries and celebration cakes, made by hand every night from four. Scroll through one loaf, from flour to first slice.",
+    "cta": "Today's bakes",
+    "cta2": "Order a cake",
+    "hint": "Scroll to start the bake"
+  },
+  "bake": {
+    "make": "loaf",
+    "crust": "#8A4A1C",
+    "crumb": "#F1E3C4",
+    "filling": "#C23B4E"
+  },
+  "board": [
+    {
+      "label": "Proving",
+      "unit": "hrs",
+      "from": 0,
+      "to": 16,
+      "at": [
+        1,
+        1
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Oven",
+      "unit": "°C",
+      "from": 20,
+      "to": 250,
+      "at": [
+        3,
+        3
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Baking",
+      "unit": "min",
+      "from": 0,
+      "to": 45,
+      "at": [
+        3,
+        3
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Loaves",
+      "unit": "",
+      "from": 0,
+      "to": 120,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    }
+  ],
+  "stages": [
+    {
+      "n": "Mix",
+      "c": "Stoneground flour, water, salt and a starter we've fed every day for eleven years.",
+      "clock": "4:00 am"
+    },
+    {
+      "n": "Prove",
+      "c": "Sixteen hours, slow and cold, so the flavour has time to come through.",
+      "clock": "4:30 am"
+    },
+    {
+      "n": "Shape and score",
+      "c": "Turned out, dusted with rice flour, and scored with one confident cut.",
+      "clock": "5:10 am"
+    },
+    {
+      "n": "Bake",
+      "c": "Into the deck oven at 250°C with a blast of steam. The crust goes deep and blistered.",
+      "clock": "5:20 am"
+    },
+    {
+      "n": "Cool",
+      "c": "Out onto the racks. Listen closely: the crust crackles as it cools.",
+      "clock": "6:05 am"
+    },
+    {
+      "n": "First slice",
+      "c": "Open, glossy crumb and a crust that shatters. On the shelf by half seven.",
+      "clock": "7:30 am"
+    }
+  ],
+  "today": {
+    "eyebrow": "Today",
+    "title": "Out of the oven",
+    "titleEm": "this morning.",
+    "sub": "What's on the shelves today, and how many are left. When it's gone, it's gone: we bake fresh again tomorrow.",
+    "open": "Open 7:30 till 3",
+    "bakes": [
+      {
+        "n": "Country sourdough",
+        "d": "Our everyday loaf, 900 g",
+        "p": 5.4,
+        "left": 14,
+        "glyph": "boule"
+      },
+      {
+        "n": "Seeded rye",
+        "d": "Dense, dark, keeps for a week",
+        "p": 5.8,
+        "left": 6,
+        "glyph": "tin"
+      },
+      {
+        "n": "Baguette",
+        "d": "Crackly crust, made twice a day",
+        "p": 2.6,
+        "left": 0,
+        "glyph": "baguette"
+      },
+      {
+        "n": "Croissant",
+        "d": "Three days to make, all butter",
+        "p": 2.9,
+        "left": 22,
+        "glyph": "croissant"
+      },
+      {
+        "n": "Cardamom bun",
+        "d": "Our most asked-for pastry",
+        "p": 3.2,
+        "left": 3,
+        "glyph": "bun"
+      },
+      {
+        "n": "Pain au chocolat",
+        "d": "Two bars of dark chocolate",
+        "p": 3.1,
+        "left": 0,
+        "glyph": "croissant"
+      },
+      {
+        "n": "Focaccia",
+        "d": "Rosemary and sea salt, by the slab",
+        "p": 4.5,
+        "left": 9,
+        "glyph": "slab"
+      },
+      {
+        "n": "Sourdough brownie",
+        "d": "Fudgy, with a crackly top",
+        "p": 3.5,
+        "left": 11,
+        "glyph": "slab"
+      }
+    ],
+    "soldOut": "Sold out",
+    "left": "left"
+  },
+  "cakes": {
+    "eyebrow": "Celebration cakes",
+    "title": "Build your cake.",
+    "titleEm": "See the price.",
+    "sub": "Choose a size, a sponge, a filling and a finish. Every cake is made to order, so give us a few days' notice.",
+    "sizes": [
+      {
+        "n": "6 inch",
+        "serves": "8 to 10",
+        "p": 38,
+        "tiers": 1,
+        "notice": 3
+      },
+      {
+        "n": "8 inch",
+        "serves": "14 to 16",
+        "p": 52,
+        "tiers": 1,
+        "notice": 3
+      },
+      {
+        "n": "10 inch",
+        "serves": "22 to 25",
+        "p": 70,
+        "tiers": 1,
+        "notice": 4
+      },
+      {
+        "n": "Two tier",
+        "serves": "about 40",
+        "p": 120,
+        "tiers": 2,
+        "notice": 7
+      }
+    ],
+    "sponges": [
+      {
+        "n": "Vanilla bean",
+        "p": 0,
+        "col": "#F3DB9C"
+      },
+      {
+        "n": "Chocolate",
+        "p": 4,
+        "col": "#6B3E26"
+      },
+      {
+        "n": "Lemon",
+        "p": 2,
+        "col": "#F4E27E"
+      },
+      {
+        "n": "Carrot and walnut",
+        "p": 4,
+        "col": "#C98B4C"
+      }
+    ],
+    "fills": [
+      {
+        "n": "Raspberry jam",
+        "p": 0,
+        "col": "#C23B4E"
+      },
+      {
+        "n": "Salted caramel",
+        "p": 5,
+        "col": "#C98A3A"
+      },
+      {
+        "n": "Lemon curd",
+        "p": 3,
+        "col": "#F2D24B"
+      }
+    ],
+    "finishes": [
+      {
+        "n": "Naked",
+        "p": 0,
+        "ice": "none"
+      },
+      {
+        "n": "Buttercream",
+        "p": 8,
+        "ice": "smooth"
+      },
+      {
+        "n": "Drip and berries",
+        "p": 15,
+        "ice": "drip"
+      },
+      {
+        "n": "Fresh flowers",
+        "p": 20,
+        "ice": "flowers"
+      }
+    ],
+    "name": "Celebration cake",
+    "note": "Allergies? Tell us when you order. We bake in a kitchen that uses nuts, gluten, dairy and eggs.",
+    "cta": "Order this cake"
+  },
+  "order": {
+    "eyebrow": "Order ahead",
+    "title": "Order for pick-up.",
+    "sub": "Pick a day to collect. Bread and pastries need a day's notice; cakes need the notice shown above.",
+    "hours": [
+      {
+        "d": "Monday",
+        "h": "Closed"
+      },
+      {
+        "d": "Tuesday",
+        "h": "7:30 – 3:00"
+      },
+      {
+        "d": "Wednesday",
+        "h": "7:30 – 3:00"
+      },
+      {
+        "d": "Thursday",
+        "h": "7:30 – 3:00"
+      },
+      {
+        "d": "Friday",
+        "h": "7:30 – 4:00"
+      },
+      {
+        "d": "Saturday",
+        "h": "8:00 – 4:00"
+      },
+      {
+        "d": "Sunday",
+        "h": "8:00 – 1:00"
+      }
+    ],
+    "closedWord": "Closed",
+    "cta": "Place the order",
+    "hoursTitle": "Opening hours",
+    "note": "12 Cowley Road, Oxford. Pay when you collect.",
+    "noteLabel": "A message on the cake, or anything else",
+    "noteExample": "Happy 40th, Jo!",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Proof Bakehouse is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#24427A"
+  }
+}

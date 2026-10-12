@@ -1,0 +1,63 @@
+{
+  "name": "proof",
+  "category": "bakery or cake maker",
+  "reference": "reference/proof-original.html",
+  "referenceSha256": "9fcd8f0854bdca0cf8dfdc523e185bd4914cbe4f7dc67734ab8d92e61d1721da",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#24427A",
+      "target": "theme.accent",
+      "about": "the bakery's colour: buttons, the logo, italic lines, picked cake options, the clock and the remaining counts"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#24427A", 4.5, "button text on the accent"],
+      ["A:#243F74", "#F7F1E8", 4.5, "accent text on the page"],
+      ["A:#243F74", "#EFE4D3", 4.5, "accent text on the tinted section"],
+      ["A:#243F74", "A:#E3E9F5", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&display=swap", "family": "Libre Caslon Display" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&display=swap", "family": "Libre Caslon Display" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:.04em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Mulish:wght@800&display=swap", "family": "Mulish" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 19, 250],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

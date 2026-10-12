@@ -1,0 +1,541 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Mulish:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: a bakery. One pinned bake through the night, drawn from the side (dough mixed, proving, shaped and scored,
+   baked as the crust browns, cooled, cut to show the crumb; or for cakes: baked, stacked, iced, decorated, sliced); then
+   what a customer needs: today's bakes and what's sold out, a celebration cake to build and price, and a pick-up slot. */
+:root{
+  color-scheme:light;
+  --flour:#F7F1E8;
+  --flour-2:#EFE4D3;
+  --sheet:#FFFDF9;
+  --ink:#2B1D12;
+  --ink-2:#5E4A39;
+  --muted:#957F6A;
+  --line:#E6D6C0;
+  --accent:{{A:#24427A}};       /* the bakery's colour: actions, the logo, the bag stamp, picked options */
+  --accent-2:{{A:#2E5193}};
+  --accent-text:{{A:#243F74}};
+  --accent-soft:{{A:#E3E9F5}};
+  --on-accent:#FFFFFF;
+  --crust:#B5652B;
+  --f-display:"Libre Caslon Display",Georgia,"Times New Roman",serif;
+  --f-body:"Mulish","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Courier Prime",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--flour);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;line-height:1;letter-spacing:-.01em;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:700 13px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:4px;padding:15px 22px;font:800 14.5px/1 var(--f-body);letter-spacing:.04em;text-transform:uppercase;text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:#fff}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:20px;background:rgba(247,241,232,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(43,29,18,.08)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:400 26px/1 var(--f-display);white-space:nowrap}
+.brand svg{width:30px;height:30px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:700 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 16px;font-size:13px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:24px}}
+
+/* hero: the bake */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--flour)}
+#bake{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 106px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(247,241,232,.96),rgba(247,241,232,.78) 55%,rgba(247,241,232,0));pointer-events:none}
+.hero h1{font-size:clamp(3rem,min(6.4vw,10vh),6.4rem)}
+.hero h1 em{font-style:italic;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.ticket{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(43,29,18,.45),0 0 0 1px rgba(43,29,18,.06);border-top:3px dashed var(--line)}
+.ticket .row{display:flex;justify-content:space-between;gap:10px;font:700 12px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ticket .clock{color:var(--accent-text)}
+.ticket h3{font-size:clamp(28px,2.6vw,36px);margin-top:10px}
+.ticket p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
+.board{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;background:var(--ink);color:#fff;box-shadow:0 22px 56px -30px rgba(43,29,18,.6)}
+.board div{padding:12px 16px;border-right:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12);min-width:0}
+.board div:nth-child(2n){border-right:0}
+.board div:nth-child(n+3){border-bottom:0}
+.board dt{font:700 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.board dd{margin:6px 0 0;font:400 30px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.board dd small{font:400 12px var(--f-mono);color:rgba(255,255,255,.55);margin-left:4px}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:700 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .board{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(202px + env(safe-area-inset-bottom,0px))}
+  .board div{padding:9px 10px;border-bottom:0}
+  .board div:nth-child(2n){border-right:1px solid rgba(255,255,255,.12)}
+  .board div:last-child{border-right:0}
+  .board dt{font-size:9px;letter-spacing:.03em}
+  .board dd{font-size:clamp(19px,5.4vw,24px)}
+  .board dd small{display:none}
+  .ticket{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
+  .ticket p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.8rem,6vw,5rem)}
+.head h2 em{font-style:italic;color:var(--accent-text)}
+.head p{color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);box-shadow:0 1px 0 rgba(43,29,18,.03),0 20px 50px -36px rgba(43,29,18,.4);border:1px solid rgba(43,29,18,.06)}
+.lbl{font:700 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* today's bakes */
+.today-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:16px}
+.today-top .open{font:700 14px var(--f-mono);color:var(--accent-text)}
+.bakes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.bake{padding:18px;display:grid;gap:8px;align-content:start;position:relative}
+.bake .glyph{width:56px;height:40px}
+.bake .glyph path,.bake .glyph ellipse,.bake .glyph circle{fill:var(--crust);stroke:var(--ink);stroke-width:1.6}
+.bake b{font:400 22px/1.1 var(--f-display);overflow-wrap:anywhere;hyphens:auto}
+.bake span{font-size:14px;color:var(--ink-2)}
+.bake .row{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.bake .p{font:700 16px var(--f-mono)}
+.bake .left{font:700 12px var(--f-mono);color:var(--accent-text)}
+.bake.out{opacity:.55}
+.bake.out .left{color:var(--muted)}
+.bake.out::after{content:attr(data-out);position:absolute;top:16px;right:-8px;transform:rotate(8deg);background:var(--ink);color:#fff;font:700 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:5px 10px}
+
+/* cake builder */
+.cake{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.builder{padding:clamp(22px,3vw,30px);display:grid;gap:20px}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.opts button{border:1px solid var(--line);background:var(--sheet);border-radius:4px;padding:10px 14px;font:700 14px var(--f-body);cursor:pointer;color:var(--ink-2);display:grid;gap:2px;text-align:left}
+.opts button small{font:400 12px var(--f-mono);color:var(--muted)}
+.opts button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.quote{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px}
+.quote svg{width:100%;height:160px}
+.quote .big{font:400 54px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.quote dl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.quote dl div{background:var(--flour);padding:12px}
+.quote dt{font:700 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.quote dd{margin:6px 0 0;font:400 22px var(--f-display)}
+.quote .note{font-size:13px;color:var(--muted)}
+
+/* order */
+.order{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.form{padding:clamp(22px,3vw,32px);display:grid;gap:20px}
+.days{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px}
+.day{border:1px solid var(--line);background:var(--sheet);padding:8px 2px;cursor:pointer;display:grid;gap:2px;justify-items:center;font:700 11px var(--f-mono);text-transform:uppercase;color:var(--muted)}
+.day b{font:400 24px/1 var(--f-display);color:var(--ink)}
+.day[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:rgba(255,255,255,.7)}
+.day[aria-pressed="true"] b{color:#fff}
+.day:disabled{opacity:.35;cursor:not-allowed}
+.form select,.form input,.form textarea{border:1px solid var(--line);border-radius:4px;padding:12px 14px;background:var(--flour);font-size:15px;width:100%}
+.form textarea{min-height:70px;resize:vertical}
+.form label{display:grid;gap:6px;font-weight:700;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err{color:#A3271E;font-size:14px;font-weight:700}
+.confirm{background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:700 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.hours{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
+.hours h3{font-size:30px}
+.hours dl{margin:0}
+.hours dl div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.hours dt{color:var(--ink-2)}
+.hours dd{margin:0;font:700 14px var(--f-mono)}
+.hours .note{font-size:13px;color:var(--muted)}
+
+footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:400 min(19vw,250px)/.86 var(--f-display);letter-spacing:-.02em;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:#E7B47B}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(255,255,255,.6)}
+.foot-row a{color:#fff}
+
+@media (max-width:980px){
+  .bakes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cake,.order{grid-template-columns:minmax(0,1fr)}
+  .quote,.hours{position:static}
+}
+@media (max-width:560px){
+  .two{grid-template-columns:minmax(0,1fr)}
+  .days{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 30 30" aria-hidden="true"><path d="M4 19c0-7 5-12 11-12s11 5 11 12v3H4z" fill="{{A:#24427A}}"/><path d="M10 13l3 3M15 12l3 3M20 13l2 2" stroke="#F7F1E8" stroke-width="1.8" stroke-linecap="round"/><rect x="3" y="22" width="24" height="3" rx="1.5" fill="{{A:#24427A}}"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#today">{{nav.today}}</a></li><li><a href="#cakes">{{nav.cakes}}</a></li><li><a href="#order">{{nav.order}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#order">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="{{hero.label|attr}}">
+  <div class="stage" id="stage">
+    <canvas id="bake" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#today">{{hero.cta}}</a><a class="btn ghost" href="#cakes">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="board" id="board" aria-live="off">
+      <div><dt>{{board.0.label}}</dt><dd id="bProve">{{$.boardHtml.0|raw}}</dd></div>
+      <div><dt>{{board.1.label}}</dt><dd id="bOven">{{$.boardHtml.1|raw}}</dd></div>
+      <div><dt>{{board.2.label}}</dt><dd id="bBake">{{$.boardHtml.2|raw}}</dd></div>
+      <div><dt>{{board.3.label}}</dt><dd id="bLoaves">{{$.boardHtml.3|raw}}</dd></div>
+    </dl>
+    <div class="ticket" id="ticket" aria-live="polite">
+      <div class="row"><span>Step <b id="tNum">1</b> of 6</span><span class="clock" id="tClock">{{stages.0.clock}}</span></div>
+      <h3 id="tTitle">{{stages.0.n}}</h3>
+      <p id="tText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="today" aria-labelledby="today-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{today.eyebrow}}</p>
+      <h2 id="today-h">{{today.title}} <em>{{today.titleEm}}</em></h2>
+      <p>{{today.sub}}</p>
+    </div>
+    <div class="today-top"><span class="lbl" id="todayDate">Today</span><span class="open" id="openNow">{{today.open}}</span></div>
+    <div class="bakes" id="bakes"></div>
+  </div>
+</section>
+
+<section class="block" id="cakes" aria-labelledby="cakes-h" style="background:var(--flour-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{cakes.eyebrow}}</p>
+      <h2 id="cakes-h">{{cakes.title}} <em>{{cakes.titleEm}}</em></h2>
+      <p>{{cakes.sub}}</p>
+    </div>
+    <div class="cake">
+      <div class="panel builder">
+        <div><span class="lbl">Size</span><div class="opts" id="cSize" role="group" aria-label="Size"></div></div>
+        <div><span class="lbl">Sponge</span><div class="opts" id="cSponge" role="group" aria-label="Sponge"></div></div>
+        <div><span class="lbl">Filling</span><div class="opts" id="cFill" role="group" aria-label="Filling"></div></div>
+        <div><span class="lbl">Finish</span><div class="opts" id="cFinish" role="group" aria-label="Finish"></div></div>
+      </div>
+      <aside class="panel quote" aria-live="polite">
+        <svg id="cakeSvg" viewBox="0 0 300 160" aria-hidden="true"></svg>
+        <div class="big" id="qPrice">{{locale.currency}}0</div>
+        <dl>
+          <div><dt>Serves</dt><dd id="qServes">—</dd></div>
+          <div><dt>Notice</dt><dd id="qNotice">—</dd></div>
+        </dl>
+        <p class="note" id="qNote">{{cakes.note}}</p>
+        <a class="btn" href="#order" id="qOrder">{{cakes.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="order" aria-labelledby="order-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{order.eyebrow}}</p>
+      <h2 id="order-h">{{order.title}}</h2>
+      <p>{{order.sub}}</p>
+    </div>
+    <div class="order">
+      <form class="panel form" id="orderForm" novalidate>
+        <div><span class="lbl">Pick-up day</span><div class="days" id="days"></div></div>
+        <label>What would you like?<select id="fWhat"></select></label>
+        <div class="two">
+          <label>Your name<input id="fName" autocomplete="name" placeholder="{{order.nameExample|attr}}"></label>
+          <label>Phone<input id="fPhone" type="tel" autocomplete="tel" placeholder="{{order.phoneExample|attr}}"></label>
+        </div>
+        <label>{{order.noteLabel}}<textarea id="fNote" placeholder="{{order.noteExample|attr}}"></textarea></label>
+        <button class="btn" type="submit">{{order.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+      <aside class="panel hours">
+        <h3>{{order.hoursTitle}}</h3>
+        <dl id="hours"></dl>
+        <p class="note" id="hNote">{{order.note}}</p>
+      </aside>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function mixc(a,b,k){const n=parseInt(a.slice(1),16),m=parseInt(b.slice(1),16);const f=s=>Math.round(lerp(n>>s&255,m>>s&255,clamp(k)));return`rgb(${f(16)},${f(8)},${f(0)})`;}
+
+/* ============ THE BAKE (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// what's baked: 'loaf' (sourdough) or 'cake' (a layer cake)
+const MAKE={{bake.make|js}};
+// colours: the crust when done, the crumb or sponge, and the filling (for a cake)
+const LOOK={crust:{{bake.crust|js}},crumb:{{bake.crumb|js}},filling:{{bake.filling|js}}};
+// the four numbers on the board: label, unit, from, to, the stages over which it moves (first, last), decimals
+const BOARD=[
+{{$.boardJs|raw}}
+];
+const ACCENT='{{A:#24427A}}';
+
+/* ============ GEOMETRY (a 420 x 280 scene; the board's top is y=232) ============ */
+const cv=$('#bake'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,S=1,OX=0,OY=0,LA=null,LB=null;
+const P=(x,y)=>[OX+x*S,OY+y*S];
+function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/(mobile?400:440),(ay[1]-ay[0])/290);return{s,x:(ax[0]+ax[1])/2-s*210,y:(ay[0]+ay[1])/2-s*140};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), bd=$('#board').getBoundingClientRect(), tk=$('#ticket').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.02,W*.98],[top,bd.top-stg.top-10]);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(bd.top,tk.top)-stg.top;
+    const side=fit([cr+20,W*.97],[H*.12,Math.min(H*.82,low-20)]), under=fit([W*.05,W*.95],[cb+24,low-20]);
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.08,W*.92],[top,Math.min(bd.top,tk.top-36)-stg.top-14]);}}
+
+/* ============ DRAWING ============ */
+function ell(x,y,rx,ry,col){const q=P(x,y);ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(q[0],q[1],Math.max(.1,rx*S),Math.max(.1,ry*S),0,0,7);ctx.fill();}
+function rr(x,y,w,h,r,col){const q=P(x,y);ctx.fillStyle=col;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(q[0],q[1],w*S,h*S,r*S);else ctx.rect(q[0],q[1],w*S,h*S);ctx.fill();}
+function board(){// the wooden board, with grain
+  rr(20,232,380,22,6,'#C79A66');rr(20,232,380,6,4,'#D9B07E');ctx.strokeStyle='rgba(90,55,25,.18)';ctx.lineWidth=1;for(let i=0;i<5;i++){const a=P(30,240+i*3),b=P(390,240+i*3+(i%2?1:-1));ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.bezierCurveTo(a[0]+S*120,a[1]-S*2,b[0]-S*120,b[1]+S*2,b[0],b[1]);ctx.stroke();}
+  ell(210,258,200,6,'rgba(43,29,18,.08)');}
+function oven(k,time){if(k<=0)return;// a brick arch behind, glowing
+  ctx.save();ctx.globalAlpha*=k;const c=P(210,232);ctx.fillStyle='#3A2A20';ctx.beginPath();ctx.moveTo(c[0]-S*170,c[1]);ctx.lineTo(c[0]-S*170,c[1]-S*110);ctx.arc(c[0],c[1]-S*110,S*170,Math.PI,0);ctx.lineTo(c[0]+S*170,c[1]);ctx.closePath();ctx.fill();
+  const g=ctx.createRadialGradient(c[0],c[1]-S*60,S*20,c[0],c[1]-S*60,S*190);g.addColorStop(0,`rgba(255,150,60,${(.55+(RM?0:.08*Math.sin(time*5))).toFixed(3)})`);g.addColorStop(1,'rgba(255,110,40,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(c[0]-S*150,c[1]);ctx.lineTo(c[0]-S*150,c[1]-S*110);ctx.arc(c[0],c[1]-S*110,S*150,Math.PI,0);ctx.lineTo(c[0]+S*150,c[1]);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(180,90,50,.5)';ctx.lineWidth=S*3;for(let i=0;i<14;i++){const a=Math.PI+i*Math.PI/13;ctx.beginPath();ctx.moveTo(c[0]+Math.cos(a)*S*150,c[1]-S*110+Math.sin(a)*S*150);ctx.lineTo(c[0]+Math.cos(a)*S*172,c[1]-S*110+Math.sin(a)*S*172);ctx.stroke();}ctx.restore();}
+function steam(x,y,k,time,n){if(k<=0)return;ctx.save();ctx.strokeStyle=`rgba(255,255,255,${(.6*k).toFixed(3)})`;ctx.lineWidth=S*3;ctx.lineCap='round';for(let i=0;i<n;i++){const ph=((RM?.3:time*.6)+i/n)%1;ctx.globalAlpha=k*(1-ph);ctx.beginPath();for(let j=0;j<=10;j++){const yy=y-ph*60-j*5, xx=x+(i-(n-1)/2)*26+Math.sin(j*.8+i+time*2)*5;const q=P(xx,yy);j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}ctx.stroke();}ctx.restore();}
+const DUST=(()=>{const r=rng(4);return [...Array(40)].map(()=>({x:120+r()*180,y:80+r()*120,s:1+r()*2,t:r()}));})();
+const HOLES=(()=>{const r=rng(12);const out=[];for(let i=0;i<46;i++){const a=r()*6.28,d=Math.sqrt(r());out.push({x:Math.cos(a)*d*.82,y:-.1+Math.sin(a)*d*.62,r:.03+r()*.06,e:.5+r()*.8});}return out;})();
+
+/* the loaf: a dome whose height, colour and score change */
+function loafShape(cx,base,w,h){const c=P(cx,base-h*.08);ctx.beginPath();ctx.ellipse(c[0],c[1],S*w/2,S*h*.95,0,Math.PI,0);const r=P(cx+w/2,base), l=P(cx-w/2,base);ctx.quadraticCurveTo(r[0],r[1],r[0]-S*w*.08,r[1]);ctx.lineTo(l[0]+S*w*.08,l[1]);ctx.quadraticCurveTo(l[0],l[1],c[0]-S*w/2,c[1]);ctx.closePath();}
+function loaf(cx,base,w,h,bake,score,ear){const top=mixc('#EBD9B4',LOOK.crust,bake), low=mixc('#E3CFA6',LOOK.crust,bake*.8);loafShape(cx,base,w,h);
+  const g=ctx.createLinearGradient(0,P(0,base-h)[1],0,P(0,base)[1]);g.addColorStop(0,top);g.addColorStop(1,low);ctx.fillStyle=g;ctx.fill();
+  ctx.save();loafShape(cx,base,w,h);ctx.clip();
+  // a dusting of flour, fading as it browns, and a soft highlight
+  ctx.fillStyle=`rgba(255,255,255,${(.35*(1-bake)+.1).toFixed(3)})`;const t=P(cx-w*.12,base-h*.72);ctx.beginPath();ctx.ellipse(t[0],t[1],S*w*.28,S*h*.22,-.2,0,7);ctx.fill();
+  if(score>0){// the score: one curved cut, opening into an ear as it bakes
+    const a=P(cx-w*.32,base-h*.5), b=P(cx+w*.3,base-h*.78), m=P(cx-w*.05,base-h*1.02);ctx.strokeStyle=mixc('#D8BC8C','#4A2408',bake);ctx.lineWidth=S*(2+ear*8);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.quadraticCurveTo(m[0],m[1],lerp(a[0],b[0],score),lerp(a[1],b[1],score));ctx.stroke();
+    if(ear>0){ctx.strokeStyle=mixc('#EBD9B4','#D9A061',bake);ctx.lineWidth=S*2.4;ctx.beginPath();ctx.moveTo(a[0],a[1]-S*ear*6);ctx.quadraticCurveTo(m[0],m[1]-S*ear*9,b[0],b[1]-S*ear*6);ctx.stroke();}}
+  if(bake>.6){const r=rng(2);ctx.fillStyle=`rgba(255,215,160,${((bake-.6)*.7).toFixed(3)})`;for(let i=0;i<30;i++){const q=P(cx+(r()-.5)*w*.85,base-h*(.1+r()*.8));ctx.beginPath();ctx.arc(q[0],q[1],S*(.8+r()*1.6),0,7);ctx.fill();}}
+  ctx.restore();}
+function crumbFace(cx,base,w,h,k){// a slice, standing on its edge facing us: crust round a dome of open crumb
+  if(k<=0)return;ctx.save();ctx.globalAlpha*=k;const lift=(1-k)*20;
+  ctx.save();ctx.translate(0,-lift*S);loafShape(cx,base,w,h);ctx.fillStyle=LOOK.crust;ctx.fill();
+  const iw=w-12, ih=h-9;loafShape(cx,base-4,iw,ih);ctx.fillStyle=LOOK.crumb;ctx.fill();
+  ctx.save();loafShape(cx,base-4,iw,ih);ctx.clip();ctx.fillStyle='rgba(150,100,50,.26)';HOLES.forEach(o=>{const q=P(cx+o.x*iw*.48,base-ih*.48+o.y*ih*.55);ctx.beginPath();ctx.ellipse(q[0],q[1],S*iw*o.r*.42,S*ih*o.r*.5*o.e,0,0,7);ctx.fill();});
+  const g=ctx.createLinearGradient(0,P(0,base-ih)[1],0,P(0,base)[1]);g.addColorStop(0,'rgba(255,255,255,.18)');g.addColorStop(1,'rgba(120,80,40,.12)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();ctx.restore();ctx.restore();}
+function bowl(k,fill,col,time,whisk){if(k<=0)return;ctx.save();ctx.globalAlpha*=k;const c=P(210,232);
+  ctx.fillStyle='#E9E1D4';ctx.beginPath();ctx.moveTo(c[0]-S*110,c[1]-S*90);ctx.quadraticCurveTo(c[0]-S*110,c[1],c[0],c[1]);ctx.quadraticCurveTo(c[0]+S*110,c[1],c[0]+S*110,c[1]-S*90);ctx.closePath();ctx.fill();
+  ctx.fillStyle='{{A:#24427A}}';ctx.fillRect(c[0]-S*80,c[1]-S*58,S*160,S*6);
+  // what's in it, rising with the mix
+  const lev=lerp(70,40,fill);ctx.save();ctx.beginPath();ctx.moveTo(c[0]-S*110,c[1]-S*90);ctx.quadraticCurveTo(c[0]-S*110,c[1],c[0],c[1]);ctx.quadraticCurveTo(c[0]+S*110,c[1],c[0]+S*110,c[1]-S*90);ctx.closePath();ctx.clip();
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(c[0],c[1]-S*lev,S*100,S*22,0,0,7);ctx.fill();ctx.fillRect(c[0]-S*110,c[1]-S*lev,S*220,S*lev);
+  ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=S*2;for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(c[0],c[1]-S*lev,S*(25+i*22),S*(5+i*4),RM?0:time*(1+i*.3),0,Math.PI*1.3);ctx.stroke();}ctx.restore();
+  ctx.strokeStyle='#C9BBA6';ctx.lineWidth=S*3;ctx.beginPath();ctx.ellipse(c[0],c[1]-S*90,S*110,S*14,0,0,7);ctx.stroke();
+  if(whisk){const a=RM?0:Math.sin(time*6)*.3;const w=P(210+Math.sin(a)*40,140);ctx.save();ctx.translate(w[0],w[1]);ctx.rotate(.5+a);ctx.strokeStyle='#8D8A86';ctx.lineWidth=S*2;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.ellipse(i*S*3,S*40,S*10,S*30,0,0,7);ctx.stroke();}ctx.fillStyle='#5E4A39';ctx.fillRect(-S*4,-S*40,S*8,S*50);ctx.restore();}
+  ctx.restore();}
+function flour(k,time){if(k<=0)return;ctx.save();DUST.forEach(d=>{const ph=((RM?d.t:time*.2+d.t))%1;ctx.globalAlpha=k*(1-ph)*.8;const q=P(d.x,d.y-ph*40);ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(q[0],q[1],d.s*S,0,7);ctx.fill();});ctx.restore();}
+function basket(k){if(k<=0)return;ctx.save();ctx.globalAlpha*=k;const c=P(210,232);ctx.fillStyle='#B88A55';ctx.beginPath();ctx.ellipse(c[0],c[1]-S*24,S*92,S*30,0,0,Math.PI);ctx.fill();ctx.strokeStyle='rgba(90,55,25,.4)';ctx.lineWidth=S*2;for(let i=1;i<5;i++){ctx.beginPath();ctx.ellipse(c[0],c[1]-S*24,S*(92-i*14),S*(30-i*5),0,0,Math.PI);ctx.stroke();}ctx.restore();}
+function rack(k){if(k<=0)return;ctx.save();ctx.globalAlpha*=k;ctx.strokeStyle='#8D8A86';ctx.lineWidth=S*2;const a=P(60,224),b=P(360,224);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();for(let x=70;x<=350;x+=20){const q=P(x,220),r2=P(x,228);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(r2[0],r2[1]);ctx.stroke();}ctx.restore();}
+function knife(x,y,k){if(k<=0)return;const q=P(x,y);ctx.save();ctx.globalAlpha*=k;ctx.translate(q[0],q[1]);ctx.fillStyle='#CFD3D8';ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(S*8,S*-4);ctx.lineTo(S*8,S*150);ctx.lineTo(0,S*150);ctx.closePath();ctx.fill();ctx.fillStyle='#3A2A20';ctx.fillRect(-S*2,-S*46,S*12,S*46);ctx.restore();}
+
+/* the cake: layers stacking, icing creeping up, decorations, a slice out */
+function cake(f,time){const cx=210, base=226, w=200, lh=34;
+  if(f[1]>0&&f[2]<.2){// two sponges in tins, rising and browning, on the oven shelf
+    rack(1);
+    [130,290].forEach(x=>{const rise=sm(seg(f[1],0,.7));rr(x-62,base-44,124,44,4,'#6E6A66');const col=mixc('#F5DE9A','#D9A15A',sm(seg(f[1],.3,1)));const top=P(x,base-30-rise*16);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(P(x-58,base-30)[0],P(0,base-30)[1]);ctx.quadraticCurveTo(top[0],top[1]-S*14*rise,P(x+58,0)[0],P(0,base-30)[1]);ctx.closePath();ctx.fill();});return;}
+  const stack=sm(seg(f[2],.1,.9)), ice=sm(seg(f[3],.05,.9)), deco=sm(seg(f[4],.05,.9)), cut=sm(seg(f[5],.1,.8));
+  // the stand
+  ell(cx,base+42,150,6,'rgba(43,29,18,.08)');rr(cx-142,base,284,8,4,'#E9E1D4');rr(cx-12,base+8,24,28,2,'#DDD3C3');ell(cx,base+38,46,7,'#E9E1D4');
+  const layers=[{y:base-lh,k:1},{y:base-lh*2-8,k:stack}];
+  ctx.save();if(cut>0){const a=P(cx+w*.18,base-lh*2-24);ctx.beginPath();ctx.rect(0,0,W,H);ctx.moveTo(a[0],a[1]);ctx.lineTo(a[0]+S*w*.4,a[1]);ctx.lineTo(a[0]+S*w*.4,P(0,base+2)[1]);ctx.lineTo(a[0],P(0,base+2)[1]);ctx.closePath();if(cut>.05)ctx.clip('evenodd');}
+  layers.forEach((L,i)=>{if(L.k<=0)return;const dy=(1-L.k)*-60;rr(cx-w/2,L.y+dy,w,lh,6,mixc('#F5DE9A','#E8C27A',.4));if(i===1||stack>.5)rr(cx-w/2+4,base-lh-8+(i?0:0),w-8,8,3,LOOK.filling);});
+  if(ice>0){// icing: up the sides, then the top
+    const top=base-lh*2-8;const hh=(base-top)*ice;rr(cx-w/2-6,base-hh,w+12,hh,8,'#FBF7F0');if(ice>.85){rr(cx-w/2-6,top-6,w+12,12,8,'#FBF7F0');}
+    ctx.strokeStyle='rgba(43,29,18,.08)';ctx.lineWidth=1;for(let y=base-6;y>base-hh;y-=10){const a=P(cx-w/2-6,y),b=P(cx+w/2+6,y);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}}
+  if(deco>0){const top=base-lh*2-14;// a drip, berries and flowers on top
+    ctx.fillStyle=LOOK.filling;ctx.globalAlpha=deco;const r=rng(6);for(let i=0;i<11;i++){const x=cx-w/2+8+i*(w-16)/10, d=6+r()*18;const a=P(x-6,top+4);ctx.beginPath();if(ctx.roundRect)ctx.roundRect(a[0],a[1],S*12,S*d*deco,S*6);else ctx.rect(a[0],a[1],S*12,S*d*deco);ctx.fill();}
+    rr(cx-w/2-6,top-2,w+12,8,4,LOOK.filling);
+    const cutX=cut>.05?cx+w*.18:1e9;for(let i=0;i<7;i++){if(cx-70+i*23>cutX-6)continue;const x=cx-70+i*23, y=top-8-Math.abs(i-3)*1.5, q=P(x,y);ctx.fillStyle=i%2?'#7A1F3D':'#C23B4E';ctx.beginPath();ctx.arc(q[0],q[1],S*7,0,7);ctx.fill();ctx.fillStyle='#4E7A3A';ctx.fillRect(q[0]-S,q[1]-S*9,S*2,S*4);}
+    ctx.globalAlpha=1;}
+  ctx.restore();
+  if(cut>0){// the slice, pulled out to the right, showing its layers
+    const x=cx+w*.18+cut*58, y=base-lh*2-14;rr(x,y+6,w*.4*.55,lh*2+8,4,'#FBF7F0');rr(x+4,y+10,w*.4*.55-8,lh-4,3,mixc('#F5DE9A','#E8C27A',.4));rr(x+4,y+10+lh-4,w*.4*.55-8,7,2,LOOK.filling);rr(x+4,y+17+lh-4,w*.4*.55-8,lh-6,3,mixc('#F5DE9A','#E8C27A',.4));if(deco>0){rr(x-2,y+2,w*.4*.55+4,8,4,LOOK.filling);[[10,14],[26,20],[42,12]].forEach(([dx,d])=>rr(x+dx,y+6,10,d,5,LOOK.filling));const bq=P(x+w*.11,y-4);ctx.fillStyle='#C23B4E';ctx.beginPath();ctx.arc(bq[0],bq[1],S*7,0,7);ctx.fill();}}}
+
+/* ============ HUD ============ */
+let shown=-1;const boardEls=[...document.querySelectorAll('#board dd')];
+function bval(t,p){const a=STAGES[t.at[0]].w[0], b=STAGES[Math.min(5,t.at[1])].w[1];return lerp(t.from,t.to,sm(seg(p,a,b))).toFixed(t.dec);}
+function hud(p){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#tNum').textContent=idx+1;$('#tTitle').textContent=STAGES[idx].n;$('#tText').textContent=STAGES[idx].c;$('#tClock').textContent=STAGES[idx].clock;}
+  BOARD.forEach((t,i)=>{if(boardEls[i])boardEls[i].innerHTML=`${bval(t,p)}${t.unit?`<small>${t.unit}</small>`:''}`;});}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F7F1E8';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const L={s:lerp(LA.s,LB.s,m),x:lerp(LA.x,LB.x,m),y:lerp(LA.y,LB.y,m)};S=L.s;OX=L.x;OY=L.y;
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  if(MAKE==='cake'){
+    oven(sm(seg(f[1],0,.2))*(1-sm(seg(f[2],0,.2))),time);
+    if(f[1]<.05)board();bowl(1-sm(seg(f[1],0,.15)),sm(seg(f[0],.1,.9)),'#F3DD9E',time,true);flour(f[0]>0&&f[0]<1?1:0,time);
+    if(f[1]>0)cake(f,time);
+    steam(130,170,f[1]>.5&&f[2]<.2?1:0,time,2);
+  }else{
+    const ovenK=sm(seg(f[3],0,.12))*(1-sm(seg(f[3],.9,1)));oven(ovenK,time);
+    board();rack(sm(seg(f[4],0,.2)));
+    bowl(1-sm(seg(f[1],0,.15)),sm(seg(f[0],.1,.9)),'#EAD8B2',time,false);flour(f[0]>0&&f[0]<1?1:0,time);
+    if(f[1]>0){// the dough: rising in the basket, then on the board as a loaf
+      const onBoard=f[2]>.2;const rise=sm(seg(f[1],.05,.95));const w=onBoard?190:lerp(150,180,rise), h=onBoard?lerp(70,92,sm(seg(f[3],0,.6))):lerp(40,66,rise);
+      const base=onBoard?(f[4]>0?222:232):216;const bake=sm(seg(f[3],.05,.9)), score=sm(seg(f[2],.4,.9)), ear=sm(seg(f[3],.1,.7));
+      const split=sm(seg(f[5],.25,.8));
+      const lx=210-split*62;loaf(lx,base,w,h,bake,score,ear);
+      if(split>0){// the cut end: crumb showing, and the slice standing beside it
+        ctx.save();const ce=P(lx+w*.5-2,base-h*.42);ctx.fillStyle=LOOK.crumb;ctx.globalAlpha*=split;ctx.beginPath();ctx.ellipse(ce[0],ce[1],S*6,S*h*.4,0,0,7);ctx.fill();ctx.restore();
+        crumbFace(318,base,w*.62,h*.82,split);}
+      if(f[1]<1&&!onBoard){// bubbles while it proves
+        const r=rng(8);ctx.fillStyle='rgba(255,255,255,.55)';for(let i=0;i<10*rise;i++){const q=P(210+(r()-.5)*w*.7,base-h*(.3+r()*.6));ctx.beginPath();ctx.arc(q[0],q[1],S*(1.5+r()*2.5),0,7);ctx.fill();}}
+      steam(210,base-h-10,f[3]>.3?sm(seg(f[3],.3,.6)):f[4]>0?1-sm(seg(f[4],.3,1)):0,time,3);
+      if(!onBoard)basket(sm(seg(f[1],0,.15))*(1-sm(seg(f[2],0,.2))));
+      knife(286,base-h-50,sm(seg(f[5],0,.2))*(1-sm(seg(f[5],.6,.9))));}}
+  ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+BOARD.forEach((t,i)=>{const dt=document.querySelectorAll('#board dt')[i];if(dt)dt.textContent=t.label;});
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+// little drawings of each kind of bake
+const GLYPH={
+ boule:'<path d="M6 32c0-14 10-24 22-24s22 10 22 24z"/>',
+ tin:'<path d="M10 34V16c0-6 6-10 18-10s18 4 18 10v18z"/>',
+ baguette:'<path d="M4 26c8-10 36-18 48-14 4 2 2 6-2 8-12 6-36 12-44 10-3-1-4-2-2-4z"/>',
+ croissant:'<path d="M6 28c6-14 16-20 22-20s16 6 22 20c-6-2-10-2-12 0-2-6-6-8-10-8s-8 2-10 8c-2-2-6-2-12 0z"/>',
+ bun:'<circle cx="28" cy="22" r="14"/>',
+ slab:'<path d="M6 16h44v16H6z"/>'
+};
+
+/* ============ TODAY ============ */
+// today's bakes: price, how many are left (0 is sold out) and the little drawing
+const TODAY=[
+{{$.todayJs|raw}}
+];
+const OUT={{today.soldOut|js}}, LEFT={{today.left|js}};
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const now=new Date();$('#todayDate').textContent=`${DOW[now.getDay()]} ${now.getDate()} ${MON[now.getMonth()]}`;
+$('#bakes').innerHTML=TODAY.map(b=>`<div class="panel bake${b.left<=0?' out':''}" data-out="${esc(OUT)}"><svg class="glyph" viewBox="0 0 56 40" aria-hidden="true">${GLYPH[b.glyph]||GLYPH.boule}</svg><b>${esc(b.n)}</b><span>${esc(b.d)}</span><div class="row"><span class="p">${money(b.p)}</span><span class="left">${b.left<=0?esc(OUT):`${b.left} ${esc(LEFT)}`}</span></div></div>`).join('');
+
+/* ============ CELEBRATION CAKES ============ */
+// sizes (price, how many it serves, tiers, days' notice), sponges and fillings (extra cost and colour), finishes
+const SIZES=[
+{{$.sizesJs|raw}}
+];
+const SPONGES=[{{$.spongesJs|raw}}];
+const FILLS=[{{$.fillsJs|raw}}];
+const FINISHES=[{{$.finishesJs|raw}}];
+const CAKE={{cakes.name|js}}; // how a built cake is named in the order
+let sz=1,sp=0,fl=0,fn=1;
+const opt=(list,sel,extra)=>list.map((o,i)=>`<button type="button" aria-pressed="${i===sel}" data-i="${i}">${esc(o.n)}<small>${extra(o)}</small></button>`).join('');
+$('#cSize').innerHTML=opt(SIZES,sz,o=>`${money(o.p)} · serves ${esc(o.serves)}`);
+$('#cSponge').innerHTML=opt(SPONGES,sp,o=>o.p?`+${money(o.p)}`:'included');
+$('#cFill').innerHTML=opt(FILLS,fl,o=>o.p?`+${money(o.p)}`:'included');
+$('#cFinish').innerHTML=opt(FINISHES,fn,o=>o.p?`+${money(o.p)}`:'included');
+const price=()=>SIZES[sz].p+SPONGES[sp].p*SIZES[sz].tiers+FILLS[fl].p+FINISHES[fn].p;
+function drawCake(){const s=SIZES[sz], sg=SPONGES[sp], f=FILLS[fl], fin=FINISHES[fn];let h='<rect x="40" y="146" width="220" height="8" rx="4" fill="#E9E1D4"/>';
+  const tiers=s.tiers===2?[{w:200,y:96},{w:130,y:46}]:[{w:150+sz*20,y:76}];
+  tiers.forEach(t=>{const x=150-t.w/2, H2=146-t.y;const iced=fin.ice!=='none';
+    h+=`<rect x="${x}" y="${t.y}" width="${t.w}" height="${H2}" rx="6" fill="${iced?'#FBF7F0':sg.col}"/>`;
+    if(!iced){h+=`<rect x="${x}" y="${t.y+H2/2-4}" width="${t.w}" height="8" fill="${f.col}"/>`;}
+    else{h+=`<rect x="${x}" y="${t.y}" width="${t.w}" height="${H2}" rx="6" fill="none" stroke="rgba(43,29,18,.1)"/>`;
+      // piped shells along the top and the base
+      const n=Math.round(t.w/14);for(let i=0;i<n;i++){const sx=x+7+i*(t.w-14)/(n-1);h+=`<circle cx="${sx}" cy="${t.y+2}" r="5" fill="#EAD7B4"/><circle cx="${sx}" cy="${t.y+H2-3}" r="5" fill="#EAD7B4"/>`;}
+      if(fin.ice==='smooth')h+=`<rect x="${x}" y="${t.y+H2-18}" width="${t.w}" height="7" fill="${f.col}"/>`;}
+    if(fin.ice==='drip'){h+=`<path d="M${x} ${t.y+4}h${t.w}v6`+[...Array(8)].map((_,i)=>`l-${t.w/16} ${i%2?-8:12}`).join('')+`l-${t.w/16} -4z" fill="${f.col}"/>`;h+=[...Array(5)].map((_,i)=>`<circle cx="${x+20+i*(t.w-40)/4}" cy="${t.y-6}" r="7" fill="#7A1F3D"/>`).join('');}
+    if(fin.ice==='flowers')h+=[...Array(4)].map((_,i)=>`<circle cx="${x+24+i*(t.w-48)/3}" cy="${t.y-4}" r="9" fill="${['#E58FA8','#F4D27A','#FFFFFF','#E58FA8'][i]}"/><circle cx="${x+24+i*(t.w-48)/3}" cy="${t.y-4}" r="3" fill="#C98A3A"/>`).join('');
+    if(fin.ice==='none')h+=[...Array(4)].map((_,i)=>`<circle cx="${x+20+i*(t.w-40)/3}" cy="${t.y-5}" r="6" fill="${f.col}"/>`).join('');});
+  $('#cakeSvg').innerHTML=h;}
+function quote(){$('#qPrice').textContent=money(price());$('#qServes').textContent=SIZES[sz].serves;$('#qNotice').textContent=`${SIZES[sz].notice} days`;drawCake();order();}
+[['cSize',v=>sz=v],['cSponge',v=>sp=v],['cFill',v=>fl=v],['cFinish',v=>fn=v]].forEach(([id,set])=>$('#'+id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;set(+b.dataset.i);press($('#'+id),b);quote();}));
+
+/* ============ ORDER ============ */
+// opening hours, Monday first; a day marked closed can't be picked up
+const HOURS=[{{$.hoursJs|raw}}];
+const CLOSED_WORD={{order.closedWord|js}};
+$('#hours').innerHTML=HOURS.map(x=>`<div><dt>${esc(x.d)}</dt><dd>${esc(x.h)}</dd></div>`).join('');
+const closedDow=HOURS.map((x,i)=>x.h===CLOSED_WORD?(i+1)%7:-1).filter(x=>x>=0);
+const days=[];for(let d=1;days.length<6&&d<30;d++){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()+d);if(!closedDow.includes(day.getDay()))days.push({day,ahead:d});}
+let dSel=0;
+$('#days').innerHTML=days.map((x,i)=>`<button type="button" class="day" aria-pressed="${i===dSel}" data-i="${i}">${DOW[x.day.getDay()]}<b>${x.day.getDate()}</b></button>`).join('');
+function order(){const v=$('#fWhat').value;$('#fWhat').innerHTML=TODAY.map((b,i)=>`<option value="b${i}">${esc(b.n)} · ${money(b.p)}</option>`).join('')+`<option value="cake">${esc(CAKE)} · ${money(price())}</option>`;if(v)$('#fWhat').value=v;}
+$('#qOrder').addEventListener('click',()=>{$('#fWhat').value='cake';});
+$('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);$('#confirm').hidden=true;});
+$('#orderForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,''), what=$('#fWhat').value, d=days[dSel];
+  if(what==='cake'&&d.ahead<SIZES[sz].notice)return fail(`This cake needs ${SIZES[sz].notice} days' notice: pick a later day.`);
+  if(!nm)return fail('Add your name.',$('#fName'));
+  if(ph.length<7)return fail('Add a phone number in case we need to check anything.',$('#fPhone'));
+  err.hidden=true;const label=what==='cake'?`${CAKE.toLowerCase()} (${SIZES[sz].n}, ${SPONGES[sp].n.toLowerCase()})`:TODAY[+what.slice(1)].n.toLowerCase(), c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was ordered</span><b>${esc(nm)}, your ${esc(label)} will be ready on ${DOW[d.day.getDay()]} ${d.day.getDate()} ${MON[d.day.getMonth()]}.</b><span>On a live site you'd get a text to confirm, and pay when you collect.</span>`;c.hidden=false;});
+
+quote();
+})();
+</script>
+
+</body></html>

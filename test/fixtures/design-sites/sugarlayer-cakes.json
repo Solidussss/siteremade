@@ -1,0 +1,285 @@
+{
+  "business": {
+    "name": "Sugar & Layer Cake Studio"
+  },
+  "brand": {
+    "name": "Sugar & Layer"
+  },
+  "contact": {
+    "phone": "(312) 555-0129"
+  },
+  "nav": {
+    "today": "Today",
+    "cakes": "Custom cakes",
+    "order": "Order",
+    "cta": "Order"
+  },
+  "hero": {
+    "label": "A layer cake built from tins to the first slice, scroll to run it",
+    "eyebrow": "Sugar & Layer · cake studio, Chicago",
+    "title": "Every layer",
+    "titleEm": "made for you.",
+    "lede": "Celebration cakes baked to order in Wicker Park, from birthday classics to two-tier showstoppers. Scroll and watch one built, layer by layer.",
+    "cta": "Today's slices",
+    "cta2": "Build a cake",
+    "hint": "Scroll to build the cake"
+  },
+  "bake": {
+    "make": "cake",
+    "crust": "#B9773D",
+    "crumb": "#F3DB9C",
+    "filling": "#7A3B8F"
+  },
+  "board": [
+    {
+      "label": "Layers",
+      "unit": "",
+      "from": 0,
+      "to": 4,
+      "at": [
+        2,
+        2
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Oven",
+      "unit": "°F",
+      "from": 70,
+      "to": 340,
+      "at": [
+        1,
+        1
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Baking",
+      "unit": "min",
+      "from": 0,
+      "to": 35,
+      "at": [
+        1,
+        1
+      ],
+      "dec": 0
+    },
+    {
+      "label": "This week",
+      "unit": "",
+      "from": 0,
+      "to": 46,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    }
+  ],
+  "stages": [
+    {
+      "n": "Mix",
+      "c": "Butter and sugar creamed until pale, then eggs, flour and real vanilla.",
+      "clock": "8:00 am"
+    },
+    {
+      "n": "Bake",
+      "c": "Into the tins and the oven at 340°F, low and even so the tops stay flat.",
+      "clock": "8:30 am"
+    },
+    {
+      "n": "Stack",
+      "c": "Cooled, leveled, and layered with blackberry jam and buttercream.",
+      "clock": "11:00 am"
+    },
+    {
+      "n": "Ice",
+      "c": "A crumb coat, a chill, then a smooth final coat of Swiss meringue buttercream.",
+      "clock": "1:00 pm"
+    },
+    {
+      "n": "Decorate",
+      "c": "A berry drip down the sides and fresh fruit on top.",
+      "clock": "2:30 pm"
+    },
+    {
+      "n": "First slice",
+      "c": "Four tall layers and a whole lot of jam. Ready for the party.",
+      "clock": "4:00 pm"
+    }
+  ],
+  "today": {
+    "eyebrow": "Today",
+    "title": "In the case",
+    "titleEm": "right now.",
+    "sub": "Slices and small cakes we make every day. When they are gone, they are gone.",
+    "open": "Open 10 till 6",
+    "bakes": [
+      {
+        "n": "Birthday cake slice",
+        "d": "Funfetti with vanilla buttercream",
+        "p": 7.5,
+        "left": 12,
+        "glyph": "slab"
+      },
+      {
+        "n": "Chocolate slice",
+        "d": "Dark chocolate, salted caramel",
+        "p": 8,
+        "left": 0,
+        "glyph": "slab"
+      },
+      {
+        "n": "Cupcake",
+        "d": "Changes daily",
+        "p": 4.5,
+        "left": 20,
+        "glyph": "bun"
+      },
+      {
+        "n": "Bundt cake",
+        "d": "Lemon and blueberry, serves 8",
+        "p": 32,
+        "left": 2,
+        "glyph": "boule"
+      }
+    ],
+    "soldOut": "Sold out",
+    "left": "left"
+  },
+  "cakes": {
+    "eyebrow": "Custom cakes",
+    "title": "Build your cake.",
+    "titleEm": "See the price.",
+    "sub": "Pick a size, a cake, a filling and a finish. Every cake is made to order, so give us a week for anything tiered.",
+    "sizes": [
+      {
+        "n": "6 inch",
+        "serves": "10 to 12",
+        "p": 65,
+        "tiers": 1,
+        "notice": 4
+      },
+      {
+        "n": "8 inch",
+        "serves": "20 to 24",
+        "p": 95,
+        "tiers": 1,
+        "notice": 4
+      },
+      {
+        "n": "Two tier",
+        "serves": "50",
+        "p": 260,
+        "tiers": 2,
+        "notice": 10
+      }
+    ],
+    "sponges": [
+      {
+        "n": "Vanilla",
+        "p": 0,
+        "col": "#F3DB9C"
+      },
+      {
+        "n": "Chocolate",
+        "p": 0,
+        "col": "#5E3523"
+      },
+      {
+        "n": "Red velvet",
+        "p": 8,
+        "col": "#9E2B2B"
+      }
+    ],
+    "fills": [
+      {
+        "n": "Blackberry jam",
+        "p": 0,
+        "col": "#7A3B8F"
+      },
+      {
+        "n": "Salted caramel",
+        "p": 6,
+        "col": "#C98A3A"
+      },
+      {
+        "n": "Cream cheese",
+        "p": 6,
+        "col": "#F6EEDD"
+      }
+    ],
+    "finishes": [
+      {
+        "n": "Smooth",
+        "p": 0,
+        "ice": "smooth"
+      },
+      {
+        "n": "Berry drip",
+        "p": 20,
+        "ice": "drip"
+      },
+      {
+        "n": "Fresh flowers",
+        "p": 35,
+        "ice": "flowers"
+      }
+    ],
+    "name": "Custom cake",
+    "note": "Allergies? Tell us when you order. Our kitchen uses nuts, gluten, dairy and eggs.",
+    "cta": "Order this cake"
+  },
+  "order": {
+    "eyebrow": "Order",
+    "title": "Order for pick-up.",
+    "sub": "Pick a day to collect. Slices need a day; custom cakes need the notice shown above.",
+    "hours": [
+      {
+        "d": "Monday",
+        "h": "Closed"
+      },
+      {
+        "d": "Tuesday",
+        "h": "Closed"
+      },
+      {
+        "d": "Wednesday",
+        "h": "10:00 – 6:00"
+      },
+      {
+        "d": "Thursday",
+        "h": "10:00 – 6:00"
+      },
+      {
+        "d": "Friday",
+        "h": "10:00 – 7:00"
+      },
+      {
+        "d": "Saturday",
+        "h": "9:00 – 7:00"
+      },
+      {
+        "d": "Sunday",
+        "h": "9:00 – 3:00"
+      }
+    ],
+    "closedWord": "Closed",
+    "cta": "Place the order",
+    "hoursTitle": "Opening hours",
+    "note": "1540 N Milwaukee Ave, Chicago. Pay when you collect.",
+    "noteLabel": "A message on the cake, or anything else",
+    "noteExample": "Happy birthday, Maya!",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(312) 555-0123"
+  },
+  "footer": {
+    "fine": "Sugar & Layer Cake Studio is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#7A2E5F"
+  }
+}

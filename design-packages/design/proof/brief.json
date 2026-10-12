@@ -1,0 +1,39 @@
+{
+  "title": "Bakery or cake maker",
+  "fields": [
+    { "key": "businessName", "label": "Bakery name", "required": true, "help": "e.g. Proof Bakehouse" },
+    { "key": "kind", "label": "What you bake", "required": true, "help": "Bread and pastries, celebration cakes, or both." },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Address or town, for pick-up." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "bakes", "label": "Everyday bakes", "type": "textarea", "help": "What you sell most days and the prices." },
+    { "key": "cakes", "label": "Celebration cakes", "type": "textarea", "help": "Sizes and prices, how many each serves, flavours, fillings, finishes and their extra cost, and how much notice you need." },
+    { "key": "hours", "label": "Opening hours", "required": true, "help": "Each day of the week, and days you're closed." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your shop or box colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "today.bakes.*.p",
+    "cakes.sizes.*.p",
+    "cakes.sizes.*.notice",
+    "cakes.sponges.*.p",
+    "cakes.fills.*.p",
+    "cakes.finishes.*.p",
+    "order.hours.*.h",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one bake from the side. bake.make loaf for bread bakeries (mix, prove in a basket, shape and score, bake in a glowing oven, cool, first slice showing the crumb) or cake for cake makers (mix, bake in tins, stack, ice, decorate with a drip and berries, slice). Set the colours to match: crust, crumb or sponge, and filling. Write the six stages for that bake with early-morning clock times (or working hours for cakes).",
+    "board: four numbers beside the bake. For bread: proving hours, oven temperature, baking minutes, loaves baked. For cakes: layers, oven temperature, minutes, cakes this week. Each with the stages it moves over.",
+    "today.bakes: up to eight everyday bakes from the brief with prices and a drawing (boule, tin, baguette, croissant, bun, slab). left is a plausible count for the demo; mark one or two as 0 (sold out). If the brief has no everyday bakes (cakes only), list slices and cupcakes it does sell.",
+    "cakes: sizes exactly as priced in the brief (tiers 2 for a tiered cake), with days' notice; sponges, fillings and finishes with their extra cost and natural colours. If the brief has no cakes, offer the brief's large orders (a sharing loaf box, a pastry box) as sizes and keep the finishes plain.",
+    "order.hours: Monday to Sunday exactly as the brief gives them; closedWord is the word used for closed days. The order form is a demo: nothing is ordered.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); today and cakes titles have an italic second half. theme.accent is the bakery's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Today", "path": "today.bakes", "fields": ["n", "p"] },
+    { "label": "Cake sizes", "path": "cakes.sizes", "fields": ["n", "p", "notice"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}
