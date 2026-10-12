@@ -117,7 +117,7 @@
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
-const DESIGN = { beadline: { name: 'Beadline', kind: 'Car detailing studio', url: 'beadline.detail' }, halcyra: { name: 'Halcyra', kind: 'Perfume house', url: 'halcyra.parfums' }, steadyhand: { name: 'Steady Hand', kind: 'Barber shop', url: 'steadyhand.barbers' }, nube: { name: 'Nube', kind: 'Coffee shop', url: 'nube.coffee' }, ventricle: { name: 'Ventricle', kind: 'Gym', url: 'ventricle.club' }, forno: { name: 'Forno Sfacciato', kind: 'Pizzeria', url: 'forno.pizza' }, saltglass: { name: 'Saltglass', kind: 'Dental clinic', url: 'saltglass.dental' }, kova: { name: 'KOVA', kind: 'Sneaker launch', url: 'kova.run' }, clutch: { name: 'Clutch', kind: 'Toy brick set', url: 'clutch.toys' }, ondo: { name: 'ONDO', kind: 'Headphones launch', url: 'ondo.audio' } };
+const DESIGN = { beadline: { name: 'Beadline', kind: 'Car detailing studio', url: 'beadline.detail' }, halcyra: { name: 'Halcyra', kind: 'Perfume house', url: 'halcyra.parfums' }, steadyhand: { name: 'Steady Hand', kind: 'Barber shop', url: 'steadyhand.barbers' }, nube: { name: 'Nube', kind: 'Coffee shop', url: 'nube.coffee' }, ventricle: { name: 'Ventricle', kind: 'Gym', url: 'ventricle.club' }, forno: { name: 'Forno Sfacciato', kind: 'Pizzeria', url: 'forno.pizza' }, saltglass: { name: 'Saltglass', kind: 'Dental clinic', url: 'saltglass.dental' }, kova: { name: 'KOVA', kind: 'Sneaker launch', url: 'kova.run' }, clutch: { name: 'Clutch', kind: 'Toy brick set', url: 'clutch.toys' }, ondo: { name: 'ONDO', kind: 'Headphones launch', url: 'ondo.audio' }, aldane: { name: 'Aldane', kind: 'Watch launch', url: 'aldane.watch' } };
 let D = null, chosen = null, poll = null;
 // scale a 1440px page into whatever box it sits in
 function fitFrames() { document.querySelectorAll('.screen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 1440})`; }); document.querySelectorAll('.pscreen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 390})`; }); }
@@ -128,6 +128,7 @@ addEventListener('resize', fitFrames);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 function autoplay(f) {
   if (f._auto) return; f._auto = true;
+  const gen = f._gen = (f._gen || 0) + 1; // (a lazy preview that unloads bumps this, which ends its loop)
   let stopped = false;
   // on screen? (measured each frame from the preview's box: WebKit's IntersectionObserver says a scaled preview never is)
   const seen = () => { const r = f.parentElement.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0; };
@@ -140,7 +141,7 @@ function autoplay(f) {
     const RUN = 16000, HOLD = 2600, BACK = 1400, LOOP = RUN + HOLD + BACK;
     const t0 = performance.now() + 2200; // let the page settle (Halcyra fills its bottle) before the first pass
     (function tick(now) {
-      if (stopped || !f.isConnected) return;
+      if (stopped || !f.isConnected || f._gen !== gen) return;
       if (seen()) {
         const top = hero.getBoundingClientRect().top + w.scrollY, span = hero.offsetHeight - w.innerHeight;
         const t = ((now - t0) % LOOP + LOOP) % LOOP;
@@ -152,8 +153,21 @@ function autoplay(f) {
   };
   if (f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.body && f.contentDocument.body.childElementCount) start(); else f.addEventListener('load', start, { once: true });
 }
-const playAll = () => document.querySelectorAll('.screen iframe, .pscreen iframe').forEach(autoplay);
-const frame = (src, address, live) => `<div class="frame"><div class="browser-top"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-address">${esc(address)}</div><div></div></div><div class="screen${live ? ' live' : ''}">${src ? `<iframe src="${src}" title="Preview" tabindex="-1"></iframe>` : '<div class="blank">Writing…</div>'}</div></div>`;
+const playAll = () => { document.querySelectorAll('.screen iframe, .pscreen iframe').forEach(autoplay); lazyFrames(); };
+// Gallery previews are whole live designs (some run WebGL), so only the four nearest the middle of the screen run;
+// one that drifts further away (past six, or well off screen) unloads. A phone never runs all of them at once.
+function lazyFrames() {
+  const list = [...document.querySelectorAll('iframe[data-src]')].map((f) => { const r = f.parentElement.getBoundingClientRect(); return { f, r, d: Math.abs((r.top + r.bottom) / 2 - innerHeight / 2) }; }).sort((a, b) => a.d - b.d);
+  list.forEach(({ f, r }, i) => {
+    const want = i < 4 && r.bottom > -innerHeight * 0.5 && r.top < innerHeight * 1.5;
+    const keep = i < 6 && r.bottom > -innerHeight * 1.5 && r.top < innerHeight * 2.5;
+    if (want && !f._live) { if (f._was) { f._auto = false; autoplay(f); } f.src = f.dataset.src; f._live = f._was = true; }
+    else if (!keep && f._live) { f._gen = (f._gen || 0) + 1; f._auto = false; f._live = false; f.src = 'about:blank'; }
+  });
+}
+addEventListener('scroll', lazyFrames, { passive: true });
+addEventListener('resize', lazyFrames);
+const frame = (src, address, live, lazy) => `<div class="frame"><div class="browser-top"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-address">${esc(address)}</div><div></div></div><div class="screen${live ? ' live' : ''}">${src ? `<iframe ${lazy ? 'data-src' : 'src'}="${src}" title="Preview" tabindex="-1"></iframe>` : '<div class="blank">Writing…</div>'}</div></div>`;
 const steps = (n) => `<ol class="steps">${['01 Design', '02 Brief', '03 Writing', '04 Review', '05 Publish'].map((t, i) => `<li class="${i === n ? 'on' : i < n ? 'done' : ''}">${t}</li>`).join('')}</ol>`;
 
 async function load() {
@@ -173,9 +187,9 @@ function home() {
   <section class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Pick a design.<span>We write the rest.</span></h1></div>
     <p class="lede">Hand-built designs with real motion. Describe the business in plain words: the AI writes every line into the design, checks it, and asks before it guesses. You review it, then publish.</p></section>
   ${steps(0)}
-  <section class="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
+  <section class="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
   <div id="briefBox"></div>
-  <section class="sites"><h2>Your sites</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Pick a design above to make the first one.</p>'}</section>`;
+  <section class="sites"><h2>Your sites</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Pick a design above to make the first one.</p>'}</section>`;
   document.querySelectorAll('.dcard').forEach((b) => { b.onclick = () => pick(b.dataset.d); b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(b.dataset.d); } }; });
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();
@@ -198,7 +212,7 @@ function pick(d) {
   };
 }
 async function open(id) { const r = await api('/api/designs/sites/' + id); if (r.ok) show(r.site); }
-const SECTION = { colourways: 'Colourways', battery: 'Battery', reserve: 'Reserve form', eq: 'EQ', sets: 'The set', specs: 'Brick specs', product: 'The product', layers: 'Product details', colorways: 'Colorways', drop: 'Release', prices: 'Prices', faq: 'First-visit answers', team: 'Team', contact: 'Contact details', dough: 'Dough and oven', build: 'Build your own', party: 'Party calculator', menu: 'Price list', cut: 'Cut builder prices', drinks: 'Drinks and prices', order: 'Order ahead', visit: 'Finding you', beans: 'Beans this week', hero: 'The hero', schedule: 'Timetable', join: 'Memberships', facilities: 'Equipment', nav: 'Top bar', packages: 'Prices and packages', coatings: 'Coating comparison', correction: 'Correction figures', hours: 'Opening hours', booking: 'Booking', footer: 'Contact details', locale: 'Currency', sizes: 'Sizes and prices', specs: 'Fragrance details', notes: 'Notes and proportions', timeline: 'How long it lasts', tiers: 'How long it lasts', hud: 'How long it lasts', product: 'Fragrance details', business: 'Name', theme: 'Look', pulse: 'How to wear it' };
+const SECTION = { watch: 'The watch', configure: 'Configurator', wind: 'Winding', dual: 'Dual time', colourways: 'Colourways', battery: 'Battery', reserve: 'Reserve form', eq: 'EQ', sets: 'The set', specs: 'Brick specs', product: 'The product', layers: 'Product details', colorways: 'Colorways', drop: 'Release', prices: 'Prices', faq: 'First-visit answers', team: 'Team', contact: 'Contact details', dough: 'Dough and oven', build: 'Build your own', party: 'Party calculator', menu: 'Price list', cut: 'Cut builder prices', drinks: 'Drinks and prices', order: 'Order ahead', visit: 'Finding you', beans: 'Beans this week', hero: 'The hero', schedule: 'Timetable', join: 'Memberships', facilities: 'Equipment', nav: 'Top bar', packages: 'Prices and packages', coatings: 'Coating comparison', correction: 'Correction figures', hours: 'Opening hours', booking: 'Booking', footer: 'Contact details', locale: 'Currency', sizes: 'Sizes and prices', specs: 'Fragrance details', notes: 'Notes and proportions', timeline: 'How long it lasts', tiers: 'How long it lasts', hud: 'How long it lasts', product: 'Fragrance details', business: 'Name', theme: 'Look', pulse: 'How to wear it' };
 function head(s, n) { const m = DESIGN[s.design] || { name: s.design }; return `<section class="studio-hero" style="margin-bottom:32px"><div><p class="eyebrow">${esc(m.name.toUpperCase())} · PREMIUM DESIGN</p><h1>${esc(s.businessName || 'Untitled')}<span>${n === 2 ? 'is being written.' : n === 3 ? 'is ready to review.' : n === 1 ? 'needs a few answers.' : 'didn’t come out right.'}</span></h1></div><div class="actions" style="justify-content:flex-end"><button class="button button-secondary" id="back">All designs & sites</button></div></section>`; }
 function show(s) {
   clearTimeout(poll);

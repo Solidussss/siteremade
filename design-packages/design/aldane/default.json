@@ -1,0 +1,216 @@
+{
+  "business": {
+    "name": "Aldane Watchmakers"
+  },
+  "brand": {
+    "name": "Aldane",
+    "dialName": "ALDANE"
+  },
+  "watch": {
+    "model": "Tessel 39",
+    "dialModel": "Tessel",
+    "calibre": "AD-28",
+    "dialSub": "HAND-WOUND",
+    "dialSub2": "72 H · 21 JEWELS",
+    "engraving": "ALDANE · AD-28 · TWENTY-ONE JEWELS · ADJ 5 POS"
+  },
+  "nav": {
+    "movement": "Movement",
+    "configure": "Configure",
+    "wind": "Wind it",
+    "dual": "Dual time",
+    "specs": "Specs",
+    "cta": "Reserve a slot"
+  },
+  "hero": {
+    "title": "Seventy-two hours",
+    "accent": "in a 39 mm case.",
+    "lede": "A hand-wound watch made by two watchmakers at one bench. It is running on your local time right now. Scroll to take it apart.",
+    "firstText": "39 mm case, 11.2 mm thick. The seconds hand moves in eight steps every second.",
+    "pills": [
+      "21 jewels",
+      "72 h reserve",
+      "4 Hz · 28,800 vph"
+    ],
+    "stages": [
+      {
+        "title": "Tessel 39, assembled",
+        "text": "39 mm case, 11.2 mm thick. The seconds hand moves in eight small steps every second."
+      },
+      {
+        "title": "Sapphire crystal",
+        "text": "Domed sapphire, 2.1 mm, anti-reflective on the inside. It seals to 100 m with the polished bezel."
+      },
+      {
+        "title": "Dial and blued hands",
+        "text": "The hands are heated to about 290 °C until the steel turns this blue. The dial sits on two feet."
+      },
+      {
+        "title": "The going train",
+        "text": "Five wheels carry the spring's energy. Barrel to escape wheel is a ratio of 1 : 7,680."
+      },
+      {
+        "title": "The escapement",
+        "text": "28,800 beats an hour. The balance swings, the fork flicks, the escape wheel steps half a tooth."
+      },
+      {
+        "title": "Back together",
+        "text": "148 parts, 11.2 mm. Closed up and still keeping your time."
+      }
+    ]
+  },
+  "configure": {
+    "title": "Build yours.",
+    "accent": "The watch above changes with it.",
+    "body": "Pick a case metal, a dial and a strap. Each Tessel 39 is assembled and regulated to your order; we make 140 a year.",
+    "taxNote": "Price includes VAT.",
+    "cases": [
+      {
+        "name": "Stainless steel",
+        "price": 8900,
+        "weeks": 12
+      },
+      {
+        "name": "Grade 5 titanium",
+        "price": 9700,
+        "weeks": 14
+      },
+      {
+        "name": "18k rose gold",
+        "price": 24500,
+        "weeks": 22
+      }
+    ],
+    "dials": [
+      {
+        "name": "Rhodium sunray",
+        "price": 0
+      },
+      {
+        "name": "Ink lacquer",
+        "price": 450
+      },
+      {
+        "name": "Moss lacquer",
+        "price": 450
+      },
+      {
+        "name": "Grand feu enamel",
+        "price": 2200
+      }
+    ],
+    "straps": [
+      {
+        "name": "Tan calf",
+        "price": 0
+      },
+      {
+        "name": "Cordovan",
+        "price": 220
+      },
+      {
+        "name": "Slate suede",
+        "price": 160
+      },
+      {
+        "name": "Oxblood rubber",
+        "price": 120
+      }
+    ]
+  },
+  "wind": {
+    "title": "Forty turns of the crown.",
+    "accent": "Three days of running.",
+    "body": "The AD-28 has no rotor, so you wind it by hand. Drag the crown clockwise. Each turn adds 1.8 hours to the mainspring, and the reserve runs down in real time."
+  },
+  "dual": {
+    "title": "Your time on the hands.",
+    "accent": "One more on the red arrow.",
+    "body": "The Tessel GMT adds a 24-hour hand that reads a second time zone against the outer ring. The shaded half of the ring is night. Pick a city to set it."
+  },
+  "specs": {
+    "title": "Measured in millimetres,",
+    "accent": "and in lignes.",
+    "body": "Watchmakers still size movements in lignes: one ligne is 2.2558 mm, an old French inch divided by twelve. Switch units to see the Tessel the way the bench sees it.",
+    "water": {
+      "m": 100,
+      "bar": 10
+    },
+    "rows": [
+      {
+        "label": "Case diameter",
+        "mm": 39
+      },
+      {
+        "label": "Thickness",
+        "mm": 11.2,
+        "note": "Including the domed crystal"
+      },
+      {
+        "label": "Lug to lug",
+        "mm": 46.5
+      },
+      {
+        "label": "Lug width",
+        "mm": 20
+      },
+      {
+        "label": "Water resistance",
+        "water": true
+      },
+      {
+        "label": "Crystal",
+        "value": "Sapphire, front and back",
+        "note": "Anti-reflective coating on the inside"
+      },
+      {
+        "label": "Movement",
+        "value": "Calibre AD-28, hand-wound",
+        "note": "148 parts · 21 jewels"
+      },
+      {
+        "label": "Movement diameter",
+        "mm": 30
+      },
+      {
+        "label": "Movement height",
+        "mm": 4.6
+      },
+      {
+        "label": "Frequency",
+        "value": "28,800 vph · 4 Hz"
+      },
+      {
+        "label": "Power reserve",
+        "value": "72 h",
+        "note": "About 40 crown turns from empty"
+      },
+      {
+        "label": "Rate",
+        "value": "−2 / +4 s per day",
+        "note": "Regulated in five positions"
+      }
+    ]
+  },
+  "reserve": {
+    "eyebrow": "2027 allocation · 140 watches",
+    "title": "Reserve a slot",
+    "slots": [
+      "Q1 2027 · 6 slots left",
+      "Q2 2027 · 19 slots left",
+      "Q3 2027 · 31 slots left"
+    ],
+    "button": "Reserve with €1,000 deposit",
+    "slot": "slot 41 of 140"
+  },
+  "footer": {
+    "fine": "Aldane is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "€",
+    "locale": "en-GB"
+  },
+  "theme": {
+    "wordmarkFit": "crop"
+  }
+}

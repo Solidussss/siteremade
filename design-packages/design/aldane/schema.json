@@ -1,0 +1,249 @@
+{
+  "about": "What a watch brand may change in the Aldane design. Everything not listed here is protected: the drawn watch and its exploded hand-wound movement (the seven parts, gear ratios, the 4 Hz escapement and its captions), the winding simulation (72 h, 40 turns), the dual-time dial and cities, the unit conversions, the finishes drawn for each case, dial and strap, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      40
+    ],
+    "brand.name": [
+      2,
+      10
+    ],
+    "brand.dialName": [
+      2,
+      10
+    ],
+    "watch.model": [
+      3,
+      16
+    ],
+    "watch.dialModel": [
+      2,
+      10
+    ],
+    "watch.calibre": [
+      2,
+      10
+    ],
+    "watch.dialSub": [
+      3,
+      14
+    ],
+    "watch.dialSub2": [
+      3,
+      18
+    ],
+    "watch.engraving": [
+      10,
+      50
+    ],
+    "nav.*": [
+      3,
+      12
+    ],
+    "nav.cta": [
+      4,
+      16
+    ],
+    "hero.title": [
+      6,
+      24
+    ],
+    "hero.accent": [
+      4,
+      22
+    ],
+    "hero.lede": [
+      20,
+      170
+    ],
+    "hero.firstText": [
+      20,
+      110
+    ],
+    "hero.pills.*": [
+      3,
+      20
+    ],
+    "hero.stages.*.title": [
+      4,
+      24
+    ],
+    "hero.stages.*.text": [
+      20,
+      110
+    ],
+    "configure.title": [
+      4,
+      20
+    ],
+    "configure.accent": [
+      4,
+      40
+    ],
+    "configure.body": [
+      20,
+      170
+    ],
+    "configure.taxNote": [
+      4,
+      40
+    ],
+    "configure.cases.*.name": [
+      3,
+      20
+    ],
+    "configure.dials.*.name": [
+      3,
+      20
+    ],
+    "configure.straps.*.name": [
+      3,
+      20
+    ],
+    "wind.title": [
+      4,
+      30
+    ],
+    "wind.accent": [
+      4,
+      30
+    ],
+    "wind.body": [
+      20,
+      190
+    ],
+    "dual.title": [
+      4,
+      30
+    ],
+    "dual.accent": [
+      4,
+      30
+    ],
+    "dual.body": [
+      20,
+      190
+    ],
+    "specs.title": [
+      4,
+      30
+    ],
+    "specs.accent": [
+      4,
+      22
+    ],
+    "specs.body": [
+      20,
+      190
+    ],
+    "specs.rows.*.label": [
+      3,
+      20
+    ],
+    "reserve.eyebrow": [
+      4,
+      36
+    ],
+    "reserve.title": [
+      4,
+      22
+    ],
+    "reserve.slots.*": [
+      4,
+      32
+    ],
+    "reserve.button": [
+      4,
+      32
+    ],
+    "reserve.slot": [
+      4,
+      24
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      4
+    ],
+    "locale.locale": [
+      2,
+      10
+    ]
+  },
+  "lists": {
+    "hero.pills": [
+      3,
+      3
+    ],
+    "hero.stages": [
+      6,
+      6
+    ],
+    "configure.cases": [
+      3,
+      3
+    ],
+    "configure.dials": [
+      4,
+      4
+    ],
+    "configure.straps": [
+      4,
+      4
+    ],
+    "specs.rows": [
+      12,
+      12
+    ],
+    "reserve.slots": [
+      3,
+      3
+    ]
+  },
+  "numbers": {
+    "configure.cases.*.price": [
+      1,
+      999999
+    ],
+    "configure.cases.*.weeks": [
+      1,
+      104
+    ],
+    "configure.dials.*.price": [
+      0,
+      99999
+    ],
+    "configure.straps.*.price": [
+      0,
+      99999
+    ],
+    "specs.water.m": [
+      10,
+      2000
+    ],
+    "specs.water.bar": [
+      1,
+      200
+    ]
+  },
+  "choices": {
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "The watch is a fixed drawing of a three-hand, hand-wound watch whose movement comes apart in six stages (assembled, crystal off, dial and hands, going train, escapement, reassembled); hero.stages are their titles and captions in that order. The movement beats at 4 Hz and the winding demo runs 72 h from 40 turns.",
+    "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood); names and prices come from the brand, the first dial and strap are included (price 0).",
+    "specs.rows: twelve rows, each a length in mm (shown in mm, inches or lignes), a text value, or the water-resistance row."
+  ],
+  "colours": []
+}

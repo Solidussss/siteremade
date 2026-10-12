@@ -1,0 +1,51 @@
+{
+  "name": "aldane",
+  "category": "watch launch",
+  "reference": "reference/aldane-original.html",
+  "referenceSha256": "361506e41f0149090bd1f46f6a77c66cf3e0d7162681b5fbb36e014d9477ba32",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {},
+  "checks": {},
+  "metrics": {
+    "word": {
+      "fontChoice": null,
+      "css": "font:500 1000px/.82 {family};letter-spacing:.02em;text-transform:uppercase",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500&display=swap",
+          "family": "Bodoni Moda"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": [
+        "brand.name"
+      ],
+      "metric": "word",
+      "size": [
+        72,
+        21,
+        300
+      ],
+      "container": {
+        "max": 1240,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ]
+}
