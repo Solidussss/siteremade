@@ -402,5 +402,12 @@
     "theme.paint",
     "theme.accent",
     "theme.studio"
-  ]
+  ],
+  "optional": {
+    "hours.week": {
+      "kind": "week",
+      "offer": "present",
+      "label": "opening hours"
+    }
+  }
 }

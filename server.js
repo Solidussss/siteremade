@@ -5957,6 +5957,25 @@ app.post('/api/designs/sites/:id/publish', requireAuth, requireSameOrigin, requi
   if (r.error) return res.status(400).json({ ok: false, message: r.error });
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
+// the website editor: what this site's design lets the owner change, and changing it (lib/design-editor.js)
+app.get('/api/designs/sites/:id/editor', requireAuth, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const ed = designSites.editorView(row); if (!ed) return res.status(409).json({ ok: false, message: 'Only a finished site can be edited.' });
+  res.json({ ok: true, editor: ed });
+});
+app.post('/api/designs/sites/:id/edit', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const b = req.body || {};
+  const r = designSites.edit(db, row, { changes: Array.isArray(b.changes) ? b.changes.slice(0, 200) : [], ops: Array.isArray(b.ops) ? b.ops.slice(0, 20) : [] }, 'account:' + req.accountId);
+  if (r.error) return res.status(400).json({ ok: false, message: r.error, errors: r.errors || [] });
+  return res.json({ ok: true, site: designSites.view(r.row), editor: designSites.editorView(r.row), changed: r.changed || [] });
+});
+app.post('/api/designs/sites/:id/undo', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const r = designSites.undo(db, row);
+  if (r.error) return res.status(400).json({ ok: false, message: r.error });
+  return res.json({ ok: true, site: designSites.view(r.row), editor: designSites.editorView(r.row) });
+});
 app.get('/api/designs/sites/:id/preview', requireAuth, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   if (!row.html) return res.status(404).type('text/plain').send('Not built yet');

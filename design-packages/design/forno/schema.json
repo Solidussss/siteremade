@@ -261,5 +261,12 @@
   ],
   "colours": [
     "theme.tomato"
-  ]
+  ],
+  "optional": {
+    "hours": {
+      "kind": "week",
+      "offer": "present",
+      "label": "opening hours"
+    }
+  }
 }

@@ -85,6 +85,19 @@ function validate(d, c) {
     for (const [p, v] of expand(c, pat)) if (!(v === undefined && optional) && !opts.includes(v)) errors.push(`${p}: "${v}" is not one of ${opts.join(', ')}`);
   }
   for (const pat of S.colours || []) for (const [p, v] of expand(c, pat)) if (!/^#[0-9a-f]{6}$/i.test(v || '')) errors.push(`${p}: use #rrggbb`);
+  // optional fields (a finish colour, a strap or bracelet): checked only where present
+  for (const [pat, o] of Object.entries(S.optional || {})) for (const [p, v] of expand(c, pat)) {
+    if (v == null) continue;
+    if (o.kind === 'colour' && !/^#[0-9a-f]{6}$/i.test(v)) errors.push(`${p}: use #rrggbb`);
+    if (o.kind === 'choice' && !o.options.includes(v)) errors.push(`${p}: "${v}" is not one of ${o.options.join(', ')}`);
+    if (o.kind === 'number' && (typeof v !== 'number' || !isFinite(v) || v < o.min || v > o.max)) errors.push(`${p}: ${v} (allowed ${o.min}-${o.max})`);
+    if (o.kind === 'text') { const n = [...String(v).replace(/\*/g, '')].length; if (typeof v !== 'string' || n < (o.min || 0) || n > o.max) errors.push(`${p}: ${n} characters (allowed ${o.min || 0}-${o.max}): "${v}"`); }
+    // a week of opening hours: each day null (closed) or { open, close } as HH:MM
+    if (o.kind === 'week') for (const day of ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']) {
+      const w = v[day], t = (x) => /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
+      if (w !== null && !(w && t(w.open) && t(w.close) && w.open < w.close)) errors.push(`${p}.${day}: closed, or open before close as HH:MM (24-hour)`);
+    }
+  }
   for (const [keys, max] of Object.entries(S.combined || {})) {
     const n = keys.split('+').reduce((a, k) => a + [...String(get(c, k) || '').replace(/\*/g, '')].length, 0);
     if (n > max) errors.push(`${keys}: ${n} characters together (allowed ${max})`);

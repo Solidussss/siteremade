@@ -264,5 +264,12 @@
   "colours": [
     "theme.accent",
     "theme.tint"
-  ]
+  ],
+  "optional": {
+    "hours": {
+      "kind": "week",
+      "offer": "present",
+      "label": "opening hours"
+    }
+  }
 }

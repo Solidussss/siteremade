@@ -70,6 +70,18 @@
 .st{font-size:11px;font-weight:750;letter-spacing:.02em}.st.pr{color:#b4561f}.st.il{color:#5b6b8c}
 .rk{font-size:12px;color:var(--muted);margin:-4px 0 12px}.rk b{color:var(--ink,#111)}
 .blk{margin:12px 0 0;padding:0;list-style:none;font-size:13px;color:#d9dbe1}.blk li{padding:6px 0;border-top:1px solid rgba(255,255,255,.12)}
+.editor{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+.epreview{position:sticky;top:18px}.eptabs{display:flex;gap:8px;margin-bottom:10px}.eptabs [aria-pressed="true"]{background:var(--dark);color:#fff}
+.epframe{height:78vh;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 16px 60px rgba(0,0,0,.08);margin:0 auto;transition:width .3s}.epframe iframe{width:100%;height:100%;border:0}.epframe.phone{width:390px;max-width:100%}
+.epanel{background:#fff;border-radius:24px;padding:24px;box-shadow:0 16px 60px rgba(0,0,0,.06)}
+.epanel h3{margin:0 0 6px;font-size:24px;letter-spacing:-.04em}.ebar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.epanel details{border-top:1px solid var(--line);padding:10px 0}.epanel summary{cursor:pointer;font-weight:750}.epanel summary span{color:var(--muted);font-weight:400}
+.efields{display:grid;gap:12px;margin-top:12px}.ef{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}.ef small{font-weight:400;color:var(--muted)}
+.ef input,.ef textarea,.ef select{width:100%;border:1px solid var(--line);background:#fafafa;padding:10px;border-radius:10px;font-size:14px;font-weight:400}.ef textarea{min-height:72px}.ef input[type=color]{height:42px;padding:4px}
+.wk{display:grid;gap:6px}.wk>div{display:grid;grid-template-columns:44px 74px 1fr 1fr;gap:8px;align-items:center;font-weight:500}.wk input[type=time]{padding:6px}.wk label{display:flex;gap:5px;align-items:center}
+.oc{display:flex;gap:10px;align-items:center}.oc label{display:flex;gap:6px;align-items:center;font-weight:500;white-space:nowrap}.oc input[type=color]{flex:1}
+.ferr{color:#b4361f;font-style:normal;font-weight:500}.ferr:empty{display:none}.elist{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:13px}
+@media(max-width:900px){.editor{grid-template-columns:1fr}.epreview{position:static}.epframe{height:70vh}}
 .publish{background:var(--dark);color:#fff;border-color:var(--dark)}
 .publish h3{color:#fff}.publish p{color:#a3a7b2}
 .publish .button{width:100%;background:#fff;color:#111;margin-top:16px}
@@ -246,6 +258,7 @@ function show(s) {
       <aside class="side">
         <div class="card publish"><span class="tag" style="color:#858995">${s.publicPath ? 'LIVE' : 'NOT PUBLISHED'}</span><h3>${s.publicPath ? 'It’s live.' : 'Publish when it looks right.'}</h3><p>${s.publicPath ? 'Anyone with the link can open it.' : 'It gets its own public link you can send to the business.'}</p>${s.publicPath ? `<div class="livelink"><a href="${s.publicPath}" target="_blank">${esc(url)}</a></div>` : ''}<button class="button ${s.publicPath ? 'off' : ''}" id="pub">${s.publicPath ? 'Unpublish' : 'Publish'}</button></div>
         <div class="card facts"><h3>Confirm with the business</h3>${s.reality ? `<p class="rk"><b>${s.reality.kind === 'concept' ? 'Concept business' : 'Real business'}</b>${s.reality.industry ? ' · ' + esc(s.reality.industry) : ''} · ${s.reality.counts.confirmed} from the brief, ${s.reality.counts.derived} worked out from it, ${s.reality.kind === 'concept' ? s.reality.counts.illustrative + ' illustrative' : s.reality.counts.proposed + ' proposed'}${s.reality.confirmed.length ? ` · ${s.reality.confirmed.length} confirmed by you` : ''}</p>` : ''}<p style="margin-bottom:12px">${s.confirm.length ? `${s.confirm.length} things on the site weren’t in the brief. Check them before you send the link.` : ''}</p>${facts}</div>
+        <button class="button" id="edit">Edit the website</button>
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/preview" target="_blank">Open the full page</a>
       </aside>
     </section>
@@ -255,6 +268,7 @@ function show(s) {
   $('#app').innerHTML = body;
   $('#back').onclick = load;
   if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
+  if ($('#edit')) $('#edit').onclick = () => showEditor(s);
   if ($('#pub')) $('#pub').onclick = async () => {
     const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) return show(r.site);
     const card = $('.card.publish'); if (!card) return;
@@ -267,6 +281,62 @@ function show(s) {
   };
   window.scrollTo({ top: 0, behavior: 'smooth' });
   fitFrames(); playAll();
+}
+/* ---------- the website editor: the site's real content, by the design's own rules ---------- */
+const ED_LABEL = (p) => p.split('.').map((k) => /^\d+$/.test(k) ? '#' + (+k + 1) : k.replace(/([a-z])([A-Z])/g, '$1 $2')).join(' · ');
+async function showEditor(s) {
+  clearTimeout(poll);
+  const r = await api(`/api/designs/sites/${s.id}/editor`); if (!r.ok) return show(s);
+  const ed = r.editor, pending = new Map(), ops = [];
+  const groups = {};
+  for (const f of ed.fields) { const top = f.path.split('.')[0]; const k = (SECTION_FOR[s.design] || {})[top] || SECTION[top] || top; (groups[k] = groups[k] || []).push(f); }
+  const input = (f) => {
+    const id = 'f_' + f.path.replace(/\W/g, '_'), dis = f.locked ? ' disabled' : '';
+    const lim = f.kind === 'text' ? ` maxlength="${f.max}"` : f.kind === 'number' ? ` min="${f.min}" max="${f.max}" step="any"` : '';
+    let ctl;
+    // a week of opening hours: each day closed or open-close
+    if (f.kind === 'week') ctl = `<div class="wk" data-week="${esc(f.path)}">${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((dd) => { const w = f.value && f.value[dd]; return `<div data-day="${dd}"><b>${dd[0].toUpperCase() + dd.slice(1)}</b><label><input type="checkbox" data-open${w ? ' checked' : ''}> Open</label><input type="time" data-t="open" value="${w ? esc(w.open) : '09:00'}"${w ? '' : ' disabled'}><input type="time" data-t="close" value="${w ? esc(w.close) : '17:00'}"${w ? '' : ' disabled'}></div>`; }).join('')}</div>`;
+    else if (f.kind === 'toggle') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}><option value="true"${f.value ? ' selected' : ''}>On</option><option value="false"${f.value ? '' : ' selected'}>Off</option></select>`;
+    else if (f.kind === 'choice') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}>${f.optional ? `<option value=""${f.value == null ? ' selected' : ''}>The design’s own</option>` : ''}${f.options.map((o) => `<option${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    // an optional colour: off = the design's own drawn finish; on = this colour
+    else if (f.kind === 'colour' && f.optional) ctl = `<span class="oc"><label><input type="checkbox" data-oc="${esc(f.path)}"${f.value ? ' checked' : ''}${dis}> Own colour</label><input type="color" id="${id}" data-p="${esc(f.path)}" value="${esc(f.value || '#888888')}"${f.value ? '' : ' disabled'}${dis}></span>`;
+    else if (f.kind === 'colour') ctl = `<input type="color" id="${id}" data-p="${esc(f.path)}" value="${esc(f.value)}"${dis}>`;
+    else if (f.kind === 'text' && f.max > 70) ctl = `<textarea id="${id}" data-p="${esc(f.path)}"${lim}${dis}>${esc(f.value)}</textarea>`;
+    else ctl = `<input id="${id}" data-p="${esc(f.path)}" type="${f.kind === 'number' ? 'number' : 'text'}" value="${esc(f.value)}"${lim}${dis}>`;
+    const hint = f.kind === 'text' ? ` <small>${f.min}–${f.max} characters</small>` : f.kind === 'number' ? ` <small>${f.min}–${f.max}</small>` : '';
+    return `<div class="ef"><span>${esc(ED_LABEL(f.path))}${f.label ? ` <small>${esc(f.label)}</small>` : ''}${f.locked ? ' · from the brief' : ''}${hint}</span>${ctl}<em class="ferr" data-e="${esc(f.path)}"></em></div>`;
+  };
+  const listCtl = ed.lists.map((l) => `<div class="elist"><span>${esc(ED_LABEL(l.path))}: ${l.length} (${l.min}–${l.max})</span><button type="button" class="button button-secondary" data-add="${esc(l.path)}"${l.length >= l.max ? ' disabled' : ''}>Add one</button><button type="button" class="button button-secondary" data-rm="${esc(l.path)}"${l.length <= l.min ? ' disabled' : ''}>Remove the last</button></div>`).join('');
+  $('#app').innerHTML = head(s, 3) + `<section class="editor">
+    <div class="epreview"><div class="eptabs"><button type="button" class="button button-secondary" data-dev="desk" aria-pressed="true">Desktop</button><button type="button" class="button button-secondary" data-dev="phone" aria-pressed="false">Phone</button></div>
+      <div class="epframe" id="epframe"><iframe id="epf" src="/api/designs/sites/${s.id}/preview?t=${Date.now()}" title="The website"></iframe></div></div>
+    <aside class="epanel"><h3>Edit the website</h3><p class="sub">Every change is checked against the design’s rules and rebuilt into the real page.${s.reality && s.reality.kind === 'real' ? ' What you type counts as confirmed by you.' : ''}</p>
+      <div class="ebar"><button class="button" id="esave" disabled>Save changes</button><button class="button button-secondary" id="eundo"${ed.revisions ? '' : ' disabled'}>Undo last save</button><button class="button button-secondary" id="edone">Done</button></div>
+      <p class="err" id="eerr"></p>
+      ${Object.entries(groups).map(([k, list], i) => `<details${i === 0 ? ' open' : ''}><summary>${esc(k)} <span>${list.length}</span></summary><div class="efields">${list.map(input).join('')}</div></details>`).join('')}
+      ${listCtl ? `<details><summary>Lists <span>${ed.lists.length}</span></summary>${listCtl}</details>` : ''}
+    </aside></section>`;
+  $('#back').onclick = load;
+  const save = $('#esave');
+  $('#app').querySelectorAll('[data-p]').forEach((el) => el.addEventListener('input', () => { pending.set(el.dataset.p, el.value); save.disabled = false; }));
+  $('#app').querySelectorAll('[data-week]').forEach((wk) => wk.addEventListener('input', () => {
+    const v = {}; wk.querySelectorAll('[data-day]').forEach((row) => { const on = row.querySelector('[data-open]').checked; row.querySelectorAll('[data-t]').forEach((t) => { t.disabled = !on; }); v[row.dataset.day] = on ? { open: row.querySelector('[data-t="open"]').value, close: row.querySelector('[data-t="close"]').value } : null; });
+    pending.set(wk.dataset.week, JSON.stringify(v)); save.disabled = false;
+  }));
+  $('#app').querySelectorAll('[data-oc]').forEach((cb) => cb.addEventListener('change', () => { const c = $(`[data-p="${CSS.escape(cb.dataset.oc)}"]`); c.disabled = !cb.checked; pending.set(cb.dataset.oc, cb.checked ? c.value : ''); save.disabled = false; }));
+  $('#app').querySelectorAll('[data-add],[data-rm]').forEach((b) => b.addEventListener('click', () => { ops.push(b.dataset.add ? { op: 'add', list: b.dataset.add } : { op: 'remove', list: b.dataset.rm }); b.disabled = true; save.disabled = false; }));
+  $('#app').querySelectorAll('[data-dev]').forEach((b) => b.addEventListener('click', () => { $('#epframe').classList.toggle('phone', b.dataset.dev === 'phone'); $('#app').querySelectorAll('[data-dev]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+  save.onclick = async () => {
+    save.disabled = true; $('#eerr').textContent = ''; $('#app').querySelectorAll('.ferr').forEach((e) => { e.textContent = ''; });
+    const r2 = await api(`/api/designs/sites/${s.id}/edit`, { changes: [...pending].map(([path, value]) => ({ path, value })), ops });
+    if (r2.ok) return showEditor(r2.site);
+    $('#eerr').textContent = r2.message || 'Something went wrong.';
+    for (const e of r2.errors || []) { const p = String(e).split(':')[0]; const slot = $(`.ferr[data-e="${CSS.escape(p)}"]`); if (slot) slot.textContent = e.slice(p.length + 1).trim(); else $('#eerr').textContent += ' ' + e; }
+    save.disabled = false;
+  };
+  $('#eundo').onclick = async () => { const r2 = await api(`/api/designs/sites/${s.id}/undo`, {}); if (r2.ok) showEditor(r2.site); };
+  $('#edone').onclick = () => show(s);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 load();
 </script>

@@ -1,61 +1,214 @@
 {
   "about": "What a business may change in the Steady Hand design. Everything not listed here is protected: the drawn head and its strand-by-strand skin fade, the five-stage scroll timeline and its HUD (stage names, guards, timer), the tools, the mirror and bulbs, the cut builder's options and drawing, layout, spacing, type scale, breakpoints and all interaction code.",
   "text": {
-    "business.name": [3, 48],
-    "business.wordmark": [2, 16],
-    "nav.cta": [4, 16],
-    "hero.street": [3, 26],
-    "hero.line1": [3, 16],
-    "hero.line2": [3, 18],
-    "hero.lede": [20, 170],
-    "cut.kicker": [4, 20],
-    "cut.titleA": [3, 18],
-    "cut.titleB": [3, 18],
-    "cut.body": [20, 170],
-    "menu.kicker": [3, 20],
-    "menu.title": [4, 28],
-    "menu.body": [20, 170],
-    "menu.groups.*.name": [3, 24],
-    "menu.groups.*.items.*.name": [3, 26],
-    "menu.groups.*.items.*.desc": [6, 70],
-    "booking.kicker": [3, 20],
-    "booking.titleA": [3, 18],
-    "booking.titleB": [3, 18],
-    "booking.body": [20, 170],
-    "booking.barbers.*.name": [2, 12],
-    "booking.barbers.*.specialty": [4, 34],
-    "booking.info.*.label": [3, 24],
-    "booking.info.*.value": [2, 22],
-    "footer.columns.*.label": [2, 18],
-    "footer.columns.*.lines.*": [2, 40],
-    "footer.fine": [4, 110],
-    "locale.currency": [1, 3]
+    "business.name": [
+      3,
+      48
+    ],
+    "business.wordmark": [
+      2,
+      16
+    ],
+    "nav.cta": [
+      4,
+      16
+    ],
+    "hero.street": [
+      3,
+      26
+    ],
+    "hero.line1": [
+      3,
+      16
+    ],
+    "hero.line2": [
+      3,
+      18
+    ],
+    "hero.lede": [
+      20,
+      170
+    ],
+    "cut.kicker": [
+      4,
+      20
+    ],
+    "cut.titleA": [
+      3,
+      18
+    ],
+    "cut.titleB": [
+      3,
+      18
+    ],
+    "cut.body": [
+      20,
+      170
+    ],
+    "menu.kicker": [
+      3,
+      20
+    ],
+    "menu.title": [
+      4,
+      28
+    ],
+    "menu.body": [
+      20,
+      170
+    ],
+    "menu.groups.*.name": [
+      3,
+      24
+    ],
+    "menu.groups.*.items.*.name": [
+      3,
+      26
+    ],
+    "menu.groups.*.items.*.desc": [
+      6,
+      70
+    ],
+    "booking.kicker": [
+      3,
+      20
+    ],
+    "booking.titleA": [
+      3,
+      18
+    ],
+    "booking.titleB": [
+      3,
+      18
+    ],
+    "booking.body": [
+      20,
+      170
+    ],
+    "booking.barbers.*.name": [
+      2,
+      12
+    ],
+    "booking.barbers.*.specialty": [
+      4,
+      34
+    ],
+    "booking.info.*.label": [
+      3,
+      24
+    ],
+    "booking.info.*.value": [
+      2,
+      22
+    ],
+    "footer.columns.*.label": [
+      2,
+      18
+    ],
+    "footer.columns.*.lines.*": [
+      2,
+      40
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      3
+    ]
   },
   "lists": {
-    "menu.groups": [1, 4],
-    "menu.groups.*.items": [1, 7],
-    "booking.barbers": [1, 4],
-    "booking.info": [2, 2],
-    "footer.columns": [4, 4],
-    "footer.columns.*.lines": [1, 3]
+    "menu.groups": [
+      1,
+      4
+    ],
+    "menu.groups.*.items": [
+      1,
+      7
+    ],
+    "booking.barbers": [
+      1,
+      4
+    ],
+    "booking.info": [
+      2,
+      2
+    ],
+    "footer.columns": [
+      4,
+      4
+    ],
+    "footer.columns.*.lines": [
+      1,
+      3
+    ]
   },
   "numbers": {
-    "cut.fade": [1, 999],
-    "cut.fadeMinutes": [10, 120],
-    "cut.taper": [1, 999],
-    "cut.taperMinutes": [10, 120],
-    "cut.part": [0, 99],
-    "cut.partMinutes": [0, 30],
-    "cut.textured": [0, 99],
-    "cut.buzzOff": [0, 99],
-    "menu.groups.*.items.*.minutes": [5, 240],
-    "menu.groups.*.items.*.price": [0, 9999],
-    "booking.barbers.*.chair": [1, 9]
+    "cut.fade": [
+      1,
+      999
+    ],
+    "cut.fadeMinutes": [
+      10,
+      120
+    ],
+    "cut.taper": [
+      1,
+      999
+    ],
+    "cut.taperMinutes": [
+      10,
+      120
+    ],
+    "cut.part": [
+      0,
+      99
+    ],
+    "cut.partMinutes": [
+      0,
+      30
+    ],
+    "cut.textured": [
+      0,
+      99
+    ],
+    "cut.buzzOff": [
+      0,
+      99
+    ],
+    "menu.groups.*.items.*.minutes": [
+      5,
+      240
+    ],
+    "menu.groups.*.items.*.price": [
+      0,
+      9999
+    ],
+    "booking.barbers.*.chair": [
+      1,
+      9
+    ]
   },
   "choices": {
-    "theme.fonts": ["classic", "gothic", "oswald"],
-    "theme.wordmarkFit": { "options": ["fit", "crop"], "optional": true },
-    "booking.barbers.*.colour": ["accent", "second", "chrome", "warm"]
+    "theme.fonts": [
+      "classic",
+      "gothic",
+      "oswald"
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    },
+    "booking.barbers.*.colour": [
+      "accent",
+      "second",
+      "chrome",
+      "warm"
+    ]
   },
   "rules": [
     "Text may not contain < > { } or line breaks.",
@@ -65,5 +218,16 @@
     "Prices are whole numbers. The first item of the first menu group starts ticked.",
     "Widths of the hero title lines, section titles and the phone nav row are measured in the chosen font (hooks.js)."
   ],
-  "colours": ["theme.accent", "theme.second", "theme.room"]
+  "colours": [
+    "theme.accent",
+    "theme.second",
+    "theme.room"
+  ],
+  "optional": {
+    "hours": {
+      "kind": "week",
+      "offer": "present",
+      "label": "opening hours"
+    }
+  }
 }

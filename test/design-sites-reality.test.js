@@ -88,7 +88,10 @@ test('a concept business: must say on the page that it is a demonstration; its i
   assert.match(site.attempts[0].errors[0], /concept, so the page must say so/);
   assert.match(w.log.feedback[0], /made-up business for a concept site/);
   assert.match(w.log.prompts[0].system, /This is a CONCEPT business/);
-  assert.ok(site.confirm.filter((c) => c.status).every((c) => c.status === 'illustrative'), JSON.stringify(site.confirm.map((c) => c.status)));
+  // a concept never shows "proposed": what it invented is illustrative; what follows from the brief stays derived or confirmed
+  const st = site.confirm.filter((c) => c.status).map((c) => c.status);
+  assert.ok(!st.includes('proposed') && st.filter((s) => s === 'illustrative').length >= 10, JSON.stringify(st));
+  assert.ok(site.confirm.some((c) => c.status === 'derived' && /28,800/.test(c.value)), '28,800 vph is worked out from the brief\'s 4 Hz');
   assert.equal(site.reality.kind, 'concept');
   assert.equal((await call('POST', `/api/designs/sites/${id}/publish`, { on: true })).status, 200, 'nothing to confirm for a concept that says so');
 });

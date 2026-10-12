@@ -1,15 +1,62 @@
 {
   "title": "Property listing",
   "fields": [
-    { "key": "businessName", "label": "Agency name", "required": true, "help": "The estate agency or brokerage, e.g. Tidewater Homes." },
-    { "key": "address", "label": "Property address", "required": true, "help": "Street address as it should appear, e.g. 27 Harbor Lane." },
-    { "key": "price", "label": "List price", "required": true, "help": "e.g. $412,000" },
-    { "key": "home", "label": "The home", "type": "textarea", "required": true, "help": "Beds and baths, square feet, lot size, year built and renovated, ceilings, roof, heating, parking, what is new." },
-    { "key": "rooms", "label": "Rooms and floor plan", "type": "textarea", "required": true, "help": "Each room with its size (Living 18 × 14 ft). If you have the floor plan, say where each room sits (north side, next to the kitchen...)." },
-    { "key": "area", "label": "The neighbourhood", "type": "textarea", "help": "Places nearby with walking minutes and direction (bakery, 4 min east), parks or water nearby, walk or transit scores if you have them." },
-    { "key": "agent", "label": "Listing agent", "type": "textarea", "required": true, "help": "Name, phone, a line about them, open house times, showing times." },
-    { "key": "costs", "label": "Taxes and costs", "type": "textarea", "help": "Property tax rate, typical insurance, HOA fees." },
-    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" }
+    {
+      "key": "businessName",
+      "label": "Agency name",
+      "required": true,
+      "help": "The estate agency or brokerage, e.g. Tidewater Homes."
+    },
+    {
+      "key": "address",
+      "label": "Property address",
+      "required": true,
+      "help": "Street address as it should appear, e.g. 27 Harbor Lane."
+    },
+    {
+      "key": "price",
+      "label": "List price",
+      "required": true,
+      "help": "e.g. $412,000"
+    },
+    {
+      "key": "home",
+      "label": "The home",
+      "type": "textarea",
+      "required": true,
+      "help": "Beds and baths, square feet, lot size, year built and renovated, ceilings, roof, heating, parking, what is new."
+    },
+    {
+      "key": "rooms",
+      "label": "Rooms and floor plan",
+      "type": "textarea",
+      "required": true,
+      "help": "Each room with its size (Living 18 × 14 ft). If you have the floor plan, say where each room sits (north side, next to the kitchen...)."
+    },
+    {
+      "key": "area",
+      "label": "The neighbourhood",
+      "type": "textarea",
+      "help": "Places nearby with walking minutes and direction (bakery, 4 min east), parks or water nearby, walk or transit scores if you have them."
+    },
+    {
+      "key": "agent",
+      "label": "Listing agent",
+      "type": "textarea",
+      "required": true,
+      "help": "Name, phone, a line about them, open house times, showing times."
+    },
+    {
+      "key": "costs",
+      "label": "Taxes and costs",
+      "type": "textarea",
+      "help": "Property tax rate, typical insurance, HOA fees."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €"
+    }
   ],
   "facts": [
     "listing.price",
@@ -43,11 +90,37 @@
     "business.name is set to exactly the agency name in the brief and cannot be changed; brand.name is how the agency's name is set in the nav and footer (it may be the same)."
   ],
   "readBack": [
-    { "label": "The listing", "path": "listing", "fields": ["address", "price"] },
-    { "label": "Floor plan", "path": "model.rooms", "fields": ["name", "w", "d"] },
-    { "label": "Nearby", "path": "area.places", "fields": ["n", "min", "dir"] }
+    {
+      "label": "The listing",
+      "path": "listing",
+      "fields": [
+        "address",
+        "price"
+      ]
+    },
+    {
+      "label": "Floor plan",
+      "path": "model.rooms",
+      "fields": [
+        "name",
+        "w",
+        "d"
+      ]
+    },
+    {
+      "label": "Nearby",
+      "path": "area.places",
+      "fields": [
+        "n",
+        "min",
+        "dir"
+      ]
+    }
   ],
   "pinned": {
     "business.name": "businessName"
-  }
+  },
+  "editorLockedLists": [
+    "model.rooms"
+  ]
 }

@@ -258,5 +258,54 @@
     "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood), in that order; names and prices come from the brand, the first dial and strap are included (price 0). Any option may add colour (#rrggbb) to redraw its finish in the brand's colour; a dial may add hand, a strap stitch. A strap option with kind \"bracelet\" is drawn as metal links in the case metal.",
     "specs.rows: twelve rows, each a length in mm (shown in mm, inches or lignes), a text value, or the water-resistance row."
   ],
-  "colours": []
+  "colours": [],
+  "optional": {
+    "configure.cases.*.colour": {
+      "kind": "colour",
+      "label": "finish colour (empty: the drawn metal)"
+    },
+    "configure.dials.*.colour": {
+      "kind": "colour",
+      "label": "dial colour (empty: the drawn dial)"
+    },
+    "configure.dials.*.hand": {
+      "kind": "colour",
+      "label": "hand colour"
+    },
+    "configure.straps.*.colour": {
+      "kind": "colour",
+      "label": "strap colour (empty: the drawn leather)"
+    },
+    "configure.straps.*.stitch": {
+      "kind": "colour",
+      "label": "stitch colour"
+    },
+    "configure.straps.*.kind": {
+      "kind": "choice",
+      "options": [
+        "strap",
+        "bracelet"
+      ],
+      "label": "strap or metal bracelet"
+    },
+    "specs.rows.*.mm": {
+      "kind": "number",
+      "min": 0.1,
+      "max": 99.9,
+      "offer": "present",
+      "label": "millimetres"
+    },
+    "specs.rows.*.value": {
+      "kind": "text",
+      "min": 1,
+      "max": 32,
+      "offer": "present"
+    },
+    "specs.rows.*.note": {
+      "kind": "text",
+      "min": 2,
+      "max": 40,
+      "offer": "present"
+    }
+  }
 }
