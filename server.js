@@ -5934,6 +5934,7 @@ function ownDesignSite(req, res) {
   if (!row || row.account_id !== req.accountId) { res.status(404).json({ ok: false, message: 'Site not found.' }); return null; }
   return row;
 }
+app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(html); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId) }));
 app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
