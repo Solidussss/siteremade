@@ -1,0 +1,286 @@
+{
+  "business": {
+    "name": "Ledger & Oak Accountants"
+  },
+  "brand": {
+    "name": "Ledger & Oak"
+  },
+  "contact": {
+    "phone": "0161 555 0177",
+    "reg": "Ledger & Oak Accountants Ltd is a member firm of the Institute of Chartered Accountants in England and Wales (ICAEW)."
+  },
+  "nav": {
+    "guide": "Services",
+    "fees": "Fees",
+    "people": "Team",
+    "consult": "Free call",
+    "cta": "Book a free call"
+  },
+  "hero": {
+    "eyebrow": "Ledger & Oak · accountants, Manchester",
+    "title": "Your numbers, sorted.",
+    "titleEm": "Your tax, on time.",
+    "lede": "Accounts, tax returns and payroll for sole traders and small companies, at a fixed monthly fee. Scroll through one tax return, from a shoebox of receipts to filed.",
+    "cta": "Book a free call",
+    "cta2": "See our fees",
+    "hint": "Scroll to open the file"
+  },
+  "matter": {
+    "ref": "LO-0731",
+    "flags": 2,
+    "fee": "£295",
+    "stamp": "Filed",
+    "folders": [
+      "Income",
+      "Expenses",
+      "Bank",
+      "Receipts"
+    ],
+    "memo": {
+      "title": "Your 2025–26 return",
+      "points": [
+        "Tax due: £3,412 by 31 January",
+        "Home office: £312 claimed",
+        "Van mileage: switched to simplified",
+        "Payments on account set up"
+      ]
+    }
+  },
+  "stages": [
+    {
+      "n": "First call",
+      "c": "A self-employed electrician with a deadline in three weeks. A fixed fee agreed on the call.",
+      "day": 1
+    },
+    {
+      "n": "Papers in",
+      "c": "Bank statements, invoices, a folder of fuel receipts and last year's return, all scanned in.",
+      "day": 3
+    },
+    {
+      "n": "Sorted",
+      "c": "Every line categorised: income, expenses, bank and receipts. Nothing counted twice.",
+      "day": 5
+    },
+    {
+      "n": "What matters",
+      "c": "Two things flagged: an unclaimed home office, and mileage that's cheaper on the simplified rate.",
+      "day": 7
+    },
+    {
+      "n": "The return",
+      "c": "A one-page summary of what you owe and when, before anything is filed.",
+      "day": 9
+    },
+    {
+      "n": "Filed",
+      "c": "Return submitted to HMRC with the confirmation saved. Twelve days before the deadline.",
+      "day": 10
+    }
+  ],
+  "guide": {
+    "eyebrow": "Services",
+    "title": "Tell us what you need. We'll tell you what it costs.",
+    "sub": "Pick what you are and what you need. You'll see the fee, how long it takes and who looks after it.",
+    "cta": "Book a free call about this",
+    "areas": [
+      {
+        "n": "Sole traders",
+        "d": "Self-employed and freelancers",
+        "sits": [
+          {
+            "n": "A tax return",
+            "fee": [
+              295,
+              295
+            ],
+            "time": "1–2 weeks",
+            "who": "Hannah Oakes",
+            "steps": [
+              "We collect your records and bank statements",
+              "We prepare the return and explain the bill",
+              "We file it with HMRC once you approve"
+            ],
+            "bring": "Your UTR, bank statements and any invoices or receipts."
+          },
+          {
+            "n": "Monthly bookkeeping",
+            "fee": [
+              60,
+              120
+            ],
+            "time": "Monthly",
+            "who": "Dev Patel",
+            "steps": [
+              "We connect your bank feed",
+              "We categorise every transaction each month",
+              "You get a simple profit report"
+            ],
+            "bring": "Online banking access and any receipts app you use."
+          }
+        ]
+      },
+      {
+        "n": "Limited companies",
+        "d": "Directors and small teams",
+        "sits": [
+          {
+            "n": "Year-end accounts",
+            "fee": [
+              850,
+              1400
+            ],
+            "time": "2–4 weeks",
+            "who": "Hannah Oakes",
+            "steps": [
+              "We prepare the accounts and corporation tax return",
+              "We go through them with you",
+              "We file with Companies House and HMRC"
+            ],
+            "bring": "Bank statements, sales and purchase records, and last year's accounts."
+          },
+          {
+            "n": "Payroll",
+            "fee": [
+              40,
+              90
+            ],
+            "time": "Monthly",
+            "who": "Dev Patel",
+            "steps": [
+              "We set up your payroll and pensions",
+              "We run it every month and send payslips",
+              "We file with HMRC in real time"
+            ],
+            "bring": "Employee details, salaries and your PAYE reference."
+          }
+        ]
+      },
+      {
+        "n": "VAT",
+        "d": "Registration and returns",
+        "sits": [
+          {
+            "n": "VAT returns",
+            "fee": [
+              120,
+              180
+            ],
+            "time": "Quarterly",
+            "who": "Dev Patel",
+            "steps": [
+              "We check every invoice for VAT",
+              "We prepare the return",
+              "We file it through Making Tax Digital"
+            ],
+            "bring": "Your VAT number and access to your bookkeeping software."
+          }
+        ]
+      }
+    ]
+  },
+  "fees": {
+    "eyebrow": "Fees",
+    "title": "A fixed fee, agreed first.",
+    "sub": "You'll know the number before we start. No billing by the hour, no surprises in January.",
+    "vat": 20,
+    "items": [
+      {
+        "area": "Sole traders",
+        "n": "Tax return",
+        "p": 295,
+        "from": false,
+        "incl": [
+          "Your self-assessment return",
+          "A summary of what you owe",
+          "Filing with HMRC",
+          "Questions answered all year"
+        ]
+      },
+      {
+        "area": "Companies",
+        "n": "Monthly package",
+        "p": 145,
+        "from": true,
+        "incl": [
+          "Bookkeeping and VAT",
+          "Payroll for up to five",
+          "Year-end accounts",
+          "Director's tax return"
+        ]
+      }
+    ],
+    "note": "Fees are per month or per return as shown. HMRC penalties from before you joined are not included."
+  },
+  "people": {
+    "eyebrow": "Team",
+    "title": "Real accountants, with names.",
+    "sub": "You'll always know who is looking after your numbers, and they'll pick up the phone.",
+    "list": [
+      {
+        "n": "Hannah Oakes",
+        "role": "Director, FCA",
+        "bio": "Founded the practice after twelve years in a big firm. Looks after companies and the difficult returns.",
+        "tags": [
+          "Companies",
+          "Tax"
+        ]
+      },
+      {
+        "n": "Dev Patel",
+        "role": "Senior accountant",
+        "bio": "Bookkeeping, VAT and payroll. Has never missed a deadline.",
+        "tags": [
+          "VAT",
+          "Payroll"
+        ]
+      },
+      {
+        "n": "Maya Lund",
+        "role": "Bookkeeper",
+        "bio": "Keeps the monthly books for sixty sole traders.",
+        "tags": [
+          "Bookkeeping"
+        ]
+      }
+    ]
+  },
+  "consult": {
+    "eyebrow": "Free first call",
+    "title": "Fifteen minutes, free, no obligation.",
+    "sub": "Pick a time and tell us a little about your business. We'll tell you what you need and what it costs.",
+    "slots": [
+      "9:30",
+      "11:00",
+      "13:30",
+      "15:30"
+    ],
+    "how": [
+      "Phone",
+      "Video"
+    ],
+    "promises": [
+      {
+        "t": "A fixed fee",
+        "d": "Agreed before we start, per month or per return."
+      },
+      {
+        "t": "Deadlines in the diary",
+        "d": "We remind you a month before every one."
+      }
+    ],
+    "cta": "Book the call",
+    "nameExample": "Alex Morgan",
+    "phoneExample": "07700 900123",
+    "noteExample": "I'm a self-employed plumber and my return is due soon."
+  },
+  "footer": {
+    "fine": "Ledger & Oak Accountants is a made-up firm for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#2E4C8C"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "halden",
+  "category": "law firm or accountants",
+  "reference": "reference/halden-original.html",
+  "referenceSha256": "3d59b9b93e6cd9dbdee952c4794d7c78189b9700542695c590519ecc2c33fe72",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#1F6B5E",
+      "target": "theme.accent",
+      "about": "the firm's colour: buttons, the mark, the file's edge, progress bars, the letterhead and stamp in the hero, the light accent lines on the dark desk, picked areas and times"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.42] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#1F6B5E", 4.5, "button text on the accent"],
+      ["A:#1A5C51", "#F6F3EC", 4.5, "accent text on the paper"],
+      ["A:#9FD3C6", "#15233A", 4.5, "light accent on the dark desk"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.012em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400&display=swap", "family": "Newsreader" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Public+Sans:wght@600&display=swap", "family": "Public Sans" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "display",
+      "size": [20, 10.4, 128],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

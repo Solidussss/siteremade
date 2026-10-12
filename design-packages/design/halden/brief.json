@@ -1,0 +1,44 @@
+{
+  "title": "Law firm or accountants",
+  "fields": [
+    { "key": "businessName", "label": "Firm name", "required": true, "help": "e.g. Halden & Vale" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or city, and whether you see clients in person." },
+    { "key": "phone", "label": "Phone for new clients", "required": true },
+    { "key": "regulator", "label": "Regulation", "required": true, "help": "Who regulates you and your number, exactly as it must appear (e.g. SRA No. 123456, ICAEW, ACCA)." },
+    { "key": "services", "label": "What you do", "type": "textarea", "required": true, "help": "Your areas of work and the situations clients come to you with, with typical fees and how long things take." },
+    { "key": "fees", "label": "Fixed fees", "type": "textarea", "help": "Your headline fixed fees and what's included. Say if prices are plus VAT." },
+    { "key": "people", "label": "Your people", "type": "textarea", "required": true, "help": "Two to four people: name, role, what they handle, a line about them." },
+    { "key": "process", "label": "How you work", "type": "textarea", "help": "Free first call? How quickly you reply? Phone, video or in person?" },
+    { "key": "example", "label": "A typical matter", "type": "textarea", "help": "Optional: one typical job from start to finish (a house purchase, a tax return, a settlement agreement) so we can show it step by step." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a name or hex code." }
+  ],
+  "facts": [
+    "contact.reg",
+    "contact.phone",
+    "guide.areas.*.sits.*.fee.*",
+    "guide.areas.*.sits.*.time",
+    "fees.items.*.p",
+    "fees.items.*.incl.*",
+    "fees.vat",
+    "people.list.*.n",
+    "people.list.*.role",
+    "matter.fee",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero works one example matter on a desk as you scroll: a first note, papers arriving, papers sorted into tabbed folders, a close read with highlights and numbered flags, an advice memo typed out, then a signature and a stamp. stages are those six steps, each a short name, a caption and the day count since the matter opened. Make it the brief's typical matter (a house purchase, a tax return, a settlement agreement); for accountants the folders are like Income, Expenses, Receipts, Bank and the stamp says Filed.",
+    "matter: the example's reference (letters from the firm's name, a dash, digits), how many points the close read flags (1-3, matching the fourth caption), its fixed fee as shown on the ledger, the stamp word, 3-5 folder labels, and the memo's title and 2-4 short points (each under 44 characters) that answer the flags.",
+    "contact.reg is the regulatory line exactly as the brief gives it; never invent a regulator or a number. If the brief gives none, write that the firm's regulatory details are available on request and list it in _assumed.",
+    "guide.areas: the brief's areas (two to five), each with one to four situations: fee [low, high] (equal if fixed), how long it takes, who handles it (exactly a name from people.list), two to four plain steps, and what to have ready. Use the brief's fees; if a range is missing, list it in _assumed.",
+    "fees: one to four headline fixed fees with from: true if it is a starting price, and what's included. fees.vat is the VAT or sales tax rate in percent, 0 if prices are shown without one.",
+    "people.list: two to four people from the brief, never invented. consult.how lists, in order, phone, video, in person (only those offered); consult.promises are two to four things the brief promises.",
+    "hero.title and hero.titleEm are a short two-part headline (four lines at most on a desktop). theme.accent is the firm's colour, dark enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the firm's name in the brief and cannot be changed; brand.name is how it appears in the nav and footer."
+  ],
+  "readBack": [
+    { "label": "Fees", "path": "fees.items", "fields": ["n", "p"] },
+    { "label": "People", "path": "people.list", "fields": ["n", "role"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

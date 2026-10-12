@@ -38,7 +38,9 @@ test('each kind of business reaches its design; others are told none fits', () =
     ['A hair salon in Brighton doing balayage and glosses', 'ochre'],
     ['Hairdresser and colourist for curly hair', 'ochre'],
     ['An organic skincare brand', null],
-    ['A law firm for tenants', null],
+    ['A law firm for tenants', 'halden'],
+    ['Accountants for small businesses in Leeds', 'halden'],
+    ['A CPA firm doing tax returns', 'halden'],
   ];
   for (const [t, want] of cases) assert.equal(route(t).best, want, t);
   const r = route('Booking software for barbers');

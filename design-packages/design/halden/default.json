@@ -1,0 +1,393 @@
+{
+  "business": {
+    "name": "Halden & Vale"
+  },
+  "brand": {
+    "name": "Halden & Vale"
+  },
+  "contact": {
+    "phone": "01225 555140",
+    "reg": "Halden & Vale LLP is authorised and regulated by the Solicitors Regulation Authority (SRA No. 000000)."
+  },
+  "nav": {
+    "guide": "What we do",
+    "fees": "Fees",
+    "people": "People",
+    "consult": "Free call",
+    "cta": "Book a free call"
+  },
+  "hero": {
+    "eyebrow": "Halden & Vale · solicitors, Bath",
+    "title": "Plain answers, fixed fees.",
+    "titleEm": "Then we get it done.",
+    "lede": "Property, employment, wills and small-business law from a firm of six. Scroll through one matter on our desk, from your first letter to the signed result.",
+    "cta": "Book a free call",
+    "cta2": "See our fees",
+    "hint": "Scroll to open the file"
+  },
+  "matter": {
+    "ref": "HV-2481",
+    "flags": 3,
+    "fee": "£1,450",
+    "stamp": "Completed",
+    "folders": [
+      "Identity",
+      "Title",
+      "Searches",
+      "Money"
+    ],
+    "memo": {
+      "title": "Our report on the flat",
+      "points": [
+        "Shared drive: right of way confirmed",
+        "Building certificate: indemnity agreed",
+        "Service charge: capped in the lease",
+        "Ready to exchange on your say-so"
+      ]
+    }
+  },
+  "stages": [
+    {
+      "n": "First call",
+      "c": "A couple buying their first home in Bath. Twenty minutes on the phone, a fixed fee agreed, and a file opened the same day.",
+      "day": 1
+    },
+    {
+      "n": "Papers in",
+      "c": "The contract pack from the seller's solicitor, ID, the mortgage offer and the searches, all in one place.",
+      "day": 6
+    },
+    {
+      "n": "Sorted",
+      "c": "Every document read and filed: identity, title, searches, money. Nothing waits in an inbox.",
+      "day": 9
+    },
+    {
+      "n": "What matters",
+      "c": "Three things flagged: a shared drive, a missing building certificate, and a service charge that rises in two years.",
+      "day": 14
+    },
+    {
+      "n": "Our advice",
+      "c": "A two-page report in plain English, what each point means for you and what we've asked the seller to fix.",
+      "day": 18
+    },
+    {
+      "n": "Completed",
+      "c": "Contracts exchanged, money moved, keys collected at noon. The file closes with a letter you'll actually keep.",
+      "day": 42
+    }
+  ],
+  "guide": {
+    "eyebrow": "What we do",
+    "title": "Tell us what's happening. We'll tell you what happens next.",
+    "sub": "Pick the area and what's going on. You'll see who'd handle it, what it usually costs, how long it takes and what to have ready for the first call.",
+    "cta": "Book a free call about this",
+    "areas": [
+      {
+        "n": "Property",
+        "d": "Buying, selling, leases",
+        "sits": [
+          {
+            "n": "Buying a home",
+            "fee": [
+              1250,
+              1650
+            ],
+            "time": "8–12 weeks",
+            "who": "Priya Nair",
+            "steps": [
+              "We check the contract pack and order searches",
+              "We report on anything that affects you, in plain English",
+              "We exchange, complete and register you as owner"
+            ],
+            "bring": "Your ID, the agent's details and your mortgage offer if you have one."
+          },
+          {
+            "n": "Selling a home",
+            "fee": [
+              995,
+              1350
+            ],
+            "time": "6–10 weeks",
+            "who": "Priya Nair",
+            "steps": [
+              "We prepare the contract pack and answer the buyer's questions",
+              "We agree dates and exchange",
+              "We complete, pay off the mortgage and send you the rest"
+            ],
+            "bring": "Your ID, the title deeds if you have them, and any guarantees or certificates."
+          },
+          {
+            "n": "A lease extension",
+            "fee": [
+              1800,
+              2400
+            ],
+            "time": "3–9 months",
+            "who": "Tom Vale",
+            "steps": [
+              "We get a valuation and serve the notice",
+              "We negotiate the premium with the landlord",
+              "We draw up and register the new lease"
+            ],
+            "bring": "Your current lease and any letters from the landlord."
+          }
+        ]
+      },
+      {
+        "n": "Employment",
+        "d": "For employees and small employers",
+        "sits": [
+          {
+            "n": "Settlement agreement",
+            "fee": [
+              450,
+              750
+            ],
+            "time": "1–2 weeks",
+            "who": "Grace Halden",
+            "steps": [
+              "We read the agreement and tell you if the money is fair",
+              "We negotiate better terms where we can",
+              "We sign the adviser's certificate so you get paid"
+            ],
+            "bring": "The draft agreement and your contract of employment."
+          },
+          {
+            "n": "Unfair dismissal",
+            "fee": [
+              1200,
+              4500
+            ],
+            "time": "2–9 months",
+            "who": "Grace Halden",
+            "steps": [
+              "We assess your claim and the deadlines",
+              "We start early conciliation through Acas",
+              "We negotiate, or take it to tribunal"
+            ],
+            "bring": "Your contract, the dismissal letter and any emails about it."
+          }
+        ]
+      },
+      {
+        "n": "Wills & estates",
+        "d": "Wills, powers of attorney, probate",
+        "sits": [
+          {
+            "n": "A will",
+            "fee": [
+              350,
+              600
+            ],
+            "time": "2–3 weeks",
+            "who": "Tom Vale",
+            "steps": [
+              "We talk through your family and what you want",
+              "We draft the will and explain every clause",
+              "We witness the signing and store the original free"
+            ],
+            "bring": "A list of what you own and who you want to look after things."
+          },
+          {
+            "n": "Lasting power of attorney",
+            "fee": [
+              450,
+              700
+            ],
+            "time": "8–16 weeks",
+            "who": "Tom Vale",
+            "steps": [
+              "We help you choose attorneys and set instructions",
+              "We prepare and sign the forms with you",
+              "We register them with the Office of the Public Guardian"
+            ],
+            "bring": "The names and addresses of your attorneys and a certificate provider."
+          },
+          {
+            "n": "Probate",
+            "fee": [
+              2500,
+              4500
+            ],
+            "time": "6–12 months",
+            "who": "Tom Vale",
+            "steps": [
+              "We value the estate and apply for the grant",
+              "We collect the money in and pay the debts",
+              "We pay out the gifts and close the estate"
+            ],
+            "bring": "The will, the death certificate and any bank or pension letters."
+          }
+        ]
+      },
+      {
+        "n": "Business",
+        "d": "Contracts, terms, disputes",
+        "sits": [
+          {
+            "n": "Terms & conditions",
+            "fee": [
+              650,
+              1200
+            ],
+            "time": "1–2 weeks",
+            "who": "Grace Halden",
+            "steps": [
+              "We learn how your business sells",
+              "We draft terms that fit and protect you",
+              "We walk you through them so you can use them"
+            ],
+            "bring": "What you sell, how you take payment, and any terms you use now."
+          },
+          {
+            "n": "An unpaid invoice",
+            "fee": [
+              150,
+              950
+            ],
+            "time": "2–8 weeks",
+            "who": "Grace Halden",
+            "steps": [
+              "We send a formal letter before action",
+              "We negotiate payment or a plan",
+              "We issue a claim if they still won't pay"
+            ],
+            "bring": "The invoice, the contract or order, and any messages about it."
+          }
+        ]
+      }
+    ]
+  },
+  "fees": {
+    "eyebrow": "Fees",
+    "title": "The price first, in writing.",
+    "sub": "Most of our work is fixed fee. You'll know the number before we start, and it won't move unless the job does, which we'll tell you about first.",
+    "vat": 20,
+    "items": [
+      {
+        "area": "Property",
+        "n": "Buying a home",
+        "p": 1250,
+        "from": true,
+        "incl": [
+          "Checking the contract and title",
+          "Searches ordered and explained",
+          "Your mortgage lender's work",
+          "Stamp duty return and registration"
+        ]
+      },
+      {
+        "area": "Employment",
+        "n": "Settlement agreement",
+        "p": 450,
+        "from": false,
+        "incl": [
+          "Advice on the terms and the money",
+          "One round of negotiation",
+          "The adviser's certificate",
+          "Often paid by your employer"
+        ]
+      },
+      {
+        "area": "Wills",
+        "n": "A single will",
+        "p": 350,
+        "from": false,
+        "incl": [
+          "A meeting in person or by video",
+          "Drafting and one round of changes",
+          "Witnessed signing",
+          "Free storage of the original"
+        ]
+      }
+    ],
+    "note": "Third-party costs such as search fees, Land Registry fees and court fees are extra and passed on at cost. We list them in your quote."
+  },
+  "people": {
+    "eyebrow": "People",
+    "title": "The person you speak to does the work.",
+    "sub": "No handing you down a chain. Your solicitor is named on the first call and stays with you to the end.",
+    "list": [
+      {
+        "n": "Grace Halden",
+        "role": "Partner",
+        "bio": "Employment and business disputes. Twenty years of getting people paid what they're owed.",
+        "tags": [
+          "Employment",
+          "Business"
+        ]
+      },
+      {
+        "n": "Tom Vale",
+        "role": "Partner",
+        "bio": "Wills, probate and leases. Explains a lease extension in one page.",
+        "tags": [
+          "Wills",
+          "Leases"
+        ]
+      },
+      {
+        "n": "Priya Nair",
+        "role": "Solicitor",
+        "bio": "Residential property. Has moved more than nine hundred families into new homes.",
+        "tags": [
+          "Property"
+        ]
+      },
+      {
+        "n": "Sam Okoro",
+        "role": "Trainee solicitor",
+        "bio": "Supports every team, and answers the phone when the rest of us are in meetings.",
+        "tags": [
+          "All areas"
+        ]
+      }
+    ]
+  },
+  "consult": {
+    "eyebrow": "Free first call",
+    "title": "Twenty minutes, no charge, no obligation.",
+    "sub": "Pick a time and tell us a little. A solicitor calls you, listens, and tells you plainly what they'd do and what it would cost.",
+    "slots": [
+      "9:00",
+      "10:30",
+      "12:30",
+      "14:00",
+      "16:00"
+    ],
+    "how": [
+      "Phone",
+      "Video",
+      "In person"
+    ],
+    "promises": [
+      {
+        "t": "A named solicitor",
+        "d": "The person on the first call handles your matter to the end."
+      },
+      {
+        "t": "The fee in writing",
+        "d": "Before any work starts, and it only moves if the job does."
+      },
+      {
+        "t": "An answer within a day",
+        "d": "Every email and call returned by the end of the next working day."
+      }
+    ],
+    "cta": "Book the call",
+    "nameExample": "Alex Morgan",
+    "phoneExample": "07700 900123",
+    "noteExample": "We've had an offer accepted on a flat and need a solicitor."
+  },
+  "footer": {
+    "fine": "Halden & Vale is a made-up firm for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#1F6B5E"
+  }
+}
