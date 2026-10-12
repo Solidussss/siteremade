@@ -1,0 +1,70 @@
+{
+  "name": "verge",
+  "category": "landscape gardener",
+  "reference": "reference/verge-original.html",
+  "referenceSha256": "169bdc42cb0ece3aae76e693113bebb52e720cbc7ea3eb85449fc59b2c87a85d",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#2F6B3F",
+      "target": "theme.accent",
+      "about": "the gardener's colour: buttons, the logo, the barrow, picked options and their icons, the care calendar's bars and dots, the progress bar"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#2F6B3F", 4.5, "button text on the accent"],
+      ["A:#2A5F38", "#F3F0E6", 4.5, "accent text on the page"],
+      ["A:#2A5F38", "#E8E3D3", 4.5, "accent text on the tinted section"],
+      ["A:#2A5F38", "A:#DDEAD9", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.015em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Gloock&display=swap", "family": "Gloock" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.03em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Gloock&display=swap", "family": "Gloock" }
+      }
+    },
+    "brand": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Gloock&display=swap", "family": "Gloock" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Karla:wght@800&display=swap", "family": "Karla" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 19, 250],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

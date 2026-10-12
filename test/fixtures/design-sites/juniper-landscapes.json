@@ -1,0 +1,378 @@
+{
+  "business": {
+    "name": "Juniper & Stone Landscapes"
+  },
+  "brand": {
+    "name": "Juniper & Stone"
+  },
+  "contact": {
+    "phone": "(512) 555-0193"
+  },
+  "nav": {
+    "quote": "Pricing",
+    "care": "Maintenance",
+    "book": "Consultation",
+    "cta": "Consult"
+  },
+  "hero": {
+    "eyebrow": "Juniper & Stone · landscape design, Austin",
+    "title": "Less lawn.",
+    "titleEm": "More living outside.",
+    "lede": "Drought-smart yards with porcelain patios, native grasses and lighting, designed and built by one crew. Scroll and watch an Austin backyard rebuilt.",
+    "cta": "Book a consult",
+    "cta2": "See pricing",
+    "hint": "Scroll to rebuild it"
+  },
+  "job": {
+    "style": "modern",
+    "area": 2200,
+    "tonnes": 6.5,
+    "plants": 64,
+    "days": 15,
+    "dims": [
+      40,
+      55
+    ]
+  },
+  "units": {
+    "area": "sq ft",
+    "length": "ft"
+  },
+  "stages": [
+    {
+      "n": "Consult",
+      "c": "We walk the yard with you, measure it, and mark what stays: the live oak, the shade, the slope.",
+      "when": "Week 1"
+    },
+    {
+      "n": "Demo",
+      "c": "Thirsty St. Augustine stripped out, old pavers and caliche hauled away, the grade set.",
+      "when": "Week 4"
+    },
+    {
+      "n": "Hardscape",
+      "c": "Large-format porcelain patio, steel edging, and a stepping-stone path to the fire pit.",
+      "when": "Week 5"
+    },
+    {
+      "n": "Sod",
+      "c": "A small, useful lawn of drought-tolerant zoysia, laid the day it was cut.",
+      "when": "Week 6"
+    },
+    {
+      "n": "Plant",
+      "c": "Native grasses, salvia and agave in the beds, a desert willow by the fence, drip irrigation in.",
+      "when": "Week 6"
+    },
+    {
+      "n": "Settled in",
+      "c": "One summer later: the grasses full, the water bill down, and the path lit for warm nights.",
+      "when": "Next July"
+    }
+  ],
+  "quote": {
+    "eyebrow": "Pricing",
+    "title": "Ballpark pricing, up front.",
+    "sub": "Tell us your yard size and what you want. It is a guide: your fixed price comes in writing after the consultation.",
+    "features": [
+      {
+        "n": "Patio",
+        "d": "Porcelain or flagstone",
+        "icon": "patio",
+        "from": 4000,
+        "rate": 3,
+        "days": 3,
+        "per100": 0.1
+      },
+      {
+        "n": "Native beds",
+        "d": "Grasses, perennials, drip",
+        "icon": "planting",
+        "from": 1500,
+        "rate": 2.5,
+        "days": 2,
+        "per100": 0.1
+      },
+      {
+        "n": "Small lawn",
+        "d": "Zoysia or buffalo grass",
+        "icon": "lawn",
+        "from": 900,
+        "rate": 1.5,
+        "days": 1,
+        "per100": 0.05
+      },
+      {
+        "n": "Landscape lighting",
+        "d": "Low-voltage LED",
+        "icon": "lighting",
+        "from": 1800,
+        "rate": 0.5,
+        "days": 1,
+        "per100": 0
+      },
+      {
+        "n": "Cedar fence",
+        "d": "Horizontal, 6 ft",
+        "icon": "fencing",
+        "from": 1200,
+        "rate": 2,
+        "days": 2,
+        "per100": 0.05
+      },
+      {
+        "n": "Paths",
+        "d": "Decomposed granite or pavers",
+        "icon": "path",
+        "from": 800,
+        "rate": 1,
+        "days": 1,
+        "per100": 0.05
+      }
+    ],
+    "finish": [
+      {
+        "n": "Standard",
+        "x": 1
+      },
+      {
+        "n": "Premium",
+        "x": 1.4
+      }
+    ],
+    "size": {
+      "min": 200,
+      "max": 5000,
+      "start": 1000,
+      "hint": "A typical Austin backyard is 1,500 sq ft"
+    },
+    "spread": [
+      0.85,
+      1.25
+    ],
+    "design": "Included",
+    "note": "Includes design, demo, materials, haul-away and a one-year plant warranty. Your fixed price is in writing before we start.",
+    "cta": "Book a consultation"
+  },
+  "care": {
+    "eyebrow": "Maintenance",
+    "title": "Kept sharp all year.",
+    "sub": "Our crews keep your yard the way it was designed. Pick a month to see what we do on our visits.",
+    "months": [
+      {
+        "name": "January",
+        "season": "Winter",
+        "line": "Cut-back season.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Cut back",
+            "s": "Grasses and perennials cut back to the crown."
+          }
+        ]
+      },
+      {
+        "name": "February",
+        "season": "Winter",
+        "line": "Pre-emergent before the weeds wake.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Pre-emergent",
+            "s": "Weed control down before the spring flush."
+          }
+        ]
+      },
+      {
+        "name": "March",
+        "season": "Spring",
+        "line": "Everything greens up at once.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Irrigation check",
+            "s": "Drip lines flushed and every zone tested."
+          },
+          {
+            "b": "Mulch",
+            "s": "Beds topped up with fresh hardwood mulch."
+          }
+        ]
+      },
+      {
+        "name": "April",
+        "season": "Spring",
+        "line": "Peak planting weather.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Fertilize",
+            "s": "Slow-release feed for lawn and beds."
+          }
+        ]
+      },
+      {
+        "name": "May",
+        "season": "Spring",
+        "line": "The last mild month.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Trim",
+            "s": "Shrubs shaped before the heat."
+          }
+        ]
+      },
+      {
+        "name": "June",
+        "season": "Summer",
+        "line": "Heat sets in.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Water schedule",
+            "s": "Controller set for summer, early mornings only."
+          }
+        ]
+      },
+      {
+        "name": "July",
+        "season": "Summer",
+        "line": "Survival mode, smartly.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Spot water",
+            "s": "New plants checked and hand-watered."
+          }
+        ]
+      },
+      {
+        "name": "August",
+        "season": "Summer",
+        "line": "The hottest month.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Heat check",
+            "s": "Stress spotted early, shade cloth if needed."
+          }
+        ]
+      },
+      {
+        "name": "September",
+        "season": "Fall",
+        "line": "Relief, and a second spring.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Overseed",
+            "s": "Bare lawn patches seeded as it cools."
+          }
+        ]
+      },
+      {
+        "name": "October",
+        "season": "Fall",
+        "line": "The best month to plant.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Plant",
+            "s": "New perennials in while the soil is warm."
+          }
+        ]
+      },
+      {
+        "name": "November",
+        "season": "Fall",
+        "line": "Leaves and a last mow.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Leaves",
+            "s": "Cleared from lawn and beds, mulched in place."
+          }
+        ]
+      },
+      {
+        "name": "December",
+        "season": "Winter",
+        "line": "Quiet, but checked.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Freeze prep",
+            "s": "Tender plants covered, irrigation winterized."
+          }
+        ]
+      }
+    ],
+    "planNote": "on our standard plan",
+    "plans": [
+      {
+        "b": "Standard",
+        "p": 140,
+        "unit": "a visit",
+        "s": "Twice a month in season, monthly in winter."
+      },
+      {
+        "b": "Full service",
+        "p": 220,
+        "unit": "a visit",
+        "s": "Weekly visits, irrigation and lighting included."
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Consultation",
+    "title": "Walk the yard with us.",
+    "sub": "A free hour on site with a designer. Pick a day and we will text to confirm the time.",
+    "times": [
+      "Morning",
+      "Midday",
+      "Afternoon"
+    ],
+    "more": [
+      "Maintenance only",
+      "Not sure yet"
+    ],
+    "closed": [
+      0,
+      6
+    ],
+    "steps": [
+      {
+        "b": "Free consultation",
+        "s": "An hour on site: how you use the yard, sun, shade and water."
+      },
+      {
+        "b": "Design and fixed price",
+        "s": "A 3D design and written price within ten days."
+      },
+      {
+        "b": "One crew builds it",
+        "s": "Start to finish, with a daily text update."
+      },
+      {
+        "b": "A year of warranty",
+        "s": "Any plant that fails in the first year is replaced free."
+      }
+    ],
+    "cta": "Book the consultation",
+    "note": "We work across Austin, Round Rock and the Hill Country.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(512) 555-0123",
+    "codeLabel": "ZIP code",
+    "codeExample": "78704"
+  },
+  "footer": {
+    "fine": "Juniper & Stone Landscapes is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#8A3F1F"
+  }
+}

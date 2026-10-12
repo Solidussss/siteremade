@@ -1,0 +1,36 @@
+{
+  "title": "Landscape gardener",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Verge Gardens" },
+    { "key": "location", "label": "Where you work", "required": true, "help": "Town or city, and the areas around it you cover." },
+    { "key": "phone", "label": "Phone for customers", "required": true },
+    { "key": "services", "label": "What you build and roughly what it costs", "type": "textarea", "required": true, "help": "Patios, lawns, planting, paths, lighting, fencing, decking, ponds: a typical price or price per square metre (or square foot) for each, and how long they take." },
+    { "key": "style", "label": "Your style", "help": "Cottage and flowering, or modern and clean-lined. Materials you like to use." },
+    { "key": "care", "label": "Garden care", "type": "textarea", "help": "Maintenance plans and prices, and what you do through the year." },
+    { "key": "visit", "label": "First visit", "help": "Is it free? How long? What happens after: design, price, build." },
+    { "key": "currency", "label": "Currency and units", "help": "e.g. £ and m², or $ and sq ft" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your van or logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "quote.features.*.from",
+    "quote.features.*.rate",
+    "quote.design",
+    "care.plans.*.p",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one makeover of a back garden seen from above: survey (tapes along the edges), clear (brambles and rubble swept away), build (patio, path, bed edging, gravel), turf, plant, then grown in at dusk with the path lit. job.style picks the look: cottage (sandstone, curved lawn, flowering borders) or modern (porcelain, straight lines, grasses); choose from the brief's style. Write the six stages for that makeover: a short name, a caption and when it happens.",
+    "job.area, tonnes, plants and days are the example job's numbers; job.dims its width and length. units are the brief's (m² and m, or sq ft and ft); every area, rate and slider value is in units.area.",
+    "quote.features: what the brief builds (two to eight), each priced as a fixed part (from) plus a part per unit of area (rate), with days on site (days plus per100 for every 100 units of area). If the brief gives only a typical price, put it in from with rate 0. The first two start picked: put the most asked-for first. quote.finish: standard (x 1) and, if the brief has one, a premium multiplier. quote.size: a sensible slider for the brief's gardens. quote.design: what design costs (Free, Included, or a price).",
+    "care.months: January to December with the brief's own seasonal jobs (one to four each) and visits per month on the plan named in care.planNote. Write seasons for where the gardener works (Texas summers, UK winters). care.plans: up to three plans with a price per visit from the brief.",
+    "book: times offered, extra answers for what the customer wants (after the features), days you don't visit, how it goes in up to four steps, and the postcode or ZIP label with an example. The booking is a demo: nothing is sent.",
+    "Never invent an accreditation, a warranty or a price the brief doesn't give. hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the gardener's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "What you build", "path": "quote.features", "fields": ["n", "from", "rate"] },
+    { "label": "Care plans", "path": "care.plans", "fields": ["b", "p"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

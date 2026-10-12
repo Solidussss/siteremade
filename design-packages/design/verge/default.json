@@ -1,0 +1,460 @@
+{
+  "business": {
+    "name": "Verge Gardens"
+  },
+  "brand": {
+    "name": "Verge"
+  },
+  "contact": {
+    "phone": "01483 960412"
+  },
+  "nav": {
+    "quote": "Prices",
+    "care": "Garden care",
+    "book": "Free visit",
+    "cta": "Book a free visit"
+  },
+  "hero": {
+    "eyebrow": "Verge · garden design & care, Surrey",
+    "title": "From bramble to",
+    "titleEm": "a garden you live in.",
+    "lede": "We design it, build it and look after it: patios, paths, lawns and planting, with one team from the first visit to the first summer. Scroll and watch a back garden made over.",
+    "cta": "Book a free visit",
+    "cta2": "Rough price",
+    "hint": "Scroll to make it over"
+  },
+  "job": {
+    "style": "cottage",
+    "area": 140,
+    "tonnes": 4.5,
+    "plants": 86,
+    "days": 12,
+    "dims": [
+      10,
+      14
+    ]
+  },
+  "units": {
+    "area": "m²",
+    "length": "m"
+  },
+  "stages": [
+    {
+      "n": "Survey",
+      "c": "We walk it with you, measure every edge and note what stays: the apple tree, the light, where the sun sets.",
+      "when": "Week 1"
+    },
+    {
+      "n": "Clear",
+      "c": "Brambles out by the root, rubble and the old pallets gone, the ground levelled and ready.",
+      "when": "Week 3"
+    },
+    {
+      "n": "Build",
+      "c": "Sandstone patio laid on a full bed, a stepping-stone path to the bench, oak sleepers for the borders.",
+      "when": "Week 4"
+    },
+    {
+      "n": "Turf",
+      "c": "Topsoil raked level, then fresh turf rolled out the same morning it was cut.",
+      "when": "Week 5"
+    },
+    {
+      "n": "Plant",
+      "c": "Roses, lavender and salvias in the borders, a new acer by the fence, pots by the door.",
+      "when": "Week 5"
+    },
+    {
+      "n": "Grown in",
+      "c": "First summer: the borders full, the lawn thick, and the path lit for warm evenings.",
+      "when": "Next June"
+    }
+  ],
+  "quote": {
+    "eyebrow": "Prices",
+    "title": "A rough price before we visit.",
+    "sub": "Tell us how big your garden is and what you'd like. It's a guide, not a quote: we fix the price after the free visit, in writing.",
+    "features": [
+      {
+        "n": "A new patio",
+        "d": "Sandstone or porcelain",
+        "icon": "patio",
+        "from": 2400,
+        "rate": 22,
+        "days": 3,
+        "per100": 2
+      },
+      {
+        "n": "Lawn",
+        "d": "Levelled and turfed",
+        "icon": "lawn",
+        "from": 600,
+        "rate": 14,
+        "days": 1,
+        "per100": 1
+      },
+      {
+        "n": "Planting",
+        "d": "Borders designed and planted",
+        "icon": "planting",
+        "from": 900,
+        "rate": 16,
+        "days": 1,
+        "per100": 1
+      },
+      {
+        "n": "Paths",
+        "d": "Stepping stones or gravel",
+        "icon": "path",
+        "from": 700,
+        "rate": 8,
+        "days": 1,
+        "per100": 0.5
+      },
+      {
+        "n": "Lighting",
+        "d": "Low-voltage, path and patio",
+        "icon": "lighting",
+        "from": 1100,
+        "rate": 4,
+        "days": 1,
+        "per100": 0
+      },
+      {
+        "n": "Fencing",
+        "d": "Feather-edge or slatted",
+        "icon": "fencing",
+        "from": 500,
+        "rate": 12,
+        "days": 1,
+        "per100": 1
+      },
+      {
+        "n": "Decking",
+        "d": "Hardwood or composite",
+        "icon": "decking",
+        "from": 2200,
+        "rate": 12,
+        "days": 2,
+        "per100": 1
+      },
+      {
+        "n": "Water feature",
+        "d": "Rill, bowl or wildlife pond",
+        "icon": "water",
+        "from": 1400,
+        "rate": 0,
+        "days": 1,
+        "per100": 0
+      }
+    ],
+    "finish": [
+      {
+        "n": "Standard",
+        "x": 1
+      },
+      {
+        "n": "Premium materials",
+        "x": 1.35
+      }
+    ],
+    "size": {
+      "min": 20,
+      "max": 400,
+      "start": 80,
+      "hint": "A tennis court is about 260 m²"
+    },
+    "spread": [
+      0.85,
+      1.2
+    ],
+    "design": "Free",
+    "note": "Includes clearing, materials, waste and VAT. Your fixed price comes after the visit, and it doesn't change once we start.",
+    "cta": "Book a free visit"
+  },
+  "care": {
+    "eyebrow": "Garden care",
+    "title": "Looked after, month by month.",
+    "sub": "After the build, we keep it the way it was meant to be. Pick a month to see what we do on our visits.",
+    "months": [
+      {
+        "name": "January",
+        "season": "Winter",
+        "line": "Quiet in the borders, busy underground.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Winter pruning",
+            "s": "Apple and pear trees shaped while they sleep."
+          },
+          {
+            "b": "Clear and check",
+            "s": "Leaves off the lawn, fences and paths checked after storms."
+          }
+        ]
+      },
+      {
+        "name": "February",
+        "season": "Winter",
+        "line": "The first bulbs show. Time to get ahead.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Cut back",
+            "s": "Grasses and last year's perennials cut to the ground."
+          },
+          {
+            "b": "Roses",
+            "s": "Pruned hard to an outward bud and mulched."
+          }
+        ]
+      },
+      {
+        "name": "March",
+        "season": "Spring",
+        "line": "Everything wakes up at once.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "First mow",
+            "s": "On a high cut, edges trimmed sharp."
+          },
+          {
+            "b": "Feed and mulch",
+            "s": "Borders fed and mulched before the weeds start."
+          },
+          {
+            "b": "Divide",
+            "s": "Crowded perennials lifted and split."
+          }
+        ]
+      },
+      {
+        "name": "April",
+        "season": "Spring",
+        "line": "The lawn starts to race.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Lawn feed",
+            "s": "Spring feed and moss treatment, bare patches seeded."
+          },
+          {
+            "b": "Weeding",
+            "s": "Borders weeded by hand while the roots are shallow."
+          },
+          {
+            "b": "Supports",
+            "s": "Peony and delphinium supports in before they need them."
+          }
+        ]
+      },
+      {
+        "name": "May",
+        "season": "Spring",
+        "line": "The borders fill out week by week.",
+        "visits": 3,
+        "jobs": [
+          {
+            "b": "Mow weekly",
+            "s": "Every visit, with edges and paths swept."
+          },
+          {
+            "b": "Plant out",
+            "s": "Summer pots and gaps in the borders planted."
+          },
+          {
+            "b": "Hedges",
+            "s": "A first light trim once the birds have finished nesting."
+          }
+        ]
+      },
+      {
+        "name": "June",
+        "season": "Summer",
+        "line": "Long evenings. The garden at its best.",
+        "visits": 3,
+        "jobs": [
+          {
+            "b": "Deadhead",
+            "s": "Roses and perennials deadheaded to keep them flowering."
+          },
+          {
+            "b": "Water",
+            "s": "New planting and pots watered deeply, not often."
+          },
+          {
+            "b": "Mow",
+            "s": "Higher cut in dry spells to keep the lawn green."
+          }
+        ]
+      },
+      {
+        "name": "July",
+        "season": "Summer",
+        "line": "Keeping it going through the heat.",
+        "visits": 3,
+        "jobs": [
+          {
+            "b": "Water and feed",
+            "s": "Pots fed weekly, borders watered in dry weeks."
+          },
+          {
+            "b": "Trim",
+            "s": "Lavender cut back after flowering, box clipped."
+          }
+        ]
+      },
+      {
+        "name": "August",
+        "season": "Summer",
+        "line": "Late colour, and the first seeds.",
+        "visits": 3,
+        "jobs": [
+          {
+            "b": "Hedges",
+            "s": "The main hedge cut, clean and square."
+          },
+          {
+            "b": "Deadhead",
+            "s": "Dahlias and salvias kept flowering into autumn."
+          }
+        ]
+      },
+      {
+        "name": "September",
+        "season": "Autumn",
+        "line": "The best month to plant.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Lawn repair",
+            "s": "Scarified, aerated and overseeded."
+          },
+          {
+            "b": "Plant",
+            "s": "Shrubs and perennials planted while the soil is warm."
+          },
+          {
+            "b": "Bulbs",
+            "s": "Spring bulbs ordered and the first ones in."
+          }
+        ]
+      },
+      {
+        "name": "October",
+        "season": "Autumn",
+        "line": "Tidy, but not too tidy.",
+        "visits": 2,
+        "jobs": [
+          {
+            "b": "Leaves",
+            "s": "Cleared from lawns and paths, left under hedges for wildlife."
+          },
+          {
+            "b": "Tulips",
+            "s": "Planted deep in pots and borders."
+          }
+        ]
+      },
+      {
+        "name": "November",
+        "season": "Autumn",
+        "line": "Putting the garden to bed.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Last mow",
+            "s": "Final cut and the mower serviced."
+          },
+          {
+            "b": "Protect",
+            "s": "Tender plants wrapped, pots raised on feet."
+          }
+        ]
+      },
+      {
+        "name": "December",
+        "season": "Winter",
+        "line": "Bare bones, good bones.",
+        "visits": 1,
+        "jobs": [
+          {
+            "b": "Check",
+            "s": "Storm damage, ties and stakes checked."
+          },
+          {
+            "b": "Plan",
+            "s": "A walk round together to plan next year."
+          }
+        ]
+      }
+    ],
+    "planNote": "on a fortnightly plan",
+    "plans": [
+      {
+        "b": "Monthly",
+        "p": 85,
+        "unit": "a visit",
+        "s": "One visit a month: the big jobs, done at the right time."
+      },
+      {
+        "b": "Fortnightly",
+        "p": 75,
+        "unit": "a visit",
+        "s": "Lawn, borders and hedges kept in shape all year."
+      },
+      {
+        "b": "Weekly in summer",
+        "p": 65,
+        "unit": "a visit",
+        "s": "Weekly May to August, fortnightly the rest of the year."
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Free visit",
+    "title": "Walk the garden with us.",
+    "sub": "An hour in your garden with a designer, free and with no obligation. Pick a day and we'll confirm a time by text.",
+    "times": [
+      "Morning",
+      "Afternoon"
+    ],
+    "more": [
+      "Garden care",
+      "Not sure yet"
+    ],
+    "closed": [
+      0
+    ],
+    "steps": [
+      {
+        "b": "We walk it together",
+        "s": "An hour in your garden: what you love, what you don't, how you use it."
+      },
+      {
+        "b": "A design and a fixed price",
+        "s": "Drawings and a written price within two weeks."
+      },
+      {
+        "b": "We build it",
+        "s": "One team from start to finish, the garden left tidy every night."
+      }
+    ],
+    "cta": "Book the visit",
+    "note": "We cover Guildford, Woking and the villages around them.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123",
+    "codeLabel": "Postcode",
+    "codeExample": "GU1 3AA"
+  },
+  "footer": {
+    "fine": "Verge Gardens is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#2F6B3F"
+  }
+}
