@@ -1,0 +1,56 @@
+{
+  "title": "Gym or fitness studio",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true },
+    { "key": "location", "label": "Address", "required": true },
+    { "key": "contact", "label": "Phone or email for members", "required": true },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Mon-Fri 6am-9pm, Sat 8-2, closed Sunday." },
+    { "key": "classes", "label": "Classes and timetable", "type": "textarea", "required": true, "help": "Your classes (name, how hard, how long, what you do, who coaches) and when they run each day. Up to nine different classes." },
+    { "key": "memberships", "label": "Memberships and prices", "type": "textarea", "required": true, "help": "Three plans from cheapest to most expensive, what each includes, and any yearly deal or drop-in price." },
+    { "key": "facilities", "label": "Equipment", "type": "textarea", "help": "Optional: racks, platforms, bikes, anything members ask about." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your gym and your members." },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a colour name or hex code." },
+    { "key": "other", "label": "Anything else", "type": "textarea", "help": "Free trial details, class size, cancellation policy, offers." }
+  ],
+  "facts": [
+    "schedule.week.*.*",
+    "schedule.classes.*.minutes",
+    "schedule.capacity",
+    "schedule.dropIn",
+    "schedule.body",
+    "join.tiers.*.price",
+    "join.tiers.*.features.*",
+    "join.freeMonths",
+    "join.body",
+    "join.eyebrow",
+    "join.monthlyNote",
+    "hours.week.*.open",
+    "hours.week.*.close",
+    "hours.note",
+    "facilities.racks",
+    "footer.columns.*.lines.*",
+    "nav.tagline",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation: a heart-rate monitor climbing from resting to a max-effort set in eight stages (resting, warm-up, four training zones, a braced breath, a new personal record) with a particle burst at the end. hero.words are the eight big words on the monitor (short, up to 10 characters), hero.captions the seven lines under it for stages 2-8, in the gym's own training language. hero.pr is the record shown at the top (a lift and RPE, then a weight and the gain); it is an example of a member's PR, so keep it plausible and generic rather than naming a real person.",
+    "schedule.classes: up to nine different classes, each with a name, a heart-rate zone 1-5 (1 easy mobility, 2 steady cardio, 3 strength, 4 hard conditioning, 5 all-out), an RPE as text (e.g. 7–8), minutes, the main work in one line (format) and the coach. Leave out 'id'. schedule.week is Monday to Sunday, each a list of [\"HH:MM\", class index] in time order, [] for a day without classes; every class must appear at least once. schedule.trialClass is the index of the class the free-session form suggests first (pick an approachable one).",
+    "schedule.capacity is the class size limit (13-40; if the brief gives a smaller one, ask with _blocked). schedule.eyebrow summarises the days and times; schedule.body may state the number of classes a week only if it matches the timetable you wrote.",
+    "max is the 1-rep-max calculator, a fixed tool with kg/lb plates; only its title and one line change.",
+    "join.tiers: exactly three plans, cheapest first (the middle one is highlighted with join.popularTag). Each name is two short lines (nameA, nameB, e.g. 'Open' / 'Floor'), a whole-number monthly price, 3-5 features and a button label. join.freeMonths is how many months a yearly payment saves (1-4); if the brief has no yearly deal, use 2 and list join.freeMonths in _assumed. join.monthlyNote is the line under monthly prices (the cancellation terms from the brief, or just 'Billed monthly').",
+    "hours.week: Sunday to Saturday, null = closed, open and close as HH:MM (00:00 to 24:00 for 24-hour opening). hours.note says it in words. The busy-floor chart is a fixed typical-day shape from 5 AM to 11 PM; facilities.racks is the number of squat racks it counts (from the brief, else the example's and list it in _assumed).",
+    "footer.columns are four columns: where (address), hours, equipment, contact (phone and/or email).",
+    "business.wordmark is the name in capitals for the nav (e.g. VENTRICLE); business.footerWord is the giant footer word (the same name, in normal case). Both are the business's own name or a recognisable shortening, never a different name.",
+    "theme.accent is the brand colour: it fills the membership wall and the buttons, with white and black text both sitting on it, and it doubles as heart-rate zone 5. It has to be a strong, saturated mid-tone in the red, orange-red, pink or purple range (e.g. #e0262e, #df3020, #df2080, #bf20df), not blue, yellow or green (those are the other plate colours).",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "Opening hours", "path": "hours.week", "format": "week" },
+    { "label": "Classes", "path": "schedule.classes", "fields": ["name", "zone", "minutes", "coach"] },
+    { "label": "Memberships", "path": "join.tiers", "fields": ["nameA", "nameB", "price"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

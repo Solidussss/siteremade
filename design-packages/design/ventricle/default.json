@@ -1,0 +1,93 @@
+{
+  "business": { "name": "Ventricle Strength Club", "wordmark": "VENTRICLE", "footerWord": "Ventricle" },
+  "nav": { "tagline": "Strength Club · 5 AM–11 PM", "cta": "Book a free session", "ctaShort": "Free session" },
+  "hero": {
+    "title": "Ventricle Strength Club. Every class is coached by heart rate.",
+    "lede": "Scroll to take this monitor from 62 BPM resting to a 185 BPM max-effort set.",
+    "words": ["Resting", "Warm up", "Build", "Work", "Push", "Max", "Brace", "New PR"],
+    "captions": [
+      "Easy spin and empty-bar sets. 2 × 10 squats with the 20 kg bar.",
+      "Conversational pace. The aerobic base that lets you recover between heavy sets.",
+      "Working sets. Back squat 5 × 5 at 75%, RPE 7–8.",
+      "Sled pushes and farmer’s carries. Talking is down to single words.",
+      "Top single at RPE 10. Every fibre recruited.",
+      "Big breath into the belt. Brace. Unrack.",
+      "Back squat 182.5 kg. Up 7.5 kg on your last block."
+    ],
+    "pr": { "lift": "Back squat · RPE 10", "weight": "182.5 kg · +7.5" }
+  },
+  "schedule": {
+    "eyebrow": "Class schedule · Mon–Sun · 05:15–20:00",
+    "title": "This week on the floor",
+    "body": "42 coached classes a week, capped at 14 people. Every class lists its target zone, RPE and the main sets, so you know what you are walking into before you book.",
+    "dropIn": "Drop-ins $25",
+    "capacity": 14,
+    "trialClass": 2,
+    "classes": [
+      { "id": "mob", "name": "Mobility & Breath", "zone": 1, "rpe": "3", "minutes": 30, "format": "Hip CARs, 90/90 switches, box breathing 4-4-4-4", "coach": "Ines V." },
+      { "id": "eng", "name": "Engine 45", "zone": 2, "rpe": "5–6", "minutes": 45, "format": "4 × 8 min row / bike at nose-breathing pace, 2 min easy between", "coach": "Dara O." },
+      { "id": "str", "name": "Barbell Strength", "zone": 3, "rpe": "7–8", "minutes": 60, "format": "Back squat 5 × 5 @ 75%, rest 2:30 · RDL 3 × 8", "coach": "Theo K." },
+      { "id": "oly", "name": "Olympic Lifting", "zone": 3, "rpe": "7", "minutes": 60, "format": "Snatch EMOM 10 × 2 @ 70% · clean pulls 4 × 3", "coach": "Mina A." },
+      { "id": "pwb", "name": "Powerbuilding", "zone": 3, "rpe": "8", "minutes": 60, "format": "Bench 4 × 6 @ RPE 8 · rows and dips 3 × 12", "coach": "Theo K." },
+      { "id": "sled", "name": "Sled & Carry", "zone": 4, "rpe": "8–9", "minutes": 45, "format": "6 rounds: 20 m sled push, 40 m farmer’s carry, 90 s rest", "coach": "Dara O." },
+      { "id": "kb", "name": "Kettlebell Complex", "zone": 4, "rpe": "8", "minutes": 45, "format": "EMOM 24: swing, clean, press, front squat × 5", "coach": "Ines V." },
+      { "id": "spr", "name": "Sprint Lab", "zone": 5, "rpe": "9–10", "minutes": 30, "format": "10 × 15 s air bike all-out, 1:45 rest", "coach": "Mina A." },
+      { "id": "max", "name": "Max Effort", "zone": 5, "rpe": "9–10", "minutes": 75, "format": "Work up to a heavy single, then 3 × 3 @ 90%", "coach": "Theo K." }
+    ],
+    "week": {
+      "mon": [["05:15", 1], ["06:30", 2], ["12:15", 6], ["17:30", 5], ["18:45", 4], ["20:00", 0]],
+      "tue": [["05:15", 3], ["06:30", 7], ["12:15", 1], ["17:30", 2], ["18:45", 6], ["20:00", 0]],
+      "wed": [["05:15", 1], ["06:30", 4], ["12:15", 5], ["17:30", 8], ["18:45", 1], ["20:00", 0]],
+      "thu": [["05:15", 6], ["06:30", 2], ["12:15", 7], ["17:30", 3], ["18:45", 5], ["20:00", 0]],
+      "fri": [["05:15", 1], ["06:30", 8], ["12:15", 6], ["17:30", 4], ["18:45", 7], ["20:00", 0]],
+      "sat": [["07:00", 3], ["08:00", 2], ["09:15", 5], ["10:30", 1], ["11:30", 0], ["13:00", 4]],
+      "sun": [["08:00", 1], ["09:15", 6], ["10:30", 0], ["11:30", 2], ["13:00", 1], ["15:00", 7]]
+    }
+  },
+  "max": {
+    "title": "Find your 1-rep max",
+    "body": "Enter a recent set you finished with good form. We estimate your one-rep max, build your training percentages and show exactly which plates go on each side of the bar."
+  },
+  "join": {
+    "eyebrow": "Membership · no joining fee in October",
+    "title": "Pick your zone",
+    "body": "Every plan includes the full floor: 8 squat racks, 4 lifting platforms, calibrated plates, air bikes, rowers and a 20 m sled lane. Cancel with 30 days' notice.",
+    "per": "/ month",
+    "monthlyNote": "Billed monthly · cancel with 30 days’ notice",
+    "freeMonths": 2,
+    "popularTag": "Most members",
+    "tiers": [
+      { "nameA": "Open", "nameB": "Floor", "price": 69, "features": ["Floor access 5 AM–11 PM, 7 days", "Chalk, belts and wrist wraps on the rack", "Free first 1RM test with a coach", "Drop into any class for $18"], "cta": "Start with Open Floor" },
+      { "nameA": "Coached", "nameB": "12", "price": 159, "features": ["12 classes a month, any intensity", "Chest-strap HR monitor on loan", "Quarterly testing day: 1RM, 2 km row, max HR", "Everything in Open Floor"], "cta": "Start with Coached 12" },
+      { "nameA": "Unlimited", "nameB": "+ Program", "price": 229, "features": ["Unlimited classes", "Your own 12-week block written by a coach", "Monthly form check on video", "Two guest passes a month"], "cta": "Start with Unlimited" }
+    ]
+  },
+  "hours": {
+    "note": "5 AM–11 PM every day, including holidays. Coaches on the floor 6 AM–9 PM.",
+    "week": {
+      "sun": { "open": "05:00", "close": "23:00" },
+      "mon": { "open": "05:00", "close": "23:00" },
+      "tue": { "open": "05:00", "close": "23:00" },
+      "wed": { "open": "05:00", "close": "23:00" },
+      "thu": { "open": "05:00", "close": "23:00" },
+      "fri": { "open": "05:00", "close": "23:00" },
+      "sat": { "open": "05:00", "close": "23:00" }
+    }
+  },
+  "trial": {
+    "title": "Book a free session",
+    "body": "Your first class is on us. A coach meets you 10 minutes early to fit a heart-rate strap and check your squat."
+  },
+  "facilities": { "racks": 8 },
+  "footer": {
+    "columns": [
+      { "label": "Floor", "lines": ["Unit 4, Foundry Yard", "Riverside Industrial Estate"] },
+      { "label": "Hours", "lines": ["Every day 5 AM–11 PM", "Coached 6 AM–9 PM"] },
+      { "label": "Kit", "lines": ["8 racks · 4 platforms", "20 m sled lane · 6 air bikes"] },
+      { "label": "Front desk", "lines": ["hello@ventricle.example", "Text (555) 018-0190"] }
+    ],
+    "fine": "Ventricle Strength Club is a made-up business for a concept site."
+  },
+  "locale": { "currency": "$" },
+  "theme": { "accent": "#e0262e" }
+}

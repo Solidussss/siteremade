@@ -63,7 +63,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
     const owner = await session(OWNER);
     const list = await owner('GET', '/api/designs');
     assert.equal(list.status, 200);
-    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube']);
+    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube', 'ventricle']);
     assert.equal((await owner('GET', '/designs')).status, 200);
 
     // the recorded writer: draft 1 breaks one rule (headline too long), draft 2 passes

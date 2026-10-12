@@ -1,0 +1,80 @@
+{
+  "name": "ventricle",
+  "category": "gym",
+  "reference": "reference/ventricle-original.html",
+  "referenceSha256": "4b36619b783f4e34253c13a71df52de85327f1cf47a5a1bfa5d97dcb125c21be",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "R": {
+      "base": "#e0262e",
+      "target": "theme.accent",
+      "about": "the brand colour: buttons, the membership wall, tier borders, the logo trace, the footer word shadow; also heart-rate zone 5 and the 25 kg plate"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.3,
+          0.62
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#f2f2ee",
+        "R:#e0262e",
+        3.6,
+        "button text on the brand colour"
+      ],
+      [
+        "#121212",
+        "R:#e0262e",
+        3.6,
+        "text on the membership wall"
+      ],
+      [
+        "R:#e0262e",
+        "#121110",
+        3.6,
+        "brand colour on the dark floor"
+      ]
+    ]
+  },
+  "metrics": {
+    "brand": {
+      "fontChoice": null,
+      "css": "font:900 1000px/1 {family};font-stretch:62.5%;font-variation-settings:'wdth' 62;letter-spacing:.02em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    },
+    "disp": {
+      "fontChoice": null,
+      "css": "font:900 1000px/1 {family};font-stretch:62.5%;font-variation-settings:'wdth' 62;letter-spacing:-.005em;text-transform:uppercase",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@700&display=swap",
+          "family": "Instrument Sans"
+        }
+      }
+    }
+  },
+  "guards": []
+}
