@@ -122,6 +122,37 @@ let D = null, chosen = null, poll = null;
 // scale a 1440px page into whatever box it sits in
 function fitFrames() { document.querySelectorAll('.screen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 1440})`; }); document.querySelectorAll('.pscreen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 390})`; }); }
 addEventListener('resize', fitFrames);
+// Previews play themselves. A design's hero is driven by scrolling (Beadline washes the car as you scroll), so a preview
+// nobody scrolls just sits there. Each preview (same origin) is scrolled slowly through its pinned hero on a loop, only
+// while it's on screen, until someone scrolls or taps inside it.
+const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+function autoplay(f) {
+  if (f._auto) return; f._auto = true;
+  let stopped = false;
+  // on screen? (measured each frame from the preview's box: WebKit's IntersectionObserver says a scaled preview never is)
+  const seen = () => { const r = f.parentElement.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0; };
+  const start = () => {
+    let w, d; try { w = f.contentWindow; d = f.contentDocument; } catch (e) { return; }
+    if (!w || !d || !d.body) return;
+    for (const ev of ['wheel', 'pointerdown', 'touchstart', 'keydown']) d.addEventListener(ev, () => { stopped = true; }, { passive: true, once: true });
+    const hero = [...d.querySelectorAll('section')].find((s) => s.offsetHeight > w.innerHeight * 2);
+    if (!hero) return;
+    const RUN = 16000, HOLD = 2600, BACK = 1400, LOOP = RUN + HOLD + BACK;
+    const t0 = performance.now() + 2200; // let the page settle (Halcyra fills its bottle) before the first pass
+    (function tick(now) {
+      if (stopped || !f.isConnected) return;
+      if (seen()) {
+        const top = hero.getBoundingClientRect().top + w.scrollY, span = hero.offsetHeight - w.innerHeight;
+        const t = ((now - t0) % LOOP + LOOP) % LOOP;
+        const k = now < t0 ? 0 : t < RUN ? ease(t / RUN) : t < RUN + HOLD ? 1 : 0;
+        w.scrollTo({ top: top + span * k, behavior: 'instant' });
+      }
+      requestAnimationFrame(tick);
+    })(performance.now());
+  };
+  if (f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.body && f.contentDocument.body.childElementCount) start(); else f.addEventListener('load', start, { once: true });
+}
+const playAll = () => document.querySelectorAll('.screen iframe, .pscreen iframe').forEach(autoplay);
 const frame = (src, address, live) => `<div class="frame"><div class="browser-top"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-address">${esc(address)}</div><div></div></div><div class="screen${live ? ' live' : ''}">${src ? `<iframe src="${src}" title="Preview" tabindex="-1"></iframe>` : '<div class="blank">Writing…</div>'}</div></div>`;
 const steps = (n) => `<ol class="steps">${['01 Design', '02 Brief', '03 Writing', '04 Review', '05 Publish'].map((t, i) => `<li class="${i === n ? 'on' : i < n ? 'done' : ''}">${t}</li>`).join('')}</ol>`;
 
@@ -147,7 +178,7 @@ function home() {
   <section class="sites"><h2>Your sites</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Pick a design above to make the first one.</p>'}</section>`;
   document.querySelectorAll('.dcard').forEach((b) => { b.onclick = () => pick(b.dataset.d); b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(b.dataset.d); } }; });
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
-  fitFrames();
+  fitFrames(); playAll();
 }
 function pick(d) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
@@ -207,7 +238,7 @@ function show(s) {
   if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
   if ($('#pub')) $('#pub').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) show(r.site); };
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  fitFrames();
+  fitFrames(); playAll();
 }
 load();
 </script>
