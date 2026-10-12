@@ -1,0 +1,52 @@
+{
+  "name": "steadyhand",
+  "category": "barber shop",
+  "reference": "reference/steadyhand-original.html",
+  "referenceSha256": "1cd025b3c741ebfed9cffa0f050dc6540a4f65c9254c8ef89892e346ef31d44c",
+  "template": "template.html",
+  "schema": "schema.json",
+  "tables": "tables.json",
+  "hooks": "hooks.js",
+  "families": {
+    "R": { "base": "#e23b2f", "target": "theme.accent", "about": "accent: buttons, headline emphasis, footer, the FRESH stamp, tool handles, barber pole stripe" },
+    "B": { "base": "#4a76e6", "target": "theme.second", "about": "second colour: guard tags, the clipper guide line, focus rings, barber pole stripe" },
+    "D": { "base": "#131110", "target": "theme.room", "keepLightness": true, "about": "the dark shop: backgrounds, lines, text greys, the mirror (tint only)" }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.3, 0.62] },
+      { "path": "theme.second", "range": [0.3, 0.72] },
+      { "path": "theme.room", "range": [0.02, 0.2], "maxSaturation": 0.5 }
+    ],
+    "contrast": [
+      ["#ffffff", "R:#e23b2f", 3.6, "button and footer text on the accent"],
+      ["R:#e23b2f", "D:#131110", 3, "accent text on the dark shop"],
+      ["D:#131110", "B:#4a76e6", 3, "avatar letter on the second colour"],
+      ["B:#4a76e6", "D:#131110", 3, "focus ring on the dark shop"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": "theme.fonts",
+      "css": "font:400 1000px/1 {family};letter-spacing:.01em;text-transform:uppercase",
+      "fonts": {
+        "classic": { "url": "https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap", "family": "Bebas Neue" },
+        "gothic": { "url": "https://fonts.googleapis.com/css2?family=League+Gothic&display=swap", "family": "League Gothic" },
+        "oswald": { "url": "https://fonts.googleapis.com/css2?family=Oswald:wght@400&display=swap", "family": "Oswald" }
+      }
+    },
+    "cta": {
+      "fontChoice": "theme.fonts",
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "classic": { "url": "https://fonts.googleapis.com/css2?family=Sora:wght@600&display=swap", "family": "Sora" },
+        "gothic": { "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600&display=swap", "family": "Inter Tight" },
+        "oswald": { "url": "https://fonts.googleapis.com/css2?family=Work+Sans:wght@600&display=swap", "family": "Work Sans" }
+      }
+    }
+  },
+  "guards": [
+    { "name": "wordmark fit", "type": "fitText", "selector": ".wordmark", "text": ["business.wordmark"], "metric": "display",
+      "size": [70, 19, 300], "container": { "max": 1360, "gutter": [16, 5, null] }, "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" } }
+  ]
+}

@@ -19,6 +19,8 @@ const FILTERS = {
   attr: (v) => FILTERS.esc(v).replace(/"/g, '&quot;'),
   // (only "</script" can end the script block early, so only that is escaped; other HTML inside strings stays as is)
   js: (v) => "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/<\/(script)/gi, '<\\/$1') + "'",
+  // the inside of a '...' string that the template already has the quotes for
+  jsq: (v) => FILTERS.js(v).slice(1, -1),
   jsd: (v) => '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/<\/(script)/gi, '<\\/$1') + '"',
   tl: (v) => String(v).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'),
   num: (v) => { if (typeof v !== 'number' || !isFinite(v)) throw new Error('not a number: ' + v); return String(v); },
@@ -30,7 +32,7 @@ const FILTERS = {
   // the same text with the markers removed (for aria labels, canvas text)
   plain: (v) => String(v).replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1'),
 };
-const ESCAPING = new Set(['esc', 'attr', 'js', 'jsd', 'tl', 'num', 'raw', 'rich']);
+const ESCAPING = new Set(['esc', 'attr', 'js', 'jsq', 'jsd', 'tl', 'num', 'raw', 'rich']);
 
 function parse(src) {
   const re = /\{\{([^{}]+)\}\}/g;

@@ -45,8 +45,8 @@ function families(d, c) {
   }
   return out;
 }
-// "F:#hex" -> that colour turned by family F; "=path" -> a colour from the content
-function colourRef(ref, fam, c) { if (ref.startsWith('=')) return get(c, ref.slice(1)); const m = /^([A-Z][A-Za-z]*):(.+)$/.exec(ref); return fam[m[1]](m[2]); }
+// "F:#hex" -> that colour turned by family F; "=path" -> a colour from the content; "#hex" -> that fixed colour
+function colourRef(ref, fam, c) { if (ref.startsWith('=')) return get(c, ref.slice(1)); if (/^#[0-9a-f]{6}$/i.test(ref)) return ref; const m = /^([A-Z][A-Za-z]*):(.+)$/.exec(ref); return fam[m[1]](m[2]); }
 
 // width of a text in em, from the glyph table measured for this design (see measure.js)
 function textEm(d, c, metric, text) {

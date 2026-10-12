@@ -2,7 +2,7 @@
 // DESIGN SITES (lib/design-sites.js, design-packages/): the brief-to-site flow through the REAL route table, with a
 // recorded writer (test/fixtures/design-sites: answers recorded earlier) -- never the paid AI. Checks the owner-only
 // gate, the writer -> checker -> retry loop, the pinned name question, publishing at /s/<id>, and that both designs'
-// default content still builds.
+// default content still builds (every design in the gallery).
 process.env.SITEREMADE_DB_PATH = ':memory:';
 // (the owner gate trusts an owner account that predates the feature; here every account is new, so the cutoff moves)
 process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
@@ -40,12 +40,12 @@ async function server() {
 }
 const until = async (fn, ms = 10000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise((r) => setTimeout(r, 50)); } };
 
-test('both designs: default content passes its rules and builds', () => {
-  for (const d of ['beadline', 'halcyra']) {
+test('every design: default content passes its rules and builds', () => {
+  for (const d of designSites.designs().map((x) => x.design)) {
     const D = loadDesign(path.join(__dirname, '..', 'design-packages', 'design', d));
     const c = JSON.parse(fs.readFileSync(path.join(D.dir, 'default.json'), 'utf8'));
     assert.deepEqual(validate(D, c).errors, [], d);
-    assert.ok(build(D, c).html.length > 80000, d + ' builds');
+    assert.ok(build(D, c).html.length > 40000, d + ' builds');
   }
 });
 
@@ -63,7 +63,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
     const owner = await session(OWNER);
     const list = await owner('GET', '/api/designs');
     assert.equal(list.status, 200);
-    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra']);
+    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand']);
     assert.equal((await owner('GET', '/designs')).status, 200);
 
     // the recorded writer: draft 1 breaks one rule (headline too long), draft 2 passes

@@ -1,0 +1,79 @@
+{
+  "business": { "name": "Steady Hand Barbers", "wordmark": "STEADY HAND" },
+  "nav": { "cta": "Book a chair" },
+  "hero": {
+    "street": "14 Ferrow Lane",
+    "line1": "Scroll for",
+    "line2": "a *fresh fade.*",
+    "lede": "Take a seat in chair 2. This is a mid skin fade, start to finish, seen from behind the chair. When you like it, book yours in two taps."
+  },
+  "cut": {
+    "kicker": "Build your cut",
+    "titleA": "Know what to",
+    "titleB": "ask for.",
+    "body": "Pick the height, the guard and the top. The mirror re-cuts it live, and the ticket spells it out the way your barber says it.",
+    "fade": 42, "fadeMinutes": 45,
+    "taper": 38, "taperMinutes": 40,
+    "part": 5, "partMinutes": 5,
+    "textured": 3, "buzzOff": 4
+  },
+  "menu": {
+    "kicker": "The menu",
+    "title": "Prices on the wall.",
+    "body": "Every cut ends with a hot towel and a neck shave. Tick what you want and see the total and when you'll be out the door.",
+    "groups": [
+      { "name": "Cuts", "items": [
+        { "id": "skin", "name": "Skin fade", "desc": "Foil to skin, blended up to the length you want on top", "minutes": 45, "price": 42 },
+        { "id": "taper", "name": "Taper", "desc": "Clean nape and sideburns, sides stay full", "minutes": 40, "price": 38 },
+        { "id": "sciss", "name": "Scissor cut", "desc": "All scissors, for longer hair and curls", "minutes": 45, "price": 45 },
+        { "id": "buzz", "name": "Buzz cut", "desc": "One guard all over, edged up", "minutes": 20, "price": 24 },
+        { "id": "kids", "name": "Kids cut", "desc": "Under 12, any style", "minutes": 30, "price": 28 }
+      ] },
+      { "name": "Beard & shave", "items": [
+        { "id": "beard", "name": "Beard trim + line-up", "desc": "Shape, guard work and a razor edge", "minutes": 20, "price": 22 },
+        { "id": "shave", "name": "Hot towel shave", "desc": "Two towels, pre-shave oil, straight razor", "minutes": 35, "price": 40 },
+        { "id": "line", "name": "Line-up only", "desc": "Hairline and edges between cuts", "minutes": 10, "price": 15 }
+      ] },
+      { "name": "Add-ons", "items": [
+        { "id": "part", "name": "Hard part", "desc": "Razor line on one side", "minutes": 5, "price": 5 },
+        { "id": "design", "name": "Hair design", "desc": "One freehand line design", "minutes": 15, "price": 10 }
+      ] }
+    ]
+  },
+  "booking": {
+    "kicker": "Book",
+    "titleA": "Two taps.",
+    "titleB": "Chair's yours.",
+    "body": "Tap a time, then tap confirm. No account, no deposit. Cancel up to 2 hours before by text.",
+    "refPrefix": "SH",
+    "barbers": [
+      { "name": "Dez", "colour": "accent", "specialty": "Fades, tapers, designs", "chair": 2 },
+      { "name": "Maren", "colour": "second", "specialty": "Scissor cuts, curls, long hair", "chair": 1 },
+      { "name": "Tobi", "colour": "chrome", "specialty": "Beards, hot towel shaves", "chair": 3 }
+    ],
+    "info": [
+      { "label": "Chairs", "value": "3 chairs · 3 barbers" },
+      { "label": "Late?", "value": "10 min grace" }
+    ]
+  },
+  "hours": {
+    "sun": { "open": "10:00", "close": "16:00" },
+    "mon": { "open": "09:00", "close": "21:00" },
+    "tue": { "open": "09:00", "close": "21:00" },
+    "wed": { "open": "09:00", "close": "21:00" },
+    "thu": { "open": "09:00", "close": "21:00" },
+    "fri": { "open": "09:00", "close": "21:00" },
+    "sat": { "open": "08:00", "close": "18:00" }
+  },
+  "footer": {
+    "columns": [
+      { "label": "Find us", "lines": ["14 Ferrow Lane, Unit 2", "Two doors down from the laundromat"] },
+      { "label": "Hours", "lines": ["Mon–Fri 9 AM–9 PM", "Sat 8 AM–6 PM · Sun 10 AM–4 PM"] },
+      { "label": "Call or text", "lines": ["(555) 014-2290", "Walk-ins until 8 PM"] },
+      { "label": "Pay", "lines": ["Card, cash, tap", "Kids under 12: $28"] }
+    ],
+    "fine": "Steady Hand Barbers is a made-up business for a concept site."
+  },
+  "locale": { "currency": "$" },
+  "theme": { "accent": "#e23b2f", "second": "#4a76e6", "room": "#131110", "fonts": "classic", "wordmarkFit": "crop" }
+}

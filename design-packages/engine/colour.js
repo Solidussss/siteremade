@@ -49,6 +49,7 @@ function make(t) {
     let m;
     if (t.ident) return /^\d+,\d+,\d+$/.test(str) ? `rgba(${str},` : str;
     if ((m = /^#([0-9a-f]{6})$/i.exec(str))) return hex(...tf(...hexRgb(str)));
+    if ((m = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(str))) return hex(...tf(...hexRgb('#' + m[1]))) + m[2];
     if ((m = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([^)]+)\)$/.exec(str))) return `rgba(${tf(+m[1], +m[2], +m[3]).join(',')},${m[4]})`;
     if ((m = /^(\d+),(\d+),(\d+)$/.exec(str))) return `rgba(${tf(+m[1], +m[2], +m[3]).join(',')},`;
     throw new Error('colour literal not understood: ' + str);
