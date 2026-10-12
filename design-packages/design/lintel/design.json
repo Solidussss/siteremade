@@ -1,0 +1,87 @@
+{
+  "name": "lintel",
+  "category": "real estate listing",
+  "reference": "reference/lintel-original.html",
+  "referenceSha256": "7b26cfef0256864213ed27d0d7562e1a8ca356a2e9e2adbec73cedadd67c3b30",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#2C5A4E",
+      "target": "theme.accent",
+      "about": "the agency colour: buttons, the plan's doors, the principal bars, the map's home and parks, the agent badge (light and dark mode)"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.18,
+          0.42
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#F2F5F0",
+        "A:#2C5A4E",
+        4.5,
+        "button text on the accent"
+      ],
+      [
+        "A:#2C5A4E",
+        "#ECEEE8",
+        4.5,
+        "accent text on the paper"
+      ],
+      [
+        "#0E1514",
+        "A:#86BCA9",
+        4.5,
+        "button text on the accent (dark mode)"
+      ]
+    ]
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": [
+        "brand.name"
+      ],
+      "metric": "word",
+      "size": [
+        16,
+        11.5,
+        170
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4,
+          48
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ],
+  "metrics": {
+    "word": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.88 {family};font-stretch:125%;text-transform:uppercase;letter-spacing:-.03em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    }
+  }
+}

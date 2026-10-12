@@ -1,0 +1,914 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Instrument+Sans:wdth,wght@75..100,400..700&family=Azeret+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: drafting-table page. A pinned model-building stage, then ruled listing sheets laid on a left-aligned 12-col grid. */
+:root{
+  --paper:#ECEEE8; --paper-2:#E2E5DE; --sheet:#F5F6F2;
+  --ink:#1B2523; --ink-2:#46534F; --muted:#6F7C77; --rule:#C3CAC2; --rule-2:#D5DAD3;
+  --accent:{{A:#2C5A4E}}; --accent-2:{{A:#3E7766}}; --on-accent:#F2F5F0;
+  --brass:#A8772A; --brass-soft:#E7D2A8;
+  --interest:#C99A55; --principal:{{A:#2C5A4E}};
+  --site:#DDE1D8; --grid-line:rgba(27,37,35,.06);
+  --dusk-a:#1E2B3A; --dusk-b:#3B3550;
+  --hud-bg:rgba(245,246,242,.86);
+  /* model materials: constant in both themes, like a physical model */
+  --m-chalk:#F3F2EC; --m-cap:#1B2523; --m-slab:#B8BBB2; --m-slab-side:#9EA299;
+  --m-oak:#D9BF95; --m-oak-line:rgba(120,84,40,.22); --m-tile:#D3D8D5; --m-tile-line:rgba(40,60,60,.18);
+  --m-roof:#3B4543; --m-roof-seam:rgba(255,255,255,.08); --m-glass:#9DB2B6; --m-glow:#FFC56A;
+  --m-door:{{A:#2C5A4E}}; --m-ink:#1B2523; --m-shade:#0E1716;
+  --f-display:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --f-body:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Azeret Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111716; --paper-2:#182120; --sheet:#1C2624;
+    --ink:#E5EAE3; --ink-2:#AAB5B0; --muted:#7F8B86; --rule:#2F3A37; --rule-2:#25302D;
+    --accent:{{A:#86BCA9}}; --accent-2:{{A:#A3D0BF}}; --on-accent:#0E1514;
+    --brass:#D8A655; --brass-soft:#4A3A1E;
+    --interest:#D3A660; --principal:{{A:#6FAE98}};
+    --site:#1A2321; --grid-line:rgba(229,234,227,.05);
+    --dusk-a:#0B1220; --dusk-b:#231D33;
+    --hud-bg:rgba(24,33,32,.86);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111716; --paper-2:#182120; --sheet:#1C2624;
+  --ink:#E5EAE3; --ink-2:#AAB5B0; --muted:#7F8B86; --rule:#2F3A37; --rule-2:#25302D;
+  --accent:{{A:#86BCA9}}; --accent-2:{{A:#A3D0BF}}; --on-accent:#0E1514;
+  --brass:#D8A655; --brass-soft:#4A3A1E;
+  --interest:#D3A660; --principal:{{A:#6FAE98}};
+  --site:#1A2321; --grid-line:rgba(229,234,227,.05);
+  --dusk-a:#0B1220; --dusk-b:#231D33;
+  --hud-bg:rgba(24,33,32,.86);
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;margin:0;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:var(--f-display);font-stretch:118%;font-weight:700;line-height:1.02;letter-spacing:-.01em;text-wrap:balance;margin:0}
+p{margin:0}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+
+/* ---------- nav ---------- */
+.nav{position:fixed;inset:0 0 auto 0;z-index:50;padding:calc(env(safe-area-inset-top,0px) + 10px) var(--gut) 10px;display:flex;align-items:center;gap:20px;background:color-mix(in srgb,var(--paper) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--rule-2)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--f-display);font-stretch:125%;font-weight:800;font-size:15px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.brand svg{flex:none}
+.nav-links{display:flex;gap:22px;margin-left:auto;font-size:14px}
+.nav-links a{text-decoration:none;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.snd{border:1px solid var(--rule);background:transparent;border-radius:999px;padding:6px 12px;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--ink-2)}
+.snd{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}.snd .wv{opacity:.25}.snd[aria-pressed="true"] .wv{opacity:1}
+.snd[aria-pressed="true"]{color:var(--ink);border-color:var(--ink)}
+.cta{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:var(--on-accent);text-decoration:none;border:0;border-radius:999px;padding:10px 18px;font-weight:600;font-size:14px;white-space:nowrap;cursor:pointer}
+.cta:hover{background:var(--accent-2)}
+@media (max-width:860px){.nav-links{display:none}.nav{gap:10px}.nav .snd{margin-left:auto}}
+@media (max-width:520px){.snd-t{display:none}.snd{width:34px;height:34px;justify-content:center;padding:0}}
+@media (max-width:420px){.brand{font-size:13px;letter-spacing:.03em}.cta{padding:9px 14px;font-size:13px}.snd{padding:6px 9px}}
+
+/* ---------- hero / model stage ---------- */
+.hero{position:relative;height:460vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;perspective:4200px;background:var(--paper)}
+.sky{position:absolute;inset:0;background:radial-gradient(120% 90% at 60% 110%,var(--dusk-b),var(--dusk-a) 70%);opacity:0;z-index:0}
+.gridbg{position:absolute;inset:0;z-index:0;background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);background-size:32px 32px;background-position:center}
+.cam{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;z-index:1}
+.world,.g{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;transform-origin:0 0 0}
+.w3>*,.w3 .g>*,.w3 .face>*{position:absolute;left:0;top:0;transform-origin:0 0}
+.w3 .g{transform-style:preserve-3d}
+.face{background:var(--m-chalk);backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.face::before{content:"";position:absolute;inset:0;background:var(--m-shade);opacity:var(--sh,.08)}
+.ext .face,.ext .cap{opacity:calc(1 - var(--flapF,0) * .88)}
+.cap{background:var(--m-cap)}
+.site{background:var(--site);border:1px solid var(--rule);background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);background-size:var(--gs) var(--gs)}
+.stakes{border:1.5px dashed var(--brass)}
+.stake{width:6px;height:6px;margin:-3px 0 0 -3px;background:var(--brass);border-radius:1px}
+.shadow{background:radial-gradient(closest-side,rgba(10,20,18,.32),rgba(10,20,18,0));filter:blur(2px)}
+.slab-top{background:var(--m-slab);backface-visibility:hidden}
+.slab-side{background:var(--m-slab-side);backface-visibility:hidden}
+.floor{backface-visibility:hidden}
+.floor::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 70% at 50% 50%,rgba(255,196,100,.75),rgba(255,170,70,.25));opacity:calc(var(--lit,0) * .8);mix-blend-mode:multiply}
+.mat-oak{background-color:var(--m-oak);background-image:repeating-linear-gradient(0deg,transparent 0 calc(var(--pl) - 1px),var(--m-oak-line) calc(var(--pl) - 1px) var(--pl))}
+.mat-tile{background-color:var(--m-tile);background-image:linear-gradient(var(--m-tile-line) 1px,transparent 1px),linear-gradient(90deg,var(--m-tile-line) 1px,transparent 1px);background-size:var(--tl) var(--tl)}
+.win{z-index:1;background:color-mix(in srgb,var(--m-glow) calc(var(--lit,0) * 100%),var(--m-glass));box-shadow:0 0 calc(var(--lit,0) * 14px) calc(var(--lit,0) * 3px) rgba(255,190,90,calc(var(--lit,0) * .8)),inset 0 0 0 1.5px var(--m-ink)}
+.win::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.45) 0 22%,transparent 22% 40%,rgba(255,255,255,.22) 40% 48%,transparent 48%);opacity:calc(1 - var(--lit,0))}
+.win::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1.5px;background:var(--m-ink);opacity:.7}
+.door{z-index:1;background:var(--m-door);box-shadow:inset 0 0 0 1.5px var(--m-ink)}
+.door::after{content:"";position:absolute;right:16%;top:52%;width:12%;height:3%;min-height:2px;background:#D8A655}
+.roof-pl{background:var(--m-roof);background-image:repeating-linear-gradient(90deg,transparent 0 calc(var(--seam) - 1.5px),var(--m-roof-seam) calc(var(--seam) - 1.5px) var(--seam));opacity:var(--roofA,1);backface-visibility:hidden}
+.roof-pl::before{content:"";position:absolute;inset:0;background:var(--m-shade);opacity:var(--sh,.1)}
+.gable{opacity:var(--roofA,1);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.plan{opacity:var(--planA,0);backface-visibility:hidden}
+.pline{background:var(--m-ink)}
+.pwin{background:var(--sheet);box-shadow:inset 0 0 0 1px var(--m-ink)}
+.pwin::after{content:"";position:absolute;inset:0;background:linear-gradient(var(--m-ink),var(--m-ink)) center/100% 1px no-repeat}
+.pwin.v::after{background-size:1px 100%}
+.pdoor{background:var(--sheet)}
+.arc{border:1px dashed var(--m-ink);border-top:0;border-left:1.6px solid var(--m-ink);border-bottom-right-radius:100%;opacity:var(--planA,0)}
+.arc{border-right-style:dashed}
+.dimln{border-top:1px solid var(--ink-2);opacity:var(--labA,0)}
+.dimln::before,.dimln::after{content:"";position:absolute;top:-6px;width:1px;height:11px;background:var(--ink-2);transform:rotate(45deg)}
+.dimln::before{left:0}.dimln::after{right:0;left:auto}
+.dimln span{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;white-space:nowrap;color:var(--ink-2);background:color-mix(in srgb,var(--paper) 70%,transparent);padding:0 4px}
+.plab{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:var(--labA,0);color:var(--m-ink);line-height:1.15;backface-visibility:hidden}
+.plab b{font-family:var(--f-display);font-stretch:112%;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.plab span{font-family:var(--f-mono);font-variant-numeric:tabular-nums;opacity:.85}
+
+.hero-copy{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 92px);max-width:420px;display:grid;gap:14px}
+.hero-copy h1{font-size:clamp(40px,5.6vw,76px);font-stretch:125%;font-weight:800;letter-spacing:-.02em}
+.hero-copy .lede{color:var(--ink-2);font-size:16.5px;max-width:38ch}
+.price-row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.price{font-family:var(--f-display);font-stretch:110%;font-weight:700;font-size:28px;color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--f-mono);font-size:11.5px;border:1px solid var(--rule);border-radius:999px;padding:3px 9px;color:var(--ink-2);background:color-mix(in srgb,var(--paper) 70%,transparent)}
+.hud{position:absolute;z-index:4;left:var(--gut);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);width:min(360px,calc(100% - 2*var(--gut)));background:var(--hud-bg);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--rule);border-radius:4px;padding:14px 16px 14px;display:grid;gap:8px}
+.hud-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.hud-stage{font-family:var(--f-display);font-stretch:118%;font-weight:700;font-size:20px;line-height:1.1}
+.hud-num{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;color:var(--ink-2);white-space:nowrap}
+.ticks{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.ticks i{height:4px;background:var(--rule);border-radius:1px;position:relative;overflow:hidden}
+.ticks i b{position:absolute;inset:0;background:var(--brass);transform-origin:0 50%;transform:scaleX(0)}
+.area{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.area .big{font-family:var(--f-mono);font-weight:600;font-size:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.area .unit{font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.hud-cap{font-size:13.5px;color:var(--ink-2);line-height:1.45;min-height:2.9em}
+.stagelist{position:absolute;z-index:4;right:var(--gut);top:50%;transform:translateY(-50%);list-style:none;margin:0;padding:12px 14px;display:grid;gap:4px;background:var(--hud-bg);border:1px solid var(--rule);border-radius:4px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.stagelist li{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.04em;color:var(--muted);display:flex;gap:10px;align-items:center;transition:color .2s}
+.stagelist li::before{content:"";width:6px;height:6px;border:1px solid currentColor;border-radius:50%;flex:none}
+.stagelist li.done{color:var(--ink-2)}
+.stagelist li.done::before{background:currentColor}
+.stagelist li.on{color:var(--ink);font-weight:600}
+.stagelist li.on::before{background:var(--brass);border-color:var(--brass);box-shadow:0 0 0 3px color-mix(in srgb,var(--brass) 30%,transparent)}
+.hint{position:absolute;z-index:3;left:50%;bottom:28px;transform:translateX(-50%);font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;gap:8px;align-items:center}
+.hint i{display:block;width:1px;height:22px;background:var(--ink-2);animation:drip 1.6s ease-in-out infinite;transform-origin:top}
+@keyframes drip{0%{transform:scaleY(0)}50%{transform:scaleY(1)}100%{transform:scaleY(0);transform-origin:bottom}}
+@media (max-width:900px){.stagelist{display:none}.hint{display:none}}
+@media (max-width:760px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 74px);right:var(--gut);gap:8px}
+  .hero-copy h1{font-size:38px}
+  .hero-copy .lede{font-size:14.5px}
+  .price{font-size:22px}
+  .hud{bottom:calc(env(safe-area-inset-bottom,0px) + 14px);padding:11px 13px;gap:6px}
+  .hud-stage{font-size:17px}
+  .area .big{font-size:24px}
+  .hud-cap{font-size:12.5px}
+}
+
+/* ---------- sections ---------- */
+.sec{padding:clamp(72px,10vw,128px) var(--gut);position:relative}
+.sec-head{display:grid;gap:14px;max-width:760px;margin-bottom:clamp(28px,4vw,48px)}
+.sec-head h2{font-size:clamp(30px,4.2vw,54px)}
+.sec-head p.sub{color:var(--ink-2);max-width:60ch;font-size:17px}
+.wrap{max-width:1240px;margin:0 auto}
+
+/* facts sheet */
+.facts{padding:clamp(48px,6vw,80px) var(--gut);border-bottom:1px solid var(--rule)}
+.facts-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink)}
+.fact{padding:16px 18px 18px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;gap:4px}
+.fact:not(:nth-child(4n+1)){padding-left:18px;border-left:1px solid var(--rule)}
+.fact dt{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fact dd{margin:0;font-family:var(--f-display);font-stretch:108%;font-weight:600;font-size:clamp(19px,2vw,24px);line-height:1.15}
+.fact dd small{display:block;font-family:var(--f-body);font-stretch:100%;font-weight:400;font-size:13px;color:var(--ink-2);margin-top:3px}
+.facts-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.facts-top h2{font-size:clamp(24px,3vw,34px)}
+@media (max-width:820px){.facts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fact:not(:nth-child(4n+1)){padding-left:0;border-left:0}.fact:nth-child(2n){padding-left:14px;border-left:1px solid var(--rule)}}
+
+/* tour */
+.tour-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 300px;gap:28px;align-items:start}
+.tabs{display:grid;gap:2px;border-top:2px solid var(--ink)}
+.tab{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:10px;padding:11px 4px;border-bottom:1px solid var(--rule);font-size:15px;color:var(--ink-2)}
+.tab span:last-child{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);align-self:center}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:600}
+.tab[aria-selected="true"] span:first-child::before{content:"";display:inline-block;width:8px;height:8px;background:var(--brass);margin-right:9px;vertical-align:1px}
+.tab:focus-visible{outline:2px solid var(--brass)}
+.sketch-fig{margin:0;background:var(--sheet);border:1px solid var(--rule);min-width:0}
+.sketch-fig svg{display:block;width:100%;height:auto}
+.sketch-fig figcaption{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--rule);font-family:var(--f-mono);font-size:11.5px;color:var(--ink-2)}
+#sketch{transition:opacity .25s}
+#sketch.swap{opacity:.15}
+.sk-ceil{fill:var(--sheet)}
+.sk-wall{fill:var(--paper)}
+.sk-side{fill:var(--paper-2)}
+.sk-oak{fill:var(--brass-soft)}
+.sk-tile{fill:var(--paper-2)}
+.sk-line{stroke:var(--ink);stroke-width:1.2;fill:none;stroke-linejoin:round}
+.sk-fine{stroke:var(--ink);stroke-width:.6;opacity:.45;fill:none}
+.sk-sky{fill:url(#skyg)}
+.sk-box{fill:var(--sheet);stroke:var(--ink);stroke-width:1.2;stroke-linejoin:round}
+.sk-box2{fill:var(--paper-2);stroke:var(--ink);stroke-width:1.2;stroke-linejoin:round}
+.sk-acc{fill:var(--accent);stroke:var(--ink);stroke-width:1.2}
+.tour-info{display:grid;gap:16px;min-width:0}
+.tour-info h3{font-size:26px}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;margin:0;font-size:14.5px;border-top:1px solid var(--rule);padding-top:12px}
+.kv dt{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.kv dd{margin:0}
+.feat{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:14.5px}
+.feat li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:8px}
+.feat li::before{content:"";width:8px;height:1.5px;background:var(--ink);margin-top:11px}
+.mini{width:100%;height:auto;display:block}
+.mini rect{fill:var(--sheet);stroke:var(--ink);stroke-width:.35}
+.mini rect.on{fill:var(--brass)}
+.mini text{font-family:var(--f-mono);font-size:2.1px;fill:var(--ink-2)}
+@media (max-width:1060px){.tour-grid{grid-template-columns:minmax(0,1fr) 280px}.tabs{grid-column:1/-1;grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto;border-top:0;border-bottom:1px solid var(--rule);gap:18px;scrollbar-width:none}.tab{border-bottom:2px solid transparent;padding:10px 0}.tab[aria-selected="true"]{border-bottom-color:var(--ink)}.tab span:last-child{display:none}}
+@media (max-width:760px){.tour-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* mortgage */
+.calc{background:var(--paper-2);border-block:1px solid var(--rule)}
+.calc-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:start}
+.ctrls{display:grid;gap:22px}
+.ctrl{display:grid;gap:8px}
+.ctrl-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ctrl label,.ctrl .lbl{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.ctrl output{font-family:var(--f-mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:linear-gradient(90deg,var(--ink) var(--fill,50%),var(--rule) var(--fill,50%))}
+input[type=range]::-moz-range-track{height:3px;background:linear-gradient(90deg,var(--ink) var(--fill,50%),var(--rule) var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--sheet);border:2px solid var(--ink);margin-top:-8.5px}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--sheet);border:2px solid var(--ink)}
+.seg{display:inline-grid;grid-auto-flow:column;border:1px solid var(--ink);border-radius:999px;overflow:hidden;width:max-content;max-width:100%}
+.seg button{border:0;background:transparent;padding:8px 16px;font-family:var(--f-mono);font-size:13px;cursor:pointer;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.out{display:grid;gap:18px;min-width:0}
+.pay{display:grid;gap:4px;border-top:2px solid var(--ink);padding-top:14px}
+.pay .big{font-family:var(--f-display);font-stretch:112%;font-weight:800;font-size:clamp(46px,7vw,84px);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.pay .big small{font-size:.32em;font-weight:600;color:var(--ink-2);letter-spacing:0;margin-left:6px}
+.breakdown{display:flex;height:12px;gap:2px}
+.breakdown i{display:block;height:100%;border-radius:2px;transition:flex-grow .5s}
+.bd-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:var(--ink-2)}
+.bd-legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.bd-legend .fm{display:block;width:100%;font-size:12.5px;color:var(--muted)}
+.bd-legend b{color:var(--ink);font-family:var(--f-mono);font-weight:500;font-variant-numeric:tabular-nums}
+.chart-box{position:relative;background:var(--sheet);border:1px solid var(--rule);padding:14px 14px 8px;min-width:0}
+.chart-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px}
+.chart-head h3{font-size:16px;font-stretch:105%}
+.chart-box svg{display:block;width:100%;height:auto;overflow:visible}
+.ax{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted)}
+.gridl{stroke:var(--rule);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-family:var(--f-mono);font-size:11.5px;line-height:1.5;padding:7px 10px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+.note{font-size:13px;color:var(--muted)}
+.sums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid var(--rule)}
+.sums div{padding:10px 12px 0 0;min-width:0}
+.sums div+div{padding-left:12px;border-left:1px solid var(--rule)}
+.sums dt{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sums dd{margin:2px 0 0;font-family:var(--f-mono);font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
+@media (max-width:860px){.calc-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:420px){.sums{grid-template-columns:1fr}.sums div+div{padding-left:0;border-left:0}}
+
+/* neighborhood */
+.hood-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:clamp(24px,4vw,56px);align-items:start}
+.scores{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:28px}
+.score{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;min-width:0}
+.score svg{width:64px;height:64px}
+.score .n{font-family:var(--f-mono);font-weight:600;font-size:17px;fill:var(--ink)}
+.score b{display:block;font-family:var(--f-display);font-stretch:110%;font-size:15px}
+.score small{display:block;color:var(--ink-2);font-size:12.5px;line-height:1.35}
+.map-box{background:var(--sheet);border:1px solid var(--rule);position:relative;min-width:0}
+.map-box svg{display:block;width:100%;height:auto}
+.st{stroke:var(--rule);stroke-width:5;fill:none;stroke-linecap:round}
+.st2{stroke:var(--rule);stroke-width:9;fill:none;stroke-linecap:round}
+.park{fill:color-mix(in srgb,var(--accent) 18%,var(--sheet))}
+.creek{stroke:color-mix(in srgb,#5B8FA8 60%,var(--sheet));stroke-width:4;fill:none}
+.ring{fill:none;stroke:var(--ink-2);stroke-width:1;stroke-dasharray:3 4;opacity:.6}
+.ringt{font-family:var(--f-mono);font-size:10px;fill:var(--ink-2)}
+.spot{cursor:pointer}
+.spot circle{fill:var(--sheet);stroke:var(--ink);stroke-width:1.6;transition:r .2s}
+.spot.dim{opacity:.18}
+.spot.on circle{fill:var(--brass);stroke:var(--ink)}
+.route{fill:none;stroke:var(--brass);stroke-width:3;stroke-dasharray:6 5;stroke-linecap:round}
+.home-m{fill:var(--accent);stroke:var(--sheet);stroke-width:2}
+.map-lbl{font-family:var(--f-mono);font-size:10px;fill:var(--ink);paint-order:stroke;stroke:var(--sheet);stroke-width:3}
+.filt{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.filt button{border:1px solid var(--rule);background:transparent;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink-2)}
+.filt button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.spots{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.spots li button{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:11px 2px;border-bottom:1px solid var(--rule)}
+.spots li button:focus-visible{outline:2px solid var(--brass)}
+.spots li button:hover .nm,.spots li button[aria-pressed="true"] .nm{text-decoration:underline;text-decoration-color:var(--brass);text-decoration-thickness:2px;text-underline-offset:3px}
+.spots .nm{font-weight:600;min-width:0}
+.spots .kind{grid-column:1;font-size:13px;color:var(--ink-2)}
+.spots .min{grid-row:1/3;grid-column:2;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;align-self:center}
+.spots .min b{display:block;font-size:18px}
+@media (max-width:900px){.hood-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.scores{grid-template-columns:minmax(0,1fr)}}
+
+/* showing */
+.show{background:var(--paper-2);border-top:1px solid var(--rule)}
+.show-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:clamp(24px,4vw,56px);align-items:start}
+.agent{display:grid;gap:14px;border-top:2px solid var(--ink);padding-top:16px}
+.mono-badge{width:72px;height:72px}
+.agent h3{font-size:22px}
+.agent p{color:var(--ink-2);font-size:14.5px}
+.agent .ph{font-family:var(--f-mono);font-size:15px;user-select:all;color:var(--ink)}
+.oh{border:1px solid var(--rule);padding:12px 14px;background:var(--sheet);font-size:14px;display:grid;gap:2px}
+.oh b{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-weight:600}
+.book{background:var(--sheet);border:1px solid var(--rule);padding:clamp(16px,3vw,28px);display:grid;gap:22px;min-width:0}
+.step{display:grid;gap:10px;min-width:0}
+.step > .lbl{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{border:1px solid var(--rule);background:transparent;border-radius:4px;padding:8px 2px;display:grid;gap:1px;justify-items:center;cursor:pointer;min-width:0}
+.day small{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.day b{font-family:var(--f-display);font-stretch:110%;font-size:20px;line-height:1.1}
+.day[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.day[aria-pressed="true"] small{color:var(--paper);opacity:.75}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.slot{border:1px solid var(--ink-2);background:transparent;border-radius:4px;padding:9px 4px;font-family:var(--f-mono);font-size:13.5px;cursor:pointer;font-variant-numeric:tabular-nums}
+.slot:disabled{border-color:var(--rule-2);color:var(--muted);text-decoration:line-through;cursor:not-allowed;background:var(--paper-2)}
+.slot[aria-pressed="true"]{background:var(--brass);border-color:var(--brass);color:#1B1408}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:grid;gap:5px;min-width:0}
+.field label{font-size:13px;color:var(--ink-2)}
+.field input,.field select{font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
+.book-foot{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.summary{font-size:14px;color:var(--ink-2)}
+.summary b{color:var(--ink)}
+.confirm{border:1.5px solid var(--accent);padding:16px;display:grid;gap:6px;background:color-mix(in srgb,var(--accent) 8%,var(--sheet))}
+.confirm .tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.err{color:#B4442E;font-size:13.5px}
+@media (max-width:860px){.show-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:520px){.fields{grid-template-columns:minmax(0,1fr)}.days{gap:4px}.day b{font-size:17px}.day small{font-size:9.5px;letter-spacing:.02em}}
+
+/* footer */
+.foot{padding:clamp(56px,8vw,96px) var(--gut) calc(28px + env(safe-area-inset-bottom,0px));border-top:2px solid var(--ink);display:grid;gap:28px}
+.wordmark{font-family:var(--f-display);font-stretch:125%;font-weight:900;text-transform:uppercase;font-size:min(11.5vw,170px);line-height:.88;letter-spacing:-.03em;overflow-wrap:anywhere}
+.foot-row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
+.foot-row a{color:var(--ink)}
+
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}.hint i{animation:none}#sketch,.breakdown i{transition:none}}
+{{$.navCss|raw}}{{$._guards|raw}}</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#model" aria-label="{{$.brandSaid|attr}}, top of page">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="4" width="22" height="4" fill="currentColor"/><rect x="5" y="8" width="3" height="15" fill="currentColor"/><rect x="18" y="8" width="3" height="15" fill="currentColor"/><circle cx="13" cy="14" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="12.1" y="16" width="1.8" height="5" fill="currentColor"/></svg>
+    {{brand.name}}
+  </a>
+  <div class="nav-links">
+    <a href="#rooms">{{nav.rooms}}</a><a href="#payments">{{nav.payments}}</a><a href="#area">{{nav.area}}</a>
+  </div>
+  <button class="snd" id="snd" type="button" aria-pressed="false" aria-label="Sound"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 5h3l4-3v10L4 9H1z" fill="currentColor"/><path class="wv" d="M10 4.5c1 1.4 1 3.6 0 5M11.8 3c1.8 2.2 1.8 5.8 0 8" stroke="currentColor" stroke-width="1.3" fill="none"/></svg><span class="snd-t">Sound off</span></button>
+  <a class="cta" href="#showing">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="model" aria-label="{{listing.address|attr}}, built as a scroll model">
+  <div class="stage" id="stage">
+    <div class="gridbg"></div>
+    <div class="sky" id="sky"></div>
+    <div class="cam" id="cam"><div class="world w3" id="world"></div></div>
+
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{listing.address}}</h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="price-row"><span class="price">{{$.priceText}}</span>
+        <div class="chips">{{#each hero.chips join=""}}<span class="chip">{{.}}</span>{{/each}}</div>
+      </div>
+    </div>
+
+    <ol class="stagelist" id="stagelist" aria-label="Build stages"></ol>
+
+    <div class="hud" id="hud" aria-live="off">
+      <div class="hud-top"><span class="hud-stage" id="hudStage">{{model.stages.0.n}}</span><span class="hud-num" id="hudNum">STAGE 01/09</span></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="area"><span class="big" id="sqft">0</span><span class="unit">sq ft</span><span class="unit" id="sqm">0.0 m²</span></div>
+      <p class="hud-cap" id="hudCap">{{model.stages.0.c}}</p>
+    </div>
+    <div class="hint" id="hint"><i></i>Scroll to build</div>
+  </div>
+</section>
+
+<section class="facts" aria-labelledby="facts-h">
+  <div class="wrap">
+    <div class="facts-top"><h2 id="facts-h">{{facts.title}}</h2><span class="eyebrow">{{facts.eyebrow}}</span></div>
+    <dl class="facts-grid">
+{{$.factsHtml|raw}}
+    </dl>
+  </div>
+</section>
+
+<section class="sec" id="rooms" aria-labelledby="rooms-h">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">{{rooms.eyebrow}}</p>
+      <h2 id="rooms-h">{{rooms.title}}</h2>
+      <p class="sub">{{rooms.sub}}</p>
+    </header>
+    <div class="tour-grid">
+      <div class="tabs" role="tablist" aria-label="Rooms" id="tabs"></div>
+      <figure class="sketch-fig">
+        <svg id="sketch" viewBox="0 0 640 400" role="img" aria-label="Line sketch of the selected room"></svg>
+        <figcaption><span id="skCap">{{$.firstSketchCap}}</span><span>Sketch to scale, eye height 5′-2″</span></figcaption>
+      </figure>
+      <aside class="tour-info" aria-live="polite">
+        <h3 id="tName">{{$.firstRoomName}}</h3>
+        <dl class="kv" id="tKv"></dl>
+        <ul class="feat" id="tFeat"></ul>
+        <svg class="mini" id="mini" viewBox="-1.5 -1.5 {{$.miniW}} {{$.miniH}}" aria-label="Plan locator"></svg>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="sec calc" id="payments" aria-labelledby="pay-h">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">{{payments.eyebrow}}</p>
+      <h2 id="pay-h">{{payments.title}}</h2>
+      <p class="sub">{{payments.sub}}</p>
+    </header>
+    <div class="calc-grid">
+      <form class="ctrls" id="calcForm" onsubmit="return false">
+        <div class="ctrl"><div class="ctrl-top"><label for="price">Purchase price</label><output id="priceOut" for="price">{{$.priceText}}</output></div><input type="range" id="price" min="{{payments.priceMin}}" max="{{payments.priceMax}}" step="{{payments.priceStep}}" value="{{listing.price}}"></div>
+        <div class="ctrl"><div class="ctrl-top"><label for="down">Down payment</label><output id="downOut" for="down">{{payments.downPct}}% · {{$.downText}}</output></div><input type="range" id="down" min="5" max="50" step="1" value="{{payments.downPct}}"></div>
+        <div class="ctrl"><div class="ctrl-top"><label for="rate">Interest rate</label><output id="rateOut" for="rate">{{$.rateText}}%</output></div><input type="range" id="rate" min="3" max="9" step="0.05" value="{{payments.rate}}"></div>
+        <div class="ctrl"><span class="lbl" id="amLbl">Amortization</span><div class="seg" role="group" aria-labelledby="amLbl" id="amort">{{$.amortHtml|raw}}</div></div>
+        <dl class="sums"><div><dt>Loan</dt><dd id="sLoan">{{$.loanText}}</dd></div><div><dt>Total interest</dt><dd id="sInt">$0</dd></div><div><dt>Cash to close</dt><dd id="sCash">$0</dd></div></dl>
+        <p class="note">{{payments.note}}</p>
+      </form>
+      <div class="out">
+        <div class="pay"><span class="eyebrow">Estimated monthly total</span><span class="big" id="payBig">{{$.payText}}<small>/mo</small></span></div>
+        <div class="breakdown" id="bdBar" aria-hidden="true"><i style="background:var(--principal)"></i><i style="background:var(--interest)"></i><i style="background:var(--ink-2)"></i></div>
+        <div class="bd-legend" id="bdLeg"></div>
+        <div class="chart-box">
+          <div class="chart-head"><h3>Where each year's payments go</h3><div class="bd-legend"><span><i class="sw" style="background:var(--principal)"></i>Principal</span><span><i class="sw" style="background:var(--interest)"></i>Interest</span></div></div>
+          <svg id="amChart" viewBox="0 0 640 250" role="img" aria-label="Annual principal and interest by year"></svg>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="area" aria-labelledby="area-h">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">{{area.eyebrow}}</p>
+      <h2 id="area-h">{{area.title}}</h2>
+      <p class="sub">{{area.sub}}</p>
+    </header>
+    <div class="scores" id="scores"></div>
+    <div class="hood-grid">
+      <div class="map-box"><svg id="map" viewBox="0 0 400 400" role="img" aria-label="Neighborhood map with walking rings"></svg></div>
+      <div>
+        <div class="filt" id="filt" role="group" aria-label="Filter places"></div>
+        <ul class="spots" id="spots"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec show" id="showing" aria-labelledby="show-h">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">{{showing.eyebrow}}</p>
+      <h2 id="show-h">{{showing.title}}</h2>
+      <p class="sub">{{showing.sub}}</p>
+    </header>
+    <div class="show-grid">
+      <div class="agent">
+        <svg class="mono-badge" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="35" fill="var(--accent)"/><text x="36" y="44" text-anchor="middle" font-family="Archivo, Helvetica, sans-serif" font-weight="800" font-size="24" fill="var(--on-accent)">{{$.initials}}</text></svg>
+        <h3>{{agent.name}}</h3>
+        <p>{{agent.bio}}</p>
+        <span class="ph">{{agent.phone}}</span>
+{{#if agent.openHouse}}        <div class="oh"><b>{{agent.openHouseLabel}}</b><span>{{agent.openHouse}}</span></div>{{/if}}
+      </div>
+      <form class="book" id="book" novalidate>
+        <div class="step"><span class="lbl">1 · Day</span><div class="days" id="days"></div></div>
+        <div class="step"><span class="lbl">2 · Time</span><div class="slots" id="slots"></div></div>
+        <div class="step"><span class="lbl" id="typeLbl">3 · Type</span><div class="seg" role="group" aria-labelledby="typeLbl" id="type"><button type="button" data-t="In person" aria-pressed="true">In person</button><button type="button" data-t="Video" aria-pressed="false">Video walk-through</button></div></div>
+        <div class="step"><span class="lbl">4 · You</span>
+          <div class="fields">
+            <div class="field"><label for="fName">Full name</label><input id="fName" name="name" autocomplete="name" placeholder="Sam Rivera"></div>
+            <div class="field"><label for="fMail">Email</label><input id="fMail" name="email" type="email" autocomplete="email" placeholder="sam@example.com"></div>
+            <div class="field"><label for="fFin">Financing</label><select id="fFin"><option>Pre-approved</option><option>Talking to a lender</option><option>Paying cash</option><option>Just starting</option></select></div>
+            <div class="field"><label for="fPpl">People coming</label><select id="fPpl"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+          </div>
+        </div>
+        <div class="book-foot"><p class="summary" id="summary"></p><button class="cta" type="submit">Request this showing</button></div>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wordmark">{{brand.name}}</div>
+  <div class="foot-row">
+    <span>{{footer.fine}}</span>
+    <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const eo=t=>1-Math.pow(1-t,3);
+const eio=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const money=n=>{{locale.currency|js}}+fmt(n);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= HOUSE DATA (feet) ================= */
+const H={{model.ceiling}}, TE=.5, TI=.4;
+{{#if $.samplePlan}}const rooms=[
+ {id:'living',name:'Living room',x:0,y:16,w:22,d:20,mat:'oak'},
+ {id:'kitchen',name:'Kitchen & dining',x:22,y:16,w:20,d:20,mat:'oak'},
+ {id:'primary',name:'Primary bedroom',x:42,y:16,w:18,d:20,mat:'oak'},
+ {id:'hall',name:'Hall',x:0,y:12,w:42,d:4,mat:'oak'},
+ {id:'bed2',name:'Bedroom 2',x:0,y:0,w:13,d:12,mat:'oak'},
+ {id:'bath',name:'Bath',x:13,y:0,w:8,d:12,mat:'tile'},
+ {id:'bed3',name:'Bedroom 3',x:21,y:0,w:12,d:12,mat:'oak'},
+ {id:'laundry',name:'Laundry',x:33,y:0,w:9,d:12,mat:'tile'},
+ {id:'pbath',name:'Primary bath',x:42,y:0,w:9,d:16,mat:'tile'},
+ {id:'closet',name:'Walk-in closet',x:51,y:0,w:9,d:16,mat:'oak'}
+];
+const ext=[
+ {a:[0,36],b:[60,36],ops:[{o:2,w:12,s:.6,h:7.6},{o:16,w:3.5,s:0,h:7.6,door:1},{o:25,w:6,s:3.4,h:4.2},{o:33,w:7,s:0,h:7.6},{o:46,w:10,s:2.2,h:5.4}]},
+ {a:[60,36],b:[60,0],ops:[{o:5,w:9,s:2.2,h:5.4},{o:27,w:4,s:5.6,h:2.2}]},
+ {a:[60,0],b:[0,0],ops:[{o:12,w:4,s:5.6,h:2.2},{o:20,w:4,s:3.6,h:3.4},{o:29,w:7,s:2.6,h:4.8},{o:41,w:3.5,s:5.6,h:2.2},{o:49,w:7,s:2.6,h:4.8}]},
+ {a:[0,0],b:[0,36],ops:[{o:3,w:6,s:2.6,h:4.8},{o:19,w:13,s:.6,h:7.6}]}
+];
+const intw=[];
+[[0,9],[12,14.5],[17,22],[25,35],[38,42]].forEach(s=>intw.push({a:[s[0],12],b:[s[1],12]}));
+[[0,14],[26,38],[42,44],[47,53],[56,60]].forEach(s=>intw.push({a:[s[0],16],b:[s[1],16]}));
+intw.push({a:[22,16],b:[22,22]});
+[[0,18],[21,36]].forEach(s=>intw.push({a:[42,s[0]],b:[42,s[1]]}));
+[13,21,33].forEach(x=>intw.push({a:[x,0],b:[x,12]}));
+intw.push({a:[51,0],b:[51,16]});
+const doors=[ // hinge x,y, radius, rotation, sx, sy
+ {x:16,y:36,r:3.5,rot:0,sx:1,sy:-1},{x:9,y:12,r:3,rot:0,sx:1,sy:-1},{x:17,y:12,r:2.5,rot:0,sx:-1,sy:-1},
+ {x:22,y:12,r:3,rot:0,sx:1,sy:-1},{x:38,y:12,r:3,rot:0,sx:-1,sy:-1},{x:44,y:16,r:3,rot:0,sx:1,sy:-1},
+ {x:56,y:16,r:3,rot:0,sx:-1,sy:-1},{x:42,y:18,r:3,rot:90,sx:1,sy:-1}
+];{{else}}{{$.planJs|raw}}{{/if}}
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+
+/* ================= BUILD ================= */
+const stage=$('#stage'), cam=$('#cam'), world=$('#world');
+let S=10, mobile=false, planAz=0, V={}, floors=[], walls=[], roofG, slabG, shadowEl, built=false;
+function div(cls,w,h,tf,parent,html){const d=document.createElement('div');if(cls)d.className=cls;if(w!=null)d.style.width=w+'px';if(h!=null)d.style.height=h+'px';if(tf)d.style.transform=tf;if(html)d.innerHTML=html;(parent||world).appendChild(d);return d}
+const T=(x,y,z)=>`translate3d(${(x*S).toFixed(2)}px,${(y*S).toFixed(2)}px,${(z*S).toFixed(2)}px)`;
+const LD=(()=>{const x=-.55,y=.83,l=Math.hypot(x,y);return[x/l,y/l]})();
+const shadeFor=(nx,ny)=>(.03+.24*(1-(nx*LD[0]+ny*LD[1]))/2).toFixed(3);
+function project(pt,ax,az){const r=az*Math.PI/180,a=ax*Math.PI/180;const x1=pt[0]*Math.cos(r)-pt[1]*Math.sin(r),y1=pt[0]*Math.sin(r)+pt[1]*Math.cos(r);return[x1,y1*Math.cos(a)-pt[2]*Math.sin(a)]}
+
+function buildWall(wd,isExt){
+  const t=isExt?TE:TI;let [ax,ay]=wd.a,[bx,by]=wd.b;
+  let len=Math.hypot(bx-ax,by-ay);const dx=(bx-ax)/len,dy=(by-ay)/len;
+  const extn=isExt?.25:0; ax-=dx*extn; ay-=dy*extn; const L=len+2*extn;
+  const phi=Math.atan2(dy,dx)*180/Math.PI; const nx=-dy, ny=dx;
+  const g=div('g'+(isExt?' ext':''),null,null,'',world);
+  const outer=div('face',L*S,H*S,`translate3d(0,${t/2*S}px,${H*S}px) rotateX(-90deg)`,g);
+  outer.style.setProperty('--sh',shadeFor(nx,ny));
+  const inner=div('face',L*S,H*S,`translate3d(${L*S}px,${-t/2*S}px,${H*S}px) rotateZ(180deg) rotateX(-90deg)`,g);
+  inner.style.setProperty('--sh',shadeFor(-nx,-ny));
+  div('cap',L*S,t*S,`translate3d(0,${-t/2*S}px,${H*S}px)`,g);
+  if(!isExt){
+    const e1=div('face',t*S,H*S,`translate3d(0,${-t/2*S}px,${H*S}px) rotateZ(90deg) rotateX(-90deg)`,g); e1.style.setProperty('--sh',shadeFor(-dx,-dy));
+    const e2=div('face',t*S,H*S,`translate3d(${L*S}px,${t/2*S}px,${H*S}px) rotateZ(-90deg) rotateX(-90deg)`,g); e2.style.setProperty('--sh',shadeFor(dx,dy));
+  }
+  (wd.ops||[]).forEach(o=>{
+    const top=(H-o.s-o.h)*S, cls=o.door?'door':'win';
+    div(cls,o.w*S,o.h*S,`translate(${(o.o+extn)*S}px,${top}px)`,outer);
+    div(cls,o.w*S,o.h*S,`translate(${(L-o.o-extn-o.w)*S}px,${top}px)`,inner);
+  });
+  return {g,isExt,base:`translate3d(${ax*S}px,${ay*S}px,0) rotateZ(${phi}deg)`,t};
+}
+
+function build(){
+  world.innerHTML=''; floors=[]; walls=[];
+  const vw=stage.clientWidth, vh=stage.clientHeight; mobile=vw<760;
+  const navH=mobile?58:66;
+  let availW,availH;
+  if(mobile){planAz=-90;availW=vw-24;availH=vh-navH-200;S=Math.min(availW/{{$.D8}},availH/{{$.W8}});V.cxP=vw/2;V.cyP=navH+availH/2+4;V.cxI=vw*.47;V.cyI=vh*.53;V.iw=vw-70;V.ih=vh*.40;}
+  else{planAz=0;availW=vw-140;availH=vh-navH-150;S=Math.min(availW/{{$.W10}},availH/{{$.D10}});V.cxP=vw/2;V.cyP=navH+availH/2+8;V.cxI=vw*.565;V.cyI=vh*.55;V.iw=vw*.5;V.ih=vh*.55;}
+  S=Math.max(4,S);
+  // fit iso view
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
+  [-2,{{$.W2}}].forEach(x=>[-2,{{$.D2}}].forEach(y=>[-1.2,{{$.ridgeZ}}].forEach(z=>{const p=project([x-{{$.Wh}},y-{{$.Dh}},z-4],56,-42);mnx=Math.min(mnx,p[0]);mxx=Math.max(mxx,p[0]);mny=Math.min(mny,p[1]);mxy=Math.max(mxy,p[1]);})));
+  V.kI=Math.min(V.iw/((mxx-mnx)*S),V.ih/((mxy-mny)*S));
+  world.style.setProperty('--pl',(S*.55).toFixed(2)+'px');
+  world.style.setProperty('--tl',(S*2).toFixed(2)+'px');
+  world.style.setProperty('--seam',(S*1.6).toFixed(2)+'px');
+  world.style.setProperty('--gs',(S*4).toFixed(2)+'px');
+  // site
+  div('site',{{$.W16}}*S,{{$.D18}}*S,T(-8,-9,-1.25));
+  shadowEl=div('shadow',{{$.W16}}*S,{{$.D16}}*S,T(-8,-6,-1.22));
+  div('stakes',{{$.W}}*S,{{$.D}}*S,T(0,0,-1.2));
+  [[0,0],[{{$.W}},0],[0,{{$.D}}],[{{$.W}},{{$.D}}]].forEach(p=>div('stake',null,null,T(p[0],p[1],-1.18)));
+  // slab
+  slabG=div('g',null,null,'',world);
+  div('slab-top',{{$.W1}}*S,{{$.D1}}*S,T(-.5,-.5,0),slabG);
+  const sb=1.2;
+  div('slab-side',{{$.W1}}*S,sb*S,T(-.5,{{$.Dp5}},0)+' rotateX(-90deg)',slabG).style.filter='brightness(1.08)';
+  div('slab-side',{{$.D1}}*S,sb*S,T({{$.Wp5}},{{$.Dp5}},0)+' rotateZ(-90deg) rotateX(-90deg)',slabG).style.filter='brightness(.86)';
+  div('slab-side',{{$.W1}}*S,sb*S,T({{$.Wp5}},-.5,0)+' rotateZ(180deg) rotateX(-90deg)',slabG).style.filter='brightness(.8)';
+  div('slab-side',{{$.D1}}*S,sb*S,T(-.5,-.5,0)+' rotateZ(90deg) rotateX(-90deg)',slabG);
+  // floors
+  rooms.forEach(r=>floors.push({r,el:div('floor mat-'+r.mat,r.w*S,r.d*S,T(r.x,r.y,.03))}));
+  // plan layer (on floor)
+  const PZ=.08;
+  [[-.25,-.25,{{$.Wq}},.5],[-.25,{{$.Dm}},{{$.Wq}},.5],[-.25,-.25,.5,{{$.Dq}}],[{{$.Wm}},-.25,.5,{{$.Dq}}]].forEach(q=>div('plan pline',q[2]*S,q[3]*S,T(q[0],q[1],PZ)));
+  ext.forEach(w=>{const len=Math.hypot(w.b[0]-w.a[0],w.b[1]-w.a[1]);const dx=(w.b[0]-w.a[0])/len,dy=(w.b[1]-w.a[1])/len;
+    w.ops.forEach(o=>{const x1=w.a[0]+dx*o.o,y1=w.a[1]+dy*o.o,x2=w.a[0]+dx*(o.o+o.w),y2=w.a[1]+dy*(o.o+o.w);
+      const v=dx===0, mx=Math.min(x1,x2)-(v?.3:0), my=Math.min(y1,y2)-(v?0:.3);
+      div('plan '+(o.door?'pdoor':'pwin'+(v?' v':'')),(v?.6:Math.abs(x2-x1))*S,(v?Math.abs(y2-y1):.6)*S,T(mx,my,PZ+.01));});
+  });
+  doors.forEach(d=>div('arc',d.r*S,d.r*S,T(d.x,d.y,PZ+.02)+` rotateZ(${d.rot}deg) scale(${d.sx},${d.sy})`));
+  // dimension lines
+  const dimN=div('dimln',{{$.W}}*S,0,T(0,-3.2,PZ),null,'<span>{{$.dimW}}</span>');
+  const dimW=div('dimln',{{$.D}}*S,0,T(-3.2,{{$.D}},PZ)+' rotateZ(-90deg)',null,'<span>{{$.dimD}}</span>');
+  if(mobile){dimW.style.transform=T(-3.2,0,PZ)+' rotateZ(90deg)';dimN.style.transform=T(0,{{$.D32}},PZ)+' rotateZ(0deg)';dimN.querySelector('span').style.cssText+=';bottom:auto;top:3px;transform:translateX(-50%) rotate(180deg)';}
+  // labels
+  const fs=clamp(S*.88,8,13);
+  rooms.forEach(r=>{
+    const area=r.w*r.d, m2=(area*.092903).toFixed(1);
+    const cx=r.x+r.w/2, cy=r.y+r.d/2;
+    let rot=-planAz, bw=r.w, bh=r.d;
+    if(rot!==0){bw=r.d;bh=r.w;}
+    if(Math.min(bw,bh)*S<56 && bh>bw){rot+=-90;[bw,bh]=[bh,bw];}
+    const narrow=bh*S<52;
+    const html=narrow?`<b>${r.name}</b><span>${r.w}′ × ${r.d}′ · ${fmt(area)} sf</span>`:`<b>${r.name}</b><span>${r.w}′ × ${r.d}′</span><span>${fmt(area)} sf · ${m2} m²</span>`;
+    const el=div('plab',bw*S-6,bh*S-6,T(cx,cy,.14)+` rotateZ(${rot}deg) translate(-50%,-50%)`,null,html);
+    el.style.fontSize=fs+'px';
+    el.querySelectorAll('span').forEach(s=>s.style.fontSize=(fs*.92).toFixed(1)+'px');
+    if({{$.smallRoom|raw}}){el.querySelector('b').style.fontSize=(fs*.9).toFixed(1)+'px'}
+  });
+  // walls
+  ext.forEach(w=>walls.push(buildWall(w,true)));
+  intw.forEach(w=>walls.push(buildWall(w,false)));
+  // roof
+  roofG=div('g',null,null,'',world);
+  const ang=Math.atan2({{$.roofRise}},{{$.roofHalf}})*180/Math.PI, RL=Math.hypot({{$.roofHalf}},{{$.roofRise}});
+  const rs=div('roof-pl',{{$.W4}}*S,RL*S,T(-2,{{$.Dh}},{{$.ridgeZ}})+` rotateX(${-ang}deg)`,roofG); rs.style.setProperty('--sh','.02');
+  const rn=div('roof-pl',{{$.W4}}*S,RL*S,T({{$.W2}},{{$.Dh}},{{$.ridgeZ}})+` rotateZ(180deg) rotateX(${-ang}deg)`,roofG); rn.style.setProperty('--sh','.28');
+  const ge=div('face gable',{{$.D}}*S,{{$.gableH}}*S,T({{$.W}},{{$.D}},{{$.ridgeZ}})+' rotateZ(-90deg) rotateX(-90deg)',roofG); ge.style.setProperty('--sh',shadeFor(1,0));
+  const gw=div('face gable',{{$.D}}*S,{{$.gableH}}*S,T(0,0,{{$.ridgeZ}})+' rotateZ(90deg) rotateX(-90deg)',roofG); gw.style.setProperty('--sh',shadeFor(-1,0));
+  built=true; last=-1;
+}
+
+/* ================= HUD ================= */
+const sl=$('#stagelist'), ticks=$('#ticks');
+STAGES.forEach((s,i)=>{const li=document.createElement('li');li.textContent=String(i+1).padStart(2,'0')+'  '+s.n;sl.appendChild(li);const t=document.createElement('i');t.innerHTML='<b></b>';ticks.appendChild(t)});
+const liEls=[...sl.children], tickEls=[...ticks.querySelectorAll('b')];
+let stageIdx=-1;
+
+/* ================= SOUND ================= */
+let actx=null, soundOn=false;
+$('#snd').addEventListener('click',e=>{soundOn=!soundOn;e.currentTarget.setAttribute('aria-pressed',soundOn);e.currentTarget.querySelector('.snd-t').textContent=soundOn?'Sound on':'Sound off';
+  if(soundOn&&!actx){try{actx=new (window.AudioContext||window.webkitAudioContext)()}catch(err){actx=null}} if(soundOn) tick(660);});
+function tick(f){if(!soundOn||!actx)return;try{const o=actx.createOscillator(),g=actx.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(.12,actx.currentTime+.01);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.25);o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.3)}catch(e){}}
+
+/* ================= FRAME ================= */
+const hero=$('#model'), sky=$('#sky'), heroCopy=$('#heroCopy'), hint=$('#hint');
+const sqftEl=$('#sqft'), sqmEl=$('#sqm'), hudStage=$('#hudStage'), hudNum=$('#hudNum'), hudCap=$('#hudCap');
+let cur=0, last=-1, lastT=performance.now(), lastSq=-1;
+function target(){const r=hero.getBoundingClientRect();const span=r.height-innerHeight;return clamp(-r.top/span)}
+function apply(p){
+  // camera
+  const C=eio(clamp((p-.74)/.16));
+  const azI=-54+22*eio(clamp(p/.72));
+  const ax=lerp(56,0,C), az=lerp(azI,planAz,C), k=lerp(V.kI,1,C);
+  const cx=lerp(V.cxI,V.cxP,C), cy=lerp(V.cyI,V.cyP,C), zc=lerp(4,0,C);
+  stage.style.perspectiveOrigin=`${cx}px ${cy}px`;
+  cam.style.transform=`translate3d(${cx}px,${cy}px,0) scale3d(${k},${k},${k}) rotateX(${ax}deg) rotateZ(${az}deg)`;
+  world.style.transform=`translate3d(${-{{$.Wh}}*S}px,${-{{$.Dh}}*S}px,${-zc*S}px)`;
+  // slab
+  const ss=eo(clamp((p-.02)/.06));
+  slabG.style.visibility=ss<=0?'hidden':'visible';
+  slabG.style.transform=`translate3d(0,0,${-1.2*S}px) scale3d(1,1,${Math.max(.001,ss)}) translate3d(0,0,${1.2*S}px)`;
+  // floors
+  let sq=0;
+  floors.forEach((f,i)=>{const e=eo(clamp((p-.08-i*.0195)/.03));f.el.style.opacity=e;f.el.style.visibility=e<=0?'hidden':'visible';f.el.style.transform=T(f.r.x,f.r.y,.03+(1-e)*18);sq+=f.r.w*f.r.d*e});
+  // walls
+  const F=eio(clamp((p-.76)/.10)), col=eio(clamp((p-.77)/.09));
+  walls.forEach((w,j)=>{const r=eio(clamp((p-.30-j*.0035)/.08));w.g.style.visibility=r<=0?'hidden':'visible';
+    let tf=w.base;
+    if(w.isExt){tf+=` translate3d(0,${w.t/2*S}px,0) rotateX(${-90*F}deg) translate3d(0,${-w.t/2*S}px,0) scale3d(1,1,${Math.max(.001,r)})`}
+    else tf+=` scale3d(1,1,${Math.max(.001,r*(1-.95*col))})`;
+    w.g.style.transform=tf;});
+  // roof
+  const d=eo(clamp((p-.46)/.08)), R=eio(clamp((p-.66)/.09));
+  roofG.style.visibility=(d<=0||R>=1)?'hidden':'visible';
+  roofG.style.transform=`translate3d(0,0,${((1-d)*28+R*34)*S}px)`;
+  roofG.style.setProperty('--roofA',(d*(1-clamp((R-.25)/.75))).toFixed(3));
+  // light, dusk, plan
+  const lit=clamp((p-.56)/.07)*(1-clamp((p-.81)/.08));
+  const dusk=clamp((p-.55)/.08)*(1-clamp((p-.80)/.1));
+  world.style.setProperty('--lit',lit.toFixed(3));
+  world.style.setProperty('--planA',clamp((p-.80)/.08).toFixed(3));
+  world.style.setProperty('--labA',clamp((p-.86)/.07).toFixed(3));
+  world.style.setProperty('--flapF',clamp((p-.84)/.1).toFixed(3));
+  sky.style.opacity=(dusk*.92).toFixed(3);
+  shadowEl.style.opacity=(ss*(1-C)).toFixed(3);
+  // overlays
+  const copyFade=mobile?clamp((p-.015)/.05):clamp((p-.44)/.08);
+  heroCopy.style.opacity=(1-copyFade).toFixed(3);
+  heroCopy.style.transform=`translateY(${-copyFade*30}px)`;
+  heroCopy.style.visibility=copyFade>=1?'hidden':'visible';
+  hint.style.opacity=(1-clamp(p/.03)).toFixed(3);
+  // HUD
+  if(Math.round(sq)!==lastSq){lastSq=Math.round(sq);sqftEl.textContent=fmt(sq);sqmEl.textContent=(sq*.092903).toFixed(1)+' m²';}
+  let idx=0;STAGES.forEach((s,i)=>{if(p>=s.t)idx=i});
+  if(idx!==stageIdx){stageIdx=idx;hudStage.textContent=STAGES[idx].n;hudNum.textContent='STAGE '+String(idx+1).padStart(2,'0')+'/09';
+    hudCap.textContent=idx===8?{{$.planCaption|js}}:STAGES[idx].c;
+    liEls.forEach((li,i)=>{li.className=i<idx?'done':i===idx?'on':''});tick(440+idx*55);}
+  STAGES.forEach((s,i)=>{const end=i<8?STAGES[i+1].t:1;tickEls[i].style.transform=`scaleX(${clamp((p-s.t)/(end-s.t)).toFixed(3)})`});
+}
+function loop(now){
+  const dt=Math.min(.1,(now-lastT)/1000);lastT=now;
+  if(built){const t=target();cur=reduce?t:cur+(t-cur)*(1-Math.pow(.0015,dt));if(Math.abs(t-cur)<.0002)cur=t;if(cur!==last){apply(cur);last=cur}}
+  requestAnimationFrame(loop);
+}
+build();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{build();apply(cur)},150)});
+cur=target();apply(cur);requestAnimationFrame(loop);
+
+/* ================= ROOM TOUR ================= */
+const TOUR=[
+{{$.tourJs|raw}}
+];
+const FURN={
+ living:[{x:[5,14],y:[0,2.6],z:[1,4.2],c:'sk-box2'},{x:[7.5,12],y:[0,1.4],z:[7,9.5],c:'sk-box'}],
+ kitchen:[{x:[0,20],y:[0,3],z:[0,2],c:'sk-box2'},{x:[5,15],y:[0,3],z:[7,10.5],c:'sk-box'}],
+ bed:[{x:[5.5,12.5],y:[0,3.6],z:[0,.6],c:'sk-box2'},{x:[5.8,12.2],y:[0,2],z:[.6,7.4],c:'sk-box'}],
+ tub:[{x:[1,7.5],y:[0,1.9],z:[.3,3],c:'sk-box'}],
+ bedS:[{x:[1,6],y:[0,2],z:[0,6.6],c:'sk-box'},{x:[9.5,12.5],y:[0,6.5],z:[0,2],c:'sk-box2'}],
+ desk:[{x:[3,9],y:[0,2.5],z:[0,2.4],c:'sk-box'},{x:[5,7],y:[0,1.6],z:[3.2,4.8],c:'sk-box2'}],
+ laundry:[{x:[.3,2.8],y:[0,6.4],z:[0,2.4],c:'sk-box'},{x:[3,8.7],y:[0,3],z:[0,2],c:'sk-box2'}]
+};
+function sketch(rm){
+  const W=rm.w,D=rm.d,ppf=Math.min(170/{{model.ceiling}},400/W),bh={{model.ceiling}}*ppf,bw=W*ppf;
+  const L=320-bw/2,B=212+bh/2-20,VP=[320,B-5.2*ppf],Db=D+3;
+  const P=(x,y,z)=>{const bx=L+x*ppf,by=B-y*ppf,s=Db/(Db-Math.min(z,D+2.4));return[VP[0]+(bx-VP[0])*s,VP[1]+(by-VP[1])*s]};
+  const poly=(pts,c)=>`<polygon class="${c}" points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>`;
+  const ln=(a,b,c)=>`<line class="${c}" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}"/>`;
+  const Z=D+2.4; let s=`<defs><linearGradient id="skyg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A9C3CC"/><stop offset="1" stop-color="#E4ECEA"/></linearGradient></defs>`;
+  s+=poly([P(0,{{model.ceiling}},0),P(W,{{model.ceiling}},0),P(W,{{model.ceiling}},Z),P(0,{{model.ceiling}},Z)],'sk-ceil');
+  s+=poly([P(0,0,0),P(0,{{model.ceiling}},0),P(0,{{model.ceiling}},Z),P(0,0,Z)],'sk-side');
+  s+=poly([P(W,0,0),P(W,{{model.ceiling}},0),P(W,{{model.ceiling}},Z),P(W,0,Z)],'sk-side');
+  const tile=/tile/i.test(rm.floor);
+  s+=poly([P(0,0,0),P(W,0,0),P(W,0,Z),P(0,0,Z)],tile?'sk-tile':'sk-oak');
+  if(tile){for(let x=2;x<W;x+=2)s+=ln(P(x,0,0),P(x,0,Z),'sk-fine');for(let z=2;z<Z;z+=2)s+=ln(P(0,0,z),P(W,0,z),'sk-fine')}
+  else{for(let x=.58;x<W;x+=.58)s+=ln(P(x,0,0),P(x,0,Z),'sk-fine')}
+  s+=poly([P(0,0,0),P(W,0,0),P(W,{{model.ceiling}},0),P(0,{{model.ceiling}},0)],'sk-wall');
+  rm.win.forEach(w=>{const [o,ww,sill,hh]=w;s+=poly([P(o,sill,0),P(o+ww,sill,0),P(o+ww,sill+hh,0),P(o,sill+hh,0)],'sk-sky');
+    s+=`<polygon class="sk-line" points="${[P(o,sill,0),P(o+ww,sill,0),P(o+ww,sill+hh,0),P(o,sill+hh,0)].map(p=>p.join(',')).join(' ')}"/>`;
+    const n=Math.max(1,Math.round(ww/3.2));for(let i=1;i<n;i++)s+=ln(P(o+ww*i/n,sill,0),P(o+ww*i/n,sill+hh,0),'sk-line');
+    // tree beyond
+    const tx=P(o+ww*.3,sill+hh*.15,0);s+=`<circle cx="${tx[0]}" cy="${tx[1]}" r="${ppf*1.1}" fill="var(--accent)" opacity=".25"/>`;});
+  ['sk-line'].forEach(c=>{s+=ln(P(0,0,0),P(0,0,Z),c)+ln(P(W,0,0),P(W,0,Z),c)+ln(P(0,{{model.ceiling}},0),P(0,{{model.ceiling}},Z),c)+ln(P(W,{{model.ceiling}},0),P(W,{{model.ceiling}},Z),c)+`<rect class="${c}" x="${L}" y="${B-bh}" width="${bw}" height="${bh}"/>`});
+  (FURN[rm.furn]||[]).slice().sort((a,b)=>a.z[1]-b.z[1]).forEach(f=>{
+    const [x0,x1]=f.x,[y0,y1]=f.y,[z0,z1]=f.z;
+    const top=[P(x0,y1,z0),P(x1,y1,z0),P(x1,y1,z1),P(x0,y1,z1)], front=[P(x0,y0,z1),P(x1,y0,z1),P(x1,y1,z1),P(x0,y1,z1)];
+    const cxs=L+(x0+x1)/2*ppf; const side=cxs<VP[0]?[P(x1,y0,z0),P(x1,y0,z1),P(x1,y1,z1),P(x1,y1,z0)]:[P(x0,y0,z0),P(x0,y0,z1),P(x0,y1,z1),P(x0,y1,z0)];
+    s+=poly(side,'sk-box2')+poly(top,f.c)+poly(front,f.c);});
+  // scale bar
+  s+=`<g transform="translate(20,382)"><rect x="0" y="-4" width="${(ppf*4).toFixed(1)}" height="4" fill="var(--ink)"/><text x="${(ppf*4+6).toFixed(1)}" y="0" class="ax">4 ft at back wall</text></g>`;
+  return s;
+}
+const tabs=$('#tabs'), skEl=$('#sketch'), mini=$('#mini');
+mini.innerHTML=rooms.map(r=>`<rect data-r="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}"/>`).join('')+`<text x="{{$.Wh}}" y="{{$.miniTextY}}" text-anchor="middle">{{$.miniCaption|tl}}</text>`;
+TOUR.forEach((t,i)=>{const b=document.createElement('button');b.className='tab';b.type='button';b.setAttribute('role','tab');b.id='tab-'+t.id;b.setAttribute('aria-selected',i===0);b.tabIndex=i===0?0:-1;b.innerHTML=`<span>${t.name}</span><span>${t.w}′×${t.d}′</span>`;b.addEventListener('click',()=>selRoom(i));
+  b.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='ArrowRight'){e.preventDefault();selRoom((i+1)%TOUR.length,true)}if(e.key==='ArrowUp'||e.key==='ArrowLeft'){e.preventDefault();selRoom((i-1+TOUR.length)%TOUR.length,true)}});tabs.appendChild(b)});
+let roomTimer;
+function selRoom(i,focus){const t=TOUR[i];[...tabs.children].forEach((b,j)=>{b.setAttribute('aria-selected',j===i);b.tabIndex=j===i?0:-1});if(focus)tabs.children[i].focus();
+  const area=t.w*t.d;
+  $('#tName').textContent=t.name;
+  $('#tKv').innerHTML=`<dt>Size</dt><dd class="mono">${t.w}′ × ${t.d}′ · ${(t.w*.3048).toFixed(2)} × ${(t.d*.3048).toFixed(2)} m</dd><dt>Area</dt><dd class="mono">${fmt(area)} sq ft · ${(area*.092903).toFixed(1)} m²</dd><dt>Ceiling</dt><dd>{{model.ceilingNote}}</dd><dt>Floor</dt><dd>${t.floor}</dd><dt>Light</dt><dd>${t.light}</dd>`;
+  $('#tFeat').innerHTML=t.feat.map(f=>`<li>${f}</li>`).join('');
+  $('#skCap').textContent=`${t.name}, seen ${t.view}`;
+  mini.querySelectorAll('rect').forEach(r=>r.classList.toggle('on',r.dataset.r===t.id));
+  clearTimeout(roomTimer);
+  if(reduce){skEl.innerHTML=sketch(t);return}
+  skEl.classList.add('swap');roomTimer=setTimeout(()=>{skEl.innerHTML=sketch(t);skEl.classList.remove('swap')},180);
+}
+skEl.innerHTML=sketch(TOUR[0]);selRoom(0);
+
+/* ================= MORTGAGE ================= */
+const TAX_MO={{$.taxYear}}/12, INS_MO={{payments.insuranceMonthly}};
+const pr=$('#price'),dn=$('#down'),rt=$('#rate');let years={{payments.years}}, shown=0, animFrom=0, animTo=0, animT0=0;
+function fillRange(el){el.style.setProperty('--fill',((el.value-el.min)/(el.max-el.min)*100)+'%')}
+function schedule(P,rate,yrs){const r=rate/100/12,n=yrs*12;const M=r?P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1):P/n;let bal=P;const ys=[];for(let y=0;y<yrs;y++){let pi=0,ii=0;for(let m=0;m<12;m++){const it=bal*r;const pp=M-it;ii+=it;pi+=pp;bal-=pp}ys.push({y:y+1,p:pi,i:ii,bal:Math.max(0,bal)})}return{M,ys}}
+function calc(){
+  const price=+pr.value, dp=+dn.value, rate=+rt.value; [pr,dn,rt].forEach(fillRange);
+  const down=price*dp/100, P=price-down;
+  const taxMo=price*{{$.taxRateJs}}/12;
+  const {M,ys}=schedule(P,rate,years);
+  $('#priceOut').textContent=money(price);$('#downOut').textContent=`${dp}% · ${money(down)}`;$('#rateOut').textContent=rate.toFixed(2)+'%';
+  const totInt=ys.reduce((a,y)=>a+y.i,0);
+  $('#sLoan').textContent=money(P);$('#sInt').textContent=money(totInt);$('#sCash').textContent=money(down+price*{{$.closingJs}});
+  const total=M+taxMo+INS_MO;
+  animFrom=shown;animTo=total;animT0=performance.now();if(reduce){shown=total;renderPay()}else requestAnimationFrame(tweenPay);
+  const firstI=P*(rate/100/12);
+  const bars=$('#bdBar').children;bars[0].style.flexGrow=(M-firstI).toFixed(0);bars[1].style.flexGrow=firstI.toFixed(0);bars[2].style.flexGrow=(taxMo+INS_MO).toFixed(0);
+  $('#bdLeg').innerHTML=`<span><i class="sw" style="background:var(--principal)"></i>Principal <b>${money(M-firstI)}</b></span><span><i class="sw" style="background:var(--interest)"></i>Interest <b>${money(firstI)}</b></span><span><i class="sw" style="background:var(--ink-2)"></i>Tax + insurance <b>${money(taxMo+INS_MO)}</b></span><span class="fm">First month shown. Principal and interest together: ${money(M)} a month.</span>`;
+  drawChart(ys,M);
+}
+function renderPay(){$('#payBig').innerHTML=money(shown)+'<small>/mo</small>'}
+function tweenPay(now){const t=clamp((now-animT0)/650);shown=lerp(animFrom,animTo,eo(t));renderPay();if(t<1)requestAnimationFrame(tweenPay)}
+function niceMax(v){const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1.5?1.5:f<=2?2:f<=3?3:f<=4?4:f<=5?5:f<=6?6:f<=8?8:10)*e}
+const svgC=$('#amChart'), tip=$('#tip');
+function drawChart(ys,M){
+  const W=640,Hh=250,ml=50,mr=6,mt=22,mb=26,iw=W-ml-mr,ih=Hh-mt-mb;
+  const ymax=niceMax(M*12*1.04), n=ys.length, band=iw/n, bw=Math.max(4,band-Math.max(2,band*.28));
+  const y=v=>mt+ih-v/ymax*ih;
+  let s='';
+  for(let i=0;i<=4;i++){const v=ymax*i/4,yy=y(v);s+=`<line class="gridl" x1="${ml}" x2="${W-mr}" y1="${yy}" y2="${yy}"/><text class="ax" x="${ml-8}" y="${yy+3.5}" text-anchor="end">${v===0?{{$.cur0|raw}}:{{locale.currency|js}}+Math.round(v/1000)+'k'}</text>`}
+  let cross=null;
+  ys.forEach((d,i)=>{const x=ml+i*band+(band-bw)/2;const yp=y(d.p), yi=y(d.p+d.i);
+    if(cross===null&&d.p>d.i)cross=i;
+    s+=`<rect x="${x.toFixed(1)}" y="${yp.toFixed(1)}" width="${bw.toFixed(1)}" height="${(mt+ih-yp).toFixed(1)}" fill="var(--principal)" rx="1.5"/>`;
+    s+=`<rect x="${x.toFixed(1)}" y="${yi.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yp-yi-2).toFixed(1)}" fill="var(--interest)" rx="1.5"/>`;
+    if(d.y===1||d.y%5===0)s+=`<text class="ax" x="${(x+bw/2).toFixed(1)}" y="${Hh-8}" text-anchor="middle">${d.y===1?'Yr 1':d.y}</text>`;
+  });
+  if(cross!==null){const x=ml+cross*band+band/2;s+=`<line x1="${x}" x2="${x}" y1="${mt-12}" y2="${mt+ih}" stroke="var(--ink)" stroke-dasharray="3 3"/><text class="ax" x="${x+(cross>n*.6?-6:6)}" y="${mt-4}" text-anchor="${cross>n*.6?'end':'start'}" style="fill:var(--ink)">Year ${cross+1}: principal passes interest</text>`}
+  ys.forEach((d,i)=>{s+=`<rect class="hit" data-i="${i}" x="${ml+i*band}" y="${mt}" width="${band}" height="${ih}" fill="transparent"/>`});
+  svgC.innerHTML=s;
+  svgC.querySelectorAll('.hit').forEach(h=>{const show=()=>{const d=ys[+h.dataset.i];const bb=svgC.getBoundingClientRect(),sc=bb.width/W;const x=(+h.getAttribute('x')+band/2)*sc;
+      tip.hidden=false;tip.innerHTML=`Year ${d.y}<br>Principal ${money(d.p)}<br>Interest ${money(d.i)}<br>Balance ${money(d.bal)}`;
+      const bx=clamp(x,70,bb.width-70);tip.style.left=(bx+14)+'px';tip.style.top=(y(d.p+d.i)*sc+12)+'px';h.setAttribute('fill','color-mix(in srgb, var(--ink) 8%, transparent)')};
+    const hide=()=>{tip.hidden=true;h.setAttribute('fill','transparent')};
+    h.addEventListener('pointerenter',show);h.addEventListener('pointerleave',hide);h.addEventListener('click',show);});
+}
+[pr,dn,rt].forEach(el=>el.addEventListener('input',calc));
+$('#amort').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;years=+b.dataset.y;[...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));calc()});
+shown=0;calc();if(!reduce){/* first paint shows final value immediately for still frames */shown=animTo;renderPay()}
+
+/* ================= NEIGHBORHOOD ================= */
+const SC=[{{$.scoresJs|raw}}];
+$('#scores').innerHTML=SC.map(s=>{const c=2*Math.PI*27;return `<div class="score"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--rule)" stroke-width="5"/><circle cx="32" cy="32" r="27" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="${(c*s.n/100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)" stroke-linecap="round"/><text class="n" x="32" y="38" text-anchor="middle">${s.n}</text></svg><div><b>${s.t} ${s.n}/100</b><small>${s.d}</small></div></div>`}).join('')+'';
+const SPOTS=[
+{{$.spotsJs|raw}}
+].map(s=>{const m=(Math.abs(s.x)+Math.abs(s.y))*1200;return {...s,min:Math.max(2,Math.round(m/80)),mi:(m/1609).toFixed(2)}}).sort((a,b)=>a.min-b.min);
+const CATS=[{{$.catsJs|raw}}];
+const mapS=$('#map'); const MX=v=>200+v*160, MY=v=>200+v*160;
+let selSpot=null, cat='All';
+function drawMap(){
+  let s='';
+{{#if area.map.green}}  s+=`<path class="park" d="M60 236 C90 222 140 230 168 250 L190 300 C170 330 120 340 80 330 Z"/><path class="park" d="M200 255 L262 255 L262 300 L200 300 Z"/>`;
+{{/if}}  for(let i=-6;i<=6;i++){const v=200+i*29;s+=`<line class="st" x1="0" x2="400" y1="${v}" y2="${v}"/><line class="st" x1="${v}" x2="${v}" y1="0" y2="400"/>`}
+  s+=`<line class="st2" x1="0" x2="400" y1="171" y2="171"/><line class="st2" x1="229" x2="229" y1="0" y2="400"/><line class="st2" x1="0" y1="400" x2="150" y2="0" opacity=".7"/>`;
+{{#if area.map.water}}  s+=`<path class="creek" d="M0 250 C60 236 110 246 150 228 S230 196 270 214 S340 260 400 240"/>`;
+{{/if}}  [[5,'5 min'],[10,'10 min'],[15,'15 min']].forEach(([m,t])=>{const r=m*80/1200*160;s+=`<circle class="ring" cx="200" cy="200" r="${r}"/><text class="ringt" x="${200+r*.71+3}" y="${200-r*.71-3}">${t}</text>`});
+  if(selSpot){const sp=SPOTS[selSpot-1];s+=`<path class="route" d="M200 200 H${MX(sp.x)} V${MY(sp.y)}"/>`}
+  SPOTS.forEach((sp,i)=>{const on=selSpot===i+1, dim=cat!=='All'&&sp.k!==cat;s+=`<g class="spot${on?' on':''}${dim?' dim':''}" data-i="${i+1}"><circle cx="${MX(sp.x)}" cy="${MY(sp.y)}" r="${on?8:6}"/></g>`});
+  if(selSpot){const sp=SPOTS[selSpot-1];s+=`<text class="map-lbl" x="${clamp(MX(sp.x),70,330)}" y="${MY(sp.y)+(sp.y<-.6?22:-14)}" text-anchor="middle" style="font-weight:600">${sp.n} · ${sp.min} min</text>`}
+  s+=`<g><rect class="home-m" x="191" y="191" width="18" height="18" rx="2"/><text class="map-lbl" x="200" y="228" text-anchor="middle">{{$.addressTl|raw}}</text></g>`;
+  s+=`<g transform="translate(16,380)"><rect x="0" y="-4" width="53" height="4" fill="var(--ink)"/><text class="ringt" x="60" y="0">400 m</text></g><text class="ringt" x="384" y="22" text-anchor="end">N ↑</text>`;
+  mapS.innerHTML=s;
+  mapS.querySelectorAll('.spot').forEach(g=>g.addEventListener('click',()=>{pickSpot(+g.dataset.i)}));
+}
+function drawList(){
+  $('#spots').innerHTML=SPOTS.map((sp,i)=>(cat==='All'||sp.k===cat)?`<li><button type="button" data-i="${i+1}" aria-pressed="${selSpot===i+1}"><span class="nm">${sp.n}</span><span class="min"><b>${sp.min} min</b>${sp.mi} mi</span><span class="kind">${sp.k} · ${sp.note}</span></button></li>`:'').join('');
+  $('#spots').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>pickSpot(+b.dataset.i)));
+}
+function pickSpot(i){selSpot=selSpot===i?null:i;drawMap();drawList()}
+$('#filt').innerHTML=CATS.map(c=>`<button type="button" aria-pressed="${c==='All'}">${c}</button>`).join('');
+$('#filt').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;cat=b.textContent;[...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));if(selSpot&&cat!=='All'&&SPOTS[selSpot-1].k!==cat)selSpot=null;drawMap();drawList()});
+selSpot=2;drawMap();drawList();
+
+/* ================= SHOWING ================= */
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const today=new Date(); const days=[];
+for(let i=1;i<=7;i++){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i);days.push(d)}
+function slotsFor(d){const w=d.getDay();if(w===6)return[{{$.slotsSat|raw}}];if(w===0)return[{{$.slotsSun|raw}}];return[{{$.slotsWeek|raw}}]}
+const booked=(d,i)=>((d.getDate()*7+i*13)%5)===0||((d.getDate()+i)%7===3);
+let selDay=0, selSlot=null, selType='In person';
+function drawDays(){$('#days').innerHTML=days.map((d,i)=>`<button type="button" class="day" data-i="${i}" aria-pressed="${i===selDay}" aria-label="${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}"><small>${DOW[d.getDay()]}</small><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></button>`).join('')}
+function drawSlots(){const d=days[selDay];const sl=slotsFor(d);
+  if(selSlot===null||booked(d,sl.indexOf(selSlot))||!sl.includes(selSlot)){selSlot=null;for(let i=0;i<sl.length;i++)if(!booked(d,i)){selSlot=sl[i];break}}
+  $('#slots').innerHTML=sl.map((t,i)=>`<button type="button" class="slot" data-t="${t}" ${booked(d,i)?'disabled aria-label="'+t+' taken"':''} aria-pressed="${t===selSlot}">${t}</button>`).join('');summary()}
+function summary(){const d=days[selDay];$('#summary').innerHTML=selSlot?`<b>${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${selSlot}</b> · ${selType} · 30 min`:'Pick an open time.'}
+$('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;selDay=+b.dataset.i;drawDays();drawSlots();$('#confirm').hidden=true});
+$('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b||b.disabled)return;selSlot=b.dataset.t;drawSlots();$('#confirm').hidden=true});
+$('#type').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;selType=b.dataset.t;[...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));summary()});
+$('#book').addEventListener('submit',e=>{e.preventDefault();const nm=$('#fName').value.trim(), em=$('#fMail').value.trim(), err=$('#err');
+  if(!nm){err.textContent={{$.nameErr|js}};err.hidden=false;$('#fName').focus();return}
+  if(!/^\S+@\S+\.\S+$/.test(em)){err.textContent='Add an email like name@example.com so the confirmation has somewhere to go.';err.hidden=false;$('#fMail').focus();return}
+  if(!selSlot){err.textContent='Pick an open time first.';err.hidden=false;return}
+  err.hidden=true;const d=days[selDay];const c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was sent</span><b>${nm.replace(/[<>&]/g,'')}, you're pencilled in for ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()} at ${selSlot}.</b><span>${selType==='Video'?{{showing.videoNote|js}}:{{showing.inPersonNote|js}}} {{showing.bring|tl}}</span>`;
+  c.hidden=false;});
+drawDays();drawSlots();
+})();
+</script>
+
+</body></html>

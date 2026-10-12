@@ -1,0 +1,408 @@
+{
+  "business": {
+    "name": "Tidewater Homes"
+  },
+  "brand": {
+    "name": "Tidewater Homes"
+  },
+  "nav": {
+    "rooms": "Rooms",
+    "payments": "Payments",
+    "area": "Neighborhood",
+    "cta": "Book a showing"
+  },
+  "listing": {
+    "address": "27 Harbor Lane",
+    "price": 412000
+  },
+  "hero": {
+    "eyebrow": "Tidewater Homes · Listing TW-2207",
+    "lede": "A 1948 shingle bungalow two streets from the harbour, with a new kitchen and the original fir floors. Scroll and we'll build it.",
+    "chips": [
+      "2 bd",
+      "1 ba",
+      "1,232 sq ft",
+      "0.11 ac"
+    ]
+  },
+  "model": {
+    "ceiling": 8,
+    "ceilingNote": "8′ flat, painted plaster",
+    "pitch": 6,
+    "layout": "illustrative",
+    "rooms": [
+      {
+        "id": "bed2",
+        "name": "Bedroom 2",
+        "kind": "bed",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "d": 10,
+        "mat": "oak"
+      },
+      {
+        "id": "bath",
+        "name": "Bath",
+        "kind": "bath",
+        "x": 12,
+        "y": 0,
+        "w": 8,
+        "d": 10,
+        "mat": "tile"
+      },
+      {
+        "id": "laundry",
+        "name": "Laundry",
+        "kind": "laundry",
+        "x": 20,
+        "y": 0,
+        "w": 6,
+        "d": 10,
+        "mat": "tile"
+      },
+      {
+        "id": "store",
+        "name": "Storage",
+        "kind": "closet",
+        "x": 26,
+        "y": 0,
+        "w": 6,
+        "d": 10,
+        "mat": "oak"
+      },
+      {
+        "id": "ensuite",
+        "name": "Primary bath",
+        "kind": "ensuite",
+        "x": 32,
+        "y": 0,
+        "w": 6,
+        "d": 14,
+        "mat": "tile"
+      },
+      {
+        "id": "wic",
+        "name": "Closet",
+        "kind": "closet",
+        "x": 38,
+        "y": 0,
+        "w": 6,
+        "d": 14,
+        "mat": "oak"
+      },
+      {
+        "id": "hall",
+        "name": "Hall",
+        "kind": "hall",
+        "x": 0,
+        "y": 10,
+        "w": 32,
+        "d": 4,
+        "mat": "oak"
+      },
+      {
+        "id": "living",
+        "name": "Living room",
+        "kind": "living",
+        "x": 0,
+        "y": 14,
+        "w": 18,
+        "d": 14,
+        "mat": "oak"
+      },
+      {
+        "id": "kitchen",
+        "name": "Kitchen",
+        "kind": "kitchen",
+        "x": 18,
+        "y": 14,
+        "w": 14,
+        "d": 14,
+        "mat": "oak"
+      },
+      {
+        "id": "primary",
+        "name": "Primary bedroom",
+        "kind": "primary",
+        "x": 32,
+        "y": 14,
+        "w": 12,
+        "d": 14,
+        "mat": "oak"
+      }
+    ],
+    "stages": [
+      {
+        "n": "Site staked",
+        "c": "Footprint staked at 44′ × 28′ on a 50′ × 96′ lot."
+      },
+      {
+        "n": "Slab poured",
+        "c": "A new insulated slab under the 1948 frame, poured in 2023."
+      },
+      {
+        "n": "Floors laid",
+        "c": "Original fir floors, refinished; tile in the bath and laundry."
+      },
+      {
+        "n": "Walls raised",
+        "c": "8′ ceilings, re-insulated walls and new wiring throughout."
+      },
+      {
+        "n": "Roof set",
+        "c": "A 6:12 gable in cedar shingles, replaced in 2022."
+      },
+      {
+        "n": "Lights on",
+        "c": "Wood windows on every side, the biggest facing south."
+      },
+      {
+        "n": "Roof lifted",
+        "c": "One level, no steps from the front door to the garden."
+      },
+      {
+        "n": "Walls folded",
+        "c": "Living room and kitchen share the south light; bedrooms face north."
+      },
+      {
+        "n": "Floor plan",
+        "c": "10 rooms on one floor. Dimensions are wall to wall."
+      }
+    ]
+  },
+  "facts": {
+    "title": "Listing sheet",
+    "eyebrow": "Updated Oct 2026 · MLS-style summary",
+    "items": [
+      {
+        "dt": "List price",
+        "dd": "$412,000",
+        "small": "$334 per sq ft"
+      },
+      {
+        "dt": "Bedrooms / baths",
+        "dd": "2 bd · 1 ba",
+        "small": "Primary with its own bath"
+      },
+      {
+        "dt": "Interior",
+        "dd": "1,232 sq ft",
+        "small": "114.5 m², one level"
+      },
+      {
+        "dt": "Lot",
+        "dd": "0.11 acre",
+        "small": "4,800 sq ft, 50′ frontage"
+      },
+      {
+        "dt": "Built / renovated",
+        "dd": "1948 / 2023",
+        "small": "New kitchen, slab and wiring"
+      },
+      {
+        "dt": "Property tax est.",
+        "dd": "$4,120 / yr",
+        "small": "1.0% of price, about $343/mo"
+      },
+      {
+        "dt": "Heating & cooling",
+        "dd": "Mini-split",
+        "small": "Two heads, one per side"
+      },
+      {
+        "dt": "Parking",
+        "dd": "Driveway",
+        "small": "Room for two cars"
+      }
+    ]
+  },
+  "rooms": {
+    "eyebrow": "Room by room",
+    "title": "Walk the plan before you walk the house.",
+    "sub": "Pick a room to see it from the doorway, with its size, flooring and where the light comes from.",
+    "miniCaption": "SOUTH · STREET SIDE",
+    "tour": [
+      {
+        "id": "living",
+        "view": "from the hall",
+        "floor": "Original fir, refinished",
+        "light": "South, all day",
+        "furn": "living",
+        "feat": [
+          "A bay of south windows over the front garden",
+          "Built-in shelves either side of the chimney",
+          "Fir floor laid in 1948, refinished in 2023"
+        ]
+      },
+      {
+        "id": "kitchen",
+        "view": "from the living room",
+        "floor": "Original fir, refinished",
+        "light": "South and west",
+        "furn": "kitchen",
+        "feat": [
+          "New kitchen with a gas range and quartz counters",
+          "Pantry wall of floor-to-ceiling cupboards",
+          "Open to the living room across the old wall line"
+        ]
+      },
+      {
+        "id": "primary",
+        "view": "from the kitchen",
+        "floor": "Original fir, refinished",
+        "light": "South and east",
+        "furn": "bed",
+        "feat": [
+          "Fits a queen bed and a dresser",
+          "Its own bath and walk-in closet behind",
+          "Morning sun from the east window"
+        ]
+      },
+      {
+        "id": "bed2",
+        "view": "from the hall",
+        "floor": "Original fir, refinished",
+        "light": "North",
+        "furn": "bedS",
+        "feat": [
+          "Double closet",
+          "Quiet north light for a desk",
+          "Next to the bath across the hall"
+        ]
+      }
+    ]
+  },
+  "payments": {
+    "eyebrow": "Monthly payment",
+    "title": "What 27 Harbor Lane costs you each month.",
+    "sub": "Move the sliders. Taxes use the town's 1.0% rate and insurance is a typical quote for a coastal bungalow.",
+    "priceMin": 299000,
+    "priceMax": 549000,
+    "priceStep": 1000,
+    "downPct": 20,
+    "rate": 6.5,
+    "years": 30,
+    "taxRate": 1,
+    "insuranceMonthly": 190,
+    "closingPct": 2.5,
+    "note": "Cash to close adds an estimated 2.5% in closing costs. Monthly compounding. An estimate for planning, not a loan offer."
+  },
+  "area": {
+    "eyebrow": "Old Harbor, west end",
+    "title": "The water at six minutes, coffee at four.",
+    "sub": "Times are walking minutes from the front door along real sidewalks. Tap a place to see the route.",
+    "scores": [
+      {
+        "n": 84,
+        "t": "Walk",
+        "d": "Most errands on foot"
+      },
+      {
+        "n": 91,
+        "t": "Bike",
+        "d": "Flat, with protected lanes"
+      },
+      {
+        "n": 58,
+        "t": "Transit",
+        "d": "Light rail is a 15 min walk"
+      }
+    ],
+    "categories": [
+      "Food & coffee",
+      "Parks",
+      "Errands",
+      "Transit"
+    ],
+    "places": [
+      {
+        "n": "Harbor Steps Coffee",
+        "k": "Food & coffee",
+        "min": 4,
+        "dir": "E",
+        "note": "Opens 6:00, closes at 15:00"
+      },
+      {
+        "n": "Breakwater Park",
+        "k": "Parks",
+        "min": 6,
+        "dir": "S",
+        "note": "The harbour wall walk and a playground"
+      },
+      {
+        "n": "Ferry dock",
+        "k": "Transit",
+        "min": 9,
+        "dir": "SE",
+        "note": "Boats to the city every 40 minutes"
+      },
+      {
+        "n": "Gull Street Market",
+        "k": "Errands",
+        "min": 7,
+        "dir": "NE",
+        "note": "Grocery and pharmacy, open late"
+      },
+      {
+        "n": "Bus 3 · Gull & Pier",
+        "k": "Transit",
+        "min": 5,
+        "dir": "N",
+        "note": "Every 15 minutes at peak"
+      }
+    ],
+    "map": {
+      "green": true,
+      "water": false
+    }
+  },
+  "agent": {
+    "name": "Mara Quinlan",
+    "bio": "Listing agent at Tidewater Homes. She has sold houses in Old Harbor for nine years and lives on the next street.",
+    "phone": "(555) 019-2207",
+    "openHouseLabel": "Open house",
+    "openHouse": "Sunday 13:00 to 15:00, drop in."
+  },
+  "showing": {
+    "eyebrow": "Book a showing",
+    "title": "Pick a time. Mara meets you at the gate.",
+    "sub": "Private showings run 30 minutes. Video walk-throughs are live, so you can ask to open any cabinet.",
+    "slots": {
+      "weekday": [
+        "09:30",
+        "10:30",
+        "12:00",
+        "16:00",
+        "17:00",
+        "18:00"
+      ],
+      "saturday": [
+        "09:30",
+        "10:15",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "sunday": [
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:30"
+      ]
+    },
+    "videoNote": "On a live listing, Mara would text you a video link 10 minutes before.",
+    "inPersonNote": "On a live listing, Mara would confirm by text within the hour. Park on Harbor Lane.",
+    "bring": "Bring a pre-approval letter if you have one."
+  },
+  "footer": {
+    "fine": "Tidewater Homes is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "wordmarkFit": "fit",
+    "accent": "#1F4E6B"
+  }
+}

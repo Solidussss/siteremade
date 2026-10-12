@@ -1,0 +1,53 @@
+{
+  "title": "Property listing",
+  "fields": [
+    { "key": "businessName", "label": "Agency name", "required": true, "help": "The estate agency or brokerage, e.g. Tidewater Homes." },
+    { "key": "address", "label": "Property address", "required": true, "help": "Street address as it should appear, e.g. 27 Harbor Lane." },
+    { "key": "price", "label": "List price", "required": true, "help": "e.g. $412,000" },
+    { "key": "home", "label": "The home", "type": "textarea", "required": true, "help": "Beds and baths, square feet, lot size, year built and renovated, ceilings, roof, heating, parking, what is new." },
+    { "key": "rooms", "label": "Rooms and floor plan", "type": "textarea", "required": true, "help": "Each room with its size (Living 18 × 14 ft). If you have the floor plan, say where each room sits (north side, next to the kitchen...)." },
+    { "key": "area", "label": "The neighbourhood", "type": "textarea", "help": "Places nearby with walking minutes and direction (bakery, 4 min east), parks or water nearby, walk or transit scores if you have them." },
+    { "key": "agent", "label": "Listing agent", "type": "textarea", "required": true, "help": "Name, phone, a line about them, open house times, showing times." },
+    { "key": "costs", "label": "Taxes and costs", "type": "textarea", "help": "Property tax rate, typical insurance, HOA fees." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" }
+  ],
+  "facts": [
+    "listing.price",
+    "hero.chips.*",
+    "facts.items.*.dd",
+    "facts.items.*.small",
+    "model.rooms.*.w",
+    "model.rooms.*.d",
+    "model.ceiling",
+    "model.stages.*.c",
+    "rooms.tour.*.feat.*",
+    "payments.taxRate",
+    "payments.insuranceMonthly",
+    "area.scores.*.n",
+    "area.places.*.min",
+    "agent.phone",
+    "agent.openHouse",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero builds THIS house as you scroll, from model.rooms: slab, floors, walls, roof, lights, then the roof lifts and the walls fold down to a dimensioned floor plan. Walls, windows, the front door, inner doors and the gable roof are drawn from the rooms, so the rooms must be the listing's: each {id, name, kind, x, y, w, d, mat} in feet (half-foot steps), tiling one rectangle with no gaps or overlaps, x along the long side from 0, y from 0 on the north side to the depth on the south. Rooms that exist but are small (a hall, a closet) fill the gaps; never invent a bedroom or bath the brief does not have.",
+    "model.layout is \"listing\" when the brief says where rooms sit (a floor plan), \"illustrative\" when it gives only the sizes and you arranged them; the page then says the layout is drawn to show the sizes. Record the arrangement in _decisions. Every room size comes from the brief; list any you estimated in _assumed.",
+    "kind: living, kitchen, dining, family (open plan: they meet without walls), primary, bed, office, bath, ensuite (opens off the primary bedroom), laundry, closet, hall, entry (gets the front door), other. mat: oak for wood or carpet floors, tile for tile or stone. model.ceiling is the ceiling height in feet (8-12) and model.pitch the roof pitch (rise per 12, 2-12); model.ceilingNote describes the ceilings.",
+    "model.stages: nine captions in order (site staked, slab poured, floors laid, walls raised, roof set, lights on, roof lifted, walls folded, floor plan) with the brief's facts about each (lot size, slab, floors, walls and insulation, roof, windows); the page writes the last one's caption itself from the rooms.",
+    "rooms.tour: three to eight rooms by their model.rooms id, each with how it is seen (view), its floor, its light, a furniture kind for the sketch (living, kitchen, bed, bedS for a smaller bedroom, desk, tub, laundry, none) and three features from the brief.",
+    "payments: priceMin and priceMax around the list price (about 30% either side, in round numbers), priceStep, the down payment and rate the sliders start at, years 20, 25 or 30, the property tax rate (% of price), monthly insurance and closing costs (%). Tax and insurance come from the brief; if it gives none, use typical local figures and list them in _assumed. payments.note says it is an estimate, not a loan offer.",
+    "area.places: four to twelve places from the brief, each with min (walking minutes, 1-18) and dir (N, NE, E, SE, S, SW, W, NW) from the front door, a category from area.categories and a note. The map is a schematic street grid; area.map.green and area.map.water draw parks and a creek only if the area has them. area.scores: three scores (e.g. Walk, Bike, Transit, out of 100) only if the brief gives them; otherwise an empty list.",
+    "agent: the listing agent's real name, phone, a line about them, and open house times (agent.openHouse empty if none). showing.slots are the times the agent offers on weekdays, Saturdays and Sundays; the notes say what happens after booking (it is a demo form).",
+    "hero.chips: four short facts (beds, baths, interior size, lot). facts.items: eight listing-sheet rows (price and price per sq ft, beds and baths, interior, lot, built and renovated, property tax, heating and cooling, parking), each from the brief.",
+    "theme.accent is the agency's colour (dark enough for white button text); theme.wordmarkFit is always \"fit\" for a new agency.",
+    "business.name is set to exactly the agency name in the brief and cannot be changed; brand.name is how the agency's name is set in the nav and footer (it may be the same)."
+  ],
+  "readBack": [
+    { "label": "The listing", "path": "listing", "fields": ["address", "price"] },
+    { "label": "Floor plan", "path": "model.rooms", "fields": ["name", "w", "d"] },
+    { "label": "Nearby", "path": "area.places", "fields": ["n", "min", "dir"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

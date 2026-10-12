@@ -1,0 +1,351 @@
+{
+  "about": "What a real-estate agency may change in the Lintel & Key design. Protected: the scroll-built house and how it is built (slab, floors, walls, roof, lights, the plan laid flat), the room sketches, the mortgage maths and chart, the map's walking rings, the booking flow, layout, type and all interaction code. The house itself is the listing's: its rooms, their sizes and layout come from the content, and its walls, windows, doors and roof are drawn from them.",
+  "text": {
+    "business.name": [
+      3,
+      40
+    ],
+    "brand.name": [
+      3,
+      20
+    ],
+    "nav.*": [
+      3,
+      14
+    ],
+    "nav.cta": [
+      4,
+      18
+    ],
+    "listing.address": [
+      4,
+      26
+    ],
+    "hero.eyebrow": [
+      6,
+      46
+    ],
+    "hero.lede": [
+      30,
+      170
+    ],
+    "hero.chips.*": [
+      2,
+      14
+    ],
+    "model.ceilingNote": [
+      4,
+      40
+    ],
+    "model.rooms.*.id": [
+      2,
+      12
+    ],
+    "model.rooms.*.name": [
+      3,
+      18
+    ],
+    "model.stages.*.n": [
+      4,
+      16
+    ],
+    "model.stages.*.c": [
+      20,
+      110
+    ],
+    "facts.title": [
+      4,
+      24
+    ],
+    "facts.eyebrow": [
+      6,
+      46
+    ],
+    "facts.items.*.dt": [
+      3,
+      20
+    ],
+    "facts.items.*.dd": [
+      2,
+      18
+    ],
+    "facts.items.*.small": [
+      3,
+      40
+    ],
+    "rooms.eyebrow": [
+      4,
+      24
+    ],
+    "rooms.title": [
+      10,
+      60
+    ],
+    "rooms.sub": [
+      20,
+      140
+    ],
+    "rooms.miniCaption": [
+      4,
+      30
+    ],
+    "rooms.tour.*.view": [
+      6,
+      26
+    ],
+    "rooms.tour.*.floor": [
+      6,
+      40
+    ],
+    "rooms.tour.*.light": [
+      4,
+      40
+    ],
+    "rooms.tour.*.feat.*": [
+      10,
+      70
+    ],
+    "payments.eyebrow": [
+      4,
+      24
+    ],
+    "payments.title": [
+      10,
+      60
+    ],
+    "payments.sub": [
+      20,
+      160
+    ],
+    "payments.note": [
+      20,
+      160
+    ],
+    "area.eyebrow": [
+      4,
+      30
+    ],
+    "area.title": [
+      10,
+      60
+    ],
+    "area.sub": [
+      20,
+      140
+    ],
+    "area.scores.*.t": [
+      3,
+      10
+    ],
+    "area.scores.*.d": [
+      6,
+      32
+    ],
+    "area.categories.*": [
+      3,
+      16
+    ],
+    "area.places.*.n": [
+      3,
+      30
+    ],
+    "area.places.*.note": [
+      6,
+      50
+    ],
+    "agent.name": [
+      4,
+      26
+    ],
+    "agent.bio": [
+      30,
+      190
+    ],
+    "agent.phone": [
+      7,
+      20
+    ],
+    "agent.openHouseLabel": [
+      4,
+      16
+    ],
+    "agent.openHouse": [
+      10,
+      60
+    ],
+    "showing.eyebrow": [
+      4,
+      24
+    ],
+    "showing.title": [
+      10,
+      60
+    ],
+    "showing.sub": [
+      20,
+      140
+    ],
+    "showing.videoNote": [
+      20,
+      120
+    ],
+    "showing.inPersonNote": [
+      20,
+      140
+    ],
+    "showing.bring": [
+      10,
+      80
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      4
+    ]
+  },
+  "lists": {
+    "hero.chips": [
+      4,
+      4
+    ],
+    "model.rooms": [
+      3,
+      14
+    ],
+    "model.stages": [
+      9,
+      9
+    ],
+    "facts.items": [
+      8,
+      8
+    ],
+    "rooms.tour": [
+      3,
+      8
+    ],
+    "rooms.tour.*.feat": [
+      3,
+      3
+    ],
+    "area.scores": [
+      0,
+      3
+    ],
+    "area.categories": [
+      2,
+      6
+    ],
+    "area.places": [
+      4,
+      12
+    ],
+    "showing.slots.weekday": [
+      1,
+      8
+    ],
+    "showing.slots.saturday": [
+      0,
+      8
+    ],
+    "showing.slots.sunday": [
+      0,
+      8
+    ]
+  },
+  "numbers": {
+    "listing.price": [
+      10000,
+      50000000
+    ],
+    "model.ceiling": [
+      8,
+      12
+    ],
+    "model.pitch": [
+      2,
+      12
+    ],
+    "payments.priceMin": [
+      5000,
+      60000000
+    ],
+    "payments.priceMax": [
+      10000,
+      60000000
+    ],
+    "payments.priceStep": [
+      500,
+      500000
+    ],
+    "payments.downPct": [
+      5,
+      50
+    ],
+    "payments.rate": [
+      3,
+      9
+    ],
+    "payments.taxRate": [
+      0,
+      4
+    ],
+    "payments.insuranceMonthly": [
+      0,
+      5000
+    ],
+    "payments.closingPct": [
+      0,
+      8
+    ],
+    "area.scores.*.n": [
+      0,
+      100
+    ]
+  },
+  "choices": {
+    "model.layout": [
+      "listing",
+      "illustrative"
+    ],
+    "rooms.tour.*.furn": [
+      "living",
+      "kitchen",
+      "bed",
+      "bedS",
+      "desk",
+      "tub",
+      "laundry",
+      "none"
+    ],
+    "area.map.green": [
+      true,
+      false
+    ],
+    "area.map.water": [
+      true,
+      false
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  },
+  "colours": [
+    "theme.accent"
+  ],
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "model.rooms is the listing's floor plan, in feet: each room a rectangle {id, name, kind, x, y, w, d, mat} placed so the rooms tile one rectangle with no gaps or overlaps (x along the long side, from 0; y from 0 on the north side to the depth on the south side). kind is one of living, kitchen, dining, family, primary, bed, office, bath, ensuite, laundry, closet, hall, entry, other; mat is oak (wood or carpet floors) or tile. The walls, windows, front door, doors, roof and every dimension on the page are drawn from them.",
+    "model.layout: 'listing' when the rooms are placed as in the listing's floor plan, 'illustrative' when only the room sizes are known and you arranged them (the page then says the layout is drawn to show the sizes).",
+    "model.stages: nine captions for the build in order: site staked, slab, floors, walls, roof, lights, roof lifted, walls folded, floor plan. The page writes the last caption itself from the rooms.",
+    "rooms.tour: the rooms to walk through, each by its model.rooms id, with the view, floor, light, furniture kind and three features.",
+    "area.places: each with its walking minutes (min) and direction (dir: N, NE, E, SE, S, SW, W, NW) from the front door, its category (one of area.categories) and a note. area.map.green / water: true only if the area has parks / a creek or river to draw."
+  ]
+}

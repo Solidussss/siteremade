@@ -1,0 +1,542 @@
+{
+  "business": {
+    "name": "Lintel & Key"
+  },
+  "brand": {
+    "name": "Lintel & Key"
+  },
+  "nav": {
+    "rooms": "Rooms",
+    "payments": "Payments",
+    "area": "Neighborhood",
+    "cta": "Book a showing"
+  },
+  "listing": {
+    "address": "418 Alder Rise",
+    "price": 849000
+  },
+  "hero": {
+    "eyebrow": "Lintel & Key · Listing LK-0418",
+    "lede": "A 1962 single-level ranch in Fernhollow, rebuilt to the studs in 2024. Scroll and we'll build it for you, then lay it flat.",
+    "chips": [
+      "3 bd",
+      "2 ba",
+      "2,160 sq ft",
+      "0.21 ac"
+    ]
+  },
+  "model": {
+    "ceiling": 9,
+    "ceilingNote": "9′ flat, painted plaster",
+    "pitch": 4,
+    "layout": "listing",
+    "rooms": [
+      {
+        "id": "living",
+        "name": "Living room",
+        "x": 0,
+        "y": 16,
+        "w": 22,
+        "d": 20,
+        "mat": "oak",
+        "kind": "living"
+      },
+      {
+        "id": "kitchen",
+        "name": "Kitchen & dining",
+        "x": 22,
+        "y": 16,
+        "w": 20,
+        "d": 20,
+        "mat": "oak",
+        "kind": "kitchen"
+      },
+      {
+        "id": "primary",
+        "name": "Primary bedroom",
+        "x": 42,
+        "y": 16,
+        "w": 18,
+        "d": 20,
+        "mat": "oak",
+        "kind": "primary"
+      },
+      {
+        "id": "hall",
+        "name": "Hall",
+        "x": 0,
+        "y": 12,
+        "w": 42,
+        "d": 4,
+        "mat": "oak",
+        "kind": "hall"
+      },
+      {
+        "id": "bed2",
+        "name": "Bedroom 2",
+        "x": 0,
+        "y": 0,
+        "w": 13,
+        "d": 12,
+        "mat": "oak",
+        "kind": "bed"
+      },
+      {
+        "id": "bath",
+        "name": "Bath",
+        "x": 13,
+        "y": 0,
+        "w": 8,
+        "d": 12,
+        "mat": "tile",
+        "kind": "bath"
+      },
+      {
+        "id": "bed3",
+        "name": "Bedroom 3",
+        "x": 21,
+        "y": 0,
+        "w": 12,
+        "d": 12,
+        "mat": "oak",
+        "kind": "bed"
+      },
+      {
+        "id": "laundry",
+        "name": "Laundry",
+        "x": 33,
+        "y": 0,
+        "w": 9,
+        "d": 12,
+        "mat": "tile",
+        "kind": "laundry"
+      },
+      {
+        "id": "pbath",
+        "name": "Primary bath",
+        "x": 42,
+        "y": 0,
+        "w": 9,
+        "d": 16,
+        "mat": "tile",
+        "kind": "ensuite"
+      },
+      {
+        "id": "closet",
+        "name": "Walk-in closet",
+        "x": 51,
+        "y": 0,
+        "w": 9,
+        "d": 16,
+        "mat": "oak",
+        "kind": "closet"
+      }
+    ],
+    "stages": [
+      {
+        "n": "Site staked",
+        "c": "Footprint staked at 60′ × 36′ on a 76′ × 120′ lot."
+      },
+      {
+        "n": "Slab poured",
+        "c": "Original 1962 slab, re-leveled and insulated underneath in 2024."
+      },
+      {
+        "n": "Floors laid",
+        "c": "Rift-sawn white oak in the living spaces, porcelain tile in the baths and laundry."
+      },
+      {
+        "n": "Walls raised",
+        "c": "9′ ceilings throughout. New 2×6 exterior walls with R-24 insulation."
+      },
+      {
+        "n": "Roof set",
+        "c": "Low 4:12 gable in standing-seam steel, installed spring 2024."
+      },
+      {
+        "n": "Lights on",
+        "c": "12 triple-glazed windows plus a 7′ glass slider to the south patio."
+      },
+      {
+        "n": "Roof lifted",
+        "c": "One level, no stairs. The great room runs the full south side."
+      },
+      {
+        "n": "Walls folded",
+        "c": "Living, kitchen and primary face south. Bedrooms sit quietly along the north."
+      },
+      {
+        "n": "Floor plan",
+        "c": "10 rooms on one floor. Dimensions are wall to wall."
+      }
+    ]
+  },
+  "facts": {
+    "title": "Listing sheet",
+    "eyebrow": "Updated Oct 2026 · MLS-style summary",
+    "items": [
+      {
+        "dt": "List price",
+        "dd": "$849,000",
+        "small": "$393 per sq ft"
+      },
+      {
+        "dt": "Bedrooms / baths",
+        "dd": "3 bd · 2 ba",
+        "small": "Primary suite with walk-in"
+      },
+      {
+        "dt": "Interior",
+        "dd": "2,160 sq ft",
+        "small": "200.7 m², one level"
+      },
+      {
+        "dt": "Lot",
+        "dd": "0.21 acre",
+        "small": "9,148 sq ft, 76′ frontage"
+      },
+      {
+        "dt": "Built / renovated",
+        "dd": "1962 / 2024",
+        "small": "New roof, wiring, plumbing"
+      },
+      {
+        "dt": "Property tax est.",
+        "dd": "$9,509 / yr",
+        "small": "1.12% of price, about $792/mo"
+      },
+      {
+        "dt": "Heating & cooling",
+        "dd": "Heat pump",
+        "small": "Radiant floors in both baths"
+      },
+      {
+        "dt": "Parking",
+        "dd": "2-car carport",
+        "small": "48 A EV charger, side door"
+      }
+    ]
+  },
+  "rooms": {
+    "eyebrow": "Room by room",
+    "title": "Walk the plan before you walk the house.",
+    "sub": "Pick a room to see it from the doorway, with its size, flooring and where the light comes from.",
+    "miniCaption": "SOUTH · GARDEN SIDE",
+    "tour": [
+      {
+        "id": "living",
+        "view": "from the hall",
+        "floor": "White oak, rift-sawn, 7″ planks",
+        "light": "South and west, 25′ of glass",
+        "furn": "living",
+        "feat": [
+          "A 12′ wall of glass looking onto the back garden",
+          "Board-formed concrete fireplace with a gas insert",
+          "Ceiling track for blackout shades on both window walls"
+        ],
+        "win": [
+          [
+            3,
+            13,
+            0.6,
+            7.6
+          ]
+        ]
+      },
+      {
+        "id": "kitchen",
+        "view": "from the living room",
+        "floor": "White oak, rift-sawn, 7″ planks",
+        "light": "South, all day",
+        "furn": "kitchen",
+        "feat": [
+          "10′ island in honed soapstone, seats four",
+          "36″ induction range and a panel-ready fridge",
+          "7′ glass slider out to the south patio"
+        ],
+        "win": [
+          [
+            3,
+            6,
+            3.4,
+            4.2
+          ],
+          [
+            11,
+            7,
+            0,
+            7.6
+          ]
+        ]
+      },
+      {
+        "id": "primary",
+        "view": "from the kitchen door",
+        "floor": "White oak, rift-sawn, 7″ planks",
+        "light": "South and east, morning sun",
+        "furn": "bed",
+        "feat": [
+          "Fits a king bed and a reading chair",
+          "Separate from the other bedrooms across the house",
+          "Wired for a ceiling fan and bedside sconces"
+        ],
+        "win": [
+          [
+            4,
+            10,
+            2.2,
+            5.4
+          ]
+        ]
+      },
+      {
+        "id": "pbath",
+        "view": "from the bedroom",
+        "floor": "Porcelain tile, 24″ × 24″",
+        "light": "East, high window for privacy",
+        "furn": "tub",
+        "feat": [
+          "Curbless shower with a linear drain",
+          "Freestanding soaking tub",
+          "Radiant heat under the tile, on a timer"
+        ],
+        "win": [
+          [
+            2.5,
+            4,
+            5.6,
+            2.2
+          ]
+        ]
+      },
+      {
+        "id": "bed2",
+        "view": "from the hall",
+        "floor": "White oak, rift-sawn, 7″ planks",
+        "light": "North and west, soft all day",
+        "furn": "bedS",
+        "feat": [
+          "Double closet with sliding oak doors",
+          "Steady north light for a desk",
+          "Hardwired ethernet drop"
+        ],
+        "win": [
+          [
+            3,
+            7,
+            2.6,
+            4.8
+          ]
+        ]
+      },
+      {
+        "id": "bed3",
+        "view": "from the hall",
+        "floor": "White oak, rift-sawn, 7″ planks",
+        "light": "North, over the side garden",
+        "furn": "desk",
+        "feat": [
+          "Set up as an office with two data drops",
+          "7′ window over the side garden",
+          "Across the hall from the full bath"
+        ],
+        "win": [
+          [
+            2.5,
+            7,
+            2.6,
+            4.8
+          ]
+        ]
+      },
+      {
+        "id": "laundry",
+        "view": "from the hall",
+        "floor": "Porcelain tile, 24″ × 24″",
+        "light": "North",
+        "furn": "laundry",
+        "feat": [
+          "Stacked heat-pump washer and dryer",
+          "Utility sink and a 9′ folding counter",
+          "Side door to the carport and EV charger"
+        ],
+        "win": [
+          [
+            3,
+            3,
+            3.6,
+            3.4
+          ]
+        ]
+      }
+    ]
+  },
+  "payments": {
+    "eyebrow": "Monthly payment",
+    "title": "What 418 Alder Rise costs you each month.",
+    "sub": "Move the sliders. Taxes use Fernhollow's 1.12% rate and insurance is a typical quote for a 2024 rebuild.",
+    "priceMin": 599000,
+    "priceMax": 1099000,
+    "priceStep": 5000,
+    "downPct": 20,
+    "rate": 6.25,
+    "years": 25,
+    "taxRate": 1.12,
+    "insuranceMonthly": 145,
+    "closingPct": 2.5,
+    "note": "Cash to close adds an estimated 2.5% in closing costs. Monthly compounding. An estimate for planning, not a loan offer."
+  },
+  "area": {
+    "eyebrow": "Fernhollow, east side",
+    "title": "Bread at four minutes, the greenway at three.",
+    "sub": "Times are walking minutes from the front door along real sidewalks. Tap a place to see the route.",
+    "scores": [
+      {
+        "n": 84,
+        "t": "Walk",
+        "d": "Most errands on foot"
+      },
+      {
+        "n": 91,
+        "t": "Bike",
+        "d": "Flat, with protected lanes"
+      },
+      {
+        "n": 58,
+        "t": "Transit",
+        "d": "Light rail is a 15 min walk"
+      }
+    ],
+    "categories": [
+      "Food & coffee",
+      "Schools",
+      "Parks",
+      "Errands",
+      "Transit"
+    ],
+    "places": [
+      {
+        "n": "Alder Creek Greenway",
+        "k": "Parks",
+        "x": -0.12,
+        "y": 0.1,
+        "note": "Paved trail along the creek"
+      },
+      {
+        "n": "Tallow & Rye Bakery",
+        "k": "Food & coffee",
+        "x": 0.2,
+        "y": -0.08,
+        "note": "Sourdough out at 7:00"
+      },
+      {
+        "n": "Lark Street Coffee",
+        "k": "Food & coffee",
+        "x": 0.3,
+        "y": -0.1,
+        "note": "Opens 6:30 weekdays"
+      },
+      {
+        "n": "Fernhollow Elementary",
+        "k": "Schools",
+        "x": -0.35,
+        "y": -0.12,
+        "note": "K to 5, crossing guard at Alder"
+      },
+      {
+        "n": "Bus 9 · Lark & 4th",
+        "k": "Transit",
+        "x": 0.3,
+        "y": -0.18,
+        "note": "Every 12 min at peak"
+      },
+      {
+        "n": "Hollis Park & dog run",
+        "k": "Parks",
+        "x": 0.12,
+        "y": 0.45,
+        "note": "Fenced run, two tennis courts"
+      },
+      {
+        "n": "Kestrel Market",
+        "k": "Errands",
+        "x": 0.52,
+        "y": 0.12,
+        "note": "Grocery, open until 22:00"
+      },
+      {
+        "n": "Juniper Hall Library",
+        "k": "Errands",
+        "x": -0.4,
+        "y": 0.42,
+        "note": "Branch library with a tool lending shelf"
+      },
+      {
+        "n": "Northline Station",
+        "k": "Transit",
+        "x": 0.18,
+        "y": -0.85,
+        "note": "Light rail, 22 min to downtown"
+      },
+      {
+        "n": "Copperleaf Middle School",
+        "k": "Schools",
+        "x": -0.75,
+        "y": -0.5,
+        "note": "Grades 6 to 8, 7 min by bike"
+      }
+    ],
+    "map": {
+      "green": true,
+      "water": true
+    }
+  },
+  "agent": {
+    "name": "Wren Osterhaus",
+    "bio": "Listing agent at Lintel & Key. Twelve years selling mid-century homes on Fernhollow's east side, and she grew up three streets over.",
+    "phone": "(555) 014-0418",
+    "openHouseLabel": "Open house",
+    "openHouse": "Saturday 11:00 to 13:00, no booking needed."
+  },
+  "showing": {
+    "eyebrow": "Book a showing",
+    "title": "Pick a time. Wren meets you at the door.",
+    "sub": "Private showings run 30 minutes. Video walk-throughs are live, so you can ask to open any cabinet.",
+    "slots": {
+      "weekday": [
+        "09:30",
+        "10:30",
+        "12:00",
+        "16:00",
+        "17:00",
+        "18:00"
+      ],
+      "saturday": [
+        "09:30",
+        "10:15",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "sunday": [
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:30"
+      ]
+    },
+    "videoNote": "On a live listing, Wren would text you a video link 10 minutes before.",
+    "inPersonNote": "On a live listing, Wren would confirm by text within the hour. Park on Alder Rise; the carport is for the sellers.",
+    "bring": "Bring a pre-approval letter if you have one."
+  },
+  "footer": {
+    "fine": "Lintel & Key is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#2C5A4E",
+    "wordmarkFit": "crop"
+  }
+}
