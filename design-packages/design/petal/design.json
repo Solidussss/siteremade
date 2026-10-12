@@ -1,0 +1,63 @@
+{
+  "name": "petal",
+  "category": "florist",
+  "reference": "reference/petal-original.html",
+  "referenceSha256": "d77b65c511521536f7c58a4ce96a81a8f8aa4e48c5e99a5289c1d87ab4d9218b",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#2F5D46",
+      "target": "theme.accent",
+      "about": "the florist's colour: buttons, the logo's stem, picked sizes, palettes and days, the writing on the card, the bike's basket"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#2F5D46", 4.5, "button text on the accent"],
+      ["A:#2B553F", "#FBF8F3", 4.5, "accent text on the page"],
+      ["A:#2B553F", "#F2EDE4", 4.5, "accent text on the tinted section"],
+      ["A:#2B553F", "A:#E2EDE5", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:.005em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Italiana&display=swap", "family": "Italiana" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Italiana&display=swap", "family": "Italiana" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Figtree:wght@600&display=swap", "family": "Figtree" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 12.5, 170],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

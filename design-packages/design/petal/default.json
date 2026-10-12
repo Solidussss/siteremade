@@ -1,0 +1,459 @@
+{
+  "business": {
+    "name": "Petal & Stem"
+  },
+  "brand": {
+    "name": "Petal & Stem"
+  },
+  "contact": {
+    "phone": "020 7946 0574"
+  },
+  "nav": {
+    "build": "Bouquets",
+    "season": "In season",
+    "deliver": "Delivery",
+    "cta": "Send flowers"
+  },
+  "hero": {
+    "eyebrow": "Petal & Stem · florist, Hackney",
+    "title": "Stem by stem,",
+    "titleEm": "by hand.",
+    "lede": "Seasonal bouquets, built to order from flowers bought at the market that morning. Scroll and watch one come together, from the first green to the ribbon.",
+    "cta": "Build a bouquet",
+    "cta2": "What's in season",
+    "hint": "Scroll to build the bouquet"
+  },
+  "bouquet": {
+    "stems": [
+      {
+        "kind": "eucalyptus",
+        "col": "#8FA79A",
+        "name": "Eucalyptus"
+      },
+      {
+        "kind": "eucalyptus",
+        "col": "#8FA79A",
+        "name": "Eucalyptus"
+      },
+      {
+        "kind": "fern",
+        "col": "#5F8A57",
+        "name": "Pittosporum"
+      },
+      {
+        "kind": "fern",
+        "col": "#5F8A57",
+        "name": "Pittosporum"
+      },
+      {
+        "kind": "rose",
+        "col": "#E9A3A0",
+        "name": "Garden rose"
+      },
+      {
+        "kind": "peony",
+        "col": "#F2C2C6",
+        "name": "Peony"
+      },
+      {
+        "kind": "rose",
+        "col": "#E9A3A0",
+        "name": "Garden rose"
+      },
+      {
+        "kind": "peony",
+        "col": "#F2C2C6",
+        "name": "Peony"
+      },
+      {
+        "kind": "rose",
+        "col": "#D9827C",
+        "name": "Garden rose"
+      },
+      {
+        "kind": "ranunculus",
+        "col": "#F4D5B8",
+        "name": "Ranunculus"
+      },
+      {
+        "kind": "ranunculus",
+        "col": "#F4D5B8",
+        "name": "Ranunculus"
+      },
+      {
+        "kind": "spray",
+        "col": "#F6E7E3",
+        "name": "Spray rose"
+      },
+      {
+        "kind": "spray",
+        "col": "#F6E7E3",
+        "name": "Spray rose"
+      },
+      {
+        "kind": "grass",
+        "col": "#B8A57A",
+        "name": "Bunny tails"
+      },
+      {
+        "kind": "grass",
+        "col": "#B8A57A",
+        "name": "Bunny tails"
+      },
+      {
+        "kind": "fern",
+        "col": "#7C9C6D",
+        "name": "Trailing fern"
+      }
+    ],
+    "paper": "#EFE4D2",
+    "ribbon": "#B98B5A",
+    "card": "For Mum, with love"
+  },
+  "count": {
+    "stems": 24,
+    "varieties": 7,
+    "local": 80,
+    "lasts": "7 days",
+    "labels": [
+      "Stems",
+      "Varieties",
+      "Grown",
+      "Lasts"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The greens",
+      "c": "Silver eucalyptus and soft pittosporum first, crossed in a spiral so every stem has room."
+    },
+    {
+      "n": "The stars",
+      "c": "Three garden roses and two peonies, turned so each face catches the light."
+    },
+    {
+      "n": "Filling in",
+      "c": "Ranunculus and spray roses tucked between, low and close, to make it feel full."
+    },
+    {
+      "n": "A little wild",
+      "c": "Grasses and a trailing fern, so it looks gathered from a garden, not made."
+    },
+    {
+      "n": "Wrapped and tied",
+      "c": "Stems cut on the angle, tied with raffia, wrapped in paper and set in water."
+    },
+    {
+      "n": "On its way",
+      "c": "A handwritten card, a photo sent to you, and out on the bike by two."
+    }
+  ],
+  "build": {
+    "eyebrow": "Bouquets",
+    "title": "Choose a size.",
+    "titleEm": "Choose a mood.",
+    "sub": "We pick the stems on the day from what's best at the market, in the colours you choose. Every bouquet comes in water, wrapped in paper with a handwritten card.",
+    "sizes": [
+      {
+        "n": "Posy",
+        "stems": 12,
+        "p": 35
+      },
+      {
+        "n": "Classic",
+        "stems": 20,
+        "p": 55
+      },
+      {
+        "n": "Abundant",
+        "stems": 32,
+        "p": 85
+      }
+    ],
+    "palettes": [
+      {
+        "n": "Blush and white",
+        "d": "Soft pinks, ivory, silver greens",
+        "cols": [
+          "#F2C2C6",
+          "#E9A3A0",
+          "#F6E7E3"
+        ],
+        "kinds": [
+          "peony",
+          "rose",
+          "spray"
+        ]
+      },
+      {
+        "n": "Sunset",
+        "d": "Apricot, coral and burnt orange",
+        "cols": [
+          "#F4A261",
+          "#E76F51",
+          "#F4D5B8"
+        ],
+        "kinds": [
+          "dahlia",
+          "rose",
+          "ranunculus"
+        ]
+      },
+      {
+        "n": "Wild meadow",
+        "d": "Whites, yellows and grasses",
+        "cols": [
+          "#FFFFFF",
+          "#F1D36B",
+          "#B8A57A"
+        ],
+        "kinds": [
+          "daisy",
+          "anemone",
+          "grass"
+        ]
+      },
+      {
+        "n": "Moody",
+        "d": "Plum, burgundy and deep green",
+        "cols": [
+          "#6B2D4C",
+          "#8E3B46",
+          "#3E5B4B"
+        ],
+        "kinds": [
+          "dahlia",
+          "rose",
+          "anemone"
+        ]
+      }
+    ],
+    "extras": [
+      {
+        "n": "Vase",
+        "p": 18
+      },
+      {
+        "n": "Chocolates",
+        "p": 9
+      },
+      {
+        "n": "Bigger card",
+        "p": 3
+      }
+    ],
+    "cta": "Send this bouquet"
+  },
+  "season": {
+    "eyebrow": "In season",
+    "title": "What's good",
+    "titleEm": "right now.",
+    "sub": "Flowers in season last longer, smell better and travel less. Here's what we're buying each season.",
+    "seasons": [
+      {
+        "n": "Spring",
+        "from": 2,
+        "flowers": [
+          {
+            "n": "Ranunculus",
+            "d": "Layers of paper-thin petals",
+            "lasts": "7 to 10 days",
+            "kind": "ranunculus",
+            "col": "#F4D5B8"
+          },
+          {
+            "n": "Tulips",
+            "d": "Keep growing in the vase",
+            "lasts": "5 to 7 days",
+            "kind": "tulip",
+            "col": "#E86A7A"
+          },
+          {
+            "n": "Anemones",
+            "d": "Dark eyes, bright petals",
+            "lasts": "5 to 7 days",
+            "kind": "anemone",
+            "col": "#FFFFFF"
+          },
+          {
+            "n": "Blossom",
+            "d": "Cherry and apple branches",
+            "lasts": "5 days",
+            "kind": "spray",
+            "col": "#F6D3DA"
+          }
+        ]
+      },
+      {
+        "n": "Summer",
+        "from": 5,
+        "flowers": [
+          {
+            "n": "Peonies",
+            "d": "Huge, scented, gone by July",
+            "lasts": "5 to 7 days",
+            "kind": "peony",
+            "col": "#F2C2C6"
+          },
+          {
+            "n": "Garden roses",
+            "d": "English roses with real scent",
+            "lasts": "5 to 7 days",
+            "kind": "rose",
+            "col": "#E9A3A0"
+          },
+          {
+            "n": "Sweet peas",
+            "d": "The smell of June",
+            "lasts": "4 to 5 days",
+            "kind": "spray",
+            "col": "#C9A3D9"
+          },
+          {
+            "n": "Cornflowers",
+            "d": "That blue",
+            "lasts": "7 days",
+            "kind": "daisy",
+            "col": "#5B7BD5"
+          }
+        ]
+      },
+      {
+        "n": "Autumn",
+        "from": 8,
+        "flowers": [
+          {
+            "n": "Dahlias",
+            "d": "Every colour, every size",
+            "lasts": "5 to 7 days",
+            "kind": "dahlia",
+            "col": "#E76F51"
+          },
+          {
+            "n": "Chrysanthemums",
+            "d": "Not your gran's",
+            "lasts": "2 weeks",
+            "kind": "dahlia",
+            "col": "#F4D5B8"
+          },
+          {
+            "n": "Grasses",
+            "d": "Feathery and golden",
+            "lasts": "Weeks, and they dry",
+            "kind": "grass",
+            "col": "#B8A57A"
+          },
+          {
+            "n": "Rose hips",
+            "d": "Berries on the branch",
+            "lasts": "2 weeks",
+            "kind": "spray",
+            "col": "#C2452D"
+          }
+        ]
+      },
+      {
+        "n": "Winter",
+        "from": 11,
+        "flowers": [
+          {
+            "n": "Amaryllis",
+            "d": "Tall, bold, red or white",
+            "lasts": "2 weeks",
+            "kind": "tulip",
+            "col": "#B3261E"
+          },
+          {
+            "n": "Hellebores",
+            "d": "The winter rose",
+            "lasts": "7 days",
+            "kind": "anemone",
+            "col": "#E8D9E6"
+          },
+          {
+            "n": "Eucalyptus",
+            "d": "Silver and scented",
+            "lasts": "2 weeks",
+            "kind": "eucalyptus",
+            "col": "#8FA79A"
+          },
+          {
+            "n": "Narcissi",
+            "d": "Paperwhites, by Christmas",
+            "lasts": "7 days",
+            "kind": "daisy",
+            "col": "#FFFFFF"
+          }
+        ]
+      }
+    ],
+    "lastsWord": "Lasts"
+  },
+  "deliver": {
+    "eyebrow": "Delivery",
+    "title": "Delivered by hand, the same day.",
+    "sub": "Order by noon for same-day delivery in east London. We'll text you a photo of the bouquet before it goes out.",
+    "zones": [
+      {
+        "codes": [
+          "E1",
+          "E2",
+          "E5",
+          "E8",
+          "E9"
+        ],
+        "fee": 6,
+        "cut": "12:00"
+      },
+      {
+        "codes": [
+          "E3",
+          "E10",
+          "E17",
+          "N1",
+          "N16"
+        ],
+        "fee": 9,
+        "cut": "11:00"
+      },
+      {
+        "codes": [
+          "EC1",
+          "EC2",
+          "N4",
+          "N5"
+        ],
+        "fee": 12,
+        "cut": "10:00"
+      }
+    ],
+    "closed": [
+      0
+    ],
+    "words": {
+      "ask": "Type a postcode to see if we deliver there, and when.",
+      "yes": "We deliver to",
+      "same": "same day if you order by",
+      "no": "Sorry, we don't deliver to",
+      "noTail": "yet. Call us and we'll try to help.",
+      "card": "Your message will appear here, written by hand."
+    },
+    "codeLabel": "Postcode",
+    "codeExample": "E8 3RL",
+    "msgLabel": "Message for the card",
+    "msgExample": "Happy birthday, Mum. Love always, S x",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123",
+    "cta": "Send the flowers",
+    "cardTitle": "The card"
+  },
+  "footer": {
+    "fine": "Petal & Stem is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#2F5D46"
+  }
+}

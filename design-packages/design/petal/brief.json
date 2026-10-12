@@ -1,0 +1,37 @@
+{
+  "title": "Florist",
+  "fields": [
+    { "key": "businessName", "label": "Florist name", "required": true, "help": "e.g. Petal & Stem" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or neighbourhood." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "style", "label": "Your style", "help": "Garden, wild, modern, moody... the flowers you love working with and your usual colours." },
+    { "key": "bouquets", "label": "Bouquets and prices", "type": "textarea", "required": true, "help": "Sizes and prices, colour palettes you offer, and extras like vases." },
+    { "key": "seasons", "label": "What you buy through the year", "type": "textarea", "help": "Favourite flowers each season and how long they last." },
+    { "key": "delivery", "label": "Delivery", "type": "textarea", "required": true, "help": "Areas or postcodes you deliver to, the fee for each, the same-day cut-off and days you don't deliver." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo or shop colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "build.sizes.*.p",
+    "build.extras.*.p",
+    "deliver.zones.*.codes.*",
+    "deliver.zones.*.fee",
+    "deliver.zones.*.cut",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero builds one bouquet stem by stem into sixteen fixed slots: 0 to 3 greens (eucalyptus, fern, grass), 4 to 8 focal flowers (rose, peony, ranunculus, tulip, anemone, dahlia, daisy), 9 to 12 fillers (ranunculus, spray, daisy, anemone, rose), 13 to 15 something wild (grass, fern, eucalyptus, spray). Pick kinds and natural colours that match the brief's style and season, and give each stem the real name shown as it goes in (Garden rose, Sweet pea, Pittosporum). Write the six stages for that bouquet and the words on its card.",
+    "count: the numbers beside the bouquet: stems, varieties, percent grown nearby (only if the brief says so; otherwise a modest honest figure the brief supports, or leave the label as Seasonal and use 100), and how long it lasts.",
+    "build: the brief's sizes with stems and prices, up to four palettes (each colour drawn as a flower kind) and extras with prices.",
+    "season: up to four seasons with the month each starts and the brief's favourite flowers, drawn as the nearest kind.",
+    "deliver: zones exactly as the brief gives them (the start of a postcode like E8, or a ZIP), the fee and same-day cut-off for each, closed days, and the wording of the check in the local terms (postcode or ZIP). The form is a demo: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); build and season titles have a second half. theme.accent is the florist's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Sizes", "path": "build.sizes", "fields": ["n", "p"] },
+    { "label": "Delivery", "path": "deliver.zones", "fields": ["codes", "fee"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

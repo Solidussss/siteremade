@@ -1,0 +1,396 @@
+{
+  "business": {
+    "name": "Fieldnote Flowers"
+  },
+  "brand": {
+    "name": "Fieldnote"
+  },
+  "contact": {
+    "phone": "(503) 555-0166"
+  },
+  "nav": {
+    "build": "Bouquets",
+    "season": "Seasonal",
+    "deliver": "Delivery",
+    "cta": "Send flowers"
+  },
+  "hero": {
+    "eyebrow": "Fieldnote · farm flowers, Portland",
+    "title": "Farm grown,",
+    "titleEm": "hand gathered.",
+    "lede": "Loose, meadowy bouquets from farms in the Willamette Valley, picked the day before. Scroll and watch one gathered, stem by stem.",
+    "cta": "Build a bouquet",
+    "cta2": "What's blooming",
+    "hint": "Scroll to gather the bouquet"
+  },
+  "bouquet": {
+    "stems": [
+      {
+        "kind": "grass",
+        "col": "#C2B07A",
+        "name": "Wheat"
+      },
+      {
+        "kind": "fern",
+        "col": "#6E8F5E",
+        "name": "Fern"
+      },
+      {
+        "kind": "eucalyptus",
+        "col": "#8FA79A",
+        "name": "Eucalyptus"
+      },
+      {
+        "kind": "grass",
+        "col": "#C2B07A",
+        "name": "Wheat"
+      },
+      {
+        "kind": "daisy",
+        "col": "#FFFFFF",
+        "name": "Feverfew"
+      },
+      {
+        "kind": "dahlia",
+        "col": "#E8A25C",
+        "name": "Café au lait"
+      },
+      {
+        "kind": "daisy",
+        "col": "#F1D36B",
+        "name": "Rudbeckia"
+      },
+      {
+        "kind": "dahlia",
+        "col": "#D9827C",
+        "name": "Dahlia"
+      },
+      {
+        "kind": "anemone",
+        "col": "#FFFFFF",
+        "name": "Anemone"
+      },
+      {
+        "kind": "spray",
+        "col": "#C9A3D9",
+        "name": "Lavender"
+      },
+      {
+        "kind": "daisy",
+        "col": "#5B7BD5",
+        "name": "Cornflower"
+      },
+      {
+        "kind": "spray",
+        "col": "#F6E7E3",
+        "name": "Yarrow"
+      },
+      {
+        "kind": "ranunculus",
+        "col": "#F4D5B8",
+        "name": "Zinnia"
+      },
+      {
+        "kind": "grass",
+        "col": "#B8A57A",
+        "name": "Bunny tails"
+      },
+      {
+        "kind": "spray",
+        "col": "#C2452D",
+        "name": "Rose hips"
+      },
+      {
+        "kind": "fern",
+        "col": "#7C9C6D",
+        "name": "Trailing vine"
+      }
+    ],
+    "paper": "#E9DFCB",
+    "ribbon": "#8A6A3E",
+    "card": "Happy birthday, Jo"
+  },
+  "count": {
+    "stems": 30,
+    "varieties": 11,
+    "local": 100,
+    "lasts": "6 days",
+    "labels": [
+      "Stems",
+      "Varieties",
+      "Local",
+      "Lasts"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The grasses",
+      "c": "Wheat, fern and eucalyptus first, loose and airy, the way they grow."
+    },
+    {
+      "n": "The faces",
+      "c": "Café au lait dahlias, feverfew and rudbeckia, the stars of late summer."
+    },
+    {
+      "n": "In between",
+      "c": "Lavender, cornflowers and yarrow tucked in, for scent and that blue."
+    },
+    {
+      "n": "Untamed",
+      "c": "Bunny tails, rose hips and a trailing vine, so it looks just picked."
+    },
+    {
+      "n": "Tied up",
+      "c": "Twine round the stems, kraft paper, and a sip of water in the wrap."
+    },
+    {
+      "n": "Off it goes",
+      "c": "A handwritten card and out the door on the cargo bike."
+    }
+  ],
+  "build": {
+    "eyebrow": "Bouquets",
+    "title": "Pick a size.",
+    "titleEm": "Pick a feel.",
+    "sub": "Every bouquet is farm-grown and seasonal, so the exact stems change week to week in the colours you choose.",
+    "sizes": [
+      {
+        "n": "Jar",
+        "stems": 15,
+        "p": 45
+      },
+      {
+        "n": "Armful",
+        "stems": 30,
+        "p": 75
+      },
+      {
+        "n": "Showstopper",
+        "stems": 50,
+        "p": 125
+      }
+    ],
+    "palettes": [
+      {
+        "n": "Meadow",
+        "d": "Whites, yellows and grasses",
+        "cols": [
+          "#FFFFFF",
+          "#F1D36B",
+          "#B8A57A"
+        ],
+        "kinds": [
+          "daisy",
+          "daisy",
+          "grass"
+        ]
+      },
+      {
+        "n": "Golden hour",
+        "d": "Peach, amber and rust",
+        "cols": [
+          "#E8A25C",
+          "#D9827C",
+          "#C2452D"
+        ],
+        "kinds": [
+          "dahlia",
+          "dahlia",
+          "spray"
+        ]
+      },
+      {
+        "n": "Cool",
+        "d": "Blues, lilac and silver",
+        "cols": [
+          "#5B7BD5",
+          "#C9A3D9",
+          "#8FA79A"
+        ],
+        "kinds": [
+          "daisy",
+          "spray",
+          "eucalyptus"
+        ]
+      }
+    ],
+    "extras": [
+      {
+        "n": "Mason jar",
+        "p": 12
+      },
+      {
+        "n": "Local honey",
+        "p": 14
+      }
+    ],
+    "cta": "Send this bouquet"
+  },
+  "season": {
+    "eyebrow": "In season",
+    "title": "What's blooming",
+    "titleEm": "this month.",
+    "sub": "Flowers in season last longer, smell better and travel less. Here's what we're buying each season.",
+    "seasons": [
+      {
+        "n": "Spring",
+        "from": 2,
+        "flowers": [
+          {
+            "n": "Ranunculus",
+            "d": "Layers of paper-thin petals",
+            "lasts": "7 to 10 days",
+            "kind": "ranunculus",
+            "col": "#F4D5B8"
+          },
+          {
+            "n": "Tulips",
+            "d": "Keep growing in the vase",
+            "lasts": "5 to 7 days",
+            "kind": "tulip",
+            "col": "#E86A7A"
+          },
+          {
+            "n": "Anemones",
+            "d": "Dark eyes, bright petals",
+            "lasts": "5 to 7 days",
+            "kind": "anemone",
+            "col": "#FFFFFF"
+          },
+          {
+            "n": "Blossom",
+            "d": "Cherry and apple branches",
+            "lasts": "5 days",
+            "kind": "spray",
+            "col": "#F6D3DA"
+          }
+        ]
+      },
+      {
+        "n": "Summer",
+        "from": 5,
+        "flowers": [
+          {
+            "n": "Peonies",
+            "d": "Huge, scented, gone by July",
+            "lasts": "5 to 7 days",
+            "kind": "peony",
+            "col": "#F2C2C6"
+          },
+          {
+            "n": "Garden roses",
+            "d": "English roses with real scent",
+            "lasts": "5 to 7 days",
+            "kind": "rose",
+            "col": "#E9A3A0"
+          },
+          {
+            "n": "Sweet peas",
+            "d": "The smell of June",
+            "lasts": "4 to 5 days",
+            "kind": "spray",
+            "col": "#C9A3D9"
+          },
+          {
+            "n": "Cornflowers",
+            "d": "That blue",
+            "lasts": "7 days",
+            "kind": "daisy",
+            "col": "#5B7BD5"
+          }
+        ]
+      },
+      {
+        "n": "Autumn",
+        "from": 8,
+        "flowers": [
+          {
+            "n": "Dahlias",
+            "d": "Every colour, every size",
+            "lasts": "5 to 7 days",
+            "kind": "dahlia",
+            "col": "#E76F51"
+          },
+          {
+            "n": "Chrysanthemums",
+            "d": "Not your gran's",
+            "lasts": "2 weeks",
+            "kind": "dahlia",
+            "col": "#F4D5B8"
+          },
+          {
+            "n": "Grasses",
+            "d": "Feathery and golden",
+            "lasts": "Weeks, and they dry",
+            "kind": "grass",
+            "col": "#B8A57A"
+          },
+          {
+            "n": "Rose hips",
+            "d": "Berries on the branch",
+            "lasts": "2 weeks",
+            "kind": "spray",
+            "col": "#C2452D"
+          }
+        ]
+      }
+    ],
+    "lastsWord": "Lasts"
+  },
+  "deliver": {
+    "eyebrow": "Delivery",
+    "title": "Delivered by bike, the same day.",
+    "sub": "Order by 11 for same-day delivery across inner Portland. We text a photo before it leaves.",
+    "zones": [
+      {
+        "codes": [
+          "97202",
+          "97214",
+          "97215",
+          "97232"
+        ],
+        "fee": 12,
+        "cut": "11:00"
+      },
+      {
+        "codes": [
+          "97211",
+          "97212",
+          "97217",
+          "97227"
+        ],
+        "fee": 15,
+        "cut": "10:00"
+      }
+    ],
+    "closed": [
+      0,
+      1
+    ],
+    "words": {
+      "ask": "Type a ZIP code to see if we deliver there, and when.",
+      "yes": "We deliver to",
+      "same": "same day if you order by",
+      "no": "Sorry, we don't deliver to",
+      "noTail": "yet. Call us and we will try.",
+      "card": "Your note will show up here, written by hand."
+    },
+    "codeLabel": "ZIP code",
+    "codeExample": "97214",
+    "msgLabel": "Message for the card",
+    "msgExample": "Happy birthday, Jo! Love, S",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(503) 555-0123",
+    "cta": "Send the flowers",
+    "cardTitle": "The card"
+  },
+  "footer": {
+    "fine": "Fieldnote Flowers is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#7A4A1F"
+  }
+}
