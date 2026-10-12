@@ -1,0 +1,55 @@
+{
+  "name": "larder",
+  "category": "restaurant",
+  "reference": "reference/larder-original.html",
+  "referenceSha256": "d85ed467fae20a5a6141bd34fc7483ba3e7699f3fac4ab2c9fa9f0c27e209e40",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#D9A23A",
+      "target": "theme.accent",
+      "about": "the restaurant's colour: buttons, the italic-free second headline line, the brand mark's flame, the course bars, the chargers' rings, your table on the plan, the map pin and eyebrows (the candle itself stays candle-coloured)"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.4, 0.72] }
+    ],
+    "contrast": [
+      ["#1E1507", "A:#D9A23A", 4.5, "button text on the accent"],
+      ["A:#8A5E12", "#F3EEE4", 4.5, "accent text on the linen"],
+      ["A:#E8B85A", "#22180F", 4.5, "accent text on the table"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Young+Serif&display=swap", "family": "Young Serif" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Work+Sans:wght@600&display=swap", "family": "Work Sans" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "display",
+      "size": [20, 10.6, 130],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

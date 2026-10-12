@@ -1,0 +1,292 @@
+{
+  "business": {
+    "name": "Saffron Lane"
+  },
+  "brand": {
+    "name": "Saffron Lane"
+  },
+  "contact": {
+    "phone": "(312) 555-0148"
+  },
+  "nav": {
+    "menu": "Menu",
+    "book": "Reserve",
+    "visit": "Visit",
+    "cta": "Reserve"
+  },
+  "hero": {
+    "eyebrow": "Saffron Lane · Indian kitchen, Pilsen, Chicago",
+    "title": "Family recipes, open fire.",
+    "titleEm": "Dinner worth the drive.",
+    "lede": "Coastal curries, tandoor breads and grandmother's dals from a kitchen run by two sisters. Scroll and we'll bring dinner to the table, one course at a time.",
+    "cta": "Reserve a table",
+    "cta2": "See the menu",
+    "hint": "Scroll to sit down"
+  },
+  "dinner": {
+    "table": 12,
+    "minutes": 95,
+    "wine": 0,
+    "covers": [
+      20,
+      64
+    ]
+  },
+  "stages": [
+    {
+      "n": "Seated",
+      "c": "Table twelve under the lanterns. Water with a squeeze of lime, and the menu in a brass holder.",
+      "when": "18:45"
+    },
+    {
+      "n": "Bread & lassi",
+      "c": "Garlic naan straight from the tandoor, and two salted lassis with roasted cumin.",
+      "when": "18:52"
+    },
+    {
+      "n": "Starters",
+      "c": "Tomato rasam with curry leaves, and a crisp okra chaat with tamarind.",
+      "when": "19:05"
+    },
+    {
+      "n": "Mains",
+      "c": "Goan fish curry with coconut and kokum, and chicken tikka with smoky dal.",
+      "when": "19:30"
+    },
+    {
+      "n": "Dessert",
+      "c": "Saffron kulfi, and gulab jamun with pistachio crumble.",
+      "when": "20:05"
+    },
+    {
+      "n": "Chai & the check",
+      "c": "Two masala chais, a little bowl of fennel seeds, and the check when you're ready.",
+      "when": "20:20"
+    }
+  ],
+  "dishes": [
+    [
+      {
+        "kind": "soup",
+        "col": "#C2462A"
+      },
+      {
+        "kind": "salad",
+        "col": "#7A9A3A"
+      }
+    ],
+    [
+      {
+        "kind": "bowl",
+        "col": "#E0A52E"
+      },
+      {
+        "kind": "meat",
+        "col": "#C8523A"
+      }
+    ],
+    [
+      {
+        "kind": "quenelle",
+        "col": "#F0D48A"
+      },
+      {
+        "kind": "quenelle",
+        "col": "#8A4A22"
+      }
+    ]
+  ],
+  "menu": {
+    "eyebrow": "The menu",
+    "title": "Cooked the way our mother did.",
+    "sub": "Everything is made in-house, spices ground each morning. Filter for what you eat, then add dishes to see your total.",
+    "courses": [
+      {
+        "c": "Small plates",
+        "items": [
+          {
+            "n": "Okra chaat",
+            "d": "Tamarind, yoghurt, sev",
+            "p": 9,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Tomato rasam",
+            "d": "Curry leaves, black pepper",
+            "p": 8,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          },
+          {
+            "n": "Lamb seekh kebab",
+            "d": "Mint chutney, pickled onion",
+            "p": 13,
+            "t": [
+              "GF"
+            ]
+          }
+        ]
+      },
+      {
+        "c": "Curries",
+        "items": [
+          {
+            "n": "Goan fish curry",
+            "d": "Coconut, kokum, rice",
+            "p": 24,
+            "t": [
+              "GF"
+            ]
+          },
+          {
+            "n": "Chicken tikka & dal",
+            "d": "Smoked over charcoal",
+            "p": 22,
+            "t": [
+              "GF"
+            ]
+          },
+          {
+            "n": "Paneer makhani",
+            "d": "Tomato, butter, fenugreek",
+            "p": 19,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Chana masala",
+            "d": "Chickpeas, ginger, amchur",
+            "p": 16,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          }
+        ]
+      },
+      {
+        "c": "Breads & rice",
+        "items": [
+          {
+            "n": "Garlic naan",
+            "d": "From the tandoor",
+            "p": 5,
+            "t": [
+              "V"
+            ]
+          },
+          {
+            "n": "Jeera rice",
+            "d": "Basmati, cumin",
+            "p": 4,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          }
+        ]
+      },
+      {
+        "c": "Sweets",
+        "items": [
+          {
+            "n": "Saffron kulfi",
+            "d": "Cardamom, pistachio",
+            "p": 8,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Gulab jamun",
+            "d": "Rose syrup, pistachio crumble",
+            "p": 8,
+            "t": [
+              "V"
+            ]
+          }
+        ]
+      }
+    ],
+    "pairing": 0,
+    "note": "Tell us about allergies when you book; most dishes can be made without nuts or dairy.",
+    "cta": "Reserve this table"
+  },
+  "room": {
+    "eyebrow": "Book a table",
+    "title": "Pick your table, pick your time.",
+    "sub": "Forty seats under the lanterns. Choose your party and the night; the tables that fit light up.",
+    "seats": [
+      2,
+      2,
+      4,
+      4,
+      4,
+      8,
+      2,
+      4,
+      8
+    ],
+    "cta": "Reserve",
+    "nameExample": "Priya Shah",
+    "phoneExample": "(312) 555-0100",
+    "noteExample": "Spice level, allergies, a birthday"
+  },
+  "visit": {
+    "eyebrow": "Visit",
+    "title": "On 18th Street, under the lanterns.",
+    "sub": "Two blocks from the Pink Line. Street parking after six.",
+    "hours": {
+      "sun": {
+        "open": "12:00",
+        "close": "21:00"
+      },
+      "mon": null,
+      "tue": {
+        "open": "17:00",
+        "close": "22:00"
+      },
+      "wed": {
+        "open": "17:00",
+        "close": "22:00"
+      },
+      "thu": {
+        "open": "17:00",
+        "close": "22:00"
+      },
+      "fri": {
+        "open": "17:00",
+        "close": "23:00"
+      },
+      "sat": {
+        "open": "12:00",
+        "close": "23:00"
+      }
+    },
+    "street": "1820 W 18th Street",
+    "area": "Pilsen, Chicago, IL 60608",
+    "map": {
+      "street": "W 18th Street",
+      "cross": "S Wood Street",
+      "side": "S Paulina St",
+      "walk": "2 blocks to the Pink Line"
+    }
+  },
+  "footer": {
+    "fine": "Saffron Lane is a made-up restaurant for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#E07A3A"
+  }
+}

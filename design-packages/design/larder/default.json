@@ -1,0 +1,304 @@
+{
+  "business": {
+    "name": "Larder & Lamp"
+  },
+  "brand": {
+    "name": "Larder & Lamp"
+  },
+  "contact": {
+    "phone": "01865 555162"
+  },
+  "nav": {
+    "menu": "Menu",
+    "book": "Book a table",
+    "visit": "Find us",
+    "cta": "Book a table"
+  },
+  "hero": {
+    "eyebrow": "Larder & Lamp · bistro, Jericho, Oxford",
+    "title": "Small kitchen, long table.",
+    "titleEm": "Dinner the way it should go.",
+    "lede": "Seasonal plates from a kitchen of four, natural wine and a candle on every table. Scroll and we'll serve you dinner, from the first pour to the bill.",
+    "cta": "Book a table",
+    "cta2": "See the menu",
+    "hint": "Scroll to be seated"
+  },
+  "dinner": {
+    "table": 7,
+    "minutes": 115,
+    "wine": 500,
+    "covers": [
+      14,
+      38
+    ]
+  },
+  "stages": [
+    {
+      "n": "Seated",
+      "c": "Table seven by the window. Linen, a lit candle, and water poured before you've taken your coat off.",
+      "when": "19:30"
+    },
+    {
+      "n": "Bread & wine",
+      "c": "Sourdough from the morning bake with cultured butter, and a glass of the Loire red we can't stop pouring.",
+      "when": "19:38"
+    },
+    {
+      "n": "Starters",
+      "c": "Celeriac soup with brown butter and hazelnuts, and a beetroot salad with goat's curd.",
+      "when": "19:55"
+    },
+    {
+      "n": "Mains",
+      "c": "Hake with mussels and cider, and lamb rump with white beans and salsa verde.",
+      "when": "20:25"
+    },
+    {
+      "n": "Dessert",
+      "c": "Burnt honey tart, and a quenelle of brown bread ice cream to share.",
+      "when": "21:05"
+    },
+    {
+      "n": "Coffee & the bill",
+      "c": "Two espressos, a square of fudge each, and the bill when you ask for it, never before.",
+      "when": "21:25"
+    }
+  ],
+  "dishes": [
+    [
+      {
+        "kind": "soup",
+        "col": "#E3CFA6"
+      },
+      {
+        "kind": "salad",
+        "col": "#8E2D4E"
+      }
+    ],
+    [
+      {
+        "kind": "fish",
+        "col": "#D9B25A"
+      },
+      {
+        "kind": "meat",
+        "col": "#C46A6A"
+      }
+    ],
+    [
+      {
+        "kind": "tart",
+        "col": "#B8752E"
+      },
+      {
+        "kind": "quenelle",
+        "col": "#C9A27A"
+      }
+    ]
+  ],
+  "menu": {
+    "eyebrow": "Tonight's menu",
+    "title": "Written this morning, cooked tonight.",
+    "sub": "It changes with what comes in. Filter for what you eat, then add dishes to see what dinner for your table comes to.",
+    "courses": [
+      {
+        "c": "Snacks",
+        "items": [
+          {
+            "n": "Sourdough & cultured butter",
+            "d": "From the morning bake",
+            "p": 4.5,
+            "t": [
+              "V"
+            ]
+          },
+          {
+            "n": "Gordal olives",
+            "d": "Orange zest, fennel seed",
+            "p": 4,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          },
+          {
+            "n": "Smoked cod's roe",
+            "d": "Radishes, crisp potato",
+            "p": 7,
+            "t": [
+              "GF"
+            ]
+          }
+        ]
+      },
+      {
+        "c": "Starters",
+        "items": [
+          {
+            "n": "Celeriac soup",
+            "d": "Brown butter, toasted hazelnuts",
+            "p": 8,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Beetroot & goat's curd",
+            "d": "Blood orange, pumpkin seeds",
+            "p": 9.5,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Pork & pistachio terrine",
+            "d": "Pickled walnuts, toast",
+            "p": 10,
+            "t": []
+          }
+        ]
+      },
+      {
+        "c": "Mains",
+        "items": [
+          {
+            "n": "Hake, mussels & cider",
+            "d": "Leeks, crème fraîche",
+            "p": 24,
+            "t": [
+              "GF"
+            ]
+          },
+          {
+            "n": "Lamb rump",
+            "d": "White beans, salsa verde",
+            "p": 27,
+            "t": [
+              "GF"
+            ]
+          },
+          {
+            "n": "Squash & sage risotto",
+            "d": "Aged parmesan, brown butter",
+            "p": 18,
+            "t": [
+              "V",
+              "GF"
+            ]
+          },
+          {
+            "n": "Roast cauliflower",
+            "d": "Tahini, dukkah, pickled shallot",
+            "p": 17,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          }
+        ]
+      },
+      {
+        "c": "Desserts",
+        "items": [
+          {
+            "n": "Burnt honey tart",
+            "d": "Crème fraîche",
+            "p": 8.5,
+            "t": [
+              "V"
+            ]
+          },
+          {
+            "n": "Brown bread ice cream",
+            "d": "Salted caramel, oat crumb",
+            "p": 7,
+            "t": [
+              "V"
+            ]
+          },
+          {
+            "n": "Poached quince",
+            "d": "Coconut yoghurt, almonds",
+            "p": 7.5,
+            "t": [
+              "VG",
+              "GF"
+            ]
+          }
+        ]
+      }
+    ],
+    "pairing": 28,
+    "note": "Service isn't added to the bill. Tell us about allergies when you book; the kitchen will adapt most dishes.",
+    "cta": "Book this table"
+  },
+  "room": {
+    "eyebrow": "Book a table",
+    "title": "Pick your table, pick your time.",
+    "sub": "Thirty-eight seats in one room. Choose how many of you there are and the night; the tables that fit light up, and you pick the one you want.",
+    "seats": [
+      2,
+      2,
+      2,
+      4,
+      4,
+      6,
+      2,
+      4,
+      8
+    ],
+    "cta": "Book the table",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123",
+    "noteExample": "Allergies, a birthday, a high chair"
+  },
+  "visit": {
+    "eyebrow": "Find us",
+    "title": "On the corner, with the lamp in the window.",
+    "sub": "Ten minutes' walk from the centre, two from the canal. Walk-ins at the bar most nights.",
+    "hours": {
+      "sun": null,
+      "mon": null,
+      "tue": {
+        "open": "18:00",
+        "close": "22:00"
+      },
+      "wed": {
+        "open": "18:00",
+        "close": "22:00"
+      },
+      "thu": {
+        "open": "18:00",
+        "close": "22:30"
+      },
+      "fri": {
+        "open": "17:30",
+        "close": "23:00"
+      },
+      "sat": {
+        "open": "12:00",
+        "close": "23:00"
+      }
+    },
+    "street": "41 Walton Street",
+    "area": "Jericho, Oxford OX2 6AE",
+    "map": {
+      "street": "Walton Street",
+      "cross": "Little Clarendon St",
+      "side": "Cranham Street",
+      "water": "Oxford Canal",
+      "walk": "10 min walk to the centre"
+    }
+  },
+  "footer": {
+    "fine": "Larder & Lamp is a made-up restaurant for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#D9A23A"
+  }
+}

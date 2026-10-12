@@ -1,0 +1,42 @@
+{
+  "title": "Restaurant",
+  "fields": [
+    { "key": "businessName", "label": "Restaurant name", "required": true, "help": "e.g. Larder & Lamp" },
+    { "key": "location", "label": "Address", "required": true, "help": "Street and area, and the streets or landmarks around you (a river, a square, the station)." },
+    { "key": "phone", "label": "Phone for bookings", "required": true },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "e.g. Tue-Thu 6-10pm, Fri 5:30-11, Sat 12-11, closed Sun and Mon." },
+    { "key": "menu", "label": "Your menu", "type": "textarea", "required": true, "help": "Sections and dishes with a short description and price. Mark vegetarian, vegan and gluten-free dishes if you can." },
+    { "key": "drinks", "label": "Drinks", "type": "textarea", "help": "Optional: wine pairing price per person, house wine, anything you pour that people come for." },
+    { "key": "room", "label": "Your room", "type": "textarea", "help": "How many seats, how many tables and roughly their sizes (two-tops, a big table for eight...)." },
+    { "key": "cuisine", "label": "The food and the feel", "type": "textarea", "help": "What you cook, who cooks it, what a typical dinner looks like." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a name or hex code." }
+  ],
+  "facts": [
+    "menu.courses.*.items.*.n",
+    "menu.courses.*.items.*.p",
+    "menu.courses.*.items.*.t.*",
+    "menu.pairing",
+    "visit.hours",
+    "visit.street",
+    "visit.area",
+    "room.seats.*",
+    "contact.phone",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero serves one dinner for two on a table seen from above as you scroll: seated, bread and drinks, starters, mains, dessert, coffee and the bill. stages are those six, each a short name, a caption naming dishes from the brief's menu, and a clock time across one evening. Adapt the second step's drinks and the last step to the restaurant (tea instead of coffee, sake instead of wine) in the captions.",
+    "dishes: the six plates the hero draws, two per course (starters, mains, desserts), each the kind that looks most like a dish from the menu (soup, salad, pasta, fish, meat, veg, bowl for rice or noodles, tart, quenelle for ice cream or mousse) and its main colour (#rrggbb: what the dish is mostly, e.g. a green curry, a red tomato pasta).",
+    "menu.courses: the brief's own sections and dishes (two to five sections, one to six dishes each) with the prices given. Tags only where the brief says or the dish obviously is (V vegetarian, VG vegan, GF gluten-free); when unsure, leave the tag off. menu.pairing is the wine pairing per person, 0 if there is none.",
+    "dinner: the table number on the ticket, minutes at the table, millilitres of wine poured (0 if the restaurant serves no alcohol), and covers early and late in the evening.",
+    "room.seats: nine tables in the plan's fixed spots (1, 2, 3 and 7 round, 2-4 seats; 4, 5 and 8 square, 2-4; 6 and 9 long, 4-8). Match the brief's room as closely as nine tables allow and say in _decisions; room.sub states the total seats.",
+    "visit: opening hours per day (null when closed, quarter hours), the address in two lines, and the map's labels: the restaurant's street, a cross street, a side street, nearby water (left out if none) and a walking note. Only use streets from the brief or the restaurant's real surroundings.",
+    "hero.title and hero.titleEm: a two-part headline (four lines at most on a desktop). theme.accent is the restaurant's colour, light enough for dark button text (candle gold, saffron, a warm coral); theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the restaurant's name in the brief and cannot be changed; brand.name is how it appears in the nav and footer."
+  ],
+  "readBack": [
+    { "label": "Menu", "path": "menu.courses.0.items", "fields": ["n", "p"] },
+    { "label": "Tables", "path": "room", "fields": ["seats"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}
