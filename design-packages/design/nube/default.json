@@ -1,0 +1,238 @@
+{
+  "business": {
+    "name": "Nube Coffee",
+    "wordmark": "nube"
+  },
+  "nav": {
+    "menu": "Menu",
+    "beans": "Beans",
+    "visit": "Visit",
+    "cta": "Order ahead"
+  },
+  "hero": {
+    "line1": "slow coffee,",
+    "line2": "fast mornings.",
+    "intro": "Nube is a small coffee bar on Pine Street. **Every shot is weighed, every latte is poured by hand.** Scroll to pour one.",
+    "menuButton": "See the menu",
+    "visitButton": "Find us",
+    "pour": [
+      "Double shot · 18 g in · 36 g out · 28 s",
+      "Pouring the base · oat milk at 62 °C",
+      "Pushing in the second layer",
+      "And the third",
+      "Pulling through",
+      "A tulip. Yours in about four minutes."
+    ]
+  },
+  "beans": {
+    "aria": "This week's beans: Huila, Colombia. Notes of red apple, panela and cocoa. Roasted six days ago.",
+    "label": "This week:",
+    "origin": "Huila, Colombia",
+    "notes": [
+      "red apple",
+      "panela",
+      "cocoa"
+    ],
+    "roasted": "roasted 6 days ago"
+  },
+  "menu": {
+    "eyebrow": "The menu",
+    "titleA": "five drinks,",
+    "titleB": "done properly."
+  },
+  "drinks": [
+    {
+      "name": "Espresso",
+      "price": 3.5,
+      "desc": "A double shot pulled short and sweet. Thick crema, notes of cocoa and red apple.",
+      "stats": [
+        {
+          "label": "Dose",
+          "value": "18 g"
+        },
+        {
+          "label": "Yield",
+          "value": "36 g"
+        },
+        {
+          "label": "Time",
+          "value": "28 s"
+        },
+        {
+          "label": "Ratio",
+          "value": "1:2"
+        }
+      ]
+    },
+    {
+      "name": "Cortado",
+      "price": 4.25,
+      "desc": "Equal parts espresso and steamed milk. Small, strong, gone in four sips.",
+      "stats": [
+        {
+          "label": "Dose",
+          "value": "18 g"
+        },
+        {
+          "label": "Milk",
+          "value": "60 ml"
+        },
+        {
+          "label": "Temp",
+          "value": "60 °C"
+        },
+        {
+          "label": "Ratio",
+          "value": "1:1"
+        }
+      ]
+    },
+    {
+      "name": "Flat white",
+      "price": 4.75,
+      "desc": "Velvety microfoam folded into a double shot. The one we pour latte art on.",
+      "stats": [
+        {
+          "label": "Dose",
+          "value": "18 g"
+        },
+        {
+          "label": "Milk",
+          "value": "120 ml"
+        },
+        {
+          "label": "Temp",
+          "value": "62 °C"
+        },
+        {
+          "label": "Foam",
+          "value": "5 mm"
+        }
+      ]
+    },
+    {
+      "name": "Latte",
+      "price": 5.25,
+      "desc": "A bigger, softer cup. More milk, a little more foam, the same careful shot.",
+      "stats": [
+        {
+          "label": "Dose",
+          "value": "18 g"
+        },
+        {
+          "label": "Milk",
+          "value": "240 ml"
+        },
+        {
+          "label": "Temp",
+          "value": "62 °C"
+        },
+        {
+          "label": "Foam",
+          "value": "1 cm"
+        }
+      ]
+    },
+    {
+      "name": "Iced oat latte",
+      "price": 5.75,
+      "desc": "Oat milk over ice with a shot floated on top. Our most ordered drink after 11 AM.",
+      "stats": [
+        {
+          "label": "Dose",
+          "value": "18 g"
+        },
+        {
+          "label": "Oat milk",
+          "value": "200 ml"
+        },
+        {
+          "label": "Ice",
+          "value": "6 cubes"
+        },
+        {
+          "label": "Size",
+          "value": "16 oz"
+        }
+      ]
+    }
+  ],
+  "grind": {
+    "eyebrow": "Taking a bag home?",
+    "titleA": "dial in",
+    "titleB": "your grind.",
+    "body": "We grind any bag to match how you brew. Slide to see what your grounds should look like."
+  },
+  "visit": {
+    "street": "1180 Pine Street",
+    "directions": "Corner of Pine and 2nd. Look for the blue door.",
+    "mapAlt": "Map showing Nube on Pine Street, next to the river park",
+    "map": {
+      "street": "Pine St",
+      "cross": "2nd Ave",
+      "landmark": "River Park"
+    },
+    "busy": "Usually busiest around 8 AM. Quietest after 2 PM.",
+    "busyShort": "Busiest around 8 AM."
+  },
+  "hours": {
+    "sun": {
+      "open": "08:00",
+      "close": "16:00"
+    },
+    "mon": {
+      "open": "06:30",
+      "close": "18:00"
+    },
+    "tue": {
+      "open": "06:30",
+      "close": "18:00"
+    },
+    "wed": {
+      "open": "06:30",
+      "close": "18:00"
+    },
+    "thu": {
+      "open": "06:30",
+      "close": "18:00"
+    },
+    "fri": {
+      "open": "06:30",
+      "close": "18:00"
+    },
+    "sat": {
+      "open": "07:30",
+      "close": "17:00"
+    }
+  },
+  "order": {
+    "eyebrow": "Order ahead",
+    "titleA": "skip",
+    "titleB": "the line.",
+    "body": "Order from your phone, walk in, and grab it off the pickup shelf. Your name goes on the cup.",
+    "sizes": [
+      "8 oz",
+      "12 oz",
+      "16 oz"
+    ],
+    "sizeStep": 0.5,
+    "milks": [
+      "Whole",
+      "Oat",
+      "Almond"
+    ],
+    "milkExtra": 0.75
+  },
+  "footer": {
+    "line": "1180 Pine Street · Mon–Fri 6:30–6 · Sat 7:30–5 · Sun 8–4",
+    "credit": "A concept site by"
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#c96f2e",
+    "sky": "#cfe0ec",
+    "wordmarkFit": "crop"
+  }
+}

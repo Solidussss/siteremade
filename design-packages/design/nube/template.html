@@ -1,0 +1,843 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,100..900;1,50..150,100..900&family=Caveat:wght@600&family=Figtree:wght@400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: "coffee under a morning sky". A pinned hero where scrolling pours latte art into a live cup,
+   a pinned drink builder, a grind slider that pours real grounds, visit info, and an order-ahead demo.
+   Solid sky-blue ground, espresso ink, one crema accent. Anybody's width axis stretches with scroll. */
+:root {
+  --sky: {{S:#cfe0ec}}; --sky-deep: {{S:#b9d0e1}}; --card: #fbf8f3; --card-2: #f0e9df;
+  --ink: #2b160d; --dim: #6a5548; --faint: #a39184; --line: rgba(43,22,13,.14);
+  --accent: {{A:#c96f2e}}; --accent-ink: #fff8f0; --ok: #2f7d4a;
+  --cloud: #ffffff; --ceramic: #fbf8f3; --ceramic-edge: #e3dacd; --shadow: rgba(43,22,13,.24); --glass: rgba(43,22,13,.32);
+  --display: "Anybody", "Arial Narrow", Arial, sans-serif;
+  --body: "Figtree", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --hand: "Caveat", "Comic Sans MS", cursive;
+  --gutter: max(16px, 4vw);
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --out: cubic-bezier(.16, 1, .3, 1);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --sky: {{S:#0e1824}}; --sky-deep: {{S:#132131}}; --card: {{S:#17222e}}; --card-2: {{S:#1f2c3a}};
+  --ink: #f3ebe1; --dim: #b3a79c; --faint: #6f6b67; --line: rgba(243,235,225,.13);
+  --accent: {{A:#e58a48}}; --accent-ink: #1a0f08; --ok: #5cc07c;
+  --cloud: {{S:#1b2938}}; --ceramic: #ece6dd; --ceramic-edge: #a69e93; --shadow: rgba(0,0,0,.55); --glass: rgba(243,235,225,.38);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --sky: {{S:#0e1824}}; --sky-deep: {{S:#132131}}; --card: {{S:#17222e}}; --card-2: {{S:#1f2c3a}};
+  --ink: #f3ebe1; --dim: #b3a79c; --faint: #6f6b67; --line: rgba(243,235,225,.13);
+  --accent: {{A:#e58a48}}; --accent-ink: #1a0f08; --ok: #5cc07c;
+  --cloud: {{S:#1b2938}}; --ceramic: #ece6dd; --ceramic-edge: #a69e93; --shadow: rgba(0,0,0,.55); --glass: rgba(243,235,225,.38);
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--sky); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+main { overflow-x: clip; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: .9; letter-spacing: -.02em; font-weight: 820; text-wrap: balance; }
+h2 { font-size: clamp(44px, 7vw, 104px); font-variation-settings: "wdth" var(--hw, 80); }
+p { margin: 0; }
+.wrap { padding-inline: var(--gutter); }
+.mono { font-family: var(--mono); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 650; font-size: 15px; padding: 14px 20px; border-radius: 999px; border: 0; cursor: pointer; font-family: var(--body); transition: transform .45s var(--spring), background .2s; }
+.btn:hover { transform: translateY(-2px) scale(1.03); }
+.btn.dark { background: var(--ink); color: var(--sky); }
+.btn.line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+
+/* ---------- nav ---------- */
+.nav { position: fixed; z-index: 40; left: 0; right: 0; top: 0; padding: calc(env(safe-area-inset-top, 0px) + 14px) var(--gutter) 14px; display: flex; align-items: center; gap: 22px; pointer-events: none; }
+.nav > * { pointer-events: auto; }
+.logo { display: flex; align-items: center; gap: 8px; text-decoration: none; font-family: var(--display); font-weight: 850; font-size: 26px; letter-spacing: -.03em; font-variation-settings: "wdth" 120; }
+.logo svg { width: 34px; height: 22px; fill: var(--ink); }
+.nav ul { list-style: none; display: flex; gap: 4px; margin: 0 0 0 auto; padding: 5px; border-radius: 999px; background: color-mix(in srgb, var(--card) 70%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.nav ul a { display: block; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; }
+.nav ul a:hover { background: var(--card-2); }
+.nav .btn { padding: 11px 16px; }
+@media (max-width: 760px) { .nav ul { display: none; } .nav .btn { margin-left: auto; } }
+
+/* ---------- hero ---------- */
+.hero { height: 330vh; position: relative; }
+.stage { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-rows: auto auto 1fr auto auto; padding: calc(env(safe-area-inset-top, 0px) + 84px) var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 22px); }
+.clouds i { position: absolute; display: block; background: var(--cloud); border-radius: 999px; filter: blur(18px); opacity: .75; will-change: transform; }
+.clouds .c1 { width: 42vw; height: 12vw; left: -8vw; top: 22%; }
+.clouds .c2 { width: 30vw; height: 9vw; right: -6vw; top: 8%; opacity: .6; }
+.clouds .c3 { width: 36vw; height: 10vw; right: 6vw; bottom: 6%; opacity: .55; }
+.hero-h { position: relative; z-index: 1; font-weight: 850; letter-spacing: -.035em; line-height: .84; font-size: 100px; }
+.hero-h span { display: block; width: max-content; white-space: nowrap; font-variation-settings: "wdth" var(--hw, 62); }
+.hero-h .l2 { justify-self: end; margin-left: auto; }
+.hero-h span b { display: inline-block; font-weight: inherit; animation: rise 1.2s var(--out) both; }
+.hero-h .l2 b { animation-delay: .1s; }
+@keyframes rise { from { transform: translateY(.5em); opacity: 0; } }
+.cupcell { position: relative; z-index: 2; display: grid; place-items: center; min-height: 0; }
+.cupwrap { --cs: 320px; position: relative; width: var(--cs); height: var(--cs); will-change: transform; }
+.saucer { position: absolute; inset: -16%; border-radius: 50%; background: var(--ceramic); box-shadow: 0 30px 60px var(--shadow), inset 0 0 0 calc(var(--cs) * .035) var(--ceramic-edge), inset 0 0 0 calc(var(--cs) * .1) var(--ceramic); }
+.saucer::after { content: ""; position: absolute; inset: 14%; border-radius: 50%; box-shadow: inset 0 2px 8px var(--shadow); }
+.handle { position: absolute; right: -24%; top: 41%; width: 30%; height: 18%; border-radius: 40px; background: var(--ceramic); box-shadow: 0 10px 18px var(--shadow), inset 0 0 0 calc(var(--cs) * .012) var(--ceramic-edge); }
+.cup { position: absolute; inset: 0; border-radius: 50%; background: var(--ceramic); box-shadow: 0 18px 36px var(--shadow), inset 0 -4px 10px var(--ceramic-edge); }
+.liquid { position: absolute; inset: 7.5%; border-radius: 50%; overflow: hidden; background: #3a1d0e; box-shadow: inset 0 3px 10px rgba(0,0,0,.45); }
+.liquid canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+.latte-fallback { position: absolute; inset: 0; display: none; background: radial-gradient(circle at 50% 50%, #3a1d0e 0 46%, #8a4d24 64%, #b46e38 100%); }
+.latte-fallback::before, .latte-fallback::after { content: ""; position: absolute; width: 34%; height: 34%; top: 30%; border-radius: 50%; background: #f8f1e7; }
+.latte-fallback::before { left: 27%; } .latte-fallback::after { left: 39%; }
+.no-gl .latte-fallback { display: block; } .no-gl #latte { display: none; }
+.steam { position: absolute; left: 20%; width: 60%; bottom: 62%; height: 70%; pointer-events: none; overflow: visible; }
+.steam path { fill: none; stroke: var(--cloud); stroke-width: 5; stroke-linecap: round; opacity: 0; animation: steam 4.5s ease-in-out infinite; filter: blur(2px); }
+.steam path:nth-child(2) { animation-delay: -1.5s; } .steam path:nth-child(3) { animation-delay: -3s; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(30px) scaleY(.8); } 30% { opacity: .7; } 100% { opacity: 0; transform: translateY(-60px) scaleY(1.2); } }
+.hint { position: absolute; right: calc(100% + 22%); top: 44%; font-family: var(--hand); font-size: 24px; color: var(--dim); white-space: nowrap; transform: rotate(-6deg); }
+.hint::after { content: " →"; }
+.pour { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 14px; font-family: var(--mono); font-size: 13px; color: var(--dim); margin-top: 6px; min-height: 22px; }
+.pour i { display: block; width: 120px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.pour b { display: block; height: 100%; width: 0; background: var(--ink); }
+.hero-foot { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: end; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
+.hero-foot p { max-width: 36ch; color: var(--dim); font-size: 16px; }
+.hero-foot p b { color: var(--ink); font-weight: 600; }
+.btns { display: flex; gap: 10px; flex-wrap: wrap; }
+@media (min-width: 900px) {
+  .stage { grid-template-rows: auto 1fr auto auto; }
+  .hero-h { display: contents; }
+  .hero-h .l1 { grid-row: 1; }
+  .hero-h .l2 { grid-row: 3; justify-self: end; }
+  .cupcell { grid-row: 2; margin-block: -1.5vh; }
+  .pour { grid-row: 4; position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 30px); transform: translateX(-50%); }
+  .hero-foot { grid-row: 4; }
+}
+@media (max-width: 1150px) { .hero-foot p { display: none; } }
+@media (max-width: 899px) { .hero-foot { justify-content: center; } .hint { right: auto; top: auto; left: 50%; bottom: -24%; transform: translateX(-50%) rotate(-3deg); font-size: 21px; } .hint::after { content: ""; } }
+
+/* ---------- bean band ---------- */
+.band { overflow: hidden; background: var(--ink); color: var(--sky); padding-block: 18px; position: relative; z-index: 2; }
+.band .row { display: flex; gap: 48px; white-space: nowrap; font-family: var(--display); font-weight: 760; font-size: clamp(26px, 3.4vw, 46px); letter-spacing: -.02em; will-change: transform; font-variation-settings: "wdth" 110; }
+.band .row span { display: inline-flex; align-items: center; gap: 48px; }
+.band .row em { font-style: normal; color: var(--accent); }
+.band .row i { width: .5em; height: .7em; border-radius: 50%; background: var(--accent); display: inline-block; transform: rotate(30deg); box-shadow: inset -.12em 0 0 rgba(0,0,0,.25); }
+
+/* ---------- drinks ---------- */
+.drinks { height: 420vh; position: relative; }
+.d-stage { position: sticky; top: 0; height: 100svh; display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 3vw; padding: calc(env(safe-area-inset-top, 0px) + 90px) var(--gutter) 40px; align-items: center; }
+.d-left { display: grid; gap: 3vh; align-content: center; min-width: 0; }
+.d-head { display: grid; gap: 12px; }
+.d-head h2 { font-size: clamp(38px, 4.6vw, 74px); }
+.d-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.d-list button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; padding: 10px 16px; border-radius: 14px; font-family: var(--display); font-size: clamp(20px, 2vw, 28px); font-weight: 700; color: var(--faint); transition: color .3s, background .3s, padding .4s var(--out); font-variation-settings: "wdth" 100; }
+.d-list button span { font-family: var(--mono); font-size: 13px; font-weight: 400; }
+.d-list button:hover { color: var(--dim); }
+.d-list button.on { color: var(--ink); background: var(--card); padding-left: 22px; }
+.d-list button:focus-visible { outline: 2px solid var(--accent); }
+.d-glass { position: relative; display: flex; align-items: flex-end; justify-content: center; height: min(64vh, 540px); min-height: 0; }
+.d-glass .table { position: absolute; bottom: -14px; left: 50%; width: 70%; height: 28px; transform: translateX(-50%); border-radius: 50%; background: var(--shadow); filter: blur(10px); opacity: .7; }
+.glass { --s: 1.5; position: relative; width: calc(var(--gw) * var(--s) * 1px); height: calc(var(--gh) * var(--s) * 1px); border: 4px solid var(--glass); border-top: 0; border-radius: 0 0 calc(var(--gr) * var(--s) * 1px) calc(var(--gr) * var(--s) * 1px);
+  transition: width .8s var(--spring), height .8s var(--spring), border-radius .8s var(--out); background: color-mix(in srgb, var(--card) 40%, transparent); }
+.glass .clip { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.glass::before { content: ""; position: absolute; left: 10%; top: 8%; bottom: 10%; width: 6%; border-radius: 10px; background: rgba(255,255,255,.4); z-index: 3; }
+.glass .hdl { position: absolute; right: -32%; top: 18%; width: 34%; height: 46%; border: 4px solid var(--glass); border-left: 0; border-radius: 0 40px 40px 0; opacity: 0; transition: opacity .4s; }
+.glass.has-handle .hdl { opacity: 1; }
+.layer { position: absolute; left: 0; right: 0; bottom: 0; height: 0; transition: bottom .9s var(--out), height .9s var(--out); }
+.l-espresso { background: #3b1d0e; } .l-crema { background: linear-gradient(#c88445, #9b5528); } .l-milk { background: #efe2cf; }
+.l-foam { background: #fffaf2; background-image: radial-gradient(circle at 30% 40%, rgba(0,0,0,.06) 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, rgba(0,0,0,.05) 0 3px, transparent 4px); background-size: 18px 14px, 24px 18px; }
+.l-oat { background: #e8d7bd; }
+.ice { position: absolute; width: 30%; aspect-ratio: 1; border-radius: 6px; background: rgba(255,255,255,.35); box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); z-index: 2; opacity: 0; transform: translateY(-300%) rotate(0deg); transition: opacity .3s, transform .9s var(--spring); }
+.glass.iced .ice { opacity: 1; transform: translateY(0) rotate(var(--r)); }
+.glass .steam { left: 20%; width: 60%; bottom: calc(100% + 6px); height: 90px; position: absolute; transition: opacity .5s; }
+.glass .steam path { stroke: var(--ink); stroke-width: 3; }
+.d-glass.cold .steam { opacity: 0; }
+.d-card { align-self: center; background: var(--card); border-radius: 28px; padding: clamp(22px, 2.6vw, 34px); display: grid; gap: 16px; box-shadow: 0 20px 50px var(--shadow); min-width: 0; }
+.d-card h3 { font-size: clamp(34px, 3.6vw, 56px); font-variation-settings: "wdth" 92; }
+.d-card .price { font-family: var(--mono); font-size: 15px; color: var(--accent); }
+.d-card p { color: var(--dim); font-size: 16px; }
+.d-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 0; }
+.d-card dl div { background: var(--card-2); border-radius: 14px; padding: 10px 14px; }
+.d-card dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.d-card dd { margin: 2px 0 0; font-family: var(--display); font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; font-variation-settings: "wdth" 90; }
+.d-ticks { position: absolute; right: var(--gutter); bottom: 30px; display: flex; gap: 6px; }
+.d-ticks i { width: 22px; height: 3px; border-radius: 3px; background: var(--line); display: block; transition: background .3s; }
+.d-ticks i.on { background: var(--ink); }
+@media (max-width: 899px) {
+  .drinks { height: 400vh; }
+  .d-stage { display: flex; flex-direction: column; gap: 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 76px); padding-bottom: 18px; }
+  .d-left { gap: 10px; } .d-head h2 { font-size: 36px; } .d-head .eyebrow { display: none; }
+  .d-list { display: flex; overflow-x: auto; gap: 6px; scrollbar-width: none; }
+  .d-list button { white-space: nowrap; font-size: 17px; padding: 8px 14px; } .d-list button span { display: none; } .d-list button.on { padding-left: 14px; }
+  .d-glass { flex: 1; height: auto; }
+  .d-card { padding: 16px 18px; gap: 8px; border-radius: 22px; }
+  .d-card h3 { font-size: 30px; } .d-card p { font-size: 14px; }
+  .d-card dl { grid-template-columns: repeat(4, 1fr); gap: 6px; } .d-card dl div { padding: 6px 8px; } .d-card dd { font-size: 16px; } .d-card dt { font-size: 9px; }
+  .d-ticks { display: none; }
+}
+
+/* ---------- grind ---------- */
+.grind { padding-block: 16vh 10vh; display: grid; grid-template-columns: 1fr 1.4fr; gap: 5vw; align-items: center; }
+@media (max-width: 899px) { .grind { grid-template-columns: 1fr; padding-block: 12vh 8vh; } }
+.txt { display: grid; gap: 18px; align-content: start; }
+.txt p:not(.eyebrow) { color: var(--dim); max-width: 38ch; }
+.g-panel { background: var(--card); border-radius: 30px; padding: clamp(18px, 2.4vw, 30px); display: grid; gap: 18px; box-shadow: 0 20px 50px var(--shadow); min-width: 0; }
+.g-panel canvas { width: 100%; height: 260px; display: block; border-radius: 18px; background: var(--card-2); }
+.g-read { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; }
+.g-read b { font-family: var(--display); font-size: clamp(26px, 2.6vw, 38px); font-weight: 800; letter-spacing: -.02em; font-variation-settings: "wdth" 96; margin-right: auto; }
+.g-read span { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.g-read span.hl { color: var(--ink); }
+.range { display: grid; gap: 8px; }
+.range input { width: 100%; -webkit-appearance: none; appearance: none; height: 12px; border-radius: 99px; background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line); }
+.range input::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); border: 5px solid var(--card); box-shadow: 0 4px 14px var(--shadow); cursor: grab; }
+.range input::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); border: 5px solid var(--card); box-shadow: 0 4px 14px var(--shadow); }
+.range .ends { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+
+/* ---------- visit ---------- */
+.visit { padding-block: 10vh; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 899px) { .visit { grid-template-columns: 1fr; } }
+.v-card { background: var(--card); border-radius: 30px; padding: clamp(20px, 2.6vw, 34px); display: grid; gap: 18px; align-content: start; min-width: 0; }
+.status { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
+.status i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 50%, transparent); animation: ping 1.8s infinite; }
+.status.closed i { background: var(--faint); animation: none; }
+@keyframes ping { 70% { box-shadow: 0 0 0 10px transparent; } }
+.hours { display: grid; gap: 2px; margin: 0; }
+.hours div { display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.hours div.today { background: var(--card-2); font-weight: 650; }
+.hours dt { margin: 0; } .hours dd { margin: 0; font-family: var(--mono); font-size: 14px; }
+.busy { display: grid; gap: 10px; }
+.busy .bars { display: flex; align-items: end; gap: 6px; height: 120px; }
+.busy .bars i { flex: 1; border-radius: 8px 8px 3px 3px; background: var(--card-2); display: block; transform-origin: bottom; transition: transform .8s var(--out); }
+.busy .bars i.now { background: var(--accent); }
+.busy .axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.busy p { font-size: 15px; color: var(--dim); }
+.map { width: 100%; height: auto; border-radius: 20px; background: var(--card-2); display: block; }
+.map .st { stroke: var(--card); stroke-width: 10; stroke-linecap: round; }
+.map .st2 { stroke: var(--card); stroke-width: 5; }
+.map .river { fill: none; stroke: var(--sky-deep); stroke-width: 26; stroke-linecap: round; }
+.map .park { fill: color-mix(in srgb, var(--ok) 25%, var(--card-2)); }
+.map text { font-family: var(--mono); font-size: 11px; fill: var(--dim); }
+.map .pin { fill: var(--ink); } .map .pulse { fill: var(--accent); opacity: .35; transform-origin: 236px 142px; animation: pulse 2s infinite; }
+@keyframes pulse { 0% { transform: scale(.4); opacity: .6; } 100% { transform: scale(2.2); opacity: 0; } }
+.addr { font-size: 18px; } .addr b { display: block; font-family: var(--display); font-size: 30px; font-weight: 780; letter-spacing: -.02em; font-variation-settings: "wdth" 96; }
+
+/* ---------- order ---------- */
+.order { padding-block: 10vh 14vh; display: grid; grid-template-columns: 1fr 1.2fr; gap: 5vw; align-items: start; }
+@media (max-width: 899px) { .order { grid-template-columns: 1fr; } }
+.o-card { background: var(--card); border-radius: 30px; padding: clamp(20px, 2.6vw, 32px); display: grid; gap: 20px; box-shadow: 0 20px 50px var(--shadow); min-width: 0; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+legend { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); padding: 0; margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips label { position: relative; cursor: pointer; }
+.chips input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.chips span { display: block; padding: 10px 16px; border-radius: 999px; background: var(--card-2); font-weight: 600; font-size: 15px; transition: background .2s, color .2s, transform .35s var(--spring); }
+.chips input:checked + span { background: var(--ink); color: var(--card); transform: scale(1.04); }
+.chips input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips input:disabled + span { opacity: .35; cursor: not-allowed; }
+.namefield { display: grid; gap: 8px; }
+.namefield label { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.namefield input { font-family: var(--hand); font-size: 30px; padding: 6px 16px; border-radius: 14px; border: 0; background: var(--card-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.o-submit { justify-content: center; font-size: 17px; padding: 18px; background: var(--accent); color: var(--accent-ink); }
+.note { font-size: 13px; color: var(--dim); text-align: center; }
+.ticket { background: var(--card); border-radius: 30px; padding: clamp(22px, 3vw, 36px); display: grid; gap: 22px; justify-items: center; text-align: center; box-shadow: 0 20px 50px var(--shadow); }
+.ticket .cupname { font-family: var(--hand); font-size: 46px; line-height: 1; transform: rotate(-4deg); color: var(--ink); }
+.ring { width: 170px; height: 170px; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 12; stroke-linecap: round; }
+.ring .bg { stroke: var(--card-2); } .ring .fg { stroke: var(--accent); stroke-dasharray: 100; stroke-dashoffset: 100; }
+.ring b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 34px; font-variation-settings: "wdth" 90; font-variant-numeric: tabular-nums; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; width: 100%; max-width: 320px; text-align: left; }
+.steps li { display: flex; align-items: center; gap: 12px; color: var(--faint); transition: color .3s; }
+.steps li::before { content: ""; width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2px currentColor; transition: background .3s, box-shadow .3s; }
+.steps li.done { color: var(--ink); } .steps li.done::before { background: var(--ok); box-shadow: none; }
+
+/* ---------- footer ---------- */
+footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px); display: grid; gap: 28px; background: var(--ink); color: var(--sky); position: relative; overflow: hidden; }
+.word { font-family: var(--display); font-weight: 880; font-size: clamp(110px, 26vw, 420px); line-height: .78; letter-spacing: -.05em; font-variation-settings: "wdth" var(--fw, 100); transition: font-variation-settings .5s var(--out); white-space: nowrap; }
+.fmeta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; font-family: var(--mono); font-size: 13px; opacity: .8; }
+.fmeta a { text-decoration-color: color-mix(in srgb, var(--sky) 40%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .steam path, .status i, .map .pulse, .hero-h span b { animation: none; }
+  .steam path { opacity: .4; }
+}
+{{$._guards|raw}}</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="logo" href="#top"><svg viewBox="0 0 34 22" aria-hidden="true"><path d="M8 22a8 8 0 0 1-1-15.9A10 10 0 0 1 25.6 5 8.5 8.5 0 0 1 26 22Z"/></svg>{{business.wordmark}}</a>
+  <ul><li><a href="#menu">{{nav.menu}}</a></li><li><a href="#grind">{{nav.beans}}</a></li><li><a href="#visit">{{nav.visit}}</a></li></ul>
+  <a class="btn dark" href="#order">{{nav.cta}}</a>
+</nav>
+
+<main>
+  <section class="hero" id="top">
+    <div class="stage" id="stage">
+      <div class="clouds" aria-hidden="true"><i class="c1"></i><i class="c2"></i><i class="c3"></i></div>
+      <h1 class="hero-h" id="heroH"><span class="l1"><b>{{hero.line1}}</b></span><span class="l2"><b>{{hero.line2}}</b></span></h1>
+      <div class="cupcell">
+        <div class="cupwrap" id="cupwrap">
+          <div class="saucer"></div>
+          <div class="handle"></div>
+          <div class="cup"><div class="liquid"><canvas id="latte" aria-label="A flat white. Scroll to pour the latte art."></canvas><div class="latte-fallback"></div></div></div>
+          <svg class="steam" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M30 100c-8-18 10-26 2-44s8-26 2-44"/><path d="M52 100c-8-18 10-26 2-44s8-26 2-44"/><path d="M72 100c-8-18 10-26 2-44s8-26 2-44"/></svg>
+          <span class="hint" id="hint">move your cursor to stir</span>
+        </div>
+      </div>
+      <p class="pour" id="pour"><span id="pourStage">{{hero.pour.0}}</span><i aria-hidden="true"><b id="pourBar"></b></i></p>
+      <div class="hero-foot">
+        <p>{{hero.intro|rich}}</p>
+        <div class="btns"><a class="btn dark" href="#menu">{{hero.menuButton}}</a><a class="btn line" href="#visit">{{hero.visitButton}}</a></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" aria-label="{{beans.aria|attr}}">
+    <div class="row" id="band" aria-hidden="true">
+      <span>{{beans.label}} <em>{{beans.origin}}</em> <i></i> {{#each beans.notes join=" <i></i> "}}{{.}}{{/each}} <i></i> {{beans.roasted}} <i></i></span>
+      <span>{{beans.label}} <em>{{beans.origin}}</em> <i></i> {{#each beans.notes join=" <i></i> "}}{{.}}{{/each}} <i></i> {{beans.roasted}} <i></i></span>
+    </div>
+  </div>
+
+  <section class="drinks" id="menu">
+    <div class="d-stage">
+      <div class="d-left">
+        <div class="d-head"><p class="eyebrow">{{menu.eyebrow}}</p><h2>{{menu.titleA}}<br>{{menu.titleB}}</h2></div>
+        <ol class="d-list" id="dList"></ol>
+      </div>
+      <div class="d-glass" id="dGlass">
+        <div class="glass" id="glass" style="--gw:110;--gh:84;--gr:44">
+          <svg class="steam" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M30 100c-8-18 10-26 2-44s8-26 2-44"/><path d="M52 100c-8-18 10-26 2-44s8-26 2-44"/><path d="M72 100c-8-18 10-26 2-44s8-26 2-44"/></svg>
+          <div class="clip" id="glassClip"></div>
+          <i class="ice" style="left:10%;bottom:30%;--r:12deg"></i><i class="ice" style="left:52%;bottom:36%;--r:-8deg"></i><i class="ice" style="left:28%;bottom:52%;--r:24deg"></i><i class="ice" style="left:58%;bottom:58%;--r:6deg"></i>
+          <span class="hdl"></span>
+        </div>
+        <div class="table"></div>
+      </div>
+      <article class="d-card" id="dCard" aria-live="polite">
+        <div><h3 id="dName">{{drinks.0.name}}</h3><span class="price" id="dPrice">{{$.price0}}</span></div>
+        <p id="dDesc"></p>
+        <dl id="dStats"></dl>
+      </article>
+      <div class="d-ticks" id="dTicks" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="grind wrap" id="grind">
+    <div class="txt" data-rise>
+      <p class="eyebrow">{{grind.eyebrow}}</p>
+      <h2>{{grind.titleA}}<br>{{grind.titleB}}</h2>
+      <p>{{grind.body}}</p>
+    </div>
+    <div class="g-panel" data-rise>
+      <canvas id="grounds" aria-label="Coffee grounds pouring into a pile at the selected grind size"></canvas>
+      <div class="g-read" aria-live="polite"><b id="gMethod">Pour-over</b><span class="hl" id="gTexture">like table salt</span><span id="gTime">3:00 brew</span><span id="gMicron">~600 µm</span></div>
+      <div class="range">
+        <input type="range" id="grindR" min="0" max="6" step="1" value="3" aria-label="Grind size from coarse to fine">
+        <div class="ends"><span>Coarse</span><span>Fine</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="visit wrap" id="visit">
+    <div class="v-card" data-rise>
+      <span class="status" id="status"><i></i><span id="statusText">Open now</span></span>
+      <p class="addr"><b>{{visit.street}}</b>{{visit.directions}}</p>
+      <dl class="hours" id="hours"></dl>
+    </div>
+    <div class="v-card" data-rise>
+      <svg class="map" viewBox="0 0 400 260" role="img" aria-label="{{visit.mapAlt|attr}}">
+        <rect class="park" x="250" y="170" width="150" height="90" rx="8"/>
+        <path class="river" d="M-20 236 C 90 200, 160 250, 260 214 S 380 180, 430 196"/>
+        <line class="st" x1="0" y1="142" x2="400" y2="142"/><line class="st" x1="236" y1="0" x2="236" y2="260"/>
+        <line class="st2" x1="0" y1="62" x2="400" y2="62"/><line class="st2" x1="96" y1="0" x2="96" y2="200"/><line class="st2" x1="340" y1="0" x2="340" y2="170"/><line class="st2" x1="0" y1="18" x2="400" y2="18"/>
+        <text x="14" y="134">{{visit.map.street|upper}}</text><text x="244" y="30">{{visit.map.cross|upper}}</text><text x="300" y="250">{{visit.map.landmark|upper}}</text>
+        <circle class="pulse" cx="236" cy="142" r="16"/><circle class="pin" cx="236" cy="142" r="9"/><circle cx="236" cy="142" r="3.5" fill="var(--card)"/>
+      </svg>
+      <div class="busy">
+        <div class="bars" id="bars" aria-hidden="true"></div>
+        <div class="axis"><span>6 AM</span><span>12 PM</span><span>5 PM</span></div>
+        <p id="busyText">{{visit.busy}}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="order wrap" id="order">
+    <div class="txt" data-rise>
+      <p class="eyebrow">{{order.eyebrow}}</p>
+      <h2>{{order.titleA}}<br>{{order.titleB}}</h2>
+      <p>{{order.body}}</p>
+    </div>
+    <div id="orderBox" data-rise>
+      <form class="o-card" id="oForm" novalidate>
+        <fieldset><legend>Drink</legend><div class="chips" id="oDrinks"></div></fieldset>
+        <fieldset><legend>Size</legend><div class="chips" id="oSizes">
+          <label><input type="radio" name="size" value="0" checked><span>{{order.sizes.0}}</span></label>
+          <label><input type="radio" name="size" value="1"><span>{{order.sizes.1}}</span></label>
+          <label><input type="radio" name="size" value="2"><span>{{order.sizes.2}}</span></label></div></fieldset>
+        <fieldset><legend>Milk</legend><div class="chips" id="oMilks">
+          <label><input type="radio" name="milk" value="Whole" checked><span>{{order.milks.0}}</span></label>
+          <label><input type="radio" name="milk" value="Oat"><span>{{order.milks.1}} +{{$.milkExtra}}</span></label>
+          <label><input type="radio" name="milk" value="Almond"><span>{{order.milks.2}} +{{$.milkExtra}}</span></label></div></fieldset>
+        <div class="namefield"><label for="oName">Name for the cup</label><input id="oName" type="text" maxlength="18" autocomplete="off" placeholder="Sam"></div>
+        <button class="btn o-submit" type="submit" id="oBtn">Place order · {{$.price2}}</button>
+        <p class="note">Demo only. No real order is placed.</p>
+      </form>
+      <div class="ticket" id="ticket" hidden>
+        <p class="eyebrow" id="tNum">Order #128</p>
+        <p class="cupname" id="tName">Sam</p>
+        <div class="ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="bg" cx="60" cy="60" r="50"/><circle class="fg" id="tRing" cx="60" cy="60" r="50" pathLength="100"/></svg><b id="tTime">4:00</b></div>
+        <ol class="steps" id="tSteps"><li>Order received</li><li>Pulling your shot</li><li id="tMilkStep">Steaming milk</li><li>On the pickup shelf</li></ol>
+        <button class="btn line" type="button" id="tAgain">Order another</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="word" id="word" aria-hidden="true">{{business.wordmark}}</div>
+  <div class="fmeta"><span>{{footer.line}}</span><span>{{footer.credit}} <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span></div>
+</footer>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const seg = (p, a, b) => clamp((p - a) / (b - a));
+  const eoc = p => 1 - Math.pow(1 - p, 3);
+  const money = n => {{locale.currency|js}} + n.toFixed(2);
+
+  /* =========================== LATTE FLUID =========================== */
+  function createFluid(canvas) {
+    const opts = { alpha: true, depth: false, stencil: false, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: false };
+    let gl = canvas.getContext('webgl2', opts); const isGL2 = !!gl;
+    if (!gl) gl = canvas.getContext('webgl', opts) || canvas.getContext('experimental-webgl', opts);
+    if (!gl) return null;
+    let halfFloat = null, linear = null;
+    if (isGL2) { gl.getExtension('EXT_color_buffer_float'); linear = gl.getExtension('OES_texture_float_linear'); }
+    else { halfFloat = gl.getExtension('OES_texture_half_float'); linear = gl.getExtension('OES_texture_half_float_linear'); }
+    const TYPE = isGL2 ? gl.HALF_FLOAT : (halfFloat && halfFloat.HALF_FLOAT_OES);
+    if (!TYPE) return null;
+    function fmtOK(internal, format) {
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, internal, 4, 4, 0, format, TYPE, null);
+      const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteTexture(t); gl.deleteFramebuffer(f); return ok;
+    }
+    let RGBA, RG, R;
+    if (isGL2) {
+      RGBA = fmtOK(gl.RGBA16F, gl.RGBA) ? { i: gl.RGBA16F, f: gl.RGBA } : null;
+      RG = fmtOK(gl.RG16F, gl.RG) ? { i: gl.RG16F, f: gl.RG } : RGBA;
+      R = fmtOK(gl.R16F, gl.RED) ? { i: gl.R16F, f: gl.RED } : RG;
+    } else { RGBA = fmtOK(gl.RGBA, gl.RGBA) ? { i: gl.RGBA, f: gl.RGBA } : null; RG = R = RGBA; }
+    if (!RGBA) return null;
+    const FILTER = linear ? gl.LINEAR : gl.NEAREST;
+
+    const VS = `precision highp float; attribute vec2 aPosition; varying vec2 vUv, vL, vR, vT, vB; uniform vec2 texelSize;
+      void main(){ vUv = aPosition * .5 + .5; vL = vUv - vec2(texelSize.x, 0.); vR = vUv + vec2(texelSize.x, 0.); vT = vUv + vec2(0., texelSize.y); vB = vUv - vec2(0., texelSize.y); gl_Position = vec4(aPosition, 0., 1.); }`;
+    const NOISE = `float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+        return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= .5; } return v; }`;
+    const FS = {
+      clear: `precision mediump float; varying vec2 vUv; uniform sampler2D uTexture; uniform float value; void main(){ gl_FragColor = value * texture2D(uTexture, vUv); }`,
+      seed: `precision highp float; varying vec2 vUv; uniform float seed; ${NOISE}
+        void main(){ vec2 c = vUv - .5; float d = length(c) * 2.; float n = fbm(vUv * 7. + seed); float s = fbm(vec2(atan(c.y, c.x) * 2.2, d * 6.) + seed * 1.7);
+          float g = clamp(.05 + .55 * n + .2 * s + .3 * smoothstep(.5, 1., d) - .2, 0., 1.); gl_FragColor = vec4(0., g, 0., 1.); }`,
+      splat: `precision highp float; varying vec2 vUv; uniform sampler2D uTarget; uniform vec3 color; uniform vec2 point; uniform float radius; uniform float uMix;
+        void main(){ vec2 p = vUv - point; float s = exp(-dot(p, p) / radius); vec4 base = texture2D(uTarget, vUv);
+          if (uMix > 0.) gl_FragColor = vec4(mix(base.xyz, color, clamp(s * uMix, 0., 1.)), 1.); else gl_FragColor = vec4(base.xyz + s * color, 1.); }`,
+      advect: `precision highp float; varying vec2 vUv; uniform sampler2D uVelocity, uSource; uniform vec2 texelSize, dyeTexelSize; uniform float dt, dissipation, uMask;
+        vec4 bilerp(sampler2D sam, vec2 uv, vec2 ts){ vec2 st = uv / ts - .5; vec2 iuv = floor(st), fuv = fract(st);
+          vec4 a = texture2D(sam, (iuv + vec2(.5, .5)) * ts), b = texture2D(sam, (iuv + vec2(1.5, .5)) * ts), c = texture2D(sam, (iuv + vec2(.5, 1.5)) * ts), d = texture2D(sam, (iuv + vec2(1.5, 1.5)) * ts);
+          return mix(mix(a, b, fuv.x), mix(c, d, fuv.x), fuv.y); }
+        void main(){
+        #ifdef MANUAL_FILTERING
+          vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize; vec4 result = bilerp(uSource, coord, dyeTexelSize);
+        #else
+          vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize; vec4 result = texture2D(uSource, coord);
+        #endif
+          result /= 1. + dissipation * dt;
+          if (uMask > .5) { float d = length(vUv - .5) * 2.; result.xy *= 1. - smoothstep(.86, .99, d); }
+          gl_FragColor = result; }`,
+      divergence: `precision mediump float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uVelocity;
+        void main(){ float L = texture2D(uVelocity, vL).x, R = texture2D(uVelocity, vR).x, T = texture2D(uVelocity, vT).y, B = texture2D(uVelocity, vB).y; vec2 C = texture2D(uVelocity, vUv).xy;
+          if (vL.x < 0.) L = -C.x; if (vR.x > 1.) R = -C.x; if (vT.y > 1.) T = -C.y; if (vB.y < 0.) B = -C.y;
+          gl_FragColor = vec4(.5 * (R - L + T - B), 0., 0., 1.); }`,
+      curl: `precision mediump float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uVelocity;
+        void main(){ float L = texture2D(uVelocity, vL).y, R = texture2D(uVelocity, vR).y, T = texture2D(uVelocity, vT).x, B = texture2D(uVelocity, vB).x; gl_FragColor = vec4(.5 * (R - L - T + B), 0., 0., 1.); }`,
+      vorticity: `precision highp float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uVelocity, uCurl; uniform float curl, dt;
+        void main(){ float L = texture2D(uCurl, vL).x, R = texture2D(uCurl, vR).x, T = texture2D(uCurl, vT).x, B = texture2D(uCurl, vB).x, C = texture2D(uCurl, vUv).x;
+          vec2 force = .5 * vec2(abs(T) - abs(B), abs(R) - abs(L)); force /= length(force) + .0001; force *= curl * C; force.y *= -1.;
+          vec2 v = texture2D(uVelocity, vUv).xy + force * dt; gl_FragColor = vec4(clamp(v, -1000., 1000.), 0., 1.); }`,
+      pressure: `precision mediump float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uPressure, uDivergence;
+        void main(){ float L = texture2D(uPressure, vL).x, R = texture2D(uPressure, vR).x, T = texture2D(uPressure, vT).x, B = texture2D(uPressure, vB).x;
+          gl_FragColor = vec4((L + R + B + T - texture2D(uDivergence, vUv).x) * .25, 0., 0., 1.); }`,
+      gradient: `precision mediump float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uPressure, uVelocity;
+        void main(){ float L = texture2D(uPressure, vL).x, R = texture2D(uPressure, vR).x, T = texture2D(uPressure, vT).x, B = texture2D(uPressure, vB).x;
+          gl_FragColor = vec4(texture2D(uVelocity, vUv).xy - vec2(R - L, T - B), 0., 1.); }`,
+      display: `precision highp float; varying vec2 vUv, vL, vR, vT, vB; uniform sampler2D uTexture; uniform vec3 cEsp, cCrema, cMilk;
+        void main(){ vec2 c = vUv - .5; float d = length(c) * 2.;
+          vec4 t = texture2D(uTexture, vUv); float m = clamp(t.r, 0., 1.), g = clamp(t.g, 0., 1.);
+          float mL = texture2D(uTexture, vL).r, mR = texture2D(uTexture, vR).r, mT = texture2D(uTexture, vT).r, mB = texture2D(uTexture, vB).r;
+          vec3 crema = mix(cEsp, cCrema, g);
+          vec3 tint = mix(cCrema * 1.15, cMilk, .35);
+          vec3 col = mix(crema, tint, smoothstep(.05, .38, m) * .85);
+          col = mix(col, cMilk, smoothstep(.4, .58, m));
+          vec2 grad = vec2(mR - mL, mT - mB);
+          col *= 1. + clamp(-grad.x * 1.1 + grad.y * 1.3, -.22, .22);
+          col += .07 * smoothstep(.6, 0., length(c - vec2(-.15, .17)) * 2.3);
+          col *= mix(1., .6, smoothstep(.76, 1., d));
+          float a = 1. - smoothstep(.985, 1.0, d);
+          gl_FragColor = vec4(col * a, a); }`,
+    };
+    function compile(type, src, defs) {
+      if (defs) src = defs.map(k => '#define ' + k + '\n').join('') + src;
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s;
+    }
+    const vs = compile(gl.VERTEX_SHADER, VS);
+    function program(fs, defs) {
+      const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs, defs));
+      gl.bindAttribLocation(p, 0, 'aPosition'); gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name; u[name] = gl.getUniformLocation(p, name); }
+      return { p, u };
+    }
+    const P = {};
+    for (const k in FS) P[k] = program(FS[k], k === 'advect' && !linear ? ['MANUAL_FILTERING'] : null);
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 0, 2, 3]), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(0);
+    function blit(t) {
+      if (t) { gl.viewport(0, 0, t.w, t.h); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo); }
+      else { gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    }
+    function fbo(w, h, fmt, filter) {
+      gl.activeTexture(gl.TEXTURE0); const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, fmt.i, w, h, 0, fmt.f, TYPE, null);
+      const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+      return { tex, fbo: f, w, h, tx: 1 / w, ty: 1 / h, attach(id) { gl.activeTexture(gl.TEXTURE0 + id); gl.bindTexture(gl.TEXTURE_2D, tex); return id; } };
+    }
+    function dbl(w, h, fmt, filter) {
+      let a = fbo(w, h, fmt, filter), b = fbo(w, h, fmt, filter);
+      return { w, h, tx: 1 / w, ty: 1 / h, get read() { return a; }, get write() { return b; }, swap() { const t = a; a = b; b = t; } };
+    }
+    const SIM = 128, DYE = Math.min(innerWidth, innerHeight) < 700 ? 384 : 512;
+    const vel = dbl(SIM, SIM, RG, FILTER), dye = dbl(DYE, DYE, RGBA, FILTER), prs = dbl(SIM, SIM, R, gl.NEAREST);
+    const div = fbo(SIM, SIM, R, gl.NEAREST), curlT = fbo(SIM, SIM, R, gl.NEAREST);
+    const use = pr => { gl.useProgram(pr.p); return pr.u; };
+    const loc = (u, k) => u[k] || null;
+
+    function seed() {
+      let u = use(P.seed); gl.uniform1f(loc(u, 'seed'), Math.random() * 50); blit(dye.write); dye.swap();
+      u = use(P.clear); gl.uniform1i(loc(u, 'uTexture'), vel.read.attach(0)); gl.uniform1f(loc(u, 'value'), 0); blit(vel.write); vel.swap();
+    }
+    function splatVel(x, y, dx, dy, r) {
+      const u = use(P.splat); gl.uniform1i(loc(u, 'uTarget'), vel.read.attach(0)); gl.uniform2f(loc(u, 'point'), x, y);
+      gl.uniform3f(loc(u, 'color'), dx, dy, 0); gl.uniform1f(loc(u, 'radius'), r); gl.uniform1f(loc(u, 'uMix'), 0); blit(vel.write); vel.swap();
+    }
+    function splatMilk(x, y, r, strength) {
+      const u = use(P.splat); gl.uniform1i(loc(u, 'uTarget'), dye.read.attach(0)); gl.uniform2f(loc(u, 'point'), x, y);
+      gl.uniform3f(loc(u, 'color'), 1, .5, 0); gl.uniform1f(loc(u, 'radius'), r); gl.uniform1f(loc(u, 'uMix'), strength); blit(dye.write); dye.swap();
+    }
+    function step(dt) {
+      gl.disable(gl.BLEND);
+      let u = use(P.curl); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform1i(loc(u, 'uVelocity'), vel.read.attach(0)); blit(curlT);
+      u = use(P.vorticity); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform1i(loc(u, 'uVelocity'), vel.read.attach(0)); gl.uniform1i(loc(u, 'uCurl'), curlT.attach(1));
+      gl.uniform1f(loc(u, 'curl'), 1.5); gl.uniform1f(loc(u, 'dt'), dt); blit(vel.write); vel.swap();
+      u = use(P.divergence); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform1i(loc(u, 'uVelocity'), vel.read.attach(0)); blit(div);
+      u = use(P.clear); gl.uniform1i(loc(u, 'uTexture'), prs.read.attach(0)); gl.uniform1f(loc(u, 'value'), .8); blit(prs.write); prs.swap();
+      u = use(P.pressure); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform1i(loc(u, 'uDivergence'), div.attach(0));
+      for (let i = 0; i < 20; i++) { gl.uniform1i(loc(u, 'uPressure'), prs.read.attach(1)); blit(prs.write); prs.swap(); }
+      u = use(P.gradient); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform1i(loc(u, 'uPressure'), prs.read.attach(0)); gl.uniform1i(loc(u, 'uVelocity'), vel.read.attach(1)); blit(vel.write); vel.swap();
+      u = use(P.advect); gl.uniform2f(loc(u, 'texelSize'), vel.tx, vel.ty); gl.uniform2f(loc(u, 'dyeTexelSize'), vel.tx, vel.ty);
+      let v = vel.read.attach(0); gl.uniform1i(loc(u, 'uVelocity'), v); gl.uniform1i(loc(u, 'uSource'), v);
+      gl.uniform1f(loc(u, 'dt'), dt); gl.uniform1f(loc(u, 'dissipation'), 1.6); gl.uniform1f(loc(u, 'uMask'), 1); blit(vel.write); vel.swap();
+      gl.uniform2f(loc(u, 'dyeTexelSize'), dye.tx, dye.ty);
+      gl.uniform1i(loc(u, 'uVelocity'), vel.read.attach(0)); gl.uniform1i(loc(u, 'uSource'), dye.read.attach(1));
+      gl.uniform1f(loc(u, 'dissipation'), 0); gl.uniform1f(loc(u, 'uMask'), 0); blit(dye.write); dye.swap();
+    }
+    function render() {
+      const u = use(P.display); gl.uniform2f(loc(u, 'texelSize'), dye.tx, dye.ty); gl.uniform1i(loc(u, 'uTexture'), dye.read.attach(0));
+      gl.uniform3f(loc(u, 'cEsp'), .2, .1, .045); gl.uniform3f(loc(u, 'cCrema'), .56, .31, .14); gl.uniform3f(loc(u, 'cMilk'), .985, .955, .91);
+      gl.clearColor(0, 0, 0, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); gl.clear(gl.COLOR_BUFFER_BIT);
+      blit(null);
+    }
+    function resize() {
+      const r = canvas.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+      const w = Math.max(2, Math.round(r.width * d)), h = Math.max(2, Math.round(r.height * d));
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    }
+    seed(); resize();
+    return { step, render, splatVel, splatMilk, seed, resize };
+  }
+
+  /* ---------- pour choreography ---------- */
+  let fluid = null;
+  try { fluid = createFluid($('#latte')); } catch (e) { console.warn(e); fluid = null; }
+  if (!fluid) document.body.classList.add('no-gl');
+  let pourDone = 0, pourTarget = 0;
+  function pourAt(t) {
+    // tulip: three pushed blobs, then a pull-through
+    if (t < .3) {
+      const s = t / .3; fluid.splatMilk(.5, .6, .0015 + s * .011, .3);
+    } else if (t < .52) {
+      const s = (t - .3) / .22; fluid.splatMilk(.5, .45, .0012 + s * .0062, .34); fluid.splatVel(.5, .42, 0, 9, .005);
+    } else if (t < .7) {
+      const s = (t - .52) / .18; fluid.splatMilk(.5, .32, .001 + s * .004, .38); fluid.splatVel(.5, .3, 0, 9, .0035);
+    } else if (t >= .72) {
+      const s = (t - .72) / .28, y = .2 + s * .3; fluid.splatMilk(.5, y, .00011, .75); fluid.splatVel(.5, y, 0, 7, .0009);
+    }
+  }
+  const STAGES = [[0, {{hero.pour.0|js}}], [.01, {{hero.pour.1|js}}], [.3, {{hero.pour.2|js}}], [.52, {{hero.pour.3|js}}], [.72, {{hero.pour.4|js}}], [.99, {{hero.pour.5|js}}]];
+
+  /* ---------- hero layout ---------- */
+  const stage = $('#stage'), heroH = $('#heroH'), cupwrap = $('#cupwrap'), hero = $('#top');
+  const l1 = $('.l1'), l2 = $('.l2');
+  const WMIN = 58, WMAX = 112;
+  function fitHero() {
+    const wide = innerWidth >= 900;
+    heroH.style.setProperty('--hw', WMAX); heroH.style.fontSize = '100px';
+    const avail = stage.clientWidth - 2 * parseFloat(getComputedStyle(stage).paddingLeft);
+    const w = Math.max(l1.getBoundingClientRect().width, l2.getBoundingClientRect().width);
+    let fs = 100 * avail / w * .98;
+    fs = Math.min(fs, wide ? innerHeight * .17 : innerHeight * .085, 210);
+    heroH.style.fontSize = fs + 'px';
+    const used = l1.getBoundingClientRect().height + l2.getBoundingClientRect().height + $('.hero-foot').getBoundingClientRect().height + (wide ? 84 + 50 : 84 + 90);
+    const free = innerHeight - used;
+    const cs = wide ? clamp(free * .9, 220, 470) : Math.min(innerWidth * .66, free * .62, 360);
+    cupwrap.style.setProperty('--cs', cs + 'px');
+    if (fluid) fluid.resize();
+  }
+  $('#hint').textContent = matchMedia('(pointer: fine)').matches ? 'move your cursor to stir' : 'tap the cup to stir';
+
+  /* ---------- stirring ---------- */
+  const latte = $('#latte'); let lastPt = null;
+  function uvOf(e) { const r = latte.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height]; }
+  latte.addEventListener('pointermove', e => {
+    if (!fluid || e.pointerType === 'touch') return;
+    const [x, y] = uvOf(e);
+    if (lastPt) { const dx = x - lastPt[0], dy = y - lastPt[1]; if (Math.hypot(x - .5, y - .5) < .48) fluid.splatVel(x, y, dx * 7000, dy * 7000, .0018); }
+    lastPt = [x, y]; hintSeen();
+  });
+  latte.addEventListener('pointerleave', () => lastPt = null);
+  latte.addEventListener('pointerdown', e => {
+    if (!fluid) return; const [x, y] = uvOf(e);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; fluid.splatVel(x + Math.cos(a) * .05, y + Math.sin(a) * .05, -Math.sin(a) * 420, Math.cos(a) * 420, .0015); }
+    hintSeen();
+  });
+  let hintGone = false; function hintSeen() { if (!hintGone) { hintGone = true; $('#hint').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, fill: 'forwards', delay: 1200 }); } }
+
+  /* =========================== DRINKS =========================== */
+  const DRINKS = [
+    { name: {{drinks.0.name|js}}, price: {{drinks.0.price}}, hot: true, cup: [110, 84, 44, true], layers: { espresso: [0, 60], crema: [60, 74] }, desc: {{drinks.0.desc|js}}, stats: [{{#each drinks.0.stats join=", "}}[{{.label|js}}, {{.value|js}}]{{/each}}] },
+    { name: {{drinks.1.name|js}}, price: {{drinks.1.price}}, hot: true, cup: [118, 132, 16, false], layers: { espresso: [0, 40], milk: [40, 80], foam: [80, 86] }, desc: {{drinks.1.desc|js}}, stats: [{{#each drinks.1.stats join=", "}}[{{.label|js}}, {{.value|js}}]{{/each}}] },
+    { name: {{drinks.2.name|js}}, price: {{drinks.2.price}}, hot: true, cup: [168, 118, 64, true], layers: { espresso: [0, 30], milk: [30, 82], foam: [82, 88] }, desc: {{drinks.2.desc|js}}, stats: [{{#each drinks.2.stats join=", "}}[{{.label|js}}, {{.value|js}}]{{/each}}] },
+    { name: {{drinks.3.name|js}}, price: {{drinks.3.price}}, hot: true, cup: [150, 220, 24, false], layers: { espresso: [0, 18], milk: [18, 78], foam: [78, 92] }, desc: {{drinks.3.desc|js}}, stats: [{{#each drinks.3.stats join=", "}}[{{.label|js}}, {{.value|js}}]{{/each}}] },
+    { name: {{drinks.4.name|js}}, price: {{drinks.4.price}}, hot: false, cup: [150, 236, 22, false], layers: { oat: [0, 62], espresso: [62, 80] }, desc: {{drinks.4.desc|js}}, stats: [{{#each drinks.4.stats join=", "}}[{{.label|js}}, {{.value|js}}]{{/each}}] },
+  ];
+  const dList = $('#dList'), glass = $('#glass'), clip = $('#glassClip'), dGlass = $('#dGlass'), dTicks = $('#dTicks');
+  DRINKS.forEach((d, i) => {
+    const li = document.createElement('li'); li.innerHTML = `<button type="button" data-i="${i}">${d.name}<span>${money(d.price)}</span></button>`; dList.appendChild(li);
+    dTicks.appendChild(document.createElement('i'));
+  });
+  const LAYERS = {};
+  ['espresso', 'crema', 'oat', 'milk', 'foam'].forEach(k => { const el = document.createElement('i'); el.className = 'layer l-' + k; clip.appendChild(el); LAYERS[k] = el; });
+  let drinkIdx = -1;
+  function setDrink(i, animate = true) {
+    if (i === drinkIdx) return; drinkIdx = i; const d = DRINKS[i];
+    glass.style.setProperty('--gw', d.cup[0]); glass.style.setProperty('--gh', d.cup[1]); glass.style.setProperty('--gr', d.cup[2]);
+    glass.classList.toggle('has-handle', d.cup[3]); glass.classList.toggle('iced', !d.hot); dGlass.classList.toggle('cold', !d.hot);
+    let top = 0; Object.values(d.layers).forEach(v => top = Math.max(top, v[1]));
+    for (const k in LAYERS) { const v = d.layers[k]; LAYERS[k].style.bottom = (v ? v[0] : top) + '%'; LAYERS[k].style.height = (v ? v[1] - v[0] : 0) + '%'; }
+    $$('#dList button').forEach((b, j) => b.classList.toggle('on', j === i));
+    $$('#dTicks i').forEach((t, j) => t.classList.toggle('on', j <= i));
+    const card = $('#dCard');
+    const fill = () => {
+      $('#dName').textContent = d.name; $('#dPrice').textContent = money(d.price); $('#dDesc').textContent = d.desc;
+      $('#dStats').innerHTML = d.stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    };
+    if (!animate || reduce) { fill(); return; }
+    card.animate([{ transform: 'none', opacity: 1 }, { transform: 'translateY(-10px)', opacity: 0 }], { duration: 160, easing: 'ease-in' }).onfinish = () => {
+      fill(); card.animate([{ transform: 'translateY(14px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.16,1,.3,1)' });
+    };
+  }
+  setDrink(0, false);
+  dList.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i;
+    const sec = $('#menu'), top = sec.getBoundingClientRect().top + scrollY, range = sec.offsetHeight - innerHeight;
+    scrollTo({ top: top + range * (i + .5) / DRINKS.length, behavior: reduce ? 'auto' : 'smooth' });
+  });
+
+  /* =========================== GRIND =========================== */
+  const GRIND = [
+    ['Cold brew', 'like peppercorns', '18 h steep', 1400, 9],
+    ['French press', 'like sea salt', '4:00 brew', 1000, 6.5],
+    ['Chemex', 'like rough sand', '4:30 brew', 800, 5],
+    ['Pour-over', 'like table salt', '3:00 brew', 600, 3.8],
+    ['AeroPress', 'like fine sand', '2:00 brew', 450, 2.9],
+    ['Espresso', 'like powdered sugar', '28 s shot', 250, 2],
+    ['Turkish', 'like cocoa powder', '3:00 simmer', 100, 1.3],
+  ];
+  const gc = $('#grounds'), gx = gc.getContext('2d'), pile = document.createElement('canvas'), px = pile.getContext('2d');
+  let gW = 0, gH = 0, gD = 1, heights, falling = [], toSpawn = 0, spawnRate = 0, gSize = 3.8, grindActive = false, grindStarted = false;
+  const BIN = 3, BROWNS = ['#3b1f12', '#5a311b', '#6e3d21', '#4a2716', '#7b4a2b', '#2e170c'];
+  function gResize() {
+    const r = gc.getBoundingClientRect(); gD = Math.min(devicePixelRatio || 1, 2);
+    gW = r.width; gH = r.height; gc.width = pile.width = Math.round(gW * gD); gc.height = pile.height = Math.round(gH * gD);
+    gx.setTransform(gD, 0, 0, gD, 0, 0); px.setTransform(gD, 0, 0, gD, 0, 0);
+  }
+  function pourGrounds(level) {
+    const g = GRIND[level]; gSize = g[4];
+    $('#gMethod').textContent = g[0]; $('#gTexture').textContent = g[1]; $('#gTime').textContent = g[2]; $('#gMicron').textContent = '~' + g[3] + ' µm';
+    px.clearRect(0, 0, gW, gH); heights = new Float32Array(Math.ceil(gW / BIN) + 2); falling = [];
+    toSpawn = Math.round(gW * gH * .26 / (gSize * gSize * .8)); spawnRate = Math.ceil(toSpawn / (reduce ? 1 : 80)); grindActive = true;
+  }
+  function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; }
+  function grindTick() {
+    if (!grindActive) return;
+    const n = Math.min(toSpawn, spawnRate); toSpawn -= n;
+    for (let i = 0; i < n; i++) falling.push({ x: gW / 2 + gauss() * gW * .05, y: -Math.random() * 40, vy: 2 + Math.random() * 3, vx: gauss() * 1.6, s: gSize * (.7 + Math.random() * .6), c: BROWNS[(Math.random() * BROWNS.length) | 0] });
+    const still = [];
+    for (const p of falling) {
+      p.vy += .5; p.y += p.vy; p.x += p.vx;
+      let b = clamp(Math.round(p.x / BIN), 0, heights.length - 1);
+      if (p.y + p.s >= gH - heights[b]) {
+        const lim = BIN * .72;
+        for (let k = 0; k < 120; k++) {
+          const l = b > 0 ? heights[b - 1] : 1e9, r = b < heights.length - 1 ? heights[b + 1] : 1e9, h = heights[b];
+          if (l < h - lim && (l < r || (l === r && Math.random() < .5))) b--; else if (r < h - lim) b++; else break;
+        }
+        const y = gH - heights[b] - p.s, x = b * BIN + (Math.random() - .5) * BIN;
+        px.fillStyle = p.c; px.beginPath();
+        if (p.s > 3.5) { px.ellipse(x, y + p.s / 2, p.s * .55, p.s * .42, Math.random() * 3, 0, 7); px.fill(); } else px.fillRect(x, y, p.s, p.s * .85);
+        const add = p.s * p.s * .8 / BIN; heights[b] += add * .6; if (b > 0) heights[b - 1] += add * .2; if (b < heights.length - 1) heights[b + 1] += add * .2;
+      } else still.push(p);
+    }
+    falling = still;
+    gx.clearRect(0, 0, gW, gH); gx.drawImage(pile, 0, 0, gW, gH);
+    for (const p of falling) { gx.fillStyle = p.c; gx.fillRect(p.x, p.y, p.s, p.s * .85); }
+    if (!falling.length && toSpawn <= 0) grindActive = false;
+  }
+  $('#grindR').addEventListener('input', e => { grindStarted = true; pourGrounds(+e.target.value); });
+
+  /* =========================== VISIT =========================== */
+  const HOURS = {{$.hoursJs|raw}}; // Sunday first: [open, close] in hours (6.5 = 6:30), null = closed
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const fmt = h => { const hh = Math.floor(h), mm = Math.round((h - hh) * 60), ap = hh < 12 ? 'AM' : 'PM', h12 = ((hh + 11) % 12) + 1; return h12 + (mm ? ':' + String(mm).padStart(2, '0') : '') + ' ' + ap; };
+  (function visit() {
+    const now = new Date(), day = now.getDay(), h = now.getHours() + now.getMinutes() / 60;
+    const order = [1, 2, 3, 4, 5, 6, 0];
+    $('#hours').innerHTML = order.map(d => `<div class="${d === day ? 'today' : ''}"><dt>${DAYS[d]}</dt><dd>${HOURS[d] ? `${fmt(HOURS[d][0])} – ${fmt(HOURS[d][1])}` : 'Closed'}</dd></div>`).join('');
+    const oc = HOURS[day], open = !!oc && h >= oc[0] && h < oc[1];
+    const st = $('#status'); st.classList.toggle('closed', !open);
+    if (open) $('#statusText').textContent = `Open now · until ${fmt(oc[1])}`;
+    else { let k = 1; while (k < 7 && !HOURS[(day + k) % 7]) k++; const next = oc && h < oc[0] ? `today at ${fmt(oc[0])}` : `${k === 1 ? 'tomorrow' : DAYS[(day + k) % 7]} at ${fmt(HOURS[(day + k) % 7][0])}`; $('#statusText').textContent = `Closed · opens ${next}`; }
+    const BUSY = [.3, .78, .95, .7, .45, .4, .62, .55, .34, .28, .38, .22];
+    $('#bars').innerHTML = BUSY.map((v, i) => `<i style="--v:${v};transform:scaleY(${v})" class="${open && Math.floor(h) === 6 + i ? 'now' : ''}"></i>`).join('');
+    if (open && h >= 6 && h < 18) { const v = BUSY[Math.floor(h) - 6] || .3; $('#busyText').textContent = (v > .65 ? 'Busy right now, usually.' : v > .4 ? 'A little busy right now, usually.' : 'Usually not busy right now.') + ' {{visit.busyShort|jsq}}'; }
+  })();
+
+  /* =========================== ORDER =========================== */
+  const oDrinks = $('#oDrinks');
+  oDrinks.innerHTML = DRINKS.map((d, i) => `<label><input type="radio" name="drink" value="${i}" ${i === 2 ? 'checked' : ''}><span>${d.name}</span></label>`).join('');
+  const form = $('#oForm'), oBtn = $('#oBtn');
+  function orderState() {
+    const di = +form.drink.value, d = DRINKS[di];
+    const sizeInputs = $$('#oSizes input'), milkInputs = $$('#oMilks input');
+    const espresso = di === 0, cortado = di === 1;
+    sizeInputs.forEach((s, i) => s.disabled = (espresso || cortado) && i > 0);
+    if ((espresso || cortado) && +form.size.value > 0) sizeInputs[0].checked = true;
+    milkInputs.forEach(m => m.disabled = espresso);
+    if (di === 4 && form.milk.value === 'Whole') milkInputs[1].checked = true;
+    const size = +form.size.value, milk = form.milk.value;
+    const price = d.price + size * {{$.sizeStepJs}} + (!espresso && milk !== 'Whole' && di !== 4 ? {{$.milkExtraJs}} : 0);
+    oBtn.textContent = `Place order · ${money(price)}`;
+    return { d, size, milk, price };
+  }
+  form.addEventListener('change', orderState); orderState();
+  let orderNo = 127, orderTimer = null;
+  form.addEventListener('submit', e => {
+    e.preventDefault(); const { d } = orderState();
+    const name = $('#oName').value.trim() || 'Sam';
+    $('#tName').textContent = name; $('#tNum').textContent = `Order #${++orderNo} · ${d.name}`;
+    $('#tMilkStep').textContent = d.hot ? (d === DRINKS[0] ? 'Checking the crema' : 'Steaming milk') : 'Shaking over ice';
+    form.hidden = true; const t = $('#ticket'); t.hidden = false;
+    if (!reduce) t.animate([{ transform: 'scale(.92) rotate(-2deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 600, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    const steps = $$('#tSteps li'), ring = $('#tRing'), tt = $('#tTime'), T0 = performance.now(), DUR = 6000;
+    clearInterval(orderTimer);
+    orderTimer = setInterval(() => {
+      const p = clamp((performance.now() - T0) / DUR); ring.style.strokeDashoffset = 100 - p * 100;
+      const left = Math.ceil(240 * (1 - p)); tt.textContent = p >= 1 ? 'Ready' : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      steps.forEach((s, i) => s.classList.toggle('done', p >= [0, .25, .55, 1][i]));
+      if (p >= 1) clearInterval(orderTimer);
+    }, 50);
+  });
+  $('#tAgain').addEventListener('click', () => { clearInterval(orderTimer); $('#ticket').hidden = true; form.hidden = false; });
+
+  /* =========================== FOOTER WORD =========================== */
+  const word = $('#word');
+  addEventListener('pointermove', e => { const r = word.getBoundingClientRect(); if (e.clientY > r.top - 200) word.style.setProperty('--fw', Math.round(50 + 100 * e.clientX / innerWidth)); }, { passive: true });
+
+  /* =========================== LOOP =========================== */
+  const band = $('#band'), rises = $$('[data-rise]'), h2s = $$('h2'), clouds = $$('.clouds i');
+  let sy = scrollY, last = performance.now(), idle = 0, lastScroll = scrollY, vel = 0;
+  let grindVisible = false;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+    const tgt = scrollY; sy = reduce ? tgt : lerp(sy, tgt, .14); if (Math.abs(sy - tgt) < .1) sy = tgt;
+    vel = lerp(vel, tgt - lastScroll, .2); lastScroll = tgt;
+    const vh = innerHeight;
+
+    // hero
+    const hTop = hero.offsetTop, hRange = hero.offsetHeight - vh, hp = clamp((sy - hTop) / hRange);
+    heroH.style.setProperty('--hw', (WMIN + (WMAX - WMIN) * eoc(hp)).toFixed(1));
+    cupwrap.style.transform = `rotate(${(-hp * 24).toFixed(2)}deg) scale(${(1 + hp * .06).toFixed(4)})`;
+    clouds.forEach((c, i) => c.style.transform = `translate3d(${(Math.sin(now / 9000 + i * 2) * 30 + (i % 2 ? -1 : 1) * hp * 120).toFixed(1)}px, ${(-hp * 80 * (i + 1)).toFixed(1)}px, 0)`);
+    const pt = seg(hp, .06, .86);
+    if (hp < .015 && pourDone > .05 && fluid) { fluid.seed(); pourDone = 0; }
+    pourTarget = pt;
+    let label = STAGES[0][1]; for (const [k, s] of STAGES) if (pt >= k) label = s;
+    if ($('#pourStage').textContent !== label) $('#pourStage').textContent = label;
+    $('#pourBar').style.width = (pt * 100) + '%';
+    const heroVisible = sy < hTop + hero.offsetHeight;
+    if (fluid && heroVisible) {
+      const maxStep = reduce ? 1 : .011;
+      let budget = Math.min(pourTarget - pourDone, maxStep);
+      if (budget > 0) { const n = Math.max(1, Math.ceil(budget / .0035)); for (let i = 1; i <= n; i++) pourAt(pourDone + budget * i / n); pourDone += budget; }
+      idle += dt; if (idle > 1.6) { idle = 0; const a = Math.random() * 6.28, r = .15 + Math.random() * .2; fluid.splatVel(.5 + Math.cos(a) * r, .5 + Math.sin(a) * r, -Math.sin(a) * 60, Math.cos(a) * 60, .004); }
+      fluid.step(dt); fluid.render();
+    }
+
+    // band
+    const bw = band.scrollWidth / 2; band.style.transform = `translate3d(${-((sy * .5) % bw)}px,0,0) skewX(${clamp(vel * -.3, -10, 10)}deg)`;
+
+    // drinks
+    const ds = $('#menu'), dTop = ds.offsetTop, dRange = ds.offsetHeight - vh, dp = clamp((sy - dTop) / dRange);
+    setDrink(Math.min(DRINKS.length - 1, Math.floor(dp * DRINKS.length)));
+    dGlass.style.transform = `rotate(${clamp(vel * .15, -6, 6).toFixed(2)}deg)`;
+
+    // headings stretch as they cross the viewport
+    h2s.forEach(h => { const r = h.getBoundingClientRect(); if (r.bottom > 0 && r.top < vh) h.style.setProperty('--hw', (60 + 50 * clamp(1 - r.top / vh)).toFixed(1)); });
+    rises.forEach(el => { const r = el.getBoundingClientRect(); const p = clamp((vh - r.top) / (vh * .6)); el.style.transform = reduce ? '' : `translate3d(0, ${((1 - eoc(p)) * 60).toFixed(1)}px, 0)`; });
+
+    // grind starts pouring when it scrolls into view
+    const gr = gc.getBoundingClientRect(); const gv = gr.top < vh * .85 && gr.bottom > 0;
+    if (gv && !grindStarted) { grindStarted = true; pourGrounds(+$('#grindR').value); }
+    grindTick();
+
+    requestAnimationFrame(frame);
+  }
+  function fitGlass() { const h = dGlass.clientHeight; glass.style.setProperty('--s', clamp((h - 110) / 240, .55, 1.6).toFixed(3)); }
+  function resizeAll() { fitHero(); fitGlass(); gResize(); if (grindStarted) pourGrounds(+$('#grindR').value); }
+  addEventListener('resize', resizeAll);
+  resizeAll();
+  if (document.fonts) document.fonts.ready.then(fitHero);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

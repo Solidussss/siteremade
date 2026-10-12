@@ -1,0 +1,166 @@
+{
+  "name": "nube",
+  "category": "coffee shop",
+  "reference": "reference/nube-original.html",
+  "referenceSha256": "f6b6248099dc24cfb8d60cf497018c5023c414b0306f27a177e8b12cac4ee846",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#c96f2e",
+      "target": "theme.accent",
+      "about": "accent: order button, prices, busy-now bar, bean band, map pin pulse (light and dark mode)"
+    },
+    "S": {
+      "base": "#cfe0ec",
+      "target": "theme.sky",
+      "keepLightness": true,
+      "about": "the sky behind everything, and the dark-mode night sky and cards (tint only)"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.3,
+          0.6
+        ]
+      },
+      {
+        "path": "theme.sky",
+        "range": [
+          0.55,
+          0.97
+        ],
+        "maxSaturation": 0.75
+      }
+    ],
+    "contrast": [
+      [
+        "#fff8f0",
+        "A:#c96f2e",
+        3,
+        "order button text on the accent (light mode)"
+      ],
+      [
+        "A:#c96f2e",
+        "#fbf8f3",
+        3,
+        "accent prices on the cream cards"
+      ],
+      [
+        "#1a0f08",
+        "A:#e58a48",
+        4.5,
+        "order button text on the accent (dark mode)"
+      ],
+      [
+        "A:#e58a48",
+        "S:#17222e",
+        3,
+        "accent on the night cards (dark mode)"
+      ]
+    ]
+  },
+  "metrics": {
+    "word": {
+      "fontChoice": null,
+      "css": "font:880 1000px/.78 {family};letter-spacing:-.05em;font-variation-settings:'wdth' 150",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,100..900&display=swap",
+          "family": "Anybody"
+        }
+      }
+    },
+    "heading": {
+      "fontChoice": null,
+      "css": "font:820 1000px/.9 {family};letter-spacing:-.02em;font-variation-settings:'wdth' 110",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,100..900&display=swap",
+          "family": "Anybody"
+        }
+      }
+    },
+    "logo": {
+      "fontChoice": null,
+      "css": "font:850 1000px/1 {family};letter-spacing:-.03em;font-variation-settings:'wdth' 120",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Anybody:ital,wdth,wght@0,50..150,100..900&display=swap",
+          "family": "Anybody"
+        }
+      }
+    },
+    "button": {
+      "fontChoice": null,
+      "css": "font:650 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Figtree:wght@400..700&display=swap",
+          "family": "Figtree"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".word",
+      "text": [
+        "business.wordmark"
+      ],
+      "metric": "word",
+      "size": [
+        110,
+        26,
+        420
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    },
+    {
+      "name": "nav collapses earlier",
+      "type": "collapseByLength",
+      "base": 320,
+      "default": 760,
+      "parts": [
+        {
+          "paths": [
+            "business.wordmark"
+          ],
+          "perChar": 17
+        },
+        {
+          "paths": [
+            "nav.menu",
+            "nav.beans",
+            "nav.visit"
+          ],
+          "perChar": 8
+        },
+        {
+          "paths": [
+            "nav.cta"
+          ],
+          "perChar": 8.5
+        }
+      ],
+      "css": "@media (max-width:{w}px){.nav ul{display:none}.nav .btn{margin-left:auto}}"
+    }
+  ]
+}

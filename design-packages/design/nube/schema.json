@@ -1,0 +1,246 @@
+{
+  "about": "What a coffee shop may change in the Nube design. Everything not listed here is protected: the WebGL latte and its pour choreography, the cup and saucer, the stretching type, the five drink glasses and their layers, the grind slider and its seven grind sizes, the busy chart, the order ticket, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      48
+    ],
+    "business.wordmark": [
+      2,
+      14
+    ],
+    "nav.menu": [
+      2,
+      10
+    ],
+    "nav.beans": [
+      2,
+      10
+    ],
+    "nav.visit": [
+      2,
+      10
+    ],
+    "nav.cta": [
+      4,
+      16
+    ],
+    "hero.line1": [
+      3,
+      16
+    ],
+    "hero.line2": [
+      3,
+      16
+    ],
+    "hero.intro": [
+      20,
+      150
+    ],
+    "hero.menuButton": [
+      3,
+      16
+    ],
+    "hero.visitButton": [
+      3,
+      14
+    ],
+    "hero.pour.*": [
+      3,
+      40
+    ],
+    "beans.aria": [
+      10,
+      160
+    ],
+    "beans.label": [
+      3,
+      16
+    ],
+    "beans.origin": [
+      3,
+      26
+    ],
+    "beans.notes.*": [
+      2,
+      18
+    ],
+    "beans.roasted": [
+      3,
+      26
+    ],
+    "menu.eyebrow": [
+      3,
+      20
+    ],
+    "menu.titleA": [
+      3,
+      16
+    ],
+    "menu.titleB": [
+      3,
+      16
+    ],
+    "drinks.*.name": [
+      3,
+      18
+    ],
+    "drinks.*.desc": [
+      20,
+      100
+    ],
+    "drinks.*.stats.*.label": [
+      2,
+      9
+    ],
+    "drinks.*.stats.*.value": [
+      1,
+      8
+    ],
+    "grind.eyebrow": [
+      3,
+      24
+    ],
+    "grind.titleA": [
+      3,
+      14
+    ],
+    "grind.titleB": [
+      3,
+      14
+    ],
+    "grind.body": [
+      20,
+      140
+    ],
+    "visit.street": [
+      3,
+      30
+    ],
+    "visit.directions": [
+      6,
+      80
+    ],
+    "visit.mapAlt": [
+      10,
+      90
+    ],
+    "visit.map.street": [
+      3,
+      24
+    ],
+    "visit.map.cross": [
+      3,
+      13
+    ],
+    "visit.map.landmark": [
+      3,
+      14
+    ],
+    "visit.busy": [
+      10,
+      70
+    ],
+    "visit.busyShort": [
+      6,
+      32
+    ],
+    "order.eyebrow": [
+      3,
+      20
+    ],
+    "order.titleA": [
+      3,
+      14
+    ],
+    "order.titleB": [
+      3,
+      14
+    ],
+    "order.body": [
+      20,
+      140
+    ],
+    "order.sizes.*": [
+      2,
+      8
+    ],
+    "order.milks.*": [
+      2,
+      10
+    ],
+    "footer.line": [
+      10,
+      80
+    ],
+    "footer.credit": [
+      3,
+      24
+    ],
+    "locale.currency": [
+      1,
+      3
+    ]
+  },
+  "lists": {
+    "hero.pour": [
+      6,
+      6
+    ],
+    "beans.notes": [
+      2,
+      4
+    ],
+    "drinks": [
+      5,
+      5
+    ],
+    "drinks.*.stats": [
+      4,
+      4
+    ],
+    "order.sizes": [
+      3,
+      3
+    ],
+    "order.milks": [
+      3,
+      3
+    ]
+  },
+  "numbers": {
+    "drinks.*.price": [
+      0.5,
+      99
+    ],
+    "order.sizeStep": [
+      0,
+      5
+    ],
+    "order.milkExtra": [
+      0,
+      5
+    ]
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "Five drinks, always, in this order and of these kinds: espresso, a small milk drink (cortado/gibraltar/piccolo), flat white, latte, an iced drink. Their glasses, layers and hot/iced look are part of the design; names, prices, descriptions and the four stats come from the shop.",
+    "hero.pour are the six captions of the latte pour (shot, base, second push, third push, pull-through, finished tulip).",
+    "hours: Sunday to Saturday, null = closed, open and close as HH:MM.",
+    "Order: three cup sizes (each one up adds order.sizeStep), whole milk plus two alternatives (each adds order.milkExtra).",
+    "Widths of the heading words and the phone nav row are measured in Anybody at its widest; the footer word is sized for its widest stretch (wdth 150, when the pointer is at the right edge)."
+  ],
+  "colours": [
+    "theme.accent",
+    "theme.sky"
+  ],
+  "choices": {
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  }
+}

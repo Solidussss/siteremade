@@ -1,0 +1,51 @@
+{
+  "title": "Coffee shop",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true },
+    { "key": "location", "label": "Address and how to find you", "required": true, "help": "Street, nearest corner or landmark (it goes on the little map)." },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Mon-Fri 7-4, Sat 8-3, closed Sunday." },
+    { "key": "drinks", "label": "Drinks and prices", "type": "textarea", "required": true, "help": "Espresso, a cortado or similar, flat white, latte and an iced drink, with prices. Add the recipe details you like to share (dose, milk, temperature)." },
+    { "key": "beans", "label": "Beans you're pouring", "type": "textarea", "help": "Optional: origin, tasting notes, when it was roasted." },
+    { "key": "orderAhead", "label": "Sizes and milks", "type": "textarea", "help": "Cup sizes and what a bigger size costs; the milks you offer and what alternatives cost." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your place and your regulars." },
+    { "key": "colours", "label": "Brand colours", "help": "Optional: colour names or hex codes." },
+    { "key": "other", "label": "Anything else", "type": "textarea", "help": "Busy times, whether you grind beans to take home, pickup, anything." }
+  ],
+  "facts": [
+    "drinks.*.price",
+    "drinks.*.stats.*.value",
+    "order.sizes.*",
+    "order.sizeStep",
+    "order.milkExtra",
+    "hours.*.open",
+    "hours.*.close",
+    "beans.roasted",
+    "hero.pour.*",
+    "visit.street",
+    "visit.busy",
+    "visit.busyShort",
+    "footer.line",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation: a live latte in a cup, poured as you scroll (base, second push, third push, pull-through into a tulip). hero.line1 and hero.line2 are the two big lines of the title (short, lowercase like the example); the page sizes them to fit. hero.pour are the six captions under the cup, in that order: the shot, pouring the base, the second layer, the third, pulling through, the finished tulip. Recipe numbers in them (grams, seconds, milk temperature) are facts: use the brief's, or the example's and list the path in _assumed.",
+    "drinks are exactly five, in this order and of these kinds, because each has its own glass and layers: (1) espresso, (2) a small strong milk drink (cortado, gibraltar or piccolo), (3) flat white, (4) latte, (5) an iced milk drink. Name them as the shop does. Each has a price (in the brief's currency, at most two decimals), a short description and four stats (label up to 9 characters, value up to 8, e.g. Dose 18 g). If the shop doesn't sell one of the five kinds, ask with _blocked.",
+    "beans: the coffee in the hopper this week, shown in a scrolling band (label, origin, 2-4 tasting notes, when it was roasted) and read out by screen readers from beans.aria (one plain sentence of the same facts). If the brief gives no beans, describe the shop's house espresso without inventing an origin or a roast date: e.g. label 'In the hopper:', origin 'House espresso', notes from the brief's own words, roasted 'roasted for espresso'.",
+    "The grind section is a slider of seven brew methods (cold brew to Turkish) that is part of the design; grind.* is only its heading and a line about grinding beans to take home. Only say the shop grinds bags if the brief says so; otherwise write about matching the grind to how you brew.",
+    "visit: street and directions from the brief; visit.map labels a small drawn map: map.street (the shop's street), map.cross (a cross street, up to 13 characters) and map.landmark (a nearby park, river, station or square, up to 14 characters), and visit.mapAlt describes it in one sentence. Don't invent a landmark: if the brief names none, use the neighbourhood or the town. visit.busy / busyShort describe the morning rush in the shop's words; if the brief doesn't say, use 'Busiest before 9 AM.' style wording and list the paths in _assumed.",
+    "hours: Sunday to Saturday, null = closed, open and close as HH:MM in 24-hour time. footer.line repeats the street and the hours in short form. footer.credit is the text before the SiteRemade link, e.g. 'Website by'.",
+    "order: three cup sizes (order.sizes) and how much each size up adds (sizeStep); whole milk plus two alternatives (order.milks) and what an alternative adds (milkExtra). Use 0 when the brief says alternatives are free.",
+    "business.wordmark is the name as the logo and the giant footer word show it (the example writes 'nube' in lowercase): the same name or a recognisable shortening, never a different name. theme.wordmarkFit: always \"fit\" for a new business (the example keeps \"crop\" only to reproduce the original exactly).",
+    "theme.accent is the shop's one bright colour (order button, prices, the busy-now bar); theme.sky tints the light sky that fills the page (keep it pale: lightness is fixed, only the hue and a little saturation change).",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "Opening hours", "path": "hours", "format": "week" },
+    { "label": "Drinks", "path": "drinks", "fields": ["name", "price"] },
+    { "label": "Order ahead", "path": "order", "fields": ["sizeStep", "milkExtra"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}
