@@ -54,11 +54,13 @@ test('brief to site: owner only, retry loop, publish', async () => {
   const { srv, base, session } = await server();
   try {
     const { brief } = JSON.parse(fs.readFileSync(path.join(FIX, 'brief.json'), 'utf8'));
-    // not signed in, and a signed-in account that is not the owner: no access
+    // the studio is the product: a visitor sees the designs; any signed-in account has its own (empty) list
     assert.equal((await fetch(base + '/api/designs')).status, 401);
+    const cat = await (await fetch(base + '/api/designs/catalog')).json();
+    assert.equal(cat.designs.length, 12);
     const other = await session('someone-else@example.com');
-    assert.equal((await other('GET', '/api/designs')).status, 403);
-    assert.equal((await other('POST', '/api/designs/sites', { design: 'beadline', brief })).status, 403);
+    const otherList = await other('GET', '/api/designs');
+    assert.equal(otherList.status, 200); assert.deepEqual(otherList.json.sites, []); assert.equal(otherList.json.access.free, true);
 
     const owner = await session(OWNER);
     const list = await owner('GET', '/api/designs');
@@ -81,7 +83,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
 
     // private until published; the other account can't see it at all
     assert.equal((await fetch(`${base}/s/${id}`)).status, 404);
-    assert.equal((await other('GET', `/api/designs/sites/${id}`)).status, 403);
+    assert.equal((await other('GET', `/api/designs/sites/${id}`)).status, 404, 'another account never sees this site');
     const prev = await owner('GET', `/api/designs/sites/${id}/preview`);
     assert.equal(prev.status, 200); assert.match(prev.text, /Kestrel Car Care/);
     // a real business: the writer's coating costs are proposed, so going live waits for the owner to confirm them

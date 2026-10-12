@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Premium Designs · SiteRemade</title>
+<title>SiteRemade · Websites built on hand-made designs</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/styles.css">
@@ -126,8 +126,8 @@
 <div class="page-glow glow-b"></div>
 <header class="nav">
   <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
-  <nav class="nav-links"><a href="/designs">Premium designs</a></nav>
-  <div class="nav-actions"><a href="/" class="button button-small button-secondary client-login">Back to SiteRemade</a></div>
+  <nav class="nav-links"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a></nav>
+  <div class="nav-actions"><button type="button" class="button button-small button-secondary client-login" id="acct">Sign in</button></div>
 </header>
 <main class="studio" id="app"></main>
 <script>
@@ -190,25 +190,41 @@ const steps = (n) => `<ol class="steps">${['01 Design', '02 Brief', '03 Writing'
 async function load() {
   clearTimeout(poll);
   const r = await api('/api/designs');
-  if (r.status === 401) return signIn();
-  if (!r.ok) { $('#app').innerHTML = `<div class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Not for this account.<span>Owner only, for now.</span></h1></div></div><p class="note">${esc(r.message || '')}</p>`; return; }
-  D = r; home();
+  if (r.status === 401) { const c = await api('/api/designs/catalog'); D = { designs: c.designs || [], sites: [], guest: true }; }
+  else if (!r.ok) { $('#app').innerHTML = `<div class="studio-hero"><div><h1>Something went wrong.<span>Try again in a moment.</span></h1></div></div><p class="note">${esc(r.message || '')}</p>`; return; }
+  else D = r;
+  const acct = $('#acct'); acct.textContent = D.guest ? 'Sign in' : 'Sign out';
+  acct.onclick = D.guest ? () => signIn() : async () => { await api('/api/auth/signout', {}); load(); };
+  home();
 }
-function signIn() {
+let afterSignIn = null;
+function signIn(then) {
+  afterSignIn = then || null;
+  const box = document.createElement('div'); box.className = 'authwrap';
+  box.innerHTML = `<form class="panel signin bform" id="si" style="grid-template-columns:1fr"><h2>${then ? 'One step first.' : 'Welcome back.'} <span>${then ? 'Make a free account to write it.' : 'Sign in to your sites.'}</span></h2><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required minlength="8"></label><div class="actions"><button class="button" name="mode" value="signup">Create a free account</button><button class="button button-secondary" name="mode" value="signin">Sign in</button><button type="button" class="button button-secondary" id="siX">Not now</button></div><p class="err" id="siErr"></p></form>`;
+  document.querySelector('.authwrap') && document.querySelector('.authwrap').remove();
+  $('#app').prepend(box); box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#siX').onclick = () => box.remove();
+  $('#si').onsubmit = async (e) => { e.preventDefault(); const fd = new FormData(e.target); const mode = (e.submitter && e.submitter.value) || 'signup';
+    const r = await api(mode === 'signin' ? '/api/auth/signin' : '/api/auth/signup', { email: fd.get('email'), password: fd.get('password') });
+    if (!r.ok) { $('#siErr').textContent = r.message || 'Could not sign in.'; return; }
+    const next = afterSignIn; await load(); if (next) next(); };
+}
+function signInOld() {
   $('#app').innerHTML = `<div class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Sign in<span>to the studio.</span></h1></div><p class="lede">Sign in with your SiteRemade account to create, edit and publish your websites.</p></div>
   <form class="panel signin bform" id="si" style="grid-template-columns:1fr"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="button">Sign in</button></div><p class="err" id="siErr"></p></form>`;
   $('#si').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const r = await api('/api/auth/signin', { email: f.get('email'), password: f.get('password') }); if (r.ok) load(); else $('#siErr').textContent = r.message || 'Could not sign in.'; };
 }
 function home() {
   $('#app').innerHTML = `
-  <section class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Describe the business.<span>We build the website.</span></h1></div>
+  <section class="studio-hero"><div><p class="eyebrow">SITEREMADE</p><h1>Describe the business.<span>We build the website.</span></h1></div>
     <p class="lede">Hand-built designs with real motion. Describe the business in plain words: the AI writes every line into the design, checks it, decides the design details itself and shows you everything it proposed. You review it, then publish.</p></section>
   <section class="panel create" id="create"><h2>Create a website. <span>Start with the business.</span></h2>
     <p class="sub">Describe it in a sentence or two. We pick the design that can show it truthfully, and the writer does the rest.</p>
     <div class="bform" style="grid-template-columns:1fr"><label class="wide">What is the business?<textarea id="desc" placeholder="A small watch brand launching a hand-wound three-hand watch with a 42-hour reserve"></textarea></label>
     <div class="actions"><button class="button" id="find">Find its design</button></div><p class="err" id="ferr"></p></div><div id="routeOut"></div></section>
   ${steps(0)}
-  <section class="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
+  <section class="gallery" id="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
   <div id="briefBox"></div>
   <section class="sites" id="projects"><h2>Your projects</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Describe a business above to make the first one.</p>'}${(D.projects || []).length ? `<h3 class="older">Websites made with the classic builders</h3><ul class="plist">${D.projects.map((p) => `<li><a href="${esc(p.open)}"><b>${esc(p.name || 'Untitled')}</b><span>${p.mode === 'creative' ? 'Creative' : 'Classic'} · ${p.isPurchased ? 'Purchased' : 'Draft'} · ${esc(String(p.updatedAt || '').slice(0, 10))}</span><em>Open</em></a></li>`).join('')}</ul>` : ''}</section>`;
   $('#find').onclick = async () => {
@@ -217,7 +233,7 @@ function home() {
     const name = (d) => (DESIGN[d] || { name: d }).name, kind = (d) => (DESIGN[d] || { kind: '' }).kind;
     $('#routeOut').innerHTML = res.best
       ? `<div class="route"><p class="tag">${esc(res.industry.label)}</p><h3>Built on ${esc(name(res.best))}, the ${esc(kind(res.best).toLowerCase())} design.</h3><p>It fits because you mention ${res.fits[0].words.map((w) => '“' + esc(w) + '”').join(', ')}.</p><div class="actions"><button class="button" data-use="${res.best}">Use ${esc(name(res.best))}</button>${res.fits.slice(1, 3).map((x) => `<button class="button button-secondary" data-use="${x.design}">or ${esc(name(x.design))}</button>`).join('')}</div></div>`
-      : `<div class="route"><p class="tag">${esc(res.industry.label)}</p><h3>None of our designs can show this business truthfully yet.</h3><p>Every design is built around one kind of business; putting yours in another one would misrepresent it. The classic builder makes a site for any business.</p><div class="actions"><a class="button" href="${esc(res.classic)}">Build it with the classic builder</a><button class="button button-secondary" id="anyway">Choose a design anyway</button></div></div>`;
+      : `<div class="route"><p class="tag">${esc(res.industry.label)}</p><h3>No design is made for this kind of business yet.</h3><p>Pick the closest one below: the writer adapts it to the business and tells you what it changed.</p><div class="actions"><button class="button" id="anyway">Pick the closest design</button></div></div>`;
     $('#routeOut').querySelectorAll('[data-use]').forEach((b) => { b.onclick = () => pick(b.dataset.use, text); });
     if ($('#anyway')) $('#anyway').onclick = () => $('.gallery').scrollIntoView({ behavior: 'smooth' });
   };
@@ -228,7 +244,7 @@ function home() {
   fitFrames(); playAll();
 }
 // what a generation costs this account: the owner sees the AI estimate; a customer, the credits it uses
-function costNote() { const a = D && D.access; return !a || a.owner ? 'About a minute · roughly $0.25 of AI' : `About a minute · ${a.cost} credits (you have ${a.credits == null ? '—' : a.credits})`; }
+function costNote() { const a = D && D.access; return a && a.owner ? 'About a minute · roughly $0.25 of AI' : `About a minute · free (${(a && a.perDay) || 5} new sites a day)`; }
 function pick(d, about) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
   document.querySelectorAll('.dcard').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
@@ -239,10 +255,11 @@ function pick(d, about) {
   if (about && $('#form').elements.about) $('#form').elements.about.value = about;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#form').onsubmit = async (e) => {
-    e.preventDefault(); const btn = $('#go'); btn.disabled = true;
+    e.preventDefault(); const btn = $('#go');
     const brief = Object.fromEntries(chosen.fields.map((f) => [f.key, e.target.elements[f.key].value]));
+    if (D.guest) { const d = chosen.design; return signIn(() => { pick(d); const fm = $('#form'); for (const [k, v] of Object.entries(brief)) if (fm.elements[k]) fm.elements[k].value = v; }); }
+    btn.disabled = true;
     const r = await api('/api/designs/sites', { design: chosen.design, brief });
-    if (r.status === 402) { btn.disabled = false; $('#err').innerHTML = `${esc(r.message)} <a href="/#pricing">Get credits</a>`; return; }
     btn.disabled = false;
     if (!r.ok) { $('#err').textContent = r.message || 'Something went wrong.'; return; }
     show(r.site);

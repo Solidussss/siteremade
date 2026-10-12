@@ -147,6 +147,20 @@ const app = express();
 // every legitimate same-origin request once deployed behind Railway's
 // proxy.
 app.set('trust proxy', 1);
+// ONE PRODUCT (2026-10-12, the owner's decision): SiteRemade is the designs studio -- describe a business, get a website
+// built on a hand-made design, edit it, publish it. Everything else (the classic generator and its landing page,
+// Creative and its paid media, payments and credits, saved projects, export and deployment, the customer-app bridge) is
+// closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
+const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/s\/[A-Za-z0-9_-]+$/,
+  /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
+  /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/];
+app.use((req, res, next) => {
+  if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
+  if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
+  return res.redirect(302, '/');
+});
+// the studio is the site: the landing page and /designs are the same page
+app.get(['/', '/index.html'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 const PORT = process.env.PORT || 8080;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
@@ -5930,7 +5944,8 @@ function isDesignOwner(accountId, email) {
 // Who may use the new generator: the owner account always; every signed-in account once SITEREMADE_DESIGNS_OPEN is
 // "on" (off by default: switching the product over is the owner's decision). Customers pay in credits
 // (pricing.ACTION_CREDITS.design_generation) through the same ledger as every other generation; the owner does not.
-const DESIGNS_OPEN = String(process.env.SITEREMADE_DESIGNS_OPEN || '').trim().toLowerCase() === 'on';
+const DESIGNS_OPEN = String(process.env.SITEREMADE_DESIGNS_OPEN || 'on').trim().toLowerCase() !== 'off';
+const DESIGNS_PER_DAY = Number(process.env.SITEREMADE_DESIGNS_PER_DAY) || 5;
 // what the homepage needs to know (consolidation.js): whether its box starts the new generator
 app.get('/api/site-config', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, designsOpen: DESIGNS_OPEN }); });
 function requireDesignOwner(req, res, next) {
@@ -5946,11 +5961,11 @@ function ownDesignSite(req, res) {
 }
 app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(html); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
-// Projects: the sites made here, and every website the account saved with the classic builders (metadata only, the
-// same list the customer app shows) -- one place for all of them; a classic one opens where it is edited today
+// the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
+// own sites
+app.get('/api/designs/catalog', (req, res) => res.json({ ok: true, designs: designSites.designs() }));
 app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId),
-  access: { owner: !!req.designOwner, cost: pricing.ACTION_CREDITS.design_generation, credits: req.designOwner ? null : creditsRemainingFor(req.accountId) },
-  projects: savedWebsites.listSavedWebsites(db, req.accountId).slice(0, 100).map((p) => ({ id: p.projectId, name: p.businessName || p.name, mode: p.mode, status: p.status, updatedAt: p.updatedAt, isPurchased: p.isPurchased, open: '/?project=' + encodeURIComponent(p.projectId) })) }));
+  access: { owner: !!req.designOwner, free: true, perDay: DESIGNS_PER_DAY } }));
 // Export: the built site as one self-contained index.html (its fonts load from Google Fonts, as on /s/<id>)
 app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
@@ -5959,19 +5974,14 @@ app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req
   res.setHeader('Content-Disposition', `attachment; filename="${name}.html"`); res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(row.html);
 });
-app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, async (req, res) => {
-  let deps = designDeps, opId = null;
+app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
   if (!req.designOwner) {
-    // a customer: reserve the generation's credits first; settled when the writer is done, released if it fails
-    await prepareCredits(req.accountId);
-    const cost = pricing.ACTION_CREDITS.design_generation;
-    const rc = reserveCredit(req.accountId, cost, 'design_generation');
-    if (!rc.ok) return res.status(402).json({ ok: false, message: `A new website uses ${cost} credits; you have ${rc.remaining || 0}.`, credits: { needed: cost, remaining: rc.remaining || 0 } });
-    opId = rc.opId;
-    deps = Object.assign({}, designDeps, { settle: (how, usage, usd) => (how === 'commit' ? commitCredit : releaseCredit)(opId, usd, { provider: 'anthropic', inputTokens: usage.input, outputTokens: usage.output }) });
+    const since = new Date(Date.now() - 24 * 3600e3).toISOString();
+    const today = db.designSites.forAccount(req.accountId).filter((x) => x.created_at > since).length;
+    if (today >= DESIGNS_PER_DAY) return res.status(429).json({ ok: false, message: `That's ${DESIGNS_PER_DAY} new websites today, the daily limit. Edit the ones you have, or come back tomorrow.` });
   }
-  const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, deps);
-  if (r.error) { if (opId) releaseCredit(opId, 0); return res.status(400).json({ ok: false, message: r.error }); }
+  const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, designDeps);
+  if (r.error) return res.status(400).json({ ok: false, message: r.error });
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
 app.get('/api/designs/sites/:id', requireAuth, requireDesignOwner, (req, res) => { const row = ownDesignSite(req, res); if (row) res.json({ ok: true, site: designSites.view(row) }); });
@@ -5990,11 +6000,11 @@ app.post('/api/designs/sites/:id/publish', requireAuth, requireSameOrigin, requi
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
 // Create Website: which design can honestly carry this business (lib/site-router.js); none -> the classic builder
-app.post('/api/designs/route', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+app.post('/api/designs/route', requireSameOrigin, withOptionalAuth, generationRateLimit, (req, res) => {
   const text = String((req.body && req.body.text) || '').trim().slice(0, 2000);
   if (text.length < 8) return res.status(400).json({ ok: false, message: 'Describe the business in a sentence or two.' });
   const r = siteRouter.route(text);
-  res.json({ ok: true, industry: r.industry, fits: r.fits, best: r.best, classic: r.best ? null : '/?describe=' + encodeURIComponent(text.slice(0, 280)) });
+  res.json({ ok: true, industry: r.industry, fits: r.fits, best: r.best });
 });
 // the website editor: what this site's design lets the owner change, and changing it (lib/design-editor.js)
 app.get('/api/designs/sites/:id/editor', requireAuth, requireDesignOwner, (req, res) => {
