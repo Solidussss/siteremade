@@ -1,0 +1,1015 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a working roofer's site. One pinned job site where a house is re-roofed in eight stages, then tools laid
+   out like paperwork on a site table: a damage check, an estimate, a materials board and an inspection booking. */
+:root{
+  color-scheme:light;
+  --paper:#F2EEE6;        /* site-table paper */
+  --paper-2:#E8E2D6;
+  --sheet:#FBF9F4;
+  --ink:#1B2229;
+  --ink-2:#4A5560;
+  --muted:#7C858D;
+  --line:#D6CDBE;
+  --slate:#22303B;        /* slate roof, dark panels */
+  --slate-2:#2F3E4B;
+  --hivis:{{A:#F26A1B}};        /* hi-vis orange: actions, live readouts */
+  --hivis-2:{{A:#FF8A45}};
+  --hivis-ink:#1E0F04;
+  --hivis-text:{{A:#A6440D}};   /* the orange as small text on paper */
+  --hivis-deep:{{A:#C9520F}};   /* the orange as big type on paper */
+  --chalk:#E9EEF1;        /* text on slate */
+  --good:#2F7D5B;
+  --warn:#C98B12;
+  --bad:#C2412D;
+  --f-display:"Barlow Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Barlow","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1240px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--hivis);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:800;line-height:.98;letter-spacing:.005em;margin:0;text-transform:uppercase;text-wrap:balance}
+p{margin:0}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font:600 12px/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--hivis-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:2px;padding:13px 18px;font:700 15px/1 var(--f-body);letter-spacing:.01em;text-decoration:none;cursor:pointer;background:var(--hivis);color:var(--hivis-ink);box-shadow:0 2px 0 {{A:#a6440d}};transition:transform .15s,box-shadow .15s,background .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 3px 0 {{A:#a6440d}};background:var(--hivis-2)}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 0 {{A:#a6440d}}}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:var(--paper)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 10px) var(--gut) 10px;display:flex;align-items:center;gap:20px;background:rgba(242,238,230,.86);backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);border-bottom:1px solid rgba(27,34,41,.08)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:800 21px/1 var(--f-display);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.brand svg{width:30px;height:24px;flex:none}
+.nav ul{display:flex;gap:24px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:600 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:500 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 15px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:18px}}
+
+/* hero: the job site */
+.hero{position:relative;height:520vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:#cfdde7}
+#site{position:absolute;inset:0;width:100%;height:100%;display:block;transform-origin:0 0;will-change:transform}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 96px);max-width:540px;z-index:3;display:grid;gap:16px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-90px -140px -70px calc(-1 * var(--gut) - 40px);background:radial-gradient(closest-side,rgba(242,238,230,.9),rgba(242,238,230,.72) 55%,rgba(242,238,230,0));pointer-events:none}
+.hero h1{font-size:clamp(2.6rem,min(5.6vw,8.6vh),5.4rem);color:var(--ink)}
+.hero h1 em{font-style:normal;color:var(--hivis-deep);display:block}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.35vw,18px);font-weight:500}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.ticket{position:absolute;z-index:4;left:var(--gut);bottom:calc(20px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));background:var(--sheet);border-radius:3px;padding:14px 16px 14px;box-shadow:0 18px 50px -18px rgba(20,28,36,.55),0 0 0 1px rgba(27,34,41,.08)}
+.ticket::before{content:"";position:absolute;left:0;right:0;top:-6px;height:6px;background:radial-gradient(circle at 6px 6px,transparent 4px,var(--sheet) 4.5px) -6px 0/12px 12px repeat-x}
+.ticket .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font:500 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ticket .stamp{color:var(--hivis-text);font-weight:600}
+.ticket h3{font-size:clamp(26px,2.6vw,34px);margin-top:8px}
+.ticket p{color:var(--ink-2);font-size:15px;margin-top:4px;min-height:3.1em}
+.ticks{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;margin-top:12px;list-style:none;padding:0}
+.ticks li{position:relative;height:5px;border-radius:1px;background:var(--paper-2);overflow:hidden}
+.ticks li::after{content:"";position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(var(--f,0));background:var(--hivis)}
+.ticks li.done::after{background:var(--slate-2)}
+.reads{position:absolute;z-index:4;right:var(--gut);bottom:calc(20px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:rgba(27,34,41,.12);border-radius:3px;overflow:hidden;box-shadow:0 18px 50px -18px rgba(20,28,36,.55)}
+.reads div{background:rgba(251,249,244,.94);padding:10px 14px;min-width:132px}
+.reads dt{font:500 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.reads dd{margin:3px 0 0;font:700 26px/1 var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.reads dd small{font:500 12px var(--f-mono);color:var(--muted);margin-left:3px}
+.wx{position:absolute;z-index:4;right:var(--gut);top:calc(env(safe-area-inset-top,0px) + 84px);display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;background:rgba(251,249,244,.86);font:500 12px var(--f-mono);color:var(--ink-2);box-shadow:0 6px 20px -8px rgba(20,28,36,.4)}
+.wx i{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(47,125,91,.18)}
+.wx.storm i{background:var(--hivis);box-shadow:0 0 0 3px {{A:rgba(242,106,27,.22)}};animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 12px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut)}
+  .hero .acts{display:none}
+  .reads{left:var(--gut);right:var(--gut);bottom:auto;top:auto;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(176px + env(safe-area-inset-bottom,0px))}
+  .reads div{min-width:0;padding:8px 10px}
+  .reads dd{font-size:clamp(16px,4.6vw,20px)}
+  .ticket{bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:12px 14px}
+  .ticket p{font-size:14px;min-height:4.4em}
+  .wx{display:none}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(80px,11vw,150px)}
+.head{display:grid;gap:14px;max-width:780px;margin-bottom:clamp(30px,4vw,52px)}
+.head h2{font-size:clamp(2.4rem,5.4vw,4.6rem)}
+.head p{color:var(--ink-2);max-width:62ch;font-size:18px}
+.panel{background:var(--sheet);border-radius:3px;box-shadow:0 1px 0 rgba(27,34,41,.06),0 24px 60px -30px rgba(20,28,36,.35);padding:clamp(18px,2.6vw,30px)}
+
+/* damage check */
+.check{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:clamp(18px,3vw,36px);align-items:start}
+.syms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sym{display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px;border-radius:3px;border:1.5px solid var(--line);background:var(--paper);cursor:pointer;transition:border-color .15s,background .15s}
+.sym:hover{border-color:var(--ink-2)}
+.sym[aria-pressed="true"]{border-color:var(--hivis);background:{{A:#fff3ea}}}
+.sym .box{flex:none;width:20px;height:20px;border-radius:2px;border:1.5px solid var(--ink-2);display:grid;place-items:center;margin-top:1px}
+.sym[aria-pressed="true"] .box{background:var(--hivis);border-color:var(--hivis)}
+.sym[aria-pressed="true"] .box::after{content:"";width:9px;height:5px;border:2px solid var(--hivis-ink);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.sym b{display:block;font-weight:700;font-size:15px;line-height:1.25}
+.sym span{display:block;font-size:13px;color:var(--ink-2);margin-top:3px;line-height:1.35}
+.age{margin-top:18px;display:grid;gap:8px}
+.age .top{display:flex;justify-content:space-between;align-items:baseline;font-weight:700}
+.age output{font:700 28px/1 var(--f-display)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer;--fill:30%}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--hivis) var(--fill),var(--paper-2) var(--fill))}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--hivis) var(--fill),var(--paper-2) var(--fill))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:var(--sheet);border:2px solid var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.2)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--sheet);border:2px solid var(--ink)}
+.verdict{position:sticky;top:96px;display:grid;gap:14px}
+.verdict .scale{position:relative;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--good),var(--warn) 50%,var(--bad));margin:18px 0 6px}
+.verdict .needle{position:absolute;top:-8px;width:4px;height:28px;margin-left:-2px;border-radius:2px;background:var(--ink);left:var(--v,10%);transition:left .5s cubic-bezier(.2,.8,.2,1)}
+.verdict .marks{display:flex;justify-content:space-between;font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.verdict h3{font-size:clamp(30px,3vw,40px)}
+.verdict .why{color:var(--ink-2);font-size:15px}
+.verdict ul{margin:0;padding:0 0 0 18px;color:var(--ink-2);font-size:14px;display:grid;gap:4px}
+.verdict .note{font:500 12px/1.4 var(--f-mono);color:var(--muted)}
+
+/* estimate */
+.est{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6fr);gap:clamp(18px,3vw,36px);align-items:start}
+.ctl{display:grid;gap:22px}
+.field .lab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:700;margin-bottom:8px}
+.field .lab output{font:700 22px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px}
+.seg button{border:1.5px solid var(--line);background:var(--paper);border-radius:2px;padding:10px 8px;font-weight:700;font-size:14px;cursor:pointer;display:grid;justify-items:center;gap:6px}
+.seg button svg{width:54px;height:30px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.seg button[aria-pressed="true"] svg{color:var(--hivis)}
+.pitch{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center}
+.pitch svg{width:96px;height:64px}
+.out{display:grid;gap:16px;position:sticky;top:96px}
+.out .big{font:800 clamp(44px,6vw,72px)/.95 var(--f-display);letter-spacing:-.005em;font-variant-numeric:tabular-nums}
+.out .big small{display:block;font:500 13px/1.3 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.out dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.out dl div{border-top:2px solid var(--ink);padding-top:8px}
+.out dt{font:500 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.out dd{margin:4px 0 0;font:700 24px/1.05 var(--f-display);font-variant-numeric:tabular-nums}
+.bar{display:flex;height:16px;border-radius:2px;overflow:hidden;background:var(--paper-2)}
+.bar i{display:block;height:100%;transition:flex-grow .5s cubic-bezier(.2,.8,.2,1)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .sw{width:10px;height:10px;border-radius:2px}
+.out .note{font:500 12px/1.45 var(--f-mono);color:var(--muted)}
+
+/* materials board */
+.mats{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(18px,3vw,36px);align-items:stretch}
+.mtabs{display:grid;gap:10px;align-content:start}
+.mtab{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;text-align:left;padding:16px;border-radius:3px;border:1.5px solid var(--line);background:var(--paper);cursor:pointer}
+.mtab .ico{grid-row:1/3;width:46px;height:46px;border-radius:2px;background-size:cover}
+.mtab b{font:800 22px/1 var(--f-display);text-transform:uppercase}
+.mtab span{font-size:14px;color:var(--ink-2)}
+.mtab[aria-pressed="true"]{border-color:var(--ink);background:var(--sheet);box-shadow:inset 4px 0 0 var(--hivis)}
+.board{display:grid;grid-template-rows:minmax(260px,1fr) auto;gap:0;overflow:hidden;padding:0}
+#macro{width:100%;height:100%;min-height:260px;display:block;background:var(--slate)}
+.board .info{padding:clamp(16px,2.4vw,26px);display:grid;gap:16px}
+.board .info h3{font-size:clamp(30px,3.2vw,42px)}
+.specs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0}
+.specs div{border-top:2px solid var(--line);padding-top:8px}
+.specs dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.specs dd{margin:4px 0 0;font:700 21px/1.05 var(--f-display)}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.swatch{display:grid;justify-items:center;gap:6px;border:0;background:none;padding:0;cursor:pointer;font-size:12px;color:var(--ink-2);width:76px}
+.swatch i{width:52px;height:52px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);transition:transform .15s}
+.swatch[aria-pressed="true"] i{box-shadow:0 0 0 3px var(--sheet),0 0 0 5px var(--ink);transform:scale(1.04)}
+.swatch[aria-pressed="true"]{color:var(--ink);font-weight:700}
+.seeit{font-weight:700;color:var(--ink);text-decoration:none;border-bottom:2px solid var(--hivis);justify-self:start}
+
+/* booking */
+.book{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(18px,3vw,36px);align-items:start}
+.area{display:grid;gap:14px}
+#map{width:100%;height:auto;display:block;background:var(--paper-2);border-radius:3px}
+.zip{display:flex;gap:8px}
+.zip input{flex:1;min-width:0;border:1.5px solid var(--line);background:var(--sheet);border-radius:2px;padding:12px;font-size:16px}
+.zipout{font-size:15px;color:var(--ink-2);min-height:1.5em}
+.zipout b{color:var(--ink)}
+.days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.day{border:1.5px solid var(--line);background:var(--paper);border-radius:2px;padding:8px 4px;cursor:pointer;display:grid;justify-items:center;gap:1px;font:500 11px var(--f-mono);text-transform:uppercase;color:var(--ink-2)}
+.day b{font:800 26px/1 var(--f-display);color:var(--ink)}
+.day[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--chalk)}
+.day[aria-pressed="true"] b{color:var(--paper)}
+.slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.slot{border:1.5px solid var(--line);background:var(--paper);border-radius:2px;padding:11px 4px;cursor:pointer;font:600 14px var(--f-mono)}
+.slot[aria-pressed="true"]{border-color:var(--hivis);background:{{A:#fff3ea}}}
+.slot:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.form{display:grid;gap:16px}
+.form .lbl{font:600 12px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fields label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.fields input,.fields select{border:1.5px solid var(--line);background:var(--sheet);border-radius:2px;padding:11px 12px;font-size:16px;min-width:0}
+.fields .wide{grid-column:1/-1}
+.summary{font-size:15px;color:var(--ink-2)}
+.summary b{color:var(--ink)}
+.err{color:var(--bad);font-weight:600;font-size:14px}
+.confirm{border:1.5px solid var(--good);background:#eef6f1;padding:16px;border-radius:3px;display:grid;gap:6px}
+.confirm .tag{font:600 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--good)}
+
+/* footer */
+footer{background:var(--slate);color:var(--chalk);padding:clamp(60px,8vw,110px) var(--gut) calc(28px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:30px}
+.wordmark{font:800 min(15vw,210px)/.82 var(--f-display);text-transform:uppercase;letter-spacing:-.005em;margin:0;white-space:nowrap;color:var(--chalk)}
+.wordmark em{font-style:normal;color:var(--hivis)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;font-size:14px;color:#AEB9C2}
+.foot-row a{color:var(--chalk)}
+
+@media (max-width:980px){
+  .check,.est,.mats,.book{grid-template-columns:minmax(0,1fr)}
+  .verdict,.out{position:static}
+}
+@media (max-width:560px){
+  .syms{grid-template-columns:minmax(0,1fr)}
+  .specs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .days{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .slots{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fields{grid-template-columns:minmax(0,1fr)}
+  .out dl{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .hint i,.wx.storm i{animation:none}
+  .verdict .needle,.bar i{transition:none}
+}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 30 24" aria-hidden="true"><path d="M2 14 L15 3 L28 14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter"/><path d="M7 21 L15 14.5 L23 21" fill="none" stroke="{{A:#F26A1B}}" stroke-width="3.2" stroke-linejoin="miter"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#check">{{nav.check}}</a></li><li><a href="#estimate">{{nav.estimate}}</a></li><li><a href="#materials">{{nav.materials}}</a></li><li><a href="#book">{{nav.book}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#book">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A full re-roof in eight stages, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="site" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#book">{{hero.cta}}</a><a class="btn ghost" href="#estimate">{{hero.cta2}}</a></div>
+    </div>
+    <div class="wx" id="wx"><i></i><span id="wxText">{{weather.clear}}</span></div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="reads" id="reads" aria-live="off">
+      <div><dt>Squares on</dt><dd id="rSq">0<small>/ {{job.squares}}</small></dd></div>
+      <div><dt>{{materials.0.fasten}}</dt><dd id="rNails">0</dd></div>
+      <div><dt>{{materials.0.unit}} left</dt><dd id="rBundles">{{$.unitsTotal}}</dd></div>
+      <div><dt>Debris out</dt><dd id="rDebris">0<small>lb</small></dd></div>
+    </dl>
+    <div class="ticket" id="ticket" aria-live="polite">
+      <div class="row"><span>Job {{job.ref}} · Stage <b id="tNum">1</b> of 8</span><span class="stamp" id="tStamp">On site</span></div>
+      <h3 id="tTitle">{{stages.0.n}}</h3>
+      <p id="tText">{{stages.0.c}}</p>
+      <ol class="ticks" id="ticks" aria-hidden="true"></ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="check" aria-labelledby="check-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{check.eyebrow}}</p>
+      <h2 id="check-h">{{check.title}}</h2>
+      <p>{{check.sub}}</p>
+    </div>
+    <div class="check">
+      <div class="panel">
+        <div class="syms" id="syms" role="group" aria-label="What you can see"></div>
+        <div class="age">
+          <div class="top"><label for="ageR">How old is the roof?</label><output id="ageOut" for="ageR">14 years</output></div>
+          <input type="range" id="ageR" min="0" max="40" step="1" value="14">
+        </div>
+      </div>
+      <aside class="panel verdict" aria-live="polite">
+        <p class="eyebrow">Leaning towards</p>
+        <h3 id="vTitle">A repair</h3>
+        <div class="scale" aria-hidden="true"><span class="needle" id="needle"></span></div>
+        <div class="marks" aria-hidden="true"><span>Repair</span><span>Inspect</span><span>Replace</span></div>
+        <p class="why" id="vWhy"></p>
+        <ul id="vList"></ul>
+        <p class="note">{{check.note}}</p>
+        <a class="btn" href="#book">{{check.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="estimate" aria-labelledby="est-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{estimate.eyebrow}}</p>
+      <h2 id="est-h">{{estimate.title}}</h2>
+      <p>{{estimate.sub}}</p>
+    </div>
+    <div class="est">
+      <form class="panel ctl" id="estForm" onsubmit="return false">
+        <div class="field">
+          <div class="lab"><label for="footR">House footprint</label><output id="footOut" for="footR">1,600 sq ft</output></div>
+          <input type="range" id="footR" min="600" max="4000" step="50" value="1600">
+        </div>
+        <div class="field">
+          <div class="lab"><span id="shapeL">Roof shape</span></div>
+          <div class="seg" id="shape" role="group" aria-labelledby="shapeL"></div>
+        </div>
+        <div class="field">
+          <div class="lab"><label for="pitchR">Pitch</label><output id="pitchOut" for="pitchR">7 / 12</output></div>
+          <div class="pitch"><svg id="pitchSvg" viewBox="0 0 96 64" aria-hidden="true"></svg><input type="range" id="pitchR" min="3" max="12" step="1" value="7"></div>
+        </div>
+        <div class="field">
+          <div class="lab"><span id="storyL">Storeys</span></div>
+          <div class="seg" id="story" role="group" aria-labelledby="storyL"></div>
+        </div>
+        <div class="field">
+          <div class="lab"><span id="matL">Material</span></div>
+          <div class="seg" id="mat" role="group" aria-labelledby="matL"></div>
+        </div>
+        <div class="field">
+          <div class="lab"><span id="layL">Layers coming off</span></div>
+          <div class="seg" id="lay" role="group" aria-labelledby="layL"></div>
+        </div>
+      </form>
+      <aside class="panel out" aria-live="polite">
+        <div class="big" id="price"><small>Installed, all in</small>{{locale.currency}}0</div>
+        <dl>
+          <div><dt>Squares</dt><dd id="oSq">0</dd></div>
+          <div><dt>Crew on site</dt><dd id="oDays">0 days</dd></div>
+          <div><dt>Roof area</dt><dd id="oArea">0</dd></div>
+        </dl>
+        <div class="bar" id="bar" aria-hidden="true"><i style="background:var(--slate)"></i><i style="background:var(--hivis)"></i><i style="background:#b9ad9a"></i><i style="background:var(--warn)"></i></div>
+        <div class="legend" id="legend"></div>
+        <p class="note" id="estNote"></p>
+        <a class="btn" href="#book">{{estimate.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="materials" aria-labelledby="mat-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{board.eyebrow}}</p>
+      <h2 id="mat-h">{{board.title}}</h2>
+      <p>{{board.sub}}</p>
+    </div>
+    <div class="mats">
+      <div class="mtabs" id="mtabs" role="group" aria-label="Material"></div>
+      <div class="panel board">
+        <canvas id="macro" aria-label="Close-up of the selected roofing material"></canvas>
+        <div class="info">
+          <h3 id="mName">{{materials.0.name}}</h3>
+          <dl class="specs" id="mSpecs"></dl>
+          <div class="swatches" id="swatches" role="group" aria-label="Colour"></div>
+          <a class="seeit" href="#top" id="seeIt">{{board.seeIt}} ↑</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="book" aria-labelledby="book-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{book.eyebrow}}</p>
+      <h2 id="book-h">{{book.title}}</h2>
+      <p>{{book.sub}}</p>
+    </div>
+    <div class="book">
+      <div class="panel area">
+        <p class="lbl mono" style="font:600 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">{{book.areaLabel}}</p>
+        <svg id="map" viewBox="0 0 400 300" role="img" aria-label="Service area map with drive-time rings around {{book.towns.0.n|attr}}"></svg>
+        <div class="zip"><input id="town" placeholder="Your town, e.g. {{book.townExample|attr}}" autocomplete="address-level2" aria-label="Your town"><button class="btn ghost" id="townGo" type="button">Check</button></div>
+        <p class="zipout" id="townOut">{{book.cover}}</p>
+      </div>
+      <form class="panel form" id="bookForm" novalidate>
+        <div><span class="lbl">1 · Day</span><div class="days" id="days"></div></div>
+        <div><span class="lbl">2 · Arrival window</span><div class="slots" id="slots"></div></div>
+        <div><span class="lbl">3 · The house</span>
+          <div class="fields">
+            <label class="wide">Street address<input id="fAddr" autocomplete="street-address" placeholder="{{book.addrExample|attr}}"></label>
+            <label>Your name<input id="fName" autocomplete="name" placeholder="Sam Rivera"></label>
+            <label>Phone<input id="fPhone" type="tel" autocomplete="tel" placeholder="{{book.phoneExample|attr}}"></label>
+            <label>Roof age<select id="fAge"><option>Under 10 years</option><option selected>10 to 20 years</option><option>Over 20 years</option><option>Not sure</option></select></label>
+            <label>Reason<select id="fWhy"><option>Getting quotes</option><option>Leak or stain</option><option>Storm damage</option><option>Selling the house</option></select></label>
+          </div>
+        </div>
+        <p class="summary" id="summary"></p>
+        <button class="btn" type="submit">{{book.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hexRgb(h){if(h[0]!=='#')return h.match(/\d+/g).slice(0,3).map(Number);const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function shade(h,k){const [r,g,b]=hexRgb(h);const f=v=>Math.round(clamp(k>=0?v+(255-v)*k:v*(1+k),0,255));return `rgb(${f(r)},${f(g)},${f(b)})`;}
+
+/* ============ THE JOB: stages, issues, materials (the page's own facts) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+const ISSUES=[
+{{$.issuesJs|raw}}
+];
+const MATERIALS=window.KR_MATERIALS=[
+{{$.materialsJs|raw}}
+];
+const SQUARES={{job.squares}};               // the demo roof: 28 squares (2,800 sq ft)
+const sel={m:0,c:MATERIALS[0].colours.length>1?1:0}; // what goes on the house (the materials board changes it)
+const BRAND={{$.brandUpper|js}};      // printed on the dumpster and the underlayment
+const WX=[{{weather.clear|js}},{{weather.storm|js}},{{weather.after|js}}];
+
+/* ============ THE HOUSE (world units; oblique projection) ============ */
+const HL=14, HD=9, HW=3.1, PITCH=7/12, OV=.55, RISE=HD/2*PITCH;
+const KX=.58, KY=.34;
+let S=40, OX=0, OY=0, W=0, H=0, DPR=1, mobile=false;
+const P=(x,y,z)=>[OX+S*(x+z*KX), OY-S*(y+z*KY)];
+const roofY=z=>HW+z*PITCH;                       // the front plane's height at depth z
+const EAVE_Y=HW-OV*PITCH;
+const TW=1500, TH=600, NC=22, CH=TH/NC;           // roof texture: eave length x slope, 22 courses
+const uvToWorld=(u,v)=>[-OV+u*(HL+2*OV), HD/2-v*(HD/2+OV)]; // u along the eave, v down the slope from the ridge
+const worldToTex=(x,z)=>[(x+OV)/(HL+2*OV)*TW,(HD/2-z)/(HD/2+OV)*TH];
+const CHIM={x0:9.6,x1:10.9,z0:1.8,z1:2.9,top:HW+RISE+.95};
+const PIPE={x:3.4,z:2.2};
+
+const cv=$('#site'), ctx=cv.getContext('2d');
+function mk(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')];}
+
+/* ---- roof textures (ridge at the top, eave at the bottom) ---- */
+function texOld(){const [c,x]=mk(TW,TH);const r=rng(7);
+  x.fillStyle='#2d2620';x.fillRect(0,0,TW,TH);
+  for(let i=0;i<NC;i++){const y=i*CH, off=(i%2)*CH*1.1, tw=CH*2.2;
+    for(let tx=-off;tx<TW;tx+=tw){
+      const miss=r()<.035&&i>2, lift=r()<.05;
+      if(miss){x.fillStyle='#211b16';x.fillRect(tx,y,tw,CH);continue;}
+      const l=34+r()*10, sat=6+r()*6;
+      x.fillStyle=`hsl(30,${sat}%,${l}%)`;x.fillRect(tx+1,y,tw-2,CH);
+      // granule loss: lighter worn patches
+      if(r()<.25){x.fillStyle=`rgba(200,190,175,${.08+r()*.12})`;x.fillRect(tx+2+r()*tw*.5,y+r()*CH*.5,tw*.4,CH*.4);}
+      // butt shadow and curl
+      x.fillStyle='rgba(0,0,0,.42)';x.fillRect(tx,y+CH-3.5,tw,3.5);
+      if(lift){x.fillStyle='rgba(255,240,220,.18)';x.beginPath();x.moveTo(tx+tw-2,y+CH-4);x.lineTo(tx+tw-18,y+CH-2);x.lineTo(tx+tw-2,y+CH-14);x.fill();x.fillStyle='rgba(0,0,0,.5)';x.fillRect(tx+tw-20,y+CH,20,4);}
+      x.fillStyle='rgba(0,0,0,.55)';x.fillRect(tx+tw-1.5,y,1.5,CH);
+    }}
+  // algae streaks running down from the ridge (north-facing black streaking)
+  for(let k=0;k<14;k++){const sx=TW*(.6+r()*.38), w=8+r()*26;const g=x.createLinearGradient(0,0,0,TH);g.addColorStop(0,'rgba(15,12,10,0)');g.addColorStop(.25,`rgba(15,12,10,${.18+r()*.2})`);g.addColorStop(1,'rgba(15,12,10,.05)');x.fillStyle=g;x.fillRect(sx,0,w,TH);}
+  // moss along the eaves
+  for(let k=0;k<70;k++){const mx=TW*(.15+r()*.55), my=TH*(.78+r()*.2), mr=4+r()*14;const g=x.createRadialGradient(mx,my,0,mx,my,mr);g.addColorStop(0,`rgba(${78+r()*30},${98+r()*30},${40+r()*18},.85)`);g.addColorStop(1,'rgba(70,90,40,0)');x.fillStyle=g;x.beginPath();x.arc(mx,my,mr,0,7);x.fill();}
+  speckle(x,r,9000,.10);
+  return c;}
+function speckle(x,r,n,a){for(let i=0;i<n;i++){const v=r()<.5?255:0;x.fillStyle=`rgba(${v},${v},${v},${a*r()})`;x.fillRect(r()*TW,r()*TH,1.6,1.6);}}
+
+function texDeck(){const [c,x]=mk(TW,TH);const r=rng(11);
+  x.fillStyle='#c39a62';x.fillRect(0,0,TW,TH);
+  // OSB strands
+  for(let i=0;i<5200;i++){const sx=r()*TW, sy=r()*TH, l=8+r()*24, a=r()*Math.PI;x.save();x.translate(sx,sy);x.rotate(a);x.fillStyle=`hsla(${30+r()*12},${40+r()*25}%,${42+r()*28}%,.55)`;x.fillRect(-l/2,-2,l,4);x.restore();}
+  // sheets (8 ft x 4 ft) and their nail lines
+  const sw=TW/5.6, shh=TH/2.6;
+  for(let row=0;row*shh<TH;row++){const off=(row%2)*sw/2;
+    for(let sx=-off;sx<TW;sx+=sw){x.strokeStyle='rgba(60,38,18,.55)';x.lineWidth=2;x.strokeRect(sx,row*shh,sw,shh);
+      x.fillStyle='rgba(70,60,50,.55)';for(let k=0;k<6;k++){x.fillRect(sx+sw/2-1,row*shh+8+k*(shh-16)/5,2,2);x.fillRect(sx+4,row*shh+8+k*(shh-16)/5,2,2);}}}
+  // the soft sheet: a water stain where the old boot leaked
+  const [rx,ry]=deckSheet();const g=x.createRadialGradient(rx+sw*.45,ry+shh*.5,4,rx+sw*.45,ry+shh*.5,shh*.75);g.addColorStop(0,'rgba(48,30,14,.85)');g.addColorStop(.6,'rgba(70,45,22,.5)');g.addColorStop(1,'rgba(70,45,22,0)');x.fillStyle=g;x.fillRect(rx,ry,sw,shh);
+  return c;}
+function deckSheet(){const sw=TW/5.6, shh=TH/2.6;const [tx,ty]=[ISSUES[4].u*TW,ISSUES[4].v*TH];const row=Math.floor(ty/shh), off=(row%2)*sw/2;const col=Math.floor((tx+off)/sw);return[col*sw-off,row*shh,sw,shh];}
+function texNewSheet(){const [c,x]=mk(Math.ceil(TW/5.6),Math.ceil(TH/2.6));const r=rng(17);x.fillStyle='#dcb986';x.fillRect(0,0,c.width,c.height);
+  for(let i=0;i<900;i++){const sx=r()*c.width, sy=r()*c.height, l=8+r()*22;x.save();x.translate(sx,sy);x.rotate(r()*Math.PI);x.fillStyle=`hsla(${32+r()*10},${45+r()*20}%,${55+r()*22}%,.6)`;x.fillRect(-l/2,-2,l,4);x.restore();}
+  x.strokeStyle='rgba(60,38,18,.5)';x.lineWidth=2;x.strokeRect(1,1,c.width-2,c.height-2);return c;}
+
+function texUnder(){const [c,x]=mk(TW,TH);const r=rng(23);
+  x.fillStyle='#c9ced2';x.fillRect(0,0,TW,TH);
+  const rows=5, rh=TH/rows;
+  x.font='600 13px "JetBrains Mono",monospace';x.textBaseline='middle';
+  for(let i=0;i<rows;i++){const y=i*rh;
+    x.fillStyle='rgba(30,40,50,.07)';for(let k=0;k<4;k++)x.fillRect(0,y+rh*(k+.5)/4,TW,1);
+    x.fillStyle='rgba(40,55,70,.32)';for(let tx=(i%2)*120;tx<TW;tx+=300)x.fillText(BRAND+' · SYNTHETIC UNDERLAYMENT',tx,y+rh*.5);
+    x.fillStyle='rgba(0,0,0,.22)';x.fillRect(0,y+rh-3,TW,3);x.fillStyle='rgba(255,255,255,.4)';x.fillRect(0,y+rh-5,TW,2);
+  }
+  speckle(x,r,3000,.06);return c;}
+function texIce(){const [c,x]=mk(TW,TH);const r=rng(29);x.fillStyle='#2e3237';x.fillRect(0,0,TW,TH);
+  for(let i=0;i<14000;i++){const v=r()<.5?255:0;x.fillStyle=`rgba(${v},${v},${v},${.09*r()})`;x.fillRect(r()*TW,r()*TH,1.5,1.5);}return c;}
+
+// the new roof, in the material and colour chosen on the materials board
+function texNew(m,col){const [c,x]=mk(TW,TH);const r=rng(41);const P2=col.c;
+  if(m.id==='metal'){
+    const pw=TW/23;const base=P2[0];
+    for(let i=0;i*pw<TW;i++){const sx=i*pw;const g=x.createLinearGradient(sx,0,sx+pw,0);g.addColorStop(0,shade(base,-.12));g.addColorStop(.5,shade(base,.06));g.addColorStop(1,shade(base,-.06));x.fillStyle=g;x.fillRect(sx,0,pw,TH);
+      // the raised seam
+      x.fillStyle=shade(base,.32);x.fillRect(sx+pw-5,0,2,TH);x.fillStyle=shade(base,-.45);x.fillRect(sx+pw-3,0,3,TH);
+      // two faint stiffening ribs
+      x.fillStyle='rgba(255,255,255,.06)';x.fillRect(sx+pw*.33,0,1,TH);x.fillRect(sx+pw*.66,0,1,TH);}
+    // the sky's sheen sliding along the panels
+    const g=x.createLinearGradient(0,0,0,TH);g.addColorStop(0,'rgba(255,255,255,.16)');g.addColorStop(.45,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(0,0,0,.12)');x.fillStyle=g;x.fillRect(0,0,TW,TH);
+    return c;}
+  if(m.id==='cedar'){
+    x.fillStyle=shade(P2[3],-.2);x.fillRect(0,0,TW,TH);
+    for(let i=0;i<NC;i++){const y=i*CH;let tx=-r()*40;
+      while(tx<TW){const w=CH*(.9+r()*1.6);const tone=P2[Math.floor(r()*P2.length)];const g=x.createLinearGradient(0,y,0,y+CH);g.addColorStop(0,shade(tone,-.08));g.addColorStop(1,shade(tone,.06));x.fillStyle=g;x.fillRect(tx+1.5,y,w-3,CH);
+        // split-wood grain
+        x.strokeStyle='rgba(60,35,20,.28)';x.lineWidth=1;for(let k=0;k<4;k++){const gx=tx+3+r()*(w-6);x.beginPath();x.moveTo(gx,y);x.lineTo(gx+(r()-.5)*4,y+CH);x.stroke();}
+        x.fillStyle='rgba(20,10,5,.5)';x.fillRect(tx+1.5,y+CH-4,w-3,4);
+        tx+=w;}
+    }
+    return c;}
+  // laminated asphalt: random-width tabs in the colour's blend, a darker dragon-tooth layer, granules
+  x.fillStyle=shade(P2[3],-.3);x.fillRect(0,0,TW,TH);
+  for(let i=0;i<NC;i++){const y=i*CH;let tx=-r()*60;
+    while(tx<TW){const w=CH*(.9+r()*1.5);const tone=P2[Math.floor(r()*P2.length)];
+      x.fillStyle=tone;x.fillRect(tx,y,w,CH);
+      // the lower laminate shows as a darker band with notches
+      x.fillStyle=shade(tone,-.32);const nh=CH*(.28+r()*.18);x.fillRect(tx,y+CH-nh,w,nh);
+      x.fillStyle=shade(tone,.1);x.fillRect(tx,y,w,1.5);
+      x.fillStyle='rgba(0,0,0,.35)';x.fillRect(tx+w-1.2,y+CH*.45,1.2,CH*.55);
+      tx+=w;}
+    x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,y+CH-2.5,TW,2.5);
+  }
+  speckle(x,r,22000,.13);
+  return c;}
+function texRidge(m,col){const [c,x]=mk(TW,Math.ceil(CH*1.3));const base=col.c[m.id==='metal'?0:1];
+  if(m.id==='metal'){x.fillStyle=shade(base,.1);x.fillRect(0,0,c.width,c.height);x.fillStyle=shade(base,-.4);x.fillRect(0,c.height-4,c.width,4);return c;}
+  x.fillStyle=shade(base,-.1);x.fillRect(0,0,c.width,c.height);
+  for(let tx=0;tx<TW;tx+=CH*.8){x.fillStyle=shade(base,.05);x.fillRect(tx,0,CH*.8-2,c.height-4);x.fillStyle='rgba(0,0,0,.4)';x.fillRect(tx+CH*.8-2,0,2,c.height);}
+  x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,c.height-4,c.width,4);return c;}
+
+/* ---- the scene that does not change: sky band, ground, walls (redrawn on resize) ---- */
+let T={}, base=null, bx=null;
+function buildTextures(){T.brick=brickTex(130,140);T.old=texOld();T.deck=texDeck();T.sheet=texNewSheet();T.under=texUnder();T.ice=texIce();rebuildNew();}
+function rebuildNew(){const m=MATERIALS[sel.m];T.neu=texNew(m,m.colours[sel.c]);T.ridge=texRidge(m,m.colours[sel.c]);}
+window.KR_setRoof=(mi,ci)=>{sel.m=mi;sel.c=ci;rebuildNew();last=-1;};
+window.KR_texNew=(mi,ci)=>texNew(MATERIALS[mi],MATERIALS[mi].colours[ci]);
+
+function poly(x,pts){x.beginPath();pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();}
+function face(x,o,u,v,w,h){ // affine from a w x h texture rect onto the parallelogram o + s*u + t*v
+  x.setTransform(DPR*u[0]/w,DPR*u[1]/w,DPR*v[0]/h,DPR*v[1]/h,DPR*o[0],DPR*o[1]);}
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+
+function sidingTex(w,h,lap){const [c,x]=mk(w,h);x.fillStyle='#d9e0e5';x.fillRect(0,0,w,h);for(let y=0;y<h;y+=lap){const g=x.createLinearGradient(0,y,0,y+lap);g.addColorStop(0,'#e7ecef');g.addColorStop(.85,'#cfd7dd');g.addColorStop(1,'#a9b4bd');x.fillStyle=g;x.fillRect(0,y,w,lap);}return c;}
+function brickTex(w,h){const [c,x]=mk(w,h);const r=rng(3);x.fillStyle='#8a8580';x.fillRect(0,0,w,h);const bh=10, bw=26;
+  for(let y=0,i=0;y<h;y+=bh,i++){for(let bx2=-(i%2)*bw/2;bx2<w;bx2+=bw){x.fillStyle=`hsl(${8+r()*10},${38+r()*15}%,${30+r()*12}%)`;x.fillRect(bx2+1,y+1,bw-2,bh-2);}}return c;}
+
+function buildBase(){
+  [base,bx]=mk(Math.round(W*DPR),Math.round(H*DPR));bx.setTransform(DPR,0,0,DPR,0,0);
+  // sky (drawn per frame, so the base is ground + house only, on a clear background)
+  const hz=P(0,0,HD+22)[1];
+  // distant tree line along the horizon
+  const r=rng(5);bx.fillStyle='#7f9c8f';bx.beginPath();bx.moveTo(0,hz+6);for(let x=0;x<=W;x+=14)bx.lineTo(x,hz-8-r()*16-Math.sin(x/90)*6);bx.lineTo(W,hz+6);bx.closePath();bx.fill();
+  bx.fillStyle='#6d8b7e';bx.beginPath();bx.moveTo(0,hz+8);for(let x=0;x<=W;x+=10)bx.lineTo(x,hz-2-r()*9);bx.lineTo(W,hz+8);bx.closePath();bx.fill();
+  // lawn with mowing stripes
+  const g=bx.createLinearGradient(0,hz,0,H);g.addColorStop(0,'#8fae6f');g.addColorStop(1,'#6f9455');bx.fillStyle=g;bx.fillRect(0,hz,W,H-hz);
+  bx.save();bx.globalAlpha=.08;bx.strokeStyle='#ffffff';bx.lineWidth=S*1.1;for(let z=-14;z<HD+22;z+=2.2){const a=P(-400,0,z),b=P(HL+400,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}bx.restore();
+  // driveway and path
+  bx.fillStyle='#cfccc4';poly(bx,[P(HL+1,0,-14),P(HL+5.5,0,-14),P(HL+5.5,0,HD),P(HL+1,0,HD)]);bx.fill();
+  bx.strokeStyle='rgba(0,0,0,.08)';bx.lineWidth=1.2;for(let z=-12;z<HD;z+=3){const a=P(HL+1,0,z),b=P(HL+5.5,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}
+  for(let z=-.6;z>-9;z-=1.1){bx.fillStyle='#b9b3a8';poly(bx,[P(6.3,0,z),P(7.5,0,z),P(7.5,0,z-.75),P(6.3,0,z-.75)]);bx.fill();}
+  // the house's shadow on the lawn (sun from the upper left)
+  bx.fillStyle='rgba(30,45,25,.28)';poly(bx,[P(HL,0,0),P(HL+2.6,0,1),P(HL+2.6,0,HD+1.5),P(HL,0,HD)]);bx.fill();
+  // right side wall + gable (in shade)
+  const sTex=sidingTex(600,300,12);
+  const s0=P(HL,0,0), sz=sub(P(HL,0,HD),s0), sy=sub(P(HL,HW,0),s0);
+  bx.save();poly(bx,[P(HL,0,0),P(HL,0,HD),P(HL,HW,HD),P(HL,HW+RISE,HD/2),P(HL,HW,0)]);bx.clip();
+  face(bx,P(HL,HW+RISE,0),sz,sub(s0,P(HL,HW+RISE,0)),600,300);bx.drawImage(sTex,0,0);
+  bx.setTransform(DPR,0,0,DPR,0,0);bx.fillStyle='rgba(30,40,55,.24)';bx.fillRect(0,0,W,H);bx.restore();
+  // gable vent and side window
+  win(bx,'side',HL,[3.7,5.3],[1.15,2.45]);
+  bx.fillStyle='#e9eef1';poly(bx,[P(HL,HW+1.2,HD/2-.7),P(HL,HW+1.9,HD/2),P(HL,HW+1.2,HD/2+.7)]);bx.fill();
+  bx.strokeStyle='rgba(60,70,80,.5)';bx.lineWidth=1;for(let k=1;k<4;k++){const a=P(HL,HW+1.2+k*.15,HD/2-.7+k*.18),b=P(HL,HW+1.2+k*.15,HD/2+.7-k*.18);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}
+  // front wall
+  const f0=P(0,0,0);bx.save();poly(bx,[P(0,0,0),P(HL,0,0),P(HL,HW,0),P(0,HW,0)]);bx.clip();
+  face(bx,P(0,HW,0),sub(P(HL,HW,0),P(0,HW,0)),sub(f0,P(0,HW,0)),1200,260);bx.drawImage(sidingTex(1200,260,11),0,0);bx.setTransform(DPR,0,0,DPR,0,0);
+  // eave shadow along the top of the wall
+  const eg=bx.createLinearGradient(0,P(0,HW,0)[1],0,P(0,HW-.7,0)[1]);eg.addColorStop(0,'rgba(20,30,40,.35)');eg.addColorStop(1,'rgba(20,30,40,0)');bx.fillStyle=eg;bx.fillRect(0,P(0,HW,0)[1],W,S*.8);bx.restore();
+  // corner boards, foundation
+  bx.fillStyle='#f4f6f7';poly(bx,[P(-.12,0,0),P(.12,0,0),P(.12,HW,0),P(-.12,HW,0)]);bx.fill();poly(bx,[P(HL-.12,0,0),P(HL+.02,0,0),P(HL+.02,HW,0),P(HL-.12,HW,0)]);bx.fill();
+  bx.fillStyle='#8f9093';poly(bx,[P(0,-.02,0),P(HL,-.02,0),P(HL,.28,0),P(0,.28,0)]);bx.fill();poly(bx,[P(HL,-.02,0),P(HL,-.02,HD),P(HL,.28,HD),P(HL,.28,0)]);bx.fill();
+  // windows and the door
+  [[1.1,2.7],[3.5,5.1],[9.0,10.6],[11.6,13.2]].forEach(w=>win(bx,'front',0,w,[1.15,2.45]));
+  door(bx);
+  // shrubs along the front
+  const sr=rng(13);[[.6,-.6],[2.2,-.7],[5.3,-.6],[8.6,-.7],[12.4,-.6],[13.6,-.6]].forEach(([x,z])=>{const c=P(x,0,z);for(let k=0;k<4;k++){const g2=bx.createRadialGradient(c[0]+(sr()-.5)*S*.6,c[1]-S*(.35+sr()*.2),2,c[0],c[1]-S*.3,S*.62);g2.addColorStop(0,'#6e9a52');g2.addColorStop(1,'#3e6436');bx.fillStyle=g2;bx.beginPath();bx.ellipse(c[0]+(sr()-.5)*S*.5,c[1]-S*.32,S*.55,S*.42,0,0,7);bx.fill();}});
+}
+function win(x,side,at,[a,b],[y0,y1]){
+  const Q=side==='front'?(u,y)=>P(u,y,0):(u,y)=>P(at,y,u);
+  x.fillStyle='#f5f7f8';poly(x,[Q(a-.12,y0-.12),Q(b+.12,y0-.12),Q(b+.12,y1+.12),Q(a-.12,y1+.12)]);x.fill();
+  const g=x.createLinearGradient(0,Q(a,y1)[1],0,Q(a,y0)[1]);g.addColorStop(0,'#9db8cc');g.addColorStop(.55,'#5d7a90');g.addColorStop(1,'#3d5465');x.fillStyle=g;poly(x,[Q(a,y0),Q(b,y0),Q(b,y1),Q(a,y1)]);x.fill();
+  x.strokeStyle='#f5f7f8';x.lineWidth=Math.max(1,S*.06);x.beginPath();const m=(a+b)/2,my=(y0+y1)/2;let p=Q(m,y0);x.moveTo(p[0],p[1]);p=Q(m,y1);x.lineTo(p[0],p[1]);p=Q(a,my);x.moveTo(p[0],p[1]);p=Q(b,my);x.lineTo(p[0],p[1]);x.stroke();
+  x.fillStyle='rgba(255,255,255,.18)';poly(x,[Q(a,y1),Q(a+(b-a)*.4,y1),Q(a,y1-(y1-y0)*.5)]);x.fill();
+}
+function door(x){x.fillStyle='#f5f7f8';poly(x,[P(6.25,0,0),P(7.55,0,0),P(7.55,2.42,0),P(6.25,2.42,0)]);x.fill();
+  x.fillStyle='#2c4a5e';poly(x,[P(6.4,0,0),P(7.4,0,0),P(7.4,2.3,0),P(6.4,2.3,0)]);x.fill();
+  x.fillStyle='rgba(255,255,255,.12)';poly(x,[P(6.55,1.3,0),P(7.25,1.3,0),P(7.25,2.1,0),P(6.55,2.1,0)]);x.fill();
+  x.fillStyle='#d8b56a';const k=P(7.25,1.1,0);x.beginPath();x.arc(k[0],k[1],Math.max(1.5,S*.05),0,7);x.fill();}
+
+/* ---- layout ---- */
+function layout(){
+  W=cv.clientWidth;H=cv.clientHeight;mobile=cv.clientWidth<820;DPR=Math.min((devicePixelRatio||1)*(mobile?1.15:1.35),2.2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  mobile=W<820;
+  // the scene's extent in projected units: x+z*KX from the dumpster to the gable's back corner, y+z*KY from the yard to the chimney
+  const X0=mobile?-1.4:-7.6, X1=mobile?HL+HD*KX+.8:HL+5.6, Y0=mobile?-.5:-1.9, Y1=CHIM.top+CHIM.z1*KY+.2;
+  const aw=mobile?W*.94:W*.6, ah=mobile?H*.36:H*.6;
+  S=Math.min(aw/(X1-X0),ah/(Y1-Y0));
+  const cx=mobile?W*.5:W*.64, cy=mobile?H*.555:H*.57;
+  OX=cx-S*(X0+X1)/2;OY=cy+S*(Y0+Y1)/2;
+  buildBase();last=-1;
+}
+
+/* ---- sky, clouds, weather ---- */
+const clouds=[...Array(7)].map((_,i)=>{const r=rng(100+i);return{x:r(),y:.06+r()*.24,s:.6+r()*.9,v:.004+r()*.006};});
+const drops=[...Array(260)].map((_,i)=>{const r=rng(500+i);return{x:r(),y:r(),l:.6+r()*.8,v:.9+r()*.6};});
+function sky(storm,clear){
+  const g=ctx.createLinearGradient(0,0,0,H*.62);
+  const top=mix('#8fb3cf','#3f4c58',storm), bot=mix('#e3ecf1','#8f9ba4',storm);
+  g.addColorStop(0,clear>0?mix(top,'#7fa6cf',clear*.7):top);g.addColorStop(1,clear>0?mix(bot,'#f5d6b4',clear*.75):bot);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+function mix(a,b,t){const A=hexRgb(a),B=hexRgb(b);return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')})`;}
+function drawClouds(time,storm){clouds.forEach(c=>{const x=((c.x+time*c.v*(1+storm*3))%1.3-.15)*W, y=c.y*H, s=c.s*Math.min(W,H)*.16;
+  ctx.fillStyle=storm>.1?`rgba(${Math.round(lerp(255,90,storm))},${Math.round(lerp(255,98,storm))},${Math.round(lerp(255,108,storm))},${.75+storm*.2})`:'rgba(255,255,255,.78)';
+  [[0,0,1],[.55,.12,.7],[-.5,.15,.65],[.2,-.25,.6]].forEach(([dx,dy,k])=>{ctx.beginPath();ctx.ellipse(x+dx*s,y+dy*s,s*k,s*k*.55,0,0,7);ctx.fill();});});}
+
+/* ---- the roof, layer by layer ---- */
+const RL=()=>P(-OV,HW+RISE,HD/2), RR=()=>P(HL+OV,HW+RISE,HD/2), EL=()=>P(-OV,EAVE_Y,-OV), ER=()=>P(HL+OV,EAVE_Y,-OV);
+function roofFace(){const rl=RL(),er=ER(),el=EL();return{o:rl,u:sub(er,el),v:sub(el,rl)};}
+function drawTex(img,sx,sy,sw,sh){const f=roofFace();face(ctx,f.o,f.u,f.v,TW,TH);ctx.drawImage(img,sx,sy,sw,sh,sx,sy,sw,sh);ctx.setTransform(DPR,0,0,DPR,0,0);}
+function inRoof(fn){ctx.save();poly(ctx,[RL(),RR(),ER(),EL()]);ctx.clip();fn();ctx.restore();}
+
+function roof(p,time){
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));const m=MATERIALS[sel.m];
+  // back plane's rake (a sliver past the gable) and the fascia
+  ctx.fillStyle='#3a3530';poly(ctx,[RR(),P(HL+OV,EAVE_Y,HD+OV),P(HL+OV,EAVE_Y-.1,HD+OV),P(HL+OV,HW+RISE-.1,HD/2)]);ctx.fill();
+  ctx.fillStyle='#eef1f3';poly(ctx,[P(HL+OV,HW+RISE-.1,HD/2),P(HL+OV,EAVE_Y-.1,HD+OV),P(HL+OV,EAVE_Y-.34,HD+OV),P(HL+OV,HW+RISE-.34,HD/2)]);ctx.fill();
+  inRoof(()=>{
+    drawTex(T.deck,0,0,TW,TH);
+    // the soft sheet is cut out and replaced
+    const [sx,sy,sw,sh]=deckSheet();
+    if(f[2]>.45){const f2=roofFace();face(ctx,f2.o,f2.u,f2.v,TW,TH);ctx.globalAlpha=sm(seg(f[2],.45,.7));ctx.drawImage(T.sheet,sx,sy,sw,sh);ctx.globalAlpha=1;ctx.setTransform(DPR,0,0,DPR,0,0);}
+    // underlayment: ice and water shield first (eaves and chimney), then the rolls from the eave up
+    const ice=sm(seg(f[3],0,.25)), u=seg(f[3],.25,1);
+    if(ice>0){const ih=TH*.2*ice;drawTex(T.ice,0,TH-ih,TW,ih);const [cx0,cz0]=worldToTex(CHIM.x0-.35,CHIM.z1+.35),[cx1,cz1]=worldToTex(CHIM.x1+.35,CHIM.z0-.2);drawTex(T.ice,cx0,cz0,(cx1-cx0)*ice,cz1-cz0);}
+    if(u>0){const rows=5, rh=TH/rows, done=u*rows;
+      for(let k=0;k<rows;k++){const prog=clamp(done-k);if(prog<=0)break;const y=TH-(k+1)*rh+(k===0?0:0);const w=TW*prog;drawTex(T.under,0,y,w,rh+(k>0?6:0));}
+    }
+    // the new roof: courses from the eave up (asphalt, cedar) or panels rake to rake (metal)
+    const s=f[5];
+    if(s>0){
+      if(m.id==='metal'){const pw=TW/23, n=s*23, full=Math.floor(n);drawTex(T.neu,0,0,full*pw,TH);if(n<23)drawTex(T.neu,full*pw,TH*(1-(n-full)),pw,TH*(n-full));}
+      else{const n=s*NC, full=Math.floor(n);if(full>0)drawTex(T.neu,0,TH-full*CH,TW,full*CH);if(full<NC)drawTex(T.neu,0,TH-(full+1)*CH,TW*(n-full),CH);}
+    }
+    // the old roof, torn off from the ridge down (a ragged edge, course by course)
+    const t=f[1];
+    if(t<1){const rr=rng(77);const edge=t*TH;
+      for(let i=0;i<NC;i++){const y=i*CH;if(y+CH<edge-40)continue;const off=(rr()-.5)*80;const lo=Math.max(0,edge+off-y);if(lo>=CH)continue;
+        // a course partly removed shows its lower part
+        drawTex(T.old,0,y+Math.max(0,lo),TW,CH-Math.max(0,lo));}
+    }
+    // ridge vent and cap
+    const rc=f[6];if(rc>0)drawTex(T.ridge,0,0,TW*rc,T.ridge.height);
+    // the scan line and its glow during the inspection
+    if(f[0]>0&&f[0]<1){const sy2=f[0]*TH;const ff=roofFace();face(ctx,ff.o,ff.u,ff.v,TW,TH);const g=ctx.createLinearGradient(0,sy2-50,0,sy2+6);g.addColorStop(0,'{{A:rgba(242,106,27,0)}}');g.addColorStop(1,'{{A:rgba(242,106,27,.38)}}');ctx.fillStyle=g;ctx.fillRect(0,sy2-50,TW,56);ctx.fillStyle='{{A:rgba(255,190,140,.95)}}';ctx.fillRect(0,sy2,TW,3);ctx.setTransform(DPR,0,0,DPR,0,0);}
+    // water sheeting off in the storm
+    if(f[7]>.05&&p<.985){const ff=roofFace();face(ctx,ff.o,ff.u,ff.v,TW,TH);ctx.fillStyle='rgba(220,235,245,.12)';for(let k=0;k<40;k++){const x=(k*37.3)%TW, y=((time*900+k*131)%(TH+200))-100;ctx.fillRect(x,y,3,120);}ctx.setTransform(DPR,0,0,DPR,0,0);}
+    // sun on the finished roof
+    const lg=ctx.createLinearGradient(EL()[0],EL()[1],RR()[0],RR()[1]);lg.addColorStop(0,'rgba(255,240,215,.0)');lg.addColorStop(.6,'rgba(255,240,215,.10)');lg.addColorStop(1,'rgba(255,240,215,.0)');ctx.fillStyle=lg;ctx.fillRect(0,0,W,H);
+  });
+  // drip edge (eave and rake), drawn on as the flashing goes in; gutter below the eave
+  const de=f[4];
+  if(de>0){ctx.lineCap='round';ctx.strokeStyle='#e8ecef';ctx.lineWidth=Math.max(2.2,S*.13);
+    const el=EL(),er=ER(),rl=RL(),rr=RR();ctx.beginPath();ctx.moveTo(el[0],el[1]);ctx.lineTo(lerp(el[0],er[0],sm(de)),lerp(el[1],er[1],sm(de)));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(el[0],el[1]);ctx.lineTo(lerp(el[0],rl[0],sm(de)),lerp(el[1],rl[1],sm(de)));ctx.stroke();ctx.beginPath();ctx.moveTo(er[0],er[1]);ctx.lineTo(lerp(er[0],rr[0],sm(de)),lerp(er[1],rr[1],sm(de)));ctx.stroke();}
+  if(de>0&&de<1){const el=EL(),er=ER(),t=sm(de);const q=[lerp(el[0],er[0],t),lerp(el[1],er[1],t)];const rg=ctx.createRadialGradient(q[0],q[1],0,q[0],q[1],S*.9);rg.addColorStop(0,'rgba(255,255,255,.95)');rg.addColorStop(.3,'rgba(255,236,210,.5)');rg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=rg;ctx.fillRect(q[0]-S,q[1]-S,S*2,S*2);}
+  gutter();
+  return f;
+}
+function gutter(){const a=P(-OV,EAVE_Y-.02,-OV-.05),b=P(HL+OV,EAVE_Y-.02,-OV-.05),c=P(HL+OV,EAVE_Y-.42,-OV-.05),d=P(-OV,EAVE_Y-.42,-OV-.05);
+  const g=ctx.createLinearGradient(0,a[1],0,d[1]);g.addColorStop(0,'#f6f8f9');g.addColorStop(.5,'#dfe5e9');g.addColorStop(1,'#b9c3ca');ctx.fillStyle=g;poly(ctx,[a,b,c,d]);ctx.fill();
+  // downspout at the right corner
+  ctx.fillStyle='#dfe5e9';poly(ctx,[P(HL-.18,EAVE_Y-.4,-.2),P(HL+.08,EAVE_Y-.4,-.2),P(HL+.08,.15,-.2),P(HL-.18,.15,-.2)]);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.12)';poly(ctx,[P(HL+.0,EAVE_Y-.4,-.2),P(HL+.08,EAVE_Y-.4,-.2),P(HL+.08,.15,-.2),P(HL+.0,.15,-.2)]);ctx.fill();}
+
+function chimney(f){const {x0,x1,z0,z1,top}=CHIM;
+  const fr=[P(x0,roofY(z0),z0),P(x1,roofY(z0),z0),P(x1,top,z0),P(x0,top,z0)];
+  const sd=[P(x1,roofY(z0),z0),P(x1,roofY(z1),z1),P(x1,top,z1),P(x1,top,z0)];
+  const b=T.brick;
+  ctx.save();poly(ctx,fr);ctx.clip();face(ctx,fr[3],sub(fr[2],fr[3]),sub(P(x0,roofY(z0)-0,z0),fr[3]),130,140);ctx.drawImage(b,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);ctx.restore();
+  ctx.save();poly(ctx,sd);ctx.clip();face(ctx,sd[3],sub(sd[2],sd[3]),sub(P(x1,roofY(z0),z0),sd[3]),130,140);ctx.drawImage(b,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='rgba(20,25,35,.3)';ctx.fillRect(0,0,W,H);ctx.restore();
+  // crown
+  ctx.fillStyle='#b9b6b0';poly(ctx,[P(x0-.08,top,z0-.08),P(x1+.08,top,z0-.08),P(x1+.08,top,z1+.08),P(x0-.08,top,z1+.08)]);ctx.fill();
+  ctx.fillStyle='#9a968f';poly(ctx,[P(x0-.08,top,z0-.08),P(x1+.08,top,z0-.08),P(x1+.08,top-.14,z0-.08),P(x0-.08,top-.14,z0-.08)]);ctx.fill();
+  ctx.fillStyle='#4a4642';poly(ctx,[P(x0+.35,top+.01,z0+.3),P(x1-.35,top+.01,z0+.3),P(x1-.35,top+.01,z1-.3),P(x0+.35,top+.01,z1-.3)]);ctx.fill();
+  // flashing: rusted before, new after the flashing stage
+  const fl=sm(seg(f[4],.05,.45));const old=f[1]<.6;
+  if(old||fl>0){ctx.fillStyle=old?'#7d5a3e':`rgba(205,212,216,${fl})`;poly(ctx,[P(x0-.12,roofY(z0)-.05,z0-.12),P(x1+.12,roofY(z0)-.05,z0-.12),P(x1+.12,roofY(z0)+.32,z0-.02),P(x0-.12,roofY(z0)+.32,z0-.02)]);ctx.fill();
+    ctx.fillStyle=old?'#6d4d33':`rgba(185,193,198,${fl})`;poly(ctx,[P(x1+.02,roofY(z0)+.32,z0),P(x1+.02,roofY(z1)+.32,z1),P(x1+.16,roofY(z1)-.02,z1),P(x1+.16,roofY(z0)-.02,z0)]);ctx.fill();}
+  if(!old&&f[4]>0){const n=5;for(let i=0;i<n;i++){const a=sm(seg(f[4],.08+i*.08,.16+i*.08));if(a<=0)break;const za=lerp(z0,z1,i/n), zb=lerp(z0,z1,(i+1)/n)+.05;
+      ctx.fillStyle=`rgba(226,231,234,${a})`;poly(ctx,[P(x1+.01,roofY(za)+.42,za),P(x1+.01,roofY(zb)+.42,zb),P(x1+.01,roofY(zb)-.01,zb),P(x1+.01,roofY(za)-.01,za)]);ctx.fill();
+      ctx.strokeStyle=`rgba(120,130,138,${a*.7})`;ctx.lineWidth=1;const q=P(x1+.01,roofY(zb)+.42,zb),q2=P(x1+.01,roofY(zb)-.01,zb);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q2[0],q2[1]);ctx.stroke();}
+    const cf=sm(seg(f[4],.5,.7));if(cf>0){ctx.strokeStyle=`rgba(90,98,104,${cf})`;ctx.lineWidth=Math.max(1.2,S*.05);const a=P(x0-.12,roofY(z0)+.36,z0-.12),b=P(x1+.12,roofY(z0)+.36,z0-.12),c=P(x1+.02,roofY(z1)+.46,z1);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();}
+    if(f[4]<1){const g=seg(f[4],.05,.6);if(g>0&&g<1){const q=P(x1+.05,roofY(lerp(z0,z1,g))+.2,lerp(z0,z1,g));const rg=ctx.createRadialGradient(q[0],q[1],0,q[0],q[1],S*.7);rg.addColorStop(0,'rgba(255,255,255,.95)');rg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=rg;ctx.fillRect(q[0]-S,q[1]-S,S*2,S*2);}}}
+}
+function pipe(f){const c=P(PIPE.x,roofY(PIPE.z),PIPE.z), r=S*.16;const boot=f[1]<.55?'#4b4036':(f[4]>.6?'#222628':null);
+  if(boot){ctx.fillStyle=boot;ctx.beginPath();ctx.ellipse(c[0],c[1],r*2.1,r*.9,0,0,7);ctx.fill();}
+  ctx.fillStyle='#d3d8db';ctx.fillRect(c[0]-r*.55,c[1]-S*.75,r*1.1,S*.75);ctx.fillStyle='#b7bfc4';ctx.beginPath();ctx.ellipse(c[0],c[1]-S*.75,r*.55,r*.22,0,0,7);ctx.fill();}
+
+/* ---- the yard: dumpster, ladder, pallet ---- */
+function props(f){
+  const tear=f[1], s=f[5];const m=MATERIALS[sel.m];
+  // dumpster: arrives for the tear-off, leaves after the deck
+  const dA=sm(seg(f[1],0,.1)), dL=sm(seg(f[3],.15,.55));const dIn=Math.min(1,dA*4)*(1-seg(dL,.7,1));if(dIn>0){ctx.globalAlpha=dIn;const ox0=OX;OX-=S*9*((1-dA)+dL);
+    const box=(x0,x1,z0,z1,y0,y1,c1,c2,c3)=>{ctx.fillStyle=c1;poly(ctx,[P(x0,y0,z0),P(x1,y0,z0),P(x1,y1,z0),P(x0,y1,z0)]);ctx.fill();ctx.fillStyle=c2;poly(ctx,[P(x1,y0,z0),P(x1,y0,z1),P(x1,y1,z1),P(x1,y1,z0)]);ctx.fill();if(c3){ctx.fillStyle=c3;poly(ctx,[P(x0,y1,z0),P(x1,y1,z0),P(x1,y1,z1),P(x0,y1,z1)]);ctx.fill();}};
+    box(-5.2,-1.8,-4.8,-3.0,0,1.25,'#3e6a52','#2f5240','#24392f');
+    const fill=clamp(tear*1.15);if(fill>0){ctx.fillStyle='#3a332c';poly(ctx,[P(-5.1,1.0+fill*.5,-4.7),P(-1.9,1.0+fill*.5,-4.7),P(-1.9,1.0+fill*.5,-3.1),P(-5.1,1.0+fill*.5,-3.1)]);ctx.fill();
+      const r=rng(9);for(let k=0;k<26*fill;k++){const x=-5+r()*3, z=-4.6+r()*1.4;const q=P(x,1.05+fill*.5+r()*.2,z);ctx.fillStyle=r()<.5?'#5a4d40':'#2b2520';ctx.fillRect(q[0],q[1],S*.25,S*.08);}}
+    ctx.fillStyle='#e7e9ea';let fs=Math.max(8,S*.32);ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;const room=S*3.0, tw=ctx.measureText(BRAND).width;if(tw>room){fs=Math.max(5,fs*room/tw);ctx.font=`700 ${fs}px "JetBrains Mono",monospace`;}const lp=P(-4.9,.45,-4.8);ctx.fillText(BRAND,lp[0],lp[1]);
+    ctx.globalAlpha=1;OX=ox0;}
+  // ladder at the left eave from the tear-off to the ridge
+  const lIn=seg(f[1],0,.05)*(1-seg(f[6],.8,1));if(lIn>0){ctx.globalAlpha=lIn;ctx.strokeStyle='#c9a24a';ctx.lineWidth=Math.max(1.4,S*.07);const a=P(.7,0,-1.6),b=P(.7,EAVE_Y+.6,-.5),c=P(1.25,0,-1.6),d=P(1.25,EAVE_Y+.6,-.5);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.moveTo(c[0],c[1]);ctx.lineTo(d[0],d[1]);ctx.stroke();ctx.lineWidth=Math.max(1,S*.05);for(let k=1;k<9;k++){const t=k/9;ctx.beginPath();ctx.moveTo(lerp(a[0],b[0],t),lerp(a[1],b[1],t));ctx.lineTo(lerp(c[0],d[0],t),lerp(c[1],d[1],t));ctx.stroke();}ctx.globalAlpha=1;}
+  // the pallet of material on the driveway: delivered before roofing, used up as it goes on
+  const pA=sm(seg(f[3],.45,.8));const pIn=Math.min(1,pA*4)*(1-seg(f[6],.6,1));if(pIn>0){ctx.globalAlpha=pIn;const ox1=OX,oy1=OY;{const d=sub(P(0,0,-9*(1-pA)),P(0,0,0));OX+=d[0];OY+=d[1];}const col=m.colours[sel.c].c[0];
+    ctx.fillStyle='#a07d52';poly(ctx,[P(HL+1.9,0,-3.6),P(HL+4.3,0,-3.6),P(HL+4.3,.22,-3.6),P(HL+1.9,.22,-3.6)]);ctx.fill();
+    const left=Math.ceil(12*(1-s));let k=0;for(let lay=0;lay<3;lay++)for(let i=0;i<4;i++){if(k++>=left)break;const x0=HL+1.95+i*.58, y0=.22+lay*.32;
+      ctx.fillStyle=shade(col,.08);poly(ctx,[P(x0,y0,-3.55),P(x0+.55,y0,-3.55),P(x0+.55,y0+.3,-3.55),P(x0,y0+.3,-3.55)]);ctx.fill();
+      ctx.fillStyle=shade(col,-.2);poly(ctx,[P(x0,y0+.3,-3.55),P(x0+.55,y0+.3,-3.55),P(x0+.55,y0+.3,-2.3),P(x0,y0+.3,-2.3)]);ctx.fill();}
+    ctx.globalAlpha=1;OX=ox1;OY=oy1;}
+}
+function tree(time,storm){const base2=P(-3.2,0,HD+2.5);const sway=Math.sin(time*1.3)*(1.5+storm*7)*S*.03;
+  ctx.fillStyle='#5a4636';ctx.fillRect(base2[0]-S*.18,base2[1]-S*3.2,S*.36,S*3.2);
+  [[0,4.6,1.9],[-.9,3.9,1.5],[.9,3.8,1.4],[0,3.3,1.6]].forEach(([dx,dy,r],i)=>{const c=[base2[0]+dx*S+sway*(1+i*.2),base2[1]-dy*S];const g=ctx.createRadialGradient(c[0]-r*S*.3,c[1]-r*S*.3,2,c[0],c[1],r*S);g.addColorStop(0,'#86ad62');g.addColorStop(1,'#3f6a39');ctx.fillStyle=g;ctx.beginPath();ctx.arc(c[0],c[1],r*S,0,7);ctx.fill();});}
+
+/* ---- the inspection's tags ---- */
+function tags(f){const a=f[0]>=1?1-seg(f[1],.05,.25):1;if(f[0]<=0||a<=0)return 0;let found=0;
+  ctx.font=`600 ${mobile?10:12}px "JetBrains Mono",monospace`;
+  ISSUES.forEach((it,i)=>{if(f[0]<it.v)return;found++;const [wx,wz]=uvToWorld(it.u,it.v);const c=P(wx,roofY(wz),wz);const k=sm(seg(f[0],it.v,it.v+.08))*a;
+    ctx.globalAlpha=k;ctx.strokeStyle='{{A:#F26A1B}}';ctx.lineWidth=2;ctx.beginPath();ctx.arc(c[0],c[1],S*.42*(1.4-.4*k),0,7);ctx.stroke();
+    if(!mobile||i%2===0){const tw=ctx.measureText(it.t).width+16, lx=c[0]+S*.55, ly=c[1]-S*.95;ctx.fillStyle='rgba(27,34,41,.88)';ctx.beginPath();ctx.roundRect?ctx.roundRect(lx,ly-11,tw,22,3):ctx.rect(lx,ly-11,tw,22);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(it.t,lx+8,ly+4);ctx.strokeStyle='rgba(27,34,41,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(c[0]+S*.3,c[1]-S*.3);ctx.lineTo(lx,ly);ctx.stroke();}
+    ctx.globalAlpha=1;});return found;}
+
+/* ---- rain, lightning, lights in the windows ---- */
+function weather(p,time,f){const storm=sm(seg(p,.88,.93))*(1-sm(seg(p,.975,1)));if(storm<=0)return storm;
+  ctx.strokeStyle=`rgba(225,236,244,${.5*storm})`;ctx.lineWidth=1.2;ctx.beginPath();
+  drops.forEach(d=>{const y=((d.y+time*d.v*1.4)%1)*H, x=((d.x+time*.08)%1)*W;ctx.moveTo(x,y);ctx.lineTo(x-6*d.l,y+18*d.l);});ctx.stroke();
+  if(!RM){const fl=Math.max(0,Math.sin(time*2.3)*Math.sin(time*7.1)-.85)*6;if(fl>0){ctx.fillStyle=`rgba(235,240,255,${fl*.35*storm})`;ctx.fillRect(0,0,W,H);}}
+  // the downspout pours
+  const d=P(HL-.05,.15,-.2);ctx.strokeStyle=`rgba(200,220,235,${.7*storm})`;ctx.lineWidth=S*.12;ctx.beginPath();ctx.moveTo(d[0],d[1]);ctx.quadraticCurveTo(d[0]-S*.1,d[1]+S*.3,d[0]-S*.5,d[1]+S*.42);ctx.stroke();
+  return storm;}
+function lights(k){if(k<=0)return;ctx.fillStyle=`rgba(255,196,110,${.55*k})`;[[1.1,2.7],[3.5,5.1],[9.0,10.6],[11.6,13.2]].forEach(([a,b])=>{poly(ctx,[P(a,1.15,0),P(b,1.15,0),P(b,2.45,0),P(a,2.45,0)]);ctx.fill();});poly(ctx,[P(HL,1.15,3.7),P(HL,1.15,5.3),P(HL,2.45,5.3),P(HL,2.45,3.7)]);ctx.fill();}
+
+/* ---- the HUD ---- */
+const tk=$('#ticks');STAGES.forEach(()=>{const li=document.createElement('li');tk.appendChild(li);});
+const tickEls=[...tk.children];let stageIdx=-1, stageMat='';
+function hud(p,f,found){
+  let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  const mid=MATERIALS[sel.m].id;if(idx!==stageIdx||mid!==stageMat){stageIdx=idx;stageMat=mid;const mm=MATERIALS[sel.m];$('#tNum').textContent=idx+1;$('#tTitle').textContent=STAGES[idx].n;$('#tText').textContent=(idx===5&&mm.lay)||(idx===6&&mm.ridge)||STAGES[idx].c;}
+  tickEls.forEach((li,i)=>{li.style.setProperty('--f',f[i].toFixed(3));li.className=f[i]>=1?'done':'';});
+  const m=MATERIALS[sel.m];const units=Math.round(SQUARES*m.per);
+  $('#rSq').innerHTML=`${(f[5]*SQUARES).toFixed(1)}<small>/ ${SQUARES}</small>`;
+  $('#rNails').textContent=fmt(f[5]*SQUARES*m.perSq+f[3]*SQUARES*24);
+  $('#rNails').previousElementSibling.textContent=m.fasten;
+  $('#rBundles').previousElementSibling.textContent=`${m.unit} left`;
+  $('#rBundles').textContent=fmt(units*(1-f[5]));
+  $('#rDebris').innerHTML=`${fmt(f[1]*SQUARES*230)}<small>lb</small>`;
+  const day=p<.5?1:2, mins=day===1?lerp(7*60+30,16*60,p/.5):lerp(7*60+15,16*60+30,(p-.5)/.5);
+  $('#tStamp').textContent=`Day ${day} · ${Math.floor(mins/60)}:${String(Math.floor(mins%60)).padStart(2,'0')}`;
+  const wx=$('#wx');const storm=p>.88&&p<.985;wx.classList.toggle('storm',storm);
+  $('#wxText').textContent=storm?WX[1]:p>=.985?WX[2]:WX[0];
+}
+
+/* ---- frame ---- */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0, last=-1, tStart=performance.now();
+function target(){const r=hero.getBoundingClientRect();const span=r.height-innerHeight;return clamp(-r.top/span);}
+function frame(p,time){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const storm=sm(seg(p,.88,.93))*(1-sm(seg(p,.975,1))), clear=sm(seg(p,.975,1));
+  sky(storm,clear);drawClouds(time,storm);
+  ctx.drawImage(base,0,0,W,H);
+  tree(time,storm);
+  const f=roof(p,time);
+  pipe(f);chimney(f);props(f);
+  const found=tags(f);
+  lights(Math.max(storm*.6,clear));
+  weather(p,time,f);
+  // the hero copy steps aside once the job starts
+  const k=mobile?seg(p,.01,.05):seg(p,.18,.26);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);
+  camera(p);
+  hud(p,f,found);
+}
+// the camera walks up to the roof while the crew works, and steps back to watch the storm
+let camKey='';
+function camera(p){
+  const kc=sm(seg(p,mobile?.04:.17,mobile?.14:.32)), k=kc*(1-.55*sm(seg(p,.86,.93)));
+  const Z=1+(mobile?.3:.36)*k;
+  const rl=RL(),er=ER(),c=[(rl[0]+er[0])/2,(rl[1]+er[1])/2+S*.9];
+  const g=mobile?[W*.5,H*.5]:[W*.5,H*.5];
+  let tx=lerp(c[0],g[0],kc)-Z*c[0], ty=lerp(c[1],g[1],kc)-Z*c[1];
+  tx=clamp(tx,W-Z*W,0);ty=clamp(ty,H-Z*H,0);
+  const key=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${Z.toFixed(4)})`;
+  if(key!==camKey){camKey=key;cv.style.transform=key;}
+}
+function loop(now){const time=(now-tStart)/1000;const t=target();cur=RM?t:cur+(t-cur)*.16;if(Math.abs(t-cur)<.0004)cur=t;
+  // the weather and clouds move on their own; everything else follows the scroll
+  frame(cur,RM?0:time);requestAnimationFrame(loop);}
+buildTextures();layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{T.under=texUnder();});
+requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const CUR={{locale.currency|js}};
+const money=n=>CUR+Math.round(n).toLocaleString('en-US');
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const fill=el=>el.style.setProperty('--fill',((el.value-el.min)/(el.max-el.min)*100)+'%');
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const MATERIALS=window.KR_MATERIALS;
+
+/* ============ DAMAGE CHECK ============ */
+const SYMPTOMS=[
+{{$.symptomsJs|raw}}
+];
+const ageScore=a=>a<10?0:a<15?1:a<20?3:a<25?5:7;
+const symsEl=$('#syms'), ageR=$('#ageR'), on=new Set();
+symsEl.innerHTML=SYMPTOMS.map(s=>`<button type="button" class="sym" aria-pressed="false" data-id="${s.id}"><span class="box" aria-hidden="true"></span><span><b>${s.label}</b><span>${s.hint}</span></span></button>`).join('');
+symsEl.addEventListener('click',e=>{const b=e.target.closest('.sym');if(!b)return;const id=b.dataset.id;on.has(id)?on.delete(id):on.add(id);b.setAttribute('aria-pressed',String(on.has(id)));verdict();});
+ageR.addEventListener('input',verdict);
+function verdict(){fill(ageR);const age=+ageR.value;$('#ageOut').textContent=age===1?'1 year':`${age} years`;
+  const picked=SYMPTOMS.filter(s=>on.has(s.id));const score=picked.reduce((a,s)=>a+s.w,0)+ageScore(age);
+  const v=score<4?0:score<9?1:2;
+  $('#needle').style.setProperty('--v',(6+clamp(score/14)*88).toFixed(1)+'%');
+  $('#vTitle').textContent=['A repair','An inspection first','A new roof'][v];
+  $('#vWhy').textContent=[
+    picked.length?`What you describe is usually local: fixed in an afternoon on a ${age}-year-old roof.`:`Nothing ticked on a ${age}-year-old roof. A look every few years is still cheap insurance.`,
+    `This could go either way. At ${age} years with ${picked.length} sign${picked.length===1?'':'s'}, it depends on what's under the shingles.`,
+    `At ${age} years with ${picked.length} sign${picked.length===1?'':'s'}, patching usually just moves the leak. Most roofs like this are replaced.`][v];
+  const list=picked.slice().sort((a,b)=>b.w-a.w).slice(0,4).map(s=>s.check);
+  if(age>=20)list.push('The decking: roofs this age often have soft sheets near the eaves');
+  $('#vList').innerHTML=(list.length?list:['The whole roof, edges and penetrations first']).map(t=>`<li>${t}</li>`).join('');
+}
+verdict();
+
+/* ============ ESTIMATE ============ */
+const SHAPES=[{id:'gable',label:'Gable',f:1,waste:.10,svg:'M4 26 L27 6 L50 26 Z'},{id:'hip',label:'Hip',f:1.04,waste:.15,svg:'M4 26 L16 8 L38 8 L50 26 Z'},{id:'complex',label:'Complex',f:1.12,waste:.18,svg:'M2 26 L14 10 L24 18 L34 6 L52 26 Z'}];
+const STOREYS=[{n:1,f:1},{n:2,f:1.06},{n:3,f:1.14}];
+const TEAR=[{{estimate.tear.0}},{{estimate.tear.1}}];                 // per square, per layer, with disposal
+const RATE={asphalt:14,metal:7,cedar:6}; // squares a crew lays a day
+const SHARE={asphalt:.45,metal:.55,cedar:.5}; // the materials' part of the installed price
+const est={shape:0,story:1,mat:0,lay:1};
+const footR=$('#footR'), pitchR=$('#pitchR');
+$('#shape').innerHTML=SHAPES.map((s,i)=>`<button type="button" aria-pressed="${i===0}" data-i="${i}"><svg viewBox="0 0 54 30" aria-hidden="true"><path d="${s.svg}" fill="currentColor" opacity=".9"/><path d="M8 26 L8 30 M46 26 L46 30" stroke="currentColor"/></svg>${s.label}</button>`).join('');
+$('#story').innerHTML=STOREYS.map((s,i)=>`<button type="button" aria-pressed="${i===1}" data-i="${i}">${s.n}</button>`).join('');
+$('#mat').innerHTML=MATERIALS.map((m,i)=>`<button type="button" aria-pressed="${i===0}" data-i="${i}">${m.short}</button>`).join('');
+$('#lay').innerHTML=['1 layer','2 layers'].map((t,i)=>`<button type="button" aria-pressed="${i===0}" data-i="${i+1}">${t}</button>`).join('');
+[['#shape','shape'],['#story','story'],['#mat','mat'],['#lay','lay']].forEach(([sel,key])=>$(sel).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;est[key]=+b.dataset.i;press($(sel),b);estimate();}));
+[footR,pitchR].forEach(el=>el.addEventListener('input',estimate));
+function pitchSvg(p){const run=80, rise=run*p/12*.62;$('#pitchSvg').innerHTML=`<path d="M8 58 L${8+run} 58 L8 ${58-rise} Z" fill="{{A:rgba(242,106,27,.14)}}" stroke="#1B2229" stroke-width="2"/><text x="${8+run/2}" y="64" font-size="8" text-anchor="middle" fill="#7C858D" font-family="JetBrains Mono">12</text><text x="2" y="${58-rise/2}" font-size="8" fill="#7C858D" font-family="JetBrains Mono">${p}</text><path d="M${8+run-14} 58 A14 14 0 0 0 ${8+run-14*Math.cos(Math.atan(rise/run))} ${58-14*Math.sin(Math.atan(rise/run))}" fill="none" stroke="{{A:#F26A1B}}" stroke-width="2"/>`;}
+function estimate(){[footR,pitchR].forEach(fill);
+  const foot=+footR.value, p=+pitchR.value, sh=SHAPES[est.shape], st=STOREYS[est.story], m=MATERIALS[est.mat], layers=est.lay;
+  $('#footOut').textContent=fmt(foot)+' sq ft';$('#pitchOut').textContent=`${p} / 12`;pitchSvg(p);
+  const area=foot*1.12*Math.sqrt(1+(p/12)**2)*sh.f;
+  const squares=Math.ceil(area*(1+sh.waste)/100*3)/3;
+  const steep=p>=11?1.2:p>=9?1.12:1;
+  const inst=[m.price[0],m.price[1]].map(v=>v*squares*st.f*steep), tear=TEAR.map(v=>v*squares*layers);
+  const lo=inst[0]+tear[0], hi=inst[1]+tear[1], mid=(lo+hi)/2;
+  $('#price').innerHTML=`<small>Installed, all in</small>${money(Math.round(lo/100)*100)}–${money(Math.round(hi/100)*100)}`;
+  $('#oSq').textContent=squares.toFixed(1);$('#oArea').textContent=fmt(area)+' ft²';
+  const days=Math.max(1,Math.ceil(squares/RATE[m.id]+squares*layers/30-.15));$('#oDays').textContent=days===1?'1 day':`${days} days`;
+  const instMid=(inst[0]+inst[1])/2, base=instMid/(st.f*steep), prem=instMid-base;
+  const parts=[base*SHARE[m.id],base*(1-SHARE[m.id]),(tear[0]+tear[1])/2,prem];
+  [...$('#bar').children].forEach((el,i)=>{el.style.flexGrow=Math.max(0,parts[i]).toFixed(0);});
+  $('#legend').innerHTML=[['var(--slate)','Materials'],['var(--hivis)','Labour'],['#b9ad9a','Tear-off & disposal'],['var(--warn)','Height & pitch']].map(([c,t],i)=>`<span><i class="sw" style="background:${c}"></i>${t} <b>${money(parts[i])}</b></span>`).join('');
+  $('#estNote').textContent=`${squares.toFixed(1)} squares includes ${Math.round(sh.waste*100)}% waste for a ${sh.label.toLowerCase()} roof. ${m.name}, ${layers===2?'two layers':'one layer'} off. A range, not a quote: the inspection sets the number.`;
+}
+estimate();
+
+/* ============ MATERIALS BOARD ============ */
+const macro=$('#macro'), mx=macro.getContext('2d');let mSel={m:0,c:MATERIALS[0].colours.length>1?1:0}, mTex=null, sweep=0;
+$('#mtabs').innerHTML=MATERIALS.map((m,i)=>`<button type="button" class="mtab" aria-pressed="${i===0}" data-i="${i}"><span class="ico" style="background:linear-gradient(135deg,${m.colours[0].c[0]},${(m.colours[1]||m.colours[0]).c[0]})"></span><b>${m.name}</b><span>${m.blurb}</span></button>`).join('');
+$('#mtabs').addEventListener('click',e=>{const b=e.target.closest('.mtab');if(!b)return;press($('#mtabs'),b);mSel={m:+b.dataset.i,c:0};board();});
+function board(){const m=MATERIALS[mSel.m];
+  $('#mName').textContent=m.name;
+  $('#mSpecs').innerHTML=[['Lifespan',m.life],['Wind rating',m.wind],['Warranty',m.warranty],['Weight',m.weight]].map(([t,v])=>`<div><dt>${t}</dt><dd>${v}</dd></div>`).join('');
+  $('#swatches').innerHTML=m.colours.map((c,i)=>`<button type="button" class="swatch" aria-pressed="${i===mSel.c}" data-i="${i}"><i style="background:${c.c.length>1?`conic-gradient(${c.c.map((x,k)=>`${x} ${k*100/c.c.length}% ${(k+1)*100/c.c.length}%`).join(',')})`:c.c[0]}"></i>${c.name}</button>`).join('');
+  mTex=window.KR_texNew(mSel.m,mSel.c);window.KR_setRoof(mSel.m,mSel.c);drawMacro();}
+$('#swatches').addEventListener('click',e=>{const b=e.target.closest('.swatch');if(!b)return;mSel.c=+b.dataset.i;press($('#swatches'),b);mTex=window.KR_texNew(mSel.m,mSel.c);window.KR_setRoof(mSel.m,mSel.c);drawMacro();});
+function drawMacro(){if(!mTex)return;const w=macro.clientWidth,h=macro.clientHeight,d=Math.min(devicePixelRatio||1,1.75);if(macro.width!==Math.round(w*d)){macro.width=Math.round(w*d);macro.height=Math.round(h*d);}
+  mx.setTransform(d,0,0,d,0,0);mx.fillStyle='#22303B';mx.fillRect(0,0,w,h);
+  // a close-up of the roof seen up the slope: the texture foreshortened toward the ridge
+  const bands=160, cw=520, ch=260, sx=200, sy=TH_MACRO();
+  for(let i=0;i<bands;i++){const t0=i/bands, t1=(i+1)/bands;const y0=h*(1-Math.pow(1-t0,1.55)), y1=h*(1-Math.pow(1-t1,1.55));const yc=(y0+y1)/2/h;
+    const srcY=sy+ch*(1-t1), srcH=ch/bands;const dw=w*(1.6-.62*yc);mx.drawImage(mTex,sx,srcY,cw,srcH,(w-dw)/2,h-y1,dw,y1-y0+1);}
+  // light sweeping across the material
+  const g=mx.createLinearGradient(w*(sweep-.3),0,w*(sweep+.3),h);g.addColorStop(0,'rgba(255,245,230,0)');g.addColorStop(.5,'rgba(255,245,230,.16)');g.addColorStop(1,'rgba(255,245,230,0)');mx.fillStyle=g;mx.fillRect(0,0,w,h);
+  const v=mx.createLinearGradient(0,0,0,h);v.addColorStop(0,'rgba(34,48,59,.85)');v.addColorStop(.35,'rgba(34,48,59,0)');mx.fillStyle=v;mx.fillRect(0,0,w,h);}
+function TH_MACRO(){return 300;}
+if(!RM){let lastT=0;(function anim(t){if(t-lastT>40){sweep=((t/5200)%1.6)-.3;drawMacro();lastT=t;}requestAnimationFrame(anim);})(0);}
+addEventListener('resize',drawMacro);
+board();
+
+/* ============ INSPECTION BOOKING ============ */
+const TOWNS=[
+{{$.townsJs|raw}}
+];
+const YARD={{book.yard|js}};
+const COAST={{$.coastJs|raw}};
+const HOME=TOWNS[0];
+const pxPerMin=3.3;
+// each town sits at its drive time from the yard, in its direction; one that would land on another is turned aside
+{const DIRS={N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5};
+  HOME.x={{$.homeX}};HOME.y={{$.homeY}};const placed=[HOME];
+  TOWNS.slice(1).forEach(t=>{const a0=(DIRS[t.dir]||0)*Math.PI/180, r=t.m*pxPerMin;let x=0,y=0;
+    for(let k=0;k<14;k++){const a=a0+(k%2?-1:1)*Math.ceil(k/2)*.16;x=Math.max(10,Math.min(390,HOME.x+Math.sin(a)*r));y=Math.max(26,Math.min(292,HOME.y-Math.cos(a)*r));if(placed.every(q=>Math.hypot(q.x-x,q.y-y)>15))break;}
+    t.x=Math.round(x);t.y=Math.round(y);placed.push(t);});}
+function map(sel){const s=$('#map');
+  let h=`<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0 V6" stroke="rgba(27,34,41,.06)" stroke-width="2"/></pattern></defs>`;
+  if(COAST)h+=`<path d="${COAST}" fill="#b8ccd8"/><path d="${COAST}" fill="url(#hatch)"/>`;
+  const boxes=[[8,8,12+[...YARD].length*5.4,21]];const free=(b)=>boxes.every(q=>b[0]>q[2]||b[2]<q[0]||b[1]>q[3]||b[3]<q[1]);
+  [45,30,15].forEach(m=>{h+=`<circle cx="${HOME.x}" cy="${HOME.y}" r="${m*pxPerMin}" fill="${m===45?'{{A:rgba(242,106,27,.06)}}':'none'}" stroke="{{A:rgba(242,106,27,.55)}}" stroke-dasharray="4 4"/>`;
+    const r=m*pxPerMin;for(const a of [-135,-112,-158,-45,-68,-22,135,45,180,0]){const x=HOME.x+Math.sin(a*Math.PI/180)*r, y=HOME.y-Math.cos(a*Math.PI/180)*r+3, b=[x-17,y-9,x+17,y+3];
+      if(x<20||x>380||y<30||y>292||!TOWNS.every(t=>Math.hypot(t.x-x,t.y-y+3)>14)||!free(b))continue;boxes.push(b);
+      h+=`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="9" fill="{{A:#A6440D}}" stroke="#ece5d8" stroke-width="3" paint-order="stroke" font-family="JetBrains Mono">${m} min</text>`;break;}});
+  const order=TOWNS.slice().sort((a,b)=>(sel&&b.n===sel.n)-(sel&&a.n===sel.n)||(b===HOME)-(a===HOME)||a.m-b.m);
+  TOWNS.forEach(t=>{const on=sel&&sel.n===t.n;h+=`<circle cx="${t.x}" cy="${t.y}" r="${on?6:t===HOME?5:3}" fill="${on||t===HOME?'{{A:#F26A1B}}':'#1B2229'}" stroke="#FBF9F4" stroke-width="1.5"/>`;});
+  order.forEach(t=>{const on=sel&&sel.n===t.n;if(!(on||t===HOME||t.m<=25))return;const fz=on?11:9, w=[...t.n].length*fz*.5;const right=t.x+7+w<396;const bx=right?[t.x+6,t.y-fz*.8,t.x+7+w,t.y+4]:[t.x-7-w,t.y-fz*.8,t.x-6,t.y+4];if(!on&&!free(bx))return;boxes.push(bx);
+    h+=`<text x="${right?t.x+7:t.x-7}" y="${t.y+3}" text-anchor="${right?'start':'end'}" font-size="${fz}" font-weight="${on?700:500}" fill="#1B2229" stroke="#ece5d8" stroke-width="2.5" paint-order="stroke" font-family="Barlow, sans-serif">${t.n}</text>`;});
+  h+=`<text x="10" y="18" font-size="9" fill="#7C858D" stroke="#ece5d8" stroke-width="3" paint-order="stroke" font-family="JetBrains Mono">${YARD}</text>`;
+  s.innerHTML=h;}
+map(null);
+function town(){const q=$('#town').value.trim().toLowerCase();if(!q){$('#townOut').textContent='Type your town to check.';return;}
+  const t=TOWNS.find(x=>x.n.toLowerCase()===q)||TOWNS.find(x=>x.n.toLowerCase().startsWith(q));
+  if(t){map(t);$('#townOut').innerHTML=t.m===0?`<b>${t.n}</b>: that's home. Inspections run within the week.`:`<b>Yes, ${t.n}</b> is ${t.m} minutes out. Inspections there run within the week.`;}
+  else{map(null);$('#townOut').innerHTML=`<b>Not on our list.</b> Call us: if it's under 45 minutes from ${HOME.n} we'll still come.`;}}
+$('#townGo').addEventListener('click',town);$('#town').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();town();}});
+
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SLOTS=[{{$.slotsJs|raw}}];
+const SAT={{book.saturday}};                     // windows open on a Saturday (0: closed); never Sundays
+const VISIT={{book.visit|js}};
+const days=[];for(let d=new Date(),i=0;days.length<10&&i<20;i++){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1+i);if(x.getDay()!==0&&(SAT||x.getDay()!==6))days.push(x);}
+let dSel=0, sSel=null;
+const taken=(d,i)=>(d.getDate()*7+i*5)%6===0;
+const slotsFor=d=>d.getDay()===6?SLOTS.slice(0,SAT):SLOTS;
+function drawDays(){$('#days').innerHTML=days.map((d,i)=>`<button type="button" class="day" aria-pressed="${i===dSel}" data-i="${i}" aria-label="${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}">${DOW[d.getDay()]}<b>${d.getDate()}</b>${MON[d.getMonth()]}</button>`).join('');}
+function drawSlots(){const d=days[dSel], sl=slotsFor(d);if(sSel===null||!sl.includes(sSel)||taken(d,sl.indexOf(sSel))){sSel=null;for(let i=0;i<sl.length;i++)if(!taken(d,i)){sSel=sl[i];break;}}
+  $('#slots').innerHTML=sl.map((t,i)=>`<button type="button" class="slot" ${taken(d,i)?'disabled':''} aria-pressed="${t===sSel}" data-t="${t}">${t}</button>`).join('');summary();}
+function summary(){const d=days[dSel];$('#summary').innerHTML=sSel?`<b>${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${sSel}</b> · ${VISIT} · free`:'That day is full. Pick another.';}
+$('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;drawDays();drawSlots();$('#confirm').hidden=true;});
+$('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b||b.disabled)return;sSel=b.dataset.t;drawSlots();$('#confirm').hidden=true;});
+$('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const addr=$('#fAddr').value.trim(), nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
+  const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  if(!addr)return fail('Add the street address so we know which roof.',$('#fAddr'));
+  if(!nm)return fail('Add your name.',$('#fName'));
+  if(ph.length<7)return fail('Add a phone number we can text the day before.',$('#fPhone'));
+  if(!sSel)return fail('Pick a day with an open window.');
+  err.hidden=true;const d=days[dSel];const c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was sent</span><b>${nm.replace(/[<>&]/g,'')}, you're pencilled in for ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${sSel}.</b><span>{{book.note|esc|tl}}</span>`;
+  c.hidden=false;});
+drawDays();drawSlots();
+})();
+</script>
+
+</body></html>

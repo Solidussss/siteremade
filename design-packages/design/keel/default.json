@@ -1,0 +1,401 @@
+{
+  "business": {
+    "name": "Keel & Ridge Roofing"
+  },
+  "brand": {
+    "name": "Keel & Ridge"
+  },
+  "contact": {
+    "phone": "(207) 555-0148"
+  },
+  "nav": {
+    "check": "Damage check",
+    "estimate": "Estimate",
+    "materials": "Materials",
+    "book": "Inspection",
+    "cta": "Free inspection"
+  },
+  "hero": {
+    "eyebrow": "Keel & Ridge Roofing · Portland, Maine",
+    "title": "Down to the deck.",
+    "titleEm": "Back up for thirty years.",
+    "lede": "A full re-roof in eight stages, start to finish. Scroll and watch one: inspection, tear-off, new decking, underlayment, flashing, shingles, ridge, and a storm to prove it.",
+    "cta": "Get a free inspection",
+    "cta2": "Price my roof",
+    "hint": "Scroll to start the job"
+  },
+  "job": {
+    "ref": "KR-2611",
+    "squares": 28
+  },
+  "weather": {
+    "clear": "Clear · wind 6 mph",
+    "storm": "Storm cell · gusts 58 mph",
+    "after": "Storm passed · attic dry"
+  },
+  "stages": [
+    {
+      "n": "Inspection",
+      "c": "A scan of every course, edge and penetration before anything comes off. Six problems marked."
+    },
+    {
+      "n": "Tear-off",
+      "c": "Old shingles and felt come off down to the boards, straight into the dumpster. Nothing left in the yard."
+    },
+    {
+      "n": "Deck",
+      "c": "Every sheet walked and checked. One soft sheet of decking cut out and replaced."
+    },
+    {
+      "n": "Underlayment",
+      "c": "Ice and water shield along the eaves and around the chimney, then synthetic underlayment, lapped from the bottom up."
+    },
+    {
+      "n": "Flashing",
+      "c": "New drip edge on every edge, step flashing up the chimney, a new boot on the vent pipe."
+    },
+    {
+      "n": "Roofing",
+      "c": "Laid from the eave up, six nails a shingle, joints staggered so no seam lines up with the one below."
+    },
+    {
+      "n": "Ridge",
+      "c": "Ridge vent along the peak so the attic breathes, capped with matching ridge shingles."
+    },
+    {
+      "n": "Storm test",
+      "c": "A real nor'easter is the only inspection that counts. Water sheets off into the gutters; the attic stays dry."
+    }
+  ],
+  "issues": [
+    "Missing tabs",
+    "Cracked pipe boot",
+    "Lifted shingles",
+    "Rusted flashing",
+    "Soft decking",
+    "Algae streaks"
+  ],
+  "materials": [
+    {
+      "kind": "asphalt",
+      "name": "Architectural asphalt",
+      "short": "Asphalt",
+      "blurb": "Two laminated layers for depth and shadow. The roof most of Maine is under.",
+      "life": "25–30 yrs",
+      "wind": "130 mph",
+      "warranty": "50-yr limited",
+      "weight": "240 lb/sq",
+      "price": [
+        440,
+        560
+      ],
+      "unit": "Bundles",
+      "fasten": "Nails",
+      "colours": [
+        {
+          "name": "Charcoal",
+          "c": [
+            "#3c4045",
+            "#2d3136",
+            "#4b5056",
+            "#25282c"
+          ]
+        },
+        {
+          "name": "Weathered Wood",
+          "c": [
+            "#6e6458",
+            "#5c5349",
+            "#7e7366",
+            "#4c453d"
+          ]
+        },
+        {
+          "name": "Driftwood",
+          "c": [
+            "#8a7f70",
+            "#776d60",
+            "#9b8f7f",
+            "#645b50"
+          ]
+        },
+        {
+          "name": "Harbor Blue",
+          "c": [
+            "#414d5a",
+            "#36424e",
+            "#4f5c69",
+            "#2c3641"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "metal",
+      "name": "Standing-seam metal",
+      "short": "Metal",
+      "blurb": "Steel panels with raised, concealed-fastener seams. Snow slides off; it outlasts the house paint twice over.",
+      "life": "40–60 yrs",
+      "wind": "140 mph",
+      "warranty": "40-yr finish",
+      "weight": "110 lb/sq",
+      "price": [
+        980,
+        1240
+      ],
+      "unit": "Panels",
+      "fasten": "Clips",
+      "lay": "Panels run eave to ridge, rake to rake, held on hidden clips; each seam locks over the last.",
+      "ridge": "Vented closure along the peak so the attic breathes, then a matching ridge cap over it.",
+      "colours": [
+        {
+          "name": "Matte Black",
+          "c": [
+            "#2a2d30"
+          ]
+        },
+        {
+          "name": "Galvalume",
+          "c": [
+            "#aeb4b8"
+          ]
+        },
+        {
+          "name": "Forest Green",
+          "c": [
+            "#2f4b3d"
+          ]
+        },
+        {
+          "name": "Barn Red",
+          "c": [
+            "#7c2c25"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "cedar",
+      "name": "Cedar shake",
+      "short": "Cedar",
+      "blurb": "Hand-split western red cedar, each one a little different. Weathers to silver in a few seasons.",
+      "life": "25–35 yrs",
+      "wind": "110 mph",
+      "warranty": "25-yr limited",
+      "weight": "350 lb/sq",
+      "price": [
+        880,
+        1150
+      ],
+      "unit": "Bundles",
+      "fasten": "Nails",
+      "lay": "Hand-split shakes from the eave up, two nails each, a finger-width gap so the wood can swell.",
+      "ridge": "Ridge vent along the peak so the attic breathes, capped with cedar ridge pieces.",
+      "colours": [
+        {
+          "name": "Natural",
+          "c": [
+            "#a8714a",
+            "#8f5e3d",
+            "#ba8058",
+            "#7d5235"
+          ]
+        },
+        {
+          "name": "Silvered",
+          "c": [
+            "#9c978e",
+            "#86817a",
+            "#aca79e",
+            "#77736c"
+          ]
+        }
+      ]
+    }
+  ],
+  "check": {
+    "eyebrow": "Damage check",
+    "title": "Repair, or replace?",
+    "sub": "Tick what you can see from the ground or the attic. We'll tell you which way it's leaning and what we'd check first. It's a guide, not a diagnosis: the inspection is free either way.",
+    "symptoms": [
+      {
+        "id": "missing",
+        "label": "Missing or torn shingles",
+        "hint": "Gaps in the pattern, pieces on the lawn after wind",
+        "check": "The seal strips on the courses around the gaps"
+      },
+      {
+        "id": "granules",
+        "label": "Grit in the gutters",
+        "hint": "Sand-like granules collecting at the downspouts",
+        "check": "How much granule cover is left on the sunny side"
+      },
+      {
+        "id": "curl",
+        "label": "Curled or cupped edges",
+        "hint": "Shingle edges lifting or bowing upward",
+        "check": "Attic ventilation, which cooks shingles from below"
+      },
+      {
+        "id": "stain",
+        "label": "A stain on a ceiling",
+        "hint": "Brown rings that grow after rain",
+        "check": "The flashing and boots above the stain, then the decking"
+      },
+      {
+        "id": "sag",
+        "label": "A dip in the roofline",
+        "hint": "The ridge or one side sags between rafters",
+        "check": "Rafters and decking from the attic, before anything else"
+      },
+      {
+        "id": "light",
+        "label": "Daylight in the attic",
+        "hint": "Pinholes of light through the boards",
+        "check": "Every penetration and the ridge, in daylight from inside"
+      },
+      {
+        "id": "moss",
+        "label": "Moss or black streaks",
+        "hint": "Green clumps or dark stripes down the slope",
+        "check": "Whether the moss has lifted shingles or just stained them"
+      },
+      {
+        "id": "hail",
+        "label": "Hail or a big storm",
+        "hint": "Dents on the gutters, vents or car hoods",
+        "check": "Soft spots and bruising on the shingle mats, by hand"
+      }
+    ],
+    "note": "A ground-level guide only. Hail and wind damage is often invisible from below.",
+    "cta": "Book the free inspection"
+  },
+  "estimate": {
+    "eyebrow": "Estimate",
+    "title": "Price the roof before we climb it.",
+    "sub": "Five answers and you'll have the range we'd quote, how many squares it takes and how long the crew is on site. Pitch and shape change more than people expect.",
+    "tear": [
+      95,
+      115
+    ],
+    "cta": "Lock it in with an inspection"
+  },
+  "board": {
+    "eyebrow": "Materials board",
+    "title": "Pick it here. See it on the house.",
+    "sub": "Three materials, the colours we stock for each, and the numbers that matter. Whatever you pick goes on the house at the top of the page.",
+    "seeIt": "See it on the house"
+  },
+  "book": {
+    "eyebrow": "Free inspection",
+    "title": "Pick a morning. We bring the ladder.",
+    "sub": "About 45 minutes on the roof and in the attic, photos of everything we find, and a written quote within two working days. No charge, no obligation.",
+    "areaLabel": "Where we work",
+    "cover": "We cover Greater Portland and the towns around it, up to 45 minutes out.",
+    "yard": "Drive times from our yard on Forest Ave",
+    "coast": "east",
+    "towns": [
+      {
+        "n": "Portland",
+        "m": 0
+      },
+      {
+        "n": "South Portland",
+        "m": 10,
+        "dir": "S"
+      },
+      {
+        "n": "Westbrook",
+        "m": 15,
+        "dir": "WNW"
+      },
+      {
+        "n": "Falmouth",
+        "m": 15,
+        "dir": "NNE"
+      },
+      {
+        "n": "Cape Elizabeth",
+        "m": 20,
+        "dir": "SSE"
+      },
+      {
+        "n": "Scarborough",
+        "m": 20,
+        "dir": "SSW"
+      },
+      {
+        "n": "Cumberland",
+        "m": 25,
+        "dir": "N"
+      },
+      {
+        "n": "Gorham",
+        "m": 25,
+        "dir": "W"
+      },
+      {
+        "n": "Yarmouth",
+        "m": 25,
+        "dir": "NE"
+      },
+      {
+        "n": "Windham",
+        "m": 30,
+        "dir": "NW"
+      },
+      {
+        "n": "Saco",
+        "m": 30,
+        "dir": "SSW"
+      },
+      {
+        "n": "Freeport",
+        "m": 35,
+        "dir": "NNE"
+      },
+      {
+        "n": "Gray",
+        "m": 35,
+        "dir": "NNW"
+      },
+      {
+        "n": "Biddeford",
+        "m": 35,
+        "dir": "SW"
+      },
+      {
+        "n": "Standish",
+        "m": 40,
+        "dir": "W"
+      },
+      {
+        "n": "Brunswick",
+        "m": 45,
+        "dir": "NE"
+      }
+    ],
+    "townExample": "Falmouth",
+    "slots": [
+      "7–9 AM",
+      "9–11 AM",
+      "12–2 PM",
+      "2–4 PM"
+    ],
+    "saturday": 2,
+    "visit": "about 45 minutes",
+    "addrExample": "12 Ocean Avenue",
+    "phoneExample": "(207) 555-0100",
+    "note": "On a live site we'd text the crew lead's name the evening before. Leave the gate unlatched; we bring our own ladder.",
+    "cta": "Request the inspection"
+  },
+  "footer": {
+    "fine": "Keel & Ridge Roofing is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#F26A1B"
+  }
+}

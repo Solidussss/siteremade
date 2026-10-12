@@ -1,0 +1,55 @@
+{
+  "name": "keel",
+  "category": "roofing contractor",
+  "reference": "reference/keel-original.html",
+  "referenceSha256": "e63674dbdc4fe56bde6238e86744fa2da9dfe632dfaa2acde1ef5e8049e63876",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#F26A1B",
+      "target": "theme.accent",
+      "about": "the hi-vis colour: buttons, the brand chevron, live readouts, stage ticks, the inspection scan and its tags, the map's rings and home, checked boxes and slots"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.42, 0.66] }
+    ],
+    "contrast": [
+      ["#1E0F04", "A:#F26A1B", 4.5, "button text on the accent"],
+      ["A:#A6440D", "#F2EEE6", 4.5, "small accent text on the paper"],
+      ["A:#C9520F", "#F2EEE6", 3, "the hero's accent line on the paper"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800&display=swap", "family": "Barlow Condensed" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Barlow:wght@700&display=swap", "family": "Barlow" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "display",
+      "size": [40, 15, 210],
+      "container": { "max": 1240, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

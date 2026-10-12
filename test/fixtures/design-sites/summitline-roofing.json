@@ -1,0 +1,343 @@
+{
+  "business": {
+    "name": "Summit Line Roofing"
+  },
+  "brand": {
+    "name": "Summit Line"
+  },
+  "contact": {
+    "phone": "(303) 555-0172"
+  },
+  "nav": {
+    "check": "Hail check",
+    "estimate": "Estimate",
+    "materials": "Materials",
+    "book": "Inspection",
+    "cta": "Book a hail check"
+  },
+  "hero": {
+    "eyebrow": "Summit Line Roofing · Denver, Colorado",
+    "title": "Built for hail.",
+    "titleEm": "Rated for the next one.",
+    "lede": "Class 4 roofs for the Front Range, start to finish. Scroll through a full re-roof: tear-off, new decking, ice shield, flashing, panels, ridge, and a July hailstorm.",
+    "cta": "Book a hail check",
+    "cta2": "Price my roof",
+    "hint": "Scroll to run the job"
+  },
+  "job": {
+    "ref": "SL-4107",
+    "squares": 32
+  },
+  "weather": {
+    "clear": "Clear · wind 9 mph",
+    "storm": "Hail cell · 1.5 in stones",
+    "after": "Cell passed · no dents"
+  },
+  "stages": [
+    {
+      "n": "Inspection",
+      "c": "Every slope walked and photographed, soft metals chalked for hail hits. Six problems marked for the adjuster."
+    },
+    {
+      "n": "Tear-off",
+      "c": "Old shingles and felt off to the boards, tarps on the landscaping, magnet sweep of the yard twice a day."
+    },
+    {
+      "n": "Deck",
+      "c": "Every sheet checked for give. One delaminated sheet near the valley cut out and replaced."
+    },
+    {
+      "n": "Underlayment",
+      "c": "Ice and water shield at the eaves and valleys, then high-temp synthetic over the rest, lapped from the bottom up."
+    },
+    {
+      "n": "Flashing",
+      "c": "New drip edge, step and counter flashing on the chimney, and a fresh boot on every vent pipe."
+    },
+    {
+      "n": "Roofing",
+      "c": "24-gauge panels run eave to ridge on hidden clips; every seam mechanically locked over the last."
+    },
+    {
+      "n": "Ridge",
+      "c": "Vented ridge closure so the attic breathes all summer, then the matching ridge cap over it."
+    },
+    {
+      "n": "Storm test",
+      "c": "A Front Range hailstorm is the real test. The panels ring, the water sheets off, nothing dents."
+    }
+  ],
+  "issues": [
+    "Missing tabs",
+    "Split pipe boot",
+    "Hail bruising",
+    "Loose flashing",
+    "Soft decking",
+    "Granule loss"
+  ],
+  "materials": [
+    {
+      "kind": "metal",
+      "name": "Standing-seam steel",
+      "short": "Metal",
+      "blurb": "24-gauge steel with 1.5-inch locked seams. Class 4 impact rated; hail rolls off it.",
+      "life": "50+ yrs",
+      "wind": "140 mph",
+      "warranty": "40-yr finish",
+      "weight": "120 lb/sq",
+      "price": [
+        1050,
+        1350
+      ],
+      "unit": "Panels",
+      "fasten": "Clips",
+      "colours": [
+        {
+          "name": "Charcoal",
+          "c": [
+            "#33373b"
+          ]
+        },
+        {
+          "name": "Slate Grey",
+          "c": [
+            "#6b7177"
+          ]
+        },
+        {
+          "name": "Dark Bronze",
+          "c": [
+            "#4a3a2c"
+          ]
+        },
+        {
+          "name": "Pine Green",
+          "c": [
+            "#2e4a3b"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "asphalt",
+      "name": "Impact-rated shingles",
+      "short": "Shingles",
+      "lay": "Class 4 shingles from the eave up, six nails each, joints staggered so no seam lines up with the course below.",
+      "ridge": "Ridge vent along the peak so the attic breathes, capped with matching impact-rated ridge shingles.",
+      "blurb": "SBS-modified asphalt that flexes when hail hits instead of cracking. Many insurers discount it.",
+      "life": "30 yrs",
+      "wind": "130 mph",
+      "warranty": "50-yr limited",
+      "weight": "260 lb/sq",
+      "price": [
+        520,
+        640
+      ],
+      "unit": "Bundles",
+      "fasten": "Nails",
+      "colours": [
+        {
+          "name": "Pewter",
+          "c": [
+            "#5a5d61",
+            "#4a4d51",
+            "#6b6e72",
+            "#3d4044"
+          ]
+        },
+        {
+          "name": "Mesa Brown",
+          "c": [
+            "#6a5442",
+            "#584536",
+            "#7b6450",
+            "#4a392c"
+          ]
+        },
+        {
+          "name": "Onyx",
+          "c": [
+            "#2f3134",
+            "#25272a",
+            "#3b3d41",
+            "#1d1f22"
+          ]
+        }
+      ]
+    }
+  ],
+  "check": {
+    "eyebrow": "Hail check",
+    "title": "Did the last storm get it?",
+    "sub": "Tick what you can see from the driveway or the attic. We'll tell you which way it's leaning and what we'd look at first. It's a guide, not an adjuster's report: the inspection is free either way.",
+    "symptoms": [
+      {
+        "id": "missing",
+        "label": "Missing or torn shingles",
+        "hint": "Gaps in the pattern after a wind event",
+        "check": "The seal strips on the courses around the gaps"
+      },
+      {
+        "id": "granules",
+        "label": "Grit at the downspouts",
+        "hint": "Sand-like granules washed out after hail",
+        "check": "Granule loss in hail hits, slope by slope"
+      },
+      {
+        "id": "curl",
+        "label": "Curled or cupped edges",
+        "hint": "Shingle edges lifting in the summer heat",
+        "check": "Attic ventilation, which bakes shingles from below"
+      },
+      {
+        "id": "stain",
+        "label": "A stain on a ceiling",
+        "hint": "Brown rings that grow after a storm",
+        "check": "The flashing and boots above the stain, then the decking"
+      },
+      {
+        "id": "sag",
+        "label": "A dip in the roofline",
+        "hint": "The ridge or a slope sags between rafters",
+        "check": "Rafters and decking from the attic, first"
+      },
+      {
+        "id": "light",
+        "label": "Daylight in the attic",
+        "hint": "Pinholes of light through the boards",
+        "check": "Every penetration and the ridge, from inside"
+      },
+      {
+        "id": "moss",
+        "label": "Dark streaks",
+        "hint": "Black stripes running down the slope",
+        "check": "Whether the streaks are algae or worn-through mat"
+      },
+      {
+        "id": "hail",
+        "label": "Dents on the vents or car",
+        "hint": "Dimples on gutters, vents or the car hood",
+        "check": "Bruising on the shingles and dents in the soft metals"
+      }
+    ],
+    "note": "A driveway guide only. Most hail damage is invisible from the ground.",
+    "cta": "Book the free hail check"
+  },
+  "estimate": {
+    "eyebrow": "Estimate",
+    "title": "Price the roof before we climb it.",
+    "sub": "Five answers and you'll have the range we'd quote, how many squares it takes and how long the crew is on site. Insurance claims are priced the same way.",
+    "tear": [
+      110,
+      135
+    ],
+    "cta": "Lock it in with an inspection"
+  },
+  "board": {
+    "eyebrow": "Materials board",
+    "title": "Pick it here. See it on the house.",
+    "sub": "Two impact-rated roofs, the colours we keep in the yard, and the numbers that matter. Whatever you pick goes on the house at the top of the page.",
+    "seeIt": "See it on the house"
+  },
+  "book": {
+    "eyebrow": "Free hail check",
+    "title": "Pick a morning. We bring the ladder.",
+    "sub": "About an hour on the roof and in the attic, photos of every hit, and a written quote your adjuster can read within two working days.",
+    "areaLabel": "Where we work",
+    "cover": "We cover the Denver metro and the Front Range, up to 45 minutes from the yard.",
+    "yard": "Drive times from our yard on Brighton Blvd",
+    "coast": "none",
+    "towns": [
+      {
+        "n": "Denver",
+        "m": 0
+      },
+      {
+        "n": "Aurora",
+        "m": 15,
+        "dir": "E"
+      },
+      {
+        "n": "Lakewood",
+        "m": 15,
+        "dir": "W"
+      },
+      {
+        "n": "Arvada",
+        "m": 15,
+        "dir": "NW"
+      },
+      {
+        "n": "Thornton",
+        "m": 20,
+        "dir": "N"
+      },
+      {
+        "n": "Englewood",
+        "m": 20,
+        "dir": "S"
+      },
+      {
+        "n": "Westminster",
+        "m": 20,
+        "dir": "NNW"
+      },
+      {
+        "n": "Littleton",
+        "m": 25,
+        "dir": "SSW"
+      },
+      {
+        "n": "Golden",
+        "m": 25,
+        "dir": "WNW"
+      },
+      {
+        "n": "Parker",
+        "m": 35,
+        "dir": "SE"
+      },
+      {
+        "n": "Broomfield",
+        "m": 30,
+        "dir": "NNW"
+      },
+      {
+        "n": "Brighton",
+        "m": 30,
+        "dir": "NNE"
+      },
+      {
+        "n": "Boulder",
+        "m": 40,
+        "dir": "NW"
+      },
+      {
+        "n": "Castle Rock",
+        "m": 45,
+        "dir": "S"
+      }
+    ],
+    "townExample": "Lakewood",
+    "slots": [
+      "7–9 AM",
+      "9–11 AM",
+      "1–3 PM"
+    ],
+    "saturday": 2,
+    "visit": "about an hour",
+    "addrExample": "2140 Clarkson St",
+    "phoneExample": "(303) 555-0100",
+    "note": "On a live site we'd text the inspector's name the evening before. If you've filed a claim, have the number handy.",
+    "cta": "Request the hail check"
+  },
+  "footer": {
+    "fine": "Summit Line Roofing is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#E5A50A"
+  }
+}

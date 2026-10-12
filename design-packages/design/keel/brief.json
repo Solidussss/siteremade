@@ -1,0 +1,118 @@
+{
+  "title": "Roofing contractor",
+  "fields": [
+    {
+      "key": "businessName",
+      "label": "Business name",
+      "required": true,
+      "help": "e.g. Summit Line Roofing"
+    },
+    {
+      "key": "location",
+      "label": "Where you're based",
+      "required": true,
+      "help": "Town and state or region, and the street your yard is on if you'd like it shown."
+    },
+    {
+      "key": "phone",
+      "label": "Phone for customers",
+      "required": true
+    },
+    {
+      "key": "area",
+      "label": "Towns you cover",
+      "type": "textarea",
+      "required": true,
+      "help": "The towns you work in, with roughly how far each is from your yard (Falmouth, 15 min north). Say if you're on the coast."
+    },
+    {
+      "key": "materials",
+      "label": "What you install",
+      "type": "textarea",
+      "required": true,
+      "help": "Asphalt shingles, standing-seam metal and/or cedar shake: brands or lines, colours you stock, warranties, and your installed price per square (100 sq ft) if you share it."
+    },
+    {
+      "key": "pricing",
+      "label": "Tear-off and pricing notes",
+      "type": "textarea",
+      "help": "Optional: what tear-off and disposal costs per square, anything that changes the price."
+    },
+    {
+      "key": "inspection",
+      "label": "Your inspection",
+      "type": "textarea",
+      "required": true,
+      "help": "Is it free? How long does it take, what do you check, when do quotes arrive, which days and arrival windows do you offer?"
+    },
+    {
+      "key": "process",
+      "label": "How you do a re-roof",
+      "type": "textarea",
+      "help": "Optional: tear-off, decking, underlayment, flashing, ventilation, cleanup: whatever you do that others skip."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €"
+    },
+    {
+      "key": "colours",
+      "label": "Brand colour",
+      "help": "Optional: your truck or logo colour, as a name or hex code."
+    },
+    {
+      "key": "other",
+      "label": "Anything else",
+      "type": "textarea",
+      "help": "Licences and insurance, years in business, crews, guarantees, financing."
+    }
+  ],
+  "facts": [
+    "materials.*.price.*",
+    "materials.*.life",
+    "materials.*.wind",
+    "materials.*.warranty",
+    "materials.*.weight",
+    "estimate.tear.*",
+    "book.towns.*.m",
+    "book.visit",
+    "book.sub",
+    "contact.phone",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one complete re-roof as you scroll, on a single-storey house: inspection, tear-off, deck, underlayment, flashing, roofing, ridge, and a storm test. stages are those eight in that order, each with a short name and a caption in the roofer's voice; use what the brief says they do at each step (ice and water shield, synthetic underlayment, drip edge, step flashing, ridge vent...) and nothing it does not.",
+    "issues are six short labels the inspection puts on the old roof, in this order: missing tabs, a cracked pipe boot, lifted shingles, rusted flashing, soft decking, algae or moss streaks. Reword them for the roofer, keep what each one is.",
+    "materials: only the kinds the roofer installs (asphalt shingles, standing-seam metal, cedar shake), first the one they fit most. Each has the roofer's name for it, a short label (one word: Asphalt, Metal, Cedar), a blurb, lifespan, wind rating, warranty and weight as short spec values, an installed price per square [low, high] (from the brief; if it gives none use typical local figures and list them in _assumed), the unit (Bundles for shingles or shakes, Panels for metal), the fastener (Nails, Clips) and their stocked colours. Asphalt and cedar colours are four tones each (dark to light shades of the blend, #rrggbb), metal colours one tone. lay and ridge are the roofing and ridge captions for every material after the first.",
+    "check.symptoms: the eight signs a homeowner can tick, ids missing, granules, curl, stain, sag, light, moss, hail, each with a label, a hint (what it looks like) and check (what the roofer looks at first). The scoring stays the design's.",
+    "estimate.tear: tear-off and disposal per square per layer [low, high]. book.towns: the first is the yard's own town (m 0, no dir); the rest each with drive minutes from the yard (5-45) and the compass direction (N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW). book.coast is the side the sea or a big lake is on (east, west, south) or none inland. book.townExample is one of the towns. book.cover says the area covered.",
+    "book.slots: the arrival windows offered on a weekday (e.g. 7-9 AM), book.saturday how many of those run on Saturdays (0 for none). book.visit is how long the inspection takes (about 45 minutes); book.note is what happens after a booking (it is a demo form). book.addrExample and book.phoneExample are realistic local placeholders.",
+    "hero.title and hero.titleEm are the big two-part headline (short: they wrap to four lines at most). job.ref is a job number on the ticket (two letters from the business, a dash, four digits) and job.squares the demo roof's size (20-40).",
+    "weather: three short readouts shown during the scroll: the clear morning, the storm at the end, and after it passes (they may name the local wind, a nor'easter, a monsoon...).",
+    "theme.accent is the roofer's colour, bright enough for dark button text (a hi-vis orange, yellow, red or green); theme.wordmarkFit is always \"fit\" for a new business.",
+    "business.name is set to exactly the business name in the brief and cannot be changed; brand.name is how it is set in the nav, on the dumpster and in the footer (it may be shorter, e.g. without Roofing)."
+  ],
+  "readBack": [
+    {
+      "label": "Materials",
+      "path": "materials",
+      "fields": [
+        "name",
+        "price"
+      ]
+    },
+    {
+      "label": "Service area",
+      "path": "book.towns",
+      "fields": [
+        "n",
+        "m",
+        "dir"
+      ]
+    }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}
