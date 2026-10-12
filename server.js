@@ -5925,9 +5925,14 @@ function isDesignOwner(accountId, email) {
   const link = db.identityLinks && db.identityLinks.findActiveByAccount(accountId);
   return !!(link && link.verification_method === 'lazy_provision');
 }
+// Who may use the new generator: the owner account always; every signed-in account once SITEREMADE_DESIGNS_OPEN is
+// "on" (off by default: switching the product over is the owner's decision). Customers pay in credits
+// (pricing.ACTION_CREDITS.design_generation) through the same ledger as every other generation; the owner does not.
+const DESIGNS_OPEN = String(process.env.SITEREMADE_DESIGNS_OPEN || '').trim().toLowerCase() === 'on';
 function requireDesignOwner(req, res, next) {
   if (!db.designSites) return res.status(503).json({ ok: false, message: 'Design sites are not available on this server.' });
-  if (!isDesignOwner(req.accountId, req.accountEmail)) return res.status(403).json({ ok: false, message: 'Only the SiteRemade owner account can use premium designs for now.' });
+  req.designOwner = isDesignOwner(req.accountId, req.accountEmail);
+  if (!req.designOwner && !DESIGNS_OPEN) return res.status(403).json({ ok: false, message: 'Only the SiteRemade owner account can use premium designs for now.' });
   next();
 }
 function ownDesignSite(req, res) {
@@ -5940,6 +5945,7 @@ app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); 
 // Projects: the sites made here, and every website the account saved with the classic builders (metadata only, the
 // same list the customer app shows) -- one place for all of them; a classic one opens where it is edited today
 app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId),
+  access: { owner: !!req.designOwner, cost: pricing.ACTION_CREDITS.design_generation, credits: req.designOwner ? null : creditsRemainingFor(req.accountId) },
   projects: savedWebsites.listSavedWebsites(db, req.accountId).slice(0, 100).map((p) => ({ id: p.projectId, name: p.businessName || p.name, mode: p.mode, status: p.status, updatedAt: p.updatedAt, isPurchased: p.isPurchased, open: '/?project=' + encodeURIComponent(p.projectId) })) }));
 // Export: the built site as one self-contained index.html (its fonts load from Google Fonts, as on /s/<id>)
 app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req, res) => {
@@ -5949,9 +5955,19 @@ app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req
   res.setHeader('Content-Disposition', `attachment; filename="${name}.html"`); res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(row.html);
 });
-app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
-  const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, designDeps);
-  if (r.error) return res.status(400).json({ ok: false, message: r.error });
+app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, async (req, res) => {
+  let deps = designDeps, opId = null;
+  if (!req.designOwner) {
+    // a customer: reserve the generation's credits first; settled when the writer is done, released if it fails
+    await prepareCredits(req.accountId);
+    const cost = pricing.ACTION_CREDITS.design_generation;
+    const rc = reserveCredit(req.accountId, cost, 'design_generation');
+    if (!rc.ok) return res.status(402).json({ ok: false, message: `A new website uses ${cost} credits; you have ${rc.remaining || 0}.`, credits: { needed: cost, remaining: rc.remaining || 0 } });
+    opId = rc.opId;
+    deps = Object.assign({}, designDeps, { settle: (how, usage, usd) => (how === 'commit' ? commitCredit : releaseCredit)(opId, usd, { provider: 'anthropic', inputTokens: usage.input, outputTokens: usage.output }) });
+  }
+  const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, deps);
+  if (r.error) { if (opId) releaseCredit(opId, 0); return res.status(400).json({ ok: false, message: r.error }); }
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
 app.get('/api/designs/sites/:id', requireAuth, requireDesignOwner, (req, res) => { const row = ownDesignSite(req, res); if (row) res.json({ ok: true, site: designSites.view(row) }); });
@@ -6039,5 +6055,5 @@ if (require.main === module) {
   // listen() on the REAL route table in-process (still never listens on its
   // own when required, exactly as before).
   module.exports = { app, premiumWorker, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY,
-    setDesignDeps: (d) => { designDeps = d; } }; // (tests: a recorded writer, never the paid API)
+    setDesignDeps: (d) => { designDeps = d; }, db }; // (tests: a recorded writer, never the paid API; the database to arrange credits)
 }

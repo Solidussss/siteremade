@@ -195,7 +195,7 @@ async function load() {
   D = r; home();
 }
 function signIn() {
-  $('#app').innerHTML = `<div class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Sign in<span>to the studio.</span></h1></div><p class="lede">Premium designs are open to the SiteRemade owner account for now.</p></div>
+  $('#app').innerHTML = `<div class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Sign in<span>to the studio.</span></h1></div><p class="lede">Sign in with your SiteRemade account to create, edit and publish your websites.</p></div>
   <form class="panel signin bform" id="si" style="grid-template-columns:1fr"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="button">Sign in</button></div><p class="err" id="siErr"></p></form>`;
   $('#si').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const r = await api('/api/auth/signin', { email: f.get('email'), password: f.get('password') }); if (r.ok) load(); else $('#siErr').textContent = r.message || 'Could not sign in.'; };
 }
@@ -225,19 +225,22 @@ function home() {
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();
 }
+// what a generation costs this account: the owner sees the AI estimate; a customer, the credits it uses
+function costNote() { const a = D && D.access; return !a || a.owner ? 'About a minute · roughly $0.25 of AI' : `About a minute · ${a.cost} credits (you have ${a.credits == null ? '—' : a.credits})`; }
 function pick(d, about) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
   document.querySelectorAll('.dcard').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
   $('.steps').outerHTML = steps(1);
   $('#briefBox').innerHTML = `<form class="panel" id="form"><h2>Tell us about <span>the business.</span></h2><p class="sub">Plain words are fine. Anything you leave out, the writer either asks about or flags for you to confirm. It never makes up a price.</p>
     <div class="bform">${chosen.fields.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}
-    <div class="wide actions"><button class="button" id="go">Write the ${esc(m.name)} site</button><span class="note">About a minute · roughly $0.25 of AI</span></div><p class="err wide" id="err"></p></div></form>`;
+    <div class="wide actions"><button class="button" id="go">Write the ${esc(m.name)} site</button><span class="note">${costNote()}</span></div><p class="err wide" id="err"></p></div></form>`;
   if (about && $('#form').elements.about) $('#form').elements.about.value = about;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#form').onsubmit = async (e) => {
     e.preventDefault(); const btn = $('#go'); btn.disabled = true;
     const brief = Object.fromEntries(chosen.fields.map((f) => [f.key, e.target.elements[f.key].value]));
     const r = await api('/api/designs/sites', { design: chosen.design, brief });
+    if (r.status === 402) { btn.disabled = false; $('#err').innerHTML = `${esc(r.message)} <a href="/#pricing">Get credits</a>`; return; }
     btn.disabled = false;
     if (!r.ok) { $('#err').textContent = r.message || 'Something went wrong.'; return; }
     show(r.site);
