@@ -5937,7 +5937,18 @@ function ownDesignSite(req, res) {
 }
 app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(html); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
-app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId) }));
+// Projects: the sites made here, and every website the account saved with the classic builders (metadata only, the
+// same list the customer app shows) -- one place for all of them; a classic one opens where it is edited today
+app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId),
+  projects: savedWebsites.listSavedWebsites(db, req.accountId).slice(0, 100).map((p) => ({ id: p.projectId, name: p.businessName || p.name, mode: p.mode, status: p.status, updatedAt: p.updatedAt, isPurchased: p.isPurchased, open: '/?project=' + encodeURIComponent(p.projectId) })) }));
+// Export: the built site as one self-contained index.html (its fonts load from Google Fonts, as on /s/<id>)
+app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  if (!row.html) return res.status(409).json({ ok: false, message: 'Only a finished site can be downloaded.' });
+  const name = String(row.business_name || 'website').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'website';
+  res.setHeader('Content-Disposition', `attachment; filename="${name}.html"`); res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(row.html);
+});
 app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
   const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, designDeps);
   if (r.error) return res.status(400).json({ ok: false, message: r.error });
