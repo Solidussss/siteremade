@@ -1,0 +1,258 @@
+{
+  "business": {
+    "name": "Harrow Barn"
+  },
+  "brand": {
+    "name": "Harrow Barn"
+  },
+  "contact": {
+    "phone": "01451 960384"
+  },
+  "nav": {
+    "spaces": "Spaces",
+    "price": "Prices",
+    "day": "The day",
+    "cta": "Check a date"
+  },
+  "hero": {
+    "eyebrow": "Harrow Barn · weddings, the Cotswolds",
+    "title": "One barn,",
+    "titleEm": "the whole day.",
+    "lede": "A 17th-century threshing barn for ceremonies, wedding breakfasts and dancing until midnight, all under one roof. Scroll through a day here, from the empty room to the last dance.",
+    "cta": "Check a date",
+    "cta2": "See the spaces",
+    "hint": "Scroll through the day"
+  },
+  "venue": {
+    "kind": "barn",
+    "guests": 120,
+    "seats": 10,
+    "chair": "#A07C55",
+    "linen": "#FFFFFF",
+    "flowers": [
+      "#E8B4B8",
+      "#F4E3C8",
+      "#C77F8A"
+    ]
+  },
+  "count": {
+    "candles": 48,
+    "last": "23:45",
+    "labels": [
+      "Guests",
+      "Tables",
+      "Candles",
+      "Last dance"
+    ]
+  },
+  "event": {
+    "clock": "24h"
+  },
+  "stages": [
+    {
+      "n": "The empty barn",
+      "c": "Oak beams, a flagstone floor and doors at both ends. The morning is yours to set up."
+    },
+    {
+      "n": "Set for the vows",
+      "c": "Cross-back chairs in rows, an aisle of petals and an arch of garden roses at the far end."
+    },
+    {
+      "n": "Your guests",
+      "c": "A hundred and twenty people find their seats. You walk in through the big doors."
+    },
+    {
+      "n": "The turnaround",
+      "c": "Drinks in the courtyard while our team turns the barn round, every chair to a table, in forty minutes."
+    },
+    {
+      "n": "Wedding breakfast",
+      "c": "Twelve round tables, white linen, candles and flowers from the walled garden."
+    },
+    {
+      "n": "The evening",
+      "c": "Festoon lights on, tables to the side, a dance floor in the middle until a quarter to midnight."
+    }
+  ],
+  "spaces": {
+    "eyebrow": "Spaces",
+    "title": "Three spaces,",
+    "titleEm": "one estate.",
+    "sub": "Marry in the barn or under the old cedar, eat in the barn, drink in the courtyard. Here's how many each one holds.",
+    "list": [
+      {
+        "n": "The Threshing Barn",
+        "d": "Ceremony, dinner and dancing under 400-year-old oak.",
+        "kind": "barn",
+        "layout": "tables",
+        "ceremony": 150,
+        "dinner": 140,
+        "evening": 200
+      },
+      {
+        "n": "The Cedar Lawn",
+        "d": "Vows outdoors under the old cedar, May to September.",
+        "kind": "lawn",
+        "layout": "rows",
+        "ceremony": 150,
+        "dinner": 0,
+        "evening": 0
+      },
+      {
+        "n": "The Old Dairy",
+        "d": "Drinks, canapés and a fire on cold nights.",
+        "kind": "hall",
+        "layout": "standing",
+        "ceremony": 60,
+        "dinner": 0,
+        "evening": 120
+      }
+    ],
+    "caps": [
+      "Ceremony",
+      "Dinner",
+      "Evening"
+    ]
+  },
+  "price": {
+    "eyebrow": "Prices",
+    "title": "Your date,",
+    "titleEm": "your numbers.",
+    "sub": "Pick a season, a day and roughly how many guests, and see what it costs. Exclusive use, tables, chairs and linen included.",
+    "seasons": [
+      {
+        "n": "Peak",
+        "d": "May to September",
+        "months": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "hire": [
+          6500,
+          5200,
+          4800,
+          3800
+        ]
+      },
+      {
+        "n": "Shoulder",
+        "d": "April and October",
+        "months": [
+          3,
+          9
+        ],
+        "hire": [
+          5200,
+          4200,
+          3800,
+          3000
+        ]
+      },
+      {
+        "n": "Winter",
+        "d": "November to March",
+        "months": [
+          10,
+          11,
+          0,
+          1,
+          2
+        ],
+        "hire": [
+          3900,
+          3200,
+          2900,
+          2400
+        ]
+      }
+    ],
+    "days": [
+      "Saturday",
+      "Friday",
+      "Sunday",
+      "Mon to Thu"
+    ],
+    "guests": {
+      "min": 30,
+      "max": 150,
+      "start": 100,
+      "perHead": 38
+    },
+    "words": {
+      "hire": "Exclusive hire",
+      "perGuest": "Tables, chairs, linen and staff",
+      "guests": "guests",
+      "note": "for the wedding breakfast",
+      "none": "No dates left this season.",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site our events team would reply within a day with availability."
+    },
+    "labels": {
+      "season": "Season",
+      "day": "Day",
+      "guests": "Guests",
+      "free": "Dates still free",
+      "estimate": "Your estimate",
+      "name": "Your names",
+      "email": "Your email"
+    },
+    "note": "An estimate, not a quote. We'll confirm everything in writing with your date.",
+    "nameExample": "Sam and Alex",
+    "emailExample": "sam@example.com",
+    "cta": "Ask about this date",
+    "errors": {
+      "name": "Add your names.",
+      "email": "Add an email so we can reply."
+    }
+  },
+  "day": {
+    "eyebrow": "The day",
+    "title": "How a day here",
+    "titleEm": "usually runs.",
+    "sub": "Every wedding is its own, but most follow this shape. Your coordinator will build yours with you, minute by minute.",
+    "items": [
+      {
+        "t": "11:00",
+        "n": "Getting ready",
+        "d": "Two dressing rooms in the farmhouse, with breakfast sent up."
+      },
+      {
+        "t": "13:00",
+        "n": "The ceremony",
+        "d": "In the barn, or on the lawn under the cedar."
+      },
+      {
+        "t": "14:00",
+        "n": "Drinks outside",
+        "d": "Canapés in the courtyard while we turn the barn round."
+      },
+      {
+        "t": "16:30",
+        "n": "Wedding breakfast",
+        "d": "Three courses at the long tables, speeches with pudding."
+      },
+      {
+        "t": "19:30",
+        "n": "The evening",
+        "d": "First dance, festoon lights and the bar open late."
+      },
+      {
+        "t": "23:45",
+        "n": "Carriages",
+        "d": "Last orders at 23:15, sparklers on the drive at the end."
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Harrow Barn is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#4E5B3C"
+  }
+}

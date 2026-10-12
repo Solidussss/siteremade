@@ -1,0 +1,235 @@
+{
+  "business": {
+    "name": "Willowmere Estate"
+  },
+  "brand": {
+    "name": "Willowmere"
+  },
+  "contact": {
+    "phone": "(845) 555-0127"
+  },
+  "nav": {
+    "spaces": "Spaces",
+    "price": "Pricing",
+    "day": "The day",
+    "cta": "Check a date"
+  },
+  "hero": {
+    "eyebrow": "Willowmere Estate · weddings, Hudson Valley",
+    "title": "One meadow,",
+    "titleEm": "the whole day.",
+    "lede": "A sailcloth tent on the lawn above the river, for vows, dinner and dancing until eleven. Scroll through a day here, from the empty tent to the last dance.",
+    "cta": "Check a date",
+    "cta2": "See the spaces",
+    "hint": "Scroll through the day"
+  },
+  "venue": {
+    "kind": "marquee",
+    "guests": 140,
+    "seats": 8,
+    "chair": "#E9E4D8",
+    "linen": "#F4EEE4",
+    "flowers": [
+      "#F6F1E6",
+      "#C9D6B4",
+      "#E7C9A9"
+    ]
+  },
+  "count": {
+    "candles": 72,
+    "last": "10:45 pm",
+    "labels": [
+      "Guests",
+      "Tables",
+      "Candles",
+      "Last dance"
+    ]
+  },
+  "event": {
+    "clock": "12h"
+  },
+  "stages": [
+    {
+      "n": "The empty tent",
+      "c": "Sailcloth, cedar poles and a coir floor on the lawn. The morning is yours to set up."
+    },
+    {
+      "n": "Set for the vows",
+      "c": "White chairs in rows, an aisle of petals and an arch of hydrangeas at the river end."
+    },
+    {
+      "n": "Your guests",
+      "c": "A hundred and forty people find their seats as the band plays you in."
+    },
+    {
+      "n": "The turnaround",
+      "c": "Cocktails on the terrace while our crew turns the tent around, every chair to a table."
+    },
+    {
+      "n": "Dinner",
+      "c": "Eighteen tables of eight, linen, candles and flowers cut from the estate garden."
+    },
+    {
+      "n": "The evening",
+      "c": "String lights on, tables to the side and a dance floor in the middle until a quarter to eleven."
+    }
+  ],
+  "spaces": {
+    "eyebrow": "Spaces",
+    "title": "Three spaces,",
+    "titleEm": "one estate.",
+    "sub": "Marry in the tent or by the river, eat under sailcloth, dance until eleven. Here is how many each one holds.",
+    "list": [
+      {
+        "n": "The Sailcloth Tent",
+        "d": "Dinner and dancing for up to 160, May through October.",
+        "kind": "marquee",
+        "layout": "tables",
+        "ceremony": 180,
+        "dinner": 160,
+        "evening": 220
+      },
+      {
+        "n": "The River Lawn",
+        "d": "Vows on the grass above the Hudson.",
+        "kind": "lawn",
+        "layout": "rows",
+        "ceremony": 200,
+        "dinner": 0,
+        "evening": 0
+      },
+      {
+        "n": "The Carriage House",
+        "d": "Rehearsal dinners and rainy-day cocktails.",
+        "kind": "hall",
+        "layout": "standing",
+        "ceremony": 80,
+        "dinner": 60,
+        "evening": 120
+      }
+    ],
+    "caps": [
+      "Ceremony",
+      "Dinner",
+      "Evening"
+    ]
+  },
+  "price": {
+    "eyebrow": "Pricing",
+    "title": "Your date,",
+    "titleEm": "your numbers.",
+    "sub": "Pick a season, a day and roughly how many guests, and see the price. The tent, tables, chairs and linen are included.",
+    "seasons": [
+      {
+        "n": "Peak",
+        "d": "June to October",
+        "months": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hire": [
+          18000,
+          14000,
+          13000,
+          9000
+        ]
+      },
+      {
+        "n": "Spring",
+        "d": "May only",
+        "months": [
+          4
+        ],
+        "hire": [
+          14000,
+          11000,
+          10000,
+          7500
+        ]
+      }
+    ],
+    "days": [
+      "Saturday",
+      "Friday",
+      "Sunday",
+      "Mon–Thu"
+    ],
+    "guests": {
+      "min": 50,
+      "max": 200,
+      "start": 140,
+      "perHead": 65
+    },
+    "words": {
+      "hire": "Venue rental",
+      "perGuest": "Tables, chairs, linen and staff",
+      "guests": "guests",
+      "note": "for dinner",
+      "none": "No dates left this season.",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site our events team would reply within a day with availability."
+    },
+    "labels": {
+      "season": "Season",
+      "day": "Day",
+      "guests": "Guests",
+      "free": "Dates still free",
+      "estimate": "Your estimate",
+      "name": "Your names",
+      "email": "Your email"
+    },
+    "note": "An estimate, not a quote. We'll confirm everything in writing with your date.",
+    "nameExample": "Jordan and Casey",
+    "emailExample": "jordan@example.com",
+    "cta": "Ask about this date",
+    "errors": {
+      "name": "Add your names.",
+      "email": "Add an email so we can reply."
+    }
+  },
+  "day": {
+    "eyebrow": "The day",
+    "title": "How a day here",
+    "titleEm": "usually runs.",
+    "sub": "Every wedding is its own, but most follow this shape. Your coordinator will build yours with you, minute by minute.",
+    "items": [
+      {
+        "t": "3:30 pm",
+        "n": "The ceremony",
+        "d": "On the river lawn as the light goes gold."
+      },
+      {
+        "t": "4:15 pm",
+        "n": "Cocktail hour",
+        "d": "On the terrace while we turn the tent around."
+      },
+      {
+        "t": "5:30 pm",
+        "n": "Dinner",
+        "d": "Family style at the long tables, toasts with dessert."
+      },
+      {
+        "t": "7:30 pm",
+        "n": "Dancing",
+        "d": "First dance, the band and the bar open late."
+      },
+      {
+        "t": "10:45 pm",
+        "n": "Send-off",
+        "d": "Sparklers down the drive to the cars."
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Willowmere Estate is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#3C5A55"
+  }
+}

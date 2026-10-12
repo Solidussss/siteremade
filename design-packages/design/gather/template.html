@@ -1,0 +1,505 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Karla:wght@400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a wedding and event venue. One pinned plan of the room from above through the day as you scroll (empty,
+   set for the ceremony, the guests in, the turnaround where every chair moves to a table, the wedding breakfast, the
+   evening with a dance floor and lights); then what a couple needs: the spaces and how many each holds, a price for
+   their date and numbers, and the shape of the day. */
+:root{
+  color-scheme:light;
+  --ivory:#F8F5EE;
+  --ivory-2:#EFEADF;
+  --sheet:#FFFFFF;
+  --ink:#24261F;
+  --ink-2:#55584C;
+  --muted:#8A8C7F;
+  --line:#E3DED1;
+  --accent:{{A:#4E5B3C}};       /* the venue's colour: actions, the logo, picked spaces, seasons, days and guest numbers */
+  --accent-2:{{A:#5D6C48}};
+  --accent-text:{{A:#4A5739}};
+  --accent-soft:{{A:#E6EADB}};
+  --on-accent:#FFFFFF;
+  --gold:#B89B5E;
+  --f-display:"Gilda Display",Georgia,"Times New Roman",serif;
+  --f-body:"Karla","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Azeret Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--ivory);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;line-height:1.04;letter-spacing:-.005em;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:500 11.5px/1.3 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:2px;padding:15px 24px;font:600 15px/1 var(--f-body);letter-spacing:.02em;text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.btn.ghost:hover{background:var(--sheet)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:20px;background:rgba(248,245,238,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(36,38,31,.08)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:400 25px/1 var(--f-display);white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:500 14.5px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 12.5px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 18px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
+
+/* hero: the plan */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ivory)}
+#plan{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(248,245,238,.96),rgba(248,245,238,.8) 55%,rgba(248,245,238,0));pointer-events:none}
+.hero h1{font-size:clamp(3rem,min(6.4vw,9.6vh),6.4rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:2px;box-shadow:0 22px 56px -30px rgba(36,38,31,.45),0 0 0 1px rgba(36,38,31,.06)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .clock{color:var(--accent-text)}
+.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
+.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
+.tally{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:2px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(36,38,31,.45),0 0 0 1px rgba(36,38,31,.06);overflow:hidden}
+.tally div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.tally div:nth-child(2n){border-right:0}
+.tally div:nth-child(n+3){border-bottom:0}
+.tally dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tally dd{margin:6px 0 0;font:600 26px/1 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* short laptop screens: a little less type so the copy clears the card */
+@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.4vw,8.8vh),6.4rem)}.lede{font-size:15px}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .tally{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.9fr) minmax(0,.85fr) minmax(0,.95fr) minmax(0,1.3fr);bottom:calc(204px + env(safe-area-inset-bottom,0px))}
+  .tally div{padding:9px 10px;border-bottom:0}
+  .tally div:nth-child(2n){border-right:1px solid var(--line)}
+  .tally div:last-child{border-right:0}
+  .tally dt{font-size:8px;letter-spacing:.03em}
+  .tally dd{font-size:clamp(16px,4.6vw,22px)}
+  .tally dd#kLast{white-space:normal;overflow-wrap:anywhere;line-height:1.05}
+  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
+  .card p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.6rem,5.8vw,4.8rem)}
+.head h2 em{font-style:normal;color:var(--accent-text)}
+.head p:not(.eyebrow){color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:2px}
+.lbl{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* spaces */
+.spaces{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:16px}
+.space{padding:0 0 20px;display:grid;gap:12px;align-content:start;overflow:hidden}
+.space canvas{width:100%;aspect-ratio:3/2;display:block;background:var(--ivory-2)}
+.space .in{padding:0 20px;display:grid;gap:8px}
+.space b{font:400 28px/1.1 var(--f-display)}
+.space span.d{color:var(--ink-2);font-size:15px}
+.caps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:4px}
+.caps div{background:var(--ivory);padding:8px 10px;min-width:0}
+.caps dt{font:400 9.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.caps dd{margin:2px 0 0;font:600 18px var(--f-body);font-variant-numeric:tabular-nums}
+
+/* price */
+.price{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.ask{padding:clamp(22px,3vw,30px);display:grid;gap:22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chips button{border:1px solid var(--line);background:var(--sheet);border-radius:2px;padding:10px 14px;font:600 14px var(--f-body);cursor:pointer;color:var(--ink-2);display:grid;gap:2px;text-align:left}
+.chips button small{font:400 12px var(--f-body);color:var(--muted)}
+.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.guests{display:grid;gap:8px;margin-top:8px}
+.guests input[type=range]{width:100%;accent-color:var(--accent)}
+.guests .n{font:600 34px/1 var(--f-body);font-variant-numeric:tabular-nums}
+.guests .n small{font:400 14px var(--f-body);color:var(--muted);margin-left:6px}
+.dates{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dates span{font:500 13px var(--f-mono);padding:8px 10px;background:var(--ivory);border:1px solid var(--line)}
+.quote{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px}
+.quote .big{font:600 44px/1 var(--f-body);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.quote ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:15px}
+.quote li{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:8px}
+.quote .note{font-size:13px;color:var(--muted)}
+.form{display:grid;gap:12px}
+.form input{border:1px solid var(--line);border-radius:2px;padding:12px 14px;background:var(--ivory);font-size:15px;width:100%}
+.form label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.err{color:#A3271C;font-size:14px;font-weight:700}
+.confirm{border:1px solid var(--accent);background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:500 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+
+/* the day */
+.day{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:0;border-top:1px solid var(--ink)}
+.day li{padding:22px 18px 0 0;display:grid;gap:8px;align-content:start;position:relative}
+.day li::before{content:"";position:absolute;top:-5px;left:0;width:9px;height:9px;border-radius:50%;background:var(--ink)}
+.day .t{font:500 13px var(--f-mono);color:var(--accent-text)}
+.day b{font:400 26px/1.1 var(--f-display)}
+.day span{font-size:15px;color:var(--ink-2)}
+
+footer{background:var(--ink);color:var(--ivory);padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:400 min(13vw,170px)/.95 var(--f-display);margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:{{A:#C9D3B1}}}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(248,245,238,.6)}
+.foot-row a{color:var(--ivory)}
+
+@media (max-width:980px){
+  .spaces{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .price{grid-template-columns:minmax(0,1fr)}
+  .quote{position:static}
+  .day{grid-template-columns:minmax(0,1fr) minmax(0,1fr);row-gap:28px}
+}
+@media (max-width:620px){
+  .spaces{grid-template-columns:minmax(0,1fr)}
+  .day{grid-template-columns:minmax(0,1fr);border-top:0;border-left:1px solid var(--ink);row-gap:22px}
+  .day li{padding:0 0 0 22px}
+  .day li::before{top:6px;left:-5px}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 12L14 3l11 9v13H3z" fill="none" stroke="{{A:#4E5B3C}}" stroke-width="2" stroke-linejoin="round"/><path d="M10 25v-7a4 4 0 0 1 8 0v7" fill="none" stroke="#B89B5E" stroke-width="2"/><circle cx="14" cy="10.5" r="1.6" fill="{{A:#4E5B3C}}"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#spaces">{{nav.spaces}}</a></li><li><a href="#price">{{nav.price}}</a></li><li><a href="#day">{{nav.day}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#price">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="The barn through a wedding day, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="plan" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#price">{{hero.cta}}</a><a class="btn ghost" href="#spaces">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="tally" id="tally" aria-live="off">
+      <div><dt>{{count.labels.0}}</dt><dd id="kGuests">0</dd></div>
+      <div><dt>{{count.labels.1}}</dt><dd id="kTables">0</dd></div>
+      <div><dt>{{count.labels.2}}</dt><dd id="kCandles">0</dd></div>
+      <div><dt>{{count.labels.3}}</dt><dd id="kLast">—</dd></div>
+    </dl>
+    <div class="card" id="card" aria-live="polite">
+      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="clock" id="gClock">{{$.clock0}}</span></div>
+      <h3 id="gTitle">{{stages.0.n}}</h3>
+      <p id="gText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="spaces" aria-labelledby="spaces-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{spaces.eyebrow}}</p>
+      <h2 id="spaces-h">{{spaces.title}} <em>{{spaces.titleEm}}</em></h2>
+      <p>{{spaces.sub}}</p>
+    </div>
+    <div class="spaces" id="spaceList"></div>
+  </div>
+</section>
+
+<section class="block" id="price" aria-labelledby="price-h" style="background:var(--ivory-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{price.eyebrow}}</p>
+      <h2 id="price-h">{{price.title}} <em>{{price.titleEm}}</em></h2>
+      <p>{{price.sub}}</p>
+    </div>
+    <div class="price">
+      <div class="panel ask">
+        <div><span class="lbl">{{price.labels.season}}</span><div class="chips" id="seasons" role="group" aria-label="{{price.labels.season|attr}}"></div></div>
+        <div><span class="lbl">{{price.labels.day}}</span><div class="chips" id="weekdays" role="group" aria-label="{{price.labels.day|attr}}"></div></div>
+        <div class="guests"><span class="lbl">{{price.labels.guests}}</span><div class="n" id="gN">{{price.guests.start}}<small id="gNote">{{price.words.note}}</small></div><input type="range" id="gRange" min="{{price.guests.min}}" max="{{price.guests.max}}" step="5" value="{{price.guests.start}}" aria-label="{{price.labels.guests|attr}}"></div>
+        <div><span class="lbl">{{price.labels.free}}</span><div class="dates" id="freeDates"></div></div>
+      </div>
+      <aside class="panel quote" aria-live="polite">
+        <span class="lbl">{{price.labels.estimate}}</span>
+        <div class="big" id="qTotal">{{locale.currency}}0</div>
+        <ul id="qLines"></ul>
+        <p class="note">{{price.note}}</p>
+        <form class="form" id="askForm" novalidate>
+          <label>{{price.labels.name}}<input id="fName" autocomplete="name" placeholder="{{price.nameExample|attr}}"></label>
+          <label>{{price.labels.email}}<input id="fEmail" type="email" autocomplete="email" placeholder="{{price.emailExample|attr}}"></label>
+          <button class="btn" type="submit">{{price.cta}}</button>
+          <p class="err" id="err" hidden></p>
+          <div class="confirm" id="confirm" hidden></div>
+        </form>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="day" aria-labelledby="day-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{day.eyebrow}}</p>
+      <h2 id="day-h">{{day.title}} <em>{{day.titleEm}}</em></h2>
+      <p>{{day.sub}}</p>
+    </div>
+    <ol class="day" id="dayList"></ol>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function shade(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ============ THE ROOM FROM ABOVE (drawn, shared with the space cards) ============ */
+// units: the room is 2 long (x, -1 to 1) and 1.1 wide (y, -.55 to .55); kinds: a barn (stone walls, flagstones, beams),
+// a hall (plaster, parquet, chandeliers), a marquee (canvas, poles, a coir floor) or a lawn (grass, trees, no walls)
+const KINDS={
+ barn:{out:'#DCE3CF',wall:'#B5A994',floor:'#E7DFCF',grid:'rgba(120,105,80,.12)',beam:'rgba(92,70,48,.13)'},
+ hall:{out:'#E4DED2',wall:'#D9CFBD',floor:'#D9BF96',grid:'rgba(120,80,40,.14)',beam:'rgba(255,255,255,0)'},
+ marquee:{out:'#D4DEC3',wall:'#F3F0E8',floor:'#D8C9A6',grid:'rgba(120,100,60,.1)',beam:'rgba(150,140,120,.12)'},
+ lawn:{out:'#C9D6B4',wall:'rgba(0,0,0,0)',floor:'#CBD8B5',grid:'rgba(90,120,60,.1)',beam:'rgba(0,0,0,0)'}
+};
+function room(c,kind,night){const K=KINDS[kind]||KINDS.barn;
+  c.fillStyle=K.out;c.fillRect(-1.25,-.85,2.5,1.7);
+  if(kind==='lawn'){[[-1.1,-.7,.2],[1.05,.68,.22],[-1.08,.66,.16],[1.1,-.66,.18],[.2,-.78,.14]].forEach(([x,y,r])=>{c.fillStyle='#8FA67A';c.beginPath();c.arc(x,y,r,0,7);c.fill();c.fillStyle='rgba(255,255,255,.12)';c.beginPath();c.arc(x-r*.3,y-r*.3,r*.5,0,7);c.fill();});}
+  else{c.fillStyle='#CFC6B4';c.fillRect(-.2,-.85,.4,.3);c.fillRect(-.2,.55,.4,.3);}
+  // the floor and its pattern
+  const r=kind==='marquee'?.5:kind==='lawn'?.3:0;c.fillStyle=K.floor;c.beginPath();c.roundRect(-1,-.55,2,1.1,r);c.fill();
+  c.save();c.beginPath();c.roundRect(-1,-.55,2,1.1,r);c.clip();c.strokeStyle=K.grid;c.lineWidth=.004;
+  if(kind==='hall'){for(let x=-1;x<1;x+=.08)for(let y=-.55;y<.55;y+=.08){c.beginPath();c.moveTo(x,y);c.lineTo(x+.08,y+.08);c.stroke();}}
+  else if(kind==='barn'){for(let x=-1;x<=1;x+=.12){c.beginPath();c.moveTo(x,-.55);c.lineTo(x,.55);c.stroke();}for(let y=-.55,i=0;y<=.55;y+=.1,i++){c.beginPath();c.moveTo(-1,y);c.lineTo(1,y);c.stroke();}}
+  else{for(let y=-.55;y<.55;y+=.03){c.beginPath();c.moveTo(-1,y);c.lineTo(1,y);c.stroke();}}
+  c.restore();
+  // walls, doors
+  if(kind==='barn'||kind==='hall'){c.strokeStyle=K.wall;c.lineWidth=.05;c.beginPath();c.moveTo(-.18,-.575);c.lineTo(-1.025,-.575);c.lineTo(-1.025,.575);c.lineTo(-.18,.575);c.moveTo(.18,-.575);c.lineTo(1.025,-.575);c.lineTo(1.025,.575);c.lineTo(.18,.575);c.stroke();
+    c.strokeStyle='#7A5C3E';c.lineWidth=.014;[[-.18,-1],[.18,1]].forEach(([x,s])=>{c.beginPath();c.moveTo(x,-.575);c.lineTo(x+s*.1,-.7);c.moveTo(x,.575);c.lineTo(x+s*.1,.7);c.stroke();});}
+  if(kind==='marquee'){c.strokeStyle='#E8E2D4';c.lineWidth=.03;c.beginPath();c.roundRect(-1.015,-.565,2.03,1.13,.5);c.stroke();c.fillStyle='#A99E8A';[-.5,0,.5].forEach(x=>[-.3,.3].forEach(y=>{c.beginPath();c.arc(x,y,.012,0,7);c.fill();}));}
+  if(kind==='hall'){[-.5,.1,.6].forEach(x=>{c.fillStyle=`rgba(255,226,160,${.35+.4*night})`;c.beginPath();c.arc(x,0,.05,0,7);c.fill();});}}
+// the roof's beams, laid over the plan like a cut-away
+function beams(c,kind){const K=KINDS[kind]||KINDS.barn;if(kind!=='barn'&&kind!=='marquee')return;c.strokeStyle=K.beam;c.lineWidth=kind==='barn'?.03:.012;for(let x=-.88;x<=.9;x+=.25){c.beginPath();c.moveTo(x,-.58);c.lineTo(x,.58);c.stroke();}
+  c.lineWidth=kind==='barn'?.02:.008;c.beginPath();c.moveTo(-1,0);c.lineTo(1,0);c.stroke();}
+function chair(c,x,y,a,col){c.save();c.translate(x,y);c.rotate(a);c.fillStyle=col;c.beginPath();c.roundRect(-.014,-.014,.028,.028,.006);c.fill();c.fillStyle=shade(col,-.25);c.fillRect(-.016,-.016,.032,.008);c.restore();}
+const OUTFITS=['#3E4A5C','#7A5C3E','#5E7F4E','#8C4A63','#C9A27E','#2E3A4C','#B0573A','#6B7A8F','#D8C8B0','#55623F'];
+function person(c,x,y,a,col,hair){c.save();c.translate(x,y);c.rotate(a);c.scale(1.2,1.2);c.fillStyle=col;c.beginPath();c.ellipse(0,0,.012,.02,0,0,7);c.fill();c.fillStyle=hair;c.beginPath();c.arc(.002,0,.0095,0,7);c.fill();c.restore();}
+function linen(c,x,y,r,col,k){c.save();c.globalAlpha*=k;c.fillStyle='rgba(0,0,0,.08)';c.beginPath();c.arc(x+.006,y+.008,r,0,7);c.fill();c.fillStyle=col;c.beginPath();c.arc(x,y,r,0,7);c.fill();c.restore();}
+function centre(c,x,y,flowers,k){if(k<=0)return;const g=rng(Math.round((x+2)*97+(y+2)*31));c.save();c.translate(x,y);c.scale(k,k);c.fillStyle='#6F8A5B';for(let i=0;i<6;i++){const a=g()*6.28;c.beginPath();c.ellipse(Math.cos(a)*.022,Math.sin(a)*.022,.014,.006,a,0,7);c.fill();}
+  for(let i=0;i<7;i++){const a=g()*6.28, d=g()*.02;c.fillStyle=flowers[i%flowers.length];c.beginPath();c.arc(Math.cos(a)*d,Math.sin(a)*d,.009+g()*.005,0,7);c.fill();}c.restore();}
+function candle(c,x,y,k,night,time){if(k<=0)return;c.save();c.globalAlpha*=k;if(night>0){const f=RM?1:.85+.15*Math.sin(time*9+x*40);const r=c.createRadialGradient(x,y,0,x,y,.05);r.addColorStop(0,`rgba(255,200,110,${.6*night*f})`);r.addColorStop(1,'rgba(255,200,110,0)');c.fillStyle=r;c.fillRect(x-.05,y-.05,.1,.1);}
+  c.fillStyle='#FFF4D6';c.beginPath();c.arc(x,y,.006,0,7);c.fill();c.restore();}
+// a small plan of a space for its card: the room and how it's laid out (rows, tables or standing)
+window.__venue=function(c,w,h,o){const s=Math.min(w/2.5,h/1.7);c.save();c.translate(w/2,h/2);c.scale(s,s);room(c,o.kind,0);const n=Math.min(o.n,150);
+  if(o.layout==='rows'){for(let i=0;i<n;i++){const r=Math.floor(i/10), j=i%10, side=j<5?-1:1;chair(c,.5-r*.1,side*(.1+(j%5)*.075),0,o.chair);}}
+  else if(o.layout==='tables'){const T=Math.ceil(n/10);for(let t=0;t<T;t++){const x=.5-Math.floor(t/3)*.3, y=[-.32,0,.32][t%3];linen(c,x,y,.075,o.linen,1);for(let k=0;k<10;k++){const a=k/10*Math.PI*2;chair(c,x+Math.cos(a)*.105,y+Math.sin(a)*.105,a,o.chair);}centre(c,x,y,o.flowers,1);}}
+  else{const g=rng(9);for(let i=0;i<n;i++){person(c,-.9+g()*1.8,-.48+g()*.96,g()*6.28,OUTFITS[i%OUTFITS.length],'#3A2A22');}}
+  beams(c,o.kind);c.restore();};
+
+/* ============ THE DAY (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the room and how it's dressed: its kind, guests, seats per table, chair, linen and flower colours
+const VENUE={{$.venueJs|raw}};
+// the numbers beside it
+const COUNT={{$.countJs|raw}};
+const H12={{$.h12}};
+
+/* ============ GEOMETRY ============ */
+const cv=$('#plan'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
+// the plan with its courtyard is 2.5 long and 1.7 wide; on a phone it stands on end
+function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const s=up?Math.min(w/1.7,h/2.5):Math.min(w/2.5,h/1.7);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), tl=$('#tally').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.03,W*.97],[top,tl.top-stg.top-10],true);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(tl.top,cd.top)-stg.top;
+    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}}
+
+/* ============ WHERE EVERYONE SITS ============ */
+const N=Math.min(VENUE.guests,150), SEATS=VENUE.seats, T=Math.ceil(N/SEATS);
+const ROWS=Math.ceil(N/10);
+const ROWSEAT=[...Array(N)].map((_,i)=>{const r=Math.floor(i/10), j=i%10, side=j<5?-1:1;return[.6-r*Math.min(.1,1.35/Math.max(1,ROWS)),side*(.1+(j%5)*.075),0];});
+const C=Math.ceil(T/3);
+const TABLES=[...Array(T)].map((_,t)=>[((C-1)/2-Math.floor(t/3))*.3,[-.32,0,.32][t%3]]);
+// the tables that make way for the dance floor
+const CLEAR=TABLES.map(([x,y])=>y===0&&Math.abs(x)<.31);
+const TR=SEATS>8?.075:.062, CR=TR+.03;
+const TABSEAT=[...Array(N)].map((_,i)=>{const t=Math.floor(i/SEATS), k=i%SEATS, a=k/SEATS*Math.PI*2, [x,y]=TABLES[t];return[x+Math.cos(a)*CR,y+Math.sin(a)*CR,a+Math.PI];});
+const G=rng(17);const DRESS=[...Array(N)].map(()=>({col:OUTFITS[Math.floor(G()*OUTFITS.length)],hair:['#3A2A22','#6B4A2E','#C9A46A','#1E1A18','#8A8A8A'][Math.floor(G()*5)],t:G(),door:G()<.5?-1:1,dance:G()<.55}));
+const PETALS=[...Array(60)].map(()=>[lerp(-.7,.8,G()),(G()-.5)*.07,Math.floor(G()*3),G()*6.28]);
+const BULBS=[];for(let i=0;i<5;i++){const x0=-.85+i*.42;for(let k=0;k<=10;k++){const t=k/10;BULBS.push([lerp(x0,x0+(i%2?-.2:.2),t),lerp(-.52,.52,t)]);}}
+
+/* ============ DRAWING ============ */
+function plan(c,f,time){const night=sm(seg(f[5],0,.35)), K=VENUE;
+  room(c,K.kind,night);
+  // the front: a sweetheart table for two at the far end once the room is turned
+  const arch=sm(seg(f[1],.6,1))*(1-sm(seg(f[3],.1,.3)));
+  if(arch>0){c.save();c.globalAlpha*=arch;for(let i=0;i<14;i++){const y=lerp(-.17,.17,i/13), wob=Math.sin(i*1.7)*.012;c.fillStyle='#6F8A5B';c.beginPath();c.ellipse(.88+wob,y,.022,.012,i,0,7);c.fill();c.fillStyle=K.flowers[i%K.flowers.length];c.beginPath();c.arc(.88-wob*.6,y,.012,0,7);c.fill();}c.restore();}
+  const run=sm(seg(f[1],.05,.5))*(1-sm(seg(f[3],0,.2)));if(run>0){c.save();c.fillStyle=K.linen;c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.003;const x0=lerp(.84,-.72,run);c.beginPath();c.rect(x0,-.045,.84-x0,.09);c.fill();c.stroke();c.fillStyle=shade(K.linen,-.12);c.beginPath();c.ellipse(x0,0,.012,.05,0,0,7);c.fill();c.restore();}
+  const sun=sm(seg(f[2],0,.3))*(1-sm(seg(f[3],.3,.6)));if(sun>0){c.save();c.globalAlpha*=sun;[[-1,-.55],[1,.55]].forEach(([s2,y])=>{const g=c.createLinearGradient(0,y,0,y-s2*.5);g.addColorStop(0,'rgba(255,236,190,.75)');g.addColorStop(1,'rgba(255,236,190,0)');c.fillStyle=g;c.beginPath();c.moveTo(-.18,y);c.lineTo(.18,y);c.lineTo(.32,y-s2*.5);c.lineTo(-.32,y-s2*.5);c.closePath();c.fill();});c.restore();}
+  const pet=sm(seg(f[1],.5,.9))*(1-sm(seg(f[3],0,.25)));if(pet>0){c.save();c.globalAlpha*=pet*.8;PETALS.forEach(([x,y,ci,a])=>{c.fillStyle=K.flowers[ci];c.beginPath();c.ellipse(x,y,.007,.004,a,0,7);c.fill();});c.restore();}
+  // the turnaround: chairs travel from their rows to the tables
+  const turn=f[3], tables=sm(seg(turn,.2,.6)), dressed=sm(seg(f[4],0,.5)), clearMid=sm(seg(f[5],.15,.6));
+  TABLES.forEach(([x,y],t)=>{const gone=CLEAR[t]?clearMid:0;const k=tables*(1-gone);if(k<=0)return;linen(c,x,y,TR*k,shade(K.linen,-.06),1);if(dressed>0)linen(c,x,y,(TR+.01)*k,K.linen,dressed);});
+  for(let i=0;i<N;i++){const app=sm(seg(f[1],(i/N)*.55,(i/N)*.55+.3));if(app<=0)continue;const ch=sm(seg(turn,.25+(i%SEATS)/SEATS*.15+Math.floor(i/SEATS)/T*.2,.5+(i%SEATS)/SEATS*.15+Math.floor(i/SEATS)/T*.2));
+    const A=ROWSEAT[i], B=TABSEAT[i];const t=Math.floor(i/SEATS), gone=CLEAR[t]?clearMid:0;
+    const x=lerp(A[0],B[0],ch), y=lerp(A[1],B[1],ch)-Math.sin(ch*Math.PI)*.06, a=lerp(A[2],B[2],ch);c.save();c.globalAlpha*=app*(1-gone);chair(c,x,y,a,K.chair);c.restore();}
+  // place settings, flowers and candles on the tables
+  let candles=0;if(dressed>0)TABLES.forEach(([x,y],t)=>{const gone=CLEAR[t]?clearMid:0;if(gone>=1)return;c.save();c.globalAlpha*=1-gone;
+    for(let k=0;k<SEATS;k++){const a=k/SEATS*Math.PI*2;c.fillStyle='rgba(255,255,255,.95)';c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.002;c.beginPath();c.arc(x+Math.cos(a)*(TR-.016),y+Math.sin(a)*(TR-.016),.011*dressed,0,7);c.fill();c.stroke();}
+    centre(c,x,y,K.flowers,sm(seg(f[4],.2+t/T*.3,.5+t/T*.3)));const ck=sm(seg(f[4],.35+t/T*.3,.65+t/T*.3));[[.035,.0],[-.035,0],[0,.035],[0,-.035]].forEach(([dx,dy])=>{candle(c,x+dx,y+dy,ck,Math.max(.25,night),time);});candles+=Math.round(4*ck);c.restore();});
+  // the dance floor
+  const df=sm(seg(f[5],.4,.8));if(df>0){c.save();c.globalAlpha*=df;for(let i=0;i<7;i++)for(let j=0;j<4;j++){c.fillStyle=(i+j)%2?'#7A5C44':'#8E6C50';c.fillRect(-.315+i*.09,-.18+j*.09,.09,.09);}c.strokeStyle='rgba(60,40,25,.5)';c.lineWidth=.006;c.strokeRect(-.315,-.18,.63,.36);c.restore();}
+  // guests: in through the doors to their seats, out for drinks, back for dinner, onto the floor
+  const inK=f[2], outK=sm(seg(turn,0,.25)), backK=sm(seg(f[4],.4,.9));
+  for(let i=0;i<N;i++){const L=DRESS[i];let x,y,a,show=0;
+    const arrive=sm(seg(inK,L.t*.7,L.t*.7+.3));
+    if(arrive>0&&outK<1){const A=ROWSEAT[i];const dx=0, dy=L.door*.75;const k=arrive;x=lerp(dx,A[0],k);y=lerp(dy,A[1],k);if(k<1){x=lerp(dx,A[0],sm(seg(k,.4,1)));y=lerp(dy,A[1],sm(seg(k,0,.6)));}a=k<1?Math.atan2(A[1]-dy,A[0]-dx):0;show=Math.min(1,k*3)*(1-outK);if(outK>0){y=lerp(y,L.door*.75,outK);x=lerp(x,0,outK);}}
+    if(backK>0){const B=TABSEAT[i];x=B[0];y=B[1];a=B[2];show=backK;const t=Math.floor(i/SEATS), gone=CLEAR[t];
+      if(df>0&&(L.dance||gone)){const g=rng(i*7+3);const tx=-.28+g()*.56+(RM?0:Math.sin(time*2+i)*.01), ty=-.15+g()*.3+(RM?0:Math.cos(time*2.3+i)*.01);x=lerp(x,tx,df);y=lerp(y,ty,df);a=lerp(a,g()*6.28,df);}}
+    if(show>0){c.save();c.globalAlpha*=show;person(c,x,y,a,L.col,L.hair);c.restore();}}
+  // the couple: at the arch, at their table, then the first dance
+  const two=sm(seg(f[3],.5,.9))*(1-df);if(two>0){c.save();c.globalAlpha*=two;c.fillStyle=VENUE.linen;c.strokeStyle='rgba(0,0,0,.1)';c.lineWidth=.003;c.beginPath();c.roundRect(.86,-.07,.06,.14,.01);c.fill();c.stroke();centre(c,.89,0,VENUE.flowers,.8);c.restore();}
+  const cp=sm(seg(f[2],.75,1));if(cp>0){c.save();c.globalAlpha*=cp;let cx=.82,cy=0;if(f[3]>0){cx=lerp(.82,.8,sm(f[3]));}if(df>0){cx=lerp(cx,0,df);cy=0;}c.translate(cx,cy);c.scale(1.5,1.5);c.translate(-cx,-cy);
+    const spin=df>0&&!RM?time*.8:0;const ox=Math.cos(spin)*.016, oy=Math.sin(spin)*.016;c.fillStyle='#FFFFFF';c.strokeStyle='rgba(0,0,0,.15)';c.lineWidth=.003;c.beginPath();c.ellipse(cx+ox,cy-.02+oy,.02,.026,0,0,7);c.fill();c.stroke();c.fillStyle='#6B4A2E';c.beginPath();c.arc(cx+ox,cy-.02+oy,.009,0,7);c.fill();
+    person(c,cx-ox,cy+.022-oy,0,'#2E3A4C','#3A2A22');c.restore();}
+  beams(c,K.kind);
+  // evening: the room goes dark and warm, lights strung across
+  if(night>0){c.save();c.globalAlpha*=night*.82;c.fillStyle='#121726';c.beginPath();c.rect(-1.3,-.9,2.6,1.8);c.roundRect(-1,-.55,2,1.1,VENUE.kind==='marquee'?.5:VENUE.kind==='lawn'?.3:0);c.fill('evenodd');c.restore();
+    c.save();c.globalAlpha*=night*.32;c.fillStyle='#3A2412';c.beginPath();c.roundRect(-1,-.55,2,1.1,VENUE.kind==='marquee'?.5:VENUE.kind==='lawn'?.3:0);c.fill();c.restore();
+    if(df>0){c.save();c.globalAlpha*=night*df;const r=c.createRadialGradient(0,0,0,0,0,.45);r.addColorStop(0,'rgba(255,214,150,.35)');r.addColorStop(1,'rgba(255,214,150,0)');c.fillStyle=r;c.fillRect(-.5,-.5,1,1);c.restore();}
+    c.save();c.globalAlpha*=night;c.strokeStyle='rgba(40,36,30,.6)';c.lineWidth=.003;for(let i=0;i<5;i++){c.beginPath();BULBS.slice(i*11,i*11+11).forEach(([x,y],k)=>k?c.lineTo(x,y):c.moveTo(x,y));c.stroke();}
+    BULBS.forEach(([x,y],i)=>{const tw=RM?1:.8+.2*Math.sin(time*3+i);const r=c.createRadialGradient(x,y,0,x,y,.06);r.addColorStop(0,`rgba(255,214,140,${.5*tw})`);r.addColorStop(1,'rgba(255,214,140,0)');c.fillStyle=r;c.fillRect(x-.06,y-.06,.12,.12);c.fillStyle='#FFE7B0';c.beginPath();c.arc(x,y,.007,0,7);c.fill();});c.restore();}
+  return candles;}
+
+/* ============ HUD ============ */
+const CLOCK=[[0,10],[.14,11.5],[.3,13],[.46,14.5],[.64,16.5],[.82,19.5],[1,23.75]];
+function hourAt(p){for(let i=1;i<CLOCK.length;i++){if(p<=CLOCK[i][0]){const a=CLOCK[i-1],b=CLOCK[i];return lerp(a[1],b[1],(p-a[0])/(b[0]-a[0]));}}return 23.75;}
+function clock(h){const m=Math.round(h*60/5)*5, hh=Math.floor(m/60)%24, mm=String(m%60).padStart(2,'0');return H12?`${(hh+11)%12+1}:${mm} ${hh<12?'am':'pm'}`:`${String(hh).padStart(2,'0')}:${mm}`;}
+let shown=-1;
+function hud(p,f,candles){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  $('#gClock').textContent=clock(hourAt(p));$('#kGuests').textContent=Math.round(VENUE.guests*sm(f[2]));$('#kTables').textContent=Math.round(T*sm(seg(f[3],.2,.6)));
+  $('#kCandles').textContent=Math.round(COUNT.candles*sm(seg(f[4],.35,.95)));$('#kLast').textContent=p>=STAGES[5].w[0]?COUNT.last:'—';}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F8F5EE';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  ctx.save();ctx.translate(X,Y);if(mobile)ctx.rotate(-Math.PI/2);ctx.scale(S,S);
+  ctx.save();ctx.shadowColor='rgba(36,38,31,.22)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#DCE3CF';ctx.beginPath();ctx.roundRect(-1.25,-.85,2.5,1.7,.04);ctx.fill();ctx.restore();
+  ctx.save();ctx.beginPath();ctx.roundRect(-1.25,-.85,2.5,1.7,.04);ctx.clip();const candles=plan(ctx,f,time);ctx.restore();
+  ctx.restore();ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,candles);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ SPACES ============ */
+// each space: name, a line, what it is (barn, hall, marquee or lawn), how it's shown laid out, and how many it holds
+const SPACES=[
+{{$.spacesJs|raw}}
+];
+const CAPS={{$.capsJs|raw}};
+const LOOK={{$.lookJs|raw}};
+$('#spaceList').style.setProperty('--n',Math.min(3,SPACES.length));
+$('#spaceList').innerHTML=SPACES.map(s=>`<div class="panel space"><canvas aria-hidden="true"></canvas><div class="in"><b>${esc(s.n)}</b><span class="d">${esc(s.d)}</span><dl class="caps">${[s.ceremony,s.dinner,s.evening].map((v,i)=>`<div><dt>${esc(CAPS[i])}</dt><dd>${v||'—'}</dd></div>`).join('')}</dl></div></div>`).join('');
+function drawSpaces(){$('#spaceList').querySelectorAll('canvas').forEach((c,i)=>{const s=SPACES[i], w=c.clientWidth||360, h=c.clientHeight||240, d=Math.min(devicePixelRatio||1,2);c.width=Math.round(w*d);c.height=Math.round(h*d);const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);
+  if(window.__venue)window.__venue(x,w,h,{kind:s.kind,layout:s.layout,n:s.layout==='rows'?s.ceremony:s.layout==='tables'?s.dinner:Math.min(80,s.evening),...LOOK});});}
+
+/* ============ PRICES ============ */
+// seasons (the months they cover, 0 is January) with exclusive hire for each kind of day, and the price per guest
+const SEASONS=[
+{{$.seasonsJs|raw}}
+];
+const DAYS={{$.daysJs|raw}};
+const GUESTS={{$.guestsJs|raw}};
+// the words the estimate and the request use
+const WORDS={{$.wordsJs|raw}};
+const DOWS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let se=0, dy=0, n=GUESTS.start;
+$('#seasons').innerHTML=SEASONS.map((s,i)=>`<button type="button" aria-pressed="${i===se}" data-i="${i}">${esc(s.n)}<small>${esc(s.d)}</small></button>`).join('');
+$('#weekdays').innerHTML=DAYS.map((d,i)=>`<button type="button" aria-pressed="${i===dy}" data-i="${i}">${esc(d.n)}</button>`).join('');
+const R=$('#gRange');R.min=GUESTS.min;R.max=GUESTS.max;R.value=n;
+// the next free dates for that season and day (the same ones each visit)
+function free(){const out=[], d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+60);for(let i=0;i<730&&out.length<6;i++){d.setDate(d.getDate()+1);
+  if(!SEASONS[se].months.includes(d.getMonth())||!DAYS[dy].dow.includes(d.getDay()))continue;let s=(d.getFullYear()*400+d.getMonth()*31+d.getDate())*16807%2147483647;s=s*16807%2147483647;if(s/2147483647<.45)continue;out.push(new Date(d));}return out;}
+function quote(){const hire=SEASONS[se].hire[dy], per=n*GUESTS.perHead;$('#gN').innerHTML=`${n}<small>${esc(WORDS.note)}</small>`;
+  $('#qTotal').textContent=money(hire+per);$('#qLines').innerHTML=`<li><span>${esc(WORDS.hire)} · ${esc(DAYS[dy].n)}, ${esc(SEASONS[se].n.toLowerCase())}</span><span>${money(hire)}</span></li><li><span>${esc(WORDS.perGuest)} · ${n} × ${money(GUESTS.perHead)}</span><span>${money(per)}</span></li>`;
+  const F=free();$('#freeDates').innerHTML=F.length?F.map(d=>`<span>${DOWS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}</span>`).join(''):`<span>${esc(WORDS.none)}</span>`;}
+$('#seasons').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;se=+b.dataset.i;press($('#seasons'),b);quote();});
+$('#weekdays').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;dy=+b.dataset.i;press($('#weekdays'),b);quote();});
+R.addEventListener('input',()=>{n=+R.value;quote();});
+$('#askForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
+  if(!nm)return fail({{price.errors.name|js}},$('#fName'));
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{price.errors.email|js}},$('#fEmail'));
+  err.hidden=true;const c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${esc(DAYS[dy].n)}, ${esc(SEASONS[se].n.toLowerCase())}, ${n} ${esc(WORDS.guests)}, about ${esc($('#qTotal').textContent)}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+
+/* ============ THE DAY ============ */
+const DAY=[
+{{$.dayJs|raw}}
+];
+$('#dayList').style.setProperty('--n',DAY.length);
+$('#dayList').innerHTML=DAY.map(s=>`<li><span class="t">${esc(s.t)}</span><b>${esc(s.n)}</b><span>${esc(s.d)}</span></li>`).join('');
+
+drawSpaces();quote();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawSpaces);
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawSpaces,120);});
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,40 @@
+{
+  "title": "Wedding or event venue",
+  "fields": [
+    { "key": "businessName", "label": "Venue name", "required": true, "help": "e.g. Harrow Barn" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town, county or region." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "venue", "label": "The venue", "help": "Barn, hall, marquee or garden; how many it seats; your chairs, linen and flowers." },
+    { "key": "spaces", "label": "Spaces and capacities", "type": "textarea", "required": true, "help": "Each space with how many it holds for a ceremony, dinner and the evening." },
+    { "key": "prices", "label": "Prices", "type": "textarea", "required": true, "help": "Hire by season and day of the week, the price per guest, and the guest range." },
+    { "key": "day", "label": "How a day runs", "type": "textarea", "help": "The usual timings: ceremony, drinks, dinner, evening, carriages." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo or signage colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "spaces.list.*.ceremony",
+    "spaces.list.*.dinner",
+    "spaces.list.*.evening",
+    "price.seasons.*.hire.*",
+    "price.guests.perHead",
+    "price.guests.min",
+    "price.guests.max",
+    "day.items.*.t",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "venue: the main room as the nearest kind (barn, hall, marquee or lawn), how many it seats for the day (30 to 150 drawn), 8 or 10 per round table, and the chair, linen and three flower colours the venue uses. Write the six stages for that room in the venue's voice.",
+    "count: candles lit at dinner (about four a table), the time of the last dance, and the four labels. event.clock is 12h in the US, otherwise 24h.",
+    "spaces.list: the brief's spaces with their capacities exactly (0 where a space isn't used for that part of the day), each drawn as the nearest kind and laid out as it's mostly used (rows, tables or standing).",
+    "price: the brief's seasons and months, hire for a Saturday, Friday, Sunday and a weekday in that order (with the venue's own names for those days), the guest range, the start of the slider and the price per guest, all from the brief. The request is a demo: nothing is sent.",
+    "day.items: the brief's timings, or a usual day for this kind of venue.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); section titles have a second half. theme.accent is the venue's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Spaces", "path": "spaces.list", "fields": ["n", "ceremony", "dinner", "evening"] },
+    { "label": "Seasons", "path": "price.seasons", "fields": ["n", "hire"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

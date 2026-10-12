@@ -1,0 +1,64 @@
+{
+  "name": "gather",
+  "category": "wedding or event venue",
+  "reference": "reference/gather-original.html",
+  "referenceSha256": "e67183113ac9a562f6d2b8ecce2beac433fd1d93f25ad04dca192262ddfce861",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#4E5B3C",
+      "target": "theme.accent",
+      "about": "the venue's colour: buttons, the logo, picked seasons, days and the guest slider, the footer's mark"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.45] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#4E5B3C", 4.5, "button text on the accent"],
+      ["A:#4A5739", "#F8F5EE", 4.5, "accent text on the page"],
+      ["A:#4A5739", "#EFEADF", 4.5, "accent text on the tinted section"],
+      ["#24261F", "A:#E6EADB", 4.5, "text on a picked option"],
+      ["A:#C9D3B1", "#24261F", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.005em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Gilda+Display&display=swap", "family": "Gilda Display" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Gilda+Display&display=swap", "family": "Gilda Display" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family};letter-spacing:.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Karla:wght@600&display=swap", "family": "Karla" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 13, 170],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
