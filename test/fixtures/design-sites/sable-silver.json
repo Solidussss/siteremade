@@ -1,0 +1,227 @@
+{
+  "business": {
+    "name": "Sable & Silver Photography"
+  },
+  "brand": {
+    "name": "Sable & Silver"
+  },
+  "contact": {
+    "phone": "(212) 555-0187"
+  },
+  "nav": {
+    "sessions": "Collections",
+    "process": "The process",
+    "book": "Availability",
+    "cta": "Your date"
+  },
+  "hero": {
+    "eyebrow": "Sable & Silver · black and white weddings, New York",
+    "title": "Light, shadow,",
+    "titleEm": "and the two of you.",
+    "lede": "Timeless black and white wedding photography across New York and beyond. Scroll and watch one portrait lit, light by light, to the frame we print.",
+    "cta": "Check your date",
+    "cta2": "Collections",
+    "hint": "Scroll to light the frame"
+  },
+  "shot": {
+    "aperture": "f/2",
+    "shutter": "1/250",
+    "iso": "ISO 200",
+    "ratio": "4:1",
+    "frames": 1840,
+    "keep": 600,
+    "subject": "portrait",
+    "look": "mono",
+    "caption": "Frame 1102 · Brooklyn",
+    "product": {
+      "name": "No. 7",
+      "line": "Small batch"
+    }
+  },
+  "stages": [
+    {
+      "n": "The dark",
+      "c": "A black backdrop and no light at all. Every light that follows is a choice."
+    },
+    {
+      "n": "Key light",
+      "c": "One window-soft key from the left, shaping the face the way north light does."
+    },
+    {
+      "n": "Fill",
+      "c": "Just enough fill to keep detail in the shadows, at a dramatic four to one."
+    },
+    {
+      "n": "Rim light",
+      "c": "A hard light behind, tracing the hair and shoulder in silver."
+    },
+    {
+      "n": "Background",
+      "c": "A pool of light on the backdrop, so the profile floats."
+    },
+    {
+      "n": "The print",
+      "c": "Toned in black and white, printed on fibre paper, signed."
+    }
+  ],
+  "sessions": {
+    "eyebrow": "Collections",
+    "title": "Three ways",
+    "titleEm": "to remember it.",
+    "sub": "Every collection includes a planning call, the day, hand editing in black and white and a private gallery. Color versions on request.",
+    "kinds": [
+      {
+        "n": "Weddings",
+        "line": "From the first look to the last dance, unposed and quietly present.",
+        "tiers": [
+          {
+            "n": "Elopement",
+            "p": 2400,
+            "from": false,
+            "time": "3 hours",
+            "photos": "200",
+            "items": [
+              "City Hall or anywhere in the city",
+              "Around 200 photos",
+              "Sneak peek in 48 hours"
+            ],
+            "tag": ""
+          },
+          {
+            "n": "The day",
+            "p": 5800,
+            "from": false,
+            "time": "9 hours",
+            "photos": "700",
+            "items": [
+              "Getting ready to the last dance",
+              "Around 700 photos",
+              "A second photographer"
+            ],
+            "tag": "Most booked"
+          },
+          {
+            "n": "The weekend",
+            "p": 8900,
+            "from": true,
+            "time": "2 days",
+            "photos": "1,100",
+            "items": [
+              "Rehearsal dinner and the day",
+              "A fine-art album",
+              "Signed silver gelatin prints"
+            ],
+            "tag": ""
+          }
+        ]
+      },
+      {
+        "n": "Engagements",
+        "line": "An hour together somewhere in the city that is yours.",
+        "tiers": [
+          {
+            "n": "City hour",
+            "p": 650,
+            "from": false,
+            "time": "1 hour",
+            "photos": "60",
+            "items": [
+              "One neighborhood",
+              "Around 60 photos"
+            ],
+            "tag": ""
+          },
+          {
+            "n": "Golden hour",
+            "p": 950,
+            "from": false,
+            "time": "2 hours",
+            "photos": "120",
+            "items": [
+              "Two places",
+              "Around 120 photos",
+              "A signed print"
+            ],
+            "tag": "Most booked"
+          }
+        ]
+      }
+    ],
+    "start": {
+      "kind": 0,
+      "tier": 1
+    }
+  },
+  "process": {
+    "eyebrow": "The process",
+    "title": "From hello",
+    "titleEm": "to your album.",
+    "sub": "What happens and when, from the first email to the album on your shelf.",
+    "steps": [
+      {
+        "when": "Within a day",
+        "b": "A reply",
+        "s": "A real email back, and a call if you want one."
+      },
+      {
+        "when": "Two months out",
+        "b": "The plan",
+        "s": "A timeline built around the light on your day."
+      },
+      {
+        "when": "The day",
+        "b": "The wedding",
+        "s": "Present but invisible, from morning to night."
+      },
+      {
+        "when": "72 hours after",
+        "b": "A first look",
+        "s": "Twenty favourites to share right away."
+      },
+      {
+        "when": "Six weeks after",
+        "b": "Your gallery",
+        "s": "Every keeper, toned by hand."
+      }
+    ],
+    "delivers": [
+      {
+        "k": "72 h",
+        "s": "Your first twenty photos"
+      },
+      {
+        "k": "6 weeks",
+        "s": "Every photo, toned by hand"
+      },
+      {
+        "k": "Archival",
+        "s": "Prints that outlast us"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Availability",
+    "title": "Is your date still open?",
+    "sub": "Most couples book a year ahead. Pick your date to hold it for 48 hours, no retainer until you are sure.",
+    "lead": 60,
+    "closed": [
+      1,
+      2
+    ],
+    "formTitle": "Hold your date",
+    "pickPrompt": "Pick your date",
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "noteExample": "Venue, guest count, anything we should know",
+    "cta": "Hold my date"
+  },
+  "footer": {
+    "fine": "Sable & Silver Photography is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#3A4150"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "northlight",
+  "category": "photographer",
+  "reference": "reference/northlight-original.html",
+  "referenceSha256": "c8e4096d5d2aa13c074880e7a4d185926eea5d53339567eba484e4ba907e6258",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#B3261E",
+      "target": "theme.accent",
+      "about": "the photographer's colour: the main buttons, the logo's dot, the focus point and record light, the lights' edges in the diagram, the italic lines, the picked session's tag and the calendar's last-date dots"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#B3261E", 4.5, "button text on the accent"],
+      ["A:#A32019", "#F4F2EE", 4.5, "accent text on the page"],
+      ["A:#A32019", "#EAE7E1", 4.5, "accent text on the tinted section"],
+      ["A:#A32019", "A:#F6E3E0", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap", "family": "Instrument Serif" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap", "family": "Instrument Serif" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family};letter-spacing:.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Geist:wght@600&display=swap", "family": "Geist" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 18, 240],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Photographer",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Northlight Studio" },
+    { "key": "location", "label": "Where you're based", "required": true, "help": "Town or city, and how far you travel." },
+    { "key": "phone", "label": "Phone for clients", "required": true },
+    { "key": "work", "label": "What you shoot", "required": true, "help": "Portraits, weddings, families, brands, products, events. Your look: warm, black and white, cool and clean." },
+    { "key": "packages", "label": "Packages and prices", "type": "textarea", "required": true, "help": "For each kind of shoot: package names, prices, time, how many photos and what's included." },
+    { "key": "process", "label": "How a booking goes", "type": "textarea", "help": "From first call to gallery: what happens and when, and how fast photos are delivered." },
+    { "key": "dates", "label": "Availability", "help": "How far ahead people need to book, and days you don't shoot." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: one colour for buttons and highlights." }
+  ],
+  "facts": [
+    "contact.phone",
+    "sessions.kinds.*.tiers.*.p",
+    "sessions.kinds.*.tiers.*.photos",
+    "process.delivers.*.k",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero lights one frame in the studio, light by light: the backdrop in the dark, the key light, fill, rim light, background light, then the shot and the finished print, beside a lighting diagram. shot.subject: portrait for portrait, wedding, family or brand photographers; product for product photographers (then product.name and product.line are what the bottle's label says, from the brief or a plausible product of theirs). shot.look: warm, mono if the brief's style is black and white, cool for clean commercial work.",
+    "shot settings are plausible for the subject (portrait f/2.8 1/200; product f/8 1/125); ratio like 3:1; frames and keepers for a typical shoot; the caption names the frame and place.",
+    "Write the six stages for that subject, keeping the order (backdrop, key, fill, rim, background, the frame).",
+    "sessions.kinds: the brief's kinds of shoot (one to four), each with one to three packages exactly as priced in the brief: name, price, time, photos delivered, up to five inclusions and an optional short tag on the one most booked. Use from: true only when the brief says 'from'. sessions.start picks the kind and package shown first.",
+    "process: the brief's steps from enquiry to gallery with when each happens; delivers: up to three short numbers that matter (48 h, 2 weeks). Never promise delivery times the brief doesn't give.",
+    "book.lead: how far ahead a date can be held, in days; book.closed: days the photographer never shoots. The calendar is a demo: nothing is held.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); the section titles have an italic second half (titleEm). theme.accent is one strong colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Sessions", "path": "sessions.kinds", "fields": ["n"] },
+    { "label": "Timeline", "path": "process.steps", "fields": ["when", "b"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

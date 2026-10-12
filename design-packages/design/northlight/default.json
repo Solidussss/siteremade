@@ -1,0 +1,272 @@
+{
+  "business": {
+    "name": "Northlight Studio"
+  },
+  "brand": {
+    "name": "Northlight"
+  },
+  "contact": {
+    "phone": "0131 496 0822"
+  },
+  "nav": {
+    "sessions": "Sessions",
+    "process": "How it works",
+    "book": "Dates",
+    "cta": "Check a date"
+  },
+  "hero": {
+    "eyebrow": "Northlight · portrait & wedding photography, Edinburgh",
+    "title": "It's all in",
+    "titleEm": "the light.",
+    "lede": "Portraits, weddings and brand shoots, lit with care and edited by hand. Scroll and watch one portrait built, light by light, to the frame we keep.",
+    "cta": "Check a date",
+    "cta2": "Sessions",
+    "hint": "Scroll to light the shot"
+  },
+  "shot": {
+    "aperture": "f/2.8",
+    "shutter": "1/200",
+    "iso": "ISO 100",
+    "ratio": "3:1",
+    "frames": 214,
+    "keep": 40,
+    "subject": "portrait",
+    "look": "warm",
+    "caption": "Frame 214 · Edinburgh",
+    "product": {
+      "name": "No. 7",
+      "line": "Small batch"
+    }
+  },
+  "stages": [
+    {
+      "n": "The backdrop",
+      "c": "A grey paper roll, three metres back. Everything starts in the dark so every light earns its place."
+    },
+    {
+      "n": "Key light",
+      "c": "A big softbox up and to the left, the classic forty-five degrees. It shapes the face."
+    },
+    {
+      "n": "Fill",
+      "c": "A white bounce on the right lifts the shadows to a gentle three to one."
+    },
+    {
+      "n": "Rim light",
+      "c": "A strip light behind, just catching the hair and shoulder, to lift you off the backdrop."
+    },
+    {
+      "n": "Background",
+      "c": "A soft glow on the paper behind, so the eye goes straight to the face."
+    },
+    {
+      "n": "The frame",
+      "c": "Two hundred frames, forty keepers, every one edited by hand. This is the one for the wall."
+    }
+  ],
+  "sessions": {
+    "eyebrow": "Sessions",
+    "title": "Pick the shoot.",
+    "titleEm": "See the price.",
+    "sub": "Every session includes planning, the shoot, hand editing and a private online gallery. Prices are for the whole thing, no add-ons you didn't ask for.",
+    "kinds": [
+      {
+        "n": "Portraits",
+        "line": "Headshots, couples and portraits in the studio or somewhere that means something to you.",
+        "tiers": [
+          {
+            "n": "Mini",
+            "p": 195,
+            "from": false,
+            "time": "45 min",
+            "photos": "15",
+            "items": [
+              "One look, studio or outdoors",
+              "Fifteen edited photos",
+              "Online gallery for a year"
+            ],
+            "tag": ""
+          },
+          {
+            "n": "Classic",
+            "p": 395,
+            "from": false,
+            "time": "2 hours",
+            "photos": "40",
+            "items": [
+              "Up to three looks",
+              "Forty edited photos",
+              "A print of your favourite"
+            ],
+            "tag": "Most booked"
+          },
+          {
+            "n": "Story",
+            "p": 695,
+            "from": false,
+            "time": "Half day",
+            "photos": "80",
+            "items": [
+              "Studio and a location",
+              "Eighty edited photos",
+              "A hand-made album"
+            ],
+            "tag": ""
+          }
+        ]
+      },
+      {
+        "n": "Weddings",
+        "line": "Quiet, unposed coverage of the whole day, from getting ready to the first dance.",
+        "tiers": [
+          {
+            "n": "Ceremony",
+            "p": 950,
+            "from": false,
+            "time": "4 hours",
+            "photos": "250",
+            "items": [
+              "Ceremony and portraits",
+              "Around 250 edited photos",
+              "Sneak peek in 48 hours"
+            ],
+            "tag": ""
+          },
+          {
+            "n": "Full day",
+            "p": 1850,
+            "from": false,
+            "time": "10 hours",
+            "photos": "600",
+            "items": [
+              "Morning to first dance",
+              "Around 600 edited photos",
+              "A pre-wedding shoot"
+            ],
+            "tag": "Most booked"
+          },
+          {
+            "n": "Two days",
+            "p": 2650,
+            "from": true,
+            "time": "2 days",
+            "photos": "900",
+            "items": [
+              "Welcome night and the day",
+              "A second photographer",
+              "A fine-art album"
+            ],
+            "tag": ""
+          }
+        ]
+      },
+      {
+        "n": "Brand",
+        "line": "Photos for your website and socials: you, your team, your space and your work.",
+        "tiers": [
+          {
+            "n": "Headshots",
+            "p": 295,
+            "from": false,
+            "time": "2 hours",
+            "photos": "Team",
+            "items": [
+              "Up to six people",
+              "Three edited photos each",
+              "Matched to your brand"
+            ],
+            "tag": ""
+          },
+          {
+            "n": "Brand day",
+            "p": 950,
+            "from": false,
+            "time": "Full day",
+            "photos": "120",
+            "items": [
+              "People, space and product",
+              "120 edited photos",
+              "Licensed for web and print"
+            ],
+            "tag": "Most booked"
+          }
+        ]
+      }
+    ],
+    "start": {
+      "kind": 0,
+      "tier": 1
+    }
+  },
+  "process": {
+    "eyebrow": "How it works",
+    "title": "From first call",
+    "titleEm": "to the gallery.",
+    "sub": "No surprises and no long silences. Here is what happens and when, whatever you book.",
+    "steps": [
+      {
+        "when": "Day one",
+        "b": "A call",
+        "s": "Twenty minutes to hear what you want and what you don't."
+      },
+      {
+        "when": "A week before",
+        "b": "A plan",
+        "s": "Places, timings and what to wear, all on one page."
+      },
+      {
+        "when": "The day",
+        "b": "The shoot",
+        "s": "Relaxed and unhurried. Most people forget the camera."
+      },
+      {
+        "when": "48 hours after",
+        "b": "A sneak peek",
+        "s": "Ten favourites, so you're not left waiting."
+      },
+      {
+        "when": "Two weeks after",
+        "b": "Your gallery",
+        "s": "Every keeper, edited by hand, to download and share."
+      }
+    ],
+    "delivers": [
+      {
+        "k": "48 h",
+        "s": "Your first ten photos, edited"
+      },
+      {
+        "k": "2 weeks",
+        "s": "The full gallery, every one by hand"
+      },
+      {
+        "k": "10 years",
+        "s": "Your gallery kept safe online"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Dates",
+    "title": "Is your date free?",
+    "sub": "Weekends book up first. Pick a date to hold it for 48 hours while we talk it through, with no deposit until you're sure.",
+    "lead": 14,
+    "closed": [
+      1
+    ],
+    "formTitle": "Hold a date",
+    "pickPrompt": "Pick a date",
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "noteExample": "Where, how many people, what it's for",
+    "cta": "Hold this date"
+  },
+  "footer": {
+    "fine": "Northlight Studio is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#B3261E"
+  }
+}

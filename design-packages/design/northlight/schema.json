@@ -1,0 +1,99 @@
+{
+  "about": "What a photographer may change in the Northlight design. Protected: the scroll-run studio where one frame is lit light by light (backdrop, key, fill, rim, background, then the shot and the print) beside its lighting diagram and viewfinder; shot.subject picks a profile portrait or a product bottle and shot.look the grade (warm, mono or cool); the sessions and packages, the timeline, the date calendar, layout, type and all interaction code. The photographer's own words, settings, packages, timeline and diary come from the content.",
+  "text": {
+    "business.name": [3, 40],
+    "brand.name": [3, 14],
+    "contact.phone": [7, 20],
+    "nav.sessions": [3, 12],
+    "nav.process": [3, 16],
+    "nav.book": [3, 12],
+    "nav.cta": [3, 16],
+    "hero.eyebrow": [6, 54],
+    "hero.title": [4, 24],
+    "hero.titleEm": [4, 24],
+    "hero.lede": [30, 190],
+    "hero.cta": [3, 18],
+    "hero.cta2": [3, 18],
+    "hero.hint": [6, 30],
+    "shot.aperture": [3, 6],
+    "shot.shutter": [3, 7],
+    "shot.iso": [3, 9],
+    "shot.ratio": [3, 5],
+    "shot.caption": [4, 34],
+    "shot.product.name": [2, 12],
+    "shot.product.line": [3, 20],
+    "stages.*.n": [3, 16],
+    "stages.*.c": [20, 120],
+    "sessions.eyebrow": [3, 24],
+    "sessions.title": [4, 26],
+    "sessions.titleEm": [4, 26],
+    "sessions.sub": [20, 220],
+    "sessions.kinds.*.n": [3, 14],
+    "sessions.kinds.*.line": [10, 120],
+    "sessions.kinds.*.tiers.*.n": [3, 16],
+    "sessions.kinds.*.tiers.*.time": [2, 12],
+    "sessions.kinds.*.tiers.*.photos": [1, 8],
+    "sessions.kinds.*.tiers.*.items.*": [4, 40],
+    "process.eyebrow": [3, 24],
+    "process.title": [4, 26],
+    "process.titleEm": [4, 26],
+    "process.sub": [20, 200],
+    "process.steps.*.when": [3, 18],
+    "process.steps.*.b": [3, 18],
+    "process.steps.*.s": [10, 90],
+    "process.delivers.*.k": [1, 10],
+    "process.delivers.*.s": [6, 50],
+    "book.eyebrow": [3, 24],
+    "book.title": [4, 40],
+    "book.sub": [20, 200],
+    "book.formTitle": [3, 20],
+    "book.pickPrompt": [3, 24],
+    "book.nameExample": [3, 24],
+    "book.emailExample": [6, 34],
+    "book.noteExample": [6, 60],
+    "book.cta": [3, 20],
+    "footer.fine": [4, 110],
+    "locale.currency": [1, 4]
+  },
+  "lists": {
+    "stages": [6, 6],
+    "sessions.kinds": [1, 4],
+    "sessions.kinds.*.tiers": [1, 3],
+    "sessions.kinds.*.tiers.*.items": [1, 5],
+    "process.steps": [3, 6],
+    "process.delivers": [1, 3],
+    "book.closed": [0, 5]
+  },
+  "numbers": {
+    "shot.frames": [1, 9999],
+    "shot.keep": [1, 9999],
+    "sessions.kinds.*.tiers.*.p": [0, 100000],
+    "sessions.start.kind": [0, 3],
+    "sessions.start.tier": [0, 2],
+    "book.lead": [0, 120],
+    "book.closed.*": [0, 6]
+  },
+  "choices": {
+    "shot.subject": ["portrait", "product"],
+    "shot.look": ["warm", "mono", "cool"],
+    "sessions.kinds.*.tiers.*.from": [true, false],
+    "theme.wordmarkFit": {
+      "options": ["fit", "crop"],
+      "optional": true
+    }
+  },
+  "optional": {
+    "sessions.kinds.*.tiers.*.tag": { "kind": "text", "min": 0, "max": 16 }
+  },
+  "colours": [
+    "theme.accent"
+  ],
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "shot: the frame the hero lights: subject (portrait: a profile lit with key, fill and rim; product: a bottle with strip-light reflections and a label from product.name and product.line), look (the grade: warm, mono for black and white, cool), the camera settings shown, the lighting ratio (3:1), frames shot and keepers, and the caption on the print.",
+    "stages: six steps, in order: the backdrop, key light, fill, rim light, background, the frame. Each a short name and a caption.",
+    "sessions.kinds: one to four kinds of shoot, each with a line and one to three packages: name, price (from: true when it can grow), time, photos delivered, up to five things included and an optional tag (Most booked). sessions.start: the kind and package picked at first.",
+    "process.steps: three to six steps with when they happen; process.delivers: up to three numbers that matter (48 h, 2 weeks).",
+    "book: lead is the soonest a date can be held, in days; closed days are never offered (0 Sunday to 6 Saturday). The calendar is a demo: nothing is held."
+  ]
+}
