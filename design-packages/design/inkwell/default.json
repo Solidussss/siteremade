@@ -1,0 +1,366 @@
+{
+  "business": {
+    "name": "Ink & Iron"
+  },
+  "brand": {
+    "name": "Ink & Iron"
+  },
+  "contact": {
+    "phone": "0113 496 0321"
+  },
+  "nav": {
+    "flash": "Flash",
+    "book": "Book",
+    "care": "Aftercare",
+    "cta": "Book in"
+  },
+  "hero": {
+    "eyebrow": "Ink & Iron · tattoo studio, Leeds",
+    "title": "Bold lines,",
+    "titleEm": "built to last.",
+    "lede": "Traditional and fine-line work, drawn for you and done by hand in one sitting. Scroll and watch a piece go from sketch to healed.",
+    "cta": "See the flash",
+    "cta2": "Get a price",
+    "hint": "Scroll to tattoo the arm"
+  },
+  "piece": {
+    "motif": "swallow",
+    "style": "bold",
+    "inks": [
+      "#C2281D",
+      "#E9B530",
+      "#2F86C6"
+    ],
+    "banner": "Mum",
+    "skin": "medium",
+    "caption": "Healed · 4 weeks"
+  },
+  "count": {
+    "hours": 3.5,
+    "needles": 3,
+    "inks": 4,
+    "heal": "4 wk",
+    "labels": [
+      "Hours",
+      "Needles",
+      "Inks",
+      "Heals in"
+    ]
+  },
+  "session": {
+    "start": "11:00",
+    "clock": "24h"
+  },
+  "stages": [
+    {
+      "n": "Drawn up",
+      "c": "Your idea drawn up on paper first, sized to your arm, and changed until it's right."
+    },
+    {
+      "n": "The stencil",
+      "c": "The drawing goes on as a stencil, so you can see it on your skin and move it before we start."
+    },
+    {
+      "n": "Line work",
+      "c": "Every line in one steady pass with a fresh needle. The outline holds the whole piece together."
+    },
+    {
+      "n": "Shading",
+      "c": "Black shading whipped in from the lines, solid where it needs weight and soft where it fades."
+    },
+    {
+      "n": "Colour",
+      "c": "Colour packed in solid, one ink at a time, so it stays bright for years."
+    },
+    {
+      "n": "Healed",
+      "c": "Wrapped, cared for and back in four weeks for a photo. Touch-ups are free."
+    }
+  ],
+  "flash": {
+    "eyebrow": "Flash",
+    "title": "Ready to go.",
+    "titleEm": "One of each.",
+    "sub": "Designs drawn in the studio, each tattooed once and then retired. Pick one and it's yours, or bring your own idea below.",
+    "items": [
+      {
+        "n": "Swallow",
+        "motif": "swallow",
+        "inks": [
+          "#C2281D",
+          "#E2B33C",
+          "#1F5F8B"
+        ],
+        "word": "",
+        "size": "10 cm",
+        "p": 140,
+        "state": "open"
+      },
+      {
+        "n": "Rose",
+        "motif": "rose",
+        "inks": [
+          "#C2281D",
+          "#E2B33C",
+          "#2E7D4F"
+        ],
+        "word": "",
+        "size": "8 cm",
+        "p": 120,
+        "state": "open"
+      },
+      {
+        "n": "Dagger",
+        "motif": "dagger",
+        "inks": [
+          "#C2281D",
+          "#E2B33C",
+          "#8FA3B3"
+        ],
+        "word": "",
+        "size": "12 cm",
+        "p": 150,
+        "state": "claimed"
+      },
+      {
+        "n": "Moth",
+        "motif": "moth",
+        "inks": [
+          "#C2281D",
+          "#E2B33C",
+          "#1F5F8B"
+        ],
+        "word": "",
+        "size": "9 cm",
+        "p": 130,
+        "state": "open"
+      },
+      {
+        "n": "Mum heart",
+        "motif": "heart",
+        "inks": [
+          "#C2281D",
+          "#F1E3BF",
+          "#2E7D4F"
+        ],
+        "word": "Mum",
+        "size": "7 cm",
+        "p": 110,
+        "state": "open"
+      },
+      {
+        "n": "Sailor rose",
+        "motif": "rose",
+        "inks": [
+          "#1F5F8B",
+          "#F1E3BF",
+          "#2E7D4F"
+        ],
+        "word": "Home",
+        "size": "10 cm",
+        "p": 160,
+        "state": "open"
+      },
+      {
+        "n": "Moth and banner",
+        "motif": "moth",
+        "inks": [
+          "#7A3E8C",
+          "#F1E3BF",
+          "#2E7D4F"
+        ],
+        "word": "Night",
+        "size": "11 cm",
+        "p": 150,
+        "state": "claimed"
+      },
+      {
+        "n": "True love",
+        "motif": "swallow",
+        "inks": [
+          "#C2281D",
+          "#F1E3BF",
+          "#1F5F8B"
+        ],
+        "word": "True",
+        "size": "12 cm",
+        "p": 170,
+        "state": "open"
+      }
+    ],
+    "gone": "Claimed",
+    "words": {
+      "ask": "Pick a design to claim it. Prices include the session.",
+      "picked": "Send your details below to claim it.",
+      "idea": "Flash:"
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "A price before",
+    "titleEm": "the needle.",
+    "sub": "Pick the size and where it goes and you'll see a fair range straight away. Your artist confirms the price when they've seen your idea.",
+    "sizes": [
+      {
+        "n": "Small",
+        "d": "Up to 5 cm",
+        "h": [
+          1,
+          1.5
+        ]
+      },
+      {
+        "n": "Palm",
+        "d": "About 10 cm",
+        "h": [
+          2,
+          3
+        ]
+      },
+      {
+        "n": "Half sleeve",
+        "d": "Elbow to wrist",
+        "h": [
+          8,
+          12
+        ]
+      },
+      {
+        "n": "Sleeve",
+        "d": "Shoulder to wrist",
+        "h": [
+          18,
+          26
+        ]
+      }
+    ],
+    "places": [
+      {
+        "n": "Forearm",
+        "x": 1
+      },
+      {
+        "n": "Upper arm",
+        "x": 1
+      },
+      {
+        "n": "Calf",
+        "x": 1.1
+      },
+      {
+        "n": "Chest",
+        "x": 1.2
+      },
+      {
+        "n": "Ribs",
+        "x": 1.35
+      },
+      {
+        "n": "Hand",
+        "x": 1.3
+      }
+    ],
+    "artists": [
+      {
+        "n": "Rae",
+        "does": "Traditional, bold colour",
+        "next": "Books from 4 Nov"
+      },
+      {
+        "n": "Tomás",
+        "does": "Fine line and script",
+        "next": "Books from 18 Nov"
+      },
+      {
+        "n": "Kit",
+        "does": "Blackwork, big pieces",
+        "next": "Books from Dec"
+      }
+    ],
+    "rate": {
+      "hour": 110,
+      "min": 70,
+      "deposit": 50,
+      "day": 6
+    },
+    "words": {
+      "hrs": "hrs",
+      "one": "1",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site your artist would reply within two days with a price and dates."
+    },
+    "labels": {
+      "size": "Size",
+      "where": "Where",
+      "artist": "Artist",
+      "idea": "Your idea",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "ideaExample": "A swallow carrying a key, about the size of my palm, black and red.",
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "cta": "Send my idea",
+    "quote": {
+      "label": "Your estimate",
+      "time": "Time",
+      "sittings": "Sittings",
+      "deposit": "Deposit",
+      "note": "Deposits come off the final price. 18 and over, ID on the day."
+    },
+    "errors": {
+      "idea": "Tell us a little about your idea.",
+      "name": "Add your name.",
+      "email": "Add an email so your artist can reply."
+    }
+  },
+  "care": {
+    "eyebrow": "Aftercare",
+    "title": "Heal it",
+    "titleEm": "right.",
+    "sub": "The first month decides how it looks for the next forty years. Here's what to do, day by day.",
+    "steps": [
+      {
+        "when": "Day 1",
+        "n": "Wrap off",
+        "d": "Leave the film on for a few hours, then wash it gently with warm water and unscented soap. Pat dry."
+      },
+      {
+        "when": "Days 2 to 4",
+        "n": "Thin and often",
+        "d": "A thin layer of balm two or three times a day. It should shine a little, not look greasy."
+      },
+      {
+        "when": "Days 5 to 14",
+        "n": "Peel and itch",
+        "d": "It will flake and itch. Don't pick or scratch; tap it, and keep moisturising."
+      },
+      {
+        "when": "Week 4",
+        "n": "Healed",
+        "d": "Settled and bright. Come back for a free touch-up and a photo if anything needs it."
+      }
+    ],
+    "do": [
+      "Wash your hands before you touch it",
+      "Wear loose clothes over it",
+      "Sun cream on it for life once healed"
+    ],
+    "dont": [
+      "Swim, bath or sauna for two weeks",
+      "Sunbathe or use sunbeds while it heals",
+      "Pick, scratch or peel the flakes"
+    ],
+    "doTitle": "Do",
+    "dontTitle": "Don't"
+  },
+  "footer": {
+    "fine": "Ink & Iron is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#C2281D"
+  }
+}

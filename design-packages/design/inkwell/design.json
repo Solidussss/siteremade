@@ -1,0 +1,63 @@
+{
+  "name": "inkwell",
+  "category": "tattoo studio",
+  "reference": "reference/inkwell-original.html",
+  "referenceSha256": "d064d9ff5b12f1fbc648a26375922d193f88b554b0a54a793900ef450bce2dbd",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#C2281D",
+      "target": "theme.accent",
+      "about": "the studio's colour: buttons, the logo, the machine's ring, picked flash, sizes, places and artists, the claimed stamp"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.25, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#C2281D", 4.5, "button text on the accent"],
+      ["A:#F07466", "#121110", 4.5, "accent text on the page"],
+      ["A:#F07466", "#211E1B", 4.5, "accent text on a panel"],
+      ["#EFE8DC", "A:#3A1A16", 4.5, "text on a picked option"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.005em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Rozha+One&display=swap", "family": "Rozha One" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Rozha+One&display=swap", "family": "Rozha One" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:.06em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@700&display=swap", "family": "Inter Tight" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 14, 190],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

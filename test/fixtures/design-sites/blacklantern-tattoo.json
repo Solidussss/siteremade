@@ -1,0 +1,330 @@
+{
+  "business": {
+    "name": "Black Lantern Tattoo"
+  },
+  "brand": {
+    "name": "Black Lantern"
+  },
+  "contact": {
+    "phone": "(718) 555-0143"
+  },
+  "nav": {
+    "flash": "Flash",
+    "book": "Book",
+    "care": "Aftercare",
+    "cta": "Book now"
+  },
+  "hero": {
+    "eyebrow": "Black Lantern · fine line, Brooklyn",
+    "title": "Fine lines,",
+    "titleEm": "steady hands.",
+    "lede": "Single-needle and fine-line tattoos, drawn for you in our Greenpoint studio. Scroll and watch a moth go from sketch to healed.",
+    "cta": "See the flash",
+    "cta2": "Get a quote",
+    "hint": "Scroll to tattoo the arm"
+  },
+  "piece": {
+    "motif": "moth",
+    "style": "fine",
+    "inks": [
+      "#9E4A5A",
+      "#D9B26A",
+      "#5E7A6E"
+    ],
+    "banner": "",
+    "skin": "tan",
+    "caption": "Healed · 3 weeks"
+  },
+  "count": {
+    "hours": 2.5,
+    "needles": 2,
+    "inks": 3,
+    "heal": "3 wk",
+    "labels": [
+      "Hours",
+      "Needles",
+      "Inks",
+      "Heals in"
+    ]
+  },
+  "session": {
+    "start": "13:00",
+    "clock": "12h"
+  },
+  "stages": [
+    {
+      "n": "Drawn up",
+      "c": "We draw your moth to fit the inside of your arm, then tweak it with you until every line is right."
+    },
+    {
+      "n": "The stencil",
+      "c": "It goes on as a stencil first. Look at it in the mirror, move it, and only then do we start."
+    },
+    {
+      "n": "Single needle",
+      "c": "Each line in one slow pass with a single needle, so it stays crisp for years, not months."
+    },
+    {
+      "n": "Soft shading",
+      "c": "Light whip shading, built up in thin layers so it looks like pencil, never like a smudge."
+    },
+    {
+      "n": "A touch of colour",
+      "c": "A wash of dusty rose and gold, kept soft so it reads like a drawing on skin."
+    },
+    {
+      "n": "Healed",
+      "c": "Three weeks later it settles. Send us a photo; touch-ups in the first three months are free."
+    }
+  ],
+  "flash": {
+    "eyebrow": "Flash",
+    "title": "Small pieces,",
+    "titleEm": "one of each.",
+    "sub": "Fine-line flash drawn in the studio. Each is tattooed once, then it's retired for good.",
+    "items": [
+      {
+        "n": "Luna moth",
+        "motif": "moth",
+        "inks": [
+          "#9E4A5A",
+          "#D9B26A",
+          "#5E7A6E"
+        ],
+        "word": "",
+        "size": "3 in",
+        "p": 220,
+        "state": "open"
+      },
+      {
+        "n": "Tiny rose",
+        "motif": "rose",
+        "inks": [
+          "#B5656B",
+          "#E3C27A",
+          "#6F8F6A"
+        ],
+        "word": "",
+        "size": "1.5 in",
+        "p": 150,
+        "state": "open"
+      },
+      {
+        "n": "Sparrow",
+        "motif": "swallow",
+        "inks": [
+          "#B5656B",
+          "#E3C27A",
+          "#4F6D8A"
+        ],
+        "word": "",
+        "size": "2.5 in",
+        "p": 190,
+        "state": "claimed"
+      },
+      {
+        "n": "Little heart",
+        "motif": "heart",
+        "inks": [
+          "#B5656B",
+          "#EFE3C8",
+          "#6F8F6A"
+        ],
+        "word": "",
+        "size": "1 in",
+        "p": 120,
+        "state": "open"
+      },
+      {
+        "n": "Letter dagger",
+        "motif": "dagger",
+        "inks": [
+          "#9E4A5A",
+          "#D9B26A",
+          "#9AA8B3"
+        ],
+        "word": "",
+        "size": "3 in",
+        "p": 200,
+        "state": "open"
+      },
+      {
+        "n": "Mom heart",
+        "motif": "heart",
+        "inks": [
+          "#9E4A5A",
+          "#EFE3C8",
+          "#6F8F6A"
+        ],
+        "word": "Mom",
+        "size": "2 in",
+        "p": 180,
+        "state": "claimed"
+      }
+    ],
+    "gone": "Taken",
+    "words": {
+      "ask": "Pick a piece to claim it. Prices include the session.",
+      "picked": "Send your details below and it’s yours.",
+      "idea": "Flash:"
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Know the price",
+    "titleEm": "before you sit.",
+    "sub": "Choose a size and a spot and you’ll see a fair range now. Your artist confirms it once they’ve seen your idea.",
+    "sizes": [
+      {
+        "n": "Tiny",
+        "d": "Up to 2 in",
+        "h": [
+          0.5,
+          1
+        ]
+      },
+      {
+        "n": "Small",
+        "d": "2 to 4 in",
+        "h": [
+          1,
+          2
+        ]
+      },
+      {
+        "n": "Medium",
+        "d": "4 to 6 in",
+        "h": [
+          2,
+          4
+        ]
+      },
+      {
+        "n": "Large",
+        "d": "Forearm length",
+        "h": [
+          4,
+          7
+        ]
+      }
+    ],
+    "places": [
+      {
+        "n": "Forearm",
+        "x": 1
+      },
+      {
+        "n": "Inner arm",
+        "x": 1.1
+      },
+      {
+        "n": "Ankle",
+        "x": 1.15
+      },
+      {
+        "n": "Collarbone",
+        "x": 1.25
+      },
+      {
+        "n": "Ribs",
+        "x": 1.4
+      },
+      {
+        "n": "Fingers",
+        "x": 1.3
+      }
+    ],
+    "artists": [
+      {
+        "n": "June",
+        "does": "Single needle, botanicals",
+        "next": "Books from Nov 12"
+      },
+      {
+        "n": "Arlo",
+        "does": "Fine script and lettering",
+        "next": "Books from Dec 3"
+      }
+    ],
+    "rate": {
+      "hour": 180,
+      "min": 120,
+      "deposit": 100,
+      "day": 5
+    },
+    "words": {
+      "hrs": "hrs",
+      "one": "1",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site your artist would email you within two days with a price and dates."
+    },
+    "labels": {
+      "size": "Size",
+      "where": "Placement",
+      "artist": "Artist",
+      "idea": "Your idea",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "ideaExample": "A small moth on my inner forearm, fine line, a little dusty pink.",
+    "nameExample": "Maya Chen",
+    "emailExample": "maya@example.com",
+    "cta": "Send my idea",
+    "quote": {
+      "label": "Your estimate",
+      "time": "Time",
+      "sittings": "Sittings",
+      "deposit": "Deposit",
+      "note": "The deposit comes off the final price. 18 and over, photo ID on the day."
+    },
+    "errors": {
+      "idea": "Tell us a little about your idea.",
+      "name": "Add your name.",
+      "email": "Add an email so your artist can reply."
+    }
+  },
+  "care": {
+    "eyebrow": "Aftercare",
+    "title": "Fine lines",
+    "titleEm": "need care.",
+    "sub": "Fine work heals fast but fades if it’s rushed. Here is what to do for the first three weeks.",
+    "steps": [
+      {
+        "when": "Day 1",
+        "n": "Film stays on",
+        "d": "Keep the second-skin film on for 24 hours, then peel it off slowly under warm running water."
+      },
+      {
+        "when": "Days 2 to 7",
+        "n": "Wash and balm",
+        "d": "Wash twice a day with unscented soap and add a very thin layer of balm. Less is more."
+      },
+      {
+        "when": "Week 3",
+        "n": "Settled",
+        "d": "It will look a little soft as it heals, then sharpen up. Send us a photo if anything looks patchy."
+      }
+    ],
+    "do": [
+      "Wash your hands before you touch it",
+      "Wear loose sleeves over it",
+      "SPF 50 on it once it has healed"
+    ],
+    "dont": [
+      "Swim, soak or sauna for two weeks",
+      "Pick or scratch the flakes",
+      "Tan it, ever"
+    ],
+    "doTitle": "Do",
+    "dontTitle": "Don’t"
+  },
+  "footer": {
+    "fine": "Black Lantern Tattoo is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#7A3B4D"
+  }
+}
