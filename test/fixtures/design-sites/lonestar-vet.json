@@ -1,0 +1,250 @@
+{
+  "business": {
+    "name": "Lone Star Animal Clinic"
+  },
+  "brand": {
+    "name": "Lone Star"
+  },
+  "contact": {
+    "phone": "(512) 555-0177"
+  },
+  "nav": {
+    "prices": "Prices",
+    "visit": "Visits",
+    "book": "Book",
+    "cta": "Book a visit"
+  },
+  "hero": {
+    "label": "A dog checked over at the vet, scroll to run it",
+    "eyebrow": "Lone Star · veterinary clinic, Austin",
+    "title": "Calm visits.",
+    "titleEm": "Healthy pets.",
+    "lede": "Fear-free check-ups, vaccinations and care for dogs and cats in South Austin. Scroll and follow Pepper through a yearly check-up.",
+    "cta": "Book a visit",
+    "cta2": "See prices",
+    "hint": "Scroll to start the check-up"
+  },
+  "dog": {
+    "kind": "vet",
+    "name": "Pepper",
+    "coat": "#3A3029"
+  },
+  "tally": [
+    {
+      "label": "Weight",
+      "unit": "lb",
+      "from": 0,
+      "to": 38.4,
+      "at": [
+        1,
+        1
+      ],
+      "dec": 1
+    },
+    {
+      "label": "Checks",
+      "unit": "",
+      "from": 0,
+      "to": 6,
+      "at": [
+        2,
+        2
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Time",
+      "unit": "min",
+      "from": 0,
+      "to": 30,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Treats",
+      "unit": "",
+      "from": 0,
+      "to": 4,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    }
+  ],
+  "stages": [
+    {
+      "n": "Hi, Pepper",
+      "c": "A quiet room, no waiting in the lobby, and a treat before anything else.",
+      "clock": "9:00"
+    },
+    {
+      "n": "Weigh in",
+      "c": "Onto the scale with another treat. Weight tracked against last year.",
+      "clock": "9:03"
+    },
+    {
+      "n": "Look over",
+      "c": "Eyes, ears, teeth, belly and joints, nose to tail.",
+      "clock": "9:06"
+    },
+    {
+      "n": "Listen",
+      "c": "Heart and lungs, slow and steady. All sounding good.",
+      "clock": "9:14"
+    },
+    {
+      "n": "Vaccines",
+      "c": "Yearly boosters, quick and calm, with a lick mat to keep busy.",
+      "clock": "9:20"
+    },
+    {
+      "n": "All done",
+      "c": "A clean bill of health, a reminder for next year, and a very happy dog.",
+      "clock": "9:30"
+    }
+  ],
+  "prices": {
+    "eyebrow": "Prices",
+    "title": "Clear prices for everyday care.",
+    "sub": "Prices for common visits by size of dog. We always give you a written estimate before any treatment.",
+    "sizes": [
+      {
+        "n": "Small",
+        "d": "Up to 25 lb",
+        "shape": "small"
+      },
+      {
+        "n": "Medium",
+        "d": "25 to 60 lb",
+        "shape": "medium"
+      },
+      {
+        "n": "Large",
+        "d": "Over 60 lb",
+        "shape": "large"
+      }
+    ],
+    "services": [
+      {
+        "n": "Wellness exam",
+        "time": "About 30 minutes",
+        "p": [
+          65,
+          65,
+          65
+        ],
+        "items": [
+          "Nose-to-tail check",
+          "Weight and diet advice",
+          "A plan for the year"
+        ],
+        "tag": ""
+      },
+      {
+        "n": "Exam and vaccines",
+        "time": "About 40 minutes",
+        "p": [
+          125,
+          135,
+          145
+        ],
+        "items": [
+          "Wellness exam",
+          "Rabies and DHPP boosters",
+          "Records sent to you"
+        ],
+        "tag": "Most booked"
+      },
+      {
+        "n": "Dental cleaning",
+        "time": "Half a day",
+        "p": [
+          395,
+          445,
+          495
+        ],
+        "items": [
+          "Under anesthesia",
+          "Scale and polish",
+          "X-rays if needed"
+        ],
+        "tag": ""
+      }
+    ],
+    "addons": [
+      {
+        "n": "Nail trim",
+        "p": 18
+      },
+      {
+        "n": "Microchip",
+        "p": 45
+      },
+      {
+        "n": "Heartworm test",
+        "p": 40
+      }
+    ],
+    "start": 1
+  },
+  "visit": {
+    "eyebrow": "Visits",
+    "title": "Fear-free, start to finish.",
+    "sub": "Most pets are nervous at the vet. Here is how we make it easier.",
+    "steps": [
+      {
+        "b": "Straight in",
+        "s": "Text us from the car and we call you straight into a room."
+      },
+      {
+        "b": "Treats first",
+        "s": "Time to sniff around before anyone touches them."
+      },
+      {
+        "b": "Gentle handling",
+        "s": "Low lifts, non-slip mats and no rushing."
+      },
+      {
+        "b": "Clear next steps",
+        "s": "A written summary and reminders by text."
+      }
+    ],
+    "promise": {
+      "big": "0",
+      "text": "Zero time in a busy waiting room. Text us from the parking lot and we bring you straight in."
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Book a visit.",
+    "sub": "Pick a day and a time. New patients, please send previous records ahead of the visit.",
+    "times": [
+      "08:00",
+      "09:00",
+      "10:30",
+      "14:00",
+      "16:00"
+    ],
+    "closed": [
+      0
+    ],
+    "cta": "Book the visit",
+    "note": "For emergencies call us first, or the nearest 24-hour animal hospital.",
+    "breedExample": "Labrador",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(512) 555-0123"
+  },
+  "footer": {
+    "fine": "Lone Star Animal Clinic is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#1D6FA3"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "title": "Dog groomer or vet",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Scruff & Co" },
+    { "key": "kind", "label": "What you do", "required": true, "help": "Dog grooming (in a salon or a van), or a vet practice." },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or city." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "services", "label": "Services and prices", "type": "textarea", "required": true, "help": "What you offer and the price for each size of dog (small, medium, large, giant), how long it takes and what's included. Extras and their prices." },
+    { "key": "visit", "label": "How a visit goes", "type": "textarea", "help": "Drop-off to pick-up, or what happens at an appointment. What makes you different (one-to-one, no cages, fear-free)." },
+    { "key": "hours", "label": "Times", "help": "Drop-off or appointment times and days you're closed." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "prices.services.*.p.*",
+    "prices.addons.*.p",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero follows one dog through a visit, drawn in profile. dog.kind groom for groomers: arrive shaggy and muddy, bath, dry, trim, finishing touches, ready. dog.kind vet for vets: arrive, weigh, look over (eyes, ears, teeth, heart, belly, joints), listen, vaccinate, all done. Give the dog a friendly name (the brief's own dog if it mentions one) and a natural coat colour; write the six stages for that visit with clock times.",
+    "tally: four numbers beside the visit. For groomers: coat length (cm or in) from long to short over the trim (stage 3), treats, minutes, tail wags at the end. For vets: weight first (its end is what the scale shows), checks done out of six, minutes, treats. Each with the stages it moves over (first, last).",
+    "prices.sizes: the brief's size bands (two to four) with a shape each (small, medium, large, giant). prices.services: up to three services with a price for every size exactly as the brief prices them (repeat a single price for each size), how long, up to four inclusions and an optional tag on the most booked. addons: extras with prices.",
+    "visit.steps: up to four steps of a visit; visit.promise: a short big mark (1:1, 0 cages, Fear free) and a sentence from the brief. Never invent accreditations or claims.",
+    "book: drop-off or appointment times (08:30), closed days (0 Sunday). The booking is a demo: nothing is booked.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the business's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Services", "path": "prices.services", "fields": ["n", "p"] },
+    { "label": "Sizes", "path": "prices.sizes", "fields": ["n", "d"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

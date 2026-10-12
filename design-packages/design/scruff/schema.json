@@ -1,0 +1,99 @@
+{
+  "about": "What a dog groomer or vet may change in the Scruff design. Protected: the scroll-run visit of a dog drawn in profile, its coat as soft puffs and strokes (dog.kind groom: shaggy, bathed in bubbles, fluffed by the dryer, scissored nose to tail, finished with a bandana; vet: weighed, looked over, listened to and vaccinated), the prices by size of dog, the visit steps, the booking, layout, type and all interaction code. The groomer's own words, the dog, the tally, sizes, services and times come from the content.",
+  "text": {
+    "business.name": [3, 40],
+    "brand.name": [3, 16],
+    "contact.phone": [7, 20],
+    "nav.prices": [3, 12],
+    "nav.visit": [3, 14],
+    "nav.book": [3, 12],
+    "nav.cta": [3, 16],
+    "hero.label": [10, 90],
+    "hero.eyebrow": [6, 50],
+    "hero.title": [4, 22],
+    "hero.titleEm": [4, 24],
+    "hero.lede": [30, 190],
+    "hero.cta": [3, 18],
+    "hero.cta2": [3, 18],
+    "hero.hint": [6, 30],
+    "dog.name": [2, 14],
+    "tally.*.label": [3, 10],
+    "tally.*.unit": [0, 4],
+    "stages.*.n": [3, 18],
+    "stages.*.c": [20, 120],
+    "stages.*.clock": [3, 8],
+    "prices.eyebrow": [3, 24],
+    "prices.title": [6, 48],
+    "prices.sub": [20, 200],
+    "prices.sizes.*.n": [3, 10],
+    "prices.sizes.*.d": [3, 18],
+    "prices.services.*.n": [3, 22],
+    "prices.services.*.time": [3, 20],
+    "prices.services.*.items.*": [4, 40],
+    "prices.addons.*.n": [3, 22],
+    "visit.eyebrow": [3, 24],
+    "visit.title": [6, 48],
+    "visit.sub": [20, 200],
+    "visit.steps.*.b": [3, 18],
+    "visit.steps.*.s": [10, 90],
+    "visit.promise.big": [1, 5],
+    "visit.promise.text": [20, 160],
+    "book.eyebrow": [3, 24],
+    "book.title": [4, 40],
+    "book.sub": [20, 200],
+    "book.times.*": [5, 5],
+    "book.cta": [3, 18],
+    "book.note": [10, 140],
+    "book.breedExample": [3, 20],
+    "book.nameExample": [3, 24],
+    "book.phoneExample": [7, 20],
+    "footer.fine": [4, 110],
+    "locale.currency": [1, 4]
+  },
+  "lists": {
+    "tally": [4, 4],
+    "tally.*.at": [2, 2],
+    "stages": [6, 6],
+    "prices.sizes": [2, 4],
+    "prices.services": [1, 3],
+    "prices.services.*.p": [2, 4],
+    "prices.services.*.items": [1, 4],
+    "prices.addons": [0, 5],
+    "visit.steps": [2, 4],
+    "book.times": [1, 5],
+    "book.closed": [0, 5]
+  },
+  "numbers": {
+    "tally.*.from": [0, 9999],
+    "tally.*.to": [0, 9999],
+    "tally.*.at.*": [0, 5],
+    "tally.*.dec": [0, 1],
+    "prices.services.*.p.*": [0, 2000],
+    "prices.addons.*.p": [0, 500],
+    "prices.start": [0, 3],
+    "book.closed.*": [0, 6]
+  },
+  "choices": {
+    "dog.kind": ["groom", "vet"],
+    "prices.sizes.*.shape": ["small", "medium", "large", "giant"],
+    "theme.wordmarkFit": {
+      "options": ["fit", "crop"],
+      "optional": true
+    }
+  },
+  "optional": {
+    "prices.services.*.tag": { "kind": "text", "min": 0, "max": 14 }
+  },
+  "colours": [
+    "theme.accent",
+    "dog.coat"
+  ],
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "dog: kind groom (a groomer: shaggy, bath, dry, trim, finish, ready) or vet (a check-up: arrive, weigh, look over, listen, vaccinate, done), the dog's name and its coat colour.",
+    "tally: four numbers shown beside the visit, each with a label, unit, start and end, the stages over which it moves (first and last, 0 to 5) and decimals (0 or 1). For a vet, the first is the weight (its end is what the scale shows).",
+    "stages: six steps in order for the kind, each a short name, a caption and a clock time.",
+    "prices: two to four sizes of dog (shape small, medium, large or giant), up to three services each with a price for every size in the same order, a time, up to four inclusions and an optional tag; add-ons with a price; start is the size picked at first.",
+    "visit: up to four steps and a promise (a short big mark like 1:1 and a sentence). book: drop-off times (08:30), closed days (0 Sunday to 6 Saturday)."
+  ]
+}

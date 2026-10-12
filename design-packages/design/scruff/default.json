@@ -1,0 +1,261 @@
+{
+  "business": {
+    "name": "Scruff & Co"
+  },
+  "brand": {
+    "name": "Scruff & Co"
+  },
+  "contact": {
+    "phone": "0117 496 0745"
+  },
+  "nav": {
+    "prices": "Prices",
+    "visit": "The visit",
+    "book": "Book",
+    "cta": "Book a groom"
+  },
+  "hero": {
+    "label": "A dog groomed from scruffy to done, scroll to run it",
+    "eyebrow": "Scruff & Co · dog grooming, Bristol",
+    "title": "In scruffy.",
+    "titleEm": "Out gorgeous.",
+    "lede": "Calm, unhurried grooming for every size of dog, one at a time, never caged. Scroll and watch Biscuit go from muddy to marvellous.",
+    "cta": "Book a groom",
+    "cta2": "See prices",
+    "hint": "Scroll to start the groom"
+  },
+  "dog": {
+    "kind": "groom",
+    "name": "Biscuit",
+    "coat": "#C99A63"
+  },
+  "tally": [
+    {
+      "label": "Coat",
+      "unit": "cm",
+      "from": 6,
+      "to": 1.5,
+      "at": [
+        3,
+        3
+      ],
+      "dec": 1
+    },
+    {
+      "label": "Treats",
+      "unit": "",
+      "from": 0,
+      "to": 6,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Time",
+      "unit": "min",
+      "from": 0,
+      "to": 130,
+      "at": [
+        0,
+        5
+      ],
+      "dec": 0
+    },
+    {
+      "label": "Tail wags",
+      "unit": "",
+      "from": 0,
+      "to": 140,
+      "at": [
+        4,
+        5
+      ],
+      "dec": 0
+    }
+  ],
+  "stages": [
+    {
+      "n": "Hello, Biscuit",
+      "c": "Muddy paws and a matted coat after a week of puddles. A sniff, a treat and a few minutes to settle.",
+      "clock": "10:00"
+    },
+    {
+      "n": "Bath",
+      "c": "Warm water and a gentle oatmeal shampoo, worked right down to the skin. Twice.",
+      "clock": "10:10"
+    },
+    {
+      "n": "Dry",
+      "c": "A low, quiet dryer and a brush through every bit, until the coat stands up soft and fluffy.",
+      "clock": "10:35"
+    },
+    {
+      "n": "Trim",
+      "c": "Scissored by hand, nose to tail, to the shape you asked for. No rushing round the face.",
+      "clock": "11:05"
+    },
+    {
+      "n": "Finishing",
+      "c": "Nails clipped, ears cleaned, a spritz of something nice and a bandana.",
+      "clock": "11:50"
+    },
+    {
+      "n": "Ready",
+      "c": "A very handsome dog, a photo sent to you, and a text that says come and get me.",
+      "clock": "12:10"
+    }
+  ],
+  "prices": {
+    "eyebrow": "Prices",
+    "title": "Pick your dog's size. See the price.",
+    "sub": "Prices depend on size and coat. If your dog is matted or nervous we'll talk it through first, never surprise you at pick-up.",
+    "sizes": [
+      {
+        "n": "Small",
+        "d": "Up to 10 kg",
+        "shape": "small"
+      },
+      {
+        "n": "Medium",
+        "d": "10 to 25 kg",
+        "shape": "medium"
+      },
+      {
+        "n": "Large",
+        "d": "25 to 40 kg",
+        "shape": "large"
+      },
+      {
+        "n": "Giant",
+        "d": "Over 40 kg",
+        "shape": "giant"
+      }
+    ],
+    "services": [
+      {
+        "n": "Bath and tidy",
+        "time": "About 1.5 hours",
+        "p": [
+          35,
+          45,
+          55,
+          70
+        ],
+        "items": [
+          "Bath, blow-dry and brush out",
+          "Face, feet and bottom tidied",
+          "Nails and ears"
+        ],
+        "tag": ""
+      },
+      {
+        "n": "Full groom",
+        "time": "About 2.5 hours",
+        "p": [
+          45,
+          58,
+          72,
+          90
+        ],
+        "items": [
+          "Everything in the bath and tidy",
+          "Full scissor or clipper trim",
+          "To the style you choose"
+        ],
+        "tag": "Most booked"
+      },
+      {
+        "n": "Puppy intro",
+        "time": "About 1 hour",
+        "p": [
+          25,
+          25,
+          30,
+          30
+        ],
+        "items": [
+          "A gentle first bath and dry",
+          "Getting used to the sounds",
+          "Under six months old"
+        ],
+        "tag": ""
+      }
+    ],
+    "addons": [
+      {
+        "n": "Teeth clean",
+        "p": 8
+      },
+      {
+        "n": "De-shed treatment",
+        "p": 12
+      },
+      {
+        "n": "Nail grind",
+        "p": 6
+      },
+      {
+        "n": "Blueberry facial",
+        "p": 7
+      }
+    ],
+    "start": 1
+  },
+  "visit": {
+    "eyebrow": "The visit",
+    "title": "One dog at a time. No cages, ever.",
+    "sub": "Your dog has us to themselves from drop-off to pick-up. Here's how a visit goes.",
+    "steps": [
+      {
+        "b": "Drop off",
+        "s": "A quick chat about the style you want and anything we should know."
+      },
+      {
+        "b": "Settle in",
+        "s": "A sniff round, a treat, and no rushing. Nervous dogs set the pace."
+      },
+      {
+        "b": "The groom",
+        "s": "Bath, dry and trim, one-to-one, in a quiet room."
+      },
+      {
+        "b": "Pick up",
+        "s": "A text with a photo when they're ready, usually in two to three hours."
+      }
+    ],
+    "promise": {
+      "big": "1:1",
+      "text": "Every groom is one-to-one in a quiet room. Nervous dogs can come and meet us first, free, as many times as they need."
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Book a groom.",
+    "sub": "Pick a day and a drop-off time. We'll text when your dog is ready, usually two to three hours later.",
+    "times": [
+      "08:30",
+      "09:30",
+      "11:00"
+    ],
+    "closed": [
+      0,
+      1
+    ],
+    "cta": "Book it",
+    "note": "Please bring vaccination records on the first visit. Cancel free up to 24 hours before.",
+    "breedExample": "Cockapoo",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Scruff & Co is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#B83280"
+  }
+}

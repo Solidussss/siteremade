@@ -1,0 +1,70 @@
+{
+  "name": "scruff",
+  "category": "dog groomer or vet",
+  "reference": "reference/scruff-original.html",
+  "referenceSha256": "53d45f2baae533ee401d63f52e24f9ff036bb8e988dd3237c4fa59231a8ac1ae",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#B83280",
+      "target": "theme.accent",
+      "about": "the groomer's colour: buttons, the logo, the bandana, picked sizes, the tick marks, italic lines"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.55] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#B83280", 4.5, "button text on the accent"],
+      ["A:#A3286F", "#FFF7EC", 4.5, "accent text on the page"],
+      ["A:#A3286F", "#F8EADB", 4.5, "accent text on the tinted section"],
+      ["A:#A3286F", "A:#FBE4F1", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap", "family": "Fredoka" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap", "family": "Fredoka" }
+      }
+    },
+    "brand": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap", "family": "Fredoka" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap", "family": "Fredoka" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 13.5, 190],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
