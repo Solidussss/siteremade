@@ -1,0 +1,91 @@
+{
+  "name": "kova",
+  "category": "sneaker drop",
+  "reference": "reference/kova-original.html",
+  "referenceSha256": "e040378f4caafd74955abb7be71096144f1979c5d5e39f6bf9aefd8662ca2cea",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#ff3b1f",
+      "target": "theme.accent",
+      "about": "the one accent: buttons, the logo mark, callout dots, the band marks"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.35,
+          0.65
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#ffffff",
+        "A:#ff3b1f",
+        3,
+        "button text on the accent"
+      ],
+      [
+        "A:#ff3b1f",
+        "#dcdedd",
+        2.4,
+        "accent marks on the concrete paper"
+      ]
+    ]
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".f-word",
+      "text": [
+        "brand.name"
+      ],
+      "metric": "word",
+      "size": [
+        120,
+        36,
+        600
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ],
+  "metrics": {
+    "word": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.75 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&display=swap",
+          "family": "Big Shoulders Display"
+        }
+      }
+    },
+    "cname": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.8 {family};text-transform:uppercase",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&display=swap",
+          "family": "Big Shoulders Display"
+        }
+      }
+    }
+  }
+}

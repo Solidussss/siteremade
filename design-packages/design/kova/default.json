@@ -1,0 +1,32 @@
+{
+  "business": { "name": "KOVA Drift 1" },
+  "brand": { "name": "KOVA" },
+  "product": { "name": "Drift 1", "bigA": "DRIFT", "bigB": "1", "price": 180 },
+  "nav": { "colors": "Colorways", "foam": "Foam", "size": "Size", "drop": "Drop", "cta": "Enter the draw" },
+  "hero": {
+    "eyebrow": "KOVA / Daily trainer / 212 g",
+    "lede": "A daily trainer that feels like race day. Supercritical foam, a full carbon plate, and an upper that weighs almost nothing.",
+    "button": "See colorways"
+  },
+  "layers": [
+    { "title": "Flat laces", "short": "Laces", "spec": "Lock down at six eyelets" },
+    { "title": "Gusseted tongue", "short": "Tongue", "spec": "Stitched in so it never slides" },
+    { "title": "Engineered mesh", "short": "Mesh upper", "spec": "212 g with two stretch zones" },
+    { "title": "Carbon-infused plate", "short": "Carbon plate", "spec": "Full length, 1.2 mm" },
+    { "title": "Supercritical foam", "short": "Foam", "spec": "38 mm heel · 30 mm toe · 8 mm drop" },
+    { "title": "Rubber pods", "short": "Outsole", "spec": "Only where your foot lands" }
+  ],
+  "colors": { "eyebrow": "Colorways", "titleA": "four ways", "titleB": "to drift.", "body": "Same shoe, same 212 grams. Pick a colorway, then flip it to see the inside." },
+  "colorways": [
+    { "name": "Concrete", "upper": "#b9bcbc", "over": "#2a2c2f", "mid": "#f4f3ef", "sole": "#1a1b1d", "lace": "#f4f3ef", "acc": "#ff3b1f", "tongue": "#2a2c2f", "bg": "#dcdedd" },
+    { "name": "Infrared", "upper": "#ff3b1f", "over": "#121315", "mid": "#f4f3ef", "sole": "#121315", "lace": "#121315", "acc": "#f4f3ef", "tongue": "#121315", "bg": "#f1c9c0" },
+    { "name": "Midnight", "upper": "#1d2533", "over": "#0e1117", "mid": "#e9e6df", "sole": "#b5793f", "lace": "#e9e6df", "acc": "#6ea8ff", "tongue": "#0e1117", "bg": "#c3c8d2" },
+    { "name": "Sand", "upper": "#d9c7a8", "over": "#8a6b4a", "mid": "#f2ece1", "sole": "#8a6b4a", "lace": "#f2ece1", "acc": "#2f5d3a", "tongue": "#8a6b4a", "bg": "#e2d9c8" }
+  ],
+  "foam": { "eyebrow": "The foam", "title": "press it.", "body": "38 millimeters of supercritical foam under your heel. Press and hold the block to load it, then let go and watch it give the energy back.", "heelMm": 38 },
+  "size": { "eyebrow": "Find your size", "titleA": "fits", "titleB": "true.", "body": "Stand on a sheet of paper, mark your heel and longest toe, and measure the gap. Slide to match it.", "fine": "Between sizes? Go up half. The Drift 1 has a snug heel by design." },
+  "drop": { "eyebrow": "The drop", "day": "sat", "time": "10:00", "body": "Limited pairs per colorway. Enter the draw before it closes and we'll tell you if you won." },
+  "footer": { "fine": "KOVA is a made-up brand for a concept site. Not affiliated with any shoe company." },
+  "locale": { "currency": "$" },
+  "theme": { "accent": "#ff3b1f" }
+}

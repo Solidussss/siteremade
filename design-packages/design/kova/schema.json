@@ -1,0 +1,185 @@
+{
+  "about": "What a sneaker brand may change in the KOVA design. Everything not listed here is protected: the drawn shoe and its six-layer exploded scroll (laces, tongue, upper, plate, foam, outsole), the callout positions, the foam press physics, the size conversions, the countdown, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      40
+    ],
+    "brand.name": [
+      2,
+      10
+    ],
+    "product.name": [
+      3,
+      16
+    ],
+    "product.bigA": [
+      2,
+      8
+    ],
+    "product.bigB": [
+      1,
+      4
+    ],
+    "nav.*": [
+      2,
+      12
+    ],
+    "nav.cta": [
+      4,
+      18
+    ],
+    "hero.eyebrow": [
+      6,
+      40
+    ],
+    "hero.lede": [
+      20,
+      150
+    ],
+    "hero.button": [
+      4,
+      18
+    ],
+    "layers.*.title": [
+      4,
+      22
+    ],
+    "layers.*.short": [
+      3,
+      12
+    ],
+    "layers.*.spec": [
+      6,
+      34
+    ],
+    "colors.eyebrow": [
+      3,
+      20
+    ],
+    "colors.titleA": [
+      3,
+      12
+    ],
+    "colors.titleB": [
+      3,
+      12
+    ],
+    "colors.body": [
+      20,
+      120
+    ],
+    "colorways.*.name": [
+      3,
+      12
+    ],
+    "foam.eyebrow": [
+      3,
+      20
+    ],
+    "foam.title": [
+      3,
+      12
+    ],
+    "foam.body": [
+      20,
+      170
+    ],
+    "size.eyebrow": [
+      3,
+      20
+    ],
+    "size.titleA": [
+      3,
+      10
+    ],
+    "size.titleB": [
+      3,
+      10
+    ],
+    "size.body": [
+      20,
+      150
+    ],
+    "size.fine": [
+      10,
+      110
+    ],
+    "drop.eyebrow": [
+      3,
+      20
+    ],
+    "drop.time": [
+      5,
+      5
+    ],
+    "drop.body": [
+      20,
+      140
+    ],
+    "footer.fine": [
+      4,
+      120
+    ],
+    "locale.currency": [
+      1,
+      3
+    ]
+  },
+  "lists": {
+    "layers": [
+      6,
+      6
+    ],
+    "colorways": [
+      4,
+      4
+    ]
+  },
+  "numbers": {
+    "product.price": [
+      1,
+      9999
+    ],
+    "foam.heelMm": [
+      10,
+      60
+    ]
+  },
+  "choices": {
+    "drop.day": [
+      "sun",
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat"
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "The shoe is a fixed drawing of a running trainer that separates into six layers, in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, short name (phones) and one spec line.",
+    "Four colorways, each with seven shoe colours (upper, overlays, midsole, outsole, laces, accent, tongue) and a pale section background.",
+    "The drop counts down to the next drop.day at drop.time (local time).",
+    "Colorway names are measured: the big faded name behind the shoe (22vw, capitals) must fit the page width."
+  ],
+  "colours": [
+    "theme.accent",
+    "colorways.*.upper",
+    "colorways.*.over",
+    "colorways.*.mid",
+    "colorways.*.sole",
+    "colorways.*.lace",
+    "colorways.*.acc",
+    "colorways.*.tongue",
+    "colorways.*.bg"
+  ]
+}

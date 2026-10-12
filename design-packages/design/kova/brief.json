@@ -1,0 +1,43 @@
+{
+  "title": "Sneaker or shoe launch",
+  "fields": [
+    { "key": "businessName", "label": "Page name", "required": true, "help": "Brand and shoe, e.g. Northline Tempo." },
+    { "key": "brand", "label": "Brand", "required": true },
+    { "key": "product", "label": "The shoe", "type": "textarea", "required": true, "help": "Its name, what it's for, weight, price, and what it's made of: laces, tongue, upper, plate, foam, outsole." },
+    { "key": "colorways", "label": "Colorways", "type": "textarea", "required": true, "help": "Four colorways with their names and colours." },
+    { "key": "drop", "label": "Release", "type": "textarea", "required": true, "help": "The release day and time, and how people get a pair (draw, raffle, first come)." },
+    { "key": "fit", "label": "Fit advice", "type": "textarea", "help": "Optional: runs small, true to size, wide fit..." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the page sound?", "type": "textarea", "help": "A few words about the brand." },
+    { "key": "colours", "label": "Brand accent colour", "help": "Optional: one colour for buttons." }
+  ],
+  "facts": [
+    "product.price",
+    "hero.eyebrow",
+    "layers.*.spec",
+    "foam.heelMm",
+    "foam.body",
+    "colors.body",
+    "drop.time",
+    "drop.body",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The shoe is a fixed drawing of a running trainer that comes apart into six layers as you scroll, always in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, a short name for phones and one spec line, in the brand's words; specs (grams, millimetres) are facts from the brief, otherwise describe without numbers. If the shoe has no plate, describe the layer as a shank or stability layer rather than inventing a carbon plate.",
+    "product.bigA and product.bigB are the giant outline word behind the shoe (e.g. DRIFT / 1): the product name in capitals split in two, the second part short (a number or a short word).",
+    "colorways: exactly four, each with a short name (it is shown huge behind the shoe, so 4-9 letters work best) and seven shoe colours as #rrggbb: upper, over (overlays), mid (midsole), sole (outsole), lace, acc (small accent details), tongue; plus bg, a pale background for that colorway's section. The first colorway is the one the hero shows.",
+    "foam.heelMm is the heel stack height in millimetres (the press demo uses it); foam.body describes the foam.",
+    "drop: day (sun-sat) and time (HH:MM, 24-hour) of the release; the page counts down to the next one. drop.body says how people get a pair, from the brief.",
+    "size: the size finder converts foot length to US, UK and EU sizes with a fixed table; size.fine is the brand's fit advice.",
+    "brand.name is the logo and the giant footer word (capitals work best); footer.fine is a one-line copyright or note. theme.accent is the brand's one accent colour for buttons (white text on it).",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "The shoe", "path": "product", "fields": ["name", "price"] },
+    { "label": "Release", "path": "drop", "fields": ["day", "time"] },
+    { "label": "Colorways", "path": "colorways", "fields": ["name", "upper", "mid"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

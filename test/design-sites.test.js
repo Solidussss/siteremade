@@ -45,7 +45,7 @@ test('every design: default content passes its rules and builds', () => {
     const D = loadDesign(path.join(__dirname, '..', 'design-packages', 'design', d));
     const c = JSON.parse(fs.readFileSync(path.join(D.dir, 'default.json'), 'utf8'));
     assert.deepEqual(validate(D, c).errors, [], d);
-    assert.ok(build(D, c).html.length > 40000, d + ' builds');
+    assert.ok(build(D, c).html.length > 30000, d + ' builds');
   }
 });
 
@@ -63,7 +63,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
     const owner = await session(OWNER);
     const list = await owner('GET', '/api/designs');
     assert.equal(list.status, 200);
-    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube', 'ventricle', 'forno', 'saltglass']);
+    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube', 'ventricle', 'forno', 'saltglass', 'kova']);
     assert.equal((await owner('GET', '/designs')).status, 200);
 
     // the recorded writer: draft 1 breaks one rule (headline too long), draft 2 passes

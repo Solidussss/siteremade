@@ -1,0 +1,452 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a technical spec sheet for a sneaker drop. Concrete paper with a faint drafting grid,
+   one infrared accent, condensed display type. The hero pins and explodes the shoe into labelled layers;
+   below: colorways, a press-to-test foam block, a size finder, and the drop countdown with a draw.
+   Deliberately single light theme, like a printed spec sheet. */
+:root {
+  --paper: #dcdedd; --paper-2: #cfd2d1; --card: #e9eaea; --ink: #0f1012; --dim: #5a5f63; --faint: #8f9497; --line: rgba(15,16,18,.14);
+  --accent: {{A:#ff3b1f}}; --accent-ink: #ffffff;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --mono: "DM Mono", ui-monospace, Menlo, monospace;
+  --gutter: max(16px, 4vw);
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --out: cubic-bezier(.16, 1, .3, 1);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background-color: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 48px 48px; background-position: -1px -1px; }
+main { overflow-x: clip; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: .86; font-weight: 900; text-transform: uppercase; letter-spacing: -.01em; text-wrap: balance; }
+h2 { font-size: clamp(56px, 10vw, 160px); }
+p { margin: 0; }
+.wrap { padding-inline: var(--gutter); }
+.mono { font-family: var(--mono); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 15px; padding: 16px 22px; border: 0; cursor: pointer; font-family: var(--body); text-transform: uppercase; letter-spacing: .06em; transition: transform .35s var(--spring), background .2s; }
+.btn.k { background: var(--ink); color: var(--paper); }
+.btn.r { background: var(--accent); color: var(--accent-ink); }
+.btn:hover { transform: translateY(-2px); }
+.btn .arr { transition: transform .35s var(--spring); } .btn:hover .arr { transform: translateX(4px); }
+
+/* ---------- nav ---------- */
+.nav { position: fixed; z-index: 40; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 20px; padding: calc(env(safe-area-inset-top, 0px) + 14px) var(--gutter) 12px; background: color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.logo { font-family: var(--display); font-weight: 900; font-size: 30px; letter-spacing: .02em; text-decoration: none; display: flex; align-items: center; gap: 8px; line-height: 1; }
+.logo i { width: 14px; height: 14px; background: var(--accent); display: block; transform: skewX(-18deg); }
+.nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 22px; margin-left: auto; }
+.nav ul a { text-decoration: none; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.nav ul a:hover { color: var(--accent); }
+.nav .btn { padding: 10px 14px; font-size: 12px; }
+.drop-chip { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+@media (max-width: 760px) { .nav ul, .drop-chip { display: none; } .nav .btn { margin-left: auto; } }
+
+/* ---------- hero ---------- */
+.hero { height: 440vh; position: relative; }
+.stage { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; place-items: center; }
+.bigword { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-62%); text-align: center; font-family: var(--display); font-weight: 900; font-size: 34vw; line-height: .8; letter-spacing: -.02em;
+  color: transparent; -webkit-text-stroke: 2px var(--ink); opacity: .9; white-space: nowrap; pointer-events: none; user-select: none; }
+.bigword b { color: var(--ink); -webkit-text-stroke: 0; font-weight: 900; }
+.shoebox { position: relative; width: min(94vw, 1100px, 128svh); z-index: 2; will-change: transform; }
+.hero .shoebox { margin-top: 2svh; }
+.shoebox svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hero-meta { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: flex; justify-content: space-between; align-items: end; gap: 18px; z-index: 3; flex-wrap: wrap; }
+.hero-meta .left { display: grid; gap: 8px; max-width: 36ch; }
+.hero-meta .left b { font-family: var(--display); font-size: 34px; text-transform: uppercase; line-height: .9; }
+.hero-meta .left span { color: var(--dim); font-size: 15px; }
+.hb { display: flex; gap: 10px; }
+.hero-top { position: absolute; left: var(--gutter); right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 82px); display: flex; justify-content: space-between; gap: 16px; z-index: 3; }
+.spec-card { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); z-index: 4; background: var(--ink); color: var(--paper); padding: 12px 16px; min-width: 260px; max-width: calc(100vw - 32px); display: none; }
+.spec-card b { display: block; font-family: var(--display); font-size: 26px; text-transform: uppercase; line-height: 1; }
+.spec-card span { font-family: var(--mono); font-size: 12px; color: #b8bcbf; }
+@media (max-width: 760px) { .spec-card { display: block; } .hero-meta .left span { display: none; } .hero-meta .btns { display: none; } .bigword { font-size: 27vw; } .hero .shoebox { width: 104vw; margin-top: -6svh; } }
+.callout text { font-family: var(--mono); fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 8px; stroke-linejoin: round; }
+.callout .t1 { font-family: var(--display); font-weight: 700; font-size: 30px; text-transform: uppercase; letter-spacing: .02em; }
+.callout .t2 { font-size: 17px; fill: var(--dim); }
+.callout path { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.callout circle { fill: var(--accent); }
+.callout .num { font-family: var(--mono); font-size: 14px; fill: var(--accent); }
+@media (max-width: 760px) { .callout .t2 { display: none; } .callout .t1 { font-size: 46px; } }
+
+/* ---------- band ---------- */
+.band { background: var(--ink); color: var(--paper); overflow: hidden; padding-block: 14px; position: relative; z-index: 3; }
+.band .row { display: flex; gap: 40px; white-space: nowrap; font-family: var(--display); font-weight: 900; font-size: clamp(34px, 5vw, 64px); text-transform: uppercase; will-change: transform; }
+.band .row span { display: inline-flex; gap: 40px; align-items: center; }
+.band .row i { width: .35em; height: .35em; background: var(--accent); display: inline-block; transform: skewX(-18deg); }
+
+/* ---------- colorways ---------- */
+.colors { position: relative; padding-block: 14vh 10vh; transition: background-color .7s var(--out); }
+.c-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; }
+.c-head p { max-width: 36ch; color: var(--dim); }
+.c-stage { position: relative; margin-top: 4vh; display: grid; place-items: center; min-height: 40vh; }
+.c-stage .shoebox { width: min(92vw, 980px); transition: transform .8s var(--spring); }
+.c-stage .shoebox.flip { transform: scaleX(-1); }
+.c-name { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font-family: var(--display); font-weight: 900; font-size: 22vw; line-height: .8; text-transform: uppercase; color: rgba(15,16,18,.07); pointer-events: none; white-space: nowrap; }
+.c-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-top: 3vh; }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.swatch { border: 0; cursor: pointer; padding: 0; background: none; display: grid; gap: 6px; justify-items: center; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+.swatch i { width: 54px; height: 54px; display: block; position: relative; background: var(--a); box-shadow: inset 0 0 0 1px var(--line); transition: transform .3s var(--spring); }
+.swatch i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: var(--b); }
+.swatch[aria-pressed="true"] i { transform: translateY(-4px); outline: 2px solid var(--ink); outline-offset: 3px; }
+.swatch[aria-pressed="true"] { color: var(--ink); }
+.c-price { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.c-price b { font-family: var(--display); font-size: 44px; line-height: 1; }
+
+/* ---------- foam ---------- */
+.foam { padding-block: 12vh; display: grid; grid-template-columns: 1fr 1fr; gap: 6vw; align-items: center; }
+@media (max-width: 900px) { .foam { grid-template-columns: 1fr; } }
+.txt { display: grid; gap: 18px; }
+.txt p:not(.eyebrow) { color: var(--dim); max-width: 40ch; }
+.f-box { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); padding: clamp(18px, 3vw, 34px); display: grid; gap: 20px; user-select: none; -webkit-user-select: none; }
+.press { position: relative; height: 300px; display: grid; align-items: end; justify-items: center; cursor: pointer; touch-action: none; }
+.press .weight { position: absolute; top: 0; left: 50%; width: 46%; height: 70px; transform: translateX(-50%); background: var(--ink); color: var(--paper); display: grid; place-items: center; font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; will-change: transform; }
+.press .slab { width: 70%; height: 180px; transform-origin: bottom; will-change: transform; position: relative; background: #f4f3ef; box-shadow: inset 0 0 0 2px var(--ink);
+  background-image: radial-gradient(circle at 20% 30%, rgba(15,16,18,.12) 0 6px, transparent 7px), radial-gradient(circle at 70% 60%, rgba(15,16,18,.1) 0 9px, transparent 10px), radial-gradient(circle at 45% 80%, rgba(15,16,18,.1) 0 5px, transparent 6px);
+  background-size: 46px 40px, 58px 52px, 38px 34px; }
+.press .slab::after { content: "38 mm"; position: absolute; right: -58px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.press .floor { width: 90%; height: 3px; background: var(--ink); }
+.readout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.readout div { border-top: 2px solid var(--ink); padding-top: 8px; }
+.readout b { display: block; font-family: var(--display); font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+.readout span { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+.press-hint { font-family: var(--mono); font-size: 12px; color: var(--dim); text-align: center; }
+
+/* ---------- size ---------- */
+.size { padding-block: 8vh; display: grid; grid-template-columns: 1fr 1fr; gap: 6vw; align-items: center; }
+@media (max-width: 900px) { .size { grid-template-columns: 1fr; } }
+.s-box { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); padding: clamp(18px, 3vw, 34px); display: grid; gap: 22px; }
+.s-box label { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
+.s-box input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; background: var(--ink); }
+.s-box input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; background: var(--accent); border: 4px solid var(--card); box-shadow: 0 0 0 2px var(--ink); cursor: grab; }
+.s-box input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 0; background: var(--accent); border: 4px solid var(--card); }
+.foot-len { font-family: var(--display); font-size: 64px; line-height: 1; }
+.foot-len small { font-size: .4em; color: var(--dim); }
+.sizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sizes div { background: var(--paper); padding: 12px; }
+.sizes b { display: block; font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.sizes span { font-family: var(--mono); font-size: 11px; color: var(--dim); text-transform: uppercase; }
+.fine { font-size: 13px; color: var(--dim); }
+
+/* ---------- drop ---------- */
+.drop { padding-block: 14vh; background: var(--ink); color: var(--paper); display: grid; gap: 6vh; position: relative; z-index: 2; }
+.drop h2 { color: var(--paper); }
+.drop .eyebrow { color: #9ea3a6; }
+.clock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.clock div { border-top: 3px solid var(--accent); padding-top: 10px; }
+.clock b { display: block; font-family: var(--display); font-size: clamp(56px, 11vw, 170px); line-height: .85; font-variant-numeric: tabular-nums; }
+.clock span { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #9ea3a6; }
+.draw { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+@media (max-width: 760px) { .draw { grid-template-columns: 1fr; } }
+.draw label { display: grid; gap: 6px; font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #9ea3a6; }
+.draw input, .draw select { font: inherit; font-family: var(--body); font-size: 17px; padding: 14px; border: 0; background: #1d1f22; color: var(--paper); text-transform: none; letter-spacing: 0; border-radius: 0; }
+.ticket { border: 2px dashed var(--accent); padding: 22px; display: grid; gap: 8px; }
+.ticket b { font-family: var(--display); font-size: 48px; line-height: .9; text-transform: uppercase; }
+.ticket span { font-family: var(--mono); font-size: 13px; color: #b8bcbf; }
+
+footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px); display: grid; gap: 26px; overflow: hidden; position: relative; z-index: 2; }
+.f-word { font-family: var(--display); font-weight: 900; font-size: clamp(120px, 36vw, 600px); line-height: .75; letter-spacing: -.01em; white-space: nowrap; }
+.f-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12px; color: #9ea3a6; }
+
+/* shoe parts */
+.shoe .part { transition: fill .6s var(--out); }
+.shoe .f-upper { fill: var(--c-upper); transition: fill .6s var(--out); }
+.shoe .f-over { fill: var(--c-over); transition: fill .6s var(--out); }
+.shoe .f-mid { fill: var(--c-mid); transition: fill .6s var(--out); }
+.shoe .f-sole { fill: var(--c-sole); transition: fill .6s var(--out); }
+.shoe .f-lace { stroke: var(--c-lace); transition: stroke .6s var(--out); }
+.shoe .f-acc { fill: var(--c-acc); transition: fill .6s var(--out); }
+.shoe .f-tongue { fill: var(--c-tongue); transition: fill .6s var(--out); }
+.shoe .f-plate { fill: var(--c-plate); }
+.shoe .ink { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { .c-stage .shoebox, .swatch i, .btn { transition: none; } }
+{{$._guards|raw}}</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="logo" href="#top"><i aria-hidden="true"></i>{{brand.name}}</a>
+  <ul><li><a href="#colors">{{nav.colors}}</a></li><li><a href="#foam">{{nav.foam}}</a></li><li><a href="#size">{{nav.size}}</a></li><li><a href="#drop">{{nav.drop}}</a></li></ul>
+  <span class="drop-chip" id="dropChip">Drops {{$.dayName}} {{drop.time}}</span>
+  <a class="btn r" href="#drop">{{nav.cta}}</a>
+</nav>
+
+<main>
+  <section class="hero" id="top">
+    <div class="stage" id="stage">
+      <div class="bigword" aria-hidden="true" id="bigword">{{product.bigA}} <b>{{product.bigB}}</b></div>
+      <div class="hero-top"><span class="eyebrow">{{hero.eyebrow}}</span><span class="eyebrow" id="explodeLbl">Scroll to take it apart</span></div>
+      <div class="shoebox" id="heroShoe"></div>
+      <div class="spec-card" id="specCard"><b id="specT">{{product.name}}</b><span id="specS">Scroll to take it apart</span></div>
+      <div class="hero-meta">
+        <div class="left"><b>{{product.name}}</b><span>{{hero.lede}}</span></div>
+        <div class="btns hb"><a class="btn k" href="#colors">{{hero.button}} <span class="arr">→</span></a></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" aria-hidden="true"><div class="row" id="band">
+    <span>{{product.name}} <i></i> {{#each colorways join=" <i></i> "}}{{.name}}{{/each}} <i></i></span><span>{{product.name}} <i></i> {{#each colorways join=" <i></i> "}}{{.name}}{{/each}} <i></i></span>
+  </div></div>
+
+  <section class="colors wrap" id="colors">
+    <div class="c-head"><div><p class="eyebrow">{{colors.eyebrow}}</p><h2>{{colors.titleA}}<br>{{colors.titleB}}</h2></div><p>{{colors.body}}</p></div>
+    <div class="c-stage">
+      <div class="c-name" id="cName" aria-hidden="true">{{colorways.0.name}}</div>
+      <div class="shoebox" id="colorShoe"></div>
+    </div>
+    <div class="c-bar">
+      <div class="swatches" id="swatches"></div>
+      <div class="c-price"><b>{{$.priceText}}</b><button class="btn k" id="flip" type="button">Flip it ↔</button><a class="btn r" href="#drop">{{nav.cta}} <span class="arr">→</span></a></div>
+    </div>
+  </section>
+
+  <section class="foam wrap" id="foam">
+    <div class="txt"><p class="eyebrow">{{foam.eyebrow}}</p><h2>{{foam.title}}</h2><p>{{foam.body}}</p></div>
+    <div class="f-box">
+      <div class="press" id="press" role="button" tabindex="0" aria-label="Press and hold to compress the foam">
+        <div class="weight" id="weight">Hold</div>
+        <div class="slab" id="slab"></div>
+        <div class="floor"></div>
+      </div>
+      <p class="press-hint" id="pressHint">Press and hold. Space bar works too.</p>
+      <div class="readout">
+        <div><b id="rComp">0.0</b><span>mm compressed</span></div>
+        <div><b id="rRet">—</b><span>energy return</span></div>
+        <div><b id="rCount">0</b><span>strides</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="size wrap" id="size">
+    <div class="txt"><p class="eyebrow">{{size.eyebrow}}</p><h2>{{size.titleA}}<br>{{size.titleB}}</h2><p>{{size.body}}</p></div>
+    <div class="s-box">
+      <label for="footR">Foot length</label>
+      <div class="foot-len"><span id="footVal">27.0</span><small> cm</small></div>
+      <input type="range" id="footR" min="22" max="31" step="0.5" value="27">
+      <div class="sizes"><div><b id="sUSM">9</b><span>US men</span></div><div><b id="sUSW">10.5</b><span>US women</span></div><div><b id="sUK">8</b><span>UK</span></div><div><b id="sEU">42.5</b><span>EU</span></div></div>
+      <p class="fine">{{size.fine}}</p>
+    </div>
+  </section>
+
+  <section class="drop wrap" id="drop">
+    <div class="c-head"><div><p class="eyebrow">{{drop.eyebrow}}</p><h2>{{$.dayLower}},<br>{{drop.time}}.</h2></div><p style="color:#9ea3a6">{{drop.body}}</p></div>
+    <div class="clock" aria-live="off"><div><b id="cD">00</b><span>days</span></div><div><b id="cH">00</b><span>hours</span></div><div><b id="cM">00</b><span>minutes</span></div><div><b id="cS">00</b><span>seconds</span></div></div>
+    <form class="draw" id="drawForm" novalidate>
+      <label for="dName">Name<input id="dName" type="text" autocomplete="off" placeholder="Your name"></label>
+      <label for="dSize">Size (US men)<select id="dSize"></select></label>
+      <button class="btn r" type="submit">{{nav.cta}} →</button>
+    </form>
+    <div class="ticket" id="ticket" hidden><span id="tNo">ENTRY #04821</span><b id="tLine">You're in the draw.</b><span id="tSub">{{product.name}} · {{colorways.0.name}} · US 9 · Results {{$.dayName}} {{drop.time}}</span><span>Demo only. No real entry was made.</span></div>
+  </section>
+</main>
+
+<footer>
+  <div class="f-word" aria-hidden="true">{{brand.name}}</div>
+  <div class="f-meta"><span>{{footer.fine}}</span><span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span></div>
+</footer>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const seg = (p, a, b) => clamp((p - a) / (b - a));
+  const eio = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  const eoc = p => 1 - Math.pow(1 - p, 3);
+
+  const COLORWAYS = [
+{{$.colorwaysJs|raw}}
+  ];
+  function applyColors(el, c) { for (const k of ['upper', 'over', 'mid', 'sole', 'lace', 'acc', 'tongue', 'plate']) el.style.setProperty('--c-' + k, c[k]); }
+
+  /* ---------- the shoe (side view, toe right, 800x400 local units) ---------- */
+  const HOLES = Array.from({ length: 6 }, (_, i) => { const t = i / 5; return [332 + (588 - 332) * t, 126 + (204 - 126) * t]; });
+  function shoe(id, withCallouts) {
+    const laces = HOLES.slice(0, 5).map(([x, y], i) => { const [x2, y2] = HOLES[i + 1]; return `<path class="f-lace" d="M${x - 6} ${y - 16} L${x2 + 8} ${y2 + 4}" stroke-width="10" stroke-linecap="round"/><path class="f-lace" d="M${x + 4} ${y + 4} L${x2 - 4} ${y2 - 16}" stroke-width="10" stroke-linecap="round" opacity=".85"/>`; }).join('');
+    const holes = HOLES.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="#0f1012"/>`).join('');
+    const perf = []; for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) perf.push(`<circle cx="${650 + i * 13 + j * 4}" cy="${232 + j * 11 + i * 2.5}" r="2.6" fill="rgba(15,16,18,.35)"/>`);
+    const lugs = []; for (let x = 150; x < 640; x += 26) lugs.push(`<rect x="${x}" y="331" width="16" height="7" rx="2" fill="rgba(0,0,0,.35)"/>`);
+    const UPPER = 'M122 236 C110 210 104 176 112 150 C118 128 136 116 160 116 C196 118 226 136 256 134 C270 133 284 118 298 104 L352 118 C420 148 520 186 610 206 C690 222 742 238 756 276 C738 272 700 270 640 270 C560 270 450 264 330 252 C260 244 180 238 122 236 Z';
+    const g = (cls, inner) => `<g class="part ${cls}" data-part="${cls}">${inner}</g>`;
+    const parts =
+      g('p-tongue', `<path class="f-tongue ink" d="M292 112 C286 86 298 64 322 62 C344 60 358 78 360 104 L360 124 L300 118 Z"/><path d="M304 76 L346 74" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>`) +
+      g('p-upper', `<path class="f-upper ink" d="${UPPER}"/>
+        <path d="${UPPER}" fill="url(#mesh-${id})"/>
+        <path d="M112 150 C104 176 110 210 122 236 C150 237 180 238 206 240 C214 210 206 170 186 122 C176 118 168 116 160 116 C136 116 118 128 112 150 Z" class="f-over ink"/>
+        <path d="M612 206 C690 222 742 238 756 276 C738 272 700 270 640 270 C620 270 604 268 590 266 C584 244 594 220 612 206 Z" class="f-over ink"/>
+        <path d="M300 150 L366 140 L480 252 L410 256 Z" class="f-over ink"/>
+        <path d="M300 108 L352 118 C420 148 520 186 612 206 L606 224 C514 204 412 166 344 136 L296 126 Z" class="f-over ink"/>
+        <path d="M112 150 C118 128 136 116 160 116 C196 118 226 136 256 134 C270 133 284 118 298 104" fill="none" stroke="rgba(15,16,18,.55)" stroke-width="8" stroke-linecap="round"/>
+        <rect x="98" y="118" width="24" height="40" rx="8" class="f-acc ink" transform="rotate(-14 110 138)"/>
+        ${perf.join('')}${holes}
+        <path d="M150 140 C200 150 260 158 300 156" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="5" stroke-linecap="round"/>`) +
+      g('p-laces', `${laces}<path class="f-lace" d="M330 118 C300 90 286 112 316 122 M334 118 C340 86 368 96 344 124" fill="none" stroke-width="8" stroke-linecap="round"/>`) +
+      g('p-plate', `<path class="f-plate ink" d="M140 252 C260 258 420 268 560 272 C640 274 700 276 748 288 L746 296 C700 286 640 282 560 280 C420 276 260 266 140 260 Z"/><path d="M160 256 C300 262 450 272 600 276" stroke="var(--c-acc)" stroke-width="2" fill="none"/>`) +
+      g('p-mid', `<path class="f-mid ink" d="M108 298 C104 270 106 248 122 236 C180 238 260 244 330 252 C450 264 560 270 640 270 C700 270 738 272 756 286 C760 291 756 296 750 297 C730 312 692 322 640 322 L136 322 C118 321 109 312 108 298 Z"/>
+        <path d="M130 280 C260 288 420 296 560 296 C640 296 700 294 736 290" fill="none" stroke="rgba(15,16,18,.25)" stroke-width="2"/>
+        <rect x="146" y="262" width="96" height="30" rx="14" class="f-acc" opacity=".9"/>
+        <text x="320" y="292" font-family="Big Shoulders Display, Impact, sans-serif" font-weight="900" font-size="24" fill="rgba(15,16,18,.6)" letter-spacing="2">{{$.soleText|tl}}</text>`) +
+      g('p-out', `<path class="f-sole ink" d="M100 300 C96 320 108 338 134 338 L640 338 C694 338 734 322 752 296 L742 292 C722 312 690 322 640 322 L136 322 C118 321 109 312 108 298 Z"/>${lugs.join('')}`);
+    const defs = `<defs><pattern id="mesh-${id}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 4.5 H9 M4.5 0 V9" stroke="rgba(15,16,18,.09)" stroke-width="1.2"/></pattern>
+      <filter id="blur-${id}" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="9"/></filter></defs>`;
+    if (!withCallouts) return `<svg class="shoe" viewBox="60 40 740 330" role="img" aria-label="{{$.shoeAlt|tl}}, side view">${defs}<ellipse cx="430" cy="342" rx="320" ry="12" fill="rgba(15,16,18,.35)" filter="url(#blur-${id})"/>${parts}</svg>`;
+    return `<svg class="shoe" viewBox="0 150 1000 620" role="img" aria-label="{{$.shoeAlt|tl}}. Scrolling separates it into laces, tongue, upper, plate, foam and outsole.">${defs}
+      <g id="shoeRoot-${id}" transform="translate(100 300)"><ellipse id="shadow-${id}" cx="430" cy="342" rx="320" ry="12" fill="rgba(15,16,18,.35)" filter="url(#blur-${id})"/>${parts}</g>
+      <g class="callouts" id="callouts-${id}"></g></svg>`;
+  }
+
+  /* ---------- hero exploded view ---------- */
+  const heroBox = $('#heroShoe'); heroBox.innerHTML = shoe('h', true); applyColors(heroBox, COLORWAYS[0]);
+  const colorBox = $('#colorShoe'); colorBox.innerHTML = shoe('c', false); applyColors(colorBox, COLORWAYS[0]);
+  // part, dx, dy, anchor (local), side, title, short, spec, reveal order
+  const LAYERS = [
+    ['p-laces', 70, -235, [560, 190], 'R', {{layers.0.title|js}}, {{layers.0.short|js}}, {{layers.0.spec|js}}, 0],
+    ['p-tongue', -60, -150, [324, 78], 'L', {{layers.1.title|js}}, {{layers.1.short|js}}, {{layers.1.spec|js}}, 1],
+    ['p-upper', 0, -105, [440, 200], 'L', {{layers.2.title|js}}, {{layers.2.short|js}}, {{layers.2.spec|js}}, 2],
+    ['p-plate', 0, -30, [600, 279], 'R', {{layers.3.title|js}}, {{layers.3.short|js}}, {{layers.3.spec|js}}, 3],
+    ['p-mid', 0, 30, [200, 300], 'L', {{layers.4.title|js}}, {{layers.4.short|js}}, {{layers.4.spec|js}}, 4],
+    ['p-out', 0, 100, [520, 334], 'R', {{layers.5.title|js}}, {{layers.5.short|js}}, {{layers.5.spec|js}}, 5],
+  ];
+  const partEl = {}; LAYERS.forEach(L => partEl[L[0]] = heroBox.querySelector(`[data-part="${L[0]}"]`));
+  const plateEl = partEl['p-plate'];
+  const co = $('#callouts-h'), NS = 'http://www.w3.org/2000/svg';
+  const callouts = LAYERS.map((L, i) => {
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'callout');
+    const path = document.createElementNS(NS, 'path'), dot = document.createElementNS(NS, 'circle'), num = document.createElementNS(NS, 'text'), t1 = document.createElementNS(NS, 'text'), t2 = document.createElementNS(NS, 'text');
+    dot.setAttribute('r', 6); num.setAttribute('class', 'num'); t1.setAttribute('class', 't1'); t2.setAttribute('class', 't2');
+    num.textContent = '0' + (i + 1); t2.textContent = L[7];
+    if (L[4] === 'R') [num, t1, t2].forEach(t => t.setAttribute('text-anchor', 'end'));
+    g.append(path, dot, num, t1, t2); co.appendChild(g); return { g, path, dot, num, t1, t2 };
+  });
+  const narrow = () => innerWidth < 760;
+  function setTitles() { callouts.forEach((c, i) => c.t1.textContent = narrow() ? LAYERS[i][6] : LAYERS[i][5]); }
+  setTitles();
+  const shadow = $('#shadow-h'), stage = $('#stage'), bigword = $('#bigword'), heroMeta = $('.hero-meta');
+  let tiltX = 0, tiltY = 0, tx = 0, ty = 0;
+  addEventListener('pointermove', e => { tx = (e.clientX / innerWidth - .5); ty = (e.clientY / innerHeight - .5); }, { passive: true });
+
+  function heroUpdate(p, t) {
+    const ex = eio(seg(p, .1, .42)) * (1 - eio(seg(p, .76, .88)));
+    const slam = p > .88 ? Math.exp(-(p - .88) * 60) * Math.sin((p - .88) * 140) : 0;
+    LAYERS.forEach(([k, dx, dy], i) => {
+      const stagger = 1 - i * .06;
+      const e = clamp(ex * (1 + (1 - stagger)) - (1 - stagger) * .5);
+      partEl[k].setAttribute('transform', `translate(${(dx * e).toFixed(1)} ${(dy * e + slam * 8 * (i - 2.5)).toFixed(1)})`);
+    });
+    plateEl.style.opacity = clamp(ex * 3);
+    shadow.setAttribute('rx', (320 - ex * 40).toFixed(0)); shadow.setAttribute('opacity', (1 - ex * .4).toFixed(2));
+    // callouts
+    const nar = narrow();
+    let active = -1;
+    callouts.forEach((c, i) => {
+      const L = LAYERS[i], show = seg(p, .2 + i * .045, .28 + i * .045) * (1 - seg(p, .74, .78));
+      if (show > .5) active = i;
+      const e = ex, ax = 100 + L[3][0] + L[1] * e, ay = 300 + L[3][1] + L[2] * e;
+      const left = L[4] === 'L', lx = left ? (nar ? 30 : 40) : (nar ? 970 : 960), ex2 = left ? (nar ? 330 : 270) : (nar ? 670 : 730);
+      const reveal = eoc(show), endx = lerp(ax, ex2, reveal);
+      c.path.setAttribute('d', `M${ax.toFixed(1)} ${ay.toFixed(1)} L${endx.toFixed(1)} ${ay.toFixed(1)}${reveal > .98 ? ` L${lx} ${ay.toFixed(1)}` : ''}`);
+      c.dot.setAttribute('cx', ax.toFixed(1)); c.dot.setAttribute('cy', ay.toFixed(1));
+      c.g.style.opacity = show > 0 ? 1 : 0;
+      [c.num, c.t1, c.t2].forEach(tn => { tn.setAttribute('x', lx); tn.style.opacity = clamp((show - .5) * 2); });
+      c.num.setAttribute('y', (ay - (nar ? 56 : 44)).toFixed(1)); c.t1.setAttribute('y', (ay - 10).toFixed(1)); c.t2.setAttribute('y', (ay + 24).toFixed(1));
+    });
+    const lbl = p < .1 ? 'Scroll to take it apart' : p < .76 ? 'Exploded view · 6 layers' : p < .9 ? 'Putting it back together' : 'Ready to run';
+    if ($('#explodeLbl').textContent !== lbl) $('#explodeLbl').textContent = lbl;
+    const st = active >= 0 ? LAYERS[active] : null;
+    const sT = st ? st[5] : (p >= .88 ? {{$.endTitle|js}} : {{product.name|js}}), sS = st ? st[7] : (p >= .88 ? {{$.endSub|js}} : 'Scroll to take it apart');
+    if ($('#specT').textContent !== sT) { $('#specT').textContent = sT; $('#specS').textContent = sS; }
+    // shoe float + tilt
+    tiltX = lerp(tiltX, tx, .08); tiltY = lerp(tiltY, ty, .08);
+    const bob = reduce ? 0 : Math.sin(t / 900) * 6 * (1 - ex);
+    heroBox.style.transform = `perspective(1400px) rotateY(${(tiltX * 14).toFixed(2)}deg) rotateX(${(-tiltY * 8).toFixed(2)}deg) translateY(${(bob - ex * (nar ? 0 : 10)).toFixed(1)}px) scale(${(1 - ex * (nar ? .02 : .08)).toFixed(3)})`;
+    bigword.style.transform = `translateY(${nar ? '-95%' : '-62%'}) scale(${(1 + p * .25).toFixed(3)})`;
+    bigword.style.opacity = (.9 - ex * .6).toFixed(2);
+    heroMeta.style.opacity = (1 - clamp(ex * 2.2)).toFixed(2);
+  }
+
+  /* ---------- colorways ---------- */
+  const sw = $('#swatches'), colors = $('#colors');
+  COLORWAYS.forEach((c, i) => {
+    const b = document.createElement('button'); b.className = 'swatch'; b.type = 'button'; b.setAttribute('aria-pressed', String(i === 0));
+    b.style.setProperty('--a', c.upper); b.style.setProperty('--b', c.mid); b.innerHTML = `<i></i>${c.name}`;
+    b.onclick = () => setColor(i); sw.appendChild(b);
+  });
+  let cIdx = 0;
+  function setColor(i) {
+    cIdx = i; const c = COLORWAYS[i]; applyColors(colorBox, c); colors.style.backgroundColor = c.bg;
+    $$('.swatch').forEach((s, j) => s.setAttribute('aria-pressed', String(j === i)));
+    $('#cName').textContent = c.name; $('#tSub').textContent = `{{product.name|tl}} · ${c.name} · US ${$('#dSize').value || 9} · Results {{$.dayName}} {{drop.time}}`;
+    if (!reduce) colorBox.animate([{ transform: (colorBox.classList.contains('flip') ? 'scaleX(-1) ' : '') + 'translateY(0) rotate(0)' }, { transform: (colorBox.classList.contains('flip') ? 'scaleX(-1) ' : '') + 'translateY(-18px) rotate(-3deg)' }, { transform: (colorBox.classList.contains('flip') ? 'scaleX(-1) ' : '') + 'translateY(0) rotate(0)' }], { duration: 600, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+  }
+  $('#flip').onclick = () => colorBox.classList.toggle('flip');
+
+  /* ---------- foam press ---------- */
+  const press = $('#press'), slab = $('#slab'), weight = $('#weight');
+  let holding = false, comp = 0, vel = 0, holdStart = 0, maxComp = 0, strides = 0, pressT = 0;
+  function down(e) { if (e) e.preventDefault(); if (holding) return; holding = true; holdStart = performance.now(); weight.textContent = 'Loading'; }
+  function up() { if (!holding) return; holding = false; strides++; $('#rCount').textContent = strides;
+    const ret = 84 + Math.round(maxComp * 6 + Math.random() * 3); $('#rRet').textContent = Math.min(93, ret) + '%'; weight.textContent = 'Hold'; vel = -.08 - maxComp * .05; $('#pressHint').textContent = 'Again. Faster.'; }
+  press.addEventListener('pointerdown', down); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  press.addEventListener('keydown', e => { if (e.code === 'Space' || e.key === 'Enter') down(e); });
+  press.addEventListener('keyup', e => { if (e.code === 'Space' || e.key === 'Enter') up(); });
+  function foamTick() {
+    if (holding) { const h = (performance.now() - holdStart) / 1000; const target = .42 * (1 - Math.exp(-h * 2.2)); comp = lerp(comp, target, .2); vel = 0; maxComp = comp / .42; }
+    else { const k = 260, d = 9, dt = 1 / 60; const a = -k * comp - d * vel; vel += a * dt * .05; comp += vel; if (Math.abs(comp) < .0005 && Math.abs(vel) < .0005) { comp = 0; vel = 0; } }
+    const s = 1 - comp; slab.style.transform = `scaleY(${s.toFixed(4)}) scaleX(${(1 + comp * .18).toFixed(4)})`;
+    weight.style.transform = `translateX(-50%) translateY(${(comp * 180 + 40).toFixed(1)}px)`;
+    $('#rComp').textContent = (Math.max(0, comp) * {{foam.heelMm}} * .5).toFixed(1);
+  }
+
+  /* ---------- size finder ---------- */
+  const half = v => Math.round(v * 2) / 2, fmt = v => (v % 1 ? v.toFixed(1) : String(v));
+  function sizeUpdate() {
+    const cm = +$('#footR').value; $('#footVal').textContent = cm.toFixed(1);
+    const usm = half(cm - 18); $('#sUSM').textContent = fmt(usm); $('#sUSW').textContent = fmt(usm + 1.5); $('#sUK').textContent = fmt(usm - 1); $('#sEU').textContent = fmt(half((cm - 25) * 1.25 + 40));
+    $('#dSize').value = String(clamp(usm, 4, 14));
+  }
+  const dSize = $('#dSize'); for (let s = 4; s <= 14; s += .5) { const o = document.createElement('option'); o.value = String(s); o.textContent = 'US ' + fmt(s); dSize.appendChild(o); }
+  $('#footR').addEventListener('input', sizeUpdate); sizeUpdate();
+
+  /* ---------- drop countdown + draw ---------- */
+  function nextDrop() { const n = new Date(), d = new Date(n); d.setHours({{$.dropH}}, {{$.dropM}}, 0, 0); let add = ({{$.dropDay}} - n.getDay() + 7) % 7; if (add === 0 && n >= d) add = 7; d.setDate(d.getDate() + add); return d; }
+  const DROP = nextDrop();
+  $('#dropChip').textContent = 'Drops ' + DROP.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + ' · {{drop.time}}';
+  function clock() {
+    let s = Math.max(0, Math.floor((DROP - new Date()) / 1000)); const d = Math.floor(s / 86400); s -= d * 86400; const h = Math.floor(s / 3600); s -= h * 3600; const m = Math.floor(s / 60); s -= m * 60;
+    const p2 = v => String(v).padStart(2, '0'); $('#cD').textContent = p2(d); $('#cH').textContent = p2(h); $('#cM').textContent = p2(m); $('#cS').textContent = p2(s);
+  }
+  clock(); setInterval(clock, 1000);
+  $('#drawForm').addEventListener('submit', e => {
+    e.preventDefault(); const name = $('#dName').value.trim();
+    if (!name) { $('#dName').focus(); $('#dName').placeholder = 'Add your name to enter'; return; }
+    const no = String(1000 + Math.floor(Math.random() * 9000)).padStart(5, '0');
+    $('#tNo').textContent = 'ENTRY #' + no; $('#tLine').textContent = `${name}, you're in the draw.`;
+    $('#tSub').textContent = `{{product.name|tl}} · ${COLORWAYS[cIdx].name} · US ${fmt(+dSize.value)} · Results ${DROP.toLocaleDateString(undefined, { weekday: 'long' })} {{drop.time}}`;
+    $('#drawForm').hidden = true; const t = $('#ticket'); t.hidden = false;
+    if (!reduce) t.animate([{ transform: 'translateY(20px) rotate(-1deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+  });
+
+  /* ---------- loop ---------- */
+  const hero = $('#top'), band = $('#band');
+  let sy = scrollY, last = scrollY, v = 0;
+  function frame(t) {
+    const tgt = scrollY; sy = reduce ? tgt : lerp(sy, tgt, .12); if (Math.abs(sy - tgt) < .1) sy = tgt;
+    v = lerp(v, tgt - last, .2); last = tgt;
+    const p = clamp((sy - hero.offsetTop) / (hero.offsetHeight - innerHeight));
+    if (sy < hero.offsetTop + hero.offsetHeight) heroUpdate(p, t);
+    const bw = band.scrollWidth / 2; band.style.transform = `translate3d(${-((sy * .6) % bw)}px,0,0) skewX(${clamp(v * -.3, -12, 12)}deg)`;
+    foamTick();
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize', setTitles);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
