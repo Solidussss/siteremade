@@ -1,0 +1,108 @@
+{
+  "name": "ochre",
+  "category": "hair salon",
+  "reference": "reference/ochre-original.html",
+  "referenceSha256": "49a219530669ccae64c449a259c8ff9de045fb9afd0687e0a50c7813afdc80db",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#B24A2E",
+      "target": "theme.accent",
+      "about": "the salon's colour: buttons, the italic lines, the painted strand in the mark, the client card's time, step bars, the processing timer, sliders, picked times and the footer full stop"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.22,
+          0.5
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#FFFFFF",
+        "A:#B24A2E",
+        4.5,
+        "button text on the accent"
+      ],
+      [
+        "A:#9C3F25",
+        "#F5EEE6",
+        4.5,
+        "accent text on the cream"
+      ],
+      [
+        "A:#9C3F25",
+        "#F6E1D7",
+        4.5,
+        "accent text on the soft accent"
+      ]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.015em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&display=swap",
+          "family": "Fraunces"
+        }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=DM+Sans:wght@600&display=swap",
+          "family": "DM Sans"
+        }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:italic 300 1000px/1 {family};letter-spacing:-.03em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,300&display=swap",
+          "family": "Fraunces"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": [
+        "brand.name"
+      ],
+      "suffix": ".",
+      "metric": "word",
+      "size": [
+        40,
+        15,
+        210
+      ],
+      "container": {
+        "max": 1200,
+        "gutter": [
+          16,
+          4,
+          48
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "title": "Hair salon",
+  "fields": [
+    { "key": "businessName", "label": "Salon name", "required": true, "help": "e.g. Ochre & Ash" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or neighbourhood, and the street if you'd like it shown." },
+    { "key": "phone", "label": "Phone for clients", "required": true },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Tue-Fri 9-6, Thu late till 8, Sat 9-5, closed Sun and Mon." },
+    { "key": "services", "label": "Services and prices", "type": "textarea", "required": true, "help": "Your price list with how long each takes. If prices depend on the stylist's level (junior, senior, director...), give each level's price." },
+    { "key": "team", "label": "Your team", "type": "textarea", "help": "Two to four stylists or colourists: name, level, what they're known for." },
+    { "key": "colour", "label": "Your colour work", "type": "textarea", "help": "Optional: how you do a typical colour appointment (balayage, gloss, toner, bond repair...) so we can show one step by step." },
+    { "key": "booking", "label": "Booking and policies", "type": "textarea", "help": "Deposit, cancellation policy, patch tests, consultations." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a name or hex code." },
+    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your salon and your clients." }
+  ],
+  "facts": [
+    "menu.groups.*.items.*.p.*",
+    "menu.groups.*.items.*.min",
+    "menu.tiers.*",
+    "team.people.*.n",
+    "team.people.*.lv",
+    "book.deposit",
+    "book.policy",
+    "book.hours",
+    "contact.phone",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one colour appointment on a head of hair seen from behind, as you scroll: consultation, sectioning, painting, processing (a timer), toning, the cut, blow-out. stages are those seven in that order, each a short name, a caption in the salon's voice and a clock time across one appointment. Adapt them to how the brief says the salon works (balayage, foils, gloss, bond repair...), keeping the seven steps.",
+    "client: the example client the hero shows: natural level (1 black to 10 lightest blonde), the level painted pieces lift to (higher than natural), the toner (a short name and its colour as #rrggbb), minutes processing and centimetres trimmed. Make the captions agree with these numbers.",
+    "menu: the brief's stylist levels in order (one to three; one if prices do not depend on the stylist), and the services in one to three groups, each with a lowercase id, name, a short line, minutes (quarter hours) and one price per level. Use the brief's prices only; if a level has no price for a service, repeat the nearest level's price and list it in _assumed.",
+    "shade.looks: two to six looks the shade finder offers (gloss, babylights, balayage, all-over colour, going darker...) that the salon actually does, each with lift (levels lighter; negative for darker), svc (the menu id it books), pattern (all for all-over colour or gloss, fine for babylights or foils, ribbons for balayage) and a title.",
+    "team.people: two to four from the brief, each with lv (index into menu.tiers), what they're known for, their own hair (base and lift levels, for the portrait) and when they're next free. Never invent a stylist the brief does not name; if the brief names none, use the owner only and say in _decisions.",
+    "book: the deposit (0 if none), first (the menu id the booking starts on), the label for any stylist, the opening hours per day (null when closed, HH:MM on the hour or half hour) and the policy line from the brief. The section subs must not promise anything the brief does not.",
+    "hero.title and hero.titleEm are a two-part headline, the second in italics (four lines at most on a desktop). theme.accent is the salon's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the salon name in the brief and cannot be changed; brand.name is how it appears in the nav and footer."
+  ],
+  "readBack": [
+    { "label": "Services", "path": "menu.groups.0.items", "fields": ["n", "p"] },
+    { "label": "Team", "path": "team.people", "fields": ["n", "next"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

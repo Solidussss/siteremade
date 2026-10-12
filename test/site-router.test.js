@@ -32,6 +32,8 @@ test('each kind of business reaches its design; others are told none fits', () =
     ['A SaaS tool that pulls email and Slack into one task list', 'plait'],
     ['Booking software for barbers', 'plait'],
     ['A nail salon', null],
+    ['A hair salon in Brighton doing balayage and glosses', 'ochre'],
+    ['Hairdresser and colourist for curly hair', 'ochre'],
     ['An organic skincare brand', null],
     ['A law firm for tenants', null],
   ];

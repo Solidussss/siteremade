@@ -1,0 +1,355 @@
+{
+  "business": {
+    "name": "Ochre & Ash"
+  },
+  "brand": {
+    "name": "Ochre & Ash"
+  },
+  "contact": {
+    "phone": "01273 555014"
+  },
+  "nav": {
+    "shade": "Your shade",
+    "menu": "Prices",
+    "team": "Team",
+    "book": "Book",
+    "cta": "Book a chair"
+  },
+  "hero": {
+    "eyebrow": "Ochre & Ash · colour salon, Brighton",
+    "title": "Colour, painted by hand.",
+    "titleEm": "Lived in for months.",
+    "lede": "Balayage, gloss and colour correction from colourists who paint every section by hand. Scroll through one appointment, from the first look to the blow-out.",
+    "cta": "Book a chair",
+    "cta2": "Find your shade",
+    "hint": "Scroll to start the appointment"
+  },
+  "client": {
+    "natural": 4,
+    "target": 8,
+    "toner": {
+      "name": "9.13 beige",
+      "hex": "#D9C4A4"
+    },
+    "process": 35,
+    "trim": 2
+  },
+  "stages": [
+    {
+      "n": "Consultation",
+      "c": "Natural level 4 with warm undertones, two years of box dye on the ends. We agree a soft balayage that grows out kindly.",
+      "time": "10:00"
+    },
+    {
+      "n": "Sectioning",
+      "c": "Seven sections, clipped high, so every piece we paint is one we chose.",
+      "time": "10:20"
+    },
+    {
+      "n": "Painting",
+      "c": "Lightener painted by hand from mid-lengths down, heavier around the face, feathered so there is no line at the root.",
+      "time": "10:35"
+    },
+    {
+      "n": "Processing",
+      "c": "Thirty-five minutes, checked every ten. It lifts warm first: that orange is meant to be there.",
+      "time": "11:40"
+    },
+    {
+      "n": "Toning",
+      "c": "A beige gloss at the basin takes the warmth out and leaves the shine in.",
+      "time": "12:20"
+    },
+    {
+      "n": "The cut",
+      "c": "Two centimetres off the ends where the old dye was, and long layers so the colour moves.",
+      "time": "12:35"
+    },
+    {
+      "n": "Blow-out",
+      "c": "Round brush, low heat, a little oil on the ends. Walk out with it, and it grows out without a line.",
+      "time": "13:05"
+    }
+  ],
+  "shade": {
+    "eyebrow": "Find your shade",
+    "title": "Where you are,",
+    "titleEm": "where you could be.",
+    "sub": "Pick your natural shade and the look you're after. We'll show it on a strand, with roughly how long it takes and what it costs. Your colourist confirms everything at a free consultation.",
+    "looks": [
+      {
+        "n": "Gloss",
+        "lift": 0,
+        "svc": "gloss",
+        "pattern": "all",
+        "title": "A gloss"
+      },
+      {
+        "n": "Babylights",
+        "lift": 2,
+        "svc": "baby",
+        "pattern": "fine",
+        "title": "Babylights"
+      },
+      {
+        "n": "Balayage",
+        "lift": 3,
+        "svc": "balayage",
+        "pattern": "ribbons",
+        "title": "Soft balayage"
+      },
+      {
+        "n": "All-over colour",
+        "lift": 1,
+        "svc": "root",
+        "pattern": "all",
+        "title": "All-over colour"
+      },
+      {
+        "n": "Go darker",
+        "lift": -2,
+        "svc": "root",
+        "pattern": "all",
+        "title": "A richer, darker shade"
+      }
+    ],
+    "note": "New colour clients need a patch test at least 48 hours before. It takes five minutes and it's free.",
+    "cta": "Book this"
+  },
+  "menu": {
+    "eyebrow": "Prices",
+    "title": "One menu,",
+    "titleEm": "three levels.",
+    "sub": "Every colourist is trained in-house. Prices follow their experience: pick a level to see what each service costs with them.",
+    "tiers": [
+      "New talent",
+      "Senior",
+      "Director"
+    ],
+    "groups": [
+      {
+        "g": "Colour",
+        "items": [
+          {
+            "id": "gloss",
+            "n": "Gloss",
+            "d": "Tone and shine, no lift",
+            "min": 60,
+            "p": [
+              55,
+              65,
+              80
+            ]
+          },
+          {
+            "id": "baby",
+            "n": "Babylights",
+            "d": "Fine, soft brightness from the root",
+            "min": 180,
+            "p": [
+              165,
+              195,
+              230
+            ]
+          },
+          {
+            "id": "balayage",
+            "n": "Balayage",
+            "d": "Hand-painted, grows out without a line",
+            "min": 210,
+            "p": [
+              185,
+              220,
+              260
+            ]
+          },
+          {
+            "id": "root",
+            "n": "Root colour",
+            "d": "Grey coverage or a refresh",
+            "min": 90,
+            "p": [
+              70,
+              82,
+              95
+            ]
+          },
+          {
+            "id": "correct",
+            "n": "Colour correction",
+            "d": "Consultation first, priced by the hour",
+            "min": 240,
+            "p": [
+              260,
+              300,
+              350
+            ]
+          }
+        ]
+      },
+      {
+        "g": "Cut & style",
+        "items": [
+          {
+            "id": "cut",
+            "n": "Cut & finish",
+            "d": "Consultation, wash, cut and blow-dry",
+            "min": 60,
+            "p": [
+              52,
+              62,
+              78
+            ]
+          },
+          {
+            "id": "blow",
+            "n": "Blow-dry",
+            "d": "Wash and a smooth or bouncy finish",
+            "min": 45,
+            "p": [
+              32,
+              38,
+              45
+            ]
+          },
+          {
+            "id": "fringe",
+            "n": "Fringe trim",
+            "d": "Between cuts, any time",
+            "min": 15,
+            "p": [
+              10,
+              10,
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "g": "Treatments",
+        "items": [
+          {
+            "id": "bond",
+            "n": "Bond repair",
+            "d": "Rebuilds hair weakened by lightening",
+            "min": 30,
+            "p": [
+              35,
+              35,
+              35
+            ]
+          },
+          {
+            "id": "scalp",
+            "n": "Scalp ritual",
+            "d": "Exfoliation, massage and steam",
+            "min": 30,
+            "p": [
+              30,
+              30,
+              30
+            ]
+          },
+          {
+            "id": "glossblow",
+            "n": "Gloss & blow-dry",
+            "d": "A shine refresh between colours",
+            "min": 75,
+            "p": [
+              80,
+              92,
+              108
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Prices are from, for shoulder-length hair. Longer or thicker hair may take more product and time; we'll tell you before we start."
+  },
+  "team": {
+    "eyebrow": "The team",
+    "title": "Four chairs,",
+    "titleEm": "four hands we trust.",
+    "sub": "Each of us has a thing we're known for. Pick someone here and they'll be waiting in the booking.",
+    "people": [
+      {
+        "n": "Rosa Delgado",
+        "lv": 2,
+        "spec": "Balayage and colour correction. Fourteen years, two of them in Madrid.",
+        "base": 4,
+        "lift": 8,
+        "next": "Thursday"
+      },
+      {
+        "n": "Theo Marsh",
+        "lv": 1,
+        "spec": "Lived-in blondes and babylights that grow out soft.",
+        "base": 6,
+        "lift": 9,
+        "next": "Wednesday"
+      },
+      {
+        "n": "Imani Clarke",
+        "lv": 1,
+        "spec": "Colour and cuts for curls, coils and waves.",
+        "base": 2,
+        "lift": 5,
+        "next": "Saturday"
+      },
+      {
+        "n": "June Park",
+        "lv": 0,
+        "spec": "Glosses, cuts and blow-dries. Ask her about fringes.",
+        "base": 3,
+        "lift": 3,
+        "next": "Tomorrow"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Your chair,",
+    "titleEm": "held for you.",
+    "sub": "Choose the service, who you'd like and a time. A £20 deposit holds the chair and comes off the bill.",
+    "deposit": 20,
+    "first": "balayage",
+    "any": "Anyone free",
+    "hours": {
+      "sun": null,
+      "mon": null,
+      "tue": {
+        "open": "09:00",
+        "close": "18:00"
+      },
+      "wed": {
+        "open": "09:00",
+        "close": "18:00"
+      },
+      "thu": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "09:00",
+        "close": "18:00"
+      },
+      "sat": {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    },
+    "policy": "Free to move up to 48 hours before. After that the deposit covers the chair.",
+    "cta": "Hold my chair",
+    "nameExample": "Alex Morgan",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Ochre & Ash is a made-up salon for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#B24A2E"
+  }
+}

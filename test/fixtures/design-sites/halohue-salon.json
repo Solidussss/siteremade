@@ -1,0 +1,273 @@
+{
+  "business": {
+    "name": "Halo & Hue Hair Studio"
+  },
+  "brand": {
+    "name": "Halo & Hue"
+  },
+  "contact": {
+    "phone": "(512) 555-0193"
+  },
+  "nav": {
+    "shade": "Find a shade",
+    "menu": "Pricing",
+    "team": "Stylists",
+    "book": "Book",
+    "cta": "Book now"
+  },
+  "hero": {
+    "eyebrow": "Halo & Hue · blonding studio, East Austin",
+    "title": "Blonde, built slowly.",
+    "titleEm": "Healthy all summer.",
+    "lede": "Foilayage, lived-in blondes and bond care from stylists who only do colour. Scroll through one appointment, from consult to the last pass of the round brush.",
+    "cta": "Book now",
+    "cta2": "Find a shade",
+    "hint": "Scroll to start the appointment"
+  },
+  "client": {
+    "natural": 6,
+    "target": 9,
+    "toner": {
+      "name": "10NV pearl",
+      "hex": "#E6DCC8"
+    },
+    "process": 40,
+    "trim": 3
+  },
+  "stages": [
+    {
+      "n": "Consult",
+      "c": "Natural dark blonde, brassy from last summer. We plan bright foilayage around the face and softer lights through the back.",
+      "time": "9:30"
+    },
+    {
+      "n": "Sectioning",
+      "c": "Seven sections, clipped up, so the foils go where we planned and nowhere else.",
+      "time": "9:45"
+    },
+    {
+      "n": "Foiling",
+      "c": "Lightener with bond builder, painted and folded into foils, finest at the parting so it grows out soft.",
+      "time": "10:00"
+    },
+    {
+      "n": "Processing",
+      "c": "Forty minutes, checked at every foil. It passes through yellow on the way: that is normal.",
+      "time": "11:15"
+    },
+    {
+      "n": "Toning",
+      "c": "A pearl toner at the bowl cancels the yellow and leaves a clean, bright blonde.",
+      "time": "12:00"
+    },
+    {
+      "n": "The trim",
+      "c": "Three centimetres off the dry ends, with face-framing layers to show off the brightest pieces.",
+      "time": "12:20"
+    },
+    {
+      "n": "Blowout",
+      "c": "Big round brush, bond oil on the ends, and you leave with a glossy, swingy blonde.",
+      "time": "12:50"
+    }
+  ],
+  "shade": {
+    "eyebrow": "Find a shade",
+    "title": "Start where you are,",
+    "titleEm": "end up bright.",
+    "sub": "Pick your natural shade and the look you want. We will show it on a strand, with about how long it takes and what it costs. Every new client starts with a free consult.",
+    "looks": [
+      {
+        "n": "Gloss",
+        "lift": 0,
+        "svc": "gloss",
+        "pattern": "all",
+        "title": "A shine gloss"
+      },
+      {
+        "n": "Babylights",
+        "lift": 2,
+        "svc": "baby",
+        "pattern": "fine",
+        "title": "Babylights"
+      },
+      {
+        "n": "Foilayage",
+        "lift": 3,
+        "svc": "foilayage",
+        "pattern": "ribbons",
+        "title": "Bright foilayage"
+      },
+      {
+        "n": "Full blonde",
+        "lift": 4,
+        "svc": "fullfoil",
+        "pattern": "fine",
+        "title": "Full-head blonde"
+      }
+    ],
+    "note": "New colour clients need a patch test 48 hours before. It takes five minutes and it is free.",
+    "cta": "Book this"
+  },
+  "menu": {
+    "eyebrow": "Pricing",
+    "title": "Two levels,",
+    "titleEm": "one standard.",
+    "sub": "Our stylists are either Stylists or Master Colorists. Pick one to see what everything costs with them.",
+    "tiers": [
+      "Stylist",
+      "Master"
+    ],
+    "groups": [
+      {
+        "g": "Blonding",
+        "items": [
+          {
+            "id": "gloss",
+            "n": "Gloss",
+            "d": "Tone and shine, no lift",
+            "min": 45,
+            "p": [
+              65,
+              85
+            ]
+          },
+          {
+            "id": "baby",
+            "n": "Babylights",
+            "d": "Tiny foils, soft and bright",
+            "min": 180,
+            "p": [
+              210,
+              260
+            ]
+          },
+          {
+            "id": "foilayage",
+            "n": "Foilayage",
+            "d": "Painted, then foiled for more lift",
+            "min": 210,
+            "p": [
+              240,
+              300
+            ]
+          },
+          {
+            "id": "fullfoil",
+            "n": "Full-head foils",
+            "d": "Bright blonde all over",
+            "min": 240,
+            "p": [
+              275,
+              340
+            ]
+          }
+        ]
+      },
+      {
+        "g": "Cut & finish",
+        "items": [
+          {
+            "id": "cut",
+            "n": "Haircut & style",
+            "d": "Wash, cut and blowout",
+            "min": 60,
+            "p": [
+              70,
+              95
+            ]
+          },
+          {
+            "id": "blowout",
+            "n": "Blowout",
+            "d": "Wash and a smooth finish",
+            "min": 45,
+            "p": [
+              50,
+              60
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Prices start from shoulder-length hair. Extra-long or thick hair may need extra lightener; we will tell you first."
+  },
+  "team": {
+    "eyebrow": "Stylists",
+    "title": "Three stylists,",
+    "titleEm": "all colour.",
+    "sub": "Everyone here specialises in blonde. Pick a stylist and they will be waiting in the booking.",
+    "people": [
+      {
+        "n": "Marisol Vega",
+        "lv": 1,
+        "spec": "Owner and master colorist. Foilayage and blonde corrections.",
+        "base": 5,
+        "lift": 9,
+        "next": "Friday"
+      },
+      {
+        "n": "Kayla Brooks",
+        "lv": 1,
+        "spec": "Babylights and bright, even blondes.",
+        "base": 7,
+        "lift": 10,
+        "next": "Thursday"
+      },
+      {
+        "n": "Devon Hart",
+        "lv": 0,
+        "spec": "Glosses, cuts and blowouts. Great with curls.",
+        "base": 3,
+        "lift": 4,
+        "next": "Tomorrow"
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick your chair,",
+    "titleEm": "we will do the rest.",
+    "sub": "Choose a service, a stylist and a time. A $40 deposit holds your spot and comes off the total.",
+    "deposit": 40,
+    "first": "foilayage",
+    "any": "First available",
+    "hours": {
+      "sun": null,
+      "mon": null,
+      "tue": {
+        "open": "10:00",
+        "close": "19:00"
+      },
+      "wed": {
+        "open": "10:00",
+        "close": "19:00"
+      },
+      "thu": {
+        "open": "10:00",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "09:00",
+        "close": "18:00"
+      },
+      "sat": {
+        "open": "09:00",
+        "close": "16:00"
+      }
+    },
+    "policy": "Reschedule free up to 48 hours before. Later than that, the deposit covers the chair.",
+    "cta": "Hold my spot",
+    "nameExample": "Jordan Lee",
+    "phoneExample": "(512) 555-0100"
+  },
+  "footer": {
+    "fine": "Halo & Hue Hair Studio is a made-up salon for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#7A3E6B"
+  }
+}
