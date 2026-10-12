@@ -1,0 +1,213 @@
+{
+  "business": {
+    "name": "The Saltbox Inn"
+  },
+  "brand": {
+    "name": "Saltbox Inn"
+  },
+  "contact": {
+    "phone": "(207) 555-0168"
+  },
+  "nav": {
+    "rooms": "Rooms",
+    "dates": "Rates",
+    "nearby": "The harbor",
+    "cta": "Book a room"
+  },
+  "hero": {
+    "eyebrow": "The Saltbox Inn · bed and breakfast, Camden, Maine",
+    "title": "Four rooms,",
+    "titleEm": "one harbor view.",
+    "lede": "A sea captain's house from 1840, two streets up from the harbor, with four rooms and blueberry pancakes. Scroll through a night here.",
+    "cta": "See the rooms",
+    "cta2": "Check rates",
+    "hint": "Scroll through a night"
+  },
+  "house": {
+    "brick": "white",
+    "door": "#2F5E7A"
+  },
+  "stay": {
+    "room": 2,
+    "clock": "12h"
+  },
+  "key": {
+    "rooms": 4,
+    "in": "3 pm",
+    "breakfast": "8–10",
+    "walk": "4 min",
+    "labels": [
+      "Rooms",
+      "Check-in",
+      "Breakfast",
+      "To harbor"
+    ]
+  },
+  "sign": [
+    {
+      "n": "Harbor",
+      "m": "4 min"
+    },
+    {
+      "n": "Mt Battie",
+      "m": "25 min"
+    }
+  ],
+  "stages": [
+    {
+      "n": "You arrive",
+      "c": "The porch light is on and the door is open until nine. Your key is on the hall table."
+    },
+    {
+      "n": "Checking in",
+      "c": "A key on a rope fob, a harbor map, and a cookie from the jar by the stairs."
+    },
+    {
+      "n": "Your room",
+      "c": "Up to the Captain's Room: a four-poster, a quilt, and the harbor lights from the window."
+    },
+    {
+      "n": "Lights out",
+      "c": "Old walls, new mattresses, and the foghorn far off. That's all you'll hear."
+    },
+    {
+      "n": "Breakfast",
+      "c": "Wild blueberry pancakes, Maine maple syrup and coffee roasted in town."
+    },
+    {
+      "n": "Out for the day",
+      "c": "The harbor is four minutes down the hill. Leave your bags in the hall."
+    }
+  ],
+  "rooms": {
+    "eyebrow": "Rooms",
+    "title": "Four rooms,",
+    "titleEm": "each with a story.",
+    "sub": "Every room has a private bath, a good mattress and a quilt made in Maine. Pick one to see rates.",
+    "list": [
+      {
+        "n": "The Harbor Room",
+        "d": "Front of the house, with the best view of the boats.",
+        "sleeps": 2,
+        "bed": "Queen",
+        "size": "220 sq ft",
+        "p": 245,
+        "wall": "#D6E2E6",
+        "throw": "#2F5E7A"
+      },
+      {
+        "n": "The Garden Room",
+        "d": "Ground floor, with a door onto the garden.",
+        "sleeps": 2,
+        "bed": "Queen",
+        "size": "200 sq ft",
+        "p": 215,
+        "wall": "#DDE5D3",
+        "throw": "#5E7F4E"
+      },
+      {
+        "n": "The Captain's Room",
+        "d": "A four-poster and a window seat over the harbor.",
+        "sleeps": 2,
+        "bed": "King",
+        "size": "300 sq ft",
+        "p": 295,
+        "wall": "#E9E1D2",
+        "throw": "#8E3B32"
+      },
+      {
+        "n": "The Loft",
+        "d": "Under the eaves, with a skylight over the bed.",
+        "sleeps": 3,
+        "bed": "Queen + twin",
+        "size": "260 sq ft",
+        "p": 230,
+        "wall": "#EFE6DA",
+        "throw": "#B07A2E"
+      }
+    ]
+  },
+  "dates": {
+    "eyebrow": "Rates",
+    "title": "Pick your nights,",
+    "titleEm": "see the rate.",
+    "sub": "Rates are per room per night with breakfast for two. Fridays and Saturdays are two nights minimum in summer.",
+    "weekend": 40,
+    "minWeekend": 2,
+    "words": {
+      "from": "from",
+      "per": "a night",
+      "sleeps": "Sleeps",
+      "pick": "Pick the night you arrive, then the morning you leave.",
+      "leave": "Now pick the morning you leave.",
+      "min": "Weekends are two nights minimum.",
+      "taken": "One of those nights is taken. Try other dates.",
+      "night": "night",
+      "nights": "nights",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site we would email you to confirm within a few hours."
+    },
+    "labels": {
+      "arrive": "Arrive",
+      "leave": "Leave",
+      "nights": "Nights",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Jordan Lee",
+    "emailExample": "jordan@example.com",
+    "cta": "Request these nights",
+    "prevLabel": "Earlier month",
+    "nextLabel": "Later month",
+    "errors": {
+      "nights": "Pick your nights first.",
+      "name": "Add your name.",
+      "email": "Add an email so we can reply."
+    }
+  },
+  "nearby": {
+    "eyebrow": "The harbor",
+    "title": "Park once,",
+    "titleEm": "walk the rest.",
+    "sub": "Everything in Camden is downhill from us, and the hike up Mount Battie starts at the end of the street.",
+    "places": [
+      {
+        "n": "Camden Harbor",
+        "d": "Schooners, lobster boats and the library lawn.",
+        "m": 4,
+        "dir": 120
+      },
+      {
+        "n": "Mount Battie trail",
+        "d": "Twenty-five minutes to the view over the bay.",
+        "m": 9,
+        "dir": 330
+      },
+      {
+        "n": "Owl & Turtle",
+        "d": "A tiny bookshop with a big poetry shelf.",
+        "m": 6,
+        "dir": 160
+      },
+      {
+        "n": "Curtis Island light",
+        "d": "A walk along the water to the lighthouse.",
+        "m": 14,
+        "dir": 190
+      }
+    ],
+    "rings": [
+      5,
+      15
+    ]
+  },
+  "footer": {
+    "fine": "The Saltbox Inn is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#2F5E7A"
+  }
+}

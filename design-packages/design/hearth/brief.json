@@ -1,0 +1,40 @@
+{
+  "title": "Bed and breakfast or small hotel",
+  "fields": [
+    { "key": "businessName", "label": "Name of the place", "required": true, "help": "e.g. The Linden House" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or neighbourhood." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "house", "label": "The building", "help": "What kind of house it is, the brick or stone, the colour of the front door." },
+    { "key": "rooms", "label": "Rooms and prices", "type": "textarea", "required": true, "help": "Each room with who it sleeps, the bed, size, nightly price and anything special about it." },
+    { "key": "stay", "label": "Check-in, breakfast and minimum stays", "type": "textarea", "help": "Check-in time, breakfast hours, weekend prices and minimum nights." },
+    { "key": "nearby", "label": "What's nearby", "type": "textarea", "help": "Places guests love, with minutes on foot and roughly which way." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your door or logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "rooms.list.*.p",
+    "rooms.list.*.sleeps",
+    "key.in",
+    "key.breakfast",
+    "dates.weekend",
+    "dates.minWeekend",
+    "nearby.places.*.m",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "house: the brick (red, brown, stone or white) closest to the building, and its front door's colour. The hero shows five guest rooms in the colours of the first five rooms; stay.room is the room the guest is shown up to (pick a favourite, and name it in the third stage).",
+    "rooms.list: the brief's rooms exactly (prices, beds, who they sleep), each with a short line and two colours that suit it (soft wall colour, a stronger throw).",
+    "key: rooms count, check-in time, breakfast hours and minutes to town, short enough to fit (up to nine characters each). sign: one or two places at the corner with their minutes. stay.clock is 12h in the US, otherwise 24h.",
+    "stages: the six steps of a night in this place, in its own voice: arriving at dusk, checking in, your room, lights out, breakfast, out for the day.",
+    "dates: what a Friday or Saturday night adds (0 if nothing) and the fewest nights for a weekend stay, from the brief. The request is a demo: nothing is sent.",
+    "nearby: three to six places from the brief with minutes on foot and which way they lie (degrees from north, roughly), and two rings for the map (e.g. 5 and 10 minutes).",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); section titles have a second half. theme.accent is the house's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Rooms", "path": "rooms.list", "fields": ["n", "sleeps", "p"] },
+    { "label": "Nearby", "path": "nearby.places", "fields": ["n", "m"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

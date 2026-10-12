@@ -1,0 +1,572 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Albert+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a bed and breakfast. One pinned townhouse, cut open like a doll's house, through one stay as you scroll
+   (arriving at dusk, checking in, up to your room, the night, breakfast, out for the day); then what a guest needs:
+   the rooms, dates with nightly prices and a request, and what's nearby on foot. */
+:root{
+  color-scheme:light;
+  --paper:#F6F1E8;
+  --paper-2:#EDE5D7;
+  --sheet:#FFFDF9;
+  --ink:#1D2A3A;
+  --ink-2:#4A5566;
+  --muted:#7F8794;
+  --line:#E2D9C9;
+  --accent:{{A:#A84E28}};       /* the house's colour: actions, the door, the logo, picked rooms and nights */
+  --accent-2:{{A:#BF5C30}};
+  --accent-text:{{A:#9A4622}};
+  --accent-soft:{{A:#F6E2D6}};
+  --on-accent:#FFFFFF;
+  --f-display:"Marcellus",Georgia,"Times New Roman",serif;
+  --f-body:"Albert Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;line-height:1.04;letter-spacing:0;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:500 12px/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:6px;padding:15px 22px;font:600 15px/1 var(--f-body);text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.btn.ghost:hover{background:var(--sheet)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:20px;background:rgba(246,241,232,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(29,42,58,.08)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:400 24px/1 var(--f-display);white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:500 14.5px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 18px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:22px}}
+@media (max-width:400px){.brand{font-size:19px;gap:8px}.brand svg{width:24px;height:24px}.nav .btn{padding:10px 14px;font-size:13.5px}}
+
+/* hero: the house */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+#house{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(246,241,232,.96),rgba(246,241,232,.8) 55%,rgba(246,241,232,0));pointer-events:none}
+.hero h1{font-size:clamp(3rem,min(6.2vw,9.2vh),6.2rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:8px;box-shadow:0 22px 56px -30px rgba(29,42,58,.45),0 0 0 1px rgba(29,42,58,.06)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .clock{color:var(--accent-text)}
+.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
+.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
+.keytag{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:8px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(29,42,58,.45),0 0 0 1px rgba(29,42,58,.06);overflow:hidden}
+.keytag div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.keytag div:nth-child(2n){border-right:0}
+.keytag div:nth-child(n+3){border-bottom:0}
+.keytag dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.keytag dd{margin:6px 0 0;font:600 24px/1.05 var(--f-body);letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* short laptop screens: a little less type so the copy clears the card */
+@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.2vw,8.8vh),6.2rem)}.lede{font-size:15px}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .keytag{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(204px + env(safe-area-inset-bottom,0px))}
+  .keytag div{padding:9px 10px;border-bottom:0}
+  .keytag div:nth-child(2n){border-right:1px solid var(--line)}
+  .keytag div:last-child{border-right:0}
+  .keytag dt{font-size:8.5px;letter-spacing:.03em}
+  .keytag dd{font-size:clamp(15px,4.4vw,20px);white-space:normal;overflow-wrap:anywhere;line-height:1.05}
+  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
+  .card p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.6rem,5.6vw,4.6rem)}
+.head h2 em{font-style:normal;color:var(--accent-text)}
+.head p:not(.eyebrow){color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:8px}
+.lbl{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* rooms */
+.rooms{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:16px}
+.room{display:grid;align-content:start;gap:10px;padding:0 0 18px;overflow:hidden;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.room canvas{width:100%;aspect-ratio:4/3;display:block;background:var(--paper-2)}
+.room .in{padding:0 18px;display:grid;gap:6px}
+.room b{font:400 26px/1.1 var(--f-display)}
+.room .meta{font:400 12.5px var(--f-mono);color:var(--muted);letter-spacing:.02em}
+.room span.d{color:var(--ink-2);font-size:15px}
+.room .p{font:600 17px var(--f-body)}
+.room .p small{font-weight:400;color:var(--muted);font-size:13px}
+.room[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+
+/* dates */
+.dates{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.cal{padding:clamp(18px,3vw,26px);display:grid;gap:14px}
+.cal .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cal .top b{font:400 24px var(--f-display)}
+.cal .top button{border:1px solid var(--line);background:var(--sheet);border-radius:6px;width:38px;height:38px;cursor:pointer;font-size:18px}
+.cal .top button:disabled{opacity:.35;cursor:default}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.grid .dow{font:500 10.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center;padding-bottom:4px}
+.grid button{border:0;background:transparent;border-radius:6px;padding:8px 2px 6px;cursor:pointer;display:grid;justify-items:center;gap:1px;min-width:0}
+.grid button b{font:600 15px var(--f-body)}
+.grid button small{font:400 10.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+.grid button:hover:not(:disabled){background:var(--paper-2)}
+.grid button:disabled{cursor:not-allowed;opacity:.35}
+.grid button:disabled b{text-decoration:line-through}
+.grid button.in{background:var(--accent-soft)}
+.grid button.end{background:var(--accent);color:var(--on-accent)}
+.grid button.end small{color:var(--on-accent)}
+.cal .note{font-size:13.5px;color:var(--muted)}
+.stay{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px}
+.stay h3{font-size:30px}
+.stay dl{margin:0;display:grid;gap:10px}
+.stay dl div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:10px}
+.stay dt{color:var(--muted);font-size:14px}
+.stay dd{margin:0;font-weight:600;text-align:right}
+.stay .big{font:600 40px/1 var(--f-body);letter-spacing:-.02em}
+.form{display:grid;gap:12px}
+.form input{border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--paper);font-size:15px;width:100%}
+.form label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.err{color:#A3271C;font-size:14px;font-weight:700}
+.confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+
+/* nearby */
+.near{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:start}
+#map{width:100%;aspect-ratio:1;display:block;border-radius:8px;background:var(--paper-2)}
+.places{list-style:none;margin:0;padding:0;display:grid;gap:0;border-top:1px solid var(--line)}
+.places li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 4px;border-bottom:1px solid var(--line);cursor:default}
+.places li i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 13px var(--f-mono);font-style:normal;background:var(--ink);color:#fff}
+.places b{font:400 22px/1.15 var(--f-display);display:block}
+.places span.d{font-size:14.5px;color:var(--ink-2)}
+.places .t{font:500 13px var(--f-mono);color:var(--ink-2);white-space:nowrap;text-align:right}
+.places li:hover i,.places li.on i{background:var(--accent)}
+
+footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:400 min(10vw,126px)/.95 var(--f-display);margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:{{A:#E39A72}}}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(246,241,232,.6)}
+.foot-row a{color:var(--paper)}
+
+@media (max-width:980px){
+  .rooms{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .dates,.near{grid-template-columns:minmax(0,1fr)}
+  .stay{position:static}
+  #map{aspect-ratio:4/3}
+}
+@media (max-width:620px){
+  .rooms{grid-template-columns:minmax(0,1fr)}
+  .grid button{padding:7px 0 5px}
+  .grid button small{font-size:9.5px}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 13L14 4l11 9v12H3z" fill="#1D2A3A"/><rect x="11" y="16" width="6" height="9" rx="3" fill="{{A:#A84E28}}"/><rect x="6" y="15" width="3.5" height="3.5" fill="#F5C86B"/><rect x="18.5" y="15" width="3.5" height="3.5" fill="#F5C86B"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#rooms">{{nav.rooms}}</a></li><li><a href="#dates">{{nav.dates}}</a></li><li><a href="#nearby">{{nav.nearby}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#dates">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A night at the house, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="house" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#rooms">{{hero.cta}}</a><a class="btn ghost" href="#dates">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="keytag" id="keytag" aria-live="off">
+      <div><dt>{{key.labels.0}}</dt><dd id="kRooms">0</dd></div>
+      <div><dt>{{key.labels.1}}</dt><dd id="kIn">—</dd></div>
+      <div><dt>{{key.labels.2}}</dt><dd id="kBreak">—</dd></div>
+      <div><dt>{{key.labels.3}}</dt><dd id="kWalk">—</dd></div>
+    </dl>
+    <div class="card" id="card" aria-live="polite">
+      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="clock" id="gClock">{{$.clock0}}</span></div>
+      <h3 id="gTitle">{{stages.0.n}}</h3>
+      <p id="gText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="rooms" aria-labelledby="rooms-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{rooms.eyebrow}}</p>
+      <h2 id="rooms-h">{{rooms.title}} <em>{{rooms.titleEm}}</em></h2>
+      <p>{{rooms.sub}}</p>
+    </div>
+    <div class="rooms" id="roomList" role="group" aria-label="Rooms"></div>
+  </div>
+</section>
+
+<section class="block" id="dates" aria-labelledby="dates-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{dates.eyebrow}}</p>
+      <h2 id="dates-h">{{dates.title}} <em>{{dates.titleEm}}</em></h2>
+      <p>{{dates.sub}}</p>
+    </div>
+    <div class="dates">
+      <div class="panel cal">
+        <div class="top"><button type="button" id="prev" aria-label="{{dates.prevLabel|attr}}">‹</button><b id="month"></b><button type="button" id="next" aria-label="{{dates.nextLabel|attr}}">›</button></div>
+        <div class="grid" id="days"></div>
+        <p class="note" id="calNote">{{dates.words.pick}}</p>
+      </div>
+      <aside class="panel stay" aria-live="polite">
+        <h3 id="sRoom">{{$.room0}}</h3>
+        <dl>
+          <div><dt>{{dates.labels.arrive}}</dt><dd id="sIn">—</dd></div>
+          <div><dt>{{dates.labels.leave}}</dt><dd id="sOut">—</dd></div>
+          <div><dt>{{dates.labels.nights}}</dt><dd id="sNights">—</dd></div>
+        </dl>
+        <div class="big" id="sTotal">{{locale.currency}}0</div>
+        <form class="form" id="stayForm" novalidate>
+          <label>{{dates.labels.name}}<input id="fName" autocomplete="name" placeholder="{{dates.nameExample|attr}}"></label>
+          <label>{{dates.labels.email}}<input id="fEmail" type="email" autocomplete="email" placeholder="{{dates.emailExample|attr}}"></label>
+          <button class="btn" type="submit">{{dates.cta}}</button>
+          <p class="err" id="err" hidden></p>
+          <div class="confirm" id="confirm" hidden></div>
+        </form>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="nearby" aria-labelledby="nearby-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{nearby.eyebrow}}</p>
+      <h2 id="nearby-h">{{nearby.title}} <em>{{nearby.titleEm}}</em></h2>
+      <p>{{nearby.sub}}</p>
+    </div>
+    <div class="near">
+      <canvas id="map" aria-hidden="true"></canvas>
+      <ol class="places" id="places"></ol>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function rgb(hex){const n=parseInt(hex.slice(1),16);return[n>>16&255,n>>8&255,n&255];}
+function mix(a,b,t){const A=rgb(a),B=rgb(b);return`rgb(${A.map((v,i)=>Math.round(lerp(v,B[i],t))).join(',')})`;}
+function shade(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
+
+/* ============ A ROOM (drawn, shared with the room cards) ============ */
+// a bedroom seen from the open side: wallpaper, a window onto the sky, the bed with a throw, a lamp and a picture;
+// x,y is the top-left corner, w by h its size; lit (0 to 1) warms it, dark (0 to 1) is the night
+function room(c,x,y,w,h,o,lit,dark,sky){
+  c.save();c.beginPath();c.rect(x,y,w,h);c.clip();
+  c.fillStyle=o.wall;c.fillRect(x,y,w,h);
+  c.fillStyle='rgba(255,255,255,.08)';for(let i=1;i<10;i++){c.fillRect(x+w*i/10-w*.006,y,w*.012,h*.82);}
+  // window with curtains
+  const wx=x+w*.12, wy=y+h*.16, ww=w*.26, wh=h*.4;const g=c.createLinearGradient(0,wy,0,wy+wh);g.addColorStop(0,sky[0]);g.addColorStop(1,sky[1]);c.fillStyle=g;c.fillRect(wx,wy,ww,wh);
+  c.strokeStyle='#F7F2EA';c.lineWidth=w*.014;c.strokeRect(wx,wy,ww,wh);c.beginPath();c.moveTo(wx+ww/2,wy);c.lineTo(wx+ww/2,wy+wh);c.moveTo(wx,wy+wh/2);c.lineTo(wx+ww,wy+wh/2);c.stroke();
+  c.fillStyle=shade(o.throw,.35);c.fillRect(wx-ww*.18,wy-h*.03,ww*.2,wh+h*.08);c.fillRect(wx+ww*.98,wy-h*.03,ww*.2,wh+h*.08);
+  // floor, skirting
+  c.fillStyle='#B98B5E';c.fillRect(x,y+h*.86,w,h*.14);c.fillStyle='rgba(0,0,0,.1)';for(let i=1;i<6;i++)c.fillRect(x+w*i/6,y+h*.86,w*.004,h*.14);c.fillStyle='#F2ECE2';c.fillRect(x,y+h*.83,w,h*.03);
+  // a rug, and a plant by the window
+  c.fillStyle=shade(o.throw,.25);c.globalAlpha*=.6;c.beginPath();c.ellipse(x+w*.6,y+h*.93,w*.26,h*.035,0,0,7);c.fill();c.globalAlpha/=.6;
+  c.fillStyle='#B0573A';c.beginPath();c.moveTo(x+w*.035,y+h*.86);c.lineTo(x+w*.095,y+h*.86);c.lineTo(x+w*.085,y+h*.76);c.lineTo(x+w*.045,y+h*.76);c.closePath();c.fill();
+  c.fillStyle='#5E7F4E';[[-.02,-.07,.035],[.02,-.09,.03],[0,-.12,.03],[-.03,-.11,.025]].forEach(([dx,dy,r])=>{c.beginPath();c.ellipse(x+w*(.065+dx),y+h*(.76+dy),w*r,h*r*1.6,dx*8,0,7);c.fill();});
+  // picture over the bed
+  c.fillStyle='#3A3A3A';c.fillRect(x+w*.62,y+h*.2,w*.18,h*.17);c.fillStyle=shade(o.throw,-.1);c.fillRect(x+w*.635,y+h*.22,w*.15,h*.13);
+  // the bed: headboard, mattress, duvet, pillows and the throw
+  const bx=x+w*.48, by=y+h*.62;c.fillStyle='#5B4636';c.beginPath();c.roundRect(bx+w*.36,y+h*.42,w*.05,h*.44,w*.01);c.fill();
+  c.fillStyle='#F6F2EC';c.beginPath();c.roundRect(bx,by,w*.38,h*.2,w*.02);c.fill();c.fillStyle='#E9E2D6';c.fillRect(bx,by+h*.16,w*.38,h*.04);
+  c.fillStyle='#FFFFFF';c.beginPath();c.ellipse(bx+w*.31,by-h*.01,w*.05,h*.035,0,0,7);c.fill();
+  c.fillStyle=o.throw;c.fillRect(bx+w*.04,by+h*.02,w*.1,h*.15);
+  c.fillStyle='#5B4636';c.fillRect(bx-w*.02,y+h*.82,w*.42,h*.04);
+  // bedside lamp
+  const lx=x+w*.92, ly=y+h*.66;c.fillStyle='#6E5844';c.fillRect(lx-w*.04,ly,w*.08,h*.2);c.fillStyle=lit>0?mix('#E8DCC4','#FFE3A3',lit):'#E8DCC4';c.beginPath();c.moveTo(lx-w*.035,ly-h*.02);c.lineTo(lx+w*.035,ly-h*.02);c.lineTo(lx+w*.025,ly-h*.11);c.lineTo(lx-w*.025,ly-h*.11);c.closePath();c.fill();
+  // light and dark
+  if(lit>0){const r=c.createRadialGradient(lx,ly-h*.06,0,lx,ly-h*.06,w*.9);r.addColorStop(0,`rgba(255,206,120,${.5*lit})`);r.addColorStop(1,'rgba(255,206,120,0)');c.fillStyle=r;c.fillRect(x,y,w,h);}
+  if(dark>0){c.fillStyle=`rgba(12,18,36,${.62*dark*(1-.75*lit)})`;c.fillRect(x,y,w,h);}
+  c.restore();}
+window.__room=function(c,w,h,o){room(c,0,0,w,h,o,0,0,['#A9C9E8','#EEF3F5']);};
+
+/* ============ THE STAY (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the house: brick, door and the five guest rooms' colours; which room is yours (0 and 1 on the first floor,
+// 2 and 3 on the second, 4 in the attic); the numbers shown beside it; and the sign at the corner
+const HOUSE={{$.houseJs|raw}};
+const KEY={{$.keyJs|raw}};
+const SIGN={{$.signJs|raw}};
+const H12={{$.h12}};
+
+/* ============ GEOMETRY (the house is 1 wide, standing at the origin; the arch round it is 2.2 wide) ============ */
+const cv=$('#house'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
+function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/2.3,(ay[1]-ay[0])/2.34);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2+s*.96};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), kt=$('#keytag').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.03,W*.97],[top,kt.top-stg.top-10]);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(kt.top,cd.top)-stg.top;
+    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.12,W*.88],[top,low-14]);}}
+
+/* ============ TIME ============ */
+// the hour at each point of the scroll (after midnight runs on past 24)
+const HOURS=[[0,18],[.15,18.25],[.3,18.5],[.48,19.5],[.57,23.5],[.66,30.5],[.84,33],[1,35]];
+function hourAt(p){for(let i=1;i<HOURS.length;i++){if(p<=HOURS[i][0]){const a=HOURS[i-1],b=HOURS[i];return lerp(a[1],b[1],(p-a[0])/(b[0]-a[0]));}}return 35;}
+const SKY=[[18,'#8A78B5','#F3B27C'],[18.6,'#5D5C98','#E39A80'],[19.6,'#2F3B66','#8D6E8C'],[21,'#151C33','#283456'],[29.6,'#1B2440','#3A4566'],[30.6,'#7183B8','#F2C29A'],[32,'#9CC3E6','#F6E3C4'],[35,'#86BCE8','#EAF2F6']];
+function skyAt(h){for(let i=1;i<SKY.length;i++){if(h<=SKY[i][0]){const a=SKY[i-1],b=SKY[i],t=(h-a[0])/(b[0]-a[0]);return[mix(a[1],b[1],t),mix(a[2],b[2],t)];}}return[SKY[7][1],SKY[7][2]];}
+const night=h=>clamp(Math.min((h-19)/2,(30.8-h)/1.2));
+function clock(h){const m=Math.round(h*60/5)*5, hh=Math.floor(m/60)%24, mm=String(m%60).padStart(2,'0');return H12?`${(hh+11)%12+1}:${mm} ${hh<12?'am':'pm'}`:`${String(hh).padStart(2,'0')}:${mm}`;}
+
+/* ============ DRAWING ============ */
+// text in house units: drawn at 20px and scaled, so it stays sharp at any size
+function text(c,str,x,y,size,weight,family,maxW){c.save();c.translate(x,y);c.scale(size/20,size/20);c.font=`${weight} 20px ${family}`;c.fillText(str,0,0,maxW?maxW*20/size:undefined);c.restore();}
+// the five guest rooms: left edge, top and width (floor heights are .35)
+const SLOT=[[-.5,-.7,.39],[-.11,-.7,.39],[-.5,-1.05,.39],[-.11,-1.05,.39],[-.5,-1.38,1]];
+const FLOOR=[0,-.35,-.7,-1.05];
+// where the guest walks: street, steps, door, hall, up the stairs to each floor's landing
+function route(slot){const fl=slot<2?1:slot<4?2:3, pts=[[1.15,0],[.68,0],[.56,-.045],[.47,-.045],[.4,-.045]];const land=[[.33,-.35],[.45,-.7],[.33,-1.05]];for(let i=0;i<fl;i++)pts.push([land[i][0],land[i][1]-.005]);
+  const s=SLOT[slot];pts.push([s[0]+s[2]*.45,s[1]+.35-.005]);return pts;}
+function along(pts,k){const L=[];let tot=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);L.push(d);tot+=d;}let t=k*tot;
+  for(let i=1;i<pts.length;i++){if(t<=L[i-1]){const u=t/L[i-1];return[lerp(pts[i-1][0],pts[i][0],u),lerp(pts[i-1][1],pts[i][1],u),pts[i][0]>=pts[i-1][0]?1:-1];}t-=L[i-1];}const e=pts[pts.length-1];return[e[0],e[1],1];}
+function guest(c,x,y,dir,bag,time,walking){const bob=walking&&!RM?Math.abs(Math.sin(time*9))*.006:0;c.save();c.translate(x,y-bob);c.scale(1.3,1.3);
+  if(bag){c.fillStyle='#6E3F2A';c.beginPath();c.roundRect(dir*.022-.012,-.045,.024,.032,.004);c.fill();c.strokeStyle='#3A2A20';c.lineWidth=.003;c.beginPath();c.moveTo(dir*.022-.005,-.045);c.lineTo(dir*.022-.005,-.052);c.lineTo(dir*.022+.005,-.052);c.lineTo(dir*.022+.005,-.045);c.stroke();}
+  c.fillStyle='#2E3A4C';c.beginPath();c.roundRect(-.014,-.085,.028,.075,.012);c.fill();c.fillRect(-.011,-.02,.008,.02);c.fillRect(.003,-.02,.008,.02);
+  c.fillStyle=HOUSE.door;c.fillRect(-.014,-.08,.028,.01);c.fillStyle='#E7C3A4';c.beginPath();c.arc(0,-.098,.013,0,7);c.fill();c.fillStyle='#3B2A22';c.beginPath();c.arc(0,-.103,.012,Math.PI,0);c.fill();c.restore();}
+function house(c,f,h,time){const nt=night(h), sky=skyAt(h), mornlit=clamp((h-30.6)/.6)*(1-clamp((h-33.5)/1));
+  // the guest: where they are by now
+  const yours=HOUSE.yours, R=route(yours);let gx=1.3,gy=0,gd=-1,bag=true,show=false,walking=false,inBed=false;
+  if(f[0]>0&&f[1]<1){const k=sm(f[0])*.4+sm(f[1])*.6;const p=along(R.slice(0,5),k);[gx,gy,gd]=p;show=true;walking=k>0&&k<1;}
+  if(f[1]>=1&&f[2]<1){const k=sm(f[2]);const p=along(R.slice(4),k);[gx,gy,gd]=p;show=true;walking=k>0&&k<1;}
+  if(f[2]>=1&&f[4]<=0){inBed=f[3]>.25;show=!inBed;const s=SLOT[yours];gx=s[0]+s[2]*.45;gy=s[1]+.345;bag=false;}
+  if(f[4]>0&&f[5]<=0){const k=sm(seg(f[4],0,.45));const down=[...R.slice(4)].reverse().concat([[-.05,-.005]]);const p=along(down,k);[gx,gy,gd]=p;show=true;bag=false;walking=k>0&&k<1;}
+  if(f[5]>0){const k=sm(f[5]);const out=[[-.05,-.005],...R.slice(0,5).reverse()];const p=along(out,k);[gx,gy,gd]=p;show=true;bag=true;walking=k>0&&k<1;}
+  // ground floor: the breakfast room (left) and the hall with the stairs (right)
+  const bfLit=mornlit, hallLit=clamp(Math.max(seg(h,18,18.1)*(1-seg(h,22.8,23.2)),mornlit*.6));
+  c.save();c.beginPath();c.rect(-.5,-.35,.78,.35);c.clip();c.fillStyle='#E9DCC5';c.fillRect(-.5,-.35,.78,.35);c.fillStyle='rgba(255,255,255,.1)';for(let i=0;i<14;i++)c.fillRect(-.5+i*.056,-.35,.02,.3);
+  // window and dresser
+  const g=c.createLinearGradient(0,-.3,0,-.17);g.addColorStop(0,sky[0]);g.addColorStop(1,sky[1]);c.fillStyle=g;c.fillRect(-.18,-.3,.14,.13);c.strokeStyle='#F7F2EA';c.lineWidth=.006;c.strokeRect(-.18,-.3,.14,.13);c.beginPath();c.moveTo(-.11,-.3);c.lineTo(-.11,-.17);c.stroke();
+  c.fillStyle='#6B4F3A';c.fillRect(-.47,-.24,.16,.24);c.fillStyle='#7E6049';c.fillRect(-.46,-.11,.14,.1);[-.44,-.4,-.36].forEach(px=>{c.fillStyle='#F4F1EA';c.beginPath();c.arc(px+.02,-.2,.016,0,7);c.fill();c.strokeStyle='#3E5C7E';c.lineWidth=.003;c.stroke();});
+  // the table, cloth, chairs, breakfast
+  c.fillStyle='#F6F2EC';c.fillRect(-.12,-.1,.3,.02);c.fillStyle='#E6DED0';c.fillRect(-.12,-.08,.3,.035);c.fillStyle='#5B4636';c.fillRect(-.11,-.045,.012,.045);c.fillRect(.165,-.045,.012,.045);
+  c.fillStyle='#5B4636';[[-.18,1],[.22,-1]].forEach(([cx])=>{c.fillRect(cx,-.13,.012,.13);c.fillRect(cx-.012,-.06,.04,.01);});
+  if(f[4]>.3){const k=sm(seg(f[4],.3,.6));c.globalAlpha*=k;c.fillStyle='#FFFFFF';c.beginPath();c.ellipse(-.02,-.105,.03,.008,0,0,7);c.fill();c.beginPath();c.ellipse(.09,-.105,.03,.008,0,0,7);c.fill();c.fillStyle='#E8B53C';c.beginPath();c.arc(-.02,-.108,.008,0,7);c.fill();
+    c.fillStyle='#3E5C7E';c.beginPath();c.roundRect(.025,-.135,.03,.03,.008);c.fill();c.globalAlpha/=k||1;
+    if(!RM){c.strokeStyle='rgba(255,255,255,.7)';c.lineWidth=.004;const a0=c.globalAlpha;for(let i=0;i<2;i++){const t=(time*.5+i*.5)%1;c.globalAlpha=a0*k*(1-t);c.beginPath();c.moveTo(.04+i*.006,-.14-t*.05);c.quadraticCurveTo(.05,-.15-t*.05,.04,-.16-t*.06);c.stroke();}c.globalAlpha=a0;}}
+  // a pendant lamp
+  c.strokeStyle='#3A3A3A';c.lineWidth=.003;c.beginPath();c.moveTo(.03,-.35);c.lineTo(.03,-.27);c.stroke();c.fillStyle=bfLit>0?'#FFE3A3':'#E0D3BB';c.beginPath();c.moveTo(.01,-.255);c.lineTo(.05,-.255);c.lineTo(.04,-.27);c.lineTo(.02,-.27);c.closePath();c.fill();
+  if(bfLit>0){const r=c.createRadialGradient(.03,-.25,0,.03,-.25,.5);r.addColorStop(0,`rgba(255,206,120,${.45*bfLit})`);r.addColorStop(1,'rgba(255,206,120,0)');c.fillStyle=r;c.fillRect(-.5,-.35,.78,.35);}
+  if(nt>0){c.fillStyle=`rgba(12,18,36,${.62*nt*(1-.75*bfLit)})`;c.fillRect(-.5,-.35,.78,.35);}
+  c.restore();
+  // the stairwell: walls, the stairs, the front door
+  c.save();c.beginPath();c.rect(.28,-1.05,.22,1.05);c.clip();c.fillStyle='#E2D2BC';c.fillRect(.28,-1.05,.22,1.05);
+  c.fillStyle='#8A6B4E';[[0,1],[1,-1],[2,1]].forEach(([fl,dir])=>{const y0=FLOOR[fl];for(let i=0;i<7;i++){const t=i/7;const x=dir>0?lerp(.3,.46,t):lerp(.46,.3,t);c.fillRect(x-.012,y0-.35*t-.05,.034,.05);}});
+  c.strokeStyle='#5B4636';c.lineWidth=.005;[[0,1],[1,-1],[2,1]].forEach(([fl,dir])=>{const y0=FLOOR[fl];c.beginPath();c.moveTo(dir>0?.3:.47,y0-.08);c.lineTo(dir>0?.47:.3,y0-.35-.08);c.stroke();});
+  if(hallLit>0){const r=c.createRadialGradient(.39,-.2,0,.39,-.2,.4);r.addColorStop(0,`rgba(255,206,120,${.5*hallLit})`);r.addColorStop(1,'rgba(255,206,120,0)');c.fillStyle=r;c.fillRect(.28,-.7,.22,.7);}
+  if(nt>0){c.fillStyle=`rgba(12,18,36,${.62*nt*(1-.7*hallLit)})`;c.fillRect(.28,-1.05,.22,1.05);}
+  c.restore();
+  // the guest rooms
+  const others=[[19.2,22.2],[20,22.6],[19.5,21.8],null,[20.3,22.9]];
+  SLOT.forEach((s,i)=>{const o=HOUSE.rooms[i]||HOUSE.rooms[0];const hgt=i===4?.33:.35;if(i===4){c.save();c.beginPath();c.moveTo(-.5,-1.05);c.lineTo(-.13,-1.4);c.lineTo(.09,-1.4);c.lineTo(.5,-1.05);c.closePath();c.clip();}let lit=0;
+    if(i===yours){lit=f[2]>.5?sm(seg(f[2],.5,.8))*(1-sm(seg(f[3],.35,.6))):0;}else if(others[i]){const[a,b]=others[i];lit=seg(h,a,a+.2)*(1-seg(h,b,b+.2));}
+    if(i===4)room(c,-.22,s[1],.56,hgt,o,lit,nt,sky);else room(c,s[0],s[1],s[2],hgt,o,lit,nt,sky);
+    if(i===4){c.fillStyle=mix(o.wall,'#1D2A3A',.15+.5*nt);c.fillRect(-.5,s[1],.28,hgt);c.fillRect(.34,s[1],.2,hgt);c.restore();}
+    if(i===yours&&f[2]>.6&&f[3]<.35){c.fillStyle='#5B3A2A';c.beginPath();c.roundRect(s[0]+s[2]*.78,s[1]+hgt*.6,s[2]*.04,hgt*.03,.002);c.fill();}
+    if(i===yours&&inBed){c.fillStyle='#E7C3A4';c.beginPath();c.arc(s[0]+s[2]*.79,s[1]+hgt*.6,.012,0,7);c.fill();c.fillStyle='rgba(12,18,36,.4)';c.beginPath();c.arc(s[0]+s[2]*.79,s[1]+hgt*.6,.012,0,7);c.fill();
+      if(!RM){const t=(time*.6)%1;c.save();c.globalAlpha*=1-t;c.fillStyle='rgba(255,255,255,.75)';text(c,'z',s[0]+s[2]*.84+t*.02,s[1]+hgt*.42-t*.04,.03,'600','Georgia,serif');c.restore();}}});
+  // floors, walls and the roof
+  c.fillStyle='#4A3F38';FLOOR.forEach(y=>{c.fillRect(-.52,y-.012,1.04,.024);});
+  c.fillStyle=HOUSE.brick;c.fillRect(-.53,-1.06,.03,1.06);c.fillRect(.5,-1.06,.03,.78);c.fillRect(.5,-.24,.03,.0);
+  c.fillRect(-.11-.008,-1.05,.016,.7);c.fillRect(.28-.008,-1.05,.016,.25);c.fillRect(.28-.008,-.7,.016,.25);c.fillRect(.28-.008,-.35,.016,.13);
+  c.fillRect(.5,-.24,.03,.0);
+  // the right wall with the front door at the bottom
+  c.fillRect(.5,-1.06,.03,.82);const open=sm(f[0]>.55?seg(f[0],.55,1):0)*(1-sm(f[1]>.6?seg(f[1],.6,1):0))+(f[5]>0?sm(seg(f[5],.1,.35))*(1-sm(seg(f[5],.55,.8))):0);
+  c.fillStyle='rgba(255,214,140,.5)';if(open>0){c.beginPath();c.moveTo(.53,-.235);c.lineTo(.53+.14*open,-.2);c.lineTo(.53+.18*open,0);c.lineTo(.53,0);c.closePath();c.fill();}
+  c.fillStyle=HOUSE.door;c.beginPath();c.rect(.5,-.235,.03+.04*open,.235);c.fill();c.fillStyle='#E8C66A';c.beginPath();c.arc(.515+.03*open,-.11,.005,0,7);c.fill();
+  c.fillStyle=f[0]>0||nt>0?'#FFE3A3':'#D8E3EA';c.beginPath();c.arc(.515,-.235,.03,Math.PI,0);c.fill();c.strokeStyle=HOUSE.brick;c.lineWidth=.008;c.stroke();
+  // roof and chimney
+  c.fillStyle='#4A5566';c.beginPath();c.moveTo(-.58,-1.04);c.lineTo(-.12,-1.46);c.lineTo(.12,-1.46);c.lineTo(.58,-1.04);c.lineTo(.5,-1.04);c.lineTo(.09,-1.4);c.lineTo(-.13,-1.4);c.lineTo(-.5,-1.06);c.closePath();c.fill();
+  c.fillStyle=HOUSE.brick;c.fillRect(.24,-1.58,.08,.22);c.fillStyle='#4A3F38';c.fillRect(.23,-1.6,.1,.025);
+  if(!RM&&(nt>0||h>30)){for(let i=0;i<4;i++){const t=(time*.15+i/4)%1;c.fillStyle=`rgba(${nt>.5?'200,206,220':'240,240,240'},${.35*(1-t)})`;c.beginPath();c.arc(.28+t*.12+Math.sin(t*6+i)*.02,-1.62-t*.25,.02+t*.03,0,7);c.fill();}}
+  // steps up to the door
+  c.fillStyle='#BDB2A2';c.fillRect(.53,-.045,.1,.045);c.fillRect(.53,-.03,.14,.03);c.fillRect(.53,-.015,.18,.015);
+  if(show)guest(c,gx,gy,gd,bag,time,walking);}
+// the street: the linden tree, a lamp post and the sign at the corner
+function street(c,h,nt,f,time){const lampOn=clamp(seg(h,18,18.2)*(1-seg(h,30.6,31)));
+  c.fillStyle='#CFC5B6';c.fillRect(-1.2,0,2.4,.09);c.fillStyle='#B3A897';c.fillRect(-1.2,.085,2.4,.01);c.fillStyle='#8E857A';c.fillRect(-1.2,.095,2.4,.2);c.fillStyle='rgba(255,255,255,.5)';for(let i=0;i<8;i++)c.fillRect(-1.1+i*.3,.135,.14,.01);
+  // the tree
+  c.fillStyle='#5B4636';c.fillRect(-.82,-.42,.04,.42);const leaf=mix('#6F8A5B','#2B3A30',nt*.7);c.fillStyle=leaf;[[-.8,-.56,.2],[-.92,-.48,.13],[-.68,-.47,.13],[-.8,-.42,.15]].forEach(([x,y,r])=>{c.beginPath();c.arc(x,y,r,0,7);c.fill();});
+  c.fillStyle='rgba(255,255,255,.08)';c.beginPath();c.arc(-.84,-.6,.1,0,7);c.fill();
+  // lamp post
+  c.fillStyle='#232A35';c.fillRect(.86,-.5,.016,.5);c.fillRect(.85,-.53,.036,.035);if(lampOn>0){const r=c.createRadialGradient(.868,-.51,0,.868,-.51,.4);r.addColorStop(0,`rgba(255,214,140,${.55*lampOn})`);r.addColorStop(1,'rgba(255,214,140,0)');c.fillStyle=r;c.fillRect(.4,-.95,.9,1.0);}
+  c.fillStyle=lampOn>0?'#FFE3A3':'#C9CED6';c.fillRect(.855,-.525,.026,.022);
+  // the sign at the corner, once you're heading out
+  const k=sm(seg(f[5],.25,.6));if(k>0){c.save();c.globalAlpha*=k;c.fillStyle='#232A35';c.fillRect(1.0,-.34,.014,.34);SIGN.forEach((s,i)=>{const y=-.34+i*.075;c.fillStyle='#F6F1E8';c.strokeStyle='#232A35';c.lineWidth=.004;c.beginPath();c.moveTo(.8,y);c.lineTo(1.06,y);c.lineTo(1.09,y+.03);c.lineTo(1.06,y+.06);c.lineTo(.8,y+.06);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#1D2A3A';text(c,`${s.n} · ${s.m}`,.815,y+.041,.032,'600','"Albert Sans",sans-serif',.24);});c.restore();}}
+// the sky through the arch: sun or moon, stars
+function sky(c,h,nt,time){const S=skyAt(h);const g=c.createLinearGradient(0,-2.1,0,0);g.addColorStop(0,S[0]);g.addColorStop(1,S[1]);c.fillStyle=g;c.fillRect(-1.2,-2.2,2.4,2.3);
+  if(nt>0){for(let i=0;i<40;i++){const x=-1.05+((i*73)%100)/100*2.1, y=-2.0+((i*37)%100)/100*1.3;const tw=RM?1:.6+.4*Math.sin(time*2+i);c.fillStyle=`rgba(255,255,255,${.8*nt*tw})`;c.fillRect(x,y,.006,.006);}
+    c.fillStyle=`rgba(246,241,232,${nt})`;c.beginPath();c.arc(-.55,-1.7,.07,0,7);c.fill();c.fillStyle=S[0];c.beginPath();c.arc(-.52,-1.72,.06,0,7);c.fill();}
+  const sun=clamp((h-30.4)/1.2);if(sun>0){const y=lerp(-1.0,-1.75,clamp((h-30.4)/3.5));c.fillStyle=`rgba(255,226,150,${sun})`;c.beginPath();c.arc(.62,y,.075,0,7);c.fill();c.fillStyle=`rgba(255,226,150,${.25*sun})`;c.beginPath();c.arc(.62,y,.13,0,7);c.fill();}
+  // the terrace beyond, in silhouette
+  c.fillStyle=mix('#C9B9A6','#1E2638',nt);c.beginPath();c.moveTo(-1.2,0);c.lineTo(-1.2,-.85);c.lineTo(-1.0,-1.05);c.lineTo(-.7,-1.05);c.lineTo(-.6,-.9);c.lineTo(-.6,0);c.closePath();c.fill();c.beginPath();c.moveTo(.6,0);c.lineTo(.6,-.78);c.lineTo(.8,-.98);c.lineTo(1.2,-.98);c.lineTo(1.2,0);c.closePath();c.fill();
+  c.fillStyle=nt>.3?`rgba(255,214,140,${.6*nt})`:'rgba(255,255,255,.25)';[[-1.05,-.7],[-.8,-.7],[-1.05,-.4],[.75,-.6],[1.0,-.6],[1.0,-.3]].forEach(([x,y],i)=>{if(nt>.3&&i%2)return;c.fillRect(x,y,.07,.1);});}
+
+/* ============ HUD ============ */
+let shown=-1;
+function hud(p,f,h){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  $('#gClock').textContent=clock(h);$('#kRooms').textContent=Math.round(KEY.rooms*sm(seg(p,.02,.3)));
+  $('#kIn').textContent=p>=STAGES[1].w[0]?KEY.in:'—';$('#kBreak').textContent=p>=STAGES[4].w[0]?KEY.breakfast:'—';$('#kWalk').textContent=p>=STAGES[5].w[0]?KEY.walk:'—';}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function arch(c){c.beginPath();c.moveTo(-1.1,.18);c.lineTo(-1.1,-1.0);c.arc(0,-1.0,1.1,Math.PI,0);c.lineTo(1.1,.18);c.closePath();}
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F6F1E8';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1])), h=hourAt(p), nt=night(h);
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  ctx.save();ctx.translate(X,Y);ctx.scale(S,S);
+  ctx.save();ctx.shadowColor='rgba(29,42,58,.25)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;arch(ctx);ctx.fillStyle='#F6F1E8';ctx.fill();ctx.restore();
+  ctx.save();arch(ctx);ctx.clip();sky(ctx,h,nt,time);street(ctx,h,nt,f,time);house(ctx,f,h,time);ctx.restore();
+  arch(ctx);ctx.strokeStyle='#1D2A3A';ctx.lineWidth=.006;ctx.stroke();
+  ctx.restore();ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,h);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ ROOMS ============ */
+// each room: name, a line, who it sleeps, the bed, its size, the nightly price, and its colours (walls and throw)
+const ROOMS=[
+{{$.roomsJs|raw}}
+];
+// the words the rooms, calendar and request use
+const WORDS={{$.wordsJs|raw}};
+let rm={{$.rm}};
+$('#roomList').style.setProperty('--n',Math.min(3,ROOMS.length));
+$('#roomList').innerHTML=ROOMS.map((r,i)=>`<button type="button" class="panel room" aria-pressed="${i===rm}" data-i="${i}"><canvas aria-hidden="true"></canvas><span class="in"><b>${esc(r.n)}</b><span class="meta">${esc(WORDS.sleeps)} ${r.sleeps} · ${esc(r.bed)} · ${esc(r.size)}</span><span class="d">${esc(r.d)}</span><span class="p">${esc(WORDS.from)} ${money(r.p)} <small>${esc(WORDS.per)}</small></span></span></button>`).join('');
+function drawRooms(){$('#roomList').querySelectorAll('canvas').forEach((c,i)=>{const w=c.clientWidth||300, h=c.clientHeight||225, d=Math.min(devicePixelRatio||1,2);c.width=Math.round(w*d);c.height=Math.round(h*d);const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);if(window.__room)window.__room(x,w,h,ROOMS[i]);});}
+$('#roomList').addEventListener('click',e=>{const b=e.target.closest('.room');if(!b)return;rm=+b.dataset.i;press($('#roomList'),b);a=null;z=null;cal();stay();});
+
+/* ============ DATES ============ */
+// what a Friday or Saturday night adds, and the fewest nights for a stay that includes one
+const WEEKEND={{$.weekend}}, MIN_WEEKEND={{dates.minWeekend}};
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'], DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], DOWS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const today=new Date();today.setHours(0,0,0,0);
+let mo=0, a=null, z=null; // months ahead of this one; arrival and leaving dates
+const dayKey=d=>d.getFullYear()*400+d.getMonth()*31+d.getDate();
+// a night is taken or not (the same answer each time for that room and date)
+const taken=(d,r)=>{let s=(dayKey(d)*31+r*977)%2147483647;s=(s*16807)%2147483647;s=(s*16807)%2147483647;return s/2147483647<.17;};
+const price=d=>ROOMS[rm].p+([5,6].includes(d.getDay())?WEEKEND:0);
+const nightsOf=(x,y)=>{const out=[];const d=new Date(x);while(d<y){out.push(new Date(d));d.setDate(d.getDate()+1);}return out;};
+function cal(){const first=new Date(today.getFullYear(),today.getMonth()+mo,1), n=new Date(first.getFullYear(),first.getMonth()+1,0).getDate(), lead=(first.getDay()+6)%7;
+  $('#month').textContent=`${MONTHS[first.getMonth()]} ${first.getFullYear()}`;$('#prev').disabled=mo<=0;$('#next').disabled=mo>=5;
+  let h=DOW.map(d=>`<span class="dow">${d}</span>`).join('')+'<span></span>'.repeat(lead);
+  for(let i=1;i<=n;i++){const d=new Date(first.getFullYear(),first.getMonth(),i);const past=d<today, off=past||taken(d,rm);
+    const cls=(a&&+d===+a)||(z&&+d===+z)?'end':(a&&z&&d>a&&d<z)?'in':'';
+    h+=`<button type="button" class="${cls}" data-t="${+d}"${off&&!(a&&!z&&d>a&&!past)?' disabled':''}><b>${i}</b><small>${past?'':money(price(d))}</small></button>`;}
+  $('#days').innerHTML=h;}
+function stay(){const r=ROOMS[rm];$('#sRoom').textContent=r.n;const f=d=>d?`${DOWS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`:'—';$('#sIn').textContent=f(a);$('#sOut').textContent=f(z);
+  const N=a&&z?nightsOf(a,z):[];$('#sNights').textContent=N.length?`${N.length} ${N.length===1?WORDS.night:WORDS.nights}`:'—';$('#sTotal').textContent=money(N.reduce((s,d)=>s+price(d),0));}
+$('#days').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const d=new Date(+b.dataset.t), note=$('#calNote');
+  if(!a||z||d<=a){if(taken(d,rm)){return;}a=d;z=null;note.textContent=WORDS.leave;}
+  else{const N=nightsOf(a,d);if(N.some(x=>taken(x,rm))){note.textContent=WORDS.taken;return;}if(N.some(x=>[5,6].includes(x.getDay()))&&N.length<MIN_WEEKEND){note.textContent=WORDS.min;return;}z=d;note.textContent=WORDS.pick;}
+  $('#confirm').hidden=true;cal();stay();});
+$('#prev').addEventListener('click',()=>{if(mo>0){mo--;cal();}});$('#next').addEventListener('click',()=>{if(mo<5){mo++;cal();}});
+$('#stayForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  if(!a||!z)return fail({{dates.errors.nights|js}},null);
+  const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
+  if(!nm)return fail({{dates.errors.name|js}},$('#fName'));
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{dates.errors.email|js}},$('#fEmail'));
+  err.hidden=true;const c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${esc(ROOMS[rm].n)}, ${esc($('#sIn').textContent)} to ${esc($('#sOut').textContent)}, ${esc($('#sTotal').textContent)}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+
+/* ============ NEARBY ============ */
+// places within a walk: name, a line, minutes on foot, and which way (degrees from north)
+const PLACES=[
+{{$.placesJs|raw}}
+];
+const RING=[{{$.ringJs|raw}}];
+const map=$('#map'), mc=map.getContext('2d');let hot=-1;
+function drawMap(){const w=map.clientWidth||400, h=map.clientHeight||400, d=Math.min(devicePixelRatio||1,2);map.width=Math.round(w*d);map.height=Math.round(h*d);mc.setTransform(d,0,0,d,0,0);
+  const cx=w/2, cy=h/2, R=Math.min(w,h)*.42, far=Math.max(RING[RING.length-1],...PLACES.map(p=>p.m));mc.fillStyle='#EDE5D7';mc.fillRect(0,0,w,h);
+  // a few streets and a river
+  mc.strokeStyle='rgba(29,42,58,.1)';mc.lineWidth=6;mc.lineCap='round';[[.05,.3,.95,.42],[.2,.05,.35,.95],[.6,.05,.75,.95],[.05,.72,.95,.6]].forEach(([a,b,c2,d2])=>{mc.beginPath();mc.moveTo(a*w,b*h);mc.lineTo(c2*w,d2*h);mc.stroke();});
+  mc.strokeStyle='rgba(62,92,126,.35)';mc.lineWidth=14;mc.beginPath();mc.moveTo(0,h*.85);mc.bezierCurveTo(w*.3,h*.7,w*.45,h*.98,w,h*.78);mc.stroke();
+  mc.setLineDash([4,6]);mc.lineWidth=1.2;mc.strokeStyle='rgba(29,42,58,.35)';mc.font='500 11px "IBM Plex Mono",monospace';mc.fillStyle='rgba(29,42,58,.55)';
+  RING.forEach(m=>{const r=R*m/far;mc.beginPath();mc.arc(cx,cy,r,0,7);mc.stroke();mc.fillText(`${m} min`,cx+r*.71+4,cy-r*.71-4);});mc.setLineDash([]);
+  PLACES.forEach((p,i)=>{const a=(p.dir-90)*Math.PI/180, r=R*p.m/far, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;mc.fillStyle=i===hot?'{{A:#A84E28}}':'#1D2A3A';mc.beginPath();mc.arc(x,y,13,0,7);mc.fill();mc.fillStyle='#FFFFFF';mc.font='600 12px "IBM Plex Mono",monospace';mc.textAlign='center';mc.textBaseline='middle';mc.fillText(String(i+1),x,y+.5);mc.textAlign='left';mc.textBaseline='alphabetic';});
+  // the house
+  mc.fillStyle='{{A:#A84E28}}';mc.beginPath();mc.moveTo(cx-12,cy+10);mc.lineTo(cx-12,cy-2);mc.lineTo(cx,cy-13);mc.lineTo(cx+12,cy-2);mc.lineTo(cx+12,cy+10);mc.closePath();mc.fill();mc.fillStyle='#FFFFFF';mc.fillRect(cx-3,cy+2,6,8);}
+$('#places').innerHTML=PLACES.map((p,i)=>`<li data-i="${i}"><i>${i+1}</i><span><b>${esc(p.n)}</b><span class="d">${esc(p.d)}</span></span><span class="t">${p.m} min</span></li>`).join('');
+$('#places').addEventListener('mouseover',e=>{const li=e.target.closest('li');const i=li?+li.dataset.i:-1;if(i!==hot){hot=i;[...$('#places').children].forEach((x,j)=>x.classList.toggle('on',j===hot));drawMap();}});
+$('#places').addEventListener('mouseleave',()=>{hot=-1;[...$('#places').children].forEach(x=>x.classList.remove('on'));drawMap();});
+
+drawRooms();cal();stay();drawMap();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawRooms();drawMap();});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{drawRooms();drawMap();},120);});
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,239 @@
+{
+  "business": {
+    "name": "The Linden House"
+  },
+  "brand": {
+    "name": "The Linden House"
+  },
+  "contact": {
+    "phone": "01904 960275"
+  },
+  "nav": {
+    "rooms": "Rooms",
+    "dates": "Dates",
+    "nearby": "Nearby",
+    "cta": "Book a room"
+  },
+  "hero": {
+    "eyebrow": "The Linden House · bed and breakfast, York",
+    "title": "Six rooms,",
+    "titleEm": "one good night.",
+    "lede": "A Georgian townhouse inside the city walls, with six quiet rooms and a breakfast worth getting up for. Scroll through a night here, from the lamp by the door to the last cup of tea.",
+    "cta": "See the rooms",
+    "cta2": "Check dates",
+    "hint": "Scroll through a night"
+  },
+  "house": {
+    "brick": "red",
+    "door": "#A84E28"
+  },
+  "stay": {
+    "room": 3,
+    "clock": "24h"
+  },
+  "key": {
+    "rooms": 6,
+    "in": "3 pm",
+    "breakfast": "7:30–10",
+    "walk": "8 min",
+    "labels": [
+      "Rooms",
+      "Check-in",
+      "Breakfast",
+      "To town"
+    ]
+  },
+  "sign": [
+    {
+      "n": "Minster",
+      "m": "8 min"
+    },
+    {
+      "n": "Shambles",
+      "m": "6 min"
+    }
+  ],
+  "stages": [
+    {
+      "n": "You arrive",
+      "c": "The lamp's on by the door. Ring the bell, or let yourself in with the code we sent."
+    },
+    {
+      "n": "Checking in",
+      "c": "A key on a brass tag, a map with our favourite places marked, and a cup of tea if you want one."
+    },
+    {
+      "n": "Your room",
+      "c": "Up two flights to the Linden Room. Bed turned down, curtains drawn, a little chocolate on the pillow."
+    },
+    {
+      "n": "Lights out",
+      "c": "Thick walls, blackout curtains, no traffic. The house goes quiet by eleven."
+    },
+    {
+      "n": "Breakfast",
+      "c": "Eggs from the farm up the road, bread baked at dawn, and as much coffee as you like."
+    },
+    {
+      "n": "Out for the day",
+      "c": "Bags can stay with us until six. The Minster is eight minutes on foot."
+    }
+  ],
+  "rooms": {
+    "eyebrow": "Rooms",
+    "title": "Six rooms,",
+    "titleEm": "no two alike.",
+    "sub": "Every room has its own bathroom, a proper mattress, blackout curtains and a tray with good tea. Pick one to see the dates.",
+    "list": [
+      {
+        "n": "The Garden Room",
+        "d": "Ground-floor calm, French doors onto the garden.",
+        "sleeps": 2,
+        "bed": "King",
+        "size": "18 m²",
+        "p": 115,
+        "wall": "#CFD8C4",
+        "throw": "#6F8A5B"
+      },
+      {
+        "n": "The Walls Room",
+        "d": "A view along the city walls from the window seat.",
+        "sleeps": 2,
+        "bed": "Double",
+        "size": "15 m²",
+        "p": 105,
+        "wall": "#E8D5C4",
+        "throw": "#B0573A"
+      },
+      {
+        "n": "The Minster Room",
+        "d": "Our biggest, with a roll-top bath and the bells.",
+        "sleeps": 3,
+        "bed": "Super king",
+        "size": "26 m²",
+        "p": 165,
+        "wall": "#C9D3DE",
+        "throw": "#3E5C7E"
+      },
+      {
+        "n": "The Linden Room",
+        "d": "Looks into the old linden tree. Quietest in the house.",
+        "sleeps": 2,
+        "bed": "King",
+        "size": "19 m²",
+        "p": 125,
+        "wall": "#E6DDC3",
+        "throw": "#8E6B2E"
+      },
+      {
+        "n": "The Attic",
+        "d": "Beams, skylights and a lot of stairs. Worth it.",
+        "sleeps": 2,
+        "bed": "Double",
+        "size": "16 m²",
+        "p": 110,
+        "wall": "#E9DCE0",
+        "throw": "#8C4A63"
+      },
+      {
+        "n": "The Little Room",
+        "d": "A snug single for solo travellers.",
+        "sleeps": 1,
+        "bed": "Single",
+        "size": "9 m²",
+        "p": 75,
+        "wall": "#DCE3E1",
+        "throw": "#4E6E6A"
+      }
+    ]
+  },
+  "dates": {
+    "eyebrow": "Dates",
+    "title": "Pick your nights,",
+    "titleEm": "see the price.",
+    "sub": "Prices are per room per night, breakfast for two included. Weekends are two nights minimum.",
+    "weekend": 20,
+    "minWeekend": 2,
+    "words": {
+      "from": "from",
+      "per": "a night",
+      "sleeps": "Sleeps",
+      "pick": "Pick the night you arrive, then the morning you leave.",
+      "leave": "Now pick the morning you leave.",
+      "min": "Weekends are two nights minimum.",
+      "taken": "One of those nights is taken. Try other dates.",
+      "night": "night",
+      "nights": "nights",
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site we would email you to confirm within a few hours."
+    },
+    "labels": {
+      "arrive": "Arrive",
+      "leave": "Leave",
+      "nights": "Nights",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "cta": "Request these nights",
+    "prevLabel": "Earlier month",
+    "nextLabel": "Later month",
+    "errors": {
+      "nights": "Pick your nights first.",
+      "name": "Add your name.",
+      "email": "Add an email so we can reply."
+    }
+  },
+  "nearby": {
+    "eyebrow": "Nearby",
+    "title": "Leave the car,",
+    "titleEm": "walk everywhere.",
+    "sub": "The house sits just inside the walls. Everything worth seeing is a short walk away, and we'll point you to the good stuff.",
+    "places": [
+      {
+        "n": "York Minster",
+        "d": "Climb the 275 steps of the central tower.",
+        "m": 8,
+        "dir": 20
+      },
+      {
+        "n": "The Shambles",
+        "d": "The crooked medieval street, best before ten.",
+        "m": 6,
+        "dir": 95
+      },
+      {
+        "n": "Bettys",
+        "d": "Tea rooms since 1937. Worth the queue.",
+        "m": 9,
+        "dir": 160
+      },
+      {
+        "n": "The city walls",
+        "d": "Walk the whole two miles of them.",
+        "m": 2,
+        "dir": 300
+      },
+      {
+        "n": "Museum Gardens",
+        "d": "Abbey ruins by the river.",
+        "m": 7,
+        "dir": 250
+      }
+    ],
+    "rings": [
+      5,
+      10
+    ]
+  },
+  "footer": {
+    "fine": "The Linden House is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#A84E28"
+  }
+}

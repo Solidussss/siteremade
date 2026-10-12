@@ -1,0 +1,64 @@
+{
+  "name": "hearth",
+  "category": "bed and breakfast, guest house or small hotel",
+  "reference": "reference/hearth-original.html",
+  "referenceSha256": "46f4058a861c3ae6d4c9f1bb336938f7235b2e4e670a405927f16ab0b24629a3",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#A84E28",
+      "target": "theme.accent",
+      "about": "the house's colour: buttons, the logo's door, picked rooms and nights, the house on the map and the place you point at, the footer's mark"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.48] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#A84E28", 4.5, "button text on the accent"],
+      ["A:#9A4622", "#F6F1E8", 4.5, "accent text on the page"],
+      ["A:#9A4622", "#EDE5D7", 4.5, "accent text on the tinted section"],
+      ["#1D2A3A", "A:#F6E2D6", 4.5, "text on a picked night"],
+      ["A:#E39A72", "#1D2A3A", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Marcellus&display=swap", "family": "Marcellus" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Marcellus&display=swap", "family": "Marcellus" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Albert+Sans:wght@600&display=swap", "family": "Albert Sans" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 10, 126],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
