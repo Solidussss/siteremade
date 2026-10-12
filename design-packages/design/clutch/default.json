@@ -1,0 +1,42 @@
+{
+  "business": { "name": "Clutch Bricks" },
+  "brand": { "name": "clutch" },
+  "nav": { "build": "Builder", "specs": "The click", "sets": "Sets" },
+  "hero": {
+    "title": "every build starts with a",
+    "accent": "click.",
+    "lede": "Clutch bricks grip like they mean it. Scroll to build Launchpad 01, one brick at a time.",
+    "shopButton": "Shop the set",
+    "buildButton": "Build your own"
+  },
+  "builder": { "eyebrow": "Your turn", "titleA": "tap to", "titleB": "build.", "body": "Pick a color and a size, then tap the baseplate to drop a brick. Tap on top of a stack to keep building up. Drag to turn it around." },
+  "specs": {
+    "eyebrow": "The click",
+    "titleA": "grip is",
+    "titleB": "engineered.",
+    "body": "That click is a tolerance problem. Every Clutch brick is molded to the same numbers, so a brick from 2026 grips one from 2046.",
+    "items": [
+      { "value": "8.0", "unit": "mm", "text": "Stud pitch. The distance from one stud to the next." },
+      { "value": "9.6", "unit": "mm", "text": "Brick height. Three plates make one brick." },
+      { "value": "0.005", "unit": "mm", "prefix": "±", "text": "Mold tolerance. Thinner than a hair, by a lot." },
+      { "value": "1000000", "unit": "clicks", "text": "Connections tested per mold before it ships." }
+    ]
+  },
+  "sets": {
+    "eyebrow": "The set",
+    "titleA": "Launchpad 01,",
+    "titleB": "three ways.",
+    "body": "The rocket from the top of this page, in three colorways. Every brick in the box, nothing glued.",
+    "name": "Launchpad 01",
+    "age": "Ages 9+",
+    "height": "36 cm tall",
+    "editions": [
+      { "id": "classic", "name": "Classic", "tint": "red", "price": 49, "body": "white", "accent": "red", "window": "sky", "engine": "dark", "tip": "yellow" },
+      { "id": "midnight", "name": "Midnight", "tint": "orange", "price": 59, "body": "black", "accent": "orange", "window": "yellow", "engine": "grey", "tip": "orange" },
+      { "id": "arctic", "name": "Arctic", "tint": "blue", "price": 59, "body": "white", "accent": "blue", "window": "sky", "engine": "grey", "tip": "white" }
+    ]
+  },
+  "footer": { "fine": "Clutch is a made-up brand for a concept site. Not affiliated with any toy company." },
+  "locale": { "currency": "$" },
+  "theme": { "accent": "#ffc928", "wordmarkFit": "crop" }
+}

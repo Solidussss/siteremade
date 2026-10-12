@@ -1,0 +1,168 @@
+{
+  "about": "What a brick-toy brand may change in the Clutch design. Everything not listed here is protected: the WebGL brick engine, the rocket that builds and launches on scroll, the tap-to-build baseplate and its palette, the set renders, the brick diagram, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      40
+    ],
+    "brand.name": [
+      2,
+      10
+    ],
+    "nav.*": [
+      3,
+      12
+    ],
+    "hero.title": [
+      6,
+      32
+    ],
+    "hero.accent": [
+      2,
+      10
+    ],
+    "hero.lede": [
+      20,
+      130
+    ],
+    "hero.shopButton": [
+      4,
+      16
+    ],
+    "hero.buildButton": [
+      4,
+      16
+    ],
+    "builder.eyebrow": [
+      3,
+      20
+    ],
+    "builder.titleA": [
+      3,
+      10
+    ],
+    "builder.titleB": [
+      3,
+      12
+    ],
+    "builder.body": [
+      20,
+      160
+    ],
+    "specs.eyebrow": [
+      3,
+      20
+    ],
+    "specs.titleA": [
+      3,
+      10
+    ],
+    "specs.titleB": [
+      3,
+      12
+    ],
+    "specs.body": [
+      20,
+      160
+    ],
+    "specs.items.*.value": [
+      1,
+      9
+    ],
+    "specs.items.*.unit": [
+      1,
+      8
+    ],
+    "specs.items.*.text": [
+      10,
+      70
+    ],
+    "sets.eyebrow": [
+      3,
+      20
+    ],
+    "sets.titleA": [
+      3,
+      16
+    ],
+    "sets.titleB": [
+      3,
+      14
+    ],
+    "sets.body": [
+      20,
+      140
+    ],
+    "sets.name": [
+      3,
+      18
+    ],
+    "sets.age": [
+      3,
+      12
+    ],
+    "sets.height": [
+      3,
+      14
+    ],
+    "sets.editions.*.name": [
+      3,
+      10
+    ],
+    "footer.fine": [
+      4,
+      120
+    ],
+    "locale.currency": [
+      1,
+      3
+    ]
+  },
+  "lists": {
+    "specs.items": [
+      4,
+      4
+    ],
+    "sets.editions": [
+      3,
+      3
+    ]
+  },
+  "numbers": {
+    "sets.editions.*.price": [
+      1,
+      9999
+    ]
+  },
+  "choices": {
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    },
+    "sets.editions.*.tint": [
+      "white",
+      "red",
+      "blue",
+      "yellow",
+      "dark",
+      "grey",
+      "orange",
+      "black",
+      "sky",
+      "green",
+      "pink",
+      "purple"
+    ]
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "The hero always builds and launches the same brick rocket; sets.name is that set, in three editions whose rocket colours (body, accent, window, engine, tip) and card tint are brick colours from the palette.",
+    "Four specs count up when they scroll in: a plain number, a unit and one line."
+  ],
+  "colours": [
+    "theme.accent"
+  ]
+}

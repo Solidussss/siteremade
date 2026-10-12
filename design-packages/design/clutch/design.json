@@ -1,0 +1,81 @@
+{
+  "name": "clutch",
+  "category": "toy bricks",
+  "reference": "reference/clutch-original.html",
+  "referenceSha256": "b386883d741f14881156f07df6ffc9a3ceb655dada417c0471b3f2fc00b326ec",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "Y": {
+      "base": "#ffc928",
+      "target": "theme.accent",
+      "about": "the accent: the main button and its shadow, the logo brick, the headline emphasis, the diagram dimensions"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.5,
+          0.75
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#1a1405",
+        "Y:#ffc928",
+        7,
+        "button text on the accent"
+      ],
+      [
+        "Y:#ffc928",
+        "#0b0f1a",
+        7,
+        "accent text on the night background"
+      ]
+    ]
+  },
+  "metrics": {
+    "word": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.8 {family};letter-spacing:-.06em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Unbounded:wght@900&display=swap",
+          "family": "Unbounded"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".f-word",
+      "text": [
+        "brand.name"
+      ],
+      "metric": "word",
+      "size": [
+        80,
+        21,
+        340
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ]
+}
