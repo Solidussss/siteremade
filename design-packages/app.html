@@ -82,6 +82,7 @@
 .oc{display:flex;gap:10px;align-items:center}.oc label{display:flex;gap:6px;align-items:center;font-weight:500;white-space:nowrap}.oc input[type=color]{flex:1}
 .ferr{color:#b4361f;font-style:normal;font-weight:500}.ferr:empty{display:none}.elist{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:13px}
 @media(max-width:900px){.editor{grid-template-columns:1fr}.epreview{position:static}.epframe{height:70vh}}
+.create{margin-top:0}.create textarea{min-height:84px}.route{margin-top:18px;padding:22px;border-radius:18px;background:#f4f5f7}.route h3{margin:6px 0;font-size:24px;letter-spacing:-.04em}.route p{margin:0 0 12px;color:var(--muted)}
 .publish{background:var(--dark);color:#fff;border-color:var(--dark)}
 .publish h3{color:#fff}.publish p{color:#a3a7b2}
 .publish .button{width:100%;background:#fff;color:#111;margin-top:16px}
@@ -199,23 +200,38 @@ function signIn() {
 }
 function home() {
   $('#app').innerHTML = `
-  <section class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Pick a design.<span>We write the rest.</span></h1></div>
+  <section class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Describe the business.<span>We build the website.</span></h1></div>
     <p class="lede">Hand-built designs with real motion. Describe the business in plain words: the AI writes every line into the design, checks it, decides the design details itself and shows you everything it proposed. You review it, then publish.</p></section>
+  <section class="panel create" id="create"><h2>Create a website. <span>Start with the business.</span></h2>
+    <p class="sub">Describe it in a sentence or two. We pick the design that can show it truthfully, and the writer does the rest.</p>
+    <div class="bform" style="grid-template-columns:1fr"><label class="wide">What is the business?<textarea id="desc" placeholder="A small watch brand launching a hand-wound three-hand watch with a 42-hour reserve"></textarea></label>
+    <div class="actions"><button class="button" id="find">Find its design</button></div><p class="err" id="ferr"></p></div><div id="routeOut"></div></section>
   ${steps(0)}
   <section class="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
   <div id="briefBox"></div>
   <section class="sites"><h2>Your sites</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Pick a design above to make the first one.</p>'}</section>`;
+  $('#find').onclick = async () => {
+    const text = $('#desc').value.trim(); $('#ferr').textContent = '';
+    const res = await api('/api/designs/route', { text }); if (!res.ok) { $('#ferr').textContent = res.message || 'Something went wrong.'; return; }
+    const name = (d) => (DESIGN[d] || { name: d }).name, kind = (d) => (DESIGN[d] || { kind: '' }).kind;
+    $('#routeOut').innerHTML = res.best
+      ? `<div class="route"><p class="tag">${esc(res.industry.label)}</p><h3>Built on ${esc(name(res.best))}, the ${esc(kind(res.best).toLowerCase())} design.</h3><p>It fits because you mention ${res.fits[0].words.map((w) => '“' + esc(w) + '”').join(', ')}.</p><div class="actions"><button class="button" data-use="${res.best}">Use ${esc(name(res.best))}</button>${res.fits.slice(1, 3).map((x) => `<button class="button button-secondary" data-use="${x.design}">or ${esc(name(x.design))}</button>`).join('')}</div></div>`
+      : `<div class="route"><p class="tag">${esc(res.industry.label)}</p><h3>None of our designs can show this business truthfully yet.</h3><p>Every design is built around one kind of business; putting yours in another one would misrepresent it. The classic builder makes a site for any business.</p><div class="actions"><a class="button" href="${esc(res.classic)}">Build it with the classic builder</a><button class="button button-secondary" id="anyway">Choose a design anyway</button></div></div>`;
+    $('#routeOut').querySelectorAll('[data-use]').forEach((b) => { b.onclick = () => pick(b.dataset.use, text); });
+    if ($('#anyway')) $('#anyway').onclick = () => $('.gallery').scrollIntoView({ behavior: 'smooth' });
+  };
   document.querySelectorAll('.dcard').forEach((b) => { b.onclick = () => pick(b.dataset.d); b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(b.dataset.d); } }; });
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();
 }
-function pick(d) {
+function pick(d, about) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
   document.querySelectorAll('.dcard').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
   $('.steps').outerHTML = steps(1);
   $('#briefBox').innerHTML = `<form class="panel" id="form"><h2>Tell us about <span>the business.</span></h2><p class="sub">Plain words are fine. Anything you leave out, the writer either asks about or flags for you to confirm. It never makes up a price.</p>
     <div class="bform">${chosen.fields.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}
     <div class="wide actions"><button class="button" id="go">Write the ${esc(m.name)} site</button><span class="note">About a minute · roughly $0.25 of AI</span></div><p class="err wide" id="err"></p></div></form>`;
+  if (about && $('#form').elements.about) $('#form').elements.about.value = about;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#form').onsubmit = async (e) => {
     e.preventDefault(); const btn = $('#go'); btn.disabled = true;

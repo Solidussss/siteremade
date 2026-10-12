@@ -10820,6 +10820,14 @@ if (buyButton) {
 // webhook that actually fulfils the intent may land before or after this
 // return, so this polls briefly rather than treating "not fulfilled yet" on
 // the first check as failure.
+// Create Website's fallback (/designs, lib/site-router.js): a business no premium design fits arrives here with its
+// description in ?describe=. It only fills the box; nothing is generated (or paid for) until the owner presses Generate.
+(function prefillDescription() {
+  const d = new URLSearchParams(window.location.search).get('describe');
+  const el = document.getElementById('generatorInput');
+  if (d && el) { el.value = d.slice(0, 280); el.dispatchEvent(new Event('input', { bubbles: true })); }
+})();
+
 (function handlePurchaseReturn() {
   const params = new URLSearchParams(window.location.search);
   if (!purchaseStatus) return;

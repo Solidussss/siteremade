@@ -5909,6 +5909,7 @@ app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, 
 // lib/design-sites.js, design-packages/. Owner-only for now (the website admin account: lib/website-admin.js): every run
 // spends real AI money through the server's Anthropic key. A published site is public at /s/<id>.
 const designSites = require('./lib/design-sites');
+const siteRouter = require('./lib/site-router');
 let designDeps = { writer: () => designSites.anthropicWriter(ANTHROPIC_API_KEY), cost: designSites.cost };
 if (db.designSites) db.designSites.failInterrupted(new Date().toISOString());
 // The owner: the website admin's email (lib/website-admin.js) on an account that is provably theirs. A builder sign-up
@@ -5956,6 +5957,13 @@ app.post('/api/designs/sites/:id/publish', requireAuth, requireSameOrigin, requi
   if (r.blocking) return res.status(409).json({ ok: false, message: r.error, blocking: r.blocking });
   if (r.error) return res.status(400).json({ ok: false, message: r.error });
   return res.json({ ok: true, site: designSites.view(r.row) });
+});
+// Create Website: which design can honestly carry this business (lib/site-router.js); none -> the classic builder
+app.post('/api/designs/route', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  const text = String((req.body && req.body.text) || '').trim().slice(0, 2000);
+  if (text.length < 8) return res.status(400).json({ ok: false, message: 'Describe the business in a sentence or two.' });
+  const r = siteRouter.route(text);
+  res.json({ ok: true, industry: r.industry, fits: r.fits, best: r.best, classic: r.best ? null : '/?describe=' + encodeURIComponent(text.slice(0, 280)) });
 });
 // the website editor: what this site's design lets the owner change, and changing it (lib/design-editor.js)
 app.get('/api/designs/sites/:id/editor', requireAuth, requireDesignOwner, (req, res) => {
