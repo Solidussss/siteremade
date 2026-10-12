@@ -1,0 +1,70 @@
+{
+  "name": "forno",
+  "category": "pizzeria",
+  "reference": "reference/forno-original.html",
+  "referenceSha256": "183b07a5ab7ded4db13cc4c3c9c7e968782ff27d9f08c36e7d94ff9cf4304c5b",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "R": {
+      "base": "#d4321c",
+      "target": "theme.tomato",
+      "about": "the tomato red: the menu board, buttons, chips, the footer word, the party sliders"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.tomato",
+        "range": [
+          0.3,
+          0.55
+        ]
+      }
+    ],
+    "contrast": [
+      [
+        "#fbf5e6",
+        "R:#d4321c",
+        4,
+        "menu text on the red board"
+      ],
+      [
+        "R:#a3200f",
+        "#fbf5e6",
+        4.5,
+        "red prices and labels on cream"
+      ],
+      [
+        "R:#d4321c",
+        "#16100d",
+        3,
+        "red on the dark oven background"
+      ]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Shrikhand&display=swap",
+          "family": "Shrikhand"
+        }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    }
+  },
+  "guards": []
+}

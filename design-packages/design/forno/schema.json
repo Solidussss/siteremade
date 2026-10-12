@@ -1,0 +1,265 @@
+{
+  "about": "What a pizzeria may change in the Forno design. Everything not listed here is protected: the hero (dough ball, stretch, sauce spiral, the dropped toppings, the wood-fired oven, the 90-second bake, the HUD), the topping drawings and drop physics, the party calculator maths, the pickup board, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      48
+    ],
+    "business.short": [
+      3,
+      18
+    ],
+    "business.wordmark": [
+      3,
+      22
+    ],
+    "nav.menu": [
+      2,
+      10
+    ],
+    "nav.build": [
+      2,
+      10
+    ],
+    "nav.party": [
+      2,
+      10
+    ],
+    "nav.order": [
+      2,
+      10
+    ],
+    "nav.cta": [
+      4,
+      16
+    ],
+    "hero.eyebrow": [
+      6,
+      48
+    ],
+    "hero.title": [
+      6,
+      28
+    ],
+    "hero.accent": [
+      2,
+      12
+    ],
+    "hero.lede": [
+      20,
+      170
+    ],
+    "hero.stages.*.title": [
+      3,
+      16
+    ],
+    "hero.stages.*.text": [
+      20,
+      100
+    ],
+    "hero.buildButton": [
+      4,
+      18
+    ],
+    "hero.menuButton": [
+      4,
+      16
+    ],
+    "menu.eyebrow": [
+      4,
+      40
+    ],
+    "menu.title": [
+      6,
+      32
+    ],
+    "menu.body": [
+      20,
+      230
+    ],
+    "menu.filters.*": [
+      2,
+      12
+    ],
+    "menu.pies.*.name": [
+      3,
+      24
+    ],
+    "menu.pies.*.desc": [
+      15,
+      110
+    ],
+    "menu.pies.*.tags.*": [
+      2,
+      10
+    ],
+    "dough.eyebrow": [
+      4,
+      24
+    ],
+    "dough.title": [
+      4,
+      30
+    ],
+    "dough.facts.*.label": [
+      2,
+      10
+    ],
+    "dough.facts.*.value": [
+      1,
+      9
+    ],
+    "dough.facts.*.note": [
+      3,
+      30
+    ],
+    "build.eyebrow": [
+      4,
+      36
+    ],
+    "build.title": [
+      3,
+      20
+    ],
+    "build.accent": [
+      2,
+      14
+    ],
+    "build.body": [
+      20,
+      200
+    ],
+    "build.rossaButton": [
+      3,
+      22
+    ],
+    "build.biancaButton": [
+      3,
+      22
+    ],
+    "build.rossaLine": [
+      3,
+      30
+    ],
+    "build.biancaLine": [
+      3,
+      30
+    ],
+    "build.toppings.*.name": [
+      3,
+      16
+    ],
+    "party.eyebrow": [
+      4,
+      24
+    ],
+    "party.title": [
+      4,
+      22
+    ],
+    "party.accent": [
+      2,
+      12
+    ],
+    "party.body": [
+      20,
+      170
+    ],
+    "order.eyebrow": [
+      4,
+      36
+    ],
+    "order.title": [
+      4,
+      18
+    ],
+    "order.accent": [
+      2,
+      18
+    ],
+    "order.body": [
+      20,
+      200
+    ],
+    "footer.columns.*.label": [
+      2,
+      12
+    ],
+    "footer.columns.*.lines.*": [
+      3,
+      34
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      3
+    ]
+  },
+  "lists": {
+    "hero.stages": [
+      7,
+      7
+    ],
+    "menu.pies": [
+      2,
+      10
+    ],
+    "menu.pies.*.tags": [
+      1,
+      3
+    ],
+    "dough.facts": [
+      8,
+      8
+    ],
+    "build.toppings": [
+      3,
+      9
+    ],
+    "footer.columns": [
+      3,
+      3
+    ],
+    "footer.columns.*.lines": [
+      1,
+      3
+    ]
+  },
+  "numbers": {
+    "menu.pies.*.price": [
+      1,
+      999
+    ],
+    "build.base": [
+      1,
+      99
+    ],
+    "build.toppings.*.price": [
+      0.25,
+      30
+    ],
+    "party.avg": [
+      1,
+      99
+    ]
+  },
+  "choices": {
+    "menu.pies.*.base": [
+      "rossa",
+      "bianca"
+    ]
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "The hero always makes the same pie: a hand-stretched base, a tomato spiral, torn mozzarella, salami cups and basil, baked 90 seconds in a wood-fired oven at 485 °C. hero.stages are its seven captions, in order: dough ball, stretch, sauce, toppings, into the oven, bake, out.",
+    "menu.pies: each pie is drawn from its toppings: 1-4 kinds from mozz, provola, salame, basil, nduja, friar (friarielli/greens), mush, olive, burrata (count 1), garlic, sausage, morta (mortadella/ham), with a count each (1-14). finish adds oregano, oil, parm (grated cheese), honey, pist (pistachio). base is rossa (tomato) or bianca (no tomato); veg marks vegetarian pies.",
+    "build.toppings: 3-9 builder toppings, each a different kind, with the price of one portion.",
+    "hours: Sunday to Saturday, null = closed, on the quarter hour; pickup slots run from 15 minutes after opening to 15 minutes before closing."
+  ],
+  "colours": [
+    "theme.tomato"
+  ]
+}

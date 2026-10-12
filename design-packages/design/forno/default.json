@@ -1,0 +1,106 @@
+{
+  "business": { "name": "Forno Sfacciato", "short": "Forno Sfacciato", "wordmark": "Sfacciato" },
+  "nav": { "menu": "Menu", "build": "Build", "party": "Party", "order": "Pickup", "cta": "Order ahead" },
+  "hero": {
+    "eyebrow": "Wood-fired Neapolitan · Tue–Sun from 17:00",
+    "title": "Ninety seconds at",
+    "accent": "485 °C.",
+    "lede": "We stretch 72-hour dough by hand, spiral on raw San Marzano and bake every pie over an oak fire until the crust goes leopard. Scroll and make one with us.",
+    "stages": [
+      { "title": "Dough ball", "text": "250 g of 00 flour dough, cold-proofed for 72 hours at 4 °C." },
+      { "title": "Stretch", "text": "By hand, from the middle out. No rolling pin, so the rim keeps its air." },
+      { "title": "Sauce", "text": "Raw San Marzano DOP, crushed by hand. One ladle, one spiral, rim left bare." },
+      { "title": "Toppings", "text": "Torn fior di latte, spicy salame cups and a few basil leaves. Dropped, never arranged." },
+      { "title": "Into the fire", "text": "Off the peel onto the oven floor. Oak burning on the left, floor at 485 °C." },
+      { "title": "Bake", "text": "Turned once at 45 seconds. The rim puffs, blisters and goes leopard." },
+      { "title": "Out", "text": "Fresh basil and a thread of olive oil. Eat it in the next four minutes." }
+    ],
+    "buildButton": "Build your own",
+    "menuButton": "See the menu"
+  },
+  "menu": {
+    "eyebrow": "The menu · 8 pies · one dough",
+    "title": "Eight pies. No pineapple.",
+    "body": "Every pie starts as the same 250 g ball. Rosse get raw San Marzano DOP tomatoes, crushed by hand. Bianche skip the tomato and lean on smoked provola and good oil. Each one is about 30 cm and meant for one person.",
+    "filters": { "all": "All", "rossa": "Rosse", "bianca": "Bianche", "veg": "Vegetarian" },
+    "pies": [
+      { "name": "Marinara", "desc": "San Marzano DOP, garlic, Sicilian oregano, extra virgin olive oil. No cheese, on purpose.", "price": 8, "base": "rossa", "veg": true, "tags": ["Rossa", "Vegan"], "toppings": [["garlic", 7]], "finish": ["oregano", "oil"] },
+      { "name": "Margherita", "desc": "San Marzano DOP, fior di latte from Agerola, basil, Parmigiano Reggiano 24 months, olive oil.", "price": 10, "base": "rossa", "veg": true, "tags": ["Rossa", "Veg"], "toppings": [["mozz", 8], ["basil", 4]], "finish": ["parm"] },
+      { "name": "Diavola Sfacciata", "desc": "San Marzano, fior di latte, spicy salame cups, Calabrian chili, hot honey after the bake.", "price": 13, "base": "rossa", "veg": false, "tags": ["Rossa", "Hot"], "toppings": [["mozz", 7], ["salame", 12]], "finish": ["honey"] },
+      { "name": "Cosacca", "desc": "San Marzano, Pecorino Romano, basil, olive oil. Older than the Margherita and still underrated.", "price": 9, "base": "rossa", "veg": true, "tags": ["Rossa", "Veg"], "toppings": [["basil", 5]], "finish": ["parm", "oil"] },
+      { "name": "'Nduja e Burrata", "desc": "San Marzano, fior di latte, 'nduja from Spilinga, a whole burrata torn on after the oven.", "price": 15, "base": "rossa", "veg": false, "tags": ["Rossa", "Hot"], "toppings": [["mozz", 5], ["nduja", 6], ["burrata", 1]], "finish": [] },
+      { "name": "Salsiccia e Friarielli", "desc": "Smoked provola, fennel sausage, friarielli sautéed with garlic and chili. The Naples classic.", "price": 14, "base": "bianca", "veg": false, "tags": ["Bianca"], "toppings": [["provola", 6], ["sausage", 10], ["friar", 6]], "finish": [] },
+      { "name": "Funghi e Provola", "desc": "Smoked provola, roast mushrooms, thyme, Parmigiano, a little black pepper.", "price": 12, "base": "bianca", "veg": true, "tags": ["Bianca", "Veg"], "toppings": [["provola", 6], ["mush", 9]], "finish": ["parm"] },
+      { "name": "Mortazza", "desc": "Fior di latte, then mortadella, stracciatella and pistachio crumb once it leaves the oven.", "price": 15, "base": "bianca", "veg": false, "tags": ["Bianca"], "toppings": [["mozz", 5], ["morta", 5]], "finish": ["pist"] }
+    ]
+  },
+  "dough": {
+    "eyebrow": "The dough sheet",
+    "title": "Same numbers, every night.",
+    "facts": [
+      { "label": "Flour", "value": "Tipo 00", "note": "W 300, milled soft" },
+      { "label": "Hydration", "value": "65%", "note": "water to flour by weight" },
+      { "label": "Salt", "value": "2.8%", "note": "fine sea salt" },
+      { "label": "Yeast", "value": "0.1%", "note": "fresh, a pinch per kilo" },
+      { "label": "Proof", "value": "72 h", "note": "at 4 °C, then 6 h warm" },
+      { "label": "Ball", "value": "250 g", "note": "hand-shaped, never rolled" },
+      { "label": "Oven", "value": "485 °C", "note": "oak, floor reading" },
+      { "label": "Bake", "value": "90 s", "note": "turned once at 45 s" }
+    ]
+  },
+  "build": {
+    "eyebrow": "Build your own · tap to drop",
+    "title": "Throw things",
+    "accent": "at it.",
+    "body": "Tap a topping and a portion lands on the pie. Up to three portions of each. The price updates as you go, and the bake button gives it the full 90 seconds at 485 °C (sped up).",
+    "rossaButton": "Rossa · San Marzano",
+    "biancaButton": "Bianca · oil & garlic",
+    "rossaLine": "Rossa base, San Marzano",
+    "biancaLine": "Bianca base, oil and garlic",
+    "base": 8,
+    "toppings": [
+      { "id": "fior", "name": "Fior di latte", "price": 2, "kind": "mozz" },
+      { "id": "salame", "name": "Salame cups", "price": 3, "kind": "salame" },
+      { "id": "nduja", "name": "'Nduja", "price": 3, "kind": "nduja" },
+      { "id": "provola", "name": "Smoked provola", "price": 2.5, "kind": "provola" },
+      { "id": "friar", "name": "Friarielli", "price": 2.5, "kind": "friar" },
+      { "id": "funghi", "name": "Mushrooms", "price": 2, "kind": "mush" },
+      { "id": "olive", "name": "Gaeta olives", "price": 1.5, "kind": "olive" },
+      { "id": "basil", "name": "Basil", "price": 0.5, "kind": "basil" },
+      { "id": "burrata", "name": "Burrata", "price": 4.5, "kind": "burrata" }
+    ]
+  },
+  "party": {
+    "eyebrow": "Party calculator",
+    "title": "How many pies is",
+    "accent": "enough?",
+    "body": "Tell us the headcount and how hungry they are. We'll tell you how many pies, how long the oven needs and how much dough we set aside.",
+    "avg": 12
+  },
+  "order": {
+    "eyebrow": "Order ahead · pickup only",
+    "title": "Pick a slot.",
+    "accent": "Skip the line.",
+    "body": "Our oven bakes three pies every 90 seconds, so each 15-minute slot holds 24 pies. Pick a time with room and we fire yours so they come out as you walk in.",
+    "refPrefix": "FS"
+  },
+  "hours": {
+    "sun": { "open": "17:00", "close": "23:00" },
+    "mon": null,
+    "tue": { "open": "17:00", "close": "22:30" },
+    "wed": { "open": "17:00", "close": "22:30" },
+    "thu": { "open": "17:00", "close": "22:30" },
+    "fri": { "open": "17:00", "close": "23:00" },
+    "sat": { "open": "17:00", "close": "23:00" }
+  },
+  "footer": {
+    "columns": [
+      { "label": "Hours", "lines": ["Tue–Thu 17:00–22:30", "Fri–Sun 17:00–23:00", "Closed Mondays, the oven rests"] },
+      { "label": "Oven", "lines": ["Oak only, lit at 14:00", "Floor 430–485 °C by service"] },
+      { "label": "Rules", "lines": ["No pineapple. No ranch.", "Eat it in the first four minutes."] }
+    ],
+    "fine": "Forno Sfacciato is a made-up business for a concept site."
+  },
+  "locale": { "currency": "€" },
+  "theme": { "tomato": "#d4321c" }
+}

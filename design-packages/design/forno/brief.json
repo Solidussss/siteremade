@@ -1,0 +1,54 @@
+{
+  "title": "Pizzeria",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true },
+    { "key": "location", "label": "Address", "required": true },
+    { "key": "phone", "label": "Phone for orders", "required": true },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Tue-Thu 5-10pm, Fri-Sun 5-11pm, closed Monday. Pickup runs inside these hours." },
+    { "key": "pizzas", "label": "Pizzas and prices", "type": "textarea", "required": true, "help": "Two to ten pizzas: name, what's on it, price. Say which have no tomato and which are vegetarian." },
+    { "key": "toppings", "label": "Build-your-own", "type": "textarea", "help": "Optional: base price and the toppings you'd let people add, with prices." },
+    { "key": "dough", "label": "Your dough and oven", "type": "textarea", "help": "Optional: flour, hydration, proofing time, ball weight, oven type and temperature, bake time." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your place and your regulars." },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a colour name or hex code." },
+    { "key": "other", "label": "Anything else", "type": "textarea", "help": "Pickup or delivery, group orders, house rules." }
+  ],
+  "facts": [
+    "menu.pies.*.price",
+    "menu.pies.*.desc",
+    "build.base",
+    "build.toppings.*.price",
+    "party.avg",
+    "dough.facts.*.value",
+    "dough.facts.*.note",
+    "hero.eyebrow",
+    "hero.accent",
+    "hero.lede",
+    "hero.stages.*.text",
+    "hours.*.open",
+    "hours.*.close",
+    "footer.columns.*.lines.*",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation of one pizza being made in a wood-fired oven, in seven steps: a dough ball, hand-stretching, a tomato sauce spiral, torn mozzarella with salami cups and basil dropped on, into the oven, the bake (90 seconds, a 485 °C readout and a 1:30 timer that are part of the animation), and out with basil and oil. hero.stages are those seven steps' title and caption, in order, in the pizzeria's voice. Numbers in them (dough weight, proofing hours, oven temperature) are facts: use the brief's, or keep the example's and list the path in _assumed. hero.title + hero.accent form the big title (the accent is shown in ember orange, e.g. the oven temperature or a short punchline).",
+    "menu.pies: 2-10 pizzas in the brief's order and words. Each is drawn from its toppings, so pick the closest drawable kinds: mozz (mozzarella, fior di latte, any melting cheese), provola (smoked or aged cheese), salame (salami, pepperoni), basil, nduja (spicy spreadable sausage, chilli paste), friar (greens: friarielli, broccoli rabe, spinach, rocket), mush (mushrooms), olive, burrata (one whole burrata or ball of cheese, count 1), garlic, sausage (sausage, ground meat, chicken), morta (mortadella, ham, prosciutto); 1-4 kinds, a count each (more pieces = more of it). finish adds oregano, oil, parm (grated hard cheese), honey, pist (pistachio or nuts). base is rossa when it has tomato sauce, bianca when not; veg is true for vegetarian pizzas; tags are 1-3 short labels (Rossa, Veg, Hot, Vegan...). Prices in the brief's currency.",
+    "menu.filters are the labels of the four filter chips: all, with tomato (rossa), without tomato (bianca), vegetarian. If the brief uses other words (Red/White), use them.",
+    "dough.facts are exactly eight numbers about the dough and oven (label, value up to 9 characters, a short note). Only the brief's numbers are facts; where it gives none, keep the example's label but describe it in words the brief supports, and list the paths in _assumed.",
+    "build: the build-your-own pizza. build.base is the price of the plain base (sauce or oil and garlic); build.toppings are 3-9 toppings, each a different drawable kind (the same kinds as the menu), with the price of one portion. If the brief offers no build-your-own, use toppings from its pizzas at modest prices and list build.base and the topping prices in _assumed.",
+    "party.avg is the average pizza price (a whole number) the party calculator multiplies by; derive it from the menu prices and say so in nothing else.",
+    "order: pickup slots every 15 minutes inside the opening hours (hours: Sunday to Saturday, null = closed, times on the quarter hour). The text about the oven baking three pizzas at once and 24 per slot is part of the design's demo; keep order.body about picking a time and collecting it hot unless the brief describes its own pickup. If the brief says it only delivers, ask with _blocked.",
+    "footer.columns are three columns: hours, where to find you, and contact (or house rules if the brief has them). footer.fine is a one-line copyright or note.",
+    "business.short is the name in the round logo badge (it wraps to two lines on phones; no single word may be very long); business.wordmark is the giant footer word (the name or its most memorable word). Both are the business's own name, never a different one.",
+    "theme.tomato is the brand red: the whole menu board is this colour with cream text on it, and buttons use it. It should stay a warm, saturated mid-tone (tomato, brick, chilli, raspberry); very dark or pale colours fail the contrast checks.",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "Opening hours", "path": "hours", "format": "week" },
+    { "label": "Pizzas", "path": "menu.pies", "fields": ["name", "price", "base"] },
+    { "label": "Build your own", "path": "build.toppings", "fields": ["name", "price", "kind"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}
