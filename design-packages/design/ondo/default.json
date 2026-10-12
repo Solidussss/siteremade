@@ -1,0 +1,231 @@
+{
+  "business": {
+    "name": "ONDO Arc"
+  },
+  "brand": {
+    "name": "ONDO"
+  },
+  "product": {
+    "name": "Arc",
+    "kind": "wireless noise-cancelling headphones",
+    "price": 349
+  },
+  "nav": {
+    "eq": "EQ",
+    "colours": "Colours",
+    "battery": "Battery",
+    "specs": "Specs",
+    "cta": "Reserve"
+  },
+  "hero": {
+    "caps": [
+      {
+        "title": "40 mm drivers that move real air.",
+        "text": "Bio-cellulose domes push a clean 45 Hz kick without the cups buzzing. Press play and watch them work."
+      },
+      {
+        "title": "20 Hz to 40 kHz, all of it.",
+        "text": "Each bar is one slice of the beat. Sub kick on the left, hi-hat air on the right, the last second of music fading into the back."
+      },
+      {
+        "title": "85 dB of cabin. 25 dB at your ear.",
+        "text": "Six mics hear the engine drone. The drivers play the same wave flipped upside down, the two cancel, and the music stays."
+      }
+    ]
+  },
+  "eq": {
+    "eyebrow": "3-band EQ · live",
+    "title": "Pull the bass up. Hear it move.",
+    "body": "Drag a handle up or down to boost or cut, sideways to pick the frequency. The beat you started up top runs through these exact filters, so every change is in your ears straight away.",
+    "house": "ONDO tuning"
+  },
+  "colours": {
+    "eyebrow": "Four finishes",
+    "title": "Pick the one you'll wear every day.",
+    "body": "Bead-blasted aluminium yokes, a stitched protein-leather headband and memory-foam pads in every colour. The hero headphones change too."
+  },
+  "colourways": [
+    {
+      "id": "bone",
+      "name": "Bone",
+      "note": "Warm white shell, taupe pads",
+      "shell": "#e3d9cc",
+      "hi": "#fff8ef",
+      "lo": "#9b8a7a",
+      "pad": "#5d4f43",
+      "padHi": "#8f7f6e",
+      "metal": "#ece6e0",
+      "metalLo": "#77706a",
+      "label": "#a8998a"
+    },
+    {
+      "id": "plum",
+      "name": "Plum",
+      "note": "Anodized plum, black velvet pads",
+      "shell": "#5a3369",
+      "hi": "#9a6aab",
+      "lo": "#2b1533",
+      "pad": "#1e1222",
+      "padHi": "#3b2643",
+      "metal": "#d6cbdc",
+      "metalLo": "#6c5e74",
+      "label": "#9b84a6"
+    },
+    {
+      "id": "ember",
+      "name": "Ember",
+      "note": "Burnt orange shell, cocoa pads",
+      "shell": "#bf5330",
+      "hi": "#f0906a",
+      "lo": "#6b2414",
+      "pad": "#2c1813",
+      "padHi": "#4d2d22",
+      "metal": "#e1d6cd",
+      "metalLo": "#7f6f65",
+      "label": "#e5a184"
+    },
+    {
+      "id": "tide",
+      "name": "Tide",
+      "note": "Deep teal shell, slate pads",
+      "shell": "#2f6170",
+      "hi": "#73a7b5",
+      "lo": "#14313b",
+      "pad": "#16232a",
+      "padHi": "#2c4049",
+      "metal": "#d2dde0",
+      "metalLo": "#62757b",
+      "label": "#7fa6b0"
+    }
+  ],
+  "battery": {
+    "eyebrow": "Battery calculator",
+    "title": "How often will you charge?",
+    "note": "Rated at 50% volume, 44.1 kHz streaming, one device connected. A 10-minute USB-C top-up adds 6 hours.",
+    "on": 38,
+    "aware": 34,
+    "off": 50
+  },
+  "specs": {
+    "eyebrow": "Spec sheet · ONDO Arc",
+    "title": "The numbers on the box.",
+    "big": [
+      {
+        "value": "40 mm",
+        "label": "Dynamic drivers"
+      },
+      {
+        "value": "20–40k",
+        "label": "Hz response"
+      },
+      {
+        "value": "50 h",
+        "label": "Battery, ANC off"
+      },
+      {
+        "value": "250 g",
+        "label": "On your head"
+      }
+    ],
+    "groups": [
+      {
+        "title": "Sound",
+        "rows": [
+          {
+            "k": "Drivers",
+            "v": "40 mm dynamic, bio-cellulose dome"
+          },
+          {
+            "k": "Frequency response",
+            "v": "20 Hz – 40 kHz (wired)"
+          },
+          {
+            "k": "Impedance",
+            "v": "32 Ω"
+          },
+          {
+            "k": "Sensitivity",
+            "v": "104 dB SPL/mW at 1 kHz"
+          }
+        ]
+      },
+      {
+        "title": "Noise",
+        "rows": [
+          {
+            "k": "ANC",
+            "v": "Hybrid, feed-forward + feedback"
+          },
+          {
+            "k": "Microphones",
+            "v": "6 (4 for ANC, 2 beamformed for calls)"
+          },
+          {
+            "k": "Modes",
+            "v": "ANC, Aware, Off"
+          },
+          {
+            "k": "Cabin test",
+            "v": "85 dB drone to 25 dB at the ear"
+          }
+        ]
+      },
+      {
+        "title": "Power",
+        "rows": [
+          {
+            "k": "Battery",
+            "v": "50 h ANC off · 38 h ANC on"
+          },
+          {
+            "k": "Quick charge",
+            "v": "10 min = 6 h"
+          },
+          {
+            "k": "Full charge",
+            "v": "1 h 50 min, USB-C"
+          },
+          {
+            "k": "Wired",
+            "v": "3.5 mm, works with battery flat"
+          }
+        ]
+      },
+      {
+        "title": "Build",
+        "rows": [
+          {
+            "k": "Weight",
+            "v": "250 g"
+          },
+          {
+            "k": "Yokes",
+            "v": "Bead-blasted aluminium"
+          },
+          {
+            "k": "Pads",
+            "v": "Memory foam, protein leather, replaceable"
+          },
+          {
+            "k": "Bluetooth",
+            "v": "5.4, two devices at once"
+          }
+        ]
+      }
+    ]
+  },
+  "reserve": {
+    "title": "Reserve a pair",
+    "body": "Ships with a hard-shell case, USB-C cable and 3.5 mm cable. Pay nothing until it ships.",
+    "button": "Reserve mine"
+  },
+  "footer": {
+    "fine": "ONDO is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "wordmarkFit": "crop"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "ondo",
+  "category": "headphones launch",
+  "reference": "reference/ondo-original.html",
+  "referenceSha256": "9f911e94a90632e0bb32144f5b7e3f7d8089e3559b9177fd1aeb1b32de905e3b",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {},
+  "checks": {},
+  "metrics": {
+    "big": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.8 {family};font-stretch:125%;letter-spacing:-.01em;text-transform:uppercase",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:900 1000px/.76 {family};font-stretch:125%;letter-spacing:-.03em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap",
+          "family": "Archivo"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".word",
+      "text": [
+        "brand.name"
+      ],
+      "metric": "word",
+      "size": [
+        10,
+        27,
+        null
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Headphones launch",
+  "fields": [
+    { "key": "businessName", "label": "Page name", "required": true, "help": "Brand and model, e.g. Lumen Halo Headphones." },
+    { "key": "brand", "label": "Brand", "required": true },
+    { "key": "product", "label": "The headphones", "type": "textarea", "required": true, "help": "Model name, what kind (over-ear, noise-cancelling...), price, drivers, frequency range, noise cancelling, battery life, weight." },
+    { "key": "colourways", "label": "Colourways", "type": "textarea", "required": true, "help": "Four colours with names and a short description (shell, pads)." },
+    { "key": "specs", "label": "Full specs", "type": "textarea", "help": "Optional: anything for the spec sheet (impedance, Bluetooth, charging, materials)." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the page sound?", "type": "textarea", "help": "A few words about the brand." }
+  ],
+  "facts": [
+    "product.price",
+    "hero.caps.*.title",
+    "hero.caps.*.text",
+    "battery.on",
+    "battery.aware",
+    "battery.off",
+    "battery.note",
+    "specs.big.*.value",
+    "specs.groups.*.rows.*.v",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed live analyser around drawn over-ear headphones, in three chapters: the drivers playing a beat, a 3D spectrum of the frequency range, and noise cancelling taking an 85 dB cabin drone down to 25 dB (those two numbers are part of the animation). hero.caps are the three chapters' title and line in that order, with the brand's own specs; if the brand's noise cancelling numbers differ, describe it in words rather than contradicting the animation.",
+    "brand.name and product.name are shown as giant outline letters behind the headphones (brand over model) and printed on the headband; short names in capitals read best (up to 5-6 letters each).",
+    "colourways: exactly four, each with a short name (shown huge behind the stand), a note and eight colours as #rrggbb: shell, hi (a lighter shell for highlights), lo (a darker shell for shadows), pad, padHi (lighter pad), metal, metalLo (darker metal), label. Leave out 'id'.",
+    "battery: rated playback hours with noise cancelling on, in Aware mode and with it off (whole numbers, up to 60); the calculator scales them by volume. battery.note gives the test conditions and quick-charge figure from the brief.",
+    "specs.big are four headline numbers (value up to 8 characters, label); specs.groups are four tables (e.g. Sound, Noise, Power, Build) of 2-6 rows each, only facts from the brief.",
+    "eq.house is the name of the brand's own EQ preset (e.g. 'Lumen sound'); the EQ itself is fixed.",
+    "theme.wordmarkFit: always \"fit\" for a new brand (the giant footer word is then sized to the screen). footer.fine is a one-line copyright or note.",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "The headphones", "path": "product", "fields": ["name", "kind", "price"] },
+    { "label": "Battery (hours)", "path": "battery", "fields": ["on", "aware", "off"] },
+    { "label": "Colourways", "path": "colourways", "fields": ["name", "note", "shell"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}
