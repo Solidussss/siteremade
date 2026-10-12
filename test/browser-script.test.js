@@ -16,7 +16,7 @@ const scripts = browserScripts();
 
 test('index.html loads the expected local scripts, and they exist', () => {
   // creative-entry.js (4 KB) only adds the Creative switch in review mode; the studio itself is loaded on demand
-  assert.deepEqual(scripts.map(s => s.src), ['icons-data.js', 'premium-core.js', 'script.js', 'creative-entry.js']);
+  assert.deepEqual(scripts.map(s => s.src), ['icons-data.js', 'premium-core.js', 'script.js', 'creative-entry.js', 'consolidation.js']);
   scripts.forEach(s => assert.ok(fs.existsSync(s.file), `${s.src} is missing`));
 });
 
