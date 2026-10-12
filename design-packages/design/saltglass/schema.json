@@ -1,0 +1,268 @@
+{
+  "about": "What a dental clinic may change in the Saltglass design. Everything not listed here is protected: the whitening smile and its shade guide (VITA shades, the 90-minute visit), the 30-second booking clock, the insurance toggle and its coverage percentages, the tooth chart and its Universal numbering, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      48
+    ],
+    "business.short": [
+      3,
+      16
+    ],
+    "business.kind": [
+      3,
+      14
+    ],
+    "business.wordmark": [
+      3,
+      16
+    ],
+    "nav.*": [
+      2,
+      12
+    ],
+    "hero.eyebrow": [
+      6,
+      48
+    ],
+    "hero.title": [
+      4,
+      24
+    ],
+    "hero.accent": [
+      3,
+      22
+    ],
+    "hero.lede": [
+      20,
+      170
+    ],
+    "hero.priceLabel": [
+      4,
+      24
+    ],
+    "hero.price": [
+      3,
+      18
+    ],
+    "booking.title": [
+      4,
+      26
+    ],
+    "booking.accent": [
+      3,
+      22
+    ],
+    "booking.body": [
+      20,
+      140
+    ],
+    "booking.facts.*": [
+      3,
+      28
+    ],
+    "booking.reasons.*.name": [
+      3,
+      26
+    ],
+    "booking.reasons.*.note": [
+      4,
+      40
+    ],
+    "booking.reasons.*.with": [
+      3,
+      60
+    ],
+    "prices.title": [
+      4,
+      24
+    ],
+    "prices.accent": [
+      3,
+      30
+    ],
+    "prices.body": [
+      20,
+      220
+    ],
+    "prices.yearLabel": [
+      4,
+      32
+    ],
+    "prices.yearNote": [
+      4,
+      50
+    ],
+    "prices.note": [
+      10,
+      320
+    ],
+    "chart.body": [
+      20,
+      300
+    ],
+    "faq.title": [
+      4,
+      26
+    ],
+    "faq.accent": [
+      3,
+      18
+    ],
+    "faq.items.*.q": [
+      6,
+      50
+    ],
+    "faq.items.*.a.*": [
+      10,
+      260
+    ],
+    "team.*.name": [
+      4,
+      34
+    ],
+    "team.*.role": [
+      4,
+      40
+    ],
+    "contact.street": [
+      4,
+      40
+    ],
+    "contact.access": [
+      4,
+      44
+    ],
+    "contact.phone": [
+      5,
+      24
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      3
+    ],
+    "locale.locale": [
+      2,
+      10
+    ],
+    "prices.preventive.*.name": [
+      3,
+      30
+    ],
+    "prices.preventive.*.note": [
+      2,
+      40
+    ],
+    "prices.basic.*.name": [
+      3,
+      30
+    ],
+    "prices.basic.*.note": [
+      2,
+      40
+    ],
+    "prices.major.*.name": [
+      3,
+      30
+    ],
+    "prices.major.*.note": [
+      2,
+      40
+    ],
+    "prices.cosmetic.*.name": [
+      3,
+      30
+    ],
+    "prices.cosmetic.*.note": [
+      2,
+      40
+    ]
+  },
+  "lists": {
+    "booking.facts": [
+      2,
+      4
+    ],
+    "booking.reasons": [
+      2,
+      8
+    ],
+    "prices.preventive": [
+      1,
+      7
+    ],
+    "prices.basic": [
+      1,
+      5
+    ],
+    "prices.major": [
+      1,
+      5
+    ],
+    "prices.cosmetic": [
+      1,
+      4
+    ],
+    "faq.items": [
+      3,
+      8
+    ],
+    "faq.items.*.a": [
+      1,
+      3
+    ],
+    "team": [
+      1,
+      4
+    ]
+  },
+  "numbers": {
+    "booking.reasons.*.minutes": [
+      10,
+      180
+    ],
+    "prices.preventive.*.price": [
+      1,
+      99999
+    ],
+    "prices.basic.*.price": [
+      1,
+      99999
+    ],
+    "prices.major.*.price": [
+      1,
+      99999
+    ],
+    "prices.cosmetic.*.price": [
+      1,
+      99999
+    ],
+    "prices.year": [
+      0,
+      99999
+    ]
+  },
+  "choices": {
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks; FAQ answers may use **bold**.",
+    "The hero is a fixed whitening animation (shade A3.5 to BL2 over a 90-minute visit); hero.priceLabel and hero.price name that treatment and its price.",
+    "Prices are in four fixed insurance groups (preventive, basic, major, cosmetic) with typical coverage of 100/80/50/0%; prices are whole numbers.",
+    "hours: Sunday to Saturday, null = closed, on the hour or half hour; booking slots run every 30 minutes inside them."
+  ],
+  "colours": [
+    "theme.accent",
+    "theme.tint"
+  ]
+}

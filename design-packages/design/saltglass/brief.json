@@ -1,0 +1,53 @@
+{
+  "title": "Dental clinic",
+  "fields": [
+    { "key": "businessName", "label": "Practice name", "required": true },
+    { "key": "location", "label": "Address and access", "required": true, "help": "Street, suite, parking, step-free entrance." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Mon-Thu 8-6, Fri 8-3, Sat 9-1, closed Sunday." },
+    { "key": "services", "label": "Visits people can book", "type": "textarea", "required": true, "help": "Two to eight reasons to book (cleaning, first visit, emergency...), how long each takes and who sees them." },
+    { "key": "prices", "label": "Prices", "type": "textarea", "required": true, "help": "Your fees for cleanings, exams, fillings, crowns, whitening and so on, and your whitening price." },
+    { "key": "team", "label": "Your team", "type": "textarea", "required": true, "help": "Dentists and hygienists with their titles and what each does." },
+    { "key": "faq", "label": "What new patients ask", "type": "textarea", "help": "Optional: first-visit length, what to bring, cancellation policy, nervous patients, payment plans." },
+    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
+    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your practice and patients." },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a colour name or hex code." }
+  ],
+  "facts": [
+    "hero.price",
+    "booking.reasons.*.minutes",
+    "booking.facts.*",
+    "prices.preventive.*.price",
+    "prices.basic.*.price",
+    "prices.major.*.price",
+    "prices.cosmetic.*.price",
+    "prices.year",
+    "prices.note",
+    "faq.items.*.a.*",
+    "hours.*.open",
+    "hours.*.close",
+    "contact.street",
+    "contact.phone",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation of an in-office whitening visit: a drawn smile whitens from shade A3.5 to BL2 against a shade guide over a 90-minute visit. hero.priceLabel and hero.price name the clinic's whitening treatment and its price (e.g. \"$495 · 90 min\"); if the clinic doesn't offer whitening, use its best-known cosmetic treatment and say so in the title, never invent a price (ask with _blocked).",
+    "booking.reasons: 2-8 reasons to book, each with minutes (a multiple of 5), a short note and who the patient sees. Leave out 'id'. booking.facts are 2-4 short true facts from the brief (open Saturdays, emergency slots, kids welcome).",
+    "prices are in four fixed groups: preventive (exams, cleanings, X-rays), basic (fillings, extractions, deep cleaning), major (root canals, crowns, bridges), cosmetic (whitening, veneers). Each item has a name, a short note (time or detail) and a whole-number price. The page has an insurance toggle that shows typical plan coverage (100/80/50/0%); prices.body and prices.note explain it in the clinic's words, and only mention deductibles, maximums or membership plans the brief gives. prices.year is the cost of a year of check-ups, from the brief's own prices (two cleanings, two exams, X-rays), described in prices.yearNote.",
+    "The tooth chart is fixed (US Universal numbering 1-32); chart.body introduces it. Outside the US, say that the chart uses the US numbering.",
+    "faq.items: 3-8 questions new patients ask, answered from the brief in one to three short paragraphs; **bold** the key number. Never invent a policy, a price or a sedation option the brief doesn't give.",
+    "team: 1-4 people with name and title as the clinic writes them (e.g. Dr. Ana Ruiz, DDS) and what they do; the page shows their initials in a circle.",
+    "hours: Sunday to Saturday, null = closed, on the hour or half hour. The hours table and the open-now line are made from them.",
+    "business.short is the name in the nav (with business.kind beside it on desktop, e.g. 'Dental'); business.wordmark is the giant footer word. Both are the practice's own name, never a different one. theme.wordmarkFit: always \"fit\" for a new business.",
+    "theme.accent is the brand colour for buttons and links (white text on it): a fairly deep colour. theme.tint tints the dark hero stage and the pale page (lightness stays, only the hue changes).",
+    "business.name is set to exactly the name in the brief and cannot be changed."
+  ],
+  "readBack": [
+    { "label": "Opening hours", "path": "hours", "format": "week" },
+    { "label": "Visits", "path": "booking.reasons", "fields": ["name", "minutes", "with"] },
+    { "label": "Team", "path": "team", "fields": ["name", "role"] }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "name": "saltglass",
+  "category": "dental clinic",
+  "reference": "reference/saltglass-original.html",
+  "referenceSha256": "bd52a99d77a4b4c2f072825e723ef7eb125e74263b8fba3b977f13ebab089c8c",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#0E7D71",
+      "target": "theme.accent",
+      "about": "the accent: buttons, links, the booking dial, the hero glow (light and dark mode)"
+    },
+    "T": {
+      "base": "#0D2830",
+      "target": "theme.tint",
+      "keepLightness": true,
+      "about": "the operatory tint: the dark hero stage and footer, and the pale sheets behind everything (tint only)"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.accent",
+        "range": [
+          0.2,
+          0.45
+        ]
+      },
+      {
+        "path": "theme.tint",
+        "range": [
+          0.05,
+          0.3
+        ],
+        "maxSaturation": 0.6
+      }
+    ],
+    "contrast": [
+      [
+        "#ffffff",
+        "A:#0E7D71",
+        4.5,
+        "button text on the accent"
+      ],
+      [
+        "A:#0E7D71",
+        "T:#EDF2F1",
+        4.2,
+        "accent text on the page"
+      ],
+      [
+        "#04201C",
+        "A:#4DC4AF",
+        4.5,
+        "button text on the accent (dark mode)"
+      ]
+    ]
+  },
+  "metrics": {
+    "brand": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Urbanist:wght@700&display=swap",
+          "family": "Urbanist"
+        }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.06em",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Urbanist:wght@700&display=swap",
+          "family": "Urbanist"
+        }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@600&display=swap",
+          "family": "Instrument Sans"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".word",
+      "text": [
+        "business.wordmark"
+      ],
+      "metric": "word",
+      "size": [
+        64,
+        19.5,
+        300
+      ],
+      "container": {
+        "max": 1240,
+        "gutter": [
+          16,
+          4,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    }
+  ]
+}

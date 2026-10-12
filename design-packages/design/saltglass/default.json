@@ -1,0 +1,91 @@
+{
+  "business": { "name": "Saltglass Dental", "short": "Saltglass", "kind": "Dental", "wordmark": "Saltglass" },
+  "nav": { "book": "Book", "prices": "Prices", "chart": "Tooth map", "faq": "First visit", "cta": "Book in 30s" },
+  "hero": {
+    "eyebrow": "Saltglass Dental · In-office whitening",
+    "title": "Whiter, measured",
+    "accent": "tab by tab.",
+    "lede": "We hold a shade guide to your teeth before we start and again when we finish, so your result is a number you can see. Scroll to run a 90-minute visit.",
+    "priceLabel": "In-office whitening",
+    "price": "$495 · 90 min"
+  },
+  "booking": {
+    "title": "Book in 30 seconds.",
+    "accent": "We timed it.",
+    "body": "Pick why you're coming in, then tap a time. The clock starts on your first tap and stops when you're booked.",
+    "facts": ["Cleaning every 6 months", "Same-day pain slots", "Open Saturdays 8–1"],
+    "reasons": [
+      { "id": "clean", "name": "Cleaning + check-up", "minutes": 60, "note": "Due every 6 months", "with": "Priya Nand, RDH, then a quick exam with Dr. Lindqvist" },
+      { "id": "new", "name": "First visit", "minutes": 90, "note": "X-rays, full exam and cleaning", "with": "Dr. Mara Lindqvist and Priya Nand, RDH" },
+      { "id": "pain", "name": "Tooth pain", "minutes": 30, "note": "Same-day slots held every morning", "with": "Dr. Theo Abernathy" },
+      { "id": "chip", "name": "Chipped or broken tooth", "minutes": 45, "note": "Bring the piece if you have it", "with": "Dr. Theo Abernathy" },
+      { "id": "white", "name": "Whitening consult", "minutes": 20, "note": "Shade check and tray scan", "with": "Dr. Mara Lindqvist" },
+      { "id": "guard", "name": "Night guard fitting", "minutes": 30, "note": "For grinding or jaw ache", "with": "Dr. Theo Abernathy" }
+    ]
+  },
+  "prices": {
+    "title": "What it costs,",
+    "accent": "with or without insurance.",
+    "body": "Self-pay is the price with no plan. The insurance view uses a typical PPO: preventive care at 100%, basic at 80%, major at 50%. Whitening is cosmetic, so plans don't pay for it.",
+    "yearLabel": "A typical year of check-ups",
+    "yearNote": "2 cleanings, 2 exams and 4 bitewing X-rays",
+    "year": 455,
+    "note": "Insurance figures are estimates after your $50 yearly deductible, within a $1,500 annual maximum. We check your actual plan before treatment and give you a written estimate. No plan? The Saltglass yearly plan is $349 and covers both cleanings, exams and X-rays, plus 15% off everything else.",
+    "preventive": [
+      { "name": "New patient visit", "note": "Exam, X-rays and cleaning · 90 min", "price": 289 },
+      { "name": "Cleaning", "note": "Every 6 months · 60 min with exam", "price": 129 },
+      { "name": "Periodic exam", "note": "Twice a year · 15 min", "price": 59 },
+      { "name": "Bitewing X-rays, 4 films", "note": "Once a year · 10 min", "price": 79 },
+      { "name": "Sealant, per tooth", "note": "Back molars · 15 min", "price": 52 },
+      { "name": "Emergency exam", "note": "Same day · 30 min", "price": 119 }
+    ],
+    "basic": [
+      { "name": "Tooth-colored filling", "note": "One surface · 45 min", "price": 189 },
+      { "name": "Deep cleaning, per quadrant", "note": "Scaling and root planing · 45 min", "price": 245 },
+      { "name": "Simple extraction", "note": "30 min", "price": 215 }
+    ],
+    "major": [
+      { "name": "Root canal, molar", "note": "90 min", "price": 1180 },
+      { "name": "Zirconia crown", "note": "Scan, then fit · 60 + 30 min", "price": 1295 },
+      { "name": "Night guard", "note": "Scan, then fit · 2 visits", "price": 425 }
+    ],
+    "cosmetic": [
+      { "name": "In-office whitening", "note": "3 gel cycles · 90 min", "price": 495 },
+      { "name": "Take-home whitening trays", "note": "Trays plus 4 syringes of gel", "price": 279 }
+    ]
+  },
+  "chart": {
+    "body": "US dentists use the Universal system. It counts 1 to 32, starting at your upper right wisdom tooth, crossing to the upper left, then dropping to the lower left and finishing at your lower right. When we say \"a filling on 30\", this is how to find it."
+  },
+  "faq": {
+    "title": "Your first 90 minutes,",
+    "accent": "answered.",
+    "items": [
+      { "q": "What happens at my first visit?", "a": ["Plan on **90 minutes**. We go over your health history (about 10 minutes), take **4 bitewing X-rays and one panoramic**, then Dr. Lindqvist examines every tooth and measures your gum pockets in millimetres.", "A hygienist cleans your teeth, and you leave with a written plan and prices for anything we found."] },
+      { "q": "How often should I get a cleaning?", "a": ["Every **6 months** for most adults. A cleaning takes about 60 minutes including the exam. If any gum pocket measures 4 mm or deeper, we'll suggest every 3 to 4 months until your gums settle."] },
+      { "q": "How much radiation is in dental X-rays?", "a": ["Four digital bitewings add up to about **0.005 mSv**, roughly one day of natural background radiation. Most adults need bitewings once a year and a panoramic every 3 to 5 years."] },
+      { "q": "What should I bring?", "a": ["Photo ID, your insurance card if you have one, and a list of the medicines you take. If another dentist took X-rays in the last 12 months, tell us and we'll request them so you don't repeat them."] },
+      { "q": "I get nervous at the dentist.", "a": ["Tell us when you book. We can offer **nitrous oxide ($45)**, noise-cancelling headphones, and a raised-hand signal that stops work straight away. You can also book a 15-minute meet-the-dentist visit with no treatment."] },
+      { "q": "Does whitening hurt?", "a": ["Some people feel sharp twinges for 24 to 48 hours. We paint on a desensitizing gel after the last cycle and suggest a sensitivity toothpaste for two weeks before your visit."] },
+      { "q": "What if I need to cancel?", "a": ["Give us **24 hours' notice** and there's no fee. Late cancellations are $40, and we waive the first one."] }
+    ]
+  },
+  "team": [
+    { "name": "Dr. Mara Lindqvist, DDS", "role": "General dentistry, whitening" },
+    { "name": "Dr. Theo Abernathy, DMD", "role": "Crowns, root canals, same-day pain" },
+    { "name": "Priya Nand, RDH", "role": "Hygienist, cleanings and gum care" }
+  ],
+  "hours": {
+    "sun": null,
+    "mon": { "open": "07:30", "close": "18:00" },
+    "tue": { "open": "07:30", "close": "18:00" },
+    "wed": { "open": "07:30", "close": "18:00" },
+    "thu": { "open": "07:30", "close": "18:00" },
+    "fri": { "open": "07:30", "close": "15:00" },
+    "sat": { "open": "08:00", "close": "13:00" }
+  },
+  "contact": { "street": "88 Saltglass Row, Suite 2", "access": "Street parking, step-free entrance", "phone": "(555) 014-2290" },
+  "footer": { "fine": "Saltglass Dental is a made-up business for a concept site." },
+  "locale": { "currency": "$", "locale": "en-US" },
+  "theme": { "accent": "#0e7d71", "tint": "#0d2830", "wordmarkFit": "crop" }
+}
