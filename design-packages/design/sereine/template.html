@@ -1,0 +1,530 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* Layout: a skincare brand's shop. One pinned product shot where the serum is made, sealed and applied as you scroll,
+   down to a drop sinking into skin and four weeks later; then what a buyer needs: their routine, what's inside, and the
+   shop. */
+:root{
+  color-scheme:light;
+  --clay:#F4EDE6;         /* the studio sweep */
+  --clay-2:#EADFD5;
+  --sheet:#FFFBF7;
+  --ink:#2A2522;
+  --ink-2:#5E534D;
+  --muted:#8D817A;
+  --line:#E0D4C9;
+  --accent:{{A:#A9506A}};       /* the brand's colour: actions, the active layer, live numbers */
+  --accent-2:{{A:#BD6680}};
+  --accent-text:{{A:#8E4459}};
+  --accent-soft:{{A:#F6E3E7}};
+  --on-accent:#FFFFFF;
+  --f-display:"Cormorant","Cormorant Garamond",Georgia,serif;
+  --f-body:"Manrope","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Space Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--clay);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;line-height:1;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1 em,h2 em{font-style:italic}
+p{margin:0}
+.eyebrow{font:400 11.5px/1.3 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:14px 22px;font:600 15px/1 var(--f-body);text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:var(--clay)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:22px;background:rgba(244,237,230,.84);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border-bottom:1px solid rgba(42,37,34,.06)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:600 26px/1 var(--f-display);letter-spacing:.06em;white-space:nowrap}
+.brand svg{width:18px;height:26px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:500 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.bagbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:9px 14px;font:600 14px var(--f-body);cursor:pointer;text-decoration:none;white-space:nowrap}
+.bagbtn b{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11px;padding:0 5px}
+.nav .btn{padding:11px 17px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.bagbtn{margin-left:auto}}
+@media (max-width:560px){.nav .btn{display:none}.brand{font-size:23px}}
+
+/* hero: the studio */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--clay)}
+#shot{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,237,230,.94),rgba(244,237,230,.74) 55%,rgba(244,237,230,0));pointer-events:none}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
+.hero h1 em{display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.label{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:18px 20px;background:var(--sheet);border-radius:14px;box-shadow:0 24px 60px -30px rgba(42,37,34,.45),0 0 0 1px rgba(42,37,34,.05)}
+.label .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.label .when{color:var(--accent-text)}
+.label h3{font-size:clamp(28px,2.6vw,36px);margin-top:10px;font-style:italic}
+.label p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
+.dots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px 0 0;padding:0;list-style:none}
+.dots li{position:relative;height:3px;border-radius:2px;background:var(--clay-2);overflow:hidden}
+.dots li::after{content:"";position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(var(--f,0));background:var(--accent)}
+.facts{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;background:rgba(255,251,247,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:14px;box-shadow:0 24px 60px -30px rgba(42,37,34,.45),0 0 0 1px rgba(42,37,34,.05);overflow:hidden}
+.facts div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.facts div:nth-child(2n){border-right:0}
+.facts div:nth-child(n+3){border-bottom:0}
+.facts dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:6px 0 0;font:500 28px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.facts dd small{font:400 12px var(--f-mono);color:var(--muted);margin-left:4px}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 12px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .facts{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
+  .facts div{padding:9px 10px;border-bottom:0}
+  .facts div:nth-child(2n){border-right:1px solid var(--line)}
+  .facts div:last-child{border-right:0}
+  .facts dt{font-size:9px;letter-spacing:.04em}
+  .facts dd{font-size:clamp(18px,5vw,22px)}
+  .facts dd small{display:none}
+  .label{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
+  .label p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:720px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.6rem,5.6vw,4.8rem)}
+.head p{color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border-radius:18px;box-shadow:0 1px 0 rgba(42,37,34,.03),0 20px 50px -34px rgba(42,37,34,.4);border:1px solid rgba(42,37,34,.05)}
+.lbl{font:400 11.5px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:9px 15px;font:500 14px var(--f-body);cursor:pointer;color:var(--ink-2)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--clay)}
+
+/* routine */
+.routine{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:22px;align-items:start}
+.routine .ask{padding:clamp(22px,3vw,30px);display:grid;gap:24px}
+.routine .out{padding:clamp(22px,3vw,30px);display:grid;gap:18px}
+.routine h3{font-size:clamp(28px,3vw,38px)}
+.ampm{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ampm h4{margin:0 0 8px;font:400 11.5px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ampm ol{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:s}
+.ampm li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:center;background:var(--clay);border-radius:12px;padding:10px 12px;counter-increment:s}
+.ampm li canvas{width:44px;height:56px}
+.ampm li b{display:block;font:500 19px/1.1 var(--f-display)}
+.ampm li span{font-size:13px;color:var(--ink-2)}
+.ampm li.new{animation:pop .4s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}}
+.routine .why{font-size:15px;color:var(--ink-2)}
+.routine .note{font-size:13px;color:var(--muted)}
+
+/* ingredients */
+.ingredients{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:start}
+.ilist{display:grid;gap:8px}
+.ing{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--sheet);border-radius:12px;padding:14px 16px;cursor:pointer}
+.ing i{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.ing b{font:500 21px/1.1 var(--f-display)}
+.ing span{font:400 13px var(--f-mono);color:var(--muted)}
+.ing[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.idetail{padding:clamp(22px,3vw,32px);display:grid;gap:16px;position:sticky;top:96px}
+.idetail h3{font-size:clamp(32px,3.6vw,46px)}
+.idetail .pct{display:grid;gap:6px}
+.idetail .bar{height:8px;border-radius:999px;background:var(--clay-2);overflow:hidden}
+.idetail .bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s}
+.idetail dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.idetail dl div{background:var(--clay);border-radius:12px;padding:12px 14px}
+.idetail dt{font:400 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.idetail dd{margin:6px 0 0;font-size:15px}
+.idetail .in{font-size:14px;color:var(--ink-2)}
+.idetail .in b{color:var(--ink)}
+
+/* shop */
+.sub{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;margin-bottom:20px}
+.sub input{width:40px;height:22px;appearance:none;-webkit-appearance:none;background:var(--line);border-radius:999px;position:relative;cursor:pointer;flex:none}
+.sub input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.sub input:checked{background:var(--accent)}
+.sub input:checked::after{transform:translateX(18px)}
+.shop{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:16px}
+.prod{padding:0;overflow:hidden;display:grid;align-content:start}
+.prod canvas{width:100%;aspect-ratio:4/5;display:block;background:linear-gradient(180deg,#F6EFE8,#EADFD5)}
+.prod .meta{padding:16px 18px 20px;display:grid;gap:10px}
+.prod h3{font-size:26px}
+.prod p{font-size:14px;color:var(--ink-2);min-height:2.8em}
+.prod .sizes{display:flex;flex-wrap:wrap;gap:6px}
+.prod .sizes button{border:1px solid var(--line);border-radius:999px;background:transparent;padding:6px 11px;font:400 12px var(--f-mono);cursor:pointer}
+.prod .sizes button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--clay)}
+.prod .buy{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.prod .price{font:500 26px var(--f-display);font-variant-numeric:tabular-nums}
+.prod .price s{font-size:16px;color:var(--muted);margin-right:6px}
+.prod .btn{padding:10px 14px;font-size:14px}
+.bag{margin-top:22px;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.bag .items{font-size:15px;color:var(--ink-2)}
+.bag .items b{color:var(--ink)}
+.bag .total{font:500 30px var(--f-display)}
+.bag .ship{font-size:13px;color:var(--muted);flex-basis:100%}
+.bag .meter{flex-basis:100%;height:6px;border-radius:999px;background:var(--clay-2);overflow:hidden}
+.bag .meter i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.confirm{border-radius:12px;background:var(--accent-soft);padding:14px 16px;display:grid;gap:4px;flex-basis:100%}
+.confirm .tag{font:400 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+
+footer{background:var(--ink);color:var(--clay);padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:500 min(17vw,240px)/.9 var(--f-display);letter-spacing:.04em;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:var(--accent-2)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(244,237,230,.6)}
+.foot-row a{color:var(--clay)}
+
+@media (max-width:980px){
+  .routine,.ingredients{grid-template-columns:minmax(0,1fr)}
+  .shop{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .idetail{position:static}
+}
+@media (max-width:560px){
+  .ampm{grid-template-columns:minmax(0,1fr)}
+  .shop{grid-template-columns:minmax(0,1fr)}
+  .prod canvas{aspect-ratio:16/11}
+  .idetail dl{grid-template-columns:minmax(0,1fr)}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.brandSaid|attr}}, back to top">
+    <svg viewBox="0 0 18 26" aria-hidden="true"><path d="M9 1c4 6 7 10 7 14a7 7 0 0 1-14 0C2 11 5 7 9 1z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 11c2 3 3.5 4.6 3.5 6.4a3.5 3.5 0 0 1-7 0C5.5 15.6 7 14 9 11z" fill="{{A:#A9506A}}"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#routine">{{nav.routine}}</a></li><li><a href="#ingredients">{{nav.ingredients}}</a></li><li><a href="#shop">{{nav.shop}}</a></li></ul>
+  <a class="bagbtn" href="#shop" id="bagBtn">{{nav.bag}} <b id="bagCount">0</b></a>
+  <a class="btn" href="#shop">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="The serum made, sealed and applied, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="shot" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#shop">{{hero.cta}}</a><a class="btn ghost" href="#routine">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="facts" id="facts" aria-live="off">
+      <div><dt>Actives</dt><dd id="xAct">0<small>%</small></dd></div>
+      <div><dt>pH</dt><dd id="xPh">—</dd></div>
+      <div><dt>In the bottle</dt><dd id="xMl">0<small>ml</small></dd></div>
+      <div><dt>Day</dt><dd id="xDay">0</dd></div>
+    </dl>
+    <div class="label" id="label" aria-live="polite">
+      <div class="row"><span>Batch <b id="lBatch">{{batch.ref}}</b> · Step <b id="lNum">1</b> of 6</span><span class="when" id="lWhen">{{stages.0.n}}</span></div>
+      <h3 id="lTitle">{{stages.0.n}}</h3>
+      <p id="lText">{{stages.0.c}}</p>
+      <ol class="dots" id="dots" aria-hidden="true"></ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="routine" aria-labelledby="routine-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{routine.eyebrow}}</p>
+      <h2 id="routine-h">{{routine.title}} <em>{{routine.titleEm}}</em></h2>
+      <p>{{routine.sub}}</p>
+    </div>
+    <div class="routine">
+      <div class="panel ask">
+        <div><span class="lbl">Your skin</span><div class="chips" id="skins" role="group" aria-label="Your skin"></div></div>
+        <div><span class="lbl">What's bothering it</span><div class="chips" id="concerns" role="group" aria-label="Concern"></div></div>
+      </div>
+      <div class="panel out" aria-live="polite">
+        <h3 id="rTitle">For combination skin</h3>
+        <div class="ampm"><div><h4>Morning</h4><ol id="am"></ol></div><div><h4>Evening</h4><ol id="pm"></ol></div></div>
+        <p class="why" id="rWhy"></p>
+        <p class="note" id="rNote">{{routine.note}}</p>
+        <a class="btn" href="#shop" id="rShop">{{routine.cta}}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="ingredients" aria-labelledby="ing-h" style="background:var(--clay-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{ingredients.eyebrow}}</p>
+      <h2 id="ing-h">{{ingredients.title}} <em>{{ingredients.titleEm}}</em></h2>
+      <p>{{ingredients.sub}}</p>
+    </div>
+    <div class="ingredients">
+      <div class="ilist" id="ilist" role="group" aria-label="Ingredients"></div>
+      <div class="panel idetail" id="idetail" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="shop" aria-labelledby="shop-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{shop.eyebrow}}</p>
+      <h2 id="shop-h">{{shop.title}} <em>{{shop.titleEm}}</em></h2>
+      <p>{{shop.sub}}</p>
+    </div>
+    <label class="sub"><input type="checkbox" id="subscribe"><span id="subLabel">{{$.subText}}</span></label>
+    <div class="shop" id="shopList"></div>
+    <div class="panel bag" id="bag" aria-live="polite">
+      <span class="items" id="bagItems">Your bag is empty.</span>
+      <span class="total" id="bagTotal">{{locale.currency}}0</span>
+      <div class="meter" aria-hidden="true"><i id="shipMeter" style="width:0%"></i></div>
+      <span class="ship" id="shipNote">{{$.shipText}}</span>
+      <button class="btn" type="button" id="checkout">{{shop.checkout}}</button>
+      <div class="confirm" id="confirm" hidden></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const hex=h=>{const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];};
+const rgba=(h,a)=>`rgba(${hex(h).join(',')},${a})`;
+
+/* ============ THE BATCH (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the actives, poured in this order; their share of the formula in percent
+const ACTIVES=[
+{{$.activesJs|raw}}
+];
+{{$.batchJs|raw}}
+const NAME={{brand.name|js}};             // the name on the hero bottle
+const GLASS={{batch.glass|upper|js}};           // the bottle's tinted glass
+const ACCENT='{{A:#A9506A}}';
+
+/* ============ BOTTLES (shared with the shop and the routine) ============ */
+// kind: dropper | pump | jar | tube; fill 0..1 with layers [{col, frac}] from the bottom
+function bottle(x,ctx0,cx,base,h,o){const c=ctx0;o=o||{};const kind=o.kind||'dropper', glass=o.glass||GLASS;
+  c.save();
+  // the shadow on the sweep
+  const sg=c.createRadialGradient(cx,base,0,cx,base,h*.42);sg.addColorStop(0,'rgba(60,40,30,.28)');sg.addColorStop(1,'rgba(60,40,30,0)');c.fillStyle=sg;c.beginPath();c.ellipse(cx,base,h*.42,h*.06,0,0,7);c.fill();
+  if(kind==='jar'){const w=h*.9,bh=h*.55,y=base-bh;c.fillStyle=rgba(glass,.35);rr(c,cx-w/2,y,w,bh,h*.08);c.fill();
+    const lid=h*.2;c.fillStyle=o.capCol||'#2E2826';rr(c,cx-w*.52,y-lid,w*1.04,lid,h*.05);c.fill();c.fillStyle='rgba(255,255,255,.12)';c.fillRect(cx-w*.52,y-lid*.55,w*1.04,lid*.12);
+    fillLayers(c,cx-w/2+h*.05,y+h*.06,w-h*.1,bh-h*.1,o,h*.05);shine(c,cx-w*.36,y+bh*.15,bh*.65,h);c.restore();return;}
+  if(kind==='tube'){const w=h*.32,th=h*.92,y=base-th;c.fillStyle=o.tubeCol||'#F3E9E1';c.beginPath();c.moveTo(cx-w/2,y+h*.08);c.lineTo(cx+w/2,y+h*.08);c.lineTo(cx+w/2*1.15,base-h*.12);c.lineTo(cx-w/2*1.15,base-h*.12);c.closePath();c.fill();
+    c.fillStyle='rgba(0,0,0,.06)';c.fillRect(cx-w/2,y+h*.08,w,h*.04);c.fillStyle=o.capCol||'#2E2826';rr(c,cx-w*.6,base-h*.12,w*1.2,h*.12,h*.03);c.fill();
+    c.fillStyle=o.labelCol||ACCENT;c.fillRect(cx-w*.35,y+th*.42,w*.7,h*.02);shine(c,cx-w*.3,y+h*.15,th*.6,h);c.restore();return;}
+  const w=h*.46, bh=h*.62, y=base-bh, nw=w*.36, nh=h*.06;
+  // glass body with rounded shoulders
+  c.fillStyle=rgba(glass,.32);c.beginPath();c.moveTo(cx-w/2,base-h*.04);c.lineTo(cx-w/2,y+w*.28);c.quadraticCurveTo(cx-w/2,y,cx-nw/2,y);c.lineTo(cx-nw/2,y-nh);c.lineTo(cx+nw/2,y-nh);c.lineTo(cx+nw/2,y);c.quadraticCurveTo(cx+w/2,y,cx+w/2,y+w*.28);c.lineTo(cx+w/2,base-h*.04);c.quadraticCurveTo(cx+w/2,base,cx+w/2-h*.04,base);c.lineTo(cx-w/2+h*.04,base);c.quadraticCurveTo(cx-w/2,base,cx-w/2,base-h*.04);c.closePath();c.fill();
+  c.strokeStyle=rgba(glass,.5);c.lineWidth=1.2;c.stroke();
+  fillLayers(c,cx-w/2+h*.025,y+w*.12,w-h*.05,bh-w*.12-h*.03,o,h*.03);
+  // label
+  if(o.label!==false){c.fillStyle='rgba(255,251,247,.92)';rr(c,cx-w*.36,y+bh*.36,w*.72,bh*.36,h*.015);c.fill();c.fillStyle='#2A2522';c.font=`500 ${Math.max(7,h*.05)}px Cormorant,Georgia,serif`;c.textAlign='center';c.fillText(o.name||'Sereine',cx,y+bh*.52);c.fillStyle=o.labelCol||ACCENT;c.fillRect(cx-w*.12,y+bh*.58,w*.24,Math.max(1,h*.006));c.font=`400 ${Math.max(5,h*.024)}px "Space Mono",monospace`;c.fillStyle='#8D817A';c.fillText(o.sub||'',cx,y+bh*.66);c.textAlign='left';}
+  shine(c,cx-w*.38,y+w*.2,bh*.7,h);
+  // the cap: a dropper (collar + bulb) or a pump, on or lifted away
+  if(o.cap!==false){const lift=o.capLift||0, ox=o.capX||0;c.save();c.translate(ox,-lift);
+    if(kind==='pump'){c.fillStyle=o.capCol||'#2E2826';rr(c,cx-nw*.75,y-nh-h*.07,nw*1.5,h*.08,h*.015);c.fill();c.fillRect(cx-nw*.15,y-nh-h*.17,nw*.3,h*.1);rr(c,cx-nw*.15,y-nh-h*.2,nw*1.3,h*.045,h*.02);c.fill();}
+    else{c.fillStyle=o.capCol||'#2E2826';rr(c,cx-nw*.72,y-nh-h*.06,nw*1.44,h*.075,h*.012);c.fill();const sq=o.squeeze||0;c.fillStyle=o.bulbCol||'#3A3230';c.beginPath();c.ellipse(cx,y-nh-h*.06-h*.085,nw*.5*(1-sq*.25),h*.095*(1+sq*.1),0,0,7);c.fill();c.fillStyle='rgba(255,255,255,.12)';c.beginPath();c.ellipse(cx-nw*.18,y-nh-h*.06-h*.11,nw*.1,h*.04,0,0,7);c.fill();
+      if(lift>0){c.fillStyle=rgba(glass,.4);c.fillRect(cx-nw*.12,y-nh,nw*.24,Math.min(lift,bh*.75));}}
+    c.restore();}
+  c.restore();}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function fillLayers(c,x,y,w,h,o,r){const L=o.layers||[];if(!L.length)return;let yy=y+h;c.save();rr(c,x,y,w,h,r);c.clip();
+  L.forEach(l=>{const lh=h*l.frac;if(lh<=0)return;const dk=hex(l.col).map(v=>Math.round(v*.78)).join(',');const g=c.createLinearGradient(x,0,x+w,0);g.addColorStop(0,'rgba('+dk+',.95)');g.addColorStop(.35,rgba(l.col,.97));g.addColorStop(.65,rgba(l.col,.97));g.addColorStop(1,'rgba('+dk+',.95)');c.fillStyle=g;c.fillRect(x,yy-lh,w,lh+1);c.fillStyle='rgba('+dk+',.6)';c.fillRect(x,yy-lh,w,1.2);yy-=lh;});
+  if(yy<y+h){c.fillStyle='rgba(255,255,255,.35)';c.beginPath();c.ellipse(x+w/2,yy,w/2,Math.min(4,h*.02),0,0,7);c.fill();}
+  c.restore();}
+function shine(c,x,y,h,s){const g=c.createLinearGradient(x,0,x+s*.05,0);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(x,y,s*.05,h);}
+window.SR_bottle=(c,cx,base,h,o)=>bottle(0,c,cx,base,h,o);
+
+/* ============ THE STUDIO ============ */
+const cv=$('#shot'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,G={};
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  // the bottle starts centre stage and steps aside (off the screen on a phone) when the skin window comes in
+  G=mobile?{h:Math.min(H*.3,W*.66),bx0:W*.5,bx1:-W*.9,base:H*.64,skin:[W*.06,H*.3,W*.88,H*.32]}:{h:Math.min(H*.56,W*.33),bx0:W*.68,bx1:W*.5,base:H*.78,skin:[W*.64,H*.3,W*.3,H*.46]};G.bx=G.bx0;last=-1;}
+function sweep(p,time){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#F7F1EB');g.addColorStop(.7,'#EFE5DB');g.addColorStop(1,'#E6D9CD');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // a soft disc of light behind the product
+  const cx=G.bx, cy=mobile?H*.34:H*.44, r=mobile?W*.5:Math.min(W*.24,H*.42);const dg=ctx.createRadialGradient(cx,cy,0,cx,cy,r);dg.addColorStop(0,'rgba(255,255,255,.9)');dg.addColorStop(.7,'rgba(246,227,231,.5)');dg.addColorStop(1,'rgba(246,227,231,0)');ctx.fillStyle=dg;ctx.fillRect(0,0,W,H);
+  // the plinth: a round column, lit from the left
+  const pw=G.h*1.15, ph=G.h*.12;const cg=ctx.createLinearGradient(G.bx-pw/2,0,G.bx+pw/2,0);cg.addColorStop(0,'#EADDD2');cg.addColorStop(.45,'#E2D3C6');cg.addColorStop(1,'#D3C2B4');ctx.fillStyle=cg;ctx.fillRect(G.bx-pw/2,G.base,pw,H);ctx.fillStyle='#EFE5DC';ctx.beginPath();ctx.ellipse(G.bx,G.base,pw/2,ph*.35,0,0,7);ctx.fill();}
+
+/* the skin, in cross-section: a barrier of flat cells, living cells below, fibres at the bottom */
+const cells=[...Array(90)].map((_,i)=>{const r=rng(500+i);return{x:r(),y:r(),s:.5+r()*.6,jx:(r()-.5),jy:(r()-.5)};});
+function skin(a,f,time){if(a<=0)return;const [x,y,w,h]=G.skin;ctx.save();ctx.globalAlpha=a;
+  ctx.shadowColor='rgba(60,40,30,.25)';ctx.shadowBlur=30;ctx.shadowOffsetY=10;ctx.fillStyle='#F6E4DA';rr(ctx,x,y,w,h,22);ctx.fill();ctx.shadowColor='transparent';
+  rr(ctx,x,y,w,h,22);ctx.clip();
+  const heal=sm(seg(f[5],.1,.8)), drop=seg(f[4],0,1);
+  // dermis fibres
+  ctx.strokeStyle='rgba(205,140,140,.35)';ctx.lineWidth=2;for(let k=0;k<9;k++){ctx.beginPath();for(let t=0;t<=1;t+=.05){const xx=x+t*w, yy=y+h*(.72+k*.03)+Math.sin(t*9+k)*h*.015;t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();}
+  // living cells
+  cells.forEach(c=>{const cx=x+c.x*w, cy=y+h*(.36+c.y*.32);ctx.fillStyle='rgba(232,180,170,.6)';ctx.beginPath();ctx.ellipse(cx,cy,w*.035*c.s,h*.03*c.s,0,0,7);ctx.fill();ctx.fillStyle='rgba(190,120,120,.35)';ctx.beginPath();ctx.arc(cx,cy,w*.008,0,7);ctx.fill();});
+  // the barrier: rows of flat cells; gaps close as it heals
+  const rows=6, top=y+h*.12, rh=h*.035, gap=lerp(1,0,heal);
+  for(let r=0;r<rows;r++){const cw=w/5;for(let i=-1;i<6;i++){const R=rng(r*31+i*7+9);const ox=(r%2)*cw/2+(R()-.5)*cw*.18*gap;const yy=top+r*(rh+2+gap*3)+(R()-.5)*gap*4;
+    ctx.fillStyle=`rgba(${Math.round(lerp(226,240,heal))},${Math.round(lerp(196,212,heal))},${Math.round(lerp(186,196,heal))},1)`;ctx.fillRect(x+i*cw+ox+1.5+gap*3,yy,cw-3-gap*6,rh);}}
+  // the surface line, rough then smooth
+  ctx.strokeStyle='rgba(170,110,100,.5)';ctx.lineWidth=2;ctx.beginPath();for(let t=0;t<=1;t+=.02){const xx=x+t*w, yy=top-6+Math.sin(t*40)*3*(1-heal)+Math.sin(t*13)*2*(1-heal);t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();
+  // the drop sinking in: it lands, flattens, then its actives spread down as specks
+  if(drop>0){const cx=x+w/2;const land=sm(seg(drop,0,.25));const r0=w*.06;ctx.fillStyle=`rgba(255,255,255,${.75*(1-seg(drop,.3,.7))})`;ctx.beginPath();ctx.ellipse(cx,top-6-r0*.4*(1-land),r0*(1+land*1.8),r0*.5*(1-land*.6),0,0,7);ctx.fill();
+    const sp=sm(seg(drop,.25,1));for(let i=0;i<70;i++){const R=rng(900+i);const act=ACTIVES[i%ACTIVES.length];const d=sp*(.3+R()*.7);const ang=(R()-.5)*1.6;const px=cx+Math.sin(ang)*w*.45*d, py=top+h*.5*d*(.4+R()*.6);ctx.fillStyle=rgba(act.col,.95*(1-heal*.6));ctx.beginPath();ctx.arc(px,py,Math.max(2.4,w*.011),0,7);ctx.fill();}
+    // rings where it went in
+    const rg=seg(drop,.2,.9);if(rg>0&&rg<1)for(let k=0;k<3;k++){const t=clamp(rg*1.3-k*.15);if(t<=0||t>=1)continue;ctx.strokeStyle=rgba(ACCENT,.45*(1-t));ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,top-6,w*.08+w*.3*t,h*.02+h*.05*t,0,0,7);ctx.stroke();}}
+  // a glow once it has worked
+  if(heal>0){const g=ctx.createLinearGradient(0,y,0,y+h*.4);g.addColorStop(0,`rgba(255,240,235,${.5*heal})`);g.addColorStop(1,'rgba(255,240,235,0)');ctx.fillStyle=g;ctx.fillRect(x,y,w,h*.4);}
+  ctx.restore();
+  // the window's caption
+  ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#8D817A';ctx.font='400 11px "Space Mono",monospace';ctx.fillText(heal>.5?'SKIN · DAY '+DAYS:'SKIN · CROSS-SECTION',x+4,y-10);ctx.restore();}
+
+/* ============ HUD ============ */
+const dl=$('#dots');STAGES.forEach(()=>dl.appendChild(document.createElement('li')));
+const dotEls=[...dl.children];let shown=-1;
+function hud(p,f,poured){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#lNum').textContent=idx+1;$('#lTitle').textContent=STAGES[idx].n;$('#lText').textContent=STAGES[idx].c;$('#lWhen').textContent=STAGES[idx].n;}
+  dotEls.forEach((li,i)=>li.style.setProperty('--f',f[i].toFixed(3)));
+  const act=ACTIVES.reduce((a,x,i)=>a+x.pct*clamp(poured-i),0);$('#xAct').innerHTML=`${(Math.round(act*10)/10).toString()}<small>%</small>`;
+  $('#xPh').textContent=f[2]>.3?PH.toFixed(1):'—';$('#xMl').innerHTML=`${Math.round(ML*clamp(poured/ACTIVES.length))}<small>ml</small>`;
+  $('#xDay').textContent=Math.round(DAYS*sm(seg(f[5],.1,.8)));}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0,last=-1;const t0=performance.now();
+function frame(p,time){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  G.bx=lerp(G.bx0,G.bx1,sm(seg(f[3],0,.35)));
+  sweep(p,time);
+  // pouring: each active in turn, a stream from above then its layer
+  const n=ACTIVES.length, poured=f[1]*n;
+  const layers=ACTIVES.map((a,i)=>({col:a.col,frac:clamp(poured-i)*(1/n)*.86}));
+  // the cap stands on the plinth beside the bottle, is lifted on in an arc, and later carried to the skin
+  const on=sm(seg(f[2],.1,.7)), out=sm(seg(f[3],0,.4)), back=sm(seg(f[4],.35,.95));
+  const capX=lerp(G.h*.42,0,on), capLift=lerp(-G.h*.665,0,on)+Math.sin(on*Math.PI)*G.h*.35;
+  // the dropper travels to the skin window and back
+  const [sx,sy,sw]=G.skin;const tx=sx+sw/2-G.bx, ty=G.base-G.h*.68-(sy-G.h*.2);
+  const trav=out*(1-back);const dropCapX=lerp(capX,tx,trav), dropLift=lerp(capLift,ty,trav)+trav*G.h*.05;
+  const squeeze=sm(seg(f[3],.45,.65))*(1-seg(f[3],.75,.9));
+  bottle(0,ctx,G.bx,G.base,G.h,{kind:'dropper',layers,capX:on<1||trav>0?dropCapX:0,capLift:on<1||trav>0?dropLift:0,squeeze,name:NAME,sub:`${ML} ml`});
+  // stream while pouring
+  if(f[1]>0&&f[1]<1){const i=Math.min(n-1,Math.floor(poured)), a=ACTIVES[i], k=poured-i;if(k>.05&&k<.95){const top=G.base-G.h*.62-G.h*.1;ctx.strokeStyle=rgba(a.col,.9);ctx.lineWidth=G.h*.012;ctx.beginPath();ctx.moveTo(G.bx+(RM?0:Math.sin(time*6)*1.5),0);ctx.lineTo(G.bx,top+G.h*.4*(1-poured/n));ctx.stroke();
+    // the active's name beside the bottle
+    ctx.fillStyle='#2A2522';ctx.font=`500 ${mobile?18:24}px Cormorant,Georgia,serif`;ctx.textAlign=mobile?'center':'right';const lx=mobile?G.bx:G.bx-G.h*.32, ly=mobile?G.base+G.h*.2:G.base-G.h*.5;ctx.globalAlpha=sm(seg(k,.05,.25))*(1-sm(seg(k,.8,.95)));ctx.fillText(a.n,lx,ly);ctx.font='400 12px "Space Mono",monospace';ctx.fillStyle=ACCENT;ctx.fillText(`${a.pct}%`,lx,ly+20);ctx.globalAlpha=1;ctx.textAlign='left';}}
+  // the drop: forms at the tip while squeezed, then falls into the skin window
+  const skinA=sm(seg(f[3],.2,.6));skin(skinA,f,time);
+  const fall=seg(f[3],.62,1);if(fall>0&&f[4]<.1){const x=G.bx+tx, y0=G.base-G.h*.62-dropLift+G.h*.06, y1=sy+G.skin[3]*.12-6;const y=lerp(y0,y1,fall*fall);ctx.fillStyle='rgba(255,255,255,.9)';ctx.strokeStyle='{{A:rgba(169,80,106,.35)}}';ctx.beginPath();const r=G.h*.022;ctx.moveTo(x,y-r*2.2);ctx.quadraticCurveTo(x+r*1.2,y-r*.2,x,y+r);ctx.quadraticCurveTo(x-r*1.2,y-r*.2,x,y-r*2.2);ctx.fill();ctx.stroke();}
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);
+  hud(p,f,poured);
+}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+requestAnimationFrame(loop);
+window.SR_actives=ACTIVES;
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?String(Math.round(n)):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ THE RANGE ============ */
+// kind: how the bottle is drawn; when: am, pm or both; step: order on the skin; skins: who it suits (all, or types);
+// for: the concerns it answers; basic: in every routine it suits
+const PRODUCTS=[
+{{$.productsJs|raw}}
+];
+const SKINS=[{{$.skinsJs|raw}}];
+const CONCERNS=[{{$.concernsJs|raw}}];
+const WHY={
+{{$.whyJs|raw}}
+};
+{{$.shopConstJs|raw}}
+const byId=id=>PRODUCTS.find(p=>p.id===id);
+
+/* ============ YOUR ROUTINE ============ */
+let skin=2, concern=0;
+$('#skins').innerHTML=SKINS.map((s,i)=>`<button type="button" class="chip" aria-pressed="${i===skin}" data-i="${i}">${esc(s)}</button>`).join('');
+$('#concerns').innerHTML=CONCERNS.map((s,i)=>`<button type="button" class="chip" aria-pressed="${i===concern}" data-i="${i}">${esc(s)}</button>`).join('');
+function picks(){const sk=SKINS[skin], co=CONCERNS[concern];return PRODUCTS.filter(p=>(p.skins.includes('all')||p.skins.includes(sk))&&(p.basic||p.for.includes(co))).sort((a,b)=>a.step-b.step);}
+function mini(c,p){const w=c.clientWidth||44,h=c.clientHeight||56,d=Math.min(devicePixelRatio||1,2);c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);window.SR_bottle(x,w/2,h-4,h*.92,{kind:p.kind,layers:[{col:p.col,frac:.8}],label:false});}
+function routine(){const ps=picks();
+  $('#rTitle').textContent=`For ${SKINS[skin].toLowerCase()} skin, ${CONCERNS[concern].toLowerCase()}`;
+  const li=p=>`<li class="new"><canvas data-id="${p.id}" aria-hidden="true"></canvas><span><b>${esc(p.n)}</b><span>${esc(p.d.split(/\.\s/)[0].replace(/\.$/,''))}.</span></span></li>`;
+  $('#am').innerHTML=ps.filter(p=>p.when!=='pm').map(li).join('');$('#pm').innerHTML=ps.filter(p=>p.when!=='am').map(li).join('');
+  document.querySelectorAll('.ampm canvas').forEach(c=>mini(c,byId(c.dataset.id)));
+  $('#rWhy').textContent=WHY[CONCERNS[concern]]||'';}
+$('#skins').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;skin=+b.dataset.i;press($('#skins'),b);routine();});
+$('#concerns').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;concern=+b.dataset.i;press($('#concerns'),b);routine();});
+$('#rShop').addEventListener('click',()=>{picks().forEach(p=>add(p.id,0));});
+
+/* ============ INGREDIENTS ============ */
+const INGREDIENTS=[
+{{$.ingredientsJs|raw}}
+];
+let iSel=0;
+const maxPct=Math.max(...INGREDIENTS.map(i=>i.pct));
+$('#ilist').innerHTML=INGREDIENTS.map((x,i)=>`<button type="button" class="ing" aria-pressed="${i===iSel}" data-i="${i}"><i style="background:${x.col}"></i><b>${esc(x.n)}</b><span>${x.pct}%</span></button>`).join('');
+function ing(){const x=INGREDIENTS[iSel];
+  $('#idetail').innerHTML=`<span class="eyebrow">${x.pct}% · ${esc(x.from)}</span><h3>${esc(x.n)}</h3><p>${esc(x.what)}</p><div class="pct"><span class="lbl">How much, against our strongest active</span><div class="bar"><i style="width:${Math.max(3,x.pct/maxPct*100).toFixed(1)}%"></i></div></div><dl><div><dt>Works with</dt><dd>${esc(x.works)}</dd></div><div><dt>Keep apart from</dt><dd>${esc(x.avoid)}</dd></div></dl><p class="in">In: <b>${x.in.map(id=>esc((byId(id)||{n:id}).n)).join(', ')}</b></p>`;}
+$('#ilist').addEventListener('click',e=>{const b=e.target.closest('.ing');if(!b)return;iSel=+b.dataset.i;press($('#ilist'),b);ing();});
+ing();
+
+/* ============ SHOP ============ */
+const size={};PRODUCTS.forEach(p=>size[p.id]=p.sizes.length-1);
+const bag=new Map();
+$('#shopList').style.setProperty('--n',PRODUCTS.length);
+$('#subLabel').textContent=`Subscribe and save ${SUB_OFF}%, refills every ${REFILL}`;
+const price=(p,i)=>p.sizes[i][1]*($('#subscribe').checked?1-SUB_OFF/100:1);
+function shop(){$('#shopList').innerHTML=PRODUCTS.map(p=>{const i=size[p.id];const sub=$('#subscribe').checked;
+  return `<article class="panel prod"><canvas data-id="${p.id}" aria-hidden="true"></canvas><div class="meta"><h3>${esc(p.n)}</h3><p>${esc(p.d)}</p><div class="sizes" role="group" aria-label="Size">${p.sizes.map((s,k)=>`<button type="button" aria-pressed="${k===i}" data-p="${p.id}" data-k="${k}">${s[0]} ml</button>`).join('')}</div><div class="buy"><span class="price">${sub?`<s>${money(p.sizes[i][1])}</s>`:''}${money(price(p,i))}</span><button class="btn" type="button" data-add="${p.id}">Add</button></div></div></article>`;}).join('');
+  document.querySelectorAll('.prod canvas').forEach(c=>{const p=byId(c.dataset.id);const w=c.clientWidth,h=c.clientHeight,d=Math.min(devicePixelRatio||1,2);if(!w)return;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);
+    const big=p.sizes[size[p.id]][0]/Math.max(...p.sizes.map(s=>s[0]));window.SR_bottle(x,w/2,h*.86,h*(.52+.18*big),{kind:p.kind,layers:[{col:p.col,frac:.82}],name:p.n.split(' ')[0],sub:`${p.sizes[size[p.id]][0]} ml`});});}
+function add(id,k){const key=id+':'+(k??size[id]);bag.set(key,(bag.get(key)||0)+1);bagUI();}
+function bagUI(){let n=0,t=0;const parts=[];bag.forEach((q,key)=>{const [id,k]=key.split(':');const p=byId(id);n+=q;t+=q*price(p,+k);parts.push(`${q} × ${esc(p.n)} ${p.sizes[+k][0]} ml`);});
+  $('#bagCount').textContent=n;$('#bagItems').innerHTML=n?`<b>${n} item${n===1?'':'s'}</b> · ${parts.join(', ')}`:'Your bag is empty.';$('#bagTotal').textContent=money(t);
+  $('#shipMeter').style.width=Math.min(100,t/FREE_SHIP*100).toFixed(1)+'%';$('#shipNote').textContent=t>=FREE_SHIP?'Free delivery unlocked.':`${money(FREE_SHIP-t)} more for free delivery.`;$('#confirm').hidden=true;}
+$('#shopList').addEventListener('click',e=>{const s=e.target.closest('.sizes button');if(s){size[s.dataset.p]=+s.dataset.k;shop();return;}const a=e.target.closest('[data-add]');if(a)add(a.dataset.add);});
+$('#subscribe').addEventListener('change',()=>{shop();bagUI();});
+$('#checkout').addEventListener('click',()=>{const c=$('#confirm');if(!bag.size){c.innerHTML='<span class="tag">Demo only</span><span>Add something first.</span>';c.hidden=false;return;}
+  c.innerHTML=`<span class="tag">Demo only · nothing was charged</span><b>Order placed for ${$('#bagTotal').textContent}${$('#subscribe').checked?`, with refills every ${REFILL}`:''}.</b><span>On a live site this would go to a secure checkout.</span>`;c.hidden=false;});
+routine();shop();bagUI();
+addEventListener('resize',()=>{shop();routine();});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{shop();routine();});
+})();
+</script>
+
+</body></html>

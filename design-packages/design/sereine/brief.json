@@ -1,0 +1,37 @@
+{
+  "title": "Skincare brand",
+  "fields": [
+    { "key": "businessName", "label": "Brand name", "required": true, "help": "e.g. Sereine" },
+    { "key": "hero", "label": "Your hero product", "type": "textarea", "required": true, "help": "The product to feature: what it is, its key actives with percentages, size, pH if you know it." },
+    { "key": "products", "label": "Your range", "type": "textarea", "required": true, "help": "Two to four products: what each does, how it's packaged (dropper, pump, jar, tube), sizes and prices, morning or evening, and which skin types or concerns it suits." },
+    { "key": "ingredients", "label": "Key ingredients", "type": "textarea", "help": "Your main ingredients with percentages, what they do, where they come from, what they pair with or shouldn't." },
+    { "key": "results", "label": "Results and claims", "type": "textarea", "help": "Optional: what customers notice and when, and any testing you've done. We keep claims to what you give us." },
+    { "key": "shop", "label": "Shop details", "help": "Subscription discount and refill interval, free delivery threshold." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: a name or hex code." }
+  ],
+  "facts": [
+    "actives.*.pct",
+    "batch.ph",
+    "batch.ml",
+    "ingredients.list.*.pct",
+    "shop.products.*.sizes.*.*",
+    "shop.subOff",
+    "shop.freeShip",
+    "stages.*.c",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero makes the hero product as you scroll: an empty bottle, its actives poured in one by one (named with their percentage), sealed, a dropper carried to a cross-section of skin, one drop absorbed, and the skin smoother weeks later. stages are those six, each a short name and a caption. Claims in captions stay modest: only results the brief states, and the last caption says results vary.",
+    "actives: two to four of the hero product's actives with percentages from the brief, in a sensible pouring order, each with a soft colour (#rrggbb) for its layer. batch: a batch label, the bottle's millilitres, pH (only if given; otherwise a typical value for the product type, listed in _assumed), days until the result the brief mentions, and the glass colour.",
+    "routine: skin types (2-5) and concerns (2-5) the range addresses, each concern with a line on why the routine helps. shop.products: the brief's range (2-4), each drawn as dropper, pump, jar or tube in its colour, with sizes [ml, price], am/pm/both, its step order, the skin types it suits ('all' or names from routine.skins), concerns it answers, and basic: true for products in every routine (a cleanser, the hero serum). Every combination of skin and concern must give a morning and an evening product.",
+    "ingredients.list: two to eight ingredients with percentages from the brief only, what they do, where they come from, what they work with and keep apart from, and the products they're in (by product id).",
+    "shop: subOff (subscription discount %, 0 if none), freeShip (free delivery threshold), refill (how often refills come). hero.title and hero.titleEm: a short two-part headline, the second in italics (three lines at most on a desktop). theme.accent is the brand's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the brand name in the brief and cannot be changed; brand.name is how it appears in the nav, on the bottles and in the footer."
+  ],
+  "readBack": [
+    { "label": "Actives", "path": "actives", "fields": ["n", "pct"] },
+    { "label": "Products", "path": "shop.products", "fields": ["n", "sizes"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

@@ -1,0 +1,311 @@
+{
+  "business": {
+    "name": "Sereine"
+  },
+  "brand": {
+    "name": "Sereine"
+  },
+  "nav": {
+    "routine": "Your routine",
+    "ingredients": "Ingredients",
+    "shop": "Shop",
+    "bag": "Bag",
+    "cta": "Shop the serum"
+  },
+  "hero": {
+    "eyebrow": "Sereine · skincare, made in small batches",
+    "title": "One serum,",
+    "titleEm": "four actives.",
+    "lede": "A barrier serum with niacinamide, hyaluronic acid, squalane and peptides, and nothing to make it smell nice. Scroll to see a bottle made and a drop go in.",
+    "cta": "Shop the serum",
+    "cta2": "Find your routine",
+    "hint": "Scroll to fill the bottle"
+  },
+  "batch": {
+    "ref": "S-014",
+    "ml": 30,
+    "ph": 5.5,
+    "days": 28,
+    "glass": "#6B4A6E"
+  },
+  "stages": [
+    {
+      "n": "The bottle",
+      "c": "Violet glass that keeps light out, so the actives stay as strong on the last drop as the first."
+    },
+    {
+      "n": "Actives in",
+      "c": "Four actives, measured to the gram, each poured and mixed before the next goes in."
+    },
+    {
+      "n": "Sealed",
+      "c": "pH checked at 5.5, the same as healthy skin, then capped under a dropper that measures one drop at a time."
+    },
+    {
+      "n": "One drop",
+      "c": "One drop is enough for the whole face. Press it in with your fingertips; don't rub."
+    },
+    {
+      "n": "Absorbed",
+      "c": "Water-light, so it sinks in within a minute and leaves nothing on the surface."
+    },
+    {
+      "n": "Four weeks on",
+      "c": "The barrier holds more water and the surface looks smoother. Results vary; give it a month."
+    }
+  ],
+  "actives": [
+    {
+      "n": "Niacinamide",
+      "pct": 5,
+      "col": "#EFD9A8"
+    },
+    {
+      "n": "Hyaluronic acid",
+      "pct": 1.5,
+      "col": "#BFD8E8"
+    },
+    {
+      "n": "Squalane",
+      "pct": 3,
+      "col": "#E9C6B6"
+    },
+    {
+      "n": "Peptides",
+      "pct": 2,
+      "col": "#D7B8D9"
+    }
+  ],
+  "routine": {
+    "eyebrow": "Your routine",
+    "title": "Two questions,",
+    "titleEm": "one routine.",
+    "sub": "Tell us your skin and what's bothering it. We'll lay out a morning and an evening routine from our range, in the order you put them on.",
+    "skins": [
+      "Dry",
+      "Oily",
+      "Combination",
+      "Sensitive"
+    ],
+    "concerns": [
+      {
+        "n": "Dullness",
+        "why": "Niacinamide evens tone over a few weeks; the retinal at night speeds up how often skin renews itself."
+      },
+      {
+        "n": "Breakouts",
+        "why": "Niacinamide calms oil and redness. Retinal keeps pores clear; build up slowly so it doesn't sting."
+      },
+      {
+        "n": "Fine lines",
+        "why": "Peptides and retinal both support firmer-looking skin. Be patient: give it twelve weeks."
+      },
+      {
+        "n": "Redness",
+        "why": "Squalane and ceramides repair the barrier, which is usually where redness starts. No retinal for now."
+      }
+    ],
+    "note": "Patch test anything new on your inner arm for two days. Always finish your morning with sunscreen.",
+    "cta": "Add this routine to the bag"
+  },
+  "ingredients": {
+    "eyebrow": "Ingredients",
+    "title": "Everything inside,",
+    "titleEm": "and how much.",
+    "sub": "We print the percentage of every active, because a name on a label means nothing without it. Pick one to see what it does and what it works with.",
+    "list": [
+      {
+        "n": "Niacinamide",
+        "pct": 5,
+        "col": "#EFD9A8",
+        "what": "Evens tone, calms redness and helps the skin hold on to water.",
+        "from": "Made in a lab, identical to vitamin B3",
+        "works": "Everything; it's the easy one",
+        "avoid": "Nothing in our range",
+        "in": [
+          "serum"
+        ]
+      },
+      {
+        "n": "Hyaluronic acid",
+        "pct": 1.5,
+        "col": "#BFD8E8",
+        "what": "Two sizes of molecule: one hydrates the surface, one sinks a little deeper.",
+        "from": "Fermented from plants",
+        "works": "Anything; best on damp skin",
+        "avoid": "Nothing in our range",
+        "in": [
+          "serum"
+        ]
+      },
+      {
+        "n": "Squalane",
+        "pct": 3,
+        "col": "#E9C6B6",
+        "what": "An oil your skin already makes. Softens without clogging.",
+        "from": "Sugar cane",
+        "works": "Retinal, to keep it gentle",
+        "avoid": "Nothing in our range",
+        "in": [
+          "serum",
+          "retinal"
+        ]
+      },
+      {
+        "n": "Peptides",
+        "pct": 2,
+        "col": "#D7B8D9",
+        "what": "Short chains of amino acids that support firmer-looking skin over time.",
+        "from": "Made in a lab",
+        "works": "Niacinamide",
+        "avoid": "Strong acids in the same step",
+        "in": [
+          "serum"
+        ]
+      },
+      {
+        "n": "Retinal",
+        "pct": 0.1,
+        "col": "#E8B66A",
+        "what": "A fast form of vitamin A. Smooths texture and fine lines.",
+        "from": "Made in a lab",
+        "works": "Squalane and ceramides",
+        "avoid": "Exfoliating acids on the same night",
+        "in": [
+          "retinal"
+        ]
+      },
+      {
+        "n": "Ceramides",
+        "pct": 1,
+        "col": "#F3E9DE",
+        "what": "The fats between skin cells. Replacing them repairs the barrier.",
+        "from": "Made in a lab, skin-identical",
+        "works": "Everything",
+        "avoid": "Nothing in our range",
+        "in": [
+          "cream"
+        ]
+      }
+    ]
+  },
+  "shop": {
+    "eyebrow": "Shop",
+    "title": "Four bottles,",
+    "titleEm": "nothing extra.",
+    "sub": "Pick a size, or subscribe and we'll send a refill when you're about to run out. Free delivery over £40.",
+    "products": [
+      {
+        "id": "cleanser",
+        "n": "Cloud Cleanser",
+        "d": "A milky gel that rinses clean and leaves skin soft, not tight.",
+        "kind": "pump",
+        "col": "#F1E4D6",
+        "sizes": [
+          [
+            150,
+            18
+          ],
+          [
+            300,
+            30
+          ]
+        ],
+        "when": "both",
+        "step": 1,
+        "skins": [
+          "all"
+        ],
+        "for": [],
+        "basic": true
+      },
+      {
+        "id": "serum",
+        "n": "Barrier Serum",
+        "d": "Niacinamide, hyaluronic acid, squalane and peptides. One drop.",
+        "kind": "dropper",
+        "col": "#EFD9A8",
+        "sizes": [
+          [
+            15,
+            24
+          ],
+          [
+            30,
+            38
+          ]
+        ],
+        "when": "both",
+        "step": 2,
+        "skins": [
+          "all"
+        ],
+        "for": [],
+        "basic": true
+      },
+      {
+        "id": "retinal",
+        "n": "Night Retinal",
+        "d": "0.1% retinal in squalane, for nights only. Start twice a week.",
+        "kind": "dropper",
+        "col": "#E8B66A",
+        "sizes": [
+          [
+            30,
+            42
+          ]
+        ],
+        "when": "pm",
+        "step": 3,
+        "skins": [
+          "Dry",
+          "Combination",
+          "Oily"
+        ],
+        "for": [
+          "Fine lines",
+          "Breakouts",
+          "Dullness"
+        ]
+      },
+      {
+        "id": "cream",
+        "n": "Soft Cream",
+        "d": "Ceramides and shea butter. Rich, but gone in a minute.",
+        "kind": "jar",
+        "col": "#F3E9DE",
+        "sizes": [
+          [
+            50,
+            32
+          ]
+        ],
+        "when": "both",
+        "step": 4,
+        "skins": [
+          "Dry",
+          "Sensitive",
+          "Combination"
+        ],
+        "for": [
+          "Redness",
+          "Fine lines",
+          "Dullness"
+        ]
+      }
+    ],
+    "subOff": 15,
+    "freeShip": 40,
+    "refill": "8 weeks",
+    "checkout": "Check out"
+  },
+  "footer": {
+    "fine": "Sereine is a made-up brand for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#A9506A"
+  }
+}

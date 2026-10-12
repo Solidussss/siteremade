@@ -1,0 +1,242 @@
+{
+  "business": {
+    "name": "Tidebloom"
+  },
+  "brand": {
+    "name": "Tidebloom"
+  },
+  "nav": {
+    "routine": "Your routine",
+    "ingredients": "Ingredients",
+    "shop": "Shop",
+    "bag": "Bag",
+    "cta": "Shop vitamin C"
+  },
+  "hero": {
+    "eyebrow": "Tidebloom · skincare from the Cornish coast",
+    "title": "Bright skin,",
+    "titleEm": "from the sea.",
+    "lede": "A vitamin C serum with sea fennel and ectoin, made by hand in Falmouth. Scroll to watch a bottle filled, sealed and pressed in.",
+    "cta": "Shop vitamin C",
+    "cta2": "Find your routine",
+    "hint": "Scroll to fill the bottle"
+  },
+  "batch": {
+    "ref": "TB-221",
+    "ml": 30,
+    "ph": 3.5,
+    "days": 42,
+    "glass": "#7A5A2E"
+  },
+  "stages": [
+    {
+      "n": "The bottle",
+      "c": "Amber glass, because vitamin C hates light. Filled in batches small enough to sell fresh."
+    },
+    {
+      "n": "Actives in",
+      "c": "Vitamin C, ferulic acid, sea fennel and ectoin, weighed and mixed one at a time."
+    },
+    {
+      "n": "Sealed",
+      "c": "Checked at pH 3.5 so the vitamin C works, then sealed under nitrogen and capped."
+    },
+    {
+      "n": "One drop",
+      "c": "Three drops in the morning, before moisturiser and sunscreen."
+    },
+    {
+      "n": "Absorbed",
+      "c": "A light tingle for a minute, then gone. Skin feels smooth, not sticky."
+    },
+    {
+      "n": "Six weeks on",
+      "c": "Tone looks more even and dark spots softer. Results vary; keep using sunscreen."
+    }
+  ],
+  "actives": [
+    {
+      "n": "Vitamin C",
+      "pct": 15,
+      "col": "#F2C46B"
+    },
+    {
+      "n": "Ferulic acid",
+      "pct": 0.5,
+      "col": "#E8D9A8"
+    },
+    {
+      "n": "Sea fennel",
+      "pct": 2,
+      "col": "#B9D7C4"
+    },
+    {
+      "n": "Ectoin",
+      "pct": 1,
+      "col": "#C8DCEB"
+    }
+  ],
+  "routine": {
+    "eyebrow": "Your routine",
+    "title": "Your skin,",
+    "titleEm": "your routine.",
+    "sub": "Tell us your skin and what's bothering it. We'll lay out a morning and an evening routine from our range, in the order you put them on.",
+    "skins": [
+      "Dry",
+      "Oily",
+      "Normal"
+    ],
+    "concerns": [
+      {
+        "n": "Dark spots",
+        "why": "Vitamin C fades spots slowly and evens tone; sunscreen stops new ones forming."
+      },
+      {
+        "n": "Dullness",
+        "why": "Vitamin C in the morning and gentle exfoliation at night bring back the glow."
+      },
+      {
+        "n": "Dehydration",
+        "why": "Hyaluronic acid and a rich night cream put back the water skin loses."
+      }
+    ],
+    "note": "Patch test anything new on your inner arm for two days. Always finish your morning with sunscreen.",
+    "cta": "Add this routine to the bag"
+  },
+  "ingredients": {
+    "eyebrow": "Ingredients",
+    "title": "Everything inside,",
+    "titleEm": "and how much.",
+    "sub": "We print the percentage of every active, because a name on a label means nothing without it. Pick one to see what it does and what it works with.",
+    "list": [
+      {
+        "n": "Vitamin C",
+        "pct": 15,
+        "col": "#F2C46B",
+        "what": "Fades dark spots and protects against daily pollution.",
+        "from": "Ascorbic acid, made in a lab",
+        "works": "Ferulic acid and sunscreen",
+        "avoid": "Retinoids in the same step",
+        "in": [
+          "vitc"
+        ]
+      },
+      {
+        "n": "Sea fennel",
+        "pct": 2,
+        "col": "#B9D7C4",
+        "what": "A coastal plant rich in vitamin C, picked on the Lizard.",
+        "from": "Cornish clifftops",
+        "works": "Vitamin C",
+        "avoid": "Nothing in our range",
+        "in": [
+          "vitc"
+        ]
+      },
+      {
+        "n": "Ectoin",
+        "pct": 1,
+        "col": "#C8DCEB",
+        "what": "Helps skin hold water and cope with wind and sun.",
+        "from": "Made by marine bacteria",
+        "works": "Everything",
+        "avoid": "Nothing in our range",
+        "in": [
+          "vitc",
+          "night"
+        ]
+      }
+    ]
+  },
+  "shop": {
+    "eyebrow": "Shop",
+    "title": "Three bottles,",
+    "titleEm": "one sea.",
+    "sub": "Pick a size, or subscribe and we send a fresh bottle before yours runs out. Free UK delivery over £35.",
+    "products": [
+      {
+        "id": "wash",
+        "n": "Kelp Cleanser",
+        "d": "A gentle gel with kelp extract. Removes sunscreen without stripping.",
+        "kind": "pump",
+        "col": "#DCE6DA",
+        "sizes": [
+          [
+            200,
+            22
+          ]
+        ],
+        "when": "both",
+        "step": 1,
+        "skins": [
+          "all"
+        ],
+        "for": [],
+        "basic": true
+      },
+      {
+        "id": "vitc",
+        "n": "Vitamin C Serum",
+        "d": "15% vitamin C with ferulic acid, sea fennel and ectoin.",
+        "kind": "dropper",
+        "col": "#F2C46B",
+        "sizes": [
+          [
+            15,
+            26
+          ],
+          [
+            30,
+            42
+          ]
+        ],
+        "when": "am",
+        "step": 2,
+        "skins": [
+          "all"
+        ],
+        "for": [
+          "Dark spots",
+          "Dullness"
+        ],
+        "basic": true
+      },
+      {
+        "id": "night",
+        "n": "Tidal Night Cream",
+        "d": "Squalane, hyaluronic acid and seaweed. Rich, sinks in overnight.",
+        "kind": "jar",
+        "col": "#EFE3D2",
+        "sizes": [
+          [
+            50,
+            34
+          ]
+        ],
+        "when": "pm",
+        "step": 3,
+        "skins": [
+          "all"
+        ],
+        "for": [
+          "Dehydration",
+          "Dullness"
+        ],
+        "basic": true
+      }
+    ],
+    "subOff": 10,
+    "freeShip": 35,
+    "refill": "6 weeks",
+    "checkout": "Check out"
+  },
+  "footer": {
+    "fine": "Tidebloom is a made-up brand for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#2F6E6A"
+  }
+}

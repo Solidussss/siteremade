@@ -1,0 +1,62 @@
+{
+  "name": "sereine",
+  "category": "skincare brand",
+  "reference": "reference/sereine-original.html",
+  "referenceSha256": "b543edd4637744e0fbf9d7e0263899e6e06b3c4fabdc99ed9e96a8d4383c36eb",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#A9506A",
+      "target": "theme.accent",
+      "about": "the brand's colour: buttons, the italic lines, the drop in the mark, label rules, progress dots, the active's percentage while pouring, picked ingredients, the subscribe switch and the bag meter"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.25, 0.55] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#A9506A", 4.5, "button text on the accent"],
+      ["A:#8E4459", "#F4EDE6", 4.5, "accent text on the clay"],
+      ["A:#8E4459", "#F6E3E7", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:500 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Cormorant:wght@500&display=swap", "family": "Cormorant" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:500 1000px/1 {family};letter-spacing:.04em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Cormorant:wght@500&display=swap", "family": "Cormorant" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@600&display=swap", "family": "Manrope" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 17, 240],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
