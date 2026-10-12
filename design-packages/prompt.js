@@ -33,7 +33,9 @@ function rulesText(d) {
 // decisions); it asks only for essential business facts (kinds price | legal | transaction), all in one round. In the
 // final run (the owner has answered) it asks nothing. lib/design-sites.js enforces the same on what comes back.
 const KINDS = ['price', 'legal', 'transaction'];
-function build(d, brief, briefSpec, { final = false, longNames = [] } = {}) {
+// reality: the lines the Realism Engine writes about this business (lib/reality writerBrief: real or concept, what is
+// material, what must stay consistent, the facts already established)
+function build(d, brief, briefSpec, { final = false, longNames = [], reality = [] } = {}) {
   const example = fs.readFileSync(path.join(d.dir, 'default.json'), 'utf8');
   const system = [
     'You write the content for a premium website design for a small business, as one JSON object. The design\'s animation, interactions and craft stay; its words, numbers, colours, switches and options are yours to set for this business.',
@@ -49,6 +51,7 @@ function build(d, brief, briefSpec, { final = false, longNames = [] } = {}) {
     '- Facts the brief gives (names, prices, sizes, times, phone numbers, addresses, opening hours, specifications) are used exactly: never change, rescale or reword one to satisfy a rule. If a rule can only be met by changing a fact, show it another way the design allows (shorter wording around it, another field or section) and record the decision.',
     '- Where the brief is silent, make reasonable, modest assumptions consistent with the brief and with each other (one lead time, one deposit, one size everywhere it appears). List each assumed path in "_assumed"; the owner reviews them after the page is built.',
     '- For a new, concept or fictional business, invented details may fill gaps, but never present them as verified: no awards, certifications, test results, ratings, reviews, press mentions, founding years or customer counts the brief does not give.',
+    ...(reality.length ? ['', 'THIS BUSINESS', ...reality.map((l) => '- ' + l)] : []),
     '',
     final ? 'THE OWNER HAS ANSWERED YOUR QUESTIONS (after the brief). Use the answers, decide everything else yourself, and ask nothing: "_questions" must be an empty list.' : [
       'QUESTIONS (rare)',
@@ -62,7 +65,7 @@ function build(d, brief, briefSpec, { final = false, longNames = [] } = {}) {
     'WRITING',
     '- Never reuse the example\'s headlines, titles or taglines, even reworded by one word. When the brief says little about the business, write from what it does say: the place, the trade, the customers.',
     '- Write headings, descriptions and captions fresh, in the business\'s own voice. Descriptions may say what things smell, look or feel like.',
-    '- Choose theme colours from the brief\'s brand colours where possible, within the colour rules. The business name is the brand; footer.fine says the site is a demo made with SiteRemade.',
+    '- Choose theme colours from the brief\'s brand colours where possible, within the colour rules. The business name is the brand.',
     '',
     'What the design shows, and how it adapts:',
     ...briefSpec.writerNotes.map((n) => '- ' + n),

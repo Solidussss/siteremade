@@ -15,9 +15,22 @@ function finishCss(C) {
   const out = [];
   C.cases.forEach((o, i) => { if (o.colour) { const k = KINDS.case[i][0]; out.push(`--${k}-hi:${mix(o.colour, '#ffffff', 0.6)};--${k}-mid:${o.colour};--${k}-lo:${mix(o.colour, '#000000', 0.5)}`); } });
   C.dials.forEach((o, i) => { if (o.colour) { const k = KINDS.dial[i][0], l = light(o.colour); out.push(`--${k}-dial:${o.colour};--${k}-dial2:${mix(o.colour, '#000000', 0.3)};--${k}-ink:${l ? '#18202B' : '#EFEBE0'};--${k}-hand:${o.hand || (l ? '#1E3A9E' : '#D9DEE4')}`); } });
-  C.straps.forEach((o, i) => { if (o.colour) { const k = KINDS.strap[i][0]; out.push(`--${k}:${o.colour};--${k}-st:${o.stitch || (light(o.colour) ? mix(o.colour, '#000000', 0.35) : mix(o.colour, '#ffffff', 0.4))}`); } });
-  return out.length ? `:root{${out.join(';')}}\n` : '';
+  C.straps.forEach((o, i) => { if (o.colour && o.kind !== 'bracelet') { const k = KINDS.strap[i][0]; out.push(`--${k}:${o.colour};--${k}-st:${o.stitch || (light(o.colour) ? mix(o.colour, '#000000', 0.35) : mix(o.colour, '#ffffff', 0.4))}`); } });
+  // A bracelet: the strap's bands filled with links, no stitching; its swatch brushed metal. The metal (--br-*) is the
+  // case's own unless the bracelet gives a colour (a steel bracelet on a bronze case).
+  const brCss = C.straps.map((o, i) => {
+    if (o.kind !== 'bracelet') return '';
+    const k = KINDS.strap[i][0], c = o.colour;
+    const metal = c ? `--br-hi:${mix(c, '#ffffff', 0.6)};--br-mid:${c};--br-lo:${mix(c, '#000000', 0.5)}` : '--br-hi:var(--case-hi);--br-mid:var(--case-mid);--br-lo:var(--case-lo)';
+    return `${i === 0 ? ':root:not([data-strap]),' : ''}:root[data-strap="${k}"]{${metal}}.sw-${k}{${metal};background:linear-gradient(90deg,var(--br-lo),var(--br-hi) 30%,var(--br-mid) 50%,var(--br-hi) 70%,var(--br-lo))}`
+      + `${i === 0 ? ':root:not([data-strap]) .k-strap,' : ''}:root[data-strap="${k}"] .k-strap{fill:url(#pBracelet)}${i === 0 ? ':root:not([data-strap]) .k-stitch,' : ''}:root[data-strap="${k}"] .k-stitch{display:none}`;
+  }).join('');
+  return (out.length ? `:root{${out.join(';')}}\n` : '') + (brCss ? brCss + '\n' : '');
 }
+const BRACELET_DEFS = `    <linearGradient id="gLinkB" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--br-lo)"/><stop offset=".5" style="stop-color:var(--br-hi)"/><stop offset="1" style="stop-color:var(--br-mid)"/></linearGradient>
+    <linearGradient id="gLinkP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--br-hi)"/><stop offset=".55" style="stop-color:var(--br-mid)"/><stop offset="1" style="stop-color:var(--br-lo)"/></linearGradient>
+    <pattern id="pBracelet" patternUnits="userSpaceOnUse" x="-62" y="0" width="124" height="18"><rect width="124" height="18" style="fill:var(--br-lo)"/><rect x="1" y="1" width="37" height="15.5" rx="2.5" fill="url(#gLinkB)"/><rect x="40" y="1" width="44" height="15.5" rx="3" fill="url(#gLinkP)"/><rect x="86" y="1" width="37" height="15.5" rx="2.5" fill="url(#gLinkB)"/></pattern>
+`;
 
 function derive(c) {
   const js = FILTERS.js, esc = FILTERS.esc, C = c.configure;
@@ -34,6 +47,9 @@ function derive(c) {
     perTurn: String(perTurn), resHalf: String(res / 2), tickStep: res > 96 ? '12' : '6', labelStep: res > 96 ? '24' : '12',
     barrelLead: res === 72 ? 'Holds the mainspring: nine turns of it, enough for 72 hours.' : `Holds the mainspring, enough for ${res} hours.`,
     finishCss: finishCss(C),
+    braceletDefs: C.straps.some((o) => o.kind === 'bracelet') ? BRACELET_DEFS : '',
+    // the configurator's summary: "tan calf strap", but "steel bracelet" (never "bracelet strap")
+    strapNoun: C.straps.some((o) => o.kind === 'bracelet' || /\b(bracelet|strap)\b/i.test(o.name)) ? "${/\\b(bracelet|strap)\\b/i.test(s[1]) ? '' : ' strap'}" : ' strap',
     heroAccent: esc(c.hero.accent).replace(/(\d) (?=[a-zA-Z])/g, '$1&nbsp;'),
     pillsJs: c.hero.pills.map(js).join(', '),
     dialBrand: esc(c.brand.dialName), dialSub: esc(c.watch.dialSub), dialModel: esc(c.watch.dialModel), dialSub2: esc(c.watch.dialSub2), engraving: esc(c.watch.engraving),
@@ -59,6 +75,7 @@ function validate(c) {
   if (!Number.isInteger(M.reserve) || !Number.isInteger(M.turns)) e.push('movement: reserve (hours) and turns are whole numbers');
   else if (M.reserve / M.turns < 0.5 || M.reserve / M.turns > 6) e.push(`movement: ${M.reserve} h from ${M.turns} turns is ${(M.reserve / M.turns).toFixed(2)} h a turn (0.5-6 h a turn)`);
   [['cases', C.cases], ['dials', C.dials], ['straps', C.straps]].forEach(([k, list]) => list.forEach((o, i) => ['colour', 'hand', 'stitch'].forEach((f) => { if (o[f] != null && !HEX.test(o[f])) e.push(`configure.${k}.${i}.${f}: use #rrggbb`); })));
+  C.straps.forEach((o, i) => { if (o.kind != null && !['strap', 'bracelet'].includes(o.kind)) e.push(`configure.straps.${i}.kind: "strap" or "bracelet"`); });
   if (c.specs.rows.filter((r) => r.water).length > 1) e.push('specs.rows: one water-resistance row at most');
   for (const k of ['dialName', 'dialSub', 'dialSub2', 'engraving']) { const v = k === 'dialName' ? c.brand.dialName : c.watch[k]; if (v && v !== v.toUpperCase()) e.push(`${k === 'dialName' ? 'brand' : 'watch'}.${k}: capitals, as printed on the dial`); }
   return e;

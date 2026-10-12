@@ -392,7 +392,7 @@ footer{padding-block:72px 40px;border-top:1px solid var(--line-soft);overflow:hi
       <stop offset="0" style="stop-color:var(--sheen);stop-opacity:.32"/><stop offset=".35" style="stop-color:var(--sheen);stop-opacity:.04"/>
       <stop offset=".7" style="stop-color:var(--sheen);stop-opacity:0"/><stop offset="1" style="stop-color:var(--sheen);stop-opacity:.12"/>
     </linearGradient>
-    <linearGradient id="gStrapSh" x1="0" y1="0" x2="1" y2="0">
+{{$.braceletDefs|raw}}    <linearGradient id="gStrapSh" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" style="stop-color:var(--shade);stop-opacity:.35"/><stop offset=".18" style="stop-color:var(--shade);stop-opacity:0"/>
       <stop offset=".5" style="stop-color:var(--sheen);stop-opacity:.08"/><stop offset=".82" style="stop-color:var(--shade);stop-opacity:0"/><stop offset="1" style="stop-color:var(--shade);stop-opacity:.4"/>
     </linearGradient>
@@ -875,7 +875,7 @@ function applyCfg(flash) {
   const c = pick('case'), d = pick('dial'), s = pick('strap');
   const total = c[2] + d[2] + s[2];
   $('#cfgPrice').textContent = eur(total);
-  $('#cfgSum').innerHTML = `<b>{{$.modelHtml|tl}}</b> in ${c[1].toLowerCase()}, ${d[1].toLowerCase()} dial, ${s[1].toLowerCase()} strap.<br>Made to order in about ${LEAD[sel.case]} weeks. {{$.taxHtml|tl}}`;
+  $('#cfgSum').innerHTML = `<b>{{$.modelHtml|tl}}</b> in ${c[1].toLowerCase()}, ${d[1].toLowerCase()} dial, ${s[1].toLowerCase()}{{$.strapNoun|raw}}.<br>Made to order in about ${LEAD[sel.case]} weeks. {{$.taxHtml|tl}}`;
   $('#resCfg').innerHTML = `Your build: <b>${c[1]}, ${d[1]}, ${s[1]}</b> · ${eur(total)}`;
   $('#showTag').textContent = `Live · ${c[1]} · ${d[1]}`;
   if (flash && !RM.matches) { const sc = $('#showcase'); sc.classList.remove('flash'); void sc.offsetWidth; sc.classList.add('flash'); }

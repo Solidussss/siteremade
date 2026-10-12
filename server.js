@@ -5952,7 +5952,8 @@ app.post('/api/designs/sites/:id/answer', requireAuth, requireSameOrigin, requir
 });
 app.post('/api/designs/sites/:id/publish', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
-  const r = designSites.publish(db, row, !(req.body && req.body.on === false));
+  const r = designSites.publish(db, row, !(req.body && req.body.on === false), { confirm: !!(req.body && req.body.confirm === true), by: 'account:' + req.accountId });
+  if (r.blocking) return res.status(409).json({ ok: false, message: r.error, blocking: r.blocking });
   if (r.error) return res.status(400).json({ ok: false, message: r.error });
   return res.json({ ok: true, site: designSites.view(r.row) });
 });

@@ -38,7 +38,7 @@
 .bform{display:grid;grid-template-columns:1fr 1fr;gap:17px}
 .bform label{display:flex;flex-direction:column;gap:8px;font-size:11px;font-weight:750;letter-spacing:.02em}
 .bform label small{font-weight:400;color:var(--muted);font-size:12px;letter-spacing:0}
-.bform input,.bform textarea{width:100%;border:1px solid var(--line);background:#fafafa;min-height:50px;padding:13px;outline:none;border-radius:10px;font-size:15px}
+.bform input,.bform textarea,.bform select{width:100%;border:1px solid var(--line);background:#fafafa;min-height:50px;padding:13px;outline:none;border-radius:10px;font-size:15px}
 .bform textarea{min-height:96px;resize:vertical}
 .bform input:focus,.bform textarea:focus{border-color:#8e94a0;background:#fff}
 .bform .wide{grid-column:1/-1}
@@ -67,6 +67,9 @@
 .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px}
 .card h3{margin:0 0 4px;font-size:20px;letter-spacing:-.03em}
 .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+.st{font-size:11px;font-weight:750;letter-spacing:.02em}.st.pr{color:#b4561f}.st.il{color:#5b6b8c}
+.rk{font-size:12px;color:var(--muted);margin:-4px 0 12px}.rk b{color:var(--ink,#111)}
+.blk{margin:12px 0 0;padding:0;list-style:none;font-size:13px;color:#d9dbe1}.blk li{padding:6px 0;border-top:1px solid rgba(255,255,255,.12)}
 .publish{background:var(--dark);color:#fff;border-color:var(--dark)}
 .publish h3{color:#fff}.publish p{color:#a3a7b2}
 .publish .button{width:100%;background:#fff;color:#111;margin-top:16px}
@@ -185,7 +188,7 @@ function signIn() {
 function home() {
   $('#app').innerHTML = `
   <section class="studio-hero"><div><p class="eyebrow">PREMIUM DESIGNS</p><h1>Pick a design.<span>We write the rest.</span></h1></div>
-    <p class="lede">Hand-built designs with real motion. Describe the business in plain words: the AI writes every line into the design, checks it, and asks before it guesses. You review it, then publish.</p></section>
+    <p class="lede">Hand-built designs with real motion. Describe the business in plain words: the AI writes every line into the design, checks it, decides the design details itself and shows you everything it proposed. You review it, then publish.</p></section>
   ${steps(0)}
   <section class="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
   <div id="briefBox"></div>
@@ -199,7 +202,7 @@ function pick(d) {
   document.querySelectorAll('.dcard').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
   $('.steps').outerHTML = steps(1);
   $('#briefBox').innerHTML = `<form class="panel" id="form"><h2>Tell us about <span>the business.</span></h2><p class="sub">Plain words are fine. Anything you leave out, the writer either asks about or flags for you to confirm. It never makes up a price.</p>
-    <div class="bform">${chosen.fields.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : `<input name="${f.key}">`}</label>`).join('')}
+    <div class="bform">${chosen.fields.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}
     <div class="wide actions"><button class="button" id="go">Write the ${esc(m.name)} site</button><span class="note">About a minute · roughly $0.25 of AI</span></div><p class="err wide" id="err"></p></div></form>`;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#form').onsubmit = async (e) => {
@@ -231,7 +234,7 @@ function show(s) {
   } else {
     const m = DESIGN[s.design] || { url: s.design };
     const groups = { 'What the writer decided': [] }; for (const c of s.confirm) { const top = c.path.split('.')[0], k = (SECTION_FOR[s.design] || {})[top] || SECTION[top] || 'Other'; (groups[k] = groups[k] || []).push(c); }
-    const facts = s.confirm.length ? Object.entries(groups).filter(([, list]) => list.length).map(([k, list]) => `<details><summary>${esc(k)} <span>${list.length}</span></summary><ul>${list.map((c) => `<li>${c.why === 'decided by the writer' ? esc(String(c.value).slice(0, 300)) : `<b>${esc(String(c.value).slice(0, 80))}</b><br>${esc(c.why === 'the writer marked it as an assumption' ? 'Assumed by the writer' : 'Not in the brief')}`}</li>`).join('')}</ul></details>`).join('') : '<p class="ok">Every fact on the site came from the brief.</p>';
+    const facts = s.confirm.length ? Object.entries(groups).filter(([, list]) => list.length).map(([k, list]) => `<details><summary>${esc(k)} <span>${list.length}</span></summary><ul>${list.map((c) => `<li>${c.why === 'decided by the writer' ? esc(String(c.value).slice(0, 300)) : `<b>${esc(String(c.value).slice(0, 80))}</b><br>${esc(c.why === 'the writer marked it as an assumption' ? 'Assumed by the writer' : 'Not in the brief')}${c.status === 'illustrative' ? ' · <span class="st il">Illustrative</span>' : c.status === 'proposed' && c.material ? ' · <span class="st pr">Confirm before it goes live</span>' : c.status === 'proposed' ? ' · <span class="st">Proposed</span>' : ''}`}</li>`).join('')}</ul></details>`).join('') : '<p class="ok">Every fact on the site came from the brief.</p>';
     const rb = s.readBack.map((x) => { const v = x.value; let t = '';
       if (x.format === 'week') t = `<table>${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((k) => `<tr><td>${k[0].toUpperCase() + k.slice(1)}</td><td>${v && v[k] ? esc(v[k].open + '–' + v[k].close) : '<span class="note">Closed</span>'}</td></tr>`).join('')}</table>`;
       else { const rows = Array.isArray(v) ? v : [v]; t = `<table><tr>${x.fields.map((f) => `<th>${f}</th>`).join('')}</tr>${rows.map((row) => `<tr>${x.fields.map((f) => `<td>${esc(String(row && row[f] != null ? row[f] : '').replace(/\*/g, ''))}</td>`).join('')}</tr>`).join('')}</table>`; }
@@ -242,7 +245,7 @@ function show(s) {
       <div class="devices">${frame('/api/designs/sites/' + s.id + '/preview', s.publicPath ? url.replace(/^https?:\/\//, '') : m.url, true)}<div class="phone"><div class="pscreen"><iframe src="/api/designs/sites/${s.id}/preview" title="Phone preview"></iframe></div></div></div>
       <aside class="side">
         <div class="card publish"><span class="tag" style="color:#858995">${s.publicPath ? 'LIVE' : 'NOT PUBLISHED'}</span><h3>${s.publicPath ? 'It’s live.' : 'Publish when it looks right.'}</h3><p>${s.publicPath ? 'Anyone with the link can open it.' : 'It gets its own public link you can send to the business.'}</p>${s.publicPath ? `<div class="livelink"><a href="${s.publicPath}" target="_blank">${esc(url)}</a></div>` : ''}<button class="button ${s.publicPath ? 'off' : ''}" id="pub">${s.publicPath ? 'Unpublish' : 'Publish'}</button></div>
-        <div class="card facts"><h3>Confirm with the business</h3><p style="margin-bottom:12px">${s.confirm.length ? `${s.confirm.length} things on the site weren’t in the brief. Check them before you send the link.` : ''}</p>${facts}</div>
+        <div class="card facts"><h3>Confirm with the business</h3>${s.reality ? `<p class="rk"><b>${s.reality.kind === 'concept' ? 'Concept business' : 'Real business'}</b>${s.reality.industry ? ' · ' + esc(s.reality.industry) : ''} · ${s.reality.counts.confirmed} from the brief, ${s.reality.counts.derived} worked out from it, ${s.reality.kind === 'concept' ? s.reality.counts.illustrative + ' illustrative' : s.reality.counts.proposed + ' proposed'}${s.reality.confirmed.length ? ` · ${s.reality.confirmed.length} confirmed by you` : ''}</p>` : ''}<p style="margin-bottom:12px">${s.confirm.length ? `${s.confirm.length} things on the site weren’t in the brief. Check them before you send the link.` : ''}</p>${facts}</div>
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/preview" target="_blank">Open the full page</a>
       </aside>
     </section>
@@ -252,7 +255,16 @@ function show(s) {
   $('#app').innerHTML = body;
   $('#back').onclick = load;
   if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
-  if ($('#pub')) $('#pub').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) show(r.site); };
+  if ($('#pub')) $('#pub').onclick = async () => {
+    const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) return show(r.site);
+    const card = $('.card.publish'); if (!card) return;
+    if (r.status === 409 && r.blocking) {
+      const concept = s.reality && s.reality.kind === 'concept';
+      card.innerHTML = `<span class="tag" style="color:#858995">BEFORE IT GOES LIVE</span><h3>${concept ? 'This concept site must say it’s a demo.' : 'Are these true for the business?'}</h3><p>${concept ? 'Write it again so the fine print says the business is made up.' : 'The writer proposed these; nothing in the brief says them. Confirm them only if they’re right — your confirmation is recorded.'}</p><ul class="blk">${r.blocking.map((b) => `<li>${b.label ? `<span style="color:#a3a7b2">${esc(b.label)}:</span> ` : ''}${b.context ? `“${esc(b.context)}”` : esc(b.text || b.why)}</li>`).join('')}</ul>${concept ? '' : '<button class="button" id="pubok">They’re true — publish</button>'}<button class="button off" id="pubno">Not yet</button>`;
+      if ($('#pubok')) $('#pubok').onclick = async () => { const r2 = await api(`/api/designs/sites/${s.id}/publish`, { on: true, confirm: true }); if (r2.ok) show(r2.site); };
+      $('#pubno').onclick = () => show(s);
+    }
+  };
   window.scrollTo({ top: 0, behavior: 'smooth' });
   fitFrames(); playAll();
 }

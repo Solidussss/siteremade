@@ -255,7 +255,7 @@
     "Text may not contain < > { } or line breaks.",
     "The watch is a drawing of a three-hand, hand-wound watch whose movement comes apart in six stages (assembled, crystal off, dial and hands, going train, escapement, reassembled); hero.stages are their titles and captions in that order. The movement beats at 4 Hz.",
     "movement.reserve (hours) and movement.turns (crown turns from empty) drive the winding demo and gauge: the watch's own power reserve. features.dualTime shows the dual-time section and its nav link (true only for a watch with a second time zone).",
-    "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood), in that order; names and prices come from the brand, the first dial and strap are included (price 0). Any option may add colour (#rrggbb) to redraw its finish in the brand's colour; a dial may add hand, a strap stitch.",
+    "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood), in that order; names and prices come from the brand, the first dial and strap are included (price 0). Any option may add colour (#rrggbb) to redraw its finish in the brand's colour; a dial may add hand, a strap stitch. A strap option with kind \"bracelet\" is drawn as metal links in the case metal.",
     "specs.rows: twelve rows, each a length in mm (shown in mm, inches or lignes), a text value, or the water-resistance row."
   ],
   "colours": []

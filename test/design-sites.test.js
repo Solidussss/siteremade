@@ -84,8 +84,15 @@ test('brief to site: owner only, retry loop, publish', async () => {
     assert.equal((await other('GET', `/api/designs/sites/${id}`)).status, 403);
     const prev = await owner('GET', `/api/designs/sites/${id}/preview`);
     assert.equal(prev.status, 200); assert.match(prev.text, /Kestrel Car Care/);
-    const pub = await owner('POST', `/api/designs/sites/${id}/publish`, { on: true });
+    // a real business: the writer's coating costs are proposed, so going live waits for the owner to confirm them
+    const held = await owner('POST', `/api/designs/sites/${id}/publish`, { on: true });
+    assert.equal(held.status, 409);
+    assert.ok(held.json.blocking.some((b) => b.kind === 'price' && b.path.startsWith('coatings.items')), JSON.stringify(held.json.blocking));
+    assert.equal((await fetch(`${base}/s/${id}`)).status, 404, 'still private');
+    const pub = await owner('POST', `/api/designs/sites/${id}/publish`, { on: true, confirm: true });
     assert.equal(pub.json.site.publicPath, `/s/${id}`);
+    assert.ok(pub.json.site.reality.confirmed.length >= 1 && pub.json.site.reality.confirmed.every((c) => c.by.startsWith('account:') && c.at), 'who confirmed and when is recorded');
+    assert.deepEqual(pub.json.site.reality.blocking, []);
     const live = await fetch(`${base}/s/${id}`); assert.equal(live.status, 200);
     assert.match(await live.text(), /Rain wrecks paint/);
     await owner('POST', `/api/designs/sites/${id}/publish`, { on: false });
