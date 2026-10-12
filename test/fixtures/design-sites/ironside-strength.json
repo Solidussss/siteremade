@@ -1,0 +1,297 @@
+{
+  "business": {
+    "name": "Ironside Strength Club"
+  },
+  "brand": {
+    "name": "Ironside"
+  },
+  "contact": {
+    "phone": "(303) 555-0161"
+  },
+  "nav": {
+    "timetable": "Schedule",
+    "prices": "Pricing",
+    "first": "New here",
+    "cta": "Book a class"
+  },
+  "hero": {
+    "eyebrow": "Ironside · strength and conditioning, Denver",
+    "title": "Get strong.",
+    "titleEm": "Stay that way.",
+    "lede": "Coached small-group strength classes, programmed so you keep getting better. Scroll through one fifty-minute class, round by round.",
+    "cta": "Book a class",
+    "cta2": "New here?",
+    "hint": "Scroll to start the class"
+  },
+  "class": {
+    "length": 50,
+    "size": 10,
+    "shape": "intervals",
+    "done": "Done",
+    "effort": [
+      "Easy",
+      "Moderate",
+      "Hard",
+      "Very hard",
+      "Max"
+    ]
+  },
+  "stages": [
+    {
+      "n": "Check in",
+      "c": "Grab a whiteboard, say hi, and tell the coach how you slept.",
+      "cue": "Settle in",
+      "from": 0,
+      "to": 5,
+      "effort": 1,
+      "bpm": 12
+    },
+    {
+      "n": "Warm up",
+      "c": "Mobility for hips and shoulders, then light carries to get the heart going.",
+      "cue": "Nose breathing",
+      "from": 5,
+      "to": 12,
+      "effort": 2,
+      "bpm": 16
+    },
+    {
+      "n": "Skill",
+      "c": "One lift, coached properly: today it is the hinge.",
+      "cue": "Brace and breathe",
+      "from": 12,
+      "to": 20,
+      "effort": 3,
+      "bpm": 18
+    },
+    {
+      "n": "Strength",
+      "c": "Five rounds of heavy sets with real rest, weights logged on your board.",
+      "cue": "Breathe at the top",
+      "from": 20,
+      "to": 35,
+      "effort": 4,
+      "bpm": 22
+    },
+    {
+      "n": "Finisher",
+      "c": "Twelve minutes of rowing and kettlebells, work then rest, all out.",
+      "cue": "Exhale on the effort",
+      "from": 35,
+      "to": 45,
+      "effort": 5,
+      "bpm": 28
+    },
+    {
+      "n": "Cool down",
+      "c": "Stretch it out, write down what you lifted, and high-fives all round.",
+      "cue": "Slow it down",
+      "from": 45,
+      "to": 50,
+      "effort": 1,
+      "bpm": 10
+    }
+  ],
+  "timetable": {
+    "eyebrow": "Schedule",
+    "title": "This week",
+    "titleEm": "in the gym.",
+    "sub": "Classes are capped at ten so the coach can watch every rep. Book a spot; cancel free up to two hours before.",
+    "note": "Every class scales to you",
+    "prompt": "Pick a class to save your spot.",
+    "cta": "Book it",
+    "types": [
+      "Strength",
+      "Conditioning",
+      "Mobility",
+      "Barbell club"
+    ],
+    "week": [
+      {
+        "d": 0,
+        "t": "06:00",
+        "k": 0,
+        "who": "Marcus",
+        "len": 50,
+        "level": "All levels",
+        "cap": 10,
+        "taken": 8
+      },
+      {
+        "d": 0,
+        "t": "17:30",
+        "k": 1,
+        "who": "Jen",
+        "len": 45,
+        "level": "All levels",
+        "cap": 12,
+        "taken": 12
+      },
+      {
+        "d": 1,
+        "t": "06:00",
+        "k": 1,
+        "who": "Jen",
+        "len": 45,
+        "level": "All levels",
+        "cap": 12,
+        "taken": 7
+      },
+      {
+        "d": 1,
+        "t": "18:00",
+        "k": 0,
+        "who": "Marcus",
+        "len": 50,
+        "level": "All levels",
+        "cap": 10,
+        "taken": 9
+      },
+      {
+        "d": 2,
+        "t": "12:00",
+        "k": 2,
+        "who": "Leah",
+        "len": 40,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 5
+      },
+      {
+        "d": 2,
+        "t": "17:30",
+        "k": 3,
+        "who": "Marcus",
+        "len": 75,
+        "level": "Experienced",
+        "cap": 8,
+        "taken": 6
+      },
+      {
+        "d": 3,
+        "t": "06:00",
+        "k": 0,
+        "who": "Jen",
+        "len": 50,
+        "level": "All levels",
+        "cap": 10,
+        "taken": 10
+      },
+      {
+        "d": 4,
+        "t": "06:00",
+        "k": 1,
+        "who": "Marcus",
+        "len": 45,
+        "level": "All levels",
+        "cap": 12,
+        "taken": 4
+      },
+      {
+        "d": 5,
+        "t": "08:00",
+        "k": 0,
+        "who": "Leah",
+        "len": 50,
+        "level": "All levels",
+        "cap": 10,
+        "taken": 7
+      },
+      {
+        "d": 5,
+        "t": "09:30",
+        "k": 2,
+        "who": "Leah",
+        "len": 40,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 3
+      }
+    ],
+    "space": {
+      "one": "spot",
+      "many": "spots"
+    }
+  },
+  "prices": {
+    "eyebrow": "Pricing",
+    "title": "Try it first.",
+    "titleEm": "Then commit.",
+    "sub": "No sign-up fee and no annual contract. Memberships are month to month.",
+    "passes": [
+      {
+        "n": "Two week trial",
+        "p": 49,
+        "per": "unlimited classes",
+        "s": "Come as often as you like for two weeks, with a coach intro.",
+        "tag": "New members",
+        "intro": true
+      },
+      {
+        "n": "10 class card",
+        "p": 220,
+        "per": "$22 a class",
+        "s": "Use them within four months.",
+        "tag": "",
+        "intro": false
+      },
+      {
+        "n": "Unlimited",
+        "p": 189,
+        "per": "a month",
+        "s": "Every class, plus open gym hours.",
+        "tag": "Most popular",
+        "intro": false
+      }
+    ],
+    "calc": {
+      "dropIn": 28,
+      "pack": {
+        "n": 10,
+        "p": 220
+      },
+      "member": 189,
+      "names": [
+        "Drop in",
+        "Class card",
+        "Unlimited"
+      ]
+    },
+    "cta": "Get started"
+  },
+  "first": {
+    "eyebrow": "New here",
+    "title": "Never lifted before?",
+    "titleEm": "Perfect.",
+    "sub": "Half our members started with an empty bar. Here is what your first class looks like.",
+    "bringTitle": "Bring this",
+    "bring": [
+      "Shoes with a flat sole",
+      "A water bottle",
+      "Nothing else: chalk and towels are here"
+    ],
+    "faq": [
+      {
+        "q": "Do I need to be fit already?",
+        "a": "No. Every class is scaled to you, and your first week starts light."
+      },
+      {
+        "q": "What if I have an injury?",
+        "a": "Tell the coach before class. We will adjust every movement around it."
+      },
+      {
+        "q": "How do I cancel a class?",
+        "a": "In the app, up to two hours before. Later than that counts as a class."
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Ironside Strength Club is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#B3401E"
+  }
+}

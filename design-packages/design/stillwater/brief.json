@@ -1,0 +1,37 @@
+{
+  "title": "Yoga, pilates or fitness studio",
+  "fields": [
+    { "key": "businessName", "label": "Studio name", "required": true, "help": "e.g. Stillwater Studio" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or city." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "classes", "label": "Classes", "type": "textarea", "required": true, "help": "The kinds of class you run, and your weekly timetable: day, time, class, teacher, length, level and how many fit in the room." },
+    { "key": "aclass", "label": "What a class is like", "type": "textarea", "help": "How one of your classes goes from start to finish: the parts and roughly how long each takes. Yoga flow, pilates, or strength intervals." },
+    { "key": "prices", "label": "Prices", "type": "textarea", "required": true, "help": "Intro offer, drop-in price, class packs and memberships." },
+    { "key": "first", "label": "First visit", "type": "textarea", "help": "What to bring, cancellation rules, changing rooms, the questions new people ask." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "timetable.week.*.t",
+    "timetable.week.*.cap",
+    "prices.passes.*.p",
+    "prices.calc.dropIn",
+    "prices.calc.pack.p",
+    "prices.calc.member",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one class as a clock: six phases fill a ring in order, the effort is traced inside it and a breathing circle sits in the middle. Write the six phases from the brief's description of a class (or a typical class for the discipline): names, captions, breath cues, minutes that run back to back from 0 to class.length, effort 1 to 5 and breaths a minute. class.shape is flow for yoga and pilates, intervals for strength, HIIT or bootcamps; class.done is the word at the end (Namaste for yoga; Done or Well done otherwise); class.size is a typical class size.",
+    "timetable: the brief's kinds of class (up to six) and its week (day 0 is Monday). places taken (taken) are only for the demo: set them so most classes have places and one or two are full. space is what a place is called (mat, reformer, spot, bike).",
+    "prices.passes: up to three from the brief (an intro offer marked intro), each with price, per (what it gives) and a sentence. prices.calc compares a month: the drop-in price, the class pack (number of classes and price) and the monthly membership, with their names; if the brief lacks one, use the nearest real option and never invent a price.",
+    "first: what to bring and the brief's questions and answers about a first visit; never invent policies the brief doesn't give.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); each section title has an italic second half (titleEm). theme.accent is the studio's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Timetable", "path": "timetable.week", "fields": ["d", "t", "who"] },
+    { "label": "Passes", "path": "prices.passes", "fields": ["n", "p"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

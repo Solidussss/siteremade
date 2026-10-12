@@ -1,0 +1,342 @@
+{
+  "business": {
+    "name": "Stillwater Studio"
+  },
+  "brand": {
+    "name": "Stillwater"
+  },
+  "contact": {
+    "phone": "01273 960318"
+  },
+  "nav": {
+    "timetable": "Timetable",
+    "prices": "Prices",
+    "first": "First class",
+    "cta": "Book a class"
+  },
+  "hero": {
+    "eyebrow": "Stillwater · yoga & pilates, Brighton",
+    "title": "An hour that's",
+    "titleEm": "only yours.",
+    "lede": "Small classes, slow enough to learn and strong enough to feel. Scroll through one of our sixty-minute flows, from the first breath to the last.",
+    "cta": "Book a class",
+    "cta2": "Your first class",
+    "hint": "Scroll to begin the class"
+  },
+  "class": {
+    "length": 60,
+    "size": 12,
+    "shape": "flow",
+    "done": "Namaste",
+    "effort": [
+      "Easy",
+      "Gentle",
+      "Steady",
+      "Strong",
+      "Peak"
+    ]
+  },
+  "stages": [
+    {
+      "n": "Arrive",
+      "c": "Mats down, phones away. A few minutes to land before anything is asked of you.",
+      "cue": "Breathe in for four",
+      "from": 0,
+      "to": 5,
+      "effort": 1,
+      "bpm": 8
+    },
+    {
+      "n": "Breathe",
+      "c": "Long, slow breaths to quiet the mind and wake up the body from the inside.",
+      "cue": "In for four, out for six",
+      "from": 5,
+      "to": 10,
+      "effort": 1,
+      "bpm": 6
+    },
+    {
+      "n": "Warm up",
+      "c": "Gentle movement through the spine, hips and shoulders, matched to the breath.",
+      "cue": "Move with the breath",
+      "from": 10,
+      "to": 20,
+      "effort": 2,
+      "bpm": 12
+    },
+    {
+      "n": "Flow",
+      "c": "Standing sequences that build heat and balance, with options at every level.",
+      "cue": "Keep it steady",
+      "from": 20,
+      "to": 40,
+      "effort": 4,
+      "bpm": 16
+    },
+    {
+      "n": "Peak",
+      "c": "One stronger shape, offered three ways. Take the one that serves you today.",
+      "cue": "Breathe into it",
+      "from": 40,
+      "to": 50,
+      "effort": 5,
+      "bpm": 18
+    },
+    {
+      "n": "Rest",
+      "c": "Stretches on the floor, then ten minutes of stillness. Most people say this is the best bit.",
+      "cue": "Let the breath go",
+      "from": 50,
+      "to": 60,
+      "effort": 1,
+      "bpm": 6
+    }
+  ],
+  "timetable": {
+    "eyebrow": "Timetable",
+    "title": "This week",
+    "titleEm": "at the studio.",
+    "sub": "Classes are capped so the teacher can see everyone. Pick a class to save a mat; you can cancel free up to six hours before.",
+    "note": "All levels welcome unless marked",
+    "prompt": "Pick a class to save your mat.",
+    "cta": "Book it",
+    "types": [
+      "Slow flow",
+      "Vinyasa",
+      "Mat pilates",
+      "Reformer",
+      "Yin"
+    ],
+    "week": [
+      {
+        "d": 0,
+        "t": "07:00",
+        "k": 1,
+        "who": "Ana",
+        "len": 60,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 9
+      },
+      {
+        "d": 0,
+        "t": "18:30",
+        "k": 0,
+        "who": "Tom",
+        "len": 60,
+        "level": "Beginners",
+        "cap": 14,
+        "taken": 14
+      },
+      {
+        "d": 1,
+        "t": "12:15",
+        "k": 2,
+        "who": "Priya",
+        "len": 45,
+        "level": "All levels",
+        "cap": 12,
+        "taken": 6
+      },
+      {
+        "d": 1,
+        "t": "19:00",
+        "k": 4,
+        "who": "Ana",
+        "len": 75,
+        "level": "All levels",
+        "cap": 16,
+        "taken": 11
+      },
+      {
+        "d": 2,
+        "t": "07:00",
+        "k": 3,
+        "who": "Priya",
+        "len": 50,
+        "level": "Some experience",
+        "cap": 6,
+        "taken": 5
+      },
+      {
+        "d": 2,
+        "t": "18:30",
+        "k": 1,
+        "who": "Tom",
+        "len": 60,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 8
+      },
+      {
+        "d": 3,
+        "t": "09:30",
+        "k": 0,
+        "who": "Ana",
+        "len": 60,
+        "level": "Beginners",
+        "cap": 14,
+        "taken": 4
+      },
+      {
+        "d": 3,
+        "t": "19:00",
+        "k": 2,
+        "who": "Priya",
+        "len": 45,
+        "level": "All levels",
+        "cap": 12,
+        "taken": 12
+      },
+      {
+        "d": 4,
+        "t": "07:00",
+        "k": 1,
+        "who": "Tom",
+        "len": 60,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 7
+      },
+      {
+        "d": 4,
+        "t": "17:30",
+        "k": 4,
+        "who": "Ana",
+        "len": 75,
+        "level": "All levels",
+        "cap": 16,
+        "taken": 9
+      },
+      {
+        "d": 5,
+        "t": "09:00",
+        "k": 3,
+        "who": "Priya",
+        "len": 50,
+        "level": "Beginners",
+        "cap": 6,
+        "taken": 3
+      },
+      {
+        "d": 5,
+        "t": "10:30",
+        "k": 1,
+        "who": "Ana",
+        "len": 75,
+        "level": "All levels",
+        "cap": 16,
+        "taken": 15
+      },
+      {
+        "d": 6,
+        "t": "10:00",
+        "k": 0,
+        "who": "Tom",
+        "len": 60,
+        "level": "All levels",
+        "cap": 14,
+        "taken": 6
+      },
+      {
+        "d": 6,
+        "t": "17:00",
+        "k": 4,
+        "who": "Ana",
+        "len": 75,
+        "level": "All levels",
+        "cap": 16,
+        "taken": 10
+      }
+    ],
+    "space": {
+      "one": "mat",
+      "many": "mats"
+    }
+  },
+  "prices": {
+    "eyebrow": "Prices",
+    "title": "Start small.",
+    "titleEm": "Stay if you love it.",
+    "sub": "No joining fee and no contracts. Class packs last three months; memberships pause whenever you need them to.",
+    "passes": [
+      {
+        "n": "New to us",
+        "p": 35,
+        "per": "2 weeks unlimited",
+        "s": "Every class, as often as you like, for your first two weeks.",
+        "tag": "Start here",
+        "intro": true
+      },
+      {
+        "n": "10 class pack",
+        "p": 130,
+        "per": "£13 a class",
+        "s": "Use them within three months, at any class.",
+        "tag": "",
+        "intro": false
+      },
+      {
+        "n": "Unlimited",
+        "p": 110,
+        "per": "a month",
+        "s": "Every class, every week. Pause it whenever you need to.",
+        "tag": "Best value",
+        "intro": false
+      }
+    ],
+    "calc": {
+      "dropIn": 16,
+      "pack": {
+        "n": 10,
+        "p": 130
+      },
+      "member": 110,
+      "names": [
+        "Drop in",
+        "Class packs",
+        "Unlimited"
+      ]
+    },
+    "cta": "Choose this"
+  },
+  "first": {
+    "eyebrow": "First class",
+    "title": "Never done it before?",
+    "titleEm": "Good.",
+    "sub": "Most people start nervous. Here's what to bring, what happens, and the questions everyone asks.",
+    "bringTitle": "What to bring",
+    "bring": [
+      "Comfortable clothes you can move in",
+      "A water bottle (we have a tap)",
+      "Nothing else: mats, blocks and blankets are here"
+    ],
+    "faq": [
+      {
+        "q": "I'm not flexible. Can I still come?",
+        "a": "Yes. Flexibility comes from practice, not before it. Every pose is offered at more than one level."
+      },
+      {
+        "q": "How early should I arrive?",
+        "a": "Ten minutes before your first class, so we can say hello and ask about any injuries."
+      },
+      {
+        "q": "What if I need to cancel?",
+        "a": "Cancel up to six hours before and the class goes back on your pass. Later than that, it counts."
+      },
+      {
+        "q": "Is there somewhere to change?",
+        "a": "Two changing rooms, a shower and lockers. Bring a padlock or borrow one at the desk."
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Stillwater Studio is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#7A3E5A"
+  }
+}
