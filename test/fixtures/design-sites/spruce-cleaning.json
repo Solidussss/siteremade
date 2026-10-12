@@ -1,0 +1,443 @@
+{
+  "business": {
+    "name": "Spruce & Shine Home Cleaning"
+  },
+  "brand": {
+    "name": "Spruce & Shine"
+  },
+  "contact": {
+    "phone": "(503) 555-0142"
+  },
+  "nav": {
+    "quote": "Pricing",
+    "included": "Checklist",
+    "book": "Schedule",
+    "cta": "Get pricing"
+  },
+  "hero": {
+    "eyebrow": "Spruce & Shine · house cleaning, Portland",
+    "title": "Walk in. Exhale.",
+    "titleEm": "It is all done.",
+    "lede": "Insured, background-checked cleaners, the same one every visit, and a flat price before you book. Scroll and watch one home cleaned, room by room.",
+    "cta": "Get pricing",
+    "cta2": "See the checklist",
+    "hint": "Scroll to start the clean"
+  },
+  "clean": {
+    "minutes": 165,
+    "price": "$145",
+    "rooms": [
+      {
+        "n": "Kitchen",
+        "tasks": [
+          "Stovetop",
+          "Sink",
+          "Counters",
+          "Floor"
+        ]
+      },
+      {
+        "n": "Bathroom",
+        "tasks": [
+          "Tub",
+          "Toilet",
+          "Mirror",
+          "Floor"
+        ]
+      },
+      {
+        "n": "Living room",
+        "tasks": [
+          "Dusting",
+          "Vacuum"
+        ]
+      },
+      {
+        "n": "Bedroom",
+        "tasks": [
+          "Bed made",
+          "Dusting",
+          "Vacuum"
+        ]
+      }
+    ]
+  },
+  "stages": [
+    {
+      "n": "Arrive",
+      "c": "Jess lets herself in with your door code, puts on shoe covers and starts with the kitchen.",
+      "clock": "9:00"
+    },
+    {
+      "n": "Kitchen",
+      "c": "Stovetop degreased, sink scrubbed and shined, counters wiped and the floor mopped.",
+      "clock": "9:05"
+    },
+    {
+      "n": "Bathroom",
+      "c": "Tub and shower scrubbed, the toilet cleaned top to bottom, the mirror streak-free.",
+      "clock": "9:55"
+    },
+    {
+      "n": "Living room",
+      "c": "Every surface dusted, then the rugs and floors vacuumed, under the couch too.",
+      "clock": "10:30"
+    },
+    {
+      "n": "Bedroom",
+      "c": "Bed made, nightstands and dressers dusted, the carpet vacuumed edge to edge.",
+      "clock": "11:05"
+    },
+    {
+      "n": "All done",
+      "c": "Trash out, a final walk-through with the checklist, and a text with photos of every room.",
+      "clock": "11:45"
+    }
+  ],
+  "quote": {
+    "eyebrow": "Pricing",
+    "title": "Flat pricing, no surprises.",
+    "sub": "Tell us about your home and how often you want us. The price you see is the price you pay, tip optional.",
+    "kinds": [
+      {
+        "n": "Standard",
+        "base": 70,
+        "bed": 25,
+        "bath": 30,
+        "mins": [
+          60,
+          30,
+          45
+        ],
+        "repeat": true
+      },
+      {
+        "n": "Deep clean",
+        "base": 140,
+        "bed": 45,
+        "bath": 50,
+        "mins": [
+          120,
+          60,
+          75
+        ],
+        "repeat": false
+      },
+      {
+        "n": "Move-out",
+        "base": 180,
+        "bed": 55,
+        "bath": 55,
+        "mins": [
+          180,
+          75,
+          90
+        ],
+        "repeat": false
+      }
+    ],
+    "often": [
+      {
+        "n": "Weekly",
+        "off": 20
+      },
+      {
+        "n": "Every 2 weeks",
+        "off": 15
+      },
+      {
+        "n": "Every 4 weeks",
+        "off": 10
+      },
+      {
+        "n": "One time",
+        "off": 0
+      }
+    ],
+    "extras": [
+      {
+        "n": "Inside the oven",
+        "p": 30,
+        "m": 45,
+        "in": [
+          2
+        ]
+      },
+      {
+        "n": "Inside the fridge",
+        "p": 30,
+        "m": 40,
+        "in": [
+          2
+        ]
+      },
+      {
+        "n": "Interior windows",
+        "p": 40,
+        "m": 60,
+        "in": []
+      },
+      {
+        "n": "Inside cabinets",
+        "p": 35,
+        "m": 45,
+        "in": [
+          1,
+          2
+        ]
+      },
+      {
+        "n": "A load of laundry",
+        "p": 25,
+        "m": 30,
+        "in": []
+      }
+    ],
+    "limits": {
+      "bed": [
+        1,
+        5
+      ],
+      "bath": [
+        1,
+        4
+      ]
+    },
+    "solo": 210,
+    "kit": "Ours",
+    "note": "We bring all supplies, plant-based products and a HEPA vacuum. Your card is charged after the clean.",
+    "cta": "Schedule this clean"
+  },
+  "included": {
+    "eyebrow": "Checklist",
+    "title": "Every room, every time.",
+    "sub": "Every clean follows the same checklist. Pick a type of clean to see exactly what changes.",
+    "checklist": [
+      {
+        "n": "Kitchen",
+        "tasks": [
+          {
+            "t": "Counters and backsplash",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Stovetop and cabinet fronts",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Sink and faucet shined",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Microwave inside and out",
+            "in": [
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Inside cabinets and drawers",
+            "in": [
+              2
+            ]
+          },
+          {
+            "t": "Floor mopped",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Bathrooms",
+        "tasks": [
+          {
+            "t": "Toilet, inside and out",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Tub and shower",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Mirrors streak-free",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Grout scrubbed",
+            "in": [
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Inside the vanity",
+            "in": [
+              2
+            ]
+          },
+          {
+            "t": "Floor mopped",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Living areas",
+        "tasks": [
+          {
+            "t": "Dusting, top to bottom",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Vacuum, under the couch",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Baseboards wiped",
+            "in": [
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Switches and door handles",
+            "in": [
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Light tidying",
+            "in": [
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Bedrooms",
+        "tasks": [
+          {
+            "t": "Beds made",
+            "in": [
+              0,
+              1
+            ]
+          },
+          {
+            "t": "Dusting",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Vacuum, under the bed",
+            "in": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Inside closets",
+            "in": [
+              2
+            ]
+          },
+          {
+            "t": "Ceiling fans dusted",
+            "in": [
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    ],
+    "promises": [
+      {
+        "b": "Same cleaner, every time",
+        "s": "One person who learns your home and how you like it."
+      },
+      {
+        "b": "Insured and checked",
+        "s": "Every cleaner is background-checked and fully insured."
+      },
+      {
+        "b": "24-hour re-clean",
+        "s": "Missed a spot? Tell us within a day and we come back free."
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Schedule",
+    "title": "Pick a day. We handle the rest.",
+    "sub": "Choose a day and a start time. Your cleaner texts the day before, and you can reschedule free up to 48 hours ahead.",
+    "times": [
+      "8am",
+      "11am",
+      "2pm"
+    ],
+    "closed": [
+      0,
+      6
+    ],
+    "cta": "Schedule the clean",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(503) 555-0123",
+    "addrExample": "2140 SE Ankeny St, 97214",
+    "accessExample": "Door code, lockbox, or you will be home",
+    "note": "Not happy with anything? Tell us within 24 hours and we will come back and fix it, free."
+  },
+  "footer": {
+    "fine": "Spruce & Shine Home Cleaning is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#2450B8"
+  }
+}

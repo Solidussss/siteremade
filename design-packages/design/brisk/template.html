@@ -1,0 +1,601 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a home-cleaning company. One pinned floor plan where a clean runs room by room as you scroll, the cleaner's
+   path drawn behind them and each room's checklist ticking off; then what a customer needs: a price, exactly what's
+   included, and a slot. */
+:root{
+  color-scheme:light;
+  --mint:#F3F7F5;
+  --mint-2:#E3EEE9;
+  --sheet:#FFFFFF;
+  --ink:#13261F;
+  --ink-2:#435A51;
+  --muted:#748880;
+  --line:#D5E2DC;
+  --accent:{{A:#0B7F69}};       /* the company's colour: actions, the cleaner's path, ticks */
+  --accent-2:{{A:#109A80}};
+  --accent-text:{{A:#0A715D}};
+  --accent-soft:{{A:#DDF2EB}};
+  --on-accent:#FFFFFF;
+  --zest:#F5D547;         /* sparkle */
+  --f-display:"Lexend","Segoe UI",system-ui,sans-serif;
+  --f-body:"Nunito Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"DM Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--mint);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;line-height:1.04;letter-spacing:-.025em;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:500 12px/1.3 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:14px 22px;font:800 15px/1 var(--f-body);text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--sheet);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.ghost:hover{box-shadow:inset 0 0 0 1.5px var(--ink)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 10px) var(--gut) 10px;display:flex;align-items:center;gap:20px;background:rgba(243,247,245,.88);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);border-bottom:1px solid rgba(19,38,31,.07)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:700 21px/1 var(--f-display);letter-spacing:-.03em;white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:24px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:700 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:500 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 17px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:19px}}
+
+/* hero: the plan */
+.hero{position:relative;height:540vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--mint)}
+#plan{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(243,247,245,.95),rgba(243,247,245,.76) 55%,rgba(243,247,245,0));pointer-events:none}
+.hero h1{font-size:clamp(2.6rem,min(5.2vw,8.2vh),5rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.visit{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 18px;border-radius:18px;background:var(--sheet);box-shadow:0 22px 56px -26px rgba(19,38,31,.45),0 0 0 1px rgba(19,38,31,.05)}
+.visit .row{display:flex;justify-content:space-between;gap:10px;font:500 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.visit .clock{color:var(--accent-text)}
+.visit h3{font-size:clamp(24px,2.3vw,30px);margin-top:10px}
+.visit p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
+.ticks{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.ticks li{font:600 12px var(--f-body);border-radius:999px;padding:4px 10px;background:var(--mint);color:var(--muted);transition:background .3s,color .3s}
+.ticks li.on{background:var(--accent-soft);color:var(--accent-text)}
+.ticks li.on::before{content:"✓ "}
+.score{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:18px;background:var(--sheet);box-shadow:0 22px 56px -26px rgba(19,38,31,.45),0 0 0 1px rgba(19,38,31,.05);overflow:hidden}
+.score div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.score div:nth-child(2n){border-right:0}
+.score div:nth-child(n+3){border-bottom:0}
+.score dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.score dd{margin:6px 0 0;font:600 25px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.score dd small{font:500 12px var(--f-mono);color:var(--muted);margin-left:4px}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .score{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
+  .score div{padding:9px 10px;border-bottom:0}
+  .score div:nth-child(2n){border-right:1px solid var(--line)}
+  .score div:last-child{border-right:0}
+  .score dt{font-size:9px;letter-spacing:.04em}
+  .score dd{font-size:clamp(16px,4.6vw,20px)}
+  .score dd small{display:none}
+  .visit{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
+  .visit p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:720px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.3rem,5vw,4.2rem)}
+.head p{color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border-radius:20px;box-shadow:0 1px 0 rgba(19,38,31,.03),0 20px 50px -32px rgba(19,38,31,.38);border:1px solid rgba(19,38,31,.05)}
+.lbl{font:500 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.seg button{border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:10px 15px;font:700 14px var(--f-body);cursor:pointer;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:8px}
+.step button{border:0;background:var(--sheet);width:42px;height:42px;font:700 20px var(--f-body);cursor:pointer;color:var(--ink)}
+.step output{min-width:44px;text-align:center;font:600 18px var(--f-display)}
+
+/* quote */
+.quote{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.ctl{padding:clamp(22px,3vw,32px);display:grid;gap:22px}
+.rooms{display:flex;flex-wrap:wrap;gap:24px}
+.rooms>div{display:grid;justify-items:start}
+.extras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.extra{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;background:var(--sheet);text-align:left;font-size:15px}
+.extra b{font-weight:700}
+.extra span{font:500 13px var(--f-mono);color:var(--muted);white-space:nowrap}
+.extra[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.extra[aria-pressed="true"] span{color:var(--accent-text)}
+.price{padding:clamp(22px,3vw,30px);display:grid;gap:14px;position:sticky;top:90px}
+.price .big{font:600 56px/1 var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.price .big small{font:600 15px var(--f-body);color:var(--muted);letter-spacing:0;margin-left:6px}
+.price .was{font-size:14px;color:var(--muted)}
+.price .was s{margin-right:6px}
+.price dl{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.price dl div{background:var(--mint);border-radius:12px;padding:12px}
+.price dt{font:500 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.price dd{margin:6px 0 0;font:600 19px var(--f-display)}
+.price .note{font-size:13px;color:var(--muted)}
+
+/* what's included */
+.incl{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tabs button{border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:10px 16px;font:700 14px var(--f-body);cursor:pointer;color:var(--ink-2)}
+.tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.roomgrid{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:14px}
+.room{padding:clamp(18px,2vw,22px);display:grid;gap:10px;align-content:start}
+.room h3{font-size:22px}
+.room ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:15px}
+.room li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;color:var(--ink-2)}
+.room li::before{content:"";width:18px;height:18px;border-radius:6px;margin-top:2px;background:var(--mint-2)}
+.room li.yes{color:var(--ink)}
+.room li.yes::before{background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5 9.3l2.6 2.6L13 6.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/18px no-repeat}
+.room li.no{text-decoration:line-through;text-decoration-color:rgba(116,136,128,.5);color:var(--muted)}
+.promises{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:14px;margin-top:8px}
+.promise{padding:18px 20px;display:grid;gap:4px}
+.promise b{font:600 17px var(--f-display)}
+.promise span{font-size:14px;color:var(--ink-2)}
+
+/* booking */
+.book{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.form{padding:clamp(22px,3vw,32px);display:grid;gap:20px}
+.form select,.form input,.form textarea{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--mint);font-size:15px;width:100%}
+.form textarea{min-height:84px;resize:vertical}
+.form label{display:grid;gap:6px;font-weight:700;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:8px}
+.day{border:1px solid var(--line);border-radius:14px;background:var(--sheet);padding:8px 2px;cursor:pointer;display:grid;gap:2px;justify-items:center;font:500 11px var(--f-mono);text-transform:uppercase;color:var(--muted)}
+.day b{font:600 20px/1 var(--f-display);color:var(--ink)}
+.day[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:rgba(255,255,255,.7)}
+.day[aria-pressed="true"] b{color:#fff}
+.day:disabled{opacity:.35;cursor:not-allowed}
+.err{color:#B23A2E;font-size:14px;font-weight:700}
+.confirm{border-radius:14px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.summary{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
+.summary h3{font-size:26px}
+.summary dl{margin:0}
+.summary dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.summary dt{color:var(--ink-2)}
+.summary dd{margin:0;font-weight:700;text-align:right}
+.summary .note{font-size:13px;color:var(--muted)}
+
+footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:700 min(16vw,220px)/.86 var(--f-display);letter-spacing:-.05em;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:var(--zest)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(255,255,255,.6)}
+.foot-row a{color:#fff}
+
+@media (max-width:980px){
+  .quote,.book{grid-template-columns:minmax(0,1fr)}
+  .roomgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .promises{grid-template-columns:minmax(0,1fr)}
+  .price,.summary{position:static}
+}
+@media (max-width:560px){
+  .extras{grid-template-columns:minmax(0,1fr)}
+  .roomgrid{grid-template-columns:minmax(0,1fr)}
+  .price dl{grid-template-columns:minmax(0,1fr)}
+  .two{grid-template-columns:minmax(0,1fr)}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="{{A:#0B7F69}}"/><path d="M8 15.5l3.6 3.6L20 10" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 3.5l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z" fill="#F5D547"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#quote">{{nav.quote}}</a></li><li><a href="#included">{{nav.included}}</a></li><li><a href="#book">{{nav.book}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#quote">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="One home cleaned room by room, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="plan" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#quote">{{hero.cta}}</a><a class="btn ghost" href="#included">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="score" id="score" aria-live="off">
+      <div><dt>Rooms done</dt><dd id="sRooms">0<small>/ {{$.roomCount}}</small></dd></div>
+      <div><dt>Ticked off</dt><dd id="sTicks">0</dd></div>
+      <div><dt>On the clock</dt><dd id="sTime">0<small>min</small></dd></div>
+      <div><dt>This clean</dt><dd id="sPrice">{{clean.price}}</dd></div>
+    </dl>
+    <div class="visit" id="visit" aria-live="polite">
+      <div class="row"><span>Visit · <b id="vNum">1</b> of 6</span><span class="clock" id="vClock">{{stages.0.clock}}</span></div>
+      <h3 id="vTitle">{{stages.0.n}}</h3>
+      <p id="vText">{{stages.0.c}}</p>
+      <ul class="ticks" id="ticks" aria-hidden="true"></ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="quote" aria-labelledby="quote-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{quote.eyebrow}}</p>
+      <h2 id="quote-h">{{quote.title}}</h2>
+      <p>{{quote.sub}}</p>
+    </div>
+    <div class="quote">
+      <div class="panel ctl">
+        <div class="rooms">
+          <div><span class="lbl">Bedrooms</span><div class="step"><button type="button" data-k="bed" data-d="-1" aria-label="Fewer bedrooms">−</button><output id="oBed">2</output><button type="button" data-k="bed" data-d="1" aria-label="More bedrooms">+</button></div></div>
+          <div><span class="lbl">Bathrooms</span><div class="step"><button type="button" data-k="bath" data-d="-1" aria-label="Fewer bathrooms">−</button><output id="oBath">1</output><button type="button" data-k="bath" data-d="1" aria-label="More bathrooms">+</button></div></div>
+        </div>
+        <div><span class="lbl">Type of clean</span><div class="seg" id="kinds" role="group" aria-label="Type of clean"></div></div>
+        <div><span class="lbl">How often</span><div class="seg" id="often" role="group" aria-label="How often"></div></div>
+        <div><span class="lbl">Extras</span><div class="extras" id="extras" role="group" aria-label="Extras"></div></div>
+      </div>
+      <aside class="panel price" aria-live="polite">
+        <div class="big" id="qPrice">{{locale.currency}}0<small>per clean</small></div>
+        <p class="was" id="qWas"></p>
+        <dl>
+          <div><dt>Cleaners</dt><dd id="qWho">1</dd></div>
+          <div><dt>Takes about</dt><dd id="qTime">—</dd></div>
+          <div><dt>Products</dt><dd id="qKit">{{quote.kit}}</dd></div>
+        </dl>
+        <p class="note" id="qNote">{{quote.note}}</p>
+        <a class="btn" href="#book" id="qBook">{{quote.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="included" aria-labelledby="inc-h" style="background:var(--mint-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{included.eyebrow}}</p>
+      <h2 id="inc-h">{{included.title}}</h2>
+      <p>{{included.sub}}</p>
+    </div>
+    <div class="incl">
+      <div class="tabs" id="incTabs" role="group" aria-label="Type of clean"></div>
+      <div class="roomgrid" id="roomGrid"></div>
+      <div class="promises" id="promises"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="book" aria-labelledby="book-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{book.eyebrow}}</p>
+      <h2 id="book-h">{{book.title}}</h2>
+      <p>{{book.sub}}</p>
+    </div>
+    <div class="book">
+      <form class="panel form" id="bookForm" novalidate>
+        <div><span class="lbl">Day</span><div class="days" id="days"></div></div>
+        <div><span class="lbl">Start time</span><div class="seg" id="times" role="group" aria-label="Start time"></div></div>
+        <div class="two">
+          <label>Your name<input id="fName" autocomplete="name" placeholder="{{book.nameExample|attr}}"></label>
+          <label>Phone<input id="fPhone" type="tel" autocomplete="tel" placeholder="{{book.phoneExample|attr}}"></label>
+        </div>
+        <label>Address<input id="fAddr" autocomplete="street-address" placeholder="{{book.addrExample|attr}}"></label>
+        <label>How do we get in?<textarea id="fNote" placeholder="{{book.accessExample|attr}}"></textarea></label>
+        <button class="btn" type="submit">{{book.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+      <aside class="panel summary" aria-live="polite">
+        <h3>Your clean</h3>
+        <dl>
+          <div><dt>Home</dt><dd id="bHome">—</dd></div>
+          <div><dt>Clean</dt><dd id="bKind">—</dd></div>
+          <div><dt>How often</dt><dd id="bOften">—</dd></div>
+          <div><dt>When</dt><dd id="bWhen">—</dd></div>
+          <div><dt>Price</dt><dd id="bPrice">—</dd></div>
+        </dl>
+        <p class="note" id="bNote">{{book.note}}</p>
+      </aside>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ============ THE CLEAN (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the four rooms the clean goes through, in order, and the jobs ticked off in each
+const ROOMS=[
+{{$.roomsJs|raw}}
+];
+const MINUTES={{clean.minutes}};
+const ACCENT='{{A:#0B7F69}}', ZEST='#F5D547';
+
+/* ============ THE FLAT (plan units: x right, y down) ============ */
+// kitchen, bathroom, living room, bedroom (in clean order), then the hall
+const AREA=[[0,0,5,3.5],[2,3.5,3,4.5],[5,0,7,4.5],[5,4.5,7,3.5],[0,3.5,2,4.5]];
+const FLOOR=['tile','tileS','wood','carpet','wood'];
+// the cleaner's path through each room: lanes across the floor, avoiding the big furniture roughly
+function lanes([x,y,w,h],gap,pad){const out=[];let k=0;for(let yy=y+pad;yy<=y+h-pad+.01;yy+=gap,k++){const a=[x+pad,yy],b=[x+w-pad,yy];out.push(...(k%2?[b,a]:[a,b]));}return out;}
+const PATHS=[lanes([1,1.15,3.8,2.2],.6,.05),lanes([2.1,3.7,2.0,4.1],.7,.05),lanes([5.3,.6,6.4,3.6],.7,.1),lanes([5.3,4.8,6.4,2.4],.65,.1)];
+const DOOR=[1,8], ENTRY=[[1,7.6],[1,6],[1,4.2],[1.2,2.6]];
+function plens(p){const L=[0];for(let i=1;i<p.length;i++)L.push(L[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));return L;}
+function at(p,L,d){d=clamp(d,0,L[L.length-1]);let i=1;while(i<p.length-1&&L[i]<d)i++;const t=(d-L[i-1])/((L[i]-L[i-1])||1);return[lerp(p[i-1][0],p[i][0],t),lerp(p[i-1][1],p[i][1],t)];}
+const PL=PATHS.map(plens);
+// mess in each room: where, what; each is cleared when the cleaner's path comes closest to it
+const MESS=[[],[],[],[]];
+(function(){const r=rng(17);const kinds=[['crumbs','crumbs','mug','plate','stain','stain','dust','dust','paper'],['dust','towel','stain','dust','bottle','stain'],['mug','paper','cushion','dust','dust','stain','crumbs','paper','dust'],['clothes','clothes','dust','mug','dust','paper','sock']];
+  AREA.slice(0,4).forEach(([x,y,w,h],ri)=>{kinds[ri].forEach((k,i)=>{const px=x+.5+r()*(w-1), py=y+.5+r()*(h-1);let best=0,bd=1e9;const P=PATHS[ri],L=PL[ri];for(let d=0;d<=L[L.length-1];d+=.1){const q=at(P,L,d);const dd=Math.hypot(q[0]-px,q[1]-py);if(dd<bd){bd=dd;best=d;}}
+    MESS[ri].push({k,x:px,y:py,rot:r()*6.28,s:.7+r()*.5,t:best/L[L.length-1],c:r()});});});})();
+
+/* ============ GEOMETRY ============ */
+const cv=$('#plan'), ctx=cv.getContext('2d');
+let BA=1,W=0,H=0,DPR=1,mobile=false,S=40,OX=0,OY=0,CX=0,CY=0,LA=null,LB=null;
+const P=(x,y)=>[OX+x*S,OY+y*S];
+// on a phone the flat turns a quarter so it fills the tall screen; SP gives where a plan point lands on screen
+function SP(x,y){const a=P(x,y);if(!mobile)return a;const dx=a[0]-CX,dy=a[1]-CY;return[CX-dy,CY+dx];}
+function fit(ax,ay,rot){const w=rot?8.8:12.8,h=rot?12.8:8.8;const S=Math.min((ax[1]-ax[0])/w,(ay[1]-ay[0])/h);return{S,CX:(ax[0]+ax[1])/2,CY:(ay[0]+ay[1])/2};}
+function place(L){S=L.S;CX=L.CX;CY=L.CY;OX=CX-6*S;OY=CY-4*S;}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(64,H*.1), sc=$('#score').getBoundingClientRect(), vi=$('#visit').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.03,W*.97],[top,sc.top-stg.top-14],true);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(sc.top,vi.top)-stg.top;
+    // the opening frame: beside the words when there is room, under them on a tall tablet
+    LA=W-cr>W*.4?fit([cr+24,W*.97],[H*.12,Math.min(H*.8,low-30)],false):fit([W*.04,W*.96],[cb+28,low-24],false);
+    LB=fit([W*.04,W*.96],[top+8,Math.min(sc.top,vi.top-46)-stg.top-18],false);}
+  buildBase();last=-1;}
+let base=null;
+function R(x,y,w,h,c,rr){const a=P(x,y);ctx.fillStyle=c;if(rr&&ctx.roundRect){ctx.beginPath();ctx.roundRect(a[0],a[1],w*S,h*S,rr*S);ctx.fill();}else ctx.fillRect(a[0],a[1],w*S,h*S);}
+// the floors and walls are drawn once, at the largest size the plan takes, and scaled each frame
+function buildBase(){const SB=Math.max(LA.S,LB.S);place({S:SB,CX:6.4*SB,CY:4.4*SB});base=document.createElement('canvas');base.width=Math.ceil(12.8*SB*DPR);base.height=Math.ceil(8.8*SB*DPR);const x=base.getContext('2d');x.setTransform(DPR,0,0,DPR,0,0);  // floors
+  AREA.forEach((a,i)=>floor(x,a,FLOOR[i]));
+  // the walls, with doorways
+  const wall=(x0,y0,x1,y1)=>{const a=P(x0,y0),b=P(x1,y1);x.strokeStyle='#2B3A34';x.lineWidth=S*.18;x.lineCap='square';x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();};
+  x.strokeStyle='#2B3A34';x.lineWidth=S*.32;const o0=P(0,0),o1=P(12,8);x.strokeRect(o0[0],o0[1],o1[0]-o0[0],o1[1]-o0[1]);
+  wall(5,0,5,1.2);wall(5,2.4,5,4.5);wall(1.6,3.5,5,3.5);wall(0,3.5,.4,3.5);wall(2,3.5,2,5);wall(2,6,2,8);wall(5,4.5,5.6,4.5);wall(6.6,4.5,12,4.5);wall(5,4.5,5,8);
+  // the front door gap
+  const d0=P(.4,8),d1=P(1.6,8);x.strokeStyle='#E9F1ED';x.lineWidth=S*.34;x.beginPath();x.moveTo(d0[0],d0[1]);x.lineTo(d1[0],d1[1]);x.stroke();
+  // windows on the outer walls
+  [[[5.8,0],[8,0]],[[9.2,0],[11.2,0]],[[1.5,0],[3.5,0]],[[12,5.2],[12,7.2]],[[7,8],[9.6,8]]].forEach(([a,b])=>{const p=P(...a),q=P(...b);x.strokeStyle='#BFDDEB';x.lineWidth=S*.2;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(q[0],q[1]);x.stroke();});
+  place(LA);}
+function floor(x,[fx,fy,fw,fh],kind){const a=P(fx,fy);const w=fw*S,h=fh*S;
+  if(kind==='tile'||kind==='tileS'){x.fillStyle=kind==='tile'?'#EEF1EF':'#E8F1F4';x.fillRect(a[0],a[1],w,h);x.strokeStyle='rgba(43,58,52,.08)';x.lineWidth=1;const st=S*(kind==='tile'?.5:.35);for(let i=a[0];i<a[0]+w;i+=st){x.beginPath();x.moveTo(i,a[1]);x.lineTo(i,a[1]+h);x.stroke();}for(let j=a[1];j<a[1]+h;j+=st){x.beginPath();x.moveTo(a[0],j);x.lineTo(a[0]+w,j);x.stroke();}}
+  else if(kind==='wood'){x.fillStyle='#E9DCC7';x.fillRect(a[0],a[1],w,h);const r=rng(fx*7+fy);x.strokeStyle='rgba(120,90,50,.12)';x.lineWidth=1;for(let j=a[1];j<a[1]+h;j+=S*.28){x.beginPath();x.moveTo(a[0],j);x.lineTo(a[0]+w,j);x.stroke();let i=a[0]+r()*S*1.5;while(i<a[0]+w){x.beginPath();x.moveTo(i,j);x.lineTo(i,j+S*.28);x.stroke();i+=S*(1.2+r()*1.5);}}}
+  else{x.fillStyle='#DCE3EA';x.fillRect(a[0],a[1],w,h);const r=rng(9);x.fillStyle='rgba(255,255,255,.25)';for(let i=0;i<w*h/30;i++)x.fillRect(a[0]+r()*w,a[1]+r()*h,1.5,1.5);}}
+
+/* the furniture: some of it knocked askew until its room is done */
+function furniture(prog){
+  const k=prog, ok=i=>sm(seg(k[i],.6,1));
+  // kitchen: L-shaped counter, hob, sink, fridge, table and chairs
+  R(0,0,5,.75,'#D3DAD6');R(0,.75,.75,2.75,'#D3DAD6');R(0,0,5,.08,'#B8C2BD');
+  const hob=P(3.3,.38);[[-.25,-.16],[.25,-.16],[-.25,.16],[.25,.16]].forEach(([dx,dy])=>{ctx.strokeStyle='#5E6B66';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(hob[0]+dx*S,hob[1]+dy*S,S*.12,0,7);ctx.stroke();});
+  R(1.2,.12,.9,.5,'#B9C7CF',.08);R(.05,2.65,.65,.8,'#F2F4F3',.05);
+  tilt(3.35,2.4,1.6,1.1,'#C8B49A',(1-ok(0))*.18,.08);[[2.4,2.1],[2.4,2.7],[4.35,2.4]].forEach(([cx,cy],i)=>tilt(cx,cy,.5,.5,'#A9927A',(1-ok(0))*(i%2?-.4:.5),.08));
+  // bathroom: bath, basin, loo, towel rail
+  R(4.15,3.7,.8,2.4,'#FFFFFF',.3);R(4.28,3.85,.54,2.1,'#DDEFF5',.24);R(2.1,3.95,.7,.55,'#FFFFFF',.15);
+  const wc=P(2.55,7.35);ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.ellipse(wc[0],wc[1],S*.3,S*.38,0,0,7);ctx.fill();R(2.25,7.7,.6,.25,'#F2F4F3');
+  // living: rug, sofa, coffee table, TV, armchair, plant
+  tilt(8.3,2.6,4.2,2.0,'#C9D7CF',(1-ok(2))*.08,.1);R(6.6,3.55,3.5,.8,'#7E9A8E',.15);R(6.6,3.55,.3,.8,'#6E887D',.1);R(9.8,3.55,.3,.8,'#6E887D',.1);
+  [[7.4,3.6],[8.4,3.6],[9.3,3.6]].forEach(([cx,cy],i)=>tilt(cx,cy+.2,.6,.45,'#E7D6A9',(1-ok(2))*(i-1)*.7,.12));
+  tilt(8.3,2.5,1.6,.7,'#B89C78',(1-ok(2))*.15,.06);R(7.2,.05,2.4,.35,'#3A4743',.05);tilt(11,2.5,1.0,1.0,'#8FA89C',(1-ok(2))*.3,.2);
+  const pl=P(11.4,.6);ctx.fillStyle='#5E8F62';ctx.beginPath();ctx.arc(pl[0],pl[1],S*.38,0,7);ctx.fill();ctx.fillStyle='#7DB07F';ctx.beginPath();ctx.arc(pl[0]-S*.1,pl[1]-S*.1,S*.2,0,7);ctx.fill();
+  // bedroom: bed (made when done), side tables, wardrobe
+  R(8.2,5.0,3.6,2.6,'#F5F7F8',.12);R(11.2,5.1,.55,1.1,'#FFFFFF',.1);R(11.2,6.45,.55,1.1,'#FFFFFF',.1);
+  const made=ok(3);const dv=P(8.3,5.1);ctx.save();ctx.translate(dv[0]+S*1.4,dv[1]+S*1.2);ctx.rotate((1-made)*.22);ctx.fillStyle='#A9C6D6';ctx.beginPath();ctx.roundRect?ctx.roundRect(-S*1.45,-S*1.15+(1-made)*S*.2,S*2.8,S*2.4-(1-made)*S*.3,S*.12):ctx.rect(-S*1.45,-S*1.15,S*2.8,S*2.4);ctx.fill();
+  if(made>.3){ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(S*.9,-S*1.1);ctx.lineTo(S*.9,S*1.2);ctx.stroke();}ctx.restore();
+  R(5.2,7.35,1.9,.6,'#C2AE95',.05);R(7.6,4.75,.5,.45,'#C2AE95',.06);R(7.6,7.3,.5,.45,'#C2AE95',.06);
+  // hall: shoes by the door, hooks
+  R(.15,7.2,.6,.3,'#8B6E52',.08);R(.15,5.2,.12,1.4,'#B7A58F');}
+function tilt(cx,cy,w,h,col,rot,rr){const c=P(cx,cy);ctx.save();ctx.translate(c[0],c[1]);ctx.rotate(rot);ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(-w*S/2,-h*S/2,w*S,h*S,(rr||0)*S):ctx.rect(-w*S/2,-h*S/2,w*S,h*S);ctx.fill();ctx.restore();}
+
+/* mess, and the sparkle where it was */
+function mess(prog,time){MESS.forEach((list,ri)=>list.forEach((m)=>{const tt=Math.min(m.t,.9), gone=sm(seg(prog[ri],tt-.04,tt+.06));const c=P(m.x,m.y);
+  if(gone<1){ctx.save();ctx.globalAlpha=BA*(1-gone);ctx.translate(c[0],c[1]);ctx.rotate(m.rot);const s=S*m.s;
+    if(m.k==='dust'){ctx.fillStyle='rgba(120,115,100,.35)';const r=rng(Math.floor(m.c*999));for(let i=0;i<14;i++){ctx.beginPath();ctx.arc((r()-.5)*s*.9,(r()-.5)*s*.9,1.2+r()*1.6,0,7);ctx.fill();}}
+    else if(m.k==='crumbs'){ctx.fillStyle='#B48A55';const r=rng(Math.floor(m.c*999)+3);for(let i=0;i<10;i++)ctx.fillRect((r()-.5)*s*.6,(r()-.5)*s*.6,2.2,2.2);}
+    else if(m.k==='stain'){ctx.fillStyle='rgba(140,100,60,.32)';ctx.beginPath();ctx.ellipse(0,0,s*.32,s*.22,0,0,7);ctx.fill();}
+    else if(m.k==='mug'){ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(0,0,s*.16,0,7);ctx.fill();ctx.fillStyle='#6B4A30';ctx.beginPath();ctx.arc(0,0,s*.11,0,7);ctx.fill();ctx.strokeStyle='#FFFFFF';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(s*.17,0,s*.06,-1.5,1.5);ctx.stroke();}
+    else if(m.k==='plate'){ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(0,0,s*.24,0,7);ctx.fill();ctx.fillStyle='#D99A4C';ctx.beginPath();ctx.arc(s*.04,s*.03,s*.08,0,7);ctx.fill();}
+    else if(m.k==='paper'){ctx.fillStyle='#FAFAF7';ctx.fillRect(-s*.18,-s*.24,s*.36,s*.48);ctx.fillStyle='rgba(43,58,52,.25)';for(let i=0;i<4;i++)ctx.fillRect(-s*.12,-s*.16+i*s*.1,s*.24,1.2);}
+    else if(m.k==='towel'){ctx.fillStyle='#E8A7A0';ctx.beginPath();ctx.ellipse(0,0,s*.36,s*.2,0,0,7);ctx.fill();}
+    else if(m.k==='bottle'){ctx.fillStyle='#7FB3D0';ctx.fillRect(-s*.08,-s*.2,s*.16,s*.4);}
+    else if(m.k==='cushion'){ctx.fillStyle='#E7D6A9';ctx.fillRect(-s*.24,-s*.2,s*.48,s*.4);}
+    else if(m.k==='clothes'){ctx.fillStyle=m.c<.5?'#5D7393':'#B76B6B';ctx.beginPath();ctx.moveTo(-s*.35,-s*.15);ctx.lineTo(s*.3,-s*.25);ctx.lineTo(s*.38,s*.2);ctx.lineTo(-s*.25,s*.28);ctx.closePath();ctx.fill();}
+    else{ctx.fillStyle='#5D7393';ctx.fillRect(-s*.15,-s*.06,s*.3,s*.12);}
+    ctx.restore();}
+  // a short sparkle as it goes
+  const sp=seg(prog[ri],tt,tt+.1);if(sp>0&&sp<1)star(c[0],c[1],S*.28*(1-Math.abs(sp*2-1)),ZEST);}));}
+function star(x,y,r,col){if(r<=.5)return;ctx.fillStyle=col;ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4, rr=i%2?r*.35:r;ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}ctx.closePath();ctx.fill();}
+
+/* the cleaner and the trail they leave (a damp sheen that fades) */
+function cleaner(p,prog,time){let pos=null, trailRoom=-1;
+  // walking in from the door during the first stage, then room by room, then out
+  const inP=seg(p,.02,.12);if(p<.12){const L=plens(ENTRY);pos=at(ENTRY,L,L[L.length-1]*sm(inP));}
+  for(let ri=0;ri<4;ri++){const L=PL[ri];if(prog[ri]>0&&prog[ri]<1){pos=at(PATHS[ri],L,L[L.length-1]*prog[ri]);trailRoom=ri;}}
+  if(p>=.86){const out=[[6,3],[3.5,3],[1,4.5],[1,6.5],[1,8.6]];const L=plens(out);pos=at(out,L,L[L.length-1]*sm(seg(p,.88,1)));}
+  if(!pos){// between rooms: stand at the end of the last finished room
+    for(let ri=3;ri>=0;ri--)if(prog[ri]>=1){const P0=PATHS[ri];pos=P0[P0.length-1];break;} if(!pos)pos=ENTRY[ENTRY.length-1];}
+  // the trail in the room being cleaned
+  if(trailRoom>=0){const L=PL[trailRoom], d=L[L.length-1]*prog[trailRoom];ctx.save();ctx.strokeStyle='rgba(120,200,220,.3)';ctx.lineWidth=S*.6;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();let q=P(...PATHS[trailRoom][0]);ctx.moveTo(q[0],q[1]);
+    for(let i=1;i<PATHS[trailRoom].length;i++){if(L[i]>=d){q=P(...at(PATHS[trailRoom],L,d));ctx.lineTo(q[0],q[1]);break;}q=P(...PATHS[trailRoom][i]);ctx.lineTo(q[0],q[1]);}ctx.stroke();ctx.restore();}
+  if(p>=.995)return;
+  const c=P(...pos);const bob=RM?0:Math.sin(time*8)*S*.03;
+  ctx.fillStyle='{{A:rgba(11,127,105,.18)}}';ctx.beginPath();ctx.arc(c[0],c[1],S*.52,0,7);ctx.fill();
+  ctx.fillStyle=ACCENT;ctx.beginPath();ctx.ellipse(c[0],c[1]+bob,S*.3,S*.24,0,0,7);ctx.fill();
+  ctx.fillStyle='#3C2A20';ctx.beginPath();ctx.arc(c[0],c[1]+bob,S*.15,0,7);ctx.fill();}
+
+/* the room being cleaned is outlined in the company colour */
+function active(prog){prog.forEach((v,ri)=>{if(v<=0||v>=1)return;const k=Math.min(seg(v,0,.08),1-seg(v,.92,1));const [x,y,w,h]=AREA[ri];const a=P(x+.12,y+.12);ctx.save();ctx.globalAlpha=BA*k;ctx.strokeStyle=ACCENT;ctx.lineWidth=S*.1;ctx.setLineDash([S*.3,S*.18]);ctx.strokeRect(a[0],a[1],(w-.24)*S,(h-.24)*S);ctx.fillStyle='{{A:rgba(11,127,105,.07)}}';ctx.fillRect(a[0],a[1],(w-.24)*S,(h-.24)*S);ctx.restore();});}
+/* room names, with a tick once done */
+function labels(prog){ctx.setTransform(DPR,0,0,DPR,0,0);AREA.slice(0,4).forEach(([x,y,w,h],ri)=>{const done=prog[ri]>=1, on=prog[ri]>0;const c=SP(x+w*(mobile?[.5,.5,.3,.74][ri]:.5),y+(ri===1?h*.55:ri===3?h*.18:h*.5));
+  const name=ROOMS[ri].n;ctx.font=`700 ${mobile?10:12}px "Nunito Sans",sans-serif`;const tw=ctx.measureText(name).width+(done?22:14);ctx.save();ctx.globalAlpha=BA*(on||done?1:.75);
+  ctx.fillStyle=done?ACCENT:'rgba(255,255,255,.92)';ctx.beginPath();ctx.roundRect?ctx.roundRect(c[0]-tw/2,c[1]-11,tw,22,11):ctx.rect(c[0]-tw/2,c[1]-11,tw,22);ctx.fill();
+  ctx.fillStyle=done?'#fff':'#2B3A34';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((done?'✓ ':'')+name,c[0],c[1]+.5);ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.restore();});}
+/* at the end: everything gleams */
+function gleam(f,time){const k=sm(seg(f[5],0,.6));if(k<=0)return;const r=rng(42);for(let i=0;i<26;i++){const x=r()*12, y=r()*8;const tw=RM?.6:(.5+.5*Math.sin(time*3+i));const c=P(x,y);ctx.globalAlpha=BA*k*tw;star(c[0],c[1],S*(.12+r()*.14),i%3?ZEST:'#FFFFFF');}ctx.globalAlpha=BA;}
+
+/* ============ HUD ============ */
+const tk=$('#ticks');let shown=-1, shownRoom=-2;
+function hud(p,f,prog){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#vNum').textContent=idx+1;$('#vTitle').textContent=STAGES[idx].n;$('#vText').textContent=STAGES[idx].c;$('#vClock').textContent=STAGES[idx].clock;}
+  const ri=idx>=1&&idx<=4?idx-1:-1;
+  if(ri!==shownRoom){shownRoom=ri;tk.innerHTML=ri<0?'':ROOMS[ri].tasks.map(t=>`<li>${t.replace(/[<>&]/g,'')}</li>`).join('');}
+  if(ri>=0)[...tk.children].forEach((li,i,a)=>li.classList.toggle('on',prog[ri]>=(i+1)/a.length-.02));
+  const done=prog.filter(x=>x>=1).length;$('#sRooms').innerHTML=`${done}<small>/ ${ROOMS.length}</small>`;
+  const ticks=ROOMS.reduce((a,r,i)=>a+Math.floor(r.tasks.length*clamp(prog[i]+.02)),0);$('#sTicks').textContent=ticks;
+  $('#sTime').innerHTML=`${Math.round(MINUTES*seg(p,.04,.95))}<small>min</small>`;}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0,last=-1;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F3F7F5';ctx.fillRect(0,0,cv.width,cv.height);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  place({S:lerp(LA.S,LB.S,m),CX:lerp(LA.CX,LB.CX,m),CY:lerp(LA.CY,LB.CY,m)});
+  ctx.setTransform(DPR,0,0,DPR,0,0);if(mobile){ctx.translate(CX,CY);ctx.rotate(Math.PI/2);ctx.translate(-CX,-CY);}
+  // on a phone the plan sits faint behind the opening words
+  BA=mobile?.22+.78*k:1;ctx.globalAlpha=BA;
+  // the flat sits on a soft shadow
+  const a=P(-.2,-.2);ctx.fillStyle='rgba(19,38,31,.06)';ctx.fillRect(a[0]+S*(mobile?.35:.2),a[1]+S*(mobile?-.2:.35),12.4*S,8.4*S);
+  const b0=P(-.4,-.4);ctx.drawImage(base,b0[0],b0[1],12.8*S,8.8*S);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));const prog=[f[1],f[2],f[3],f[4]].map(x=>seg(x,.05,.95));
+  furniture(prog);active(prog);mess(prog,time);cleaner(p,prog,time);gleam(f,time);labels(prog);ctx.globalAlpha=1;copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,prog);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+Math.round(n).toLocaleString('en-GB');
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const dur=m=>{m=Math.round(m/10)*10;const h=Math.floor(m/60), r=m%60;return h?`${h}h${r?' '+r+'m':''}`:`${r}m`;};
+
+/* ============ PRICE ============ */
+// each type of clean: a base price plus a price per bedroom and per bathroom, the minutes each takes, and whether it can repeat
+const KINDS=[
+{{$.kindsJs|raw}}
+];
+const OFTEN=[{{$.oftenJs|raw}}];
+// extras: a price and the minutes they add; "in" lists the types of clean that already include them
+const EXTRAS=[
+{{$.extrasJs|raw}}
+];
+const LIMITS={bed:[{{quote.limits.bed.0}},{{quote.limits.bed.1}}],bath:[{{quote.limits.bath.0}},{{quote.limits.bath.1}}]};
+const SOLO={{quote.solo}}; // minutes one cleaner works; longer cleans send two
+const KIT={{quote.kit|js}};
+const q={bed:2,bath:1,kind:0,often:1,extras:new Set()};
+$('#kinds').innerHTML=KINDS.map((k,i)=>`<button type="button" aria-pressed="${i===q.kind}" data-i="${i}">${esc(k.n)}</button>`).join('');
+$('#often').innerHTML=OFTEN.map((o,i)=>`<button type="button" aria-pressed="${i===q.often}" data-i="${i}">${esc(o.n)}${o.off?` · ${o.off}% off`:''}</button>`).join('');
+function drawExtras(){const k=q.kind;$('#extras').innerHTML=EXTRAS.map((x,i)=>{const inc=x.in.includes(k);return `<button type="button" class="extra" aria-pressed="${inc||q.extras.has(i)}" data-i="${i}"${inc?' disabled':''}><b>${esc(x.n)}</b><span>${inc?'Included':'+'+money(x.p)}</span></button>`;}).join('');}
+function quote(){const k=KINDS[q.kind], o=k.repeat?OFTEN[q.often]:OFTEN[OFTEN.length-1];
+  let full=k.base+k.bed*q.bed+k.bath*q.bath, mins=k.mins[0]+k.mins[1]*q.bed+k.mins[2]*q.bath;
+  EXTRAS.forEach((x,i)=>{if(!x.in.includes(q.kind)&&q.extras.has(i)){full+=x.p;mins+=x.m;}});
+  const price=full*(1-o.off/100), who=Math.max(1,Math.ceil(mins/SOLO));
+  return {k,o,full,price,mins,who};}
+function draw(){const r=quote();
+  $('#oBed').textContent=q.bed;$('#oBath').textContent=q.bath;
+  document.querySelectorAll('.step button').forEach(b=>{const lim=LIMITS[b.dataset.k], v=q[b.dataset.k]+ +b.dataset.d;b.disabled=v<lim[0]||v>lim[1];});
+  [...$('#often').children].forEach((b,i)=>{b.disabled=!r.k.repeat&&i<OFTEN.length-1;b.setAttribute('aria-pressed',String(r.k.repeat?i===q.often:i===OFTEN.length-1));});
+  $('#qPrice').innerHTML=`${money(r.price)}<small>${r.k.repeat&&r.o.off?'per clean':'one-off'}</small>`;
+  $('#qWas').innerHTML=r.o.off?`<s>${money(r.full)}</s>${esc(r.o.n.toLowerCase())} saves ${r.o.off}%`:r.k.repeat?'Book it regularly and save up to '+Math.max(...OFTEN.map(o=>o.off))+'%':'A one-off clean, top to bottom';
+  $('#qWho').textContent=r.who;$('#qTime').textContent=dur(r.mins/r.who);$('#qKit').textContent=KIT;
+  const home=`${q.bed?q.bed+' bed':'Studio'}, ${q.bath} bath`;
+  $('#bHome').textContent=home;$('#bKind').textContent=r.k.n;$('#bOften').textContent=r.o.n;$('#bPrice').textContent=money(r.price);}
+document.querySelector('.rooms').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;q[b.dataset.k]+= +b.dataset.d;draw();});
+$('#kinds').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;q.kind=+b.dataset.i;press($('#kinds'),b);drawExtras();draw();showInc(q.kind);});
+$('#often').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;q.often=+b.dataset.i;draw();});
+$('#extras').addEventListener('click',e=>{const b=e.target.closest('.extra');if(!b||b.disabled)return;const i=+b.dataset.i;q.extras.has(i)?q.extras.delete(i):q.extras.add(i);b.setAttribute('aria-pressed',String(q.extras.has(i)));draw();});
+
+/* ============ WHAT'S INCLUDED ============ */
+// each room's checklist; "in" lists the types of clean that do the task
+const CHECKLIST=[
+{{$.checklistJs|raw}}
+];
+const PROMISES=[
+{{$.promisesJs|raw}}
+];
+$('#incTabs').innerHTML=KINDS.map((k,i)=>`<button type="button" aria-pressed="${i===0}" data-i="${i}">${esc(k.n)}</button>`).join('');
+$('#roomGrid').style.setProperty('--n',Math.min(4,CHECKLIST.length));
+function showInc(k){press($('#incTabs'),$('#incTabs').children[k]);
+  $('#roomGrid').innerHTML=CHECKLIST.map(r=>`<div class="panel room"><h3>${esc(r.n)}</h3><ul>${r.tasks.map(t=>`<li class="${t.in.includes(k)?'yes':'no'}">${esc(t.t)}</li>`).join('')}</ul></div>`).join('');}
+$('#incTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;showInc(+b.dataset.i);});
+$('#promises').style.setProperty('--n',Math.min(3,PROMISES.length));
+$('#promises').innerHTML=PROMISES.map(p=>`<div class="panel promise"><b>${esc(p.b)}</b><span>${esc(p.s)}</span></div>`).join('');
+
+/* ============ BOOK ============ */
+const TIMES=[{{$.timesJs|raw}}];
+const CLOSED=[{{$.closedJs|raw}}]; // days of the week with no cleans (0 is Sunday)
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const days=[];for(let d=1;days.length<7;d++){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()+d);days.push(day);}
+let dSel=days.findIndex(d=>!CLOSED.includes(d.getDay())), tSel=0;
+$('#days').innerHTML=days.map((d,i)=>`<button type="button" class="day" aria-pressed="${i===dSel}" data-i="${i}"${CLOSED.includes(d.getDay())?' disabled':''}>${DOW[d.getDay()]}<b>${d.getDate()}</b></button>`).join('');
+$('#times').innerHTML=TIMES.map((t,i)=>`<button type="button" aria-pressed="${i===tSel}" data-i="${i}">${esc(t)}</button>`).join('');
+const when=()=>`${DOW[days[dSel].getDay()]} ${days[dSel].getDate()} ${MON[days[dSel].getMonth()]}, ${TIMES[tSel]}`;
+function drawWhen(){$('#bWhen').textContent=when();$('#confirm').hidden=true;}
+$('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b||b.disabled)return;dSel=+b.dataset.i;press($('#days'),b);drawWhen();});
+$('#times').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tSel=+b.dataset.i;press($('#times'),b);drawWhen();});
+$('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,''), ad=$('#fAddr').value.trim();
+  if(!nm)return fail('Add your name.',$('#fName'));
+  if(ph.length<7)return fail('Add a phone number so your cleaner can text you.',$('#fPhone'));
+  if(!ad)return fail('Add the address to clean.',$('#fAddr'));
+  err.hidden=true;const r=quote(), c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, your ${esc(r.k.n.toLowerCase())} is booked for ${esc(when())}, ${esc(money(r.price))}.</b><span>On a live site you'd get a text with your cleaner's name the evening before.</span>`;c.hidden=false;});
+
+drawExtras();draw();showInc(0);drawWhen();
+})();
+</script>
+
+</body></html>

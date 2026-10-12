@@ -1,0 +1,70 @@
+{
+  "name": "brisk",
+  "category": "cleaning company",
+  "reference": "reference/brisk-original.html",
+  "referenceSha256": "94b43371c010465ac71fb2e1ad6fbcfc215ad0a11408454531e831aba5dbbdf9",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#0B7F69",
+      "target": "theme.accent",
+      "about": "the company's colour: buttons, the logo, the cleaner on the plan, finished rooms, ticked tasks, picked extras and tabs"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.25, 0.55] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#0B7F69", 4.5, "button text on the accent"],
+      ["A:#0A715D", "#F3F7F5", 4.5, "accent text on the page"],
+      ["A:#0A715D", "#E3EEE9", 4.5, "accent text on the tinted section"],
+      ["A:#0A715D", "A:#DDF2EB", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family};letter-spacing:-.025em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Lexend:wght@600&display=swap", "family": "Lexend" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.05em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Lexend:wght@700&display=swap", "family": "Lexend" }
+      }
+    },
+    "brand": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.03em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Lexend:wght@700&display=swap", "family": "Lexend" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@800&display=swap", "family": "Nunito Sans" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 16, 220],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

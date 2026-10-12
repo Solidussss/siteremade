@@ -1,0 +1,499 @@
+{
+  "business": {
+    "name": "Brisk Home Cleaning"
+  },
+  "brand": {
+    "name": "Brisk"
+  },
+  "contact": {
+    "phone": "020 7946 0188"
+  },
+  "nav": {
+    "quote": "Price",
+    "included": "What's included",
+    "book": "Book",
+    "cta": "Get a price"
+  },
+  "hero": {
+    "eyebrow": "Brisk · home cleaning, North London",
+    "title": "Come home to it.",
+    "titleEm": "Every room, every time.",
+    "lede": "The same vetted cleaner every visit, a checklist for every room, and a price you see before you book. Scroll and watch a flat cleaned, room by room.",
+    "cta": "Get a price",
+    "cta2": "What's included",
+    "hint": "Scroll to start the clean"
+  },
+  "clean": {
+    "minutes": 140,
+    "price": "£68",
+    "rooms": [
+      {
+        "n": "Kitchen",
+        "tasks": [
+          "Hob",
+          "Sink",
+          "Surfaces",
+          "Floor"
+        ]
+      },
+      {
+        "n": "Bathroom",
+        "tasks": [
+          "Taps",
+          "Toilet",
+          "Mirror",
+          "Floor"
+        ]
+      },
+      {
+        "n": "Living room",
+        "tasks": [
+          "Dusting",
+          "Cushions",
+          "Vacuum"
+        ]
+      },
+      {
+        "n": "Bedroom",
+        "tasks": [
+          "Bed made",
+          "Dusting",
+          "Vacuum"
+        ]
+      }
+    ]
+  },
+  "stages": [
+    {
+      "n": "Let in",
+      "c": "Maria lets herself in with the key from the lockbox, shoes off, and starts where the mess is worst.",
+      "clock": "10:00"
+    },
+    {
+      "n": "Kitchen",
+      "c": "Hob degreased, sink scrubbed, every surface wiped and the floor mopped edge to edge.",
+      "clock": "10:05"
+    },
+    {
+      "n": "Bathroom",
+      "c": "Limescale off the taps, the loo cleaned inside and out, the mirror streak-free.",
+      "clock": "10:50"
+    },
+    {
+      "n": "Living room",
+      "c": "Dusted top to bottom, cushions plumped, the rug and floor vacuumed under the sofa too.",
+      "clock": "11:20"
+    },
+    {
+      "n": "Bedroom",
+      "c": "Bed made with the fresh sheets you left out, surfaces dusted, the floor vacuumed.",
+      "clock": "11:50"
+    },
+    {
+      "n": "Done",
+      "c": "Bins out, a last walk round with the checklist, and a photo of each room sent to you.",
+      "clock": "12:20"
+    }
+  ],
+  "quote": {
+    "eyebrow": "Price",
+    "title": "Your price in four taps.",
+    "sub": "Tell us about your home and how often. The price is what you pay: no hourly guessing, no surprises on the day.",
+    "kinds": [
+      {
+        "n": "Regular",
+        "base": 30,
+        "bed": 13,
+        "bath": 20,
+        "mins": [
+          50,
+          25,
+          40
+        ],
+        "repeat": true
+      },
+      {
+        "n": "Deep clean",
+        "base": 75,
+        "bed": 30,
+        "bath": 40,
+        "mins": [
+          120,
+          60,
+          80
+        ],
+        "repeat": false
+      },
+      {
+        "n": "End of tenancy",
+        "base": 110,
+        "bed": 40,
+        "bath": 45,
+        "mins": [
+          180,
+          70,
+          90
+        ],
+        "repeat": false
+      },
+      {
+        "n": "After builders",
+        "base": 140,
+        "bed": 45,
+        "bath": 45,
+        "mins": [
+          240,
+          80,
+          90
+        ],
+        "repeat": false
+      }
+    ],
+    "often": [
+      {
+        "n": "Weekly",
+        "off": 15
+      },
+      {
+        "n": "Fortnightly",
+        "off": 10
+      },
+      {
+        "n": "Monthly",
+        "off": 5
+      },
+      {
+        "n": "Just once",
+        "off": 0
+      }
+    ],
+    "extras": [
+      {
+        "n": "Inside the oven",
+        "p": 35,
+        "m": 60,
+        "in": [
+          2,
+          3
+        ]
+      },
+      {
+        "n": "Inside the fridge",
+        "p": 20,
+        "m": 30,
+        "in": [
+          2
+        ]
+      },
+      {
+        "n": "Inside windows",
+        "p": 25,
+        "m": 40,
+        "in": [
+          2,
+          3
+        ]
+      },
+      {
+        "n": "Ironing, one hour",
+        "p": 22,
+        "m": 60,
+        "in": []
+      },
+      {
+        "n": "Fresh bed linen on",
+        "p": 8,
+        "m": 15,
+        "in": []
+      },
+      {
+        "n": "Balcony or patio",
+        "p": 18,
+        "m": 30,
+        "in": [
+          3
+        ]
+      }
+    ],
+    "limits": {
+      "bed": [
+        0,
+        6
+      ],
+      "bath": [
+        1,
+        4
+      ]
+    },
+    "solo": 240,
+    "kit": "Ours",
+    "note": "We bring everything, including eco-friendly products and a vacuum. Pay after the clean, never before.",
+    "cta": "Book this clean"
+  },
+  "included": {
+    "eyebrow": "What's included",
+    "title": "Exactly what we clean.",
+    "sub": "Every clean follows the same checklist, room by room. Pick a type of clean to see what changes.",
+    "checklist": [
+      {
+        "n": "Kitchen",
+        "tasks": [
+          {
+            "t": "Worktops and splashback",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Hob and cupboard fronts",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Sink and taps polished",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Inside cupboards",
+            "in": [
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Behind the cooker",
+            "in": [
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Floor mopped",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Bathroom",
+        "tasks": [
+          {
+            "t": "Toilet, inside and out",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Shower and bath",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Mirrors streak-free",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Limescale off taps",
+            "in": [
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Grout scrubbed",
+            "in": [
+              1,
+              2
+            ]
+          },
+          {
+            "t": "Floor mopped",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Living areas",
+        "tasks": [
+          {
+            "t": "Dusting, top to bottom",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Vacuum, under the sofa",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Skirting boards",
+            "in": [
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Light switches and doors",
+            "in": [
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Plaster dust off every surface",
+            "in": [
+              3
+            ]
+          },
+          {
+            "t": "Tidying",
+            "in": [
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "n": "Bedrooms",
+        "tasks": [
+          {
+            "t": "Beds made",
+            "in": [
+              0,
+              1
+            ]
+          },
+          {
+            "t": "Dusting",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Vacuum, under the bed",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Inside wardrobes",
+            "in": [
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Mirrors and glass",
+            "in": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "t": "Radiators wiped",
+            "in": [
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      }
+    ],
+    "promises": [
+      {
+        "b": "The same cleaner",
+        "s": "One person who learns your home, not whoever is free."
+      },
+      {
+        "b": "Pay after, not before",
+        "s": "Your card is charged once the clean is done."
+      },
+      {
+        "b": "Redo it, free",
+        "s": "Missed something? Tell us within 24 hours and we come back."
+      }
+    ]
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a day. We'll do the rest.",
+    "sub": "Choose a day and a start time. Your cleaner texts the evening before, and you can reschedule free up to 24 hours ahead.",
+    "times": [
+      "8am",
+      "10am",
+      "1pm"
+    ],
+    "closed": [
+      0
+    ],
+    "cta": "Book the clean",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123",
+    "addrExample": "Flat 3, 24 Elm Row, N16",
+    "accessExample": "Key with the concierge, lockbox code, or you'll be in",
+    "note": "Not happy with anything? Tell us within 24 hours and we'll come back and redo it, free."
+  },
+  "footer": {
+    "fine": "Brisk Home Cleaning is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#0B7F69"
+  }
+}

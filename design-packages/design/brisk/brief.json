@@ -1,0 +1,40 @@
+{
+  "title": "Cleaning company",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Brisk Home Cleaning" },
+    { "key": "location", "label": "Where you're based", "required": true, "help": "Town or city, and the areas you cover." },
+    { "key": "phone", "label": "Phone for customers", "required": true },
+    { "key": "services", "label": "Types of clean and prices", "type": "textarea", "required": true, "help": "Regular, deep, end of tenancy, after builders... and how you price them: per bedroom and bathroom, by the hour, or fixed. Discounts for weekly or fortnightly cleans." },
+    { "key": "extras", "label": "Extras", "type": "textarea", "help": "Ovens, fridges, windows, ironing, laundry: the price of each and which cleans already include it." },
+    { "key": "checklist", "label": "What you clean", "type": "textarea", "help": "Your checklist for each room, and what changes for a deep or end of tenancy clean." },
+    { "key": "promises", "label": "Guarantees", "type": "textarea", "help": "Same cleaner every time, re-clean guarantee, insurance, how and when customers pay." },
+    { "key": "booking", "label": "Booking", "help": "Start times you offer and days you don't work." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo or uniform colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "clean.price",
+    "quote.kinds.*.base",
+    "quote.kinds.*.bed",
+    "quote.kinds.*.bath",
+    "quote.often.*.off",
+    "quote.extras.*.p",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one visit through a flat's floor plan, room by room: let in, kitchen, bathroom, living room, bedroom, done. clean.rooms are those four rooms in that order (rename only, e.g. Lounge), each with two to four short tasks (one or two words) that tick off as the cleaner works. Write the six stages for that visit: a short name, a caption and a clock time; name the cleaner in the first caption only if the brief gives a name, otherwise say 'your cleaner'.",
+    "clean.minutes and clean.price are the example visit's length and price as shown with the currency; use the brief's own price for a two-bedroom, one-bathroom regular clean when it gives one.",
+    "quote.kinds: the types of clean from the brief (one to four), each priced as base + per bedroom + per bathroom with minutes [base, per bedroom, per bathroom]. If the brief prices by the hour, convert using the brief's rate and the minutes, and say so in quote.note. repeat is true only for cleans that can be booked weekly or fortnightly. quote.often: the brief's discounts, the last option is always the one-off (off 0). If the brief gives no discounts, use the regular options with off 0.",
+    "quote.extras: the brief's add-ons with price and minutes; in lists the types of clean (their numbers in quote.kinds, from 0) that already include each one. quote.limits are the bedroom and bathroom stepper ranges (they must include 2 bedrooms and 1 bathroom). quote.solo is the minutes one cleaner works before a second is sent (240 if not given). quote.kit is who brings the products (Ours, Yours).",
+    "included.checklist: two to four room groups with three to eight tasks each, from the brief; in lists the types of clean that do each task. included.promises: up to three guarantees from the brief, each a short line and a sentence. Never invent an insurance amount, a vetting process or a guarantee the brief doesn't give.",
+    "book.times: start times offered; book.closed: days with no cleans (0 Sunday to 6 Saturday). The booking is a demo: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the company's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Types of clean", "path": "quote.kinds", "fields": ["n", "base", "bed", "bath"] },
+    { "label": "Extras", "path": "quote.extras", "fields": ["n", "p"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}
