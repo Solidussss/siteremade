@@ -1,0 +1,308 @@
+{
+  "business": {
+    "name": "Ledgerly"
+  },
+  "brand": {
+    "name": "Ledgerly"
+  },
+  "nav": {
+    "why": "Why Ledgerly",
+    "integrations": "Integrations",
+    "pricing": "Pricing",
+    "start": "Get started",
+    "signin": "Log in",
+    "cta": "Try it free"
+  },
+  "hero": {
+    "eyebrow": "Ledgerly · month-end close for small finance teams",
+    "title": "Close the books.",
+    "titleEm": "Not your weekend.",
+    "lede": "Ledgerly pulls bank feeds, invoices, receipts, payroll and client email into one close checklist, matched and assigned. Scroll through a month-end that finishes on time.",
+    "cta": "Try it free",
+    "cta2": "See pricing",
+    "hint": "Scroll to run the close"
+  },
+  "demo": {
+    "team": "Harbor & Pine",
+    "open": [
+      212,
+      6
+    ],
+    "switches": [
+      84,
+      12
+    ],
+    "hoursBack": 9
+  },
+  "stages": [
+    {
+      "n": "Day one",
+      "c": "Two hundred unmatched lines, receipts in three inboxes, and a client who has not sent the payroll file.",
+      "clock": "Day 1 8:30"
+    },
+    {
+      "n": "Connected",
+      "c": "Bank feeds, invoices, receipts, payroll and the shared inbox flow into Ledgerly. No more exporting CSVs.",
+      "clock": "Day 1 9:10"
+    },
+    {
+      "n": "Matched",
+      "c": "Ledgerly matches what it can and sorts the rest by who has to act and how soon.",
+      "clock": "Day 1 11:40"
+    },
+    {
+      "n": "Assigned",
+      "c": "Every open item becomes a task with an owner, a due day and the source document attached.",
+      "clock": "Day 2 10:00"
+    },
+    {
+      "n": "Reviewed",
+      "c": "Items move to closed as they are reviewed. Notes and approvals sync back to the ledger.",
+      "clock": "Day 4 15:20"
+    },
+    {
+      "n": "Closed",
+      "c": "Day five, 4 p.m. Six items left, all waiting on one client. The rest of the month is closed.",
+      "clock": "Day 5 16:00"
+    }
+  ],
+  "sources": [
+    {
+      "n": "Bank feeds",
+      "g": "$"
+    },
+    {
+      "n": "Invoices",
+      "g": "IN"
+    },
+    {
+      "n": "Receipts",
+      "g": "R"
+    },
+    {
+      "n": "Payroll",
+      "g": "P"
+    },
+    {
+      "n": "Client email",
+      "g": "@"
+    }
+  ],
+  "lanes": [
+    "To match",
+    "In review",
+    "Waiting on",
+    "Closed"
+  ],
+  "cards": [
+    {
+      "t": "Match Stripe payouts, week 2",
+      "s": 0,
+      "l": 0,
+      "who": "RB",
+      "ships": true
+    },
+    {
+      "t": "Unpaid invoice: Cole Dental",
+      "s": 1,
+      "l": 0,
+      "who": "MN"
+    },
+    {
+      "t": "Fuel receipts, two cards",
+      "s": 2,
+      "l": 0,
+      "who": "JT"
+    },
+    {
+      "t": "Accrue the October rent",
+      "s": 0,
+      "l": 1,
+      "who": "RB",
+      "ships": true
+    },
+    {
+      "t": "Payroll journal for October",
+      "s": 3,
+      "l": 1,
+      "who": "MN"
+    },
+    {
+      "t": "Software subscriptions review",
+      "s": 2,
+      "l": 1,
+      "who": "JT"
+    },
+    {
+      "t": "Payroll file from Harbor & Pine",
+      "s": 4,
+      "l": 2,
+      "who": "MN"
+    },
+    {
+      "t": "Signed engagement letter",
+      "s": 4,
+      "l": 2,
+      "who": "RB"
+    },
+    {
+      "t": "Bank rec: operating account",
+      "s": 0,
+      "l": 3,
+      "who": "JT"
+    },
+    {
+      "t": "Sales tax return filed",
+      "s": 1,
+      "l": 3,
+      "who": "MN"
+    }
+  ],
+  "cost": {
+    "eyebrow": "Where the close goes",
+    "title": "Month-end has a price. Here is yours.",
+    "sub": "Three numbers about your team. We will show the hours a year spent chasing documents and matching by hand, and how much of it Ledgerly gives back.",
+    "team": 6,
+    "lost": 6,
+    "rate": 75,
+    "save": 40,
+    "note": "An illustration, not a measured result: we assume Ledgerly gives back 40% of the time lost. Your number will differ."
+  },
+  "integrations": {
+    "eyebrow": "Integrations",
+    "title": "Works with your ledger.",
+    "sub": "Pick a tool to see what flows into Ledgerly and what goes back. Your books stay in your accounting system; Ledgerly keeps the close moving.",
+    "all": "All",
+    "kinds": [
+      "Accounting",
+      "Banking",
+      "Payroll",
+      "Payments",
+      "Email"
+    ],
+    "items": [
+      {
+        "n": "QuickBooks Online",
+        "k": "Accounting",
+        "in": "Unreconciled transactions and open bills",
+        "out": "Matches, journal entries and attachments",
+        "sync": "Two-way, every 15 min"
+      },
+      {
+        "n": "Xero",
+        "k": "Accounting",
+        "in": "Bank lines and unpaid invoices",
+        "out": "Reconciliations and notes",
+        "sync": "Two-way, every 15 min"
+      },
+      {
+        "n": "Plaid",
+        "k": "Banking",
+        "in": "Daily bank and card transactions",
+        "out": "Nothing: read-only",
+        "sync": "One-way in, daily"
+      },
+      {
+        "n": "Gusto",
+        "k": "Payroll",
+        "in": "Payroll runs and journal summaries",
+        "out": "Nothing: read-only",
+        "sync": "One-way in, per run"
+      },
+      {
+        "n": "Stripe",
+        "k": "Payments",
+        "in": "Payouts, fees and refunds",
+        "out": "Nothing: read-only",
+        "sync": "One-way in, hourly"
+      },
+      {
+        "n": "Gmail",
+        "k": "Email",
+        "in": "Client emails with attachments, filed to the right task",
+        "out": "Requests for missing documents",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Outlook",
+        "k": "Email",
+        "in": "Client emails with attachments",
+        "out": "Requests for missing documents",
+        "sync": "Two-way, live"
+      }
+    ]
+  },
+  "pricing": {
+    "eyebrow": "Pricing",
+    "title": "Per seat, billed simply.",
+    "sub": "Tell us how many people close the books and how you would like to pay. The plan that fits lights up.",
+    "yearlyOff": 15,
+    "seats": 6,
+    "tiers": [
+      {
+        "n": "Solo",
+        "for": "For a bookkeeper with a handful of clients.",
+        "price": 0,
+        "max": 1,
+        "feats": [
+          "One person",
+          "Up to 5 clients",
+          "Bank and ledger sync"
+        ],
+        "cta": "Start free"
+      },
+      {
+        "n": "Firm",
+        "for": "For practices closing many clients a month.",
+        "price": 39,
+        "max": 0,
+        "feats": [
+          "Unlimited clients",
+          "Client request portal",
+          "Review and approvals",
+          "Priority support"
+        ],
+        "cta": "Start the trial"
+      }
+    ]
+  },
+  "faq": {
+    "title": "Questions we get",
+    "items": [
+      {
+        "q": "Does Ledgerly replace QuickBooks or Xero?",
+        "a": "No. Your books stay in your ledger. Ledgerly reads from it, writes matches and notes back, and keeps the close checklist."
+      },
+      {
+        "q": "Is there a trial?",
+        "a": "Firm comes with a 14-day trial for your whole team. Solo is free for one person."
+      },
+      {
+        "q": "Where is our data kept?",
+        "a": "In the US, encrypted at rest. Bank connections are read-only."
+      }
+    ]
+  },
+  "start": {
+    "eyebrow": "Get started",
+    "title": "Your close, set up in a minute.",
+    "sub": "Name the practice, pick the tools to connect and how big the team is. The preview builds as you go.",
+    "host": "ledgerly.app/",
+    "preset": [
+      "QuickBooks Online",
+      "Plaid",
+      "Gmail"
+    ],
+    "mailExample": "you@harborpine.com",
+    "cta": "Create workspace"
+  },
+  "footer": {
+    "fine": "Ledgerly is a made-up product for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#2457E6"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "plait",
+  "category": "software product (SaaS)",
+  "reference": "reference/plait-original.html",
+  "referenceSha256": "6ae030f739ed53803341ba0e0639a52170a2ea615b8eaacd6b2fcab8df57ca8c",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#6E56FF",
+      "target": "theme.accent",
+      "about": "the product's colour: buttons, the knot the threads pass through, the glow behind it, the step dots, sliders, the plan that fits, checked tools, eyebrows and the footer full stop"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.7] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#6E56FF", 4.5, "button text on the accent"],
+      ["A:#5A41F0", "#F4F3EF", 4.5, "accent text on the paper"],
+      ["A:#8C79FF", "#0B0E1A", 4.5, "accent text on the night"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.025em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap", "family": "Bricolage Grotesque" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap", "family": "Inter" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "display",
+      "size": [40, 16, 220],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

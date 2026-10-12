@@ -28,13 +28,14 @@ test('each kind of business reaches its design; others are told none fits', () =
     ['A sushi bar in Seattle', null],
     ['Roofing contractor in Austin', 'keel'],
     ['We replace roofs: asphalt shingles and standing seam metal', 'keel'],
-    ['Roofing software for contractors', null],
-    ['Booking software for barbers', null],
+    ['Roofing software for contractors', 'plait'],
+    ['A SaaS tool that pulls email and Slack into one task list', 'plait'],
+    ['Booking software for barbers', 'plait'],
     ['A nail salon', null],
     ['An organic skincare brand', null],
     ['A law firm for tenants', null],
   ];
   for (const [t, want] of cases) assert.equal(route(t).best, want, t);
   const r = route('Booking software for barbers');
-  assert.equal(r.industry.id, 'software'); assert.deepEqual(r.fits, [], 'the barber words do not make software a barbershop');
+  assert.equal(r.industry.id, 'software'); assert.deepEqual(r.fits.map((f) => f.design), ['plait'], 'the barber words do not make software a barbershop');
 });

@@ -1,0 +1,108 @@
+{
+  "title": "Software product (SaaS)",
+  "fields": [
+    {
+      "key": "businessName",
+      "label": "Product or company name",
+      "required": true,
+      "help": "e.g. Plait"
+    },
+    {
+      "key": "product",
+      "label": "What the product does",
+      "type": "textarea",
+      "required": true,
+      "help": "Who it is for, the problem, and what it pulls together or automates. Name the tools or sources it connects to if any."
+    },
+    {
+      "key": "workflow",
+      "label": "How work flows through it",
+      "type": "textarea",
+      "help": "Optional: the stages or columns your users move things through (e.g. Today, This week, Waiting on, Done) and typical items."
+    },
+    {
+      "key": "integrations",
+      "label": "Integrations",
+      "type": "textarea",
+      "help": "The tools you connect to, and for each what comes in and what goes back, if you know."
+    },
+    {
+      "key": "pricing",
+      "label": "Plans and pricing",
+      "type": "textarea",
+      "required": true,
+      "help": "Each plan with its price per seat a month, seat limits, the yearly discount, and what is in it."
+    },
+    {
+      "key": "results",
+      "label": "Results you can stand behind",
+      "type": "textarea",
+      "help": "Optional: time saved or other numbers from real customers or a beta, and where they come from."
+    },
+    {
+      "key": "faq",
+      "label": "Questions buyers ask",
+      "type": "textarea",
+      "help": "Trials, data and security, cancelling, migration, support."
+    },
+    {
+      "key": "signup",
+      "label": "Sign-up",
+      "help": "Your app's address for workspaces (e.g. plait.app/), and whether there is a free plan or trial."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €"
+    },
+    {
+      "key": "colours",
+      "label": "Brand colour",
+      "help": "Optional: as a name or hex code."
+    }
+  ],
+  "facts": [
+    "pricing.tiers.*.price",
+    "pricing.tiers.*.max",
+    "pricing.tiers.*.feats.*",
+    "pricing.yearlyOff",
+    "cost.save",
+    "cost.note",
+    "integrations.items.*.n",
+    "integrations.items.*.sync",
+    "faq.items.*.a",
+    "start.host",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one week of the product: threads from five sources tangle, then pass through the product (the knot), come out sorted into four lanes as work cards, a few move to the last lane, and everything settles into the product's window. Adapt all of it to the product: sources are the five things it pulls work from (tools, inboxes, channels, forms) with a one- or two-character glyph each; lanes are its four columns, the last one meaning done; cards are 8-16 realistic items for the example team (4 at most per lane), each from a source (s 0-4) in a lane (l 0-3) with an owner's initials, and one to three not already done marked ships: true.",
+    "stages: six steps in order (the mess before, connecting, sorting, becoming work, getting done, the calm after), each with a short name, a caption in the product's voice and a clock time across one week (Mon 9:14 ... Fri 16:30). demo: an invented example team's name and the readouts before and after (open items, tool switches, hours a week given back); keep them plausible and consistent with the captions.",
+    "cost: the calculator's starting team size, hours lost per person a week, hourly cost, and save (the percent of lost time the product gives back). save and cost.note must come from the brief's results; if the brief has none, use a modest figure (30-50) and say in the note that it is an illustration, not a measured result.",
+    "integrations: kinds are the categories (2-8), items the tools from the brief, each with what comes in, what goes back and how it syncs (Two-way, live; One-way in, every 5 min...). Never list an integration the brief does not name. start.preset ticks up to six of them in the setup preview.",
+    "pricing.tiers: the brief's plans, smallest first, price per seat a month (0 for a free plan), seat limit (max; 0 on the last plan), two to six features and a button label each. pricing.yearlyOff is the yearly discount in percent (0 if none). faq: two to eight questions with answers from the brief.",
+    "hero.title and hero.titleEm are a short two-part headline (four lines at most on a desktop). theme.accent is the product's colour, dark enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav, the product window and the footer (often the same)."
+  ],
+  "readBack": [
+    {
+      "label": "Plans",
+      "path": "pricing.tiers",
+      "fields": [
+        "n",
+        "price",
+        "max"
+      ]
+    },
+    {
+      "label": "Integrations",
+      "path": "integrations.items",
+      "fields": [
+        "n",
+        "k"
+      ]
+    }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

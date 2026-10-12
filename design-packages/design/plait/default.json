@@ -1,0 +1,429 @@
+{
+  "business": {
+    "name": "Plait"
+  },
+  "brand": {
+    "name": "Plait"
+  },
+  "nav": {
+    "why": "Why Plait",
+    "integrations": "Integrations",
+    "pricing": "Pricing",
+    "start": "Get started",
+    "signin": "Sign in",
+    "cta": "Start free"
+  },
+  "hero": {
+    "eyebrow": "Plait · the work inbox for teams",
+    "title": "Five tools, one thread.",
+    "titleEm": "Untangled by Friday.",
+    "lede": "Plait pulls the email, chat, docs, tickets and invites your team juggles into one timeline, sorted into work with an owner. Scroll and watch a week untangle.",
+    "cta": "Start free",
+    "cta2": "See pricing",
+    "hint": "Scroll to untangle the week"
+  },
+  "demo": {
+    "team": "Northwind",
+    "open": [
+      47,
+      3
+    ],
+    "switches": [
+      61,
+      9
+    ],
+    "hoursBack": 6.5
+  },
+  "stages": [
+    {
+      "n": "Scattered",
+      "c": "Monday, 9:14. Forty-seven open threads across five tools, and nobody sure which ones are theirs.",
+      "clock": "Mon 9:14"
+    },
+    {
+      "n": "Connected",
+      "c": "Connect the tools once. Every thread, mention and invite flows into Plait. Nothing copied by hand.",
+      "clock": "Mon 9:20"
+    },
+    {
+      "n": "Sorted",
+      "c": "Plait reads who owns what and when it is due, and sorts each thread into a lane.",
+      "clock": "Mon 11:02"
+    },
+    {
+      "n": "Made into work",
+      "c": "Threads become cards with an owner and a date. The original conversation is one click away.",
+      "clock": "Tue 10:30"
+    },
+    {
+      "n": "Shipped",
+      "c": "Work moves to done where everyone can see it. Replies sync back to the tool they came from.",
+      "clock": "Thu 15:10"
+    },
+    {
+      "n": "Quiet",
+      "c": "Friday, 4:30. Three open threads, each with an owner. The other tools are still there; you just do not live in them.",
+      "clock": "Fri 16:30"
+    }
+  ],
+  "sources": [
+    {
+      "n": "Email",
+      "g": "@"
+    },
+    {
+      "n": "Chat",
+      "g": "#"
+    },
+    {
+      "n": "Docs",
+      "g": "D"
+    },
+    {
+      "n": "Tickets",
+      "g": "T"
+    },
+    {
+      "n": "Calendar",
+      "g": "31"
+    }
+  ],
+  "lanes": [
+    "Today",
+    "This week",
+    "Waiting on",
+    "Done"
+  ],
+  "cards": [
+    {
+      "t": "Renewal terms for Acme",
+      "s": 0,
+      "l": 0,
+      "who": "MK",
+      "ships": true
+    },
+    {
+      "t": "Fix export timeout on large boards",
+      "s": 3,
+      "l": 0,
+      "who": "JR"
+    },
+    {
+      "t": "Review Q3 launch brief",
+      "s": 2,
+      "l": 0,
+      "who": "AL"
+    },
+    {
+      "t": "Reply to Dana about onboarding",
+      "s": 1,
+      "l": 0,
+      "who": "SP"
+    },
+    {
+      "t": "Pricing page copy, second pass",
+      "s": 2,
+      "l": 1,
+      "who": "AL",
+      "ships": true
+    },
+    {
+      "t": "Customer call: Lumen Health",
+      "s": 4,
+      "l": 1,
+      "who": "MK"
+    },
+    {
+      "t": "SSO setup for Brightline",
+      "s": 3,
+      "l": 1,
+      "who": "JR"
+    },
+    {
+      "t": "Hiring loop for design lead",
+      "s": 4,
+      "l": 1,
+      "who": "TN"
+    },
+    {
+      "t": "Legal sign-off on the DPA",
+      "s": 0,
+      "l": 2,
+      "who": "SP",
+      "ships": true
+    },
+    {
+      "t": "Invoices from the agency",
+      "s": 0,
+      "l": 2,
+      "who": "TN"
+    },
+    {
+      "t": "Feedback on mobile beta",
+      "s": 1,
+      "l": 2,
+      "who": "JR"
+    },
+    {
+      "t": "Venue for the offsite",
+      "s": 1,
+      "l": 2,
+      "who": "AL"
+    },
+    {
+      "t": "Board deck numbers",
+      "s": 2,
+      "l": 3,
+      "who": "MK"
+    },
+    {
+      "t": "Bug: duplicate reminders",
+      "s": 3,
+      "l": 3,
+      "who": "JR"
+    },
+    {
+      "t": "Standup notes, week 41",
+      "s": 1,
+      "l": 3,
+      "who": "SP"
+    },
+    {
+      "t": "Interview: product analyst",
+      "s": 4,
+      "l": 3,
+      "who": "TN"
+    }
+  ],
+  "cost": {
+    "eyebrow": "Where the week goes",
+    "title": "The tangle has a price. Here's yours.",
+    "sub": "Three numbers about your team. We'll show the hours lost each year to hunting for threads and switching tools, and how much of it Plait gives back.",
+    "team": 24,
+    "lost": 4.5,
+    "rate": 62,
+    "save": 60,
+    "note": "Assumes Plait gives back 60% of the time lost, the median across teams in our beta. Your number will differ."
+  },
+  "integrations": {
+    "eyebrow": "Integrations",
+    "title": "Plugs into what you already use.",
+    "sub": "Pick a tool to see what flows into Plait and what goes back. Nothing to migrate: your team keeps working where it works, Plait keeps the threads together.",
+    "all": "All",
+    "kinds": [
+      "Email",
+      "Chat",
+      "Docs",
+      "Dev",
+      "Calendar",
+      "Sales"
+    ],
+    "items": [
+      {
+        "n": "Gmail",
+        "k": "Email",
+        "in": "Starred threads, and any email that mentions a teammate",
+        "out": "Replies you write in Plait, sent from your address",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Outlook",
+        "k": "Email",
+        "in": "Flagged mail and shared-inbox threads",
+        "out": "Replies and forwards, from your own mailbox",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Slack",
+        "k": "Chat",
+        "in": "Messages you save, and threads where someone asks you for something",
+        "out": "A reply in the same thread, and a reaction when the card is done",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Microsoft Teams",
+        "k": "Chat",
+        "in": "Saved messages and @mentions in channels you choose",
+        "out": "Replies in the same conversation",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Google Docs",
+        "k": "Docs",
+        "in": "Comments assigned to you, and requests for review",
+        "out": "Resolves the comment when the card is done",
+        "sync": "Two-way, every minute"
+      },
+      {
+        "n": "Notion",
+        "k": "Docs",
+        "in": "Pages and database items assigned to you",
+        "out": "Status and owner, kept in step",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Confluence",
+        "k": "Docs",
+        "in": "Pages where you are asked to review or approve",
+        "out": "A comment linking the finished card",
+        "sync": "One-way in, every 5 min"
+      },
+      {
+        "n": "Jira",
+        "k": "Dev",
+        "in": "Issues assigned to you or your team",
+        "out": "Status, assignee and due date",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Linear",
+        "k": "Dev",
+        "in": "Issues and project updates for your team",
+        "out": "Status and comments",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "GitHub",
+        "k": "Dev",
+        "in": "Review requests and issues that mention you",
+        "out": "A comment when the card closes",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Zendesk",
+        "k": "Dev",
+        "in": "Tickets escalated to your team",
+        "out": "Internal notes and status",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Google Calendar",
+        "k": "Calendar",
+        "in": "Invites that need an answer, and prep for meetings",
+        "out": "Accept, decline, or a proposed new time",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "Outlook Calendar",
+        "k": "Calendar",
+        "in": "Invites and agenda items for your meetings",
+        "out": "Responses and proposed times",
+        "sync": "Two-way, live"
+      },
+      {
+        "n": "HubSpot",
+        "k": "Sales",
+        "in": "Deals and tasks assigned to you",
+        "out": "Deal stage and next step",
+        "sync": "Two-way, every minute"
+      },
+      {
+        "n": "Salesforce",
+        "k": "Sales",
+        "in": "Opportunities and tasks for your accounts",
+        "out": "Activity logged on the record",
+        "sync": "Two-way, every 5 min"
+      },
+      {
+        "n": "Figma",
+        "k": "Docs",
+        "in": "Comments that mention you, and files shared for review",
+        "out": "Resolves the comment thread",
+        "sync": "One-way in, live"
+      }
+    ]
+  },
+  "pricing": {
+    "eyebrow": "Pricing",
+    "title": "Per seat, no surprises.",
+    "sub": "Tell us how many people and how you'd like to pay. The plan that fits lights up, with the total you'd actually be billed.",
+    "yearlyOff": 20,
+    "seats": 24,
+    "tiers": [
+      {
+        "n": "Free",
+        "for": "For small teams trying Plait on real work.",
+        "price": 0,
+        "max": 5,
+        "feats": [
+          "Up to 5 people",
+          "3 integrations",
+          "30 days of history",
+          "Email support"
+        ],
+        "cta": "Start free"
+      },
+      {
+        "n": "Team",
+        "for": "For teams that want every tool in one place.",
+        "price": 9,
+        "max": 100,
+        "feats": [
+          "Unlimited integrations",
+          "Unlimited history",
+          "Shared lanes and rules",
+          "Guest access"
+        ],
+        "cta": "Start the trial"
+      },
+      {
+        "n": "Scale",
+        "for": "For larger companies with security and admin needs.",
+        "price": 16,
+        "max": 0,
+        "feats": [
+          "Everything in Team",
+          "SSO and SCIM",
+          "Audit log and data residency",
+          "A named success manager"
+        ],
+        "cta": "Start the trial"
+      }
+    ]
+  },
+  "faq": {
+    "title": "Questions we get",
+    "items": [
+      {
+        "q": "Do we have to move off our tools?",
+        "a": "No. Plait reads from them and writes back to them. People who prefer Slack or Gmail keep answering there; the card updates either way."
+      },
+      {
+        "q": "What does Plait store?",
+        "a": "The text of the threads you connect and who they belong to, encrypted at rest. Attachments stay where they are; Plait links to them."
+      },
+      {
+        "q": "Can we try it with the whole team?",
+        "a": "Team and Scale come with a 14-day trial for any number of seats, no card needed. You only pay if you keep it."
+      },
+      {
+        "q": "What happens if we cancel?",
+        "a": "You keep read-only access for 30 days and can export every card, with its history, as CSV or JSON."
+      }
+    ]
+  },
+  "start": {
+    "eyebrow": "Get started",
+    "title": "Your workspace, set up in a minute.",
+    "sub": "Name it, pick the tools to connect and how big the team is. The preview builds as you go. Free for up to five people, no card needed.",
+    "host": "plait.app/",
+    "preset": [
+      "Gmail",
+      "Slack",
+      "Google Docs",
+      "Jira",
+      "Google Calendar"
+    ],
+    "mailExample": "you@northwind.co",
+    "cta": "Create workspace"
+  },
+  "footer": {
+    "fine": "Plait is a made-up product for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#6E56FF"
+  }
+}
