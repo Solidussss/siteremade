@@ -1,0 +1,370 @@
+{
+  "about": "What a plumber, electrician or heating engineer may change in the Fettle design. Protected: the scroll-run call-out in a house cutaway (the call, the van, the fault traced through the pipes or wiring, the fix, the test and the sign-off; job.trade picks what runs through the walls), the problem guide, the rate card with its out-of-hours switch, the area check, the booking, layout, type and all interaction code. The trade's own words, problems and prices, jobs, areas, credentials and booking windows come from the content.",
+  "text": {
+    "business.name": [
+      3,
+      40
+    ],
+    "brand.name": [
+      3,
+      14
+    ],
+    "contact.phone": [
+      7,
+      20
+    ],
+    "contact.hours": [
+      2,
+      12
+    ],
+    "nav.fix": [
+      3,
+      16
+    ],
+    "nav.prices": [
+      3,
+      12
+    ],
+    "nav.area": [
+      3,
+      16
+    ],
+    "nav.book": [
+      3,
+      12
+    ],
+    "nav.cta": [
+      3,
+      16
+    ],
+    "hero.eyebrow": [
+      6,
+      50
+    ],
+    "hero.title": [
+      4,
+      28
+    ],
+    "hero.titleEm": [
+      4,
+      34
+    ],
+    "hero.lede": [
+      30,
+      190
+    ],
+    "hero.cta": [
+      3,
+      20
+    ],
+    "hero.cta2": [
+      3,
+      20
+    ],
+    "hero.hint": [
+      6,
+      32
+    ],
+    "job.fault": [
+      4,
+      26
+    ],
+    "job.test.label": [
+      3,
+      14
+    ],
+    "job.test.value": [
+      2,
+      10
+    ],
+    "job.ref": [
+      3,
+      10
+    ],
+    "job.price": [
+      2,
+      10
+    ],
+    "stages.*.n": [
+      3,
+      16
+    ],
+    "stages.*.c": [
+      20,
+      130
+    ],
+    "stages.*.clock": [
+      3,
+      8
+    ],
+    "fix.eyebrow": [
+      3,
+      24
+    ],
+    "fix.title": [
+      6,
+      48
+    ],
+    "fix.sub": [
+      20,
+      220
+    ],
+    "fix.problems.*.n": [
+      3,
+      26
+    ],
+    "fix.problems.*.hint": [
+      4,
+      40
+    ],
+    "fix.problems.*.now": [
+      10,
+      130
+    ],
+    "fix.problems.*.time": [
+      3,
+      16
+    ],
+    "fix.soon.urgent": [
+      3,
+      18
+    ],
+    "fix.soon.routine": [
+      3,
+      18
+    ],
+    "fix.note": [
+      10,
+      160
+    ],
+    "fix.cta": [
+      3,
+      20
+    ],
+    "prices.eyebrow": [
+      3,
+      24
+    ],
+    "prices.title": [
+      6,
+      48
+    ],
+    "prices.sub": [
+      20,
+      220
+    ],
+    "prices.oohLabel": [
+      6,
+      44
+    ],
+    "prices.rates.*.t": [
+      3,
+      34
+    ],
+    "prices.jobs.*.n": [
+      3,
+      28
+    ],
+    "prices.jobs.*.d": [
+      4,
+      44
+    ],
+    "area.eyebrow": [
+      3,
+      24
+    ],
+    "area.title": [
+      6,
+      48
+    ],
+    "area.sub": [
+      20,
+      200
+    ],
+    "area.all": [
+      3,
+      22
+    ],
+    "area.example": [
+      3,
+      22
+    ],
+    "area.areas.*.n": [
+      2,
+      22
+    ],
+    "area.areas.*.codes.*": [
+      2,
+      6
+    ],
+    "area.credentials.*.k": [
+      1,
+      4
+    ],
+    "area.credentials.*.n": [
+      4,
+      30
+    ],
+    "area.credentials.*.d": [
+      4,
+      50
+    ],
+    "book.eyebrow": [
+      3,
+      24
+    ],
+    "book.title": [
+      6,
+      52
+    ],
+    "book.sub": [
+      20,
+      200
+    ],
+    "book.windows.*": [
+      3,
+      10
+    ],
+    "book.sos.*": [
+      8,
+      70
+    ],
+    "book.cta": [
+      3,
+      22
+    ],
+    "book.addrExample": [
+      4,
+      30
+    ],
+    "book.phoneExample": [
+      7,
+      20
+    ],
+    "footer.fine": [
+      4,
+      110
+    ],
+    "locale.currency": [
+      1,
+      4
+    ]
+  },
+  "lists": {
+    "stages": [
+      6,
+      6
+    ],
+    "fix.problems": [
+      3,
+      8
+    ],
+    "fix.problems.*.price": [
+      2,
+      2
+    ],
+    "prices.rates": [
+      1,
+      4
+    ],
+    "prices.jobs": [
+      2,
+      8
+    ],
+    "area.areas": [
+      2,
+      16
+    ],
+    "area.areas.*.codes": [
+      0,
+      3
+    ],
+    "area.credentials": [
+      1,
+      4
+    ],
+    "book.windows": [
+      2,
+      5
+    ],
+    "book.sos": [
+      1,
+      4
+    ]
+  },
+  "numbers": {
+    "job.eta": [
+      3,
+      120
+    ],
+    "job.minutes": [
+      10,
+      600
+    ],
+    "job.parts": [
+      0,
+      20
+    ],
+    "fix.problems.*.price.*": [
+      0,
+      10000
+    ],
+    "prices.callout": [
+      0,
+      1000
+    ],
+    "prices.ooh": [
+      1,
+      3
+    ],
+    "prices.jobs.*.p": [
+      0,
+      20000
+    ],
+    "area.areas.*.m": [
+      5,
+      90
+    ]
+  },
+  "choices": {
+    "job.trade": [
+      "plumbing",
+      "heating",
+      "electrical"
+    ],
+    "fix.problems.*.urgent": [
+      true,
+      false
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    }
+  },
+  "colours": [
+    "theme.accent"
+  ],
+  "optional": {
+    "prices.rates.*.p": {
+      "kind": "number",
+      "min": 0,
+      "max": 10000
+    },
+    "prices.rates.*.v": {
+      "kind": "text",
+      "min": 2,
+      "max": 30
+    }
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "job: the example call-out the hero runs. trade picks what's drawn through the walls and where the fault is: plumbing (a leak under the bath), heating (a cold radiator upstairs) or electrical (a scorched kitchen socket). fault labels it; test is the reading shown when it's tested (Pressure 1.5 bar, Insulation 200 MΩ, Flow temp 70°C); eta minutes to arrive, minutes on the job, parts used and the price as shown.",
+    "stages: six steps, in order: the call, on the way, found it, fixed, tested, signed off. Each a short name, a caption and a clock time. The captions describe the same fault as job.trade.",
+    "fix.problems: three to eight problems a customer might have, each with what to do right now, a price range [low, high], how long it takes and whether it's urgent.",
+    "prices: the call-out (first hour), an out-of-hours multiplier (1 if none), up to four more rate lines (each a price p or a plain answer v) and two to eight fixed-price jobs.",
+    "area.areas: the towns or districts covered, each with up to three postcode areas and minutes to get there. area.credentials: up to four registrations, insurance or guarantees, each with a short badge (1-4 characters)."
+  ]
+}

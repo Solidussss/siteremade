@@ -1,0 +1,62 @@
+{
+  "name": "fettle",
+  "category": "plumber, electrician or heating engineer",
+  "reference": "reference/fettle-original.html",
+  "referenceSha256": "b40ee10ff96bd3daa28f05f54c5ad38a8679da8801ebaeca453e194f29c12831",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#1D63D8",
+      "target": "theme.accent",
+      "about": "the trade's colour: buttons, the logo tile, the van's stripe, the traced line and its ring, the ringing phone, progress bars, picked problems and slots"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.25, 0.55] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#1D63D8", 4.5, "button text on the accent"],
+      ["A:#1A57BE", "#F2F4F7", 4.5, "accent text on the page"],
+      ["A:#1A57BE", "#E3ECFC", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@700&display=swap", "family": "Outfit" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.04em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@800&display=swap", "family": "Outfit" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:500 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600&display=swap", "family": "JetBrains Mono" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 15, 210],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

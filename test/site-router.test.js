@@ -30,6 +30,8 @@ test('each kind of business reaches its design; others are told none fits', () =
     ['A pizza restaurant in Naples', 'forno'],
     ['A cafe and brunch restaurant', 'nube'],
     ['Roofing contractor in Austin', 'keel'],
+    ['Plumber in Bristol, boiler repairs and leaks', 'fettle'],
+    ['Emergency electrician', 'fettle'],
     ['We replace roofs: asphalt shingles and standing seam metal', 'keel'],
     ['Roofing software for contractors', 'plait'],
     ['A SaaS tool that pulls email and Slack into one task list', 'plait'],

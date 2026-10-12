@@ -1,0 +1,334 @@
+{
+  "business": {
+    "name": "Fettle Plumbing & Heating"
+  },
+  "brand": {
+    "name": "Fettle"
+  },
+  "contact": {
+    "phone": "0117 496 0033",
+    "hours": "24/7"
+  },
+  "nav": {
+    "fix": "What's wrong?",
+    "prices": "Prices",
+    "area": "Where we work",
+    "book": "Book",
+    "cta": "Book a visit"
+  },
+  "hero": {
+    "eyebrow": "Fettle · plumbing & heating, Bristol",
+    "title": "Found, fixed, tested.",
+    "titleEm": "Before the tea's gone cold.",
+    "lede": "Leaks, boilers and radiators across Bristol, with a fixed price before we pick up a spanner. Scroll and follow one call-out from the phone ringing to the sign-off.",
+    "cta": "Book a visit",
+    "cta2": "What's wrong?",
+    "hint": "Scroll to follow the call-out"
+  },
+  "job": {
+    "trade": "plumbing",
+    "fault": "Split waste seal",
+    "test": {
+      "label": "Pressure",
+      "value": "1.5 bar"
+    },
+    "ref": "FT-3108",
+    "eta": 12,
+    "minutes": 78,
+    "parts": 3,
+    "price": "£145"
+  },
+  "stages": [
+    {
+      "n": "The call",
+      "c": "Water coming through the kitchen ceiling, right under the bath. We pick up on the second ring.",
+      "clock": "07:42"
+    },
+    {
+      "n": "On the way",
+      "c": "The nearest engineer is twelve minutes out. You get a text with his name and a live map.",
+      "clock": "07:46"
+    },
+    {
+      "n": "Found it",
+      "c": "Water off at the stopcock, then traced from the main to the bath. The waste seal has split.",
+      "clock": "08:04"
+    },
+    {
+      "n": "Fixed",
+      "c": "New trap and seal fitted, joints made with fresh copper. Old parts left with you to see.",
+      "clock": "08:31"
+    },
+    {
+      "n": "Tested",
+      "c": "Water back on, bath filled and drained twice. Not a drop, and the pressure holds.",
+      "clock": "08:52"
+    },
+    {
+      "n": "Signed off",
+      "c": "Price as quoted, photos of the work, and a twelve-month guarantee by email.",
+      "clock": "09:01"
+    }
+  ],
+  "fix": {
+    "eyebrow": "What's wrong?",
+    "title": "Tell us the problem. Get the price.",
+    "sub": "Pick what's happening. You'll see what to do right now, roughly what it costs and how fast we can be there. The engineer confirms the price before starting.",
+    "problems": [
+      {
+        "n": "A leak",
+        "hint": "Dripping pipe, ceiling stain",
+        "now": "Turn the water off at the stopcock (usually under the kitchen sink) and catch what you can.",
+        "price": [
+          95,
+          180
+        ],
+        "time": "1–2 hours",
+        "urgent": true
+      },
+      {
+        "n": "No heating or hot water",
+        "hint": "Boiler off or showing a fault",
+        "now": "Check the boiler pressure (1 to 1.5 bar) and that the thermostat is calling for heat.",
+        "price": [
+          95,
+          240
+        ],
+        "time": "1–3 hours",
+        "urgent": true
+      },
+      {
+        "n": "Blocked drain or toilet",
+        "hint": "Slow sink, overflowing loo",
+        "now": "Stop using the water in that room. Don't keep flushing.",
+        "price": [
+          85,
+          160
+        ],
+        "time": "About an hour",
+        "urgent": true
+      },
+      {
+        "n": "A cold radiator",
+        "hint": "Cold at the top or all over",
+        "now": "Try bleeding it with a radiator key. If it stays cold, the valve may be stuck.",
+        "price": [
+          75,
+          140
+        ],
+        "time": "About an hour",
+        "urgent": false
+      },
+      {
+        "n": "Dripping tap",
+        "hint": "A tap that won't stop",
+        "now": "Nothing urgent: put a cloth in the sink so it's quieter tonight.",
+        "price": [
+          65,
+          110
+        ],
+        "time": "Under an hour",
+        "urgent": false
+      },
+      {
+        "n": "Boiler service",
+        "hint": "Once a year, keeps the warranty",
+        "now": "Nothing to do: we'll check everything and leave you a certificate.",
+        "price": [
+          89,
+          89
+        ],
+        "time": "About an hour",
+        "urgent": false
+      }
+    ],
+    "soon": {
+      "urgent": "Within 2 hours",
+      "routine": "Tomorrow"
+    },
+    "note": "Prices include the first hour and standard parts. Anything more, we tell you before we do it.",
+    "cta": "Book this"
+  },
+  "prices": {
+    "eyebrow": "Prices",
+    "title": "The price first. No surprises.",
+    "sub": "A fixed call-out, a clear hourly rate, and set prices for the jobs we do every week. Out-of-hours rates are shown, not hidden.",
+    "callout": 95,
+    "ooh": 1.5,
+    "oohLabel": "Evenings, weekends & bank holidays",
+    "rates": [
+      {
+        "t": "Every extra half hour",
+        "p": 32.5
+      },
+      {
+        "t": "Parts",
+        "v": "at cost, shown on the quote"
+      },
+      {
+        "t": "Free quotes for bigger jobs",
+        "v": "always"
+      }
+    ],
+    "jobs": [
+      {
+        "n": "Boiler service",
+        "d": "Annual, with a safety certificate",
+        "p": 89
+      },
+      {
+        "n": "Radiator swap",
+        "d": "Like for like, drained and refilled",
+        "p": 220
+      },
+      {
+        "n": "New outside tap",
+        "d": "With a frost-proof valve",
+        "p": 145
+      },
+      {
+        "n": "Toilet fill valve",
+        "d": "Stops a running cistern",
+        "p": 110
+      },
+      {
+        "n": "Power flush",
+        "d": "Up to 10 radiators",
+        "p": 450
+      }
+    ]
+  },
+  "area": {
+    "eyebrow": "Where we work",
+    "title": "Bristol and twenty minutes around it.",
+    "sub": "Type your town or postcode area to see if we cover you and how fast an engineer can get there today.",
+    "areas": [
+      {
+        "n": "Bristol centre",
+        "codes": [
+          "BS1",
+          "BS2"
+        ],
+        "m": 15
+      },
+      {
+        "n": "Clifton",
+        "codes": [
+          "BS8"
+        ],
+        "m": 15
+      },
+      {
+        "n": "Redland",
+        "codes": [
+          "BS6"
+        ],
+        "m": 15
+      },
+      {
+        "n": "Bedminster",
+        "codes": [
+          "BS3"
+        ],
+        "m": 20
+      },
+      {
+        "n": "Fishponds",
+        "codes": [
+          "BS16"
+        ],
+        "m": 25
+      },
+      {
+        "n": "Horfield",
+        "codes": [
+          "BS7"
+        ],
+        "m": 20
+      },
+      {
+        "n": "Southville",
+        "codes": [
+          "BS3"
+        ],
+        "m": 20
+      },
+      {
+        "n": "Keynsham",
+        "codes": [
+          "BS31"
+        ],
+        "m": 30
+      },
+      {
+        "n": "Portishead",
+        "codes": [
+          "BS20"
+        ],
+        "m": 35
+      },
+      {
+        "n": "Clevedon",
+        "codes": [
+          "BS21"
+        ],
+        "m": 40
+      },
+      {
+        "n": "Bath",
+        "codes": [
+          "BA1",
+          "BA2"
+        ],
+        "m": 45
+      }
+    ],
+    "credentials": [
+      {
+        "k": "GS",
+        "n": "Gas Safe registered",
+        "d": "No. 000000, for every gas job"
+      },
+      {
+        "k": "£5m",
+        "n": "Fully insured",
+        "d": "Public liability up to £5 million"
+      },
+      {
+        "k": "12m",
+        "n": "Twelve-month guarantee",
+        "d": "On all labour and the parts we fit"
+      }
+    ],
+    "example": "Clifton or BS8",
+    "all": "Most of Bristol"
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a slot. We'll text when we're on the way.",
+    "sub": "Two-hour arrival windows, a text with the engineer's name and a live ETA. No call-out charge if we're late.",
+    "windows": [
+      "8–10",
+      "10–12",
+      "12–2",
+      "2–4"
+    ],
+    "sos": [
+      "Burst pipe or water you can't stop",
+      "No heating with a baby or someone vulnerable at home",
+      "A smell of gas: call the gas emergency line first, then us"
+    ],
+    "cta": "Book the visit",
+    "addrExample": "12 Cotham Road, BS6",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Fettle Plumbing & Heating is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#1D63D8"
+  }
+}

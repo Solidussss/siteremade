@@ -1,0 +1,282 @@
+{
+  "business": {
+    "name": "Spark & Spur Electric"
+  },
+  "brand": {
+    "name": "Spark & Spur"
+  },
+  "contact": {
+    "phone": "(512) 555-0174",
+    "hours": "24/7"
+  },
+  "nav": {
+    "fix": "Problems",
+    "prices": "Pricing",
+    "area": "Service area",
+    "book": "Schedule",
+    "cta": "Schedule"
+  },
+  "hero": {
+    "eyebrow": "Spark & Spur · licensed electricians, Austin",
+    "title": "Power back on.",
+    "titleEm": "Safe to touch.",
+    "lede": "Tripping breakers, dead outlets and panel upgrades across Austin, with an upfront price. Scroll through one service call, from the breaker tripping to signed off.",
+    "cta": "Schedule a visit",
+    "cta2": "Problems",
+    "hint": "Scroll to follow the call"
+  },
+  "job": {
+    "trade": "electrical",
+    "fault": "Burnt outlet, loose wire",
+    "test": {
+      "label": "Insulation",
+      "value": "200 MΩ"
+    },
+    "ref": "SS-2290",
+    "eta": 30,
+    "minutes": 65,
+    "parts": 2,
+    "price": "$189"
+  },
+  "stages": [
+    {
+      "n": "The call",
+      "c": "The kitchen breaker keeps tripping and an outlet smells of burning. We tell you to leave it off.",
+      "clock": "18:12"
+    },
+    {
+      "n": "On the way",
+      "c": "A licensed electrician is thirty minutes out. You get a text with his name and a live map.",
+      "clock": "18:15"
+    },
+    {
+      "n": "Found it",
+      "c": "Traced from the panel along the kitchen circuit: a loose neutral has scorched the outlet.",
+      "clock": "18:52"
+    },
+    {
+      "n": "Fixed",
+      "c": "New outlet and box connector, the circuit re-terminated and torqued at the panel.",
+      "clock": "19:20"
+    },
+    {
+      "n": "Tested",
+      "c": "Insulation and polarity tested on the whole circuit, then the breaker back on under load.",
+      "clock": "19:40"
+    },
+    {
+      "n": "Signed off",
+      "c": "Price as quoted, photos of the fix, and a one-year warranty by email.",
+      "clock": "19:57"
+    }
+  ],
+  "fix": {
+    "eyebrow": "Problems",
+    "title": "Tell us what's happening.",
+    "sub": "Pick what's happening. You'll see what to do right now, roughly what it costs and how fast we can be there. The engineer confirms the price before starting.",
+    "problems": [
+      {
+        "n": "Breaker keeps tripping",
+        "hint": "Power cuts out in one area",
+        "now": "Leave the breaker off and unplug everything on that circuit.",
+        "price": [
+          150,
+          300
+        ],
+        "time": "1–2 hours",
+        "urgent": true
+      },
+      {
+        "n": "Burning smell or scorching",
+        "hint": "At an outlet or switch",
+        "now": "Switch that circuit off at the panel and don't use it. If you see smoke, call 911.",
+        "price": [
+          150,
+          350
+        ],
+        "time": "1–2 hours",
+        "urgent": true
+      },
+      {
+        "n": "Dead outlets",
+        "hint": "No power at one or two",
+        "now": "Check for a tripped GFCI outlet nearby and press its reset button.",
+        "price": [
+          120,
+          220
+        ],
+        "time": "About an hour",
+        "urgent": false
+      },
+      {
+        "n": "Panel upgrade",
+        "hint": "Old panel or not enough space",
+        "now": "Nothing urgent. We'll come and quote.",
+        "price": [
+          1800,
+          3200
+        ],
+        "time": "1 day",
+        "urgent": false
+      },
+      {
+        "n": "EV charger install",
+        "hint": "Level 2 in the garage",
+        "now": "Note where you park and how far the panel is.",
+        "price": [
+          900,
+          1600
+        ],
+        "time": "Half a day",
+        "urgent": false
+      }
+    ],
+    "soon": {
+      "urgent": "Within 2 hours",
+      "routine": "Tomorrow"
+    },
+    "note": "Prices include the first hour and standard parts. Anything more, we tell you before we do it.",
+    "cta": "Book this"
+  },
+  "prices": {
+    "eyebrow": "Pricing",
+    "title": "Upfront pricing, every time.",
+    "sub": "A fixed call-out, a clear hourly rate, and set prices for the jobs we do every week. Out-of-hours rates are shown, not hidden.",
+    "callout": 129,
+    "ooh": 1.5,
+    "oohLabel": "Nights, weekends & holidays",
+    "rates": [
+      {
+        "t": "Each extra 30 minutes",
+        "p": 55
+      },
+      {
+        "t": "Permits",
+        "v": "at cost"
+      },
+      {
+        "t": "Estimates for bigger jobs",
+        "v": "free"
+      }
+    ],
+    "jobs": [
+      {
+        "n": "Replace an outlet or switch",
+        "d": "Standard or GFCI",
+        "p": 149
+      },
+      {
+        "n": "Ceiling fan install",
+        "d": "Existing box, up to 10 ft",
+        "p": 249
+      },
+      {
+        "n": "Whole-home surge protector",
+        "d": "At the panel",
+        "p": 389
+      },
+      {
+        "n": "Level 2 EV charger",
+        "d": "Up to 25 ft from the panel",
+        "p": 1150
+      }
+    ]
+  },
+  "area": {
+    "eyebrow": "Service area",
+    "title": "Austin and thirty minutes around it.",
+    "sub": "Type your neighborhood or ZIP to see if we cover you and how fast we can get there.",
+    "areas": [
+      {
+        "n": "Downtown",
+        "codes": [
+          "78701"
+        ],
+        "m": 20
+      },
+      {
+        "n": "Mueller",
+        "codes": [
+          "78723"
+        ],
+        "m": 20
+      },
+      {
+        "n": "South Congress",
+        "codes": [
+          "78704"
+        ],
+        "m": 20
+      },
+      {
+        "n": "Round Rock",
+        "codes": [
+          "78664",
+          "78665"
+        ],
+        "m": 35
+      },
+      {
+        "n": "Cedar Park",
+        "codes": [
+          "78613"
+        ],
+        "m": 40
+      },
+      {
+        "n": "Pflugerville",
+        "codes": [
+          "78660"
+        ],
+        "m": 30
+      }
+    ],
+    "credentials": [
+      {
+        "k": "TX",
+        "n": "Texas licensed",
+        "d": "Master Electrician No. 000000"
+      },
+      {
+        "k": "$2m",
+        "n": "Fully insured",
+        "d": "General liability up to $2 million"
+      },
+      {
+        "k": "1yr",
+        "n": "One-year warranty",
+        "d": "On labor and parts"
+      }
+    ],
+    "example": "Mueller or 78723",
+    "all": "Most of Austin"
+  },
+  "book": {
+    "eyebrow": "Schedule",
+    "title": "Pick a window. We text when we're close.",
+    "sub": "Two-hour arrival windows, a text with the engineer's name and a live ETA. No call-out charge if we're late.",
+    "windows": [
+      "8–10",
+      "10–12",
+      "1–3",
+      "3–5"
+    ],
+    "sos": [
+      "Burning smell or smoke from an outlet",
+      "Sparking at the panel",
+      "Power out to the whole house"
+    ],
+    "cta": "Book the visit",
+    "addrExample": "1820 E 12th St, 78702",
+    "phoneExample": "(512) 555-0100"
+  },
+  "footer": {
+    "fine": "Spark & Spur Electric is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#5B3FD1"
+  }
+}

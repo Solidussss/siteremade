@@ -1,0 +1,44 @@
+{
+  "title": "Plumber, electrician or heating engineer",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Fettle Plumbing & Heating" },
+    { "key": "trade", "label": "Your trade", "required": true, "help": "Plumbing, heating and boilers, or electrical. If you do more than one, the one you're best known for." },
+    { "key": "location", "label": "Where you're based", "required": true, "help": "Town or city." },
+    { "key": "phone", "label": "Phone for customers", "required": true, "help": "And whether you answer 24/7." },
+    { "key": "problems", "label": "Jobs you get called for", "type": "textarea", "required": true, "help": "The problems customers call about, what they should do while they wait, roughly what each costs and how long it takes." },
+    { "key": "prices", "label": "Your prices", "type": "textarea", "required": true, "help": "Call-out charge, hourly rate, out-of-hours rates, and fixed prices for common jobs." },
+    { "key": "area", "label": "Where you work", "type": "textarea", "required": true, "help": "Towns or districts with postcode areas, and roughly how long it takes to get to each." },
+    { "key": "credentials", "label": "Registrations and guarantees", "type": "textarea", "help": "Gas Safe, NICEIC, OFTEC, insurance, guarantees, with numbers as they must appear." },
+    { "key": "booking", "label": "Booking", "help": "Arrival windows you offer and what counts as an emergency." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your van or logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "fix.problems.*.price.*",
+    "prices.callout",
+    "prices.ooh",
+    "prices.rates.*.p",
+    "prices.jobs.*.p",
+    "area.areas.*.n",
+    "area.areas.*.m",
+    "area.credentials.*.n",
+    "area.credentials.*.d",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero runs one call-out in a cutaway of a two-storey house: the call, the van arriving, the fault traced from the source, the fix, the test and the sign-off. job.trade picks what runs through the walls and the fault: plumbing (a leak under the bath dripping into the kitchen), heating (a cold radiator upstairs fed from the boiler) or electrical (a scorched kitchen socket tripping the consumer unit). Choose the trade the brief is about and write the six stages and job.fault for that exact fault.",
+    "job.test is the reading shown when it's tested, short (Pressure 1.5 bar; Flow temp 70°C; Insulation 200 MΩ). job.eta, minutes and parts are the example job's numbers; job.price is its price as shown, with the currency, from the brief's prices.",
+    "fix.problems: three to eight problems from the brief, each with what to do right now (safe, practical advice; for gas smells always say to call the gas emergency line), a price range [low, high] in whole amounts, how long it takes and whether it's urgent. fix.soon says how fast you come for urgent and routine jobs.",
+    "prices: the call-out (first hour) and out-of-hours multiplier (1 if you charge the same), up to four more rate lines (a price p or a plain answer v) and two to eight fixed-price jobs, all from the brief.",
+    "area.areas: towns or districts from the brief with up to three postcode areas each and minutes to get there. area.credentials: registrations, insurance and guarantees exactly as the brief gives them, each with a 1-4 character badge (GS, NIC, £5m, 12m). Never invent a registration or a number.",
+    "book.windows: arrival windows offered (8–10, 10–12...). book.sos: one to four situations that count as emergencies; contact.hours is how the phone line is described (24/7, 7am–9pm).",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the trade's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav, on the van and in the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Problems", "path": "fix.problems", "fields": ["n", "price"] },
+    { "label": "Area", "path": "area.areas", "fields": ["n", "m"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}
