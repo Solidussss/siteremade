@@ -1,0 +1,95 @@
+{
+  "about": "What a physiotherapist, chiropractor or massage therapist may change in the Axis design. Protected: the scroll-run recovery on a goniometer (job.joint draws a knee bending, a shoulder lifting or a back bending forward; the angle grows stage by stage toward the goal while pain falls and strength returns), the where-it-hurts guide with its see-a-doctor note, the treatments, the booking, layout, type and all interaction code. The clinic's own words, recovery, areas, treatments, practitioners and times come from the content.",
+  "text": {
+    "business.name": [3, 40],
+    "brand.name": [3, 14],
+    "contact.phone": [7, 20],
+    "nav.where": [3, 16],
+    "nav.treatments": [3, 14],
+    "nav.book": [3, 12],
+    "nav.cta": [3, 20],
+    "hero.eyebrow": [6, 54],
+    "hero.title": [4, 26],
+    "hero.titleEm": [4, 26],
+    "hero.lede": [30, 190],
+    "hero.cta": [3, 22],
+    "hero.cta2": [3, 22],
+    "hero.hint": [6, 32],
+    "job.finding": [3, 26],
+    "job.measure": [3, 10],
+    "job.goalLabel": [2, 10],
+    "stages.*.n": [3, 16],
+    "stages.*.c": [20, 120],
+    "stages.*.when": [3, 12],
+    "where.eyebrow": [3, 24],
+    "where.title": [6, 48],
+    "where.sub": [20, 200],
+    "where.flagLabel": [4, 22],
+    "where.areas.*.n": [3, 18],
+    "where.areas.*.line": [10, 140],
+    "where.areas.*.conds.*": [3, 28],
+    "where.areas.*.sessions": [1, 10],
+    "where.areas.*.weeks": [2, 14],
+    "where.areas.*.meanwhile": [4, 40],
+    "where.areas.*.flag": [8, 100],
+    "treatments.eyebrow": [3, 24],
+    "treatments.title": [6, 52],
+    "treatments.sub": [20, 200],
+    "treatments.treats.*.n": [3, 24],
+    "treatments.treats.*.d": [4, 60],
+    "treatments.treats.*.len": [2, 10],
+    "treatments.pays.*": [3, 34],
+    "treatments.paysLabel": [3, 18],
+    "book.eyebrow": [3, 24],
+    "book.title": [6, 48],
+    "book.sub": [20, 200],
+    "book.people.*.n": [3, 22],
+    "book.people.*.role": [3, 30],
+    "book.times.*": [5, 5],
+    "book.cta": [3, 24],
+    "book.note": [10, 140],
+    "book.nameExample": [3, 24],
+    "book.phoneExample": [7, 20],
+    "footer.fine": [4, 110],
+    "locale.currency": [1, 4]
+  },
+  "lists": {
+    "stages": [6, 6],
+    "where.areas": [2, 8],
+    "where.areas.*.conds": [1, 5],
+    "treatments.treats": [1, 8],
+    "treatments.pays": [0, 4],
+    "book.people": [1, 3],
+    "book.times": [1, 6],
+    "book.closed": [0, 5]
+  },
+  "numbers": {
+    "job.goal": [10, 180],
+    "stages.*.angle": [0, 180],
+    "stages.*.pain": [0, 10],
+    "stages.*.strength": [0, 100],
+    "stages.*.sessions": [0, 60],
+    "treatments.treats.*.p": [0, 2000],
+    "book.closed.*": [0, 6]
+  },
+  "choices": {
+    "job.joint": ["knee", "shoulder", "back"],
+    "theme.wordmarkFit": {
+      "options": ["fit", "crop"],
+      "optional": true
+    }
+  },
+  "optional": {
+    "where.areas.*.tag": { "kind": "text", "min": 0, "max": 14 }
+  },
+  "colours": [
+    "theme.accent"
+  ],
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "job: the example recovery the hero measures: joint (knee bends, shoulder lifts, back bends forward), the goal angle, what was found (shown on the joint at the diagnosis), the word for the measurement in the readout (Bend, Lift) and the goal label.",
+    "stages: six stages in order (assess, diagnose, treat, rehab, strength, back to it), each with when, the angle measured, pain out of ten, strength against the other side in percent and sessions so far. Angles only grow, pain only falls, sessions only add up.",
+    "where.areas: two to eight body areas, each with a line, what is often found, usual sessions and weeks, what to do meanwhile and when to see a doctor first (flag); an optional short tag.",
+    "treatments: up to eight with what they include, length and price; pays: how people can pay (no insurer names unless the brief gives them). book: up to three practitioners, start times (08:00) and days closed."
+  ]
+}

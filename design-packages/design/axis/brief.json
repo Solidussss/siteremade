@@ -1,0 +1,35 @@
+{
+  "title": "Physiotherapist, chiropractor or massage therapist",
+  "fields": [
+    { "key": "businessName", "label": "Clinic name", "required": true, "help": "e.g. Axis Physio" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or city." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "what", "label": "What you treat", "type": "textarea", "required": true, "help": "The areas and problems you see most (backs, knees, shoulders, sports injuries...), how many sessions they usually take, and when people should see a doctor first." },
+    { "key": "treatments", "label": "Treatments and prices", "type": "textarea", "required": true, "help": "First appointment, follow-ups, massage, acupuncture and so on, with lengths and prices. How people can pay." },
+    { "key": "team", "label": "Your team", "help": "Up to three practitioners with their roles." },
+    { "key": "hours", "label": "Opening times", "help": "Appointment times and days you're closed." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "treatments.treats.*.p",
+    "treatments.treats.*.len",
+    "treatments.pays.*",
+    "book.people.*.n",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero measures one recovery on a goniometer: the joint bends a little further at each of six stages toward the goal while pain falls and strength returns. job.joint: knee for sports or knee clinics, shoulder for shoulder or upper-body work, back for chiropractors, back clinics and most massage therapists. Pick the joint the brief treats most and write the six stages for one typical case (assess, diagnose, treat, rehab, strength, back to it) with plausible angles (knee bend up to 140, shoulder lift up to 170, back bend up to 90), pain falling to 0 or 1 and sessions adding up to the brief's usual number. job.finding is what's found at the diagnosis, in a few words; job.measure is the readout's word (Bend, Lift, Reach).",
+    "where.areas: the brief's areas (two to eight) with honest, general advice: what is often found, usual sessions and weeks if the brief gives them, what to do meanwhile, and when to see a doctor first. Keep the safety flags conservative and never diagnose. where.flagLabel says who to see first in local terms (See a GP first, See a doctor first).",
+    "treatments: the brief's treatments exactly as priced, with lengths. pays: how people can pay as the brief says; never name an insurer the brief doesn't name.",
+    "book.people: up to three practitioners from the brief, otherwise one entry for the clinic's lead practitioner by role only (Physiotherapist). times: appointment start times (08:00); closed days (0 Sunday). The booking is a demo: nothing is booked.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the clinic's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Treatments", "path": "treatments.treats", "fields": ["n", "len", "p"] },
+    { "label": "Areas", "path": "where.areas", "fields": ["n", "sessions"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

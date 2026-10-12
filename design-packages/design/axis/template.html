@@ -1,0 +1,482 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fragment+Mono&display=swap" rel="stylesheet">
+<style>
+/* Layout: a physiotherapy clinic. One pinned recovery measured in degrees: a joint drawn in line, bending further at
+   each stage on a goniometer while pain falls and strength returns; then what a patient needs: where it hurts and what
+   helps, treatments and prices, and a slot with a practitioner. */
+:root{
+  color-scheme:light;
+  --paper:#F4F6FA;
+  --paper-2:#E9EDF4;
+  --sheet:#FFFFFF;
+  --ink:#101828;
+  --ink-2:#475467;
+  --muted:#7A8599;
+  --line:#DCE2EC;
+  --accent:{{A:#4338CA}};       /* the clinic's colour: actions, the logo, the measured angle, the goal, picked options */
+  --accent-2:{{A:#4F46E5}};
+  --accent-text:{{A:#3F35BE}};
+  --accent-soft:{{A:#E8E7FB}};
+  --on-accent:#FFFFFF;
+  --pain:#E5484D;
+  --ease:#12A594;
+  --f-display:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+  --f-body:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Fragment Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:800;line-height:1.02;letter-spacing:-.028em;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:400 12px/1.3 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;padding:15px 22px;font:700 15px/1 var(--f-body);text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--sheet);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.ghost:hover{box-shadow:inset 0 0 0 1.5px var(--ink)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 11px) var(--gut) 11px;display:flex;align-items:center;gap:20px;background:rgba(244,246,250,.88);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);border-bottom:1px solid rgba(16,24,40,.07)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:800 21px/1 var(--f-display);letter-spacing:-.04em;white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:600 14px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 12.5px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 16px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:20px}}
+
+/* hero: the recovery */
+.hero{position:relative;height:540vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+#joint{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,246,250,.96),rgba(244,246,250,.78) 55%,rgba(244,246,250,0));pointer-events:none}
+.hero h1{font-size:clamp(2.6rem,min(5.2vw,8.2vh),5rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.chart{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 18px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -28px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.05)}
+.chart .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.chart .wk{color:var(--accent-text)}
+.chart h3{font-size:clamp(24px,2.3vw,30px);margin-top:10px}
+.chart p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
+.meter{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -28px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.05);overflow:hidden}
+.meter div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.meter div:nth-child(2n){border-right:0}
+.meter div:nth-child(n+3){border-bottom:0}
+.meter dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.meter dd{margin:6px 0 0;font:800 26px/1 var(--f-display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.meter dd small{font:400 12px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .meter{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
+  .meter div{padding:9px 10px;border-bottom:0}
+  .meter div:nth-child(2n){border-right:1px solid var(--line)}
+  .meter div:last-child{border-right:0}
+  .meter dt{font-size:8.5px;letter-spacing:.03em}
+  .meter dd{font-size:clamp(17px,5vw,22px)}
+  .meter dd small{display:none}
+  .chart{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
+  .chart p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.3rem,5vw,4.2rem)}
+.head p{color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border-radius:18px;box-shadow:0 1px 0 rgba(16,24,40,.03),0 20px 50px -34px rgba(16,24,40,.32);border:1px solid rgba(16,24,40,.05)}
+.lbl{font:400 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* where it hurts */
+.where{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:22px;align-items:start}
+.areas{display:grid;gap:6px;padding:10px}
+.areas button{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;background:none;border-radius:12px;padding:13px 14px;font:700 16px var(--f-body);cursor:pointer;text-align:left;color:var(--ink-2)}
+.areas button span{font:400 12px var(--f-mono);color:var(--muted)}
+.areas button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink)}
+.areas button[aria-pressed="true"] span{color:var(--accent-text)}
+.area{padding:clamp(22px,3vw,32px);display:grid;gap:18px}
+.area h3{font-size:clamp(28px,3vw,40px)}
+.area .line{color:var(--ink-2);font-size:17px;max-width:56ch}
+.conds{display:flex;flex-wrap:wrap;gap:8px}
+.conds span{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--ink-2)}
+.plan{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.plan div{background:var(--paper);border-radius:12px;padding:14px}
+.plan dt{font:400 10.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.plan dd{margin:6px 0 0;font:800 22px var(--f-display);letter-spacing:-.03em}
+.redflag{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;background:#FDECEC;color:#8E1F23;font-size:14px}
+.redflag b{flex:none;font:400 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+
+/* treatments */
+.treats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.treat{padding:20px 22px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 18px;align-items:start}
+.treat b{font:800 19px var(--f-display);letter-spacing:-.02em}
+.treat .p{font:800 26px var(--f-display);letter-spacing:-.03em;text-align:right;grid-row:span 2}
+.treat .p small{display:block;font:400 11px var(--f-mono);color:var(--muted);letter-spacing:0;text-align:right}
+.treat span{font-size:14.5px;color:var(--ink-2)}
+.insure{margin-top:18px;padding:18px 22px;display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}
+.insure .lbl{flex:none}
+.insure span{font:700 15px var(--f-body);color:var(--ink-2)}
+
+/* booking */
+.book{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.form{padding:clamp(22px,3vw,32px);display:grid;gap:20px}
+.who{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px;margin-top:8px}
+.who button{border:1px solid var(--line);background:var(--sheet);border-radius:14px;padding:12px;cursor:pointer;text-align:left;display:grid;gap:2px}
+.who button i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:800 14px var(--f-display);color:#fff;background:var(--ink-2);font-style:normal;margin-bottom:6px}
+.who button b{font-weight:700;font-size:15px}
+.who button small{font-size:12.5px;color:var(--muted);line-height:1.3}
+.who button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.who button[aria-pressed="true"] i{background:var(--accent)}
+.slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.slot{border:1px solid var(--line);background:var(--sheet);border-radius:10px;padding:9px 4px;cursor:pointer;display:grid;gap:2px;justify-items:center;font:400 11px var(--f-mono);color:var(--muted)}
+.slot b{font:700 15px var(--f-body);color:var(--ink)}
+.slot[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:rgba(255,255,255,.7)}
+.slot[aria-pressed="true"] b{color:#fff}
+.form select,.form input,.form textarea{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--paper);font-size:15px;width:100%}
+.form label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err{color:#B42318;font-size:14px;font-weight:700}
+.confirm{border-radius:12px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:400 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.summary{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
+.summary h3{font-size:26px}
+.summary dl{margin:0}
+.summary dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.summary dt{color:var(--ink-2)}
+.summary dd{margin:0;font-weight:700;text-align:right}
+.summary .note{font-size:13px;color:var(--muted)}
+
+footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:800 min(18vw,240px)/.86 var(--f-display);letter-spacing:-.06em;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:{{A:#8B87F0}}}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(255,255,255,.6)}
+.foot-row a{color:#fff}
+
+@media (max-width:980px){
+  .where,.book{grid-template-columns:minmax(0,1fr)}
+  .areas{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .treats{grid-template-columns:minmax(0,1fr)}
+  .summary{position:static}
+}
+@media (max-width:560px){
+  .plan{grid-template-columns:minmax(0,1fr)}
+  .who{grid-template-columns:minmax(0,1fr)}
+  .slots{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .two{grid-template-columns:minmax(0,1fr)}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="8" fill="{{A:#4338CA}}"/><path d="M8 20L14 8l6 12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="8" r="2.4" fill="#fff"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#where">{{nav.where}}</a></li><li><a href="#treatments">{{nav.treatments}}</a></li><li><a href="#book">{{nav.book}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#book">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A recovery measured stage by stage, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="joint" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#book">{{hero.cta}}</a><a class="btn ghost" href="#where">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="meter" id="meter" aria-live="off">
+      <div><dt>{{job.measure}}</dt><dd id="mRange">0<small>°</small></dd></div>
+      <div><dt>Pain</dt><dd id="mPain">—<small>/ 10</small></dd></div>
+      <div><dt>Strength</dt><dd id="mStrength">—<small>%</small></dd></div>
+      <div><dt>Sessions</dt><dd id="mSessions">0</dd></div>
+    </dl>
+    <div class="chart" id="chart" aria-live="polite">
+      <div class="row"><span>Stage <b id="cNum">1</b> of 6</span><span class="wk" id="cWhen">{{stages.0.when}}</span></div>
+      <h3 id="cTitle">{{stages.0.n}}</h3>
+      <p id="cText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="where" aria-labelledby="where-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{where.eyebrow}}</p>
+      <h2 id="where-h">{{where.title}}</h2>
+      <p>{{where.sub}}</p>
+    </div>
+    <div class="where">
+      <div class="panel areas" id="areas" role="group" aria-label="Where it hurts"></div>
+      <div class="panel area" aria-live="polite">
+        <h3 id="aName">{{where.areas.0.n}}</h3>
+        <p class="line" id="aLine"></p>
+        <div class="conds" id="aConds"></div>
+        <dl class="plan">
+          <div><dt>Usually</dt><dd id="aSessions">—</dd></div>
+          <div><dt>Over</dt><dd id="aWeeks">—</dd></div>
+          <div><dt>Meanwhile</dt><dd id="aMeanwhile">—</dd></div>
+        </dl>
+        <p class="redflag" id="aFlag"><b>{{where.flagLabel}}</b><span id="aFlagText"></span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="treatments" aria-labelledby="treat-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{treatments.eyebrow}}</p>
+      <h2 id="treat-h">{{treatments.title}}</h2>
+      <p>{{treatments.sub}}</p>
+    </div>
+    <div class="treats" id="treats"></div>
+    <div class="panel insure"><span class="lbl">{{treatments.paysLabel}}</span><div id="insurers" style="display:flex;flex-wrap:wrap;gap:10px 22px"></div></div>
+  </div>
+</section>
+
+<section class="block" id="book" aria-labelledby="book-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{book.eyebrow}}</p>
+      <h2 id="book-h">{{book.title}}</h2>
+      <p>{{book.sub}}</p>
+    </div>
+    <div class="book">
+      <form class="panel form" id="bookForm" novalidate>
+        <div><span class="lbl">Who</span><div class="who" id="who" role="group" aria-label="Practitioner"></div></div>
+        <div><span class="lbl">What for</span><select id="fTreat" style="margin-top:8px"></select></div>
+        <div><span class="lbl">When</span><div class="slots" id="slots" role="group" aria-label="Time"></div></div>
+        <div class="two">
+          <label>Your name<input id="fName" autocomplete="name" placeholder="{{book.nameExample|attr}}"></label>
+          <label>Phone<input id="fPhone" type="tel" autocomplete="tel" placeholder="{{book.phoneExample|attr}}"></label>
+        </div>
+        <button class="btn" type="submit">{{book.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+      <aside class="panel summary" aria-live="polite">
+        <h3>Your appointment</h3>
+        <dl>
+          <div><dt>With</dt><dd id="bWho">—</dd></div>
+          <div><dt>For</dt><dd id="bFor">—</dd></div>
+          <div><dt>When</dt><dd id="bWhen">—</dd></div>
+          <div><dt>Price</dt><dd id="bPrice">—</dd></div>
+        </dl>
+        <p class="note" id="bNote">{{book.note}}</p>
+      </aside>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+
+/* ============ THE RECOVERY (what the hero shows) ============ */
+// six stages: when, the angle measured, pain out of ten, strength against the other side, and sessions so far
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the joint drawn ('knee', 'shoulder' or 'back'), the goal angle and what was found
+const JOB={joint:{{job.joint|js}},goal:{{job.goal}},finding:{{job.finding|js}}};
+const ACCENT='{{A:#4338CA}}';
+const PAIN='#E5484D', EASE='#12A594';
+
+/* ============ THE JOINT ============ */
+// the fixed segment's direction, the moving segment's straight direction, and which way it turns (screen y points down)
+const KIND={
+ knee:{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]},
+ shoulder:{fixed:Math.PI/2,start:Math.PI/2,turn:-1,fixedLen:1.1,moveLen:1.25,ends:['hip','hand'],box:[-1.5,1.45]},
+ back:{fixed:Math.PI/2,start:-Math.PI/2,turn:1,fixedLen:1.15,moveLen:1.2,ends:['foot','head'],box:[-1.55,1.3]}
+}[JOB.joint]||null;
+const J=KIND||{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]};
+const dirOf=a=>J.start+J.turn*a*Math.PI/180;
+
+/* ============ GEOMETRY ============ */
+const cv=$('#joint'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
+// the joint sits where its drawing is centred: J.box is how far it reaches above and below, in dial radii
+function fit(ax,ay){const bh=J.box[1]-J.box[0];const R=Math.min((ax[1]-ax[0])/2.9,(ay[1]-ay[0])/bh);return{R,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2-R*(J.box[0]+J.box[1])/2};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), ch=$('#chart').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.03,W*.97],[top,mt.top-stg.top-12]);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,ch.top)-stg.top;
+    const side=fit([cr+20,W*.97],[H*.12,Math.min(H*.84,low-20)]), under=fit([W*.05,W*.95],[cb+24,low-20]);
+    LA=side.R>=under.R*.8?side:under;LB=fit([W*.06,W*.94],[top,Math.min(mt.top,ch.top-30)-stg.top-14]);}}
+
+/* ============ DRAWING ============ */
+function dial(c,angle,goal){const {x,y,R}=c;
+  // the protractor: an arc from straight to past the goal, ticks every ten degrees
+  const a0=dirOf(0), a1=dirOf(Math.max(goal+20,150));const lo=Math.min(a0,a1), hi=Math.max(a0,a1);
+  ctx.strokeStyle='rgba(16,24,40,.1)';ctx.lineWidth=R*.1;ctx.beginPath();ctx.arc(x,y,R*.98,lo,hi);ctx.stroke();
+  for(let d=0;d<=Math.max(goal+20,150);d+=10){const a=dirOf(d), r0=R*.92, r1=R*(d%30===0?1.12:1.05);ctx.strokeStyle=d%30===0?'rgba(16,24,40,.45)':'rgba(16,24,40,.22)';ctx.lineWidth=d%30===0?1.6:1;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0,y+Math.sin(a)*r0);ctx.lineTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1);ctx.stroke();
+    if(d%30===0){ctx.fillStyle='rgba(16,24,40,.5)';ctx.font=`400 ${Math.max(10,Math.round(R*.065))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d+'°',x+Math.cos(a)*R*1.22,y+Math.sin(a)*R*1.22);}}
+  // the goal
+  const g=dirOf(goal);ctx.save();ctx.setLineDash([6,6]);ctx.strokeStyle=EASE;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+Math.cos(g)*R*.3,y+Math.sin(g)*R*.3);ctx.lineTo(x+Math.cos(g)*R*1.08,y+Math.sin(g)*R*1.08);ctx.stroke();ctx.restore();
+  // the measured angle as a wedge from straight
+  if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.fillStyle='{{A:rgba(67,56,202,.12)}}';ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,R*.86,Math.min(s,e),Math.max(s,e));ctx.closePath();ctx.fill();
+    ctx.strokeStyle=ACCENT;ctx.lineWidth=R*.1;ctx.lineCap='butt';ctx.beginPath();ctx.arc(x,y,R*.98,Math.min(s,e),Math.max(s,e));ctx.stroke();
+    const m=dirOf(angle/2);ctx.fillStyle=ACCENT;ctx.font=`800 ${Math.round(R*.2)}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(angle)+'°',x+Math.cos(m)*R*.6,y+Math.sin(m)*R*.6);}
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+function limb(x,y,dir,len,w,end,col){// a long rounded segment in line, with what's at its end
+  const ex=x+Math.cos(dir)*len, ey=y+Math.sin(dir)*len, nx=-Math.sin(dir)*w/2, ny=Math.cos(dir)*w/2;
+  ctx.fillStyle='#FFFFFF';ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(x+nx,y+ny);ctx.lineTo(ex+nx*.8,ey+ny*.8);ctx.arc(ex,ey,w*.4,dir+Math.PI/2,dir-Math.PI/2,true);ctx.lineTo(x-nx,y-ny);ctx.closePath();ctx.fill();ctx.stroke();
+  // a bone line down the middle
+  ctx.strokeStyle='rgba(16,24,40,.12)';ctx.lineWidth=w*.18;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+Math.cos(dir)*w*.6,y+Math.sin(dir)*w*.6);ctx.lineTo(ex-Math.cos(dir)*w*.5,ey-Math.sin(dir)*w*.5);ctx.stroke();
+  ctx.fillStyle='#FFFFFF';ctx.strokeStyle=col;ctx.lineWidth=2.2;
+  if(end==='foot'){// a foot across the end of the segment, toes towards the bend
+    const pd=dir-Math.PI/2*(J.turn||1), cx=ex+Math.cos(pd)*w*.45+Math.cos(dir)*w*.2, cy=ey+Math.sin(pd)*w*.45+Math.sin(dir)*w*.2;ctx.save();ctx.translate(cx,cy);ctx.rotate(pd);ctx.beginPath();if(ctx.roundRect)ctx.roundRect(-w*.75,-w*.36,w*1.5,w*.72,w*.36);else ctx.rect(-w*.75,-w*.36,w*1.5,w*.72);ctx.fill();ctx.stroke();ctx.restore();}
+  else if(end==='hand'||end==='head'){ctx.beginPath();ctx.arc(ex+Math.cos(dir)*w*(end==='head'?.95:.55),ey+Math.sin(dir)*w*(end==='head'?.95:.55),w*(end==='head'?.95:.55),0,7);ctx.fill();ctx.stroke();}}
+function scene(c,angle,pain,ghosts,find){const {x,y,R}=c;
+  // past measurements, faint
+  ghosts.forEach(a=>{const d=dirOf(a);ctx.strokeStyle='{{A:rgba(67,56,202,.18)}}';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(d)*R*J.moveLen,y+Math.sin(d)*R*J.moveLen);ctx.stroke();});
+  // where it hurts: a glow that cools as the pain goes
+  const pk=pain/10, gr=ctx.createRadialGradient(x,y,0,x,y,R*(.35+.25*pk));const col=pk>.15?'229,72,77':'18,165,148';gr.addColorStop(0,`rgba(${col},${(.15+.5*pk).toFixed(3)})`);gr.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,R*.6,0,7);ctx.fill();
+  const w=R*.24;
+  limb(x,y,J.fixed,R*J.fixedLen,w,J.ends[0],'#101828');
+  limb(x,y,dirOf(angle),R*J.moveLen,w*.9,J.ends[1],'#101828');
+  ctx.fillStyle='#FFFFFF';ctx.strokeStyle='#101828';ctx.lineWidth=2.2;ctx.beginPath();ctx.arc(x,y,w*.62,0,7);ctx.fill();ctx.stroke();
+  ctx.fillStyle=pk>.15?PAIN:EASE;ctx.beginPath();ctx.arc(x,y,w*.2,0,7);ctx.fill();
+  // what was found, pinned to the joint
+  if(find>0){ctx.save();ctx.globalAlpha=find;const lx=x+R*.15, ly=y-R*.9;ctx.strokeStyle=PAIN;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y-w*.6);ctx.lineTo(lx,ly+14);ctx.stroke();
+    ctx.font=`700 ${Math.max(12,Math.round(R*.075))}px "Plus Jakarta Sans",sans-serif`;const t=JOB.finding, tw=ctx.measureText(t).width+24;ctx.fillStyle='#FFFFFF';ctx.shadowColor='rgba(16,24,40,.15)';ctx.shadowBlur=14;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(lx-tw/2,ly-14,tw,28,8);else ctx.rect(lx-tw/2,ly-14,tw,28);ctx.fill();ctx.shadowColor='transparent';
+    ctx.strokeStyle=PAIN;ctx.stroke();ctx.fillStyle=PAIN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,lx,ly+1);ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.restore();}}
+
+function goalLabel(c,goal){const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42;ctx.font=`700 ${Math.max(11,Math.round(R*.07))}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const t=`{{job.goalLabel|tl}} ${goal}°`, tw=ctx.measureText(t).width+14;ctx.fillStyle='rgba(244,246,250,.92)';ctx.fillRect(lx-tw/2,ly-11,tw,22);ctx.fillStyle=EASE;ctx.fillText(t,lx,ly+1);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+
+/* ============ HUD ============ */
+let shown=-1;
+function hud(p,v){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});const s=STAGES[idx];
+  if(idx!==shown){shown=idx;$('#cNum').textContent=idx+1;$('#cTitle').textContent=s.n;$('#cText').textContent=s.c;$('#cWhen').textContent=s.when;}
+  $('#mRange').innerHTML=`${Math.round(v.angle)}<small>°</small>`;$('#mPain').innerHTML=`${Math.round(v.pain)}<small>/ 10</small>`;
+  $('#mStrength').innerHTML=`${Math.round(v.strength)}<small>%</small>`;$('#mSessions').textContent=v.sessions;}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function values(p){// each stage moves from the last stage's numbers to its own
+  let i=0;STAGES.forEach((s,k)=>{if(p>=s.w[0])i=k;});const s=STAGES[i], prev=STAGES[Math.max(0,i-1)], t=sm(seg(p,s.w[0],s.w[0]+(s.w[1]-s.w[0])*.7));
+  const from=i===0?{angle:0,pain:s.pain,strength:s.strength}:prev;
+  return{i,angle:lerp(from.angle,s.angle,i===0?sm(seg(p,.03,.11)):t),pain:lerp(from.pain,s.pain,t),strength:lerp(from.strength,s.strength,t),sessions:t>.5||i===0?s.sessions:prev.sessions};}
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F4F6FA';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const c={x:lerp(LA.x,LB.x,m),y:lerp(LA.y,LB.y,m),R:lerp(LA.R,LB.R,m)};
+  const v=values(p), breathe=RM?0:Math.sin(time*2)*.6;
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  dial(c,v.angle,JOB.goal);
+  const ghosts=STAGES.slice(0,v.i).map(s=>s.angle).filter((a,j,arr)=>a>0&&arr.indexOf(a)===j);
+  scene(c,v.angle+(v.i>0?breathe:0),v.pain,ghosts,sm(seg(p,.14,.2))*(1-sm(seg(p,.4,.46))));
+  goalLabel(c,JOB.goal);
+  ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,v);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ WHERE IT HURTS ============ */
+// each area: a line, what we often find, usual sessions and weeks, what to do meanwhile, and when to see a GP first
+const AREAS=[
+{{$.areasJs|raw}}
+];
+let aSel=0;
+$('#areas').innerHTML=AREAS.map((a,i)=>`<button type="button" aria-pressed="${i===aSel}" data-i="${i}">${esc(a.n)}<span>${esc(a.tag)}</span></button>`).join('');
+function area(){const a=AREAS[aSel];$('#aName').textContent=a.n;$('#aLine').textContent=a.line;$('#aConds').innerHTML=a.conds.map(c=>`<span>${esc(c)}</span>`).join('');
+  $('#aSessions').textContent=a.sessions;$('#aWeeks').textContent=a.weeks;$('#aMeanwhile').textContent=a.meanwhile;$('#aFlagText').textContent=a.flag;}
+$('#areas').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;aSel=+b.dataset.i;press($('#areas'),b);area();});
+
+/* ============ TREATMENTS ============ */
+const TREATS=[
+{{$.treatsJs|raw}}
+];
+const PAYS=[{{$.paysJs|raw}}];
+$('#treats').innerHTML=TREATS.map(t=>`<div class="panel treat"><b>${esc(t.n)}</b><div class="p">${money(t.p)}<small>${esc(t.len)}</small></div><span>${esc(t.d)}</span></div>`).join('');
+$('#insurers').innerHTML=PAYS.map(p=>`<span>${esc(p)}</span>`).join('');
+
+/* ============ BOOK ============ */
+const PEOPLE=[
+{{$.peopleJs|raw}}
+];
+const TIMES=[{{$.timesJs|raw}}];
+const CLOSED=[{{$.closedJs|raw}}]; // days of the week the clinic is shut (0 is Sunday)
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const initials=n=>n.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+let pSel=0,sSel=0;
+$('#who').style.setProperty('--n',Math.min(3,PEOPLE.length));
+$('#who').innerHTML=PEOPLE.map((p,i)=>`<button type="button" aria-pressed="${i===pSel}" data-i="${i}"><i>${esc(initials(p.n))}</i><b>${esc(p.n)}</b><small>${esc(p.role)}</small></button>`).join('');
+$('#fTreat').innerHTML=TREATS.map((t,i)=>`<option value="${i}">${esc(t.n)} · ${esc(t.len)}</option>`).join('');
+function slots(){const out=[];for(let d=1;out.length<8&&d<30;d++){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()+d);if(CLOSED.includes(day.getDay()))continue;TIMES.forEach((t,j)=>{if(out.length<8&&(d*3+j+pSel)%4!==0)out.push({day,t});});}return out;}
+let SL=slots();
+function drawSlots(){SL=slots();sSel=Math.min(sSel,SL.length-1);$('#slots').innerHTML=SL.map((s,i)=>`<button type="button" class="slot" aria-pressed="${i===sSel}" data-i="${i}">${DOW[s.day.getDay()]} ${s.day.getDate()}<b>${esc(s.t)}</b></button>`).join('');summary();}
+function summary(){const t=TREATS[+$('#fTreat').value], s=SL[sSel];$('#bWho').textContent=PEOPLE[pSel].n;$('#bFor').textContent=`${t.n} · ${t.len}`;$('#bWhen').textContent=s?`${DOW[s.day.getDay()]} ${s.day.getDate()} ${MON[s.day.getMonth()]}, ${s.t}`:'—';$('#bPrice').textContent=money(t.p);}
+$('#who').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;pSel=+b.dataset.i;press($('#who'),b);drawSlots();$('#confirm').hidden=true;});
+$('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b)return;sSel=+b.dataset.i;press($('#slots'),b);summary();$('#confirm').hidden=true;});
+$('#fTreat').addEventListener('change',()=>{summary();$('#confirm').hidden=true;});
+$('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
+  if(!nm)return fail('Add your name.',$('#fName'));
+  if(ph.length<7)return fail('Add a phone number for the reminder text.',$('#fPhone'));
+  err.hidden=true;const s=SL[sSel], t=TREATS[+$('#fTreat').value], c=$('#confirm');
+  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, you're booked with ${esc(PEOPLE[pSel].n)} on ${DOW[s.day.getDay()]} ${s.day.getDate()} ${MON[s.day.getMonth()]} at ${esc(s.t)}: ${esc(t.n.toLowerCase())}, ${money(t.p)}.</b><span>On a live site you'd get a confirmation and a reminder the day before.</span>`;c.hidden=false;});
+
+area();drawSlots();
+})();
+</script>
+
+</body></html>

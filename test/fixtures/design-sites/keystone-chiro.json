@@ -1,0 +1,224 @@
+{
+  "business": {
+    "name": "Keystone Chiropractic"
+  },
+  "brand": {
+    "name": "Keystone"
+  },
+  "contact": {
+    "phone": "(512) 555-0136"
+  },
+  "nav": {
+    "where": "What we treat",
+    "treatments": "Pricing",
+    "book": "Book",
+    "cta": "Book a visit"
+  },
+  "hero": {
+    "eyebrow": "Keystone · chiropractic care, Austin",
+    "title": "Move freely again.",
+    "titleEm": "And measure it.",
+    "lede": "Chiropractic care that tests how you move, treats the cause, and re-tests every visit. Scroll through one lower back, from the first visit to bending freely.",
+    "cta": "Book a first visit",
+    "cta2": "What we treat",
+    "hint": "Scroll to follow the recovery"
+  },
+  "job": {
+    "joint": "back",
+    "goal": 90,
+    "finding": "Stiff lower back joints",
+    "measure": "Bend",
+    "goalLabel": "Goal"
+  },
+  "stages": [
+    {
+      "n": "First visit",
+      "c": "A full history and movement exam. You can only bend so far before it bites, so we measure where.",
+      "when": "Day 1",
+      "angle": 30,
+      "pain": 8,
+      "strength": 50,
+      "sessions": 1
+    },
+    {
+      "n": "Findings",
+      "c": "Stiff joints low in the back and tight hips are doing the damage. No scans needed.",
+      "when": "Day 1",
+      "angle": 32,
+      "pain": 8,
+      "strength": 50,
+      "sessions": 1
+    },
+    {
+      "n": "Adjust",
+      "c": "Gentle adjustments and soft tissue work to free the stiff joints and calm things down.",
+      "when": "Week 1",
+      "angle": 50,
+      "pain": 5,
+      "strength": 55,
+      "sessions": 3
+    },
+    {
+      "n": "Mobility",
+      "c": "Daily hip and spine mobility at home, five minutes a day.",
+      "when": "Week 3",
+      "angle": 65,
+      "pain": 3,
+      "strength": 65,
+      "sessions": 5
+    },
+    {
+      "n": "Strength",
+      "c": "Core and hip strength so the back is supported, not just loosened.",
+      "when": "Week 5",
+      "angle": 80,
+      "pain": 1,
+      "strength": 85,
+      "sessions": 7
+    },
+    {
+      "n": "Free",
+      "c": "Bending to the floor without thinking about it. Check-ins once a month, if you want them.",
+      "when": "Week 8",
+      "angle": 90,
+      "pain": 0,
+      "strength": 100,
+      "sessions": 8
+    }
+  ],
+  "where": {
+    "eyebrow": "What we treat",
+    "title": "Where does it hurt?",
+    "sub": "Pick the area that's bothering you to see what we usually find, how many sessions it tends to take, and what to do in the meantime.",
+    "areas": [
+      {
+        "n": "Lower back",
+        "tag": "Most common",
+        "line": "Very common and rarely serious. Most backs get better faster when you keep gently moving.",
+        "conds": [
+          "Muscle strain",
+          "Disc irritation",
+          "Sciatica",
+          "Desk-related stiffness"
+        ],
+        "sessions": "2 to 5",
+        "weeks": "2 to 6 weeks",
+        "meanwhile": "Short walks, not bed rest",
+        "flag": "Numbness around the groin, or trouble with your bladder or bowels."
+      },
+      {
+        "n": "Neck",
+        "tag": "",
+        "line": "Often posture and stress as much as injury. We treat it and change what keeps causing it.",
+        "conds": [
+          "Stiff neck",
+          "Headaches from the neck",
+          "Whiplash",
+          "Trapped nerve"
+        ],
+        "sessions": "2 to 4",
+        "weeks": "2 to 4 weeks",
+        "meanwhile": "Heat and gentle turns",
+        "flag": "Pain after a big impact, or weakness in both arms."
+      },
+      {
+        "n": "Hip",
+        "tag": "",
+        "line": "Hip pain can come from the joint, the tendons on the side, or even the back. We find which.",
+        "conds": [
+          "Glute tendon pain",
+          "Hip impingement",
+          "Arthritis",
+          "Groin strain"
+        ],
+        "sessions": "3 to 6",
+        "weeks": "4 to 10 weeks",
+        "meanwhile": "Avoid sleeping on the sore side",
+        "flag": "Sudden severe pain with a fever."
+      },
+      {
+        "n": "Headaches",
+        "tag": "",
+        "line": "Many headaches start in a stiff neck and upper back. We check that first.",
+        "conds": [
+          "Tension headaches",
+          "Neck-related headaches"
+        ],
+        "sessions": "3 to 6",
+        "weeks": "3 to 6 weeks",
+        "meanwhile": "Screen breaks every 30 minutes",
+        "flag": "A sudden, severe headache unlike any before."
+      }
+    ],
+    "flagLabel": "See a doctor first"
+  },
+  "treatments": {
+    "eyebrow": "Pricing",
+    "title": "Simple pricing, no plans to buy.",
+    "sub": "Pay per visit. We will tell you at the first visit how many we expect it to take.",
+    "treats": [
+      {
+        "n": "First visit",
+        "d": "Exam, first adjustment and a written plan",
+        "len": "45 min",
+        "p": 95
+      },
+      {
+        "n": "Follow-up",
+        "d": "Adjustment and soft tissue work",
+        "len": "20 min",
+        "p": 65
+      },
+      {
+        "n": "Massage",
+        "d": "Therapeutic massage, back or full body",
+        "len": "60 min",
+        "p": 85
+      }
+    ],
+    "pays": [
+      "Self-pay",
+      "HSA and FSA cards"
+    ],
+    "paysLabel": "Ways to pay"
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a time that works.",
+    "sub": "Choose who you'd like to see and a slot. New patients start with a full assessment; you'll get a text the day before.",
+    "people": [
+      {
+        "n": "Dr. Maya Ortiz",
+        "role": "Chiropractor"
+      },
+      {
+        "n": "Leo Grant",
+        "role": "Massage therapist"
+      }
+    ],
+    "times": [
+      "07:30",
+      "09:00",
+      "12:00",
+      "16:30",
+      "18:00"
+    ],
+    "closed": [
+      0,
+      6
+    ],
+    "cta": "Book the appointment",
+    "note": "Wear comfortable clothes. Cancel free up to 24 hours before.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "(512) 555-0123"
+  },
+  "footer": {
+    "fine": "Keystone Chiropractic is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#0F6E7A"
+  }
+}

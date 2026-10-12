@@ -1,0 +1,278 @@
+{
+  "business": {
+    "name": "Axis Physio"
+  },
+  "brand": {
+    "name": "Axis"
+  },
+  "contact": {
+    "phone": "0113 496 0274"
+  },
+  "nav": {
+    "where": "Where it hurts",
+    "treatments": "Treatments",
+    "book": "Book",
+    "cta": "Book an assessment"
+  },
+  "hero": {
+    "eyebrow": "Axis · physiotherapy & sports massage, Leeds",
+    "title": "Find the cause.",
+    "titleEm": "Measure the fix.",
+    "lede": "Physiotherapy that tests, treats and re-tests, so you can see yourself getting better. Scroll through one knee, from the first assessment to back on the pitch.",
+    "cta": "Book an assessment",
+    "cta2": "Where does it hurt?",
+    "hint": "Scroll to follow the recovery"
+  },
+  "job": {
+    "joint": "knee",
+    "goal": 140,
+    "finding": "Patellar tendon",
+    "measure": "Bend",
+    "goalLabel": "Goal"
+  },
+  "stages": [
+    {
+      "n": "Assess",
+      "c": "An hour together: how it happened, how it moves, and what makes it worse. We measure everything.",
+      "when": "Day 1",
+      "angle": 45,
+      "pain": 7,
+      "strength": 40,
+      "sessions": 1
+    },
+    {
+      "n": "Diagnose",
+      "c": "Irritated patellar tendon from too much running too soon. You leave knowing exactly what it is.",
+      "when": "Day 1",
+      "angle": 50,
+      "pain": 7,
+      "strength": 40,
+      "sessions": 1
+    },
+    {
+      "n": "Hands-on",
+      "c": "Soft tissue work and joint mobilisation to settle it down, and two exercises to do at home.",
+      "when": "Week 1",
+      "angle": 80,
+      "pain": 5,
+      "strength": 48,
+      "sessions": 2
+    },
+    {
+      "n": "Load it",
+      "c": "Slow, heavy holds that the tendon loves. The bend comes back as the pain goes.",
+      "when": "Week 3",
+      "angle": 108,
+      "pain": 3,
+      "strength": 62,
+      "sessions": 4
+    },
+    {
+      "n": "Strength",
+      "c": "Single-leg strength until both sides match, then hopping and changes of direction.",
+      "when": "Week 6",
+      "angle": 130,
+      "pain": 1,
+      "strength": 88,
+      "sessions": 6
+    },
+    {
+      "n": "Back to it",
+      "c": "Full bend, no pain, both legs equal. Back to training, with a plan to stay there.",
+      "when": "Week 10",
+      "angle": 140,
+      "pain": 0,
+      "strength": 100,
+      "sessions": 7
+    }
+  ],
+  "where": {
+    "eyebrow": "Where it hurts",
+    "title": "Tell us where. We'll tell you what helps.",
+    "sub": "Pick the area that's bothering you to see what we usually find, how many sessions it tends to take, and what to do in the meantime.",
+    "areas": [
+      {
+        "n": "Knee",
+        "tag": "Runners",
+        "line": "Usually overload rather than damage: the tendon or the joint saying it was asked for too much, too soon.",
+        "conds": [
+          "Runner's knee",
+          "Patellar tendon pain",
+          "Ligament sprains",
+          "After surgery"
+        ],
+        "sessions": "3 to 6",
+        "weeks": "4 to 8 weeks",
+        "meanwhile": "Keep moving, ease off running",
+        "flag": "It locks, gives way, or swelled up straight after a fall."
+      },
+      {
+        "n": "Lower back",
+        "tag": "Most common",
+        "line": "Very common and rarely serious. Most backs get better faster when you keep gently moving.",
+        "conds": [
+          "Muscle strain",
+          "Disc irritation",
+          "Sciatica",
+          "Desk-related stiffness"
+        ],
+        "sessions": "2 to 5",
+        "weeks": "2 to 6 weeks",
+        "meanwhile": "Short walks, not bed rest",
+        "flag": "Numbness around the groin, or trouble with your bladder or bowels."
+      },
+      {
+        "n": "Neck",
+        "tag": "",
+        "line": "Often posture and stress as much as injury. We treat it and change what keeps causing it.",
+        "conds": [
+          "Stiff neck",
+          "Headaches from the neck",
+          "Whiplash",
+          "Trapped nerve"
+        ],
+        "sessions": "2 to 4",
+        "weeks": "2 to 4 weeks",
+        "meanwhile": "Heat and gentle turns",
+        "flag": "Pain after a big impact, or weakness in both arms."
+      },
+      {
+        "n": "Shoulder",
+        "tag": "",
+        "line": "A shallow joint that relies on its muscles. Most shoulders improve with the right strength work.",
+        "conds": [
+          "Rotator cuff",
+          "Frozen shoulder",
+          "Impingement",
+          "Dislocation rehab"
+        ],
+        "sessions": "4 to 8",
+        "weeks": "6 to 12 weeks",
+        "meanwhile": "Keep it moving below shoulder height",
+        "flag": "You can't lift the arm at all after a fall."
+      },
+      {
+        "n": "Hip",
+        "tag": "",
+        "line": "Hip pain can come from the joint, the tendons on the side, or even the back. We find which.",
+        "conds": [
+          "Glute tendon pain",
+          "Hip impingement",
+          "Arthritis",
+          "Groin strain"
+        ],
+        "sessions": "3 to 6",
+        "weeks": "4 to 10 weeks",
+        "meanwhile": "Avoid sleeping on the sore side",
+        "flag": "Sudden severe pain with a fever."
+      },
+      {
+        "n": "Ankle and foot",
+        "tag": "",
+        "line": "Sprains heal best with early, guided movement, not weeks of rest.",
+        "conds": [
+          "Ankle sprain",
+          "Plantar fasciitis",
+          "Achilles pain",
+          "Shin splints"
+        ],
+        "sessions": "2 to 5",
+        "weeks": "3 to 8 weeks",
+        "meanwhile": "Supportive shoes, calf raises",
+        "flag": "You can't put any weight on it at all."
+      }
+    ],
+    "flagLabel": "See a GP first"
+  },
+  "treatments": {
+    "eyebrow": "Treatments",
+    "title": "Clear prices. No packages to sign up to.",
+    "sub": "Pay for each session as you go. Most people need three to six; we'll tell you honestly at the first one.",
+    "treats": [
+      {
+        "n": "First assessment",
+        "d": "Assessment, first treatment and a written plan",
+        "len": "60 min",
+        "p": 75
+      },
+      {
+        "n": "Follow-up",
+        "d": "Treatment, re-testing and new exercises",
+        "len": "40 min",
+        "p": 55
+      },
+      {
+        "n": "Sports massage",
+        "d": "Deep tissue work for training or desk tension",
+        "len": "45 min",
+        "p": 50
+      },
+      {
+        "n": "Sports massage",
+        "d": "Longer session, whole back or both legs",
+        "len": "75 min",
+        "p": 70
+      },
+      {
+        "n": "Acupuncture",
+        "d": "Alongside physio, for pain that won't settle",
+        "len": "30 min",
+        "p": 40
+      },
+      {
+        "n": "Running assessment",
+        "d": "Filmed on the treadmill, with a plan to fix it",
+        "len": "60 min",
+        "p": 90
+      }
+    ],
+    "pays": [
+      "Self-pay",
+      "Most private health insurers",
+      "Employer schemes"
+    ],
+    "paysLabel": "We work with"
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a time that works.",
+    "sub": "Choose who you'd like to see and a slot. New patients start with a full assessment; you'll get a text the day before.",
+    "people": [
+      {
+        "n": "Hannah Cole",
+        "role": "Physiotherapist"
+      },
+      {
+        "n": "Dev Patel",
+        "role": "Sports physiotherapist"
+      },
+      {
+        "n": "Rosa Lind",
+        "role": "Sports massage therapist"
+      }
+    ],
+    "times": [
+      "08:00",
+      "10:30",
+      "13:00",
+      "17:30",
+      "19:00"
+    ],
+    "closed": [
+      0
+    ],
+    "cta": "Book the appointment",
+    "note": "Wear shorts or loose clothes so we can see the area. Cancel free up to 24 hours before.",
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123"
+  },
+  "footer": {
+    "fine": "Axis Physio is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#4338CA"
+  }
+}

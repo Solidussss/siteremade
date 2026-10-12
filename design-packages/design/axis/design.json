@@ -1,0 +1,70 @@
+{
+  "name": "axis",
+  "category": "physiotherapist, chiropractor or massage therapist",
+  "reference": "reference/axis-original.html",
+  "referenceSha256": "f27898016240d3dae606cd7af57bfa56fbaea6b3c19a8c96654f0daf24ffdeb9",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#4338CA",
+      "target": "theme.accent",
+      "about": "the clinic's colour: buttons, the logo, the measured angle and its wedge, past measurements, picked areas, practitioners and slots"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.55] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#4338CA", 4.5, "button text on the accent"],
+      ["A:#3F35BE", "#F4F6FA", 4.5, "accent text on the page"],
+      ["A:#3F35BE", "#E9EDF4", 4.5, "accent text on the tinted section"],
+      ["A:#3F35BE", "A:#E8E7FB", 4.5, "accent text on the soft accent"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.028em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap", "family": "Plus Jakarta Sans" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.06em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap", "family": "Plus Jakarta Sans" }
+      }
+    },
+    "brand": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.04em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap", "family": "Plus Jakarta Sans" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&display=swap", "family": "Plus Jakarta Sans" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 18, 240],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
