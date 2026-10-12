@@ -1,0 +1,1144 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}} {{business.kind}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+{{@fonts.link:theme.fonts}}
+<style>
+/* Layout: "a bottle under a spotlight in an aubergine room". A pinned hero where a glass flacon fills,
+   then scrolling is time on skin: the liquid shifts through nine notes, top to base, and the cap lifts to spray.
+   Below, sections alternate between the dark room and pale orris-powder paper: a pyramid explorer,
+   pulse points + specs, a 3-question wear quiz, and a size calculator. Deliberately one dark look. */
+:root {
+  color-scheme: dark;
+  /* room */
+  --night: {{R:#140e13}}; --velvet: {{R:#1d141a}}; --smoke: {{R:#2a1f27}};
+  --orris: {{R:#ece3e8}}; --dim: {{R:#ab9ba5}}; --faint: {{R:#73646d}}; --line: {{R:rgba(236,227,232,.14)}};
+  /* paper sections */
+  --powder: {{Q:#d8ced5}}; --powder-2: {{Q:#cabdc6}}; --ink: {{Q:#1d1319}}; --ink-dim: {{Q:#5a4b55}}; --ink-line: {{Q:rgba(29,19,25,.16)}};
+  /* accent + materials */
+  --amber: {{A:#dda04d}}; --amber-ink: {{A:#1c1006}}; --glass: #ffffff; --shade: #000000;
+  --metal-dark: {{M:#6a5538}}; --metal-mid: {{M:#b9996a}}; --metal-light: {{M:#f3e4c0}};
+  /* note colours (the liquid) */
+  --n-bergamot: {{notes.0.colour}}; --n-figleaf: {{notes.1.colour}}; --n-pepper: {{notes.2.colour}};
+  --n-orris: {{notes.3.colour}}; --n-figmilk: {{notes.4.colour}}; --n-tea: {{notes.5.colour}};
+  --n-vetiver: {{notes.6.colour}}; --n-cedar: {{notes.7.colour}}; --n-ambrette: {{notes.8.colour}};
+{{@fonts.vars:theme.fonts}}
+  --gutter: max(16px, 4.2vw);
+  --out: cubic-bezier(.16, 1, .3, 1); --spring: cubic-bezier(.34, 1.5, .64, 1);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { margin: 0; background: var(--night); color: var(--orris); font-family: var(--body); font-size: 17px; line-height: 1.6; font-weight: 400; -webkit-font-smoothing: antialiased; }
+main { overflow-x: clip; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; line-height: .92; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font-size: clamp(44px, 6.4vw, 96px); }
+h2 em, h1 em { font-style: italic; font-weight: 400; }
+p { margin: 0; }
+.wrap { padding-inline: var(--gutter); }
+.mono { font-family: var(--mono); }
+.eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.lede { font-size: clamp(17px, 1.5vw, 20px); color: var(--dim); max-width: 46ch; font-weight: 300; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; font-family: var(--body); font-weight: 500; font-size: 15px; letter-spacing: .04em; padding: 14px 22px; border-radius: 999px; border: 1px solid transparent; cursor: pointer; transition: transform .4s var(--spring), background-color .3s, color .3s, border-color .3s; }
+.btn:hover { transform: translateY(-2px); }
+.btn.amber { background: var(--amber); color: var(--amber-ink); }
+.btn.ghost { border-color: var(--line); color: var(--orris); background: transparent; }
+.btn.ink { background: var(--ink); color: var(--powder); }
+
+/* ---------- nav ---------- */
+.nav { position: fixed; z-index: 50; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 18px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) var(--gutter) 12px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--night) 88%, transparent), color-mix(in srgb, var(--night) 0%, transparent)); }
+.nav .brand { font-family: var(--display); font-style: italic; font-size: 26px; letter-spacing: -.01em; text-decoration: none; line-height: 1; }
+.nav .brand small { font-family: var(--mono); font-style: normal; font-size: 10px; letter-spacing: .2em; color: var(--dim); margin-left: 8px; vertical-align: middle; }
+.nav .links { display: flex; gap: 22px; margin-left: auto; font-size: 14px; letter-spacing: .05em; }
+.nav .links a { text-decoration: none; color: var(--dim); transition: color .2s; }
+.nav .links a:hover { color: var(--orris); }
+.nav .sound { margin-left: 4px; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+.nav .sound i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.nav .sound[aria-pressed="true"] { color: var(--orris); }
+.nav .sound[aria-pressed="true"] i { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.nav .cta { padding: 10px 18px; font-size: 14px; }
+.nav { transition: background .35s; }
+.nav.on-paper { background: linear-gradient(to bottom, color-mix(in srgb, var(--powder) 92%, transparent), color-mix(in srgb, var(--powder) 0%, transparent)); color: var(--ink); }
+.nav.on-paper .links a, .nav.on-paper .brand small, .nav.on-paper .sound { color: var(--ink-dim); }
+.nav.on-paper .sound { border-color: var(--ink-line); }
+.nav.on-paper .links a:hover { color: var(--ink); }
+@media (max-width: 860px) { .nav .links { display: none; } .nav .sound { margin-left: auto; } }
+@media (max-width: 420px) { .nav .brand small { display: none; } .nav { gap: 10px; } .nav .cta { padding: 9px 14px; font-size: 13px; } .nav .sound { padding: 7px 10px; } }
+
+/* ---------- hero ---------- */
+.hero { position: relative; height: 460vh; background: var(--night); }
+.stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; isolation: isolate;
+  background: radial-gradient(circle calc(var(--bs, 300px) * 1.3) at var(--bx, 60%) var(--by, 50%), color-mix(in srgb, var(--note, var(--n-bergamot)) 24%, transparent), color-mix(in srgb, var(--note, var(--n-bergamot)) 7%, transparent) 48%, transparent 100%), var(--night); }
+.stage::before { content: ""; position: absolute; z-index: 0; top: 0; height: var(--floor, 80%); left: calc(var(--bx, 60%) - var(--bs, 300px) * .8); width: calc(var(--bs, 300px) * 1.6);
+  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); background: linear-gradient(color-mix(in srgb, var(--glass) 8%, transparent), color-mix(in srgb, var(--glass) 0%, transparent)); pointer-events: none; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; touch-action: pan-y; }
+.ghostword { position: absolute; z-index: 1; left: 0; right: 0; top: 50%; transform: translateY(-58%); text-align: center; pointer-events: none;
+  font-family: var(--display); font-style: italic; font-weight: 400; font-size: clamp(96px, 19vw, 300px); line-height: .9; letter-spacing: -.04em; white-space: nowrap;
+  color: color-mix(in srgb, var(--note, var(--n-bergamot)) 21%, transparent); }
+.ghostword span { display: inline-block; transition: transform .9s var(--out), filter .9s var(--out); }
+.ghostword span.swap { transform: translateY(14%) scale(.96); filter: blur(10px); transition: none; }
+.hero-copy { position: absolute; z-index: 3; left: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 96px); width: min(460px, 38vw); display: grid; gap: 18px; }
+.hero-copy h1 { font-size: clamp(64px, 8.6vw, 140px); font-style: italic; font-weight: 400; letter-spacing: -.035em; line-height: .86; }
+.hero-copy h1 b { display: block; font-family: var(--mono); font-style: normal; font-weight: 400; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; }
+.hero-copy .caption { font-size: 18px; font-weight: 300; color: var(--orris); max-width: 34ch; min-height: 3.2em; }
+.hero-copy .caption em { font-style: normal; color: var(--note-light, var(--amber)); transition: color .4s; }
+.hero-copy .facts { display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.hero-copy .facts span b { color: var(--orris); font-weight: 500; }
+.hud { position: absolute; z-index: 3; right: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); width: min(330px, 28vw); display: grid; gap: 14px; }
+.hud-top { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 16px; align-items: end; }
+.hud svg { width: 92px; height: auto; display: block; overflow: visible; }
+.hud .tier-shape { fill: color-mix(in srgb, var(--orris) 6%, transparent); stroke: color-mix(in srgb, var(--orris) 34%, transparent); stroke-width: .8; }
+.hud .tier-fill { fill: var(--note, var(--n-bergamot)); }
+.hud .tier-done { fill: color-mix(in srgb, var(--orris) 30%, transparent); }
+.hud-text { min-width: 0; display: grid; gap: 4px; }
+.hud-tier { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--note-light, var(--dim)); }
+.hud-note { font-family: var(--display); font-style: italic; font-size: 38px; line-height: 1; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-smell { font-size: 14px; color: var(--dim); font-weight: 300; }
+.hud-clock { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-top: 1px solid var(--line); padding-top: 10px; font-variant-numeric: tabular-nums; }
+.hud-clock b { color: var(--orris); font-weight: 500; }
+.hud-dots { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+.hud-dots i { height: 3px; border-radius: 2px; background: var(--line); transition: background-color .4s; }
+.hud-dots i.on { background: var(--orris); }
+.hud-dots i.now { background: var(--note, var(--amber)); }
+.scroll-cue { position: absolute; z-index: 3; left: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; gap: 12px; align-items: center; }
+.scroll-cue::before { content: ""; width: 1px; height: 38px; background: linear-gradient(var(--orris), transparent); animation: cue 2.2s var(--out) infinite; transform-origin: top; }
+@keyframes cue { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+.hero-end { position: absolute; z-index: 3; left: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 759px) {
+  .hero-copy { width: auto; right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 70px); gap: 10px; }
+  .hero-copy h1 { font-size: 64px; }
+  .hero-copy h1 b { font-size: 10.5px; margin-bottom: 8px; }
+  .hero-copy .caption { font-size: 15.5px; min-height: 3.3em; max-width: 36ch; }
+  .hero-copy .facts { display: none; }
+  .hud { left: var(--gutter); right: var(--gutter); width: auto; bottom: max(18px, env(safe-area-inset-bottom, 0px)); gap: 10px; }
+  .hud-top { grid-template-columns: 64px minmax(0,1fr); gap: 14px; }
+  .hud svg { width: 64px; }
+  .hud-note { font-size: 30px; }
+  .hud-smell { font-size: 13px; }
+  .scroll-cue, .hero-end { display: none; }
+  .ghostword { font-size: 30vw; top: 47%; }
+}
+
+/* ---------- shared section ---------- */
+.sec { position: relative; padding-block: clamp(80px, 12vw, 150px); }
+.sec-head { display: grid; gap: 18px; max-width: 760px; margin-bottom: clamp(36px, 5vw, 64px); }
+.paper { background: var(--powder); color: var(--ink); }
+.paper .eyebrow { color: var(--ink-dim); }
+.paper .lede { color: var(--ink-dim); }
+
+/* ---------- notes explorer ---------- */
+.notes-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 80px); align-items: start; }
+.pyr { display: grid; gap: 10px; }
+.tier { --a: 22%; --b: 12%; position: relative; padding: 22px calc(var(--a) - 4%) 20px; display: grid; gap: 12px; justify-items: center; isolation: isolate; }
+.tier::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--powder-2);
+  clip-path: polygon(var(--a) 0, calc(100% - var(--a)) 0, calc(100% - var(--b)) 100%, var(--b) 100%); transition: background-color .4s; }
+.tier.t1 { --a: 11%; --b: 2%; }
+.tier.t2 { --a: 1%; --b: -8%; }
+.tier.t2::before { clip-path: polygon(var(--a) 0, calc(100% - var(--a)) 0, 100% 100%, 0 100%); }
+.tier.t0 { --a: 32%; --b: 22%; }
+.tier.active::before { background: color-mix(in srgb, var(--powder-2) 55%, var(--tc) 45%); }
+.tier-label { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
+.tier-notes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px 9px 10px; border-radius: 999px; border: 1px solid var(--ink-line); background: color-mix(in srgb, var(--powder) 70%, transparent); color: var(--ink); cursor: pointer; font-size: 15px; transition: background-color .3s, transform .35s var(--spring), border-color .3s; white-space: nowrap; }
+.chip i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.chip:hover { transform: translateY(-2px); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--powder); border-color: var(--ink); }
+.note-card { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 22px; padding-top: 6px; }
+.vial { position: relative; width: 74px; height: 190px; border-radius: 30px 30px 22px 22px; background: linear-gradient(90deg, rgba(255,255,255,.55), rgba(255,255,255,.15) 30%, rgba(255,255,255,.05) 70%, rgba(255,255,255,.4)); box-shadow: inset 0 0 0 1.5px var(--ink-line); overflow: hidden; }
+.vial::before { content: ""; position: absolute; left: 7px; right: 7px; bottom: 7px; height: var(--fill, 70%); border-radius: 6px 6px 16px 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 70%, #fff 30%), var(--c) 22%, color-mix(in srgb, var(--c) 75%, #000 25%)); transition: height .7s var(--spring), background .5s; }
+.vial::after { content: ""; position: absolute; left: 14px; top: 26px; width: 7px; height: 120px; border-radius: 6px; background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,0)); }
+.note-body { display: grid; gap: 16px; min-width: 0; }
+.note-body h3 { font-size: clamp(44px, 5vw, 68px); font-style: italic; font-weight: 400; }
+.note-body .when { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.note-body p.smells { font-size: 19px; line-height: 1.5; max-width: 40ch; }
+.note-rows { display: grid; gap: 0; border-top: 1px solid var(--ink-line); }
+.note-rows div { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--ink-line); font-size: 15px; }
+.note-rows dt { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); padding-top: 3px; }
+.note-rows dd { margin: 0; min-width: 0; }
+.share { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
+.share .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--ink-line); overflow: hidden; }
+.share .bar i { display: block; height: 100%; width: var(--w, 10%); background: var(--ink); border-radius: 3px; transition: width .6s var(--out); }
+@media (max-width: 860px) {
+  .notes-grid { grid-template-columns: minmax(0, 1fr); }
+  .tier.t0 { --a: 12%; --b: 7%; } .tier.t1 { --a: 6%; --b: 2%; } .tier.t2 { --a: 1.5%; }
+  .tier { padding-inline: 4%; }
+  .chip { font-size: 14px; padding: 8px 12px 8px 9px; }
+  .note-card { grid-template-columns: 56px minmax(0,1fr); gap: 16px; }
+  .vial { width: 56px; height: 150px; border-radius: 24px 24px 18px 18px; }
+  .vial::after { left: 10px; height: 90px; }
+  .note-rows div { grid-template-columns: 104px minmax(0,1fr); }
+}
+
+/* ---------- wear ---------- */
+.wear { background: var(--night); }
+.wear-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 90px); align-items: start; }
+.body-map { position: relative; width: 100%; max-width: 480px; aspect-ratio: 520 / 580; margin-inline: auto; }
+.body-map .scarf { fill: color-mix(in srgb, var(--amber) 14%, transparent); stroke: color-mix(in srgb, var(--amber) 55%, transparent); stroke-width: 1.2; stroke-linejoin: round; }
+.body-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.body-map .outline { fill: none; stroke: color-mix(in srgb, var(--orris) 55%, transparent); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.body-map .skin { fill: color-mix(in srgb, var(--orris) 5%, transparent); }
+.pp { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; padding: 0; display: grid; place-items: center; }
+.pp i { width: 14px; height: 14px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 60%, transparent); animation: pulse 2.4s var(--out) infinite; }
+.pp[aria-pressed="true"] i { background: var(--orris); width: 18px; height: 18px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--amber) 45%, transparent); animation: none; }
+.pp span { position: absolute; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); pointer-events: none; }
+.pp[aria-pressed="true"] span { color: var(--orris); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 60%, transparent); } 80%, 100% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--amber) 0%, transparent); } }
+.pp-card { display: grid; gap: 10px; padding: 22px 0 0; border-top: 1px solid var(--line); margin-top: 18px; }
+.pp-card h3 { font-size: 36px; font-style: italic; font-weight: 400; }
+.pp-card .dose { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+.pp-card p { color: var(--dim); font-weight: 300; max-width: 46ch; }
+.specs { display: grid; gap: 34px; }
+.conc { display: grid; gap: 10px; }
+.conc-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) 64px; gap: 12px; align-items: center; font-size: 14px; }
+.conc-row .nm { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.conc-row .rng { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.track { position: relative; height: 22px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: repeating-linear-gradient(90deg, transparent 0 calc(100%/6 - 1px), var(--line) calc(100%/6 - 1px) calc(100%/6)); }
+.track i { position: absolute; top: 6px; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--orris) 26%, transparent); }
+.conc-row.us .nm, .conc-row.us .rng { color: var(--orris); }
+.conc-row.us .track i { background: color-mix(in srgb, var(--amber) 40%, transparent); }
+.track b { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--amber); }
+.track b::after { content: "{{product.concentration}}%"; position: absolute; left: 6px; top: -4px; font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--amber); }
+.conc-axis { display: grid; grid-template-columns: 112px minmax(0,1fr) 64px; gap: 12px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.conc-axis div { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.spec-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.spec-list div { padding: 18px 16px 18px 0; border-bottom: 1px solid var(--line); display: grid; gap: 4px; min-width: 0; }
+.spec-list div:nth-child(odd) { border-right: 1px solid var(--line); }
+.spec-list div:nth-child(even) { padding-left: 18px; }
+.spec-list dt { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.spec-list dd { margin: 0; font-family: var(--display); font-size: 30px; line-height: 1.05; }
+.spec-list dd small { display: block; font-family: var(--body); font-size: 14px; color: var(--dim); margin-top: 4px; font-weight: 300; line-height: 1.4; }
+@media (max-width: 860px) {
+  .wear-grid { grid-template-columns: minmax(0, 1fr); }
+  .conc-row, .conc-axis { grid-template-columns: 74px minmax(0,1fr) 52px; gap: 8px; }
+  .spec-list dd { font-size: 25px; }
+}
+
+/* ---------- quiz ---------- */
+.quiz { background: var(--velvet); }
+.quiz-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 90px); align-items: start; }
+.quiz-box { border-top: 1px solid var(--line); padding-top: 24px; display: grid; gap: 22px; }
+.q-step { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.q-progress { display: flex; gap: 6px; }
+.q-progress i { width: 34px; height: 3px; border-radius: 2px; background: var(--line); }
+.q-progress i.on { background: var(--amber); }
+.q h3 { font-size: clamp(32px, 3.6vw, 48px); font-style: italic; font-weight: 400; margin-bottom: 18px; }
+.q-opts { display: grid; gap: 10px; }
+.q-opt { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 14px; align-items: center; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--orris) 3%, transparent); cursor: pointer; transition: border-color .25s, background-color .25s, transform .35s var(--spring); }
+.q-opt:hover { border-color: color-mix(in srgb, var(--orris) 40%, transparent); transform: translateX(4px); }
+.q-opt .k { font-family: var(--mono); font-size: 12px; color: var(--dim); width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; }
+.q-opt b { display: block; font-weight: 500; font-size: 17px; }
+.q-opt small { display: block; color: var(--dim); font-size: 14px; font-weight: 300; }
+.q-opt[aria-pressed="true"] { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.q-opt[aria-pressed="true"] .k { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+.q-nav { display: flex; gap: 10px; }
+.result { display: grid; gap: 18px; }
+.result .tag { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+.result h3 { font-size: clamp(40px, 4.4vw, 60px); font-style: italic; font-weight: 400; }
+.result p { color: var(--dim); font-weight: 300; max-width: 48ch; font-size: 18px; }
+.result p b { color: var(--orris); font-weight: 500; }
+.ritual { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.ritual div { padding: 16px 14px 16px 0; display: grid; gap: 2px; min-width: 0; }
+.ritual div + div { padding-left: 14px; border-left: 1px solid var(--line); }
+.ritual dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.ritual dd { margin: 0; font-family: var(--display); font-size: 28px; line-height: 1.1; }
+@media (max-width: 860px) { .quiz-grid { grid-template-columns: minmax(0,1fr); } .ritual dd { font-size: 22px; } }
+
+/* ---------- sizes ---------- */
+.sizes-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(28px, 5vw, 90px); align-items: center; }
+.size-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.size { display: grid; justify-items: center; gap: 12px; padding: 18px 8px 16px; border: 1px solid var(--ink-line); border-radius: 18px; background: transparent; cursor: pointer; transition: background-color .3s, border-color .3s, transform .35s var(--spring); min-width: 0; }
+.size:hover { transform: translateY(-3px); }
+.size svg { display: block; width: auto; height: calc(var(--k, 1) * 250px); overflow: visible; }
+.size { padding-top: 26px; }
+.size .ml { font-family: var(--display); font-size: 30px; line-height: 1; }
+.size .ml small { font-family: var(--mono); font-size: 12px; margin-left: 2px; }
+.size .pr { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.size[aria-pressed="true"] { background: var(--ink); color: var(--powder); border-color: var(--ink); }
+.size[aria-pressed="true"] .pr { color: color-mix(in srgb, var(--powder) 75%, transparent); }
+.size .glass-o { fill: rgba(255,255,255,.35); stroke: var(--ink); stroke-width: .012; }
+.size[aria-pressed="true"] .glass-o { fill: rgba(255,255,255,.08); stroke: var(--powder); }
+.size .liq { fill: var(--n-ambrette); }
+.size .capp { fill: var(--ink); }
+.size[aria-pressed="true"] .capp { fill: var(--powder); }
+.calc { display: grid; gap: 22px; }
+.slider { display: grid; gap: 8px; }
+.slider label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.slider label b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--ink) var(--p, 50%), var(--ink-line) var(--p, 50%)); }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--ink-line); }
+input[type=range]::-moz-range-progress { height: 4px; background: var(--ink); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: var(--powder); border: 2px solid var(--ink); }
+input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--powder); border: 2px solid var(--ink); }
+.out { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--ink-line); }
+.out div { padding: 16px 12px 16px 0; border-bottom: 1px solid var(--ink-line); display: grid; gap: 2px; min-width: 0; }
+.out div:nth-child(even) { padding-left: 16px; border-left: 1px solid var(--ink-line); }
+.out dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.out dd { margin: 0; font-family: var(--display); font-size: 34px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.out dd small { font-family: var(--body); font-size: 14px; color: var(--ink-dim); margin-left: 4px; }
+.buy { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.demo-note { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--ink-dim); }
+.demo-note b { color: var(--ink); }
+@media (max-width: 860px) { .size svg { height: calc(var(--k, 1) * 150px); } .size { padding-top: 18px; } .sizes-grid { grid-template-columns: minmax(0,1fr); } .out dd { font-size: 28px; } .size .ml { font-size: 26px; } }
+
+/* ---------- footer ---------- */
+.foot { background: var(--night); padding-block: 90px 40px; overflow: hidden; }
+.wordmark { font-family: var(--display); font-style: italic; font-weight: 400; font-size: clamp(88px, 22vw, 360px); line-height: .8; letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 1px color-mix(in srgb, var(--orris) 50%, transparent); white-space: nowrap; }
+.wordmark span { color: var(--orris); -webkit-text-stroke: 0; }
+.foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px 30px; margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 14px; color: var(--dim); }
+.foot-row a { color: var(--orris); }
+{{$._guards|raw}}{{$.heroFit|raw}}</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#hero">{{business.short}}<small>{{business.kind|upper}}</small></a>
+  <div class="links"><a href="#notes">{{nav.notes}}</a><a href="#wear">{{nav.wear}}</a><a href="#quiz">{{nav.quiz}}</a><a href="#sizes">{{nav.sizes}}</a></div>
+  <button class="sound" id="soundBtn" type="button" aria-pressed="false"><i></i>Sound</button>
+  <a class="btn amber cta" href="#sizes">{{nav.ctaVerb}} {{$.featuredMl}} ml · {{$.featuredPrice}}</a>
+</nav>
+
+<main>
+  <section class="hero" id="hero" aria-label="{{product.name|plain|attr}}, {{product.type|lower|attr}}">
+    <div class="stage" id="stage">
+      <div class="ghostword" aria-hidden="true"><span id="ghost">{{product.name|plain}}</span></div>
+      <canvas id="bottle" aria-label="A glass perfume bottle filled with {{product.name|plain|attr}}. The liquid changes colour through the notes as you scroll. Tap it to make it slosh." role="img"></canvas>
+      <div class="hero-copy">
+        <h1><b>{{business.name}} · {{product.number}} · {{product.type}}</b>{{product.name|rich}}</h1>
+        <p class="caption" id="caption">{{hero.caption|rich}}</p>
+        <div class="facts"><span><b>{{product.concentration}}%</b> {{product.typeShort}}</span><span><b>{{product.longevity}}</b> on skin</span><span><b>{{$.featuredMl}} ml</b> · {{$.featuredPrice}}</span></div>
+      </div>
+      <div class="hud" aria-live="off">
+        <div class="hud-top">
+          <svg viewBox="0 0 100 88" aria-hidden="true">
+            <defs>
+              <clipPath id="cp0"><polygon points="50,2 64.2,28 35.8,28"/></clipPath>
+              <clipPath id="cp1"><polygon points="34.1,31 65.9,31 80.1,57 19.9,57"/></clipPath>
+              <clipPath id="cp2"><polygon points="18.2,60 81.8,60 96,86 4,86"/></clipPath>
+            </defs>
+            <polygon class="tier-shape" points="50,2 64.2,28 35.8,28"/>
+            <polygon class="tier-shape" points="34.1,31 65.9,31 80.1,57 19.9,57"/>
+            <polygon class="tier-shape" points="18.2,60 81.8,60 96,86 4,86"/>
+            <rect id="tf0" clip-path="url(#cp0)" x="0" y="28" width="100" height="0" class="tier-fill"/>
+            <rect id="tf1" clip-path="url(#cp1)" x="0" y="57" width="100" height="0" class="tier-fill"/>
+            <rect id="tf2" clip-path="url(#cp2)" x="0" y="86" width="100" height="0" class="tier-fill"/>
+          </svg>
+          <div class="hud-text">
+            <span class="hud-tier" id="hudTier">{{hud.filling}}</span>
+            <span class="hud-note" id="hudNote">{{product.short}}</span>
+            <span class="hud-smell" id="hudSmell">{{product.type}}, {{product.concentration}}% concentrate</span>
+          </div>
+        </div>
+        <div class="hud-dots" id="hudDots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hud-clock"><span>On skin <b id="hudClock">0 min</b></span><span id="hudPhase">{{tiers.0.short}} · {{tiers.0.range}}</span></div>
+      </div>
+      <div class="scroll-cue" id="cue">{{hero.scrollCue}}</div>
+      <div class="hero-end" id="heroEnd" hidden><a class="btn amber" href="#sizes">{{hero.endSizes}}</a><a class="btn ghost" href="#quiz">{{hero.endQuiz}}</a></div>
+    </div>
+  </section>
+
+  <section class="sec paper" id="notes">
+    <div class="wrap">
+      <header class="sec-head">
+        <span class="eyebrow">{{notesSection.eyebrow}}</span>
+        <h2>{{notesSection.title|rich}}</h2>
+        <p class="lede">{{notesSection.lede}}</p>
+      </header>
+      <div class="notes-grid">
+        <div class="pyr" id="pyr" role="group" aria-label="Scent pyramid"></div>
+        <article class="note-card" id="noteCard" aria-live="polite">
+          <div class="vial" id="vial" aria-hidden="true"></div>
+          <div class="note-body">
+            <span class="when" id="ncWhen">{{tiers.1.short}} · {{tiers.1.range}}</span>
+            <h3 id="ncName">{{notes.3.name}}</h3>
+            <p class="smells" id="ncSmell"></p>
+            <dl class="note-rows">
+              <div><dt>Material</dt><dd id="ncMat"></dd></div>
+              <div><dt>Share</dt><dd><span class="share"><span class="bar"><i id="ncBar"></i></span><span id="ncPct">{{notes.3.share}}%</span></span></dd></div>
+            </dl>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec wear" id="wear">
+    <div class="wrap">
+      <header class="sec-head">
+        <span class="eyebrow">{{wear.eyebrow}}</span>
+        <h2>{{wear.title|rich}}</h2>
+        <p class="lede">{{wear.lede}}</p>
+      </header>
+      <div class="wear-grid">
+        <div>
+          <div class="body-map" id="bodyMap">
+            <svg viewBox="0 0 520 580" aria-hidden="true">
+              <path class="skin outline" d="M234 160L234 210C200 222 150 226 124 262C110 282 106 330 102 380L92 500C88 530 90 552 104 558C118 562 128 550 132 532L140 500L150 400L166 318L176 580L344 580L354 318L370 400L380 500L388 532C392 550 402 562 416 558C430 552 432 530 428 500L418 380C414 330 410 282 396 262C370 226 320 222 286 210L286 160"/>
+              <ellipse class="skin outline" cx="260" cy="110" rx="46" ry="56"/>
+              <path class="outline" d="M214 104c-8 0-10 22 2 26M306 104c8 0 10 22-2 26" opacity=".6"/>
+              <path class="scarf" d="M226 196C240 214 280 214 294 196L304 214C290 236 230 236 216 214ZM282 228L304 300L288 306L270 232Z"/>
+              <path class="outline" d="M206 246C230 256 248 256 260 250C272 256 290 256 314 246" opacity=".4"/>
+              <path class="outline" d="M120 392c6 6 12 6 18 0M382 392c6 6 12 6 18 0M104 512c6 4 14 4 20 0M396 512c6 4 14 4 20 0" opacity=".45"/>
+            </svg>
+            <button class="pp" type="button" data-pp="0" style="left:40.5%;top:21.5%"><i></i><span>{{pulse.0.short}}</span></button>
+            <button class="pp" type="button" data-pp="1" style="left:50%;top:41%"><i></i><span>{{pulse.1.short}}</span></button>
+            <button class="pp" type="button" data-pp="2" style="left:24.6%;top:66.5%"><i></i><span>{{pulse.2.short}}</span></button>
+            <button class="pp" type="button" data-pp="3" style="left:21.5%;top:87.5%"><i></i><span>{{pulse.3.short}}</span></button>
+            <button class="pp" type="button" data-pp="4" style="left:57%;top:49.5%"><i></i><span>{{pulse.4.short}}</span></button>
+          </div>
+          <div class="pp-card" aria-live="polite">
+            <span class="dose" id="ppDose">1 spray each side</span>
+            <h3 id="ppName">{{pulse.3.name}}</h3>
+            <p id="ppTip"></p>
+          </div>
+        </div>
+        <div class="specs">
+          <div class="conc" role="img" aria-label="Concentration of perfume oil by type. Eau de cologne 2 to 5 percent, eau de toilette 5 to 15, eau de parfum 15 to 20, extrait 20 to 30. {{product.name|plain|attr}} is {{product.concentration}} percent.">
+            <span class="eyebrow" style="margin-bottom:8px">Perfume oil in the bottle</span>
+{{#each $.conc join="\n"}}            <div class="conc-row{{#if .us}} us{{/if}}"><span class="nm">{{.name}}</span><span class="track"><i style="{{.style}}"></i>{{#if .us}}<b style="left:{{$.markerLeft}}%"></b>{{/if}}</span><span class="rng">{{.range}}</span></div>{{/each}}
+            <div class="conc-axis"><span></span><div><span>0</span><span>10</span><span>20</span><span>30%</span></div><span></span></div>
+          </div>
+          <dl class="spec-list">
+{{#each specs join="\n"}}            <div><dt>{{.label}}</dt><dd>{{.value}}<small>{{.note}}</small></dd></div>{{/each}}
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec quiz" id="quiz">
+    <div class="wrap quiz-grid">
+      <header class="sec-head">
+        <span class="eyebrow">{{quiz.eyebrow}}</span>
+        <h2>{{quiz.title|rich}}</h2>
+        <p class="lede">{{quiz.lede}}</p>
+      </header>
+      <div class="quiz-box" id="quizBox">
+        <div class="q-step"><span id="qStep">Question 1 of 3</span><span class="q-progress" id="qProg"><i class="on"></i><i></i><i></i></span></div>
+        <div id="qHolder"></div>
+        <div class="result" id="qResult" hidden>
+          <span class="tag">{{quiz.resultTag}}</span>
+          <h3 id="rTitle"></h3>
+          <p id="rText"></p>
+          <dl class="ritual">
+            <div><dt>Sprays</dt><dd id="rSprays"></dd></div>
+            <div><dt>Where</dt><dd id="rWhere"></dd></div>
+            <div><dt>Size</dt><dd id="rSize"></dd></div>
+          </dl>
+          <div class="q-nav"><a class="btn amber" href="#sizes" id="rUse">Use these numbers</a><button class="btn ghost" type="button" id="rReset">Start again</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec paper" id="sizes">
+    <div class="wrap">
+      <header class="sec-head">
+        <span class="eyebrow">{{sizes.eyebrow}}</span>
+        <h2>{{sizes.title|rich}}</h2>
+        <p class="lede">{{sizes.lede}}</p>
+      </header>
+      <div class="sizes-grid">
+        <div class="size-pick" id="sizePick" role="group" aria-label="Bottle size"></div>
+        <form class="calc" id="calc">
+          <div class="slider"><label for="sprays">Sprays each time <b id="spraysV">3</b></label><input type="range" id="sprays" min="1" max="6" step="1" value="3"></div>
+          <div class="slider"><label for="days">Days a week <b id="daysV">5</b></label><input type="range" id="days" min="1" max="7" step="1" value="5"></div>
+          <dl class="out">
+            <div><dt>Sprays in bottle</dt><dd id="oSprays">{{$.init.sprays}}</dd></div>
+            <div><dt>Lasts about</dt><dd id="oLast">{{$.init.last}}<small>{{$.init.lastUnit}}</small></dd></div>
+            <div><dt>Per wear</dt><dd id="oWear">{{$.init.perWear}}</dd></div>
+            <div><dt>Per ml</dt><dd id="oMl">{{$.init.perMl}}</dd></div>
+          </dl>
+          <div class="buy"><button class="btn ink" type="submit" id="buyBtn">Add {{$.featuredMl}} ml to bag · {{$.featuredPrice}}</button><span class="demo-note" id="buyNote">{{sizes.note}}</span></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="wordmark" aria-hidden="true">{{business.wordmark.start}}<span>{{business.wordmark.end}}</span></div>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const rootCss = getComputedStyle(document.documentElement);
+  const tok = n => rootCss.getPropertyValue(n).trim();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const hex = h => { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map(c => c + c).join(""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
+  const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+  const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  const WHITE = hex(tok("--glass") || "#ffffff"), BLACK = hex(tok("--shade") || "#000000");
+  const NIGHT = hex(tok("--night"));
+  const METAL = [hex(tok("--metal-dark")), hex(tok("--metal-mid")), hex(tok("--metal-light"))];
+
+  /* ---------- data ---------- */
+  const TIERS = [
+{{#each tiers join=",\n"}}    { name: {{.name|jsd}}, short: {{.short|jsd}}, range: {{.range|jsd}}, caption: {{.caption|rich|jsd}} }{{/each}}
+  ];
+  const NOTES = [
+{{#each notes join=",\n"}}    { name: {{.name|jsd}}, v: "{{@noteVar:@index}}", tier: {{@noteTier:@index}}, hud: {{.hud|jsd}}, smell: {{.smell|jsd}}, mat: {{.material|jsd}}, share: {{.share}} }{{/each}}
+  ];
+  NOTES.forEach(n => { n.hex = tok(n.v) || "#ccaa66"; n.rgb = hex(n.hex); });
+  const TIME = [0, {{timeline.heartFrom}}, {{timeline.baseFrom}}, {{timeline.end}}];
+
+  /* ---------- sound (only after a tap on the toggle) ---------- */
+  let actx = null, soundOn = false;
+  const soundBtn = $("#soundBtn");
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn; soundBtn.setAttribute("aria-pressed", soundOn);
+    if (soundOn && !actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+    if (actx && actx.state === "suspended") actx.resume();
+    if (soundOn) ting(.6);
+  });
+  function ting(vol = 1) {
+    if (!soundOn || !actx) return;
+    const t = actx.currentTime, out = actx.createGain(); out.gain.value = .12 * vol; out.connect(actx.destination);
+    [[1975, 1], [3012, .45], [4410, .2]].forEach(([f, a]) => {
+      const o = actx.createOscillator(), g = actx.createGain(); o.type = "sine"; o.frequency.value = f * (0.995 + Math.random() * .01);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + 1.6);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + 1.7);
+    });
+  }
+  function hiss() {
+    if (!soundOn || !actx) return;
+    const t = actx.currentTime, len = .45, buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    const src = actx.createBufferSource(), hp = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; hp.type = "highpass"; hp.frequency.value = 3800;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.09, t + .03); g.gain.exponentialRampToValueAtTime(.0001, t + len);
+    src.connect(hp); hp.connect(g); g.connect(actx.destination); src.start(t);
+  }
+  function click() {
+    if (!soundOn || !actx) return;
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = "triangle"; o.frequency.setValueAtTime(1200, t); o.frequency.exponentialRampToValueAtTime(500, t + .05);
+    g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.0001, t + .08); o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + .1);
+  }
+
+  /* ---------- bottle geometry (units of S: body height) ---------- */
+  const BW = .36, NECK = .085, GT = .05, LFULL = .27, LEMPTY = .80, CAV_BOT = .80;
+  function hw(t) {
+    if (t <= 0) return NECK;
+    if (t < .17) { const u = t / .17; return NECK + (BW - NECK) * Math.sqrt(1 - (1 - u) * (1 - u)); }
+    if (t < .86) return BW - .018 * Math.sin(Math.PI * (t - .17) / .69);
+    const r = .14, d = t - .86; return BW - r + Math.sqrt(Math.max(0, r * r - d * d));
+  }
+  function ihw(t) {
+    let w = Math.max(.034, hw(t) - GT);
+    if (t > .71) { const r = .09, d = Math.min(t - .71, r); w = Math.min(w, (BW - GT) - r + Math.sqrt(Math.max(0, r * r - d * d))); }
+    return w;
+  }
+  function outerPts() {
+    const pts = [[-NECK, -.03], [NECK, -.03]];
+    for (let i = 0; i <= 90; i++) { const t = i / 90; pts.push([hw(t), t]); }
+    for (let i = 90; i >= 0; i--) { const t = i / 90; pts.push([-hw(t), t]); }
+    return pts;
+  }
+  function innerPts() {
+    const pts = [[-.034, -.03], [.034, -.03]];
+    for (let i = 0; i <= 80; i++) { const t = i / 80 * CAV_BOT; pts.push([ihw(t), t]); }
+    for (let i = 80; i >= 0; i--) { const t = i / 80 * CAV_BOT; pts.push([-ihw(t), t]); }
+    return pts;
+  }
+  const OUT = outerPts(), INN = innerPts();
+  const toPath = (pts, s) => { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x * s, y * s) : p.moveTo(x * s, y * s)); p.closePath(); return p; };
+  const toD = (pts, s = 1, ox = 0, oy = 0) => pts.map(([x, y], i) => (i ? "L" : "M") + (x * s + ox).toFixed(4) + " " + (y * s + oy).toFixed(4)).join("") + "Z";
+
+  /* ---------- hero canvas ---------- */
+  const hero = $("#hero"), stage = $("#stage"), cv = $("#bottle"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, DPR = 1, S = 300, BX = 0, BY = 0, pOuter, pInner, mobile = false;
+  // offscreen layers sized to the bottle body only (local box x: -.4..4, y: -.06..1.02 in S units)
+  const BOX = { x0: -.4, y0: -.06, w: .8, h: 1.08 };
+  const bc = document.createElement("canvas"), bctx = bc.getContext("2d");
+  const lc = document.createElement("canvas"), lctx = lc.getContext("2d");
+  const fc = document.createElement("canvas"), fctx = fc.getContext("2d");
+  function layout() {
+    mobile = W < 760;
+    const sr = stage.getBoundingClientRect();
+    if (mobile) {
+      const cb = $(".hero-copy").getBoundingClientRect().bottom - sr.top + 6;
+      const hb = $(".hud").getBoundingClientRect().top - sr.top - 4;
+      const avail = Math.max(200, hb - cb);
+      S = Math.min(avail / 1.6, W * .95);
+      BX = W * .5;
+      BY = cb + (avail - 1.56 * S) / 2 + .48 * S;
+    } else {
+      const top = 84, bot = H - 26, avail = bot - top;
+      S = Math.min(avail / 1.6, W * .31);
+      const hudL = W - Math.max(16, W * .042) - Math.min(330, W * .28), copyR = Math.max(16, W * .042) + Math.min(460, W * .38);
+      BX = clamp(W * .585, copyR + .36 * S, hudL - .42 * S);
+      BY = top + (avail - 1.56 * S) / 2 + .48 * S;
+    }
+    pOuter = toPath(OUT, S); pInner = toPath(INN, S);
+    const bw = Math.ceil(BOX.w * S * DPR), bh = Math.ceil(BOX.h * S * DPR);
+    for (const k of [bc, lc, fc]) { k.width = bw; k.height = bh; }
+    stage.style.setProperty("--bx", BX + "px"); stage.style.setProperty("--by", (BY + .32 * S) + "px");
+    stage.style.setProperty("--bs", S + "px"); stage.style.setProperty("--floor", (BY + 1.1 * S) + "px");
+    renderFront();
+  }
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    W = r.width; H = r.height; DPR = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    layout();
+  }
+  const local = k => k.setTransform(DPR, 0, 0, DPR, -BOX.x0 * S * DPR, -BOX.y0 * S * DPR);
+  const X = v => v * S;
+
+  /* front glass: rims, speculars and the etched label never change, so they are drawn once */
+  function renderFront() {
+    const c = fctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fc.width, fc.height); local(c);
+    let g = c.createLinearGradient(X(-BW), 0, X(BW), 0);
+    g.addColorStop(0, rgba(WHITE, .8)); g.addColorStop(.3, rgba(WHITE, .18)); g.addColorStop(.7, rgba(WHITE, .14)); g.addColorStop(1, rgba(WHITE, .55));
+    c.lineWidth = 1.6; c.strokeStyle = g; c.stroke(pOuter);
+    c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .18); c.stroke(pInner);
+    c.save(); c.clip(pOuter);
+    const streak = (x0, w, y0, y1, a) => {
+      const gg = c.createLinearGradient(0, X(y0), 0, X(y1));
+      gg.addColorStop(0, rgba(WHITE, 0)); gg.addColorStop(.18, rgba(WHITE, a)); gg.addColorStop(.7, rgba(WHITE, a * .45)); gg.addColorStop(1, rgba(WHITE, 0));
+      c.fillStyle = gg; c.beginPath(); c.roundRect ? c.roundRect(X(x0), X(y0), X(w), X(y1 - y0), X(w) / 2) : c.rect(X(x0), X(y0), X(w), X(y1 - y0)); c.fill();
+    };
+    streak(-.305, .042, .2, .84, .55);
+    streak(-.245, .01, .26, .7, .3);
+    streak(.27, .014, .28, .78, .3);
+    c.lineWidth = X(.016); c.lineCap = "round";
+    g = c.createLinearGradient(X(-.3), X(.15), X(-.1), X(.02));
+    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.5, rgba(WHITE, .7)); g.addColorStop(1, rgba(WHITE, 0));
+    c.strokeStyle = g; c.beginPath();
+    for (let i = 0; i <= 20; i++) { const t = .02 + i / 20 * .14; const x = -(hw(t) - .03), y = t + .02; i ? c.lineTo(X(x), X(y)) : c.moveTo(X(x), X(y)); }
+    c.stroke();
+    g = c.createLinearGradient(X(-.22), 0, X(.22), 0);
+    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.5, rgba(WHITE, .6)); g.addColorStop(1, rgba(WHITE, 0));
+    c.fillStyle = g; c.fillRect(X(-.22), X(.985), X(.44), X(.012));
+    c.restore();
+    // etched label
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    const label = (txt, font, y, ls) => {
+      c.font = font; if ("letterSpacing" in c) c.letterSpacing = ls + "px";
+      c.fillStyle = rgba(BLACK, .3); c.fillText(txt, 1, y + 1); c.fillStyle = rgba(WHITE, .9); c.fillText(txt, 0, y);
+    };
+    label({{business.short|upper|jsd}}, `500 ${Math.round(X(.036))}px ${tok("--body")}`, X(.50), X(.016));
+    label({{product.short|jsd}}, `italic 400 ${Math.round(X(.085))}px ${tok("--display")}`, X(.59), 0);
+    label({{$.labelLine|jsd}}, `400 ${Math.max(8, Math.round(X(.019)))}px ${tok("--mono")}`, X(.645), X(.004));
+    if ("letterSpacing" in c) c.letterSpacing = "0px";
+    c.strokeStyle = rgba(WHITE, .45); c.lineWidth = 1; c.beginPath(); c.moveTo(X(-.07), X(.52)); c.lineTo(X(.07), X(.52)); c.stroke();
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (S) renderFront(); });
+
+  /* physics */
+  const M = 56, XS = new Float32Array(M), hgt = new Float32Array(M), vel = new Float32Array(M), tmp = new Float32Array(M);
+  for (let i = 0; i < M; i++) XS[i] = -.34 + .68 * i / (M - 1);
+  let phi = 0, phiV = 0, alpha = 0, alphaV = 0, prevAlphaV = 0;
+  let sv = 0, lastSY = window.scrollY, pS = 0, ptrX = 0, devTilt = 0, devSeen = false;
+  const bubbles = [], mist = [];
+  let lastPuff = 0;
+
+  function impulse(xc, amt, width = .006) {
+    for (let i = 0; i < M; i++) { const d = XS[i] - xc; vel[i] += amt * Math.exp(-d * d / width); }
+  }
+  function spawnBubbles(n, x0, spread, yStart) {
+    for (let k = 0; k < n && bubbles.length < 90; k++) bubbles.push({ x: x0 + (Math.random() - .5) * spread, y: yStart + Math.random() * .12, r: .003 + Math.random() * .009, vy: .0015 + Math.random() * .003, w: Math.random() * 6.28 });
+  }
+  function stepPhysics(f, T, level, intro) {
+    const target = clamp(sv * .006, -.24, .24) + ptrX * .11 + Math.sin(T * .7) * .018;
+    phiV += ((target - phi) * .055 - phiV * .2) * f; phi += phiV * f;
+    const aT = clamp(-phi - devTilt, -.55, .55);
+    alphaV += ((aT - alpha) * .042 - alphaV * (reduce ? .3 : .055)) * f; alpha += alphaV * f;
+    const acc = (alphaV - prevAlphaV); prevAlphaV = alphaV;
+    if (!reduce) for (let i = 0; i < M; i++) vel[i] += -acc * XS[i] * 1.1;
+    if (Math.abs(acc) > .004 && !reduce && Math.random() < .3) spawnBubbles(2, (Math.random() - .5) * .4, .1, level + .05);
+    const subs = 2, c2 = .2, damp = reduce ? .2 : .016;
+    for (let s = 0; s < subs; s++) {
+      for (let i = 0; i < M; i++) {
+        const l = hgt[i > 0 ? i - 1 : 0], r = hgt[i < M - 1 ? i + 1 : M - 1];
+        tmp[i] = vel[i] + (c2 * (l + r - 2 * hgt[i]) - damp * vel[i]) * f;
+      }
+      let mean = 0;
+      for (let i = 0; i < M; i++) { vel[i] = tmp[i]; hgt[i] += vel[i] * f * .5; mean += hgt[i]; }
+      mean /= M; for (let i = 0; i < M; i++) hgt[i] = clamp(hgt[i] - mean, -.12, .12);
+    }
+    if (intro > 0 && intro < 1 && !reduce) { impulse((Math.random() - .5) * .02, .0035 * f, .002); if (Math.random() < .5) spawnBubbles(2, 0, .05, level + .02); }
+    if (!reduce && Math.random() < .02) impulse((Math.random() - .5) * .5, (Math.random() - .5) * .002);
+  }
+
+  /* stage mapping: scroll = time on skin */
+  function info(p) {
+    if (p < .1) return { stage: -1, idx: 0, tier: 0, u: 0, minutes: 0, tierFrac: 0 };
+    const nf = clamp((p - .1) / .8, 0, .99999) * 9;
+    const idx = Math.floor(nf), tier = Math.floor(idx / 3), tierFrac = (nf - tier * 3) / 3;
+    const minutes = p >= .9 ? 540 : TIME[tier] + (TIME[tier + 1] - TIME[tier]) * tierFrac;
+    return { stage: p >= .9 ? 3 : tier, idx, tier, u: clamp(nf - .5, 0, 8), minutes, tierFrac: p >= .9 ? 1 : tierFrac };
+  }
+  function liquidColor(u) {
+    const i0 = Math.floor(u), i1 = Math.min(8, i0 + 1), fr = smooth(.3, .7, u - i0);
+    return mix(NOTES[i0].rgb, NOTES[i1].rgb, fr);
+  }
+
+  /* ---------- drawing ---------- */
+  const front = new Float32Array(M), back = new Float32Array(M);
+  function drawLiquid(T, col, light, deep, deeper, level) {
+    const c = lctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, lc.width, lc.height);
+    if (level >= CAV_BOT - .005) return false;
+    local(c);
+    const xm = ihw(clamp(level, 0, CAV_BOT)), ta = Math.tan(alpha), bow = .012, band = .045;
+    for (let i = 0; i < M; i++) {
+      const x = XS[i], q = clamp(1 - (x / xm) * (x / xm), 0, 1);
+      const amb = reduce ? 0 : .0028 * Math.sin(x * 19 + T * 1.7) + .0016 * Math.sin(x * 33 - T * 2.4);
+      front[i] = X(level + ta * x + hgt[i] + amb + bow * Math.sqrt(q));
+      const amb2 = reduce ? 0 : .002 * Math.sin(x * 23 - T * 1.9);
+      back[i] = X(level + ta * x + hgt[M - 1 - i] * .55 + hgt[i] * .3 + amb2 - band * Math.sqrt(q));
+      if (back[i] > front[i] - 1) back[i] = front[i] - 1;
+    }
+    // body of liquid
+    c.beginPath(); c.moveTo(X(XS[0]), back[0]);
+    for (let i = 1; i < M; i++) c.lineTo(X(XS[i]), back[i]);
+    c.lineTo(X(.5), X(1.2)); c.lineTo(X(-.5), X(1.2)); c.closePath();
+    let g = c.createLinearGradient(0, X(level - .06), 0, X(CAV_BOT));
+    g.addColorStop(0, rgba(mix(col, WHITE, .12), .9)); g.addColorStop(.35, rgba(col, .88)); g.addColorStop(1, rgba(deep, .93));
+    c.fillStyle = g; c.fill();
+    // everything below paints only where liquid already is
+    c.globalCompositeOperation = "source-atop";
+    g = c.createLinearGradient(X(-.32), 0, X(.32), 0);
+    g.addColorStop(0, rgba(deeper, .8)); g.addColorStop(.07, rgba(deeper, .1)); g.addColorStop(.13, rgba(light, .6)); g.addColorStop(.19, rgba(col, 0));
+    g.addColorStop(.62, rgba(col, 0)); g.addColorStop(.8, rgba(deep, .45)); g.addColorStop(.92, rgba(light, .45)); g.addColorStop(.96, rgba(deeper, .5)); g.addColorStop(1, rgba(deeper, .85));
+    c.fillStyle = g; c.fillRect(X(-.4), X(level - .2), X(.8), X(1.2));
+    c.lineWidth = Math.max(1, X(.005));
+    for (let k = 0; k < 6; k++) {
+      const y0 = level + .07 + k * .075; if (y0 > CAV_BOT) break;
+      c.strokeStyle = rgba(light, .14 + .07 * Math.sin(T * 1.3 + k * 2));
+      c.beginPath();
+      for (let x = -.32; x <= .33; x += .02) { const yy = y0 + .012 * Math.sin(x * 14 + T * (1.1 + k * .17) + k) + .006 * Math.sin(x * 37 - T * 2 + k); x === -.32 ? c.moveTo(X(x), X(yy)) : c.lineTo(X(x), X(yy)); }
+      c.stroke();
+    }
+    g = c.createLinearGradient(X(-.3), X(level), X(.2), X(CAV_BOT));
+    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.42, rgba(WHITE, .12)); g.addColorStop(.55, rgba(WHITE, 0));
+    c.fillStyle = g; c.fillRect(X(-.5), X(level - .2), X(1), X(1.2));
+    for (const b of bubbles) {
+      const px = X(b.x + Math.sin(b.w) * .006), py = X(b.y), pr = Math.max(1, X(b.r));
+      c.beginPath(); c.arc(px, py, pr, 0, 7); c.fillStyle = rgba(light, .3); c.fill();
+      c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .6); c.stroke();
+      c.beginPath(); c.arc(px - pr * .35, py - pr * .35, pr * .3, 0, 7); c.fillStyle = rgba(WHITE, .85); c.fill();
+    }
+    c.globalCompositeOperation = "source-over";
+    // surface seen from slightly above
+    c.beginPath(); c.moveTo(X(XS[0]), back[0]); for (let i = 1; i < M; i++) c.lineTo(X(XS[i]), back[i]);
+    for (let i = M - 1; i >= 0; i--) c.lineTo(X(XS[i]), front[i]); c.closePath();
+    g = c.createLinearGradient(0, X(level - band), 0, X(level + bow));
+    g.addColorStop(0, rgba(mix(col, WHITE, .7), .96)); g.addColorStop(1, rgba(mix(col, WHITE, .3), .92));
+    c.fillStyle = g; c.fill();
+    c.lineWidth = 1.5; c.strokeStyle = rgba(WHITE, .8);
+    c.beginPath(); for (let i = 0; i < M; i++) i ? c.lineTo(X(XS[i]), front[i]) : c.moveTo(X(XS[i]), front[i]); c.stroke();
+    c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .4);
+    c.beginPath(); for (let i = 0; i < M; i++) i ? c.lineTo(X(XS[i]), back[i]) : c.moveTo(X(XS[i]), back[i]); c.stroke();
+    // keep it inside the cavity
+    c.globalCompositeOperation = "destination-in"; c.fillStyle = "#000"; c.fill(pInner);
+    c.globalCompositeOperation = "source-over";
+    return true;
+  }
+
+  function drawBody(T, col, light, deep, deeper, level, fillAmt) {
+    const c = bctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, bc.width, bc.height); local(c);
+    // back glass
+    let g = c.createLinearGradient(X(-BW), 0, X(BW), 0);
+    g.addColorStop(0, rgba(WHITE, .17)); g.addColorStop(.12, rgba(WHITE, .05)); g.addColorStop(.5, rgba(WHITE, .02)); g.addColorStop(.88, rgba(WHITE, .06)); g.addColorStop(1, rgba(WHITE, .15));
+    c.fillStyle = g; c.fill(pOuter);
+    // light carried through the thick walls and base slab
+    const lv = clamp(level, 0, CAV_BOT - .01);
+    g = c.createLinearGradient(0, 0, 0, X(1));
+    g.addColorStop(0, rgba(col, 0)); g.addColorStop(lv, rgba(col, 0));
+    g.addColorStop(Math.min(.79, lv + .04), rgba(col, .16 * fillAmt)); g.addColorStop(CAV_BOT - .005, rgba(deep, .22 * fillAmt));
+    g.addColorStop(CAV_BOT + .01, rgba(BLACK, .1)); g.addColorStop(.86, rgba(col, .08 * fillAmt)); g.addColorStop(.9, rgba(light, .42 * fillAmt));
+    g.addColorStop(.935, rgba(col, .06 * fillAmt)); g.addColorStop(.975, rgba(WHITE, .04)); g.addColorStop(1, rgba(light, .5 * fillAmt));
+    c.fillStyle = g; c.fill(pOuter);
+    c.fillStyle = rgba(BLACK, .24); c.fill(pInner);
+    if (drawLiquid(T, col, light, deep, deeper, level)) { c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(lc, 0, 0); }
+    c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fc, 0, 0);
+  }
+
+  function metal(c, x0, y0, w, h, r) {
+    const mg = c.createLinearGradient(X(x0), 0, X(x0 + w), 0);
+    mg.addColorStop(0, rgba(METAL[0])); mg.addColorStop(.25, rgba(METAL[2])); mg.addColorStop(.45, rgba(METAL[1])); mg.addColorStop(.7, rgba(METAL[2])); mg.addColorStop(1, rgba(METAL[0]));
+    c.fillStyle = mg; c.beginPath(); c.roundRect ? c.roundRect(X(x0), X(y0), X(w), X(h), X(r)) : c.rect(X(x0), X(y0), X(w), X(h)); c.fill();
+  }
+  const capIntroSide = v => Math.max(0, v);
+  function drawCap(c, col, light, capLift, capSide, capEnd = 0) {
+    const lift = capLift * .42, side = capSide * (mobile ? .42 : .55);
+    const cb = -.085 - lift, ct = -.47 - lift, ch = .07;
+    const top = x => ct + ch * clamp((Math.abs(x) - .1) / .05, 0, 1);
+    c.save(); c.translate(X(side), X(-capIntroSide(capSide) * .05 + capEnd * .16)); c.rotate(capSide * .35);
+    const outline = () => { c.beginPath(); c.moveTo(X(-.15), X(cb)); c.lineTo(X(.15), X(cb)); c.lineTo(X(.15), X(ct + ch)); c.lineTo(X(.1), X(ct)); c.lineTo(X(-.1), X(ct)); c.lineTo(X(-.15), X(ct + ch)); c.closePath(); };
+    outline(); c.fillStyle = rgba(mix(NIGHT, col, .42), .94); c.fill();
+    const facets = [[-.15, -.1, .2], [-.1, -.04, .05], [-.04, .04, .12], [.04, .1, .025], [.1, .15, .15]];
+    for (const [a, b, al] of facets) {
+      c.beginPath(); c.moveTo(X(a), X(cb)); c.lineTo(X(b), X(cb)); c.lineTo(X(b), X(top(b))); c.lineTo(X(a), X(top(a))); c.closePath();
+      c.fillStyle = rgba(WHITE, al); c.fill();
+    }
+    outline();
+    let g = c.createLinearGradient(0, X(ct), 0, X(cb));
+    g.addColorStop(0, rgba(WHITE, .14)); g.addColorStop(.12, rgba(BLACK, .05)); g.addColorStop(.72, rgba(col, 0)); g.addColorStop(1, rgba(light, .6));
+    c.fillStyle = g; c.fill();
+    c.strokeStyle = rgba(WHITE, .3); c.lineWidth = 1;
+    for (const x of [-.1, -.04, .04, .1]) { c.beginPath(); c.moveTo(X(x), X(top(x))); c.lineTo(X(x), X(cb)); c.stroke(); }
+    c.beginPath(); c.moveTo(X(-.15), X(ct + ch)); c.lineTo(X(.15), X(ct + ch)); c.strokeStyle = rgba(WHITE, .22); c.stroke();
+    g = c.createLinearGradient(0, X(ct + .1), 0, X(cb - .04));
+    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.3, rgba(WHITE, .6)); g.addColorStop(1, rgba(WHITE, 0));
+    c.fillStyle = g; c.fillRect(X(-.138), X(ct + .1), X(.012), X(cb - ct - .14));
+    outline(); c.strokeStyle = rgba(WHITE, .5); c.lineWidth = 1.2; c.stroke();
+    c.restore();
+  }
+
+  const shadowSprite = document.createElement("canvas"), causticSprite = document.createElement("canvas");
+  shadowSprite.width = shadowSprite.height = 128; causticSprite.width = causticSprite.height = 128;
+  (() => { const k = shadowSprite.getContext("2d"), g = k.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, rgba(BLACK, .62)); g.addColorStop(.5, rgba(BLACK, .3)); g.addColorStop(1, rgba(BLACK, 0)); k.fillStyle = g; k.fillRect(0, 0, 128, 128); })();
+  const cctx = causticSprite.getContext("2d");
+  function paintCaustic(col, light, T) {
+    const k = cctx; k.clearRect(0, 0, 128, 128);
+    const g = k.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, rgba(light, .55)); g.addColorStop(.3, rgba(col, .32)); g.addColorStop(1, rgba(col, 0));
+    k.fillStyle = g; k.fillRect(0, 0, 128, 128);
+    k.strokeStyle = rgba(light, .16); k.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) { const rr = 64 * (.25 + i * .18 + .04 * Math.sin(T * 2 + i)); k.beginPath(); k.arc(66, 64, rr, 0, 7); k.stroke(); }
+  }
+
+  function draw(T, col, level, introFill, capLift, capSide, capEnd) {
+    const c = ctx; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, W, H);
+    const light = mix(col, WHITE, .45), deep = mix(col, BLACK, .45), deeper = mix(col, BLACK, .7);
+    const bob = reduce ? 0 : Math.sin(T * 1.1) * .012 * S;
+    const pivotY = BY + .38 * S + bob;
+    const floorY = BY + 1.1 * S;
+    const fillAmt = clamp(1 - (level - LFULL) / (LEMPTY - LFULL), 0, 1);
+
+    // floor: shadow + coloured caustic thrown through the liquid (small sprites, stretched flat)
+    const sh = 1 - bob / S * 4;
+    c.globalAlpha = clamp(sh, .6, 1);
+    c.drawImage(shadowSprite, BX - .5 * S, floorY - .06 * S, S, .12 * S);
+    const cxo = .2 * S - phi * S * .6, cw = .46 * S;
+    paintCaustic(col, light, T);
+    c.globalAlpha = fillAmt; c.globalCompositeOperation = "lighter";
+    c.drawImage(causticSprite, BX + cxo - cw, floorY - cw * .14, cw * 2, cw * .28);
+    c.globalAlpha = 1; c.globalCompositeOperation = "source-over";
+
+    // bottle frame
+    c.save();
+    c.translate(BX, pivotY); c.rotate(phi); c.translate(0, -.38 * S);
+    if (introFill > 0 && introFill < 1) {
+      const sw = X(.016) * (introFill > .88 ? (1 - introFill) / .12 : 1);
+      const yTop = -BY - 40, yBot = X(level) + 4;
+      c.fillStyle = rgba(mix(col, WHITE, .25), .92);
+      c.beginPath();
+      for (let y = yTop; y <= yBot; y += 10) c.lineTo(-sw / 2 + Math.sin(y * .05 + T * 18) * 1.2, y);
+      for (let y = yBot; y >= yTop; y -= 10) c.lineTo(sw / 2 + Math.sin(y * .05 + T * 18) * 1.2, y);
+      c.closePath(); c.fill();
+      c.fillStyle = rgba(WHITE, .55); c.fillRect(-sw * .2, yTop, sw * .18, yBot - yTop);
+    }
+    drawBody(T, col, light, deep, deeper, level, fillAmt);
+    c.drawImage(bc, X(BOX.x0), X(BOX.y0), X(BOX.w), X(BOX.h));
+    // atomiser (seen when the cap lifts), collar, cap
+    metal(c, -.018, -.175, .036, .08, .004);
+    metal(c, -.045, -.25, .09, .08, .018);
+    c.fillStyle = rgba(BLACK, .7); c.beginPath(); c.arc(X(.045), X(-.215), Math.max(1.2, X(.007)), 0, 7); c.fill();
+    metal(c, -.108, -.105, .216, .085, .012);
+    c.fillStyle = rgba(BLACK, .25); c.fillRect(X(-.108), X(-.03), X(.216), X(.008));
+    drawCap(c, col, light, capLift, capSide, capEnd);
+    c.restore();
+
+    // mist (world space)
+    if (mist.length) {
+      c.save(); c.globalCompositeOperation = "screen";
+      for (const m of mist) {
+        const a = m.a * (1 - m.age / m.life); if (a <= 0) continue;
+        const gr = c.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+        gr.addColorStop(0, rgba(light, a)); gr.addColorStop(1, rgba(light, 0));
+        c.fillStyle = gr; c.beginPath(); c.arc(m.x, m.y, m.r, 0, 7); c.fill();
+      }
+      c.restore();
+    }
+  }
+
+  function nozzleWorld() {
+    const lx = .05 * S, ly = (-.215 - .38) * S;
+    const cs = Math.cos(phi), sn = Math.sin(phi);
+    return [BX + lx * cs - ly * sn, BY + .38 * S + lx * sn + ly * cs, phi];
+  }
+  function puff() {
+    const [nx, ny, a] = nozzleWorld();
+    for (let k = 0; k < 40; k++) {
+      const sp = (2.5 + Math.random() * 8) * (S / 300), ang = a + (Math.random() - .5) * .55 - .1;
+      mist.push({ x: nx, y: ny, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: (3 + Math.random() * 6) * (S / 300), a: .05 + Math.random() * .07, age: 0, life: 60 + Math.random() * 60 });
+    }
+    hiss();
+  }
+
+  /* ---------- HUD ---------- */
+  const el = { ghost: $("#ghost"), caption: $("#caption"), tier: $("#hudTier"), note: $("#hudNote"), smell: $("#hudSmell"), clock: $("#hudClock"), phase: $("#hudPhase"), dots: $$("#hudDots i"), tf: [$("#tf0"), $("#tf1"), $("#tf2")], cue: $("#cue"), end: $("#heroEnd") };
+  const TF = [[2, 28], [31, 57], [60, 86]];
+  let hudKey = "", lastClock = "", lastCaption = -2, lastGhost = "";
+  const fmtMin = m => m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} min`;
+  function setGhost(txt) {
+    if (txt === lastGhost) return; lastGhost = txt;
+    el.ghost.classList.add("swap"); el.ghost.textContent = txt;
+    el.ghost.style.fontSize = ""; const gw = el.ghost.offsetWidth, maxW = W * .96;
+    if (gw > maxW) el.ghost.style.fontSize = (parseFloat(getComputedStyle(el.ghost).fontSize) * maxW / gw) + "px";
+    void el.ghost.offsetWidth; el.ghost.classList.remove("swap");
+  }
+  function updateHud(inf, col, introFill) {
+    const root = stage.style;
+    root.setProperty("--note", rgba(col)); root.setProperty("--note-light", rgba(mix(col, WHITE, .35)));
+    let key;
+    if (inf.stage === -1) {
+      key = introFill < 1 ? "fill" : "intro";
+      if (key !== hudKey) {
+        el.tier.textContent = introFill < 1 ? {{hud.filling|jsd}} : {{product.type|jsd}};
+        el.note.textContent = {{product.short|jsd}}; el.smell.textContent = {{$.introSmell|jsd}};
+        el.phase.textContent = {{hud.beforePhase|jsd}};
+      }
+      setGhost({{product.name|plain|jsd}});
+    } else if (inf.stage === 3) {
+      key = "end";
+      if (key !== hudKey) { el.tier.textContent = {{hud.end.tier|jsd}}; el.note.textContent = {{hud.end.note|jsd}}; el.smell.textContent = {{hud.end.smell|jsd}}; el.phase.textContent = {{hud.end.phase|jsd}}; }
+      setGhost({{hud.end.note|jsd}});
+    } else {
+      const n = NOTES[inf.idx]; key = "n" + inf.idx;
+      if (key !== hudKey) {
+        el.tier.textContent = `${TIERS[inf.tier].name} · ${inf.idx % 3 + 1} of 3`;
+        el.note.textContent = n.name; el.smell.textContent = n.hud;
+        el.phase.textContent = `${TIERS[inf.tier].short} · ${TIERS[inf.tier].range}`;
+      }
+      setGhost(n.name);
+    }
+    hudKey = key;
+    const ck = introFill < 1 && inf.stage === -1 ? `${Math.round(introFill * {{$.featuredMl}})} ml` : (inf.stage === 3 ? {{hud.end.clock|jsd}} : fmtMin(inf.minutes));
+    if (ck !== lastClock) { el.clock.textContent = ck; lastClock = ck; }
+    el.dots.forEach((d, i) => { d.className = inf.stage === -1 ? "" : (i < inf.idx ? "on" : i === inf.idx ? (inf.stage === 3 ? "on" : "now") : ""); });
+    for (let t = 0; t < 3; t++) {
+      const fr = inf.stage === -1 ? 0 : (t < inf.tier ? 1 : t === inf.tier ? inf.tierFrac : 0);
+      const [y0, y1] = TF[t], h = (y1 - y0) * fr;
+      el.tf[t].setAttribute("y", (y1 - h).toFixed(2)); el.tf[t].setAttribute("height", h.toFixed(2));
+    }
+    const capIdx = inf.stage;
+    if (capIdx !== lastCaption) {
+      lastCaption = capIdx;
+      el.caption.innerHTML = capIdx === -1 ? {{hero.caption|rich|jsd}}
+        : capIdx === 3 ? {{hud.end.caption|rich|jsd}}
+        : TIERS[capIdx].caption;
+      el.cue.hidden = capIdx !== -1;
+      el.end.hidden = capIdx !== 3;
+    }
+  }
+
+  /* ---------- loop ---------- */
+  const t0 = performance.now(); let last = t0;
+  const papers = $$(".paper"), nav = $(".nav"); let navPaper = false;
+  function heroP() {
+    const r = hero.getBoundingClientRect(), span = r.height - innerHeight;
+    return clamp(-r.top / Math.max(1, span), 0, 1);
+  }
+  function frame(now) {
+    const dt = Math.min(50, now - last); last = now;
+    const f = dt / 16.667, T = (now - t0) / 1000;
+    const sy = window.scrollY; sv += ((sy - lastSY) / Math.max(.3, f) - sv) * .25; lastSY = sy;
+    const p = heroP();
+    const fl = Math.min(250, now - (frame.prev || now)) / 16.667; frame.prev = now;
+    pS = reduce ? p : pS + (p - pS) * (1 - Math.pow(.88, fl));
+    const inf = info(pS);
+    const col = liquidColor(inf.u);
+    const introFill = reduce ? 1 : clamp((T - .5) / 2.6, 0, 1);
+    const level = lerp(LEMPTY, LFULL, easeOut(introFill));
+    const capIntro = reduce ? 0 : 1 - easeInOut(clamp((T - 3.0) / 1, 0, 1));
+    const capEnd = easeInOut(smooth(.9, .955, pS));
+    const capLift = Math.max(capIntro * .55, capEnd * .1);
+    const capSide = capIntro - capEnd * .8;
+    stepPhysics(f, T, level, introFill);
+    // bubbles rise
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i]; b.y -= b.vy * f; b.w += .1 * f;
+      if (b.y < level + Math.tan(alpha) * b.x - .005 || b.y > CAV_BOT) bubbles.splice(i, 1);
+    }
+    // mist
+    if (!reduce && capEnd > .97 && now - lastPuff > 1700) { lastPuff = now; puff(); }
+    if (pS < .88) mist.length = 0;
+    for (let i = mist.length - 1; i >= 0; i--) {
+      const m = mist[i]; m.age += f; m.x += m.vx * f; m.y += m.vy * f; m.vx *= Math.pow(.95, f); m.vy = m.vy * Math.pow(.95, f) + .02 * f; m.r += .7 * f * (S / 300);
+      if (m.age > m.life) mist.splice(i, 1);
+    }
+    let onPaper = false;
+    for (const pe of papers) { const pr = pe.getBoundingClientRect(); if (pr.top <= 36 && pr.bottom > 36) onPaper = true; }
+    if (onPaper !== navPaper) { navPaper = onPaper; nav.classList.toggle("on-paper", onPaper); }
+    const r = hero.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < innerHeight) { draw(T, col, level, introFill, capLift, capSide, capEnd); updateHud(inf, col, introFill); }
+    requestAnimationFrame(frame);
+  }
+
+  stage.addEventListener("pointermove", e => { if (e.pointerType === "mouse") ptrX = clamp((e.clientX / W - .5) * 2, -1, 1); });
+  stage.addEventListener("pointerleave", () => { ptrX = 0; });
+  cv.addEventListener("pointerdown", e => {
+    const rr = cv.getBoundingClientRect(), x = e.clientX - rr.left, y = e.clientY - rr.top;
+    const lx = (x - BX) / S, ly = (y - BY) / S;
+    if (Math.abs(lx) < .45 && ly > -.6 && ly < 1.1) {
+      impulse(clamp(lx, -.3, .3), .05, .01);
+      phiV += (lx < 0 ? -1 : 1) * .02;
+      spawnBubbles(16, clamp(lx, -.25, .25), .12, .6);
+      ting();
+      if (pS > .94) puff();
+    }
+  });
+  window.addEventListener("deviceorientation", e => {
+    if (e.gamma == null) return; devSeen = true;
+    devTilt = clamp(e.gamma / 60, -1, 1) * .5;
+  });
+  addEventListener("resize", () => { resize(); });
+  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(stage);
+  resize();
+  requestAnimationFrame(frame);
+
+  /* ---------- notes explorer ---------- */
+  const pyr = $("#pyr");
+  let curNote = 3;
+  TIERS.forEach((t, ti) => {
+    const tier = document.createElement("div");
+    tier.className = "tier t" + ti; tier.dataset.tier = ti;
+    tier.innerHTML = `<span class="tier-label">${t.name} · ${t.range}</span><div class="tier-notes"></div>`;
+    const holder = $(".tier-notes", tier);
+    NOTES.forEach((n, i) => {
+      if (n.tier !== ti) return;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.dataset.i = i; b.style.setProperty("--c", n.hex);
+      b.innerHTML = `<i></i>${n.name}`;
+      b.addEventListener("click", () => { selectNote(i); click(); });
+      holder.appendChild(b);
+    });
+    pyr.appendChild(tier);
+  });
+  function selectNote(i) {
+    curNote = i; const n = NOTES[i];
+    $$(".chip", pyr).forEach(b => b.setAttribute("aria-pressed", +b.dataset.i === i));
+    $$(".tier", pyr).forEach(t => { t.classList.toggle("active", +t.dataset.tier === n.tier); t.style.setProperty("--tc", n.hex); });
+    $("#ncWhen").textContent = `${TIERS[n.tier].short} note · ${TIERS[n.tier].range}`;
+    $("#ncName").textContent = n.name; $("#ncSmell").textContent = n.smell; $("#ncMat").textContent = n.mat;
+    $("#ncPct").textContent = n.share + "%"; $("#ncBar").style.setProperty("--w", (n.share / {{$.maxShare}} * 100) + "%");
+    const v = $("#vial"); v.style.setProperty("--c", n.hex); v.style.setProperty("--fill", (40 + n.share * 2.6) + "%");
+  }
+  selectNote(curNote);
+
+  /* ---------- pulse points ---------- */
+  const PP = [
+{{#each pulse join=",\n"}}    { name: {{.name|jsd}}, dose: {{.dose|jsd}}, tip: {{.tip|jsd}} }{{/each}}
+  ];
+  const pps = $$(".pp");
+  function selectPP(i) {
+    pps.forEach(b => b.setAttribute("aria-pressed", +b.dataset.pp === i));
+    $("#ppName").textContent = PP[i].name; $("#ppDose").textContent = PP[i].dose; $("#ppTip").textContent = PP[i].tip;
+  }
+  pps.forEach(b => { b.setAttribute("aria-label", PP[+b.dataset.pp].name); b.addEventListener("click", () => { selectPP(+b.dataset.pp); click(); }); });
+  selectPP(3);
+
+  /* ---------- sizes + calculator ---------- */
+  const SIZES = [{{#each sizes.items join=", "}}{ ml: {{.ml}}, price: {{.price}} }{{/each}}];
+  let size = 1;
+  const pick = $("#sizePick");
+  const outerD = toD(OUT), innerD = toD(INN);
+  const capD = "M-.15 -.085L.15 -.085L.15 -.4L.1 -.47L-.1 -.47L-.15 -.4Z";
+  SIZES.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "size"; b.dataset.i = i;
+    const k = Math.cbrt(s.ml / 100).toFixed(3);
+    const fillY = lerp(CAV_BOT, LFULL, .92);
+    b.innerHTML = `<svg viewBox="-.42 -.5 .84 1.52" style="--k:${k}" aria-hidden="true">
+      <defs><clipPath id="sc${i}"><path d="${innerD}"/></clipPath></defs>
+      <path class="glass-o" d="${outerD}"/>
+      <rect class="liq" clip-path="url(#sc${i})" x="-.5" y="${fillY.toFixed(3)}" width="1" height="1"/>
+      <rect x="-.11" y="-.105" width=".22" height=".085" rx=".012" fill="${tok("--metal-mid")}"/>
+      <path class="capp" d="${capD}"/>
+    </svg><span class="ml">${s.ml}<small>ml</small></span><span class="pr">{{locale.currency|tl}}${s.price}</span>`;
+    b.setAttribute("aria-label", `${s.ml} ml, {{locale.currency|tl}}${s.price}`);
+    b.addEventListener("click", () => { size = i; renderCalc(); click(); });
+    pick.appendChild(b);
+  });
+  const spraysIn = $("#sprays"), daysIn = $("#days");
+  function paintRange(r) { r.style.setProperty("--p", ((r.value - r.min) / (r.max - r.min) * 100) + "%"); }
+  function renderCalc() {
+    const s = SIZES[size], sp = +spraysIn.value, dw = +daysIn.value;
+    $$(".size", pick).forEach(b => b.setAttribute("aria-pressed", +b.dataset.i === size));
+    $("#spraysV").textContent = sp; $("#daysV").textContent = dw; paintRange(spraysIn); paintRange(daysIn);
+    const total = s.ml * 10, weeks = total / (sp * dw), months = weeks / 4.345;
+    $("#oSprays").textContent = total.toLocaleString({{locale.locale|jsd}});
+    $("#oLast").innerHTML = months >= 2 ? `${months >= 10 ? Math.round(months) : (Math.round(months * 2) / 2)}<small>months</small>` : `${Math.round(weeks)}<small>weeks</small>`;
+    $("#oWear").textContent = {{locale.currency|jsd}} + (s.price / (total / sp)).toFixed(2);
+    $("#oMl").textContent = {{locale.currency|jsd}} + (s.price / s.ml).toFixed(2);
+    $("#buyBtn").textContent = `Add ${s.ml} ml to bag · {{locale.currency|tl}}${s.price}`;
+  }
+  spraysIn.addEventListener("input", renderCalc); daysIn.addEventListener("input", renderCalc);
+  $("#calc").addEventListener("submit", e => {
+    e.preventDefault(); const s = SIZES[size];
+    $("#buyNote").innerHTML = `<b>Demo only:</b> ${s.ml} ml added to a pretend bag. Nothing was charged.`;
+    ting(.8);
+  });
+  renderCalc();
+
+  /* ---------- quiz ---------- */
+  const QS = [
+{{#each quiz.questions join=",\n"}}    { q: {{.q|jsd}}, opts: [{{#each .options join=", "}}[{{.title|jsd}}, {{.sub|jsd}}]{{/each}}] }{{/each}}
+  ];
+  const ans = [null, null, null]; let step = 0;
+  const qHolder = $("#qHolder");
+  function renderQ() {
+    const done = step >= 3;
+    $("#qResult").hidden = !done; qHolder.hidden = done;
+    $("#qStep").textContent = done ? "Your result" : `Question ${step + 1} of 3`;
+    $$("#qProg i").forEach((d, i) => d.classList.toggle("on", done || i <= step));
+    if (done) return showResult();
+    const Q = QS[step];
+    qHolder.innerHTML = `<div class="q"><h3>${Q.q}</h3><div class="q-opts">${Q.opts.map((o, i) => `<button type="button" class="q-opt" data-i="${i}" aria-pressed="${ans[step] === i}"><span class="k">${"ABC"[i]}</span><span><b>${o[0]}</b><small>${o[1]}</small></span></button>`).join("")}</div></div>
+      ${step > 0 ? `<div class="q-nav" style="margin-top:16px"><button type="button" class="btn ghost" id="qBack">Back</button></div>` : ""}`;
+    $$(".q-opt", qHolder).forEach(b => b.addEventListener("click", () => {
+      ans[step] = +b.dataset.i; click();
+      $$(".q-opt", qHolder).forEach(x => x.setAttribute("aria-pressed", x === b));
+      setTimeout(() => { step++; renderQ(); }, reduce ? 0 : 260);
+    }));
+    const back = $("#qBack"); if (back) back.addEventListener("click", () => { step--; renderQ(); });
+  }
+  let rec = { size: 1, sprays: 3, days: 5 };
+  function showResult() {
+    const [freq, love, reach] = ans;
+    const sprays = [2, 3, 4][reach] + (freq === 2 ? 0 : 0);
+    const where = [{{#each quiz.where join=", "}}[{{.short|jsd}}, {{.long|jsd}}]{{/each}}][reach];
+    const days = [7, 3, 1][freq];
+    const sz = [2, 1, 0][freq];
+    const titles = [[{{#each quiz.results join=", "}}{{.title|jsd}}{{/each}}], [{{#each quiz.results join=", "}}{{.word|jsd}}{{/each}}]];
+    const loveTxt = [
+{{#each quiz.results join=",\n"}}      {{.text|rich|jsd}}{{/each}}
+    ][love];
+    const s = SIZES[sz], weeks = s.ml * 10 / (sprays * days), months = weeks / 4.345;
+    $("#rTitle").textContent = titles[0][love];
+    $("#rText").innerHTML = `${loveTxt} At ${sprays} sprays, ${days === 7 ? "every day" : days === 1 ? "about once a week" : `${days} days a week`}, the <b>${s.ml} ml</b> lasts about <b>${months >= 2 ? Math.round(months) + " months" : Math.round(weeks) + " weeks"}</b>.`;
+    $("#rSprays").textContent = sprays; $("#rWhere").textContent = where[0]; $("#rSize").textContent = s.ml + " ml";
+    rec = { size: sz, sprays, days };
+  }
+  $("#rUse").addEventListener("click", () => { size = rec.size; spraysIn.value = rec.sprays; daysIn.value = rec.days; renderCalc(); });
+  $("#rReset").addEventListener("click", () => { ans.fill(null); step = 0; renderQ(); });
+  renderQ();
+})();
+</script>
+
+</body></html>

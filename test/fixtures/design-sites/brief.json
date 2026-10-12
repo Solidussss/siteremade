@@ -1,0 +1,12 @@
+{ "design": "beadline", "brief": {
+  "businessName": "Kestrel Car Care",
+  "location": "Unit 7, Clydeside Trade Park, Glasgow G51",
+  "phone": "07700 900123",
+  "hours": "Mon-Fri 8am-6pm, Saturdays 9-3, closed Sunday. Theres a key box so you can drop the car the night before.",
+  "services": "Mini valet £45 (about 2 hours)\nEnhancement detail £295 (8 hrs, decon + 1 step polish)\n1-step correction + 3 year ceramic £690 (around 18 hours)\nFull correction + 5 year ceramic £1150 (30 hours)",
+  "extras": "wheels off ceramic £150 (3h), glass coating £75 (1h), interior deep clean £120 (3h)",
+  "currency": "£",
+  "vibe": "Friendly, no-nonsense, bit of Scottish humour. Our customers are folk who love their cars but hate the weather.",
+  "colours": "Our logo is teal and black",
+  "other": "Prices include VAT. Two of us, Callum and Ross."
+} }

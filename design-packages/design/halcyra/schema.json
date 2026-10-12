@@ -1,0 +1,422 @@
+{
+  "about": "What a business may change in the Halcyra design. Everything not listed is protected: the bottle geometry and glass rendering, the liquid physics and slosh, the fill-on-load intro, the nine-note scroll timeline, cap lift and mist, the pyramid explorer, body map and pulse-point positions, the quiz logic, the calculator, layout, type scale and breakpoints.",
+  "text": {
+    "business.name": [
+      2,
+      40
+    ],
+    "business.short": [
+      2,
+      14
+    ],
+    "business.kind": [
+      2,
+      10
+    ],
+    "business.wordmark.start": [
+      1,
+      10
+    ],
+    "business.wordmark.end": [
+      1,
+      10
+    ],
+    "nav.notes": [
+      2,
+      12
+    ],
+    "nav.wear": [
+      2,
+      14
+    ],
+    "nav.quiz": [
+      2,
+      12
+    ],
+    "nav.sizes": [
+      2,
+      12
+    ],
+    "nav.ctaVerb": [
+      2,
+      8
+    ],
+    "product.name": [
+      2,
+      24
+    ],
+    "product.short": [
+      2,
+      18
+    ],
+    "product.number": [
+      2,
+      10
+    ],
+    "product.type": [
+      3,
+      20
+    ],
+    "product.typeShort": [
+      2,
+      8
+    ],
+    "product.longevity": [
+      2,
+      8
+    ],
+    "hero.caption": [
+      20,
+      120
+    ],
+    "hero.scrollCue": [
+      4,
+      24
+    ],
+    "hero.endSizes": [
+      4,
+      18
+    ],
+    "hero.endQuiz": [
+      4,
+      18
+    ],
+    "hud.filling": [
+      4,
+      22
+    ],
+    "hud.beforePhase": [
+      4,
+      22
+    ],
+    "hud.end.tier": [
+      3,
+      18
+    ],
+    "hud.end.note": [
+      2,
+      14
+    ],
+    "hud.end.smell": [
+      5,
+      36
+    ],
+    "hud.end.phase": [
+      3,
+      18
+    ],
+    "hud.end.clock": [
+      2,
+      8
+    ],
+    "hud.end.caption": [
+      20,
+      120
+    ],
+    "tiers.*.name": [
+      3,
+      16
+    ],
+    "tiers.*.short": [
+      2,
+      8
+    ],
+    "tiers.*.range": [
+      3,
+      14
+    ],
+    "tiers.*.caption": [
+      20,
+      130
+    ],
+    "notes.*.name": [
+      2,
+      16
+    ],
+    "notes.*.hud": [
+      3,
+      24
+    ],
+    "notes.*.smell": [
+      20,
+      150
+    ],
+    "notes.*.material": [
+      10,
+      120
+    ],
+    "notesSection.eyebrow": [
+      3,
+      30
+    ],
+    "notesSection.title": [
+      4,
+      40
+    ],
+    "notesSection.lede": [
+      20,
+      220
+    ],
+    "wear.eyebrow": [
+      3,
+      30
+    ],
+    "wear.title": [
+      4,
+      40
+    ],
+    "wear.lede": [
+      20,
+      200
+    ],
+    "pulse.*.short": [
+      2,
+      8
+    ],
+    "pulse.*.name": [
+      3,
+      22
+    ],
+    "pulse.*.dose": [
+      3,
+      32
+    ],
+    "pulse.*.tip": [
+      20,
+      180
+    ],
+    "specs.*.label": [
+      3,
+      14
+    ],
+    "specs.*.value": [
+      1,
+      14
+    ],
+    "specs.*.note": [
+      3,
+      40
+    ],
+    "quiz.eyebrow": [
+      3,
+      34
+    ],
+    "quiz.title": [
+      4,
+      40
+    ],
+    "quiz.lede": [
+      20,
+      200
+    ],
+    "quiz.resultTag": [
+      4,
+      30
+    ],
+    "quiz.questions.*.q": [
+      8,
+      48
+    ],
+    "quiz.questions.*.options.*.title": [
+      2,
+      24
+    ],
+    "quiz.questions.*.options.*.sub": [
+      4,
+      40
+    ],
+    "quiz.results.*.title": [
+      3,
+      22
+    ],
+    "quiz.results.*.word": [
+      2,
+      10
+    ],
+    "quiz.results.*.text": [
+      20,
+      200
+    ],
+    "quiz.where.*.short": [
+      3,
+      16
+    ],
+    "quiz.where.*.long": [
+      5,
+      40
+    ],
+    "sizes.eyebrow": [
+      3,
+      40
+    ],
+    "sizes.title": [
+      4,
+      40
+    ],
+    "sizes.lede": [
+      20,
+      160
+    ],
+    "sizes.note": [
+      5,
+      60
+    ],
+    "footer.fine": [
+      10,
+      120
+    ],
+    "locale.currency": [
+      1,
+      3
+    ],
+    "locale.locale": [
+      2,
+      10
+    ]
+  },
+  "lists": {
+    "tiers": [
+      3,
+      3
+    ],
+    "notes": [
+      9,
+      9
+    ],
+    "pulse": [
+      5,
+      5
+    ],
+    "specs": [
+      6,
+      6
+    ],
+    "quiz.questions": [
+      3,
+      3
+    ],
+    "quiz.questions.*.options": [
+      3,
+      3
+    ],
+    "quiz.results": [
+      3,
+      3
+    ],
+    "quiz.where": [
+      3,
+      3
+    ],
+    "sizes.items": [
+      3,
+      3
+    ]
+  },
+  "numbers": {
+    "product.concentration": [
+      2,
+      30
+    ],
+    "notes.*.share": [
+      1,
+      23
+    ],
+    "timeline.heartFrom": [
+      5,
+      120
+    ],
+    "timeline.baseFrom": [
+      30,
+      720
+    ],
+    "timeline.end": [
+      60,
+      1440
+    ],
+    "sizes.items.*.ml": [
+      5,
+      250
+    ],
+    "sizes.items.*.price": [
+      1,
+      99999
+    ]
+  },
+  "choices": {
+    "theme.fonts": [
+      "maison",
+      "garamond",
+      "modern"
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    },
+    "product.concentrationType": [
+      "cologne",
+      "toilette",
+      "parfum",
+      "extrait"
+    ],
+    "theme.captionFit": {
+      "options": [
+        "fit",
+        "off"
+      ],
+      "optional": true
+    }
+  },
+  "colours": [
+    "theme.room",
+    "theme.paper",
+    "theme.accent",
+    "theme.metal",
+    "notes.*.colour"
+  ],
+  "widths": [
+    {
+      "path": "notes.*.name",
+      "metric": "hudNote",
+      "maxEm": 5.89,
+      "label": "the HUD note name (38px, one line)"
+    },
+    {
+      "path": "hud.end.note",
+      "metric": "hudNote",
+      "maxEm": 5.89,
+      "label": "the HUD note name (38px, one line)"
+    },
+    {
+      "path": "product.short",
+      "metric": "hudNote",
+      "maxEm": 5.89,
+      "label": "the HUD (the product name shows there first)"
+    },
+    {
+      "path": "product.short",
+      "metric": "bottleName",
+      "maxEm": 6.5,
+      "label": "the bottle label"
+    },
+    {
+      "path": "business.short",
+      "metric": "brandLabel",
+      "maxEm": 13.5,
+      "transform": "upper",
+      "label": "the brand line etched on the bottle"
+    }
+  ],
+  "rules": [
+    "Rich text: *words* become italic emphasis and **words** become bold, in fields used as headings and captions.",
+    "Nine notes, always: three top, three heart, three base. The scroll timeline is nine steps; only names, colours and text change.",
+    "notes.*.share must add up to 100 (they are the formula's proportions).",
+    "product.concentration must sit inside the chosen concentrationType's range (cologne 2-5, toilette 5-15, parfum 15-20, extrait 20-30).",
+    "Prices are whole numbers with the currency written before them; the per-wear and per-ml figures use a full stop for decimals.",
+    "Phone nav: business.short (26px) and the buy button (\"Shop 50 ml · $140\", 13px) share one row with the sound button. Together they must fit a 375px phone; the original fits with about 4px to spare.",
+    "business.name is the full trading name (page title, hero line, footer); business.short is the form used where space is tight (nav, the etched bottle label).",
+    "product.name is the fragrance name exactly as the brand writes it (hero title, page text); product.short is the form shown in the HUD and etched on the bottle, where space is tight. Long words in the hero title shrink the title to fit."
+  ]
+}

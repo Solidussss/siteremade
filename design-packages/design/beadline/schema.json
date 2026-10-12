@@ -1,0 +1,406 @@
+{
+  "about": "What a business may change in the Beadline design. Everything not listed here is protected: the procedural coupe and its six-stage scroll animation, camera moves, layer timing, gloss-meter readings, the before/after renderer, the droplet physics, layout, spacing, type scale, breakpoints and all interaction code.",
+  "text": {
+    "business.name": [
+      3,
+      48
+    ],
+    "business.short": [
+      2,
+      14
+    ],
+    "business.wordmark": [
+      2,
+      14
+    ],
+    "nav.process": [
+      2,
+      14
+    ],
+    "nav.correction": [
+      2,
+      14
+    ],
+    "nav.packages": [
+      2,
+      14
+    ],
+    "nav.coatings": [
+      2,
+      14
+    ],
+    "nav.book": [
+      2,
+      14
+    ],
+    "nav.cta": [
+      2,
+      22
+    ],
+    "nav.ctaShort": [
+      2,
+      8
+    ],
+    "hero.eyebrow": [
+      3,
+      60
+    ],
+    "hero.headline": [
+      8,
+      48
+    ],
+    "hero.headlineAccent": [
+      2,
+      18
+    ],
+    "hero.lede": [
+      20,
+      150
+    ],
+    "hero.scrollHint": [
+      4,
+      32
+    ],
+    "stages.*.name": [
+      3,
+      14
+    ],
+    "stages.*.text": [
+      20,
+      120
+    ],
+    "correction.eyebrow": [
+      3,
+      30
+    ],
+    "correction.title": [
+      4,
+      40
+    ],
+    "correction.body": [
+      20,
+      260
+    ],
+    "correction.stats.*.label": [
+      2,
+      18
+    ],
+    "correction.stats.*.value": [
+      1,
+      5
+    ],
+    "correction.stats.*.unit": [
+      1,
+      4
+    ],
+    "correction.defects.*.name": [
+      2,
+      20
+    ],
+    "correction.defects.*.text": [
+      10,
+      130
+    ],
+    "correction.tagBefore": [
+      2,
+      18
+    ],
+    "correction.tagAfter": [
+      2,
+      18
+    ],
+    "correction.caption": [
+      10,
+      110
+    ],
+    "packages.eyebrow": [
+      3,
+      30
+    ],
+    "packages.title": [
+      4,
+      40
+    ],
+    "packages.body": [
+      20,
+      200
+    ],
+    "packages.cta": [
+      4,
+      26
+    ],
+    "packages.sizes.*.name": [
+      2,
+      18
+    ],
+    "packages.items.*.name": [
+      3,
+      34
+    ],
+    "packages.items.*.desc": [
+      10,
+      90
+    ],
+    "packages.addons.*.name": [
+      3,
+      28
+    ],
+    "coatings.eyebrow": [
+      3,
+      30
+    ],
+    "coatings.title": [
+      4,
+      50
+    ],
+    "coatings.body": [
+      20,
+      200
+    ],
+    "coatings.costLabel": [
+      3,
+      20
+    ],
+    "coatings.items.*.name": [
+      3,
+      18
+    ],
+    "coatings.items.*.short": [
+      2,
+      9
+    ],
+    "coatings.items.*.ph": [
+      1,
+      7
+    ],
+    "coatings.items.*.heat": [
+      3,
+      20
+    ],
+    "coatings.items.*.reapply": [
+      3,
+      16
+    ],
+    "booking.eyebrow": [
+      3,
+      30
+    ],
+    "booking.title": [
+      4,
+      40
+    ],
+    "booking.body": [
+      20,
+      220
+    ],
+    "booking.slots.*.time": [
+      4,
+      5
+    ],
+    "booking.slots.*.note": [
+      3,
+      14
+    ],
+    "booking.namePlaceholder": [
+      2,
+      24
+    ],
+    "booking.vehicleLabel": [
+      3,
+      20
+    ],
+    "booking.vehiclePlaceholder": [
+      2,
+      14
+    ],
+    "booking.vehicleNoun": [
+      3,
+      24
+    ],
+    "booking.phoneLabel": [
+      3,
+      24
+    ],
+    "booking.phonePlaceholder": [
+      6,
+      18
+    ],
+    "booking.refPrefix": [
+      1,
+      4
+    ],
+    "footer.columns.*.label": [
+      2,
+      12
+    ],
+    "footer.columns.*.lines.*": [
+      2,
+      44
+    ],
+    "footer.fine": [
+      10,
+      120
+    ],
+    "locale.currency": [
+      1,
+      3
+    ],
+    "locale.locale": [
+      2,
+      10
+    ],
+    "hours.ready": [
+      5,
+      5
+    ],
+    "hours.readyWord": [
+      2,
+      8
+    ],
+    "hours.sameDayLabel": [
+      3,
+      12
+    ]
+  },
+  "lists": {
+    "stages": [
+      6,
+      6
+    ],
+    "correction.stats": [
+      3,
+      3
+    ],
+    "correction.defects": [
+      4,
+      4
+    ],
+    "packages.sizes": [
+      4,
+      4
+    ],
+    "packages.items": [
+      4,
+      4
+    ],
+    "packages.addons": [
+      0,
+      4
+    ],
+    "coatings.items": [
+      3,
+      3
+    ],
+    "booking.slots": [
+      6,
+      6
+    ],
+    "footer.columns": [
+      3,
+      3
+    ],
+    "footer.columns.*.lines": [
+      1,
+      2
+    ]
+  },
+  "numbers": {
+    "packages.sizes.*.priceFactor": [
+      0.5,
+      3
+    ],
+    "packages.sizes.*.hoursFactor": [
+      0.5,
+      3
+    ],
+    "packages.items.*.price": [
+      1,
+      99999
+    ],
+    "packages.items.*.hours": [
+      0.5,
+      80
+    ],
+    "packages.addons.*.price": [
+      1,
+      9999
+    ],
+    "packages.addons.*.hours": [
+      0,
+      12
+    ],
+    "coatings.items.*.contactAngle": [
+      60,
+      125
+    ],
+    "coatings.items.*.slidingAngle": [
+      3,
+      40
+    ],
+    "coatings.items.*.cost": [
+      0,
+      99999
+    ],
+    "packages.default.package": [
+      0,
+      3
+    ],
+    "packages.default.size": [
+      0,
+      3
+    ],
+    "hours.perDay": [
+      1,
+      24
+    ],
+    "hours.sameDayMax": [
+      0.5,
+      12
+    ]
+  },
+  "choices": {
+    "theme.fonts": [
+      "studio",
+      "track",
+      "atelier"
+    ],
+    "theme.logo": [
+      "bead",
+      "drop",
+      "spark",
+      "monogram"
+    ],
+    "packages.sizes.*.icon": [
+      "coupe",
+      "saloon",
+      "suv",
+      "van"
+    ],
+    "theme.wordmarkFit": {
+      "options": [
+        "fit",
+        "crop"
+      ],
+      "optional": true
+    },
+    "booking.slots.*.kind": [
+      "standard",
+      "short",
+      "keysafe"
+    ]
+  },
+  "rules": [
+    "Text may not contain < > { } or line breaks.",
+    "Six stages, always: the animation is six stages and their timing is protected; only the names and captions change.",
+    "Limits for business.short (14), the headline (44 with its accent word) and the hero lede (150) were set by the stress test: longer ones push the phone nav button off screen or run the hero text onto the car.",
+    "booking.slots: each slot has a kind. standard = drop-off inside opening hours; short = only for jobs up to hours.sameDayMax, and only when that fits before closing; keysafe = drop any time, work starts at the next open day's opening. Opening hours (hours.week, Sunday to Saturday, null = closed) may run past midnight."
+  ],
+  "combined": {
+    "hero.headline+hero.headlineAccent": 44
+  },
+  "colours": [
+    "theme.paint",
+    "theme.accent",
+    "theme.studio"
+  ]
+}

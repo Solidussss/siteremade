@@ -1,0 +1,368 @@
+{
+  "name": "halcyra",
+  "category": "fragrance",
+  "reference": "reference/halcyra-original.html",
+  "referenceSha256": "60406dc108e57afb37167113c70eeafd0b03d3c279adfdf3edabc09ec4455806",
+  "template": "template.html",
+  "schema": "schema.json",
+  "tables": "tables.json",
+  "hooks": "hooks.js",
+  "families": {
+    "R": {
+      "base": "#140e13",
+      "target": "theme.room",
+      "keepLightness": true,
+      "about": "the dark room: backgrounds, light text, lines (tint only)"
+    },
+    "Q": {
+      "base": "#d8ced5",
+      "target": "theme.paper",
+      "keepLightness": true,
+      "about": "the pale paper sections and their ink (tint only)"
+    },
+    "A": {
+      "base": "#dda04d",
+      "target": "theme.accent",
+      "about": "accent: buttons, pulse points, quiz selection"
+    },
+    "M": {
+      "base": "#b9996a",
+      "target": "theme.metal",
+      "about": "the bottle's collar and atomiser metal"
+    }
+  },
+  "checks": {
+    "lightness": [
+      {
+        "path": "theme.room",
+        "range": [
+          0.03,
+          0.12
+        ],
+        "maxSaturation": 0.45
+      },
+      {
+        "path": "theme.paper",
+        "range": [
+          0.72,
+          0.9
+        ],
+        "maxSaturation": 0.35
+      },
+      {
+        "path": "theme.accent",
+        "range": [
+          0.45,
+          0.75
+        ]
+      },
+      {
+        "path": "theme.metal",
+        "range": [
+          0.35,
+          0.8
+        ]
+      },
+      {
+        "path": "notes.*.colour",
+        "range": [
+          0.35,
+          0.88
+        ],
+        "note": "the liquid has to read as coloured glass, not black or white"
+      }
+    ],
+    "contrast": [
+      [
+        "R:#ece3e8",
+        "R:#140e13",
+        7,
+        "text on the room"
+      ],
+      [
+        "R:#ab9ba5",
+        "R:#140e13",
+        4.5,
+        "secondary text on the room"
+      ],
+      [
+        "Q:#1d1319",
+        "Q:#d8ced5",
+        7,
+        "ink on paper"
+      ],
+      [
+        "Q:#5a4b55",
+        "Q:#d8ced5",
+        4.5,
+        "secondary ink on paper"
+      ],
+      [
+        "A:#dda04d",
+        "R:#140e13",
+        4.5,
+        "accent text on the room"
+      ],
+      [
+        "A:#1c1006",
+        "A:#dda04d",
+        4.5,
+        "button text on accent"
+      ],
+      [
+        "=notes.*.colour",
+        "R:#140e13",
+        3,
+        "note colour (liquid, HUD) on the room"
+      ]
+    ]
+  },
+  "metrics": {
+    "wordmark": {
+      "fontChoice": "theme.fonts",
+      "css": "font:italic 400 1000px/1 {family};letter-spacing:-.05em",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,400..700&display=swap",
+          "family": "Bodoni Moda"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300..700&display=swap",
+          "family": "Cormorant Garamond"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap",
+          "family": "Instrument Serif"
+        }
+      }
+    },
+    "hudNote": {
+      "fontChoice": "theme.fonts",
+      "css": "font:italic 400 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,400..700&display=swap",
+          "family": "Bodoni Moda"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300..700&display=swap",
+          "family": "Cormorant Garamond"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap",
+          "family": "Instrument Serif"
+        }
+      }
+    },
+    "bottleName": {
+      "fontChoice": "theme.fonts",
+      "css": "font:italic 400 1000px/1 {family}",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,400..700&display=swap",
+          "family": "Bodoni Moda"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300..700&display=swap",
+          "family": "Cormorant Garamond"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap",
+          "family": "Instrument Serif"
+        }
+      }
+    },
+    "heroTitle": {
+      "fontChoice": "theme.fonts",
+      "css": "font:italic 400 1000px/1 {family};letter-spacing:-.035em",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,400..700&display=swap",
+          "family": "Bodoni Moda"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300..700&display=swap",
+          "family": "Cormorant Garamond"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap",
+          "family": "Instrument Serif"
+        }
+      }
+    },
+    "navBrand": {
+      "fontChoice": "theme.fonts",
+      "css": "font:italic 400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,400..700&display=swap",
+          "family": "Bodoni Moda"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300..700&display=swap",
+          "family": "Cormorant Garamond"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap",
+          "family": "Instrument Serif"
+        }
+      }
+    },
+    "brandLabel": {
+      "fontChoice": "theme.fonts",
+      "css": "font:500 1000px/1 {family};letter-spacing:.444em;text-transform:uppercase",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Jost:wght@300..600&display=swap",
+          "family": "Jost"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300..700&display=swap",
+          "family": "Manrope"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..600&display=swap",
+          "family": "Inter Tight"
+        }
+      }
+    },
+    "labelLine": {
+      "fontChoice": "theme.fonts",
+      "css": "font:400 1000px/1 {family};letter-spacing:.21em;text-transform:uppercase",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&display=swap",
+          "family": "Azeret Mono"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap",
+          "family": "IBM Plex Mono"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap",
+          "family": "JetBrains Mono"
+        }
+      }
+    },
+    "navCta": {
+      "fontChoice": "theme.fonts",
+      "css": "font:500 1000px/1 {family};letter-spacing:.04em",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Jost:wght@300..600&display=swap",
+          "family": "Jost"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300..700&display=swap",
+          "family": "Manrope"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..600&display=swap",
+          "family": "Inter Tight"
+        }
+      }
+    },
+    "caption": {
+      "fontChoice": "theme.fonts",
+      "css": "font:300 1000px/1 {family}",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Jost:wght@300..600&display=swap",
+          "family": "Jost"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300..700&display=swap",
+          "family": "Manrope"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..600&display=swap",
+          "family": "Inter Tight"
+        }
+      }
+    },
+    "zeroWidth": {
+      "fontChoice": "theme.fonts",
+      "css": "font:300 1000px/1 {family}",
+      "fonts": {
+        "maison": {
+          "url": "https://fonts.googleapis.com/css2?family=Jost:wght@300..600&display=swap",
+          "family": "Jost"
+        },
+        "garamond": {
+          "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300..700&display=swap",
+          "family": "Manrope"
+        },
+        "modern": {
+          "url": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..600&display=swap",
+          "family": "Inter Tight"
+        }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "wordmark fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": [
+        "business.wordmark.start",
+        "business.wordmark.end"
+      ],
+      "metric": "wordmark",
+      "size": [
+        88,
+        22,
+        360
+      ],
+      "container": {
+        "max": null,
+        "gutter": [
+          16,
+          4.2,
+          null
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
+    },
+    {
+      "name": "nav collapses earlier",
+      "type": "collapseByLength",
+      "base": 374,
+      "default": 860,
+      "fixedExtra": 104,
+      "parts": [
+        {
+          "paths": [
+            "business.name"
+          ],
+          "perChar": 13
+        },
+        {
+          "paths": [
+            "business.kind"
+          ],
+          "perChar": 8.5
+        },
+        {
+          "paths": [
+            "nav.notes",
+            "nav.wear",
+            "nav.quiz",
+            "nav.sizes"
+          ],
+          "perChar": 7.6
+        },
+        {
+          "paths": [
+            "nav.ctaVerb"
+          ],
+          "perChar": 8
+        }
+      ],
+      "css": "@media (max-width:{w}px){.nav .links{display:none}.nav .sound{margin-left:auto}}"
+    }
+  ]
+}

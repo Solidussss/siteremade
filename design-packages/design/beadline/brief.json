@@ -1,0 +1,118 @@
+{
+  "title": "Car detailing studio",
+  "fields": [
+    {
+      "key": "businessName",
+      "label": "Business name",
+      "required": true
+    },
+    {
+      "key": "location",
+      "label": "Address or area",
+      "required": true
+    },
+    {
+      "key": "phone",
+      "label": "Phone for customers",
+      "required": true
+    },
+    {
+      "key": "hours",
+      "label": "Opening hours",
+      "type": "textarea",
+      "required": true,
+      "help": "In your own words, e.g. Mon-Fri 8am-6pm, Sat 9-3, closed Sunday. Say if you take late or overnight drop-offs."
+    },
+    {
+      "key": "services",
+      "label": "Services and prices",
+      "type": "textarea",
+      "required": true,
+      "help": "Up to four packages, from a simple wash to your top job, with prices and roughly how long each takes."
+    },
+    {
+      "key": "extras",
+      "label": "Extras and add-ons",
+      "type": "textarea",
+      "help": "Optional: things you add on, with prices."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. £, $, €"
+    },
+    {
+      "key": "vibe",
+      "label": "How should the site sound?",
+      "type": "textarea",
+      "help": "A few words about your style and customers."
+    },
+    {
+      "key": "colours",
+      "label": "Brand colours",
+      "help": "Optional: colour names or hex codes."
+    },
+    {
+      "key": "other",
+      "label": "Anything else",
+      "type": "textarea"
+    }
+  ],
+  "facts": [
+    "packages.items.*.price",
+    "packages.items.*.hours",
+    "packages.addons.*.price",
+    "packages.addons.*.hours",
+    "coatings.items.*.cost",
+    "footer.columns.*.lines.*",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation of one coupe going through six stages in this order: rinse with water jets, snow foam, hand wash with a mitt, iron-remover decontamination (purple bleeding), machine polish with an orange pad, ceramic coating with water beads. The six stage names and texts must describe those six steps, in that order, in the business's voice.",
+    "The gloss meter readings (38 to 95 GU) and the 'DA · 15 mm throw' polisher label are part of the animation and stay as they are; you may mention gloss units in copy.",
+    "packages.items is four packages from cheapest to most expensive; their 'stages' flags say which of the six stages each includes (cheapest: the first three; top two: all six). Set cure: true for packages that include a ceramic coating.",
+    "packages.sizes are four vehicle sizes with price and hour multipliers; keep the example's multipliers unless the brief gives size pricing.",
+    "coatings compares wax, sealant and ceramic with lab numbers (contact and sliding angles); keep those numbers. The 3-year cost row is a price claim: only use figures the brief supports, otherwise keep the example's and list the path in _assumed.",
+    "hours: turn the owner's opening hours into hours.week (Sunday to Saturday, null = closed, close times after midnight are allowed). booking.slots are six drop-off times with a kind: standard (inside opening hours), short (only for jobs up to hours.sameDayMax that still finish before closing), keysafe (drop any time, work starts at the next opening; only if the owner offers a key box or late drop). Every slot must be bookable on at least one open day.",
+    "footer.columns are three columns: where (address), hours (human-readable), contact (phone first, with monoFirst: true).",
+    "theme.wordmarkFit: always \"fit\" for a new business (the example keeps \"crop\" only to reproduce the original exactly).",
+    "business.name is set to exactly the name in the brief and cannot be changed. Where space is tight the design uses business.short: a short form of the same name that the business would recognise (e.g. drop Ltd, Studio or & Co), never a different name."
+  ],
+  "readBack": [
+    {
+      "label": "Opening hours",
+      "path": "hours.week",
+      "format": "week"
+    },
+    {
+      "label": "Drop-off slots",
+      "path": "booking.slots",
+      "fields": [
+        "time",
+        "note",
+        "kind"
+      ]
+    },
+    {
+      "label": "Packages",
+      "path": "packages.items",
+      "fields": [
+        "name",
+        "price",
+        "hours"
+      ]
+    },
+    {
+      "label": "Add-ons",
+      "path": "packages.addons",
+      "fields": [
+        "name",
+        "price",
+        "hours"
+      ]
+    }
+  ],
+  "pinned": {
+    "business.name": "businessName"
+  }
+}

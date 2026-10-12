@@ -1,0 +1,18 @@
+{
+  "fonts": {
+    "maison": {
+      "link": "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300..600&family=Azeret+Mono:wght@400;500&display=swap\">",
+      "vars": "  --display: \"Bodoni Moda\", \"Bodoni 72\", Didot, \"Libre Bodoni\", Georgia, serif;\n  --body: \"Jost\", \"Futura\", \"Century Gothic\", \"Avenir Next\", \"Trebuchet MS\", sans-serif;\n  --mono: \"Azeret Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;"
+    },
+    "garamond": {
+      "link": "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Manrope:wght@300..700&family=IBM+Plex+Mono:wght@400;500&display=swap\">",
+      "vars": "  --display: \"Cormorant Garamond\", Garamond, \"Times New Roman\", Georgia, serif;\n  --body: \"Manrope\", \"Avenir Next\", \"Segoe UI\", \"Trebuchet MS\", sans-serif;\n  --mono: \"IBM Plex Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;"
+    },
+    "modern": {
+      "link": "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300..600&family=JetBrains+Mono:wght@400;500&display=swap\">",
+      "vars": "  --display: \"Instrument Serif\", \"Times New Roman\", Georgia, serif;\n  --body: \"Inter Tight\", \"Helvetica Neue\", \"Segoe UI\", Arial, sans-serif;\n  --mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;"
+    }
+  },
+  "noteVar": { "0": "--n-bergamot", "1": "--n-figleaf", "2": "--n-pepper", "3": "--n-orris", "4": "--n-figmilk", "5": "--n-tea", "6": "--n-vetiver", "7": "--n-cedar", "8": "--n-ambrette" },
+  "noteTier": { "0": "0", "1": "0", "2": "0", "3": "1", "4": "1", "5": "1", "6": "2", "7": "2", "8": "2" }
+}

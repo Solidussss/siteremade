@@ -1,0 +1,116 @@
+{
+  "title": "Perfume brand (one fragrance)",
+  "fields": [
+    {
+      "key": "businessName",
+      "label": "Brand name",
+      "required": true
+    },
+    {
+      "key": "location",
+      "label": "Where you're based",
+      "required": true
+    },
+    {
+      "key": "productName",
+      "label": "Fragrance name",
+      "required": true
+    },
+    {
+      "key": "scent",
+      "label": "What it smells like",
+      "type": "textarea",
+      "required": true,
+      "help": "The notes from first spray to drydown, in your own words."
+    },
+    {
+      "key": "strength",
+      "label": "Type and strength",
+      "help": "e.g. eau de parfum, about 18%, lasts 7-9 hours"
+    },
+    {
+      "key": "sizes",
+      "label": "Sizes and prices",
+      "type": "textarea",
+      "required": true,
+      "help": "Three sizes with prices."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. £, $, €"
+    },
+    {
+      "key": "vibe",
+      "label": "How should the site feel?",
+      "type": "textarea"
+    },
+    {
+      "key": "colours",
+      "label": "Brand colours",
+      "help": "Optional."
+    },
+    {
+      "key": "other",
+      "label": "Anything else",
+      "type": "textarea",
+      "help": "Batch sizes, where it's made, free samples, refills..."
+    }
+  ],
+  "facts": [
+    "sizes.items.*.price",
+    "sizes.items.*.ml",
+    "product.concentration",
+    "product.longevity",
+    "specs.*.value",
+    "specs.*.note",
+    "sizes.note",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "The hero is a fixed animation: a glass bottle fills, then scrolling is time on skin. The liquid changes colour through exactly nine notes, three top, three heart, three base, in the order of notes[0..8]. Each note's colour is the liquid colour at that moment: pick a colour that evokes the note (#rrggbb, mid to light, readable on a dark room).",
+    "timeline gives the minutes when the heart and base notes take over and when the scent ends; match the brief's longevity. tiers[].range and hud.end.phase / hud.end.clock describe the same times in words.",
+    "notes[].share is each note's share of the formula in percent; the nine shares must add up to 100.",
+    "product.name may put one word in *italics* (the original is 'Fig *Hour*'). product.concentrationType is cologne, toilette, parfum or extrait, and product.concentration must sit inside its range.",
+    "pulse is five pulse points in fixed positions on a body drawing: ears, throat, inner elbow, wrist, scarf - keep those places, rewrite the advice.",
+    "quiz.results are three results (green/top, powder/heart, smoke/base in the original): rewrite them for this scent's top, heart and base. quiz.where is three spraying plans from light to strong.",
+    "sizes.items are three bottle sizes, smallest first; the middle one is the one the page features. Prices are whole numbers.",
+    "specs are six facts about the fragrance (concentration, longevity, sillage, one spray, maceration, where made). Use only facts from the brief; for anything the brief doesn't say, keep a neutral version of the example's wording and list the path in _assumed.",
+    "theme.wordmarkFit: always \"fit\", and leave out theme.captionFit, for a new business (the example sets \"crop\" and \"off\" only to reproduce the original exactly).",
+    "business.name is set to exactly the name in the brief and cannot be changed. Where space is tight the design uses business.short: a short form of the same name that the business would recognise (e.g. drop Ltd, Studio or & Co), never a different name.",
+    "product.name is set to exactly the fragrance name in the brief; you may only add *italics* to one word. product.short is the form for the HUD and the bottle label: the same name, or a recognisable shortening of it (e.g. \"No. 9\" for \"Barbershop No. 9\"), never a new name."
+  ],
+  "readBack": [
+    {
+      "label": "Fragrance",
+      "path": "product",
+      "fields": [
+        "name",
+        "type",
+        "concentration",
+        "longevity"
+      ]
+    },
+    {
+      "label": "Sizes",
+      "path": "sizes.items",
+      "fields": [
+        "ml",
+        "price"
+      ]
+    },
+    {
+      "label": "Notes, top to base",
+      "path": "notes",
+      "fields": [
+        "name",
+        "colour",
+        "share"
+      ]
+    }
+  ],
+  "pinned": {
+    "business.name": "businessName",
+    "product.name": "productName"
+  }
+}

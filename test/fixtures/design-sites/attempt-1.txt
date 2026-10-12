@@ -1,0 +1,120 @@
+{
+  "business": { "name": "Kestrel Car Care", "short": "Kestrel", "wordmark": "Kestrel" },
+  "theme": { "paint": "#0f8b8d", "accent": "#5fd4cf", "studio": "#0f1314", "fonts": "studio", "logo": "spark", "wordmarkFit": "fit" },
+  "locale": { "currency": "£", "locale": "en-GB" },
+  "nav": { "process": "Process", "correction": "Correction", "packages": "Prices", "coatings": "Coatings", "book": "Book", "cta": "Book your car in", "ctaShort": "Book" },
+  "hero": {
+    "eyebrow": "Valeting · Paint correction · Ceramic · Glasgow",
+    "headline": "Glasgow weather wrecks paint. We make it",
+    "headlineAccent": "bead again.",
+    "lede": "Unit 7, Clydeside Trade Park. Scroll to put this coupe through all six stages, from road grime at 38 GU to a ceramic-coated 95 GU.",
+    "scrollHint": "Scroll to start the wash"
+  },
+  "stages": [
+    { "name": "Pre-rinse", "text": "A low-pressure rinse shifts the grit, salt and general Glasgow before anything touches the paint." },
+    { "name": "Snow foam", "text": "Thick pH-neutral foam sits for five minutes and softens the traffic film so it slides off instead of scratching." },
+    { "name": "Hand wash", "text": "Two buckets, grit guards and a clean mitt for every panel. Roof first, sills last, no shortcuts." },
+    { "name": "Decontam", "text": "Iron remover eats the brake dust stuck in your paint and bleeds purple. Then a clay pass for whatever's left." },
+    { "name": "Polish", "text": "A dual-action polisher takes out the swirls and holograms. We measure the clear coat before and after." },
+    { "name": "Ceramic", "text": "A ceramic coating bonds to the clear coat, so the rain beads up and rolls straight off. Handy, round here." }
+  ],
+  "correction": {
+    "eyebrow": "Paint correction",
+    "title": "Swirls out. Shine back.",
+    "body": "Swirl marks are fine scratches only a few microns deep in a thin clear coat. We level them with a dual-action polisher and check the paint thickness as we go, so we only take off what the scratch needs.",
+    "stats": [
+      { "label": "Before", "value": "58", "unit": "GU" },
+      { "label": "After 2-step", "value": "91", "unit": "GU" },
+      { "label": "Clear coat used", "value": "3", "unit": "µm" }
+    ],
+    "defects": [
+      { "name": "Swirl marks", "text": "Round scratches from car-wash brushes and gritty sponges. They look like a spider web under a streetlight." },
+      { "name": "Holograms", "text": "Buffer trails from a rotary polisher used badly. We refine them out with a soft finishing pad." },
+      { "name": "Deep scratches", "text": "The ones your fingernail catches. We'll tell you before we start if one needs wet sanding." },
+      { "name": "Water spots", "text": "Mineral rings left behind when rain dries on the paint. We get plenty of rain." }
+    ],
+    "tagBefore": "Before · 58 GU",
+    "tagAfter": "After · 91 GU",
+    "caption": "Driver's door under the unit's hex LED panel. Drag across the panel to compare."
+  },
+  "packages": {
+    "eyebrow": "Prices",
+    "title": "Know the price before you book.",
+    "body": "Pick your car's size and how far you want to go. Prices include VAT. Hours are time in the unit for one of us.",
+    "cta": "Book this package",
+    "sizes": [
+      { "name": "Hatch / coupe", "priceFactor": 1, "hoursFactor": 1, "icon": "coupe" },
+      { "name": "Saloon / estate", "priceFactor": 1.12, "hoursFactor": 1.1, "icon": "saloon" },
+      { "name": "SUV", "priceFactor": 1.28, "hoursFactor": 1.25, "icon": "suv" },
+      { "name": "7-seat / van", "priceFactor": 1.45, "hoursFactor": 1.4, "icon": "van" }
+    ],
+    "items": [
+      { "name": "Mini valet", "desc": "Foam, two-bucket hand wash, wheels and glass. The weekly reset.", "price": 45, "hours": 2, "stages": [1, 1, 1, 0, 0, 0] },
+      { "name": "Enhancement detail", "desc": "Full decontamination and a one-step polish for a proper gloss lift.", "price": 295, "hours": 8, "stages": [1, 1, 1, 1, 1, 0] },
+      { "name": "Correction + 3-year ceramic", "desc": "One-step correction, then a 3-year ceramic coating on the paint.", "price": 690, "hours": 18, "stages": [1, 1, 1, 1, 1, 1], "cure": true },
+      { "name": "Full correction + 5-year ceramic", "desc": "Multi-step correction and a 5-year ceramic coating. The works.", "price": 1150, "hours": 30, "stages": [1, 1, 1, 1, 1, 1], "cure": true }
+    ],
+    "addons": [
+      { "name": "Wheels-off ceramic", "price": 150, "hours": 3 },
+      { "name": "Glass coating", "price": 75, "hours": 1 },
+      { "name": "Interior deep clean", "price": 120, "hours": 3 }
+    ],
+    "default": { "package": 2, "size": 1 }
+  },
+  "coatings": {
+    "eyebrow": "Protection",
+    "title": "Wax, sealant or ceramic: what actually lasts here.",
+    "body": "Tilt the test panel. Water only runs off once the slope passes the product's sliding angle, which is why a coated car dries itself on the M8.",
+    "costLabel": "3-year cost here",
+    "items": [
+      { "name": "Carnauba wax", "short": "Wax", "months": [1.5, 2], "contactAngle": 95, "slidingAngle": 32, "ph": "5–9", "heat": "Softens at 60 °C", "reapply": "Every 6 weeks", "cost": 1080 },
+      { "name": "Polymer sealant", "short": "Sealant", "months": [4, 6], "contactAngle": 102, "slidingAngle": 22, "ph": "4–10", "heat": "Stable to 120 °C", "reapply": "Every 5 months", "cost": 665 },
+      { "name": "Ceramic SiO₂", "short": "Ceramic", "months": [24, 60], "contactAngle": 110, "slidingAngle": 10, "ph": "2–12", "heat": "Stable past 300 °C", "reapply": "Yearly check", "cost": 810 }
+    ]
+  },
+  "booking": {
+    "eyebrow": "Drop-off",
+    "title": "Book your car in.",
+    "body": "Pick a day and a time. We'll text you when the car goes in and again when it's ready. Use the key box to drop it the night before and we'll start first thing.",
+    "slots": [
+      { "time": "08:00", "note": "First in", "kind": "standard" },
+      { "time": "08:30", "note": "Standard", "kind": "standard" },
+      { "time": "09:00", "note": "Standard", "kind": "standard" },
+      { "time": "09:30", "note": "Standard", "kind": "standard" },
+      { "time": "12:30", "note": "Valets only", "kind": "short" },
+      { "time": "18:30", "note": "Key box", "kind": "keysafe" }
+    ],
+    "namePlaceholder": "Morag Campbell",
+    "vehicleLabel": "Registration",
+    "vehiclePlaceholder": "SK21 KRC",
+    "vehicleNoun": "the registration",
+    "phoneLabel": "Mobile for updates",
+    "phonePlaceholder": "07700 900456",
+    "refPrefix": "KC-"
+  },
+  "hours": {
+    "week": {
+      "sun": null,
+      "mon": { "open": "08:00", "close": "18:00" },
+      "tue": { "open": "08:00", "close": "18:00" },
+      "wed": { "open": "08:00", "close": "18:00" },
+      "thu": { "open": "08:00", "close": "18:00" },
+      "fri": { "open": "08:00", "close": "18:00" },
+      "sat": { "open": "09:00", "close": "15:00", "label": "Short day" }
+    },
+    "perDay": 9,
+    "sameDayMax": 5,
+    "ready": "16:00",
+    "readyWord": "after",
+    "sameDayLabel": "Same day"
+  },
+  "footer": {
+    "columns": [
+      { "label": "Unit", "lines": ["Unit 7, Clydeside Trade Park", "Glasgow G51"] },
+      { "label": "Hours", "lines": ["Mon–Fri 08:00–18:00", "Sat 09:00–15:00, key box any time"] },
+      { "label": "Text us", "lines": ["07700 900123", "Callum and Ross, Kestrel Car Care"], "monoFirst": true }
+    ],
+    "fine": "Kestrel Car Care site, a demo made with SiteRemade."
+  },
+  "_assumed": ["coatings.items.0.cost", "coatings.items.1.cost", "coatings.items.2.cost", "correction.stats.0.value", "correction.stats.1.value", "correction.stats.2.value"]
+}

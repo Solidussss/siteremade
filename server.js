@@ -5905,6 +5905,68 @@ app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, 
   return res.json({ ok: true, check: result, domain: updated });
 });
 
+// ---- DESIGN SITES: websites made from a premium design (Beadline, Halcyra) by the brief-to-site flow -------------------
+// lib/design-sites.js, design-packages/. Owner-only for now (the website admin account: lib/website-admin.js): every run
+// spends real AI money through the server's Anthropic key. A published site is public at /s/<id>.
+const designSites = require('./lib/design-sites');
+let designDeps = { writer: () => designSites.anthropicWriter(ANTHROPIC_API_KEY), cost: designSites.cost };
+if (db.designSites) db.designSites.failInterrupted(new Date().toISOString());
+// The owner: the website admin's email (lib/website-admin.js) on an account that is provably theirs. A builder sign-up
+// never verifies its email, so the email alone is not enough (anyone could register it if no account had it yet). The
+// account must ALSO either predate this feature (it existed before anyone knew to claim it) or have been created from a
+// Supabase-verified identity (an identity link made by lazy provisioning: its email is the verified one).
+const DESIGN_OWNER_CUTOFF = process.env.SITEREMADE_DESIGN_OWNER_CUTOFF || '2026-10-11T00:00:00.000Z';
+function isDesignOwner(accountId, email) {
+  if (!websiteAdmin.WEBSITE_ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase())) return false;
+  const account = db.accounts.findByEmail(String(email).trim().toLowerCase()) || db.accounts.findByEmail(email);
+  if (!account || account.id !== accountId) return false;
+  if (account.created_at && account.created_at < DESIGN_OWNER_CUTOFF) return true;
+  const link = db.identityLinks && db.identityLinks.findActiveByAccount(accountId);
+  return !!(link && link.verification_method === 'lazy_provision');
+}
+function requireDesignOwner(req, res, next) {
+  if (!db.designSites) return res.status(503).json({ ok: false, message: 'Design sites are not available on this server.' });
+  if (!isDesignOwner(req.accountId, req.accountEmail)) return res.status(403).json({ ok: false, message: 'Only the SiteRemade owner account can use premium designs for now.' });
+  next();
+}
+function ownDesignSite(req, res) {
+  const row = /^ds_[A-Za-z0-9_-]{8,40}$/.test(req.params.id) ? db.designSites.find(req.params.id) : null;
+  if (!row || row.account_id !== req.accountId) { res.status(404).json({ ok: false, message: 'Site not found.' }); return null; }
+  return row;
+}
+app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
+app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId) }));
+app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
+  const r = designSites.start(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), brief: req.body && req.body.brief }, designDeps);
+  if (r.error) return res.status(400).json({ ok: false, message: r.error });
+  return res.json({ ok: true, site: designSites.view(r.row) });
+});
+app.get('/api/designs/sites/:id', requireAuth, requireDesignOwner, (req, res) => { const row = ownDesignSite(req, res); if (row) res.json({ ok: true, site: designSites.view(row) }); });
+app.post('/api/designs/sites/:id/answer', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  if (row.status !== 'needs_owner') return res.status(409).json({ ok: false, message: 'This site is not waiting for answers.' });
+  const r = designSites.answer(db, row, req.body && req.body.answers, designDeps);
+  if (r.error) return res.status(400).json({ ok: false, message: r.error });
+  return res.json({ ok: true, site: designSites.view(r.row) });
+});
+app.post('/api/designs/sites/:id/publish', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const r = designSites.publish(db, row, !(req.body && req.body.on === false));
+  if (r.error) return res.status(400).json({ ok: false, message: r.error });
+  return res.json({ ok: true, site: designSites.view(r.row) });
+});
+app.get('/api/designs/sites/:id/preview', requireAuth, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  if (!row.html) return res.status(404).type('text/plain').send('Not built yet');
+  res.setHeader('Cache-Control', 'no-store'); res.type('html').send(row.html);
+});
+// the public page of a published site
+app.get('/s/:id', (req, res) => {
+  const row = db.designSites && /^ds_[A-Za-z0-9_-]{8,40}$/.test(req.params.id) ? db.designSites.find(req.params.id) : null;
+  if (!row || !row.published_at || !row.html) return res.status(404).type('text/plain').send('Not found');
+  res.setHeader('Cache-Control', 'public, max-age=60'); res.type('html').send(row.html);
+});
+
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
 // Everything else is the app's own page (it routes in the browser) -- except a path that names a FILE or a dot-entry
@@ -5936,5 +5998,6 @@ if (require.main === module) {
   // App bridge pass (Phase 4): `app` is also exported so a test harness can
   // listen() on the REAL route table in-process (still never listens on its
   // own when required, exactly as before).
-  module.exports = { app, premiumWorker, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY };
+  module.exports = { app, premiumWorker, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY,
+    setDesignDeps: (d) => { designDeps = d; } }; // (tests: a recorded writer, never the paid API)
 }

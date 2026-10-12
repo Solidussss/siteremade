@@ -1,0 +1,345 @@
+{
+  "business": {
+    "name": "Halcyra",
+    "short": "Halcyra",
+    "kind": "Parfums",
+    "wordmark": {
+      "start": "Halc",
+      "end": "yra"
+    }
+  },
+  "theme": {
+    "room": "#140e13",
+    "paper": "#d8ced5",
+    "accent": "#dda04d",
+    "metal": "#b9996a",
+    "fonts": "maison",
+    "wordmarkFit": "crop",
+    "captionFit": "off"
+  },
+  "locale": {
+    "currency": "$",
+    "locale": "en-US"
+  },
+  "nav": {
+    "notes": "Notes",
+    "wear": "How to wear",
+    "quiz": "Quiz",
+    "sizes": "Sizes",
+    "ctaVerb": "Shop"
+  },
+  "product": {
+    "name": "Fig *Hour*",
+    "short": "Fig Hour",
+    "number": "No. 1",
+    "type": "Eau de parfum",
+    "typeShort": "EDP",
+    "concentration": 18,
+    "concentrationType": "parfum",
+    "longevity": "7–9 h"
+  },
+  "hero": {
+    "caption": "Green fig, cold iris and smoked vetiver. *Scroll to wear it*: each screen is time on your skin.",
+    "scrollCue": "Scroll to wear it",
+    "endSizes": "Choose a size",
+    "endQuiz": "Take the quiz"
+  },
+  "hud": {
+    "filling": "Filling the bottle",
+    "beforePhase": "Before you spray",
+    "end": {
+      "tier": "Lift the cap",
+      "note": "Spray",
+      "smell": "0.1 ml a spray · 3 is plenty",
+      "phase": "Base · 3–9 h",
+      "clock": "9 h +",
+      "caption": "Nine hours later the ambrette is still there. *Three sprays* carry you from breakfast to dinner."
+    }
+  },
+  "timeline": {
+    "heartFrom": 15,
+    "baseFrom": 180,
+    "end": 540
+  },
+  "tiers": [
+    {
+      "name": "Top notes",
+      "short": "Top",
+      "range": "0–15 min",
+      "caption": "First 15 minutes: *bright and green*. Bergamot and fig leaf are the lightest molecules, so they leave first."
+    },
+    {
+      "name": "Heart notes",
+      "short": "Heart",
+      "range": "15 min – 3 h",
+      "caption": "From 15 minutes to 3 hours the iris comes through: *cool, powdery, a little smoky*."
+    },
+    {
+      "name": "Base notes",
+      "short": "Base",
+      "range": "3 – 9 h",
+      "caption": "After 3 hours: *vetiver, cedar and musk*, close to your skin until evening."
+    }
+  ],
+  "notes": [
+    {
+      "name": "Bergamot",
+      "colour": "#dcd36b",
+      "hud": "Sharp citrus peel",
+      "smell": "The first scratch of an orange peel, but sharper and more floral. Bright for ten minutes, then gone.",
+      "material": "Cold-pressed peel oil, Calabria. Bergaptene removed so it's safe in sunlight.",
+      "share": 9
+    },
+    {
+      "name": "Fig leaf",
+      "colour": "#95b75e",
+      "hud": "Green, milky, bitter",
+      "smell": "Snapping a fig leaf off the branch in July: green, milky sap and a bitter edge.",
+      "material": "Fig leaf absolute blended with stemone, a green-fig molecule.",
+      "share": 12
+    },
+    {
+      "name": "Pink pepper",
+      "colour": "#e8968b",
+      "hud": "Dry rosy fizz",
+      "smell": "A dry, rosy fizz at the back of the nose. No heat at all; it's a berry, not a pepper.",
+      "material": "CO₂ extract of Schinus molle berries, Réunion.",
+      "share": 4
+    },
+    {
+      "name": "Orris butter",
+      "colour": "#bba5d6",
+      "hud": "Cool lipstick powder",
+      "smell": "Cool and powdery, close to an old lipstick, with a raw-carrot earthiness underneath.",
+      "material": "Iris rhizomes dried for three years, then steam-distilled. Costs more per kilo than silver.",
+      "share": 6
+    },
+    {
+      "name": "Fig milk",
+      "colour": "#ead2b6",
+      "hud": "Soft coconut sap",
+      "smell": "The sap inside a ripe fig: soft, a little coconut, like warm milk on the stove.",
+      "material": "Lactones and a touch of coconut aldehyde. No real fig gives up its smell, so it's built.",
+      "share": 14
+    },
+    {
+      "name": "Black tea",
+      "colour": "#b8693f",
+      "hud": "Smoked, leathery leaf",
+      "smell": "Smoked lapsang leaves. Dry and leathery, like a teapot left out overnight.",
+      "material": "Black tea absolute with a trace of birch tar for the smoke.",
+      "share": 7
+    },
+    {
+      "name": "Vetiver",
+      "colour": "#7f8f4d",
+      "hud": "Wet soil, grapefruit",
+      "smell": "Earthy and clean, like soil after a storm, with a grapefruit edge that keeps it from going dark.",
+      "material": "Haitian vetiver root oil, distilled from 18-month roots.",
+      "share": 15
+    },
+    {
+      "name": "Cedarwood",
+      "colour": "#cc8b54",
+      "hud": "Pencil shavings",
+      "smell": "Pencil shavings and dry sawdust. It gives the drydown its spine.",
+      "material": "Atlas cedarwood oil from fallen trees, Morocco.",
+      "share": 18
+    },
+    {
+      "name": "Ambrette seed",
+      "colour": "#e0a64c",
+      "hud": "Warm skin, pear",
+      "smell": "A plant musk: warm skin, a little pear. It's what stays closest to you at the end of the day.",
+      "material": "Steam-distilled hibiscus seeds. A plant swap for animal musk.",
+      "share": 15
+    }
+  ],
+  "notesSection": {
+    "eyebrow": "The pyramid · 9 notes",
+    "title": "What you smell, *and when.*",
+    "lede": "Perfumers stack a scent like a pyramid. The light molecules at the top leave first; the heavy ones at the base stay into the evening. Tap a note to read what it smells like."
+  },
+  "wear": {
+    "eyebrow": "How to wear it",
+    "title": "Spray where *the blood runs warm.*",
+    "lede": "Pulse points sit where veins run close to the skin. The warmth lifts the scent off you as you move. Tap a point."
+  },
+  "pulse": [
+    {
+      "short": "Ears",
+      "name": "Behind the ears",
+      "dose": "1 spray, split between sides",
+      "tip": "Warm skin close to your face, so people catch it when you lean in to say hello. The orris shows up best here."
+    },
+    {
+      "short": "Throat",
+      "name": "Base of the throat",
+      "dose": "1 spray",
+      "tip": "The warmest pulse point you can reach. Body heat lifts the heart notes, so this is where you'll smell it yourself through the day."
+    },
+    {
+      "short": "Elbow",
+      "name": "Inner elbows",
+      "dose": "1 spray each",
+      "tip": "Covered by sleeves, so it lasts longer. You get small bursts of cedar every time you bend your arm."
+    },
+    {
+      "short": "Wrist",
+      "name": "Wrists",
+      "dose": "1 spray each, then let it dry",
+      "tip": "Don't rub your wrists together. The friction heats the skin and burns off the bergamot in a couple of minutes."
+    },
+    {
+      "short": "Scarf",
+      "name": "On a scarf",
+      "dose": "1 spray from 20 cm",
+      "tip": "Wool and cotton hold the base notes for days. Skip silk and pale fabrics: the oils can leave a mark."
+    }
+  ],
+  "specs": [
+    {
+      "label": "Concentration",
+      "value": "18%",
+      "note": "Eau de parfum, in perfumer's alcohol"
+    },
+    {
+      "label": "Longevity",
+      "value": "7–9 h",
+      "note": "On skin; days on wool"
+    },
+    {
+      "label": "Sillage",
+      "value": "Moderate",
+      "note": "Arm's length for 2 h, then close"
+    },
+    {
+      "label": "One spray",
+      "value": "0.1 ml",
+      "note": "About 500 in the 50 ml"
+    },
+    {
+      "label": "Maceration",
+      "value": "6 weeks",
+      "note": "Rested in steel before bottling"
+    },
+    {
+      "label": "Made in",
+      "value": "Small batches",
+      "note": "Batch 004 of 2026, 1,200 bottles"
+    }
+  ],
+  "quiz": {
+    "eyebrow": "Find your wear · 3 questions",
+    "title": "One scent, *worn your way.*",
+    "lede": "Answer three questions. We'll tell you how many sprays, where to put them, which part of Fig Hour you'll like best, and which size lasts.",
+    "resultTag": "Your Fig Hour ritual",
+    "questions": [
+      {
+        "q": "How often will you wear it?",
+        "options": [
+          {
+            "title": "Every day",
+            "sub": "Office, errands, everything"
+          },
+          {
+            "title": "A few times a week",
+            "sub": "Work days and dinners out"
+          },
+          {
+            "title": "Special nights",
+            "sub": "Weddings, trips, first dates"
+          }
+        ]
+      },
+      {
+        "q": "Which smell do you go back to?",
+        "options": [
+          {
+            "title": "Fruit and green leaves",
+            "sub": "Cut grass, citrus peel, tomato vines"
+          },
+          {
+            "title": "Powder and flowers",
+            "sub": "Iris, lipstick, clean laundry"
+          },
+          {
+            "title": "Smoke and wood",
+            "sub": "Campfires, pencils, old books"
+          }
+        ]
+      },
+      {
+        "q": "How close should people be to notice it?",
+        "options": [
+          {
+            "title": "Only when they hug me",
+            "sub": "A skin scent, just for you"
+          },
+          {
+            "title": "Across a table",
+            "sub": "Noticed at dinner, not in the lift"
+          },
+          {
+            "title": "Across the room",
+            "sub": "You walk in, it walks in"
+          }
+        ]
+      }
+    ],
+    "results": [
+      {
+        "title": "The green hour",
+        "word": "green",
+        "text": "You'll like the **first 15 minutes** best, when the fig leaf is sharp and green. Spray again at lunch to bring it back."
+      },
+      {
+        "title": "The powder hour",
+        "word": "powder",
+        "text": "You'll like it most **after the first hour**, when the orris comes through cool and powdery."
+      },
+      {
+        "title": "The smoke hour",
+        "word": "smoke",
+        "text": "You'll like it most **in the evening**, when the vetiver and black tea smoke are all that's left."
+      }
+    ],
+    "where": [
+      {
+        "short": "Wrists",
+        "long": "wrists, 1 each"
+      },
+      {
+        "short": "Wrists + throat",
+        "long": "wrists and the base of your throat"
+      },
+      {
+        "short": "Throat + scarf",
+        "long": "throat, inner elbows and a scarf"
+      }
+    ]
+  },
+  "sizes": {
+    "eyebrow": "Sizes · refills from spring 2027",
+    "title": "How long *a bottle lasts.*",
+    "lede": "One spray is 0.1 ml. Set how you wear it and see what each size works out to.",
+    "note": "Free sample vial of 1.5 ml with every bottle.",
+    "items": [
+      {
+        "ml": 30,
+        "price": 95
+      },
+      {
+        "ml": 50,
+        "price": 140
+      },
+      {
+        "ml": 100,
+        "price": 210
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Halcyra is a made-up business for a concept site."
+  }
+}

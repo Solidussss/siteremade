@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Premium Designs · SiteRemade</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f6f5f2;--panel:#fff;--ink:#17181b;--dim:#6a6d75;--line:#e3e1dc;--accent:#2f5bd8;--ok:#1d7a46;--warn:#a5600b;--bad:#b3261e;--code:#f0efeb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121316;--panel:#1b1c20;--ink:#ecedf0;--dim:#9a9ca5;--line:#2c2e34;--accent:#7a9bff;--ok:#5fcf8c;--warn:#f0b35a;--bad:#ff8a80;--code:#24262b}}
+:root[data-theme="dark"]{--bg:#121316;--panel:#1b1c20;--ink:#ecedf0;--dim:#9a9ca5;--line:#2c2e34;--accent:#7a9bff;--ok:#5fcf8c;--warn:#f0b35a;--bad:#ff8a80;--code:#24262b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}.sub{color:var(--dim);margin:0 0 20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.designs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.design{border:1.5px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;background:none;text-align:left;color:inherit;font:inherit}
+.design[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.design b{display:block}.design span{color:var(--dim);font-size:13px}
+form{display:grid;gap:12px}label{display:grid;gap:4px;font-weight:600;font-size:14px}label small{font-weight:400;color:var(--dim)}
+input,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}textarea{min-height:64px;resize:vertical}
+.go{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:11px 18px;font:600 15px system-ui;cursor:pointer}.go:disabled{opacity:.5;cursor:wait}
+.lite{background:none;border:1px solid var(--line);color:inherit;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--code)}
+.okc{color:var(--ok)}.badc{color:var(--bad)}.warnc{color:var(--warn)}
+.att{border-left:3px solid var(--line);padding:3px 0 3px 12px;margin:8px 0}.att.ok{border-color:var(--ok)}.att.bad{border-color:var(--warn)}
+.att ul{margin:4px 0 0;padding-left:18px;color:var(--warn);font-size:13.5px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--dim);font-weight:600}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.sites{display:grid;gap:6px}.site{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;cursor:pointer}
+.previews{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start}
+.frame{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000;position:relative}
+.frame.desk{aspect-ratio:16/10}.frame.desk iframe{width:1440px;height:900px;transform-origin:0 0;border:0;position:absolute}
+.frame.phone{width:260px;height:563px}.frame.phone iframe{width:390px;height:844px;transform:scale(.6667);transform-origin:0 0;border:0}
+.q{background:color-mix(in srgb,var(--warn) 12%,transparent);border-radius:8px;padding:10px 12px;margin:0 0 8px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px}@keyframes s{to{transform:rotate(360deg)}}
+@media (max-width:760px){.previews{grid-template-columns:1fr}.frame.phone{margin:0 auto}}
+</style></head>
+<body><div class="wrap">
+<h1>Premium designs</h1>
+<p class="sub">Describe a business, and the AI writes its site into one of SiteRemade's premium designs. Owner only for now.</p>
+<div id="app"><p><span class="spin"></span> Loading…</p></div>
+</div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
+let D = null, cur = null, poll = null;
+
+async function load() {
+  const r = await api('/api/designs');
+  if (r.status === 401) return signIn();
+  if (r.status === 403 || !r.ok) { $('#app').innerHTML = `<div class="card"><p class="badc">${esc(r.message || 'Not available.')}</p></div>`; return; }
+  D = r; home();
+}
+function signIn() {
+  $('#app').innerHTML = `<div class="card" style="max-width:420px"><h2>Sign in</h2><form id="si"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="go">Sign in</button><p id="siErr" class="badc"></p></form></div>`;
+  $('#si').onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const r = await api('/api/auth/signin', { email: f.get('email'), password: f.get('password') }); if (r.ok) load(); else $('#siErr').textContent = r.message || 'Could not sign in.'; };
+}
+const STATUS = { writing: '<span class="spin"></span> writing', needs_owner: '<span class="warnc">needs your answers</span>', built: '<span class="okc">ready</span>', failed: '<span class="badc">failed</span>' };
+function home() {
+  clearTimeout(poll);
+  $('#app').innerHTML = `
+  <div class="card"><h2>New site</h2><div class="designs">${D.designs.map((x) => `<button class="design" type="button" data-d="${x.design}" aria-pressed="false"><b>${esc(x.design[0].toUpperCase() + x.design.slice(1))}</b><span>${esc(x.title)}</span></button>`).join('')}</div><div id="briefBox"></div></div>
+  <div class="card"><h2>Your sites</h2>${D.sites.length ? `<div class="sites">${D.sites.map((s) => `<div class="site" data-id="${s.id}"><span><b>${esc(s.business_name || 'Untitled')}</b> <span class="pill">${esc(s.design)}</span>${s.published_at ? ' <span class="pill okc">live</span>' : ''}</span><span>${STATUS[s.status] || esc(s.status)}</span></div>`).join('')}</div>` : '<p style="color:var(--dim)">None yet.</p>'}</div>`;
+  document.querySelectorAll('.design').forEach((b) => b.onclick = () => pick(b.dataset.d));
+  document.querySelectorAll('.site').forEach((s) => s.onclick = () => open(s.dataset.id));
+}
+function pick(d) {
+  cur = D.designs.find((x) => x.design === d);
+  document.querySelectorAll('.design').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
+  $('#briefBox').innerHTML = `<form id="form" style="margin-top:16px">${cur.fields.map((f) => `<label>${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : `<input name="${f.key}">`}</label>`).join('')}<div class="row"><button class="go">Write the site</button><span style="color:var(--dim)">About a minute. Uses the AI (roughly $0.25 a site).</span></div><p id="err" class="badc"></p></form>`;
+  $('#form').onsubmit = async (e) => {
+    e.preventDefault(); const btn = e.target.querySelector('.go'); btn.disabled = true;
+    const brief = Object.fromEntries(cur.fields.map((f) => [f.key, e.target.elements[f.key].value]));
+    const r = await api('/api/designs/sites', { design: cur.design, brief });
+    btn.disabled = false;
+    if (!r.ok) { $('#err').textContent = r.message || 'Something went wrong.'; return; }
+    show(r.site);
+  };
+}
+async function open(id) { const r = await api('/api/designs/sites/' + id); if (r.ok) show(r.site); }
+const SECTION = { packages: 'Prices and packages', coatings: 'Coating comparison', correction: 'Paint correction figures', hours: 'Opening hours', booking: 'Booking', footer: 'Contact details', locale: 'Currency', sizes: 'Sizes and prices', specs: 'Fragrance details', notes: 'Notes and proportions', timeline: 'How long it lasts', tiers: 'How long it lasts', hud: 'How long it lasts', product: 'Fragrance details', business: 'Name', theme: 'Look', pulse: 'How to wear it' };
+function show(s) {
+  clearTimeout(poll);
+  const back = `<div class="row" style="margin-bottom:12px"><button class="lite" id="back">← All sites</button><h2 style="margin:0">${esc(s.businessName || 'Untitled')} <span class="pill">${esc(s.design)}</span></h2></div>`;
+  const att = s.attempts.map((a) => `<div class="att ${a.errors.length ? 'bad' : 'ok'}"><b>Draft ${a.n}</b> <span class="pill">${a.errors.length ? a.errors.length + ' rule' + (a.errors.length > 1 ? 's' : '') + ' broken' : 'passes every rule'}</span>${a.errors.length ? `<ul>${a.errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}</div>`).join('');
+  const cost = s.usage && s.usage.costUsd != null ? ` · about $${s.usage.costUsd.toFixed(2)}` : '';
+  let body = '';
+  if (s.status === 'writing') { body = `<div class="card"><p><span class="spin"></span> Writing the site… this takes about a minute.</p>${att}</div>`; poll = setTimeout(() => open(s.id), 4000); }
+  else if (s.status === 'failed') body = `<div class="card"><h2 class="badc">It didn't work</h2><p>${esc(s.message || '')}</p>${att}</div>`;
+  else if (s.status === 'needs_owner') body = `<div class="card"><h2 class="warnc">The writer needs a few answers</h2><p style="color:var(--dim)">It stopped instead of guessing. Answer in your own words and it writes the site again.</p>${s.questions.map((q) => `<p class="q">${esc(q)}</p>`).join('')}<label>Your answers<textarea id="answers" style="min-height:110px"></textarea></label><div class="row" style="margin-top:10px"><button class="go" id="ans">Send answers</button></div><p id="err" class="badc"></p>${att ? '<h2 style="margin-top:16px">Drafts</h2>' + att : ''}</div>`;
+  else {
+    const groups = {}; for (const c of s.confirm) { const k = SECTION[c.path.split('.')[0]] || 'Other'; (groups[k] = groups[k] || []).push(c); }
+    const conf = s.confirm.length ? Object.entries(groups).map(([k, list]) => `<details style="border-bottom:1px solid var(--line);padding:8px 0"><summary><b>${esc(k)}</b> <span class="pill">${list.length}</span></summary><table style="margin-top:6px"><tr><th>Field</th><th>On the site</th><th>Why</th></tr>${list.map((c) => `<tr><td><code>${esc(c.path)}</code></td><td>${esc(c.value)}</td><td>${esc(c.why)}</td></tr>`).join('')}</table></details>`).join('') : '<p class="okc">Every fact on the site came from the brief.</p>';
+    const rb = s.readBack.map((x) => { const v = x.value; let t = '';
+      if (x.format === 'week') t = `<table>${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((k) => `<tr><td>${k[0].toUpperCase() + k.slice(1)}</td><td>${v && v[k] ? esc(v[k].open + '–' + v[k].close) : '<span style="color:var(--dim)">closed</span>'}</td></tr>`).join('')}</table>`;
+      else { const rows = Array.isArray(v) ? v : [v]; t = `<table><tr>${x.fields.map((f) => `<th>${f}</th>`).join('')}</tr>${rows.map((row) => `<tr>${x.fields.map((f) => `<td>${esc(String(row && row[f] != null ? row[f] : '').replace(/\*/g, ''))}</td>`).join('')}</tr>`).join('')}</table>`; }
+      return `<div><h2>${esc(x.label)}</h2>${t}</div>`; }).join('');
+    const live = s.publicPath ? `<p class="okc">Live at <a href="${s.publicPath}" target="_blank">${location.origin + s.publicPath}</a></p>` : '';
+    body = `
+    <div class="card"><div class="previews"><div class="frame desk" id="desk"><iframe src="/api/designs/sites/${s.id}/preview" title="Desktop preview"></iframe></div><div class="frame phone"><iframe src="/api/designs/sites/${s.id}/preview" title="Phone preview"></iframe></div></div>
+      <div class="row" style="margin-top:14px"><a class="lite" href="/api/designs/sites/${s.id}/preview" target="_blank">Open full page</a><button class="go" id="pub">${s.publicPath ? 'Unpublish' : 'Publish'}</button></div>${live}</div>
+    <div class="card"><h2>Facts to confirm with the owner (${s.confirm.length})</h2><p style="color:var(--dim);margin-top:-6px">On the site but not in the brief. Check them before you share the link.</p>${conf}</div>
+    <div class="card"><h2>What was read from the brief</h2><div class="grid2">${rb}</div></div>
+    <div class="card"><h2>Drafts${cost}</h2>${att}</div>`;
+  }
+  $('#app').innerHTML = back + body;
+  $('#back').onclick = load;
+  if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
+  if ($('#pub')) $('#pub').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) show(r.site); };
+  const fit = () => { const d = $('#desk'); if (d) d.querySelector('iframe').style.transform = `scale(${d.clientWidth / 1440})`; }; fit(); addEventListener('resize', fit);
+}
+load();
+</script>
+</body></html>

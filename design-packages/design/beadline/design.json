@@ -1,0 +1,51 @@
+{
+  "name": "beadline",
+  "category": "car detailing",
+  "reference": "reference/beadline-original.html",
+  "referenceSha256": "45a2509fcbf60720ae7807b5a53cb42869ba2b6a5155f6ee1642ddd43d6f9c8c",
+  "template": "template.html",
+  "schema": "schema.json",
+  "tables": "tables.json",
+  "hooks": "hooks.js",
+  "families": {
+    "P": { "base": "#c8141f", "target": "theme.paint", "about": "car paint: body, before/after door, test coupon, water beads, footer wordmark" },
+    "A": { "base": "#8fd6ff", "target": "theme.accent", "about": "accent: buttons, links, meters, selection" },
+    "S": { "base": "#11151a", "target": "theme.studio", "keepLightness": true, "about": "studio graphite background family (tint only)" }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.paint", "range": [0.07, 0.55], "note": "white and silver paint flatten the car's shading" },
+      { "path": "theme.studio", "range": [0.03, 0.14], "maxSaturation": 0.45 }
+    ],
+    "contrast": [
+      ["A:#8fd6ff", "S:#11151a", 4.5, "accent text on studio background"],
+      ["A:#05202e", "A:#8fd6ff", 4.5, "button text on accent"],
+      ["S:#93a2b1", "S:#11151a", 4.5, "secondary text on studio background"],
+      ["S:#11151a", "A:#d9eefb", 4.5, "booking confirmation text"]
+    ]
+  },
+  "metrics": {
+    "wordmark": {
+      "fontChoice": "theme.fonts",
+      "css": "font:900 1000px/1 {family};font-stretch:125%;letter-spacing:-.02em;text-transform:uppercase",
+      "fonts": {
+        "studio": { "url": "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap", "family": "Archivo" },
+        "track": { "url": "https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap", "family": "Chakra Petch" },
+        "atelier": { "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&display=swap", "family": "Bricolage Grotesque" }
+      }
+    }
+  },
+  "guards": [
+    { "name": "wordmark fit", "type": "fitText", "selector": ".word", "text": ["business.wordmark"], "metric": "wordmark",
+      "size": [56, 17, 250], "container": { "max": 1240, "gutter": [16, 4, 48] }, "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" } },
+    { "name": "chrome wordmark on dark paint", "type": "contrastSwitch", "a": "P:#c8141f", "b": "S:#11151a", "min": 2,
+      "css": ".word{background-image:linear-gradient(180deg,var(--led) 0%,var(--mist) 46%,var(--bay-3) 47%,var(--mist) 100%)}" },
+    { "name": "nav collapses earlier", "type": "collapseByLength", "base": 366, "default": 980,
+      "parts": [
+        { "paths": ["business.short"], "perChar": 15.5 },
+        { "paths": ["nav.process", "nav.correction", "nav.packages", "nav.coatings", "nav.book"], "perChar": 8.1 },
+        { "paths": ["nav.cta"], "perChar": 8.4 }
+      ],
+      "css": "@media (max-width:{w}px){.nav ul{display:none}.nav .acts{margin-left:auto}}" }
+  ]
+}

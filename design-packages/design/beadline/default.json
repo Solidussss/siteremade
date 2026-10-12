@@ -1,0 +1,373 @@
+{
+  "business": {
+    "name": "Beadline Detail Studio",
+    "short": "Beadline",
+    "wordmark": "Beadline"
+  },
+  "theme": {
+    "paint": "#c8141f",
+    "accent": "#8fd6ff",
+    "studio": "#11151a",
+    "fonts": "studio",
+    "logo": "bead",
+    "wordmarkFit": "crop"
+  },
+  "locale": {
+    "currency": "£",
+    "locale": "en-GB"
+  },
+  "nav": {
+    "process": "Process",
+    "correction": "Correction",
+    "packages": "Packages",
+    "coatings": "Coatings",
+    "book": "Book",
+    "cta": "Book a drop-off",
+    "ctaShort": "Book"
+  },
+  "hero": {
+    "eyebrow": "Hand wash · Paint correction · Ceramic",
+    "headline": "Bring it filthy. Drive it home",
+    "headlineAccent": "beading.",
+    "lede": "Bay 2 at Foundry Yard. Scroll to run a full six-stage detail on this coupe, from road film at 38 GU to a coated 95 GU finish.",
+    "scrollHint": "Scroll to start the wash"
+  },
+  "stages": [
+    {
+      "name": "Pre-rinse",
+      "text": "Low-pressure rinse at 40 bar lifts loose grit and road salt before anything touches the paint."
+    },
+    {
+      "name": "Snow foam",
+      "text": "pH-neutral foam dwells for 5 minutes and softens traffic film, so it slides off instead of scratching."
+    },
+    {
+      "name": "Contact wash",
+      "text": "Two-bucket wash with grit guards, a fresh microfibre mitt per panel, roof first and sills last."
+    },
+    {
+      "name": "Decontam",
+      "text": "Iron remover reacts with embedded brake dust and bleeds purple. A clay pass lifts whatever is left."
+    },
+    {
+      "name": "Polish",
+      "text": "Dual-action machine polish levels swirls and holograms. We measure clear coat before and after."
+    },
+    {
+      "name": "Ceramic",
+      "text": "An SiO₂ coating bonds to the clear coat. Water beads at 110° and rolls off a 10° slope."
+    }
+  ],
+  "correction": {
+    "eyebrow": "Paint correction",
+    "title": "Swirls out. Clarity back.",
+    "body": "Swirl marks are fine scratches, usually 1–3 µm deep in a clear coat that is 35–50 µm thick. We level them with a dual-action polisher and measure film build on every panel, so we only remove what the defect needs.",
+    "stats": [
+      {
+        "label": "Before",
+        "value": "58",
+        "unit": "GU"
+      },
+      {
+        "label": "After 2-step",
+        "value": "91",
+        "unit": "GU"
+      },
+      {
+        "label": "Clear coat used",
+        "value": "3",
+        "unit": "µm"
+      }
+    ],
+    "defects": [
+      {
+        "name": "Swirl marks",
+        "text": "Circular scratches from car-wash brushes and dirty mitts. They show as a spider web around any point light."
+      },
+      {
+        "name": "Holograms",
+        "text": "Buffer trails left by a rotary polisher used badly. Refined out with a finishing pad."
+      },
+      {
+        "name": "RIDS",
+        "text": "Random isolated deep scratches. We tell you before polishing if one needs wet sanding."
+      },
+      {
+        "name": "Water-spot etching",
+        "text": "Mineral rings baked into the clear coat by sun on hard water."
+      }
+    ],
+    "tagBefore": "Before · 58 GU",
+    "tagAfter": "After · 91 GU",
+    "caption": "Driver's door under a 6,500 K hex LED panel. Drag across the panel to compare."
+  },
+  "packages": {
+    "eyebrow": "Packages",
+    "title": "Price it before you book.",
+    "body": "Pick your vehicle size and how far you want to go. Prices include VAT. Hours are labour time in the bay for one detailer.",
+    "cta": "Book this package",
+    "sizes": [
+      {
+        "name": "Coupe / hatch",
+        "priceFactor": 1,
+        "hoursFactor": 1,
+        "icon": "coupe"
+      },
+      {
+        "name": "Saloon / estate",
+        "priceFactor": 1.12,
+        "hoursFactor": 1.1,
+        "icon": "saloon"
+      },
+      {
+        "name": "SUV",
+        "priceFactor": 1.28,
+        "hoursFactor": 1.25,
+        "icon": "suv"
+      },
+      {
+        "name": "7-seat / van",
+        "priceFactor": 1.45,
+        "hoursFactor": 1.4,
+        "icon": "van"
+      }
+    ],
+    "items": [
+      {
+        "name": "Maintenance wash",
+        "desc": "Foam, two-bucket wash, wheels, glass, spray sealant top-up.",
+        "price": 70,
+        "hours": 2.5,
+        "stages": [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Gloss enhancement",
+        "desc": "Full decontam and a one-step polish. Removes 50–70% of swirls.",
+        "price": 320,
+        "hours": 9,
+        "stages": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      },
+      {
+        "name": "Correction + 2-year ceramic",
+        "desc": "Cut and refine to 80%+ defect removal, then a 2-year SiO₂ coat.",
+        "price": 780,
+        "hours": 20,
+        "stages": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "cure": true
+      },
+      {
+        "name": "Full correction + 5-year ceramic",
+        "desc": "Multi-step correction to 90%+, 5-year coat on paint, wheels and glass.",
+        "price": 1290,
+        "hours": 34,
+        "stages": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "cure": true
+      }
+    ],
+    "addons": [
+      {
+        "name": "Wheels-off ceramic",
+        "price": 180,
+        "hours": 3
+      },
+      {
+        "name": "Glass coating",
+        "price": 90,
+        "hours": 1
+      },
+      {
+        "name": "Interior steam + leather",
+        "price": 140,
+        "hours": 3
+      }
+    ],
+    "default": {
+      "package": 2,
+      "size": 1
+    }
+  },
+  "coatings": {
+    "eyebrow": "Protection",
+    "title": "Wax, sealant or ceramic, by the numbers.",
+    "body": "Tilt the test panel. Water leaves the surface once the slope passes the product's sliding angle, which is why a coated car dries itself on the drive home.",
+    "costLabel": "3-year cost here",
+    "items": [
+      {
+        "name": "Carnauba wax",
+        "short": "Wax",
+        "months": [
+          1.5,
+          2
+        ],
+        "contactAngle": 95,
+        "slidingAngle": 32,
+        "ph": "5–9",
+        "heat": "Softens at 60 °C",
+        "reapply": "Every 6 weeks",
+        "cost": 1080
+      },
+      {
+        "name": "Polymer sealant",
+        "short": "Sealant",
+        "months": [
+          4,
+          6
+        ],
+        "contactAngle": 102,
+        "slidingAngle": 22,
+        "ph": "4–10",
+        "heat": "Stable to 120 °C",
+        "reapply": "Every 5 months",
+        "cost": 665
+      },
+      {
+        "name": "Ceramic SiO₂",
+        "short": "Ceramic",
+        "months": [
+          24,
+          60
+        ],
+        "contactAngle": 110,
+        "slidingAngle": 10,
+        "ph": "2–12",
+        "heat": "Stable past 300 °C",
+        "reapply": "Yearly check",
+        "cost": 810
+      }
+    ]
+  },
+  "booking": {
+    "eyebrow": "Drop-off",
+    "title": "Book a drop-off.",
+    "body": "Pick a day and a slot. We text you when the car goes into the bay and again when it is ready. The 17:30 slot uses the key safe, and work starts next morning.",
+    "slots": [
+      {
+        "time": "07:30",
+        "note": "First in",
+        "kind": "standard"
+      },
+      {
+        "time": "08:00",
+        "note": "Standard",
+        "kind": "standard"
+      },
+      {
+        "time": "08:30",
+        "note": "Standard",
+        "kind": "standard"
+      },
+      {
+        "time": "09:00",
+        "note": "Standard",
+        "kind": "standard"
+      },
+      {
+        "time": "12:30",
+        "note": "Washes only",
+        "kind": "short"
+      },
+      {
+        "time": "17:30",
+        "note": "Key safe",
+        "kind": "keysafe"
+      }
+    ],
+    "namePlaceholder": "Sam Okafor",
+    "vehicleLabel": "Registration",
+    "vehiclePlaceholder": "BD21 KXR",
+    "vehicleNoun": "the registration",
+    "phoneLabel": "Mobile for updates",
+    "phonePlaceholder": "07700 900417",
+    "refPrefix": "BL-"
+  },
+  "footer": {
+    "columns": [
+      {
+        "label": "Bay",
+        "lines": [
+          "Unit 4, Foundry Yard",
+          "Heated two-car studio, 6,500 K hex LED"
+        ]
+      },
+      {
+        "label": "Hours",
+        "lines": [
+          "Mon–Fri 07:30–18:00",
+          "Sat 08:00–14:00, key safe any time"
+        ]
+      },
+      {
+        "label": "Text us",
+        "lines": [
+          "07700 900417",
+          "Replies within the working day"
+        ],
+        "monoFirst": true
+      }
+    ],
+    "fine": "Beadline Detail Studio is a made-up business for a concept site."
+  },
+  "hours": {
+    "perDay": 9,
+    "sameDayMax": 5,
+    "ready": "16:00",
+    "readyWord": "after",
+    "sameDayLabel": "Same day",
+    "week": {
+      "sun": null,
+      "mon": {
+        "open": "07:30",
+        "close": "18:00"
+      },
+      "tue": {
+        "open": "07:30",
+        "close": "18:00"
+      },
+      "wed": {
+        "open": "07:30",
+        "close": "18:00"
+      },
+      "thu": {
+        "open": "07:30",
+        "close": "18:00"
+      },
+      "fri": {
+        "open": "07:30",
+        "close": "18:00"
+      },
+      "sat": {
+        "open": "07:30",
+        "close": "14:00",
+        "label": "Half day"
+      }
+    }
+  }
+}
