@@ -221,6 +221,8 @@ function home() {
     $('#routeOut').querySelectorAll('[data-use]').forEach((b) => { b.onclick = () => pick(b.dataset.use, text); });
     if ($('#anyway')) $('#anyway').onclick = () => $('.gallery').scrollIntoView({ behavior: 'smooth' });
   };
+  // from the homepage box (consolidation.js): the description arrives in #create= and is routed at once (free; nothing is generated yet)
+  if (location.hash.startsWith('#create=')) { $('#desc').value = decodeURIComponent(location.hash.slice(8)); history.replaceState(null, '', location.pathname); if ($('#desc').value.trim()) { $('#create').scrollIntoView(); $('#find').click(); } }
   document.querySelectorAll('.dcard').forEach((b) => { b.onclick = () => pick(b.dataset.d); b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(b.dataset.d); } }; });
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();

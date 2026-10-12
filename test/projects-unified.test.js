@@ -34,6 +34,7 @@ test('classic projects and design sites in one list; classic ones still open who
     const id = (await call('POST', '/api/designs/sites', { design: 'aldane', brief: { businessName: 'Meridian 38', brand: 'Meridian', watch: 'Hand-wound, 42-hour reserve.', options: 'Cases $1,850.', reserve: '$300 deposit.' } })).json.site.id;
     for (let i = 0; i < 100 && (await call('GET', `/api/designs/sites/${id}`)).json.site.status === 'writing'; i++) await new Promise((r) => setTimeout(r, 30));
 
+    assert.equal((await call('GET', '/api/site-config')).json.designsOpen, false, 'off by default: the homepage is the classic one');
     const list = (await call('GET', '/api/designs')).json;
     assert.deepEqual(list.sites.map((s) => s.id), [id]);
     const kinds = Object.fromEntries(list.projects.map((p) => [p.name, p.mode]));

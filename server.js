@@ -207,6 +207,8 @@ const PUBLIC_FILES = new Set([
   '/', '/index.html', '/privacy.html', '/terms.html',
   '/styles.css', '/script.js', '/icons-data.js', '/premium-core.js',
   '/creative-entry.js', '/creative.js', '/creative-core.js', '/creative-studio.css',
+  // one generator (SITEREMADE_DESIGNS_OPEN): the homepage box starts the new generator; does nothing while it is off
+  '/consolidation.js',
   '/favicon.png', '/siteremade-logo-black.png',
   // the 3D engine a Creative page's studio preview loads (lib/creative/three-d.js RUNTIME.preview), and its licence
   '/vendor/three-d/sr3d.min.js', '/vendor/three-d/LICENSE-three.txt',
@@ -5929,6 +5931,8 @@ function isDesignOwner(accountId, email) {
 // "on" (off by default: switching the product over is the owner's decision). Customers pay in credits
 // (pricing.ACTION_CREDITS.design_generation) through the same ledger as every other generation; the owner does not.
 const DESIGNS_OPEN = String(process.env.SITEREMADE_DESIGNS_OPEN || '').trim().toLowerCase() === 'on';
+// what the homepage needs to know (consolidation.js): whether its box starts the new generator
+app.get('/api/site-config', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, designsOpen: DESIGNS_OPEN }); });
 function requireDesignOwner(req, res, next) {
   if (!db.designSites) return res.status(503).json({ ok: false, message: 'Design sites are not available on this server.' });
   req.designOwner = isDesignOwner(req.accountId, req.accountEmail);

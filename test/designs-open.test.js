@@ -27,6 +27,7 @@ test('a customer pays in credits: refused when short, charged when built, refund
   try {
     assert.equal((await call('POST', '/api/auth/signup', { email: 'customer@example.com', password: 'correct-horse-battery-staple' })).status, 200);
     const acct = db.accounts.findByEmail('customer@example.com').id;
+    assert.equal((await call('GET', '/api/site-config')).json.designsOpen, true, 'the homepage box starts the new generator');
     const list = (await call('GET', '/api/designs')).json;
     assert.equal(list.access.owner, false); assert.equal(list.access.cost, pricing.ACTION_CREDITS.design_generation);
     const have = () => credits.available(db, acct).total;
