@@ -2,9 +2,22 @@
 // printed and engraved on the drawn watch, and the rules the schema can't express. Runs at build time only.
 'use strict';
 const { FILTERS } = require('../../engine/template');
+const { hexRgb, contrast } = require('../../engine/colour');
 // the configurator's options keep their drawn finishes (case metal, dial, strap) in this order
 const KINDS = { case: [['steel', 'sw-steel'], ['ti', 'sw-ti'], ['gold', 'sw-gold']], dial: [['rh', 'sw-rh'], ['ink', 'sw-ink'], ['moss', 'sw-moss'], ['enamel', 'sw-enamel']], strap: [['tan', 'sw-tan'], ['cordovan', 'sw-cordovan'], ['suede', 'sw-suede'], ['oxblood', 'sw-oxblood']] };
 const LINES = [4, 2, 3, 3]; // the spec table's rows as the original groups them in the script
+const HEX = /^#[0-9a-f]{6}$/i;
+const mix = (h, to, k) => '#' + hexRgb(h).map((v, i) => Math.round(v + (hexRgb(to)[i] - v) * k).toString(16).padStart(2, '0')).join('');
+const light = (h) => contrast(h, '#000000') > contrast(h, '#ffffff');
+// A finish recoloured to the brand's own: the variables the drawing and the swatch share (the page's :root ones), so
+// the watch, the swatch and every highlight and shadow follow. Only for options with a colour; none -> ''.
+function finishCss(C) {
+  const out = [];
+  C.cases.forEach((o, i) => { if (o.colour) { const k = KINDS.case[i][0]; out.push(`--${k}-hi:${mix(o.colour, '#ffffff', 0.6)};--${k}-mid:${o.colour};--${k}-lo:${mix(o.colour, '#000000', 0.5)}`); } });
+  C.dials.forEach((o, i) => { if (o.colour) { const k = KINDS.dial[i][0], l = light(o.colour); out.push(`--${k}-dial:${o.colour};--${k}-dial2:${mix(o.colour, '#000000', 0.3)};--${k}-ink:${l ? '#18202B' : '#EFEBE0'};--${k}-hand:${o.hand || (l ? '#1E3A9E' : '#D9DEE4')}`); } });
+  C.straps.forEach((o, i) => { if (o.colour) { const k = KINDS.strap[i][0]; out.push(`--${k}:${o.colour};--${k}-st:${o.stitch || (light(o.colour) ? mix(o.colour, '#000000', 0.35) : mix(o.colour, '#ffffff', 0.4))}`); } });
+  return out.length ? `:root{${out.join(';')}}\n` : '';
+}
 
 function derive(c) {
   const js = FILTERS.js, esc = FILTERS.esc, C = c.configure;
@@ -14,7 +27,13 @@ function derive(c) {
   for (const n of LINES) { if (k >= rows.length) break; lines.push('  ' + rows.slice(k, k + n).join(', ')); k += n; }
   while (k < rows.length) { lines.push('  ' + rows.slice(k, k + 3).join(', ')); k += 3; }
   const W = c.specs.water;
+  // the winding demo: the watch's reserve and turns (the original: 72 h from 40 turns, sampled at 31 h)
+  const res = c.movement.reserve, turns = c.movement.turns, perTurn = +(res / turns).toFixed(4), start = Math.round(res * 31 / 72);
   return {
+    resStart: String(start), resStartText: start.toFixed(1), resTurnsText: (start / perTurn).toFixed(1) + ' / ' + turns,
+    perTurn: String(perTurn), resHalf: String(res / 2), tickStep: res > 96 ? '12' : '6', labelStep: res > 96 ? '24' : '12',
+    barrelLead: res === 72 ? 'Holds the mainspring: nine turns of it, enough for 72 hours.' : `Holds the mainspring, enough for ${res} hours.`,
+    finishCss: finishCss(C),
     heroAccent: esc(c.hero.accent).replace(/(\d) (?=[a-zA-Z])/g, '$1&nbsp;'),
     pillsJs: c.hero.pills.map(js).join(', '),
     dialBrand: esc(c.brand.dialName), dialSub: esc(c.watch.dialSub), dialModel: esc(c.watch.dialModel), dialSub2: esc(c.watch.dialSub2), engraving: esc(c.watch.engraving),
@@ -36,6 +55,10 @@ function validate(c) {
     if (kinds !== 1) e.push(`specs.rows.${i}: exactly one of mm (a length in millimetres), value (text) or water: true`);
     if (r.mm != null && !(typeof r.mm === 'number' && r.mm > 0 && r.mm < 100)) e.push(`specs.rows.${i}.mm: a length in millimetres`);
   });
+  const M = c.movement;
+  if (!Number.isInteger(M.reserve) || !Number.isInteger(M.turns)) e.push('movement: reserve (hours) and turns are whole numbers');
+  else if (M.reserve / M.turns < 0.5 || M.reserve / M.turns > 6) e.push(`movement: ${M.reserve} h from ${M.turns} turns is ${(M.reserve / M.turns).toFixed(2)} h a turn (0.5-6 h a turn)`);
+  [['cases', C.cases], ['dials', C.dials], ['straps', C.straps]].forEach(([k, list]) => list.forEach((o, i) => ['colour', 'hand', 'stitch'].forEach((f) => { if (o[f] != null && !HEX.test(o[f])) e.push(`configure.${k}.${i}.${f}: use #rrggbb`); })));
   if (c.specs.rows.filter((r) => r.water).length > 1) e.push('specs.rows: one water-resistance row at most');
   for (const k of ['dialName', 'dialSub', 'dialSub2', 'engraving']) { const v = k === 'dialName' ? c.brand.dialName : c.watch[k]; if (v && v !== v.toUpperCase()) e.push(`${k === 'dialName' ? 'brand' : 'watch'}.${k}: capitals, as printed on the dial`); }
   return e;

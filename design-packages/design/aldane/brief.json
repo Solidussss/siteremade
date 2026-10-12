@@ -1,13 +1,49 @@
 {
   "title": "Watch launch",
   "fields": [
-    { "key": "businessName", "label": "Page name", "required": true, "help": "Brand and model, e.g. Holm & Rye Field 38." },
-    { "key": "brand", "label": "Brand", "required": true },
-    { "key": "watch", "label": "The watch", "type": "textarea", "required": true, "help": "Model, calibre, case size and thickness, water resistance, power reserve, what is printed on the dial. The page shows a hand-wound three-hand watch." },
-    { "key": "options", "label": "Cases, dials and straps", "type": "textarea", "required": true, "help": "Three case metals, four dials and four straps with prices and lead times." },
-    { "key": "reserve", "label": "How people order", "type": "textarea", "required": true, "help": "Deposit, delivery slots or allocation, how many you make." },
-    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €, CHF" },
-    { "key": "vibe", "label": "How should the page sound?", "type": "textarea", "help": "A few words about the brand." }
+    {
+      "key": "businessName",
+      "label": "Page name",
+      "required": true,
+      "help": "Brand and model, e.g. Holm & Rye Field 38."
+    },
+    {
+      "key": "brand",
+      "label": "Brand",
+      "required": true
+    },
+    {
+      "key": "watch",
+      "label": "The watch",
+      "type": "textarea",
+      "required": true,
+      "help": "Model, calibre, case size and thickness, water resistance, power reserve, crown turns if known, second time zone or not, what is printed on the dial."
+    },
+    {
+      "key": "options",
+      "label": "Cases, dials and straps",
+      "type": "textarea",
+      "required": true,
+      "help": "Case metals, dials and straps with their colours, prices and lead times (the page shows three, four and four)."
+    },
+    {
+      "key": "reserve",
+      "label": "How people order",
+      "type": "textarea",
+      "required": true,
+      "help": "Deposit, delivery slots or allocation, how many you make."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €, CHF"
+    },
+    {
+      "key": "vibe",
+      "label": "How should the page sound?",
+      "type": "textarea",
+      "help": "A few words about the brand."
+    }
   ],
   "facts": [
     "hero.accent",
@@ -28,19 +64,41 @@
     "locale.currency"
   ],
   "writerNotes": [
-    "The watch is a fixed drawing of a three-hand, hand-wound watch (no rotor) that comes apart in six stages as you scroll, showing a movement that beats at 4 Hz (28,800 vph); the winding demo runs 72 hours from 40 crown turns. If the brand's watch is automatic, a chronograph or very different, ask with _blocked whether this design fits rather than misdescribing it.",
+    "The watch is a drawing of a three-hand, hand-wound watch that comes apart in six stages as you scroll, showing a movement that beats at 4 Hz (28,800 vph). Adapt it to the brief's watch: movement.reserve is its power reserve in hours and movement.turns the crown turns from empty (if the brief gives only the reserve, assume about 1.4-1.8 h a turn and list movement.turns in _assumed); the winding demo, its gauge and the barrel caption follow them. features.dualTime is true only for a watch with a second time zone (GMT, dual time); otherwise false, which removes the dual-time section and its nav link (fill dual.* with neutral text anyway). Nothing on the page may repeat the example's 72 h, 40 turns, jewel count or GMT unless the brief says so. If the watch is automatic, say it winds itself and can also be wound at the crown (never claim it has no rotor); complications the drawing does not show (a date, a chronograph) are described in words. Record each of these choices in _decisions.",
     "hero.stages are the six stages' titles and captions in order: assembled, crystal off, dial and hands, going train, escapement, back together; numbers in them (case size, thickness, water resistance, jewels) are facts from the brief. hero.firstText is the first caption as the page first shows it (normally the same as stages[0].text). hero.pills are three short facts (jewels, power reserve, frequency).",
     "brand.dialName, watch.dialModel, watch.dialSub, watch.dialSub2 and watch.engraving are printed on the drawn dial and movement, in capitals (dialModel in italic, normal case): keep them short.",
-    "configure: three case metals (they are drawn as steel, titanium and gold, in that order), four dials (drawn rhodium, ink, moss, enamel) and four straps (drawn tan, cordovan, suede, oxblood). Name them as the brand does, choosing options whose look matches those finishes; prices are whole numbers, the first dial and strap are included (price 0); each case has a lead time in weeks.",
+    "configure: three case metals, four dials and four straps, in the drawn order (cases steel, titanium, gold; dials rhodium, ink, moss, enamel; straps tan, cordovan, suede, oxblood). Use the brand's own options, each in the slot whose finish is closest. Where an option looks different from its slot (a black DLC case, a navy canvas or black rubber strap, a cream dial) give it colour \"#rrggbb\" so the drawing and swatch show it (a dial may also give hand, a strap stitch). If the brand offers fewer options, add close variants of its own range and list them in _assumed. Prices are whole numbers, the first dial and strap are included (price 0); each case has a lead time in weeks.",
     "specs.rows are exactly twelve rows: lengths as mm numbers (the page converts them to inches and lignes), text values, and one row with water: true for water resistance (specs.water gives metres and bar). Only facts from the brief.",
     "reserve: how people order (eyebrow, title, three delivery options, the button with any deposit, and how a held slot is described, e.g. 'slot 41 of 140').",
     "theme.wordmarkFit: always \"fit\" for a new brand. footer.fine is a one-line note.",
     "business.name is set to exactly the name in the brief and cannot be changed."
   ],
   "readBack": [
-    { "label": "The watch", "path": "watch", "fields": ["model", "calibre"] },
-    { "label": "Cases", "path": "configure.cases", "fields": ["name", "price", "weeks"] },
-    { "label": "Reserve", "path": "reserve", "fields": ["button", "slot"] }
+    {
+      "label": "The watch",
+      "path": "watch",
+      "fields": [
+        "model",
+        "calibre"
+      ]
+    },
+    {
+      "label": "Cases",
+      "path": "configure.cases",
+      "fields": [
+        "name",
+        "price",
+        "weeks"
+      ]
+    },
+    {
+      "label": "Reserve",
+      "path": "reserve",
+      "fields": [
+        "button",
+        "slot"
+      ]
+    }
   ],
   "pinned": {
     "business.name": "businessName"

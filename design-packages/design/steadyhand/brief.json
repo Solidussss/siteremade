@@ -1,16 +1,63 @@
 {
   "title": "Barber shop",
   "fields": [
-    { "key": "businessName", "label": "Business name", "required": true },
-    { "key": "location", "label": "Address or area", "required": true },
-    { "key": "phone", "label": "Phone for customers", "required": true },
-    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "In your own words, e.g. Tue-Fri 9-6, Sat 8-4, closed Sunday and Monday." },
-    { "key": "services", "label": "Services and prices", "type": "textarea", "required": true, "help": "Your price list: cuts, beard work, extras, with prices and roughly how long each takes." },
-    { "key": "barbers", "label": "Your barbers", "type": "textarea", "help": "Optional: up to four names and what each is best at." },
-    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
-    { "key": "vibe", "label": "How should the site sound?", "type": "textarea", "help": "A few words about your shop and your customers." },
-    { "key": "colours", "label": "Brand colours", "help": "Optional: colour names or hex codes." },
-    { "key": "other", "label": "Anything else", "type": "textarea", "help": "Walk-ins, booking policy, parking, kids' prices, payment..." }
+    {
+      "key": "businessName",
+      "label": "Business name",
+      "required": true
+    },
+    {
+      "key": "location",
+      "label": "Address or area",
+      "required": true
+    },
+    {
+      "key": "phone",
+      "label": "Phone for customers",
+      "required": true
+    },
+    {
+      "key": "hours",
+      "label": "Opening hours",
+      "type": "textarea",
+      "required": true,
+      "help": "In your own words, e.g. Tue-Fri 9-6, Sat 8-4, closed Sunday and Monday."
+    },
+    {
+      "key": "services",
+      "label": "Services and prices",
+      "type": "textarea",
+      "required": true,
+      "help": "Your price list: cuts, beard work, extras, with prices and roughly how long each takes."
+    },
+    {
+      "key": "barbers",
+      "label": "Your barbers",
+      "type": "textarea",
+      "help": "Optional: up to four names and what each is best at."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €"
+    },
+    {
+      "key": "vibe",
+      "label": "How should the site sound?",
+      "type": "textarea",
+      "help": "A few words about your shop and your customers."
+    },
+    {
+      "key": "colours",
+      "label": "Brand colours",
+      "help": "Optional: colour names or hex codes."
+    },
+    {
+      "key": "other",
+      "label": "Anything else",
+      "type": "textarea",
+      "help": "Walk-ins, booking policy, parking, kids' prices, payment..."
+    }
   ],
   "facts": [
     "menu.groups.*.items.*.price",
@@ -34,7 +81,7 @@
     "The hero is a fixed animation of a mid skin fade seen from behind the chair, in five stages (consult, clippers, scissors over comb, line-up and hard part, hot towel) with a 45-minute timer. Those stage names and the timer are part of the animation. hero.line1 and hero.line2 are the two lines of the big title (line2 may put *one or two words* in the accent colour); hero.lede describes watching the fade and booking, in the shop's voice, and may name the first barber and their chair (booking.barbers[0]).",
     "cut.* are the prices and times the 'build your cut' tool adds up: fade and fadeMinutes = a skin fade, taper and taperMinutes = a taper, part and partMinutes = a hard part, textured = the extra for a longer textured scissor top, buzzOff = how much less a buzz-cut top costs than a fade. Take them from the price list; if the brief has no taper or hard-part price, use the closest service and list the path in _assumed.",
     "menu.groups is the price list as the shop writes it: 1-4 groups (e.g. Cuts, Beard & shave, Extras), 14 items at most in all, each with name, a short desc, minutes and price (whole numbers, in the brief's currency). The first item of the first group starts ticked, so put the shop's signature cut first. Leave out 'id'. Durations the brief doesn't give are assumptions: list their paths in _assumed.",
-    "booking.barbers: 1-4 barbers with name, specialty, chair number and an avatar colour (accent, second, chrome or warm). Use the brief's barbers; if it names none, use one barber called by the owner's or shop's first name only if the brief gives it, otherwise ask with _blocked. booking.refPrefix is 2-4 capital letters from the business name.",
+    "booking.barbers: 1-4 barbers with name, specialty, chair number and an avatar colour (accent, second, chrome or warm). Use the brief's barbers; if it names none, use one barber called by the owner's or shop's first name only if the brief gives it, otherwise one barber named \"Any barber\" (specialty from the brief's services), listed in _assumed. booking.refPrefix is 2-4 capital letters from the business name.",
     "hours: Sunday to Saturday, null = closed, open and close as HH:MM in 24-hour time (no closing after midnight). The booking board offers 45-minute slots inside them, and the hero says whether the shop is open now.",
     "booking.body and booking.info state policies (deposit, cancellation, walk-ins, grace period, number of chairs): only what the brief says; otherwise keep it neutral (e.g. 'Tap a time, then tap confirm.') rather than inventing a policy.",
     "footer.columns are four columns: where (address), hours (human-readable, matching hours), contact (phone first), and payment or kids' prices if the brief gives them, else something true from the brief.",
@@ -43,9 +90,33 @@
     "business.name is set to exactly the name in the brief and cannot be changed."
   ],
   "readBack": [
-    { "label": "Opening hours", "path": "hours", "format": "week" },
-    { "label": "Barbers", "path": "booking.barbers", "fields": ["name", "specialty", "chair"] },
-    { "label": "Cut builder prices", "path": "cut", "fields": ["fade", "fadeMinutes", "taper", "taperMinutes", "part", "textured", "buzzOff"] }
+    {
+      "label": "Opening hours",
+      "path": "hours",
+      "format": "week"
+    },
+    {
+      "label": "Barbers",
+      "path": "booking.barbers",
+      "fields": [
+        "name",
+        "specialty",
+        "chair"
+      ]
+    },
+    {
+      "label": "Cut builder prices",
+      "path": "cut",
+      "fields": [
+        "fade",
+        "fadeMinutes",
+        "taper",
+        "taperMinutes",
+        "part",
+        "textured",
+        "buzzOff"
+      ]
+    }
   ],
   "pinned": {
     "business.name": "businessName"

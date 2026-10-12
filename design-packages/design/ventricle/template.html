@@ -761,7 +761,7 @@ function renderChips(){
     const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.k=f.k;b.style.setProperty('--c',f.c);
     b.setAttribute('aria-pressed',f.k===filt);b.innerHTML=`<i></i>${f.l}<em>${n}</em>`;chipsEl.appendChild(b);});
 }
-function spotsFor(d,i){return 3+((d*7+i*5+3)%10);}
+function spotsFor(d,i){return {{$.spotsExpr|raw}};}
 function renderClasses(anim){
   const F=FILTERS.find(f=>f.k===filt);
   const list=WEEK[day].map((c,i)=>({t:c[0],k:c[1],i})).filter(c=>F.t(CL[c.k].z));

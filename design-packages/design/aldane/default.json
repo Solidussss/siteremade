@@ -14,6 +14,13 @@
     "dialSub2": "72 H · 21 JEWELS",
     "engraving": "ALDANE · AD-28 · TWENTY-ONE JEWELS · ADJ 5 POS"
   },
+  "movement": {
+    "reserve": 72,
+    "turns": 40
+  },
+  "features": {
+    "dualTime": true
+  },
   "nav": {
     "movement": "Movement",
     "configure": "Configure",

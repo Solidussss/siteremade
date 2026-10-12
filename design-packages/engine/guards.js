@@ -10,15 +10,15 @@ const clampAt = ([lo, vw, hi], v) => Math.max(lo, Math.min(hi == null ? Infinity
 
 // fitText: a big single-line word (a footer wordmark) that would run past its column. It is scaled down only as far
 // as needed for the whole text to sit inside the column at every width. Needs the glyph table (metrics.json).
-//   { selector, text: [paths joined], metric, size: [minPx, vw, maxPx], container: { max: px|null, gutter: [minPx, vw, maxPx|null] },
+//   { selector, text: [paths joined], suffix: literal text after them (a full stop), fill: share of the column to fill (0.96), metric, size: [minPx, vw, maxPx], container: { max: px|null, gutter: [minPx, vw, maxPx|null] },
 //     skipIf: { path, equals } }
 function fitText(g, c, ctx) {
   if (g.skipIf && ctx.get(c, g.skipIf.path) === g.skipIf.equals) return '';
-  const text = [].concat(g.text).map((p) => ctx.get(c, p) || '').join('');
+  const text = [].concat(g.text).map((p) => ctx.get(c, p) || '').join('') + (g.suffix || '');
   const em = ctx.textEm(g.metric, text);
-  const k = (0.96 / em).toFixed(4);
+  const fill = g.fill || 0.96, k = (fill / em).toFixed(4);
   const cont = (v) => Math.min(g.container.max ?? Infinity, v) - 2 * clampAt(g.container.gutter, v);
-  const fitsAlways = [320, 390, 640, 980, 1240, 1440, 1920].every((v) => clampAt(g.size, v) * em <= cont(v) * 0.96);
+  const fitsAlways = [320, 390, 640, 980, 1240, 1440, 1920].every((v) => clampAt(g.size, v) * em <= cont(v) * fill);
   if (fitsAlways) return '';
   const contCss = g.container.max == null ? '100vw' : `min(${px(g.container.max)},100vw)`;
   return `${g.selector}{font-size:min(${clampCss(g.size)},calc((${contCss} - 2 * ${clampCss(g.container.gutter)}) * ${k}))}`;

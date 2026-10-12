@@ -91,10 +91,12 @@ test('brief to site: owner only, retry loop, publish', async () => {
     await owner('POST', `/api/designs/sites/${id}/publish`, { on: false });
     assert.equal((await fetch(`${base}/s/${id}`)).status, 404, 'unpublished');
 
-    // a name the design can't fit: the owner is asked first, before any writing
+    // a name the design can't fit: asked in the writer's one round of questions (test/design-sites-clarify.test.js)
     const long = await owner('POST', '/api/designs/sites', { design: 'beadline', brief: { ...brief, businessName: 'GlossMasters Pro Detailing & Ceramic Coating Specialists LLC' } });
-    assert.equal(long.json.site.status, 'needs_owner');
-    assert.match(long.json.site.questions[0], /shorter name/);
+    assert.equal(long.json.site.status, 'writing');
+    const asked = await until(async () => { const r = await owner('GET', `/api/designs/sites/${long.json.site.id}`); return r.json.site.status !== 'writing' && r.json.site; });
+    assert.equal(asked.status, 'needs_owner');
+    assert.match(asked.questions[0], /shorter name/);
     // a missing required answer
     assert.equal((await owner('POST', '/api/designs/sites', { design: 'beadline', brief: { businessName: 'X Car Care' } })).status, 400);
   } finally { srv.close(); }

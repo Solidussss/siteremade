@@ -1,13 +1,46 @@
 {
   "title": "Building-brick toy set",
   "fields": [
-    { "key": "businessName", "label": "Page name", "required": true, "help": "Brand and set, e.g. Stackr Rocket Set." },
-    { "key": "brand", "label": "Brand", "required": true },
-    { "key": "set", "label": "The set", "type": "textarea", "required": true, "help": "The set's name, the age it's for, how tall it is built, and three editions (colour versions) with prices. The page builds a brick rocket, so a space set fits best." },
-    { "key": "bricks", "label": "Your bricks", "type": "textarea", "help": "Optional: four numbers about your bricks (stud spacing, height, tolerance, testing) and what makes them grip." },
-    { "key": "currency", "label": "Currency", "help": "e.g. $, £, €" },
-    { "key": "vibe", "label": "How should the page sound?", "type": "textarea", "help": "A few words about the brand." },
-    { "key": "colours", "label": "Brand accent colour", "help": "Optional: a bright colour for the main button." }
+    {
+      "key": "businessName",
+      "label": "Page name",
+      "required": true,
+      "help": "Brand and set, e.g. Stackr Rocket Set."
+    },
+    {
+      "key": "brand",
+      "label": "Brand",
+      "required": true
+    },
+    {
+      "key": "set",
+      "label": "The set",
+      "type": "textarea",
+      "required": true,
+      "help": "The set's name, the age it's for, how tall it is built, and three editions (colour versions) with prices. The page builds a brick rocket, so a space set fits best."
+    },
+    {
+      "key": "bricks",
+      "label": "Your bricks",
+      "type": "textarea",
+      "help": "Optional: four numbers about your bricks (stud spacing, height, tolerance, testing) and what makes them grip."
+    },
+    {
+      "key": "currency",
+      "label": "Currency",
+      "help": "e.g. $, £, €"
+    },
+    {
+      "key": "vibe",
+      "label": "How should the page sound?",
+      "type": "textarea",
+      "help": "A few words about the brand."
+    },
+    {
+      "key": "colours",
+      "label": "Brand accent colour",
+      "help": "Optional: a bright colour for the main button."
+    }
   ],
   "facts": [
     "sets.editions.*.price",
@@ -18,7 +51,7 @@
     "locale.currency"
   ],
   "writerNotes": [
-    "The hero is a fixed WebGL animation: a brick rocket builds itself as you scroll (engine, fuselage and fins, nose cone) and launches. hero.title + hero.accent are the headline (the accent word is highlighted); hero.lede invites the reader to scroll and build the set by name. If the brand's set is not a rocket or vehicle, ask with _blocked whether the page may show a rocket.",
+    "The hero is a fixed WebGL animation: a brick rocket builds itself as you scroll (engine, fuselage and fins, nose cone) and launches. hero.title + hero.accent are the headline (the accent word is highlighted); hero.lede invites the reader to scroll and build the set by name. If the brand's set is not a rocket, keep the animation as the page's build demo but never say it is the brand's set: write the hero about building (bricks clicking into place, a build coming together) and name the real set in the copy around it. Record that in _decisions.",
     "sets.editions: exactly three colour versions of the set, each with a short name, a price (whole number), a card tint and the rocket's colours (body, accent, window, engine, tip), all picked from the brick palette: white, red, blue, yellow, dark, grey, orange, black, sky, green, pink, purple. The first edition is the rocket the hero builds. Leave out 'id'.",
     "specs.items: exactly four numbers that count up (value as a plain number like 8.0, 0.005 or 1000000, a short unit, an optional prefix ±, and one line). They are claims about the bricks: use only the brief's numbers; if the brief gives none, keep the example's standard brick dimensions (stud pitch 8.0 mm, height 9.6 mm) and list the tolerance and testing paths in _assumed.",
     "The tap-to-build baseplate, its palette and the brick diagram are fixed; builder.* is only its heading and instructions.",
@@ -27,8 +60,25 @@
     "business.name is set to exactly the name in the brief and cannot be changed."
   ],
   "readBack": [
-    { "label": "The set", "path": "sets", "fields": ["name", "age", "height"] },
-    { "label": "Editions", "path": "sets.editions", "fields": ["name", "price", "body", "accent"] }
+    {
+      "label": "The set",
+      "path": "sets",
+      "fields": [
+        "name",
+        "age",
+        "height"
+      ]
+    },
+    {
+      "label": "Editions",
+      "path": "sets.editions",
+      "fields": [
+        "name",
+        "price",
+        "body",
+        "accent"
+      ]
+    }
   ],
   "pinned": {
     "business.name": "businessName"

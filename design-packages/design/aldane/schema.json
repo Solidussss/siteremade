@@ -1,5 +1,5 @@
 {
-  "about": "What a watch brand may change in the Aldane design. Everything not listed here is protected: the drawn watch and its exploded hand-wound movement (the seven parts, gear ratios, the 4 Hz escapement and its captions), the winding simulation (72 h, 40 turns), the dual-time dial and cities, the unit conversions, the finishes drawn for each case, dial and strap, layout, spacing, type scale, breakpoints and all interaction code.",
+  "about": "What a watch brand may change in the Aldane design. Protected: the drawn watch and its exploded hand-wound movement (the seven parts, gear ratios, the 4 Hz escapement and its captions), the winding simulation, the dual-time dial and cities, the unit conversions, layout, spacing, type scale, breakpoints and all interaction code. Adapts to the watch: the power reserve and crown turns the winding demo runs on, whether the dual-time section shows, and the colours of the drawn finishes.",
   "text": {
     "business.name": [
       3,
@@ -228,6 +228,14 @@
     "specs.water.bar": [
       1,
       200
+    ],
+    "movement.reserve": [
+      24,
+      240
+    ],
+    "movement.turns": [
+      8,
+      80
     ]
   },
   "choices": {
@@ -237,12 +245,17 @@
         "crop"
       ],
       "optional": true
-    }
+    },
+    "features.dualTime": [
+      true,
+      false
+    ]
   },
   "rules": [
     "Text may not contain < > { } or line breaks.",
-    "The watch is a fixed drawing of a three-hand, hand-wound watch whose movement comes apart in six stages (assembled, crystal off, dial and hands, going train, escapement, reassembled); hero.stages are their titles and captions in that order. The movement beats at 4 Hz and the winding demo runs 72 h from 40 turns.",
-    "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood); names and prices come from the brand, the first dial and strap are included (price 0).",
+    "The watch is a drawing of a three-hand, hand-wound watch whose movement comes apart in six stages (assembled, crystal off, dial and hands, going train, escapement, reassembled); hero.stages are their titles and captions in that order. The movement beats at 4 Hz.",
+    "movement.reserve (hours) and movement.turns (crown turns from empty) drive the winding demo and gauge: the watch's own power reserve. features.dualTime shows the dual-time section and its nav link (true only for a watch with a second time zone).",
+    "The configurator has three case metals (drawn as steel, titanium, gold), four dials (rhodium, ink, moss, enamel) and four straps (tan, cordovan, suede, oxblood), in that order; names and prices come from the brand, the first dial and strap are included (price 0). Any option may add colour (#rrggbb) to redraw its finish in the brand's colour; a dial may add hand, a strap stitch.",
     "specs.rows: twelve rows, each a length in mm (shown in mm, inches or lignes), a text value, or the water-resistance row."
   ],
   "colours": []

@@ -1,5 +1,5 @@
 // Builds the instructions for the AI writer from a design package: its rules (schema + design checks), notes on what
-// the fixed animation shows, the default content as the exact shape to return, and the customer's brief.
+// the design shows and how it adapts, the default content as the exact shape to return, and the customer's brief.
 // Nothing here is design-specific; it reads whatever the package declares.
 'use strict';
 const fs = require('fs');
@@ -28,36 +28,60 @@ function rulesText(d) {
   return L.join('\n');
 }
 
-function build(d, brief, briefSpec) {
+// The writer's policy. The brief is the source of truth; the design is a visual reference whose content, switches,
+// numbers and colours the writer adapts to the business. It decides ordinary design questions itself (and lists the
+// decisions); it asks only for essential business facts (kinds price | legal | transaction), all in one round. In the
+// final run (the owner has answered) it asks nothing. lib/design-sites.js enforces the same on what comes back.
+const KINDS = ['price', 'legal', 'transaction'];
+function build(d, brief, briefSpec, { final = false, longNames = [] } = {}) {
   const example = fs.readFileSync(path.join(d.dir, 'default.json'), 'utf8');
   const system = [
-    'You write the content for a premium website design for a real small business. The design is fixed: its animation, layout and code never change. You only supply the content as one JSON object.',
-    'Return exactly one JSON object and nothing else. Same keys and nesting as the example. Lists keep the example\'s length where the rules say "exactly"; where they allow a range, size them to the business (as many services, staff or items as the brief gives, within the range). Add one extra key "_assumed": a list of the paths whose values are not supported by the brief.',
-    'Facts (prices, durations, sizes, phone numbers, addresses, opening hours, percentages, batch numbers, years): use only what the brief says. Never invent a fact. If the design needs a fact the brief does not give, keep the example\'s value and list its path in "_assumed".',
-    'Never change a fact from the brief to satisfy a rule: not a name, a price, a size, a currency or a time, and never rescale or reword numbers (no "thousands of", no new units). If a rule can only be met by changing such a fact, or the design needs more facts than the brief gives (for example three sizes when the brief has one), keep the fact exactly as given and add a key "_blocked": a list of short questions to ask the owner. The owner will be asked; that is the right outcome.',
-    'Use "_blocked" only for: (a) a rule that can only be met by changing a fact from the brief; (b) prices, sizes or products the design must show that the brief does not give at all; (c) ingredients or services you would otherwise have to make up (a perfume note, a package the business does not offer). Ask only the questions that block the site, in plain words, at most five.',
-    'Do not block for anything with a sensible default: timings and proportions, how long a process takes, vehicle-size surcharges, opening-hour details, colours, fonts, optional extras (leave them out where the design allows). Choose a modest value and list its path in "_assumed"; the owner confirms those before publishing.',
-    'Descriptions may say what things smell, look or feel like, but do not state specific facts the brief does not give (origins, years, batch numbers, awards, ratings, guarantees).',
-    'Never reuse the example\'s headlines, titles or taglines, even reworded by one word (the example is another business\'s site). When the brief says little about the business, write from what it does say: the place, the trade, the customers.',
-    'Write everything else (headings, descriptions, captions) fresh, in the business\'s own voice from the brief. Keep the example\'s structure and the meaning of each field; do not copy the example business\'s name, place or story.',
-    'Choose theme colours from the brief\'s brand colours where possible, within the colour rules. The business name is the brand; footer.fine says the site is a demo made with SiteRemade.',
+    'You write the content for a premium website design for a small business, as one JSON object. The design\'s animation, interactions and craft stay; its words, numbers, colours, switches and options are yours to set for this business.',
+    'Return exactly one JSON object and nothing else, always complete. Same keys and nesting as the example. Lists keep the example\'s length where the rules say "exactly"; where they allow a range, size them to the business (as many services, staff or items as the brief gives, within the range).',
     '',
-    'What the fixed design shows (your content must match it):',
+    'THE BRIEF IS THE SOURCE OF TRUTH; THE DESIGN IS A VISUAL REFERENCE.',
+    '- The example content describes another business. Where the design (as described below) shows something the brief contradicts or does not have, adapt it: change the numbers, switch the section off, replace the option, recolour the finish. A demo, a section, a part or a picture must never claim something that is untrue of this business. A 72-hour demo for a 42-hour product is wrong; a feature the product does not have is removed.',
+    '- When the design cannot show something from the brief exactly, pick the closest honest representation it can show and say so in "_decisions". Never keep an inaccurate representation to preserve the design, and never ask the owner whether to.',
+    '- You decide all ordinary design questions yourself: which sections to show, animation and demo values, visual representations, colours, wording, ordering, and what to do about the design\'s limits. List each such decision in "_decisions", a short sentence each, e.g. "Switched off the dual-time section: the brief\'s watch is a three-hand watch".',
+    '- Keep the design\'s quality: write as well as the example does, and keep every animation and interaction the brief allows.',
+    '',
+    'FACTS',
+    '- Facts the brief gives (names, prices, sizes, times, phone numbers, addresses, opening hours, specifications) are used exactly: never change, rescale or reword one to satisfy a rule. If a rule can only be met by changing a fact, show it another way the design allows (shorter wording around it, another field or section) and record the decision.',
+    '- Where the brief is silent, make reasonable, modest assumptions consistent with the brief and with each other (one lead time, one deposit, one size everywhere it appears). List each assumed path in "_assumed"; the owner reviews them after the page is built.',
+    '- For a new, concept or fictional business, invented details may fill gaps, but never present them as verified: no awards, certifications, test results, ratings, reviews, press mentions, founding years or customer counts the brief does not give.',
+    '',
+    final ? 'THE OWNER HAS ANSWERED YOUR QUESTIONS (after the brief). Use the answers, decide everything else yourself, and ask nothing: "_questions" must be an empty list.' : [
+      'QUESTIONS (rare)',
+      '- Ask only for essential business information you cannot responsibly assume: an actual selling price the page must state (kind "price"), a legal statement the business must make (kind "legal"), or information needed to process a real transaction, such as how a deposit is taken (kind "transaction"). Nothing else is a question: design choices, animation details, representations, specifications and copy are yours to decide.',
+      '- Put every such question in "_questions" at once, as [{ "question": "...", "kind": "price" | "legal" | "transaction" }], at most five, in plain words. There is one round of questions only, so ask everything essential now. Still return the full JSON with your best values in place.',
+    ].join('\n'),
+    longNames.length ? `- The name "${longNames.map((x) => x.value).join('", "')}" is longer than the design can show. Write the shortest natural form of it in its place${final ? '' : '; the owner will be asked which short name they trade under'}.` : '',
+    '',
+    'Extra keys: "_assumed" (paths whose values the brief does not support), "_decisions" (what you adapted or decided, one sentence each), "_questions" (see above; usually empty).',
+    '',
+    'WRITING',
+    '- Never reuse the example\'s headlines, titles or taglines, even reworded by one word. When the brief says little about the business, write from what it does say: the place, the trade, the customers.',
+    '- Write headings, descriptions and captions fresh, in the business\'s own voice. Descriptions may say what things smell, look or feel like.',
+    '- Choose theme colours from the brief\'s brand colours where possible, within the colour rules. The business name is the brand; footer.fine says the site is a demo made with SiteRemade.',
+    '',
+    'What the design shows, and how it adapts:',
     ...briefSpec.writerNotes.map((n) => '- ' + n),
     '',
     'The rules your content must pass:',
     rulesText(d),
-  ].join('\n');
+  ].join('\n').replace(/\n{3,}/g, '\n\n');
+  const a = brief._answers;
   const user = [
-    `The example content (the original business). Return the same shape:\n${example}`,
+    `The example content (another business; adapt it, return the same shape):\n${example}`,
     'The brief from the new business:',
-    ...briefSpec.fields.map((f) => `${f.label}: ${(brief[f.key] || '').trim() || '(not given)'}`),
+    ...briefSpec.fields.map((f) => `${f.label}: ${String(brief[f.key] || '').trim() || '(not given)'}`),
+    ...(a ? [`The owner's answers to your questions${a.questions && a.questions.length ? ' (' + a.questions.join(' / ') + ')' : ''}:\n${a.text}`] : []),
   ].join('\n\n');
   return { system, user };
 }
 
 function retry(errors) {
-  return `The checker rejected that draft:\n${errors.map((e) => '- ' + e).join('\n')}\n\nReturn the full corrected JSON object. Change only what these errors need; keep everything else as it was.`;
+  return `The checker rejected that draft:\n${errors.map((e) => '- ' + e).join('\n')}\n\nReturn the full corrected JSON object. Change only what these errors need; keep everything else as it was. Do not ask about these errors: fix them.`;
 }
 
-module.exports = { build, retry, rulesText };
+module.exports = { build, retry, rulesText, KINDS };

@@ -15,6 +15,7 @@ function derive(c) {
   const js = FILTERS.js, S = c.schedule;
   const n = c.join.freeMonths;
   return {
+    spotsExpr: S.capacity >= 14 ? '3+((d*7+i*5+3)%10)' : `Math.max(1,Math.round((3+((d*7+i*5+3)%10))*${S.capacity - 1}/13))`,
     clJs: S.classes.map((k, i) => ` ${key(k, i)}:{n:${js(k.name)},z:${k.zone},rpe:${js(k.rpe)},d:${k.minutes},f:${js(k.format)},c:${js(k.coach)}}`).join(',\n'),
     weekJs: MON_FIRST.map((d) => ` [${S.week[d].map(([t, ci]) => `[${js(t)},${js(key(S.classes[ci], ci))}]`).join(',')}]`).join(',\n'),
     trialClass: S.classes[S.trialClass].name,

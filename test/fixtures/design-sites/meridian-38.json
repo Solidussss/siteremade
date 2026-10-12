@@ -1,0 +1,241 @@
+{
+  "business": {
+    "name": "Meridian 38"
+  },
+  "brand": {
+    "name": "Meridian",
+    "dialName": "MERIDIAN"
+  },
+  "watch": {
+    "model": "Meridian 38",
+    "dialModel": "Thirty-8",
+    "calibre": "MW-42",
+    "dialSub": "HAND-WOUND",
+    "dialSub2": "42 H · 17 JEWELS",
+    "engraving": "MERIDIAN · MW-42 · SEVENTEEN JEWELS"
+  },
+  "movement": {
+    "reserve": 42,
+    "turns": 30
+  },
+  "features": {
+    "dualTime": false
+  },
+  "nav": {
+    "movement": "Movement",
+    "configure": "Configure",
+    "wind": "Wind it",
+    "dual": "Dual time",
+    "specs": "Specs",
+    "cta": "Reserve a slot"
+  },
+  "hero": {
+    "title": "Forty-two hours",
+    "accent": "on a 38 mm wrist.",
+    "lede": "A hand-wound three-hand watch, wound each morning at the crown. It is keeping your local time right now. Scroll to open it up.",
+    "firstText": "38 mm steel case, 11 mm thick, three hands and nothing else.",
+    "pills": [
+      "17 jewels",
+      "42 h reserve",
+      "4 Hz · 28,800 vph"
+    ],
+    "stages": [
+      {
+        "title": "Meridian 38, assembled",
+        "text": "38 mm steel case, 11 mm thick, three hands and nothing else."
+      },
+      {
+        "title": "Sapphire crystal",
+        "text": "Domed sapphire with anti-reflective coating inside, sealed to 100 m."
+      },
+      {
+        "title": "Dial and hands",
+        "text": "A grained dial with lumed hands, set on two dial feet."
+      },
+      {
+        "title": "The going train",
+        "text": "Five wheels carry the mainspring energy to the escapement."
+      },
+      {
+        "title": "The escapement",
+        "text": "28,800 beats an hour, regulated in five positions."
+      },
+      {
+        "title": "Back together",
+        "text": "Closed up, regulated, and keeping your time."
+      }
+    ]
+  },
+  "configure": {
+    "title": "Build yours.",
+    "accent": "The watch above changes with it.",
+    "body": "Choose a case, a dial and a strap. Each Meridian 38 is assembled and regulated to order.",
+    "taxNote": "Price includes VAT.",
+    "cases": [
+      {
+        "name": "Brushed steel",
+        "price": 1850,
+        "weeks": 6
+      },
+      {
+        "name": "Black DLC steel",
+        "price": 2150,
+        "weeks": 8,
+        "colour": "#3a3d42"
+      },
+      {
+        "name": "Bronze",
+        "price": 2400,
+        "weeks": 10,
+        "colour": "#a2703f"
+      }
+    ],
+    "dials": [
+      {
+        "name": "Silver",
+        "price": 0
+      },
+      {
+        "name": "Black",
+        "price": 0,
+        "colour": "#141619"
+      },
+      {
+        "name": "Field green",
+        "price": 120,
+        "colour": "#3f4a32"
+      },
+      {
+        "name": "Cream",
+        "price": 120,
+        "colour": "#efe6cf"
+      }
+    ],
+    "straps": [
+      {
+        "name": "Black rubber",
+        "price": 0,
+        "colour": "#1b1c1f",
+        "stitch": "#3a3c40"
+      },
+      {
+        "name": "Navy canvas",
+        "price": 60,
+        "colour": "#26324d"
+      },
+      {
+        "name": "Olive nylon",
+        "price": 40,
+        "colour": "#555b38"
+      },
+      {
+        "name": "Sand leather",
+        "price": 90,
+        "colour": "#b4936a"
+      }
+    ]
+  },
+  "wind": {
+    "title": "Thirty turns of the crown.",
+    "accent": "Forty-two hours of running.",
+    "body": "The MW-42 is wound by hand. Drag the crown clockwise; each turn adds 1.4 hours, and the reserve runs down in real time."
+  },
+  "dual": {
+    "title": "Your time on the hands.",
+    "accent": "One more on the red arrow.",
+    "body": "The Field GMT adds a 24-hour hand for a second time zone, read against the outer ring. Pick a city to set it."
+  },
+  "specs": {
+    "title": "Measured in millimetres,",
+    "accent": "and in lignes.",
+    "body": "Watchmakers measure movements in lignes, about 2.26 mm each. Switch units to see the Meridian the way the bench does.",
+    "water": {
+      "m": 100,
+      "bar": 10
+    },
+    "rows": [
+      {
+        "label": "Case diameter",
+        "mm": 38
+      },
+      {
+        "label": "Thickness",
+        "mm": 10.8,
+        "note": "With the domed crystal"
+      },
+      {
+        "label": "Lug to lug",
+        "mm": 45
+      },
+      {
+        "label": "Lug width",
+        "mm": 20
+      },
+      {
+        "label": "Water resistance",
+        "water": true
+      },
+      {
+        "label": "Crystal",
+        "value": "Sapphire, domed",
+        "note": "Anti-reflective inside"
+      },
+      {
+        "label": "Movement",
+        "value": "Calibre MW-42, hand-wound",
+        "note": "17 jewels"
+      },
+      {
+        "label": "Movement diameter",
+        "mm": 30
+      },
+      {
+        "label": "Movement height",
+        "mm": 4.6
+      },
+      {
+        "label": "Frequency",
+        "value": "28,800 vph · 4 Hz"
+      },
+      {
+        "label": "Power reserve",
+        "value": "42 h",
+        "note": "About 30 crown turns from empty"
+      },
+      {
+        "label": "Rate",
+        "value": "±5 s per day",
+        "note": "Five positions"
+      }
+    ]
+  },
+  "reserve": {
+    "eyebrow": "Made to order",
+    "title": "Reserve yours",
+    "slots": [
+      "November delivery",
+      "December delivery",
+      "January delivery"
+    ],
+    "button": "Reserve with $300 deposit",
+    "slot": "a build slot"
+  },
+  "footer": {
+    "fine": "Meridian is a concept brand for a demo site made with SiteRemade."
+  },
+  "locale": {
+    "currency": "$",
+    "locale": "en-US"
+  },
+  "theme": {
+    "wordmarkFit": "fit"
+  },
+  "_assumed": [
+    "movement.turns"
+  ],
+  "_decisions": [
+    "Set the winding demo to the 42 hours in the brief, from 30 crown turns (1.4 hours a turn)",
+    "Switched off the dual-time section and its nav link: the brief describes a three-hand watch with no second time zone",
+    "Redrew the straps as black rubber, navy canvas, olive nylon and sand leather, and the cases as black DLC and bronze, in the brief's colours"
+  ]
+}
