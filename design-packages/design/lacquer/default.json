@@ -1,0 +1,334 @@
+{
+  "business": {
+    "name": "Lacquer Room"
+  },
+  "brand": {
+    "name": "Lacquer Room"
+  },
+  "contact": {
+    "phone": "01225 960418"
+  },
+  "nav": {
+    "menu": "Menu",
+    "shades": "Shades",
+    "book": "Book",
+    "cta": "Book a set"
+  },
+  "hero": {
+    "eyebrow": "Lacquer Room · nails, Bath",
+    "title": "Ten nails,",
+    "titleEm": "no rush.",
+    "lede": "Gel, BIAB and classic manicures, done slowly and properly by people who love the detail. Scroll and watch one nail go from shaping to the last glossy coat.",
+    "cta": "See the menu",
+    "cta2": "Try a shade",
+    "hint": "Scroll to paint the nail"
+  },
+  "nail": {
+    "shape": "almond",
+    "length": "medium",
+    "col": "#B0244E",
+    "shade": "Berry Kiss",
+    "finish": "cream",
+    "art": "flowers",
+    "artCol": "#FFF4EE",
+    "skin": "medium"
+  },
+  "count": {
+    "mins": 60,
+    "coats": 5,
+    "lasts": "3 weeks",
+    "labels": [
+      "Minutes",
+      "Coats",
+      "Shade",
+      "Lasts"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The shape",
+      "c": "Filed to an almond with a glass file, one direction only, so the edge stays smooth and strong.",
+      "tool": "Glass file"
+    },
+    {
+      "n": "Cuticles",
+      "c": "Pushed back gently, never cut, and a drop of oil to keep the skin round the nail soft.",
+      "tool": "Pusher and oil"
+    },
+    {
+      "n": "Base coat",
+      "c": "A builder base that strengthens the nail and gives the colour something to hold.",
+      "tool": "Builder base"
+    },
+    {
+      "n": "Two coats",
+      "c": "Thin coats, cuticle to tip, three strokes each, cured between, so it never bubbles.",
+      "tool": "Berry Kiss"
+    },
+    {
+      "n": "The details",
+      "c": "Hand-painted flowers with a dotting tool, petal by petal, on one or all ten.",
+      "tool": "Dotting tool"
+    },
+    {
+      "n": "Top coat, cured",
+      "c": "A glossy top coat cured under the lamp. Dry when you leave, shiny for three weeks.",
+      "tool": "LED lamp"
+    }
+  ],
+  "menu": {
+    "eyebrow": "Menu",
+    "title": "Build your visit,",
+    "titleEm": "minute by minute.",
+    "sub": "Add what you'd like and see how long it takes and what it costs before you book. No surprises at the desk.",
+    "tabs": [
+      {
+        "n": "Hands",
+        "items": [
+          {
+            "n": "Gel manicure",
+            "d": "Shape, cuticles and a gel colour that lasts three weeks.",
+            "mins": 45,
+            "p": 35
+          },
+          {
+            "n": "BIAB overlay",
+            "d": "Builder gel over your own nails for strength while they grow.",
+            "mins": 60,
+            "p": 42
+          },
+          {
+            "n": "Classic manicure",
+            "d": "Shape, cuticles, hand massage and a regular polish.",
+            "mins": 40,
+            "p": 28
+          },
+          {
+            "n": "Gel removal",
+            "d": "Soaked off gently, never scraped, and the nails oiled.",
+            "mins": 20,
+            "p": 10
+          }
+        ]
+      },
+      {
+        "n": "Feet",
+        "items": [
+          {
+            "n": "Gel pedicure",
+            "d": "Soak, file, cuticles, hard skin and a gel colour.",
+            "mins": 60,
+            "p": 40
+          },
+          {
+            "n": "Spa pedicure",
+            "d": "Everything in a pedicure plus a scrub, mask and warm towels.",
+            "mins": 75,
+            "p": 52
+          }
+        ]
+      },
+      {
+        "n": "Extras",
+        "items": [
+          {
+            "n": "Nail art, per nail",
+            "d": "Hand-painted flowers, lines, dots or chrome.",
+            "mins": 5,
+            "p": 3
+          },
+          {
+            "n": "French tips",
+            "d": "A clean white or coloured tip on every nail.",
+            "mins": 10,
+            "p": 8
+          },
+          {
+            "n": "Paraffin hands",
+            "d": "Warm wax that leaves hands soft for days.",
+            "mins": 15,
+            "p": 12
+          }
+        ]
+      }
+    ],
+    "visitLabel": "Your visit",
+    "cta": "Book this visit"
+  },
+  "words": {
+    "add": "Add",
+    "added": "Added",
+    "min": "min",
+    "empty": "Add a treatment to start.",
+    "anyone": "Anyone",
+    "pickFirst": "Add a treatment to see times.",
+    "full": "Fully booked",
+    "sent": "Demo only · nothing was sent",
+    "reply": "On a live site we would text you to confirm."
+  },
+  "shades": {
+    "eyebrow": "Shades",
+    "title": "Try it before",
+    "titleEm": "it's on.",
+    "sub": "Over two hundred shades on the wall. Here are this season's favourites: pick one and a shape, and see the set.",
+    "items": [
+      {
+        "n": "Berry Kiss",
+        "col": "#B0244E",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Milk Bath",
+        "col": "#F1DDD3",
+        "finish": "cream",
+        "line": "BIAB"
+      },
+      {
+        "n": "Fig",
+        "col": "#5E2A3B",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Rose Chrome",
+        "col": "#D99AA5",
+        "finish": "chrome",
+        "line": "Gel"
+      },
+      {
+        "n": "Champagne",
+        "col": "#E5C9A0",
+        "finish": "glitter",
+        "line": "Gel"
+      },
+      {
+        "n": "Cherry Cola",
+        "col": "#7A1424",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Sage",
+        "col": "#9DB09A",
+        "finish": "matte",
+        "line": "Gel"
+      },
+      {
+        "n": "Midnight",
+        "col": "#1F2A44",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Peach Fuzz",
+        "col": "#F2A98A",
+        "finish": "cream",
+        "line": "Classic"
+      },
+      {
+        "n": "Lilac Haze",
+        "col": "#B9A3D6",
+        "finish": "cream",
+        "line": "BIAB"
+      }
+    ],
+    "shelf": "This season",
+    "shapeLabel": "Shape",
+    "shapeNames": {
+      "square": "Square",
+      "round": "Round",
+      "almond": "Almond",
+      "coffin": "Coffin",
+      "stiletto": "Stiletto"
+    },
+    "finishNames": {
+      "cream": "glossy",
+      "chrome": "chrome",
+      "glitter": "glitter",
+      "matte": "matte"
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a day,",
+    "titleEm": "pick a chair.",
+    "sub": "Times that fit your visit, live. A small deposit holds the slot and comes off on the day.",
+    "hours": {
+      "sun": null,
+      "mon": {
+        "open": "10:00",
+        "close": "18:00"
+      },
+      "tue": {
+        "open": "09:30",
+        "close": "19:00"
+      },
+      "wed": {
+        "open": "09:30",
+        "close": "19:00"
+      },
+      "thu": {
+        "open": "09:30",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "09:00",
+        "close": "18:00"
+      },
+      "sat": {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    },
+    "techs": [
+      {
+        "n": "Mia",
+        "does": "Nail art"
+      },
+      {
+        "n": "Priya",
+        "does": "BIAB"
+      },
+      {
+        "n": "Jo",
+        "does": "Pedicures"
+      }
+    ],
+    "deposit": 10,
+    "clock": "24h",
+    "labels": {
+      "day": "Day",
+      "time": "Time",
+      "with": "With",
+      "name": "Your name",
+      "phone": "Your phone"
+    },
+    "nameExample": "Sam Rivera",
+    "phoneExample": "07700 900123",
+    "cta": "Book it",
+    "slipTitle": "Your booking",
+    "slip": {
+      "visit": "Visit",
+      "when": "When",
+      "with": "With",
+      "deposit": "Deposit"
+    },
+    "note": "Running late? Call us. More than 15 minutes and we may need to shorten the visit.",
+    "errors": {
+      "visit": "Add a treatment to your visit.",
+      "time": "Pick a time.",
+      "name": "Add your name.",
+      "phone": "Add your phone so we can text you."
+    }
+  },
+  "footer": {
+    "fine": "Lacquer Room is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#9E2F5C"
+  }
+}

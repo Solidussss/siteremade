@@ -1,0 +1,39 @@
+{
+  "title": "Nail studio",
+  "fields": [
+    { "key": "businessName", "label": "Studio name", "required": true, "help": "e.g. Lacquer Room" },
+    { "key": "location", "label": "Where you are", "required": true, "help": "Town or neighbourhood." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "style", "label": "Your style", "help": "Gel, BIAB, nail art, natural nails... and the look you're known for." },
+    { "key": "menu", "label": "Treatments and prices", "type": "textarea", "required": true, "help": "Each treatment with how long it takes and its price; group them (hands, feet, extras) if you like." },
+    { "key": "shades", "label": "Favourite shades", "type": "textarea", "help": "Shades you love right now, and the brands or kinds (gel, BIAB, classic)." },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "Each day's hours, and days you're closed." },
+    { "key": "team", "label": "Technicians", "type": "textarea", "help": "Who does nails, and what each is best at." },
+    { "key": "deposit", "label": "Deposit", "help": "The deposit to hold a booking, if any." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo or salon colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "menu.tabs.*.items.*.p",
+    "menu.tabs.*.items.*.mins",
+    "book.hours",
+    "book.deposit",
+    "book.techs.*.n",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "nail: the hero does one nail. Choose the shape, length, a signature shade (its colour and name) and finish that suit the studio, art they would actually do (or none for a clean, minimal studio), the art colour, and a skin tone. Write the six stages for that nail in the studio's voice, each naming its tool or product.",
+    "count: minutes the set takes, the coats, how long it lasts, and the four labels; keep them honest for the treatment shown.",
+    "menu: the brief's treatments exactly (minutes and prices), grouped into up to four tabs (hands, feet, extras, spa).",
+    "shades: four to twelve shades from the brief (or classic shades that fit its style), each with a colour, finish and kind of polish; the names shown for shapes and finishes in the studio's language.",
+    "book: opening hours exactly as the brief gives them (null for closed days), technicians (or one entry for the owner) and the deposit (0 if none). The form is a demo: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part is set in italics); section titles have a second half. theme.accent is the studio's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Hands", "path": "menu.tabs.0.items", "fields": ["n", "mins", "p"] },
+    { "label": "Opening hours", "path": "book.hours", "format": "week" }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

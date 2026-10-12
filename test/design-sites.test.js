@@ -57,7 +57,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
     // the studio is the product: a visitor sees the designs; any signed-in account has its own (empty) list
     assert.equal((await fetch(base + '/api/designs')).status, 401);
     const cat = await (await fetch(base + '/api/designs/catalog')).json();
-    assert.equal(cat.designs.length, 29);
+    assert.equal(cat.designs.length, 30);
     const other = await session('someone-else@example.com');
     const otherList = await other('GET', '/api/designs');
     assert.equal(otherList.status, 200); assert.deepEqual(otherList.json.sites, []); assert.equal(otherList.json.access.free, true);
@@ -65,7 +65,7 @@ test('brief to site: owner only, retry loop, publish', async () => {
     const owner = await session(OWNER);
     const list = await owner('GET', '/api/designs');
     assert.equal(list.status, 200);
-    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube', 'ventricle', 'forno', 'saltglass', 'kova', 'clutch', 'ondo', 'aldane', 'lintel', 'keel', 'plait', 'ochre', 'larder', 'halden', 'sereine', 'fettle', 'brisk', 'verge', 'camber', 'northlight', 'stillwater', 'axis', 'scruff', 'proof', 'petal', 'inkwell']);
+    assert.deepEqual(list.json.designs.map((d) => d.design), ['beadline', 'halcyra', 'steadyhand', 'nube', 'ventricle', 'forno', 'saltglass', 'kova', 'clutch', 'ondo', 'aldane', 'lintel', 'keel', 'plait', 'ochre', 'larder', 'halden', 'sereine', 'fettle', 'brisk', 'verge', 'camber', 'northlight', 'stillwater', 'axis', 'scruff', 'proof', 'petal', 'inkwell', 'lacquer']);
     assert.equal((await owner('GET', '/designs')).status, 200);
 
     // the recorded writer: draft 1 breaks one rule (headline too long), draft 2 passes

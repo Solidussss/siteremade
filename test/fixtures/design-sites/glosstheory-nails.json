@@ -1,0 +1,285 @@
+{
+  "business": {
+    "name": "Gloss Theory Nail Bar"
+  },
+  "brand": {
+    "name": "Gloss Theory"
+  },
+  "contact": {
+    "phone": "(512) 555-0174"
+  },
+  "nav": {
+    "menu": "Services",
+    "shades": "Colors",
+    "book": "Book",
+    "cta": "Book now"
+  },
+  "hero": {
+    "eyebrow": "Gloss Theory · nail bar, East Austin",
+    "title": "Chrome, gems,",
+    "titleEm": "zero chips.",
+    "lede": "Structured gel, chrome and hand-set gems that last three weeks and then some. Scroll and watch one nail go from file to finish.",
+    "cta": "See services",
+    "cta2": "Try a color",
+    "hint": "Scroll to paint the nail"
+  },
+  "nail": {
+    "shape": "square",
+    "length": "short",
+    "col": "#9B1B30",
+    "shade": "Cherry Glaze",
+    "finish": "chrome",
+    "art": "gems",
+    "artCol": "#F3E9FF",
+    "skin": "deep"
+  },
+  "count": {
+    "mins": 75,
+    "coats": 5,
+    "lasts": "3+ weeks",
+    "labels": [
+      "Minutes",
+      "Coats",
+      "Color",
+      "Lasts"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The shape",
+      "c": "Squared off short and strong with a glass file, corners softened so nothing snags.",
+      "tool": "Glass file"
+    },
+    {
+      "n": "Cuticle care",
+      "c": "Cuticles pushed back and cleaned up, never cut, then a drop of jojoba oil.",
+      "tool": "Pusher and oil"
+    },
+    {
+      "n": "Structure",
+      "c": "A structured gel base that levels the nail so the chrome lies perfectly flat.",
+      "tool": "Structure gel"
+    },
+    {
+      "n": "Color",
+      "c": "Two thin coats of Cherry Glaze, cured between, then chrome powder buffed in.",
+      "tool": "Cherry Glaze"
+    },
+    {
+      "n": "Gems",
+      "c": "Three crystals set by hand at the cuticle and sealed in so they stay put.",
+      "tool": "Gem picker"
+    },
+    {
+      "n": "Top coat, cured",
+      "c": "A no-wipe top coat under the LED lamp. You leave dry, glossy and ready.",
+      "tool": "LED lamp"
+    }
+  ],
+  "menu": {
+    "eyebrow": "Services",
+    "title": "Build your visit,",
+    "titleEm": "see the total.",
+    "sub": "Add what you want and see the time and the price before you book. No upsell at the chair.",
+    "visitLabel": "Your visit",
+    "cta": "Book this visit",
+    "tabs": [
+      {
+        "n": "Hands",
+        "items": [
+          {
+            "n": "Structured gel",
+            "d": "Builder gel shaped for strength, with color.",
+            "mins": 75,
+            "p": 65
+          },
+          {
+            "n": "Gel manicure",
+            "d": "Shape, cuticle care and a gel color.",
+            "mins": 50,
+            "p": 45
+          },
+          {
+            "n": "Chrome add-on",
+            "d": "Any chrome powder over your color.",
+            "mins": 10,
+            "p": 10
+          }
+        ]
+      },
+      {
+        "n": "Feet",
+        "items": [
+          {
+            "n": "Gel pedicure",
+            "d": "Soak, scrub, cuticles and a gel color.",
+            "mins": 60,
+            "p": 55
+          }
+        ]
+      },
+      {
+        "n": "Art",
+        "items": [
+          {
+            "n": "Gems, per nail",
+            "d": "Hand-set crystals, sealed in.",
+            "mins": 5,
+            "p": 4
+          },
+          {
+            "n": "Freehand art",
+            "d": "Lines, flowers, swirls: bring a picture.",
+            "mins": 20,
+            "p": 20
+          }
+        ]
+      }
+    ]
+  },
+  "words": {
+    "add": "Add",
+    "added": "Added",
+    "min": "min",
+    "empty": "Add a service to start.",
+    "anyone": "Anyone",
+    "pickFirst": "Add a service to see times.",
+    "full": "Fully booked",
+    "sent": "Demo only · nothing was sent",
+    "reply": "On a live site we would text you to confirm."
+  },
+  "shades": {
+    "eyebrow": "Colors",
+    "title": "Try it on",
+    "titleEm": "before you sit.",
+    "sub": "Our most-booked colors right now. Pick one and a shape and see the full set.",
+    "items": [
+      {
+        "n": "Cherry Glaze",
+        "col": "#9B1B30",
+        "finish": "chrome",
+        "line": "Gel"
+      },
+      {
+        "n": "Pearl",
+        "col": "#EDE3DA",
+        "finish": "chrome",
+        "line": "Gel"
+      },
+      {
+        "n": "Espresso",
+        "col": "#3B2420",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Hot Pink",
+        "col": "#E0457B",
+        "finish": "cream",
+        "line": "Gel"
+      },
+      {
+        "n": "Disco",
+        "col": "#C8B8E8",
+        "finish": "glitter",
+        "line": "Gel"
+      },
+      {
+        "n": "Olive",
+        "col": "#6B7244",
+        "finish": "matte",
+        "line": "Gel"
+      }
+    ],
+    "shelf": "Most booked",
+    "shapeLabel": "Shape",
+    "shapeNames": {
+      "square": "Square",
+      "round": "Round",
+      "almond": "Almond",
+      "coffin": "Coffin",
+      "stiletto": "Stiletto"
+    },
+    "finishNames": {
+      "cream": "glossy",
+      "chrome": "chrome",
+      "glitter": "glitter",
+      "matte": "matte"
+    }
+  },
+  "book": {
+    "eyebrow": "Book",
+    "title": "Pick a day,",
+    "titleEm": "pick a time.",
+    "sub": "Live times that fit your visit. A $20 deposit holds your spot and comes off the total.",
+    "hours": {
+      "sun": null,
+      "mon": null,
+      "tue": {
+        "open": "10:00",
+        "close": "19:00"
+      },
+      "wed": {
+        "open": "10:00",
+        "close": "19:00"
+      },
+      "thu": {
+        "open": "11:00",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "10:00",
+        "close": "20:00"
+      },
+      "sat": {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    },
+    "techs": [
+      {
+        "n": "Dani",
+        "does": "Gems, chrome"
+      },
+      {
+        "n": "Luz",
+        "does": "Structure"
+      }
+    ],
+    "deposit": 20,
+    "clock": "12h",
+    "labels": {
+      "day": "Day",
+      "time": "Time",
+      "with": "With",
+      "name": "Your name",
+      "phone": "Your phone"
+    },
+    "nameExample": "Jordan Lee",
+    "phoneExample": "(512) 555-0123",
+    "cta": "Book it",
+    "slipTitle": "Your booking",
+    "slip": {
+      "visit": "Visit",
+      "when": "When",
+      "with": "With",
+      "deposit": "Deposit"
+    },
+    "note": "Running late? Text us. Past 15 minutes we may need to shorten your visit.",
+    "errors": {
+      "visit": "Add a treatment to your visit.",
+      "time": "Pick a time.",
+      "name": "Add your name.",
+      "phone": "Add your phone so we can text you."
+    }
+  },
+  "footer": {
+    "fine": "Gloss Theory Nail Bar is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#2F2A6B"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "name": "lacquer",
+  "category": "nail salon or nail studio",
+  "reference": "reference/lacquer-original.html",
+  "referenceSha256": "e80073a1373639694805cd87891e559e6425b0c131992b6817da243d8103b1d7",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#9E2F5C",
+      "target": "theme.accent",
+      "about": "the studio's colour: buttons, the logo's bottle, picked services, shapes, shades, days, times and technicians, the footer's mark"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#9E2F5C", 4.5, "button text on the accent"],
+      ["A:#8E2953", "#FBF7F4", 4.5, "accent text on the page"],
+      ["A:#8E2953", "#F5EBE6", 4.5, "accent text on the tinted section"],
+      ["#2B2126", "A:#F8E4EC", 4.5, "text on a picked option"],
+      ["A:#E7A3BF", "#2B2126", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap", "family": "Playfair Display" }
+      }
+    },
+    "italic": {
+      "fontChoice": null,
+      "css": "font:italic 400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400&display=swap", "family": "Playfair Display" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap", "family": "Playfair Display" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600&display=swap", "family": "Hanken Grotesk" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 12.5, 160],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
