@@ -1,0 +1,39 @@
+{
+  "title": "Coach or consultant",
+  "fields": [
+    { "key": "businessName", "label": "Business name", "required": true, "help": "e.g. Northpoint Coaching" },
+    { "key": "location", "label": "Where you work", "required": true, "help": "Town, or online." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "who", "label": "Who you help", "help": "The people you work with and what they come to you for." },
+    { "key": "programmes", "label": "Programmes and prices", "type": "textarea", "required": true, "help": "Each programme: who it's for, sessions, length, price and what's included." },
+    { "key": "about", "label": "About you", "type": "textarea", "required": true, "help": "Your background and any real credentials." },
+    { "key": "times", "label": "When you take intro calls", "help": "e.g. weekdays at 8:30, 12:30 and 17:30." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo or brand colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "programmes.list.*.p",
+    "programmes.list.*.sessions",
+    "programmes.list.*.length",
+    "coach.name",
+    "coach.creds.*",
+    "call.times.*",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "route: the hero walks a client's programme across a map. Write the start label, three short goals a client of this coach would set (the last is the summit), the sessions and weeks of the main programme, and a flag colour that suits the brand.",
+    "log: the four labels beside the map and the word before the week number. stages: six steps of working with this coach, in their voice: where you are, the summit, the route, the sessions, the hard part, the top.",
+    "programmes: the brief's programmes exactly (prices, sessions, length, what's included), each with a line on why someone would choose it; badge the one most people pick, or -1 for none.",
+    "fit.qs: two to five short questions a prospective client could answer honestly, each answer scoring every programme 0 to 3 so the highest total points to the right one.",
+    "coach: the coach's real name, background and only the credentials the brief gives (never invent qualifications or results); their initials for the monogram.",
+    "No testimonials or outcome claims beyond the brief. The call booking is a demo: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part is set in italics); section titles have a second half. theme.accent is the coach's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Programmes", "path": "programmes.list", "fields": ["n", "p", "sessions"] },
+    { "label": "About", "path": "coach", "fields": ["name", "creds"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

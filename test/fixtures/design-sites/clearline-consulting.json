@@ -1,0 +1,268 @@
+{
+  "business": {
+    "name": "Clearline Consulting"
+  },
+  "brand": {
+    "name": "Clearline"
+  },
+  "contact": {
+    "phone": "(206) 555-0193"
+  },
+  "nav": {
+    "programmes": "Services",
+    "fit": "Find your fit",
+    "call": "Free call",
+    "cta": "Book a call"
+  },
+  "hero": {
+    "eyebrow": "Clearline · small business consulting, Seattle",
+    "title": "Busy is not",
+    "titleEm": "the same as growing.",
+    "lede": "Practical consulting for owners of businesses with five to fifty people: cash, hiring and the next step. Scroll through a six-month engagement, start to finish.",
+    "cta": "Book a free call",
+    "cta2": "See services",
+    "hint": "Scroll to walk the route"
+  },
+  "route": {
+    "start": "Today",
+    "goals": [
+      "Fix cash flow",
+      "Hire a manager",
+      "Double revenue"
+    ],
+    "sessions": 12,
+    "weeks": 26,
+    "flag": "#D9A33A"
+  },
+  "log": {
+    "labels": [
+      "Week",
+      "Sessions",
+      "Goals met",
+      "Climbed"
+    ],
+    "weekWord": "Week"
+  },
+  "stages": [
+    {
+      "n": "Where you are",
+      "c": "A day in your business: the numbers, the people and the parts you do because nobody else can."
+    },
+    {
+      "n": "Where you're going",
+      "c": "One target for the year and the three milestones that prove you're on track."
+    },
+    {
+      "n": "The plan",
+      "c": "Ninety-day sprints, each with one owner and one number to move."
+    },
+    {
+      "n": "The work",
+      "c": "A working session every other week, and a dashboard you check every Monday."
+    },
+    {
+      "n": "The hard part",
+      "c": "Somewhere around month three, cash gets tight or a hire goes wrong. We plan for it."
+    },
+    {
+      "n": "The result",
+      "c": "Revenue doubled, a manager in place, and a business that runs a week without you."
+    }
+  ],
+  "programmes": {
+    "eyebrow": "Services",
+    "title": "Three ways",
+    "titleEm": "to work together.",
+    "sub": "Fixed fees, agreed up front. Every engagement starts with a free call.",
+    "list": [
+      {
+        "n": "Diagnostic",
+        "who": "For owners who want an outside view of what is holding them back.",
+        "p": 2400,
+        "per": "one-off",
+        "sessions": "2 days on site",
+        "length": "2 weeks",
+        "inc": [
+          "Two days in your business",
+          "A written report",
+          "A 90-minute walkthrough"
+        ],
+        "why": "You need clarity before committing to anything bigger. Start with a diagnostic."
+      },
+      {
+        "n": "Growth partner",
+        "who": "For owners ready to make real changes over six months.",
+        "p": 3200,
+        "per": "a month",
+        "sessions": "12 sessions",
+        "length": "6 months",
+        "inc": [
+          "Twelve working sessions",
+          "A weekly dashboard",
+          "Hiring support"
+        ],
+        "why": "You know what needs to change and want help doing it. A six-month engagement fits."
+      },
+      {
+        "n": "Board advisor",
+        "who": "For established owners who want a sounding board.",
+        "p": 1500,
+        "per": "a month",
+        "sessions": "Monthly",
+        "length": "Ongoing",
+        "inc": [
+          "A monthly board meeting",
+          "Calls when it matters"
+        ],
+        "why": "Your business runs well and you want a steady outside voice. Monthly advice suits you."
+      }
+    ],
+    "badge": "Most chosen",
+    "badged": 1
+  },
+  "fit": {
+    "eyebrow": "Find your fit",
+    "title": "Four questions,",
+    "titleEm": "one honest answer.",
+    "sub": "Not sure where to start? Answer these and see a suggestion. Nothing is saved or sent.",
+    "qs": [
+      {
+        "q": "How big is your team?",
+        "a": [
+          {
+            "t": "Under 5",
+            "s": [
+              2,
+              1,
+              0
+            ]
+          },
+          {
+            "t": "5 to 20",
+            "s": [
+              1,
+              3,
+              1
+            ]
+          },
+          {
+            "t": "Over 20",
+            "s": [
+              0,
+              1,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "q": "What hurts most right now?",
+        "a": [
+          {
+            "t": "I don't know",
+            "s": [
+              3,
+              0,
+              0
+            ]
+          },
+          {
+            "t": "Cash or hiring",
+            "s": [
+              0,
+              3,
+              0
+            ]
+          },
+          {
+            "t": "Big decisions",
+            "s": [
+              0,
+              0,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "q": "How much time can you give?",
+        "a": [
+          {
+            "t": "A couple of days",
+            "s": [
+              3,
+              0,
+              0
+            ]
+          },
+          {
+            "t": "Every other week",
+            "s": [
+              0,
+              3,
+              1
+            ]
+          },
+          {
+            "t": "Once a month",
+            "s": [
+              0,
+              0,
+              3
+            ]
+          }
+        ]
+      }
+    ],
+    "ask": "Answer the questions to see a suggestion.",
+    "label": "Where to start",
+    "cta": "Talk it through"
+  },
+  "call": {
+    "eyebrow": "Free call",
+    "title": "Thirty minutes,",
+    "titleEm": "no pitch.",
+    "sub": "A video call to see if we're a good fit. If we're not, I'll point you to someone who is.",
+    "times": [
+      "08:30",
+      "12:30",
+      "17:30"
+    ],
+    "words": {
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site you would get a calendar invite and a video link.",
+      "taken": "Taken"
+    },
+    "labels": {
+      "pick": "Pick a time",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "cta": "Book the call",
+    "errors": {
+      "slot": "Pick a time for the call.",
+      "name": "Add your name.",
+      "email": "Add an email for the invite."
+    }
+  },
+  "coach": {
+    "name": "Marcus Bell",
+    "bio": "Twenty years building and running service businesses in the Pacific Northwest, the last eight helping other owners do the same.",
+    "initials": "MB",
+    "creds": [
+      "Former COO, two regional firms",
+      "Exit Planning Institute member"
+    ]
+  },
+  "footer": {
+    "fine": "Clearline Consulting is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#283B6B"
+  }
+}

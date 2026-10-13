@@ -1,0 +1,472 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;1,500&family=Onest:wght@400;500;600;700&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a coach or consultant. One pinned map of the ground between where a client is and where they want to be,
+   walked as you scroll (where you stand, the summit you pick, the route, the sessions along it, the hard crossing, the
+   top); then what a client needs: the programmes, a few questions that point to the right one, and a free first call. */
+:root{
+  color-scheme:light;
+  --paper:#F5F4EF;
+  --paper-2:#ECEAE1;
+  --sheet:#FFFFFF;
+  --ink:#1C2321;
+  --ink-2:#4A5350;
+  --muted:#808985;
+  --line:#DEDBD0;
+  --accent:{{A:#18535C}};       /* the coach's colour: actions, the logo, the route and its flags, picked answers and slots */
+  --accent-2:{{A:#206873}};
+  --accent-text:{{A:#18535C}};
+  --accent-soft:{{A:#DCEAEA}};
+  --on-accent:#FFFFFF;
+  --f-display:"Spectral",Georgia,"Times New Roman",serif;
+  --f-body:"Onest","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Red Hat Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;line-height:1.02;letter-spacing:-.015em;margin:0;text-wrap:balance}
+h1 em,h2 em{font-style:italic}
+p{margin:0}
+.eyebrow{font:500 12px/1.3 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:15px 24px;font:600 15px/1 var(--f-body);text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.btn.ghost:hover{background:var(--sheet)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:20px;background:rgba(245,244,239,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(28,35,33,.07)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:500 25px/1 var(--f-display);letter-spacing:-.01em;white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:500 14.5px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 18px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
+
+/* hero: the map */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(245,244,239,.97),rgba(245,244,239,.82) 55%,rgba(245,244,239,0));pointer-events:none}
+.hero h1{font-size:clamp(3rem,min(6.4vw,9.6vh),6.4rem)}
+.hero h1 em{display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:16px;box-shadow:0 22px 56px -30px rgba(28,35,33,.4),0 0 0 1px rgba(28,35,33,.06)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card .wk{color:var(--accent-text)}
+.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
+.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
+.log{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(28,35,33,.4),0 0 0 1px rgba(28,35,33,.06);overflow:hidden}
+.log div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.log div:nth-child(2n){border-right:0}
+.log div:nth-child(n+3){border-bottom:0}
+.log dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.log dd{margin:6px 0 0;font:600 26px/1 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.log dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* short laptop screens: a little less type so the copy clears the card */
+@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.4vw,8.8vh),6.4rem)}.lede{font-size:15px}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .hero .acts{display:none}
+  .log{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(204px + env(safe-area-inset-bottom,0px))}
+  .log div{padding:9px 10px;border-bottom:0}
+  .log div:nth-child(2n){border-right:1px solid var(--line)}
+  .log div:last-child{border-right:0}
+  .log dt{font-size:8.5px;letter-spacing:.03em}
+  .log dd{font-size:clamp(16px,4.6vw,22px);white-space:normal;overflow-wrap:anywhere;line-height:1.05}
+  .log dd small{display:none}
+  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
+  .card p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(2.6rem,5.8vw,4.8rem)}
+.head h2 em{color:var(--accent-text)}
+.head p:not(.eyebrow){color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:18px}
+.lbl{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* programmes */
+.progs{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:16px;align-items:stretch}
+.prog{padding:24px;display:grid;gap:14px;align-content:start;position:relative}
+.prog.pick{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.prog .badge{position:absolute;top:-12px;left:24px;font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;background:var(--accent);color:var(--on-accent);padding:5px 10px;border-radius:999px}
+.prog b{font:500 30px/1.05 var(--f-display)}
+.prog .who{color:var(--ink-2);font-size:15px}
+.prog .p{font:600 34px/1 var(--f-body);letter-spacing:-.02em}
+.prog .p small{font:400 14px var(--f-body);color:var(--muted);margin-left:4px;letter-spacing:0}
+.prog ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:15px}
+.prog li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px}
+.prog li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:8px}
+.prog .meta{font:400 12.5px var(--f-mono);color:var(--muted)}
+
+/* fit */
+.fit{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.qs{padding:clamp(22px,3vw,30px);display:grid;gap:22px}
+.q b{display:block;font:500 22px/1.2 var(--f-display);margin-bottom:10px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:9px 15px;font:500 14px var(--f-body);cursor:pointer;color:var(--ink-2)}
+.opts button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.answer{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px;background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.answer .lbl{color:rgba(255,255,255,.7)}
+.answer b{font:500 36px/1.05 var(--f-display)}
+.answer p{color:rgba(255,255,255,.85);font-size:15px}
+.answer .btn{background:#fff;color:var(--accent)}
+
+/* call */
+.call-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.slots{padding:clamp(22px,3vw,30px);display:grid;gap:18px}
+.week{display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:8px}
+.week .day{display:grid;gap:6px;align-content:start;min-width:0}
+.week .day span{font:500 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center}
+.week .day span b{display:block;font:500 22px var(--f-display);color:var(--ink);letter-spacing:0;text-transform:none}
+.week button{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:8px 2px;font:500 13.5px var(--f-mono);cursor:pointer;color:var(--ink-2);min-width:0}
+.week button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
+.week button:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+.form{display:grid;gap:12px}
+.form input{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--paper);font-size:15px;width:100%}
+.form label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err{color:#A3271C;font-size:14px;font-weight:700}
+.confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:16px 18px;display:grid;gap:6px}
+.confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.about{padding:clamp(22px,3vw,28px);display:grid;gap:14px}
+.about canvas{width:100%;aspect-ratio:4/3;display:block;border-radius:12px;background:var(--paper-2)}
+.about b{font:500 26px/1.1 var(--f-display)}
+.about p{color:var(--ink-2);font-size:15px}
+.about ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;font:400 13px var(--f-mono);color:var(--ink-2)}
+
+footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:500 min(12vw,160px)/.95 var(--f-display);letter-spacing:-.03em;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:{{A:#8CC3C2}}}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(245,244,239,.6)}
+.foot-row a{color:var(--paper)}
+
+@media (max-width:980px){
+  .progs{grid-template-columns:minmax(0,1fr)}
+  .fit,.call-grid{grid-template-columns:minmax(0,1fr)}
+  .answer{position:static}
+}
+@media (max-width:560px){
+  .two{grid-template-columns:minmax(0,1fr)}
+  .week{gap:5px}
+  .week button{font-size:12px;padding:8px 0}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="{{A:#18535C}}" stroke-width="1.8"/><path d="M14 4l3.2 10L14 24l-3.2-10z" fill="{{A:#18535C}}"/><path d="M14 4l3.2 10h-6.4z" fill="#E0874E"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#programmes">{{nav.programmes}}</a></li><li><a href="#fit">{{nav.fit}}</a></li><li><a href="#call">{{nav.call}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#call">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A coaching programme drawn as a route on a map, scroll to walk it">
+  <div class="stage" id="stage">
+    <canvas id="map" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#call">{{hero.cta}}</a><a class="btn ghost" href="#programmes">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="log" id="log" aria-live="off">
+      <div><dt>{{log.labels.0}}</dt><dd id="kWeek">0</dd></div>
+      <div><dt>{{log.labels.1}}</dt><dd id="kSess">0</dd></div>
+      <div><dt>{{log.labels.2}}</dt><dd id="kGoals">0<small>/3</small></dd></div>
+      <div><dt>{{log.labels.3}}</dt><dd id="kClimb">0<small>%</small></dd></div>
+    </dl>
+    <div class="card" id="card" aria-live="polite">
+      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="wk" id="gWeek">{{log.weekWord}} 0</span></div>
+      <h3 id="gTitle">{{stages.0.n}}</h3>
+      <p id="gText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="programmes" aria-labelledby="programmes-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{programmes.eyebrow}}</p>
+      <h2 id="programmes-h">{{programmes.title}} <em>{{programmes.titleEm}}</em></h2>
+      <p>{{programmes.sub}}</p>
+    </div>
+    <div class="progs" id="progs"></div>
+  </div>
+</section>
+
+<section class="block" id="fit" aria-labelledby="fit-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{fit.eyebrow}}</p>
+      <h2 id="fit-h">{{fit.title}} <em>{{fit.titleEm}}</em></h2>
+      <p>{{fit.sub}}</p>
+    </div>
+    <div class="fit">
+      <div class="panel qs" id="qs"></div>
+      <aside class="panel answer" aria-live="polite">
+        <span class="lbl">{{fit.label}}</span>
+        <b id="aName">—</b>
+        <p id="aWhy">{{fit.ask}}</p>
+        <a class="btn" href="#call">{{fit.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="call" aria-labelledby="call-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{call.eyebrow}}</p>
+      <h2 id="call-h">{{call.title}} <em>{{call.titleEm}}</em></h2>
+      <p>{{call.sub}}</p>
+    </div>
+    <div class="call-grid">
+      <form class="panel slots form" id="callForm" novalidate>
+        <div><span class="lbl">{{call.labels.pick}}</span></div>
+        <div class="week" id="week"></div>
+        <div class="two">
+          <label>{{call.labels.name}}<input id="fName" autocomplete="name" placeholder="{{call.nameExample|attr}}"></label>
+          <label>{{call.labels.email}}<input id="fEmail" type="email" autocomplete="email" placeholder="{{call.emailExample|attr}}"></label>
+        </div>
+        <button class="btn" type="submit">{{call.cta}}</button>
+        <p class="err" id="err" hidden></p>
+        <div class="confirm" id="confirm" hidden></div>
+      </form>
+      <aside class="panel about">
+        <canvas id="portrait" aria-hidden="true"></canvas>
+        <b id="coachName">{{coach.name}}</b>
+        <p id="coachBio">{{coach.bio}}</p>
+        <ul id="creds"></ul>
+      </aside>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+
+/* ============ THE MAP (drawn once into a layer; the route and the walk on top) ============ */
+// units: the map is 2.2 wide (x -1.1 to 1.1) and 1.4 tall (y -.7 to .7); the summit is up and to the right
+const SUMMIT=[.66,-.36], HILL=[-.42,.18], RIVER=[[-.2,-.72],[-.05,-.35],[.02,0],[-.08,.32],[.08,.72]];
+// the route, start to summit, and where the river cuts across it
+const ROUTE=[[-.92,.5],[-.7,.42],[-.55,.5],[-.36,.38],[-.25,.18],[-.1,.12],[.02,.06],[.16,-.02],[.3,-.1],[.4,-.22],[.52,-.26],[.66,-.36]];
+function catmull(pts,n){const out=[];for(let i=0;i<pts.length-1;i++){const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;out.push([.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)]);}}out.push(pts[pts.length-1]);return out;}
+const PATH=catmull(ROUTE,14);const LEN=[0];for(let i=1;i<PATH.length;i++)LEN.push(LEN[i-1]+Math.hypot(PATH[i][0]-PATH[i-1][0],PATH[i][1]-PATH[i-1][1]));const TOT=LEN[LEN.length-1];
+function at(k){const d=clamp(k)*TOT;let i=1;while(i<LEN.length-1&&LEN[i]<d)i++;const t=(d-LEN[i-1])/((LEN[i]-LEN[i-1])||1);return[lerp(PATH[i-1][0],PATH[i][0],t),lerp(PATH[i-1][1],PATH[i][1],t)];}
+const CROSS=.5; // where on the route the river is
+// contour rings round a peak: a wobbly closed curve for each height
+function ring(c,cx,cy,r,seed){c.beginPath();for(let i=0;i<=72;i++){const a=i/72*Math.PI*2, w=1+.12*Math.sin(a*3+seed)+.07*Math.sin(a*5+seed*2.3)+.04*Math.cos(a*7+seed*.7);const x=cx+Math.cos(a)*r*w*1.25, y=cy+Math.sin(a)*r*w*.85;i?c.lineTo(x,y):c.moveTo(x,y);}c.closePath();}
+function terrain(c,o){c.fillStyle=o.land;c.fillRect(-1.2,-.8,2.4,1.6);
+  // height tints, then contour lines
+  for(let i=9;i>=1;i--){c.fillStyle=`rgba(${i>6?'140,120,90':'120,140,100'},${.035*(10-i)})`;ring(c,SUMMIT[0],SUMMIT[1],i*.085,1.7);c.fill();}
+  for(let i=5;i>=1;i--){c.fillStyle='rgba(120,140,100,.05)';ring(c,HILL[0],HILL[1],i*.07,4.1);c.fill();}
+  c.strokeStyle='rgba(96,80,60,.32)';c.lineWidth=.003;for(let i=1;i<=12;i++){ring(c,SUMMIT[0],SUMMIT[1],i*.085,1.7);c.lineWidth=i%4===0?.006:.003;c.stroke();}
+  for(let i=1;i<=6;i++){ring(c,HILL[0],HILL[1],i*.07,4.1);c.lineWidth=i%4===0?.006:.003;c.stroke();}
+  // the river, and woods in the low ground
+  c.strokeStyle='#8FB3C4';c.lineWidth=.03;c.lineCap='round';c.beginPath();catmull(RIVER,10).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=.006;c.stroke();
+  let s=11;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;};for(let i=0;i<120;i++){const x=-1.1+r()*.8, y=.1+r()*.6;if(Math.hypot(x-HILL[0],y-HILL[1])<.12)continue;c.fillStyle=`rgba(90,120,80,${.25+r()*.3})`;c.beginPath();c.arc(x,y,.012+r()*.012,0,7);c.fill();}
+  for(let i=0;i<60;i++){const x=.2+r()*.9, y=.2+r()*.5;c.fillStyle=`rgba(90,120,80,${.2+r()*.25})`;c.beginPath();c.arc(x,y,.01+r()*.01,0,7);c.fill();}
+  // a grid and a north arrow, like a real map
+  c.strokeStyle='rgba(96,80,60,.08)';c.lineWidth=.002;for(let x=-1.1;x<=1.1;x+=.2){c.beginPath();c.moveTo(x,-.7);c.lineTo(x,.7);c.stroke();}for(let y=-.7;y<=.7;y+=.2){c.beginPath();c.moveTo(-1.1,y);c.lineTo(1.1,y);c.stroke();}
+  c.save();c.translate(-.98,-.56);c.fillStyle='rgba(28,35,33,.55)';c.beginPath();c.moveTo(0,-.06);c.lineTo(.022,.03);c.lineTo(0,.015);c.lineTo(-.022,.03);c.closePath();c.fill();text(c,'N',0,-.075,.035,'center','rgba(28,35,33,.55)');c.restore();}
+function text(c,s,x,y,size,align,col,weight){c.save();c.translate(x,y);c.scale(size/20,size/20);c.font=`${weight||500} 20px "Onest",sans-serif`;c.textAlign=align||'left';c.fillStyle=col;c.fillText(s,0,0);c.restore();}
+function flag(c,x,y,k,col,label,done){if(k<=0)return;c.save();c.globalAlpha*=k;c.translate(x,y);if(mobile)c.rotate(Math.PI/2);c.strokeStyle='#2B2B2B';c.lineWidth=.005;c.beginPath();c.moveTo(0,0);c.lineTo(0,-.09*k);c.stroke();c.fillStyle=done?col:'#FFFFFF';c.strokeStyle=col;c.lineWidth=.004;c.beginPath();c.moveTo(0,-.09*k);c.lineTo(.06,-.072*k);c.lineTo(0,-.054*k);c.closePath();c.fill();c.stroke();
+  if(label){const w=label.length*.0145+.03, lx=.02;c.fillStyle='rgba(255,255,255,.92)';c.beginPath();c.roundRect(lx,-.15,w,.045,.012);c.fill();text(c,label,lx+.015,-.118,.026,'left','#1C2321',600);}c.restore();}
+window.__topo=function(c,w,h,o){const s=Math.max(w/2.2,h/1.4);c.save();c.translate(w/2,h/2);c.scale(s,s);terrain(c,o);c.restore();};
+
+/* ============ THE PROGRAMME (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the route's words and numbers: the label at the start, three goals along the way (the last is the summit),
+// sessions, weeks, and the map's colours
+const ROUTEWORDS={{$.routeJs|raw}};
+const LAND={{$.landJs|raw}};
+const WEEKWORD={{log.weekWord|js}};
+
+/* ============ GEOMETRY ============ */
+const cv=$('#map'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
+const layer=document.createElement('canvas');
+// the map is 2.2 wide and 1.4 tall; on a phone it stands on end, the summit at the top
+function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const s=up?Math.min(w/1.4,h/2.2):Math.min(w/2.2,h/1.4);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), lg=$('#log').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){LA=LB=fit([W*.03,W*.97],[top,lg.top-stg.top-10],true);}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(lg.top,cd.top)-stg.top;
+    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}
+  // the terrain is drawn once at the biggest size it's shown at
+  const s=Math.max(LA.s,LB.s)*DPR;layer.width=Math.ceil(2.2*s);layer.height=Math.ceil(1.4*s);const l=layer.getContext('2d');l.setTransform(s,0,0,s,1.1*s,.7*s);terrain(l,LAND);}
+
+/* ============ DRAWING ============ */
+const GOALAT=[.32,.68,1];
+function scene(c,f,time){c.drawImage(layer,-1.1,-.7,2.2,1.4);
+  // the walk: up to the river in the sessions, across it once the bridge is built, then on to the top
+  const reveal=sm(seg(f[1],0,.8)), plan=sm(f[2]), walk=(CROSS-.02)*sm(f[3])+.08*sm(seg(f[4],.55,1))+(1-CROSS-.06)*sm(f[5]);
+  const pos=at(walk);
+  // fog over everything you can't see yet
+  const fog=1-reveal;if(fog>0){c.save();const g=c.createRadialGradient(ROUTE[0][0],ROUTE[0][1],.08,ROUTE[0][0],ROUTE[0][1],.45+1.8*(1-fog));g.addColorStop(0,'rgba(245,244,239,0)');g.addColorStop(1,`rgba(245,244,239,${.7*fog+.06})`);c.fillStyle=g;c.fillRect(-1.2,-.8,2.4,1.6);c.restore();}
+  // the river shines at the hard part
+  const hard=sm(seg(f[4],0,.3))*(1-sm(seg(f[5],0,.4)));if(hard>0){c.save();c.globalAlpha*=hard;c.strokeStyle='rgba(60,120,170,.6)';c.lineWidth=.05;c.lineCap='round';c.beginPath();catmull(RIVER,10).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();}
+  const storm=sm(seg(f[4],0,.3))*(1-sm(seg(f[4],.75,1)));if(storm>0){c.save();c.fillStyle=`rgba(60,72,88,${.3*storm})`;c.fillRect(-1.2,-.8,2.4,1.6);c.strokeStyle=`rgba(220,230,240,${.5*storm})`;c.lineWidth=.003;for(let i=0;i<70;i++){const x=-1.1+((i*37)%100)/100*2.3, y=-.75+((i*61+Math.floor(time*30)*7)%100)/100*1.5;c.beginPath();c.moveTo(x,y);c.lineTo(x-.02,y+.06);c.stroke();}c.restore();}
+  // the route: planned as a dashed line, walked as a solid one
+  if(plan>0){const n=Math.max(2,Math.round(PATH.length*plan));c.save();c.globalAlpha*=.16;c.strokeStyle=LAND.route;c.lineWidth=.06;c.lineCap='round';c.lineJoin='round';c.beginPath();PATH.slice(0,n).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();
+    c.save();c.strokeStyle=LAND.route;c.lineWidth=.012;c.setLineDash([.024,.014]);c.lineCap='round';c.beginPath();PATH.slice(0,n).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();}
+  if(walk>0){c.save();c.globalAlpha*=.3;c.strokeStyle=LAND.route;c.lineWidth=.14;c.lineCap='round';c.lineJoin='round';c.beginPath();const d0=walk*TOT;PATH.forEach(([x,y],i)=>{if(LEN[i]<=d0)i?c.lineTo(x,y):c.moveTo(x,y);});c.lineTo(pos[0],pos[1]);c.stroke();c.restore();
+    c.save();c.strokeStyle=LAND.route;c.lineWidth=.024;c.lineCap='round';c.lineJoin='round';c.beginPath();const d=walk*TOT;PATH.forEach(([x,y],i)=>{if(LEN[i]<=d)i?c.lineTo(x,y):c.moveTo(x,y);});c.lineTo(pos[0],pos[1]);c.stroke();c.restore();}
+  // the sessions as stops along the route
+  // the sessions pop up along the route as they start, and fill in as you pass them
+  const S=ROUTEWORDS.sessions;for(let i=1;i<=S;i++){const pk=sm(seg(f[3],(i-1)/S*.4,(i-1)/S*.4+.15));if(pk<=0)continue;const k=i/(S+1), p=at(k);const done=walk>=k;c.fillStyle=done?LAND.route:'#FFFFFF';c.strokeStyle=LAND.route;c.lineWidth=.004;c.lineWidth=.006;c.beginPath();c.arc(p[0],p[1],.03*pk,0,7);c.fill();c.stroke();}
+  // the bridge over the crossing
+  const br=sm(seg(f[4],.2,.7));if(br>0){const p=at(CROSS), q=at(CROSS+.03), a=Math.atan2(q[1]-p[1],q[0]-p[0]);c.save();c.translate(p[0],p[1]);c.rotate(a);c.fillStyle='#8A6B4E';const n=Math.round(9*br);for(let i=0;i<n;i++)c.fillRect(-.06+i*.014,-.028,.01,.056);c.strokeStyle='#5B4636';c.lineWidth=.004;c.beginPath();c.moveTo(-.065,-.03);c.lineTo(-.065+.13*br,-.03);c.moveTo(-.065,.03);c.lineTo(-.065+.13*br,.03);c.stroke();c.restore();}
+  // goals as flags; the summit glows at the top
+  const top=sm(seg(f[5],.5,1));if(top>0){c.save();const g=c.createRadialGradient(SUMMIT[0],SUMMIT[1],0,SUMMIT[0],SUMMIT[1],.5);g.addColorStop(0,`rgba(255,214,150,${.55*top})`);g.addColorStop(1,'rgba(255,214,150,0)');c.fillStyle=g;c.fillRect(-1.2,-.8,2.4,1.6);c.restore();}
+  GOALAT.forEach((g,i)=>{const p=at(g), k=sm(seg(f[1],.35+i*.15,.6+i*.15));flag(c,p[0],p[1],k,LAND.flag,ROUTEWORDS.goals[i],walk>=g-.005);});
+  // you
+  const pulse=RM?0:(time*1.2)%1;c.save();c.fillStyle=`rgba(224,135,78,${.35*(1-pulse)})`;c.beginPath();c.arc(pos[0],pos[1],.02+.05*pulse,0,7);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(pos[0],pos[1],.022,0,7);c.fill();c.fillStyle=LAND.flag;c.beginPath();c.arc(pos[0],pos[1],.014,0,7);c.fill();c.restore();
+  const sl=1-sm(seg(f[2],0,.4));if(sl>0){c.save();c.globalAlpha*=sl;c.translate(pos[0],pos[1]);if(mobile)c.rotate(Math.PI/2);const w=ROUTEWORDS.start.length*.0145+.03;c.fillStyle='#1C2321';c.beginPath();c.roundRect(.03,-.065,w,.045,.012);c.fill();text(c,ROUTEWORDS.start,.045,-.034,.026,'left','#FFFFFF',600);c.restore();}
+  return walk;}
+
+/* ============ HUD ============ */
+let shown=-1;
+function hud(p,f,walk){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  const S=ROUTEWORDS.sessions, done=Math.min(S,Math.floor(walk*(S+1)+1e-6));const wk=p>=STAGES[5].w[0]+.12?ROUTEWORDS.weeks:Math.round(ROUTEWORDS.weeks*done/S);
+  $('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;$('#kSess').textContent=done;
+  $('#kGoals').innerHTML=`${GOALAT.filter(g=>walk>=g-.005).length}<small>/3</small>`;$('#kClimb').innerHTML=`${Math.round(100*walk)}<small>%</small>`;}
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F5F4EF';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  ctx.save();ctx.translate(X,Y);if(mobile)ctx.rotate(-Math.PI/2);ctx.scale(S,S);
+  ctx.save();ctx.shadowColor='rgba(28,35,33,.22)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#EEEADD';ctx.beginPath();ctx.roundRect(-1.1,-.7,2.2,1.4,.03);ctx.fill();ctx.restore();
+  ctx.save();ctx.beginPath();ctx.roundRect(-1.1,-.7,2.2,1.4,.03);ctx.clip();const walk=scene(ctx,f,time);ctx.restore();
+  ctx.restore();ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,walk);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+Math.round(n).toLocaleString('en-GB');
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ PROGRAMMES ============ */
+// each programme: name, who it's for, price and what the price is per, sessions and length, what's included, and why
+// the questions might point to it
+const PROGS=[
+{{$.progsJs|raw}}
+];
+const BADGE={{programmes.badge|js}}, BADGED={{programmes.badged}};
+$('#progs').style.setProperty('--n',PROGS.length);
+$('#progs').innerHTML=PROGS.map((p,i)=>`<div class="panel prog${i===BADGED?' pick':''}">${i===BADGED?`<span class="badge">${esc(BADGE)}</span>`:''}<b>${esc(p.n)}</b><span class="who">${esc(p.who)}</span><span class="p">${money(p.p)}<small>${esc(p.per)}</small></span><span class="meta">${esc(p.sessions)} · ${esc(p.length)}</span><ul>${p.inc.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+
+/* ============ FIND YOUR FIT ============ */
+// questions, each answer adding points to the programmes (in the order above)
+const QS=[
+{{$.qsJs|raw}}
+];
+const pick=QS.map(()=>-1);
+$('#qs').innerHTML=QS.map((q,i)=>`<div class="q"><b>${esc(q.q)}</b><div class="opts" role="group" aria-label="${esc(q.q)}" data-q="${i}">${q.a.map((a,j)=>`<button type="button" aria-pressed="false" data-a="${j}">${esc(a[0])}</button>`).join('')}</div></div>`).join('');
+function answer(){if(pick.some(x=>x<0)){$('#aName').textContent='—';$('#aWhy').textContent=FIT.ask;return;}const sc=PROGS.map((_,k)=>pick.reduce((s,a,i)=>s+QS[i].a[a][1][k],0));const best=sc.indexOf(Math.max(...sc));
+  $('#aName').textContent=PROGS[best].n;$('#aWhy').textContent=PROGS[best].why;}
+const FIT={ask:{{fit.ask|js}}};
+$('#qs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const g=b.parentElement;pick[+g.dataset.q]=+b.dataset.a;press(g,b);answer();});
+
+/* ============ FREE CALL ============ */
+// the times on offer each weekday, and the words the booking uses
+const TIMES={{$.timesJs|raw}};
+const WORDS={{$.wordsJs|raw}};
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const days=[];for(let d=1;days.length<5&&d<14;d++){const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()+d);if(day.getDay()%6)days.push(day);}
+let slot=null;
+$('#week').style.setProperty('--n',days.length);
+$('#week').innerHTML=days.map((d,i)=>`<div class="day"><span>${DOW[d.getDay()]}<b>${d.getDate()}</b></span>${TIMES.map((t,j)=>{let s=((d.getDate()*31+j*7+d.getMonth()+1)*16807)%2147483647;s=(s*16807)%2147483647;s=(s*16807)%2147483647;const off=s/2147483647<.3;return`<button type="button" aria-pressed="false" data-d="${i}" data-t="${j}"${off?` disabled aria-label="${t} ${esc(WORDS.taken)}"`:''}>${t}</button>`;}).join('')}</div>`).join('');
+$('#week').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;slot=[+b.dataset.d,+b.dataset.t];$('#week').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#confirm').hidden=true;});
+$('#callForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  if(!slot)return fail({{call.errors.slot|js}},null);
+  const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
+  if(!nm)return fail({{call.errors.name|js}},$('#fName'));
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{call.errors.email|js}},$('#fEmail'));
+  err.hidden=true;const d=days[slot[0]], c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${TIMES[slot[1]]}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+
+/* ============ ABOUT ============ */
+// the coach's initials over a piece of the map, and their background
+const INITIALS={{coach.initials|js}};
+const CREDS={{$.credsJs|raw}};
+$('#creds').innerHTML=CREDS.map(x=>`<li>— ${esc(x)}</li>`).join('');
+const pc=$('#portrait');
+function portrait(){const w=pc.clientWidth||400, h=pc.clientHeight||300, d=Math.min(devicePixelRatio||1,2);pc.width=Math.round(w*d);pc.height=Math.round(h*d);const x=pc.getContext('2d');x.setTransform(d,0,0,d,0,0);
+  if(window.__topo)window.__topo(x,w,h,{land:'#E4E8DF'});x.fillStyle='{{A:rgba(24,83,92,.86)}}';x.beginPath();x.arc(w/2,h/2,Math.min(w,h)*.26,0,7);x.fill();
+  x.fillStyle='#FFFFFF';x.font=`500 ${Math.round(Math.min(w,h)*.2)}px "Spectral",serif`;x.textAlign='center';x.textBaseline='middle';x.fillText(INITIALS,w/2,h/2+2);}
+
+answer();portrait();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(portrait);
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(portrait,120);});
+})();
+</script>
+
+</body></html>

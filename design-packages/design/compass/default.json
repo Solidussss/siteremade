@@ -1,0 +1,298 @@
+{
+  "business": {
+    "name": "Northpoint Coaching"
+  },
+  "brand": {
+    "name": "Northpoint"
+  },
+  "contact": {
+    "phone": "020 7946 0811"
+  },
+  "nav": {
+    "programmes": "Programmes",
+    "fit": "Find your fit",
+    "call": "Free call",
+    "cta": "Book a call"
+  },
+  "hero": {
+    "eyebrow": "Northpoint · leadership coaching, London",
+    "title": "From stuck",
+    "titleEm": "to sure.",
+    "lede": "One-to-one coaching for new leaders and founders who know where they want to be, but not how to get there. Scroll and walk a twelve-week programme, from the first session to the top.",
+    "cta": "Book a free call",
+    "cta2": "See programmes",
+    "hint": "Scroll to walk the route"
+  },
+  "route": {
+    "start": "You are here",
+    "goals": [
+      "Lead the team",
+      "Hire well",
+      "Step up"
+    ],
+    "sessions": 12,
+    "weeks": 12,
+    "flag": "#E0874E"
+  },
+  "log": {
+    "labels": [
+      "Week",
+      "Sessions",
+      "Goals met",
+      "Climbed"
+    ],
+    "weekWord": "Week"
+  },
+  "stages": [
+    {
+      "n": "Where you are",
+      "c": "A first conversation to map the ground honestly: what's working, what isn't, what you keep putting off."
+    },
+    {
+      "n": "Where you're going",
+      "c": "We pick the summit together, and the three goals that tell you you're on your way."
+    },
+    {
+      "n": "The route",
+      "c": "A plan you can actually follow: one change at a time, in the order that makes the next one easier."
+    },
+    {
+      "n": "The sessions",
+      "c": "Every other week, an hour to review, adjust and practise. Work between sessions is short and specific."
+    },
+    {
+      "n": "The hard part",
+      "c": "Every programme hits a crossing that feels too wide. This is where coaching earns its keep."
+    },
+    {
+      "n": "The top",
+      "c": "Twelve weeks on, the goal met and a map you can use on your own next time."
+    }
+  ],
+  "programmes": {
+    "eyebrow": "Programmes",
+    "title": "Three ways",
+    "titleEm": "to work together.",
+    "sub": "Every programme starts with a free call and ends with a plan you can keep using. Pay monthly or up front.",
+    "list": [
+      {
+        "n": "First 90 days",
+        "who": "For people stepping into their first leadership role.",
+        "p": 450,
+        "per": "a month",
+        "sessions": "6 sessions",
+        "length": "12 weeks",
+        "inc": [
+          "Six one-hour sessions",
+          "A 90-day plan you write together",
+          "Messages between sessions"
+        ],
+        "why": "You have a new role and a short window to set the tone. A tight, practical programme fits."
+      },
+      {
+        "n": "Founder track",
+        "who": "For founders whose company has outgrown how they lead it.",
+        "p": 650,
+        "per": "a month",
+        "sessions": "12 sessions",
+        "length": "6 months",
+        "inc": [
+          "Twelve one-hour sessions",
+          "A 360 from your team",
+          "Two half-day strategy sessions"
+        ],
+        "why": "You need room to rethink how you lead as the company grows. A longer programme gives you that."
+      },
+      {
+        "n": "One session",
+        "who": "For one decision you keep circling.",
+        "p": 180,
+        "per": "one-off",
+        "sessions": "1 session",
+        "length": "90 minutes",
+        "inc": [
+          "A ninety-minute session",
+          "A written summary and next steps"
+        ],
+        "why": "You have one clear thing to untangle. A single focused session is enough to start."
+      }
+    ],
+    "badge": "Most chosen",
+    "badged": 1
+  },
+  "fit": {
+    "eyebrow": "Find your fit",
+    "title": "Four questions,",
+    "titleEm": "one honest answer.",
+    "sub": "Not sure which programme suits you? Answer these and you'll see where to start. Nothing is saved or sent.",
+    "qs": [
+      {
+        "q": "Where are you right now?",
+        "a": [
+          {
+            "t": "New in a role",
+            "s": [
+              3,
+              0,
+              1
+            ]
+          },
+          {
+            "t": "Running my own company",
+            "s": [
+              0,
+              3,
+              1
+            ]
+          },
+          {
+            "t": "Facing one big decision",
+            "s": [
+              0,
+              0,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "q": "How much time can you give this?",
+        "a": [
+          {
+            "t": "An hour every other week",
+            "s": [
+              2,
+              1,
+              0
+            ]
+          },
+          {
+            "t": "Real time over months",
+            "s": [
+              0,
+              3,
+              0
+            ]
+          },
+          {
+            "t": "One afternoon",
+            "s": [
+              0,
+              0,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "q": "What would success look like?",
+        "a": [
+          {
+            "t": "A strong first quarter",
+            "s": [
+              3,
+              0,
+              0
+            ]
+          },
+          {
+            "t": "A team that runs without me",
+            "s": [
+              0,
+              3,
+              0
+            ]
+          },
+          {
+            "t": "A clear yes or no",
+            "s": [
+              0,
+              0,
+              3
+            ]
+          }
+        ]
+      },
+      {
+        "q": "Have you had coaching before?",
+        "a": [
+          {
+            "t": "Never",
+            "s": [
+              1,
+              0,
+              2
+            ]
+          },
+          {
+            "t": "Once or twice",
+            "s": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "t": "Yes, I know what I want",
+            "s": [
+              0,
+              2,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "ask": "Answer the questions to see a suggestion.",
+    "label": "Where to start",
+    "cta": "Talk it through"
+  },
+  "call": {
+    "eyebrow": "Free call",
+    "title": "Thirty minutes,",
+    "titleEm": "no pitch.",
+    "sub": "A video call to see if we're a good fit. If we're not, I'll point you to someone who is.",
+    "times": [
+      "08:30",
+      "12:30",
+      "17:30"
+    ],
+    "words": {
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site you would get a calendar invite and a video link.",
+      "taken": "Taken"
+    },
+    "labels": {
+      "pick": "Pick a time",
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "cta": "Book the call",
+    "errors": {
+      "slot": "Pick a time for the call.",
+      "name": "Add your name.",
+      "email": "Add an email for the invite."
+    }
+  },
+  "coach": {
+    "name": "Hannah Okafor",
+    "bio": "Fifteen years leading teams in tech and the public sector, now coaching people through their first big jumps.",
+    "initials": "HO",
+    "creds": [
+      "ICF Professional Certified Coach",
+      "15 years leading teams",
+      "Former COO, Halden Health"
+    ]
+  },
+  "footer": {
+    "fine": "Northpoint Coaching is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#18535C"
+  }
+}

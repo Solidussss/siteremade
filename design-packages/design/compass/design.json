@@ -1,0 +1,71 @@
+{
+  "name": "compass",
+  "category": "coach or consultant",
+  "reference": "reference/compass-original.html",
+  "referenceSha256": "f0a039a1ce642e09f45a100077f50b30c9fba8ad0bb438b415e23022127410a2",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#18535C",
+      "target": "theme.accent",
+      "about": "the coach's colour: buttons, the logo, the route on the map, the suggested programme, picked answers and times, the monogram"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.45] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#18535C", 4.5, "button text on the accent"],
+      ["A:#18535C", "#F5F4EF", 4.5, "accent text on the page"],
+      ["A:#18535C", "#ECEAE1", 4.5, "accent text on the tinted section"],
+      ["#1C2321", "A:#DCEAEA", 4.5, "text on a picked option"],
+      ["A:#8CC3C2", "#1C2321", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:500 1000px/1 {family};letter-spacing:-.015em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Spectral:wght@500&display=swap", "family": "Spectral" }
+      }
+    },
+    "italic": {
+      "fontChoice": null,
+      "css": "font:italic 500 1000px/1 {family};letter-spacing:-.015em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Spectral:ital,wght@1,500&display=swap", "family": "Spectral" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:500 1000px/1 {family};letter-spacing:-.03em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Spectral:wght@500&display=swap", "family": "Spectral" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Onest:wght@600&display=swap", "family": "Onest" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 12, 160],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}
