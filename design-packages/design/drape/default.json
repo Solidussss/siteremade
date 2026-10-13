@@ -1,0 +1,389 @@
+{
+  "business": {
+    "name": "Finch & Fold"
+  },
+  "brand": {
+    "name": "Finch & Fold"
+  },
+  "contact": {
+    "address": "14 Gardner Street, Brighton BN1 1UP"
+  },
+  "nav": {
+    "new": "New in",
+    "visit": "Visit",
+    "styling": "Styling",
+    "cta": "Shop new in"
+  },
+  "hero": {
+    "eyebrow": "Finch & Fold · clothing, Brighton",
+    "title": "Pieces you'll",
+    "titleEm": "keep wearing.",
+    "lede": "An independent shop for well-made clothes from small labels, chosen to go with what you already own. Scroll and watch an outfit come together, then wrapped to take home.",
+    "cta": "Shop new in",
+    "cta2": "Book a styling",
+    "hint": "Scroll to style the outfit"
+  },
+  "outfit": {
+    "pieces": [
+      {
+        "kind": "shirt",
+        "col": "#DCE4EF",
+        "pat": "stripe",
+        "n": "Cotton shirt",
+        "p": 95
+      },
+      {
+        "kind": "trousers",
+        "col": "#B9A486",
+        "pat": "plain",
+        "n": "Wool trousers",
+        "p": 140
+      },
+      {
+        "col": "#5A3A26",
+        "pat": "plain",
+        "n": "Leather loafers",
+        "p": 165
+      },
+      {
+        "col": "#2E2B28",
+        "pat": "plain",
+        "n": "Canvas tote",
+        "p": 45
+      },
+      {
+        "col": "#C9A24E",
+        "pat": "plain",
+        "n": "Sunglasses and chain",
+        "p": 70
+      }
+    ],
+    "mark": "F",
+    "boxWord": "Boxed and tied"
+  },
+  "till": {
+    "labels": [
+      "Pieces",
+      "Together",
+      "Sizes",
+      "Returns"
+    ],
+    "sizes": "XS–XL",
+    "returns": "30 days"
+  },
+  "stages": [
+    {
+      "n": "Start with a shirt",
+      "c": "A crisp cotton shirt in a soft stripe, cut a little loose so it works tucked in or worn open."
+    },
+    {
+      "n": "Wide trousers",
+      "c": "High-waisted wool trousers with a pressed crease. They make the shirt look intentional."
+    },
+    {
+      "n": "Easy shoes",
+      "c": "Leather loafers you can walk across town in. Broken in by the second week."
+    },
+    {
+      "n": "The small things",
+      "c": "A soft tote for everything, sunglasses, and one thin gold chain. Nothing more."
+    },
+    {
+      "n": "All of it, priced",
+      "c": "Every piece from a small label we know. Mix it with what you own: that's the point."
+    },
+    {
+      "n": "Wrapped to go",
+      "c": "Folded in tissue, boxed and tied. Free returns within thirty days."
+    }
+  ],
+  "shop": {
+    "eyebrow": "New in",
+    "title": "Just arrived,",
+    "titleEm": "in small runs.",
+    "sub": "Pick a colour and a size. When a size is gone, it's gone: we rarely reorder.",
+    "items": [
+      {
+        "n": "Boxy linen shirt",
+        "kind": "shirt",
+        "cols": [
+          "#E8E1D3",
+          "#9DB0C9",
+          "#2E2B28"
+        ],
+        "p": 89,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": false
+          },
+          {
+            "z": "L",
+            "ok": true
+          },
+          {
+            "z": "XL",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "n": "Merino crew",
+        "kind": "knit",
+        "cols": [
+          "#B4563E",
+          "#D8CBB0",
+          "#3C4A63"
+        ],
+        "p": 110,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": false
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": true
+          },
+          {
+            "z": "XL",
+            "ok": false
+          }
+        ]
+      },
+      {
+        "n": "Slip dress",
+        "kind": "dress",
+        "cols": [
+          "#2E3B33",
+          "#C9A27E"
+        ],
+        "p": 145,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": false
+          },
+          {
+            "z": "XL",
+            "ok": false
+          }
+        ]
+      },
+      {
+        "n": "Pleated skirt",
+        "kind": "skirt",
+        "cols": [
+          "#5C6B4E",
+          "#1F1D1B"
+        ],
+        "p": 98,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": false
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": true
+          },
+          {
+            "z": "XL",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "n": "Wool trousers",
+        "kind": "trousers",
+        "cols": [
+          "#B9A486",
+          "#55504A"
+        ],
+        "p": 140,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": true
+          },
+          {
+            "z": "XL",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "n": "Field coat",
+        "kind": "coat",
+        "cols": [
+          "#8A6E4B",
+          "#33402F"
+        ],
+        "p": 245,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": false
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": false
+          },
+          {
+            "z": "XL",
+            "ok": true
+          }
+        ]
+      }
+    ],
+    "free": 100,
+    "bagTitle": "Your bag",
+    "bagEmpty": "Nothing in your bag yet.",
+    "total": "Total",
+    "cta": "Reserve to try in store"
+  },
+  "words": {
+    "add": "Add to bag",
+    "pick": "Pick a size",
+    "bag": "Bag",
+    "colour": "Colour",
+    "size": "Size",
+    "remove": "Remove",
+    "freeYes": "Free delivery unlocked.",
+    "left": "more for free delivery",
+    "piece": "piece",
+    "pieces": "pieces",
+    "empty": "Add something to your bag first.",
+    "sent": "Demo only · nothing was sent",
+    "reserved": "held for you to try on for 48 hours.",
+    "reply": "On a live site we would email you when it's ready on the rail."
+  },
+  "visit": {
+    "eyebrow": "Visit",
+    "title": "Come in,",
+    "titleEm": "try it on.",
+    "sub": "The shop is two minutes from the station. Book a free styling hour and we'll pull pieces for you before you arrive.",
+    "hours": {
+      "sun": {
+        "open": "11:00",
+        "close": "16:00"
+      },
+      "mon": null,
+      "tue": {
+        "open": "10:00",
+        "close": "18:00"
+      },
+      "wed": {
+        "open": "10:00",
+        "close": "18:00"
+      },
+      "thu": {
+        "open": "10:00",
+        "close": "19:00"
+      },
+      "fri": {
+        "open": "10:00",
+        "close": "18:00"
+      },
+      "sat": {
+        "open": "09:30",
+        "close": "18:00"
+      }
+    },
+    "hoursTitle": "Opening hours",
+    "days": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "closed": "Closed",
+    "styleTitle": "A styling hour",
+    "styleSub": "Tell us what you're after, and we'll have a rail ready. Free, no need to buy.",
+    "pick": "Pick a time",
+    "styleTimes": [
+      "10:00",
+      "14:00"
+    ],
+    "labels": {
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "cta": "Book the hour",
+    "errors": {
+      "slot": "Pick a time for your styling hour.",
+      "name": "Add your name.",
+      "email": "Add an email so we can confirm."
+    }
+  },
+  "footer": {
+    "fine": "Finch & Fold is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#2F3FB5"
+  }
+}

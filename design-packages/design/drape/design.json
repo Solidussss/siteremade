@@ -1,0 +1,64 @@
+{
+  "name": "drape",
+  "category": "clothing boutique",
+  "reference": "reference/drape-original.html",
+  "referenceSha256": "8b8768f64f373c3be408edf68a69aa28777996c8b462401c76d6ccb5718a5c8b",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#2F3FB5",
+      "target": "theme.accent",
+      "about": "the boutique's colour: the reserve button, the logo's bar, the gift box, picked sizes and times, the delivery bar, button hovers, the footer's mark"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#2F3FB5", 4.5, "button text on the accent"],
+      ["A:#2F3FB5", "#F4F1EC", 4.5, "accent text on the page"],
+      ["A:#2F3FB5", "#EAE5DC", 4.5, "accent text on the tinted section"],
+      ["#1F1D1B", "A:#E2E5F7", 4.5, "text on the soft accent"],
+      ["A:#9DA8F0", "#1F1D1B", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family};letter-spacing:-.01em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Prata&display=swap", "family": "Prata" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Prata&display=swap", "family": "Prata" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:600 1000px/1 {family};letter-spacing:.04em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Sora:wght@600&display=swap", "family": "Sora" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 12, 160],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

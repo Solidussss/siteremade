@@ -1,0 +1,37 @@
+{
+  "title": "Clothing boutique",
+  "fields": [
+    { "key": "businessName", "label": "Shop name", "required": true, "help": "e.g. Finch & Fold" },
+    { "key": "address", "label": "Address", "required": true, "help": "Street, town and postcode." },
+    { "key": "style", "label": "What you sell", "help": "The kind of clothes, the labels you stock, your customers." },
+    { "key": "items", "label": "Pieces to show", "type": "textarea", "required": true, "help": "Up to six pieces: name, colours, price, sizes and which are sold out." },
+    { "key": "hours", "label": "Opening hours", "type": "textarea", "required": true, "help": "Each day's hours, and days you're closed." },
+    { "key": "services", "label": "Delivery, returns and styling", "type": "textarea", "help": "Free delivery threshold, returns window, and whether you offer styling appointments and when." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your bags or logo colour." }
+  ],
+  "facts": [
+    "contact.address",
+    "shop.items.*.p",
+    "shop.items.*.sizes.*.ok",
+    "shop.free",
+    "till.returns",
+    "visit.hours",
+    "visit.styleTimes.*",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "outfit: the hero lays out one outfit from the shop: a top (shirt, knit, dress or coat), bottoms (trousers, skirt, dress or coat), shoes, a bag and the small things, each in a colour and pattern that suit the shop, with real names and prices from the brief where it gives them. outfit.mark is the shop's initial for the box. Write the six stages in the shop's voice.",
+    "till: the four labels, the size range the shop stocks and its returns window from the brief.",
+    "shop.items: the brief's pieces exactly (names, prices, colours, sizes and sold-out sizes), each drawn as the nearest kind. shop.free is the brief's free-delivery threshold (0 if delivery is always free).",
+    "visit: opening hours exactly as the brief gives them (null for closed), day names in the shop's language from Sunday, and styling-hour start times inside the opening hours (or the shop's usual quiet times).",
+    "No made-up reviews, discounts or stock claims. Reserving and booking are demos: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part in italics); section titles have a second half. theme.accent is the shop's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Pieces", "path": "shop.items", "fields": ["n", "p"] },
+    { "label": "Opening hours", "path": "visit.hours", "format": "week" }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

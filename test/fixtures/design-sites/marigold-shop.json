@@ -1,0 +1,338 @@
+{
+  "business": {
+    "name": "Marigold Shop"
+  },
+  "brand": {
+    "name": "Marigold"
+  },
+  "contact": {
+    "address": "212 Bedford Ave, Brooklyn, NY 11249"
+  },
+  "nav": {
+    "new": "New arrivals",
+    "visit": "Visit",
+    "styling": "Styling",
+    "cta": "Shop new"
+  },
+  "hero": {
+    "eyebrow": "Marigold · womenswear, Williamsburg",
+    "title": "Easy clothes,",
+    "titleEm": "made carefully.",
+    "lede": "Dresses, knits and good basics from small makers, picked to be worn a lot. Scroll and watch a look come together, then boxed to go.",
+    "cta": "Shop new",
+    "cta2": "Book a fitting",
+    "hint": "Scroll to style the outfit"
+  },
+  "outfit": {
+    "pieces": [
+      {
+        "kind": "dress",
+        "col": "#C97B5A",
+        "pat": "check",
+        "n": "Gingham dress",
+        "p": 168
+      },
+      {
+        "kind": "coat",
+        "col": "#D9C9A8",
+        "pat": "plain",
+        "n": "Cotton trench",
+        "p": 245
+      },
+      {
+        "col": "#E8DCC8",
+        "pat": "plain",
+        "n": "Canvas sneakers",
+        "p": 95
+      },
+      {
+        "col": "#7A4B2E",
+        "pat": "plain",
+        "n": "Leather bag",
+        "p": 180
+      },
+      {
+        "col": "#D8B25A",
+        "pat": "plain",
+        "n": "Shades and hoops",
+        "p": 60
+      }
+    ],
+    "mark": "M",
+    "boxWord": "Boxed with a bow"
+  },
+  "till": {
+    "labels": [
+      "Pieces",
+      "Together",
+      "Sizes",
+      "Returns"
+    ],
+    "sizes": "0–16",
+    "returns": "14 days"
+  },
+  "stages": [
+    {
+      "n": "Start with a dress",
+      "c": "A cotton gingham dress with a square neck. Easy on its own, better with layers."
+    },
+    {
+      "n": "Add a trench",
+      "c": "A light cotton trench thrown over the top, sleeves pushed up."
+    },
+    {
+      "n": "Comfy sneakers",
+      "c": "White canvas sneakers so the dress works for a long day out."
+    },
+    {
+      "n": "The extras",
+      "c": "A soft leather bag, shades and small gold hoops. That's it."
+    },
+    {
+      "n": "All of it, priced",
+      "c": "Every piece from a maker we know by name. Wear them together or apart."
+    },
+    {
+      "n": "Boxed to go",
+      "c": "Folded in tissue, boxed and tied. Free returns within fourteen days."
+    }
+  ],
+  "shop": {
+    "eyebrow": "New arrivals",
+    "title": "Just in,",
+    "titleEm": "in small runs.",
+    "sub": "Pick a color and a size. When a size is gone, it's gone: we rarely restock.",
+    "items": [
+      {
+        "n": "Gingham dress",
+        "kind": "dress",
+        "cols": [
+          "#C97B5A",
+          "#7D9BB8"
+        ],
+        "p": 168,
+        "sizes": [
+          {
+            "z": "0",
+            "ok": true
+          },
+          {
+            "z": "2",
+            "ok": true
+          },
+          {
+            "z": "4",
+            "ok": false
+          },
+          {
+            "z": "6",
+            "ok": true
+          },
+          {
+            "z": "8",
+            "ok": true
+          },
+          {
+            "z": "10",
+            "ok": true
+          },
+          {
+            "z": "12",
+            "ok": false
+          }
+        ]
+      },
+      {
+        "n": "Cotton trench",
+        "kind": "coat",
+        "cols": [
+          "#D9C9A8",
+          "#2E2B28"
+        ],
+        "p": 245,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": false
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "n": "Ribbed tank",
+        "kind": "knit",
+        "cols": [
+          "#F2EFE8",
+          "#2E2B28",
+          "#B44E3E"
+        ],
+        "p": 48,
+        "sizes": [
+          {
+            "z": "XS",
+            "ok": true
+          },
+          {
+            "z": "S",
+            "ok": true
+          },
+          {
+            "z": "M",
+            "ok": true
+          },
+          {
+            "z": "L",
+            "ok": true
+          },
+          {
+            "z": "XL",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "n": "Wide-leg jeans",
+        "kind": "trousers",
+        "cols": [
+          "#4A6488",
+          "#B7C6D8"
+        ],
+        "p": 138,
+        "sizes": [
+          {
+            "z": "24",
+            "ok": false
+          },
+          {
+            "z": "25",
+            "ok": true
+          },
+          {
+            "z": "26",
+            "ok": true
+          },
+          {
+            "z": "27",
+            "ok": true
+          },
+          {
+            "z": "28",
+            "ok": true
+          },
+          {
+            "z": "29",
+            "ok": true
+          },
+          {
+            "z": "30",
+            "ok": false
+          }
+        ]
+      }
+    ],
+    "free": 150,
+    "bagTitle": "Your bag",
+    "bagEmpty": "Nothing in your bag yet.",
+    "total": "Total",
+    "cta": "Reserve to try in store"
+  },
+  "words": {
+    "add": "Add to bag",
+    "pick": "Pick a size",
+    "bag": "Bag",
+    "colour": "Color",
+    "size": "Size",
+    "remove": "Remove",
+    "freeYes": "Free delivery unlocked.",
+    "left": "more for free delivery",
+    "piece": "piece",
+    "pieces": "pieces",
+    "empty": "Add something to your bag first.",
+    "sent": "Demo only · nothing was sent",
+    "reserved": "held for you to try on for 48 hours.",
+    "reply": "On a live site we would email you when it's ready on the rail."
+  },
+  "visit": {
+    "eyebrow": "Visit",
+    "title": "Come by,",
+    "titleEm": "try it on.",
+    "sub": "Two blocks from the Bedford Ave L. Book a free fitting and we'll have a rail ready.",
+    "hours": {
+      "sun": {
+        "open": "11:00",
+        "close": "18:00"
+      },
+      "mon": null,
+      "tue": {
+        "open": "11:00",
+        "close": "19:00"
+      },
+      "wed": {
+        "open": "11:00",
+        "close": "19:00"
+      },
+      "thu": {
+        "open": "11:00",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "11:00",
+        "close": "20:00"
+      },
+      "sat": {
+        "open": "10:00",
+        "close": "20:00"
+      }
+    },
+    "hoursTitle": "Opening hours",
+    "days": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "closed": "Closed",
+    "styleTitle": "A free fitting",
+    "styleSub": "Tell us what you're after, and we'll have a rail ready. Free, no need to buy.",
+    "pick": "Pick a time",
+    "styleTimes": [
+      "11:00",
+      "15:00"
+    ],
+    "labels": {
+      "name": "Your name",
+      "email": "Your email"
+    },
+    "nameExample": "Maya Chen",
+    "emailExample": "maya@example.com",
+    "cta": "Book the fitting",
+    "errors": {
+      "slot": "Pick a time for your styling hour.",
+      "name": "Add your name.",
+      "email": "Add an email so we can confirm."
+    }
+  },
+  "footer": {
+    "fine": "Marigold Shop is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#A3392B"
+  }
+}
