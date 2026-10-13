@@ -2,7 +2,7 @@
   "name": "aldane",
   "category": "watch launch",
   "reference": "reference/aldane-original.html",
-  "referenceSha256": "361506e41f0149090bd1f46f6a77c66cf3e0d7162681b5fbb36e014d9477ba32",
+  "referenceSha256": "1ebf7b6fec6d59ebd75c495abbadefd11872b759f65983ed313697273b4e3799",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

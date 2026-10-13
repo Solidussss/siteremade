@@ -166,6 +166,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A3271C;font-size:14px;font-weight:700}
 .confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:16px;padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.confirm small{font-size:12px;color:var(--ink-2)}
 .slip{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
 .slip h3{font-size:30px}
 .slip dl{margin:0;display:grid;gap:10px}
@@ -636,6 +637,8 @@ requestAnimationFrame(loop);
 "use strict";
 const $=s=>document.querySelector(s);
 const CUR={{locale.currency|js}};
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
 const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
 const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
@@ -706,8 +709,12 @@ $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#er
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(!nm)return fail({{book.errors.name|js}},$('#fName'));
   if(ph.length<7)return fail({{book.errors.phone|js}},$('#fPhone'));
-  err.hidden=true;const d=days[dSel], c=$('#confirm');
-  c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}, you're booked for ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} at ${hm(times()[slot].m)} with ${esc(tech?TECHS[tech-1].n:WORDS.anyone.toLowerCase())}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+  err.hidden=true;const d=days[dSel], c=$('#confirm'), btn=e.target.querySelector('[type=submit]'), when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${hm(times()[slot].m)}`, who=tech?TECHS[tech-1].n:WORDS.anyone, what=picked.map(k=>item(k).n);
+  // the request goes to the studio, who confirm it; until it has gone, the button waits
+  btn.disabled=true;c.hidden=true;
+  send({kind:'booking',summary:`${what.join(' + ')} · ${when} · ${who}`,fields:[['Treatments',what.join(', ')],['When',when],['With',who],['Visit',`${visitMins()} ${WORDS.min} · ${money(visitPrice())}`],['Deposit',money(DEPOSIT)]],contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(nm)} · ${esc(when)} · ${esc(who)}</b><span>${esc(WORDS.reply)}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 menu();visit();shadeView();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(shadeView);

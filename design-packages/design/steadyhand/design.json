@@ -2,7 +2,7 @@
   "name": "steadyhand",
   "category": "barber shop",
   "reference": "reference/steadyhand-original.html",
-  "referenceSha256": "1cd025b3c741ebfed9cffa0f050dc6540a4f65c9254c8ef89892e346ef31d44c",
+  "referenceSha256": "041ed25fd4160e5a5c9590c9b42b6e9f0d86944f8cab9e91ef3ce874ead2d6ae",
   "template": "template.html",
   "schema": "schema.json",
   "tables": "tables.json",

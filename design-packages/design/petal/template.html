@@ -165,6 +165,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#9B2C22;font-size:14px;font-weight:700}
 .confirm{border-radius:14px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .ctag{font:400 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .card{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px;background:var(--cream-2)}
 .card h3{font-size:34px}
 .card .msg{font:400 22px/1.35 var(--f-display);min-height:4em;padding:18px;background:var(--sheet);border-radius:4px;box-shadow:0 12px 30px -20px rgba(31,43,36,.4);transform:rotate(-1.2deg)}
@@ -495,13 +496,19 @@ function summary(){const s=SIZES[sz], P=PALETTES[pal], m=$('#fMsg').value.trim()
 $('#checkBtn').addEventListener('click',check);$('#fCode').addEventListener('change',check);$('#fCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();check();}});
 $('#fMsg').addEventListener('input',summary);
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);summary();$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#sendForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   check();if(!zone)return fail({{$.zoneErr|js}},$('#fCode'));
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add your phone so we can send you a photo.',$('#fPhone'));
-  err.hidden=true;const d=days[dSel], c=$('#confirm');
-  c.innerHTML=`<span class="ctag">Demo only · nothing was sent</span><b>${esc(nm)}, a ${esc(SIZES[sz].n.toLowerCase())} bouquet is on its way on ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${money(total()+zone.fee)}.</b><span>On a live site we'd text you a photo before it leaves.</span>`;c.hidden=false;});
+err.hidden=true;const d=days[dSel], when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`, xs=EXTRAS.filter((x,i)=>ex.has(i)).map(x=>x.n), price=money(total()+zone.fee), msg=$('#fMsg').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"order",summary:`${SIZES[sz].n} bouquet, ${PALETTES[pal].n} · ${when} · ${price}`,fields:[['Bouquet',`${SIZES[sz].n} · ${PALETTES[pal].n}`]].concat(xs.length?[['Extras',xs.join(', ')]]:[],[['Delivery',when],['Postcode',$('#fCode').value.trim().toUpperCase()],['Total with delivery',price]],msg?[['Card message',msg]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="ctag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(SIZES[sz].n)} bouquet · ${esc(when)} · ${esc(price)}</b><span>We’ll text you to confirm and take payment, then send a photo before it leaves.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 bouquet();season();summary();
 addEventListener('resize',()=>drawMini());

@@ -2,7 +2,7 @@
   "name": "ochre",
   "category": "hair salon",
   "reference": "reference/ochre-original.html",
-  "referenceSha256": "49a219530669ccae64c449a259c8ff9de045fb9afd0687e0a50c7813afdc80db",
+  "referenceSha256": "935dd951742a4e387109fcf790098ab0ac3b06ff4e88593a291d6bf63de6d63c",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

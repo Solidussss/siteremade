@@ -284,6 +284,10 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .out dd { margin: 0; font-family: var(--display); font-size: 34px; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .out dd small { font-family: var(--body); font-size: 14px; color: var(--ink-dim); margin-left: 4px; }
 .buy { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.buyer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.buyer[hidden] { display: none; }
+.buyer input { min-width: 0; font: inherit; font-size: 15px; color: var(--ink); background: transparent; border: 1px solid var(--ink-line); border-radius: 999px; padding: 11px 16px; }
+.buyer input:last-child { grid-column: 1 / -1; }
 .demo-note { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--ink-dim); }
 .demo-note b { color: var(--ink); }
 @media (max-width: 860px) { .size svg { height: calc(var(--k, 1) * 150px); } .size { padding-top: 18px; } .sizes-grid { grid-template-columns: minmax(0,1fr); } .out dd { font-size: 28px; } .size .ml { font-size: 26px; } }
@@ -454,6 +458,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
             <div><dt>Per wear</dt><dd id="oWear">{{$.init.perWear}}</dd></div>
             <div><dt>Per ml</dt><dd id="oMl">{{$.init.perMl}}</dd></div>
           </dl>
+          <div class="buyer" id="buyer" hidden><input id="bName" autocomplete="name" placeholder="Your name" aria-label="Your name"><input id="bMail" type="email" autocomplete="email" placeholder="Email" aria-label="Email"><input id="bAddr" autocomplete="street-address" placeholder="Delivery address" aria-label="Delivery address"></div>
           <div class="buy"><button class="btn ink" type="submit" id="buyBtn">Add {{$.featuredMl}} ml to bag · {{$.featuredPrice}}</button><span class="demo-note" id="buyNote">{{sizes.note}}</span></div>
         </form>
       </div>
@@ -1087,12 +1092,25 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
     $("#oWear").textContent = {{locale.currency|jsd}} + (s.price / (total / sp)).toFixed(2);
     $("#oMl").textContent = {{locale.currency|jsd}} + (s.price / s.ml).toFixed(2);
     $("#buyBtn").textContent = `Add ${s.ml} ml to bag · {{locale.currency|tl}}${s.price}`;
+    if (!$("#buyer").hidden) $("#buyBtn").textContent = `Send the order · ${$("#buyBtn").textContent.split(" · ").pop()}`;
   }
   spraysIn.addEventListener("input", renderCalc); daysIn.addEventListener("input", renderCalc);
+  // on the live site a request goes to the business; a preview shows it and says it wasn't sent
+  function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
+  const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   $("#calc").addEventListener("submit", e => {
-    e.preventDefault(); const s = SIZES[size];
-    $("#buyNote").innerHTML = `<b>Demo only:</b> ${s.ml} ml added to a pretend bag. Nothing was charged.`;
-    ting(.8);
+    e.preventDefault(); const s = SIZES[size], who = $("#buyer"), note = $("#buyNote"), btn = $("#buyBtn");
+    // first: who it is for and where it goes
+    if (who.hidden) { who.hidden = false; renderCalc(); $("#bName").focus(); note.textContent = "Where should it go? We’ll email you a secure payment link."; return; }
+    const name = $("#bName").value.trim(), mail = $("#bMail").value.trim(), addr = $("#bAddr").value.trim(), price = btn.textContent.split(" · ").pop();
+    if (!name) { note.textContent = "Add your name."; $("#bName").focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { note.textContent = "Add an email for the payment link."; $("#bMail").focus(); return; }
+    if (addr.length < 6) { note.textContent = "Add the delivery address."; $("#bAddr").focus(); return; }
+    // then the order goes to the house, who email a secure payment link: nothing is charged here
+    btn.disabled = true; note.textContent = "Sending…";
+    send({ kind: "order", summary: `${s.ml} ml · ${price}`, fields: [["Size", `${s.ml} ml`], ["Price", price], ["Deliver to", addr]], contact: { name, email: mail } })
+      .then(pv => { note.innerHTML = `<b>${esc(pv && pv.tag || "Order sent")}.</b> We’ll email ${esc(mail)} a secure payment link, then send your ${s.ml} ml.${pv && pv.note ? " " + esc(pv.note) : ""}`; ting(.8); })
+      .catch(x => { note.textContent = x.message; }).finally(() => { btn.disabled = false; });
   });
   renderCalc();
 

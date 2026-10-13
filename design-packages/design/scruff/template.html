@@ -155,6 +155,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#B42318;font-size:14px;font-weight:700}
 .confirm{border-radius:18px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .summary{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
 .summary h3{font-size:28px}
 .summary dl{margin:0}
@@ -521,13 +522,19 @@ function summary(){const s=SERVICES[+$('#fSvc').value||0], dog=$('#fDog').value.
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);summary();$('#confirm').hidden=true;});
 $('#times').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tSel=+b.dataset.i;press($('#times'),b);summary();$('#confirm').hidden=true;});
 ['fSvc','fDog','fBreed'].forEach(id=>$('#'+id).addEventListener('input',summary));$('#fSvc').addEventListener('change',summary);
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const dog=$('#fDog').value.trim(), nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(!dog)return fail({{$.dogErr|js}},$('#fDog'));
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number so we can text you.',$('#fPhone'));
-  err.hidden=true;const s=SERVICES[+$('#fSvc').value], c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(dog)} is booked in for ${esc(s.n.toLowerCase())} on ${esc(when())}, ${money(s.p[size])}.</b><span>On a live site, ${esc(nm)}, you'd get a text to confirm and another when ${esc(dog)} is ready.</span>`;c.hidden=false;});
+err.hidden=true;const s=SERVICES[+$('#fSvc').value], breed=$('#fBreed').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`${dog} · ${s.n} · ${when()}`,fields:[['Dog',dog+(breed?` (${breed})`:'')],['Service',`${s.n} · ${money(s.p[size])}`],['Drop-off',when()]],contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(dog)} · ${esc(s.n)} · ${esc(when())}</b><span>We’ll text you to confirm, and again when ${esc(dog)} is ready.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 menu();
 })();

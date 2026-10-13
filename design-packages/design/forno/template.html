@@ -458,13 +458,17 @@ footer { background: var(--soot); padding: 12vh var(--gutter) calc(env(safe-area
             <input class="txt" id="oname" type="text" autocomplete="given-name" placeholder="e.g. Giulia">
           </div>
         </div>
+        <div>
+          <label class="olab" for="ophone">Phone, in case we need you</label>
+          <input class="txt" id="ophone" type="tel" autocomplete="tel" placeholder="07700 900123">
+        </div>
         <p class="extra" id="extra" hidden></p>
         <p class="err" id="oerr" hidden>Add a name so we can call you at the counter.</p>
         <div><button class="btn red" type="submit">Hold my slot</button></div>
       </form>
       <div id="ticketBox">
         <div class="ticket" id="ticket">
-          <span class="demo">Demo only</span>
+          <span class="demo" id="tTag">Not sent yet</span>
           <span class="th">Your ticket</span>
           <div class="ln"><span>Pickup</span><span id="tSlot">Pick a slot</span></div>
           <div class="ln"><span>Pies</span><span id="tPies">2</span></div>
@@ -1303,17 +1307,29 @@ $('#sendpie').addEventListener('click', () => {
   O.custom = { desc: parts.join(', '), price: bPrice() };
   updTicket(); document.getElementById('order').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
 });
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
 $('#oform').addEventListener('submit', e => {
   e.preventDefault();
-  const name = $('#oname').value.trim(), err = $('#oerr');
-  if (!name) { err.hidden = false; $('#oname').focus(); return; }
-  if (O.slot === null) { err.textContent = 'Pick a pickup time with room for your pies.'; err.hidden = false; return; }
+  const name = $('#oname').value.trim(), phone = $('#ophone').value.trim(), err = $('#oerr'), btn = e.target.querySelector('[type="submit"]');
+  const say = (m, el) => { err.textContent = m; err.hidden = false; if (el) el.focus(); };
+  if (!name) return say('Add a name so we can call you at the counter.', $('#oname'));
+  if (phone.replace(/\D/g, '').length < 7) return say('Add a phone number in case we need to reach you.', $('#ophone'));
+  if (O.slot === null) return say('Pick a pickup time with room for your pies.', null);
   err.hidden = true;
   $('#tName').textContent = name;
-  const no = '{{order.refPrefix}}-' + String(Math.floor(1000 + Math.random() * 9000));
-  $('#tNote').textContent = `Order ${no} held. Pay at the counter. Demo only, nothing was sent.`;
-  const tk = $('#ticket'); tk.classList.remove('fresh'); void tk.offsetWidth; tk.classList.add('fresh');
-  sound.tick();
+  const no = '{{order.refPrefix}}-' + String(Math.floor(1000 + Math.random() * 9000)), pickup = $('#tSlot').textContent, pies = $('#tPies').textContent;
+  // the order goes to the pizzeria with its number, so the counter and the ticket match; they text to confirm
+  btn.disabled = true; $('#tNote').textContent = 'Sending…';
+  send({ kind: 'order', summary: `${no} · ${pies} · pickup ${pickup}`, fields: [['Order', no], ['Pickup', pickup], ['Pies', pies]].concat(O.custom ? [['Custom pie', `${O.custom.desc} · ${fmt(O.custom.price)}`]] : []), contact: { name, phone } })
+    .then(pv => {
+      $('#tTag').textContent = pv && pv.tag || 'Order sent';
+      $('#tNote').textContent = `Order ${no} sent. We’ll text you to confirm. Pay at the counter.${pv && pv.note ? ' ' + pv.note : ''}`;
+      const tk = $('#ticket'); tk.classList.remove('fresh'); void tk.offsetWidth; tk.classList.add('fresh');
+      sound.tick();
+    })
+    .catch(x => { say(x.message, null); $('#tNote').textContent = 'Hold a slot to get an order number. Pay at the counter.'; })
+    .finally(() => { btn.disabled = false; });
 });
 $('#oname').addEventListener('input', () => { $('#tName').textContent = $('#oname').value.trim() || 'Not set'; });
 O.day = firstOpenDay(); renderDays(); renderSlots();

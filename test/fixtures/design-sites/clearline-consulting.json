@@ -229,8 +229,8 @@
       "17:30"
     ],
     "words": {
-      "sent": "Demo only · nothing was sent",
-      "reply": "On a live site you would get a calendar invite and a video link.",
+      "sent": "Request sent",
+      "reply": "You’ll get a calendar invite and a video link once it’s confirmed.",
       "taken": "Taken"
     },
     "labels": {

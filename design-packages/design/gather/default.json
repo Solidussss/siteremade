@@ -187,8 +187,8 @@
       "guests": "guests",
       "note": "for the wedding breakfast",
       "none": "No dates left this season.",
-      "sent": "Demo only · nothing was sent",
-      "reply": "On a live site our events team would reply within a day with availability."
+      "sent": "Request sent",
+      "reply": "Our events team will reply within a day with availability."
     },
     "labels": {
       "season": "Season",

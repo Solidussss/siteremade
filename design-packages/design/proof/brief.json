@@ -27,7 +27,7 @@
     "board: four numbers beside the bake. For bread: proving hours, oven temperature, baking minutes, loaves baked. For cakes: layers, oven temperature, minutes, cakes this week. Each with the stages it moves over.",
     "today.bakes: up to eight everyday bakes from the brief with prices and a drawing (boule, tin, baguette, croissant, bun, slab). left is a plausible count for the demo; mark one or two as 0 (sold out). If the brief has no everyday bakes (cakes only), list slices and cupcakes it does sell.",
     "cakes: sizes exactly as priced in the brief (tiers 2 for a tiered cake), with days' notice; sponges, fillings and finishes with their extra cost and natural colours. If the brief has no cakes, offer the brief's large orders (a sharing loaf box, a pastry box) as sizes and keep the finishes plain.",
-    "order.hours: Monday to Sunday exactly as the brief gives them; closedWord is the word used for closed days. The order form is a demo: nothing is ordered.",
+    "order.hours: Monday to Sunday exactly as the brief gives them; closedWord is the word used for closed days. The order form really sends: the request goes to the bakery, who confirm it. Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); today and cakes titles have an italic second half. theme.accent is the bakery's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

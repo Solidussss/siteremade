@@ -25,7 +25,7 @@
     "report: the four labels; the confidence word at the start and at the end of the lesson. stages: six steps in the tutor's voice.",
     "subjects.list: the brief's subjects with the levels it gives, each with a colour and a short sign (a letter, number or symbol that works in handwriting).",
     "price: the brief's rates by level exactly, its lesson lengths and how often (lessons per week), and the weeks in a term (12 if not given).",
-    "trial: the times a first lesson can start, the brief's tutors (or one entry for the tutor), and only qualifications the brief gives. Booking is a demo: nothing is sent.",
+    "trial: the times a first lesson can start, the brief's tutors (or one entry for the tutor), and only qualifications the brief gives. The booking form really sends: the request goes to the tutors, who confirm it. Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); section titles have a second half. theme.accent is the tutor's colour (also the red pen), deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

@@ -2,7 +2,7 @@
   "name": "ventricle",
   "category": "gym",
   "reference": "reference/ventricle-original.html",
-  "referenceSha256": "4b36619b783f4e34253c13a71df52de85327f1cf47a5a1bfa5d97dcb125c21be",
+  "referenceSha256": "ac95951e79f82caefc3519649436d18e41bc1311108fc2866a86cfa8049c9de3",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

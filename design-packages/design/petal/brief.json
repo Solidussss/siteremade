@@ -25,7 +25,7 @@
     "count: the numbers beside the bouquet: stems, varieties, percent grown nearby (only if the brief says so; otherwise a modest honest figure the brief supports, or leave the label as Seasonal and use 100), and how long it lasts.",
     "build: the brief's sizes with stems and prices, up to four palettes (each colour drawn as a flower kind) and extras with prices.",
     "season: up to four seasons with the month each starts and the brief's favourite flowers, drawn as the nearest kind.",
-    "deliver: zones exactly as the brief gives them (the start of a postcode like E8, or a ZIP), the fee and same-day cut-off for each, closed days, and the wording of the check in the local terms (postcode or ZIP). The form is a demo: nothing is sent.",
+    "deliver: zones exactly as the brief gives them (the start of a postcode like E8, or a ZIP), the fee and same-day cut-off for each, closed days, and the wording of the check in the local terms (postcode or ZIP). The order form really sends: the request goes to the florist, who confirm it. Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); build and season titles have a second half. theme.accent is the florist's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

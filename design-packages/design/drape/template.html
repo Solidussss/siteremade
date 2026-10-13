@@ -138,6 +138,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .free i b{position:absolute;inset:0 auto 0 0;background:var(--accent);width:0}
 .confirm{border:1px solid var(--accent);background:var(--accent-soft);padding:14px 16px;display:grid;gap:6px;font-size:14px}
 .confirm .tag{font:400 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.confirm small{font-size:12px;opacity:.75}
 
 /* visit */
 .visit{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:start}
@@ -156,8 +157,9 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .chips button{border:1px solid var(--line);background:var(--sheet);padding:9px 12px;font:400 13px var(--f-mono);cursor:pointer;color:var(--ink-2)}
 .chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
 .form{display:grid;gap:12px}
-.form input{border:1px solid var(--line);padding:12px 14px;background:var(--linen);font-size:15px;width:100%}
-.form label{display:grid;gap:6px;font-weight:600;font-size:13.5px}
+.bag .who{display:grid;gap:10px;margin:14px 0 4px}
+.form input,.bag .who input{border:1px solid var(--line);padding:12px 14px;background:var(--linen);font-size:15px;width:100%}
+.form label,.bag .who label{display:grid;gap:6px;font-weight:600;font-size:13.5px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .err{color:#A3271C;font-size:14px;font-weight:700}
 
@@ -231,6 +233,7 @@ footer{background:var(--ink);color:var(--linen);padding:clamp(70px,9vw,120px) va
         <ul id="bagList"></ul>
         <p class="empty" id="bagEmpty">{{shop.bagEmpty}}</p>
         <div class="free"><span id="freeNote">{{$.free0}} {{words.left}}</span><i><b id="freeBar"></b></i></div>
+        <div class="who"><label>{{visit.labels.name}}<input id="bName" autocomplete="name" placeholder="{{visit.nameExample|attr}}"></label><label>{{visit.labels.email}}<input id="bEmail" type="email" autocomplete="email" placeholder="{{visit.emailExample|attr}}"></label></div>
         <div class="tot"><span>{{shop.total}}</span><span id="bagTotal">{{locale.currency}}0</span></div>
         <button class="btn blue" type="button" id="reserve">{{shop.cta}}</button>
         <p class="err" id="bagErr" hidden></p>
@@ -445,8 +448,15 @@ function showBag(){$('#bagList').innerHTML=bag.map((x,k)=>`<li><span>${esc(PRODU
   $('#bagEmpty').hidden=bag.length>0;const t=bag.reduce((s,x)=>s+PRODUCTS[x.i].p,0);$('#bagTotal').textContent=money(t);$('#navBag').textContent=`${WORDS.bag} (${bag.length})`;
   $('#freeNote').textContent=t>=FREE?WORDS.freeYes:`${money(FREE-t)} ${WORDS.left}`;$('#freeBar').style.width=`${Math.min(100,t/FREE*100)}%`;$('#bagConfirm').hidden=true;}
 $('#bagList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;bag.splice(+b.dataset.k,1);showBag();});
-$('#reserve').addEventListener('click',()=>{const err=$('#bagErr');if(!bag.length){err.textContent=WORDS.empty;err.hidden=false;return;}err.hidden=true;const c=$('#bagConfirm');
-  c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${bag.length} ${esc(bag.length===1?WORDS.piece:WORDS.pieces)} ${esc(WORDS.reserved)}</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+$('#reserve').addEventListener('click',()=>{const err=$('#bagErr');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};if(!bag.length)return fail(WORDS.empty,null);
+  const nm=$('#bName').value.trim(), em=$('#bEmail').value.trim();
+  if(!nm)return fail('Add your name.',$('#bName'));
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail('Add an email so we can tell you when it’s ready.',$('#bEmail'));
+  err.hidden=true;const c=$('#bagConfirm'), btn=$('#reserve'), n=bag.length, what=`${n} ${n===1?WORDS.piece:WORDS.pieces}`;btn.disabled=true;c.hidden=true;
+  // the pieces the visitor wants held: the shop sets them aside and replies
+  send({kind:'reservation',summary:`${what} to try on in store · ${$('#bagTotal').textContent}`,fields:bag.map((x,k)=>{const P=PRODUCTS[x.i];return[`Piece ${k+1}`,`${P.n} · colour ${x.col+1} of ${P.cols.length} (${P.cols[x.col]}) · ${P.sizes[x.size][0]} · ${money(P.p)}`];}).concat([['Total',$('#bagTotal').textContent]]),contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(what)} ${esc(WORDS.reserved)}</b><span>${esc(WORDS.reply)}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 /* ============ VISIT ============ */
 // opening hours by day of the week (0 is Sunday; null is closed), and the times a styling hour can start
@@ -460,12 +470,19 @@ const slots=[];for(let d=1;slots.length<6&&d<21;d++){const day=new Date();day.se
 let sl=-1;
 $('#slots').innerHTML=slots.map(([d,t],i)=>`<button type="button" aria-pressed="false" data-i="${i}">${DOW[d.getDay()]} ${d.getDate()} · ${t}</button>`).join('');
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sl=+b.dataset.i;press($('#slots'),b);$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#styleForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   if(sl<0)return fail({{visit.errors.slot|js}},null);
   const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
   if(!nm)return fail({{visit.errors.name|js}},$('#fName'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{visit.errors.email|js}},$('#fEmail'));
-  err.hidden=true;const[d,t]=slots[sl], c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${t}.</b>`;c.hidden=false;});
+err.hidden=true;const[d,t]=slots[sl], when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${t}`;
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`Styling hour · ${when}`,fields:[['Styling hour',when]],contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(nm)} · ${esc(when)}</b><span>We’ll email you to confirm, with a rail ready for you.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 PRODUCTS.forEach((_,i)=>draw(i));showBag();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>PRODUCTS.forEach((_,i)=>draw(i)));

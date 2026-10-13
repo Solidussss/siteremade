@@ -189,6 +189,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .err{color:var(--accent-text);font-size:14px;font-weight:600}
 .confirm{border-radius:3px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .ticket{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:96px}
 .ticket h3{font-size:30px;font-style:italic;font-weight:300}
 .ticket dl{margin:0}
@@ -669,13 +670,20 @@ function booking(){const svc=item($('#bService').value), who=+$('#bStylist').val
 $('#bService').addEventListener('change',booking);$('#bStylist').addEventListener('change',booking);
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b||b.disabled)return;dSel=+b.dataset.i;$('#confirm').hidden=true;booking();});
 $('#times').addEventListener('click',e=>{const b=e.target.closest('.time');if(!b||b.disabled)return;tSel=+b.dataset.m;$('#confirm').hidden=true;booking();});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+const esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(tSel==null)return fail('Pick a day with a free time.');
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a mobile number so we can text a reminder.',$('#fPhone'));
-  err.hidden=true;const svc=item($('#bService').value), d=days[dSel], who=+$('#bStylist').value, c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${nm.replace(/[<>&]/g,'')}, your chair is held: ${svc.n}, ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} at ${hhmm(tSel)}${who<0?'':' with '+TEAM[who].n}.</b><span>On a live site you'd pay the ${money(DEPOSIT)} deposit here and get a text the day before.</span>`;c.hidden=false;});
+err.hidden=true;const svc=item($('#bService').value), d=days[dSel], who=+$('#bStylist').value, stylist=who<0?'Anyone':TEAM[who].n, when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${hhmm(tSel)}`;
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`${svc.n} · ${when} · ${stylist}`,fields:[['Service',svc.n],['When',when],['Stylist',stylist],['Deposit',money(DEPOSIT)]],contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(svc.n)} · ${esc(when)}</b><span>We’ll text you to confirm, with how to pay the ${esc(money(DEPOSIT))} deposit.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 booking();shade();drawTeam();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawStrand();drawTeam();});
 })();

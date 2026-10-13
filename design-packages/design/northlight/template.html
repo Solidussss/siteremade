@@ -171,6 +171,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:var(--accent-text);font-size:14px;font-weight:600}
 .confirm{background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 
 footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
 .foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
@@ -526,13 +527,19 @@ function cal(){$('#calMonth').textContent=`${MONTHS[view.getMonth()]} ${view.get
 $('#calPrev').addEventListener('click',()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);cal();});
 $('#calNext').addEventListener('click',()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);cal();});
 $('#grid').addEventListener('click',e=>{const b=e.target.closest('button[data-d]');if(!b||b.disabled)return;chosen=new Date(view.getFullYear(),view.getMonth(),+b.dataset.d);$('#picked').textContent=`${DOW[chosen.getDay()]} ${chosen.getDate()} ${MONTHS[chosen.getMonth()]} ${chosen.getFullYear()}`;$('#confirm').hidden=true;cal();});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   if(!chosen)return fail('Pick a date on the calendar first.');
   const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
   if(!nm)return fail('Add your name.',$('#fName'));
   if(!/^\S+@\S+\.\S+$/.test(em))return fail('Add an email so we can write back.',$('#fEmail'));
-  err.hidden=true;const [ki,ti]=$('#fKind').value.split('.').map(Number), t=KINDS[ki].tiers[ti], c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was held</span><b>${esc(nm)}, ${esc($('#picked').textContent)} is held for you: ${esc(KINDS[ki].n.toLowerCase())}, ${esc(t.n.toLowerCase())}, ${t.from?'from ':''}${money(t.p)}.</b><span>On a live site you'd get an email within a day to talk it through.</span>`;c.hidden=false;});
+err.hidden=true;const [ki,ti]=$('#fKind').value.split('.').map(Number), t=KINDS[ki].tiers[ti], day=$('#picked').textContent, note=$('#fNote').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`${KINDS[ki].n} · ${t.n} · ${day}`,fields:[['Shoot',KINDS[ki].n],['Package',`${t.n} · ${t.from?'from ':''}${money(t.p)}`],['Date',day]].concat(note?[['Notes',note]]:[]),contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(KINDS[ki].n)} · ${esc(day)}</b><span>We’ll email you within a day to talk it through and hold the date.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 tiers();cal();
 })();

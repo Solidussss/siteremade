@@ -151,7 +151,7 @@ app.set('trust proxy', 1);
 // built on a hand-made design, edit it, publish it. Everything else (the classic generator and its landing page,
 // Creative and its paid media, payments and credits, saved projects, export and deployment, the customer-app bridge) is
 // closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
-const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/s\/[A-Za-z0-9_-]+$/,
+const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/];
 app.use((req, res, next) => {
@@ -5925,6 +5925,9 @@ app.post('/api/domains/:id/verify', requireAuth, requireSameOrigin, async (req, 
 // lib/design-sites.js, design-packages/. Owner-only for now (the website admin account: lib/website-admin.js): every run
 // spends real AI money through the server's Anthropic key. A published site is public at /s/<id>.
 const designSites = require('./lib/design-sites');
+const siteRequests = require('./lib/site-requests');
+function publicBase(req) { return String(process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, ''); }
+function withNewRequests(sites) { const n = db.designSiteRequests ? db.designSiteRequests.newCounts(sites.map((x) => x.id)) : {}; return sites.map((x) => Object.assign({}, x, { newRequests: n[x.id] || 0 })); }
 const siteRouter = require('./lib/site-router');
 let designDeps = { writer: () => designSites.anthropicWriter(ANTHROPIC_API_KEY), cost: designSites.cost };
 if (db.designSites) db.designSites.failInterrupted(new Date().toISOString());
@@ -5959,12 +5962,12 @@ function ownDesignSite(req, res) {
   if (!row || row.account_id !== req.accountId) { res.status(404).json({ ok: false, message: 'Site not found.' }); return null; }
   return row;
 }
-app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(html); });
+app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(siteRequests.withPreview(html)); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 // the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
 // own sites
 app.get('/api/designs/catalog', (req, res) => res.json({ ok: true, designs: designSites.designs() }));
-app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: db.designSites.forAccount(req.accountId),
+app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: withNewRequests(db.designSites.forAccount(req.accountId)),
   access: { owner: !!req.designOwner, free: true, perDay: DESIGNS_PER_DAY } }));
 // Export: the built site as one self-contained index.html (its fonts load from Google Fonts, as on /s/<id>)
 app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req, res) => {
@@ -5972,7 +5975,8 @@ app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req
   if (!row.html) return res.status(409).json({ ok: false, message: 'Only a finished site can be downloaded.' });
   const name = String(row.business_name || 'website').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'website';
   res.setHeader('Content-Disposition', `attachment; filename="${name}.html"`); res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(row.html);
+  // a copy hosted anywhere sends its requests to this server, like the live page (they arrive while the site is published)
+  res.type('html').send(siteRequests.withSender(row.html, publicBase(req) + '/s/' + row.id + '/request'));
 });
 app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
   if (!req.designOwner) {
@@ -6028,13 +6032,52 @@ app.post('/api/designs/sites/:id/undo', requireAuth, requireSameOrigin, requireD
 app.get('/api/designs/sites/:id/preview', requireAuth, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   if (!row.html) return res.status(404).type('text/plain').send('Not built yet');
-  res.setHeader('Cache-Control', 'no-store'); res.type('html').send(row.html);
+  res.setHeader('Cache-Control', 'no-store'); res.type('html').send(siteRequests.withPreview(row.html));
 });
 // the public page of a published site
 app.get('/s/:id', (req, res) => {
   const row = db.designSites && /^ds_[A-Za-z0-9_-]{8,40}$/.test(req.params.id) ? db.designSites.find(req.params.id) : null;
   if (!row || !row.published_at || !row.html) return res.status(404).type('text/plain').send('Not found');
-  res.setHeader('Cache-Control', 'public, max-age=60'); res.type('html').send(row.html);
+  res.setHeader('Cache-Control', 'public, max-age=60'); res.type('html').send(siteRequests.withSender(row.html, '/s/' + row.id + '/request'));
+});
+// A request from a live site -- a booking, an order, a reservation, a question (lib/site-requests.js): kept for the
+// owner's inbox and emailed to the owner's account. Public: the page at /s/<id> posts here, and so does a downloaded
+// copy of it hosted anywhere (so it answers CORS). The visitor is told it was sent only once it is stored.
+const siteRequestRateLimit = rateLimitMiddleware(req => `site-request:${req.ip}:${req.params.id}`, { max: Number(process.env.SITEREMADE_SITE_REQUESTS_MAX) || 8, windowMs: 10 * 60 * 1000 }, 'Too many requests from this connection. Please wait a few minutes, or call the business.');
+const SITE_REQUESTS_PER_DAY = Number(process.env.SITEREMADE_SITE_REQUESTS_PER_DAY) || 300;
+const siteRequestCors = (req, res, next) => { res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600' }); next(); };
+app.options('/s/:id/request', siteRequestCors, (req, res) => res.status(204).end());
+app.post('/s/:id/request', siteRequestCors, express.json({ limit: '20kb' }), siteRequestRateLimit, async (req, res) => {
+  const row = db.designSites && db.designSiteRequests && /^ds_[A-Za-z0-9_-]{8,40}$/.test(req.params.id) ? db.designSites.find(req.params.id) : null;
+  if (!row || !row.published_at) return res.status(404).json({ ok: false, message: 'This website isn’t live, so the request wasn’t sent.' });
+  const c = siteRequests.clean(req.body);
+  if (c.spam) return res.json({ ok: true });
+  if (c.error) return res.status(400).json({ ok: false, message: c.error });
+  const now = new Date();
+  if (db.designSiteRequests.countSince(row.id, new Date(now - 24 * 3600 * 1000).toISOString()) >= SITE_REQUESTS_PER_DAY) return res.status(429).json({ ok: false, message: 'This website has had a lot of requests today. Please call the business instead.' });
+  const id = 'rq_' + crypto.randomBytes(12).toString('base64url'), r = c.request;
+  db.designSiteRequests.insert({ id, siteId: row.id, kind: r.kind, summary: r.summary, fieldsJson: JSON.stringify(r.fields), contactJson: JSON.stringify(r.contact), createdAt: now.toISOString() });
+  res.json({ ok: true, id });
+  // then the owner's email (the request is already kept: an email that fails is recorded, never lost silently)
+  const account = db.accounts.findById(row.account_id), at = () => new Date().toISOString();
+  if (!RESEND_API_KEY || !account || !account.email) return db.designSiteRequests.emailed(id, at(), !RESEND_API_KEY ? 'not_configured' : 'no_recipient');
+  const base = publicBase(req), m = siteRequests.ownerEmail({ businessName: row.business_name, request: r, inboxUrl: base + '/designs?site=' + row.id + '#requests', siteUrl: base + '/s/' + row.id });
+  try { await sendEmail(Object.assign({ from: 'SiteRemade <hello@siteremade.com>', to: [account.email], subject: m.subject, html: m.html, text: m.text }, m.replyTo ? { reply_to: m.replyTo } : {})); db.designSiteRequests.emailed(id, at()); }
+  catch (e) { db.designSiteRequests.emailed(id, at(), String(e && e.message || e).slice(0, 200)); console.error('Site request email failed:', e && e.message); }
+});
+// the owner's inbox: a site's requests, newest first, and marking one done (or new again)
+const requestView = (q) => ({ id: q.id, kind: q.kind, kindLabel: siteRequests.KINDS[q.kind] || q.kind, summary: q.summary, fields: JSON.parse(q.fields_json), contact: JSON.parse(q.contact_json), status: q.status, emailed: !!q.emailed_at, emailError: q.email_error, createdAt: q.created_at });
+app.get('/api/designs/sites/:id/requests', requireAuth, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, requests: db.designSiteRequests.forSite(row.id).map(requestView) });
+});
+app.post('/api/designs/sites/:id/requests/:rid', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const q = db.designSiteRequests.find(String(req.params.rid)), status = req.body && req.body.status;
+  if (!q || q.site_id !== row.id) return res.status(404).json({ ok: false, message: 'Request not found.' });
+  if (!['new', 'done'].includes(status)) return res.status(400).json({ ok: false, message: 'Status is new or done.' });
+  db.designSiteRequests.setStatus(q.id, status, new Date().toISOString());
+  res.json({ ok: true, request: requestView(db.designSiteRequests.find(q.id)) });
 });
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));

@@ -171,6 +171,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A23A2A;font-size:14px;font-weight:600}
 .confirm{border-radius:2px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 
 /* visit */
 .visit{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:start}
@@ -578,13 +579,19 @@ $('#rDay').addEventListener('change',()=>{$('#confirm').hidden=true;room();});
 $('#times').addEventListener('click',e=>{const b=e.target.closest('.time');if(!b||b.disabled)return;slot=+b.dataset.t;$('#confirm').hidden=true;room();});
 const pick=e=>{const g=e.target.closest('.t');if(!g||g.getAttribute('tabindex')!=='0')return;tSel=+g.dataset.n;$('#confirm').hidden=true;room();};
 $('#plan').addEventListener('click',pick);$('#plan').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e);}});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#resForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(tSel==null)return fail('Pick a table on the plan.');
   if(!nm)return fail('Add a name for the booking.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number in case we need to reach you.',$('#fPhone'));
-  err.hidden=true;const d=nights[+$('#rDay').value], c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, table ${tSel} is yours: ${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} at ${hhmm(slot)}.</b><span>On a live site you'd get a confirmation text, and a reminder the morning of.</span>`;c.hidden=false;});
+err.hidden=true;const d=nights[+$('#rDay').value], when=`${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${hhmm(slot)}`, guests=$('#rGuests').selectedOptions[0].text, note=$('#fNote').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"reservation",summary:`Table for ${guests} · ${when}`,fields:[['When',when],['Guests',guests],['Table',String(tSel)]].concat(note?[['Notes',note]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(when)} · table ${tSel}</b><span>We’ll text you to confirm, and remind you the morning of.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 room();
 
 /* ============ FIND US ============ */

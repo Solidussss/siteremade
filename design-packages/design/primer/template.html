@@ -142,6 +142,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A3271C;font-size:14px;font-weight:700}
 .confirm{border:2px solid var(--accent);background:var(--accent-soft);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.confirm small{font-size:12px;opacity:.75}
 .who{padding:clamp(22px,3vw,28px);display:grid;gap:14px}
 .who h3{font-size:28px}
 .who ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}
@@ -442,12 +443,19 @@ $('#tSlots').innerHTML=slots.map(([d,t],i)=>`<button type="button" aria-pressed=
 $('#tutors').innerHTML=TUTORS.map(t=>`<li><i>${esc(t.n.split(' ').map(w=>w[0]).join('').slice(0,2))}</i><span><b>${esc(t.n)}</b><span>${esc(t.does)}</span></span></li>`).join('');
 $('#tSubj').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;su=+b.dataset.i;press($('#tSubj'),b);$('#confirm').hidden=true;});
 $('#tSlots').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sl=+b.dataset.i;press($('#tSlots'),b);$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#trialForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   if(sl<0)return fail({{trial.errors.slot|js}},null);
   const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
   if(!nm)return fail({{trial.errors.name|js}},$('#fName'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{trial.errors.email|js}},$('#fEmail'));
-  err.hidden=true;const[d,t]=slots[sl], c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${esc(SUBJECTS[su].n)}, ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} at ${t}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+err.hidden=true;const[d,t]=slots[sl], when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${t}`, yr=$('#fYear').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"trial",summary:`Free ${SUBJECTS[su].n} lesson · ${when}`,fields:[['Subject',SUBJECTS[su].n],['When',when]].concat(yr?[['School year',yr]]:[]),contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(nm)} · ${esc(SUBJECTS[su].n)} · ${esc(when)}</b><span>${esc(WORDS.reply)}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 quote();
 })();

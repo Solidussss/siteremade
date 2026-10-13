@@ -150,6 +150,9 @@ h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,7vw,104px);li
 .confirm{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px 20px;background:var(--bg3);border-top:1px solid var(--line)}
 .confirm p{margin:0;font-size:15px;min-width:0}
 .confirm p span{color:var(--muted)}
+.confirm .who{display:flex;gap:8px;flex:1 1 300px;min-width:0}
+.confirm .who input{flex:1 1 120px;min-width:0;font:inherit;font-size:15px;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.confirm .err{flex-basis:100%;margin:0;font-size:13px;color:#ffb3a1}
 .done{padding:22px 20px;background:#13261a;border-top:1px solid #2f5a3c;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .done .code{font-family:var(--display);font-size:44px;line-height:1;letter-spacing:.04em}
 .done p{margin:0;font-size:14px;color:#bfe3c9;min-width:0;flex:1}
@@ -313,12 +316,14 @@ footer{background:var(--red);color:#fff;overflow:hidden}
       <div id="barbers"></div>
       <div class="confirm" id="confirm" hidden>
         <p id="cfTxt"></p>
+        <div class="who"><input id="cName" autocomplete="name" placeholder="Your name" aria-label="Your name"><input id="cPhone" type="tel" autocomplete="tel" placeholder="Mobile" aria-label="Mobile"></div>
         <button class="cta" id="cfBtn">Confirm</button>
+        <p class="err" id="cfErr" hidden></p>
       </div>
       <div class="done" id="done" hidden>
         <div class="code" id="dnCode">{{booking.refPrefix}}-0000</div>
         <p id="dnTxt"></p>
-        <span class="demo">Demo only · nothing was booked</span>
+        <span class="demo" id="dnTag">Request sent</span>
       </div>
     </div>
     <div class="info">
@@ -899,12 +904,21 @@ function showConfirm(){
   if(!chosen)return;$('#done').hidden=true;$('#confirm').hidden=false;
   $('#cfTxt').innerHTML=`<b>${chosen.b.n}</b>, ${dayLow} at <b>${fmtTime(chosen.t)}</b> <span>· ${svc.n} · ${svc.min} min · {{locale.currency|tl}}${svc.price}</span>`;
 }
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#cfBtn').addEventListener('click',()=>{
-  if(!chosen)return;setTaps(2);
-  const code='{{booking.refPrefix}}-'+String(Math.floor(1000+Math.random()*8999));
-  $('#dnCode').textContent=code;
-  $('#dnTxt').textContent=`You're in chair ${chosen.b.chair} with ${chosen.b.n}, ${dayLow} at ${fmtTime(chosen.t)}. Done by ${fmtTime(new Date(+chosen.t+svc.min*60000))}. We'd text a reminder an hour before.`;
-  $('#confirm').hidden=true;$('#done').hidden=false;
+  if(!chosen)return;
+  const nm=$('#cName').value.trim(), ph=$('#cPhone').value.trim(), err=$('#cfErr'), btn=$('#cfBtn'), fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  if(!nm)return fail('Add your name.',$('#cName'));
+  if(ph.replace(/\D/g,'').length<7)return fail('Add a mobile number so we can confirm.',$('#cPhone'));
+  err.hidden=true;btn.disabled=true;
+  const code='{{booking.refPrefix}}-'+String(Math.floor(1000+Math.random()*8999)), when=`${dayLabel} ${fmtTime(chosen.t)}`;
+  // the request goes to the shop under its code; they text to confirm the chair
+  send({kind:'booking',summary:`${code} · ${svc.n} · ${when} · ${chosen.b.n}`,fields:[['Code',code],['Cut',`${svc.n} · ${svc.min} min · ${$('#bkSvc').textContent.split(' · ').pop()}`],['When',when],['Barber',`${chosen.b.n}, chair ${chosen.b.chair}`]],contact:{name:nm,phone:ph}})
+    .then(pv=>{setTaps(2);$('#dnCode').textContent=code;$('#dnTag').textContent=pv&&pv.tag||'Request sent';
+      $('#dnTxt').textContent=`Chair ${chosen.b.chair} with ${chosen.b.n}, ${dayLow} at ${fmtTime(chosen.t)}. We’ll text you to confirm, and a reminder an hour before.${pv&&pv.note?' '+pv.note:''}`;
+      $('#confirm').hidden=true;$('#done').hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});
 });
 function liveBoard(){
   const now=new Date(),m=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;const oc=hours(now),hh=m/60;

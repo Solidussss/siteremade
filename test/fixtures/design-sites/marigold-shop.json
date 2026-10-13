@@ -259,9 +259,9 @@
     "piece": "piece",
     "pieces": "pieces",
     "empty": "Add something to your bag first.",
-    "sent": "Demo only · nothing was sent",
-    "reserved": "held for you to try on for 48 hours.",
-    "reply": "On a live site we would email you when it's ready on the rail."
+    "sent": "Request sent",
+    "reserved": "to try on in store.",
+    "reply": "We’ll email you when they’re on the rail, held for 48 hours."
   },
   "visit": {
     "eyebrow": "Visit",

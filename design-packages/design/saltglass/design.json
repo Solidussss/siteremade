@@ -2,7 +2,7 @@
   "name": "saltglass",
   "category": "dental clinic",
   "reference": "reference/saltglass-original.html",
-  "referenceSha256": "bd52a99d77a4b4c2f072825e723ef7eb125e74263b8fba3b977f13ebab089c8c",
+  "referenceSha256": "14ccfbcb2a7a08f2558698eca8a4d9a7f67d1d5d78be2662b66105c1b8dfb82f",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -24,7 +24,7 @@
     "Write the six stages for that subject, keeping the order (backdrop, key, fill, rim, background, the frame).",
     "sessions.kinds: the brief's kinds of shoot (one to four), each with one to three packages exactly as priced in the brief: name, price, time, photos delivered, up to five inclusions and an optional short tag on the one most booked. Use from: true only when the brief says 'from'. sessions.start picks the kind and package shown first.",
     "process: the brief's steps from enquiry to gallery with when each happens; delivers: up to three short numbers that matter (48 h, 2 weeks). Never promise delivery times the brief doesn't give.",
-    "book.lead: how far ahead a date can be held, in days; book.closed: days the photographer never shoots. The calendar is a demo: nothing is held.",
+    "book.lead: how far ahead a date can be held, in days; book.closed: days the photographer never shoots. The calendar sends a real request: the photographer replies to confirm and hold the date. Never say a date is held or booked.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); the section titles have an italic second half (titleEm). theme.accent is one strong colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

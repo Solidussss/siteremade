@@ -218,6 +218,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .err{color:var(--bad);font-weight:600;font-size:14px}
 .confirm{border:1.5px solid var(--good);background:#eef6f1;padding:16px;border-radius:3px;display:grid;gap:6px}
 .confirm .tag{font:600 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--good)}
+.confirm small{font-size:12px;opacity:.75}
 
 /* footer */
 footer{background:var(--slate);color:var(--chalk);padding:clamp(60px,8vw,110px) var(--gut) calc(28px + env(safe-area-inset-bottom,0px));overflow:hidden}
@@ -999,15 +1000,21 @@ function drawSlots(){const d=days[dSel], sl=slotsFor(d);if(sSel===null||!sl.incl
 function summary(){const d=days[dSel];$('#summary').innerHTML=sSel?`<b>${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${sSel}</b> · ${VISIT} · free`:'That day is full. Pick another.';}
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;drawDays();drawSlots();$('#confirm').hidden=true;});
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b||b.disabled)return;sSel=b.dataset.t;drawSlots();$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+const esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const addr=$('#fAddr').value.trim(), nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   if(!addr)return fail('Add the street address so we know which roof.',$('#fAddr'));
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number we can text the day before.',$('#fPhone'));
   if(!sSel)return fail('Pick a day with an open window.');
-  err.hidden=true;const d=days[dSel];const c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was sent</span><b>${nm.replace(/[<>&]/g,'')}, you're pencilled in for ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${sSel}.</b><span>{{book.note|esc|tl}}</span>`;
-  c.hidden=false;});
+err.hidden=true;const d=days[dSel], when=`${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${sSel}`, est=$('#footOut').textContent.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`Roof inspection · ${when} · ${addr}`,fields:[['When',when],['Address',addr],['Roof age',$('#fAge').selectedOptions[0].text],['Why',$('#fWhy').selectedOptions[0].text]].concat(est?[['Estimator',est]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(when)}</b><span>{{book.note|esc|tl}}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 drawDays();drawSlots();
 })();
 </script>

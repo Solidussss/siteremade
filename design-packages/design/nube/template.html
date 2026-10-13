@@ -229,6 +229,8 @@ legend { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-
 .chips input:disabled + span { opacity: .35; cursor: not-allowed; }
 .namefield { display: grid; gap: 8px; }
 .namefield label { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.namefield.ph input { font: inherit; font-size: 18px; padding: 12px 16px; }
+.o-card .err { color: var(--tomato, #c0392b); font-size: 14px; margin: 0; }
 .namefield input { font-family: var(--hand); font-size: 30px; padding: 6px 16px; border-radius: 14px; border: 0; background: var(--card-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .o-submit { justify-content: center; font-size: 17px; padding: 18px; background: var(--accent); color: var(--accent-ink); }
 .note { font-size: 13px; color: var(--dim); text-align: center; }
@@ -371,9 +373,11 @@ footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px
           <label><input type="radio" name="milk" value="Whole" checked><span>{{order.milks.0}}</span></label>
           <label><input type="radio" name="milk" value="Oat"><span>{{order.milks.1}} +{{$.milkExtra}}</span></label>
           <label><input type="radio" name="milk" value="Almond"><span>{{order.milks.2}} +{{$.milkExtra}}</span></label></div></fieldset>
-        <div class="namefield"><label for="oName">Name for the cup</label><input id="oName" type="text" maxlength="18" autocomplete="off" placeholder="Sam"></div>
+        <div class="namefield"><label for="oName">Name for the cup</label><input id="oName" type="text" maxlength="18" autocomplete="given-name" placeholder="Sam"></div>
+        <div class="namefield ph"><label for="oPhone">Phone, for the text</label><input id="oPhone" type="tel" autocomplete="tel" placeholder="(415) 555 0134"></div>
         <button class="btn o-submit" type="submit" id="oBtn">Place order · {{$.price2}}</button>
-        <p class="note">Demo only. No real order is placed.</p>
+        <p class="err" id="oErr" hidden></p>
+        <p class="note">Pay when you pick it up.</p>
       </form>
       <div class="ticket" id="ticket" hidden>
         <p class="eyebrow" id="tNum">Order #128</p>
@@ -760,21 +764,28 @@ footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px
   }
   form.addEventListener('change', orderState); orderState();
   let orderNo = 127, orderTimer = null;
+  // on the live site a request goes to the business; a preview shows it and says it wasn't sent
+  function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
   form.addEventListener('submit', e => {
-    e.preventDefault(); const { d } = orderState();
-    const name = $('#oName').value.trim() || 'Sam';
-    $('#tName').textContent = name; $('#tNum').textContent = `Order #${++orderNo} · ${d.name}`;
-    $('#tMilkStep').textContent = d.hot ? (d === DRINKS[0] ? 'Checking the crema' : 'Steaming milk') : 'Shaking over ice';
-    form.hidden = true; const t = $('#ticket'); t.hidden = false;
-    if (!reduce) t.animate([{ transform: 'scale(.92) rotate(-2deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 600, easing: 'cubic-bezier(.34,1.56,.64,1)' });
-    const steps = $$('#tSteps li'), ring = $('#tRing'), tt = $('#tTime'), T0 = performance.now(), DUR = 6000;
-    clearInterval(orderTimer);
-    orderTimer = setInterval(() => {
-      const p = clamp((performance.now() - T0) / DUR); ring.style.strokeDashoffset = 100 - p * 100;
-      const left = Math.ceil(240 * (1 - p)); tt.textContent = p >= 1 ? 'Ready' : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-      steps.forEach((s, i) => s.classList.toggle('done', p >= [0, .25, .55, 1][i]));
-      if (p >= 1) clearInterval(orderTimer);
-    }, 50);
+    e.preventDefault(); const { d, size, milk, price } = orderState();
+    const name = $('#oName').value.trim(), phone = $('#oPhone').value.trim(), err = $('#oErr'), btn = $('#oBtn');
+    const say = (m, el) => { err.textContent = m; err.hidden = false; if (el) el.focus(); };
+    if (!name) return say('Add a name for the cup.', $('#oName'));
+    if (phone.replace(/\D/g, '').length < 7) return say('Add a phone number so we can text you when it’s ready.', $('#oPhone'));
+    err.hidden = true;
+    const no = ++orderNo, sz = form.querySelector('input[name="size"]:checked').nextElementSibling.textContent, mk = form.querySelector('input[name="milk"]:checked').nextElementSibling.textContent.replace(/\s*\+.*$/, '');
+    // the order goes to the café with its number; they make it and text when it's on the shelf (nothing here pretends to time it)
+    btn.disabled = true;
+    send({ kind: 'order', summary: `#${no} · ${d.name}, ${sz}, ${mk} · ${money(price)}`, fields: [['Order', '#' + no], ['Drink', d.name], ['Size', sz], ['Milk', mk], ['Price', money(price)]], contact: { name, phone } })
+      .then(pv => {
+        $('#tName').textContent = name; $('#tNum').textContent = `Order #${no} · ${d.name}`;
+        $('#tMilkStep').textContent = d.hot ? (d === DRINKS[0] ? 'Checking the crema' : 'Steaming milk') : 'Shaking over ice';
+        $('#tTime').textContent = pv && pv.tag ? 'Preview' : 'Sent'; $('#tRing').style.strokeDashoffset = 75;
+        $$('#tSteps li').forEach((s, i) => s.classList.toggle('done', i === 0));
+        form.hidden = true; const t = $('#ticket'); t.hidden = false;
+        if (!reduce) t.animate([{ transform: 'scale(.92) rotate(-2deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 600, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+      })
+      .catch(x => say(x.message, null)).finally(() => { btn.disabled = false; });
   });
   $('#tAgain').addEventListener('click', () => { clearInterval(orderTimer); $('#ticket').hidden = true; form.hidden = false; });
 

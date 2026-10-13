@@ -128,6 +128,8 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .spot{margin-top:18px;padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
 .spot p{font-size:16px}
 .spot p b{font-family:var(--f-display);font-weight:400;font-size:24px}
+.spot .who{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 300px}
+.spot .who input{flex:1 1 140px;min-width:0;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:11px 16px;font-size:15px}
 .spot .msg{font-size:14px;color:var(--accent-text);font-weight:600}
 
 /* passes */
@@ -228,7 +230,7 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
     </div>
     <div class="tt-top"><div class="chips" id="types" role="group" aria-label="Type of class"></div><span class="lbl" id="ttNote">{{timetable.note}}</span></div>
     <div class="week" id="week"></div>
-    <div class="panel spot" id="spot"><p id="spotText">{{timetable.prompt}}</p><a class="btn" href="#prices" id="spotGo">{{timetable.cta}}</a></div>
+    <div class="panel spot" id="spot"><p id="spotText">{{timetable.prompt}}</p><div class="who" id="spotWho" hidden><input id="sName" autocomplete="name" placeholder="Your name" aria-label="Your name"><input id="sPhone" type="tel" autocomplete="tel" placeholder="Mobile" aria-label="Mobile"></div><a class="btn" href="#prices" id="spotGo">{{timetable.cta}}</a></div>
   </div>
 </section>
 
@@ -397,8 +399,18 @@ function week(){$('#week').innerHTML=DAYS.map((d,di)=>{const date=new Date(monda
   return `<div class="dayc"><h3>${d}<b>${date.getDate()}</b></h3>${cls.map(({c,i})=>{const left=c.cap-c.taken;return `<button type="button" class="cls${filter>=0&&c.k!==filter?' dim':''}" style="--c:${COLS[c.k%COLS.length]}" data-i="${i}" aria-pressed="${i===picked}"${left<=0?' disabled':''}><span class="t">${esc(c.t)} · ${c.len} min</span><b>${esc(TYPES[c.k])}</b><small>${esc(c.who)} · ${esc(c.level)}</small><span class="left${left<=0?' full':''}">${left<=0?'Full · waitlist':left===1?`1 ${SPACE.one} left`:`${left} ${SPACE.many} left`}</span></button>`;}).join('')}</div>`;}).join('');}
 $('#types').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;filter=+b.dataset.k;press($('#types'),b);week();});
 $('#week').addEventListener('click',e=>{const b=e.target.closest('.cls');if(!b||b.disabled)return;picked=+b.dataset.i;week();const c=WEEK[picked], left=c.cap-c.taken;
-  $('#spotText').innerHTML=`<b>${esc(TYPES[c.k])}</b> · ${DAYS[c.d]} ${esc(c.t)} with ${esc(c.who)}. ${left===1?`The last ${SPACE.one}.`:`${left} ${SPACE.many} left.`}`;$('#spotGo').textContent=`Save my ${SPACE.one}`;});
-$('#spotGo').addEventListener('click',e=>{if(picked<0)return;e.preventDefault();const c=WEEK[picked];$('#spotText').innerHTML=`<span class="msg">Demo only · nothing was booked.</span> On a live site your ${SPACE.one} for ${esc(TYPES[c.k].toLowerCase())} on ${DAYS[c.d]} would be saved and a reminder sent.`;});
+  $('#spotText').innerHTML=`<b>${esc(TYPES[c.k])}</b> · ${DAYS[c.d]} ${esc(c.t)} with ${esc(c.who)}. ${left===1?`The last ${SPACE.one}.`:`${left} ${SPACE.many} left.`}`;$('#spotGo').textContent=`Save my ${SPACE.one}`;$('#spotWho').hidden=false;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+$('#spotGo').addEventListener('click',e=>{if(picked<0)return;e.preventDefault();const c=WEEK[picked], go=$('#spotGo'), say=h=>{$('#spotText').innerHTML=h;};
+  const nm=$('#sName').value.trim(), ph=$('#sPhone').value.trim();
+  if(!nm){$('#sName').focus();return say(`<span class="msg">Add your name to save the ${esc(SPACE.one)}.</span>`);}
+  if(ph.replace(/\D/g,'').length<7){$('#sPhone').focus();return say('<span class="msg">Add a mobile number for the reminder.</span>');}
+  if(go.dataset.busy)return;go.dataset.busy='1';
+  // the studio gets the request and confirms it; the page says so only once it has gone
+  send({kind:'booking',summary:`${TYPES[c.k]} · ${DAYS[c.d]} ${c.t} · ${c.who}`,fields:[['Class',TYPES[c.k]],['When',`${DAYS[c.d]} ${c.t}`],['Teacher',c.who]],contact:{name:nm,phone:ph}})
+    .then(pv=>{say(`<span class="msg">${esc(pv&&pv.tag||'Request sent')}</span> ${esc(nm)}: a ${esc(SPACE.one)} for ${esc(TYPES[c.k].toLowerCase())}, ${DAYS[c.d]} ${esc(c.t)}. We’ll text you to confirm, and remind you before class.${pv&&pv.note?` <small>${esc(pv.note)}</small>`:''}`);$('#spotWho').hidden=true;})
+    .catch(x=>say(`<span class="msg">${esc(x.message)}</span>`)).finally(()=>{delete go.dataset.busy;});});
 
 /* ============ PRICES ============ */
 const PASSES=[

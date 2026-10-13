@@ -233,8 +233,8 @@
     "yearExample": "Year 9",
     "cta": "Book the free lesson",
     "words": {
-      "sent": "Demo only · nothing was sent",
-      "reply": "On a live site we would email you to confirm and match a tutor."
+      "sent": "Request sent",
+      "reply": "We’ll email you to confirm and match a tutor."
     },
     "errors": {
       "slot": "Pick a time for the free lesson.",

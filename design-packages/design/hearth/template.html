@@ -150,6 +150,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A3271C;font-size:14px;font-weight:700}
 .confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.confirm small{font-size:12px;opacity:.75}
 
 /* nearby */
 .near{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:22px;align-items:start}
@@ -535,12 +536,19 @@ $('#days').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
   else{const N=nightsOf(a,d);if(N.some(x=>taken(x,rm))){note.textContent=WORDS.taken;return;}if(N.some(x=>[5,6].includes(x.getDay()))&&N.length<MIN_WEEKEND){note.textContent=WORDS.min;return;}z=d;note.textContent=WORDS.pick;}
   $('#confirm').hidden=true;cal();stay();});
 $('#prev').addEventListener('click',()=>{if(mo>0){mo--;cal();}});$('#next').addEventListener('click',()=>{if(mo<5){mo++;cal();}});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#stayForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   if(!a||!z)return fail({{dates.errors.nights|js}},null);
   const nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
   if(!nm)return fail({{dates.errors.name|js}},$('#fName'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{dates.errors.email|js}},$('#fEmail'));
-  err.hidden=true;const c=$('#confirm');c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}: ${esc(ROOMS[rm].n)}, ${esc($('#sIn').textContent)} to ${esc($('#sOut').textContent)}, ${esc($('#sTotal').textContent)}.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+err.hidden=true;const stayIn=$('#sIn').textContent, stayOut=$('#sOut').textContent, total=$('#sTotal').textContent;
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`${ROOMS[rm].n} · ${stayIn} to ${stayOut} · ${total}`,fields:[['Room',ROOMS[rm].n],['Arriving',stayIn],['Leaving',stayOut],['Nights',$('#sNights').textContent],['Total',total]],contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(nm)} · ${esc(ROOMS[rm].n)} · ${esc(stayIn)} to ${esc(stayOut)} · ${esc(total)}</b><span>${esc(WORDS.reply)}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 /* ============ NEARBY ============ */
 // places within a walk: name, a line, minutes on foot, and which way (degrees from north)

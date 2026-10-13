@@ -27,7 +27,7 @@
     "rooms.list: the brief's rooms exactly (prices, beds, who they sleep), each with a short line and two colours that suit it (soft wall colour, a stronger throw).",
     "key: rooms count, check-in time, breakfast hours and minutes to town, short enough to fit (up to nine characters each). sign: one or two places at the corner with their minutes. stay.clock is 12h in the US, otherwise 24h.",
     "stages: the six steps of a night in this place, in its own voice: arriving at dusk, checking in, your room, lights out, breakfast, out for the day.",
-    "dates: what a Friday or Saturday night adds (0 if nothing) and the fewest nights for a weekend stay, from the brief. The request is a demo: nothing is sent.",
+    "dates: what a Friday or Saturday night adds (0 if nothing) and the fewest nights for a weekend stay, from the brief. The request really sends: the request goes to the house, who confirm it. Never say it is booked, paid or confirmed.",
     "nearby: three to six places from the brief with minutes on foot and which way they lie (degrees from north, roughly), and two rings for the map (e.g. 5 and 10 minutes).",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); section titles have a second half. theme.accent is the house's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."

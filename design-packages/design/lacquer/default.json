@@ -163,8 +163,8 @@
     "anyone": "Anyone",
     "pickFirst": "Add a treatment to see times.",
     "full": "Fully booked",
-    "sent": "Demo only · nothing was sent",
-    "reply": "On a live site we would text you to confirm."
+    "sent": "Request sent",
+    "reply": "We’ll text you to confirm your time."
   },
   "shades": {
     "eyebrow": "Shades",

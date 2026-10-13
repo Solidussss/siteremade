@@ -151,6 +151,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:var(--accent-text);font-size:14px;font-weight:700}
 .confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:3px;padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--bone-2)}
+.confirm small{font-size:12px;opacity:.75}
 
 /* aftercare */
 .care{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:0;border-top:1px solid var(--line)}
@@ -569,13 +570,19 @@ function quote(){const e=est();$('#qPrice').textContent=e.lo===e.hi?money(e.lo):
   $('#qDep').textContent=money(RATE.deposit);}
 const pick=(id,set)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;set(+b.dataset.i);press($(id),b);$('#confirm').hidden=true;quote();});
 pick('#sizes',i=>{sz=i;});pick('#places',i=>{pl=i;});pick('#artists',i=>{ar=i;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const idea=$('#fIdea').value.trim(), nm=$('#fName').value.trim(), em=$('#fEmail').value.trim();
   if(idea.length<8)return fail({{book.errors.idea|js}},$('#fIdea'));
   if(!nm)return fail({{book.errors.name|js}},$('#fName'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return fail({{book.errors.email|js}},$('#fEmail'));
-  err.hidden=true;const c=$('#confirm');
-  c.innerHTML=`<span class="tag">${esc(WORDS.sent)}</span><b>${esc(nm)}, your idea is with ${esc(ARTISTS[ar].n)}. ${esc($('#qPrice').textContent)}, ${esc(money(RATE.deposit))} to book.</b><span>${esc(WORDS.reply)}</span>`;c.hidden=false;});
+err.hidden=true;const what=picked>=0?`${FLASH[picked].n} (flash, ${FLASH[picked].size})`:`${SIZES[sz].n} · ${PLACES[pl].n}`, quote=$('#qPrice').textContent;
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"quote",summary:`${what} · ${ARTISTS[ar].n}`,fields:[['Idea',idea],['Tattoo',what],['Artist',ARTISTS[ar].n],['Estimate',quote],['Deposit to book',money(RATE.deposit)]],contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||WORDS.sent)}</span><b>${esc(nm)} · ${esc(ARTISTS[ar].n)} · ${esc(quote)}</b><span>${esc(WORDS.reply)}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 /* ============ AFTERCARE ============ */
 const CARE=[

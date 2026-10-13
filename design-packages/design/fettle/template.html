@@ -188,6 +188,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:var(--urgent);font-size:14px;font-weight:600}
 .confirm{border-radius:12px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .sos{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px;background:var(--ink);color:#fff;border:0}
 .sos h3{font-size:28px}
 .sos p{color:rgba(255,255,255,.75);font-size:15px}
@@ -644,13 +645,19 @@ const slots=[];for(let d=0;slots.length<6&&d<6;d++){const day=new Date();day.set
 let sSel=0;
 function drawSlots(){$('#slots').innerHTML=slots.map((s,i)=>`<button type="button" class="slot" aria-pressed="${i===sSel}" data-i="${i}"><b>${DOW[s.day.getDay()]} ${s.day.getDate()} ${MON[s.day.getMonth()]}</b><span>${esc(s.w)}</span></button>`).join('');}
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b)return;sSel=+b.dataset.i;drawSlots();$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,''), ad=$('#fAddr').value.trim();
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number so the engineer can text you.',$('#fPhone'));
   if(!ad)return fail('Add the address for the visit.',$('#fAddr'));
-  err.hidden=true;const s=slots[sSel], v=$('#bJob').value, c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, you're booked for ${DOW[s.day.getDay()]} ${s.day.getDate()} ${MON[s.day.getMonth()]}, ${esc(s.w)}${v==='other'?'':', '+esc(PROBLEMS[+v].n.toLowerCase())}.</b><span>On a live site you'd get a text with the engineer's name and a live ETA on the day.</span>`;c.hidden=false;});
+err.hidden=true;const s=slots[sSel], v=$('#bJob').value, job=v==='other'?'Something else':PROBLEMS[+v].n, when=`${DOW[s.day.getDay()]} ${s.day.getDate()} ${MON[s.day.getMonth()]}, ${s.w}`, note=$('#fNote').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`${job} · ${when}`,fields:[['Job',job],['When',when],['Address',ad]].concat(note?[['Notes',note]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(job)} · ${esc(when)}</b><span>We’ll text you to confirm, with the engineer’s name and a live ETA on the day.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 drawSlots();
 })();
 </script>

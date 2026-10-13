@@ -154,6 +154,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A3271E;font-size:14px;font-weight:700}
 .confirm{background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:700 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .hours{padding:clamp(22px,3vw,28px);display:grid;gap:12px;position:sticky;top:90px}
 .hours h3{font-size:30px}
 .hours dl{margin:0}
@@ -526,13 +527,19 @@ $('#days').innerHTML=days.map((x,i)=>`<button type="button" class="day" aria-pre
 function order(){const v=$('#fWhat').value;$('#fWhat').innerHTML=TODAY.map((b,i)=>`<option value="b${i}">${esc(b.n)} · ${money(b.p)}</option>`).join('')+`<option value="cake">${esc(CAKE)} · ${money(price())}</option>`;if(v)$('#fWhat').value=v;}
 $('#qOrder').addEventListener('click',()=>{$('#fWhat').value='cake';});
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#orderForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,''), what=$('#fWhat').value, d=days[dSel];
   if(what==='cake'&&d.ahead<SIZES[sz].notice)return fail(`This cake needs ${SIZES[sz].notice} days' notice: pick a later day.`);
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number in case we need to check anything.',$('#fPhone'));
-  err.hidden=true;const label=what==='cake'?`${CAKE.toLowerCase()} (${SIZES[sz].n}, ${SPONGES[sp].n.toLowerCase()})`:TODAY[+what.slice(1)].n.toLowerCase(), c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was ordered</span><b>${esc(nm)}, your ${esc(label)} will be ready on ${DOW[d.day.getDay()]} ${d.day.getDate()} ${MON[d.day.getMonth()]}.</b><span>On a live site you'd get a text to confirm, and pay when you collect.</span>`;c.hidden=false;});
+err.hidden=true;const label=what==='cake'?`${CAKE} (${SIZES[sz].n}, ${SPONGES[sp].n})`:TODAY[+what.slice(1)].n, when=`${DOW[d.day.getDay()]} ${d.day.getDate()} ${MON[d.day.getMonth()]}`, note=$('#fNote').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"order",summary:`${label} · collect ${when}`,fields:[['Order',label],['Collect',when]].concat(note?[['Notes',note]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(label)} · ${esc(when)}</b><span>We’ll text you to confirm. Pay when you collect.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 quote();
 })();

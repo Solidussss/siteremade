@@ -218,6 +218,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .err{color:var(--lost);font-size:14px;font-weight:600}
 .confirm{border-radius:12px;background:var(--brand-soft);padding:16px 18px;display:grid;gap:6px;border:1px solid {{A:rgba(110,86,255,.3)}}}
 .confirm .tag{font:600 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--brand-text)}
+.confirm small{font-size:12px;opacity:.75}
 .preview{position:sticky;top:90px;border-radius:18px;background:var(--night);color:#fff;overflow:hidden;box-shadow:0 30px 70px -30px rgba(11,14,26,.7)}
 .preview .bar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);font:500 12px var(--f-mono);color:rgba(255,255,255,.55)}
 .preview .bar i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18)}
@@ -771,13 +772,20 @@ $('#wName').addEventListener('input',()=>{if(!slugTouched)$('#wSlug').value=slug
 $('#wSlug').addEventListener('input',()=>{slugTouched=true;const v=slugify($('#wSlug').value);if(v!==$('#wSlug').value&&!/-$/.test($('#wSlug').value))$('#wSlug').value=v;preview();});
 $('#picks').addEventListener('click',e=>{const b=e.target.closest('.tool');if(!b)return;const n=b.dataset.n;picked.has(n)?picked.delete(n):picked.add(n);b.setAttribute('aria-pressed',String(picked.has(n)));preview();});
 $('#size').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;size=+b.dataset.i;press($('#size'),b);preview();});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+const esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 $('#startForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const name=$('#wName').value.trim(), slug=slugify($('#wSlug').value||name), mail=$('#wMail').value.trim();
   if(!name)return fail('Give the workspace a name.',$('#wName'));
   if(slug.length<3)return fail('The address needs at least three letters or numbers.',$('#wSlug'));
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail))return fail('Add a work email so we can send the invite.',$('#wMail'));
-  err.hidden=true;const c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was created</span><b>${HOST}${slug} is yours.</b><span>On a live site we'd email ${mail.replace(/[<>&]/g,'')} a link to connect ${picked.size||'your'} tool${picked.size===1?'':'s'} and invite the team.</span>`;c.hidden=false;});
+err.hidden=true;const tools=[...picked];
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"trial",summary:`Workspace ${HOST}${slug} · ${SIZES[size]}`,fields:[['Workspace',name],['Address',HOST+slug],['Team size',SIZES[size]],['Tools',tools.join(', ')||'None picked']],contact:{name:name,email:mail}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(HOST+slug)}</b><span>We’ll email ${esc(mail)} a link to set it up, connect ${tools.length||'your'} tool${tools.length===1?'':'s'} and invite the team.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 preview();
 })();
 </script>

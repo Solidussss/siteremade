@@ -25,7 +25,7 @@
     "till: the four labels, the size range the shop stocks and its returns window from the brief.",
     "shop.items: the brief's pieces exactly (names, prices, colours, sizes and sold-out sizes), each drawn as the nearest kind. shop.free is the brief's free-delivery threshold (0 if delivery is always free).",
     "visit: opening hours exactly as the brief gives them (null for closed), day names in the shop's language from Sunday, and styling-hour start times inside the opening hours (or the shop's usual quiet times).",
-    "No made-up reviews, discounts or stock claims. Reserving and booking are demos: nothing is sent.",
+    "No made-up reviews, discounts or stock claims. Reserving and booking really send: the request goes to the shop, who confirm it (words.sent says it was sent, words.reserved and words.reply what the shop does next). Never say pieces are held or a time is booked before the shop replies.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part in italics); section titles have a second half. theme.accent is the shop's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

@@ -335,6 +335,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 .summary b{color:var(--ink)}
 .confirm{border:1.5px solid var(--accent);padding:16px;display:grid;gap:6px;background:color-mix(in srgb,var(--accent) 8%,var(--sheet))}
 .confirm .tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.confirm small{font-size:12px;opacity:.75}
 .err{color:#B4442E;font-size:13.5px}
 @media (max-width:860px){.show-grid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:520px){.fields{grid-template-columns:minmax(0,1fr)}.days{gap:4px}.day b{font-size:17px}.day small{font-size:9.5px;letter-spacing:.02em}}
@@ -900,13 +901,18 @@ function summary(){const d=days[selDay];$('#summary').innerHTML=selSlot?`<b>${DO
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;selDay=+b.dataset.i;drawDays();drawSlots();$('#confirm').hidden=true});
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b||b.disabled)return;selSlot=b.dataset.t;drawSlots();$('#confirm').hidden=true});
 $('#type').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;selType=b.dataset.t;[...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));summary()});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+const esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 $('#book').addEventListener('submit',e=>{e.preventDefault();const nm=$('#fName').value.trim(), em=$('#fMail').value.trim(), err=$('#err');
   if(!nm){err.textContent={{$.nameErr|js}};err.hidden=false;$('#fName').focus();return}
   if(!/^\S+@\S+\.\S+$/.test(em)){err.textContent='Add an email like name@example.com so the confirmation has somewhere to go.';err.hidden=false;$('#fMail').focus();return}
   if(!selSlot){err.textContent='Pick an open time first.';err.hidden=false;return}
-  err.hidden=true;const d=days[selDay];const c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was sent</span><b>${nm.replace(/[<>&]/g,'')}, you're pencilled in for ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()} at ${selSlot}.</b><span>${selType==='Video'?{{showing.videoNote|js}}:{{showing.inPersonNote|js}}} {{showing.bring|tl}}</span>`;
-  c.hidden=false;});
+  err.hidden=true;const d=days[selDay], when=`${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}, ${selSlot}`, c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the agent, who confirm the showing
+  send({kind:'booking',summary:`${selType} showing · ${when}`,fields:[['Showing',`${selType} · 30 min`],['When',when],['Financing',$('#fFin').value],['People coming',$('#fPpl').value]],contact:{name:nm,email:em}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(when)} · ${esc(selType)}</b><span>${selType==='Video'?{{showing.videoNote|js}}:{{showing.inPersonNote|js}}} {{showing.bring|tl}}</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>{err.textContent=x.message;err.hidden=false;}).finally(()=>{btn.disabled=false;});});
 drawDays();drawSlots();
 })();
 </script>

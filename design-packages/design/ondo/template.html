@@ -459,6 +459,9 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
       <label for="rsColour">Colourway
         <select id="rsColour"></select>
       </label>
+      <label for="rsName">Name
+        <input id="rsName" required placeholder="Your name" autocomplete="name">
+      </label>
       <label for="rsEmail">Email
         <input id="rsEmail" type="email" required placeholder="you@example.com" autocomplete="email">
       </label>
@@ -1171,12 +1174,19 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   });
   vol.addEventListener('input', calcBattery); daily.addEventListener('input', calcBattery);
 
-  /* ================= reserve (demo) ================= */
+  /* ================= reserve: the request goes to the brand ================= */
+  // on the live site a request goes to the business; a preview shows it and says it wasn't sent
+  function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
   $('#reserveForm').addEventListener('submit', e => {
     e.preventDefault();
-    const c = COLOURS.find(x => x.id === rsColour.value);
+    const c = COLOURS.find(x => x.id === rsColour.value), name = $('#rsName').value.trim(), mail = $('#rsEmail').value.trim(), btn = e.target.querySelector('[type="submit"]');
     const out = $('#rsDone'); out.hidden = false;
-    out.textContent = `Demo only. A ${c.name} pair would be held for ${$('#rsEmail').value}. Nothing was sent or charged.`;
+    if (!name) { out.textContent = 'Add your name.'; $('#rsName').focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { out.textContent = 'Add an email so we can confirm.'; $('#rsEmail').focus(); return; }
+    btn.disabled = true; out.textContent = 'Sending…';
+    send({ kind: 'reservation', summary: `A ${c.name} pair · ${$('.reserve .price').textContent}`, fields: [['Colourway', c.name], ['Price', $('.reserve .price').textContent]], contact: { name, email: mail } })
+      .then(pv => { out.textContent = `${pv && pv.tag || 'Request sent'}. We’ll email ${mail} to confirm your ${c.name} pair. You pay nothing until it ships.${pv && pv.note ? ' ' + pv.note : ''}`; })
+      .catch(x => { out.textContent = x.message; }).finally(() => { btn.disabled = false; });
   });
 
   /* ================= boot ================= */

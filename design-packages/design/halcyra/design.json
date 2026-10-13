@@ -2,7 +2,7 @@
   "name": "halcyra",
   "category": "fragrance",
   "reference": "reference/halcyra-original.html",
-  "referenceSha256": "60406dc108e57afb37167113c70eeafd0b03d3c279adfdf3edabc09ec4455806",
+  "referenceSha256": "65d3fd87b6b3b67b24b06394c331f7746096bc6cc49d9c263ab1e9f77a04e4d1",
   "template": "template.html",
   "schema": "schema.json",
   "tables": "tables.json",

@@ -1157,12 +1157,18 @@ function updTicket(){const q=quote();$('#tPkg').textContent=q.p.n;$('#tMeta').te
   else{let r=addWork(d,q.days-1+(s[2]==='keysafe'?1:0));const w=WEEK[r.getDay()];if(w.c>1440&&hm(HOURS.ready)<w.o)r=nextDay(r);col=`${fd(r)}, ${HOURS.readyWord} ${HOURS.ready}`;}
   $('#tCol').textContent=col;}
 $('#qBook').addEventListener('click',()=>{renderSlots();});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+const esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const f=e.target,err=$('#fErr'),done=$('#fDone');
   const miss=[];if(!f.name.value.trim())miss.push('your name');if(!f.reg.value.trim())miss.push({{booking.vehicleNoun|js}});if(f.tel.value.replace(/\D/g,'').length<10)miss.push('a mobile number with 10+ digits');
   if(bk.slot==null)miss.unshift('a drop-off slot');
   if(miss.length){err.hidden=false;err.textContent='Add '+miss.join(', ')+' to hold the slot.';done.hidden=true;return;}
-  err.hidden=true;const ref={{booking.refPrefix|js}}+(1000+Math.floor(Math.random()*9000));
-  done.hidden=false;done.innerHTML=`<b>DEMO ONLY</b><br>Nothing was booked and no text will be sent. In the live version, ${f.reg.value.toUpperCase().trim()} would be held for ${$('#tDrop').textContent} under reference ${ref}.`;});
+  err.hidden=true;const ref={{booking.refPrefix|js}}+(1000+Math.floor(Math.random()*9000)), reg=f.reg.value.toUpperCase().trim(), drop=$('#tDrop').textContent, btn=f.querySelector('[type=submit]');btn.disabled=true;done.hidden=true;
+  // the request goes to the studio under its reference; they text to confirm the slot
+  send({kind:'booking',summary:`${ref} · ${reg} · ${$('#tPkg').textContent} · drop-off ${drop}`,fields:[['Reference',ref],['Registration',reg],['Package',$('#tPkg').textContent],['Vehicle',$('#tMeta').textContent],['Drop-off',drop],['Ready',$('#tCol').textContent]],contact:{name:f.name.value.trim(),phone:f.tel.value.trim()}})
+    .then(pv=>{done.hidden=false;done.innerHTML=`<b>${esc((pv&&pv.tag||'Request sent').toUpperCase())}</b><br>We’ll text you to confirm ${esc(reg)} for ${esc(drop)}, reference ${ref}.${pv&&pv.note?`<br><small>${esc(pv.note)}</small>`:''}`;})
+    .catch(x=>{err.hidden=false;err.textContent=x.message;}).finally(()=>{btn.disabled=false;});});
 
 buildMatrix();updQuote();updCoat();renderSlots();
 })();

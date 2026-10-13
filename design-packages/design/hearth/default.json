@@ -164,8 +164,8 @@
       "taken": "One of those nights is taken. Try other dates.",
       "night": "night",
       "nights": "nights",
-      "sent": "Demo only · nothing was sent",
-      "reply": "On a live site we would email you to confirm within a few hours."
+      "sent": "Request sent",
+      "reply": "We’ll email you to confirm within a few hours."
     },
     "labels": {
       "arrive": "Arrive",

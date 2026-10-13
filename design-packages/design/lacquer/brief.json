@@ -27,7 +27,7 @@
     "count: minutes the set takes, the coats, how long it lasts, and the four labels; keep them honest for the treatment shown.",
     "menu: the brief's treatments exactly (minutes and prices), grouped into up to four tabs (hands, feet, extras, spa).",
     "shades: four to twelve shades from the brief (or classic shades that fit its style), each with a colour, finish and kind of polish; the names shown for shapes and finishes in the studio's language.",
-    "book: opening hours exactly as the brief gives them (null for closed days), technicians (or one entry for the owner) and the deposit (0 if none). The form is a demo: nothing is sent.",
+    "book: opening hours exactly as the brief gives them (null for closed days), technicians (or one entry for the owner) and the deposit (0 if none). The booking form really sends: the request goes to the studio, who confirm it. words.sent says it was sent (e.g. \"Request sent\"); words.reply says what happens next in the studio's voice (e.g. \"We'll text you to confirm your time.\"). Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part is set in italics); section titles have a second half. theme.accent is the studio's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

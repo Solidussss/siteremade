@@ -495,7 +495,7 @@ footer{background:var(--rubber);padding:clamp(48px,7vw,90px) var(--gut) calc(28p
       <p style="color:var(--chalk-dim)">{{trial.body}}</p>
       <form class="trial" id="trialForm" novalidate>
         <div class="f2">
-          <div class="fld"><label for="fn">First name</label><input id="fn" name="fn" autocomplete="given-name" value="Sam" required></div>
+          <div class="fld"><label for="fn">First name</label><input id="fn" name="fn" autocomplete="given-name" placeholder="Sam" required></div>
           <div class="fld"><label for="fe">Email</label><input id="fe" name="fe" type="email" autocomplete="email" placeholder="you@example.com" required></div>
         </div>
         <div class="fld"><label for="fc">Class</label><select id="fc" name="fc"></select></div>
@@ -789,11 +789,13 @@ function renderClasses(anim){
 daysEl.addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;day=+b.dataset.i;$$('.day').forEach(x=>x.setAttribute('aria-pressed',x===b));renderChips();renderClasses(true);});
 chipsEl.addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;filt=b.dataset.k;$$('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b));renderClasses(true);});
 clsEl.addEventListener('click',e=>{const b=e.target.closest('.book');if(!b)return;const id=b.dataset.id;
-  if(booked.has(id)){booked.delete(id);toast('Booking cancelled.');}else{booked.add(id);toast('Spot held for you. Demo only, nothing was booked.');}
-  renderClasses(false);});
+  // a class is booked by asking for it: it is picked in the form below, which sends the request to the gym
+  booked.clear();booked.add(id);const [d,i]=id.split('-').map(Number), c=WEEK[d][i], want=c?`${DN[d]} ${c[0]} · ${CL[c[1]].n}`:'';
+  let o=[...fc.options].find(x=>x.value===want);if(!o&&want){o=document.createElement('option');o.value=want;o.textContent=`${DN[d]} ${c[0]} · ${CL[c[1]].n} (Z${CL[c[1]].z})`;fc.prepend(o);}if(o)fc.value=o.value;
+  toast('Picked. Add your name and email below to request the spot.');renderClasses(false);setTimeout(()=>{$('#trialForm').scrollIntoView({behavior:RM?'auto':'smooth',block:'center'});$('#fn').focus({preventScroll:true});},RM?0:400);});
 renderChips();renderClasses(false);
 
-let tT=0;function toast(m){const t=$('#toast');t.innerHTML='<span class="mono">Demo only</span>'+m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,2600);}
+let tT=0;function toast(m){const t=$('#toast');t.innerHTML='<span class="mono">Class</span>'+m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,2600);}
 
 /* ---------- 1RM ---------- */
 const PL={
@@ -924,12 +926,18 @@ st.classList.toggle('closed',!open); st.querySelector('span').textContent=open?`
 const fc=$('#fc');
 for(let s=0;s<7;s++){const d=(todayIdx+s)%7;WEEK[d].forEach(([t,k])=>{if(s===0&&+t.slice(0,2)<=hNow)return;const o=document.createElement('option');o.value=`${DN[d]} ${t} · ${CL[k].n}`;o.textContent=`${s===0?'Today':s===1?'Tomorrow':DN[d]} ${t} · ${CL[k].n} (Z${CL[k].z})`;fc.appendChild(o);});}
 [...fc.options].forEach((o,i)=>{if(i<12&&o.value.includes({{$.trialClass|js}})&&!fc.dataset.set){fc.selectedIndex=i;fc.dataset.set=1;}});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#trialForm').addEventListener('submit',e=>{e.preventDefault();
   const n=$('#fn').value.trim(), em=$('#fe').value.trim(), r=$('#result');
   r.hidden=false;
   if(!n||!/^\S+@\S+\.\S+$/.test(em)){r.style.borderColor='var(--yellow)';r.innerHTML='<span class="mono" style="color:var(--yellow)">Check the form</span>Add your first name and an email address like you@example.com.';return;}
   const cls=fc.value, coach=Object.values(CL).find(c=>cls.includes(c.n));
-  r.style.borderColor='';r.innerHTML=`<span class="mono">Demo only · nothing was sent</span>${n}, your free session would be ${cls} with ${coach?coach.c:'a coach'}. Arrive 10 minutes early in flat shoes and bring water.`;});
+  const btn=e.target.querySelector('[type="submit"]'), esc=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));btn.disabled=true;r.style.borderColor='';r.textContent='Sending…';
+  // the request goes to the gym, who confirm the session by email
+  send({kind:'trial',summary:`Free session · ${cls}`,fields:[['Class',cls],['Coach',coach?coach.c:'Any']],contact:{name:n,email:em}})
+    .then(pv=>{r.innerHTML=`<span class="mono">${esc(pv&&pv.tag||'Request sent')}</span>${esc(n)}, we’ll email you to confirm your free session: ${esc(cls)} with ${esc(coach?coach.c:'a coach')}. Arrive 10 minutes early in flat shoes and bring water.${pv&&pv.note?` ${esc(pv.note)}`:''}`;})
+    .catch(x=>{r.style.borderColor='var(--yellow)';r.textContent=x.message;}).finally(()=>{btn.disabled=false;});});
 
 /* ---------- BOOT ---------- */
 size(); readScroll(); lastW=monitor.getBoundingClientRect().width; lastH=monitor.getBoundingClientRect().height;

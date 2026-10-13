@@ -2,7 +2,7 @@
   "name": "compass",
   "category": "coach or consultant",
   "reference": "reference/compass-original.html",
-  "referenceSha256": "f0a039a1ce642e09f45a100077f50b30c9fba8ad0bb438b415e23022127410a2",
+  "referenceSha256": "d2f04325aedef4def3350f04d22d7db5b5e3eb2dd0ccc1fbe45b8c9a6f4e937f",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

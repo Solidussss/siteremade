@@ -94,6 +94,6 @@
     "stages: six steps, in order: the backdrop, key light, fill, rim light, background, the frame. Each a short name and a caption.",
     "sessions.kinds: one to four kinds of shoot, each with a line and one to three packages: name, price (from: true when it can grow), time, photos delivered, up to five things included and an optional tag (Most booked). sessions.start: the kind and package picked at first.",
     "process.steps: three to six steps with when they happen; process.delivers: up to three numbers that matter (48 h, 2 weeks).",
-    "book: lead is the soonest a date can be held, in days; closed days are never offered (0 Sunday to 6 Saturday). The calendar is a demo: nothing is held."
+    "book: lead is the soonest a date can be held, in days; closed days are never offered (0 Sunday to 6 Saturday). The calendar sends a real request: the photographer replies to confirm and hold the date. Never say a date is held or booked."
   ]
 }

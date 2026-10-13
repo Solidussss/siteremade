@@ -181,6 +181,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A63A22;font-size:14px;font-weight:700}
 .confirm{border-radius:6px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .visit{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px}
 .visit h3{font-size:30px}
 .visit ol{margin:0;padding:0;list-style:none;display:grid;gap:12px;counter-reset:s}
@@ -633,13 +634,19 @@ $('#fWant').innerHTML=FEATURES.map(f=>`<option>${esc(f.n)}</option>`).join('')+M
 $('#steps').innerHTML=STEPS.map(s=>`<li><span style="font-size:inherit"><b>${esc(s.b)}</b>${esc(s.s)}</span></li>`).join('');
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;press($('#days'),b);$('#confirm').hidden=true;});
 $('#times').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tSel=+b.dataset.i;press($('#times'),b);$('#confirm').hidden=true;});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#bookForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,''), pc=$('#fCode').value.trim();
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number so we can confirm the time.',$('#fPhone'));
   if(!pc)return fail({{$.codeErr|js}},$('#fCode'));
-  err.hidden=true;const d=days[dSel], c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, your free visit is ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${esc(TIMES[tSel].toLowerCase())}, about ${esc($('#fWant').value.toLowerCase())}.</b><span>On a live site you'd get a text with the designer's name and the exact time.</span>`;c.hidden=false;});
+err.hidden=true;const d=days[dSel], when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${TIMES[tSel]}`, want=$('#fWant').selectedOptions[0].text;
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"booking",summary:`Free garden visit · ${when} · ${want}`,fields:[['Visit','Free garden visit'],['When',when],['About',want],['Postcode',pc]],contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(when)} · ${esc(want)}</b><span>We’ll text you to confirm, with the designer’s name and the exact time.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 
 draw();month();
 })();

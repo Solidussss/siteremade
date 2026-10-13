@@ -2,7 +2,7 @@
   "name": "northlight",
   "category": "photographer",
   "reference": "reference/northlight-original.html",
-  "referenceSha256": "c8e4096d5d2aa13c074880e7a4d185926eea5d53339567eba484e4ba907e6258",
+  "referenceSha256": "36c81b84d405f442f51e0a9721461ea02da07d26ae20207b4adb1ca45ec4e6f6",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

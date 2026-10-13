@@ -2,7 +2,7 @@
   "name": "fettle",
   "category": "plumber, electrician or heating engineer",
   "reference": "reference/fettle-original.html",
-  "referenceSha256": "b40ee10ff96bd3daa28f05f54c5ad38a8679da8801ebaeca453e194f29c12831",
+  "referenceSha256": "efe7153e6bc1825f0684e54f9af097f0a8af6c15e7b837811f23737aee8163c2",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

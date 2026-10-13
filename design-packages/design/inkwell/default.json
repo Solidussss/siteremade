@@ -286,8 +286,8 @@
     "words": {
       "hrs": "hrs",
       "one": "1",
-      "sent": "Demo only · nothing was sent",
-      "reply": "On a live site your artist would reply within two days with a price and dates."
+      "sent": "Request sent",
+      "reply": "Your artist will reply within two days with a price and dates."
     },
     "labels": {
       "size": "Size",

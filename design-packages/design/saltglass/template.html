@@ -201,6 +201,11 @@ section.sheet{padding-block:clamp(72px,11vw,140px);position:relative}
 .took{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .took b{font-family:var(--f-display);font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--accent)}
 .took span{color:var(--ink-2)}
+.who{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+.who input{min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:11px 16px;font-size:15px;color:var(--ink)}
+.who .send{border:0;border-radius:999px;padding:0 18px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;min-height:44px}
+@media(max-width:560px){.who{grid-template-columns:1fr}}
+.ticket .err{margin:0;font-size:14px;color:var(--accent)}
 .btn-ghost{justify-self:start;border:1px solid var(--line);background:transparent;border-radius:999px;padding:10px 16px;cursor:pointer;font-weight:500}
 .btn-ghost:hover{border-color:var(--accent)}
 
@@ -406,15 +411,17 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
 
         <div class="panel" id="pDone" hidden>
           <div class="ticket">
-            <div class="ticket-top"><h3>You're booked.</h3><span class="badge">Demo only</span></div>
-            <div class="took"><b id="tookNum">0.0 s</b><span id="tookMsg">from first tap to booked</span></div>
+            <div class="ticket-top"><h3 id="tHead">Your time is picked.</h3><span class="badge" id="tBadge">Not sent yet</span></div>
+            <div class="took"><b id="tookNum">0.0 s</b><span id="tookMsg">from first tap to picked</span></div>
             <dl>
               <dt>Visit</dt><dd id="tVisit"></dd>
               <dt>When</dt><dd id="tWhen"></dd>
               <dt>With</dt><dd id="tWith"></dd>
               <dt>Where</dt><dd>{{contact.street}}</dd>
             </dl>
-            <p style="font-size:13px;color:var(--ink-2)">Demo only. No appointment was made and nothing was sent.</p>
+            <div class="who" id="tWho"><input id="tName" autocomplete="name" placeholder="Your name" aria-label="Your name"><input id="tPhone" type="tel" autocomplete="tel" placeholder="Mobile" aria-label="Mobile"><button type="submit" class="send" id="tSend">Send the request</button></div>
+            <p class="err" id="tErr" hidden></p>
+            <p id="tNote" style="font-size:13px;color:var(--ink-2)">We’ll text you to confirm the time.</p>
             <button type="button" class="btn-ghost" id="againBtn">Run the clock again</button>
           </div>
         </div>
@@ -930,19 +937,33 @@ function pickSlot(h,btn){
   $("#tWhen").textContent=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${fmtT(h)} ${ampm(h)} – ${fmtT(end)} ${ampm(end)}`;
   $("#tWith").textContent=bk.reason.with;
   $("#tookNum").textContent=s.toFixed(1)+" s";
-  $("#tookMsg").textContent= s<=30? `from first tap to booked. ${(30-s).toFixed(1)} s to spare.` : "from first tap to booked.";
-  clockMsg.innerHTML= s<=30? `<b>Booked in ${s.toFixed(1)} seconds.</b> Under the 30-second mark.` : `<b>Booked in ${s.toFixed(1)} seconds.</b> A little over, still booked.`;
+  $("#tookMsg").textContent= s<=30? `from first tap to picked. ${(30-s).toFixed(1)} s to spare.` : "from first tap to picked.";
+  clockMsg.innerHTML= s<=30? `<b>Picked in ${s.toFixed(1)} seconds.</b> Under the 30-second mark.` : `<b>Picked in ${s.toFixed(1)} seconds.</b> A little over, still yours.`;
+  bk.slot=h;
   setTimeout(()=>setStep(2),RM?0:220);
   tink(5);
 }
 $("#backBtn").addEventListener("click",()=>setStep(0));
 $("#againBtn").addEventListener("click",()=>{
   bk={reason:null,day:0,t0:0,running:false,raf:0,done:false};
+  $("#tHead").textContent="Your time is picked."; $("#tBadge").textContent="Not sent yet"; $("#tWho").hidden=false; $("#tErr").hidden=true; $("#tNote").textContent="We’ll text you to confirm the time.";
   [...reasonsEl.children].forEach(c=>c.classList.remove("picked"));
   showClock(0); dialNum.textContent="0.0"; clockMsg.innerHTML="<b>Clock is ready.</b> It starts when you pick a reason.";
   setStep(0);
 });
-$("#flow").addEventListener("submit",e=>e.preventDefault());
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
+$("#flow").addEventListener("submit",e=>{e.preventDefault();if(!bk.done)return;
+  const nm=$("#tName").value.trim(), ph=$("#tPhone").value.trim(), err=$("#tErr"), btn=$("#tSend");
+  const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
+  if(!nm) return fail("Add your name.",$("#tName"));
+  if(ph.replace(/\D/g,"").length<7) return fail("Add a mobile number so we can confirm.",$("#tPhone"));
+  err.hidden=true; btn.disabled=true;
+  // the practice gets the request and texts to confirm it; the ticket says so only once it has gone
+  send({kind:"booking",summary:`${$("#tVisit").textContent} · ${$("#tWhen").textContent}`,fields:[["Visit",$("#tVisit").textContent],["When",$("#tWhen").textContent],["With",$("#tWith").textContent]],contact:{name:nm,phone:ph}})
+    .then(pv=>{$("#tHead").textContent=pv&&pv.tag?pv.tag:"Request sent."; $("#tBadge").textContent=pv&&pv.tag?"Preview":"Sent"; $("#tWho").hidden=true; $("#tNote").textContent=`We’ll text ${nm} to confirm the time.${pv&&pv.note?" "+pv.note:""}`;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});
+});
 
 /* ================= PRICES ================= */
 const COV={Preventive:1,Basic:.8,Major:.5,Cosmetic:0};

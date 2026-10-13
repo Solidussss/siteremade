@@ -22,7 +22,7 @@
     "tally: four numbers beside the visit. For groomers: coat length (cm or in) from long to short over the trim (stage 3), treats, minutes, tail wags at the end. For vets: weight first (its end is what the scale shows), checks done out of six, minutes, treats. Each with the stages it moves over (first, last).",
     "prices.sizes: the brief's size bands (two to four) with a shape each (small, medium, large, giant). prices.services: up to three services with a price for every size exactly as the brief prices them (repeat a single price for each size), how long, up to four inclusions and an optional tag on the most booked. addons: extras with prices.",
     "visit.steps: up to four steps of a visit; visit.promise: a short big mark (1:1, 0 cages, Fear free) and a sentence from the brief. Never invent accreditations or claims.",
-    "book: drop-off or appointment times (08:30), closed days (0 Sunday). The booking is a demo: nothing is booked.",
+    "book: drop-off or appointment times (08:30), closed days (0 Sunday). The booking form really sends: the request goes to the groomers, who confirm it. Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop). theme.accent is the business's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

@@ -2,7 +2,7 @@
   "name": "drape",
   "category": "clothing boutique",
   "reference": "reference/drape-original.html",
-  "referenceSha256": "8b8768f64f373c3be408edf68a69aa28777996c8b462401c76d6ccb5718a5c8b",
+  "referenceSha256": "b85bbfb61d1aeeff010d484d760fc85e270da3b8e5e0a097c66905e04204437a",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

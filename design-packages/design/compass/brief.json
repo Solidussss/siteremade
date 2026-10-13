@@ -27,7 +27,7 @@
     "programmes: the brief's programmes exactly (prices, sessions, length, what's included), each with a line on why someone would choose it; badge the one most people pick, or -1 for none.",
     "fit.qs: two to five short questions a prospective client could answer honestly, each answer scoring every programme 0 to 3 so the highest total points to the right one.",
     "coach: the coach's real name, background and only the credentials the brief gives (never invent qualifications or results); their initials for the monogram.",
-    "No testimonials or outcome claims beyond the brief. The call booking is a demo: nothing is sent.",
+    "No testimonials or outcome claims beyond the brief. The call booking really sends: the request goes to the coach, who confirm it. Never say it is booked, paid or confirmed.",
     "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop; the second part is set in italics); section titles have a second half. theme.accent is the coach's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
     "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
   ],

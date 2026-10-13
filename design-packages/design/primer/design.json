@@ -2,7 +2,7 @@
   "name": "primer",
   "category": "tutor or tutoring school",
   "reference": "reference/primer-original.html",
-  "referenceSha256": "d516eca82ce878f448d3a509d406ba9f6f6ac126df69f33cfc3e16c013d52b64",
+  "referenceSha256": "1152cf547610cd1290c5469164c285a71165f1bcff7d3e9f4c5d8d7897cc87f8",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

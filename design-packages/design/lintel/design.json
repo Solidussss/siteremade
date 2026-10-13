@@ -2,7 +2,7 @@
   "name": "lintel",
   "category": "real estate listing",
   "reference": "reference/lintel-original.html",
-  "referenceSha256": "7b26cfef0256864213ed27d0d7562e1a8ca356a2e9e2adbec73cedadd67c3b30",
+  "referenceSha256": "e6be1bc3513b0e62398067f1d91d073c5402c7bf24bafd2f15716545f2cbf24d",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

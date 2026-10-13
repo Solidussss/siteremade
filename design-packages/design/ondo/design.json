@@ -2,7 +2,7 @@
   "name": "ondo",
   "category": "headphones launch",
   "reference": "reference/ondo-original.html",
-  "referenceSha256": "9f911e94a90632e0bb32144f5b7e3f7d8089e3559b9177fd1aeb1b32de905e3b",
+  "referenceSha256": "89890976d53c31d2f15e430d1097ab4c87effa8e6957e7db69006d345003ce75",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

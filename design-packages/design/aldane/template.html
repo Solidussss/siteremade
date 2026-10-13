@@ -548,8 +548,8 @@ footer{padding-block:72px 40px;border-top:1px solid var(--line-soft);overflow:hi
         <p class="eyebrow">{{reserve.eyebrow}}</p>
         <h3>{{reserve.title}}</h3>
         <p class="cfg" id="resCfg"></p>
-        <div class="field"><label for="rf-name">Name</label><input id="rf-name" name="name" autocomplete="name" value="Mara Lindqvist"></div>
-        <div class="field"><label for="rf-email">Email</label><input id="rf-email" name="email" type="email" autocomplete="email" value="mara@example.com"></div>
+        <div class="field"><label for="rf-name">Name</label><input id="rf-name" name="name" autocomplete="name" placeholder="Mara Lindqvist"></div>
+        <div class="field"><label for="rf-email">Email</label><input id="rf-email" name="email" type="email" autocomplete="email" placeholder="mara@example.com"></div>
         <div class="field"><label for="rf-q">Delivery</label>
           <select id="rf-q" name="quarter"><option>{{reserve.slots.0}}</option><option selected>{{reserve.slots.1}}</option><option>{{reserve.slots.2}}</option></select></div>
         <button class="cta" type="submit" style="justify-self:start">{{reserve.button}}</button>
@@ -1038,13 +1038,20 @@ function renderSpecs() {
 }
 $$('.unit-toggle button').forEach(b => b.addEventListener('click', () => { unit = b.dataset.u; $$('.unit-toggle button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderSpecs(); }));
 renderSpecs();
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
+const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 $('#reserve').addEventListener('submit', e => {
   e.preventDefault();
-  const name = $('#rf-name').value.trim(), mail = $('#rf-email').value.trim(), out = $('#resOut');
+  const name = $('#rf-name').value.trim(), mail = $('#rf-email').value.trim(), out = $('#resOut'), btn = e.target.querySelector('[type="submit"]');
   out.hidden = false;
-  if (!name || !/^\S+@\S+\.\S+$/.test(mail)) { out.innerHTML = '<span class="demo">Demo only</span><br>Add your name and a full email address, then try again.'; return; }
-  const c = pick('case'), d = pick('dial'), s = pick('strap');
-  out.innerHTML = `<span class="demo">Demo only</span><br>Nothing was reserved or charged. In the real flow, ${name.split(' ')[0]} would hold {{$.slotHtml|tl}} for a {{$.modelHtml|tl}} in ${c[1].toLowerCase()} with a ${d[1].toLowerCase()} dial, delivery ${$('#rf-q').value.split(' ·')[0]}.`;
+  if (!name || !/^\S+@\S+\.\S+$/.test(mail)) { out.textContent = 'Add your name and a full email address, then try again.'; return; }
+  const c = pick('case'), d = pick('dial'), s = pick('strap'), q = $('#rf-q').value;
+  // the reservation goes to the brand, who confirm it and send the deposit link: nothing is charged here
+  btn.disabled = true; out.textContent = 'Sending…';
+  send({ kind: 'reservation', summary: `${c[1]} case, ${d[1]} dial, ${s[1]} strap · ${q} · ${$('#cfgPrice').textContent}`, fields: [['Case', c[1]], ['Dial', d[1]], ['Strap', s[1]], ['Delivery', q], ['Price', $('#cfgPrice').textContent]], contact: { name, email: mail } })
+    .then(pv => { out.innerHTML = `<span class="demo">${esc(pv && pv.tag || 'Request sent')}</span><br>Nothing is charged yet. We’ll email ${esc(name.split(' ')[0])} to confirm, and would hold {{$.slotHtml|tl}} for a {{$.modelHtml|tl}} in ${c[1].toLowerCase()} with a ${d[1].toLowerCase()} dial, delivery ${q.split(' ·')[0]}, against the deposit.${pv && pv.note ? `<br><small>${esc(pv.note)}</small>` : ''}`; })
+    .catch(x => { out.textContent = x.message; }).finally(() => { btn.disabled = false; });
 });
 
 /* ================= layout of the stage ================= */

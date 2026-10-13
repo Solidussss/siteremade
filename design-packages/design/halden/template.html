@@ -192,6 +192,7 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .err{color:#A23A2A;font-size:14px;font-weight:600}
 .confirm{border-radius:2px;background:var(--accent-soft);padding:16px 18px;display:grid;gap:6px}
 .confirm .tag{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-text)}
+.confirm small{font-size:12px;opacity:.75}
 .promise{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:96px}
 .promise h3{font-size:28px}
 .promise ul{margin:0;padding:0;list-style:none;display:grid;gap:12px}
@@ -580,13 +581,19 @@ function call(){$('#days').innerHTML=days.map((d,i)=>`<button type="button" clas
 $('#days').addEventListener('click',e=>{const b=e.target.closest('.day');if(!b)return;dSel=+b.dataset.i;$('#confirm').hidden=true;call();});
 $('#slots').addEventListener('click',e=>{const b=e.target.closest('.slot');if(!b||b.disabled)return;tSel=b.dataset.t;$('#confirm').hidden=true;call();});
 $('#how').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;how=+b.dataset.i;press($('#how'),b);});
+// on the live site a request goes to the business; a preview shows it and says it wasn't sent
+function send(r){const s=window.SiteRemade;return s&&s.live?s.send(r).then(()=>null):Promise.resolve(s||null);}
 $('#callForm').addEventListener('submit',e=>{e.preventDefault();const err=$('#err');const fail=(m,el)=>{err.textContent=m;err.hidden=false;if(el)el.focus();};
   const nm=$('#fName').value.trim(), ph=$('#fPhone').value.replace(/\D/g,'');
   if(!tSel)return fail('Pick a day with a free time.');
   if(!nm)return fail('Add your name.',$('#fName'));
   if(ph.length<7)return fail('Add a phone number so we can call you.',$('#fPhone'));
-  err.hidden=true;const d=days[dSel], v=$('#cArea').value, s=v==='other'?null:AREAS[+v.split('.')[0]].sits[+v.split('.')[1]], c=$('#confirm');
-  c.innerHTML=`<span class="tag">Demo only · nothing was booked</span><b>${esc(nm)}, ${s?esc(s.who):'a solicitor'} will ${how===2?'see you':'call you'} on ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} at ${tSel}${how===1?' by video':''}.</b><span>On a live site you'd get a confirmation by text and email, with what to have ready.</span>`;c.hidden=false;});
+err.hidden=true;const d=days[dSel], v=$('#cArea').value, s=v==='other'?null:AREAS[+v.split('.')[0]].sits[+v.split('.')[1]], about=$('#cArea').selectedOptions[0].text, way=HOW[how], when=`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${tSel}`, note=$('#fNote').value.trim();
+  const c=$('#confirm'), btn=e.target.querySelector('[type=submit]');btn.disabled=true;c.hidden=true;
+  // the request goes to the business, who confirm it; the visitor hears it went only once it has
+  send({kind:"callback",summary:`${about} · ${way} · ${when}`,fields:[['About',about],['How',way],['When',when]].concat(s?[['With',s.who]]:[],note?[['Notes',note]]:[]),contact:{name:nm,phone:$('#fPhone').value.trim()}})
+    .then(pv=>{c.innerHTML=`<span class="tag">${esc(pv&&pv.tag||'Request sent')}</span><b>${esc(nm)} · ${esc(way)} · ${esc(when)}${s?` · ${esc(s.who)}`:''}</b><span>We’ll confirm by text and email, with what to have ready.</span>${pv&&pv.note?`<small>${esc(pv.note)}</small>`:''}`;c.hidden=false;})
+    .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});});
 call();
 })();
 </script>

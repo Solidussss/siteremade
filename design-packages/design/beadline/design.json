@@ -2,7 +2,7 @@
   "name": "beadline",
   "category": "car detailing",
   "reference": "reference/beadline-original.html",
-  "referenceSha256": "45a2509fcbf60720ae7807b5a53cb42869ba2b6a5155f6ee1642ddd43d6f9c8c",
+  "referenceSha256": "cc6f234e8f97ddfe8344527e36e762be320342fd1371377ba68b4da88a5c7735",
   "template": "template.html",
   "schema": "schema.json",
   "tables": "tables.json",

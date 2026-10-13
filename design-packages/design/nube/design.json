@@ -2,7 +2,7 @@
   "name": "nube",
   "category": "coffee shop",
   "reference": "reference/nube-original.html",
-  "referenceSha256": "f6b6248099dc24cfb8d60cf497018c5023c414b0306f27a177e8b12cac4ee846",
+  "referenceSha256": "7463371b24d7d073d080547f157d8ee2ee4750363279313e2a476a3b9c86438c",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

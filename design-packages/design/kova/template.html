@@ -142,7 +142,8 @@ p { margin: 0; }
 .clock div { border-top: 3px solid var(--accent); padding-top: 10px; }
 .clock b { display: block; font-family: var(--display); font-size: clamp(56px, 11vw, 170px); line-height: .85; font-variant-numeric: tabular-nums; }
 .clock span { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #9ea3a6; }
-.draw { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+.draw { display: grid; grid-template-columns: 1fr 1.3fr .8fr auto; gap: 10px; align-items: end; }
+.draw .err { grid-column: 1 / -1; margin: 0; font-size: 14px; color: #ff8a7a; }
 @media (max-width: 760px) { .draw { grid-template-columns: 1fr; } }
 .draw label { display: grid; gap: 6px; font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #9ea3a6; }
 .draw input, .draw select { font: inherit; font-family: var(--body); font-size: 17px; padding: 14px; border: 0; background: #1d1f22; color: var(--paper); text-transform: none; letter-spacing: 0; border-radius: 0; }
@@ -237,11 +238,13 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
     <div class="c-head"><div><p class="eyebrow">{{drop.eyebrow}}</p><h2>{{$.dayLower}},<br>{{drop.time}}.</h2></div><p style="color:#9ea3a6">{{drop.body}}</p></div>
     <div class="clock" aria-live="off"><div><b id="cD">00</b><span>days</span></div><div><b id="cH">00</b><span>hours</span></div><div><b id="cM">00</b><span>minutes</span></div><div><b id="cS">00</b><span>seconds</span></div></div>
     <form class="draw" id="drawForm" novalidate>
-      <label for="dName">Name<input id="dName" type="text" autocomplete="off" placeholder="Your name"></label>
+      <label for="dName">Name<input id="dName" type="text" autocomplete="name" placeholder="Your name"></label>
+      <label for="dMail">Email<input id="dMail" type="email" autocomplete="email" placeholder="For the result"></label>
       <label for="dSize">Size (US men)<select id="dSize"></select></label>
       <button class="btn r" type="submit">{{nav.cta}} →</button>
+      <p class="err" id="dErr" hidden></p>
     </form>
-    <div class="ticket" id="ticket" hidden><span id="tNo">ENTRY #04821</span><b id="tLine">You're in the draw.</b><span id="tSub">{{product.name}} · {{colorways.0.name}} · US 9 · Results {{$.dayName}} {{drop.time}}</span><span>Demo only. No real entry was made.</span></div>
+    <div class="ticket" id="ticket" hidden><span id="tNo">ENTRY #04821</span><b id="tLine">You're in the draw.</b><span id="tSub">{{product.name}} · {{colorways.0.name}} · US 9 · Results {{$.dayName}} {{drop.time}}</span><span id="tTag">Entry sent. We’ll email you the result.</span></div>
   </section>
 </main>
 
@@ -422,14 +425,25 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
     const p2 = v => String(v).padStart(2, '0'); $('#cD').textContent = p2(d); $('#cH').textContent = p2(h); $('#cM').textContent = p2(m); $('#cS').textContent = p2(s);
   }
   clock(); setInterval(clock, 1000);
+  // on the live site a request goes to the business; a preview shows it and says it wasn't sent
+  function send(r) { const s = window.SiteRemade; return s && s.live ? s.send(r).then(() => null) : Promise.resolve(s || null); }
   $('#drawForm').addEventListener('submit', e => {
-    e.preventDefault(); const name = $('#dName').value.trim();
-    if (!name) { $('#dName').focus(); $('#dName').placeholder = 'Add your name to enter'; return; }
-    const no = String(1000 + Math.floor(Math.random() * 9000)).padStart(5, '0');
-    $('#tNo').textContent = 'ENTRY #' + no; $('#tLine').textContent = `${name}, you're in the draw.`;
-    $('#tSub').textContent = `{{product.name|tl}} · ${COLORWAYS[cIdx].name} · US ${fmt(+dSize.value)} · Results ${DROP.toLocaleDateString(undefined, { weekday: 'long' })} {{drop.time}}`;
-    $('#drawForm').hidden = true; const t = $('#ticket'); t.hidden = false;
-    if (!reduce) t.animate([{ transform: 'translateY(20px) rotate(-1deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    e.preventDefault(); const name = $('#dName').value.trim(), mail = $('#dMail').value.trim(), err = $('#dErr'), btn = e.target.querySelector('[type="submit"]');
+    const say = (m, el) => { err.textContent = m; err.hidden = false; if (el) el.focus(); };
+    if (!name) return say('Add your name to enter.', $('#dName'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return say('Add an email so we can send you the result.', $('#dMail'));
+    err.hidden = true;
+    const no = String(1000 + Math.floor(Math.random() * 9000)).padStart(5, '0'), sub = `{{product.name|tl}} · ${COLORWAYS[cIdx].name} · US ${fmt(+dSize.value)} · Results ${DROP.toLocaleDateString(undefined, { weekday: 'long' })} {{drop.time}}`;
+    // the entry goes to the brand with its number; the ticket shows once it has gone
+    btn.disabled = true;
+    send({ kind: 'entry', summary: `Entry #${no} · ${sub.split(' · ')[0]} · ${COLORWAYS[cIdx].name} · US ${fmt(+dSize.value)}`, fields: [['Entry', '#' + no], ['Colourway', COLORWAYS[cIdx].name], ['Size', 'US ' + fmt(+dSize.value)]], contact: { name, email: mail } })
+      .then(pv => {
+        $('#tNo').textContent = 'ENTRY #' + no; $('#tLine').textContent = `${name}, you're in the draw.`; $('#tSub').textContent = sub;
+        $('#tTag').textContent = pv && pv.note ? pv.note : 'Entry sent. We’ll email you the result.';
+        $('#drawForm').hidden = true; const t = $('#ticket'); t.hidden = false;
+        if (!reduce) t.animate([{ transform: 'translateY(20px) rotate(-1deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+      })
+      .catch(x => say(x.message, null)).finally(() => { btn.disabled = false; });
   });
 
   /* ---------- loop ---------- */
