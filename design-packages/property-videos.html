@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Property Videos · SiteRemade</title>
+<meta name="description" content="Cinematic films made from your property's listing photographs, for Airbnb, Vrbo, Booking.com, vacation rentals and homes for sale. By enquiry, from SiteRemade.">
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/styles.css">
+<style>
+/* SiteRemade · Property Videos. SiteRemade's own type (Inter, tight and black; Georgia italic for the turn of phrase) set
+   in a darker, warmer key: the page is a film's title sequence, then the facts. */
+:root{--ink:#0b0a09;--ink-2:#141210;--ivory:#f4efe6;--ivory-2:#cfc7b8;--dim:#8d8678;--amber:#e8b46a;--paper:#f3f0ea;--hair:rgba(244,239,230,.14)}
+body.pv{background:var(--paper)}
+.pv .page-glow{display:none}
+/* header over the film */
+.pv-top{background:var(--ink);color:var(--ivory)}
+.pv-top .nav{border-color:var(--hair)}
+.pv-top .brand-logo img{filter:invert(1) brightness(1.1)}
+.pv-top .nav-links a{color:var(--dim)}.pv-top .nav-links a:hover{color:var(--ivory)}
+.pv-top .nav-actions .button{background:var(--ivory);color:var(--ink)}
+/* hero */
+.pv-hero{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:72px 0 96px;display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:64px;align-items:center}
+.pv-eyebrow{margin:0 0 22px;font-size:11px;letter-spacing:.2em;font-weight:850;color:var(--dim)}
+.pv-hero h1{margin:0;font-size:clamp(58px,7vw,116px);line-height:.9;letter-spacing:-.075em;font-weight:850}
+.pv-hero h1 span{display:block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;letter-spacing:-.05em;color:var(--amber)}
+.pv-lede{margin:30px 0 0;max-width:520px;color:var(--ivory-2);font-size:18px;line-height:1.65}
+.pv-actions{margin-top:34px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.pv .button.light{background:var(--ivory);color:var(--ink)}
+.pv .button.ghost{background:transparent;color:var(--ivory);border:1px solid rgba(244,239,230,.28)}
+.pv-small{margin:26px 0 0;font-size:12px;color:var(--dim);letter-spacing:.02em}
+.pv-small b{color:var(--ivory-2);font-weight:700}
+/* the camera: a letterboxed frame with a viewfinder over it */
+.pv-cam{position:relative}
+.pv-frame{position:relative;aspect-ratio:2.39/1;background:#000;border-radius:6px;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.55),0 0 0 1px rgba(244,239,230,.06)}
+.pv-frame canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pv-hud{position:absolute;inset:14px 16px;pointer-events:none;font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;color:rgba(244,239,230,.72)}
+.pv-hud span{position:absolute}
+.pv-hud .tl{left:0;top:0}.pv-hud .tr{right:0;top:0}.pv-hud .bl{left:0;bottom:0}.pv-hud .br{right:0;bottom:0}
+.pv-hud .tl i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#e2483d;margin-right:7px;vertical-align:-1px;animation:rec 1.6s steps(2,end) infinite}
+@keyframes rec{50%{opacity:.15}}
+.pv-hud .corner{width:18px;height:18px;border-color:rgba(244,239,230,.45);border-style:solid;border-width:0}
+.pv-hud .c1{left:-4px;top:18px;border-left-width:1px;border-top-width:1px}.pv-hud .c2{right:-4px;top:18px;border-right-width:1px;border-top-width:1px}
+.pv-hud .c3{left:-4px;bottom:18px;border-left-width:1px;border-bottom-width:1px}.pv-hud .c4{right:-4px;bottom:18px;border-right-width:1px;border-bottom-width:1px}
+.pv-cap{margin:14px 2px 0;font-size:10px;letter-spacing:.18em;font-weight:800;color:var(--dim);display:flex;justify-content:space-between;gap:16px}
+/* the film (an example comes here when it exists) */
+.pv-reel{background:var(--ink);color:var(--ivory);padding:0 0 120px}
+.pv-reel-in{width:min(var(--max),calc(100% - 48px));margin:0 auto;border-top:1px solid var(--hair);padding-top:72px}
+.pv-reel-head{display:grid;grid-template-columns:1fr .7fr;gap:60px;align-items:end;margin-bottom:34px}
+.pv-reel-head h2,.pv-sec h2{margin:0;font-size:clamp(44px,5.4vw,84px);line-height:.94;letter-spacing:-.07em}
+.pv-reel-head h2 span,.pv-sec h2 span{font-family:Georgia,serif;font-style:italic;font-weight:400;letter-spacing:-.05em}
+.pv-reel-head p{margin:0 0 6px;color:var(--ivory-2);font-size:16px;line-height:1.65}
+.pv-screen{position:relative;aspect-ratio:2.39/1;border-radius:6px;overflow:hidden;background:#050505;box-shadow:0 0 0 1px rgba(244,239,230,.08)}
+.pv-screen video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.pv-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(60% 80% at 70% 30%,rgba(232,180,106,.16),transparent 60%),radial-gradient(50% 70% at 20% 80%,rgba(120,140,170,.10),transparent 60%),#070707}
+.pv-empty:before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,230,190,.06) 46%,transparent 62%);background-size:220% 100%;animation:leak 9s ease-in-out infinite}
+@keyframes leak{0%{background-position:120% 0}100%{background-position:-20% 0}}
+.pv-empty div{position:relative}
+.pv-empty small{display:block;font-size:10px;letter-spacing:.24em;font-weight:800;color:var(--amber);margin-bottom:16px}
+.pv-empty strong{display:block;font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(26px,3vw,44px);letter-spacing:-.03em;line-height:1.1}
+.pv-empty p{margin:14px auto 0;max-width:430px;color:var(--dim);font-size:14px;line-height:1.6}
+.pv-bars:before,.pv-bars:after{content:"";position:absolute;left:0;right:0;height:7%;background:#000;z-index:2;pointer-events:none}.pv-bars:before{top:0}.pv-bars:after{bottom:0}
+/* sections on paper */
+.pv-sec{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:120px 0}
+.pv-sec+.pv-sec{border-top:1px solid #dcd6cb}
+.pv-kicker{margin:0 0 20px;font-size:11px;letter-spacing:.2em;font-weight:850;color:#8a8275}
+.pv-split{display:grid;grid-template-columns:1fr .7fr;gap:72px;align-items:end}
+.pv-split>p{margin:0 0 8px;color:#6c665c;font-size:17px;line-height:1.65}
+/* how it works: four moves along one camera path */
+.pv-path{list-style:none;padding:0;position:relative;margin-top:76px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:44px}
+.pv-path:before{content:"";position:absolute;left:0;right:0;top:27px;height:1px;background:linear-gradient(90deg,#0d0e11 0,#0d0e11 60%,rgba(13,14,17,.15) 100%)}
+.pv-step{position:relative;padding-top:64px}
+.pv-step:before{content:"";position:absolute;left:0;top:21px;width:13px;height:13px;border-radius:50%;background:var(--paper);border:1px solid #0d0e11}
+.pv-step:first-child:before{background:#0d0e11}
+.pv-step b{position:absolute;left:30px;top:16px;font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:#8a8275}
+.pv-step h3{margin:0 0 12px;font-size:25px;letter-spacing:-.04em;line-height:1.05}
+.pv-step p{margin:0;color:#5f594f;font-size:15px;line-height:1.65}
+.pv-aside{margin:56px 0 0;max-width:720px;font-family:Georgia,serif;font-style:italic;font-size:20px;line-height:1.5;color:#3d3933}
+/* accuracy */
+.pv-truth{background:var(--ink);color:var(--ivory)}
+.pv-truth .pv-sec{padding:120px 0}
+.pv-truth .pv-kicker{color:var(--amber)}
+.pv-truth .pv-split>p{color:var(--ivory-2)}
+.pv-modes{margin-top:64px;display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--hair)}
+.pv-mode{padding:34px 40px 0 0}.pv-mode+.pv-mode{padding-left:40px;border-left:1px solid var(--hair)}
+.pv-mode small{font-size:10px;letter-spacing:.2em;font-weight:850;color:var(--amber)}
+.pv-mode h3{margin:12px 0 12px;font-size:30px;letter-spacing:-.045em}
+.pv-mode p{margin:0;color:var(--ivory-2);font-size:15px;line-height:1.7;max-width:520px}
+.pv-rules{list-style:none;margin:64px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border-top:1px solid var(--hair)}
+.pv-rules li{padding:24px 26px 0 0;font-size:15px;line-height:1.55;color:var(--ivory)}
+.pv-rules li+li{padding-left:26px;border-left:1px solid var(--hair)}
+.pv-rules li span{display:block;font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;color:var(--dim);margin-bottom:10px}
+/* who it's for */
+.pv-for{list-style:none;margin:60px 0 0;padding:0;border-top:1px solid #0d0e11}
+.pv-for li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:40px;align-items:baseline;padding:24px 0;border-bottom:1px solid #dcd6cb}
+.pv-for strong{font-size:clamp(28px,3.4vw,52px);letter-spacing:-.06em;line-height:1;font-weight:800}
+.pv-for strong em{font-family:Georgia,serif;font-style:italic;font-weight:400;letter-spacing:-.04em;color:#8a6a3c}
+.pv-for span{color:#6c665c;font-size:15px;line-height:1.6}
+.pv-also{margin:22px 0 0;color:#6c665c;font-size:15px}
+/* enquiry */
+.pv-ask{display:grid;grid-template-columns:.8fr 1.2fr;gap:72px;align-items:start}
+.pv-ask .pv-split-copy p{color:#5f594f;font-size:17px;line-height:1.7;margin:22px 0 0}
+.pv-ask .fine{font-size:13px;color:#7b7468;line-height:1.6;margin-top:26px;padding-top:20px;border-top:1px solid #dcd6cb}
+.pv-form{background:#fff;border-radius:22px;padding:34px;box-shadow:0 20px 70px rgba(30,25,15,.08);display:grid;grid-template-columns:1fr 1fr;gap:18px 16px}
+.pv-form .wide{grid-column:1/-1}
+.pv-form label,.pv-form .q{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:750;color:#2a2722}
+.pv-form label small,.pv-form .q small{font-weight:400;color:#8a8275}
+.pv-form input[type=text],.pv-form input[type=email],.pv-form input[type=tel],.pv-form input[type=url],.pv-form textarea{width:100%;border:1px solid #e1dcd2;background:#faf8f4;min-height:50px;padding:13px;border-radius:10px;font-size:15px;outline:none;color:#0d0e11}
+.pv-form textarea{min-height:110px;resize:vertical}
+.pv-form input:focus,.pv-form textarea:focus{border-color:#8a8275;background:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{position:relative;flex-direction:row;font-weight:600;font-size:13px}
+.chips input{position:absolute;opacity:0;width:1px;height:1px}
+.chips span{display:inline-block;padding:10px 14px;border:1px solid #e1dcd2;border-radius:999px;background:#faf8f4;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.chips input:checked+span{background:#0d0e11;color:#fff;border-color:#0d0e11}
+.chips input:focus-visible+span{outline:2px solid #315cff;outline-offset:2px}
+.pv-form .send{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pv-form .err{color:#b42318;font-size:14px;margin:0}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.pv-done{background:#fff;border-radius:22px;padding:44px;box-shadow:0 20px 70px rgba(30,25,15,.08)}
+.pv-done small{font-size:10px;letter-spacing:.2em;font-weight:850;color:#8a6a3c}
+.pv-done h3{margin:14px 0 12px;font-size:36px;letter-spacing:-.05em;line-height:1.05}
+.pv-done h3 span{font-family:Georgia,serif;font-style:italic;font-weight:400}
+.pv-done p{color:#5f594f;line-height:1.7;margin:0}
+/* footer */
+.pv-foot{background:var(--ink);color:var(--dim);font-size:13px}
+.pv-foot-in{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:46px 0;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.pv-foot a{color:var(--ivory-2)}.pv-foot nav{display:flex;gap:22px;flex-wrap:wrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* sizes */
+@media(max-width:1120px){.pv-hero{grid-template-columns:1fr;gap:48px;padding-top:48px}.pv-reel-head,.pv-split,.pv-ask{grid-template-columns:1fr;gap:28px}.pv-path{grid-template-columns:1fr 1fr;row-gap:20px}.pv-path:before{display:none}.pv-step{padding-top:52px}.pv-rules{grid-template-columns:1fr 1fr}.pv-rules li:nth-child(3){padding-left:0;border-left:0}}
+@media(max-width:720px){
+  .pv-hero{width:calc(100% - 30px);padding:34px 0 64px}.pv-hero h1{font-size:clamp(50px,15vw,70px)}.pv-lede{font-size:16px}
+  .pv-frame,.pv-screen{aspect-ratio:4/3}
+  .pv-reel-in,.pv-sec,.pv-foot-in{width:calc(100% - 30px)}.pv-sec,.pv-truth .pv-sec{padding:76px 0}.pv-reel{padding-bottom:76px}.pv-reel-in{padding-top:52px}
+  .pv-path{grid-template-columns:1fr;margin-top:44px}.pv-step{padding:0 0 0 34px}.pv-step:before{left:0;top:6px}.pv-step b{position:static;display:block;margin-bottom:8px}
+  .pv-path:before{display:block;left:6px;right:auto;top:10px;bottom:10px;width:1px;height:auto;background:linear-gradient(180deg,#0d0e11 0,#0d0e11 70%,rgba(13,14,17,.15) 100%)}
+  .pv-modes{grid-template-columns:1fr}.pv-mode,.pv-mode+.pv-mode{padding:28px 0 0;border-left:0}.pv-mode+.pv-mode{margin-top:28px;border-top:1px solid var(--hair)}
+  .pv-rules{grid-template-columns:1fr}.pv-rules li,.pv-rules li+li{padding:20px 0 0;border-left:0}.pv-rules li+li{margin-top:20px;border-top:1px solid var(--hair)}
+  .pv-for li{grid-template-columns:1fr;gap:8px;padding:20px 0}
+  .pv-form{grid-template-columns:1fr;padding:22px}.pv-done{padding:28px}
+  .pv-hud{inset:10px 12px;font-size:9px}.pv-cap{flex-direction:column;gap:6px}
+}
+@media(prefers-reduced-motion:reduce){.pv-empty:before,.pv-hud .tl i{animation:none}}
+</style></head>
+<body class="pv">
+<div class="pv-top">
+<header class="nav has-svc">
+  <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
+  <div class="nav-mid">
+    <nav class="svc-switch on-dark" aria-label="SiteRemade services"><a href="/">Websites</a><a href="/property-videos" aria-current="page">Property Videos</a></nav>
+    <nav class="nav-links" aria-label="Property Videos"><a href="#how">How it works</a><a href="#accuracy">Accuracy</a><a href="#for">Who it’s for</a></nav>
+  </div>
+  <div class="nav-actions"><a class="button button-small" href="#enquire">Enquire</a></div>
+</header>
+
+<main>
+<section class="pv-hero" aria-labelledby="pvTitle">
+  <div>
+    <p class="pv-eyebrow">SITEREMADE · PROPERTY VIDEOS</p>
+    <h1 id="pvTitle">Still photos.<span>A moving film.</span></h1>
+    <p class="pv-lede">We turn the photographs you already have into a short cinematic film of your property, the camera moving through the rooms the way a guest would see them. For Airbnb, Vrbo, Booking.com, vacation rentals and homes for sale.</p>
+    <div class="pv-actions"><a class="button light" href="#enquire">Enquire about your property</a><a class="button ghost" href="#how">How it works</a></div>
+    <p class="pv-small"><b>A new service from SiteRemade.</b> Made by hand, by enquiry: no software to learn, nothing to pay up front.</p>
+  </div>
+  <div class="pv-cam">
+    <div class="pv-frame" id="cam"><canvas id="camCv" aria-hidden="true"></canvas>
+      <div class="pv-hud" aria-hidden="true"><span class="tl"><i></i>REC</span><span class="tr">24 FPS · 24MM</span><span class="bl" id="tc">00:00:00:00</span><span class="br">STABILISED</span>
+        <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span></div>
+    </div>
+    <p class="pv-cap"><span>ILLUSTRATION · ONE CAMERA PATH THROUGH A HOME</span><span>HALL → LIVING ROOM → WINDOW</span></p>
+  </div>
+</section>
+
+<section class="pv-reel" aria-labelledby="reelTitle">
+  <div class="pv-reel-in">
+    <div class="pv-reel-head"><h2 id="reelTitle">The film is<span> the point.</span></h2>
+      <p>Photos tell guests what a place has. A film tells them what it feels like to arrive: the door opening, the light in the living room, the view at the end of the hall.</p></div>
+    <figure class="pv-screen pv-bars" id="reel"></figure>
+  </div>
+</section>
+</div>
+
+<section class="pv-sec" id="how" aria-labelledby="howTitle">
+  <p class="pv-kicker">HOW IT WORKS</p>
+  <div class="pv-split"><h2 id="howTitle">From your photos<span> to a film.</span></h2><p>You send the pictures. We plan the route, direct each shot and finish the film by hand. You see it before anyone else does.</p></div>
+  <ol class="pv-path" role="list">
+    <li class="pv-step"><b>01</b><h3>Send the photos</h3><p>A link to your listing or a folder of photographs: outside, living spaces, kitchen, bedrooms, bathrooms, the view. The more angles, the more the camera can do.</p></li>
+    <li class="pv-step"><b>02</b><h3>We plan the route</h3><p>We work out which spaces connect and where a camera could honestly travel: down a hall, through a doorway, across a room, out to the terrace.</p></li>
+    <li class="pv-step"><b>03</b><h3>We direct each shot</h3><p>Every move is made from your photographs with AI video models, then cut, colour-graded and scored by us. A shot that doesn’t hold up doesn’t make the film.</p></li>
+    <li class="pv-step"><b>04</b><h3>You review it</h3><p>You see the finished film first and tell us what to change. We deliver it wide for listings and websites, and vertical and square for social.</p></li>
+  </ol>
+  <p class="pv-aside">AI video is new, and we’re still refining how we make these. That’s why every film is made, and checked, by people.</p>
+</section>
+
+<div class="pv-truth" id="accuracy">
+<section class="pv-sec" aria-labelledby="truthTitle">
+  <p class="pv-kicker">ACCURACY</p>
+  <div class="pv-split"><h2 id="truthTitle">No invented<span> rooms.</span></h2><p>A film that oversells a property costs you a review. Ours show what’s there, and say plainly what kind of film they are.</p></div>
+  <div class="pv-modes">
+    <div class="pv-mode"><small>WHEN THE PHOTOS CONNECT</small><h3>A walk-through</h3><p>When your photographs show how the spaces join, the camera moves between them as one route, the way someone would walk it.</p></div>
+    <div class="pv-mode"><small>WHEN THEY DON’T</small><h3>A cinematic film</h3><p>When they don’t, we make a cinematic film of the property, shot by shot, and call it that. We never present it as a virtual tour.</p></div>
+  </div>
+  <ul class="pv-rules" role="list">
+    <li><span>01</span>We don’t add rooms, furniture, views or features.</li>
+    <li><span>02</span>We don’t change layouts, sizes or what a room is for.</li>
+    <li><span>03</span>Every shot is checked against your photographs.</li>
+    <li><span>04</span>If a shot misrepresents the place, it’s cut.</li>
+  </ul>
+</section>
+</div>
+
+<section class="pv-sec" id="for" aria-labelledby="forTitle">
+  <p class="pv-kicker">WHO IT’S FOR</p>
+  <div class="pv-split"><h2 id="forTitle">Any property<span> worth a closer look.</span></h2><p>One service for every place people book, buy or rent, wherever it’s listed.</p></div>
+  <ul class="pv-for" role="list">
+    <li><strong>Airbnb <em>hosts</em></strong><span>A film at the top of the listing, and clips for the guest guidebook.</span></li>
+    <li><strong>Vrbo <em>&amp; vacation rentals</em></strong><span>Holiday homes, cabins and villas, where the setting is half the reason to book.</span></li>
+    <li><strong>Booking.com <em>properties</em></strong><span>Apartments, guesthouses and B&amp;Bs competing on the same search page.</span></li>
+    <li><strong>Homes <em>for sale</em></strong><span>For estate agents and owners: a first viewing before the first viewing.</span></li>
+    <li><strong>Boutique hotels <em>&amp; stays</em></strong><span>Rooms, spaces and the arrival, for direct bookings and social.</span></li>
+  </ul>
+  <p class="pv-also">Letting a home, or listing somewhere else? Ask us: if the photographs exist, we can probably help.</p>
+</section>
+
+<section class="pv-sec" id="enquire" aria-labelledby="askTitle">
+  <div class="pv-ask">
+    <div class="pv-split-copy"><p class="pv-kicker">ENQUIRE</p><h2 id="askTitle">Tell us about<span> the property.</span></h2>
+      <p>A few details are enough to start. We’ll reply by email with what we think we can make from your photographs, and a simple way to send them.</p>
+      <p class="fine">No payment and no obligation: this is an enquiry, not an order. We’ll talk price once we’ve seen the property. We only use your details to reply to you.</p></div>
+    <div id="askBox">
+      <form class="pv-form" id="ask" novalidate>
+        <label>Your name<input type="text" name="name" autocomplete="name" required maxlength="120"></label>
+        <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+        <label class="wide">Phone <small>optional</small><input type="tel" name="phone" autocomplete="tel" maxlength="40"></label>
+        <fieldset class="q wide" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:8px">The property</legend><div class="chips" data-one="propertyType"></div></fieldset>
+        <fieldset class="q wide" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:8px">Listed on <small>pick any</small></legend><div class="chips" data-many="platforms"></div></fieldset>
+        <label>Where is it? <small>town or area</small><input type="text" name="location" maxlength="160"></label>
+        <label>Listing or photos link <small>optional</small><input type="url" name="listing" placeholder="https://" maxlength="500"></label>
+        <fieldset class="q wide" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:8px">The photographs you have</legend><div class="chips" data-one="photos"></div></fieldset>
+        <fieldset class="q wide" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:8px">Where the film would go <small>pick any</small></legend><div class="chips" data-many="use"></div></fieldset>
+        <label class="wide">Anything else? <small>optional</small><textarea name="message" maxlength="3000" placeholder="The rooms you’re proudest of, a deadline, a question…"></textarea></label>
+        <div class="hp" aria-hidden="true"><label>Company<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div>
+        <div class="send wide"><button class="button" type="submit" id="askBtn">Send enquiry</button><p class="err" id="askErr" role="alert"></p></div>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="pv-foot"><div class="pv-foot-in"><span>SiteRemade · Property Videos</span><nav aria-label="Footer"><a href="/">Websites</a><a href="/property-videos">Property Videos</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></div></footer>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches, TOUCH = matchMedia('(pointer:coarse)').matches;
+
+/* ============ THE FILM ============ */
+// when the first example film exists: its file, a still for before it plays, and a line under it. Until then the screen
+// says so, and nothing pretends to play.
+const REEL = { src: '', poster: '', caption: '' };
+(function reel() {
+  const box = $('#reel');
+  if (REEL.src) { box.classList.remove('pv-bars'); box.innerHTML = `<video src="${esc(REEL.src)}"${REEL.poster ? ` poster="${esc(REEL.poster)}"` : ''} controls playsinline preload="none"></video>${REEL.caption ? `<figcaption class="sr">${esc(REEL.caption)}</figcaption>` : ''}`; return; }
+  box.innerHTML = '<div class="pv-empty"><div><small>EXAMPLE FILM · IN PRODUCTION</small><strong>Our first film is being made.</strong><p>It will play here. Want yours to be one of the first? Send us your property below.</p></div></div>';
+})();
+
+/* ============ THE CAMERA (an illustration: a stabilised camera walking a hall into a living room) ============ */
+// The home is drawn as an architect's line drawing in metres (x across, y up, z ahead); the camera glides along a smooth
+// path through it and the lines are projected each frame. It only runs while on screen; a phone draws at 1.5x and a
+// reduced-motion setting gets one still frame.
+(function camera() {
+  const cv = $('#camCv'), ctx = cv.getContext('2d'), frameEl = $('#cam'), tc = $('#tc');
+  const L = [];// segments [x1,y1,z1,x2,y2,z2,weight]
+  const seg = (a, b, w = 1) => L.push([...a, ...b, w]);
+  const rect = (pts, w) => { for (let i = 0; i < pts.length; i++) seg(pts[i], pts[(i + 1) % pts.length], w); };
+  const box = (x0, y0, z0, x1, y1, z1, w = 1) => { const P = [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], Q = P.map(([x, , z]) => [x, y1, z]); rect(P, w); rect(Q, w); P.forEach((p, i) => seg(p, Q[i], w)); };
+  // the hall
+  for (const x of [-0.9, 0.9]) { seg([x, 0, -6], [x, 0, 0]); seg([x, 2.6, -6], [x, 2.6, 0]); seg([x, 0.12, -6], [x, 0.12, 0], 0.4); }
+  for (let z = -5.6; z < 0; z += 0.6) seg([-0.9, 0, z], [0.9, 0, z], 0.25);
+  rect([[-0.9, 1.15, -3.4], [-0.9, 1.15, -2.5], [-0.9, 1.85, -2.5], [-0.9, 1.85, -3.4]], 0.8); rect([[-0.9, 1.25, -3.3], [-0.9, 1.25, -2.6], [-0.9, 1.75, -2.6], [-0.9, 1.75, -3.3]], 0.4);
+  rect([[0.9, 0, -4.4], [0.9, 0, -3.6], [0.9, 2.05, -3.6], [0.9, 2.05, -4.4]], 0.7);
+  // the end of the hall and the doorway into the living room
+  rect([[-0.9, 0, 0], [0.9, 0, 0], [0.9, 2.6, 0], [-0.9, 2.6, 0]]);
+  rect([[-0.5, 0, 0], [0.5, 0, 0], [0.5, 2.1, 0], [-0.5, 2.1, 0]], 1.2); rect([[-0.56, 0, 0.02], [0.56, 0, 0.02], [0.56, 2.16, 0.02], [-0.56, 2.16, 0.02]], 0.5);
+  // the living room
+  box(-3.2, 0, 0, 3.2, 2.75, 6.8, 1);
+  seg([-3.2, 0.12, 0], [-3.2, 0.12, 6.8], 0.4); seg([3.2, 0.12, 0], [3.2, 0.12, 6.8], 0.4); seg([-3.2, 0.12, 6.8], [3.2, 0.12, 6.8], 0.4);
+  for (let x = -3.0; x < 3.2; x += 0.22) seg([x, 0, 0], [x, 0, 6.8], 0.18);
+  // the window on the far wall, and its mullions
+  const W = [-1.7, 0.45, 1.7, 2.4];
+  rect([[W[0], W[1], 6.8], [W[2], W[1], 6.8], [W[2], W[3], 6.8], [W[0], W[3], 6.8]], 1.4);
+  for (const x of [-0.57, 0.57]) seg([x, W[1], 6.8], [x, W[3], 6.8], 0.9); seg([W[0], 1.75, 6.8], [W[2], 1.75, 6.8], 0.9);
+  seg([W[0] - 0.08, W[1] - 0.06, 6.72], [W[2] + 0.08, W[1] - 0.06, 6.72], 0.8);
+  // a doorway off to the right (to the terrace)
+  rect([[3.2, 0, 3.8], [3.2, 0, 4.8], [3.2, 2.1, 4.8], [3.2, 2.1, 3.8]], 1.1);
+  // a sofa, a low table, a rug, a pendant, a shelf and a picture
+  box(-2.9, 0, 2.3, -0.7, 0.42, 3.2, 0.9); box(-2.9, 0.42, 2.98, -0.7, 0.86, 3.2, 0.9); box(-2.9, 0.42, 2.3, -2.7, 0.62, 2.98, 0.7); box(-0.9, 0.42, 2.3, -0.7, 0.62, 2.98, 0.7);
+  box(-2.1, 0, 3.7, -1.3, 0.38, 4.35, 0.8);
+  rect([[-2.6, 0.005, 3.35], [-0.5, 0.005, 3.35], [-0.5, 0.005, 5.1], [-2.6, 0.005, 5.1]], 0.45);
+  seg([-1.7, 2.75, 4.0], [-1.7, 2.15, 4.0], 0.6); { const n = 10; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, b = (i + 1) / n * Math.PI * 2; seg([-1.7 + Math.cos(a) * 0.22, 1.98, 4.0 + Math.sin(a) * 0.22], [-1.7 + Math.cos(b) * 0.22, 1.98, 4.0 + Math.sin(b) * 0.22], 0.7); seg([-1.7 + Math.cos(a) * 0.22, 1.98, 4.0 + Math.sin(a) * 0.22], [-1.7, 2.15, 4.0], 0.3); } }
+  for (const y of [1.1, 1.55, 2.0]) seg([-3.2, y, 4.9], [-3.2, y, 6.3], 0.6);
+  rect([[3.2, 1.2, 1.4], [3.2, 1.2, 2.7], [3.2, 2.0, 2.7], [3.2, 2.0, 1.4]], 0.7);
+  // where the camera goes: keyframes [x, y, z, yaw, pitch]
+  const K = [[0, 1.52, -5.4, 0, 0], [0.04, 1.5, -2.6, 0.02, 0], [0, 1.48, -0.5, 0, -0.01], [0.15, 1.45, 1.4, -0.22, -0.03], [0.55, 1.42, 3.0, 0.18, -0.02], [0.35, 1.4, 4.7, 0.04, 0.02]];
+  const cr = (p0, p1, p2, p3, t) => { const t2 = t * t, t3 = t2 * t; return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3); };
+  const at = (u) => { const n = K.length - 1, f = Math.min(n - 1e-6, Math.max(0, u * n)), i = Math.floor(f), t = f - i; const g = (j) => K[Math.max(0, Math.min(n, j))]; return [0, 1, 2, 3, 4].map((k) => cr(g(i - 1)[k], g(i)[k], g(i + 1)[k], g(i + 2)[k], t)); };
+  const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // dust in the window light, and film grain
+  const DUST = Array.from({ length: 70 }, (_, i) => { const r = (n) => { const x = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return x - Math.floor(x); }; return [-1.6 + r(1) * 3.2, 0.3 + r(2) * 2.1, 4.6 + r(3) * 2.1, r(4) * 6.28, 0.3 + r(5) * 0.7]; });
+  const grains = [0, 1, 2].map((s) => { const g = document.createElement('canvas'); g.width = g.height = 128; const x = g.getContext('2d'), d = x.createImageData(128, 128); let v = s * 9301 + 49297; for (let i = 0; i < d.data.length; i += 4) { v = (v * 9301 + 49297) % 233280; const n = v / 233280 * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = n; d.data[i + 3] = 14; } x.putImageData(d, 0, 0); return g; });
+  let W2 = 0, H2 = 0, DPR = 1, on = true, t0 = performance.now(), last = 0;
+  function size() { const r = frameEl.getBoundingClientRect(); DPR = Math.min(devicePixelRatio || 1, TOUCH ? 1.5 : 2); const w = Math.round(r.width * DPR), h = Math.round(r.height * DPR); if (w === cv.width && h === cv.height) return; cv.width = w; cv.height = h; W2 = r.width; H2 = r.height; }
+  const DUR = 15, FADE = 0.9;
+  function draw(sec) {
+    const loop = DUR + FADE * 2, s = sec % loop, u = ease(Math.min(1, Math.max(0, (s - FADE) / DUR)));
+    const fadeIn = Math.min(1, s / FADE), fadeOut = Math.min(1, Math.max(0, (loop - s) / FADE)), exposure = Math.min(fadeIn, fadeOut);
+    const [cx, cy, cz, yaw0, pitch0] = at(u), sway = RM ? 0 : Math.sin(sec * 0.9) * 0.004, bob = RM ? 0 : Math.sin(sec * 1.7) * 0.006;
+    const yaw = yaw0 + sway, pitch = pitch0 + bob * 0.4, cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const bg = ctx.createLinearGradient(0, 0, 0, H2); bg.addColorStop(0, '#0d0b09'); bg.addColorStop(1, '#060505'); ctx.fillStyle = bg; ctx.fillRect(0, 0, W2, H2);
+    const f = (W2 / 2) / Math.tan((TOUCH && W2 < 500 ? 70 : 64) * Math.PI / 360), mx = W2 / 2, my = H2 * 0.5;
+    const cam = (x, y, z) => { const dx = x - cx, dy = y - (cy + bob), dz = z - cz; const X = dx * cyw - dz * syw, Z1 = dx * syw + dz * cyw; const Y = dy * cp - Z1 * sp, Z = dy * sp + Z1 * cp; return [X, Y, Z]; };
+    const proj = (p) => [mx + f * p[0] / p[2], my - f * p[1] / p[2]];
+    // the window's light: the pane glowing, a shaft across the floor
+    const wq = [[W[0], W[1], 6.8], [W[2], W[1], 6.8], [W[2], W[3], 6.8], [W[0], W[3], 6.8]].map((p) => cam(...p));
+    if (wq.every((p) => p[2] > 0.1)) {
+      const q = wq.map(proj), gw = ctx.createLinearGradient(0, q[2][1], 0, q[0][1]); gw.addColorStop(0, `rgba(255,214,150,${0.5 * exposure})`); gw.addColorStop(1, `rgba(232,160,90,${0.32 * exposure})`);
+      ctx.fillStyle = gw; ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.fill();
+      const fl = [[W[0], 0, 6.8], [W[2], 0, 6.8], [W[2] - 0.5, 0, 3.2], [W[0] - 1.1, 0, 3.4]].map((p) => cam(...p));
+      if (fl.every((p) => p[2] > 0.1)) { const fq = fl.map(proj); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createLinearGradient(0, fq[0][1], 0, fq[2][1]); g2.addColorStop(0, `rgba(255,200,130,${0.16 * exposure})`); g2.addColorStop(1, 'rgba(255,200,130,0)'); ctx.fillStyle = g2; ctx.beginPath(); fq.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      const mid = proj(cam(0, 1.4, 6.8)), halo = ctx.createRadialGradient(mid[0], mid[1], 0, mid[0], mid[1], W2 * 0.55); halo.addColorStop(0, `rgba(255,190,120,${0.12 * exposure})`); halo.addColorStop(1, 'rgba(255,190,120,0)'); ctx.fillStyle = halo; ctx.fillRect(0, 0, W2, H2);
+    }
+    // the drawing: each line clipped at the lens, fading with distance, warmer near the window
+    ctx.lineCap = 'round';
+    for (const s2 of L) {
+      let a = cam(s2[0], s2[1], s2[2]), b = cam(s2[3], s2[4], s2[5]); const near = 0.08;
+      if (a[2] < near && b[2] < near) continue;
+      if (a[2] < near) { const t = (near - a[2]) / (b[2] - a[2]); a = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, near]; }
+      if (b[2] < near) { const t = (near - b[2]) / (a[2] - b[2]); b = [b[0] + (a[0] - b[0]) * t, b[1] + (a[1] - b[1]) * t, near]; }
+      const d = (a[2] + b[2]) / 2, fog = Math.max(0, Math.min(1, 1.25 - d / 9)), warm = Math.max(0, Math.min(1, (Math.max(s2[2], s2[5]) - 3.5) / 3.3));
+      const alpha = (0.18 + 0.62 * s2[6]) * fog * exposure; if (alpha < 0.01) continue;
+      const pa = proj(a), pb = proj(b);
+      ctx.strokeStyle = `rgba(${Math.round(240 + 15 * warm)},${Math.round(232 - 22 * warm)},${Math.round(218 - 62 * warm)},${alpha.toFixed(3)})`; ctx.lineWidth = Math.max(0.6, Math.min(2.2, (0.7 + 0.6 * s2[6]) * (2.6 / Math.max(1, d)) + 0.35));
+      ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
+    }
+    // dust turning in the light
+    if (exposure > 0.05) for (const p of DUST) { const x = p[0] + Math.sin(sec * 0.25 + p[3]) * 0.12, y = p[1] + Math.sin(sec * 0.18 + p[3] * 1.7) * 0.1, z = p[2]; const c = cam(x, y, z); if (c[2] < 0.3) continue; const q = proj(c), r = Math.max(0.5, 1.4 / c[2] * 1.6); ctx.fillStyle = `rgba(255,226,180,${(0.5 * p[4] * exposure * Math.max(0, 1 - c[2] / 8)).toFixed(3)})`; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 7); ctx.fill(); }
+    // the lens: a soft vignette, a little grain
+    const vg = ctx.createRadialGradient(mx, my, Math.min(W2, H2) * 0.35, mx, my, Math.max(W2, H2) * 0.72); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W2, H2);
+    const gp = ctx.createPattern(grains[Math.floor(sec * 24) % 3], 'repeat'); if (gp) { ctx.fillStyle = gp; ctx.fillRect(0, 0, W2, H2); }
+    const fr = Math.floor(s * 24), sss = Math.floor(fr / 24); tc.textContent = `00:00:${String(sss).padStart(2, '0')}:${String(fr % 24).padStart(2, '0')}`;
+  }
+  size(); addEventListener('resize', () => { size(); if (RM) draw(9); });
+  if (RM) { draw(9); return; }
+  new IntersectionObserver((es) => { on = es[0].isIntersecting; }, { rootMargin: '80px' }).observe(frameEl);
+  (function tick(now) { requestAnimationFrame(tick); if (!on || document.hidden) return; if (now - last < (TOUCH ? 40 : 33)) return; last = now; draw((now - t0) / 1000); })(performance.now());
+})();
+
+/* ============ THE ENQUIRY ============ */
+// the choices match lib/service-enquiries.js (the server refuses anything else)
+const OPTIONS = {
+  propertyType: ['Short-term rental', 'Vacation home', 'Home for sale', 'Home to let', 'Boutique hotel or B&B', 'Holiday park or cabins', 'Something else'],
+  platforms: ['Airbnb', 'Vrbo', 'Booking.com', 'Own booking website', 'Estate agent or property portal', 'Not listed yet'],
+  photos: ['Professional photos', 'Phone photos', 'A mix', 'Not sure yet'],
+  use: ['On the listing', 'Social media', 'Own website', 'Ads', 'Not sure yet'],
+};
+document.querySelectorAll('.chips').forEach((box) => {
+  const key = box.dataset.one || box.dataset.many, type = box.dataset.one ? 'radio' : 'checkbox';
+  box.innerHTML = OPTIONS[key].map((o) => `<label><input type="${type}" name="${key}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('');
+});
+$('#ask').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fm = e.target, fd = new FormData(fm), err = $('#askErr'), btn = $('#askBtn'), v = (k) => String(fd.get(k) || '').trim();
+  err.textContent = '';
+  if (!v('name')) { err.textContent = 'Add your name.'; fm.name.focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('email'))) { err.textContent = 'Add an email address we can reply to.'; fm.email.focus(); return; }
+  if (!v('propertyType')) { err.textContent = 'Pick the kind of property.'; fm.querySelector('[name=propertyType]').focus(); return; }
+  const listing = v('listing');
+  if (listing && !/^https?:\/\//i.test(listing)) { err.textContent = 'The link should start with https://'; fm.listing.focus(); return; }
+  const answers = { propertyType: v('propertyType'), platforms: fd.getAll('platforms'), location: v('location'), listing, photos: v('photos'), use: fd.getAll('use'), message: v('message') };
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/enquiries/property-video', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: v('name'), email: v('email'), phone: v('phone'), company: v('company'), answers }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.message || 'That didn’t send. Please try again, or email hello@siteremade.com.');
+    $('#askBox').innerHTML = `<div class="pv-done" tabindex="-1" id="done"><small>ENQUIRY RECEIVED</small><h3>Thank you, ${esc(v('name').split(' ')[0])}.<span> We’ve got it.</span></h3><p>We’ll reply to <b>${esc(v('email'))}</b> with what we think we can make, and how to send your photographs. Nothing has been ordered or charged.</p></div>`;
+    $('#done').focus();
+  } catch (x) { err.textContent = x.message; btn.disabled = false; btn.textContent = 'Send enquiry'; }
+});
+</script>
+</body></html>

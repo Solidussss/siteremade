@@ -3205,3 +3205,14 @@ body.generation-gate-open{overflow:hidden}
 .pricing-section{grid-template-columns:1fr .78fr .78fr}.pricing-credits{grid-column:1/-1;border-top:1px solid var(--line);padding-top:24px;max-width:760px;color:var(--muted);line-height:1.6}.pricing-credits p{margin:0 0 6px}
 @media(max-width:1100px){.pricing-section{grid-template-columns:minmax(0,1fr)}}
 .account-credit-packs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}.account-credit-packs-label,.account-credit-pack-status{flex-basis:100%;margin:0;font-size:12px;color:var(--muted)}.account-credit-pack{min-height:36px;padding:0 12px;font-size:12px}
+
+/* SiteRemade's two services (Websites | Property Videos): the switch every page's header carries */
+.nav-mid{display:flex;align-items:center;gap:30px}
+.svc-switch{display:inline-flex;padding:4px;gap:2px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.62);backdrop-filter:blur(10px)}
+.svc-switch a{padding:9px 16px;border-radius:999px;font-size:13px;font-weight:750;color:var(--muted);white-space:nowrap;transition:background .2s ease,color .2s ease}
+.svc-switch a:hover{color:var(--text)}
+.svc-switch a[aria-current="page"]{background:var(--dark);color:#fff}
+.svc-switch.on-dark{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.06)}
+.svc-switch.on-dark a{color:rgba(255,255,255,.62)}.svc-switch.on-dark a:hover{color:#fff}
+.svc-switch.on-dark a[aria-current="page"]{background:#f4efe6;color:#0d0e11}
+@media(max-width:720px){.nav.has-svc{flex-wrap:wrap;row-gap:0;padding-bottom:12px}.nav.has-svc .nav-mid{order:3;width:100%;justify-content:center}.svc-switch{width:100%}.svc-switch a{flex:1;text-align:center;padding:10px 8px;font-size:13px}}

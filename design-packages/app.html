@@ -141,9 +141,12 @@
 <body>
 <div class="page-glow glow-a"></div>
 <div class="page-glow glow-b"></div>
-<header class="nav">
+<header class="nav has-svc">
   <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
-  <nav class="nav-links"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a></nav>
+  <div class="nav-mid">
+    <nav class="svc-switch" aria-label="SiteRemade services"><a href="/" aria-current="page">Websites</a><a href="/property-videos">Property Videos</a></nav>
+    <nav class="nav-links" aria-label="Websites"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a></nav>
+  </div>
   <div class="nav-actions"><button type="button" class="button button-small button-secondary client-login" id="acct">Sign in</button></div>
 </header>
 <main class="studio" id="app"></main>

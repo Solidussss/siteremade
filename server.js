@@ -153,7 +153,9 @@ app.set('trust proxy', 1);
 // closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
 const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
-  /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/];
+  /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
+  // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
+  /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -6078,6 +6080,34 @@ app.post('/api/designs/sites/:id/requests/:rid', requireAuth, requireSameOrigin,
   if (!['new', 'done'].includes(status)) return res.status(400).json({ ok: false, message: 'Status is new or done.' });
   db.designSiteRequests.setStatus(q.id, status, new Date().toISOString());
   res.json({ ok: true, request: requestView(db.designSiteRequests.find(q.id)) });
+});
+
+// SITEREMADE'S SERVICES: Websites is the studio above (/ and /designs); Property Videos is a service we deliver by hand,
+// so its page only takes an enquiry (lib/service-enquiries.js). No upload, payment or generation happens here yet.
+const serviceEnquiries = require('./lib/service-enquiries');
+const ENQUIRY_TO = (process.env.SITEREMADE_ENQUIRY_TO || 'hello@siteremade.com').split(',').map((s) => s.trim()).filter(Boolean);
+const enquiryRateLimit = rateLimitMiddleware((req) => `enquiry:${req.ip}`, { max: Number(process.env.SITEREMADE_ENQUIRIES_MAX) || 5, windowMs: 60 * 60 * 1000 }, 'Too many enquiries from this connection. Please wait a while, or email hello@siteremade.com.');
+app.get(['/property-videos', '/property-videos/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'property-videos.html')); });
+app.post('/api/enquiries/:service', requireSameOrigin, express.json({ limit: '20kb' }), enquiryRateLimit, async (req, res) => {
+  if (!db.serviceEnquiries) return res.status(503).json({ ok: false, message: 'Enquiries aren’t available right now. Please email hello@siteremade.com.' });
+  const c = serviceEnquiries.clean(String(req.params.service), req.body);
+  if (c.spam) return res.json({ ok: true });
+  if (c.error) return res.status(c.error === 'Unknown service.' ? 404 : 400).json({ ok: false, message: c.error });
+  const id = 'enq_' + crypto.randomBytes(12).toString('base64url'), e = c.enquiry, now = new Date().toISOString();
+  db.serviceEnquiries.insert({ id, service: e.service, summary: e.summary, fieldsJson: JSON.stringify(e.fields), contactJson: JSON.stringify(e.contact), createdAt: now });
+  res.json({ ok: true, id });
+  // then the email to SiteRemade (the enquiry is already kept: an email that fails is recorded, never lost silently)
+  const at = () => new Date().toISOString();
+  if (!RESEND_API_KEY) return db.serviceEnquiries.emailed(id, at(), 'not_configured');
+  const m = serviceEnquiries.staffEmail(e, { id, at: now });
+  try { await sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: ENQUIRY_TO, reply_to: e.contact.email, subject: m.subject, html: m.html }); db.serviceEnquiries.emailed(id, at(), null); }
+  catch (err) { db.serviceEnquiries.emailed(id, at(), String(err && err.message || err).slice(0, 200)); console.error('Enquiry email failed:', err && err.message); }
+});
+// the enquiries, for the SiteRemade owner account only (a backstop for any email that didn't go)
+app.get('/api/enquiries', requireAuth, (req, res) => {
+  if (!db.serviceEnquiries || !isDesignOwner(req.accountId, req.accountEmail)) return res.status(404).json({ ok: false, message: 'Not found.' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, enquiries: db.serviceEnquiries.list(req.query.service ? String(req.query.service) : null).map((q) => ({ id: q.id, service: q.service, summary: q.summary, fields: JSON.parse(q.fields_json), contact: JSON.parse(q.contact_json), status: q.status, emailed: !!q.emailed_at, emailError: q.email_error || null, createdAt: q.created_at })) });
 });
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
