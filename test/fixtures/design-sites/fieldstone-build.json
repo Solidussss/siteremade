@@ -1,0 +1,256 @@
+{
+  "business": {
+    "name": "Fieldstone Design Build"
+  },
+  "brand": {
+    "name": "Fieldstone"
+  },
+  "contact": {
+    "phone": "(303) 555-0186"
+  },
+  "nav": {
+    "price": "Pricing",
+    "work": "Projects",
+    "how": "Process",
+    "cta": "Get a price"
+  },
+  "hero": {
+    "eyebrow": "Fieldstone · design-build, Denver",
+    "title": "More house,",
+    "titleEm": "same address.",
+    "lede": "Additions, basements and whole-home remodels, designed and built by one team on a fixed price. Scroll and watch an addition go up, from plans to the keys.",
+    "cta": "Get a price",
+    "cta2": "See projects",
+    "hint": "Scroll to build the addition"
+  },
+  "house": {
+    "brick": "yellow",
+    "newBrick": "render",
+    "frame": "#1E1F22",
+    "kitchen": "#D9D2C3",
+    "dims": [
+      "22 ft",
+      "14 ft"
+    ]
+  },
+  "count": {
+    "weeks": 14,
+    "bricks": 5200,
+    "budget": 185000,
+    "checks": 5,
+    "starts": [
+      0,
+      2,
+      4,
+      7,
+      9,
+      13
+    ],
+    "weekWord": "Week",
+    "labels": [
+      "Week",
+      "Bricks",
+      "Budget",
+      "Checks"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The plans",
+      "c": "Drawn, engineered and permitted by the city before we break ground."
+    },
+    {
+      "n": "Excavation",
+      "c": "Footings dug below the frost line and poured. The inspector signs off before framing."
+    },
+    {
+      "n": "The walls",
+      "c": "Block walls to match the house, with steel headers over the openings."
+    },
+    {
+      "n": "The roof",
+      "c": "Engineered joists, a membrane roof and a skylight over the new kitchen."
+    },
+    {
+      "n": "Glass and finish",
+      "c": "A wall of folding doors, drywall, flooring and the kitchen installed."
+    },
+    {
+      "n": "Keys",
+      "c": "Final inspection, the yard re-sodded and a walkthrough with you."
+    }
+  ],
+  "price": {
+    "eyebrow": "Pricing",
+    "title": "A real number,",
+    "titleEm": "up front.",
+    "sub": "Pick the project, the size and the finish for an honest range and timeline. After a free walkthrough we fix the price in writing.",
+    "kinds": [
+      {
+        "n": "Addition",
+        "d": "Single story",
+        "rate": [
+          380,
+          520
+        ],
+        "weeks": [
+          8,
+          0.2
+        ],
+        "size": [
+          150,
+          800,
+          300
+        ]
+      },
+      {
+        "n": "Basement finish",
+        "d": "Full basement",
+        "rate": [
+          70,
+          120
+        ],
+        "weeks": [
+          4,
+          0.05
+        ],
+        "size": [
+          400,
+          1600,
+          900
+        ]
+      },
+      {
+        "n": "Kitchen remodel",
+        "d": "Gut and rebuild",
+        "rate": [
+          250,
+          450
+        ],
+        "weeks": [
+          4,
+          0.2
+        ],
+        "size": [
+          100,
+          400,
+          200
+        ]
+      }
+    ],
+    "finishes": [
+      {
+        "n": "Builder",
+        "d": "Clean and simple",
+        "x": 1
+      },
+      {
+        "n": "Custom",
+        "d": "Our most popular",
+        "x": 1.2
+      },
+      {
+        "n": "Luxury",
+        "d": "Stone, walnut, steel",
+        "x": 1.5
+      }
+    ],
+    "deposit": 0.15,
+    "words": {
+      "unit": "sq ft",
+      "week": "week",
+      "weeks": "weeks"
+    },
+    "labels": {
+      "project": "Project",
+      "size": "Size",
+      "finish": "Finish",
+      "estimate": "Your estimate",
+      "onsite": "On site",
+      "deposit": "Deposit"
+    },
+    "note": "Includes design, permits, labor, materials and cleanup.",
+    "cta": "Book a walkthrough"
+  },
+  "work": {
+    "eyebrow": "Projects",
+    "title": "Same lot,",
+    "titleEm": "more room.",
+    "sub": "A kitchen addition we finished in Park Hill last fall. Drag the line to see the house before and after.",
+    "before": "Before",
+    "after": "After",
+    "facts": [
+      {
+        "k": "Added",
+        "v": "320 sq ft"
+      },
+      {
+        "k": "On site",
+        "v": "14 weeks"
+      },
+      {
+        "k": "Final cost",
+        "v": "$186,000"
+      },
+      {
+        "k": "Finished",
+        "v": "2 days early"
+      }
+    ]
+  },
+  "how": {
+    "eyebrow": "How it runs",
+    "title": "Week by week,",
+    "titleEm": "no surprises.",
+    "sub": "A typical extension, start to finish. You get a photo update every Friday and one person to call.",
+    "weeks": 14,
+    "weekLabel": "wk",
+    "plan": [
+      {
+        "n": "Design and permits",
+        "d": "Measured drawings, engineering and the city permit.",
+        "start": 0,
+        "len": 2
+      },
+      {
+        "n": "Excavation",
+        "d": "Footings and foundation, inspected.",
+        "start": 2,
+        "len": 2
+      },
+      {
+        "n": "Framing",
+        "d": "Walls, steel and the roof.",
+        "start": 4,
+        "len": 4
+      },
+      {
+        "n": "Mechanicals",
+        "d": "Electrical, plumbing and HVAC, inspected.",
+        "start": 8,
+        "len": 2
+      },
+      {
+        "n": "Finishes",
+        "d": "Drywall, floors, cabinets and paint.",
+        "start": 10,
+        "len": 3
+      },
+      {
+        "n": "Walkthrough",
+        "d": "Final inspection, punch list and keys.",
+        "start": 13,
+        "len": 1
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Fieldstone Design Build is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#7A2E1F"
+  }
+}

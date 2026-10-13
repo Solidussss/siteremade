@@ -1,0 +1,273 @@
+{
+  "business": {
+    "name": "Brick & Beam Builders"
+  },
+  "brand": {
+    "name": "Brick & Beam"
+  },
+  "contact": {
+    "phone": "0117 946 0522"
+  },
+  "nav": {
+    "price": "Prices",
+    "work": "Our work",
+    "how": "How it runs",
+    "cta": "Get a price"
+  },
+  "hero": {
+    "eyebrow": "Brick & Beam · builders, Bristol",
+    "title": "Built right,",
+    "titleEm": "on time.",
+    "lede": "Extensions, loft conversions and full renovations, with a fixed price, one site manager and a weekly update. Scroll and watch an extension go up, from plans to handover.",
+    "cta": "Get a price",
+    "cta2": "See our work",
+    "hint": "Scroll to build the extension"
+  },
+  "house": {
+    "brick": "red",
+    "newBrick": "reclaimed",
+    "frame": "#3A3F45",
+    "kitchen": "#5E7A6E",
+    "dims": [
+      "6.2 m",
+      "4.0 m"
+    ]
+  },
+  "count": {
+    "weeks": 12,
+    "bricks": 6400,
+    "budget": 68000,
+    "checks": 4,
+    "starts": [
+      0,
+      1,
+      3,
+      6,
+      8,
+      11
+    ],
+    "weekWord": "Week",
+    "labels": [
+      "Week",
+      "Bricks",
+      "Budget",
+      "Checks"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The drawings",
+      "c": "Measured, drawn and signed off by building control before a single spade goes in."
+    },
+    {
+      "n": "Groundworks",
+      "c": "Footings dug to a metre and filled with concrete. Building control checks them before we go on."
+    },
+    {
+      "n": "The walls",
+      "c": "Cavity walls in reclaimed brick to match the house, course by course, with steel over the openings."
+    },
+    {
+      "n": "The roof",
+      "c": "Timber joists, a warm roof that will outlast the mortgage, and a lantern to pour light in."
+    },
+    {
+      "n": "Glass and finish",
+      "c": "Folding doors across the back, plastered walls, the kitchen fitted and the scaffold gone."
+    },
+    {
+      "n": "Handover",
+      "c": "The garden put back, a final building control sign-off, and the keys to a bigger home."
+    }
+  ],
+  "price": {
+    "eyebrow": "Prices",
+    "title": "A real number,",
+    "titleEm": "up front.",
+    "sub": "Pick the project, the size and the finish to see a fair range and how long it takes. After a free survey we fix the price in writing.",
+    "kinds": [
+      {
+        "n": "Rear extension",
+        "d": "Single storey",
+        "rate": [
+          2200,
+          2900
+        ],
+        "weeks": [
+          6,
+          2
+        ],
+        "size": [
+          10,
+          60,
+          20
+        ]
+      },
+      {
+        "n": "Loft conversion",
+        "d": "With a dormer",
+        "rate": [
+          1900,
+          2500
+        ],
+        "weeks": [
+          7,
+          1.5
+        ],
+        "size": [
+          15,
+          45,
+          25
+        ]
+      },
+      {
+        "n": "Kitchen refit",
+        "d": "Strip out and fit",
+        "rate": [
+          900,
+          1600
+        ],
+        "weeks": [
+          3,
+          1
+        ],
+        "size": [
+          8,
+          40,
+          15
+        ]
+      },
+      {
+        "n": "Full renovation",
+        "d": "Whole house",
+        "rate": [
+          1100,
+          1800
+        ],
+        "weeks": [
+          8,
+          1
+        ],
+        "size": [
+          50,
+          200,
+          90
+        ]
+      }
+    ],
+    "finishes": [
+      {
+        "n": "Standard",
+        "d": "Solid, simple",
+        "x": 1
+      },
+      {
+        "n": "Mid",
+        "d": "Most people",
+        "x": 1.15
+      },
+      {
+        "n": "High end",
+        "d": "Stone, oak, steel",
+        "x": 1.4
+      }
+    ],
+    "deposit": 0.1,
+    "words": {
+      "unit": "m²",
+      "week": "week",
+      "weeks": "weeks"
+    },
+    "labels": {
+      "project": "Project",
+      "size": "Size",
+      "finish": "Finish",
+      "estimate": "Your estimate",
+      "onsite": "On site",
+      "deposit": "Deposit"
+    },
+    "note": "Includes labour, materials, building control and clearing up. VAT included.",
+    "cta": "Book a free survey"
+  },
+  "work": {
+    "eyebrow": "Our work",
+    "title": "Same house,",
+    "titleEm": "more room.",
+    "sub": "A kitchen extension we finished in Redland last spring. Drag the line to see the house before and after.",
+    "before": "Before",
+    "after": "After",
+    "facts": [
+      {
+        "k": "Added",
+        "v": "24 m²"
+      },
+      {
+        "k": "On site",
+        "v": "11 weeks"
+      },
+      {
+        "k": "Final cost",
+        "v": "£68,000"
+      },
+      {
+        "k": "Finished",
+        "v": "On time"
+      }
+    ]
+  },
+  "how": {
+    "eyebrow": "How it runs",
+    "title": "Week by week,",
+    "titleEm": "no surprises.",
+    "sub": "A typical extension, start to finish. You get a photo update every Friday and one person to call.",
+    "weeks": 12,
+    "weekLabel": "wk",
+    "plan": [
+      {
+        "n": "Survey and drawings",
+        "d": "Measured survey, plans and building control approval.",
+        "start": 0,
+        "len": 2
+      },
+      {
+        "n": "Groundworks",
+        "d": "Footings, drains and the slab.",
+        "start": 2,
+        "len": 2
+      },
+      {
+        "n": "Walls and steel",
+        "d": "Cavity walls up, steel beams in.",
+        "start": 4,
+        "len": 3
+      },
+      {
+        "n": "Roof and glazing",
+        "d": "Roof on, lantern and doors fitted. Watertight.",
+        "start": 6,
+        "len": 2
+      },
+      {
+        "n": "Inside",
+        "d": "Electrics, plaster, floor and the kitchen.",
+        "start": 8,
+        "len": 3
+      },
+      {
+        "n": "Handover",
+        "d": "Snagging, sign-off and the garden put back.",
+        "start": 11,
+        "len": 1
+      }
+    ]
+  },
+  "footer": {
+    "fine": "Brick & Beam Builders is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#1F4E79"
+  }
+}

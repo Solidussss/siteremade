@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{business.name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: a builder doing extensions and renovations. One pinned side view of a house where a rear extension is built
+   as you scroll (drawn up, groundworks, walls, roof, glazing and finishes, handover), with the weeks, bricks, budget
+   and inspections counting up; then what a homeowner needs: a price range for their project, the house before and
+   after, and how the build runs week by week. */
+:root{
+  color-scheme:light;
+  --paper:#F3F1EC;
+  --paper-2:#E8E5DD;
+  --sheet:#FFFFFF;
+  --ink:#1E1F22;
+  --ink-2:#4B4E55;
+  --muted:#80838A;
+  --line:#DCD8CE;
+  --accent:{{A:#1F4E79}};       /* the builder's colour: actions, the logo, the plans, picked projects and finishes */
+  --accent-2:{{A:#285F92}};
+  --accent-text:{{A:#1F4E79}};
+  --accent-soft:{{A:#DDE7F1}};
+  --on-accent:#FFFFFF;
+  --hivis:#F2C230;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --gut:clamp(16px,4vw,48px);
+  --max:1200px;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:.95;letter-spacing:.005em;text-transform:uppercase;margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:500 12px/1.3 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.wrap{max-width:var(--max);margin-inline:auto;padding-inline:var(--gut)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:3px;padding:15px 22px;font:700 15px/1 var(--f-body);letter-spacing:.02em;text-decoration:none;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px);background:var(--accent-2)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+.btn.ghost:hover{background:var(--sheet)}
+
+/* nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:40;padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gut) 12px;display:flex;align-items:center;gap:20px;background:rgba(243,241,236,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(30,31,34,.08)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:700 24px/1 var(--f-display);text-transform:uppercase;letter-spacing:.01em;white-space:nowrap}
+.brand svg{width:28px;height:28px;flex:none}
+.nav ul{display:flex;gap:26px;list-style:none;margin:0 0 0 auto;padding:0}
+.nav ul a{text-decoration:none;font:600 14.5px var(--f-body);color:var(--ink-2)}
+.nav ul a:hover{color:var(--ink)}
+.nav .call{font:400 13px var(--f-mono);color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.nav .btn{padding:11px 16px;font-size:14px}
+@media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
+@media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:22px}}
+
+/* hero: the build */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+#build{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(243,241,236,.97),rgba(243,241,236,.82) 55%,rgba(243,241,236,0));pointer-events:none}
+.hero h1{font-size:clamp(3.4rem,min(7.4vw,10vh),7.6rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:3px;border-top:4px solid var(--hivis);box-shadow:0 22px 56px -30px rgba(30,31,34,.45),0 0 0 1px rgba(30,31,34,.06)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font:500 11.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.card .week{color:var(--accent-text)}
+.card h3{font-size:clamp(32px,3vw,44px);margin-top:10px}
+.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
+.board{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:3px;background:var(--ink);color:#fff;box-shadow:0 22px 56px -30px rgba(30,31,34,.6);overflow:hidden}
+.board div{padding:12px 18px;border-right:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12);min-width:0}
+.board div:nth-child(2n){border-right:0}
+.board div:nth-child(n+3){border-bottom:0}
+.board dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.board dd{margin:6px 0 0;font:700 30px/1 var(--f-display);letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--hivis)}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
+.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+@keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* short laptop screens: a little less type so the copy clears the card */
+@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3.4rem,min(7.4vw,9vh),7.6rem)}.lede{font-size:15px}}
+@media (max-width:820px){
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .hero h1{font-size:clamp(2.8rem,12vw,3.4rem)}
+  .hero .acts{display:none}
+  .board{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.9fr) minmax(0,1.05fr) minmax(0,1.2fr) minmax(0,.85fr);bottom:calc(206px + env(safe-area-inset-bottom,0px))}
+  .board div{padding:9px 10px;border-bottom:0}
+  .board div:nth-child(2n){border-right:1px solid rgba(255,255,255,.12)}
+  .board div:last-child{border-right:0}
+  .board dt{font-size:8.5px;letter-spacing:.03em}
+  .board dd{font-size:clamp(18px,5.2vw,24px)}
+  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
+  .card p{font-size:14px;min-height:4.4em}
+  .hint{display:none}
+}
+
+/* sections */
+section.block{padding-block:clamp(84px,11vw,150px)}
+.head{max-width:760px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
+.head h2{font-size:clamp(3rem,6.6vw,5.6rem)}
+.head h2 em{font-style:normal;color:var(--accent-text)}
+.head p:not(.eyebrow){color:var(--ink-2);font-size:clamp(16px,1.4vw,18px);max-width:58ch}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:3px}
+.lbl{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* price */
+.price{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px;align-items:start}
+.ask{padding:clamp(22px,3vw,30px);display:grid;gap:22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chips button{border:2px solid var(--line);background:var(--sheet);border-radius:3px;padding:10px 14px;font:600 14.5px var(--f-body);cursor:pointer;color:var(--ink-2);display:grid;gap:2px;text-align:left}
+.chips button small{font:400 12.5px var(--f-body);color:var(--muted)}
+.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.size{display:grid;gap:8px;margin-top:8px}
+.size input[type=range]{width:100%;accent-color:var(--accent)}
+.size .n{font:700 40px/1 var(--f-display)}
+.size .n small{font:500 14px var(--f-body);color:var(--muted);margin-left:6px;text-transform:none}
+.quote{padding:clamp(22px,3vw,28px);display:grid;gap:14px;position:sticky;top:90px;background:var(--ink);color:#fff;border-color:var(--ink)}
+.quote .lbl{color:rgba(255,255,255,.6)}
+.quote .big{font:700 52px/1 var(--f-display);color:var(--hivis);font-variant-numeric:tabular-nums}
+.quote dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.quote dl div{background:rgba(255,255,255,.06);padding:12px;border-radius:3px}
+.quote dt{font:500 10px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.quote dd{margin:6px 0 0;font:700 24px var(--f-display)}
+.quote .note{font-size:13px;color:rgba(255,255,255,.65)}
+.quote .btn{background:var(--hivis);color:var(--ink)}
+
+/* before / after */
+.ba{position:relative;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.ba canvas{width:100%;aspect-ratio:16/8;display:block;border-radius:3px;background:var(--paper-2)}
+.ba .handle{position:absolute;top:0;bottom:0;width:44px;margin-left:-22px;cursor:ew-resize;display:grid;place-items:center;background:none;border:0;padding:0}
+.ba .handle::before{content:"";position:absolute;top:0;bottom:0;left:21px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.ba .handle i{position:relative;width:38px;height:38px;border-radius:50%;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);display:grid;place-items:center;font:700 15px var(--f-mono);font-style:normal;color:var(--ink)}
+.ba .tag{position:absolute;top:14px;font:600 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;background:rgba(30,31,34,.8);color:#fff;border-radius:3px}
+.ba .tag.l{left:14px}
+.ba .tag.r{right:14px;background:var(--accent)}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.facts div{padding:14px 16px;background:var(--sheet);border:1px solid var(--line);border-radius:3px;min-width:0}
+.facts dt{font:500 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:6px 0 0;font:700 26px/1.05 var(--f-display);text-transform:uppercase}
+
+/* how it runs */
+.plan{display:grid;gap:8px}
+.plan .row{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.plan b{font:700 24px/1 var(--f-display);text-transform:uppercase;display:block}
+.plan span.d{font-size:14.5px;color:var(--ink-2)}
+.plan .bar{position:relative;height:30px;background:repeating-linear-gradient(90deg,transparent 0 calc(100% / var(--w) - 1px),var(--line) 0 calc(100% / var(--w)))}
+.plan .bar i{position:absolute;top:4px;bottom:4px;border-radius:2px;background:var(--accent)}
+.plan .bar em{position:absolute;top:50%;transform:translateY(-50%);margin:0 8px;font:500 11.5px var(--f-mono);font-style:normal;color:var(--ink-2);white-space:nowrap}
+.plan .weeks{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:16px;font:500 11px var(--f-mono);color:var(--muted)}
+.plan .weeks span{display:flex;justify-content:space-between}
+
+footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) var(--gut) calc(30px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.foot{max-width:var(--max);margin-inline:auto;display:grid;gap:34px}
+.wordmark{font:700 min(15vw,198px)/.86 var(--f-display);text-transform:uppercase;margin:0;white-space:nowrap}
+.wordmark em{font-style:normal;color:var(--hivis)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:rgba(243,241,236,.6)}
+.foot-row a{color:var(--paper)}
+
+@media (max-width:980px){
+  .price{grid-template-columns:minmax(0,1fr)}
+  .quote{position:static}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:620px){
+  .plan .row,.plan .weeks{grid-template-columns:minmax(0,1fr);gap:8px}
+  .plan .weeks span:first-child{display:none}
+  .ba canvas{aspect-ratio:4/3}
+}
+{{$._guards|raw}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top" aria-label="{{$.businessSaid|attr}}, back to top">
+    <svg viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="16" width="11" height="5" fill="{{A:#1F4E79}}"/><rect x="15" y="16" width="11" height="5" fill="{{A:#1F4E79}}"/><rect x="8" y="22" width="12" height="5" fill="{{A:#1F4E79}}"/><path d="M14 2v12" stroke="#1E1F22" stroke-width="1.6"/><path d="M14 14l-3-4h6z" fill="#F2C230"/></svg>
+    {{brand.name}}
+  </a>
+  <ul><li><a href="#price">{{nav.price}}</a></li><li><a href="#work">{{nav.work}}</a></li><li><a href="#how">{{nav.how}}</a></li></ul>
+  <a class="call" href="tel:{{$.tel|attr}}">{{contact.phone}}</a>
+  <a class="btn" href="#price">{{nav.cta}}</a>
+</nav>
+
+<main>
+<section class="hero" id="top" aria-label="A rear extension built week by week, scroll to run it">
+  <div class="stage" id="stage">
+    <canvas id="build" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow">{{hero.eyebrow}}</p>
+      <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
+      <p class="lede">{{hero.lede}}</p>
+      <div class="acts"><a class="btn" href="#price">{{hero.cta}}</a><a class="btn ghost" href="#work">{{hero.cta2}}</a></div>
+    </div>
+    <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <dl class="board" id="board" aria-live="off">
+      <div><dt>{{count.labels.0}}</dt><dd id="kWeek">0</dd></div>
+      <div><dt>{{count.labels.1}}</dt><dd id="kBricks">0</dd></div>
+      <div><dt>{{count.labels.2}}</dt><dd id="kBudget">{{locale.currency}}0</dd></div>
+      <div><dt>{{count.labels.3}}</dt><dd id="kChecks">0</dd></div>
+    </dl>
+    <div class="card" id="card" aria-live="polite">
+      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="week" id="gWeek">{{count.weekWord}} 0</span></div>
+      <h3 id="gTitle">{{stages.0.n}}</h3>
+      <p id="gText">{{stages.0.c}}</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="price" aria-labelledby="price-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{price.eyebrow}}</p>
+      <h2 id="price-h">{{price.title}} <em>{{price.titleEm}}</em></h2>
+      <p>{{price.sub}}</p>
+    </div>
+    <div class="price">
+      <div class="panel ask">
+        <div><span class="lbl">{{price.labels.project}}</span><div class="chips" id="kinds" role="group" aria-label="{{price.labels.project|attr}}"></div></div>
+        <div class="size"><span class="lbl">{{price.labels.size}}</span><div class="n" id="sN">{{$.size0}}<small>{{price.words.unit}}</small></div><input type="range" id="sRange" min="{{$.sizeMin}}" max="{{$.sizeMax}}" step="1" value="{{$.size0}}" aria-label="{{price.labels.size|attr}}"></div>
+        <div><span class="lbl">{{price.labels.finish}}</span><div class="chips" id="finishes" role="group" aria-label="{{price.labels.finish|attr}}"></div></div>
+      </div>
+      <aside class="panel quote" aria-live="polite">
+        <span class="lbl">{{price.labels.estimate}}</span>
+        <div class="big" id="qRange">{{locale.currency}}0</div>
+        <dl>
+          <div><dt>{{price.labels.onsite}}</dt><dd id="qWeeks">—</dd></div>
+          <div><dt>{{price.labels.deposit}}</dt><dd id="qDep">—</dd></div>
+        </dl>
+        <p class="note">{{price.note}}</p>
+        <a class="btn" href="tel:{{$.tel|attr}}" id="qGo">{{price.cta}}</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="work" aria-labelledby="work-h" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{work.eyebrow}}</p>
+      <h2 id="work-h">{{work.title}} <em>{{work.titleEm}}</em></h2>
+      <p>{{work.sub}}</p>
+    </div>
+    <div class="ba" id="ba">
+      <canvas id="baCanvas" aria-hidden="true"></canvas>
+      <span class="tag l" id="baBefore">{{work.before}}</span><span class="tag r" id="baAfter">{{work.after}}</span>
+      <button type="button" class="handle" id="baHandle" aria-label="{{work.before|attr}} / {{work.after|attr}}" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><i>↔</i></button>
+    </div>
+    <dl class="facts" id="facts"></dl>
+  </div>
+</section>
+
+<section class="block" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">{{how.eyebrow}}</p>
+      <h2 id="how-h">{{how.title}} <em>{{how.titleEm}}</em></h2>
+      <p>{{how.sub}}</p>
+    </div>
+    <div class="plan" id="plan"></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot">
+    <p class="wordmark" aria-label="{{$.brandSaid|attr}}">{{brand.name}}<em>.</em></p>
+    <div class="foot-row">
+      <span>{{footer.fine}}</span>
+      <span>Designed by <a href="https://www.instagram.com/siteremade/" target="_blank" rel="noopener">siteremade</a></span>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+"use strict";
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sm=t=>t*t*(3-2*t);
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+function shade(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
+
+/* ============ THE HOUSE FROM THE GARDEN (drawn, shared with the before and after) ============ */
+// units: the house is 1.5 wide (x -.75 to .75) and its walls 1 high (ground at y 0); the extension covers the ground
+// floor from x -.75 to .5 and stands .4 high, with a roof lantern and folding glass doors
+const X0=-.75, X1=.5, EH=.4;
+function bricks(c,x0,y0,x1,y1,col,clipTop){c.save();c.beginPath();c.rect(x0,Math.max(y0,clipTop),x1-x0,y1-Math.max(y0,clipTop));c.clip();c.fillStyle=col;c.fillRect(x0,y0,x1-x0,y1-y0);
+  c.strokeStyle='rgba(255,255,255,.22)';c.lineWidth=.003;for(let y=y1,r=0;y>y0;y-=.025,r++){c.beginPath();c.moveTo(x0,y);c.lineTo(x1,y);c.stroke();for(let x=x0+(r%2?.03:0);x<x1;x+=.06){c.beginPath();c.moveTo(x,y);c.lineTo(x,y-.025);c.stroke();}}
+  c.fillStyle='rgba(0,0,0,.06)';for(let y=y1,r=0;y>y0;y-=.025,r++)for(let x=x0+(r%2?.03:0);x<x1;x+=.12){c.fillRect(x+.002,y-.023,.056,.021);}c.restore();}
+function sash(c,x,y,w,h,frame,sky,lit){c.fillStyle=frame;c.fillRect(x-.012,y-.012,w+.024,h+.024);const g=c.createLinearGradient(0,y,0,y+h);g.addColorStop(0,sky[0]);g.addColorStop(1,sky[1]);c.fillStyle=g;c.fillRect(x,y,w,h);
+  if(lit>0){c.fillStyle=`rgba(255,210,140,${.75*lit})`;c.fillRect(x,y,w,h);}c.strokeStyle=frame;c.lineWidth=.012;c.beginPath();c.moveTo(x,y+h/2);c.lineTo(x+w,y+h/2);c.moveTo(x+w/2,y);c.lineTo(x+w/2,y+h);c.stroke();
+  c.fillStyle='#E9E5DC';c.fillRect(x-.02,y+h+.012,w+.04,.018);}
+// the existing house: brick, sash windows, the old back door, a roof with two chimneys
+function oldHouse(c,o,night,covered){bricks(c,-.75,-1,.75,0,o.house,-1);
+  c.fillStyle='#55504A';c.beginPath();c.moveTo(-.8,-1);c.lineTo(-.62,-1.28);c.lineTo(.62,-1.28);c.lineTo(.8,-1);c.closePath();c.fill();c.strokeStyle='rgba(255,255,255,.08)';c.lineWidth=.004;for(let y=-1.27;y<-1;y+=.03){c.beginPath();c.moveTo(-.8,y);c.lineTo(.8,y);c.stroke();}
+  [[-.55,1],[.5,1]].forEach(([x])=>{bricks(c,x-.05,-1.42,x+.05,-1.2,o.house,-1.42);c.fillStyle='#8A4A38';c.fillRect(x-.03,-1.47,.025,.05);c.fillRect(x+.005,-1.47,.025,.05);});
+  const sky=['#C6D7E4','#EEF2F2'];sash(c,-.5,-.86,.18,.26,'#F2EFE8',sky,night*.6);sash(c,.2,-.86,.18,.26,'#F2EFE8',sky,night*.4);sash(c,-.12,-.86,.14,.22,'#F2EFE8',sky,0);
+  if(covered<1){c.save();c.globalAlpha*=1-covered;sash(c,-.45,-.33,.2,.22,'#F2EFE8',sky,0);c.fillStyle='#4E6B5A';c.fillRect(.05,-.36,.14,.36);c.fillStyle='#C9A64A';c.beginPath();c.arc(.17,-.18,.008,0,7);c.fill();c.restore();}
+  sash(c,.56,-.33,.12,.22,'#F2EFE8',sky,night*.3);}
+// the extension at each stage: k is how far each part has got
+function extension(c,o,k,time){const top=-EH;
+  // foundations
+  if(k.dig>0){c.fillStyle='#7A5C3E';c.fillRect(X0,0,(X1-X0)*k.dig,.12);c.fillStyle='#6A4E34';c.fillRect(X0+.02,.02,(X1-X0-.04)*k.dig,.08);}
+  if(k.pour>0){c.fillStyle='#B9B7B1';c.fillRect(X0,0,(X1-X0)*k.pour,.11);c.fillStyle='rgba(255,255,255,.15)';c.fillRect(X0,0,(X1-X0)*k.pour,.015);}
+  // walls rising course by course, around the door and window openings
+  if(k.walls>0){const h=top*k.walls;c.fillStyle='rgba(0,0,0,.12)';c.fillRect(X0-.012,h-.004,X1-X0+.024,-h+.004);bricks(c,X0,top,X1,0,o.ext,h);c.strokeStyle='rgba(40,30,25,.45)';c.lineWidth=.006;c.strokeRect(X0,h,X1-X0,-h);
+    if(k.walls<1){c.fillStyle='#F2EFE8';c.fillRect(X0,h-.006,X1-X0,.006);c.fillStyle=o.ext;for(let i=0;i<5;i++)c.fillRect(X0+.08+i*.26,h-.03,.055,.024);}c.fillStyle='#D8D2C6';if(k.walls>.75){c.fillRect(-.62,-.32,.7,.32);c.fillRect(.22,-.29,.2,.17);}
+    c.fillStyle='#CFC9BD';if(k.walls>.75){c.fillRect(-.63,-.335,.72,.02);c.fillRect(.21,-.305,.22,.02);}}
+  // roof: joists, then membrane and parapet, then the lantern
+  if(k.joists>0){c.fillStyle='#B98B5E';const n=Math.round(14*k.joists);for(let i=0;i<n;i++)c.fillRect(X0+.02+i*.088,top-.035,.03,.035);}
+  if(k.roof>0){const sh=c.createLinearGradient(0,top-.065,0,top-.16);sh.addColorStop(0,'rgba(0,0,0,.25)');sh.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=sh;c.fillRect(X0,top-.16,(X1-X0)*k.roof,.095);c.fillStyle='#3E4247';c.fillRect(X0-.01,top-.05,(X1-X0+.02)*k.roof,.05);c.fillStyle='#D9D5CC';c.fillRect(X0-.015,top-.065,(X1-X0+.03)*k.roof,.018);}
+  if(k.lantern>0){c.save();c.globalAlpha*=k.lantern;const lx=-.42, lw=.3, ly=top-.065;c.fillStyle=o.frame;c.fillRect(lx,ly-.05,lw,.05);c.beginPath();c.moveTo(lx,ly-.05);c.lineTo(lx+lw*.5,ly-.14);c.lineTo(lx+lw,ly-.05);c.closePath();c.fill();
+    c.fillStyle='rgba(190,215,230,.9)';c.beginPath();c.moveTo(lx+.012,ly-.055);c.lineTo(lx+lw*.5,ly-.128);c.lineTo(lx+lw-.012,ly-.055);c.closePath();c.fill();c.fillRect(lx+.012,ly-.045,lw-.024,.035);c.restore();}
+  // glazing: folding doors and a side window, with the kitchen inside
+  if(k.glass>0){c.save();c.globalAlpha*=k.glass;const lit=k.lit;
+    c.fillStyle=lit>0?`rgb(${Math.round(lerp(236,250,lit))},${Math.round(lerp(230,226,lit))},${Math.round(lerp(220,190,lit))})`:'#ECE6DC';c.fillRect(-.62,-.32,.7,.32);
+    c.fillStyle=o.kitchen;c.fillRect(-.6,-.16,.66,.12);c.fillStyle=shade(o.kitchen,-.2);c.fillRect(-.6,-.04,.66,.04);c.fillStyle='#EDEAE3';c.fillRect(-.61,-.165,.68,.012);
+    c.fillStyle='#C9C3B6';c.fillRect(-.42,-.11,.26,.08);c.fillStyle='#EFEBE3';c.fillRect(-.43,-.115,.28,.01);
+    [-.36,-.29,-.22].forEach(x=>{c.strokeStyle='#2A2A2A';c.lineWidth=.003;c.beginPath();c.moveTo(x,-.32);c.lineTo(x,-.25);c.stroke();c.fillStyle=lit>0?'#FFE3A3':'#3A3A3A';c.beginPath();c.arc(x,-.243,.012,Math.PI,0);c.fill();
+      if(lit>0){const r=c.createRadialGradient(x,-.24,0,x,-.24,.12);r.addColorStop(0,`rgba(255,210,140,${.45*lit})`);r.addColorStop(1,'rgba(255,210,140,0)');c.fillStyle=r;c.fillRect(x-.12,-.32,.24,.24);}});
+    const g=c.createLinearGradient(-.62,-.32,.08,0);g.addColorStop(0,'rgba(255,255,255,.35)');g.addColorStop(.45,'rgba(255,255,255,.05)');g.addColorStop(.6,'rgba(255,255,255,.25)');g.addColorStop(1,'rgba(255,255,255,.05)');c.fillStyle=g;c.fillRect(-.62,-.32,.7,.32);
+    c.strokeStyle=o.frame;c.lineWidth=.012;c.strokeRect(-.62,-.32,.7,.32);for(let i=1;i<4;i++){c.beginPath();c.moveTo(-.62+i*.175,-.32);c.lineTo(-.62+i*.175,0);c.stroke();}
+    c.fillStyle='rgba(190,215,230,.85)';c.fillRect(.22,-.29,.2,.17);if(lit>0){c.fillStyle=`rgba(255,210,140,${.5*lit})`;c.fillRect(.22,-.29,.2,.17);}c.strokeStyle=o.frame;c.lineWidth=.01;c.strokeRect(.22,-.29,.2,.17);c.restore();}}
+// the garden: mud while building, then lawn and a patio
+function garden(c,k){c.fillStyle=k.lawn>0?`rgb(${Math.round(lerp(150,138,k.lawn))},${Math.round(lerp(126,170,k.lawn))},${Math.round(lerp(100,104,k.lawn))})`:'#968A76';c.fillRect(-4,0,8,.4);
+  if(k.mud>0&&k.lawn<1){c.save();c.globalAlpha*=k.mud*(1-k.lawn);c.fillStyle='#7E6A52';for(let i=0;i<9;i++){c.beginPath();c.ellipse(-1.1+i*.27,.05+(i%3)*.06,.09,.02,0,0,7);c.fill();}c.restore();}
+  if(k.lawn>0){c.save();c.globalAlpha*=k.lawn;c.fillStyle='#CFC9BC';for(let i=0;i<8;i++)c.fillRect(-.74+i*.155,.0,.15,.06);c.fillStyle='rgba(0,0,0,.08)';c.fillRect(-.75,.06,1.24,.006);
+c.restore();}}
+function pots(c,k){if(k<=0)return;c.save();c.globalAlpha*=k;[[-.95,.0],[.6,.0],[.7,.0]].forEach(([x],i)=>{c.fillStyle='#B0573A';c.beginPath();c.moveTo(x-.04,0);c.lineTo(x+.04,0);c.lineTo(x+.03,-.07);c.lineTo(x-.03,-.07);c.closePath();c.fill();c.fillStyle=['#5E7F4E','#6F8A5B','#7E9A64'][i];c.beginPath();c.arc(x,-.11,.06,0,7);c.fill();});c.restore();}
+// scaffold and the digger, while they're needed
+function scaffold(c,k){if(k<=0)return;c.save();c.globalAlpha*=k;c.strokeStyle='#8E9196';c.lineWidth=.008;[-.8,-.45,-.1,.25,.55].forEach(x=>{c.beginPath();c.moveTo(x,.02);c.lineTo(x,-.52);c.stroke();});
+  [-.18,-.36,-.5].forEach(y=>{c.beginPath();c.moveTo(-.82,y);c.lineTo(.57,y);c.stroke();});c.fillStyle='#B98B5E';[-.18,-.36].forEach(y=>c.fillRect(-.82,y-.012,1.39,.012));c.restore();}
+function digger(c,k,time){if(k<=0)return;const x=lerp(1.4,.85,sm(Math.min(1,k*2)))+(k>.8?(k-.8)*3:0);const arm=RM?.3:.3+.25*Math.sin(time*1.5);c.save();c.globalAlpha*=Math.min(1,k*4)*(1-sm(seg(k,.85,1)));c.translate(x,0);
+  c.fillStyle='#2E2E2E';c.beginPath();c.roundRect(-.14,-.05,.28,.05,.025);c.fill();c.fillStyle='#F2C230';c.fillRect(-.12,-.16,.2,.11);c.fillStyle='#2E2E2E';c.fillRect(-.02,-.24,.1,.09);c.fillStyle='rgba(190,215,230,.9)';c.fillRect(0,-.225,.06,.06);
+  c.strokeStyle='#F2C230';c.lineWidth=.03;c.lineCap='round';c.beginPath();c.moveTo(-.1,-.14);const ex=-.1-Math.cos(arm)*.22, ey=-.14-Math.sin(arm)*.22;c.lineTo(ex,ey);c.lineTo(ex-.1,ey+.14);c.stroke();c.fillStyle='#2E2E2E';c.beginPath();c.moveTo(ex-.1,ey+.14);c.lineTo(ex-.16,ey+.12);c.lineTo(ex-.13,ey+.2);c.closePath();c.fill();c.restore();}
+// the drawings: blue lines and dimensions over the plot
+function drawings(c,k,o){if(k<=0)return;c.save();c.globalAlpha*=k;c.strokeStyle=o.blue;c.lineWidth=.005;c.setLineDash([.02,.012]);c.strokeRect(X0,-EH-.06,X1-X0,EH+.06);c.beginPath();c.moveTo(-.42,-EH-.06);c.lineTo(-.27,-EH-.2);c.lineTo(-.12,-EH-.06);c.stroke();c.setLineDash([]);
+  c.lineWidth=.004;c.beginPath();c.moveTo(X0,.18);c.lineTo(X1,.18);c.moveTo(X0,.16);c.lineTo(X0,.2);c.moveTo(X1,.16);c.lineTo(X1,.2);c.moveTo(X1+.12,0);c.lineTo(X1+.12,-EH-.06);c.moveTo(X1+.1,0);c.lineTo(X1+.14,0);c.moveTo(X1+.1,-EH-.06);c.lineTo(X1+.14,-EH-.06);c.stroke();
+  c.fillStyle=o.blue;text(c,o.dims[0],(X0+X1)/2,.24,.045,'center');c.save();c.translate(X1+.2,-EH/2);c.rotate(-Math.PI/2);text(c,o.dims[1],0,0,.045,'center');c.restore();c.restore();}
+function text(c,s,x,y,size,align){c.save();c.translate(x,y);c.scale(size/20,size/20);c.font='500 20px "JetBrains Mono",monospace';c.textAlign=align||'left';c.fillText(s,0,0);c.restore();}
+// everything at a moment: s (0 to 1 for each stage)
+function scene(c,s,time,o){const night=0;const k={drawings:sm(seg(s[0],.1,.7))*(1-sm(seg(s[1],0,.3))),dig:sm(seg(s[1],.05,.5)),pour:sm(seg(s[1],.5,.95)),mud:sm(seg(s[1],0,.4)),walls:sm(s[2]),joists:sm(seg(s[3],0,.4)),roof:sm(seg(s[3],.35,.75)),lantern:sm(seg(s[3],.7,1)),glass:sm(seg(s[4],0,.6)),lit:sm(seg(s[5],.2,.8)),lawn:sm(seg(s[5],0,.6))};
+  const sky=c.createLinearGradient(0,-1.6,0,0);const dusk=k.lit;sky.addColorStop(0,dusk>0?`rgb(${Math.round(lerp(198,120,dusk))},${Math.round(lerp(220,130,dusk))},${Math.round(lerp(236,180,dusk))})`:'#C6DCEC');sky.addColorStop(1,dusk>0?`rgb(${Math.round(lerp(242,246,dusk))},${Math.round(lerp(240,196,dusk))},${Math.round(lerp(236,160,dusk))})`:'#F2F0EC');c.fillStyle=sky;c.fillRect(-4,-1.8,8,1.8);
+  garden(c,k);oldHouse(c,o,k.lit,k.walls>.75?1:0);extension(c,o,k,time);pots(c,k.lawn);scaffold(c,sm(seg(s[2],0,.2))*(1-sm(seg(s[4],.3,.7))));digger(c,s[1]>0&&s[2]<.3?Math.min(1,s[1]+s[2]):0,time);drawings(c,k.drawings,o);}
+window.__build=function(c,w,h,after,o){const s=Math.min(w/2.2,h/1.62);c.save();c.translate(w/2,h*.86);c.scale(s,s);scene(c,after?[1,1,1,1,1,1]:[0,0,0,0,0,0],0,o);c.restore();};
+
+/* ============ THE BUILD (what the hero shows) ============ */
+const STAGES=[
+{{$.stagesJs|raw}}
+];
+// the house and the new part: brick colours, door frames, the kitchen inside, the plans' blue and their sizes
+const HOUSE={{$.houseJs|raw}};
+// the numbers on the board, and when each stage starts (weeks)
+const COUNT={{$.countJs|raw}};
+const WEEKS=[{{$.startsJs|raw}}];
+const CUR={{locale.currency|js}};
+
+/* ============ GEOMETRY ============ */
+const cv=$('#build'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
+// the house with its garden and the digger's room is 2.7 wide and 1.95 tall (ground at .78 of the height)
+function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/2.6,(ay[1]-ay[0])/1.95);return{s,x:(ax[0]+ax[1])/2,y:ay[0]+s*1.6};}
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  const top=Math.max(70,H*.1), bd=$('#board').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
+  if(mobile){const lo=bd.top-stg.top-10;const s=Math.min(W*1.15/2.6,(lo-top)/1.95);LA=LB={s,x:W/2,y:(top+lo)/2+s*.62};}
+  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(bd.top,cd.top)-stg.top;
+    const side=fit([cr+20,W*.98],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}}
+
+/* ============ HUD ============ */
+let shown=-1;
+const money=n=>CUR+Math.round(n).toLocaleString('en-GB');
+// big budgets in short on the board: 185k, 1.2m
+const short=n=>n>=1e6?CUR+(n/1e6).toFixed(n>=1e7?0:1).replace(/.0$/,'')+'m':n>=1e5?CUR+Math.round(n/1e3)+'k':money(n);
+function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  const wk=Math.round(idx<5?lerp(WEEKS[idx],WEEKS[idx+1],f[idx]):lerp(WEEKS[5],COUNT.weeks,f[5]));$('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;
+  $('#kBricks').textContent=Math.round(COUNT.bricks*sm(f[2])).toLocaleString('en-GB');$('#kBudget').textContent=short(wk>=COUNT.weeks?COUNT.budget:Math.round(COUNT.budget*clamp(wk/COUNT.weeks)/100)*100);
+  const passed=(f[1]>.9)+(f[2]>.9)+(f[3]>.9)+(f[5]>.6);$('#kChecks').textContent=Math.round(COUNT.checks*passed/4);}
+// the word before the week number on the card
+const WEEKWORD={{count.weekWord|js}};
+
+/* ============ FRAME ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
+let cur=0;const t0=performance.now();
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F3F1EC';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
+  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
+  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  ctx.globalAlpha=mobile?.25+.75*k:1;
+  ctx.save();ctx.translate(X,Y);ctx.scale(S,S);
+  ctx.save();ctx.beginPath();ctx.roundRect(-1.3,-1.6,2.6,1.9,.03);ctx.clip();scene(ctx,f,time,HOUSE);ctx.restore();
+  ctx.restore();ctx.globalAlpha=1;
+  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+layout();
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const CUR={{locale.currency|js}};
+const money=n=>CUR+Math.round(n).toLocaleString('en-GB');
+const press=(group,btn)=>[...group.children].forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ============ PRICES ============ */
+// projects: a price range per square metre, the weeks on site (a base and per ten square metres), and the size range
+const KINDS=[
+{{$.kindsJs|raw}}
+];
+// finishes: how much each adds to the price
+const FINISHES=[{{$.finishesJs|raw}}];
+const DEPOSIT={{$.deposit}}; // the deposit as a share of the price
+const WORDS={{$.wordsJs|raw}};
+let kd=0, fi=1, sz=KINDS[0].size[2];
+$('#kinds').innerHTML=KINDS.map((k,i)=>`<button type="button" aria-pressed="${i===kd}" data-i="${i}">${esc(k.n)}<small>${esc(k.d)}</small></button>`).join('');
+$('#finishes').innerHTML=FINISHES.map((f,i)=>`<button type="button" aria-pressed="${i===fi}" data-i="${i}">${esc(f.n)}<small>${esc(f.d)}</small></button>`).join('');
+const R=$('#sRange');
+const round=n=>Math.round(n/500)*500;
+function range(){const K=KINDS[kd];R.min=K.size[0];R.max=K.size[1];sz=Math.min(K.size[1],Math.max(K.size[0],sz));R.value=sz;}
+function quote(){const K=KINDS[kd], F=FINISHES[fi];const lo=round(K.rate[0]*sz*F.x), hi=round(K.rate[1]*sz*F.x), wk=Math.round(K.weeks[0]+K.weeks[1]*sz/10);
+  $('#sN').innerHTML=`${sz}<small>${esc(WORDS.unit)}</small>`;$('#qRange').textContent=`${money(lo)}–${money(hi)}`;$('#qWeeks').textContent=`${wk} ${wk===1?WORDS.week:WORDS.weeks}`;$('#qDep').textContent=money(round(lo*DEPOSIT));}
+$('#kinds').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;kd=+b.dataset.i;sz=KINDS[kd].size[2];press($('#kinds'),b);range();quote();});
+$('#finishes').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;fi=+b.dataset.i;press($('#finishes'),b);quote();});
+R.addEventListener('input',()=>{sz=+R.value;quote();});
+
+/* ============ BEFORE AND AFTER ============ */
+// the house in the photo (the same drawing as the hero), and what the job came to
+const LOOK={{$.houseJs|raw}};
+const FACTS=[{{$.factsJs|raw}}];
+$('#facts').innerHTML=FACTS.map(f=>`<div><dt>${esc(f.k)}</dt><dd>${esc(f.v)}</dd></div>`).join('');
+const ba=$('#ba'), bc=$('#baCanvas'), bx=bc.getContext('2d'), hd=$('#baHandle');let split=.5;
+const before=document.createElement('canvas'), after=document.createElement('canvas');
+function drawBA(){const w=bc.clientWidth||800, h=bc.clientHeight||400, d=Math.min(devicePixelRatio||1,2);[bc,before,after].forEach(c=>{c.width=Math.round(w*d);c.height=Math.round(h*d);});
+  [[before,0],[after,1]].forEach(([c,a])=>{const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);x.fillStyle='#E8E5DD';x.fillRect(0,0,w,h);if(window.__build)window.__build(x,w,h,a,LOOK);});show();}
+function show(){const w=bc.width, h=bc.height;bx.setTransform(1,0,0,1,0,0);bx.drawImage(before,0,0);bx.save();bx.beginPath();bx.rect(w*split,0,w*(1-split),h);bx.clip();bx.drawImage(after,0,0);bx.restore();
+  hd.style.left=`${split*100}%`;hd.setAttribute('aria-valuenow',String(Math.round(split*100)));}
+const at=e=>{const r=bc.getBoundingClientRect();split=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));show();};
+let drag=false;ba.addEventListener('pointerdown',e=>{drag=true;ba.setPointerCapture(e.pointerId);at(e);});ba.addEventListener('pointermove',e=>{if(drag)at(e);});ba.addEventListener('pointerup',()=>{drag=false;});
+hd.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();split=Math.min(1,Math.max(0,split+(e.key==='ArrowLeft'?-.05:.05)));show();}});
+
+/* ============ HOW IT RUNS ============ */
+// the stages of a typical build: the week each starts and how many weeks it takes
+const PLAN=[
+{{$.planJs|raw}}
+];
+const WEEKS={{how.weeks}}, WEEKLABEL={{how.weekLabel|js}};
+$('#plan').innerHTML=`<div class="weeks"><span></span><span><span>${WEEKLABEL} 1</span><span>${WEEKLABEL} ${WEEKS}</span></span></div>`+PLAN.map(s=>`<div class="row"><div><b>${esc(s.n)}</b><span class="d">${esc(s.d)}</span></div><div class="bar" style="--w:${WEEKS}"><i style="left:${s.start/WEEKS*100}%;width:${s.len/WEEKS*100}%"></i><em style="${(s.start+s.len)/WEEKS>.7?`right:${100-s.start/WEEKS*100}%`:`left:${(s.start+s.len)/WEEKS*100}%`}">${s.len} ${esc(s.len===1?WORDS.week:WORDS.weeks)}</em></div></div>`).join('');
+
+range();quote();drawBA();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawBA);
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawBA,120);});
+})();
+</script>
+
+</body></html>

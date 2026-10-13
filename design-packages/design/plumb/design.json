@@ -1,0 +1,63 @@
+{
+  "name": "plumb",
+  "category": "builder, extensions and renovations",
+  "reference": "reference/plumb-original.html",
+  "referenceSha256": "1e27767d82e172edc38bbec9a6713ef94dd66af280dfb06e382e357870b07d36",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#1F4E79",
+      "target": "theme.accent",
+      "about": "the builder's colour: buttons, the logo's bricks, the plans and their sizes in the hero, picked projects and finishes, the bars of the build plan"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.15, 0.45] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#1F4E79", 4.5, "button text on the accent"],
+      ["A:#1F4E79", "#F3F1EC", 4.5, "accent text on the page"],
+      ["A:#1F4E79", "#E8E5DD", 4.5, "accent text on the tinted section"],
+      ["#1E1F22", "A:#DDE7F1", 4.5, "text on a picked option"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:.005em;text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap", "family": "Barlow Condensed" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};text-transform:uppercase",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap", "family": "Barlow Condensed" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family};letter-spacing:.02em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Barlow:wght@700&display=swap", "family": "Barlow" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 15, 198],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

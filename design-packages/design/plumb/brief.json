@@ -1,0 +1,39 @@
+{
+  "title": "Builder or renovation company",
+  "fields": [
+    { "key": "businessName", "label": "Company name", "required": true, "help": "e.g. Brick & Beam Builders" },
+    { "key": "location", "label": "Where you work", "required": true, "help": "Town or area you cover." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "projects", "label": "Projects and prices", "type": "textarea", "required": true, "help": "What you build (extensions, lofts, kitchens, full renovations), rough prices per square metre and how long they take." },
+    { "key": "finishes", "label": "Finish levels", "help": "e.g. standard, mid, high end, and roughly what each adds." },
+    { "key": "job", "label": "A recent job", "type": "textarea", "help": "A job you're proud of: size added, weeks on site, final cost, finished on time?" },
+    { "key": "process", "label": "How a build runs", "type": "textarea", "help": "The stages of a typical build and how many weeks each takes." },
+    { "key": "deposit", "label": "Deposit", "help": "e.g. 10 percent." },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your van or logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "price.kinds.*.rate.*",
+    "price.kinds.*.weeks.*",
+    "price.deposit",
+    "work.facts.*.v",
+    "how.plan.*.len",
+    "count.budget",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "house: the hero builds a rear extension on a house. Pick the bricks for the house and the new part that suit the area (red, reclaimed, yellow, grey or render), the colour of the door frames and the kitchen, and the two sizes on the drawings in local units.",
+    "count: the weeks the build takes, bricks laid, its budget and the building control checks, honest for a typical job from the brief; the week each of the six stages starts; the word before the week number; the four labels.",
+    "price.kinds: the brief's projects with price ranges per square metre and weeks on site exactly; if it gives only totals, divide by a typical size and say so in price.note. price.finishes: the brief's finish levels as multipliers. The estimate is a guide: the note says the price is fixed after a survey.",
+    "work: a real recent job from the brief (sizes, weeks, cost, on time) as four short facts; never invent a job: if the brief has none, describe the hero's example and call it an example.",
+    "how: the brief's stages and weeks, or a typical build for this kind of project.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop, set in capitals); section titles have a second half. theme.accent is the builder's colour, deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Projects", "path": "price.kinds", "fields": ["n", "rate", "weeks"] },
+    { "label": "The job", "path": "work.facts", "fields": ["k", "v"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}
