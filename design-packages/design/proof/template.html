@@ -351,7 +351,13 @@ function board(T){T=T||232;// a butcher-block worktop: strips of oak with their 
   ctx.strokeStyle='rgba(60,35,15,.25)';ctx.lineWidth=1;for(let i=0;i<5;i++){const p0=P(-400,T+9+i*3),p1=P(820,T+9+i*3+(i%2?1:-1));ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.bezierCurveTo(p0[0]+S*300,p0[1]-S*2,p1[0]-S*300,p1[1]+S*2,p1[0],p1[1]);ctx.stroke();}
   ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(a[0],a[1],b[0]-a[0],1.2);
   ctx.fillStyle='rgba(255,255,255,.5)';for(let i=0;i<70;i++){const q=P(110+r()*200,T+r()*5);ctx.fillRect(q[0],q[1],1+r()*2,1);}
-  ell(210,T,190,3,'rgba(43,29,18,.18)');}
+  ell(210,T,190,3,'rgba(43,29,18,.18)');
+  {const top=b[1], bot=H+2, x0=a[0], x1=b[0];ctx.fillStyle='#C9C3B4';ctx.fillRect(x0,top,x1-x0,bot-top);const dw=S*110, gap=S*4;let i=0;
+   for(let x=P(-400,0)[0];x<x1;x+=dw+gap,i++){ctx.fillStyle='#D6D0C2';ctx.fillRect(x,top+gap,dw,bot-top);const ins=S*14;ctx.fillStyle='#CBC4B5';ctx.fillRect(x+ins,top+gap+ins,dw-ins*2,bot-top);
+     ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(x+ins,top+gap+ins+ (bot-top)*0,dw-ins*2,1.2);ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(x+ins,top+gap+ins,1.2,bot-top);ctx.fillStyle='rgba(255,255,255,.28)';ctx.fillRect(x+dw-ins,top+gap+ins,1.2,bot-top);
+     const kx=i%2?x+S*10:x+dw-S*10, ky=top+gap+S*24;const kg=ctx.createRadialGradient(kx-S*1,ky-S*1,0,kx,ky,S*3.2);kg.addColorStop(0,'#F2D898');kg.addColorStop(1,'#8A6A30');ctx.fillStyle=kg;ctx.beginPath();ctx.arc(kx,ky,S*3.2,0,7);ctx.fill();}
+   const sh=ctx.createLinearGradient(0,top,0,top+S*40);sh.addColorStop(0,'rgba(40,25,10,.45)');sh.addColorStop(1,'rgba(40,25,10,0)');ctx.fillStyle=sh;ctx.fillRect(x0,top,x1-x0,S*40);
+   const fl=ctx.createLinearGradient(0,top,0,bot);fl.addColorStop(0,'rgba(0,0,0,0)');fl.addColorStop(1,'rgba(40,25,10,.18)');ctx.fillStyle=fl;ctx.fillRect(x0,top,x1-x0,bot-top);}}
 // a soft solid: its colour lit from the top left, a darker underside, and a fine texture (sponge, icing)
 function soft(x,y,w,h,r,col,grain){const q=P(x,y);ctx.save();ctx.beginPath();if(ctx.roundRect)ctx.roundRect(q[0],q[1],w*S,h*S,r*S);else ctx.rect(q[0],q[1],w*S,h*S);ctx.fillStyle=col;ctx.fill();ctx.clip();
   const g=ctx.createLinearGradient(q[0],q[1],q[0]+w*S*.4,q[1]+h*S);g.addColorStop(0,'rgba(255,255,255,.22)');g.addColorStop(.6,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(80,50,20,.16)');ctx.fillStyle=g;ctx.fillRect(q[0],q[1],w*S,h*S);
@@ -381,13 +387,16 @@ function loaf(cx,base,w,h,bake,score,ear){const top=mixc('#EBD9B4',LOOK.crust,ba
   const g=ctx.createLinearGradient(0,P(0,base-h)[1],0,P(0,base)[1]);g.addColorStop(0,top);g.addColorStop(1,low);ctx.fillStyle=g;ctx.fill();
   ctx.save();loafShape(cx,base,w,h);ctx.clip();
   { const c0=P(cx,base-h*.45);const sg=ctx.createRadialGradient(c0[0]-S*w*.15,c0[1]-S*h*.35,S*w*.1,c0[0],c0[1],S*w*.62);sg.addColorStop(0,'rgba(255,240,215,.22)');sg.addColorStop(.7,'rgba(0,0,0,0)');sg.addColorStop(1,`rgba(60,25,5,${(.25+.3*bake).toFixed(3)})`);ctx.fillStyle=sg;ctx.fillRect(c0[0]-S*w,c0[1]-S*h,S*w*2,S*h*2);
-    const r=rng(31);for(let i=0;i<160;i++){const q=P(cx+(r()-.5)*w*.95,base-h*(.05+r()*.95)), z=S*(.6+r()*1.8);ctx.fillStyle=r()<.5?`rgba(70,30,8,${(.1+.25*bake).toFixed(3)})`:`rgba(255,235,200,${(.12+.15*(1-bake)).toFixed(3)})`;ctx.beginPath();ctx.ellipse(q[0],q[1],z,z*.7,r()*3,0,7);ctx.fill();} }
+    const r=rng(31);for(let i=0;i<22;i++){const q=P(cx+(r()-.5)*w*.95,base-h*(.1+r()*.85)), rr=S*w*(.06+r()*.12);const bg=ctx.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);bg.addColorStop(0,r()<.6?`rgba(80,35,8,${(.22*bake).toFixed(3)})`:`rgba(230,170,90,${(.2*bake).toFixed(3)})`);bg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=bg;ctx.beginPath();ctx.arc(q[0],q[1],rr,0,7);ctx.fill();}
+    for(let i=0;i<500;i++){const q=P(cx+(r()-.5)*w*.95,base-h*(.05+r()*.95)), z=S*(.25+r()*.6);ctx.fillStyle=r()<.5?`rgba(60,25,5,${(.05+.14*bake).toFixed(3)})`:`rgba(255,240,210,${(.08+.12*(1-bake*.5)).toFixed(3)})`;ctx.fillRect(q[0],q[1],z,z*.7);} }
   // a dusting of flour, fading as it browns, and a soft highlight
-  ctx.fillStyle=`rgba(255,255,255,${(.35*(1-bake)+.1).toFixed(3)})`;const t=P(cx-w*.12,base-h*.72);ctx.beginPath();ctx.ellipse(t[0],t[1],S*w*.28,S*h*.22,-.2,0,7);ctx.fill();
+  {const t=P(cx-w*.12,base-h*.72), al=.35*(1-bake)+.06;const fg=ctx.createRadialGradient(t[0],t[1],0,t[0],t[1],S*w*.3);fg.addColorStop(0,`rgba(255,250,240,${al.toFixed(3)})`);fg.addColorStop(1,'rgba(255,250,240,0)');ctx.fillStyle=fg;ctx.beginPath();ctx.ellipse(t[0],t[1],S*w*.3,S*h*.26,-.2,0,7);ctx.fill();}
   if(score>0){// the score: one curved cut, opening into an ear as it bakes
-    const a=P(cx-w*.32,base-h*.5), b=P(cx+w*.3,base-h*.78), m=P(cx-w*.05,base-h*1.02);ctx.strokeStyle=mixc('#D2B386','#5E300E',bake);ctx.lineWidth=S*(1.5+ear*5);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.quadraticCurveTo(m[0],m[1],lerp(a[0],b[0],score),lerp(a[1],b[1],score));ctx.stroke();
-    if(ear>0){ctx.strokeStyle=mixc('#EBD9B4','#D9A061',bake);ctx.lineWidth=S*2.4;ctx.beginPath();ctx.moveTo(a[0],a[1]-S*ear*6);ctx.quadraticCurveTo(m[0],m[1]-S*ear*9,b[0],b[1]-S*ear*6);ctx.stroke();}}
-  if(bake>.6){const r=rng(2);ctx.fillStyle=`rgba(255,215,160,${((bake-.6)*.7).toFixed(3)})`;for(let i=0;i<30;i++){const q=P(cx+(r()-.5)*w*.85,base-h*(.1+r()*.8));ctx.beginPath();ctx.arc(q[0],q[1],S*(.8+r()*1.6),0,7);ctx.fill();}}
+    const a=P(cx-w*.32,base-h*.5), b=P(cx+w*.3,base-h*.78), m=P(cx-w*.05,base-h*1.02);const ex=lerp(a[0],b[0],score), eyy=lerp(a[1],b[1],score), op=S*(.8+ear*7);
+    ctx.lineCap='round';ctx.strokeStyle=mixc('#C9A878','#4A240A',bake);ctx.lineWidth=S*1.4+op*.35;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.quadraticCurveTo(m[0],m[1],ex,eyy);ctx.stroke();
+    if(ear>0){ctx.save();ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.quadraticCurveTo(m[0],m[1]+op*.6,ex,eyy);ctx.quadraticCurveTo(m[0],m[1]-op*.9,a[0],a[1]);ctx.closePath();const cg=ctx.createLinearGradient(0,m[1]-op,0,m[1]+op);cg.addColorStop(0,mixc('#F3E6C8','#E2B877',bake));cg.addColorStop(1,mixc('#E8D6AE','#C98E48',bake));ctx.fillStyle=cg;ctx.fill();ctx.restore();
+      ctx.strokeStyle=mixc('#EBD9B4','#B87436',bake);ctx.lineWidth=S*2.6;ctx.beginPath();ctx.moveTo(a[0],a[1]-op*.15);ctx.quadraticCurveTo(m[0],m[1]-op*1.05,ex,eyy-op*.15);ctx.stroke();ctx.strokeStyle=`rgba(255,235,200,${(.5*bake).toFixed(3)})`;ctx.lineWidth=S*.9;ctx.beginPath();ctx.moveTo(a[0],a[1]-op*.35);ctx.quadraticCurveTo(m[0],m[1]-op*1.25,ex,eyy-op*.35);ctx.stroke();}}
+  if(bake>.6){const r=rng(2);for(let i=0;i<40;i++){const q=P(cx+(r()-.5)*w*.85,base-h*(.1+r()*.8)), z=S*(.6+r()*1.2);ctx.fillStyle=`rgba(255,220,170,${((bake-.6)*.6).toFixed(3)})`;ctx.beginPath();ctx.arc(q[0],q[1],z,0,7);ctx.fill();ctx.fillStyle=`rgba(70,30,5,${((bake-.6)*.4).toFixed(3)})`;ctx.beginPath();ctx.arc(q[0]+z*.4,q[1]+z*.4,z*.6,0,7);ctx.fill();}}
   ctx.restore();}
 function crumbFace(cx,base,w,h,k){// a slice, standing on its edge facing us: crust round a dome of open crumb
   if(k<=0)return;ctx.save();ctx.globalAlpha*=k;const lift=(1-k)*20;

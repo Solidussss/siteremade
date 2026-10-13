@@ -280,7 +280,7 @@ footer{background:var(--ink);color:var(--linen);padding:clamp(70px,9vw,120px) va
     <div class="room">
       <div class="panel plan">
         <svg id="plan" viewBox="0 0 600 420" role="group" aria-label="The dining room"></svg>
-        <div class="legend"><span><i style="background:var(--accent)"></i>Your table</span><span><i style="background:#FFFCF6;box-shadow:inset 0 0 0 1.5px #1E2B24"></i>Fits your party</span><span><i style="background:#D9D1C1"></i>Booked or too small</span></div>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Your table</span><span><i style="background:#6E4630;box-shadow:inset 0 0 0 1.5px #3A2418"></i>Fits your party</span><span><i style="background:#B7A795"></i>Booked or too small</span></div>
       </div>
       <form class="panel res" id="resForm" novalidate>
         <div class="two">
@@ -582,20 +582,37 @@ const hhmm=h=>`${Math.floor(h)}:${String(Math.round(h%1*60)).padStart(2,'0')}`;
 function slots(){const d=nights[+$('#rDay').value], h=HOURS[d.getDay()];const out=[];for(let t=h[0];t<=h[1]-1;t+=.25)out.push(t);return out;}
 const booked=(tab,day,t)=>((tab.n*7+day*5+Math.round(t*4)*3)%10)<3;
 function fits(tab,g){return tab.s>=g&&tab.s<=g+2;}
+const PLAN_DEFS=`<defs>
+<pattern id="lpBoards" width="200" height="22" patternUnits="userSpaceOnUse"><rect width="200" height="22" fill="#C9A47A"/><rect x="0" y="0" width="118" height="10.5" fill="#D1AE84"/><rect x="118" y="0" width="82" height="10.5" fill="#BF9A70"/><rect x="0" y="11" width="56" height="10.5" fill="#C29D72"/><rect x="56" y="11" width="144" height="10.5" fill="#CCA77C"/><path d="M0 3 Q50 2 118 4 M0 7 Q60 8 118 6 M118 5 Q160 3 200 6 M0 15 Q30 14 56 16 M56 14 Q130 16 200 15 M56 19 Q120 18 200 19" stroke="rgba(110,70,35,.22)" stroke-width=".7" fill="none"/><path d="M0 10.6 H200 M0 21.6 H200 M118 0 V10.5 M56 11 V21.5" stroke="rgba(70,40,15,.45)" stroke-width=".8"/></pattern>
+<radialGradient id="lpLight" cx=".08" cy=".45" r=".9"><stop offset="0" stop-color="#FFF4DC" stop-opacity=".35"/><stop offset=".6" stop-color="#FFF4DC" stop-opacity="0"/><stop offset="1" stop-color="#2A1A0E" stop-opacity=".22"/></radialGradient>
+<linearGradient id="lpGlass" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#8FB0C2" stop-opacity=".4"/></linearGradient>
+<pattern id="lpWalnut" width="160" height="42" patternUnits="userSpaceOnUse"><path d="M0 6 Q40 4 80 7 T160 6 M0 14 Q50 16 100 13 T160 15 M0 24 Q60 22 110 25 T160 23 M0 33 Q40 35 90 32 T160 34" stroke="rgba(20,10,5,.35)" stroke-width="1" fill="none"/><path d="M0 10 Q70 9 160 11 M0 29 Q80 30 160 28" stroke="rgba(255,220,180,.12)" stroke-width="1.2" fill="none"/></pattern>
+<linearGradient id="lpSteel" x1="0" x2="1"><stop offset="0" stop-color="#E9EDF0" stop-opacity=".7"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#5A6168" stop-opacity=".45"/></linearGradient>
+<linearGradient id="lpTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="lpSeat" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#9A6E4E"/><stop offset="1" stop-color="#5E3E28"/></radialGradient>
+<radialGradient id="lpGlow"><stop offset=".45" stop-color="#FFD98A" stop-opacity=".55"/><stop offset="1" stop-color="#FFD98A" stop-opacity="0"/></radialGradient>
+</defs>`;
 function plan(){const g=+$('#rGuests').value, day=+$('#rDay').value;let h='';
-  h+=`<rect x="0" y="0" width="600" height="420" fill="#F4EEE2"/><rect x="0" y="0" width="600" height="420" fill="none" stroke="#1E2B24" stroke-width="6"/>`;
-  h+=`<rect x="140" y="384" width="320" height="36" fill="#D9D1C1"/><text x="300" y="407" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#4B5A51" letter-spacing="1.5">THE BAR</text>`;
-  h+=`<rect x="560" y="120" width="40" height="160" fill="#D9D1C1"/><text x="584" y="200" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#4B5A51" letter-spacing="1.5" transform="rotate(90 584 200)">KITCHEN</text>`;
-  h+=`<line x1="0" y1="30" x2="0" y2="330" stroke="#B7C9D2" stroke-width="8"/><text x="14" y="22" font-family="IBM Plex Mono" font-size="10" fill="#7E877F" letter-spacing="1">WINDOW</text>`;
+  h+=PLAN_DEFS;
+  h+=`<rect x="0" y="0" width="600" height="420" fill="#C9A47A"/><rect x="0" y="0" width="600" height="420" fill="url(#lpBoards)"/><rect x="0" y="0" width="600" height="420" fill="url(#lpLight)"/>`;
+  h+=`<rect x="0" y="0" width="600" height="420" fill="none" stroke="#2A2420" stroke-width="10"/><rect x="5" y="5" width="590" height="410" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="10"/>`;
+  h+=`<rect x="-2" y="30" width="8" height="300" fill="#CFE0E8"/><rect x="-2" y="30" width="8" height="300" fill="url(#lpGlass)"/><text x="18" y="24" font-family="IBM Plex Mono" font-size="10" fill="#F3EBDD" letter-spacing="1" opacity=".9">WINDOW</text>`;
+  h+=`<rect x="140" y="378" width="320" height="42" fill="#4A2E1E"/><rect x="140" y="378" width="320" height="42" fill="url(#lpWalnut)"/><rect x="140" y="378" width="320" height="3" fill="rgba(255,230,190,.35)"/>`;
+  for(let i=0;i<7;i++){const sx=165+i*45;h+=`<circle cx="${sx+2}" cy="${364}" r="10" fill="rgba(30,20,10,.25)"/><circle cx="${sx}" cy="362" r="9.5" fill="#2A2420"/><circle cx="${sx-2}" cy="360" r="5" fill="#4A3F38"/>`;}
+  h+=`<text x="300" y="404" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#E9DCC6" letter-spacing="1.5">THE BAR</text>`;
+  h+=`<rect x="556" y="120" width="44" height="160" fill="#AEB5BB"/><rect x="556" y="120" width="44" height="160" fill="url(#lpSteel)"/><rect x="556" y="120" width="3" height="160" fill="rgba(255,255,255,.6)"/><text x="582" y="200" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#2A3036" letter-spacing="1.5" transform="rotate(90 582 200)">KITCHEN</text>`;
   TABLES.forEach(t=>{const busy=slot!=null&&booked(t,day,slot), ok=fits(t,g)&&!busy, on=tSel===t.n&&ok;
-    const fill=on?'{{A:#D9A23A}}':ok?'#FFFCF6':'#D9D1C1', stroke=ok?'#1E2B24':'#B9B0A0';
+    const fill=on?'{{A:#D9A23A}}':ok?'#6E4630':'#8A7462', stroke=on?'#FFF3D6':ok?'#3A2418':'#7A6656';
     const w=t.r?0:t.w?Math.max(120,t.s*18):70, hgt=t.r?0:t.w?60:70;
     const chairs=[];const n=t.s;if(t.r){for(let i=0;i<n;i++){const a=i/n*6.283+1.57;chairs.push([t.x+Math.cos(a)*40,t.y+Math.sin(a)*40]);}}
     else{const side=Math.ceil(n/2);for(let i=0;i<side;i++){const cx=t.x-w/2+(i+.5)*w/side;chairs.push([cx,t.y-hgt/2-12]);if(chairs.length<n)chairs.push([cx,t.y+hgt/2+12]);}}
     h+=`<g class="t" data-n="${t.n}" tabindex="${ok?0:-1}" role="button" aria-label="Table ${t.n}, ${t.s} seats${busy?', booked':ok?'':', not for your party'}" aria-pressed="${on}">`;
-    chairs.forEach(([cx,cy])=>{h+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="${ok?'#E9E2D4':'#E4DDCF'}" stroke="${stroke}" stroke-width="1"/>`;});
-    h+=t.r?`<circle cx="${t.x}" cy="${t.y}" r="28" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`:`<rect x="${t.x-w/2}" y="${t.y-hgt/2}" width="${w}" height="${hgt}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
-    h+=`<text x="${t.x}" y="${t.y+5}" text-anchor="middle" font-family="Young Serif" font-size="16" fill="${ok?'#1E2B24':'#9A9284'}">${t.n}</text></g>`;});
+    h+=`<g opacity="${ok?1:.82}">`;
+    if(on)h+=t.r?`<circle cx="${t.x}" cy="${t.y}" r="56" fill="url(#lpGlow)"/>`:`<ellipse cx="${t.x}" cy="${t.y}" rx="${w/2+40}" ry="${hgt/2+40}" fill="url(#lpGlow)"/>`;
+    chairs.forEach(([cx,cy])=>{const a=Math.atan2(cy-t.y,cx-t.x), bx=cx+Math.cos(a)*7, by=cy+Math.sin(a)*7, deg=(a*180/Math.PI+90).toFixed(1);h+=`<circle cx="${(cx+2).toFixed(1)}" cy="${(cy+3).toFixed(1)}" r="10" fill="rgba(30,20,10,.22)"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="#5A3A26"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5" fill="url(#lpSeat)"/><path d="M -9 0 A 9 9 0 0 0 9 0" transform="translate(${bx.toFixed(1)} ${by.toFixed(1)}) rotate(${deg})" fill="none" stroke="#3A2418" stroke-width="3" stroke-linecap="round"/>`;});
+    const shadow=t.r?`<circle cx="${t.x+4}" cy="${t.y+6}" r="30" fill="rgba(30,20,10,.3)"/>`:`<rect x="${t.x-w/2+4}" y="${t.y-hgt/2+6}" width="${w}" height="${hgt}" rx="4" fill="rgba(30,20,10,.3)"/>`;
+    h+=shadow+(t.r?`<circle cx="${t.x}" cy="${t.y}" r="28" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><circle cx="${t.x}" cy="${t.y}" r="28" fill="url(#lpTop)"/>`:`<rect x="${t.x-w/2}" y="${t.y-hgt/2}" width="${w}" height="${hgt}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><rect x="${t.x-w/2}" y="${t.y-hgt/2}" width="${w}" height="${hgt}" rx="3" fill="url(#lpTop)"/>`);
+    h+=`${ok?"":(t.r?`<circle cx="${t.x}" cy="${t.y}" r="28" fill="rgba(225,215,200,.55)"/>`:`<rect x="${t.x-w/2}" y="${t.y-hgt/2}" width="${w}" height="${hgt}" rx="3" fill="rgba(225,215,200,.55)"/>`)}<circle cx="${t.x}" cy="${t.y}" r="12" fill="rgba(255,250,240,.92)"/><text x="${t.x}" y="${t.y+5}" text-anchor="middle" font-family="Young Serif" font-size="14" fill="#1E2B24">${t.n}</text></g></g>`;});
   $('#plan').innerHTML=h;}
 function room(){const g=+$('#rGuests').value, day=+$('#rDay').value, sl=slots();
   if(slot==null||!sl.includes(slot))slot=sl.find(t=>TABLES.some(tab=>fits(tab,g)&&!booked(tab,day,t)))??sl[0];

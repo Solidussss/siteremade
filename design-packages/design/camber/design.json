@@ -2,7 +2,7 @@
   "name": "camber",
   "category": "garage or car repair",
   "reference": "reference/camber-original.html",
-  "referenceSha256": "f29404b004b3703770e5228e5007a71db24963e26c09169438223f6920dd7c7b",
+  "referenceSha256": "3e8a6cd6b2120a8d59a1f6f5485de899d651a2bad2cfa1beb737e976a6b447ef",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -322,7 +322,7 @@ const TALLY=[
 const ACCENT='{{A:#B83280}}';
 
 /* ============ THE DOG (units: a 420 x 300 box, facing right, standing on y=282) ============ */
-const OUT=[[44,74],[64,100],[84,118],[130,106],[200,102],[250,102],[272,86],[282,56],[300,36],[330,30],[356,40],[370,54],[386,64],[388,82],[372,94],[352,102],[326,114],[312,142],[306,176],[302,214],[302,264],[314,280],[286,282],[282,264],[280,220],[254,210],[204,214],[160,208],[152,222],[151,264],[163,280],[136,282],[128,264],[122,222],[104,182],[92,146],[86,128],[66,106],[50,84]];
+const OUT=[[44,74],[64,100],[84,118],[128,108],[196,106],[248,104],[270,88],[282,58],[300,38],[328,32],[352,40],[366,52],[384,58],[398,66],[404,78],[398,90],[380,98],[356,104],[330,118],[314,146],[308,180],[304,218],[302,262],[322,281],[288,282],[284,262],[284,222],[262,206],[220,198],[182,196],[170,212],[160,238],[154,262],[170,281],[136,282],[130,262],[124,238],[112,212],[102,180],[92,146],[86,128],[66,106],[50,84]];
 const TAIL_N=3; // the first points are the tail's top edge; the last two its underside
 // a smooth outline, sampled densely, with outward normals
 const PTS=(function(){const out=[];const n=OUT.length;for(let i=0;i<n;i++){const p0=OUT[(i-1+n)%n],p1=OUT[i],p2=OUT[(i+1)%n],p3=OUT[(i+2)%n];
@@ -366,7 +366,7 @@ function table(){// the grooming table (or the vet's exam table): a ribbed rubbe
   const sg=ctx.createLinearGradient(0,a[1]+S*10,0,a[1]+S*18);sg.addColorStop(0,'#D9DDE1');sg.addColorStop(.5,'#9AA1A8');sg.addColorStop(1,'#6E757D');ctx.fillStyle=sg;ctx.fillRect(a[0]-S*3,a[1]+S*10,b[0]-a[0]+S*6,S*8);
   const mg=ctx.createLinearGradient(0,a[1],0,a[1]+S*10);mg.addColorStop(0,'#5D5650');mg.addColorStop(1,'#3C3632');ctx.fillStyle=mg;ctx.fillRect(a[0],a[1],b[0]-a[0],S*10);
   ctx.fillStyle='rgba(255,255,255,.08)';for(let x=a[0]+S*3;x<b[0];x+=S*6)ctx.fillRect(x,a[1]+S*.5,S*1.6,S*9);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(a[0],a[1],b[0]-a[0],1);}
-function farLegs(col){ctx.fillStyle=col;[[132,196,24,84],[268,196,24,84]].forEach(([x,y,w,h])=>{const q=P(x,y);ctx.beginPath();if(ctx.roundRect)ctx.roundRect(q[0],q[1],w*S,h*S,10*S);else ctx.rect(q[0],q[1],w*S,h*S);ctx.fill();});}
+function farLegs(col){const legs=[[[110,204],[124,238],[130,262],[124,280],[150,281],[146,262],[148,236],[150,206]],[[262,206],[270,222],[272,262],[266,280],[296,281],[290,262],[292,220],[294,206]]];ctx.save();ctx.fillStyle=col;legs.forEach(L=>{ctx.beginPath();L.forEach(([x,y],i)=>{const q=P(x+8,y);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fill();});const g=ctx.createLinearGradient(0,P(0,200)[1],0,P(0,282)[1]);g.addColorStop(0,'rgba(30,18,8,.35)');g.addColorStop(1,'rgba(30,18,8,.1)');ctx.fillStyle=g;legs.forEach(L=>{ctx.beginPath();L.forEach(([x,y],i)=>{const q=P(x+8,y);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fill();});ctx.restore();}
 function puffs(st,wag){// the coat's volume: soft bumps all round the outline
   for(const f of PUFF){const p=PTS[f.i];const [x,y,nx,ny]=wagged(p,wag);const along=f.i/PTS.length, trimmed=st.trimTo>0&&along<=st.trimTo;
     const r=(trimmed?st.trimLen*.95:st.len*.62)*f.s*(1+(trimmed?0:st.messy*(f.k-.5)*.8));if(r<1)continue;const q=P(x+nx*r*.35,y+ny*r*.35);
@@ -399,11 +399,11 @@ function face(wag,happy){// ear, eye, nose, mouth
     ctx.fillStyle='rgba(255,255,255,.95)';ctx.beginPath();ctx.ellipse(ey[0]+S*1.6,ey[1]-S*1.6,S*1.2,S*.9,-.4,0,7);ctx.fill();ctx.fillStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.arc(ey[0]-S*1.4,ey[1]+S*1.4,S*.6,0,7);ctx.fill();
     ctx.strokeStyle='rgba(30,18,8,.6)';ctx.lineWidth=S*1.1;ctx.beginPath();ctx.arc(ey[0],ey[1]+S*.6,S*5.6,Math.PI*1.08,Math.PI*1.92);ctx.stroke();
     if(happy>.05){ctx.save();ctx.beginPath();ctx.ellipse(ey[0],ey[1],S*5.6,S*5,0,0,7);ctx.clip();ctx.fillStyle=mixc(COAT.base,COAT.dark,.3);ctx.fillRect(ey[0]-S*7,ey[1]+S*5-S*3.2*happy,S*14,S*6);ctx.restore();}}
-  const no=P(378,76);{const ng=ctx.createRadialGradient(no[0]-S*1.5,no[1]-S*1.8,0,no[0],no[1],S*6.5);ng.addColorStop(0,'#5A4636');ng.addColorStop(.5,'#2A1E14');ng.addColorStop(1,'#120C08');ctx.fillStyle=ng;ctx.beginPath();ctx.ellipse(no[0],no[1],S*6,S*5,0,0,7);ctx.fill();
+  const no=P(394,74);{const ng=ctx.createRadialGradient(no[0]-S*1.5,no[1]-S*1.8,0,no[0],no[1],S*6.5);ng.addColorStop(0,'#5A4636');ng.addColorStop(.5,'#2A1E14');ng.addColorStop(1,'#120C08');ctx.fillStyle=ng;ctx.beginPath();ctx.ellipse(no[0],no[1],S*6,S*5,0,0,7);ctx.fill();
     ctx.fillStyle='#0A0604';ctx.beginPath();ctx.ellipse(no[0]+S*2.4,no[1]+S*1.2,S*1.3,S*.9,.4,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(no[0]-S*1.6,no[1]+S*1.6,S*1.1,S*.8,-.3,0,7);ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.45)';ctx.beginPath();ctx.ellipse(no[0]-S*1.5,no[1]-S*2,S*2,S*.9,-.3,0,7);ctx.fill();}
-  const m=P(360,92);ctx.strokeStyle='rgba(42,30,20,.85)';ctx.lineWidth=S*1.8;ctx.beginPath();ctx.arc(m[0],m[1]-S*2,S*7*(.6+.4*happy),.2,Math.PI*.9);ctx.stroke();
-  if(happy>.3){const tg=P(352,98);const tgg=ctx.createLinearGradient(tg[0]-S*4,0,tg[0]+S*4,0);tgg.addColorStop(0,'#C9506F');tgg.addColorStop(.5,'#F08AA6');tgg.addColorStop(1,'#B8405E');ctx.fillStyle=tgg;ctx.beginPath();ctx.ellipse(tg[0],tg[1]+S*4*happy,S*4,S*6*happy,.2,0,7);ctx.fill();ctx.strokeStyle='rgba(120,30,50,.4)';ctx.lineWidth=S*.8;ctx.beginPath();ctx.moveTo(tg[0],tg[1]+S*1);ctx.lineTo(tg[0]+S*.6,tg[1]+S*7*happy);ctx.stroke();}}
+  const m=P(374,92);ctx.strokeStyle='rgba(42,30,20,.85)';ctx.lineWidth=S*1.8;ctx.beginPath();ctx.arc(m[0],m[1]-S*2,S*7*(.6+.4*happy),.2,Math.PI*.9);ctx.stroke();
+  if(happy>.3){const tg=P(366,98);const tgg=ctx.createLinearGradient(tg[0]-S*4,0,tg[0]+S*4,0);tgg.addColorStop(0,'#C9506F');tgg.addColorStop(.5,'#F08AA6');tgg.addColorStop(1,'#B8405E');ctx.fillStyle=tgg;ctx.beginPath();ctx.ellipse(tg[0],tg[1]+S*4*happy,S*4,S*6*happy,.2,0,7);ctx.fill();ctx.strokeStyle='rgba(120,30,50,.4)';ctx.lineWidth=S*.8;ctx.beginPath();ctx.moveTo(tg[0],tg[1]+S*1);ctx.lineTo(tg[0]+S*.6,tg[1]+S*7*happy);ctx.stroke();}}
 function bandana(k){if(k<=0)return;const a=P(268,98),b=P(312,112),c=P(286,150);const tip=[c[0],c[1]-(1-k)*S*20];ctx.save();ctx.globalAlpha=k;
   const cl=new Path2D();cl.moveTo(a[0],a[1]);cl.quadraticCurveTo((a[0]+b[0])/2,(a[1]+b[1])/2+S*5,b[0],b[1]);cl.quadraticCurveTo(b[0]-S*4,(b[1]+tip[1])/2,tip[0],tip[1]);cl.quadraticCurveTo(a[0]+S*2,(a[1]+tip[1])/2,a[0],a[1]);cl.closePath();
   ctx.save();ctx.shadowColor='rgba(40,24,10,.35)';ctx.shadowBlur=S*4*DPR;ctx.shadowOffsetY=S*2*DPR;ctx.fillStyle=ACCENT;ctx.fill(cl);ctx.restore();
@@ -464,7 +464,9 @@ function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#FFF7EC';ctx
   face(wag,vet?f[5]:sm(seg(f[5],0,.5)));
   if(!vet){
     // bubbles over the bath
-    const bb=f[1];if(bb>0&&f[2]<.4){BUBBLES.forEach(b=>{const k2=sm(seg(bb,b.t*.5,b.t*.5+.3))*(1-sm(seg(f[2],0,.35)));if(k2<=0)return;const q=P(b.x,b.y-(RM?0:Math.sin(time+b.t*9)*3));ctx.fillStyle=`rgba(255,255,255,${(.85*k2).toFixed(3)})`;ctx.strokeStyle=`rgba(160,200,230,${(.8*k2).toFixed(3)})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(q[0],q[1],b.r*S*k2,0,7);ctx.fill();ctx.stroke();});}
+    const bb=f[1];if(bb>0&&f[2]<.4){BUBBLES.forEach(b=>{const k2=sm(seg(bb,b.t*.5,b.t*.5+.3))*(1-sm(seg(f[2],0,.35)));if(k2<=0)return;const q=P(b.x,b.y-(RM?0:Math.sin(time+b.t*9)*3));const br=b.r*S*k2;if(br<.5)return;const g=ctx.createRadialGradient(q[0],q[1],br*.55,q[0],q[1],br);g.addColorStop(0,`rgba(255,255,255,${(.12*k2).toFixed(3)})`);g.addColorStop(.75,`rgba(220,235,255,${(.35*k2).toFixed(3)})`);g.addColorStop(1,`rgba(255,255,255,${(.8*k2).toFixed(3)})`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],br,0,7);ctx.fill();
+      ctx.lineWidth=Math.max(.8,br*.08);[[`rgba(255,150,200,${(.45*k2).toFixed(3)})`,.4,1.6],[`rgba(130,220,200,${(.45*k2).toFixed(3)})`,1.8,3.2],[`rgba(160,170,255,${(.45*k2).toFixed(3)})`,3.4,4.8]].forEach(([c,a0,a1])=>{ctx.strokeStyle=c;ctx.beginPath();ctx.arc(q[0],q[1],br*.93,a0+b.t*3,a1+b.t*3);ctx.stroke();});
+      ctx.fillStyle=`rgba(255,255,255,${(.9*k2).toFixed(3)})`;ctx.beginPath();ctx.ellipse(q[0]-br*.38,q[1]-br*.42,br*.2,br*.12,-.7,0,7);ctx.fill();ctx.fillStyle=`rgba(255,255,255,${(.5*k2).toFixed(3)})`;ctx.beginPath();ctx.arc(q[0]+br*.42,q[1]+br*.38,br*.07,0,7);ctx.fill();});}
     // the dryer's breeze
     const dr=f[2];if(dr>0&&dr<1){ctx.strokeStyle='rgba(120,170,210,.5)';ctx.lineWidth=2;for(let i=0;i<5;i++){const y=60+i*40, ph=(time*2+i*.3)%1;ctx.beginPath();for(let x=0;x<=60;x+=4){const q=P(-10+x+ph*40,y+Math.sin((x+time*80)/9)*4);x?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}ctx.stroke();}}
     // the scissors travel the outline from the tail

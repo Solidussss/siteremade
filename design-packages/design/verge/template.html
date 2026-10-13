@@ -443,6 +443,19 @@ const pats={};function pat(img,m){const k=img.width+':'+m;let p=pats[k];if(!p){p
 function stonePiece(path,col,h){ctx.save();lift(h);ctx.fillStyle=col;ctx.fill(path);ctx.restore();ctx.save();ctx.clip(path);ctx.fillStyle=pat(STONE,1.6);ctx.globalAlpha*=.22;ctx.fill(path);ctx.restore();
   ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.translate(-.6,-.6);ctx.stroke(path);ctx.restore();ctx.strokeStyle='rgba(40,30,20,.25)';ctx.lineWidth=1;ctx.stroke(path);}
 
+function neighbours(){const m=2.2, a=P(-m,-2.4), w=(10+m*2)*S, h=(17.1+m)*S;ctx.save();
+  ctx.fillStyle=pat(GRASS,.5);ctx.fillRect(a[0],a[1],w,h);ctx.fillStyle='rgba(60,80,40,.12)';ctx.fillRect(a[0],a[1],w,h);
+  const r=rng(71);for(let i=0;i<10;i++){const q=P(-m+r()*(10+m*2),-1+r()*16), rr=S*(.6+r()*1.2);const g=ctx.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);g.addColorStop(0,r()<.5?'rgba(40,60,20,.12)':'rgba(220,230,160,.1)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],rr,0,7);ctx.fill();}
+  // hedges just over the fences: a band of leaves
+  const hedge=(x0,y0,x1,y1)=>{const L=Math.hypot(x1-x0,y1-y0), n=Math.round(L*9);for(let i=0;i<n;i++){const t=r(), q=P(lerp(x0,x1,t)+(r()-.5)*.5,lerp(y0,y1,t)+(r()-.5)*.5), ls=S*(.12+r()*.12);const g=ctx.createRadialGradient(q[0]-ls*.3,q[1]-ls*.3,0,q[0],q[1],ls);g.addColorStop(0,'#5E8A44');g.addColorStop(1,'#2E4E2A');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],ls,0,7);ctx.fill();}};
+  hedge(-.75,0,-.75,14.6);hedge(10.75,0,10.75,14.6);hedge(-.75,15.3,10.75,15.3);
+  // the fade into the page all round
+  const fadeTo='rgba(243,240,230,', F2=S*1.4, ex=4;
+  {let g=ctx.createLinearGradient(a[0],0,a[0]+F2,0);g.addColorStop(0,fadeTo+'1)');g.addColorStop(1,fadeTo+'0)');ctx.fillStyle=g;ctx.fillRect(a[0]-ex,a[1]-ex,F2+ex,h+ex*2);
+   g=ctx.createLinearGradient(a[0]+w,0,a[0]+w-F2,0);g.addColorStop(0,fadeTo+'1)');g.addColorStop(1,fadeTo+'0)');ctx.fillStyle=g;ctx.fillRect(a[0]+w-F2,a[1]-ex,F2+ex,h+ex*2);
+   g=ctx.createLinearGradient(0,a[1]+h,0,a[1]+h-F2);g.addColorStop(0,fadeTo+'1)');g.addColorStop(1,fadeTo+'0)');ctx.fillStyle=g;ctx.fillRect(a[0]-ex,a[1]+h-F2,w+ex*2,F2+ex);
+   g=ctx.createLinearGradient(0,a[1],0,a[1]+S*.9);g.addColorStop(0,fadeTo+'1)');g.addColorStop(1,fadeTo+'0)');ctx.fillStyle=g;ctx.fillRect(a[0]-ex,a[1]-ex,w+ex*2,S*.9+ex);}
+  ctx.restore();}
 function ground(clear){
   // soil everywhere, rough before the clear
   const g0=P(0,0);ctx.fillStyle=pat(SOIL,1.4);ctx.fillRect(g0[0],g0[1],10*S,14.6*S);
@@ -491,11 +504,13 @@ function stones(ks){STONES.forEach(([x,y],i)=>{const t=seg(ks*STONES.length-i,0,
   if(mod)path.rect(c[0]-S*.42,c[1]-S*.2,S*.84,S*.4);else{const r=rng(60+i);path.moveTo(c[0]+S*.36,c[1]);for(let a=0;a<6.28;a+=.5){const rr=1+(r()-.5)*.12;path.lineTo(c[0]+Math.cos(a+i*.7)*S*.36*rr,c[1]+Math.sin(a+i*.7)*S*.25*rr);}path.closePath();}
   stonePiece(path,PAL.stone,.35);ctx.restore();});}
 
-function turf(k){if(k<=0)return;const [x,y,w,h]=LAWN;const n=Math.round(h/.6);ctx.save();lawnPath();ctx.clip();
+function turf(k,grown){if(k<=0)return;grown=grown||0;const [x,y,w,h]=LAWN;const n=Math.round(h/.6);ctx.save();lawnPath();ctx.clip();
   for(let i=0;i<n;i++){const t=sm(seg(k*(n+4)-i,0,4));if(t<=0)continue;const yy=y+i*h/n, ww=w*t;const a=P(x,yy);ctx.fillStyle=pat(GRASS,.5);ctx.fillRect(a[0],a[1],ww*S,(h/n+.01)*S);
     // the stripes a fresh roll shows, and its seam
-    ctx.fillStyle=i%2?'rgba(255,255,220,.1)':'rgba(0,30,0,.08)';ctx.fillRect(a[0],a[1],ww*S,(h/n+.01)*S);ctx.fillStyle='rgba(30,50,20,.18)';ctx.fillRect(a[0],a[1],ww*S,1);
+    ctx.fillStyle=i%2?'rgba(255,255,220,.06)':'rgba(0,30,0,.05)';ctx.fillRect(a[0],a[1],ww*S,(h/n+.01)*S);ctx.fillStyle=`rgba(30,50,20,${(.18*(1-grown)).toFixed(3)})`;ctx.fillRect(a[0],a[1],ww*S,1);
     if(t<1){const head=x+ww, q=P(head-.05,yy+.02);ctx.save();lift(.4);const g=ctx.createLinearGradient(q[0],0,q[0]+.28*S,0);g.addColorStop(0,'#4C7A3C');g.addColorStop(.5,'#7FAE63');g.addColorStop(1,'#3E6830');ctx.fillStyle=g;if(ctx.roundRect){ctx.beginPath();ctx.roundRect(q[0],q[1],.28*S,(h/n-.04)*S,.1*S);ctx.fill();}else ctx.fillRect(q[0],q[1],.28*S,(h/n-.04)*S);ctx.restore();}}
+  {const r=rng(13), a0=P(x,y);for(let i=0;i<14;i++){const q=P(x+r()*w,y+r()*h), rr=S*(.3+r()*.7);const g=ctx.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);g.addColorStop(0,r()<.5?'rgba(30,60,15,.08)':'rgba(230,240,170,.07)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],rr,0,7);ctx.fill();}
+   ctx.strokeStyle='rgba(30,25,15,.25)';ctx.lineWidth=S*.08;lawnPath();ctx.stroke();}
   ctx.restore();}
 
 // a shrub from above: clusters of leaves, darker at the heart, lit from the upper left, flowers on top when it blooms
@@ -508,7 +523,8 @@ function plantShape(p,g,bloom,time){const r=lerp(p.r0,p.r1,g), c=P(p.x,p.y), s=r
     return;}
   const greens=['#4F7F45','#5E8E4E','#3F6E3F','#6E9A55'], base=greens[Math.floor(p.c*4)];
   ctx.save();lift(.5);ctx.fillStyle=shadeHex(base,-.25);ctx.beginPath();ctx.arc(c[0],c[1],s*.92,0,7);ctx.fill();ctx.restore();
-  const rr=rng(Math.floor(p.c*1e5));for(let i=0;i<16;i++){const a=rr()*6.28, d=Math.sqrt(rr())*s*.72, lx=c[0]+Math.cos(a)*d, ly=c[1]+Math.sin(a)*d, ls=s*(.22+rr()*.16);const lg=ctx.createRadialGradient(lx-ls*.35,ly-ls*.35,0,lx,ly,ls);lg.addColorStop(0,shadeHex(base,.25));lg.addColorStop(1,shadeHex(base,-.2));ctx.fillStyle=lg;ctx.beginPath();ctx.ellipse(lx,ly,ls,ls*.75,a,0,7);ctx.fill();}
+  const rr=rng(Math.floor(p.c*1e5));for(let i=0;i<12;i++){const a=rr()*6.28, d=Math.sqrt(rr())*s*.72, lx=c[0]+Math.cos(a)*d, ly=c[1]+Math.sin(a)*d, ls=s*(.22+rr()*.16);const lg=ctx.createRadialGradient(lx-ls*.35,ly-ls*.35,0,lx,ly,ls);lg.addColorStop(0,shadeHex(base,.25));lg.addColorStop(1,shadeHex(base,-.2));ctx.fillStyle=lg;ctx.beginPath();ctx.ellipse(lx,ly,ls,ls*.75,a,0,7);ctx.fill();}
+  for(let i=0;i<26;i++){const a=rr()*6.28, d=Math.sqrt(rr())*s*.85, lx=c[0]+Math.cos(a)*d, ly=c[1]+Math.sin(a)*d, up=-(Math.cos(a)+Math.sin(a))*d/(s*1.2);ctx.fillStyle=up>.2?shadeHex(base,.4):up<-.3?shadeHex(base,-.35):shadeHex(base,.1);ctx.beginPath();ctx.ellipse(lx,ly,s*.11,s*.055,rr()*3,0,7);ctx.fill();}
   if(bloom>0){const cols=mod?['#F2EFE6','#8E6BC9','#F2EFE6']:['#E07FA6','#8E6BC9','#F4F1E6','#EBC34B','#D9576A'];const col=cols[Math.floor(p.f*cols.length)];const r2=rng(Math.floor(p.c*1e4));const n=mod?3:7;
     for(let i=0;i<n;i++){const a=r2()*6.28, d=r2()*s*.75, fx=c[0]+Math.cos(a)*d, fy=c[1]+Math.sin(a)*d, fr=Math.max(1.4,s*.17);ctx.globalAlpha=BA*bloom;for(let k=0;k<5;k++){const pa=k*1.2566;ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(fx+Math.cos(pa)*fr*.5,fy+Math.sin(pa)*fr*.5,fr*.55,fr*.35,pa,0,7);ctx.fill();}ctx.fillStyle='rgba(255,230,140,.9)';ctx.beginPath();ctx.arc(fx,fy,fr*.25,0,7);ctx.fill();}ctx.globalAlpha=BA;}}
 function planting(kp,kg,time){PLANTS.forEach(p=>{const t=sm(seg(kp,p.t,p.t+.2));if(t<=0)return;ctx.save();ctx.globalAlpha=BA*Math.min(1,t*1.5);const g=kg*.85+.15*t-.15;plantShape(p,clamp(g),sm(seg(kg,.2+p.f*.3,.6+p.f*.3)),time);ctx.restore();});}
@@ -516,6 +532,7 @@ function planting(kp,kg,time){PLANTS.forEach(p=>{const t=sm(seg(kp,p.t,p.t+.2));
 function canopy(cx,cy,s,base,seed,extra){ctx.save();ctx.fillStyle='rgba(20,30,15,.28)';ctx.beginPath();ctx.ellipse(cx+s*.25,cy+s*.3,s*1.02,s*.95,0,0,7);ctx.fill();ctx.restore();
   ctx.fillStyle=shadeHex(base,-.3);ctx.beginPath();ctx.arc(cx,cy,s*.96,0,7);ctx.fill();const r=rng(seed);
   for(let i=0;i<34;i++){const a=r()*6.28, d=Math.sqrt(r())*s*.78, lx=cx+Math.cos(a)*d, ly=cy+Math.sin(a)*d, ls=s*(.16+r()*.12), lit=clamp(.5-(Math.cos(a)*d+Math.sin(a)*d)/(s*2.2));const g=ctx.createRadialGradient(lx-ls*.4,ly-ls*.4,0,lx,ly,ls);g.addColorStop(0,shadeHex(base,.1+lit*.35));g.addColorStop(1,shadeHex(base,-.25));ctx.fillStyle=g;ctx.beginPath();ctx.arc(lx,ly,ls,0,7);ctx.fill();}
+  for(let i=0;i<260;i++){const a=r()*6.28, d=Math.sqrt(r())*s*.92, lx=cx+Math.cos(a)*d, ly=cy+Math.sin(a)*d, up=-(Math.cos(a)+Math.sin(a))*d/(s*1.3);ctx.fillStyle=up>.25?shadeHex(base,.2):up<-.3?shadeHex(base,-.38):shadeHex(base,(r()-.5)*.24);ctx.beginPath();ctx.ellipse(lx,ly,s*.06,s*.032,r()*3,0,7);ctx.fill();}
   if(extra)extra(r);}
 function trees(kp,kg,time){
   // the apple tree that was always there
@@ -562,9 +579,9 @@ function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F3F0E6';ctx
   // on a phone the garden sits faint behind the opening words
   BA=mobile?.24+.76*k:1;ctx.globalAlpha=BA;
   const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  const sh=P(-.2,-.2);ctx.fillStyle='rgba(29,42,31,.08)';ctx.fillRect(sh[0]+S*.3,sh[1]+S*.3,10.4*S,15*S);
+  neighbours();
   ground(f[1]);
-  const ks=hard(f[2]);turf(f[3]);stones(ks);
+  const ks=hard(f[2]);turf(f[3],sm(f[5]));stones(ks);
   bench(sm(seg(f[4],0,.3)));planting(f[4],f[5],time);trees(f[4],f[5],time);
   overgrowth(f[1],time);survey(seg(p,0,.11)+seg(p,.14,.2),time);
   dusk(sm(seg(f[5],.25,.9)),time);

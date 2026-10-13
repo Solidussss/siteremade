@@ -404,18 +404,35 @@ function sweep(p,time){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(
 
 /* the skin, in cross-section: a barrier of flat cells, living cells below, fibres at the bottom */
 const cells=[...Array(90)].map((_,i)=>{const r=rng(500+i);return{x:r(),y:r(),s:.5+r()*.6,jx:(r()-.5),jy:(r()-.5)};});
+// the section as it looks under a microscope, stained: living layers packed with cells and their nuclei, the
+// basal layer dipping into the dermis, collagen and a capillary below (drawn once per size)
+let SKB=null;
+function skinBase(w,h){if(SKB&&SKB.w===w&&SKB.h===h)return SKB.c;const c=document.createElement('canvas');c.width=Math.round(w*DPR);c.height=Math.round(h*DPR);const g=c.getContext('2d');g.setTransform(DPR,0,0,DPR,0,0);const r=rng(77);
+  g.fillStyle='#F7EAEC';g.fillRect(0,0,w,h);
+  const basal=t=>h*(.62+.05*Math.sin(t*Math.PI*6+.6)+.015*Math.sin(t*Math.PI*17));
+  // dermis: loose pink collagen in wavy bundles, fibroblast nuclei, a capillary with red cells
+  {g.save();g.beginPath();g.moveTo(0,h);for(let t=0;t<=1.0001;t+=.01)g.lineTo(t*w,basal(t));g.lineTo(w,h);g.closePath();g.clip();g.fillStyle='#F2D3DA';g.fillRect(0,0,w,h);
+   for(let i=0;i<120;i++){const y0=h*(.62+r()*.4), x0=r()*w, L=w*(.08+r()*.25);g.strokeStyle=`rgba(214,120,150,${.15+r()*.25})`;g.lineWidth=.8+r()*1.6;g.beginPath();g.moveTo(x0,y0);for(let t=0;t<=1;t+=.1)g.lineTo(x0+t*L,y0+Math.sin(t*6+i)*h*.008);g.stroke();}
+   for(let i=0;i<26;i++){const px=r()*w, py=h*(.72+r()*.26);g.fillStyle='rgba(92,55,120,.75)';g.beginPath();g.ellipse(px,py,w*(.01+r()*.008),h*.0045,r()*.4-.2,0,7);g.fill();}
+   const cx=w*.7, cy=h*.84, cr=w*.045;g.strokeStyle='rgba(190,90,120,.7)';g.lineWidth=2;g.beginPath();g.arc(cx,cy,cr,0,7);g.stroke();g.fillStyle='rgba(250,235,238,.9)';g.beginPath();g.arc(cx,cy,cr-1,0,7);g.fill();for(let i=0;i<6;i++){const a=i*1.1;g.fillStyle='rgba(205,70,85,.85)';g.beginPath();g.ellipse(cx+Math.cos(a)*cr*.45,cy+Math.sin(a)*cr*.45,cr*.22,cr*.16,a,0,7);g.fill();}g.restore();}
+  // living epidermis: polygonal cells with pale cytoplasm, a purple nucleus each, flatter towards the top
+  {g.save();g.beginPath();g.moveTo(0,h*.33);g.lineTo(w,h*.33);for(let t=1;t>=0;t-=.01)g.lineTo(t*w,basal(t));g.closePath();g.clip();g.fillStyle='#F4DCE4';g.fillRect(0,0,w,h);
+   for(let row=0;row<14;row++){const yy=h*(.34+row*.024), flat=1-row/14;for(let i=0;i<22;i++){const px=(i+(row%2)*.5+(r()-.5)*.3)/22*w, py=yy+(r()-.5)*h*.008, cw=w/22*.48, ch=h*(.009+.01*(1-flat));g.fillStyle=`rgba(236,190,206,${.55+r()*.3})`;g.beginPath();g.ellipse(px,py,cw,ch,0,0,7);g.fill();g.strokeStyle='rgba(200,130,160,.35)';g.lineWidth=.8;g.stroke();
+      g.fillStyle=row<3?'rgba(70,35,90,.75)':'rgba(92,55,130,.78)';g.beginPath();g.ellipse(px+(r()-.5)*cw*.3,py,cw*(row<3?.5:.32),ch*(row<3?.25:.55),0,0,7);g.fill();if(row<3){g.fillStyle='rgba(60,30,80,.6)';for(let k=0;k<3;k++){g.beginPath();g.arc(px+(r()-.5)*cw*1.4,py+(r()-.5)*ch,.9,0,7);g.fill();}}}}
+   g.restore();}
+  // the basal row: dense, dark nuclei along the wavy border
+  for(let t=0;t<=1;t+=.012){const px=t*w, py=basal(t)-h*.012;g.fillStyle='rgba(70,40,110,.85)';g.beginPath();g.ellipse(px,py,w*.006,h*.011,Math.cos(t*Math.PI*6)*.4,0,7);g.fill();}
+  g.strokeStyle='rgba(180,100,140,.5)';g.lineWidth=1.2;g.beginPath();for(let t=0;t<=1.0001;t+=.01){const p=[t*w,basal(t)];t?g.lineTo(...p):g.moveTo(...p);}g.stroke();
+  SKB={c,w,h};return c;}
 function skin(a,f,time){if(a<=0)return;const [x,y,w,h]=G.skin;ctx.save();ctx.globalAlpha=a;
   ctx.shadowColor='rgba(60,40,30,.25)';ctx.shadowBlur=30;ctx.shadowOffsetY=10;ctx.fillStyle='#F6E4DA';rr(ctx,x,y,w,h,22);ctx.fill();ctx.shadowColor='transparent';
   rr(ctx,x,y,w,h,22);ctx.clip();
   const heal=sm(seg(f[5],.1,.8)), drop=seg(f[4],0,1);
-  // dermis fibres
-  ctx.strokeStyle='rgba(205,140,140,.35)';ctx.lineWidth=2;for(let k=0;k<9;k++){ctx.beginPath();for(let t=0;t<=1;t+=.05){const xx=x+t*w, yy=y+h*(.72+k*.03)+Math.sin(t*9+k)*h*.015;t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();}
-  // living cells
-  cells.forEach(c=>{const cx=x+c.x*w, cy=y+h*(.36+c.y*.32);ctx.fillStyle='rgba(232,180,170,.6)';ctx.beginPath();ctx.ellipse(cx,cy,w*.035*c.s,h*.03*c.s,0,0,7);ctx.fill();ctx.fillStyle='rgba(190,120,120,.35)';ctx.beginPath();ctx.arc(cx,cy,w*.008,0,7);ctx.fill();});
-  // the barrier: rows of flat cells; gaps close as it heals
-  const rows=6, top=y+h*.12, rh=h*.035, gap=lerp(1,0,heal);
-  for(let r=0;r<rows;r++){const cw=w/5;for(let i=-1;i<6;i++){const R=rng(r*31+i*7+9);const ox=(r%2)*cw/2+(R()-.5)*cw*.18*gap;const yy=top+r*(rh+2+gap*3)+(R()-.5)*gap*4;
-    ctx.fillStyle=`rgba(${Math.round(lerp(226,240,heal))},${Math.round(lerp(196,212,heal))},${Math.round(lerp(186,196,heal))},1)`;ctx.fillRect(x+i*cw+ox+1.5+gap*3,yy,cw-3-gap*6,rh);}}
+  ctx.drawImage(skinBase(w,h),x,y,w,h);
+  // the barrier on top: thin, flattened layers in a basket-weave, open and lifting where it's damaged, closed once it heals
+  const rows=7, top=y+h*.12, gap=lerp(1,0,heal);
+  for(let r2=0;r2<rows;r2++){const R=rng(r2*31+9), yb=top+r2*h*(.028+gap*.006);ctx.strokeStyle=`rgba(${Math.round(lerp(222,232,heal))},${Math.round(lerp(140,160,heal))},${Math.round(lerp(170,180,heal))},${.75+.2*heal})`;ctx.lineWidth=Math.max(1.4,h*.012);ctx.lineCap='round';
+    let px=x-10;while(px<x+w+10){const L=w*(.12+R()*.2)*(1+heal*1.5), br=w*(.015+R()*.03)*gap;ctx.beginPath();for(let t=0;t<=1.0001;t+=.1){const xx=px+t*L, yy=yb+Math.sin((xx-x)/w*14+r2*1.7)*h*.004*(1+gap*2)-(gap*R()*h*.012)*Math.sin(t*Math.PI);t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();px+=L+br;}}
   // the surface line, rough then smooth
   ctx.strokeStyle='rgba(170,110,100,.5)';ctx.lineWidth=2;ctx.beginPath();for(let t=0;t<=1;t+=.02){const xx=x+t*w, yy=top-6+Math.sin(t*40)*3*(1-heal)+Math.sin(t*13)*2*(1-heal);t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();
   // the drop sinking in: it lands, flattens, then its actives spread down as specks

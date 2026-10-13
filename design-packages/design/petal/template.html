@@ -345,7 +345,8 @@ const DRAW={
    c.fillStyle=shade(col,.35);c.beginPath();c.arc(0,0,rr*.14,0,7);c.fill();c.fillStyle='rgba(230,190,90,.7)';for(let i=0;i<8;i++){const a=i*.8;c.beginPath();c.arc(Math.cos(a)*rr*.08,Math.sin(a)*rr*.08,rr*.025,0,7);c.fill();}},
  ranunculus(c,r,col,k){const rr=r*(.5+.5*k);
    for(let ring=7;ring>=0;ring--){const rad=rr*(.18+ring*.11), n=6+ring*2;for(let i=0;i<n;i++){const a=i/n*Math.PI*2+ring*.37;petal(c,Math.cos(a)*rad*.55,Math.sin(a)*rad*.55,rad*.55,rad*.32,a+1.57,shade(col,-.06+ring*.03),ring<7);}}
-   const g=c.createRadialGradient(0,0,0,0,0,rr*.14);g.addColorStop(0,'#3E5A2E');g.addColorStop(1,'#6B8A4E');c.fillStyle=g;c.beginPath();c.arc(0,0,rr*.12,0,7);c.fill();},
+   {const cg=c.createRadialGradient(-rr*.06,-rr*.06,rr*.05,0,0,rr*.8);cg.addColorStop(0,'rgba(80,40,20,.28)');cg.addColorStop(.35,'rgba(80,40,20,.06)');cg.addColorStop(.7,'rgba(255,255,255,.08)');cg.addColorStop(1,'rgba(60,30,20,.18)');c.fillStyle=cg;c.beginPath();c.arc(0,0,rr*.8,0,7);c.fill();}
+   const g=c.createRadialGradient(-rr*.015,-rr*.015,0,0,0,rr*.07);g.addColorStop(0,'#7E9A5A');g.addColorStop(1,'#3E5A2E');c.fillStyle=g;c.beginPath();c.arc(0,0,rr*.055,0,7);c.fill();},
  tulip(c,r,col,k){const rr=r*(.65+.35*k);const body=()=>{c.beginPath();c.moveTo(-rr*.6,-rr*.1);c.quadraticCurveTo(-rr*.7,rr*.8,0,rr*.8);c.quadraticCurveTo(rr*.7,rr*.8,rr*.6,-rr*.1);c.lineTo(rr*.35,-rr*.55);c.lineTo(rr*.12,-rr*.15);c.lineTo(0,-rr*.65);c.lineTo(-rr*.12,-rr*.15);c.lineTo(-rr*.35,-rr*.55);c.closePath();};
    const g=c.createLinearGradient(-rr*.6,0,rr*.6,0);g.addColorStop(0,shade(col,-.3));g.addColorStop(.35,shade(col,.12));g.addColorStop(.7,col);g.addColorStop(1,shade(col,-.35));body();c.fillStyle=g;c.fill();
    c.save();body();c.clip();c.strokeStyle=shade(col,-.2);c.globalAlpha=.35;c.lineWidth=Math.max(.5,rr*.02);for(let i=-3;i<=3;i++){c.beginPath();c.moveTo(i*rr*.08,rr*.8);c.quadraticCurveTo(i*rr*.14,rr*.2,i*rr*.12,-rr*.5);c.stroke();}c.globalAlpha=1;c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.ellipse(-rr*.25,rr*.15,rr*.08,rr*.4,.1,0,7);c.fill();c.restore();},
@@ -397,7 +398,11 @@ let S=1,TX=0,TY=0;
 function stem(s,k,sway,time){// stem from the tie point up to the head
   const a=s.a+sway, hx=TX+Math.sin(a)*s.d*.92*S, hy=TY-Math.cos(a)*s.d*.92*S;const bx=TX-Math.sin(a)*.42*S, by=TY+Math.cos(a)*.48*S;
   const grow=sm(k);const ex=lerp(bx,hx,grow), ey=lerp(by,hy,grow);
-  ctx.lineCap='round';ctx.strokeStyle='#45663A';ctx.lineWidth=Math.max(1.6,S*.014);ctx.beginPath();ctx.moveTo(bx,by);ctx.quadraticCurveTo(TX,TY,ex,ey);ctx.stroke();ctx.strokeStyle='rgba(190,220,150,.45)';ctx.lineWidth=Math.max(.6,S*.004);ctx.beginPath();ctx.moveTo(bx-1,by);ctx.quadraticCurveTo(TX-1,TY,ex-1,ey);ctx.stroke();
+  const sr=rng(Math.round(s.d*1000+s.a*100)), sc=['#45663A','#4E7040','#3E5E34','#577A44'][Math.floor(sr()*4)], wd=Math.max(1.4,S*(.009+sr()*.007)), bend=(sr()-.5)*.06*S;
+  ctx.lineCap='round';ctx.strokeStyle=sc;ctx.lineWidth=wd;ctx.beginPath();ctx.moveTo(bx,by);ctx.quadraticCurveTo(TX,TY,lerp(TX,ex,.5)+bend,lerp(TY,ey,.5));ctx.quadraticCurveTo(lerp(TX,ex,.85)+bend*.5,lerp(TY,ey,.85),ex,ey);ctx.stroke();
+  ctx.strokeStyle='rgba(190,220,150,.4)';ctx.lineWidth=Math.max(.5,wd*.3);ctx.beginPath();ctx.moveTo(bx-wd*.25,by);ctx.quadraticCurveTo(TX-wd*.25,TY,lerp(TX,ex,.5)+bend-wd*.25,lerp(TY,ey,.5));ctx.quadraticCurveTo(lerp(TX,ex,.85)+bend*.5-wd*.25,lerp(TY,ey,.85),ex-wd*.25,ey);ctx.stroke();
+  ctx.fillStyle='rgba(240,250,230,.7)';ctx.beginPath();ctx.ellipse(bx,by,wd*.5,wd*.3,a,0,7);ctx.fill();
+  if(grow>.5&&!['eucalyptus','fern','grass'].includes(s.kind)&&sr()<.7){const t=.55+sr()*.2, lx=lerp(TX,ex,t)+bend*.8, ly=lerp(TY,ey,t), sd=sr()<.5?-1:1;leaf(ctx,lx+sd*S*.03,ly,S*.04,S*.014,sd*.5+a-(sd<0?Math.PI:0),sc);}
   if(grow>.6){ctx.save();ctx.translate(ex,ey);ctx.rotate(a*.6);const open=sm(seg(k,.6,1));window.__flower(ctx,s.kind,s.r*S*(s.kind==='eucalyptus'||s.kind==='fern'||s.kind==='grass'?.62:.82),s.col,open);ctx.restore();}
   return[ex,ey];}
 function paper(k,time){if(k<=0)return;// two sheets folding up round the stems
@@ -417,6 +422,49 @@ function bike(k,time){if(k<=0)return;// a little delivery bike rolling out
   const x=TX+lerp(-.2,1.4,k)*S, y=TY+.92*S;ctx.save();ctx.globalAlpha*=Math.min(1,k*3)*(1-sm(seg(k,.85,1)));ctx.strokeStyle='#1F2B24';ctx.lineWidth=Math.max(1.5,S*.012);const r=.08*S;
   [[-r*1.4,0],[r*1.4,0]].forEach(([dx])=>{ctx.beginPath();ctx.arc(x+dx,y,r,0,7);ctx.stroke();});ctx.beginPath();ctx.moveTo(x-r*1.4,y);ctx.lineTo(x,y-r);ctx.lineTo(x+r*1.4,y);ctx.moveTo(x,y-r);ctx.lineTo(x+r*.9,y-r*1.6);ctx.stroke();ctx.fillStyle=ACCENT;ctx.fillRect(x-r*1.9,y-r*2.1,r*1.4,r*1.1);ctx.restore();}
 
+/* ============ THE WORKBENCH ============ */
+let WALL=null, OAK=null;
+function buildWall(){const d=document.createElement('canvas');d.width=cv.width;d.height=cv.height;const x=d.getContext('2d');x.setTransform(DPR,0,0,DPR,0,0);const r=rng(21);
+  const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,'#FBF7F1');g.addColorStop(1,'#F1E9DE');x.fillStyle=g;x.fillRect(0,0,W,H);
+  for(let i=0;i<50;i++){const px=r()*W, py=r()*H, rr=50+r()*220;const m=x.createRadialGradient(px,py,0,px,py,rr);m.addColorStop(0,r()<.5?'rgba(190,165,130,.03)':'rgba(255,255,255,.06)');m.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=m;x.beginPath();x.arc(px,py,rr,0,7);x.fill();}
+  for(let i=0;i<7000;i++){x.fillStyle=r()<.5?'rgba(150,125,95,.03)':'rgba(255,255,255,.06)';x.fillRect(r()*W,r()*H,1,1);}
+  // light through a window to the left: two panes, soft-edged
+  x.save();x.globalCompositeOperation='lighter';[[.04,.2],[.27,.2]].forEach(([a,w])=>{const lx=W*a;const lg=x.createLinearGradient(lx,0,lx+W*.5,H);lg.addColorStop(0,'rgba(255,240,215,0)');lg.addColorStop(.35,'rgba(255,240,215,.07)');lg.addColorStop(1,'rgba(255,240,215,0)');x.fillStyle=lg;x.beginPath();x.moveTo(lx,0);x.lineTo(lx+W*w,0);x.lineTo(lx+W*w+W*.35,H);x.lineTo(lx+W*.35,H);x.closePath();x.fill();});x.restore();
+  WALL=d;}
+function buildOak(){const t=document.createElement('canvas');t.width=900;t.height=240;const x=t.getContext('2d'), r=rng(33);x.fillStyle='#E4D6C2';x.fillRect(0,0,900,240);
+  for(let row=0;row<4;row++){let px=-r()*300;while(px<900){const L=300+r()*500, v=r();x.fillStyle=v<.5?`rgba(140,105,65,${.04+v*.08})`:`rgba(255,250,240,${(v-.5)*.3})`;x.fillRect(px,row*60,L,60);
+    for(let k=0;k<12;k++){x.strokeStyle=`rgba(150,110,70,${.06+r()*.1})`;x.lineWidth=.6+r()*1.2;x.beginPath();const yy=row*60+3+r()*54;x.moveTo(px,yy);for(let q=0;q<=L;q+=20)x.lineTo(px+q,yy+Math.sin(q/(50+k*9)+k)*2);x.stroke();}
+    x.fillStyle='rgba(110,80,45,.22)';x.fillRect(px+L-1.5,row*60,1.5,60);px+=L;}x.fillStyle='rgba(110,80,45,.25)';x.fillRect(0,row*60+58.5,900,1.5);}
+  x.fillStyle='rgba(255,255,255,.18)';x.fillRect(0,0,900,240);OAK=t;}
+// the bench: its top runs back from the front edge; cuttings, a spool of twine and the secateurs lie on it
+function bench(ty){const top=ty+.5*S, front=H+2;if(!OAK)buildOak();
+  {const bg=ctx.createLinearGradient(0,top,0,H);bg.addColorStop(0,'#C9B08C');bg.addColorStop(.25,'#DCC6A4');bg.addColorStop(1,'#E6D3B5');ctx.fillStyle=bg;ctx.fillRect(0,top,W,H-top);
+   const gr=rng(91);let y=top+1, dy=S*.006;while(y<H){const n=1+Math.floor(gr()*2);for(let j=0;j<n;j++){const yy=y+gr()*dy, ph=gr()*6, amp=dy*.35;ctx.strokeStyle=gr()<.65?`rgba(120,85,50,${.07+gr()*.1})`:`rgba(255,248,235,${.12+gr()*.12})`;ctx.lineWidth=Math.max(.5,dy*(.08+gr()*.12));ctx.beginPath();for(let x=-20;x<=W+20;x+=24){const yv=yy+Math.sin(x/(90+gr()*4)+ph)*amp;x<=-20?ctx.moveTo(x,yv):ctx.lineTo(x,yv);}ctx.stroke();}y+=dy;dy*=1.07;}}
+  {const g=ctx.createLinearGradient(0,top,0,front);g.addColorStop(0,'rgba(120,95,65,.22)');g.addColorStop(.06,'rgba(120,95,65,.04)');g.addColorStop(.5,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(120,95,65,.12)');ctx.fillStyle=g;ctx.fillRect(0,top,W,front-top);}
+  ctx.fillStyle='rgba(90,70,45,.25)';ctx.fillRect(0,top,W,1.5);
+  const r=rng(57);ctx.lineCap='round';
+  // trimmed stem ends and a few loose leaves
+  for(let i=0;i<9;i++){const x=TX+(r()<.5?-1:1)*(.45+r()*.55)*S, y=top+(.04+r()*.14)*S, a=(r()-.5)*.6, L=(.05+r()*.07)*S;ctx.strokeStyle='#5E7F4E';ctx.lineWidth=Math.max(1.4,S*.01);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*L,y+Math.sin(a)*L*.3);ctx.stroke();ctx.fillStyle='#B9D19A';ctx.beginPath();ctx.arc(x+Math.cos(a)*L,y+Math.sin(a)*L*.3,Math.max(.8,S*.005),0,7);ctx.fill();}
+  for(let i=0;i<6;i++){const x=TX+(r()<.5?-1:1)*(.3+r()*.7)*S, y=top+(.05+r()*.14)*S;ctx.save();ctx.scale(1,1);leaf(ctx,x,y,S*.035,S*.012,r()*6,['#5E7F4E','#6F8A5B','#7E9A64'][i%3]);ctx.restore();}
+  // twine on its spool
+  {const x=TX-.78*S, y=top+.1*S, rr=.06*S;ctx.fillStyle='rgba(60,45,25,.18)';ctx.beginPath();ctx.ellipse(x+rr*.15,y+rr*.35,rr*1.1,rr*.35,0,0,7);ctx.fill();const g=ctx.createLinearGradient(x-rr,0,x+rr,0);g.addColorStop(0,'#A9875A');g.addColorStop(.4,'#D8BB8A');g.addColorStop(1,'#8E6E44');ctx.fillStyle=g;ctx.fillRect(x-rr,y-rr*1.2,rr*2,rr*1.2);ctx.strokeStyle='rgba(90,65,35,.35)';ctx.lineWidth=1;for(let j=0;j<9;j++){const yy=y-rr*1.15+j*rr*.13;ctx.beginPath();ctx.moveTo(x-rr,yy);ctx.lineTo(x+rr,yy+rr*.05);ctx.stroke();}
+   ctx.fillStyle='#C9AE80';ctx.beginPath();ctx.ellipse(x,y-rr*1.2,rr,rr*.3,0,0,7);ctx.fill();ctx.fillStyle='#6E5434';ctx.beginPath();ctx.ellipse(x,y-rr*1.2,rr*.3,rr*.1,0,0,7);ctx.fill();ctx.strokeStyle='#C9AE80';ctx.lineWidth=Math.max(.8,S*.004);ctx.beginPath();ctx.moveTo(x+rr,y-rr*.6);ctx.quadraticCurveTo(x+rr*2.5,y,x+rr*3.6,y-rr*.1);ctx.stroke();}
+  // secateurs, closed, lying on the bench
+  {const x=TX+.72*S, y=top+.11*S;ctx.save();ctx.translate(x,y);ctx.rotate(-.18);const u=S*.01;ctx.fillStyle='rgba(40,30,20,.2)';ctx.beginPath();ctx.ellipse(u*2,u*3,u*16,u*2.5,0,0,7);ctx.fill();
+   const bl=ctx.createLinearGradient(0,-u*2,0,u*2);bl.addColorStop(0,'#F1F3F5');bl.addColorStop(.5,'#A8AFB6');bl.addColorStop(1,'#DDE1E5');ctx.fillStyle=bl;ctx.beginPath();ctx.moveTo(-u*14,0);ctx.quadraticCurveTo(-u*8,-u*3,-u*2,-u*1.5);ctx.lineTo(-u*2,u*1.5);ctx.quadraticCurveTo(-u*8,u*1,-u*14,0);ctx.fill();
+   [[-1],[1]].forEach(([sd])=>{const hg=ctx.createLinearGradient(0,sd*u*.5,0,sd*u*3);hg.addColorStop(0,'#C0392B');hg.addColorStop(1,'#7E2218');ctx.fillStyle=hg;ctx.beginPath();ctx.moveTo(-u*2,sd*u*.4);ctx.quadraticCurveTo(u*6,sd*u*3.2,u*15,sd*u*1.8);ctx.lineTo(u*15,sd*u*.6);ctx.quadraticCurveTo(u*6,sd*u*1.2,-u*2,sd*u*.1);ctx.closePath();ctx.fill();});
+   ctx.fillStyle='#C9CED4';ctx.beginPath();ctx.arc(-u*2,0,u*1.4,0,7);ctx.fill();ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(-u*13,-u*.6,u*10,u*.4);ctx.restore();}}
+// a glass vase of water the stems stand in, until they're wrapped
+function vase(k,front){if(k<=0)return;const top=TY-.03*S, bot=TY+.6*S, wt=.15*S, wb=.13*S, water=TY+.1*S;ctx.save();ctx.globalAlpha*=k;
+  const body=new Path2D();body.moveTo(TX-wt,top);body.quadraticCurveTo(TX-wt*1.08,(top+bot)/2,TX-wb,bot);body.lineTo(TX+wb,bot);body.quadraticCurveTo(TX+wt*1.08,(top+bot)/2,TX+wt,top);body.closePath();
+  if(!front){ctx.fillStyle='rgba(225,236,236,.22)';ctx.fill(body);ctx.save();ctx.clip(body);const wg=ctx.createLinearGradient(0,water,0,bot);wg.addColorStop(0,'rgba(190,215,210,.32)');wg.addColorStop(1,'rgba(150,185,175,.42)');ctx.fillStyle=wg;ctx.fillRect(TX-wt*1.2,water,wt*2.4,bot-water);ctx.restore();}
+  else{ctx.save();ctx.clip(body);ctx.fillStyle='rgba(170,200,195,.18)';ctx.fillRect(TX-wt*1.2,water,wt*2.4,bot-water);
+    const sh=ctx.createLinearGradient(TX-wt,0,TX+wt,0);sh.addColorStop(0,'rgba(255,255,255,.0)');sh.addColorStop(.12,'rgba(255,255,255,.55)');sh.addColorStop(.2,'rgba(255,255,255,.05)');sh.addColorStop(.78,'rgba(255,255,255,.0)');sh.addColorStop(.86,'rgba(255,255,255,.28)');sh.addColorStop(1,'rgba(120,140,140,.25)');ctx.fillStyle=sh;ctx.fillRect(TX-wt*1.2,top,wt*2.4,bot-top);ctx.restore();
+    ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=Math.max(1,S*.006);ctx.beginPath();ctx.ellipse(TX,water,wt*1.02,wt*.12,0,0,Math.PI);ctx.stroke();ctx.strokeStyle='rgba(120,150,150,.35)';ctx.beginPath();ctx.ellipse(TX,water,wt*1.02,wt*.12,0,Math.PI,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle='rgba(140,160,160,.45)';ctx.lineWidth=Math.max(1,S*.004);ctx.stroke(body);ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=Math.max(1,S*.005);ctx.beginPath();ctx.ellipse(TX,top,wt,wt*.14,0,0,7);ctx.stroke();
+    const bg=ctx.createLinearGradient(0,bot-S*.03,0,bot);bg.addColorStop(0,'rgba(200,225,225,.2)');bg.addColorStop(1,'rgba(120,150,150,.45)');ctx.fillStyle=bg;ctx.beginPath();ctx.ellipse(TX,bot-S*.012,wb,wb*.12,0,0,7);ctx.fill();}
+  ctx.restore();}
+
 /* ============ HUD ============ */
 let shown=-1;
 function hud(p,f,shownStems){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
@@ -428,21 +476,24 @@ function hud(p,f,shownStems){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i
 /* ============ FRAME ============ */
 const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#FBF8F3';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);if(!WALL||WALL.width!==cv.width||WALL.height!==cv.height)buildWall();ctx.drawImage(WALL,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);
   const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
   S=lerp(LA.s,LB.s,m);TX=lerp(LA.x,LB.x,m);TY=lerp(LA.y,LB.y,m);
   const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
   ctx.globalAlpha=mobile?.25+.75*k:1;
   // the table and a soft shadow
-  ctx.fillStyle='rgba(31,43,36,.07)';ctx.beginPath();ctx.ellipse(TX,TY+.58*S,.5*S,.05*S,0,0,7);ctx.fill();
+  {const n=STEMS.length?1:0;if(n){const gx=TX+.3*S, gy=TY-.55*S;const sg=ctx.createRadialGradient(gx,gy,0,gx,gy,.55*S);sg.addColorStop(0,'rgba(90,70,50,.09)');sg.addColorStop(.6,'rgba(90,70,50,.04)');sg.addColorStop(1,'rgba(90,70,50,0)');ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(gx,gy,.5*S,.45*S,0,0,7);ctx.fill();}}
+  bench(TY);ctx.fillStyle='rgba(31,43,36,.1)';ctx.beginPath();ctx.ellipse(TX+.04*S,TY+.6*S,.3*S,.035*S,0,0,7);ctx.fill();
   // stems: each comes in during its stage, in order
   const per=[0,0,0,0];STEMS.forEach(s=>per[s.st]++);const seen=[0,0,0,0];
   const ks=STEMS.map(s=>{const i=seen[s.st]++;const n=per[s.st];return sm(seg(f[s.st],i/n*.75,i/n*.75+.35));});
   const wrapK=sm(seg(f[4],0,.6)), tie=sm(seg(f[4],.4,.9));
   // paper behind the stems once wrapped (back sheet)
+  const inVase=1-sm(seg(f[4],0,.35));vase(inVase,false);
   paper(wrapK,time);
   const order=STEMS.map((s,i)=>i).sort((a,b)=>STEMS[a].d-STEMS[b].d).reverse();
   order.forEach(i=>{if(ks[i]<=0)return;const s=STEMS[i];const sway=RM?0:Math.sin(time*1.2+i)*.012;stem(s,ks[i],sway,time);});
+  vase(inVase,true);
   // the front of the wrap and the tie
   if(wrapK>0){ctx.save();ctx.globalAlpha*=wrapK;ctx.fillStyle=shade(WRAP.paper,.04);ctx.beginPath();ctx.moveTo(TX-.08*S,TY+.48*S);ctx.lineTo(TX-.34*S*wrapK,TY-.05*S);ctx.lineTo(TX+.34*S*wrapK,TY-.05*S);ctx.lineTo(TX+.08*S,TY+.48*S);ctx.closePath();ctx.fill();ctx.restore();}
   ribbon(tie);card(sm(seg(f[5],0,.4)),time);bike(seg(f[5],.4,1),time);
@@ -484,9 +535,17 @@ const total=()=>SIZES[sz].p+[...ex].reduce((a,i)=>a+EXTRAS[i].p,0);
 const mini=$('#mini'), mc=mini.getContext('2d');
 function drawMini(){const w=mini.clientWidth||300, h=mini.clientHeight||220, d=Math.min(devicePixelRatio||1,2);mini.width=w*d;mini.height=h*d;mc.setTransform(d,0,0,d,0,0);mc.clearRect(0,0,w,h);
   const P=PALETTES[pal], n=SIZES[sz].stems, R=Math.min(w,h)*.46, cx=w/2, cy=h*.44;const g=(seed=>()=>{seed=(seed*16807)%2147483647;return seed/2147483647;})(7+pal*31+sz*7);
-  mc.fillStyle='#E2D6C2';mc.beginPath();mc.moveTo(cx-R*.18,h);mc.lineTo(cx-R*.62,cy+R*.16);mc.lineTo(cx+R*.62,cy+R*.16);mc.lineTo(cx+R*.18,h);mc.closePath();mc.fill();const spread=[.5,.62,.75][sz];
+  const sheet=(pts,base,lit)=>{mc.save();mc.beginPath();pts.forEach(([x,y],i)=>i?mc.lineTo(x,y):mc.moveTo(x,y));mc.closePath();mc.shadowColor='rgba(60,40,20,.22)';mc.shadowBlur=6*d;mc.shadowOffsetY=2*d;mc.fillStyle=base;mc.fill();mc.shadowColor='transparent';mc.clip();
+    const lg=mc.createLinearGradient(cx-R*.7,0,cx+R*.7,0);lg.addColorStop(0,'rgba(0,0,0,.14)');lg.addColorStop(lit,'rgba(255,255,255,.2)');lg.addColorStop(1,'rgba(0,0,0,.16)');mc.fillStyle=lg;mc.fillRect(0,0,w,h);const fr=(sd=>()=>{sd=(sd*16807)%2147483647;return sd/2147483647;})(13);
+    mc.strokeStyle='rgba(120,90,50,.16)';mc.lineWidth=.6;for(let i=0;i<120;i++){const x=fr()*w, y=fr()*h;mc.beginPath();mc.moveTo(x,y);mc.lineTo(x+(fr()-.5)*5,y+(fr()-.5)*2.5);mc.stroke();}mc.restore();};
+  sheet([[cx-R*.14,h],[cx-R*.78,cy-R*.2],[cx-R*.2,cy-R*.02],[cx+R*.25,cy-R*.3],[cx+R*.8,cy-R*.05],[cx+R*.14,h]],'#D9C7A8',.45);
+  {const gg=(seed=>()=>{seed=(seed*16807)%2147483647;return seed/2147483647;})(91+sz);for(let i=0;i<10;i++){const a=-Math.PI/2+(gg()-.5)*2.4, dd=R*(.35+gg()*.4);mc.save();mc.translate(cx+Math.cos(a)*dd,cy+R*.1+Math.sin(a)*dd*.75);mc.rotate(a+Math.PI/2);fl(mc,i%2?'eucalyptus':'fern',R*.22,i%2?'#8FA79A':'#5E7F4E',1);mc.restore();}}
+  const spread=[.5,.62,.75][sz];
   for(let i=0;i<Math.min(n,32);i++){const a=-Math.PI/2+(g()-.5)*2.6, dd=Math.sqrt(g())*R*spread;const x=cx+Math.cos(a)*dd, y=cy+R*.1+Math.sin(a)*dd*.75;mc.save();mc.translate(x,y);
-    if(i%4===3){fl(mc,'eucalyptus',R*.24,'#8FA79A',1);}else{const j=i%P.kinds.length;fl(mc,P.kinds[j],R*(.15+g()*.07),P.cols[j],1);}mc.restore();}}
+    if(i%4===3){fl(mc,'eucalyptus',R*.24,'#8FA79A',1);}else{const j=i%P.kinds.length;fl(mc,P.kinds[j],R*(.15+g()*.07),P.cols[j],1);}mc.restore();}
+  sheet([[cx-R*.12,h],[cx-R*.6,cy+R*.22],[cx-R*.05,cy+R*.42],[cx+R*.52,cy+R*.18],[cx+R*.12,h]],'#E6D7BC',.35);
+  {const ty=cy+R*.72;mc.save();mc.strokeStyle='#B98B5A';mc.lineWidth=Math.max(1.4,R*.022);mc.lineCap='round';mc.shadowColor='rgba(60,40,20,.3)';mc.shadowBlur=2*d;mc.shadowOffsetY=1*d;mc.beginPath();mc.moveTo(cx-R*.2,ty);mc.quadraticCurveTo(cx,ty+R*.03,cx+R*.2,ty);mc.stroke();
+   [[-1],[1]].forEach(([sd])=>{mc.beginPath();mc.moveTo(cx,ty+R*.01);mc.bezierCurveTo(cx+sd*R*.06,ty-R*.12,cx+sd*R*.2,ty-R*.06,cx,ty+R*.01);mc.stroke();mc.beginPath();mc.moveTo(cx,ty+R*.01);mc.quadraticCurveTo(cx+sd*R*.05,ty+R*.12,cx+sd*R*.09,ty+R*.2);mc.stroke();});mc.restore();}}
 function bouquet(){const s=SIZES[sz], P=PALETTES[pal];$('#pPrice').textContent=money(total());$('#pStems').textContent=`${s.n} · about ${s.stems} stems · ${P.n.toLowerCase()}`;
   $('#pList').innerHTML=[...ex].map(i=>`<li>+ ${esc(EXTRAS[i].n)}</li>`).join('');drawMini();summary();}
 $('#sizes').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sz=+b.dataset.i;press($('#sizes'),b);bouquet();});
