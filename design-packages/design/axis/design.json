@@ -2,7 +2,7 @@
   "name": "axis",
   "category": "physiotherapist, chiropractor or massage therapist",
   "reference": "reference/axis-original.html",
-  "referenceSha256": "3f44bc266ae8eff72b1dfdab20e42abf4bb6c2bf980d571750db18d72f44f80d",
+  "referenceSha256": "eba35d38b9d0d437bcd6b2dfcaab6abae2e8bcfceeae4a240ec11d57b3af7d90",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

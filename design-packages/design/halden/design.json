@@ -2,7 +2,7 @@
   "name": "halden",
   "category": "law firm or accountants",
   "reference": "reference/halden-original.html",
-  "referenceSha256": "54b6c509ad8cedc9b50a5001a875df7770144cab931d5bc16e99dba99469279c",
+  "referenceSha256": "75dd3d765350a445c3190cf1ad14dcf8aeac0b898889258c49db3282edf8560c",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

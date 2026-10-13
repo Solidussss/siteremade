@@ -397,43 +397,87 @@ function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRat
   last=-1;}
 
 /* ============ DRAWING ============ */
-function bay(time){// the wall, the light strip, the floor and the bay number, across the whole screen
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+// the workshop's surfaces, made once: painted blockwork for the wall, a speckled epoxy for the floor
+function tile(n,draw){const c=document.createElement('canvas');c.width=c.height=n;draw(c.getContext('2d'),n);return c;}
+const BLOCKS=tile(256,(g,n)=>{const r=rng(17);g.fillStyle='#20272E';g.fillRect(0,0,n,n);const bh=n/4, bw=n/2;
+  for(let row=0;row<4;row++)for(let col=-1;col<3;col++){const x=col*bw+(row%2?bw/2:0), y=row*bh, v=r()*.05;g.fillStyle=`rgba(${Math.round(36+v*200)},${Math.round(44+v*200)},${Math.round(52+v*200)},1)`;g.fillRect(x+2,y+2,bw-4,bh-4);
+    for(let i=0;i<60;i++){g.fillStyle=r()<.5?'rgba(255,255,255,.04)':'rgba(0,0,0,.12)';g.fillRect(x+2+r()*(bw-4),y+2+r()*(bh-4),1.5,1.5);}
+    const k=g.createLinearGradient(0,y,0,y+bh);k.addColorStop(0,'rgba(255,255,255,.04)');k.addColorStop(1,'rgba(0,0,0,.1)');g.fillStyle=k;g.fillRect(x+2,y+2,bw-4,bh-4);}});
+const EPOXY=tile(200,(g,n)=>{const r=rng(23);for(let i=0;i<2200;i++){g.fillStyle=r()<.6?`rgba(255,255,255,${.02+r()*.05})`:`rgba(0,0,0,${.05+r()*.08})`;g.fillRect(r()*n,r()*n,1+r()*1.5,1+r()*1.5);}});
+let blockPat=null, epoxyPat=null;
+function pat(img,size){const p=ctx.createPattern(img,'repeat');if(p&&p.setTransform)p.setTransform(new DOMMatrix().translate(OX,OY).scale(size/img.width));return p;}
+function bay(time){// the wall, the light strip and the floor, across the whole screen
   const fl=P(0,FLOOR)[1];
-  const g=ctx.createLinearGradient(0,0,0,fl);g.addColorStop(0,'#0C1013');g.addColorStop(1,'#151B21');ctx.fillStyle=g;ctx.fillRect(0,0,W,fl);
-  ctx.strokeStyle='rgba(255,255,255,.035)';ctx.lineWidth=1;for(let x=P(-30,0)[0];x<W;x+=S*2.4){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,fl);ctx.stroke();}
-  const lt=P(CX0-6,1.2),lr=P(CX0+6,1.2);ctx.save();ctx.translate((lt[0]+lr[0])/2,lt[1]);ctx.scale(1,.42);const lg=ctx.createRadialGradient(0,0,0,0,0,(lr[0]-lt[0])*.62);lg.addColorStop(0,'rgba(220,235,255,.13)');lg.addColorStop(1,'rgba(220,235,255,0)');ctx.fillStyle=lg;ctx.beginPath();ctx.arc(0,0,(lr[0]-lt[0])*.62,0,Math.PI);ctx.fill();ctx.restore();
-  ctx.fillStyle='rgba(225,238,255,.55)';ctx.fillRect(lt[0],lt[1]-S*.08,lr[0]-lt[0],S*.08);
-  const fg=ctx.createLinearGradient(0,fl,0,H);fg.addColorStop(0,'#1E252C');fg.addColorStop(1,'#12171B');ctx.fillStyle=fg;ctx.fillRect(0,fl,W,H-fl);
-  ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(0,fl,W,1.5);
-  // bay lines and number
-  ctx.fillStyle='rgba(245,184,61,.5)';const a=P(CX0-6.4,FLOOR+.25), b=P(CX0+6.4,FLOOR+.25);ctx.fillRect(a[0],a[1],S*.12,S*.6);ctx.fillRect(b[0]-S*.12,b[1],S*.12,S*.6);
-  ctx.font=`700 ${Math.round(S*.62)}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.07)';const n=P(CX0,FLOOR+.85);ctx.fillText(LABELS.bay.toUpperCase(),n[0],n[1]);ctx.textAlign='left';}
+  blockPat=pat(BLOCKS,S*4.8);ctx.fillStyle=blockPat||'#151B21';ctx.fillRect(0,0,W,fl);
+  const g=ctx.createLinearGradient(0,0,0,fl);g.addColorStop(0,'rgba(5,8,10,.55)');g.addColorStop(.6,'rgba(5,8,10,.1)');g.addColorStop(1,'rgba(5,8,10,.35)');ctx.fillStyle=g;ctx.fillRect(0,0,W,fl);
+  // the LED batten and its wash of light down the wall
+  const lt=P(CX0-6,1.2),lr=P(CX0+6,1.2);ctx.save();ctx.translate((lt[0]+lr[0])/2,lt[1]);ctx.scale(1,.55);const lg=ctx.createRadialGradient(0,0,0,0,0,(lr[0]-lt[0])*.62);lg.addColorStop(0,'rgba(220,235,255,.2)');lg.addColorStop(1,'rgba(220,235,255,0)');ctx.fillStyle=lg;ctx.beginPath();ctx.arc(0,0,(lr[0]-lt[0])*.62,0,Math.PI);ctx.fill();ctx.restore();
+  ctx.save();ctx.shadowColor='rgba(210,230,255,.9)';ctx.shadowBlur=S*.5*DPR;ctx.fillStyle='#EEF5FF';ctx.fillRect(lt[0],lt[1]-S*.09,lr[0]-lt[0],S*.09);ctx.restore();
+  ctx.fillStyle='#2C343C';ctx.fillRect(lt[0]-S*.1,lt[1]-S*.16,lr[0]-lt[0]+S*.2,S*.07);
+  // a skirting of steel kick plate where wall meets floor
+  const kp=ctx.createLinearGradient(0,fl-S*.35,0,fl);kp.addColorStop(0,'#3A434C');kp.addColorStop(.5,'#5B656F');kp.addColorStop(1,'#2A3036');ctx.fillStyle=kp;ctx.fillRect(0,fl-S*.35,W,S*.35);
+  // the floor: grey epoxy, lighter under the lamp, speckled
+  const fg=ctx.createLinearGradient(0,fl,0,H);fg.addColorStop(0,'#3A4249');fg.addColorStop(1,'#1C2126');ctx.fillStyle=fg;ctx.fillRect(0,fl,W,H-fl);
+  epoxyPat=pat(EPOXY,S*3);ctx.fillStyle=epoxyPat||'transparent';ctx.fillRect(0,fl,W,H-fl);
+  const mid=P(CX0,FLOOR);ctx.save();ctx.translate(mid[0],fl);ctx.scale(1,.25);const sg=ctx.createRadialGradient(0,0,0,0,0,S*9);sg.addColorStop(0,'rgba(200,220,240,.12)');sg.addColorStop(1,'rgba(200,220,240,0)');ctx.fillStyle=sg;ctx.beginPath();ctx.arc(0,0,S*9,0,7);ctx.fill();ctx.restore();}
+function bayMarks(){// the bay lines and number, painted on the floor (a little worn)
+  const a=P(CX0-6.4,FLOOR+.25), b=P(CX0+6.4,FLOOR+.25);ctx.fillStyle='rgba(245,184,61,.55)';ctx.fillRect(a[0],a[1],S*.12,S*.6);ctx.fillRect(b[0]-S*.12,b[1],S*.12,S*.6);
+  const r=rng(5);ctx.fillStyle='rgba(30,35,40,.5)';for(let i=0;i<14;i++){const q=r()<.5?a:b;ctx.fillRect(q[0]-(q===b?S*.12:0)+r()*S*.12,q[1]+r()*S*.6,1.5,1.5);}
+  ctx.font=`700 ${Math.round(S*.62)}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.08)';const n=P(CX0,FLOOR+.85);ctx.fillText(LABELS.bay.toUpperCase(),n[0],n[1]);ctx.textAlign='left';}
 
-function lift(h,carX){// the post behind, the arms and pads under the sills
-  const p0=P(CX0-.25,FLOOR-5.6), p1=P(CX0+.25,FLOOR);ctx.fillStyle='#2A323B';ctx.fillRect(p0[0],p0[1],p1[0]-p0[0],p1[1]-p0[1]);
-  ctx.fillStyle=ACCENT;const c=P(CX0-.35,FLOOR-.3-h);ctx.fillRect(c[0],c[1],S*.7,S*.5);
-  ctx.strokeStyle='#4A5561';ctx.lineWidth=S*.16;const y=FLOOR-h-.05;[[car.wb[0]+.9],[car.wb[1]-.9]].forEach(([x])=>{const ax=carX+x;const a=P(CX0,y),b=P(ax,y);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();const q=P(ax-.3,y-.12);ctx.fillStyle='#E0B23A';ctx.fillRect(q[0],q[1],S*.6,S*.14);});}
+// steel, lit from above: dark edges, a bright line down the middle
+function steel(x,y,w,h,vertical){const g=vertical?ctx.createLinearGradient(x,0,x+w,0):ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,'#2A3138');g.addColorStop(.35,'#7D8892');g.addColorStop(.5,'#B4BEC7');g.addColorStop(.7,'#5C6670');g.addColorStop(1,'#20262C');ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
+function lift(h,carX){// the post behind, the carriage, the arms and the rubber pads under the sills
+  const p0=P(CX0-.25,FLOOR-5.6), p1=P(CX0+.25,FLOOR);ctx.save();ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=S*.3*DPR;ctx.shadowOffsetX=S*.1*DPR;steel(p0[0],p0[1],p1[0]-p0[0],p1[1]-p0[1],true);ctx.restore();
+  ctx.fillStyle='rgba(0,0,0,.35)';for(let y=p0[1]+S*.3;y<p1[1];y+=S*.35)ctx.fillRect(p0[0]+S*.12,y,S*.26,S*.06);
+  const c=P(CX0-.35,FLOOR-.3-h);ctx.fillStyle=ACCENT;ctx.fillRect(c[0],c[1],S*.7,S*.5);const cg=ctx.createLinearGradient(c[0],0,c[0]+S*.7,0);cg.addColorStop(0,'rgba(0,0,0,.3)');cg.addColorStop(.45,'rgba(255,255,255,.25)');cg.addColorStop(1,'rgba(0,0,0,.35)');ctx.fillStyle=cg;ctx.fillRect(c[0],c[1],S*.7,S*.5);
+  const y=FLOOR-h-.05;[[car.wb[0]+.9],[car.wb[1]-.9]].forEach(([x])=>{const ax=carX+x;const a=P(CX0,y),b=P(ax,y);steel(Math.min(a[0],b[0]),a[1]-S*.08,Math.abs(b[0]-a[0]),S*.16,false);
+    const q=P(ax-.3,y-.12);ctx.fillStyle='#1A1D20';ctx.fillRect(q[0],q[1],S*.6,S*.14);ctx.fillStyle='#E0B23A';ctx.fillRect(q[0],q[1]+S*.1,S*.6,S*.04);});}
 
-function body(x0,lift,spin,time,lightsOn){const base=FLOOR-lift;const Y=h=>base-h;
-  // shadow on the floor
-  const sh=P(x0+car.len/2,FLOOR);ctx.fillStyle=`rgba(0,0,0,${(.45-lift*.12).toFixed(3)})`;ctx.beginPath();ctx.ellipse(sh[0],sh[1],S*car.len*.5,S*(.18+lift*.05),0,0,7);ctx.fill();
-  // headlight beam when it's on the road test
-  if(lightsOn>0){const hl=P(x0+car.len,Y(1.35));const g=ctx.createLinearGradient(hl[0],0,hl[0]+S*5,0);g.addColorStop(0,`rgba(255,240,200,${(.35*lightsOn).toFixed(3)})`);g.addColorStop(1,'rgba(255,240,200,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(hl[0],hl[1]-S*.1);ctx.lineTo(hl[0]+S*5,hl[1]-S*.9);ctx.lineTo(hl[0]+S*5,hl[1]+S*1.1);ctx.closePath();ctx.fill();}
+function body(x0,lift,spin,time,lightsOn,mirror){const base=FLOOR-lift;const Y=h=>base-h;
+  if(!mirror){// a soft contact shadow on the floor
+    const sh=P(x0+car.len/2,FLOOR);ctx.save();ctx.translate(sh[0],sh[1]);ctx.scale(1,(.18+lift*.05)/(car.len*.5));const sg=ctx.createRadialGradient(0,0,0,0,0,S*car.len*.55);sg.addColorStop(0,`rgba(0,0,0,${(.6-lift*.15).toFixed(3)})`);sg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=sg;ctx.beginPath();ctx.arc(0,0,S*car.len*.55,0,7);ctx.fill();ctx.restore();
+    // headlight beam when it's on the road test
+    if(lightsOn>0){const hl=P(x0+car.len,Y(1.35));const g=ctx.createLinearGradient(hl[0],0,hl[0]+S*5,0);g.addColorStop(0,`rgba(255,240,200,${(.35*lightsOn).toFixed(3)})`);g.addColorStop(1,'rgba(255,240,200,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(hl[0],hl[1]-S*.1);ctx.lineTo(hl[0]+S*5,hl[1]-S*.9);ctx.lineTo(hl[0]+S*5,hl[1]+S*1.1);ctx.closePath();ctx.fill();}}
   // the body, with arches cut for the wheels
-  ctx.beginPath();car.pts.forEach(([x,h],i)=>{const q=P(x0+x,Y(h));i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
-  [...car.wb].reverse().forEach(wx=>{const r=car.wr+.2;const a=P(x0+wx+r,Y(car.ride));ctx.lineTo(a[0],a[1]);const c=P(x0+wx,Y(car.wr));ctx.arc(c[0],c[1],r*S,0,Math.PI,true);});
-  ctx.closePath();const bg=ctx.createLinearGradient(0,P(0,Y(3))[1],0,P(0,Y(.5))[1]);bg.addColorStop(0,shade(CAR.paint,.18));bg.addColorStop(1,shade(CAR.paint,-.35));ctx.fillStyle=bg;ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1.4;ctx.stroke();
-  // glass, doors, handles, lamps
-  ctx.beginPath();car.glass.forEach(([x,h],i)=>{const q=P(x0+x,Y(h));i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fillStyle='rgba(18,26,34,.88)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.18)';ctx.stroke();
-  ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.2;car.doors.forEach(dx=>{const a=P(x0+dx,Y(car.ride+.15)),b=P(x0+dx,Y(car.glass[car.glass.length-1][1]));ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();});
-  const hl=P(x0+car.len-.35,Y(1.4));ctx.fillStyle=lightsOn>0?'#FFF4D6':'#9AA6B2';ctx.fillRect(hl[0],hl[1],S*.3,S*.16);
-  const tl=P(x0+.05,Y(1.6));ctx.fillStyle='#B3352E';ctx.fillRect(tl[0],tl[1],S*.18,S*.28);
+  const shape=()=>{ctx.beginPath();roundChain(car.pts.map(([x,h])=>P(x0+x,Y(h))),S*.38,false);
+    [...car.wb].reverse().forEach(wx=>{const r=car.wr+.2;const a=P(x0+wx+r,Y(car.ride));ctx.lineTo(a[0],a[1]);const c=P(x0+wx,Y(car.wr));ctx.arc(c[0],c[1],r*S,0,Math.PI,true);});ctx.closePath();};
+  const top=car.pts.reduce((a,p)=>Math.max(a,p[1]),0), yt=P(0,Y(top))[1], yb=P(0,Y(car.ride))[1];
+  shape();const bg=ctx.createLinearGradient(0,yt,0,yb);bg.addColorStop(0,shade(CAR.paint,.3));bg.addColorStop(.3,shade(CAR.paint,.05));bg.addColorStop(.48,shade(CAR.paint,-.15));bg.addColorStop(.52,shade(CAR.paint,.12));bg.addColorStop(.8,shade(CAR.paint,-.3));bg.addColorStop(1,shade(CAR.paint,-.55));ctx.fillStyle=bg;ctx.fill();
+  // the clear coat: the light strip's long reflection along the shoulder, and a soft one low down
+  ctx.save();shape();ctx.clip();const sl=P(0,Y(top*.62))[1];const hg=ctx.createLinearGradient(0,sl-S*.12,0,sl+S*.12);hg.addColorStop(0,'rgba(255,255,255,0)');hg.addColorStop(.5,'rgba(235,245,255,.55)');hg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=hg;const xa=P(x0,0)[0], xb=P(x0+car.len,0)[0];ctx.fillRect(xa+(xb-xa)*.12,sl-S*.12,(xb-xa)*.76,S*.24);
+    const lo=P(0,Y(car.ride+.35))[1];const lg2=ctx.createLinearGradient(0,lo-S*.2,0,lo+S*.2);lg2.addColorStop(0,'rgba(255,255,255,0)');lg2.addColorStop(.5,'rgba(255,255,255,.12)');lg2.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=lg2;ctx.fillRect(xa,lo-S*.2,xb-xa,S*.4);
+    const rim=ctx.createLinearGradient(xa,0,xb,0);rim.addColorStop(0,'rgba(0,0,0,.35)');rim.addColorStop(.08,'rgba(0,0,0,0)');rim.addColorStop(.92,'rgba(0,0,0,0)');rim.addColorStop(1,'rgba(0,0,0,.3)');ctx.fillStyle=rim;ctx.fillRect(xa,yt,xb-xa,yb-yt);ctx.restore();
+  shape();ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=1;ctx.stroke();
+  // the glass: dark, with the bay's light streaked across it
+  ctx.beginPath();roundChain(car.glass.map(([x,h])=>P(x0+x,Y(h))),S*.14,true);ctx.closePath();
+  const gt=P(0,Y(car.glass.reduce((a,p)=>Math.max(a,p[1]),0)))[1], gb=P(0,Y(car.glass.reduce((a,p)=>Math.min(a,p[1]),9)))[1];const gg=ctx.createLinearGradient(0,gt,0,gb);gg.addColorStop(0,'#2B3947');gg.addColorStop(.5,'#141C24');gg.addColorStop(1,'#0B1016');ctx.fillStyle=gg;ctx.fill();
+  ctx.save();ctx.clip();ctx.strokeStyle='rgba(220,235,255,.18)';ctx.lineWidth=S*.18;for(let i=0;i<3;i++){const sx=P(x0+1.2+i*1.6,0)[0];ctx.beginPath();ctx.moveTo(sx,gt);ctx.lineTo(sx+S*.9,gb);ctx.stroke();}ctx.restore();ctx.strokeStyle='rgba(10,14,18,.9)';ctx.lineWidth=2;ctx.stroke();
+  // shut lines, handles and the mirror
+  ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=1.1;car.doors.forEach(dx=>{const a=P(x0+dx,Y(car.ride+.15)),b=P(x0+dx,Y(car.glass[car.glass.length-1][1]));ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+    const hd=P(x0+dx-.75,Y(car.glass[car.glass.length-1][1]-.28));ctx.fillStyle=shade(CAR.paint,-.45);ctx.fillRect(hd[0],hd[1],S*.42,S*.08);ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(hd[0],hd[1],S*.42,1);});
+  { const gl=car.glass, fr=gl.reduce((a,p)=>p[0]>a[0]?p:a,gl[0]);const m=P(x0+fr[0]-.15,Y(fr[1]-.12));ctx.fillStyle=shade(CAR.paint,-.2);ctx.beginPath();if(ctx.roundRect)ctx.roundRect(m[0],m[1],S*.36,S*.22,S*.06);else ctx.rect(m[0],m[1],S*.36,S*.22);ctx.fill();ctx.fillStyle='#0F1418';ctx.fillRect(m[0]+S*.05,m[1]+S*.04,S*.08,S*.14); }
+  // the lamps: a chrome reflector behind clear glass at the front, red at the back
+  const hl=P(x0+car.len-.38,Y(1.42));const hg2=ctx.createRadialGradient(hl[0]+S*.15,hl[1]+S*.08,0,hl[0]+S*.15,hl[1]+S*.08,S*.22);hg2.addColorStop(0,lightsOn>0?'#FFFFFF':'#E9EEF2');hg2.addColorStop(.6,lightsOn>0?'#FFF4D6':'#9AA6B2');hg2.addColorStop(1,'#56616B');ctx.fillStyle=hg2;if(ctx.roundRect){ctx.beginPath();ctx.roundRect(hl[0],hl[1],S*.34,S*.18,S*.05);ctx.fill();}else ctx.fillRect(hl[0],hl[1],S*.34,S*.18);
+  if(lightsOn>0&&!mirror){ctx.save();ctx.globalCompositeOperation='lighter';const gw=ctx.createRadialGradient(hl[0]+S*.2,hl[1]+S*.1,0,hl[0]+S*.2,hl[1]+S*.1,S*.8);gw.addColorStop(0,`rgba(255,240,200,${(.5*lightsOn).toFixed(3)})`);gw.addColorStop(1,'rgba(255,240,200,0)');ctx.fillStyle=gw;ctx.beginPath();ctx.arc(hl[0]+S*.2,hl[1]+S*.1,S*.8,0,7);ctx.fill();ctx.restore();}
+  const tl=P(x0+.05,Y(1.62));const tg=ctx.createLinearGradient(tl[0],0,tl[0]+S*.2,0);tg.addColorStop(0,'#7A1712');tg.addColorStop(.5,'#D9483F');tg.addColorStop(1,'#8E1E18');ctx.fillStyle=tg;ctx.fillRect(tl[0],tl[1],S*.2,S*.3);ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(tl[0]+S*.04,tl[1]+S*.03,S*.03,S*.24);
   // wheels
   car.wb.forEach(wx=>wheel(x0+wx,Y(car.wr),spin));}
-function wheel(x,y,spin,alpha){const c=P(x,y), r=car.wr*S;ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;ctx.fillStyle='#0E1215';ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.strokeStyle='#2C343C';ctx.lineWidth=r*.12;ctx.beginPath();ctx.arc(c[0],c[1],r*.92,0,7);ctx.stroke();
-  ctx.fillStyle='#8C98A4';ctx.beginPath();ctx.arc(c[0],c[1],r*.58,0,7);ctx.fill();ctx.strokeStyle='#5D6873';ctx.lineWidth=r*.1;for(let i=0;i<5;i++){const a=spin+i*Math.PI*2/5;ctx.beginPath();ctx.moveTo(c[0]+Math.cos(a)*r*.15,c[1]+Math.sin(a)*r*.15);ctx.lineTo(c[0]+Math.cos(a)*r*.55,c[1]+Math.sin(a)*r*.55);ctx.stroke();}
-  ctx.fillStyle='#C9D3DC';ctx.beginPath();ctx.arc(c[0],c[1],r*.12,0,7);ctx.fill();ctx.restore();}
+// a line through points with each inside corner rounded (closed: the last point joins the first)
+function roundChain(q,r,closed){const n=q.length;if(closed){const m=[(q[n-1][0]+q[0][0])/2,(q[n-1][1]+q[0][1])/2];ctx.moveTo(m[0],m[1]);for(let i=0;i<n;i++){const a=q[i],b=q[(i+1)%n];const L=Math.min(Math.hypot(b[0]-a[0],b[1]-a[1]),Math.hypot(a[0]-q[(i-1+n)%n][0],a[1]-q[(i-1+n)%n][1]));ctx.arcTo(a[0],a[1],b[0],b[1],Math.min(r,L*.45));}return;}
+  ctx.moveTo(q[0][0],q[0][1]);for(let i=1;i<n-1;i++){const a=q[i],b=q[i+1];const L=Math.min(Math.hypot(b[0]-a[0],b[1]-a[1]),Math.hypot(a[0]-q[i-1][0],a[1]-q[i-1][1]));ctx.arcTo(a[0],a[1],b[0],b[1],Math.min(r,L*.45));}ctx.lineTo(q[n-1][0],q[n-1][1]);}
+// a wheel: the tyre's sidewall, a five-spoke alloy, the brake disc behind it and the calliper
+function wheel(x,y,spin,alpha){const c=P(x,y), r=car.wr*S;ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;
+  const t=ctx.createRadialGradient(c[0],c[1],r*.6,c[0],c[1],r);t.addColorStop(0,'#24292E');t.addColorStop(.8,'#121518');t.addColorStop(1,'#07090A');ctx.fillStyle=t;ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=r*.04;ctx.beginPath();ctx.arc(c[0],c[1],r*.84,-2.4,-.8);ctx.stroke();
+  const d=ctx.createRadialGradient(c[0],c[1],0,c[0],c[1],r*.6);d.addColorStop(0,'#6E7780');d.addColorStop(.7,'#A3ADB6');d.addColorStop(1,'#59626B');ctx.fillStyle=d;ctx.beginPath();ctx.arc(c[0],c[1],r*.6,0,7);ctx.fill();
+  ctx.fillStyle='#B8322B';ctx.beginPath();ctx.arc(c[0],c[1],r*.52,-2.5,-1.6);ctx.arc(c[0],c[1],r*.32,-1.6,-2.5,true);ctx.closePath();ctx.fill();
+  const rm=ctx.createLinearGradient(c[0]-r,c[1]-r,c[0]+r,c[1]+r);rm.addColorStop(0,'#E8EDF1');rm.addColorStop(.5,'#8D98A3');rm.addColorStop(1,'#C5CDD4');ctx.strokeStyle=rm;ctx.lineWidth=r*.07;ctx.beginPath();ctx.arc(c[0],c[1],r*.6,0,7);ctx.stroke();
+  for(let i=0;i<5;i++){const a=spin+i*Math.PI*2/5;ctx.save();ctx.translate(c[0],c[1]);ctx.rotate(a);const sg=ctx.createLinearGradient(0,-r*.07,0,r*.07);sg.addColorStop(0,'#F1F4F6');sg.addColorStop(.5,'#9CA7B1');sg.addColorStop(1,'#5E6973');ctx.fillStyle=sg;ctx.beginPath();ctx.moveTo(r*.12,-r*.05);ctx.lineTo(r*.57,-r*.09);ctx.lineTo(r*.57,r*.09);ctx.lineTo(r*.12,r*.05);ctx.closePath();ctx.fill();ctx.restore();}
+  const hub=ctx.createRadialGradient(c[0]-r*.03,c[1]-r*.03,0,c[0],c[1],r*.14);hub.addColorStop(0,'#FFFFFF');hub.addColorStop(1,'#7D8892');ctx.fillStyle=hub;ctx.beginPath();ctx.arc(c[0],c[1],r*.13,0,7);ctx.fill();ctx.restore();}
+// the car mirrored in the glossy floor, fading with distance (drawn in bands, so the floor's own grain stays)
+function reflection(x0,lift,spin){const fl=P(0,FLOOR)[1], N=5, hb=S*.7;for(let i=0;i<N;i++){ctx.save();ctx.beginPath();ctx.rect(0,fl+i*hb,W,hb+.5);ctx.clip();ctx.translate(0,2*fl);ctx.scale(1,-1);ctx.globalAlpha*=.2*(1-i/N);body(x0,lift,spin,0,0,true);ctx.restore();}}
 function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16&255,g=n>>8&255,b=n&255;const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`;}
 const COL={ok:OK,warn:WARN,bad:BAD};
 
@@ -514,8 +558,8 @@ function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#101418';ctx
   const xEnd=CX0-car.len/2, run=Math.max(8,xEnd-(-L.X/L.S-car.len-1)), x0=xEnd-(1-sm(seg(f[0],.45,1)))*run;
   if(zoom>0&&BADI>=0){const c=CHECKS[BADI];const fx=x0+spotX(c.key), fy=FLOOR-liftH-spotH(c.key);const s2=L.S*(1+zoom);const sx=L.X+fx*L.S, sy=L.Y+fy*L.S;L.X=sx-fx*s2+(W/2-sx)*zoom*.6;L.Y=sy-fy*s2+(H*.42-sy)*zoom*.6;L.S=s2;}
   place(L);ctx.setTransform(DPR,0,0,DPR,0,0);
-  bay(time);lift(liftH,x0);
   const drive=1-sm(seg(f[0],.45,1)), test=seg(f[5],.45,1);const spin=-(drive*run/car.wr)-(RM?0:test*time*9);
+  bay(time);reflection(x0,liftH,spin);bayMarks();lift(liftH,x0);
   body(x0,liftH,spin,time,sm(seg(f[5],.4,.7)));
   // the checks appear as the scan passes them
   const shown=CHECKS.map(()=>0);ORDER.forEach(({i},j)=>{shown[i]=sm(seg(f[2],.05+j*.85/ORDER.length,.05+(j+1)*.85/ORDER.length));});

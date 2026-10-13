@@ -2,7 +2,7 @@
   "name": "scruff",
   "category": "dog groomer or vet",
   "reference": "reference/scruff-original.html",
-  "referenceSha256": "ee03c759842e9d8dc66e610bfa71c7ea23e0dcdf05111000e2539549a86b7a7f",
+  "referenceSha256": "337fa0e72be9d1436c378370337e6d170fe99b7f36fc10af0f32cdaadab01006",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

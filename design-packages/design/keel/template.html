@@ -593,15 +593,19 @@ function buildBase(){
   // sky (drawn per frame, so the base is ground + house only, on a clear background)
   const hz=P(0,0,HD+22)[1];
   // distant tree line along the horizon
-  const r=rng(5);bx.fillStyle='#7f9c8f';bx.beginPath();bx.moveTo(0,hz+6);for(let x=0;x<=W;x+=14)bx.lineTo(x,hz-8-r()*16-Math.sin(x/90)*6);bx.lineTo(W,hz+6);bx.closePath();bx.fill();
-  bx.fillStyle='#6d8b7e';bx.beginPath();bx.moveTo(0,hz+8);for(let x=0;x<=W;x+=10)bx.lineTo(x,hz-2-r()*9);bx.lineTo(W,hz+8);bx.closePath();bx.fill();
+  const r=rng(5);[[ '#9DB3A9','#B5C6BE',18,10],[ '#7C978A','#93AB9F',10,7]].forEach(([dk,lt,hgt,rad],L)=>{for(let x=-10;x<=W+10;x+=rad*.9){const cy=hz-(L?2:8)-r()*hgt*.6-Math.sin(x/90+L)*hgt*.25, rr=rad*(.7+r()*.6);const g=bx.createRadialGradient(x-rr*.3,cy-rr*.4,0,x,cy,rr);g.addColorStop(0,lt);g.addColorStop(1,dk);bx.fillStyle=g;bx.beginPath();bx.arc(x,cy,rr,0,7);bx.fill();}bx.fillStyle=dk;bx.fillRect(0,hz-(L?2:6),W,(L?10:12));});
+  {const hg=bx.createLinearGradient(0,hz-30,0,hz+8);hg.addColorStop(0,'rgba(220,232,238,0)');hg.addColorStop(1,'rgba(220,232,238,.35)');bx.fillStyle=hg;bx.fillRect(0,hz-30,W,38);}
   // lawn with mowing stripes
   const g=bx.createLinearGradient(0,hz,0,H);g.addColorStop(0,'#8fae6f');g.addColorStop(1,'#6f9455');bx.fillStyle=g;bx.fillRect(0,hz,W,H-hz);
-  bx.save();bx.globalAlpha=.08;bx.strokeStyle='#ffffff';bx.lineWidth=S*1.1;for(let z=-14;z<HD+22;z+=2.2){const a=P(-400,0,z),b=P(HL+400,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}bx.restore();
+  bx.save();bx.globalAlpha=.04;bx.strokeStyle='#ffffff';bx.lineWidth=S*1.1;for(let z=-14;z<HD+22;z+=2.2){const a=P(-400,0,z),b=P(HL+400,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}bx.restore();
+  {const gr=rng(77), n=Math.round(W*(H-hz)/28);bx.lineCap='round';for(let i=0;i<n;i++){const y=hz+Math.pow(gr(),.8)*(H-hz), x=gr()*W, d=(y-hz)/(H-hz), L=1+d*7*(.6+gr()*.8);const v=gr();bx.strokeStyle=v<.45?`rgba(40,70,25,${.12+d*.18})`:v<.8?`rgba(120,160,80,${.1+d*.15})`:`rgba(220,235,170,${.08+d*.14})`;bx.lineWidth=.5+d*.9;bx.beginPath();bx.moveTo(x,y);bx.lineTo(x+(gr()-.5)*L*.5,y-L);bx.stroke();}
+   for(let i=0;i<40;i++){const y=hz+(.2+gr()*.8)*(H-hz), x=gr()*W, d=(y-hz)/(H-hz), rr=(8+gr()*30)*(.4+d);const g=bx.createRadialGradient(x,y,0,x,y,rr);g.addColorStop(0,gr()<.5?'rgba(60,90,30,.08)':'rgba(200,220,140,.07)');g.addColorStop(1,'rgba(0,0,0,0)');bx.fillStyle=g;bx.beginPath();bx.ellipse(x,y,rr*1.8,rr*.6,0,0,7);bx.fill();}}
   // driveway and path
   bx.fillStyle='#cfccc4';poly(bx,[P(HL+1,0,-14),P(HL+5.5,0,-14),P(HL+5.5,0,HD),P(HL+1,0,HD)]);bx.fill();
-  bx.strokeStyle='rgba(0,0,0,.08)';bx.lineWidth=1.2;for(let z=-12;z<HD;z+=3){const a=P(HL+1,0,z),b=P(HL+5.5,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();}
-  for(let z=-.6;z>-9;z-=1.1){bx.fillStyle='#b9b3a8';poly(bx,[P(6.3,0,z),P(7.5,0,z),P(7.5,0,z-.75),P(6.3,0,z-.75)]);bx.fill();}
+  bx.save();poly(bx,[P(HL+1,0,-14),P(HL+5.5,0,-14),P(HL+5.5,0,HD),P(HL+1,0,HD)]);bx.clip();{const cr=rng(31);for(let i=0;i<9000;i++){const x=cr()*W, y=cr()*H;bx.fillStyle=cr()<.5?'rgba(0,0,0,.07)':'rgba(255,255,255,.12)';bx.fillRect(x,y,1,1);}for(let i=0;i<5;i++){const c=P(HL+2+cr()*3,0,-10+cr()*16);const g=bx.createRadialGradient(c[0],c[1],0,c[0],c[1],S*(.4+cr()*.6));g.addColorStop(0,'rgba(60,50,40,.06)');g.addColorStop(1,'rgba(60,50,40,0)');bx.fillStyle=g;bx.beginPath();bx.ellipse(c[0],c[1],S*1.2,S*.5,-.35,0,7);bx.fill();}
+    const tg=bx.createLinearGradient(P(HL+1,0,0)[0],0,P(HL+5.5,0,0)[0],0);tg.addColorStop(0,'rgba(0,0,0,.06)');tg.addColorStop(.5,'rgba(255,255,255,.05)');tg.addColorStop(1,'rgba(0,0,0,.04)');bx.fillStyle=tg;bx.fillRect(0,0,W,H);}bx.restore();
+  bx.strokeStyle='rgba(0,0,0,.16)';bx.lineWidth=1.2;for(let z=-12;z<HD;z+=3){const a=P(HL+1,0,z),b=P(HL+5.5,0,z);bx.beginPath();bx.moveTo(a[0],a[1]);bx.lineTo(b[0],b[1]);bx.stroke();bx.strokeStyle='rgba(255,255,255,.2)';bx.beginPath();bx.moveTo(a[0],a[1]+1);bx.lineTo(b[0],b[1]+1);bx.stroke();bx.strokeStyle='rgba(0,0,0,.16)';}
+  {const sr2=rng(19);for(let z=-.6;z>-9;z-=1.1){const q=[P(6.3,0,z),P(7.5,0,z),P(7.5,0,z-.75),P(6.3,0,z-.75)];bx.fillStyle='rgba(30,40,20,.3)';poly(bx,q.map(p=>[p[0]+1.5,p[1]+1.5]));bx.fill();const v=sr2();const g=bx.createLinearGradient(q[3][0],q[3][1],q[1][0],q[1][1]);g.addColorStop(0,`rgb(${Math.round(196+v*14)},${Math.round(190+v*14)},${Math.round(178+v*12)})`);g.addColorStop(1,`rgb(${Math.round(166+v*14)},${Math.round(160+v*14)},${Math.round(148+v*12)})`);bx.fillStyle=g;poly(bx,q);bx.fill();bx.save();poly(bx,q);bx.clip();for(let i=0;i<60;i++){bx.fillStyle=sr2()<.5?'rgba(0,0,0,.1)':'rgba(255,255,255,.18)';const a=q[0], b=q[2];bx.fillRect(lerp(a[0],b[0],sr2())+(sr2()-.5)*S*.6,lerp(a[1],b[1],sr2()),1.2,1.2);}bx.restore();bx.strokeStyle='rgba(255,255,255,.35)';bx.lineWidth=1;bx.beginPath();bx.moveTo(q[3][0],q[3][1]);bx.lineTo(q[2][0],q[2][1]);bx.stroke();}}
   // the house's shadow on the lawn (sun from the upper left)
   bx.fillStyle='rgba(30,45,25,.28)';poly(bx,[P(HL,0,0),P(HL+2.6,0,1),P(HL+2.6,0,HD+1.5),P(HL,0,HD)]);bx.fill();
   // right side wall + gable (in shade)
@@ -626,7 +630,8 @@ function buildBase(){
   [[1.1,2.7],[3.5,5.1],[9.0,10.6],[11.6,13.2]].forEach(w=>win(bx,'front',0,w,[1.15,2.45]));
   door(bx);
   // shrubs along the front
-  const sr=rng(13);[[.6,-.6],[2.2,-.7],[5.3,-.6],[8.6,-.7],[12.4,-.6],[13.6,-.6]].forEach(([x,z])=>{const c=P(x,0,z);for(let k=0;k<4;k++){const g2=bx.createRadialGradient(c[0]+(sr()-.5)*S*.6,c[1]-S*(.35+sr()*.2),2,c[0],c[1]-S*.3,S*.62);g2.addColorStop(0,'#6e9a52');g2.addColorStop(1,'#3e6436');bx.fillStyle=g2;bx.beginPath();bx.ellipse(c[0]+(sr()-.5)*S*.5,c[1]-S*.32,S*.55,S*.42,0,0,7);bx.fill();}});
+  const sr=rng(13);[[.6,-.6],[2.2,-.7],[5.3,-.6],[8.6,-.7],[12.4,-.6],[13.6,-.6]].forEach(([x,z])=>{const c=P(x,0,z);bx.fillStyle='rgba(20,35,15,.35)';bx.beginPath();bx.ellipse(c[0]+S*.15,c[1]+S*.02,S*.7,S*.16,0,0,7);bx.fill();for(let k=0;k<4;k++){const g2=bx.createRadialGradient(c[0]+(sr()-.5)*S*.6,c[1]-S*(.35+sr()*.2),2,c[0],c[1]-S*.3,S*.62);g2.addColorStop(0,'#5E8A44');g2.addColorStop(1,'#2E4E2A');bx.fillStyle=g2;bx.beginPath();bx.ellipse(c[0]+(sr()-.5)*S*.5,c[1]-S*.32,S*.55,S*.42,0,0,7);bx.fill();}
+    for(let k=0;k<110;k++){const a=sr()*6.283, d=Math.sqrt(sr()), lx=c[0]+Math.cos(a)*d*S*.62, ly=c[1]-S*.34+Math.sin(a)*d*S*.42, up=(c[1]-S*.34-ly)/(S*.42)-(lx-c[0])/(S*1.2);bx.fillStyle=up>.1?`rgba(170,205,120,${.35+sr()*.4})`:up<-.3?`rgba(25,45,20,${.3+sr()*.3})`:`rgba(90,135,65,${.3+sr()*.4})`;bx.beginPath();bx.ellipse(lx,ly,S*.07,S*.04,sr()*3,0,7);bx.fill();}});
 }
 function win(x,side,at,[a,b],[y0,y1]){
   const Q=side==='front'?(u,y)=>P(u,y,0):(u,y)=>P(at,y,u);
@@ -664,8 +669,8 @@ function sky(storm,clear){
 }
 function mix(a,b,t){const A=hexRgb(a),B=hexRgb(b);return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')})`;}
 function drawClouds(time,storm){clouds.forEach(c=>{const x=((c.x+time*c.v*(1+storm*3))%1.3-.15)*W, y=c.y*H, s=c.s*Math.min(W,H)*.16;
-  ctx.fillStyle=storm>.1?`rgba(${Math.round(lerp(255,90,storm))},${Math.round(lerp(255,98,storm))},${Math.round(lerp(255,108,storm))},${.75+storm*.2})`:'rgba(255,255,255,.78)';
-  [[0,0,1],[.55,.12,.7],[-.5,.15,.65],[.2,-.25,.6]].forEach(([dx,dy,k])=>{ctx.beginPath();ctx.ellipse(x+dx*s,y+dy*s,s*k,s*k*.55,0,0,7);ctx.fill();});});}
+  const lt=storm>.1?[Math.round(lerp(255,110,storm)),Math.round(lerp(255,118,storm)),Math.round(lerp(255,128,storm))]:[255,255,255], dk=storm>.1?[Math.round(lerp(200,60,storm)),Math.round(lerp(208,66,storm)),Math.round(lerp(218,76,storm))]:[196,206,218];
+  [[0,0,1],[.55,.12,.7],[-.5,.15,.65],[.2,-.25,.6],[-.25,-.12,.55],[.85,.18,.45],[-.85,.2,.42]].forEach(([dx,dy,k])=>{const cx=x+dx*s, cy=y+dy*s, rx=s*k, ry=s*k*.62;const g=ctx.createRadialGradient(cx-rx*.2,cy-ry*.45,0,cx,cy,rx);g.addColorStop(0,`rgba(${lt},${.95})`);g.addColorStop(.55,`rgba(${lt.map((v,i)=>Math.round(v*.6+dk[i]*.4))},.85)`);g.addColorStop(.85,`rgba(${dk},.55)`);g.addColorStop(1,`rgba(${dk},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();});});}
 
 /* ---- the roof, layer by layer ---- */
 const RL=()=>P(-OV,HW+RISE,HD/2), RR=()=>P(HL+OV,HW+RISE,HD/2), EL=()=>P(-OV,EAVE_Y,-OV), ER=()=>P(HL+OV,EAVE_Y,-OV);
@@ -772,8 +777,11 @@ function props(f){
     ctx.globalAlpha=1;OX=ox1;OY=oy1;}
 }
 function tree(time,storm){const base2=P(-3.2,0,HD+2.5);const sway=Math.sin(time*1.3)*(1.5+storm*7)*S*.03;
-  ctx.fillStyle='#5a4636';ctx.fillRect(base2[0]-S*.18,base2[1]-S*3.2,S*.36,S*3.2);
-  [[0,4.6,1.9],[-.9,3.9,1.5],[.9,3.8,1.4],[0,3.3,1.6]].forEach(([dx,dy,r],i)=>{const c=[base2[0]+dx*S+sway*(1+i*.2),base2[1]-dy*S];const g=ctx.createRadialGradient(c[0]-r*S*.3,c[1]-r*S*.3,2,c[0],c[1],r*S);g.addColorStop(0,'#86ad62');g.addColorStop(1,'#3f6a39');ctx.fillStyle=g;ctx.beginPath();ctx.arc(c[0],c[1],r*S,0,7);ctx.fill();});}
+  {const tg=ctx.createLinearGradient(base2[0]-S*.18,0,base2[0]+S*.18,0);tg.addColorStop(0,'#3A2C20');tg.addColorStop(.4,'#6E5644');tg.addColorStop(1,'#2E2218');ctx.fillStyle=tg;ctx.beginPath();ctx.moveTo(base2[0]-S*.22,base2[1]);ctx.lineTo(base2[0]-S*.14,base2[1]-S*3.2);ctx.lineTo(base2[0]+S*.14,base2[1]-S*3.2);ctx.lineTo(base2[0]+S*.22,base2[1]);ctx.closePath();ctx.fill();}
+  const CL=[[0,4.6,1.9],[-.9,3.9,1.5],[.9,3.8,1.4],[0,3.3,1.6]];CL.forEach(([dx,dy,r],i)=>{const c=[base2[0]+dx*S+sway*(1+i*.2),base2[1]-dy*S];const g=ctx.createRadialGradient(c[0]-r*S*.3,c[1]-r*S*.3,2,c[0],c[1],r*S);g.addColorStop(0,'#5E8A44');g.addColorStop(1,'#2A4A26');ctx.fillStyle=g;ctx.beginPath();ctx.arc(c[0],c[1],r*S*.95,0,7);ctx.fill();});
+  if(!TREE_LEAVES){const lr=rng(61);TREE_LEAVES=[];for(let j=0;j<900;j++){const ci=j%4, [dx,dy,r]=CL[ci], a=lr()*6.283, d=Math.sqrt(lr())*r;TREE_LEAVES.push([ci,dx+Math.cos(a)*d,dy+Math.sin(a)*d,lr(),lr()*3,(Math.sin(a)*d)/r-(Math.cos(a)*d)/(r*2)]);}}
+  for(const [ci,lx,ly,v,rot,up] of TREE_LEAVES){const x=base2[0]+lx*S+sway*(1+ci*.2), y=base2[1]-ly*S;ctx.fillStyle=up>.25?`rgba(128,168,88,${.4+v*.35})`:up<-.35?`rgba(22,40,20,${.35+v*.35})`:`rgba(78,120,55,${.35+v*.4})`;ctx.beginPath();ctx.ellipse(x,y,S*.14,S*.08,rot,0,7);ctx.fill();}}
+var TREE_LEAVES=null;
 
 /* ---- the inspection's tags ---- */
 function tags(f){const a=f[0]>=1?1-seg(f[1],.05,.25):1;if(f[0]<=0||a<=0)return 0;let found=0;

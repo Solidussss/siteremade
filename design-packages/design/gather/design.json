@@ -2,7 +2,7 @@
   "name": "gather",
   "category": "wedding or event venue",
   "reference": "reference/gather-original.html",
-  "referenceSha256": "b216466eab2a31db3cd93e3dc91510dc77c4f998f3ac937cc1de5a0aac2c6c3d",
+  "referenceSha256": "30522afd45724482bd17f85d49b82bf12595a61a2d94e594499dda3af8fc189b",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

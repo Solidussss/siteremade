@@ -324,8 +324,9 @@ const JOB={joint:{{job.joint|js}},goal:{{job.goal}},finding:{{job.finding|js}}};
 const ACCENT='{{A:#4338CA}}';
 const PAIN='#E5484D', EASE='#12A594';
 
-/* ============ THE JOINT ============ */
-// the fixed segment's direction, the moving segment's straight direction, and which way it turns (screen y points down)
+/* ============ THE GONIOMETER ============ */
+// the fixed arm's direction, the moving arm's straight direction, and which way it turns (screen y points down);
+// the joint decides how the goniometer lies on the couch
 const KIND={
  knee:{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]},
  shoulder:{fixed:Math.PI/2,start:Math.PI/2,turn:-1,fixedLen:1.1,moveLen:1.25,ends:['hip','hand'],box:[-1.5,1.45]},
@@ -333,13 +334,28 @@ const KIND={
 }[JOB.joint]||null;
 const J=KIND||{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]};
 const dirOf=a=>J.start+J.turn*a*Math.PI/180;
+const rgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255].join(',');};
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function rad(c,x,y,rx,ry,col){c.save();c.translate(x,y);c.scale(rx,ry);const g=c.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,col);g.addColorStop(1,col.replace(/[\d.]+\)$/,'0)'));c.fillStyle=g;c.beginPath();c.arc(0,0,1,0,7);c.fill();c.restore();}
+// a shadow on its own: the shape is drawn far away and only its shadow lands here
+function shadowOf(c,path,blur,dx,dy,col){const F=4000, m=c.getTransform();c.save();c.shadowColor=col;c.shadowBlur=blur*DPR;c.shadowOffsetX=m.a*F+dx*DPR;c.shadowOffsetY=m.b*F+dy*DPR;c.translate(-F,0);c.fillStyle='#000';c.fill(path);c.restore();}
+
+/* ============ MATERIALS (made once) ============ */
+function tile(n,draw){const c=document.createElement('canvas');c.width=c.height=n;draw(c.getContext('2d'),n);return c;}
+// the couch: a fine pebbled vinyl
+const VINYL=tile(160,(g,n)=>{const r=rng(3);for(let i=0;i<2600;i++){const x=r()*n,y=r()*n,s=.6+r()*1.3;g.fillStyle=r()<.5?`rgba(30,45,60,${.04+r()*.05})`:`rgba(255,255,255,${.08+r()*.1})`;g.beginPath();g.arc(x,y,s,0,7);g.fill();}});
+// the paper roll: soft creases and fibres
+const PAPER=tile(256,(g,n)=>{const r=rng(8);g.fillStyle='#FBFBF9';g.fillRect(0,0,n,n);
+  for(let i=0;i<9;i++){const x=r()*n,y=r()*n,a=r()*Math.PI,l=120+r()*160;g.save();g.translate(x,y);g.rotate(a);const k=g.createLinearGradient(0,-10,0,10);k.addColorStop(0,'rgba(120,130,140,0)');k.addColorStop(.42,`rgba(120,130,140,${.01+r()*.015})`);k.addColorStop(.58,`rgba(255,255,255,${.15+r()*.15})`);k.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=k;g.fillRect(-l/2,-10,l,20);g.restore();}
+  for(let i=0;i<700;i++){g.fillStyle=`rgba(140,145,150,${.02+r()*.035})`;g.fillRect(r()*n,r()*n,1+r()*2,.6);}});
+let vinylPat=null,paperPat=null;
 
 /* ============ GEOMETRY ============ */
 const cv=$('#joint'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
 // the joint sits where its drawing is centred: J.box is how far it reaches above and below, in dial radii
 function fit(ax,ay){const bh=J.box[1]-J.box[0];const R=Math.min((ax[1]-ax[0])/2.9,(ay[1]-ay[0])/bh);return{R,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2-R*(J.box[0]+J.box[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;vinylPat=paperPat=null;
   const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), ch=$('#chart').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
   if(mobile){LA=LB=fit([W*.03,W*.97],[top,mt.top-stg.top-12]);}
   else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,ch.top)-stg.top;
@@ -347,45 +363,83 @@ function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRat
     LA=side.R>=under.R*.8?side:under;LB=fit([W*.06,W*.94],[top,Math.min(mt.top,ch.top-30)-stg.top-14]);}}
 
 /* ============ DRAWING ============ */
-function dial(c,angle,goal){const {x,y,R}=c;
-  // the protractor: an arc from straight to past the goal, ticks every ten degrees
-  const a0=dirOf(0), a1=dirOf(Math.max(goal+20,150));const lo=Math.min(a0,a1), hi=Math.max(a0,a1);
-  ctx.strokeStyle='rgba(16,24,40,.1)';ctx.lineWidth=R*.1;ctx.beginPath();ctx.arc(x,y,R*.98,lo,hi);ctx.stroke();
-  for(let d=0;d<=Math.max(goal+20,150);d+=10){const a=dirOf(d), r0=R*.92, r1=R*(d%30===0?1.12:1.05);ctx.strokeStyle=d%30===0?'rgba(16,24,40,.45)':'rgba(16,24,40,.22)';ctx.lineWidth=d%30===0?1.6:1;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0,y+Math.sin(a)*r0);ctx.lineTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1);ctx.stroke();
-    if(d%30===0){ctx.fillStyle='rgba(16,24,40,.5)';ctx.font=`400 ${Math.max(10,Math.round(R*.065))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d+'°',x+Math.cos(a)*R*1.22,y+Math.sin(a)*R*1.22);}}
-  // the goal
-  const g=dirOf(goal);ctx.save();ctx.setLineDash([6,6]);ctx.strokeStyle=EASE;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+Math.cos(g)*R*.3,y+Math.sin(g)*R*.3);ctx.lineTo(x+Math.cos(g)*R*1.08,y+Math.sin(g)*R*1.08);ctx.stroke();ctx.restore();
-  // the measured angle as a wedge from straight
-  if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.fillStyle='{{A:rgba(67,56,202,.12)}}';ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,R*.86,Math.min(s,e),Math.max(s,e));ctx.closePath();ctx.fill();
-    ctx.strokeStyle=ACCENT;ctx.lineWidth=R*.1;ctx.lineCap='butt';ctx.beginPath();ctx.arc(x,y,R*.98,Math.min(s,e),Math.max(s,e));ctx.stroke();
-    const m=dirOf(angle/2);ctx.fillStyle=ACCENT;ctx.font=`800 ${Math.round(R*.2)}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(angle)+'°',x+Math.cos(m)*R*.6,y+Math.sin(m)*R*.6);}
+// the treatment couch, and a strip of paper roll down it under the goniometer
+function couch(c){const {x,R}=c;
+  const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#E4EAEE');g.addColorStop(1,'#D3DCE2');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(!vinylPat){vinylPat=ctx.createPattern(VINYL,'repeat');}ctx.fillStyle=vinylPat;ctx.fillRect(0,0,W,H);
+  // a padded seam either side of the paper
+  const pw=R*3.7;[-1,1].forEach(s=>{const sx=x+s*(pw/2+R*.55);const k=ctx.createLinearGradient(sx-R*.12,0,sx+R*.12,0);k.addColorStop(0,'rgba(255,255,255,0)');k.addColorStop(.42,'rgba(255,255,255,.55)');k.addColorStop(.5,'rgba(60,80,95,.22)');k.addColorStop(.58,'rgba(255,255,255,.4)');k.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=k;ctx.fillRect(sx-R*.12,0,R*.24,H);
+    ctx.save();ctx.strokeStyle='rgba(60,80,95,.28)';ctx.lineWidth=1.2;ctx.setLineDash([R*.035,R*.025]);ctx.beginPath();ctx.moveTo(sx+s*R*.05,0);ctx.lineTo(sx+s*R*.05,H);ctx.stroke();ctx.restore();});
+  // the paper: a soft shadow under each edge, then the sheet, its creases and a perforated tear line
+  const P=new Path2D();P.rect(x-pw/2,-10,pw,H+20);
+  shadowOf(ctx,P,R*.05,0,R*.012,'rgba(40,60,75,.22)');
+  if(!paperPat){paperPat=ctx.createPattern(PAPER,'repeat');}
+  ctx.save();ctx.clip(P);ctx.fillStyle=paperPat;const sc=Math.max(.6,R/260);ctx.translate(x-pw/2,0);ctx.scale(sc,sc);ctx.fillRect(0,-10/sc,pw/sc,(H+20)/sc);ctx.restore();
+  ctx.save();ctx.clip(P);const ty=c.y+R*1.85;ctx.fillStyle='rgba(120,130,140,.35)';for(let px=x-pw/2+4;px<x+pw/2;px+=7){ctx.beginPath();ctx.arc(px,ty,1,0,7);ctx.fill();}
+    const e=ctx.createLinearGradient(x-pw/2,0,x+pw/2,0);e.addColorStop(0,'rgba(120,130,140,.12)');e.addColorStop(.04,'rgba(120,130,140,0)');e.addColorStop(.96,'rgba(120,130,140,0)');e.addColorStop(1,'rgba(120,130,140,.12)');ctx.fillStyle=e;ctx.fillRect(x-pw/2,0,pw,H);ctx.restore();}
+// the reading so far, pencilled on the paper at each visit
+function pencil(c,ghosts){const {x,y,R}=c;ghosts.forEach((a,i)=>{const d=dirOf(a), r=rng(40+i);ctx.save();ctx.lineCap='round';
+  for(let k=0;k<3;k++){ctx.strokeStyle=`rgba(70,75,85,${.18+r()*.12})`;ctx.lineWidth=.8+r()*.6;ctx.beginPath();const j=(r()-.5)*.012;ctx.moveTo(x+Math.cos(d+j)*R*1.2,y+Math.sin(d+j)*R*1.2);ctx.lineTo(x+Math.cos(d+j)*R*1.5,y+Math.sin(d+j)*R*1.5);ctx.stroke();}
+  ctx.fillStyle='rgba(70,75,85,.55)';ctx.font=`500 ${Math.max(9,Math.round(R*.05))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(a)+'°',x+Math.cos(d)*R*1.58,y+Math.sin(d)*R*1.58);ctx.restore();});}
+// a clear acrylic part: faint tint, a bright edge and a darker inner edge, and its soft shadow on the paper
+function acrylic(path,R,tint){shadowOf(ctx,path,R*.035,R*.025,R*.04,'rgba(30,45,60,.2)');
+  ctx.fillStyle=tint||'rgba(214,226,234,.28)';ctx.fill(path);
+  ctx.save();ctx.clip(path);const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'rgba(255,255,255,.22)');g.addColorStop(.5,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(255,255,255,.12)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
+  ctx.strokeStyle='rgba(60,85,105,.42)';ctx.lineWidth=1.1;ctx.stroke(path);ctx.save();ctx.translate(-.8,-.8);ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.2;ctx.stroke(path);ctx.restore();}
+// printed ink: a hair of shadow below each mark, as if raised off the paper by the plastic
+function ink(R,draw){ctx.save();ctx.translate(R*.006,R*.009);ctx.globalAlpha*=.1;draw('rgba(20,30,40,1)');ctx.restore();draw(null);}
+function dial(c,angle,goal){const {x,y,R}=c, max=Math.max(goal+20,150), a0=dirOf(0), a1=dirOf(max), lo=Math.min(a0,a1), hi=Math.max(a0,a1);
+  // the head: a disc of clear acrylic
+  const D=new Path2D();D.arc(x,y,R*1.16,0,Math.PI*2);acrylic(D,R);
+  // the measured angle: the reading tinted onto the disc, and its arc printed in the clinic's colour
+  if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.fillStyle='{{A:rgba(67,56,202,.12)}}';ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,R*.9,Math.min(s,e),Math.max(s,e));ctx.closePath();ctx.fill();ctx.strokeStyle='{{A:rgba(67,56,202,.18)}}';ctx.lineWidth=1;ctx.stroke();}
+  ink(R,(sh)=>{
+    ctx.strokeStyle=sh||'rgba(18,28,44,.07)';ctx.lineWidth=R*.08;ctx.beginPath();ctx.arc(x,y,R*.98,lo,hi);ctx.stroke();
+    for(let d=0;d<=max;d+=2){const a=dirOf(d), big=d%10===0, r0=R*(big?.92:.95), r1=R*(d%30===0?1.12:big?1.06:1.02);ctx.strokeStyle=sh||(d%30===0?'rgba(18,28,44,.78)':'rgba(18,28,44,.5)');ctx.lineWidth=d%30===0?1.7:big?1.15:.7;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0,y+Math.sin(a)*r0);ctx.lineTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1);ctx.stroke();
+      if(d%30===0){ctx.fillStyle=sh||'rgba(18,28,44,.7)';ctx.font=`500 ${Math.max(10,Math.round(R*.065))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d+'°',x+Math.cos(a)*R*.84,y+Math.sin(a)*R*.84);}}
+    if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.strokeStyle=sh||ACCENT;ctx.lineWidth=R*.08;ctx.lineCap='butt';ctx.beginPath();ctx.arc(x,y,R*.98,Math.min(s,e),Math.max(s,e));ctx.stroke();
+      const m=dirOf(angle/2);ctx.fillStyle=sh||ACCENT;ctx.font=`800 ${Math.round(R*.2)}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(angle)+'°',x+Math.cos(m)*R*.55,y+Math.sin(m)*R*.55);}});
+  // the maker's mark, small, as printed on real ones
+  ctx.fillStyle='rgba(18,28,44,.35)';ctx.font=`500 ${Math.max(8,Math.round(R*.038))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';const fa=dirOf(max/2)+Math.PI;ctx.fillText('360° · 1° GRADUATIONS',x+Math.cos(fa)*R*.62,y+Math.sin(fa)*R*.62);
   ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-function limb(x,y,dir,len,w,end,col){// a long rounded segment in line, with what's at its end
-  const ex=x+Math.cos(dir)*len, ey=y+Math.sin(dir)*len, nx=-Math.sin(dir)*w/2, ny=Math.cos(dir)*w/2;
-  ctx.fillStyle='#FFFFFF';ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(x+nx,y+ny);ctx.lineTo(ex+nx*.8,ey+ny*.8);ctx.arc(ex,ey,w*.4,dir+Math.PI/2,dir-Math.PI/2,true);ctx.lineTo(x-nx,y-ny);ctx.closePath();ctx.fill();ctx.stroke();
-  // a bone line down the middle
-  ctx.strokeStyle='rgba(16,24,40,.12)';ctx.lineWidth=w*.18;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+Math.cos(dir)*w*.6,y+Math.sin(dir)*w*.6);ctx.lineTo(ex-Math.cos(dir)*w*.5,ey-Math.sin(dir)*w*.5);ctx.stroke();
-  ctx.fillStyle='#FFFFFF';ctx.strokeStyle=col;ctx.lineWidth=2.2;
-  if(end==='foot'){// a foot across the end of the segment, toes towards the bend
-    const pd=dir-Math.PI/2*(J.turn||1), cx=ex+Math.cos(pd)*w*.45+Math.cos(dir)*w*.2, cy=ey+Math.sin(pd)*w*.45+Math.sin(dir)*w*.2;ctx.save();ctx.translate(cx,cy);ctx.rotate(pd);ctx.beginPath();if(ctx.roundRect)ctx.roundRect(-w*.75,-w*.36,w*1.5,w*.72,w*.36);else ctx.rect(-w*.75,-w*.36,w*1.5,w*.72);ctx.fill();ctx.stroke();ctx.restore();}
-  else if(end==='hand'||end==='head'){ctx.beginPath();ctx.arc(ex+Math.cos(dir)*w*(end==='head'?.95:.55),ey+Math.sin(dir)*w*(end==='head'?.95:.55),w*(end==='head'?.95:.55),0,7);ctx.fill();ctx.stroke();}}
-function scene(c,angle,pain,ghosts,find){const {x,y,R}=c;
-  // past measurements, faint
-  ghosts.forEach(a=>{const d=dirOf(a);ctx.strokeStyle='{{A:rgba(67,56,202,.18)}}';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(d)*R*J.moveLen,y+Math.sin(d)*R*J.moveLen);ctx.stroke();});
-  // where it hurts: a glow that cools as the pain goes
-  const pk=pain/10, gr=ctx.createRadialGradient(x,y,0,x,y,R*(.35+.25*pk));const col=pk>.15?'229,72,77':'18,165,148';gr.addColorStop(0,`rgba(${col},${(.15+.5*pk).toFixed(3)})`);gr.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,R*.6,0,7);ctx.fill();
-  const w=R*.24;
-  limb(x,y,J.fixed,R*J.fixedLen,w,J.ends[0],'#101828');
-  limb(x,y,dirOf(angle),R*J.moveLen,w*.9,J.ends[1],'#101828');
-  ctx.fillStyle='#FFFFFF';ctx.strokeStyle='#101828';ctx.lineWidth=2.2;ctx.beginPath();ctx.arc(x,y,w*.62,0,7);ctx.fill();ctx.stroke();
-  ctx.fillStyle=pk>.15?PAIN:EASE;ctx.beginPath();ctx.arc(x,y,w*.2,0,7);ctx.fill();
-  // what was found, pinned to the joint
-  if(find>0){ctx.save();ctx.globalAlpha=find;const lx=x+R*.15, ly=y-R*.9;ctx.strokeStyle=PAIN;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y-w*.6);ctx.lineTo(lx,ly+14);ctx.stroke();
-    ctx.font=`700 ${Math.max(12,Math.round(R*.075))}px "Plus Jakarta Sans",sans-serif`;const t=JOB.finding, tw=ctx.measureText(t).width+24;ctx.fillStyle='#FFFFFF';ctx.shadowColor='rgba(16,24,40,.15)';ctx.shadowBlur=14;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(lx-tw/2,ly-14,tw,28,8);else ctx.rect(lx-tw/2,ly-14,tw,28);ctx.fill();ctx.shadowColor='transparent';
-    ctx.strokeStyle=PAIN;ctx.stroke();ctx.fillStyle=PAIN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,lx,ly+1);ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.restore();}}
+// an arm: a long bar of acrylic with a centre line and a printed rule; the moving arm carries the reading's index line
+function arm(x,y,dir,len,w,R,index){const P=new Path2D(), nx=-Math.sin(dir)*w/2, ny=Math.cos(dir)*w/2, ex=x+Math.cos(dir)*len, ey=y+Math.sin(dir)*len;
+  P.moveTo(x+nx-Math.cos(dir)*w*.5,y+ny-Math.sin(dir)*w*.5);P.lineTo(ex+nx,ey+ny);P.arc(ex,ey,w/2,dir+Math.PI/2,dir-Math.PI/2,true);P.lineTo(x-nx-Math.cos(dir)*w*.5,y-ny-Math.sin(dir)*w*.5);P.arc(x-Math.cos(dir)*w*.5,y-Math.sin(dir)*w*.5,w/2,dir-Math.PI/2,dir+Math.PI/2,true);P.closePath();
+  acrylic(P,R,'rgba(206,222,232,.36)');
+  ink(R,(sh)=>{ctx.save();ctx.translate(x,y);ctx.rotate(dir);ctx.strokeStyle=sh||'rgba(18,28,44,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(w*.7,0);ctx.lineTo(len-w*.3,0);ctx.stroke();
+    for(let s=w*.9, i=0;s<len-w*.2;s+=R*.04,i++){const h=i%5===0?w*.3:w*.17;ctx.lineWidth=i%5===0?1:.7;ctx.beginPath();ctx.moveTo(s,-w/2+1);ctx.lineTo(s,-w/2+1+h);ctx.stroke();}
+    if(index){ctx.strokeStyle=sh||'rgba(214,48,58,.9)';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(R*.86,0);ctx.lineTo(R*1.14,0);ctx.stroke();}ctx.restore();});
+  return P;}
+// the steel rivet the arms turn on
+function rivet(x,y,w){const g=ctx.createRadialGradient(x-w*.18,y-w*.2,0,x,y,w*.5);g.addColorStop(0,'#FFFFFF');g.addColorStop(.35,'#C9D0D6');g.addColorStop(.8,'#7E8892');g.addColorStop(1,'#5C656E');
+  ctx.save();ctx.shadowColor='rgba(20,30,40,.35)';ctx.shadowBlur=w*.25*DPR;ctx.shadowOffsetX=w*.06*DPR;ctx.shadowOffsetY=w*.1*DPR;ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,w*.46,0,7);ctx.fill();ctx.restore();
+  ctx.strokeStyle='rgba(40,50,60,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,w*.2,0,7);ctx.stroke();ctx.fillStyle='rgba(30,40,50,.6)';ctx.beginPath();ctx.arc(x,y,w*.08,0,7);ctx.fill();}
+function scene(c,angle,pain,ghosts,find){const {x,y,R}=c, w=R*.2;
+  pencil(c,ghosts);
+  // where it hurts: warmth under the plastic, cooling as the pain goes
+  const pk=pain/10, col=pk>.15?rgb(PAIN):rgb(EASE);rad(ctx,x,y,R*(.3+.25*pk),R*(.3+.25*pk),`rgba(${col},${(.12+.42*pk).toFixed(3)})`);
+  arm(x,y,J.fixed,R*J.fixedLen,w,R,false);
+  dial(c,angle,JOB.goal);
+  arm(x,y,dirOf(angle),R*J.moveLen,w*.9,R,true);
+  rivet(x,y,w*.95);
+  ctx.fillStyle=pk>.15?PAIN:EASE;ctx.globalAlpha*=.85;ctx.beginPath();ctx.arc(x,y,w*.1,0,7);ctx.fill();ctx.globalAlpha/=.85;
+  // what was found: written on a sticky note stuck to the paper
+  if(find>0){ctx.save();ctx.globalAlpha*=find;const s=Math.max(12,Math.round(R*.075));ctx.font=`700 ${s}px "Plus Jakarta Sans",sans-serif`;const t=JOB.finding, tw=Math.max(ctx.measureText(t).width+s*1.6,s*7), th=s*3.2, oa=J.fixed+Math.PI-.35*J.turn;
+    const lx=clamp(x+Math.cos(oa)*R*1.55,tw/2+10,W-tw/2-10), ly=clamp(y+Math.sin(oa)*R*1.55,Math.max(70,H*.1)+th/2,H-th/2-10);
+    ctx.translate(lx,ly);ctx.rotate(-.04);const N=new Path2D();N.rect(-tw/2,-th/2,tw,th);shadowOf(ctx,N,s*.6,s*.12,s*.3,'rgba(40,40,20,.28)');
+    const g=ctx.createLinearGradient(0,-th/2,0,th/2);g.addColorStop(0,'#FFF3A6');g.addColorStop(.25,'#FFF6B8');g.addColorStop(1,'#F6E58A');ctx.fillStyle=g;ctx.fill(N);ctx.fillStyle='rgba(180,160,60,.18)';ctx.fillRect(-tw/2,-th/2,tw,th*.22);
+    ctx.fillStyle=PAIN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,0,s*.2);ctx.restore();ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
 
-function goalLabel(c,goal){const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42;ctx.font=`700 ${Math.max(11,Math.round(R*.07))}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const t=`{{job.goalLabel|tl}} ${goal}°`, tw=ctx.measureText(t).width+14;ctx.fillStyle='rgba(244,246,250,.92)';ctx.fillRect(lx-tw/2,ly-11,tw,22);ctx.fillStyle=EASE;ctx.fillText(t,lx,ly+1);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+// the goal: a strip of tape on the paper at the goal angle, with the goal printed on it
+function goalLabel(c,goal){const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42;ctx.font=`700 ${Math.max(11,Math.round(R*.07))}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const t=`{{job.goalLabel|tl}} ${goal}°`, tw=ctx.measureText(t).width+14;
+  ctx.save();ctx.translate(lx,ly);ctx.rotate(-.06);const th=Math.max(22,R*.12), T=new Path2D();T.moveTo(-tw/2-6,-th/2);for(let i=0;i<=6;i++)T.lineTo(-tw/2-6+(i%2?2:0),-th/2+th*i/6);T.lineTo(tw/2+6,th/2);for(let i=6;i>=0;i--)T.lineTo(tw/2+6-(i%2?2:0),-th/2+th*i/6);T.closePath();
+  shadowOf(ctx,T,4,0,1.5,'rgba(20,60,55,.25)');ctx.fillStyle=`rgba(${rgb(EASE)},.92)`;ctx.fill(T);ctx.fillStyle='rgba(255,255,255,.14)';for(let i=-tw/2;i<tw/2;i+=4)ctx.fillRect(i,-th/2,1,th);
+  ctx.fillStyle='#FFFFFF';ctx.fillText(t,0,1);ctx.restore();ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+
+function reached(c,goal,k){if(k<=0)return;const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42, r=Math.max(18,R*.16)*(.6+.4*k);
+  const cx=clamp(x+Math.cos(g)*R*1.86,r+8,W-r-8), cy=clamp(y+Math.sin(g)*R*1.86,r+70,H-r-8);ctx.save();ctx.globalAlpha*=k;const D=new Path2D();D.arc(cx,cy,r,0,7);shadowOf(ctx,D,6,1,2.5,'rgba(20,60,55,.3)');
+  const gr=ctx.createRadialGradient(cx-r*.3,cy-r*.35,0,cx,cy,r);gr.addColorStop(0,`rgba(${rgb(EASE)},.85)`);gr.addColorStop(1,EASE);ctx.fillStyle=gr;ctx.fill(D);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,r*.82,0,7);ctx.stroke();
+  ctx.strokeStyle='#FFFFFF';ctx.lineWidth=r*.16;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(cx-r*.38,cy+r*.02);ctx.lineTo(cx-r*.1,cy+r*.3);ctx.lineTo(cx+r*.4,cy-r*.28);ctx.stroke();ctx.restore();}
 
 /* ============ HUD ============ */
 let shown=-1;
@@ -401,16 +455,19 @@ function values(p){// each stage moves from the last stage's numbers to its own
   let i=0;STAGES.forEach((s,k)=>{if(p>=s.w[0])i=k;});const s=STAGES[i], prev=STAGES[Math.max(0,i-1)], t=sm(seg(p,s.w[0],s.w[0]+(s.w[1]-s.w[0])*.7));
   const from=i===0?{angle:0,pain:s.pain,strength:s.strength}:prev;
   return{i,angle:lerp(from.angle,s.angle,i===0?sm(seg(p,.03,.11)):t),pain:lerp(from.pain,s.pain,t),strength:lerp(from.strength,s.strength,t),sessions:t>.5||i===0?s.sessions:prev.sessions};}
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F4F6FA';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+function frame(p,time){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;
   const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
   const c={x:lerp(LA.x,LB.x,m),y:lerp(LA.y,LB.y,m),R:lerp(LA.R,LB.R,m)};
   const v=values(p), breathe=RM?0:Math.sin(time*2)*.6;
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  dial(c,v.angle,JOB.goal);
+  couch(c);
   const ghosts=STAGES.slice(0,v.i).map(s=>s.angle).filter((a,j,arr)=>a>0&&arr.indexOf(a)===j);
+  goalLabel(c,JOB.goal);reached(c,JOB.goal,sm(seg(p,STAGES[STAGES.length-1].w[0]+.01,STAGES[STAGES.length-1].w[0]+.08)));
   scene(c,v.angle+(v.i>0?breathe:0),v.pain,ghosts,sm(seg(p,.14,.2))*(1-sm(seg(p,.4,.46))));
-  goalLabel(c,JOB.goal);
-  ctx.globalAlpha=1;
+  // window light from the upper left, and the corners falling off
+  const lt=ctx.createLinearGradient(0,0,W*.8,H);lt.addColorStop(0,'rgba(255,255,255,.22)');lt.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=lt;ctx.fillRect(0,0,W,H);
+  const Rv=Math.hypot(W,H)*.62, vg=ctx.createRadialGradient(c.x,c.y,Rv*.35,c.x,c.y,Rv);vg.addColorStop(0,'rgba(40,60,75,0)');vg.addColorStop(1,'rgba(40,60,75,.12)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  // on a phone the picture sits behind the words until they scroll away
+  if(mobile&&k<1){ctx.fillStyle=`rgba(244,246,250,${(.75*(1-k)).toFixed(3)})`;ctx.fillRect(0,0,W,H);}
   copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,v);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}

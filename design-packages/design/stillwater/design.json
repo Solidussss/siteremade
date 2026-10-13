@@ -2,7 +2,7 @@
   "name": "stillwater",
   "category": "yoga, pilates or fitness studio",
   "reference": "reference/stillwater-original.html",
-  "referenceSha256": "26d21c403f42a2f5babfd2dc4aa2d8eda457b35b60d1460b04a03d00cd419aa1",
+  "referenceSha256": "e8b667730d197a88c6556cded50da4a5c03d1a3c42a41fea20b7eb279e284a87",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

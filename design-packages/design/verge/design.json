@@ -2,7 +2,7 @@
   "name": "verge",
   "category": "landscape gardener",
   "reference": "reference/verge-original.html",
-  "referenceSha256": "b71282267f883028e70998c5c21e60eab0cfd43dc79050e0fd651a1cdd28b8b8",
+  "referenceSha256": "629b7c5899a67a15273c1d71f920d995dee0bba236ce09dca40d49794f3238d8",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

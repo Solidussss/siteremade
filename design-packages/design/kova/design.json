@@ -2,7 +2,7 @@
   "name": "kova",
   "category": "sneaker drop",
   "reference": "reference/kova-original.html",
-  "referenceSha256": "54aad3bb6ca0ee9c391270064db688f58722c4a93b8dd846cffd7a42c46ee2c8",
+  "referenceSha256": "2dbe3e7ba04676d90ed13b2eef14b7879e966699ded7c5b71fd48afe477ff0f9",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -2,7 +2,7 @@
   "name": "keel",
   "category": "roofing contractor",
   "reference": "reference/keel-original.html",
-  "referenceSha256": "b52b3950241efc0a91506597aa97f55274fa97b2fff0431ff2eb00930605c83e",
+  "referenceSha256": "d7fc3492735e158b2eae9d87c12f5e22ebbfce669164d5b4f5dbd31b444e01aa",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -155,7 +155,7 @@ h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,7vw,104px);li
 .confirm .err{flex-basis:100%;margin:0;font-size:13px;color:#ffb3a1}
 .done{padding:22px 20px;background:#13261a;border-top:1px solid #2f5a3c;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .done .code{font-family:var(--display);font-size:44px;line-height:1;letter-spacing:.04em}
-.done p{margin:0;font-size:14px;color:#bfe3c9;min-width:0;flex:1}
+.done p{margin:0;font-size:14px;color:#bfe3c9;min-width:0;flex:1 1 240px}
 .done .demo{font-family:var(--mono);font-size:11px;letter-spacing:.1em;border:1px solid #4cd07a80;color:#8fe0a8;padding:4px 8px;border-radius:6px;text-transform:uppercase}
 .info{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}
 .info div{border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:0}
@@ -916,7 +916,7 @@ $('#cfBtn').addEventListener('click',()=>{
   // the request goes to the shop under its code; they text to confirm the chair
   send({kind:'booking',summary:`${code} · ${svc.n} · ${when} · ${chosen.b.n}`,fields:[['Code',code],['Cut',`${svc.n} · ${svc.min} min · ${$('#bkSvc').textContent.split(' · ').pop()}`],['When',when],['Barber',`${chosen.b.n}, chair ${chosen.b.chair}`]],contact:{name:nm,phone:ph}})
     .then(pv=>{setTaps(2);$('#dnCode').textContent=code;$('#dnTag').textContent=pv&&pv.tag||'Request sent';
-      $('#dnTxt').textContent=`Chair ${chosen.b.chair} with ${chosen.b.n}, ${dayLow} at ${fmtTime(chosen.t)}. We’ll text you to confirm, and a reminder an hour before.${pv&&pv.note?' '+pv.note:''}`;
+      $('#dnTxt').textContent=`Chair ${chosen.b.chair} with ${chosen.b.n}, ${dayLow} at ${fmtTime(chosen.t).replace(/\.$/,'')}. We’ll text you to confirm, and a reminder an hour before.${pv&&pv.note?' '+pv.note:''}`;
       $('#confirm').hidden=true;$('#done').hidden=false;})
     .catch(x=>fail(x.message,null)).finally(()=>{btn.disabled=false;});
 });

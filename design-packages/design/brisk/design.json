@@ -2,7 +2,7 @@
   "name": "brisk",
   "category": "cleaning company",
   "reference": "reference/brisk-original.html",
-  "referenceSha256": "a3dd97c6ec7d7e2ac43a8a5a5578d372c394dd552ce03fd1ec796f8fedbac5f8",
+  "referenceSha256": "b386e66de372b5a1346e8990ad5b13c5712f52ee8412fe86bc2b87a4447af7d9",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

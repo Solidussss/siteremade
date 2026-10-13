@@ -165,7 +165,7 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
 .shoe .f-acc { fill: var(--c-acc); transition: fill .6s var(--out); }
 .shoe .f-tongue { fill: var(--c-tongue); transition: fill .6s var(--out); }
 .shoe .f-plate { fill: var(--c-plate); }
-.shoe .ink { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.shoe .ink { stroke: rgba(15,16,18,.45); stroke-width: 1.3; stroke-linejoin: round; }
 @media (prefers-reduced-motion: reduce) { .c-stage .shoebox, .swatch i, .btn { transition: none; } }
 {{$._guards|raw}}</style>
 
@@ -278,13 +278,15 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
     const UPPER = 'M122 236 C110 210 104 176 112 150 C118 128 136 116 160 116 C196 118 226 136 256 134 C270 133 284 118 298 104 L352 118 C420 148 520 186 610 206 C690 222 742 238 756 276 C738 272 700 270 640 270 C560 270 450 264 330 252 C260 244 180 238 122 236 Z';
     const g = (cls, inner) => `<g class="part ${cls}" data-part="${cls}">${inner}</g>`;
     const parts =
-      g('p-tongue', `<path class="f-tongue ink" d="M292 112 C286 86 298 64 322 62 C344 60 358 78 360 104 L360 124 L300 118 Z"/><path d="M304 76 L346 74" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>`) +
+      g('p-tongue', `<path class="f-tongue ink" d="M292 112 C286 86 298 64 322 62 C344 60 358 78 360 104 L360 124 L300 118 Z"/><path d="M292 112 C286 86 298 64 322 62 C344 60 358 78 360 104 L360 124 L300 118 Z" fill="url(#vol-${id})"/><path d="M304 76 L346 74" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/><path d="M298 104 C294 84 304 70 322 68 C340 66 352 80 354 100" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.2" stroke-dasharray="3 3"/>`) +
       g('p-upper', `<path class="f-upper ink" d="${UPPER}"/>
         <path d="${UPPER}" fill="url(#mesh-${id})"/>
         <path d="M112 150 C104 176 110 210 122 236 C150 237 180 238 206 240 C214 210 206 170 186 122 C176 118 168 116 160 116 C136 116 118 128 112 150 Z" class="f-over ink"/>
         <path d="M612 206 C690 222 742 238 756 276 C738 272 700 270 640 270 C620 270 604 268 590 266 C584 244 594 220 612 206 Z" class="f-over ink"/>
         <path d="M300 150 L366 140 L480 252 L410 256 Z" class="f-over ink"/>
         <path d="M300 108 L352 118 C420 148 520 186 612 206 L606 224 C514 204 412 166 344 136 L296 126 Z" class="f-over ink"/>
+        <path d="${UPPER}" fill="url(#vol-${id})"/><path d="${UPPER}" fill="url(#side-${id})"/>
+        <path d="M206 236 C212 206 204 170 186 126 M590 262 C586 242 596 222 612 212 M304 152 L364 143 L474 248 M300 114 L350 124 C420 154 520 192 608 212" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3" stroke-dasharray="4 3.5"/>
         <path d="M112 150 C118 128 136 116 160 116 C196 118 226 136 256 134 C270 133 284 118 298 104" fill="none" stroke="rgba(15,16,18,.55)" stroke-width="8" stroke-linecap="round"/>
         <rect x="98" y="118" width="24" height="40" rx="8" class="f-acc ink" transform="rotate(-14 110 138)"/>
         ${perf.join('')}${holes}
@@ -292,12 +294,19 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
       g('p-laces', `${laces}<path class="f-lace" d="M330 118 C300 90 286 112 316 122 M334 118 C340 86 368 96 344 124" fill="none" stroke-width="8" stroke-linecap="round"/>`) +
       g('p-plate', `<path class="f-plate ink" d="M140 252 C260 258 420 268 560 272 C640 274 700 276 748 288 L746 296 C700 286 640 282 560 280 C420 276 260 266 140 260 Z"/><path d="M160 256 C300 262 450 272 600 276" stroke="var(--c-acc)" stroke-width="2" fill="none"/>`) +
       g('p-mid', `<path class="f-mid ink" d="M108 298 C104 270 106 248 122 236 C180 238 260 244 330 252 C450 264 560 270 640 270 C700 270 738 272 756 286 C760 291 756 296 750 297 C730 312 692 322 640 322 L136 322 C118 321 109 312 108 298 Z"/>
+        <path d="M108 298 C104 270 106 248 122 236 C180 238 260 244 330 252 C450 264 560 270 640 270 C700 270 738 272 756 286 C760 291 756 296 750 297 C730 312 692 322 640 322 L136 322 C118 321 109 312 108 298 Z" fill="url(#foam-${id})"/>
+        <path d="M108 298 C104 270 106 248 122 236 C180 238 260 244 330 252 C450 264 560 270 640 270 C700 270 738 272 756 286 C760 291 756 296 750 297 C730 312 692 322 640 322 L136 322 C118 321 109 312 108 298 Z" fill="#fff" filter="url(#grain-${id})" opacity=".5"/>
         <path d="M130 280 C260 288 420 296 560 296 C640 296 700 294 736 290" fill="none" stroke="rgba(15,16,18,.25)" stroke-width="2"/>
         <rect x="146" y="262" width="96" height="30" rx="14" class="f-acc" opacity=".9"/>
         <text x="320" y="292" font-family="Big Shoulders Display, Impact, sans-serif" font-weight="900" font-size="24" fill="rgba(15,16,18,.6)" letter-spacing="2">{{$.soleText|tl}}</text>`) +
-      g('p-out', `<path class="f-sole ink" d="M100 300 C96 320 108 338 134 338 L640 338 C694 338 734 322 752 296 L742 292 C722 312 690 322 640 322 L136 322 C118 321 109 312 108 298 Z"/>${lugs.join('')}`);
+      g('p-out', `<path class="f-sole ink" d="M100 300 C96 320 108 338 134 338 L640 338 C694 338 734 322 752 296 L742 292 C722 312 690 322 640 322 L136 322 C118 321 109 312 108 298 Z"/><path d="M100 300 C96 320 108 338 134 338 L640 338 C694 338 734 322 752 296 L742 292 C722 312 690 322 640 322 L136 322 C118 321 109 312 108 298 Z" fill="url(#rub-${id})"/>${lugs.join('')}`);
     const defs = `<defs><pattern id="mesh-${id}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 4.5 H9 M4.5 0 V9" stroke="rgba(15,16,18,.09)" stroke-width="1.2"/></pattern>
-      <filter id="blur-${id}" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="9"/></filter></defs>`;
+      <filter id="blur-${id}" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="9"/></filter>
+      <linearGradient id="vol-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+      <linearGradient id="side-${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".18" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#fff" stop-opacity=".08"/><stop offset=".85" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient>
+      <linearGradient id="foam-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".3" stop-color="#fff" stop-opacity=".05"/><stop offset=".75" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".24"/></linearGradient>
+      <linearGradient id="rub-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".4" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+      <filter id="grain-${id}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -2.2 1.25" result="a"/><feComposite in="a" in2="SourceGraphic" operator="in"/></filter></defs>`;
     if (!withCallouts) return `<svg class="shoe" viewBox="60 40 740 330" role="img" aria-label="{{$.shoeAlt|tl}}, side view">${defs}<ellipse cx="430" cy="342" rx="320" ry="12" fill="rgba(15,16,18,.35)" filter="url(#blur-${id})"/>${parts}</svg>`;
     return `<svg class="shoe" viewBox="0 150 1000 620" role="img" aria-label="{{$.shoeAlt|tl}}. Scrolling separates it into laces, tongue, upper, plate, foam and outsole.">${defs}
       <g id="shoeRoot-${id}" transform="translate(100 300)"><ellipse id="shadow-${id}" cx="430" cy="342" rx="320" ry="12" fill="rgba(15,16,18,.35)" filter="url(#blur-${id})"/>${parts}</g>
