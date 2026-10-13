@@ -1112,7 +1112,7 @@ function setHud(idx, part) {
   }
 }
 
-function frame(now) {
+function frame(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const reduce = RM.matches;
   const { p: target, vis } = heroProgress();
   const dt = Math.min(.25, (now - (frame.t || now)) / 1000); frame.t = now;

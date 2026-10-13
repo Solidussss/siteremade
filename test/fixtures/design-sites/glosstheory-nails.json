@@ -146,7 +146,7 @@
     "pickFirst": "Add a service to see times.",
     "full": "Fully booked",
     "sent": "Request sent",
-    "reply": "We’ll text you to confirm your time."
+    "reply": "We’ll text you to confirm your time, with a link for the deposit."
   },
   "shades": {
     "eyebrow": "Colors",
@@ -211,7 +211,7 @@
     "eyebrow": "Book",
     "title": "Pick a day,",
     "titleEm": "pick a time.",
-    "sub": "Live times that fit your visit. A $20 deposit holds your spot and comes off the total.",
+    "sub": "Live times that fit your visit. We confirm by text with a link for the $20 deposit, which comes off the total.",
     "hours": {
       "sun": null,
       "mon": null,

@@ -51,6 +51,7 @@ function build(d, brief, briefSpec, { final = false, longNames = [], reality = [
     '- Facts the brief gives (names, prices, sizes, times, phone numbers, addresses, opening hours, specifications) are used exactly: never change, rescale or reword one to satisfy a rule. If a rule can only be met by changing a fact, show it another way the design allows (shorter wording around it, another field or section) and record the decision.',
     '- Where the brief is silent, make reasonable, modest assumptions consistent with the brief and with each other (one lead time, one deposit, one size everywhere it appears). List each assumed path in "_assumed"; the owner reviews them after the page is built.',
     '- For a new, concept or fictional business, invented details may fill gaps, but never present them as verified: no awards, certifications, test results, ratings, reviews, press mentions, founding years or customer counts the brief does not give.',
+    '- The page takes no payments: every form sends a request the business confirms. Never write that a deposit, payment or card "holds", "secures" or "reserves" anything on the page. If there is a deposit, say it is paid when the business confirms (for example: "we\'ll confirm and send a link for the £20 deposit").',
     ...(reality.length ? ['', 'THIS BUSINESS', ...reality.map((l) => '- ' + l)] : []),
     '',
     final ? 'THE OWNER HAS ANSWERED YOUR QUESTIONS (after the brief). Use the answers, decide everything else yourself, and ask nothing: "_questions" must be an empty list.' : [

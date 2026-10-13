@@ -2,7 +2,7 @@
   "name": "petal",
   "category": "florist",
   "reference": "reference/petal-original.html",
-  "referenceSha256": "68594170ccb3f195ee423e3c636796a304a5966717e9e28bfecde4c6df99d6f3",
+  "referenceSha256": "61c131a32805735be7cd3f50ab893ed47c6ba5cbcdf3c27adc2106c4e359d554",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

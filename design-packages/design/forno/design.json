@@ -2,7 +2,7 @@
   "name": "forno",
   "category": "pizzeria",
   "reference": "reference/forno-original.html",
-  "referenceSha256": "183b07a5ab7ded4db13cc4c3c9c7e968782ff27d9f08c36e7d94ff9cf4304c5b",
+  "referenceSha256": "31c4f0b381cc959b38198a51a4db07952b2890186e568deb2ac385835df95675",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

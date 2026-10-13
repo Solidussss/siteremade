@@ -164,7 +164,7 @@
     "pickFirst": "Add a treatment to see times.",
     "full": "Fully booked",
     "sent": "Request sent",
-    "reply": "We’ll text you to confirm your time."
+    "reply": "We’ll text you to confirm your time, with a link for the deposit."
   },
   "shades": {
     "eyebrow": "Shades",
@@ -253,7 +253,7 @@
     "eyebrow": "Book",
     "title": "Pick a day,",
     "titleEm": "pick a chair.",
-    "sub": "Times that fit your visit, live. A small deposit holds the slot and comes off on the day.",
+    "sub": "Times that fit your visit, live. We confirm by text with a link for a small deposit, which comes off on the day.",
     "hours": {
       "sun": null,
       "mon": {

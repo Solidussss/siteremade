@@ -2,7 +2,7 @@
   "name": "plait",
   "category": "software product (SaaS)",
   "reference": "reference/plait-original.html",
-  "referenceSha256": "92d8d10e4050f1d0826e79efb05007d5d8b909ecb7d0a96044b47e09809f17d5",
+  "referenceSha256": "78f1cef298535be12fa6bda366f29f4b30f6efbbaa5c4e1830197fdbd4c6d980",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -314,6 +314,7 @@ footer{background:var(--ink);color:var(--clay);padding:clamp(70px,9vw,120px) var
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -390,7 +391,7 @@ window.SR_bottle=(c,cx,base,h,o)=>bottle(0,c,cx,base,h,o);
 /* ============ THE STUDIO ============ */
 const cv=$('#shot'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,G={};
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
   // the bottle starts centre stage and steps aside (off the screen on a phone) when the skin window comes in
   G=mobile?{h:Math.min(H*.3,W*.66),bx0:W*.5,bx1:-W*.9,base:H*.64,skin:[W*.06,H*.3,W*.88,H*.32]}:{h:Math.min(H*.56,W*.33),bx0:W*.68,bx1:W*.5,base:H*.78,skin:[W*.64,H*.3,W*.3,H*.46]};G.bx=G.bx0;last=-1;}
 function sweep(p,time){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#F7F1EB');g.addColorStop(.7,'#EFE5DB');g.addColorStop(1,'#E6D9CD');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -487,9 +488,15 @@ function frame(p,time){
   hud(p,f,poured);
 }
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 requestAnimationFrame(loop);
 window.SR_actives=ACTIVES;
 })();

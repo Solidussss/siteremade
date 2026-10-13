@@ -596,7 +596,7 @@ const ecg=$('#ecg'), ctx=ecg.getContext('2d');
 const fx=$('#fx'), fctx=fx.getContext('2d');
 let W=0,H=0,DPR=1,cx=0,lastY=null,clock=0,lastBeat=-.4,period=60/62,beating=true,burstAt=-99,pulse=0;
 function size(){
-  DPR=Math.min(2,devicePixelRatio||1);
+  DPR=Math.min(matchMedia('(pointer:coarse)').matches?1.5:2,devicePixelRatio||1);
   const r=monitor.getBoundingClientRect(); W=r.width; H=r.height;
   ecg.width=Math.round(W*DPR); ecg.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.lineJoin='round'; ctx.lineCap='round'; cx=0; lastY=null;
@@ -705,7 +705,7 @@ function setStage(i,dir){
   if(si!==-1 && i!==si) beep(S.pr?880:660,.04,.05,'square');
   si=i;
 }
-function frame(now){
+function frame(now){if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const rdt=Math.min(.3,(now-lastT)/1000), dt=Math.min(.05,rdt); lastT=now;
   prog=RM?target:prog+(target-prog)*(1-Math.exp(-rdt*7));
   if(Math.abs(target-prog)<.0005)prog=target;

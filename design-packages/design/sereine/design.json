@@ -2,7 +2,7 @@
   "name": "sereine",
   "category": "skincare brand",
   "reference": "reference/sereine-original.html",
-  "referenceSha256": "2388cd69ff60533ce94836a11b521589af3d8452abbde6262f4d5fe5bd273077",
+  "referenceSha256": "8fafb0e64e637d70f73975b6eb1eda6680b384bd2d9cc882b0ff7a80205c9f6b",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

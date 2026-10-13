@@ -2,7 +2,7 @@
   "name": "hearth",
   "category": "bed and breakfast, guest house or small hotel",
   "reference": "reference/hearth-original.html",
-  "referenceSha256": "4a0514fc71218826841b1a8242819c17e650ba081ae7e90f23e2fd6462841769",
+  "referenceSha256": "5ac0437d2cf6368f9dfbf31a0d759ae32fe52b5606591d5056bb6a203537259e",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

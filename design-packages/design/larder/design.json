@@ -2,7 +2,7 @@
   "name": "larder",
   "category": "restaurant",
   "reference": "reference/larder-original.html",
-  "referenceSha256": "fee346529cbf7b8fb4f993f1973758e38608604159eed3ce6e31a518b247b10a",
+  "referenceSha256": "cc814a5fc8237077bcf998ca4140360759bf350d517418778b30ba52b18c6050",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

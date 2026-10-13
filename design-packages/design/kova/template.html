@@ -458,7 +458,7 @@ footer { background: var(--ink); color: var(--paper); padding: 4vh var(--gutter)
   /* ---------- loop ---------- */
   const hero = $('#top'), band = $('#band');
   let sy = scrollY, last = scrollY, v = 0;
-  function frame(t) {
+  function frame(t) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(t)){requestAnimationFrame(frame);return;}
     const tgt = scrollY; sy = reduce ? tgt : lerp(sy, tgt, .12); if (Math.abs(sy - tgt) < .1) sy = tgt;
     v = lerp(v, tgt - last, .2); last = tgt;
     const p = clamp((sy - hero.offsetTop) / (hero.offsetHeight - innerHeight));

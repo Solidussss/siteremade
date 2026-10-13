@@ -603,7 +603,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   }
   function resize() {
     const r = stage.getBoundingClientRect();
-    W = r.width; H = r.height; DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height; DPR = Math.min(matchMedia('(pointer:coarse)').matches?1.5:2, window.devicePixelRatio || 1);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     layout();
   }
@@ -959,7 +959,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
     const r = hero.getBoundingClientRect(), span = r.height - innerHeight;
     return clamp(-r.top / Math.max(1, span), 0, 1);
   }
-  function frame(now) {
+  function frame(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
     const dt = Math.min(50, now - last); last = now;
     const f = dt / 16.667, T = (now - t0) / 1000;
     const sy = window.scrollY; sv += ((sy - lastSY) / Math.max(.3, f) - sv) * .25; lastSY = sy;

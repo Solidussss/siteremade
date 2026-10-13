@@ -2,7 +2,7 @@
   "name": "clutch",
   "category": "toy bricks",
   "reference": "reference/clutch-original.html",
-  "referenceSha256": "54f3748c2fbc66ec92dc3de0e312860da06f4cc273a47379af46cc34b9e264c7",
+  "referenceSha256": "f763024cee8aa4cbe4e3c3eecacadafbef35f389b0f999c8515b108abd7ba3ad",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -677,7 +677,7 @@ footer { padding: 12vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28p
 
   /* =================== loop =================== */
   let sy = scrollY;
-  function frame(t) {
+  function frame(t) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(t)){requestAnimationFrame(frame);return;}
     const tgt = scrollY; sy = reduce ? tgt : lerp(sy, tgt, .12); if (Math.abs(sy - tgt) < .1) sy = tgt;
     const range = hero.offsetHeight - innerHeight; heroP = clamp((sy - hero.offsetTop) / range);
     if (sy < hero.offsetTop + hero.offsetHeight) heroRender(t);

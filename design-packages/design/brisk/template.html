@@ -337,6 +337,7 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -380,7 +381,7 @@ const P=(x,y)=>[OX+x*S,OY+y*S];
 function SP(x,y){const a=P(x,y);if(!mobile)return a;const dx=a[0]-CX,dy=a[1]-CY;return[CX-dy,CY+dx];}
 function fit(ax,ay,rot){const w=rot?8.8:12.8,h=rot?12.8:8.8;const S=Math.min((ax[1]-ax[0])/w,(ay[1]-ay[0])/h);return{S,CX:(ax[0]+ax[1])/2,CY:(ay[0]+ay[1])/2};}
 function place(L){S=L.S;CX=L.CX;CY=L.CY;OX=CX-6*S;OY=CY-4*S;}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
   const top=Math.max(64,H*.1), sc=$('#score').getBoundingClientRect(), vi=$('#visit').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
   if(mobile){LA=LB=fit([W*.03,W*.97],[top,sc.top-stg.top-14],true);}
   else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(sc.top,vi.top)-stg.top;
@@ -574,9 +575,15 @@ function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F3F7F5';ctx
   furniture(prog);active(prog);mess(prog,time);cleaner(p,prog,time);gleam(f,time);labels(prog);ctx.globalAlpha=1;ctx.setTransform(DPR,0,0,DPR,0,0);const lt=ctx.createLinearGradient(0,0,W*.8,H);lt.addColorStop(0,'rgba(255,253,245,.16)');lt.addColorStop(1,'rgba(255,253,245,0)');ctx.fillStyle=lt;ctx.fillRect(0,0,W,H);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,prog);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();

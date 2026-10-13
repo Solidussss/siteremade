@@ -637,7 +637,11 @@ function pieceSprite(p, k, ppu) {
   const need = 2 * EXT * p.sz * ppu; let n = 32; while (n < need && n < 256) n *= 2;
   const kq = Math.round(clamp(k) * 16), key = kq + '|' + n;
   p.cache = p.cache || {};
-  if (!p.cache[key]) { p.cache[key] = sprite(n, (x, s) => { x.setTransform(s / (2 * EXT), 0, 0, s / (2 * EXT), s / 2, s / 2); DRAW[p.type](x, p, kq / 16); }); }
+  // two sprites per piece at most: the one going out is drawn over again rather than a new canvas made, so a long
+  // scroll doesn't pile up canvases (phones, Safari above all, give up on a page that does)
+  if (!p.cache[key]) { const ks = Object.keys(p.cache); let cn = null; if (ks.length >= 2) { const old = p.cache[ks[0]]; delete p.cache[ks[0]]; if (old.width === n) cn = old; }
+    const paint = (x, s) => { x.setTransform(s / (2 * EXT), 0, 0, s / (2 * EXT), s / 2, s / 2); DRAW[p.type](x, p, kq / 16); };
+    if (cn) { const x = cn.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, n, n); paint(x, n); p.cache[key] = cn; } else p.cache[key] = sprite(n, paint); }
   return p.cache[key];
 }
 function drawPiece(c, p, k, ppu) {
@@ -825,7 +829,7 @@ const BAKEPOS = { x: .1, y: -D + .3 };
 
 function heroResize() {
   const r = cv.getBoundingClientRect();
-  H.W = r.width; H.H = r.height; H.dpr = Math.min(devicePixelRatio || 1, 2);
+  H.W = r.width; H.H = r.height; H.dpr = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2);
   cv.width = Math.round(H.W * H.dpr); cv.height = Math.round(H.H * H.dpr);
   H.mob = H.W < 760;
   H.R = H.mob ? Math.min(H.W * .4, H.H * .19) : Math.min(H.H * .29, H.W * .2);
@@ -1148,7 +1152,7 @@ function bUI() {
 $('#undo').addEventListener('click', () => { bUndo(); bUI(); });
 $('#clear').addEventListener('click', () => { bClear(); if (RM) B.sauce = 1; bUI(); });
 $('#bake').addEventListener('click', () => { if (B.baking) return; B.baking = true; B.bakeStart = B.bake >= 1 ? 0 : B.bake; if (B.bake >= 1) { B.bake = 0; B.pieces.forEach(p => p.cook = 0); } });
-function bResize() { const r = bcv.getBoundingClientRect(); B.size = r.width; B.dpr = Math.min(devicePixelRatio || 1, 2); bcv.width = Math.round(r.width * B.dpr); bcv.height = Math.round(r.height * B.dpr); }
+function bResize() { const r = bcv.getBoundingClientRect(); B.size = r.width; B.dpr = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2); bcv.width = Math.round(r.width * B.dpr); bcv.height = Math.round(r.height * B.dpr); }
 function bFrame(dt) {
   const c = bctx, Sz = B.size, R = Sz * .4, dpr = B.dpr;
   B.t += dt;
@@ -1338,7 +1342,7 @@ O.day = firstOpenDay(); renderDays(); renderSlots();
 let last = performance.now();
 const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.target === hero) H.vis = e.isIntersecting; else B.vis = e.isIntersecting; }), { rootMargin: '100px' }) : null;
 if (io) { io.observe(hero); io.observe($('.board')); } else { H.vis = B.vis = true; }
-function loop(now) {
+function loop(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(loop);return;}
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   heroScroll();
   const k = RM ? 1 : 1 - Math.exp(-dt * 5.5);

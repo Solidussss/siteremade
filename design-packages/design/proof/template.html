@@ -301,6 +301,7 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -328,7 +329,7 @@ const cv=$('#bake'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,S=1,OX=0,OY=0,LA=null,LB=null;
 const P=(x,y)=>[OX+x*S,OY+y*S];
 function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/(mobile?400:440),(ay[1]-ay[0])/290);return{s,x:(ax[0]+ax[1])/2-s*210,y:(ay[0]+ay[1])/2-s*140};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
   const top=Math.max(70,H*.1), bd=$('#board').getBoundingClientRect(), tk=$('#ticket').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
   if(mobile){LA=LB=fit([W*.02,W*.98],[top,bd.top-stg.top-10]);}
   else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(bd.top,tk.top)-stg.top;
@@ -488,10 +489,16 @@ function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F7F1E8';ctx
   copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 BOARD.forEach((t,i)=>{const dt=document.querySelectorAll('#board dt')[i];if(dt)dt.textContent=t.label;});
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();

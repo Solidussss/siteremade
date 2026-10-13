@@ -306,7 +306,7 @@
       "time": "Time",
       "sittings": "Sittings",
       "deposit": "Deposit",
-      "note": "Deposits come off the final price. 18 and over, ID on the day."
+      "note": "Deposit paid by link once we confirm; it comes off the price. 18 and over, ID on the day."
     },
     "errors": {
       "idea": "Tell us a little about your idea.",

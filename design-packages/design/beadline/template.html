@@ -757,7 +757,7 @@ let W=0,H=0,DPR=1,SB=1,GSY=0,mobile=false;
 let tP=0,P=0,cam={z:1,fx:500,fy:200},T=0,last=performance.now(),heroVisible=true;
 
 function resize(){
-  const r=cv.getBoundingClientRect();W=r.width;H=r.height;DPR=Math.min(2,window.devicePixelRatio||1);
+  const r=cv.getBoundingClientRect();W=r.width;H=r.height;DPR=Math.min(matchMedia('(pointer:coarse)').matches?1.5:2,window.devicePixelRatio||1);
   cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
   mobile=W<700;
   SB=Math.min(W*(mobile?.95:.8)/1010,H*(mobile?.5:.32)/290);
@@ -999,7 +999,7 @@ function panel(c,w,h,after){
     for(let i=0;i<40;i++){x.strokeStyle='rgba(240,225,215,.35)';x.lineWidth=.8;circ(x,r()*w,h*.6+r()*h*.4,2+r()*6);x.stroke();}
     x.fillStyle='{{P:rgba(255,235,230,.05)}}';x.fillRect(0,0,w,h);}
 }
-function baSize(){const r=ba.getBoundingClientRect();const d=Math.min(2,devicePixelRatio||1);[baB,baA].forEach((c,i)=>{c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);panel(c,c.width,c.height,i===1);});}
+function baSize(){const r=ba.getBoundingClientRect();const d=Math.min(matchMedia('(pointer:coarse)').matches?1.5:2,devicePixelRatio||1);[baB,baA].forEach((c,i)=>{c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);panel(c,c.width,c.height,i===1);});}
 let baX=50,baTouched=false;
 function baSet(v){baX=clamp(v,0,100);ba.style.setProperty('--x',baX+'%');baR.value=Math.round(baX);}
 let drag=false;
@@ -1073,7 +1073,7 @@ const dc=$('#drop'),dx=dc.getContext('2d');let DW=0,DH=0,DD=1;
 const drops=[{u:.22,v:0,r:1},{u:.5,v:0,r:.8},{u:.74,v:0,r:1.15}];
 let caNow=110;
 function dropReset(){drops.forEach((d,i)=>{d.u=[.22,.5,.74][i];d.v=0;});}
-function dSize(){const r=dc.getBoundingClientRect();DD=Math.min(2,devicePixelRatio||1);DW=r.width;DH=r.height;dc.width=Math.round(DW*DD);dc.height=Math.round(DH*DD);}
+function dSize(){const r=dc.getBoundingClientRect();DD=Math.min(matchMedia('(pointer:coarse)').matches?1.5:2,devicePixelRatio||1);DW=r.width;DH=r.height;dc.width=Math.round(DW*DD);dc.height=Math.round(DH*DD);}
 dSize();addEventListener('resize',dSize);
 let dLast=performance.now();
 function dFrame(now){const dt=Math.min(.05,(now-dLast)/1000);dLast=now;

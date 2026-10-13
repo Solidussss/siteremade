@@ -2,7 +2,7 @@
   "name": "inkwell",
   "category": "tattoo studio",
   "reference": "reference/inkwell-original.html",
-  "referenceSha256": "67bbef9f5c27f4ada8ddbe3537026a2a87c023687fa440969e61d3f47f256d76",
+  "referenceSha256": "d71bb86e1ccdce440431d1edad85cb5b5b9ceafeff5bbcbca1ac116dc3e8471b",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

@@ -338,6 +338,7 @@ footer{background:var(--ink);color:var(--linen);padding:clamp(70px,9vw,120px) va
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -362,7 +363,7 @@ const CANDLE='#D9A23A';
 const cv=$('#table'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,G={},base=null;
 function layout(){
-  W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
   mobile=W<820;
   if(!mobile){const R=Math.min(W*.085,H*.15);G={R,seats:[[W*.5,H*.46],[W*.83,H*.46]],c:[W*.665,H*.46],axis:'x',runner:[W*.38,H*.46-R*1.65,W*.95,H*.46+R*1.65]};}
   else{const R=Math.min(W*.2,H*.105);G={R,seats:[[W*.5,H*.2],[W*.5,H*.52]],c:[W*.5,H*.36],axis:'y',runner:[W*.5-R*1.7,H*.06,W*.5+R*1.7,H*.66]};}
@@ -527,9 +528,16 @@ function frame(p,time){
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);
   hud(p,f);
 }
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);nav.classList.toggle('light',hero.getBoundingClientRect().bottom<70);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+addEventListener('scroll',()=>nav.classList.toggle('light',hero.getBoundingClientRect().bottom<70),{passive:true});
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 requestAnimationFrame(loop);
 })();
 </script>

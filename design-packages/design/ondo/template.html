@@ -832,7 +832,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   function readColours() { C = { amber: css('--amber'), amber2: css('--amber-2'), anti: css('--anti'), noise: css('--noise'), ink: css('--ink'), plum: css('--plum'), room: css('--room'), felt: css('--felt'), line: css('--line'), dim: css('--dim') }; }
   readColours();
   function resize() {
-    DPR = Math.min(devicePixelRatio || 1, 2);
+    DPR = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2);
     const r = stage.getBoundingClientRect(); W = r.width; H = r.height;
     fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR);
     eqResize();
@@ -962,7 +962,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   }
 
   /* ================= main loop ================= */
-  function frame(now) {
+  function frame(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
     const dt = Math.min(.1, (now - last) / 1000); last = now;
     const nowS = now / 1000;
     // scroll progress

@@ -59,7 +59,7 @@
 .wlog b{color:#fff}.wlog .bad{color:#ffb86b}
 /* review */
 .review{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:28px;margin-top:36px;align-items:start}
-.devices{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:18px;align-items:end}
+.devices{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:18px;align-items:end}.devices.one{grid-template-columns:1fr;justify-items:center}
 .phone{background:#111318;border-radius:34px;padding:9px;box-shadow:0 30px 80px rgba(0,0,0,.18)}
 .phone .pscreen{position:relative;overflow:hidden;border-radius:26px;aspect-ratio:390/844;background:#000}
 .phone iframe{position:absolute;left:0;top:0;width:390px;height:844px;border:0;transform-origin:0 0}
@@ -150,6 +150,9 @@
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// a phone or tablet: every live preview is a whole design with big canvases, and iOS Safari closes a page that holds too
+// many, so a touch screen runs one at a time
+const TOUCH = matchMedia('(pointer:coarse)').matches;
 const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
 const DESIGN = { beadline: { name: 'Beadline', kind: 'Car detailing studio', url: 'beadline.detail' }, halcyra: { name: 'Halcyra', kind: 'Perfume house', url: 'halcyra.parfums' }, steadyhand: { name: 'Steady Hand', kind: 'Barber shop', url: 'steadyhand.barbers' }, nube: { name: 'Nube', kind: 'Coffee shop', url: 'nube.coffee' }, ventricle: { name: 'Ventricle', kind: 'Gym', url: 'ventricle.club' }, forno: { name: 'Forno Sfacciato', kind: 'Pizzeria', url: 'forno.pizza' }, saltglass: { name: 'Saltglass', kind: 'Dental clinic', url: 'saltglass.dental' }, kova: { name: 'KOVA', kind: 'Sneaker launch', url: 'kova.run' }, clutch: { name: 'Clutch', kind: 'Toy brick set', url: 'clutch.toys' }, ondo: { name: 'ONDO', kind: 'Headphones launch', url: 'ondo.audio' }, aldane: { name: 'Aldane', kind: 'Watch launch', url: 'aldane.watch' }, lintel: { name: 'Lintel & Key', kind: 'Property listing', url: 'lintelandkey.homes' }, keel: { name: 'Keel & Ridge', kind: 'Roofing contractor', url: 'keelandridge.roofing' }, plait: { name: 'Plait', kind: 'Software product', url: 'plait.app' }, ochre: { name: 'Ochre & Ash', kind: 'Hair salon', url: 'ochreandash.salon' }, larder: { name: 'Larder & Lamp', kind: 'Restaurant', url: 'larderandlamp.co.uk' }, halden: { name: 'Halden & Vale', kind: 'Law firm or accountants', url: 'haldenandvale.law' }, sereine: { name: 'Sereine', kind: 'Skincare brand', url: 'sereine.skin' }, fettle: { name: 'Fettle', kind: 'Plumber, electrician or heating', url: 'fettle.co.uk' }, brisk: { name: 'Brisk', kind: 'Cleaning company', url: 'brisk.clean' }, verge: { name: 'Verge', kind: 'Landscape gardener', url: 'verge.garden' }, camber: { name: 'Camber', kind: 'Garage or car repair', url: 'camber.garage' }, northlight: { name: 'Northlight', kind: 'Photographer', url: 'northlight.studio' }, stillwater: { name: 'Stillwater', kind: 'Yoga, pilates or fitness studio', url: 'stillwater.studio' }, axis: { name: 'Axis', kind: 'Physio, chiropractor or massage', url: 'axis.clinic' }, scruff: { name: 'Scruff & Co', kind: 'Dog groomer or vet', url: 'scruff.dog' }, proof: { name: 'Proof', kind: 'Bakery or cake maker', url: 'proof.bakery' }, petal: { name: 'Petal & Stem', kind: 'Florist', url: 'petalandstem.flowers' }, inkwell: { name: 'Ink & Iron', kind: 'Tattoo studio', url: 'inkandiron.tattoo' }, lacquer: { name: 'Lacquer Room', kind: 'Nail studio', url: 'lacquerroom.nails' }, hearth: { name: 'The Linden House', kind: 'Bed and breakfast', url: 'lindenhouse.stay' }, gather: { name: 'Harrow Barn', kind: 'Wedding venue', url: 'harrowbarn.events' }, plumb: { name: 'Brick & Beam', kind: 'Builder', url: 'brickandbeam.build' }, compass: { name: 'Northpoint', kind: 'Coach or consultant', url: 'northpoint.coach' }, drape: { name: 'Finch & Fold', kind: 'Clothing boutique', url: 'finchandfold.shop' }, primer: { name: 'Brightwell', kind: 'Tutor', url: 'brightwell.tutors' } };
 let D = null, chosen = null, poll = null;
@@ -189,12 +192,13 @@ function autoplay(f) {
 }
 const playAll = () => { document.querySelectorAll('.screen iframe, .pscreen iframe').forEach(autoplay); lazyFrames(); };
 // Gallery previews are whole live designs (some run WebGL), so only the four nearest the middle of the screen run;
-// one that drifts further away (past six, or well off screen) unloads. A phone never runs all of them at once.
+// one that drifts further away (past six, or well off screen) unloads. A touch screen runs one and keeps two.
 function lazyFrames() {
+  const LIVE = TOUCH ? 1 : 4, KEEP = TOUCH ? 2 : 6;
   const list = [...document.querySelectorAll('iframe[data-src]')].map((f) => { const r = f.parentElement.getBoundingClientRect(); return { f, r, d: Math.abs((r.top + r.bottom) / 2 - innerHeight / 2) }; }).sort((a, b) => a.d - b.d);
   list.forEach(({ f, r }, i) => {
-    const want = i < 4 && r.bottom > -innerHeight * 0.5 && r.top < innerHeight * 1.5;
-    const keep = i < 6 && r.bottom > -innerHeight * 1.5 && r.top < innerHeight * 2.5;
+    const want = i < LIVE && r.bottom > -innerHeight * 0.5 && r.top < innerHeight * 1.5;
+    const keep = i < KEEP && r.bottom > -innerHeight * 1.5 && r.top < innerHeight * 2.5;
     if (want && !f._live) { if (f._was) { f._auto = false; autoplay(f); } f.src = f.dataset.src; f._live = f._was = true; }
     else if (!keep && f._live) { f._gen = (f._gen || 0) + 1; f._auto = false; f._live = false; f.src = 'about:blank'; }
   });
@@ -314,7 +318,7 @@ function show(s) {
     const url = location.origin + '/s/' + s.id;
     body = head(s, 3) + steps(s.publicPath ? 5 : 3) + `
     <section class="review">
-      <div class="devices">${frame('/api/designs/sites/' + s.id + '/preview', s.publicPath ? url.replace(/^https?:\/\//, '') : m.url, true)}<div class="phone"><div class="pscreen"><iframe src="/api/designs/sites/${s.id}/preview" title="Phone preview"></iframe></div></div></div>
+      <div class="devices${TOUCH ? ' one' : ''}">${TOUCH ? '' : frame('/api/designs/sites/' + s.id + '/preview', s.publicPath ? url.replace(/^https?:\/\//, '') : m.url, true)}<div class="phone"><div class="pscreen"><iframe src="/api/designs/sites/${s.id}/preview" title="Phone preview"></iframe></div></div></div>
       <aside class="side">
         <div class="card publish"><span class="tag" style="color:#858995">${s.publicPath ? 'LIVE' : 'NOT PUBLISHED'}</span><h3>${s.publicPath ? 'It’s live.' : 'Publish when it looks right.'}</h3><p>${s.publicPath ? 'Anyone with the link can open it.' : 'It gets its own public link you can send to the business.'}</p>${s.publicPath ? `<div class="livelink"><a href="${s.publicPath}" target="_blank">${esc(url)}</a></div>` : ''}<button class="button ${s.publicPath ? 'off' : ''}" id="pub">${s.publicPath ? 'Unpublish' : 'Publish'}</button></div>
         <div class="card reqs" id="requests"><h3>Requests</h3><div id="reqList"><p>Loading…</p></div></div>

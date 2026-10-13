@@ -358,6 +358,7 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -380,7 +381,7 @@ const cv=$('#desk'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,G={},base=null,docs=[];
 const KINDS=['letter','contract','receipt','form','plan','invoice'];
 function layout(){
-  W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
   mobile=W<820;
   G=mobile?{x0:W*.04,x1:W*.96,y0:H*.1,y1:H*.62,s:Math.min(W*.24,H*.13)}:{x0:W*.44,x1:W*.96,y0:H*.12,y1:H*.78,s:Math.min(W*.085,H*.17)};
   G.cx=(G.x0+G.x1)/2;G.cy=(G.y0+G.y1)/2;
@@ -515,9 +516,16 @@ function frame(p,time){
   hud(p,f,flags);
 }
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);nav.classList.toggle('light',hero.getBoundingClientRect().bottom<70);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+addEventListener('scroll',()=>nav.classList.toggle('light',hero.getBoundingClientRect().bottom<70),{passive:true});
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{last=-1;});
 requestAnimationFrame(loop);
 })();

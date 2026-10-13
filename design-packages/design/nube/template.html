@@ -571,7 +571,7 @@ footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px
       blit(null);
     }
     function resize() {
-      const r = canvas.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+      const r = canvas.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2);
       const w = Math.max(2, Math.round(r.width * d)), h = Math.max(2, Math.round(r.height * d));
       if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     }
@@ -690,7 +690,7 @@ footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px
   let gW = 0, gH = 0, gD = 1, heights, falling = [], toSpawn = 0, spawnRate = 0, gSize = 3.8, grindActive = false, grindStarted = false;
   const BIN = 3, BROWNS = ['#3b1f12', '#5a311b', '#6e3d21', '#4a2716', '#7b4a2b', '#2e170c'];
   function gResize() {
-    const r = gc.getBoundingClientRect(); gD = Math.min(devicePixelRatio || 1, 2);
+    const r = gc.getBoundingClientRect(); gD = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2);
     gW = r.width; gH = r.height; gc.width = pile.width = Math.round(gW * gD); gc.height = pile.height = Math.round(gH * gD);
     gx.setTransform(gD, 0, 0, gD, 0, 0); px.setTransform(gD, 0, 0, gD, 0, 0);
   }
@@ -797,7 +797,7 @@ footer { padding: 8vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28px
   const band = $('#band'), rises = $$('[data-rise]'), h2s = $$('h2'), clouds = $$('.clouds i');
   let sy = scrollY, last = performance.now(), idle = 0, lastScroll = scrollY, vel = 0;
   let grindVisible = false;
-  function frame(now) {
+  function frame(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
     const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
     const tgt = scrollY; sy = reduce ? tgt : lerp(sy, tgt, .14); if (Math.abs(sy - tgt) < .1) sy = tgt;
     vel = lerp(vel, tgt - lastScroll, .2); lastScroll = tgt;

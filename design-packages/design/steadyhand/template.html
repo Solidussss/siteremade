@@ -350,6 +350,7 @@ footer{background:var(--red);color:#fff;overflow:hidden}
 (()=>{
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH=matchMedia('(pointer:coarse)').matches;
 const clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v;
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
 const ss=t=>t*t*(3-2*t);
@@ -376,15 +377,16 @@ class Head{
   }
   layout(W,H,dpr,cx,cy,u){
     Object.assign(this,{W,H,dpr,cx,cy,u});
-    this.cv.width=Math.round(W*dpr);this.cv.height=Math.round(H*dpr);
-    this.build();
+    const cw=Math.round(W*dpr),ch=Math.round(H*dpr);if(this.cv.width!==cw)this.cv.width=cw;if(this.cv.height!==ch)this.cv.height=ch;
+    this.oi=0;this.build();
   }
   P(x,y){return[this.cx+x*this.u,this.cy+y*this.u]}
   fTop(x){return Math.min(this.cfg.fadeTop,napeY(x)-5)}
   tOf(x,y){const n=napeY(x),f=this.fTop(x);return(n-y)/(n-f)}
   cY(x,c){const n=napeY(x),f=this.fTop(x);return n-c*(n-f)}
   vOf(x,y){const f=this.fTop(x),t=skullTop(x);return clamp((f-y)/Math.max(1,f-t))}
-  off(){const c=document.createElement('canvas');c.width=this.cv.width;c.height=this.cv.height;const x=c.getContext('2d');x.setTransform(this.dpr,0,0,this.dpr,0,0);return[c,x]}
+  off(){const i=this.oi++,B=this.bufs||(this.bufs=[]);let c=B[i];if(!c||c.width!==this.cv.width||c.height!==this.cv.height){c=document.createElement('canvas');c.width=this.cv.width;c.height=this.cv.height;B[i]=c;}
+    const x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,c.width,c.height);x.setTransform(this.dpr,0,0,this.dpr,0,0);return[c,x]}
   path(x,pts){x.beginPath();pts.forEach((p,i)=>{const q=this.P(p[0],p[1]);i?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1])});x.closePath()}
   build(){
     const u=this.u;
@@ -603,7 +605,7 @@ head.onCut=(s,h)=>{
   snipCount++;
 };
 function layoutHero(){
-  W=stage.clientWidth;H=stage.clientHeight;DPR=Math.min(2,devicePixelRatio||1);mobile=W<820;
+  W=stage.clientWidth;H=stage.clientHeight;DPR=Math.min(TOUCH?1.5:2,devicePixelRatio||1);mobile=W<820;
   let cx,cy,u;
   if(!mobile){
     u=Math.min((H/2-70)/50,(W*.31-120)/40,8.5);cx=W*.69;cy=H*.5+3*u;head.mr=56;
@@ -803,7 +805,7 @@ let bAnim=null;
 function layoutBuild(){
   const r=cvB.getBoundingClientRect();if(!r.width)return;
   const w=r.width,h=r.height,u=Math.min(w/86,h/104);
-  bHead.layout(w,h,Math.min(2,devicePixelRatio||1),w/2,h*.47,u);
+  bHead.layout(w,h,Math.min(TOUCH?1.5:2,devicePixelRatio||1),w/2,h*.47,u);
   applyBuild(false);
 }
 function applyBuild(anim){
@@ -937,7 +939,7 @@ setInterval(liveBoard,15000);
 
 /* ---------- init ---------- */
 function layoutAll(){layoutHero();layoutBuild()}
-let rT;addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(layoutAll,120)});
+let rT,rSz='';addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{const z=[stage.clientWidth,stage.clientHeight,cvB.clientWidth,cvB.clientHeight].join();if(z===rSz)return;rSz=z;layoutAll();},120)});
 buildSlots();
 layoutAll();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{lastP=-1;layoutAll()});

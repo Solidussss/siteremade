@@ -435,6 +435,7 @@ footer{background:var(--slate);color:var(--chalk);padding:clamp(60px,8vw,110px) 
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -647,7 +648,7 @@ function door(x){x.fillStyle='#f5f7f8';poly(x,[P(6.25,0,0),P(7.55,0,0),P(7.55,2.
 
 /* ---- layout ---- */
 function layout(){
-  W=cv.clientWidth;H=cv.clientHeight;mobile=cv.clientWidth<820;DPR=Math.min((devicePixelRatio||1)*(mobile?1.15:1.35),2.2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  W=cv.clientWidth;H=cv.clientHeight;mobile=cv.clientWidth<820;DPR=Math.min((devicePixelRatio||1)*(mobile?1.15:1.35),TOUCH?1.5:2.2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
   mobile=W<820;
   // the scene's extent in projected units: x+z*KX from the dumpster to the gable's back corner, y+z*KY from the yard to the chimney
   const X0=mobile?-1.4:-7.6, X1=mobile?HL+HD*KX+.8:HL+5.6, Y0=mobile?-.5:-1.9, Y1=CHIM.top+CHIM.z1*KY+.2;
@@ -854,11 +855,17 @@ function camera(p){
   const key=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${Z.toFixed(4)})`;
   if(key!==camKey){camKey=key;cv.style.transform=key;}
 }
-function loop(now){const time=(now-tStart)/1000;const t=target();cur=RM?t:cur+(t-cur)*.16;if(Math.abs(t-cur)<.0004)cur=t;
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-tStart)/1000;const t=target();cur=RM?t:cur+(t-cur)*.16;if(Math.abs(t-cur)<.0004)cur=t;
   // the weather and clouds move on their own; everything else follows the scroll
   frame(cur,RM?0:time);requestAnimationFrame(loop);}
 buildTextures();layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{T.under=texUnder();});
 requestAnimationFrame(loop);
 })();

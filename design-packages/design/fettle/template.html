@@ -362,6 +362,7 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -411,7 +412,7 @@ const SOCKETS={g:[1.6,4.6,7.4,9.9],f:[1.8,6.3,8.2]}, LIGHTS={g:[3.0,8.6],f:[2.2,
 const cv=$('#house'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,mobile=false,S=30,OX=0,OY=0;
 const P=(x,y)=>[OX+x*S,OY-y*S];
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
   // on a phone the van comes along the road in front, so the house can fill the width
   const X0=-0.8,X1=mobile?12.6:16.4,Y0=mobile?-2.5:-1.7,Y1=9.8;
   const ax=mobile?[W*.03,W*.97]:[W*.43,W*.98], ay=mobile?[H*.12,H*.66]:[H*.11,H*.78];
@@ -624,9 +625,15 @@ function frame(p,time){ctx.setTransform(DPR,0,0,DPR,0,0);const f=STAGES.map(s=>s
   const k=mobile?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-function loop(now){const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
+// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
+// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+let gLast=-1e9,gForce=90;
+addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
 layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 requestAnimationFrame(loop);
 })();
 </script>

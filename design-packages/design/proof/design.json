@@ -2,7 +2,7 @@
   "name": "proof",
   "category": "bakery or cake maker",
   "reference": "reference/proof-original.html",
-  "referenceSha256": "4df9e4ac78b21d285c623cb994dcf244c0fbafe9624cc4274e3b564665ca3363",
+  "referenceSha256": "30165b9083177c37b6c57ca2850875f770424b15592a73c5279a011a5c640e74",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

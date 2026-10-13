@@ -2,7 +2,7 @@
   "name": "plumb",
   "category": "builder, extensions and renovations",
   "reference": "reference/plumb-original.html",
-  "referenceSha256": "1068f93d705242664f71a045d23cf0b451947e401202000c2d7ec0231ed1904c",
+  "referenceSha256": "7a69399d1d68e5b9aa5afc7b634776ba786360ed0d32fe3dc2353b0d9d2ffba6",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",
