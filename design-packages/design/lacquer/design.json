@@ -2,7 +2,7 @@
   "name": "lacquer",
   "category": "nail salon or nail studio",
   "reference": "reference/lacquer-original.html",
-  "referenceSha256": "e80073a1373639694805cd87891e559e6425b0c131992b6817da243d8103b1d7",
+  "referenceSha256": "6bec54e11766049de0abcb21416c91aa9e837fcc2642c314aeb888a88d0bf834",
   "template": "template.html",
   "schema": "schema.json",
   "hooks": "hooks.js",

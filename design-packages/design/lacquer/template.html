@@ -144,8 +144,11 @@ section.block{padding-block:clamp(84px,11vw,150px)}
 .shelf h3{font-size:24px}
 .bottles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:12px}
 .bottles button{border:1px solid transparent;background:transparent;border-radius:14px;padding:8px 4px 10px;cursor:pointer;display:grid;justify-items:center;gap:6px;text-align:center;min-width:0}
-.bottles button i{width:42px;height:62px;border-radius:8px 8px 10px 10px;background:var(--c);position:relative;margin-top:16px;box-shadow:inset -6px 0 0 rgba(0,0,0,.12),inset 5px 0 0 rgba(255,255,255,.25)}
-.bottles button i::before{content:"";position:absolute;left:50%;top:-17px;width:14px;height:17px;border-radius:3px 3px 1px 1px;transform:translateX(-50%);background:#2B2126}
+.bottles button i{width:42px;height:60px;border-radius:9px 9px 13px 13px/7px 7px 12px 12px;position:relative;margin-top:18px;
+  background:linear-gradient(90deg,transparent 15%,rgba(255,255,255,.6) 20%,rgba(255,255,255,.15) 27%,transparent 32%),linear-gradient(90deg,rgba(0,0,0,.3),transparent 24%,transparent 68%,rgba(0,0,0,.36)),linear-gradient(180deg,rgba(255,255,255,.42) 0 9%,rgba(0,0,0,.12) 9% 11%,transparent 11% 84%,rgba(255,255,255,.4) 84%),var(--c);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4),0 7px 9px -5px rgba(40,20,25,.45)}
+.bottles button i::before{content:"";position:absolute;left:50%;top:-19px;width:16px;height:20px;border-radius:3px 3px 2px 2px;transform:translateX(-50%);background:linear-gradient(90deg,#0B090A,#5A5054 32%,#1F1A1C 58%,#060505)}
+.bottles button i::after{content:"";position:absolute;left:50%;top:-2px;width:18px;height:3px;border-radius:2px;transform:translateX(-50%);background:linear-gradient(90deg,#3A3236,#BDB5B8 40%,#3A3236)}
 .bottles button small{font:500 12px/1.2 var(--f-body);color:var(--ink-2);overflow-wrap:anywhere}
 .bottles button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
 
@@ -319,8 +322,44 @@ const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sm=t=>t*t*(3-2*t);
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
-function shade(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
+function rgbOf(hex){const n=parseInt(hex.slice(1),16);return[n>>16&255,n>>8&255,n&255];}
+function shade(hex,k){const[r,g,b]=rgbOf(hex);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`;}
+function mixc(a,b,t){const A=rgbOf(a),B=rgbOf(b);return`rgb(${A.map((v,i)=>Math.round(lerp(v,B[i],t))).join(',')})`;}
+function rgba(hex,b,t,al){return mixc(hex,b,t).replace('rgb','rgba').replace(')',`,${al})`);}
 function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+// a soft elliptical glow or shadow
+function rad(c,x,y,rx,ry,col,a){c.save();c.translate(x,y);c.rotate(a||0);c.scale(rx,ry);const g=c.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,col);g.addColorStop(1,col.replace(/[\d.]+\)$/,'0)'));c.fillStyle=g;c.beginPath();c.arc(0,0,1,0,7);c.fill();c.restore();}
+const pxOf=c=>Math.hypot(c.getTransform().a,c.getTransform().b);
+// a smooth closed outline through points (Catmull-Rom)
+function smooth(pts){const p=new Path2D(), n=pts.length;p.moveTo(pts[0][0],pts[0][1]);for(let i=0;i<n;i++){const a=pts[(i-1+n)%n],b=pts[i],c=pts[(i+1)%n],d=pts[(i+2)%n];
+  p.bezierCurveTo(b[0]+(c[0]-a[0])/6,b[1]+(c[1]-a[1])/6,c[0]-(d[0]-b[0])/6,c[1]-(d[1]-b[1])/6,c[0],c[1]);}p.closePath();return p;}
+
+/* ============ MATERIALS (made once) ============ */
+function tile(n,draw){const c=document.createElement('canvas');c.width=c.height=n;draw(c.getContext('2d'),n);return c;}
+// skin: pores, flecks and fine lines
+const PORES=tile(256,(g,n)=>{const r=rng(11);for(let i=0;i<4200;i++){const x=r()*n,y=r()*n,s=.5+r()*1.2;g.fillStyle=r()<.55?`rgba(120,55,40,${.04+r()*.07})`:`rgba(255,240,230,${.05+r()*.08})`;g.beginPath();g.arc(x,y,s,0,7);g.fill();}
+  g.lineWidth=.6;for(let i=0;i<260;i++){const x=r()*n,y=r()*n,a=r()*Math.PI;g.strokeStyle=`rgba(110,50,38,${.03+r()*.04})`;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*(3+r()*9),y+Math.sin(a)*(2+r()*5));g.stroke();}});
+// cotton towel: loops of thread
+const TERRY=tile(128,(g,n)=>{const r=rng(5);g.fillStyle='rgba(235,230,224,.35)';g.fillRect(0,0,n,n);for(let i=0;i<1300;i++){const x=r()*n,y=r()*n,rr=1.4+r()*2.2;
+  g.strokeStyle=`rgba(160,148,136,${.1+r()*.12})`;g.lineWidth=1.1;g.beginPath();g.arc(x+.6,y+.8,rr,r()*6,r()*6+3.5);g.stroke();
+  g.strokeStyle=`rgba(255,255,255,${.45+r()*.4})`;g.lineWidth=.9;g.beginPath();g.arc(x,y,rr,r()*6,r()*6+3.5);g.stroke();}});
+// frosted glass of the file
+const FROST=tile(96,(g,n)=>{const r=rng(9);for(let i=0;i<1600;i++){g.fillStyle=`rgba(255,255,255,${.15+r()*.45})`;g.fillRect(r()*n,r()*n,1,1);}});
+// patterns are made per canvas (a pattern belongs to the context that made it)
+const PATS=new WeakMap();
+function pat(c,img,size){let m=PATS.get(c);if(!m){m=new Map();PATS.set(c,m);}const key=img.width+'/'+size;if(!m.has(key)){const p=c.createPattern(img,'repeat');if(p&&p.setTransform)p.setTransform(new DOMMatrix().scale(size/img.width));m.set(key,p);}return m.get(key);}
+// the marble table, painted once at the canvas's size: soft clouds, and veins that flow one way, each with a blurred halo
+function marble(w,h,seed){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');const r=rng(seed), sc=Math.max(w,h)/1400, u=Math.max(1,sc), flow=.62;
+  const base=g.createLinearGradient(0,0,w,h);base.addColorStop(0,'#F7F4F1');base.addColorStop(1,'#EEE9E4');g.fillStyle=base;g.fillRect(0,0,w,h);
+  for(let i=0;i<22;i++){const x=r()*w,y=r()*h,rr=(.1+r()*.3)*Math.max(w,h);const gr=g.createRadialGradient(x,y,0,x,y,rr);const t=r()<.55?'214,205,197':'252,250,248';gr.addColorStop(0,`rgba(${t},${.18+r()*.25})`);gr.addColorStop(1,`rgba(${t},0)`);g.fillStyle=gr;g.fillRect(0,0,w,h);}
+  const line=(x,y,len,step)=>{const pts=[[x,y]];let a=flow+(r()-.5)*.9;for(let s=0;s<len;s++){a+=(r()-.5)*.32+(flow-a)*.04;x+=Math.cos(a)*step;y+=Math.sin(a)*step;pts.push([x,y]);}return pts;};
+  const stroke=(pts,wd,col,blur)=>{g.save();g.lineCap=g.lineJoin='round';g.strokeStyle=col;g.lineWidth=wd;g.shadowColor=col;g.shadowBlur=blur;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.restore();};
+  for(let i=0;i<5;i++){const pts=line(r()*w*1.2-w*.3,r()*h*1.2-h*.3,(80+r()*120)|0,9*sc);
+    stroke(pts,14*u,'rgba(170,158,148,.07)',30*u);stroke(pts,4*u,'rgba(158,145,135,.16)',8*u);stroke(pts,1.3*u,'rgba(140,126,116,.42)',1.5*u);
+    for(let b=0;b<3;b++){const at=pts[(r()*pts.length)|0], br=line(at[0],at[1],(20+r()*50)|0,7*sc);stroke(br,2*u,'rgba(165,152,142,.12)',5*u);stroke(br,.8*u,'rgba(140,126,116,.3)',1*u);}}
+  for(let i=0;i<14;i++){const pts=line(r()*w,r()*h,(20+r()*60)|0,7*sc);stroke(pts,.7*u,'rgba(150,138,128,.2)',1.5*u);}
+  for(let i=0;i<3;i++){const pts=line(r()*w,r()*h,(40+r()*80)|0,8*sc);stroke(pts,.9*u,'rgba(196,163,108,.35)',2*u);}
+  g.globalAlpha=.07;g.fillStyle=g.createPattern(FROST,'repeat');g.fillRect(0,0,w,h);g.globalAlpha=1;return c;}
 
 /* ============ A FINGERTIP AND ITS NAIL (drawn, shared with the shade shelf) ============ */
 // units are the finger's width; the finger points up, its tip at y -1.24; the nail runs from the cuticle (y about 0)
@@ -334,48 +373,116 @@ function nailPath(shape,L){const p=new Path2D(), t=-1.05-L;p.moveTo(-.34,-.3);p.
   else if(shape==='natural'){p.bezierCurveTo(-.36,t+L*.3,-.2,t-.02,.02,t);p.bezierCurveTo(.25,t+.03,.37,t+L*.4,.355,-1.05);}
   else{p.bezierCurveTo(-.36,t+L*.5,-.14,t+.02,0,t);p.bezierCurveTo(.14,t+.02,.36,t+L*.5,.355,-1.05);}
   p.bezierCurveTo(.37,-.9,.37,-.6,.34,-.3);p.bezierCurveTo(.3,-.06,-.3,-.06,-.34,-.3);p.closePath();return p;}
-const FINGER=(()=>{const p=new Path2D();p.moveTo(-.56,2.6);p.bezierCurveTo(-.54,1.2,-.5,.2,-.5,-.6);p.bezierCurveTo(-.5,-1.02,-.3,-1.24,0,-1.24);p.bezierCurveTo(.3,-1.24,.5,-1.02,.5,-.6);p.bezierCurveTo(.5,.2,.54,1.2,.56,2.6);p.closePath();return p;})();
-// the finger in its skin, rounded by the light, fading out below the knuckle
-function finger(c,skin){const g=c.createLinearGradient(-.56,0,.56,0);g.addColorStop(0,shade(skin,-.24));g.addColorStop(.25,shade(skin,.04));g.addColorStop(.55,shade(skin,.1));g.addColorStop(1,shade(skin,-.22));
-  const sg=c.createLinearGradient(0,-1.3,0,2.1);sg.addColorStop(0,'rgba(60,30,30,1)');sg.addColorStop(.5,'rgba(60,30,30,1)');sg.addColorStop(1,'rgba(60,30,30,0)');
-  c.save();c.shadowColor='rgba(60,30,30,.2)';c.shadowBlur=24;c.shadowOffsetY=10;c.fillStyle=sg;c.fill(FINGER);c.restore();c.fillStyle=g;c.fill(FINGER);
-  c.save();c.clip(FINGER);c.strokeStyle=shade(skin,-.18);c.lineWidth=.012;[[.95,.18],[1.05,.12]].forEach(([y,w])=>{c.beginPath();c.moveTo(-w,y);c.quadraticCurveTo(0,y+.04,w,y);c.stroke();});
+// the finger from above: the pad bulges past the nail, it narrows a little at the last joint and widens to the knuckle
+const FSIDE=[[.3,-1.17],[.46,-.97],[.515,-.62],[.5,-.2],[.475,.28],[.495,.7],[.53,1.2],[.545,1.8],[.56,2.6]];
+const FINGER=smooth([[0,-1.24],...FSIDE,[0,2.75],...FSIDE.slice().reverse().map(([x,y])=>[-x,y])]);
+// skin across a finger, lit from the upper left: a warm lit edge, a sheen just left of centre, the far side in shadow
+function skinAcross(c,skin,x0,x1){const g=c.createLinearGradient(x0,0,x1,0);g.addColorStop(0,mixc(skin,'#9A5246',.42));g.addColorStop(.07,mixc(skin,'#C68373',.2));g.addColorStop(.3,shade(skin,.13));g.addColorStop(.5,shade(skin,.04));g.addColorStop(.74,mixc(skin,'#B26A58',.18));g.addColorStop(.9,mixc(skin,'#8E4A3C',.42));g.addColorStop(1,mixc(skin,'#5E3028',.6));return g;}
+// the creases over a joint: soft, broken, a little uneven, each with a lit lip above it
+function wrinkles(c,skin,y,w,n,seed,al){const r=rng(seed);al=al||1;c.save();c.lineCap='round';
+  rad(c,0,y,w*1.15,.05+n*.012,`rgba(130,62,48,${.09*al})`);
+  for(let i=0;i<n;i++){const yy=y+(i-(n-1)/2)*.032+(r()-.5)*.012, ww=w*(.5+r()*.5), bow=.012+r()*.03, x0=-ww+(r()-.5)*.08, x1=ww+(r()-.5)*.08, mid=(r()-.5)*.08;
+    c.strokeStyle=`rgba(255,240,230,${(.12+r()*.1)*al})`;c.lineWidth=.012;c.beginPath();c.moveTo(x0,yy-.009);c.quadraticCurveTo(mid,yy+bow-.009,x1,yy-.009);c.stroke();
+    c.strokeStyle=rgba(skin,'#6B3328',.55,((.14+r()*.14)*al).toFixed(3));c.lineWidth=.005+r()*.005;c.beginPath();c.moveTo(x0,yy);c.quadraticCurveTo(mid,yy+bow,x1,yy);c.stroke();
+    if(r()<.5){c.strokeStyle=`rgba(255,255,255,${.25*al})`;c.lineWidth=.006;c.beginPath();c.moveTo(x0*.3,yy-.018);c.quadraticCurveTo(mid,yy+bow*.5-.02,x1*.3,yy-.018);c.stroke();}}c.restore();}
+// the finger in its skin; below the knuckle it fades out between f0 and f1 (erased, on its own layer)
+function finger(c,skin,f0,f1){const px=pxOf(c), r=rng(31);
+  c.save();c.shadowColor='rgba(70,38,28,.3)';c.shadowBlur=px*.2;c.shadowOffsetX=px*.06;c.shadowOffsetY=px*.12;c.fillStyle=shade(skin,-.2);c.fill(FINGER);c.restore();
+  c.save();c.shadowColor='rgba(60,30,22,.38)';c.shadowBlur=px*.035;c.shadowOffsetX=px*.015;c.shadowOffsetY=px*.025;c.fillStyle=shade(skin,-.2);c.fill(FINGER);c.restore();
+  c.fillStyle=skinAcross(c,skin,-.56,.56);c.fill(FINGER);
+  c.save();c.clip(FINGER);
+  // blood under the skin: the tip and the pad flush pink, blotches here and there
+  rad(c,0,-.95,.6,.45,'rgba(222,112,98,.26)');rad(c,.42,-.6,.14,.4,'rgba(200,95,80,.18)');rad(c,-.42,-.6,.12,.4,'rgba(230,130,110,.14)');
+  for(let i=0;i<9;i++)rad(c,(r()-.5)*.8,-1+r()*3.4,.1+r()*.15,.08+r()*.15,r()<.6?'rgba(205,105,90,.07)':'rgba(240,200,140,.07)');
+  c.fillStyle=pat(c,PORES,.9);c.fillRect(-1,-1.4,2,4.2);
+  // a soft sheen down the lit side, brightest on the pad
+  const h=c.createLinearGradient(-.4,0,-.04,0);h.addColorStop(0,'rgba(255,248,242,0)');h.addColorStop(.55,'rgba(255,248,242,.26)');h.addColorStop(1,'rgba(255,248,242,0)');c.fillStyle=h;
+  c.save();c.globalCompositeOperation='source-atop';c.fillRect(-.4,-1.2,.36,3.8);c.restore();
+  rad(c,-.2,-1.0,.14,.08,'rgba(255,250,246,.35)');rad(c,-.36,-.5,.06,.35,'rgba(255,246,240,.2)');
+  // the last joint, and the middle one further down
+  wrinkles(c,skin,.42,.24,3,3,.7);wrinkles(c,skin,1.6,.34,5,7,1);
   c.restore();
-  // below the knuckle it fades out (erased, so a finger never paints over its neighbour)
-  c.save();c.globalCompositeOperation='destination-out';const f=c.createLinearGradient(0,.7,0,2.2);f.addColorStop(0,'rgba(0,0,0,0)');f.addColorStop(1,'rgba(0,0,0,1)');c.fillStyle=c.strokeStyle=f;c.lineWidth=.05;c.fill(FINGER);c.stroke(FINGER);c.restore();}
-// a finger is drawn on a layer of its own and laid on top, so fading it out never touches its neighbours
+  c.save();c.globalAlpha*=.25;c.strokeStyle=mixc(skin,'#6E3A30',.6);c.lineWidth=.008;c.stroke(FINGER);c.restore();
+  c.save();c.globalCompositeOperation='destination-out';const g=c.createLinearGradient(0,f0,0,f1);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,1)');c.fillStyle=g;c.fillRect(-1.5,f0,3,6);c.restore();}
+// drawn on a layer of its own and laid on top, so fading never touches what's underneath
 const off=document.createElement('canvas'), oc=off.getContext('2d');
-function fingerOn(c,skin){if(off.width!==c.canvas.width||off.height!==c.canvas.height){off.width=c.canvas.width;off.height=c.canvas.height;}
-  oc.setTransform(1,0,0,1,0,0);oc.clearRect(0,0,off.width,off.height);oc.setTransform(c.getTransform());oc.globalAlpha=1;finger(oc,skin);
+function onLayer(c,draw){if(off.width!==c.canvas.width||off.height!==c.canvas.height){off.width=c.canvas.width;off.height=c.canvas.height;}
+  oc.setTransform(1,0,0,1,0,0);oc.clearRect(0,0,off.width,off.height);oc.setTransform(c.getTransform());oc.globalAlpha=1;draw(oc);
   c.save();c.setTransform(1,0,0,1,0,0);c.drawImage(off,0,0);c.restore();}
-// the skin folds round the nail
-function folds(c,skin){c.save();c.strokeStyle=shade(skin,-.2);c.lineWidth=.014;c.lineCap='round';c.beginPath();c.moveTo(-.36,-.24);c.bezierCurveTo(-.3,.02,.3,.02,.36,-.24);c.stroke();
-  c.strokeStyle=shade(skin,-.12);c.lineWidth=.01;[-1,1].forEach(s=>{c.beginPath();c.moveTo(s*.37,-.32);c.bezierCurveTo(s*.395,-.6,s*.395,-.9,s*.375,-1.04);c.stroke();});c.restore();}
-// the bare nail: pink bed, a pale half moon, a white free edge
-function bare(c,path){c.save();c.clip(path);c.fillStyle='#EDBDB5';c.fillRect(-1,-2,2,2.2);c.fillStyle='rgba(255,246,240,.55)';c.beginPath();c.ellipse(0,-.1,.24,.15,0,0,7);c.fill();
-  c.fillStyle='rgba(248,240,234,.5)';[-1.0,-1.03].forEach((y,i)=>{c.beginPath();c.moveTo(-.4,y);c.quadraticCurveTo(0,y-.16,.4,y);c.lineTo(.4,-2.4);c.lineTo(-.4,-2.4);c.closePath();c.fill();});c.restore();}
-// polish in a finish: cream, chrome, glitter or matte
-function polishFill(c,col,finish,seed){if(finish==='chrome'){const g=c.createLinearGradient(-.36,-1.5,.36,0);g.addColorStop(0,shade(col,.55));g.addColorStop(.3,col);g.addColorStop(.5,shade(col,-.35));g.addColorStop(.72,shade(col,.4));g.addColorStop(1,col);return g;}return col;}
-function sparkle(c,col,finish,seed){if(finish!=='glitter')return;const r=rng(seed||7);for(let i=0;i<70;i++){c.fillStyle=r()<.5?'rgba(255,255,255,.85)':shade(col,.45);const x=-.36+r()*.72, y=-1.9+r()*1.95, s=.008+r()*.012;c.fillRect(x,y,s,s);}}
-function gloss(c,k,shape,L){if(k<=0)return;c.save();c.globalAlpha*=k;c.strokeStyle='rgba(255,255,255,.75)';c.lineCap='round';c.lineWidth=.045;c.beginPath();c.moveTo(-.22,-.28);c.bezierCurveTo(-.27,-.6,-.26,-.95,-.2,-1.05-L*.55);c.stroke();
-  c.lineWidth=.022;c.globalAlpha*=.6;c.beginPath();c.moveTo(.2,-.5);c.bezierCurveTo(.23,-.7,.23,-.85,.2,-.95);c.stroke();c.restore();}
+function fingerOn(c,skin,f0,f1){onLayer(c,o=>finger(o,skin,f0==null?.7:f0,f1==null?2.2:f1));}
+// the bare nail: pink bed, a pale half moon, ridges, a white free edge with a curved smile line
+function bare(c,path){c.save();c.clip(path);
+  const g=c.createLinearGradient(-.37,0,.37,0);g.addColorStop(0,'#C98782');g.addColorStop(.2,'#E8B2AA');g.addColorStop(.5,'#F2C6BE');g.addColorStop(.8,'#E5AEA6');g.addColorStop(1,'#C27E78');c.fillStyle=g;c.fillRect(-1,-2.6,2,3);
+  rad(c,0,-.16,.26,.17,'rgba(255,246,242,.75)');
+  c.strokeStyle='rgba(255,255,255,.1)';c.lineWidth=.008;for(let x=-.27;x<=.28;x+=.07){c.beginPath();c.moveTo(x,-.25);c.quadraticCurveTo(x*1.03,-.6,x*.98,-1.05);c.stroke();}
+  c.fillStyle='rgba(252,246,240,.9)';c.beginPath();c.moveTo(-.4,-.99);c.quadraticCurveTo(0,-1.16,.4,-.99);c.lineTo(.4,-2.6);c.lineTo(-.4,-2.6);c.closePath();c.fill();
+  c.strokeStyle='rgba(230,210,200,.8)';c.lineWidth=.012;c.beginPath();c.moveTo(-.4,-.99);c.quadraticCurveTo(0,-1.16,.4,-.99);c.stroke();
+  c.restore();
+  c.save();c.clip(path);c.strokeStyle='rgba(110,50,40,.28)';c.lineWidth=.05;c.stroke(path);c.restore();}
+// where the skin meets the nail: the fold over its root casts a soft shadow onto it, and its rim catches the light;
+// the grooves along the sides; and, before the cuticle step, a pale rim of cuticle growing onto the nail
+function folds(c,skin,cuticle){const root=(y)=>{c.beginPath();c.moveTo(-.35,y-.16);c.bezierCurveTo(-.3,y+.07,.3,y+.07,.35,y-.16);};
+  c.save();c.clip(nailPath('square',0));c.lineCap='round';
+  root(-.12);c.strokeStyle='rgba(80,30,24,.22)';c.lineWidth=.07;c.stroke();root(-.13);c.strokeStyle='rgba(80,30,24,.25)';c.lineWidth=.025;c.stroke();c.restore();
+  c.save();c.lineCap='round';root(-.1);c.strokeStyle=rgba(skin,'#FFFFFF',.25,.45);c.lineWidth=.018;c.stroke();root(-.092);c.strokeStyle='rgba(255,250,246,.35)';c.lineWidth=.006;c.stroke();
+  if(cuticle>0){c.save();c.clip(nailPath('square',0));root(-.15);c.strokeStyle=`rgba(244,214,204,${.75*cuticle})`;c.lineWidth=.07*cuticle;c.stroke();root(-.17-.02*cuticle);c.strokeStyle=`rgba(255,255,255,${.35*cuticle})`;c.lineWidth=.012;c.stroke();c.restore();}
+  [-1,1].forEach(s=>{c.strokeStyle=rgba(skin,'#7A3D30',.5,.4);c.lineWidth=.014;c.beginPath();c.moveTo(s*.355,-.3);c.bezierCurveTo(s*.385,-.6,s*.385,-.9,s*.365,-1.04);c.stroke();
+    c.strokeStyle='rgba(255,240,232,.16)';c.lineWidth=.035;c.beginPath();c.moveTo(s*.4,-.32);c.bezierCurveTo(s*.425,-.6,s*.42,-.88,s*.4,-1.0);c.stroke();});c.restore();}
+// polish in a finish: cream, chrome, glitter or matte, then its depth across the curve
+function polishFill(c,col,finish){if(finish==='chrome'){const g=c.createLinearGradient(-.36,-1.5,.36,0);g.addColorStop(0,shade(col,.55));g.addColorStop(.3,col);g.addColorStop(.5,shade(col,-.35));g.addColorStop(.72,shade(col,.4));g.addColorStop(1,col);return g;}return col;}
+function polishDepth(c,path,finish){c.save();c.clip(path);const g=c.createLinearGradient(-.37,0,.37,0);g.addColorStop(0,'rgba(20,0,10,.4)');g.addColorStop(.16,'rgba(20,0,10,.08)');g.addColorStop(.38,'rgba(255,255,255,.1)');g.addColorStop(.7,'rgba(20,0,10,.05)');g.addColorStop(1,'rgba(20,0,10,.4)');c.fillStyle=g;c.fillRect(-1,-2.6,2,3);
+  rad(c,0,-.1,.5,.2,'rgba(20,0,10,.2)');const t=c.createLinearGradient(0,-1.6,0,-.9);t.addColorStop(0,'rgba(20,0,10,.14)');t.addColorStop(1,'rgba(20,0,10,0)');c.fillStyle=t;c.fillRect(-1,-2.6,2,1.7);
+  c.strokeStyle='rgba(20,0,10,.22)';c.lineWidth=.012;c.stroke(path);
+  if(finish==='matte'){c.fillStyle='rgba(255,255,255,.1)';c.fillRect(-1,-2.6,2,3);}c.restore();}
+function sparkle(c,col,finish,seed){if(finish!=='glitter')return;const r=rng(seed||7);for(let i=0;i<110;i++){const x=-.36+r()*.72, y=-1.9+r()*1.95, s=.006+r()*.014, b=r();c.fillStyle=b<.35?'rgba(255,255,255,.95)':b<.7?shade(col,.5):shade(col,-.3);c.save();c.translate(x,y);c.rotate(r()*3);c.fillRect(-s/2,-s/2,s,s);c.restore();}}
+// the reflection of a window: a long soft bar down the left of the curve, a point near the cuticle, a faint one opposite
+function gloss(c,k,shape,L){if(k<=0)return;const path=nailPath(shape,L);c.save();c.clip(path);c.globalAlpha*=k;
+  const top=-.27, bot=-1.03-L*.6, hh=(top-bot)/2;c.save();c.translate(-.19,(top+bot)/2);c.rotate(.035);const g=c.createLinearGradient(-.07,0,.07,0);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.25,'rgba(255,255,255,.7)');g.addColorStop(.5,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=g;c.beginPath();c.roundRect(-.07,-hh,.14,hh*2,.07);c.fill();const v=c.createLinearGradient(0,-hh,0,hh);v.addColorStop(0,'rgba(255,255,255,.25)');v.addColorStop(.5,'rgba(255,255,255,0)');v.addColorStop(1,'rgba(255,255,255,.2)');c.fillStyle=v;c.fillRect(-.05,-hh,.1,hh*2);
+  c.restore();
+  rad(c,.21,-.62,.03,.24,'rgba(255,255,255,.4)');rad(c,-.12,-.29,.08,.035,'rgba(255,255,255,.65)');rad(c,.04,-.7,.32,.55,'rgba(255,255,255,.07)');
+  c.strokeStyle='rgba(255,255,255,.35)';c.lineWidth=.01;c.beginPath();c.moveTo(-.33,-.4);c.bezierCurveTo(-.35,-.7,-.35,-.95,-.32,-1.05-L*.3);c.stroke();c.restore();}
 // the art, drawn up to k (0 to 1)
 function art(c,kind,col,k,path,L){if(k<=0||kind==='none')return;c.save();c.clip(path);
-  if(kind==='french'){c.beginPath();c.rect(-.4,-1.05-L-.1,.8*k,L+.2);c.clip();c.fillStyle=col;c.beginPath();c.moveTo(-.4,-.98);c.quadraticCurveTo(0,-1.16-L*.25,.4,-.98);c.lineTo(.4,-2.4);c.lineTo(-.4,-2.4);c.closePath();c.fill();}
+  if(kind==='french'){c.beginPath();c.rect(-.4,-1.05-L-.1,.8*k,L+.2);c.clip();c.fillStyle=col;c.beginPath();c.moveTo(-.4,-.98);c.quadraticCurveTo(0,-1.16-L*.25,.4,-.98);c.lineTo(.4,-2.4);c.lineTo(-.4,-2.4);c.closePath();c.fill();c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.008;c.stroke();}
   else if(kind==='moon'){c.globalAlpha*=k;c.fillStyle=col;c.beginPath();c.moveTo(-.36,-.3);c.bezierCurveTo(-.3,-.06,.3,-.06,.36,-.3);c.bezierCurveTo(.25,-.42,-.25,-.42,-.36,-.3);c.closePath();c.fill();}
-  else if(kind==='dots'){[-.45,-.72,-.99].forEach((y,i)=>{const kk=sm(seg(k,i/3,(i+1)/3));if(kk<=0)return;c.fillStyle=col;c.beginPath();c.arc(0,y,.055*kk,0,7);c.fill();});}
-  else if(kind==='flowers'){[[-.1,-.62,.13],[.13,-.98,.1]].forEach(([x,y,r],j)=>{for(let i=0;i<5;i++){const kk=sm(seg(k,(j*5+i)/11,(j*5+i+1.5)/11));if(kk<=0)continue;const a=i/5*Math.PI*2-Math.PI/2;c.fillStyle=col;c.beginPath();c.ellipse(x+Math.cos(a)*r*.55,y+Math.sin(a)*r*.55,r*.42*kk,r*.3*kk,a,0,7);c.fill();}
-    if(k>(j*5+5)/11){c.fillStyle='#E7B53C';c.beginPath();c.arc(x,y,r*.2,0,7);c.fill();}});}
-  else if(kind==='gems'){[[-.13,-.3,.045],[0,-.25,.06],[.13,-.3,.045]].forEach(([x,y,r],i)=>{const kk=sm(seg(k,i/3,(i+1)/3));if(kk<=0)return;c.save();c.translate(x,y);c.scale(kk,kk);c.fillStyle=col;c.beginPath();c.moveTo(0,-r);c.lineTo(r,0);c.lineTo(0,r);c.lineTo(-r,0);c.closePath();c.fill();c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.moveTo(0,-r);c.lineTo(r*.45,-r*.1);c.lineTo(0,0);c.closePath();c.fill();c.restore();});}
+  else if(kind==='dots'){[-.45,-.72,-.99].forEach((y,i)=>{const kk=sm(seg(k,i/3,(i+1)/3));if(kk<=0)return;rad(c,.008,y+.01,.06*kk,.06*kk,'rgba(0,0,0,.25)');c.fillStyle=col;c.beginPath();c.arc(0,y,.055*kk,0,7);c.fill();rad(c,-.015,y-.018,.018*kk,.012*kk,'rgba(255,255,255,.8)');});}
+  else if(kind==='flowers'){[[-.1,-.62,.13],[.13,-.98,.1]].forEach(([x,y,r],j)=>{for(let i=0;i<5;i++){const kk=sm(seg(k,(j*5+i)/11,(j*5+i+1.5)/11));if(kk<=0)continue;const a=i/5*Math.PI*2-Math.PI/2;c.save();c.translate(x+Math.cos(a)*r*.55,y+Math.sin(a)*r*.55);c.rotate(a);c.scale(kk,kk);
+      rad(c,.006,.01,r*.46,r*.34,'rgba(40,0,10,.22)');const g=c.createRadialGradient(-r*.25,0,0,0,0,r*.45);g.addColorStop(0,col);g.addColorStop(1,col.startsWith('#')?shade(col,-.14):col);c.fillStyle=g;c.beginPath();c.ellipse(0,0,r*.42,r*.3,0,0,7);c.fill();
+      c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.005;c.stroke();c.strokeStyle='rgba(0,0,0,.06)';c.beginPath();c.moveTo(-r*.3,0);c.lineTo(r*.3,0);c.stroke();c.restore();}
+    if(k>(j*5+5)/11){const g=c.createRadialGradient(x-r*.06,y-r*.06,0,x,y,r*.22);g.addColorStop(0,'#F7D774');g.addColorStop(1,'#C98F22');c.fillStyle=g;c.beginPath();c.arc(x,y,r*.2,0,7);c.fill();c.fillStyle='rgba(255,255,255,.7)';c.beginPath();c.arc(x-r*.06,y-r*.07,r*.05,0,7);c.fill();}});}
+  else if(kind==='gems'){[[-.13,-.3,.045],[0,-.25,.06],[.13,-.3,.045]].forEach(([x,y,r],i)=>{const kk=sm(seg(k,i/3,(i+1)/3));if(kk<=0)return;c.save();c.translate(x,y);c.scale(kk,kk);rad(c,.006,.01,r*1.1,r*1.1,'rgba(0,0,0,.3)');
+      const facets=[[0,-r,r,0,'rgba(255,255,255,.95)'],[r,0,0,r,shade(col,-.25)],[0,r,-r,0,shade(col,-.05)],[-r,0,0,-r,shade(col,.4)]];facets.forEach(([x1,y1,x2,y2,f])=>{c.fillStyle=f;c.beginPath();c.moveTo(0,0);c.lineTo(x1,y1);c.lineTo(x2,y2);c.closePath();c.fill();});
+      c.fillStyle=shade(col,.2);c.beginPath();c.moveTo(0,-r*.45);c.lineTo(r*.45,0);c.lineTo(0,r*.45);c.lineTo(-r*.45,0);c.closePath();c.fill();rad(c,-r*.2,-r*.25,r*.25,r*.15,'rgba(255,255,255,.9)');c.restore();});}
   c.restore();}
 // one finished nail on a fingertip (for the shelf, and the rest of the set)
-function doneNail(c,o,artK){const path=nailPath(o.shape,o.length);bare(c,path);c.save();c.clip(path);c.fillStyle=polishFill(c,o.col,o.finish);c.fillRect(-1,-2.4,2,2.6);sparkle(c,o.col,o.finish,o.seed);if(o.finish==='matte'){c.fillStyle='rgba(255,255,255,.1)';c.fillRect(-1,-2.4,2,2.6);}c.restore();
-  if(artK)art(c,o.art,o.artCol,artK,path,o.length);gloss(c,o.finish==='matte'?0:1,o.shape,o.length);}
-// the five fingertips of a hand from above, middle finger at the origin: where each sits, its size and its lean
-const HAND=[{x:-2.25,y:1.55,s:1.08,a:-.5},{x:-1.12,y:.28,s:.95,a:-.08},{x:0,y:0,s:1,a:0},{x:1.1,y:.2,s:.94,a:.07},{x:2.12,y:.78,s:.8,a:.16}];
-window.__nailSet=function(c,w,h,o){const z=Math.min(w/6.3,h/4.3);c.save();c.translate(w/2+.3*z,h*.06+1.6*z+o.length*z);c.scale(z,z);
-  HAND.forEach((f,i)=>{c.save();c.translate(f.x,f.y);c.rotate(f.a);c.scale(f.s,f.s);fingerOn(c,o.skin);folds(c,o.skin);doneNail(c,{...o,seed:i+3},i===3?1:0);c.restore();});c.restore();};
+function doneNail(c,o,artK){const path=nailPath(o.shape,o.length);bare(c,path);c.save();c.clip(path);c.fillStyle=polishFill(c,o.col,o.finish);c.fillRect(-1,-2.6,2,3);sparkle(c,o.col,o.finish,o.seed);c.restore();polishDepth(c,path,o.finish);
+  folds(c,o.skin,0);if(artK)art(c,o.art,o.artCol,artK,path,o.length);gloss(c,o.finish==='matte'?.25:1,o.shape,o.length);}
+// a press-on tip, lying on the table: the nail's shape in the shade, its clear base edge, its own shadow and shine
+function tip(c,o,seed,artK){const path=nailPath(o.shape,o.length);
+  c.save();lift(c,.35);c.fillStyle=o.col;c.fill(path);c.restore();
+  c.save();c.clip(path);c.fillStyle=polishFill(c,o.col,o.finish);c.fillRect(-1,-2.6,2,3);sparkle(c,o.col,o.finish,seed);c.restore();
+  polishDepth(c,path,o.finish);if(artK)art(c,o.art,o.artCol,artK,path,o.length);
+  c.save();c.clip(path);const b=c.createLinearGradient(0,-.06,0,-.24);b.addColorStop(0,'rgba(255,255,255,.55)');b.addColorStop(.35,'rgba(255,255,255,.18)');b.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=b;c.fillRect(-1,-.3,2,.3);
+  c.strokeStyle='rgba(255,255,255,.4)';c.lineWidth=.012;c.beginPath();c.moveTo(-.33,-.3);c.bezierCurveTo(-.29,-.08,.29,-.08,.33,-.3);c.stroke();c.restore();
+  gloss(c,o.finish==='matte'?.25:1,o.shape,o.length);}
+// the full set: ten tips in a ring round the finished nail, laid out one by one as k goes from 0 to 1
+function fan(c,o,k){if(k<=0)return;const L=o.length;for(let i=0;i<10;i++){const side=i<5?-1:1, j=i%5, a=side*(.26+j*.55), t=sm(seg(k,j*.1,j*.1+.5));if(t<=0)continue;
+  const r=lerp(1.5,2.05,t), sz=[.86,.8,.84,.78,.68][j];c.save();c.globalAlpha*=t;c.translate(Math.sin(a)*r,-.72-Math.cos(a)*r);c.rotate(a);c.scale(sz*.88,sz);c.translate(0,.6+L*.5);tip(c,o,i+3,i===7?1:0);c.restore();}}
+// a folded cotton towel under the hand: a rolled, stitched hem and the soft creases of the cloth
+function towel(c,x0,y0,w,h,a){const px=pxOf(c);c.save();c.rotate(a);
+  c.save();c.shadowColor='rgba(60,40,30,.22)';c.shadowBlur=px*.22;c.shadowOffsetY=px*.07;c.fillStyle='#FAF8F5';c.fillRect(x0,y0,w,h);c.restore();
+  c.save();c.beginPath();c.rect(x0,y0,w,h);c.clip();c.fillStyle=pat(c,TERRY,.55);c.fillRect(x0,y0,w,h);
+  const r=rng(41);c.lineCap='round';for(let i=0;i<6;i++){const x=x0+r()*w, y=y0+.6+r()*2.5, len=1.5+r()*2.5, a2=(r()-.5)*1.2, b=(r()-.5)*.6;c.save();c.translate(x,y);c.rotate(a2);c.beginPath();c.moveTo(-len/2,0);c.quadraticCurveTo(0,b,len/2,0);c.strokeStyle='rgba(140,125,112,.07)';c.lineWidth=.16;c.stroke();c.translate(0,-.05);c.strokeStyle='rgba(255,255,255,.22)';c.lineWidth=.08;c.stroke();c.restore();}
+  const hem=c.createLinearGradient(0,y0,0,y0+.34);hem.addColorStop(0,'rgba(170,158,146,.35)');hem.addColorStop(.12,'rgba(255,255,255,.75)');hem.addColorStop(.48,'rgba(236,230,222,.3)');hem.addColorStop(.6,'rgba(150,135,120,.24)');hem.addColorStop(1,'rgba(150,135,120,0)');c.fillStyle=hem;c.fillRect(x0,y0,w,.34);
+  c.strokeStyle='rgba(165,152,140,.45)';c.lineWidth=.009;c.setLineDash([.035,.022]);c.beginPath();c.moveTo(x0,y0+.19);c.lineTo(x0+w,y0+.19);c.stroke();c.setLineDash([]);c.restore();c.restore();}
+// the try-on: five tips in a row on marble, sized thumb to little finger
+let shelfTable=null;
+window.__nailSet=function(c,w,h,o){const key=Math.round(w)+'x'+Math.round(h);if(!shelfTable||shelfTable.key!==key){shelfTable=marble(2400,Math.round(2400*h/w),23);shelfTable.key=key;}c.drawImage(shelfTable,0,0,w,h);
+  const z=Math.min(w/6.8,h/(2.1+o.length*1.4));c.save();c.translate(w/2,h/2+z*(.58+o.length/2));c.scale(z,z);
+  [1.08,.95,1,.94,.8].forEach((s,i)=>{c.save();c.translate((i-2)*1.18,Math.abs(i-2)*.1);c.rotate((i-2)*.05);c.scale(s,s);c.translate(0,(1-s)*-.6);tip(c,o,i+3,0);c.restore();});c.restore();};
 window.__nailShapes=SHAPES;
+
 
 /* ============ THE NAIL (what the hero shows) ============ */
 const STAGES=[
@@ -389,62 +496,100 @@ const BG='rgb(251,247,244)';
 
 /* ============ GEOMETRY ============ */
 const cv=$('#nail'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null,LZ=null;
-// a fingertip with room for the tools is 1.7 wide and 3.3 tall (tip at the top); the whole hand is 6.3 by 4.6
+let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null,LZ=null,TABLE=null;
+// a fingertip with room for the tools is 1.7 wide and 3.3 tall (tip at the top); with the set in a ring round it, 5.6 by 5.4 and the length
 function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/1.7,(ay[1]-ay[0])/3.3);return{s,x:(ax[0]+ax[1])/2,y:ay[0]+s*(1.95+NAIL.length*.5)};}
-function fitHand(ax,ay){const s=Math.min((ax[1]-ax[0])/6.3,(ay[1]-ay[0])/4.6);return{s,x:(ax[0]+ax[1])/2+.3*s,y:(ay[0]+ay[1])/2-s*(.5-NAIL.length/2)};}
+function fitFan(ax,ay){const s=Math.min((ax[1]-ax[0])/5.6,(ay[1]-ay[0])/(5.4+NAIL.length));return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2+s*(.65+NAIL.length/2)};}
 function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
+  TABLE=marble(cv.width,cv.height,23);
   const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){const lo=mt.top-stg.top-10;LA=LB=fit([W*.04,W*.96],[top,lo]);LZ=fitHand([W*.03,W*.97],[top,lo]);}
+  if(mobile){const lo=mt.top-stg.top-10;LA=LB=fit([W*.04,W*.96],[top,lo]);LZ=fitFan([W*.03,W*.97],[top,lo]);}
   else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,cd.top)-stg.top;
     const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.2,W*.8],[top,low-14]);LZ=fitHand([W*.08,W*.92],[top,low-14]);}}
+    LA=side.s>=under.s*.8?side:under;LB=fit([W*.2,W*.8],[top,low-14]);LZ=fitFan([W*.08,W*.92],[top,low-14]);}}
 
 /* ============ DRAWING ============ */
 let shown=-1;
+// a tool held above the hand casts a soft shadow down and to the right; h is how high it's held
+function lift(c,h){const px=pxOf(c);c.shadowColor='rgba(60,34,26,.3)';c.shadowBlur=px*.06*h;c.shadowOffsetX=px*.05*h;c.shadowOffsetY=px*.09*h;}
+const STEEL=['#7E858F','#D9DEE4','#A3AAB3','#F4F6F8','#BCC2C9','#6F767F'];
+function across(c,w,cols){const g=c.createLinearGradient(-w/2,0,w/2,0);cols.forEach((col,i)=>g.addColorStop(i/(cols.length-1),col));return g;}
+// a crystal glass file, its filing face etched, sliding to and fro under the free edge
 function file(c,k,time,L){if(k<=0||k>=1)return;const y=-1.05-L*.95, x=Math.sin(k*Math.PI*6)*.35;c.save();c.translate(x,y);c.rotate(-.12);
-  c.fillStyle='rgba(220,228,236,.82)';c.strokeStyle='rgba(120,130,150,.5)';c.lineWidth=.008;c.beginPath();c.roundRect(-.8,-.05,1.6,.1,.04);c.fill();c.stroke();
-  c.fillStyle='rgba(255,255,255,.6)';c.fillRect(-.76,-.035,1.5,.012);c.restore();
-  const r=rng(Math.floor(k*40));c.fillStyle='rgba(240,230,225,.9)';for(let i=0;i<14;i++){const dx=(r()-.5)*.6, dy=r()*.35;c.beginPath();c.arc(dx,y+.06+dy,.008+r()*.008,0,7);c.fill();}}
-function pusher(c,k){if(k<=0||k>=1)return;const a=lerp(-.9,.9,sm(k)), x=Math.sin(a)*.3, y=-.12-Math.cos(a)*.06;c.save();c.translate(x,y);c.rotate(.5);
-  c.fillStyle='#C9CED6';c.beginPath();c.moveTo(-.05,-.02);c.lineTo(.05,-.02);c.lineTo(.025,.9);c.lineTo(-.025,.9);c.closePath();c.fill();c.fillStyle='rgba(255,255,255,.5)';c.fillRect(-.01,.05,.012,.8);c.restore();}
-function brush(c,x,y,col,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.28);c.fillStyle=col;c.strokeStyle='rgba(43,33,38,.35)';c.lineWidth=.008;c.beginPath();c.moveTo(-.06,0);c.quadraticCurveTo(0,.03,.06,0);c.lineTo(.05,.2);c.lineTo(-.05,.2);c.closePath();c.fill();c.stroke();
-  c.fillStyle='#2B2126';c.beginPath();c.roundRect(-.085,.2,.17,.62,.03);c.fill();c.fillStyle='rgba(255,255,255,.12)';c.fillRect(-.06,.24,.025,.54);c.restore();}
-function dotter(c,x,y,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.35);c.fillStyle='#C9CED6';c.beginPath();c.arc(0,0,.025,0,7);c.fill();c.fillRect(-.008,0,.016,.3);c.fillStyle='#7A5BA6';c.beginPath();c.roundRect(-.03,.3,.06,.6,.03);c.fill();c.restore();}
+  c.save();lift(c,1.2);c.fillStyle='rgba(214,226,236,.5)';c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.fill();c.restore();
+  c.save();c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.clip();
+  const g=c.createLinearGradient(0,-.11,0,.11);g.addColorStop(0,'rgba(255,255,255,.85)');g.addColorStop(.18,'rgba(220,232,242,.35)');g.addColorStop(.55,'rgba(190,206,220,.3)');g.addColorStop(.85,'rgba(150,170,190,.45)');g.addColorStop(1,'rgba(255,255,255,.7)');c.fillStyle=g;c.fillRect(-1.3,-.11,2.6,.22);
+  c.globalAlpha*=.75;c.fillStyle=pat(c,FROST,.12);c.fillRect(-1.05,-.08,1.9,.16);c.globalAlpha/=.75;
+  c.fillStyle='rgba(255,255,255,.75)';c.fillRect(-1.2,-.085,2.3,.012);c.fillStyle='rgba(120,140,160,.25)';c.fillRect(.95,-.11,.006,.22);c.restore();
+  c.strokeStyle='rgba(110,130,150,.45)';c.lineWidth=.006;c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.stroke();c.restore();
+  // the dust of the edge
+  const r=rng(Math.floor(k*40));for(let i=0;i<22;i++){const dx=(r()-.5)*.7, dy=r()*.4, s=.006+r()*.012;rad(c,dx,y+.08+dy,s*1.8,s*1.8,`rgba(255,248,244,${.5+r()*.4})`);c.fillStyle='rgba(250,240,236,.95)';c.beginPath();c.arc(dx,y+.08+dy,s*.6,0,7);c.fill();}}
+// a steel pusher, its spoon end easing the skin back along the base of the nail
+function pusher(c,k){if(k<=0||k>=1)return;const a=lerp(-.9,.9,sm(k)), x=Math.sin(a)*.3, y=-.14-Math.cos(a)*.06;c.save();c.translate(x,y);c.rotate(.5);
+  c.save();lift(c,.8);c.fillStyle=across(c,.13,STEEL);c.beginPath();c.moveTo(-.075,-.03);c.quadraticCurveTo(0,-.09,.075,-.03);c.lineTo(.03,.32);c.lineTo(.05,.42);c.lineTo(.055,2.4);c.lineTo(-.055,2.4);c.lineTo(-.05,.42);c.lineTo(-.03,.32);c.closePath();c.fill();c.restore();
+  // the knurled grip and the polished spoon
+  c.save();c.beginPath();c.rect(-.055,.6,.11,1.5);c.clip();c.strokeStyle='rgba(60,66,74,.35)';c.lineWidth=.006;for(let t=.55;t<2.15;t+=.03){c.beginPath();c.moveTo(-.06,t);c.lineTo(.06,t+.05);c.stroke();c.beginPath();c.moveTo(.06,t);c.lineTo(-.06,t+.05);c.stroke();}c.restore();
+  c.fillStyle='rgba(255,255,255,.7)';c.beginPath();c.ellipse(-.02,-.02,.03,.012,0,0,7);c.fill();c.fillRect(-.018,.45,.01,1.9);c.restore();}
+// the bottle's brush: a fan of bristles loaded with colour, its stem and the glossy cap it's held by
+function brush(c,x,y,col,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.28);
+  c.save();lift(c,1);c.fillStyle=across(c,.2,['#0E0B0D','#2F282C','#6E6468','#1E191C','#0A0809']);c.beginPath();c.roundRect(-.1,.26,.2,1.15,.035);c.fill();c.restore();
+  c.fillStyle='rgba(255,255,255,.45)';c.fillRect(-.045,.3,.016,1.06);c.fillStyle='rgba(255,255,255,.08)';for(let t=.33;t<.6;t+=.04)c.fillRect(-.1,t,.2,.012);
+  c.fillStyle=across(c,.05,STEEL);c.fillRect(-.022,.16,.044,.12);
+  const g=c.createLinearGradient(0,0,0,.2);g.addColorStop(0,col);g.addColorStop(1,'rgba(40,24,28,.9)');c.fillStyle=g;c.beginPath();c.moveTo(-.07,.01);c.quadraticCurveTo(0,.045,.07,.01);c.lineTo(.03,.18);c.lineTo(-.03,.18);c.closePath();c.fill();
+  c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=.004;for(let i=-3;i<=3;i++){c.beginPath();c.moveTo(i*.018,.025);c.lineTo(i*.008,.17);c.stroke();}
+  c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.ellipse(-.025,.06,.008,.04,.1,0,7);c.fill();c.restore();}
+// a dotting tool: a polished steel ball on a pen-sized handle
+function dotter(c,x,y,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.35);
+  c.save();lift(c,.9);c.fillStyle=across(c,.016,STEEL);c.fillRect(-.008,0,.016,.32);c.fillStyle=across(c,.07,['#4B3A5E','#8B73AE','#C9B7DF','#7A5F9C','#3E2F50']);c.beginPath();c.roundRect(-.035,.3,.07,.95,.035);c.fill();c.restore();
+  const b=c.createRadialGradient(-.008,-.01,0,0,0,.028);b.addColorStop(0,'#FFFFFF');b.addColorStop(.5,'#B8BEC6');b.addColorStop(1,'#5E656E');c.fillStyle=b;c.beginPath();c.arc(0,0,.026,0,7);c.fill();
+  c.fillStyle='rgba(255,255,255,.4)';c.fillRect(-.018,.34,.01,.86);c.restore();}
 // the oil: a glass dropper comes in over the cuticle and lets one golden drop fall
 function dropper(c,k){const on=sm(seg(k,.35,.5))*(1-sm(seg(k,.85,1)));if(on<=0)return;const drop=seg(k,.5,.62);c.save();c.globalAlpha*=on;c.translate(.02,lerp(-1.1,-.42,sm(seg(k,.35,.5))));c.scale(1.4,1.4);
-  c.fillStyle='#E8B53C';if(drop>0&&drop<1){c.beginPath();c.ellipse(0,.02+drop*.25,.022,.03,0,0,7);c.fill();}
-  c.fillStyle='rgba(225,236,240,.85)';c.beginPath();c.moveTo(-.025,0);c.lineTo(.025,0);c.lineTo(.035,-.5);c.lineTo(-.035,-.5);c.closePath();c.fill();c.fillStyle='rgba(232,181,60,.75)';c.fillRect(-.022,-.22,.044,.21);c.fillStyle='#2B2126';c.beginPath();c.roundRect(-.06,-.78,.12,.3,.05);c.fill();c.restore();}
+  if(drop>0&&drop<1){const dy=.02+drop*.25;const g=c.createRadialGradient(-.006,dy-.01,0,0,dy,.035);g.addColorStop(0,'#FFF1C2');g.addColorStop(.5,'#E8B53C');g.addColorStop(1,'#A86F12');c.fillStyle=g;c.beginPath();c.moveTo(0,dy-.045);c.quadraticCurveTo(.026,dy-.005,.022,dy+.012);c.arc(0,dy+.008,.022,0,Math.PI);c.quadraticCurveTo(-.026,dy-.005,0,dy-.045);c.fill();}
+  c.save();lift(c,1.1);c.fillStyle='rgba(214,228,234,.38)';c.beginPath();c.moveTo(-.02,0);c.quadraticCurveTo(0,.014,.02,0);c.lineTo(.038,-.5);c.lineTo(-.038,-.5);c.closePath();c.fill();c.restore();
+  const oil=c.createLinearGradient(-.03,0,.03,0);oil.addColorStop(0,'rgba(168,111,18,.85)');oil.addColorStop(.4,'rgba(240,196,92,.8)');oil.addColorStop(1,'rgba(150,96,14,.85)');c.fillStyle=oil;c.beginPath();c.moveTo(-.017,-.01);c.lineTo(.017,-.01);c.lineTo(.03,-.24);c.lineTo(-.03,-.24);c.closePath();c.fill();
+  c.fillStyle='rgba(255,255,255,.7)';c.fillRect(-.026,-.48,.008,.45);c.fillStyle='rgba(255,255,255,.3)';c.fillRect(.016,-.46,.005,.4);
+  c.save();lift(c,1.3);c.fillStyle=across(c,.13,['#050404','#2B2527','#5C5356','#1A1617','#030303']);c.beginPath();c.roundRect(-.055,-.56,.11,.08,.02);c.fill();c.beginPath();c.ellipse(0,-.72,.066,.17,0,0,7);c.fill();c.restore();
+  c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.ellipse(-.025,-.76,.012,.08,0,0,7);c.fill();c.restore();}
+// the LED lamp: a white dome over the hand, its LEDs glowing and its light washing the nail violet
 function lamp(c,k,time){if(k<=0)return;const y=lerp(-3.4,-1.15,sm(k));c.save();
-  const g=c.createRadialGradient(0,-.7,0,0,-.7,1.2);g.addColorStop(0,`rgba(150,120,255,${.35*sm(k)})`);g.addColorStop(1,'rgba(150,120,255,0)');c.fillStyle=g;c.fillRect(-1.5,-2.2,3,3);
-  c.translate(0,y);c.fillStyle='rgba(255,255,255,.88)';c.strokeStyle='rgba(43,33,38,.12)';c.lineWidth=.01;c.beginPath();c.moveTo(-1.05,.4);c.bezierCurveTo(-1.05,-.6,1.05,-.6,1.05,.4);c.lineTo(.8,.4);c.bezierCurveTo(.8,-.3,-.8,-.3,-.8,.4);c.closePath();c.fill();c.stroke();
-  for(let i=0;i<7;i++){const a=Math.PI*(.15+i*.7/6), x=-Math.cos(a)*.86, yy=.32-Math.sin(a)*.62;c.fillStyle=`rgba(160,130,255,${.6+.4*Math.sin(time*6+i)})`;c.beginPath();c.arc(x,yy,.025,0,7);c.fill();}c.restore();}
-// the hero's own nail, as far as p has got
-function hero(c,f,time){const L=NAIL.length, path=nailPath(NAIL.shape,L);
-  fingerOn(c,NAIL.skin);
+  c.save();c.globalCompositeOperation='screen';rad(c,0,-.7,1.3,1.3,`rgba(130,105,255,${.4*sm(k)})`);c.restore();
+  c.translate(0,y);const dome=new Path2D();dome.moveTo(-1.08,.42);dome.bezierCurveTo(-1.08,-.62,1.08,-.62,1.08,.42);dome.lineTo(.8,.42);dome.bezierCurveTo(.8,-.3,-.8,-.3,-.8,.42);dome.closePath();
+  c.save();lift(c,2.2);c.fillStyle='#F4F2F1';c.fill(dome);c.restore();
+  c.save();c.clip(dome);const g=c.createLinearGradient(0,-.4,0,.42);g.addColorStop(0,'#FFFFFF');g.addColorStop(.6,'#ECE9E8');g.addColorStop(1,'#CFCAC8');c.fillStyle=g;c.fillRect(-1.2,-.6,2.4,1.1);
+  c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=.03;c.beginPath();c.moveTo(-.98,.3);c.bezierCurveTo(-.98,-.48,.98,-.48,.98,.3);c.stroke();
+  c.strokeStyle='rgba(60,50,70,.5)';c.lineWidth=.07;c.beginPath();c.moveTo(-.8,.42);c.bezierCurveTo(-.8,-.3,.8,-.3,.8,.42);c.stroke();c.restore();
+  c.fillStyle='rgba(30,28,36,.85)';c.beginPath();c.roundRect(-.22,-.32,.44,.07,.03);c.fill();c.save();c.translate(0,-.285);c.scale(.01,.01);c.fillStyle='#9DF0C8';c.font='600 5px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(60-Math.floor(k*30)).padStart(2,'0'),0,0);c.restore();
+  for(let i=0;i<7;i++){const a=Math.PI*(.15+i*.7/6), x=-Math.cos(a)*.86, yy=.32-Math.sin(a)*.62, on=.6+.4*Math.sin(time*6+i);
+    rad(c,x,yy,.09,.09,`rgba(150,125,255,${.55*on})`);c.fillStyle=`rgba(235,228,255,${on})`;c.beginPath();c.arc(x,yy,.018,0,7);c.fill();}c.restore();}
+// the hero's own nail, as far as p has got; z is how far the view has pulled back to the whole hand
+function hero(c,f,time,z){const L=NAIL.length, path=nailPath(NAIL.shape,L);
+  fingerOn(c,NAIL.skin,.7,2.2);
   // the shape: the natural nail is filed back to the chosen shape
-  const shp=sm(f[0]);if(shp<1){c.save();c.globalAlpha*=1-shp;bare(c,nailPath('natural',.52));c.restore();}
-  bare(c,path);folds(c,NAIL.skin);
-  // cuticles: the skin over the base pushed back, then a drop of oil
-  const cut=sm(seg(f[1],0,.5));if(cut<1){c.save();c.clip(path);c.strokeStyle=shade(NAIL.skin,.05);c.lineWidth=.07*(1-cut);c.beginPath();c.moveTo(-.36,-.27);c.bezierCurveTo(-.3,-.02,.3,-.02,.36,-.27);c.stroke();c.restore();}
-  const oil=sm(seg(f[1],.55,.85)), oilOff=1-sm(seg(f[2],0,.5));if(oil>0){c.save();c.globalAlpha*=oilOff;c.save();c.clip(path);const og=c.createRadialGradient(0,-.15,0,0,-.15,.55*oil+.01);og.addColorStop(0,'rgba(255,200,90,.5)');og.addColorStop(1,'rgba(255,200,90,0)');c.fillStyle=og;c.fillRect(-1,-2,2,2.2);c.restore();
-    c.fillStyle='rgba(255,210,120,.55)';c.beginPath();c.ellipse(0,-.13,.34*oil,.075,0,0,7);c.fill();c.fillStyle='rgba(255,255,255,.75)';c.beginPath();c.ellipse(-.1,-.16,.08*oil,.018,-.1,0,7);c.fill();c.restore();}
+  bare(c,path);const shp=sm(f[0]);if(shp<1){c.save();c.globalAlpha*=1-shp;bare(c,nailPath('natural',.52));c.restore();}
   // base coat: milky, painted cuticle to tip
-  const tipY=-1.05-L, base=sm(f[2]);if(base>0){c.save();c.clip(path);c.beginPath();c.rect(-1,lerp(.05,tipY-.05,base),2,3);c.clip();c.fillStyle='rgba(246,214,214,.72)';c.fillRect(-1,-2.4,2,2.6);c.restore();}
+  const tipY=-1.05-L, base=sm(f[2]);if(base>0){c.save();c.clip(path);c.beginPath();c.rect(-1,lerp(.05,tipY-.05,base),2,3);c.clip();c.fillStyle='rgba(246,214,214,.72)';c.fillRect(-1,-2.6,2,3);c.restore();}
   // colour: two coats of three strokes, each from the cuticle up
   const strokes=[0,-.2,.2,0,-.2,.2], fc=f[3];let tool=null;
   strokes.forEach((x,i)=>{const k=sm(seg(fc,i/6,(i+1)/6));if(k<=0)return;const y=lerp(.05,tipY-.05,k);c.save();c.clip(path);c.beginPath();c.moveTo(x-.17,.1);c.lineTo(x-.17,y+.06);c.quadraticCurveTo(x,y-.05,x+.17,y+.06);c.lineTo(x+.17,.1);c.closePath();c.clip();
-    c.globalAlpha*=i<3?.7:1;c.fillStyle=polishFill(c,NAIL.col,NAIL.finish);c.fillRect(-1,-2.4,2,2.6);c.restore();if(k<1)tool=['brush',x,y];});
-  if(fc>=1){c.save();c.clip(path);sparkle(c,NAIL.col,NAIL.finish,3);if(NAIL.finish==='matte'&&f[5]>.3){c.fillStyle='rgba(255,255,255,.1)';c.fillRect(-1,-2.4,2,2.6);}c.restore();}
+    c.globalAlpha*=i<3?.7:1;c.fillStyle=polishFill(c,NAIL.col,NAIL.finish);c.fillRect(-1,-2.6,2,3);c.restore();if(k<1)tool=['brush',x,y];});
+  if(fc>=1){c.save();c.clip(path);sparkle(c,NAIL.col,NAIL.finish,3);c.restore();}
+  // the colour has depth across the curve of the nail
+  const deep=Math.max(base*.35,sm(seg(fc,0,.5)));if(deep>0){c.save();c.globalAlpha*=deep;polishDepth(c,path,f[5]>.3?NAIL.finish:'cream');c.restore();}
+  // the skin round the nail; before the cuticle step a pale rim of cuticle covers the base
+  const cut=sm(seg(f[1],0,.5));folds(c,NAIL.skin,1-cut);
+  // then a drop of oil soaks into it
+  const oil=sm(seg(f[1],.55,.85)), oilOff=1-sm(seg(f[2],0,.5));if(oil>0){c.save();c.globalAlpha*=oilOff;rad(c,0,-.16,.5*oil+.01,.16*oil+.01,'rgba(255,196,80,.32)');
+    c.fillStyle='rgba(240,180,70,.42)';c.beginPath();c.ellipse(0,-.13,.34*oil,.06,0,0,7);c.fill();rad(c,-.1,-.15,.09*oil+.001,.016,'rgba(255,255,255,.85)');rad(c,.16,-.17,.04*oil+.001,.01,'rgba(255,255,255,.6)');c.restore();}
   // wet shine while it's being painted
-  if(fc>0&&fc<1)gloss(c,.5,NAIL.shape,L);
+  if(fc>0&&fc<1)gloss(c,.55,NAIL.shape,L);
   // the art
   const ak=f[4];art(c,NAIL.art,NAIL.artCol,ak,path,L);if(ak>0&&ak<1&&NAIL.art!=='none')tool=['dot',lerp(-.2,.15,ak),lerp(-.5,-1,ak)];
   // top coat, the lamp, and the shine
-  gloss(c,NAIL.finish==='matte'?0:sm(seg(f[5],.05,.5)),NAIL.shape,L);
+  gloss(c,NAIL.finish==='matte'?.25*sm(seg(f[5],.05,.5)):sm(seg(f[5],.05,.5)),NAIL.shape,L);
   // tools
   file(c,f[0]>.05?seg(f[0],.05,.95):0,time,L);pusher(c,seg(f[1],.03,.5));dropper(c,f[1]);
-  if(f[2]>0&&f[2]<1)brush(c,0,lerp(.05,tipY-.05,base),'rgb(246,214,214)',true);
+  if(f[2]>0&&f[2]<1)brush(c,0,lerp(.05,tipY-.05,base),'#F6D6D6',true);
   if(tool&&tool[0]==='brush')brush(c,tool[1],tool[2],NAIL.col,true);if(tool&&tool[0]==='dot')dotter(c,tool[1],tool[2],true);
   lamp(c,sm(seg(f[5],0,.18))*(1-sm(seg(f[5],.38,.5))),time);
   return path;}
@@ -460,19 +605,22 @@ function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
 /* ============ FRAME ============ */
 const hero_=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=BG;ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;if(TABLE)ctx.drawImage(TABLE,0,0);else{ctx.fillStyle=BG;ctx.fillRect(0,0,cv.width,cv.height);}ctx.setTransform(DPR,0,0,DPR,0,0);
   const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
   const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  // the full set: from the last stage's middle the view pulls back to the whole hand
+  // the full set: from the last stage's middle the view pulls back and the set of ten is laid out round the nail
   const z=sm(seg(f[5],.5,.92));
   let S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);S=lerp(S,LZ.s,z);X=lerp(X,LZ.x,z);Y=lerp(Y,LZ.y,z);
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  // a soft pool of light on the towel
-  const lg=ctx.createRadialGradient(X,Y-.6*S,0,X,Y-.6*S,S*2.4);lg.addColorStop(0,'rgba(247,238,233,1)');lg.addColorStop(1,'rgba(251,247,244,0)');ctx.fillStyle=lg;ctx.fillRect(0,0,W,H);
   ctx.save();ctx.translate(X,Y);ctx.scale(S,S);
-  if(z>0){HAND.forEach((h,i)=>{if(i===2)return;ctx.save();ctx.globalAlpha*=z;ctx.translate(h.x,h.y);ctx.rotate(h.a);ctx.scale(h.s,h.s);fingerOn(ctx,NAIL.skin);folds(ctx,NAIL.skin);doneNail(ctx,{...NAIL,seed:i+3},0);ctx.restore();});}
-  hero(ctx,f,time);
-  ctx.restore();ctx.globalAlpha=1;
+  towel(ctx,-7,.62,14,9,-.04);
+  fan(ctx,NAIL,z);
+  hero(ctx,f,time,z);
+  ctx.restore();
+  // daylight from a window up and to the left, and the corners of the picture falling off
+  const lt=ctx.createLinearGradient(0,0,W*.7,H);lt.addColorStop(0,'rgba(255,250,242,.28)');lt.addColorStop(1,'rgba(255,250,242,0)');ctx.fillStyle=lt;ctx.fillRect(0,0,W,H);
+  const R=Math.hypot(W,H)*.62, vg=ctx.createRadialGradient(X,Y-S*.4,R*.35,X,Y-S*.4,R);vg.addColorStop(0,'rgba(110,84,74,0)');vg.addColorStop(1,'rgba(110,84,74,.14)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  // on a phone the picture sits behind the words until they scroll away
+  if(mobile&&k<1){ctx.fillStyle=`rgba(251,247,244,${(.75*(1-k)).toFixed(3)})`;ctx.fillRect(0,0,W,H);}
   copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
 function target(){const r=hero_.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
