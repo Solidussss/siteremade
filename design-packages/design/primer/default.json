@@ -1,0 +1,254 @@
+{
+  "business": {
+    "name": "Brightwell Tutors"
+  },
+  "brand": {
+    "name": "Brightwell"
+  },
+  "contact": {
+    "phone": "01632 960447"
+  },
+  "nav": {
+    "subjects": "Subjects",
+    "price": "Prices",
+    "trial": "Free lesson",
+    "cta": "Book a free lesson"
+  },
+  "hero": {
+    "eyebrow": "Brightwell · tutoring, Newcastle",
+    "title": "Stuck today,",
+    "titleEm": "sure tomorrow.",
+    "lede": "One-to-one tutoring in maths, English and science for ages 7 to 18, at home or online, with the same tutor every week. Scroll through a lesson, from the question that stumped them to the gold star.",
+    "cta": "Book a free lesson",
+    "cta2": "See subjects",
+    "hint": "Scroll through the lesson"
+  },
+  "lesson": {
+    "topic": "Fractions",
+    "question": "What is 3/4 + 1/8 ?",
+    "idea": "Make the bottom numbers the same first.",
+    "sketch": "fractions",
+    "example": [
+      "3/4 = 6/8",
+      "6/8 + 1/8 = 7/8"
+    ],
+    "exampleLabel": "Example",
+    "tryLabel": "Your turn",
+    "tryQ": "2/3 + 1/6 = ?",
+    "wrong": "2/3 + 1/6 = 3/9",
+    "fix": "2/3 = 4/6",
+    "right": "4/6 + 1/6 = 5/6",
+    "minutes": 60,
+    "tries": 5,
+    "score": 5,
+    "of": 5,
+    "confidence": "High",
+    "start": "Low"
+  },
+  "report": {
+    "labels": [
+      "Minutes",
+      "Tries",
+      "Score",
+      "Confidence"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The tricky question",
+      "c": "Every lesson starts with the question from school that didn't make sense. No judgement, just a fresh page."
+    },
+    {
+      "n": "The big idea",
+      "c": "One idea, drawn out until it clicks. If it doesn't, we draw it a different way."
+    },
+    {
+      "n": "A worked example",
+      "c": "We solve one together, out loud, every step written down."
+    },
+    {
+      "n": "Your turn",
+      "c": "They try one on their own. Getting it a bit wrong is part of the plan."
+    },
+    {
+      "n": "The fix",
+      "c": "We find the slip together, in red pen, and they put it right themselves."
+    },
+    {
+      "n": "Got it",
+      "c": "Five out of five by the end of the hour, and a gold star they actually earned."
+    }
+  ],
+  "subjects": {
+    "eyebrow": "Subjects",
+    "title": "What we teach,",
+    "titleEm": "and who.",
+    "sub": "Every tutor is a qualified teacher with a background check, matched to your child by subject, level and temperament.",
+    "list": [
+      {
+        "n": "Maths",
+        "d": "Times tables to A-level calculus, at their pace.",
+        "col": "#2D4FA3",
+        "sign": "÷",
+        "levels": [
+          "KS2",
+          "KS3",
+          "GCSE",
+          "A-level"
+        ]
+      },
+      {
+        "n": "English",
+        "d": "Reading, writing and the set texts, with confidence.",
+        "col": "#C2410C",
+        "sign": "Aa",
+        "levels": [
+          "KS2",
+          "KS3",
+          "GCSE",
+          "A-level"
+        ]
+      },
+      {
+        "n": "Science",
+        "d": "Biology, chemistry and physics, explained and practised.",
+        "col": "#2F7D5B",
+        "sign": "H₂O",
+        "levels": [
+          "KS3",
+          "GCSE",
+          "A-level"
+        ]
+      },
+      {
+        "n": "11+ prep",
+        "d": "Verbal and non-verbal reasoning, without the panic.",
+        "col": "#7A4FA3",
+        "sign": "11+",
+        "levels": [
+          "Year 5",
+          "Year 6"
+        ]
+      }
+    ]
+  },
+  "price": {
+    "eyebrow": "Prices",
+    "title": "Simple prices,",
+    "titleEm": "no contract.",
+    "sub": "Pick a level, how long each lesson is and how often, and see what a term costs. Cancel any time with a week's notice.",
+    "levels": [
+      {
+        "n": "Primary",
+        "d": "Ages 7 to 11",
+        "rate": 38
+      },
+      {
+        "n": "Secondary",
+        "d": "Ages 11 to 16",
+        "rate": 44
+      },
+      {
+        "n": "GCSE",
+        "d": "Exam years",
+        "rate": 48
+      },
+      {
+        "n": "A-level",
+        "d": "Ages 16 to 18",
+        "rate": 55
+      }
+    ],
+    "lengths": [
+      45,
+      60,
+      90
+    ],
+    "freqs": [
+      {
+        "n": "Once a week",
+        "x": 1
+      },
+      {
+        "n": "Twice a week",
+        "x": 2
+      },
+      {
+        "n": "Every other week",
+        "x": 0.5
+      }
+    ],
+    "term": 12,
+    "labels": {
+      "level": "Level",
+      "length": "Lesson length",
+      "often": "How often",
+      "each": "Each lesson"
+    },
+    "words": {
+      "min": "min",
+      "hour": "an hour",
+      "each": "each",
+      "week": "a week",
+      "term": "a term of",
+      "weeks": "weeks"
+    },
+    "note": "Same price at home or online. Siblings get 10% off.",
+    "cta": "Start with a free lesson"
+  },
+  "trial": {
+    "eyebrow": "Free lesson",
+    "title": "Try a lesson,",
+    "titleEm": "on us.",
+    "sub": "A full first lesson, free. We'll find the gaps, set a plan, and you decide after.",
+    "times": [
+      "16:00",
+      "17:00",
+      "18:00"
+    ],
+    "tutors": [
+      {
+        "n": "Ms Ade",
+        "does": "Maths and physics · 12 years teaching"
+      },
+      {
+        "n": "Mr Lowe",
+        "does": "English · former head of department"
+      },
+      {
+        "n": "Dr Patel",
+        "does": "Chemistry and biology · PhD"
+      }
+    ],
+    "tutorsTitle": "Our tutors",
+    "labels": {
+      "subject": "Subject",
+      "pick": "Pick a time",
+      "name": "Your name",
+      "email": "Your email",
+      "year": "Child's school year"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "yearExample": "Year 9",
+    "cta": "Book the free lesson",
+    "words": {
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site we would email you to confirm and match a tutor."
+    },
+    "errors": {
+      "slot": "Pick a time for the free lesson.",
+      "name": "Add your name.",
+      "email": "Add an email so we can confirm."
+    }
+  },
+  "footer": {
+    "fine": "Brightwell Tutors is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "£"
+  },
+  "theme": {
+    "accent": "#C2410C"
+  }
+}

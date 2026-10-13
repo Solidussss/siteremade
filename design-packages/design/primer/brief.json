@@ -1,0 +1,37 @@
+{
+  "title": "Tutor or tutoring school",
+  "fields": [
+    { "key": "businessName", "label": "Name", "required": true, "help": "e.g. Brightwell Tutors" },
+    { "key": "location", "label": "Where you teach", "required": true, "help": "Town, at home, online." },
+    { "key": "phone", "label": "Phone", "required": true },
+    { "key": "subjects", "label": "Subjects and levels", "type": "textarea", "required": true, "help": "Each subject and the levels or ages you teach it to." },
+    { "key": "prices", "label": "Prices", "type": "textarea", "required": true, "help": "Hourly rates by level, lesson lengths, and how often lessons usually run." },
+    { "key": "tutors", "label": "Tutors", "type": "textarea", "help": "Who teaches, and their background." },
+    { "key": "trial", "label": "First lesson", "help": "Is the first lesson free? When can it be?" },
+    { "key": "currency", "label": "Currency", "help": "e.g. £, $, €" },
+    { "key": "colours", "label": "Brand colour", "help": "Optional: your logo colour." }
+  ],
+  "facts": [
+    "contact.phone",
+    "price.levels.*.rate",
+    "price.lengths.*",
+    "price.term",
+    "trial.tutors.*.n",
+    "trial.times.*",
+    "locale.currency"
+  ],
+  "writerNotes": [
+    "lesson: the hero writes out one lesson in an exercise book. Pick a topic the tutor teaches, a real question a student might be stuck on, the big idea in one short sentence, a sketch that fits (fractions, triangle, wave, or none), one to three lines of a worked example, then a similar question they try, a line with a believable slip, the fix and the right line. Keep every line short (it is handwritten on a page). Minutes, tries and the score are for one lesson.",
+    "report: the four labels; the confidence word at the start and at the end of the lesson. stages: six steps in the tutor's voice.",
+    "subjects.list: the brief's subjects with the levels it gives, each with a colour and a short sign (a letter, number or symbol that works in handwriting).",
+    "price: the brief's rates by level exactly, its lesson lengths and how often (lessons per week), and the weeks in a term (12 if not given).",
+    "trial: the times a first lesson can start, the brief's tutors (or one entry for the tutor), and only qualifications the brief gives. Booking is a demo: nothing is sent.",
+    "hero.title and hero.titleEm: a short two-part headline (four lines at most on a desktop); section titles have a second half. theme.accent is the tutor's colour (also the red pen), deep enough for white button text; theme.wordmarkFit is always \"fit\".",
+    "business.name is set to exactly the name in the brief and cannot be changed; brand.name is how it appears in the nav and the footer (short)."
+  ],
+  "readBack": [
+    { "label": "Prices", "path": "price.levels", "fields": ["n", "rate"] },
+    { "label": "Tutors", "path": "trial.tutors", "fields": ["n", "does"] }
+  ],
+  "pinned": { "business.name": "businessName" }
+}

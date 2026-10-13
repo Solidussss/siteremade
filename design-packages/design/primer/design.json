@@ -1,0 +1,71 @@
+{
+  "name": "primer",
+  "category": "tutor or tutoring school",
+  "reference": "reference/primer-original.html",
+  "referenceSha256": "d516eca82ce878f448d3a509d406ba9f6f6ac126df69f33cfc3e16c013d52b64",
+  "template": "template.html",
+  "schema": "schema.json",
+  "hooks": "hooks.js",
+  "families": {
+    "A": {
+      "base": "#C2410C",
+      "target": "theme.accent",
+      "about": "the tutor's colour: buttons, the logo's right page, the red pen in the exercise book, picked levels, lengths, subjects and times, the footer's mark"
+    }
+  },
+  "checks": {
+    "lightness": [
+      { "path": "theme.accent", "range": [0.2, 0.5] }
+    ],
+    "contrast": [
+      ["#FFFFFF", "A:#C2410C", 4.5, "button text on the accent"],
+      ["A:#B13B0A", "#FAF8F3", 4.5, "accent text on the page"],
+      ["A:#B13B0A", "#F1EDE3", 4.5, "accent text on the tinted section"],
+      ["#1E2433", "A:#FBE6DA", 4.5, "text on a picked option"],
+      ["A:#F4A07A", "#1E2433", 3, "the footer mark"]
+    ]
+  },
+  "metrics": {
+    "display": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.025em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@96,800&display=swap", "family": "Bricolage Grotesque" }
+      }
+    },
+    "word": {
+      "fontChoice": null,
+      "css": "font:800 1000px/1 {family};letter-spacing:-.04em",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@96,800&display=swap", "family": "Bricolage Grotesque" }
+      }
+    },
+    "cta": {
+      "fontChoice": null,
+      "css": "font:700 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@700&display=swap", "family": "Nunito Sans" }
+      }
+    },
+    "hand": {
+      "fontChoice": null,
+      "css": "font:400 1000px/1 {family}",
+      "fonts": {
+        "default": { "url": "https://fonts.googleapis.com/css2?family=Kalam&display=swap", "family": "Kalam" }
+      }
+    }
+  },
+  "guards": [
+    {
+      "name": "footer word fit",
+      "type": "fitText",
+      "selector": ".wordmark",
+      "text": ["brand.name"],
+      "suffix": ".",
+      "metric": "word",
+      "size": [20, 13, 170],
+      "container": { "max": 1200, "gutter": [16, 4, 48] },
+      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+    }
+  ]
+}

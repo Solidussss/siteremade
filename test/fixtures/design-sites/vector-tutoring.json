@@ -1,0 +1,228 @@
+{
+  "business": {
+    "name": "Vector Math & Physics"
+  },
+  "brand": {
+    "name": "Vector"
+  },
+  "contact": {
+    "phone": "(416) 555-0182"
+  },
+  "nav": {
+    "subjects": "Subjects",
+    "price": "Rates",
+    "trial": "Free lesson",
+    "cta": "Book a free lesson"
+  },
+  "hero": {
+    "eyebrow": "Vector · math and physics tutoring, Toronto",
+    "title": "From \"huh?\"",
+    "titleEm": "to \"oh!\"",
+    "lede": "One-on-one math and physics tutoring for grades 7 to 12, online or in North York, with the same tutor every week. Scroll through a lesson, from the question that stumped them to the gold star.",
+    "cta": "Book a free lesson",
+    "cta2": "See subjects",
+    "hint": "Scroll through the lesson"
+  },
+  "lesson": {
+    "topic": "Pythagoras",
+    "question": "a = 3, b = 4. Find c",
+    "idea": "The two short sides squared add up to the long side squared.",
+    "sketch": "triangle",
+    "example": [
+      "3² + 4² = c²",
+      "9 + 16 = 25",
+      "c = √25 = 5"
+    ],
+    "exampleLabel": "Example",
+    "tryLabel": "Your turn",
+    "tryQ": "a = 6, b = 8",
+    "wrong": "c = 6 + 8 = 14",
+    "fix": "square them first",
+    "right": "36 + 64 = 100, c = 10",
+    "minutes": 60,
+    "tries": 6,
+    "score": 6,
+    "of": 6,
+    "confidence": "Solid",
+    "start": "Shaky"
+  },
+  "report": {
+    "labels": [
+      "Minutes",
+      "Tries",
+      "Score",
+      "Confidence"
+    ]
+  },
+  "stages": [
+    {
+      "n": "The tricky question",
+      "c": "Every lesson starts with the question from school that didn't make sense. No judgement, just a fresh page."
+    },
+    {
+      "n": "The big idea",
+      "c": "One idea, drawn out until it clicks. If it doesn't, we draw it a different way."
+    },
+    {
+      "n": "A worked example",
+      "c": "We solve one together, out loud, every step written down."
+    },
+    {
+      "n": "Your turn",
+      "c": "They try one on their own. Getting it a bit wrong is part of the plan."
+    },
+    {
+      "n": "The fix",
+      "c": "We find the slip together, in red pen, and they put it right themselves."
+    },
+    {
+      "n": "Got it",
+      "c": "Six out of six by the end of the hour, and a gold star they actually earned."
+    }
+  ],
+  "subjects": {
+    "eyebrow": "Subjects",
+    "title": "What we teach,",
+    "titleEm": "and who.",
+    "sub": "Every tutor is a qualified teacher with a background check, matched to your child by subject, level and temperament.",
+    "list": [
+      {
+        "n": "Math",
+        "d": "Grade 7 to calculus, at their pace.",
+        "col": "#2D4FA3",
+        "sign": "π",
+        "levels": [
+          "Gr 7–8",
+          "Gr 9–10",
+          "Gr 11",
+          "Gr 12"
+        ]
+      },
+      {
+        "n": "Physics",
+        "d": "Forces, energy and circuits, made visible.",
+        "col": "#0F766E",
+        "sign": "F",
+        "levels": [
+          "Gr 11",
+          "Gr 12"
+        ]
+      },
+      {
+        "n": "Test prep",
+        "d": "SAT and AP math, with real past papers.",
+        "col": "#9333EA",
+        "sign": "A+",
+        "levels": [
+          "SAT",
+          "AP"
+        ]
+      }
+    ]
+  },
+  "price": {
+    "eyebrow": "Prices",
+    "title": "Simple prices,",
+    "titleEm": "no contract.",
+    "sub": "Pick a level, how long each lesson is and how often, and see what a term costs. Cancel any time with a week's notice.",
+    "levels": [
+      {
+        "n": "Grade 7–9",
+        "d": "Middle school",
+        "rate": 60
+      },
+      {
+        "n": "Grade 10–12",
+        "d": "High school",
+        "rate": 70
+      },
+      {
+        "n": "Test prep",
+        "d": "SAT and AP",
+        "rate": 85
+      }
+    ],
+    "lengths": [
+      60,
+      90
+    ],
+    "freqs": [
+      {
+        "n": "Once a week",
+        "x": 1
+      },
+      {
+        "n": "Twice a week",
+        "x": 2
+      }
+    ],
+    "term": 10,
+    "labels": {
+      "level": "Level",
+      "length": "Lesson length",
+      "often": "How often",
+      "each": "Each lesson"
+    },
+    "words": {
+      "min": "min",
+      "hour": "an hour",
+      "each": "each",
+      "week": "a week",
+      "term": "a term of",
+      "weeks": "weeks"
+    },
+    "note": "Same rate online or in person. Pay monthly, cancel anytime.",
+    "cta": "Start with a free lesson"
+  },
+  "trial": {
+    "eyebrow": "Free lesson",
+    "title": "Try a lesson,",
+    "titleEm": "on us.",
+    "sub": "A full first lesson, free. We'll find the gaps, set a plan, and you decide after.",
+    "times": [
+      "16:30",
+      "18:00",
+      "19:30"
+    ],
+    "tutors": [
+      {
+        "n": "Daniel Osei",
+        "does": "Math and physics · 9 years teaching"
+      },
+      {
+        "n": "Priya Raman",
+        "does": "Calculus · MSc Mathematics"
+      }
+    ],
+    "tutorsTitle": "Our tutors",
+    "labels": {
+      "subject": "Subject",
+      "pick": "Pick a time",
+      "name": "Your name",
+      "email": "Your email",
+      "year": "Student's grade"
+    },
+    "nameExample": "Sam Rivera",
+    "emailExample": "sam@example.com",
+    "yearExample": "Grade 10",
+    "cta": "Book the free lesson",
+    "words": {
+      "sent": "Demo only · nothing was sent",
+      "reply": "On a live site we would email you to confirm and match a tutor."
+    },
+    "errors": {
+      "slot": "Pick a time for the free lesson.",
+      "name": "Add your name.",
+      "email": "Add an email so we can confirm."
+    }
+  },
+  "footer": {
+    "fine": "Vector Math & Physics is a made-up business for a concept site."
+  },
+  "locale": {
+    "currency": "$"
+  },
+  "theme": {
+    "accent": "#1D4ED8"
+  }
+}
