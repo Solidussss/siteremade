@@ -344,7 +344,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
 
     <div class="smile" id="smile">
       <div class="smile-box" id="smileBox">
-        <canvas id="smileCanvas" aria-label="Illustrated set of teeth whitening from shade A3.5 to BL2" role="img"></canvas>
+        <canvas id="smileCanvas" aria-label="Photo of a smile whitening from shade A3.5 to BL2 (simulated)" role="img"></canvas>
         <div class="split" id="split" aria-hidden="true">
           <span class="split-tag after" id="tagAfter">After <b id="afterCode">A3.5</b></span>
           <span class="split-tag before" id="tagBefore">Before <b>A3.5</b></span>
@@ -367,7 +367,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
       <li class="tab" style="--sw:var(--a1)"><span class="tab-handle">A1</span><span class="tab-sw"></span></li>
       <li class="tab" style="--sw:var(--b1)"><span class="tab-handle">B1</span><span class="tab-sw"></span></li>
       <li class="tab" style="--sw:var(--bl2)"><span class="tab-handle">BL2</span><span class="tab-sw"></span></li>
-      <li class="guide-note">Illustration. Shades counted on the value-ordered guide, BL1 lightest to A4 darkest. Your result depends on your starting shade.</li>
+      <li class="guide-note">Simulated result, not a real patient. Shades counted on the value-ordered guide, BL1 lightest to A4 darkest. Your result depends on your starting shade.</li>
     </ol>
     <div class="hint" id="hint">Scroll to whiten <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true"><path d="M5 1v12M1 9l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></div>
   </div>
@@ -578,34 +578,13 @@ const hero=$("#top"), canvas=$("#smileCanvas"), ctx=canvas.getContext("2d");
 const box=$("#smileBox"), smileArea=$("#smile"), split=$("#split");
 const tagA=$("#tagAfter"), tagB=$("#tagBefore");
 const tabs=[...document.querySelectorAll("#guide .tab")];
-let W=320,H=160,DPR=1,S=4,OX=160,OY=80, teeth=[], gums={}, extent={l:0,r:0};
+let W=320,H=160,DPR=1,S=4,OX=160,OY=80, extent={l:0,r:0};
 
-// tooth table: [width mm, crown height mm, type]
-const UP=[[8.6,10.6,"ci"],[6.6,9.1,"li"],[7.6,10.2,"c"],[7.0,8.5,"pm"],[6.6,7.9,"pm"],[10.0,7.2,"m"]];
-const LO=[[5.3,8.8,"ci"],[5.9,9.2,"li"],[6.9,10.4,"c"],[7.0,8.4,"pm"],[7.1,8.0,"pm"],[11.0,7.3,"m"]];
-const RU=30, RL=27;
-
-function buildGeometry(){
-  teeth=[];
-  const arch=(list,R,upper)=>{
-    let s=0.12;
-    list.forEach(([w,h,type])=>{
-      const t1=s/R, t2=(s+w)/R; s+=w+0.32;
-      const tm=(t1+t2)/2, depth=1-Math.cos(tm), persp=1/(1+R*depth*0.008);
-      [-1,1].forEach(sg=>{
-        const xA=sg*R*Math.sin(t1), xB=sg*R*Math.sin(t2);
-        const xa=Math.min(xA,xB), xb=Math.max(xA,xB);
-        const yiU=-5.2*depth;
-        let yTop,yBot,hh=h*persp;
-        if(upper){yBot=yiU;yTop=yiU-hh}
-        else{const ov=2.5-1.5*depth; yTop=yiU-ov; yBot=yTop+hh}
-        teeth.push({xa,xb,yTop,yBot,h:hh,type,upper,sg,depth,tm});
-      });
-    });
-  };
-  arch(LO,RL,false); arch(UP,RU,true);
-}
-buildGeometry();
+// The smile is a photograph: the same mouth before (A3.5) and after (BL2). Shades in between are the after photo
+// faded in over the before one; the split line still shows the untouched before on the right.
+const PHOTO={before:new Image(), after:new Image()};
+PHOTO.before.src="__SMILE_BEFORE__"; PHOTO.after.src="__SMILE_AFTER__";
+[PHOTO.before,PHOTO.after].forEach(im=>{if(!im.complete)im.addEventListener("load",()=>{dirty=true},{once:true})});
 
 function layout(){
   const r=smileArea.getBoundingClientRect();
@@ -623,115 +602,17 @@ function layout(){
 }
 const X=x=>OX+x*S, Y=y=>OY+y*S;
 
-function toothPath(t){
-  // v = distance from the biting edge toward the gum (mm)
-  const p=new Path2D();
-  const xa=t.xa, xb=t.xb, w=xb-xa, cx=(xa+xb)/2, ins=w*0.08;
-  const yE = t.upper? t.yBot : t.yTop;           // biting edge
-  const dir = t.upper? -1 : 1;                   // toward gum
-    const P=(x,v)=>[X(x),Y(yE+dir*v)];
-  const mv=(x,v)=>{const q=P(x,v);p.moveTo(q[0],q[1])};
-  const ln=(x,v)=>{const q=P(x,v);p.lineTo(q[0],q[1])};
-  const qd=(cx_,cv,x,v)=>{const a=P(cx_,cv),b=P(x,v);p.quadraticCurveTo(a[0],a[1],b[0],b[1])};
-  const L=t.h+0.9;
-  mv(xa+ins,L); ln(xb-ins,L);
-  let r;
-  switch(t.type){
-    case "ci": r=Math.min(1.2,w*.16);
-      qd(xb+w*.03,L*.45,xb,r); qd(xb,0,xb-r,0); ln(xa+r,0); qd(xa,0,xa,r); break;
-    case "li": r=Math.min(1.9,w*.3);
-      qd(xb+w*.03,L*.45,xb,r); qd(xb,0,xb-r,0); ln(xa+r,0); qd(xa,0,xa,r); break;
-    case "c": {const tip=cx+t.sg*w*.06;
-      qd(xb+w*.03,L*.45,xb,2.1); qd(xb-w*.2,.25,tip,0); qd(xa+w*.2,.25,xa,2.1); break;}
-    case "pm":
-      qd(xb+w*.02,L*.45,xb,1.5); qd(xb-w*.22,.15,cx,0); qd(xa+w*.22,.15,xa,1.5); break;
-    default:
-      qd(xb,L*.45,xb,1.4); qd(xb-w*.05,0,xb-w*.27,0); qd(cx,.9,xa+w*.27,0); qd(xa+w*.05,0,xa,1.4);
-  }
-  qd(xa-w*.03,L*.45,xa+ins,L);
-  p.closePath();
-  return p;
-}
-function gumPath(upper){
-  const list=teeth.filter(t=>t.upper===upper).sort((a,b)=>a.xa-b.xa);
-  const p=new Path2D(), dir=upper?-1:1;
-  const neck=t=>upper?t.yTop:t.yBot;
-  const f=list[0], l=list[list.length-1];
-  p.moveTo(X(f.xa-1.5),Y(neck(f)-dir*1.8));
-  list.forEach(t=>{
-    const pap=Math.min(2.8,t.h*.3);
-    p.lineTo(X(t.xa),Y(neck(t)-dir*pap));
-    p.quadraticCurveTo(X((t.xa+t.xb)/2),Y(neck(t)+dir*1.5),X(t.xb),Y(neck(t)-dir*pap));
-  });
-  p.lineTo(X(l.xb+1.5),Y(neck(l)-dir*1.8));
-  const far=upper?-16:12.5;
-  p.quadraticCurveTo(X(l.xb+2.5),Y(neck(l)+dir*2),X(l.xb-1),Y(neck(l)+dir*4.5));
-  p.quadraticCurveTo(X(0),Y(far+(upper?-2:2)),X(f.xa+1),Y(neck(f)+dir*4.5));
-  p.quadraticCurveTo(X(f.xa-2.5),Y(neck(f)+dir*2),X(f.xa-1.5),Y(neck(f)-dir*1.8));
-  p.closePath();
-  // marginal edge for a highlight stroke
-  const e=new Path2D();
-  e.moveTo(X(f.xa),Y(neck(f)-dir*1.5));
-  list.forEach(t=>{const pap=Math.min(2.8,t.h*.3);e.lineTo(X(t.xa),Y(neck(t)-dir*pap));e.quadraticCurveTo(X((t.xa+t.xb)/2),Y(neck(t)+dir*1.5),X(t.xb),Y(neck(t)-dir*pap))});
-  return {p,e};
-}
-function buildPaths(){
-  teeth.forEach(t=>t.path=toothPath(t));
-  gums.u=gumPath(true); gums.l=gumPath(false);
-  const all=new Path2D(); teeth.forEach(t=>all.addPath(t.path)); gums.allTeeth=all;
-}
-
 const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
-const rgb=(c,a=1)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-function drawTeethPass(shade){
-  const cerv=mix(shade,[184,140,92],.16), hi=mix(shade,[255,255,255],.3), edge=mix(shade,[168,186,198],.38);
-  // oral interior behind teeth
-  ctx.fillStyle="#22151a";
-  ctx.beginPath(); ctx.ellipse(X(0),Y(-3),29.5*S,8.5*S,0,0,Math.PI*2); ctx.fill();
-  const order=(arr)=>arr.sort((a,b)=>b.depth-a.depth);
-  const drawSet=(upper)=>{
-    order(teeth.filter(t=>t.upper===upper)).forEach(t=>{
-      const gTop=Y(upper?t.yTop:t.yBot), gEdge=Y(upper?t.yBot:t.yTop);
-      const g=ctx.createLinearGradient(0,gTop,0,gEdge);
-      g.addColorStop(0,rgb(cerv)); g.addColorStop(.38,rgb(shade)); g.addColorStop(.74,rgb(hi));
-      g.addColorStop(.9,rgb(mix(hi,edge,.55))); g.addColorStop(1,rgb(edge));
-      ctx.fillStyle=g; ctx.fill(t.path);
-      const hz=ctx.createLinearGradient(X(t.xa),0,X(t.xb),0);
-      const L=t.sg<0?.34:.26, R=t.sg<0?.24:.36;
-      hz.addColorStop(0,`rgba(70,50,40,${L*.8})`); hz.addColorStop(.28,"rgba(70,50,40,0)"); hz.addColorStop(.68,"rgba(70,50,40,0)"); hz.addColorStop(1,`rgba(70,50,40,${R*.8})`);
-      ctx.fillStyle=hz; ctx.fill(t.path);
-      const dk=Math.pow(t.depth,1.3)*0.6+(upper?0:0.04);
-      if(dk>0.01){ctx.fillStyle=`rgba(30,22,28,${Math.min(.6,dk)})`; ctx.fill(t.path);}
-      if(!upper){ // shadow under the upper teeth
-        const sh=ctx.createLinearGradient(0,Y(t.yTop),0,Y(t.yTop+3.5));
-        sh.addColorStop(0,"rgba(30,18,22,.42)"); sh.addColorStop(1,"rgba(30,18,22,0)");
-        ctx.fillStyle=sh; ctx.fill(t.path);
-      }
-      if(t.depth<0.45){
-        const cx=X((t.xa+t.xb)/2-(t.xb-t.xa)*.12*t.sg*-1), cy=Y((t.yTop+t.yBot)/2 + (upper?.4:.2));
-        const rx=(t.xb-t.xa)*S*.2, ry=t.h*S*.34;
-        ctx.save(); ctx.clip(t.path);
-        ctx.translate(cx,cy); ctx.scale(1,ry/rx);
-        const sp=ctx.createRadialGradient(0,0,0,0,0,rx);
-        const a=.7*(1-t.depth*1.8);
-        sp.addColorStop(0,`rgba(255,255,255,${a})`); sp.addColorStop(1,"rgba(255,255,255,0)");
-        ctx.fillStyle=sp; ctx.beginPath(); ctx.arc(0,0,rx,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-      }
-      ctx.lineWidth=Math.max(.6,S*.12); ctx.strokeStyle="rgba(70,48,40,.28)"; ctx.stroke(t.path);
-    });
-  };
-  const drawGum=(gm,upper)=>{
-    const g=ctx.createLinearGradient(0,Y(upper?-16.2:12.7),0,Y(upper?-8.5:4.5));
-    g.addColorStop(0,"rgba(110,58,78,0)"); g.addColorStop(.22,"rgba(130,72,90,.55)"); g.addColorStop(.48,"rgb(160,94,110)"); g.addColorStop(.78,"#c98a93"); g.addColorStop(1,"#e2a8a8");
-    ctx.fillStyle=g; ctx.fill(gm.p);
-    ctx.lineWidth=S*.55; ctx.strokeStyle="rgba(250,206,200,.55)"; ctx.stroke(gm.e);
-    ctx.lineWidth=S*.18; ctx.strokeStyle="rgba(110,40,55,.45)"; ctx.stroke(gm.e);
-  };
-  drawSet(false); drawGum(gums.l,false);
-  drawSet(true); drawGum(gums.u,true);
+// draw a photo to fill the stage (cover), centred on the teeth
+function drawPhoto(im,alpha){
+  if(!im.complete||!im.naturalWidth||alpha<=0) return;
+  const k=Math.max(W/im.naturalWidth,H/im.naturalHeight), w=im.naturalWidth*k, h=im.naturalHeight*k;
+  ctx.globalAlpha=alpha; ctx.drawImage(im,(W-w)/2,(H-h)/2,w,h); ctx.globalAlpha=1;
 }
+// where the front teeth sit in the photo (for sparks and the gloss sweep)
+const TEETH={x0:.3,x1:.7,y0:.42,y1:.62};
+function teethClip(){ctx.beginPath();ctx.ellipse(W*.5,H*(TEETH.y0+TEETH.y1)/2,W*(TEETH.x1-TEETH.x0)*.62,H*(TEETH.y1-TEETH.y0)*.62,0,0,Math.PI*2);ctx.clip()}
 
 let cur=0, target=0, last=performance.now(), dirty=true, lastIdx=0, sweepT=-1e9, lastAmbient=0;
 const sparks=[];
@@ -742,10 +623,9 @@ function shadeAt(p){
   return {rgb:mix(SHADES[ii].rgb,SHADES[ii+1].rgb,e), idx: e>.5?ii+1:ii, a:ii, e};
 }
 function spawnSparks(n,maxX){
-  const front=teeth.filter(t=>t.upper && t.depth<.3 && X(t.xb)<maxX+1);
-  for(let k=0;k<n && front.length;k++){
-    const t=front[Math.floor(Math.random()*front.length)];
-    sparks.push({x:lerp(t.xa,t.xb,.25+Math.random()*.5),y:lerp(t.yTop,t.yBot,.3+Math.random()*.45),born:performance.now()+k*90,life:900+Math.random()*500,r:1.6+Math.random()*1.6});
+  const x1=Math.min(W*TEETH.x1,maxX); if(x1<=W*TEETH.x0) return;
+  for(let k=0;k<n;k++){
+    sparks.push({x:lerp(W*TEETH.x0,x1,Math.random()),y:H*lerp(TEETH.y0,TEETH.y1,.15+Math.random()*.7),born:performance.now()+k*90,life:900+Math.random()*500,r:1.6+Math.random()*1.6});
   }
 }
 function drawSparks(now){
@@ -753,7 +633,7 @@ function drawSparks(now){
     const s=sparks[i], age=(now-s.born)/s.life;
     if(age>1){sparks.splice(i,1);continue}
     if(age<0) continue;
-    const k=Math.sin(Math.PI*age), r=s.r*S*k, x=X(s.x), y=Y(s.y);
+    const k=Math.sin(Math.PI*age), r=s.r*S*k, x=s.x, y=s.y;
     const gl=ctx.createRadialGradient(x,y,0,x,y,r*1.2);
     gl.addColorStop(0,"rgba(255,255,255,.75)"); gl.addColorStop(1,"rgba(255,255,255,0)");
     ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(x,y,r*1.2,0,Math.PI*2); ctx.fill();
@@ -774,19 +654,21 @@ function render(now){
   const scene=(fn)=>{ctx.save();ctx.translate(W/2,H/2);ctx.scale(zoom,zoom);ctx.translate(-W/2,-H/2);fn();ctx.restore()};
   // map split from screen to scene (inverse zoom)
   const sxScene=(sx-W/2)/zoom+W/2;
+  // how far the after photo shows: by shade rank, A3.5 (16) -> BL2 (2)
+  const rank=lerp(SHADES[sh.a].rank,SHADES[Math.min(5,sh.a+1)].rank,sh.e), tone=clamp((16-rank)/14);
   // BEFORE side (right)
-  scene(()=>{ctx.save();ctx.beginPath();ctx.rect(sxScene,-H,W*2,H*3);ctx.clip();drawTeethPass(SHADES[0].rgb);ctx.restore()});
+  scene(()=>{ctx.save();ctx.beginPath();ctx.rect(sxScene,-H,W*2,H*3);ctx.clip();drawPhoto(PHOTO.before,1);ctx.restore()});
   // AFTER side (left)
   scene(()=>{
     ctx.save();ctx.beginPath();ctx.rect(-W,-H,sxScene+W,H*3);ctx.clip();
-    drawTeethPass(sh.rgb);
+    drawPhoto(PHOTO.before,1); drawPhoto(PHOTO.after,tone);
     // gloss sweep
     const age=(now-sweepT)/1000;
     if(age>=0 && age<1.1){
       const gx=lerp(extent.l-10*S,extent.r+10*S,age/1.1);
-      ctx.save(); ctx.clip(gums.allTeeth);
-      const g=ctx.createLinearGradient(gx-7*S,Y(-14),gx+7*S,Y(8));
-      g.addColorStop(0,"rgba(255,255,255,0)"); g.addColorStop(.5,"rgba(255,255,255,.6)"); g.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.save(); teethClip();
+      const g=ctx.createLinearGradient(gx-7*S,H*TEETH.y0,gx+7*S,H*TEETH.y1);
+      g.addColorStop(0,"rgba(255,255,255,0)"); g.addColorStop(.5,"rgba(255,255,255,.28)"); g.addColorStop(1,"rgba(255,255,255,0)");
       ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
       ctx.restore();
     }
@@ -832,8 +714,8 @@ function readScroll(){
   target=clamp(-r.top/Math.max(1,range));
 }
 window.addEventListener("scroll",readScroll,{passive:true});
-window.addEventListener("resize",()=>{layout();buildPaths();readScroll()});
-if("ResizeObserver" in window){new ResizeObserver(()=>{layout();buildPaths()}).observe(smileArea)}
+window.addEventListener("resize",()=>{layout();readScroll()});
+if("ResizeObserver" in window){new ResizeObserver(()=>{layout()}).observe(smileArea)}
 
 function frame(now){if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const dt=Math.min(64,now-last); last=now;
@@ -856,7 +738,7 @@ function frame(now){if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(p
 }
 let heroVisible=true;
 if("IntersectionObserver" in window){new IntersectionObserver(es=>{heroVisible=es[0].isIntersecting}).observe(hero)}
-layout(); buildPaths(); readScroll(); cur=target;
+layout(); readScroll(); cur=target;
 requestAnimationFrame(frame);
 
 /* ================= BOOKING ================= */
