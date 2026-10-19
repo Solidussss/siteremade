@@ -151,7 +151,7 @@ app.set('trust proxy', 1);
 // built on a hand-made design, edit it, publish it. Everything else (the classic generator and its landing page,
 // Creative and its paid media, payments and credits, saved projects, export and deployment, the customer-app bridge) is
 // closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
-const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
+const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/designs\/poster\/[a-z]+\.jpg$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
@@ -5965,6 +5965,8 @@ function ownDesignSite(req, res) {
   return row;
 }
 app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(siteRequests.withPreview(html)); });
+// a still of each design's first screen (a 1440x900 screenshot of /designs/demo/<design>, 960 px JPEG), shown while its live preview loads
+app.get('/designs/poster/:design.jpg', (req, res) => { const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 // the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
 // own sites

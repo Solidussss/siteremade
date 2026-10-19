@@ -15,6 +15,14 @@
 .steps li{font-size:11px;letter-spacing:.14em;font-weight:800;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:rgba(255,255,255,.6)}
 .steps li.on{background:var(--dark);color:#fff;border-color:var(--dark)}
 .steps li.done{color:var(--text)}
+/* how it works */
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:-24px 0 18px;padding:0;list-style:none}
+.how li{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px 22px 20px}
+.how b{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--dark);color:#fff;font-size:13px}
+.how h3{margin:14px 0 6px;font-size:18px;letter-spacing:-.02em}
+.how p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
+.price{margin:0 0 40px;color:var(--muted);font-size:15px}.price strong{color:var(--dark)}
+@media(max-width:720px){.how{grid-template-columns:1fr;margin-top:-8px}}
 /* design cards */
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
 .dcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;cursor:pointer;text-align:left;font:inherit;color:inherit;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;display:grid;gap:18px}
@@ -23,7 +31,7 @@
 .frame{background:#111318;padding:8px;border-radius:20px;position:relative;overflow:hidden}
 .frame .browser-top{height:30px;padding:0 6px}
 .frame .browser-address{font-size:9px;padding:5px 14px}
-.screen{position:relative;overflow:hidden;border-radius:12px;background:#000;aspect-ratio:16/10}
+.screen{position:relative;overflow:hidden;border-radius:12px;background:#000 center/cover no-repeat;aspect-ratio:16/10}
 .screen iframe{position:absolute;left:0;top:0;width:1440px;height:900px;border:0;transform-origin:0 0;pointer-events:none}
 .screen.live iframe{pointer-events:auto}
 .dmeta{display:flex;justify-content:space-between;align-items:end;gap:16px;padding:0 8px 8px}
@@ -208,7 +216,7 @@ function lazyFrames() {
 }
 addEventListener('scroll', lazyFrames, { passive: true });
 addEventListener('resize', lazyFrames);
-const frame = (src, address, live, lazy) => `<div class="frame"><div class="browser-top"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-address">${esc(address)}</div><div></div></div><div class="screen${live ? ' live' : ''}">${src ? `<iframe ${lazy ? 'data-src' : 'src'}="${src}" title="Preview" tabindex="-1"></iframe>` : '<div class="blank">Writing…</div>'}</div></div>`;
+const frame = (src, address, live, lazy) => `<div class="frame"><div class="browser-top"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-address">${esc(address)}</div><div></div></div><div class="screen${live ? ' live' : ''}"${/^\/designs\/demo\/[a-z]+$/.test(src || '') ? ` style="background-image:url('${src.replace('/demo/', '/poster/')}.jpg')"` : ''}>${src ? `<iframe ${lazy ? 'data-src' : 'src'}="${src}" title="Preview" tabindex="-1"></iframe>` : '<div class="blank">Writing…</div>'}</div></div>`;
 const steps = (n) => `<ol class="steps">${['01 Design', '02 Brief', '03 Writing', '04 Review', '05 Publish'].map((t, i) => `<li class="${i === n ? 'on' : i < n ? 'done' : ''}">${t}</li>`).join('')}</ol>`;
 
 async function load() {
@@ -245,6 +253,12 @@ function home() {
   $('#app').innerHTML = `
   <section class="studio-hero"><div><p class="eyebrow">SITEREMADE</p><h1>Describe the business.<span>We build the website.</span></h1></div>
     <p class="lede">Hand-built designs with real motion. Tell us what the business is: we pick the design, write every line into it, and you publish.</p></section>
+  <ol class="how">
+    <li><b>1</b><h3>Describe the business</h3><p>One sentence is enough. We match it to the design that fits.</p></li>
+    <li><b>2</b><h3>We write it</h3><p>Every headline and section, written for your business in about a minute. If we're unsure of a detail, we ask instead of making it up.</p></li>
+    <li><b>3</b><h3>You publish</h3><p>Change anything you like, then put it live on its own SiteRemade link, or download the files and host them anywhere.</p></li>
+  </ol>
+  <p class="price"><strong>Free right now.</strong> Up to ${(D.access && D.access.perDay) || 5} new websites a day, no card needed.</p>
   <section class="ask" id="create">
     <div class="askbar"><label class="sr" for="desc">What is the business?</label><textarea id="desc" rows="1" placeholder="What’s the business? e.g. a Neapolitan pizzeria in Bristol"></textarea><button class="button" id="find">Find its design <span aria-hidden="true">→</span></button></div>
     <p class="askhint">Try ${['a watch brand launching its first model', 'a family dental practice', 'a 3-bed house for sale', 'a specialty coffee shop'].map((x) => `<button type="button" class="ex">${x}</button>`).join('')}</p>
