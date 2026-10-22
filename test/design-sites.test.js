@@ -106,7 +106,9 @@ test('brief to site: owner only, retry loop, publish', async () => {
     const asked = await until(async () => { const r = await owner('GET', `/api/designs/sites/${long.json.site.id}`); return r.json.site.status !== 'writing' && r.json.site; });
     assert.equal(asked.status, 'needs_owner');
     assert.match(asked.questions[0], /shorter name/);
-    // a missing required answer
-    assert.equal((await owner('POST', '/api/designs/sites', { design: 'beadline', brief: { businessName: 'X Car Care' } })).status, 400);
+    // (2026-10-22) the design's other questions are optional: a name or one sentence is enough to start...
+    assert.equal((await owner('POST', '/api/designs/sites', { design: 'beadline', brief: { about: 'Gloss & Co, a ceramic coating studio in Calgary, black and gold' } })).status, 200);
+    // ...but an empty brief is refused
+    assert.equal((await owner('POST', '/api/designs/sites', { design: 'beadline', brief: { about: '  ', businessName: '' } })).status, 400);
   } finally { srv.close(); }
 });

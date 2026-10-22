@@ -86,10 +86,10 @@
 .epanel details{border-top:1px solid var(--line);padding:10px 0}.epanel summary{cursor:pointer;font-weight:750}.epanel summary span{color:var(--muted);font-weight:400}
 .efields{display:grid;gap:12px;margin-top:12px}.ef{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}.ef small{font-weight:400;color:var(--muted)}
 .ef input,.ef textarea,.ef select{width:100%;border:1px solid var(--line);background:#fafafa;padding:10px;border-radius:10px;font-size:14px;font-weight:400}.ef textarea{min-height:72px}.ef input[type=color]{height:42px;padding:4px}
-.wk{display:grid;gap:6px}.wk>div{display:grid;grid-template-columns:44px 74px 1fr 1fr;gap:8px;align-items:center;font-weight:500}.wk input[type=time]{padding:6px}.wk label{display:flex;gap:5px;align-items:center}
+.wk{display:grid;gap:6px}.wk>div{display:grid;grid-template-columns:44px 74px minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;font-weight:500}.wk input[type=time]{padding:6px;min-width:0;width:100%}.wk label{display:flex;gap:5px;align-items:center}
 .oc{display:flex;gap:10px;align-items:center}.oc label{display:flex;gap:6px;align-items:center;font-weight:500;white-space:nowrap}.oc input[type=color]{flex:1}
 .ferr{color:#b4361f;font-style:normal;font-weight:500}.ferr:empty{display:none}.elist{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:13px}
-@media(max-width:900px){.editor{grid-template-columns:1fr}.epreview{position:static}.epframe{height:70vh}}
+@media(max-width:900px){.editor{grid-template-columns:minmax(0,1fr)}.epanel{padding:18px}.epreview{position:static}.epframe{height:70vh}}
 .ask{margin:6px 0 40px}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .askbar{display:flex;align-items:flex-end;gap:10px;padding:10px 10px 10px 24px;background:#fff;border-radius:999px;box-shadow:0 1px 0 rgba(0,0,0,.04),0 18px 50px rgba(17,19,24,.10);border:1px solid rgba(17,19,24,.06)}
 .askbar textarea{flex:1;border:0;outline:0;resize:none;background:transparent;font:500 18px/1.4 inherit;padding:14px 0;min-height:52px;color:var(--dark)}
@@ -145,6 +145,20 @@
 .signin{max-width:440px}
 @media(max-width:980px){.studio-hero{grid-template-columns:1fr;gap:24px}.review{grid-template-columns:1fr}}
 @media(max-width:720px){.studio{width:min(100% - 30px,var(--max));padding-top:48px}.gallery{grid-template-columns:1fr}.bform{grid-template-columns:1fr}.panel,.writing{padding:24px}.devices{grid-template-columns:1fr}.devices .phone{width:100%;max-width:240px;margin:0 auto}.dmeta h3{font-size:26px}}
+/* pick a design: the working original beside one prompt box (2026-10-22) */
+.pick{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:32px;align-items:start}
+.pick-preview .frame,.pick-preview iframe{border-radius:14px}
+.pick-ask textarea#about{width:100%;min-height:120px;font:inherit;font-size:17px;line-height:1.5;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:#fafafa;color:inherit;resize:vertical;outline:none}
+.pick-ask .more{margin:16px 0 18px}.pick-ask .more summary{cursor:pointer;font-weight:600}
+.pick-ask .more .bform{grid-template-columns:1fr;margin-top:12px}
+@media (max-width:900px){.pick{grid-template-columns:1fr}}
+/* ask for a change (2026-10-22) */
+.eask{background:#f6f5f2;border-radius:16px;padding:14px;margin:14px 0}.eask label{display:block;font-size:14px;margin-bottom:8px}.eask small{color:var(--muted);font-weight:400}
+.eask textarea{width:100%;border:1px solid var(--line);background:#fff;padding:10px 12px;border-radius:10px;font:inherit;font-size:15px;resize:vertical;outline:none}
+.aplan{margin-top:12px;font-size:14px}.aplan p{margin:0 0 8px}.adiff{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:8px}
+.adiff li{display:grid;gap:3px;background:#fff;border-radius:10px;padding:8px 10px;font-size:13px}.adiff li span{color:var(--muted);overflow-wrap:anywhere}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid rgba(0,0,0,.15)}
+.acant{background:#fff7ec;border-radius:10px;padding:8px 10px;font-size:13px;margin-bottom:8px}.acant ul{margin:6px 0 0;padding-left:18px}
 </style></head>
 <body>
 <div class="page-glow glow-a"></div>
@@ -265,7 +279,7 @@ function home() {
     <p class="err" id="ferr"></p><div id="routeOut"></div></section>
   <section class="gallery" id="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" role="button" tabindex="0" data-d="${x.design}" aria-pressed="false">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><span class="button button-small">Use this design</span></div></div>`; }).join('')}</section>
   <div id="briefBox"></div>
-  <section class="sites" id="projects"><h2>Your projects</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || 'Untitled')}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}${s.newRequests ? `<span class="pill req">${s.newRequests} new</span>` : ''}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Describe a business above to make the first one.</p>'}${(D.projects || []).length ? `<h3 class="older">Websites made with the classic builders</h3><ul class="plist">${D.projects.map((p) => `<li><a href="${esc(p.open)}"><b>${esc(p.name || 'Untitled')}</b><span>${p.mode === 'creative' ? 'Creative' : 'Classic'} · ${p.isPurchased ? 'Purchased' : 'Draft'} · ${esc(String(p.updatedAt || '').slice(0, 10))}</span><em>Open</em></a></li>`).join('')}</ul>` : ''}</section>`;
+  <section class="sites" id="projects"><h2>Your projects</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || `Your ${(DESIGN[s.design] || { name: 'new' }).name} site`)}</b>${s.published_at ? '<span class="pill live">Live</span>' : s.status === 'needs_owner' ? '<span class="pill need">Answer</span>' : s.status === 'failed' ? '<span class="pill fail">Failed</span>' : s.status === 'writing' ? '<span class="pill">Writing</span>' : '<span class="pill">Draft</span>'}${s.newRequests ? `<span class="pill req">${s.newRequests} new</span>` : ''}</div></div>`).join('')}</div>` : '<p class="empty">Nothing yet. Describe a business above to make the first one.</p>'}${(D.projects || []).length ? `<h3 class="older">Websites made with the classic builders</h3><ul class="plist">${D.projects.map((p) => `<li><a href="${esc(p.open)}"><b>${esc(p.name || 'Untitled')}</b><span>${p.mode === 'creative' ? 'Creative' : 'Classic'} · ${p.isPurchased ? 'Purchased' : 'Draft'} · ${esc(String(p.updatedAt || '').slice(0, 10))}</span><em>Open</em></a></li>`).join('')}</ul>` : ''}</section>`;
   document.querySelectorAll('.ex').forEach((b) => { b.onclick = () => { $('#desc').value = b.textContent; $('#find').click(); }; });
   $('#desc').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#find').click(); } });
   $('#desc').addEventListener('input', (e) => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'; });
@@ -291,15 +305,27 @@ function pick(d, about) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
   document.querySelectorAll('.dcard').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === d));
   const st = $('.steps'); if (st) st.outerHTML = steps(1); else $('#briefBox').insertAdjacentHTML('beforebegin', steps(1));
-  $('#briefBox').innerHTML = `<form class="panel" id="form"><h2>Tell us about <span>the business.</span></h2><p class="sub">Plain words are fine. Anything you leave out, the writer either asks about or flags for you to confirm. It never makes up a price.</p>
-    <div class="bform">${chosen.fields.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.required ? ' *' : ''}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}
-    <div class="wide actions"><button class="button" id="go">Write the ${esc(m.name)} site</button><span class="note">${costNote()}</span></div><p class="err wide" id="err"></p></div></form>`;
-  if (about && $('#form').elements.about) $('#form').elements.about.value = about;
+  // (2026-10-22) Pick a design -> see it working -> say what the business is in one box -> it's built. The design's own
+  // questions are all optional now ("Add details"): the writer takes what it can from the sentence, and anything it
+  // had to assume is listed for the owner to confirm before the site goes live.
+  const prompt = chosen.fields.find((f) => f.key === 'about');
+  const extra = chosen.fields.filter((f) => f.key !== 'about');
+  const ex = { steadyhand: 'my Calgary barbershop called Fade Society. Black and gold, skin fades and beard trims, feel luxurious.', saltglass: 'Bright Smile Dental in Leeds, family dentistry and whitening, calm and premium.' }[d]
+    || `my ${String(chosen.title || 'business').toLowerCase().split(/[ ,(]/)[0]} in your city, called …, and what makes it different.`;
+  $('#briefBox').innerHTML = `<form class="panel pick" id="form"><div class="pick-preview"><p class="eyebrow">${esc(m.name)} · the original design</p>${frame('/designs/demo/' + d, m.url || d, true, false)}<p class="note">Scroll inside it: this is the animation your site keeps.</p></div>
+    <div class="pick-ask"><h2>Make it <span>yours.</span></h2><p class="sub">Describe your business, or what you want changed. One sentence is enough: the name, where you are, what you do, the colours and feel.</p>
+    <label class="sr" for="about">${esc(prompt ? prompt.label : 'About the business')}</label><textarea name="about" id="about" rows="4" placeholder="Make this website for ${esc(ex)}"></textarea>
+    <details class="more"><summary>Add details now (optional)</summary><p class="note">Skip these if you like: you can add or change everything after you see your site. Anything the writer has to assume is marked for you to confirm before it goes live, and it never makes up a price.</p>
+    <div class="bform">${extra.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}</div></details>
+    <div class="actions"><button class="button" id="go">Make my ${esc(m.name)} site <span aria-hidden="true">→</span></button><span class="note">${costNote()}</span></div><p class="err" id="err"></p></div></form>`;
+  if (about) $('#about').value = about;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  fitFrames(); playAll();
   $('#form').onsubmit = async (e) => {
     e.preventDefault(); const btn = $('#go');
-    const brief = Object.fromEntries(chosen.fields.map((f) => [f.key, e.target.elements[f.key].value]));
-    if (D.guest) { const d = chosen.design; return signIn(() => { pick(d); const fm = $('#form'); for (const [k, v] of Object.entries(brief)) if (fm.elements[k]) fm.elements[k].value = v; }); }
+    const brief = Object.fromEntries(chosen.fields.map((f) => [f.key, (e.target.elements[f.key] || { value: '' }).value]));
+    if (!String(brief.about || '').trim() && !String(brief.businessName || '').trim()) { $('#err').textContent = 'Describe the business in a sentence first.'; $('#about').focus(); return; }
+    if (D.guest) { const d = chosen.design; return signIn(() => { pick(d); const fm = $('#form'); for (const [k, v] of Object.entries(brief)) if (fm.elements[k]) fm.elements[k].value = v; fm.requestSubmit(); }); }
     btn.disabled = true;
     const r = await api('/api/designs/sites', { design: chosen.design, brief });
     btn.disabled = false;
@@ -311,7 +337,7 @@ async function open(id) { const r = await api('/api/designs/sites/' + id); if (r
 const SECTION = { watch: 'The watch', configure: 'Configurator', wind: 'Winding', dual: 'Dual time', colourways: 'Colourways', battery: 'Battery', reserve: 'Reserve form', eq: 'EQ', sets: 'The set', specs: 'Brick specs', product: 'The product', layers: 'Product details', colorways: 'Colorways', drop: 'Release', prices: 'Prices', faq: 'First-visit answers', team: 'Team', contact: 'Contact details', dough: 'Dough and oven', build: 'Build your own', party: 'Party calculator', menu: 'Price list', cut: 'Cut builder prices', drinks: 'Drinks and prices', order: 'Order ahead', visit: 'Finding you', beans: 'Beans this week', hero: 'The hero', schedule: 'Timetable', join: 'Memberships', facilities: 'Equipment', nav: 'Top bar', packages: 'Prices and packages', coatings: 'Coating comparison', correction: 'Correction figures', hours: 'Opening hours', booking: 'Booking', footer: 'Contact details', locale: 'Currency', sizes: 'Sizes and prices', specs: 'Fragrance details', notes: 'Notes and proportions', timeline: 'How long it lasts', tiers: 'How long it lasts', hud: 'How long it lasts', product: 'Fragrance details', business: 'Name', theme: 'Look', pulse: 'How to wear it', _decision: 'What the writer decided', movement: 'The watch', features: 'Sections' };
 // (keys whose meaning differs by design: the gallery's last one above would win for all of them)
 const SECTION_FOR = { primer: { lesson: 'The lesson', report: 'The numbers', stages: 'The lesson, step by step', subjects: 'Subjects', price: 'Prices', trial: 'Free lesson' }, drape: { outfit: 'The outfit', till: 'The numbers', stages: 'The outfit, step by step', shop: 'New in', words: 'Shop and bag words', visit: 'Visit and styling' }, compass: { route: 'The route', log: 'The numbers', stages: 'The programme, step by step', programmes: 'Programmes', fit: 'Find your fit', call: 'Free call', coach: 'About you' }, plumb: { house: 'The house', count: 'The numbers', stages: 'The build, step by step', price: 'Prices', work: 'Our work', how: 'How it runs' }, gather: { venue: 'The room', count: 'The numbers', event: 'The clock', stages: 'The day, step by step', spaces: 'Spaces', price: 'Prices', day: 'The day' }, hearth: { house: 'The house', stay: 'Your room in the story', key: 'The numbers', sign: 'The sign at the corner', stages: 'The night, step by step', rooms: 'Rooms', dates: 'Dates and prices', nearby: 'Nearby' }, lacquer: { nail: 'The nail', count: 'The numbers', stages: 'The nail, step by step', menu: 'Menu and prices', words: 'Menu and booking words', shades: 'Shades', book: 'Booking' }, inkwell: { piece: 'The piece', count: 'The numbers', session: 'The sitting', stages: 'The piece, step by step', flash: 'Flash', book: 'Prices and booking', care: 'Aftercare' }, petal: { bouquet: 'The bouquet', count: 'The numbers', stages: 'The bouquet, step by step', build: 'Bouquets and prices', season: 'In season', deliver: 'Delivery' }, proof: { bake: 'The bake', board: 'The board', stages: 'The bake, step by step', today: "Today's bakes", cakes: 'Celebration cakes', order: 'Order and hours' }, scruff: { dog: 'The dog', tally: 'The tally', stages: 'The visit, step by step', prices: 'Sizes and prices', visit: 'The visit', book: 'Booking' }, axis: { job: 'The example recovery', stages: 'The recovery, stage by stage', where: 'Where it hurts', treatments: 'Treatments and prices', book: 'Booking' }, stillwater: { class: 'The example class', stages: 'The class, phase by phase', timetable: 'Timetable', prices: 'Passes and prices', first: 'First class' }, northlight: { shot: 'The frame in the hero', stages: 'The lighting, step by step', sessions: 'Sessions and packages', process: 'How it works', book: 'Dates' }, camber: { car: 'The example car', checks: 'The checks', fix: 'The fix', labels: 'Words in the bay', stages: 'The check-over, step by step', prices: 'Sizes and prices', promise: 'Promises and credentials', book: 'Booking' }, verge: { job: 'The example makeover', units: 'Units', stages: 'The makeover, step by step', quote: 'What you build and prices', care: 'Garden care', book: 'Free visit' }, brisk: { clean: 'The example visit', stages: 'The visit, step by step', quote: 'Types of clean and prices', included: 'Checklists and promises', book: 'Booking' }, fettle: { job: 'The example call-out', stages: 'The call-out, step by step', fix: 'Problems and prices', prices: 'Rate card', area: 'Area and credentials', book: 'Booking' }, sereine: { batch: 'The hero bottle', stages: 'The batch, step by step', actives: 'Actives', routine: 'Routine builder', ingredients: 'Ingredients', shop: 'Shop' }, halden: { matter: 'The example matter', stages: 'The matter, step by step', guide: 'What we do', fees: 'Fees', people: 'People', consult: 'First call' }, larder: { dinner: 'The dinner', stages: 'The courses', dishes: 'Plates in the hero', menu: 'Menu', room: 'Tables', visit: 'Hours and map' }, ochre: { client: 'The example client', stages: 'The appointment', shade: 'Shade finder', menu: 'Prices', team: 'Team', book: 'Booking' }, plait: { demo: 'The example team', stages: 'The week', sources: 'Sources', lanes: 'Lanes', cards: 'Work cards', cost: 'Cost calculator', integrations: 'Integrations', pricing: 'Pricing', faq: 'Questions', start: 'Sign-up' }, keel: { job: 'The job ticket', weather: 'Weather readouts', stages: 'The re-roof', issues: 'Inspection tags', materials: 'Materials', check: 'Damage check', estimate: 'Estimate', board: 'Materials board', book: 'Inspection booking' }, aldane: { specs: 'Specs' }, lintel: { listing: 'The listing', model: 'The house and floor plan', facts: 'Listing sheet', rooms: 'Room tour', payments: 'Payments', area: 'Neighbourhood', agent: 'Agent', showing: 'Showings' }, clutch: { specs: 'Brick specs' }, ondo: { specs: 'Specs', product: 'The product' }, kova: { product: 'The product' }, halcyra: { specs: 'Fragrance details', product: 'Fragrance details' } };
-function head(s, n) { const m = DESIGN[s.design] || { name: s.design }; return `<section class="studio-hero" style="margin-bottom:32px"><div><p class="eyebrow">${esc(m.name.toUpperCase())} · PREMIUM DESIGN</p><h1>${esc(s.businessName || 'Untitled')}<span>${n === 2 ? 'is being written.' : n === 3 ? 'is ready to review.' : n === 1 ? 'needs a few answers.' : 'didn’t come out right.'}</span></h1></div><div class="actions" style="justify-content:flex-end"><button class="button button-secondary" id="back">All designs & sites</button></div></section>`; }
+function head(s, n) { const m = DESIGN[s.design] || { name: s.design }; return `<section class="studio-hero" style="margin-bottom:32px"><div><p class="eyebrow">${esc(m.name.toUpperCase())} · PREMIUM DESIGN</p><h1>${esc(s.businessName || `Your ${m.name} site`)}<span>${n === 2 ? 'is being written.' : n === 3 ? 'is ready to review.' : n === 1 ? 'needs a few answers.' : 'didn’t come out right.'}</span></h1></div><div class="actions" style="justify-content:flex-end"><button class="button button-secondary" id="back">All designs & sites</button></div></section>`; }
 function show(s) {
   clearTimeout(poll);
   const tries = s.attempts.map((a) => `<div>Draft ${a.n}: ${a.errors.length ? `<span class="bad">${a.errors.length} rule${a.errors.length > 1 ? 's' : ''} broken, fixing</span>` : '<b>passes every rule</b>'}</div>`).join('');
@@ -411,7 +437,9 @@ async function showEditor(s) {
     <div class="epreview"><div class="eptabs"><button type="button" class="button button-secondary" data-dev="desk" aria-pressed="true">Desktop</button><button type="button" class="button button-secondary" data-dev="phone" aria-pressed="false">Phone</button></div>
       <div class="epframe" id="epframe"><iframe id="epf" src="/api/designs/sites/${s.id}/preview?t=${Date.now()}" title="The website"></iframe></div></div>
     <aside class="epanel"><h3>Edit the website</h3><p class="sub">Every change is checked against the design’s rules and rebuilt into the real page.${s.reality && s.reality.kind === 'real' ? ' What you type counts as confirmed by you.' : ''}</p>
-      <div class="ebar"><button class="button" id="esave" disabled>Save changes</button><button class="button button-secondary" id="eundo"${ed.revisions ? '' : ' disabled'}>Undo last save</button><button class="button button-secondary" id="edone">Done</button></div>
+      <div class="eask"><label for="askq"><b>Ask for a change</b> <small>in your own words</small></label><textarea id="askq" rows="2" placeholder="e.g. Change the colours to black and gold · Make it darker · Rename it Fade Society · Make the headline more luxurious"></textarea>
+        <div class="ebar" style="margin:8px 0 0"><button class="button" id="askgo">Preview the change</button><span class="note" id="asknote">You see exactly what changes before anything is saved. The animation stays.</span></div><div id="askplan"></div></div>
+      <div class="ebar"><button class="button" id="esave" disabled>Save changes</button><button class="button button-secondary" id="eundo"${ed.revisions ? '' : ' disabled'}>Undo last save${ed.revisions > 1 ? ` <small>(${ed.revisions} versions)</small>` : ''}</button><button class="button button-secondary" id="edone">Done</button></div>
       <p class="err" id="eerr"></p>
       ${Object.entries(groups).map(([k, list], i) => `<details${i === 0 ? ' open' : ''}><summary>${esc(k)} <span>${list.length}</span></summary><div class="efields">${list.map(input).join('')}</div></details>`).join('')}
       ${listCtl ? `<details><summary>Lists <span>${ed.lists.length}</span></summary>${listCtl}</details>` : ''}
@@ -435,6 +463,31 @@ async function showEditor(s) {
     save.disabled = false;
   };
   $('#eundo').onclick = async () => { const r2 = await api(`/api/designs/sites/${s.id}/undo`, {}); if (r2.ok) showEditor(r2.site); };
+  // Ask for a change (lib/design-ask.js): request -> plan (nothing saved) -> Apply saves it like any edit, with undo
+  const KIND = { content: 'Words', design: 'Look', animation: 'Animation', mixed: 'Words and look', none: 'Nothing to change' };
+  const show1 = (v) => (v && typeof v === 'object' ? JSON.stringify(v) : String(v == null ? '—' : v)).replace(/\*/g, '');
+  const cell = (v) => /^#[0-9a-f]{6}$/i.test(String(v)) ? `<i class="sw" style="background:${esc(v)}"></i>${esc(v)}` : esc(show1(v).slice(0, 160));
+  $('#askq').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#askgo').click(); } });
+  $('#askgo').onclick = async () => {
+    const q = $('#askq').value.trim(); if (!q) { $('#askq').focus(); return; }
+    const go = $('#askgo'); go.disabled = true; $('#askplan').innerHTML = '<p class="note">Working out the change…</p>';
+    const r2 = await api(`/api/designs/sites/${s.id}/ask`, { request: q }); go.disabled = false;
+    if (!r2.ok || !r2.plan) { $('#askplan').innerHTML = `<p class="err">${esc(r2.message || 'Something went wrong.')}</p>`; return; }
+    const pl = r2.plan, can = pl.diff.length > 0;
+    $('#askplan').innerHTML = `<div class="aplan"><p><span class="pill">${esc(KIND[pl.kind] || 'Change')}</span> ${esc(pl.summary || '')}</p>
+      ${pl.question ? `<p class="q">${esc(pl.question)}</p>` : ''}
+      ${can ? `<ul class="adiff">${pl.diff.map((x) => `<li><b>${esc(ED_LABEL(x.path))}</b>${x.approved ? ' <span class="st pr">You confirmed this earlier</span>' : ''}<span>${cell(x.before)} → ${cell(x.after)}</span></li>`).join('')}</ul>` : ''}
+      ${pl.cannot.length ? `<div class="acant"><b>What this design can’t do</b><ul>${pl.cannot.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
+      <div class="ebar">${can ? '<button class="button" id="askapply">Apply this change</button>' : ''}<button class="button button-secondary" id="askdrop">${can ? 'Discard' : 'OK'}</button></div><p class="err" id="askerr"></p></div>`;
+    $('#askdrop').onclick = () => { $('#askplan').innerHTML = ''; };
+    if (can) $('#askapply').onclick = async () => {
+      $('#askapply').disabled = true;
+      const r3 = await api(`/api/designs/sites/${s.id}/edit`, { changes: pl.changes, ops: pl.ops, rename: pl.rename, via: 'ask' });
+      if (r3.ok) return showEditor(r3.site);
+      $('#askerr').textContent = (r3.message || 'Something went wrong.') + ' ' + (r3.errors || []).join(' ');
+      $('#askapply').disabled = false;
+    };
+  };
   $('#edone').onclick = () => show(s);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }

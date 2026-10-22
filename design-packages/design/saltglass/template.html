@@ -556,11 +556,11 @@ soundBtn.addEventListener("click",()=>{
 });
 function tink(i){
   if(!soundOn||!actx) return;
-  const t=actx.currentTime, base=1320+i*120;
+  const t=actx.currentTime, base=740+i*60;
   [1,2.76].forEach((m,k)=>{
     const o=actx.createOscillator(), g=actx.createGain();
     o.type="sine"; o.frequency.value=base*m;
-    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(k?0.03:0.07,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+(k?0.25:0.6));
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(k?0.015:0.045,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+(k?0.25:0.6));
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t+0.7);
   });
 }
@@ -702,7 +702,7 @@ function drawTeethPass(shade){
       hz.addColorStop(0,`rgba(70,50,40,${L*.8})`); hz.addColorStop(.28,"rgba(70,50,40,0)"); hz.addColorStop(.68,"rgba(70,50,40,0)"); hz.addColorStop(1,`rgba(70,50,40,${R*.8})`);
       ctx.fillStyle=hz; ctx.fill(t.path);
       const dk=Math.pow(t.depth,1.3)*0.6+(upper?0:0.04);
-      if(dk>0.01){ctx.fillStyle=`rgba(30,22,28,${Math.min(.6,dk)})`; ctx.fill(t.path);}
+      if(dk>0.01){ctx.fillStyle=`rgba(58,36,26,${Math.min(.42,dk*.7)})`; ctx.fill(t.path);}
       if(!upper){ // shadow under the upper teeth
         const sh=ctx.createLinearGradient(0,Y(t.yTop),0,Y(t.yTop+3.5));
         sh.addColorStop(0,"rgba(30,18,22,.42)"); sh.addColorStop(1,"rgba(30,18,22,0)");
@@ -724,10 +724,10 @@ function drawTeethPass(shade){
   };
   const drawGum=(gm,upper)=>{
     const g=ctx.createLinearGradient(0,Y(upper?-16.2:12.7),0,Y(upper?-8.5:4.5));
-    g.addColorStop(0,"rgba(110,58,78,0)"); g.addColorStop(.22,"rgba(130,72,90,.55)"); g.addColorStop(.48,"rgb(160,94,110)"); g.addColorStop(.78,"#c98a93"); g.addColorStop(1,"#e2a8a8");
+    g.addColorStop(0,"rgba(70,34,38,0)"); g.addColorStop(.3,"rgba(104,50,56,.75)"); g.addColorStop(.6,"rgb(146,74,80)"); g.addColorStop(.86,"#b46c70"); g.addColorStop(1,"#c88584");
     ctx.fillStyle=g; ctx.fill(gm.p);
-    ctx.lineWidth=S*.55; ctx.strokeStyle="rgba(250,206,200,.55)"; ctx.stroke(gm.e);
-    ctx.lineWidth=S*.18; ctx.strokeStyle="rgba(110,40,55,.45)"; ctx.stroke(gm.e);
+    ctx.lineWidth=S*.32; ctx.strokeStyle="rgba(240,196,188,.32)"; ctx.stroke(gm.e);
+    ctx.lineWidth=S*.16; ctx.strokeStyle="rgba(96,36,44,.5)"; ctx.stroke(gm.e);
   };
   drawSet(false); drawGum(gums.l,false);
   drawSet(true); drawGum(gums.u,true);
@@ -753,14 +753,11 @@ function drawSparks(now){
     const s=sparks[i], age=(now-s.born)/s.life;
     if(age>1){sparks.splice(i,1);continue}
     if(age<0) continue;
-    const k=Math.sin(Math.PI*age), r=s.r*S*k, x=X(s.x), y=Y(s.y);
-    const gl=ctx.createRadialGradient(x,y,0,x,y,r*1.2);
-    gl.addColorStop(0,"rgba(255,255,255,.75)"); gl.addColorStop(1,"rgba(255,255,255,0)");
-    ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(x,y,r*1.2,0,Math.PI*2); ctx.fill();
-    ctx.save(); ctx.translate(x,y); ctx.rotate(age*.8);
-    ctx.fillStyle="#fff"; ctx.beginPath();
-    ctx.moveTo(0,-r); ctx.quadraticCurveTo(0,0,r*.7,0); ctx.quadraticCurveTo(0,0,0,r); ctx.quadraticCurveTo(0,0,-r*.7,0); ctx.quadraticCurveTo(0,0,0,-r);
-    ctx.fill(); ctx.restore();
+    const k=Math.sin(Math.PI*age), r=s.r*S*(.6+.4*k), x=X(s.x), y=Y(s.y);
+    ctx.save(); ctx.clip(gums.allTeeth); ctx.translate(x,y); ctx.scale(1,.42);
+    const gl=ctx.createRadialGradient(0,0,0,0,0,r);
+    gl.addColorStop(0,`rgba(255,255,255,${.5*k})`); gl.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.restore();
   }
 }
 
@@ -797,7 +794,7 @@ function render(now){
   const vrx=Math.min(29.5*S,W/2), vry=Math.min(17*S,H*.62);
   ctx.translate(OX,Y(-2.5)); ctx.scale(1,vry/vrx);
   const vg=ctx.createRadialGradient(0,0,0,0,0,vrx);
-  vg.addColorStop(0,"rgba(0,0,0,1)"); vg.addColorStop(.6,"rgba(0,0,0,1)"); vg.addColorStop(.84,"rgba(0,0,0,.55)"); vg.addColorStop(1,"rgba(0,0,0,0)");
+  vg.addColorStop(0,"rgba(0,0,0,1)"); vg.addColorStop(.72,"rgba(0,0,0,1)"); vg.addColorStop(.9,"rgba(0,0,0,.6)"); vg.addColorStop(1,"rgba(0,0,0,0)");
   ctx.fillStyle=vg; ctx.fillRect(-W,-H*4,W*2,H*8);
   ctx.restore();
   scene(()=>drawSparks(now));

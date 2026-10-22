@@ -49,6 +49,8 @@ function build(d, brief, briefSpec, { final = false, longNames = [], reality = [
     '',
     'FACTS',
     '- Facts the brief gives (names, prices, sizes, times, phone numbers, addresses, opening hours, specifications) are used exactly: never change, rescale or reword one to satisfy a rule. If a rule can only be met by changing a fact, show it another way the design allows (shorter wording around it, another field or section) and record the decision.',
+    '- Owners often put everything in one sentence ("About the business"): the name, the place, the colours, the services, the feel. Read it first and take every fact it gives as if it were in its own field. A field marked (not given) may be answered there.',
+    '- The business name: the brief\'s name field, else the name the description gives. If neither names the business, write a short, plain placeholder name for the trade and place, and list its path in "_assumed".',
     '- Where the brief is silent, make reasonable, modest assumptions consistent with the brief and with each other (one lead time, one deposit, one size everywhere it appears). List each assumed path in "_assumed"; the owner reviews them after the page is built.',
     '- For a new, concept or fictional business, invented details may fill gaps, but never present them as verified: no awards, certifications, test results, ratings, reviews, press mentions, founding years or customer counts the brief does not give.',
     '- The page takes no payments: every form sends a request the business confirms. Never write that a deposit, payment or card "holds", "secures" or "reserves" anything on the page. If there is a deposit, say it is paid when the business confirms (for example: "we\'ll confirm and send a link for the £20 deposit").',

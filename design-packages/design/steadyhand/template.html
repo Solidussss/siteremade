@@ -50,19 +50,15 @@ h1{font-family:var(--display);font-weight:400;font-size:clamp(60px,min(7.6vw,13v
 h1 em{font-style:normal;color:var(--red)}
 .hcopy p{color:var(--muted);max-width:420px;margin:0 0 24px;font-size:16px}
 .hbtns{display:flex;gap:10px;flex-wrap:wrap}
-.hud{position:absolute;left:var(--gut);bottom:calc(26px + env(safe-area-inset-bottom,0px));width:min(430px,36vw);z-index:3;
-  background:{{D:#16131199}};backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.hud{position:absolute;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));width:min(380px,32vw);z-index:3}
 .hud-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .hud-k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-.hud-stage{font-family:var(--display);font-size:30px;line-height:1;margin:6px 0 10px;letter-spacing:.03em}
-.hud-row{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
-.timer{font-family:var(--mono);font-size:34px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
-.timer small{font-size:13px;color:var(--muted);font-weight:400}
-.hud-chips{display:flex;gap:6px;flex-wrap:wrap}
+.hud-stage{font-family:var(--display);font-size:26px;line-height:1.05;margin:8px 0 4px;letter-spacing:.02em;transition:opacity .35s}
+.hud-tool{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--muted)}
 .tag{font-family:var(--mono);font-size:12px;border-radius:999px;padding:5px 10px;background:var(--bg3);border:1px solid var(--line2);white-space:nowrap}
 .tag.blue{border-color:{{B:#4a76e680}};color:{{B:#a9c0ff}}}
-.segs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:14px}
-.segs span{height:4px;border-radius:2px;background:var(--line);overflow:hidden;position:relative}
+.segs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px}
+.segs span{height:1px;background:var(--line2);overflow:hidden;position:relative}
 .segs span b{position:absolute;inset:0;background:var(--red);transform-origin:left;transform:scaleX(0)}
 .hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--muted);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;transition:opacity .3s}
 .hint span{width:1px;height:34px;background:linear-gradient(var(--muted),transparent);animation:hint 1.6s ease-in-out infinite;transform-origin:top}
@@ -183,9 +179,8 @@ footer{background:var(--red);color:#fff;overflow:hidden}
   .hcopy p,.hbtns{display:none}
   h1{font-size:clamp(46px,14.4vw,76px);margin:10px 0 0;line-height:.92}
   .eyebrow{font-size:10.5px;gap:8px}
-  .hud{left:12px;right:12px;width:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:12px 14px;border-radius:14px}
-  .hud-stage{font-size:24px;margin:4px 0 8px}
-  .timer{font-size:26px}
+  .hud{left:0;right:0;width:auto;bottom:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,{{D:#131110}} 16px)}
+  .hud-stage{font-size:22px;margin:4px 0 2px}
   .tag{font-size:11px;padding:4px 8px}
   .segs{margin-top:10px}
   .hint{display:none}
@@ -221,12 +216,9 @@ footer{background:var(--red);color:#fff;overflow:hidden}
       <div class="hbtns"><a class="cta" href="#book">{{nav.cta}}</a><a class="ghost" href="#build">{{cut.kicker}}</a></div>
     </div>
     <div class="hud" aria-live="off">
-      <div class="hud-top"><span class="hud-k" id="hudN">Stage 01 / 05</span><span class="hud-k">{{$.heroChair}}</span></div>
+      <div class="hud-top"><span class="hud-k" id="hudN">01 / 05</span><span class="hud-k">{{$.heroChair}}</span></div>
       <div class="hud-stage" id="hudS">Consult · 6 weeks grown out</div>
-      <div class="hud-row">
-        <div class="timer"><span id="hudT">00:00</span> <small>/ 45:00</small></div>
-        <div class="hud-chips"><span class="tag blue" id="hudG">Comb out</span><span class="tag" id="hudF">Floor 0.0 g</span></div>
-      </div>
+      <div class="hud-tool" id="hudG">Comb out · section</div>
       <div class="segs" aria-hidden="true"><span><b></b></span><span><b></b></span><span><b></b></span><span><b></b></span><span><b></b></span></div>
     </div>
     <div class="hint" id="hint" aria-hidden="true">SCROLL<span></span></div>
@@ -488,11 +480,11 @@ class Head{
     x.clip();x.globalAlpha=.06;x.fillStyle='#fff';
     x.beginPath();x.moveTo(cx-r*.7,cy-r*.9);x.lineTo(cx-r*.45,cy-r*.98);x.lineTo(cx-r*.95,this.H);x.lineTo(cx-r*1.25,this.H);x.fill();
     x.restore();
-    // FRESH stamp
+    // the finish: a warm wash of light across the glass as the last bulbs come on
     if(this.st.fresh>0){
-      x.save();x.globalAlpha=this.st.fresh;x.fillStyle='{{R:#e23b2f}}';
-      x.font=`${Math.round(36*u)}px {{@fonts.canvas:theme.fonts}}`;x.textAlign='center';x.textBaseline='alphabetic';
-      const sc=1+(1-this.st.fresh)*.15;x.translate(cx,cy-r*.28);x.scale(sc,sc);x.fillText('FRESH',0,0);x.restore();
+      x.save();x.beginPath();x.moveTo(cx-r,this.H);x.lineTo(cx-r,cy);x.arc(cx,cy,r,Math.PI,0);x.lineTo(cx+r,this.H);x.closePath();x.clip();
+      g=x.createRadialGradient(cx,cy-r*.35,0,cx,cy-r*.35,r*1.25);g.addColorStop(0,`rgba(255,214,160,${.10*this.st.fresh})`);g.addColorStop(1,'rgba(255,214,160,0)');
+      x.fillStyle=g;x.fillRect(cx-r,0,r*2,this.H);x.restore();
     }
     // bulbs
     const nb=11;
@@ -599,9 +591,9 @@ let W=0,H=0,DPR=1,mobile=false;
 const parts=[];
 head.onCut=(s,h)=>{
   if(!growing||RM||parts.length>240)return;
-  if(Math.random()>.14)return;
+  if(Math.random()>.09)return;
   const [x,y]=h.P(s.x+s.dx*s.L*.5,s.y+s.dy*s.L*.5);
-  parts.push({x,y,vx:(Math.random()-.5)*60+(s.x)*1.2,vy:-20-Math.random()*60,r:Math.atan2(s.dy,s.dx),vr:(Math.random()-.5)*10,L:s.L*h.u*(.35+Math.random()*.3),k:s.k,c:HAIR[s.bk],life:1});
+  parts.push({x,y,vx:(Math.random()-.5)*60+(s.x)*1.2,vy:-10-Math.random()*30,r:Math.atan2(s.dy,s.dx),vr:(Math.random()-.5)*5,L:s.L*h.u*(.22+Math.random()*.2),ph:Math.random()*6,k:s.k,c:HAIR[s.bk],life:1});
   snipCount++;
 };
 function layoutHero(){
@@ -628,7 +620,7 @@ const STAGES=[
 ];
 const GUARDS=[{c:.02,g:'0',m:'skin'},{c:.27,g:'#0.5',m:'1.5 mm'},{c:.52,g:'#1',m:'3 mm'},{c:.77,g:'#2',m:'6 mm'},{c:.99,g:'#3',m:'9 mm blend'}];
 let sy=scrollY,lastP=-1,p=0,growing=false,snipCount=0,lastSnip=0,pVel=0;
-const hudN=$('#hudN'),hudS=$('#hudS'),hudT=$('#hudT'),hudG=$('#hudG'),hudF=$('#hudF'),segB=$$('.segs b'),hint=$('#hint');
+const hudN=$('#hudN'),hudS=$('#hudS'),hudG=$('#hudG'),segB=$$('.segs b'),hint=$('#hint');
 function heroState(p){
   const c=eio(seg(p,.08,.5)),top=seg(p,.5,.7),part=seg(p,.7,.84),fin=seg(p,.84,1);
   return{c,top,part,fin};
@@ -642,20 +634,17 @@ function guardFor(st,p){
 }
 function updateHud(p,st){
   let si=0;STAGES.forEach((s,i)=>{if(p>=s.a)si=i});
-  const S=STAGES[si],mins=S.t0+(S.t1-S.t0)*seg(p,S.a,S.b);
-  const mm=Math.floor(mins),sec=Math.floor((mins-mm)*60);
-  hudN.textContent=`Stage 0${si+1} / 05`;
+  const S=STAGES[si];
+  hudN.textContent=`0${si+1} / 05`;
   if(hudS.textContent!==S.n)hudS.textContent=S.n;
-  hudT.textContent=`${String(mm).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-  hudG.textContent=guardFor(st,p);
-  hudF.textContent=`Floor ${(head.cutCount/head.N*9.4).toFixed(1)} g`;
+  const g=guardFor(st,p);if(hudG.textContent!==g)hudG.textContent=g;
   STAGES.forEach((s,i)=>segB[i].style.transform=`scaleX(${seg(p,s.a,s.b)})`);
   hint.style.opacity=p>.02?0:1;
 }
 function drawTool(kind,x,y,u,t,ang){
   fx.save();fx.translate(x,y);fx.rotate(ang||0);
   if(kind==='clip'){
-    fx.translate((Math.random()-.5)*.8,(Math.random()-.5)*.8);
+    fx.translate(Math.sin(t*173)*.3,Math.cos(t*211)*.3);
     // shadow
     fx.fillStyle='rgba(0,0,0,.35)';fx.beginPath();fx.roundRect(-4*u+1.5*u,1.2*u+1.5*u,8*u,20*u,3.2*u);fx.fill();
     // body
@@ -695,10 +684,10 @@ function drawFx(t,p,st,dt){
   x.setTransform(DPR,0,0,DPR,0,0);x.clearRect(0,0,W,H);
   // particles
   for(let i=parts.length-1;i>=0;i--){
-    const q=parts[i];q.vy+=1500*dt;q.vx*=.99;q.x+=q.vx*dt;q.y+=q.vy*dt;q.r+=q.vr*dt;q.life-=dt*1.1;
+    const q=parts[i];q.vy=Math.min(q.vy+700*dt,260);q.vx*=.97;q.x+=(q.vx+Math.sin(t*3+q.ph)*14)*dt;q.y+=q.vy*dt;q.r+=q.vr*dt;q.life-=dt*.9;
     if(q.y>H+30||q.life<=0){parts.splice(i,1);continue}
-    x.save();x.translate(q.x,q.y);x.rotate(q.r);x.globalAlpha=Math.min(1,q.life*2);
-    x.strokeStyle=rgb(q.c);x.lineWidth=u*.42;x.lineCap='round';x.beginPath();x.moveTo(-q.L/2,0);x.bezierCurveTo(-q.L/6,q.k*q.L*.3,q.L/6,-q.k*q.L*.3,q.L/2,0);x.stroke();x.restore();
+    x.save();x.translate(q.x,q.y);x.rotate(q.r);x.globalAlpha=Math.min(.7,q.life*1.4);
+    x.strokeStyle=rgb(q.c);x.lineWidth=Math.max(.6,u*.2);x.lineCap='round';x.beginPath();x.moveTo(-q.L/2,0);x.bezierCurveTo(-q.L/6,q.k*q.L*.3,q.L/6,-q.k*q.L*.3,q.L/2,0);x.stroke();x.restore();
   }
   if(p>.06&&p<.52){
     // guide contour
@@ -749,11 +738,11 @@ function drawFx(t,p,st,dt){
 let AC=null,buzzG=null,soundOn=false;
 function initAudio(){
   AC=new (window.AudioContext||window.webkitAudioContext)();
-  const o=AC.createOscillator();o.type='sawtooth';o.frequency.value=118;
-  const o2=AC.createOscillator();o2.type='square';o2.frequency.value=236.7;
-  const g2=AC.createGain();g2.gain.value=.25;
-  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=.7;
-  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3400;
+  const o=AC.createOscillator();o.type='triangle';o.frequency.value=120;
+  const o2=AC.createOscillator();o2.type='sine';o2.frequency.value=240.6;
+  const g2=AC.createGain();g2.gain.value=.35;
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=.5;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600;
   buzzG=AC.createGain();buzzG.gain.value=0;
   o.connect(bp);o2.connect(g2).connect(bp);bp.connect(lp).connect(buzzG).connect(AC.destination);o.start();o2.start();
 }

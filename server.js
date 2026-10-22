@@ -6023,9 +6023,33 @@ app.get('/api/designs/sites/:id/editor', requireAuth, requireDesignOwner, (req, 
 app.post('/api/designs/sites/:id/edit', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   const b = req.body || {};
-  const r = designSites.edit(db, row, { changes: Array.isArray(b.changes) ? b.changes.slice(0, 200) : [], ops: Array.isArray(b.ops) ? b.ops.slice(0, 20) : [] }, 'account:' + req.accountId);
+  const r = designSites.edit(db, row, { changes: Array.isArray(b.changes) ? b.changes.slice(0, 200) : [], ops: Array.isArray(b.ops) ? b.ops.slice(0, 20) : [],
+    rename: typeof b.rename === 'string' ? b.rename : null, via: b.via === 'ask' ? 'ask' : 'editor' }, 'account:' + req.accountId);
   if (r.error) return res.status(400).json({ ok: false, message: r.error, errors: r.errors || [] });
   return res.json({ ok: true, site: designSites.view(r.row), editor: designSites.editorView(r.row), changed: r.changed || [] });
+});
+// "Ask for a change" (lib/design-ask.js): the owner's request in their own words -> a plan in the editor's terms,
+// dry-run against the design's rules and shown before anything is saved (applied through /edit with via:'ask').
+// One short AI call each; capped per account per day (SITEREMADE_DESIGN_ASKS_PER_DAY, default 40) on top of the
+// usual burst limit, so a busy editor can't run up the AI bill.
+const DESIGN_ASKS_PER_DAY = Number(process.env.SITEREMADE_DESIGN_ASKS_PER_DAY) || 40;
+const designAsks = new Map(); // (account -> { day, n }: resets on restart, which only ever allows more)
+app.post('/api/designs/sites/:id/ask', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, async (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const request = String((req.body || {}).request || '').trim();
+  if (!request) return res.status(400).json({ ok: false, message: 'Write what you want changed.' });
+  const day = new Date().toISOString().slice(0, 10), used = designAsks.get(req.accountId);
+  const n = used && used.day === day ? used.n : 0;
+  if (!req.designOwner && n >= DESIGN_ASKS_PER_DAY) return res.status(429).json({ ok: false, message: `That's today's ${DESIGN_ASKS_PER_DAY} requested changes. The fields below still work, and requests are back tomorrow.` });
+  designAsks.set(req.accountId, { day, n: n + 1 });
+  try {
+    const r = await designSites.ask(row, request, designDeps.writer());
+    const out = { ok: r.ok, plan: r.ok ? { request: r.request, kind: r.kind, summary: r.summary, changes: r.changes, ops: r.ops, rename: r.rename, cannot: r.cannot, question: r.question, diff: r.diff } : null, message: r.message, errors: r.errors };
+    if (req.designOwner && r.usage) out.costUsd = +designSites.cost(r.usage).toFixed(4);
+    return res.status(r.ok ? 200 : 422).json(out);
+  } catch (e) {
+    return res.status(502).json({ ok: false, message: /not configured/.test(String(e && e.message)) ? 'Requested changes are not switched on on this server yet.' : 'The AI didn’t answer. Try again in a moment.' });
+  }
 });
 app.post('/api/designs/sites/:id/undo', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
