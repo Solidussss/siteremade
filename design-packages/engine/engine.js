@@ -8,6 +8,10 @@ const { render } = require('./template');
 const { fit, make, rgbHsl, hexRgb, contrast } = require('./colour');
 const GUARDS = require('./guards');
 
+// photos: a data URL of a JPEG/PNG/WebP (only base64 characters, so it is safe in an attribute and in CSS url()),
+// or an https link without quotes, spaces or brackets
+const PHOTO_MAX_KB = 900;
+const isPhoto = (v) => typeof v === 'string' && (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(v) ? v.length <= PHOTO_MAX_KB * 1024 : /^https:\/\/[^\s"'()<>\\]+$/.test(v) && v.length <= 1000);
 const get = (o, p) => p.split('.').reduce((v, k) => (v == null ? undefined : v[k]), o);
 
 // every concrete path matching a pattern like "stages.*.name"
@@ -91,6 +95,8 @@ function validate(d, c) {
     if (o.kind === 'colour' && !/^#[0-9a-f]{6}$/i.test(v)) errors.push(`${p}: use #rrggbb`);
     if (o.kind === 'choice' && !o.options.includes(v)) errors.push(`${p}: "${v}" is not one of ${o.options.join(', ')}`);
     if (o.kind === 'number' && (typeof v !== 'number' || !isFinite(v) || v < o.min || v > o.max)) errors.push(`${p}: ${v} (allowed ${o.min}-${o.max})`);
+    // a photo the business uploaded (the editor shrinks it to a JPEG first), or an https link to one
+    if (o.kind === 'photo' && !isPhoto(v)) errors.push(`${p}: a JPEG, PNG or WebP photo (up to ${PHOTO_MAX_KB} KB), or an https link to one`);
     if (o.kind === 'text') { const n = [...String(v).replace(/\*/g, '')].length; if (typeof v !== 'string' || n < (o.min || 0) || n > o.max) errors.push(`${p}: ${n} characters (allowed ${o.min || 0}-${o.max}): "${v}"`); }
     // a week of opening hours: each day null (closed) or { open, close } as HH:MM
     if (o.kind === 'week') for (const day of ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']) {
@@ -143,4 +149,4 @@ function build(d, c) {
   return { html, guards: derived._guardList };
 }
 
-module.exports = { loadDesign, validate, build, expand, get };
+module.exports = { loadDesign, validate, build, expand, get, isPhoto, PHOTO_MAX_KB };

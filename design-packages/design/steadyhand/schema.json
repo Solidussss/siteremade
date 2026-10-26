@@ -228,6 +228,14 @@
       "kind": "week",
       "offer": "present",
       "label": "opening hours"
+    },
+    "hero.photo": {
+      "kind": "photo",
+      "label": "your main photo: the shop, a chair or a fresh cut. It replaces the drawn head."
+    },
+    "cut.photo": {
+      "kind": "photo",
+      "label": "a cut you did. It replaces the drawn head in the cut builder."
     }
   }
 }

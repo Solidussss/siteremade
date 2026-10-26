@@ -99,6 +99,11 @@ button{font:inherit;color:inherit}
 .smile{grid-area:smile;position:relative;z-index:1;min-height:0;display:grid;place-items:center}
 .smile-box{position:relative;width:var(--w,320px);height:var(--h,160px)}
 .smile-box canvas{display:block;width:100%;height:100%}
+/* photo mode: the practice's own photo in place of the drawn teeth */
+.hero.photo{height:auto}.hero.photo .stage{position:relative;min-height:100svh;grid-template-rows:auto minmax(260px,1fr);grid-template-areas:"copy" "smile"}
+.hero.photo .smile-box,.hero.photo .hud,.hero.photo .guide,.hero.photo .hint{display:none}
+.hphoto{width:100%;height:100%;max-height:72svh;object-fit:cover;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.hprice{font-size:15px;color:var(--stage-ink-2)}.hprice b{color:var(--stage-ink);font-weight:600}
 .split{position:absolute;top:9%;bottom:9%;left:0;width:0;transform:translateX(var(--x,0px));pointer-events:none}
 .split::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:linear-gradient(180deg,transparent,var(--stage-ink) 18%,var(--stage-ink) 82%,transparent);box-shadow:0 0 18px color-mix(in oklab,var(--stage-glow) 70%,transparent)}
 .split-knob{position:absolute;top:50%;left:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--stage-ink);color:var(--stage);display:grid;place-items:center;box-shadow:0 4px 18px rgba(0,0,0,.35)}
@@ -128,6 +133,8 @@ button{font:inherit;color:inherit}
 .hint{position:absolute;right:var(--gut);bottom:calc(20px + env(safe-area-inset-bottom,0px));font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--stage-ink-2);display:none;align-items:center;gap:8px;transition:opacity .4s}
 @media (min-width:900px){
   .stage{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"copy hud" "smile smile" "guide guide";column-gap:5vw;row-gap:8px}
+  .hero.photo .stage{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:1fr;grid-template-areas:"copy smile";align-items:center}
+  .hero.photo .hphoto{height:min(72svh,640px)}
   .hud{align-self:end;justify-self:end;width:min(100%,430px);grid-template-columns:auto auto minmax(0,1fr)}
   .hud-price{display:block}
   .hint{display:flex}
@@ -334,15 +341,16 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
 </header>
 
 <main>
-<section class="hero" id="top" aria-label="Whitening, scroll to see the shade change">
+<section class="hero{{#if hero.photo}} photo{{/if}}" id="top" aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}Whitening, scroll to see the shade change{{/if}}">
   <div class="stage" id="stage">
     <div class="hero-copy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.accent}}</em></h1>
       <p>{{hero.lede}}</p>
+      {{#if hero.photo}}<p class="hprice">{{hero.priceLabel}} · <b>{{hero.price}}</b></p><p><a class="cta" href="#book">{{nav.cta}}</a></p>{{/if}}
     </div>
 
-    <div class="smile" id="smile">
+    <div class="smile" id="smile">{{#if hero.photo}}<img class="hphoto" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high">{{/if}}
       <div class="smile-box" id="smileBox">
         <canvas id="smileCanvas" aria-label="Illustrated set of teeth whitening from shade A3.5 to BL2" role="img"></canvas>
         <div class="split" id="split" aria-hidden="true">
@@ -575,6 +583,7 @@ const SHADES=[
   {c:"BL2", rgb:[251,250,245],rank:2, stage:"Checked against the guide",t:90}
 ];
 const hero=$("#top"), canvas=$("#smileCanvas"), ctx=canvas.getContext("2d");
+const PHOTO=hero.classList.contains("photo"); // (the practice's photo in place of the drawn teeth: nothing to animate)
 const box=$("#smileBox"), smileArea=$("#smile"), split=$("#split");
 const tagA=$("#tagAfter"), tagB=$("#tagBefore");
 const tabs=[...document.querySelectorAll("#guide .tab")];
@@ -832,7 +841,7 @@ window.addEventListener("scroll",readScroll,{passive:true});
 window.addEventListener("resize",()=>{layout();buildPaths();readScroll()});
 if("ResizeObserver" in window){new ResizeObserver(()=>{layout();buildPaths()}).observe(smileArea)}
 
-function frame(now){if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
+function frame(now){if(PHOTO)return;if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const dt=Math.min(64,now-last); last=now;
   const k=RM?1:1-Math.pow(1-0.1,dt/16.67);
   const prev=cur;

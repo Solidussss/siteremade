@@ -23,6 +23,9 @@
 .how p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
 .price{margin:0 0 40px;color:var(--muted);font-size:15px}.price strong{color:var(--dark)}
 @media(max-width:720px){.how{grid-template-columns:1fr;margin-top:-8px}}
+/* editor photo fields */
+.eph .ephimg{border:1px dashed var(--line);border-radius:12px;min-height:90px;display:grid;place-items:center;overflow:hidden;background:#fafafa}
+.eph .ephimg img{display:block;width:100%;max-height:220px;object-fit:cover}.eph .ephimg span{color:var(--muted);font-size:13px;padding:14px;text-align:center}
 /* get this design */
 .dacts{display:flex;gap:8px;flex:none}
 .getbox{position:fixed;inset:0;z-index:100;background:rgba(10,12,16,.55);display:grid;place-items:center;padding:16px}
@@ -434,7 +437,9 @@ async function showEditor(s) {
     const lim = f.kind === 'text' ? ` maxlength="${f.max}"` : f.kind === 'number' ? ` min="${f.min}" max="${f.max}" step="any"` : '';
     let ctl;
     // a week of opening hours: each day closed or open-close
-    if (f.kind === 'week') ctl = `<div class="wk" data-week="${esc(f.path)}">${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((dd) => { const w = f.value && f.value[dd]; return `<div data-day="${dd}"><b>${dd[0].toUpperCase() + dd.slice(1)}</b><label><input type="checkbox" data-open${w ? ' checked' : ''}> Open</label><input type="time" data-t="open" value="${w ? esc(w.open) : '09:00'}"${w ? '' : ' disabled'}><input type="time" data-t="close" value="${w ? esc(w.close) : '17:00'}"${w ? '' : ' disabled'}></div>`; }).join('')}</div>`;
+    // a photo: uploaded from the phone or computer, shrunk to a JPEG here before it's sent; empty = the design's drawing
+    if (f.kind === 'photo') ctl = `<div class="eph" data-photo="${esc(f.path)}"><div class="ephimg">${f.value ? `<img src="${esc(f.value)}" alt="">` : '<span>No photo yet: the design’s drawing shows here</span>'}</div><div class="ebar" style="margin:8px 0 0"><label class="button button-secondary">${f.value ? 'Change photo' : 'Upload photo'}<input type="file" accept="image/*" hidden${dis}></label>${f.value ? `<button type="button" class="button button-secondary" data-phrm>Remove</button>` : ''}</div></div>`;
+    else if (f.kind === 'week') ctl = `<div class="wk" data-week="${esc(f.path)}">${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((dd) => { const w = f.value && f.value[dd]; return `<div data-day="${dd}"><b>${dd[0].toUpperCase() + dd.slice(1)}</b><label><input type="checkbox" data-open${w ? ' checked' : ''}> Open</label><input type="time" data-t="open" value="${w ? esc(w.open) : '09:00'}"${w ? '' : ' disabled'}><input type="time" data-t="close" value="${w ? esc(w.close) : '17:00'}"${w ? '' : ' disabled'}></div>`; }).join('')}</div>`;
     else if (f.kind === 'toggle') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}><option value="true"${f.value ? ' selected' : ''}>On</option><option value="false"${f.value ? '' : ' selected'}>Off</option></select>`;
     else if (f.kind === 'choice') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}>${f.optional ? `<option value=""${f.value == null ? ' selected' : ''}>The design’s own</option>` : ''}${f.options.map((o) => `<option${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
     // an optional colour: off = the design's own drawn finish; on = this colour
@@ -464,6 +469,18 @@ async function showEditor(s) {
     const v = {}; wk.querySelectorAll('[data-day]').forEach((row) => { const on = row.querySelector('[data-open]').checked; row.querySelectorAll('[data-t]').forEach((t) => { t.disabled = !on; }); v[row.dataset.day] = on ? { open: row.querySelector('[data-t="open"]').value, close: row.querySelector('[data-t="close"]').value } : null; });
     pending.set(wk.dataset.week, JSON.stringify(v)); save.disabled = false;
   }));
+  // photos: the longest side to 1600 px as a JPEG, smaller until it fits the design's limit
+  const shrink = (file) => new Promise((ok, no) => { const img = new Image(); img.onload = () => { let side = 1600, q = 0.82, out = ''; for (let i = 0; i < 8; i++) { const k = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q); if (out.length < 850 * 1024) break; side *= 0.85; q = Math.max(0.6, q - 0.05); } URL.revokeObjectURL(img.src); ok(out); }; img.onerror = () => no(new Error('That file isn’t a photo this browser can open.')); img.src = URL.createObjectURL(file); });
+  $('#app').querySelectorAll('[data-photo]').forEach((box) => {
+    const path = box.dataset.photo, pic = box.querySelector('.ephimg');
+    box.querySelector('input[type=file]').addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      pic.innerHTML = '<span>Preparing the photo…</span>';
+      try { const url = await shrink(file); pic.innerHTML = `<img src="${url}" alt="">`; pending.set(path, url); save.disabled = false; }
+      catch (err) { pic.innerHTML = `<span class="err">${esc(err.message)}</span>`; }
+    });
+    const rm = box.querySelector('[data-phrm]'); if (rm) rm.onclick = () => { pic.innerHTML = '<span>Removed: the design’s drawing shows after you save</span>'; pending.set(path, ''); save.disabled = false; };
+  });
   $('#app').querySelectorAll('[data-oc]').forEach((cb) => cb.addEventListener('change', () => { const c = $(`[data-p="${CSS.escape(cb.dataset.oc)}"]`); c.disabled = !cb.checked; pending.set(cb.dataset.oc, cb.checked ? c.value : ''); save.disabled = false; }));
   $('#app').querySelectorAll('[data-add],[data-rm]').forEach((b) => b.addEventListener('click', () => { ops.push(b.dataset.add ? { op: 'add', list: b.dataset.add } : { op: 'remove', list: b.dataset.rm }); b.disabled = true; save.disabled = false; }));
   $('#app').querySelectorAll('[data-dev]').forEach((b) => b.addEventListener('click', () => { $('#epframe').classList.toggle('phone', b.dataset.dev === 'phone'); $('#app').querySelectorAll('[data-dev]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
