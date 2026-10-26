@@ -6283,18 +6283,19 @@ const demoPhotos = require('./lib/demo-photos');
 const demoJob = { running: false, queue: [], current: null, done: [], failed: [], startedAt: null };
 async function runDemoJob() {
   if (demoJob.running) return; demoJob.running = true;
+  const off = new Set(); // (a library that refuses us is left alone for the rest of the run)
   try {
     while (demoJob.queue.length) {
       const name = demoJob.queue.shift(); demoJob.current = name;
       try {
         const p = designSites.designFor(name);
         const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
-        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, log: (m) => console.log('Demo photos:', name, m) });
+        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, key: designDeps.pexelsKey != null ? designDeps.pexelsKey : process.env.PEXELS_API_KEY, off, log: (m) => console.log('Demo photos:', name, m) });
         if (r.none) demoJob.failed.push({ design: name, why: r.none });
         else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); console.log(`Demo photos: ${name} has ${r.photos.length} photos (${r.by})`); }
       } catch (e) {
         demoJob.failed.push({ design: name, why: String(e && e.message || e).slice(0, 200) });
-        if (e && e.code === 'rate_limited') { for (const n of demoJob.queue.splice(0)) demoJob.failed.push({ design: n, why: e.message }); }
+
       }
     }
   } finally { demoJob.running = false; demoJob.current = null; }

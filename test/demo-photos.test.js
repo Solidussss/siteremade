@@ -13,18 +13,20 @@ const demoPhotos = require('../lib/demo-photos');
 const OWNER = 'jaydenflynn9@gmail.com';
 // a real JPEG: grey, with a bright block where the subject is
 const photo = (W = 1200, H = 800, hue = 0) => { const px = Buffer.alloc(W * H * 4); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, inside = x > W * .3 && x < W * .7 && y > H * .25 && y < H * .75; px[i] = inside ? 210 : 110 + hue; px[i + 1] = inside ? 40 : 115; px[i + 2] = inside ? 50 : 120; px[i + 3] = 255; } return Buffer.from(jpeg.encode({ width: W, height: H, data: px }, 85).data); };
-// the stand-in library: every search finds five photographs (one of them a drawing-licensed one we must skip)
-const searches = [];
-const library = async (url) => {
+// the stand-in libraries: Wikimedia Commons answers with five files (two under licences we must skip); Openverse and
+// Pexels answer the same way when asked; the photos themselves are real JPEGs
+const asked = [];
+const commonsPages = [1, 2, 3, 4, 5].map((n) => ({ title: `File:Photo ${n}.jpg`, imageinfo: [{ url: `https://upload.example/${n}.jpg`, thumburl: `https://upload.example/${n}.jpg`, width: 3000, height: 2000, mime: 'image/jpeg', descriptionurl: `https://commons.example/${n}`,
+  extmetadata: { LicenseShortName: { value: n === 4 ? 'CC BY-SA 4.0' : n === 5 ? 'CC BY 2.0' : n === 3 ? 'Public domain' : 'CC0' }, Artist: { value: '<a href="x">Someone</a>' }, ObjectName: { value: `Photo ${n}` } } }] }));
+const makeLibrary = ({ commonsDown = false } = {}) => async (url) => {
   const u = String(url);
-  if (u.startsWith('https://api.openverse.org/')) {
-    searches.push(new URL(u).searchParams);
-    const results = [1, 2, 3, 4, 5].map((n) => ({ url: `https://photos.example/${n}.jpg`, width: 2400, height: 1600, license: n === 5 ? 'by' : 'cc0', title: `Photo ${n}`, creator: 'Someone', foreign_landing_url: `https://photos.example/p/${n}`, filetype: 'jpg', mature: false }));
-    return new Response(JSON.stringify({ results }), { status: 200, headers: { 'content-type': 'application/json' } });
-  }
-  const m = /photos\.example\/(\d)\.jpg$/.exec(u); if (!m) return new Response('no', { status: 404 });
+  if (u.startsWith('https://commons.wikimedia.org/')) { asked.push(['commons', new URL(u).searchParams]); return commonsDown ? new Response('', { status: 503 }) : new Response(JSON.stringify({ query: { pages: commonsPages } }), { status: 200 }); }
+  if (u.startsWith('https://api.openverse.org/')) { asked.push(['openverse', new URL(u).searchParams]); return new Response(JSON.stringify({ results: [1, 2, 3].map((n) => ({ url: `https://upload.example/${n}.jpg`, width: 2400, height: 1600, license: 'cc0', title: `OV ${n}`, filetype: 'jpg' })) }), { status: 200 }); }
+  if (u.startsWith('https://api.pexels.com/')) { asked.push(['pexels', new URL(u).searchParams]); return new Response(JSON.stringify({ photos: [1, 2].map((n) => ({ width: 4000, height: 2600, alt: `Pexels ${n}`, photographer: 'P', url: 'https://pexels.example', src: { original: `https://upload.example/${n}.jpg` } })) }), { status: 200 }); }
+  const m = /upload\.example\/(\d)\.jpg/.exec(u); if (!m) return new Response('no', { status: 404 });
   return new Response(photo(2400, 1600, Number(m[1]) * 10), { status: 200, headers: { 'content-type': 'image/jpeg' } });
 };
+const library = makeLibrary();
 
 async function server() {
   const srv = app.listen(0, '127.0.0.1'); await new Promise((r) => srv.on('listening', r));
@@ -44,20 +46,27 @@ async function server() {
 }
 const until = async (f) => { for (let i = 0; i < 200; i++) { const v = await f(); if (v) return v; await new Promise((r) => setTimeout(r, 100)); } throw new Error('timed out'); };
 
-test('the search asks for real photographs only, free for business use, and skips anything else', async () => {
-  const got = await demoPhotos.search('car detailing', { fetchImpl: library, wait: async () => {} });
-  const q = searches[searches.length - 1];
-  assert.equal(q.get('category'), 'photograph'); assert.equal(q.get('license'), 'cc0,pdm'); assert.equal(q.get('mature'), 'false'); assert.equal(q.get('page_size'), '20', 'the most Openverse gives without an account');
-  assert.equal(got.length, 4, 'the one under another licence is skipped');
-  const small = demoPhotos.shrink(photo(2400, 1600));
-  const img = jpeg.decode(small); assert.equal(Math.max(img.width, img.height), 1600);
+test('the search: real photographs, free for business use with no credit needed, from the best library that answers', async () => {
+  const wait = async () => {};
+  const fromCommons = await demoPhotos.search('car detailing', { fetchImpl: library, wait, key: '' });
+  assert.equal(asked[asked.length - 1][0], 'commons', 'no Pexels key: Commons first');
+  assert.deepEqual(fromCommons.map((x) => x.license), ['CC0', 'CC0', 'Public domain'], 'files that need a credit are skipped');
+  assert.equal(fromCommons[0].creator, 'Someone', 'credits are plain text');
+  const off = new Set();
+  const fromOpenverse = await demoPhotos.search('car detailing', { fetchImpl: makeLibrary({ commonsDown: true }), wait, key: '', off });
+  assert.ok(off.has('commons')); assert.equal(fromOpenverse[0].title, 'OV 1');
+  const ov = asked.filter((a) => a[0] === 'openverse').pop()[1];
+  assert.equal(ov.get('category'), 'photograph'); assert.equal(ov.get('license'), 'cc0,pdm'); assert.equal(ov.get('page_size'), '20');
+  const fromPexels = await demoPhotos.search('car detailing', { fetchImpl: library, wait, key: 'k' });
+  assert.equal(fromPexels[0].license, 'Pexels'); assert.match(fromPexels[0].url, /w=1600/);
+  const img = jpeg.decode(demoPhotos.shrink(photo(2400, 1600))); assert.equal(Math.max(img.width, img.height), 1600);
   assert.ok(Object.keys(demoPhotos.QUERIES).length >= 36, 'every design has its searches');
 });
 
 test('one tap finds photos for the demos; the demo plays them; customer sites never get them', async () => {
   const { srv, session } = await server();
   const seen = [];
-  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
+  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, pexelsKey: '', director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
   try {
     const owner = await session(OWNER), guest = await session(null), stranger = await session('someone@example.com');
     assert.equal((await stranger('GET', '/api/demo-photos')).status, 404, 'owner only');
@@ -70,8 +79,8 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     assert.deepEqual(done.job.failed, []); assert.deepEqual(done.job.done.sort(), ['beadline', 'steadyhand']);
     const bead = done.designs.find((d) => d.design === 'beadline');
     assert.deepEqual(bead.photos.map((p) => p.slot).sort(), ['before', 'main', 'second']);
-    assert.equal(bead.note, 'The finished car ends it.'); assert.equal(bead.credits.length, 3); assert.equal(bead.credits[0].license, 'CC0');
-    assert.ok(seen.every((n) => n === 4), 'the director saw the four usable photos');
+    assert.equal(bead.note, 'The finished car ends it.'); assert.equal(bead.credits.length, 3); assert.ok(bead.credits.every((c) => /^(CC0|Public domain)$/.test(c.license)));
+    assert.ok(seen.every((n) => n === 3), 'the director saw the three usable photos');
     // the demo plays them, each subject found
     const demo = await guest('GET', '/designs/demo/beadline');
     assert.ok(demo.text.includes('/designs/demo-photo/beadline/main.jpg'), 'the demo has its photos'); assert.ok(demo.text.includes('data-mask="data:image/jpeg'));
@@ -88,10 +97,10 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     // removed: back to the drawing
     assert.equal((await owner('POST', '/api/demo-photos/beadline/clear', {})).status, 200);
     assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'));
-    // the library says slow down: what's left waits, and the owner is told
-    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), wait: async () => {}, director: () => async () => ({ plan: { main: 1 } }) });
+    // every library refuses: the owner is told to try again later
+    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), wait: async () => {}, pexelsKey: '', director: () => async () => ({ plan: { main: 1 } }) });
     await owner('POST', '/api/demo-photos/find', { designs: ['larder', 'ochre'] });
     const slow = await until(async () => { const r = await owner('GET', '/api/demo-photos'); return !r.json.job.running && r.json.job.failed.length === 2 ? r.json : null; });
-    assert.match(slow.job.failed[0].why, /slow down/);
+    assert.match(slow.job.failed[0].why, /try again in an hour/);
   } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); }
 });
