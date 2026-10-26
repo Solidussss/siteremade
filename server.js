@@ -157,7 +157,7 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
   /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
-  /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview)?)?$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/];
+  /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -6153,7 +6153,10 @@ app.post('/api/enquiries/:service', requireSameOrigin, express.json({ limit: '20
   if (c.error) return res.status(c.error === 'Unknown service.' ? 404 : 400).json({ ok: false, message: c.error });
   const id = 'enq_' + crypto.randomBytes(12).toString('base64url'), e = c.enquiry, now = new Date().toISOString();
   db.serviceEnquiries.insert({ id, service: e.service, summary: e.summary, fieldsJson: JSON.stringify(e.fields), contactJson: JSON.stringify(e.contact), createdAt: now });
-  res.json({ ok: true, id });
+  // a website request may bring the customer's photos next: one private token, good for this request only
+  let uploadToken;
+  if (e.service === 'website') { uploadToken = crypto.randomBytes(18).toString('base64url'); db.serviceEnquiries.setUploadToken(id, uploadToken); }
+  res.json({ ok: true, id, uploadToken });
   // then the email to SiteRemade (the enquiry is already kept: an email that fails is recorded, never lost silently)
   const at = () => new Date().toISOString();
   if (!RESEND_API_KEY) return db.serviceEnquiries.emailed(id, at(), 'not_configured');
@@ -6182,7 +6185,8 @@ app.get(['/requests', '/requests/'], (req, res) => { res.setHeader('Cache-Contro
 app.get('/api/requests', requireAuth, ownerOnly, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const base = publicBase(req);
-  res.json({ ok: true, price: websitePriceText(), emailOn: !!RESEND_API_KEY, payOn: !!STRIPE_SECRET_KEY, requests: db.serviceEnquiries.list(null, 500).map((r) => websiteRequests.ownerView(r, base)) });
+  const withPhotos = (v) => Object.assign(v, { photos: db.serviceEnquiries.photos(v.id).map((p) => ({ id: p.id, url: `/api/requests/photo/${p.id}` })) });
+  res.json({ ok: true, price: websitePriceText(), emailOn: !!RESEND_API_KEY, payOn: !!STRIPE_SECRET_KEY, requests: db.serviceEnquiries.list(null, 500).map((r) => withPhotos(websiteRequests.ownerView(r, base))) });
 });
 // the owner moves a request along, keeps a note, or sets the preview link
 app.post('/api/requests/:id', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '20kb' }), (req, res) => {
@@ -6210,6 +6214,24 @@ app.post('/api/requests/:id/send-preview', requireAuth, requireSameOrigin, owner
     catch (err) { emailError = String(err && err.message || err).slice(0, 200); console.error('Preview email failed:', emailError); }
   }
   res.json({ ok: true, emailed, emailError, message: m.text, request: websiteRequests.ownerView(fresh, base) });
+});
+// the customer's photos, right after their request (one at a time, already shrunk in their browser), and the owner's view of them
+const PHOTOS_PER_REQUEST = 8;
+const photoRateLimit = rateLimitMiddleware((req) => `rphoto:${req.ip}`, { max: 40, windowMs: 60 * 60 * 1000 }, 'Too many photos from this connection. Please email them to hello@siteremade.com.');
+app.post('/api/enquiries/photos/:token', requireSameOrigin, express.json({ limit: '1200kb' }), photoRateLimit, (req, res) => {
+  const t = String(req.params.token || ''), row = /^[A-Za-z0-9_-]{20,40}$/.test(t) && db.serviceEnquiries ? db.serviceEnquiries.findByUploadToken(t) : null;
+  if (!row) return res.status(404).json({ ok: false, message: 'That request isn’t open for photos any more. Email them to hello@siteremade.com.' });
+  if (Date.now() - Date.parse(row.created_at) > 2 * 3600e3) return res.status(410).json({ ok: false, message: 'Photos can only be added just after the request. Email them to hello@siteremade.com.' });
+  const v = String((req.body || {}).photo || ''), m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/.exec(v);
+  if (!m || !require('./design-packages/engine/engine').isPhoto(v)) return res.status(400).json({ ok: false, message: 'That file isn’t a photo we can use (JPEG, PNG or WebP, up to 900 KB).' });
+  const n = db.serviceEnquiries.photoCount(row.id);
+  if (n >= PHOTOS_PER_REQUEST) return res.status(400).json({ ok: false, message: `That's ${PHOTOS_PER_REQUEST} photos, the most for one request.` });
+  db.serviceEnquiries.addPhoto({ id: 'rph_' + crypto.randomBytes(10).toString('base64url'), enquiryId: row.id, mime: m[1], data: Buffer.from(m[2], 'base64'), sort: n, createdAt: new Date().toISOString() });
+  res.json({ ok: true, count: n + 1 });
+});
+app.get('/api/requests/photo/:id', requireAuth, ownerOnly, (req, res) => {
+  const ph = db.serviceEnquiries.photo(String(req.params.id)); if (!ph) return res.status(404).end();
+  res.setHeader('Cache-Control', 'private, max-age=86400'); res.type(ph.mime).send(Buffer.from(ph.data));
 });
 // the customer's pay page
 const payRateLimit = rateLimitMiddleware((req) => `pay:${req.ip}`, { max: 30, windowMs: 60 * 60 * 1000 }, 'Too many tries. Please wait a little and try again.');

@@ -45,8 +45,15 @@ test('request -> owner page -> preview with a pay link -> paid by a signed Strip
   const { srv, base, session } = await server();
   try {
     const guest = await session(null);
-    const sent = await guest('POST', '/api/enquiries/website', { name: 'Dez Okafor', email: 'dez@example.com', phone: '+1 403 555 0100', answers: { design: 'Steady Hand', designKey: 'steadyhand', link: 'https://instagram.com/steadyhandcuts' } });
+    const sent = await guest('POST', '/api/enquiries/website', { name: 'Dez Okafor', email: 'dez@example.com', phone: '+1 403 555 0100', answers: { businessName: 'Fade Factory', design: 'Steady Hand', designKey: 'steadyhand', link: 'https://instagram.com/steadyhandcuts' } });
     assert.equal(sent.status, 200, sent.text);
+    // their photos, with the private token the request gave back
+    const tok = sent.json.uploadToken; assert.match(tok, /^[A-Za-z0-9_-]{20,40}$/);
+    const jpeg = 'data:image/jpeg;base64,' + Buffer.from('a stand-in photo').toString('base64');
+    assert.equal((await guest('POST', `/api/enquiries/photos/${tok}`, { photo: jpeg })).json.count, 1);
+    assert.equal((await guest('POST', `/api/enquiries/photos/${tok}`, { photo: jpeg })).json.count, 2);
+    assert.equal((await guest('POST', `/api/enquiries/photos/${tok}`, { photo: 'data:image/svg+xml;base64,PHN2Zz4=' })).status, 400, 'not a photo');
+    assert.equal((await guest('POST', '/api/enquiries/photos/not-a-real-token-xxxxxxxx', { photo: jpeg })).status, 404);
 
     // only the owner sees requests
     const stranger = await session('someone@example.com');
@@ -57,6 +64,9 @@ test('request -> owner page -> preview with a pay link -> paid by a signed Strip
     const list = await owner('GET', '/api/requests');
     assert.equal(list.status, 200);
     const q = list.json.requests[0];
+    assert.equal(q.businessName, 'Fade Factory'); assert.equal(q.photos.length, 2);
+    const img = await owner('GET', q.photos[0].url); assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/jpeg');
+    assert.equal((await stranger('GET', q.photos[0].url)).status, 404, 'only the owner sees the photos');
     assert.equal(q.design, 'Steady Hand'); assert.equal(q.designKey, 'steadyhand'); assert.equal(q.link, 'https://instagram.com/steadyhandcuts'); assert.equal(q.status, 'new');
     assert.equal(list.json.emailOn, false); assert.equal(list.json.payOn, false);
 

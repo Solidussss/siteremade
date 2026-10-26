@@ -23,6 +23,11 @@
 .how p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
 .price{margin:0 0 40px;color:var(--muted);font-size:15px}.price strong{color:var(--dark)}
 @media(max-width:720px){.how{grid-template-columns:1fr;margin-top:-8px}}
+/* photos in the request */
+.gphotos{display:grid;gap:8px}.gphotos .gl{font-size:14px;font-weight:600}.gphotos small{color:var(--muted);font-weight:400}
+.gthumbs{display:flex;flex-wrap:wrap;gap:8px}.gthumbs:empty{display:none}.gth{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden}
+.gth img{width:100%;height:100%;object-fit:cover}.gth button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:13px;line-height:1;cursor:pointer}
+.gadd{justify-self:start}
 /* the owner's free start */
 .exstart{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.exstart input{flex:1;min-width:180px;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
 /* editor photo fields */
@@ -297,32 +302,45 @@ function home() {
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();
 }
-// "Get this design": one link to their business and a way to reach them. We build it by hand (POST /api/enquiries/website).
+// "Get this design": the business, one link to it, their photos if they have them, and a way to reach them. We build it
+// by hand (POST /api/enquiries/website, then each photo to its private upload link).
 function getDesign(d) {
-  const m = DESIGN[d] || { name: d, kind: '' };
+  const m = DESIGN[d] || { name: d, kind: '' }, picked = [];
   const box = document.createElement('div'); box.className = 'getbox'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
   box.innerHTML = `<form class="getcard bform" id="gf"><button type="button" class="x" aria-label="Close">×</button>
     <p class="tag">${esc(m.kind)}</p><h2>Get ${esc(m.name)} for your business</h2>
-    <p class="sub">Paste one link and we'll build it with your real photos and details. You'll get a preview first, and you only pay if you like it.</p>
+    <p class="sub">We build it with your real photos and details and send you a preview. You only pay if you like it.</p>
+    <label>Business name<input name="business" autocomplete="organization" required></label>
     <label>Link to your business<input name="link" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Google Maps, Instagram or your website" required></label>
+    <div class="gphotos"><span class="gl">Your photos <small>optional, up to 8: your place, your work, your team</small></span><div class="gthumbs" id="gThumbs"></div><label class="button button-secondary gadd">Add photos<input type="file" accept="image/*" multiple hidden id="gFiles"></label></div>
     <label>Your name<input name="name" autocomplete="name" required></label>
     <label>Email<input name="email" type="email" autocomplete="email" required></label>
     <label>Phone <small>optional</small><input name="phone" type="tel" autocomplete="tel"></label>
     <input name="company" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-    <div class="actions"><button class="button">Send</button></div><p class="err" id="gErr"></p></form>`;
+    <div class="actions"><button class="button" id="gSend">Send</button></div><p class="err" id="gErr"></p></form>`;
   document.body.appendChild(box);
   const close = () => box.remove();
   box.querySelector('.x').onclick = close; box.onclick = (e) => { if (e.target === box) close(); };
-  box.querySelector('[name=link]').focus();
+  box.querySelector('[name=business]').focus();
+  const thumbs = () => { $('#gThumbs').innerHTML = picked.map((u, i) => `<span class="gth"><img src="${u}" alt=""><button type="button" data-rm="${i}" aria-label="Remove photo">×</button></span>`).join(''); $('#gThumbs').querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { picked.splice(+b.dataset.rm, 1); thumbs(); }; }); };
+  $('#gFiles').addEventListener('change', async (e) => {
+    const files = [...(e.target.files || [])].slice(0, 8 - picked.length); e.target.value = '';
+    for (const f of files) { try { picked.push(await shrinkPhoto(f)); thumbs(); } catch (err) { $('#gErr').textContent = err.message; } }
+  });
   $('#gf').onsubmit = async (e) => {
-    e.preventDefault(); const f = new FormData(e.target); let link = String(f.get('link') || '').trim();
+    e.preventDefault(); const f = new FormData(e.target); let link = String(f.get('link') || '').trim(); $('#gErr').textContent = '';
     if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
-    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { design: m.name, designKey: d, link } });
-    if (!r.ok) { $('#gErr').textContent = r.message || 'Something went wrong. Email hello@siteremade.com.'; return; }
-    box.querySelector('.getcard').innerHTML = `<p class="tag">SENT</p><h2>Got it, ${esc(String(f.get('name')).split(' ')[0])}.</h2><p class="sub">We'll build your ${esc(m.name)} site and send the preview to ${esc(f.get('email'))}, usually within two days. Questions? Reply to that email.</p><div class="actions"><button type="button" class="button" id="gDone">Done</button></div>`;
+    const send = $('#gSend'); send.disabled = true; send.textContent = 'Sending…';
+    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { businessName: f.get('business'), design: m.name, designKey: d, link } });
+    if (!r.ok) { send.disabled = false; send.textContent = 'Send'; $('#gErr').textContent = r.message || 'Something went wrong. Email hello@siteremade.com.'; return; }
+    let sent = 0, failed = 0;
+    for (const u of picked) { send.textContent = `Sending photos ${sent + failed + 1} of ${picked.length}…`; const p = await api(`/api/enquiries/photos/${r.uploadToken}`, { photo: u }); if (p.ok) sent++; else failed++; }
+    box.querySelector('.getcard').innerHTML = `<p class="tag">SENT</p><h2>Got it, ${esc(String(f.get('name')).split(' ')[0])}.</h2><p class="sub">We'll build your ${esc(m.name)} site${sent ? ` with your ${sent} photo${sent > 1 ? 's' : ''}` : ''} and send the preview to ${esc(f.get('email'))}, usually within two days.${failed ? ` ${failed} photo${failed > 1 ? 's' : ''} didn't go through: just reply to our email with ${failed > 1 ? 'them' : 'it'}.` : ''} Questions? Reply to that email.</p><div class="actions"><button type="button" class="button" id="gDone">Done</button></div>`;
     $('#gDone').onclick = close;
   };
 }
+// a photo from the phone or computer, as a JPEG data URL: the longest side to 1600 px, smaller until it's under ~850 KB
+const shrinkPhoto = (file) => new Promise((ok, no) => { const img = new Image(); img.onload = () => { let side = 1600, q = 0.82, out = ''; for (let i = 0; i < 8; i++) { const k = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q); if (out.length < 850 * 1024) break; side *= 0.85; q = Math.max(0.6, q - 0.05); } URL.revokeObjectURL(img.src); ok(out); }; img.onerror = () => no(new Error('That file isn’t a photo this browser can open.')); img.src = URL.createObjectURL(file); });
 function costNote() { const a = D && D.access; return a && a.owner ? 'About a minute · roughly $0.25 of AI' : `About a minute · free (${(a && a.perDay) || 5} new sites a day)`; }
 function pick(d, about) {
   chosen = D.designs.find((x) => x.design === d); const m = DESIGN[d] || { name: d };
@@ -484,7 +502,7 @@ async function showEditor(s) {
     pending.set(wk.dataset.week, JSON.stringify(v)); save.disabled = false;
   }));
   // photos: the longest side to 1600 px as a JPEG, smaller until it fits the design's limit
-  const shrink = (file) => new Promise((ok, no) => { const img = new Image(); img.onload = () => { let side = 1600, q = 0.82, out = ''; for (let i = 0; i < 8; i++) { const k = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q); if (out.length < 850 * 1024) break; side *= 0.85; q = Math.max(0.6, q - 0.05); } URL.revokeObjectURL(img.src); ok(out); }; img.onerror = () => no(new Error('That file isn’t a photo this browser can open.')); img.src = URL.createObjectURL(file); });
+  const shrink = shrinkPhoto;
   $('#app').querySelectorAll('[data-photo]').forEach((box) => {
     const path = box.dataset.photo, pic = box.querySelector('.ephimg');
     box.querySelector('input[type=file]').addEventListener('change', async (e) => {

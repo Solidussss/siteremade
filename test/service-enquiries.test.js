@@ -31,11 +31,12 @@ test('an enquiry is cleaned to the fields the service asks, and anything else is
 });
 
 test('a website request: a design and one link to the business, nothing else to fill in', async () => {
-  const W = { name: 'Dez Okafor', email: 'dez@example.com', answers: { design: 'Steady Hand', link: 'https://maps.google.com/?cid=123' } };
+  const W = { name: 'Dez Okafor', email: 'dez@example.com', answers: { businessName: 'Fade Factory', design: 'Steady Hand', link: 'https://maps.google.com/?cid=123' } };
   const e = se.clean('website', W).enquiry;
-  assert.equal(e.summary, 'Website · Steady Hand');
-  assert.deepEqual(e.fields, [['Design', 'Steady Hand'], ['Their link', 'https://maps.google.com/?cid=123']]);
-  assert.match(se.clean('website', { ...W, answers: { design: 'Steady Hand' } }).error, /Google Maps, Instagram/);
+  assert.equal(e.summary, 'Website · Fade Factory · Steady Hand');
+  assert.deepEqual(e.fields, [['Business', 'Fade Factory'], ['Design', 'Steady Hand'], ['Their link', 'https://maps.google.com/?cid=123']]);
+  assert.match(se.clean('website', { ...W, answers: { ...W.answers, businessName: '' } }).error, /name of your business/);
+  assert.match(se.clean('website', { ...W, answers: { businessName: 'Fade Factory', design: 'Steady Hand' } }).error, /Google Maps, Instagram/);
   assert.match(se.clean('website', { ...W, answers: { ...W.answers, link: 'not a link' } }).error, /https/);
   const srv = app.listen(0, '127.0.0.1'); await new Promise((r) => srv.on('listening', r));
   const base = `http://127.0.0.1:${srv.address().port}`;
