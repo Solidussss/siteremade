@@ -23,6 +23,8 @@
 .how p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
 .price{margin:0 0 40px;color:var(--muted);font-size:15px}.price strong{color:var(--dark)}
 @media(max-width:720px){.how{grid-template-columns:1fr;margin-top:-8px}}
+/* the owner's free start */
+.exstart{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.exstart input{flex:1;min-width:180px;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
 /* editor photo fields */
 .eph .ephimg{border:1px dashed var(--line);border-radius:12px;min-height:90px;display:grid;place-items:center;overflow:hidden;background:#fafafa}
 .eph .ephimg img{display:block;width:100%;max-height:220px;object-fit:cover}.eph .ephimg span{color:var(--muted);font-size:13px;padding:14px;text-align:center}
@@ -253,6 +255,8 @@ async function load() {
   const acct = $('#acct'); acct.textContent = D.guest ? 'Sign in' : 'Sign out';
   acct.onclick = D.guest ? () => signIn() : async () => { await api('/api/auth/signout', {}); load(); };
   home();
+  const build = new URLSearchParams(location.search).get('build');
+  if (build && D.access && D.access.owner && D.designs.some((x) => x.design === build)) { history.replaceState(null, '', location.pathname); pick(build); $('#briefBox').scrollIntoView({ behavior: 'smooth' }); }
   const want = new URLSearchParams(location.search).get('site');
   if (want && D.sites && D.sites.some((x) => x.id === want)) { history.replaceState(null, '', location.pathname + location.hash); open(want); }
 }
@@ -284,9 +288,12 @@ function home() {
     <li><b>3</b><h3>Approve, then pay</h3><p>We build it with your real photos and details and send you a preview. You only pay when you're happy with it.</p></li>
   </ol>
   <p class="price"><strong>${esc(D.price || '$149.99')} once.</strong> Yours to keep, no subscription.</p>
-  <section class="gallery" id="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" data-d="${x.design}">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><div class="dacts"><a class="button button-small button-secondary" href="/designs/demo/${x.design}" target="_blank" rel="noopener">View</a><button type="button" class="button button-small" data-get="${x.design}">Get this design</button></div></div></div>`; }).join('')}</section>
+  <section class="gallery" id="gallery">${D.designs.map((x) => { const m = DESIGN[x.design] || { name: x.design, kind: x.title, url: x.design }; return `<div class="dcard" data-d="${x.design}">${frame('/designs/demo/' + x.design, m.url, false, true)}<div class="dmeta"><div><span class="tag">${esc(m.kind)}</span><h3>${esc(m.name)}</h3></div><div class="dacts"><a class="button button-small button-secondary" href="/designs/demo/${x.design}" target="_blank" rel="noopener">View</a>${D.access && D.access.owner ? `<button type="button" class="button button-small button-secondary" data-build="${x.design}">Build</button>` : ''}<button type="button" class="button button-small" data-get="${x.design}">Get this design</button></div></div></div>`; }).join('')}</section>
+  <div id="briefBox"></div>
   ${D.sites.length || (D.projects || []).length ? `<section class="sites" id="projects"><h2>Your projects</h2>${D.sites.length ? `<div class="sgrid">${D.sites.map((s) => `<div class="scard" role="button" tabindex="0" data-id="${s.id}"><div class="screen">${s.status === 'built' ? `<iframe data-src="/api/designs/sites/${s.id}/preview" tabindex="-1" title="${esc(s.business_name)}"></iframe>` : `<div class="blank">${esc(s.status === 'writing' ? 'Writing…' : s.status === 'needs_owner' ? 'Needs answers' : 'Not built')}</div>`}</div><div class="smeta"><b>${esc(s.business_name || `Your ${(DESIGN[s.design] || { name: 'new' }).name} site`)}</b>${s.published_at ? '<span class="pill live">Live</span>' : '<span class="pill">Draft</span>'}</div></div>`).join('')}</div>` : ''}${(D.projects || []).length ? `<ul class="plist">${D.projects.map((p) => `<li><a href="${esc(p.open)}"><b>${esc(p.name || 'Untitled')}</b><span>${p.isPurchased ? 'Purchased' : 'Draft'} · ${esc(String(p.updatedAt || '').slice(0, 10))}</span><em>Open</em></a></li>`).join('')}</ul>` : ''}</section>` : ''}`;
   document.querySelectorAll('[data-get]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); getDesign(b.dataset.get); }; });
+  // the owner builds a customer's site from here (or from a request: /?build=<design>)
+  document.querySelectorAll('[data-build]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); pick(b.dataset.build); }; });
   document.querySelectorAll('.scard').forEach((b) => { b.onclick = () => open(b.dataset.id); b.onkeydown = (e) => { if (e.key === 'Enter') open(b.dataset.id); }; });
   fitFrames(); playAll();
 }
@@ -310,7 +317,7 @@ function getDesign(d) {
   $('#gf').onsubmit = async (e) => {
     e.preventDefault(); const f = new FormData(e.target); let link = String(f.get('link') || '').trim();
     if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
-    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { design: m.name, link } });
+    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { design: m.name, designKey: d, link } });
     if (!r.ok) { $('#gErr').textContent = r.message || 'Something went wrong. Email hello@siteremade.com.'; return; }
     box.querySelector('.getcard').innerHTML = `<p class="tag">SENT</p><h2>Got it, ${esc(String(f.get('name')).split(' ')[0])}.</h2><p class="sub">We'll build your ${esc(m.name)} site and send the preview to ${esc(f.get('email'))}, usually within two days. Questions? Reply to that email.</p><div class="actions"><button type="button" class="button" id="gDone">Done</button></div>`;
     $('#gDone').onclick = close;
@@ -333,10 +340,17 @@ function pick(d, about) {
     <label class="sr" for="about">${esc(prompt ? prompt.label : 'About the business')}</label><textarea name="about" id="about" rows="4" placeholder="Make this website for ${esc(ex)}"></textarea>
     <details class="more"><summary>Add details now (optional)</summary><p class="note">Skip these if you like: you can add or change everything after you see your site. Anything the writer has to assume is marked for you to confirm before it goes live, and it never makes up a price.</p>
     <div class="bform">${extra.map((f) => `<label class="${f.type === 'textarea' ? 'wide' : ''}">${esc(f.label)}${f.help ? `<small>${esc(f.help)}</small>` : ''}${f.type === 'textarea' ? `<textarea name="${f.key}"></textarea>` : f.type === 'choice' ? `<select name="${f.key}">${f.options.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select>` : `<input name="${f.key}">`}</label>`).join('')}</div></details>
-    <div class="actions"><button class="button" id="go">Make my ${esc(m.name)} site <span aria-hidden="true">→</span></button><span class="note">${costNote()}</span></div><p class="err" id="err"></p></div></form>`;
+    <div class="actions"><button class="button" id="go">Make my ${esc(m.name)} site <span aria-hidden="true">→</span></button><span class="note">${costNote()}</span></div><p class="err" id="err"></p>
+    ${D.access && D.access.owner ? `<div class="exstart"><p class="note"><b>Or build it yourself, free:</b> start from the design’s example under the business’s name, then change the words, prices and photos in the editor. No AI.</p><div class="actions"><input id="exname" placeholder="Business name" maxlength="80"><button type="button" class="button button-secondary" id="exgo">Start from the example</button></div></div>` : ''}</div></form>`;
   if (about) $('#about').value = about;
   $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   fitFrames(); playAll();
+  if ($('#exgo')) $('#exgo').onclick = async () => {
+    const name = $('#exname').value.trim(); if (!name) { $('#exname').focus(); return; }
+    $('#exgo').disabled = true; const r = await api('/api/designs/sites/from-example', { design: chosen.design, businessName: name }); $('#exgo').disabled = false;
+    if (!r.ok) { $('#err').textContent = r.message || 'Something went wrong.'; return; }
+    await load(); open(r.site.id);
+  };
   $('#form').onsubmit = async (e) => {
     e.preventDefault(); const btn = $('#go');
     const brief = Object.fromEntries(chosen.fields.map((f) => [f.key, (e.target.elements[f.key] || { value: '' }).value]));

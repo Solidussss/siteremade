@@ -6008,6 +6008,13 @@ app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwne
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
 app.get('/api/designs/sites/:id', requireAuth, requireDesignOwner, (req, res) => { const row = ownDesignSite(req, res); if (row) res.json({ ok: true, site: designSites.view(row) }); });
+// the owner starts a customer's site from the design's example: no AI, free; then edits it in the editor
+app.post('/api/designs/sites/from-example', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+  if (!req.designOwner) return res.status(404).json({ ok: false, message: 'Not found.' });
+  const r = designSites.startFromExample(db, { accountId: req.accountId, design: String(req.body && req.body.design || ''), businessName: req.body && req.body.businessName });
+  if (r.error) return res.status(400).json({ ok: false, message: r.error, errors: r.errors });
+  return res.json({ ok: true, site: designSites.view(r.row) });
+});
 app.post('/api/designs/sites/:id/answer', requireAuth, requireSameOrigin, requireDesignOwner, requireAiOwner, generationRateLimit, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   if (row.status !== 'needs_owner') return res.status(409).json({ ok: false, message: 'This site is not waiting for answers.' });

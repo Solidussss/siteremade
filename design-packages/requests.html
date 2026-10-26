@@ -63,6 +63,7 @@ function card(q) {
   ${web ? `<dt>Design</dt><dd>${esc(q.design)}</dd><dt>Their link</dt><dd><a href="${esc(q.link)}" target="_blank" rel="noopener">${esc(q.link)}</a></dd>` : q.fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${/^https?:/.test(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</dd>`).join('')}
   ${q.message ? `<dt>Message</dt><dd>${esc(q.message)}</dd>` : ''}</dl>
   ${web ? `<label>Preview link<input type="url" inputmode="url" data-k="preview" placeholder="https://… the site you built for them" value="${esc(q.previewUrl || '')}"></label>
+  ${q.designKey && !q.previewUrl ? `<div class="row"><a class="btn ghost" href="/?build=${encodeURIComponent(q.designKey)}">Build it in the studio</a></div><p class="when">Build it, publish it, then paste its link below.</p>` : ''}
   <div class="row"><button class="btn" data-k="send">${q.payUrl ? 'Send the preview again' : 'Send preview + pay link'}</button>${q.previewUrl ? `<a class="btn ghost" href="${esc(q.previewUrl)}" target="_blank" rel="noopener">Open preview</a>` : ''}</div>
   ${q.payUrl ? `<p class="when">Their pay link: <a href="${esc(q.payUrl)}" target="_blank" rel="noopener">${esc(q.payUrl)}</a></p>` : ''}
   <div data-k="out"></div>` : ''}

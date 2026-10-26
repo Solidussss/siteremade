@@ -45,7 +45,7 @@ test('request -> owner page -> preview with a pay link -> paid by a signed Strip
   const { srv, base, session } = await server();
   try {
     const guest = await session(null);
-    const sent = await guest('POST', '/api/enquiries/website', { name: 'Dez Okafor', email: 'dez@example.com', phone: '+1 403 555 0100', answers: { design: 'Steady Hand', link: 'https://instagram.com/steadyhandcuts' } });
+    const sent = await guest('POST', '/api/enquiries/website', { name: 'Dez Okafor', email: 'dez@example.com', phone: '+1 403 555 0100', answers: { design: 'Steady Hand', designKey: 'steadyhand', link: 'https://instagram.com/steadyhandcuts' } });
     assert.equal(sent.status, 200, sent.text);
 
     // only the owner sees requests
@@ -57,7 +57,7 @@ test('request -> owner page -> preview with a pay link -> paid by a signed Strip
     const list = await owner('GET', '/api/requests');
     assert.equal(list.status, 200);
     const q = list.json.requests[0];
-    assert.equal(q.design, 'Steady Hand'); assert.equal(q.link, 'https://instagram.com/steadyhandcuts'); assert.equal(q.status, 'new');
+    assert.equal(q.design, 'Steady Hand'); assert.equal(q.designKey, 'steadyhand'); assert.equal(q.link, 'https://instagram.com/steadyhandcuts'); assert.equal(q.status, 'new');
     assert.equal(list.json.emailOn, false); assert.equal(list.json.payOn, false);
 
     // moving it along, a note, a bad status
@@ -127,5 +127,28 @@ test('customers no longer run the AI: a new site points them to "Get this design
     assert.equal(change.contact.email, 'customer@example.com');
     assert.deepEqual(change.fields.map((f) => f[0]), ['Website', 'Change']);
     assert.match(change.fields[1][1], /Saturday hours/);
+  } finally { srv.close(); }
+});
+
+test('the owner builds a site from the design example (no AI): named, editable, photos offered, publishable', async () => {
+  const { srv, session } = await server();
+  try {
+    const owner = await session(OWNER), customer = await session('customer2@example.com');
+    assert.equal((await customer('POST', '/api/designs/sites/from-example', { design: 'steadyhand', businessName: 'Fade Factory' })).status, 404);
+    assert.equal((await owner('POST', '/api/designs/sites/from-example', { design: 'steadyhand', businessName: '' })).status, 400);
+    const made = await owner('POST', '/api/designs/sites/from-example', { design: 'steadyhand', businessName: 'Fade Factory' });
+    assert.equal(made.status, 200, made.text);
+    const id = made.json.site.id;
+    const ed = await owner('GET', `/api/designs/sites/${id}/editor`);
+    assert.equal(ed.status, 200, ed.text);
+    assert.ok(ed.json.editor.fields.some((f) => f.path === 'hero.photo' && f.kind === 'photo'), 'the photo field is offered');
+    assert.ok(ed.json.editor.fields.some((f) => f.value === 'Fade Factory'), 'named for the business');
+    const photo = 'data:image/jpeg;base64,' + Buffer.from('stand-in photo').toString('base64');
+    const saved = await owner('POST', `/api/designs/sites/${id}/edit`, { changes: [{ path: 'hero.photo', value: photo }] });
+    assert.equal(saved.status, 200, saved.text);
+    const pub = await owner('POST', `/api/designs/sites/${id}/publish`, { on: true, confirm: true });
+    assert.equal(pub.status, 200, pub.text);
+    const live = await customer('GET', `/s/${id}`);
+    assert.equal(live.status, 200); assert.ok(live.text.includes('class="photo"'), 'the live page shows the photo');
   } finally { srv.close(); }
 });
