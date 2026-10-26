@@ -157,7 +157,9 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
   /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
-  /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/];
+  /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/,
+  // the designs' demo photos: the owner's page that finds them, and the photos themselves
+  /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -5979,9 +5981,24 @@ function ownDesignSite(req, res) {
   if (!row || row.account_id !== req.accountId) { res.status(404).json({ ok: false, message: 'Site not found.' }); return null; }
   return row;
 }
-app.get('/designs/demo/:design', (req, res) => { const html = designSites.demoHtml(String(req.params.design)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=3600'); res.type('html').send(siteRequests.withPreview(html)); });
+// a design's demo set (lib/demo-photos.js), as the demo page uses it: each photo at its own address, in story order
+const DEMO_ORDER = ['before', 'second', 'third', 'main'];
+function demoSet(name) {
+  const set = db.demoPhotos && /^[a-z]{2,20}$/.test(name) ? db.demoPhotos.set(name) : null; if (!set) return null;
+  const v = encodeURIComponent(set.updated_at);
+  return { key: set.updated_at, camera: set.camera, photos: db.demoPhotos.photos(name).sort((x, y) => DEMO_ORDER.indexOf(x.slot) - DEMO_ORDER.indexOf(y.slot)).map((ph) => ({ slot: ph.slot, mask: ph.mask, url: `/designs/demo-photo/${name}/${ph.slot}.jpg?v=${v}` })) };
+}
+app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=300'); res.type('html').send(siteRequests.withPreview(html)); });
+app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
+  const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), String(req.params.slot)) : null; if (!ph) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.type('image/jpeg').send(Buffer.from(ph.data));
+});
 // a still of each design's first screen (a 1440x900 screenshot of /designs/demo/<design>, 960 px JPEG), shown while its live preview loads
-app.get('/designs/poster/:design.jpg', (req, res) => { const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
+app.get('/designs/poster/:design.jpg', (req, res) => {
+  // (a design with demo photos: its main photo is the still the catalogue shows until the demo loads)
+  const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), 'main') : null;
+  if (ph) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.type('image/jpeg').send(Buffer.from(ph.data)); }
+  const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 // the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
 // own sites
@@ -6225,7 +6242,7 @@ app.post('/api/requests/:id/send-preview', requireAuth, requireSameOrigin, owner
 // the hero director (lib/hero-director.js: Claude looks at them, on SiteRemade's key; without one, the customer's order).
 // The request remembers the site, so a second tap opens it instead of making another (again: true makes a fresh one).
 const heroDirector = require('./lib/hero-director');
-const photoAnalyse = require('./lib/photo-analyse');
+const photoAnalyse = require('./lib/photo-work'); // (the subject-finding runs on a background thread)
 const buildRateLimit = rateLimitMiddleware((req) => `rbuild:${req.accountId}`, { max: 30, windowMs: 60 * 60 * 1000 }, 'That’s a lot of builds in an hour. Wait a little and try again.');
 app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '5kb' }), buildRateLimit, async (req, res) => {
   const row = db.serviceEnquiries.find(String(req.params.id)); if (!row) return res.status(404).json({ ok: false, message: 'Request not found.' });
@@ -6258,6 +6275,49 @@ app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, e
   res.json({ ok: true, siteId: site.id, studio: `/?site=${site.id}`, photos: photos.length,
     director: director && { by: director.by, kept: plan.keep, note: plan.note, skipped: plan.skip, used: plan.keep ? 0 : [plan.before, ...plan.middle, plan.main].filter(Boolean).length, problem: director.problem },
     request: websiteRequests.ownerView(db.serviceEnquiries.find(row.id), publicBase(req)) });
+});
+// DEMO PHOTOS (lib/demo-photos.js): the owner finds real photographs for every design's demo in one go. The server
+// searches a free library (CC0 / public domain photographs only), the hero director picks and orders them, and each
+// subject is found. One design at a time in the background; the page polls. Only the demos use them.
+const demoPhotos = require('./lib/demo-photos');
+const demoJob = { running: false, queue: [], current: null, done: [], failed: [], startedAt: null };
+async function runDemoJob() {
+  if (demoJob.running) return; demoJob.running = true;
+  try {
+    while (demoJob.queue.length) {
+      const name = demoJob.queue.shift(); demoJob.current = name;
+      try {
+        const p = designSites.designFor(name);
+        const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
+        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, log: (m) => console.log('Demo photos:', name, m) });
+        if (r.none) demoJob.failed.push({ design: name, why: r.none });
+        else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); }
+      } catch (e) {
+        demoJob.failed.push({ design: name, why: String(e && e.message || e).slice(0, 200) });
+        if (e && e.code === 'rate_limited') { for (const n of demoJob.queue.splice(0)) demoJob.failed.push({ design: n, why: e.message }); }
+      }
+    }
+  } finally { demoJob.running = false; demoJob.current = null; }
+}
+app.get(['/demo-photos', '/demo-photos/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'demo-photos.html')); });
+app.get('/api/demo-photos', requireAuth, ownerOnly, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const sets = Object.fromEntries(db.demoPhotos.sets().map((x) => [x.design, x]));
+  res.json({ ok: true, aiOn: !!(designDeps.director || ANTHROPIC_API_KEY), job: { running: demoJob.running, current: demoJob.current, queued: demoJob.queue.length, done: demoJob.done, failed: demoJob.failed },
+    designs: designSites.designs().map((d) => { const s = sets[d.design], set = s ? demoSet(d.design) : null;
+      return { design: d.design, title: d.title, photos: set ? set.photos.map((ph) => ({ slot: ph.slot, url: ph.url })) : [], note: s ? s.note : null, credits: s ? JSON.parse(s.credits_json || '[]') : [], updatedAt: s ? s.updated_at : null }; }) });
+});
+app.post('/api/demo-photos/find', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '10kb' }), (req, res) => {
+  const all = designSites.designs().map((d) => d.design), b = req.body || {};
+  const want = (Array.isArray(b.designs) ? b.designs.map(String) : all).filter((n) => all.includes(n));
+  const empty = b.onlyEmpty ? new Set(db.demoPhotos.sets().map((x) => x.design)) : new Set();
+  for (const n of want) if (!empty.has(n) && !demoJob.queue.includes(n) && demoJob.current !== n) demoJob.queue.push(n);
+  if (!demoJob.running) { demoJob.done = []; demoJob.failed = []; demoJob.startedAt = new Date().toISOString(); }
+  runDemoJob().catch((e) => console.error('Demo photos job:', e && e.message));
+  res.json({ ok: true, queued: demoJob.queue.length + (demoJob.current ? 1 : 0) });
+});
+app.post('/api/demo-photos/:design/clear', requireAuth, requireSameOrigin, ownerOnly, (req, res) => {
+  db.demoPhotos.clear(String(req.params.design)); res.json({ ok: true });
 });
 // the customer's photos, right after their request (one at a time, already shrunk in their browser), and the owner's view of them
 const PHOTOS_PER_REQUEST = 8;

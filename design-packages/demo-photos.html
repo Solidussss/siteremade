@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SiteRemade · Demo photos</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.png">
+<style>
+/* the owner's demo photos page: real photographs for every design's demo, found in one go */
+:root{--ink:#101114;--muted:#6b6d72;--line:#e4e2dc;--bg:#f4f3ef;--card:#fff;--green:#1d7a46;--red:#b3261e;--blue:#1f5fbf}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;z-index:5;background:rgba(244,243,239,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.bar{max-width:980px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}.bar h1{margin:0;font-size:20px;letter-spacing:-.02em;flex:1}.bar a{color:var(--muted);font-size:14px;text-decoration:none}
+main{max-width:980px;margin:0 auto;padding:16px 16px 80px;display:grid;gap:16px}
+.lead{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:12px}
+.lead p{margin:0;line-height:1.55;color:#3c3e43}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:999px;padding:12px 18px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;background:var(--ink);color:#fff;text-decoration:none;display:inline-block}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}.btn.small{padding:8px 13px;font-size:13px}.btn:disabled{opacity:.5;cursor:default}
+.status{font-size:14px;line-height:1.5}.status .ok{color:var(--green)}.status .err{color:var(--red)}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}.meter i{display:block;height:100%;background:var(--green);width:0;transition:width .4s}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px;align-content:start}
+.card h2{margin:0;font-size:16px;letter-spacing:-.01em}.card .kind{font-size:12px;color:var(--muted)}
+.thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block;background:#eee}
+.none{font-size:13px;color:var(--muted);background:#f6f6f4;border-radius:10px;padding:14px;text-align:center}
+.note{font-size:13px;line-height:1.45;color:#3c3e43}.credit{font-size:11px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}.credit a{color:var(--muted)}
+.busy{font-size:13px;color:var(--blue)}
+</style></head>
+<body>
+<header><div class="bar"><h1>Demo photos</h1><a href="/requests">Requests</a><a href="/">SiteRemade</a></div></header>
+<main id="main"><p class="note">Loading…</p></main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
+let D = null, timer = null;
+async function load() {
+  const r = await api('/api/demo-photos');
+  if (r.status === 401) { $('#main').innerHTML = '<p class="note">Sign in on <a href="/">siteremade.com</a> with the owner account, then come back here.</p>'; return; }
+  if (!r.ok) { $('#main').innerHTML = '<p class="note">This page is for the SiteRemade owner.</p>'; return; }
+  D = r; render();
+  clearTimeout(timer); if (D.job.running) timer = setTimeout(load, 3000);
+}
+function render() {
+  const j = D.job, have = D.designs.filter((d) => d.photos.length).length, total = D.designs.length;
+  const running = j.running, doneN = j.done.length + j.failed.length, all = doneN + j.queued + (j.current ? 1 : 0);
+  $('#main').innerHTML = `<section class="lead">
+    <p><b>${have} of ${total}</b> designs show real photos in their demo. The rest still show the drawing.</p>
+    <p>One tap searches a free photo library for each kind of business. It only takes real photographs that are free for business use with no credit needed. ${D.aiOn ? 'Claude then picks the best ones for each design and puts them in story order.' : 'Claude isn’t switched on, so the first good photos are used in the order found.'} Customer sites never get these photos.</p>
+    <div class="row"><button class="btn" id="findEmpty"${running ? ' disabled' : ''}>Find photos for the ${total - have} without</button><button class="btn ghost" id="findAll"${running ? ' disabled' : ''}>Find new photos for all ${total}</button></div>
+    ${running || doneN ? `<div class="status">${running ? `Working on <b>${esc(j.current || '…')}</b> · ${doneN} of ${all} done. Takes about half a minute each; you can leave this page.` : `Finished: ${j.done.length} updated${j.failed.length ? `, ${j.failed.length} without new photos` : ''}.`}
+      ${j.failed.length ? `<br>${j.failed.map((f) => `<span class="err">${esc(f.design)}: ${esc(f.why)}</span>`).join('<br>')}` : ''}</div><div class="meter"><i style="width:${all ? Math.round(doneN / all * 100) : 0}%"></i></div>` : ''}
+  </section>
+  <div class="grid">${D.designs.map(card).join('')}</div>`;
+  $('#findEmpty').onclick = () => find({ onlyEmpty: true });
+  $('#findAll').onclick = () => find({});
+  document.querySelectorAll('[data-again]').forEach((b) => { b.onclick = () => find({ designs: [b.dataset.again] }); });
+  document.querySelectorAll('[data-clear]').forEach((b) => { b.onclick = async () => { if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again to remove'; return; } await api(`/api/demo-photos/${b.dataset.clear}/clear`, {}); load(); }; });
+}
+function card(d) {
+  const j = D.job, busy = j.current === d.design;
+  return `<section class="card"><div><h2>${esc(d.title)}</h2><div class="kind">${esc(d.design)}</div></div>
+    ${d.photos.length ? `<div class="thumbs">${d.photos.map((p) => `<img src="${esc(p.url)}" alt="" loading="lazy">`).join('')}</div>` : '<div class="none">No photos yet: the demo shows the drawing</div>'}
+    ${busy ? '<div class="busy">Finding photos now…</div>' : ''}
+    ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}
+    ${d.credits.length ? `<div class="credit">${d.credits.map((c) => `${c.landing ? `<a href="${esc(c.landing)}" target="_blank" rel="noopener">${esc(c.title || 'Photo')}</a>` : esc(c.title || 'Photo')}${c.creator ? ' by ' + esc(c.creator) : ''} (${esc(c.license)})`).join(' · ')}</div>` : ''}
+    <div class="row"><a class="btn small ghost" href="/designs/demo/${esc(d.design)}" target="_blank" rel="noopener">See the demo</a><button class="btn small ghost" data-again="${esc(d.design)}"${j.running ? ' disabled' : ''}>${d.photos.length ? 'Find others' : 'Find photos'}</button>${d.photos.length ? `<button class="btn small ghost" data-clear="${esc(d.design)}">Remove</button>` : ''}</div></section>`;
+}
+async function find(body) { const r = await api('/api/demo-photos/find', body); if (!r.ok) { alertBox(r.message || 'That didn’t start. Try again.'); return; } load(); }
+function alertBox(t) { const p = document.createElement('p'); p.className = 'status'; p.innerHTML = `<span class="err">${esc(t)}</span>`; $('#main').prepend(p); }
+load();
+</script>
+</body></html>
