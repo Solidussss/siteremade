@@ -6289,7 +6289,7 @@ async function runDemoJob() {
       try {
         const p = designSites.designFor(name);
         const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
-        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, log: (m) => console.log('Demo photos:', name, m) });
+        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, log: (m) => console.log('Demo photos:', name, m) });
         if (r.none) demoJob.failed.push({ design: name, why: r.none });
         else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); console.log(`Demo photos: ${name} has ${r.photos.length} photos (${r.by})`); }
       } catch (e) {

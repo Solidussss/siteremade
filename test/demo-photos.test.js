@@ -45,9 +45,9 @@ async function server() {
 const until = async (f) => { for (let i = 0; i < 200; i++) { const v = await f(); if (v) return v; await new Promise((r) => setTimeout(r, 100)); } throw new Error('timed out'); };
 
 test('the search asks for real photographs only, free for business use, and skips anything else', async () => {
-  const got = await demoPhotos.search('car detailing', { fetchImpl: library });
+  const got = await demoPhotos.search('car detailing', { fetchImpl: library, wait: async () => {} });
   const q = searches[searches.length - 1];
-  assert.equal(q.get('category'), 'photograph'); assert.equal(q.get('license'), 'cc0,pdm'); assert.equal(q.get('mature'), 'false');
+  assert.equal(q.get('category'), 'photograph'); assert.equal(q.get('license'), 'cc0,pdm'); assert.equal(q.get('mature'), 'false'); assert.equal(q.get('page_size'), '20', 'the most Openverse gives without an account');
   assert.equal(got.length, 4, 'the one under another licence is skipped');
   const small = demoPhotos.shrink(photo(2400, 1600));
   const img = jpeg.decode(small); assert.equal(Math.max(img.width, img.height), 1600);
@@ -57,7 +57,7 @@ test('the search asks for real photographs only, free for business use, and skip
 test('one tap finds photos for the demos; the demo plays them; customer sites never get them', async () => {
   const { srv, session } = await server();
   const seen = [];
-  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
+  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
   try {
     const owner = await session(OWNER), guest = await session(null), stranger = await session('someone@example.com');
     assert.equal((await stranger('GET', '/api/demo-photos')).status, 404, 'owner only');
@@ -89,7 +89,7 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     assert.equal((await owner('POST', '/api/demo-photos/beadline/clear', {})).status, 200);
     assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'));
     // the library says slow down: what's left waits, and the owner is told
-    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), director: () => async () => ({ plan: { main: 1 } }) });
+    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), wait: async () => {}, director: () => async () => ({ plan: { main: 1 } }) });
     await owner('POST', '/api/demo-photos/find', { designs: ['larder', 'ochre'] });
     const slow = await until(async () => { const r = await owner('GET', '/api/demo-photos'); return !r.json.job.running && r.json.job.failed.length === 2 ? r.json : null; });
     assert.match(slow.job.failed[0].why, /slow down/);
