@@ -6291,13 +6291,26 @@ async function runDemoJob() {
         const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
         const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, log: (m) => console.log('Demo photos:', name, m) });
         if (r.none) demoJob.failed.push({ design: name, why: r.none });
-        else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); }
+        else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); console.log(`Demo photos: ${name} has ${r.photos.length} photos (${r.by})`); }
       } catch (e) {
         demoJob.failed.push({ design: name, why: String(e && e.message || e).slice(0, 200) });
         if (e && e.code === 'rate_limited') { for (const n of demoJob.queue.splice(0)) demoJob.failed.push({ design: n, why: e.message }); }
       }
     }
   } finally { demoJob.running = false; demoJob.current = null; }
+}
+// On the live server, the designs without demo photos get them by themselves a minute after it starts (once each:
+// a design that has a set is left alone). SITEREMADE_DEMO_PHOTOS_AUTO=off turns it off.
+function autoDemoPhotos() {
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !db.demoPhotos) return;
+  setTimeout(() => {
+    const have = new Set(db.demoPhotos.sets().map((x) => x.design));
+    for (const d of designSites.designs()) if (!have.has(d.design) && !demoJob.queue.includes(d.design)) demoJob.queue.push(d.design);
+    if (!demoJob.queue.length) return;
+    console.log(`Demo photos: finding photos for ${demoJob.queue.length} designs`);
+    demoJob.startedAt = new Date().toISOString();
+    runDemoJob().then(() => console.log(`Demo photos: done (${demoJob.done.length} updated, ${demoJob.failed.length} without: ${demoJob.failed.map((f) => f.design + ' (' + f.why + ')').join(', ')})`)).catch((e) => console.error('Demo photos job:', e && e.message));
+  }, 60000).unref();
 }
 app.get(['/demo-photos', '/demo-photos/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'demo-photos.html')); });
 app.get('/api/demo-photos', requireAuth, ownerOnly, (req, res) => {
@@ -6411,7 +6424,7 @@ app.get('*', (req, res) => (namesAFile(req.path) ? res.status(404).type('text/pl
 // (require.main === module, true in every real deployment) is completely
 // unaffected: app.listen() still fires exactly as it always has.
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); });
+  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); autoDemoPhotos(); });
 } else {
   // App bridge pass (Phase 4): `app` is also exported so a test harness can
   // listen() on the REAL route table in-process (still never listens on its
