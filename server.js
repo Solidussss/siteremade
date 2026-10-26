@@ -6160,6 +6160,11 @@ app.post('/api/enquiries/:service', requireSameOrigin, express.json({ limit: '20
   const m = serviceEnquiries.staffEmail(e, { id, at: now });
   try { await sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: ENQUIRY_TO, reply_to: e.contact.email, subject: m.subject, html: m.html }); db.serviceEnquiries.emailed(id, at(), null); }
   catch (err) { db.serviceEnquiries.emailed(id, at(), String(err && err.message || err).slice(0, 200)); console.error('Enquiry email failed:', err && err.message); }
+  // a website request: the customer hears it arrived and what happens next
+  if (e.service === 'website') {
+    const c = require('./lib/website-requests').requestReceived(e);
+    sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: [e.contact.email], reply_to: 'hello@siteremade.com', subject: c.subject, html: c.html }).catch((err) => console.error('Request confirmation email failed:', err && err.message));
+  }
 });
 // the enquiries, for the SiteRemade owner account only (a backstop for any email that didn't go)
 app.get('/api/enquiries', requireAuth, (req, res) => {
