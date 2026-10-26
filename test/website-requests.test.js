@@ -152,3 +152,13 @@ test('the owner builds a site from the design example (no AI): named, editable, 
     assert.equal(live.status, 200); assert.ok(live.text.includes('class="photo"'), 'the live page shows the photo');
   } finally { srv.close(); }
 });
+
+test('starting from the example puts the business name everywhere the example used its own name', () => {
+  const ds = require('../lib/design-sites');
+  const rows = new Map(); const db = { designSites: { insert(r) { rows.set(r.id, { id: r.id, status: r.status, business_name: r.businessName, design: r.design }); }, update(id, f) { Object.assign(rows.get(id), f); }, find(id) { return rows.get(id); } } };
+  const r = ds.startFromExample(db, { accountId: 'a', design: 'steadyhand', businessName: 'Fade Factory' });
+  assert.ok(r.row, r.error);
+  const content = JSON.parse(r.row.content_json);
+  assert.doesNotMatch(JSON.stringify(content), /steady hand/i, 'no trace of the example name');
+  assert.equal(content.business.wordmark, 'Fade Factory');
+});
