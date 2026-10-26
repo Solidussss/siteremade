@@ -48,5 +48,5 @@
       ],
       "css": "@media (max-width:{w}px){.nav ul{display:none}.nav .acts{margin-left:auto}}" }
   ],
-  "photoHero": {"section":"#process"}
+  "photoHero": {"section":"#process","motion":"gloss"}
 }

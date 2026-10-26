@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "express": "^4.21.2",
-    "jpeg-js": "^0.4.4"
+    "jpeg-js": "^0.4.4",
+    "onnxruntime-web": "^1.30.0"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

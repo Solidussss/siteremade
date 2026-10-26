@@ -70,8 +70,8 @@ test('the common designs have the photo hero', () => {
 test('the camera plan: focus, direction and zoom per photo, with safe defaults', () => {
   const s = photoHero.shots({ photos: { main: 'M', before: 'B', third: 'T', camera: '20 30 -1 1.4; bad; 120 50 1 9' } });
   assert.deepEqual(s.map((x) => x.src), ['B', 'T', 'M'], 'before, second, third, main');
-  assert.deepEqual(s[0], { src: 'B', fx: 20, fy: 30, dir: -1, zoom: 1.4 });
-  assert.deepEqual(s[1], { src: 'T', fx: 50, fy: 45, dir: -1, zoom: 1.24 }, 'unreadable: the defaults');
+  assert.deepEqual(s[0], { src: 'B', mask: null, fx: 20, fy: 30, dir: -1, zoom: 1.4 });
+  assert.deepEqual(s[1], { src: 'T', mask: null, fx: 50, fy: 45, dir: -1, zoom: 1.24 }, 'unreadable: the defaults');
   assert.equal(s[2].fx, 50, 'out of range: the default'); assert.equal(s[2].zoom, 1.24);
   assert.deepEqual(photoHero.shots({ photos: { before: 'B' } }), [], 'no main photo, no photo hero');
 });
@@ -100,4 +100,21 @@ test('photo hero: a link with a quote or a script-looking camera plan cannot bre
   assert.throws(() => editor.apply(D, {}, c, { changes: [{ path: 'photos.main', value: 'https://x.com/a"onerror=alert(1).jpg' }] }));
   const html = build(D, { ...c, photos: { main: PHOTO, camera: '</script><script>alert(1)</script>' } }).html;
   assert.ok(!html.includes('<script>alert(1)'));
+});
+
+// THE SUBJECT (lib/photo-analyse.js): a photo's subject as a soft mask, so the hero can light and focus it
+test('photo analysis: a subject is found, a scene is left alone, and the mask reaches the page', async () => {
+  const jpeg = require('jpeg-js');
+  const { analyse } = require('../lib/photo-analyse');
+  // a plain grey frame with a bright red block in the middle: a subject; flat grey: no subject
+  const W = 160, H = 120, px = Buffer.alloc(W * H * 4), flat = Buffer.alloc(W * H * 4, 128);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, inside = x > 50 && x < 110 && y > 30 && y < 90; px[i] = inside ? 220 : 120; px[i + 1] = inside ? 30 : 125; px[i + 2] = inside ? 40 : 130; px[i + 3] = 255; }
+  const block = await analyse(Buffer.from(jpeg.encode({ width: W, height: H, data: px }, 90).data));
+  assert.equal(block.kind, 'subject'); assert.ok(Math.abs(block.cx - 50) < 12 && Math.abs(block.cy - 50) < 12, `centre ${block.cx},${block.cy}`);
+  assert.match(block.mask, /^data:image\/jpeg;base64,/); assert.ok(isPhoto(block.mask), 'the mask is a photo field value');
+  assert.equal(await analyse('data:image/png;base64,iVBORw0KGgo='), null, 'only JPEGs are read');
+  const { D, c } = load('beadline');
+  const html = build(D, { ...c, photos: { main: PHOTO, mainMask: block.mask } }).html;
+  assert.ok(html.includes('data-mask="data:image/jpeg'), 'the page has the mask'); assert.ok(html.includes('"motion":"gloss"'));
+  assert.ok(!editor.fields(D, {}, c).fields.some((f) => /Mask$/.test(f.path)), 'masks are not fields the owner sees');
 });
