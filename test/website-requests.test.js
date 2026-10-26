@@ -226,6 +226,14 @@ test('one tap builds the site from a request, with the photos placed by the hero
     const val2 = (p) => (ed2.json.fields || ed2.json.editor.fields).find((f) => f.path === p)?.value;
     assert.equal(val2('hero.photo'), jpeg(1), 'their first photo ends the hero'); assert.equal(val2('hero.photo2'), jpeg(2));
 
+    // weak photos: Claude keeps the design's own animation, and the page is the example's, named
+    setDesignDeps({ writer: () => { throw new Error('no writer'); }, director: () => async () => ({ plan: { use_photos: false, main: 1, before: 0, middle: [], camera: [], skip: [{ photo: 1, why: 'a blurry screenshot' }], note: 'Ask for a clear photo of the shop.' } }) });
+    const id4 = await ask({ businessName: 'Bright Smile', design: 'Saltglass', designKey: 'saltglass', link: 'https://brightsmile.example.com' }, 1);
+    const b4 = await owner('POST', `/api/requests/${id4}/build`, {});
+    assert.equal(b4.status, 200, b4.text); assert.equal(b4.json.director.kept, true); assert.equal(b4.json.director.used, 0);
+    const ed4 = await owner('GET', `/api/designs/sites/${b4.json.siteId}/editor`);
+    assert.equal((ed4.json.fields || ed4.json.editor.fields).find((f) => f.path === 'hero.photo').value, null, 'the drawing stays');
+
     // no photos: just the named site
     const id3 = await ask({ businessName: 'Corner Plate', design: 'Larder', designKey: 'larder', link: 'https://cornerplate.example.com' }, 0);
     const b3 = await owner('POST', `/api/requests/${id3}/build`, {});
@@ -237,6 +245,6 @@ test('the hero director: a plan is checked against the photos there are', () => 
   const hd = require('../lib/hero-director');
   assert.equal(hd.checkPlan({ main: 9 }, 3), null, 'a photo that isn’t there');
   const p = hd.checkPlan({ main: 2, before: 2, middle: [1, 1, 3, 3], camera: [{ photo: 2, focus_x: 140, focus_y: -5, drift: 'up', zoom: 9 }], skip: [{ photo: 2, why: 'x' }], note: ' fine ' }, 3);
-  assert.deepEqual(p, { main: 2, before: 0, middle: [1, 3], camera: [{ photo: 2, fx: 100, fy: 0, dir: 1, zoom: 1.5 }], skip: [], note: 'fine' });
-  assert.deepEqual(hd.byOrder(1), { main: 1, before: 0, middle: [], camera: [], skip: [], note: 'Photos used in the order the customer sent them: the first ends the hero.' });
+  assert.deepEqual(p, { keep: false, main: 2, before: 0, middle: [1, 3], camera: [{ photo: 2, fx: 100, fy: 0, dir: 1, zoom: 1.5 }], skip: [], note: 'fine' });
+  assert.deepEqual(hd.byOrder(1), { keep: false, main: 1, before: 0, middle: [], camera: [], skip: [], note: 'Photos used in the order the customer sent them: the first ends the hero.' });
 });

@@ -6246,7 +6246,7 @@ app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, e
   db.serviceEnquiries.update(row.id, { site_id: site.id, status: row.status === 'new' ? 'building' : row.status }, new Date().toISOString());
   const plan = director && director.plan;
   res.json({ ok: true, siteId: site.id, studio: `/?site=${site.id}`, photos: photos.length,
-    director: director && { by: director.by, note: plan.note, skipped: plan.skip, used: [plan.before, ...plan.middle, plan.main].filter(Boolean).length, problem: director.problem },
+    director: director && { by: director.by, kept: plan.keep, note: plan.note, skipped: plan.skip, used: plan.keep ? 0 : [plan.before, ...plan.middle, plan.main].filter(Boolean).length, problem: director.problem },
     request: websiteRequests.ownerView(db.serviceEnquiries.find(row.id), publicBase(req)) });
 });
 // the customer's photos, right after their request (one at a time, already shrunk in their browser), and the owner's view of them
