@@ -236,6 +236,10 @@
     "cut.photo": {
       "kind": "photo",
       "label": "a cut you did. It replaces the drawn head in the cut builder."
+    },
+    "hero.before": {
+      "kind": "photo",
+      "label": "a before photo (grown out). With it, scrolling wipes from before to after while the steps tick through."
     }
   }
 }

@@ -100,8 +100,15 @@ button{font:inherit;color:inherit}
 .smile-box{position:relative;width:var(--w,320px);height:var(--h,160px)}
 .smile-box canvas{display:block;width:100%;height:100%}
 /* photo mode: the practice's own photo in place of the drawn teeth */
-.hero.photo{height:auto}.hero.photo .stage{position:relative;min-height:100svh;grid-template-rows:auto minmax(260px,1fr);grid-template-areas:"copy" "smile"}
-.hero.photo .smile-box,.hero.photo .hud,.hero.photo .guide,.hero.photo .hint{display:none}
+.hero.photo:not(.ba){height:auto}.hero.photo:not(.ba) .stage{position:relative;min-height:100svh;grid-template-rows:auto minmax(260px,1fr);grid-template-areas:"copy" "smile"}
+.hero.photo .smile-box,.hero.photo:not(.ba) .hud,.hero.photo:not(.ba) .guide,.hero.photo:not(.ba) .hint{display:none}
+/* before and after: scrolling slides the after photo across the before, the shade guide counts up */
+.ba-box{position:relative;width:min(100%,920px);height:100%;max-height:60svh;min-height:200px;border-radius:22px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.ba-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ba-after{clip-path:inset(0 calc((1 - var(--sp,0)) * 100%) 0 0)}
+.ba-line{position:absolute;top:0;bottom:0;left:calc(var(--sp,0) * 100%);width:2px;margin-left:-1px;background:var(--stage-ink);box-shadow:0 0 18px var(--stage-glow)}
+.ba-tag{position:absolute;top:12px;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:6px;background:color-mix(in oklab,var(--stage) 70%,transparent);color:var(--stage-ink)}
+.ba-b{right:12px}.ba-a{left:12px;color:var(--stage-glow)}.ba-a b{color:var(--stage-ink)}
 .smile:has(.hphoto){overflow:hidden;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 .hphoto{width:100%;height:100%;max-height:72svh;object-fit:cover;border-radius:22px;animation:hzoom 24s ease-in-out infinite alternate;translate:0 calc(var(--py,0) * 1px)}
 @keyframes hzoom{from{scale:1.02}to{scale:1.12}}
@@ -136,7 +143,7 @@ button{font:inherit;color:inherit}
 .hint{position:absolute;right:var(--gut);bottom:calc(20px + env(safe-area-inset-bottom,0px));font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--stage-ink-2);display:none;align-items:center;gap:8px;transition:opacity .4s}
 @media (min-width:900px){
   .stage{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"copy hud" "smile smile" "guide guide";column-gap:5vw;row-gap:8px}
-  .hero.photo .stage{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:1fr;grid-template-areas:"copy smile";align-items:center}
+  .hero.photo:not(.ba) .stage{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:1fr;grid-template-areas:"copy smile";align-items:center}
   .hero.photo .hphoto{height:min(72svh,640px)}
   .hud{align-self:end;justify-self:end;width:min(100%,430px);grid-template-columns:auto auto minmax(0,1fr)}
   .hud-price{display:block}
@@ -344,7 +351,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
 </header>
 
 <main>
-<section class="hero{{#if hero.photo}} photo{{/if}}" id="top" aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}Whitening, scroll to see the shade change{{/if}}">
+<section class="hero{{#if hero.photo}} photo{{#if hero.before}} ba{{/if}}{{/if}}" id="top" aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}Whitening, scroll to see the shade change{{/if}}">
   <div class="stage" id="stage">
     <div class="hero-copy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
@@ -353,7 +360,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
       {{#if hero.photo}}<p class="hprice">{{hero.priceLabel}} · <b>{{hero.price}}</b></p><p><a class="cta" href="#book">{{nav.cta}}</a></p>{{/if}}
     </div>
 
-    <div class="smile" id="smile">{{#if hero.photo}}<img class="hphoto" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high">{{/if}}
+    <div class="smile" id="smile">{{#if hero.photo}}{{#if hero.before}}<div class="ba-box"><img class="ba-img" src="{{hero.before|attr}}" alt="Before"><img class="ba-img ba-after" src="{{hero.photo|attr}}" alt="After" fetchpriority="high"><span class="ba-line"></span><span class="ba-tag ba-b">Before</span><span class="ba-tag ba-a">After <b id="baCode">A3.5</b></span></div>{{else}}<img class="hphoto" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high">{{/if}}{{/if}}
       <div class="smile-box" id="smileBox">
         <canvas id="smileCanvas" aria-label="Illustrated set of teeth whitening from shade A3.5 to BL2" role="img"></canvas>
         <div class="split" id="split" aria-hidden="true">
@@ -378,7 +385,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
       <li class="tab" style="--sw:var(--a1)"><span class="tab-handle">A1</span><span class="tab-sw"></span></li>
       <li class="tab" style="--sw:var(--b1)"><span class="tab-handle">B1</span><span class="tab-sw"></span></li>
       <li class="tab" style="--sw:var(--bl2)"><span class="tab-handle">BL2</span><span class="tab-sw"></span></li>
-      <li class="guide-note">Illustration. Shades counted on the value-ordered guide, BL1 lightest to A4 darkest. Your result depends on your starting shade.</li>
+      <li class="guide-note">{{#unless hero.before}}Illustration. {{/unless}}Shades counted on the value-ordered guide, BL1 lightest to A4 darkest. Your result depends on your starting shade.</li>
     </ol>
     <div class="hint" id="hint">Scroll to whiten <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true"><path d="M5 1v12M1 9l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></div>
   </div>
@@ -586,8 +593,8 @@ const SHADES=[
   {c:"BL2", rgb:[251,250,245],rank:2, stage:"Checked against the guide",t:90}
 ];
 const hero=$("#top"), canvas=$("#smileCanvas"), ctx=canvas.getContext("2d");
-const PHOTO=hero.classList.contains("photo");
-if(PHOTO&&!matchMedia("(prefers-reduced-motion:reduce)").matches){const ph=document.querySelector(".hphoto");addEventListener("scroll",()=>{ph.style.setProperty("--py",Math.min(scrollY,innerHeight)*0.12)},{passive:true})} // (the practice's photo in place of the drawn teeth: nothing to animate)
+const PHOTO=hero.classList.contains("photo"); const BA=hero.classList.contains("ba"), baBox=document.querySelector(".ba-box"), baCode=document.getElementById("baCode");
+if(PHOTO&&!BA&&!matchMedia("(prefers-reduced-motion:reduce)").matches){const ph=document.querySelector(".hphoto");addEventListener("scroll",()=>{ph.style.setProperty("--py",Math.min(scrollY,innerHeight)*0.12)},{passive:true})} // (the practice's photo in place of the drawn teeth: nothing to animate)
 const box=$("#smileBox"), smileArea=$("#smile"), split=$("#split");
 const tagA=$("#tagAfter"), tagB=$("#tagBefore");
 const tabs=[...document.querySelectorAll("#guide .tab")];
@@ -845,7 +852,7 @@ window.addEventListener("scroll",readScroll,{passive:true});
 window.addEventListener("resize",()=>{layout();buildPaths();readScroll()});
 if("ResizeObserver" in window){new ResizeObserver(()=>{layout();buildPaths()}).observe(smileArea)}
 
-function frame(now){if(PHOTO)return;if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
+function frame(now){if(PHOTO&&!BA)return;if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const dt=Math.min(64,now-last); last=now;
   const k=RM?1:1-Math.pow(1-0.1,dt/16.67);
   const prev=cur;
@@ -853,14 +860,15 @@ function frame(now){if(PHOTO)return;if((window.__gov||(window.__gov=(()=>{const 
   if(Math.abs(target-cur)<1e-4) cur=target;
   const sh=shadeAt(cur);
   if(sh.idx!==lastIdx){
-    if(!RM && sh.idx>lastIdx){sweepT=now; const sx=lerp(extent.l,extent.r,smooth(.02,.94,cur)); spawnSparks(3+sh.idx,sx);}
+    if(!BA && !RM && sh.idx>lastIdx){sweepT=now; const sx=lerp(extent.l,extent.r,smooth(.02,.94,cur)); spawnSparks(3+sh.idx,sx);}
     if(sh.idx>lastIdx) tink(sh.idx);
     lastIdx=sh.idx;
   }
-  if(!RM && cur>.97 && now-lastAmbient>2600 && heroVisible){lastAmbient=now; sweepT=now; spawnSparks(3,1e9)}
+  if(!BA && !RM && cur>.97 && now-lastAmbient>2600 && heroVisible){lastAmbient=now; sweepT=now; spawnSparks(3,1e9)}
   const animating = (now-sweepT)<1200 || sparks.length>0;
   if(dirty || animating || Math.abs(prev-cur)>1e-5){
-    const s=render(now); hud(s,cur); dirty=false;
+    const s=BA?shadeAt(cur):render(now); hud(s,cur); dirty=false;
+    if(BA){baBox.style.setProperty("--sp",smooth(0.02,0.94,cur).toFixed(4)); baCode.textContent=SHADES[s.idx].c;}
   }
   requestAnimationFrame(frame);
 }

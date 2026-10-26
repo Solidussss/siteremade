@@ -25,7 +25,7 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
     const before = build(D, c).html;
     assert.ok(!before.includes('class="hphoto"'), 'no photo: the drawn hero');
     const offered = editor.fields(D, {}, c).fields.filter((f) => f.kind === 'photo').map((f) => f.path);
-    assert.deepEqual(offered.sort(), paths.slice().sort());
+    assert.deepEqual(offered.sort(), [...paths, 'hero.before'].sort());
     const { content } = editor.apply(D, {}, c, { changes: paths.map((p) => ({ path: p, value: PHOTO })) });
     assert.deepEqual(validate(D, content).errors, []);
     const html = build(D, content).html;
@@ -37,3 +37,18 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
     assert.equal(build(D, back).html, before);
   });
 }
+
+test('before and after: two photos make the hero a scroll reveal, and the design keeps its steps', () => {
+  for (const [design, cls, step] of [['steadyhand', 'class="photo ba"', 'id="hudS"'], ['saltglass', 'class="hero photo ba"', 'id="hudCode"']]) {
+    const { D, c } = load(design);
+    const { content } = editor.apply(D, {}, c, { changes: [{ path: 'hero.photo', value: PHOTO }, { path: 'hero.before', value: 'data:image/jpeg;base64,' + Buffer.from('a before photo').toString('base64') }] });
+    assert.deepEqual(validate(D, content).errors, []);
+    const html = build(D, content).html;
+    assert.ok(html.includes(cls), `${design}: before/after mode`);
+    assert.ok(html.includes(step), `${design}: the steps are still on the page`);
+  }
+  const { D, c } = load('saltglass');
+  assert.ok(build(D, c).html.includes('Illustration. Shades'), 'the drawn teeth still say they are an illustration');
+  const real = editor.apply(D, {}, c, { changes: [{ path: 'hero.photo', value: PHOTO }, { path: 'hero.before', value: PHOTO }] }).content;
+  assert.ok(!build(D, real).html.includes('Illustration. Shades'), 'real photos do not');
+});
