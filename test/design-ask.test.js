@@ -2,6 +2,8 @@
 // ASK FOR A CHANGE (lib/design-ask.js + the /ask route + edit's rename/via): a request in the owner's words becomes a
 // plan in the editor's own terms, dry-run and shown before anything is saved; applying it is a normal edit with undo;
 // the design's template (its animation) is never part of what can change. A scripted writer -- never the paid AI.
+// (customers using the AI themselves: off by default now, websites are done for you; this checks the flow when it's on)
+process.env.SITEREMADE_DESIGNS_AI_OPEN = 'on';
 process.env.SITEREMADE_DB_PATH = ':memory:';
 process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
 const test = require('node:test');

@@ -155,7 +155,9 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
-  /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/];
+  /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
+  // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
+  /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview)?)?$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -3850,6 +3852,12 @@ app.post('/api/stripe/webhook', (req, res) => {
     if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && session && session.id) {
       // unlocked only for what the signed event itself says was paid, in the agreed amount and currency
       // a credit pack (lib/credit-packs.js) or a website (lib/purchase.js) -- told apart by our own records, not metadata alone
+      // a done-for-you website (lib/website-requests.js): told apart by the request it names, checked against our record
+      if (session.metadata && session.metadata.kind === 'website_request' && db.serviceEnquiries) {
+        const row = db.serviceEnquiries.find(String(session.client_reference_id || ''));
+        if (row) websiteRequestPaid(row, session); else console.error('Website request payment for an unknown request:', session.id);
+        return res.status(200).json({ ok: true });
+      }
       const pack = db.creditPurchases.findBySession(session.id);
       if (pack) {
         const got = creditPacks.fulfillBySession(db, session.id, { status: session.payment_status, amountTotal: session.amount_total, currency: session.currency, paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null });
@@ -5951,6 +5959,13 @@ function isDesignOwner(accountId, email) {
 // (pricing.ACTION_CREDITS.design_generation) through the same ledger as every other generation; the owner does not.
 const DESIGNS_OPEN = String(process.env.SITEREMADE_DESIGNS_OPEN || 'on').trim().toLowerCase() !== 'off';
 const DESIGNS_PER_DAY = Number(process.env.SITEREMADE_DESIGNS_PER_DAY) || 5;
+// Websites are done for you now (lib/website-requests.js): the AI writer and "ask for changes" cost money every run, so
+// only the owner runs them unless SITEREMADE_DESIGNS_AI_OPEN=on. A customer's change request goes to the owner instead.
+const DESIGNS_AI_OPEN = String(process.env.SITEREMADE_DESIGNS_AI_OPEN || 'off').trim().toLowerCase() === 'on';
+function requireAiOwner(req, res, next) {
+  if (req.designOwner || DESIGNS_AI_OPEN) return next();
+  return res.status(403).json({ ok: false, message: 'We build websites for you now: pick a design on the homepage and press “Get this design”.' });
+}
 // what the homepage needs to know (consolidation.js): whether its box starts the new generator
 app.get('/api/site-config', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, designsOpen: DESIGNS_OPEN }); });
 function requireDesignOwner(req, res, next) {
@@ -5982,7 +5997,7 @@ app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req
   // a copy hosted anywhere sends its requests to this server, like the live page (they arrive while the site is published)
   res.type('html').send(siteRequests.withSender(row.html, publicBase(req) + '/s/' + row.id + '/request'));
 });
-app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
+app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, requireAiOwner, generationRateLimit, (req, res) => {
   if (!req.designOwner) {
     const since = new Date(Date.now() - 24 * 3600e3).toISOString();
     const today = db.designSites.forAccount(req.accountId).filter((x) => x.created_at > since).length;
@@ -5993,7 +6008,7 @@ app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwne
   return res.json({ ok: true, site: designSites.view(r.row) });
 });
 app.get('/api/designs/sites/:id', requireAuth, requireDesignOwner, (req, res) => { const row = ownDesignSite(req, res); if (row) res.json({ ok: true, site: designSites.view(row) }); });
-app.post('/api/designs/sites/:id/answer', requireAuth, requireSameOrigin, requireDesignOwner, generationRateLimit, (req, res) => {
+app.post('/api/designs/sites/:id/answer', requireAuth, requireSameOrigin, requireDesignOwner, requireAiOwner, generationRateLimit, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   if (row.status !== 'needs_owner') return res.status(409).json({ ok: false, message: 'This site is not waiting for answers.' });
   const r = designSites.answer(db, row, req.body && req.body.answers, designDeps);
@@ -6038,6 +6053,16 @@ app.post('/api/designs/sites/:id/ask', requireAuth, requireSameOrigin, requireDe
   const row = ownDesignSite(req, res); if (!row) return;
   const request = String((req.body || {}).request || '').trim();
   if (!request) return res.status(400).json({ ok: false, message: 'Write what you want changed.' });
+  // a customer's change goes to the owner, who makes it (no AI run on their account)
+  if (!req.designOwner && !DESIGNS_AI_OPEN) {
+    if (!db.serviceEnquiries) return res.status(503).json({ ok: false, message: 'Email hello@siteremade.com with the change and we’ll make it.' });
+    const c = serviceEnquiries.clean('change', { name: row.business_name || 'Website owner', email: req.accountEmail, answers: { site: `${publicBase(req)}/s/${row.id}`, request } });
+    if (c.error) return res.status(400).json({ ok: false, message: c.error });
+    const id = 'enq_' + crypto.randomBytes(12).toString('base64url'), e = c.enquiry, now = new Date().toISOString();
+    db.serviceEnquiries.insert({ id, service: e.service, summary: e.summary, fieldsJson: JSON.stringify(e.fields), contactJson: JSON.stringify(e.contact), createdAt: now });
+    if (RESEND_API_KEY) { const m = serviceEnquiries.staffEmail(e, { id, at: now }); sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: ENQUIRY_TO, reply_to: e.contact.email, subject: m.subject, html: m.html }).then(() => db.serviceEnquiries.emailed(id, new Date().toISOString(), null)).catch((err) => db.serviceEnquiries.emailed(id, new Date().toISOString(), String(err && err.message || err).slice(0, 200))); }
+    return res.status(202).json({ ok: false, sent: true, message: 'Sent to us. We’ll make this change and email you when it’s done.' });
+  }
   const day = new Date().toISOString().slice(0, 10), used = designAsks.get(req.accountId);
   const n = used && used.day === day ? used.n : 0;
   if (!req.designOwner && n >= DESIGN_ASKS_PER_DAY) return res.status(429).json({ ok: false, message: `That's today's ${DESIGN_ASKS_PER_DAY} requested changes. The fields below still work, and requests are back tomorrow.` });
@@ -6135,6 +6160,92 @@ app.get('/api/enquiries', requireAuth, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, enquiries: db.serviceEnquiries.list(req.query.service ? String(req.query.service) : null).map((q) => ({ id: q.id, service: q.service, summary: q.summary, fields: JSON.parse(q.fields_json), contact: JSON.parse(q.contact_json), status: q.status, emailed: !!q.emailed_at, emailError: q.email_error || null, createdAt: q.created_at })) });
 });
+
+// WEBSITES, DONE FOR YOU (lib/website-requests.js): the owner's requests page, the preview the customer gets, and the
+// customer's private pay link. Nothing here runs AI; the owner builds the site.
+const websiteRequests = require('./lib/website-requests');
+const ownerOnly = (req, res, next) => (db.serviceEnquiries && isDesignOwner(req.accountId, req.accountEmail) ? next() : res.status(404).json({ ok: false, message: 'Not found.' }));
+const websitePriceText = () => `${formatWebsitePriceDisplay('business')} ${String(websitePriceFor('business').currency || 'cad').toUpperCase()}`;
+app.get(['/requests', '/requests/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'requests.html')); });
+app.get('/api/requests', requireAuth, ownerOnly, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const base = publicBase(req);
+  res.json({ ok: true, price: websitePriceText(), emailOn: !!RESEND_API_KEY, payOn: !!STRIPE_SECRET_KEY, requests: db.serviceEnquiries.list(null, 500).map((r) => websiteRequests.ownerView(r, base)) });
+});
+// the owner moves a request along, keeps a note, or sets the preview link
+app.post('/api/requests/:id', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '20kb' }), (req, res) => {
+  const row = db.serviceEnquiries.find(String(req.params.id)); if (!row) return res.status(404).json({ ok: false, message: 'Request not found.' });
+  const b = req.body || {}, fields = {};
+  if (b.status !== undefined) { if (!websiteRequests.STATUSES.includes(b.status)) return res.status(400).json({ ok: false, message: 'Unknown status.' }); fields.status = b.status; }
+  if (b.note !== undefined) fields.note = clean(b.note, 2000);
+  if (b.previewUrl !== undefined) { const u = clean(b.previewUrl, 500); if (u && !websiteRequests.isHttpUrl(u)) return res.status(400).json({ ok: false, message: 'The preview link should start with https://' }); fields.preview_url = u || null; }
+  db.serviceEnquiries.update(row.id, fields, new Date().toISOString());
+  res.json({ ok: true, request: websiteRequests.ownerView(db.serviceEnquiries.find(row.id), publicBase(req)) });
+});
+// the preview goes to the customer with their pay link: by email when email is set up, and always as a message the owner can paste
+app.post('/api/requests/:id/send-preview', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '20kb' }), async (req, res) => {
+  const row = db.serviceEnquiries.find(String(req.params.id)); if (!row) return res.status(404).json({ ok: false, message: 'Request not found.' });
+  const u = clean((req.body || {}).previewUrl || row.preview_url, 500);
+  if (!websiteRequests.isHttpUrl(u)) return res.status(400).json({ ok: false, message: 'Add the preview link first (https://…).' });
+  const now = new Date().toISOString();
+  db.serviceEnquiries.update(row.id, { preview_url: u, pay_token: row.pay_token || websiteRequests.newPayToken(), status: row.paid_at ? row.status : 'preview_sent' }, now);
+  const fresh = db.serviceEnquiries.find(row.id), base = publicBase(req);
+  const m = websiteRequests.previewMessage(fresh, { base, price: websitePriceText() });
+  let emailed = false, emailError = null;
+  const to = websiteRequests.contact(fresh).email;
+  if (RESEND_API_KEY && to) {
+    try { await sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: [to], reply_to: 'hello@siteremade.com', subject: m.subject, html: m.html }); emailed = true; }
+    catch (err) { emailError = String(err && err.message || err).slice(0, 200); console.error('Preview email failed:', emailError); }
+  }
+  res.json({ ok: true, emailed, emailError, message: m.text, request: websiteRequests.ownerView(fresh, base) });
+});
+// the customer's pay page
+const payRateLimit = rateLimitMiddleware((req) => `pay:${req.ip}`, { max: 30, windowMs: 60 * 60 * 1000 }, 'Too many tries. Please wait a little and try again.');
+const payRow = (token) => { const t = String(token || ''); return /^[A-Za-z0-9_-]{20,40}$/.test(t) && db.serviceEnquiries ? db.serviceEnquiries.findByPayToken(t) : null; };
+app.get('/pay/:token', payRateLimit, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const row = payRow(req.params.token); if (!row) return res.status(404).send('This link isn’t valid. Please check the email we sent you, or email hello@siteremade.com.');
+  let state = req.query.state === 'cancelled' ? 'cancelled' : '';
+  // back from Stripe: check the payment with Stripe itself (works even before the webhook arrives)
+  if (req.query.session && !row.paid_at && STRIPE_SECRET_KEY && row.payment_ref === String(req.query.session)) {
+    try {
+      const r = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(row.payment_ref)}`, { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } });
+      const sess = await r.json();
+      if (r.ok && websiteRequestPaid(row, sess)) state = 'paid';
+    } catch (e) { console.error('Pay check failed:', e.message); }
+  }
+  res.send(websiteRequests.payPage(db.serviceEnquiries.find(row.id), { price: websitePriceText(), state }));
+});
+app.post('/pay/:token', payRateLimit, async (req, res) => {
+  const row = payRow(req.params.token); if (!row) return res.status(404).send('This link isn’t valid.');
+  if (row.paid_at) return res.redirect(303, `/pay/${row.pay_token}`);
+  if (!STRIPE_SECRET_KEY) return res.status(503).send(websiteRequests.payPage(row, { price: websitePriceText(), error: 'Payments aren’t switched on yet. We’ll send you another way to pay.' }));
+  const price = websitePriceFor('business'), base = publicBase(req), c = websiteRequests.contact(row);
+  try {
+    const session = await stripeRequest('checkout/sessions', {
+      mode: 'payment', client_reference_id: row.id, customer_email: c.email || undefined,
+      success_url: `${base}/pay/${row.pay_token}?session={CHECKOUT_SESSION_ID}`, cancel_url: `${base}/pay/${row.pay_token}?state=cancelled`,
+      line_items: [{ quantity: 1, price_data: { currency: price.currency, unit_amount: price.cents, product_data: { name: `Website: ${websiteRequests.field(row, 'Design') || 'SiteRemade'}`, description: 'Your website, built for you. One-time payment, no subscription.' } } }],
+      metadata: { kind: 'website_request', requestId: row.id },
+    });
+    db.serviceEnquiries.update(row.id, { payment_ref: session.id }, new Date().toISOString());
+    res.redirect(303, session.url);
+  } catch (err) {
+    console.error('Website request checkout failed:', err.message);
+    res.status(500).send(websiteRequests.payPage(row, { price: websitePriceText(), error: 'Could not start the payment. Please try again in a minute.' }));
+  }
+});
+// a payment counts when Stripe says it's paid, for this request, in the full amount; the owner hears about the first one
+function websiteRequestPaid(row, sess) {
+  const price = websitePriceFor('business');
+  if (!sess || sess.payment_status !== 'paid' || sess.client_reference_id !== row.id) return false;
+  if (Number(sess.amount_total) !== price.cents || String(sess.currency).toLowerCase() !== String(price.currency).toLowerCase()) { console.error('Website request paid a different amount:', row.id, sess.id); return false; }
+  if (db.serviceEnquiries.markPaid(row.id, sess.id, new Date().toISOString()) && RESEND_API_KEY) {
+    const c = websiteRequests.contact(row);
+    sendEmail({ from: 'SiteRemade <hello@siteremade.com>', to: ENQUIRY_TO, subject: `Paid: ${row.summary}`, html: `<p><b>${escapeHtml(c.name || '')}</b> (${escapeHtml(c.email || '')}) paid ${escapeHtml(websitePriceText())} for ${escapeHtml(row.summary)}. Put it live and send them the link.</p>` }).catch((e) => console.error('Paid email failed:', e.message));
+  }
+  return true;
+}
 
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));

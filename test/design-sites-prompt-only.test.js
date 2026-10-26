@@ -2,6 +2,8 @@
 // ONE-PROMPT ONBOARDING (2026-10-22): pick a design, describe the business in one sentence, get the site. The design's
 // other brief questions are optional; the business name comes from the sentence when its own field is empty; compass
 // (whose brief already has an "about" field) no longer gets a second one. A scripted writer -- never the paid AI.
+// (customers using the AI themselves: off by default now, websites are done for you; this checks the flow when it's on)
+process.env.SITEREMADE_DESIGNS_AI_OPEN = 'on';
 process.env.SITEREMADE_DB_PATH = ':memory:';
 process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
 const test = require('node:test');

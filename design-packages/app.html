@@ -485,6 +485,7 @@ async function showEditor(s) {
     const q = $('#askq').value.trim(); if (!q) { $('#askq').focus(); return; }
     const go = $('#askgo'); go.disabled = true; $('#askplan').innerHTML = '<p class="note">Working out the change…</p>';
     const r2 = await api(`/api/designs/sites/${s.id}/ask`, { request: q }); go.disabled = false;
+    if (r2.sent) { $('#askq').value = ''; $('#askplan').innerHTML = `<p class="note">${esc(r2.message)}</p>`; return; }
     if (!r2.ok || !r2.plan) { $('#askplan').innerHTML = `<p class="err">${esc(r2.message || 'Something went wrong.')}</p>`; return; }
     const pl = r2.plan, can = pl.diff.length > 0;
     $('#askplan').innerHTML = `<div class="aplan"><p><span class="pill">${esc(KIND[pl.kind] || 'Change')}</span> ${esc(pl.summary || '')}</p>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SiteRemade · Requests</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.png">
+<style>
+/* the owner's requests page: every website (and property video) request, and what happens next */
+:root{--ink:#101114;--muted:#6b6d72;--line:#e4e2dc;--bg:#f4f3ef;--card:#fff;--green:#1d7a46;--amber:#a86a00;--blue:#1f5fbf;--red:#b3261e}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;z-index:5;background:rgba(244,243,239,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.bar{max-width:820px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.bar h1{margin:0;font-size:20px;letter-spacing:-.02em;flex:1}.bar a{color:var(--muted);font-size:14px;text-decoration:none}
+.tabs{max-width:820px;margin:0 auto;padding:0 16px 12px;display:flex;gap:6px;overflow-x:auto}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font-weight:600;font-size:13px;font-family:inherit;color:var(--muted);white-space:nowrap;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+main{max-width:820px;margin:0 auto;padding:16px 16px 80px;display:grid;gap:14px}
+.warn{background:#fff6e5;border:1px solid #f0d9a8;border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+.top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.card h2{margin:0;font-size:18px;letter-spacing:-.02em;line-height:1.25}.when{color:var(--muted);font-size:12px;margin-top:4px}
+.chip{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:5px 10px;white-space:nowrap;background:#eee;color:var(--muted)}
+.chip.new{background:#e7efff;color:var(--blue)}.chip.building{background:#fff1d6;color:var(--amber)}.chip.preview_sent{background:#f0e8ff;color:#6b3fc0}.chip.paid{background:#dff3e6;color:var(--green)}.chip.done{background:var(--ink);color:#fff}
+dl{margin:14px 0 0;display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:14px}dt{color:var(--muted)}dd{margin:0;word-break:break-word}
+a{color:var(--blue)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.btn{border:0;border-radius:999px;padding:11px 16px;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;background:var(--ink);color:#fff;text-decoration:none;display:inline-block}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}.btn:disabled{opacity:.5}
+input,select,textarea{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;width:100%}
+textarea{min-height:64px;resize:vertical}label{display:grid;gap:6px;font-size:13px;color:var(--muted);margin-top:12px}
+.msg{white-space:pre-wrap;background:#f6f6f4;border-radius:12px;padding:12px;font-size:14px;line-height:1.5;margin-top:10px}
+.ok{color:var(--green);font-size:13px}.err{color:var(--red);font-size:13px}.empty{color:var(--muted);text-align:center;padding:40px 0}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;margin-top:12px}
+</style></head>
+<body>
+<header><div class="bar"><h1>Requests</h1><a href="/">SiteRemade</a></div>
+<div class="tabs" id="tabs"><button data-f="active" aria-pressed="true">To do</button><button data-f="paid" aria-pressed="false">Paid</button><button data-f="all" aria-pressed="false">All</button></div></header>
+<main id="main"><p class="empty">Loading…</p></main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
+const STATUS = [['new', 'New'], ['building', 'Building'], ['preview_sent', 'Preview sent'], ['paid', 'Paid'], ['done', 'Live'], ['declined', 'Declined']];
+let D = null, filter = 'active';
+const ago = (iso) => { const s = (Date.now() - new Date(iso)) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+
+async function load() {
+  const r = await api('/api/requests');
+  if (r.status === 401) { $('#main').innerHTML = '<p class="empty">Sign in on <a href="/">siteremade.com</a> with the owner account, then come back here.</p>'; return; }
+  if (!r.ok) { $('#main').innerHTML = '<p class="empty">This page is for the SiteRemade owner.</p>'; return; }
+  D = r; render();
+}
+function render() {
+  const list = D.requests.filter((q) => filter === 'all' ? true : filter === 'paid' ? !!q.paidAt : !['done', 'declined', 'replied'].includes(q.status) && !q.paidAt);
+  const warn = [!D.emailOn && 'Email isn’t switched on, so previews aren’t emailed: copy the message and send it yourself (DM or text).', !D.payOn && 'Payments aren’t switched on (no Stripe key), so pay links can’t take money yet.'].filter(Boolean);
+  $('#main').innerHTML = (warn.length ? `<div class="warn">${warn.map(esc).join('<br>')}</div>` : '') + (list.length ? list.map(card).join('') : `<p class="empty">${filter === 'active' ? 'Nothing to do right now.' : 'Nothing here yet.'}</p>`);
+  list.forEach((q) => wire(q));
+}
+function card(q) {
+  const c = q.contact || {}, web = q.service === 'website';
+  return `<section class="card" id="c_${q.id}">
+  <div class="top"><div><h2>${esc(q.summary)}</h2><div class="when">${esc(ago(q.createdAt))}${q.paidAt ? ' · paid ' + esc(ago(q.paidAt)) : ''}</div></div><span class="chip ${esc(q.status)}">${esc(q.statusLabel)}</span></div>
+  <dl><dt>Name</dt><dd>${esc(c.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></dd>${c.phone ? `<dt>Phone</dt><dd><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a> · <a href="sms:${esc(c.phone)}">Text</a></dd>` : ''}
+  ${web ? `<dt>Design</dt><dd>${esc(q.design)}</dd><dt>Their link</dt><dd><a href="${esc(q.link)}" target="_blank" rel="noopener">${esc(q.link)}</a></dd>` : q.fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${/^https?:/.test(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</dd>`).join('')}
+  ${q.message ? `<dt>Message</dt><dd>${esc(q.message)}</dd>` : ''}</dl>
+  ${web ? `<label>Preview link<input type="url" inputmode="url" data-k="preview" placeholder="https://… the site you built for them" value="${esc(q.previewUrl || '')}"></label>
+  <div class="row"><button class="btn" data-k="send">${q.payUrl ? 'Send the preview again' : 'Send preview + pay link'}</button>${q.previewUrl ? `<a class="btn ghost" href="${esc(q.previewUrl)}" target="_blank" rel="noopener">Open preview</a>` : ''}</div>
+  ${q.payUrl ? `<p class="when">Their pay link: <a href="${esc(q.payUrl)}" target="_blank" rel="noopener">${esc(q.payUrl)}</a></p>` : ''}
+  <div data-k="out"></div>` : ''}
+  <label>Status<select data-k="status">${STATUS.map(([v, l]) => `<option value="${v}"${v === q.status ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+  <details><summary>Your note</summary><textarea data-k="note" placeholder="Only you see this">${esc(q.note)}</textarea></details>
+</section>`;
+}
+function wire(q) {
+  const el = $('#c_' + q.id), set = (fresh) => { const i = D.requests.findIndex((x) => x.id === q.id); if (i >= 0) D.requests[i] = fresh; };
+  $('[data-k=status]', el).onchange = async (e) => { const r = await api(`/api/requests/${q.id}`, { status: e.target.value }); if (r.ok) { set(r.request); render(); } };
+  let t; $('[data-k=note]', el).oninput = (e) => { clearTimeout(t); t = setTimeout(() => api(`/api/requests/${q.id}`, { note: e.target.value }).then((r) => r.ok && set(r.request)), 600); };
+  const send = $('[data-k=send]', el); if (!send) return;
+  send.onclick = async () => {
+    const out = $('[data-k=out]', el); send.disabled = true;
+    const r = await api(`/api/requests/${q.id}/send-preview`, { previewUrl: $('[data-k=preview]', el).value.trim() }); send.disabled = false;
+    if (!r.ok) { out.innerHTML = `<p class="err">${esc(r.message || 'Something went wrong.')}</p>`; return; }
+    set(r.request); render();
+    const o = $('[data-k=out]', $('#c_' + q.id));
+    o.innerHTML = `${r.emailed ? '<p class="ok">Emailed to them.</p>' : r.emailError ? `<p class="err">The email didn’t go (${esc(r.emailError)}). Send this yourself:</p>` : '<p class="when">Send them this (DM or text):</p>'}<div class="msg">${esc(r.message)}</div><div class="row"><button class="btn ghost" data-k="copy">Copy message</button></div>`;
+    $('[data-k=copy]', o).onclick = async (e) => { try { await navigator.clipboard.writeText(r.message); e.target.textContent = 'Copied'; } catch (err) { e.target.textContent = 'Select and copy it above'; } };
+  };
+}
+document.querySelectorAll('#tabs button').forEach((b) => { b.onclick = () => { filter = b.dataset.f; document.querySelectorAll('#tabs button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); if (D) render(); }; });
+load();
+</script>
+</body></html>
