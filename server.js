@@ -6042,10 +6042,16 @@ app.get('/api/designs/sites/:id/editor', requireAuth, requireDesignOwner, (req, 
   const ed = designSites.editorView(row); if (!ed) return res.status(409).json({ ok: false, message: 'Only a finished site can be edited.' });
   res.json({ ok: true, editor: ed });
 });
-app.post('/api/designs/sites/:id/edit', requireAuth, requireSameOrigin, requireDesignOwner, (req, res) => {
+app.post('/api/designs/sites/:id/edit', requireAuth, requireSameOrigin, requireDesignOwner, async (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   const b = req.body || {};
-  const r = designSites.edit(db, row, { changes: Array.isArray(b.changes) ? b.changes.slice(0, 200) : [], ops: Array.isArray(b.ops) ? b.ops.slice(0, 20) : [],
+  const changes = Array.isArray(b.changes) ? b.changes.slice(0, 200).filter((c) => c && typeof c === 'object' && !/Mask$/.test(String(c.path))) : [];
+  // a hero photo the owner uploads: its subject is found now, so the hero can light and focus it (lib/photo-analyse.js)
+  for (const c of changes.slice()) {
+    if (!/^photos\.(main|before|second|third)$/.test(String(c.path)) || !/^data:image\/jpeg;base64,/.test(String(c.value || ''))) continue;
+    try { const f = await photoAnalyse.analyse(String(c.value)); if (f && f.kind === 'subject') changes.push({ path: c.path + 'Mask', value: f.mask }); } catch (e) { console.error('Photo analysis failed:', e && e.message); }
+  }
+  const r = designSites.edit(db, row, { changes, ops: Array.isArray(b.ops) ? b.ops.slice(0, 20) : [],
     rename: typeof b.rename === 'string' ? b.rename : null, via: b.via === 'ask' ? 'ask' : 'editor' }, 'account:' + req.accountId);
   if (r.error) return res.status(400).json({ ok: false, message: r.error, errors: r.errors || [] });
   return res.json({ ok: true, site: designSites.view(r.row), editor: designSites.editorView(r.row), changed: r.changed || [] });
@@ -6219,6 +6225,7 @@ app.post('/api/requests/:id/send-preview', requireAuth, requireSameOrigin, owner
 // the hero director (lib/hero-director.js: Claude looks at them, on SiteRemade's key; without one, the customer's order).
 // The request remembers the site, so a second tap opens it instead of making another (again: true makes a fresh one).
 const heroDirector = require('./lib/hero-director');
+const photoAnalyse = require('./lib/photo-analyse');
 const buildRateLimit = rateLimitMiddleware((req) => `rbuild:${req.accountId}`, { max: 30, windowMs: 60 * 60 * 1000 }, 'That’s a lot of builds in an hour. Wait a little and try again.');
 app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '5kb' }), buildRateLimit, async (req, res) => {
   const row = db.serviceEnquiries.find(String(req.params.id)); if (!row) return res.status(404).json({ ok: false, message: 'Request not found.' });
@@ -6236,7 +6243,10 @@ app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, e
     const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
     director = await heroDirector.direct(photos, { call, design: v.designKey, category: p.d.manifest.category, businessName: biz });
     const urls = photos.map((ph) => `data:${ph.mime};base64,${Buffer.from(ph.data).toString('base64')}`);
-    const changes = heroDirector.changes(p.d, director.plan, urls);
+    // each photo's subject, for the designs whose hero lights or focuses it (lib/photo-analyse.js: free, ~3 s a photo)
+    const found = [];
+    if (p.d.manifest.photoHero && !director.plan.keep) for (const ph of photos) { try { found.push(ph.mime === 'image/jpeg' ? await photoAnalyse.analyse(Buffer.from(ph.data)) : null); } catch (e) { console.error('Photo analysis failed:', e && e.message); found.push(null); } }
+    const changes = heroDirector.changes(p.d, director.plan, urls, found);
     if (changes.length) {
       const e = designSites.edit(db, site, { changes, via: 'director' }, 'hero director');
       if (e.error) director.problem = `${e.error} ${(e.errors || []).join('; ')}`.trim(); else site = e.row;

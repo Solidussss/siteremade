@@ -248,3 +248,27 @@ test('the hero director: a plan is checked against the photos there are', () => 
   assert.deepEqual(p, { keep: false, main: 2, before: 0, middle: [1, 3], camera: [{ photo: 2, fx: 100, fy: 0, dir: 1, zoom: 1.5 }], skip: [], note: 'fine' });
   assert.deepEqual(hd.byOrder(1), { keep: false, main: 1, before: 0, middle: [], camera: [], skip: [], note: 'Photos used in the order the customer sent them: the first ends the hero.' });
 });
+
+// THE SUBJECT, FOUND ON UPLOAD (lib/photo-analyse.js): a photo the owner puts in the hero is analysed on the server, so
+// the live page lights and focuses its subject; the owner never sees or sets the mask
+test('a hero photo uploaded in the studio gets its subject found, and the live page carries it', async () => {
+  const { srv, session } = await server();
+  try {
+    const owner = await session(OWNER), jpeg = require('jpeg-js');
+    const W = 160, H = 120, px = Buffer.alloc(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, inside = x > 50 && x < 110 && y > 30 && y < 90; px[i] = inside ? 220 : 120; px[i + 1] = inside ? 30 : 125; px[i + 2] = inside ? 40 : 130; px[i + 3] = 255; }
+    const photo = 'data:image/jpeg;base64,' + Buffer.from(jpeg.encode({ width: W, height: H, data: px }, 90).data).toString('base64');
+    const made = await owner('POST', '/api/designs/sites/from-example', { design: 'beadline', businessName: 'Gloss Bros' });
+    assert.equal(made.status, 200, made.text);
+    const id = made.json.site.id;
+    // (a mask sent on its own is dropped: only the server's analysis sets one)
+    const alone = await owner('POST', `/api/designs/sites/${id}/edit`, { changes: [{ path: 'photos.mainMask', value: photo }] });
+    assert.equal(alone.status, 200, alone.text); assert.deepEqual(alone.json.changed, []);
+    const up = await owner('POST', `/api/designs/sites/${id}/edit`, { changes: [{ path: 'photos.main', value: photo }] });
+    assert.equal(up.status, 200, up.text);
+    assert.ok(!up.json.editor.fields.some((f) => /Mask$/.test(f.path)), 'the mask stays out of the editor');
+    assert.equal((await owner('POST', `/api/designs/sites/${id}/publish`, { confirm: true })).status, 200);
+    const page = await (await session(null))('GET', `/s/${id}`);
+    assert.ok(page.text.includes('data-mask="data:image/jpeg'), 'the subject reached the live page'); assert.ok(page.text.includes('"motion":"gloss"'));
+  } finally { srv.close(); }
+});

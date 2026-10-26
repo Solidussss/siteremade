@@ -88,5 +88,5 @@
       }
     }
   },
-  "photoHero": {"hide":["#heroShoe","#specCard"],"veil":"light"}
+  "photoHero": {"hide":["#heroShoe","#specCard"],"veil":"light","motion":"gloss"}
 }
