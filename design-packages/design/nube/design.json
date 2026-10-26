@@ -162,5 +162,6 @@
       ],
       "css": "@media (max-width:{w}px){.nav ul{display:none}.nav .btn{margin-left:auto}}"
     }
-  ]
+  ],
+  "photoHero": {"hide":[".clouds",".cupcell"]}
 }

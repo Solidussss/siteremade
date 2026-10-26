@@ -8,6 +8,7 @@
 //   section  the hero section (default "#top", then "#hero")
 //   stage    the element inside it that stays on screen (default ".stage")
 //   hide     the drawing to hide when photos show (default: the stage's canvases)
+//   veil     "light" or "dark" behind the words (default: from the headline's colour)
 // The design's words, buttons and step captions stay on top of the photos; a veil behind them keeps them readable,
 // light or dark to match the design's own text colour.
 'use strict';
@@ -45,7 +46,7 @@ const CSS = `.srph-on{isolation:isolate}
   .srph.dark::after{background:linear-gradient(180deg,rgba(8,8,10,.8) 0%,rgba(8,8,10,.45) 40%,rgba(8,8,10,.1) 62%,rgba(8,8,10,.55) 100%)}
   .srph.light::after{background:linear-gradient(180deg,rgba(255,253,248,.9) 0%,rgba(255,253,248,.55) 42%,rgba(255,253,248,.1) 64%,rgba(255,253,248,.6) 100%)}
 }
-.srph-hidden{visibility:hidden!important;width:2px!important;height:2px!important;min-width:0!important;min-height:0!important}`;
+.srph-hidden{visibility:hidden!important;opacity:0!important;width:2px!important;height:2px!important;min-width:0!important;min-height:0!important}`;
 
 // the scene, run in the page: chapters, camera moves, the wipe, all from the scroll
 const RUNTIME = `(function(){
@@ -60,7 +61,7 @@ var P=window.CanvasRenderingContext2D&&CanvasRenderingContext2D.prototype;if(P)[
 (C.hide&&C.hide.length?C.hide:['canvas']).forEach(function(s){stage.querySelectorAll(s).forEach(function(e){e.classList.add('srph-hidden');quiet(e)})});
 if(getComputedStyle(stage).position==='static')stage.style.position='relative';
 var h1=stage.querySelector('h1')||sec.querySelector('h1'),col=h1?getComputedStyle(h1).color.match(/\\d+(\\.\\d+)?/g):null,lum=col?(0.2126*col[0]+0.7152*col[1]+0.0722*col[2])/255:1;
-var box=document.createElement('div');box.className='srph '+(lum<0.5?'light':'dark');box.appendChild(tpl.content.cloneNode(true));stage.prepend(box);stage.classList.add('srph-on');dispatchEvent(new Event('resize'));
+var box=document.createElement('div');box.className='srph '+(C.veil==='light'||C.veil==='dark'?C.veil:lum<0.5?'light':'dark');box.appendChild(tpl.content.cloneNode(true));stage.prepend(box);stage.classList.add('srph-on');dispatchEvent(new Event('resize'));
 var S=[].slice.call(box.querySelectorAll('.srph-shot')),L=box.querySelector('.srph-line'),RM=matchMedia('(prefers-reduced-motion:reduce)').matches,sm=scrollY,vis=true;
 function cl(v){return v<0?0:v>1?1:v}function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
 function prog(){var top=sec.getBoundingClientRect().top+scrollY,h=sec.offsetHeight-innerHeight;return h>40?cl((sm-top)/h):cl((sm-top)/Math.max(1,sec.offsetHeight))}
@@ -82,7 +83,7 @@ function inject(html, manifest, content) {
   if (!cfg || !list.length) return html;
   const name = (content.business && (content.business.name || content.business.wordmark)) || (content.brand && content.brand.name) || '';
   const imgs = list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
-  const conf = JSON.stringify({ section: cfg.section || '#top', stage: cfg.stage || '.stage', hide: cfg.hide || [] }).replace(/</g, '\\u003c');
+  const conf = JSON.stringify({ section: cfg.section || '#top', stage: cfg.stage || '.stage', hide: cfg.hide || [], veil: cfg.veil || null }).replace(/</g, '\\u003c');
   const block = `<style>${CSS}</style><template id="srph-shots">${imgs}<i class="srph-line" aria-hidden="true"></i></template><script type="application/json" id="srph-cfg">${conf}</script><script>${RUNTIME}</script>`;
   const at = html.lastIndexOf('</body>');
   return at < 0 ? html + block : html.slice(0, at) + block + html.slice(at);

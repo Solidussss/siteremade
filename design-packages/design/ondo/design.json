@@ -57,5 +57,6 @@
         "equals": "crop"
       }
     }
-  ]
+  ],
+  "photoHero": {"hide":["#fx","#bigtype","#hpWrap","#anc"]}
 }

@@ -83,5 +83,6 @@
         }
       }
     }
-  }
+  },
+  "photoHero": {"section":"#model","hide":[".gridbg","#sky","#cam"]}
 }

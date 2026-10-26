@@ -50,5 +50,6 @@
       "fill": 0.9,
       "note": "Bodoni Moda draws about 4% wider in WebKit than the measured glyph table; fill 0.9 leaves room for the full stop"
     }
-  ]
+  ],
+  "photoHero": {"hide":[".sheet","#construct",".scene","#clines","#tags"]}
 }

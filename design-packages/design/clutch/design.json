@@ -77,5 +77,6 @@
         "equals": "crop"
       }
     }
-  ]
+  ],
+  "photoHero": {"hide":[".glow","#heroGL"]}
 }
