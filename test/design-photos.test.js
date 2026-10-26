@@ -56,3 +56,48 @@ test('up to four photos are the chapters of the scroll scene, in order, and the 
   const real = editor.apply(D, {}, c, { changes: [{ path: 'hero.photo', value: PHOTO }, { path: 'hero.before', value: PHOTO }] }).content;
   assert.ok(!build(D, real).html.includes('Illustration. Shades'), 'real photos do not');
 });
+
+// THE PHOTO HERO (design-packages/engine/photo-hero.js): every design with "photoHero" in design.json takes up to four
+// photos as the chapters of its scroll hero. Without a main photo the page is byte-for-byte what it was.
+const photoHero = require('../design-packages/engine/photo-hero');
+const withHero = fs.readdirSync(DIR).filter((d) => { try { return !!JSON.parse(fs.readFileSync(path.join(DIR, d, 'design.json'), 'utf8')).photoHero; } catch (e) { return false; } });
+
+test('the common designs have the photo hero', () => {
+  for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d), d);
+  assert.ok(!withHero.includes('steadyhand') && !withHero.includes('saltglass'), 'those two have their own photo modes');
+});
+
+test('the camera plan: focus, direction and zoom per photo, with safe defaults', () => {
+  const s = photoHero.shots({ photos: { main: 'M', before: 'B', third: 'T', camera: '20 30 -1 1.4; bad; 120 50 1 9' } });
+  assert.deepEqual(s.map((x) => x.src), ['B', 'T', 'M'], 'before, second, third, main');
+  assert.deepEqual(s[0], { src: 'B', fx: 20, fy: 30, dir: -1, zoom: 1.4 });
+  assert.deepEqual(s[1], { src: 'T', fx: 50, fy: 45, dir: -1, zoom: 1.24 }, 'unreadable: the defaults');
+  assert.equal(s[2].fx, 50, 'out of range: the default'); assert.equal(s[2].zoom, 1.24);
+  assert.deepEqual(photoHero.shots({ photos: { before: 'B' } }), [], 'no main photo, no photo hero');
+});
+
+for (const design of withHero) {
+  test(`${design}: the photo hero is offered first, builds valid, and leaves the page alone without photos`, () => {
+    const { D, c } = load(design);
+    const before = build(D, c).html;
+    assert.ok(!before.includes('srph-cfg'));
+    const f = editor.fields(D, {}, c).fields;
+    assert.deepEqual(f.slice(0, 4).map((x) => x.path), ['photos.main', 'photos.before', 'photos.second', 'photos.third']);
+    assert.ok(!f.some((x) => x.path === 'photos.camera'), 'the camera plan is not a field the owner types');
+    const { content } = editor.apply(D, {}, c, { changes: [{ path: 'photos.main', value: PHOTO }, { path: 'photos.before', value: PHOTO }] });
+    assert.deepEqual(validate(D, content).errors, []);
+    const html = build(D, content).html;
+    assert.equal((html.match(/class="srph-shot"/g) || []).length, 2);
+    assert.ok(html.indexOf('srph-cfg') < html.lastIndexOf('</body>'));
+    const back = editor.apply(D, {}, content, { changes: [{ path: 'photos.main', value: '' }, { path: 'photos.before', value: '' }] }).content;
+    assert.equal(back.photos, undefined, 'cleared: the group goes too');
+    assert.equal(build(D, back).html, before);
+  });
+}
+
+test('photo hero: a link with a quote or a script-looking camera plan cannot break out of the page', () => {
+  const { D, c } = load('larder');
+  assert.throws(() => editor.apply(D, {}, c, { changes: [{ path: 'photos.main', value: 'https://x.com/a"onerror=alert(1).jpg' }] }));
+  const html = build(D, { ...c, photos: { main: PHOTO, camera: '</script><script>alert(1)</script>' } }).html;
+  assert.ok(!html.includes('<script>alert(1)'));
+});

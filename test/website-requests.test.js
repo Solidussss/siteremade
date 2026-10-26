@@ -7,10 +7,11 @@ process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_website_requests';
 delete process.env.RESEND_API_KEY;
 delete process.env.STRIPE_SECRET_KEY;
+delete process.env.ANTHROPIC_API_KEY; // (the hero director is a recorded stand-in here: never the paid API)
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
-const { app } = require('../server.js');
+const { app, setDesignDeps } = require('../server.js');
 const wr = require('../lib/website-requests');
 
 const OWNER = 'jaydenflynn9@gmail.com';
@@ -172,4 +173,70 @@ test('starting from the example puts the business name everywhere the example us
   assert.doesNotMatch(JSON.stringify(content), /steady hand/i, 'no trace of the example name');
   assert.equal(content.business.wordmark, 'FADE FACTORY', 'in capitals, like the example');
   assert.match(content.footer.fine, /© \d{4} Fade Factory\./, 'no made-up business line');
+});
+
+// ONE TAP (POST /api/requests/:id/build, lib/hero-director.js): the request becomes a site in its design, under the
+// business's name, with the customer's photos placed in the moving hero. Here the director is recorded, never Claude.
+test('one tap builds the site from a request, with the photos placed by the hero director', async () => {
+  const { srv, base, session } = await server();
+  const seen = [];
+  setDesignDeps({ writer: () => { throw new Error('no writer in this test'); }, director: () => async ({ images, brief }) => {
+    seen.push({ n: images.length, brief, mimes: images.map((i) => i.mime) });
+    return { plan: { main: 3, before: 1, middle: [2, 2, 7], camera: [{ photo: 3, focus_x: 40, focus_y: 55, drift: 'left', zoom: 1.3 }], skip: [], note: 'The finished room ends the hero.' }, usage: { input: 1000, output: 100 } };
+  } });
+  try {
+    const guest = await session(null), owner = await session(OWNER);
+    const jpeg = (s) => 'data:image/jpeg;base64,' + Buffer.from('photo ' + s).toString('base64');
+    const ask = async (answers, n) => {
+      const r = await guest('POST', '/api/enquiries/website', { name: 'Ana Silva', email: 'ana@example.com', answers });
+      for (let i = 1; i <= n; i++) assert.equal((await guest('POST', `/api/enquiries/photos/${r.json.uploadToken}`, { photo: jpeg(i) })).status, 200);
+      return r.json.id;
+    };
+    // a cleaning company, three photos: the photo hero
+    const id = await ask({ businessName: 'Sparkle Bright', design: 'Brisk', designKey: 'brisk', link: 'https://sparklebright.example.com' }, 3);
+    const stranger = await session('someone-else@example.com');
+    assert.equal((await stranger('POST', `/api/requests/${id}/build`, {})).status, 404, 'owner only');
+    const b = await owner('POST', `/api/requests/${id}/build`, {});
+    assert.equal(b.status, 200, b.text);
+    assert.equal(b.json.director.by, 'claude'); assert.equal(b.json.director.used, 3); assert.equal(b.json.director.note, 'The finished room ends the hero.');
+    assert.equal(seen.length, 1); assert.equal(seen[0].n, 3); assert.match(seen[0].brief, /Sparkle Bright, a cleaning company/);
+    assert.equal(b.json.request.siteId, b.json.siteId); assert.equal(b.json.request.status, 'building');
+    const ed = await owner('GET', `/api/designs/sites/${b.json.siteId}/editor`);
+    assert.equal(ed.status, 200, ed.text);
+    const val = (p) => (ed.json.fields || ed.json.editor.fields).find((f) => f.path === p)?.value;
+    assert.equal(val('photos.before'), jpeg(1)); assert.equal(val('photos.second'), jpeg(2)); assert.equal(val('photos.main'), jpeg(3)); assert.equal(val('photos.third'), null);
+    // a second tap opens the same site; "again" makes a fresh one
+    const again = await owner('POST', `/api/requests/${id}/build`, {});
+    assert.equal(again.json.siteId, b.json.siteId); assert.equal(again.json.existing, true);
+    const fresh = await owner('POST', `/api/requests/${id}/build`, { again: true });
+    assert.notEqual(fresh.json.siteId, b.json.siteId); assert.equal(seen.length, 2);
+    // live: the requests page offers its link
+    assert.equal((await owner('POST', `/api/designs/sites/${fresh.json.siteId}/publish`, { confirm: true })).status, 200);
+    const list = await owner('GET', '/api/requests');
+    const q = list.json.requests.find((x) => x.id === id);
+    assert.equal(q.site.live, true); assert.equal(q.site.url, `${base}/s/${fresh.json.siteId}`);
+    assert.equal((await guest('GET', `/s/${fresh.json.siteId}`)).text.includes('srph-cfg'), true, 'the live page plays the photos');
+
+    // the barber design takes them in its own photo mode; a director that fails falls back to their order
+    setDesignDeps({ writer: () => { throw new Error('no writer'); }, director: () => async () => { throw new Error('overloaded'); } });
+    const id2 = await ask({ businessName: 'Fade Factory', design: 'Steady Hand', designKey: 'steadyhand', link: 'https://instagram.com/fadefactory' }, 2);
+    const b2 = await owner('POST', `/api/requests/${id2}/build`, {});
+    assert.equal(b2.status, 200, b2.text); assert.equal(b2.json.director.by, 'order'); assert.equal(b2.json.director.problem, 'overloaded');
+    const ed2 = await owner('GET', `/api/designs/sites/${b2.json.siteId}/editor`);
+    const val2 = (p) => (ed2.json.fields || ed2.json.editor.fields).find((f) => f.path === p)?.value;
+    assert.equal(val2('hero.photo'), jpeg(1), 'their first photo ends the hero'); assert.equal(val2('hero.photo2'), jpeg(2));
+
+    // no photos: just the named site
+    const id3 = await ask({ businessName: 'Corner Plate', design: 'Larder', designKey: 'larder', link: 'https://cornerplate.example.com' }, 0);
+    const b3 = await owner('POST', `/api/requests/${id3}/build`, {});
+    assert.equal(b3.status, 200, b3.text); assert.equal(b3.json.director, null); assert.equal(b3.json.photos, 0);
+  } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); }
+});
+
+test('the hero director: a plan is checked against the photos there are', () => {
+  const hd = require('../lib/hero-director');
+  assert.equal(hd.checkPlan({ main: 9 }, 3), null, 'a photo that isn’t there');
+  const p = hd.checkPlan({ main: 2, before: 2, middle: [1, 1, 3, 3], camera: [{ photo: 2, focus_x: 140, focus_y: -5, drift: 'up', zoom: 9 }], skip: [{ photo: 2, why: 'x' }], note: ' fine ' }, 3);
+  assert.deepEqual(p, { main: 2, before: 0, middle: [1, 3], camera: [{ photo: 2, fx: 100, fy: 0, dir: 1, zoom: 1.5 }], skip: [], note: 'fine' });
+  assert.deepEqual(hd.byOrder(1), { main: 1, before: 0, middle: [], camera: [], skip: [], note: 'Photos used in the order the customer sent them: the first ends the hero.' });
 });

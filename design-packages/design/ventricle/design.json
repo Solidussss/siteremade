@@ -76,5 +76,6 @@
       }
     }
   },
-  "guards": []
+  "guards": [],
+  "photoHero": {"hide":["#ecg","#fx",".vign","#head"]}
 }

@@ -364,5 +364,6 @@
       ],
       "css": "@media (max-width:{w}px){.nav .links{display:none}.nav .sound{margin-left:auto}}"
     }
-  ]
+  ],
+  "photoHero": {"section":"#hero","hide":["#bottle",".ghostword"]}
 }

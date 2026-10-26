@@ -7,6 +7,7 @@ const path = require('path');
 const { render } = require('./template');
 const { fit, make, rgbHsl, hexRgb, contrast } = require('./colour');
 const GUARDS = require('./guards');
+const photoHero = require('./photo-hero');
 
 // photos: a data URL of a JPEG/PNG/WebP (only base64 characters, so it is safe in an attribute and in CSS url()),
 // or an https link without quotes, spaces or brackets
@@ -38,6 +39,8 @@ function loadDesign(dir) {
     metrics: fs.existsSync(path.join(dir, 'metrics.json')) ? JSON.parse(read('metrics.json')) : {},
     hooks: manifest.hooks ? require(path.resolve(dir, manifest.hooks)) : {},
   };
+  // a design that takes the business's photos in its hero (engine/photo-hero.js) offers the photo fields
+  if (manifest.photoHero) d.schema.optional = Object.assign({}, photoHero.FIELDS, d.schema.optional || {});
   return d;
 }
 
@@ -145,7 +148,7 @@ function build(d, c) {
   const css = (d.manifest.guards || []).map((g) => GUARDS[g.type](g, c, ctx)).filter(Boolean).join('\n');
   derived._guards = css ? css + '\n' : '';
   derived._guardList = (d.manifest.guards || []).filter((g) => GUARDS[g.type](g, c, ctx)).map((g) => g.name || g.type);
-  const html = render(d.template, { content: c, derived, families: ctx.families, tables: d.tables });
+  const html = photoHero.inject(render(d.template, { content: c, derived, families: ctx.families, tables: d.tables }), d.manifest, c);
   return { html, guards: derived._guardList };
 }
 

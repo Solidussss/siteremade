@@ -6185,7 +6185,7 @@ app.get(['/requests', '/requests/'], (req, res) => { res.setHeader('Cache-Contro
 app.get('/api/requests', requireAuth, ownerOnly, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const base = publicBase(req);
-  const withPhotos = (v) => Object.assign(v, { photos: db.serviceEnquiries.photos(v.id).map((p) => ({ id: p.id, url: `/api/requests/photo/${p.id}` })) });
+  const withPhotos = (v) => { const s = v.siteId && db.designSites.find(v.siteId); return Object.assign(v, { photos: db.serviceEnquiries.photos(v.id).map((p) => ({ id: p.id, url: `/api/requests/photo/${p.id}` })), site: s ? { id: s.id, live: !!s.published_at, url: `${base}/s/${s.id}` } : null }); };
   res.json({ ok: true, price: websitePriceText(), emailOn: !!RESEND_API_KEY, payOn: !!STRIPE_SECRET_KEY, requests: db.serviceEnquiries.list(null, 500).map((r) => withPhotos(websiteRequests.ownerView(r, base))) });
 });
 // the owner moves a request along, keeps a note, or sets the preview link
@@ -6214,6 +6214,40 @@ app.post('/api/requests/:id/send-preview', requireAuth, requireSameOrigin, owner
     catch (err) { emailError = String(err && err.message || err).slice(0, 200); console.error('Preview email failed:', emailError); }
   }
   res.json({ ok: true, emailed, emailError, message: m.text, request: websiteRequests.ownerView(fresh, base) });
+});
+// One tap: the site for a request. The design's example under the business's name, then the customer's photos placed by
+// the hero director (lib/hero-director.js: Claude looks at them, on SiteRemade's key; without one, the customer's order).
+// The request remembers the site, so a second tap opens it instead of making another (again: true makes a fresh one).
+const heroDirector = require('./lib/hero-director');
+const buildRateLimit = rateLimitMiddleware((req) => `rbuild:${req.accountId}`, { max: 30, windowMs: 60 * 60 * 1000 }, 'That’s a lot of builds in an hour. Wait a little and try again.');
+app.post('/api/requests/:id/build', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '5kb' }), buildRateLimit, async (req, res) => {
+  const row = db.serviceEnquiries.find(String(req.params.id)); if (!row) return res.status(404).json({ ok: false, message: 'Request not found.' });
+  const v = websiteRequests.ownerView(row, publicBase(req)), again = !!(req.body && req.body.again === true);
+  if (row.service !== 'website' || !v.designKey) return res.status(400).json({ ok: false, message: 'This request doesn’t name a design, so there’s nothing to build from.' });
+  const old = row.site_id && db.designSites.find(row.site_id);
+  if (old && !again) return res.json({ ok: true, siteId: old.id, existing: true, studio: `/?site=${old.id}` });
+  const biz = v.businessName || String(v.contact.name || '').trim();
+  const r = designSites.startFromExample(db, { accountId: req.accountId, design: v.designKey, businessName: biz });
+  if (r.error) return res.status(400).json({ ok: false, message: r.error, errors: r.errors });
+  let site = r.row, director = null;
+  const photos = db.serviceEnquiries.photos(row.id).map((p) => db.serviceEnquiries.photo(p.id)).filter(Boolean).slice(0, heroDirector.MAX_PHOTOS);
+  if (photos.length) {
+    const p = designSites.designFor(v.designKey);
+    const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
+    director = await heroDirector.direct(photos, { call, design: v.designKey, category: p.d.manifest.category, businessName: biz });
+    const urls = photos.map((ph) => `data:${ph.mime};base64,${Buffer.from(ph.data).toString('base64')}`);
+    const changes = heroDirector.changes(p.d, director.plan, urls);
+    if (changes.length) {
+      const e = designSites.edit(db, site, { changes, via: 'director' }, 'hero director');
+      if (e.error) director.problem = `${e.error} ${(e.errors || []).join('; ')}`.trim(); else site = e.row;
+    }
+    if (director.usage) console.log(`Hero director: ${row.id} ${director.usage.input}+${director.usage.output} tokens, about $${director.costUsd}`);
+  }
+  db.serviceEnquiries.update(row.id, { site_id: site.id, status: row.status === 'new' ? 'building' : row.status }, new Date().toISOString());
+  const plan = director && director.plan;
+  res.json({ ok: true, siteId: site.id, studio: `/?site=${site.id}`, photos: photos.length,
+    director: director && { by: director.by, note: plan.note, skipped: plan.skip, used: [plan.before, ...plan.middle, plan.main].filter(Boolean).length, problem: director.problem },
+    request: websiteRequests.ownerView(db.serviceEnquiries.find(row.id), publicBase(req)) });
 });
 // the customer's photos, right after their request (one at a time, already shrunk in their browser), and the owner's view of them
 const PHOTOS_PER_REQUEST = 8;

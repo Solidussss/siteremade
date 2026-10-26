@@ -31,6 +31,7 @@ textarea{min-height:64px;resize:vertical}label{display:grid;gap:6px;font-size:13
 .msg{white-space:pre-wrap;background:#f6f6f4;border-radius:12px;padding:12px;font-size:14px;line-height:1.5;margin-top:10px}
 .ok{color:var(--green);font-size:13px}.err{color:var(--red);font-size:13px}.empty{color:var(--muted);text-align:center;padding:40px 0}
 details summary{cursor:pointer;color:var(--muted);font-size:14px;margin-top:12px}
+.build{margin-top:14px;padding:14px;border-radius:14px;background:#f6f6f4}.build .btn{margin-right:4px}
 </style></head>
 <body>
 <header><div class="bar"><h1>Requests</h1><a href="/">SiteRemade</a></div>
@@ -64,8 +65,7 @@ function card(q) {
   ${web ? `${q.businessName ? `<dt>Business</dt><dd>${esc(q.businessName)}</dd>` : ''}<dt>Design</dt><dd>${esc(q.design)}</dd><dt>Their link</dt><dd><a href="${esc(q.link)}" target="_blank" rel="noopener">${esc(q.link)}</a></dd>` : q.fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${/^https?:/.test(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</dd>`).join('')}
   ${q.message ? `<dt>Message</dt><dd>${esc(q.message)}</dd>` : ''}</dl>
   ${q.photos && q.photos.length ? `<div class="thumbs">${q.photos.map((p) => `<a href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(p.url)}" alt="" loading="lazy"></a>`).join('')}</div><p class="when">${q.photos.length} photo${q.photos.length > 1 ? 's' : ''} from them</p>` : web ? '<p class="when">No photos sent: ask for some, or use ones from their link (with their OK).</p>' : ''}
-  ${web ? `<label>Preview link<input type="url" inputmode="url" data-k="preview" placeholder="https://… the site you built for them" value="${esc(q.previewUrl || '')}"></label>
-  ${q.designKey && !q.previewUrl ? `<div class="row"><a class="btn ghost" href="/?build=${encodeURIComponent(q.designKey)}">Build it in the studio</a></div><p class="when">Build it, publish it, then paste its link below.</p>` : ''}
+  ${web ? `${q.designKey ? buildBox(q) : ''}<label>Preview link<input type="url" inputmode="url" data-k="preview" placeholder="https://… the site you built for them" value="${esc(q.previewUrl || (q.site && q.site.live ? q.site.url : ''))}"></label>
   <div class="row"><button class="btn" data-k="send">${q.payUrl ? 'Send the preview again' : 'Send preview + pay link'}</button>${q.previewUrl ? `<a class="btn ghost" href="${esc(q.previewUrl)}" target="_blank" rel="noopener">Open preview</a>` : ''}</div>
   ${q.payUrl ? `<p class="when">Their pay link: <a href="${esc(q.payUrl)}" target="_blank" rel="noopener">${esc(q.payUrl)}</a></p>` : ''}
   <div data-k="out"></div>` : ''}
@@ -73,10 +73,28 @@ function card(q) {
   <details><summary>Your note</summary><textarea data-k="note" placeholder="Only you see this">${esc(q.note)}</textarea></details>
 </section>`;
 }
+// the site for this request: one tap builds it (the design's example, their name, their photos placed by Claude)
+const built = {};
+function buildBox(q) {
+  const b = built[q.id];
+  if (b && b.busy) return `<div class="build"><button class="btn" disabled>Building…</button><p class="when">${q.photos && q.photos.length ? `Claude is looking at their ${q.photos.length} photo${q.photos.length > 1 ? 's' : ''} and choosing how they play in the hero. About half a minute.` : 'About ten seconds.'}</p></div>`;
+  if (!q.site) return `<div class="build"><button class="btn" data-k="build">Build the site</button><p class="when">Their business name in the ${esc(q.design)} design${q.photos && q.photos.length ? `, with their photos in the moving hero (Claude picks the order and the camera moves)` : ''}. You check it and change anything in the studio before they see it.</p>${b && b.error ? `<p class="err">${esc(b.error)}</p>` : ''}</div>`;
+  const d = b && b.director;
+  return `<div class="build"><div class="row" style="margin-top:0"><a class="btn" href="/?site=${encodeURIComponent(q.site.id)}">Open it in the studio</a>${q.site.live ? `<a class="btn ghost" href="${esc(q.site.url)}" target="_blank" rel="noopener">See it live</a>` : ''}</div>
+  ${d ? `<p class="ok">${d.by === 'claude' ? 'Claude placed their photos.' : 'Their photos are in, in the order they sent them.'}</p>${d.note ? `<div class="msg">${esc(d.note)}</div>` : ''}${d.skipped && d.skipped.length ? `<p class="when">Left out: ${d.skipped.map((x) => `photo ${x.photo} (${esc(x.why)})`).join(', ')}.</p>` : ''}${d.problem ? `<p class="when">(${esc(d.problem)})</p>` : ''}` : ''}
+  <p class="when">${q.site.live ? 'It’s live, so its link is filled in below as the preview.' : 'Check the words and prices in the studio, then press Publish there. Its link becomes the preview you send them.'}</p>
+  <details><summary>Start again from their request</summary><div class="row"><button class="btn ghost" data-k="rebuild">Build a fresh copy</button></div><p class="when">Makes a new site; the one you have stays in the studio.</p></details></div>`;
+}
 function wire(q) {
-  const el = $('#c_' + q.id), set = (fresh) => { const i = D.requests.findIndex((x) => x.id === q.id); if (i >= 0) D.requests[i] = fresh; };
+  const el = $('#c_' + q.id), set = (fresh) => { const i = D.requests.findIndex((x) => x.id === q.id); if (i >= 0) D.requests[i] = Object.assign({}, D.requests[i], fresh); }; // (the photos and the site come only with the list)
   $('[data-k=status]', el).onchange = async (e) => { const r = await api(`/api/requests/${q.id}`, { status: e.target.value }); if (r.ok) { set(r.request); render(); } };
   let t; $('[data-k=note]', el).oninput = (e) => { clearTimeout(t); t = setTimeout(() => api(`/api/requests/${q.id}`, { note: e.target.value }).then((r) => r.ok && set(r.request)), 600); };
+  el.querySelectorAll('[data-k=build],[data-k=rebuild]').forEach((btn) => { btn.onclick = async () => {
+    built[q.id] = { busy: true }; render();
+    const r = await api(`/api/requests/${q.id}/build`, { again: btn.dataset.k === 'rebuild' });
+    if (!r.ok) { built[q.id] = { error: r.message || 'The build didn’t work. Try again.' }; render(); return; }
+    built[q.id] = { director: r.director }; await load();
+  }; });
   const send = $('[data-k=send]', el); if (!send) return;
   send.onclick = async () => {
     const out = $('[data-k=out]', el); send.disabled = true;

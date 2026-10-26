@@ -59,5 +59,6 @@
       "container": { "max": 1200, "gutter": [16, 4, 48] },
       "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
     }
-  ]
+  ],
+  "photoHero": {}
 }
