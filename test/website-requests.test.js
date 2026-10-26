@@ -160,5 +160,6 @@ test('starting from the example puts the business name everywhere the example us
   assert.ok(r.row, r.error);
   const content = JSON.parse(r.row.content_json);
   assert.doesNotMatch(JSON.stringify(content), /steady hand/i, 'no trace of the example name');
-  assert.equal(content.business.wordmark, 'Fade Factory');
+  assert.equal(content.business.wordmark, 'FADE FACTORY', 'in capitals, like the example');
+  assert.match(content.footer.fine, /© \d{4} Fade Factory\./, 'no made-up business line');
 });
