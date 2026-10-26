@@ -1,6 +1,8 @@
 'use strict';
 // THE STUDIO FOR CUSTOMERS (one product since 741ab51): any signed-in account builds sites free, up to
 // SITEREMADE_DESIGNS_PER_DAY new ones a day; the next is refused before any writing starts. Scripted writers, no AI.
+// (customers using the AI themselves: off by default now, websites are done for you; this checks the flow when it's on)
+process.env.SITEREMADE_DESIGNS_AI_OPEN = 'on';
 process.env.SITEREMADE_DB_PATH = ':memory:';
 process.env.SITEREMADE_DESIGNS_PER_DAY = '2';
 const test = require('node:test');

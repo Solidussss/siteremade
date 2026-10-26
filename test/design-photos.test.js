@@ -23,9 +23,9 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
   test(`${design}: the editor offers the photo, the page shows it, and without it the drawing is unchanged`, () => {
     const { D, c } = load(design);
     const before = build(D, c).html;
-    assert.ok(!before.includes('class="hphoto"'), 'no photo: the drawn hero');
+    assert.ok(!before.includes('class="shot"'), 'no photo: the drawn hero');
     const offered = editor.fields(D, {}, c).fields.filter((f) => f.kind === 'photo').map((f) => f.path);
-    assert.deepEqual(offered.sort(), [...paths, 'hero.before'].sort());
+    assert.deepEqual(offered.sort(), [...paths, 'hero.before', 'hero.photo2', 'hero.photo3'].sort());
     const { content } = editor.apply(D, {}, c, { changes: paths.map((p) => ({ path: p, value: PHOTO })) });
     assert.deepEqual(validate(D, content).errors, []);
     const html = build(D, content).html;
@@ -38,14 +38,18 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
   });
 }
 
-test('before and after: two photos make the hero a scroll reveal, and the design keeps its steps', () => {
-  for (const [design, cls, step] of [['steadyhand', 'class="photo ba"', 'id="hudS"'], ['saltglass', 'class="hero photo ba"', 'id="hudCode"']]) {
+test('up to four photos are the chapters of the scroll scene, in order, and the design keeps its steps', () => {
+  const ph = (t) => 'data:image/jpeg;base64,' + Buffer.from(t).toString('base64');
+  for (const [design, step] of [['steadyhand', 'id="hudS"'], ['saltglass', 'id="hudCode"']]) {
     const { D, c } = load(design);
-    const { content } = editor.apply(D, {}, c, { changes: [{ path: 'hero.photo', value: PHOTO }, { path: 'hero.before', value: 'data:image/jpeg;base64,' + Buffer.from('a before photo').toString('base64') }] });
+    const { content } = editor.apply(D, {}, c, { changes: [['hero.photo', 'last'], ['hero.before', 'first'], ['hero.photo2', 'second'], ['hero.photo3', 'third']].map(([path, t]) => ({ path, value: ph(t) })) });
     assert.deepEqual(validate(D, content).errors, []);
     const html = build(D, content).html;
-    assert.ok(html.includes(cls), `${design}: before/after mode`);
+    const order = ['first', 'second', 'third', 'last'].map((t) => html.indexOf(ph(t)));
+    assert.ok(order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), `${design}: before, middle, middle, main`);
+    assert.equal((html.match(/class="shot"/g) || []).length, 4);
     assert.ok(html.includes(step), `${design}: the steps are still on the page`);
+    assert.ok(!/hzoom|animation:\s*hzoom/.test(html), `${design}: no timed zoom, the motion follows the scroll`);
   }
   const { D, c } = load('saltglass');
   assert.ok(build(D, c).html.includes('Illustration. Shades'), 'the drawn teeth still say they are an illustration');

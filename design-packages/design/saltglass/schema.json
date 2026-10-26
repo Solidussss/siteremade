@@ -273,11 +273,19 @@
     },
     "hero.photo": {
       "kind": "photo",
-      "label": "your main photo: a real smile, the team or the clinic. It replaces the drawn teeth."
+      "label": "your main photo: a real smile, the team or the clinic. It replaces the drawn teeth; scrolling moves the camera through it while the shade counts up."
     },
     "hero.before": {
       "kind": "photo",
-      "label": "a before photo of the same smile. With it, scrolling slides from before to after while the shade counts up."
+      "label": "a before photo of the same smile. It comes first; the main photo slides in over it."
+    },
+    "hero.photo2": {
+      "kind": "photo",
+      "label": "a photo for the middle of the visit (the chair, the shade guide, the light)."
+    },
+    "hero.photo3": {
+      "kind": "photo",
+      "label": "one more for the middle of the visit."
     }
   }
 }

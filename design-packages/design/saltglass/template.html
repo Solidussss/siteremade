@@ -99,20 +99,14 @@ button{font:inherit;color:inherit}
 .smile{grid-area:smile;position:relative;z-index:1;min-height:0;display:grid;place-items:center}
 .smile-box{position:relative;width:var(--w,320px);height:var(--h,160px)}
 .smile-box canvas{display:block;width:100%;height:100%}
-/* photo mode: the practice's own photo in place of the drawn teeth */
-.hero.photo:not(.ba){height:auto}.hero.photo:not(.ba) .stage{position:relative;min-height:100svh;grid-template-rows:auto minmax(260px,1fr);grid-template-areas:"copy" "smile"}
-.hero.photo .smile-box,.hero.photo:not(.ba) .hud,.hero.photo:not(.ba) .guide,.hero.photo:not(.ba) .hint{display:none}
-/* before and after: scrolling slides the after photo across the before, the shade guide counts up */
+/* photo mode: the practice's own photos, still a scroll scene: the camera pushes in and drifts with the scroll inside the
+   frame, each photo is a chapter of the visit and the next one slides in behind a light line, while the shade counts up */
+.hero.photo .smile-box{display:none}
 .ba-box{position:relative;width:min(100%,920px);height:100%;max-height:60svh;min-height:200px;border-radius:22px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.35)}
-.ba-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.ba-after{clip-path:inset(0 calc((1 - var(--sp,0)) * 100%) 0 0)}
-.ba-line{position:absolute;top:0;bottom:0;left:calc(var(--sp,0) * 100%);width:2px;margin-left:-1px;background:var(--stage-ink);box-shadow:0 0 18px var(--stage-glow)}
-.ba-tag{position:absolute;top:12px;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:6px;background:color-mix(in oklab,var(--stage) 70%,transparent);color:var(--stage-ink)}
+.shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:55% 45%;will-change:transform,clip-path}
+.ba-line{position:absolute;top:0;bottom:0;left:0;z-index:2;width:2px;margin-left:-1px;background:var(--stage-ink);box-shadow:0 0 18px var(--stage-glow);opacity:0}
+.ba-tag{position:absolute;top:12px;z-index:2;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:6px;background:color-mix(in oklab,var(--stage) 70%,transparent);color:var(--stage-ink)}
 .ba-b{right:12px}.ba-a{left:12px;color:var(--stage-glow)}.ba-a b{color:var(--stage-ink)}
-.smile:has(.hphoto){overflow:hidden;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
-.hphoto{width:100%;height:100%;max-height:72svh;object-fit:cover;border-radius:22px;animation:hzoom 24s ease-in-out infinite alternate;translate:0 calc(var(--py,0) * 1px)}
-@keyframes hzoom{from{scale:1.02}to{scale:1.12}}
-@media (prefers-reduced-motion:reduce){.hphoto{animation:none}}
 .hprice{font-size:15px;color:var(--stage-ink-2)}.hprice b{color:var(--stage-ink);font-weight:600}
 .split{position:absolute;top:9%;bottom:9%;left:0;width:0;transform:translateX(var(--x,0px));pointer-events:none}
 .split::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:linear-gradient(180deg,transparent,var(--stage-ink) 18%,var(--stage-ink) 82%,transparent);box-shadow:0 0 18px color-mix(in oklab,var(--stage-glow) 70%,transparent)}
@@ -143,8 +137,6 @@ button{font:inherit;color:inherit}
 .hint{position:absolute;right:var(--gut);bottom:calc(20px + env(safe-area-inset-bottom,0px));font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--stage-ink-2);display:none;align-items:center;gap:8px;transition:opacity .4s}
 @media (min-width:900px){
   .stage{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"copy hud" "smile smile" "guide guide";column-gap:5vw;row-gap:8px}
-  .hero.photo:not(.ba) .stage{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:1fr;grid-template-areas:"copy smile";align-items:center}
-  .hero.photo .hphoto{height:min(72svh,640px)}
   .hud{align-self:end;justify-self:end;width:min(100%,430px);grid-template-columns:auto auto minmax(0,1fr)}
   .hud-price{display:block}
   .hint{display:flex}
@@ -351,7 +343,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
 </header>
 
 <main>
-<section class="hero{{#if hero.photo}} photo{{#if hero.before}} ba{{/if}}{{/if}}" id="top" aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}Whitening, scroll to see the shade change{{/if}}">
+<section class="hero{{#if hero.photo}} photo{{/if}}" id="top" aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}Whitening, scroll to see the shade change{{/if}}">
   <div class="stage" id="stage">
     <div class="hero-copy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
@@ -360,7 +352,7 @@ footer{background:var(--stage);color:var(--stage-ink);padding-block:clamp(56px,8
       {{#if hero.photo}}<p class="hprice">{{hero.priceLabel}} · <b>{{hero.price}}</b></p><p><a class="cta" href="#book">{{nav.cta}}</a></p>{{/if}}
     </div>
 
-    <div class="smile" id="smile">{{#if hero.photo}}{{#if hero.before}}<div class="ba-box"><img class="ba-img" src="{{hero.before|attr}}" alt="Before"><img class="ba-img ba-after" src="{{hero.photo|attr}}" alt="After" fetchpriority="high"><span class="ba-line"></span><span class="ba-tag ba-b">Before</span><span class="ba-tag ba-a">After <b id="baCode">A3.5</b></span></div>{{else}}<img class="hphoto" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high">{{/if}}{{/if}}
+    <div class="smile" id="smile">{{#if hero.photo}}<div class="ba-box">{{#if hero.before}}<img class="shot" src="{{hero.before|attr}}" alt="Before">{{/if}}{{#if hero.photo2}}<img class="shot" src="{{hero.photo2|attr}}" alt="">{{/if}}{{#if hero.photo3}}<img class="shot" src="{{hero.photo3|attr}}" alt="">{{/if}}<img class="shot" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high"><span class="ba-line"></span>{{#if hero.before}}<span class="ba-tag ba-b" hidden>Before</span><span class="ba-tag ba-a" hidden>After <b id="baCode">A3.5</b></span>{{/if}}</div>{{/if}}
       <div class="smile-box" id="smileBox">
         <canvas id="smileCanvas" aria-label="Illustrated set of teeth whitening from shade A3.5 to BL2" role="img"></canvas>
         <div class="split" id="split" aria-hidden="true">
@@ -593,8 +585,20 @@ const SHADES=[
   {c:"BL2", rgb:[251,250,245],rank:2, stage:"Checked against the guide",t:90}
 ];
 const hero=$("#top"), canvas=$("#smileCanvas"), ctx=canvas.getContext("2d");
-const PHOTO=hero.classList.contains("photo"); const BA=hero.classList.contains("ba"), baBox=document.querySelector(".ba-box"), baCode=document.getElementById("baCode");
-if(PHOTO&&!BA&&!matchMedia("(prefers-reduced-motion:reduce)").matches){const ph=document.querySelector(".hphoto");addEventListener("scroll",()=>{ph.style.setProperty("--py",Math.min(scrollY,innerHeight)*0.12)},{passive:true})} // (the practice's photo in place of the drawn teeth: nothing to animate)
+const PHOTO=hero.classList.contains("photo"); // (the practice's photos in place of the drawn teeth)
+// the photo scene: photo i of n is the chapter [i/n, (i+1)/n] of the visit; inside it the camera pushes in and drifts
+// (alternate sides, upward with the scroll), and each photo after the first slides in over the last stretch of the one before
+const SHOTS=[...document.querySelectorAll(".shot")], LINE=document.querySelector(".ba-line"), baCode=document.getElementById("baCode");
+const TAGS=SHOTS.length===2&&baCode?[...document.querySelectorAll(".ba-tag")]:[]; TAGS.forEach(t=>t.hidden=false); // (before and after: labelled)
+function shotScene(p){
+  const n=SHOTS.length,w=n>1?(n===2?.86:Math.min(.12,.6/n)):0;let edge=-1;
+  SHOTS.forEach((im,i)=>{
+    const a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,k=Math.min(1,Math.max(0,(p-from)/(b-from))),e=k*k*(3-2*k),d=i%2?-1:1;
+    im.style.transform=`translate(${(d*(2.5-5*e)).toFixed(2)}%,${(2-5*e).toFixed(2)}%) scale(${(1.06+.18*e).toFixed(4)})`;
+    if(i){const st=n===2?.04:a-w,r=Math.min(1,Math.max(0,(p-st)/(n===2?.86:w)));im.style.visibility=r>0?"visible":"hidden";im.style.clipPath=r>=1?"none":`inset(0 ${((1-r)*100).toFixed(2)}% 0 0)`;if(r>0&&r<1)edge=r}
+  });
+  LINE.style.opacity=edge<0?0:1;if(edge>=0)LINE.style.left=(edge*100).toFixed(2)+"%";
+}
 const box=$("#smileBox"), smileArea=$("#smile"), split=$("#split");
 const tagA=$("#tagAfter"), tagB=$("#tagBefore");
 const tabs=[...document.querySelectorAll("#guide .tab")];
@@ -852,7 +856,7 @@ window.addEventListener("scroll",readScroll,{passive:true});
 window.addEventListener("resize",()=>{layout();buildPaths();readScroll()});
 if("ResizeObserver" in window){new ResizeObserver(()=>{layout();buildPaths()}).observe(smileArea)}
 
-function frame(now){if(PHOTO&&!BA)return;if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
+function frame(now){if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
   const dt=Math.min(64,now-last); last=now;
   const k=RM?1:1-Math.pow(1-0.1,dt/16.67);
   const prev=cur;
@@ -860,15 +864,15 @@ function frame(now){if(PHOTO&&!BA)return;if((window.__gov||(window.__gov=(()=>{c
   if(Math.abs(target-cur)<1e-4) cur=target;
   const sh=shadeAt(cur);
   if(sh.idx!==lastIdx){
-    if(!BA && !RM && sh.idx>lastIdx){sweepT=now; const sx=lerp(extent.l,extent.r,smooth(.02,.94,cur)); spawnSparks(3+sh.idx,sx);}
+    if(!PHOTO && !RM && sh.idx>lastIdx){sweepT=now; const sx=lerp(extent.l,extent.r,smooth(.02,.94,cur)); spawnSparks(3+sh.idx,sx);}
     if(sh.idx>lastIdx) tink(sh.idx);
     lastIdx=sh.idx;
   }
-  if(!BA && !RM && cur>.97 && now-lastAmbient>2600 && heroVisible){lastAmbient=now; sweepT=now; spawnSparks(3,1e9)}
+  if(!PHOTO && !RM && cur>.97 && now-lastAmbient>2600 && heroVisible){lastAmbient=now; sweepT=now; spawnSparks(3,1e9)}
   const animating = (now-sweepT)<1200 || sparks.length>0;
   if(dirty || animating || Math.abs(prev-cur)>1e-5){
-    const s=BA?shadeAt(cur):render(now); hud(s,cur); dirty=false;
-    if(BA){baBox.style.setProperty("--sp",smooth(0.02,0.94,cur).toFixed(4)); baCode.textContent=SHADES[s.idx].c;}
+    const s=PHOTO?shadeAt(cur):render(now); hud(s,cur); dirty=false;
+    if(PHOTO){shotScene(cur); if(baCode) baCode.textContent=SHADES[s.idx].c;}
   }
   requestAnimationFrame(frame);
 }

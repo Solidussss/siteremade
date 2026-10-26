@@ -2,6 +2,8 @@
 // REQUESTS FROM A LIVE DESIGN SITE (lib/site-requests.js, POST /s/:id/request): a visitor's booking or order reaches the
 // business -- kept for the owner's inbox (never another account's), emailed when email is set up (it isn't here: no
 // Resend key, so nothing leaves the machine and the inbox says the email wasn't sent). Scripted writer, no AI.
+// (customers using the AI themselves: off by default now, websites are done for you; this checks the flow when it's on)
+process.env.SITEREMADE_DESIGNS_AI_OPEN = 'on';
 process.env.SITEREMADE_DB_PATH = ':memory:';
 delete process.env.RESEND_API_KEY;
 const test = require('node:test');

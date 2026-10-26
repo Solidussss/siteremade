@@ -231,7 +231,7 @@
     },
     "hero.photo": {
       "kind": "photo",
-      "label": "your main photo: the shop, a chair or a fresh cut. It replaces the drawn head."
+      "label": "your main photo: the finished cut, the shop or a chair. It replaces the drawn head; scrolling moves the camera through it."
     },
     "cut.photo": {
       "kind": "photo",
@@ -239,7 +239,15 @@
     },
     "hero.before": {
       "kind": "photo",
-      "label": "a before photo (grown out). With it, scrolling wipes from before to after while the steps tick through."
+      "label": "a before photo (grown out). It comes first; the main photo wipes in after it."
+    },
+    "hero.photo2": {
+      "kind": "photo",
+      "label": "a photo for the middle of the scroll (mid-cut, the clippers, the chair)."
+    },
+    "hero.photo3": {
+      "kind": "photo",
+      "label": "one more for the middle (the detail, the line-up, the hot towel)."
     }
   }
 }

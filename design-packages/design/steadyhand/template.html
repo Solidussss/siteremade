@@ -84,17 +84,12 @@ h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,7vw,104px);li
 .seg button[aria-pressed="true"] small{color:{{D:#5d554e}}}
 .mirror{position:relative;border-radius:999px 999px 22px 22px;overflow:hidden;background:{{D:#100e0d}};border:1px solid var(--line2);aspect-ratio:4/4.6;box-shadow:inset 0 0 0 6px {{D:#1d1a17}},inset 0 0 0 7px {{D:#3a332e}}}
 .mirror canvas{position:absolute;inset:0;width:100%;height:100%}
-/* photo mode: the business's own photos in place of the drawings */
-#hero.photo:not(.ba){height:auto}#hero.photo:not(.ba) .stage{height:100vh;height:100svh;min-height:560px}
-#hero.photo canvas,#hero.photo:not(.ba) .hud,#hero.photo:not(.ba) .hint{display:none}
-/* before and after: scrolling wipes the fresh cut across the grown-out one, the steps tick through */
-#hero.ba .hphoto{animation:none;translate:none}#hero.ba .hphoto.after{clip-path:inset(0 calc((1 - var(--rv,0)) * 100%) 0 0)}
-#hero.ba .razor{position:absolute;top:0;bottom:0;z-index:1;left:calc(var(--rv,0) * 100%);width:2px;margin-left:-1px;background:{{R:#e23b2f}};box-shadow:0 0 22px {{R:#e23b2f}},0 0 4px #fff;opacity:calc(var(--rv,0) * (1 - var(--rv,0)) * 6)}
-#hero.ba .hud{z-index:3}
-.hphoto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 40%;transform-origin:60% 45%;animation:hzoom 22s ease-in-out infinite alternate;translate:0 calc(var(--py,0) * 1px)}
-@keyframes hzoom{from{scale:1.04}to{scale:1.14}}
-.mphoto{transition:scale .6s ease}.mirror.photo:hover .mphoto{scale:1.04}
-@media (prefers-reduced-motion:reduce){.hphoto{animation:none}}
+/* photo mode: the business's own photos, still a scroll scene: the camera pushes in and drifts with the scroll, each photo
+   is a chapter of the cut, and the next one wipes in behind the razor line while the steps tick through */
+#hero.photo canvas{display:none}
+.shots{position:absolute;inset:0;overflow:hidden}
+.shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 40%;transform-origin:60% 45%;will-change:transform,clip-path}
+.razor{position:absolute;top:0;bottom:0;z-index:2;left:0;width:2px;margin-left:-1px;background:{{R:#e23b2f}};box-shadow:0 0 22px {{R:#e23b2f}},0 0 4px #fff;opacity:0}
 #hero.photo .stage::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,var(--bg) 0%,rgba(0,0,0,.72) 34%,rgba(0,0,0,.15) 70%,transparent 100%),linear-gradient(0deg,var(--bg) 0%,transparent 28%)}
 .mirror.photo{border-radius:22px}.mirror.photo canvas{display:none}.mphoto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ticket{margin-top:-28px;position:relative;z-index:2;background:#f3efe8;color:#191512;border-radius:6px;padding:18px 18px 16px;font-family:var(--mono);font-size:13px;width:min(380px,92%);margin-left:auto;margin-right:auto;box-shadow:0 18px 40px #0008;transform:rotate(-1.2deg)}
@@ -189,9 +184,7 @@ footer{background:var(--red);color:#fff;overflow:hidden}
 }
 @media (max-width:820px){
   .hcopy{width:auto;right:var(--gut);top:calc(70px + env(safe-area-inset-top,0px))}
-  #hero.photo .stage::after{background:linear-gradient(0deg,var(--bg) 0%,rgba(0,0,0,.78) 45%,rgba(0,0,0,.35) 75%,rgba(0,0,0,.55) 100%)}
-  #hero.photo:not(.ba) .hcopy{top:auto;bottom:calc(40px + env(safe-area-inset-bottom,0px))}
-  #hero.ba .stage::after{background:linear-gradient(180deg,var(--bg) 0%,rgba(0,0,0,.6) 38%,transparent 60%,rgba(0,0,0,.55) 100%)}
+  #hero.photo .stage::after{background:linear-gradient(180deg,var(--bg) 0%,rgba(0,0,0,.62) 36%,transparent 58%,rgba(0,0,0,.6) 100%)}
   .hcopy p,.hbtns{display:none}
   h1{font-size:clamp(46px,14.4vw,76px);margin:10px 0 0;line-height:.92}
   .eyebrow{font-size:10.5px;gap:8px}
@@ -221,9 +214,9 @@ footer{background:var(--red);color:#fff;overflow:hidden}
   </div>
 </nav>
 
-<section id="hero"{{#if hero.photo}} class="photo{{#if hero.before}} ba{{/if}}"{{/if}} aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}A skin fade, start to finish{{/if}}">
+<section id="hero"{{#if hero.photo}} class="photo"{{/if}} aria-label="{{#if hero.photo}}{{business.name|attr}}{{else}}A skin fade, start to finish{{/if}}">
   <div class="stage">
-    {{#if hero.photo}}{{#if hero.before}}<img class="hphoto" src="{{hero.before|attr}}" alt="Before the cut"><img class="hphoto after" src="{{hero.photo|attr}}" alt="After the cut at {{business.name|attr}}" fetchpriority="high"><i class="razor" aria-hidden="true"></i>{{else}}<img class="hphoto" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high">{{/if}}{{/if}}
+    {{#if hero.photo}}<div class="shots">{{#if hero.before}}<img class="shot" src="{{hero.before|attr}}" alt="Before the cut">{{/if}}{{#if hero.photo2}}<img class="shot" src="{{hero.photo2|attr}}" alt="">{{/if}}{{#if hero.photo3}}<img class="shot" src="{{hero.photo3|attr}}" alt="">{{/if}}<img class="shot" src="{{hero.photo|attr}}" alt="{{business.name|attr}}" fetchpriority="high"><i class="razor" aria-hidden="true"></i></div>{{/if}}
     <canvas id="cvHead" aria-hidden="true"></canvas>
     <canvas id="cvFx" aria-hidden="true"></canvas>
     <div class="hcopy">
@@ -603,8 +596,19 @@ class Head{
 /* ---------- hero ---------- */
 const stage=$('.stage'),cvH=$('#cvHead'),cvF=$('#cvFx'),fx=cvF.getContext('2d');
 const head=new Head(cvH,{mirror:true,density:3.3});
-const hero=$('#hero');const PHOTO=hero.classList.contains('photo');const BA=hero.classList.contains('ba');
-if(PHOTO&&!BA&&!matchMedia('(prefers-reduced-motion:reduce)').matches){const ph=$('.hphoto');addEventListener('scroll',()=>{ph.style.setProperty('--py',Math.min(scrollY,innerHeight)*0.25)},{passive:true})} // (the business's photo in place of the drawn head: nothing to animate)
+const hero=$('#hero');const PHOTO=hero.classList.contains('photo'); // (the business's photos in place of the drawn head)
+// the photo scene: photo i of n is the chapter [i/n, (i+1)/n] of the scroll; inside it the camera pushes in and drifts
+// (alternate sides, upward with the scroll), and each photo after the first wipes in over the last stretch of the one before
+const SHOTS=[...document.querySelectorAll('.shot')],RAZOR=$('.razor');
+function shotScene(p){
+  const n=SHOTS.length,w=n>1?Math.min(.1,.6/n):0;let edge=-1;
+  SHOTS.forEach((im,i)=>{
+    const a=i/n,b=(i+1)/n,from=i?a-w:0,e=eio(clamp((p-from)/(b-from))),d=i%2?-1:1;
+    im.style.transform=`translate(${(d*(3-6*e)).toFixed(2)}%,${(2-6*e).toFixed(2)}%) scale(${(1.08+.24*e).toFixed(4)})`;
+    if(i){const r=clamp((p-(a-w))/w);im.style.visibility=r>0?'visible':'hidden';im.style.clipPath=r>=1?'none':`inset(0 ${((1-r)*100).toFixed(2)}% 0 0)`;if(r>0&&r<1)edge=r}
+  });
+  RAZOR.style.opacity=edge<0?0:1;if(edge>=0)RAZOR.style.left=(edge*100).toFixed(2)+'%';
+}
 let W=0,H=0,DPR=1,mobile=false;
 const parts=[];
 head.onCut=(s,h)=>{
@@ -784,8 +788,8 @@ function frame(now){
   const top=hero.offsetTop,span=hero.offsetHeight-innerHeight;
   const np=clamp((sy-top)/span);
   pVel=np-p;growing=np>p+1e-5;p=np;
-  if(heroVis&&BA){
-    if(Math.abs(p-lastP)>1e-5){const st=heroState(p);updateHud(p,st);stage.style.setProperty('--rv',eio(seg(p,.08,.84)).toFixed(4));lastP=p}
+  if(heroVis&&PHOTO){
+    if(Math.abs(p-lastP)>1e-5){updateHud(p,heroState(p));shotScene(p);lastP=p}
   }else if(heroVis&&!PHOTO){
     const st=heroState(p);
     if(Math.abs(p-lastP)>1e-5){
