@@ -50,6 +50,8 @@ function shots(content) {
 const CSS = `.srph-on{isolation:isolate}
 .srph{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
 .srph-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;will-change:transform,clip-path;display:block}
+.srph-shot.srph-fit{object-fit:contain}
+.srph-fill{position:absolute;inset:-8%;background-size:cover;background-position:center;filter:blur(26px) brightness(.55) saturate(1.2);transform:scale(1.1)}
 .srph-line{position:absolute;top:0;bottom:0;left:0;z-index:2;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 20px rgba(255,255,255,.85);opacity:0}
 .srph::after{content:"";position:absolute;inset:0;z-index:1}
 .srph.dark::after{background:linear-gradient(90deg,rgba(8,8,10,.82) 0%,rgba(8,8,10,.5) 38%,rgba(8,8,10,.12) 72%,rgba(8,8,10,.05) 100%),linear-gradient(0deg,rgba(8,8,10,.55) 0%,transparent 30%)}
@@ -77,13 +79,17 @@ var box=document.createElement('div');box.className='srph '+(C.veil==='light'||C
 var S=[].slice.call(box.querySelectorAll('.srph-shot')),L=box.querySelector('.srph-line'),RM=matchMedia('(prefers-reduced-motion:reduce)').matches,sm=scrollY,vis=true,MO=C.motion==='gloss'||C.motion==='focus'?C.motion:null;
 // a photo with a subject mask: drawn by WebGL, with the light and focus on the subject (no WebGL: the photo as it is)
 var VS='attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0.,1.);}';
-var FS='precision mediump float;uniform sampler2D P,B,M;uniform float T,F,G,K;varying vec2 v;void main(){vec3 c=texture2D(P,v).rgb,b=texture2D(B,v).rgb;float m=smoothstep(.18,.82,texture2D(M,v).r);'+
- 'vec3 bg=mix(c,b*(1.-.22*F),F);vec3 o=mix(bg,c*(1.+.04*F),m);float l=dot(c,vec3(.299,.587,.114)),d=(v.x*.94+v.y*.34)-T,band=exp(-d*d/.003)+.3*exp(-d*d/.04);'+
- 'float s=band*m*(K+(1.-K)*smoothstep(.42,.97,l))*G;o=1.-(1.-o)*(1.-vec3(1.,.97,.92)*s);gl_FragColor=vec4(o,1.);}';
+// (P the photo, B its blurred copy, M the subject mask; C the subject's centre. L lifts the subject toward the viewer
+// by drawing it a little larger about its own centre, so it always covers where it was; R reveals the photo, its
+// subject first and the background after; F defocuses the background; T, G, K run the band of light)
+var FS='precision mediump float;uniform sampler2D P,B,M;uniform float T,F,G,K,L,R;uniform vec2 C;varying vec2 v;void main(){'+
+ 'vec2 u=C+(v-C)/(1.+L);vec3 c=texture2D(P,v).rgb,b=texture2D(B,v).rgb,su=texture2D(P,u).rgb;float m=smoothstep(.18,.82,texture2D(M,u).r);'+
+ 'vec3 bg=mix(c,b*(1.-.25*F),F);vec3 o=mix(bg,su*(1.+.05*F),m);float l=dot(su,vec3(.299,.587,.114)),d=(v.x*.94+v.y*.34)-T,band=exp(-d*d/.003)+.3*exp(-d*d/.04);'+
+ 'float s=band*m*(K+(1.-K)*smoothstep(.42,.97,l))*G;o=1.-(1.-o)*(1.-vec3(1.,.97,.92)*s);float a=mix(smoothstep(.35,1.,R),smoothstep(0.,.55,R),m);gl_FragColor=vec4(o*a,a);}';
 function glShot(im){var src=im.dataset.mask;if(!MO||RM||!src)return;var mk=new Image();mk.src=src;
  Promise.all([im.decode?im.decode():Promise.resolve(),mk.decode?mk.decode():new Promise(function(r){mk.onload=r})]).then(function(){
   var cv=document.createElement('canvas'),k=Math.min(1,1600/im.naturalWidth);cv.width=Math.round(im.naturalWidth*k);cv.height=Math.round(im.naturalHeight*k);
-  var g=cv.getContext('webgl',{premultipliedAlpha:false,antialias:false,preserveDrawingBuffer:false});if(!g)return;
+  var g=cv.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:false});if(!g)return;
   function sh(t,c){var o=g.createShader(t);g.shaderSource(o,c);g.compileShader(o);return o}
   var pr=g.createProgram();g.attachShader(pr,sh(g.VERTEX_SHADER,VS));g.attachShader(pr,sh(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);if(!g.getProgramParameter(pr,g.LINK_STATUS))return;g.useProgram(pr);
   var bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);var al=g.getAttribLocation(pr,'a');g.enableVertexAttribArray(al);g.vertexAttribPointer(al,2,g.FLOAT,false,0,0);
@@ -92,21 +98,35 @@ function glShot(im){var src=im.dataset.mask;if(!MO||RM||!src)return;var mk=new I
   [[im,'P',0],[bl,'B',1],[mk,'M',2]].forEach(function(t){var tx=g.createTexture();g.activeTexture(g.TEXTURE0+t[2]);g.bindTexture(g.TEXTURE_2D,tx);
    g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.LINEAR);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.LINEAR);
    g.texImage2D(g.TEXTURE_2D,0,g.RGB,g.RGB,g.UNSIGNED_BYTE,t[0]);g.uniform1i(g.getUniformLocation(pr,t[1]),t[2])});
-  var U={};['T','F','G','K'].forEach(function(n){U[n]=g.getUniformLocation(pr,n)});g.viewport(0,0,cv.width,cv.height);
-  cv.className=im.className;cv.setAttribute('style',im.getAttribute('style'));cv.setAttribute('role','img');cv.setAttribute('aria-label',im.alt||'');for(var kk in im.dataset)cv.dataset[kk]=im.dataset[kk];
-  cv.draw=function(e){g.uniform1f(U.T,-.35+1.7*e);g.uniform1f(U.F,(MO==='focus'?.85:.5)*Math.min(1,e*1.6));g.uniform1f(U.G,MO==='gloss'?1.25:.4);g.uniform1f(U.K,MO==='gloss'?.22:.35);g.drawArrays(g.TRIANGLE_STRIP,0,4)};
-  im.replaceWith(cv);S[S.indexOf(im)]=cv;cv.draw(0);last=-1}).catch(function(){})}
+  var U={};['T','F','G','K','L','R','C'].forEach(function(n){U[n]=g.getUniformLocation(pr,n)});g.viewport(0,0,cv.width,cv.height);
+  cv.className=im.className;cv.setAttribute('style',im.getAttribute('style'));cv.style.clipPath='none';cv.dataset.src=im.currentSrc||im.src;cv.setAttribute('role','img');cv.setAttribute('aria-label',im.alt||'');for(var kk in im.dataset)cv.dataset[kk]=im.dataset[kk];
+  g.uniform2f(U.C,(+im.dataset.fx||50)/100,(+im.dataset.fy||45)/100);
+  // e: how far through its chapter; r: how far revealed (1 once it's in)
+  cv.draw=function(e,r){var k=Math.min(1,e*1.6);g.uniform1f(U.T,-.35+1.7*e);g.uniform1f(U.F,(MO==='focus'?.85:.55)*k);g.uniform1f(U.L,.07*k);g.uniform1f(U.R,r==null?1:r);
+   g.uniform1f(U.G,MO==='gloss'?1.25:.4);g.uniform1f(U.K,MO==='gloss'?.22:.35);g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT);g.drawArrays(g.TRIANGLE_STRIP,0,4)};
+  im.replaceWith(cv);S[S.indexOf(im)]=cv;cv.draw(0,S.indexOf(cv)?0:1);last=-1}).catch(function(){})}
 
 function cl(v){return v<0?0:v>1?1:v}function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
 function prog(){var top=sec.getBoundingClientRect().top+scrollY,h=sec.offsetHeight-innerHeight;return h>40?cl((sm-top)/h):cl((sm-top)/Math.max(1,sec.offsetHeight))}
-function scene(p){var n=S.length,w=n>1?Math.min(.12,.6/n):0,edge=-1;
- S.forEach(function(im,i){var a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,e=ease(cl((p-from)/(b-from))),d=+im.dataset.dir,z=+im.dataset.zoom,q=im.draw&&MO==='gloss'?.3:1;
-  // (a lit subject stays put: the camera only breathes)
-  im.style.transform='translate('+(q*d*(3-6*e)).toFixed(2)+'%,'+(q*(2-6*e)).toFixed(2)+'%) scale('+(1.04+(z-1.04)*e*q).toFixed(4)+')';
-  if(im.draw&&im.style.visibility!=='hidden')im.draw(cl((p-from)/(b-from)));
-  if(i){var r=cl((p-(a-w))/w);im.style.visibility=r>0?'visible':'hidden';im.style.clipPath=r>=1?'none':'inset(0 '+((1-r)*100).toFixed(2)+'% 0 0)';if(r>0&&r<1)edge=r}});
+function scene(p){var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
+ S.forEach(function(im,i){var a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,e=ease(cl((p-from)/(b-from))),d=+im.dataset.dir,z=+im.dataset.zoom,r=i?cl((p-(a-w))/w):1;
+  // the camera: pans across with the scroll and pushes in toward the subject (scaled enough that no edge shows)
+  // (a phone already sees a narrow slice of a wide photo: there the camera moves less, so the subject stays whole)
+  var nar=innerWidth<innerHeight,bs=nar?1.04:1.1;
+  im.style.transform='translate('+(d*(nar?1.8:5)*(1-2*e)).toFixed(2)+'%,'+((nar?1.5:3)*(1-2*e)).toFixed(2)+'%) scale('+(bs+(z+.06-1.1)*(nar?.35:1)*e).toFixed(4)+')';
+  if(i)im.style.visibility=r>0?'visible':'hidden';
+  var fl=FILL[i];if(fl){fl.style.visibility=i&&r<=0?'hidden':'visible';fl.style.opacity=im.draw?Math.max(0,Math.min(1,(r-.35)/.65)).toFixed(3):1;fl.style.clipPath=!im.draw&&i&&r<1?'inset(0 '+((1-r)*100).toFixed(2)+'% 0 0)':'none'}
+  // a photo with its subject comes in subject first (drawn by WebGL); any other wipes in behind the light line
+  if(im.draw){if(r>0)im.draw(cl((p-from)/(b-from)),ease(r));}
+  else if(i){im.style.clipPath=r>=1?'none':'inset(0 '+((1-r)*100).toFixed(2)+'% 0 0)';if(r>0&&r<1)edge=r}});
  L.style.opacity=edge<0?0:1;if(edge>=0)L.style.left=(edge*100).toFixed(2)+'%'}
 if('IntersectionObserver' in window)new IntersectionObserver(function(es){vis=es[0].isIntersecting},{rootMargin:'200px'}).observe(sec);
+// (a phone shows only the middle of a wide photo: there it's shown whole across the screen, over a soft blurred
+// copy of itself, so a car stays a car; the words above and the cards below sit on the fill)
+var FILL=[];function fits(){var nar=innerWidth<innerHeight;S.forEach(function(im,i){var w=im.naturalWidth||im.width,h=im.naturalHeight||im.height,on=nar&&w>h*1.15&&!!(im.currentSrc||im.src||im.dataset.src);
+ im.classList.toggle('srph-fit',on);if(on&&!FILL[i]){var f=document.createElement('div');f.className='srph-fill';f.style.backgroundImage='url("'+(im.currentSrc||im.src||im.dataset.src)+'")';im.parentNode.insertBefore(f,im);FILL[i]=f}
+ if(FILL[i])FILL[i].style.display=on?'':'none'})}
+S.forEach(function(im){if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
 var last=-1;S.slice().forEach(glShot);(function tick(){sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
 })();`;
 
@@ -118,7 +138,7 @@ function inject(html, manifest, content) {
   const list = shots(content);
   if (!cfg || !list.length) return html;
   const name = (content.business && (content.business.name || content.business.wordmark)) || (content.brand && content.brand.name) || '';
-  const imgs = list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
+  const imgs = list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" data-fx="${s.fx}" data-fy="${s.fy}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
   const conf = JSON.stringify({ section: cfg.section || '#top', stage: cfg.stage || '.stage', hide: cfg.hide || [], veil: cfg.veil || null, motion: cfg.motion || null }).replace(/</g, '\\u003c');
   const block = `<style>${CSS}</style><template id="srph-shots">${imgs}<i class="srph-line" aria-hidden="true"></i></template><script type="application/json" id="srph-cfg">${conf}</script><script>${RUNTIME}</script>`;
   const at = html.lastIndexOf('</body>');
