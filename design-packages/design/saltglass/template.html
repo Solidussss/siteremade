@@ -102,7 +102,10 @@ button{font:inherit;color:inherit}
 /* photo mode: the practice's own photo in place of the drawn teeth */
 .hero.photo{height:auto}.hero.photo .stage{position:relative;min-height:100svh;grid-template-rows:auto minmax(260px,1fr);grid-template-areas:"copy" "smile"}
 .hero.photo .smile-box,.hero.photo .hud,.hero.photo .guide,.hero.photo .hint{display:none}
-.hphoto{width:100%;height:100%;max-height:72svh;object-fit:cover;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.smile:has(.hphoto){overflow:hidden;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.hphoto{width:100%;height:100%;max-height:72svh;object-fit:cover;border-radius:22px;animation:hzoom 24s ease-in-out infinite alternate;translate:0 calc(var(--py,0) * 1px)}
+@keyframes hzoom{from{scale:1.02}to{scale:1.12}}
+@media (prefers-reduced-motion:reduce){.hphoto{animation:none}}
 .hprice{font-size:15px;color:var(--stage-ink-2)}.hprice b{color:var(--stage-ink);font-weight:600}
 .split{position:absolute;top:9%;bottom:9%;left:0;width:0;transform:translateX(var(--x,0px));pointer-events:none}
 .split::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:linear-gradient(180deg,transparent,var(--stage-ink) 18%,var(--stage-ink) 82%,transparent);box-shadow:0 0 18px color-mix(in oklab,var(--stage-glow) 70%,transparent)}
@@ -583,7 +586,8 @@ const SHADES=[
   {c:"BL2", rgb:[251,250,245],rank:2, stage:"Checked against the guide",t:90}
 ];
 const hero=$("#top"), canvas=$("#smileCanvas"), ctx=canvas.getContext("2d");
-const PHOTO=hero.classList.contains("photo"); // (the practice's photo in place of the drawn teeth: nothing to animate)
+const PHOTO=hero.classList.contains("photo");
+if(PHOTO&&!matchMedia("(prefers-reduced-motion:reduce)").matches){const ph=document.querySelector(".hphoto");addEventListener("scroll",()=>{ph.style.setProperty("--py",Math.min(scrollY,innerHeight)*0.12)},{passive:true})} // (the practice's photo in place of the drawn teeth: nothing to animate)
 const box=$("#smileBox"), smileArea=$("#smile"), split=$("#split");
 const tagA=$("#tagAfter"), tagB=$("#tagBefore");
 const tabs=[...document.querySelectorAll("#guide .tab")];
