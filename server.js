@@ -6001,18 +6001,19 @@ function demoVideoSet(name) {
   const v = encodeURIComponent(st.madeAt || '');
   return { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` };
 }
-app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=300'); res.type('html').send(siteRequests.withPreview(html)); });
+app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'no-cache'); res.type('html').send(siteRequests.withPreview(html)); });
 app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
   const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), String(req.params.slot)) : null; if (!ph) return res.status(404).end();
   res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.type('image/jpeg').send(Buffer.from(ph.data));
 });
 // a still of each design's first screen (a 1440x900 screenshot of /designs/demo/<design>, 960 px JPEG), shown while its live preview loads
 app.get('/designs/poster/:design.jpg', (req, res) => {
-  // (a design with demo photos: its main photo is the still the catalogue shows until the demo loads)
-  const vs = demoVideoSet(String(req.params.design)); if (vs) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.sendFile(path.join(videoState(String(req.params.design)).dir, 'poster.jpg')); }
+  // (a design with demo photos: its main photo is the still the catalogue shows until the demo loads; every still is
+  // checked again each time -- a 304 when it hasn't changed -- so a new video or photo shows at once)
+  const vs = demoVideoSet(String(req.params.design)); if (vs) { res.setHeader('Cache-Control', 'no-cache'); return res.sendFile(path.join(videoState(String(req.params.design)).dir, 'poster.jpg')); }
   const ph = db.demoPhotos && demoPhotosOn() ? db.demoPhotos.photo(String(req.params.design), 'main') : null;
-  if (ph) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.type('image/jpeg').send(Buffer.from(ph.data)); }
-  const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
+  if (ph) { res.setHeader('Cache-Control', 'no-cache'); return res.type('image/jpeg').send(Buffer.from(ph.data)); }
+  const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'no-cache'); res.sendFile(file); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 // the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
 // own sites

@@ -110,7 +110,7 @@ function glShot(im){var src=im.dataset.mask;if(!MO||RM||!src)return;var mk=new I
 
 function cl(v){return v<0?0:v>1?1:v}function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
 function prog(){var top=sec.getBoundingClientRect().top+scrollY,h=sec.offsetHeight-innerHeight;return h>40?cl((sm-top)/h):cl((sm-top)/Math.max(1,sec.offsetHeight))}
-function scene(p){if(VID){if(VID.duration>0){var t=Math.min(VID.duration-.05,p*VID.duration);if(Math.abs(VID.currentTime-t)>1/48)VID.currentTime=t}if(FILL[0])FILL[0].style.visibility='visible';return}var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
+function scene(p){if(VID){if(AUTO)return;if(VID.duration>0){var t=Math.min(VID.duration-.05,p*VID.duration);if(Math.abs(VID.currentTime-t)>1/48)VID.currentTime=t}if(FILL[0])FILL[0].style.visibility='visible';return}var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
  S.forEach(function(im,i){var a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,e=ease(cl((p-from)/(b-from))),d=+im.dataset.dir,z=+im.dataset.zoom,r=i?cl((p-(a-w))/w):1;
   // the camera: pans across with the scroll and pushes in toward the subject (scaled enough that no edge shows)
   // (a phone already sees a narrow slice of a wide photo: there the camera moves less, so the subject stays whole)
@@ -131,8 +131,11 @@ var FILL=[];function fits(){var nar=innerWidth<innerHeight;S.forEach(function(im
 S.forEach(function(im){if(im.tagName==='VIDEO'){if(im.readyState>=1)fits();else im.addEventListener('loadedmetadata',fits)}else if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
 // THE VIDEO HERO: one take that plays with the scroll (down: forward, up: back), under the design's cards
 var VID=box.querySelector('video.srph-video');
-if(VID){VID.muted=true;VID.playsInline=true;var vReady=function(){var pl=VID.play();if(pl&&pl.then)pl.then(function(){VID.pause();last=-1}).catch(function(){last=-1});else{VID.pause();last=-1}};
- if(VID.readyState>=1)vReady();else VID.addEventListener('loadedmetadata',vReady,{once:true});}
+// (in a preview card, which nobody scrolls, it plays by itself on a loop; the first scroll hands it to the scroll)
+var AUTO=false;try{AUTO=window.self!==window.top&&scrollY<1}catch(e){}
+if(VID){VID.muted=true;VID.playsInline=true;var vReady=function(){if(AUTO){VID.loop=true;var a=VID.play();if(a&&a.catch)a.catch(function(){});return}var pl=VID.play();if(pl&&pl.then)pl.then(function(){VID.pause();last=-1}).catch(function(){last=-1});else{VID.pause();last=-1}};
+ if(VID.readyState>=1)vReady();else VID.addEventListener('loadedmetadata',vReady,{once:true});
+ if(AUTO)addEventListener('scroll',function(){if(!AUTO||scrollY<1)return;AUTO=false;VID.loop=false;VID.pause();last=-1},{passive:true});}
 var last=-1;S.slice().forEach(glShot);(function tick(){sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
 })();`;
 
