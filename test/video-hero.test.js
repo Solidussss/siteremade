@@ -75,6 +75,24 @@ test('Higgsfield makes the clips with the key SiteRemade already has: the model\
   await assert.rejects(videoHero.higgsfieldClip({ hf: flagged, endpoint: 'x/y', prompt: 'p', imageUrl: 'u', wait: async () => {} }), /flagged/);
 });
 
+test('a clip ordered before a restart is collected, not ordered again', async () => {
+  let submits = 0, saved = null; const polled = [];
+  const hf = { submit: async () => { submits++; return { requestId: 'r-new' }; }, status: async (id) => { polled.push(id); return { status: 'completed', outputUrl: 'https://cdn/x.mp4' }; } };
+  await videoHero.higgsfieldClip({ hf, endpoint: 'x/y', prompt: 'p', imageUrl: 'u', wait: async () => {}, job: { get: () => null, set: (id) => { saved = id; } } });
+  assert.equal(submits, 1); assert.equal(saved, 'r-new', 'the order is kept');
+  await videoHero.higgsfieldClip({ hf, endpoint: 'x/y', prompt: 'p', imageUrl: 'u', wait: async () => {}, job: { get: () => 'r-old', set: () => assert.fail('not ordered again') } });
+  assert.equal(submits, 1, 'no second order'); assert.equal(polled.at(-1), 'r-old');
+});
+
+test('a design whose story is not a list of steps gets its steps written from its words', async () => {
+  let asked = '';
+  const got = await videoHero.storySteps({ category: 'barber', words: '{"hero":{"lede":"a mid skin fade, start to finish"}}', image: photo(),
+    call: async (sys, content) => { asked = content.at(-1).text; return { steps: ['Sectioning', 'Clipper work', 'Fading', 'Detailing', 'Finished fade'].map((t) => ({ title: t, caption: t + '.' })) }; } });
+  assert.equal(got.length, videoHero.STORY_STEPS); assert.equal(got[4].title, 'Finished fade'); assert.match(asked, /mid skin fade/);
+  assert.equal(await videoHero.storySteps({ category: 'barber', words: '{}', call: async () => ({ steps: [] }) }), null, 'no steps: the design is left alone');
+  assert.equal(await videoHero.storySteps({ category: 'barber', words: '{}' }), null, 'no writer: nothing made up');
+});
+
 test('a take cut short picks up where it stopped: the shots and the clips already made are kept', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vh-resume-'));
   const steps = [{ title: 'One', caption: 'a' }, { title: 'Two', caption: 'b' }, { title: 'Three', caption: 'c' }];

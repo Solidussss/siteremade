@@ -6359,7 +6359,7 @@ const FAL_KEY = paidProviders.key('fal');
 function videoService() {
   if (designDeps.videoClipper) return { name: 'test', clipper: designDeps.videoClipper };
   const hk = paidProviders.key('higgsfield'), ep = require('./lib/media/premium-media.js').normalizeEndpoint(process.env.HIGGSFIELD_VIDEO_HERO_ENDPOINT || process.env.HIGGSFIELD_VIDEO_ENDPOINT);
-  if (hk && ep.ok) { const hf = createHiggsfield({ key: hk }); return { name: `Higgsfield ${ep.endpoint}`, clipper: (prompt, imageUrl, log) => videoHero.higgsfieldClip({ hf, endpoint: ep.endpoint, prompt, imageUrl, wait: designDeps.wait, log }) }; }
+  if (hk && ep.ok) { const hf = createHiggsfield({ key: hk }); return { name: `Higgsfield ${ep.endpoint}`, clipper: (prompt, imageUrl, log, job) => videoHero.higgsfieldClip({ hf, endpoint: ep.endpoint, prompt, imageUrl, wait: designDeps.wait, log, job }) }; }
   const fk = designDeps.falKey != null ? designDeps.falKey : FAL_KEY;
   return fk ? { name: 'fal.ai Seedance', key: fk } : null;
 }
@@ -6381,14 +6381,25 @@ async function runVideoJob() {
         if (!ph) throw new Error('no starting photo: find demo photos for this design first');
         const c = JSON.parse(fs.readFileSync(path.join(p.d.dir, 'default.json'), 'utf8'));
         const steps = (Array.isArray(c.stages) ? c.stages : []).map((x) => ({ title: String(x.n || x.title || x.name || '').replace(/\*/g, ''), caption: String(x.c || x.caption || x.text || '').replace(/\*/g, '') })).filter((x) => x.title).slice(0, 8);
-        if (steps.length < 2) throw new Error('this design has no steps to film');
         const dir = path.join(VIDEO_DIR, name, started.replace(/[^0-9]/g, '').slice(0, 14)), token = crypto.randomBytes(12).toString('base64url');
+        const writer = designDeps.shotWriter ? designDeps.shotWriter() : videoHero.claudeCaller(ANTHROPIC_API_KEY);
+        if (steps.length < 2) {
+          // (a design whose story isn't a list of steps: Claude writes them from its words, kept with the take)
+          const keep = path.join(dir, 'steps.json'); let got = null; try { got = JSON.parse(fs.readFileSync(keep, 'utf8')); } catch (e) { /* not yet */ }
+          if (!Array.isArray(got) || got.length < 2) {
+            const { stages, theme, locale, ...words } = c; // (the words, not the styling)
+            got = await videoHero.storySteps({ category: p.d.manifest.category, words: JSON.stringify(words), image: Buffer.from(ph.data), call: writer });
+            if (!got) throw new Error('this design has no steps to film');
+            fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(keep, JSON.stringify(got, null, 2));
+          }
+          steps.splice(0, steps.length, ...got);
+        }
         const base = String(process.env.PUBLIC_BASE_URL || 'https://www.siteremade.com').replace(/\/$/, '');
         videoFrames.set(token, dir);
         const svc = videoService(); if (!svc) throw new Error('no video service is set up (HIGGSFIELD_API_KEY with a video model, or FAL_KEY)');
         console.log(`Video hero: ${name} with ${svc.name}`);
         const r = await videoHero.make({ design: name, category: p.d.manifest.category, steps, start: Buffer.from(ph.data), dir, key: svc.key, clipper: svc.clipper,
-          call: designDeps.shotWriter ? designDeps.shotWriter() : videoHero.claudeCaller(ANTHROPIC_API_KEY), publicUrl: (file) => `${base}/designs/video-frame/${token}/${path.basename(file)}`,
+          call: writer, publicUrl: (file) => `${base}/designs/video-frame/${token}/${path.basename(file)}`,
           fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, log: (m) => { console.log('Video hero:', m); const st = videoState(name) || {}; setVideoState(name, { ...st, step: m }); } });
         videoFrames.delete(token);
         setVideoState(name, { status: 'ready', dir, seconds: r.seconds, shots: r.shots, madeAt: new Date().toISOString() });
@@ -6408,7 +6419,7 @@ function autoVideoHero() {
     // a take a restart cut short always carries on (the owner already started it); a new one only with the switch on
     for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if (st && st.status === 'making') videoJob.queue.push(name); }
     // (with the switch on, every design without a video gets one, one after another; one that failed is left for the owner)
-    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of designSites.designs().map((d) => d.design)) { if (!videoState(name) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
+    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if ((!st || (st.status === 'failed' && /no steps to film/.test(st.why || ''))) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
   }, 90000).unref();
 }
