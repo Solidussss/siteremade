@@ -171,3 +171,15 @@ test('when Higgsfield turns clips down (the credit ran out) everything waits, th
     assert.equal(ordered.length, done.shots.length - 3, 'only the clips not yet made are paid for'); assert.equal(done.seconds, done.shots.length * 5);
   } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); try { fs.unlinkSync(CLIP); } catch (e) { /* gone */ } }
 });
+
+test('a video the owner made and checked, kept with the design, is what the site plays', async () => {
+  const { srv, session } = await server();
+  try {
+    const guest = await session(null), fr = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'design-packages', 'videos', 'beadline', 'frames.json'), 'utf8'));
+    const page = (await guest('GET', '/designs/demo/beadline')).text;
+    assert.match(page, new RegExp(`class="srph-shot srph-frames"[^>]*data-frames="/designs/demo-video/beadline/f/\\{n\\}\\.jpg\\?v=[^"]*" data-count="${fr.count}"`), 'the scroll film of the owner’s clip');
+    for (const n of [1, fr.count]) { const r = await guest('GET', `/designs/demo-video/beadline/f/${n}.jpg`); assert.equal(r.status, 200); assert.match(r.type, /image\/jpeg/); }
+    assert.equal((await guest('GET', `/designs/demo-video/beadline/f/${fr.count + 1}.jpg`)).status, 404);
+    assert.equal((await guest('GET', '/designs/poster/beadline.jpg')).status, 200, 'the catalogue still');
+  } finally { srv.close(); }
+});
