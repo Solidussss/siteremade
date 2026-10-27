@@ -136,5 +136,34 @@ test('the owner makes a design’s video hero; it chains clip to clip and plays 
     assert.ok((await guest('GET', '/designs/demo/beadline')).text.includes('class="srph-shot srph-video" src="/designs/demo-video/beadline/hero.mp4'), 'the public demo plays the video');
     const still = await guest('GET', '/designs/poster/beadline.jpg'); assert.equal(still.status, 200); assert.match(still.type, /image\/jpeg/);
     assert.ok(!(await guest('GET', '/designs/demo/steadyhand')).text.includes('hero.mp4'), 'a design without a video keeps its hero');
+  } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); }
+});
+
+test('when Higgsfield turns clips down (the credit ran out) everything waits, the paid clips play, and it goes on from there', async () => {
+  const { srv, session } = await server(); const { partialVideos } = require('../server.js');
+  fs.rmSync(path.join(os.tmpdir(), 'hero-videos', 'keel'), { recursive: true, force: true });
+  let ok = 3; const ordered = [];
+  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: services, wait: async () => {}, photoKeys: { pixabay: 'pk' },
+    director: () => async () => ({ plan: { use_photos: true, main: 2, before: 1, middle: [], camera: [], skip: [], note: '' } }),
+    shotWriter: () => async (system, content) => ({ shots: content[content.length - 1].text.split('\n').filter((l) => /^\d+\./.test(l)).map((l) => `Slow push in, ${l.replace(/^\d+\.\s*/, '')}.`) }),
+    videoClipper: async (prompt) => { if (ok-- <= 0) throw new Error('Higgsfield failed this clip'); ordered.push(prompt); return 'https://fal.media/files/take.mp4'; } });
+  try {
+    const owner = await session(OWNER), guest = await session(null);
+    await owner('POST', '/api/demo-photos/find', { designs: ['keel'] });
+    await until(async () => { const r = await owner('GET', '/api/demo-photos'); return !r.json.job.running && r.json.job.done.includes('keel'); });
+    await owner('POST', '/api/demo-videos/keel/make', {});
+    const paused = await until(async () => { const r = await owner('GET', '/api/demo-videos/keel'); return r.json.video && r.json.video.status === 'paused' ? r.json.video : r.json.video && r.json.video.status === 'failed' ? assert.fail(r.json.video.why) : null; });
+    assert.match(paused.why, /Higgsfield failed/); assert.equal(ordered.length, 3);
+    assert.ok(!(await guest('GET', '/designs/demo/keel')).text.includes('hero.mp4'), 'nothing to show yet');
+    // the three paid clips are joined and played on the site, for nothing
+    await partialVideos();
+    const part = (await owner('GET', '/api/demo-videos/keel')).json.video;
+    assert.equal(part.status, 'ready'); assert.equal(part.partial, true); assert.equal(part.clips, 3); assert.equal(part.seconds, 15);
+    assert.ok((await guest('GET', '/designs/demo/keel')).text.includes('/designs/demo-video/keel/hero.mp4'), 'the site plays the paid clips');
+    // credit again: the rest are made, from clip 4, and the site keeps playing the short one meanwhile
+    ok = 99; ordered.length = 0;
+    await owner('POST', '/api/demo-videos/keel/make', {});
+    const done = await until(async () => { const r = await owner('GET', '/api/demo-videos/keel'); return r.json.video && r.json.video.status === 'ready' && !r.json.video.partial ? r.json.video : null; });
+    assert.equal(ordered.length, done.shots.length - 3, 'only the clips not yet made are paid for'); assert.equal(done.seconds, done.shots.length * 5);
   } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); try { fs.unlinkSync(CLIP); } catch (e) { /* gone */ } }
 });

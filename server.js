@@ -5997,7 +5997,7 @@ function demoSet(name, always = false) {
 // a design whose video hero is made plays it on the site (SITEREMADE_DEMO_VIDEO=off keeps every demo as it was)
 function demoVideoSet(name) {
   if (process.env.SITEREMADE_DEMO_VIDEO === 'off' || !db.demoPhotos || !/^[a-z]{2,20}$/.test(name)) return null;
-  const st = videoState(name); if (!st || st.status !== 'ready' || !st.dir || !fs.existsSync(path.join(st.dir, 'hero.mp4'))) return null;
+  const st = shownVideo(videoState(name)); if (!st || !fs.existsSync(path.join(st.dir, 'hero.mp4'))) return null;
   const v = encodeURIComponent(st.madeAt || '');
   return { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` };
 }
@@ -6367,14 +6367,26 @@ const VIDEO_DIR = path.join(process.env.SITEREMADE_DB_PATH && process.env.SITERE
 const videoState = (name) => { try { return JSON.parse(db.demoPhotos.setting('video:' + name) || 'null'); } catch (e) { return null; } };
 const setVideoState = (name, v) => db.demoPhotos.setSetting('video:' + name, JSON.stringify(v));
 const videoJob = { running: false, queue: [] };
+// the video the site plays for a design: the finished one, or -- while a longer one is being made, or waits for credit
+// -- the one shown before it -> { dir, madeAt } or null
+const shownVideo = (st) => !st ? null : st.status === 'ready' && st.dir ? { dir: st.dir, madeAt: st.madeAt } : st.shown && st.shown.dir ? st.shown : null;
+// a take that was started and never finished (its folder has clips but no video): when it was started, or null
+function unfinishedTake(name) {
+  try {
+    const base = path.join(VIDEO_DIR, name), d = fs.readdirSync(base).filter((x) => /^\d{14}$/.test(x) && fs.existsSync(path.join(base, x, 'clip-1.mp4')) && !fs.existsSync(path.join(base, x, 'hero.mp4'))).sort().pop();
+    return d ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${d.slice(8, 10)}:${d.slice(10, 12)}:${d.slice(12, 14)}.000Z` : null;
+  } catch (e) { return null; }
+}
 async function runVideoJob() {
   if (videoJob.running) return; videoJob.running = true;
   try {
     while (videoJob.queue.length) {
       const name = videoJob.queue.shift(), p = designSites.designFor(name), was = videoState(name);
       // (a take cut short by a restart carries on in its own folder, keeping what it already made)
-      const started = was && was.status === 'making' && was.startedAt ? was.startedAt : new Date().toISOString();
-      setVideoState(name, { status: 'making', step: 'writing the shots', startedAt: started });
+      // (and so does one that stopped -- the money ran out, a clip failed: its clips are kept and it goes on from there)
+      const started = (was && (was.takeStartedAt || (['making', 'paused', 'failed'].includes(was.status) && was.startedAt))) || unfinishedTake(name) || new Date().toISOString();
+      const shown = shownVideo(was) || undefined; // (the site keeps playing what it had until the new one is done)
+      setVideoState(name, { status: 'making', step: 'writing the shots', startedAt: started, shown });
       try {
         // the starting frame: the design's demo photo that opens its story, else its main one
         const ph = db.demoPhotos.photo(name, 'before') || db.demoPhotos.photo(name, 'second') || db.demoPhotos.photo(name, 'main');
@@ -6404,13 +6416,41 @@ async function runVideoJob() {
         videoFrames.delete(token);
         setVideoState(name, { status: 'ready', dir, seconds: r.seconds, shots: r.shots, madeAt: new Date().toISOString() });
         console.log(`Video hero: ${name} ready (${r.seconds} s)`);
-      } catch (e) { setVideoState(name, { status: 'failed', why: String(e && e.message || e).slice(0, 400), at: new Date().toISOString() }); console.error('Video hero:', name, e && e.message); }
+      } catch (e) {
+        const why = String(e && e.message || e).slice(0, 400);
+        // (Higgsfield turning a clip down is most often the credit running out: everything waits, nothing is marked bad)
+        if (/Higgsfield (failed|canceled)|credit|balance|insufficient|402/i.test(why)) {
+          setVideoState(name, { status: 'paused', why, startedAt: started, shown, at: new Date().toISOString() });
+          for (const n of videoJob.queue.splice(0)) { const s2 = videoState(n); if (!s2 || s2.status !== 'ready') setVideoState(n, { ...(s2 || {}), status: 'paused', why: 'waiting for Higgsfield credit' }); }
+          console.error('Video hero: stopped, Higgsfield turned a clip down (credit?):', why); break;
+        }
+        setVideoState(name, { status: 'failed', why, startedAt: started, shown, at: new Date().toISOString() }); console.error('Video hero:', name, why);
+      }
     }
   } finally { videoJob.running = false; }
 }
 const videoFrames = new Map(); // (token -> folder: the frames fal fetches while a take is being made)
 // On the live server, with a video service set up, the first video hero (car detailing) makes itself, once; one cut short by a
 // restart carries on where it stopped; a new one starts by itself only with SITEREMADE_VIDEO_AUTO=on.
+// a take that stopped part way (the credit ran out) still has real, paid-for clips: the ones in a row from the start are
+// joined into a shorter video the site plays until the whole one is made. ffmpeg only: nothing is paid for.
+async function partialVideos() {
+  for (const name of designSites.designs().map((d) => d.design)) {
+    try {
+      const st = videoState(name); if (st && st.status === 'ready' && !st.partial) continue;
+      const started = unfinishedTake(name); if (!started) continue;
+      const dir = path.join(VIDEO_DIR, name, started.replace(/[^0-9]/g, '').slice(0, 14)), files = [];
+      for (let i = 1; fs.existsSync(path.join(dir, `clip-${i}.mp4`)) && fs.existsSync(path.join(dir, `frame-${i}.jpg`)); i++) files.push(path.join(dir, `clip-${i}.mp4`));
+      if (files.length < 3 || (st && st.partial && st.clips >= files.length)) continue;
+      const out = path.join(VIDEO_DIR, name, `part-${files.length}-${started.replace(/[^0-9]/g, '').slice(0, 14)}`); fs.mkdirSync(out, { recursive: true });
+      const r = await videoHero.assemble(files, out), madeAt = new Date().toISOString();
+      const now = videoState(name); // (the state may have moved on while ffmpeg worked)
+      if (now && now.status === 'making') setVideoState(name, { ...now, shown: { dir: out, madeAt } });
+      else setVideoState(name, { status: 'ready', partial: true, clips: files.length, takeStartedAt: started, dir: out, seconds: r.seconds, madeAt, why: now && now.why });
+      console.log(`Video hero: ${name} shows its first ${files.length} clips (${r.seconds} s) until the rest are made`);
+    } catch (e) { console.error('Video hero: partial', name, e && e.message); }
+  }
+}
 function autoVideoHero() {
   // (a video costs real money: nothing new is made without the owner asking; SITEREMADE_VIDEO_AUTO=off stops even
   // the carrying-on of one cut short)
@@ -6419,7 +6459,7 @@ function autoVideoHero() {
     // a take a restart cut short always carries on (the owner already started it); a new one only with the switch on
     for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if (st && st.status === 'making') videoJob.queue.push(name); }
     // (with the switch on, every design without a video gets one, one after another; one that failed is left for the owner)
-    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if ((!st || (st.status === 'failed' && /no steps to film/.test(st.why || ''))) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
+    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if ((!st || st.status === 'paused' || (st.status === 'ready' && st.partial) || (st.status === 'failed' && /no steps to film|Higgsfield (failed|canceled)/.test(st.why || ''))) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
   }, 90000).unref();
 }
@@ -6429,8 +6469,8 @@ app.get('/designs/video-frame/:token/:file', (req, res) => {
   res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(dir, f));
 });
 app.get('/designs/demo-video/:design/:file', (req, res) => {
-  const st = videoState(String(req.params.design)), f = String(req.params.file);
-  if (!st || st.status !== 'ready' || !['hero.mp4', 'poster.jpg'].includes(f)) return res.status(404).end();
+  const st = shownVideo(videoState(String(req.params.design))), f = String(req.params.file);
+  if (!st || !['hero.mp4', 'poster.jpg'].includes(f)) return res.status(404).end();
   res.setHeader('Cache-Control', 'public, max-age=604800'); res.sendFile(path.join(st.dir, f)); // (sendFile answers range requests: the video scrubs)
 });
 app.post('/api/demo-videos/:design/make', requireAuth, requireSameOrigin, ownerOnly, (req, res) => {
@@ -6555,11 +6595,11 @@ app.get('*', (req, res) => (namesAFile(req.path) ? res.status(404).type('text/pl
 // (require.main === module, true in every real deployment) is completely
 // unaffected: app.listen() still fires exactly as it always has.
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); autoDemoPhotos(); autoVideoHero(); });
+  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); autoDemoPhotos(); autoVideoHero(); if ((process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) && db.demoPhotos) setTimeout(() => { partialVideos().catch((e) => console.error('Video hero: partial', e && e.message)); }, 20000).unref(); });
 } else {
   // App bridge pass (Phase 4): `app` is also exported so a test harness can
   // listen() on the REAL route table in-process (still never listens on its
   // own when required, exactly as before).
   module.exports = { app, premiumWorker, normalizePlannerPlan, formatWebsitePriceDisplay, SITEREMADE_WEBSITE_PRICE_CENTS, SITEREMADE_WEBSITE_PRICE_CURRENCY,
-    setDesignDeps: (d) => { designDeps = d; }, db }; // (tests: a recorded writer, never the paid API; the database to arrange credits)
+    setDesignDeps: (d) => { designDeps = d; }, db, partialVideos }; // (tests: a recorded writer, never the paid API; the database to arrange credits)
 }
