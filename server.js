@@ -6362,7 +6362,9 @@ async function runVideoJob() {
   if (videoJob.running) return; videoJob.running = true;
   try {
     while (videoJob.queue.length) {
-      const name = videoJob.queue.shift(), p = designSites.designFor(name), started = new Date().toISOString();
+      const name = videoJob.queue.shift(), p = designSites.designFor(name), was = videoState(name);
+      // (a take cut short by a restart carries on in its own folder, keeping what it already made)
+      const started = was && was.status === 'making' && was.startedAt ? was.startedAt : new Date().toISOString();
       setVideoState(name, { status: 'making', step: 'writing the shots', startedAt: started });
       try {
         // the starting frame: the design's demo photo that opens its story, else its main one
@@ -6388,12 +6390,15 @@ async function runVideoJob() {
 }
 const videoFrames = new Map(); // (token -> folder: the frames fal fetches while a take is being made)
 // On the live server, with a video service set up, the first video hero (car detailing) makes itself, once; one cut short by a
-// restart starts again -- only with SITEREMADE_VIDEO_AUTO=on.
+// restart carries on where it stopped; a new one starts by itself only with SITEREMADE_VIDEO_AUTO=on.
 function autoVideoHero() {
-  // (off unless the owner turns it on: a video costs real money, so nothing is made without the owner asking)
-  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO !== 'on' || !videoService() || !db.demoPhotos) return;
+  // (a video costs real money: nothing new is made without the owner asking; SITEREMADE_VIDEO_AUTO=off stops even
+  // the carrying-on of one cut short)
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO === 'off' || !videoService() || !db.demoPhotos) return;
   setTimeout(() => {
-    for (const name of ['beadline']) { const st = videoState(name); if (!st || st.status === 'making') videoJob.queue.push(name); }
+    // a take a restart cut short always carries on (the owner already started it); a new one only with the switch on
+    for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if (st && st.status === 'making') videoJob.queue.push(name); }
+    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of ['beadline']) { if (!videoState(name) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
   }, 90000).unref();
 }

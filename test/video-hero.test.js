@@ -75,6 +75,19 @@ test('Higgsfield makes the clips with the key SiteRemade already has: the model\
   await assert.rejects(videoHero.higgsfieldClip({ hf: flagged, endpoint: 'x/y', prompt: 'p', imageUrl: 'u', wait: async () => {} }), /flagged/);
 });
 
+test('a take cut short picks up where it stopped: the shots and the clips already made are kept', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vh-resume-'));
+  const steps = [{ title: 'One', caption: 'a' }, { title: 'Two', caption: 'b' }, { title: 'Three', caption: 'c' }];
+  fs.writeFileSync(path.join(dir, 'shots.json'), JSON.stringify(['S1', 'S2', 'S3']));
+  fs.copyFileSync(CLIP, path.join(dir, 'clip-1.mp4')); await videoHero.lastFrame(path.join(dir, 'clip-1.mp4'), path.join(dir, 'frame-1.jpg'));
+  const made = [];
+  const r = await videoHero.make({ design: 'd', category: 'c', steps, start: photo(), dir, clipper: async (prompt, imageUrl) => { made.push([prompt, imageUrl]); return 'https://fal.media/files/take.mp4'; },
+    call: async () => { throw new Error('the shots are not written again'); }, publicUrl: (f) => `https://x/${path.basename(f)}`, fetchImpl: services });
+  assert.deepEqual(made.map((m) => m[0]), ['S2', 'S3'], 'only the clips not yet made');
+  assert.equal(made[0][1], 'https://x/frame-1.jpg', 'carrying on from the last clip made');
+  assert.equal(r.seconds, 15); assert.ok(fs.existsSync(r.video));
+});
+
 test('the owner makes a design’s video hero; it chains clip to clip and plays with the scroll, privately', async () => {
   const { srv, session } = await server();
   setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: services, wait: async () => {}, photoKeys: { pixabay: 'pk' }, falKey: 'test-fal-key',
