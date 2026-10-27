@@ -6294,7 +6294,7 @@ async function runDemoJob() {
       try {
         const p = designSites.designFor(name);
         const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
-        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, keys: designDeps.photoKeys || { pexels: process.env.PEXELS_API_KEY || '', pixabay: process.env.PIXABAY_API_KEY || '' }, off, log: (m) => console.log('Demo photos:', name, m) });
+        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, keys: designDeps.photoKeys || demoPhotos.envKeys(), off, log: (m) => console.log('Demo photos:', name, m) });
         if (r.none) demoJob.failed.push({ design: name, why: r.none });
         else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); console.log(`Demo photos: ${name} has ${r.photos.length} photos (${r.by})`); }
       } catch (e) {
@@ -6309,7 +6309,7 @@ async function runDemoJob() {
 function autoDemoPhotos() {
   if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !db.demoPhotos) return;
   setTimeout(() => {
-    const keyed = !!(process.env.PIXABAY_API_KEY || process.env.PEXELS_API_KEY);
+    const keyed = Object.values(demoPhotos.envKeys()).some(Boolean);
     if (!keyed) return; // (without a good library's key, nothing is found on its own: the free ones are too uneven)
     const good = (x) => !keyed || JSON.parse(x.credits_json || '[]').some((c) => c.source === 'pixabay' || c.source === 'pexels');
     const have = new Set(db.demoPhotos.sets().filter(good).map((x) => x.design));
@@ -6324,7 +6324,7 @@ app.get(['/demo-photos', '/demo-photos/'], (req, res) => { res.setHeader('Cache-
 app.get('/api/demo-photos', requireAuth, ownerOnly, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const sets = Object.fromEntries(db.demoPhotos.sets().map((x) => [x.design, x]));
-  res.json({ ok: true, shown: demoPhotosOn(), keyed: !!(process.env.PIXABAY_API_KEY || process.env.PEXELS_API_KEY || designDeps.photoKeys), aiOn: !!(designDeps.director || ANTHROPIC_API_KEY), job: { running: demoJob.running, current: demoJob.current, queued: demoJob.queue.length, done: demoJob.done, failed: demoJob.failed },
+  res.json({ ok: true, shown: demoPhotosOn(), keyed: !!(designDeps.photoKeys || Object.values(demoPhotos.envKeys()).some(Boolean)), aiOn: !!(designDeps.director || ANTHROPIC_API_KEY), job: { running: demoJob.running, current: demoJob.current, queued: demoJob.queue.length, done: demoJob.done, failed: demoJob.failed },
     designs: designSites.designs().map((d) => { const s = sets[d.design], set = s ? demoSet(d.design, true) : null;
       return { design: d.design, title: d.title, photos: set ? set.photos.map((ph) => ({ slot: ph.slot, url: ph.url })) : [], note: s ? s.note : null, credits: s ? JSON.parse(s.credits_json || '[]') : [], updatedAt: s ? s.updated_at : null }; }) });
 });
