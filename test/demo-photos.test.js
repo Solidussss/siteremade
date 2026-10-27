@@ -3,6 +3,7 @@
 // library and the hero director are stand-ins: nothing leaves the machine, and Claude is never called.
 process.env.SITEREMADE_DB_PATH = ':memory:';
 process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
+process.env.SITEREMADE_DEMO_PHOTOS = 'on'; // (the demos show their photos only when switched on)
 delete process.env.ANTHROPIC_API_KEY;
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -94,6 +95,11 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     assert.equal(made.status, 200, made.text);
     const ed = await owner('GET', `/api/designs/sites/${made.json.site.id}/editor`);
     assert.equal(ed.json.editor.fields.find((f) => f.path === 'photos.main').value, null);
+    // switched off: every demo shows its drawing, the photos stay saved
+    process.env.SITEREMADE_DEMO_PHOTOS = 'off';
+    assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'), 'off: the drawing');
+    assert.equal((await guest('GET', '/designs/poster/beadline.jpg')).status === 200 && (await guest('GET', '/designs/poster/beadline.jpg')).buf.length !== img.buf.length, true, 'off: the drawn still');
+    process.env.SITEREMADE_DEMO_PHOTOS = 'on';
     // removed: back to the drawing
     assert.equal((await owner('POST', '/api/demo-photos/beadline/clear', {})).status, 200);
     assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'));

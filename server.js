@@ -5983,7 +5983,11 @@ function ownDesignSite(req, res) {
 }
 // a design's demo set (lib/demo-photos.js), as the demo page uses it: each photo at its own address, in story order
 const DEMO_ORDER = ['before', 'second', 'third', 'main'];
+// (off until the photos are good enough to show: the free Wikimedia ones weren't. SITEREMADE_DEMO_PHOTOS=on shows
+// them; the photos stay saved either way, and /demo-photos still finds and shows them to the owner)
+const demoPhotosOn = () => process.env.SITEREMADE_DEMO_PHOTOS === 'on';
 function demoSet(name) {
+  if (!demoPhotosOn()) return null;
   const set = db.demoPhotos && /^[a-z]{2,20}$/.test(name) ? db.demoPhotos.set(name) : null; if (!set) return null;
   const v = encodeURIComponent(set.updated_at);
   return { key: set.updated_at, camera: set.camera, photos: db.demoPhotos.photos(name).sort((x, y) => DEMO_ORDER.indexOf(x.slot) - DEMO_ORDER.indexOf(y.slot)).map((ph) => ({ slot: ph.slot, mask: ph.mask, url: `/designs/demo-photo/${name}/${ph.slot}.jpg?v=${v}` })) };
@@ -5996,7 +6000,7 @@ app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
 // a still of each design's first screen (a 1440x900 screenshot of /designs/demo/<design>, 960 px JPEG), shown while its live preview loads
 app.get('/designs/poster/:design.jpg', (req, res) => {
   // (a design with demo photos: its main photo is the still the catalogue shows until the demo loads)
-  const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), 'main') : null;
+  const ph = db.demoPhotos && demoPhotosOn() ? db.demoPhotos.photo(String(req.params.design), 'main') : null;
   if (ph) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.type('image/jpeg').send(Buffer.from(ph.data)); }
   const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
 app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
@@ -6303,7 +6307,7 @@ async function runDemoJob() {
 // On the live server, the designs without demo photos get them by themselves a minute after it starts (once each:
 // a design that has a set is left alone). SITEREMADE_DEMO_PHOTOS_AUTO=off turns it off.
 function autoDemoPhotos() {
-  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !db.demoPhotos) return;
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !demoPhotosOn() || !db.demoPhotos) return;
   setTimeout(() => {
     const have = new Set(db.demoPhotos.sets().map((x) => x.design));
     for (const d of designSites.designs()) if (!have.has(d.design) && !demoJob.queue.includes(d.design)) demoJob.queue.push(d.design);
