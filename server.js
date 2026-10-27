@@ -5994,7 +5994,14 @@ function demoSet(name, always = false) {
   const v = encodeURIComponent(set.updated_at);
   return { key: set.updated_at, camera: set.camera, photos: db.demoPhotos.photos(name).sort((x, y) => DEMO_ORDER.indexOf(x.slot) - DEMO_ORDER.indexOf(y.slot)).map((ph) => ({ slot: ph.slot, mask: ph.mask, url: `/designs/demo-photo/${name}/${ph.slot}.jpg?v=${v}` })) };
 }
-app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=300'); res.type('html').send(siteRequests.withPreview(html)); });
+// a design whose video hero is made plays it on the site (SITEREMADE_DEMO_VIDEO=off keeps every demo as it was)
+function demoVideoSet(name) {
+  if (process.env.SITEREMADE_DEMO_VIDEO === 'off' || !db.demoPhotos || !/^[a-z]{2,20}$/.test(name)) return null;
+  const st = videoState(name); if (!st || st.status !== 'ready' || !st.dir || !fs.existsSync(path.join(st.dir, 'hero.mp4'))) return null;
+  const v = encodeURIComponent(st.madeAt || '');
+  return { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` };
+}
+app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'public, max-age=300'); res.type('html').send(siteRequests.withPreview(html)); });
 app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
   const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), String(req.params.slot)) : null; if (!ph) return res.status(404).end();
   res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.type('image/jpeg').send(Buffer.from(ph.data));
@@ -6002,6 +6009,7 @@ app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
 // a still of each design's first screen (a 1440x900 screenshot of /designs/demo/<design>, 960 px JPEG), shown while its live preview loads
 app.get('/designs/poster/:design.jpg', (req, res) => {
   // (a design with demo photos: its main photo is the still the catalogue shows until the demo loads)
+  const vs = demoVideoSet(String(req.params.design)); if (vs) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.sendFile(path.join(videoState(String(req.params.design)).dir, 'poster.jpg')); }
   const ph = db.demoPhotos && demoPhotosOn() ? db.demoPhotos.photo(String(req.params.design), 'main') : null;
   if (ph) { res.setHeader('Cache-Control', 'public, max-age=300'); return res.type('image/jpeg').send(Buffer.from(ph.data)); }
   const file = path.join(__dirname, 'design-packages', 'posters', String(req.params.design).replace(/[^a-z]/g, '') + '.jpg'); if (!fs.existsSync(file)) return res.status(404).end(); res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(file); });
@@ -6432,7 +6440,7 @@ app.get('/video-preview/:design', requireAuth, (req, res) => {
     return res.type('html').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${st && st.status === 'making' ? '<meta http-equiv="refresh" content="20">' : ''}<title>Video hero · ${name}</title><body style="font:16px/1.5 system-ui;padding:24px;max-width:560px;margin:auto"><h1 style="font-size:22px">${name}</h1><p>${msg.replace(/[<>&]/g, '')}</p></body>`);
   }
   const v = encodeURIComponent(st.madeAt || '');
-  res.type('html').send(designSites.demoHtml(name, { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` }));
+  res.type('html').send(designSites.demoHtml(name, demoVideoSet(name) || { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` }));
 });
 
 // the owner's switch: the site shows the demo photos, or keeps the drawings

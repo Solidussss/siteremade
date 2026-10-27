@@ -114,6 +114,9 @@ test('the owner makes a design’s video hero; it chains clip to clip and plays 
     assert.equal((await stranger('GET', '/video-preview/beadline')).status, 404);
     const vid = await guest('GET', '/designs/demo-video/beadline/hero.mp4', null, { range: 'bytes=0-99' });
     assert.equal(vid.status, 206, 'the video answers range requests, so it scrubs'); assert.match(vid.type, /video\/mp4/);
-    assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('hero.mp4'), 'the public demo is untouched');
+    // once made, the site's demo plays it too, and the catalogue's still is the video's first frame
+    assert.ok((await guest('GET', '/designs/demo/beadline')).text.includes('class="srph-shot srph-video" src="/designs/demo-video/beadline/hero.mp4'), 'the public demo plays the video');
+    const still = await guest('GET', '/designs/poster/beadline.jpg'); assert.equal(still.status, 200); assert.match(still.type, /image\/jpeg/);
+    assert.ok(!(await guest('GET', '/designs/demo/steadyhand')).text.includes('hero.mp4'), 'a design without a video keeps its hero');
   } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); try { fs.unlinkSync(CLIP); } catch (e) { /* gone */ } }
 });
