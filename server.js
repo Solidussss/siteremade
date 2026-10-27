@@ -5996,7 +5996,8 @@ function demoSet(name, always = false) {
 }
 // a design whose video hero is made plays it on the site (SITEREMADE_DEMO_VIDEO=off keeps every demo as it was)
 function demoVideoSet(name) {
-  if (process.env.SITEREMADE_DEMO_VIDEO === 'off' || !db.demoPhotos || !/^[a-z]{2,20}$/.test(name)) return null;
+  // (SITEREMADE_DEMO_VIDEO_HIDE=keel,… takes a design's video off the site; the design keeps its drawing)
+  if (process.env.SITEREMADE_DEMO_VIDEO === 'off' || !db.demoPhotos || !/^[a-z]{2,20}$/.test(name) || String(process.env.SITEREMADE_DEMO_VIDEO_HIDE || '').split(',').map((x) => x.trim()).includes(name)) return null;
   const st = shownVideo(videoState(name)); if (!st || !fs.existsSync(path.join(st.dir, 'hero.mp4'))) return null;
   const v = encodeURIComponent(st.madeAt || '');
   // (with its still pictures made, the page flips through them with the scroll: the smooth way)
