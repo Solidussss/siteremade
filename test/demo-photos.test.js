@@ -3,7 +3,6 @@
 // library and the hero director are stand-ins: nothing leaves the machine, and Claude is never called.
 process.env.SITEREMADE_DB_PATH = ':memory:';
 process.env.SITEREMADE_DESIGN_OWNER_CUTOFF = '2999-01-01T00:00:00.000Z';
-process.env.SITEREMADE_DEMO_PHOTOS = 'on'; // (the demos show their photos only when switched on)
 delete process.env.ANTHROPIC_API_KEY;
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -23,6 +22,7 @@ const makeLibrary = ({ commonsDown = false } = {}) => async (url) => {
   const u = String(url);
   if (u.startsWith('https://commons.wikimedia.org/')) { asked.push(['commons', new URL(u).searchParams]); return commonsDown ? new Response('', { status: 503 }) : new Response(JSON.stringify({ query: { pages: commonsPages } }), { status: 200 }); }
   if (u.startsWith('https://api.openverse.org/')) { asked.push(['openverse', new URL(u).searchParams]); return new Response(JSON.stringify({ results: [1, 2, 3].map((n) => ({ url: `https://upload.example/${n}.jpg`, width: 2400, height: 1600, license: 'cc0', title: `OV ${n}`, filetype: 'jpg' })) }), { status: 200 }); }
+  if (u.startsWith('https://pixabay.com/api/')) { asked.push(['pixabay', new URL(u).searchParams]); return new Response(JSON.stringify({ hits: [1, 2, 3, 4].map((n) => ({ largeImageURL: `https://upload.example/${n}.jpg`, imageWidth: 4000, imageHeight: 2600, tags: `car, wash ${n}`, user: 'Px', pageURL: 'https://pixabay.example' })) }), { status: 200 }); }
   if (u.startsWith('https://api.pexels.com/')) { asked.push(['pexels', new URL(u).searchParams]); return new Response(JSON.stringify({ photos: [1, 2].map((n) => ({ width: 4000, height: 2600, alt: `Pexels ${n}`, photographer: 'P', url: 'https://pexels.example', src: { original: `https://upload.example/${n}.jpg` } })) }), { status: 200 }); }
   const m = /upload\.example\/(\d)\.jpg/.exec(u); if (!m) return new Response('no', { status: 404 });
   return new Response(photo(2400, 1600, Number(m[1]) * 10), { status: 200, headers: { 'content-type': 'image/jpeg' } });
@@ -49,17 +49,24 @@ const until = async (f) => { for (let i = 0; i < 200; i++) { const v = await f()
 
 test('the search: real photographs, free for business use with no credit needed, from the best library that answers', async () => {
   const wait = async () => {};
-  const fromCommons = await demoPhotos.search('car detailing', { fetchImpl: library, wait, key: '' });
+  const fromCommons = await demoPhotos.search('car detailing', { fetchImpl: library, wait, keys: {} });
   assert.equal(asked[asked.length - 1][0], 'commons', 'no Pexels key: Commons first');
   assert.deepEqual(fromCommons.map((x) => x.license), ['CC0', 'CC0', 'Public domain'], 'files that need a credit are skipped');
   assert.equal(fromCommons[0].creator, 'Someone', 'credits are plain text');
   const off = new Set();
-  const fromOpenverse = await demoPhotos.search('car detailing', { fetchImpl: makeLibrary({ commonsDown: true }), wait, key: '', off });
+  const fromOpenverse = await demoPhotos.search('car detailing', { fetchImpl: makeLibrary({ commonsDown: true }), wait, keys: {}, off });
   assert.ok(off.has('commons')); assert.equal(fromOpenverse[0].title, 'OV 1');
   const ov = asked.filter((a) => a[0] === 'openverse').pop()[1];
   assert.equal(ov.get('category'), 'photograph'); assert.equal(ov.get('license'), 'cc0,pdm'); assert.equal(ov.get('page_size'), '20');
-  const fromPexels = await demoPhotos.search('car detailing', { fetchImpl: library, wait, key: 'k' });
+  const fromPexels = await demoPhotos.search('car detailing', { fetchImpl: library, wait, keys: { pexels: 'k' } });
   assert.equal(fromPexels[0].license, 'Pexels'); assert.match(fromPexels[0].url, /w=1600/);
+  // with a Pixabay key: Pixabay, editors' choice first, and never the uneven free libraries
+  const before = asked.length;
+  const fromPixabay = await demoPhotos.search('car detailing', { fetchImpl: library, wait, keys: { pixabay: 'pk' } });
+  assert.equal(fromPixabay[0].license, 'Pixabay'); assert.equal(fromPixabay[0].url, 'https://upload.example/1.jpg');
+  const px = asked.slice(before); assert.ok(px.every((a) => a[0] === 'pixabay')); assert.equal(px[0][1].get('editors_choice'), 'true'); assert.equal(px[0][1].get('image_type'), 'photo');
+  const none = await demoPhotos.search('car detailing', { fetchImpl: async () => new Response('', { status: 400 }), wait, keys: { pixabay: 'bad' } });
+  assert.deepEqual(none, [], 'a bad key: nothing, and no fall back to the uneven libraries');
   const img = jpeg.decode(demoPhotos.shrink(photo(2400, 1600))); assert.equal(Math.max(img.width, img.height), 1600);
   assert.ok(Object.keys(demoPhotos.QUERIES).length >= 36, 'every design has its searches');
 });
@@ -67,7 +74,7 @@ test('the search: real photographs, free for business use with no credit needed,
 test('one tap finds photos for the demos; the demo plays them; customer sites never get them', async () => {
   const { srv, session } = await server();
   const seen = [];
-  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, pexelsKey: '', director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
+  setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, photoKeys: {}, director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
   try {
     const owner = await session(OWNER), guest = await session(null), stranger = await session('someone@example.com');
     assert.equal((await stranger('GET', '/api/demo-photos')).status, 404, 'owner only');
@@ -83,6 +90,11 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     assert.equal(bead.note, 'The finished car ends it.'); assert.equal(bead.credits.length, 3); assert.ok(bead.credits.every((c) => /^(CC0|Public domain)$/.test(c.license)));
     assert.ok(seen.every((n) => n === 3), 'the director saw the three usable photos');
     // the demo plays them, each subject found
+    // the owner looks first: the site keeps the drawings until the owner switches the photos on
+    assert.equal(done.shown, false);
+    assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'), 'not switched on: the drawing');
+    assert.equal((await stranger('POST', '/api/demo-photos/show', { on: true })).status, 404);
+    assert.equal((await owner('POST', '/api/demo-photos/show', { on: true })).json.shown, true);
     const demo = await guest('GET', '/designs/demo/beadline');
     assert.ok(demo.text.includes('/designs/demo-photo/beadline/main.jpg'), 'the demo has its photos'); assert.ok(demo.text.includes('data-mask="data:image/jpeg'));
     const img = await guest('GET', bead.photos[0].url);
@@ -96,15 +108,16 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     const ed = await owner('GET', `/api/designs/sites/${made.json.site.id}/editor`);
     assert.equal(ed.json.editor.fields.find((f) => f.path === 'photos.main').value, null);
     // switched off: every demo shows its drawing, the photos stay saved
-    process.env.SITEREMADE_DEMO_PHOTOS = 'off';
+    await owner('POST', '/api/demo-photos/show', { on: false });
     assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'), 'off: the drawing');
-    assert.equal((await guest('GET', '/designs/poster/beadline.jpg')).status === 200 && (await guest('GET', '/designs/poster/beadline.jpg')).buf.length !== img.buf.length, true, 'off: the drawn still');
-    process.env.SITEREMADE_DEMO_PHOTOS = 'on';
+    assert.notEqual((await guest('GET', '/designs/poster/beadline.jpg')).buf.length, img.buf.length, 'off: the drawn still');
+    assert.equal((await owner('GET', '/api/demo-photos')).json.designs.find((d) => d.design === 'beadline').photos.length, 3, 'the owner still sees them');
+    await owner('POST', '/api/demo-photos/show', { on: true });
     // removed: back to the drawing
     assert.equal((await owner('POST', '/api/demo-photos/beadline/clear', {})).status, 200);
     assert.ok(!(await guest('GET', '/designs/demo/beadline')).text.includes('/designs/demo-photo/'));
     // every library refuses: the owner is told to try again later
-    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), wait: async () => {}, pexelsKey: '', director: () => async () => ({ plan: { main: 1 } }) });
+    setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: async () => new Response('', { status: 429 }), wait: async () => {}, photoKeys: {}, director: () => async () => ({ plan: { main: 1 } }) });
     await owner('POST', '/api/demo-photos/find', { designs: ['larder', 'ochre'] });
     const slow = await until(async () => { const r = await owner('GET', '/api/demo-photos'); return !r.json.job.running && r.json.job.failed.length === 2 ? r.json : null; });
     assert.match(slow.job.failed[0].why, /try again in an hour/);

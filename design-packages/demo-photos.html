@@ -23,6 +23,7 @@ main{max-width:980px;margin:0 auto;padding:16px 16px 80px;display:grid;gap:16px}
 .none{font-size:13px;color:var(--muted);background:#f6f6f4;border-radius:10px;padding:14px;text-align:center}
 .note{font-size:13px;line-height:1.45;color:#3c3e43}.credit{font-size:11px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}.credit a{color:var(--muted)}
 .busy{font-size:13px;color:var(--blue)}
+.shown{border-color:#f0d9a8;background:#fff6e5}.shown.on{border-color:#bfe3cc;background:#ecf8f0}
 </style></head>
 <body>
 <header><div class="bar"><h1>Demo photos</h1><a href="/requests">Requests</a><a href="/">SiteRemade</a></div></header>
@@ -42,14 +43,20 @@ async function load() {
 function render() {
   const j = D.job, have = D.designs.filter((d) => d.photos.length).length, total = D.designs.length;
   const running = j.running, doneN = j.done.length + j.failed.length, all = doneN + j.queued + (j.current ? 1 : 0);
-  $('#main').innerHTML = `<section class="lead">
-    <p><b>${have} of ${total}</b> designs show real photos in their demo. The rest still show the drawing.</p>
+  $('#main').innerHTML = `<section class="lead shown ${D.shown ? 'on' : ''}">
+    <p>${D.shown ? '<b>The site shows these photos</b> in the demos and on the homepage.' : '<b>The site shows the drawings.</b> These photos are only on this page until you switch them on.'}</p>
+    <div class="row"><button class="btn${D.shown ? ' ghost' : ''}" id="show">${D.shown ? 'Back to the drawings' : 'Show these photos on the site'}</button></div>
+  </section>
+  ${D.keyed ? '' : '<section class="lead"><p><b>No photo library key yet.</b> Without one, photos come from Wikimedia, which are uneven. Get a free key at pixabay.com/api/docs (sign in, it\u2019s on that page) and send it to Claude.</p></section>'}
+  <section class="lead">
+    <p><b>${have} of ${total}</b> designs have photos found.</p>
     <p>One tap searches a free photo library for each kind of business. It only takes real photographs that are free for business use with no credit needed. ${D.aiOn ? 'Claude then picks the best ones for each design and puts them in story order.' : 'Claude isn’t switched on, so the first good photos are used in the order found.'} Customer sites never get these photos.</p>
     <div class="row"><button class="btn" id="findEmpty"${running ? ' disabled' : ''}>Find photos for the ${total - have} without</button><button class="btn ghost" id="findAll"${running ? ' disabled' : ''}>Find new photos for all ${total}</button></div>
     ${running || doneN ? `<div class="status">${running ? `Working on <b>${esc(j.current || '…')}</b> · ${doneN} of ${all} done. Takes about half a minute each; you can leave this page.` : `Finished: ${j.done.length} updated${j.failed.length ? `, ${j.failed.length} without new photos` : ''}.`}
       ${j.failed.length ? `<br>${j.failed.map((f) => `<span class="err">${esc(f.design)}: ${esc(f.why)}</span>`).join('<br>')}` : ''}</div><div class="meter"><i style="width:${all ? Math.round(doneN / all * 100) : 0}%"></i></div>` : ''}
   </section>
   <div class="grid">${D.designs.map(card).join('')}</div>`;
+  $('#show').onclick = async () => { const r = await api('/api/demo-photos/show', { on: !D.shown }); if (r.ok) load(); };
   $('#findEmpty').onclick = () => find({ onlyEmpty: true });
   $('#findAll').onclick = () => find({});
   document.querySelectorAll('[data-again]').forEach((b) => { b.onclick = () => find({ designs: [b.dataset.again] }); });

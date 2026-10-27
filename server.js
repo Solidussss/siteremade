@@ -159,7 +159,7 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
   /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/,
   // the designs' demo photos: the owner's page that finds them, and the photos themselves
-  /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/];
+  /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/show|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -5983,11 +5983,11 @@ function ownDesignSite(req, res) {
 }
 // a design's demo set (lib/demo-photos.js), as the demo page uses it: each photo at its own address, in story order
 const DEMO_ORDER = ['before', 'second', 'third', 'main'];
-// (off until the photos are good enough to show: the free Wikimedia ones weren't. SITEREMADE_DEMO_PHOTOS=on shows
-// them; the photos stay saved either way, and /demo-photos still finds and shows them to the owner)
-const demoPhotosOn = () => process.env.SITEREMADE_DEMO_PHOTOS === 'on';
-function demoSet(name) {
-  if (!demoPhotosOn()) return null;
+// (the site shows the demo photos only once the owner has looked at them and switched them on at /demo-photos; until
+// then every demo keeps its drawing. SITEREMADE_DEMO_PHOTOS=on|off overrides the owner's switch)
+const demoPhotosOn = () => process.env.SITEREMADE_DEMO_PHOTOS === 'on' || (process.env.SITEREMADE_DEMO_PHOTOS !== 'off' && !!db.demoPhotos && db.demoPhotos.setting('show') === 'on');
+function demoSet(name, always = false) {
+  if (!always && !demoPhotosOn()) return null;
   const set = db.demoPhotos && /^[a-z]{2,20}$/.test(name) ? db.demoPhotos.set(name) : null; if (!set) return null;
   const v = encodeURIComponent(set.updated_at);
   return { key: set.updated_at, camera: set.camera, photos: db.demoPhotos.photos(name).sort((x, y) => DEMO_ORDER.indexOf(x.slot) - DEMO_ORDER.indexOf(y.slot)).map((ph) => ({ slot: ph.slot, mask: ph.mask, url: `/designs/demo-photo/${name}/${ph.slot}.jpg?v=${v}` })) };
@@ -6294,7 +6294,7 @@ async function runDemoJob() {
       try {
         const p = designSites.designFor(name);
         const call = designDeps.director ? designDeps.director() : (ANTHROPIC_API_KEY ? heroDirector.claudeDirector(ANTHROPIC_API_KEY) : null);
-        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, key: designDeps.pexelsKey != null ? designDeps.pexelsKey : process.env.PEXELS_API_KEY, off, log: (m) => console.log('Demo photos:', name, m) });
+        const r = await demoPhotos.findFor(name, { manifest: p.d.manifest, category: p.d.manifest.category, call, fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, keys: designDeps.photoKeys || { pexels: process.env.PEXELS_API_KEY || '', pixabay: process.env.PIXABAY_API_KEY || '' }, off, log: (m) => console.log('Demo photos:', name, m) });
         if (r.none) demoJob.failed.push({ design: name, why: r.none });
         else { db.demoPhotos.replace(name, { camera: r.camera, note: r.note, credits: r.credits, photos: r.photos }, new Date().toISOString()); demoJob.done.push(name); console.log(`Demo photos: ${name} has ${r.photos.length} photos (${r.by})`); }
       } catch (e) {
@@ -6307,9 +6307,12 @@ async function runDemoJob() {
 // On the live server, the designs without demo photos get them by themselves a minute after it starts (once each:
 // a design that has a set is left alone). SITEREMADE_DEMO_PHOTOS_AUTO=off turns it off.
 function autoDemoPhotos() {
-  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !demoPhotosOn() || !db.demoPhotos) return;
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_DEMO_PHOTOS_AUTO === 'off' || !db.demoPhotos) return;
   setTimeout(() => {
-    const have = new Set(db.demoPhotos.sets().map((x) => x.design));
+    const keyed = !!(process.env.PIXABAY_API_KEY || process.env.PEXELS_API_KEY);
+    if (!keyed) return; // (without a good library's key, nothing is found on its own: the free ones are too uneven)
+    const good = (x) => !keyed || JSON.parse(x.credits_json || '[]').some((c) => c.source === 'pixabay' || c.source === 'pexels');
+    const have = new Set(db.demoPhotos.sets().filter(good).map((x) => x.design));
     for (const d of designSites.designs()) if (!have.has(d.design) && !demoJob.queue.includes(d.design)) demoJob.queue.push(d.design);
     if (!demoJob.queue.length) return;
     console.log(`Demo photos: finding photos for ${demoJob.queue.length} designs`);
@@ -6321,8 +6324,8 @@ app.get(['/demo-photos', '/demo-photos/'], (req, res) => { res.setHeader('Cache-
 app.get('/api/demo-photos', requireAuth, ownerOnly, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const sets = Object.fromEntries(db.demoPhotos.sets().map((x) => [x.design, x]));
-  res.json({ ok: true, aiOn: !!(designDeps.director || ANTHROPIC_API_KEY), job: { running: demoJob.running, current: demoJob.current, queued: demoJob.queue.length, done: demoJob.done, failed: demoJob.failed },
-    designs: designSites.designs().map((d) => { const s = sets[d.design], set = s ? demoSet(d.design) : null;
+  res.json({ ok: true, shown: demoPhotosOn(), keyed: !!(process.env.PIXABAY_API_KEY || process.env.PEXELS_API_KEY || designDeps.photoKeys), aiOn: !!(designDeps.director || ANTHROPIC_API_KEY), job: { running: demoJob.running, current: demoJob.current, queued: demoJob.queue.length, done: demoJob.done, failed: demoJob.failed },
+    designs: designSites.designs().map((d) => { const s = sets[d.design], set = s ? demoSet(d.design, true) : null;
       return { design: d.design, title: d.title, photos: set ? set.photos.map((ph) => ({ slot: ph.slot, url: ph.url })) : [], note: s ? s.note : null, credits: s ? JSON.parse(s.credits_json || '[]') : [], updatedAt: s ? s.updated_at : null }; }) });
 });
 app.post('/api/demo-photos/find', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '10kb' }), (req, res) => {
@@ -6333,6 +6336,10 @@ app.post('/api/demo-photos/find', requireAuth, requireSameOrigin, ownerOnly, exp
   if (!demoJob.running) { demoJob.done = []; demoJob.failed = []; demoJob.startedAt = new Date().toISOString(); }
   runDemoJob().catch((e) => console.error('Demo photos job:', e && e.message));
   res.json({ ok: true, queued: demoJob.queue.length + (demoJob.current ? 1 : 0) });
+});
+// the owner's switch: the site shows the demo photos, or keeps the drawings
+app.post('/api/demo-photos/show', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '1kb' }), (req, res) => {
+  db.demoPhotos.setSetting('show', req.body && req.body.on === true ? 'on' : 'off'); res.json({ ok: true, shown: demoPhotosOn() });
 });
 app.post('/api/demo-photos/:design/clear', requireAuth, requireSameOrigin, ownerOnly, (req, res) => {
   db.demoPhotos.clear(String(req.params.design)); res.json({ ok: true });
