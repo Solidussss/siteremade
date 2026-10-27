@@ -161,7 +161,7 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // the designs' demo photos: the owner's page that finds them, and the photos themselves
   /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/show|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/,
   // the video heroes: the owner's private preview, the finished take, and the frames fal fetches while making one
-  /^\/video-preview\/[a-z]+$/, /^\/api\/demo-videos\/[a-z]+(?:\/make)?$/, /^\/designs\/demo-video\/[a-z]+\/(?:hero\.mp4|poster\.jpg)$/, /^\/designs\/video-frame\/[A-Za-z0-9_-]+\/frame-\d+\.jpg$/];
+  /^\/video-preview\/[a-z]+$/, /^\/api\/demo-videos\/[a-z]+(?:\/make)?$/, /^\/designs\/demo-video\/[a-z]+\/(?:hero\.mp4|poster\.jpg|f\/\d{1,4}\.jpg)$/, /^\/designs\/video-frame\/[A-Za-z0-9_-]+\/frame-\d+\.jpg$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -5999,7 +5999,10 @@ function demoVideoSet(name) {
   if (process.env.SITEREMADE_DEMO_VIDEO === 'off' || !db.demoPhotos || !/^[a-z]{2,20}$/.test(name)) return null;
   const st = shownVideo(videoState(name)); if (!st || !fs.existsSync(path.join(st.dir, 'hero.mp4'))) return null;
   const v = encodeURIComponent(st.madeAt || '');
-  return { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` };
+  // (with its still pictures made, the page flips through them with the scroll: the smooth way)
+  let fr = null; try { fr = JSON.parse(fs.readFileSync(path.join(st.dir, 'frames.json'), 'utf8')); } catch (e) { /* the video alone */ }
+  const frames = fr && fr.count > 1 ? `/designs/demo-video/${name}/f/{n}.jpg?v=${v}|${fr.count}|${fr.w}|${fr.h}|${Math.max(1, Math.round(fr.seconds || 10))}` : null;
+  return { key: 'video|' + st.madeAt + (frames ? '|f' + fr.count : ''), photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}`, frames };
 }
 app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'no-cache'); res.type('html').send(siteRequests.withPreview(html)); });
 app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
@@ -6435,6 +6438,10 @@ const videoFrames = new Map(); // (token -> folder: the frames fal fetches while
 // a take that stopped part way (the credit ran out) still has real, paid-for clips: the ones in a row from the start are
 // joined into a shorter video the site plays until the whole one is made. ffmpeg only: nothing is paid for.
 async function partialVideos() {
+  // (a video made before the still pictures existed gets them now)
+  for (const name of designSites.designs().map((d) => d.design)) {
+    try { const sh = shownVideo(videoState(name)); if (sh && fs.existsSync(path.join(sh.dir, 'hero.mp4')) && !fs.existsSync(path.join(sh.dir, 'frames.json'))) { const st = videoState(name), f = await videoHero.frames(path.join(sh.dir, 'hero.mp4'), sh.dir, (st && st.seconds) || 30); console.log(`Video hero: ${name} scroll film, ${f.count} frames`); } } catch (e) { console.error('Video hero: frames', name, e && e.message); }
+  }
   for (const name of designSites.designs().map((d) => d.design)) {
     try {
       const st = videoState(name); if (st && st.status === 'ready' && !st.partial) continue;
@@ -6467,6 +6474,11 @@ app.get('/designs/video-frame/:token/:file', (req, res) => {
   const dir = videoFrames.get(String(req.params.token)), f = String(req.params.file);
   if (!dir || !/^frame-\d+\.jpg$/.test(f) || !fs.existsSync(path.join(dir, f))) return res.status(404).end();
   res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(dir, f));
+});
+app.get('/designs/demo-video/:design/f/:n.jpg', (req, res) => {
+  const st = shownVideo(videoState(String(req.params.design))), n = String(req.params.n);
+  if (!st || !/^\d{1,4}$/.test(n) || !fs.existsSync(path.join(st.dir, 'f', n + '.jpg'))) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.sendFile(path.join(st.dir, 'f', n + '.jpg'));
 });
 app.get('/designs/demo-video/:design/:file', (req, res) => {
   const st = shownVideo(videoState(String(req.params.design))), f = String(req.params.file);

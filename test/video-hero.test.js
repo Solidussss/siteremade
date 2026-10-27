@@ -128,12 +128,16 @@ test('the owner makes a design’s video hero; it chains clip to clip and plays 
     assert.match(submitted[1].prompt, /Snow foam|Snow/i, 'each shot is its step');
     // the owner's private preview plays it; nobody else sees it
     const pv = await owner('GET', '/video-preview/beadline');
-    assert.equal(pv.status, 200); assert.ok(pv.text.includes('class="srph-shot srph-video" src="/designs/demo-video/beadline/hero.mp4'), 'the video hero');
+    assert.equal(pv.status, 200); assert.match(pv.text, /class="srph-shot srph-frames"[^>]*data-frames="\/designs\/demo-video\/beadline\/f\/\{n\}\.jpg\?v=[^"]*" data-count="(\d+)"/, 'the scroll film');
     assert.equal((await stranger('GET', '/video-preview/beadline')).status, 404);
     const vid = await guest('GET', '/designs/demo-video/beadline/hero.mp4', null, { range: 'bytes=0-99' });
     assert.equal(vid.status, 206, 'the video answers range requests, so it scrubs'); assert.match(vid.type, /video\/mp4/);
     // once made, the site's demo plays it too, and the catalogue's still is the video's first frame
-    assert.ok((await guest('GET', '/designs/demo/beadline')).text.includes('class="srph-shot srph-video" src="/designs/demo-video/beadline/hero.mp4'), 'the public demo plays the video');
+    const pub = (await guest('GET', '/designs/demo/beadline')).text, count = +/class="srph-shot srph-frames"[^>]*data-count="(\d+)"/.exec(pub)[1];
+    assert.ok(count > 10, `the public demo flips through the take's still pictures (${count})`);
+    const f1 = await guest('GET', '/designs/demo-video/beadline/f/1.jpg'); assert.equal(f1.status, 200); assert.match(f1.type, /image\/jpeg/);
+    assert.equal((await guest('GET', `/designs/demo-video/beadline/f/${count}.jpg`)).status, 200, 'the last picture');
+    assert.equal((await guest('GET', `/designs/demo-video/beadline/f/${count + 1}.jpg`)).status, 404);
     const still = await guest('GET', '/designs/poster/beadline.jpg'); assert.equal(still.status, 200); assert.match(still.type, /image\/jpeg/);
     assert.ok(!(await guest('GET', '/designs/demo/steadyhand')).text.includes('hero.mp4'), 'a design without a video keeps its hero');
   } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); }
@@ -159,7 +163,7 @@ test('when Higgsfield turns clips down (the credit ran out) everything waits, th
     await partialVideos();
     const part = (await owner('GET', '/api/demo-videos/keel')).json.video;
     assert.equal(part.status, 'ready'); assert.equal(part.partial, true); assert.equal(part.clips, 3); assert.equal(part.seconds, 15);
-    assert.ok((await guest('GET', '/designs/demo/keel')).text.includes('/designs/demo-video/keel/hero.mp4'), 'the site plays the paid clips');
+    assert.ok((await guest('GET', '/designs/demo/keel')).text.includes('data-frames="/designs/demo-video/keel/f/{n}.jpg'), 'the site plays the paid clips');
     // credit again: the rest are made, from clip 4, and the site keeps playing the short one meanwhile
     ok = 99; ordered.length = 0;
     await owner('POST', '/api/demo-videos/keel/make', {});

@@ -110,7 +110,7 @@ function glShot(im){var src=im.dataset.mask;if(!MO||RM||!src)return;var mk=new I
 
 function cl(v){return v<0?0:v>1?1:v}function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
 function prog(){var top=sec.getBoundingClientRect().top+scrollY,h=sec.offsetHeight-innerHeight;return h>40?cl((sm-top)/h):cl((sm-top)/Math.max(1,sec.offsetHeight))}
-function scene(p){if(VID){if(AUTO)return;if(VID.duration>0){var t=Math.min(VID.duration-.05,p*VID.duration);if(Math.abs(VID.currentTime-t)>1/48)VID.currentTime=t}if(FILL[0])FILL[0].style.visibility='visible';return}var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
+function scene(p){if(FRC){if(!AUTO)fdraw(p);if(FILL[0])FILL[0].style.visibility='visible';return}if(VID){if(AUTO)return;if(VID.duration>0){var t=Math.min(VID.duration-.05,p*VID.duration);if(Math.abs(VID.currentTime-t)>1/48)VID.currentTime=t}if(FILL[0])FILL[0].style.visibility='visible';return}var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
  S.forEach(function(im,i){var a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,e=ease(cl((p-from)/(b-from))),d=+im.dataset.dir,z=+im.dataset.zoom,r=i?cl((p-(a-w))/w):1;
   // the camera: pans across with the scroll and pushes in toward the subject (scaled enough that no edge shows)
   // (a phone already sees a narrow slice of a wide photo: there the camera moves less, so the subject stays whole)
@@ -128,7 +128,7 @@ if('IntersectionObserver' in window)new IntersectionObserver(function(es){vis=es
 var FILL=[];function fits(){var nar=innerWidth<innerHeight;S.forEach(function(im,i){var w=im.videoWidth||im.naturalWidth||im.width,h=im.videoHeight||im.naturalHeight||im.height,on=nar&&w>h*1.15&&!!(im.poster||im.currentSrc||im.src||im.dataset.src);
  im.classList.toggle('srph-fit',on);if(on&&!FILL[i]){var f=document.createElement('div');f.className='srph-fill';f.style.backgroundImage='url("'+(im.poster||im.currentSrc||im.src||im.dataset.src)+'")';im.parentNode.insertBefore(f,im);FILL[i]=f}
  if(FILL[i])FILL[i].style.display=on?'':'none'})}
-S.forEach(function(im){if(im.tagName==='VIDEO'){if(im.readyState>=1)fits();else im.addEventListener('loadedmetadata',fits)}else if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
+S.forEach(function(im){if(im.tagName==='CANVAS')fits();else if(im.tagName==='VIDEO'){if(im.readyState>=1)fits();else im.addEventListener('loadedmetadata',fits)}else if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
 // THE VIDEO HERO: one take that plays with the scroll (down: forward, up: back), under the design's cards
 var VID=box.querySelector('video.srph-video');
 // (in a preview card, which nobody scrolls, it plays by itself on a loop; the first scroll hands it to the scroll)
@@ -136,7 +136,15 @@ var AUTO=false;try{AUTO=window.self!==window.top&&scrollY<1}catch(e){}
 if(VID){VID.muted=true;VID.playsInline=true;var vReady=function(){if(AUTO){VID.loop=true;var a=VID.play();if(a&&a.catch)a.catch(function(){});return}var pl=VID.play();if(pl&&pl.then)pl.then(function(){VID.pause();last=-1}).catch(function(){last=-1});else{VID.pause();last=-1}};
  if(VID.readyState>=1)vReady();else VID.addEventListener('loadedmetadata',vReady,{once:true});
  if(AUTO)addEventListener('scroll',function(){if(!AUTO||scrollY<1)return;AUTO=false;VID.loop=false;VID.pause();last=-1},{passive:true});}
-var last=-1;S.slice().forEach(glShot);(function tick(){sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
+// THE SCROLL FILM: the take as still pictures, the nearest one already loaded drawn for where the scroll is. They load
+// first, every eighth, so the whole take scrubs roughly at once; then the rest fill in.
+var FRC=box.querySelector('canvas.srph-frames'),FN=0,FI=[],FCX=null,fcur=-1,FS=1;
+function fdraw(p){if(!FRC)return;var want=Math.round(cl(p)*(FN-1)),k=-1;for(var d=0;d<FN;d++){if(want-d>=0&&FI[want-d]&&FI[want-d].ok){k=want-d;break}if(want+d<FN&&FI[want+d]&&FI[want+d].ok){k=want+d;break}}
+ if(k<0||k===fcur)return;fcur=k;var im=FI[k];if(FRC.width!==im.naturalWidth||FRC.height!==im.naturalHeight){FRC.width=im.naturalWidth;FRC.height=im.naturalHeight}FCX.drawImage(im,0,0);FRC.style.background='none'}
+if(FRC){FN=+FRC.dataset.count||0;FS=+FRC.dataset.seconds||10;FCX=FRC.getContext('2d');var fu=FRC.dataset.frames,fl=function(i){if(FI[i])return;var im=new Image();im.decoding='async';im.onload=function(){im.ok=1;if(Math.abs(i-fcur)<9||fcur<0)last=-1};im.src=fu.replace('{n}',String(i+1));FI[i]=im};
+ fl(0);for(var st2=8;st2>=1;st2=st2>>1)for(var i2=0;i2<FN;i2+=st2)fl(i2);
+ if(AUTO)addEventListener('scroll',function(){if(AUTO&&scrollY>=1){AUTO=false;last=-1}},{passive:true});}
+var last=-1;S.slice().forEach(glShot);(function tick(){if(FRC&&AUTO){fcur=-1;fdraw((performance.now()/1000/FS)%1)}sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
 })();`;
 
 const attr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -148,7 +156,10 @@ function inject(html, manifest, content) {
   if (!cfg || !list.length) return html;
   const name = (content.business && (content.business.name || content.business.wordmark)) || (content.brand && content.brand.name) || '';
   const video = content.photos && typeof content.photos.video === 'string' && /^(https:\/\/|\/)[^\s"'<>()]+$/.test(content.photos.video) ? content.photos.video : null;
-  const imgs = video ? `<video class="srph-shot srph-video" src="${attr(video)}" poster="${attr(list[list.length - 1].src)}" muted playsinline preload="auto" aria-label="${attr(String(name).replace(/\*/g, ''))}"></video>` : list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" data-fx="${s.fx}" data-fy="${s.fy}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
+  // (the take as still pictures, flipped through with the scroll: "/…{n}.jpg?…|count|w|h|seconds")
+  const fm = content.photos && typeof content.photos.frames === 'string' ? /^(\/[^\s"'<>()|]*\{n\}[^\s"'<>()|]*)\|(\d{1,4})\|(\d{1,5})\|(\d{1,5})\|(\d{1,4})$/.exec(content.photos.frames) : null;
+  const imgs = video && fm ? `<canvas class="srph-shot srph-frames" width="${fm[3]}" height="${fm[4]}" data-frames="${attr(fm[1])}" data-count="${fm[2]}" data-seconds="${fm[5]}" data-src="${attr(list[list.length - 1].src)}" role="img" aria-label="${attr(String(name).replace(/\*/g, ''))}" style="background:url('${attr(list[list.length - 1].src)}') center/cover"></canvas>`
+    : video ? `<video class="srph-shot srph-video" src="${attr(video)}" poster="${attr(list[list.length - 1].src)}" muted playsinline preload="auto" aria-label="${attr(String(name).replace(/\*/g, ''))}"></video>` : list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" data-fx="${s.fx}" data-fy="${s.fy}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
   const conf = JSON.stringify({ section: cfg.section || '#top', stage: cfg.stage || '.stage', hide: cfg.hide || [], veil: cfg.veil || null, motion: cfg.motion || null }).replace(/</g, '\\u003c');
   const block = `<style>${CSS}</style><template id="srph-shots">${imgs}<i class="srph-line" aria-hidden="true"></i></template><script type="application/json" id="srph-cfg">${conf}</script><script>${RUNTIME}</script>`;
   const at = html.lastIndexOf('</body>');
