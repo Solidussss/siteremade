@@ -148,7 +148,9 @@ function build(d, c) {
   const css = (d.manifest.guards || []).map((g) => GUARDS[g.type](g, c, ctx)).filter(Boolean).join('\n');
   derived._guards = css ? css + '\n' : '';
   derived._guardList = (d.manifest.guards || []).filter((g) => GUARDS[g.type](g, c, ctx)).map((g) => g.name || g.type);
-  const html = photoHero.inject(render(d.template, { content: c, derived, families: ctx.families, tables: d.tables }), d.manifest, c);
+  // (a design with its own photo slots can still take a video hero: its "videoHero" says where it goes)
+  const heroManifest = !d.manifest.photoHero && d.manifest.videoHero && c.photos && c.photos.video ? { ...d.manifest, photoHero: d.manifest.videoHero } : d.manifest;
+  const html = photoHero.inject(render(d.template, { content: c, derived, families: ctx.families, tables: d.tables }), heroManifest, c);
   return { html, guards: derived._guardList };
 }
 

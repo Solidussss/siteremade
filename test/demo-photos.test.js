@@ -73,6 +73,8 @@ test('the search: real photographs, free for business use with no credit needed,
 
 test('one tap finds photos for the demos; the demo plays them; customer sites never get them', async () => {
   const { srv, session } = await server();
+  // (car detailing and the barber play the owner's own videos: this is about the photos, so videos stay off here)
+  const hadVideo = process.env.SITEREMADE_DEMO_VIDEO; process.env.SITEREMADE_DEMO_VIDEO = 'off';
   const seen = [];
   setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: library, wait: async () => {}, photoKeys: {}, director: () => async ({ images }) => { seen.push(images.length); return { plan: { use_photos: true, main: 3, before: 1, middle: [2], camera: [], skip: [], note: 'The finished car ends it.' } }; } });
   try {
@@ -121,5 +123,5 @@ test('one tap finds photos for the demos; the demo plays them; customer sites ne
     await owner('POST', '/api/demo-photos/find', { designs: ['larder', 'ochre'] });
     const slow = await until(async () => { const r = await owner('GET', '/api/demo-photos'); return !r.json.job.running && r.json.job.failed.length === 2 ? r.json : null; });
     assert.match(slow.job.failed[0].why, /try again in an hour/);
-  } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); }
+  } finally { setDesignDeps({ writer: () => { throw new Error('no writer'); } }); srv.close(); if (hadVideo === undefined) delete process.env.SITEREMADE_DEMO_VIDEO; else process.env.SITEREMADE_DEMO_VIDEO = hadVideo; }
 });

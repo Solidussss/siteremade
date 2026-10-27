@@ -48,5 +48,6 @@
   "guards": [
     { "name": "wordmark fit", "type": "fitText", "selector": ".wordmark", "text": ["business.wordmark"], "metric": "display",
       "size": [70, 19, 300], "container": { "max": 1360, "gutter": [16, 5, null] }, "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" } }
-  ]
+  ],
+  "videoHero": {"section":"#hero","stage":".stage","hide":["#cvHead","#cvFx"],"veil":"dark"}
 }
