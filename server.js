@@ -6407,7 +6407,8 @@ function autoVideoHero() {
   setTimeout(() => {
     // a take a restart cut short always carries on (the owner already started it); a new one only with the switch on
     for (const name of designSites.designs().map((d) => d.design)) { const st = videoState(name); if (st && st.status === 'making') videoJob.queue.push(name); }
-    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of ['beadline']) { if (!videoState(name) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
+    // (with the switch on, every design without a video gets one, one after another; one that failed is left for the owner)
+    if (process.env.SITEREMADE_VIDEO_AUTO === 'on') for (const name of designSites.designs().map((d) => d.design)) { if (!videoState(name) && !videoJob.queue.includes(name)) videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
   }, 90000).unref();
 }
