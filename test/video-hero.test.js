@@ -63,6 +63,18 @@ test('the shots: one per step, from the step’s own words, and a plain shot whe
   assert.equal((await videoHero.shots({ category: 'x', steps, call: async () => ({ shots: ['only one'] }) })).length, 2, 'a wrong count: the plain shots');
 });
 
+test('Higgsfield makes the clips with the key SiteRemade already has: the model\u2019s own settings, waiting until done', async () => {
+  const calls = [];
+  const hf = { submit: async (endpoint, params) => { calls.push([endpoint, params]); return { requestId: 'req-1', status: 'queued' }; },
+    status: (() => { let n = 0; return async () => (++n < 3 ? { status: 'in_progress' } : { status: 'completed', outputUrl: 'https://cdn.higgsfield.example/clip.mp4' }); })() };
+  const url = await videoHero.higgsfieldClip({ hf, endpoint: 'bytedance/seedance/v2/image-to-video', prompt: 'Slow push in.', imageUrl: 'https://www.siteremade.com/f.jpg', wait: async () => {} });
+  assert.equal(url, 'https://cdn.higgsfield.example/clip.mp4');
+  assert.deepEqual(calls[0][1], { duration: 5, resolution: '1080p', generate_audio: false, prompt: 'Slow push in.', image_url: 'https://www.siteremade.com/f.jpg' });
+  assert.deepEqual(videoHero.higgsfieldParams('kling-video/v3.0/4k/image-to-video'), { duration: 5, sound: 'off' });
+  const flagged = { submit: async () => ({ requestId: 'r' }), status: async () => ({ status: 'nsfw' }) };
+  await assert.rejects(videoHero.higgsfieldClip({ hf: flagged, endpoint: 'x/y', prompt: 'p', imageUrl: 'u', wait: async () => {} }), /flagged/);
+});
+
 test('the owner makes a design’s video hero; it chains clip to clip and plays with the scroll, privately', async () => {
   const { srv, session } = await server();
   setDesignDeps({ writer: () => { throw new Error('no writer'); }, fetch: services, wait: async () => {}, photoKeys: { pixabay: 'pk' }, falKey: 'test-fal-key',

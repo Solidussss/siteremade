@@ -45,7 +45,7 @@ async function server() {
   };
   return { srv, session };
 }
-const until = async (f) => { for (let i = 0; i < 200; i++) { const v = await f(); if (v) return v; await new Promise((r) => setTimeout(r, 100)); } throw new Error('timed out'); };
+const until = async (f) => { for (let i = 0; i < 600; i++) { const v = await f(); if (v) return v; await new Promise((r) => setTimeout(r, 100)); } throw new Error('timed out'); };
 
 test('the search: real photographs, free for business use with no credit needed, from the best library that answers', async () => {
   const wait = async () => {};

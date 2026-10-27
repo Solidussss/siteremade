@@ -6340,10 +6340,20 @@ app.post('/api/demo-photos/find', requireAuth, requireSameOrigin, ownerOnly, exp
   res.json({ ok: true, queued: demoJob.queue.length + (demoJob.current ? 1 : 0) });
 });
 // THE VIDEO HERO (lib/video-hero.js): a design's hero as one real video take that plays with the scroll, made by
-// Seedance on fal.ai from a starting photo, one clip per step of the design's story. Made once on the server and kept
-// on the volume; the owner sees it first at /video-preview/<design> (private). FAL_KEY pays, only in production.
+// a top video model (through Higgsfield with SiteRemade's key, else fal.ai) from a starting photo, one clip per step of
+// the design's story. Made once on the server and kept on the volume; the owner sees it first at
+// /video-preview/<design> (private). Only in production.
 const videoHero = require('./lib/video-hero');
 const FAL_KEY = paidProviders.key('fal');
+// (Higgsfield first: SiteRemade already has its key. HIGGSFIELD_VIDEO_HERO_ENDPOINT picks the model -- a Higgsfield model
+// id or its docs URL, e.g. a Seedance one -- else the video model the realtor videos use, HIGGSFIELD_VIDEO_ENDPOINT)
+function videoService() {
+  if (designDeps.videoClipper) return { name: 'test', clipper: designDeps.videoClipper };
+  const hk = paidProviders.key('higgsfield'), ep = require('./lib/media/premium-media.js').normalizeEndpoint(process.env.HIGGSFIELD_VIDEO_HERO_ENDPOINT || process.env.HIGGSFIELD_VIDEO_ENDPOINT);
+  if (hk && ep.ok) { const hf = createHiggsfield({ key: hk }); return { name: `Higgsfield ${ep.endpoint}`, clipper: (prompt, imageUrl, log) => videoHero.higgsfieldClip({ hf, endpoint: ep.endpoint, prompt, imageUrl, wait: designDeps.wait, log }) }; }
+  const fk = designDeps.falKey != null ? designDeps.falKey : FAL_KEY;
+  return fk ? { name: 'fal.ai Seedance', key: fk } : null;
+}
 const VIDEO_DIR = path.join(process.env.SITEREMADE_DB_PATH && process.env.SITEREMADE_DB_PATH !== ':memory:' ? path.dirname(process.env.SITEREMADE_DB_PATH) : require('os').tmpdir(), 'hero-videos');
 const videoState = (name) => { try { return JSON.parse(db.demoPhotos.setting('video:' + name) || 'null'); } catch (e) { return null; } };
 const setVideoState = (name, v) => db.demoPhotos.setSetting('video:' + name, JSON.stringify(v));
@@ -6364,7 +6374,9 @@ async function runVideoJob() {
         const dir = path.join(VIDEO_DIR, name, started.replace(/[^0-9]/g, '').slice(0, 14)), token = crypto.randomBytes(12).toString('base64url');
         const base = String(process.env.PUBLIC_BASE_URL || 'https://www.siteremade.com').replace(/\/$/, '');
         videoFrames.set(token, dir);
-        const r = await videoHero.make({ design: name, category: p.d.manifest.category, steps, start: Buffer.from(ph.data), dir, key: designDeps.falKey != null ? designDeps.falKey : FAL_KEY,
+        const svc = videoService(); if (!svc) throw new Error('no video service is set up (HIGGSFIELD_API_KEY with a video model, or FAL_KEY)');
+        console.log(`Video hero: ${name} with ${svc.name}`);
+        const r = await videoHero.make({ design: name, category: p.d.manifest.category, steps, start: Buffer.from(ph.data), dir, key: svc.key, clipper: svc.clipper,
           call: designDeps.shotWriter ? designDeps.shotWriter() : videoHero.claudeCaller(ANTHROPIC_API_KEY), publicUrl: (file) => `${base}/designs/video-frame/${token}/${path.basename(file)}`,
           fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, log: (m) => { console.log('Video hero:', m); const st = videoState(name) || {}; setVideoState(name, { ...st, step: m }); } });
         videoFrames.delete(token);
@@ -6375,10 +6387,10 @@ async function runVideoJob() {
   } finally { videoJob.running = false; }
 }
 const videoFrames = new Map(); // (token -> folder: the frames fal fetches while a take is being made)
-// On the live server, once FAL_KEY is set, the first video hero (car detailing) makes itself, once; one cut short by a
+// On the live server, with a video service set up, the first video hero (car detailing) makes itself, once; one cut short by a
 // restart starts again. SITEREMADE_VIDEO_AUTO=off turns it off.
 function autoVideoHero() {
-  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO === 'off' || !FAL_KEY || !db.demoPhotos) return;
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO === 'off' || !videoService() || !db.demoPhotos) return;
   setTimeout(() => {
     for (const name of ['beadline']) { const st = videoState(name); if (!st || st.status === 'making') videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
@@ -6397,7 +6409,7 @@ app.get('/designs/demo-video/:design/:file', (req, res) => {
 app.post('/api/demo-videos/:design/make', requireAuth, requireSameOrigin, ownerOnly, (req, res) => {
   const name = String(req.params.design);
   if (!designSites.designFor(name)) return res.status(404).json({ ok: false, message: 'Unknown design.' });
-  if (!(designDeps.falKey || FAL_KEY)) return res.status(400).json({ ok: false, message: 'The video service isn’t set up: add FAL_KEY in Railway.' });
+  if (!videoService()) return res.status(400).json({ ok: false, message: 'The video service isn’t set up: HIGGSFIELD_API_KEY with a video model, or FAL_KEY, in Railway.' });
   if (!videoJob.queue.includes(name)) videoJob.queue.push(name);
   runVideoJob().catch((e) => console.error('Video hero job:', e && e.message));
   res.json({ ok: true });
