@@ -117,5 +117,6 @@
         "equals": "crop"
       }
     }
-  ]
+  ],
+  "videoHero": {"section":"#top","stage":".stage","hide":["#smileCanvas"]}
 }
