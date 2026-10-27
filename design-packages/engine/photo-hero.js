@@ -27,6 +27,8 @@ const FIELDS = {
   'photos.second': { kind: 'photo', offer: 'always', label: 'a photo for the middle of the scroll.' },
   'photos.third': { kind: 'photo', offer: 'always', label: 'another photo for the middle.' },
   'photos.camera': { kind: 'text', max: 400, hidden: true, offer: 'always', label: 'the camera plan (set by the hero director)' },
+  // (the video hero, lib/video-hero.js: one continuous take that plays with the scroll; photos.main is its poster)
+  'photos.video': { kind: 'text', max: 400, hidden: true, offer: 'always', label: 'the hero video (made on the server)' },
   // (each photo's subject, as a soft greyscale mask: set by the photo analysis, cleared when the photo changes)
   'photos.mainMask': { kind: 'photo', hidden: true, offer: 'always', label: 'where the subject is in the main photo' },
   'photos.beforeMask': { kind: 'photo', hidden: true, offer: 'always', label: 'where the subject is in the first photo' },
@@ -108,7 +110,7 @@ function glShot(im){var src=im.dataset.mask;if(!MO||RM||!src)return;var mk=new I
 
 function cl(v){return v<0?0:v>1?1:v}function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
 function prog(){var top=sec.getBoundingClientRect().top+scrollY,h=sec.offsetHeight-innerHeight;return h>40?cl((sm-top)/h):cl((sm-top)/Math.max(1,sec.offsetHeight))}
-function scene(p){var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
+function scene(p){if(VID){if(VID.duration>0){var t=Math.min(VID.duration-.05,p*VID.duration);if(Math.abs(VID.currentTime-t)>1/48)VID.currentTime=t}if(FILL[0])FILL[0].style.visibility='visible';return}var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
  S.forEach(function(im,i){var a=i/n,b=(i+1)/n,from=i?Math.max(0,a-w):0,e=ease(cl((p-from)/(b-from))),d=+im.dataset.dir,z=+im.dataset.zoom,r=i?cl((p-(a-w))/w):1;
   // the camera: pans across with the scroll and pushes in toward the subject (scaled enough that no edge shows)
   // (a phone already sees a narrow slice of a wide photo: there the camera moves less, so the subject stays whole)
@@ -123,10 +125,14 @@ function scene(p){var n=S.length,w=n>1?Math.min(.16,.7/n):0,edge=-1;
 if('IntersectionObserver' in window)new IntersectionObserver(function(es){vis=es[0].isIntersecting},{rootMargin:'200px'}).observe(sec);
 // (a phone shows only the middle of a wide photo: there it's shown whole across the screen, over a soft blurred
 // copy of itself, so a car stays a car; the words above and the cards below sit on the fill)
-var FILL=[];function fits(){var nar=innerWidth<innerHeight;S.forEach(function(im,i){var w=im.naturalWidth||im.width,h=im.naturalHeight||im.height,on=nar&&w>h*1.15&&!!(im.currentSrc||im.src||im.dataset.src);
- im.classList.toggle('srph-fit',on);if(on&&!FILL[i]){var f=document.createElement('div');f.className='srph-fill';f.style.backgroundImage='url("'+(im.currentSrc||im.src||im.dataset.src)+'")';im.parentNode.insertBefore(f,im);FILL[i]=f}
+var FILL=[];function fits(){var nar=innerWidth<innerHeight;S.forEach(function(im,i){var w=im.videoWidth||im.naturalWidth||im.width,h=im.videoHeight||im.naturalHeight||im.height,on=nar&&w>h*1.15&&!!(im.poster||im.currentSrc||im.src||im.dataset.src);
+ im.classList.toggle('srph-fit',on);if(on&&!FILL[i]){var f=document.createElement('div');f.className='srph-fill';f.style.backgroundImage='url("'+(im.poster||im.currentSrc||im.src||im.dataset.src)+'")';im.parentNode.insertBefore(f,im);FILL[i]=f}
  if(FILL[i])FILL[i].style.display=on?'':'none'})}
-S.forEach(function(im){if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
+S.forEach(function(im){if(im.tagName==='VIDEO'){if(im.readyState>=1)fits();else im.addEventListener('loadedmetadata',fits)}else if(im.complete)fits();else im.addEventListener('load',fits)});addEventListener('resize',function(){fits();last=-1});
+// THE VIDEO HERO: one take that plays with the scroll (down: forward, up: back), under the design's cards
+var VID=box.querySelector('video.srph-video');
+if(VID){VID.muted=true;VID.playsInline=true;var vReady=function(){var pl=VID.play();if(pl&&pl.then)pl.then(function(){VID.pause();last=-1}).catch(function(){last=-1});else{VID.pause();last=-1}};
+ if(VID.readyState>=1)vReady();else VID.addEventListener('loadedmetadata',vReady,{once:true});}
 var last=-1;S.slice().forEach(glShot);(function tick(){sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
 })();`;
 
@@ -138,7 +144,8 @@ function inject(html, manifest, content) {
   const list = shots(content);
   if (!cfg || !list.length) return html;
   const name = (content.business && (content.business.name || content.business.wordmark)) || (content.brand && content.brand.name) || '';
-  const imgs = list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" data-fx="${s.fx}" data-fy="${s.fy}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
+  const video = content.photos && typeof content.photos.video === 'string' && /^(https:\/\/|\/)[^\s"'<>()]+$/.test(content.photos.video) ? content.photos.video : null;
+  const imgs = video ? `<video class="srph-shot srph-video" src="${attr(video)}" poster="${attr(list[list.length - 1].src)}" muted playsinline preload="auto" aria-label="${attr(String(name).replace(/\*/g, ''))}"></video>` : list.map((s, i) => `<img class="srph-shot" src="${attr(s.src)}" alt="${i === list.length - 1 ? attr(String(name).replace(/\*/g, '')) : ''}" data-dir="${s.dir}" data-zoom="${s.zoom}" data-fx="${s.fx}" data-fy="${s.fy}"${s.mask ? ` data-mask="${attr(s.mask)}"` : ''} style="object-position:${s.fx}% ${s.fy}%;transform-origin:${s.fx}% ${s.fy}%${i ? ';visibility:hidden' : ''}"${i === list.length - 1 ? ' fetchpriority="high"' : ''}>`).join('');
   const conf = JSON.stringify({ section: cfg.section || '#top', stage: cfg.stage || '.stage', hide: cfg.hide || [], veil: cfg.veil || null, motion: cfg.motion || null }).replace(/</g, '\\u003c');
   const block = `<style>${CSS}</style><template id="srph-shots">${imgs}<i class="srph-line" aria-hidden="true"></i></template><script type="application/json" id="srph-cfg">${conf}</script><script>${RUNTIME}</script>`;
   const at = html.lastIndexOf('</body>');

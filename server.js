@@ -159,7 +159,9 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
   /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/,
   // the designs' demo photos: the owner's page that finds them, and the photos themselves
-  /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/show|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/];
+  /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/show|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/,
+  // the video heroes: the owner's private preview, the finished take, and the frames fal fetches while making one
+  /^\/video-preview\/[a-z]+$/, /^\/api\/demo-videos\/[a-z]+(?:\/make)?$/, /^\/designs\/demo-video\/[a-z]+\/(?:hero\.mp4|poster\.jpg)$/, /^\/designs\/video-frame\/[A-Za-z0-9_-]+\/frame-\d+\.jpg$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -6337,6 +6339,84 @@ app.post('/api/demo-photos/find', requireAuth, requireSameOrigin, ownerOnly, exp
   runDemoJob().catch((e) => console.error('Demo photos job:', e && e.message));
   res.json({ ok: true, queued: demoJob.queue.length + (demoJob.current ? 1 : 0) });
 });
+// THE VIDEO HERO (lib/video-hero.js): a design's hero as one real video take that plays with the scroll, made by
+// Seedance on fal.ai from a starting photo, one clip per step of the design's story. Made once on the server and kept
+// on the volume; the owner sees it first at /video-preview/<design> (private). FAL_KEY pays, only in production.
+const videoHero = require('./lib/video-hero');
+const FAL_KEY = paidProviders.key('fal');
+const VIDEO_DIR = path.join(process.env.SITEREMADE_DB_PATH && process.env.SITEREMADE_DB_PATH !== ':memory:' ? path.dirname(process.env.SITEREMADE_DB_PATH) : require('os').tmpdir(), 'hero-videos');
+const videoState = (name) => { try { return JSON.parse(db.demoPhotos.setting('video:' + name) || 'null'); } catch (e) { return null; } };
+const setVideoState = (name, v) => db.demoPhotos.setSetting('video:' + name, JSON.stringify(v));
+const videoJob = { running: false, queue: [] };
+async function runVideoJob() {
+  if (videoJob.running) return; videoJob.running = true;
+  try {
+    while (videoJob.queue.length) {
+      const name = videoJob.queue.shift(), p = designSites.designFor(name), started = new Date().toISOString();
+      setVideoState(name, { status: 'making', step: 'writing the shots', startedAt: started });
+      try {
+        // the starting frame: the design's demo photo that opens its story, else its main one
+        const ph = db.demoPhotos.photo(name, 'before') || db.demoPhotos.photo(name, 'second') || db.demoPhotos.photo(name, 'main');
+        if (!ph) throw new Error('no starting photo: find demo photos for this design first');
+        const c = JSON.parse(fs.readFileSync(path.join(p.d.dir, 'default.json'), 'utf8'));
+        const steps = (Array.isArray(c.stages) ? c.stages : []).map((x) => ({ title: String(x.n || x.title || x.name || '').replace(/\*/g, ''), caption: String(x.c || x.caption || x.text || '').replace(/\*/g, '') })).filter((x) => x.title).slice(0, 8);
+        if (steps.length < 2) throw new Error('this design has no steps to film');
+        const dir = path.join(VIDEO_DIR, name, started.replace(/[^0-9]/g, '').slice(0, 14)), token = crypto.randomBytes(12).toString('base64url');
+        const base = String(process.env.PUBLIC_BASE_URL || 'https://www.siteremade.com').replace(/\/$/, '');
+        videoFrames.set(token, dir);
+        const r = await videoHero.make({ design: name, category: p.d.manifest.category, steps, start: Buffer.from(ph.data), dir, key: designDeps.falKey != null ? designDeps.falKey : FAL_KEY,
+          call: designDeps.shotWriter ? designDeps.shotWriter() : videoHero.claudeCaller(ANTHROPIC_API_KEY), publicUrl: (file) => `${base}/designs/video-frame/${token}/${path.basename(file)}`,
+          fetchImpl: designDeps.fetch || fetch, wait: designDeps.wait, log: (m) => { console.log('Video hero:', m); const st = videoState(name) || {}; setVideoState(name, { ...st, step: m }); } });
+        videoFrames.delete(token);
+        setVideoState(name, { status: 'ready', dir, seconds: r.seconds, shots: r.shots, madeAt: new Date().toISOString() });
+        console.log(`Video hero: ${name} ready (${r.seconds} s)`);
+      } catch (e) { setVideoState(name, { status: 'failed', why: String(e && e.message || e).slice(0, 400), at: new Date().toISOString() }); console.error('Video hero:', name, e && e.message); }
+    }
+  } finally { videoJob.running = false; }
+}
+const videoFrames = new Map(); // (token -> folder: the frames fal fetches while a take is being made)
+// On the live server, once FAL_KEY is set, the first video hero (car detailing) makes itself, once; one cut short by a
+// restart starts again. SITEREMADE_VIDEO_AUTO=off turns it off.
+function autoVideoHero() {
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO === 'off' || !FAL_KEY || !db.demoPhotos) return;
+  setTimeout(() => {
+    for (const name of ['beadline']) { const st = videoState(name); if (!st || st.status === 'making') videoJob.queue.push(name); }
+    if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
+  }, 90000).unref();
+}
+app.get('/designs/video-frame/:token/:file', (req, res) => {
+  const dir = videoFrames.get(String(req.params.token)), f = String(req.params.file);
+  if (!dir || !/^frame-\d+\.jpg$/.test(f) || !fs.existsSync(path.join(dir, f))) return res.status(404).end();
+  res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(dir, f));
+});
+app.get('/designs/demo-video/:design/:file', (req, res) => {
+  const st = videoState(String(req.params.design)), f = String(req.params.file);
+  if (!st || st.status !== 'ready' || !['hero.mp4', 'poster.jpg'].includes(f)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=604800'); res.sendFile(path.join(st.dir, f)); // (sendFile answers range requests: the video scrubs)
+});
+app.post('/api/demo-videos/:design/make', requireAuth, requireSameOrigin, ownerOnly, (req, res) => {
+  const name = String(req.params.design);
+  if (!designSites.designFor(name)) return res.status(404).json({ ok: false, message: 'Unknown design.' });
+  if (!(designDeps.falKey || FAL_KEY)) return res.status(400).json({ ok: false, message: 'The video service isn’t set up: add FAL_KEY in Railway.' });
+  if (!videoJob.queue.includes(name)) videoJob.queue.push(name);
+  runVideoJob().catch((e) => console.error('Video hero job:', e && e.message));
+  res.json({ ok: true });
+});
+app.get('/api/demo-videos/:design', requireAuth, ownerOnly, (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, video: videoState(String(req.params.design)), running: videoJob.running }); });
+// the owner's private look at a design with its video hero (or how the making is going)
+app.get('/video-preview/:design', requireAuth, (req, res) => {
+  if (!isDesignOwner(req.accountId, req.accountEmail)) return res.status(404).type('text/plain').send('Not found');
+  const name = String(req.params.design), st = videoState(name), p = designSites.designFor(name);
+  res.setHeader('Cache-Control', 'no-store');
+  if (!p) return res.status(404).type('text/plain').send('Not found');
+  if (!st || st.status !== 'ready') {
+    const msg = !st ? 'No video yet for this design.' : st.status === 'making' ? `Making the video: ${st.step || 'starting'}. This page refreshes itself; each clip takes a few minutes.` : `The video didn’t work: ${st.why}`;
+    return res.type('html').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${st && st.status === 'making' ? '<meta http-equiv="refresh" content="20">' : ''}<title>Video hero · ${name}</title><body style="font:16px/1.5 system-ui;padding:24px;max-width:560px;margin:auto"><h1 style="font-size:22px">${name}</h1><p>${msg.replace(/[<>&]/g, '')}</p></body>`);
+  }
+  const v = encodeURIComponent(st.madeAt || '');
+  res.type('html').send(designSites.demoHtml(name, { key: 'video|' + st.madeAt, photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}` }));
+});
+
 // the owner's switch: the site shows the demo photos, or keeps the drawings
 app.post('/api/demo-photos/show', requireAuth, requireSameOrigin, ownerOnly, express.json({ limit: '1kb' }), (req, res) => {
   db.demoPhotos.setSetting('show', req.body && req.body.on === true ? 'on' : 'off'); res.json({ ok: true, shown: demoPhotosOn() });
@@ -6436,7 +6516,7 @@ app.get('*', (req, res) => (namesAFile(req.path) ? res.status(404).type('text/pl
 // (require.main === module, true in every real deployment) is completely
 // unaffected: app.listen() still fires exactly as it always has.
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); autoDemoPhotos(); });
+  app.listen(PORT, '0.0.0.0', () => { console.log(`SiteRemade running on port ${PORT}`); const n = premiumWorker.resumeAll(); if (n) premiumLog({ step: 'resume', jobs: n }); autoDemoPhotos(); autoVideoHero(); });
 } else {
   // App bridge pass (Phase 4): `app` is also exported so a test harness can
   // listen() on the REAL route table in-process (still never listens on its
