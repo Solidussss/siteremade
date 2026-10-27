@@ -6388,9 +6388,10 @@ async function runVideoJob() {
 }
 const videoFrames = new Map(); // (token -> folder: the frames fal fetches while a take is being made)
 // On the live server, with a video service set up, the first video hero (car detailing) makes itself, once; one cut short by a
-// restart starts again. SITEREMADE_VIDEO_AUTO=off turns it off.
+// restart starts again -- only with SITEREMADE_VIDEO_AUTO=on.
 function autoVideoHero() {
-  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO === 'off' || !videoService() || !db.demoPhotos) return;
+  // (off unless the owner turns it on: a video costs real money, so nothing is made without the owner asking)
+  if (!(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT) || process.env.SITEREMADE_VIDEO_AUTO !== 'on' || !videoService() || !db.demoPhotos) return;
   setTimeout(() => {
     for (const name of ['beadline']) { const st = videoState(name); if (!st || st.status === 'making') videoJob.queue.push(name); }
     if (videoJob.queue.length) { console.log(`Video hero: making ${videoJob.queue.join(', ')}`); runVideoJob().catch((e) => console.error('Video hero job:', e && e.message)); }
