@@ -47,7 +47,7 @@ body.pv{background:var(--paper)}
 .pv-reel-head h2,.pv-sec h2{margin:0;font-size:clamp(44px,5.4vw,84px);line-height:.94;letter-spacing:-.07em}
 .pv-reel-head h2 span,.pv-sec h2 span{font-family:Georgia,serif;font-style:italic;font-weight:400;letter-spacing:-.05em}
 .pv-reel-head p{margin:0 0 6px;color:var(--ivory-2);font-size:16px;line-height:1.65}
-.pv-screen{position:relative;aspect-ratio:2.39/1;border-radius:6px;overflow:hidden;background:#050505;box-shadow:0 0 0 1px rgba(244,239,230,.08)}
+.pv-screen{position:relative;margin:0;aspect-ratio:2.39/1;border-radius:6px;overflow:hidden;isolation:isolate;-webkit-mask-image:-webkit-radial-gradient(white,black);background:#050505;box-shadow:0 0 0 1px rgba(244,239,230,.08)}
 .pv-screen video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
 .pv-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(60% 80% at 70% 30%,rgba(232,180,106,.16),transparent 60%),radial-gradient(50% 70% at 20% 80%,rgba(120,140,170,.10),transparent 60%),#070707}
 .pv-empty:before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,230,190,.06) 46%,transparent 62%);background-size:220% 100%;animation:leak 9s ease-in-out infinite}
@@ -57,6 +57,8 @@ body.pv{background:var(--paper)}
 .pv-empty strong{display:block;font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(26px,3vw,44px);letter-spacing:-.03em;line-height:1.1}
 .pv-empty p{margin:14px auto 0;max-width:430px;color:var(--dim);font-size:14px;line-height:1.6}
 .pv-screen.pv-film{aspect-ratio:16/9}
+.pv-screen .pv-tap{all:unset;position:absolute;inset:0;z-index:2;display:none;place-items:center;cursor:pointer}.pv-screen.pv-blocked .pv-tap{display:grid}
+.pv-tap i{width:64px;height:64px;border-radius:50%;background:rgba(11,10,9,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 0 0 1px rgba(244,239,230,.25);position:relative}.pv-tap i:after{content:"";position:absolute;left:26px;top:21px;border-style:solid;border-width:11px 0 11px 17px;border-color:transparent transparent transparent var(--ivory)}
 .pv-screen .pv-label{position:absolute;left:16px;top:14px;z-index:3;font-size:10px;letter-spacing:.22em;font-weight:800;color:var(--ivory);background:rgba(11,10,9,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:7px 10px;border-radius:999px;pointer-events:none}
 .pv-picks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:14px;gap:12px;margin:14px 0 0;padding:0;list-style:none}
 .pv-pick{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;border-radius:6px;overflow:hidden;background:#050505;box-shadow:0 0 0 1px var(--hair);opacity:.62;transition:opacity .25s,box-shadow .25s}
@@ -65,7 +67,7 @@ body.pv{background:var(--paper)}
 .pv-pick img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
 .pv-pick span{display:block;padding:9px 10px 10px;font-size:12px;line-height:1.35;color:var(--ivory)}.pv-pick small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
 .pv-note{margin:16px 0 0;color:var(--dim);font-size:13px;line-height:1.6;max-width:720px}
-@media(max-width:760px){.pv-screen .pv-label{left:10px;top:9px;font-size:8.5px;letter-spacing:.16em;padding:5px 8px;max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pv-picks{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.pv-pick{scroll-snap-align:start}}
+@media(max-width:760px){.pv-screen .pv-label{left:10px;top:9px;font-size:9px;letter-spacing:.18em;padding:5px 8px}.pv-label i{display:none}.pv-picks{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.pv-pick{scroll-snap-align:start}}
 .pv-bars:before,.pv-bars:after{content:"";position:absolute;left:0;right:0;height:7%;background:#000;z-index:2;pointer-events:none}.pv-bars:before{top:0}.pv-bars:after{bottom:0}
 /* sections on paper */
 .pv-sec{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:120px 0}
@@ -287,15 +289,18 @@ const FILMS = [
     box.classList.remove('pv-bars'); box.classList.add('pv-film');
     const picks = $('#picks'); $('#reelNote').hidden = false;
     let vid = null, onScreen = false;
+    // a phone in Low Power Mode won't play by itself, so a play button shows until it does
+    const play = () => { const v = vid, p = v.play(); if (p && p.catch) p.catch((e) => { if (v === vid && e && e.name === 'NotAllowedError') box.classList.add('pv-blocked'); }); };
+    box.addEventListener('click', (e) => { if (vid && e.target.closest('.pv-tap')) { box.classList.remove('pv-blocked'); play(); } });
     const show = (f) => {
-      box.innerHTML = `<span class="pv-label">EXAMPLE FILM · ${esc(f.kind.toUpperCase())}</span><video src="/property-films/${f.id}.mp4" poster="/property-films/${f.id}.jpg" muted loop playsinline preload="metadata" aria-label="${esc(f.title)}, example property film"></video>`;
-      vid = box.querySelector('video'); if (onScreen) { const p = vid.play(); if (p && p.catch) p.catch(() => {}); }
+      box.innerHTML = `<span class="pv-label">EXAMPLE FILM<i> · ${esc(f.kind.toUpperCase())}</i></span><button type="button" class="pv-tap" aria-label="Play the film"><i></i></button><video src="/property-films/${f.id}.mp4" poster="/property-films/${f.id}.jpg" muted loop playsinline preload="metadata" aria-label="${esc(f.title)}, example property film"></video>`;
+      vid = box.querySelector('video'); vid.muted = vid.defaultMuted = true; vid.addEventListener('playing', () => box.classList.remove('pv-blocked')); if (onScreen) play();
       picks.querySelectorAll('.pv-pick').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === f.id ? 'true' : 'false'));
     };
     picks.innerHTML = FILMS.map((f) => `<li><button type="button" class="pv-pick" data-id="${f.id}" aria-pressed="false"><img src="/property-films/${f.id}.jpg" alt="" loading="lazy"><span>${esc(f.title)}<small>${esc(f.kind)}</small></span></button></li>`).join('');
     picks.addEventListener('click', (e) => { const b = e.target.closest('.pv-pick'); if (b) show(FILMS.find((f) => f.id === b.dataset.id)); });
     // (plays only while on screen, so it costs nothing until someone gets there)
-    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { onScreen = es[0].isIntersecting; if (!vid) return; if (onScreen) { const p = vid.play(); if (p && p.catch) p.catch(() => {}); } else vid.pause(); }, { threshold: .25 }).observe(box);
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { onScreen = es[0].isIntersecting; if (!vid) return; if (onScreen) play(); else vid.pause(); }, { threshold: .25 }).observe(box);
     else onScreen = true;
     show(FILMS[0]);
     return;
