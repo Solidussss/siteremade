@@ -155,7 +155,7 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
-  /^\/property-videos\/?$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
+  /^\/property-videos\/?$/, /^\/property-films\/(?:villa|cabin|modern|beach|family|farmhouse|townhouse|penthouse|loft|studio)\.(?:mp4|jpg)$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
   /^\/requests\/?$/, /^\/api\/requests(?:\/enq_[A-Za-z0-9_-]+(?:\/send-preview|\/build)?)?$/, /^\/api\/requests\/photo\/rph_[A-Za-z0-9_-]+$/, /^\/api\/enquiries\/photos\/[A-Za-z0-9_-]+$/, /^\/pay\/[A-Za-z0-9_-]+$/, /^\/api\/stripe\/webhook$/,
   // the designs' demo photos: the owner's page that finds them, and the photos themselves
@@ -6187,6 +6187,13 @@ app.post('/api/designs/sites/:id/requests/:rid', requireAuth, requireSameOrigin,
 const serviceEnquiries = require('./lib/service-enquiries');
 const ENQUIRY_TO = (process.env.SITEREMADE_ENQUIRY_TO || 'hello@siteremade.com').split(',').map((s) => s.trim()).filter(Boolean);
 const enquiryRateLimit = rateLimitMiddleware((req) => `enquiry:${req.ip}`, { max: Number(process.env.SITEREMADE_ENQUIRIES_MAX) || 5, windowMs: 60 * 60 * 1000 }, 'Too many enquiries from this connection. Please wait a while, or email hello@siteremade.com.');
+// the example property films on /property-videos (made-up properties, labelled as examples on the page)
+const PROPERTY_FILMS = ['villa', 'cabin', 'modern', 'beach', 'family', 'farmhouse', 'townhouse', 'penthouse', 'loft', 'studio'];
+app.get('/property-films/:name.:ext', (req, res) => {
+  const name = String(req.params.name), ext = String(req.params.ext);
+  if (!PROPERTY_FILMS.includes(name) || !['mp4', 'jpg'].includes(ext)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(path.join(__dirname, 'design-packages', 'property-films', `${name}.${ext}`)); // (answers range requests)
+});
 app.get(['/property-videos', '/property-videos/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'property-videos.html')); });
 app.post('/api/enquiries/:service', requireSameOrigin, express.json({ limit: '20kb' }), enquiryRateLimit, async (req, res) => {
   if (!db.serviceEnquiries) return res.status(503).json({ ok: false, message: 'Enquiries aren’t available right now. Please email hello@siteremade.com.' });

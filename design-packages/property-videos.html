@@ -56,6 +56,16 @@ body.pv{background:var(--paper)}
 .pv-empty small{display:block;font-size:10px;letter-spacing:.24em;font-weight:800;color:var(--amber);margin-bottom:16px}
 .pv-empty strong{display:block;font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(26px,3vw,44px);letter-spacing:-.03em;line-height:1.1}
 .pv-empty p{margin:14px auto 0;max-width:430px;color:var(--dim);font-size:14px;line-height:1.6}
+.pv-screen.pv-film{aspect-ratio:16/9}
+.pv-screen .pv-label{position:absolute;left:16px;top:14px;z-index:3;font-size:10px;letter-spacing:.22em;font-weight:800;color:var(--ivory);background:rgba(11,10,9,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:7px 10px;border-radius:999px;pointer-events:none}
+.pv-picks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:14px;gap:12px;margin:14px 0 0;padding:0;list-style:none}
+.pv-pick{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;border-radius:6px;overflow:hidden;background:#050505;box-shadow:0 0 0 1px var(--hair);opacity:.62;transition:opacity .25s,box-shadow .25s}
+.pv-pick:hover,.pv-pick:focus-visible{opacity:.9}.pv-pick:focus-visible{box-shadow:0 0 0 2px var(--amber)}
+.pv-pick[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--amber)}
+.pv-pick img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.pv-pick span{display:block;padding:9px 10px 10px;font-size:12px;line-height:1.35;color:var(--ivory)}.pv-pick small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+.pv-note{margin:16px 0 0;color:var(--dim);font-size:13px;line-height:1.6;max-width:720px}
+@media(max-width:760px){.pv-screen .pv-label{left:10px;top:9px;font-size:8.5px;letter-spacing:.16em;padding:5px 8px;max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pv-picks{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.pv-pick{scroll-snap-align:start}}
 .pv-bars:before,.pv-bars:after{content:"";position:absolute;left:0;right:0;height:7%;background:#000;z-index:2;pointer-events:none}.pv-bars:before{top:0}.pv-bars:after{bottom:0}
 /* sections on paper */
 .pv-sec{width:min(var(--max),calc(100% - 48px));margin:0 auto;padding:120px 0}
@@ -174,6 +184,8 @@ body.pv{background:var(--paper)}
     <div class="pv-reel-head"><h2 id="reelTitle">The film is<span> the point.</span></h2>
       <p>Photos tell guests what a place has. A film tells them what it feels like to arrive: the door opening, the light in the living room, the view at the end of the hall.</p></div>
     <figure class="pv-screen pv-bars" id="reel"></figure>
+    <ul class="pv-picks" id="picks" role="list" aria-label="Example films"></ul>
+    <p class="pv-note" id="reelNote" hidden>Example films. These properties are made up to show what we can do; a film of yours is made from your own photographs, and shows only what’s really there.</p>
   </div>
 </section>
 </div>
@@ -256,10 +268,38 @@ const RM = matchMedia('(prefers-reduced-motion: reduce)').matches, TOUCH = match
 /* ============ THE FILM ============ */
 // when the first example film exists: its file, a still for before it plays, and a line under it. Until then the screen
 // says so, and nothing pretends to play.
-const REEL = { src: '', poster: '', caption: '' };
+// the example films: made-up properties, said so on the screen and under it
+const FILMS = [
+  { id: 'villa', title: 'Clifftop villa', kind: 'Built from the ground up' },
+  { id: 'cabin', title: 'Mountain cabin', kind: 'Built from the ground up' },
+  { id: 'modern', title: 'Modern home', kind: 'Walk-through' },
+  { id: 'beach', title: 'Beach house', kind: 'Walk-through' },
+  { id: 'family', title: 'Family home', kind: 'Walk-through' },
+  { id: 'farmhouse', title: 'Country farmhouse', kind: 'Built from the ground up' },
+  { id: 'townhouse', title: 'Townhouse', kind: 'Built from the ground up' },
+  { id: 'penthouse', title: 'Penthouse terrace', kind: 'Staged from empty' },
+  { id: 'loft', title: 'City loft', kind: 'Staged from empty' },
+  { id: 'studio', title: 'City studio', kind: 'Staged from empty' },
+];
 (function reel() {
   const box = $('#reel');
-  if (REEL.src) { box.classList.remove('pv-bars'); box.innerHTML = `<video src="${esc(REEL.src)}"${REEL.poster ? ` poster="${esc(REEL.poster)}"` : ''} controls playsinline preload="none"></video>${REEL.caption ? `<figcaption class="sr">${esc(REEL.caption)}</figcaption>` : ''}`; return; }
+  if (FILMS.length) {
+    box.classList.remove('pv-bars'); box.classList.add('pv-film');
+    const picks = $('#picks'); $('#reelNote').hidden = false;
+    let vid = null, onScreen = false;
+    const show = (f) => {
+      box.innerHTML = `<span class="pv-label">EXAMPLE FILM · ${esc(f.kind.toUpperCase())}</span><video src="/property-films/${f.id}.mp4" poster="/property-films/${f.id}.jpg" muted loop playsinline preload="metadata" aria-label="${esc(f.title)}, example property film"></video>`;
+      vid = box.querySelector('video'); if (onScreen) { const p = vid.play(); if (p && p.catch) p.catch(() => {}); }
+      picks.querySelectorAll('.pv-pick').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === f.id ? 'true' : 'false'));
+    };
+    picks.innerHTML = FILMS.map((f) => `<li><button type="button" class="pv-pick" data-id="${f.id}" aria-pressed="false"><img src="/property-films/${f.id}.jpg" alt="" loading="lazy"><span>${esc(f.title)}<small>${esc(f.kind)}</small></span></button></li>`).join('');
+    picks.addEventListener('click', (e) => { const b = e.target.closest('.pv-pick'); if (b) show(FILMS.find((f) => f.id === b.dataset.id)); });
+    // (plays only while on screen, so it costs nothing until someone gets there)
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { onScreen = es[0].isIntersecting; if (!vid) return; if (onScreen) { const p = vid.play(); if (p && p.catch) p.catch(() => {}); } else vid.pause(); }, { threshold: .25 }).observe(box);
+    else onScreen = true;
+    show(FILMS[0]);
+    return;
+  }
   box.innerHTML = '<div class="pv-empty"><div><small>EXAMPLE FILM · IN PRODUCTION</small><strong>Our first film is being made.</strong><p>It will play here. Want yours to be one of the first? Send us your property below.</p></div></div>';
 })();
 
