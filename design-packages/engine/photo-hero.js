@@ -141,8 +141,15 @@ if(VID){VID.muted=true;VID.playsInline=true;var vReady=function(){if(AUTO){VID.l
 var FRC=box.querySelector('canvas.srph-frames'),FN=0,FI=[],FCX=null,fcur=-1,FS=1;
 function fdraw(p){if(!FRC)return;var want=Math.round(cl(p)*(FN-1)),k=-1;for(var d=0;d<FN;d++){if(want-d>=0&&FI[want-d]&&FI[want-d].ok){k=want-d;break}if(want+d<FN&&FI[want+d]&&FI[want+d].ok){k=want+d;break}}
  if(k<0||k===fcur)return;fcur=k;var im=FI[k];if(FRC.width!==im.naturalWidth||FRC.height!==im.naturalHeight){FRC.width=im.naturalWidth;FRC.height=im.naturalHeight}FCX.drawImage(im,0,0);FRC.style.background='none'}
-if(FRC){FN=+FRC.dataset.count||0;FS=+FRC.dataset.seconds||10;FCX=FRC.getContext('2d');var fu=FRC.dataset.frames,fl=function(i){if(FI[i])return;var im=new Image();im.decoding='async';im.onload=function(){im.ok=1;if(Math.abs(i-fcur)<9||fcur<0)last=-1};im.src=fu.replace('{n}',String(i+1));FI[i]=im};
- fl(0);for(var st2=8;st2>=1;st2=st2>>1)for(var i2=0;i2<FN;i2+=st2)fl(i2);
+// Each frame held costs width x height x 4 bytes (160 full frames are ~590 MB), and Safari closes a page that holds too
+// much -- on a phone, or with several preview cards open. So a card shown small takes the 480 px set, a phone the 854 px
+// set and every other frame, and only a computer showing it large takes the full one.
+if(FRC){FN=+FRC.dataset.count||0;FS=+FRC.dataset.seconds||10;FCX=FRC.getContext('2d');var fu=FRC.dataset.frames,FSTEP=1,shown=innerWidth;
+ try{if(window.frameElement)shown=window.frameElement.getBoundingClientRect().width}catch(e){}
+ var lite=window.self!==window.top&&shown<900?'t':matchMedia('(pointer:coarse)').matches?'s':'';if(lite==='s')FSTEP=2;
+ if(lite&&fu.indexOf('/f/{n}')>=0)fu=fu.replace('/f/{n}','/'+lite+'/{n}');else FSTEP=lite==='s'?2:1;
+ var fl=function(i){if(FI[i])return;var im=new Image();im.decoding='async';im.onload=function(){im.ok=1;if(Math.abs(i-fcur)<9||fcur<0)last=-1};im.src=fu.replace('{n}',String(i+1));FI[i]=im};
+ fl(0);for(var st2=8*FSTEP;st2>=FSTEP;st2=st2>>1)for(var i2=0;i2<FN;i2+=st2)fl(i2);
  if(AUTO)addEventListener('scroll',function(){if(AUTO&&scrollY>=1){AUTO=false;last=-1}},{passive:true});}
 var last=-1;S.slice().forEach(glShot);(function tick(){if(FRC&&AUTO){fcur=-1;fdraw((performance.now()/1000/FS)%1)}sm+=(scrollY-sm)*(RM?1:.14);if(Math.abs(scrollY-sm)<.5)sm=scrollY;if(vis){var p=prog();if(Math.abs(p-last)>1e-5){scene(p);last=p}}requestAnimationFrame(tick)})();
 })();`;

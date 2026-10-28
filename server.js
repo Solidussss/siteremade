@@ -161,7 +161,7 @@ const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/d
   // the designs' demo photos: the owner's page that finds them, and the photos themselves
   /^\/demo-photos\/?$/, /^\/api\/demo-photos(?:\/find|\/show|\/[a-z]+\/(?:clear|upload))?$/, /^\/designs\/demo-photo\/[a-z]+\/(?:before|second|third|main)\.jpg$/,
   // the video heroes: the owner's private preview, the finished take, and the frames fal fetches while making one
-  /^\/video-preview\/[a-z]+$/, /^\/api\/demo-videos\/[a-z]+(?:\/make)?$/, /^\/designs\/demo-video\/[a-z]+\/(?:hero\.mp4|poster\.jpg|f\/\d{1,4}\.jpg)$/, /^\/designs\/video-frame\/[A-Za-z0-9_-]+\/frame-\d+\.jpg$/];
+  /^\/video-preview\/[a-z]+$/, /^\/api\/demo-videos\/[a-z]+(?:\/make)?$/, /^\/designs\/demo-video\/[a-z]+\/(?:hero\.mp4|poster\.jpg|[fst]\/\d{1,4}\.jpg)$/, /^\/designs\/video-frame\/[A-Za-z0-9_-]+\/frame-\d+\.jpg$/];
 app.use((req, res, next) => {
   if (STUDIO_OPEN.some((re) => re.test(req.path))) return next();
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
@@ -6491,10 +6491,14 @@ app.get('/designs/video-frame/:token/:file', (req, res) => {
   if (!dir || !/^frame-\d+\.jpg$/.test(f) || !fs.existsSync(path.join(dir, f))) return res.status(404).end();
   res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(dir, f));
 });
-app.get('/designs/demo-video/:design/f/:n.jpg', (req, res) => {
+// (f is the full take; s, a phone's, is 854 px wide and t, a preview card's, 480 -- each frame held in memory costs its
+// width x height x 4, and Safari on a phone closes the page past a few hundred MB. A take without them gets f.)
+app.get('/designs/demo-video/:design/:size(f|s|t)/:n.jpg', (req, res) => {
   const st = siteVideo(String(req.params.design)), n = String(req.params.n);
-  if (!st || !/^\d{1,4}$/.test(n) || !fs.existsSync(path.join(st.dir, 'f', n + '.jpg'))) return res.status(404).end();
-  res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.sendFile(path.join(st.dir, 'f', n + '.jpg'));
+  if (!st || !/^\d{1,4}$/.test(n)) return res.status(404).end();
+  const file = [String(req.params.size), 'f'].map((d) => path.join(st.dir, d, n + '.jpg')).find((f) => fs.existsSync(f));
+  if (!file) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.sendFile(file);
 });
 app.get('/designs/demo-video/:design/:file', (req, res) => {
   const st = siteVideo(String(req.params.design)), f = String(req.params.file);
