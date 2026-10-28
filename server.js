@@ -152,7 +152,7 @@ app.set('trust proxy', 1);
 // Creative and its paid media, payments and credits, saved projects, export and deployment, the customer-app bridge) is
 // closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
 const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/designs\/poster\/[a-z]+\.jpg$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
-  /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css)$/,
+  /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css|og-image\.jpg|robots\.txt|sitemap\.xml)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
   /^\/property-videos\/?$/, /^\/property-films\/(?:villa|cabin|modern|beach|family|farmhouse|townhouse|penthouse|loft|studio)\.(?:mp4|jpg)$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
@@ -167,6 +167,22 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) return res.status(410).json({ ok: false, message: 'This part of SiteRemade has been retired.' });
   return res.redirect(302, '/');
 });
+// SEARCH ENGINES: what they may read (the public pages and customers' published sites at /s/, not the owner's pages or
+// the API), and the list of SiteRemade's own pages. The pages carry their own titles, descriptions and share cards
+// (og-image.jpg, 1200x630).
+const SITE_URL = 'https://www.siteremade.com';
+const SITE_PAGES = [['/', 'weekly', '1.0'], ['/property-videos', 'monthly', '0.8'], ['/privacy', 'yearly', '0.2'], ['/terms', 'yearly', '0.2']];
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(['User-agent: *', 'Allow: /', 'Disallow: /api/', 'Disallow: /requests', 'Disallow: /demo-photos', 'Disallow: /video-preview/', 'Disallow: /pay/',
+    // (the designs' demos are made-up businesses: never in search results as if they were real)
+    'Disallow: /designs/demo/', 'Disallow: /designs/demo-video/', 'Disallow: /designs/demo-photo/', '', `Sitemap: ${SITE_URL}/sitemap.xml`, ''].join('\n'));
+});
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml').setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${SITE_PAGES.map(([p, f, pr]) => `  <url><loc>${SITE_URL}${p}</loc><changefreq>${f}</changefreq><priority>${pr}</priority></url>`).join('\n')}\n</urlset>\n`);
+});
+app.get('/og-image.jpg', (req, res) => { res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(path.join(__dirname, 'og-image.jpg')); });
 // the studio is the site: the landing page and /designs are the same page
 app.get(['/', '/index.html'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'app.html')); });
 const PORT = process.env.PORT || 8080;
