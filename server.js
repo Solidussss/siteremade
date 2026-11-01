@@ -154,6 +154,8 @@ app.set('trust proxy', 1);
 const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/designs\/poster\/[a-z]+\.jpg$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css|og-image\.jpg|robots\.txt|sitemap\.xml)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
+  // customer AI and the credits that pay for it (lib/ai-jobs.js; the existing credit packs and balance)
+  /^\/api\/ai\//, /^\/ai-media\//, /^\/ai-studio\.js$/, /^\/api\/credits(?:\/checkout|\/history|\/purchases\/[A-Za-z0-9_-]+)?$/, /^\/api\/billing\/catalog$/,
   // the second service: its page and its enquiries (SITEREMADE'S SERVICES below)
   /^\/property-videos\/?$/, /^\/property-films\/(?:villa|cabin|modern|beach|family|farmhouse|townhouse|penthouse|loft|studio)\.(?:mp4|jpg)$/, /^\/api\/enquiries(?:\/[a-z-]+)?$/,
   // websites, done for you: the owner's requests page, the customer's pay link, and Stripe's word that they paid
@@ -6244,6 +6246,153 @@ app.get('/api/enquiries', requireAuth, (req, res) => {
 // WEBSITES, DONE FOR YOU (lib/website-requests.js): the owner's requests page, the preview the customer gets, and the
 // customer's private pay link. Nothing here runs AI; the owner builds the site.
 const websiteRequests = require('./lib/website-requests');
+// ---- CUSTOMER AI: every paid AI action in the studio (lib/ai-jobs.js on the credit ledger, priced by lib/ai-prices.js) ----
+// quote -> confirm -> one job per confirmed click (idempotency key) -> parts made in order, each charged when it
+// delivers and refunded when it doesn't. Customers are refused until SITEREMADE_CUSTOMER_AI=on and
+// SITEREMADE_AI_PRICES_VERIFIED=on; the owner can run them (no credits) inside the same budgets. Each action's paid work
+// is a "maker" below (tests swap them for scripted ones through designDeps.aiMakers -- never a paid API).
+const aiJobs = require('./lib/ai-jobs');
+const aiPrices = require('./lib/ai-prices');
+const AI_DIR = path.join(process.env.SITEREMADE_DB_PATH && process.env.SITEREMADE_DB_PATH !== ':memory:' ? path.dirname(process.env.SITEREMADE_DB_PATH) : require('os').tmpdir(), 'ai-media');
+const aiMakers = {};      // kind -> async (part, job, ctx) => { result, usd }   (filled in by each feature below)
+const aiAvailable = {};   // kind -> () => '' (ready) or why it isn't set up on this server
+const aiMakerFor = (kind) => (designDeps.aiMakers && designDeps.aiMakers[kind]) || aiMakers[kind] || null;
+function aiUnavailable(kind) {
+  if (designDeps.aiMakers && designDeps.aiMakers[kind]) return '';
+  if (!aiMakers[kind]) return 'This isn’t available yet.';
+  return aiAvailable[kind] ? aiAvailable[kind]() : '';
+}
+const aiOwner = (req) => isDesignOwner(req.accountId, req.accountEmail);
+// the request's parameters, checked and reduced to what the action uses (prices come from these, on the server)
+function aiParams(kind, b, accountId) {
+  const p = {}, str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+  if (b.siteId != null) { const row = /^ds_[A-Za-z0-9_-]{8,40}$/.test(String(b.siteId)) && db.designSites ? db.designSites.find(String(b.siteId)) : null; if (!row || row.account_id !== accountId) return { error: 'Site not found.' }; p.siteId = row.id; }
+  const upload = (t) => { const v = String(t || ''); return /^[A-Za-z0-9_-]{24,40}$/.test(v) && aiUploadOwner(v) === accountId ? v : null; };
+  if (kind === 'assist_update') { p.request = str(b.request, 600); if (!p.siteId || !p.request) return { error: 'Write what you want changed.' }; }
+  else if (kind === 'own_plan') { if (!p.siteId) return { error: 'Site not found.' }; p.answers = {}; for (const k of ['feel', 'audience', 'colours', 'story', 'start', 'end', 'motion']) p.answers[k] = str((b.answers || {})[k], 400); if (!Object.values(p.answers).some(Boolean)) return { error: 'Answer at least one question.' }; }
+  else if (kind === 'image') { const prompts = (Array.isArray(b.prompts) ? b.prompts : [b.prompt]).map((x) => str(x, 900)).filter(Boolean).slice(0, 2); if (!prompts.length) return { error: 'Describe the image.' }; p.prompts = prompts; p.count = prompts.length; p.aspect = ['16:9', '9:16', '1:1', '4:5'].includes(b.aspect) ? b.aspect : '16:9'; }
+  else if (kind === 'video' || kind === 'exterior') { p.start = upload(b.start) || aiMediaRef(b.start, accountId); if (!p.start) return { error: 'Add the start image.' }; if (b.end) { p.end = upload(b.end) || aiMediaRef(b.end, accountId); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
+  else if (kind === 'showcase') { const imgs = (Array.isArray(b.images) ? b.images : []).map(upload); if (imgs.length < 2 || imgs.length > 9 || imgs.some((x) => !x)) return { error: 'Add 2 to 9 photos, in order.' }; p.images = imgs.length; p.photos = imgs; p.prompt = str(b.prompt, 600); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
+  else return { error: 'Unknown AI action.' };
+  return { params: p };
+}
+// uploads: a customer's photo for a video/showcase, kept on the volume under an unguessable token (the video provider
+// fetches it from /ai-media/<token>.jpg); a small .owner file says whose it is
+function aiUploadOwner(token) { try { return fs.readFileSync(path.join(AI_DIR, 'in', token + '.owner'), 'utf8').trim(); } catch (e) { return null; } }
+// a picture an earlier job of the same account made (e.g. a generated start image) -> its media name
+function aiMediaRef(v, accountId) {
+  const m = /^\/ai-media\/(aij_[A-Za-z0-9_-]{10,40})\/([a-z0-9-]{1,40}\.(?:png|jpg))$/.exec(String(v || '')); if (!m) return null;
+  const j = db.aiJobs.find(m[1]); return j && j.account_id === accountId && fs.existsSync(path.join(AI_DIR, m[1], m[2])) ? `${m[1]}/${m[2]}` : null;
+}
+const aiPublicUrl = (req, ref) => `${publicBase(req)}/ai-media/${/\//.test(ref) ? ref : `in/${ref}.jpg`}`;
+const aiUploadLimit = rateLimitMiddleware((req) => `ai-upload:${req.accountId}`, { max: 40, windowMs: 60 * 60 * 1000 }, 'Too many uploads. Wait a little and try again.');
+app.post('/api/ai/uploads', requireAuth, requireSameOrigin, express.json({ limit: '1200kb' }), aiUploadLimit, (req, res) => {
+  const v = String((req.body || {}).photo || ''), m = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/]+=*)$/.exec(v);
+  if (!m || !require('./design-packages/engine/engine').isPhoto(v)) return res.status(400).json({ ok: false, message: 'That file isn’t a photo we can use (JPEG, PNG or WebP, up to 900 KB).' });
+  const token = crypto.randomBytes(18).toString('base64url'); const dir = path.join(AI_DIR, 'in'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, token + '.jpg'), Buffer.from(m[1], 'base64')); fs.writeFileSync(path.join(dir, token + '.owner'), String(req.accountId));
+  res.json({ ok: true, token, url: `/ai-media/in/${token}.jpg` });
+});
+// what an AI job made (and the photos it was given): public by unguessable name, so a published site can show it and the
+// video provider can fetch its inputs
+app.get(['/ai-media/in/:file', '/ai-media/:job/:file'], (req, res) => {
+  const dir = req.params.job ? String(req.params.job) : 'in', f = String(req.params.file);
+  if (!(dir === 'in' ? /^[A-Za-z0-9_-]{24,40}\.jpg$/ : /^[a-z0-9-]{1,40}\.(?:png|jpg|mp4)$/).test(f) || (dir !== 'in' && !/^aij_[A-Za-z0-9_-]{10,40}$/.test(dir))) return res.status(404).end();
+  const file = path.join(AI_DIR, dir, f); if (!fs.existsSync(file)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.sendFile(file);
+});
+// the price list and switches the studio needs (credits only -- never provider costs)
+app.get('/api/ai/config', requireAuth, async (req, res) => {
+  await prepareCredits(req.accountId); const L = aiJobs.limits(), t = aiPrices.table(), owner = aiOwner(req);
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, owner, open: owner || (L.customerAi && L.pricesVerified), balance: creditsRemainingFor(req.accountId), prices: t.credits,
+    available: Object.fromEntries(['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase'].map((k) => [k, !aiUnavailable(k)])),
+    endFrames: !!WAN.endParam, packs: pricing.publicCatalog().packs });
+});
+app.post('/api/ai/quote', requireAuth, requireSameOrigin, express.json({ limit: '20kb' }), async (req, res) => {
+  const b = req.body || {}, kind = String(b.kind || ''); await prepareCredits(req.accountId);
+  const why = aiUnavailable(kind); if (why) return res.status(400).json({ ok: false, code: 'unavailable', message: why });
+  const q = aiJobs.quote(db, { accountId: req.accountId, owner: aiOwner(req), kind, params: quoteParams(kind, b) });
+  res.status(q.ok ? 200 : 400).json(q);
+});
+// (a quote needs only what changes the price: counts and seconds)
+function quoteParams(kind, b) { return { count: Array.isArray(b.prompts) ? b.prompts.length : 1, seconds: Number(b.seconds) === 12 ? 12 : 5, images: Array.isArray(b.images) ? b.images.length : Number(b.images) || 0 }; }
+app.post('/api/ai/jobs', requireAuth, requireSameOrigin, express.json({ limit: '30kb' }), generationRateLimit, async (req, res) => {
+  const b = req.body || {}, kind = String(b.kind || ''); await prepareCredits(req.accountId);
+  const why = aiUnavailable(kind); if (why) return res.status(400).json({ ok: false, code: 'unavailable', message: why });
+  const v = aiParams(kind, b, req.accountId); if (v.error) return res.status(400).json({ ok: false, code: 'bad_request', message: v.error });
+  const r = aiJobs.open(db, { accountId: req.accountId, owner: aiOwner(req), kind, params: v.params, idemKey: b.idemKey, siteId: v.params.siteId || null });
+  if (!r.ok) return res.status(r.code === 'balance' ? 402 : r.code === 'bad_request' ? 400 : 429).json(r);
+  if (!r.existing) aiStart(r.job.id, publicBase(req));
+  res.json({ ok: true, job: r.job, existing: !!r.existing, balance: creditsRemainingFor(req.accountId) });
+});
+app.get('/api/ai/jobs/:id', requireAuth, (req, res) => {
+  const j = db.aiJobs.find(String(req.params.id)); if (!j || j.account_id !== req.accountId) return res.status(404).json({ ok: false, message: 'Not found.' });
+  res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, job: aiJobs.view(db, j), balance: creditsRemainingFor(req.accountId) });
+});
+app.get('/api/ai/jobs', requireAuth, (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, jobs: db.aiJobs.forAccount(req.accountId, 20).map((j) => aiJobs.view(db, j)) }); });
+app.post('/api/ai/jobs/:id/retry', requireAuth, requireSameOrigin, generationRateLimit, async (req, res) => {
+  await prepareCredits(req.accountId);
+  const r = aiJobs.retry(db, { accountId: req.accountId, jobId: String(req.params.id) });
+  if (!r.ok) return res.status(r.code === 'not_found' ? 404 : r.code === 'balance' ? 402 : r.code === 'bad_request' ? 400 : 429).json(r);
+  aiStart(r.job.id, publicBase(req));
+  res.json({ ok: true, job: r.job, credits: r.credits, balance: creditsRemainingFor(req.accountId) });
+});
+// run a job in the background; after the parts, its kind may add a free finishing step (e.g. joining a showcase)
+const aiFinishers = {};
+function aiStart(jobId, base) {
+  setImmediate(async () => {
+    const job = db.aiJobs.find(jobId); const maker = job && aiMakerFor(job.kind); if (!maker) return;
+    const ctx = { base, dir: path.join(AI_DIR, jobId), params: JSON.parse(job.params_json || '{}') }; fs.mkdirSync(ctx.dir, { recursive: true });
+    try {
+      const v = await aiJobs.run(db, jobId, (part, j) => maker(part, j, ctx));
+      if (v && ['succeeded', 'partial'].includes(v.status) && aiFinishers[v.kind]) await aiFinishers[v.kind](v, ctx).catch((e) => console.error('ai finish', jobId, e.message));
+    } catch (e) { console.error('ai job', jobId, e && e.message); }
+  });
+}
+try { const n = aiJobs.recover(db); if (n) console.log(`ai jobs: ${n} interrupted by the restart, unfinished parts refunded`); } catch (e) { console.error('ai recover', e.message); }
+
+// the video model: Wan 3.0 Prime through Higgsfield (SiteRemade's key). Its Higgsfield model id and the name of its
+// end-frame input come from the environment, because they could not be read from Higgsfield's docs here: until
+// SITEREMADE_WAN_ENDPOINT is set, video actions are not offered; until SITEREMADE_WAN_END_IMAGE_PARAM is set, every clip
+// starts from its first image only (a showcase is connected segments, not frame-to-frame interpolation).
+const WAN = {
+  endpoint: String(process.env.SITEREMADE_WAN_ENDPOINT || '').trim(),
+  endParam: String(process.env.SITEREMADE_WAN_END_IMAGE_PARAM || '').trim(),
+  resolution: String(process.env.SITEREMADE_WAN_RESOLUTION || '1080p').trim(),
+  extra: (() => { try { return JSON.parse(process.env.SITEREMADE_WAN_EXTRA_PARAMS || '{}'); } catch (e) { return {}; } })(),
+};
+// the real providers behind each action (lib/ai-makers.js): keys only through lib/paid-providers.js, so a development
+// machine or a test gets none and every action reports itself unavailable
+{
+  const hk = paidProviders.key('higgsfield'), ok = paidProviders.key('openai');
+  const m = require('./lib/ai-makers').create({
+    db, designSites, writer: () => designDeps.writer(), hasClaude: !!ANTHROPIC_API_KEY,
+    claudeJson: async ({ system, user, tool }) => {
+      const r = await anthropicSmallCall({ model: ANTHROPIC_MODEL, system, user, tool, maxTokens: 1200, taskType: 'AI_OWN_PROMPTS', timeoutMs: 60000 });
+      return { json: r.input || null, usd: providerBudget.anthropicUsd(ANTHROPIC_MODEL, { input_tokens: r.usage.inputTokens, output_tokens: r.usage.outputTokens }) };
+    },
+    openaiKey: ok || null, higgsfield: hk ? createHiggsfield({ key: hk, timeoutMs: 60000 }) : null, wan: WAN, ffmpegBin: require('./lib/video-hero').ffmpegPath(),
+    log: (msg) => console.log('ai:', msg),
+  });
+  Object.assign(aiMakers, m.makers); Object.assign(aiAvailable, m.available);
+  aiFinishers.showcase = (job, ctx) => m.joinShowcase(job, ctx);
+}
+// "Make It Your Own": a finished AI video becomes the site's hero (photos.video, its first frame as photos.main) -- free,
+// a normal edit with undo. Only a video this account made, on a design whose hero takes one.
+app.post('/api/designs/sites/:id/hero-video', requireAuth, requireSameOrigin, requireDesignOwner, express.json({ limit: '2kb' }), (req, res) => {
+  const row = ownDesignSite(req, res); if (!row) return;
+  const job = db.aiJobs.find(String((req.body || {}).jobId || ''));
+  if (!job || job.account_id !== req.accountId || !['video', 'exterior'].includes(job.kind) || job.status !== 'succeeded') return res.status(404).json({ ok: false, message: 'That video isn’t ready.' });
+  if (!fs.existsSync(path.join(AI_DIR, job.id, 'video.mp4'))) return res.status(404).json({ ok: false, message: 'That video isn’t ready.' });
+  const changes = [{ path: 'photos.video', value: `/ai-media/${job.id}/video.mp4` }];
+  if (fs.existsSync(path.join(AI_DIR, job.id, 'video.jpg'))) changes.push({ path: 'photos.main', value: `${publicBase(req).replace(/^http:/, 'https:')}/ai-media/${job.id}/video.jpg` });
+  const r = designSites.edit(db, row, { changes, via: 'director' }, 'account:' + req.accountId);
+  if (r.error) return res.status(400).json({ ok: false, message: /not something this design/.test(String((r.errors || [])[0] || r.error)) ? 'This design’s hero doesn’t take a video.' : r.error, errors: r.errors });
+  res.json({ ok: true, site: designSites.view(r.row) });
+});
+// the studio's paid-AI screens (credits, Buy Credits, confirmations, the three features)
+app.get('/ai-studio.js', (req, res) => { res.setHeader('Cache-Control', 'no-cache'); res.type('application/javascript').sendFile(path.join(__dirname, 'design-packages', 'ai-studio.js')); });
 const ownerOnly = (req, res, next) => (db.serviceEnquiries && isDesignOwner(req.accountId, req.accountEmail) ? next() : res.status(404).json({ ok: false, message: 'Not found.' }));
 const websitePriceText = () => `${formatWebsitePriceDisplay('business')} ${String(websitePriceFor('business').currency || 'cad').toUpperCase()}`;
 app.get(['/requests', '/requests/'], (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'design-packages', 'requests.html')); });

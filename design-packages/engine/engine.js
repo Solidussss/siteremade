@@ -41,6 +41,9 @@ function loadDesign(dir) {
   };
   // a design that takes the business's photos in its hero (engine/photo-hero.js) offers the photo fields
   if (manifest.photoHero) d.schema.optional = Object.assign({}, photoHero.FIELDS, d.schema.optional || {});
+  // (a design with its own photo slots but a "videoHero" place takes just the video and its poster frame, both hidden:
+  // its editor is unchanged; "Make It Your Own" sets them)
+  else if (manifest.videoHero) d.schema.optional = Object.assign({ 'photos.video': photoHero.FIELDS['photos.video'], 'photos.main': Object.assign({}, photoHero.FIELDS['photos.main'], { hidden: true }) }, d.schema.optional || {});
   return d;
 }
 

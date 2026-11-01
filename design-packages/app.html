@@ -195,11 +195,12 @@
   <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
   <div class="nav-mid">
     <nav class="svc-switch" aria-label="SiteRemade services"><a href="/" aria-current="page">Websites</a><a href="/property-videos">Property Videos</a></nav>
-    <nav class="nav-links" aria-label="Websites"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a></nav>
+    <nav class="nav-links" aria-label="Websites"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a><a href="/?tool=property-video">Property video</a></nav>
   </div>
   <div class="nav-actions"><button type="button" class="button button-small button-secondary client-login" id="acct">Sign in</button></div>
 </header>
 <main class="studio" id="app"></main>
+<script src="/ai-studio.js"></script>
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -209,6 +210,7 @@ const TOUCH = matchMedia('(pointer:coarse)').matches;
 const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, ...j }; };
 const DESIGN = { beadline: { name: 'Beadline', kind: 'Car detailing studio', url: 'beadline.detail' }, halcyra: { name: 'Halcyra', kind: 'Perfume house', url: 'halcyra.parfums' }, steadyhand: { name: 'Steady Hand', kind: 'Barber shop', url: 'steadyhand.barbers' }, nube: { name: 'Nube', kind: 'Coffee shop', url: 'nube.coffee' }, ventricle: { name: 'Ventricle', kind: 'Gym', url: 'ventricle.club' }, forno: { name: 'Forno Sfacciato', kind: 'Pizzeria', url: 'forno.pizza' }, saltglass: { name: 'Saltglass', kind: 'Dental clinic', url: 'saltglass.dental' }, kova: { name: 'KOVA', kind: 'Sneaker launch', url: 'kova.run' }, clutch: { name: 'Clutch', kind: 'Toy brick set', url: 'clutch.toys' }, ondo: { name: 'ONDO', kind: 'Headphones launch', url: 'ondo.audio' }, aldane: { name: 'Aldane', kind: 'Watch launch', url: 'aldane.watch' }, lintel: { name: 'Lintel & Key', kind: 'Property listing', url: 'lintelandkey.homes' }, keel: { name: 'Keel & Ridge', kind: 'Roofing contractor', url: 'keelandridge.roofing' }, plait: { name: 'Plait', kind: 'Software product', url: 'plait.app' }, ochre: { name: 'Ochre & Ash', kind: 'Hair salon', url: 'ochreandash.salon' }, larder: { name: 'Larder & Lamp', kind: 'Restaurant', url: 'larderandlamp.co.uk' }, halden: { name: 'Halden & Vale', kind: 'Law firm or accountants', url: 'haldenandvale.law' }, sereine: { name: 'Sereine', kind: 'Skincare brand', url: 'sereine.skin' }, fettle: { name: 'Fettle', kind: 'Plumber, electrician or heating', url: 'fettle.co.uk' }, brisk: { name: 'Brisk', kind: 'Cleaning company', url: 'brisk.clean' }, verge: { name: 'Verge', kind: 'Landscape gardener', url: 'verge.garden' }, camber: { name: 'Camber', kind: 'Garage or car repair', url: 'camber.garage' }, northlight: { name: 'Northlight', kind: 'Photographer', url: 'northlight.studio' }, stillwater: { name: 'Stillwater', kind: 'Yoga, pilates or fitness studio', url: 'stillwater.studio' }, axis: { name: 'Axis', kind: 'Physio, chiropractor or massage', url: 'axis.clinic' }, scruff: { name: 'Scruff & Co', kind: 'Dog groomer or vet', url: 'scruff.dog' }, proof: { name: 'Proof', kind: 'Bakery or cake maker', url: 'proof.bakery' }, petal: { name: 'Petal & Stem', kind: 'Florist', url: 'petalandstem.flowers' }, inkwell: { name: 'Ink & Iron', kind: 'Tattoo studio', url: 'inkandiron.tattoo' }, lacquer: { name: 'Lacquer Room', kind: 'Nail studio', url: 'lacquerroom.nails' }, hearth: { name: 'The Linden House', kind: 'Bed and breakfast', url: 'lindenhouse.stay' }, gather: { name: 'Harrow Barn', kind: 'Wedding venue', url: 'harrowbarn.events' }, plumb: { name: 'Brick & Beam', kind: 'Builder', url: 'brickandbeam.build' }, compass: { name: 'Northpoint', kind: 'Coach or consultant', url: 'northpoint.coach' }, drape: { name: 'Finch & Fold', kind: 'Clothing boutique', url: 'finchandfold.shop' }, primer: { name: 'Brightwell', kind: 'Tutor', url: 'brightwell.tutors' } };
 let D = null, chosen = null, poll = null;
+const aiOn = (kind) => !!(window.AI && AI.cfg && AI.cfg.open && AI.cfg.available && AI.cfg.available[kind]);
 // scale a 1440px page into whatever box it sits in
 function fitFrames() { document.querySelectorAll('.screen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 1440})`; }); document.querySelectorAll('.pscreen').forEach((s) => { const f = s.querySelector('iframe'); if (f) f.style.transform = `scale(${s.clientWidth / 390})`; }); }
 addEventListener('resize', fitFrames);
@@ -268,10 +270,12 @@ async function load() {
   else if (!r.ok) { $('#app').innerHTML = `<div class="studio-hero"><div><h1>Something went wrong.<span>Try again in a moment.</span></h1></div></div><p class="note">${esc(r.message || '')}</p>`; return; }
   else D = r;
   const acct = $('#acct'); acct.textContent = D.guest ? 'Sign in' : 'Sign out';
+  if (window.AI) { if (D.guest) { AI.cfg = null; document.getElementById('crd') && document.getElementById('crd').remove(); } else { await AI.load(); AI.afterPurchase(); } }
   acct.onclick = D.guest ? () => signIn() : async () => { await api('/api/auth/signout', {}); load(); };
   home();
   const build = new URLSearchParams(location.search).get('build');
   if (build && D.access && D.access.owner && D.designs.some((x) => x.design === build)) { history.replaceState(null, '', location.pathname); pick(build); $('#briefBox').scrollIntoView({ behavior: 'smooth' }); }
+  if (new URLSearchParams(location.search).get('tool') === 'property-video') { if (D.guest) signIn(() => AI.propertyVideo($('#app'))); else AI.propertyVideo($('#app')); return; }
   const want = new URLSearchParams(location.search).get('site');
   if (want && D.sites && D.sites.some((x) => x.id === want)) { history.replaceState(null, '', location.pathname + location.hash); open(want); }
 }
@@ -323,6 +327,7 @@ function getDesign(d) {
     <label>Business name<input name="business" autocomplete="organization" required></label>
     <label>Link to your business<input name="link" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Google Maps, Instagram or your website" required></label>
     <div class="gphotos"><span class="gl">Your photos <small>optional, up to 8: your place, your work, your team</small></span><div class="gthumbs" id="gThumbs"></div><label class="button button-secondary gadd">Add photos<input type="file" accept="image/*" multiple hidden id="gFiles"></label></div>
+    <details class="own"><summary><b>Make it your own</b> <small>optional · free: tell us how you want it</small></summary>${window.AI ? AI.ownFields() : ''}</details>
     <label>Your name<input name="name" autocomplete="name" required></label>
     <label>Email<input name="email" type="email" autocomplete="email" required></label>
     <label>Phone <small>optional</small><input name="phone" type="tel" autocomplete="tel"></label>
@@ -341,7 +346,7 @@ function getDesign(d) {
     e.preventDefault(); const f = new FormData(e.target); let link = String(f.get('link') || '').trim(); $('#gErr').textContent = '';
     if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
     const send = $('#gSend'); send.disabled = true; send.textContent = 'Sending…';
-    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { businessName: f.get('business'), design: m.name, designKey: d, link } });
+    const r = await api('/api/enquiries/website', { name: f.get('name'), email: f.get('email'), phone: f.get('phone'), company: f.get('company'), answers: { businessName: f.get('business'), design: m.name, designKey: d, link, message: window.AI ? AI.ownMessage(AI.ownAnswers(box)) : '' } });
     if (!r.ok) { send.disabled = false; send.textContent = 'Send'; $('#gErr').textContent = r.message || 'Something went wrong. Email hello@siteremade.com.'; return; }
     let sent = 0, failed = 0;
     for (const u of picked) { send.textContent = `Sending photos ${sent + failed + 1} of ${picked.length}…`; const p = await api(`/api/enquiries/photos/${r.uploadToken}`, { photo: u }); if (p.ok) sent++; else failed++; }
@@ -425,7 +430,8 @@ function show(s) {
         <div class="card publish"><span class="tag" style="color:#858995">${s.publicPath ? 'LIVE' : 'NOT PUBLISHED'}</span><h3>${s.publicPath ? 'It’s live.' : 'Publish when it looks right.'}</h3><p>${s.publicPath ? 'Anyone with the link can open it.' : 'It gets its own public link you can send to the business.'}</p>${s.publicPath ? `<div class="livelink"><a href="${s.publicPath}" target="_blank">${esc(url)}</a></div>` : ''}<button class="button ${s.publicPath ? 'off' : ''}" id="pub">${s.publicPath ? 'Unpublish' : 'Publish'}</button></div>
         <div class="card reqs" id="requests"><h3>Requests</h3><div id="reqList"><p>Loading…</p></div></div>
         <div class="card facts"><h3>Confirm with the business</h3>${s.reality ? `<p class="rk"><b>${s.reality.kind === 'concept' ? 'Concept business' : 'Real business'}</b>${s.reality.industry ? ' · ' + esc(s.reality.industry) : ''} · ${s.reality.counts.confirmed} from the brief, ${s.reality.counts.derived} worked out from it, ${s.reality.kind === 'concept' ? s.reality.counts.illustrative + ' illustrative' : s.reality.counts.proposed + ' proposed'}${s.reality.confirmed.length ? ` · ${s.reality.confirmed.length} confirmed by you` : ''}</p>` : ''}<p style="margin-bottom:12px">${s.confirm.length ? `${s.confirm.length} things on the site weren’t in the brief. Check them before you send the link.` : ''}</p>${facts}</div>
-        <button class="button" id="edit">Edit the website</button>
+        <button class="button" id="edit">Update this website</button>
+        ${aiOn('own_plan') ? '<button class="button button-secondary" id="own">Make it your own</button>' : ''}
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/preview" target="_blank">Open the full page</a>
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/download">Download the site</a>
       </aside>
@@ -437,6 +443,7 @@ function show(s) {
   $('#back').onclick = load;
   if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
   if ($('#edit')) $('#edit').onclick = () => showEditor(s);
+  if ($('#own')) $('#own').onclick = () => AI.makeItYourOwn(s, (site) => show(site));
   if ($('#pub')) $('#pub').onclick = async () => {
     const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) return show(r.site);
     const card = $('.card.publish'); if (!card) return;
@@ -481,7 +488,7 @@ async function showEditor(s) {
     let ctl;
     // a week of opening hours: each day closed or open-close
     // a photo: uploaded from the phone or computer, shrunk to a JPEG here before it's sent; empty = the design's drawing
-    if (f.kind === 'photo') ctl = `<div class="eph" data-photo="${esc(f.path)}"><div class="ephimg">${f.value ? `<img src="${esc(f.value)}" alt="">` : '<span>No photo yet: the design’s drawing shows here</span>'}</div><div class="ebar" style="margin:8px 0 0"><label class="button button-secondary">${f.value ? 'Change photo' : 'Upload photo'}<input type="file" accept="image/*" hidden${dis}></label>${f.value ? `<button type="button" class="button button-secondary" data-phrm>Remove</button>` : ''}</div></div>`;
+    if (f.kind === 'photo') ctl = `<div class="eph" data-photo="${esc(f.path)}"><div class="ephimg">${f.value ? `<img src="${esc(f.value)}" alt="">` : '<span>No photo yet: the design’s drawing shows here</span>'}</div><div class="ebar" style="margin:8px 0 0"><label class="button button-secondary">${f.value ? 'Change photo' : 'Upload photo'}<input type="file" accept="image/*" hidden${dis}></label>${f.value ? `<button type="button" class="button button-secondary" data-phrm>Remove</button>` : ''}${aiOn('image') ? '<button type="button" class="button button-secondary" data-phai>Make with AI</button>' : ''}</div></div>`;
     else if (f.kind === 'week') ctl = `<div class="wk" data-week="${esc(f.path)}">${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((dd) => { const w = f.value && f.value[dd]; return `<div data-day="${dd}"><b>${dd[0].toUpperCase() + dd.slice(1)}</b><label><input type="checkbox" data-open${w ? ' checked' : ''}> Open</label><input type="time" data-t="open" value="${w ? esc(w.open) : '09:00'}"${w ? '' : ' disabled'}><input type="time" data-t="close" value="${w ? esc(w.close) : '17:00'}"${w ? '' : ' disabled'}></div>`; }).join('')}</div>`;
     else if (f.kind === 'toggle') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}><option value="true"${f.value ? ' selected' : ''}>On</option><option value="false"${f.value ? '' : ' selected'}>Off</option></select>`;
     else if (f.kind === 'choice') ctl = `<select id="${id}" data-p="${esc(f.path)}"${dis}>${f.optional ? `<option value=""${f.value == null ? ' selected' : ''}>The design’s own</option>` : ''}${f.options.map((o) => `<option${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
@@ -522,6 +529,11 @@ async function showEditor(s) {
       try { const url = await shrink(file); pic.innerHTML = `<img src="${url}" alt="">`; pending.set(path, url); save.disabled = false; }
       catch (err) { pic.innerHTML = `<span class="err">${esc(err.message)}</span>`; }
     });
+    const ai = box.querySelector('[data-phai]'); if (ai) ai.onclick = async () => {
+      const file = await AI.generatePhoto(s, (box.closest('.ef') && box.closest('.ef').querySelector('label,b') || {}).textContent); if (!file) return;
+      pic.innerHTML = '<span>Preparing the photo…</span>';
+      try { const url = await shrink(file); pic.innerHTML = `<img src="${url}" alt="">`; pending.set(path, url); save.disabled = false; } catch (err) { pic.innerHTML = `<span class="err">${esc(err.message)}</span>`; }
+    };
     const rm = box.querySelector('[data-phrm]'); if (rm) rm.onclick = () => { pic.innerHTML = '<span>Removed: the design’s drawing shows after you save</span>'; pending.set(path, ''); save.disabled = false; };
   });
   $('#app').querySelectorAll('[data-oc]').forEach((cb) => cb.addEventListener('change', () => { const c = $(`[data-p="${CSS.escape(cb.dataset.oc)}"]`); c.disabled = !cb.checked; pending.set(cb.dataset.oc, cb.checked ? c.value : ''); save.disabled = false; }));
@@ -543,8 +555,12 @@ async function showEditor(s) {
   $('#askq').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#askgo').click(); } });
   $('#askgo').onclick = async () => {
     const q = $('#askq').value.trim(); if (!q) { $('#askq').focus(); return; }
-    const go = $('#askgo'); go.disabled = true; $('#askplan').innerHTML = '<p class="note">Working out the change…</p>';
-    const r2 = await api(`/api/designs/sites/${s.id}/ask`, { request: q }); go.disabled = false;
+    const go = $('#askgo'); let r2;
+    if (aiOn('assist_update') && !AI.cfg.owner) {
+      const job = await AI.confirm({ kind: 'assist_update', body: { siteId: s.id, request: q }, title: 'Update with AI', what: 'Claude works out the change from your words. You see it before anything is saved.' });
+      const part = job && job.parts[0]; if (!part || part.status !== 'done') return;
+      r2 = { ok: true, plan: part.result.plan };
+    } else { go.disabled = true; $('#askplan').innerHTML = '<p class="note">Working out the change…</p>'; r2 = await api(`/api/designs/sites/${s.id}/ask`, { request: q }); go.disabled = false; }
     if (r2.sent) { $('#askq').value = ''; $('#askplan').innerHTML = `<p class="note">${esc(r2.message)}</p>`; return; }
     if (!r2.ok || !r2.plan) { $('#askplan').innerHTML = `<p class="err">${esc(r2.message || 'Something went wrong.')}</p>`; return; }
     const pl = r2.plan, can = pl.diff.length > 0;
