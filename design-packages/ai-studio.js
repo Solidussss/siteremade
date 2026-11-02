@@ -219,6 +219,28 @@
     return { get: () => ({ seconds: st.seconds, quality: st.quality }), redraw: draw, credits };
   };
 
+  // two picture slots (start, end) that upload as they're picked -> { get: () => ({ start, end }) }
+  AI.picSlots = (host, { start = 'Start picture', end = 'End picture', startHint = 'Where it starts', endHint = 'Where it ends (optional)' } = {}) => {
+    const got = { start: null, end: null };
+    const slot = (k, label, hint) => `<div class="hslot" data-slot="${k}" style="border:1px dashed #c9cdd6;border-radius:14px;padding:10px;text-align:center"><div class="hpic" style="aspect-ratio:16/9;border-radius:10px;background:#f3f4f6;display:grid;place-items:center;overflow:hidden;color:#858995;font-size:13px;padding:6px">${esc(hint)}</div><label class="button button-secondary" style="margin-top:8px">${esc(label)}<input type="file" accept="image/*" hidden></label></div>`;
+    host.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${slot('start', start, startHint)}${slot('end', end, endHint)}</div>`;
+    host.querySelectorAll('[data-slot]').forEach((box) => box.querySelector('input').addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return; const pic = box.querySelector('.hpic'); pic.textContent = 'Uploading…';
+      try { const url = await shrinkPhoto(f); const u = await api('/api/ai/uploads', { photo: url }); if (!u.ok) throw new Error(u.message || 'Upload failed.'); got[box.dataset.slot] = u.token; pic.style.padding = '0'; pic.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover">`; }
+      catch (x) { pic.textContent = x.message; }
+    }));
+    return { get: () => Object.assign({}, got) };
+  };
+  // what a finished Build-your-hero job made, with one button onward
+  AI.heroDone = (job, onSee) => {
+    const a = resultOf(job, 1), v = resultOf(job, 2);
+    const done = modal(`<h2>${v ? 'Your hero is ready' : 'Partly done'}</h2>
+      ${a ? `<p class="sub">${esc(a.look || '')} Claude changed ${a.applied} thing${a.applied === 1 ? '' : 's'} on your website to match${a.summary ? `: ${esc(a.summary)}` : '.'}</p>` : ''}
+      ${v ? `<video src="${esc(v.url)}" poster="${esc(v.poster || '')}" controls playsinline muted loop autoplay style="width:100%;border-radius:12px"></video><p class="sub">${v.onSite ? 'It’s on your website now.' : 'This design’s hero doesn’t take a video, so download it instead.'}</p>` : ''}
+      <div class="aibar">${v ? `<a class="button button-secondary" href="${esc(v.url)}" download>Download the video</a>` : ''}<button class="button" id="hbdone">See my website</button></div>`);
+    done.querySelector('#hbdone').onclick = () => { done.remove(); if (onSee) onSee(); };
+  };
+
   // ================================================================== BUILD YOUR HERO (the simple way)
   // your own start image (and end image) -> one price -> Claude matches the rest of the website to them, Wan makes the
   // hero from exactly those images, and it goes onto the site
@@ -247,12 +269,7 @@
       m.remove();
       const job = await AI.confirm({ kind: 'hero_build', body, title: 'Build your hero', what: 'Claude matches your website to your pictures, then the video is made from them. Both go onto your site; you can undo the website changes in the editor.' });
       if (!job) return;
-      const a = resultOf(job, 1), v = resultOf(job, 2);
-      const done = modal(`<h2>${v ? 'Your hero is ready' : 'Partly done'}</h2>
-        ${a ? `<p class="sub">${esc(a.look || '')} Claude changed ${a.applied} thing${a.applied === 1 ? '' : 's'} on your website to match${a.summary ? `: ${esc(a.summary)}` : '.'}</p>` : ''}
-        ${v ? `<video src="${esc(v.url)}" poster="${esc(v.poster || '')}" controls playsinline muted loop autoplay style="width:100%;border-radius:12px"></video><p class="sub">${v.onSite ? 'It’s on your website now.' : 'This design’s hero doesn’t take a video, so download it instead.'}</p>` : ''}
-        <div class="aibar">${v ? `<a class="button button-secondary" href="${esc(v.url)}" download>Download the video</a>` : ''}<button class="button" id="hbdone">See my website</button></div>`);
-      done.querySelector('#hbdone').onclick = async () => { done.remove(); const r = await api('/api/designs/sites/' + s.id); if (r.ok && reopen) reopen(r.site); };
+      AI.heroDone(job, async () => { const r = await api('/api/designs/sites/' + s.id); if (r.ok && reopen) reopen(r.site); });
     };
   };
 
@@ -275,7 +292,8 @@
     // image-to-video) and WALKTHROUGH TOUR (2-9 photos as references for one continuous tour, Wan reference-to-video)
     const pics = { start: null, end: null }; const photos = [];
     const on = (k) => !!(AI.cfg && AI.cfg.available && AI.cfg.available[k]);
-    let mode = on('exterior') || !on('walkthrough') ? 'exterior' : 'walkthrough';
+    const want = new URLSearchParams(location.search).get('mode');   // (the Property Videos page links straight to a mode)
+    let mode = want === 'walkthrough' && on('walkthrough') ? 'walkthrough' : on('exterior') || !on('walkthrough') ? 'exterior' : 'walkthrough';
     const slot = (k, label, hint) => `<div class="hslot" data-slot="${k}" style="border:1px dashed #c9cdd6;border-radius:14px;padding:10px;text-align:center"><div class="hpic" style="aspect-ratio:16/9;border-radius:10px;background:#f3f4f6;display:grid;place-items:center;overflow:hidden;color:#858995;font-size:13px">${esc(hint)}</div><label class="button button-secondary" style="margin-top:8px">${esc(label)}<input type="file" accept="image/*" hidden></label></div>`;
     root.innerHTML = `<section class="studio-hero"><div><p class="eyebrow">PROPERTY VIDEO</p><h1>Your property,<span>in motion.</span></h1></div><p class="lede">A before and after, from the ground up to the finished property. Or a walkthrough tour made from your photos. You see the price before anything is made, and you’re only charged for what gets made.</p></section>
       <section class="panel"><div class="aibar" style="margin:0 0 16px">${on('exterior') ? '<button class="button" data-pv="exterior">Before &amp; after</button>' : ''}${on('walkthrough') ? '<button class="button button-secondary" data-pv="walkthrough">Walkthrough tour</button>' : ''}</div>

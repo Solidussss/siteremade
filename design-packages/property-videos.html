@@ -75,7 +75,10 @@ body.pv{background:var(--paper)}
 .pv-pick[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--amber)}
 .pv-pick img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
 .pv-pick span{display:block;padding:9px 10px 10px;font-size:12px;line-height:1.35;color:var(--ivory)}.pv-pick small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
-[data-self][hidden]{display:none!important}
+[data-self][hidden],#askBox[hidden],#makeBox[hidden]{display:none!important}
+.pv-make{display:grid;gap:16px}.pv-makecard{display:block;background:#fff;border-radius:22px;padding:28px 30px;box-shadow:0 20px 70px rgba(30,25,15,.08);color:var(--ink);text-decoration:none;transition:transform .2s ease,box-shadow .2s ease}
+.pv-makecard:hover{transform:translateY(-2px);box-shadow:0 26px 80px rgba(30,25,15,.13)}.pv-makecard b{display:block;font-size:26px;letter-spacing:-.03em;line-height:1.1}.pv-makecard span{display:block;margin-top:10px;color:#5f594f;font-size:16px;line-height:1.6}.pv-makecard i{display:inline-block;margin-top:18px;font-style:normal;font-weight:800;font-size:15px}
+.pv-ask .fine a{color:inherit;text-decoration:underline}
 .pv-self{margin:18px 0 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap;color:var(--dim);font-size:14px}.pv-self .button{background:var(--ivory);color:var(--ink)}
 .pv-note{margin:16px 0 0;color:var(--dim);font-size:13px;line-height:1.6;max-width:720px}
 @media(max-width:760px){.pv-screen .pv-label{left:10px;top:9px;font-size:9px;letter-spacing:.18em;padding:5px 8px}.pv-label i{display:none}.pv-picks{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.pv-pick{scroll-snap-align:start}}
@@ -445,7 +448,21 @@ $('#ask').addEventListener('submit', async (e) => {
 });
 </script>
 <script>
-// "Make one yourself" only once customers can actually make one (see /api/site-config)
-fetch('/api/site-config', { cache: 'no-store' }).then((r) => r.json()).then((c) => { if (c && c.propertyVideoSelf) document.querySelectorAll('[data-self]').forEach((x) => { x.hidden = false; }); }).catch(() => {});
+// Straight to the maker once it's open to whoever is looking: customers once customer AI is switched on
+// (/api/site-config), the owner signed in before that (/api/ai/config). Until then, the enquiry form as it was.
+(async () => {
+  let open = false;
+  try { const c = await (await fetch('/api/site-config', { cache: 'no-store' })).json(); open = !!(c && c.propertyVideoSelf); } catch (e) { /* stays closed */ }
+  if (!open) try { const r = await fetch('/api/ai/config', { cache: 'no-store' }); if (r.ok) { const a = await r.json(); open = !!(a && a.open && a.available && (a.available.exterior || a.available.walkthrough)); } } catch (e) { /* signed out */ }
+  if (!open) return;
+  document.querySelectorAll('[data-self]').forEach((x) => { x.hidden = false; });
+  document.querySelectorAll('a[href="#enquire"]').forEach((a) => { a.href = '/?tool=property-video'; a.textContent = /about your property/.test(a.textContent) ? 'Make your property film' : 'Make yours'; });
+  const small = document.querySelector('.pv-small'); if (small) small.innerHTML = '<b>A new service from SiteRemade.</b> Make it yourself in minutes and see the price first, or send us an enquiry and we make it for you.';
+  const copy = document.querySelector('#enquire .pv-split-copy'), box = document.getElementById('askBox');
+  copy.innerHTML = '<p class="pv-kicker">MAKE IT NOW</p><h2 id="askTitle">Make your<span> property’s film.</span></h2><p>Pick how it’s made, add your photos, choose the length and quality, and see the price before anything is made.</p><p class="fine">Rather we made it for you? <a href="#" id="showAsk">Send us an enquiry instead.</a></p>';
+  box.hidden = true;
+  box.insertAdjacentHTML('beforebegin', '<div class="pv-make" id="makeBox"><a class="pv-makecard" href="/?tool=property-video&amp;mode=exterior"><b>Before &amp; after</b><span>A start picture and an end picture: from the empty plot or the old room to the finished property, in one continuous shot.</span><i>Start →</i></a><a class="pv-makecard" href="/?tool=property-video&amp;mode=walkthrough"><b>Walkthrough tour</b><span>Up to 9 photos, in the order you’d walk through, become one continuous tour of the property.</span><i>Start →</i></a></div>');
+  document.getElementById('showAsk').onclick = (e) => { e.preventDefault(); box.hidden = false; document.getElementById('makeBox').hidden = true; box.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+})();
 </script>
 </body></html>

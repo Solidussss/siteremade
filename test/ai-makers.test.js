@@ -95,9 +95,10 @@ test('build your hero: Claude sees the customer’s own images, the website is c
   const hf = []; const parts = [];
   const deps = { db: { designSites: { find: () => row }, aiJobs: { parts: () => parts } }, designSites, writer: () => ({}), claudeJson, higgsfield: fakeHf({ calls: hf }), wan: wan({ endParam: 'end_image_url' }), wait: async () => {}, ffmpegBin: FF };
   const m = makers.create(deps);
-  const c = ctx(dir, { siteId: 'ds_h', start: S, end: E, seconds: 5, prompt: 'the door opens' });
+  const c = ctx(dir, { siteId: 'ds_h', start: S, end: E, seconds: 5, prompt: 'the door opens', about: 'a family barbershop in Calgary' });
   const one = await m.makers.hero_build({ n: 1 }, job, c);
   assert.deepEqual(calls[0].images.map((i) => Buffer.from(i.data, 'base64').toString()), ['start-jpeg', 'end-jpeg'], 'Claude is shown exactly the customer’s images');
+  assert.match(calls[0].user, /describes the business: a family barbershop in Calgary/, 'their description reaches Claude');
   assert.equal(seen[0], 'Use gold #c08a2e as the accent.'); assert.equal(edits[0].via, 'ask'); assert.equal(one.result.applied, 1); assert.equal(one.usd, 0.04);
   const two = await m.makers.hero_build({ n: 2 }, job, c);
   assert.match(hf[0].params.image_url, /SSSS/); assert.match(hf[0].params.end_image_url, /EEEE/);
