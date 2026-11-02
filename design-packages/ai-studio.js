@@ -14,7 +14,11 @@
   .aisum b{text-align:right}.aisum .tot{border-top:1px solid var(--line);padding-top:8px;font-weight:700}
   .aiparts{list-style:none;margin:10px 0;padding:0;font-size:14px}.aiparts li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #f0f1f4}
   .aiparts .st{font-weight:600}.aiparts .done{color:#118a4e}.aiparts .failed{color:#c0362c}.aiparts .running{color:var(--accent)}
-  .aibar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.aimsg{margin:10px 0 0;font-size:14px;color:#c0362c}.aiok{color:#118a4e}
+  .aibar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .vpk{border:1px solid #e3e5ea;border-radius:16px;padding:14px 16px;margin-top:12px;background:#fafafb}.vpk-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;color:#30333a}.vpk-row b{font-size:15px;color:#111}
+  .vpk input[type=range]{width:100%;margin:10px 0 4px;accent-color:#111;height:22px}.vpk-ticks{display:flex;justify-content:space-between;font-size:11px;color:#8a8e98}
+  .vpk-q{display:flex;gap:6px;margin:8px 0 2px}.vpk-q button{flex:1;padding:9px 0;border-radius:10px;border:1px solid #d6d9e0;background:#fff;font:inherit;font-size:13px;font-weight:600;color:#30333a;cursor:pointer}.vpk-q button[aria-pressed=true]{background:#111;border-color:#111;color:#fff}
+  .vpk-price{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #e9eaee;font-size:14px;color:#55596a}.vpk-price b{font-size:18px;color:#111}.aimsg{margin:10px 0 0;font-size:14px;color:#c0362c}.aiok{color:#118a4e}
   .aipacks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
   .aipack{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;text-align:left;cursor:pointer;font:inherit}
   .aipack b{display:block;font-size:20px}.aipack span{color:var(--muted);font-size:13px}.aipack:hover{border-color:var(--text)}
@@ -169,12 +173,13 @@
     const P = (AI.cfg && AI.cfg.prices) || {};
     const m = modal(`<h2>Your pictures</h2><div style="display:grid;grid-template-columns:repeat(${v.end ? 2 : 1},1fr);gap:8px">${[v.start, v.end].filter(Boolean).map((u) => `<img src="${esc(u)}" alt="" style="width:100%;border-radius:10px">`).join('')}</div>
       <p class="sub" style="margin-top:12px">${v.end ? (AI.cfg && AI.cfg.endFrames ? 'The video starts on the first picture and ends on the second.' : 'The video starts on the first picture and moves the way you described. (Ending exactly on the second picture isn’t switched on yet.)') : 'The video starts on this picture and moves the way you described.'}</p>
-      <label class="bform" style="display:block">Length <select id="ownsec"><option value="5">5 seconds · ${esc(String(P.video_5 || 9))} credits</option><option value="12">12 seconds · ${esc(String(P.video_12 || 21))} credits</option></select></label>
+      <div id="ownpick"></div>
       <div class="aibar"><button class="button" id="ownvid">Make the video</button><button class="button button-secondary" id="ownx">Not now</button></div>`);
     m.querySelector('#ownx').onclick = () => m.remove();
+    const pick = AI.videoPicker(m.querySelector('#ownpick'));
     m.querySelector('#ownvid').onclick = async () => {
-      const seconds = Number(m.querySelector('#ownsec').value); m.remove();
-      const job = await AI.confirm({ kind: 'video', body: { siteId: s.id, start: v.start, end: v.end || undefined, prompt: v.motion, seconds }, title: 'Your hero video' });
+      const vc = pick.get(); m.remove();
+      const job = await AI.confirm({ kind: 'video', body: Object.assign({ siteId: s.id, start: v.start, end: v.end || undefined, prompt: v.motion }, vc), title: 'Your hero video' });
       const r = resultOf(job); if (!r) return;
       const done = modal(`<h2>Your hero video</h2><video src="${esc(r.url)}" poster="${esc(r.poster || '')}" controls playsinline muted loop autoplay style="width:100%;border-radius:12px"></video>
         <div class="aibar"><button class="button" id="ownuse">Use it on my website · free</button><a class="button button-secondary" href="${esc(r.url)}" download>Download</a><button class="button button-secondary" id="ownx">Close</button></div><p class="aimsg" id="ownuseerr"></p>`);
@@ -184,6 +189,34 @@
         if (u.ok) { done.remove(); AI.toast('Your hero video is on the site.'); if (reopen) reopen(u.site); } else { e.target.disabled = false; done.querySelector('#ownuseerr').textContent = u.message || 'It couldn’t be added.'; }
       };
     };
+  };
+
+  // ================================================================== THE VIDEO PICKER (like Higgsfield's playground)
+  // a length slider and quality buttons; the price updates as they move. times(seconds, quality) -> how many clips
+  // (a showcase is one per pair of photos), plus = credits on top (Claude's part of Build your hero). The server quotes
+  // the job again before anything is charged; this is the same sum, shown early.
+  const VQ_LABEL = { '480p': 'Draft', '720p': 'HD', '1080p': 'Full HD' };
+  AI.videoPicker = (host, { times = () => 1, plus = 0, seconds = 5 } = {}) => {
+    const V = (AI.cfg && AI.cfg.video) || { min: 2, max: 30, quality: '1080p', qualities: [{ id: '1080p', creditsPerSecond: 1.68 }] };
+    const st = { seconds: Math.min(V.max, Math.max(V.min, seconds)), quality: V.quality };
+    host.innerHTML = `<div class="vpk"><div class="vpk-row"><span>Length</span><b data-v="sec"></b></div>
+      <input type="range" min="${V.min}" max="${V.max}" step="1" value="${st.seconds}" aria-label="Length in seconds">
+      <div class="vpk-ticks"><span>${V.min}s</span><span>${Math.round((V.min + V.max) / 2)}s</span><span>${V.max}s</span></div>
+      <div class="vpk-row" style="margin-top:12px"><span>Quality</span></div>
+      <div class="vpk-q">${V.qualities.map((q) => `<button type="button" data-q="${esc(q.id)}" aria-pressed="${q.id === st.quality}">${esc(q.id)}<br><small style="font-weight:500;opacity:.7">${esc(VQ_LABEL[q.id] || '')}</small></button>`).join('')}</div>
+      <div class="vpk-price"><span data-v="what"></span><b data-v="price"></b></div></div>`;
+    const each = () => { const q = V.qualities.find((x) => x.id === st.quality) || V.qualities[0]; return Math.ceil(+(st.seconds * q.creditsPerSecond).toFixed(6)); };
+    const credits = () => plus + each() * Math.max(0, times(st.seconds, st.quality));
+    const draw = () => {
+      host.querySelector('[data-v=sec]').textContent = `${st.seconds} seconds`;
+      const n = times(st.seconds, st.quality);
+      host.querySelector('[data-v=what]').textContent = n > 1 ? `${n} clips × ${each()} credits${plus ? ` + ${plus}` : ''}` : n < 1 ? 'Add your photos to see the price' : `${st.quality} · ${st.seconds}s${plus ? ` + Claude ${plus}` : ''}`;
+      host.querySelector('[data-v=price]').textContent = n < 1 ? '' : `${credits()} credits`;
+    };
+    host.querySelector('input[type=range]').addEventListener('input', (e) => { st.seconds = Number(e.target.value); draw(); });
+    host.querySelectorAll('[data-q]').forEach((b) => { b.onclick = () => { st.quality = b.dataset.q; host.querySelectorAll('[data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }; });
+    draw();
+    return { get: () => ({ seconds: st.seconds, quality: st.quality }), redraw: draw, credits };
   };
 
   // ================================================================== BUILD YOUR HERO (the simple way)
@@ -196,11 +229,12 @@
       <p class="sub">Add the picture your hero starts on, and the one it ends on. We make the video from exactly your pictures, and Claude updates the rest of your website to match them.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${slot('start', 'Start image', 'Where it starts')}${slot('end', 'End image', 'Where it ends (optional)')}</div>
       <form class="bform" style="grid-template-columns:1fr;margin-top:10px"><label>What happens in between? <small>optional</small><textarea id="hbmo" rows="2" maxlength="900" placeholder="e.g. the lights come on one by one and the camera glides to the front desk"></textarea></label>
-      <label>Length <select id="hbsec"><option value="5">5 seconds</option><option value="12">12 seconds</option></select></label></form>
+</form><div id="hbpick"></div>
       ${AI.cfg && AI.cfg.endFrames === false ? '<p class="sub" style="margin:6px 0 0">Your end picture helps Claude match your website. The video starts from your start picture.</p>' : ''}<p class="aimsg" id="hberr"></p>
-      <div class="aibar"><button class="button" id="hbgo">See the price</button><button class="button button-secondary" id="hbx">Close</button></div>
+      <div class="aibar"><button class="button" id="hbgo">Continue</button><button class="button button-secondary" id="hbx">Close</button></div>
       <p class="sub" style="margin-top:10px"><a href="#" id="hbq">No pictures yet? Answer a few questions instead.</a></p>`);
     m.querySelector('#hbx').onclick = () => m.remove();
+    const pick = AI.videoPicker(m.querySelector('#hbpick'), { plus: P.own_plan || 3 });
     m.querySelector('#hbq').onclick = (e) => { e.preventDefault(); m.remove(); AI.makeItYourOwn(s, reopen); };
     m.querySelectorAll('[data-slot]').forEach((box) => box.querySelector('input').addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return; const pic = box.querySelector('.hpic'); pic.textContent = 'Uploading…';
@@ -209,7 +243,7 @@
     }));
     m.querySelector('#hbgo').onclick = async () => {
       if (!pics.start) { m.querySelector('#hberr').textContent = 'Add your start image.'; return; }
-      const body = { siteId: s.id, start: pics.start, end: pics.end || undefined, prompt: m.querySelector('#hbmo').value.trim(), seconds: Number(m.querySelector('#hbsec').value) };
+      const body = { siteId: s.id, start: pics.start, end: pics.end || undefined, prompt: m.querySelector('#hbmo').value.trim(), ...pick.get() };
       m.remove();
       const job = await AI.confirm({ kind: 'hero_build', body, title: 'Build your hero', what: 'Claude matches your website to your pictures, then the video is made from them. Both go onto your site; you can undo the website changes in the editor.' });
       if (!job) return;
@@ -242,12 +276,13 @@
       <section class="panel"><div class="aibar" style="margin:0 0 16px"><button class="button" data-pv="exterior" aria-pressed="true">Exterior animation</button><button class="button button-secondary" data-pv="showcase">Property showcase</button></div>
         <p class="sub" id="pvsub"></p><div class="gthumbs" id="pvthumbs"></div>
         <label class="button button-secondary gadd" style="margin:10px 0">Add photos<input type="file" accept="image/*" multiple hidden id="pvfiles"></label>
-        <form class="bform" style="grid-template-columns:1fr 1fr"><label>Length <select id="pvsec"><option value="5">5 seconds</option><option value="12">12 seconds</option></select></label><label>Anything to add? <small>optional</small><input id="pvnote" maxlength="300" placeholder="e.g. golden hour, slow push toward the front door"></label></form>
-        <p class="aimsg" id="pverr"></p><div class="aibar"><button class="button" id="pvgo">See the price</button></div></section><section id="pvout"></section>`;
+        <form class="bform" style="grid-template-columns:1fr"><label>Anything to add? <small>optional</small><input id="pvnote" maxlength="300" placeholder="e.g. golden hour, slow push toward the front door"></label></form><div id="pvpick" style="max-width:560px"></div>
+        <p class="aimsg" id="pverr"></p><div class="aibar"><button class="button" id="pvgo">Continue</button></div></section><section id="pvout"></section>`;
     let mode = 'exterior';
-    const sub = () => { root.querySelector('#pvsub').textContent = mode === 'exterior' ? `One photo of the outside. ${P.video_5 || 9} credits for 5 seconds, ${P.video_12 || 21} for 12.` : `2 to 9 photos, in the order you want to walk through. Each pair becomes one segment (${P.video_5 || 9} credits each at 5 seconds), joined into one film.${AI.cfg && AI.cfg.endFrames ? '' : ' Each segment starts from its photo and moves toward the next room; it isn’t a frame-perfect morph.'}`; };
+    const pick = AI.videoPicker(root.querySelector('#pvpick'), { times: () => (mode === 'exterior' ? 1 : Math.max(0, photos.length - 1)) });
+    const sub = () => { root.querySelector('#pvsub').textContent = mode === 'exterior' ? 'One photo of the outside. Pick the length and quality; the price is below.' : `2 to 9 photos, in the order you want to walk through. Each pair becomes one segment of the length you pick, joined into one film.${AI.cfg && AI.cfg.endFrames ? '' : ' Each segment starts from its photo and moves toward the next room; it isn’t a frame-perfect morph.'}`; pick.redraw(); };
     const thumbs = () => { root.querySelector('#pvthumbs').innerHTML = photos.map((p, i) => `<span class="gth"><img src="${p.url}" alt=""><b style="position:absolute;left:6px;top:4px;color:#fff;text-shadow:0 1px 3px #000">${i + 1}</b><button type="button" data-rm="${i}" aria-label="Remove">×</button></span>`).join('');
-      root.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { photos.splice(Number(b.dataset.rm), 1); thumbs(); }; }); };
+      root.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { photos.splice(Number(b.dataset.rm), 1); thumbs(); }; }); pick.redraw(); };
     root.querySelectorAll('[data-pv]').forEach((b) => { b.onclick = () => { mode = b.dataset.pv; root.querySelectorAll('[data-pv]').forEach((x) => { x.className = 'button' + (x === b ? '' : ' button-secondary'); x.setAttribute('aria-pressed', String(x === b)); }); sub(); }; });
     sub();
     root.querySelector('#pvfiles').addEventListener('change', async (e) => {
@@ -258,8 +293,8 @@
       const err = root.querySelector('#pverr'); err.textContent = '';
       if (mode === 'exterior' && photos.length !== 1) { err.textContent = 'Add one exterior photo.'; return; }
       if (mode === 'showcase' && photos.length < 2) { err.textContent = 'Add at least 2 photos, in order.'; return; }
-      const seconds = Number(root.querySelector('#pvsec').value), note = root.querySelector('#pvnote').value.trim();
-      const body = mode === 'exterior' ? { start: photos[0].token, seconds, prompt: note } : { images: photos.map((p) => p.token), seconds, prompt: note };
+      const vc = pick.get(), note = root.querySelector('#pvnote').value.trim();
+      const body = Object.assign(mode === 'exterior' ? { start: photos[0].token, prompt: note } : { images: photos.map((p) => p.token), prompt: note }, vc);
       const job = await AI.confirm({ kind: mode, body, title: mode === 'exterior' ? 'Exterior animation' : `Property showcase · ${photos.length} photos` });
       if (job) AI.propertyResult(root.querySelector('#pvout'), job);
     };

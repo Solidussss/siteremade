@@ -6049,7 +6049,9 @@ app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req
   const name = String(row.business_name || 'website').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'website';
   res.setHeader('Content-Disposition', `attachment; filename="${name}.html"`); res.setHeader('Cache-Control', 'no-store');
   // a copy hosted anywhere sends its requests to this server, like the live page (they arrive while the site is published)
-  res.type('html').send(siteRequests.withSender(row.html, publicBase(req) + '/s/' + row.id + '/request'));
+  // media made on this server (the hero video and its poster) is linked by its full address, so the file works anywhere
+  const html = String(row.html).replace(/(["'(])\/ai-media\//g, `$1${publicBase(req).replace(/^http:\/\/(?!127\.0\.0\.1|localhost)/, 'https://')}/ai-media/`);
+  res.type('html').send(siteRequests.withSender(html, publicBase(req) + '/s/' + row.id + '/request'));
 });
 app.post('/api/designs/sites', requireAuth, requireSameOrigin, requireDesignOwner, requireAiOwner, generationRateLimit, (req, res) => {
   if (!req.designOwner) {
@@ -6269,11 +6271,11 @@ function aiParams(kind, b, accountId) {
   if (b.siteId != null) { const row = /^ds_[A-Za-z0-9_-]{8,40}$/.test(String(b.siteId)) && db.designSites ? db.designSites.find(String(b.siteId)) : null; if (!row || row.account_id !== accountId) return { error: 'Site not found.' }; p.siteId = row.id; }
   const upload = (t) => { const v = String(t || ''); return /^[A-Za-z0-9_-]{24,40}$/.test(v) && aiUploadOwner(v) === accountId ? v : null; };
   if (kind === 'assist_update') { p.request = str(b.request, 600); if (!p.siteId || !p.request) return { error: 'Write what you want changed.' }; }
-  else if (kind === 'hero_build') { if (!p.siteId) return { error: 'Site not found.' }; p.start = upload(b.start); if (!p.start) return { error: 'Add your start image.' }; if (b.end) { p.end = upload(b.end); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
+  else if (kind === 'hero_build') { if (!p.siteId) return { error: 'Site not found.' }; p.start = upload(b.start); if (!p.start) return { error: 'Add your start image.' }; if (b.end) { p.end = upload(b.end); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
   else if (kind === 'own_plan') { if (!p.siteId) return { error: 'Site not found.' }; p.answers = {}; for (const k of ['feel', 'audience', 'colours', 'story', 'start', 'end', 'motion']) p.answers[k] = str((b.answers || {})[k], 400); if (!Object.values(p.answers).some(Boolean)) return { error: 'Answer at least one question.' }; }
   else if (kind === 'image') { const prompts = (Array.isArray(b.prompts) ? b.prompts : [b.prompt]).map((x) => str(x, 900)).filter(Boolean).slice(0, 2); if (!prompts.length) return { error: 'Describe the image.' }; p.prompts = prompts; p.count = prompts.length; p.aspect = ['16:9', '9:16', '1:1', '4:5'].includes(b.aspect) ? b.aspect : '16:9'; }
-  else if (kind === 'video' || kind === 'exterior') { p.start = upload(b.start) || aiMediaRef(b.start, accountId); if (!p.start) return { error: 'Add the start image.' }; if (b.end) { p.end = upload(b.end) || aiMediaRef(b.end, accountId); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
-  else if (kind === 'showcase') { const imgs = (Array.isArray(b.images) ? b.images : []).map(upload); if (imgs.length < 2 || imgs.length > 9 || imgs.some((x) => !x)) return { error: 'Add 2 to 9 photos, in order.' }; p.images = imgs.length; p.photos = imgs; p.prompt = str(b.prompt, 600); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
+  else if (kind === 'video' || kind === 'exterior') { p.start = upload(b.start) || aiMediaRef(b.start, accountId); if (!p.start) return { error: 'Add the start image.' }; if (b.end) { p.end = upload(b.end) || aiMediaRef(b.end, accountId); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
+  else if (kind === 'showcase') { const imgs = (Array.isArray(b.images) ? b.images : []).map(upload); if (imgs.length < 2 || imgs.length > 9 || imgs.some((x) => !x)) return { error: 'Add 2 to 9 photos, in order.' }; p.images = imgs.length; p.photos = imgs; p.prompt = str(b.prompt, 600); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
   else return { error: 'Unknown AI action.' };
   return { params: p };
 }
@@ -6306,7 +6308,7 @@ app.get(['/ai-media/in/:file', '/ai-media/:job/:file'], (req, res) => {
 app.get('/api/ai/config', requireAuth, async (req, res) => {
   await prepareCredits(req.accountId); const L = aiJobs.limits(), t = aiPrices.table(), owner = aiOwner(req);
   res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, owner, open: owner || (L.customerAi && L.pricesVerified), balance: creditsRemainingFor(req.accountId), prices: t.credits,
+  res.json({ ok: true, owner, open: owner || (L.customerAi && L.pricesVerified), balance: creditsRemainingFor(req.accountId), prices: t.credits, video: aiPrices.videoMenu(),
     available: Object.fromEntries(['assist_update', 'own_plan', 'hero_build', 'image', 'video', 'exterior', 'showcase'].map((k) => [k, !aiUnavailable(k)])),
     endFrames: !!WAN.endParam, packs: pricing.publicCatalog().packs });
 });
@@ -6316,8 +6318,8 @@ app.post('/api/ai/quote', requireAuth, requireSameOrigin, express.json({ limit: 
   const q = aiJobs.quote(db, { accountId: req.accountId, owner: aiOwner(req), kind, params: quoteParams(kind, b) });
   res.status(q.ok ? 200 : 400).json(q);
 });
-// (a quote needs only what changes the price: counts and seconds)
-function quoteParams(kind, b) { return { count: Array.isArray(b.prompts) ? b.prompts.length : 1, seconds: Number(b.seconds) === 12 ? 12 : 5, images: Array.isArray(b.images) ? b.images.length : Number(b.images) || 0 }; }
+// (a quote needs only what changes the price: counts, seconds and quality -- the price table checks them)
+function quoteParams(kind, b) { return { count: Array.isArray(b.prompts) ? b.prompts.length : 1, seconds: b.seconds == null || b.seconds === '' ? undefined : Number(b.seconds), quality: b.quality == null ? undefined : String(b.quality).slice(0, 10), images: Array.isArray(b.images) ? b.images.length : Number(b.images) || 0 }; }
 app.post('/api/ai/jobs', requireAuth, requireSameOrigin, express.json({ limit: '30kb' }), generationRateLimit, async (req, res) => {
   const b = req.body || {}, kind = String(b.kind || ''); await prepareCredits(req.accountId);
   const why = aiUnavailable(kind); if (why) return res.status(400).json({ ok: false, code: 'unavailable', message: why });

@@ -55,7 +55,7 @@ test('customer AI: refused until switched on and verified; then quote -> one job
     process.env.SITEREMADE_CUSTOMER_AI = 'on';
     assert.equal((await c('POST', '/api/ai/quote', { kind: 'image', prompts: ['x'] })).json.code, 'unverified', 'never charged at a guessed price');
     process.env.SITEREMADE_AI_PRICES_VERIFIED = 'on';
-    const start = (await c('GET', '/api/ai/config')).json; assert.equal(start.open, true); assert.equal(start.prices.video_12, 21);
+    const start = (await c('GET', '/api/ai/config')).json; assert.equal(start.open, true); assert.deepEqual([start.video.min, start.video.max, start.video.quality], [2, 30, '1080p']); assert.deepEqual(start.video.qualities.map((q) => q.id), ['480p', '720p', '1080p']);
     q = (await c('POST', '/api/ai/quote', { kind: 'image', prompts: ['start', 'end'], credits: 0 })).json;
     assert.deepEqual([q.credits, q.after - q.balance, q.allowed], [4, -4, true], 'two images, 2 credits each; a price sent by the browser is ignored');
     const k = key();
@@ -132,8 +132,25 @@ test('build your hero: one price for both parts, and only with your own uploaded
     const q = (await c('POST', '/api/ai/quote', { kind: 'hero_build', siteId, start: up, seconds: 12 })).json;
     assert.equal(q.credits, 24); assert.equal(q.parts.length, 2);
     assert.equal((await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: 'x'.repeat(24), seconds: 5, idemKey: key() })).status, 400, 'a start image that isn’t theirs is refused');
+    assert.equal((await c('POST', '/api/ai/quote', { kind: 'hero_build', siteId, start: up, seconds: 20, quality: '720p' })).json.credits, 3 + 17, 'any length, any quality, its own price');
+    assert.equal((await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: up, seconds: 45, idemKey: key() })).status, 400, 'too long');
+    assert.equal((await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: up, seconds: 5, quality: '4k', idemKey: key() })).status, 400, 'not a quality we offer');
     const j = await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: up, seconds: 12, idemKey: key() });
     const done = await until(c, j.json.job.id);
     assert.equal(done.job.status, 'succeeded'); assert.equal(done.job.charged, 24); assert.deepEqual(heroMade, [1, 2]);
   } finally { srv.close(); delete process.env.SITEREMADE_CUSTOMER_AI; delete process.env.SITEREMADE_AI_PRICES_VERIFIED; setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: scripted }); }
+});
+
+test('a downloaded site links its AI hero video by full address, so it plays wherever the file is hosted', async () => {
+  const { srv, session } = await server();
+  try {
+    const o = await session(); await o('POST', '/api/auth/signin', { email: 'jaydenflynn9@gmail.com', password: 'correct-horse-battery-staple' }); const acct = accountOf('jaydenflynn9@gmail.com');
+    const id = 'ds_downloadtest123';
+    db.designSites.insert({ id, accountId: acct.id, design: 'steadyhand', status: 'built', businessName: 'Fade', briefJson: '{}', createdAt: new Date().toISOString() });
+    db.raw.prepare('UPDATE design_sites SET html = ? WHERE id = ?').run('<video src="/ai-media/aij_abcdefghijkl/video.mp4"></video><div style="background:url(\'/ai-media/aij_abcdefghijkl/video.jpg\')"></div>', id);
+    const r = await o('GET', `/api/designs/sites/${id}/download`);
+    assert.equal(r.status, 200, r.text);
+    assert.match(r.text, /src="http:\/\/127\.0\.0\.1:\d+\/ai-media\/aij_abcdefghijkl\/video\.mp4"/);
+    assert.match(r.text, /url\('http:\/\/127\.0\.0\.1:\d+\/ai-media\/aij_abcdefghijkl\/video\.jpg'\)/);
+  } finally { srv.close(); }
 });

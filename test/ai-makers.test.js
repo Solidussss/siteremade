@@ -34,7 +34,10 @@ test('a Wan clip: the start image, 5 or 12 seconds, 1080p, the configured no-aud
   const calls2 = [];
   await makers.create({ higgsfield: fakeHf({ calls: calls2 }), wan: wan({ endParam: 'end_image_url' }), wait: async () => {}, ffmpegBin: FF })
     .makers.video({ n: 1 }, job, ctx(tmp(), { start: 'TOKENtokenTOKENtoken1234', end: 'TOKENtokenTOKENtoken5678', seconds: 5 }));
-  assert.equal(calls2[0].params.end_image_url, 'https://www.siteremade.com/ai-media/in/TOKENtokenTOKENtoken5678.jpg');
+  assert.equal(calls2[0].params.end_image_url, 'https://www.siteremade.com/ai-media/in/TOKENtokenTOKENtoken5678.jpg');  const calls3 = [];
+  const r3 = await makers.create({ higgsfield: fakeHf({ calls: calls3 }), wan: wan(), wait: async () => {}, ffmpegBin: FF })
+    .makers.exterior({ n: 1 }, job, ctx(tmp(), { start: 'TOKENtokenTOKENtoken1234', seconds: 10, quality: '720p' }));
+  assert.deepEqual([calls3[0].params.duration, calls3[0].params.resolution, r3.usd], [10, '720p', 1.4], 'the length and quality they picked');
 });
 
 test('a showcase segment goes from photo n to photo n+1; a failed or flagged clip costs nothing (Higgsfield does not charge it)', async () => {

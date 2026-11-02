@@ -24,13 +24,21 @@ const key = (s) => `key_${s}_${Math.random().toString(36).slice(2, 10)}`;
 const ok = (usd = 1.4) => async () => ({ result: { url: '/x.mp4' }, usd });
 const boom = (usd = 0) => async () => { throw Object.assign(new Error('provider failed'), { usd }); };
 
-test('prices come from one table; every default price clears the provider ceiling at the budgeted Wan rate', () => {
-  assert.deepEqual(prices.check().map((r) => [r.action, r.credits, r.ok]), [['assist_update', 2, true], ['own_plan', 3, true], ['image', 2, true], ['video_5', 9, true], ['video_12', 21, true]]);
+test('prices come from one table; a video is priced per second by its quality, and every price clears the provider ceiling', () => {
+  const rows = prices.check(); assert.ok(rows.every((r) => r.ok), JSON.stringify(rows.filter((r) => !r.ok)));
+  assert.deepEqual(rows.slice(0, 3).map((r) => [r.action, r.credits]), [['assist_update', 2], ['own_plan', 3], ['image', 2]]);
+  const c = (seconds, quality) => prices.quote('video', { seconds, quality }).credits;
+  assert.deepEqual([c(5, '1080p'), c(12, '1080p'), c(30, '1080p')], [9, 21, 51], 'longer costs more');
+  assert.deepEqual([c(10, '480p'), c(10, '720p'), c(10, '1080p')], [5, 9, 17], 'sharper costs more');
+  assert.equal(c(5), 9, '1080p unless they pick');
   const s = prices.quote('showcase', { images: 9, seconds: 5 });
   assert.equal(s.parts.length, 8, 'nine photos are eight transitions, not one call'); assert.equal(s.credits, 72);
+  assert.equal(prices.quote('showcase', { images: 9, seconds: 5, quality: '720p' }).credits, 40);
   assert.equal(prices.quote('showcase', { images: 1 }).error, 'A showcase takes 2 to 9 photos.');
-  assert.equal(prices.quote('video', { seconds: 7 }).error, 'Videos are 5 or 12 seconds.');
-  assert.equal(prices.quote('video', { seconds: 12 }, { SITEREMADE_AI_PRICES: '{"credits":{"video_12":30}}' }).credits, 30, 'override in one place');
+  assert.equal(prices.quote('video', { seconds: 31 }).error, 'Videos are 2 to 30 seconds.');
+  assert.equal(prices.quote('video', { seconds: 4.5 }).error, 'Videos are 2 to 30 seconds.');
+  assert.equal(prices.quote('video', { quality: '4k' }).error, 'Pick a quality: 480p, 720p, 1080p.');
+  assert.equal(prices.quote('video', { seconds: 12 }, { SITEREMADE_AI_PRICES: '{"provider":{"wan_usd_per_second":{"1080p":0.5}}}' }).credits, 36, 'the real rate, set in one place, sets the price');
 });
 
 test('customers are refused until customer AI is switched on AND the prices are verified; the owner is not', () => {
