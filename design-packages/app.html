@@ -195,7 +195,7 @@
   <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
   <div class="nav-mid">
     <nav class="svc-switch" aria-label="SiteRemade services"><a href="/" aria-current="page">Websites</a><a href="/property-videos">Property Videos</a></nav>
-    <nav class="nav-links" aria-label="Websites"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a><a href="/?tool=property-video">Property video</a></nav>
+    <nav class="nav-links" aria-label="Websites"><a href="#create">Create</a><a href="#gallery">Designs</a><a href="#projects">Your sites</a></nav>
   </div>
   <div class="nav-actions"><button type="button" class="button button-small button-secondary client-login" id="acct">Sign in</button></div>
 </header>
@@ -275,7 +275,15 @@ async function load() {
   home();
   const build = new URLSearchParams(location.search).get('build');
   if (build && D.access && D.access.owner && D.designs.some((x) => x.design === build)) { history.replaceState(null, '', location.pathname); pick(build); $('#briefBox').scrollIntoView({ behavior: 'smooth' }); }
-  if (new URLSearchParams(location.search).get('tool') === 'property-video') { if (D.guest) signIn(() => AI.propertyVideo($('#app'))); else AI.propertyVideo($('#app')); return; }
+  if (new URLSearchParams(location.search).get('tool') === 'property-video') {
+    // the property video maker belongs to Property Videos, not Websites: the header says so
+    document.querySelectorAll('.svc-switch a').forEach((a) => { if (a.getAttribute('href') === '/property-videos') a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const nl = document.querySelector('.nav-links'); nl.setAttribute('aria-label', 'Property Videos'); nl.innerHTML = '<a href="/property-videos#how">How it works</a><a href="/property-videos#accuracy">Accuracy</a>' + (aiOn('exterior') || aiOn('showcase') ? '<a href="/?tool=property-video" aria-current="page">Make one yourself</a>' : '');
+    document.title = 'Make a property video · SiteRemade';
+    const make = () => (aiOn('exterior') || aiOn('showcase') ? AI.propertyVideo($('#app'))
+      : ($('#app').innerHTML = `<section class="studio-hero"><div><p class="eyebrow">PROPERTY VIDEO</p><h1>Making your own<span>isn’t open yet.</span></h1></div><p class="lede">Send us your photos and we’ll make the film for you.</p></section><p><a class="button" href="/property-videos#enquire">Send us your photos</a></p>`));
+    if (D.guest) signIn(() => {}); else make(); return;   // (signing in reloads this page's state, which lands back here)
+  }
   const want = new URLSearchParams(location.search).get('site');
   if (want && D.sites && D.sites.some((x) => x.id === want)) { history.replaceState(null, '', location.pathname + location.hash); open(want); }
 }

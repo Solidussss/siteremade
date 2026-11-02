@@ -75,6 +75,7 @@ body.pv{background:var(--paper)}
 .pv-pick[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--amber)}
 .pv-pick img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
 .pv-pick span{display:block;padding:9px 10px 10px;font-size:12px;line-height:1.35;color:var(--ivory)}.pv-pick small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+[data-self][hidden]{display:none!important}
 .pv-self{margin:18px 0 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap;color:var(--dim);font-size:14px}.pv-self .button{background:var(--ivory);color:var(--ink)}
 .pv-note{margin:16px 0 0;color:var(--dim);font-size:13px;line-height:1.6;max-width:720px}
 @media(max-width:760px){.pv-screen .pv-label{left:10px;top:9px;font-size:9px;letter-spacing:.18em;padding:5px 8px}.pv-label i{display:none}.pv-picks{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,42%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.pv-pick{scroll-snap-align:start}}
@@ -168,7 +169,7 @@ body.pv{background:var(--paper)}
   <a href="/" class="brand brand-logo" aria-label="SiteRemade home"><img src="/siteremade-logo-black.png" alt="SiteRemade"></a>
   <div class="nav-mid">
     <nav class="svc-switch on-dark" aria-label="SiteRemade services"><a href="/">Websites</a><a href="/property-videos" aria-current="page">Property Videos</a></nav>
-    <nav class="nav-links" aria-label="Property Videos"><a href="#how">How it works</a><a href="#accuracy">Accuracy</a><a href="#for">Who it’s for</a></nav>
+    <nav class="nav-links" aria-label="Property Videos"><a href="#how">How it works</a><a href="#accuracy">Accuracy</a><a href="#for">Who it’s for</a><a href="/?tool=property-video" data-self hidden>Make one yourself</a></nav>
   </div>
   <div class="nav-actions"><a class="button button-small" href="#enquire">Enquire</a></div>
 </header>
@@ -197,7 +198,7 @@ body.pv{background:var(--paper)}
       <p>Photos tell guests what a place has. A film tells them what it feels like to arrive: the door opening, the light in the living room, the view at the end of the hall.</p></div>
     <figure class="pv-screen pv-bars" id="reel"></figure>
     <ul class="pv-picks" id="picks" role="list" aria-label="Example films"></ul>
-    <p class="pv-self"><a class="button" href="/?tool=property-video">Make one yourself</a> <span>Upload your photos and see the price first. Or send them to us below and we make it for you.</span></p>
+    <p class="pv-self" data-self hidden><a class="button" href="/?tool=property-video">Make one yourself</a> <span>Upload your photos and see the price first. Or send them to us below and we make it for you.</span></p>
     <p class="pv-note" id="reelNote" hidden>Example films. These properties are made up to show what we can do; a film of yours is made from your own photographs, and shows only what’s really there.</p>
   </div>
 </section>
@@ -442,5 +443,9 @@ $('#ask').addEventListener('submit', async (e) => {
     $('#done').focus();
   } catch (x) { err.textContent = x.message; btn.disabled = false; btn.textContent = 'Send enquiry'; }
 });
+</script>
+<script>
+// "Make one yourself" only once customers can actually make one (see /api/site-config)
+fetch('/api/site-config', { cache: 'no-store' }).then((r) => r.json()).then((c) => { if (c && c.propertyVideoSelf) document.querySelectorAll('[data-self]').forEach((x) => { x.hidden = false; }); }).catch(() => {});
 </script>
 </body></html>

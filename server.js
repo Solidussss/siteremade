@@ -151,7 +151,7 @@ app.set('trust proxy', 1);
 // built on a hand-made design, edit it, publish it. Everything else (the classic generator and its landing page,
 // Creative and its paid media, payments and credits, saved projects, export and deployment, the customer-app bridge) is
 // closed here; only what the studio uses is open. (The old product: tag checkpoint-pre-consolidation-2026-10-12.)
-const STUDIO_OPEN = [/^\/$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/designs\/poster\/[a-z]+\.jpg$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
+const STUDIO_OPEN = [/^\/$/, /^\/api\/site-config$/, /^\/index\.html$/, /^\/designs\/?$/, /^\/designs\/demo\/[a-z]+$/, /^\/designs\/poster\/[a-z]+\.jpg$/, /^\/s\/[A-Za-z0-9_-]+(?:\/request)?$/,
   /^\/privacy(?:\.html)?$/, /^\/terms(?:\.html)?$/, /^\/(?:favicon\.png|siteremade-logo-black\.png|styles\.css|og-image\.jpg|robots\.txt|sitemap\.xml)$/,
   /^\/api\/auth\//, /^\/api\/identity\//, /^\/api\/designs(?:\/|$)/,
   // customer AI and the credits that pay for it (lib/ai-jobs.js; the existing credit packs and balance)
@@ -5989,7 +5989,13 @@ function requireAiOwner(req, res, next) {
   return res.status(403).json({ ok: false, message: 'We build websites for you now: pick a design on the homepage and press “Get this design”.' });
 }
 // what the homepage needs to know (consolidation.js): whether its box starts the new generator
-app.get('/api/site-config', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ ok: true, designsOpen: DESIGNS_OPEN }); });
+app.get('/api/site-config', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  // propertyVideoSelf: customers can make their own property video (customer AI on, prices verified, video connected) --
+  // until then the Property Videos page doesn't offer it
+  let self = false; try { const L = aiJobs.limits(); self = !!(L.customerAi && L.pricesVerified && !aiUnavailable('exterior') && !aiUnavailable('showcase')); } catch (e) { self = false; }
+  res.json({ ok: true, designsOpen: DESIGNS_OPEN, propertyVideoSelf: self });
+});
 function requireDesignOwner(req, res, next) {
   if (!db.designSites) return res.status(503).json({ ok: false, message: 'Design sites are not available on this server.' });
   req.designOwner = isDesignOwner(req.accountId, req.accountEmail);

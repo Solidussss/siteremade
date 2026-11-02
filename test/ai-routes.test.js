@@ -154,3 +154,16 @@ test('a downloaded site links its AI hero video by full address, so it plays whe
     assert.match(r.text, /url\('http:\/\/127\.0\.0\.1:\d+\/ai-media\/aij_abcdefghijkl\/video\.jpg'\)/);
   } finally { srv.close(); }
 });
+
+test('the Property Videos page offers “Make one yourself” only once customers can actually make one', async () => {
+  const { srv, session } = await server();
+  try {
+    const anon = await session();
+    assert.equal((await anon('GET', '/api/site-config')).json.propertyVideoSelf, false, 'customer AI off');
+    process.env.SITEREMADE_CUSTOMER_AI = 'on'; process.env.SITEREMADE_AI_PRICES_VERIFIED = 'on';
+    setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: Object.assign({ exterior: scripted.showcase }, scripted) });
+    assert.equal((await anon('GET', '/api/site-config')).json.propertyVideoSelf, true, 'on, verified, and video connected (scripted here)');
+    setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost });
+    assert.equal((await anon('GET', '/api/site-config')).json.propertyVideoSelf, false, 'no video provider connected');
+  } finally { srv.close(); delete process.env.SITEREMADE_CUSTOMER_AI; delete process.env.SITEREMADE_AI_PRICES_VERIFIED; setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: scripted }); }
+});
