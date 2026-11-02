@@ -108,3 +108,18 @@ test('build your hero: Claude sees the customer’s own images, the website is c
   await m.makers.hero_build({ n: 2 }, job, ctx(dir, { siteId: 'ds_h', start: S, seconds: 5 }));
   assert.equal(hf[1].params.prompt, 'the sign lights up'); assert.equal(hf[1].params.end_image_url, undefined);
 });
+
+test('walkthrough tour: the photos go to Wan reference-to-video as references for ONE clip; before & after ends on the after picture', async () => {
+  const calls = [];
+  const m = makers.create({ higgsfield: fakeHf({ calls }), wan: wan({ endParam: 'end_image_url', refEndpoint: 'wan/ref-endpoint' }), wait: async () => {}, ffmpegBin: FF });
+  const photos = ['A'.repeat(24), 'B'.repeat(24), 'C'.repeat(24)];
+  const r = await m.makers.walkthrough({ n: 1 }, job, ctx(tmp(), { photos, seconds: 15, quality: '720p', prompt: 'start at the porch' }));
+  assert.equal(calls[0].endpoint, 'wan/ref-endpoint');
+  assert.deepEqual(calls[0].params.image_urls.map((u) => u.slice(-28, -24)), ['AAAA', 'BBBB', 'CCCC'], 'every photo, in order');
+  assert.equal(calls[0].params.image_url, undefined); assert.equal(calls[0].params.end_image_url, undefined);
+  assert.deepEqual([calls[0].params.duration, calls[0].params.resolution, calls[0].params.generate_audio], [15, '720p', false]);
+  assert.match(calls[0].params.prompt, /^start at the porch .*walkthrough tour/); assert.equal(r.usd, 2.1);
+  await m.makers.exterior({ n: 1 }, job, ctx(tmp(), { start: photos[0], end: photos[1], seconds: 5 }));
+  assert.equal(calls[1].endpoint, 'wan/test-endpoint'); assert.match(calls[1].params.end_image_url, /BBBB/); assert.match(calls[1].params.prompt, /built from the ground up/);
+  assert.equal(makers.create({ higgsfield: fakeHf(), wan: wan() }).available.walkthrough() !== '', true, 'off until the reference endpoint is set');
+});

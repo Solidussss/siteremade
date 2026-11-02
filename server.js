@@ -5993,7 +5993,7 @@ app.get('/api/site-config', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   // propertyVideoSelf: customers can make their own property video (customer AI on, prices verified, video connected) --
   // until then the Property Videos page doesn't offer it
-  let self = false; try { const L = aiJobs.limits(); self = !!(L.customerAi && L.pricesVerified && !aiUnavailable('exterior') && !aiUnavailable('showcase')); } catch (e) { self = false; }
+  let self = false; try { const L = aiJobs.limits(); self = !!(L.customerAi && L.pricesVerified && (!aiUnavailable('exterior') || !aiUnavailable('walkthrough'))); } catch (e) { self = false; }
   res.json({ ok: true, designsOpen: DESIGNS_OPEN, propertyVideoSelf: self });
 });
 function requireDesignOwner(req, res, next) {
@@ -6281,6 +6281,7 @@ function aiParams(kind, b, accountId) {
   else if (kind === 'own_plan') { if (!p.siteId) return { error: 'Site not found.' }; p.answers = {}; for (const k of ['feel', 'audience', 'colours', 'story', 'start', 'end', 'motion']) p.answers[k] = str((b.answers || {})[k], 400); if (!Object.values(p.answers).some(Boolean)) return { error: 'Answer at least one question.' }; }
   else if (kind === 'image') { const prompts = (Array.isArray(b.prompts) ? b.prompts : [b.prompt]).map((x) => str(x, 900)).filter(Boolean).slice(0, 2); if (!prompts.length) return { error: 'Describe the image.' }; p.prompts = prompts; p.count = prompts.length; p.aspect = ['16:9', '9:16', '1:1', '4:5'].includes(b.aspect) ? b.aspect : '16:9'; }
   else if (kind === 'video' || kind === 'exterior') { p.start = upload(b.start) || aiMediaRef(b.start, accountId); if (!p.start) return { error: 'Add the start image.' }; if (b.end) { p.end = upload(b.end) || aiMediaRef(b.end, accountId); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
+  else if (kind === 'walkthrough') { const imgs = (Array.isArray(b.images) ? b.images : []).map(upload); if (imgs.length < 2 || imgs.length > 9 || imgs.some((x) => !x)) return { error: 'Add 2 to 9 photos, in order.' }; p.images = imgs.length; p.photos = imgs; p.prompt = str(b.prompt, 600); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
   else if (kind === 'showcase') { const imgs = (Array.isArray(b.images) ? b.images : []).map(upload); if (imgs.length < 2 || imgs.length > 9 || imgs.some((x) => !x)) return { error: 'Add 2 to 9 photos, in order.' }; p.images = imgs.length; p.photos = imgs; p.prompt = str(b.prompt, 600); const vc = aiPrices.videoChoice(b); if (vc.error) return vc; p.seconds = vc.seconds; p.quality = vc.quality; }
   else return { error: 'Unknown AI action.' };
   return { params: p };
@@ -6315,7 +6316,7 @@ app.get('/api/ai/config', requireAuth, async (req, res) => {
   await prepareCredits(req.accountId); const L = aiJobs.limits(), t = aiPrices.table(), owner = aiOwner(req);
   res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, owner, open: owner || (L.customerAi && L.pricesVerified), balance: creditsRemainingFor(req.accountId), prices: t.credits, video: aiPrices.videoMenu(),
-    available: Object.fromEntries(['assist_update', 'own_plan', 'hero_build', 'image', 'video', 'exterior', 'showcase'].map((k) => [k, !aiUnavailable(k)])),
+    available: Object.fromEntries(['assist_update', 'own_plan', 'hero_build', 'image', 'video', 'exterior', 'showcase', 'walkthrough'].map((k) => [k, !aiUnavailable(k)])),
     endFrames: !!WAN.endParam, packs: pricing.publicCatalog().packs });
 });
 app.post('/api/ai/quote', requireAuth, requireSameOrigin, express.json({ limit: '20kb' }), async (req, res) => {
@@ -6368,6 +6369,7 @@ try { const n = aiJobs.recover(db); if (n) console.log(`ai jobs: ${n} interrupte
 const WAN = {
   endpoint: String(process.env.SITEREMADE_WAN_ENDPOINT || '').trim(),
   endParam: String(process.env.SITEREMADE_WAN_END_IMAGE_PARAM || '').trim(),
+  refEndpoint: String(process.env.SITEREMADE_WAN_REF_ENDPOINT || '').trim(),   // reference-to-video (walkthrough tours)
   resolution: String(process.env.SITEREMADE_WAN_RESOLUTION || '1080p').trim(),
   extra: (() => { try { return JSON.parse(process.env.SITEREMADE_WAN_EXTRA_PARAMS || '{}'); } catch (e) { return {}; } })(),
 };
@@ -6392,7 +6394,7 @@ const WAN = {
 app.post('/api/designs/sites/:id/hero-video', requireAuth, requireSameOrigin, requireDesignOwner, express.json({ limit: '2kb' }), (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   const job = db.aiJobs.find(String((req.body || {}).jobId || ''));
-  if (!job || job.account_id !== req.accountId || !['video', 'exterior'].includes(job.kind) || job.status !== 'succeeded') return res.status(404).json({ ok: false, message: 'That video isn’t ready.' });
+  if (!job || job.account_id !== req.accountId || !['video', 'exterior', 'walkthrough'].includes(job.kind) || job.status !== 'succeeded') return res.status(404).json({ ok: false, message: 'That video isn’t ready.' });
   if (!fs.existsSync(path.join(AI_DIR, job.id, 'video.mp4'))) return res.status(404).json({ ok: false, message: 'That video isn’t ready.' });
   const changes = [{ path: 'photos.video', value: `/ai-media/${job.id}/video.mp4` }];
   if (fs.existsSync(path.join(AI_DIR, job.id, 'video.jpg'))) changes.push({ path: 'photos.main', value: `${publicBase(req).replace(/^http:/, 'https:')}/ai-media/${job.id}/video.jpg` });

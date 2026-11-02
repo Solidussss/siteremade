@@ -35,6 +35,8 @@ test('prices come from one table; a video is priced per second by its quality, a
   assert.equal(s.parts.length, 8, 'nine photos are eight transitions, not one call'); assert.equal(s.credits, 72);
   assert.equal(prices.quote('showcase', { images: 9, seconds: 5, quality: '720p' }).credits, 40);
   assert.equal(prices.quote('showcase', { images: 1 }).error, 'A showcase takes 2 to 9 photos.');
+  assert.equal(prices.quote('walkthrough', { images: 9, seconds: 20, quality: '1080p' }).credits, 34, 'a tour is one clip, whatever the photo count');
+  assert.equal(prices.quote('walkthrough', { images: 10 }).error, 'A walkthrough takes 2 to 9 photos.');
   assert.equal(prices.quote('video', { seconds: 31 }).error, 'Videos are 2 to 30 seconds.');
   assert.equal(prices.quote('video', { seconds: 4.5 }).error, 'Videos are 2 to 30 seconds.');
   assert.equal(prices.quote('video', { quality: '4k' }).error, 'Pick a quality: 480p, 720p, 1080p.');

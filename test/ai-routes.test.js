@@ -18,6 +18,7 @@ const scripted = {
   image: async (part, job) => { made.push(['image', job.id, part.n]); return { result: { url: `/ai-media/${job.id}/image-${part.n}.png` }, usd: 0.06 }; },
   showcase: async (part, job) => { made.push(['showcase', job.id, part.n]); if (part.n === 2 && part.attempt === 1) throw Object.assign(new Error('segment failed'), { usd: 1.4 }); return { result: { url: `/ai-media/${job.id}/segment-${part.n}.mp4` }, usd: 1.4 }; },
 };
+scripted.walkthrough = async (part, job) => ({ result: { url: `/ai-media/${job.id}/video.mp4` }, usd: 1.4 });
 setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: scripted });
 
 async function server() {
@@ -81,6 +82,8 @@ test('showcase: photos are the customer’s own; a failed segment is refunded an
     const j = await c('POST', '/api/ai/jobs', { kind: 'showcase', images: ups, idemKey: key() });
     const done = await until(c, j.json.job.id);
     assert.equal(done.job.status, 'partial'); assert.equal(done.job.charged, 9); assert.equal(done.job.refunded, 9);
+    assert.equal((await c('POST', '/api/ai/quote', { kind: 'walkthrough', images: ups, seconds: 10, quality: '720p' })).json.credits, 9, 'a walkthrough is one clip');
+    assert.equal((await other('POST', '/api/ai/jobs', { kind: 'walkthrough', images: ups, idemKey: key() })).json.message, 'Add 2 to 9 photos, in order.', 'only your own photos');
     const r = await c('POST', `/api/ai/jobs/${j.json.job.id}/retry`);
     assert.equal(r.status, 200); assert.equal(r.json.credits, 9);
     const again = await until(c, j.json.job.id);
@@ -109,7 +112,7 @@ test('with no scripted makers and no keys (a development machine), every paid ac
     const c = await session('customer4@example.com'); give('customer4@example.com', 50);
     const cfg = (await c('GET', '/api/ai/config')).json;
     assert.ok(Object.values(cfg.available).every((v) => v === false));
-    for (const kind of ['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase', 'hero_build']) {
+    for (const kind of ['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase', 'hero_build', 'walkthrough']) {
       const r = await c('POST', '/api/ai/jobs', { kind, idemKey: key(), prompts: ['x'], request: 'x' });
       assert.equal(r.json.code, 'unavailable', kind);
     }

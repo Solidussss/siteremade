@@ -271,37 +271,56 @@
 
   // ================================================================== PROPERTY VIDEO (its own page in the studio)
   AI.propertyVideo = async (root) => {
-    const P = (AI.cfg && AI.cfg.prices) || {}; const photos = [];
-    root.innerHTML = `<section class="studio-hero"><div><p class="eyebrow">PROPERTY VIDEO</p><h1>Your property,<span>in motion.</span></h1></div><p class="lede">One exterior photo becomes a cinematic animation, or up to nine photos become a showcase, room to room. You see the price before anything is made, and you’re only charged for what gets made.</p></section>
-      <section class="panel"><div class="aibar" style="margin:0 0 16px"><button class="button" data-pv="exterior" aria-pressed="true">Exterior animation</button><button class="button button-secondary" data-pv="showcase">Property showcase</button></div>
-        <p class="sub" id="pvsub"></p><div class="gthumbs" id="pvthumbs"></div>
-        <label class="button button-secondary gadd" style="margin:10px 0">Add photos<input type="file" accept="image/*" multiple hidden id="pvfiles"></label>
-        <form class="bform" style="grid-template-columns:1fr"><label>Anything to add? <small>optional</small><input id="pvnote" maxlength="300" placeholder="e.g. golden hour, slow push toward the front door"></label></form><div id="pvpick" style="max-width:560px"></div>
+    // two kinds of property film: BEFORE & AFTER (built from the ground up: a start and an end picture, Wan
+    // image-to-video) and WALKTHROUGH TOUR (2-9 photos as references for one continuous tour, Wan reference-to-video)
+    const pics = { start: null, end: null }; const photos = [];
+    const on = (k) => !!(AI.cfg && AI.cfg.available && AI.cfg.available[k]);
+    let mode = on('exterior') || !on('walkthrough') ? 'exterior' : 'walkthrough';
+    const slot = (k, label, hint) => `<div class="hslot" data-slot="${k}" style="border:1px dashed #c9cdd6;border-radius:14px;padding:10px;text-align:center"><div class="hpic" style="aspect-ratio:16/9;border-radius:10px;background:#f3f4f6;display:grid;place-items:center;overflow:hidden;color:#858995;font-size:13px">${esc(hint)}</div><label class="button button-secondary" style="margin-top:8px">${esc(label)}<input type="file" accept="image/*" hidden></label></div>`;
+    root.innerHTML = `<section class="studio-hero"><div><p class="eyebrow">PROPERTY VIDEO</p><h1>Your property,<span>in motion.</span></h1></div><p class="lede">A before and after, from the ground up to the finished property. Or a walkthrough tour made from your photos. You see the price before anything is made, and you’re only charged for what gets made.</p></section>
+      <section class="panel"><div class="aibar" style="margin:0 0 16px">${on('exterior') ? '<button class="button" data-pv="exterior">Before &amp; after</button>' : ''}${on('walkthrough') ? '<button class="button button-secondary" data-pv="walkthrough">Walkthrough tour</button>' : ''}</div>
+        <p class="sub" id="pvsub"></p>
+        <div id="pvba" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:720px">${slot('start', 'Start picture', 'Before: the empty plot, the shell, the old room')}${slot('end', 'End picture', 'After: the finished property')}</div>
+        <div id="pvwt"><div class="gthumbs" id="pvthumbs"></div><label class="button button-secondary gadd" style="margin:10px 0">Add photos<input type="file" accept="image/*" multiple hidden id="pvfiles"></label></div>
+        <form class="bform" style="grid-template-columns:1fr;margin-top:10px"><label>Anything to add? <small>optional</small><input id="pvnote" maxlength="300" placeholder="e.g. golden hour, start at the front door"></label></form><div id="pvpick" style="max-width:560px"></div>
         <p class="aimsg" id="pverr"></p><div class="aibar"><button class="button" id="pvgo">Continue</button></div></section><section id="pvout"></section>`;
-    let mode = 'exterior';
-    const pick = AI.videoPicker(root.querySelector('#pvpick'), { times: () => (mode === 'exterior' ? 1 : Math.max(0, photos.length - 1)) });
-    const sub = () => { root.querySelector('#pvsub').textContent = mode === 'exterior' ? 'One photo of the outside. Pick the length and quality; the price is below.' : `2 to 9 photos, in the order you want to walk through. Each pair becomes one segment of the length you pick, joined into one film.${AI.cfg && AI.cfg.endFrames ? '' : ' Each segment starts from its photo and moves toward the next room; it isn’t a frame-perfect morph.'}`; pick.redraw(); };
+    const pick = AI.videoPicker(root.querySelector('#pvpick'), { times: () => (mode === 'exterior' ? (pics.start ? 1 : 0) : (photos.length >= 2 ? 1 : 0)) });
+    const draw = () => {
+      root.querySelector('#pvsub').textContent = mode === 'exterior'
+        ? `Built from the ground up: add the start picture and the end picture. The video starts on the first and ${AI.cfg && AI.cfg.endFrames ? 'ends exactly on the second' : 'moves toward the second'}. No end picture? It makes a slow move around the outside instead.`
+        : '2 to 9 photos, in the order you want to walk through. They guide one continuous tour of the property, in the length and quality you pick.';
+      root.querySelector('#pvba').style.display = mode === 'exterior' ? 'grid' : 'none';
+      root.querySelector('#pvwt').style.display = mode === 'walkthrough' ? 'block' : 'none';
+      root.querySelectorAll('[data-pv]').forEach((x) => { x.className = 'button' + (x.dataset.pv === mode ? '' : ' button-secondary'); x.setAttribute('aria-pressed', String(x.dataset.pv === mode)); });
+      pick.redraw();
+    };
     const thumbs = () => { root.querySelector('#pvthumbs').innerHTML = photos.map((p, i) => `<span class="gth"><img src="${p.url}" alt=""><b style="position:absolute;left:6px;top:4px;color:#fff;text-shadow:0 1px 3px #000">${i + 1}</b><button type="button" data-rm="${i}" aria-label="Remove">×</button></span>`).join('');
       root.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { photos.splice(Number(b.dataset.rm), 1); thumbs(); }; }); pick.redraw(); };
-    root.querySelectorAll('[data-pv]').forEach((b) => { b.onclick = () => { mode = b.dataset.pv; root.querySelectorAll('[data-pv]').forEach((x) => { x.className = 'button' + (x === b ? '' : ' button-secondary'); x.setAttribute('aria-pressed', String(x === b)); }); sub(); }; });
-    sub();
+    root.querySelectorAll('[data-pv]').forEach((b) => { b.onclick = () => { mode = b.dataset.pv; draw(); }; });
+    draw();
+    const err = (m) => { root.querySelector('#pverr').textContent = m || ''; };
+    root.querySelectorAll('[data-slot]').forEach((box) => box.querySelector('input').addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return; const pic = box.querySelector('.hpic'); pic.textContent = 'Uploading…';
+      try { const url = await shrinkPhoto(f); const u = await api('/api/ai/uploads', { photo: url }); if (!u.ok) throw new Error(u.message || 'Upload failed.'); pics[box.dataset.slot] = u.token; pic.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover">`; pick.redraw(); }
+      catch (x) { pic.textContent = x.message; }
+    }));
     root.querySelector('#pvfiles').addEventListener('change', async (e) => {
-      const max = mode === 'exterior' ? 1 : 9; const files = [...(e.target.files || [])].slice(0, max - photos.length); e.target.value = '';
-      for (const f of files) { try { const url = await shrinkPhoto(f); const u = await api('/api/ai/uploads', { photo: url }); if (!u.ok) throw new Error(u.message || 'Upload failed.'); photos.push({ url, token: u.token }); thumbs(); } catch (err) { root.querySelector('#pverr').textContent = err.message; } }
+      const files = [...(e.target.files || [])].slice(0, 9 - photos.length); e.target.value = '';
+      for (const f of files) { try { const url = await shrinkPhoto(f); const u = await api('/api/ai/uploads', { photo: url }); if (!u.ok) throw new Error(u.message || 'Upload failed.'); photos.push({ url, token: u.token }); thumbs(); } catch (x) { err(x.message); } }
     });
     root.querySelector('#pvgo').onclick = async () => {
-      const err = root.querySelector('#pverr'); err.textContent = '';
-      if (mode === 'exterior' && photos.length !== 1) { err.textContent = 'Add one exterior photo.'; return; }
-      if (mode === 'showcase' && photos.length < 2) { err.textContent = 'Add at least 2 photos, in order.'; return; }
+      err('');
+      if (mode === 'exterior' && !pics.start) return err('Add the start picture.');
+      if (mode === 'walkthrough' && photos.length < 2) return err('Add at least 2 photos, in order.');
       const vc = pick.get(), note = root.querySelector('#pvnote').value.trim();
-      const body = Object.assign(mode === 'exterior' ? { start: photos[0].token, prompt: note } : { images: photos.map((p) => p.token), prompt: note }, vc);
-      const job = await AI.confirm({ kind: mode, body, title: mode === 'exterior' ? 'Exterior animation' : `Property showcase · ${photos.length} photos` });
+      const body = Object.assign(mode === 'exterior' ? { start: pics.start, end: pics.end || undefined, prompt: note } : { images: photos.map((p) => p.token), prompt: note }, vc);
+      const job = await AI.confirm({ kind: mode, body, title: mode === 'exterior' ? (pics.end ? 'Before & after' : 'Exterior animation') : `Walkthrough tour · ${photos.length} photos` });
       if (job) AI.propertyResult(root.querySelector('#pvout'), job);
     };
   };
   AI.propertyResult = async (out, job) => {
     const done = job.parts.filter((p) => p.status === 'done');
-    out.innerHTML = `<section class="panel"><h2>${job.kind === 'showcase' ? 'Your showcase' : 'Your video'}</h2><div id="pvfull"></div>${done.map((p) => `<div style="margin:10px 0"><p class="sub">${job.parts.length > 1 ? `Segment ${p.n}` : ''}</p><video src="${esc(p.result.url)}" poster="${esc(p.result.poster || '')}" controls playsinline muted style="width:100%;border-radius:12px"></video><a class="button button-secondary" href="${esc(p.result.url)}" download>Download</a></div>`).join('')}</section>`;
+    out.innerHTML = `<section class="panel"><h2>${job.kind === 'showcase' ? 'Your showcase' : job.kind === 'walkthrough' ? 'Your walkthrough tour' : 'Your video'}</h2><div id="pvfull"></div>${done.map((p) => `<div style="margin:10px 0"><p class="sub">${job.parts.length > 1 ? `Segment ${p.n}` : ''}</p><video src="${esc(p.result.url)}" poster="${esc(p.result.poster || '')}" controls playsinline muted style="width:100%;border-radius:12px"></video><a class="button button-secondary" href="${esc(p.result.url)}" download>Download</a></div>`).join('')}</section>`;
     out.scrollIntoView({ behavior: 'smooth' });
     if (job.kind !== 'showcase' || done.length < 2) return;
     const film = `/ai-media/${job.id}/showcase.mp4`;

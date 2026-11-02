@@ -278,9 +278,9 @@ async function load() {
   if (new URLSearchParams(location.search).get('tool') === 'property-video') {
     // the property video maker belongs to Property Videos, not Websites: the header says so
     document.querySelectorAll('.svc-switch a').forEach((a) => { if (a.getAttribute('href') === '/property-videos') a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    const nl = document.querySelector('.nav-links'); nl.setAttribute('aria-label', 'Property Videos'); nl.innerHTML = '<a href="/property-videos#how">How it works</a><a href="/property-videos#accuracy">Accuracy</a>' + (aiOn('exterior') || aiOn('showcase') ? '<a href="/?tool=property-video" aria-current="page">Make one yourself</a>' : '');
+    const nl = document.querySelector('.nav-links'); nl.setAttribute('aria-label', 'Property Videos'); nl.innerHTML = '<a href="/property-videos#how">How it works</a><a href="/property-videos#accuracy">Accuracy</a>' + (aiOn('exterior') || aiOn('walkthrough') ? '<a href="/?tool=property-video" aria-current="page">Make one yourself</a>' : '');
     document.title = 'Make a property video · SiteRemade';
-    const make = () => (aiOn('exterior') || aiOn('showcase') ? AI.propertyVideo($('#app'))
+    const make = () => (aiOn('exterior') || aiOn('walkthrough') ? AI.propertyVideo($('#app'))
       : ($('#app').innerHTML = `<section class="studio-hero"><div><p class="eyebrow">PROPERTY VIDEO</p><h1>Making your own<span>isn’t open yet.</span></h1></div><p class="lede">Send us your photos and we’ll make the film for you.</p></section><p><a class="button" href="/property-videos#enquire">Send us your photos</a></p>`));
     if (D.guest) signIn(() => {}); else make(); return;   // (signing in reloads this page's state, which lands back here)
   }
