@@ -8,6 +8,7 @@ const { render } = require('./template');
 const { fit, make, rgbHsl, hexRgb, contrast } = require('./colour');
 const GUARDS = require('./guards');
 const photoHero = require('./photo-hero');
+const identity = require('./identity');
 
 // photos: a data URL of a JPEG/PNG/WebP (only base64 characters, so it is safe in an attribute and in CSS url()),
 // or an https link without quotes, spaces or brackets
@@ -44,6 +45,8 @@ function loadDesign(dir) {
   // (a design with its own photo slots but a "videoHero" place takes just the video and its poster frame, both hidden:
   // its editor is unchanged; "Make It Your Own" sets them)
   else if (manifest.videoHero) d.schema.optional = Object.assign({ 'photos.video': photoHero.FIELDS['photos.video'], 'photos.main': Object.assign({}, photoHero.FIELDS['photos.main'], { hidden: true }) }, d.schema.optional || {});
+  // every design takes the business's own logo and a typeface (engine/identity.js)
+  d.schema.optional = Object.assign({}, d.schema.optional || {}, identity.FIELDS);
   return d;
 }
 
@@ -153,7 +156,7 @@ function build(d, c) {
   derived._guardList = (d.manifest.guards || []).filter((g) => GUARDS[g.type](g, c, ctx)).map((g) => g.name || g.type);
   // (a design with its own photo slots can still take a video hero: its "videoHero" says where it goes)
   const heroManifest = !d.manifest.photoHero && d.manifest.videoHero && c.photos && c.photos.video ? { ...d.manifest, photoHero: d.manifest.videoHero } : d.manifest;
-  const html = photoHero.inject(render(d.template, { content: c, derived, families: ctx.families, tables: d.tables }), heroManifest, c);
+  const html = identity.inject(photoHero.inject(render(d.template, { content: c, derived, families: ctx.families, tables: d.tables }), heroManifest, c), c, d.manifest);
   return { html, guards: derived._guardList };
 }
 

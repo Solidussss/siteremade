@@ -6046,7 +6046,8 @@ app.get('/designs', (req, res) => { res.setHeader('Cache-Control', 'no-store'); 
 // the studio for anyone: the designs (public, so the landing page shows them signed out), and a signed-in account's
 // own sites
 app.get('/api/designs/catalog', (req, res) => res.json({ ok: true, designs: designSites.designs() }));
-app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), sites: withNewRequests(db.designSites.forAccount(req.accountId)),
+const designIdentity = require('./design-packages/engine/identity');
+app.get('/api/designs', requireAuth, requireDesignOwner, (req, res) => res.json({ ok: true, designs: designSites.designs(), types: designIdentity.publicTypes(), typeChips: designIdentity.chipsUrl(), sites: withNewRequests(db.designSites.forAccount(req.accountId)),
   access: { owner: !!req.designOwner, free: true, perDay: DESIGNS_PER_DAY } }));
 // Export: the built site as one self-contained index.html (its fonts load from Google Fonts, as on /s/<id>)
 app.get('/api/designs/sites/:id/download', requireAuth, requireDesignOwner, (req, res) => {

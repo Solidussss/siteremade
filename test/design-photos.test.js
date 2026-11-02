@@ -24,7 +24,7 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
     const { D, c } = load(design);
     const before = build(D, c).html;
     assert.ok(!before.includes('class="shot"'), 'no photo: the drawn hero');
-    const offered = editor.fields(D, {}, c).fields.filter((f) => f.kind === 'photo').map((f) => f.path);
+    const offered = editor.fields(D, {}, c).fields.filter((f) => f.kind === 'photo' && f.path !== 'identity.logo').map((f) => f.path);   // (the logo is its own field, on every design)
     assert.deepEqual(offered.sort(), [...paths, 'hero.before', 'hero.photo2', 'hero.photo3'].sort());
     const { content } = editor.apply(D, {}, c, { changes: paths.map((p) => ({ path: p, value: PHOTO })) });
     assert.deepEqual(validate(D, content).errors, []);

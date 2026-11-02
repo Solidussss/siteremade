@@ -219,6 +219,54 @@
     return { get: () => ({ seconds: st.seconds, quality: st.quality }), redraw: draw, credits };
   };
 
+  // a logo, ready for a website header: its background taken out (when the edge is one colour: a white or flat
+  // background, flood-filled from the edges so the same colour inside the logo stays), trimmed to the logo itself and
+  // scaled down -> a PNG (or WebP, if that's smaller than the size limit) data URL with see-through background
+  AI.prepLogo = (file) => new Promise((ok, no) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error('That file isn’t a picture this browser can open.')); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, 1400 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)), W = Math.max(1, Math.round((img.naturalWidth || 600) * k)), H = Math.max(1, Math.round((img.naturalHeight || 200) * k));
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
+      const im = x.getImageData(0, 0, W, H), d = im.data;
+      // the edge: one opaque colour?
+      const edge = []; const step = Math.max(1, Math.round((W + H) / 400));
+      for (let i = 0; i < W; i += step) edge.push(i, (H - 1) * W + i); for (let j = 0; j < H; j += step) edge.push(j * W, j * W + W - 1);
+      let r = 0, g = 0, b = 0, a = 0; edge.forEach((p) => { r += d[p * 4]; g += d[p * 4 + 1]; b += d[p * 4 + 2]; a += d[p * 4 + 3]; }); const n = edge.length; r /= n; g /= n; b /= n; a /= n;
+      const dist = (p) => Math.hypot(d[p * 4] - r, d[p * 4 + 1] - g, d[p * 4 + 2] - b);
+      const flat = a > 240 && edge.filter((p) => dist(p) > 40).length < n * 0.04;
+      if (flat) {
+        const seen = new Uint8Array(W * H), stack = new Int32Array(W * H); let top = 0;
+        const push = (p) => { if (!seen[p]) { seen[p] = 1; stack[top++] = p; } };
+        for (let i = 0; i < W; i++) { push(i); push((H - 1) * W + i); } for (let j = 0; j < H; j++) { push(j * W); push(j * W + W - 1); }
+        while (top) {
+          const p = stack[--top], dd = dist(p);
+          if (dd < 48) { d[p * 4 + 3] = 0; const px = p % W, py = (p - px) / W; if (px > 0) push(p - 1); if (px < W - 1) push(p + 1); if (py > 0) push(p - W); if (py < H - 1) push(p + W); }
+          else if (dd < 90) d[p * 4 + 3] = Math.min(d[p * 4 + 3], Math.round((dd - 48) / 42 * 255));   // a soft edge, not a fringe
+        }        // a dark one-colour logo on a light background (the usual black logo on white): the white inside its letters
+        // and shapes (the hole in an O, a ring) is background too, not just what touches the edge
+        let L = 0, S = 0, k = 0;
+        for (let p = 0; p < W * H; p++) { if (d[p * 4 + 3] < 200 || dist(p) < 90) continue; const R = d[p * 4] / 255, G = d[p * 4 + 1] / 255, B = d[p * 4 + 2] / 255; L += 0.2126 * R + 0.7152 * G + 0.0722 * B; S += Math.max(R, G, B) - Math.min(R, G, B); k++; }
+        if (k && (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.8 && S / k < 0.12 && L / k < 0.45) {
+          for (let p = 0; p < W * H; p++) { const dd = dist(p); if (dd < 48) d[p * 4 + 3] = 0; else if (dd < 90) d[p * 4 + 3] = Math.min(d[p * 4 + 3], Math.round((dd - 48) / 42 * 255)); }
+        }
+      }
+      // trim to the logo
+      let x0 = W, y0 = H, x1 = -1, y1 = -1;
+      for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) if (d[(y * W + xx) * 4 + 3] > 12) { if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 < 0) return no(new Error('That picture looks empty.'));
+      x.putImageData(im, 0, 0);
+      const bw = x1 - x0 + 1, bh = y1 - y0 + 1, pad = Math.round(Math.max(bw, bh) * 0.03), s = Math.min(1, 720 / (bw + pad * 2), 360 / (bh + pad * 2));
+      const o = document.createElement('canvas'); o.width = Math.max(1, Math.round((bw + pad * 2) * s)); o.height = Math.max(1, Math.round((bh + pad * 2) * s));
+      const ox = o.getContext('2d'); ox.imageSmoothingQuality = 'high'; ox.drawImage(c, x0, y0, bw, bh, pad * s, pad * s, bw * s, bh * s);
+      let out = o.toDataURL('image/png'); if (out.length > 850 * 1024) out = o.toDataURL('image/webp', 0.92);
+      if (out.length > 850 * 1024) return no(new Error('That logo is too detailed to use. Try a simpler file (PNG or SVG).'));
+      ok({ url: out, w: o.width, h: o.height, cleaned: flat });
+    };
+    img.src = url;
+  });
+
   // two picture slots (start, end) that upload as they're picked -> { get: () => ({ start, end }) }
   AI.picSlots = (host, { start = 'Start picture', end = 'End picture', startHint = 'Where it starts', endHint = 'Where it ends (optional)' } = {}) => {
     const got = { start: null, end: null };
