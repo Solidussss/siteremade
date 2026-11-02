@@ -6269,6 +6269,7 @@ function aiParams(kind, b, accountId) {
   if (b.siteId != null) { const row = /^ds_[A-Za-z0-9_-]{8,40}$/.test(String(b.siteId)) && db.designSites ? db.designSites.find(String(b.siteId)) : null; if (!row || row.account_id !== accountId) return { error: 'Site not found.' }; p.siteId = row.id; }
   const upload = (t) => { const v = String(t || ''); return /^[A-Za-z0-9_-]{24,40}$/.test(v) && aiUploadOwner(v) === accountId ? v : null; };
   if (kind === 'assist_update') { p.request = str(b.request, 600); if (!p.siteId || !p.request) return { error: 'Write what you want changed.' }; }
+  else if (kind === 'hero_build') { if (!p.siteId) return { error: 'Site not found.' }; p.start = upload(b.start); if (!p.start) return { error: 'Add your start image.' }; if (b.end) { p.end = upload(b.end); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
   else if (kind === 'own_plan') { if (!p.siteId) return { error: 'Site not found.' }; p.answers = {}; for (const k of ['feel', 'audience', 'colours', 'story', 'start', 'end', 'motion']) p.answers[k] = str((b.answers || {})[k], 400); if (!Object.values(p.answers).some(Boolean)) return { error: 'Answer at least one question.' }; }
   else if (kind === 'image') { const prompts = (Array.isArray(b.prompts) ? b.prompts : [b.prompt]).map((x) => str(x, 900)).filter(Boolean).slice(0, 2); if (!prompts.length) return { error: 'Describe the image.' }; p.prompts = prompts; p.count = prompts.length; p.aspect = ['16:9', '9:16', '1:1', '4:5'].includes(b.aspect) ? b.aspect : '16:9'; }
   else if (kind === 'video' || kind === 'exterior') { p.start = upload(b.start) || aiMediaRef(b.start, accountId); if (!p.start) return { error: 'Add the start image.' }; if (b.end) { p.end = upload(b.end) || aiMediaRef(b.end, accountId); if (!p.end) return { error: 'The end image is missing.' }; } p.prompt = str(b.prompt, 900); p.seconds = Number(b.seconds) === 12 ? 12 : 5; }
@@ -6306,7 +6307,7 @@ app.get('/api/ai/config', requireAuth, async (req, res) => {
   await prepareCredits(req.accountId); const L = aiJobs.limits(), t = aiPrices.table(), owner = aiOwner(req);
   res.setHeader('Cache-Control', 'no-store');
   res.json({ ok: true, owner, open: owner || (L.customerAi && L.pricesVerified), balance: creditsRemainingFor(req.accountId), prices: t.credits,
-    available: Object.fromEntries(['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase'].map((k) => [k, !aiUnavailable(k)])),
+    available: Object.fromEntries(['assist_update', 'own_plan', 'hero_build', 'image', 'video', 'exterior', 'showcase'].map((k) => [k, !aiUnavailable(k)])),
     endFrames: !!WAN.endParam, packs: pricing.publicCatalog().packs });
 });
 app.post('/api/ai/quote', requireAuth, requireSameOrigin, express.json({ limit: '20kb' }), async (req, res) => {
@@ -6368,8 +6369,8 @@ const WAN = {
   const hk = paidProviders.key('higgsfield'), ok = paidProviders.key('openai');
   const m = require('./lib/ai-makers').create({
     db, designSites, writer: () => designDeps.writer(), hasClaude: !!ANTHROPIC_API_KEY,
-    claudeJson: async ({ system, user, tool }) => {
-      const r = await anthropicSmallCall({ model: ANTHROPIC_MODEL, system, user, tool, maxTokens: 1200, taskType: 'AI_OWN_PROMPTS', timeoutMs: 60000 });
+    claudeJson: async ({ system, user, tool, images }) => {
+      const r = await anthropicSmallCall({ model: ANTHROPIC_MODEL, system, user, tool, images, maxTokens: 1200, taskType: 'AI_OWN_PROMPTS', timeoutMs: 60000 });
       return { json: r.input || null, usd: providerBudget.anthropicUsd(ANTHROPIC_MODEL, { input_tokens: r.usage.inputTokens, output_tokens: r.usage.outputTokens }) };
     },
     openaiKey: ok || null, higgsfield: hk ? createHiggsfield({ key: hk, timeoutMs: 60000 }) : null, wan: WAN, ffmpegBin: require('./lib/video-hero').ffmpegPath(),

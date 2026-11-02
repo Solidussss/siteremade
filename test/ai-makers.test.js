@@ -78,3 +78,30 @@ test('a showcase’s finished segments are joined in order into one film (free)'
   const url = await m.joinShowcase({ id: job.id, parts: [{ n: 2, status: 'done' }, { n: 1, status: 'done' }, { n: 3, status: 'failed' }] }, ctx(dir, {}));
   assert.equal(url, `/ai-media/${job.id}/showcase.mp4`); assert.ok(fs.statSync(path.join(dir, 'showcase.mp4')).size > 1000);
 });
+
+test('build your hero: Claude sees the customer’s own images, the website is changed to match, and the video from those images goes on the site', async () => {
+  const aiDir = tmp(); const dir = path.join(aiDir, job.id); fs.mkdirSync(dir); fs.mkdirSync(path.join(aiDir, 'in'));
+  const S = 'S'.repeat(24), E = 'E'.repeat(24);
+  fs.writeFileSync(path.join(aiDir, 'in', `${S}.jpg`), 'start-jpeg'); fs.writeFileSync(path.join(aiDir, 'in', `${E}.jpg`), 'end-jpeg');
+  const row = { id: 'ds_h', account_id: 'acct_a', design: 'steadyhand' };
+  const edits = [], seen = [], calls = [];
+  const designSites = { cost: () => 0.01, view: () => ({ businessName: 'Fade' }),
+    ask: async (r, req) => { seen.push(req); return { ok: true, summary: 'Dusk gold.', changes: [{ path: 'theme.accent', value: '#c08a2e' }], ops: [], diff: [{ path: 'theme.accent' }], usage: {} }; },
+    edit: (db, r, body) => { edits.push(body); return { ok: true }; } };
+  const claudeJson = async (o) => { calls.push(o); return { json: { look: 'Warm dusk light.', request: 'Use gold #c08a2e as the accent.', motion: 'the sign lights up' }, usd: 0.03 }; };
+  const hf = []; const parts = [];
+  const deps = { db: { designSites: { find: () => row }, aiJobs: { parts: () => parts } }, designSites, writer: () => ({}), claudeJson, higgsfield: fakeHf({ calls: hf }), wan: wan({ endParam: 'end_image_url' }), wait: async () => {}, ffmpegBin: FF };
+  const m = makers.create(deps);
+  const c = ctx(dir, { siteId: 'ds_h', start: S, end: E, seconds: 5, prompt: 'the door opens' });
+  const one = await m.makers.hero_build({ n: 1 }, job, c);
+  assert.deepEqual(calls[0].images.map((i) => Buffer.from(i.data, 'base64').toString()), ['start-jpeg', 'end-jpeg'], 'Claude is shown exactly the customer’s images');
+  assert.equal(seen[0], 'Use gold #c08a2e as the accent.'); assert.equal(edits[0].via, 'ask'); assert.equal(one.result.applied, 1); assert.equal(one.usd, 0.04);
+  const two = await m.makers.hero_build({ n: 2 }, job, c);
+  assert.match(hf[0].params.image_url, /SSSS/); assert.match(hf[0].params.end_image_url, /EEEE/);
+  assert.equal(hf[0].params.prompt, 'the door opens the sign lights up');
+  assert.equal(edits[1].via, 'director'); assert.equal(edits[1].changes[0].path, 'photos.video'); assert.equal(two.result.onSite, true); assert.equal(two.usd, 1.4);
+  // a retry of the video alone still has Claude's motion
+  parts.push({ n: 1, result_json: JSON.stringify(one.result) });
+  await m.makers.hero_build({ n: 2 }, job, ctx(dir, { siteId: 'ds_h', start: S, seconds: 5 }));
+  assert.equal(hf[1].params.prompt, 'the sign lights up'); assert.equal(hf[1].params.end_image_url, undefined);
+});

@@ -186,6 +186,42 @@
     };
   };
 
+  // ================================================================== BUILD YOUR HERO (the simple way)
+  // your own start image (and end image) -> one price -> Claude matches the rest of the website to them, Wan makes the
+  // hero from exactly those images, and it goes onto the site
+  AI.buildHero = (s, reopen) => {
+    const P = (AI.cfg && AI.cfg.prices) || {}; const pics = { start: null, end: null };
+    const slot = (k, label, hint) => `<div class="hslot" data-slot="${k}" style="border:1px dashed #c9cdd6;border-radius:14px;padding:10px;text-align:center"><div class="hpic" style="aspect-ratio:16/9;border-radius:10px;background:#f3f4f6;display:grid;place-items:center;overflow:hidden;color:#858995;font-size:13px">${esc(hint)}</div><label class="button button-secondary" style="margin-top:8px">${esc(label)}<input type="file" accept="image/*" hidden></label></div>`;
+    const m = modal(`<h2>Build your hero <span>· ${esc(s.businessName || 'your site')}</span></h2>
+      <p class="sub">Add the picture your hero starts on, and the one it ends on. We make the video from exactly your pictures, and Claude updates the rest of your website to match them.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${slot('start', 'Start image', 'Where it starts')}${slot('end', 'End image', 'Where it ends (optional)')}</div>
+      <form class="bform" style="grid-template-columns:1fr;margin-top:10px"><label>What happens in between? <small>optional</small><textarea id="hbmo" rows="2" maxlength="900" placeholder="e.g. the lights come on one by one and the camera glides to the front desk"></textarea></label>
+      <label>Length <select id="hbsec"><option value="5">5 seconds</option><option value="12">12 seconds</option></select></label></form>
+      ${AI.cfg && AI.cfg.endFrames === false ? '<p class="sub" style="margin:6px 0 0">Your end picture helps Claude match your website. The video starts from your start picture.</p>' : ''}<p class="aimsg" id="hberr"></p>
+      <div class="aibar"><button class="button" id="hbgo">See the price</button><button class="button button-secondary" id="hbx">Close</button></div>
+      <p class="sub" style="margin-top:10px"><a href="#" id="hbq">No pictures yet? Answer a few questions instead.</a></p>`);
+    m.querySelector('#hbx').onclick = () => m.remove();
+    m.querySelector('#hbq').onclick = (e) => { e.preventDefault(); m.remove(); AI.makeItYourOwn(s, reopen); };
+    m.querySelectorAll('[data-slot]').forEach((box) => box.querySelector('input').addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return; const pic = box.querySelector('.hpic'); pic.textContent = 'Uploading…';
+      try { const url = await shrinkPhoto(f); const u = await api('/api/ai/uploads', { photo: url }); if (!u.ok) throw new Error(u.message || 'Upload failed.'); pics[box.dataset.slot] = u.token; pic.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover">`; }
+      catch (err) { pic.textContent = err.message; }
+    }));
+    m.querySelector('#hbgo').onclick = async () => {
+      if (!pics.start) { m.querySelector('#hberr').textContent = 'Add your start image.'; return; }
+      const body = { siteId: s.id, start: pics.start, end: pics.end || undefined, prompt: m.querySelector('#hbmo').value.trim(), seconds: Number(m.querySelector('#hbsec').value) };
+      m.remove();
+      const job = await AI.confirm({ kind: 'hero_build', body, title: 'Build your hero', what: 'Claude matches your website to your pictures, then the video is made from them. Both go onto your site; you can undo the website changes in the editor.' });
+      if (!job) return;
+      const a = resultOf(job, 1), v = resultOf(job, 2);
+      const done = modal(`<h2>${v ? 'Your hero is ready' : 'Partly done'}</h2>
+        ${a ? `<p class="sub">${esc(a.look || '')} Claude changed ${a.applied} thing${a.applied === 1 ? '' : 's'} on your website to match${a.summary ? `: ${esc(a.summary)}` : '.'}</p>` : ''}
+        ${v ? `<video src="${esc(v.url)}" poster="${esc(v.poster || '')}" controls playsinline muted loop autoplay style="width:100%;border-radius:12px"></video><p class="sub">${v.onSite ? 'It’s on your website now.' : 'This design’s hero doesn’t take a video, so download it instead.'}</p>` : ''}
+        <div class="aibar">${v ? `<a class="button button-secondary" href="${esc(v.url)}" download>Download the video</a>` : ''}<button class="button" id="hbdone">See my website</button></div>`);
+      done.querySelector('#hbdone').onclick = async () => { done.remove(); const r = await api('/api/designs/sites/' + s.id); if (r.ok && reopen) reopen(r.site); };
+    };
+  };
+
   // ================================================================== UPDATE THIS WEBSITE: a picture for a photo slot
   // -> a File the editor's own photo path takes (shrunk and saved like an upload), or null
   AI.generatePhoto = async (s, slotLabel) => {

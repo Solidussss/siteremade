@@ -108,11 +108,32 @@ test('with no scripted makers and no keys (a development machine), every paid ac
   try {
     const c = await session('customer4@example.com'); give('customer4@example.com', 50);
     const cfg = (await c('GET', '/api/ai/config')).json;
-    assert.deepEqual(Object.values(cfg.available), [false, false, false, false, false, false]);
-    for (const kind of ['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase']) {
+    assert.ok(Object.values(cfg.available).every((v) => v === false));
+    for (const kind of ['assist_update', 'own_plan', 'image', 'video', 'exterior', 'showcase', 'hero_build']) {
       const r = await c('POST', '/api/ai/jobs', { kind, idemKey: key(), prompts: ['x'], request: 'x' });
       assert.equal(r.json.code, 'unavailable', kind);
     }
     assert.equal(db.raw.prepare("SELECT COUNT(*) n FROM ai_jobs j JOIN accounts a ON a.id = j.account_id WHERE a.email = 'customer4@example.com'").get().n, 0);
+  } finally { srv.close(); delete process.env.SITEREMADE_CUSTOMER_AI; delete process.env.SITEREMADE_AI_PRICES_VERIFIED; setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: scripted }); }
+});
+
+test('build your hero: one price for both parts, and only with your own uploaded start image', async () => {
+  const heroMade = [];
+  setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: Object.assign({}, scripted, {
+    hero_build: async (part, job) => { heroMade.push(part.n); return { result: part.n === 1 ? { look: 'x', applied: 2 } : { url: `/ai-media/${job.id}/video.mp4`, onSite: true }, usd: part.n === 1 ? 0.04 : 3.36 }; } }) });
+  const { srv, session } = await server();
+  process.env.SITEREMADE_CUSTOMER_AI = 'on'; process.env.SITEREMADE_AI_PRICES_VERIFIED = 'on';
+  try {
+    const c = await session('customer5@example.com'); give('customer5@example.com', 30);
+    const acct = accountOf('customer5@example.com');
+    const siteId = 'ds_herotest12345';
+    db.designSites.insert({ id: siteId, accountId: acct.id, design: 'steadyhand', status: 'built', businessName: 'Fade', briefJson: '{}', createdAt: new Date().toISOString() });
+    const up = (await c('POST', '/api/ai/uploads', { photo: photo() })).json.token;
+    const q = (await c('POST', '/api/ai/quote', { kind: 'hero_build', siteId, start: up, seconds: 12 })).json;
+    assert.equal(q.credits, 24); assert.equal(q.parts.length, 2);
+    assert.equal((await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: 'x'.repeat(24), seconds: 5, idemKey: key() })).status, 400, 'a start image that isn’t theirs is refused');
+    const j = await c('POST', '/api/ai/jobs', { kind: 'hero_build', siteId, start: up, seconds: 12, idemKey: key() });
+    const done = await until(c, j.json.job.id);
+    assert.equal(done.job.status, 'succeeded'); assert.equal(done.job.charged, 24); assert.deepEqual(heroMade, [1, 2]);
   } finally { srv.close(); delete process.env.SITEREMADE_CUSTOMER_AI; delete process.env.SITEREMADE_AI_PRICES_VERIFIED; setDesignDeps({ writer: () => { throw new Error('no AI in tests'); }, cost: designSites.cost, aiMakers: scripted }); }
 });

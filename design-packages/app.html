@@ -431,7 +431,7 @@ function show(s) {
         <div class="card reqs" id="requests"><h3>Requests</h3><div id="reqList"><p>Loading…</p></div></div>
         <div class="card facts"><h3>Confirm with the business</h3>${s.reality ? `<p class="rk"><b>${s.reality.kind === 'concept' ? 'Concept business' : 'Real business'}</b>${s.reality.industry ? ' · ' + esc(s.reality.industry) : ''} · ${s.reality.counts.confirmed} from the brief, ${s.reality.counts.derived} worked out from it, ${s.reality.kind === 'concept' ? s.reality.counts.illustrative + ' illustrative' : s.reality.counts.proposed + ' proposed'}${s.reality.confirmed.length ? ` · ${s.reality.confirmed.length} confirmed by you` : ''}</p>` : ''}<p style="margin-bottom:12px">${s.confirm.length ? `${s.confirm.length} things on the site weren’t in the brief. Check them before you send the link.` : ''}</p>${facts}</div>
         <button class="button" id="edit">Update this website</button>
-        ${aiOn('own_plan') ? '<button class="button button-secondary" id="own">Make it your own</button>' : ''}
+        ${aiOn('hero_build') ? '<button class="button button-secondary" id="hero">Build your hero</button>' : ''}${aiOn('own_plan') ? '<button class="button button-secondary" id="own">Make it your own</button>' : ''}
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/preview" target="_blank">Open the full page</a>
         <a class="button button-secondary" href="/api/designs/sites/${s.id}/download">Download the site</a>
       </aside>
@@ -444,6 +444,7 @@ function show(s) {
   if ($('#ans')) $('#ans').onclick = async () => { const r = await api(`/api/designs/sites/${s.id}/answer`, { answers: $('#answers').value }); if (r.ok) show(r.site); else $('#err').textContent = r.message || 'Something went wrong.'; };
   if ($('#edit')) $('#edit').onclick = () => showEditor(s);
   if ($('#own')) $('#own').onclick = () => AI.makeItYourOwn(s, (site) => show(site));
+  if ($('#hero')) $('#hero').onclick = () => AI.buildHero(s, (site) => show(site));
   if ($('#pub')) $('#pub').onclick = async () => {
     const r = await api(`/api/designs/sites/${s.id}/publish`, { on: !s.publicPath }); if (r.ok) return show(r.site);
     const card = $('.card.publish'); if (!card) return;
