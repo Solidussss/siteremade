@@ -196,7 +196,7 @@
   // (a showcase is one per pair of photos), plus = credits on top (Claude's part of Build your hero). The server quotes
   // the job again before anything is charged; this is the same sum, shown early.
   const VQ_LABEL = { '480p': 'Draft', '720p': 'HD', '1080p': 'Full HD' };
-  AI.videoPicker = (host, { times = () => 1, plus = 0, seconds = 5 } = {}) => {
+  AI.videoPicker = (host, { times = () => 1, plus = 0, seconds = 5, onChange = null } = {}) => {
     const V = (AI.cfg && AI.cfg.video) || { min: 2, max: 30, quality: '1080p', qualities: [{ id: '1080p', creditsPerSecond: 1.68 }] };
     const st = { seconds: Math.min(V.max, Math.max(V.min, seconds)), quality: V.quality };
     host.innerHTML = `<div class="vpk"><div class="vpk-row"><span>Length</span><b data-v="sec"></b></div>
@@ -212,6 +212,7 @@
       const n = times(st.seconds, st.quality);
       host.querySelector('[data-v=what]').textContent = n > 1 ? `${n} clips × ${each()} credits${plus ? ` + ${plus}` : ''}` : n < 1 ? 'Add your photos to see the price' : `${st.quality} · ${st.seconds}s${plus ? ` + Claude ${plus}` : ''}`;
       host.querySelector('[data-v=price]').textContent = n < 1 ? '' : `${credits()} credits`;
+      if (onChange) onChange({ seconds: st.seconds, quality: st.quality, credits: n < 1 ? null : credits() });
     };
     host.querySelector('input[type=range]').addEventListener('input', (e) => { st.seconds = Number(e.target.value); draw(); });
     host.querySelectorAll('[data-q]').forEach((b) => { b.onclick = () => { st.quality = b.dataset.q; host.querySelectorAll('[data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }; });

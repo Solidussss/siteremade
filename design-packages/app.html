@@ -187,6 +187,10 @@
 .adiff li{display:grid;gap:3px;background:#fff;border-radius:10px;padding:8px 10px;font-size:13px}.adiff li span{color:var(--muted);overflow-wrap:anywhere}
 .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid rgba(0,0,0,.15)}
 .acant{background:#fff7ec;border-radius:10px;padding:8px 10px;font-size:13px;margin-bottom:8px}.acant ul{margin:6px 0 0;padding-left:18px}
+.opt{border:1px solid #e3e5ea;border-radius:14px;margin-top:10px;background:#fff}.opt>summary{list-style:none;display:flex;align-items:center;gap:10px;white-space:nowrap;padding:14px 16px;cursor:pointer;font-weight:700;font-size:15px;color:#16181d}.opt>summary::-webkit-details-marker{display:none}
+.opt>summary em{margin-left:auto;flex:0 1 auto;text-align:right;font-style:normal;font-weight:500;color:#6b6f7a;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.opt>summary:after{content:'';flex:0 0 auto;width:7px;height:7px;border-right:2px solid #8a8e98;border-bottom:2px solid #8a8e98;transform:rotate(45deg);margin:-3px 2px 0 4px}.opt[open]>summary:after{transform:rotate(-135deg);margin-top:4px}.opt>.optbody{padding:0 16px 16px}.opt .vpk{margin-top:0}
+.pick-ask,.pick-preview,.pick-ask .opt,.pick-ask .optbody{min-width:0}#idrm[hidden]{display:none!important}
+@media(max-width:640px){.pick-ask .typechips{max-width:100%;display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x mandatory;padding-bottom:6px;-webkit-overflow-scrolling:touch}.pick-ask .typechips button{flex:0 0 78px;scroll-snap-align:start}.pick-ask .idpic{width:150px;height:56px}}
 .idlogo{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px}.idpic{width:180px;height:64px;border-radius:12px;display:grid;place-items:center;overflow:hidden;font-size:12px;color:#858995;border:1px dashed #c9cdd6;background:#fff;background-image:linear-gradient(45deg,#f1f2f4 25%,transparent 25%,transparent 75%,#f1f2f4 75%),linear-gradient(45deg,#f1f2f4 25%,transparent 25%,transparent 75%,#f1f2f4 75%);background-size:14px 14px;background-position:0 0,7px 7px}.idpic img{max-width:92%;max-height:80%;object-fit:contain}
 .idlab{font-size:13px;font-weight:700;margin:16px 0 0;color:#30333a}.typechips{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:8px}.typechips button{border:1px solid #d6d9e0;background:#fff;border-radius:12px;padding:8px 6px 7px;cursor:pointer;color:#30333a;font:inherit;text-align:center}.typechips button b{display:block;font-size:24px;line-height:1.1;font-weight:700}.typechips button small{display:block;font-size:11px;font-weight:600;opacity:.75;margin-top:2px}.typechips button[aria-pressed=true]{background:#111;border-color:#111;color:#fff}
 </style></head>
@@ -437,35 +441,39 @@ function idPreview(ifr, id) {
 // the business), and Wan makes the hero from the pictures. One price, shown before anything runs.
 function heroBrief(d, m, about) {
   $('#briefBox').innerHTML = `<div class="panel pick"><div class="pick-preview"><p class="eyebrow">${esc(m.name)} · the original design</p>${frame('/designs/demo/' + d, m.url || d, true, false)}<p class="note">Scroll inside it: this is the animation your site keeps.</p></div>
-    <div class="pick-ask"><h2>Make it <span>yours.</span></h2><p class="sub">Your business name, the picture your hero starts on and the one it ends on. We build the site, Claude matches it to your pictures, and the video made from them becomes your hero.</p>
+    <div class="pick-ask"><h2>Make it <span>yours.</span></h2><p class="sub">Your name and two pictures: where your hero starts and where it ends. We build the site, match it to your pictures, and the video becomes your hero.</p>
     <div class="bform" style="grid-template-columns:1fr"><label>Business name<input id="hbname" maxlength="80" placeholder="e.g. Fade Society"></label></div>
-    <p class="idlab">Your logo <small style="font-weight:500;color:#858995">optional</small></p>
-    <div class="idlogo"><div class="idpic" id="idpic">No logo: your name shows</div><label class="button button-secondary">Add logo<input type="file" accept="image/*,.svg" hidden id="idfile"></label><button type="button" class="button button-secondary" id="idrm" hidden>Remove</button></div>
-    <p class="note" style="margin:6px 0 0">We take out a plain background and size it to fit the top of your site. Watch it on the left.</p>
-    <p class="idlab">Typeface</p><div class="typechips" id="typechips"></div>
     <p class="idlab">Your hero</p>
     <div id="hbpics" style="margin-top:8px"></div>
-    <div class="bform" style="grid-template-columns:1fr;margin-top:12px"><label>What happens in between? <small>optional</small><textarea id="hbmo" rows="2" maxlength="900" placeholder="e.g. the lights come on one by one and the camera glides to the front desk"></textarea></label></div>
-    <details class="more"><summary>Describe your business (optional)</summary><p class="note">Claude rewrites the words for your business from this: only what you say, and it never makes up a price.</p><textarea id="hbabout" rows="3" maxlength="600" placeholder="e.g. a family barbershop in Calgary, skin fades and beard trims, walk-ins welcome"></textarea></details>
-    <div id="hbpick"></div>
+    <details class="opt" data-fold><summary>Logo &amp; typeface<em id="sumid">No logo · design’s font</em></summary><div class="optbody">
+      <div class="idlogo" style="margin-top:0"><div class="idpic" id="idpic">No logo: your name shows</div><label class="button button-secondary">Add logo<input type="file" accept="image/*,.svg" hidden id="idfile"></label><button type="button" class="button button-secondary" id="idrm" hidden>Remove</button></div>
+      <p class="note" style="margin:6px 0 0">We take out a plain background and size it to fit the top of your site.</p>
+      <p class="idlab">Typeface</p><div class="typechips" id="typechips"></div></div></details>
+    <details class="opt" data-fold><summary>Length &amp; quality<em id="sumvid"></em></summary><div class="optbody"><div id="hbpick"></div></div></details>
+    <details class="opt"><summary>More details<em>optional</em></summary><div class="optbody">
+      <div class="bform" style="grid-template-columns:1fr"><label>What happens in between?<textarea id="hbmo" rows="2" maxlength="900" placeholder="e.g. the lights come on one by one and the camera glides to the front desk"></textarea></label>
+      <label>Describe your business<small>Claude rewrites the words from this: only what you say, never a made-up price.</small><textarea id="hbabout" rows="3" maxlength="600" placeholder="e.g. a family barbershop in Calgary, skin fades and beard trims, walk-ins welcome"></textarea></label></div></div></details>
     <div class="actions" style="margin-top:14px"><button class="button" id="hbgo">Continue <span aria-hidden="true">→</span></button></div><p class="err" id="err"></p>
     <p class="note" style="margin-top:12px"><a href="#" id="hbwords">No pictures yet? Describe it instead.</a></p></div></div>`;
-  if (about) $('#hbabout').value = about;
+  if (about) { $('#hbabout').value = about; $('#hbabout').closest('details').open = true; }
+  // (folded on phones so the step stays short; open on a wider screen, where there's room)
+  if (matchMedia('(min-width: 900px)').matches) document.querySelectorAll('.pick-ask details[data-fold]').forEach((x) => { x.open = true; });
   // logo and typeface: shown live in the preview on the left, saved to the site when it's made
   const id = { logo: null, type: null }, ifr = $('.pick-preview iframe');
   if (D.typeChips && !document.getElementById('typechipsfont')) document.head.insertAdjacentHTML('beforeend', `<link id="typechipsfont" rel="stylesheet" href="${esc(D.typeChips)}">`);
   const chips = () => { $('#typechips').innerHTML = [{ name: '', display: 'inherit', about: 'the design’s' }].concat(D.types || []).map((t) => `<button type="button" data-type="${esc(t.name)}" aria-pressed="${(id.type || '') === t.name}" title="${esc(t.about || '')}"><b style="font-family:${esc(t.display)}">Aa</b><small>${esc(t.name || 'Design’s own')}</small></button>`).join('');
-    $('#typechips').querySelectorAll('[data-type]').forEach((b) => { b.onclick = () => { id.type = b.dataset.type || null; chips(); idPreview(ifr, id); }; }); };
+    $('#typechips').querySelectorAll('[data-type]').forEach((b) => { b.onclick = () => { id.type = b.dataset.type || null; chips(); idPreview(ifr, id); idSum(); }; }); };
+  const idSum = () => { $('#sumid').textContent = `${id.logo ? 'Logo added' : 'No logo'} · ${id.type || 'design’s font'}`; };
   chips();
   $('#idfile').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; $('#idpic').textContent = 'Preparing…';
-    try { id.logo = await AI.prepLogo(f); $('#idpic').innerHTML = `<img src="${id.logo.url}" alt="">`; $('#idrm').hidden = false; idPreview(ifr, id); }
+    try { id.logo = await AI.prepLogo(f); $('#idpic').innerHTML = `<img src="${id.logo.url}" alt="">`; $('#idrm').hidden = false; idPreview(ifr, id); idSum(); }
     catch (x) { $('#idpic').textContent = x.message; }
   });
-  $('#idrm').onclick = () => { id.logo = null; $('#idpic').textContent = 'No logo: your name shows'; $('#idrm').hidden = true; idPreview(ifr, id); };
+  $('#idrm').onclick = () => { id.logo = null; $('#idpic').textContent = 'No logo: your name shows'; $('#idrm').hidden = true; idPreview(ifr, id); idSum(); };
   if (ifr) ifr.addEventListener('load', () => idPreview(ifr, id));
   const pics = AI.picSlots($('#hbpics'), { startHint: 'Where your hero starts', endHint: 'Where it ends (optional)' });
-  const vp = AI.videoPicker($('#hbpick'), { plus: (AI.cfg && AI.cfg.prices && AI.cfg.prices.own_plan) || 3 });
+  const vp = AI.videoPicker($('#hbpick'), { plus: (AI.cfg && AI.cfg.prices && AI.cfg.prices.own_plan) || 3, onChange: (v) => { const e = $('#sumvid'); if (e) e.textContent = `${v.seconds}s · ${v.quality}${v.credits != null ? ` · ${v.credits} credits` : ''}`; } });
   $('.pick').scrollIntoView({ behavior: 'smooth', block: 'start' }); fitFrames(); playAll();
   $('#hbwords').onclick = (e) => { e.preventDefault(); pick(d, $('#hbabout').value, true); };
   $('#hbgo').onclick = async () => {
