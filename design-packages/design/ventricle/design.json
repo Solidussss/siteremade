@@ -77,5 +77,8 @@
     }
   },
   "guards": [],
-  "photoHero": {"hide":["#ecg","#fx",".vign","#head"],"motion":"focus"}
+  "photoHero": {
+    "own": true,
+    "motion": "focus"
+  }
 }
