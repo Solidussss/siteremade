@@ -3,11 +3,13 @@
 // Build one bespoke (v5) website from a business folder. Owner/admin tool: nothing is published or stored in the
 // database; the page is written to a folder you open yourself.
 //
-//   ANTHROPIC_API_KEY=... node scripts/bespoke-build.js <business-dir> [--out <dir>] [--used <used.json>] [--no-look]
+//   ANTHROPIC_API_KEY=... node scripts/bespoke-build.js <business-dir> [--out <dir>] [--used <used.json>] [--video <mp4>] [--no-look]
 //
 // <business-dir>/facts.json   everything known about the business (name, address, hours, menu, links, notes);
 //                             only these facts may appear on the page
 // <business-dir>/photos/      the business's own photos (jpg, png, webp; up to 12 are shown to the AI)
+// <business-dir>/hero.mp4     optional: a hero video made from one of THEIR photos (Wan or Seedance image-to-video,
+//                             e.g. from the AI studio). It becomes a scroll-scrubbed hero like the 36 designs have.
 // --used <used.json>          { "fonts": ["Lilita One", ...], "signatures": ["lime drop", ...] } already taken by
 //                             other sites, so this one is different
 // Output: <out>/index.html, media/, SPEC.md, shots/, report.json (default <business-dir>/v5)
@@ -16,6 +18,7 @@ const path = require('path');
 const { run } = require('../lib/bespoke/pipeline');
 const { claude, cost } = require('../lib/bespoke/claude');
 const { prepare } = require('../lib/bespoke/media');
+const heroVideo = require('../lib/bespoke/video');
 const qa = require('../lib/bespoke/qa');
 
 async function main() {
@@ -33,8 +36,9 @@ async function main() {
 
   const ai = claude(process.env.ANTHROPIC_API_KEY, { model: process.env.BESPOKE_MODEL || 'claude-sonnet-5-5' });
   const t0 = Date.now();
-  const res = await run({ facts, photosDir, photos, outDir: out, usedFonts: used.fonts || [], usedSignatures: used.signatures || [] },
-    { ai, prepare, shoot: look ? (d) => qa.shoot(d) : null, reviewImages: look ? qa.reviewImages : null });
+  const video = opt('--video') || (fs.existsSync(path.join(dir, 'hero.mp4')) ? path.join(dir, 'hero.mp4') : null);
+  const res = await run({ facts, photosDir, photos, outDir: out, usedFonts: used.fonts || [], usedSignatures: used.signatures || [], video },
+    { ai, prepare, prepareVideo: heroVideo.prepare, shoot: look ? (d) => qa.shoot(d) : null, reviewImages: look ? qa.reviewImages : null });
   const secs = Math.round((Date.now() - t0) / 1000);
   console.log(JSON.stringify({ ok: res.ok, out, signature: res.spec && res.spec.direction && res.spec.direction.signature,
     font: res.spec && res.spec.direction && res.spec.direction.displayFont, issues: res.report.issues, calls: ai.usage.calls,

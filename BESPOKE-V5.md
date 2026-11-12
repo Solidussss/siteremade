@@ -30,6 +30,10 @@ ANTHROPIC_API_KEY=... node scripts/bespoke-build.js <business-dir> --used used.j
 ```
 
 `<business-dir>/photos/`: the business's own photos (jpg, png, webp). Up to 12 are shown to the AI.
+`<business-dir>/hero.mp4` (or `--video <mp4>`), optional: a hero video made from one of THEIR photos with Wan or
+Seedance image-to-video (the AI studio makes these). It is prepared like the 36 designs' video heroes
+(lib/bespoke/video.js: a 1280px take built for scrubbing, poster, last frame, 90 to 240 still frames) and the page
+makes it a scroll-scrubbed hero; still mode shows the last frame. Never stock footage, never another business's video.
 `used.json`: `{ "fonts": [...], "signatures": [...] }` already taken, so each site is different.
 
 Output (default `<business-dir>/v5/`): `index.html`, `media/`, `SPEC.md`, `shots/` (desktop, phone, full pages),
@@ -61,6 +65,21 @@ Set `CHROME_PATH` if Chrome or Chromium is not in a usual place; without one the
 
 The hand-built Calgary pages (66 Lime's, 67 AURUM, 69 Millo Millo, 70 Art Café) pass every code check.
 
+## The 36 designs meet the same page standard
+
+`design-packages/engine/v5.js` runs on every page a design builds (engine.build): `<html lang>`, a meta description
+from the page's own first paragraph, a skip link to its main content, focus outlines where a design had none,
+`overflow-x:clip`, and still mode. With `?still` in the URL a design behaves as it does for a visitor who asked for
+reduced motion (its own CSS and scripts already handle that), and its pinned scroll hero (every design has one, 4 to
+5.6 screens tall) is shown at the END of its story and folded to one screen: the forno pie comes out of the oven,
+Ventricle reads NEW PR, the watch is assembled. This works for the drawn heroes and for the Wan video heroes the demos
+play (design-packages/videos). Previews (/designs/demo, the owner preview) are sent with `X-Robots-Tag: noindex`; a
+published site stays indexable. `test/design-v5-standard.test.js` checks all 36 against lib/bespoke/validate.js.
+
+The drawn heroes look illustrated; the demos already play real video for all 36 (design-packages/videos, made with
+the video model from each design's demo photo). For a customer's site, the hero should be a video made from THEIR
+photo the same way (lib/video-hero.js make(), or the AI studio), not the drawing and not the demo's video.
+
 ## Tests
 
 `node --test test/bespoke.test.js`: the code checks on a good page and on the things they must refuse, the photo crop
@@ -73,4 +92,4 @@ invented price goes back to the AI and the fixed page is kept.
 2. Price it in credits (lib/pricing.js) from those numbers.
 3. A route behind the website admin flag: upload photos, fill the fact sheet, run as a background job like
    lib/design-sites.js, private preview with the same owner checks.
-4. The 36 design packages: add still mode and the tagline reveal where missing, so they pass the same checks.
+4. Customer sites from the 36 designs: make the video hero from the customer's own photo by default.

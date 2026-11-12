@@ -99,3 +99,16 @@ test('answers are read from fenced blocks', () => {
   assert.deepEqual(jsonIn('ok\n```json\n{"done":true}\n```'), { done: true });
   assert.equal(htmlIn('fixes\n```html\n<!doctype html><p>x</p>\n```'), '<!doctype html><p>x</p>');
 });
+
+test('a hero video made from their own photo is prepared and handed to the build', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bespoke-vid-'));
+  const spec = { intake: {}, photos: [], direction: { displayFont: 'League Gothic' }, spec_md: '#' };
+  const answers = ['```json\n' + JSON.stringify(spec) + '\n```', '```html\n' + GOOD.replace('media/choc.jpg', 'media/hero-last.jpg') + '\n```'];
+  const sent = [];
+  const ai = { usage: { calls: 0 }, start() {}, async say(c) { sent.push(c); return answers.shift(); } };
+  const prepareVideo = async () => ({ video: 'hero.mp4', poster: 'hero-poster.jpg', last: 'hero-last.jpg', frames: { pattern: 'media/hero/{n}.jpg', count: 120, w: 1280, h: 720, seconds: 15 } });
+  const res = await run({ facts: FACTS, photosDir: dir, photos: [], outDir: path.join(dir, 'v5'), video: '/x/hero.mp4' }, { ai, prepareVideo });
+  assert.equal(res.ok, true, JSON.stringify(res.report.issues));
+  assert.match(String(sent[1]), /HERO VIDEO.*media\/hero\.mp4/s);
+  assert.match(String(sent[1]), /120 still frames media\/hero\/\{n\}\.jpg/);
+});
