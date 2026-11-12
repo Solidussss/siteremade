@@ -1,7 +1,7 @@
 'use strict';
-// THE LARDER & LAMP DESIGN (design-packages/design/larder): a restaurant's site whose hero serves a dinner for two on a
-// table seen from above. The restaurant's menu, the plates served, its tables, hours and streets go into the page
-// scripts; the rules send back what the page could not show. No model calls.
+// THE LARDER & LAMP DESIGN (design-packages/design/larder): a restaurant's site whose hero plays the real table while
+// tonight's card is struck through course by course. The restaurant's menu, its dinner, tables, hours and streets go
+// into the page; the rules send back what the page could not show. No model calls.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -19,12 +19,11 @@ test('the sample restaurant builds clean; another gets its own menu, plates, tab
   const html = build(D, c).html;
   assert.doesNotMatch(html, /Larder|Jericho|Walton|Celeriac/, 'nothing of the sample restaurant');
   assert.match(html, /const TABLE=12, MINUTES=95, WINE=0, COVERS=\[20,64\];/);
-  assert.match(html, /\[\{kind:'bowl',col:'#E0A52E'\},\{kind:'meat',col:'#C8523A'\}\]/);
+  assert.match(html, /<li><time>18:52<\/time><span class="n">Bread &amp; lassi<\/span>/, 'the card carries their own evening');
   assert.match(html, /\{n:'Goan fish curry',d:'Coconut, kokum, rice',p:24,t:\['GF'\]\}/);
   assert.match(html, /const PAIRING=0;/); assert.match(html, /const SEATS=\[2,2,4,4,4,8,2,4,8\];/);
   assert.match(html, /const HOURS=\[\[12,21\],null,\[17,22\],\[17,22\],\[17,22\],\[17,23\],\[12,23\]\];/);
   assert.match(html, /water:null/, 'no water near this one');
-  assert.match(html, /const CANDLE='#D9A23A';/, 'the candle keeps its own colour');
   assert.doesNotMatch(html, /--accent:#D9A23A/i, 'the brand colour turned');
 });
 
