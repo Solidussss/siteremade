@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.3]', '[.3,.46]', '[.46,.66]', '[.66,.84]', '[.84,1]'];
 const num = (n) => String(+(+n).toFixed(3)).replace(/^(-?)0\./, '$1.');
@@ -16,6 +17,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [24, 83, 92]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     routeJs: `{start:${js(R.start)},goals:[${list(R.goals)}],sessions:${R.sessions},weeks:${R.weeks}}`,
     landJs: `{land:'#EEEADD',route:${js(c.theme.accent)},flag:${js(R.flag)}}`,
