@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.12]', '[.12,.28]', '[.28,.45]', '[.45,.64]', '[.64,.82]', '[.82,1]'];
 const num = (n) => String(+(+n).toFixed(2)).replace(/^0\./, '.');
@@ -16,6 +17,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [67, 56, 202]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},when:${js(s.when)},angle:${s.angle},pain:${s.pain},strength:${s.strength},sessions:${s.sessions},w:${WINDOWS[i]}}`).join(',\n'),
     areasJs: c.where.areas.map((a) => ` {n:${js(a.n)},tag:${js(a.tag || '')},line:${js(a.line)},conds:[${a.conds.map(js).join(',')}],sessions:${js(a.sessions)},weeks:${js(a.weeks)},meanwhile:${js(a.meanwhile)},flag:${js(a.flag)}}`).join(',\n'),
     treatsJs: c.treatments.treats.map((x) => ` {n:${js(x.n)},d:${js(x.d)},len:${js(x.len)},p:${num(x.p)}}`).join(',\n'),
