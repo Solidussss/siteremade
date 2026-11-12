@@ -1,6 +1,7 @@
 // Clutch's design-specific build logic: the editions as the page script's THEMES and SETS, the spec count-ups, the
 // footer word's letters, and the rules the schema can't express. Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 // the brick colours the rocket can be built from (the page's palette C)
 const C = { white: '#f2f2ee', red: '#e3262f', blue: '#2c6cf0', yellow: '#ffc928', dark: '#2f333d', grey: '#9aa1ad', orange: '#ff7a1a', black: '#1c1e25', sky: '#56c6ff', green: '#2fa84f', pink: '#ff6fae', purple: '#7b4dff' };
@@ -11,6 +12,7 @@ function derive(c) {
   const js = FILTERS.js, esc = FILTERS.esc, E = c.sets.editions;
   const decimals = (v) => (String(v).includes('.') ? String(v).split('.')[1].length : 0);
   return {
+    film: film.derive(c, null, [255, 200, 60]),
     themesJs: E.map((e, i) => `    ${key(e, i)}: { ${PARTS.map((p) => `${p}: C.${e[p]}`).join(', ')} },`).join('\n'),
     setsJs: E.map((e, i) => `[${js(key(e, i))}, ${js(e.name)}, '${C[e.tint]}', ${e.price}]`).join(', '),
     firstKey: key(E[0], 0),
