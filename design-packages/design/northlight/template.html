@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a photographer. One pinned studio where a portrait is lit as you scroll (backdrop, key light, fill, rim,
-   background, then the shot and the print), with the lighting diagram beside the viewfinder; then what a client needs:
+/* Layout: a photographer. The real shoot plays through a camera's viewfinder as you scroll (the photographer's own
+   video or photos): brackets, thirds, a focus box, the settings along the bottom and a live histogram of the picture;
+   at the end the shutter fires and the frame is matted as a print in the house grade; then what a client needs:
    sessions and packages, how a shoot goes, and a free date to book. */
 :root{
   color-scheme:light;
@@ -59,45 +61,71 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:25px}}
 
-/* hero: the studio */
+/* hero: the real shoot seen through the viewfinder, then fired and matted as a print */
 .hero{position:relative;height:560vh}
-.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--wall)}
-#studio{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,242,238,.96),rgba(244,242,238,.78) 55%,rgba(244,242,238,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6.2vw,9.6vh),6.2rem)}
-.hero h1 em{font-style:italic;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.note-card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 18px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(20,20,20,.45),0 0 0 1px rgba(20,20,20,.06)}
-.note-card .row{display:flex;justify-content:space-between;gap:10px;font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.note-card .rec{color:var(--accent-text);display:flex;align-items:center;gap:6px}
-.note-card .rec::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
-.note-card h3{font-size:clamp(30px,2.8vw,38px);margin-top:10px}
-.note-card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
-.meter{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(20,20,20,.45),0 0 0 1px rgba(20,20,20,.06)}
-.meter div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.meter div:nth-child(2n){border-right:0}
-.meter div:nth-child(n+3){border-bottom:0}
-.meter dt{font:500 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.meter dd{margin:6px 0 0;font:400 30px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
-.meter dd small{font:500 11px var(--f-mono);color:var(--muted);margin-left:4px}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:#111}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+#film{transition:filter 1.2s}
+.hero.graded #film{filter:var(--grade)}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(244,242,238,.93) 0%,rgba(244,242,238,.7) 30%,rgba(244,242,238,0) 52%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
+.hero h1 em{display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* the viewfinder */
+.vf{position:absolute;z-index:3;inset:calc(env(safe-area-inset-top,0px) + 74px) clamp(16px,3vw,40px) calc(16px + env(safe-area-inset-bottom,0px));pointer-events:none;color:#fff;opacity:0;transition:opacity .5s}
+.vf.on{opacity:1}
+.vf .brk{position:absolute;width:34px;height:34px;border:2px solid rgba(255,255,255,.9);filter:drop-shadow(0 0 2px rgba(0,0,0,.5))}
+.vf .brk.a{left:0;top:0;border-right:0;border-bottom:0}.vf .brk.b{right:0;top:0;border-left:0;border-bottom:0}
+.vf .brk.c{left:0;bottom:56px;border-right:0;border-top:0}.vf .brk.d{right:0;bottom:56px;border-left:0;border-top:0}
+.vf .thirds{position:absolute;inset:0 0 56px;background:linear-gradient(90deg,transparent calc(33.33% - .5px),rgba(255,255,255,.28) calc(33.33% - .5px),rgba(255,255,255,.28) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.28) calc(66.66% - .5px),rgba(255,255,255,.28) calc(66.66% + .5px),transparent calc(66.66% + .5px)),linear-gradient(180deg,transparent calc(33.33% - .5px),rgba(255,255,255,.28) calc(33.33% - .5px),rgba(255,255,255,.28) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.28) calc(66.66% - .5px),rgba(255,255,255,.28) calc(66.66% + .5px),transparent calc(66.66% + .5px))}
+.vf .af{position:absolute;left:var(--afx,62%);top:var(--afy,34%);width:58px;height:58px;margin:-29px 0 0 -29px;border:2px solid rgba(255,255,255,.8);border-radius:4px;transition:left .8s cubic-bezier(.16,1,.3,1),top .8s cubic-bezier(.16,1,.3,1),border-color .2s}
+.vf .af.lock{border-color:var(--accent-2);animation:lock .5s steps(2) 2}
+@keyframes lock{50%{transform:scale(.86)}}
+.vf .tp{position:absolute;left:46px;right:46px;top:8px;display:flex;justify-content:space-between;gap:12px;font:500 11px/1.3 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.vf .tp b{display:inline-flex;align-items:center;gap:8px;font-weight:500}
+.vf .tp b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 8px var(--accent-2);animation:rec 1.2s steps(2) infinite}
+.flat .vf .tp b::before{animation:none}
+@keyframes rec{50%{opacity:.2}}
+.vf .say{position:absolute;left:46px;bottom:76px;max-width:min(460px,60%);font-size:15.5px;line-height:1.5;color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.65)}
+.vf .say h3{font:400 clamp(30px,3.4vw,46px)/1 var(--f-display);margin-bottom:8px}
+/* the camera's readout: settings, the frame count, a histogram of what's on screen */
+.lcd{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;gap:clamp(14px,2.4vw,34px);padding:0 16px;background:rgba(0,0,0,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:4px;font:500 13px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:#fff;letter-spacing:.04em}
+.lcd span{white-space:nowrap}
+.lcd small{color:rgba(255,255,255,.55);font-size:10px;letter-spacing:.1em;margin-right:6px;text-transform:uppercase}
+.lcd .ct{margin-left:auto}
+.lcd canvas{width:120px;height:30px;display:block;flex:none}
+/* the shutter, and the print it makes */
+.flash{position:absolute;inset:0;z-index:6;background:#fff;opacity:0;pointer-events:none}
+.flash.go{animation:flash .55s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.mat{position:absolute;inset:0;z-index:2;pointer-events:none;border:0 solid var(--wall);box-shadow:inset 0 0 0 0 rgba(0,0,0,0);transition:border-width .9s cubic-bezier(.16,1,.3,1),box-shadow .9s}
+.mat.on{border-width:clamp(22px,4.4vw,64px) clamp(22px,4.4vw,64px) clamp(70px,9vh,110px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 10px 30px -10px rgba(0,0,0,.25)}
+.cap{position:absolute;z-index:4;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + clamp(26px,3.4vh,40px));text-align:center;font:400 clamp(20px,2.2vw,30px)/1 var(--f-display);font-style:italic;color:var(--ink);opacity:0;transition:opacity .6s .4s}
+.cap.on{opacity:1}
+.cap span{display:block;margin-top:8px;font:400 10.5px/1 var(--f-mono);font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 82px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(244,242,238,.94) 0%,rgba(244,242,238,.7) 36%,rgba(244,242,238,0) 54%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .meter{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(192px + env(safe-area-inset-bottom,0px))}
-  .meter div{padding:9px 10px;border-bottom:0}
-  .meter div:nth-child(2n){border-right:1px solid var(--line)}
-  .meter div:last-child{border-right:0}
-  .meter dt{font-size:8.5px;letter-spacing:.04em}
-  .meter dd{font-size:clamp(19px,5.4vw,24px)}
-  .meter dd small{display:none}
-  .note-card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
-  .note-card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .vf{inset:calc(env(safe-area-inset-top,0px) + 66px) 10px calc(10px + env(safe-area-inset-bottom,0px))}
+  .vf .tp{left:40px;right:40px;font-size:9.5px;letter-spacing:.06em}
+  .vf .say{left:12px;right:12px;max-width:none;bottom:96px;font-size:14px}
+  .vf .say h3{font-size:30px}
+  .vf .brk.c,.vf .brk.d{bottom:76px}.vf .thirds{bottom:76px}
+  .lcd{height:66px;flex-wrap:wrap;align-content:center;gap:6px 14px;font-size:12px;padding:0 12px}
+  .lcd .ct{margin-left:0}
+  .lcd canvas{width:84px;height:24px;margin-left:auto}
 }
 
 /* sections */
@@ -206,9 +234,12 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A portrait lit in the studio, scroll to run it">
+<section class="hero" id="top" aria-label="A shoot in the studio, seen through the viewfinder; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="studio" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A studio shoot by {{brand.name|attr}}, lit light by light"></canvas>
+    <div class="mat" id="mat" aria-hidden="true"></div>
+    <div class="veil" id="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -216,17 +247,18 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
       <div class="acts"><a class="btn red" href="#book">{{hero.cta}}</a><a class="btn ghost" href="#sessions">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="meter" id="meter" aria-live="off">
-      <div><dt>Lights</dt><dd id="mLights">0</dd></div>
-      <div><dt>Ratio</dt><dd id="mRatio">—</dd></div>
-      <div><dt>Frames</dt><dd id="mFrames">0</dd></div>
-      <div><dt>Keepers</dt><dd id="mKeep">0</dd></div>
-    </dl>
-    <div class="note-card" id="note" aria-live="polite">
-      <div class="row"><span>Setup <b id="nNum">1</b> of 6</span><span class="rec" id="nSet">{{shot.aperture}} · {{shot.shutter}}</span></div>
-      <h3 id="nTitle">{{stages.0.n}}</h3>
-      <p id="nText">{{stages.0.c}}</p>
+    <div class="vf" id="vf">
+      <i class="thirds"></i><i class="brk a"></i><i class="brk b"></i><i class="brk c"></i><i class="brk d"></i><i class="af" id="af"></i>
+      <div class="tp"><b>Setup <span id="nNum">1</span> of 6</b><span id="nLights">0 lights</span></div>
+      <div class="say" aria-live="polite"><h3 id="nTitle">{{stages.0.n}}</h3><p id="nText">{{stages.0.c}}</p></div>
+      <div class="lcd" id="meter">
+        <span>{{shot.aperture}}</span><span>{{shot.shutter}}</span><span>{{shot.iso}}</span><span><small>Ratio</small><b id="mRatio">—</b></span>
+        <span class="ct"><small>Frames</small><b id="mFrames">0</b> <small style="margin-left:8px">Kept</small><b id="mKeep">0</b></span>
+        <canvas id="histo" width="120" height="30" aria-hidden="true"></canvas>
+      </div>
     </div>
+    <div class="flash" id="flash" aria-hidden="true"></div>
+    <p class="cap" id="cap">{{shot.caption}}<span>{{brand.name}}</span></p>
   </div>
 </section>
 
@@ -298,215 +330,72 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
+const TOUCH = matchMedia('(pointer:coarse)').matches;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
-const lerp=(a,b,t)=>a+(b-a)*t;
 const sm=t=>t*t*(3-2*t);
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
 
-/* ============ THE SHOOT (what the hero shows) ============ */
+/* ============ THE SHOOT ============ */
 const STAGES=[
 {{$.stagesJs|raw}}
 ];
-// the camera settings shown, the lighting ratio, and the shoot's numbers
 const SHOT={{$.shotJs|raw}};
-// who's in front of the camera ('portrait' or 'product'), and how the final frame is graded ('warm', 'mono' or 'cool')
-const SUBJECT={{shot.subject|js}};
-const LOOK={{shot.look|js}};
+const LOOK={{shot.look|js}};          // the grade the print gets: warm, mono or cool
 const CAPTION={{shot.caption|js}};
-// the words on the bottle when the subject is a product
-const PRODUCT={name:{{shot.product.name|js}},line:{{shot.product.line|js}}};
-const ACCENT='{{A:#B3261E}}';
+const GRADE={warm:'sepia(.16) saturate(1.12) contrast(1.04)',mono:'grayscale(1) contrast(1.12)',cool:'saturate(.9) hue-rotate(-8deg) contrast(1.05) brightness(1.02)'};
 
-/* ============ THE LIGHT ============ */
-const norm=([x,y,z])=>{const l=Math.hypot(x,y,z)||1;return[x/l,y/l,z/l];};
-const KEY_FROM=norm([0,0,1]), KEY_TO=norm([-.62,-.48,.62]), FILL=norm([.8,.05,.6]), RIM=norm([.85,-.4,-.35]);
-const FILL_K=1/(parseFloat(SHOT.ratio)||3); // the fill's strength for the ratio shown
-// the frame is painted with light, not photographed: a profile (or a bottle) as one smooth outline, lit in layers
-// the outline, in a 400 x 500 box: the sitter faces right, towards the key
-function sitter(c){c.beginPath();
-  c.moveTo(58,500);c.bezierCurveTo(70,452,104,420,134,404);c.bezierCurveTo(140,380,138,356,128,334);
-  c.bezierCurveTo(96,300,84,246,94,196);c.bezierCurveTo(108,128,166,86,236,86);c.bezierCurveTo(296,86,330,124,336,172);
-  c.bezierCurveTo(338,190,336,200,334,208);c.bezierCurveTo(350,228,366,248,372,262);c.bezierCurveTo(374,270,366,276,350,278);
-  c.bezierCurveTo(352,286,356,292,352,298);c.bezierCurveTo(346,302,350,308,350,314);c.bezierCurveTo(348,322,340,326,338,330);
-  c.bezierCurveTo(344,344,342,356,330,364);c.bezierCurveTo(314,372,296,374,282,372);c.bezierCurveTo(278,392,280,420,292,440);
-  c.bezierCurveTo(316,462,350,476,372,500);c.closePath();}
-function hairShape(c){c.beginPath();c.moveTo(96,300);c.bezierCurveTo(70,250,76,170,118,124);c.bezierCurveTo(156,82,236,70,290,92);
-  c.bezierCurveTo(322,104,338,128,338,160);c.bezierCurveTo(318,140,292,132,262,140);c.bezierCurveTo(226,150,196,176,184,214);
-  c.bezierCurveTo(176,240,160,262,146,268);c.bezierCurveTo(132,286,118,300,96,300);c.closePath();}
-function bottle(c){c.beginPath();c.moveTo(130,500);c.lineTo(130,262);c.bezierCurveTo(130,214,176,196,182,170);c.lineTo(182,120);c.lineTo(218,120);c.lineTo(218,170);
-  c.bezierCurveTo(224,196,270,214,270,262);c.lineTo(270,500);c.closePath();}
-function lid(c){c.beginPath();if(c.roundRect)c.roundRect(176,64,48,62,6);else c.rect(176,64,48,62);}
-const PB=document.createElement('canvas'), pctx=PB.getContext('2d');
-const HB=document.createElement('canvas');HB.width=40;HB.height=50;const hctx=HB.getContext('2d',{willReadFrequently:true});
-const HIST=new Float32Array(32);
-function paint(w,h,L){if(PB.width!==Math.round(w)||PB.height!==Math.round(h)){PB.width=Math.max(2,Math.round(w));PB.height=Math.max(2,Math.round(h));}
-  const c=pctx, sx=PB.width/400, sy=PB.height/500;c.setTransform(1,0,0,1,0,0);
-  // the paper: dark until lit, a spill from the key, a glow from the background light
-  c.fillStyle=`rgb(${Math.round(34+40*L.key)},${Math.round(33+38*L.key)},${Math.round(32+36*L.key)})`;c.fillRect(0,0,PB.width,PB.height);
-  if(L.bg>0){const g=c.createRadialGradient(PB.width*.42,PB.height*.38,0,PB.width*.42,PB.height*.38,PB.width*.7);g.addColorStop(0,`rgba(232,214,188,${(.85*L.bg).toFixed(3)})`);g.addColorStop(.55,`rgba(196,180,158,${(.35*L.bg).toFixed(3)})`);g.addColorStop(1,'rgba(196,180,158,0)');c.fillStyle=g;c.fillRect(0,0,PB.width,PB.height);}
-  if(SUBJECT==='product'){c.fillStyle='rgba(0,0,0,.25)';c.fillRect(0,PB.height*.86,PB.width,PB.height*.14);}
-  c.setTransform(sx,0,0,sy,0,0);
-  const shape=SUBJECT==='product'?bottle:sitter;
-  // the subject: near black, then each light in turn, kept inside the outline
-  shape(c);c.fillStyle=SUBJECT==='product'?'#2A160B':'#1C1714';c.fill();
-  c.save();shape(c);c.clip();
-  const kx=lerp(200,520,L.keyTurn), ky=lerp(260,120,L.keyTurn);
-  if(L.key>0){const g=c.createRadialGradient(kx,ky,10,kx,ky,420);const warm=SUBJECT==='product'?'214,128,52':'226,182,150';g.addColorStop(0,`rgba(${warm},${(.95*L.key).toFixed(3)})`);g.addColorStop(.45,`rgba(${warm},${(.55*L.key).toFixed(3)})`);g.addColorStop(1,`rgba(${warm},0)`);c.fillStyle=g;c.fillRect(0,0,400,500);}
-  if(L.fill>0){c.fillStyle=`rgba(150,160,175,${(.16*L.fill).toFixed(3)})`;c.fillRect(0,0,400,500);}
-  if(SUBJECT==='product'){// strip-light reflections on the glass, and the label
-    if(L.key>0){c.fillStyle=`rgba(255,240,220,${(.75*L.key).toFixed(3)})`;c.fillRect(238,230,10,262);}
-    if(L.fill>0){c.fillStyle=`rgba(230,236,255,${(.45*L.fill).toFixed(3)})`;c.fillRect(146,250,5,240);}
-    c.fillStyle=`rgba(236,230,216,${(.2+.75*L.key).toFixed(3)})`;c.fillRect(130,300,140,120);c.fillStyle=`rgba(40,30,20,${(.2+.6*L.key).toFixed(3)})`;c.font='600 18px "Instrument Serif",serif';c.textAlign='center';c.fillText(PRODUCT.name,200,352,124);c.font='500 9px "Geist Mono",monospace';c.fillText(PRODUCT.line.toUpperCase(),200,376,124);c.textAlign='left';}
-  else{// hair, darker, with a sheen where the key reaches
-    hairShape(c);c.fillStyle='rgba(16,12,10,.92)';c.fill();if(L.key>0){c.save();hairShape(c);c.clip();const g=c.createRadialGradient(kx,ky,10,kx,ky,300);g.addColorStop(0,`rgba(150,110,80,${(.45*L.key).toFixed(3)})`);g.addColorStop(1,'rgba(150,110,80,0)');c.fillStyle=g;c.fillRect(0,0,400,500);c.restore();}}
-  // the rim: a bright edge on the far side
-  if(L.rim>0){c.save();c.globalCompositeOperation='lighter';const rg=c.createLinearGradient(40,0,320,0);rg.addColorStop(0,`rgba(255,236,206,${(.95*L.rim).toFixed(3)})`);rg.addColorStop(.55,`rgba(255,236,206,${(.25*L.rim).toFixed(3)})`);rg.addColorStop(1,'rgba(255,236,206,0)');
-    c.strokeStyle=rg;c.lineWidth=10;c.shadowColor=`rgba(255,226,180,${(.9*L.rim).toFixed(3)})`;c.shadowBlur=18*sx;shape(c);c.stroke();c.restore();}
-  c.restore();
-  if(SUBJECT==='product'){lid(c);c.fillStyle='#16120F';c.fill();if(L.key>0){c.fillStyle=`rgba(255,240,220,${(.5*L.key).toFixed(3)})`;c.fillRect(208,70,5,50);}if(L.rim>0){c.save();c.globalCompositeOperation='lighter';c.strokeStyle=`rgba(255,236,206,${(.5*L.rim).toFixed(3)})`;c.lineWidth=3;lid(c);c.stroke();c.restore();}}
-  // the grade, vignette and grain on the finished frame
-  c.setTransform(1,0,0,1,0,0);
-  if(L.grade>0){c.save();c.globalAlpha=L.grade;
-    if(LOOK==='mono'){c.globalCompositeOperation='saturation';c.fillStyle='#808080';c.fillRect(0,0,PB.width,PB.height);c.globalCompositeOperation='soft-light';c.fillStyle='#606060';c.fillRect(0,0,PB.width,PB.height);}
-    else{c.globalCompositeOperation='soft-light';c.fillStyle=LOOK==='cool'?'#6F8FB0':'#C08A55';c.fillRect(0,0,PB.width,PB.height);}
-    c.globalCompositeOperation='source-over';const v=c.createRadialGradient(PB.width/2,PB.height*.45,PB.width*.25,PB.width/2,PB.height*.45,PB.width*.85);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.45)');c.fillStyle=v;c.fillRect(0,0,PB.width,PB.height);c.restore();}
-  // the live histogram, from a tiny copy
-  hctx.drawImage(PB,0,0,40,50);const d=hctx.getImageData(0,0,40,50).data;HIST.fill(0);for(let i=0;i<d.length;i+=4)HIST[Math.min(31,Math.floor((.3*d[i]+.59*d[i+1]+.11*d[i+2])/8))]++;}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), vf=$('#vf'), af=$('#af'), mat=$('#mat'), cap=$('#cap'), flash=$('#flash'), veil=$('#veil');
+hero.style.setProperty('--grade',GRADE[LOOK]||GRADE.warm);
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const cv=$('#film');
+const film=SRFilm(cv,{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.4});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ GEOMETRY ============ */
-const cv=$('#studio'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-// the rig: the viewfinder (4 x 5) and, on a wide screen, the lighting diagram (4 x 4) beside it
-function fit(ax,ay){const w=mobile?4:8.6,h=5;const s=Math.min((ax[1]-ax[0])/w,(ay[1]-ay[0])/h);return{s,x:(ax[0]+ax[1])/2-s*w/2,y:(ay[0]+ay[1])/2-s*h/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), nt=$('#note').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.06,W*.94],[top,mt.top-stg.top-16]);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,nt.top)-stg.top;
-    const side=fit([cr+30,W*.96],[H*.13,Math.min(H*.8,low-30)]), under=fit([W*.05,W*.95],[cb+28,low-24]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top+10,Math.min(mt.top,nt.top-40)-stg.top-20]);}
-  lastKey='';}
-
-/* ============ DRAWING ============ */
-function viewfinder(x,y,w,h,ui,shot,grade,print){
-  // the print's white border grows as it becomes a print
-  const bw=print*w*.06;
-  if(print>0){ctx.fillStyle='#FFFFFF';ctx.shadowColor='rgba(20,20,20,.25)';ctx.shadowBlur=30*print;ctx.shadowOffsetY=14*print;ctx.fillRect(x-bw,y-bw,w+bw*2,h+bw*2+print*h*.09);ctx.shadowColor='transparent';}
-  ctx.drawImage(PB,x,y,w,h);
-  if(grade>0){// grain
-    const r=rngSeed(7);ctx.fillStyle=`rgba(255,255,255,${(.05*grade).toFixed(3)})`;for(let i=0;i<220;i++)ctx.fillRect(x+r()*w,y+r()*h,1,1);ctx.fillStyle=`rgba(0,0,0,${(.06*grade).toFixed(3)})`;for(let i=0;i<220;i++)ctx.fillRect(x+r()*w,y+r()*h,1,1);}
-  if(print>0){ctx.fillStyle=`rgba(20,20,20,${(.7*print).toFixed(3)})`;ctx.font=`400 ${Math.round(Math.max(13,w*.05))}px "Instrument Serif",serif`;ctx.textBaseline='middle';ctx.fillText(CAPTION,x,y+h+bw+print*h*.045);ctx.textAlign='right';ctx.font=`500 ${Math.round(Math.max(9,w*.026))}px "Geist Mono",monospace`;ctx.fillText(`${SHOT.aperture} · ${SHOT.shutter} · ${SHOT.iso}`,x+w,y+h+bw+print*h*.045);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-  if(ui<=0)return;ctx.save();ctx.globalAlpha=ui;
-  // frame corners, thirds, the focus point on the near eye, the readout bar
-  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;const c=Math.min(w,h)*.07, m=w*.05;
-  [[x+m,y+m,1,1],[x+w-m,y+m,-1,1],[x+m,y+h-m*1.9,1,-1],[x+w-m,y+h-m*1.9,-1,-1]].forEach(([px,py,sx,sy])=>{ctx.beginPath();ctx.moveTo(px,py+sy*c);ctx.lineTo(px,py);ctx.lineTo(px+sx*c,py);ctx.stroke();});
-  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(x+w*i/3,y);ctx.lineTo(x+w*i/3,y+h);ctx.stroke();ctx.beginPath();ctx.moveTo(x,y+h*i/3);ctx.lineTo(x+w,y+h*i/3);ctx.stroke();}
-  const fx=x+w*(SUBJECT==='product'?.5:.43), fy=y+h*(SUBJECT==='product'?.62:.31), fs=w*.06;ctx.strokeStyle=ACCENT;ctx.lineWidth=2;ctx.strokeRect(fx-fs/2,fy-fs/2,fs,fs);
-  const bh=Math.max(22,h*.065);ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(x,y+h-bh,w,bh);ctx.fillStyle='#FFFFFF';ctx.font=`500 ${Math.round(Math.max(10,bh*.42))}px "Geist Mono",monospace`;ctx.textBaseline='middle';
-  ctx.fillText(`${SHOT.aperture}   ${SHOT.shutter}   ${SHOT.iso}`,x+w*.05,y+h-bh/2+1);ctx.textAlign='right';ctx.fillStyle=shot>0?'#FFFFFF':'rgba(255,255,255,.6)';ctx.fillText(`[${Math.round(SHOT.frames*shot)}]`,x+w*.95,y+h-bh/2+1);ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  ctx.fillStyle=ACCENT;ctx.beginPath();ctx.arc(x+w-m-4,y+m+4,4,0,7);ctx.fill();
-  // a live histogram of what's in frame
-  const hw=w*.3, hh=h*.08, hx=x+w-m-hw, hy=y+m+14;ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(hx,hy,hw,hh);let mx=0;for(const v of HIST)mx=Math.max(mx,v);ctx.fillStyle='rgba(255,255,255,.75)';HIST.forEach((v,i)=>{const bh2=Math.sqrt(v/(mx||1))*hh*.9;ctx.fillRect(hx+i*hw/32,hy+hh-bh2,hw/32-.5,bh2);});
-  ctx.restore();}
-function rngSeed(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-
-// the studio, from above: concrete floor, the paper backdrop on its roll, the subject's mark, the camera on its tripod,
-// and the lights on stands with their softboxes and the pools they throw
-let floorTile=null;
-function concrete(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d'), r=rngSeed(19);g.fillStyle='#8C8A86';g.fillRect(0,0,256,256);
-  for(let i=0;i<40;i++){const x=r()*256,y=r()*256,rr=20+r()*70;const gr=g.createRadialGradient(x,y,0,x,y,rr);const t=r()<.5?'70,68,64':'170,168,162';gr.addColorStop(0,`rgba(${t},${.1+r()*.12})`);gr.addColorStop(1,`rgba(${t},0)`);g.fillStyle=gr;g.fillRect(0,0,256,256);}
-  for(let i=0;i<1800;i++){g.fillStyle=r()<.5?`rgba(255,255,255,${.04+r()*.06})`:`rgba(0,0,0,${.05+r()*.07})`;g.fillRect(r()*256,r()*256,1+r()*1.4,1+r()*1.4);}return c;}
-function tape(x,y,text,s,rot){ctx.save();ctx.translate(x,y);ctx.rotate(rot||0);ctx.font=`600 ${Math.round(Math.max(8,s*.028))}px "Geist Mono",monospace`;const tw=ctx.measureText(text).width+s*.03, th=Math.max(12,s*.045);
-  ctx.shadowColor='rgba(0,0,0,.25)';ctx.shadowBlur=2*DPR;ctx.shadowOffsetY=1*DPR;ctx.fillStyle='#F2EFE6';ctx.fillRect(-tw/2,-th/2,tw,th);ctx.shadowColor='transparent';
-  ctx.fillStyle='rgba(0,0,0,.05)';for(let i=-tw/2;i<tw/2;i+=3)ctx.fillRect(i,-th/2,1,th);ctx.fillStyle='rgba(20,20,20,.8)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,0,1);ctx.restore();}
-// a stand's three legs, a little shadowed
-function legs(x,y,r,rot){ctx.save();ctx.translate(x,y);ctx.strokeStyle='#1C1C1C';ctx.lineWidth=Math.max(1.5,r*.07);ctx.lineCap='round';for(let i=0;i<3;i++){const a=rot+i*Math.PI*2/3;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);ctx.stroke();ctx.fillStyle='#2A2A2A';ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,r*.07,0,7);ctx.fill();}
-  const g=ctx.createRadialGradient(-r*.05,-r*.05,0,0,0,r*.14);g.addColorStop(0,'#8A8A8A');g.addColorStop(1,'#1A1A1A');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r*.13,0,7);ctx.fill();ctx.restore();}
-function diagram(x,y,s,L,alpha,inset){ctx.save();ctx.globalAlpha=alpha;
-  const P=(u,v)=>[x+s*(.5+u*.42),y+s*(.5+v*.42)];
-  // the floor, in a rounded frame like a photo seen from the gantry
-  ctx.save();ctx.shadowColor='rgba(20,20,20,.25)';ctx.shadowBlur=18*DPR;ctx.shadowOffsetY=8*DPR;ctx.fillStyle='#8C8A86';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,s,s,s*.02);else ctx.rect(x,y,s,s);ctx.fill();ctx.restore();
-  ctx.save();ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,s,s,s*.02);else ctx.rect(x,y,s,s);ctx.clip();
-  if(!floorTile)floorTile=concrete();const fp=ctx.createPattern(floorTile,'repeat');if(fp&&fp.setTransform)fp.setTransform(new DOMMatrix().translate(x,y).scale(s/256));ctx.fillStyle=fp;ctx.fillRect(x,y,s,s);
-  // the lights' pools on the floor, warm, as each comes on
-  const sb=P(0,-.15);
-  const pool=(u,v,k,sz)=>{if(k<=0)return;const q=P(u,v), mx=(q[0]+sb[0])/2, my=(q[1]+sb[1])/2;const g=ctx.createRadialGradient(mx,my,0,mx,my,s*sz);g.addColorStop(0,`rgba(255,226,180,${(.4*k).toFixed(3)})`);g.addColorStop(1,'rgba(255,226,180,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(mx,my,s*sz,0,7);ctx.fill();};
-  const ka=lerp(Math.PI/2,Math.PI*.78,L.keyTurn), kp=[Math.cos(ka)*.72,Math.sin(ka)*.72-.15];
-  pool(kp[0],kp[1],L.key>0?1:0,.42);pool(.66,.18,L.fill,.3);pool(.6,-.62,L.rim,.22);
-  // the backdrop: the roll across the top, the paper sweeping down onto the floor
-  const b0=P(-.85,-.95),b1=P(.85,-.95), sweep=P(0,-.55)[1];const pg=ctx.createLinearGradient(0,b0[1],0,sweep);pg.addColorStop(0,'#E9E6E0');pg.addColorStop(.7,'#DCD8D0');pg.addColorStop(1,'rgba(220,216,208,0)');ctx.fillStyle=pg;ctx.fillRect(b0[0],b0[1],b1[0]-b0[0],sweep-b0[1]);
-  ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(b0[0],b0[1],2,sweep-b0[1]);ctx.fillRect(b1[0]-2,b0[1],2,sweep-b0[1]);
-  if(L.bg>0){const g=P(.05,-.8);const gr=ctx.createRadialGradient(g[0],g[1],0,g[0],g[1],s*.26);gr.addColorStop(0,`rgba(255,214,150,${(.6*L.bg).toFixed(3)})`);gr.addColorStop(1,'rgba(255,214,150,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(g[0],g[1],s*.26,0,7);ctx.fill();}
-  const rg=ctx.createLinearGradient(0,b0[1]-s*.03,0,b0[1]+s*.03);rg.addColorStop(0,'#5A5650');rg.addColorStop(.4,'#F4F1EB');rg.addColorStop(1,'#8F8A82');ctx.fillStyle=rg;ctx.fillRect(b0[0]-s*.03,b0[1]-s*.03,b1[0]-b0[0]+s*.06,s*.06);
-  [b0,b1].forEach(b=>legs(b[0],b[1]-s*.01,s*.05,.5));
-  // the subject's mark: a cross of gaffer tape, and the stool (or the plinth for a product)
-  ctx.strokeStyle='#E8E2D2';ctx.lineWidth=s*.012;ctx.beginPath();ctx.moveTo(sb[0]-s*.05,sb[1]+s*.06);ctx.lineTo(sb[0]+s*.05,sb[1]+s*.06);ctx.moveTo(sb[0],sb[1]+s*.01);ctx.lineTo(sb[0],sb[1]+s*.11);ctx.stroke();
-  ctx.save();ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=6*DPR;ctx.shadowOffsetY=3*DPR;
-  if(SUBJECT==='product'){const g=ctx.createLinearGradient(sb[0]-s*.06,0,sb[0]+s*.06,0);g.addColorStop(0,'#E9E6E0');g.addColorStop(1,'#B9B4AC');ctx.fillStyle=g;ctx.fillRect(sb[0]-s*.06,sb[1]-s*.06,s*.12,s*.12);ctx.shadowColor='transparent';ctx.fillStyle='#2A2622';ctx.beginPath();ctx.arc(sb[0],sb[1],s*.025,0,7);ctx.fill();}
-  else{const g=ctx.createRadialGradient(sb[0]-s*.015,sb[1]-s*.015,0,sb[0],sb[1],s*.05);g.addColorStop(0,'#8C6A48');g.addColorStop(1,'#4E3A28');ctx.fillStyle=g;ctx.beginPath();ctx.arc(sb[0],sb[1],s*.048,0,7);ctx.fill();}
-  ctx.restore();
-  // the camera on its tripod, lens towards the subject
-  const cm=P(0,.8);legs(cm[0],cm[1],s*.07,-Math.PI/2+.3);ctx.save();ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=6*DPR;ctx.shadowOffsetY=3*DPR;ctx.fillStyle='#161616';ctx.fillRect(cm[0]-s*.045,cm[1]-s*.022,s*.09,s*.044);ctx.restore();
-  const lg=ctx.createLinearGradient(cm[0]-s*.022,0,cm[0]+s*.022,0);lg.addColorStop(0,'#0E0E0E');lg.addColorStop(.5,'#4A4A4A');lg.addColorStop(1,'#0E0E0E');ctx.fillStyle=lg;ctx.fillRect(cm[0]-s*.022,cm[1]-s*.075,s*.044,s*.055);ctx.fillStyle='rgba(120,160,220,.5)';ctx.fillRect(cm[0]-s*.016,cm[1]-s*.078,s*.032,s*.006);ctx.fillStyle='#3A3A3A';ctx.fillRect(cm[0]-s*.03,cm[1]-s*.012,s*.012,s*.008);
-  if(!inset)tape(cm[0],cm[1]+s*.1,'CAMERA',s,.03);
-  // the lights: a stand, the head, and the softbox's white face turned to the subject
-  const light=(u,v,k,label,w,below)=>{if(k<=0)return;const q=P(u,v);ctx.save();ctx.globalAlpha=alpha*Math.min(1,k*1.6);const dx=sb[0]-q[0], dy=sb[1]-q[1], a=Math.atan2(dy,dx);
-    legs(q[0]-Math.cos(a)*s*.03,q[1]-Math.sin(a)*s*.03,s*.055,a+Math.PI/3);
-    ctx.translate(q[0],q[1]);ctx.rotate(a+Math.PI/2);ctx.save();ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=8*DPR;ctx.shadowOffsetY=4*DPR;
-    ctx.fillStyle='#1A1A1A';ctx.beginPath();ctx.moveTo(-s*w/2,-s*.012);ctx.lineTo(s*w/2,-s*.012);ctx.lineTo(s*w*.18,s*.05);ctx.lineTo(-s*w*.18,s*.05);ctx.closePath();ctx.fill();ctx.restore();
-    const face=ctx.createLinearGradient(0,-s*.02,0,s*.005);face.addColorStop(0,'#FFFFFF');face.addColorStop(1,k>.5?'#FFF2DA':'#E2E2E2');ctx.fillStyle=face;ctx.fillRect(-s*w/2,-s*.022,s*w,s*.016);
-    if(k>.3){ctx.save();ctx.globalCompositeOperation='lighter';const gl=ctx.createRadialGradient(0,-s*.03,0,0,-s*.03,s*w*.7);gl.addColorStop(0,`rgba(255,235,200,${(.35*k).toFixed(3)})`);gl.addColorStop(1,'rgba(255,235,200,0)');ctx.fillStyle=gl;ctx.beginPath();ctx.arc(0,-s*.03,s*w*.7,0,7);ctx.fill();ctx.restore();}
-    ctx.fillStyle=ACCENT;ctx.fillRect(-s*.012,s*.035,s*.024,s*.01);ctx.restore();
-    // its cable across the floor to the edge
-    ctx.save();ctx.globalAlpha=alpha*k*.8;ctx.strokeStyle='#121212';ctx.lineWidth=Math.max(1,s*.006);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.quadraticCurveTo(q[0]+(q[0]>sb[0]?s*.15:-s*.15),q[1]+s*.1,q[0]>sb[0]?x+s:x,q[1]+s*.18);ctx.stroke();ctx.restore();
-    if(!inset){const ox=below?0:-Math.cos(a)*s*.11, oy=below?s*.08:-Math.sin(a)*s*.11;ctx.save();ctx.globalAlpha=alpha*k;tape(q[0]+ox,q[1]+oy,label,s,(u*7%1-.5)*.1);ctx.restore();}};
-  light(kp[0],kp[1],L.key>0?1:0,'KEY',.17);light(.66,.18,L.fill,'FILL',.13);light(.6,-.62,L.rim,'RIM',.09);light(-.1,-.62,L.bg,'BG',.07,true);
-  // the gantry's view: a soft vignette
-  const vg=ctx.createRadialGradient(x+s/2,y+s/2,s*.3,x+s/2,y+s/2,s*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.28)');ctx.fillStyle=vg;ctx.fillRect(x,y,s,s);
-  ctx.restore();
-  ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.restore();}
-
-/* ============ HUD ============ */
-let shown=-1;
-function hud(p,L,shot,keep){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#nNum').textContent=idx+1;$('#nTitle').textContent=STAGES[idx].n;$('#nText').textContent=STAGES[idx].c;}
-  const n=[L.key,L.fill,L.rim,L.bg].filter(v=>v>=.5).length;$('#mLights').textContent=n;$('#mRatio').textContent=L.fill>=.5?SHOT.ratio:'—';
-  $('#mFrames').textContent=Math.round(SHOT.frames*shot);$('#mKeep').textContent=Math.round(SHOT.keep*keep);}
+/* ============ THE HISTOGRAM ============ */
+// the brightness of what's actually on screen, read from the film a few times a second (a picture from another site
+// can't be read; then the histogram just stays empty)
+const hc=$('#histo'), hx=hc.getContext('2d'), probe=document.createElement('canvas');probe.width=64;probe.height=36;
+const px=probe.getContext('2d',{willReadFrequently:true});let hLast=0, hOk=true;
+function histo(now){if(!hOk||now-hLast<180)return;hLast=now;const bins=new Array(30).fill(0);
+  try{px.drawImage(cv,0,0,64,36);const d=px.getImageData(0,0,64,36).data;for(let i=0;i<d.length;i+=4){const l=(d[i]*.2126+d[i+1]*.7152+d[i+2]*.0722)/256;bins[Math.min(29,Math.floor(l*30))]++;}}catch(e){hOk=false;return;}
+  const mx=Math.max(...bins)||1;hx.clearRect(0,0,120,30);hx.fillStyle='rgba(255,255,255,.8)';bins.forEach((v,i)=>{const h=Math.max(1,v/mx*28);hx.fillRect(i*4,30-h,3,h);});}
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
-let cur=0,lastKey='';const t0=performance.now();
-function frame(p,time){
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  const L={key:sm(seg(f[1],0,.5)),keyTurn:sm(seg(f[1],.2,1)),fill:sm(seg(f[2],.1,.8)),rim:sm(seg(f[3],.1,.8)),bg:sm(seg(f[4],.1,.8)),grade:sm(seg(f[5],.25,.7))};
-  const shot=seg(f[5],.05,.5), keep=sm(seg(f[5],.5,.9)), print=sm(seg(f[5],.35,.85)), flash=Math.max(0,1-Math.abs(seg(f[5],.04,.2)*2-1));
-  const key=[L.key,L.keyTurn,L.fill,L.rim,L.bg,L.grade].map(v=>v.toFixed(3)).join();
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F4F2EE';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);const wl=ctx.createLinearGradient(0,0,W,H);wl.addColorStop(0,'rgba(255,250,240,.6)');wl.addColorStop(1,'rgba(220,214,204,.35)');ctx.fillStyle=wl;ctx.fillRect(0,0,W,H);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const R={s:lerp(LA.s,LB.s,m),x:lerp(LA.x,LB.x,m),y:lerp(LA.y,LB.y,m)};
-  const vw=R.s*4, vh=R.s*5;let vx=R.x, vy=R.y;
-  const pk=key+'|'+Math.round(vw*DPR);if(pk!==lastKey){lastKey=pk;paint(vw*DPR,vh*DPR,L);}
-  // as it becomes a print it settles a little smaller, turned a touch
-  const ps=1-.13*print;ctx.save();ctx.translate(vx+vw/2,vy+vh/2-vh*.04*print);ctx.rotate(-.025*print);ctx.scale(ps,ps);ctx.translate(-(vx+vw/2),-(vy+vh/2));
-  ctx.globalAlpha=mobile?.25+.75*k:1;viewfinder(vx,vy,vw,vh,1-print,shot,L.grade,print);ctx.restore();ctx.globalAlpha=1;
-  if(flash>0&&!RM){ctx.fillStyle=`rgba(255,255,255,${(.85*flash).toFixed(3)})`;ctx.fillRect(vx,vy,vw,vh);}
-  if(mobile){const ds=vw*.4;diagram(vx+vw-ds-8,vy+8,ds,L,(.25+.75*k)*(1-print),true);}
-  else diagram(vx+vw+R.s*.6,vy+R.s*.5,R.s*4,L,1,false);
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,L,shot,keep);}
+let cur=0,shown=-1,fired=false;const t0=performance.now();
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+// where the focus box sits for each setup: the stool, then the face
+const AF=[[56,58],[62,34],[62,34],[60,32],[62,34],[62,34]];
+function frame(p,time,now){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.84)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);veil.style.opacity=(1-k).toFixed(3);
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#nNum').textContent=idx+1;$('#nTitle').textContent=STAGES[idx].n;$('#nText').textContent=STAGES[idx].c;
+    const a=AF[Math.min(idx,AF.length-1)];af.style.setProperty('--afx',a[0]+'%');af.style.setProperty('--afy',a[1]+'%');
+    if(!FLAT){af.classList.remove('lock');void af.offsetWidth;af.classList.add('lock');}}
+  // the lights come on one a setup: key, fill, rim, background
+  const lights=[f[1],f[2],f[3],f[4]].filter(v=>v>=.5).length;$('#nLights').textContent=`${lights} light${lights===1?'':'s'}`;
+  $('#mRatio').textContent=f[2]>=.5?SHOT.ratio:'—';
+  $('#mFrames').textContent=Math.round(SHOT.frames*sm(seg(P,.2,.9)));$('#mKeep').textContent=Math.round(SHOT.keep*sm(seg(f[5],.4,.9)));
+  // the last setup: the shutter fires, the viewfinder goes, the frame is matted and graded as the print
+  const shot=f[5]>=.35;
+  if(shot&&!fired&&!FLAT){flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');}fired=shot;
+  vf.classList.toggle('on',!shot&&k>=1);mat.classList.toggle('on',shot);cap.classList.toggle('on',shot);hero.classList.toggle('graded',shot);
+  if(!shot&&k>=1)histo(now||0);
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
-function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-$('#nSet').textContent=`${SHOT.aperture} · ${SHOT.shutter}`;
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time,now);requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
 })();
 </script>
@@ -585,4 +474,14 @@ tiers();cal();
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

@@ -154,6 +154,7 @@ h2 { font-size: clamp(40px, 6.2vw, 96px); }
 .chipcard div { background: var(--c); display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; padding: 12px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--t); transition: background-color .6s var(--out); }
 .chipcard div b { font-family: var(--display); font-size: 17px; letter-spacing: 0; text-transform: none; }
 .split .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom:.22em;margin-bottom:-.14em }
+.split .w{padding-right:.1em;margin-right:-.1em}
 .split .w > i { display: inline-block; font-style: normal; animation: rise .9s var(--out) both; }
 @keyframes rise { from { transform: translateY(108%); } }
 .js:not(.flat) [data-rv]:not(.in) { opacity: 0; transform: translateY(26px); }
@@ -1195,9 +1196,12 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
 
 <script>
 /* the title arrives word by word */
-(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;const parts=[...h.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');h.textContent='';let k=0;
- const unit=el=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);h.appendChild(w)};
- parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){h.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(i)});else if(n.nodeType===1){if(blk[j]){h.appendChild(n);return}const i=document.createElement('i');i.appendChild(n);unit(i)}});
- h.classList.add('split')})();
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
 </script>
 </body></html>

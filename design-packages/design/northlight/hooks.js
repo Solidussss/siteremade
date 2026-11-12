@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.12]', '[.12,.3]', '[.3,.45]', '[.45,.6]', '[.6,.74]', '[.74,1]'];
 const num = (n) => String(+(+n).toFixed(2)).replace(/^0\./, '.');
@@ -16,6 +17,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [179, 38, 30]),
     stagesJs: c.stages.map((x, i) => ` {n:${js(x.n)},c:${js(x.c)},w:${WINDOWS[i]}}`).join(',\n'),
     shotJs: `{aperture:${js(s.aperture)},shutter:${js(s.shutter)},iso:${js(s.iso)},ratio:${js(s.ratio)},frames:${s.frames},keep:${s.keep}}`,
     kindsJs: c.sessions.kinds.map((k) => ` {n:${js(k.n)},line:${js(k.line)},tiers:[\n${k.tiers.map((t) => `  {n:${js(t.n)},p:${num(t.p)},from:${t.from},time:${js(t.time)},photos:${js(t.photos)},items:[${t.items.map(js).join(',')}],tag:${js(t.tag || '')}}`).join(',\n')}]}`).join(',\n'),
