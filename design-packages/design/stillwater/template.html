@@ -116,6 +116,11 @@ p{margin:0}
   .orb span{font-size:9px}
 }
 
+@media (max-width:820px){
+  /* the band at the top that keeps the step's words readable once the wash behind the title has gone */
+  .stage::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(245,240,234,.92),rgba(245,240,234,.6) 55%,rgba(245,240,234,0))}
+}
+
 /* sections */
 section.block{padding-block:clamp(84px,11vw,150px)}
 .head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
@@ -432,6 +437,11 @@ week();calc();
 })();
 </script>
 
+<script>
+/* on a phone the pale wash behind the title goes with the title, so the film shows; a short band stays at the top */
+(function(){const c=document.getElementById('heroCopy'),v=document.querySelector('.stage .veil');if(!c||!v)return;const mq=matchMedia('(max-width:820px)');let last='';
+ (function tick(){const o=mq.matches?String(Math.max(0,Math.min(1,parseFloat(c.style.opacity===''?'1':c.style.opacity)))):'';if(o!==last){v.style.opacity=o;last=o;}requestAnimationFrame(tick);})();})();
+</script>
 <script>
 /* the title arrives word by word */
 (function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;

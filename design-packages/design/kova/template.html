@@ -95,6 +95,9 @@ p { margin: 0; }
   .parts li::before { display: none; }
   .hero-meta .left span { display: none; }
   .bigword { top: 30%; }
+  /* on a phone the plate stands taller so the shoe fills the screen instead of a strip of it */
+  .plate .frame { aspect-ratio: auto; height: min(50svh, 440px); }
+  .plate figcaption { margin-top: 8px; }
 }
 
 /* ---------- band ---------- */
